@@ -77,7 +77,7 @@ export default function Page() {
               <div className="ml-auto flex items-center gap-2">
                 <button aria-label="Přepnout motiv" onClick={() => setDark(!dark)} className="icon-button">{dark ? <Sun /> : <Moon />}</button>
                 <button aria-label="Oznámení" onClick={() => setNotificationsOpen((open) => !open)} className="icon-button relative"><Bell />{notifications.some((notification) => notification.unread) && <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-primary" />}</button>
-                <button className="ml-1 flex h-9 w-9 items-center justify-center rounded-full bg-[#f4b183] text-sm font-semibold text-[#5b321f]">LK</button>
+                <button onClick={() => setTab('Profil')} aria-label="Otevřít profil domácnosti" className="ml-1 flex h-9 w-9 items-center justify-center rounded-full bg-[#f4b183] text-sm font-semibold text-[#5b321f] transition hover:ring-2 hover:ring-primary/40">LK</button>
               </div>
             </header>
             {notificationsOpen && <NotificationPanel notifications={notifications} onRead={(id) => setNotifications((current) => current.map((notification) => notification.id === id ? { ...notification, unread: false } : notification))} onReadAll={() => setNotifications((current) => current.map((notification) => ({ ...notification, unread: false })))} onClose={() => setNotificationsOpen(false)} />}

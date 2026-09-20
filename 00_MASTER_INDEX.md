@@ -9,7 +9,7 @@ Pořadí:
 03 Chytrý nákupní seznam — HOTOVO
 04 Týdenní nákup a jídelníček — HOTOVO
 05 Obchody a lokalita — HOTOVO
-06 Ceny a akce
+06 Ceny a akce — HOTOVO
 07 Rozpočet a výdaje
 08 Historie nákupů
 09 Backend a databáze

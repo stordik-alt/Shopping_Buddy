@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Check, ChevronDown, ListChecks, Plus, Search, Tag, X } from 'lucide-react'
 import type { Item, ItemCategory, ItemPriority, ItemUnit } from '@/lib/types'
 import { money } from '@/lib/format'
+import { comparePrices } from '@/lib/prices'
+import { PriceComparison } from '@/components/shopping/price-comparison'
 
 const CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
 const UNITS: ItemUnit[] = ['ks', 'kg', 'g', 'l', 'ml']
@@ -372,6 +374,11 @@ export function ShoppingList({
                         />
                         Aktuálně v akci
                       </label>
+                      {comparePrices(item.name) && (
+                        <div className="sm:col-span-2">
+                          <PriceComparison productName={item.name} />
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

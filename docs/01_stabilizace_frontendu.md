@@ -1,6 +1,8 @@
 # FAMILY SHOPPING ASSISTANT — ČÁST 1
 ## Stabilizace a reorganizace frontendu
 
+> **Stav: HOTOVO.** `app/page.tsx` byl rozdělen do modulárních komponent podle navržené struktury (`components/dashboard`, `shopping`, `stores`, `budget`, `ai`, `household`, `notifications`, `shared`), sdílené typy jsou v `lib/types.ts`, mock data v `lib/mock-data.ts` a formátování v `lib/format.ts`. Odstraněn nepoužívaný duplicitní kód (staré varianty `Shopping`, `ShoppingV3`, `Stores`, `Profile`). Navigace, light/dark režim, responzivita i veškerá stávající funkcionalita zůstaly zachovány (ověřeno buildem, typovou kontrolou a vizuální kontrolou v prohlížeči).
+
 ### Kontext
 Aktivní vývojová větev: V0/continue frontend. `main` je stabilní základ.
 Současná aplikace je Next.js frontendový prototyp. Velká část UI a stavů je nyní soustředěna v `app/page.tsx`.

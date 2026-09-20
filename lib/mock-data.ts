@@ -1,4 +1,4 @@
-import type { Expense, Item, Notification } from '@/lib/types'
+import type { Expense, Household, Item, Notification } from '@/lib/types'
 
 export const initialItems: Item[] = [
   { id: 1, name: 'Mléko polotučné', detail: '2 l · Mlékárna Kunín', price: 44.9, quantity: 2, done: false, color: 'bg-sky-100 text-sky-700' },
@@ -16,3 +16,44 @@ export const initialNotifications: Notification[] = [
 export const initialExpenses: Expense[] = [{ id: 1, amount: 7350, note: 'Výdaje domácnosti' }]
 
 export const initialShoppingLists = ['Týdenní nákup', 'Lidl', 'Drogerie', 'Děti']
+
+export const initialHousehold: Household = {
+  name: 'Rodina Králových',
+  monthlyBudget: 12000,
+  members: [
+    {
+      id: 1,
+      name: 'Lucie Králová',
+      role: 'Správce domácnosti',
+      age: 34,
+      preferences: 'Bez omezení',
+      favoriteFoods: ['Kuřecí maso', 'Zelenina'],
+      dislikedFoods: ['Ryby'],
+      allergies: [],
+    },
+    {
+      id: 2,
+      name: 'Petr Král',
+      role: 'Člen domácnosti',
+      age: 36,
+      preferences: 'Bez omezení',
+      favoriteFoods: ['Těstoviny'],
+      dislikedFoods: [],
+      allergies: ['Ořechy'],
+    },
+  ],
+  children: [
+    { id: 1, name: 'Anna', age: 7, preferences: 'Sladké snídaně', specialNeeds: '' },
+    { id: 2, name: 'Tomáš', age: 4, preferences: 'Bez kousků zeleniny', specialNeeds: 'Alergie na lepek' },
+  ],
+  preferences: {
+    preferredBrands: ['Milka', 'Kunín'],
+    preferredStores: ['Lidl', 'Albert'],
+    preferredProducts: ['Ovesné vločky', 'Řecký jogurt'],
+    excludedProducts: ['Energetické nápoje'],
+    priceSensitivity: 'Vyvážené',
+    qualityPreference: 'Standardní',
+    preferCzechProducts: true,
+  },
+  restrictions: ['Bez laktózy pro Tomáše'],
+}

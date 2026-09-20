@@ -1,15 +1,20 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
+import { TODAY } from '@/lib/budget'
+import type { ItemCategory } from '@/lib/types'
+
+const CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
 
 export function ExpenseModal({
   onClose,
   onSave,
 }: {
   onClose: () => void
-  onSave: (amount: number, note: string) => void
+  onSave: (amount: number, note: string, category: ItemCategory) => void
 }) {
   const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
+  const [category, setCategory] = useState<ItemCategory>('Potraviny')
   const [error, setError] = useState('')
 
   function save() {
@@ -19,7 +24,7 @@ export function ExpenseModal({
       return
     }
     setError('')
-    onSave(value, note.trim() || 'Nový výdaj')
+    onSave(value, note.trim() || 'Nový výdaj', category)
   }
 
   return (
@@ -45,6 +50,18 @@ export function ExpenseModal({
             />
           </label>
           <label className="block text-sm">
+            Kategorie
+            <select
+              value={category}
+              onChange={(event) => setCategory(event.target.value as ItemCategory)}
+              className="mt-2 w-full rounded-xl border border-input bg-background px-4 py-3 outline-none focus:ring-2 focus:ring-ring"
+            >
+              {CATEGORIES.map((option) => (
+                <option key={option}>{option}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-sm">
             Poznámka
             <input
               value={note}
@@ -53,6 +70,7 @@ export function ExpenseModal({
               className="mt-2 w-full rounded-xl border border-input bg-background px-4 py-3 outline-none focus:ring-2 focus:ring-ring"
             />
           </label>
+          <p className="text-xs text-muted-foreground">Datum výdaje: {TODAY}</p>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <button onClick={save} className="w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground">
             Uložit výdaj

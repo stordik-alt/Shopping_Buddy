@@ -31,6 +31,8 @@ export type Expense = {
   id: number
   amount: number
   note: string
+  category: ItemCategory
+  date: string
 }
 
 export type HouseholdMember = {

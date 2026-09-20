@@ -21,7 +21,13 @@ export function ExpenseHistory({ expenses }: { expenses: Expense[] }) {
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-background text-primary">
                   <Wallet />
                 </span>
-                <span className="truncate text-sm font-medium">{expense.note || 'Výdaj domácnosti'}</span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium">{expense.note || 'Výdaj domácnosti'}</span>
+                  <span className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>{expense.date}</span>
+                    <span className="rounded-full bg-background px-2 py-0.5 font-medium">{expense.category}</span>
+                  </span>
+                </span>
               </div>
               <span className="shrink-0 text-sm font-semibold">{expense.amount.toLocaleString('cs-CZ')} Kč</span>
             </div>

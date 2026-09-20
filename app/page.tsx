@@ -17,6 +17,7 @@ import { AppSidebar } from '@/components/shared/app-sidebar'
 import { MobileNav } from '@/components/shared/mobile-nav'
 import { ShoppingList } from '@/components/shopping/shopping-list'
 import { StoreDirectory } from '@/components/stores/store-directory'
+import { TODAY } from '@/lib/budget'
 import { createItem } from '@/lib/items'
 import { initialExpenses, initialItems, initialNotifications, initialShoppingLists } from '@/lib/mock-data'
 import type { Tab } from '@/lib/types'
@@ -125,7 +126,7 @@ export default function Page() {
               {tab === 'Obchody' && <StoreDirectory />}
               {tab === 'Rozpočet' && (
                 <div className="space-y-6">
-                  <BudgetOverview budget={budget} setBudget={setBudget} spent={spent} onExpense={() => setExpenseOpen(true)} />
+                  <BudgetOverview budget={budget} setBudget={setBudget} spent={spent} expenses={expenses} items={items} onExpense={() => setExpenseOpen(true)} />
                   <ExpenseHistory expenses={expenses} />
                 </div>
               )}
@@ -140,8 +141,8 @@ export default function Page() {
         {expenseOpen && (
           <ExpenseModal
             onClose={() => setExpenseOpen(false)}
-            onSave={(amount, note) => {
-              setExpenses((current) => [...current, { id: Date.now(), amount, note }])
+            onSave={(amount, note, category) => {
+              setExpenses((current) => [...current, { id: Date.now(), amount, note, category, date: TODAY }])
               setExpenseOpen(false)
             }}
           />

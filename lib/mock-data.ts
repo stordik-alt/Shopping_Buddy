@@ -13,7 +13,14 @@ export const initialNotifications: Notification[] = [
   { id: 3, title: 'Petr doplnil seznam', detail: 'Přidal položku „Ovesné vločky".', unread: false },
 ]
 
-export const initialExpenses: Expense[] = [{ id: 1, amount: 7350, note: 'Výdaje domácnosti' }]
+export const initialExpenses: Expense[] = [
+  { id: 1, amount: 2350, note: 'Týdenní nákup potravin', category: 'Potraviny', date: '2026-09-03' },
+  { id: 2, amount: 890, note: 'Drogerie a hygiena', category: 'Drogerie', date: '2026-09-06' },
+  { id: 3, amount: 1200, note: 'Oblečení pro děti', category: 'Děti', date: '2026-09-09' },
+  { id: 4, amount: 1980, note: 'Nákup v Kauflandu', category: 'Potraviny', date: '2026-09-13' },
+  { id: 5, amount: 430, note: 'Čisticí prostředky', category: 'Domácnost', date: '2026-09-16' },
+  { id: 6, amount: 500, note: 'Různé drobnosti', category: 'Ostatní', date: '2026-09-18' },
+]
 
 export const initialShoppingLists = ['Týdenní nákup', 'Lidl', 'Drogerie', 'Děti']
 

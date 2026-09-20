@@ -1,0 +1,44 @@
+import type { Expense, Item, ItemCategory } from '@/lib/types'
+
+export const TODAY = '2026-09-19'
+export const MONTH_START = '2026-09-01'
+export const DAYS_IN_MONTH = 30
+export const PREVIOUS_MONTH_TOTAL = 8120
+
+function daysElapsed(from: string, to: string) {
+  const diff = (new Date(to).getTime() - new Date(from).getTime()) / 86_400_000
+  return Math.max(1, Math.round(diff) + 1)
+}
+
+export function totalSpent(expenses: Expense[]) {
+  return expenses.reduce((sum, expense) => sum + expense.amount, 0)
+}
+
+export function dailyAverage(expenses: Expense[], today = TODAY) {
+  return totalSpent(expenses) / daysElapsed(MONTH_START, today)
+}
+
+export function weeklyAverage(expenses: Expense[], today = TODAY) {
+  return dailyAverage(expenses, today) * 7
+}
+
+export function projectedMonthEnd(expenses: Expense[], today = TODAY) {
+  return dailyAverage(expenses, today) * DAYS_IN_MONTH
+}
+
+export function categoryBreakdown(expenses: Expense[]): { category: ItemCategory; total: number }[] {
+  const totals = new Map<ItemCategory, number>()
+  for (const expense of expenses) totals.set(expense.category, (totals.get(expense.category) ?? 0) + expense.amount)
+  return Array.from(totals.entries())
+    .map(([category, total]) => ({ category, total }))
+    .sort((a, b) => b.total - a.total)
+}
+
+export function plannedSpend(items: Item[]) {
+  return items.filter((item) => !item.done).reduce((sum, item) => sum + item.price * item.quantity, 0)
+}
+
+export function monthOverMonthChange(expenses: Expense[]) {
+  const current = totalSpent(expenses)
+  return { current, previous: PREVIOUS_MONTH_TOTAL, changePercent: ((current - PREVIOUS_MONTH_TOTAL) / PREVIOUS_MONTH_TOTAL) * 100 }
+}

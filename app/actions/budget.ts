@@ -1,11 +1,13 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { requireHouseholdId } from '@/lib/auth/authorize'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import type { Expense, ItemCategory } from '@/lib/types'
 
-export async function addExpenseAction(householdId: string, expense: { amount: number; note: string; category: ItemCategory; date: string }): Promise<Expense> {
+export async function addExpenseAction(expense: { amount: number; note: string; category: ItemCategory; date: string }): Promise<Expense> {
+  const householdId = await requireHouseholdId()
   const db = getDb()
   const [row] = await db
     .insert(schema.expenses)

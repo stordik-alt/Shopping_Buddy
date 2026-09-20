@@ -1,4 +1,7 @@
+import type { ProductPrice } from '@/lib/prices'
 import type { Expense, Household, Item, Notification, PurchaseRecord, Store } from '@/lib/types'
+
+const PRICE_DATE = '2026-09-19'
 
 export const initialItems: Item[] = [
   { id: '1', name: 'Mléko polotučné', detail: '2 l · Mlékárna Kunín', price: 44.9, quantity: 2, unit: 'l', category: 'Potraviny', done: false, color: 'bg-sky-100 text-sky-700', priority: 'Normální', store: 'Lidl', onSale: true },
@@ -214,5 +217,49 @@ export const initialPurchaseHistory: PurchaseRecord[] = [
     ],
     total: 277.7,
     discount: 15,
+  },
+]
+
+export const PRODUCT_PRICES: ProductPrice[] = [
+  {
+    productName: 'Mléko polotučné',
+    category: 'Potraviny',
+    prices: [
+      { store: 'Lidl', regularPrice: 39.9, dealPrice: 29.9, dealValidUntil: '2026-09-26', unit: 'l', unitPrice: 29.9, recordedAt: PRICE_DATE },
+      { store: 'Albert', regularPrice: 42.9, unit: 'l', unitPrice: 42.9, recordedAt: PRICE_DATE },
+      { store: 'Kaufland', regularPrice: 37.9, unit: 'l', unitPrice: 37.9, recordedAt: PRICE_DATE },
+      { store: 'Billa', regularPrice: 44.9, unit: 'l', unitPrice: 44.9, recordedAt: PRICE_DATE },
+      { store: 'Penny', regularPrice: 38.9, unit: 'l', unitPrice: 38.9, recordedAt: PRICE_DATE },
+    ],
+  },
+  {
+    productName: 'Kuřecí prsa',
+    category: 'Potraviny',
+    prices: [
+      { store: 'Lidl', regularPrice: 149.9, unit: 'kg', unitPrice: 149.9, recordedAt: PRICE_DATE },
+      { store: 'Albert', regularPrice: 199.9, dealPrice: 159.9, dealValidUntil: '2026-09-24', unit: 'kg', unitPrice: 159.9, recordedAt: PRICE_DATE },
+      { store: 'Kaufland', regularPrice: 169.9, unit: 'kg', unitPrice: 169.9, recordedAt: PRICE_DATE },
+      { store: 'Billa', regularPrice: 189.9, unit: 'kg', unitPrice: 189.9, recordedAt: PRICE_DATE },
+    ],
+  },
+  {
+    productName: 'Banány',
+    category: 'Potraviny',
+    prices: [
+      { store: 'Lidl', regularPrice: 32.9, unit: 'kg', unitPrice: 32.9, recordedAt: PRICE_DATE },
+      { store: 'Albert', regularPrice: 34.9, unit: 'kg', unitPrice: 34.9, recordedAt: PRICE_DATE },
+      { store: 'Kaufland', regularPrice: 29.9, unit: 'kg', unitPrice: 29.9, recordedAt: PRICE_DATE },
+      { store: 'Penny', regularPrice: 33.9, unit: 'kg', unitPrice: 33.9, recordedAt: PRICE_DATE },
+    ],
+  },
+  {
+    productName: 'Toaletní papír',
+    category: 'Drogerie',
+    prices: [
+      { store: 'Kaufland', regularPrice: 79.9, dealPrice: 64.9, dealValidUntil: '2026-09-30', unit: 'ks', unitPrice: 8.1, recordedAt: PRICE_DATE },
+      { store: 'Lidl', regularPrice: 74.9, unit: 'ks', unitPrice: 9.4, recordedAt: PRICE_DATE },
+      { store: 'Billa', regularPrice: 84.9, unit: 'ks', unitPrice: 10.6, recordedAt: PRICE_DATE },
+      { store: 'Penny', regularPrice: 76.9, unit: 'ks', unitPrice: 9.6, recordedAt: PRICE_DATE },
+    ],
   },
 ]

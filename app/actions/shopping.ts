@@ -2,15 +2,30 @@
 
 import { eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
+import { requireHouseholdId } from '@/lib/auth/authorize'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import type { Item } from '@/lib/types'
+
+async function assertOwnsList(householdId: string, listId: string) {
+  const db = getDb()
+  const list = await db.query.shoppingLists.findFirst({ where: eq(schema.shoppingLists.id, listId) })
+  if (!list || list.householdId !== householdId) throw new Error('Shopping list not found')
+}
+
+async function assertOwnsItem(householdId: string, itemId: string) {
+  const db = getDb()
+  const item = await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, itemId), with: { list: true } })
+  if (!item || item.list.householdId !== householdId) throw new Error('Shopping list item not found')
+}
 
 export async function addShoppingItemAction(
   listId: string,
   name: string,
   overrides: Partial<Pick<Item, 'detail' | 'category'>> = {},
 ): Promise<Item> {
+  const householdId = await requireHouseholdId()
+  await assertOwnsList(householdId, listId)
   const db = getDb()
   const [row] = await db
     .insert(schema.shoppingListItems)
@@ -37,6 +52,8 @@ export async function updateShoppingItemAction(
   itemId: string,
   changes: Partial<Pick<Item, 'quantity' | 'price' | 'unit' | 'category' | 'priority' | 'note' | 'onSale' | 'store'>>,
 ) {
+  const householdId = await requireHouseholdId()
+  await assertOwnsItem(householdId, itemId)
   const db = getDb()
   let preferredStoreLocationId: string | null | undefined
   if (changes.store !== undefined) {
@@ -65,18 +82,23 @@ export async function updateShoppingItemAction(
 }
 
 export async function toggleShoppingItemAction(itemId: string, done: boolean) {
+  const householdId = await requireHouseholdId()
+  await assertOwnsItem(householdId, itemId)
   const db = getDb()
   await db.update(schema.shoppingListItems).set({ done }).where(eq(schema.shoppingListItems.id, itemId))
   revalidatePath('/')
 }
 
 export async function removeShoppingItemAction(itemId: string) {
+  const householdId = await requireHouseholdId()
+  await assertOwnsItem(householdId, itemId)
   const db = getDb()
   await db.delete(schema.shoppingListItems).where(eq(schema.shoppingListItems.id, itemId))
   revalidatePath('/')
 }
 
-export async function addShoppingListAction(householdId: string, name: string) {
+export async function addShoppingListAction(name: string) {
+  const householdId = await requireHouseholdId()
   const db = getDb()
   await db.insert(schema.shoppingLists).values({ householdId, name })
   revalidatePath('/')

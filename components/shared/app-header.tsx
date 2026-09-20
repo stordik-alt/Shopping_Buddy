@@ -1,5 +1,13 @@
-import { Bell, Moon, Sun } from 'lucide-react'
+import { Bell, LogOut, Moon, Sun } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { Brand } from '@/components/shared/brand'
+import { authClient } from '@/lib/auth/client'
+
+function initialsFor(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  const letters = parts.length > 1 ? [parts[0][0], parts[parts.length - 1][0]] : [parts[0]?.[0] ?? '?']
+  return letters.join('').toUpperCase()
+}
 
 export function AppHeader({
   title,
@@ -10,6 +18,7 @@ export function AppHeader({
   onToggleNotifications,
   hasUnread,
   onProfileClick,
+  userName,
 }: {
   title: string
   date: string
@@ -19,7 +28,16 @@ export function AppHeader({
   onToggleNotifications: () => void
   hasUnread: boolean
   onProfileClick: () => void
+  userName: string
 }) {
+  const router = useRouter()
+
+  async function signOut() {
+    await authClient.signOut()
+    router.push('/auth/sign-in')
+    router.refresh()
+  }
+
   return (
     <header className="flex items-center justify-between px-5 py-5 sm:px-8 lg:px-12 lg:py-8">
       <div className="flex items-center gap-3 lg:hidden">
@@ -53,7 +71,10 @@ export function AppHeader({
           aria-label="Otevřít profil domácnosti"
           className="ml-1 flex h-9 w-9 items-center justify-center rounded-full bg-[#f4b183] text-sm font-semibold text-[#5b321f] transition hover:ring-2 hover:ring-primary/40"
         >
-          LK
+          {initialsFor(userName)}
+        </button>
+        <button aria-label="Odhlásit se" onClick={signOut} className="icon-button">
+          <LogOut />
         </button>
       </div>
     </header>

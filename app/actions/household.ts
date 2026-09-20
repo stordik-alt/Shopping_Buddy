@@ -2,11 +2,13 @@
 
 import { eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
+import { requireHouseholdId } from '@/lib/auth/authorize'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import type { Child, HouseholdMember, HouseholdPreferences, PriceSensitivity, QualityPreference } from '@/lib/types'
 
-export async function updateHouseholdAction(householdId: string, changes: { name?: string; monthlyBudget?: number }) {
+export async function updateHouseholdAction(changes: { name?: string; monthlyBudget?: number }) {
+  const householdId = await requireHouseholdId()
   const db = getDb()
   await db
     .update(schema.households)
@@ -18,10 +20,14 @@ export async function updateHouseholdAction(householdId: string, changes: { name
   revalidatePath('/')
 }
 
-export async function addHouseholdMemberAction(
-  householdId: string,
-  member: { name: string; age: number; favoriteFoods: string[]; dislikedFoods: string[]; allergies: string[] },
-): Promise<HouseholdMember> {
+export async function addHouseholdMemberAction(member: {
+  name: string
+  age: number
+  favoriteFoods: string[]
+  dislikedFoods: string[]
+  allergies: string[]
+}): Promise<HouseholdMember> {
+  const householdId = await requireHouseholdId()
   const db = getDb()
   const [memberRow] = await db.insert(schema.householdMembers).values({ householdId, name: member.name, role: 'member' }).returning()
   await db.insert(schema.profiles).values({
@@ -45,15 +51,16 @@ export async function addHouseholdMemberAction(
 }
 
 export async function removeHouseholdMemberAction(memberId: string) {
+  const householdId = await requireHouseholdId()
   const db = getDb()
+  const member = await db.query.householdMembers.findFirst({ where: eq(schema.householdMembers.id, memberId) })
+  if (!member || member.householdId !== householdId) throw new Error('Household member not found')
   await db.delete(schema.householdMembers).where(eq(schema.householdMembers.id, memberId))
   revalidatePath('/')
 }
 
-export async function addChildAction(
-  householdId: string,
-  child: { name: string; age: number; preferences: string; specialNeeds?: string },
-): Promise<Child> {
+export async function addChildAction(child: { name: string; age: number; preferences: string; specialNeeds?: string }): Promise<Child> {
+  const householdId = await requireHouseholdId()
   const db = getDb()
   const [row] = await db
     .insert(schema.children)
@@ -64,7 +71,10 @@ export async function addChildAction(
 }
 
 export async function removeChildAction(childId: string) {
+  const householdId = await requireHouseholdId()
   const db = getDb()
+  const child = await db.query.children.findFirst({ where: eq(schema.children.id, childId) })
+  if (!child || child.householdId !== householdId) throw new Error('Child not found')
   await db.delete(schema.children).where(eq(schema.children.id, childId))
   revalidatePath('/')
 }
@@ -80,7 +90,8 @@ const QUALITY_PREFERENCE_VALUE: Record<QualityPreference, 'standard' | 'premium'
   Prémiová: 'premium',
 }
 
-export async function updateHouseholdPreferencesAction(householdId: string, changes: Partial<HouseholdPreferences>) {
+export async function updateHouseholdPreferencesAction(changes: Partial<HouseholdPreferences>) {
+  const householdId = await requireHouseholdId()
   const db = getDb()
   await db
     .update(schema.preferences)

@@ -10,15 +10,13 @@ export const itemCategoryEnum = pgEnum('item_category', ['Potraviny', 'Drogerie'
 export const itemUnitEnum = pgEnum('item_unit', ['ks', 'kg', 'g', 'l', 'ml'])
 export const itemPriorityEnum = pgEnum('item_priority', ['Nízká', 'Normální', 'Vysoká'])
 export const storeChainEnum = pgEnum('store_chain', ['Lidl', 'Albert', 'Kaufland', 'Billa', 'Penny', 'JIP'])
+export const invitationStatusEnum = pgEnum('invitation_status', ['pending', 'accepted', 'revoked'])
 
 // --- Accounts & households --------------------------------------------------
-
-export const users = pgTable('users', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  email: text('email').notNull().unique(),
-  name: text('name').notNull(),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-})
+// Identity/login lives in the `neon_auth` schema (Neon Auth / Managed Better Auth),
+// not here — there is no local `users` table. `household_members.userId` references
+// `neon_auth.user(id)` via a hand-written migration (see lib/db/migrations), because
+// Neon manages that schema directly and it isn't declared in this Drizzle schema.
 
 export const households = pgTable('households', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -31,10 +29,24 @@ export const households = pgTable('households', {
 export const householdMembers = pgTable('household_members', {
   id: uuid('id').primaryKey().defaultRandom(),
   householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
-  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  // References neon_auth.user(id); no Drizzle-level FK because that schema is managed by Neon Auth.
+  userId: uuid('user_id'),
   name: text('name').notNull(),
   role: memberRoleEnum('role').notNull().default('member'),
   joinedAt: timestamp('joined_at').notNull().defaultNow(),
+})
+
+// A pending (or resolved) invite for someone to join a household. Token-based join link
+// rather than emailed automatically — no email-sending integration is provisioned yet.
+export const invitations = pgTable('invitations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  email: text('email').notNull(),
+  token: text('token').notNull().unique(),
+  status: invitationStatusEnum('status').notNull().default('pending'),
+  invitedByMemberId: uuid('invited_by_member_id').references(() => householdMembers.id, { onDelete: 'set null' }),
+  expiresAt: timestamp('expires_at').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
 // Extended profile data for a household member (food preferences, allergies).
@@ -220,11 +232,16 @@ export const householdsRelations = relations(households, ({ many, one }) => ({
   expenses: many(expenses),
   mealPlans: many(mealPlans),
   notifications: many(notifications),
+  invitations: many(invitations),
+}))
+
+export const invitationsRelations = relations(invitations, ({ one }) => ({
+  household: one(households, { fields: [invitations.householdId], references: [households.id] }),
+  invitedByMember: one(householdMembers, { fields: [invitations.invitedByMemberId], references: [householdMembers.id] }),
 }))
 
 export const householdMembersRelations = relations(householdMembers, ({ one }) => ({
   household: one(households, { fields: [householdMembers.householdId], references: [households.id] }),
-  user: one(users, { fields: [householdMembers.userId], references: [users.id] }),
   profile: one(profiles, { fields: [householdMembers.id], references: [profiles.memberId] }),
 }))
 
@@ -242,6 +259,16 @@ export const storeLocationsRelations = relations(storeLocations, ({ one, many })
   store: one(stores, { fields: [storeLocations.storeId], references: [stores.id] }),
   prices: many(prices),
   deals: many(deals),
+}))
+
+export const pricesRelations = relations(prices, ({ one }) => ({
+  product: one(products, { fields: [prices.productId], references: [products.id] }),
+  storeLocation: one(storeLocations, { fields: [prices.storeLocationId], references: [storeLocations.id] }),
+}))
+
+export const dealsRelations = relations(deals, ({ one }) => ({
+  product: one(products, { fields: [deals.productId], references: [products.id] }),
+  storeLocation: one(storeLocations, { fields: [deals.storeLocationId], references: [storeLocations.id] }),
 }))
 
 export const shoppingListsRelations = relations(shoppingLists, ({ one, many }) => ({

@@ -1,21 +1,33 @@
 import { useState } from 'react'
 import { ArrowUpRight, CalendarDays, ShoppingBasket, Sparkles } from 'lucide-react'
-import { generateWeeklyPlan, planIngredients, type Ingredient, type WeeklyMealPlan } from '@/lib/meal-plans'
-import { initialHousehold } from '@/lib/mock-data'
+import { saveMealPlanAction } from '@/app/actions/meal-plan'
 import { money } from '@/lib/format'
+import { generateWeeklyPlan, planIngredients, type Ingredient, type WeeklyMealPlan } from '@/lib/meal-plans'
+import type { SavedMealPlan } from '@/lib/db/queries'
+import type { Household } from '@/lib/types'
 
 const BUDGET_SUGGESTIONS = [2000, 2500, 3000]
 
-export function MealPlan({ onAddIngredients }: { onAddIngredients: (ingredients: Ingredient[]) => void }) {
-  const [budget, setBudget] = useState('2500')
-  const [plan, setPlan] = useState<WeeklyMealPlan | null>(null)
+export function MealPlan({
+  household,
+  initialPlan,
+  onAddIngredients,
+}: {
+  household: Household
+  initialPlan: SavedMealPlan | null
+  onAddIngredients: (ingredients: Ingredient[]) => void
+}) {
+  const [budget, setBudget] = useState(initialPlan ? String(initialPlan.budgetLimit) : '2500')
+  const [plan, setPlan] = useState<WeeklyMealPlan | null>(initialPlan?.plan ?? null)
   const [added, setAdded] = useState(false)
 
   function generate(limit = Number(budget)) {
     if (!Number.isFinite(limit) || limit <= 0) return
     setBudget(String(limit))
-    setPlan(generateWeeklyPlan(limit, initialHousehold))
+    const newPlan = generateWeeklyPlan(limit, household)
+    setPlan(newPlan)
     setAdded(false)
+    saveMealPlanAction(limit, newPlan)
   }
 
   function addAll() {

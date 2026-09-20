@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { ArrowUpRight, Tag } from 'lucide-react'
-import { activeDeals } from '@/lib/prices'
+import { TODAY } from '@/lib/budget'
 import { money } from '@/lib/format'
+import { activeDeals, type ProductPrice } from '@/lib/prices'
 
-export function PriceWatch({ onStores }: { onStores: () => void }) {
+export function PriceWatch({ onStores, productPrices }: { onStores: () => void; productPrices: ProductPrice[] }) {
   const [saved, setSaved] = useState<string[]>([])
-  const deals = activeDeals()
+  const deals = activeDeals(productPrices, TODAY)
   const toggleSaved = (name: string) =>
     setSaved((current) => (current.includes(name) ? current.filter((item) => item !== name) : [...current, name]))
 
@@ -18,6 +19,9 @@ export function PriceWatch({ onStores }: { onStores: () => void }) {
         </div>
         <Tag className="text-primary" />
       </div>
+      {deals.length === 0 ? (
+        <p className="mt-5 rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground">Momentálně nemáme žádné aktivní akce.</p>
+      ) : (
       <div className="mt-5 grid gap-3 md:grid-cols-3">
         {deals.map(({ product, price }) => {
           const discount = Math.round((1 - (price.dealPrice ?? price.regularPrice) / price.regularPrice) * 100)
@@ -47,6 +51,7 @@ export function PriceWatch({ onStores }: { onStores: () => void }) {
           )
         })}
       </div>
+      )}
       <button onClick={onStores} className="mt-4 text-sm font-medium text-primary">
         Porovnat všechny obchody <ArrowUpRight className="ml-1 inline h-4 w-4" />
       </button>

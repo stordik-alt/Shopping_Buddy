@@ -1,20 +1,15 @@
-import { Tag, TrendingDown } from 'lucide-react'
-import { comparePrices, effectivePrice, isDealActive, priceRangeLast3Months } from '@/lib/prices'
+import { Tag } from 'lucide-react'
+import { TODAY } from '@/lib/budget'
 import { money } from '@/lib/format'
+import { comparePrices, effectivePrice, isDealActive, type ProductPrice } from '@/lib/prices'
 
-export function PriceComparison({ productName }: { productName: string }) {
-  const product = comparePrices(productName)
+export function PriceComparison({ productName, productPrices }: { productName: string; productPrices: ProductPrice[] }) {
+  const product = comparePrices(productPrices, productName)
   if (!product) return null
-  const range = priceRangeLast3Months(product)
 
   return (
     <div className="rounded-xl border border-border bg-background p-3 text-xs">
-      <div className="flex items-center justify-between">
-        <p className="font-medium">Porovnání cen mezi obchody</p>
-        <span className="flex items-center gap-1 text-muted-foreground">
-          <TrendingDown className="h-3 w-3" /> {money(range.min)}–{money(range.max)} za 3 měsíce
-        </span>
-      </div>
+      <p className="font-medium">Porovnání cen mezi obchody</p>
       <div className="mt-2 flex flex-col gap-1.5">
         {product.prices.map((price, index) => (
           <div
@@ -23,7 +18,7 @@ export function PriceComparison({ productName }: { productName: string }) {
           >
             <span className="font-medium">{price.store}</span>
             <span className="flex items-center gap-2">
-              {isDealActive(price) && (
+              {isDealActive(price, TODAY) && (
                 <span className="flex items-center gap-1 text-[10px] font-semibold">
                   <Tag className="h-3 w-3" /> akce do {price.dealValidUntil}
                 </span>

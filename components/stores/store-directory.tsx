@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { ArrowUpRight, Loader2, LocateFixed, MapPin, Search, Tag, X } from 'lucide-react'
 import { distanceKm, type GpsCoords } from '@/lib/geo'
-import { stores } from '@/lib/mock-data'
+import type { Store } from '@/lib/types'
 
 type LocationState = 'idle' | 'loading' | 'granted' | 'denied'
 
-export function StoreDirectory() {
+export function StoreDirectory({ stores }: { stores: Store[] }) {
   const [location, setLocation] = useState('Praha 4')
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<string | null>(null)

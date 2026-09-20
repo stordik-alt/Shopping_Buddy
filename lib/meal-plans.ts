@@ -250,6 +250,18 @@ export function generateWeeklyPlan(budgetLimit: number, household: Household): W
   return { days, staples: STAPLES, estimatedTotal, recommendedStores }
 }
 
+/** Monday of the week containing `today` (YYYY-MM-DD), so repeated generation within one week overwrites the same saved plan.
+ *  Pure UTC calendar math (Date.UTC + getUTCDay/setUTCDate) — deliberately avoids local-timezone-dependent Date methods
+ *  mixed with the UTC-based toISOString(), which would otherwise shift the result by a day depending on server timezone. */
+export function currentWeekStart(today: string): string {
+  const [year, month, day] = today.split('-').map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day))
+  const weekday = date.getUTCDay()
+  const diffToMonday = weekday === 0 ? -6 : 1 - weekday
+  date.setUTCDate(date.getUTCDate() + diffToMonday)
+  return date.toISOString().slice(0, 10)
+}
+
 export function planIngredients(plan: WeeklyMealPlan): Ingredient[] {
   const unique = new Map<string, Ingredient>()
   for (const day of plan.days) {

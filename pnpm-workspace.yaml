@@ -5,4 +5,7 @@ minimumReleaseAgeExclude:
   - next
 
 allowBuilds:
+  # core-js is a transitive dependency (via @neondatabase/auth -> @triplit/db); its
+  # postinstall script only prints a sponsorship message, nothing functional is needed.
+  core-js: false
   esbuild: true

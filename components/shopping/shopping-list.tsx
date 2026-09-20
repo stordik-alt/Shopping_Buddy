@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { Check, ChevronDown, ListChecks, Plus, Search, Tag, X } from 'lucide-react'
-import type { Item, ItemCategory, ItemPriority, ItemUnit } from '@/lib/types'
+import type { Item, ItemCategory, ItemPriority, ItemUnit, StoreChain } from '@/lib/types'
 import { money } from '@/lib/format'
-import { comparePrices } from '@/lib/prices'
+import { comparePrices, type ProductPrice } from '@/lib/prices'
 import { PriceComparison } from '@/components/shopping/price-comparison'
 
 const CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
 const UNITS: ItemUnit[] = ['ks', 'kg', 'g', 'l', 'ml']
 const PRIORITIES: ItemPriority[] = ['Nízká', 'Normální', 'Vysoká']
-const STORES = ['Lidl', 'Albert', 'Kaufland', 'Billa']
+const STORES: StoreChain[] = ['Lidl', 'Albert', 'Kaufland', 'Billa', 'Penny', 'JIP']
 const PRIORITY_WEIGHT: Record<ItemPriority, number> = { Vysoká: 0, Normální: 1, Nízká: 2 }
 
 type SortKey = 'Výchozí' | 'Název' | 'Cena' | 'Priorita'
@@ -43,6 +43,7 @@ export function ShoppingList({
   toggle,
   lists,
   onAddList,
+  productPrices,
 }: {
   items: Item[]
   newItem: string
@@ -53,6 +54,7 @@ export function ShoppingList({
   toggle: (id: string) => void
   lists: string[]
   onAddList: (name: string) => void
+  productPrices: ProductPrice[]
 }) {
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('Vše')
@@ -374,9 +376,9 @@ export function ShoppingList({
                         />
                         Aktuálně v akci
                       </label>
-                      {comparePrices(item.name) && (
+                      {comparePrices(productPrices, item.name) && (
                         <div className="sm:col-span-2">
-                          <PriceComparison productName={item.name} />
+                          <PriceComparison productName={item.name} productPrices={productPrices} />
                         </div>
                       )}
                     </div>

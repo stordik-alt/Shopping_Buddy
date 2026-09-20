@@ -8,9 +8,9 @@ import {
   initialNotifications,
   initialPurchaseHistory,
   initialShoppingLists,
+  PRODUCT_PRICES,
   stores as mockStores,
 } from '@/lib/mock-data'
-import { PRODUCT_PRICES } from '@/lib/prices'
 import type { ItemCategory, ItemUnit } from '@/lib/types'
 
 const sql = neon(process.env.DATABASE_URL!)
@@ -116,21 +116,13 @@ async function main() {
     .values({ name: initialHousehold.name, monthlyBudget: initialHousehold.monthlyBudget.toString() })
     .returning()
 
-  const memberEmails: Record<string, string> = {
-    'Lucie Králová': 'lucie@rodina.cz',
-    'Petr Král': 'petr@rodina.cz',
-  }
-
+  // Demo fixtures only — not linked to a Neon Auth account (userId left null).
+  // A real household is created for a signed-up user on first login; see lib/db/queries.ts.
   for (const member of initialHousehold.members) {
-    const [user] = await db
-      .insert(schema.users)
-      .values({ email: memberEmails[member.name] ?? `${member.id}@rodina.cz`, name: member.name })
-      .returning()
     const [memberRow] = await db
       .insert(schema.householdMembers)
       .values({
         householdId: household.id,
-        userId: user.id,
         name: member.name,
         role: member.role === 'Správce domácnosti' ? 'owner' : 'member',
       })

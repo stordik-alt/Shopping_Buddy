@@ -24,9 +24,20 @@ import { ShoppingList } from '@/components/shopping/shopping-list'
 import { StoreDirectory } from '@/components/stores/store-directory'
 import { TODAY } from '@/lib/budget'
 import type { HouseholdData } from '@/lib/db/queries'
-import type { Item, Tab } from '@/lib/types'
+import type { ProductPrice } from '@/lib/prices'
+import type { Item, Store, Tab } from '@/lib/types'
 
-export function AppShell({ initialData }: { initialData: HouseholdData }) {
+export function AppShell({
+  initialData,
+  userName,
+  stores,
+  productPrices,
+}: {
+  initialData: HouseholdData
+  userName: string
+  stores: Store[]
+  productPrices: ProductPrice[]
+}) {
   const [tab, setTab] = useState<Tab>('Domů')
   const [household, setHousehold] = useState(initialData.household)
   const [items, setItems] = useState(initialData.items)
@@ -43,7 +54,8 @@ export function AppShell({ initialData }: { initialData: HouseholdData }) {
   const remaining = budget - spent
   const completed = items.filter((item) => item.done).length
 
-  const title = tab === 'Domů' ? 'Dobré ráno, Lucie' : tab
+  const firstName = userName.trim().split(/\s+/)[0] || userName
+  const title = tab === 'Domů' ? `Dobré ráno, ${firstName}` : tab
   const subtitle = tab === 'Domů' ? 'Pojďme dnes ušetřit pár korun.' : 'Vše, co potřebujete mít pod kontrolou.'
 
   async function addItem() {
@@ -81,16 +93,16 @@ export function AppShell({ initialData }: { initialData: HouseholdData }) {
 
   function addShoppingListName(name: string) {
     setShoppingLists((current) => [...current, name])
-    addShoppingListAction(household.id, name)
+    addShoppingListAction(name)
   }
 
   function updateHousehold(changes: { name?: string; monthlyBudget?: number }) {
     setHousehold((current) => ({ ...current, ...changes }))
-    updateHouseholdAction(household.id, changes)
+    updateHouseholdAction(changes)
   }
 
   async function addMember(member: { name: string; age: number; favoriteFoods: string[]; dislikedFoods: string[]; allergies: string[] }) {
-    const created = await addHouseholdMemberAction(household.id, member)
+    const created = await addHouseholdMemberAction(member)
     setHousehold((current) => ({ ...current, members: [...current.members, created] }))
   }
 
@@ -100,7 +112,7 @@ export function AppShell({ initialData }: { initialData: HouseholdData }) {
   }
 
   async function addChild(child: { name: string; age: number; preferences: string; specialNeeds?: string }) {
-    const created = await addChildAction(household.id, child)
+    const created = await addChildAction(child)
     setHousehold((current) => ({ ...current, children: [...current.children, created] }))
   }
 
@@ -111,7 +123,7 @@ export function AppShell({ initialData }: { initialData: HouseholdData }) {
 
   function updatePreferences(changes: Partial<typeof household.preferences>) {
     setHousehold((current) => ({ ...current, preferences: { ...current.preferences, ...changes } }))
-    updateHouseholdPreferencesAction(household.id, changes)
+    updateHouseholdPreferencesAction(changes)
   }
 
   function readNotification(id: string) {
@@ -121,11 +133,11 @@ export function AppShell({ initialData }: { initialData: HouseholdData }) {
 
   function readAllNotifications() {
     setNotifications((current) => current.map((notification) => ({ ...notification, unread: false })))
-    markAllNotificationsReadAction(household.id)
+    markAllNotificationsReadAction()
   }
 
   async function saveExpense(amount: number, note: string, category: Item['category']) {
-    const expense = await addExpenseAction(household.id, { amount, note, category, date: TODAY })
+    const expense = await addExpenseAction({ amount, note, category, date: TODAY })
     setExpenses((current) => [...current, expense])
     setExpenseOpen(false)
   }
@@ -146,6 +158,7 @@ export function AppShell({ initialData }: { initialData: HouseholdData }) {
               onToggleNotifications={() => setNotificationsOpen((open) => !open)}
               hasUnread={notifications.some((notification) => notification.unread)}
               onProfileClick={() => setTab('Profil')}
+              userName={userName}
             />
             {notificationsOpen && (
               <NotificationPanel
@@ -175,8 +188,8 @@ export function AppShell({ initialData }: { initialData: HouseholdData }) {
                     onExpense={() => setExpenseOpen(true)}
                   />
                   <SavingsInsight remaining={remaining} onAi={() => setTab('AI')} />
-                  <MealPlan onAddIngredients={addIngredients} />
-                  <PriceWatch onStores={() => setTab('Obchody')} />
+                  <MealPlan household={household} initialPlan={initialData.mealPlan} onAddIngredients={addIngredients} />
+                  <PriceWatch onStores={() => setTab('Obchody')} productPrices={productPrices} />
                   <QuickActions onShopping={() => setTab('Nákup')} onStores={() => setTab('Obchody')} onAi={() => setTab('AI')} />
                 </>
               )}
@@ -191,9 +204,10 @@ export function AppShell({ initialData }: { initialData: HouseholdData }) {
                   toggle={toggleItem}
                   lists={shoppingLists}
                   onAddList={addShoppingListName}
+                  productPrices={productPrices}
                 />
               )}
-              {tab === 'Obchody' && <StoreDirectory />}
+              {tab === 'Obchody' && <StoreDirectory stores={stores} />}
               {tab === 'Rozpočet' && (
                 <div className="space-y-6">
                   <BudgetOverview

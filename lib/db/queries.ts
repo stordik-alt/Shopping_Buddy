@@ -1,6 +1,9 @@
-import { asc, eq } from 'drizzle-orm'
+import { and, asc, eq } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
+import { TODAY } from '@/lib/budget'
+import { currentWeekStart, type WeeklyMealPlan } from '@/lib/meal-plans'
+import type { ProductPrice } from '@/lib/prices'
 import type {
   Child,
   Expense,
@@ -11,8 +14,19 @@ import type {
   PriceSensitivity,
   PurchaseRecord,
   QualityPreference,
+  Store,
   StoreChain,
 } from '@/lib/types'
+
+// Decorative only — not modeled in the schema, keyed by chain to match the previous mock styling.
+const CHAIN_COLOR: Record<string, string> = {
+  Lidl: 'bg-[#d7f36b]',
+  Albert: 'bg-[#f4b183]',
+  Kaufland: 'bg-[#b9d8f5]',
+  Billa: 'bg-[#f3c0d3]',
+  Penny: 'bg-[#f6d38b]',
+  JIP: 'bg-[#c9b8ef]',
+}
 
 const PRICE_SENSITIVITY_LABEL: Record<string, PriceSensitivity> = {
   cheapest: 'Nejlevnější',
@@ -28,6 +42,9 @@ const QUALITY_PREFERENCE_LABEL: Record<string, QualityPreference> = {
 const ITEM_COLORS = ['bg-sky-100 text-sky-700', 'bg-amber-100 text-amber-700', 'bg-rose-100 text-rose-700', 'bg-violet-100 text-violet-700', 'bg-emerald-100 text-emerald-700']
 const colorForIndex = (index: number) => ITEM_COLORS[index % ITEM_COLORS.length]
 
+export type SavedMealPlan = { weekStart: string; budgetLimit: number; plan: WeeklyMealPlan }
+export type PendingInvitation = { id: string; email: string; expiresAt: string }
+
 export type HouseholdData = {
   household: Household
   mainListId: string
@@ -36,16 +53,63 @@ export type HouseholdData = {
   expenses: Expense[]
   notifications: Notification[]
   purchaseHistory: PurchaseRecord[]
+  mealPlan: SavedMealPlan | null
+  isOwner: boolean
+  pendingInvitations: PendingInvitation[]
 }
 
-/** Loads the (single, demo) household with every domain area the app needs on first render. */
-export async function getHouseholdData(): Promise<HouseholdData> {
+/** The household's saved plan for the current week, if one has been generated yet. */
+async function getCurrentMealPlan(householdId: string): Promise<SavedMealPlan | null> {
+  const db = getDb()
+  const weekStart = currentWeekStart(TODAY)
+  const row = await db.query.mealPlans.findFirst({
+    where: and(eq(schema.mealPlans.householdId, householdId), eq(schema.mealPlans.weekStart, weekStart)),
+  })
+  if (!row) return null
+  return { weekStart: row.weekStart, budgetLimit: Number(row.budgetLimit), plan: JSON.parse(row.plan) as WeeklyMealPlan }
+}
+
+/** Creates a new household with the signed-in user as its owner (first login after sign-up, no pending invite). */
+async function createHouseholdForUser(userId: string, userName: string) {
+  const db = getDb()
+  const [household] = await db.insert(schema.households).values({ name: `Domácnost – ${userName}` }).returning()
+  await db.insert(schema.householdMembers).values({ householdId: household.id, userId, name: userName, role: 'owner' })
+  await db.insert(schema.preferences).values({ householdId: household.id })
+  await db.insert(schema.shoppingLists).values({ householdId: household.id, name: 'Hlavní seznam' })
+  return household
+}
+
+/** Joins the household a pending invitation points to, as a member, and marks the invitation accepted. */
+async function joinHouseholdViaInvitation(userId: string, userName: string, invitation: typeof schema.invitations.$inferSelect) {
+  const db = getDb()
+  await db.insert(schema.householdMembers).values({ householdId: invitation.householdId, userId, name: userName, role: 'member' })
+  await db.update(schema.invitations).set({ status: 'accepted' }).where(eq(schema.invitations.id, invitation.id))
+  const household = await db.query.households.findFirst({ where: eq(schema.households.id, invitation.householdId) })
+  if (!household) throw new Error(`Household ${invitation.householdId} referenced by invitation but missing`)
+  return household
+}
+
+/** Loads (or, on first login, creates or joins-via-invitation) the signed-in user's household with every domain area the app needs on first render. */
+export async function getHouseholdData(userId: string, userName: string, userEmail: string): Promise<HouseholdData> {
   const db = getDb()
 
-  const household = await db.query.households.findFirst()
-  if (!household) throw new Error('No household found — run `npx dotenv -e .env.local -- npx tsx lib/db/seed.ts` first.')
+  const ownMember = await db.query.householdMembers.findFirst({ where: eq(schema.householdMembers.userId, userId) })
+  let household: typeof schema.households.$inferSelect | undefined
+  if (ownMember) {
+    household = await db.query.households.findFirst({ where: eq(schema.households.id, ownMember.householdId) })
+  } else {
+    const pendingInvitation = await db.query.invitations.findFirst({
+      where: and(eq(schema.invitations.email, userEmail.toLowerCase()), eq(schema.invitations.status, 'pending')),
+      orderBy: desc(schema.invitations.createdAt),
+    })
+    household =
+      pendingInvitation && new Date(pendingInvitation.expiresAt) > new Date()
+        ? await joinHouseholdViaInvitation(userId, userName, pendingInvitation)
+        : await createHouseholdForUser(userId, userName)
+  }
+  if (!household) throw new Error(`Household ${ownMember!.householdId} referenced by household_members but missing`)
 
-  const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows] = await Promise.all([
+  const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows, mealPlan, invitationRows] = await Promise.all([
     db.query.householdMembers.findMany({
       where: eq(schema.householdMembers.householdId, household.id),
       with: { profile: true },
@@ -64,6 +128,7 @@ export async function getHouseholdData(): Promise<HouseholdData> {
       with: { items: true, storeLocation: { with: { store: true } } },
       orderBy: asc(schema.purchases.date),
     }),
+    getCurrentMealPlan(household.id),
   ])
 
   const mainListId = lists[0]?.id
@@ -160,5 +225,67 @@ export async function getHouseholdData(): Promise<HouseholdData> {
         items: purchase.items.map((item) => ({ name: item.name, quantity: item.quantity, unit: item.unit, price: Number(item.price) })),
       }),
     ),
+    mealPlan,
   }
+}
+
+/** Store directory: every store location, with active-deal count and available products derived from real price rows. */
+export async function getStores(): Promise<Store[]> {
+  const db = getDb()
+  const locations = await db.query.storeLocations.findMany({
+    with: { store: true, prices: { with: { product: true } }, deals: true },
+  })
+  return locations.map((location) => ({
+    id: location.id,
+    chain: location.store.chain,
+    name: location.name,
+    address: location.address,
+    city: location.city,
+    country: location.country,
+    gps: { lat: Number(location.lat), lng: Number(location.lng) },
+    hours: location.hours,
+    dealsCount: location.deals.filter((deal) => deal.validUntil >= TODAY).length,
+    availableProducts: Array.from(new Set(location.prices.map((price) => price.product.name))),
+    color: CHAIN_COLOR[location.store.chain] ?? 'bg-muted',
+  }))
+}
+
+/** Per-product prices across stores, with any currently active deal folded in. One entry per store's latest recorded price. */
+export async function getProductPrices(): Promise<ProductPrice[]> {
+  const db = getDb()
+  const products = await db.query.products.findMany({
+    with: {
+      category: true,
+      prices: { with: { storeLocation: { with: { store: true } } }, orderBy: asc(schema.prices.recordedAt) },
+      deals: { with: { storeLocation: { with: { store: true } } } },
+    },
+  })
+
+  return products
+    .filter((product) => product.prices.length > 0)
+    .map((product) => {
+      const latestByLocation = new Map<string, (typeof product.prices)[number]>()
+      for (const price of product.prices) latestByLocation.set(price.storeLocationId, price) // later (ascending) rows overwrite, so this lands on the latest
+
+      const activeDealByLocation = new Map(
+        product.deals.filter((deal) => deal.validUntil >= TODAY).map((deal) => [deal.storeLocationId, deal]),
+      )
+
+      return {
+        productName: product.name,
+        category: product.category.name,
+        prices: Array.from(latestByLocation.values()).map((price) => {
+          const deal = activeDealByLocation.get(price.storeLocationId)
+          return {
+            store: price.storeLocation.store.chain,
+            regularPrice: Number(price.regularPrice),
+            dealPrice: deal ? Number(deal.dealPrice) : undefined,
+            dealValidUntil: deal?.validUntil,
+            unit: price.unit,
+            unitPrice: Number(price.unitPrice),
+            recordedAt: price.recordedAt,
+          }
+        }),
+      }
+    })
 }

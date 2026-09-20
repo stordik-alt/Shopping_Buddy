@@ -100,7 +100,7 @@ export default function Page() {
                     onAddIngredients={(ingredients) => {
                       setItems((current) => [
                         ...current,
-                        ...ingredients.map((name) => createItem(name, { detail: '1 ks · z jídelníčku', category: 'Potraviny' })),
+                        ...ingredients.map((ingredient) => createItem(ingredient.name, { detail: '1 ks · z jídelníčku', category: ingredient.category })),
                       ])
                       setTab('Nákup')
                     }}

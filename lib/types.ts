@@ -83,6 +83,17 @@ export type Store = {
   color: string
 }
 
+export type PurchaseItem = { name: string; quantity: number; unit: ItemUnit; price: number }
+
+export type PurchaseRecord = {
+  id: number
+  date: string
+  store: StoreChain
+  items: PurchaseItem[]
+  total: number
+  discount?: number
+}
+
 export type Household = {
   name: string
   monthlyBudget: number

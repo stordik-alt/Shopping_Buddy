@@ -5,6 +5,7 @@ import { AiAssistant } from '@/components/ai/ai-assistant'
 import { BudgetOverview } from '@/components/budget/budget-overview'
 import { ExpenseHistory } from '@/components/budget/expense-history'
 import { ExpenseModal } from '@/components/budget/expense-modal'
+import { PurchaseHistory } from '@/components/budget/purchase-history'
 import { DashboardOverview } from '@/components/dashboard/dashboard-overview'
 import { MealPlan } from '@/components/dashboard/meal-plan'
 import { PriceWatch } from '@/components/dashboard/price-watch'
@@ -19,7 +20,7 @@ import { ShoppingList } from '@/components/shopping/shopping-list'
 import { StoreDirectory } from '@/components/stores/store-directory'
 import { TODAY } from '@/lib/budget'
 import { createItem } from '@/lib/items'
-import { initialExpenses, initialItems, initialNotifications, initialShoppingLists } from '@/lib/mock-data'
+import { initialExpenses, initialItems, initialNotifications, initialPurchaseHistory, initialShoppingLists } from '@/lib/mock-data'
 import type { Tab } from '@/lib/types'
 
 export default function Page() {
@@ -128,6 +129,7 @@ export default function Page() {
                 <div className="space-y-6">
                   <BudgetOverview budget={budget} setBudget={setBudget} spent={spent} expenses={expenses} items={items} onExpense={() => setExpenseOpen(true)} />
                   <ExpenseHistory expenses={expenses} />
+                  <PurchaseHistory records={initialPurchaseHistory} />
                 </div>
               )}
               {tab === 'AI' && <AiAssistant onShopping={() => setTab('Nákup')} />}

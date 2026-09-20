@@ -11,7 +11,7 @@ Pořadí:
 05 Obchody a lokalita — HOTOVO
 06 Ceny a akce — HOTOVO
 07 Rozpočet a výdaje — HOTOVO
-08 Historie nákupů
+08 Historie nákupů — HOTOVO
 09 Backend a databáze
 10 Sdílená domácnost
 11 AI Shopping Assistant

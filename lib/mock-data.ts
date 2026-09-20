@@ -1,4 +1,4 @@
-import type { Expense, Household, Item, Notification, Store } from '@/lib/types'
+import type { Expense, Household, Item, Notification, PurchaseRecord, Store } from '@/lib/types'
 
 export const initialItems: Item[] = [
   { id: 1, name: 'Mléko polotučné', detail: '2 l · Mlékárna Kunín', price: 44.9, quantity: 2, unit: 'l', category: 'Potraviny', done: false, color: 'bg-sky-100 text-sky-700', priority: 'Normální', store: 'Lidl', onSale: true },
@@ -143,5 +143,75 @@ export const stores: Store[] = [
     dealsCount: 4,
     availableProducts: ['Mléko polotučné', 'Pečivo'],
     color: 'bg-[#c9b8ef]',
+  },
+]
+
+export const initialPurchaseHistory: PurchaseRecord[] = [
+  {
+    id: 1,
+    date: '2026-07-05',
+    store: 'Lidl',
+    items: [
+      { name: 'Mléko polotučné', quantity: 2, unit: 'l', price: 37.9 },
+      { name: 'Banány', quantity: 1, unit: 'kg', price: 29.9 },
+      { name: 'Toaletní papír', quantity: 1, unit: 'ks', price: 74.9 },
+    ],
+    total: 180.6,
+  },
+  {
+    id: 2,
+    date: '2026-07-19',
+    store: 'Albert',
+    items: [
+      { name: 'Kuřecí prsa', quantity: 1, unit: 'kg', price: 199.9 },
+      { name: 'Vejce', quantity: 1, unit: 'ks', price: 59.9 },
+    ],
+    total: 259.8,
+  },
+  {
+    id: 3,
+    date: '2026-08-02',
+    store: 'Lidl',
+    items: [
+      { name: 'Mléko polotučné', quantity: 2, unit: 'l', price: 39.9 },
+      { name: 'Banány', quantity: 1, unit: 'kg', price: 33.9 },
+      { name: 'Rýže', quantity: 1, unit: 'kg', price: 44.9 },
+    ],
+    total: 152.6,
+  },
+  {
+    id: 4,
+    date: '2026-08-16',
+    store: 'Kaufland',
+    items: [
+      { name: 'Toaletní papír', quantity: 1, unit: 'ks', price: 79.9 },
+      { name: 'Kuřecí prsa', quantity: 1, unit: 'kg', price: 169.9 },
+      { name: 'Rýže', quantity: 2, unit: 'kg', price: 42.9 },
+    ],
+    total: 335.6,
+    discount: 25,
+  },
+  {
+    id: 5,
+    date: '2026-09-03',
+    store: 'Lidl',
+    items: [
+      { name: 'Mléko polotučné', quantity: 2, unit: 'l', price: 37.9 },
+      { name: 'Banány', quantity: 1, unit: 'kg', price: 29.9 },
+      { name: 'Vejce', quantity: 1, unit: 'ks', price: 58.9 },
+    ],
+    total: 164.6,
+  },
+  {
+    id: 6,
+    date: '2026-09-13',
+    store: 'Kaufland',
+    items: [
+      { name: 'Toaletní papír', quantity: 1, unit: 'ks', price: 64.9 },
+      { name: 'Rýže', quantity: 1, unit: 'kg', price: 42.9 },
+      { name: 'Kuřecí prsa', quantity: 1, unit: 'kg', price: 169.9 },
+    ],
+    total: 277.7,
+    discount: 15,
   },
 ]

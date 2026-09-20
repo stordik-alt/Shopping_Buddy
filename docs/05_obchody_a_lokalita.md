@@ -1,6 +1,8 @@
 # FAMILY SHOPPING ASSISTANT — ČÁST 5
 ## Obchody a lokalita
 
+> **Stav: HOTOVO.** Typ `Store` (`lib/types.ts`) nese název, adresu, GPS, otevírací dobu, dostupné produkty a počet akcí; mock data pro všech 6 prioritních obchodů (Lidl, Albert, Kaufland, Billa, Penny, JIP) v Praze jsou v `lib/mock-data.ts` s polem `country` připraveným na budoucí další trhy. `components/stores/store-directory.tsx` umožňuje tlačítkem „Použít mou polohu" požádat o `navigator.geolocation` (GPS → obchody v okolí → vzdálenost přes `lib/geo.ts` haversine výpočet → seřazení); při zamítnutí zůstává funkční ruční zadání lokality a aplikace zobrazí vysvětlení zásady soukromí. Detail obchodu ukazuje plný profil včetně GPS souřadnic a dostupných produktů.
+
 ### První trh
 Česká republika.
 

@@ -1,25 +1,46 @@
 import { useState } from 'react'
-import { ArrowUpRight, MapPin, Search, X } from 'lucide-react'
+import { ArrowUpRight, Loader2, LocateFixed, MapPin, Search, Tag, X } from 'lucide-react'
+import { distanceKm, type GpsCoords } from '@/lib/geo'
+import { stores } from '@/lib/mock-data'
 
-const STORES = [
-  { name: 'Lidl', detail: '2 akce na vašem seznamu', distance: '0,8 km', hours: 'Otevřeno do 21:00', color: 'bg-[#d7f36b]' },
-  { name: 'Albert', detail: 'Nejbližší obchod', distance: '1,2 km', hours: 'Otevřeno do 22:00', color: 'bg-[#f4b183]' },
-  { name: 'Kaufland', detail: '8 aktivních nabídek', distance: '2,4 km', hours: 'Otevřeno do 21:00', color: 'bg-[#b9d8f5]' },
-  { name: 'Billa', detail: '4 akce v okolí', distance: '1,8 km', hours: 'Otevřeno do 21:00', color: 'bg-[#f3c0d3]' },
-]
+type LocationState = 'idle' | 'loading' | 'granted' | 'denied'
 
 export function StoreDirectory() {
   const [location, setLocation] = useState('Praha 4')
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
+  const [locationState, setLocationState] = useState<LocationState>('idle')
+  const [userCoords, setUserCoords] = useState<GpsCoords | null>(null)
 
-  const visibleStores = STORES.filter((store) => store.name.toLowerCase().includes(query.toLowerCase()))
-  const activeStore = STORES.find((store) => store.name === selected)
+  function useMyLocation() {
+    if (!('geolocation' in navigator)) {
+      setLocationState('denied')
+      return
+    }
+    setLocationState('loading')
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserCoords({ lat: position.coords.latitude, lng: position.coords.longitude })
+        setLocationState('granted')
+      },
+      () => setLocationState('denied'),
+      { timeout: 8000 },
+    )
+  }
+
+  const storesWithDistance = stores
+    .map((store) => ({ ...store, distanceKm: userCoords ? distanceKm(userCoords, store.gps) : null }))
+    .sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity))
+
+  const visibleStores = storesWithDistance.filter(
+    (store) => store.name.toLowerCase().includes(query.toLowerCase()) || store.chain.toLowerCase().includes(query.toLowerCase()),
+  )
+  const activeStore = storesWithDistance.find((store) => store.id === selected)
 
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-sm text-muted-foreground">Obchody ve vašem okolí</p>
+        <p className="text-sm text-muted-foreground">Obchody ve vašem okolí · Česká republika</p>
         <h2 className="mt-1 text-2xl font-semibold">Kde nakoupit</h2>
         <p className="mt-1 text-sm text-muted-foreground">Porovnejte vzdálenost, otevírací dobu a akce.</p>
       </div>
@@ -34,6 +55,14 @@ export function StoreDirectory() {
             aria-label="Lokalita"
           />
         </label>
+        <button
+          onClick={useMyLocation}
+          disabled={locationState === 'loading'}
+          className="flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm font-medium hover:bg-muted disabled:opacity-60"
+        >
+          {locationState === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4 text-primary" />}
+          Použít mou polohu
+        </button>
         <label className="flex min-w-[180px] flex-1 items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
           <Search className="h-4 w-4 shrink-0" />
           <span className="sr-only">Hledat obchod</span>
@@ -46,20 +75,26 @@ export function StoreDirectory() {
           />
         </label>
       </div>
+      {locationState === 'denied' && (
+        <p role="status" className="rounded-2xl bg-muted px-4 py-3 text-xs text-muted-foreground">
+          Poloha nebyla povolena, obchody zobrazujeme podle zadané lokality. Vzdálenost se používá pouze pro hledání obchodů v okolí a její
+          použití můžete kdykoliv odmítnout.
+        </p>
+      )}
       <div className="grid gap-4 sm:grid-cols-2">
         {visibleStores.map((store) => (
           <button
-            key={store.name}
-            onClick={() => setSelected(store.name)}
+            key={store.id}
+            onClick={() => setSelected(store.id)}
             className="rounded-3xl border border-border bg-card p-5 text-left transition hover:-translate-y-0.5 hover:shadow-lg"
           >
             <div className={`flex h-16 items-center justify-between rounded-2xl ${store.color} px-4 text-2xl font-bold text-foreground`}>
-              <span>{store.name}</span>
+              <span>{store.chain}</span>
               <ArrowUpRight className="h-5 w-5" />
             </div>
-            <p className="mt-4 text-sm font-semibold">{store.detail}</p>
+            <p className="mt-4 text-sm font-semibold">{store.dealsCount} aktivních akcí</p>
             <div className="mt-2 flex justify-between text-xs text-muted-foreground">
-              <span>{store.distance}</span>
+              <span>{store.distanceKm != null ? `${store.distanceKm.toFixed(1)} km` : store.address}</span>
               <span>{store.hours}</span>
             </div>
           </button>
@@ -71,16 +106,30 @@ export function StoreDirectory() {
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-primary">Vybraný obchod</p>
               <h3 className="mt-1 text-xl font-semibold">{activeStore.name}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{activeStore.address}</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {activeStore.distance} od lokality {location} · {activeStore.hours}
+                {activeStore.distanceKm != null ? `${activeStore.distanceKm.toFixed(1)} km od vaší polohy · ` : ''}
+                {activeStore.hours}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                GPS: {activeStore.gps.lat.toFixed(4)}, {activeStore.gps.lng.toFixed(4)}
               </p>
             </div>
             <button aria-label="Zavřít detail obchodu" onClick={() => setSelected(null)} className="icon-button">
               <X />
             </button>
           </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <span className="rounded-full bg-card px-3 py-1.5 text-xs font-medium">2 akce na vašem seznamu</span>
+          <div className="mt-4 flex flex-wrap gap-1.5">
+            {activeStore.availableProducts.map((product) => (
+              <span key={product} className="rounded-full bg-card px-3 py-1.5 text-xs font-medium">
+                {product}
+              </span>
+            ))}
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span className="flex items-center gap-1 rounded-full bg-card px-3 py-1.5 text-xs font-medium">
+              <Tag className="h-3 w-3 text-primary" /> {activeStore.dealsCount} akcí na vašem seznamu
+            </span>
             <button onClick={() => setSelected(null)} className="rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
               Vybrat pro nákup
             </button>

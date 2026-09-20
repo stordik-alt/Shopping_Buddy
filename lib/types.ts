@@ -65,6 +65,22 @@ export type HouseholdPreferences = {
   preferCzechProducts: boolean
 }
 
+export type StoreChain = 'Lidl' | 'Albert' | 'Kaufland' | 'Billa' | 'Penny' | 'JIP'
+
+export type Store = {
+  id: string
+  chain: StoreChain
+  name: string
+  address: string
+  city: string
+  country: string
+  gps: { lat: number; lng: number }
+  hours: string
+  dealsCount: number
+  availableProducts: string[]
+  color: string
+}
+
 export type Household = {
   name: string
   monthlyBudget: number

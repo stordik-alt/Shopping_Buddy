@@ -1,0 +1,64 @@
+# Shopping Buddy — Development Roadmap
+
+## Phase A — Current: backend foundation
+1. Audit repository and Neon schema.
+2. Establish authentication/session strategy.
+3. Establish typed Neon data-access layer.
+4. Establish household/user authorization.
+5. Persist profiles/preferences/children.
+6. Persist shopping lists/items.
+7. Persist budgets/expenses.
+8. Normalize products/categories/stores.
+9. Persist prices/deals with history.
+10. Persist meal plans and purchase history.
+11. Remove feature-level mock data gradually.
+12. Fix TypeScript/build debt and add tests.
+
+## Phase B — Shared household
+- invitations/membership
+- roles/permissions
+- concurrent edits
+- household-wide shopping lists
+- household-wide preferences where appropriate
+
+## Phase C — AI Shopping Assistant
+- grounded context retrieval
+- natural-language shopping commands
+- meal-plan assistance
+- explanations of price and budget choices
+- strict anti-hallucination rules
+
+## Phase D — Smart Shopping Engine
+- compare selected stores
+- unit-price comparison
+- promotion quality
+- stock/storage constraints
+- trip-distance constraints
+- budget constraints
+- bulk-buy recommendations
+- historical-price awareness
+
+## Phase E — Notifications
+- price/deal alerts
+- shopping reminders
+- budget warnings
+- household events
+
+## Phase F — Global
+- country/locale/currency
+- retailer adapters
+- localized units and taxes where relevant
+- localized language
+- regional data providers
+
+## Phase G — Product hardening
+- security audit
+- accessibility
+- performance
+- observability
+- backup/recovery strategy
+- test coverage
+- release process
+
+## Rule
+Do not implement a later phase by weakening the foundations of an earlier phase.

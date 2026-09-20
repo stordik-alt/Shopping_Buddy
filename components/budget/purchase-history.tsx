@@ -6,7 +6,7 @@ import { money } from '@/lib/format'
 import type { PurchaseRecord } from '@/lib/types'
 
 export function PurchaseHistory({ records }: { records: PurchaseRecord[] }) {
-  const [expandedId, setExpandedId] = useState<number | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const topStore = favoriteStores(records)[0]
   const topProduct = mostBoughtProducts(records, 1)[0]

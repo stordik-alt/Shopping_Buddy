@@ -1,35 +1,36 @@
 import type { Expense, Household, Item, Notification, PurchaseRecord, Store } from '@/lib/types'
 
 export const initialItems: Item[] = [
-  { id: 1, name: 'Mléko polotučné', detail: '2 l · Mlékárna Kunín', price: 44.9, quantity: 2, unit: 'l', category: 'Potraviny', done: false, color: 'bg-sky-100 text-sky-700', priority: 'Normální', store: 'Lidl', onSale: true },
-  { id: 2, name: 'Banány', detail: '1 kg · volné', price: 34.9, quantity: 1, unit: 'kg', category: 'Potraviny', done: false, color: 'bg-amber-100 text-amber-700', priority: 'Normální' },
-  { id: 3, name: 'Kuřecí prsa', detail: '500 g · chlazené', price: 89.9, quantity: 1, unit: 'g', category: 'Potraviny', done: true, color: 'bg-rose-100 text-rose-700', priority: 'Vysoká', store: 'Albert', onSale: true },
-  { id: 4, name: 'Toaletní papír', detail: '8 ks · Softy', price: 79.9, quantity: 1, unit: 'ks', category: 'Drogerie', done: false, color: 'bg-violet-100 text-violet-700', priority: 'Nízká' },
+  { id: '1', name: 'Mléko polotučné', detail: '2 l · Mlékárna Kunín', price: 44.9, quantity: 2, unit: 'l', category: 'Potraviny', done: false, color: 'bg-sky-100 text-sky-700', priority: 'Normální', store: 'Lidl', onSale: true },
+  { id: '2', name: 'Banány', detail: '1 kg · volné', price: 34.9, quantity: 1, unit: 'kg', category: 'Potraviny', done: false, color: 'bg-amber-100 text-amber-700', priority: 'Normální' },
+  { id: '3', name: 'Kuřecí prsa', detail: '500 g · chlazené', price: 89.9, quantity: 1, unit: 'g', category: 'Potraviny', done: true, color: 'bg-rose-100 text-rose-700', priority: 'Vysoká', store: 'Albert', onSale: true },
+  { id: '4', name: 'Toaletní papír', detail: '8 ks · Softy', price: 79.9, quantity: 1, unit: 'ks', category: 'Drogerie', done: false, color: 'bg-violet-100 text-violet-700', priority: 'Nízká' },
 ]
 
 export const initialNotifications: Notification[] = [
-  { id: 1, title: 'Nová akce v Lidlu', detail: 'Mléko je dnes o 20 % levnější.', unread: true },
-  { id: 2, title: 'Rozpočet je pod kontrolou', detail: 'Zbývá vám 4 650 Kč do konce měsíce.', unread: true },
-  { id: 3, title: 'Petr doplnil seznam', detail: 'Přidal položku „Ovesné vločky".', unread: false },
+  { id: '1', title: 'Nová akce v Lidlu', detail: 'Mléko je dnes o 20 % levnější.', unread: true },
+  { id: '2', title: 'Rozpočet je pod kontrolou', detail: 'Zbývá vám 4 650 Kč do konce měsíce.', unread: true },
+  { id: '3', title: 'Petr doplnil seznam', detail: 'Přidal položku „Ovesné vločky".', unread: false },
 ]
 
 export const initialExpenses: Expense[] = [
-  { id: 1, amount: 2350, note: 'Týdenní nákup potravin', category: 'Potraviny', date: '2026-09-03' },
-  { id: 2, amount: 890, note: 'Drogerie a hygiena', category: 'Drogerie', date: '2026-09-06' },
-  { id: 3, amount: 1200, note: 'Oblečení pro děti', category: 'Děti', date: '2026-09-09' },
-  { id: 4, amount: 1980, note: 'Nákup v Kauflandu', category: 'Potraviny', date: '2026-09-13' },
-  { id: 5, amount: 430, note: 'Čisticí prostředky', category: 'Domácnost', date: '2026-09-16' },
-  { id: 6, amount: 500, note: 'Různé drobnosti', category: 'Ostatní', date: '2026-09-18' },
+  { id: '1', amount: 2350, note: 'Týdenní nákup potravin', category: 'Potraviny', date: '2026-09-03' },
+  { id: '2', amount: 890, note: 'Drogerie a hygiena', category: 'Drogerie', date: '2026-09-06' },
+  { id: '3', amount: 1200, note: 'Oblečení pro děti', category: 'Děti', date: '2026-09-09' },
+  { id: '4', amount: 1980, note: 'Nákup v Kauflandu', category: 'Potraviny', date: '2026-09-13' },
+  { id: '5', amount: 430, note: 'Čisticí prostředky', category: 'Domácnost', date: '2026-09-16' },
+  { id: '6', amount: 500, note: 'Různé drobnosti', category: 'Ostatní', date: '2026-09-18' },
 ]
 
 export const initialShoppingLists = ['Týdenní nákup', 'Lidl', 'Drogerie', 'Děti']
 
 export const initialHousehold: Household = {
+  id: 'seed-household',
   name: 'Rodina Králových',
   monthlyBudget: 12000,
   members: [
     {
-      id: 1,
+      id: '1',
       name: 'Lucie Králová',
       role: 'Správce domácnosti',
       age: 34,
@@ -39,7 +40,7 @@ export const initialHousehold: Household = {
       allergies: [],
     },
     {
-      id: 2,
+      id: '2',
       name: 'Petr Král',
       role: 'Člen domácnosti',
       age: 36,
@@ -50,8 +51,8 @@ export const initialHousehold: Household = {
     },
   ],
   children: [
-    { id: 1, name: 'Anna', age: 7, preferences: 'Sladké snídaně', specialNeeds: '' },
-    { id: 2, name: 'Tomáš', age: 4, preferences: 'Bez kousků zeleniny', specialNeeds: 'Alergie na lepek' },
+    { id: '1', name: 'Anna', age: 7, preferences: 'Sladké snídaně', specialNeeds: '' },
+    { id: '2', name: 'Tomáš', age: 4, preferences: 'Bez kousků zeleniny', specialNeeds: 'Alergie na lepek' },
   ],
   preferences: {
     preferredBrands: ['Milka', 'Kunín'],
@@ -148,7 +149,7 @@ export const stores: Store[] = [
 
 export const initialPurchaseHistory: PurchaseRecord[] = [
   {
-    id: 1,
+    id: '1',
     date: '2026-07-05',
     store: 'Lidl',
     items: [
@@ -159,7 +160,7 @@ export const initialPurchaseHistory: PurchaseRecord[] = [
     total: 180.6,
   },
   {
-    id: 2,
+    id: '2',
     date: '2026-07-19',
     store: 'Albert',
     items: [
@@ -169,7 +170,7 @@ export const initialPurchaseHistory: PurchaseRecord[] = [
     total: 259.8,
   },
   {
-    id: 3,
+    id: '3',
     date: '2026-08-02',
     store: 'Lidl',
     items: [
@@ -180,7 +181,7 @@ export const initialPurchaseHistory: PurchaseRecord[] = [
     total: 152.6,
   },
   {
-    id: 4,
+    id: '4',
     date: '2026-08-16',
     store: 'Kaufland',
     items: [
@@ -192,7 +193,7 @@ export const initialPurchaseHistory: PurchaseRecord[] = [
     discount: 25,
   },
   {
-    id: 5,
+    id: '5',
     date: '2026-09-03',
     store: 'Lidl',
     items: [
@@ -203,7 +204,7 @@ export const initialPurchaseHistory: PurchaseRecord[] = [
     total: 164.6,
   },
   {
-    id: 6,
+    id: '6',
     date: '2026-09-13',
     store: 'Kaufland',
     items: [

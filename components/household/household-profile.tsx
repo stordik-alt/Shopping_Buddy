@@ -4,8 +4,7 @@ import { ChildCard } from '@/components/household/child-card'
 import { MemberCard } from '@/components/household/member-card'
 import { MemberRow } from '@/components/household/member-row'
 import { TagInput } from '@/components/shared/tag-input'
-import { initialHousehold } from '@/lib/mock-data'
-import type { Child, HouseholdMember, PriceSensitivity, QualityPreference } from '@/lib/types'
+import type { Household, HouseholdPreferences, PriceSensitivity, QualityPreference } from '@/lib/types'
 
 const splitList = (value: string) =>
   value
@@ -13,8 +12,23 @@ const splitList = (value: string) =>
     .map((part) => part.trim())
     .filter(Boolean)
 
-export function HouseholdProfile() {
-  const [household, setHousehold] = useState(initialHousehold)
+export function HouseholdProfile({
+  household,
+  onUpdateHousehold,
+  onAddMember,
+  onRemoveMember,
+  onAddChild,
+  onRemoveChild,
+  onUpdatePreferences,
+}: {
+  household: Household
+  onUpdateHousehold: (changes: { name?: string; monthlyBudget?: number }) => void
+  onAddMember: (member: { name: string; age: number; favoriteFoods: string[]; dislikedFoods: string[]; allergies: string[] }) => void
+  onRemoveMember: (id: string) => void
+  onAddChild: (child: { name: string; age: number; preferences: string; specialNeeds?: string }) => void
+  onRemoveChild: (id: string) => void
+  onUpdatePreferences: (changes: Partial<HouseholdPreferences>) => void
+}) {
   const [invite, setInvite] = useState('')
   const [invited, setInvited] = useState<string[]>([])
   const [alerts, setAlerts] = useState(true)
@@ -33,41 +47,22 @@ export function HouseholdProfile() {
     const name = memberForm.name.trim()
     const age = Number(memberForm.age)
     if (!name || !Number.isFinite(age) || age <= 0) return
-    const member: HouseholdMember = {
-      id: Date.now(),
+    onAddMember({
       name,
-      role: 'Člen domácnosti',
       age,
-      preferences: '',
       favoriteFoods: splitList(memberForm.favoriteFoods),
       dislikedFoods: splitList(memberForm.dislikedFoods),
       allergies: splitList(memberForm.allergies),
-    }
-    setHousehold((current) => ({ ...current, members: [...current.members, member] }))
+    })
     setMemberForm({ name: '', age: '', favoriteFoods: '', dislikedFoods: '', allergies: '' })
-  }
-
-  function removeMember(id: number) {
-    setHousehold((current) => ({ ...current, members: current.members.filter((member) => member.id !== id) }))
   }
 
   function addChild() {
     const name = childForm.name.trim()
     const age = Number(childForm.age)
     if (!name || !Number.isFinite(age) || age <= 0) return
-    const child: Child = {
-      id: Date.now(),
-      name,
-      age,
-      preferences: childForm.preferences.trim(),
-      specialNeeds: childForm.specialNeeds.trim() || undefined,
-    }
-    setHousehold((current) => ({ ...current, children: [...current.children, child] }))
+    onAddChild({ name, age, preferences: childForm.preferences.trim(), specialNeeds: childForm.specialNeeds.trim() || undefined })
     setChildForm({ name: '', age: '', preferences: '', specialNeeds: '' })
-  }
-
-  function removeChild(id: number) {
-    setHousehold((current) => ({ ...current, children: current.children.filter((child) => child.id !== id) }))
   }
 
   return (
@@ -78,7 +73,7 @@ export function HouseholdProfile() {
           <span className="sr-only">Název domácnosti</span>
           <input
             value={household.name}
-            onChange={(event) => setHousehold((current) => ({ ...current, name: event.target.value }))}
+            onChange={(event) => onUpdateHousehold({ name: event.target.value })}
             className="w-full rounded-xl border border-transparent bg-transparent text-2xl font-semibold outline-none focus:border-input focus:bg-background focus:px-2 focus:py-1"
           />
         </label>
@@ -92,7 +87,7 @@ export function HouseholdProfile() {
             min="0"
             aria-label="Měsíční rozpočet"
             value={household.monthlyBudget}
-            onChange={(event) => setHousehold((current) => ({ ...current, monthlyBudget: Math.max(0, Number(event.target.value) || 0) }))}
+            onChange={(event) => onUpdateHousehold({ monthlyBudget: Math.max(0, Number(event.target.value) || 0) })}
             className="w-32 rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
           />
           <span className="text-sm text-muted-foreground">Kč / měsíc</span>
@@ -109,7 +104,7 @@ export function HouseholdProfile() {
         </div>
         <div className="mt-5 flex flex-col gap-2">
           {household.members.map((member) => (
-            <MemberCard key={member.id} member={member} onRemove={() => removeMember(member.id)} />
+            <MemberCard key={member.id} member={member} onRemove={() => onRemoveMember(member.id)} />
           ))}
         </div>
         <div className="mt-5 grid gap-2 rounded-2xl border border-dashed border-border p-4 sm:grid-cols-2">
@@ -183,7 +178,7 @@ export function HouseholdProfile() {
         <p className="mt-1 text-sm leading-relaxed text-muted-foreground">Samostatný profil dítěte s preferencemi a specifickými potřebami.</p>
         <div className="mt-5 flex flex-col gap-2">
           {household.children.map((child) => (
-            <ChildCard key={child.id} child={child} onRemove={() => removeChild(child.id)} />
+            <ChildCard key={child.id} child={child} onRemove={() => onRemoveChild(child.id)} />
           ))}
         </div>
         <div className="mt-5 grid gap-2 rounded-2xl border border-dashed border-border p-4 sm:grid-cols-2">
@@ -230,25 +225,25 @@ export function HouseholdProfile() {
           <TagInput
             label="Preferované značky"
             values={household.preferences.preferredBrands}
-            onChange={(values) => setHousehold((current) => ({ ...current, preferences: { ...current.preferences, preferredBrands: values } }))}
+            onChange={(values) => onUpdatePreferences({ preferredBrands: values })}
             placeholder="Např. Milka"
           />
           <TagInput
             label="Preferované obchody"
             values={household.preferences.preferredStores}
-            onChange={(values) => setHousehold((current) => ({ ...current, preferences: { ...current.preferences, preferredStores: values } }))}
+            onChange={(values) => onUpdatePreferences({ preferredStores: values })}
             placeholder="Např. Lidl"
           />
           <TagInput
             label="Preferované produkty"
             values={household.preferences.preferredProducts}
-            onChange={(values) => setHousehold((current) => ({ ...current, preferences: { ...current.preferences, preferredProducts: values } }))}
+            onChange={(values) => onUpdatePreferences({ preferredProducts: values })}
             placeholder="Např. Ovesné vločky"
           />
           <TagInput
             label="Produkty, které nekupovat"
             values={household.preferences.excludedProducts}
-            onChange={(values) => setHousehold((current) => ({ ...current, preferences: { ...current.preferences, excludedProducts: values } }))}
+            onChange={(values) => onUpdatePreferences({ excludedProducts: values })}
             placeholder="Např. Energetické nápoje"
           />
           <div className="grid gap-4 sm:grid-cols-2">
@@ -256,12 +251,7 @@ export function HouseholdProfile() {
               Cenová preference
               <select
                 value={household.preferences.priceSensitivity}
-                onChange={(event) =>
-                  setHousehold((current) => ({
-                    ...current,
-                    preferences: { ...current.preferences, priceSensitivity: event.target.value as PriceSensitivity },
-                  }))
-                }
+                onChange={(event) => onUpdatePreferences({ priceSensitivity: event.target.value as PriceSensitivity })}
                 className="mt-2 w-full rounded-xl border border-input bg-background px-3 py-2 outline-none"
               >
                 <option>Nejlevnější</option>
@@ -273,12 +263,7 @@ export function HouseholdProfile() {
               Preference kvality
               <select
                 value={household.preferences.qualityPreference}
-                onChange={(event) =>
-                  setHousehold((current) => ({
-                    ...current,
-                    preferences: { ...current.preferences, qualityPreference: event.target.value as QualityPreference },
-                  }))
-                }
+                onChange={(event) => onUpdatePreferences({ qualityPreference: event.target.value as QualityPreference })}
                 className="mt-2 w-full rounded-xl border border-input bg-background px-3 py-2 outline-none"
               >
                 <option>Standardní</option>
@@ -291,9 +276,7 @@ export function HouseholdProfile() {
             <input
               type="checkbox"
               checked={household.preferences.preferCzechProducts}
-              onChange={(event) =>
-                setHousehold((current) => ({ ...current, preferences: { ...current.preferences, preferCzechProducts: event.target.checked } }))
-              }
+              onChange={(event) => onUpdatePreferences({ preferCzechProducts: event.target.checked })}
               className="size-4 accent-primary"
             />
           </label>

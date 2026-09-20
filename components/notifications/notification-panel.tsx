@@ -8,7 +8,7 @@ export function NotificationPanel({
   onClose,
 }: {
   notifications: Notification[]
-  onRead: (id: number) => void
+  onRead: (id: string) => void
   onReadAll: () => void
   onClose: () => void
 }) {

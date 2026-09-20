@@ -5,7 +5,7 @@ export type ItemUnit = 'ks' | 'kg' | 'g' | 'l' | 'ml'
 export type ItemPriority = 'Nízká' | 'Normální' | 'Vysoká'
 
 export type Item = {
-  id: number
+  id: string
   name: string
   detail: string
   price: number
@@ -21,14 +21,14 @@ export type Item = {
 }
 
 export type Notification = {
-  id: number
+  id: string
   title: string
   detail: string
   unread: boolean
 }
 
 export type Expense = {
-  id: number
+  id: string
   amount: number
   note: string
   category: ItemCategory
@@ -36,7 +36,7 @@ export type Expense = {
 }
 
 export type HouseholdMember = {
-  id: number
+  id: string
   name: string
   role: 'Správce domácnosti' | 'Člen domácnosti'
   age: number
@@ -47,7 +47,7 @@ export type HouseholdMember = {
 }
 
 export type Child = {
-  id: number
+  id: string
   name: string
   age: number
   preferences: string
@@ -86,7 +86,7 @@ export type Store = {
 export type PurchaseItem = { name: string; quantity: number; unit: ItemUnit; price: number }
 
 export type PurchaseRecord = {
-  id: number
+  id: string
   date: string
   store: StoreChain
   items: PurchaseItem[]
@@ -95,6 +95,7 @@ export type PurchaseRecord = {
 }
 
 export type Household = {
+  id: string
   name: string
   monthlyBudget: number
   members: HouseholdMember[]

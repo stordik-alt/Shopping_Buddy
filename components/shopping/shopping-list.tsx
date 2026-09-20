@@ -48,9 +48,9 @@ export function ShoppingList({
   newItem: string
   setNewItem: (v: string) => void
   addItem: () => void
-  updateItem: (id: number, changes: Partial<Item>) => void
-  removeItem: (id: number) => void
-  toggle: (id: number) => void
+  updateItem: (id: string, changes: Partial<Item>) => void
+  removeItem: (id: string) => void
+  toggle: (id: string) => void
   lists: string[]
   onAddList: (name: string) => void
 }) {
@@ -62,7 +62,7 @@ export function ShoppingList({
   const [listName, setListName] = useState('')
   const [sort, setSort] = useState<SortKey>('Výchozí')
   const [group, setGroup] = useState<GroupKey>('Bez seskupení')
-  const [expandedId, setExpandedId] = useState<number | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const filteredItems = items.filter(
     (item) =>

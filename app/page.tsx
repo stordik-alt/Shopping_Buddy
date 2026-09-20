@@ -17,6 +17,7 @@ import { AppSidebar } from '@/components/shared/app-sidebar'
 import { MobileNav } from '@/components/shared/mobile-nav'
 import { ShoppingList } from '@/components/shopping/shopping-list'
 import { StoreDirectory } from '@/components/stores/store-directory'
+import { createItem } from '@/lib/items'
 import { initialExpenses, initialItems, initialNotifications, initialShoppingLists } from '@/lib/mock-data'
 import type { Tab } from '@/lib/types'
 
@@ -42,10 +43,7 @@ export default function Page() {
   function addItem() {
     const name = newItem.trim()
     if (!name) return
-    setItems((current) => [
-      ...current,
-      { id: Date.now(), name, detail: '1 ks · bez detailu', price: 0, quantity: 1, done: false, color: 'bg-emerald-100 text-emerald-700' },
-    ])
+    setItems((current) => [...current, createItem(name)])
     setNewItem('')
   }
 
@@ -102,15 +100,7 @@ export default function Page() {
                     onAddIngredients={(ingredients) => {
                       setItems((current) => [
                         ...current,
-                        ...ingredients.map((name) => ({
-                          id: Date.now() + Math.random(),
-                          name,
-                          detail: '1 ks · z jídelníčku',
-                          price: 0,
-                          quantity: 1,
-                          done: false,
-                          color: 'bg-emerald-100 text-emerald-700' as const,
-                        })),
+                        ...ingredients.map((name) => createItem(name, { detail: '1 ks · z jídelníčku', category: 'Potraviny' })),
                       ])
                       setTab('Nákup')
                     }}

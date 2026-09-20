@@ -1,10 +1,10 @@
 import type { Expense, Household, Item, Notification } from '@/lib/types'
 
 export const initialItems: Item[] = [
-  { id: 1, name: 'Mléko polotučné', detail: '2 l · Mlékárna Kunín', price: 44.9, quantity: 2, done: false, color: 'bg-sky-100 text-sky-700' },
-  { id: 2, name: 'Banány', detail: '1 kg · volné', price: 34.9, quantity: 1, done: false, color: 'bg-amber-100 text-amber-700' },
-  { id: 3, name: 'Kuřecí prsa', detail: '500 g · chlazené', price: 89.9, quantity: 1, done: true, color: 'bg-rose-100 text-rose-700' },
-  { id: 4, name: 'Toaletní papír', detail: '8 ks · Softy', price: 79.9, quantity: 1, done: false, color: 'bg-violet-100 text-violet-700' },
+  { id: 1, name: 'Mléko polotučné', detail: '2 l · Mlékárna Kunín', price: 44.9, quantity: 2, unit: 'l', category: 'Potraviny', done: false, color: 'bg-sky-100 text-sky-700', priority: 'Normální', store: 'Lidl', onSale: true },
+  { id: 2, name: 'Banány', detail: '1 kg · volné', price: 34.9, quantity: 1, unit: 'kg', category: 'Potraviny', done: false, color: 'bg-amber-100 text-amber-700', priority: 'Normální' },
+  { id: 3, name: 'Kuřecí prsa', detail: '500 g · chlazené', price: 89.9, quantity: 1, unit: 'g', category: 'Potraviny', done: true, color: 'bg-rose-100 text-rose-700', priority: 'Vysoká', store: 'Albert', onSale: true },
+  { id: 4, name: 'Toaletní papír', detail: '8 ks · Softy', price: 79.9, quantity: 1, unit: 'ks', category: 'Drogerie', done: false, color: 'bg-violet-100 text-violet-700', priority: 'Nízká' },
 ]
 
 export const initialNotifications: Notification[] = [

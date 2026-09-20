@@ -6,7 +6,7 @@ Tento balíček obsahuje 15 samostatných kontextových souborů. Každý soubor
 Pořadí:
 01 Stabilizace frontendu — HOTOVO
 02 Rodinný profil a domácnost — HOTOVO
-03 Chytrý nákupní seznam
+03 Chytrý nákupní seznam — HOTOVO
 04 Týdenní nákup a jídelníček
 05 Obchody a lokalita
 06 Ceny a akce

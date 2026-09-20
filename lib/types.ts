@@ -1,16 +1,23 @@
 export type Tab = 'Domů' | 'Nákup' | 'Obchody' | 'Rozpočet' | 'AI' | 'Profil'
 
+export type ItemCategory = 'Potraviny' | 'Drogerie' | 'Děti' | 'Domácnost' | 'Ostatní'
+export type ItemUnit = 'ks' | 'kg' | 'g' | 'l' | 'ml'
+export type ItemPriority = 'Nízká' | 'Normální' | 'Vysoká'
+
 export type Item = {
   id: number
   name: string
   detail: string
   price: number
   quantity: number
+  unit: ItemUnit
+  category: ItemCategory
   done: boolean
   color: string
-  priority?: 'Nízká' | 'Normální' | 'Vysoká'
+  priority: ItemPriority
   note?: string
   store?: string
+  onSale?: boolean
 }
 
 export type Notification = {

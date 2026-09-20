@@ -1,12 +1,35 @@
 import { useState } from 'react'
-import { Check, ListChecks, Plus, Search, X } from 'lucide-react'
-import type { Item } from '@/lib/types'
+import { Check, ChevronDown, ListChecks, Plus, Search, Tag, X } from 'lucide-react'
+import type { Item, ItemCategory, ItemPriority, ItemUnit } from '@/lib/types'
 import { money } from '@/lib/format'
 
-const CATEGORIES = ['Vše', 'Potraviny', 'Drogerie', 'Děti']
+const CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
+const UNITS: ItemUnit[] = ['ks', 'kg', 'g', 'l', 'ml']
+const PRIORITIES: ItemPriority[] = ['Nízká', 'Normální', 'Vysoká']
+const STORES = ['Lidl', 'Albert', 'Kaufland', 'Billa']
+const PRIORITY_WEIGHT: Record<ItemPriority, number> = { Vysoká: 0, Normální: 1, Nízká: 2 }
 
-const categoryFor = (name: string) =>
-  /děti|pleny|dětské/i.test(name) ? 'Děti' : /papír|prací|droger|šampon/i.test(name) ? 'Drogerie' : 'Potraviny'
+type SortKey = 'Výchozí' | 'Název' | 'Cena' | 'Priorita'
+type GroupKey = 'Bez seskupení' | 'Podle kategorie' | 'Podle obchodu'
+
+function sortItems(items: Item[], sort: SortKey) {
+  const sorted = [...items]
+  if (sort === 'Název') sorted.sort((a, b) => a.name.localeCompare(b.name, 'cs'))
+  if (sort === 'Cena') sorted.sort((a, b) => b.price * b.quantity - a.price * a.quantity)
+  if (sort === 'Priorita') sorted.sort((a, b) => PRIORITY_WEIGHT[a.priority] - PRIORITY_WEIGHT[b.priority])
+  return sorted
+}
+
+function groupItems(items: Item[], group: GroupKey) {
+  if (group === 'Bez seskupení') return [{ label: null as string | null, items }]
+  const key = group === 'Podle kategorie' ? 'category' : 'store'
+  const groups = new Map<string, Item[]>()
+  for (const item of items) {
+    const label = (group === 'Podle kategorie' ? item.category : item.store) || 'Bez obchodu'
+    groups.set(label, [...(groups.get(label) ?? []), item])
+  }
+  return Array.from(groups.entries()).map(([label, groupedItems]) => ({ label, items: groupedItems }))
+}
 
 export function ShoppingList({
   items,
@@ -35,13 +58,18 @@ export function ShoppingList({
   const [activeList, setActiveList] = useState(lists[0])
   const [listDialog, setListDialog] = useState(false)
   const [listName, setListName] = useState('')
+  const [sort, setSort] = useState<SortKey>('Výchozí')
+  const [group, setGroup] = useState<GroupKey>('Bez seskupení')
+  const [expandedId, setExpandedId] = useState<number | null>(null)
 
-  const visibleItems = items.filter(
+  const filteredItems = items.filter(
     (item) =>
       item.name.toLowerCase().includes(query.toLowerCase()) &&
-      (category === 'Vše' || categoryFor(item.name) === category) &&
+      (category === 'Vše' || item.category === category) &&
       (showCompleted || !item.done),
   )
+  const visibleItems = sortItems(filteredItems, sort)
+  const groupedItems = groupItems(visibleItems, group)
   const completedCount = items.filter((item) => item.done).length
 
   function createList() {
@@ -56,7 +84,7 @@ export function ShoppingList({
   return (
     <div className="mx-auto max-w-3xl space-y-5">
       <div className="flex gap-2 overflow-x-auto pb-1" aria-label="Kategorie nákupu">
-        {CATEGORIES.map((option) => (
+        {['Vše', ...CATEGORIES].map((option) => (
           <button
             key={option}
             onClick={() => setCategory(option)}
@@ -96,7 +124,7 @@ export function ShoppingList({
           + Nový seznam
         </button>
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           onClick={() => setShowCompleted((current) => !current)}
           className="rounded-xl border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted"
@@ -112,6 +140,32 @@ export function ShoppingList({
             Vymazat hotové
           </button>
         )}
+        <label className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+          Řadit
+          <select
+            aria-label="Řadit položky"
+            value={sort}
+            onChange={(event) => setSort(event.target.value as SortKey)}
+            className="rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none"
+          >
+            {(['Výchozí', 'Název', 'Cena', 'Priorita'] as SortKey[]).map((option) => (
+              <option key={option}>{option}</option>
+            ))}
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          Seskupit
+          <select
+            aria-label="Seskupit položky"
+            value={group}
+            onChange={(event) => setGroup(event.target.value as GroupKey)}
+            className="rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none"
+          >
+            {(['Bez seskupení', 'Podle kategorie', 'Podle obchodu'] as GroupKey[]).map((option) => (
+              <option key={option}>{option}</option>
+            ))}
+          </select>
+        </label>
       </div>
       {listDialog && (
         <div className="flex gap-2 rounded-2xl border border-primary/30 bg-card p-3">
@@ -167,60 +221,161 @@ export function ShoppingList({
           <p className="mt-1 text-sm text-muted-foreground">Přidejte první položku pomocí formuláře výše.</p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-3xl border border-border bg-card">
-          <div className="flex items-center justify-between border-b border-border px-5 py-4">
-            <div className="flex items-center gap-2">
-              <ListChecks className="h-4 w-4 text-primary" />
-              <span className="text-sm font-semibold">{items.filter((i) => !i.done).length} zbývá</span>
-            </div>
-            <span className="text-xs text-muted-foreground">Odhad {money(items.reduce((sum, i) => sum + i.price * i.quantity, 0))}</span>
-          </div>
-          {visibleItems.map((item) => (
-            <div key={item.id} className="flex items-center gap-3 border-b border-border px-5 py-4 last:border-0">
-              <button
-                aria-label={item.done ? 'Označit jako nedokončené' : 'Označit jako zakoupené'}
-                onClick={() => toggle(item.id)}
-                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${item.done ? 'border-primary bg-primary text-primary-foreground' : 'border-input'}`}
-              >
-                {item.done && <Check className="h-4 w-4" />}
-              </button>
-              <div className="min-w-0 flex-1">
-                <p className={`font-medium ${item.done ? 'text-muted-foreground line-through' : ''}`}>{item.name}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{item.detail}</p>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <label className="text-xs text-muted-foreground">
-                    Ks
-                    <input
-                      aria-label={`Množství ${item.name}`}
-                      type="number"
-                      min="1"
-                      value={item.quantity}
-                      onChange={(e) => updateItem(item.id, { quantity: Math.max(1, Number(e.target.value) || 1) })}
-                      className="ml-1 w-14 rounded-lg border border-input bg-background px-2 py-1 text-xs"
-                    />
-                  </label>
-                  <label className="text-xs text-muted-foreground">
-                    Cena
-                    <input
-                      aria-label={`Cena ${item.name}`}
-                      type="number"
-                      min="0"
-                      step="0.1"
-                      value={item.price}
-                      onChange={(e) => updateItem(item.id, { price: Math.max(0, Number(e.target.value) || 0) })}
-                      className="ml-1 w-20 rounded-lg border border-input bg-background px-2 py-1 text-xs"
-                    />
-                  </label>
-                  <span className="text-xs font-medium text-primary">{money(item.price * item.quantity)}</span>
+        <div className="space-y-4">
+          {groupedItems.map(({ label, items: groupItemsList }) => (
+            <div key={label ?? 'all'} className="overflow-hidden rounded-3xl border border-border bg-card">
+              <div className="flex items-center justify-between border-b border-border px-5 py-4">
+                <div className="flex items-center gap-2">
+                  <ListChecks className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-semibold">{label ?? `${filteredItems.filter((i) => !i.done).length} zbývá`}</span>
                 </div>
+                <span className="text-xs text-muted-foreground">
+                  Odhad {money(groupItemsList.reduce((sum, i) => sum + i.price * i.quantity, 0))}
+                </span>
               </div>
-              <button
-                aria-label={`Odstranit ${item.name}`}
-                onClick={() => removeItem(item.id)}
-                className="rounded-lg p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              {groupItemsList.map((item) => (
+                <div key={item.id} className="border-b border-border last:border-0">
+                  <div className="flex items-center gap-3 px-5 py-4">
+                    <button
+                      aria-label={item.done ? 'Označit jako nedokončené' : 'Označit jako zakoupené'}
+                      onClick={() => toggle(item.id)}
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${item.done ? 'border-primary bg-primary text-primary-foreground' : 'border-input'}`}
+                    >
+                      {item.done && <Check className="h-4 w-4" />}
+                    </button>
+                    <button onClick={() => setExpandedId((current) => (current === item.id ? null : item.id))} className="min-w-0 flex-1 text-left">
+                      <span className="flex items-center gap-2">
+                        <span className={`font-medium ${item.done ? 'text-muted-foreground line-through' : ''}`}>{item.name}</span>
+                        {item.onSale && (
+                          <span className="flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                            <Tag className="h-2.5 w-2.5" /> Akce
+                          </span>
+                        )}
+                        {item.priority === 'Vysoká' && (
+                          <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold text-destructive">Priorita</span>
+                        )}
+                      </span>
+                      <span className="mt-1 block text-xs text-muted-foreground">
+                        {item.category} · {item.store || 'Bez obchodu'}
+                      </span>
+                    </button>
+                    <span className="text-sm font-semibold text-primary">{money(item.price * item.quantity)}</span>
+                    <button
+                      aria-label="Zobrazit detail položky"
+                      onClick={() => setExpandedId((current) => (current === item.id ? null : item.id))}
+                      className="rounded-lg p-2 text-muted-foreground hover:bg-muted"
+                    >
+                      <ChevronDown className={`h-4 w-4 transition ${expandedId === item.id ? 'rotate-180' : ''}`} />
+                    </button>
+                    <button
+                      aria-label={`Odstranit ${item.name}`}
+                      onClick={() => removeItem(item.id)}
+                      className="rounded-lg p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  {expandedId === item.id && (
+                    <div className="grid gap-3 border-t border-border bg-muted/40 px-5 py-4 sm:grid-cols-2">
+                      <label className="text-xs text-muted-foreground">
+                        Množství
+                        <input
+                          aria-label={`Množství ${item.name}`}
+                          type="number"
+                          min="1"
+                          value={item.quantity}
+                          onChange={(e) => updateItem(item.id, { quantity: Math.max(1, Number(e.target.value) || 1) })}
+                          className="mt-1 w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+                        />
+                      </label>
+                      <label className="text-xs text-muted-foreground">
+                        Jednotka
+                        <select
+                          aria-label={`Jednotka ${item.name}`}
+                          value={item.unit}
+                          onChange={(e) => updateItem(item.id, { unit: e.target.value as ItemUnit })}
+                          className="mt-1 w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+                        >
+                          {UNITS.map((unit) => (
+                            <option key={unit}>{unit}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="text-xs text-muted-foreground">
+                        Odhadovaná cena
+                        <input
+                          aria-label={`Cena ${item.name}`}
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          value={item.price}
+                          onChange={(e) => updateItem(item.id, { price: Math.max(0, Number(e.target.value) || 0) })}
+                          className="mt-1 w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+                        />
+                      </label>
+                      <label className="text-xs text-muted-foreground">
+                        Kategorie
+                        <select
+                          aria-label={`Kategorie ${item.name}`}
+                          value={item.category}
+                          onChange={(e) => updateItem(item.id, { category: e.target.value as ItemCategory })}
+                          className="mt-1 w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+                        >
+                          {CATEGORIES.map((cat) => (
+                            <option key={cat}>{cat}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="text-xs text-muted-foreground">
+                        Preferovaný obchod
+                        <select
+                          aria-label={`Obchod ${item.name}`}
+                          value={item.store || ''}
+                          onChange={(e) => updateItem(item.id, { store: e.target.value || undefined })}
+                          className="mt-1 w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+                        >
+                          <option value="">Bez preference</option>
+                          {STORES.map((store) => (
+                            <option key={store}>{store}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="text-xs text-muted-foreground">
+                        Priorita
+                        <select
+                          aria-label={`Priorita ${item.name}`}
+                          value={item.priority}
+                          onChange={(e) => updateItem(item.id, { priority: e.target.value as ItemPriority })}
+                          className="mt-1 w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+                        >
+                          {PRIORITIES.map((priority) => (
+                            <option key={priority}>{priority}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="text-xs text-muted-foreground sm:col-span-2">
+                        Poznámka
+                        <input
+                          aria-label={`Poznámka ${item.name}`}
+                          value={item.note || ''}
+                          onChange={(e) => updateItem(item.id, { note: e.target.value })}
+                          placeholder="Např. vzít bez laktózy"
+                          className="mt-1 w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+                        />
+                      </label>
+                      <label className="flex items-center gap-2 text-xs text-muted-foreground sm:col-span-2">
+                        <input
+                          type="checkbox"
+                          checked={item.onSale || false}
+                          onChange={(e) => updateItem(item.id, { onSale: e.target.checked })}
+                          className="size-4 accent-primary"
+                        />
+                        Aktuálně v akci
+                      </label>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           ))}
         </div>

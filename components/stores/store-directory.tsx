@@ -1,39 +1,32 @@
 import { useState } from 'react'
 import { ArrowUpRight, Loader2, LocateFixed, MapPin, Search, Tag, X } from 'lucide-react'
 import { distanceKm, type GpsCoords } from '@/lib/geo'
+import type { LocationState } from '@/lib/use-user-location'
 import type { Store } from '@/lib/types'
 
-type LocationState = 'idle' | 'loading' | 'granted' | 'denied'
-
-export function StoreDirectory({ stores }: { stores: Store[] }) {
+export function StoreDirectory({
+  stores,
+  locationState,
+  userCoords,
+  onRequestLocation,
+}: {
+  stores: Store[]
+  locationState: LocationState
+  userCoords: GpsCoords | null
+  onRequestLocation: () => void
+}) {
   const [location, setLocation] = useState('Praha 4')
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
-  const [locationState, setLocationState] = useState<LocationState>('idle')
-  const [userCoords, setUserCoords] = useState<GpsCoords | null>(null)
-
-  function useMyLocation() {
-    if (!('geolocation' in navigator)) {
-      setLocationState('denied')
-      return
-    }
-    setLocationState('loading')
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setUserCoords({ lat: position.coords.latitude, lng: position.coords.longitude })
-        setLocationState('granted')
-      },
-      () => setLocationState('denied'),
-      { timeout: 8000 },
-    )
-  }
 
   const storesWithDistance = stores
     .map((store) => ({ ...store, distanceKm: userCoords ? distanceKm(userCoords, store.gps) : null }))
     .sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity))
 
   const visibleStores = storesWithDistance.filter(
-    (store) => store.name.toLowerCase().includes(query.toLowerCase()) || store.chain.toLowerCase().includes(query.toLowerCase()),
+    (store) =>
+      (store.name.toLowerCase().includes(query.toLowerCase()) || store.chain.toLowerCase().includes(query.toLowerCase())) &&
+      (location.trim() === '' || store.address.toLowerCase().includes(location.trim().toLowerCase())),
   )
   const activeStore = storesWithDistance.find((store) => store.id === selected)
 
@@ -56,7 +49,7 @@ export function StoreDirectory({ stores }: { stores: Store[] }) {
           />
         </label>
         <button
-          onClick={useMyLocation}
+          onClick={onRequestLocation}
           disabled={locationState === 'loading'}
           className="flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm font-medium hover:bg-muted disabled:opacity-60"
         >

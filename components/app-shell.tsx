@@ -36,6 +36,7 @@ import { TODAY } from '@/lib/budget'
 import type { HouseholdData } from '@/lib/db/queries'
 import type { ProductPrice } from '@/lib/prices'
 import type { Item, Store, Tab } from '@/lib/types'
+import { useUserLocation } from '@/lib/use-user-location'
 
 export function AppShell({
   initialData,
@@ -60,6 +61,7 @@ export function AppShell({
   const [shoppingLists, setShoppingLists] = useState(initialData.shoppingLists)
   const [pendingInvitations, setPendingInvitations] = useState(initialData.pendingInvitations)
   const router = useRouter()
+  const userLocation = useUserLocation()
 
   // Shared households (Phase B "concurrent edits"): initialData comes from a Server Component
   // fetch, so another member's changes only reach this client on the next server re-render.
@@ -254,9 +256,18 @@ export function AppShell({
                   onAddList={addShoppingListName}
                   productPrices={productPrices}
                   remaining={remaining}
+                  stores={stores}
+                  userCoords={userLocation.coords}
                 />
               )}
-              {tab === 'Obchody' && <StoreDirectory stores={stores} />}
+              {tab === 'Obchody' && (
+                <StoreDirectory
+                  stores={stores}
+                  locationState={userLocation.state}
+                  userCoords={userLocation.coords}
+                  onRequestLocation={userLocation.requestLocation}
+                />
+              )}
               {tab === 'Rozpočet' && (
                 <div className="space-y-6">
                   <BudgetOverview

@@ -26,7 +26,7 @@
 - ~~unit-price comparison~~ done — was already covered per-item by `PriceComparison`; the above extends it to whole-list, whole-store totals
 - ~~promotion quality~~ done: `lib/prices.ts`'s `assessDealQuality()`, wired into `price-watch.tsx` — flags a deal that isn't actually the cheapest price for that product across known stores (see `docs/07_CHANGELOG.md`)
 - stock/storage constraints
-- trip-distance constraints
+- ~~trip-distance constraints~~ done: `lib/geo.ts`'s `nearestLocation()`, surfaced in `store-comparison.tsx` next to each store's total when the user has granted location (shared, via a new `useUserLocation()` hook, with the Stores tab's existing opt-in — never a second prompt). Shown as one more factor, never auto-selects the nearest store, per `docs/05_BUSINESS_RULES.md` (see `docs/07_CHANGELOG.md`)
 - ~~budget constraints~~ done: `lib/budget.ts`'s `budgetImpact()`, surfaced in `store-comparison.tsx` — flags when even the cheapest store option exceeds the household's remaining monthly budget, otherwise shows what percentage of it the trip would use (see `docs/07_CHANGELOG.md`)
 - bulk-buy recommendations
 - historical-price awareness

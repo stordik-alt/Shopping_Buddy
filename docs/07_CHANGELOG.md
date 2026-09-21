@@ -1,5 +1,17 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-21 (fix: manual location field in store directory did nothing)
+- User-reported: choosing your own location didn't work. Found the actual bug: `store-directory.tsx`'s "Lokalita" text field (`location` state, defaulting to "Praha 4") was set by its own input's `onChange` but never read anywhere else in the component — it didn't filter, sort, or affect distance in any way. Pure dead UI, pre-existing before this session's changes.
+- Fixed: `visibleStores` now also filters by whether a store's address contains the typed location text (case-insensitive), alongside the existing name/chain search. Verified the default value "Praha 4" still matches all 6 seeded store addresses (all genuinely are in Prague 4), so this doesn't hide anything by default — only narrows results once the user types something more specific (e.g. a street name).
+- Separately, the GPS "Použít mou polohu" button's own logic (`lib/use-user-location.ts`) was re-checked line by line and looks structurally correct — it's the same logic that existed before, just moved. Couldn't reproduce or rule out a real-device/browser permission issue without a browser to test in. If that button specifically is still not working after this fix, need to know exactly what happens when it's clicked (error text shown, browser permission prompt never appears, button does nothing, etc.) to keep investigating.
+
+## 2026-09-21 (Smart Shopping Engine: trip-distance constraints)
+### Roadmap Phase C: trip-distance constraints
+- Added `nearestLocation()` to `lib/geo.ts` — the closest of several locations (e.g. a chain's branches) to the user, with its distance. 2 new unit tests.
+- Geolocation was previously local-only state inside `store-directory.tsx`, so a location grant there couldn't be reused anywhere else. Extracted `useUserLocation()` (`lib/use-user-location.ts`) and lifted it to `AppShell`, passed down to both `StoreDirectory` (refactored to take `locationState`/`userCoords`/`onRequestLocation` as props instead of owning them) and the new consumer, `store-comparison.tsx`. One opt-in grant now works in both places — no second prompt.
+- `store-comparison.tsx` now shows each store's distance next to its total when location is available, as one more factor — it never auto-picks the nearest store, per `docs/05_BUSINESS_RULES.md` ("distance is one factor, not an automatic command to use the nearest store").
+- Verified `nearestLocation()` against real store location data (`getStores()`): correctly picked each chain's actual nearest branch with plausible Prague-area distances (all real branches within ~5km of a point in Budějovická, matching real Prague geography).
+
 ## 2026-09-21 (Smart Shopping Engine: promotion quality)
 ### Roadmap Phase C: promotion quality
 - Added `assessDealQuality()` to `lib/prices.ts` — per `docs/05_BUSINESS_RULES.md`: "A promotion is not automatically a good deal just because its percentage discount is large." Checks whether an active deal's effective price is actually the cheapest across all known stores for that product, not just cheaper than its own regular price. 4 new unit tests (not-best-price, confirmed-best-price, tie handling, only-active-deals).

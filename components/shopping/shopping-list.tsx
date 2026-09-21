@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Check, ChevronDown, ListChecks, Plus, Search, Tag, X } from 'lucide-react'
-import type { Item, ItemCategory, ItemPriority, ItemUnit, StoreChain } from '@/lib/types'
+import type { GpsCoords } from '@/lib/geo'
+import type { Item, ItemCategory, ItemPriority, ItemUnit, Store, StoreChain } from '@/lib/types'
 import { money } from '@/lib/format'
 import { comparePrices, type ProductPrice } from '@/lib/prices'
 import { PriceComparison } from '@/components/shopping/price-comparison'
@@ -46,6 +47,8 @@ export function ShoppingList({
   onAddList,
   productPrices,
   remaining,
+  stores,
+  userCoords,
 }: {
   items: Item[]
   newItem: string
@@ -58,6 +61,8 @@ export function ShoppingList({
   onAddList: (name: string) => void
   productPrices: ProductPrice[]
   remaining: number
+  stores: Store[]
+  userCoords: GpsCoords | null
 }) {
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('Vše')
@@ -111,7 +116,7 @@ export function ShoppingList({
           {items.length} položek · {completedCount} hotovo
         </span>
       </div>
-      <StoreComparison items={items} productPrices={productPrices} remaining={remaining} />
+      <StoreComparison items={items} productPrices={productPrices} remaining={remaining} stores={stores} userCoords={userCoords} />
       <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Nákupní seznamy">
         {lists.map((list) => (
           <button

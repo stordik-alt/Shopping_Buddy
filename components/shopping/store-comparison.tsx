@@ -1,10 +1,23 @@
 import { AlertTriangle, ArrowDownRight, MapPin } from 'lucide-react'
 import { budgetImpact } from '@/lib/budget'
 import { money } from '@/lib/format'
+import { nearestLocation, type GpsCoords } from '@/lib/geo'
 import { cheapestPossibleTotal, compareStoreTotals, type ProductPrice } from '@/lib/prices'
-import type { Item } from '@/lib/types'
+import type { Item, Store } from '@/lib/types'
 
-export function StoreComparison({ items, productPrices, remaining }: { items: Item[]; productPrices: ProductPrice[]; remaining: number }) {
+export function StoreComparison({
+  items,
+  productPrices,
+  remaining,
+  stores,
+  userCoords,
+}: {
+  items: Item[]
+  productPrices: ProductPrice[]
+  remaining: number
+  stores: Store[]
+  userCoords: GpsCoords | null
+}) {
   const pendingCount = items.filter((item) => !item.done).length
   const totals = compareStoreTotals(items, productPrices)
   if (pendingCount === 0 || totals.length === 0) return null
@@ -33,7 +46,14 @@ export function StoreComparison({ items, productPrices, remaining }: { items: It
             className={`flex items-center justify-between gap-3 rounded-2xl p-3 text-sm ${index === 0 ? 'bg-primary/10 text-primary' : 'bg-muted text-foreground'}`}
           >
             <div className="min-w-0">
-              <p className="font-medium">{entry.store}</p>
+              <p className="flex items-center gap-1.5 font-medium">
+                {entry.store}
+                {userCoords &&
+                  (() => {
+                    const nearest = nearestLocation(userCoords, stores.filter((store) => store.chain === entry.store))
+                    return nearest && <span className="text-xs font-normal text-muted-foreground">· {nearest.distanceKm.toFixed(1)} km</span>
+                  })()}
+              </p>
               {entry.itemsFallback > 0 && (
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {entry.itemsPriced} z {entry.itemsPriced + entry.itemsFallback} položek podle skutečných cen, zbytek odhadem

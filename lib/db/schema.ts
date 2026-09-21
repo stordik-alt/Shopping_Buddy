@@ -22,6 +22,10 @@ export const households = pgTable('households', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
   monthlyBudget: numeric('monthly_budget', { precision: 10, scale: 2 }).notNull().default('0'),
+  // ISO 4217 code. The household's home currency — all its own money values (budget, expenses,
+  // purchases) are denominated in this. Defaults to CZK; the first market is Czech Republic
+  // (docs/00_PROJECT_CONTEXT.md), but the column exists so a future household isn't hard-coded to it.
+  currency: text('currency').notNull().default('CZK'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
@@ -120,6 +124,10 @@ export const prices = pgTable('prices', {
   productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
   storeLocationId: uuid('store_location_id').notNull().references(() => storeLocations.id, { onDelete: 'cascade' }),
   regularPrice: numeric('regular_price', { precision: 10, scale: 2 }).notNull(),
+  // ISO 4217 code — per docs/03_DATABASE.md rule 9 ("Prices must have explicit currency").
+  // Lives on the price row (not just the store) since a store's prices could in principle span
+  // currencies without this, e.g. a cross-border retailer.
+  currency: text('currency').notNull().default('CZK'),
   unit: itemUnitEnum('unit').notNull(),
   unitPrice: numeric('unit_price', { precision: 10, scale: 2 }).notNull(),
   recordedAt: date('recorded_at').notNull(),
@@ -130,6 +138,7 @@ export const deals = pgTable('deals', {
   productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
   storeLocationId: uuid('store_location_id').notNull().references(() => storeLocations.id, { onDelete: 'cascade' }),
   dealPrice: numeric('deal_price', { precision: 10, scale: 2 }).notNull(),
+  currency: text('currency').notNull().default('CZK'),
   validFrom: date('valid_from').notNull(),
   validUntil: date('valid_until').notNull(),
 })

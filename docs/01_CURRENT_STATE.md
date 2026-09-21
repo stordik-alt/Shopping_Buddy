@@ -635,17 +635,18 @@ Automated testing has been started.
 Tests currently cover areas including:
 
 * budget
-* prices
+* prices (including historic-low detection)
 * meal plans
 * geographic/store logic
+* shopping reminders (staleness logic)
+* shopping-list Server Actions and their household-scoping checks, against the real dev database (`app/actions/shopping.test.ts`)
+* invitation/join-via-invitation logic and its notification, against the real dev database (`lib/db/queries.test.ts`)
 
 Further tests are still required for:
 
-* server actions
-* authentication
-* household authorization
-* auto-provisioning
-* invitation/join flows
+* Server Actions outside `app/actions/shopping.ts` (household, budget, meal-plan actions)
+* full session/cookie-level authentication (would need e2e testing, not attempted)
+* auto-provisioning (new-household-on-first-login path)
 * price ingestion
 * promotion normalization
 * shopping optimization
@@ -825,11 +826,11 @@ Database foundation exists, but UI and domain-wide localization still require wo
 
 ## Server action tests
 
-More automated coverage is required.
+Started 2026-09-21: `app/actions/shopping.test.ts` covers `addShoppingItemAction`, `toggleShoppingItemAction`, `removeShoppingItemAction` against the real dev database (`requireHouseholdId()` and `next/cache`'s `revalidatePath()` mocked, since both need a real Next.js request context that a test process doesn't have — everything else, including all DB writes, is the real code). Only `app/actions/shopping.ts` is covered so far; `app/actions/household.ts`, `app/actions/budget.ts`, and the rest remain untested.
 
 ## Authorization tests
 
-Household-level access control requires broader automated coverage.
+Started 2026-09-21, same file: verifies a list/item id belonging to a different household is rejected rather than trusted from the client, for the shopping actions above. Broader household-scoping coverage across other Server Actions is still open. Full session/cookie-level authentication testing (an actual signed-in browser session) is not attempted — that would need e2e testing (e.g. Playwright) against a running dev server, not unit/integration tests.
 
 ## Purchase analytics
 
@@ -878,6 +879,7 @@ Recent development has included:
 * currency fields
 * migration baseline
 * automated tests for selected domains
+* first Server Action / household-authorization tests, running against the real dev database rather than mocks
 * removal of the TypeScript build-error bypass
 
 ---

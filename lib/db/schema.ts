@@ -1,5 +1,5 @@
 import { relations } from 'drizzle-orm'
-import { boolean, date, integer, numeric, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { boolean, date, index, integer, numeric, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 
 // --- Enums -----------------------------------------------------------------
 
@@ -30,28 +30,38 @@ export const households = pgTable('households', {
 })
 
 // Membership: links a user account to a household with a permission role.
-export const householdMembers = pgTable('household_members', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
-  // References neon_auth.user(id); no Drizzle-level FK because that schema is managed by Neon Auth.
-  userId: uuid('user_id'),
-  name: text('name').notNull(),
-  role: memberRoleEnum('role').notNull().default('member'),
-  joinedAt: timestamp('joined_at').notNull().defaultNow(),
-})
+export const householdMembers = pgTable(
+  'household_members',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+    // References neon_auth.user(id); no Drizzle-level FK because that schema is managed by Neon Auth.
+    userId: uuid('user_id'),
+    name: text('name').notNull(),
+    role: memberRoleEnum('role').notNull().default('member'),
+    joinedAt: timestamp('joined_at').notNull().defaultNow(),
+  },
+  // Looked up by userId on every authenticated request (lib/auth/authorize.ts's requireHousehold()) — the single hottest query in the app.
+  (table) => [index('household_members_user_id_idx').on(table.userId)],
+)
 
 // A pending (or resolved) invite for someone to join a household. Token-based join link
 // rather than emailed automatically — no email-sending integration is provisioned yet.
-export const invitations = pgTable('invitations', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
-  email: text('email').notNull(),
-  token: text('token').notNull().unique(),
-  status: invitationStatusEnum('status').notNull().default('pending'),
-  invitedByMemberId: uuid('invited_by_member_id').references(() => householdMembers.id, { onDelete: 'set null' }),
-  expiresAt: timestamp('expires_at').notNull(),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-})
+export const invitations = pgTable(
+  'invitations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+    email: text('email').notNull(),
+    token: text('token').notNull().unique(),
+    status: invitationStatusEnum('status').notNull().default('pending'),
+    invitedByMemberId: uuid('invited_by_member_id').references(() => householdMembers.id, { onDelete: 'set null' }),
+    expiresAt: timestamp('expires_at').notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  // Looked up by email on every first login (lib/db/queries.ts's getHouseholdData()) to check for a pending invite.
+  (table) => [index('invitations_email_idx').on(table.email)],
+)
 
 // Extended profile data for a household member (food preferences, allergies).
 export const profiles = pgTable('profiles', {

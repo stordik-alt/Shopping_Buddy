@@ -21,14 +21,7 @@
 - household-wide shopping lists
 - household-wide preferences where appropriate
 
-## Phase C — AI Shopping Assistant
-- grounded context retrieval
-- natural-language shopping commands
-- meal-plan assistance
-- explanations of price and budget choices
-- strict anti-hallucination rules
-
-## Phase D — Smart Shopping Engine
+## Phase C — Smart Shopping Engine
 - compare selected stores
 - unit-price comparison
 - promotion quality
@@ -38,20 +31,20 @@
 - bulk-buy recommendations
 - historical-price awareness
 
-## Phase E — Notifications
+## Phase D — Notifications
 - price/deal alerts
 - shopping reminders
 - budget warnings
 - household events
 
-## Phase F — Global
+## Phase E — Global
 - country/locale/currency
 - retailer adapters
 - localized units and taxes where relevant
 - localized language
 - regional data providers
 
-## Phase G — Product hardening
+## Phase F — Product hardening
 - security audit
 - accessibility
 - performance
@@ -59,6 +52,14 @@
 - backup/recovery strategy
 - test coverage
 - release process
+
+## Phase G — AI Shopping Assistant
+**Deliberately last, not after Phase B as originally ordered** — explicit product decision (2026-09-21): real AI integration needs a provider/model chosen through the Vercel AI Gateway, which carries an ongoing per-call cost. The owner wants every other phase's foundations (including hardening) solid first, with no LLM spend until then. Until this phase starts: no AI SDK/Gateway dependency, no LLM calls, `components/ai/ai-assistant.tsx` stays a UI-only placeholder. "Preparing the environment" for this phase means keeping the data layer well-structured and documented (`lib/db/queries.ts`, `docs/06_AI_RULES.md`) — not pre-scaffolding a provider integration.
+- grounded context retrieval
+- natural-language shopping commands
+- meal-plan assistance
+- explanations of price and budget choices
+- strict anti-hallucination rules
 
 ## Rule
 Do not implement a later phase by weakening the foundations of an earlier phase.

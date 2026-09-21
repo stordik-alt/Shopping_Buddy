@@ -55,8 +55,10 @@ For every substantial task:
 ## Current priority
 The project is moving from a mostly completed frontend prototype toward real Neon persistence. Do not jump to advanced AI/optimization features before the underlying structured data and persistence are reliable.
 
+**Explicit product decision (2026-09-21):** the AI Shopping Assistant is deliberately deferred to dead last — after optimization, notifications, and global rollout, not just after shared household. Reason: real AI integration means picking a provider/model through the Vercel AI Gateway, which carries an ongoing per-call cost; the owner wants every other phase's foundations solid first. Until then: do not add an AI SDK/Gateway dependency, do not call any LLM, and keep `components/ai/ai-assistant.tsx` as a UI-only placeholder. "Preparing the environment" for AI means keeping the data layer well-structured and documented (already the case via `lib/db/queries.ts` and `docs/06_AI_RULES.md`'s grounding rules) — not scaffolding a provider integration ahead of time.
+
 First priority sequence:
-audit -> data-access layer -> authentication/session -> household/profile persistence -> shopping-list persistence -> budget/expenses -> products/prices/deals -> meal plans/history -> shared household -> AI -> optimization -> notifications -> global rollout.
+audit -> data-access layer -> authentication/session -> household/profile persistence -> shopping-list persistence -> budget/expenses -> products/prices/deals -> meal plans/history -> shared household -> optimization -> notifications -> global rollout -> AI (last, see above).
 
 ## Definition of done
 A feature is not complete merely because the UI renders. It must have:

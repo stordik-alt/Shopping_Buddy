@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
     "db:migrate": "dotenv -e .env.local -- tsx lib/db/migrate.ts",
     "db:seed": "dotenv -e .env.local -- tsx lib/db/seed.ts"
   },

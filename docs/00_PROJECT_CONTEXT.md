@@ -53,10 +53,10 @@ Roadmap stages:
 8. purchase history
 9. backend/database
 10. shared household
-11. AI Shopping Assistant
-12. Smart Shopping Engine
-13. notifications
-14. global version
+11. Smart Shopping Engine
+12. notifications
+13. global version
+14. AI Shopping Assistant (deliberately last — see `docs/04_ROADMAP.md` Phase G; real AI integration has an ongoing per-call cost via the Vercel AI Gateway, and the owner wants every other stage's foundations solid first)
 15. final product
 
 The frontend stages are substantially implemented as a prototype. The current project focus is making the data model and Neon persistence real and reliable.

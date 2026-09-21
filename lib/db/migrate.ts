@@ -7,7 +7,18 @@ import { neon } from '@neondatabase/serverless'
 // file run sequentially (the neon-http driver has no multi-statement
 // transaction support), so each migration file should be written so partial
 // application is safe to re-run or reason about.
+//
+// Author new migrations with `pnpm db:generate` (drizzle-kit) after editing
+// lib/db/schema.ts, then apply with `pnpm db:migrate`. drizzle-kit's default
+// postgresql output separates statements with a literal `--> statement-breakpoint`
+// line rather than just `;` — split on that when present; a plain `;` followed
+// by a newline is the fallback for a migration written by hand without it.
 const MIGRATIONS_DIR = join(import.meta.dirname, 'migrations')
+
+function splitStatements(text: string): string[] {
+  const parts = text.includes('--> statement-breakpoint') ? text.split('--> statement-breakpoint') : text.split(/;\s*\n/)
+  return parts.map((statement) => statement.trim()).filter(Boolean)
+}
 
 async function main() {
   const sql = neon(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL!)
@@ -26,10 +37,7 @@ async function main() {
     }
     console.log(`applying: ${file}`)
     const text = readFileSync(join(MIGRATIONS_DIR, file), 'utf8')
-    const statements = text
-      .split(/;\s*\n/)
-      .map((statement) => statement.trim())
-      .filter(Boolean)
+    const statements = splitStatements(text)
     for (const statement of statements) {
       await sql.query(statement)
     }

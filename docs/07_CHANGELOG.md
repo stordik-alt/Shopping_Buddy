@@ -1,5 +1,16 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-21 (Product normalization, phase 1: wire up the real productId link)
+### Roadmap: product normalization (`CLAUDE.md` section 12 — "do not treat product names as sufficient identifiers")
+- Investigated before proposing a brand/variant/package-size schema (per the owner's request to design and discuss before migrating) and found a more fundamental, already-violated rule: `shoppingListItems.productId` and `purchaseItems.productId` have existed as real foreign keys in the schema since early on, but no code ever populated or read either one. The whole app instead linked a shopping-list item to catalog data — price lookups, deal alerts — via exact string equality between the free-text typed name and `products.name`, case-sensitively, with no catalog picker/autocomplete on the input to keep them aligned.
+- Rather than adding brand/variant/package columns on top of a fragile string-matching foundation, closed the more basic gap first, with no migration needed since the column already existed:
+  - `lib/products.ts`: new `matchProductByName()` — case/whitespace-insensitive, deliberately no fuzzy/typo tolerance (a match is exact or it doesn't happen, never a guess).
+  - `lib/db/queries.ts`: new `getProductCatalog()` (id/name pairs, not filtered to priced products — an item can identify a real product before it has price data).
+  - `app/actions/shopping.ts`'s `addShoppingItemAction` now resolves the typed name against the catalog and stores the real `productId` on insert. The deal-alert check now matches against the resolved canonical catalog name instead of the raw typed string, so a differently-cased or whitespace-padded entry no longer silently misses a real deal.
+- `purchaseItems.productId` is still unused — there's no Server Action that writes a real purchase record at all yet, a separate and larger gap (`docs/01_CURRENT_STATE.md` section 21).
+- Explicitly deferred: brand/variant/package-size/barcode modeling. There's still no real catalog data with more than one package size per product to design or verify a schema change against — same reasoning as the price-history foundation work. A catalog picker/autocomplete UI (so free text has a real chance of matching in the first place) is the next concrete step, not schema.
+- 97/97 tests passing (`lib/products.test.ts` for the matcher; `app/actions/shopping.test.ts` extended with real-database coverage: productId resolved for a differently-cased match, left null for no match, deal alert still fires despite the casing difference).
+
 ## 2026-09-21 (Ops: PR #4 merged, shopping-reminders cron now live)
 - PR #4 (`v0/backend` → `main`: Phase D notifications complete, historical-price awareness foundation, Server Action test coverage) merged by the owner via GitHub. A production deployment ran automatically.
 - Confirmed live via `vercel cron ls`: `/api/cron/shopping-reminders` is no longer `not deployed`. Combined with `CRON_SECRET` already being set, this closes out the last open item from the shopping-reminders work — the route will get its first real scheduled invocation at the next 08:00 UTC tick.

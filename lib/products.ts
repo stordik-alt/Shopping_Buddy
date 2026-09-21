@@ -1,0 +1,13 @@
+export type ProductCatalogEntry = { id: string; name: string }
+
+/** Whether a free-text shopping-list item name identifies a real catalog product. Per
+ *  CLAUDE.md ("do not treat product names as sufficient identifiers"), name matching is not
+ *  meant to stand in for real product identity forever — this exists only to bridge the current
+ *  free-text input to the real `productId` foreign key (`shoppingListItems.productId`, until now
+ *  never populated) until there's a proper catalog picker. Deliberately simple: normalizes case
+ *  and surrounding whitespace only, no fuzzy/typo tolerance — a match is either the same product
+ *  or it isn't, never a guess. */
+export function matchProductByName(catalog: ProductCatalogEntry[], name: string): ProductCatalogEntry | null {
+  const normalized = name.trim().toLowerCase()
+  return catalog.find((product) => product.name.trim().toLowerCase() === normalized) ?? null
+}

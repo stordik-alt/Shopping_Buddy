@@ -4,6 +4,7 @@ import * as schema from '@/lib/db/schema'
 import { TODAY } from '@/lib/budget'
 import { currentWeekStart, type WeeklyMealPlan } from '@/lib/meal-plans'
 import type { ProductPrice } from '@/lib/prices'
+import type { ProductCatalogEntry } from '@/lib/products'
 import type {
   Child,
   Expense,
@@ -296,6 +297,15 @@ export async function getStores(): Promise<Store[]> {
     availableProducts: Array.from(new Set(location.prices.map((price) => price.product.name))),
     color: CHAIN_COLOR[location.store.chain] ?? 'bg-muted',
   }))
+}
+
+/** The full product catalog as id/name pairs — used to resolve a free-text shopping-list item
+ *  name to a real `productId` (see `lib/products.ts`'s `matchProductByName()`). Deliberately not
+ *  filtered to only priced products, unlike `getProductPrices()` below: an item can identify a
+ *  real product even before that product has any price data. */
+export async function getProductCatalog(): Promise<ProductCatalogEntry[]> {
+  const db = getDb()
+  return db.query.products.findMany({ columns: { id: true, name: true } })
 }
 
 /** Per-product prices across stores, with any currently active deal folded in. One entry per store's latest recorded price. */

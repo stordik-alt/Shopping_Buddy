@@ -598,6 +598,8 @@ Purchase history is intended to support future functionality such as:
 
 This area remains less mature than the core shopping-list and budget functionality.
 
+**Update 2026-09-21:** Found this was more than "less mature" — no Server Action ever wrote a real purchase; `purchases`/`purchase_items` were seeded once and read-only ever since (the analytics in `lib/purchase-history.ts` and `components/budget/purchase-history.tsx` were real, just fed frozen data). Added `app/actions/purchases.ts`'s `completePurchaseAction(listId)`, triggered by a new "Dokončit nákup" button next to the shopping list's existing "Vymazat hotové" (the two now coexist: one just discards done items, the other turns them into real purchase history). It groups the list's done items by preferred store (items with none share one purchase with no store — a real case, not an error) and creates one `purchases` row + its `purchase_items` per group, then removes those items from the list. Found and fixed a related bug while wiring this up: `getHouseholdData()` was defaulting a purchase's store to `'Lidl'` whenever `storeLocationId` was null (`purchase.storeLocation?.store.chain ?? 'Lidl'`) — silently inventing data. `PurchaseRecord.store` is now correctly optional, matching the schema's real nullability, and the UI shows "Neurčený obchod" instead. Verified in a real browser against the real dev database: added a real catalog item, marked it done, clicked "Dokončit nákup", confirmed the item left the shopping list and a real purchase appeared in the budget tab's history with the correct date, store fallback text, and "Nejčastěji kupované" analytics update. The item's `price` in the resulting purchase reflects `shoppingListItems.price` (the item's own stored price field, same as `plannedSpend()` already uses for budget planning) — not the live catalog price shown via `productPrices`, which is a separate, pre-existing gap (nothing has ever synced these two) rather than something new. `purchaseItems.productId` is now actually populated too, inherited from the shopping-list item's own `productId` (see section 12).
+
 ---
 
 # 22. Smart Shopping Engine
@@ -830,7 +832,7 @@ Started 2026-09-21, expanded same day: every Server Action that takes a client-s
 
 ## Purchase analytics
 
-Purchase history exists but deeper analytics are still required.
+Real purchases can now be created (`completePurchaseAction`, see section 21) — the analytics functions in `lib/purchase-history.ts` finally have a real write path feeding them, not just seed data. Deeper analytics beyond what's already there (average monthly spend, favorite store, most-bought products, repeat purchases) are still open, and the receipt-import idea (importing a purchase from a scanned/photographed receipt) raised by the owner is not started — likely OCR/external-service work, out of scope for now.
 
 ## International rollout
 
@@ -873,6 +875,7 @@ Recent development has included:
 * household-join event notifications (Phase 8 now fully complete: budget/deal/reminder/household-event notifications)
 * price-history foundation: append-only observation recording + historic-low detection (not yet fed by a real ingestion source)
 * real `productId` link from shopping-list items to the catalog (was dead schema; the whole app matched on free-text names before this), plus a native autocomplete on the input so typed text has a real chance of matching
+* real purchase-history write path (`completePurchaseAction`, "Dokončit nákup") — `purchases`/`purchase_items` were seed-only and read-only until now; also fixed a data-inventing bug found along the way (`?? 'Lidl'` store fallback)
 * currency fields
 * migration baseline
 * automated tests for selected domains

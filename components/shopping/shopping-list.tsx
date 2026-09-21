@@ -49,6 +49,7 @@ export function ShoppingList({
   remaining,
   stores,
   userCoords,
+  completePurchase,
 }: {
   items: Item[]
   newItem: string
@@ -63,6 +64,7 @@ export function ShoppingList({
   remaining: number
   stores: Store[]
   userCoords: GpsCoords | null
+  completePurchase: () => void
 }) {
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('Vše')
@@ -151,6 +153,14 @@ export function ShoppingList({
             className="rounded-xl border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted"
           >
             Vymazat hotové
+          </button>
+        )}
+        {items.some((item) => item.done) && (
+          <button
+            onClick={completePurchase}
+            className="rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-medium text-primary hover:bg-primary/20"
+          >
+            Dokončit nákup
           </button>
         )}
         <label className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">

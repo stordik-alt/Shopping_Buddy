@@ -16,7 +16,6 @@ import type {
   PurchaseRecord,
   QualityPreference,
   Store,
-  StoreChain,
 } from '@/lib/types'
 
 // Decorative only — not modeled in the schema, keyed by chain to match the previous mock styling.
@@ -237,7 +236,10 @@ export async function getHouseholdData(userId: string, userName: string, userEma
       (purchase): PurchaseRecord => ({
         id: purchase.id,
         date: purchase.date,
-        store: (purchase.storeLocation?.store.chain ?? 'Lidl') as StoreChain,
+        // Was `?? 'Lidl'` — silently mislabeling a purchase with no known store as Lidl. Found
+        // while wiring up completePurchaseAction, the first thing that can actually produce a
+        // purchase with no store. Per docs/03_DATABASE.md ("never invent data"), leave it unknown.
+        store: purchase.storeLocation?.store.chain,
         total: Number(purchase.total),
         discount: purchase.discount != null ? Number(purchase.discount) : undefined,
         items: purchase.items.map((item) => ({ name: item.name, quantity: item.quantity, unit: item.unit, price: Number(item.price) })),

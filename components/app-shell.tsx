@@ -14,6 +14,7 @@ import {
   updateHouseholdPreferencesAction,
 } from '@/app/actions/household'
 import { markAllNotificationsReadAction, markNotificationReadAction } from '@/app/actions/notifications'
+import { completePurchaseAction } from '@/app/actions/purchases'
 import { addShoppingItemAction, addShoppingListAction, removeShoppingItemAction, toggleShoppingItemAction, updateShoppingItemAction } from '@/app/actions/shopping'
 import { AiAssistant } from '@/components/ai/ai-assistant'
 import { BudgetOverview } from '@/components/budget/budget-overview'
@@ -133,6 +134,15 @@ export function AppShell({
   function removeItem(id: string) {
     setItems((current) => current.filter((item) => item.id !== id))
     removeShoppingItemAction(id)
+  }
+
+  async function completePurchase() {
+    const doneIds = new Set(items.filter((item) => item.done).map((item) => item.id))
+    if (doneIds.size === 0) return
+    const { purchases } = await completePurchaseAction(initialData.mainListId)
+    if (purchases.length === 0) return
+    setItems((current) => current.filter((item) => !doneIds.has(item.id)))
+    router.refresh() // picks up the new purchase-history entries on the next server render
   }
 
   function addShoppingListName(name: string) {
@@ -264,6 +274,7 @@ export function AppShell({
                   remaining={remaining}
                   stores={stores}
                   userCoords={userLocation.coords}
+                  completePurchase={completePurchase}
                 />
               )}
               {tab === 'Obchody' && (

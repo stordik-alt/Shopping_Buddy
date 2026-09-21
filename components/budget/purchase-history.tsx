@@ -49,7 +49,7 @@ export function PurchaseHistory({ records }: { records: PurchaseRecord[] }) {
               >
                 <div className="min-w-0">
                   <p className="text-sm font-medium">
-                    {record.store} <span className="font-normal text-muted-foreground">· {record.date}</span>
+                    {record.store ?? 'Neurčený obchod'} <span className="font-normal text-muted-foreground">· {record.date}</span>
                   </p>
                   <p className="mt-0.5 text-xs text-muted-foreground">{record.items.length} položek {record.discount ? `· sleva ${record.discount} Kč` : ''}</p>
                 </div>

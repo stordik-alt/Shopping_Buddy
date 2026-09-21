@@ -42,7 +42,10 @@ export function repeatPurchases(records: PurchaseRecord[]) {
 
 export function favoriteStores(records: PurchaseRecord[]) {
   const counts = new Map<string, number>()
-  for (const record of records) counts.set(record.store, (counts.get(record.store) ?? 0) + 1)
+  for (const record of records) {
+    if (!record.store) continue // no known store for this purchase — don't count it toward any store's total
+    counts.set(record.store, (counts.get(record.store) ?? 0) + 1)
+  }
   return Array.from(counts.entries())
     .map(([store, count]) => ({ store, count }))
     .sort((a, b) => b.count - a.count)

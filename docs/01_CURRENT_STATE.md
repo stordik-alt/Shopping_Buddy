@@ -363,7 +363,7 @@ Before serious price aggregation and comparison, products from different sources
 
 Product display names alone must not be treated as reliable unique identifiers.
 
-**Update 2026-09-21:** Found that this rule was actually being violated — `shoppingListItems.productId` and `purchaseItems.productId` have existed in the schema since early on, but no code ever populated or read either one; the whole app instead matched a shopping-list item to catalog data via exact string equality on its free-text name (`item.name === product.productName`), case-sensitively, with no autocomplete/picker UI to keep the typed text aligned with the catalog. First fix: `addShoppingItemAction` now resolves the typed name to a real product via `lib/products.ts`'s `matchProductByName()` (case/whitespace-insensitive, no fuzzy/typo tolerance — a match is exact or it doesn't happen) and stores the real `productId` on insert; the deal-alert check also now matches on the resolved canonical catalog name rather than the raw typed one, so a differently-cased entry no longer silently misses a real deal. `purchaseItems.productId` is still unused — there's no Server Action that writes a real purchase record yet at all (separate, larger gap; see section 21). Brand/variant/package-size/barcode columns are still not modeled — deliberately deferred until there's a reliable name→product link to attach them to, which is what this closes.
+**Update 2026-09-21:** Found that this rule was actually being violated — `shoppingListItems.productId` and `purchaseItems.productId` have existed in the schema since early on, but no code ever populated or read either one; the whole app instead matched a shopping-list item to catalog data via exact string equality on its free-text name (`item.name === product.productName`), case-sensitively, with no autocomplete/picker UI to keep the typed text aligned with the catalog. First fix: `addShoppingItemAction` now resolves the typed name to a real product via `lib/products.ts`'s `matchProductByName()` (case/whitespace-insensitive, no fuzzy/typo tolerance — a match is exact or it doesn't happen) and stores the real `productId` on insert; the deal-alert check also now matches on the resolved canonical catalog name rather than the raw typed one, so a differently-cased entry no longer silently misses a real deal. Second: the shopping-list input now offers native browser autocomplete (`<datalist>`) against the real catalog, so a suggestion can be picked instead of relying on exact free-text typing — verified in a real browser session (see section 22). `purchaseItems.productId` is still unused — there's no Server Action that writes a real purchase record yet at all (separate, larger gap; see section 21). Brand/variant/package-size/barcode columns are still not modeled — deliberately deferred until there's a reliable name→product link to attach them to, which is what this closes.
 
 ---
 
@@ -799,9 +799,8 @@ The following areas remain open or incomplete.
 
 ## Product normalization
 
-The real productId link from a shopping-list item to the catalog now exists and is populated (see section 12) — previously dead schema. Still needed, in roughly this order:
+The real productId link from a shopping-list item to the catalog now exists and is populated (see section 12) — previously dead schema. Done since (2026-09-21): the shopping-list input now has native browser autocomplete (`<datalist>`) against the real catalog (`components/shopping/shopping-list.tsx`), so typed text has a real chance of matching instead of relying on the user to type it exactly. Still free text underneath — nothing is enforced, picking a suggestion is optional. Verified end-to-end in a real headless-browser session against the real dev database: signed up a fresh test account, confirmed the datalist's options matched the live catalog, added an item by picking a differently-cased suggestion, and confirmed both the item appeared correctly in the UI and its `productId` was set to the right product in the database. Still needed, in roughly this order:
 
-* a catalog picker/autocomplete on the shopping-list input, so typed text has a real chance of matching (today it's still free text; the matcher only helps once casing/whitespace is the only difference)
 * stronger mapping of: brand, variant, package size, unit, barcode, external product identifiers — deliberately not modeled yet; there's no real catalog data with more than one package size per product to design or verify this against
 * wiring `purchaseItems.productId`, which stays unused until a real "record a purchase" write path exists (see "Purchase analytics" below)
 
@@ -873,7 +872,7 @@ Recent development has included:
 * time-scheduled shopping-reminder notifications (Vercel Cron)
 * household-join event notifications (Phase 8 now fully complete: budget/deal/reminder/household-event notifications)
 * price-history foundation: append-only observation recording + historic-low detection (not yet fed by a real ingestion source)
-* real `productId` link from shopping-list items to the catalog (was dead schema; the whole app matched on free-text names before this)
+* real `productId` link from shopping-list items to the catalog (was dead schema; the whole app matched on free-text names before this), plus a native autocomplete on the input so typed text has a real chance of matching
 * currency fields
 * migration baseline
 * automated tests for selected domains

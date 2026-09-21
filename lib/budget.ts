@@ -52,3 +52,18 @@ export function budgetImpact(cost: number, remaining: number): { overBudget: boo
     percentOfRemaining: remaining > 0 ? (cost / remaining) * 100 : null,
   }
 }
+
+export type BudgetThreshold = 'reached' | 'exceeded'
+
+/** Detects whether spending just crossed the 80% ("reached") or 100% ("exceeded") budget
+ *  threshold, comparing totals from strictly before and after one new expense. Used to fire a
+ *  notification exactly once at the moment of crossing rather than on every expense once already
+ *  over — e.g. adding a 2nd expense while already at 105% must not re-fire "exceeded". */
+export function crossedBudgetThreshold(spentBefore: number, spentAfter: number, budget: number): BudgetThreshold | null {
+  if (budget <= 0) return null
+  const before = spentBefore / budget
+  const after = spentAfter / budget
+  if (before < 1 && after >= 1) return 'exceeded'
+  if (before < 0.8 && after >= 0.8) return 'reached'
+  return null
+}

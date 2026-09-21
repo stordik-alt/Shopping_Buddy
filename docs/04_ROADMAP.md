@@ -34,7 +34,7 @@
 ## Phase D — Notifications
 - price/deal alerts
 - shopping reminders
-- budget warnings
+- ~~budget warnings~~ done: `lib/budget.ts`'s `crossedBudgetThreshold()`, wired into `addExpenseAction` — fires a real notification exactly once when spending crosses 80% or 100% of the household's budget, never re-fires while already in the same band (see `docs/07_CHANGELOG.md`)
 - household events
 
 ## Phase E — Global

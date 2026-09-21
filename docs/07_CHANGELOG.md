@@ -1,5 +1,12 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-21 (Notifications: budget warnings)
+### Roadmap Phase D: budget warnings
+- Notifications already had persistence (read/mark-read) since the earliest backend work, but nothing ever generated one — no code created a notification row for any real event. Added the first real generator.
+- `crossedBudgetThreshold(spentBefore, spentAfter, budget)` in `lib/budget.ts`: detects the household's spending crossing 80% ("reached") or 100% ("exceeded") of budget between two points, comparing strictly-before vs. after so it fires exactly once at the moment of crossing — not on every expense once already in that band. 6 new unit tests.
+- Wired into `addExpenseAction` (`app/actions/budget.ts`): computes the household's total spent before the new expense, inserts it, and inserts a real notification if a threshold was just crossed. The action's return shape changed to `{ expense, notification }`; `saveExpense` in `app-shell.tsx` updated to push the notification into local state immediately (not waiting for the next 20s poll) when one comes back.
+- Verified against the real database (not just unit tests): ran a sequence of 5 expenses against a 1000 Kč test budget (50% → 85% → 95% → 105% → 110%) and confirmed exactly 2 notifications were created, at precisely the 80% and 100% crossings, with no re-fires for the expenses that stayed within an already-crossed band.
+
 ## 2026-09-21 (stores expanded nationwide with real branch data)
 - User-reported: stores shouldn't be Prague-only; branches are publicly available data. Agreed — the previous 6 locations (one per chain, all Prague) were placeholder/prototype data, not representative of a nationwide app.
 - Fetched real branch data from OpenStreetMap's public Overpass API (openstreetmap.org contributors, ODbL license) for all 6 chains within Czechia — 856 real tagged nodes nationwide. Confirmed "JIP" is a real (small, ~3-location) chain, not a placeholder name. Along the way found and worked around an Overpass anti-abuse block: it returns 406 to requests without a descriptive User-Agent header, per its usage policy.

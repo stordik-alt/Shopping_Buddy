@@ -187,8 +187,9 @@ export function AppShell({
   }
 
   async function saveExpense(amount: number, note: string, category: Item['category']) {
-    const expense = await addExpenseAction({ amount, note, category, date: TODAY })
+    const { expense, notification } = await addExpenseAction({ amount, note, category, date: TODAY })
     setExpenses((current) => [...current, expense])
+    if (notification) setNotifications((current) => [...current, notification])
     setExpenseOpen(false)
   }
 

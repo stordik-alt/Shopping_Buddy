@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   budgetImpact,
   categoryBreakdown,
+  crossedBudgetThreshold,
   dailyAverage,
   monthOverMonthChange,
   MONTH_START,
@@ -120,5 +121,32 @@ describe('budgetImpact', () => {
   it('has no meaningful percentage when there is no positive remaining budget to express one against', () => {
     expect(budgetImpact(100, 0).percentOfRemaining).toBeNull()
     expect(budgetImpact(100, -50).percentOfRemaining).toBeNull()
+  })
+})
+
+describe('crossedBudgetThreshold', () => {
+  it('fires "reached" exactly at the moment spending crosses 80%, not before', () => {
+    expect(crossedBudgetThreshold(750, 850, 1000)).toBe('reached')
+    expect(crossedBudgetThreshold(600, 700, 1000)).toBeNull()
+  })
+
+  it('fires "exceeded" exactly at the moment spending crosses 100%', () => {
+    expect(crossedBudgetThreshold(950, 1050, 1000)).toBe('exceeded')
+  })
+
+  it('does not re-fire "reached" for a later expense that stays within the same already-crossed band', () => {
+    expect(crossedBudgetThreshold(850, 900, 1000)).toBeNull()
+  })
+
+  it('does not re-fire "exceeded" for a later expense once already over budget', () => {
+    expect(crossedBudgetThreshold(1050, 1150, 1000)).toBeNull()
+  })
+
+  it('jumping straight past both thresholds in one expense reports "exceeded", the more severe one', () => {
+    expect(crossedBudgetThreshold(500, 1200, 1000)).toBe('exceeded')
+  })
+
+  it('is null when there is no positive budget to measure against', () => {
+    expect(crossedBudgetThreshold(0, 100, 0)).toBeNull()
   })
 })

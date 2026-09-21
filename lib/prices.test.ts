@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   activeDeals,
+  assessDealQuality,
   cheapestPossibleTotal,
   compareStoreTotals,
   comparePrices,
@@ -85,6 +86,53 @@ describe('activeDeals', () => {
   it('excludes an expired deal even though it still has a dealPrice set', () => {
     const deals = activeDeals(products, '2026-09-19')
     expect(deals.some((d) => d.product.productName === 'B')).toBe(false)
+  })
+})
+
+describe('assessDealQuality', () => {
+  it('flags a deal as not the best price when another store is cheaper even without any deal at all', () => {
+    const products: ProductPrice[] = [
+      {
+        productName: 'A',
+        category: 'Potraviny',
+        prices: [price({ store: 'Lidl', regularPrice: 60, dealPrice: 30, dealValidUntil: '2026-09-30' }), price({ store: 'Albert', regularPrice: 25 })],
+      },
+    ]
+    const [assessment] = assessDealQuality(products, '2026-09-19')
+    expect(assessment.isBestPrice).toBe(false)
+    expect(assessment.cheapestAlternative).toEqual({ store: 'Albert', price: 25 })
+  })
+
+  it('confirms a deal as the best price when no other store beats it', () => {
+    const products: ProductPrice[] = [
+      {
+        productName: 'B',
+        category: 'Potraviny',
+        prices: [price({ store: 'Lidl', regularPrice: 40, dealPrice: 20, dealValidUntil: '2026-09-30' }), price({ store: 'Albert', regularPrice: 40 })],
+      },
+    ]
+    const [assessment] = assessDealQuality(products, '2026-09-19')
+    expect(assessment.isBestPrice).toBe(true)
+    expect(assessment.cheapestAlternative).toBeNull()
+  })
+
+  it('treats a tie with another store\'s price as still being the best price', () => {
+    const products: ProductPrice[] = [
+      {
+        productName: 'C',
+        category: 'Potraviny',
+        prices: [price({ store: 'Lidl', regularPrice: 30, dealPrice: 15, dealValidUntil: '2026-09-30' }), price({ store: 'Billa', regularPrice: 30, dealPrice: 15, dealValidUntil: '2026-09-30' })],
+      },
+    ]
+    const assessments = assessDealQuality(products, '2026-09-19')
+    expect(assessments.every((a) => a.isBestPrice)).toBe(true)
+  })
+
+  it('only assesses currently active deals, same as activeDeals', () => {
+    const products: ProductPrice[] = [
+      { productName: 'D', category: 'Potraviny', prices: [price({ store: 'Lidl', dealPrice: 5, dealValidUntil: '2026-08-01' }), price({ store: 'Albert' })] },
+    ]
+    expect(assessDealQuality(products, '2026-09-19')).toHaveLength(0)
   })
 })
 

@@ -1,12 +1,14 @@
 import { useState } from 'react'
-import { ArrowUpRight, Tag } from 'lucide-react'
+import { ArrowUpRight, Info, Tag } from 'lucide-react'
 import { TODAY } from '@/lib/budget'
 import { money } from '@/lib/format'
-import { activeDeals, type ProductPrice } from '@/lib/prices'
+import { assessDealQuality, type ProductPrice } from '@/lib/prices'
 
 export function PriceWatch({ onStores, productPrices }: { onStores: () => void; productPrices: ProductPrice[] }) {
   const [saved, setSaved] = useState<string[]>([])
-  const deals = activeDeals(productPrices, TODAY)
+  // Per docs/05_BUSINESS_RULES.md: a discount isn't automatically a good deal — check whether
+  // it's actually the cheapest option for that product, not just cheaper than its own regular price.
+  const deals = assessDealQuality(productPrices, TODAY)
   const toggleSaved = (name: string) =>
     setSaved((current) => (current.includes(name) ? current.filter((item) => item !== name) : [...current, name]))
 
@@ -23,7 +25,7 @@ export function PriceWatch({ onStores, productPrices }: { onStores: () => void; 
         <p className="mt-5 rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground">Momentálně nemáme žádné aktivní akce.</p>
       ) : (
       <div className="mt-5 grid gap-3 md:grid-cols-3">
-        {deals.map(({ product, price }) => {
+        {deals.map(({ product, price, isBestPrice, cheapestAlternative }) => {
           const discount = Math.round((1 - (price.dealPrice ?? price.regularPrice) / price.regularPrice) * 100)
           return (
             <div key={`${product.productName}-${price.store}`} className="rounded-2xl bg-muted p-4">
@@ -47,6 +49,12 @@ export function PriceWatch({ onStores, productPrices }: { onStores: () => void; 
                   {saved.includes(product.productName) ? 'Přidáno' : 'Přidat'}
                 </button>
               </div>
+              {!isBestPrice && cheapestAlternative && (
+                <p className="mt-3 flex items-start gap-1 text-[11px] leading-relaxed text-muted-foreground">
+                  <Info className="mt-0.5 h-3 w-3 shrink-0" />
+                  Levněji je i bez akce v {cheapestAlternative.store} za {money(cheapestAlternative.price)}.
+                </p>
+              )}
             </div>
           )
         })}

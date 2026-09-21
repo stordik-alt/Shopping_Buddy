@@ -1,5 +1,11 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-21 (Smart Shopping Engine: promotion quality)
+### Roadmap Phase C: promotion quality
+- Added `assessDealQuality()` to `lib/prices.ts` — per `docs/05_BUSINESS_RULES.md`: "A promotion is not automatically a good deal just because its percentage discount is large." Checks whether an active deal's effective price is actually the cheapest across all known stores for that product, not just cheaper than its own regular price. 4 new unit tests (not-best-price, confirmed-best-price, tie handling, only-active-deals).
+- Wired into `price-watch.tsx`: a deal that isn't the best available price now shows a note naming the store and price that actually beats it.
+- **Verified against real production data, and it caught a genuine case immediately**: of the 3 currently seeded active deals, Albert's chicken breast deal (159.90 Kč after discount) is correctly flagged as not the best price — Lidl's plain everyday price (149.90 Kč, no deal at all) is cheaper. The other two deals (Lidl's milk, Kaufland's toilet paper) are correctly confirmed as genuinely the best price.
+
 ## 2026-09-21 (Smart Shopping Engine: budget constraints)
 ### Roadmap Phase C: budget constraints
 - Added `budgetImpact(cost, remaining)` to `lib/budget.ts` — deterministic, testable (5 new unit tests in `lib/budget.test.ts`): whether a planned cost fits the household's remaining monthly budget, and what percentage of it that cost would use (`null` when there's no positive remaining budget to express a percentage of).

@@ -37,6 +37,31 @@ export function activeDeals(products: ProductPrice[], referenceDate: string) {
   )
 }
 
+export type DealAssessment = {
+  product: ProductPrice
+  price: PricePoint
+  isBestPrice: boolean
+  cheapestAlternative: { store: StoreChain; price: number } | null
+}
+
+/** Whether each active deal is actually the best price available for that product across all
+ *  known stores, not just a discount off its own regular price. Per docs/05_BUSINESS_RULES.md:
+ *  "A promotion is not automatically a good deal just because its percentage discount is large."
+ *  A store's "-50%" deal can still be pricier than another store's everyday price. */
+export function assessDealQuality(products: ProductPrice[], referenceDate: string): DealAssessment[] {
+  return activeDeals(products, referenceDate).map(({ product, price }) => {
+    const dealEffective = effectivePrice(price)
+    const cheapestOverall = product.prices.reduce((min, candidate) => (effectivePrice(candidate) < effectivePrice(min) ? candidate : min))
+    const isBestPrice = dealEffective <= effectivePrice(cheapestOverall)
+    return {
+      product,
+      price,
+      isBestPrice,
+      cheapestAlternative: isBestPrice ? null : { store: cheapestOverall.store, price: effectivePrice(cheapestOverall) },
+    }
+  })
+}
+
 export type ShoppingListItemForPricing = Pick<Item, 'name' | 'price' | 'quantity' | 'done'>
 
 export type StoreTotal = {

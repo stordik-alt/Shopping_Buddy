@@ -24,7 +24,7 @@
 ## Phase C — Smart Shopping Engine
 - ~~compare selected stores~~ done: `lib/prices.ts`'s `compareStoreTotals`/`cheapestPossibleTotal`, surfaced as `components/shopping/store-comparison.tsx` on the shopping-list tab (see `docs/07_CHANGELOG.md`)
 - ~~unit-price comparison~~ done — was already covered per-item by `PriceComparison`; the above extends it to whole-list, whole-store totals
-- promotion quality
+- ~~promotion quality~~ done: `lib/prices.ts`'s `assessDealQuality()`, wired into `price-watch.tsx` — flags a deal that isn't actually the cheapest price for that product across known stores (see `docs/07_CHANGELOG.md`)
 - stock/storage constraints
 - trip-distance constraints
 - ~~budget constraints~~ done: `lib/budget.ts`'s `budgetImpact()`, surfaced in `store-comparison.tsx` — flags when even the cheapest store option exceeds the household's remaining monthly budget, otherwise shows what percentage of it the trip would use (see `docs/07_CHANGELOG.md`)

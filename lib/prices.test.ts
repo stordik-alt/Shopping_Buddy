@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { activeDeals, comparePrices, effectivePrice, isDealActive, type PricePoint, type ProductPrice } from '@/lib/prices'
+import {
+  activeDeals,
+  cheapestPossibleTotal,
+  compareStoreTotals,
+  comparePrices,
+  effectivePrice,
+  isDealActive,
+  type PricePoint,
+  type ProductPrice,
+  type ShoppingListItemForPricing,
+} from '@/lib/prices'
 
 const price = (overrides: Partial<PricePoint> = {}): PricePoint => ({
   store: 'Lidl',
@@ -75,5 +85,74 @@ describe('activeDeals', () => {
   it('excludes an expired deal even though it still has a dealPrice set', () => {
     const deals = activeDeals(products, '2026-09-19')
     expect(deals.some((d) => d.product.productName === 'B')).toBe(false)
+  })
+})
+
+const item = (overrides: Partial<ShoppingListItemForPricing> = {}): ShoppingListItemForPricing => ({
+  name: 'Mléko',
+  price: 999, // deliberately implausible so tests fail loudly if a catalog price is wrongly ignored in favor of this fallback
+  quantity: 1,
+  done: false,
+  ...overrides,
+})
+
+describe('compareStoreTotals', () => {
+  const products: ProductPrice[] = [
+    { productName: 'Mléko', category: 'Potraviny', prices: [price({ store: 'Lidl', regularPrice: 40, dealPrice: 30 }), price({ store: 'Albert', regularPrice: 50 })] },
+    { productName: 'Chleba', category: 'Potraviny', prices: [price({ store: 'Albert', regularPrice: 20 })] },
+  ]
+  const items = [
+    item({ name: 'Mléko', quantity: 2 }),
+    item({ name: 'Chleba', price: 25, quantity: 1 }),
+    item({ name: 'Nezname zbozi', price: 15, quantity: 1 }), // no catalog entry at all
+    item({ name: 'Mléko', quantity: 99, done: true }), // must be excluded entirely
+  ]
+
+  it('sorts candidate stores by total, cheapest first', () => {
+    const totals = compareStoreTotals(items, products)
+    expect(totals.map((t) => t.store)).toEqual(['Lidl', 'Albert'])
+  })
+
+  it('uses the real catalog price where available and the item\'s own price as a fallback where not, per store', () => {
+    const totals = compareStoreTotals(items, products)
+    const lidl = totals.find((t) => t.store === 'Lidl')!
+    // Mléko via catalog deal price (30*2=60) + Chleba unavailable at Lidl, falls back to 25*1 + unknown item falls back to 15*1
+    expect(lidl.total).toBe(60 + 25 + 15)
+    expect(lidl.itemsPriced).toBe(1)
+    expect(lidl.itemsFallback).toBe(2)
+
+    const albert = totals.find((t) => t.store === 'Albert')!
+    // Mléko (50*2=100) + Chleba (20*1=20) both via catalog, unknown item still falls back (15*1)
+    expect(albert.total).toBe(100 + 20 + 15)
+    expect(albert.itemsPriced).toBe(2)
+    expect(albert.itemsFallback).toBe(1)
+  })
+
+  it('ignores done items entirely', () => {
+    const withoutDone = compareStoreTotals(items.filter((i) => !i.done), products)
+    const withDone = compareStoreTotals(items, products)
+    expect(withDone).toEqual(withoutDone)
+  })
+
+  it('returns no candidate stores when there is no catalog price data at all', () => {
+    expect(compareStoreTotals(items, [])).toEqual([])
+  })
+})
+
+describe('cheapestPossibleTotal', () => {
+  const products: ProductPrice[] = [
+    { productName: 'Mléko', category: 'Potraviny', prices: [price({ store: 'Lidl', regularPrice: 40, dealPrice: 30 }), price({ store: 'Albert', regularPrice: 50 })] },
+    { productName: 'Chleba', category: 'Potraviny', prices: [price({ store: 'Albert', regularPrice: 20 })] },
+  ]
+  const items = [item({ name: 'Mléko', quantity: 2 }), item({ name: 'Chleba', price: 25, quantity: 1 }), item({ name: 'Nezname zbozi', price: 15, quantity: 1 })]
+
+  it('picks the cheapest known store per item, ignoring the single-trip constraint', () => {
+    // Mléko: min(30, 50) * 2 = 60; Chleba: 20 * 1 = 20 (its only known price); unknown item falls back to 15 * 1
+    expect(cheapestPossibleTotal(items, products)).toBe(60 + 20 + 15)
+  })
+
+  it('is never more than the cheapest single-store total, since it is a theoretical floor', () => {
+    const totals = compareStoreTotals(items, products)
+    expect(cheapestPossibleTotal(items, products)).toBeLessThanOrEqual(totals[0].total)
   })
 })

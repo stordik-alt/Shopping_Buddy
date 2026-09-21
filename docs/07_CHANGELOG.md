@@ -1,3 +1,19 @@
+# Shopping Buddy — Change Log
+
+## 2026-09-21 (Smart Shopping Engine: budget constraints)
+### Roadmap Phase C: budget constraints
+- Added `budgetImpact(cost, remaining)` to `lib/budget.ts` — deterministic, testable (5 new unit tests in `lib/budget.test.ts`): whether a planned cost fits the household's remaining monthly budget, and what percentage of it that cost would use (`null` when there's no positive remaining budget to express a percentage of).
+- Wired into `store-comparison.tsx`: warns when even the cheapest store option exceeds the remaining budget (and by how much), otherwise shows what percentage of the remaining budget the cheapest trip would use. `remaining` now threads through `AppShell` → `ShoppingList` → `StoreComparison`.
+- Also fixed a real mistake from earlier today while working on this: `docs/07_CHANGELOG.md` had lost its own `# Shopping Buddy — Change Log` title heading somewhere during an earlier edit in this session — restored it.
+
+## 2026-09-21 (Smart Shopping Engine, first slice: store comparison)
+### Roadmap Phase C: compare selected stores / unit-price comparison
+- Added `compareStoreTotals()` and `cheapestPossibleTotal()` to `lib/prices.ts` — deterministic, real-data-only per `docs/06_AI_RULES.md`: total cost of buying every not-done shopping-list item in one trip, per store that has at least some real catalog price data (sorted cheapest first), plus the theoretical floor of buying each item at whichever store is cheapest for it specifically. A product with no catalog entry falls back to the item's own stored price so every candidate store still gets a comparable total, rather than being silently excluded.
+- Surfaced as `components/shopping/store-comparison.tsx` on the shopping-list tab: ranked store totals, potential savings between cheapest and most expensive covered store, and the theoretical split-purchase floor when it beats the best single store.
+- 6 new unit tests in `lib/prices.test.ts` covering the fallback-price behavior, done-item exclusion, and the "split total never exceeds the best single store" invariant.
+- Verified against real production catalog data (not just unit tests): ran the actual `getProductPrices()` against a realistic shopping list and confirmed sensible, correctly-sorted output (Lidl cheapest, matching known seed pricing) — couldn't click-test the UI itself since it only renders after a client-side tab switch, no browser automation available here.
+- Not done from Phase C: promotion quality, stock/storage constraints, trip-distance constraints, budget constraints, bulk-buy recommendations, historical-price awareness (the last blocked on gap 8 — no real price history yet).
+
 ## 2026-09-21 (adopted drizzle-kit generate for migrations)
 - Closed `docs/01_CURRENT_STATE.md` gap 5: schema changes now go through `drizzle-kit generate` instead of hand-written SQL.
 - Ran `drizzle-kit generate --name=baseline_snapshot` against the current `lib/db/schema.ts` (which already matched the live database exactly, after the three hand-written migrations from earlier today) to produce `lib/db/migrations/0000_baseline_snapshot.sql` — a single file that creates the entire current schema from nothing. Marked it "already applied" in the live database's `_migrations` tracking table without running it (the tables already exist), and confirmed with `drizzle-kit generate` again that it now reports "No schema changes, nothing to migrate" — i.e. the baseline is correctly established as the diff reference point for future changes.

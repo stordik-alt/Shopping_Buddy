@@ -4,6 +4,7 @@ import type { Item, ItemCategory, ItemPriority, ItemUnit, StoreChain } from '@/l
 import { money } from '@/lib/format'
 import { comparePrices, type ProductPrice } from '@/lib/prices'
 import { PriceComparison } from '@/components/shopping/price-comparison'
+import { StoreComparison } from '@/components/shopping/store-comparison'
 
 const CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
 const UNITS: ItemUnit[] = ['ks', 'kg', 'g', 'l', 'ml']
@@ -44,6 +45,7 @@ export function ShoppingList({
   lists,
   onAddList,
   productPrices,
+  remaining,
 }: {
   items: Item[]
   newItem: string
@@ -55,6 +57,7 @@ export function ShoppingList({
   lists: string[]
   onAddList: (name: string) => void
   productPrices: ProductPrice[]
+  remaining: number
 }) {
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('Vše')
@@ -108,6 +111,7 @@ export function ShoppingList({
           {items.length} položek · {completedCount} hotovo
         </span>
       </div>
+      <StoreComparison items={items} productPrices={productPrices} remaining={remaining} />
       <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Nákupní seznamy">
         {lists.map((list) => (
           <button

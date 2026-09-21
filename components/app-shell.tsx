@@ -253,6 +253,7 @@ export function AppShell({
                   lists={shoppingLists}
                   onAddList={addShoppingListName}
                   productPrices={productPrices}
+                  remaining={remaining}
                 />
               )}
               {tab === 'Obchody' && <StoreDirectory stores={stores} />}

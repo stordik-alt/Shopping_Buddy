@@ -1,4 +1,4 @@
-import type { ItemCategory, ItemUnit, StoreChain } from '@/lib/types'
+import type { Item, ItemCategory, ItemUnit, StoreChain } from '@/lib/types'
 
 export type PricePoint = {
   store: StoreChain
@@ -35,4 +35,59 @@ export function activeDeals(products: ProductPrice[], referenceDate: string) {
   return products.flatMap((product) =>
     product.prices.filter((price) => isDealActive(price, referenceDate)).map((price) => ({ product, price })),
   )
+}
+
+export type ShoppingListItemForPricing = Pick<Item, 'name' | 'price' | 'quantity' | 'done'>
+
+export type StoreTotal = {
+  store: StoreChain
+  total: number
+  /** How many of the not-done items this total is based on real per-store catalog prices for. */
+  itemsPriced: number
+  /** How many fell back to the item's own stored price because we have no catalog price for that product at this store. */
+  itemsFallback: number
+}
+
+/** Total cost of buying every not-yet-done shopping list item in one trip, per store that has at
+ *  least some catalog price data — sorted cheapest first. A product with no catalog price at a
+ *  given store falls back to the item's own stored price (store-agnostic), so every candidate
+ *  store still gets a comparable total instead of being silently excluded. Per
+ *  docs/05_BUSINESS_RULES.md, this compares real, already-fetched prices — it never invents one. */
+export function compareStoreTotals(items: ShoppingListItemForPricing[], products: ProductPrice[]): StoreTotal[] {
+  const pending = items.filter((item) => !item.done)
+  const stores = new Set<StoreChain>()
+  for (const product of products) for (const price of product.prices) stores.add(price.store)
+
+  return Array.from(stores)
+    .map((store): StoreTotal => {
+      let total = 0
+      let itemsPriced = 0
+      let itemsFallback = 0
+      for (const item of pending) {
+        const product = products.find((entry) => entry.productName === item.name)
+        const priceAtStore = product?.prices.find((price) => price.store === store)
+        if (priceAtStore) {
+          total += effectivePrice(priceAtStore) * item.quantity
+          itemsPriced++
+        } else {
+          total += item.price * item.quantity
+          itemsFallback++
+        }
+      }
+      return { store, total, itemsPriced, itemsFallback }
+    })
+    .sort((a, b) => a.total - b.total)
+}
+
+/** Theoretical floor: buying each item at whichever known store is cheapest for it specifically,
+ *  ignoring the single-trip constraint. A reference point for "best single store" vs. "best possible". */
+export function cheapestPossibleTotal(items: ShoppingListItemForPricing[], products: ProductPrice[]): number {
+  return items
+    .filter((item) => !item.done)
+    .reduce((sum, item) => {
+      const product = products.find((entry) => entry.productName === item.name)
+      if (!product || product.prices.length === 0) return sum + item.price * item.quantity
+      const cheapest = Math.min(...product.prices.map(effectivePrice))
+      return sum + cheapest * item.quantity
+    }, 0)
 }

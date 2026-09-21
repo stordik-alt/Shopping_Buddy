@@ -42,3 +42,13 @@ export function monthOverMonthChange(expenses: Expense[]) {
   const current = totalSpent(expenses)
   return { current, previous: PREVIOUS_MONTH_TOTAL, changePercent: ((current - PREVIOUS_MONTH_TOTAL) / PREVIOUS_MONTH_TOTAL) * 100 }
 }
+
+/** Whether a planned cost (e.g. a shopping trip) fits the household's remaining budget, and how
+ *  much of it that cost would use up. `percentOfRemaining` is null when there's no positive
+ *  remaining budget left to express a percentage of. */
+export function budgetImpact(cost: number, remaining: number): { overBudget: boolean; percentOfRemaining: number | null } {
+  return {
+    overBudget: cost > remaining,
+    percentOfRemaining: remaining > 0 ? (cost / remaining) * 100 : null,
+  }
+}

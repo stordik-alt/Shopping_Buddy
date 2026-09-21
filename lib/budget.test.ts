@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  budgetImpact,
   categoryBreakdown,
   dailyAverage,
   monthOverMonthChange,
@@ -95,5 +96,29 @@ describe('monthOverMonthChange', () => {
   it('reports a negative change when spending less than last month', () => {
     const result = monthOverMonthChange([expense(PREVIOUS_MONTH_TOTAL / 2)])
     expect(result.changePercent).toBeLessThan(0)
+  })
+})
+
+describe('budgetImpact', () => {
+  it('is not over budget when the cost fits within what remains', () => {
+    expect(budgetImpact(300, 500).overBudget).toBe(false)
+  })
+
+  it('is over budget once the cost exceeds what remains', () => {
+    expect(budgetImpact(600, 500).overBudget).toBe(true)
+  })
+
+  it('computes what percentage of the remaining budget the cost would use', () => {
+    expect(budgetImpact(250, 1000).percentOfRemaining).toBeCloseTo(25)
+  })
+
+  it('is always over budget once there is no remaining budget left, regardless of cost', () => {
+    expect(budgetImpact(0.01, 0).overBudget).toBe(true)
+    expect(budgetImpact(0.01, -50).overBudget).toBe(true)
+  })
+
+  it('has no meaningful percentage when there is no positive remaining budget to express one against', () => {
+    expect(budgetImpact(100, 0).percentOfRemaining).toBeNull()
+    expect(budgetImpact(100, -50).percentOfRemaining).toBeNull()
   })
 })

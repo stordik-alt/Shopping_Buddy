@@ -1,5 +1,9 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-21 (Ops: CRON_SECRET set, cron job still not deployed)
+- The owner added `CRON_SECRET` to the Vercel project. Confirmed via `vercel env ls`: set for the Production environment.
+- Also checked `vercel cron ls`, which surfaced a real gap: `/api/cron/shopping-reminders` shows as `not deployed`. `vercel.json`'s cron definition only exists on `v0/backend`, which per the branch policy (`CLAUDE.md` section 3) hasn't merged to `main` — Vercel's production deployments build from `main`, so this route, the whole shopping-reminders feature, and everything else built on `v0/backend` this session are not live yet. `CRON_SECRET` being set doesn't change that; it only means the route will check the right thing once it actually deploys.
+
 ## 2026-09-21 (Testing: Server Action coverage for the remaining action files)
 ### Follow-up to "Testing: Server Actions and household-scoping authorization"
 - Extended the same pattern (real dev database, `requireHouseholdId()`/`revalidatePath()` mocked) from `shopping.ts` to the rest of `app/actions/`: `household.test.ts`, `budget.test.ts`, `notifications.test.ts`, `meal-plan.test.ts`. Every Server Action that takes a client-supplied resource id (household member, child, invitation, notification, on top of the shopping-list/item ids already covered) now has a test confirming a cross-household id is rejected.

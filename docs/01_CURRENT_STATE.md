@@ -541,7 +541,7 @@ triggering event:
 
 * **budget thresholds** — `lib/budget.ts`'s `crossedBudgetThreshold()`, wired into `addExpenseAction`. Fires once when spending crosses 80% or 100% of the household's monthly budget; does not re-fire while already in the same band.
 * **important promotions (price/deal alerts)** — `lib/prices.ts`'s `assessDealQuality()`, wired into `addShoppingItemAction`. Fires when a product just added to the list has a currently active deal that is genuinely the best price for it across known stores, not merely any discount.
-* **shopping reminders** — the only event that isn't triggered by a user action. `app/api/cron/shopping-reminders`, a daily Vercel Cron job (`vercel.json`), finds undone list items that have sat around at least `STALE_AFTER_DAYS` (3) using the pure `lib/reminders.ts`'s `findStaleItems()`, and reminds the household once per stale item. **`CRON_SECRET` is not yet set in the Vercel project's environment variables** — until it is, this route accepts unauthenticated requests (see `docs/07_CHANGELOG.md`).
+* **shopping reminders** — the only event that isn't triggered by a user action. `app/api/cron/shopping-reminders`, a daily Vercel Cron job (`vercel.json`), finds undone list items that have sat around at least `STALE_AFTER_DAYS` (3) using the pure `lib/reminders.ts`'s `findStaleItems()`, and reminds the household once per stale item. `CRON_SECRET` is set in the Vercel project (Production), but the route isn't live yet — see section 27 "Cron authorization" for why.
 * **household events** — `lib/db/queries.ts`'s exported `joinHouseholdViaInvitation()` notifies the household when someone joins via invitation. Shared by both places a join can happen (auto-join on first login, and the explicit `acceptInvitationAction` from `/invite/[token]`) — those two paths had duplicated the join mechanics before this, now consolidated into one function.
 
 Notifications should use deterministic rules wherever possible.
@@ -843,7 +843,7 @@ International support is planned later.
 
 ## Cron authorization
 
-`app/api/cron/shopping-reminders` checks its `Authorization` header against `process.env.CRON_SECRET`, but that variable is not yet set in the Vercel project. Needs to be added in the Vercel dashboard before the route can be trusted in production.
+`CRON_SECRET` is now set in the Vercel project (Production environment), confirmed 2026-09-21 via `vercel env ls`. The route itself is still not live: `vercel.json`'s cron definition lives on `v0/backend`, which per the branch policy hasn't been merged to `main` (the production branch) yet — `vercel cron ls` shows `/api/cron/shopping-reminders` as `not deployed`. Nothing will actually call the route on schedule until this branch's work merges to `main` and a production deploy runs.
 
 ---
 

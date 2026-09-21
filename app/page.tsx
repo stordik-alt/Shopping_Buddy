@@ -10,7 +10,7 @@ export default async function Page() {
   if (!session?.user) redirect('/auth/sign-in')
 
   const [data, stores, productPrices] = await Promise.all([
-    getHouseholdData(session.user.id, session.user.name),
+    getHouseholdData(session.user.id, session.user.name, session.user.email),
     getStores(),
     getProductPrices(),
   ])

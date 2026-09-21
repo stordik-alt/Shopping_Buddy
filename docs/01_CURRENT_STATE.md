@@ -34,6 +34,8 @@ These should be treated as implemented/prototype functionality until verified ag
 
 **Update 2026-09-20 (auth):** Authentication is wired to Neon Auth (Managed Better Auth) — email/password sign-up/sign-in, session-protected routes via `proxy.ts`, per-user household scoping (each account gets its own household on first login; the old seeded demo household still exists but is unlinked from any account), and server-side household-ownership checks on every Server Action (`lib/auth/authorize.ts`). **Verified end-to-end** against the real Neon Auth service and database: sign-up, sign-in, session-protected page load, and auto-provisioning all confirmed working (see `docs/07_CHANGELOG.md`).
 
+**Update 2026-09-21 (shared household):** Phase B's first item — invitations/membership — is done. A household owner can generate a share link (`invitations` table + `inviteMemberAction`/`revokeInvitationAction`); the invited person joining (via sign-up or the public `/invite/[token]` landing page) becomes a `member` of that same household instead of getting their own. Verified end-to-end against the real database. Roles stay coarse (owner/member only — no granular permissions) and there's no real-time/concurrent-edit sync yet; both remain open from `docs/04_ROADMAP.md` Phase B.
+
 ## Important current technical condition
 Household profile, shopping list, budget/expenses, notifications, store directory, price/deal comparison, and each household's generated weekly meal plan now read from (and, except stores/prices, write to) Neon via `lib/db/queries.ts` and `app/actions/`. The meal-plan *recipe catalog* itself (`lib/meal-plans.ts`) remains code-based reference data by design — there's no `recipes` table to migrate it to.
 
@@ -60,6 +62,7 @@ Neon is provisioned (Vercel Marketplace, resource `neon-cyclamen-bridge` on proj
 - purchase_items
 - meal_plans
 - notifications
+- invitations
 
 There is also a `neon_auth` schema — this is Neon Auth (Managed Better Auth). It is now the identity source of truth (see auth update above); `public.users` was dropped and `household_members.user_id` references `neon_auth."user"(id)` instead.
 

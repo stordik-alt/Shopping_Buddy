@@ -1,4 +1,4 @@
-import { and, asc, eq } from 'drizzle-orm'
+import { and, asc, desc, eq } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { TODAY } from '@/lib/budget'
@@ -129,7 +129,14 @@ export async function getHouseholdData(userId: string, userName: string, userEma
       orderBy: asc(schema.purchases.date),
     }),
     getCurrentMealPlan(household.id),
+    db.query.invitations.findMany({
+      where: and(eq(schema.invitations.householdId, household.id), eq(schema.invitations.status, 'pending')),
+      orderBy: desc(schema.invitations.createdAt),
+    }),
   ])
+
+  const myRawMember = members.find((member) => member.userId === userId)
+  const isOwner = myRawMember?.role === 'owner'
 
   const mainListId = lists[0]?.id
   if (!mainListId) throw new Error('Household has no shopping list — run the seed script.')
@@ -226,6 +233,37 @@ export async function getHouseholdData(userId: string, userName: string, userEma
       }),
     ),
     mealPlan,
+    isOwner,
+    pendingInvitations: invitationRows.map(
+      (invitation): PendingInvitation => ({ id: invitation.id, email: invitation.email, expiresAt: invitation.expiresAt.toString() }),
+    ),
+  }
+}
+
+export type InvitationInfo = {
+  id: string
+  email: string
+  status: 'pending' | 'accepted' | 'revoked'
+  expiresAt: string
+  householdName: string
+  invitedByName: string | null
+}
+
+/** Looks up an invitation by its share-link token, for the public /invite/[token] landing page. */
+export async function getInvitationByToken(token: string): Promise<InvitationInfo | null> {
+  const db = getDb()
+  const invitation = await db.query.invitations.findFirst({
+    where: eq(schema.invitations.token, token),
+    with: { household: true, invitedByMember: true },
+  })
+  if (!invitation) return null
+  return {
+    id: invitation.id,
+    email: invitation.email,
+    status: invitation.status,
+    expiresAt: invitation.expiresAt.toString(),
+    householdName: invitation.household.name,
+    invitedByName: invitation.invitedByMember?.name ?? null,
   }
 }
 

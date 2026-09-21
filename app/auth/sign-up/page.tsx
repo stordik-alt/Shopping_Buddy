@@ -1,15 +1,25 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { type FormEvent, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { type FormEvent, Suspense, useState } from 'react'
 import { Brand } from '@/components/shared/brand'
 import { authClient } from '@/lib/auth/client'
 
 export default function SignUpPage() {
+  return (
+    <Suspense>
+      <SignUpForm />
+    </Suspense>
+  )
+}
+
+function SignUpForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const invite = searchParams.get('invite')
   const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(searchParams.get('email') ?? '')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -28,7 +38,7 @@ export default function SignUpPage() {
       setError(signUpError.message || 'Registraci se nepodařilo dokončit.')
       return
     }
-    router.push('/')
+    router.push(invite ? `/invite/${invite}` : '/')
     router.refresh()
   }
 
@@ -82,7 +92,7 @@ export default function SignUpPage() {
           </form>
           <p className="mt-5 text-center text-sm text-muted-foreground">
             Už máte účet?{' '}
-            <Link href="/auth/sign-in" className="font-medium text-primary hover:underline">
+            <Link href={`/auth/sign-in${invite ? `?invite=${invite}&email=${encodeURIComponent(email)}` : ''}`} className="font-medium text-primary hover:underline">
               Přihlaste se
             </Link>
           </p>

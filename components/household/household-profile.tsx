@@ -4,6 +4,7 @@ import { ChildCard } from '@/components/household/child-card'
 import { MemberCard } from '@/components/household/member-card'
 import { MemberRow } from '@/components/household/member-row'
 import { TagInput } from '@/components/shared/tag-input'
+import type { PendingInvitation } from '@/lib/db/queries'
 import type { Household, HouseholdPreferences, PriceSensitivity, QualityPreference } from '@/lib/types'
 
 const splitList = (value: string) =>
@@ -14,33 +15,48 @@ const splitList = (value: string) =>
 
 export function HouseholdProfile({
   household,
+  isOwner,
+  pendingInvitations,
   onUpdateHousehold,
   onAddMember,
   onRemoveMember,
   onAddChild,
   onRemoveChild,
   onUpdatePreferences,
+  onInvite,
+  onRevokeInvitation,
 }: {
   household: Household
+  isOwner: boolean
+  pendingInvitations: PendingInvitation[]
   onUpdateHousehold: (changes: { name?: string; monthlyBudget?: number }) => void
   onAddMember: (member: { name: string; age: number; favoriteFoods: string[]; dislikedFoods: string[]; allergies: string[] }) => void
   onRemoveMember: (id: string) => void
   onAddChild: (child: { name: string; age: number; preferences: string; specialNeeds?: string }) => void
   onRemoveChild: (id: string) => void
   onUpdatePreferences: (changes: Partial<HouseholdPreferences>) => void
+  onInvite: (email: string) => Promise<{ token: string }>
+  onRevokeInvitation: (id: string) => void
 }) {
   const [invite, setInvite] = useState('')
-  const [invited, setInvited] = useState<string[]>([])
+  const [inviteLink, setInviteLink] = useState<string | null>(null)
+  const [inviteError, setInviteError] = useState('')
   const [alerts, setAlerts] = useState(true)
 
   const [memberForm, setMemberForm] = useState({ name: '', age: '', favoriteFoods: '', dislikedFoods: '', allergies: '' })
   const [childForm, setChildForm] = useState({ name: '', age: '', preferences: '', specialNeeds: '' })
 
-  function addInvite() {
+  async function sendInvite() {
     const email = invite.trim()
     if (!email || !email.includes('@')) return
-    setInvited((current) => [...current, email])
-    setInvite('')
+    setInviteError('')
+    try {
+      const { token } = await onInvite(email)
+      setInviteLink(`${window.location.origin}/invite/${token}`)
+      setInvite('')
+    } catch (err) {
+      setInviteError(err instanceof Error ? err.message : 'Pozvánku se nepodařilo vytvořit.')
+    }
   }
 
   function addMember() {
@@ -149,25 +165,60 @@ export function HouseholdProfile({
             Přidat člena domácnosti
           </button>
         </div>
-        <div className="mt-5 flex flex-col gap-3 border-t border-border pt-5 sm:flex-row">
-          <input
-            aria-label="E-mail člena domácnosti"
-            value={invite}
-            onChange={(event) => setInvite(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.nativeEvent.isComposing && event.keyCode !== 229) addInvite()
-            }}
-            placeholder="email@rodina.cz"
-            className="min-w-0 flex-1 rounded-xl border border-input bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-ring"
-          />
-          <button onClick={addInvite} className="rounded-xl border border-border px-4 py-3 text-sm font-medium hover:bg-muted">
-            Pozvat člena
-          </button>
-        </div>
-        {invited.length > 0 && (
+        {isOwner && (
+          <div className="mt-5 border-t border-border pt-5">
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <input
+                aria-label="E-mail člena domácnosti"
+                type="email"
+                value={invite}
+                onChange={(event) => setInvite(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.nativeEvent.isComposing && event.keyCode !== 229) sendInvite()
+                }}
+                placeholder="email@rodina.cz"
+                className="min-w-0 flex-1 rounded-xl border border-input bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+              />
+              <button onClick={sendInvite} className="rounded-xl border border-border px-4 py-3 text-sm font-medium hover:bg-muted">
+                Pozvat člena
+              </button>
+            </div>
+            {inviteError && <p className="mt-2 text-sm text-destructive">{inviteError}</p>}
+            {inviteLink && (
+              <div className="mt-3 rounded-xl bg-muted p-3 text-xs">
+                <p className="text-muted-foreground">Odkaz pro pozvánku (platí 7 dní) — pošlete jej pozvanému sami:</p>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <code className="min-w-0 flex-1 truncate">{inviteLink}</code>
+                  <button
+                    onClick={() => navigator.clipboard.writeText(inviteLink)}
+                    className="shrink-0 rounded-lg bg-background px-2 py-1 font-medium hover:bg-card"
+                  >
+                    Kopírovat
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        {pendingInvitations.length > 0 && (
           <div className="mt-3 flex flex-col gap-2">
-            {invited.map((email) => (
-              <MemberRow key={email} initials="?" name={email} detail="Pozvánka odeslána" />
+            {pendingInvitations.map((invitation) => (
+              <MemberRow
+                key={invitation.id}
+                initials="?"
+                name={invitation.email}
+                detail={`Pozvánka čeká · platí do ${new Date(invitation.expiresAt).toLocaleDateString('cs-CZ')}`}
+                action={
+                  isOwner && (
+                    <button
+                      onClick={() => onRevokeInvitation(invitation.id)}
+                      className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-background hover:text-destructive"
+                    >
+                      Zrušit
+                    </button>
+                  )
+                }
+              />
             ))}
           </div>
         )}

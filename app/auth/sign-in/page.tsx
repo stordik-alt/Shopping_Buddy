@@ -1,14 +1,24 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { type FormEvent, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { type FormEvent, Suspense, useState } from 'react'
 import { Brand } from '@/components/shared/brand'
 import { authClient } from '@/lib/auth/client'
 
 export default function SignInPage() {
+  return (
+    <Suspense>
+      <SignInForm />
+    </Suspense>
+  )
+}
+
+function SignInForm() {
   const router = useRouter()
-  const [email, setEmail] = useState('')
+  const searchParams = useSearchParams()
+  const invite = searchParams.get('invite')
+  const [email, setEmail] = useState(searchParams.get('email') ?? '')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -27,7 +37,7 @@ export default function SignInPage() {
       setError(signInError.message || 'Přihlášení se nezdařilo.')
       return
     }
-    router.push('/')
+    router.push(invite ? `/invite/${invite}` : '/')
     router.refresh()
   }
 
@@ -72,7 +82,7 @@ export default function SignInPage() {
           </form>
           <p className="mt-5 text-center text-sm text-muted-foreground">
             Ještě nemáte účet?{' '}
-            <Link href="/auth/sign-up" className="font-medium text-primary hover:underline">
+            <Link href={`/auth/sign-up${invite ? `?invite=${invite}&email=${encodeURIComponent(email)}` : ''}`} className="font-medium text-primary hover:underline">
               Založte si ho
             </Link>
           </p>

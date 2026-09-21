@@ -2,7 +2,16 @@
 
 import { useState } from 'react'
 import { addExpenseAction } from '@/app/actions/budget'
-import { addChildAction, addHouseholdMemberAction, removeChildAction, removeHouseholdMemberAction, updateHouseholdAction, updateHouseholdPreferencesAction } from '@/app/actions/household'
+import {
+  addChildAction,
+  addHouseholdMemberAction,
+  inviteMemberAction,
+  removeChildAction,
+  removeHouseholdMemberAction,
+  revokeInvitationAction,
+  updateHouseholdAction,
+  updateHouseholdPreferencesAction,
+} from '@/app/actions/household'
 import { markAllNotificationsReadAction, markNotificationReadAction } from '@/app/actions/notifications'
 import { addShoppingItemAction, addShoppingListAction, removeShoppingItemAction, toggleShoppingItemAction, updateShoppingItemAction } from '@/app/actions/shopping'
 import { AiAssistant } from '@/components/ai/ai-assistant'
@@ -48,6 +57,7 @@ export function AppShell({
   const [expenses, setExpenses] = useState(initialData.expenses)
   const [newItem, setNewItem] = useState('')
   const [shoppingLists, setShoppingLists] = useState(initialData.shoppingLists)
+  const [pendingInvitations, setPendingInvitations] = useState(initialData.pendingInvitations)
 
   const budget = household.monthlyBudget
   const spent = expenses.reduce((total, expense) => total + expense.amount, 0)
@@ -124,6 +134,17 @@ export function AppShell({
   function updatePreferences(changes: Partial<typeof household.preferences>) {
     setHousehold((current) => ({ ...current, preferences: { ...current.preferences, ...changes } }))
     updateHouseholdPreferencesAction(changes)
+  }
+
+  async function inviteMember(email: string) {
+    const invitation = await inviteMemberAction(email)
+    setPendingInvitations((current) => [...current, { id: invitation.id, email: invitation.email, expiresAt: invitation.expiresAt }])
+    return invitation
+  }
+
+  function revokeInvitation(id: string) {
+    setPendingInvitations((current) => current.filter((invitation) => invitation.id !== id))
+    revokeInvitationAction(id)
   }
 
   function readNotification(id: string) {
@@ -226,12 +247,16 @@ export function AppShell({
               {tab === 'Profil' && (
                 <HouseholdProfile
                   household={household}
+                  isOwner={initialData.isOwner}
+                  pendingInvitations={pendingInvitations}
                   onUpdateHousehold={updateHousehold}
                   onAddMember={addMember}
                   onRemoveMember={removeMember}
                   onAddChild={addChild}
                   onRemoveChild={removeChild}
                   onUpdatePreferences={updatePreferences}
+                  onInvite={inviteMember}
+                  onRevokeInvitation={revokeInvitation}
                 />
               )}
             </div>

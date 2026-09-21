@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import { addExpenseAction } from '@/app/actions/budget'
 import {
   addChildAction,
@@ -58,6 +59,32 @@ export function AppShell({
   const [newItem, setNewItem] = useState('')
   const [shoppingLists, setShoppingLists] = useState(initialData.shoppingLists)
   const [pendingInvitations, setPendingInvitations] = useState(initialData.pendingInvitations)
+  const router = useRouter()
+
+  // Shared households (Phase B "concurrent edits"): initialData comes from a Server Component
+  // fetch, so another member's changes only reach this client on the next server re-render.
+  // Resync local state whenever a fresh initialData arrives, and trigger that re-render
+  // periodically and when the tab regains focus — good-enough freshness without websockets.
+  useEffect(() => {
+    setHousehold(initialData.household)
+    setItems(initialData.items)
+    setNotifications(initialData.notifications)
+    setExpenses(initialData.expenses)
+    setShoppingLists(initialData.shoppingLists)
+    setPendingInvitations(initialData.pendingInvitations)
+  }, [initialData])
+
+  useEffect(() => {
+    const interval = setInterval(() => router.refresh(), 20_000)
+    const onFocus = () => {
+      if (document.visibilityState === 'visible') router.refresh()
+    }
+    document.addEventListener('visibilitychange', onFocus)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', onFocus)
+    }
+  }, [router])
 
   const budget = household.monthlyBudget
   const spent = expenses.reduce((total, expense) => total + expense.amount, 0)

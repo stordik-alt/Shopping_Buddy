@@ -75,7 +75,7 @@ There is also a `neon_auth` schema — this is Neon Auth (Managed Better Auth). 
 6. Need product/brand/variant/package/unit normalization before serious price aggregation.
 7. Need explicit currency and country/locale support.
 8. Need reliable price/deal history (schema supports it; not yet exercised by real price updates over time).
-9. Need tests for core business rules.
+9. ~~Need tests for core business rules.~~ Started: `vitest` (`pnpm test`) with unit tests for `lib/budget.ts`, `lib/prices.ts`, `lib/meal-plans.ts` (including the allergen-filtering safety property and a regression test for the `currentWeekStart` timezone bug fixed earlier), and `lib/geo.ts` — see `docs/07_CHANGELOG.md`. Coverage is not exhaustive; Server Actions and the auto-provision/auto-join logic in `lib/db/queries.ts` still have no automated tests (would need a test database or mocking, not attempted here).
 10. ~~Need to remove build/typecheck bypasses after the codebase is clean.~~ Done — `next.config.mjs`'s `typescript.ignoreBuildErrors` removed (see above).
 
 ## Immediate task

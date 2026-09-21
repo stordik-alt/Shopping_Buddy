@@ -1,5 +1,13 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-21 (Testing: Server Action coverage for the remaining action files)
+### Follow-up to "Testing: Server Actions and household-scoping authorization"
+- Extended the same pattern (real dev database, `requireHouseholdId()`/`revalidatePath()` mocked) from `shopping.ts` to the rest of `app/actions/`: `household.test.ts`, `budget.test.ts`, `notifications.test.ts`, `meal-plan.test.ts`. Every Server Action that takes a client-supplied resource id (household member, child, invitation, notification, on top of the shopping-list/item ids already covered) now has a test confirming a cross-household id is rejected.
+- `household.test.ts` additionally covers the owner-only role check on `inviteMemberAction`/`revokeInvitationAction`, and `acceptInvitationAction`'s email-match and already-a-member rejections — the latter needed mocking `@/lib/auth/server`'s `auth.getSession()` too, since that action authorizes off a real session rather than `requireHousehold()`.
+- `budget.test.ts` exercises `addExpenseAction`'s budget-threshold notification end-to-end against a real household's real `monthlyBudget`/expenses (crossing 80%, crossing 100%, and not re-firing once already over) — previously only unit-tested as the pure `crossedBudgetThreshold()` function, never through the actual Server Action.
+- `meal-plan.test.ts` confirms `saveMealPlanAction` upserts (one row per household per week, not a new row every save).
+- 89/89 tests passing; confirmed no test data left behind.
+
 ## 2026-09-21 (Testing: Server Actions and household-scoping authorization)
 ### Known gap: "Server Actions and the auto-provision/auto-join logic in lib/db/queries.ts still have no automated tests"
 - First automated coverage for Server Actions, closing part of this long-standing gap (`docs/01_CURRENT_STATE.md`, `CLAUDE.md` section 25 "Testing"). Two blockers explained why nothing existed here before: `requireHouseholdId()` reads a session cookie that doesn't exist in a test process, and `next/cache`'s `revalidatePath()` throws outside Next's request-scoped cache store (`Invariant: static generation store missing`) when called directly, as every Server Action does on its last line. Both are mocked via `vi.mock`; everything else — authorization checks, DB writes, notification logic — is the real code running against the real dev database, not a mock DB.

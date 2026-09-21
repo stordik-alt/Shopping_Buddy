@@ -639,14 +639,13 @@ Tests currently cover areas including:
 * meal plans
 * geographic/store logic
 * shopping reminders (staleness logic)
-* shopping-list Server Actions and their household-scoping checks, against the real dev database (`app/actions/shopping.test.ts`)
+* every Server Action in `app/actions/` and their household-scoping/role checks, against the real dev database (`app/actions/*.test.ts`)
 * invitation/join-via-invitation logic and its notification, against the real dev database (`lib/db/queries.test.ts`)
 
 Further tests are still required for:
 
-* Server Actions outside `app/actions/shopping.ts` (household, budget, meal-plan actions)
 * full session/cookie-level authentication (would need e2e testing, not attempted)
-* auto-provisioning (new-household-on-first-login path)
+* auto-provisioning (new-household-on-first-login path inside `getHouseholdData()`, as opposed to the invitation-join path which is now covered)
 * price ingestion
 * promotion normalization
 * shopping optimization
@@ -826,11 +825,11 @@ Database foundation exists, but UI and domain-wide localization still require wo
 
 ## Server action tests
 
-Started 2026-09-21: `app/actions/shopping.test.ts` covers `addShoppingItemAction`, `toggleShoppingItemAction`, `removeShoppingItemAction` against the real dev database (`requireHouseholdId()` and `next/cache`'s `revalidatePath()` mocked, since both need a real Next.js request context that a test process doesn't have — everything else, including all DB writes, is the real code). Only `app/actions/shopping.ts` is covered so far; `app/actions/household.ts`, `app/actions/budget.ts`, and the rest remain untested.
+Started 2026-09-21, now covers every file in `app/actions/`: `shopping.test.ts`, `household.test.ts`, `budget.test.ts`, `notifications.test.ts`, `meal-plan.test.ts`, all as integration tests against the real dev database. `requireHouseholdId()`/`requireHousehold()` and `next/cache`'s `revalidatePath()` are mocked, since both need a real Next.js request context a test process doesn't have; `acceptInvitationAction` additionally needed `@/lib/auth/server`'s `auth.getSession()` mocked, since it authorizes off a real session rather than `requireHousehold()`. Everything else — authorization checks, DB writes, notification logic, the budget-threshold and meal-plan-upsert behavior — is the real code running for real.
 
 ## Authorization tests
 
-Started 2026-09-21, same file: verifies a list/item id belonging to a different household is rejected rather than trusted from the client, for the shopping actions above. Broader household-scoping coverage across other Server Actions is still open. Full session/cookie-level authentication testing (an actual signed-in browser session) is not attempted — that would need e2e testing (e.g. Playwright) against a running dev server, not unit/integration tests.
+Started 2026-09-21, expanded same day: every Server Action that takes a client-supplied resource id (list/item, household member, child, invitation, notification) now has a test confirming an id belonging to a different household is rejected rather than trusted from the client. `inviteMemberAction`/`revokeInvitationAction`'s owner-only role check is also covered. Full session/cookie-level authentication testing (an actual signed-in browser session, not a mocked one) is not attempted — that would need e2e testing (e.g. Playwright) against a running dev server, not unit/integration tests.
 
 ## Purchase analytics
 
@@ -879,7 +878,7 @@ Recent development has included:
 * currency fields
 * migration baseline
 * automated tests for selected domains
-* first Server Action / household-authorization tests, running against the real dev database rather than mocks
+* Server Action / household-authorization tests for every action file, running against the real dev database rather than mocks
 * removal of the TypeScript build-error bypass
 
 ---

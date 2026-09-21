@@ -15,6 +15,13 @@
       "when": 1789968073377,
       "tag": "0001_indexes_for_hot_queries",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790000664950,
+      "tag": "0002_shopping_reminders",
+      "breakpoints": true
     }
   ]
 }

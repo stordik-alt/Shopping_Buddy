@@ -178,6 +178,10 @@ export const shoppingListItems = pgTable('shopping_list_items', {
   preferredStoreLocationId: uuid('preferred_store_location_id').references(() => storeLocations.id, { onDelete: 'set null' }),
   onSale: boolean('on_sale').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+  // Set once a "shopping reminder" notification has covered this item (see the cron job at
+  // app/api/cron/shopping-reminders). Null means never reminded yet. Prevents the same
+  // still-undone item from generating a new reminder every day the job runs.
+  remindedAt: timestamp('reminded_at'),
 })
 
 // --- Purchases & budgets ------------------------------------------------------

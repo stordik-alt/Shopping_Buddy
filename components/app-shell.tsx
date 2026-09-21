@@ -101,8 +101,9 @@ export function AppShell({
     const name = newItem.trim()
     if (!name) return
     setNewItem('')
-    const item = await addShoppingItemAction(initialData.mainListId, name)
+    const { item, notification } = await addShoppingItemAction(initialData.mainListId, name)
     setItems((current) => [...current, item])
+    if (notification) setNotifications((current) => [...current, notification])
   }
 
   function addIngredients(ingredients: { name: string; category: Item['category'] }[]) {
@@ -110,7 +111,11 @@ export function AppShell({
       ingredients.map((ingredient) =>
         addShoppingItemAction(initialData.mainListId, ingredient.name, { detail: '1 ks · z jídelníčku', category: ingredient.category }),
       ),
-    ).then((created) => setItems((current) => [...current, ...created]))
+    ).then((results) => {
+      setItems((current) => [...current, ...results.map((r) => r.item)])
+      const newNotifications = results.map((r) => r.notification).filter((n) => n != null)
+      if (newNotifications.length > 0) setNotifications((current) => [...current, ...newNotifications])
+    })
     setTab('Nákup')
   }
 

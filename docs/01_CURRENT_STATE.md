@@ -535,15 +535,16 @@ Recent work added notification behavior when spending crosses configured thresho
 
 Notifications are persisted in the database.
 
-Current notification functionality includes budget-related notifications.
+Current notification functionality (2026-09-21) covers three of the four Phase 8 events, each a
+deterministic generator wired into the Server Action for the triggering write:
 
-The notification architecture is intended to support future events such as:
+* **budget thresholds** — `lib/budget.ts`'s `crossedBudgetThreshold()`, wired into `addExpenseAction`. Fires once when spending crosses 80% or 100% of the household's monthly budget; does not re-fire while already in the same band.
+* **important promotions (price/deal alerts)** — `lib/prices.ts`'s `assessDealQuality()`, wired into `addShoppingItemAction`. Fires when a product just added to the list has a currently active deal that is genuinely the best price for it across known stores, not merely any discount.
+* **shopping reminders** — the first event that isn't triggered by a user action. `app/api/cron/shopping-reminders`, a daily Vercel Cron job (`vercel.json`), finds undone list items that have sat around at least `STALE_AFTER_DAYS` (3) using the pure `lib/reminders.ts`'s `findStaleItems()`, and reminds the household once per stale item. **`CRON_SECRET` is not yet set in the Vercel project's environment variables** — until it is, this route accepts unauthenticated requests (see `docs/07_CHANGELOG.md`).
 
-* budget thresholds
-* important promotions
-* shopping reminders
-* expiring promotions
-* household events
+Still open:
+
+* **household events** — not yet implemented.
 
 Notifications should use deterministic rules wherever possible.
 
@@ -840,6 +841,14 @@ The Czech implementation is the primary target.
 
 International support is planned later.
 
+## Cron authorization
+
+`app/api/cron/shopping-reminders` checks its `Authorization` header against `process.env.CRON_SECRET`, but that variable is not yet set in the Vercel project. Needs to be added in the Vercel dashboard before the route can be trusted in production.
+
+## Household events
+
+Not yet implemented — the last open item in Phase 8 (Notifications).
+
 ---
 
 # 28. Recent Completed Work
@@ -866,6 +875,8 @@ Recent development has included:
 * GPS/manual location handling
 * Smart Shopping Engine foundations
 * budget threshold notifications
+* price/deal alert notifications
+* time-scheduled shopping-reminder notifications (Vercel Cron)
 * currency fields
 * migration baseline
 * automated tests for selected domains

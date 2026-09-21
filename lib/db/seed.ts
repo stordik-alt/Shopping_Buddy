@@ -196,7 +196,7 @@ async function main() {
       .insert(schema.purchases)
       .values({
         householdId: household.id,
-        storeLocationId: locationIdByChain.get(record.store) ?? null,
+        storeLocationId: record.store ? (locationIdByChain.get(record.store) ?? null) : null,
         date: record.date,
         total: record.total.toString(),
         discount: record.discount != null ? record.discount.toString() : null,

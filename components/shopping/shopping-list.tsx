@@ -49,6 +49,7 @@ export function ShoppingList({
   remaining,
   stores,
   userCoords,
+  completePurchase,
 }: {
   items: Item[]
   newItem: string
@@ -63,6 +64,7 @@ export function ShoppingList({
   remaining: number
   stores: Store[]
   userCoords: GpsCoords | null
+  completePurchase: () => void
 }) {
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('Vše')
@@ -153,6 +155,14 @@ export function ShoppingList({
             Vymazat hotové
           </button>
         )}
+        {items.some((item) => item.done) && (
+          <button
+            onClick={completePurchase}
+            className="rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-medium text-primary hover:bg-primary/20"
+          >
+            Dokončit nákup
+          </button>
+        )}
         <label className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
           Řadit
           <select
@@ -209,8 +219,18 @@ export function ShoppingList({
               if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) addItem()
             }}
             placeholder="Co potřebujete koupit?"
+            list="product-catalog-suggestions"
             className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm outline-none"
           />
+          {/* Native autocomplete against the real catalog (docs/07_CHANGELOG.md, "product
+              normalization phase 1") — picking a suggestion means addShoppingItemAction's
+              case/whitespace match resolves to a real productId on the first try, not just when
+              luckily typed exactly right. Still plain free text otherwise: no picker is enforced. */}
+          <datalist id="product-catalog-suggestions">
+            {productPrices.map((product) => (
+              <option key={product.productName} value={product.productName} />
+            ))}
+          </datalist>
           <button onClick={addItem} className="flex items-center gap-1 rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">
             <Plus className="h-4 w-4" /> Přidat
           </button>

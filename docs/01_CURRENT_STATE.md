@@ -363,6 +363,8 @@ Before serious price aggregation and comparison, products from different sources
 
 Product display names alone must not be treated as reliable unique identifiers.
 
+**Update 2026-09-21:** Found that this rule was actually being violated — `shoppingListItems.productId` and `purchaseItems.productId` have existed in the schema since early on, but no code ever populated or read either one; the whole app instead matched a shopping-list item to catalog data via exact string equality on its free-text name (`item.name === product.productName`), case-sensitively, with no autocomplete/picker UI to keep the typed text aligned with the catalog. First fix: `addShoppingItemAction` now resolves the typed name to a real product via `lib/products.ts`'s `matchProductByName()` (case/whitespace-insensitive, no fuzzy/typo tolerance — a match is exact or it doesn't happen) and stores the real `productId` on insert; the deal-alert check also now matches on the resolved canonical catalog name rather than the raw typed one, so a differently-cased entry no longer silently misses a real deal. Second: the shopping-list input now offers native browser autocomplete (`<datalist>`) against the real catalog, so a suggestion can be picked instead of relying on exact free-text typing — verified in a real browser session (see section 22). `purchaseItems.productId` is still unused — there's no Server Action that writes a real purchase record yet at all (separate, larger gap; see section 21). Brand/variant/package-size/barcode columns are still not modeled — deliberately deferred until there's a reliable name→product link to attach them to, which is what this closes.
+
 ---
 
 # 13. Prices
@@ -541,7 +543,7 @@ triggering event:
 
 * **budget thresholds** — `lib/budget.ts`'s `crossedBudgetThreshold()`, wired into `addExpenseAction`. Fires once when spending crosses 80% or 100% of the household's monthly budget; does not re-fire while already in the same band.
 * **important promotions (price/deal alerts)** — `lib/prices.ts`'s `assessDealQuality()`, wired into `addShoppingItemAction`. Fires when a product just added to the list has a currently active deal that is genuinely the best price for it across known stores, not merely any discount.
-* **shopping reminders** — the only event that isn't triggered by a user action. `app/api/cron/shopping-reminders`, a daily Vercel Cron job (`vercel.json`), finds undone list items that have sat around at least `STALE_AFTER_DAYS` (3) using the pure `lib/reminders.ts`'s `findStaleItems()`, and reminds the household once per stale item. `CRON_SECRET` is set in the Vercel project (Production), but the route isn't live yet — see section 27 "Cron authorization" for why.
+* **shopping reminders** — the only event that isn't triggered by a user action. `app/api/cron/shopping-reminders`, a daily Vercel Cron job (`vercel.json`), finds undone list items that have sat around at least `STALE_AFTER_DAYS` (3) using the pure `lib/reminders.ts`'s `findStaleItems()`, and reminds the household once per stale item. Fully live in production since 2026-09-21 — see section 27 "Cron authorization".
 * **household events** — `lib/db/queries.ts`'s exported `joinHouseholdViaInvitation()` notifies the household when someone joins via invitation. Shared by both places a join can happen (auto-join on first login, and the explicit `acceptInvitationAction` from `/invite/[token]`) — those two paths had duplicated the join mechanics before this, now consolidated into one function.
 
 Notifications should use deterministic rules wherever possible.
@@ -595,6 +597,8 @@ Purchase history is intended to support future functionality such as:
 * shopping optimization
 
 This area remains less mature than the core shopping-list and budget functionality.
+
+**Update 2026-09-21:** Found this was more than "less mature" — no Server Action ever wrote a real purchase; `purchases`/`purchase_items` were seeded once and read-only ever since (the analytics in `lib/purchase-history.ts` and `components/budget/purchase-history.tsx` were real, just fed frozen data). Added `app/actions/purchases.ts`'s `completePurchaseAction(listId)`, triggered by a new "Dokončit nákup" button next to the shopping list's existing "Vymazat hotové" (the two now coexist: one just discards done items, the other turns them into real purchase history). It groups the list's done items by preferred store (items with none share one purchase with no store — a real case, not an error) and creates one `purchases` row + its `purchase_items` per group, then removes those items from the list. Found and fixed a related bug while wiring this up: `getHouseholdData()` was defaulting a purchase's store to `'Lidl'` whenever `storeLocationId` was null (`purchase.storeLocation?.store.chain ?? 'Lidl'`) — silently inventing data. `PurchaseRecord.store` is now correctly optional, matching the schema's real nullability, and the UI shows "Neurčený obchod" instead. Verified in a real browser against the real dev database: added a real catalog item, marked it done, clicked "Dokončit nákup", confirmed the item left the shopping list and a real purchase appeared in the budget tab's history with the correct date, store fallback text, and "Nejčastěji kupované" analytics update. The item's `price` in the resulting purchase reflects `shoppingListItems.price` (the item's own stored price field, same as `plannedSpend()` already uses for budget planning) — not the live catalog price shown via `productPrices`, which is a separate, pre-existing gap (nothing has ever synced these two) rather than something new. `purchaseItems.productId` is now actually populated too, inherited from the shopping-list item's own `productId` (see section 12).
 
 ---
 
@@ -797,15 +801,10 @@ The following areas remain open or incomplete.
 
 ## Product normalization
 
-Need stronger mapping of:
+The real productId link from a shopping-list item to the catalog now exists and is populated (see section 12) — previously dead schema. Done since (2026-09-21): the shopping-list input now has native browser autocomplete (`<datalist>`) against the real catalog (`components/shopping/shopping-list.tsx`), so typed text has a real chance of matching instead of relying on the user to type it exactly. Still free text underneath — nothing is enforced, picking a suggestion is optional. Verified end-to-end in a real headless-browser session against the real dev database: signed up a fresh test account, confirmed the datalist's options matched the live catalog, added an item by picking a differently-cased suggestion, and confirmed both the item appeared correctly in the UI and its `productId` was set to the right product in the database. Still needed, in roughly this order:
 
-* product
-* brand
-* variant
-* package
-* unit
-* barcode
-* external product identifiers
+* stronger mapping of: brand, variant, package size, unit, barcode, external product identifiers — deliberately not modeled yet; there's no real catalog data with more than one package size per product to design or verify this against
+* wiring `purchaseItems.productId`, which stays unused until a real "record a purchase" write path exists (see "Purchase analytics" below)
 
 ## Price history
 
@@ -833,7 +832,7 @@ Started 2026-09-21, expanded same day: every Server Action that takes a client-s
 
 ## Purchase analytics
 
-Purchase history exists but deeper analytics are still required.
+Real purchases can now be created (`completePurchaseAction`, see section 21) — the analytics functions in `lib/purchase-history.ts` finally have a real write path feeding them, not just seed data. Deeper analytics beyond what's already there (average monthly spend, favorite store, most-bought products, repeat purchases) are still open, and the receipt-import idea (importing a purchase from a scanned/photographed receipt) raised by the owner is not started — likely OCR/external-service work, out of scope for now.
 
 ## International rollout
 
@@ -843,7 +842,7 @@ International support is planned later.
 
 ## Cron authorization
 
-`CRON_SECRET` is now set in the Vercel project (Production environment), confirmed 2026-09-21 via `vercel env ls`. The route itself is still not live: `vercel.json`'s cron definition lives on `v0/backend`, which per the branch policy hasn't been merged to `main` (the production branch) yet — `vercel cron ls` shows `/api/cron/shopping-reminders` as `not deployed`. Nothing will actually call the route on schedule until this branch's work merges to `main` and a production deploy runs.
+Fully resolved 2026-09-21: `CRON_SECRET` is set in the Vercel project (Production), PR #4 (`v0/backend` → `main`) is merged, and a production deployment ran. Confirmed live via `vercel cron ls`, which now lists `/api/cron/shopping-reminders` (no longer `not deployed`). The route will get its first real scheduled invocation at the next `0 8 * * *` (08:00 UTC) tick.
 
 ---
 
@@ -875,6 +874,8 @@ Recent development has included:
 * time-scheduled shopping-reminder notifications (Vercel Cron)
 * household-join event notifications (Phase 8 now fully complete: budget/deal/reminder/household-event notifications)
 * price-history foundation: append-only observation recording + historic-low detection (not yet fed by a real ingestion source)
+* real `productId` link from shopping-list items to the catalog (was dead schema; the whole app matched on free-text names before this), plus a native autocomplete on the input so typed text has a real chance of matching
+* real purchase-history write path (`completePurchaseAction`, "Dokončit nákup") — `purchases`/`purchase_items` were seed-only and read-only until now; also fixed a data-inventing bug found along the way (`?? 'Lidl'` store fallback)
 * currency fields
 * migration baseline
 * automated tests for selected domains

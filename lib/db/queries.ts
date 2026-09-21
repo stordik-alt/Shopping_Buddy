@@ -4,6 +4,7 @@ import * as schema from '@/lib/db/schema'
 import { TODAY } from '@/lib/budget'
 import { currentWeekStart, type WeeklyMealPlan } from '@/lib/meal-plans'
 import type { ProductPrice } from '@/lib/prices'
+import type { ProductCatalogEntry } from '@/lib/products'
 import type {
   Child,
   Expense,
@@ -15,7 +16,6 @@ import type {
   PurchaseRecord,
   QualityPreference,
   Store,
-  StoreChain,
 } from '@/lib/types'
 
 // Decorative only — not modeled in the schema, keyed by chain to match the previous mock styling.
@@ -236,7 +236,10 @@ export async function getHouseholdData(userId: string, userName: string, userEma
       (purchase): PurchaseRecord => ({
         id: purchase.id,
         date: purchase.date,
-        store: (purchase.storeLocation?.store.chain ?? 'Lidl') as StoreChain,
+        // Was `?? 'Lidl'` — silently mislabeling a purchase with no known store as Lidl. Found
+        // while wiring up completePurchaseAction, the first thing that can actually produce a
+        // purchase with no store. Per docs/03_DATABASE.md ("never invent data"), leave it unknown.
+        store: purchase.storeLocation?.store.chain,
         total: Number(purchase.total),
         discount: purchase.discount != null ? Number(purchase.discount) : undefined,
         items: purchase.items.map((item) => ({ name: item.name, quantity: item.quantity, unit: item.unit, price: Number(item.price) })),
@@ -296,6 +299,15 @@ export async function getStores(): Promise<Store[]> {
     availableProducts: Array.from(new Set(location.prices.map((price) => price.product.name))),
     color: CHAIN_COLOR[location.store.chain] ?? 'bg-muted',
   }))
+}
+
+/** The full product catalog as id/name pairs — used to resolve a free-text shopping-list item
+ *  name to a real `productId` (see `lib/products.ts`'s `matchProductByName()`). Deliberately not
+ *  filtered to only priced products, unlike `getProductPrices()` below: an item can identify a
+ *  real product even before that product has any price data. */
+export async function getProductCatalog(): Promise<ProductCatalogEntry[]> {
+  const db = getDb()
+  return db.query.products.findMany({ columns: { id: true, name: true } })
 }
 
 /** Per-product prices across stores, with any currently active deal folded in. One entry per store's latest recorded price. */

@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { getDb } from '@/lib/db/client'
-import { getProductPrices } from '@/lib/db/queries'
+import { getProductCatalog, getProductPrices } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
 import { TODAY } from '@/lib/budget'
 import { assessDealQuality } from '@/lib/prices'
@@ -77,6 +77,34 @@ describe('addShoppingItemAction', () => {
     const { notification } = await addShoppingItemAction(listId, bestDeal.product.productName)
     expect(notification).not.toBeNull()
     expect(notification?.title).toBe('Skvělá cena na vašem seznamu')
+  })
+})
+
+describe('addShoppingItemAction — product identity', () => {
+  it('resolves the real productId for a name matching the catalog, case/whitespace-insensitively', async () => {
+    const catalog = await getProductCatalog()
+    if (catalog.length === 0) return // nothing seeded to match against
+    const [product] = catalog
+    currentHouseholdId = householdId
+    const { item } = await addShoppingItemAction(listId, `  ${product.name.toUpperCase()}  `)
+    const row = await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, item.id) })
+    expect(row?.productId).toBe(product.id)
+  })
+
+  it('leaves productId null for a name with no catalog match, rather than guessing', async () => {
+    currentHouseholdId = householdId
+    const { item } = await addShoppingItemAction(listId, 'Zcela neznámá položka xyz123')
+    const row = await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, item.id) })
+    expect(row?.productId).toBeNull()
+  })
+
+  it('still fires the deal alert when the typed name differs in case/whitespace from the catalog', async () => {
+    const products = await getProductPrices()
+    const bestDeal = assessDealQuality(products, TODAY).find((assessment) => assessment.isBestPrice)
+    if (!bestDeal) return // no currently-active best-price deal to test against; see note above
+    currentHouseholdId = householdId
+    const { notification } = await addShoppingItemAction(listId, `  ${bestDeal.product.productName.toUpperCase()}  `)
+    expect(notification).not.toBeNull()
   })
 })
 

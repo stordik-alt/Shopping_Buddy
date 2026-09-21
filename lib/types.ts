@@ -88,7 +88,9 @@ export type PurchaseItem = { name: string; quantity: number; unit: ItemUnit; pri
 export type PurchaseRecord = {
   id: string
   date: string
-  store: StoreChain
+  // Optional, matching purchases.storeLocationId's real nullability — not every purchase has a
+  // known store (e.g. items with no preferred store set when the purchase was completed).
+  store?: StoreChain
   items: PurchaseItem[]
   total: number
   discount?: number

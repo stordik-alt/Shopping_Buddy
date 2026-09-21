@@ -5,10 +5,11 @@ import { revalidatePath } from 'next/cache'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { TODAY } from '@/lib/budget'
 import { getDb } from '@/lib/db/client'
-import { getProductPrices } from '@/lib/db/queries'
+import { getProductCatalog, getProductPrices } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
 import { money } from '@/lib/format'
 import { assessDealQuality, effectivePrice } from '@/lib/prices'
+import { matchProductByName } from '@/lib/products'
 import type { Item, Notification } from '@/lib/types'
 
 async function assertOwnsList(householdId: string, listId: string) {
@@ -31,17 +32,35 @@ export async function addShoppingItemAction(
   const householdId = await requireHouseholdId()
   await assertOwnsList(householdId, listId)
   const db = getDb()
+
+  // Per CLAUDE.md ("do not treat product names as sufficient identifiers"): resolve the typed
+  // free-text name to a real catalog product, case/whitespace-insensitively, and store the real
+  // productId link (shoppingListItems.productId existed in the schema but was never populated —
+  // every consumer instead matched on the raw name string). Falls back to the typed name verbatim
+  // when nothing matches, same as before.
+  const catalog = await getProductCatalog()
+  const matchedProduct = matchProductByName(catalog, name)
+  const canonicalName = matchedProduct?.name ?? name
+
   const [row] = await db
     .insert(schema.shoppingListItems)
-    .values({ listId, name, detail: overrides.detail ?? '1 ks · bez detailu', ...(overrides.category && { category: overrides.category }) })
+    .values({
+      listId,
+      name,
+      productId: matchedProduct?.id,
+      detail: overrides.detail ?? '1 ks · bez detailu',
+      ...(overrides.category && { category: overrides.category }),
+    })
     .returning()
 
   // Per docs/04_ROADMAP.md Phase D "price/deal alerts": if the product just added to the list has
   // a currently active deal that is genuinely the best price across known stores (not just a
-  // discount off its own regular price — see assessDealQuality), let the household know.
+  // discount off its own regular price — see assessDealQuality), let the household know. Matches
+  // on the resolved canonical catalog name, not the raw typed one, so casing/whitespace
+  // differences no longer silently miss a real deal.
   let notification: Notification | null = null
   const productPrices = await getProductPrices()
-  const bestDeal = assessDealQuality(productPrices, TODAY).find((assessment) => assessment.product.productName === name && assessment.isBestPrice)
+  const bestDeal = assessDealQuality(productPrices, TODAY).find((assessment) => assessment.product.productName === canonicalName && assessment.isBestPrice)
   if (bestDeal) {
     const [notificationRow] = await db
       .insert(schema.notifications)

@@ -79,11 +79,21 @@ async function createHouseholdForUser(userId: string, userName: string) {
   return household
 }
 
-/** Joins the household a pending invitation points to, as a member, and marks the invitation accepted. */
-async function joinHouseholdViaInvitation(userId: string, userName: string, invitation: typeof schema.invitations.$inferSelect) {
+/** Joins the household a pending invitation points to, as a member, marks the invitation
+ *  accepted, and raises the "household events" notification (Phase D/8) so existing members find
+ *  out a new person joined. Shared by both places a join can happen: the auto-join branch of
+ *  `getHouseholdData` below (first login with a pending invite) and the explicit
+ *  `acceptInvitationAction` (the public `/invite/[token]` landing page) — each has its own
+ *  invitation-validity checks upstream, but the join itself must not be implemented twice. */
+export async function joinHouseholdViaInvitation(userId: string, userName: string, invitation: typeof schema.invitations.$inferSelect) {
   const db = getDb()
   await db.insert(schema.householdMembers).values({ householdId: invitation.householdId, userId, name: userName, role: 'member' })
   await db.update(schema.invitations).set({ status: 'accepted' }).where(eq(schema.invitations.id, invitation.id))
+  await db.insert(schema.notifications).values({
+    householdId: invitation.householdId,
+    title: 'Nový člen domácnosti',
+    detail: `${userName} se právě připojil/a k domácnosti.`,
+  })
   const household = await db.query.households.findFirst({ where: eq(schema.households.id, invitation.householdId) })
   if (!household) throw new Error(`Household ${invitation.householdId} referenced by invitation but missing`)
   return household

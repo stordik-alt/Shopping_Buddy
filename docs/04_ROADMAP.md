@@ -35,7 +35,7 @@
 - ~~price/deal alerts~~ done: `addShoppingItemAction` checks `assessDealQuality()` when an item is added and notifies the household only if there's a currently active deal that's genuinely the best price for that product — not just any discount (see `docs/07_CHANGELOG.md`)
 - ~~shopping reminders~~ done: unlike the other two notification generators, this one isn't triggered by a user action — it's time-based (explicit product decision 2026-09-21: use a real daily Vercel Cron job rather than faking staleness off a page load). `app/api/cron/shopping-reminders` runs daily, finds items on a household's list that are still undone `STALE_AFTER_DAYS` (3) after being added (`lib/reminders.ts`'s `findStaleItems()`), and fires one reminder notification per household, marking those items so the same item never reminds twice (see `docs/07_CHANGELOG.md`)
 - ~~budget warnings~~ done: `lib/budget.ts`'s `crossedBudgetThreshold()`, wired into `addExpenseAction` — fires a real notification exactly once when spending crosses 80% or 100% of the household's budget, never re-fires while already in the same band (see `docs/07_CHANGELOG.md`)
-- household events
+- ~~household events~~ done: joining a household via invitation (either path — auto-join on first login, or explicit `acceptInvitationAction` from `/invite/[token]`) now notifies the household that a new member joined. Both paths were duplicating the same insert/update logic, so this also deduplicated them into one shared `joinHouseholdViaInvitation()` in `lib/db/queries.ts` (see `docs/07_CHANGELOG.md`)
 
 ## Phase E — Global
 - country/locale/currency

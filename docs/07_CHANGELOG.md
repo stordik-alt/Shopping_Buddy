@@ -1,5 +1,11 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-21 (Notifications: household events — Phase D complete)
+### Roadmap Phase D: household events
+- Fourth and final notification generator for this phase: the household is now notified when someone new joins, closing out Phase D (budget warnings, price/deal alerts, shopping reminders, household events all done).
+- Found real duplication while implementing this: there were already **two** separate code paths that join a household via invitation — the auto-join branch inside `getHouseholdData()` (first login when a pending invite matches the account's email) and the explicit `acceptInvitationAction` (the public `/invite/[token]` landing page). Both hand-rolled the same `insert household_members` + `mark invitation accepted` sequence. Per `CLAUDE.md`'s anti-duplication rule, rather than adding the same notification insert to both, extracted the shared logic into one exported `joinHouseholdViaInvitation()` in `lib/db/queries.ts` that both now call. Each call site keeps its own upstream validity checks (the auto-join path already filtered by pending/email/expiry via its query; `acceptInvitationAction` keeps its explicit status/expiry/email-match/already-a-member checks) — only the actual join mechanics were shared.
+- Verified directly against the real database (not just logic review, since exercising this through the actual sign-up/invite-link UI flow would need a second real account): called the exported `joinHouseholdViaInvitation()` against a temporary household/invitation with a real `neon_auth` user id, confirmed the membership row, the invitation's `accepted` status, and the new notification (`"Nový člen domácnosti"` / `"<jméno> se právě připojil/a k domácnosti."`) all landed correctly, then deleted the temporary rows.
+
 ## 2026-09-21 (Notifications: shopping reminders)
 ### Roadmap Phase D: shopping reminders
 - Third notification generator, and the first that isn't triggered by a user action — the owner explicitly chose a real time-scheduled trigger over an event-driven approximation (e.g. checking on page load), so this needed genuine scheduling infrastructure the project didn't have yet.

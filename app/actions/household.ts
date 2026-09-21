@@ -7,6 +7,7 @@ import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
 import { auth } from '@/lib/auth/server'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
+import { joinHouseholdViaInvitation } from '@/lib/db/queries'
 import type { Child, HouseholdMember, HouseholdPreferences, PriceSensitivity, QualityPreference } from '@/lib/types'
 
 export async function updateHouseholdAction(changes: { name?: string; monthlyBudget?: number }) {
@@ -164,11 +165,5 @@ export async function acceptInvitationAction(token: string) {
     throw new Error('Už jste členem jiné domácnosti. Členství ve více domácnostech zatím není podporováno.')
   }
 
-  await db.insert(schema.householdMembers).values({
-    householdId: invitation.householdId,
-    userId: session.user.id,
-    name: session.user.name,
-    role: 'member',
-  })
-  await db.update(schema.invitations).set({ status: 'accepted' }).where(eq(schema.invitations.id, invitation.id))
+  await joinHouseholdViaInvitation(session.user.id, session.user.name, invitation)
 }

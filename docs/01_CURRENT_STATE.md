@@ -39,7 +39,7 @@ These should be treated as implemented/prototype functionality until verified ag
 ## Important current technical condition
 Household profile, shopping list, budget/expenses, notifications, store directory, price/deal comparison, and each household's generated weekly meal plan now read from (and, except stores/prices, write to) Neon via `lib/db/queries.ts` and `app/actions/`. The meal-plan *recipe catalog* itself (`lib/meal-plans.ts`) remains code-based reference data by design — there's no `recipes` table to migrate it to.
 
-The current `next.config.mjs` contains a TypeScript build-error bypass. This should be treated as technical debt, not a permanent solution. Do not remove it blindly; first identify and fix the underlying type errors, then re-enable strict build validation.
+~~The current `next.config.mjs` contains a TypeScript build-error bypass.~~ Removed 2026-09-21: `tsc --noEmit` had been passing clean throughout this project's recent work, and the production incident the same day (see `docs/07_CHANGELOG.md`) was a concrete demonstration of the bypass shipping a real arity error to production. `next build` now runs its own TypeScript validation for real (confirmed: build log shows `Running TypeScript ... Finished TypeScript` instead of `Skipping validation of types`) and passes clean.
 
 ## Neon status
 Neon is provisioned (Vercel Marketplace, resource `neon-cyclamen-bridge` on project `storek/shopping-buddy`) and the schema below is live and seeded, verified 2026-09-20. It contains tables for:
@@ -76,7 +76,7 @@ There is also a `neon_auth` schema — this is Neon Auth (Managed Better Auth). 
 7. Need explicit currency and country/locale support.
 8. Need reliable price/deal history (schema supports it; not yet exercised by real price updates over time).
 9. Need tests for core business rules.
-10. Need to remove build/typecheck bypasses after the codebase is clean.
+10. ~~Need to remove build/typecheck bypasses after the codebase is clean.~~ Done — `next.config.mjs`'s `typescript.ignoreBuildErrors` removed (see above).
 
 ## Immediate task
 Perform a read-only audit of the current frontend, package configuration and Neon schema. Produce a concrete backend integration plan before large implementation changes.

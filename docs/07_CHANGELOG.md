@@ -1,5 +1,8 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-21 (removed the TypeScript build-error bypass)
+- Removed `typescript.ignoreBuildErrors: true` from `next.config.mjs` — the exact setting that let the arity bug in the previous entry ship to production undetected. `tsc --noEmit` has been passing clean throughout this session's work; confirmed `next build` now actually runs its own TypeScript validation (log shows `Running TypeScript ... Finished TypeScript` instead of `Skipping validation of types`) and it passes with zero errors. Closes `docs/01_CURRENT_STATE.md` gap 10.
+
 ## 2026-09-21 (production incident: sign-up/sign-in broken on the deployed site)
 - The user reported registration/login not working. Root-caused to two separate issues, both on the live deployment only (local dev worked throughout):
   1. **Neon Auth rejected every request with `403 INVALID_ORIGIN`** — `trusted_origins` only allowed `localhost`, not the production domain. Fixed by the user adding `https://shopping-with-buddy.vercel.app` in the Neon Console (Auth → Configuration → Domains); confirmed the proper mechanism is the Neon Console, the `neon neon-auth domain add` CLI command, or the Management API — not hand-editing `neon_auth.project_config` via SQL.

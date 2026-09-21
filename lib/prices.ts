@@ -1,5 +1,7 @@
 import type { Item, ItemCategory, ItemUnit, StoreChain } from '@/lib/types'
 
+export type PriceObservation = { price: number; recordedAt: string }
+
 export type PricePoint = {
   store: StoreChain
   regularPrice: number
@@ -8,6 +10,11 @@ export type PricePoint = {
   unit: ItemUnit
   unitPrice: number
   recordedAt: string
+  /** Every regular-price observation recorded for this product at this store, oldest first,
+   *  including the current one (`regularPrice`/`recordedAt` above). Empty/undefined when only one
+   *  observation has ever been recorded — most products today, since `prices` has been seeded
+   *  once and never re-observed (docs/01_CURRENT_STATE.md gap: "Price history"). */
+  priceHistory?: PriceObservation[]
 }
 
 export type ProductPrice = {
@@ -22,6 +29,18 @@ export function effectivePrice(price: PricePoint) {
 
 export function isDealActive(price: PricePoint, referenceDate: string) {
   return price.dealPrice != null && (price.dealValidUntil == null || price.dealValidUntil >= referenceDate)
+}
+
+/** Whether today's effective price matches or beats every regular price this product has actually
+ *  been recorded at, at this store, before today — a genuine historic low rather than merely
+ *  cheaper than today's own regular price. Per docs/05_BUSINESS_RULES.md, "historical price" is
+ *  one of the factors a promotion assessment should consider. Always false with no recorded prior
+ *  observation to compare against — this is awareness of real history, not a guess. */
+export function isHistoricLow(price: PricePoint): boolean {
+  const priorObservations = (price.priceHistory ?? []).filter((observation) => observation.recordedAt < price.recordedAt)
+  if (priorObservations.length === 0) return false
+  const current = effectivePrice(price)
+  return priorObservations.every((observation) => current <= observation.price)
 }
 
 /** Prices for one product across stores, cheapest (effective price) first. */
@@ -42,12 +61,14 @@ export type DealAssessment = {
   price: PricePoint
   isBestPrice: boolean
   cheapestAlternative: { store: StoreChain; price: number } | null
+  isHistoricLow: boolean
 }
 
 /** Whether each active deal is actually the best price available for that product across all
  *  known stores, not just a discount off its own regular price. Per docs/05_BUSINESS_RULES.md:
  *  "A promotion is not automatically a good deal just because its percentage discount is large."
- *  A store's "-50%" deal can still be pricier than another store's everyday price. */
+ *  A store's "-50%" deal can still be pricier than another store's everyday price. Also notes
+ *  whether it's a genuine historic low where price history is actually available. */
 export function assessDealQuality(products: ProductPrice[], referenceDate: string): DealAssessment[] {
   return activeDeals(products, referenceDate).map(({ product, price }) => {
     const dealEffective = effectivePrice(price)
@@ -58,6 +79,7 @@ export function assessDealQuality(products: ProductPrice[], referenceDate: strin
       price,
       isBestPrice,
       cheapestAlternative: isBestPrice ? null : { store: cheapestOverall.store, price: effectivePrice(cheapestOverall) },
+      isHistoricLow: isHistoricLow(price),
     }
   })
 }

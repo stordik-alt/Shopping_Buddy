@@ -385,7 +385,7 @@ and:
 historical price
 ```
 
-Reliable price history remains an area requiring further development.
+**Update 2026-09-21:** The append-only mechanism for real price history now exists — `lib/db/queries.ts`'s `recordPriceObservation()` inserts a new dated row rather than overwriting, and `getProductPrices()` now surfaces each store's full observation history (not just the latest) to the domain layer. Not yet exercised in practice: no ingestion/refresh source calls it, so every real product still has exactly one observation. See section 22 for how this is consumed.
 
 Price records include currency information.
 
@@ -535,15 +535,14 @@ Recent work added notification behavior when spending crosses configured thresho
 
 Notifications are persisted in the database.
 
-Current notification functionality includes budget-related notifications.
+Current notification functionality (2026-09-21) covers all four Phase 8 events. Each is a
+deterministic generator wired into the Server Action (or, for reminders, the cron route) for the
+triggering event:
 
-The notification architecture is intended to support future events such as:
-
-* budget thresholds
-* important promotions
-* shopping reminders
-* expiring promotions
-* household events
+* **budget thresholds** — `lib/budget.ts`'s `crossedBudgetThreshold()`, wired into `addExpenseAction`. Fires once when spending crosses 80% or 100% of the household's monthly budget; does not re-fire while already in the same band.
+* **important promotions (price/deal alerts)** — `lib/prices.ts`'s `assessDealQuality()`, wired into `addShoppingItemAction`. Fires when a product just added to the list has a currently active deal that is genuinely the best price for it across known stores, not merely any discount.
+* **shopping reminders** — the only event that isn't triggered by a user action. `app/api/cron/shopping-reminders`, a daily Vercel Cron job (`vercel.json`), finds undone list items that have sat around at least `STALE_AFTER_DAYS` (3) using the pure `lib/reminders.ts`'s `findStaleItems()`, and reminds the household once per stale item. `CRON_SECRET` is set in the Vercel project (Production), but the route isn't live yet — see section 27 "Cron authorization" for why.
+* **household events** — `lib/db/queries.ts`'s exported `joinHouseholdViaInvitation()` notifies the household when someone joins via invitation. Shared by both places a join can happen (auto-join on first login, and the explicit `acceptInvitationAction` from `/invite/[token]`) — those two paths had duplicated the join mechanics before this, now consolidated into one function.
 
 Notifications should use deterministic rules wherever possible.
 
@@ -610,6 +609,7 @@ Current logic considers factors such as:
 * budget constraints
 * store comparison
 * unit price
+* historical prices — `lib/prices.ts`'s `isHistoricLow()`, foundation done 2026-09-21 (see section 13); flags a deal as a genuine all-time low rather than just today's discount, but has no real historical data to act on yet since nothing populates price history in production
 
 The engine is intended to optimize the overall shopping trip rather than simply find the cheapest individual item.
 
@@ -620,7 +620,8 @@ Future improvements should include:
 * household preferences
 * product availability
 * required quantities
-* historical prices
+* stock/storage constraints
+* bulk-buy recommendations
 * purchase patterns
 
 The optimization logic must remain deterministic and testable.
@@ -634,17 +635,17 @@ Automated testing has been started.
 Tests currently cover areas including:
 
 * budget
-* prices
+* prices (including historic-low detection)
 * meal plans
 * geographic/store logic
+* shopping reminders (staleness logic)
+* every Server Action in `app/actions/` and their household-scoping/role checks, against the real dev database (`app/actions/*.test.ts`)
+* invitation/join-via-invitation logic and its notification, against the real dev database (`lib/db/queries.test.ts`)
 
 Further tests are still required for:
 
-* server actions
-* authentication
-* household authorization
-* auto-provisioning
-* invitation/join flows
+* full session/cookie-level authentication (would need e2e testing, not attempted)
+* auto-provisioning (new-household-on-first-login path inside `getHouseholdData()`, as opposed to the invitation-join path which is now covered)
 * price ingestion
 * promotion normalization
 * shopping optimization
@@ -808,11 +809,11 @@ Need stronger mapping of:
 
 ## Price history
 
-Need reliable historical tracking of prices.
+The append-only recording mechanism and the domain logic that consumes it both exist (`recordPriceObservation()`, `isHistoricLow()` — see section 13). Still needed: something that actually calls it. No price-refresh/ingestion source is wired up, so no real product has more than one observation yet.
 
 ## Promotion history
 
-Need reliable historical tracking of promotions.
+Need reliable historical tracking of promotions. Unlike prices, `deals` has no append-only observation mechanism yet — only current `valid_from`/`valid_until`.
 
 ## External price ingestion
 
@@ -824,11 +825,11 @@ Database foundation exists, but UI and domain-wide localization still require wo
 
 ## Server action tests
 
-More automated coverage is required.
+Started 2026-09-21, now covers every file in `app/actions/`: `shopping.test.ts`, `household.test.ts`, `budget.test.ts`, `notifications.test.ts`, `meal-plan.test.ts`, all as integration tests against the real dev database. `requireHouseholdId()`/`requireHousehold()` and `next/cache`'s `revalidatePath()` are mocked, since both need a real Next.js request context a test process doesn't have; `acceptInvitationAction` additionally needed `@/lib/auth/server`'s `auth.getSession()` mocked, since it authorizes off a real session rather than `requireHousehold()`. Everything else — authorization checks, DB writes, notification logic, the budget-threshold and meal-plan-upsert behavior — is the real code running for real.
 
 ## Authorization tests
 
-Household-level access control requires broader automated coverage.
+Started 2026-09-21, expanded same day: every Server Action that takes a client-supplied resource id (list/item, household member, child, invitation, notification) now has a test confirming an id belonging to a different household is rejected rather than trusted from the client. `inviteMemberAction`/`revokeInvitationAction`'s owner-only role check is also covered. Full session/cookie-level authentication testing (an actual signed-in browser session, not a mocked one) is not attempted — that would need e2e testing (e.g. Playwright) against a running dev server, not unit/integration tests.
 
 ## Purchase analytics
 
@@ -839,6 +840,10 @@ Purchase history exists but deeper analytics are still required.
 The Czech implementation is the primary target.
 
 International support is planned later.
+
+## Cron authorization
+
+`CRON_SECRET` is now set in the Vercel project (Production environment), confirmed 2026-09-21 via `vercel env ls`. The route itself is still not live: `vercel.json`'s cron definition lives on `v0/backend`, which per the branch policy hasn't been merged to `main` (the production branch) yet — `vercel cron ls` shows `/api/cron/shopping-reminders` as `not deployed`. Nothing will actually call the route on schedule until this branch's work merges to `main` and a production deploy runs.
 
 ---
 
@@ -866,9 +871,14 @@ Recent development has included:
 * GPS/manual location handling
 * Smart Shopping Engine foundations
 * budget threshold notifications
+* price/deal alert notifications
+* time-scheduled shopping-reminder notifications (Vercel Cron)
+* household-join event notifications (Phase 8 now fully complete: budget/deal/reminder/household-event notifications)
+* price-history foundation: append-only observation recording + historic-low detection (not yet fed by a real ingestion source)
 * currency fields
 * migration baseline
 * automated tests for selected domains
+* Server Action / household-authorization tests for every action file, running against the real dev database rather than mocks
 * removal of the TypeScript build-error bypass
 
 ---

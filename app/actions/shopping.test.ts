@@ -1,0 +1,106 @@
+import { eq } from 'drizzle-orm'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { getDb } from '@/lib/db/client'
+import { getProductPrices } from '@/lib/db/queries'
+import * as schema from '@/lib/db/schema'
+import { TODAY } from '@/lib/budget'
+import { assessDealQuality } from '@/lib/prices'
+import { addShoppingItemAction, removeShoppingItemAction, toggleShoppingItemAction } from '@/app/actions/shopping'
+
+// Integration coverage for the household-scoping gap noted in docs/01_CURRENT_STATE.md ("Server
+// Actions and the auto-provision/auto-join logic ... still have no automated tests"). Runs
+// against the real dev database (needs DATABASE_URL — see `pnpm test`'s dotenv wrapping), not a
+// mock, so it actually exercises the same Drizzle queries production traffic does. Everything it
+// writes is scoped to households created and deleted within this file.
+//
+// Two things a Server Action does that can't run outside a real Next.js request need mocking:
+// `requireHouseholdId()` reads a session cookie that doesn't exist in a test process, and
+// `revalidatePath()` throws outside Next's request-scoped cache store. Both are mocked below;
+// everything else (authorization checks, DB writes, notification logic) is the real code.
+let currentHouseholdId = ''
+vi.mock('@/lib/auth/authorize', () => ({ requireHouseholdId: () => Promise.resolve(currentHouseholdId) }))
+vi.mock('next/cache', () => ({ revalidatePath: () => {} }))
+
+const db = getDb()
+
+let householdId: string
+let listId: string
+let otherHouseholdId: string
+let otherListId: string
+
+beforeAll(async () => {
+  const [household] = await db.insert(schema.households).values({ name: '__test_household_shopping__' }).returning()
+  const [list] = await db.insert(schema.shoppingLists).values({ householdId: household.id, name: 'Test list' }).returning()
+  householdId = household.id
+  listId = list.id
+  currentHouseholdId = householdId
+
+  const [otherHousehold] = await db.insert(schema.households).values({ name: '__test_household_shopping_other__' }).returning()
+  const [otherList] = await db.insert(schema.shoppingLists).values({ householdId: otherHousehold.id, name: 'Other list' }).returning()
+  otherHouseholdId = otherHousehold.id
+  otherListId = otherList.id
+})
+
+afterAll(async () => {
+  await db.delete(schema.notifications).where(eq(schema.notifications.householdId, householdId))
+  await db.delete(schema.shoppingListItems).where(eq(schema.shoppingListItems.listId, listId))
+  await db.delete(schema.shoppingLists).where(eq(schema.shoppingLists.id, listId))
+  await db.delete(schema.households).where(eq(schema.households.id, householdId))
+  await db.delete(schema.shoppingLists).where(eq(schema.shoppingLists.id, otherListId))
+  await db.delete(schema.households).where(eq(schema.households.id, otherHouseholdId))
+})
+
+describe('addShoppingItemAction', () => {
+  it('adds an item to a list the caller\'s household actually owns', async () => {
+    currentHouseholdId = householdId
+    const { item } = await addShoppingItemAction(listId, 'Testovací položka')
+    expect(item.name).toBe('Testovací položka')
+
+    const row = await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, item.id) })
+    expect(row?.listId).toBe(listId)
+  })
+
+  it('rejects a list that belongs to a different household, rather than trusting the client-supplied id', async () => {
+    currentHouseholdId = householdId // caller is household A
+    await expect(addShoppingItemAction(otherListId, 'x')).rejects.toThrow('Shopping list not found')
+  })
+
+  it('fires the price/deal-alert notification for a product with a genuinely best-price deal, using real seeded catalog data', async () => {
+    const products = await getProductPrices()
+    const bestDeal = assessDealQuality(products, TODAY).find((assessment) => assessment.isBestPrice)
+    if (!bestDeal) {
+      // No currently-active best-price deal in the seeded catalog right now — nothing to assert
+      // without inventing one, which docs/03_DATABASE.md forbids. Skip rather than fake it.
+      return
+    }
+    currentHouseholdId = householdId
+    const { notification } = await addShoppingItemAction(listId, bestDeal.product.productName)
+    expect(notification).not.toBeNull()
+    expect(notification?.title).toBe('Skvělá cena na vašem seznamu')
+  })
+})
+
+describe('toggleShoppingItemAction / removeShoppingItemAction', () => {
+  it('reject an item id that belongs to a different household', async () => {
+    currentHouseholdId = otherHouseholdId
+    const [item] = await db.insert(schema.shoppingListItems).values({ listId, name: 'Cizí položka' }).returning()
+    try {
+      await expect(toggleShoppingItemAction(item.id, true)).rejects.toThrow('Shopping list item not found')
+      await expect(removeShoppingItemAction(item.id)).rejects.toThrow('Shopping list item not found')
+    } finally {
+      await db.delete(schema.shoppingListItems).where(eq(schema.shoppingListItems.id, item.id))
+    }
+  })
+
+  it('let the owning household toggle and remove its own item', async () => {
+    currentHouseholdId = householdId
+    const { item } = await addShoppingItemAction(listId, 'Ke smazání')
+    await toggleShoppingItemAction(item.id, true)
+    const toggled = await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, item.id) })
+    expect(toggled?.done).toBe(true)
+
+    await removeShoppingItemAction(item.id)
+    const removed = await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, item.id) })
+    expect(removed).toBeUndefined()
+  })
+})

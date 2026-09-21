@@ -79,11 +79,21 @@ async function createHouseholdForUser(userId: string, userName: string) {
   return household
 }
 
-/** Joins the household a pending invitation points to, as a member, and marks the invitation accepted. */
-async function joinHouseholdViaInvitation(userId: string, userName: string, invitation: typeof schema.invitations.$inferSelect) {
+/** Joins the household a pending invitation points to, as a member, marks the invitation
+ *  accepted, and raises the "household events" notification (Phase D/8) so existing members find
+ *  out a new person joined. Shared by both places a join can happen: the auto-join branch of
+ *  `getHouseholdData` below (first login with a pending invite) and the explicit
+ *  `acceptInvitationAction` (the public `/invite/[token]` landing page) — each has its own
+ *  invitation-validity checks upstream, but the join itself must not be implemented twice. */
+export async function joinHouseholdViaInvitation(userId: string, userName: string, invitation: typeof schema.invitations.$inferSelect) {
   const db = getDb()
   await db.insert(schema.householdMembers).values({ householdId: invitation.householdId, userId, name: userName, role: 'member' })
   await db.update(schema.invitations).set({ status: 'accepted' }).where(eq(schema.invitations.id, invitation.id))
+  await db.insert(schema.notifications).values({
+    householdId: invitation.householdId,
+    title: 'Nový člen domácnosti',
+    detail: `${userName} se právě připojil/a k domácnosti.`,
+  })
   const household = await db.query.households.findFirst({ where: eq(schema.households.id, invitation.householdId) })
   if (!household) throw new Error(`Household ${invitation.householdId} referenced by invitation but missing`)
   return household
@@ -302,8 +312,14 @@ export async function getProductPrices(): Promise<ProductPrice[]> {
   return products
     .filter((product) => product.prices.length > 0)
     .map((product) => {
-      const latestByLocation = new Map<string, (typeof product.prices)[number]>()
-      for (const price of product.prices) latestByLocation.set(price.storeLocationId, price) // later (ascending) rows overwrite, so this lands on the latest
+      // Grouped (not collapsed) by store location, ascending by recordedAt, so a store that's been
+      // re-observed over time keeps its whole history — the last entry is always the latest.
+      const observationsByLocation = new Map<string, typeof product.prices>()
+      for (const price of product.prices) {
+        const list = observationsByLocation.get(price.storeLocationId) ?? []
+        list.push(price)
+        observationsByLocation.set(price.storeLocationId, list)
+      }
 
       const activeDealByLocation = new Map(
         product.deals.filter((deal) => deal.validUntil >= TODAY).map((deal) => [deal.storeLocationId, deal]),
@@ -312,7 +328,8 @@ export async function getProductPrices(): Promise<ProductPrice[]> {
       return {
         productName: product.name,
         category: product.category.name,
-        prices: Array.from(latestByLocation.values()).map((price) => {
+        prices: Array.from(observationsByLocation.values()).map((observations) => {
+          const price = observations[observations.length - 1]
           const deal = activeDealByLocation.get(price.storeLocationId)
           return {
             store: price.storeLocation.store.chain,
@@ -322,8 +339,40 @@ export async function getProductPrices(): Promise<ProductPrice[]> {
             unit: price.unit,
             unitPrice: Number(price.unitPrice),
             recordedAt: price.recordedAt,
+            priceHistory: observations.map((observation) => ({ price: Number(observation.regularPrice), recordedAt: observation.recordedAt })),
           }
         }),
       }
     })
+}
+
+/** Appends a new dated price observation for a product at a store — never overwrites an existing
+ *  row, so `prices` genuinely accumulates history over time (docs/04_ROADMAP.md "historical-price
+ *  awareness"; the read side above already picks the latest observation per product/store and now
+ *  also surfaces the full history). This is the foundation only: nothing calls it yet, since there
+ *  is no price-refresh/ingestion source wired up (`docs/01_CURRENT_STATE.md` — "External price
+ *  ingestion" is a separate, later gap). */
+export async function recordPriceObservation(observation: {
+  productId: string
+  storeLocationId: string
+  regularPrice: number
+  currency?: string
+  unit: (typeof schema.prices.$inferInsert)['unit']
+  unitPrice: number
+  recordedAt: string
+}) {
+  const db = getDb()
+  const [row] = await db
+    .insert(schema.prices)
+    .values({
+      productId: observation.productId,
+      storeLocationId: observation.storeLocationId,
+      regularPrice: observation.regularPrice.toString(),
+      currency: observation.currency ?? 'CZK',
+      unit: observation.unit,
+      unitPrice: observation.unitPrice.toString(),
+      recordedAt: observation.recordedAt,
+    })
+    .returning()
+  return row
 }

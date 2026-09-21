@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowUpRight, Info, Tag } from 'lucide-react'
+import { ArrowUpRight, Info, Tag, TrendingDown } from 'lucide-react'
 import { TODAY } from '@/lib/budget'
 import { money } from '@/lib/format'
 import { assessDealQuality, type ProductPrice } from '@/lib/prices'
@@ -25,7 +25,7 @@ export function PriceWatch({ onStores, productPrices }: { onStores: () => void; 
         <p className="mt-5 rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground">Momentálně nemáme žádné aktivní akce.</p>
       ) : (
       <div className="mt-5 grid gap-3 md:grid-cols-3">
-        {deals.map(({ product, price, isBestPrice, cheapestAlternative }) => {
+        {deals.map(({ product, price, isBestPrice, cheapestAlternative, isHistoricLow }) => {
           const discount = Math.round((1 - (price.dealPrice ?? price.regularPrice) / price.regularPrice) * 100)
           return (
             <div key={`${product.productName}-${price.store}`} className="rounded-2xl bg-muted p-4">
@@ -49,6 +49,12 @@ export function PriceWatch({ onStores, productPrices }: { onStores: () => void; 
                   {saved.includes(product.productName) ? 'Přidáno' : 'Přidat'}
                 </button>
               </div>
+              {isHistoricLow && (
+                <p className="mt-3 flex items-start gap-1 text-[11px] leading-relaxed text-emerald-700">
+                  <TrendingDown className="mt-0.5 h-3 w-3 shrink-0" />
+                  Nejnižší zaznamenaná cena tohoto produktu v {price.store}.
+                </p>
+              )}
               {!isBestPrice && cheapestAlternative && (
                 <p className="mt-3 flex items-start gap-1 text-[11px] leading-relaxed text-muted-foreground">
                   <Info className="mt-0.5 h-3 w-3 shrink-0" />

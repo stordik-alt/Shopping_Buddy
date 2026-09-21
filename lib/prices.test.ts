@@ -7,6 +7,7 @@ import {
   comparePrices,
   effectivePrice,
   isDealActive,
+  isHistoricLow,
   type PricePoint,
   type ProductPrice,
   type ShoppingListItemForPricing,
@@ -44,6 +45,42 @@ describe('isDealActive', () => {
     const deal = price({ dealPrice: 80, dealValidUntil: '2026-09-26' })
     expect(isDealActive(deal, '2026-09-26')).toBe(true)
     expect(isDealActive(deal, '2026-09-27')).toBe(false)
+  })
+})
+
+describe('isHistoricLow', () => {
+  it('is false with no recorded history to compare against', () => {
+    expect(isHistoricLow(price({ regularPrice: 40 }))).toBe(false)
+  })
+
+  it('is true when the current effective price matches or beats every prior observation', () => {
+    const current = price({
+      regularPrice: 30,
+      dealPrice: 25,
+      recordedAt: '2026-09-19',
+      priceHistory: [
+        { price: 40, recordedAt: '2026-08-01' },
+        { price: 35, recordedAt: '2026-09-01' },
+      ],
+    })
+    expect(isHistoricLow(current)).toBe(true)
+  })
+
+  it('is false when a prior observation was cheaper', () => {
+    const current = price({
+      regularPrice: 40,
+      recordedAt: '2026-09-19',
+      priceHistory: [
+        { price: 40, recordedAt: '2026-08-01' },
+        { price: 25, recordedAt: '2026-09-01' },
+      ],
+    })
+    expect(isHistoricLow(current)).toBe(false)
+  })
+
+  it('ignores observations recorded on or after the current one, so it never compares against itself', () => {
+    const current = price({ regularPrice: 40, recordedAt: '2026-09-19', priceHistory: [{ price: 40, recordedAt: '2026-09-19' }] })
+    expect(isHistoricLow(current)).toBe(false)
   })
 })
 
@@ -133,6 +170,26 @@ describe('assessDealQuality', () => {
       { productName: 'D', category: 'Potraviny', prices: [price({ store: 'Lidl', dealPrice: 5, dealValidUntil: '2026-08-01' }), price({ store: 'Albert' })] },
     ]
     expect(assessDealQuality(products, '2026-09-19')).toHaveLength(0)
+  })
+
+  it('flags a deal that is also a genuine historic low', () => {
+    const products: ProductPrice[] = [
+      {
+        productName: 'E',
+        category: 'Potraviny',
+        prices: [
+          price({
+            store: 'Lidl',
+            regularPrice: 40,
+            dealPrice: 20,
+            dealValidUntil: '2026-09-30',
+            priceHistory: [{ price: 30, recordedAt: '2026-08-01' }],
+          }),
+        ],
+      },
+    ]
+    const [assessment] = assessDealQuality(products, '2026-09-19')
+    expect(assessment.isHistoricLow).toBe(true)
   })
 })
 

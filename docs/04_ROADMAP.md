@@ -29,13 +29,13 @@
 - ~~trip-distance constraints~~ done: `lib/geo.ts`'s `nearestLocation()`, surfaced in `store-comparison.tsx` next to each store's total when the user has granted location (shared, via a new `useUserLocation()` hook, with the Stores tab's existing opt-in — never a second prompt). Shown as one more factor, never auto-selects the nearest store, per `docs/05_BUSINESS_RULES.md` (see `docs/07_CHANGELOG.md`)
 - ~~budget constraints~~ done: `lib/budget.ts`'s `budgetImpact()`, surfaced in `store-comparison.tsx` — flags when even the cheapest store option exceeds the household's remaining monthly budget, otherwise shows what percentage of it the trip would use (see `docs/07_CHANGELOG.md`)
 - bulk-buy recommendations
-- historical-price awareness
+- ~~historical-price awareness~~ foundation done: `prices` was seeded once and never re-observed, so there was no real history to be aware of yet. `lib/db/queries.ts`'s `recordPriceObservation()` now appends a new dated row instead of overwriting (nothing calls it yet — no ingestion source is wired up); `getProductPrices()` surfaces the full per-store history alongside the latest price; `lib/prices.ts`'s `isHistoricLow()` flags a deal that's a genuine all-time low, not just today's discount, wired into `assessDealQuality()` and shown in `price-watch.tsx`. Verified end-to-end against the real database with a temporary product (three dated observations, correct latest-price selection, correct history, correct `isHistoricLow`), not just unit tests (see `docs/07_CHANGELOG.md`)
 
 ## Phase D — Notifications
-- price/deal alerts
-- shopping reminders
+- ~~price/deal alerts~~ done: `addShoppingItemAction` checks `assessDealQuality()` when an item is added and notifies the household only if there's a currently active deal that's genuinely the best price for that product — not just any discount (see `docs/07_CHANGELOG.md`)
+- ~~shopping reminders~~ done: unlike the other two notification generators, this one isn't triggered by a user action — it's time-based (explicit product decision 2026-09-21: use a real daily Vercel Cron job rather than faking staleness off a page load). `app/api/cron/shopping-reminders` runs daily, finds items on a household's list that are still undone `STALE_AFTER_DAYS` (3) after being added (`lib/reminders.ts`'s `findStaleItems()`), and fires one reminder notification per household, marking those items so the same item never reminds twice (see `docs/07_CHANGELOG.md`)
 - ~~budget warnings~~ done: `lib/budget.ts`'s `crossedBudgetThreshold()`, wired into `addExpenseAction` — fires a real notification exactly once when spending crosses 80% or 100% of the household's budget, never re-fires while already in the same band (see `docs/07_CHANGELOG.md`)
-- household events
+- ~~household events~~ done: joining a household via invitation (either path — auto-join on first login, or explicit `acceptInvitationAction` from `/invite/[token]`) now notifies the household that a new member joined. Both paths were duplicating the same insert/update logic, so this also deduplicated them into one shared `joinHouseholdViaInvitation()` in `lib/db/queries.ts` (see `docs/07_CHANGELOG.md`)
 
 ## Phase E — Global
 - country/locale/currency

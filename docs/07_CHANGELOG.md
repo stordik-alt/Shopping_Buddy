@@ -1,5 +1,10 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-21 (Ops: PR #4 merged, shopping-reminders cron now live)
+- PR #4 (`v0/backend` → `main`: Phase D notifications complete, historical-price awareness foundation, Server Action test coverage) merged by the owner via GitHub. A production deployment ran automatically.
+- Confirmed live via `vercel cron ls`: `/api/cron/shopping-reminders` is no longer `not deployed`. Combined with `CRON_SECRET` already being set, this closes out the last open item from the shopping-reminders work — the route will get its first real scheduled invocation at the next 08:00 UTC tick.
+- `v0/backend` fast-forwarded to match `main` post-merge (no divergence — `v0/backend`'s commits are all ancestors of the merge commit) and pushed, so backend development continues from a branch that matches what's actually deployed.
+
 ## 2026-09-21 (Ops: CRON_SECRET set, cron job still not deployed)
 - The owner added `CRON_SECRET` to the Vercel project. Confirmed via `vercel env ls`: set for the Production environment.
 - Also checked `vercel cron ls`, which surfaced a real gap: `/api/cron/shopping-reminders` shows as `not deployed`. `vercel.json`'s cron definition only exists on `v0/backend`, which per the branch policy (`CLAUDE.md` section 3) hasn't merged to `main` — Vercel's production deployments build from `main`, so this route, the whole shopping-reminders feature, and everything else built on `v0/backend` this session are not live yet. `CRON_SECRET` being set doesn't change that; it only means the route will check the right thing once it actually deploys.

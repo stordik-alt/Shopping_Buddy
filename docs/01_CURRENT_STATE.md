@@ -385,7 +385,7 @@ and:
 historical price
 ```
 
-Reliable price history remains an area requiring further development.
+**Update 2026-09-21:** The append-only mechanism for real price history now exists — `lib/db/queries.ts`'s `recordPriceObservation()` inserts a new dated row rather than overwriting, and `getProductPrices()` now surfaces each store's full observation history (not just the latest) to the domain layer. Not yet exercised in practice: no ingestion/refresh source calls it, so every real product still has exactly one observation. See section 22 for how this is consumed.
 
 Price records include currency information.
 
@@ -609,6 +609,7 @@ Current logic considers factors such as:
 * budget constraints
 * store comparison
 * unit price
+* historical prices — `lib/prices.ts`'s `isHistoricLow()`, foundation done 2026-09-21 (see section 13); flags a deal as a genuine all-time low rather than just today's discount, but has no real historical data to act on yet since nothing populates price history in production
 
 The engine is intended to optimize the overall shopping trip rather than simply find the cheapest individual item.
 
@@ -619,7 +620,8 @@ Future improvements should include:
 * household preferences
 * product availability
 * required quantities
-* historical prices
+* stock/storage constraints
+* bulk-buy recommendations
 * purchase patterns
 
 The optimization logic must remain deterministic and testable.
@@ -807,11 +809,11 @@ Need stronger mapping of:
 
 ## Price history
 
-Need reliable historical tracking of prices.
+The append-only recording mechanism and the domain logic that consumes it both exist (`recordPriceObservation()`, `isHistoricLow()` — see section 13). Still needed: something that actually calls it. No price-refresh/ingestion source is wired up, so no real product has more than one observation yet.
 
 ## Promotion history
 
-Need reliable historical tracking of promotions.
+Need reliable historical tracking of promotions. Unlike prices, `deals` has no append-only observation mechanism yet — only current `valid_from`/`valid_until`.
 
 ## External price ingestion
 
@@ -872,6 +874,7 @@ Recent development has included:
 * price/deal alert notifications
 * time-scheduled shopping-reminder notifications (Vercel Cron)
 * household-join event notifications (Phase 8 now fully complete: budget/deal/reminder/household-event notifications)
+* price-history foundation: append-only observation recording + historic-low detection (not yet fed by a real ingestion source)
 * currency fields
 * migration baseline
 * automated tests for selected domains

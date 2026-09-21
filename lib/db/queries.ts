@@ -312,8 +312,14 @@ export async function getProductPrices(): Promise<ProductPrice[]> {
   return products
     .filter((product) => product.prices.length > 0)
     .map((product) => {
-      const latestByLocation = new Map<string, (typeof product.prices)[number]>()
-      for (const price of product.prices) latestByLocation.set(price.storeLocationId, price) // later (ascending) rows overwrite, so this lands on the latest
+      // Grouped (not collapsed) by store location, ascending by recordedAt, so a store that's been
+      // re-observed over time keeps its whole history — the last entry is always the latest.
+      const observationsByLocation = new Map<string, typeof product.prices>()
+      for (const price of product.prices) {
+        const list = observationsByLocation.get(price.storeLocationId) ?? []
+        list.push(price)
+        observationsByLocation.set(price.storeLocationId, list)
+      }
 
       const activeDealByLocation = new Map(
         product.deals.filter((deal) => deal.validUntil >= TODAY).map((deal) => [deal.storeLocationId, deal]),
@@ -322,7 +328,8 @@ export async function getProductPrices(): Promise<ProductPrice[]> {
       return {
         productName: product.name,
         category: product.category.name,
-        prices: Array.from(latestByLocation.values()).map((price) => {
+        prices: Array.from(observationsByLocation.values()).map((observations) => {
+          const price = observations[observations.length - 1]
           const deal = activeDealByLocation.get(price.storeLocationId)
           return {
             store: price.storeLocation.store.chain,
@@ -332,8 +339,40 @@ export async function getProductPrices(): Promise<ProductPrice[]> {
             unit: price.unit,
             unitPrice: Number(price.unitPrice),
             recordedAt: price.recordedAt,
+            priceHistory: observations.map((observation) => ({ price: Number(observation.regularPrice), recordedAt: observation.recordedAt })),
           }
         }),
       }
     })
+}
+
+/** Appends a new dated price observation for a product at a store — never overwrites an existing
+ *  row, so `prices` genuinely accumulates history over time (docs/04_ROADMAP.md "historical-price
+ *  awareness"; the read side above already picks the latest observation per product/store and now
+ *  also surfaces the full history). This is the foundation only: nothing calls it yet, since there
+ *  is no price-refresh/ingestion source wired up (`docs/01_CURRENT_STATE.md` — "External price
+ *  ingestion" is a separate, later gap). */
+export async function recordPriceObservation(observation: {
+  productId: string
+  storeLocationId: string
+  regularPrice: number
+  currency?: string
+  unit: (typeof schema.prices.$inferInsert)['unit']
+  unitPrice: number
+  recordedAt: string
+}) {
+  const db = getDb()
+  const [row] = await db
+    .insert(schema.prices)
+    .values({
+      productId: observation.productId,
+      storeLocationId: observation.storeLocationId,
+      regularPrice: observation.regularPrice.toString(),
+      currency: observation.currency ?? 'CZK',
+      unit: observation.unit,
+      unitPrice: observation.unitPrice.toString(),
+      recordedAt: observation.recordedAt,
+    })
+    .returning()
+  return row
 }

@@ -1,82 +1,991 @@
 # Shopping Buddy — Current State
 
-## Repository
-GitHub repository: `stordik-alt/Shopping_Buddy`
+**Repository:** `stordik-alt/Shopping_Buddy`
+**Stable branch:** `main`
+**Current backend development branch:** `v0/backend`
+**Previous frontend branch:** `V0/continue-frontend` — historical/obsolete unless explicitly requested
+**Last updated:** 2026-09-21
 
-Current development branch: `V0/continue-frontend`
+---
 
-## Verified application stack
-- Next.js 16.3.3
-- React 19
-- TypeScript 5.7.3
-- Tailwind CSS 4.x
-- shadcn/ui
-- lucide-react
-- pnpm 12.3.4
-- Neon PostgreSQL 18
+# 1. Project Overview
 
-The repository is a Next.js/React/TypeScript application. Do not reintroduce an obsolete Python/FastAPI/SQLite architecture from earlier concepts.
+Shopping Buddy is a family shopping assistant focused initially on the Czech market.
 
-## Frontend status
-The repository already contains the frontend foundation and feature-stage documentation for:
-- frontend stabilization
-- family profile and household
-- smart shopping list
-- weekly shopping/meal plan
-- stores and location
-- prices and deals
-- budget and expenses
-- purchase history
+The application combines:
 
-These should be treated as implemented/prototype functionality until verified against current code. The presence of a UI does not prove that the feature is persisted to Neon.
+* household management
+* family profiles
+* shopping lists
+* product catalog
+* store directory
+* prices
+* promotions
+* meal planning
+* budgets
+* expenses
+* purchase history
+* shopping optimization
+* notifications
+* shared household functionality
 
-**Update 2026-09-20:** Household profile, shopping list, budget/expenses and notifications are now verified persisted to Neon (see `docs/07_CHANGELOG.md`). Stores and prices/deals are now also read live from Neon (`getStores()`, `getProductPrices()` in `lib/db/queries.ts`). Meal plans: the recipe catalog (`lib/meal-plans.ts`) is, and always was, code-based reference data — there is no `recipes` table in the schema, so this is not a persistence gap. What *is* persisted now is each household's generated weekly plan (`meal_plans` table, one row per household per week, via `saveMealPlanAction`).
+The long-term goal is to provide intelligent shopping assistance based on reliable household, product, price and purchase data.
 
-**Update 2026-09-20 (auth):** Authentication is wired to Neon Auth (Managed Better Auth) — email/password sign-up/sign-in, session-protected routes via `proxy.ts`, per-user household scoping (each account gets its own household on first login; the old seeded demo household still exists but is unlinked from any account), and server-side household-ownership checks on every Server Action (`lib/auth/authorize.ts`). **Verified end-to-end** against the real Neon Auth service and database: sign-up, sign-in, session-protected page load, and auto-provisioning all confirmed working (see `docs/07_CHANGELOG.md`).
+The AI Shopping Assistant is intentionally planned as the final major development phase.
 
-**Update 2026-09-21 (shared household):** Phase B's first item — invitations/membership — is done. A household owner can generate a share link (`invitations` table + `inviteMemberAction`/`revokeInvitationAction`); the invited person joining (via sign-up or the public `/invite/[token]` landing page) becomes a `member` of that same household instead of getting their own. Verified end-to-end against the real database. "Concurrent edits" is also now addressed at a good-enough level: `AppShell` polls (`router.refresh()` every 20s + on tab focus) and resyncs its local state from the server, so another member's change shows up without a manual reload — not true real-time (no websockets), by design, to avoid new infrastructure for a freshness need this simple. Roles still stay coarse (owner/member only, no granular permissions) — open from `docs/04_ROADMAP.md` Phase B.
+---
 
-## Important current technical condition
-Household profile, shopping list, budget/expenses, notifications, store directory, price/deal comparison, and each household's generated weekly meal plan now read from (and, except stores/prices, write to) Neon via `lib/db/queries.ts` and `app/actions/`. The meal-plan *recipe catalog* itself (`lib/meal-plans.ts`) remains code-based reference data by design — there's no `recipes` table to migrate it to.
+# 2. Current Git State
 
-~~The current `next.config.mjs` contains a TypeScript build-error bypass.~~ Removed 2026-09-21: `tsc --noEmit` had been passing clean throughout this project's recent work, and the production incident the same day (see `docs/07_CHANGELOG.md`) was a concrete demonstration of the bypass shipping a real arity error to production. `next build` now runs its own TypeScript validation for real (confirmed: build log shows `Running TypeScript ... Finished TypeScript` instead of `Skipping validation of types`) and passes clean.
+## Stable branch
 
-## Neon status
-Neon is provisioned (Vercel Marketplace, resource `neon-cyclamen-bridge` on project `storek/shopping-buddy`) and the schema below is live and seeded, verified 2026-09-20. It contains tables for:
-- households
-- household_members
-- profiles
-- children
-- preferences
-- product_categories
-- products
-- stores
-- store_locations
-- prices
-- deals
-- shopping_lists
-- shopping_list_items
-- budgets
-- expenses
-- purchases
-- purchase_items
-- meal_plans
-- notifications
-- invitations
+```text
+main
+```
 
-There is also a `neon_auth` schema — this is Neon Auth (Managed Better Auth). It is now the identity source of truth (see auth update above); `public.users` was dropped and `household_members.user_id` references `neon_auth."user"(id)` instead.
+`main` is the stable project branch.
 
-## Current gaps to resolve
-1. ~~Store directory, price comparison and meal-plan recipes are not yet connected to Neon.~~ Store directory and price/deal comparison done, and household meal plans now persist (see `docs/07_CHANGELOG.md`). The recipe catalog itself intentionally stays code-based (`lib/meal-plans.ts`) — there's no `recipes` table, so this was never a real gap once verified.
-2. ~~Need a documented data-access strategy.~~ Done: `lib/db/queries.ts` (reads) + `app/actions/*` (Server Action writes), using Drizzle ORM.
-3. ~~Need an explicit authentication/session strategy.~~ Done: wired to Neon Auth and verified end-to-end (see auth update above).
-4. ~~Need row ownership/household authorization rules.~~ Done: `lib/auth/authorize.ts` (`requireHouseholdId()`) plus per-action ownership checks in `app/actions/*` (see `docs/07_CHANGELOG.md`).
-5. ~~Need schema audit and migrations tooling beyond `drizzle-kit push`.~~ Done: established a `drizzle-kit generate` baseline (`lib/db/migrations/0000_baseline_snapshot.sql`, generated from the schema as it stood after the earlier hand-written migrations — those are now superseded/retired from disk, staying in git history and `docs/07_CHANGELOG.md` for the record) and applied via the same minimal runner as before (`lib/db/migrate.ts`, `pnpm db:migrate`). Workflow going forward: edit `lib/db/schema.ts` → `pnpm db:generate` → review the generated SQL → `pnpm db:migrate`. Verified end-to-end with a real change (two missing indexes on hot-path columns). Along the way, found and fixed a real bug in the runner: it only split migration files on `;\n`, but `drizzle-kit generate`'s default Postgres output separates statements with a literal `--> statement-breakpoint` line instead — the runner now handles both.
-6. Need product/brand/variant/package/unit normalization before serious price aggregation.
-7. ~~Need explicit currency and country/locale support.~~ Partially done: `households.currency`, `prices.currency`, `deals.currency` added (ISO 4217, default `CZK`) — closes `docs/03_DATABASE.md` rule 9, which was previously violated (no money column anywhere had a currency). Not done: the UI never reads or displays these — `lib/format.ts`'s `money()` is still hardcoded to `Kč`/`cs-CZ`, deliberately not changed since there's no real multi-currency UI need yet (`docs/02_ARCHITECTURE.md`: "Do not prematurely internationalize every UI string"). Country/locale beyond this (store `country` already existed) still open.
-8. Need reliable price/deal history (schema supports it; not yet exercised by real price updates over time).
-9. ~~Need tests for core business rules.~~ Started: `vitest` (`pnpm test`) with unit tests for `lib/budget.ts`, `lib/prices.ts`, `lib/meal-plans.ts` (including the allergen-filtering safety property and a regression test for the `currentWeekStart` timezone bug fixed earlier), and `lib/geo.ts` — see `docs/07_CHANGELOG.md`. Coverage is not exhaustive; Server Actions and the auto-provision/auto-join logic in `lib/db/queries.ts` still have no automated tests (would need a test database or mocking, not attempted here).
-10. ~~Need to remove build/typecheck bypasses after the codebase is clean.~~ Done — `next.config.mjs`'s `typescript.ignoreBuildErrors` removed (see above).
+## Current backend development
 
-## Immediate task
-Perform a read-only audit of the current frontend, package configuration and Neon schema. Produce a concrete backend integration plan before large implementation changes.
+```text
+v0/backend
+```
+
+Backend development should be performed on this branch.
+
+The branch should be based on the latest stable `main`.
+
+Development flow:
+
+```text
+main
+  ↓
+v0/backend
+  ↓
+development
+  ↓
+testing / validation
+  ↓
+pull request
+  ↓
+main
+```
+
+## Historical branch
+
+```text
+V0/continue-frontend
+```
+
+This branch was used during the earlier frontend-development phase.
+
+It is no longer the active development branch.
+
+Do not use it for new backend development unless explicitly requested.
+
+---
+
+# 3. Technology Stack
+
+Current application stack:
+
+* Next.js 16.3.3
+* React 19
+* TypeScript 5.7.3
+* Tailwind CSS 4.x
+* shadcn/ui
+* lucide-react
+* pnpm 12.3.4
+* Neon PostgreSQL 18
+* Drizzle ORM
+* Neon Auth
+
+The application uses Next.js as the application/backend framework.
+
+There is no separate Python/FastAPI backend.
+
+SQLite is not used as the production database.
+
+---
+
+# 4. Frontend Status
+
+The original frontend prototype has been substantially connected to persistent backend functionality.
+
+The UI remains mobile-first and responsive.
+
+The frontend currently contains functionality for areas including:
+
+* dashboard
+* household/profile
+* shopping lists
+* budget
+* expenses
+* stores
+* prices
+* promotions
+* meal plans
+* notifications
+* shared household functionality
+
+Existing UI should be preserved when working on backend functionality unless a UI change is required.
+
+---
+
+# 5. Authentication
+
+Authentication is implemented using Neon Auth.
+
+Current behavior includes:
+
+* email/password authentication
+* protected application routes
+* authenticated session handling
+* server-side user identification
+* household-level authorization
+
+Protected routes are handled through the existing Next.js proxy/authentication flow.
+
+The application must not trust client-provided user or household identifiers for authorization decisions.
+
+---
+
+# 6. Household Model
+
+Household functionality is implemented.
+
+The application supports:
+
+* household creation
+* household profile
+* household members
+* adults
+* children
+* household preferences
+* household-scoped data
+
+Database operations are scoped to the authenticated household.
+
+Important household-related data includes:
+
+* profiles
+* children
+* preferences
+* shopping lists
+* budgets
+* expenses
+* purchases
+* meal plans
+* notifications
+
+---
+
+# 7. Shared Household
+
+Shared household functionality has been implemented.
+
+Current functionality includes:
+
+* household invitations
+* membership records
+* invitation links
+* joining an existing household
+* owner/member roles
+
+The current synchronization approach uses lightweight refresh/polling rather than websocket infrastructure.
+
+The application currently uses:
+
+* periodic refresh
+* tab-focus refresh
+
+This is considered sufficient for the current development stage.
+
+Realtime websocket infrastructure should not be introduced unless a concrete requirement appears.
+
+---
+
+# 8. Database
+
+The production database is:
+
+```text
+Neon PostgreSQL
+```
+
+Database access is handled through:
+
+```text
+Drizzle ORM
+```
+
+The database contains the main application domains.
+
+Current schema includes tables/entities for:
+
+* households
+* household_members
+* profiles
+* children
+* preferences
+* product_categories
+* products
+* stores
+* store_locations
+* prices
+* deals
+* shopping_lists
+* shopping_list_items
+* budgets
+* expenses
+* purchases
+* purchase_items
+* meal_plans
+* notifications
+* invitations
+
+Neon Auth also maintains its own authentication-related schema.
+
+The obsolete `public.users` application table has been removed.
+
+---
+
+# 9. Database Migrations
+
+Migration tooling is implemented.
+
+The project uses Drizzle migrations.
+
+The current baseline migration was generated using:
+
+```text
+drizzle-kit generate
+```
+
+Baseline migration:
+
+```text
+lib/db/migrations/0000_baseline_snapshot.sql
+```
+
+Migration runner:
+
+```text
+lib/db/migrate.ts
+```
+
+Migration command:
+
+```bash
+pnpm db:migrate
+```
+
+The migration runner supports the project's migration statement-breakpoint format.
+
+Database schema changes should always be accompanied by appropriate migrations.
+
+---
+
+# 10. Store Directory
+
+Store directory functionality is implemented.
+
+Initial supported Czech store chains include:
+
+* Lidl
+* Albert
+* Kaufland
+* Billa
+* JIP
+* Penny
+
+The store model distinguishes between:
+
+```text
+Store chain
+    ↓
+Store location
+```
+
+Real store locations have been added to the database.
+
+The current database contains approximately:
+
+```text
+55 store locations
+```
+
+covering multiple Czech cities and regions.
+
+The store directory was expanded using real geographic/store data.
+
+Fabricated store locations must not be added.
+
+---
+
+# 11. Geographic Store Data
+
+Store locations can contain geographic information.
+
+The application supports location-aware functionality for store discovery and shopping optimization.
+
+Recent work included:
+
+* GPS/manual location handling
+* store location filtering
+* nationwide store directory expansion
+* distance-aware shopping logic
+
+The application should remain functional when precise GPS information is unavailable.
+
+Manual location selection should remain supported.
+
+---
+
+# 12. Products
+
+Product data is persisted in Neon.
+
+The product model is intended to support:
+
+* product identity
+* category
+* brand
+* variant
+* package size
+* unit
+* normalized quantity
+* barcode/external identifier where available
+
+Product normalization is still an important area of ongoing development.
+
+Before serious price aggregation and comparison, products from different sources must be mapped to stable internal product identities.
+
+Product display names alone must not be treated as reliable unique identifiers.
+
+---
+
+# 13. Prices
+
+Price data is persisted in Neon.
+
+The current application can read product prices from the database.
+
+Existing frontend code has been connected to database-backed price retrieval.
+
+The application must distinguish between:
+
+```text
+current price
+```
+
+and:
+
+```text
+historical price
+```
+
+Reliable price history remains an area requiring further development.
+
+Price records include currency information.
+
+The default application currency is:
+
+```text
+CZK
+```
+
+---
+
+# 14. Promotions / Deals
+
+Promotion/deal data is persisted in Neon.
+
+The frontend can read deal information from the database.
+
+Promotion logic has been expanded to consider factors such as:
+
+* discount
+* price
+* unit price
+* promotion quality
+* product relevance
+* shopping constraints
+
+The system must not assume that every advertised percentage discount represents a genuinely good deal.
+
+Reliable historical promotion data remains an area for further development.
+
+---
+
+# 15. Internet Price and Promotion Data
+
+A major next-stage objective is connecting Shopping Buddy to external price and promotion sources.
+
+The preferred architecture is:
+
+```text
+External retailer/source
+        ↓
+Fetcher / connector
+        ↓
+Normalizer
+        ↓
+Validator
+        ↓
+Database
+        ↓
+Price / promotion logic
+        ↓
+Shopping Buddy
+```
+
+Potential data sources include:
+
+* official retailer APIs
+* official feeds
+* public retailer data
+* permitted public websites
+* permitted third-party data providers
+
+The application must not bypass:
+
+* CAPTCHA
+* authentication
+* access controls
+* technical restrictions
+* other mechanisms designed to restrict access
+
+The application must never invent price or promotion data.
+
+Imported data should retain source and timestamp information wherever available.
+
+---
+
+# 16. Currency
+
+Currency support has been partially implemented.
+
+The database includes currency fields for:
+
+* households
+* prices
+* deals
+
+Default currency:
+
+```text
+CZK
+```
+
+The current UI still contains some Czech-specific formatting assumptions.
+
+A more complete localization/currency abstraction remains to be implemented before international rollout.
+
+---
+
+# 17. Shopping Lists
+
+Shopping lists are persisted in Neon.
+
+The application supports database-backed shopping-list data.
+
+Shopping-list items can contain product and quantity information.
+
+The long-term shopping-list model should support:
+
+* quantities
+* units
+* product references
+* completion state
+* optional store association
+* optional prices
+* notes
+
+The shopping-list domain should remain deterministic and database-backed.
+
+---
+
+# 18. Budget and Expenses
+
+Budget functionality is implemented using Neon persistence.
+
+Current functionality includes:
+
+* budget records
+* expense records
+* remaining budget calculation
+* percentage-used calculation
+* budget threshold notifications
+
+Budget threshold behavior currently includes important thresholds such as:
+
+```text
+80%
+100%
+```
+
+Budget calculations are implemented as application logic rather than being dependent exclusively on the UI.
+
+Recent work added notification behavior when spending crosses configured thresholds.
+
+---
+
+# 19. Notifications
+
+Notifications are persisted in the database.
+
+Current notification functionality includes budget-related notifications.
+
+The notification architecture is intended to support future events such as:
+
+* budget thresholds
+* important promotions
+* shopping reminders
+* expiring promotions
+* household events
+
+Notifications should use deterministic rules wherever possible.
+
+AI should not be introduced simply to perform deterministic notification logic.
+
+---
+
+# 20. Meal Plans
+
+Meal-plan functionality is partially implemented.
+
+The existing recipe catalog remains code-based by design.
+
+Generated weekly meal plans are persisted in:
+
+```text
+meal_plans
+```
+
+Meal planning is intended to integrate with:
+
+* household members
+* preferences
+* children
+* exclusions
+* shopping lists
+* budget
+* products
+
+The meal-plan domain should not be duplicated by creating another independent recipe/meal system.
+
+---
+
+# 21. Purchase History
+
+Purchase-related database structures exist.
+
+The purchase model includes:
+
+* purchases
+* purchase items
+
+Purchase history is intended to support future functionality such as:
+
+* spending analysis
+* frequently purchased products
+* recurring purchases
+* price trends
+* consumption patterns
+* shopping optimization
+
+This area remains less mature than the core shopping-list and budget functionality.
+
+---
+
+# 22. Smart Shopping Engine
+
+A Smart Shopping Engine has been started.
+
+Current logic considers factors such as:
+
+* trip distance
+* promotion quality
+* budget constraints
+* store comparison
+* unit price
+
+The engine is intended to optimize the overall shopping trip rather than simply find the cheapest individual item.
+
+Future improvements should include:
+
+* number of stores visited
+* travel cost
+* household preferences
+* product availability
+* required quantities
+* historical prices
+* purchase patterns
+
+The optimization logic must remain deterministic and testable.
+
+---
+
+# 23. Testing
+
+Automated testing has been started.
+
+Tests currently cover areas including:
+
+* budget
+* prices
+* meal plans
+* geographic/store logic
+
+Further tests are still required for:
+
+* server actions
+* authentication
+* household authorization
+* auto-provisioning
+* invitation/join flows
+* price ingestion
+* promotion normalization
+* shopping optimization
+
+Critical business logic should receive regression tests when bugs are fixed.
+
+---
+
+# 24. TypeScript / Build
+
+The previous TypeScript build-error bypass has been removed.
+
+The project should compile against the actual TypeScript errors.
+
+Do not introduce configuration that hides genuine TypeScript errors simply to make deployment pass.
+
+Before considering a feature complete, validate the relevant:
+
+```bash
+pnpm lint
+pnpm typecheck
+pnpm build
+pnpm test
+```
+
+commands that are actually available in the project.
+
+---
+
+# 25. Current Backend Priorities
+
+The current backend development branch is:
+
+```text
+v0/backend
+```
+
+The recommended order of work is:
+
+### Phase 1 — Backend foundation
+
+* audit current backend
+* stabilize data access
+* stabilize authorization
+* improve database integrity
+* improve tests
+* improve error handling
+
+### Phase 2 — Core household functionality
+
+* household/profile
+* members
+* children
+* preferences
+* shared household
+
+### Phase 3 — Shopping
+
+* shopping lists
+* products
+* product normalization
+* quantities/units
+
+### Phase 4 — Financial data
+
+* budgets
+* expenses
+* purchase history
+
+### Phase 5 — Prices and promotions
+
+* product normalization
+* external data ingestion
+* price history
+* promotion history
+* unit-price comparison
+* retailer connectors
+
+### Phase 6 — Meal planning
+
+* meal plans
+* shopping-list integration
+* budget integration
+
+### Phase 7 — Optimization
+
+* store comparison
+* distance
+* travel cost
+* promotion quality
+* household constraints
+
+### Phase 8 — Notifications
+
+* budget alerts
+* price/deal alerts
+* reminders
+* household events
+
+### Phase 9 — Internationalization
+
+* currencies
+* localization
+* international store architecture
+* country-specific data providers
+
+### Phase 10 — AI
+
+AI Shopping Assistant is the final major phase.
+
+---
+
+# 26. AI Status
+
+AI functionality is intentionally deferred.
+
+The project should not currently add:
+
+* Vercel AI SDK
+* AI Gateway
+* LLM provider integrations
+* model API calls
+* AI agents
+* embeddings
+
+until the underlying application data is sufficiently reliable.
+
+The AI assistant should eventually operate on:
+
+* household data
+* preferences
+* shopping lists
+* products
+* prices
+* promotions
+* budgets
+* purchase history
+* meal plans
+* store information
+* optimization results
+
+AI should be an additional intelligence layer on top of a reliable deterministic system.
+
+---
+
+# 27. Current Known Gaps
+
+The following areas remain open or incomplete.
+
+## Product normalization
+
+Need stronger mapping of:
+
+* product
+* brand
+* variant
+* package
+* unit
+* barcode
+* external product identifiers
+
+## Price history
+
+Need reliable historical tracking of prices.
+
+## Promotion history
+
+Need reliable historical tracking of promotions.
+
+## External price ingestion
+
+Need production-ready retailer connectors and ingestion jobs.
+
+## Currency/localization
+
+Database foundation exists, but UI and domain-wide localization still require work.
+
+## Server action tests
+
+More automated coverage is required.
+
+## Authorization tests
+
+Household-level access control requires broader automated coverage.
+
+## Purchase analytics
+
+Purchase history exists but deeper analytics are still required.
+
+## International rollout
+
+The Czech implementation is the primary target.
+
+International support is planned later.
+
+---
+
+# 28. Recent Completed Work
+
+Recent development has included:
+
+* Neon persistence for household/profile data
+* shopping-list persistence
+* budget persistence
+* expense persistence
+* notification persistence
+* database-backed stores
+* database-backed prices
+* database-backed deals
+* meal-plan persistence
+* Neon Auth integration
+* protected routes
+* household authorization
+* household invitations
+* shared household membership
+* owner/member roles
+* concurrent-edit refresh strategy
+* nationwide store directory expansion
+* GPS/manual location handling
+* Smart Shopping Engine foundations
+* budget threshold notifications
+* currency fields
+* migration baseline
+* automated tests for selected domains
+* removal of the TypeScript build-error bypass
+
+---
+
+# 29. Important Development Constraints
+
+When continuing development:
+
+1. Do not create a second backend.
+2. Do not reintroduce Python/FastAPI.
+3. Do not replace Neon/PostgreSQL with SQLite.
+4. Do not replace Drizzle without a concrete reason.
+5. Do not bypass authentication.
+6. Do not bypass household authorization.
+7. Do not invent price or promotion data.
+8. Do not create fake store locations.
+9. Do not duplicate existing domain logic.
+10. Do not introduce AI before the final phase.
+11. Do not make critical calculations only in the UI.
+12. Do not modify unrelated working UI during backend work.
+13. Do not add unnecessary dependencies.
+14. Do not hide TypeScript/build errors.
+15. Do not commit secrets.
+
+---
+
+# 30. Documentation Workflow
+
+When a significant feature is completed:
+
+Update:
+
+```text
+docs/01_CURRENT_STATE.md
+docs/07_CHANGELOG.md
+```
+
+When architecture changes:
+
+```text
+docs/02_ARCHITECTURE.md
+```
+
+When database structure changes:
+
+```text
+docs/03_DATABASE.md
+```
+
+When roadmap priorities change:
+
+```text
+docs/04_ROADMAP.md
+```
+
+When business rules change:
+
+```text
+docs/05_BUSINESS_RULES.md
+```
+
+When AI rules change:
+
+```text
+docs/06_AI_RULES.md
+```
+
+Documentation must reflect the actual implementation.
+
+---
+
+# 31. Current Definition of Done
+
+A feature should be considered complete only when appropriate:
+
+* implementation exists
+* TypeScript is correct
+* database persistence works
+* authorization works
+* business logic is deterministic
+* loading state works
+* error state works
+* empty state works
+* mobile layout works
+* tests exist where appropriate
+* no obvious regression exists
+* relevant documentation is updated
+* changelog is updated
+
+The application should remain stable while functionality is expanded incrementally.
+
+---
+
+# 32. Current Development Principle
+
+The current priority is not to add the largest number of features as quickly as possible.
+
+The priority is to build a reliable foundation:
+
+```text
+Reliable data
+      ↓
+Reliable backend
+      ↓
+Reliable business logic
+      ↓
+Reliable shopping optimization
+      ↓
+Useful automation
+      ↓
+AI assistance
+```
+
+AI should not compensate for missing or unreliable application foundations.
+
+The current focus is therefore the backend and data layer on:
+
+```text
+v0/backend
+```

@@ -28,5 +28,12 @@ export function useUserLocation() {
     )
   }
 
-  return { state, coords, requestLocation }
+  /** Switch back to manual (typed) location — there's no reverse-geocoding here, so once GPS is
+   *  granted there's no place name to show; the caller should fall back to a manual text field. */
+  function clearLocation() {
+    setState('idle')
+    setCoords(null)
+  }
+
+  return { state, coords, requestLocation, clearLocation }
 }

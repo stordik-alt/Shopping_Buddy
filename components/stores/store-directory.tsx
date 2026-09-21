@@ -9,24 +9,31 @@ export function StoreDirectory({
   locationState,
   userCoords,
   onRequestLocation,
+  onClearLocation,
 }: {
   stores: Store[]
   locationState: LocationState
   userCoords: GpsCoords | null
   onRequestLocation: () => void
+  onClearLocation: () => void
 }) {
-  const [location, setLocation] = useState('Praha 4')
+  // Empty by default: with stores now nationwide, defaulting to any one city would hide most of
+  // them. Empty means "show everywhere"; typing a city narrows it (or granting GPS sorts by distance).
+  const [location, setLocation] = useState('')
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
+  const usingGps = locationState === 'granted' && userCoords != null
 
   const storesWithDistance = stores
     .map((store) => ({ ...store, distanceKm: userCoords ? distanceKm(userCoords, store.gps) : null }))
     .sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity))
 
+  // While using GPS, real distance already does the "near me" job — the typed location text
+  // (with no way to know what it resolves to without reverse-geocoding) shouldn't also filter.
   const visibleStores = storesWithDistance.filter(
     (store) =>
       (store.name.toLowerCase().includes(query.toLowerCase()) || store.chain.toLowerCase().includes(query.toLowerCase())) &&
-      (location.trim() === '' || store.address.toLowerCase().includes(location.trim().toLowerCase())),
+      (usingGps || location.trim() === '' || store.address.toLowerCase().includes(location.trim().toLowerCase())),
   )
   const activeStore = storesWithDistance.find((store) => store.id === selected)
 
@@ -38,16 +45,27 @@ export function StoreDirectory({
         <p className="mt-1 text-sm text-muted-foreground">Porovnejte vzdálenost, otevírací dobu a akce.</p>
       </div>
       <div className="flex flex-wrap gap-2">
-        <label className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-          <MapPin className="h-4 w-4 shrink-0 text-primary" />
-          <span className="sr-only">Lokalita</span>
-          <input
-            value={location}
-            onChange={(event) => setLocation(event.target.value)}
-            className="min-w-0 flex-1 bg-transparent text-foreground outline-none"
-            aria-label="Lokalita"
-          />
-        </label>
+        {usingGps ? (
+          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-primary">
+            <LocateFixed className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 flex-1 truncate">Používá se vaše aktuální poloha (GPS)</span>
+            <button onClick={onClearLocation} className="shrink-0 whitespace-nowrap text-xs font-medium underline hover:no-underline">
+              Zadat ručně
+            </button>
+          </div>
+        ) : (
+          <label className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+            <MapPin className="h-4 w-4 shrink-0 text-primary" />
+            <span className="sr-only">Lokalita</span>
+            <input
+              value={location}
+              onChange={(event) => setLocation(event.target.value)}
+              placeholder="Celá ČR · zadejte město pro zúžení"
+              className="min-w-0 flex-1 bg-transparent text-foreground outline-none"
+              aria-label="Lokalita"
+            />
+          </label>
+        )}
         <button
           onClick={onRequestLocation}
           disabled={locationState === 'loading'}

@@ -266,6 +266,7 @@ export function AppShell({
                   locationState={userLocation.state}
                   userCoords={userLocation.coords}
                   onRequestLocation={userLocation.requestLocation}
+                  onClearLocation={userLocation.clearLocation}
                 />
               )}
               {tab === 'Rozpočet' && (

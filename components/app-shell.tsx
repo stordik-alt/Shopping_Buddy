@@ -343,7 +343,7 @@ export function AppShell({
                   />
                   <SavingsInsight remaining={remaining} onAi={() => setTab('AI')} />
                   <MealPlan household={household} initialPlan={initialData.mealPlan} pantryItems={pantryItems} onAddIngredients={addIngredients} onMarkCooked={markMealCooked} />
-                  <PriceWatch onStores={() => setTab('Obchody')} productPrices={productPrices} />
+                  <PriceWatch onStores={() => setTab('Obchody')} productPrices={productPrices} pantryItems={pantryItems} />
                   <QuickActions onShopping={() => setTab('Nákup')} onStores={() => setTab('Obchody')} onAi={() => setTab('AI')} />
                 </>
               )}

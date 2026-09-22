@@ -86,6 +86,20 @@ export function assessDealQuality(products: ProductPrice[], referenceDate: strin
 
 export type ShoppingListItemForPricing = Pick<Item, 'name' | 'price' | 'quantity' | 'done'>
 
+/** Whether a deal is worth stocking up on beyond the household's immediate need — per
+ *  docs/05_BUSINESS_RULES.md's "Bulk buying" rule: "large quantities may be recommended when the
+ *  savings are meaningful and the household can reasonably use/store the quantity... do not
+ *  optimize price alone." There's no real per-package bulk-pricing data yet (would need product
+ *  variant/package-size modeling, `docs/04_ROADMAP.md` Phase C — still open, deliberately not
+ *  invented) to know whether a larger pack is genuinely cheaper per unit, so this approximates the
+ *  rule with what's real today instead: a deal that's actually the best price right now (not just
+ *  a discount), for a product the household is currently low on per its real pantry data. Never
+ *  suggests stocking up on something already well-stocked, regardless of how good the price is —
+ *  the "not price alone" half of the rule. */
+export function suggestsStockingUp(assessment: DealAssessment, currentPantryQuantity: number): boolean {
+  return assessment.isBestPrice && currentPantryQuantity <= 1
+}
+
 export type StoreTotal = {
   store: StoreChain
   total: number

@@ -1,4 +1,4 @@
-import type { ItemCategory, PantryLocation } from '@/lib/types'
+import type { ItemCategory, PantryItem, PantryLocation } from '@/lib/types'
 
 /** How many days a pantry item can go unconfirmed before the household gets asked "do you still
  *  have this?" — per category, since shelf life genuinely differs (milk vs. rice), but there's no
@@ -55,4 +55,13 @@ export function inferPantryLocation(category: ItemCategory, name: string): Pantr
   if (FROZEN_KEYWORDS.some((keyword) => normalized.includes(keyword))) return 'Mrazák'
   if (CHILLED_KEYWORDS.some((keyword) => normalized.includes(keyword))) return 'Lednice'
   return 'Spíž'
+}
+
+/** How much of a product the household currently has, per its real pantry data — case/whitespace-
+ *  insensitive name match, same philosophy as `lib/products.ts`'s `matchProductByName()`. 0 when
+ *  there's no matching pantry row, which is a genuine "none in stock" rather than an error. */
+export function pantryQuantityFor(pantryItems: PantryItem[], productName: string): number {
+  const normalized = productName.trim().toLowerCase()
+  const match = pantryItems.find((item) => item.name.trim().toLowerCase() === normalized)
+  return match?.quantity ?? 0
 }

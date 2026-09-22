@@ -8,6 +8,8 @@ import {
   effectivePrice,
   isDealActive,
   isHistoricLow,
+  suggestsStockingUp,
+  type DealAssessment,
   type PricePoint,
   type ProductPrice,
   type ShoppingListItemForPricing,
@@ -190,6 +192,33 @@ describe('assessDealQuality', () => {
     ]
     const [assessment] = assessDealQuality(products, '2026-09-19')
     expect(assessment.isHistoricLow).toBe(true)
+  })
+})
+
+const dealAssessment = (overrides: Partial<DealAssessment> = {}): DealAssessment => ({
+  product: { productName: 'Rýže', category: 'Potraviny', prices: [] },
+  price: price(),
+  isBestPrice: true,
+  cheapestAlternative: null,
+  isHistoricLow: false,
+  ...overrides,
+})
+
+describe('suggestsStockingUp', () => {
+  it('suggests stocking up on a best-price deal when the household has none in stock', () => {
+    expect(suggestsStockingUp(dealAssessment({ isBestPrice: true }), 0)).toBe(true)
+  })
+
+  it('still suggests it when down to the last one', () => {
+    expect(suggestsStockingUp(dealAssessment({ isBestPrice: true }), 1)).toBe(true)
+  })
+
+  it('does not suggest it once the household already has a couple on hand — not price alone', () => {
+    expect(suggestsStockingUp(dealAssessment({ isBestPrice: true }), 2)).toBe(false)
+  })
+
+  it('does not suggest it for a deal that is not actually the best price, no matter how low stock is', () => {
+    expect(suggestsStockingUp(dealAssessment({ isBestPrice: false }), 0)).toBe(false)
   })
 })
 

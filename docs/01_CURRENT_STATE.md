@@ -622,6 +622,8 @@ Current logic considers factors such as:
 * store comparison
 * unit price
 * historical prices — `lib/prices.ts`'s `isHistoricLow()`, foundation done 2026-09-21 (see section 13); flags a deal as a genuine all-time low rather than just today's discount, but has no real historical data to act on yet since nothing populates price history in production
+* stock/storage constraints — done 2026-09-22 via the household pantry (section 33): meal-plan generation can prefer in-stock ingredients and skips already-owned ones when adding to the shopping list. The shopping-list optimization itself (`compareStoreTotals`/`cheapestPossibleTotal`) still doesn't consume pantry state directly — see `docs/04_ROADMAP.md` Phase C for the precise scope of what's done
+* bulk-buy recommendations — done 2026-09-22: `lib/prices.ts`'s `suggestsStockingUp()` combines a real "genuinely best price" deal signal with real pantry-quantity data (not invented package/bulk-pricing data, which still doesn't exist) — flags a deal as worth stocking up on only when the household has 1 or fewer in stock. Surfaced in `price-watch.tsx`. This closes out Phase C — every item in `docs/04_ROADMAP.md`'s Smart Shopping Engine phase is now done
 
 The engine is intended to optimize the overall shopping trip rather than simply find the cheapest individual item.
 
@@ -632,8 +634,6 @@ Future improvements should include:
 * household preferences
 * product availability
 * required quantities
-* stock/storage constraints
-* bulk-buy recommendations
 * purchase patterns
 
 The optimization logic must remain deterministic and testable.

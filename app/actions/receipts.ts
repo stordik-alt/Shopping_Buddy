@@ -166,6 +166,7 @@ export async function processReceiptImport(
   }
 
   let ocrText: string
+  let ocrProvider: 'google_vision' | 'azure_document_intelligence' | null = null
   try {
     const storedMimeType = row.imageUrl.toLowerCase().endsWith('.pdf')
       ? 'application/pdf'
@@ -180,6 +181,7 @@ export async function processReceiptImport(
     try {
       const ocrResult = await extractor.extractText({ base64, mimeType: storedMimeType })
       ocrText = ocrResult.fullText
+      ocrProvider = 'google_vision'
     } catch (primaryError) {
       // Google remains primary. Azure runs only after a real OCR failure and only when configured.
       if (!isAzureReceiptFallbackConfigured()) throw primaryError
@@ -188,6 +190,7 @@ export async function processReceiptImport(
         const fallbackTextExtractor = deps.fallbackTextExtractor ?? azureReceiptTextExtractor
         const azureResult = await fallbackTextExtractor.extractText({ base64, mimeType: storedMimeType })
         ocrText = azureResult.fullText
+        ocrProvider = 'azure_document_intelligence'
       } catch (azureError) {
         throw new Error(
           `Primary OCR failed: ${primaryError instanceof Error ? primaryError.message : String(primaryError)}; Azure fallback failed: ${azureError instanceof Error ? azureError.message : String(azureError)}`,
@@ -198,7 +201,7 @@ export async function processReceiptImport(
     return update({ status: 'ocr_failed', errorMessage: `Nepodařilo se přečíst účtenku. Zkuste nahrát ostřejší fotografii. (${error instanceof Error ? error.message : String(error)})` })
   }
 
-  await update({ status: 'ocr_completed', rawOcrText: ocrText })
+  await update({ status: 'ocr_completed', ocrProvider, rawOcrText: ocrText })
   await update({ status: 'parsing' })
 
   let extracted: ExtractedReceipt

@@ -111,7 +111,7 @@ export function ReceiptImport({
         </button>
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic" capture="environment" onChange={handlePhoto} className="hidden" />
+        <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic,application/pdf" capture="environment" onChange={handlePhoto} className="hidden" />
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading}
@@ -119,7 +119,7 @@ export function ReceiptImport({
         >
           <Camera className="h-4 w-4" /> {uploading ? 'Zpracovávám účtenku…' : 'Vyfotit nebo nahrát účtenku'}
         </button>
-        <span className="text-xs text-muted-foreground">nebo zadejte položky ručně níže</span>
+        <span className="text-xs text-muted-foreground">JPG, PNG, WebP, HEIC nebo PDF · nebo zadejte položky ručně níže</span>
       </div>
       {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
       <div className="mt-4 flex flex-wrap gap-2">

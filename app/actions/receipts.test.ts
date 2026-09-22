@@ -159,6 +159,36 @@ describe('processReceiptImport — OCR pipeline orchestration (fake OCR/AI, real
     expect(row.errorMessage).toContain('Vision unavailable')
   })
 
+  it('uses the configured Azure fallback when the primary OCR provider fails', async () => {
+    const receiptImportId = await createUploadedReceipt()
+    const previousEndpoint = process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT
+    const previousKey = process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY
+    process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT = 'https://test.cognitiveservices.azure.com'
+    process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY = 'test-key'
+
+    try {
+      const row = await processReceiptImport(receiptImportId, {
+        textExtractor: {
+          extractText: async () => {
+            throw new Error('Vision billing unavailable')
+          },
+        },
+        fallbackTextExtractor: {
+          extractText: async () => ({ fullText: 'AZURE FALLBACK OCR', lines: ['AZURE FALLBACK OCR'] }),
+        },
+        structuringProvider: fakeProviders(extractedReceipt()).structuringProvider,
+      })
+
+      expect(row.status).toBe('completed')
+      expect(row.rawOcrText).toBe('AZURE FALLBACK OCR')
+    } finally {
+      if (previousEndpoint === undefined) delete process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT
+      else process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT = previousEndpoint
+      if (previousKey === undefined) delete process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY
+      else process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY = previousKey
+    }
+  })
+
   it('records parsing_failed with an error message when the structuring model throws', async () => {
     const receiptImportId = await createUploadedReceipt()
     const row = await processReceiptImport(receiptImportId, {

@@ -83,7 +83,16 @@ async function createPurchaseFromReceiptItems(
   const date = resolveReceiptPurchaseDate(options.date, options.storedDate ?? null)
 
   const catalog = await getProductCatalog()
-  const resolvedItems = items.map((item) => ({ ...item, productId: matchProductByName(catalog, item.name)?.id ?? null }))
+  const resolvedItems = items.map((item) => {
+    const product = matchProductByName(catalog, item.name)
+    return {
+      ...item,
+      productId: product?.id ?? null,
+      // A known catalog product is authoritative for categorization; OCR/AI category is only
+      // used for products that are not yet in the catalog.
+      category: product?.category ?? item.category,
+    }
+  })
 
   const total = receiptTotal(resolvedItems)
   const storeId = options.storeId ?? await findOrCreateStore(options.storeName)
@@ -291,7 +300,7 @@ export async function processReceiptImport(
   const lineItems = toReceiptLineItems(extracted)
   const storeId = await findOrCreateStore(extracted.store.name)
   await update({ storeId })
-  const purchase = await createPurchaseFromReceiptItems(row.householdId, lineItems, { date: extracted.date ?? TODAY, storeLocationId: parsedRow.storeLocationId, storeId })
+  const purchase = await createPurchaseFromReceiptItems(row.householdId, lineItems, { date: extracted.date ?? undefined, storeLocationId: parsedRow.storeLocationId, storeId })
   return update({ status: 'completed', purchaseId: purchase.id, processedAt: new Date() })
 }
 

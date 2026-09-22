@@ -61,14 +61,26 @@ async function findOrCreateStore(storeName: string | null | undefined): Promise<
   }
 }
 
+function resolveReceiptPurchaseDate(optionsDate: string | undefined, storedDate: string | null): string {
+  const date = optionsDate?.trim() || storedDate?.trim() || ''
+  if (!date || !/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) {
+    throw new Error('Datum nákupu je povinné a musí být ve formátu YYYY-MM-DD.')
+  }
+  const parsed = new Date(date + 'T00:00:00Z')
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date) {
+    throw new Error('Datum nákupu není platné.')
+  }
+  return date
+}
+
 async function createPurchaseFromReceiptItems(
   householdId: string,
   items: ReceiptLineItem[],
-  options: { date?: string; storeLocationId?: string | null; storeName?: string | null; storeId?: string | null },
+  options: { date?: string; storedDate?: string | null; storeLocationId?: string | null; storeName?: string | null; storeId?: string | null },
 ): Promise<PurchaseRecord> {
   if (items.length === 0) throw new Error('Receipt has no items')
   const db = getDb()
-  const date = options.date ?? TODAY
+  const date = resolveReceiptPurchaseDate(options.date, options.storedDate ?? null)
 
   const catalog = await getProductCatalog()
   const resolvedItems = items.map((item) => ({ ...item, productId: matchProductByName(catalog, item.name)?.id ?? null }))
@@ -342,7 +354,7 @@ export async function confirmReceiptReviewAction(
   }
 
   const storeId = row.storeId ?? (row.parserResult ? await findOrCreateStore((JSON.parse(row.parserResult) as ExtractedReceipt).store.name) : null)
-  const purchase = await createPurchaseFromReceiptItems(householdId, items, { date: options.date ?? row.date ?? TODAY, storeLocationId: options.storeLocationId ?? row.storeLocationId, storeId })
+  const purchase = await createPurchaseFromReceiptItems(householdId, items, { date: options.date, storedDate: row.date, storeLocationId: options.storeLocationId ?? row.storeLocationId, storeId })
 
   const db = getDb()
   await db
@@ -362,6 +374,7 @@ export async function resolveDuplicateReceiptAction(
   receiptImportId: string,
   resolution: 'save_new' | 'use_existing' | 'cancel',
   items?: ReceiptLineItem[],
+  options: { date?: string } = {},
 ): Promise<{ purchase: PurchaseRecord | null }> {
   const householdId = await requireHouseholdId()
   const row = await assertOwnsReceiptImport(householdId, receiptImportId)
@@ -375,7 +388,7 @@ export async function resolveDuplicateReceiptAction(
   }
 
   const finalItems = items ?? (row.items ? (JSON.parse(row.items) as ReceiptLineItem[]) : [])
-  const { purchase } = await confirmReceiptReviewAction(receiptImportId, finalItems)
+  const { purchase } = await confirmReceiptReviewAction(receiptImportId, finalItems, options)
   return { purchase }
 }
 

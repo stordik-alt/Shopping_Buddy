@@ -255,6 +255,53 @@ How each open question below was resolved when this was implemented (2026-09-22)
 
 ---
 
+## 12b. Category, storage location, units and pantry (added 2026-09-22)
+
+Extends section 12 — added once the pipeline needed to feed the household pantry ("spíž/lednice/
+mrazák/domácnost"), not just purchase history.
+
+**Category recognition.** `extractedReceiptItemSchema` (`lib/receipts.ts`) now includes a per-item
+`category`, one of the app's five categories or `null` when the model isn't confident — the
+structuring prompt asks for it explicitly. (This was previously assumed already implemented; it
+wasn't — there was no `category` field on the OCR schema at all until this pass.)
+
+**Where a product lives, without guessing.** `lib/pantry.ts`'s `inferPantryLocation(category, name)`
+returns a confident `Lednice`/`Mrazák`/`Spíž`/`Domácnost`, or `null` when it genuinely can't tell
+(an unmatched `Potraviny` item, or the catch-all `Ostatní` category, whose classification was
+already uncertain). `lib/receipts.ts`'s `resolveItemPlacement(catalogEntry, aiCategory, name)` adds
+catalog priority on top: an existing product's own *remembered* category/location (set by a past
+human correction, never an unreviewed AI guess) always wins over what this particular receipt's OCR
+suggests; failing that, the deterministic classification above; failing that, `null`.
+
+**The review gate got a second reason.** `processReceiptImport()` now also routes to
+`review_required` when any item's placement resolves to `null` (via `resolveItemPlacement`) or its
+unit isn't one `normalizeReceiptUnit()` recognizes (via new `isRecognizedUnit()`) — on top of the
+pre-existing missing-field/inconsistent-math checks. The review form
+(`components/budget/receipt-pending.tsx`) shows a "Datum" field and an "Uložení" (storage location)
+select per item — blank when genuinely ambiguous, pre-filled otherwise — and the confirm button
+stays disabled until every item has a location and a date.
+
+**Corrections are remembered.** Confirming a manual entry or a review
+(`lib/db/queries.ts`'s `upsertProductCatalogDefaults()`) writes the confirmed category/unit/location
+back into the `products` table (`default_location`, a new nullable column; `default_unit` already
+existed) — creating the catalog row if the product had never been seen before. The *next* receipt of
+the same product then resolves via catalog priority above, without needing review again. This only
+happens on a human-confirmed path (manual entry, or a completed review) — a fully-automatic OCR pass
+never writes to the catalog.
+
+**Quantities are genuinely decimal.** `purchase_items.quantity` and `pantry_items.quantity` are
+`numeric(10,3)`, not `integer` — "KUŘE 0,582 kg" must persist as `0.582`, not fail to insert or get
+silently rounded. The manual-entry and review forms' quantity inputs no longer clamp to a minimum of
+1.
+
+**Manual stock correction**, separate from all of the above: `adjustPantryItemQuantityAction`
+(`app/actions/pantry.ts`) lets the household set a pantry row's current quantity directly (a `−`/`+`
+stepper or typing an exact value, e.g. "1.5" for a `kg` item) — never negative, and reaching exactly
+`0` keeps the row rather than deleting it. This only ever touches `pantry_items`, never
+`purchase_items` — current stock and purchase history are and remain two separate records.
+
+---
+
 ## 13. Retry
 
 If OCR or the AI parser fails: don't require a new upload, keep the original image, keep the

@@ -295,10 +295,11 @@ already exists in principle — `recordPriceObservation()`/`getProductPrices()`,
 
 ## 17. Security
 
-Google/AI model API keys: server-side only, never sent to frontend JavaScript, never committed to
-the repo, always via environment variables — e.g. `GOOGLE_CLOUD_PROJECT`,
-`GOOGLE_APPLICATION_CREDENTIALS`, `GOOGLE_VISION_API_KEY`, `GEMINI_API_KEY`. Use only the
-credentials that correspond to the actual implementation.
+Google/AI credentials are server-side only, never sent to frontend JavaScript, never committed to
+the repo, and are provided through environment variables or short-lived platform identity
+mechanisms. The current implementation uses `GOOGLE_VISION_API_KEY` for image OCR and Vercel
+OIDC + Google Workload Identity Federation for PDF OCR. No Google service-account JSON key is
+required.
 
 ---
 

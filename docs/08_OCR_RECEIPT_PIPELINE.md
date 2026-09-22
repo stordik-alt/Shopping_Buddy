@@ -66,7 +66,7 @@ Then start OCR.
 
 Use Google Cloud Vision for OCR. Preferred mode: `DOCUMENT_TEXT_DETECTION`.
 
-For images, the existing `images:annotate` API-key path is used. For PDFs, the application uses the online `files:annotate` endpoint with OAuth service-account credentials and processes up to 5 selected pages per request. Google does not support API keys for `files:annotate`; the PDF path therefore requires `GOOGLE_APPLICATION_CREDENTIALS_JSON` in Vercel. This avoids a second storage system because the PDF can be sent directly from the uploaded file bytes.
+For images, the existing `images:annotate` API-key path is used. For PDFs, the application uses the online `files:annotate` endpoint with Google OAuth and processes up to 5 selected pages per request. Google does not support API keys for `files:annotate`. The application uses Vercel OIDC + Google Workload Identity Federation, so no service-account JSON key is stored in Vercel. This avoids a second storage system because the PDF can be sent directly from the uploaded file bytes.
 
 OCR must return:
 - the full receipt text
@@ -352,4 +352,4 @@ states.
 After implementing, test at minimum: an ordinary Czech receipt, a receipt with many items, a
 receipt with discounts, a receipt with items sold by weight, a blurry receipt, a receipt with no
 date, a receipt with no total, a duplicate receipt, an OCR failure, an AI-parser failure, and a
-retry after failure.
+retry after failure.\n### Google Cloud / Vercel OIDC setup for PDF OCR\n\nThe PDF path requires a Google Workload Identity Pool and OIDC provider trusting Vercel. Use the Vercel team issuer (`https://oidc.vercel.com/<TEAM_SLUG>`) and audience (`https://vercel.com/<TEAM_SLUG>`). Map `google.subject=assertion.sub`. Create a dedicated service account and grant the Vercel project/environment principal `roles/iam.workloadIdentityUser` on that service account. Grant the service account only the permissions needed for Vision API.\n\nSet these Vercel environment variables: `GCP_PROJECT_ID`, `GCP_PROJECT_NUMBER`, `GCP_SERVICE_ACCOUNT_EMAIL`, `GCP_WORKLOAD_IDENTITY_POOL_ID`, `GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID`. Vercel supplies the short-lived OIDC token automatically when OIDC federation is enabled; the function reads it from `x-vercel-oidc-token`. For local development, `vercel env pull` can provide `VERCEL_OIDC_TOKEN`.\n

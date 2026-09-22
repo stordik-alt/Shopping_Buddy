@@ -43,6 +43,13 @@
       "when": 1790057012609,
       "tag": "0005_ocr_pipeline_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790112321885,
+      "tag": "0006_fearless_thunderbolt",
+      "breakpoints": true
     }
   ]
 }

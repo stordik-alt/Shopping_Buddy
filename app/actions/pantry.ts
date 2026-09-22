@@ -35,6 +35,22 @@ export async function movePantryItemAction(pantryItemId: string, location: Pantr
   revalidatePath('/')
 }
 
+/** Sets a pantry item's quantity to an exact value — covers both the "−/+" stepper and typing an
+ *  exact amount (e.g. "1.5 kg") in the pantry UI. Takes the new absolute quantity, not a delta, so
+ *  the client and server always agree on the result regardless of network timing. Never negative
+ *  (the household ran out, not into debt) — 0 is a valid, meaningful result ("do šlo") and the row
+ *  stays in the pantry at 0 rather than being deleted; deleting it entirely is `removePantryItemAction`,
+ *  a separate, explicit choice. Never touches `purchase_items` — purchase history is a record of
+ *  what was bought, not of what's currently on hand, and must never be rewritten by a stock edit. */
+export async function adjustPantryItemQuantityAction(pantryItemId: string, quantity: number) {
+  const householdId = await requireHouseholdId()
+  await assertOwnsPantryItem(householdId, pantryItemId)
+  if (!Number.isFinite(quantity) || quantity < 0) throw new Error('Množství nesmí být záporné.')
+  const db = getDb()
+  await db.update(schema.pantryItems).set({ quantity }).where(eq(schema.pantryItems.id, pantryItemId))
+  revalidatePath('/')
+}
+
 /** "Došlo" — the household no longer has this item, so it's removed from the pantry entirely
  *  (not marked "out" — there's nothing useful to keep once it's gone; buying it again creates a
  *  fresh pantry row via completePurchaseAction). */

@@ -95,11 +95,7 @@ async function googleServiceAccountAccessToken(): Promise<{ token: string; proje
   }
 
   // Get a fresh Vercel OIDC token from the runtime instead of reading a raw token directly.
-  const subjectToken = await getVercelOidcToken({
-    project: 'shopping-buddy',
-    team: 'storek',
-    expirationBufferMs: 5 * 60 * 1000,
-  })
+  const subjectToken = await getVercelOidcToken()
 
   if (!subjectToken) throw new Error('Vercel OIDC token is not available')
 

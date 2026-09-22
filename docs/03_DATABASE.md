@@ -4,7 +4,7 @@
 Neon PostgreSQL 18 is the persistent database.
 
 The initial schema already contains:
-`users`, `households`, `household_members`, `profiles`, `children`, `preferences`, `product_categories`, `products`, `stores`, `store_locations`, `prices`, `deals`, `shopping_lists`, `shopping_list_items`, `budgets`, `expenses`, `purchases`, `purchase_items`, `meal_plans`, `notifications`, `pantry_items`.
+`users`, `households`, `household_members`, `profiles`, `children`, `preferences`, `product_categories`, `products`, `stores`, `store_locations`, `prices`, `deals`, `shopping_lists`, `shopping_list_items`, `budgets`, `expenses`, `purchases`, `purchase_items`, `meal_plans`, `notifications`, `pantry_items`, `receipt_imports`.
 
 There is also a `neon_auth` schema.
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CHECKIN_DAYS_BY_CATEGORY, findDueForCheckin, isDueForCheckin, type PantryCheckinCandidate } from '@/lib/pantry'
+import { CHECKIN_DAYS_BY_CATEGORY, findDueForCheckin, inferPantryLocation, isDueForCheckin, type PantryCheckinCandidate } from '@/lib/pantry'
 
 const NOW = new Date('2026-09-21T08:00:00Z')
 const daysAgo = (n: number) => new Date(NOW.getTime() - n * 86_400_000)
@@ -42,5 +42,35 @@ describe('findDueForCheckin', () => {
     const due = candidate({ addedAt: daysAgo(CHECKIN_DAYS_BY_CATEGORY.Potraviny) })
     const notDue = candidate({ addedAt: daysAgo(1) })
     expect(findDueForCheckin([due, notDue], NOW)).toEqual([due])
+  })
+})
+
+describe('inferPantryLocation', () => {
+  it('sends non-food categories straight to Domácnost', () => {
+    expect(inferPantryLocation('Domácnost', 'Houbičky na nádobí')).toBe('Domácnost')
+    expect(inferPantryLocation('Drogerie', 'Prací prostředek')).toBe('Domácnost')
+    expect(inferPantryLocation('Děti', 'Plenky')).toBe('Domácnost')
+  })
+
+  it('defaults an unrecognized "Ostatní" item to the pantry shelf', () => {
+    expect(inferPantryLocation('Ostatní', 'Něco neznámého')).toBe('Spíž')
+  })
+
+  it('recognizes a frozen food item by keyword', () => {
+    expect(inferPantryLocation('Potraviny', 'Mražená zelenina')).toBe('Mrazák')
+    expect(inferPantryLocation('Potraviny', 'Zmrzlina vanilková')).toBe('Mrazák')
+  })
+
+  it('recognizes a chilled food item by keyword', () => {
+    expect(inferPantryLocation('Potraviny', 'Mléko polotučné')).toBe('Lednice')
+    expect(inferPantryLocation('Potraviny', 'Kuřecí prsa')).toBe('Lednice')
+  })
+
+  it('defaults an unrecognized food item to the pantry shelf (shelf-stable)', () => {
+    expect(inferPantryLocation('Potraviny', 'Rýže')).toBe('Spíž')
+  })
+
+  it('matches keywords case-insensitively', () => {
+    expect(inferPantryLocation('Potraviny', 'MLÉKO')).toBe('Lednice')
   })
 })

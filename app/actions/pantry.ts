@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
+import type { PantryLocation } from '@/lib/types'
 
 async function assertOwnsPantryItem(householdId: string, pantryItemId: string) {
   const db = getDb()
@@ -20,6 +21,17 @@ export async function confirmPantryItemAction(pantryItemId: string) {
   await assertOwnsPantryItem(householdId, pantryItemId)
   const db = getDb()
   await db.update(schema.pantryItems).set({ addedAt: new Date(), askedAt: null }).where(eq(schema.pantryItems.id, pantryItemId))
+  revalidatePath('/')
+}
+
+/** Reassigns which pantry location an item lives in — e.g. moving freshly bought chilled meat
+ *  into the freezer for later use. General-purpose (any location to any other), which also covers
+ *  the specific "lednice → mrazák" case without a separate action for it. */
+export async function movePantryItemAction(pantryItemId: string, location: PantryLocation) {
+  const householdId = await requireHouseholdId()
+  await assertOwnsPantryItem(householdId, pantryItemId)
+  const db = getDb()
+  await db.update(schema.pantryItems).set({ location }).where(eq(schema.pantryItems.id, pantryItemId))
   revalidatePath('/')
 }
 

@@ -11,6 +11,10 @@ export const itemUnitEnum = pgEnum('item_unit', ['ks', 'kg', 'g', 'l', 'ml'])
 export const itemPriorityEnum = pgEnum('item_priority', ['Nízká', 'Normální', 'Vysoká'])
 export const storeChainEnum = pgEnum('store_chain', ['Lidl', 'Albert', 'Kaufland', 'Billa', 'Penny', 'JIP'])
 export const invitationStatusEnum = pgEnum('invitation_status', ['pending', 'accepted', 'revoked'])
+export const pantryLocationEnum = pgEnum('pantry_location', ['Spíž', 'Lednice', 'Mrazák', 'Domácnost'])
+// 'manual' until a real OCR provider exists (lib/receipts.ts's ReceiptOcrProvider) — every import
+// today is hand-typed, so 'imported' happens immediately with no separate review step yet.
+export const receiptStatusEnum = pgEnum('receipt_status', ['pending_review', 'imported', 'discarded'])
 
 // --- Accounts & households --------------------------------------------------
 // Identity/login lives in the `neon_auth` schema (Neon Auth / Managed Better Auth),
@@ -217,6 +221,11 @@ export const pantryItems = pgTable('pantry_items', {
   productId: uuid('product_id').references(() => products.id, { onDelete: 'set null' }),
   name: text('name').notNull(),
   category: itemCategoryEnum('category').notNull().default('Ostatní'),
+  // Where the item physically lives — defaults per-category/keyword-heuristic on first restock
+  // (lib/pantry.ts's inferPantryLocation()), then only changes when the household moves it by
+  // hand (e.g. freshly bought chilled meat into the freezer), never re-inferred on a later restock
+  // of the same row — otherwise a manual move would silently get undone by the next purchase.
+  location: pantryLocationEnum('location').notNull().default('Spíž'),
   quantity: integer('quantity').notNull().default(1),
   unit: itemUnitEnum('unit').notNull().default('ks'),
   // Reset to now() whenever the item is restocked (another purchase) or the household confirms
@@ -225,6 +234,31 @@ export const pantryItems = pgTable('pantry_items', {
   // When we last asked "do you still have this?". Null means never asked. Reset to null on
   // confirmation, so the next check-in interval starts counting from a fresh addedAt.
   askedAt: timestamp('asked_at'),
+})
+
+// Receipt import ("nahrávání nákupů přes účtenky"): prepares the ingestion path for a future OCR
+// provider (lib/receipts.ts's ReceiptOcrProvider) without wiring one up yet, per CLAUDE.md section
+// 30 (no AI/vision-model call before the AI phase). Every import today is `source: 'manual'` — a
+// household types the receipt's line items by hand; `importReceiptAction` (app/actions/receipts.ts)
+// turns them into a real purchase immediately. Kept as its own row (not just a purchases row) so a
+// later OCR provider's raw output/confidence stays auditable and reprocessable, matching CLAUDE.md
+// section 16's price/deal provenance rule extended to purchases.
+export const receiptImports = pgTable('receipt_imports', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  status: receiptStatusEnum('status').notNull().default('pending_review'),
+  storeLocationId: uuid('store_location_id').references(() => storeLocations.id, { onDelete: 'set null' }),
+  date: date('date').notNull(),
+  source: text('source').notNull().default('manual'),
+  // Raw OCR provider output, for reprocessing/debugging once a real provider exists. Null for a
+  // manually-entered import — there is no OCR output yet.
+  rawOcrText: text('raw_ocr_text'),
+  // JSON-serialized ReceiptLineItem[] as confirmed by the household — hand-typed today; once OCR
+  // exists, this is its output after human review, never raw unverified extraction.
+  items: text('items').notNull(),
+  purchaseId: uuid('purchase_id').references(() => purchases.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  processedAt: timestamp('processed_at'),
 })
 
 export const budgets = pgTable('budgets', {
@@ -279,6 +313,7 @@ export const householdsRelations = relations(households, ({ many, one }) => ({
   notifications: many(notifications),
   invitations: many(invitations),
   pantryItems: many(pantryItems),
+  receiptImports: many(receiptImports),
 }))
 
 export const invitationsRelations = relations(invitations, ({ one }) => ({
@@ -342,4 +377,10 @@ export const purchaseItemsRelations = relations(purchaseItems, ({ one }) => ({
 export const pantryItemsRelations = relations(pantryItems, ({ one }) => ({
   household: one(households, { fields: [pantryItems.householdId], references: [households.id] }),
   product: one(products, { fields: [pantryItems.productId], references: [products.id] }),
+}))
+
+export const receiptImportsRelations = relations(receiptImports, ({ one }) => ({
+  household: one(households, { fields: [receiptImports.householdId], references: [households.id] }),
+  storeLocation: one(storeLocations, { fields: [receiptImports.storeLocationId], references: [storeLocations.id] }),
+  purchase: one(purchases, { fields: [receiptImports.purchaseId], references: [purchases.id] }),
 }))

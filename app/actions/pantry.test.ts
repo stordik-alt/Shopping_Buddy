@@ -8,7 +8,7 @@ let currentHouseholdId = ''
 vi.mock('@/lib/auth/authorize', () => ({ requireHouseholdId: () => Promise.resolve(currentHouseholdId) }))
 vi.mock('next/cache', () => ({ revalidatePath: () => {} }))
 
-import { confirmPantryItemAction, removePantryItemAction } from '@/app/actions/pantry'
+import { confirmPantryItemAction, movePantryItemAction, removePantryItemAction } from '@/app/actions/pantry'
 
 const db = getDb()
 const createdHouseholdIds: string[] = []
@@ -46,6 +46,20 @@ describe('confirmPantryItemAction', () => {
     const row = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, item.id) })
     expect(row?.askedAt).toBeNull()
     expect(row?.addedAt.getTime()).toBeGreaterThan(twoDaysAgo.getTime())
+  })
+})
+
+describe('movePantryItemAction', () => {
+  it('rejects a pantry item id belonging to a different household', async () => {
+    const [otherItem] = await db.insert(schema.pantryItems).values({ householdId: otherHouseholdId, name: 'Kuřecí prsa', category: 'Potraviny', location: 'Lednice' }).returning()
+    await expect(movePantryItemAction(otherItem.id, 'Mrazák')).rejects.toThrow('Pantry item not found')
+  })
+
+  it('moves the caller\'s own item to a new location, e.g. lednice to mrazák', async () => {
+    const [item] = await db.insert(schema.pantryItems).values({ householdId, name: 'Kuřecí prsa', category: 'Potraviny', location: 'Lednice' }).returning()
+    await movePantryItemAction(item.id, 'Mrazák')
+    const row = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, item.id) })
+    expect(row?.location).toBe('Mrazák')
   })
 })
 

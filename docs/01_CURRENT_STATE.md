@@ -576,6 +576,8 @@ Meal planning is intended to integrate with:
 
 The meal-plan domain should not be duplicated by creating another independent recipe/meal system.
 
+**Update 2026-09-22:** Generation is now optionally stock-aware (uses the household pantry to favor recipes it can partly make from what's already at home), individual meals can be regenerated one at a time, and a meal can be marked cooked to deduct its ingredients from the pantry. See section 33.
+
 ---
 
 # 21. Purchase History
@@ -599,6 +601,8 @@ Purchase history is intended to support future functionality such as:
 This area remains less mature than the core shopping-list and budget functionality.
 
 **Update 2026-09-21:** Found this was more than "less mature" — no Server Action ever wrote a real purchase; `purchases`/`purchase_items` were seeded once and read-only ever since (the analytics in `lib/purchase-history.ts` and `components/budget/purchase-history.tsx` were real, just fed frozen data). Added `app/actions/purchases.ts`'s `completePurchaseAction(listId)`, triggered by a new "Dokončit nákup" button next to the shopping list's existing "Vymazat hotové" (the two now coexist: one just discards done items, the other turns them into real purchase history). It groups the list's done items by preferred store (items with none share one purchase with no store — a real case, not an error) and creates one `purchases` row + its `purchase_items` per group, then removes those items from the list. Found and fixed a related bug while wiring this up: `getHouseholdData()` was defaulting a purchase's store to `'Lidl'` whenever `storeLocationId` was null (`purchase.storeLocation?.store.chain ?? 'Lidl'`) — silently inventing data. `PurchaseRecord.store` is now correctly optional, matching the schema's real nullability, and the UI shows "Neurčený obchod" instead. Verified in a real browser against the real dev database: added a real catalog item, marked it done, clicked "Dokončit nákup", confirmed the item left the shopping list and a real purchase appeared in the budget tab's history with the correct date, store fallback text, and "Nejčastěji kupované" analytics update. The item's `price` in the resulting purchase reflects `shoppingListItems.price` (the item's own stored price field, same as `plannedSpend()` already uses for budget planning) — not the live catalog price shown via `productPrices`, which is a separate, pre-existing gap (nothing has ever synced these two) rather than something new. `purchaseItems.productId` is now actually populated too, inherited from the shopping-list item's own `productId` (see section 12).
+
+**Update 2026-09-22:** A second write path now exists alongside `completePurchaseAction`: `app/actions/receipts.ts`'s `importReceiptAction()` turns manually-entered receipt line items into a real purchase (plus pantry restocking), with the OCR-extraction step deliberately stubbed for later. See section 33.
 
 ---
 
@@ -832,7 +836,11 @@ Started 2026-09-21, expanded same day: every Server Action that takes a client-s
 
 ## Purchase analytics
 
-Real purchases can now be created (`completePurchaseAction`, see section 21) — the analytics functions in `lib/purchase-history.ts` finally have a real write path feeding them, not just seed data. Deeper analytics beyond what's already there (average monthly spend, favorite store, most-bought products, repeat purchases) are still open, and the receipt-import idea (importing a purchase from a scanned/photographed receipt) raised by the owner is not started — likely OCR/external-service work, out of scope for now.
+Real purchases can now be created (`completePurchaseAction`, see section 21) — the analytics functions in `lib/purchase-history.ts` finally have a real write path feeding them, not just seed data. Deeper analytics beyond what's already there (average monthly spend, favorite store, most-bought products, repeat purchases) are still open. The receipt-import idea raised by the owner is now scaffolded (`app/actions/receipts.ts`, `lib/receipts.ts`, `receipt_imports` table — see section 33): manual entry works today and produces a real purchase; the actual OCR/vision extraction step is an explicit placeholder (`unimplementedOcrProvider`) pending the AI phase, and there's no image upload/storage yet either.
+
+## Meal-plan ingredient quantities
+
+Recipes have no per-ingredient quantity/serving-size data (see section 33) — "uses from stock" and "consumes from stock on cooked" are both unit-agnostic, treating one recipe use as consuming exactly one unit of whatever the pantry tracks that ingredient in. Real serving-size data doesn't exist yet; adding it without inventing numbers would need real recipe data as a source.
 
 ## International rollout
 
@@ -877,6 +885,7 @@ Recent development has included:
 * real `productId` link from shopping-list items to the catalog (was dead schema; the whole app matched on free-text names before this), plus a native autocomplete on the input so typed text has a real chance of matching
 * real purchase-history write path (`completePurchaseAction`, "Dokončit nákup") — `purchases`/`purchase_items` were seed-only and read-only until now; also fixed a data-inventing bug found along the way (`?? 'Lidl'` store fallback)
 * household pantry ("spíž"): `pantry_items` table, automatic restocking on purchase, a daily check-in cron, confirm/remove Server Actions, and UI nested in the shopping-list tab (see section 32)
+* pantry locations (spíž/lednice/mrazák/domácnost) with keyword-based auto-assignment and manual cross-location moves; stock-aware meal-plan generation and per-meal regeneration; marking a cooked meal deducts its ingredients from the pantry; OCR-ready receipt import with manual entry as the working path today (see section 33)
 * currency fields
 * migration baseline
 * automated tests for selected domains
@@ -990,7 +999,25 @@ The `pantry_items` table (migration `0003_pantry_items.sql`) tracks what a house
 
 ---
 
-# 33. Current Development Principle
+# 33. Pantry Locations, Cross-Location Moves, Stock-Aware Meal Plans, and Receipt Import
+
+**Added 2026-09-22**, owner-requested, on top of the Household Pantry work in section 32.
+
+**Pantry locations.** `pantry_items.location` (migration `0004_pantry_locations_and_receipt_imports.sql`) tracks which of four locations an item lives in: Spíž, Lednice, Mrazák, Domácnost. A new row's location is seeded by `lib/pantry.ts`'s `inferPantryLocation()` — non-food categories go straight to Domácnost, "Potraviny" items are split between Lednice/Mrazák/Spíž by a small, explicitly placeholder Czech keyword list (e.g. "mražen", "zmrzlina" → Mrazák; "mléko", "sýr", "maso" → Lednice; everything else defaults to the shelf). Restocking an *existing* row (a repeat purchase) never re-infers the location, so a manual move survives it. `app/actions/pantry.ts`'s new `movePantryItemAction(id, location)` lets the household reassign any item to any location by hand — general-purpose, which also covers the specific "moved chilled meat into the freezer" case without a separate action. The `Pantry` UI (`components/shopping/pantry.tsx`) now groups items into one card per location and exposes the move as a `<select>` per row.
+
+**Stock-aware meal plans.** `lib/meal-plans.ts`'s `generateWeeklyPlan()` takes an optional `pantryItems` argument (a household opt-in checkbox, "Vytvořit ze zásob", in `components/dashboard/meal-plan.tsx`); when supplied, each meal slot prefers whichever candidate recipe in its pool uses the most currently-in-stock ingredients (`matchIngredientToStock()`, case/whitespace-insensitive exact name match, no fuzzy matching — same philosophy as `lib/products.ts`). `splitIngredientsByStock()` then separates the full plan's ingredient list into what's already at home (`fromStock`) and what still needs buying (`toBuy`); "Přidat chybějící do nákupního seznamu" now adds only `toBuy`, regardless of whether stock-aware generation was used — never adding something already in the pantry to the shopping list. **Not modeled**: recipes have no per-ingredient quantity (a shopping-list item defaults to 1 the same way), so "uses stock" and "consumes stock" (below) are both unit-agnostic — one recipe use consumes exactly one unit of whatever the pantry tracks that ingredient in, not a realistic serving size. Real serving-size data doesn't exist yet; inventing it was explicitly avoided.
+
+**Regenerate a single meal.** `regenerateMeal(plan, day, mealType, household, pantryItems?)` swaps out just one day's one meal slot (a "🔄" button per meal in the UI) rather than discarding the whole week, always excluding the currently-shown recipe so a click reliably produces something different; deterministic (no randomness), so it stays unit-testable.
+
+**Mark a meal cooked → deduct from stock.** Each meal now has a "✓" button. `app/actions/meal-plan.ts`'s new `markMealCookedAction(day, mealType)` looks up the household's saved plan for the current week, and for each of that recipe's ingredients, decrements the matching pantry row's quantity by 1 (deleting the row outright if it would hit zero), then records the meal as cooked in the plan's new `cookedMeals: string[]` field (`WeeklyMealPlan`). Idempotent — marking an already-cooked meal again does nothing, so a duplicate click can't double-deduct. Never invents or goes negative: an ingredient with no matching pantry row (or already at zero) is simply skipped. One-directional by design — there is no "unmark" that restores what was deducted, since nothing tracks exactly what a specific marking deducted in order to reverse it.
+
+**Receipt import, OCR-ready.** New `receipt_imports` table (same migration) and `app/actions/receipts.ts`'s `importReceiptAction()` turn a set of line items into a real purchase — same downstream effect as `completePurchaseAction` (one `purchases`/`purchase_items` row set, plus pantry restocking via the same shared `restockPantryItem()`, now moved from `app/actions/purchases.ts` into `lib/db/queries.ts` so both call sites share one implementation). Every import today has `source: 'manual'`: `components/budget/receipt-import.tsx` is a plain hand-entry form (name/category/quantity/unit/price rows, optional store and date) — there is no OCR yet, and the UI says so explicitly rather than pretending otherwise. `lib/receipts.ts` defines the seam a real OCR/vision provider plugs into later (`ReceiptOcrProvider` interface, `ExtractedReceipt` shape) with only a placeholder `unimplementedOcrProvider` that throws — per CLAUDE.md section 30, no AI SDK/vision-model call is wired up before the AI phase. When OCR does arrive, only how `items` gets populated needs to change; the Server Action, schema, and pantry-restocking path do not. **Deliberately not done**: actual image upload/storage (would need a blob-storage integration, a separate concern) — `receipt_imports` has no image column yet, since there's nowhere to put one.
+
+Tests: `lib/pantry.test.ts` (`inferPantryLocation`), `app/actions/pantry.test.ts` (`movePantryItemAction` authorization + behavior), `app/actions/purchases.test.ts` (location inference on a new row, location preserved on restock), `lib/meal-plans.test.ts` (stock-aware generation, `matchIngredientToStock`, `splitIngredientsByStock`, `regenerateMeal`, `markMealCooked`/`isMealCooked`/`recipeFor`), `app/actions/meal-plan.test.ts` (`markMealCookedAction`: deduction, idempotency, zero-quantity row removal, missing-ingredient skip), `app/actions/receipts.test.ts` (`importReceiptAction`: purchase creation, pantry restocking, `receipt_imports` record). 145/145 tests passing; `tsc --noEmit` and `next build` both clean. As with section 32, full interactive browser verification was not performed this session (no browser available in this environment) — verification here is type-check/build/test only.
+
+---
+
+# 34. Current Development Principle
 
 The current priority is not to add the largest number of features as quickly as possible.
 

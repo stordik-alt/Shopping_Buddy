@@ -1,6 +1,21 @@
 import { describe, expect, it } from 'vitest'
-import { currentWeekStart, generateWeeklyPlan, planIngredients } from '@/lib/meal-plans'
-import type { Household } from '@/lib/types'
+import {
+  currentWeekStart,
+  generateWeeklyPlan,
+  isMealCooked,
+  markMealCooked,
+  matchIngredientToStock,
+  mealKey,
+  planIngredients,
+  recipeFor,
+  regenerateMeal,
+  splitIngredientsByStock,
+} from '@/lib/meal-plans'
+import type { Household, PantryItem } from '@/lib/types'
+
+function pantryItem(overrides: Partial<PantryItem> = {}): PantryItem {
+  return { id: 'p1', name: 'Mléko polotučné', category: 'Potraviny', location: 'Lednice', quantity: 1, unit: 'ks', addedAt: '2026-09-20T00:00:00Z', ...overrides }
+}
 
 function household(overrides: Partial<Household> = {}): Household {
   return {
@@ -88,6 +103,102 @@ describe('planIngredients', () => {
     const names = ingredients.map((i) => i.name)
     expect(new Set(names).size).toBe(names.length)
     expect(names).toEqual(expect.arrayContaining(['Toaletní papír', 'Prací prostředek', 'Houbičky na nádobí']))
+  })
+})
+
+describe('generateWeeklyPlan — stock-aware (pantryItems supplied)', () => {
+  it('prefers a recipe that uses an ingredient the household already has in stock', () => {
+    // b1 (Ovesná kaše s banánem) uses Mléko polotučné; the other breakfast recipes don't.
+    const withMilk = generateWeeklyPlan(3000, household(), [pantryItem({ name: 'Mléko polotučné' })])
+    expect(withMilk.days[0].breakfast.id).toBe('b1')
+  })
+
+  it('is unaffected by stock the household does not actually have (quantity 0)', () => {
+    const emptyStock = generateWeeklyPlan(3000, household(), [pantryItem({ name: 'Mléko polotučné', quantity: 0 })])
+    const noStock = generateWeeklyPlan(3000, household(), null)
+    expect(emptyStock.days[0].breakfast.id).toBe(noStock.days[0].breakfast.id)
+  })
+
+  it('still fills every meal and respects allergens when stock-aware', () => {
+    const plan = generateWeeklyPlan(3000, household({ members: [{ id: 'm1', name: 'A', role: 'Správce domácnosti', age: 30, preferences: '', favoriteFoods: [], dislikedFoods: [], allergies: ['lepek'] }] }), [pantryItem({ name: 'Těstoviny' })])
+    for (const day of plan.days) {
+      for (const recipe of [day.breakfast, day.lunch, day.dinner, day.snack]) {
+        expect(recipe.allergens.map((a) => a.toLowerCase())).not.toContain('lepek')
+      }
+    }
+  })
+})
+
+describe('matchIngredientToStock', () => {
+  it('matches case/whitespace-insensitively', () => {
+    const match = matchIngredientToStock({ name: 'MLÉKO POLOTUČNÉ', category: 'Potraviny' }, [pantryItem({ name: ' mléko polotučné ' })])
+    expect(match).toBeDefined()
+  })
+
+  it('does not match a pantry row with zero quantity', () => {
+    const match = matchIngredientToStock({ name: 'Mléko polotučné', category: 'Potraviny' }, [pantryItem({ quantity: 0 })])
+    expect(match).toBeUndefined()
+  })
+
+  it('does not match a different product name', () => {
+    const match = matchIngredientToStock({ name: 'Banány', category: 'Potraviny' }, [pantryItem({ name: 'Mléko polotučné' })])
+    expect(match).toBeUndefined()
+  })
+})
+
+describe('splitIngredientsByStock', () => {
+  it('separates ingredients already in stock from ones that still need buying', () => {
+    const plan = generateWeeklyPlan(3000, household())
+    const { fromStock, toBuy } = splitIngredientsByStock(plan, [pantryItem({ name: 'Toaletní papír', category: 'Drogerie' })])
+    expect(fromStock.map((i) => i.name)).toEqual(['Toaletní papír'])
+    expect(toBuy.map((i) => i.name)).not.toContain('Toaletní papír')
+    expect(fromStock.length + toBuy.length).toBe(planIngredients(plan).length)
+  })
+})
+
+describe('regenerateMeal', () => {
+  it('replaces only the requested day/meal slot, leaving the rest of the week untouched', () => {
+    const plan = generateWeeklyPlan(3000, household())
+    const updated = regenerateMeal(plan, 'Pondělí', 'Snídaně', household())
+    expect(updated.days[0].lunch).toEqual(plan.days[0].lunch)
+    expect(updated.days[0].dinner).toEqual(plan.days[0].dinner)
+    expect(updated.days.slice(1)).toEqual(plan.days.slice(1))
+  })
+
+  it('always picks a different recipe than the one currently assigned, when an alternative exists', () => {
+    const plan = generateWeeklyPlan(3000, household())
+    const updated = regenerateMeal(plan, 'Pondělí', 'Snídaně', household())
+    expect(updated.days[0].breakfast.id).not.toBe(plan.days[0].breakfast.id)
+  })
+
+  it('recomputes estimatedTotal to reflect the swapped recipe', () => {
+    const plan = generateWeeklyPlan(3000, household())
+    const updated = regenerateMeal(plan, 'Pondělí', 'Snídaně', household())
+    const priceDiff = updated.days[0].breakfast.price - plan.days[0].breakfast.price
+    expect(updated.estimatedTotal).toBe(plan.estimatedTotal + priceDiff)
+  })
+
+  it('leaves the plan unchanged for a day that does not exist', () => {
+    const plan = generateWeeklyPlan(3000, household())
+    expect(regenerateMeal(plan, 'Neexistuje', 'Snídaně', household())).toEqual(plan)
+  })
+})
+
+describe('mealKey / isMealCooked / markMealCooked / recipeFor', () => {
+  it('marking a meal cooked is idempotent and only affects that one meal', () => {
+    const plan = generateWeeklyPlan(3000, household())
+    const once = markMealCooked(plan, 'Pondělí', 'Snídaně')
+    const twice = markMealCooked(once, 'Pondělí', 'Snídaně')
+    expect(once.cookedMeals).toEqual([mealKey('Pondělí', 'Snídaně')])
+    expect(twice.cookedMeals).toEqual(once.cookedMeals)
+    expect(isMealCooked(once, 'Pondělí', 'Snídaně')).toBe(true)
+    expect(isMealCooked(once, 'Pondělí', 'Oběd')).toBe(false)
+  })
+
+  it('recipeFor returns the recipe currently assigned to a day/meal slot', () => {
+    const plan = generateWeeklyPlan(3000, household())
+    expect(recipeFor(plan, 'Pondělí', 'Snídaně')).toEqual(plan.days[0].breakfast)
+    expect(recipeFor(plan, 'Neexistuje', 'Snídaně')).toBeUndefined()
   })
 })
 

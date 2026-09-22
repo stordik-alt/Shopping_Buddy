@@ -1,4 +1,4 @@
-import type { ItemCategory } from '@/lib/types'
+import type { ItemCategory, PantryLocation } from '@/lib/types'
 
 /** How many days a pantry item can go unconfirmed before the household gets asked "do you still
  *  have this?" — per category, since shelf life genuinely differs (milk vs. rice), but there's no
@@ -35,4 +35,24 @@ export function isDueForCheckin(item: PantryCheckinCandidate, now: Date): boolea
 /** Candidates that are due for a check-in right now. */
 export function findDueForCheckin<T extends PantryCheckinCandidate>(items: T[], now: Date): T[] {
   return items.filter((item) => isDueForCheckin(item, now))
+}
+
+// Keyword heuristic for splitting "Potraviny" between the fridge and freezer — placeholder,
+// same spirit as CHECKIN_DAYS_BY_CATEGORY above: there's no real per-product storage-requirement
+// data yet, so a small, deliberately conservative Czech keyword list stands in until there is.
+// Substring match on the lowercased name; a name matching neither list defaults to the pantry
+// shelf (shelf-stable is the safe default for an unrecognized food item).
+const FROZEN_KEYWORDS = ['mražen', 'zmrzlina']
+const CHILLED_KEYWORDS = ['mléko', 'mléčný', 'jogurt', 'kefír', 'sýr', 'máslo', 'smetana', 'tvaroh', 'šunka', 'salám', 'párky', 'vejce', 'maso', 'kuřecí', 'vepřové', 'hovězí', 'losos', 'ryba']
+
+/** Where a purchased item should land in the pantry by default. Non-food categories go straight
+ *  to "Domácnost" (cleaning/hygiene/household supplies); food is split into shelf-stable/chilled/
+ *  frozen by keyword. Only used to seed a *new* pantry row — an existing row's location is never
+ *  re-inferred on restock, so a manual move (e.g. chilled meat into the freezer) sticks. */
+export function inferPantryLocation(category: ItemCategory, name: string): PantryLocation {
+  if (category !== 'Potraviny') return category === 'Ostatní' ? 'Spíž' : 'Domácnost'
+  const normalized = name.trim().toLowerCase()
+  if (FROZEN_KEYWORDS.some((keyword) => normalized.includes(keyword))) return 'Mrazák'
+  if (CHILLED_KEYWORDS.some((keyword) => normalized.includes(keyword))) return 'Lednice'
+  return 'Spíž'
 }

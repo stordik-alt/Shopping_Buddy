@@ -50,6 +50,13 @@
       "when": 1790101223407,
       "tag": "0006_receipt_ocr_provider",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790101737411,
+      "tag": "0007_decimal_purchase_quantities",
+      "breakpoints": true
     }
   ]
 }

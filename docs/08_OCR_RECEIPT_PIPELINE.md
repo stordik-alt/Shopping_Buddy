@@ -373,6 +373,13 @@ The application uses `@vercel/oidc`'s `getVercelOidcToken()` helper. In Vercel F
 
 Azure Document Intelligence prebuilt-receipt is an optional OCR fallback. Google Vision remains the primary provider. Azure is called only after the primary OCR provider throws and these server-only Vercel environment variables are configured:
 
+Every OCR import records the provider that actually produced the raw OCR text in receipt_imports.ocr_provider:
+- google_vision — Google Cloud Vision succeeded.
+- azure_document_intelligence — Google failed and Azure fallback succeeded.
+- null — no OCR provider completed successfully (or the import was manual).
+
+This is audit metadata only. The same Gemini structuring, validation, duplicate detection, and Neon persistence path is used regardless of provider.
+
 - AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT
 - AZURE_DOCUMENT_INTELLIGENCE_KEY
 

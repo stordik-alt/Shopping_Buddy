@@ -21,7 +21,7 @@ The application must never persist unverified or obviously-incorrect data as a v
 ## 1. Architecture
 
 ```text
-User uploads a receipt photo
+User uploads a receipt image or PDF
       ↓
 Image validation
       ↓
@@ -50,9 +50,9 @@ Do not use Google Document AI's Expense Parser as the default solution.
 
 After upload:
 
-1. Verify the file type.
-2. Verify the maximum size.
-3. Optimize the image if needed.
+1. Verify the file type (JPEG, PNG, WebP, HEIC or PDF).
+2. Verify the maximum size (10 MB).
+3. Optimize an image if needed; PDFs are sent directly to Vision.
 4. Keep the original image — `uploadReceiptAction` stores it in Vercel Blob (`access: 'private'`,
    under `receipts/<householdId>/<uuid>.<ext>`), decided and implemented 2026-09-22.
 5. Create a unique import ID.
@@ -65,6 +65,8 @@ Then start OCR.
 ## 3. OCR — Google Cloud Vision
 
 Use Google Cloud Vision for OCR. Preferred mode: `DOCUMENT_TEXT_DETECTION`.
+
+For images, the existing `images:annotate` API-key path is used. For PDFs, the application uses the online `files:annotate` endpoint with OAuth service-account credentials and processes up to 5 selected pages per request. Google does not support API keys for `files:annotate`; the PDF path therefore requires `GOOGLE_APPLICATION_CREDENTIALS_JSON` in Vercel. This avoids a second storage system because the PDF can be sent directly from the uploaded file bytes.
 
 OCR must return:
 - the full receipt text

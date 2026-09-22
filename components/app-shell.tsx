@@ -17,7 +17,14 @@ import { markMealCookedAction } from '@/app/actions/meal-plan'
 import { markAllNotificationsReadAction, markNotificationReadAction } from '@/app/actions/notifications'
 import { confirmPantryItemAction, movePantryItemAction, removePantryItemAction } from '@/app/actions/pantry'
 import { completePurchaseAction } from '@/app/actions/purchases'
-import { importReceiptAction } from '@/app/actions/receipts'
+import {
+  cancelReceiptImportAction,
+  confirmReceiptReviewAction,
+  importReceiptAction,
+  resolveDuplicateReceiptAction,
+  retryReceiptImportAction,
+  uploadReceiptAction,
+} from '@/app/actions/receipts'
 import { addShoppingItemAction, addShoppingListAction, removeShoppingItemAction, toggleShoppingItemAction, updateShoppingItemAction } from '@/app/actions/shopping'
 import { AiAssistant } from '@/components/ai/ai-assistant'
 import { BudgetOverview } from '@/components/budget/budget-overview'
@@ -25,6 +32,7 @@ import { ExpenseHistory } from '@/components/budget/expense-history'
 import { ExpenseModal } from '@/components/budget/expense-modal'
 import { PurchaseHistory } from '@/components/budget/purchase-history'
 import { ReceiptImport } from '@/components/budget/receipt-import'
+import { ReceiptPending } from '@/components/budget/receipt-pending'
 import { DashboardOverview } from '@/components/dashboard/dashboard-overview'
 import { MealPlan } from '@/components/dashboard/meal-plan'
 import { PriceWatch } from '@/components/dashboard/price-watch'
@@ -39,7 +47,7 @@ import { Pantry } from '@/components/shopping/pantry'
 import { ShoppingList } from '@/components/shopping/shopping-list'
 import { StoreDirectory } from '@/components/stores/store-directory'
 import { TODAY } from '@/lib/budget'
-import type { HouseholdData } from '@/lib/db/queries'
+import type { HouseholdData, ReceiptImportState } from '@/lib/db/queries'
 import type { MealType } from '@/lib/meal-plans'
 import type { ProductPrice } from '@/lib/prices'
 import type { ReceiptLineItem } from '@/lib/receipts'
@@ -69,6 +77,7 @@ export function AppShell({
   const [shoppingLists, setShoppingLists] = useState(initialData.shoppingLists)
   const [pendingInvitations, setPendingInvitations] = useState(initialData.pendingInvitations)
   const [pantryItems, setPantryItems] = useState(initialData.pantryItems)
+  const [pendingReceiptImports, setPendingReceiptImports] = useState(initialData.pendingReceiptImports)
   const router = useRouter()
   const userLocation = useUserLocation()
 
@@ -84,6 +93,7 @@ export function AppShell({
     setShoppingLists(initialData.shoppingLists)
     setPendingInvitations(initialData.pendingInvitations)
     setPantryItems(initialData.pantryItems)
+    setPendingReceiptImports(initialData.pendingReceiptImports)
   }, [initialData])
 
   useEffect(() => {
@@ -230,6 +240,45 @@ export function AppShell({
     router.refresh() // picks up the new purchase-history entry and restocked pantry
   }
 
+  function upsertPendingReceipt(result: ReceiptImportState) {
+    setPendingReceiptImports((current) => {
+      const withoutThis = current.filter((r) => r.id !== result.id)
+      const stillPending = result.status !== 'completed' && result.status !== 'cancelled'
+      return stillPending ? [...withoutThis, result] : withoutThis
+    })
+  }
+
+  async function uploadReceipt(base64: string, mimeType: string) {
+    const result = await uploadReceiptAction(base64, mimeType)
+    upsertPendingReceipt(result)
+    router.refresh() // picks up a new purchase/pantry restock if it completed outright
+    return result
+  }
+
+  async function retryReceiptImport(id: string) {
+    const result = await retryReceiptImportAction(id)
+    upsertPendingReceipt(result)
+    router.refresh()
+    return result
+  }
+
+  async function confirmReceiptReview(id: string, items: ReceiptLineItem[]) {
+    await confirmReceiptReviewAction(id, items)
+    setPendingReceiptImports((current) => current.filter((r) => r.id !== id))
+    router.refresh()
+  }
+
+  async function resolveDuplicateReceipt(id: string, resolution: 'save_new' | 'use_existing' | 'cancel', items?: ReceiptLineItem[]) {
+    await resolveDuplicateReceiptAction(id, resolution, items)
+    setPendingReceiptImports((current) => current.filter((r) => r.id !== id))
+    router.refresh()
+  }
+
+  function cancelReceiptImport(id: string) {
+    setPendingReceiptImports((current) => current.filter((r) => r.id !== id))
+    cancelReceiptImportAction(id)
+  }
+
   function readNotification(id: string) {
     setNotifications((current) => current.map((notification) => (notification.id === id ? { ...notification, unread: false } : notification)))
     markNotificationReadAction(id)
@@ -339,7 +388,14 @@ export function AppShell({
                     onExpense={() => setExpenseOpen(true)}
                   />
                   <ExpenseHistory expenses={expenses} />
-                  <ReceiptImport stores={stores} onImport={importReceipt} />
+                  <ReceiptPending
+                    items={pendingReceiptImports}
+                    onRetry={retryReceiptImport}
+                    onConfirmReview={confirmReceiptReview}
+                    onResolveDuplicate={resolveDuplicateReceipt}
+                    onCancel={cancelReceiptImport}
+                  />
+                  <ReceiptImport stores={stores} onImport={importReceipt} onUpload={uploadReceipt} />
                   <PurchaseHistory records={initialData.purchaseHistory} />
                 </div>
               )}

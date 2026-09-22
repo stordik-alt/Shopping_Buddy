@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { Plus, Receipt, Trash2 } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Camera, Plus, Receipt, Trash2 } from 'lucide-react'
+import type { ReceiptImportState } from '@/lib/db/queries'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import type { ItemCategory, ItemUnit, Store } from '@/lib/types'
 
@@ -8,17 +9,30 @@ const UNITS: ItemUnit[] = ['ks', 'kg', 'g', 'l', 'ml']
 
 const emptyRow = (): ReceiptLineItem => ({ name: '', category: 'Potraviny', quantity: 1, unit: 'ks', price: 0 })
 
-/** Manual receipt entry — the usable path until a real OCR provider exists (lib/receipts.ts's
- *  ReceiptOcrProvider). Every line item entered here goes through exactly the same
- *  importReceiptAction/receipt_imports/pantry-restocking path a future scanned receipt would, so
- *  wiring up OCR later only needs to replace how `items` gets populated — not this component or
- *  the Server Action. */
+function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve((reader.result as string).split(',')[1] ?? '')
+    reader.onerror = () => reject(reader.error ?? new Error('Soubor se nepodařilo přečíst.'))
+    reader.readAsDataURL(file)
+  })
+}
+
+/** Two ways to get a receipt into the system: a real photo (Google Cloud Vision OCR + a cheap
+ *  structuring model, see docs/08_OCR_RECEIPT_PIPELINE.md — an owner-approved, narrowly-scoped
+ *  exception to CLAUDE.md section 30's AI deferral) or manual entry, kept as the always-available
+ *  fallback for a photo that fails to process. Both converge on the same
+ *  importReceiptAction/receipt_imports/pantry-restocking path. A photo upload that comes back
+ *  `review_required`/`duplicate_review`/failed doesn't just vanish — `onUpload`'s result is handed
+ *  to the parent, which surfaces it via `ReceiptPending` for the household to resolve. */
 export function ReceiptImport({
   stores,
   onImport,
+  onUpload,
 }: {
   stores: Store[]
   onImport: (items: ReceiptLineItem[], options: { date?: string; storeLocationId?: string }) => Promise<void>
+  onUpload: (base64: string, mimeType: string) => Promise<ReceiptImportState>
 }) {
   const [open, setOpen] = useState(false)
   const [rows, setRows] = useState<ReceiptLineItem[]>([emptyRow()])
@@ -26,6 +40,8 @@ export function ReceiptImport({
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   function updateRow(index: number, changes: Partial<ReceiptLineItem>) {
     setRows((current) => current.map((row, i) => (i === index ? { ...row, ...changes } : row)))
@@ -58,6 +74,23 @@ export function ReceiptImport({
     }
   }
 
+  async function handlePhoto(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = '' // lets the same file be picked again after a retry
+    if (!file) return
+    setUploading(true)
+    setError('')
+    try {
+      const base64 = await readFileAsBase64(file)
+      await onUpload(base64, file.type)
+      setOpen(false) // result (completed, or needing review) surfaces via ReceiptPending
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Fotografii se nepodařilo nahrát.')
+    } finally {
+      setUploading(false)
+    }
+  }
+
   if (!open) {
     return (
       <button
@@ -77,9 +110,18 @@ export function ReceiptImport({
           Zavřít
         </button>
       </div>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Automatické čtení účtenky (OCR) zatím není k dispozici — zadejte prosím položky ručně. Jakmile bude doplněno, projde stejným zpracováním jako teď.
-      </p>
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic" capture="environment" onChange={handlePhoto} className="hidden" />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-60"
+        >
+          <Camera className="h-4 w-4" /> {uploading ? 'Zpracovávám účtenku…' : 'Vyfotit nebo nahrát účtenku'}
+        </button>
+        <span className="text-xs text-muted-foreground">nebo zadejte položky ručně níže</span>
+      </div>
+      {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
       <div className="mt-4 flex flex-wrap gap-2">
         <label className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs">
           Datum
@@ -161,7 +203,6 @@ export function ReceiptImport({
         <button onClick={submit} disabled={saving} className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">
           {saving ? 'Ukládám…' : 'Uložit nákup'}
         </button>
-        {error && <span className="text-xs text-destructive">{error}</span>}
       </div>
     </div>
   )

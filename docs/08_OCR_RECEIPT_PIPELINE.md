@@ -1,13 +1,16 @@
-# Shopping Buddy — OCR Receipt Import Pipeline (Planning)
+# Shopping Buddy — OCR Receipt Import Pipeline
 
-**Status: planning only, not implemented.** This document captures the owner's target design for
-automatic receipt OCR. Per `CLAUDE.md` section 30 ("AI Shopping Assistant — FINAL PHASE") and
-section 40 (development priority order), this pipeline calls external AI/model APIs (Google Cloud
-Vision, Gemini) and must **not** be implemented before the AI phase, or before the owner
-explicitly authorizes it as an exception. Until then, `app/actions/receipts.ts`'s
-`importReceiptAction()` and the manual-entry UI (`components/budget/receipt-import.tsx`) remain
-the only working path — see section 12 below for exactly where this design plugs into what
-already exists.
+**Status: implemented, 2026-09-22 — owner-approved exception to `CLAUDE.md` section 30.** The
+owner's own words when asked to confirm: *"OCR chci mít vyřešené, na konec necháme AI asistenta.
+Toto AI je pouze pro import účtenek"* (I want OCR resolved; the AI assistant stays for last; this
+AI is only for receipt import). This document originally captured the target design as
+planning-only, before that approval — see `CLAUDE.md` section 30 and `docs/01_CURRENT_STATE.md`
+section 33 for the full story of what changed and why. The design below is what actually got
+built: `lib/receipts.ts` (`googleVisionTextExtractor`, `geminiStructuringProvider`), `app/actions/
+receipts.ts` (`uploadReceiptAction` and the rest of the state-machine actions), and
+`components/budget/receipt-pending.tsx` (the review/duplicate/failure UI). Manual entry
+(`importReceiptAction`, `components/budget/receipt-import.tsx`'s form) remains available
+alongside it — a photo upload that fails still falls back to it.
 
 Target capacity: ~1,500 receipts/month. Primary database: Neon PostgreSQL. OCR: Google Cloud
 Vision. Structuring the OCR text into data: a cheap AI model, preferably Gemini Flash-Lite.
@@ -50,8 +53,8 @@ After upload:
 1. Verify the file type.
 2. Verify the maximum size.
 3. Optimize the image if needed.
-4. Keep the original image, per the application's existing storage architecture (not yet
-   decided — see section 12; no blob-storage integration is wired up yet).
+4. Keep the original image — `uploadReceiptAction` stores it in Vercel Blob (`access: 'private'`,
+   under `receipts/<householdId>/<uuid>.<ext>`), decided and implemented 2026-09-22.
 5. Create a unique import ID.
 6. Set status: `UPLOADED`.
 
@@ -220,32 +223,35 @@ Alternative/terminal states: `OCR_FAILED`, `PARSING_FAILED`, `REVIEW_REQUIRED`,
 
 ---
 
-## 12. How this plugs into what already exists (read this before implementing)
+## 12. How this plugs into what actually exists
 
-Work already done this session, deliberately stopping short of real OCR (per `CLAUDE.md` section
-30):
+How each open question below was resolved when this was implemented (2026-09-22):
 
-- `lib/receipts.ts` defines `ReceiptOcrProvider` (an `extract(image) → ExtractedReceipt` seam) and
-  a placeholder `unimplementedOcrProvider` that throws. **This interface conflates OCR and
-  structuring into one call** — this design's pipeline (section 1) treats Google Vision (OCR) and
-  the Gemini structuring step as two separate stages. `ReceiptOcrProvider` will need to become two
-  seams (an OCR provider returning raw text/lines, and a structuring provider turning that text
-  into `ExtractedReceipt`), or `extract()` needs to internally compose both — decide when
-  implementing, but don't silently keep conflating them if the two-stage pipeline is adopted.
-- `app/actions/receipts.ts`'s `importReceiptAction(items, options)` already does everything from
-  "confirmed line items" onward: creates `purchases`/`purchase_items`, restocks the pantry via the
-  shared `restockPantryItem()` (`lib/db/queries.ts`), and records a `receipt_imports` row. A real
-  OCR/parser pipeline's job is to get from "uploaded photo" to a household-confirmed
-  `ReceiptLineItem[]` — at which point it can very likely call this same action rather than
-  duplicating its purchase-creation/pantry-restocking logic, per `CLAUDE.md` section 6 ("do not
-  duplicate business logic").
-- `components/budget/receipt-import.tsx` is the manual-entry fallback UI. Its "no OCR yet" message
-  is the thing to replace with the upload/progress UI (section 19 below) once a real pipeline
-  exists — the manual-entry form itself should stay available as the review/correction UI for
-  `REVIEW_REQUIRED` (section 13).
-- No image upload/storage exists yet (no Vercel Blob or equivalent wired up) — needed before
-  section 2 can be implemented at all. Per the Vercel marketplace-integration convention this
-  project otherwise follows, that should be a real provisioned integration, not a placeholder.
+- The single-call `ReceiptOcrProvider` seam this section originally proposed was replaced with the
+  two-stage split this design called for in section 1: `lib/receipts.ts`'s `ReceiptTextExtractor`
+  (`googleVisionTextExtractor`, real Google Cloud Vision `DOCUMENT_TEXT_DETECTION` call) and
+  `ReceiptStructuringProvider` (`geminiStructuringProvider`, `generateObject` from the `ai` SDK
+  against `google/gemini-2.5-flash-lite` via the AI Gateway). Both are injectable interfaces, so
+  `app/actions/receipts.ts`'s tests exercise the real orchestration logic (state transitions,
+  validation gate, duplicate check) against fake providers, without needing real Vision/Gemini
+  credentials to run.
+- `app/actions/receipts.ts`'s `createPurchaseFromReceiptItems()` (shared by `importReceiptAction`,
+  a completed OCR pass, and a confirmed review) is exactly the reuse this section anticipated — one
+  place turns a `ReceiptLineItem[]` into `purchases`/`purchase_items` + pantry restock, per CLAUDE.md
+  section 6.
+- `components/budget/receipt-import.tsx` now offers a real "Vyfotit nebo nahrát účtenku" upload
+  alongside the manual-entry form (no longer says OCR isn't available). A failed/ambiguous
+  upload's result surfaces via the new `components/budget/receipt-pending.tsx` — retry for a
+  failure, an editable review form for `review_required`, and a three-way choice
+  (use-existing/save-as-new/cancel) for `duplicate_review`.
+- Image storage: Vercel Blob, private access, per household (`receipts/<householdId>/<uuid>.<ext>`)
+  — a real provisioned integration, not a placeholder, per the project's marketplace-integration
+  convention.
+- **Known gap, not yet closed:** `GOOGLE_VISION_API_KEY` is set in the Vercel project for
+  Production only, not Development — so the OCR stage cannot be exercised against real credentials
+  in local dev (`vercel env pull` won't fetch it). Tests and local verification use fake providers
+  instead, which cover the orchestration logic but not real Vision/Gemini output quality. Add the
+  key to Development in Vercel when someone needs to test against real receipts locally.
 
 ---
 

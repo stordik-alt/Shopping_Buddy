@@ -60,7 +60,8 @@
 - meal-plan assistance
 - explanations of price and budget choices
 - strict anti-hallucination rules
-- OCR receipt import (Google Cloud Vision + a cheap structuring model, e.g. Gemini Flash-Lite) — full target design captured in `docs/08_OCR_RECEIPT_PIPELINE.md`, not implemented; manual receipt entry (`app/actions/receipts.ts`) is the working path until this phase starts
+
+**Explicit exception (2026-09-22):** OCR receipt import is *not* part of this phase's gate — the owner approved AI-SDK use for it specifically, ahead of everything else here (see `CLAUDE.md` section 30, `docs/08_OCR_RECEIPT_PIPELINE.md`). It's a narrow utility use of the cheapest available model to structure already-OCR'd text, not the conversational assistant this phase is about. Tracked in `docs/01_CURRENT_STATE.md` section 21 "Purchase History", not here.
 
 ## Rule
 Do not implement a later phase by weakening the foundations of an earlier phase.

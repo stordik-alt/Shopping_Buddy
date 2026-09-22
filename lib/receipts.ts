@@ -1,5 +1,6 @@
 import { generateObject } from 'ai'
 import { z } from 'zod'
+import { headers } from 'next/headers'
 import type { ItemCategory, ItemUnit } from '@/lib/types'
 
 /** One line item on a receipt as confirmed by the household — whether typed by hand or, for a
@@ -71,26 +72,84 @@ export interface ReceiptStructuringProvider {
   structure(normalizedText: string): Promise<ExtractedReceipt>
 }
 
-/** Creates a short-lived Google service-account access token for the PDF/TIFF file endpoint.
- *  PDF support cannot use GOOGLE_VISION_API_KEY: Google's files:annotate endpoint requires OAuth.
- *  The JSON is kept server-side in Vercel and must never be exposed to the client. */
+/** Exchanges Vercel's short-lived OIDC token for a short-lived Google access token.
+ *  This replaces service-account JSON keys, which are blocked by the project's Google
+ *  organization policy (iam.disableServiceAccountKeyCreation). */
 async function googleServiceAccountAccessToken(): Promise<{ token: string; projectId: string }> {
-  const raw = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON
-  if (!raw) throw new Error('GOOGLE_APPLICATION_CREDENTIALS_JSON is not configured for PDF OCR')
-  let credentials: { client_email?: string; private_key?: string; project_id?: string }
-  try { credentials = JSON.parse(raw) } catch { throw new Error('GOOGLE_APPLICATION_CREDENTIALS_JSON is invalid') }
-  if (!credentials.client_email || !credentials.private_key || !credentials.project_id) throw new Error('Google service-account credentials are incomplete for PDF OCR')
-  const now = Math.floor(Date.now() / 1000)
-  const encode = (value: string) => Buffer.from(value).toString('base64url')
-  const header = encode(JSON.stringify({ alg: 'RS256', typ: 'JWT' }))
-  const payload = encode(JSON.stringify({ iss: credentials.client_email, scope: 'https://www.googleapis.com/auth/cloud-platform', aud: 'https://oauth2.googleapis.com/token', iat: now, exp: now + 3600 }))
-  const unsigned = header + '.' + payload
-  const signature = (await import('node:crypto')).sign('RSA-SHA256', Buffer.from(unsigned), credentials.private_key)
-  const assertion = unsigned + '.' + signature.toString('base64url')
-  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion }) })
-  const tokenData = await tokenResponse.json()
-  if (!tokenResponse.ok || !tokenData.access_token) throw new Error('Google OAuth token request failed (' + tokenResponse.status + '): ' + (tokenData?.error_description ?? tokenData?.error ?? 'unknown error'))
-  return { token: tokenData.access_token, projectId: credentials.project_id }
+  const projectId = process.env.GCP_PROJECT_ID
+  const projectNumber = process.env.GCP_PROJECT_NUMBER
+  const poolId = process.env.GCP_WORKLOAD_IDENTITY_POOL_ID
+  const providerId = process.env.GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID
+  const serviceAccountEmail = process.env.GCP_SERVICE_ACCOUNT_EMAIL
+
+  if (!projectId || !projectNumber || !poolId || !providerId || !serviceAccountEmail) {
+    throw new Error(
+      'GCP OIDC is not configured. Required: GCP_PROJECT_ID, GCP_PROJECT_NUMBER, ' +
+        'GCP_WORKLOAD_IDENTITY_POOL_ID, GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID, GCP_SERVICE_ACCOUNT_EMAIL',
+    )
+  }
+
+  // Vercel Functions receive the OIDC token in this request header. Local development
+  // can use VERCEL_OIDC_TOKEN after running "vercel env pull".
+  const requestHeaders = await headers()
+  const subjectToken =
+    requestHeaders.get('x-vercel-oidc-token') ??
+    process.env.VERCEL_OIDC_TOKEN
+
+  if (!subjectToken) throw new Error('Vercel OIDC token is not available')
+
+  const audience =
+    `//iam.googleapis.com/projects/${projectNumber}/locations/global/workloadIdentityPools/${poolId}/providers/${providerId}`
+
+  const stsResponse = await fetch('https://sts.googleapis.com/v1/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
+      audience,
+      scope: 'https://www.googleapis.com/auth/cloud-platform',
+      requested_token_type: 'urn:ietf:params:oauth:token-type:access_token',
+      subject_token_type: 'urn:ietf:params:oauth:token-type:jwt',
+      subject_token: subjectToken,
+    }),
+  })
+
+  const stsData = await stsResponse.json()
+  if (!stsResponse.ok || !stsData.access_token) {
+    throw new Error(
+      'Google STS token exchange failed (' +
+        stsResponse.status +
+        '): ' +
+        (stsData?.error_description ?? stsData?.error ?? 'unknown error'),
+    )
+  }
+
+  const impersonationResponse = await fetch(
+    `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${encodeURIComponent(serviceAccountEmail)}:generateAccessToken`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + stsData.access_token,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        scope: ['https://www.googleapis.com/auth/cloud-platform'],
+        lifetime: '3600s',
+      }),
+    },
+  )
+
+  const impersonationData = await impersonationResponse.json()
+  if (!impersonationResponse.ok || !impersonationData.accessToken) {
+    throw new Error(
+      'Google service-account impersonation failed (' +
+        impersonationResponse.status +
+        '): ' +
+        (impersonationData?.error?.message ?? 'unknown error'),
+    )
+  }
+
+  return { token: impersonationData.accessToken, projectId }
 }
 
 /** Google Cloud Vision PDF OCR using the online `files:annotate` endpoint. PDF input is sent

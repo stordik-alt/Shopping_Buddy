@@ -10,9 +10,11 @@ import { getProductCatalog, restockPantryItem, toReceiptImportState, type Receip
 import * as schema from '@/lib/db/schema'
 import { matchProductByName } from '@/lib/products'
 import {
+  azureReceiptTextExtractor,
   geminiStructuringProvider,
   googleVisionPdfTextExtractor,
   googleVisionTextExtractor,
+  isAzureReceiptFallbackConfigured,
   isPotentialDuplicate,
   needsReview,
   normalizeOcrText,
@@ -170,8 +172,22 @@ export async function processReceiptImport(
             ? 'image/heic'
             : 'image/jpeg'
     const extractor = storedMimeType === 'application/pdf' ? googleVisionPdfTextExtractor : deps.textExtractor
-    const ocrResult = await extractor.extractText({ base64, mimeType: storedMimeType })
-    ocrText = ocrResult.fullText
+    try {
+      const ocrResult = await extractor.extractText({ base64, mimeType: storedMimeType })
+      ocrText = ocrResult.fullText
+    } catch (primaryError) {
+      // Google remains primary. Azure runs only after a real OCR failure and only when configured.
+      if (!isAzureReceiptFallbackConfigured()) throw primaryError
+
+      try {
+        const azureResult = await azureReceiptTextExtractor.extractText({ base64, mimeType: storedMimeType })
+        ocrText = azureResult.fullText
+      } catch (azureError) {
+        throw new Error(
+          `Primary OCR failed: ${primaryError instanceof Error ? primaryError.message : String(primaryError)}; Azure fallback failed: ${azureError instanceof Error ? azureError.message : String(azureError)}`,
+        )
+      }
+    }
   } catch (error) {
     return update({ status: 'ocr_failed', errorMessage: `Nepodařilo se přečíst účtenku. Zkuste nahrát ostřejší fotografii. (${error instanceof Error ? error.message : String(error)})` })
   }

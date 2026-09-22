@@ -96,6 +96,21 @@ describe('importReceiptAction (manual entry)', () => {
     expect(purchaseRow?.householdId).toBe(householdId)
   })
 
+  it('preserves decimal quantities for weighted receipt items', async () => {
+    const { purchase } = await importReceiptAction([
+      item({ name: 'Pomeranče', quantity: 0.436, unit: 'kg', price: 29.9 }),
+      item({ name: 'Hovězí', quantity: 0.444, unit: 'kg', price: 409 }),
+    ])
+
+    expect(purchase.items.map((i) => [i.name, i.quantity, i.unit])).toEqual([
+      ['Pomeranče', 0.436, 'kg'],
+      ['Hovězí', 0.444, 'kg'],
+    ])
+
+    const rows = await db.query.purchaseItems.findMany({ where: eq(schema.purchaseItems.purchaseId, purchase.id) })
+    expect(rows.map((row) => Number(row.quantity)).sort()).toEqual([0.436, 0.444])
+  })
+
   it('restocks the pantry for every imported item', async () => {
     await importReceiptAction([item({ name: 'Mléko polotučné', category: 'Potraviny', quantity: 2 })])
     const pantryRow = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.householdId, householdId) })

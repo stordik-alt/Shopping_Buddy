@@ -43,6 +43,13 @@
       "when": 1790057012609,
       "tag": "0005_ocr_pipeline_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790101223407,
+      "tag": "0006_receipt_ocr_provider",
+      "breakpoints": true
     }
   ]
 }

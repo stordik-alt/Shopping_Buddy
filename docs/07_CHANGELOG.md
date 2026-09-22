@@ -1,5 +1,12 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-22 (OCR receipt-import pipeline: full target design documented, not implemented)
+### Planning only — implementation deferred to the AI phase per CLAUDE.md section 30
+- The owner provided a complete target design for automatic receipt OCR: Google Cloud Vision for OCR, a cheap structuring model (preferably Gemini Flash-Lite) to turn OCR text into structured data, validation/confidence/duplicate-detection rules, a full import state machine (`UPLOADED` → ... → `COMPLETED`, plus failure/review states), retry semantics, and UI progress states. Captured verbatim as a new doc, `docs/08_OCR_RECEIPT_PIPELINE.md`.
+- Not implemented — this pipeline calls external AI/model APIs (Google Cloud Vision, Gemini), which CLAUDE.md section 30 explicitly forbids before the AI phase (or explicit owner authorization as an exception). No dependency was added, no code was written for it.
+- The doc includes an explicit mapping onto what already exists from this session's earlier receipt-import scaffolding (`receipt_imports` table, `lib/receipts.ts`'s `ReceiptOcrProvider` seam, `importReceiptAction()`), so that whenever this phase actually starts, implementation extends what's there instead of accidentally building a parallel `receipts`/`receipt_items` system — flags in particular that `ReceiptOcrProvider` currently conflates OCR and AI-structuring into one call, while this design treats them as two separate pipeline stages.
+- Cross-referenced from `docs/01_CURRENT_STATE.md` ("Purchase analytics" known gap) and `docs/04_ROADMAP.md` (Phase G).
+
 ## 2026-09-22 (Real browser verification: Playwright added, two real bugs found and fixed)
 ### Follow-up to the previous entry, whose UI was only type-checked/built/unit-tested — no browser was available in that session
 - Added `@playwright/test` as a dev dependency (via `npx pnpm add -D`, since `pnpm`/`corepack` weren't globally set up in this environment — used `npx pnpm@12.3.4` and `npx playwright install chromium` instead) so a real headless Chromium session can drive the app end to end from within this same session, without any external browser connector.

@@ -108,7 +108,7 @@ The model must extract:
 - time, if available
 - receipt number, if available
 - currency
-- individual line items: name, quantity, unit, unit price, item price, discount
+- individual line items: name, category, quantity, unit, unit price, item price, discount
 - total
 - VAT, if shown on the receipt
 
@@ -131,6 +131,7 @@ guess.
   "items": [
     {
       "name": "Mléko",
+      "category": "Potraviny",
       "quantity": 2,
       "unit": "ks",
       "unit_price": 24.90,
@@ -161,8 +162,10 @@ small rounding tolerance.
 **Receipt-level check.** Compute `SUM(item.total_price) − discounts` and compare against the
 receipt total. If the difference exceeds a defined tolerance: `REVIEW_REQUIRED`.
 
-**Missing-data check.** Missing store, date, or total → `REVIEW_REQUIRED`. Missing only an
+**Missing-data check.** Missing store, date, total, or an item's category → `REVIEW_REQUIRED`. Missing only an
 optional field (e.g. receipt number) does not require flagging the receipt as invalid.
+
+**Category check.** Each item is classified as exactly one of `Potraviny`, `Drogerie`, `Děti`, `Domácnost`, or `Ostatní`. If the AI cannot determine the category reliably, it returns `null` and the import waits for human review. When an exact product exists in the product catalog, the catalog category is authoritative and overrides the OCR/AI category.
 
 ---
 

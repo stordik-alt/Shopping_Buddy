@@ -225,7 +225,7 @@ export const purchaseItems = pgTable('purchase_items', {
   purchaseId: uuid('purchase_id').notNull().references(() => purchases.id, { onDelete: 'cascade' }),
   productId: uuid('product_id').references(() => products.id, { onDelete: 'set null' }),
   name: text('name').notNull(),
-  quantity: integer('quantity').notNull().default(1),
+  quantity: numeric('quantity').notNull().default('1'),
   unit: itemUnitEnum('unit').notNull().default('ks'),
   price: numeric('price', { precision: 10, scale: 2 }).notNull(),
 })
@@ -247,7 +247,7 @@ export const pantryItems = pgTable('pantry_items', {
   // hand (e.g. freshly bought chilled meat into the freezer), never re-inferred on a later restock
   // of the same row — otherwise a manual move would silently get undone by the next purchase.
   location: pantryLocationEnum('location').notNull().default('Spíž'),
-  quantity: integer('quantity').notNull().default(1),
+  quantity: numeric('quantity').notNull().default('1'),
   unit: itemUnitEnum('unit').notNull().default('ks'),
   // Reset to now() whenever the item is restocked (another purchase) or the household confirms
   // "ještě mám" — the check-in interval counts from here, not from when the row was first created.

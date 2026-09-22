@@ -63,7 +63,7 @@ async function findOrCreateStore(storeName: string | null | undefined): Promise<
 
 function resolveReceiptPurchaseDate(optionsDate: string | undefined, storedDate: string | null): string {
   const date = optionsDate?.trim() || storedDate?.trim() || ''
-  if (!date || !/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) {
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     throw new Error('Datum nákupu je povinné a musí být ve formátu YYYY-MM-DD.')
   }
   const parsed = new Date(date + 'T00:00:00Z')

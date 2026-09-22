@@ -69,15 +69,17 @@ export type ExtractedReceipt = z.infer<typeof extractedReceiptSchema>
 /** Stage 2: normalized OCR text → structured data. The seam a real structuring model plugs into —
  *  Gemini Flash-Lite via the Vercel AI Gateway by default (see `geminiStructuringProvider`). */
 export interface ReceiptStructuringProvider {
-  structure(normalizedText: string): Promise<ExtractedR/** Exchanges Vercel's short-lived OIDC token for a short-lived Google access token.
+  structure(normalizedText: string): Promise<ExtractedReceipt>
+}
+
+/** Exchanges Vercel's short-lived OIDC token for a short-lived Google access token.
  *  This replaces service-account JSON keys, which are blocked by the project's Google
  *  organization policy (iam.disableServiceAccountKeyCreation).
  *
  *  Vercel's supported helper is used instead of reading the OIDC header/environment variable
  *  directly. It can refresh the token in development and reads the request-context token in
- *  Vercel Functions. The explicit project/team values also make local development independent
- *  of the current working directory's .vercel/project.json link.
- */
+ *  Vercel Functions. Explicit project/team values keep local development independent of the
+ *  current working directory's .vercel/project.json link. */
 async function googleServiceAccountAccessToken(): Promise<{ token: string; projectId: string }> {
   const projectId = process.env.GCP_PROJECT_ID
   const projectNumber = process.env.GCP_PROJECT_NUMBER

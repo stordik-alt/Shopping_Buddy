@@ -1,6 +1,6 @@
 import { del, put } from '@vercel/blob'
-import { eq } from 'drizzle-orm'
-import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { eq, inArray } from 'drizzle-orm'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import type { ExtractedReceipt, ReceiptLineItem, ReceiptStructuringProvider, ReceiptTextExtractor } from '@/lib/receipts'
@@ -40,7 +40,7 @@ const extractedReceipt = (overrides: Partial<ExtractedReceipt> = {}): ExtractedR
   time: '17:42',
   receiptNumber: null,
   currency: 'CZK',
-  items: [{ name: 'Mléko', quantity: 2, unit: 'ks', unitPrice: 24.9, totalPrice: 49.8, discount: 0, category: 'Potraviny', confidence: 0.96 }],
+  items: [{ name: 'Mléko', category: 'Potraviny', quantity: 2, unit: 'ks', unitPrice: 24.9, totalPrice: 49.8, discount: 0, confidence: 0.96 }],
   subtotal: 49.8,
   discountTotal: 0,
   total: 49.8,
@@ -69,9 +69,19 @@ function fakeProviders(extracted: ExtractedReceipt): { textExtractor: ReceiptTex
 
 // The product catalog is global, not household-scoped, and `products.name` is unique — so any test
 // that causes a product row to be created (directly, or via upsertProductCatalogDefaults learning
-// from a confirmed import) must clean it up itself, or a second test run hits a unique-constraint
-// violation on the same name.
-const createdProductNames: string[] = []
+// from a confirmed import) must not leave it behind, or a later run hits a unique-constraint
+// violation on the same name, or — worse — silently changes a *different* test's behavior (a
+// leftover catalog entry can make an item confidently placeable that a test expects to be
+// ambiguous). Tracking every name by hand is error-prone once many tests use the same default
+// fixture names, so instead: snapshot which product ids exist before this file's tests run, and
+// delete whatever ids exist afterward that weren't in that snapshot — catches every one of them
+// regardless of which test (or which of `upsertProductCatalogDefaults`'s two paths) created it.
+let existingProductIds: Set<string>
+
+beforeAll(async () => {
+  const rows = await db.query.products.findMany({ columns: { id: true } })
+  existingProductIds = new Set(rows.map((row) => row.id))
+})
 
 beforeEach(async () => {
   const [household] = await db.insert(schema.households).values({ name: '__test_household_receipts__' }).returning()
@@ -85,11 +95,18 @@ afterAll(async () => {
   for (const id of createdHouseholdIds) {
     await db.delete(schema.households).where(eq(schema.households.id, id))
   }
-  for (const name of createdProductNames) {
-    await db.delete(schema.products).where(eq(schema.products.name, name))
+  const rows = await db.query.products.findMany({ columns: { id: true } })
+  const newProductIds = rows.filter((row) => !existingProductIds.has(row.id)).map((row) => row.id)
+  if (newProductIds.length > 0) {
+    await db.delete(schema.products).where(inArray(schema.products.id, newProductIds))
   }
   await del(uploadedBlobUrls).catch(() => {})
 })
+
+// resolveReceiptPurchaseDate() (app/actions/receipts.ts) requires an explicit, validly-formatted
+// date and never falls back to "today" — real manual entry always supplies one from the form's
+// date input, so tests that don't care about the specific value pass this constant instead.
+const TEST_DATE = '2026-09-22'
 
 describe('importReceiptAction (manual entry)', () => {
   it('rejects an empty receipt', async () => {
@@ -97,7 +114,10 @@ describe('importReceiptAction (manual entry)', () => {
   })
 
   it('creates a real purchase from manually-entered line items', async () => {
-    const { purchase } = await importReceiptAction([item({ name: 'Rýže', price: 40, quantity: 2 }), item({ name: 'Chleba', price: 25, quantity: 1 })])
+    const { purchase } = await importReceiptAction(
+      [item({ name: 'Rýže', price: 40, quantity: 2 }), item({ name: 'Chleba', price: 25, quantity: 1 })],
+      { date: TEST_DATE },
+    )
     expect(purchase.total).toBe(40 * 2 + 25)
     expect(purchase.items.map((i) => i.name).sort()).toEqual(['Chleba', 'Rýže'])
 
@@ -105,8 +125,41 @@ describe('importReceiptAction (manual entry)', () => {
     expect(purchaseRow?.householdId).toBe(householdId)
   })
 
+  it('uses the catalog category when a manually imported product is known', async () => {
+    const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
+    expect(category).toBeDefined()
+    const productName = `__test_catalog_product_${crypto.randomUUID()}`
+    const [product] = await db.insert(schema.products).values({ name: productName, categoryId: category!.id, defaultUnit: 'ks' }).returning()
+
+    try {
+      await importReceiptAction([item({ name: productName, category: 'Ostatní' })], { date: TEST_DATE })
+      const pantryRow = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.productId, product.id) })
+      expect(pantryRow?.category).toBe('Potraviny')
+    } finally {
+      await db.delete(schema.products).where(eq(schema.products.id, product.id))
+    }
+  })
+
+  it('preserves decimal quantities for weighted receipt items', async () => {
+    const { purchase } = await importReceiptAction(
+      [
+        item({ name: 'Pomeranče', quantity: 0.436, unit: 'kg', price: 29.9 }),
+        item({ name: 'Hovězí', quantity: 0.444, unit: 'kg', price: 409 }),
+      ],
+      { date: TEST_DATE },
+    )
+
+    expect(purchase.items.map((i) => [i.name, i.quantity, i.unit])).toEqual([
+      ['Pomeranče', 0.436, 'kg'],
+      ['Hovězí', 0.444, 'kg'],
+    ])
+
+    const rows = await db.query.purchaseItems.findMany({ where: eq(schema.purchaseItems.purchaseId, purchase.id) })
+    expect(rows.map((row) => Number(row.quantity)).sort()).toEqual([0.436, 0.444])
+  })
+
   it('restocks the pantry for every imported item', async () => {
-    await importReceiptAction([item({ name: 'Mléko polotučné', category: 'Potraviny', quantity: 2 })])
+    await importReceiptAction([item({ name: 'Mléko polotučné', category: 'Potraviny', quantity: 2 })], { date: TEST_DATE })
     const pantryRow = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.householdId, householdId) })
     expect(pantryRow?.name).toBe('Mléko polotučné')
     expect(pantryRow?.quantity).toBe(2)
@@ -114,7 +167,7 @@ describe('importReceiptAction (manual entry)', () => {
   })
 
   it('records a receipt_imports row linked to the created purchase', async () => {
-    const { purchase } = await importReceiptAction([item()])
+    const { purchase } = await importReceiptAction([item()], { date: TEST_DATE })
     const receiptRow = await db.query.receiptImports.findFirst({ where: eq(schema.receiptImports.householdId, householdId) })
     expect(receiptRow?.source).toBe('manual')
     expect(receiptRow?.status).toBe('imported')
@@ -123,7 +176,9 @@ describe('importReceiptAction (manual entry)', () => {
   })
 
   it('preserves a fractional quantity end to end (purchase_items and pantry_items are both numeric, not integer)', async () => {
-    const { purchase } = await importReceiptAction([item({ name: 'Kuřecí prsa', category: 'Potraviny', quantity: 0.582, unit: 'kg', price: 189.9 })])
+    const { purchase } = await importReceiptAction([item({ name: 'Kuřecí prsa', category: 'Potraviny', quantity: 0.582, unit: 'kg', price: 189.9 })], {
+      date: TEST_DATE,
+    })
     expect(purchase.items[0].quantity).toBe(0.582)
 
     const purchaseItemRow = await db.query.purchaseItems.findFirst({ where: eq(schema.purchaseItems.purchaseId, purchase.id) })
@@ -134,8 +189,7 @@ describe('importReceiptAction (manual entry)', () => {
   })
 
   it('remembers a human-confirmed category/unit/location in the product catalog for next time', async () => {
-    createdProductNames.push('Bio kuře')
-    await importReceiptAction([item({ name: 'Bio kuře', category: 'Potraviny', unit: 'kg' })])
+    await importReceiptAction([item({ name: 'Bio kuře', category: 'Potraviny', unit: 'kg' })], { date: TEST_DATE })
     const productRow = await db.query.products.findFirst({ where: eq(schema.products.name, 'Bio kuře'), with: { category: true } })
     expect(productRow?.category.name).toBe('Potraviny')
     expect(productRow?.defaultUnit).toBe('kg')
@@ -151,9 +205,32 @@ describe('processReceiptImport — OCR pipeline orchestration (fake OCR/AI, real
     expect(row.status).toBe('completed')
     expect(row.purchaseId).not.toBeNull()
     expect(row.rawOcrText).toBe('FAKE OCR TEXT')
+    expect(row.ocrProvider).toBe('google_vision')
 
     const purchase = await db.query.purchases.findFirst({ where: eq(schema.purchases.id, row.purchaseId!) })
     expect(Number(purchase?.total)).toBe(49.8)
+    expect(purchase?.storeId).not.toBeNull()
+    const store = await db.query.stores.findFirst({ where: eq(schema.stores.id, purchase!.storeId!) })
+    expect(store?.chain).toBe('Lidl')
+
+    const second = await createUploadedReceipt()
+    // Different date than the first receipt — same date+total would otherwise trip the (separate,
+    // unrelated) duplicate-detection check before this ever reaches store resolution, which isn't
+    // what this test is verifying.
+    const secondRow = await processReceiptImport(second, fakeProviders(extractedReceipt({ date: '2026-09-23', store: { name: 'LIDL Česká republika', confidence: 0.95 } })))
+    expect(secondRow.status).toBe('completed')
+    expect(secondRow.storeId).toBe(purchase?.storeId)
+    const stores = await db.query.stores.findMany()
+    expect(stores.filter((store) => store.chain === 'Lidl')).toHaveLength(1)
+  })
+
+  it('creates a new store when OCR discovers an unknown retailer', async () => {
+    const receiptImportId = await createUploadedReceipt()
+    const row = await processReceiptImport(receiptImportId, fakeProviders(extractedReceipt({ store: { name: 'Tesco Express', confidence: 0.95 } })))
+    expect(row.status).toBe('completed')
+    expect(row.storeId).not.toBeNull()
+    const store = await db.query.stores.findFirst({ where: eq(schema.stores.id, row.storeId!) })
+    expect(store?.chain).toBe('Tesco Express')
   })
 
   it('routes to review_required when the receipt fails the consistency check', async () => {
@@ -173,6 +250,24 @@ describe('processReceiptImport — OCR pipeline orchestration (fake OCR/AI, real
     expect(row.status).toBe('review_required')
   })
 
+  it('routes to review_required when an item category is missing', async () => {
+    const receiptImportId = await createUploadedReceipt()
+    const missingCategory = extractedReceipt({ items: [{ name: 'Mléko', category: null, quantity: 2, unit: 'ks', unitPrice: 24.9, totalPrice: 49.8, discount: 0, confidence: 0.96 }] })
+    const row = await processReceiptImport(receiptImportId, fakeProviders(missingCategory))
+
+    expect(row.status).toBe('review_required')
+    expect(row.purchaseId).toBeNull()
+  })
+
+  it('routes to review_required when the purchase date is missing', async () => {
+    const receiptImportId = await createUploadedReceipt()
+    const missingDate = extractedReceipt({ date: null })
+    const row = await processReceiptImport(receiptImportId, fakeProviders(missingDate))
+
+    expect(row.status).toBe('review_required')
+    expect(row.date).toBeNull()
+  })
+
   it('records ocr_failed with an error message when OCR throws, without touching parsing', async () => {
     const receiptImportId = await createUploadedReceipt()
     const row = await processReceiptImport(receiptImportId, {
@@ -186,6 +281,37 @@ describe('processReceiptImport — OCR pipeline orchestration (fake OCR/AI, real
 
     expect(row.status).toBe('ocr_failed')
     expect(row.errorMessage).toContain('Vision unavailable')
+  })
+
+  it('uses the configured Azure fallback when the primary OCR provider fails', async () => {
+    const receiptImportId = await createUploadedReceipt()
+    const previousEndpoint = process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT
+    const previousKey = process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY
+    process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT = 'https://test.cognitiveservices.azure.com'
+    process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY = 'test-key'
+
+    try {
+      const row = await processReceiptImport(receiptImportId, {
+        textExtractor: {
+          extractText: async () => {
+            throw new Error('Vision billing unavailable')
+          },
+        },
+        fallbackTextExtractor: {
+          extractText: async () => ({ fullText: 'AZURE FALLBACK OCR', lines: ['AZURE FALLBACK OCR'] }),
+        },
+        structuringProvider: fakeProviders(extractedReceipt()).structuringProvider,
+      })
+
+      expect(row.status).toBe('completed')
+      expect(row.rawOcrText).toBe('AZURE FALLBACK OCR')
+      expect(row.ocrProvider).toBe('azure_document_intelligence')
+    } finally {
+      if (previousEndpoint === undefined) delete process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT
+      else process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT = previousEndpoint
+      if (previousKey === undefined) delete process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY
+      else process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY = previousKey
+    }
   })
 
   it('records parsing_failed with an error message when the structuring model throws', async () => {
@@ -236,7 +362,6 @@ describe('processReceiptImport — OCR pipeline orchestration (fake OCR/AI, real
   })
 
   it('auto-completes using the catalog\'s remembered location even when the AI suggests a different category for this receipt', async () => {
-    createdProductNames.push('Bio kuře catalog test')
     const [category] = await db.query.productCategories.findMany({ where: eq(schema.productCategories.name, 'Potraviny') })
     await db.insert(schema.products).values({ name: 'Bio kuře catalog test', categoryId: category.id, defaultUnit: 'kg', defaultLocation: 'Mrazák' })
 
@@ -274,8 +399,12 @@ describe('confirmReceiptReviewAction', () => {
     const receiptImportId = await createUploadedReceipt()
     await processReceiptImport(receiptImportId, fakeProviders(extractedReceipt({ total: 999 }))) // → review_required
 
-    const { purchase } = await confirmReceiptReviewAction(receiptImportId, [item({ name: 'Opravená položka', price: 49.8 })])
+    const { purchase } = await confirmReceiptReviewAction(receiptImportId, [item({ name: 'Opravená položka', price: 49.8 })], { date: '2026-09-18' })
     expect(purchase.total).toBe(49.8)
+    expect(purchase.date).toBe('2026-09-18')
+
+    const purchaseRow = await db.query.purchases.findFirst({ where: eq(schema.purchases.id, purchase.id) })
+    expect(purchaseRow?.date).toBe('2026-09-18')
 
     const row = await db.query.receiptImports.findFirst({ where: eq(schema.receiptImports.id, receiptImportId) })
     expect(row?.status).toBe('completed')
@@ -291,7 +420,7 @@ describe('confirmReceiptReviewAction', () => {
   it('rejects confirming without a date when the receipt never had one — must never silently fall back to today', async () => {
     const receiptImportId = await createUploadedReceipt()
     await processReceiptImport(receiptImportId, fakeProviders(extractedReceipt({ date: null }))) // → review_required, no date known
-    await expect(confirmReceiptReviewAction(receiptImportId, [item()])).rejects.toThrow('Datum nákupu chybí')
+    await expect(confirmReceiptReviewAction(receiptImportId, [item()])).rejects.toThrow('Datum nákupu je povinné')
   })
 
   it('accepts an explicitly-supplied date when the receipt never had one', async () => {
@@ -302,7 +431,6 @@ describe('confirmReceiptReviewAction', () => {
   })
 
   it('remembers the reviewer\'s correction in the product catalog, so the next receipt of the same product resolves automatically', async () => {
-    createdProductNames.push('BIO KUŘE review test')
     const receiptImportId = await createUploadedReceipt()
     const unplaceable = extractedReceipt({
       items: [{ name: 'BIO KUŘE review test', quantity: 1, unit: 'ks', unitPrice: 49.8, totalPrice: 49.8, discount: 0, category: null, confidence: 0.4 }],

@@ -19,12 +19,12 @@ import {
 
 const extractedItem = (overrides: Partial<ExtractedReceiptItem> = {}): ExtractedReceiptItem => ({
   name: 'Mléko',
+  category: 'Potraviny',
   quantity: 2,
   unit: 'ks',
   unitPrice: 24.9,
   totalPrice: 49.8,
   discount: 0,
-  category: 'Potraviny',
   confidence: 0.96,
   ...overrides,
 })

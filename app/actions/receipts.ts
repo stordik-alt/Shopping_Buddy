@@ -11,13 +11,18 @@ import * as schema from '@/lib/db/schema'
 import { inferPantryLocation } from '@/lib/pantry'
 import { matchProductByName } from '@/lib/products'
 import {
+  azureReceiptTextExtractor,
   geminiStructuringProvider,
+  googleVisionPdfTextExtractor,
   googleVisionTextExtractor,
+  isAzureReceiptFallbackConfigured,
   isPotentialDuplicate,
   needsReview,
   normalizeOcrText,
   receiptTotal,
   resolveItemPlacement,
+  normalizeStoreName,
+  storeNameMatchKey,
   toReceiptLineItems,
   type ExtractedReceipt,
   type ReceiptLineItem,
@@ -27,7 +32,7 @@ import {
 import type { PurchaseRecord } from '@/lib/types'
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024 // 10 MB
-const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
+const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'])
 
 async function assertOwnsReceiptImport(householdId: string, receiptImportId: string) {
   const db = getDb()
@@ -39,13 +44,45 @@ async function assertOwnsReceiptImport(householdId: string, receiptImportId: str
 /** The one place a `ReceiptLineItem[]` actually becomes a real purchase — shared by manual entry
  *  (`importReceiptAction`), a fully-automatic OCR pass, and a human-reviewed/corrected OCR result,
  *  so the purchase-creation/pantry-restocking rule lives in exactly one place per CLAUDE.md
- *  section 6. Does not touch `receipt_imports` — callers own that record's lifecycle.
- *
- *  `source` decides how each item's category/pantry-location gets resolved, and whether the
+ *  section 6. Does not touch `receipt_imports` — callers own that record's lifecycle. */
+async function findOrCreateStore(storeName: string | null | undefined): Promise<string | null> {
+  if (!storeName?.trim()) return null
+  const canonicalName = normalizeStoreName(storeName)
+  const matchKey = storeNameMatchKey(canonicalName)
+  if (!matchKey) return null
+  const db = getDb()
+  const existing = (await db.query.stores.findMany()).find((store) => storeNameMatchKey(store.chain) === matchKey)
+  if (existing) return existing.id
+  try {
+    const [created] = await db.insert(schema.stores).values({ chain: canonicalName }).returning({ id: schema.stores.id })
+    return created.id
+  } catch (error) {
+    const raced = (await db.query.stores.findMany()).find((store) => storeNameMatchKey(store.chain) === matchKey)
+    if (raced) return raced.id
+    throw error
+  }
+}
+
+function resolveReceiptPurchaseDate(optionsDate: string | undefined, storedDate: string | null): string {
+  const date = optionsDate?.trim() || storedDate?.trim() || ''
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new Error('Datum nákupu je povinné a musí být ve formátu YYYY-MM-DD.')
+  }
+  const parsed = new Date(date + 'T00:00:00Z')
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date) {
+    throw new Error('Datum nákupu není platné.')
+  }
+  return date
+}
+
+/** `source` decides how each item's category/pantry-location gets resolved, and whether the
  *  catalog learns from it:
  *  - `'confirmed'`: a human directly typed or reviewed every item (manual entry, or a completed
- *    review) — their values are authoritative as given. Missing a `location` (manual entry has no
- *    location field) falls back to the catalog's remembered one, then `inferPantryLocation()`,
+ *    review). A known catalog product's category still wins even over what was typed this time —
+ *    consistent with every other entry path (e.g. `addShoppingItemAction`) — since the catalog
+ *    *is* the remembered correction; there's simply no catalog entry to override for a genuinely
+ *    new product, so the typed value always applies there. Missing a `location` (manual entry has
+ *    no location field) falls back to the catalog's remembered one, then `inferPantryLocation()`,
  *    then 'Spíž' as an absolute last resort. Every item is then written back into the product
  *    catalog (`upsertProductCatalogDefaults`) so the *next* receipt of the same product resolves
  *    automatically — the whole point of section 10's "remember the correction" rule.
@@ -56,11 +93,18 @@ async function assertOwnsReceiptImport(householdId: string, receiptImportId: str
 async function createPurchaseFromReceiptItems(
   householdId: string,
   items: ReceiptLineItem[],
-  options: { date?: string; storeLocationId?: string | null; source: 'confirmed' | 'auto' },
+  options: {
+    date?: string
+    storedDate?: string | null
+    storeLocationId?: string | null
+    storeName?: string | null
+    storeId?: string | null
+    source: 'confirmed' | 'auto'
+  },
 ): Promise<PurchaseRecord> {
   if (items.length === 0) throw new Error('Receipt has no items')
   const db = getDb()
-  const date = options.date ?? TODAY
+  const date = resolveReceiptPurchaseDate(options.date, options.storedDate ?? null)
 
   const catalog = await getProductCatalog()
   const resolvedItems = items.map((item) => {
@@ -72,16 +116,21 @@ async function createPurchaseFromReceiptItems(
       const placement = resolveItemPlacement(catalogEntry, item.category, item.name)
       return { ...item, productId: catalogEntry?.id ?? null, category: placement?.category ?? item.category, location: placement?.location ?? item.location }
     }
-    // 'confirmed': the human's own value wins; the catalog and the keyword heuristic only fill a
-    // gap the form left blank (manual entry has no location field at all).
+    // 'confirmed': a known catalog product's category is still authoritative (consistent with
+    // every other entry path in the app — e.g. addShoppingItemAction) even over what was typed
+    // this time, since the catalog itself is how a correction gets remembered in the first place
+    // (see upsertProductCatalogDefaults below) — for a *new* product, there's no catalog entry to
+    // override, so the typed category always applies. Location, which manual entry has no field
+    // for at all, still prefers an explicit value (from a review form) before falling back.
     const location = item.location ?? catalogEntry?.defaultLocation ?? inferPantryLocation(item.category, item.name) ?? 'Spíž'
-    return { ...item, productId: catalogEntry?.id ?? null, location }
+    return { ...item, productId: catalogEntry?.id ?? null, category: catalogEntry?.category ?? item.category, location }
   })
 
   const total = receiptTotal(resolvedItems)
+  const storeId = options.storeId ?? await findOrCreateStore(options.storeName)
   const [purchaseRow] = await db
     .insert(schema.purchases)
-    .values({ householdId, storeLocationId: options.storeLocationId, date, total: total.toString() })
+    .values({ householdId, storeId, storeLocationId: options.storeLocationId ?? undefined, date, total: total.toString() })
     .returning()
 
   const itemRows = await db
@@ -117,8 +166,9 @@ async function createPurchaseFromReceiptItems(
 
   return {
     id: purchaseRow.id,
+    storeId: purchaseRow.storeId ?? undefined,
     date: purchaseRow.date,
-    store: storeLocation?.store.chain,
+    store: storeLocation?.store.chain ?? (storeId ? (await db.query.stores.findFirst({ where: eq(schema.stores.id, storeId) }))?.chain : undefined),
     total: Number(purchaseRow.total),
     items: itemRows.map((row) => ({ name: row.name, quantity: row.quantity, unit: row.unit, price: Number(row.price) })),
   }
@@ -130,7 +180,7 @@ async function createPurchaseFromReceiptItems(
  *  there's no OCR/AI step to fail or need review. */
 export async function importReceiptAction(
   items: ReceiptLineItem[],
-  options: { date?: string; storeLocationId?: string } = {},
+  options: { date?: string; storeLocationId?: string; storeName?: string } = {},
 ): Promise<{ purchase: PurchaseRecord }> {
   const householdId = await requireHouseholdId()
   const purchase = await createPurchaseFromReceiptItems(householdId, items, { ...options, source: 'confirmed' })
@@ -139,6 +189,7 @@ export async function importReceiptAction(
   await db.insert(schema.receiptImports).values({
     householdId,
     status: 'imported',
+    storeId: options.storeName ? await findOrCreateStore(options.storeName) : null,
     storeLocationId: options.storeLocationId,
     date: options.date ?? TODAY,
     source: 'manual',
@@ -163,9 +214,14 @@ export async function importReceiptAction(
  *  show the household, per section 19 ("show the specific reason, not a bare error"). */
 export async function processReceiptImport(
   receiptImportId: string,
-  deps: { textExtractor: ReceiptTextExtractor; structuringProvider: ReceiptStructuringProvider } = {
+  deps: {
+    textExtractor: ReceiptTextExtractor
+    structuringProvider: ReceiptStructuringProvider
+    fallbackTextExtractor?: ReceiptTextExtractor
+  } = {
     textExtractor: googleVisionTextExtractor,
     structuringProvider: geminiStructuringProvider,
+    fallbackTextExtractor: azureReceiptTextExtractor,
   },
 ): Promise<typeof schema.receiptImports.$inferSelect> {
   const db = getDb()
@@ -195,14 +251,42 @@ export async function processReceiptImport(
   }
 
   let ocrText: string
+  let ocrProvider: 'google_vision' | 'azure_document_intelligence' | null = null
   try {
-    const ocrResult = await deps.textExtractor.extractText({ base64, mimeType: 'image/jpeg' })
-    ocrText = ocrResult.fullText
+    const storedMimeType = row.imageUrl.toLowerCase().endsWith('.pdf')
+      ? 'application/pdf'
+      : row.imageUrl.toLowerCase().endsWith('.png')
+        ? 'image/png'
+        : row.imageUrl.toLowerCase().endsWith('.webp')
+          ? 'image/webp'
+          : row.imageUrl.toLowerCase().endsWith('.heic')
+            ? 'image/heic'
+            : 'image/jpeg'
+    const extractor = storedMimeType === 'application/pdf' ? googleVisionPdfTextExtractor : deps.textExtractor
+    try {
+      const ocrResult = await extractor.extractText({ base64, mimeType: storedMimeType })
+      ocrText = ocrResult.fullText
+      ocrProvider = 'google_vision'
+    } catch (primaryError) {
+      // Google remains primary. Azure runs only after a real OCR failure and only when configured.
+      if (!isAzureReceiptFallbackConfigured()) throw primaryError
+
+      try {
+        const fallbackTextExtractor = deps.fallbackTextExtractor ?? azureReceiptTextExtractor
+        const azureResult = await fallbackTextExtractor.extractText({ base64, mimeType: storedMimeType })
+        ocrText = azureResult.fullText
+        ocrProvider = 'azure_document_intelligence'
+      } catch (azureError) {
+        throw new Error(
+          `Primary OCR failed: ${primaryError instanceof Error ? primaryError.message : String(primaryError)}; Azure fallback failed: ${azureError instanceof Error ? azureError.message : String(azureError)}`,
+        )
+      }
+    }
   } catch (error) {
     return update({ status: 'ocr_failed', errorMessage: `Nepodařilo se přečíst účtenku. Zkuste nahrát ostřejší fotografii. (${error instanceof Error ? error.message : String(error)})` })
   }
 
-  await update({ status: 'ocr_completed', rawOcrText: ocrText })
+  await update({ status: 'ocr_completed', ocrProvider, rawOcrText: ocrText })
   await update({ status: 'parsing' })
 
   let extracted: ExtractedReceipt
@@ -271,9 +355,12 @@ export async function processReceiptImport(
   }
 
   const lineItems = toReceiptLineItems(extracted, catalog)
+  const storeId = await findOrCreateStore(extracted.store.name)
+  await update({ storeId })
   const purchase = await createPurchaseFromReceiptItems(row.householdId, lineItems, {
-    date: extracted.date ?? TODAY,
+    date: extracted.date ?? undefined,
     storeLocationId: parsedRow.storeLocationId,
+    storeId,
     source: 'auto',
   })
   return update({ status: 'completed', purchaseId: purchase.id, processedAt: new Date() })
@@ -286,7 +373,7 @@ export async function processReceiptImport(
  *  over-engineering for what's a few-second round trip. */
 export async function uploadReceiptAction(base64Image: string, mimeType: string): Promise<ReceiptImportState> {
   const householdId = await requireHouseholdId()
-  if (!ALLOWED_MIME_TYPES.has(mimeType)) throw new Error('Nepodporovaný formát obrázku. Použijte JPEG, PNG, WEBP nebo HEIC.')
+  if (!ALLOWED_MIME_TYPES.has(mimeType)) throw new Error('Nepodporovaný formát. Použijte JPEG, PNG, WEBP, HEIC nebo PDF.')
 
   const buffer = Buffer.from(base64Image, 'base64')
   if (buffer.byteLength > MAX_IMAGE_BYTES) throw new Error('Fotografie je příliš velká (max. 10 MB).')
@@ -339,12 +426,18 @@ export async function confirmReceiptReviewAction(
 
   // Never fall back to today's date (docs/08_OCR_RECEIPT_PIPELINE.md section 12 / CLAUDE.md
   // section 5 "never invent data") — if OCR couldn't read the date, the household must supply it
-  // here explicitly. `row.date` covers a review triggered for a reason other than a missing date
-  // (e.g. an inconsistent total), where the OCR-read date is already known and correct.
-  const date = options.date ?? row.date
-  if (!date) throw new Error('Datum nákupu chybí — před uložením ho prosím doplňte.')
-
-  const purchase = await createPurchaseFromReceiptItems(householdId, items, { date, storeLocationId: options.storeLocationId ?? row.storeLocationId, source: 'confirmed' })
+  // here explicitly. `resolveReceiptPurchaseDate()` (inside createPurchaseFromReceiptItems) is what
+  // actually enforces this — `options.date` (explicitly supplied here) falls back to `row.date`
+  // (the OCR-read date, for a review triggered by something other than a missing date, e.g. an
+  // inconsistent total) and throws rather than defaulting to today if neither is present.
+  const storeId = row.storeId ?? (row.parserResult ? await findOrCreateStore((JSON.parse(row.parserResult) as ExtractedReceipt).store.name) : null)
+  const purchase = await createPurchaseFromReceiptItems(householdId, items, {
+    date: options.date,
+    storedDate: row.date,
+    storeLocationId: options.storeLocationId ?? row.storeLocationId,
+    storeId,
+    source: 'confirmed',
+  })
 
   const db = getDb()
   await db
@@ -364,6 +457,7 @@ export async function resolveDuplicateReceiptAction(
   receiptImportId: string,
   resolution: 'save_new' | 'use_existing' | 'cancel',
   items?: ReceiptLineItem[],
+  options: { date?: string } = {},
 ): Promise<{ purchase: PurchaseRecord | null }> {
   const householdId = await requireHouseholdId()
   const row = await assertOwnsReceiptImport(householdId, receiptImportId)
@@ -377,7 +471,7 @@ export async function resolveDuplicateReceiptAction(
   }
 
   const finalItems = items ?? (row.items ? (JSON.parse(row.items) as ReceiptLineItem[]) : [])
-  const { purchase } = await confirmReceiptReviewAction(receiptImportId, finalItems)
+  const { purchase } = await confirmReceiptReviewAction(receiptImportId, finalItems, options)
   return { purchase }
 }
 

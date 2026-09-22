@@ -21,11 +21,13 @@ The application must never persist unverified or obviously-incorrect data as a v
 ## 1. Architecture
 
 ```text
-User uploads a receipt photo
+User uploads a receipt image or PDF
       ↓
 Image validation
       ↓
 Google Cloud Vision OCR
+      ↓ (on OCR failure, when Azure fallback is configured)
+Azure Document Intelligence Receipt
       ↓
 OCR text normalization
       ↓
@@ -50,9 +52,9 @@ Do not use Google Document AI's Expense Parser as the default solution.
 
 After upload:
 
-1. Verify the file type.
-2. Verify the maximum size.
-3. Optimize the image if needed.
+1. Verify the file type (JPEG, PNG, WebP, HEIC or PDF).
+2. Verify the maximum size (10 MB).
+3. Optimize an image if needed; PDFs are sent directly to Vision.
 4. Keep the original image — `uploadReceiptAction` stores it in Vercel Blob (`access: 'private'`,
    under `receipts/<householdId>/<uuid>.<ext>`), decided and implemented 2026-09-22.
 5. Create a unique import ID.
@@ -66,13 +68,14 @@ Then start OCR.
 
 Use Google Cloud Vision for OCR. Preferred mode: `DOCUMENT_TEXT_DETECTION`.
 
+For images, the existing `images:annotate` API-key path is used. For PDFs, the application uses the online `files:annotate` endpoint with Google OAuth and processes up to 5 selected pages per request. Google does not support API keys for `files:annotate`. The application uses Vercel OIDC + Google Workload Identity Federation, so no service-account JSON key is stored in Vercel. The runtime obtains the short-lived Vercel token through `@vercel/oidc`'s `getVercelOidcToken()` helper. This avoids a second storage system because the PDF can be sent directly from the uploaded file bytes.
+
 OCR must return:
 - the full receipt text
 - individual lines
 - bounding boxes/text positions, if available
 
-On success: `OCR_COMPLETED`. On failure: `OCR_FAILED`. The error must be stored so the import can
-be retried without re-uploading the receipt.
+On success: `OCR_COMPLETED`. If Google Vision fails and Azure fallback is configured, the same OCR request is retried with Azure Document Intelligence `prebuilt-receipt`. If both providers fail: `OCR_FAILED`. The error includes both provider failures and is stored so the import can be retried without re-uploading the receipt.
 
 ---
 
@@ -105,7 +108,7 @@ The model must extract:
 - time, if available
 - receipt number, if available
 - currency
-- individual line items: name, quantity, unit, unit price, item price, discount
+- individual line items: name, category, quantity, unit, unit price, item price, discount
 - total
 - VAT, if shown on the receipt
 
@@ -128,6 +131,7 @@ guess.
   "items": [
     {
       "name": "Mléko",
+      "category": "Potraviny",
       "quantity": 2,
       "unit": "ks",
       "unit_price": 24.90,
@@ -158,8 +162,10 @@ small rounding tolerance.
 **Receipt-level check.** Compute `SUM(item.total_price) − discounts` and compare against the
 receipt total. If the difference exceeds a defined tolerance: `REVIEW_REQUIRED`.
 
-**Missing-data check.** Missing store, date, or total → `REVIEW_REQUIRED`. Missing only an
+**Missing-data check.** Missing store, date, total, or an item's category → `REVIEW_REQUIRED`. Missing only an
 optional field (e.g. receipt number) does not require flagging the receipt as invalid.
+
+**Category check.** Each item is classified as exactly one of `Potraviny`, `Drogerie`, `Děti`, `Domácnost`, or `Ostatní`. If the AI cannot determine the category reliably, it returns `null` and the import waits for human review. When an exact product exists in the product catalog, the catalog category is authoritative and overrides the OCR/AI category.
 
 ---
 
@@ -340,10 +346,11 @@ already exists in principle — `recordPriceObservation()`/`getProductPrices()`,
 
 ## 17. Security
 
-Google/AI model API keys: server-side only, never sent to frontend JavaScript, never committed to
-the repo, always via environment variables — e.g. `GOOGLE_CLOUD_PROJECT`,
-`GOOGLE_APPLICATION_CREDENTIALS`, `GOOGLE_VISION_API_KEY`, `GEMINI_API_KEY`. Use only the
-credentials that correspond to the actual implementation.
+Google/AI credentials are server-side only, never sent to frontend JavaScript, never committed to
+the repo, and are provided through environment variables or short-lived platform identity
+mechanisms. The current implementation uses `GOOGLE_VISION_API_KEY` for image OCR and Vercel
+OIDC + Google Workload Identity Federation for PDF OCR. No Google service-account JSON key is
+required.
 
 ---
 
@@ -398,3 +405,32 @@ After implementing, test at minimum: an ordinary Czech receipt, a receipt with m
 receipt with discounts, a receipt with items sold by weight, a blurry receipt, a receipt with no
 date, a receipt with no total, a duplicate receipt, an OCR failure, an AI-parser failure, and a
 retry after failure.
+
+### Google Cloud / Vercel OIDC setup for PDF OCR
+
+The PDF path requires a Google Workload Identity Pool and OIDC provider trusting Vercel. Use the Vercel team issuer (`https://oidc.vercel.com/<TEAM_SLUG>`) and audience (`https://vercel.com/<TEAM_SLUG>`). Map `google.subject=assertion.sub`. Create a dedicated service account and grant the Vercel project/environment principal `roles/iam.workloadIdentityUser` on that service account. Grant the service account only the permissions needed for Vision API.
+
+Set these Vercel environment variables:
+- `GCP_PROJECT_ID`
+- `GCP_PROJECT_NUMBER`
+- `GCP_SERVICE_ACCOUNT_EMAIL`
+- `GCP_WORKLOAD_IDENTITY_POOL_ID`
+- `GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID`
+
+The application uses `@vercel/oidc`'s `getVercelOidcToken()` helper. In Vercel Functions it reads the request-context OIDC token; in local development the helper can use/refresh the Vercel development token. The application does not read `x-vercel-oidc-token` or `VERCEL_OIDC_TOKEN` directly.
+
+## 23. Azure OCR fallback
+
+Azure Document Intelligence prebuilt-receipt is an optional OCR fallback. Google Vision remains the primary provider. Azure is called only after the primary OCR provider throws and these server-only Vercel environment variables are configured:
+
+Every OCR import records the provider that actually produced the raw OCR text in receipt_imports.ocr_provider:
+- google_vision — Google Cloud Vision succeeded.
+- azure_document_intelligence — Google failed and Azure fallback succeeded.
+- null — no OCR provider completed successfully (or the import was manual).
+
+This is audit metadata only. The same Gemini structuring, validation, duplicate detection, and Neon persistence path is used regardless of provider.
+
+- AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT
+- AZURE_DOCUMENT_INTELLIGENCE_KEY
+
+The fallback uses the Azure Document Intelligence REST API 2024-11-30 and sends the uploaded file bytes as base64, so the private Vercel Blob URL is not exposed to Azure. Azure's analyzeResult.content is fed into the same Gemini structuring and validation pipeline; Azure never bypasses the application's validation rules.

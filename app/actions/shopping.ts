@@ -107,7 +107,7 @@ export async function updateShoppingItemAction(
   let preferredStoreLocationId: string | null | undefined
   if (changes.store !== undefined) {
     if (changes.store) {
-      const store = await db.query.stores.findFirst({ where: eq(schema.stores.chain, changes.store as (typeof schema.storeChainEnum.enumValues)[number]) })
+      const store = await db.query.stores.findFirst({ where: eq(schema.stores.chain, changes.store) })
       const location = store ? await db.query.storeLocations.findFirst({ where: eq(schema.storeLocations.storeId, store.id) }) : null
       preferredStoreLocationId = location?.id ?? null
     } else {

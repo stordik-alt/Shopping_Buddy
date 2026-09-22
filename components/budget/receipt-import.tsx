@@ -41,7 +41,8 @@ export function ReceiptImport({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [uploading, setUploading] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [lastOcrProvider, setLastOcrProvider] = useState<string | null>(null)
+  const fileInputId = 'receipt-import-file-input'
 
   function updateRow(index: number, changes: Partial<ReceiptLineItem>) {
     setRows((current) => current.map((row, i) => (i === index ? { ...row, ...changes } : row)))
@@ -82,7 +83,8 @@ export function ReceiptImport({
     setError('')
     try {
       const base64 = await readFileAsBase64(file)
-      await onUpload(base64, file.type)
+      const result = await onUpload(base64, file.type)
+      setLastOcrProvider(result.ocrProvider)
       setOpen(false) // result (completed, or needing review) surfaces via ReceiptPending
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Fotografii se nepodařilo nahrát.')
@@ -94,6 +96,7 @@ export function ReceiptImport({
   if (!open) {
     return (
       <button
+        type="button"
         onClick={() => setOpen(true)}
         className="flex items-center gap-2 rounded-xl border border-dashed border-border px-4 py-2.5 text-sm text-muted-foreground hover:bg-muted"
       >
@@ -106,20 +109,25 @@ export function ReceiptImport({
     <div className="rounded-3xl border border-border bg-card p-5">
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold">Nákup z účtenky</p>
-        <button onClick={() => setOpen(false)} className="text-xs text-muted-foreground hover:underline">
+        <button type="button" onClick={() => setOpen(false)} className="text-xs text-muted-foreground hover:underline">
           Zavřít
         </button>
       </div>
+      {lastOcrProvider && (
+        <p className="mb-3 rounded-xl border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          Poslední OCR: {lastOcrProvider === 'azure_document_intelligence' ? 'Azure Document Intelligence' : 'Google Cloud Vision'}
+        </p>
+      )}
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic" capture="environment" onChange={handlePhoto} className="hidden" />
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-60"
+        <input id={fileInputId} type="file" accept="image/jpeg,image/png,image/webp,image/heic,application/pdf" capture="environment" onChange={handlePhoto} className="sr-only" disabled={uploading} />
+        <label
+          htmlFor={fileInputId}
+          aria-disabled={uploading}
+          className={`flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground ${uploading ? 'pointer-events-none opacity-60' : 'cursor-pointer'}`}
         >
           <Camera className="h-4 w-4" /> {uploading ? 'Zpracovávám účtenku…' : 'Vyfotit nebo nahrát účtenku'}
-        </button>
-        <span className="text-xs text-muted-foreground">nebo zadejte položky ručně níže</span>
+        </label>
+        <span className="text-xs text-muted-foreground">JPG, PNG, WebP, HEIC nebo PDF · nebo zadejte položky ručně níže</span>
       </div>
       {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
       <div className="mt-4 flex flex-wrap gap-2">
@@ -188,6 +196,7 @@ export function ReceiptImport({
               className="w-20 rounded-lg border border-input bg-background px-2 py-1 text-xs"
             />
             <button
+              type="button"
               aria-label={`Odstranit položku ${index + 1}`}
               onClick={() => removeRow(index)}
               className="rounded-lg p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
@@ -198,10 +207,10 @@ export function ReceiptImport({
         ))}
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <button onClick={addRow} className="flex items-center gap-1 rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground hover:bg-muted">
+        <button type="button" onClick={addRow} className="flex items-center gap-1 rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground hover:bg-muted">
           <Plus className="h-4 w-4" /> Přidat položku
         </button>
-        <button onClick={submit} disabled={saving} className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">
+        <button type="button" onClick={submit} disabled={saving} className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">
           {saving ? 'Ukládám…' : 'Uložit nákup'}
         </button>
       </div>

@@ -59,6 +59,7 @@ export type ReceiptImportState = {
   id: string
   status: (typeof schema.receiptStatusEnum.enumValues)[number]
   imageUrl: string | null
+  ocrProvider: string | null
   errorMessage: string | null
   extracted: { date: string | null; total: number | null; items: ReceiptLineItem[] } | null
   purchaseId: string | null
@@ -109,6 +110,7 @@ export function toReceiptImportState(row: typeof schema.receiptImports.$inferSel
     id: row.id,
     status: row.status,
     imageUrl: row.imageUrl,
+    ocrProvider: row.ocrProvider,
     errorMessage: row.errorMessage,
     extracted: row.items
       ? { date: row.date, total: row.total != null ? Number(row.total) : null, items: JSON.parse(row.items) as ReceiptLineItem[] }

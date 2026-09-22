@@ -47,8 +47,29 @@
     {
       "idx": 6,
       "version": "7",
-      "when": 1790112321885,
-      "tag": "0006_fearless_thunderbolt",
+      "when": 1790101223407,
+      "tag": "0006_receipt_ocr_provider",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790101737411,
+      "tag": "0007_decimal_purchase_quantities",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790102600000,
+      "tag": "0008_dynamic_receipt_stores",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790116181528,
+      "tag": "0009_product_default_location",
       "breakpoints": true
     }
   ]

@@ -1,5 +1,6 @@
 import { generateObject } from 'ai'
 import { z } from 'zod'
+import { getVercelOidcToken } from '@vercel/oidc'
 import { inferPantryLocation } from '@/lib/pantry'
 import { matchProductByName, type ProductCatalogEntry } from '@/lib/products'
 import type { ItemCategory, ItemUnit, PantryLocation } from '@/lib/types'
@@ -50,15 +51,15 @@ export interface ReceiptTextExtractor {
  *  `toReceiptLineItems()` below, after validation has had a chance to flag the receipt for review. */
 export const extractedReceiptItemSchema = z.object({
   name: z.string(),
+  // The item's category, from the app's fixed set — null when the model isn't confident enough to
+  // pick one (never a guess). Missing/null routes the item to review via `resolveItemPlacement()`
+  // below, same "null over a guess" rule as every other field here.
+  category: z.enum(ITEM_CATEGORIES).nullable(),
   quantity: z.number().nullable(),
   unit: z.string().nullable(),
   unitPrice: z.number().nullable(),
   totalPrice: z.number().nullable(),
   discount: z.number().nullable(),
-  // The item's category, from the app's fixed set — null when the model isn't confident enough to
-  // pick one (never a guess). Missing/null routes the item to review via `resolveItemPlacement()`
-  // below, same "null over a guess" rule as every other field here.
-  category: z.enum(ITEM_CATEGORIES).nullable(),
   confidence: z.number().nullable(),
 })
 
@@ -82,6 +83,193 @@ export type ExtractedReceipt = z.infer<typeof extractedReceiptSchema>
  *  Gemini Flash-Lite via the Vercel AI Gateway by default (see `geminiStructuringProvider`). */
 export interface ReceiptStructuringProvider {
   structure(normalizedText: string): Promise<ExtractedReceipt>
+}
+
+/** Exchanges Vercel's short-lived OIDC token for a short-lived Google access token.
+ *  This replaces service-account JSON keys, which are blocked by the project's Google
+ *  organization policy (iam.disableServiceAccountKeyCreation).
+ *
+ *  Vercel's supported helper is used instead of reading the OIDC header/environment variable
+ *  directly. It can refresh the token in development and reads the request-context token in
+ *  Vercel Functions. Explicit project/team values keep local development independent of the
+ *  current working directory's .vercel/project.json link. */
+async function googleServiceAccountAccessToken(): Promise<{ token: string; projectId: string }> {
+  const projectId = process.env.GCP_PROJECT_ID
+  const projectNumber = process.env.GCP_PROJECT_NUMBER
+  const poolId = process.env.GCP_WORKLOAD_IDENTITY_POOL_ID
+  const providerId = process.env.GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID
+  const serviceAccountEmail = process.env.GCP_SERVICE_ACCOUNT_EMAIL
+
+  if (!projectId || !projectNumber || !poolId || !providerId || !serviceAccountEmail) {
+    throw new Error(
+      'GCP OIDC is not configured. Required: GCP_PROJECT_ID, GCP_PROJECT_NUMBER, ' +
+        'GCP_WORKLOAD_IDENTITY_POOL_ID, GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID, GCP_SERVICE_ACCOUNT_EMAIL',
+    )
+  }
+
+  // Get a fresh Vercel OIDC token from the runtime instead of reading a raw token directly.
+  const subjectToken = await getVercelOidcToken()
+
+  if (!subjectToken) throw new Error('Vercel OIDC token is not available')
+
+  const audience =
+    `//iam.googleapis.com/projects/${projectNumber}/locations/global/workloadIdentityPools/${poolId}/providers/${providerId}`
+
+  const stsResponse = await fetch('https://sts.googleapis.com/v1/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
+      audience,
+      scope: 'https://www.googleapis.com/auth/cloud-platform',
+      requested_token_type: 'urn:ietf:params:oauth:token-type:access_token',
+      subject_token_type: 'urn:ietf:params:oauth:token-type:jwt',
+      subject_token: subjectToken,
+    }),
+  })
+
+  const stsData = await stsResponse.json()
+  if (!stsResponse.ok || !stsData.access_token) {
+    throw new Error(
+      'Google STS token exchange failed (' +
+        stsResponse.status +
+        '): ' +
+        (stsData?.error_description ?? stsData?.error ?? 'unknown error'),
+    )
+  }
+
+  const impersonationResponse = await fetch(
+    `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${encodeURIComponent(serviceAccountEmail)}:generateAccessToken`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + stsData.access_token,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        scope: ['https://www.googleapis.com/auth/cloud-platform'],
+        lifetime: '3600s',
+      }),
+    },
+  )
+
+  const impersonationData = await impersonationResponse.json()
+  if (!impersonationResponse.ok || !impersonationData.accessToken) {
+    throw new Error(
+      'Google service-account impersonation failed (' +
+        impersonationResponse.status +
+        '): ' +
+        (impersonationData?.error?.message ?? 'unknown error'),
+    )
+  }
+
+  return { token: impersonationData.accessToken, projectId }
+}
+
+/** Google Cloud Vision PDF OCR using the online `files:annotate` endpoint. PDF input is sent
+ * directly as base64. Google requires OAuth for this endpoint and allows at most five selected
+ * pages per request, which is a deliberate receipt-import limit. */
+export const googleVisionPdfTextExtractor: ReceiptTextExtractor = {
+  async extractText(file) {
+    const { token, projectId } = await googleServiceAccountAccessToken()
+    const response = await fetch('https://vision.googleapis.com/v1/files:annotate', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + token,
+        'x-goog-user-project': projectId,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        requests: [{
+          inputConfig: { content: file.base64, mimeType: 'application/pdf' },
+          features: [{ type: 'DOCUMENT_TEXT_DETECTION' }],
+          pages: [1, 2, 3, 4, 5],
+        }],
+      }),
+    })
+    const data = await response.json()
+    if (!response.ok) {
+      throw new Error(
+        'Google Vision PDF request failed (' +
+          response.status +
+          '): ' +
+          (data?.error?.message ?? 'unknown error'),
+      )
+    }
+
+    const responses = data.responses?.[0]?.responses ?? []
+    const fullText = responses
+      .map((item: { fullTextAnnotation?: { text?: string } }) => item.fullTextAnnotation?.text ?? '')
+      .filter(Boolean)
+      .join('\n')
+
+    if (!fullText) throw new Error('Google Vision returned no readable text from the PDF')
+
+    return {
+      fullText,
+      lines: fullText.split('\n').filter((line: string) => line.trim().length > 0),
+    }
+  },
+}
+
+/** Returns true when the Azure Document Intelligence Receipt fallback is configured.
+ * Azure stays optional: Google remains the primary OCR provider and Azure is called only after the
+ * primary provider fails and both Azure environment variables are present. */
+export function isAzureReceiptFallbackConfigured(): boolean {
+  return Boolean(process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT && process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY)
+}
+
+/** Azure Document Intelligence prebuilt-receipt fallback using the current 2024-11-30 REST API.
+ * Uploaded bytes are sent directly as base64, so the private Vercel Blob URL is never exposed. */
+export const azureReceiptTextExtractor: ReceiptTextExtractor = {
+  async extractText(file) {
+    const endpoint = process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT?.replace(/\/$/, '')
+    const key = process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY
+    if (!endpoint || !key) throw new Error('Azure Document Intelligence fallback is not configured')
+
+    const analyzeUrl = endpoint + '/documentintelligence/documentModels/prebuilt-receipt:analyze?api-version=2024-11-30'
+    const response = await fetch(analyzeUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Ocp-Apim-Subscription-Key': key },
+      body: JSON.stringify({ base64Source: file.base64 }),
+    })
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => null)
+      throw new Error('Azure Document Intelligence request failed (' + response.status + '): ' + (data?.error?.message ?? 'unknown error'))
+    }
+
+    const operationLocation = response.headers.get('Operation-Location')
+    if (!operationLocation) throw new Error('Azure Document Intelligence did not return Operation-Location')
+
+    // Bound polling so an Azure outage cannot hang the receipt import indefinitely.
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      const resultResponse = await fetch(operationLocation, {
+        headers: { 'Ocp-Apim-Subscription-Key': key },
+      })
+      const result = await resultResponse.json().catch(() => null)
+
+      if (!resultResponse.ok) {
+        throw new Error('Azure Document Intelligence result request failed (' + resultResponse.status + '): ' + (result?.error?.message ?? 'unknown error'))
+      }
+
+      if (result?.status === 'succeeded') {
+        const fullText = String(result?.analyzeResult?.content ?? '').trim()
+        if (!fullText) throw new Error('Azure Document Intelligence returned no readable text')
+        return {
+          fullText,
+          lines: fullText.split('\n').filter((line: string) => line.trim().length > 0),
+        }
+      }
+
+      if (result?.status === 'failed') {
+        throw new Error('Azure Document Intelligence analysis failed: ' + (result?.error?.message ?? result?.analyzeResult?.errors?.[0]?.message ?? 'unknown error'))
+      }
+    }
+
+    throw new Error('Azure Document Intelligence analysis timed out')
+  },
 }
 
 /** Google Cloud Vision's `DOCUMENT_TEXT_DETECTION` via the plain REST API (no Google Cloud client
@@ -134,9 +322,9 @@ export const geminiStructuringProvider: ReceiptStructuringProvider = {
       schema: extractedReceiptSchema,
       prompt: `You are extracting structured data from the OCR text of a Czech retail receipt.
 
-Extract: the store name, the date (YYYY-MM-DD), the time (HH:MM) if present, the receipt number if present, the currency, every line item (name, quantity, unit, unit price, total price, discount, category), the subtotal, the total discount, and the grand total.
+Extract: the store name, the date (YYYY-MM-DD), the time (HH:MM) if present, the receipt number if present, the currency, every line item (name, category, quantity, unit, unit price, total price, discount), the subtotal, the total discount, and the grand total.
 
-Each item's category must be exactly one of: "Potraviny" (food), "Drogerie" (drugstore/hygiene/cleaning), "Děti" (children's/baby products), "Domácnost" (other household goods), "Ostatní" (anything else, or genuinely unclear). If you are not confident which of these five fits, output null — never guess.
+Each item's category must be exactly one of: "Potraviny" (food), "Drogerie" (drugstore/hygiene/cleaning), "Děti" (children's/baby products), "Domácnost" (other household goods), "Ostatní" (anything else, or genuinely unclear — use it only when the item genuinely does not fit the other four). If you are not confident which of these five fits, output null — never guess.
 
 Rules — follow these exactly:
 - Never invent or estimate a value. If a value is not unambiguously present in the text, output null for it.
@@ -208,6 +396,11 @@ export function needsReview(receipt: ExtractedReceipt): boolean {
   if (!hasRequiredReceiptFields(receipt)) return true
   if (!isReceiptConsistent(receipt)) return true
   if (receipt.items.some((item) => !isLineItemConsistent(item))) return true
+  // A missing/unrecognized category or storage location is deliberately NOT checked here — that's
+  // a catalog-aware decision (a null AI category can still be confidently resolved via an existing
+  // catalog match) handled by `resolveItemPlacement()` below, called from
+  // `app/actions/receipts.ts`'s `processReceiptImport()`, which has the DB access this pure
+  // function doesn't.
   return receipt.items.some((item) => item.name.trim().length > 0 && !isRecognizedUnit(item.unit))
 }
 
@@ -241,6 +434,22 @@ const UNIT_ALIASES: Record<string, ItemUnit> = {
   l: 'l',
   litr: 'l',
   ml: 'ml',
+}
+
+/** Normalizes retailer names so OCR variants of known chains map to one canonical name.
+ * Unknown retailers keep a cleaned readable name and can be created automatically. */
+export function normalizeStoreName(rawName: string): string {
+  const cleaned = rawName.normalize('NFC').replace(/\s+/g, ' ').trim()
+  if (!cleaned) return ''
+  const key = cleaned.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+  const aliases: Array<[string, string]> = [['lidl', 'Lidl'], ['albert', 'Albert'], ['kaufland', 'Kaufland'], ['billa', 'Billa'], ['penny', 'Penny'], ['jip', 'JIP']]
+  const known = aliases.find(([alias]) => key === alias || key.startsWith(alias + ' '))
+  return known?.[1] ?? cleaned
+}
+
+/** Stable comparison key for store matching across case, accents and punctuation. */
+export function storeNameMatchKey(name: string): string {
+  return normalizeStoreName(name).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 }
 
 /** Maps a receipt's raw, inconsistently-written unit text onto the app's fixed `ItemUnit` set —

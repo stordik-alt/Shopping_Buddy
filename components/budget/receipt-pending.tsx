@@ -25,8 +25,8 @@ export function ReceiptPending({
 }: {
   items: ReceiptImportState[]
   onRetry: (id: string) => Promise<ReceiptImportState>
-  onConfirmReview: (id: string, items: ReceiptLineItem[], options: { date?: string }) => Promise<void>
-  onResolveDuplicate: (id: string, resolution: 'save_new' | 'use_existing' | 'cancel', items?: ReceiptLineItem[]) => Promise<void>
+  onConfirmReview: (id: string, items: ReceiptLineItem[], date: string) => Promise<void>
+  onResolveDuplicate: (id: string, resolution: 'save_new' | 'use_existing' | 'cancel', items?: ReceiptLineItem[], date?: string) => Promise<void>
   onCancel: (id: string) => void
 }) {
   if (items.length === 0) return null
@@ -50,12 +50,12 @@ function ReceiptPendingCard({
 }: {
   item: ReceiptImportState
   onRetry: (id: string) => Promise<ReceiptImportState>
-  onConfirmReview: (id: string, items: ReceiptLineItem[], options: { date?: string }) => Promise<void>
-  onResolveDuplicate: (id: string, resolution: 'save_new' | 'use_existing' | 'cancel', items?: ReceiptLineItem[]) => Promise<void>
+  onConfirmReview: (id: string, items: ReceiptLineItem[], date: string) => Promise<void>
+  onResolveDuplicate: (id: string, resolution: 'save_new' | 'use_existing' | 'cancel', items?: ReceiptLineItem[], date?: string) => Promise<void>
   onCancel: (id: string) => void
 }) {
   const [rows, setRows] = useState<ReceiptLineItem[]>(item.extracted?.items ?? [])
-  const [date, setDate] = useState(item.extracted?.date ?? '')
+  const [purchaseDate, setPurchaseDate] = useState(item.extracted?.date ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -82,6 +82,7 @@ function ReceiptPendingCard({
           <AlertTriangle className="h-4 w-4" /> Účtenku se nepodařilo zpracovat
         </p>
         <p className="mt-1 text-xs text-muted-foreground">{item.errorMessage ?? 'Neznámá chyba.'}</p>
+        {item.ocrProvider && <p className="mt-1 text-xs text-muted-foreground">OCR: {item.ocrProvider === 'azure_document_intelligence' ? 'Azure Document Intelligence' : 'Google Cloud Vision'}</p>}
         <div className="mt-3 flex gap-2">
           <button
             onClick={() => run(() => onRetry(item.id))}
@@ -105,10 +106,23 @@ function ReceiptPendingCard({
         <p className="flex items-center gap-2 text-sm font-medium">
           <Copy className="h-4 w-4" /> Vypadá to jako nákup, který už máte zaznamenaný
         </p>
+        {item.ocrProvider && <p className="mt-1 text-xs text-muted-foreground">OCR: {item.ocrProvider === 'azure_document_intelligence' ? 'Azure Document Intelligence' : 'Google Cloud Vision'}</p>}
         <p className="mt-1 text-xs text-muted-foreground">
           {rows.length} položek{item.extracted?.total != null ? ` · ${money(item.extracted.total)}` : ''}
           {item.extracted?.date ? ` · ${item.extracted.date}` : ''}
         </p>
+        <div className="mt-3 space-y-2">
+          <label className="block text-xs font-medium">
+            Datum nákupu
+            <input
+              aria-label="Datum nákupu"
+              type="date"
+              value={purchaseDate}
+              onChange={(e) => setPurchaseDate(e.target.value)}
+              className="mt-1 block rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+            />
+          </label>
+        </div>
         <div className="mt-3 flex flex-wrap gap-2">
           <button
             onClick={() => run(() => onResolveDuplicate(item.id, 'use_existing'))}
@@ -118,7 +132,7 @@ function ReceiptPendingCard({
             Je to duplicita, nepřidávat
           </button>
           <button
-            onClick={() => run(() => onResolveDuplicate(item.id, 'save_new', rows))}
+            onClick={() => run(() => onResolveDuplicate(item.id, 'save_new', rows, purchaseDate))}
             disabled={busy}
             className="flex items-center gap-1 rounded-xl bg-primary px-3 py-2 text-xs font-medium text-primary-foreground disabled:opacity-60"
           >
@@ -142,17 +156,25 @@ function ReceiptPendingCard({
     // Blocks saving until every real row has a storage location — the whole reason this receipt
     // needs review might be exactly that the pipeline couldn't place one confidently, and the
     // point of review is to actually ask, not to let a blank silently turn into a default later.
-    const canConfirm = !busy && activeRows.length > 0 && date.trim().length > 0 && activeRows.every((row) => row.location)
+    const canConfirm = !busy && activeRows.length > 0 && purchaseDate.trim().length > 0 && activeRows.every((row) => row.location)
 
     return (
       <div className="rounded-2xl border border-border bg-card p-4">
         <p className="text-sm font-medium">Zkontrolujte rozpoznané položky</p>
         <p className="mt-1 text-xs text-muted-foreground">Rozpoznávání si u téhle účtenky nebylo jisté — projděte a opravte položky před uložením.</p>
-        <label className="mt-3 flex w-fit items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs">
-          Datum
-          <input aria-label="Datum nákupu" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-transparent outline-none" />
-        </label>
+        {item.ocrProvider && <p className="mt-1 text-xs text-muted-foreground">OCR: {item.ocrProvider === 'azure_document_intelligence' ? 'Azure Document Intelligence' : 'Google Cloud Vision'}</p>}
         <div className="mt-3 space-y-2">
+          <label className="block text-xs font-medium">
+            Datum nákupu
+            <input
+              aria-label="Datum nákupu"
+              type="date"
+              value={purchaseDate}
+              onChange={(e) => setPurchaseDate(e.target.value)}
+              className="block rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+            />
+            <span className="mt-1 block text-xs font-normal text-muted-foreground">Datum může být opraveno ručně před uložením.</span>
+          </label>
           {rows.map((row, index) => (
             <div key={index} className="flex flex-wrap items-center gap-2 rounded-xl border border-border p-2">
               <input
@@ -217,7 +239,7 @@ function ReceiptPendingCard({
         </div>
         <div className="mt-3 flex gap-2">
           <button
-            onClick={() => run(() => onConfirmReview(item.id, rows, { date }))}
+            onClick={() => run(() => onConfirmReview(item.id, rows, purchaseDate))}
             disabled={!canConfirm}
             className="rounded-xl bg-primary px-4 py-2 text-xs font-medium text-primary-foreground disabled:opacity-60"
           >

@@ -9,7 +9,6 @@ export const qualityPreferenceEnum = pgEnum('quality_preference', ['standard', '
 export const itemCategoryEnum = pgEnum('item_category', ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní'])
 export const itemUnitEnum = pgEnum('item_unit', ['ks', 'kg', 'g', 'l', 'ml'])
 export const itemPriorityEnum = pgEnum('item_priority', ['Nízká', 'Normální', 'Vysoká'])
-export const storeChainEnum = pgEnum('store_chain', ['Lidl', 'Albert', 'Kaufland', 'Billa', 'Penny', 'JIP'])
 export const invitationStatusEnum = pgEnum('invitation_status', ['pending', 'accepted', 'revoked'])
 export const pantryLocationEnum = pgEnum('pantry_location', ['Spíž', 'Lednice', 'Mrazák', 'Domácnost'])
 // 'pending_review' / 'imported' / 'discarded' are the original manual-entry states — a manual
@@ -145,7 +144,7 @@ export const products = pgTable('products', {
 // A retail chain (brand), e.g. Lidl. First market: Česká republika, architecture allows more.
 export const stores = pgTable('stores', {
   id: uuid('id').primaryKey().defaultRandom(),
-  chain: storeChainEnum('chain').notNull().unique(),
+  chain: text('chain').notNull().unique(),
 })
 
 // A physical branch of a store chain.
@@ -221,6 +220,7 @@ export const shoppingListItems = pgTable('shopping_list_items', {
 export const purchases = pgTable('purchases', {
   id: uuid('id').primaryKey().defaultRandom(),
   householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  storeId: uuid('store_id').references(() => stores.id, { onDelete: 'set null' }),
   storeLocationId: uuid('store_location_id').references(() => storeLocations.id, { onDelete: 'set null' }),
   date: date('date').notNull(),
   total: numeric('total', { precision: 10, scale: 2 }).notNull(),
@@ -235,7 +235,7 @@ export const purchaseItems = pgTable('purchase_items', {
   // numeric, not integer — a receipt line item sold by weight has a genuinely fractional quantity
   // (e.g. "KUŘE 0,582 kg"). `mode: 'number'` keeps every existing call site's `item.quantity` a
   // plain JS number, same as before, rather than requiring a `Number(...)` conversion everywhere.
-  quantity: numeric('quantity', { precision: 10, scale: 3, mode: 'number' }).notNull().default(1),
+  quantity: numeric('quantity', { mode: 'number' }).notNull().default(1),
   unit: itemUnitEnum('unit').notNull().default('ks'),
   price: numeric('price', { precision: 10, scale: 2 }).notNull(),
 })
@@ -259,7 +259,7 @@ export const pantryItems = pgTable('pantry_items', {
   location: pantryLocationEnum('location').notNull().default('Spíž'),
   // numeric, not integer — same reason as purchaseItems.quantity above: a restock from a
   // weight-sold receipt item (e.g. 0.582 kg of meat) must not be truncated to a whole number.
-  quantity: numeric('quantity', { precision: 10, scale: 3, mode: 'number' }).notNull().default(1),
+  quantity: numeric('quantity', { mode: 'number' }).notNull().default(1),
   unit: itemUnitEnum('unit').notNull().default('ks'),
   // Reset to now() whenever the item is restocked (another purchase) or the household confirms
   // "ještě mám" — the check-in interval counts from here, not from when the row was first created.
@@ -280,6 +280,7 @@ export const receiptImports = pgTable('receipt_imports', {
   id: uuid('id').primaryKey().defaultRandom(),
   householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
   status: receiptStatusEnum('status').notNull().default('pending_review'),
+  storeId: uuid('store_id').references(() => stores.id, { onDelete: 'set null' }),
   storeLocationId: uuid('store_location_id').references(() => storeLocations.id, { onDelete: 'set null' }),
   // Nullable now (was NOT NULL): at 'uploaded'/'ocr_processing' the date isn't known yet — OCR/
   // parsing hasn't run. A manual import still always sets it immediately, same as before.
@@ -290,6 +291,9 @@ export const receiptImports = pgTable('receipt_imports', {
   // Kept even after processing completes so a failed/reviewed import can be retried without
   // re-uploading (pipeline doc section 13).
   imageUrl: text('image_url'),
+  // Which OCR engine produced rawOcrText. Null for manual imports or imports that never reached OCR.
+  // This is audit metadata only; it does not affect parsing/validation.
+  ocrProvider: text('ocr_provider'),
   // Raw OCR provider output, for reprocessing/debugging once a real provider exists. Null for a
   // manually-entered import — there is no OCR output yet.
   rawOcrText: text('raw_ocr_text'),
@@ -423,6 +427,7 @@ export const shoppingListItemsRelations = relations(shoppingListItems, ({ one })
 
 export const purchasesRelations = relations(purchases, ({ one, many }) => ({
   household: one(households, { fields: [purchases.householdId], references: [households.id] }),
+  store: one(stores, { fields: [purchases.storeId], references: [stores.id] }),
   storeLocation: one(storeLocations, { fields: [purchases.storeLocationId], references: [storeLocations.id] }),
   items: many(purchaseItems),
 }))
@@ -439,6 +444,7 @@ export const pantryItemsRelations = relations(pantryItems, ({ one }) => ({
 
 export const receiptImportsRelations = relations(receiptImports, ({ one }) => ({
   household: one(households, { fields: [receiptImports.householdId], references: [households.id] }),
+  store: one(stores, { fields: [receiptImports.storeId], references: [stores.id] }),
   storeLocation: one(storeLocations, { fields: [receiptImports.storeLocationId], references: [storeLocations.id] }),
   purchase: one(purchases, { fields: [receiptImports.purchaseId], references: [purchases.id] }),
 }))

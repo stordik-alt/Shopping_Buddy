@@ -104,6 +104,7 @@ async function createPurchaseFromReceiptItems(
 
   return {
     id: purchaseRow.id,
+    storeId: purchaseRow.storeId,
     date: purchaseRow.date,
     store: storeLocation?.store.chain ?? (storeId ? (await db.query.stores.findFirst({ where: eq(schema.stores.id, storeId) }))?.chain : undefined),
     total: Number(purchaseRow.total),

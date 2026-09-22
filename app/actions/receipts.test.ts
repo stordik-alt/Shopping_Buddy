@@ -122,6 +122,7 @@ describe('processReceiptImport — OCR pipeline orchestration (fake OCR/AI, real
     expect(row.status).toBe('completed')
     expect(row.purchaseId).not.toBeNull()
     expect(row.rawOcrText).toBe('FAKE OCR TEXT')
+    expect(row.ocrProvider).toBe('google_vision')
 
     const purchase = await db.query.purchases.findFirst({ where: eq(schema.purchases.id, row.purchaseId!) })
     expect(Number(purchase?.total)).toBe(49.8)
@@ -181,6 +182,7 @@ describe('processReceiptImport — OCR pipeline orchestration (fake OCR/AI, real
 
       expect(row.status).toBe('completed')
       expect(row.rawOcrText).toBe('AZURE FALLBACK OCR')
+      expect(row.ocrProvider).toBe('azure_document_intelligence')
     } finally {
       if (previousEndpoint === undefined) delete process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT
       else process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT = previousEndpoint

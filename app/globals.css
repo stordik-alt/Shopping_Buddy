@@ -157,6 +157,8 @@
   display: inline-flex;
   height: 2.25rem;
   width: 2.25rem;
+  min-height: 2.75rem;
+  min-width: 2.75rem;
   align-items: center;
   justify-content: center;
   border-radius: 0.75rem;
@@ -175,5 +177,14 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+
+/* Mobile touch targets: keep icon controls comfortably tappable without changing desktop sizing. */
+@media (max-width: 1023px) {
+  .icon-button {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
   }
 }

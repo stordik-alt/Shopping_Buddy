@@ -26,6 +26,8 @@ User uploads a receipt image or PDF
 Image validation
       ↓
 Google Cloud Vision OCR
+      ↓ (on OCR failure, when Azure fallback is configured)
+Azure Document Intelligence Receipt
       ↓
 OCR text normalization
       ↓
@@ -73,8 +75,7 @@ OCR must return:
 - individual lines
 - bounding boxes/text positions, if available
 
-On success: `OCR_COMPLETED`. On failure: `OCR_FAILED`. The error must be stored so the import can
-be retried without re-uploading the receipt.
+On success: `OCR_COMPLETED`. If Google Vision fails and Azure fallback is configured, the same OCR request is retried with Azure Document Intelligence `prebuilt-receipt`. If both providers fail: `OCR_FAILED`. The error includes both provider failures and is stored so the import can be retried without re-uploading the receipt.
 
 ---
 
@@ -368,3 +369,11 @@ Set these Vercel environment variables:
 
 The application uses `@vercel/oidc`'s `getVercelOidcToken()` helper. In Vercel Functions it reads the request-context OIDC token; in local development the helper can use/refresh the Vercel development token. The application does not read `x-vercel-oidc-token` or `VERCEL_OIDC_TOKEN` directly.
 
+## 23. Azure OCR fallback
+
+Azure Document Intelligence prebuilt-receipt is an optional OCR fallback. Google Vision remains the primary provider. Azure is called only after the primary OCR provider throws and these server-only Vercel environment variables are configured:
+
+- AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT
+- AZURE_DOCUMENT_INTELLIGENCE_KEY
+
+The fallback uses the Azure Document Intelligence REST API 2024-11-30 and sends the uploaded file bytes as base64, so the private Vercel Blob URL is not exposed to Azure. Azure's analyzeResult.content is fed into the same Gemini structuring and validation pipeline; Azure never bypasses the application's validation rules.

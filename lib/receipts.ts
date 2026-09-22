@@ -42,6 +42,7 @@ export interface ReceiptTextExtractor {
  *  `toReceiptLineItems()` below, after validation has had a chance to flag the receipt for review. */
 export const extractedReceiptItemSchema = z.object({
   name: z.string(),
+  category: z.enum(['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']).nullable(),
   quantity: z.number().nullable(),
   unit: z.string().nullable(),
   unitPrice: z.number().nullable(),
@@ -309,7 +310,9 @@ export const geminiStructuringProvider: ReceiptStructuringProvider = {
       schema: extractedReceiptSchema,
       prompt: `You are extracting structured data from the OCR text of a Czech retail receipt.
 
-Extract: the store name, the date (YYYY-MM-DD), the time (HH:MM) if present, the receipt number if present, the currency, every line item (name, quantity, unit, unit price, total price, discount), the subtotal, the total discount, and the grand total.
+Extract: the store name, the date (YYYY-MM-DD), the time (HH:MM) if present, the receipt number if present, the currency, every line item (name, category, quantity, unit, unit price, total price, discount), the subtotal, the total discount, and the grand total.
+
+For each line item, classify its category as exactly one of: Potraviny, Drogerie, Děti, Domácnost, Ostatní. Use Ostatní only when the item genuinely does not fit the other categories; if the category cannot be determined reliably from the receipt text, output null.
 
 Rules — follow these exactly:
 - Never invent or estimate a value. If a value is not unambiguously present in the text, output null for it.
@@ -375,7 +378,7 @@ export function hasRequiredReceiptFields(receipt: ExtractedReceipt): boolean {
 export function needsReview(receipt: ExtractedReceipt): boolean {
   if (!hasRequiredReceiptFields(receipt)) return true
   if (!isReceiptConsistent(receipt)) return true
-  return receipt.items.some((item) => !isLineItemConsistent(item))
+  return receipt.items.some((item) => item.category == null || !isLineItemConsistent(item))
 }
 
 // --- Duplicate detection (docs/08_OCR_RECEIPT_PIPELINE.md section 9) ---------------------------
@@ -454,7 +457,7 @@ export function toReceiptLineItems(receipt: ExtractedReceipt): ReceiptLineItem[]
       const price = item.unitPrice ?? (item.totalPrice != null && quantity > 0 ? item.totalPrice / quantity : (item.totalPrice ?? 0))
       return {
         name: item.name.trim(),
-        category: 'Ostatní' as ItemCategory,
+        category: item.category ?? ('Ostatní' as ItemCategory),
         quantity,
         unit: normalizeReceiptUnit(item.unit),
         price,

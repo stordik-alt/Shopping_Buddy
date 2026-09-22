@@ -141,6 +141,24 @@ describe('processReceiptImport — OCR pipeline orchestration (fake OCR/AI, real
 
     const purchase = await db.query.purchases.findFirst({ where: eq(schema.purchases.id, row.purchaseId!) })
     expect(Number(purchase?.total)).toBe(49.8)
+    expect(purchase?.storeId).not.toBeNull()
+    const store = await db.query.stores.findFirst({ where: eq(schema.stores.id, purchase!.storeId!) })
+    expect(store?.chain).toBe('Lidl')
+
+    const second = await createUploadedReceipt()
+    const secondRow = await processReceiptImport(second, fakeProviders(extractedReceipt({ store: { name: 'LIDL Česká republika', confidence: 0.95 } })))
+    expect(secondRow.storeId).toBe(purchase?.storeId)
+    const stores = await db.query.stores.findMany()
+    expect(stores.filter((store) => store.chain === 'Lidl')).toHaveLength(1)
+  })
+
+  it('creates a new store when OCR discovers an unknown retailer', async () => {
+    const receiptImportId = await createUploadedReceipt()
+    const row = await processReceiptImport(receiptImportId, fakeProviders(extractedReceipt({ store: { name: 'Tesco Express', confidence: 0.95 } })))
+    expect(row.status).toBe('completed')
+    expect(row.storeId).not.toBeNull()
+    const store = await db.query.stores.findFirst({ where: eq(schema.stores.id, row.storeId!) })
+    expect(store?.chain).toBe('Tesco Express')
   })
 
   it('routes to review_required when the receipt fails the consistency check', async () => {

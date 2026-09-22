@@ -41,6 +41,7 @@ export function ReceiptImport({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [lastOcrProvider, setLastOcrProvider] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   function updateRow(index: number, changes: Partial<ReceiptLineItem>) {
@@ -82,7 +83,8 @@ export function ReceiptImport({
     setError('')
     try {
       const base64 = await readFileAsBase64(file)
-      await onUpload(base64, file.type)
+      const result = await onUpload(base64, file.type)
+      setLastOcrProvider(result.ocrProvider)
       setOpen(false) // result (completed, or needing review) surfaces via ReceiptPending
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Fotografii se nepodařilo nahrát.')
@@ -110,6 +112,11 @@ export function ReceiptImport({
           Zavřít
         </button>
       </div>
+      {lastOcrProvider && (
+        <p className="mb-3 rounded-xl border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          Poslední OCR: {lastOcrProvider === 'azure_document_intelligence' ? 'Azure Document Intelligence' : 'Google Cloud Vision'}
+        </p>
+      )}
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic,application/pdf" capture="environment" onChange={handlePhoto} className="hidden" />
         <button

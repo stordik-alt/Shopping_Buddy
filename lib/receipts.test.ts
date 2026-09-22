@@ -16,6 +16,7 @@ import {
 
 const extractedItem = (overrides: Partial<ExtractedReceiptItem> = {}): ExtractedReceiptItem => ({
   name: 'Mléko',
+  category: 'Potraviny',
   quantity: 2,
   unit: 'ks',
   unitPrice: 24.9,
@@ -152,7 +153,7 @@ describe('normalizeReceiptUnit', () => {
 describe('toReceiptLineItems', () => {
   it('converts a validated extraction into confirmable line items, using the per-unit price', () => {
     const items = toReceiptLineItems(extractedReceipt({ items: [extractedItem({ name: 'Mléko', quantity: 2, unit: 'ks', unitPrice: 24.9, totalPrice: 49.8, confidence: 0.9 })] }))
-    expect(items).toEqual([{ name: 'Mléko', category: 'Ostatní', quantity: 2, unit: 'ks', price: 24.9, confidence: 0.9 }])
+    expect(items).toEqual([{ name: 'Mléko', category: 'Potraviny', quantity: 2, unit: 'ks', price: 24.9, confidence: 0.9 }])
   })
 
   it('divides the line total by quantity to recover a per-unit price when unitPrice is missing (never double-counts quantity downstream)', () => {

@@ -415,6 +415,22 @@ const UNIT_ALIASES: Record<string, ItemUnit> = {
  *  `matchProductByName`). Falls back to 'ks' for anything unrecognized rather than rejecting the
  *  whole item over a unit the app doesn't model — quantity/price are what actually matter for the
  *  resulting purchase. */
+/** Normalizes retailer names so OCR variants of known chains map to one canonical name.
+ * Unknown retailers keep a cleaned readable name and can be created automatically. */
+export function normalizeStoreName(rawName: string): string {
+  const cleaned = rawName.normalize('NFC').replace(/\\s+/g, ' ').trim()
+  if (!cleaned) return ''
+  const key = cleaned.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+  const aliases: Array<[string, string]> = [['lidl', 'Lidl'], ['albert', 'Albert'], ['kaufland', 'Kaufland'], ['billa', 'Billa'], ['penny', 'Penny'], ['jip', 'JIP']]
+  const known = aliases.find(([alias]) => key === alias || key.startsWith(alias + ' '))
+  return known?.[1] ?? cleaned
+}
+
+/** Stable comparison key for store matching across case, accents and punctuation. */
+export function storeNameMatchKey(name: string): string {
+  return normalizeStoreName(name).normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+}
+
 export function normalizeReceiptUnit(rawUnit: string | null): ItemUnit {
   if (!rawUnit) return 'ks'
   return UNIT_ALIASES[rawUnit.trim().toLowerCase()] ?? 'ks'

@@ -49,7 +49,11 @@ export async function addShoppingItemAction(
       name,
       productId: matchedProduct?.id,
       detail: overrides.detail ?? '1 ks · bez detailu',
-      ...(overrides.category && { category: overrides.category }),
+      // An explicit override wins; otherwise fall back to the matched product's real category
+      // rather than the schema default ('Ostatní') — found missing while testing pantry-location
+      // inference, which needs the item actually categorized 'Potraviny' to ever route it to
+      // Lednice/Mrazák instead of defaulting everything typed via quick-add to Spíž.
+      category: overrides.category ?? matchedProduct?.category,
     })
     .returning()
 

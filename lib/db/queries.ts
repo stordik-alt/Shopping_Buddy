@@ -361,13 +361,18 @@ export async function getStores(): Promise<Store[]> {
   }))
 }
 
-/** The full product catalog as id/name pairs — used to resolve a free-text shopping-list item
- *  name to a real `productId` (see `lib/products.ts`'s `matchProductByName()`). Deliberately not
- *  filtered to only priced products, unlike `getProductPrices()` below: an item can identify a
- *  real product even before that product has any price data. */
+/** The full product catalog as id/name/category triples — used to resolve a free-text shopping-
+ *  list item name to a real `productId` and its real category (see `lib/products.ts`'s
+ *  `matchProductByName()`). The category is included so a matched product's real category can
+ *  flow onto the shopping-list item instead of the schema default ('Ostatní') — found missing
+ *  while testing the pantry-location heuristic (`lib/pantry.ts`'s `inferPantryLocation()`), which
+ *  depends on the item actually being categorized 'Potraviny' to ever route it to Lednice/Mrazák.
+ *  Deliberately not filtered to only priced products, unlike `getProductPrices()` below: an item
+ *  can identify a real product even before that product has any price data. */
 export async function getProductCatalog(): Promise<ProductCatalogEntry[]> {
   const db = getDb()
-  return db.query.products.findMany({ columns: { id: true, name: true } })
+  const products = await db.query.products.findMany({ columns: { id: true, name: true }, with: { category: { columns: { name: true } } } })
+  return products.map((product) => ({ id: product.id, name: product.name, category: product.category.name }))
 }
 
 /** Per-product prices across stores, with any currently active deal folded in. One entry per store's latest recorded price. */

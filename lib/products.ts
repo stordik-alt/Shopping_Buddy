@@ -1,4 +1,6 @@
-export type ProductCatalogEntry = { id: string; name: string }
+import type { ItemCategory } from '@/lib/types'
+
+export type ProductCatalogEntry = { id: string; name: string; category: ItemCategory }
 
 /** Whether a free-text shopping-list item name identifies a real catalog product. Per
  *  CLAUDE.md ("do not treat product names as sufficient identifiers"), name matching is not

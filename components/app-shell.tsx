@@ -116,17 +116,22 @@ export function AppShell({
     if (notification) setNotifications((current) => [...current, notification])
   }
 
-  function addIngredients(ingredients: { name: string; category: Item['category'] }[]) {
-    Promise.all(
-      ingredients.map((ingredient) =>
-        addShoppingItemAction(initialData.mainListId, ingredient.name, { detail: '1 ks · z jídelníčku', category: ingredient.category }),
-      ),
-    ).then((results) => {
-      setItems((current) => [...current, ...results.map((r) => r.item)])
-      const newNotifications = results.map((r) => r.notification).filter((n) => n != null)
-      if (newNotifications.length > 0) setNotifications((current) => [...current, ...newNotifications])
-    })
+  // Sequential on purpose — was Promise.all, which fired one addShoppingItemAction per ingredient
+  // concurrently. Each call ends in its own revalidatePath('/'), and with a dozen-plus in flight
+  // at once (routine now that a stock-aware meal plan's "toBuy" list can run to 20-30 items), the
+  // client can end up applying a stale mid-batch server snapshot over the correct optimistic
+  // state, leaving the shopping list looking empty until a hard reload even though every insert
+  // actually succeeded. Awaiting one at a time keeps at most one revalidation in flight.
+  async function addIngredients(ingredients: { name: string; category: Item['category'] }[]) {
     setTab('Nákup')
+    for (const ingredient of ingredients) {
+      const { item, notification } = await addShoppingItemAction(initialData.mainListId, ingredient.name, {
+        detail: '1 ks · z jídelníčku',
+        category: ingredient.category,
+      })
+      setItems((current) => [...current, item])
+      if (notification) setNotifications((current) => [...current, notification])
+    }
   }
 
   function updateItem(id: string, changes: Partial<Item>) {

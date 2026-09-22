@@ -98,6 +98,24 @@ describe('addShoppingItemAction — product identity', () => {
     expect(row?.productId).toBeNull()
   })
 
+  it('uses the matched product\'s real category instead of the schema default, when no override is given', async () => {
+    const catalog = await getProductCatalog()
+    if (catalog.length === 0) return // nothing seeded to match against
+    const [product] = catalog
+    currentHouseholdId = householdId
+    const { item } = await addShoppingItemAction(listId, product.name)
+    expect(item.category).toBe(product.category)
+  })
+
+  it('lets an explicit category override win over the matched product\'s category', async () => {
+    const catalog = await getProductCatalog()
+    const foodProduct = catalog.find((product) => product.category === 'Potraviny')
+    if (!foodProduct) return // nothing seeded to match against
+    currentHouseholdId = householdId
+    const { item } = await addShoppingItemAction(listId, foodProduct.name, { category: 'Ostatní' })
+    expect(item.category).toBe('Ostatní')
+  })
+
   it('still fires the deal alert when the typed name differs in case/whitespace from the catalog', async () => {
     const products = await getProductPrices()
     const bestDeal = assessDealQuality(products, TODAY).find((assessment) => assessment.isBestPrice)

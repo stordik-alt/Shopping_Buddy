@@ -129,9 +129,14 @@ export async function importReceiptAction(
  *  show the household, per section 19 ("show the specific reason, not a bare error"). */
 export async function processReceiptImport(
   receiptImportId: string,
-  deps: { textExtractor: ReceiptTextExtractor; structuringProvider: ReceiptStructuringProvider } = {
+  deps: {
+    textExtractor: ReceiptTextExtractor
+    structuringProvider: ReceiptStructuringProvider
+    fallbackTextExtractor?: ReceiptTextExtractor
+  } = {
     textExtractor: googleVisionTextExtractor,
     structuringProvider: geminiStructuringProvider,
+    fallbackTextExtractor: azureReceiptTextExtractor,
   },
 ): Promise<typeof schema.receiptImports.$inferSelect> {
   const db = getDb()
@@ -180,7 +185,8 @@ export async function processReceiptImport(
       if (!isAzureReceiptFallbackConfigured()) throw primaryError
 
       try {
-        const azureResult = await azureReceiptTextExtractor.extractText({ base64, mimeType: storedMimeType })
+        const fallbackTextExtractor = deps.fallbackTextExtractor ?? azureReceiptTextExtractor
+        const azureResult = await fallbackTextExtractor.extractText({ base64, mimeType: storedMimeType })
         ocrText = azureResult.fullText
       } catch (azureError) {
         throw new Error(

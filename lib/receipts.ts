@@ -199,6 +199,66 @@ export const googleVisionPdfTextExtractor: ReceiptTextExtractor = {
   },
 }
 
+/** Returns true when the Azure Document Intelligence Receipt fallback is configured.
+ * Azure stays optional: Google remains the primary OCR provider and Azure is called only after the
+ * primary provider fails and both Azure environment variables are present. */
+export function isAzureReceiptFallbackConfigured(): boolean {
+  return Boolean(process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT && process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY)
+}
+
+/** Azure Document Intelligence prebuilt-receipt fallback using the current 2024-11-30 REST API.
+ * Uploaded bytes are sent directly as base64, so the private Vercel Blob URL is never exposed. */
+export const azureReceiptTextExtractor: ReceiptTextExtractor = {
+  async extractText(file) {
+    const endpoint = process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT?.replace(/\/$/, '')
+    const key = process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY
+    if (!endpoint || !key) throw new Error('Azure Document Intelligence fallback is not configured')
+
+    const analyzeUrl = endpoint + '/documentintelligence/documentModels/prebuilt-receipt:analyze?api-version=2024-11-30'
+    const response = await fetch(analyzeUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Ocp-Apim-Subscription-Key': key },
+      body: JSON.stringify({ base64Source: file.base64 }),
+    })
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => null)
+      throw new Error('Azure Document Intelligence request failed (' + response.status + '): ' + (data?.error?.message ?? 'unknown error'))
+    }
+
+    const operationLocation = response.headers.get('Operation-Location')
+    if (!operationLocation) throw new Error('Azure Document Intelligence did not return Operation-Location')
+
+    // Bound polling so an Azure outage cannot hang the receipt import indefinitely.
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      const resultResponse = await fetch(operationLocation, {
+        headers: { 'Ocp-Apim-Subscription-Key': key },
+      })
+      const result = await resultResponse.json().catch(() => null)
+
+      if (!resultResponse.ok) {
+        throw new Error('Azure Document Intelligence result request failed (' + resultResponse.status + '): ' + (result?.error?.message ?? 'unknown error'))
+      }
+
+      if (result?.status === 'succeeded') {
+        const fullText = String(result?.analyzeResult?.content ?? '').trim()
+        if (!fullText) throw new Error('Azure Document Intelligence returned no readable text')
+        return {
+          fullText,
+          lines: fullText.split('\n').filter((line: string) => line.trim().length > 0),
+        }
+      }
+
+      if (result?.status === 'failed') {
+        throw new Error('Azure Document Intelligence analysis failed: ' + (result?.error?.message ?? result?.analyzeResult?.errors?.[0]?.message ?? 'unknown error'))
+      }
+    }
+
+    throw new Error('Azure Document Intelligence analysis timed out')
+  },
+}
+
 /** Google Cloud Vision's `DOCUMENT_TEXT_DETECTION` via the plain REST API (no Google Cloud client
  *  library needed for this one call) — per docs/08_OCR_RECEIPT_PIPELINE.md section 3. Requires
  *  `GOOGLE_VISION_API_KEY`, restricted to the Cloud Vision API only (never sent to the client;

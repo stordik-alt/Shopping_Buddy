@@ -19,6 +19,8 @@ import {
   needsReview,
   normalizeOcrText,
   receiptTotal,
+  normalizeStoreName,
+  storeNameMatchKey,
   toReceiptLineItems,
   type ExtractedReceipt,
   type ReceiptLineItem,
@@ -41,10 +43,28 @@ async function assertOwnsReceiptImport(householdId: string, receiptImportId: str
  *  (`importReceiptAction`), a fully-automatic OCR pass, and a human-reviewed/corrected OCR result,
  *  so the purchase-creation/pantry-restocking rule lives in exactly one place per CLAUDE.md
  *  section 6. Does not touch `receipt_imports` — callers own that record's lifecycle. */
+async function findOrCreateStore(storeName: string | null | undefined): Promise<string | null> {
+  if (!storeName?.trim()) return null
+  const canonicalName = normalizeStoreName(storeName)
+  const matchKey = storeNameMatchKey(canonicalName)
+  if (!matchKey) return null
+  const db = getDb()
+  const existing = (await db.query.stores.findMany()).find((store) => storeNameMatchKey(store.chain) === matchKey)
+  if (existing) return existing.id
+  try {
+    const [created] = await db.insert(schema.stores).values({ chain: canonicalName }).returning({ id: schema.stores.id })
+    return created.id
+  } catch (error) {
+    const raced = (await db.query.stores.findMany()).find((store) => storeNameMatchKey(store.chain) === matchKey)
+    if (raced) return raced.id
+    throw error
+  }
+}
+
 async function createPurchaseFromReceiptItems(
   householdId: string,
   items: ReceiptLineItem[],
-  options: { date?: string; storeLocationId?: string | null },
+  options: { date?: string; storeLocationId?: string | null; storeName?: string | null; storeId?: string | null },
 ): Promise<PurchaseRecord> {
   if (items.length === 0) throw new Error('Receipt has no items')
   const db = getDb()
@@ -54,9 +74,10 @@ async function createPurchaseFromReceiptItems(
   const resolvedItems = items.map((item) => ({ ...item, productId: matchProductByName(catalog, item.name)?.id ?? null }))
 
   const total = receiptTotal(resolvedItems)
+  const storeId = options.storeId ?? await findOrCreateStore(options.storeName)
   const [purchaseRow] = await db
     .insert(schema.purchases)
-    .values({ householdId, storeLocationId: options.storeLocationId, date, total: total.toString() })
+    .values({ householdId, storeId, storeLocationId: options.storeLocationId, date, total: total.toString() })
     .returning()
 
   const itemRows = await db
@@ -84,7 +105,7 @@ async function createPurchaseFromReceiptItems(
   return {
     id: purchaseRow.id,
     date: purchaseRow.date,
-    store: storeLocation?.store.chain,
+    store: storeLocation?.store.chain ?? (storeId ? (await db.query.stores.findFirst({ where: eq(schema.stores.id, storeId) }))?.chain : undefined),
     total: Number(purchaseRow.total),
     items: itemRows.map((row) => ({ name: row.name, quantity: row.quantity, unit: row.unit, price: Number(row.price) })),
   }
@@ -96,7 +117,7 @@ async function createPurchaseFromReceiptItems(
  *  there's no OCR/AI step to fail or need review. */
 export async function importReceiptAction(
   items: ReceiptLineItem[],
-  options: { date?: string; storeLocationId?: string } = {},
+  options: { date?: string; storeLocationId?: string; storeName?: string } = {},
 ): Promise<{ purchase: PurchaseRecord }> {
   const householdId = await requireHouseholdId()
   const purchase = await createPurchaseFromReceiptItems(householdId, items, options)
@@ -105,6 +126,7 @@ export async function importReceiptAction(
   await db.insert(schema.receiptImports).values({
     householdId,
     status: 'imported',
+    storeId: options.storeName ? await findOrCreateStore(options.storeName) : null,
     storeLocationId: options.storeLocationId,
     date: options.date ?? TODAY,
     source: 'manual',
@@ -254,7 +276,9 @@ export async function processReceiptImport(
   }
 
   const lineItems = toReceiptLineItems(extracted)
-  const purchase = await createPurchaseFromReceiptItems(row.householdId, lineItems, { date: extracted.date ?? TODAY, storeLocationId: parsedRow.storeLocationId })
+  const storeId = await findOrCreateStore(extracted.store.name)
+  await update({ storeId })
+  const purchase = await createPurchaseFromReceiptItems(row.householdId, lineItems, { date: extracted.date ?? TODAY, storeLocationId: parsedRow.storeLocationId, storeId })
   return update({ status: 'completed', purchaseId: purchase.id, processedAt: new Date() })
 }
 
@@ -316,7 +340,8 @@ export async function confirmReceiptReviewAction(
     throw new Error('Tento import nečeká na kontrolu.')
   }
 
-  const purchase = await createPurchaseFromReceiptItems(householdId, items, { date: options.date ?? row.date ?? TODAY, storeLocationId: options.storeLocationId ?? row.storeLocationId })
+  const storeId = row.storeId ?? (row.parserResult ? await findOrCreateStore((JSON.parse(row.parserResult) as ExtractedReceipt).store.name) : null)
+  const purchase = await createPurchaseFromReceiptItems(householdId, items, { date: options.date ?? row.date ?? TODAY, storeLocationId: options.storeLocationId ?? row.storeLocationId, storeId })
 
   const db = getDb()
   await db

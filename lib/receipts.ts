@@ -93,7 +93,28 @@ async function googleServiceAccountAccessToken(): Promise<{ token: string; proje
   return { token: tokenData.access_token, projectId: credentials.project_id }
 }
 
-/** Google Cloud Vision PDF OCR using the online `files:annotate` endpoint. PDF input is sent\n *  directly as base64. Google requires OAuth for this endpoint and allows at most five selected\n *  pages per request, which is a deliberate receipt-import limit. */\nexport const googleVisionPdfTextExtractor: ReceiptTextExtractor = {\n  async extractText(file) {\n    const { token, projectId } = await googleServiceAccountAccessToken()\n    const response = await fetch('https://vision.googleapis.com/v1/files:annotate', {\n      method: 'POST',\n      headers: { Authorization: 'Bearer ' + token, 'x-goog-user-project': projectId, 'Content-Type': 'application/json' },\n      body: JSON.stringify({ requests: [{ inputConfig: { content: file.base64, mimeType: 'application/pdf' }, features: [{ type: 'DOCUMENT_TEXT_DETECTION' }], pages: [1, 2, 3, 4, 5] }] }),\n    })\n    const data = await response.json()\n    if (!response.ok) throw new Error('Google Vision PDF request failed (' + response.status + '): ' + (data?.error?.message ?? 'unknown error'))\n    const responses = data.responses?.[0]?.responses ?? []\n    const fullText = responses.map((item: { fullTextAnnotation?: { text?: string } }) => item.fullTextAnnotation?.text ?? '').filter(Boolean).join('\n')\n    if (!fullText) throw new Error('Google Vision returned no readable text from the PDF')\n    return { fullText, lines: fullText.split('\n').filter((line: string) => line.trim().length > 0) }\n  },\n}\n/** Google Cloud Vision's `DOCUMENT_TEXT_DETECTION` via the plain REST API (no Google Cloud client
+/** Google Cloud Vision PDF OCR using the online `files:annotate` endpoint. PDF input is sent
+ *  directly as base64. Google requires OAuth for this endpoint and allows at most five selected
+ *  pages per request, which is a deliberate receipt-import limit. */
+export const googleVisionPdfTextExtractor: ReceiptTextExtractor = {
+  async extractText(file) {
+    const { token, projectId } = await googleServiceAccountAccessToken()
+    const response = await fetch('https://vision.googleapis.com/v1/files:annotate', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'x-goog-user-project': projectId, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requests: [{ inputConfig: { content: file.base64, mimeType: 'application/pdf' }, features: [{ type: 'DOCUMENT_TEXT_DETECTION' }], pages: [1, 2, 3, 4, 5] }] }),
+    })
+    const data = await response.json()
+    if (!response.ok) throw new Error('Google Vision PDF request failed (' + response.status + '): ' + (data?.error?.message ?? 'unknown error'))
+    const responses = data.responses?.[0]?.responses ?? []
+    const fullText = responses.map((item: { fullTextAnnotation?: { text?: string } }) => item.fullTextAnnotation?.text ?? '').filter(Boolean).join('
+')
+    if (!fullText) throw new Error('Google Vision returned no readable text from the PDF')
+    return { fullText, lines: fullText.split('
+').filter((line: string) => line.trim().length > 0) }
+  },
+}
+/** Google Cloud Vision's `DOCUMENT_TEXT_DETECTION` via the plain REST API (no Google Cloud client
  *  library needed for this one call) — per docs/08_OCR_RECEIPT_PIPELINE.md section 3. Requires
  *  `GOOGLE_VISION_API_KEY`, restricted to the Cloud Vision API only (never sent to the client;
  *  CLAUDE.md section 39). Throws with a message the caller can store as the import's

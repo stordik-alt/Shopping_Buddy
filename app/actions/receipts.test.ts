@@ -40,7 +40,7 @@ const extractedReceipt = (overrides: Partial<ExtractedReceipt> = {}): ExtractedR
   time: '17:42',
   receiptNumber: null,
   currency: 'CZK',
-  items: [{ name: 'Mléko', quantity: 2, unit: 'ks', unitPrice: 24.9, totalPrice: 49.8, discount: 0, confidence: 0.96 }],
+  items: [{ name: 'Mléko', quantity: 2, unit: 'ks', unitPrice: 24.9, totalPrice: 49.8, discount: 0, category: 'Potraviny', confidence: 0.96 }],
   subtotal: 49.8,
   discountTotal: 0,
   total: 49.8,
@@ -67,6 +67,12 @@ function fakeProviders(extracted: ExtractedReceipt): { textExtractor: ReceiptTex
   }
 }
 
+// The product catalog is global, not household-scoped, and `products.name` is unique — so any test
+// that causes a product row to be created (directly, or via upsertProductCatalogDefaults learning
+// from a confirmed import) must clean it up itself, or a second test run hits a unique-constraint
+// violation on the same name.
+const createdProductNames: string[] = []
+
 beforeEach(async () => {
   const [household] = await db.insert(schema.households).values({ name: '__test_household_receipts__' }).returning()
   householdId = household.id
@@ -78,6 +84,9 @@ afterAll(async () => {
   // households cascades to purchases/purchase_items/pantry_items/receipt_imports (all onDelete: 'cascade').
   for (const id of createdHouseholdIds) {
     await db.delete(schema.households).where(eq(schema.households.id, id))
+  }
+  for (const name of createdProductNames) {
+    await db.delete(schema.products).where(eq(schema.products.name, name))
   }
   await del(uploadedBlobUrls).catch(() => {})
 })
@@ -111,6 +120,26 @@ describe('importReceiptAction (manual entry)', () => {
     expect(receiptRow?.status).toBe('imported')
     expect(receiptRow?.purchaseId).toBe(purchase.id)
     expect(JSON.parse(receiptRow!.items!)).toEqual([item()])
+  })
+
+  it('preserves a fractional quantity end to end (purchase_items and pantry_items are both numeric, not integer)', async () => {
+    const { purchase } = await importReceiptAction([item({ name: 'Kuřecí prsa', category: 'Potraviny', quantity: 0.582, unit: 'kg', price: 189.9 })])
+    expect(purchase.items[0].quantity).toBe(0.582)
+
+    const purchaseItemRow = await db.query.purchaseItems.findFirst({ where: eq(schema.purchaseItems.purchaseId, purchase.id) })
+    expect(purchaseItemRow?.quantity).toBe(0.582)
+
+    const pantryRow = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.householdId, householdId) })
+    expect(pantryRow?.quantity).toBe(0.582)
+  })
+
+  it('remembers a human-confirmed category/unit/location in the product catalog for next time', async () => {
+    createdProductNames.push('Bio kuře')
+    await importReceiptAction([item({ name: 'Bio kuře', category: 'Potraviny', unit: 'kg' })])
+    const productRow = await db.query.products.findFirst({ where: eq(schema.products.name, 'Bio kuře'), with: { category: true } })
+    expect(productRow?.category.name).toBe('Potraviny')
+    expect(productRow?.defaultUnit).toBe('kg')
+    expect(productRow?.defaultLocation).toBe('Spíž') // "kuře" doesn't match the "kuřecí" keyword, and manual entry has no location field — falls back to 'Spíž'
   })
 })
 
@@ -184,6 +213,45 @@ describe('processReceiptImport — OCR pipeline orchestration (fake OCR/AI, real
     expect(row.status).toBe('duplicate_review')
     expect(row.purchaseId).toBeNull()
   })
+
+  it('routes to review_required when a line item has an unrecognized unit, rather than silently saving it as "ks"', async () => {
+    const receiptImportId = await createUploadedReceipt()
+    const unknownUnit = extractedReceipt({ items: [{ name: 'Mléko', quantity: 2, unit: 'furlongs', unitPrice: 24.9, totalPrice: 49.8, discount: 0, category: 'Potraviny', confidence: 0.9 }] })
+    const row = await processReceiptImport(receiptImportId, fakeProviders(unknownUnit))
+
+    expect(row.status).toBe('review_required')
+    expect(row.purchaseId).toBeNull()
+  })
+
+  it('routes to review_required when an item\'s category/storage location can\'t be placed confidently, even though the receipt is otherwise consistent', async () => {
+    const receiptImportId = await createUploadedReceipt()
+    // no category from the AI, and the name matches no pantry-location keyword — genuinely unplaceable
+    const unplaceable = extractedReceipt({
+      items: [{ name: 'Naprosto neznámá věc', quantity: 1, unit: 'ks', unitPrice: 49.8, totalPrice: 49.8, discount: 0, category: null, confidence: 0.3 }],
+    })
+    const row = await processReceiptImport(receiptImportId, fakeProviders(unplaceable))
+
+    expect(row.status).toBe('review_required')
+    expect(row.purchaseId).toBeNull()
+  })
+
+  it('auto-completes using the catalog\'s remembered location even when the AI suggests a different category for this receipt', async () => {
+    createdProductNames.push('Bio kuře catalog test')
+    const [category] = await db.query.productCategories.findMany({ where: eq(schema.productCategories.name, 'Potraviny') })
+    await db.insert(schema.products).values({ name: 'Bio kuře catalog test', categoryId: category.id, defaultUnit: 'kg', defaultLocation: 'Mrazák' })
+
+    const receiptImportId = await createUploadedReceipt()
+    // AI guesses "Drogerie" for this one receipt — the catalog's own category/location must win instead
+    const extracted = extractedReceipt({
+      items: [{ name: 'Bio kuře catalog test', quantity: 1, unit: 'kg', unitPrice: 49.8, totalPrice: 49.8, discount: 0, category: 'Drogerie', confidence: 0.6 }],
+    })
+    const row = await processReceiptImport(receiptImportId, fakeProviders(extracted))
+
+    expect(row.status).toBe('completed')
+    const pantryRow = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.householdId, householdId) })
+    expect(pantryRow?.category).toBe('Potraviny')
+    expect(pantryRow?.location).toBe('Mrazák')
+  })
 })
 
 describe('retryReceiptImportAction', () => {
@@ -218,6 +286,47 @@ describe('confirmReceiptReviewAction', () => {
     const receiptImportId = await createUploadedReceipt()
     await processReceiptImport(receiptImportId, fakeProviders(extractedReceipt())) // → completed
     await expect(confirmReceiptReviewAction(receiptImportId, [item()])).rejects.toThrow('nečeká na kontrolu')
+  })
+
+  it('rejects confirming without a date when the receipt never had one — must never silently fall back to today', async () => {
+    const receiptImportId = await createUploadedReceipt()
+    await processReceiptImport(receiptImportId, fakeProviders(extractedReceipt({ date: null }))) // → review_required, no date known
+    await expect(confirmReceiptReviewAction(receiptImportId, [item()])).rejects.toThrow('Datum nákupu chybí')
+  })
+
+  it('accepts an explicitly-supplied date when the receipt never had one', async () => {
+    const receiptImportId = await createUploadedReceipt()
+    await processReceiptImport(receiptImportId, fakeProviders(extractedReceipt({ date: null })))
+    const { purchase } = await confirmReceiptReviewAction(receiptImportId, [item()], { date: '2026-09-10' })
+    expect(purchase.date).toBe('2026-09-10')
+  })
+
+  it('remembers the reviewer\'s correction in the product catalog, so the next receipt of the same product resolves automatically', async () => {
+    createdProductNames.push('BIO KUŘE review test')
+    const receiptImportId = await createUploadedReceipt()
+    const unplaceable = extractedReceipt({
+      items: [{ name: 'BIO KUŘE review test', quantity: 1, unit: 'ks', unitPrice: 49.8, totalPrice: 49.8, discount: 0, category: null, confidence: 0.4 }],
+    })
+    await processReceiptImport(receiptImportId, fakeProviders(unplaceable)) // → review_required (unplaceable)
+
+    await confirmReceiptReviewAction(receiptImportId, [item({ name: 'BIO KUŘE review test', category: 'Potraviny', location: 'Mrazák', unit: 'kg' })])
+
+    const productRow = await db.query.products.findFirst({ where: eq(schema.products.name, 'BIO KUŘE review test'), with: { category: true } })
+    expect(productRow?.category.name).toBe('Potraviny')
+    expect(productRow?.defaultUnit).toBe('kg')
+    expect(productRow?.defaultLocation).toBe('Mrazák')
+
+    // A second receipt of the same product now resolves automatically, even though the AI still can't classify it.
+    // (Different date so the duplicate-detection check — a separate concern — doesn't also match.)
+    const secondReceiptImportId = await createUploadedReceipt()
+    const secondExtraction = extractedReceipt({
+      date: '2026-09-23',
+      items: [{ name: 'BIO KUŘE review test', quantity: 1, unit: 'kg', unitPrice: 49.8, totalPrice: 49.8, discount: 0, category: null, confidence: 0.4 }],
+    })
+    const secondRow = await processReceiptImport(secondReceiptImportId, fakeProviders(secondExtraction))
+    expect(secondRow.status).toBe('completed')
+    const pantryRow = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.householdId, householdId) })
+    expect(pantryRow?.location).toBe('Mrazák')
   })
 })
 

@@ -53,8 +53,8 @@ describe('inferPantryLocation', () => {
     expect(inferPantryLocation('Děti', 'Plenky')).toBe('Domácnost')
   })
 
-  it('defaults an unrecognized "Ostatní" item to the pantry shelf', () => {
-    expect(inferPantryLocation('Ostatní', 'Něco neznámého')).toBe('Spíž')
+  it('is unresolvable (null) for an "Ostatní" item — the category itself was already uncertain, so its location must not be guessed either', () => {
+    expect(inferPantryLocation('Ostatní', 'Něco neznámého')).toBeNull()
   })
 
   it('recognizes a frozen food item by keyword', () => {
@@ -67,8 +67,14 @@ describe('inferPantryLocation', () => {
     expect(inferPantryLocation('Potraviny', 'Kuřecí prsa')).toBe('Lednice')
   })
 
-  it('defaults an unrecognized food item to the pantry shelf (shelf-stable)', () => {
+  it('recognizes a shelf-stable pantry item by keyword', () => {
     expect(inferPantryLocation('Potraviny', 'Rýže')).toBe('Spíž')
+    expect(inferPantryLocation('Potraviny', 'Těstoviny')).toBe('Spíž')
+    expect(inferPantryLocation('Potraviny', 'Konzervovaný hrášek')).toBe('Spíž')
+  })
+
+  it('is unresolvable (null) for a food item matching no known storage keyword, rather than guessing the pantry shelf', () => {
+    expect(inferPantryLocation('Potraviny', 'Naprosto neznámá potravina')).toBeNull()
   })
 
   it('matches keywords case-insensitively', () => {

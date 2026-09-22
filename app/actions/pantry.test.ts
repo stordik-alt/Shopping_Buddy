@@ -8,7 +8,7 @@ let currentHouseholdId = ''
 vi.mock('@/lib/auth/authorize', () => ({ requireHouseholdId: () => Promise.resolve(currentHouseholdId) }))
 vi.mock('next/cache', () => ({ revalidatePath: () => {} }))
 
-import { confirmPantryItemAction, movePantryItemAction, removePantryItemAction } from '@/app/actions/pantry'
+import { adjustPantryItemQuantityAction, confirmPantryItemAction, movePantryItemAction, removePantryItemAction } from '@/app/actions/pantry'
 
 const db = getDb()
 const createdHouseholdIds: string[] = []
@@ -60,6 +60,53 @@ describe('movePantryItemAction', () => {
     await movePantryItemAction(item.id, 'Mrazák')
     const row = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, item.id) })
     expect(row?.location).toBe('Mrazák')
+  })
+})
+
+describe('adjustPantryItemQuantityAction', () => {
+  it('rejects a pantry item id belonging to a different household', async () => {
+    const [otherItem] = await db.insert(schema.pantryItems).values({ householdId: otherHouseholdId, name: 'Mléko', category: 'Potraviny', quantity: 4 }).returning()
+    await expect(adjustPantryItemQuantityAction(otherItem.id, 3)).rejects.toThrow('Pantry item not found')
+  })
+
+  it('sets the quantity to the given absolute value (covers both the +/- stepper and typing an exact amount)', async () => {
+    const [item] = await db.insert(schema.pantryItems).values({ householdId, name: 'Mléko', category: 'Potraviny', quantity: 4 }).returning()
+    await adjustPantryItemQuantityAction(item.id, 3)
+    const row = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, item.id) })
+    expect(row?.quantity).toBe(3)
+  })
+
+  it('accepts a fractional quantity in the item\'s own unit, e.g. 1.5 kg', async () => {
+    const [item] = await db.insert(schema.pantryItems).values({ householdId, name: 'Kuřecí prsa', category: 'Potraviny', unit: 'kg', quantity: 2 }).returning()
+    await adjustPantryItemQuantityAction(item.id, 1.5)
+    const row = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, item.id) })
+    expect(row?.quantity).toBe(1.5)
+  })
+
+  it('allows reaching exactly 0 — the item stays in the pantry, it is not deleted', async () => {
+    const [item] = await db.insert(schema.pantryItems).values({ householdId, name: 'Mléko', category: 'Potraviny', quantity: 1 }).returning()
+    await adjustPantryItemQuantityAction(item.id, 0)
+    const row = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, item.id) })
+    expect(row).toBeDefined()
+    expect(row?.quantity).toBe(0)
+  })
+
+  it('rejects a negative quantity — stock must never go below 0', async () => {
+    const [item] = await db.insert(schema.pantryItems).values({ householdId, name: 'Mléko', category: 'Potraviny', quantity: 1 }).returning()
+    await expect(adjustPantryItemQuantityAction(item.id, -1)).rejects.toThrow('nesmí být záporné')
+    const row = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, item.id) })
+    expect(row?.quantity).toBe(1) // unchanged
+  })
+
+  it('never touches purchase_items — a manual stock edit is not a rewrite of purchase history', async () => {
+    const [purchase] = await db.insert(schema.purchases).values({ householdId, date: '2026-09-22', total: '10' }).returning()
+    await db.insert(schema.purchaseItems).values({ purchaseId: purchase.id, name: 'Mléko', quantity: 4, price: '10' })
+    const [item] = await db.insert(schema.pantryItems).values({ householdId, name: 'Mléko', category: 'Potraviny', quantity: 4 }).returning()
+
+    await adjustPantryItemQuantityAction(item.id, 1)
+
+    const purchaseItemRow = await db.query.purchaseItems.findFirst({ where: eq(schema.purchaseItems.purchaseId, purchase.id) })
+    expect(purchaseItemRow?.quantity).toBe(4) // untouched
   })
 })
 

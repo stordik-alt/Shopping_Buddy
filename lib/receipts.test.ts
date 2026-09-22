@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest'
+import type { ProductCatalogEntry } from '@/lib/products'
 import {
   hasRequiredReceiptFields,
   isLineItemConsistent,
   isPotentialDuplicate,
   isReceiptConsistent,
+  isRecognizedUnit,
   needsReview,
   normalizeOcrText,
   normalizeReceiptUnit,
   receiptTotal,
+  resolveItemPlacement,
   toReceiptLineItems,
   type ExtractedReceipt,
   type ExtractedReceiptItem,
@@ -21,6 +24,7 @@ const extractedItem = (overrides: Partial<ExtractedReceiptItem> = {}): Extracted
   unitPrice: 24.9,
   totalPrice: 49.8,
   discount: 0,
+  category: 'Potraviny',
   confidence: 0.96,
   ...overrides,
 })
@@ -108,6 +112,14 @@ describe('hasRequiredReceiptFields / needsReview', () => {
   it('needs review when a line item is mathematically inconsistent', () => {
     expect(needsReview(extractedReceipt({ items: [extractedItem({ totalPrice: 5000 })] }))).toBe(true)
   })
+
+  it('needs review when a line item has an unrecognized unit, rather than silently treating it as "ks"', () => {
+    expect(needsReview(extractedReceipt({ items: [extractedItem({ unit: 'furlongs' })] }))).toBe(true)
+  })
+
+  it('does not need review just because a unit is missing entirely (defaults to "ks")', () => {
+    expect(needsReview(extractedReceipt({ items: [extractedItem({ unit: null })] }))).toBe(false)
+  })
 })
 
 describe('isPotentialDuplicate', () => {
@@ -143,16 +155,90 @@ describe('normalizeReceiptUnit', () => {
     expect(normalizeReceiptUnit('gramy')).toBe('g')
   })
 
-  it('defaults to "ks" for null or an unrecognized unit, rather than rejecting the item', () => {
+  it('defaults to "ks" for null or an unrecognized unit, for display purposes — needsReview() is what actually blocks an unrecognized one from auto-completing', () => {
     expect(normalizeReceiptUnit(null)).toBe('ks')
     expect(normalizeReceiptUnit('furlongs')).toBe('ks')
+  })
+
+  it('supports every ItemUnit exactly, including fractional quantities like 0.582 kg (quantity itself is untouched by this function)', () => {
+    expect(normalizeReceiptUnit('kg')).toBe('kg')
+    expect(normalizeReceiptUnit('l')).toBe('l')
+    expect(normalizeReceiptUnit('ml')).toBe('ml')
+  })
+})
+
+describe('isRecognizedUnit', () => {
+  it('treats a missing or blank unit as recognized (defaults to "ks")', () => {
+    expect(isRecognizedUnit(null)).toBe(true)
+    expect(isRecognizedUnit('')).toBe(true)
+    expect(isRecognizedUnit('  ')).toBe(true)
+  })
+
+  it('treats a known unit spelling as recognized', () => {
+    expect(isRecognizedUnit('kg')).toBe(true)
+    expect(isRecognizedUnit('KS')).toBe(true)
+    expect(isRecognizedUnit('litr')).toBe(true)
+  })
+
+  it('treats an unknown unit as unrecognized, never silently accepted', () => {
+    expect(isRecognizedUnit('furlongs')).toBe(false)
+  })
+})
+
+describe('resolveItemPlacement', () => {
+  const catalogEntry = (overrides: Partial<Pick<ProductCatalogEntry, 'category' | 'defaultLocation'>> = {}) => ({
+    category: 'Potraviny' as const,
+    defaultLocation: null,
+    ...overrides,
+  })
+
+  it('prefers the catalog\'s remembered location over the AI-suggested category', () => {
+    // catalog says Mrazák; AI/receipt suggests Drogerie for this particular receipt — catalog wins
+    expect(resolveItemPlacement(catalogEntry({ category: 'Potraviny', defaultLocation: 'Mrazák' }), 'Drogerie', 'Bio kuře')).toEqual({
+      category: 'Potraviny',
+      location: 'Mrazák',
+    })
+  })
+
+  it('falls back to keyword classification for a catalog product with no remembered location yet', () => {
+    expect(resolveItemPlacement(catalogEntry({ category: 'Potraviny', defaultLocation: null }), null, 'Mléko')).toEqual({ category: 'Potraviny', location: 'Lednice' })
+  })
+
+  it('classifies deterministically by AI category + keyword when there is no catalog match', () => {
+    expect(resolveItemPlacement(null, 'Potraviny', 'Mražená zelenina')).toEqual({ category: 'Potraviny', location: 'Mrazák' })
+    expect(resolveItemPlacement(null, 'Drogerie', 'Šampon')).toEqual({ category: 'Drogerie', location: 'Domácnost' })
+  })
+
+  it('is unresolvable (null) when there is no catalog match and the AI gave no category at all', () => {
+    expect(resolveItemPlacement(null, null, 'Něco neznámého')).toBeNull()
+  })
+
+  it('is unresolvable (null) when there is no catalog match and the food item matches no storage keyword', () => {
+    expect(resolveItemPlacement(null, 'Potraviny', 'Naprosto neznámá potravina')).toBeNull()
+  })
+
+  it('is unresolvable (null) for a catalog product with no remembered location whose category+name also don\'t classify', () => {
+    expect(resolveItemPlacement(catalogEntry({ category: 'Ostatní', defaultLocation: null }), null, 'Cokoliv')).toBeNull()
   })
 })
 
 describe('toReceiptLineItems', () => {
-  it('converts a validated extraction into confirmable line items, using the per-unit price', () => {
-    const items = toReceiptLineItems(extractedReceipt({ items: [extractedItem({ name: 'Mléko', quantity: 2, unit: 'ks', unitPrice: 24.9, totalPrice: 49.8, confidence: 0.9 })] }))
-    expect(items).toEqual([{ name: 'Mléko', category: 'Ostatní', quantity: 2, unit: 'ks', price: 24.9, confidence: 0.9 }])
+  it('converts a validated extraction into confirmable line items, using the per-unit price and the AI-provided category', () => {
+    const items = toReceiptLineItems(extractedReceipt({ items: [extractedItem({ name: 'Mléko', quantity: 2, unit: 'ks', unitPrice: 24.9, totalPrice: 49.8, category: 'Potraviny', confidence: 0.9 })] }))
+    expect(items).toEqual([{ name: 'Mléko', category: 'Potraviny', quantity: 2, unit: 'ks', price: 24.9, location: 'Lednice', confidence: 0.9 }])
+  })
+
+  it('defaults category to "Ostatní" and leaves location unset when the AI gave no category and there is no catalog match', () => {
+    const [item] = toReceiptLineItems(extractedReceipt({ items: [extractedItem({ category: null })] }))
+    expect(item.category).toBe('Ostatní')
+    expect(item.location).toBeUndefined()
+  })
+
+  it('lets a catalog match override the AI-suggested category and location', () => {
+    const catalog: ProductCatalogEntry[] = [{ id: '1', name: 'Mléko', category: 'Potraviny', defaultUnit: 'ks', defaultLocation: 'Mrazák' }]
+    const [item] = toReceiptLineItems(extractedReceipt({ items: [extractedItem({ name: 'Mléko', category: 'Drogerie' })] }), catalog)
+    expect(item.category).toBe('Potraviny')
+    expect(item.location).toBe('Mrazák')
   })
 
   it('divides the line total by quantity to recover a per-unit price when unitPrice is missing (never double-counts quantity downstream)', () => {
@@ -169,6 +255,12 @@ describe('toReceiptLineItems', () => {
   it('defaults quantity to 1 when missing', () => {
     const [item] = toReceiptLineItems(extractedReceipt({ items: [extractedItem({ quantity: null })] }))
     expect(item.quantity).toBe(1)
+  })
+
+  it('preserves a fractional quantity exactly, e.g. 0.582 kg of meat sold by weight', () => {
+    const [item] = toReceiptLineItems(extractedReceipt({ items: [extractedItem({ name: 'Kuřecí prsa', quantity: 0.582, unit: 'kg', unitPrice: 189.9, totalPrice: 110.52 })] }))
+    expect(item.quantity).toBe(0.582)
+    expect(item.unit).toBe('kg')
   })
 
   it('falls back to unit price when total price is missing', () => {

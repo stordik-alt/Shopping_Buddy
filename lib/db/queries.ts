@@ -6,6 +6,7 @@ import { currentWeekStart, type WeeklyMealPlan } from '@/lib/meal-plans'
 import { inferPantryLocation } from '@/lib/pantry'
 import type { ProductPrice } from '@/lib/prices'
 import type { ProductCatalogEntry } from '@/lib/products'
+import type { ReceiptLineItem } from '@/lib/receipts'
 import type {
   Child,
   Expense,
@@ -49,6 +50,19 @@ const colorForIndex = (index: number) => ITEM_COLORS[index % ITEM_COLORS.length]
 export type SavedMealPlan = { weekStart: string; budgetLimit: number; plan: WeeklyMealPlan }
 export type PendingInvitation = { id: string; email: string; expiresAt: string }
 
+/** A receipt import the household still needs to act on — awaiting review, blocked on a duplicate
+ *  decision, or failed — per docs/08_OCR_RECEIPT_PIPELINE.md sections 13/14/19. A `completed`/
+ *  `cancelled`/manual-entry row never needs to appear here; it's already reflected in
+ *  `purchaseHistory`. */
+export type ReceiptImportState = {
+  id: string
+  status: (typeof schema.receiptStatusEnum.enumValues)[number]
+  imageUrl: string | null
+  errorMessage: string | null
+  extracted: { date: string | null; total: number | null; items: ReceiptLineItem[] } | null
+  purchaseId: string | null
+}
+
 export type HouseholdData = {
   household: Household
   mainListId: string
@@ -61,6 +75,45 @@ export type HouseholdData = {
   isOwner: boolean
   pendingInvitations: PendingInvitation[]
   pantryItems: PantryItem[]
+  pendingReceiptImports: ReceiptImportState[]
+}
+
+const RECEIPT_STATES_NEEDING_ATTENTION: (typeof schema.receiptStatusEnum.enumValues)[number][] = [
+  'uploaded',
+  'ocr_processing',
+  'ocr_completed',
+  'ocr_failed',
+  'parsing',
+  'parsed',
+  'parsing_failed',
+  'validating',
+  'review_required',
+  'duplicate_review',
+]
+
+/** Receipt imports the household still needs to act on (see `ReceiptImportState`). Shared between
+ *  `getHouseholdData()` (initial page load) and `app/actions/receipts.ts`'s mutations, which
+ *  return a single updated row through the same mapping via `toReceiptImportState`. */
+export async function getPendingReceiptImports(householdId: string): Promise<ReceiptImportState[]> {
+  const db = getDb()
+  const rows = await db.query.receiptImports.findMany({
+    where: and(eq(schema.receiptImports.householdId, householdId), eq(schema.receiptImports.source, 'ocr')),
+    orderBy: desc(schema.receiptImports.createdAt),
+  })
+  return rows.filter((row) => RECEIPT_STATES_NEEDING_ATTENTION.includes(row.status)).map(toReceiptImportState)
+}
+
+export function toReceiptImportState(row: typeof schema.receiptImports.$inferSelect): ReceiptImportState {
+  return {
+    id: row.id,
+    status: row.status,
+    imageUrl: row.imageUrl,
+    errorMessage: row.errorMessage,
+    extracted: row.items
+      ? { date: row.date, total: row.total != null ? Number(row.total) : null, items: JSON.parse(row.items) as ReceiptLineItem[] }
+      : null,
+    purchaseId: row.purchaseId,
+  }
 }
 
 /** The household's saved plan for the current week, if one has been generated yet. */
@@ -128,32 +181,34 @@ export async function getHouseholdData(userId: string, userName: string, userEma
   }
   if (!household) throw new Error(`Household ${ownMember!.householdId} referenced by household_members but missing`)
 
-  const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows, mealPlan, invitationRows, pantryRows] = await Promise.all([
-    db.query.householdMembers.findMany({
-      where: eq(schema.householdMembers.householdId, household.id),
-      with: { profile: true },
-      orderBy: asc(schema.householdMembers.joinedAt),
-    }),
-    db.query.children.findMany({ where: eq(schema.children.householdId, household.id) }),
-    db.query.preferences.findFirst({ where: eq(schema.preferences.householdId, household.id) }),
-    db.query.shoppingLists.findMany({
-      where: eq(schema.shoppingLists.householdId, household.id),
-      orderBy: asc(schema.shoppingLists.createdAt),
-    }),
-    db.query.expenses.findMany({ where: eq(schema.expenses.householdId, household.id), orderBy: asc(schema.expenses.date) }),
-    db.query.notifications.findMany({ where: eq(schema.notifications.householdId, household.id), orderBy: asc(schema.notifications.createdAt) }),
-    db.query.purchases.findMany({
-      where: eq(schema.purchases.householdId, household.id),
-      with: { items: true, storeLocation: { with: { store: true } } },
-      orderBy: asc(schema.purchases.date),
-    }),
-    getCurrentMealPlan(household.id),
-    db.query.invitations.findMany({
-      where: and(eq(schema.invitations.householdId, household.id), eq(schema.invitations.status, 'pending')),
-      orderBy: desc(schema.invitations.createdAt),
-    }),
-    db.query.pantryItems.findMany({ where: eq(schema.pantryItems.householdId, household.id), orderBy: asc(schema.pantryItems.addedAt) }),
-  ])
+  const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows, mealPlan, invitationRows, pantryRows, pendingReceiptImports] =
+    await Promise.all([
+      db.query.householdMembers.findMany({
+        where: eq(schema.householdMembers.householdId, household.id),
+        with: { profile: true },
+        orderBy: asc(schema.householdMembers.joinedAt),
+      }),
+      db.query.children.findMany({ where: eq(schema.children.householdId, household.id) }),
+      db.query.preferences.findFirst({ where: eq(schema.preferences.householdId, household.id) }),
+      db.query.shoppingLists.findMany({
+        where: eq(schema.shoppingLists.householdId, household.id),
+        orderBy: asc(schema.shoppingLists.createdAt),
+      }),
+      db.query.expenses.findMany({ where: eq(schema.expenses.householdId, household.id), orderBy: asc(schema.expenses.date) }),
+      db.query.notifications.findMany({ where: eq(schema.notifications.householdId, household.id), orderBy: asc(schema.notifications.createdAt) }),
+      db.query.purchases.findMany({
+        where: eq(schema.purchases.householdId, household.id),
+        with: { items: true, storeLocation: { with: { store: true } } },
+        orderBy: asc(schema.purchases.date),
+      }),
+      getCurrentMealPlan(household.id),
+      db.query.invitations.findMany({
+        where: and(eq(schema.invitations.householdId, household.id), eq(schema.invitations.status, 'pending')),
+        orderBy: desc(schema.invitations.createdAt),
+      }),
+      db.query.pantryItems.findMany({ where: eq(schema.pantryItems.householdId, household.id), orderBy: asc(schema.pantryItems.addedAt) }),
+      getPendingReceiptImports(household.id),
+    ])
 
   const myRawMember = members.find((member) => member.userId === userId)
   const isOwner = myRawMember?.role === 'owner'
@@ -272,6 +327,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
         askedAt: item.askedAt?.toString(),
       }),
     ),
+    pendingReceiptImports,
   }
 }
 

@@ -812,6 +812,8 @@ The AI assistant should be implemented only after:
 
 AI should consume reliable application data rather than compensate for missing application logic.
 
+**Explicit exception (2026-09-22, owner-approved):** receipt OCR import (`docs/08_OCR_RECEIPT_PIPELINE.md`) is allowed to use the Vercel AI SDK and an LLM call now, ahead of the AI phase above. The owner's own words: *"OCR chci mít vyřešené, na konec necháme AI asistenta. Toto AI je pouze pro import účtenek"* — this is a narrow, utility use of a model as one step of a deterministic pipeline (Google Cloud Vision does the actual OCR; the cheapest available model just restructures already-extracted text into JSON, never inventing a value — see `lib/receipts.ts`), not the conversational/recommendation "AI Shopping Assistant" this section defers. That assistant (`components/ai/ai-assistant.tsx`) and the rest of this section's ordering remain untouched — this exception covers only the receipt-structuring call in `lib/receipts.ts`'s `geminiStructuringProvider`, nothing broader. Do not treat this as opening the door to AI SDK usage elsewhere without a similarly explicit ask.
+
 ---
 
 # 31. AI Cost Control

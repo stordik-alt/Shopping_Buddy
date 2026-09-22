@@ -97,7 +97,7 @@ export function ShoppingList({
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
-      <div className="flex gap-2 overflow-x-auto pb-1" aria-label="Kategorie nákupu">
+      <div className="flex flex-wrap gap-2" aria-label="Kategorie nákupu">
         {['Vše', ...CATEGORIES].map((option) => (
           <button
             key={option}
@@ -119,7 +119,7 @@ export function ShoppingList({
         </span>
       </div>
       <StoreComparison items={items} productPrices={productPrices} remaining={remaining} stores={stores} userCoords={userCoords} />
-      <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Nákupní seznamy">
+      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Nákupní seznamy">
         {lists.map((list) => (
           <button
             key={list}

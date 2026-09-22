@@ -13,14 +13,18 @@ import {
   updateHouseholdAction,
   updateHouseholdPreferencesAction,
 } from '@/app/actions/household'
+import { markMealCookedAction } from '@/app/actions/meal-plan'
 import { markAllNotificationsReadAction, markNotificationReadAction } from '@/app/actions/notifications'
+import { confirmPantryItemAction, movePantryItemAction, removePantryItemAction } from '@/app/actions/pantry'
 import { completePurchaseAction } from '@/app/actions/purchases'
+import { importReceiptAction } from '@/app/actions/receipts'
 import { addShoppingItemAction, addShoppingListAction, removeShoppingItemAction, toggleShoppingItemAction, updateShoppingItemAction } from '@/app/actions/shopping'
 import { AiAssistant } from '@/components/ai/ai-assistant'
 import { BudgetOverview } from '@/components/budget/budget-overview'
 import { ExpenseHistory } from '@/components/budget/expense-history'
 import { ExpenseModal } from '@/components/budget/expense-modal'
 import { PurchaseHistory } from '@/components/budget/purchase-history'
+import { ReceiptImport } from '@/components/budget/receipt-import'
 import { DashboardOverview } from '@/components/dashboard/dashboard-overview'
 import { MealPlan } from '@/components/dashboard/meal-plan'
 import { PriceWatch } from '@/components/dashboard/price-watch'
@@ -31,12 +35,15 @@ import { NotificationPanel } from '@/components/notifications/notification-panel
 import { AppHeader } from '@/components/shared/app-header'
 import { AppSidebar } from '@/components/shared/app-sidebar'
 import { MobileNav } from '@/components/shared/mobile-nav'
+import { Pantry } from '@/components/shopping/pantry'
 import { ShoppingList } from '@/components/shopping/shopping-list'
 import { StoreDirectory } from '@/components/stores/store-directory'
 import { TODAY } from '@/lib/budget'
 import type { HouseholdData } from '@/lib/db/queries'
+import type { MealType } from '@/lib/meal-plans'
 import type { ProductPrice } from '@/lib/prices'
-import type { Item, Store, Tab } from '@/lib/types'
+import type { ReceiptLineItem } from '@/lib/receipts'
+import type { Item, PantryLocation, Store, Tab } from '@/lib/types'
 import { useUserLocation } from '@/lib/use-user-location'
 
 export function AppShell({
@@ -61,6 +68,7 @@ export function AppShell({
   const [newItem, setNewItem] = useState('')
   const [shoppingLists, setShoppingLists] = useState(initialData.shoppingLists)
   const [pendingInvitations, setPendingInvitations] = useState(initialData.pendingInvitations)
+  const [pantryItems, setPantryItems] = useState(initialData.pantryItems)
   const router = useRouter()
   const userLocation = useUserLocation()
 
@@ -75,6 +83,7 @@ export function AppShell({
     setExpenses(initialData.expenses)
     setShoppingLists(initialData.shoppingLists)
     setPendingInvitations(initialData.pendingInvitations)
+    setPantryItems(initialData.pantryItems)
   }, [initialData])
 
   useEffect(() => {
@@ -107,17 +116,22 @@ export function AppShell({
     if (notification) setNotifications((current) => [...current, notification])
   }
 
-  function addIngredients(ingredients: { name: string; category: Item['category'] }[]) {
-    Promise.all(
-      ingredients.map((ingredient) =>
-        addShoppingItemAction(initialData.mainListId, ingredient.name, { detail: '1 ks · z jídelníčku', category: ingredient.category }),
-      ),
-    ).then((results) => {
-      setItems((current) => [...current, ...results.map((r) => r.item)])
-      const newNotifications = results.map((r) => r.notification).filter((n) => n != null)
-      if (newNotifications.length > 0) setNotifications((current) => [...current, ...newNotifications])
-    })
+  // Sequential on purpose — was Promise.all, which fired one addShoppingItemAction per ingredient
+  // concurrently. Each call ends in its own revalidatePath('/'), and with a dozen-plus in flight
+  // at once (routine now that a stock-aware meal plan's "toBuy" list can run to 20-30 items), the
+  // client can end up applying a stale mid-batch server snapshot over the correct optimistic
+  // state, leaving the shopping list looking empty until a hard reload even though every insert
+  // actually succeeded. Awaiting one at a time keeps at most one revalidation in flight.
+  async function addIngredients(ingredients: { name: string; category: Item['category'] }[]) {
     setTab('Nákup')
+    for (const ingredient of ingredients) {
+      const { item, notification } = await addShoppingItemAction(initialData.mainListId, ingredient.name, {
+        detail: '1 ks · z jídelníčku',
+        category: ingredient.category,
+      })
+      setItems((current) => [...current, item])
+      if (notification) setNotifications((current) => [...current, notification])
+    }
   }
 
   function updateItem(id: string, changes: Partial<Item>) {
@@ -191,6 +205,31 @@ export function AppShell({
     revokeInvitationAction(id)
   }
 
+  function confirmPantryItem(id: string) {
+    setPantryItems((current) => current.map((item) => (item.id === id ? { ...item, addedAt: new Date().toISOString(), askedAt: undefined } : item)))
+    confirmPantryItemAction(id)
+  }
+
+  function removePantryItem(id: string) {
+    setPantryItems((current) => current.filter((item) => item.id !== id))
+    removePantryItemAction(id)
+  }
+
+  function movePantryItem(id: string, location: PantryLocation) {
+    setPantryItems((current) => current.map((item) => (item.id === id ? { ...item, location } : item)))
+    movePantryItemAction(id, location)
+  }
+
+  function markMealCooked(day: string, mealType: MealType) {
+    markMealCookedAction(day, mealType)
+    router.refresh() // picks up the pantry deduction the server action just made
+  }
+
+  async function importReceipt(items: ReceiptLineItem[], options: { date?: string; storeLocationId?: string }) {
+    await importReceiptAction(items, options)
+    router.refresh() // picks up the new purchase-history entry and restocked pantry
+  }
+
   function readNotification(id: string) {
     setNotifications((current) => current.map((notification) => (notification.id === id ? { ...notification, unread: false } : notification)))
     markNotificationReadAction(id)
@@ -254,28 +293,31 @@ export function AppShell({
                     onExpense={() => setExpenseOpen(true)}
                   />
                   <SavingsInsight remaining={remaining} onAi={() => setTab('AI')} />
-                  <MealPlan household={household} initialPlan={initialData.mealPlan} onAddIngredients={addIngredients} />
+                  <MealPlan household={household} initialPlan={initialData.mealPlan} pantryItems={pantryItems} onAddIngredients={addIngredients} onMarkCooked={markMealCooked} />
                   <PriceWatch onStores={() => setTab('Obchody')} productPrices={productPrices} />
                   <QuickActions onShopping={() => setTab('Nákup')} onStores={() => setTab('Obchody')} onAi={() => setTab('AI')} />
                 </>
               )}
               {tab === 'Nákup' && (
-                <ShoppingList
-                  items={items}
-                  newItem={newItem}
-                  setNewItem={setNewItem}
-                  addItem={addItem}
-                  updateItem={updateItem}
-                  removeItem={removeItem}
-                  toggle={toggleItem}
-                  lists={shoppingLists}
-                  onAddList={addShoppingListName}
-                  productPrices={productPrices}
-                  remaining={remaining}
-                  stores={stores}
-                  userCoords={userLocation.coords}
-                  completePurchase={completePurchase}
-                />
+                <div className="mx-auto max-w-3xl space-y-5">
+                  <ShoppingList
+                    items={items}
+                    newItem={newItem}
+                    setNewItem={setNewItem}
+                    addItem={addItem}
+                    updateItem={updateItem}
+                    removeItem={removeItem}
+                    toggle={toggleItem}
+                    lists={shoppingLists}
+                    onAddList={addShoppingListName}
+                    productPrices={productPrices}
+                    remaining={remaining}
+                    stores={stores}
+                    userCoords={userLocation.coords}
+                    completePurchase={completePurchase}
+                  />
+                  <Pantry items={pantryItems} onConfirm={confirmPantryItem} onRemove={removePantryItem} onMove={movePantryItem} />
+                </div>
               )}
               {tab === 'Obchody' && (
                 <StoreDirectory
@@ -297,6 +339,7 @@ export function AppShell({
                     onExpense={() => setExpenseOpen(true)}
                   />
                   <ExpenseHistory expenses={expenses} />
+                  <ReceiptImport stores={stores} onImport={importReceipt} />
                   <PurchaseHistory records={initialData.purchaseHistory} />
                 </div>
               )}

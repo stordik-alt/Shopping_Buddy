@@ -25,7 +25,7 @@
 - ~~compare selected stores~~ done: `lib/prices.ts`'s `compareStoreTotals`/`cheapestPossibleTotal`, surfaced as `components/shopping/store-comparison.tsx` on the shopping-list tab (see `docs/07_CHANGELOG.md`)
 - ~~unit-price comparison~~ done — was already covered per-item by `PriceComparison`; the above extends it to whole-list, whole-store totals
 - ~~promotion quality~~ done: `lib/prices.ts`'s `assessDealQuality()`, wired into `price-watch.tsx` — flags a deal that isn't actually the cheapest price for that product across known stores (see `docs/07_CHANGELOG.md`)
-- stock/storage constraints
+- ~~stock/storage constraints~~ done: a household pantry (`lib/pantry.ts`, `pantry_items`) tracks what the household believes it has at home — by location (Spíž/Lednice/Mrazák/Domácnost, `inferPantryLocation()`, manually reassignable) — restocked automatically by `completePurchaseAction`/`importReceiptAction` and re-checked periodically (per-category interval) by a daily cron, `/api/cron/pantry-checkin`. The Smart Shopping Engine's shopping-list optimization itself still doesn't consume pantry state directly; what does now consume it is meal-plan generation (`generateWeeklyPlan(..., pantryItems)`), which can prefer recipes using what's in stock and skips already-owned ingredients when adding to the shopping list (see `docs/07_CHANGELOG.md`)
 - ~~trip-distance constraints~~ done: `lib/geo.ts`'s `nearestLocation()`, surfaced in `store-comparison.tsx` next to each store's total when the user has granted location (shared, via a new `useUserLocation()` hook, with the Stores tab's existing opt-in — never a second prompt). Shown as one more factor, never auto-selects the nearest store, per `docs/05_BUSINESS_RULES.md` (see `docs/07_CHANGELOG.md`)
 - ~~budget constraints~~ done: `lib/budget.ts`'s `budgetImpact()`, surfaced in `store-comparison.tsx` — flags when even the cheapest store option exceeds the household's remaining monthly budget, otherwise shows what percentage of it the trip would use (see `docs/07_CHANGELOG.md`)
 - bulk-buy recommendations
@@ -60,6 +60,7 @@
 - meal-plan assistance
 - explanations of price and budget choices
 - strict anti-hallucination rules
+- OCR receipt import (Google Cloud Vision + a cheap structuring model, e.g. Gemini Flash-Lite) — full target design captured in `docs/08_OCR_RECEIPT_PIPELINE.md`, not implemented; manual receipt entry (`app/actions/receipts.ts`) is the working path until this phase starts
 
 ## Rule
 Do not implement a later phase by weakening the foundations of an earlier phase.

@@ -86,3 +86,53 @@ describe('completePurchaseAction', () => {
     expect(withoutStore?.items.map((i) => i.name)).toEqual(['Bez obchodu'])
   })
 })
+
+describe('completePurchaseAction — pantry restocking', () => {
+  it('creates a new pantry row for a product not seen before', async () => {
+    await db.insert(schema.shoppingListItems).values({ listId, name: 'Rýže', done: true, price: '40', quantity: 1, category: 'Potraviny' })
+    await completePurchaseAction(listId)
+
+    const pantryRow = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.householdId, householdId) })
+    expect(pantryRow?.name).toBe('Rýže')
+    expect(pantryRow?.quantity).toBe(1)
+    expect(pantryRow?.category).toBe('Potraviny')
+    expect(pantryRow?.location).toBe('Spíž') // shelf-stable, no fridge/freezer keyword match
+    expect(pantryRow?.askedAt).toBeNull()
+  })
+
+  it('infers the fridge/freezer/household location for a new row from category and name', async () => {
+    await db.insert(schema.shoppingListItems).values({ listId, name: 'Kuřecí prsa', done: true, price: '90', quantity: 1, category: 'Potraviny' })
+    await db.insert(schema.shoppingListItems).values({ listId, name: 'Mražený hrášek', done: true, price: '25', quantity: 1, category: 'Potraviny' })
+    await db.insert(schema.shoppingListItems).values({ listId, name: 'Prací prostředek', done: true, price: '150', quantity: 1, category: 'Drogerie' })
+    await completePurchaseAction(listId)
+
+    const rows = await db.query.pantryItems.findMany({ where: eq(schema.pantryItems.householdId, householdId) })
+    expect(rows.find((r) => r.name === 'Kuřecí prsa')?.location).toBe('Lednice')
+    expect(rows.find((r) => r.name === 'Mražený hrášek')?.location).toBe('Mrazák')
+    expect(rows.find((r) => r.name === 'Prací prostředek')?.location).toBe('Domácnost')
+  })
+
+  it('does not re-infer location on restock, so a manual move (e.g. into the freezer) survives a later purchase', async () => {
+    await db.insert(schema.pantryItems).values({ householdId, name: 'Kuřecí prsa', category: 'Potraviny', location: 'Mrazák', quantity: 1 })
+    await db.insert(schema.shoppingListItems).values({ listId, name: 'Kuřecí prsa', done: true, price: '90', quantity: 1, category: 'Potraviny' })
+    await completePurchaseAction(listId)
+
+    const row = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.householdId, householdId) })
+    expect(row?.location).toBe('Mrazák') // stayed put — restock never overwrites an existing row's location
+    expect(row?.quantity).toBe(2)
+  })
+
+  it('sums quantity into an existing pantry row on restock, case-insensitively by name, and resets askedAt', async () => {
+    const twoDaysAgo = new Date(Date.now() - 2 * 86_400_000)
+    await db.insert(schema.pantryItems).values({ householdId, name: 'Vejce', category: 'Potraviny', quantity: 6, addedAt: twoDaysAgo, askedAt: twoDaysAgo })
+
+    await db.insert(schema.shoppingListItems).values({ listId, name: 'VEJCE', done: true, price: '5', quantity: 10, category: 'Potraviny' })
+    await completePurchaseAction(listId)
+
+    const pantryRows = await db.query.pantryItems.findMany({ where: eq(schema.pantryItems.householdId, householdId) })
+    expect(pantryRows).toHaveLength(1) // restocked, not duplicated
+    expect(pantryRows[0].quantity).toBe(16)
+    expect(pantryRows[0].askedAt).toBeNull()
+    expect(pantryRows[0].addedAt.getTime()).toBeGreaterThan(twoDaysAgo.getTime())
+  })
+})

@@ -1,8 +1,9 @@
-import { and, asc, desc, eq } from 'drizzle-orm'
+import { and, asc, desc, eq, ilike } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { TODAY } from '@/lib/budget'
 import { currentWeekStart, type WeeklyMealPlan } from '@/lib/meal-plans'
+import { inferPantryLocation } from '@/lib/pantry'
 import type { ProductPrice } from '@/lib/prices'
 import type { ProductCatalogEntry } from '@/lib/products'
 import type {
@@ -11,7 +12,10 @@ import type {
   Household,
   HouseholdMember,
   Item,
+  ItemCategory,
+  ItemUnit,
   Notification,
+  PantryItem,
   PriceSensitivity,
   PurchaseRecord,
   QualityPreference,
@@ -56,6 +60,7 @@ export type HouseholdData = {
   mealPlan: SavedMealPlan | null
   isOwner: boolean
   pendingInvitations: PendingInvitation[]
+  pantryItems: PantryItem[]
 }
 
 /** The household's saved plan for the current week, if one has been generated yet. */
@@ -66,7 +71,11 @@ async function getCurrentMealPlan(householdId: string): Promise<SavedMealPlan | 
     where: and(eq(schema.mealPlans.householdId, householdId), eq(schema.mealPlans.weekStart, weekStart)),
   })
   if (!row) return null
-  return { weekStart: row.weekStart, budgetLimit: Number(row.budgetLimit), plan: JSON.parse(row.plan) as WeeklyMealPlan }
+  // Backfills cookedMeals for a plan saved before that field existed — JSON.parse simply omits it,
+  // even though the type says it's always there.
+  const parsed = JSON.parse(row.plan) as WeeklyMealPlan
+  const plan: WeeklyMealPlan = { ...parsed, cookedMeals: parsed.cookedMeals ?? [] }
+  return { weekStart: row.weekStart, budgetLimit: Number(row.budgetLimit), plan }
 }
 
 /** Creates a new household with the signed-in user as its owner (first login after sign-up, no pending invite). */
@@ -119,7 +128,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
   }
   if (!household) throw new Error(`Household ${ownMember!.householdId} referenced by household_members but missing`)
 
-  const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows, mealPlan, invitationRows] = await Promise.all([
+  const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows, mealPlan, invitationRows, pantryRows] = await Promise.all([
     db.query.householdMembers.findMany({
       where: eq(schema.householdMembers.householdId, household.id),
       with: { profile: true },
@@ -143,6 +152,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
       where: and(eq(schema.invitations.householdId, household.id), eq(schema.invitations.status, 'pending')),
       orderBy: desc(schema.invitations.createdAt),
     }),
+    db.query.pantryItems.findMany({ where: eq(schema.pantryItems.householdId, household.id), orderBy: asc(schema.pantryItems.addedAt) }),
   ])
 
   const myRawMember = members.find((member) => member.userId === userId)
@@ -250,6 +260,56 @@ export async function getHouseholdData(userId: string, userName: string, userEma
     pendingInvitations: invitationRows.map(
       (invitation): PendingInvitation => ({ id: invitation.id, email: invitation.email, expiresAt: invitation.expiresAt.toString() }),
     ),
+    pantryItems: pantryRows.map(
+      (item): PantryItem => ({
+        id: item.id,
+        name: item.name,
+        category: item.category,
+        location: item.location,
+        quantity: item.quantity,
+        unit: item.unit,
+        addedAt: item.addedAt.toString(),
+        askedAt: item.askedAt?.toString(),
+      }),
+    ),
+  }
+}
+
+/** Restocks (or creates) a pantry row for a purchased item — matched by `productId` when known,
+ *  otherwise by name (case-insensitive, no fuzzy matching, same philosophy as
+ *  `lib/products.ts`'s `matchProductByName`). Sums quantity into the existing row rather than
+ *  overwriting it, per the product owner's explicit call ("sčítat množství"), and resets
+ *  `addedAt`/`askedAt` so the check-in interval (`lib/pantry.ts`) restarts from a fresh restock.
+ *  Shared by every purchase-creating path (`completePurchaseAction`, `importReceiptAction`) so the
+ *  restocking rule lives in exactly one place. A brand-new row's location is seeded from
+ *  `inferPantryLocation()`; an existing row's location is left untouched, so a manual move (e.g.
+ *  chilled meat into the freezer) survives the next purchase of the same item. */
+export async function restockPantryItem(
+  householdId: string,
+  item: { productId: string | null; name: string; category: ItemCategory; quantity: number; unit: ItemUnit },
+) {
+  const db = getDb()
+  const existing = item.productId
+    ? await db.query.pantryItems.findFirst({ where: and(eq(schema.pantryItems.householdId, householdId), eq(schema.pantryItems.productId, item.productId)) })
+    : await db.query.pantryItems.findFirst({
+        where: and(eq(schema.pantryItems.householdId, householdId), ilike(schema.pantryItems.name, item.name.trim())),
+      })
+
+  if (existing) {
+    await db
+      .update(schema.pantryItems)
+      .set({ quantity: existing.quantity + item.quantity, addedAt: new Date(), askedAt: null })
+      .where(eq(schema.pantryItems.id, existing.id))
+  } else {
+    await db.insert(schema.pantryItems).values({
+      householdId,
+      productId: item.productId,
+      name: item.name,
+      category: item.category,
+      location: inferPantryLocation(item.category, item.name),
+      quantity: item.quantity,
+      unit: item.unit,
+    })
   }
 }
 
@@ -301,13 +361,18 @@ export async function getStores(): Promise<Store[]> {
   }))
 }
 
-/** The full product catalog as id/name pairs — used to resolve a free-text shopping-list item
- *  name to a real `productId` (see `lib/products.ts`'s `matchProductByName()`). Deliberately not
- *  filtered to only priced products, unlike `getProductPrices()` below: an item can identify a
- *  real product even before that product has any price data. */
+/** The full product catalog as id/name/category triples — used to resolve a free-text shopping-
+ *  list item name to a real `productId` and its real category (see `lib/products.ts`'s
+ *  `matchProductByName()`). The category is included so a matched product's real category can
+ *  flow onto the shopping-list item instead of the schema default ('Ostatní') — found missing
+ *  while testing the pantry-location heuristic (`lib/pantry.ts`'s `inferPantryLocation()`), which
+ *  depends on the item actually being categorized 'Potraviny' to ever route it to Lednice/Mrazák.
+ *  Deliberately not filtered to only priced products, unlike `getProductPrices()` below: an item
+ *  can identify a real product even before that product has any price data. */
 export async function getProductCatalog(): Promise<ProductCatalogEntry[]> {
   const db = getDb()
-  return db.query.products.findMany({ columns: { id: true, name: true } })
+  const products = await db.query.products.findMany({ columns: { id: true, name: true }, with: { category: { columns: { name: true } } } })
+  return products.map((product) => ({ id: product.id, name: product.name, category: product.category.name }))
 }
 
 /** Per-product prices across stores, with any currently active deal folded in. One entry per store's latest recorded price. */

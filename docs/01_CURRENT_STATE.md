@@ -4,7 +4,7 @@
 **Stable branch:** `main`
 **Current backend development branch:** `v0/backend`
 **Previous frontend branch:** `V0/continue-frontend` — historical/obsolete unless explicitly requested
-**Last updated:** 2026-09-21
+**Last updated:** 2026-09-22
 
 ---
 
@@ -576,6 +576,8 @@ Meal planning is intended to integrate with:
 
 The meal-plan domain should not be duplicated by creating another independent recipe/meal system.
 
+**Update 2026-09-22:** Generation is now optionally stock-aware (uses the household pantry to favor recipes it can partly make from what's already at home), individual meals can be regenerated one at a time, and a meal can be marked cooked to deduct its ingredients from the pantry. See section 33.
+
 ---
 
 # 21. Purchase History
@@ -599,6 +601,8 @@ Purchase history is intended to support future functionality such as:
 This area remains less mature than the core shopping-list and budget functionality.
 
 **Update 2026-09-21:** Found this was more than "less mature" — no Server Action ever wrote a real purchase; `purchases`/`purchase_items` were seeded once and read-only ever since (the analytics in `lib/purchase-history.ts` and `components/budget/purchase-history.tsx` were real, just fed frozen data). Added `app/actions/purchases.ts`'s `completePurchaseAction(listId)`, triggered by a new "Dokončit nákup" button next to the shopping list's existing "Vymazat hotové" (the two now coexist: one just discards done items, the other turns them into real purchase history). It groups the list's done items by preferred store (items with none share one purchase with no store — a real case, not an error) and creates one `purchases` row + its `purchase_items` per group, then removes those items from the list. Found and fixed a related bug while wiring this up: `getHouseholdData()` was defaulting a purchase's store to `'Lidl'` whenever `storeLocationId` was null (`purchase.storeLocation?.store.chain ?? 'Lidl'`) — silently inventing data. `PurchaseRecord.store` is now correctly optional, matching the schema's real nullability, and the UI shows "Neurčený obchod" instead. Verified in a real browser against the real dev database: added a real catalog item, marked it done, clicked "Dokončit nákup", confirmed the item left the shopping list and a real purchase appeared in the budget tab's history with the correct date, store fallback text, and "Nejčastěji kupované" analytics update. The item's `price` in the resulting purchase reflects `shoppingListItems.price` (the item's own stored price field, same as `plannedSpend()` already uses for budget planning) — not the live catalog price shown via `productPrices`, which is a separate, pre-existing gap (nothing has ever synced these two) rather than something new. `purchaseItems.productId` is now actually populated too, inherited from the shopping-list item's own `productId` (see section 12).
+
+**Update 2026-09-22:** A second write path now exists alongside `completePurchaseAction`: `app/actions/receipts.ts`'s `importReceiptAction()` turns manually-entered receipt line items into a real purchase (plus pantry restocking), with the OCR-extraction step deliberately stubbed for later. See section 33.
 
 ---
 
@@ -832,7 +836,13 @@ Started 2026-09-21, expanded same day: every Server Action that takes a client-s
 
 ## Purchase analytics
 
-Real purchases can now be created (`completePurchaseAction`, see section 21) — the analytics functions in `lib/purchase-history.ts` finally have a real write path feeding them, not just seed data. Deeper analytics beyond what's already there (average monthly spend, favorite store, most-bought products, repeat purchases) are still open, and the receipt-import idea (importing a purchase from a scanned/photographed receipt) raised by the owner is not started — likely OCR/external-service work, out of scope for now.
+Real purchases can now be created (`completePurchaseAction`, see section 21) — the analytics functions in `lib/purchase-history.ts` finally have a real write path feeding them, not just seed data. Deeper analytics beyond what's already there (average monthly spend, favorite store, most-bought products, repeat purchases) are still open. The receipt-import idea raised by the owner is now scaffolded (`app/actions/receipts.ts`, `lib/receipts.ts`, `receipt_imports` table — see section 33): manual entry works today and produces a real purchase; the actual OCR/vision extraction step is an explicit placeholder (`unimplementedOcrProvider`) pending the AI phase, and there's no image upload/storage yet either.
+
+**Update 2026-09-22:** The owner provided a full target design for the real OCR pipeline (Google Cloud Vision for OCR, a cheap structuring model like Gemini Flash-Lite, validation/confidence/duplicate-detection rules, a full import state machine) — captured verbatim as `docs/08_OCR_RECEIPT_PIPELINE.md`. **Planning only, not implemented** — it calls external AI/model APIs, which `CLAUDE.md` section 30 forbids before the AI phase (or explicit owner authorization as an exception). The doc includes an explicit mapping of the proposal onto the schema/code that already exists (`receipt_imports`, `ReceiptOcrProvider`, `importReceiptAction`) so implementation doesn't accidentally build a parallel system when this phase actually starts.
+
+## Meal-plan ingredient quantities
+
+Recipes have no per-ingredient quantity/serving-size data (see section 33) — "uses from stock" and "consumes from stock on cooked" are both unit-agnostic, treating one recipe use as consuming exactly one unit of whatever the pantry tracks that ingredient in. Real serving-size data doesn't exist yet; adding it without inventing numbers would need real recipe data as a source.
 
 ## International rollout
 
@@ -876,6 +886,8 @@ Recent development has included:
 * price-history foundation: append-only observation recording + historic-low detection (not yet fed by a real ingestion source)
 * real `productId` link from shopping-list items to the catalog (was dead schema; the whole app matched on free-text names before this), plus a native autocomplete on the input so typed text has a real chance of matching
 * real purchase-history write path (`completePurchaseAction`, "Dokončit nákup") — `purchases`/`purchase_items` were seed-only and read-only until now; also fixed a data-inventing bug found along the way (`?? 'Lidl'` store fallback)
+* household pantry ("spíž"): `pantry_items` table, automatic restocking on purchase, a daily check-in cron, confirm/remove Server Actions, and UI nested in the shopping-list tab (see section 32)
+* pantry locations (spíž/lednice/mrazák/domácnost) with keyword-based auto-assignment and manual cross-location moves; stock-aware meal-plan generation and per-meal regeneration; marking a cooked meal deducts its ingredients from the pantry; OCR-ready receipt import with manual entry as the working path today (see section 33)
 * currency fields
 * migration baseline
 * automated tests for selected domains
@@ -973,7 +985,48 @@ The application should remain stable while functionality is expanded incremental
 
 ---
 
-# 32. Current Development Principle
+# 32. Household Pantry ("Spíž")
+
+**Added 2026-09-22.** A new domain, owner-requested, not part of the original Phase 8 notification set (section 19) but following the same deterministic-generator pattern.
+
+The `pantry_items` table (migration `0003_pantry_items.sql`) tracks what a household believes it currently has at home:
+
+* `completePurchaseAction` (section 21) restocks or creates a pantry row for every item in a finished purchase — matched by `productId` when known, otherwise by case-insensitive name, summing quantity rather than overwriting on a repeat purchase.
+* A new daily Vercel Cron job, `/api/cron/pantry-checkin` (`vercel.json`, same `CRON_SECRET` auth model as `shopping-reminders`), asks the household "do you still have this?" once a per-category interval has elapsed since an item was added/restocked or last asked about (`lib/pantry.ts`'s `isDueForCheckin()`/`findDueForCheckin()`). Unlike a shopping reminder, this can fire more than once per item — an unconfirmed pantry item stays relevant rather than being a one-time event.
+* `app/actions/pantry.ts`'s `confirmPantryItemAction` ("Ještě mám") resets the check-in interval; `removePantryItemAction` ("Došlo") deletes the row outright, since a future purchase creates a fresh one.
+* Per-category check-in intervals (`CHECKIN_DAYS_BY_CATEGORY` in `lib/pantry.ts`) are placeholder defaults (10/30/21/30/14 days), an explicit interim choice since there is no real per-product shelf-life data yet to be more precise than category-level.
+* UI: a new `Pantry` component (`components/shopping/pantry.tsx`), nested inside the existing "Nákup" tab below the shopping list rather than as a new top-level tab, per section 29 ("preserve existing navigation... only change UI where required").
+* Tests: `lib/pantry.test.ts` (pure check-in-interval logic), `app/actions/pantry.test.ts` (cross-household rejection + behavior for both actions), and two `completePurchaseAction` restocking cases added to `app/actions/purchases.test.ts` (new pantry row, and summed-quantity restock with reset `askedAt`).
+* Not yet done: the Smart Shopping Engine (section 22) does not consume pantry state to suggest skipping an already-stocked staple — see `docs/04_ROADMAP.md` Phase C. Full interactive browser verification was not performed this session (no browser available in this environment); verification here was `tsc --noEmit`, `next build`, and the full Vitest suite against the real dev database, plus a smoke check that `next dev` serves pages without a server error.
+
+---
+
+# 33. Pantry Locations, Cross-Location Moves, Stock-Aware Meal Plans, and Receipt Import
+
+**Added 2026-09-22**, owner-requested, on top of the Household Pantry work in section 32.
+
+**Pantry locations.** `pantry_items.location` (migration `0004_pantry_locations_and_receipt_imports.sql`) tracks which of four locations an item lives in: Spíž, Lednice, Mrazák, Domácnost. A new row's location is seeded by `lib/pantry.ts`'s `inferPantryLocation()` — non-food categories go straight to Domácnost, "Potraviny" items are split between Lednice/Mrazák/Spíž by a small, explicitly placeholder Czech keyword list (e.g. "mražen", "zmrzlina" → Mrazák; "mléko", "sýr", "maso" → Lednice; everything else defaults to the shelf). Restocking an *existing* row (a repeat purchase) never re-infers the location, so a manual move survives it. `app/actions/pantry.ts`'s new `movePantryItemAction(id, location)` lets the household reassign any item to any location by hand — general-purpose, which also covers the specific "moved chilled meat into the freezer" case without a separate action. The `Pantry` UI (`components/shopping/pantry.tsx`) now groups items into one card per location and exposes the move as a `<select>` per row.
+
+**Stock-aware meal plans.** `lib/meal-plans.ts`'s `generateWeeklyPlan()` takes an optional `pantryItems` argument (a household opt-in checkbox, "Vytvořit ze zásob", in `components/dashboard/meal-plan.tsx`); when supplied, each meal slot prefers whichever candidate recipe in its pool uses the most currently-in-stock ingredients (`matchIngredientToStock()`, case/whitespace-insensitive exact name match, no fuzzy matching — same philosophy as `lib/products.ts`). `splitIngredientsByStock()` then separates the full plan's ingredient list into what's already at home (`fromStock`) and what still needs buying (`toBuy`); "Přidat chybějící do nákupního seznamu" now adds only `toBuy`, regardless of whether stock-aware generation was used — never adding something already in the pantry to the shopping list. **Not modeled**: recipes have no per-ingredient quantity (a shopping-list item defaults to 1 the same way), so "uses stock" and "consumes stock" (below) are both unit-agnostic — one recipe use consumes exactly one unit of whatever the pantry tracks that ingredient in, not a realistic serving size. Real serving-size data doesn't exist yet; inventing it was explicitly avoided.
+
+**Regenerate a single meal.** `regenerateMeal(plan, day, mealType, household, pantryItems?)` swaps out just one day's one meal slot (a "🔄" button per meal in the UI) rather than discarding the whole week, always excluding the currently-shown recipe so a click reliably produces something different; deterministic (no randomness), so it stays unit-testable.
+
+**Mark a meal cooked → deduct from stock.** Each meal now has a "✓" button. `app/actions/meal-plan.ts`'s new `markMealCookedAction(day, mealType)` looks up the household's saved plan for the current week, and for each of that recipe's ingredients, decrements the matching pantry row's quantity by 1 (deleting the row outright if it would hit zero), then records the meal as cooked in the plan's new `cookedMeals: string[]` field (`WeeklyMealPlan`). Idempotent — marking an already-cooked meal again does nothing, so a duplicate click can't double-deduct. Never invents or goes negative: an ingredient with no matching pantry row (or already at zero) is simply skipped. One-directional by design — there is no "unmark" that restores what was deducted, since nothing tracks exactly what a specific marking deducted in order to reverse it.
+
+**Receipt import, OCR-ready.** New `receipt_imports` table (same migration) and `app/actions/receipts.ts`'s `importReceiptAction()` turn a set of line items into a real purchase — same downstream effect as `completePurchaseAction` (one `purchases`/`purchase_items` row set, plus pantry restocking via the same shared `restockPantryItem()`, now moved from `app/actions/purchases.ts` into `lib/db/queries.ts` so both call sites share one implementation). Every import today has `source: 'manual'`: `components/budget/receipt-import.tsx` is a plain hand-entry form (name/category/quantity/unit/price rows, optional store and date) — there is no OCR yet, and the UI says so explicitly rather than pretending otherwise. `lib/receipts.ts` defines the seam a real OCR/vision provider plugs into later (`ReceiptOcrProvider` interface, `ExtractedReceipt` shape) with only a placeholder `unimplementedOcrProvider` that throws — per CLAUDE.md section 30, no AI SDK/vision-model call is wired up before the AI phase. When OCR does arrive, only how `items` gets populated needs to change; the Server Action, schema, and pantry-restocking path do not. **Deliberately not done**: actual image upload/storage (would need a blob-storage integration, a separate concern) — `receipt_imports` has no image column yet, since there's nowhere to put one.
+
+Tests: `lib/pantry.test.ts` (`inferPantryLocation`), `app/actions/pantry.test.ts` (`movePantryItemAction` authorization + behavior), `app/actions/purchases.test.ts` (location inference on a new row, location preserved on restock), `lib/meal-plans.test.ts` (stock-aware generation, `matchIngredientToStock`, `splitIngredientsByStock`, `regenerateMeal`, `markMealCooked`/`isMealCooked`/`recipeFor`), `app/actions/meal-plan.test.ts` (`markMealCookedAction`: deduction, idempotency, zero-quantity row removal, missing-ingredient skip), `app/actions/receipts.test.ts` (`importReceiptAction`: purchase creation, pantry restocking, `receipt_imports` record). 145/145 tests passing; `tsc --noEmit` and `next build` both clean. As with section 32, full interactive browser verification was not performed *in that session* (no browser was available in that environment) — see the follow-up immediately below, where one was added and actually found real bugs unit/integration tests couldn't have caught.
+
+**Update 2026-09-22, browser verification.** `@playwright/test` was added as a dev dependency specifically so a real headless Chromium session could drive this feature end to end against the real dev server and real dev database (sign up a disposable test account, add/buy an item, move it between pantry locations, generate a stock-aware plan, regenerate a meal, mark one cooked, import a receipt). This found two real bugs neither the type-checker nor the test suite could see, since both are about client-side runtime behavior against a live server:
+
+1. **Bulk shopping-list adds could appear to silently do nothing.** `addIngredients()` in `components/app-shell.tsx` (used by "Přidat chybějící do nákupního seznamu" and the older "add all ingredients" button) fired one `addShoppingItemAction` per ingredient concurrently via `Promise.all`. Every insert actually succeeded — confirmed by reloading the page, which showed the correct data — but with a dozen-plus concurrent Server Actions each independently calling `revalidatePath('/')`, the client could apply a stale mid-batch server snapshot over the correct optimistic UI state, leaving the shopping list looking empty until a hard reload. This was always latent (the original "add all ingredients" button could already trigger 20-30 concurrent adds) but went from rare to routine once stock-aware meal plans made large `toBuy` lists common. Fixed by awaiting each add sequentially instead of concurrently, so at most one revalidation is ever in flight. **Known residual limitation, not fixed**: two genuinely *different* slow operations started back-to-back (e.g. triggering another bulk add while one is still mid-flight) can still race the same way, since every Server Action in this app does its own independent `revalidatePath()` with no app-wide serialization. Given how rare that specific sequence is in real use, and per CLAUDE.md's smallest-coherent-change principle, a full fix (e.g. serializing all revalidations globally) was judged out of scope for this fix.
+2. **Pantry-location inference rarely worked in practice.** Quick-adding an item via the shopping list's plain text input always defaulted its category to the schema default `'Ostatní'`, even when the typed name matched a real catalog product — `getProductCatalog()` only ever returned `{id, name}`, never the matched product's real category, and `addShoppingItemAction` never used it. Since `inferPantryLocation()` (section 33 above) branches on category, and almost everything added this way landed as `'Ostatní'`, real food items essentially never got auto-routed to Lednice/Mrazák — verified with "Kuřecí prsa" landing in Spíž instead of Lednice. Fixed: `getProductCatalog()` now also returns each product's real category (`ProductCatalogEntry.category`), and `addShoppingItemAction` uses the matched product's category when no explicit override is given. Re-verified in the browser: the same "Kuřecí prsa" item now correctly lands in Lednice.
+
+Both fixes covered by new/updated tests (`app/actions/shopping.test.ts`, `lib/products.test.ts`) in addition to the browser re-verification. 147/147 tests passing; `tsc --noEmit` and `next build` both clean. All disposable test accounts/households created during this verification (`neon_auth.user` + `households`, matched by the `verify*@example.com`/`Verify Tester*` naming used throughout) were deleted afterward — confirmed zero left behind.
+
+---
+
+# 34. Current Development Principle
 
 The current priority is not to add the largest number of features as quickly as possible.
 

@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { TODAY } from '@/lib/budget'
 import { getDb } from '@/lib/db/client'
+import { restockPantryItem } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
 import type { PurchaseRecord } from '@/lib/types'
 
@@ -18,9 +19,11 @@ async function assertOwnsList(householdId: string, listId: string) {
  *  `purchase_items` were seeded once and never written to again (docs/01_CURRENT_STATE.md,
  *  "Purchase analytics"). Takes every done item on the list, groups it by preferred store (items
  *  with none share one purchase with no store — a real, valid case, not an error), and records one
- *  `purchases` row + its `purchase_items` per group. Removes the completed items from the active
- *  list, since the trip is over. Per docs/05_BUSINESS_RULES.md ("past purchases are historical
- *  facts... must not be rewritten"), this only ever creates new purchases, never edits one. */
+ *  `purchases` row + its `purchase_items` per group. Also restocks the household's pantry
+ *  (`lib/pantry.ts`) with each purchased item — per the product owner, every purchased item should
+ *  land in the pantry. Removes the completed items from the active list, since the trip is over.
+ *  Per docs/05_BUSINESS_RULES.md ("past purchases are historical facts... must not be rewritten"),
+ *  this only ever creates new purchases, never edits one. */
 export async function completePurchaseAction(listId: string): Promise<{ purchases: PurchaseRecord[] }> {
   const householdId = await requireHouseholdId()
   await assertOwnsList(householdId, listId)
@@ -31,6 +34,10 @@ export async function completePurchaseAction(listId: string): Promise<{ purchase
     with: { preferredStoreLocation: { with: { store: true } } },
   })
   if (doneItems.length === 0) return { purchases: [] }
+
+  for (const item of doneItems) {
+    await restockPantryItem(householdId, { productId: item.productId, name: item.name, category: item.category, quantity: item.quantity, unit: item.unit })
+  }
 
   const groups = new Map<string, typeof doneItems>()
   for (const item of doneItems) {

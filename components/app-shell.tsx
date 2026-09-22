@@ -253,7 +253,7 @@ export function AppShell({
         <div className="mx-auto flex min-h-screen max-w-[1440px]">
           <AppSidebar tab={tab} onTabChange={setTab} />
 
-          <main className="min-w-0 flex-1 pb-24 lg:pb-8">
+          <main className="min-w-0 flex-1 overflow-x-clip pb-24 lg:pb-8">
             <AppHeader
               title={title}
               date="Pátek 19. září 2026"

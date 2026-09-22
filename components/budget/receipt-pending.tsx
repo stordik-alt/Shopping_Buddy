@@ -3,10 +3,11 @@ import { AlertTriangle, Check, Copy, RefreshCw, X } from 'lucide-react'
 import type { ReceiptImportState } from '@/lib/db/queries'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import { money } from '@/lib/format'
-import type { ItemCategory, ItemUnit } from '@/lib/types'
+import type { ItemCategory, ItemUnit, PantryLocation } from '@/lib/types'
 
 const CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
 const UNITS: ItemUnit[] = ['ks', 'kg', 'g', 'l', 'ml']
+const LOCATIONS: PantryLocation[] = ['Spíž', 'Lednice', 'Mrazák', 'Domácnost']
 
 const FAILED_STATUSES = new Set(['ocr_failed', 'parsing_failed'])
 const TRANSIENT_STATUSES = new Set(['uploaded', 'ocr_processing', 'ocr_completed', 'parsing', 'parsed', 'validating'])
@@ -24,7 +25,7 @@ export function ReceiptPending({
 }: {
   items: ReceiptImportState[]
   onRetry: (id: string) => Promise<ReceiptImportState>
-  onConfirmReview: (id: string, items: ReceiptLineItem[]) => Promise<void>
+  onConfirmReview: (id: string, items: ReceiptLineItem[], options: { date?: string }) => Promise<void>
   onResolveDuplicate: (id: string, resolution: 'save_new' | 'use_existing' | 'cancel', items?: ReceiptLineItem[]) => Promise<void>
   onCancel: (id: string) => void
 }) {
@@ -49,11 +50,12 @@ function ReceiptPendingCard({
 }: {
   item: ReceiptImportState
   onRetry: (id: string) => Promise<ReceiptImportState>
-  onConfirmReview: (id: string, items: ReceiptLineItem[]) => Promise<void>
+  onConfirmReview: (id: string, items: ReceiptLineItem[], options: { date?: string }) => Promise<void>
   onResolveDuplicate: (id: string, resolution: 'save_new' | 'use_existing' | 'cancel', items?: ReceiptLineItem[]) => Promise<void>
   onCancel: (id: string) => void
 }) {
   const [rows, setRows] = useState<ReceiptLineItem[]>(item.extracted?.items ?? [])
+  const [date, setDate] = useState(item.extracted?.date ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -136,10 +138,20 @@ function ReceiptPendingCard({
   }
 
   if (item.status === 'review_required') {
+    const activeRows = rows.filter((row) => row.name.trim().length > 0)
+    // Blocks saving until every real row has a storage location — the whole reason this receipt
+    // needs review might be exactly that the pipeline couldn't place one confidently, and the
+    // point of review is to actually ask, not to let a blank silently turn into a default later.
+    const canConfirm = !busy && activeRows.length > 0 && date.trim().length > 0 && activeRows.every((row) => row.location)
+
     return (
       <div className="rounded-2xl border border-border bg-card p-4">
         <p className="text-sm font-medium">Zkontrolujte rozpoznané položky</p>
         <p className="mt-1 text-xs text-muted-foreground">Rozpoznávání si u téhle účtenky nebylo jisté — projděte a opravte položky před uložením.</p>
+        <label className="mt-3 flex w-fit items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs">
+          Datum
+          <input aria-label="Datum nákupu" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-transparent outline-none" />
+        </label>
         <div className="mt-3 space-y-2">
           {rows.map((row, index) => (
             <div key={index} className="flex flex-wrap items-center gap-2 rounded-xl border border-border p-2">
@@ -162,9 +174,10 @@ function ReceiptPendingCard({
               <input
                 aria-label={`Množství položky ${index + 1}`}
                 type="number"
-                min="1"
+                min="0.001"
+                step="any"
                 value={row.quantity}
-                onChange={(e) => updateRow(index, { quantity: Math.max(1, Number(e.target.value) || 1) })}
+                onChange={(e) => updateRow(index, { quantity: Math.max(0.001, Number(e.target.value) || 0.001) })}
                 className="w-16 rounded-lg border border-input bg-background px-2 py-1 text-xs"
               />
               <select
@@ -175,6 +188,19 @@ function ReceiptPendingCard({
               >
                 {UNITS.map((unit) => (
                   <option key={unit}>{unit}</option>
+                ))}
+              </select>
+              <select
+                aria-label={`Uložení položky ${index + 1}`}
+                value={row.location ?? ''}
+                onChange={(e) => updateRow(index, { location: (e.target.value || undefined) as ReceiptLineItem['location'] })}
+                className={`rounded-lg border px-2 py-1 text-xs ${row.location ? 'border-input bg-background' : 'border-destructive/60 bg-destructive/5 text-destructive'}`}
+              >
+                <option value="" disabled>
+                  Vyberte uložení
+                </option>
+                {LOCATIONS.map((location) => (
+                  <option key={location}>{location}</option>
                 ))}
               </select>
               <input
@@ -191,8 +217,8 @@ function ReceiptPendingCard({
         </div>
         <div className="mt-3 flex gap-2">
           <button
-            onClick={() => run(() => onConfirmReview(item.id, rows))}
-            disabled={busy || rows.every((r) => !r.name.trim())}
+            onClick={() => run(() => onConfirmReview(item.id, rows, { date }))}
+            disabled={!canConfirm}
             className="rounded-xl bg-primary px-4 py-2 text-xs font-medium text-primary-foreground disabled:opacity-60"
           >
             {busy ? 'Ukládám…' : 'Potvrdit a uložit'}

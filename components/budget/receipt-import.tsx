@@ -162,9 +162,10 @@ export function ReceiptImport({
             <input
               aria-label={`Množství položky ${index + 1}`}
               type="number"
-              min="1"
+              min="0.001"
+              step="any"
               value={row.quantity}
-              onChange={(e) => updateRow(index, { quantity: Math.max(1, Number(e.target.value) || 1) })}
+              onChange={(e) => updateRow(index, { quantity: Math.max(0.001, Number(e.target.value) || 0.001) })}
               className="w-16 rounded-lg border border-input bg-background px-2 py-1 text-xs"
             />
             <select

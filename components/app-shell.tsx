@@ -15,7 +15,7 @@ import {
 } from '@/app/actions/household'
 import { markMealCookedAction } from '@/app/actions/meal-plan'
 import { markAllNotificationsReadAction, markNotificationReadAction } from '@/app/actions/notifications'
-import { confirmPantryItemAction, movePantryItemAction, removePantryItemAction } from '@/app/actions/pantry'
+import { adjustPantryItemQuantityAction, confirmPantryItemAction, movePantryItemAction, removePantryItemAction } from '@/app/actions/pantry'
 import { completePurchaseAction } from '@/app/actions/purchases'
 import {
   cancelReceiptImportAction,
@@ -230,6 +230,11 @@ export function AppShell({
     movePantryItemAction(id, location)
   }
 
+  function adjustPantryItemQuantity(id: string, quantity: number) {
+    setPantryItems((current) => current.map((item) => (item.id === id ? { ...item, quantity } : item)))
+    adjustPantryItemQuantityAction(id, quantity)
+  }
+
   function markMealCooked(day: string, mealType: MealType) {
     markMealCookedAction(day, mealType)
     router.refresh() // picks up the pantry deduction the server action just made
@@ -262,8 +267,8 @@ export function AppShell({
     return result
   }
 
-  async function confirmReceiptReview(id: string, items: ReceiptLineItem[]) {
-    await confirmReceiptReviewAction(id, items)
+  async function confirmReceiptReview(id: string, items: ReceiptLineItem[], options: { date?: string }) {
+    await confirmReceiptReviewAction(id, items, options)
     setPendingReceiptImports((current) => current.filter((r) => r.id !== id))
     router.refresh()
   }
@@ -365,7 +370,7 @@ export function AppShell({
                     userCoords={userLocation.coords}
                     completePurchase={completePurchase}
                   />
-                  <Pantry items={pantryItems} onConfirm={confirmPantryItem} onRemove={removePantryItem} onMove={movePantryItem} />
+                  <Pantry items={pantryItems} onConfirm={confirmPantryItem} onRemove={removePantryItem} onMove={movePantryItem} onAdjustQuantity={adjustPantryItemQuantity} />
                 </div>
               )}
               {tab === 'Obchody' && (

@@ -11,6 +11,7 @@ import * as schema from '@/lib/db/schema'
 import { matchProductByName } from '@/lib/products'
 import {
   geminiStructuringProvider,
+  googleVisionPdfTextExtractor,
   googleVisionTextExtractor,
   isPotentialDuplicate,
   needsReview,
@@ -25,7 +26,7 @@ import {
 import type { PurchaseRecord } from '@/lib/types'
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024 // 10 MB
-const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
+const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'])
 
 async function assertOwnsReceiptImport(householdId: string, receiptImportId: string) {
   const db = getDb()
@@ -159,7 +160,17 @@ export async function processReceiptImport(
 
   let ocrText: string
   try {
-    const ocrResult = await deps.textExtractor.extractText({ base64, mimeType: 'image/jpeg' })
+    const storedMimeType = row.imageUrl.toLowerCase().endsWith('.pdf')
+      ? 'application/pdf'
+      : row.imageUrl.toLowerCase().endsWith('.png')
+        ? 'image/png'
+        : row.imageUrl.toLowerCase().endsWith('.webp')
+          ? 'image/webp'
+          : row.imageUrl.toLowerCase().endsWith('.heic')
+            ? 'image/heic'
+            : 'image/jpeg'
+    const extractor = storedMimeType === 'application/pdf' ? googleVisionPdfTextExtractor : deps.textExtractor
+    const ocrResult = await extractor.extractText({ base64, mimeType: storedMimeType })
     ocrText = ocrResult.fullText
   } catch (error) {
     return update({ status: 'ocr_failed', errorMessage: `Nepodařilo se přečíst účtenku. Zkuste nahrát ostřejší fotografii. (${error instanceof Error ? error.message : String(error)})` })
@@ -229,7 +240,7 @@ export async function processReceiptImport(
  *  over-engineering for what's a few-second round trip. */
 export async function uploadReceiptAction(base64Image: string, mimeType: string): Promise<ReceiptImportState> {
   const householdId = await requireHouseholdId()
-  if (!ALLOWED_MIME_TYPES.has(mimeType)) throw new Error('Nepodporovaný formát obrázku. Použijte JPEG, PNG, WEBP nebo HEIC.')
+  if (!ALLOWED_MIME_TYPES.has(mimeType)) throw new Error('Nepodporovaný formát. Použijte JPEG, PNG, WEBP, HEIC nebo PDF.')
 
   const buffer = Buffer.from(base64Image, 'base64')
   if (buffer.byteLength > MAX_IMAGE_BYTES) throw new Error('Fotografie je příliš velká (max. 10 MB).')

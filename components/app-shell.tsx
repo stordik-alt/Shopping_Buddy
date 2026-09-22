@@ -262,14 +262,14 @@ export function AppShell({
     return result
   }
 
-  async function confirmReceiptReview(id: string, items: ReceiptLineItem[]) {
-    await confirmReceiptReviewAction(id, items)
+  async function confirmReceiptReview(id: string, items: ReceiptLineItem[], date: string) {
+    await confirmReceiptReviewAction(id, items, { date })
     setPendingReceiptImports((current) => current.filter((r) => r.id !== id))
     router.refresh()
   }
 
-  async function resolveDuplicateReceipt(id: string, resolution: 'save_new' | 'use_existing' | 'cancel', items?: ReceiptLineItem[]) {
-    await resolveDuplicateReceiptAction(id, resolution, items)
+  async function resolveDuplicateReceipt(id: string, resolution: 'save_new' | 'use_existing' | 'cancel', items?: ReceiptLineItem[], date?: string) {
+    await resolveDuplicateReceiptAction(id, resolution, items, { date })
     setPendingReceiptImports((current) => current.filter((r) => r.id !== id))
     router.refresh()
   }

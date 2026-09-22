@@ -67,11 +67,11 @@ export type HouseholdPreferences = {
   preferCzechProducts: boolean
 }
 
-export type StoreChain = 'Lidl' | 'Albert' | 'Kaufland' | 'Billa' | 'Penny' | 'JIP'
+export type StoreChain = string
 
 export type Store = {
   id: string
-  chain: StoreChain
+  chain: string
   name: string
   address: string
   city: string
@@ -90,7 +90,7 @@ export type PurchaseRecord = {
   date: string
   // Optional, matching purchases.storeLocationId's real nullability — not every purchase has a
   // known store (e.g. items with no preferred store set when the purchase was completed).
-  store?: StoreChain
+  store?: string
   items: PurchaseItem[]
   total: number
   discount?: number

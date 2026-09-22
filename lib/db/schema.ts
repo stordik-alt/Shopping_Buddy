@@ -9,7 +9,6 @@ export const qualityPreferenceEnum = pgEnum('quality_preference', ['standard', '
 export const itemCategoryEnum = pgEnum('item_category', ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní'])
 export const itemUnitEnum = pgEnum('item_unit', ['ks', 'kg', 'g', 'l', 'ml'])
 export const itemPriorityEnum = pgEnum('item_priority', ['Nízká', 'Normální', 'Vysoká'])
-export const storeChainEnum = pgEnum('store_chain', ['Lidl', 'Albert', 'Kaufland', 'Billa', 'Penny', 'JIP'])
 export const invitationStatusEnum = pgEnum('invitation_status', ['pending', 'accepted', 'revoked'])
 export const pantryLocationEnum = pgEnum('pantry_location', ['Spíž', 'Lednice', 'Mrazák', 'Domácnost'])
 // 'pending_review' / 'imported' / 'discarded' are the original manual-entry states — a manual
@@ -138,7 +137,7 @@ export const products = pgTable('products', {
 // A retail chain (brand), e.g. Lidl. First market: Česká republika, architecture allows more.
 export const stores = pgTable('stores', {
   id: uuid('id').primaryKey().defaultRandom(),
-  chain: storeChainEnum('chain').notNull().unique(),
+  chain: text('chain').notNull().unique(),
 })
 
 // A physical branch of a store chain.
@@ -214,6 +213,7 @@ export const shoppingListItems = pgTable('shopping_list_items', {
 export const purchases = pgTable('purchases', {
   id: uuid('id').primaryKey().defaultRandom(),
   householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  storeId: uuid('store_id').references(() => stores.id, { onDelete: 'set null' }),
   storeLocationId: uuid('store_location_id').references(() => storeLocations.id, { onDelete: 'set null' }),
   date: date('date').notNull(),
   total: numeric('total', { precision: 10, scale: 2 }).notNull(),
@@ -414,6 +414,7 @@ export const shoppingListItemsRelations = relations(shoppingListItems, ({ one })
 
 export const purchasesRelations = relations(purchases, ({ one, many }) => ({
   household: one(households, { fields: [purchases.householdId], references: [households.id] }),
+  store: one(stores, { fields: [purchases.storeId], references: [stores.id] }),
   storeLocation: one(storeLocations, { fields: [purchases.storeLocationId], references: [storeLocations.id] }),
   items: many(purchaseItems),
 }))
@@ -430,6 +431,7 @@ export const pantryItemsRelations = relations(pantryItems, ({ one }) => ({
 
 export const receiptImportsRelations = relations(receiptImports, ({ one }) => ({
   household: one(households, { fields: [receiptImports.householdId], references: [households.id] }),
+  store: one(stores, { fields: [receiptImports.storeId], references: [stores.id] }),
   storeLocation: one(storeLocations, { fields: [receiptImports.storeLocationId], references: [storeLocations.id] }),
   purchase: one(purchases, { fields: [receiptImports.purchaseId], references: [purchases.id] }),
 }))

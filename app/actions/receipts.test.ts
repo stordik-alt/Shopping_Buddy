@@ -178,6 +178,15 @@ describe('processReceiptImport — OCR pipeline orchestration (fake OCR/AI, real
     expect(row.status).toBe('review_required')
   })
 
+  it('routes to review_required when the purchase date is missing', async () => {
+    const receiptImportId = await createUploadedReceipt()
+    const missingDate = extractedReceipt({ date: null })
+    const row = await processReceiptImport(receiptImportId, fakeProviders(missingDate))
+
+    expect(row.status).toBe('review_required')
+    expect(row.date).toBeNull()
+  })
+
   it('records ocr_failed with an error message when OCR throws, without touching parsing', async () => {
     const receiptImportId = await createUploadedReceipt()
     const row = await processReceiptImport(receiptImportId, {
@@ -271,8 +280,12 @@ describe('confirmReceiptReviewAction', () => {
     const receiptImportId = await createUploadedReceipt()
     await processReceiptImport(receiptImportId, fakeProviders(extractedReceipt({ total: 999 }))) // → review_required
 
-    const { purchase } = await confirmReceiptReviewAction(receiptImportId, [item({ name: 'Opravená položka', price: 49.8 })])
+    const { purchase } = await confirmReceiptReviewAction(receiptImportId, [item({ name: 'Opravená položka', price: 49.8 })], { date: '2026-09-18' })
     expect(purchase.total).toBe(49.8)
+    expect(purchase.date).toBe('2026-09-18')
+
+    const purchaseRow = await db.query.purchases.findFirst({ where: eq(schema.purchases.id, purchase.id) })
+    expect(purchaseRow?.date).toBe('2026-09-18')
 
     const row = await db.query.receiptImports.findFirst({ where: eq(schema.receiptImports.id, receiptImportId) })
     expect(row?.status).toBe('completed')

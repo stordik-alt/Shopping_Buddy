@@ -12,6 +12,7 @@ import type {
   HouseholdMember,
   Item,
   Notification,
+  PantryItem,
   PriceSensitivity,
   PurchaseRecord,
   QualityPreference,
@@ -56,6 +57,7 @@ export type HouseholdData = {
   mealPlan: SavedMealPlan | null
   isOwner: boolean
   pendingInvitations: PendingInvitation[]
+  pantryItems: PantryItem[]
 }
 
 /** The household's saved plan for the current week, if one has been generated yet. */
@@ -119,7 +121,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
   }
   if (!household) throw new Error(`Household ${ownMember!.householdId} referenced by household_members but missing`)
 
-  const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows, mealPlan, invitationRows] = await Promise.all([
+  const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows, mealPlan, invitationRows, pantryRows] = await Promise.all([
     db.query.householdMembers.findMany({
       where: eq(schema.householdMembers.householdId, household.id),
       with: { profile: true },
@@ -143,6 +145,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
       where: and(eq(schema.invitations.householdId, household.id), eq(schema.invitations.status, 'pending')),
       orderBy: desc(schema.invitations.createdAt),
     }),
+    db.query.pantryItems.findMany({ where: eq(schema.pantryItems.householdId, household.id), orderBy: asc(schema.pantryItems.addedAt) }),
   ])
 
   const myRawMember = members.find((member) => member.userId === userId)
@@ -249,6 +252,17 @@ export async function getHouseholdData(userId: string, userName: string, userEma
     isOwner,
     pendingInvitations: invitationRows.map(
       (invitation): PendingInvitation => ({ id: invitation.id, email: invitation.email, expiresAt: invitation.expiresAt.toString() }),
+    ),
+    pantryItems: pantryRows.map(
+      (item): PantryItem => ({
+        id: item.id,
+        name: item.name,
+        category: item.category,
+        quantity: item.quantity,
+        unit: item.unit,
+        addedAt: item.addedAt.toString(),
+        askedAt: item.askedAt?.toString(),
+      }),
     ),
   }
 }

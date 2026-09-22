@@ -4,7 +4,7 @@
 **Stable branch:** `main`
 **Current backend development branch:** `v0/backend`
 **Previous frontend branch:** `V0/continue-frontend` — historical/obsolete unless explicitly requested
-**Last updated:** 2026-09-21
+**Last updated:** 2026-09-22
 
 ---
 
@@ -876,6 +876,7 @@ Recent development has included:
 * price-history foundation: append-only observation recording + historic-low detection (not yet fed by a real ingestion source)
 * real `productId` link from shopping-list items to the catalog (was dead schema; the whole app matched on free-text names before this), plus a native autocomplete on the input so typed text has a real chance of matching
 * real purchase-history write path (`completePurchaseAction`, "Dokončit nákup") — `purchases`/`purchase_items` were seed-only and read-only until now; also fixed a data-inventing bug found along the way (`?? 'Lidl'` store fallback)
+* household pantry ("spíž"): `pantry_items` table, automatic restocking on purchase, a daily check-in cron, confirm/remove Server Actions, and UI nested in the shopping-list tab (see section 32)
 * currency fields
 * migration baseline
 * automated tests for selected domains
@@ -973,7 +974,23 @@ The application should remain stable while functionality is expanded incremental
 
 ---
 
-# 32. Current Development Principle
+# 32. Household Pantry ("Spíž")
+
+**Added 2026-09-22.** A new domain, owner-requested, not part of the original Phase 8 notification set (section 19) but following the same deterministic-generator pattern.
+
+The `pantry_items` table (migration `0003_pantry_items.sql`) tracks what a household believes it currently has at home:
+
+* `completePurchaseAction` (section 21) restocks or creates a pantry row for every item in a finished purchase — matched by `productId` when known, otherwise by case-insensitive name, summing quantity rather than overwriting on a repeat purchase.
+* A new daily Vercel Cron job, `/api/cron/pantry-checkin` (`vercel.json`, same `CRON_SECRET` auth model as `shopping-reminders`), asks the household "do you still have this?" once a per-category interval has elapsed since an item was added/restocked or last asked about (`lib/pantry.ts`'s `isDueForCheckin()`/`findDueForCheckin()`). Unlike a shopping reminder, this can fire more than once per item — an unconfirmed pantry item stays relevant rather than being a one-time event.
+* `app/actions/pantry.ts`'s `confirmPantryItemAction` ("Ještě mám") resets the check-in interval; `removePantryItemAction` ("Došlo") deletes the row outright, since a future purchase creates a fresh one.
+* Per-category check-in intervals (`CHECKIN_DAYS_BY_CATEGORY` in `lib/pantry.ts`) are placeholder defaults (10/30/21/30/14 days), an explicit interim choice since there is no real per-product shelf-life data yet to be more precise than category-level.
+* UI: a new `Pantry` component (`components/shopping/pantry.tsx`), nested inside the existing "Nákup" tab below the shopping list rather than as a new top-level tab, per section 29 ("preserve existing navigation... only change UI where required").
+* Tests: `lib/pantry.test.ts` (pure check-in-interval logic), `app/actions/pantry.test.ts` (cross-household rejection + behavior for both actions), and two `completePurchaseAction` restocking cases added to `app/actions/purchases.test.ts` (new pantry row, and summed-quantity restock with reset `askedAt`).
+* Not yet done: the Smart Shopping Engine (section 22) does not consume pantry state to suggest skipping an already-stocked staple — see `docs/04_ROADMAP.md` Phase C. Full interactive browser verification was not performed this session (no browser available in this environment); verification here was `tsc --noEmit`, `next build`, and the full Vitest suite against the real dev database, plus a smoke check that `next dev` serves pages without a server error.
+
+---
+
+# 33. Current Development Principle
 
 The current priority is not to add the largest number of features as quickly as possible.
 

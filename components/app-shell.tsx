@@ -14,6 +14,7 @@ import {
   updateHouseholdPreferencesAction,
 } from '@/app/actions/household'
 import { markAllNotificationsReadAction, markNotificationReadAction } from '@/app/actions/notifications'
+import { confirmPantryItemAction, removePantryItemAction } from '@/app/actions/pantry'
 import { completePurchaseAction } from '@/app/actions/purchases'
 import { addShoppingItemAction, addShoppingListAction, removeShoppingItemAction, toggleShoppingItemAction, updateShoppingItemAction } from '@/app/actions/shopping'
 import { AiAssistant } from '@/components/ai/ai-assistant'
@@ -31,6 +32,7 @@ import { NotificationPanel } from '@/components/notifications/notification-panel
 import { AppHeader } from '@/components/shared/app-header'
 import { AppSidebar } from '@/components/shared/app-sidebar'
 import { MobileNav } from '@/components/shared/mobile-nav'
+import { Pantry } from '@/components/shopping/pantry'
 import { ShoppingList } from '@/components/shopping/shopping-list'
 import { StoreDirectory } from '@/components/stores/store-directory'
 import { TODAY } from '@/lib/budget'
@@ -61,6 +63,7 @@ export function AppShell({
   const [newItem, setNewItem] = useState('')
   const [shoppingLists, setShoppingLists] = useState(initialData.shoppingLists)
   const [pendingInvitations, setPendingInvitations] = useState(initialData.pendingInvitations)
+  const [pantryItems, setPantryItems] = useState(initialData.pantryItems)
   const router = useRouter()
   const userLocation = useUserLocation()
 
@@ -75,6 +78,7 @@ export function AppShell({
     setExpenses(initialData.expenses)
     setShoppingLists(initialData.shoppingLists)
     setPendingInvitations(initialData.pendingInvitations)
+    setPantryItems(initialData.pantryItems)
   }, [initialData])
 
   useEffect(() => {
@@ -191,6 +195,16 @@ export function AppShell({
     revokeInvitationAction(id)
   }
 
+  function confirmPantryItem(id: string) {
+    setPantryItems((current) => current.map((item) => (item.id === id ? { ...item, addedAt: new Date().toISOString(), askedAt: undefined } : item)))
+    confirmPantryItemAction(id)
+  }
+
+  function removePantryItem(id: string) {
+    setPantryItems((current) => current.filter((item) => item.id !== id))
+    removePantryItemAction(id)
+  }
+
   function readNotification(id: string) {
     setNotifications((current) => current.map((notification) => (notification.id === id ? { ...notification, unread: false } : notification)))
     markNotificationReadAction(id)
@@ -260,22 +274,25 @@ export function AppShell({
                 </>
               )}
               {tab === 'Nákup' && (
-                <ShoppingList
-                  items={items}
-                  newItem={newItem}
-                  setNewItem={setNewItem}
-                  addItem={addItem}
-                  updateItem={updateItem}
-                  removeItem={removeItem}
-                  toggle={toggleItem}
-                  lists={shoppingLists}
-                  onAddList={addShoppingListName}
-                  productPrices={productPrices}
-                  remaining={remaining}
-                  stores={stores}
-                  userCoords={userLocation.coords}
-                  completePurchase={completePurchase}
-                />
+                <div className="mx-auto max-w-3xl space-y-5">
+                  <ShoppingList
+                    items={items}
+                    newItem={newItem}
+                    setNewItem={setNewItem}
+                    addItem={addItem}
+                    updateItem={updateItem}
+                    removeItem={removeItem}
+                    toggle={toggleItem}
+                    lists={shoppingLists}
+                    onAddList={addShoppingListName}
+                    productPrices={productPrices}
+                    remaining={remaining}
+                    stores={stores}
+                    userCoords={userLocation.coords}
+                    completePurchase={completePurchase}
+                  />
+                  <Pantry items={pantryItems} onConfirm={confirmPantryItem} onRemove={removePantryItem} />
+                </div>
               )}
               {tab === 'Obchody' && (
                 <StoreDirectory

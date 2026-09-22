@@ -22,6 +22,13 @@
       "when": 1790000664950,
       "tag": "0002_shopping_reminders",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790024085537,
+      "tag": "0003_pantry_items",
+      "breakpoints": true
     }
   ]
 }

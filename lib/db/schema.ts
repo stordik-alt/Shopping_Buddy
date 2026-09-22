@@ -205,6 +205,28 @@ export const purchaseItems = pgTable('purchase_items', {
   price: numeric('price', { precision: 10, scale: 2 }).notNull(),
 })
 
+// Household pantry ("spíž"): what the household believes it currently has at home. Populated by
+// completePurchaseAction (a purchased item restocks or creates its pantry row) and periodically
+// re-checked by the pantry-checkin cron, which asks "do you still have this?" per
+// lib/pantry.ts's per-category interval (see docs/07_CHANGELOG.md for why category, not a single
+// global interval — shelf life genuinely differs by category, but there's no per-product shelf-life
+// data to be more precise than that yet).
+export const pantryItems = pgTable('pantry_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  productId: uuid('product_id').references(() => products.id, { onDelete: 'set null' }),
+  name: text('name').notNull(),
+  category: itemCategoryEnum('category').notNull().default('Ostatní'),
+  quantity: integer('quantity').notNull().default(1),
+  unit: itemUnitEnum('unit').notNull().default('ks'),
+  // Reset to now() whenever the item is restocked (another purchase) or the household confirms
+  // "ještě mám" — the check-in interval counts from here, not from when the row was first created.
+  addedAt: timestamp('added_at').notNull().defaultNow(),
+  // When we last asked "do you still have this?". Null means never asked. Reset to null on
+  // confirmation, so the next check-in interval starts counting from a fresh addedAt.
+  askedAt: timestamp('asked_at'),
+})
+
 export const budgets = pgTable('budgets', {
   id: uuid('id').primaryKey().defaultRandom(),
   householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
@@ -256,6 +278,7 @@ export const householdsRelations = relations(households, ({ many, one }) => ({
   mealPlans: many(mealPlans),
   notifications: many(notifications),
   invitations: many(invitations),
+  pantryItems: many(pantryItems),
 }))
 
 export const invitationsRelations = relations(invitations, ({ one }) => ({
@@ -314,4 +337,9 @@ export const purchasesRelations = relations(purchases, ({ one, many }) => ({
 export const purchaseItemsRelations = relations(purchaseItems, ({ one }) => ({
   purchase: one(purchases, { fields: [purchaseItems.purchaseId], references: [purchases.id] }),
   product: one(products, { fields: [purchaseItems.productId], references: [products.id] }),
+}))
+
+export const pantryItemsRelations = relations(pantryItems, ({ one }) => ({
+  household: one(households, { fields: [pantryItems.householdId], references: [households.id] }),
+  product: one(products, { fields: [pantryItems.productId], references: [products.id] }),
 }))

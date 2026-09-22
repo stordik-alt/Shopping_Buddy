@@ -96,6 +96,16 @@ export type PurchaseRecord = {
   discount?: number
 }
 
+export type PantryItem = {
+  id: string
+  name: string
+  category: ItemCategory
+  quantity: number
+  unit: ItemUnit
+  addedAt: string
+  askedAt?: string
+}
+
 export type Household = {
   id: string
   name: string

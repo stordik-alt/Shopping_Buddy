@@ -86,3 +86,30 @@ describe('completePurchaseAction', () => {
     expect(withoutStore?.items.map((i) => i.name)).toEqual(['Bez obchodu'])
   })
 })
+
+describe('completePurchaseAction — pantry restocking', () => {
+  it('creates a new pantry row for a product not seen before', async () => {
+    await db.insert(schema.shoppingListItems).values({ listId, name: 'Rýže', done: true, price: '40', quantity: 1, category: 'Potraviny' })
+    await completePurchaseAction(listId)
+
+    const pantryRow = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.householdId, householdId) })
+    expect(pantryRow?.name).toBe('Rýže')
+    expect(pantryRow?.quantity).toBe(1)
+    expect(pantryRow?.category).toBe('Potraviny')
+    expect(pantryRow?.askedAt).toBeNull()
+  })
+
+  it('sums quantity into an existing pantry row on restock, case-insensitively by name, and resets askedAt', async () => {
+    const twoDaysAgo = new Date(Date.now() - 2 * 86_400_000)
+    await db.insert(schema.pantryItems).values({ householdId, name: 'Vejce', category: 'Potraviny', quantity: 6, addedAt: twoDaysAgo, askedAt: twoDaysAgo })
+
+    await db.insert(schema.shoppingListItems).values({ listId, name: 'VEJCE', done: true, price: '5', quantity: 10, category: 'Potraviny' })
+    await completePurchaseAction(listId)
+
+    const pantryRows = await db.query.pantryItems.findMany({ where: eq(schema.pantryItems.householdId, householdId) })
+    expect(pantryRows).toHaveLength(1) // restocked, not duplicated
+    expect(pantryRows[0].quantity).toBe(16)
+    expect(pantryRows[0].askedAt).toBeNull()
+    expect(pantryRows[0].addedAt.getTime()).toBeGreaterThan(twoDaysAgo.getTime())
+  })
+})

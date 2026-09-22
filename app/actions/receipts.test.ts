@@ -40,7 +40,7 @@ const extractedReceipt = (overrides: Partial<ExtractedReceipt> = {}): ExtractedR
   time: '17:42',
   receiptNumber: null,
   currency: 'CZK',
-  items: [{ name: 'Mléko', quantity: 2, unit: 'ks', unitPrice: 24.9, totalPrice: 49.8, discount: 0, confidence: 0.96 }],
+  items: [{ name: 'Mléko', category: 'Potraviny', quantity: 2, unit: 'ks', unitPrice: 24.9, totalPrice: 49.8, discount: 0, confidence: 0.96 }],
   subtotal: 49.8,
   discountTotal: 0,
   total: 49.8,
@@ -94,6 +94,21 @@ describe('importReceiptAction (manual entry)', () => {
 
     const purchaseRow = await db.query.purchases.findFirst({ where: eq(schema.purchases.id, purchase.id) })
     expect(purchaseRow?.householdId).toBe(householdId)
+  })
+
+  it('uses the catalog category when a manually imported product is known', async () => {
+    const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
+    expect(category).toBeDefined()
+    const productName = `__test_catalog_product_${crypto.randomUUID()}`
+    const [product] = await db.insert(schema.products).values({ name: productName, categoryId: category!.id, defaultUnit: 'ks' }).returning()
+
+    try {
+      await importReceiptAction([item({ name: productName, category: 'Ostatní' })])
+      const pantryRow = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.productId, product.id) })
+      expect(pantryRow?.category).toBe('Potraviny')
+    } finally {
+      await db.delete(schema.products).where(eq(schema.products.id, product.id))
+    }
   })
 
   it('preserves decimal quantities for weighted receipt items', async () => {
@@ -176,6 +191,15 @@ describe('processReceiptImport — OCR pipeline orchestration (fake OCR/AI, real
     const row = await processReceiptImport(receiptImportId, fakeProviders(missingStore))
 
     expect(row.status).toBe('review_required')
+  })
+
+  it('routes to review_required when an item category is missing', async () => {
+    const receiptImportId = await createUploadedReceipt()
+    const missingCategory = extractedReceipt({ items: [{ name: 'Mléko', category: null, quantity: 2, unit: 'ks', unitPrice: 24.9, totalPrice: 49.8, discount: 0, confidence: 0.96 }] })
+    const row = await processReceiptImport(receiptImportId, fakeProviders(missingCategory))
+
+    expect(row.status).toBe('review_required')
+    expect(row.purchaseId).toBeNull()
   })
 
   it('routes to review_required when the purchase date is missing', async () => {

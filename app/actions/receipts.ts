@@ -98,7 +98,7 @@ async function createPurchaseFromReceiptItems(
   const storeId = options.storeId ?? await findOrCreateStore(options.storeName)
   const [purchaseRow] = await db
     .insert(schema.purchases)
-    .values({ householdId, storeId, storeLocationId: options.storeLocationId, date, total: total.toString() })
+    .values({ householdId, storeId, storeLocationId: options.storeLocationId ?? undefined, date, total: total.toString() })
     .returning()
 
   const itemRows = await db

@@ -278,6 +278,9 @@ export const receiptImports = pgTable('receipt_imports', {
   // Kept even after processing completes so a failed/reviewed import can be retried without
   // re-uploading (pipeline doc section 13).
   imageUrl: text('image_url'),
+  // Which OCR engine produced rawOcrText. Null for manual imports or imports that never reached OCR.
+  // This is audit metadata only; it does not affect parsing/validation.
+  ocrProvider: text('ocr_provider'),
   // Raw OCR provider output, for reprocessing/debugging once a real provider exists. Null for a
   // manually-entered import — there is no OCR output yet.
   rawOcrText: text('raw_ocr_text'),

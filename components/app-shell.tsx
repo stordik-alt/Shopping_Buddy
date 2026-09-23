@@ -48,7 +48,7 @@ import { ShoppingList } from '@/components/shopping/shopping-list'
 import { StoreDirectory } from '@/components/stores/store-directory'
 import { TODAY } from '@/lib/budget'
 import type { HouseholdData, ReceiptImportState } from '@/lib/db/queries'
-import type { MealType } from '@/lib/meal-plans'
+import type { Ingredient, MealType } from '@/lib/meal-plans'
 import type { ProductPrice } from '@/lib/prices'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import type { Item, PantryLocation, Store, Tab } from '@/lib/types'
@@ -132,12 +132,13 @@ export function AppShell({
   // client can end up applying a stale mid-batch server snapshot over the correct optimistic
   // state, leaving the shopping list looking empty until a hard reload even though every insert
   // actually succeeded. Awaiting one at a time keeps at most one revalidation in flight.
-  async function addIngredients(ingredients: { name: string; category: Item['category'] }[]) {
+  async function addIngredients(ingredients: Ingredient[]) {
     setTab('Nákup')
     for (const ingredient of ingredients) {
       const { item, notification } = await addShoppingItemAction(initialData.mainListId, ingredient.name, {
-        detail: '1 ks · z jídelníčku',
+        detail: `${ingredient.quantity} ${ingredient.unit} · z jídelníčku`,
         category: ingredient.category,
+        unit: ingredient.unit,
       })
       setItems((current) => [...current, item])
       if (notification) setNotifications((current) => [...current, notification])

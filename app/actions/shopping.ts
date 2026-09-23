@@ -27,7 +27,7 @@ async function assertOwnsItem(householdId: string, itemId: string) {
 export async function addShoppingItemAction(
   listId: string,
   name: string,
-  overrides: Partial<Pick<Item, 'detail' | 'category'>> = {},
+  overrides: Partial<Pick<Item, 'detail' | 'category' | 'unit'>> = {},
 ): Promise<{ item: Item; notification: Notification | null }> {
   const householdId = await requireHouseholdId()
   await assertOwnsList(householdId, listId)
@@ -56,8 +56,10 @@ export async function addShoppingItemAction(
       category: overrides.category ?? matchedProduct?.category,
       // Same reasoning for unit: without this, every quick-added item defaults to the schema's
       // 'ks', even for a catalog product remembered in a different unit (e.g. "Mléko polotučné" in
-      // 'l') — which then makes any Kč/l-style unit-price comparison for that item meaningless.
-      unit: matchedProduct?.defaultUnit,
+      // 'l') — which then makes any Kč/l-style unit-price comparison for that item meaningless. An
+      // explicit override wins over the catalog's general default, for a caller that knows more
+      // specifically what unit this particular item needs than the product's own remembered default.
+      unit: overrides.unit ?? matchedProduct?.defaultUnit,
     })
     .returning()
 

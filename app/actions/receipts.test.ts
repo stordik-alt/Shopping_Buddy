@@ -214,6 +214,8 @@ describe('processReceiptImport — OCR pipeline orchestration (fake OCR/AI, real
     expect(row.purchaseId).not.toBeNull()
     expect(row.rawOcrText).toBe('FAKE OCR TEXT')
     expect(row.ocrProvider).toBe('google_vision')
+    expect(row.storeId).not.toBeNull()
+    expect(row.storeLocationId).toBeNull()
 
     const purchase = await db.query.purchases.findFirst({ where: eq(schema.purchases.id, row.purchaseId!) })
     expect(Number(purchase?.total)).toBe(49.8)
@@ -258,6 +260,7 @@ describe('processReceiptImport — OCR pipeline orchestration (fake OCR/AI, real
     expect(row.storeLocationId).not.toBeNull()
 
     const location = await db.query.storeLocations.findFirst({ where: eq(schema.storeLocations.id, row.storeLocationId!) })
+    expect(row.storeId).toBe(location?.storeId)
     expect(location?.storeId).toBe(row.storeId)
     expect(location?.address).toBe(address)
     expect(location?.city).toBe(city)
@@ -289,6 +292,8 @@ describe('processReceiptImport — OCR pipeline orchestration (fake OCR/AI, real
 
     expect(row.status).toBe('review_required')
     expect(row.purchaseId).toBeNull()
+    expect(row.storeId).not.toBeNull()
+    expect(row.storeLocationId).toBeNull()
   })
 
   it('routes to review_required when a required field (store) is missing', async () => {

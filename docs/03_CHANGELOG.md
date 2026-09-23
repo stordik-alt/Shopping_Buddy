@@ -3,9 +3,9 @@
 - Schema: migration `0010_price_observation_model.sql` adds explicit retailer chain, nullable branch, scope, source type, location-resolution state, validity window, source reference and confidence; existing branch-linked rows are backfilled without deleting history.
 - Backend: `recordPriceObservation()` now appends contextual observations and validates STORE/UNKNOWN vs STORE/RESOLVED semantics; `getProductPrices()` derives the latest value from the observation ledger while preserving history and provenance.
 - Receipt flow: receipt prices are stored as STORE + RECEIPT, with RESOLVED when the branch is known and UNKNOWN when it is not.
-- Verification: GitHub Actions CI was triggered after the change; the final run must be checked before declaring tests/typecheck/build green.
-- Known limitation: the Neon connector currently does not expose a usable project ID for direct migration verification, so migration application against the real database has not been claimed.
-- Commit sequence: `298e03b3cdd37b817bac48cdf1748f7d30355bee` through `6a4b3d90ccc982261d7100b4319ab533bba35c19`.
+- Verification: migration `0010_price_observation_model.sql` was applied successfully to the production Neon database; the application recovered from the previous React Server Component #441 error after the schema was brought in sync with the deployed code.
+- CI: GitHub Actions run `35844035366` for commit `8e77d634fcd50a5ea2928ec5b9868d7e6b247295` completed successfully (unit checks, typecheck and build).
+- Commit sequence: `298e03b3cdd37b817bac48cdf1748f7d30355bee` through `8e77d634fcd50a5ea2928ec5b9868d7e6b247295`.
 
 # Shopping Buddy — Change Log
 

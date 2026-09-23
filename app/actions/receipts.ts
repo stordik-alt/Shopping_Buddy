@@ -107,11 +107,12 @@ async function findMatchingStoreLocation(storeId: string | null, address?: strin
 
 async function recordReceiptPriceObservations(
   items: Array<ReceiptLineItem & { productId?: string | null }>,
+  storeId: string | null | undefined,
   storeLocationId: string | null | undefined,
   date: string,
   currency?: string | null,
 ): Promise<void> {
-  if (!storeLocationId) return
+  if (!storeId) return
   await Promise.all(
     items
       .filter((item) => item.productId && item.quantity > 0 && item.price >= 0)
@@ -119,12 +120,17 @@ async function recordReceiptPriceObservations(
         const unitPrice = item.price
         return recordPriceObservation({
           productId: item.productId!,
+          storeId,
           storeLocationId,
           regularPrice: unitPrice,
           currency: currency ?? 'CZK',
           unit: item.unit,
           unitPrice,
-          recordedAt: date,
+          observedAt: date,
+          validFrom: date,
+          priceScope: 'STORE',
+          sourceType: 'RECEIPT',
+          locationResolution: storeLocationId ? 'RESOLVED' : 'UNKNOWN',
         })
       }),
   )
@@ -192,7 +198,7 @@ async function createPurchaseFromReceiptItems(
     await restockPantryItem(householdId, { productId: item.productId, name: item.name, category: item.category, quantity: item.quantity, unit: item.unit, location: item.location })
   }
 
-  await recordReceiptPriceObservations(resolvedItems, options.storeLocationId, date, options.currency)
+  await recordReceiptPriceObservations(resolvedItems, storeId, options.storeLocationId, date, options.currency)
 
   if (options.source === 'confirmed') {
     for (const item of resolvedItems) {

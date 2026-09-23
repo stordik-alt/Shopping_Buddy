@@ -475,19 +475,23 @@ export async function confirmReceiptReviewAction(
   // actually enforces this — `options.date` (explicitly supplied here) falls back to `row.date`
   // (the OCR-read date, for a review triggered by something other than a missing date, e.g. an
   // inconsistent total) and throws rather than defaulting to today if neither is present.
-  const storeId = row.storeId ?? (row.parserResult ? await findOrCreateStore((JSON.parse(row.parserResult) as ExtractedReceipt).store.name) : null)
+  const extractedReview = row.parserResult ? (JSON.parse(row.parserResult) as ExtractedReceipt) : null
+  const storeId = row.storeId ?? (extractedReview ? await findOrCreateStore(extractedReview.store.name) : null)
+  const resolvedStoreLocationId = options.storeLocationId ?? row.storeLocationId ??
+    (extractedReview ? await findMatchingStoreLocation(storeId, extractedReview.store.address, extractedReview.store.city) : null)
   const purchase = await createPurchaseFromReceiptItems(householdId, items, {
     date: options.date,
     storedDate: row.date,
-    storeLocationId: options.storeLocationId ?? row.storeLocationId,
+    storeLocationId: resolvedStoreLocationId,
     storeId,
+    currency: row.currency,
     source: 'confirmed',
   })
 
   const db = getDb()
   await db
     .update(schema.receiptImports)
-    .set({ status: 'completed', items: JSON.stringify(items), purchaseId: purchase.id, processedAt: new Date(), updatedAt: new Date() })
+    .set({ status: 'completed', items: JSON.stringify(items), storeLocationId: resolvedStoreLocationId, purchaseId: purchase.id, processedAt: new Date(), updatedAt: new Date() })
     .where(eq(schema.receiptImports.id, receiptImportId))
 
   revalidatePath('/')

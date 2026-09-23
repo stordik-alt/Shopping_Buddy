@@ -90,7 +90,7 @@ export function HouseholdProfile({
           <input
             value={household.name}
             onChange={(event) => onUpdateHousehold({ name: event.target.value })}
-            className="w-full rounded-xl border border-transparent bg-transparent text-2xl font-semibold outline-none focus:border-input focus:bg-background focus:px-2 focus:py-1"
+            className="min-h-11 w-full rounded-xl border border-transparent bg-transparent px-1 text-2xl font-semibold outline-none focus:border-input focus:bg-background focus:px-2 focus:py-1"
           />
         </label>
       </div>
@@ -104,7 +104,7 @@ export function HouseholdProfile({
             aria-label="Měsíční rozpočet"
             value={household.monthlyBudget}
             onChange={(event) => onUpdateHousehold({ monthlyBudget: Math.max(0, Number(event.target.value) || 0) })}
-            className="w-32 rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            className="min-h-11 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring sm:w-32"
           />
           <span className="text-sm text-muted-foreground">Kč / měsíc</span>
         </div>
@@ -129,7 +129,7 @@ export function HouseholdProfile({
             value={memberForm.name}
             onChange={(event) => setMemberForm((current) => ({ ...current, name: event.target.value }))}
             placeholder="Jméno"
-            className="rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            className="min-h-11 rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
           />
           <input
             aria-label="Věk člena"
@@ -161,7 +161,7 @@ export function HouseholdProfile({
             placeholder="Alergie / intolerance (odděleno čárkou)"
             className="rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
           />
-          <button onClick={addMember} className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground sm:col-span-2">
+          <button onClick={addMember} className="min-h-11 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:col-span-2">
             Přidat člena domácnosti
           </button>
         </div>
@@ -179,7 +179,7 @@ export function HouseholdProfile({
                 placeholder="email@rodina.cz"
                 className="min-w-0 flex-1 rounded-xl border border-input bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-ring"
               />
-              <button onClick={sendInvite} className="rounded-xl border border-border px-4 py-3 text-sm font-medium hover:bg-muted">
+              <button onClick={sendInvite} className="min-h-11 rounded-xl border border-border px-4 py-3 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 Pozvat člena
               </button>
             </div>
@@ -188,10 +188,10 @@ export function HouseholdProfile({
               <div className="mt-3 rounded-xl bg-muted p-3 text-xs">
                 <p className="text-muted-foreground">Odkaz pro pozvánku (platí 7 dní) — pošlete jej pozvanému sami:</p>
                 <div className="mt-1.5 flex items-center gap-2">
-                  <code className="min-w-0 flex-1 truncate">{inviteLink}</code>
+                  <code className="min-w-0 flex-1 break-words">{inviteLink}</code>
                   <button
                     onClick={() => navigator.clipboard.writeText(inviteLink)}
-                    className="shrink-0 rounded-lg bg-background px-2 py-1 font-medium hover:bg-card"
+                    className="min-h-10 shrink-0 rounded-lg bg-background px-3 py-2 font-medium hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     Kopírovat
                   </button>
@@ -212,7 +212,7 @@ export function HouseholdProfile({
                   isOwner && (
                     <button
                       onClick={() => onRevokeInvitation(invitation.id)}
-                      className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-background hover:text-destructive"
+                      className="min-h-10 shrink-0 rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-background hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       Zrušit
                     </button>
@@ -322,7 +322,7 @@ export function HouseholdProfile({
               </select>
             </label>
           </div>
-          <label className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2 text-sm">
+          <label className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-border px-3 py-2 text-sm">
             <span>Preferovat české výrobky</span>
             <input
               type="checkbox"
@@ -337,7 +337,7 @@ export function HouseholdProfile({
       <section className="rounded-3xl border border-border bg-card p-6">
         <p className="font-semibold">Upozornění</p>
         <div className="mt-4 flex flex-col gap-3">
-          <label className="flex items-center justify-between rounded-2xl bg-muted p-4 text-sm">
+          <label className="flex min-h-14 items-center justify-between rounded-2xl bg-muted p-4 text-sm">
             <div>
               <p className="font-medium">Týdenní souhrn</p>
               <p className="text-xs text-muted-foreground">Rozpočet, úspory a otevřené položky</p>

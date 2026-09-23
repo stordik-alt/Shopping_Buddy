@@ -10,8 +10,8 @@ permissions:
   contents: read
 
 jobs:
-  verify:
-    name: Tests, typecheck and production build
+  unit:
+    name: Unit tests, typecheck and production build
     runs-on: ubuntu-latest
 
     steps:
@@ -32,11 +32,39 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Tests
-        run: pnpm exec vitest run
+      - name: Unit tests
+        run: pnpm exec vitest run --exclude 'app/actions/**/*.test.ts' --exclude 'lib/db/queries.test.ts'
 
       - name: Typecheck
         run: pnpm exec tsc --noEmit
 
       - name: Production build
         run: pnpm build
+
+  integration:
+    name: Database integration tests
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    if: ${{ env.DATABASE_URL != '' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.3.4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Integration tests
+        run: pnpm exec vitest run 'app/actions/**/*.test.ts' 'lib/db/queries.test.ts'

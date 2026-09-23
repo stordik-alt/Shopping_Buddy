@@ -313,6 +313,8 @@ Store location
 
 Real store locations have been added to the database.
 
+**Update 2026-09-23:** The receipt OCR pipeline now creates a physical `store_locations` row when OCR provides an address for a branch that is not yet in the directory. The chain is still stored in `stores`; the new branch is linked by `store_id` and immediately assigned to the receipt/purchase/receipt price observations. Coordinates and opening hours remain NULL until a trusted store-directory source enriches the branch; the OCR pipeline never invents them. A normalized chain + address + city unique index prevents repeated imports from creating duplicate branches.
+
 The current database contains approximately:
 
 ```text

@@ -46,7 +46,7 @@ export function StoreDirectory({
       </div>
       <div className="flex flex-wrap gap-2">
         {usingGps ? (
-          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-primary">
+          <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-primary focus-within:ring-2 focus-within:ring-ring">
             <LocateFixed className="h-4 w-4 shrink-0" />
             <span className="min-w-0 flex-1 truncate">Používá se vaše aktuální poloha (GPS)</span>
             <button onClick={onClearLocation} className="shrink-0 whitespace-nowrap text-xs font-medium underline hover:no-underline">

@@ -77,10 +77,13 @@ function fakeProviders(extracted: ExtractedReceipt): { textExtractor: ReceiptTex
 // delete whatever ids exist afterward that weren't in that snapshot — catches every one of them
 // regardless of which test (or which of `upsertProductCatalogDefaults`'s two paths) created it.
 let existingProductIds: Set<string>
+let existingStoreLocationIds: Set<string>
 
 beforeAll(async () => {
   const rows = await db.query.products.findMany({ columns: { id: true } })
   existingProductIds = new Set(rows.map((row) => row.id))
+  const storeLocations = await db.query.storeLocations.findMany({ columns: { id: true } })
+  existingStoreLocationIds = new Set(storeLocations.map((row) => row.id))
 })
 
 beforeEach(async () => {
@@ -99,6 +102,11 @@ afterAll(async () => {
   const newProductIds = rows.filter((row) => !existingProductIds.has(row.id)).map((row) => row.id)
   if (newProductIds.length > 0) {
     await db.delete(schema.products).where(inArray(schema.products.id, newProductIds))
+  }
+  const storeLocations = await db.query.storeLocations.findMany({ columns: { id: true } })
+  const newStoreLocationIds = storeLocations.filter((row) => !existingStoreLocationIds.has(row.id)).map((row) => row.id)
+  if (newStoreLocationIds.length > 0) {
+    await db.delete(schema.storeLocations).where(inArray(schema.storeLocations.id, newStoreLocationIds))
   }
   await del(uploadedBlobUrls).catch(() => {})
 })
@@ -231,6 +239,47 @@ describe('processReceiptImport — OCR pipeline orchestration (fake OCR/AI, real
     expect(row.storeId).not.toBeNull()
     const store = await db.query.stores.findFirst({ where: eq(schema.stores.id, row.storeId!) })
     expect(store?.chain).toBe('Tesco Express')
+  })
+
+  it('creates a new branch when OCR provides an address that is not yet in the store directory', async () => {
+    const address = `OCR Testovací ${crypto.randomUUID()} 12`
+    const city = 'Brno'
+    const receiptImportId = await createUploadedReceipt()
+    const row = await processReceiptImport(
+      receiptImportId,
+      fakeProviders(extractedReceipt({
+        date: '2026-09-24',
+        store: { name: 'Lidl', address, city, confidence: 0.95 },
+      })),
+    )
+
+    expect(row.status).toBe('completed')
+    expect(row.storeId).not.toBeNull()
+    expect(row.storeLocationId).not.toBeNull()
+
+    const location = await db.query.storeLocations.findFirst({ where: eq(schema.storeLocations.id, row.storeLocationId!) })
+    expect(location?.storeId).toBe(row.storeId)
+    expect(location?.address).toBe(address)
+    expect(location?.city).toBe(city)
+    expect(location?.lat).toBeNull()
+    expect(location?.lng).toBeNull()
+    expect(location?.hours).toBeNull()
+
+    const secondReceiptImportId = await createUploadedReceipt()
+    const secondRow = await processReceiptImport(
+      secondReceiptImportId,
+      fakeProviders(extractedReceipt({
+        date: '2026-09-25',
+        store: { name: 'LIDL Česká republika', address: `  ${address.toUpperCase()}  `, city: '  brno ', confidence: 0.95 },
+      })),
+    )
+
+    expect(secondRow.status).toBe('completed')
+    expect(secondRow.storeLocationId).toBe(row.storeLocationId)
+
+    const matchingLocations = (await db.query.storeLocations.findMany({ where: eq(schema.storeLocations.storeId, row.storeId!) }))
+      .filter((candidate) => candidate.address.toLocaleLowerCase('cs-CZ') === address.toLocaleLowerCase('cs-CZ'))
+    expect(matchingLocations).toHaveLength(1)
   })
 
   it('routes to review_required when the receipt fails the consistency check', async () => {

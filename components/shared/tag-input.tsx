@@ -26,9 +26,9 @@ export function TagInput({
   }
 
   return (
-    <div>
+    <div className="min-w-0">
       <p className="text-sm">{label}</p>
-      <div className="mt-2 flex gap-2">
+      <div className="mt-2 flex flex-col gap-2 sm:flex-row">
         <input
           aria-label={label}
           value={draft}
@@ -40,19 +40,22 @@ export function TagInput({
             }
           }}
           placeholder={placeholder}
-          className="min-w-0 flex-1 rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+          className="min-h-10 min-w-0 flex-1 rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
-        <button onClick={addTag} className="rounded-xl border border-border px-3 py-2 text-sm font-medium hover:bg-muted">
+        <button
+          onClick={addTag}
+          className="min-h-10 shrink-0 rounded-xl border border-border px-3 py-2 text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
           Přidat
         </button>
       </div>
       {values.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-2">
           {values.map((tag) => (
-            <span key={tag} className="flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-xs font-medium">
-              {tag}
-              <button aria-label={`Odebrat ${tag}`} onClick={() => removeTag(tag)} className="text-muted-foreground hover:text-destructive">
-                <X className="h-3 w-3" />
+            <span key={tag} className="flex max-w-full items-center gap-1 rounded-full bg-muted px-3 py-1 text-xs font-medium break-words">
+              <span className="min-w-0 break-words">{tag}</span>
+              <button aria-label={`Odebrat ${tag}`} onClick={() => removeTag(tag)} className="flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-background hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <X className="h-3 w-3" aria-hidden="true" />
               </button>
             </span>
           ))}

@@ -5,33 +5,37 @@ export function MemberCard({ member, onRemove }: { member: HouseholdMember; onRe
   return (
     <div className="rounded-2xl bg-muted p-4">
       <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-background text-xs font-semibold">
             {member.name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}
           </div>
-          <div>
-            <p className="text-sm font-medium">{member.name}</p>
-            <p className="text-xs text-muted-foreground">{member.role} · {member.age} let</p>
+          <div className="min-w-0">
+            <p className="break-words text-sm font-medium">{member.name}</p>
+            <p className="break-words text-xs text-muted-foreground">{member.role} · {member.age} let</p>
           </div>
         </div>
-        <button aria-label={`Odebrat ${member.name}`} onClick={onRemove} className="rounded-lg p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
-          <X className="h-4 w-4" />
+        <button
+          aria-label={`Odebrat ${member.name}`}
+          onClick={onRemove}
+          className="flex size-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <X className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
       {(member.favoriteFoods.length > 0 || member.dislikedFoods.length > 0 || member.allergies.length > 0) && (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {member.favoriteFoods.map((food) => (
-            <span key={food} className="rounded-full bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">
+            <span key={food} className="max-w-full rounded-full bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary break-words">
               Oblíbené: {food}
             </span>
           ))}
           {member.dislikedFoods.map((food) => (
-            <span key={food} className="rounded-full bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground">
+            <span key={food} className="max-w-full rounded-full bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground break-words">
               Nechce: {food}
             </span>
           ))}
           {member.allergies.map((allergy) => (
-            <span key={allergy} className="rounded-full bg-destructive/10 px-2 py-1 text-[11px] font-medium text-destructive">
+            <span key={allergy} className="max-w-full rounded-full bg-destructive/10 px-2 py-1 text-[11px] font-medium text-destructive break-words">
               Alergie: {allergy}
             </span>
           ))}

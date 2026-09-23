@@ -1,8 +1,8 @@
-import type { Household, ItemCategory, PantryItem } from '@/lib/types'
+import type { Household, ItemCategory, ItemUnit, PantryItem } from '@/lib/types'
 
 export type MealType = 'Snídaně' | 'Oběd' | 'Večeře' | 'Svačina'
 
-export type Ingredient = { name: string; category: ItemCategory }
+export type Ingredient = { name: string; category: ItemCategory; quantity: number; unit: ItemUnit }
 
 export type Recipe = {
   id: string
@@ -36,9 +36,9 @@ export type WeeklyMealPlan = {
 export const DAYS = ['Pondělí', 'Úterý', 'Středa', 'Čtvrtek', 'Pátek', 'Sobota', 'Neděle']
 
 const STAPLES: Ingredient[] = [
-  { name: 'Toaletní papír', category: 'Drogerie' },
-  { name: 'Prací prostředek', category: 'Drogerie' },
-  { name: 'Houbičky na nádobí', category: 'Domácnost' },
+  { name: 'Toaletní papír', category: 'Drogerie', quantity: 1, unit: 'ks' },
+  { name: 'Prací prostředek', category: 'Drogerie', quantity: 1, unit: 'ks' },
+  { name: 'Houbičky na nádobí', category: 'Domácnost', quantity: 1, unit: 'ks' },
 ]
 
 const RECIPES: Recipe[] = [
@@ -49,9 +49,9 @@ const RECIPES: Recipe[] = [
     price: 28,
     allergens: [],
     ingredients: [
-      { name: 'Ovesné vločky', category: 'Potraviny' },
-      { name: 'Mléko polotučné', category: 'Potraviny' },
-      { name: 'Banány', category: 'Potraviny' },
+      { name: 'Ovesné vločky', category: 'Potraviny', quantity: 50, unit: 'g' },
+      { name: 'Mléko polotučné', category: 'Potraviny', quantity: 0.25, unit: 'l' },
+      { name: 'Banány', category: 'Potraviny', quantity: 1, unit: 'ks' },
     ],
   },
   {
@@ -61,9 +61,9 @@ const RECIPES: Recipe[] = [
     price: 32,
     allergens: ['lepek'],
     ingredients: [
-      { name: 'Vejce', category: 'Potraviny' },
-      { name: 'Pečivo', category: 'Potraviny' },
-      { name: 'Máslo', category: 'Potraviny' },
+      { name: 'Vejce', category: 'Potraviny', quantity: 2, unit: 'ks' },
+      { name: 'Pečivo', category: 'Potraviny', quantity: 2, unit: 'ks' },
+      { name: 'Máslo', category: 'Potraviny', quantity: 10, unit: 'g' },
     ],
   },
   {
@@ -73,9 +73,9 @@ const RECIPES: Recipe[] = [
     price: 35,
     allergens: ['laktóza'],
     ingredients: [
-      { name: 'Řecký jogurt', category: 'Potraviny' },
-      { name: 'Jablka', category: 'Potraviny' },
-      { name: 'Med', category: 'Potraviny' },
+      { name: 'Řecký jogurt', category: 'Potraviny', quantity: 150, unit: 'g' },
+      { name: 'Jablka', category: 'Potraviny', quantity: 1, unit: 'ks' },
+      { name: 'Med', category: 'Potraviny', quantity: 10, unit: 'g' },
     ],
   },
   {
@@ -85,8 +85,8 @@ const RECIPES: Recipe[] = [
     price: 39,
     allergens: ['ořechy'],
     ingredients: [
-      { name: 'Bezlepkové müsli', category: 'Potraviny' },
-      { name: 'Mandlové mléko', category: 'Potraviny' },
+      { name: 'Bezlepkové müsli', category: 'Potraviny', quantity: 50, unit: 'g' },
+      { name: 'Mandlové mléko', category: 'Potraviny', quantity: 0.2, unit: 'l' },
     ],
   },
   {
@@ -96,9 +96,9 @@ const RECIPES: Recipe[] = [
     price: 89,
     allergens: [],
     ingredients: [
-      { name: 'Kuřecí prsa', category: 'Potraviny' },
-      { name: 'Rýže', category: 'Potraviny' },
-      { name: 'Paprika', category: 'Potraviny' },
+      { name: 'Kuřecí prsa', category: 'Potraviny', quantity: 0.15, unit: 'kg' },
+      { name: 'Rýže', category: 'Potraviny', quantity: 0.08, unit: 'kg' },
+      { name: 'Paprika', category: 'Potraviny', quantity: 1, unit: 'ks' },
     ],
   },
   {
@@ -108,9 +108,9 @@ const RECIPES: Recipe[] = [
     price: 62,
     allergens: ['lepek'],
     ingredients: [
-      { name: 'Těstoviny', category: 'Potraviny' },
-      { name: 'Rajčata', category: 'Potraviny' },
-      { name: 'Parmazán', category: 'Potraviny' },
+      { name: 'Těstoviny', category: 'Potraviny', quantity: 0.1, unit: 'kg' },
+      { name: 'Rajčata', category: 'Potraviny', quantity: 0.2, unit: 'kg' },
+      { name: 'Parmazán', category: 'Potraviny', quantity: 20, unit: 'g' },
     ],
   },
   {
@@ -120,9 +120,9 @@ const RECIPES: Recipe[] = [
     price: 58,
     allergens: [],
     ingredients: [
-      { name: 'Čočka', category: 'Potraviny' },
-      { name: 'Kokosové mléko', category: 'Potraviny' },
-      { name: 'Mrkev', category: 'Potraviny' },
+      { name: 'Čočka', category: 'Potraviny', quantity: 0.1, unit: 'kg' },
+      { name: 'Kokosové mléko', category: 'Potraviny', quantity: 0.2, unit: 'l' },
+      { name: 'Mrkev', category: 'Potraviny', quantity: 0.15, unit: 'kg' },
     ],
   },
   {
@@ -132,9 +132,9 @@ const RECIPES: Recipe[] = [
     price: 129,
     allergens: [],
     ingredients: [
-      { name: 'Losos', category: 'Potraviny' },
-      { name: 'Brambory', category: 'Potraviny' },
-      { name: 'Citron', category: 'Potraviny' },
+      { name: 'Losos', category: 'Potraviny', quantity: 0.15, unit: 'kg' },
+      { name: 'Brambory', category: 'Potraviny', quantity: 0.3, unit: 'kg' },
+      { name: 'Citron', category: 'Potraviny', quantity: 1, unit: 'ks' },
     ],
   },
   {
@@ -144,9 +144,9 @@ const RECIPES: Recipe[] = [
     price: 42,
     allergens: [],
     ingredients: [
-      { name: 'Mrkev', category: 'Potraviny' },
-      { name: 'Brambory', category: 'Potraviny' },
-      { name: 'Celer', category: 'Potraviny' },
+      { name: 'Mrkev', category: 'Potraviny', quantity: 0.15, unit: 'kg' },
+      { name: 'Brambory', category: 'Potraviny', quantity: 0.2, unit: 'kg' },
+      { name: 'Celer', category: 'Potraviny', quantity: 0.1, unit: 'kg' },
     ],
   },
   {
@@ -156,9 +156,9 @@ const RECIPES: Recipe[] = [
     price: 54,
     allergens: [],
     ingredients: [
-      { name: 'Brambory', category: 'Potraviny' },
-      { name: 'Šunka', category: 'Potraviny' },
-      { name: 'Majonéza', category: 'Potraviny' },
+      { name: 'Brambory', category: 'Potraviny', quantity: 0.3, unit: 'kg' },
+      { name: 'Šunka', category: 'Potraviny', quantity: 0.1, unit: 'kg' },
+      { name: 'Majonéza', category: 'Potraviny', quantity: 0.05, unit: 'kg' },
     ],
   },
   {
@@ -168,9 +168,9 @@ const RECIPES: Recipe[] = [
     price: 68,
     allergens: ['lepek', 'laktóza'],
     ingredients: [
-      { name: 'Těstoviny', category: 'Potraviny' },
-      { name: 'Eidam', category: 'Potraviny' },
-      { name: 'Smetana', category: 'Potraviny' },
+      { name: 'Těstoviny', category: 'Potraviny', quantity: 0.1, unit: 'kg' },
+      { name: 'Eidam', category: 'Potraviny', quantity: 0.1, unit: 'kg' },
+      { name: 'Smetana', category: 'Potraviny', quantity: 0.2, unit: 'l' },
     ],
   },
   {
@@ -180,9 +180,9 @@ const RECIPES: Recipe[] = [
     price: 49,
     allergens: [],
     ingredients: [
-      { name: 'Cizrna', category: 'Potraviny' },
-      { name: 'Cuketa', category: 'Potraviny' },
-      { name: 'Paprika', category: 'Potraviny' },
+      { name: 'Cizrna', category: 'Potraviny', quantity: 0.2, unit: 'kg' },
+      { name: 'Cuketa', category: 'Potraviny', quantity: 0.2, unit: 'kg' },
+      { name: 'Paprika', category: 'Potraviny', quantity: 1, unit: 'ks' },
     ],
   },
   {
@@ -192,8 +192,8 @@ const RECIPES: Recipe[] = [
     price: 22,
     allergens: ['ořechy'],
     ingredients: [
-      { name: 'Jablka', category: 'Potraviny' },
-      { name: 'Mandle', category: 'Potraviny' },
+      { name: 'Jablka', category: 'Potraviny', quantity: 1, unit: 'ks' },
+      { name: 'Mandle', category: 'Potraviny', quantity: 0.03, unit: 'kg' },
     ],
   },
   {
@@ -202,7 +202,7 @@ const RECIPES: Recipe[] = [
     mealType: 'Svačina',
     price: 18,
     allergens: ['lepek'],
-    ingredients: [{ name: 'Celozrnná tyčinka', category: 'Potraviny' }],
+    ingredients: [{ name: 'Celozrnná tyčinka', category: 'Potraviny', quantity: 1, unit: 'ks' }],
   },
   {
     id: 's3',
@@ -211,8 +211,8 @@ const RECIPES: Recipe[] = [
     price: 26,
     allergens: [],
     ingredients: [
-      { name: 'Mrkev', category: 'Potraviny' },
-      { name: 'Humus', category: 'Potraviny' },
+      { name: 'Mrkev', category: 'Potraviny', quantity: 0.1, unit: 'kg' },
+      { name: 'Humus', category: 'Potraviny', quantity: 0.05, unit: 'kg' },
     ],
   },
 ]
@@ -222,13 +222,41 @@ function recipesFor(mealType: MealType, excludedAllergens: Set<string>) {
   return pool.length > 0 ? pool : RECIPES.filter((recipe) => recipe.mealType === mealType)
 }
 
-/** Whether the household currently has this ingredient in stock (spíž/lednice/mrazák/domácnost,
- *  wherever it's tracked) — case/whitespace-insensitive exact match, same no-fuzzy-matching
- *  philosophy as `lib/products.ts`'s `matchProductByName`. A pantry row present with quantity 0
- *  doesn't count as "have it". */
+type UnitGroup = 'mass' | 'volume' | 'count'
+const UNIT_INFO: Record<ItemUnit, { group: UnitGroup; toBase: number }> = {
+  kg: { group: 'mass', toBase: 1000 },
+  g: { group: 'mass', toBase: 1 },
+  l: { group: 'volume', toBase: 1000 },
+  ml: { group: 'volume', toBase: 1 },
+  ks: { group: 'count', toBase: 1 },
+}
+
+/** Converts a quantity between units that measure the same thing — mass (kg<->g) or volume
+ *  (l<->ml), e.g. 0.25 l -> 250 ml. Returns `null` for units that can't be meaningfully compared
+ *  (e.g. kg vs ks, or anything vs 'ks') rather than guessing at a conversion that doesn't exist —
+ *  a recipe needing weight/volume of something the pantry only counts in pieces (or vice versa)
+ *  genuinely can't be resolved without knowing that product's real package size, which per
+ *  `docs/01_CURRENT_STATE.md`'s "Product normalization" gap isn't modeled yet. */
+export function convertQuantity(quantity: number, fromUnit: ItemUnit, toUnit: ItemUnit): number | null {
+  if (fromUnit === toUnit) return quantity
+  const from = UNIT_INFO[fromUnit]
+  const to = UNIT_INFO[toUnit]
+  if (from.group !== to.group || from.group === 'count') return null
+  return (quantity * from.toBase) / to.toBase
+}
+
+/** Whether the household currently has *enough* of this ingredient in stock (spíž/lednice/mrazák/
+ *  domácnost, wherever it's tracked) — case/whitespace-insensitive exact name match, same
+ *  no-fuzzy-matching philosophy as `lib/products.ts`'s `matchProductByName`, but now genuinely
+ *  quantity-aware via `convertQuantity()` rather than just "is there any row at all" — a pantry row
+ *  with less than the recipe actually needs (or in a unit that can't be compared) doesn't count. */
 export function matchIngredientToStock(ingredient: Ingredient, pantryItems: PantryItem[]): PantryItem | undefined {
   const normalized = ingredient.name.trim().toLowerCase()
-  return pantryItems.find((item) => item.quantity > 0 && item.name.trim().toLowerCase() === normalized)
+  return pantryItems.find((item) => {
+    if (item.name.trim().toLowerCase() !== normalized) return false
+    const available = convertQuantity(item.quantity, item.unit, ingredient.unit)
+    return available != null && available >= ingredient.quantity
+  })
 }
 
 function stockCoverageScore(recipe: Recipe, pantryItems: PantryItem[]): number {
@@ -377,13 +405,26 @@ export function currentWeekStart(today: string): string {
   return date.toISOString().slice(0, 10)
 }
 
+/** One entry per distinct ingredient name across the whole week, with quantities *summed* across
+ *  every recipe/day that uses it — a recipe repeated on multiple days (common once a meal-type pool
+ *  is smaller than 7) needs that many multiples of its ingredients, not just one. Assumes the same
+ *  ingredient name is always authored with the same unit across the recipe catalog (true for every
+ *  recipe here); a future genuinely inconsistent unit for the same name would just stop summing
+ *  correctly for that one ingredient rather than throw, since `Ingredient` doesn't carry enough
+ *  information here to safely convert on the fly. Staples aren't repeated per-day, so they're just
+ *  added once each, same as before. */
 export function planIngredients(plan: WeeklyMealPlan): Ingredient[] {
-  const unique = new Map<string, Ingredient>()
+  const combined = new Map<string, Ingredient>()
   for (const day of plan.days) {
     for (const recipe of [day.breakfast, day.lunch, day.dinner, day.snack]) {
-      for (const ingredient of recipe.ingredients) unique.set(ingredient.name, ingredient)
+      for (const ingredient of recipe.ingredients) {
+        const existing = combined.get(ingredient.name)
+        combined.set(ingredient.name, existing ? { ...ingredient, quantity: existing.quantity + ingredient.quantity } : ingredient)
+      }
     }
   }
-  for (const staple of plan.staples) unique.set(staple.name, staple)
-  return Array.from(unique.values())
+  for (const staple of plan.staples) {
+    if (!combined.has(staple.name)) combined.set(staple.name, staple)
+  }
+  return Array.from(combined.values())
 }

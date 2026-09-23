@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/pantry-checkin",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/ingest-prices",
+      "schedule": "0 5 * * *"
     }
   ]
 }

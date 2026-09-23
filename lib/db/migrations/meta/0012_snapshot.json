@@ -1,6 +1,6 @@
 {
-  "id": "b0c4cc23-ae76-45f8-b925-194919e37d2c",
-  "prevId": "9c4d2d8f-7f1b-4c7a-9e31-6b6c5f4d2a10",
+  "id": "1c0643b6-2821-436f-8dc2-4cc2990e8c03",
+  "prevId": "b0c4cc23-ae76-45f8-b925-194919e37d2c",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -898,7 +898,7 @@
           "name": "store_location_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "regular_price": {
           "name": "regular_price",
@@ -926,11 +926,65 @@
           "primaryKey": false,
           "notNull": true
         },
-        "recorded_at": {
-          "name": "recorded_at",
+        "store_id": {
+          "name": "store_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "price_scope": {
+          "name": "price_scope",
+          "type": "price_scope",
+          "primaryKey": false,
+          "notNull": true,
+          "typeSchema": "public",
+          "default": "'STORE'"
+        },
+        "source_type": {
+          "name": "source_type",
+          "type": "price_source_type",
+          "primaryKey": false,
+          "notNull": true,
+          "typeSchema": "public",
+          "default": "'OTHER'"
+        },
+        "location_resolution": {
+          "name": "location_resolution",
+          "type": "price_location_resolution",
+          "primaryKey": false,
+          "notNull": true,
+          "typeSchema": "public",
+          "default": "'RESOLVED'"
+        },
+        "observed_at": {
+          "name": "observed_at",
           "type": "date",
           "primaryKey": false,
           "notNull": true
+        },
+        "valid_from": {
+          "name": "valid_from",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valid_until": {
+          "name": "valid_until",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_reference": {
+          "name": "source_reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "confidence": {
+          "name": "confidence",
+          "type": "numeric(4, 3)",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -954,6 +1008,19 @@
           "tableTo": "store_locations",
           "columnsFrom": [
             "store_location_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "prices_store_id_stores_id_fk": {
+          "name": "prices_store_id_stores_id_fk",
+          "tableFrom": "prices",
+          "tableTo": "stores",
+          "columnsFrom": [
+            "store_id"
           ],
           "columnsTo": [
             "id"
@@ -999,6 +1066,88 @@
           ]
         }
       },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.product_external_refs": {
+      "name": "product_external_refs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "product_id": {
+          "name": "product_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source": {
+          "name": "source",
+          "type": "product_source",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "external_id": {
+          "name": "external_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_seen_at": {
+          "name": "last_seen_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "product_external_refs_source_external_id_idx": {
+          "name": "product_external_refs_source_external_id_idx",
+          "columns": [
+            {
+              "expression": "source",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "external_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "product_external_refs_product_id_products_id_fk": {
+          "name": "product_external_refs_product_id_products_id_fk",
+          "tableFrom": "product_external_refs",
+          "tableTo": "products",
+          "columnsFrom": [
+            "product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -1807,19 +1956,19 @@
           "name": "lat",
           "type": "numeric(9, 6)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "lng": {
           "name": "lng",
           "type": "numeric(9, 6)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "hours": {
           "name": "hours",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         }
       },
       "indexes": {},
@@ -1947,6 +2096,13 @@
         "quality_first"
       ]
     },
+    "public.product_source": {
+      "name": "product_source",
+      "schema": "public",
+      "values": [
+        "lidl"
+      ]
+    },
     "public.quality_preference": {
       "name": "quality_preference",
       "schema": "public",
@@ -1974,6 +2130,36 @@
         "duplicate_review",
         "completed",
         "cancelled"
+      ]
+    },
+    "public.price_scope": {
+      "name": "price_scope",
+      "schema": "public",
+      "values": [
+        "STORE",
+        "STORE_FORMAT",
+        "REGION",
+        "CHAIN"
+      ]
+    },
+    "public.price_source_type": {
+      "name": "price_source_type",
+      "schema": "public",
+      "values": [
+        "RECEIPT",
+        "OFFICIAL",
+        "FLYER",
+        "API",
+        "OTHER"
+      ]
+    },
+    "public.price_location_resolution": {
+      "name": "price_location_resolution",
+      "schema": "public",
+      "values": [
+        "UNKNOWN",
+        "RESOLVED",
+        "NOT_APPLICABLE"
       ]
     }
   },

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  convertQuantity,
   currentWeekStart,
   generateWeeklyPlan,
   isMealCooked,
@@ -104,12 +105,24 @@ describe('planIngredients', () => {
     expect(new Set(names).size).toBe(names.length)
     expect(names).toEqual(expect.arrayContaining(['Toaletní papír', 'Prací prostředek', 'Houbičky na nádobí']))
   })
+
+  it('sums quantities for an ingredient used by more than one meal in the week, rather than keeping only one occurrence\'s amount', () => {
+    const plan = generateWeeklyPlan(3000, household())
+    // Every meal-type pool has 3-4 recipes but the week has 7 days, so at least one recipe (and
+    // therefore its ingredients) necessarily repeats — count real occurrences and compare.
+    const allIngredients = plan.days.flatMap((day) => [day.breakfast, day.lunch, day.dinner, day.snack].flatMap((r) => r.ingredients))
+    const [sampleName] = allIngredients.map((i) => i.name)
+    const occurrences = allIngredients.filter((i) => i.name === sampleName)
+    const expectedTotal = occurrences.reduce((sum, i) => sum + i.quantity, 0)
+    const combined = planIngredients(plan).find((i) => i.name === sampleName)
+    expect(combined?.quantity).toBeCloseTo(expectedTotal)
+  })
 })
 
 describe('generateWeeklyPlan — stock-aware (pantryItems supplied)', () => {
   it('prefers a recipe that uses an ingredient the household already has in stock', () => {
-    // b1 (Ovesná kaše s banánem) uses Mléko polotučné; the other breakfast recipes don't.
-    const withMilk = generateWeeklyPlan(3000, household(), [pantryItem({ name: 'Mléko polotučné' })])
+    // b1 (Ovesná kaše s banánem) needs 0.25 l Mléko polotučné; the other breakfast recipes don't use it.
+    const withMilk = generateWeeklyPlan(3000, household(), [pantryItem({ name: 'Mléko polotučné', unit: 'l', quantity: 1 })])
     expect(withMilk.days[0].breakfast.id).toBe('b1')
   })
 
@@ -131,18 +144,63 @@ describe('generateWeeklyPlan — stock-aware (pantryItems supplied)', () => {
 
 describe('matchIngredientToStock', () => {
   it('matches case/whitespace-insensitively', () => {
-    const match = matchIngredientToStock({ name: 'MLÉKO POLOTUČNÉ', category: 'Potraviny' }, [pantryItem({ name: ' mléko polotučné ' })])
+    const match = matchIngredientToStock({ name: 'MLÉKO POLOTUČNÉ', category: 'Potraviny', quantity: 1, unit: 'ks' }, [pantryItem({ name: ' mléko polotučné ' })])
     expect(match).toBeDefined()
   })
 
   it('does not match a pantry row with zero quantity', () => {
-    const match = matchIngredientToStock({ name: 'Mléko polotučné', category: 'Potraviny' }, [pantryItem({ quantity: 0 })])
+    const match = matchIngredientToStock({ name: 'Mléko polotučné', category: 'Potraviny', quantity: 1, unit: 'ks' }, [pantryItem({ quantity: 0 })])
     expect(match).toBeUndefined()
   })
 
   it('does not match a different product name', () => {
-    const match = matchIngredientToStock({ name: 'Banány', category: 'Potraviny' }, [pantryItem({ name: 'Mléko polotučné' })])
+    const match = matchIngredientToStock({ name: 'Banány', category: 'Potraviny', quantity: 1, unit: 'ks' }, [pantryItem({ name: 'Mléko polotučné' })])
     expect(match).toBeUndefined()
+  })
+
+  it('does not match when the pantry has some stock but less than the recipe needs', () => {
+    const match = matchIngredientToStock(
+      { name: 'Mléko polotučné', category: 'Potraviny', quantity: 0.5, unit: 'l' },
+      [pantryItem({ name: 'Mléko polotučné', unit: 'l', quantity: 0.2 })],
+    )
+    expect(match).toBeUndefined()
+  })
+
+  it('matches across compatible units via real conversion (kg pantry stock, g recipe need)', () => {
+    const match = matchIngredientToStock(
+      { name: 'Mouka', category: 'Potraviny', quantity: 200, unit: 'g' },
+      [pantryItem({ name: 'Mouka', unit: 'kg', quantity: 1 })],
+    )
+    expect(match).toBeDefined()
+  })
+
+  it('does not match across incompatible unit groups (recipe needs weight, pantry counts pieces)', () => {
+    const match = matchIngredientToStock(
+      { name: 'Kuřecí prsa', category: 'Potraviny', quantity: 0.15, unit: 'kg' },
+      [pantryItem({ name: 'Kuřecí prsa', unit: 'ks', quantity: 5 })],
+    )
+    expect(match).toBeUndefined()
+  })
+})
+
+describe('convertQuantity', () => {
+  it('converts between mass units', () => {
+    expect(convertQuantity(1, 'kg', 'g')).toBe(1000)
+    expect(convertQuantity(500, 'g', 'kg')).toBe(0.5)
+  })
+
+  it('converts between volume units', () => {
+    expect(convertQuantity(0.25, 'l', 'ml')).toBe(250)
+    expect(convertQuantity(250, 'ml', 'l')).toBe(0.25)
+  })
+
+  it('returns the same quantity unchanged when units already match', () => {
+    expect(convertQuantity(3, 'ks', 'ks')).toBe(3)
+  })
+
+  it('returns null for units that cannot be meaningfully compared', () => {
+    expect(convertQuantity(1, 'kg', 'ks')).toBeNull()
+    expect(convertQuantity(1, 'l', 'g')).toBeNull()
   })
 })
 

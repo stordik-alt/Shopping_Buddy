@@ -6,7 +6,7 @@ import { requireHouseholdId } from '@/lib/auth/authorize'
 import { TODAY } from '@/lib/budget'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
-import { currentWeekStart, isMealCooked, markMealCooked, recipeFor, type MealType, type WeeklyMealPlan } from '@/lib/meal-plans'
+import { convertQuantity, currentWeekStart, isMealCooked, markMealCooked, recipeFor, type MealType, type WeeklyMealPlan } from '@/lib/meal-plans'
 
 /** Saves (or overwrites) the household's plan for the current week — one row per household per week. */
 export async function saveMealPlanAction(budgetLimit: number, plan: WeeklyMealPlan) {
@@ -53,10 +53,16 @@ export async function markMealCookedAction(day: string, mealType: MealType) {
       where: and(eq(schema.pantryItems.householdId, householdId), ilike(schema.pantryItems.name, ingredient.name.trim())),
     })
     if (!pantryRow || pantryRow.quantity <= 0) continue
-    if (pantryRow.quantity <= 1) {
+    // Convert the recipe's real quantity/unit into whatever unit this pantry row happens to track
+    // the ingredient in — null means they can't be compared (e.g. recipe needs kg, pantry counts
+    // ks), in which case skip rather than guess at how much to deduct.
+    const needed = convertQuantity(ingredient.quantity, ingredient.unit, pantryRow.unit)
+    if (needed == null) continue
+    const remaining = pantryRow.quantity - needed
+    if (remaining <= 0) {
       await db.delete(schema.pantryItems).where(eq(schema.pantryItems.id, pantryRow.id))
     } else {
-      await db.update(schema.pantryItems).set({ quantity: pantryRow.quantity - 1 }).where(eq(schema.pantryItems.id, pantryRow.id))
+      await db.update(schema.pantryItems).set({ quantity: remaining }).where(eq(schema.pantryItems.id, pantryRow.id))
     }
   }
 

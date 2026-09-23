@@ -385,6 +385,10 @@ export function AppShell({
                     userCoords={userLocation.coords}
                     completePurchase={completePurchase}
                   />
+                </div>
+              )}
+              {tab === 'Zásoby' && (
+                <div className="mx-auto max-w-3xl">
                   <Pantry items={pantryItems} onConfirm={confirmPantryItem} onRemove={removePantryItem} onMove={movePantryItem} onAdjustQuantity={adjustPantryItemQuantity} />
                 </div>
               )}

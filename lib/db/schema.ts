@@ -1,5 +1,5 @@
 import { relations } from 'drizzle-orm'
-import { boolean, date, index, integer, numeric, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { boolean, date, index, integer, numeric, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
 
 // --- Enums -----------------------------------------------------------------
 
@@ -11,6 +11,9 @@ export const itemUnitEnum = pgEnum('item_unit', ['ks', 'kg', 'g', 'l', 'ml'])
 export const itemPriorityEnum = pgEnum('item_priority', ['Nízká', 'Normální', 'Vysoká'])
 export const invitationStatusEnum = pgEnum('invitation_status', ['pending', 'accepted', 'revoked'])
 export const pantryLocationEnum = pgEnum('pantry_location', ['Spíž', 'Lednice', 'Mrazák', 'Domácnost'])
+// External price-ingestion sources (docs/32 "Internet Data Integration"). One entry per retailer
+// connector actually implemented — starts with just Lidl.
+export const productSourceEnum = pgEnum('product_source', ['lidl'])
 // 'pending_review' / 'imported' / 'discarded' are the original manual-entry states — a manual
 // import has no OCR/AI step, so it goes straight to 'imported'. The rest is the real OCR pipeline
 // state machine (docs/08_OCR_RECEIPT_PIPELINE.md section 11): uploaded → ocr_processing →
@@ -140,6 +143,23 @@ export const products = pgTable('products', {
   // of the same product, not re-guessed every time.
   defaultLocation: pantryLocationEnum('default_location'),
 })
+
+// Links a catalog product to its identity on an external price source (docs/32 "Internet Data
+// Integration"), e.g. Lidl's own stable `erpNumber`. Per docs/05_BUSINESS_RULES.md ("do not treat
+// product names as sufficient identifiers") and section 34 ("use stable external IDs... unique
+// constraints"): re-running ingestion for the same external product must find this row instead of
+// re-matching by name (which could drift) or creating a duplicate product.
+export const productExternalRefs = pgTable(
+  'product_external_refs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+    source: productSourceEnum('source').notNull(),
+    externalId: text('external_id').notNull(),
+    lastSeenAt: timestamp('last_seen_at').notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('product_external_refs_source_external_id_idx').on(table.source, table.externalId)],
+)
 
 // A retail chain (brand), e.g. Lidl. First market: Česká republika, architecture allows more.
 export const stores = pgTable('stores', {
@@ -392,6 +412,11 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   category: one(productCategories, { fields: [products.categoryId], references: [productCategories.id] }),
   prices: many(prices),
   deals: many(deals),
+  externalRefs: many(productExternalRefs),
+}))
+
+export const productExternalRefsRelations = relations(productExternalRefs, ({ one }) => ({
+  product: one(products, { fields: [productExternalRefs.productId], references: [products.id] }),
 }))
 
 export const storesRelations = relations(stores, ({ many }) => ({

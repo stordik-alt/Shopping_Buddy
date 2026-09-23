@@ -71,6 +71,13 @@
       "when": 1790116181528,
       "tag": "0009_product_default_location",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790144618184,
+      "tag": "0010_far_the_stranger",
+      "breakpoints": true
     }
   ]
 }

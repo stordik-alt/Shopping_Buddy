@@ -1,11 +1,11 @@
-import { and, asc, desc, eq, ilike } from 'drizzle-orm'
+import { and, asc, desc, eq, ilike, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { TODAY } from '@/lib/budget'
 import { currentWeekStart, type WeeklyMealPlan } from '@/lib/meal-plans'
 import { inferPantryLocation } from '@/lib/pantry'
 import type { ProductPrice } from '@/lib/prices'
-import type { ProductCatalogEntry } from '@/lib/products'
+import { matchProductByName, type ProductCatalogEntry } from '@/lib/products'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import type {
   Child,
@@ -542,9 +542,8 @@ export async function getProductPrices(): Promise<ProductPrice[]> {
 /** Appends a new dated price observation for a product at a store — never overwrites an existing
  *  row, so `prices` genuinely accumulates history over time (docs/04_ROADMAP.md "historical-price
  *  awareness"; the read side above already picks the latest observation per product/store and now
- *  also surfaces the full history). This is the foundation only: nothing calls it yet, since there
- *  is no price-refresh/ingestion source wired up (`docs/01_CURRENT_STATE.md` — "External price
- *  ingestion" is a separate, later gap). */
+ *  also surfaces the full history). Called from `lib/ingestion/ingest.ts`'s Lidl price ingestion
+ *  (docs/01_CURRENT_STATE.md section 15, closed 2026-09-23) — the first real caller. */
 export async function recordPriceObservation(observation: {
   productId: string
   storeLocationId: string
@@ -568,4 +567,116 @@ export async function recordPriceObservation(observation: {
     })
     .returning()
   return row
+}
+
+/** Looks up a catalog product previously linked to an external source's own id (e.g. Lidl's
+ *  `erpNumber`) — checked first on every ingestion run so a product already matched/created once
+ *  is found directly, instead of re-matching by name (which could drift) or creating a duplicate.
+ *  Per CLAUDE.md section 34 ("use stable external IDs... unique constraints"). */
+export async function findProductIdByExternalRef(source: 'lidl', externalId: string): Promise<string | null> {
+  const db = getDb()
+  const ref = await db.query.productExternalRefs.findFirst({
+    where: and(eq(schema.productExternalRefs.source, source), eq(schema.productExternalRefs.externalId, externalId)),
+  })
+  return ref?.productId ?? null
+}
+
+/** Resolves a normalized external product to a real catalog `products.id`, creating both the
+ *  product and its external-ref link on first sight. Priority, matching the rest of the app's
+ *  product-identity handling:
+ *  1. Already linked via `product_external_refs` (fastest, and immune to the source renaming a
+ *     product slightly between runs).
+ *  2. An exact/whitespace/case-insensitive name match against the existing catalog
+ *     (`lib/products.ts`'s `matchProductByName()`) — the household's own "Mléko polotučné" should
+ *     get this source's price attached to it, not a second duplicate product.
+ *  3. Neither: create a new catalog product from the external data (owner decision, 2026-09-23 —
+ *     the catalog only had 11 hand-seeded products, and real ingested data is how it grows).
+ *  Every path ends with an external-ref row recorded (or its `lastSeenAt` refreshed), so a repeat
+ *  run of the same product always takes path 1 from then on. */
+export async function resolveOrCreateProductFromExternal(product: {
+  externalId: string
+  source: 'lidl'
+  name: string
+  category: ItemCategory
+  unit: ItemUnit
+}): Promise<string> {
+  const db = getDb()
+
+  const existingRefProductId = await findProductIdByExternalRef(product.source, product.externalId)
+  if (existingRefProductId) {
+    await db
+      .update(schema.productExternalRefs)
+      .set({ lastSeenAt: new Date() })
+      .where(and(eq(schema.productExternalRefs.source, product.source), eq(schema.productExternalRefs.externalId, product.externalId)))
+    return existingRefProductId
+  }
+
+  const catalog = await getProductCatalog()
+  const matched = matchProductByName(catalog, product.name)
+
+  let productId: string
+  if (matched) {
+    productId = matched.id
+  } else {
+    const categoryRow = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, product.category) })
+    if (!categoryRow) throw new Error(`Unknown product category: ${product.category}`)
+    const [row] = await db
+      .insert(schema.products)
+      .values({ name: product.name, categoryId: categoryRow.id, defaultUnit: product.unit })
+      .returning()
+    productId = row.id
+  }
+
+  await db.insert(schema.productExternalRefs).values({ productId, source: product.source, externalId: product.externalId })
+  return productId
+}
+
+/** One representative store_location to attach a chain-wide price/deal observation to. Real prices
+ *  from an online-published source like this apply nationwide, not to one specific physical
+ *  branch, matching how `lib/db/seed.ts`'s original seed data already attached each chain's price
+ *  to a single location rather than duplicating it across every branch. Picks the first location by
+ *  id for determinism; throws rather than silently skipping if the chain has no seeded location at
+ *  all, since that would otherwise silently drop every price for that chain. */
+export async function getCanonicalStoreLocationId(chain: string): Promise<string> {
+  const db = getDb()
+  const storeRow = await db.query.stores.findFirst({ where: eq(schema.stores.chain, chain) })
+  if (!storeRow) throw new Error(`No seeded store for chain: ${chain}`)
+  const location = await db.query.storeLocations.findFirst({ where: eq(schema.storeLocations.storeId, storeRow.id) })
+  if (!location) throw new Error(`No seeded store location for chain: ${chain}`)
+  return location.id
+}
+
+/** Upserts the currently-active deal for a product at a store — "currently active" meaning any
+ *  existing row whose validity window hasn't ended yet. Re-running ingestion for the same ongoing
+ *  promotion updates that one row (price or dates may have shifted slightly) instead of creating a
+ *  duplicate every day; a genuinely new promotion (no still-active row) gets its own new row, so
+ *  the history of past promotions in `deals` isn't overwritten. Per CLAUDE.md section 16 ("do not
+ *  silently overwrite historical price information") — only the *active* row is touched. */
+export async function upsertActiveDeal(deal: {
+  productId: string
+  storeLocationId: string
+  dealPrice: number
+  currency?: string
+  validFrom: string
+  validUntil: string
+}) {
+  const db = getDb()
+  const existing = await db.query.deals.findFirst({
+    where: and(eq(schema.deals.productId, deal.productId), eq(schema.deals.storeLocationId, deal.storeLocationId), sql`${schema.deals.validUntil} >= ${TODAY}`),
+  })
+  if (existing) {
+    await db
+      .update(schema.deals)
+      .set({ dealPrice: deal.dealPrice.toString(), currency: deal.currency ?? 'CZK', validFrom: deal.validFrom, validUntil: deal.validUntil })
+      .where(eq(schema.deals.id, existing.id))
+  } else {
+    await db.insert(schema.deals).values({
+      productId: deal.productId,
+      storeLocationId: deal.storeLocationId,
+      dealPrice: deal.dealPrice.toString(),
+      currency: deal.currency ?? 'CZK',
+      validFrom: deal.validFrom,
+      validUntil: deal.validUntil,
+    })
+  }
 }

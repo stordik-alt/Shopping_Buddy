@@ -1,7 +1,7 @@
 import { NavItem } from '@/components/shared/nav-item'
 import type { Tab } from '@/lib/types'
 
-const TABS: Tab[] = ['Domů', 'Nákup', 'Obchody', 'Rozpočet', 'AI', 'Profil']
+const TABS: Tab[] = ['Domů', 'Nákup', 'Zásoby', 'Obchody', 'Rozpočet', 'AI', 'Profil']
 
 export function MobileNav({ tab, onTabChange }: { tab: Tab; onTabChange: (tab: Tab) => void }) {
   return (

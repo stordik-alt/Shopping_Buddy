@@ -20,7 +20,11 @@ export type ReceiptLineItem = {
   category: ItemCategory
   quantity: number
   unit: ItemUnit
+  /** Per-unit price *before* any discount — the shelf price printed on the item line. */
   price: number
+  /** Total discount applied to this whole line (not per unit), in currency units, never negative.
+   *  What was actually paid for the line is `price × quantity − discount`. Omitted when none. */
+  discount?: number
   location?: PantryLocation
   confidence?: number
 }
@@ -87,7 +91,13 @@ export type ExtractedReceipt = z.infer<typeof extractedReceiptSchema>
 /** Stage 2: normalized OCR text → structured data. The seam a real structuring model plugs into —
  *  Gemini Flash-Lite via the Vercel AI Gateway by default (see `geminiStructuringProvider`). */
 export interface ReceiptStructuringProvider {
-  structure(normalizedText: string): Promise<ExtractedReceipt>
+  /** `onUsage`, when given, receives the model's token usage (if the provider knows it) so the
+   *  pipeline can log per-import cost (docs/08_OCR_RECEIPT_PIPELINE.md section 19). Optional so a
+   *  provider without usage data — or a test fake — needs no changes. */
+  structure(
+    normalizedText: string,
+    options?: { onUsage?: (usage: { inputTokens?: number; outputTokens?: number }) => void },
+  ): Promise<ExtractedReceipt>
 }
 
 /** Exchanges Vercel's short-lived OIDC token for a short-lived Google access token.
@@ -321,8 +331,8 @@ const STRUCTURING_MODEL = 'google/gemini-2.5-flash-lite'
  *  validation means a response that doesn't fit the shape throws rather than returning
  *  partial/malformed data. */
 export const geminiStructuringProvider: ReceiptStructuringProvider = {
-  async structure(normalizedText) {
-    const { object } = await generateObject({
+  async structure(normalizedText, options) {
+    const { object, usage } = await generateObject({
       model: STRUCTURING_MODEL,
       schema: extractedReceiptSchema,
       prompt: `You are extracting structured data from the OCR text of a Czech retail receipt.
@@ -335,11 +345,14 @@ Rules — follow these exactly:
 - Never invent or estimate a value. If a value is not unambiguously present in the text, output null for it.
 - Do not "correct" a product name into a different, more common product based on a guess (e.g. do not change a real product name just because it looks like an OCR error for something else).
 - Every numeric value must come directly from the text — never calculated, rounded, or assumed.
+- Discounts: "totalPrice" is the item line's price BEFORE any discount (the amount printed on the item line, i.e. quantity × unit price). "discount" is the positive amount taken off that one line (e.g. a "Sleva -5,00" line printed right under it) or null if none. Write discount amounts as positive numbers even though the receipt prints them with a minus sign. "discountTotal" is the total of ALL discounts on the receipt, including the per-item ones and any receipt-wide ones (coupons, loyalty-card rebates). "total" is the final amount actually paid.
+- Never output a discount, coupon, rounding, deposit or payment line as its own item — attach a discount to the item it belongs to, or, if it belongs to no single item, count it only in "discountTotal". Every item must be a purchased product with a non-negative price.
 - Give each item and the overall extraction a confidence score between 0 and 1, reflecting how certain you are the OCR text actually supports that reading.
 
 OCR text:
 ${normalizedText}`,
     })
+    options?.onUsage?.({ inputTokens: usage?.inputTokens, outputTokens: usage?.outputTokens })
     return object
   },
 }
@@ -375,12 +388,37 @@ export function isLineItemConsistent(item: ExtractedReceiptItem): boolean {
   return Math.abs(item.quantity * item.unitPrice - item.totalPrice) <= CONSISTENCY_TOLERANCE
 }
 
-/** Whether the sum of line items minus discounts matches the receipt's stated total. */
+/** Sum of the discounts the parser attributed to individual lines. */
+function sumItemDiscounts(items: ExtractedReceiptItem[]): number {
+  return items.reduce((sum, item) => sum + (item.discount ?? 0), 0)
+}
+
+/** Whether the sum of line items minus discounts matches the receipt's stated total. Line
+ *  `totalPrice`s are pre-discount (see the structuring prompt), so *all* discounts — per-line and
+ *  receipt-wide — are subtracted once via `discountTotal`, which by definition includes the
+ *  per-line ones. When the parser gave no `discountTotal` but did attribute discounts to lines,
+ *  those are used instead of assuming zero; and line discounts that add up to *more* than a stated
+ *  `discountTotal` contradict it, so that's inconsistent rather than silently trusted. */
 export function isReceiptConsistent(receipt: ExtractedReceipt): boolean {
   if (receipt.total == null) return false
   const itemsTotal = receipt.items.reduce((sum, item) => sum + (item.totalPrice ?? 0), 0)
-  const discount = receipt.discountTotal ?? 0
+  const lineDiscounts = sumItemDiscounts(receipt.items)
+  if (receipt.discountTotal != null && lineDiscounts > receipt.discountTotal + CONSISTENCY_TOLERANCE) return false
+  const discount = receipt.discountTotal ?? lineDiscounts
   return Math.abs(itemsTotal - discount - receipt.total) <= CONSISTENCY_TOLERANCE
+}
+
+/** Amounts that can't be legitimate for a purchased product: negative prices or discounts, or a
+ *  line discount larger than the line itself. A parser that emits a discount as its own negative
+ *  "item" (instead of attaching it to a product) lands here too, since a negative item price can't
+ *  be turned into a purchase line. Flagged for review, never auto-corrected. */
+export function hasInvalidAmounts(receipt: ExtractedReceipt): boolean {
+  if (receipt.discountTotal != null && receipt.discountTotal < 0) return true
+  return receipt.items.some((item) => {
+    if ((item.unitPrice ?? 0) < 0 || (item.totalPrice ?? 0) < 0 || (item.discount ?? 0) < 0) return true
+    const linePrice = item.totalPrice ?? (item.quantity != null && item.unitPrice != null ? item.quantity * item.unitPrice : null)
+    return item.discount != null && linePrice != null && item.discount > linePrice + CONSISTENCY_TOLERANCE
+  })
 }
 
 /** The store, date, and total are the fields whose absence makes a receipt unusable — everything
@@ -399,6 +437,7 @@ export function hasRequiredReceiptFields(receipt: ExtractedReceipt): boolean {
  *  function doesn't have. */
 export function needsReview(receipt: ExtractedReceipt): boolean {
   if (!hasRequiredReceiptFields(receipt)) return true
+  if (hasInvalidAmounts(receipt)) return true
   if (!isReceiptConsistent(receipt)) return true
   if (receipt.items.some((item) => !isLineItemConsistent(item))) return true
   // A missing/unrecognized category or storage location is deliberately NOT checked here — that's
@@ -535,12 +574,38 @@ export function toReceiptLineItems(receipt: ExtractedReceipt, catalog: ProductCa
         quantity,
         unit: normalizeReceiptUnit(item.unit),
         price,
+        // `price` above stays the pre-discount unit price; the line's discount travels separately
+        // and is applied when the purchase is created (see receiptTotal / netUnitPrice).
+        ...(item.discount != null && item.discount > 0 && { discount: item.discount }),
         ...(placement != null && { location: placement.location }),
         ...(item.confidence != null && { confidence: item.confidence }),
       }
     })
 }
 
+const roundToCents = (value: number): number => Math.round(value * 100) / 100
+
+/** What was actually paid for the items: each line's price × quantity minus that line's discount.
+ *  Receipt-wide discounts that belong to no single line are handled separately by
+ *  `receiptDiscounts()`. */
 export function receiptTotal(items: ReceiptLineItem[]): number {
-  return items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  return items.reduce((sum, item) => sum + item.price * item.quantity - (item.discount ?? 0), 0)
+}
+
+/** Per-unit price actually paid for a line (its discount spread over the quantity), rounded to
+ *  cents like every stored price. The pre-discount `price` is what feeds price observations. */
+export function netUnitPrice(item: ReceiptLineItem): number {
+  return roundToCents(item.price - (item.discount ?? 0) / item.quantity)
+}
+
+/** Splits a receipt's discounts into what is attributed to lines and what isn't. `discount` is the
+ *  full amount saved (recorded on `purchases.discount`); `unallocated` is the part no line carries
+ *  (coupons, loyalty rebates), which must still reduce the purchase total so it equals the amount
+ *  really paid. The receipt's own `discountTotal` includes the per-line discounts by definition, so
+ *  the two are never added together — the larger of the two wins, which also keeps a line-level
+ *  discount the reviewer added by hand even when the parser found no receipt-level total. */
+export function receiptDiscounts(items: ReceiptLineItem[], receiptDiscountTotal: number | null): { discount: number; unallocated: number } {
+  const lineDiscounts = items.reduce((sum, item) => sum + (item.discount ?? 0), 0)
+  const discount = Math.max(receiptDiscountTotal ?? 0, lineDiscounts)
+  return { discount: roundToCents(discount), unallocated: roundToCents(discount - lineDiscounts) }
 }

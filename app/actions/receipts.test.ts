@@ -1,6 +1,7 @@
-import { del, put } from '@vercel/blob'
+import { del, get, put } from '@vercel/blob'
+import sharp from 'sharp'
 import { eq, inArray } from 'drizzle-orm'
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import type { ExtractedReceipt, ReceiptLineItem, ReceiptStructuringProvider, ReceiptTextExtractor } from '@/lib/receipts'
@@ -18,7 +19,8 @@ let currentHouseholdId = ''
 vi.mock('@/lib/auth/authorize', () => ({ requireHouseholdId: () => Promise.resolve(currentHouseholdId) }))
 vi.mock('next/cache', () => ({ revalidatePath: () => {} }))
 
-import { confirmReceiptReviewAction, importReceiptAction, processReceiptImport, resolveDuplicateReceiptAction, retryReceiptImportAction } from '@/app/actions/receipts'
+import { confirmReceiptReviewAction, importReceiptAction, processReceiptImport, processUploadedReceiptAction, resolveDuplicateReceiptAction, retryReceiptImportAction, uploadReceiptAction } from '@/app/actions/receipts'
+import { RECEIPT_STALE_MS } from '@/lib/receipt-progress'
 
 const db = getDb()
 const createdHouseholdIds: string[] = []
@@ -448,6 +450,86 @@ describe('processReceiptImport — OCR pipeline orchestration (fake OCR/AI, real
     expect(pantryRow?.category).toBe('Potraviny')
     expect(pantryRow?.location).toBe('Mrazák')
   })
+
+  describe('discounts', () => {
+    it('stores what was paid: net item price, total after the discount, and the amount saved', async () => {
+      const receiptImportId = await createUploadedReceipt()
+      // 2 × 24.90 = 49.80 on the item line, 5.00 taken off that line, 44.80 paid.
+      const extracted = extractedReceipt({
+        items: [{ name: 'Mléko', category: 'Potraviny', quantity: 2, unit: 'ks', unitPrice: 24.9, totalPrice: 49.8, discount: 5, confidence: 0.96 }],
+        discountTotal: 5,
+        total: 44.8,
+      })
+      const row = await processReceiptImport(receiptImportId, fakeProviders(extracted))
+
+      expect(row.status).toBe('completed')
+      const purchase = await db.query.purchases.findFirst({ where: eq(schema.purchases.id, row.purchaseId!) })
+      expect(Number(purchase?.total)).toBe(44.8)
+      expect(Number(purchase?.discount)).toBe(5)
+      const purchaseItem = await db.query.purchaseItems.findFirst({ where: eq(schema.purchaseItems.purchaseId, row.purchaseId!) })
+      expect(Number(purchaseItem?.price)).toBe(22.4) // (49.80 − 5.00) / 2
+    })
+
+    it('reduces the total by a receipt-wide discount (coupon) that belongs to no single line', async () => {
+      const receiptImportId = await createUploadedReceipt()
+      const extracted = extractedReceipt({ discountTotal: 10, total: 39.8 }) // item line has no discount of its own
+      const row = await processReceiptImport(receiptImportId, fakeProviders(extracted))
+
+      expect(row.status).toBe('completed')
+      const purchase = await db.query.purchases.findFirst({ where: eq(schema.purchases.id, row.purchaseId!) })
+      expect(Number(purchase?.total)).toBe(39.8)
+      expect(Number(purchase?.discount)).toBe(10)
+      const purchaseItem = await db.query.purchaseItems.findFirst({ where: eq(schema.purchaseItems.purchaseId, row.purchaseId!) })
+      expect(Number(purchaseItem?.price)).toBe(24.9) // nothing attributable to the line
+    })
+
+    it('leaves purchases.discount empty when nothing was discounted', async () => {
+      const receiptImportId = await createUploadedReceipt()
+      const row = await processReceiptImport(receiptImportId, fakeProviders(extractedReceipt()))
+      const purchase = await db.query.purchases.findFirst({ where: eq(schema.purchases.id, row.purchaseId!) })
+      expect(purchase?.discount).toBeNull()
+    })
+
+    it('routes to review_required when a discount was emitted as its own negative item', async () => {
+      const receiptImportId = await createUploadedReceipt()
+      const extracted = extractedReceipt({
+        items: [
+          { name: 'Mléko', category: 'Potraviny', quantity: 2, unit: 'ks', unitPrice: 24.9, totalPrice: 49.8, discount: null, confidence: 0.96 },
+          { name: 'Sleva', category: null, quantity: 1, unit: 'ks', unitPrice: -5, totalPrice: -5, discount: null, confidence: 0.5 },
+        ],
+        discountTotal: 0,
+        total: 44.8,
+      })
+      const row = await processReceiptImport(receiptImportId, fakeProviders(extracted))
+
+      expect(row.status).toBe('review_required')
+      expect(row.purchaseId).toBeNull()
+    })
+
+    it('records the pre-discount shelf price as the price observation, not the discounted amount', async () => {
+      const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
+      const productName = `__test_discount_observation_${crypto.randomUUID()}`
+      const [product] = await db.insert(schema.products).values({ name: productName, categoryId: category!.id, defaultUnit: 'ks', defaultLocation: 'Spíž' }).returning()
+
+      try {
+        const receiptImportId = await createUploadedReceipt()
+        const extracted = extractedReceipt({
+          items: [{ name: productName, category: 'Potraviny', quantity: 2, unit: 'ks', unitPrice: 24.9, totalPrice: 49.8, discount: 5, confidence: 0.96 }],
+          discountTotal: 5,
+          total: 44.8,
+        })
+        const row = await processReceiptImport(receiptImportId, fakeProviders(extracted))
+        expect(row.status).toBe('completed')
+
+        const observations = await db.query.prices.findMany({ where: eq(schema.prices.productId, product.id) })
+        expect(observations).toHaveLength(1)
+        expect(observations[0].sourceType).toBe('RECEIPT')
+        expect(Number(observations[0].regularPrice)).toBe(24.9)
+      } finally {
+        await db.delete(schema.products).where(eq(schema.products.id, product.id)) // prices cascade
+      }
+    })
+  })
 })
 
 describe('retryReceiptImportAction', () => {
@@ -462,6 +544,317 @@ describe('retryReceiptImportAction', () => {
     createdHouseholdIds.push(otherHousehold.id)
     const [otherRow] = await db.insert(schema.receiptImports).values({ householdId: otherHousehold.id, status: 'ocr_failed', source: 'ocr' }).returning()
     await expect(retryReceiptImportAction(otherRow.id)).rejects.toThrow('Receipt import not found')
+  })
+})
+
+describe('receipt file handling: type detection and OCR preparation', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+    delete process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT
+    delete process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY
+  })
+
+  /** A small real photo-like PNG (thin strokes on paper) so the preparation step has something to decode. */
+  const realImage = () => {
+    const strokes = Array.from({ length: 40 }, (_, k) => `<rect x="${40 + k * 7}" y="60" width="2" height="12" fill="#111"/>`).join('')
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200"><rect width="100%" height="100%" fill="#fff"/>${strokes}</svg>`
+    return sharp(Buffer.from(svg)).png().toBuffer()
+  }
+
+  async function storeReceiptBytes(bytes: Buffer, extension: string, contentType: string): Promise<string> {
+    const blob = await put(`receipts/__test__/${crypto.randomUUID()}.${extension}`, bytes, { access: 'private', contentType })
+    uploadedBlobUrls.push(blob.url)
+    const [row] = await db.insert(schema.receiptImports).values({ householdId, status: 'uploaded', source: 'ocr', imageUrl: blob.url }).returning()
+    return row.id
+  }
+
+  describe('uploadReceiptAction', () => {
+    const upload = async (bytes: Buffer, declaredMimeType: string) => uploadReceiptAction(bytes.toString('base64'), declaredMimeType)
+
+    it('decides the type from the file\'s bytes: a PNG declared as JPEG is stored as a PNG', async () => {
+      const state = await upload(await realImage(), 'image/jpeg') // wrong on purpose
+      const row = await db.query.receiptImports.findFirst({ where: eq(schema.receiptImports.id, state.id) })
+      uploadedBlobUrls.push(row!.imageUrl!)
+      expect(row?.imageUrl).toMatch(/\.png$/)
+      expect(row?.status).toBe('uploaded')
+      expect(state.hasImage).toBe(true)
+    })
+
+    it('rejects a file that is not an image or PDF, even when it claims to be one', async () => {
+      await expect(upload(Buffer.from('<html><script>alert(1)</script></html>'), 'image/jpeg')).rejects.toThrow('Nepodporovaný formát')
+      const rows = await db.query.receiptImports.findMany({ where: eq(schema.receiptImports.householdId, householdId) })
+      expect(rows).toHaveLength(0) // nothing stored, nothing created
+    })
+
+    it('rejects HEIC with an instruction the user can act on', async () => {
+      const heic = Buffer.concat([Buffer.from([0, 0, 0, 24]), Buffer.from('ftypheic'), Buffer.alloc(32)])
+      await expect(upload(heic, 'image/heic')).rejects.toThrow('Nastavení › Fotoaparát › Formáty › Nejkompatibilnější')
+    })
+
+    it('rejects an empty file', async () => {
+      await expect(upload(Buffer.alloc(0), 'image/jpeg')).rejects.toThrow('prázdný')
+    })
+  })
+
+  describe('processReceiptImport', () => {
+    const capturingProviders = () => {
+      const seen: Array<{ base64: string; mimeType: string }> = []
+      return {
+        seen,
+        providers: {
+          textExtractor: { extractText: async (image: { base64: string; mimeType: string }) => { seen.push(image); return { fullText: 'FAKE OCR TEXT', lines: ['FAKE OCR TEXT'] } } },
+          structuringProvider: fakeProviders(extractedReceipt()).structuringProvider,
+        },
+      }
+    }
+
+    it('sends the OCR a cleaned-up grayscale JPEG, not the raw upload, and logs what was done', async () => {
+      const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+      const original = await realImage()
+      const receiptImportId = await storeReceiptBytes(original, 'png', 'image/png')
+      const { seen, providers } = capturingProviders()
+
+      const row = await processReceiptImport(receiptImportId, providers)
+
+      expect(row.status).toBe('completed')
+      expect(seen).toHaveLength(1)
+      expect(seen[0].mimeType).toBe('image/jpeg')
+      const sent = Buffer.from(seen[0].base64, 'base64')
+      expect(sent.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]))).toBe(true) // JPEG, whereas the upload was a PNG
+      expect(sent.equals(original)).toBe(false)
+
+      const entry = JSON.parse(info.mock.calls.map((call) => String(call[0])).find((line) => line.includes('"event":"receipt_import"'))!)
+      expect(entry.imagePrep.status).toBe('ok')
+      expect(entry.imagePrep.steps).toEqual(expect.arrayContaining(['auto-rotate', 'grayscale', 'contrast']))
+      expect(entry.imagePrep.bytesBefore).toBe(original.length)
+    })
+
+    it('never modifies the stored original', async () => {
+      vi.spyOn(console, 'info').mockImplementation(() => {})
+      const original = await realImage()
+      const receiptImportId = await storeReceiptBytes(original, 'png', 'image/png')
+      await processReceiptImport(receiptImportId, capturingProviders().providers)
+
+      const stored = await db.query.receiptImports.findFirst({ where: eq(schema.receiptImports.id, receiptImportId) })
+      const blob = await get(stored!.imageUrl!, { access: 'private' })
+      const bytes = Buffer.from(await new Response(blob!.stream!).arrayBuffer())
+      expect(bytes.equals(original)).toBe(true)
+    })
+
+    it('falls back to the original bytes when preparation fails, instead of failing the import', async () => {
+      const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+      const garbage = Buffer.from('not-a-decodable-image')
+      const receiptImportId = await storeReceiptBytes(garbage, 'png', 'image/png')
+      const { seen, providers } = capturingProviders()
+
+      const row = await processReceiptImport(receiptImportId, providers)
+
+      expect(row.status).toBe('completed') // OCR was still attempted, and (faked) succeeded
+      expect(Buffer.from(seen[0].base64, 'base64').equals(garbage)).toBe(true)
+      const entry = JSON.parse(info.mock.calls.map((call) => String(call[0])).find((line) => line.includes('"event":"receipt_import"'))!)
+      expect(entry.imagePrep.status).toBe('failed')
+      expect(entry.imagePrep.note).toBeTruthy()
+    })
+
+    it('gives the Azure fallback the untouched original rather than the cleaned-up copy', async () => {
+      vi.spyOn(console, 'info').mockImplementation(() => {})
+      process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT = 'https://example.invalid'
+      process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY = 'not-a-real-key'
+      const original = await realImage()
+      const receiptImportId = await storeReceiptBytes(original, 'png', 'image/png')
+      const fallbackSeen: Array<{ base64: string; mimeType: string }> = []
+
+      const row = await processReceiptImport(receiptImportId, {
+        textExtractor: { extractText: async () => { throw new Error('primary down') } },
+        fallbackTextExtractor: { extractText: async (image) => { fallbackSeen.push(image); return { fullText: 'AZURE TEXT', lines: ['AZURE TEXT'] } } },
+        structuringProvider: fakeProviders(extractedReceipt()).structuringProvider,
+      })
+
+      expect(row.ocrProvider).toBe('azure_document_intelligence')
+      expect(fallbackSeen).toHaveLength(1)
+      expect(fallbackSeen[0].mimeType).toBe('image/png')
+      expect(Buffer.from(fallbackSeen[0].base64, 'base64').equals(original)).toBe(true)
+    })
+
+    it('stops with the HEIC instruction for a stored HEIC and never calls the OCR', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      const heic = Buffer.concat([Buffer.from([0, 0, 0, 24]), Buffer.from('ftypheic'), Buffer.alloc(32)])
+      const receiptImportId = await storeReceiptBytes(heic, 'heic', 'image/heic')
+      const { seen, providers } = capturingProviders()
+
+      const row = await processReceiptImport(receiptImportId, providers)
+
+      expect(row.status).toBe('ocr_failed')
+      expect(row.errorMessage).toContain('HEIC')
+      expect(seen).toHaveLength(0)
+    })
+  })
+})
+
+describe('processReceiptImport — access control', () => {
+  it('refuses to process another household\'s import (the function is reachable as a Server Action)', async () => {
+    const receiptImportId = await createUploadedReceipt()
+    const [otherHousehold] = await db.insert(schema.households).values({ name: '__test_household_receipts_other2__' }).returning()
+    createdHouseholdIds.push(otherHousehold.id)
+    currentHouseholdId = otherHousehold.id
+
+    await expect(processReceiptImport(receiptImportId, fakeProviders(extractedReceipt()))).rejects.toThrow('Receipt import not found')
+
+    const row = await db.query.receiptImports.findFirst({ where: eq(schema.receiptImports.id, receiptImportId) })
+    expect(row?.status).toBe('uploaded') // untouched
+  })
+})
+
+describe('receipt import logging (docs/08 section 19)', () => {
+  const logLines = (spy: { mock: { calls: unknown[][] } }) => spy.mock.calls.map((call) => String(call[0])).filter((line) => line.includes('"event":"receipt_import"'))
+  afterEach(() => vi.restoreAllMocks())
+
+  it('writes one structured line per run with stage statuses, timing and token usage — and no receipt content', async () => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+    const receiptImportId = await createUploadedReceipt()
+    const providers = {
+      textExtractor: { extractText: async () => ({ fullText: 'SECRET RECEIPT TEXT Mléko', lines: ['SECRET RECEIPT TEXT Mléko'] }) },
+      structuringProvider: {
+        structure: async (_text: string, options?: { onUsage?: (usage: { inputTokens?: number; outputTokens?: number }) => void }) => {
+          options?.onUsage?.({ inputTokens: 123, outputTokens: 45 })
+          return extractedReceipt()
+        },
+      },
+    }
+
+    const row = await processReceiptImport(receiptImportId, providers)
+    expect(row.status).toBe('completed')
+
+    const lines = logLines(info)
+    expect(lines).toHaveLength(1)
+    const entry = JSON.parse(lines[0])
+    expect(entry).toMatchObject({
+      importId: receiptImportId,
+      householdId,
+      ocr: { status: 'ok', provider: 'google_vision' },
+      parser: { status: 'ok', inputTokens: 123, outputTokens: 45 },
+      validation: 'passed',
+      finalStatus: 'completed',
+      error: null,
+    })
+    expect(typeof entry.timestamp).toBe('string')
+    expect(typeof entry.totalMs).toBe('number')
+    expect(typeof entry.ocr.ms).toBe('number')
+    expect(typeof entry.parser.ms).toBe('number')
+    // Personal financial data stays out of the logs.
+    expect(lines[0]).not.toContain('SECRET RECEIPT TEXT')
+    expect(lines[0]).not.toContain('Mléko')
+  })
+
+  it('logs a receipt sent to review with that validation outcome', async () => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+    const receiptImportId = await createUploadedReceipt()
+    await processReceiptImport(receiptImportId, fakeProviders(extractedReceipt({ total: 999 })))
+    expect(JSON.parse(logLines(info)[0])).toMatchObject({ validation: 'review_required', finalStatus: 'review_required' })
+  })
+
+  it('logs an OCR failure via console.error, with the credential redacted from the error', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => {})
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const receiptImportId = await createUploadedReceipt()
+    await processReceiptImport(receiptImportId, {
+      textExtractor: { extractText: async () => { throw new Error('fetch failed: https://vision.googleapis.com/v1/images:annotate?key=SUPERSECRETKEY') } },
+      structuringProvider: fakeProviders(extractedReceipt()).structuringProvider,
+    })
+
+    const lines = logLines(error)
+    expect(lines).toHaveLength(1)
+    const entry = JSON.parse(lines[0])
+    expect(entry).toMatchObject({ ocr: { status: 'failed' }, parser: { status: 'not_run' }, validation: 'not_run', finalStatus: 'ocr_failed' })
+    expect(lines[0]).not.toContain('SUPERSECRETKEY')
+  })
+
+  it('logs a parser failure with its stage status', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => {})
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const receiptImportId = await createUploadedReceipt()
+    await processReceiptImport(receiptImportId, {
+      textExtractor: fakeProviders(extractedReceipt()).textExtractor,
+      structuringProvider: { structure: async () => { throw new Error('model overloaded') } },
+    })
+    expect(JSON.parse(logLines(error)[0])).toMatchObject({ ocr: { status: 'ok' }, parser: { status: 'failed' }, finalStatus: 'parsing_failed' })
+  })
+})
+
+describe('claiming an import for processing (processUploadedReceiptAction / retryReceiptImportAction)', () => {
+  // These actions use the real default providers, so the OCR call is made to fail without touching
+  // the network: no Azure fallback, and any Google request answered locally with an error. What is
+  // under test is the claim (state machine + concurrency), not OCR.
+  const realFetch = globalThis.fetch
+  const savedAzure = { endpoint: process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT, key: process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY }
+  beforeEach(() => {
+    delete process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT
+    delete process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY
+    process.env.GOOGLE_VISION_API_KEY = 'test-key-not-real'
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'info').mockImplementation(() => {})
+    vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) =>
+      String(input).includes('googleapis.com')
+        ? Promise.resolve(new Response(JSON.stringify({ error: { message: 'stubbed Vision failure' } }), { status: 500 }))
+        : realFetch(input, init),
+    )
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+    if (savedAzure.endpoint !== undefined) process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT = savedAzure.endpoint
+    if (savedAzure.key !== undefined) process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY = savedAzure.key
+  })
+
+  it('processes a freshly uploaded import once and refuses a second run', async () => {
+    const receiptImportId = await createUploadedReceipt()
+    const state = await processUploadedReceiptAction(receiptImportId)
+    expect(state.status).toBe('ocr_failed')
+    expect(state.errorMessage).toContain('stubbed Vision failure')
+    await expect(processUploadedReceiptAction(receiptImportId)).rejects.toThrow('se už zpracovává nebo je zpracovaný')
+  })
+
+  it('lets exactly one of two concurrent requests process the same import (no double purchase)', async () => {
+    const receiptImportId = await createUploadedReceipt()
+    const results = await Promise.allSettled([processUploadedReceiptAction(receiptImportId), processUploadedReceiptAction(receiptImportId)])
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
+    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1)
+  })
+
+  it('refuses another household\'s import', async () => {
+    const receiptImportId = await createUploadedReceipt()
+    const [otherHousehold] = await db.insert(schema.households).values({ name: '__test_household_receipts_other3__' }).returning()
+    createdHouseholdIds.push(otherHousehold.id)
+    currentHouseholdId = otherHousehold.id
+    await expect(processUploadedReceiptAction(receiptImportId)).rejects.toThrow('Receipt import not found')
+    await expect(retryReceiptImportAction(receiptImportId)).rejects.toThrow('Receipt import not found')
+  })
+
+  it('retry re-runs a failed import and clears the previous error instead of keeping it', async () => {
+    const receiptImportId = await createUploadedReceipt()
+    await db.update(schema.receiptImports).set({ status: 'ocr_failed', errorMessage: 'PREVIOUS FAILURE' }).where(eq(schema.receiptImports.id, receiptImportId))
+
+    const state = await retryReceiptImportAction(receiptImportId)
+    expect(state.status).toBe('ocr_failed') // the stubbed OCR fails again, with a fresh message
+    expect(state.errorMessage).not.toContain('PREVIOUS FAILURE')
+    expect(state.errorMessage).toContain('stubbed Vision failure')
+  })
+
+  it('retry also starts an import that was uploaded but never processed', async () => {
+    const receiptImportId = await createUploadedReceipt()
+    const state = await retryReceiptImportAction(receiptImportId)
+    expect(state.status).toBe('ocr_failed')
+  })
+
+  it('does not take over an import that is actively running, but does once it has been silent for too long', async () => {
+    const receiptImportId = await createUploadedReceipt()
+    await db.update(schema.receiptImports).set({ status: 'parsing', updatedAt: new Date() }).where(eq(schema.receiptImports.id, receiptImportId))
+    await expect(retryReceiptImportAction(receiptImportId)).rejects.toThrow('nelze znovu spustit')
+
+    const abandoned = new Date(Date.now() - (RECEIPT_STALE_MS + 60_000))
+    await db.update(schema.receiptImports).set({ status: 'parsing', updatedAt: abandoned }).where(eq(schema.receiptImports.id, receiptImportId))
+    const state = await retryReceiptImportAction(receiptImportId)
+    expect(state.status).toBe('ocr_failed')
   })
 })
 
@@ -480,6 +873,26 @@ describe('confirmReceiptReviewAction', () => {
     const row = await db.query.receiptImports.findFirst({ where: eq(schema.receiptImports.id, receiptImportId) })
     expect(row?.status).toBe('completed')
     expect(row?.purchaseId).toBe(purchase.id)
+  })
+
+  it('applies a reviewed line discount and the receipt\'s own discount total, without counting a line discount twice', async () => {
+    const receiptImportId = await createUploadedReceipt()
+    // Parsed discountTotal is 10 (→ review_required because the stated total is wrong).
+    await processReceiptImport(receiptImportId, fakeProviders(extractedReceipt({ discountTotal: 10, total: 999 })))
+
+    // Reviewer keeps a 3.00 line discount. Of the 10.00 saved in total, 3.00 is on the line and
+    // the remaining 7.00 (a coupon) is not, so the amount paid is 40 − 3 − 7 = 30.
+    const { purchase } = await confirmReceiptReviewAction(receiptImportId, [item({ name: 'Rýže', price: 40, quantity: 1, discount: 3 })], { date: TEST_DATE })
+    expect(purchase.total).toBe(30)
+    expect(purchase.discount).toBe(10)
+    expect(purchase.items[0].price).toBe(37)
+  })
+
+  it('rejects a reviewed line discount that is larger than the line', async () => {
+    const receiptImportId = await createUploadedReceipt()
+    await processReceiptImport(receiptImportId, fakeProviders(extractedReceipt({ total: 999 })))
+    await expect(confirmReceiptReviewAction(receiptImportId, [item({ price: 10, quantity: 1, discount: 50 })], { date: TEST_DATE })).rejects.toThrow('vyšší než její cena')
+    await expect(confirmReceiptReviewAction(receiptImportId, [item({ discount: -1 })], { date: TEST_DATE })).rejects.toThrow('záporná')
   })
 
   it('rejects confirming a review for an import that is not awaiting review', async () => {

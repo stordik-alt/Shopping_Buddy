@@ -52,9 +52,30 @@ Do not use Google Document AI's Expense Parser as the default solution.
 
 After upload:
 
-1. Verify the file type (JPEG, PNG, WebP, HEIC or PDF).
+1. Verify the file type (JPEG, PNG, WebP or PDF) **from the file's own bytes**
+   (`detectReceiptFileType`, `lib/receipt-image.ts`) — the client-declared MIME type and the file
+   name are ignored, and the stored extension/content type come from the detection. HEIC is
+   recognised but rejected with an instruction (iPhone: Settings › Camera › Formats › Most
+   Compatible, or save as JPEG): neither Google Vision nor the bundled `sharp` build can decode it.
+   The upload picker no longer lists `image/heic`, so iOS converts to JPEG by itself.
 2. Verify the maximum size (10 MB).
-3. Optimize an image if needed; PDFs are sent directly to Vision.
+3. Optimize an image for OCR (implemented 2026-09-23, `prepareReceiptImageForOcr`); PDFs are sent
+   directly to Vision. The stored original is never modified; only the copy sent to OCR is cleaned:
+   - apply the EXIF orientation (a sideways photo is otherwise read sideways);
+   - grayscale, and cap the long side at 4000 px;
+   - **only when lighting is measurably uneven** (shadow / one side lit): flat-field correction —
+     divide by a robust background estimate (median of a shrunken copy). Applying it to an already
+     even photo *hurt* small and blurry text in testing, hence conditional;
+   - contrast stretch (1st–99th percentile) for faded thermal print;
+   - straighten a clearly tilted receipt (projection-profile skew estimate, applied only when |angle|
+     ≥ 0.7° and the line-alignment gain ≥ 1.5, max 15°);
+   - encode as a grayscale JPEG (q90, stepping down in quality, then resolution, to stay under 6 MB
+     so the base64 request fits Vision's 10 MB limit).
+   Deliberately *not* done: binarization and sharpening (both can destroy thin strokes, and OCR
+   engines threshold on their own), upscaling small images (no gain measured), perspective
+   correction and cropping. Preparation is best-effort: if it throws, the original is sent instead.
+   The Azure fallback always receives the untouched original, so it stays an independent second
+   attempt. What ran is in the import log (`imagePrep`).
 4. Keep the original image — `uploadReceiptAction` stores it in Vercel Blob (`access: 'private'`,
    under `receipts/<householdId>/<uuid>.<ext>`), decided and implemented 2026-09-22.
 5. Create a unique import ID.
@@ -161,6 +182,15 @@ small rounding tolerance.
 
 **Receipt-level check.** Compute `SUM(item.total_price) − discounts` and compare against the
 receipt total. If the difference exceeds a defined tolerance: `REVIEW_REQUIRED`.
+
+**Discount semantics (implemented 2026-09-23).** `total_price` on an item is the amount *before*
+that line's discount; `discount` is the positive amount taken off that line; `discount_total` is
+all discounts on the receipt (per-line plus receipt-wide, e.g. coupons); `total` is what was paid.
+So the receipt-level check is `SUM(total_price) − discount_total ≈ total`. A discount is never its
+own item: a negative price/discount, or a line discount larger than its line, sends the receipt to
+`REVIEW_REQUIRED` (`hasInvalidAmounts` in `lib/receipts.ts`). The purchase stores net per-unit item
+prices, a `total` equal to the amount paid, and `purchases.discount` as the amount saved; price
+observations keep the pre-discount shelf price. VAT is not extracted or stored yet.
 
 **Missing-data check.** Missing store, date, total, or an item's category → `REVIEW_REQUIRED`. Missing only an
 optional field (e.g. receipt number) does not require flagging the receipt as invalid.
@@ -339,8 +369,9 @@ original raw name from the receipt — store `raw_name` and, separately, `produc
 
 Keep the receipt's real price per line item — never round to whole currency units (`24.90` stays
 `24.90`). Price history must be preserved so a product's price trend can be tracked later (this
-already exists in principle — `recordPriceObservation()`/`getProductPrices()`, `lib/db/queries.ts`
-— though nothing feeds it from real ingestion yet).
+already exists — `recordPriceObservation()`/`getProductPrices()`, `lib/db/queries.ts`. Confirmed
+receipts feed it: `recordReceiptPriceObservations()` (`app/actions/receipts.ts`) writes a `RECEIPT`
+observation for every line matched to a catalog product, at the pre-discount unit price.)
 
 ---
 
@@ -369,6 +400,15 @@ For every import, log: `import_id`, household/user, timestamp, OCR status, parse
 validation status, error, processing time, and AI request token count if available. Never log API
 keys.
 
+**Implemented 2026-09-23:** `processReceiptImport` writes one JSON line per run (`event:
+"receipt_import"`, `lib/receipt-log.ts`) with the import id, household id, timestamp, OCR
+status/provider/ms, parser status/ms/input+output tokens, the validation outcome (`passed` /
+`review_required` / `duplicate_review`), final status, error and total ms. `console.error` is used
+for `ocr_failed`, `parsing_failed` and a thrown pipeline, `console.info` otherwise. The user id is
+not logged (the household id is what the pipeline knows). OCR text and item data are deliberately
+never logged, and error text goes through `redactSecrets()` (API keys in URLs, bearer tokens,
+subscription keys) and is truncated to 500 characters.
+
 ---
 
 ## 20. UI
@@ -376,6 +416,23 @@ keys.
 The import modal must show progress: `Nahrávání` → `Čtení účtenky` → `Rozpoznávání položek` →
 `Kontrola údajů` → `Hotovo`. On error, show the specific reason (e.g. "Nepodařilo se přečíst
 účtenku. Zkuste nahrát ostřejší fotografii.") — never a bare `OCR Error`.
+
+**Implemented 2026-09-23:** progress reflects the import's real status, not a timer. Upload and
+processing are two calls (`uploadReceiptAction` stores the photo and returns the import id;
+`processUploadedReceiptAction` runs the pipeline), and while the second is in flight the client polls
+`GET /api/receipts/[id]/status` (`pollReceiptStatus`, once a second, never overlapping, failed polls
+ignored). It is a route handler on purpose: Next runs one client's Server Actions sequentially, so a
+status *action* would queue behind the processing call. `receiptProgress(status)` maps status →
+step (`uploaded`/`ocr_processing` → Čtení účtenky; `ocr_completed`/`parsing` → Rozpoznávání položek;
+`parsed`/`validating` → Kontrola údajů; `completed`/`review_required`/`duplicate_review` → Hotovo;
+`ocr_failed`/`parsing_failed` mark their step failed). A failure then shows its specific reason on
+the pending card. A non-final import with no change for too long (`stalled`: 30 s for a never-started
+upload, 10 min mid-run) offers "Zpracovat znovu" instead of "Zpracovává se…" forever.
+
+**Concurrency:** starting or retrying an import first claims it with one conditional `UPDATE`
+(`claimReceiptImport`), so a double-click, two household members, or a retry racing the original run
+cannot both run the pipeline and create two purchases. Retry is allowed from `ocr_failed`,
+`parsing_failed` and a never-started `uploaded`, and clears the earlier error message.
 
 ---
 
@@ -393,7 +450,7 @@ Before changing anything:
 
 1. Re-review the current receipt-import implementation (section 12 above may be stale by then).
 2. Re-check the real Neon schema (`receipt_imports`, `purchases`, `purchase_items`, `products`).
-3. Re-check the real upload/storage situation (still nothing wired up as of this writing).
+3. Re-check the real upload/storage situation (Vercel Blob, private, is wired up — see section 2).
 4. Don't rewrite working parts without a reason.
 5. Design changes to be compatible with what already exists.
 

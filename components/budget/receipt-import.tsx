@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
-import { Camera, Plus, Receipt, Trash2 } from 'lucide-react'
+import { AlertTriangle, Camera, Check, Loader2, Plus, Receipt, Trash2 } from 'lucide-react'
 import type { ReceiptImportState } from '@/lib/db/queries'
+import { RECEIPT_STEPS, receiptProgress, type ReceiptProgress } from '@/lib/receipt-progress'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import type { ItemCategory, ItemUnit, Store } from '@/lib/types'
 
@@ -18,6 +19,35 @@ function readFileAsBase64(file: File): Promise<string> {
   })
 }
 
+/** The five stages of a photo import (docs/08_OCR_RECEIPT_PIPELINE.md section 20), driven by the
+ *  import's real status rather than a timer. Laid out as a wrapping vertical list so long labels
+ *  never overflow a phone screen. */
+function ReceiptProgressSteps({ progress }: { progress: ReceiptProgress }) {
+  return (
+    <ol role="status" aria-live="polite" aria-label="Průběh zpracování účtenky" className="mt-3 space-y-1.5 rounded-xl border border-border bg-muted/40 p-3 text-xs">
+      {RECEIPT_STEPS.map((label, index) => {
+        const done = index < progress.step || (progress.step === RECEIPT_STEPS.length - 1 && index === progress.step)
+        const failed = progress.failed && index === progress.step
+        const current = !done && !failed && index === progress.step
+        return (
+          <li key={label} className={`flex items-center gap-2 ${done || current || failed ? 'text-foreground' : 'text-muted-foreground'}`}>
+            {failed ? (
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-destructive" />
+            ) : done ? (
+              <Check className="h-3.5 w-3.5 shrink-0 text-primary" />
+            ) : current ? (
+              <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+            ) : (
+              <span className="h-3.5 w-3.5 shrink-0 rounded-full border border-border" />
+            )}
+            <span className={current ? 'font-medium' : ''}>{label}</span>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
 /** Two ways to get a receipt into the system: a real photo (Google Cloud Vision OCR + a cheap
  *  structuring model, see docs/08_OCR_RECEIPT_PIPELINE.md — an owner-approved, narrowly-scoped
  *  exception to CLAUDE.md section 30's AI deferral) or manual entry, kept as the always-available
@@ -32,7 +62,7 @@ export function ReceiptImport({
 }: {
   stores: Store[]
   onImport: (items: ReceiptLineItem[], options: { date?: string; storeLocationId?: string }) => Promise<void>
-  onUpload: (base64: string, mimeType: string) => Promise<ReceiptImportState>
+  onUpload: (base64: string, mimeType: string, onProgress: (status: string) => void) => Promise<ReceiptImportState>
 }) {
   const [open, setOpen] = useState(false)
   const [rows, setRows] = useState<ReceiptLineItem[]>([emptyRow()])
@@ -41,6 +71,7 @@ export function ReceiptImport({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [progress, setProgress] = useState<ReceiptProgress | null>(null)
   const [lastOcrProvider, setLastOcrProvider] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -81,15 +112,17 @@ export function ReceiptImport({
     if (!file) return
     setUploading(true)
     setError('')
+    setProgress(receiptProgress('uploading'))
     try {
       const base64 = await readFileAsBase64(file)
-      const result = await onUpload(base64, file.type)
+      const result = await onUpload(base64, file.type, (status) => setProgress(receiptProgress(status)))
       setLastOcrProvider(result.ocrProvider)
       setOpen(false) // result (completed, or needing review) surfaces via ReceiptPending
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Fotografii se nepodařilo nahrát.')
     } finally {
       setUploading(false)
+      setProgress(null)
     }
   }
 
@@ -122,7 +155,9 @@ export function ReceiptImport({
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
+          // HEIC is deliberately not listed: when it isn't, iOS converts a chosen photo to JPEG
+          // itself, and neither Google Vision nor the server's image library can read HEIC.
+          accept="image/jpeg,image/png,image/webp,application/pdf"
           capture="environment"
           onChange={handlePhoto}
           className="sr-only"
@@ -136,8 +171,9 @@ export function ReceiptImport({
         >
           <Camera className="h-4 w-4" /> {uploading ? 'Zpracovávám účtenku…' : 'Vyfotit nebo nahrát účtenku'}
         </button>
-        <span className="text-xs text-muted-foreground">JPG, PNG, WebP, HEIC nebo PDF · nebo zadejte položky ručně níže</span>
+        <span className="text-xs text-muted-foreground">JPG, PNG, WebP nebo PDF · nebo zadejte položky ručně níže</span>
       </div>
+      {progress && <ReceiptProgressSteps progress={progress} />}
       {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
       <div className="mt-4 flex flex-wrap gap-2">
         <label className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs">

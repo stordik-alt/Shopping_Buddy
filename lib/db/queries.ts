@@ -6,6 +6,7 @@ import { currentWeekStart, type WeeklyMealPlan } from '@/lib/meal-plans'
 import { inferPantryLocation } from '@/lib/pantry'
 import type { ProductPrice } from '@/lib/prices'
 import { matchProductByName, type ProductCatalogEntry } from '@/lib/products'
+import { isReceiptStalled } from '@/lib/receipt-progress'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import type {
   Child,
@@ -58,11 +59,21 @@ export type PendingInvitation = { id: string; email: string; expiresAt: string }
 export type ReceiptImportState = {
   id: string
   status: (typeof schema.receiptStatusEnum.enumValues)[number]
-  imageUrl: string | null
+  // Whether an original photo/PDF is stored. The private blob URL itself is deliberately not sent
+  // to the client — the image is only reachable through app/api/receipts/[id]/image, which checks
+  // household ownership.
+  hasImage: boolean
+  // Raw OCR text, so a reviewer can compare the recognized items with what the OCR actually read
+  // (docs/08_OCR_RECEIPT_PIPELINE.md section 14). Null until OCR has succeeded.
+  rawOcrText: string | null
   ocrProvider: string | null
   errorMessage: string | null
   extracted: { date: string | null; total: number | null; items: ReceiptLineItem[] } | null
   purchaseId: string | null
+  // A non-final import that has not changed for long enough to be considered abandoned (server
+  // restart mid-run, browser closed between upload and processing) — the UI then offers to start
+  // it again instead of showing "Zpracovává se…" forever.
+  stalled: boolean
 }
 
 export type HouseholdData = {
@@ -109,13 +120,15 @@ export function toReceiptImportState(row: typeof schema.receiptImports.$inferSel
   return {
     id: row.id,
     status: row.status,
-    imageUrl: row.imageUrl,
+    hasImage: row.imageUrl != null,
+    rawOcrText: row.rawOcrText,
     ocrProvider: row.ocrProvider,
     errorMessage: row.errorMessage,
     extracted: row.items
       ? { date: row.date, total: row.total != null ? Number(row.total) : null, items: JSON.parse(row.items) as ReceiptLineItem[] }
       : null,
     purchaseId: row.purchaseId,
+    stalled: isReceiptStalled(row.status, row.updatedAt),
   }
 }
 

@@ -75,8 +75,9 @@ async function main() {
         address: store.address,
         city: store.city,
         country: store.country,
-        lat: store.gps.lat.toString(),
-        lng: store.gps.lng.toString(),
+        // Seed fixtures have GPS coordinates; production OCR-created branches may legitimately not.
+        lat: store.gps?.lat.toString() ?? null,
+        lng: store.gps?.lng.toString() ?? null,
         hours: store.hours,
       })),
     )

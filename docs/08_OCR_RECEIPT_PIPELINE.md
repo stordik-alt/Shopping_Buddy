@@ -74,8 +74,10 @@ After upload:
    Deliberately *not* done: binarization and sharpening (both can destroy thin strokes, and OCR
    engines threshold on their own), upscaling small images (no gain measured), perspective
    correction and cropping. Preparation is best-effort: if it throws, the original is sent instead.
-   The Azure fallback always receives the untouched original, so it stays an independent second
-   attempt. What ran is in the import log (`imagePrep`).
+   The Azure fallback receives exactly the same input as Google Vision (the cleaned-up copy, or the
+   original when preparation failed / for a PDF), so it benefits from the clean-up too — this
+   matters most while Azure is the only provider that works. What ran is in the import log
+   (`imagePrep`).
 4. Keep the original image — `uploadReceiptAction` stores it in Vercel Blob (`access: 'private'`,
    under `receipts/<householdId>/<uuid>.<ext>`), decided and implemented 2026-09-22.
 5. Create a unique import ID.

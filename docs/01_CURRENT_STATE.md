@@ -4,7 +4,7 @@
 **Stable branch:** `main`
 **Current backend development branch:** `v0/backend`
 **Previous frontend branch:** `V0/continue-frontend` — historical/obsolete unless explicitly requested
-**Last updated:** 2026-09-22
+**Last updated:** 2026-09-23
 
 ---
 
@@ -391,7 +391,7 @@ and:
 historical price
 ```
 
-**Update 2026-09-23:** Price storage was upgraded from a branch-only snapshot model to an explicit immutable observation model. Each observation now keeps the retailer chain, optional physical branch, scope (STORE / STORE_FORMAT / REGION / CHAIN), source (RECEIPT / OFFICIAL / FLYER / API / OTHER), location-resolution state, observation date, validity window, optional source reference and optional confidence. Existing branch-linked rows are backfilled with their chain ID and remain STORE + RESOLVED. A receipt whose branch is unknown can therefore be stored as STORE + store_id + NULL location + UNKNOWN without being converted into a CHAIN price. `getProductPrices()` derives the current value from the latest observation in each product/retailer/context group while retaining the full observation history.
+**Update 2026-09-23:** Price storage was upgraded from a branch-only snapshot model to an explicit immutable observation model. Migration `0010_price_observation_model.sql` has now been applied successfully to the production Neon database, so the deployed application code and production schema are synchronized. Each observation now keeps the retailer chain, optional physical branch, scope (STORE / STORE_FORMAT / REGION / CHAIN), source (RECEIPT / OFFICIAL / FLYER / API / OTHER), location-resolution state, observation date, validity window, optional source reference and optional confidence. Existing branch-linked rows are backfilled with their chain ID and remain STORE + RESOLVED. A receipt whose branch is unknown can therefore be stored as STORE + store_id + NULL location + UNKNOWN without being converted into a CHAIN price. `getProductPrices()` derives the current value from the latest observation in each product/retailer/context group while retaining the full observation history.
 
 Price records include currency information.
 

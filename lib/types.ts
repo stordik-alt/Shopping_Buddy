@@ -76,8 +76,8 @@ export type Store = {
   address: string
   city: string
   country: string
-  gps: { lat: number; lng: number }
-  hours: string
+  gps: { lat: number; lng: number } | null
+  hours: string | null
   dealsCount: number
   availableProducts: string[]
   color: string

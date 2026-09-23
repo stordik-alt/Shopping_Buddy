@@ -64,6 +64,13 @@
       "when": 1790102600000,
       "tag": "0008_dynamic_receipt_stores",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790116181528,
+      "tag": "0009_product_default_location",
+      "breakpoints": true
     }
   ]
 }

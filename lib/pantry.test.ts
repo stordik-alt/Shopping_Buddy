@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { CHECKIN_DAYS_BY_CATEGORY, findDueForCheckin, inferPantryLocation, isDueForCheckin, type PantryCheckinCandidate } from '@/lib/pantry'
+import { CHECKIN_DAYS_BY_CATEGORY, findDueForCheckin, inferPantryLocation, isDueForCheckin, pantryQuantityFor, type PantryCheckinCandidate } from '@/lib/pantry'
+import type { PantryItem } from '@/lib/types'
 
 const NOW = new Date('2026-09-21T08:00:00Z')
 const daysAgo = (n: number) => new Date(NOW.getTime() - n * 86_400_000)
@@ -52,8 +53,8 @@ describe('inferPantryLocation', () => {
     expect(inferPantryLocation('Děti', 'Plenky')).toBe('Domácnost')
   })
 
-  it('defaults an unrecognized "Ostatní" item to the pantry shelf', () => {
-    expect(inferPantryLocation('Ostatní', 'Něco neznámého')).toBe('Spíž')
+  it('is unresolvable (null) for an "Ostatní" item — the category itself was already uncertain, so its location must not be guessed either', () => {
+    expect(inferPantryLocation('Ostatní', 'Něco neznámého')).toBeNull()
   })
 
   it('recognizes a frozen food item by keyword', () => {
@@ -66,11 +67,43 @@ describe('inferPantryLocation', () => {
     expect(inferPantryLocation('Potraviny', 'Kuřecí prsa')).toBe('Lednice')
   })
 
-  it('defaults an unrecognized food item to the pantry shelf (shelf-stable)', () => {
+  it('recognizes a shelf-stable pantry item by keyword', () => {
     expect(inferPantryLocation('Potraviny', 'Rýže')).toBe('Spíž')
+    expect(inferPantryLocation('Potraviny', 'Těstoviny')).toBe('Spíž')
+    expect(inferPantryLocation('Potraviny', 'Konzervovaný hrášek')).toBe('Spíž')
+  })
+
+  it('is unresolvable (null) for a food item matching no known storage keyword, rather than guessing the pantry shelf', () => {
+    expect(inferPantryLocation('Potraviny', 'Naprosto neznámá potravina')).toBeNull()
   })
 
   it('matches keywords case-insensitively', () => {
     expect(inferPantryLocation('Potraviny', 'MLÉKO')).toBe('Lednice')
+  })
+})
+
+describe('pantryQuantityFor', () => {
+  const pantryItem = (overrides: Partial<PantryItem> = {}): PantryItem => ({
+    id: crypto.randomUUID(),
+    name: 'Rýže',
+    category: 'Potraviny',
+    location: 'Spíž',
+    quantity: 3,
+    unit: 'ks',
+    addedAt: '2026-09-20',
+    ...overrides,
+  })
+
+  it('returns the matching item\'s quantity', () => {
+    expect(pantryQuantityFor([pantryItem({ name: 'Rýže', quantity: 3 })], 'Rýže')).toBe(3)
+  })
+
+  it('matches case/whitespace-insensitively, same as matchProductByName', () => {
+    expect(pantryQuantityFor([pantryItem({ name: 'Rýže', quantity: 3 })], '  RÝŽE  ')).toBe(3)
+  })
+
+  it('returns 0 for a product with no matching pantry row, rather than an error', () => {
+    expect(pantryQuantityFor([pantryItem({ name: 'Rýže' })], 'Mléko')).toBe(0)
+    expect(pantryQuantityFor([], 'Rýže')).toBe(0)
   })
 })

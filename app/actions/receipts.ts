@@ -6,8 +6,9 @@ import { revalidatePath } from 'next/cache'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { TODAY } from '@/lib/budget'
 import { getDb } from '@/lib/db/client'
-import { getProductCatalog, restockPantryItem, toReceiptImportState, type ReceiptImportState } from '@/lib/db/queries'
+import { getProductCatalog, restockPantryItem, toReceiptImportState, upsertProductCatalogDefaults, type ReceiptImportState } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
+import { inferPantryLocation } from '@/lib/pantry'
 import { matchProductByName } from '@/lib/products'
 import {
   azureReceiptTextExtractor,
@@ -19,6 +20,7 @@ import {
   needsReview,
   normalizeOcrText,
   receiptTotal,
+  resolveItemPlacement,
   normalizeStoreName,
   storeNameMatchKey,
   toReceiptLineItems,
@@ -73,10 +75,32 @@ function resolveReceiptPurchaseDate(optionsDate: string | undefined, storedDate:
   return date
 }
 
+/** `source` decides how each item's category/pantry-location gets resolved, and whether the
+ *  catalog learns from it:
+ *  - `'confirmed'`: a human directly typed or reviewed every item (manual entry, or a completed
+ *    review). A known catalog product's category still wins even over what was typed this time —
+ *    consistent with every other entry path (e.g. `addShoppingItemAction`) — since the catalog
+ *    *is* the remembered correction; there's simply no catalog entry to override for a genuinely
+ *    new product, so the typed value always applies there. Missing a `location` (manual entry has
+ *    no location field) falls back to the catalog's remembered one, then `inferPantryLocation()`,
+ *    then 'Spíž' as an absolute last resort. Every item is then written back into the product
+ *    catalog (`upsertProductCatalogDefaults`) so the *next* receipt of the same product resolves
+ *    automatically — the whole point of section 10's "remember the correction" rule.
+ *  - `'auto'`: a fully-automatic OCR pass with no human involved — catalog priority is enforced via
+ *    `resolveItemPlacement()` (the same function `processReceiptImport()` already used to decide
+ *    this receipt didn't need review), and nothing gets written back to the catalog, since nothing
+ *    here was actually verified by a person. */
 async function createPurchaseFromReceiptItems(
   householdId: string,
   items: ReceiptLineItem[],
-  options: { date?: string; storedDate?: string | null; storeLocationId?: string | null; storeName?: string | null; storeId?: string | null },
+  options: {
+    date?: string
+    storedDate?: string | null
+    storeLocationId?: string | null
+    storeName?: string | null
+    storeId?: string | null
+    source: 'confirmed' | 'auto'
+  },
 ): Promise<PurchaseRecord> {
   if (items.length === 0) throw new Error('Receipt has no items')
   const db = getDb()
@@ -84,14 +108,22 @@ async function createPurchaseFromReceiptItems(
 
   const catalog = await getProductCatalog()
   const resolvedItems = items.map((item) => {
-    const product = matchProductByName(catalog, item.name)
-    return {
-      ...item,
-      productId: product?.id ?? null,
-      // A known catalog product is authoritative for categorization; OCR/AI category is only
-      // used for products that are not yet in the catalog.
-      category: product?.category ?? item.category,
+    const catalogEntry = matchProductByName(catalog, item.name)
+    if (options.source === 'auto') {
+      // processReceiptImport() already verified every item resolves before calling this, so
+      // `placement` is never null here — but fall back to the item's own values rather than a
+      // non-null assertion, in case a future caller passes source: 'auto' without that guarantee.
+      const placement = resolveItemPlacement(catalogEntry, item.category, item.name)
+      return { ...item, productId: catalogEntry?.id ?? null, category: placement?.category ?? item.category, location: placement?.location ?? item.location }
     }
+    // 'confirmed': a known catalog product's category is still authoritative (consistent with
+    // every other entry path in the app — e.g. addShoppingItemAction) even over what was typed
+    // this time, since the catalog itself is how a correction gets remembered in the first place
+    // (see upsertProductCatalogDefaults below) — for a *new* product, there's no catalog entry to
+    // override, so the typed category always applies. Location, which manual entry has no field
+    // for at all, still prefers an explicit value (from a review form) before falling back.
+    const location = item.location ?? catalogEntry?.defaultLocation ?? inferPantryLocation(item.category, item.name) ?? 'Spíž'
+    return { ...item, productId: catalogEntry?.id ?? null, category: catalogEntry?.category ?? item.category, location }
   })
 
   const total = receiptTotal(resolvedItems)
@@ -116,7 +148,16 @@ async function createPurchaseFromReceiptItems(
     .returning()
 
   for (const item of resolvedItems) {
-    await restockPantryItem(householdId, { productId: item.productId, name: item.name, category: item.category, quantity: item.quantity, unit: item.unit })
+    await restockPantryItem(householdId, { productId: item.productId, name: item.name, category: item.category, quantity: item.quantity, unit: item.unit, location: item.location })
+  }
+
+  if (options.source === 'confirmed') {
+    for (const item of resolvedItems) {
+      // Always concrete for 'confirmed' items (resolved above) — the `?? 'Spíž'` here only
+      // satisfies the type checker, which can't see that per-branch guarantee across the shared
+      // `resolvedItems` array type.
+      await upsertProductCatalogDefaults({ name: item.name, category: item.category, unit: item.unit, location: item.location ?? 'Spíž' })
+    }
   }
 
   const storeLocation = options.storeLocationId
@@ -125,7 +166,7 @@ async function createPurchaseFromReceiptItems(
 
   return {
     id: purchaseRow.id,
-    storeId: purchaseRow.storeId,
+    storeId: purchaseRow.storeId ?? undefined,
     date: purchaseRow.date,
     store: storeLocation?.store.chain ?? (storeId ? (await db.query.stores.findFirst({ where: eq(schema.stores.id, storeId) }))?.chain : undefined),
     total: Number(purchaseRow.total),
@@ -142,7 +183,7 @@ export async function importReceiptAction(
   options: { date?: string; storeLocationId?: string; storeName?: string } = {},
 ): Promise<{ purchase: PurchaseRecord }> {
   const householdId = await requireHouseholdId()
-  const purchase = await createPurchaseFromReceiptItems(householdId, items, options)
+  const purchase = await createPurchaseFromReceiptItems(householdId, items, { ...options, source: 'confirmed' })
 
   const db = getDb()
   await db.insert(schema.receiptImports).values({
@@ -256,6 +297,11 @@ export async function processReceiptImport(
     return update({ status: 'parsing_failed', errorMessage: `Nepodařilo se rozpoznat položky na účtence. (${error instanceof Error ? error.message : String(error)})` })
   }
 
+  // Fetched once and reused below both to pre-fill each item's category/location for the review
+  // form (via toReceiptLineItems) and to decide whether an item's placement is actually resolvable
+  // (via resolveItemPlacement) — see that function's doc comment for the catalog-first priority.
+  const catalog = await getProductCatalog()
+
   const parsedRow = await update({
     status: 'parsed',
     parserResult: JSON.stringify(extracted),
@@ -267,12 +313,23 @@ export async function processReceiptImport(
     discountTotal: extracted.discountTotal?.toString(),
     total: extracted.total?.toString(),
     confidence: extracted.confidence?.toString(),
-    items: JSON.stringify(toReceiptLineItems(extracted)),
+    items: JSON.stringify(toReceiptLineItems(extracted, catalog)),
   })
 
   await update({ status: 'validating' })
 
   if (needsReview(extracted)) {
+    return update({ status: 'review_required' })
+  }
+
+  // Storage-location/category gate: even a mathematically-consistent, complete receipt must go to
+  // review if any item's category+pantry-location can't be resolved confidently — never guess
+  // where a product lives (docs/08_OCR_RECEIPT_PIPELINE.md's "NEHÁDEJ" rule, extended per the
+  // product owner's pantry-tracking request).
+  const unplaceable = extracted.items.some(
+    (item) => item.name.trim().length > 0 && resolveItemPlacement(matchProductByName(catalog, item.name), item.category, item.name) == null,
+  )
+  if (unplaceable) {
     return update({ status: 'review_required' })
   }
 
@@ -297,10 +354,15 @@ export async function processReceiptImport(
     if (duplicate) return update({ status: 'duplicate_review' })
   }
 
-  const lineItems = toReceiptLineItems(extracted)
+  const lineItems = toReceiptLineItems(extracted, catalog)
   const storeId = await findOrCreateStore(extracted.store.name)
   await update({ storeId })
-  const purchase = await createPurchaseFromReceiptItems(row.householdId, lineItems, { date: extracted.date ?? undefined, storeLocationId: parsedRow.storeLocationId, storeId })
+  const purchase = await createPurchaseFromReceiptItems(row.householdId, lineItems, {
+    date: extracted.date ?? undefined,
+    storeLocationId: parsedRow.storeLocationId,
+    storeId,
+    source: 'auto',
+  })
   return update({ status: 'completed', purchaseId: purchase.id, processedAt: new Date() })
 }
 
@@ -362,8 +424,20 @@ export async function confirmReceiptReviewAction(
     throw new Error('Tento import nečeká na kontrolu.')
   }
 
+  // Never fall back to today's date (docs/08_OCR_RECEIPT_PIPELINE.md section 12 / CLAUDE.md
+  // section 5 "never invent data") — if OCR couldn't read the date, the household must supply it
+  // here explicitly. `resolveReceiptPurchaseDate()` (inside createPurchaseFromReceiptItems) is what
+  // actually enforces this — `options.date` (explicitly supplied here) falls back to `row.date`
+  // (the OCR-read date, for a review triggered by something other than a missing date, e.g. an
+  // inconsistent total) and throws rather than defaulting to today if neither is present.
   const storeId = row.storeId ?? (row.parserResult ? await findOrCreateStore((JSON.parse(row.parserResult) as ExtractedReceipt).store.name) : null)
-  const purchase = await createPurchaseFromReceiptItems(householdId, items, { date: options.date, storedDate: row.date, storeLocationId: options.storeLocationId ?? row.storeLocationId, storeId })
+  const purchase = await createPurchaseFromReceiptItems(householdId, items, {
+    date: options.date,
+    storedDate: row.date,
+    storeLocationId: options.storeLocationId ?? row.storeLocationId,
+    storeId,
+    source: 'confirmed',
+  })
 
   const db = getDb()
   await db

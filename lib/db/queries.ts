@@ -17,6 +17,7 @@ import type {
   ItemUnit,
   Notification,
   PantryItem,
+  PantryLocation,
   PriceSensitivity,
   PurchaseRecord,
   QualityPreference,
@@ -339,24 +340,36 @@ export async function getHouseholdData(userId: string, userName: string, userEma
  *  overwriting it, per the product owner's explicit call ("sčítat množství"), and resets
  *  `addedAt`/`askedAt` so the check-in interval (`lib/pantry.ts`) restarts from a fresh restock.
  *  Shared by every purchase-creating path (`completePurchaseAction`, `importReceiptAction`) so the
- *  restocking rule lives in exactly one place. A brand-new row's location is seeded from
- *  `inferPantryLocation()`; an existing row's location is left untouched, so a manual move (e.g.
- *  chilled meat into the freezer) survives the next purchase of the same item. */
+ *  restocking rule lives in exactly one place. A brand-new row's location is `item.location` when
+ *  the caller already resolved one (e.g. a receipt import's catalog/keyword resolution, or a
+ *  household-confirmed review answer) — otherwise `inferPantryLocation()`, falling back to 'Spíž'
+ *  only as an absolute last resort for a caller with no placement logic of its own (e.g. a plain
+ *  shopping-list purchase with an item genuinely too generic to classify — there's no review step
+ *  on that path to ask the household instead). An existing row's location is always left untouched
+ *  regardless, so a manual move (e.g. chilled meat into the freezer) survives the next purchase of
+ *  the same item. */
 export async function restockPantryItem(
   householdId: string,
-  item: { productId: string | null; name: string; category: ItemCategory; quantity: number; unit: ItemUnit },
+  item: { productId: string | null; name: string; category: ItemCategory; quantity: number; unit: ItemUnit; location?: PantryLocation },
 ) {
   const db = getDb()
-  const existing = item.productId
+  const byProductId = item.productId
     ? await db.query.pantryItems.findFirst({ where: and(eq(schema.pantryItems.householdId, householdId), eq(schema.pantryItems.productId, item.productId)) })
-    : await db.query.pantryItems.findFirst({
-        where: and(eq(schema.pantryItems.householdId, householdId), ilike(schema.pantryItems.name, item.name.trim())),
-      })
+    : null
+  // Falls back to a name match even when productId is known, in case this pantry row predates the
+  // product's own catalog entry (e.g. it was first restocked before `upsertProductCatalogDefaults`
+  // ever cataloged this product) — otherwise a later restock would silently create a second,
+  // never-merged row instead of summing into the existing one.
+  const existing =
+    byProductId ??
+    (await db.query.pantryItems.findFirst({
+      where: and(eq(schema.pantryItems.householdId, householdId), ilike(schema.pantryItems.name, item.name.trim())),
+    }))
 
   if (existing) {
     await db
       .update(schema.pantryItems)
-      .set({ quantity: existing.quantity + item.quantity, addedAt: new Date(), askedAt: null })
+      .set({ quantity: existing.quantity + item.quantity, addedAt: new Date(), askedAt: null, productId: existing.productId ?? item.productId })
       .where(eq(schema.pantryItems.id, existing.id))
   } else {
     await db.insert(schema.pantryItems).values({
@@ -364,7 +377,7 @@ export async function restockPantryItem(
       productId: item.productId,
       name: item.name,
       category: item.category,
-      location: inferPantryLocation(item.category, item.name),
+      location: item.location ?? inferPantryLocation(item.category, item.name) ?? 'Spíž',
       quantity: item.quantity,
       unit: item.unit,
     })
@@ -419,9 +432,10 @@ export async function getStores(): Promise<Store[]> {
   }))
 }
 
-/** The full product catalog as id/name/category triples — used to resolve a free-text shopping-
- *  list item name to a real `productId` and its real category (see `lib/products.ts`'s
- *  `matchProductByName()`). The category is included so a matched product's real category can
+/** The full product catalog as id/name/category/defaultUnit/defaultLocation rows — used to resolve
+ *  a free-text shopping-list or receipt item name to a real `productId` and its remembered
+ *  defaults (see `lib/products.ts`'s `matchProductByName()`, `lib/receipts.ts`'s
+ *  `resolveItemPlacement()`). The category is included so a matched product's real category can
  *  flow onto the shopping-list item instead of the schema default ('Ostatní') — found missing
  *  while testing the pantry-location heuristic (`lib/pantry.ts`'s `inferPantryLocation()`), which
  *  depends on the item actually being categorized 'Potraviny' to ever route it to Lednice/Mrazák.
@@ -429,8 +443,43 @@ export async function getStores(): Promise<Store[]> {
  *  can identify a real product even before that product has any price data. */
 export async function getProductCatalog(): Promise<ProductCatalogEntry[]> {
   const db = getDb()
-  const products = await db.query.products.findMany({ columns: { id: true, name: true }, with: { category: { columns: { name: true } } } })
-  return products.map((product) => ({ id: product.id, name: product.name, category: product.category.name }))
+  const products = await db.query.products.findMany({
+    columns: { id: true, name: true, defaultUnit: true, defaultLocation: true },
+    with: { category: { columns: { name: true } } },
+  })
+  return products.map((product) => ({
+    id: product.id,
+    name: product.name,
+    category: product.category.name,
+    defaultUnit: product.defaultUnit,
+    defaultLocation: product.defaultLocation,
+  }))
+}
+
+/** Remembers a household-confirmed product correction in the catalog — category, default unit,
+ *  and pantry location — so the *next* receipt of the same product resolves it automatically
+ *  instead of asking again (per the owner's "BIO KUŘE" example: corrected once to Mrazák, every
+ *  later receipt of the same product should land there without review). Only ever called from a
+ *  path where a human actually confirmed the data (manual entry, or a completed review) — never
+ *  from an unreviewed automatic OCR pass, so the catalog only ever learns from verified corrections,
+ *  never AI guesses. Creates the product if it doesn't exist yet (matched case-insensitively, same
+ *  as `matchProductByName`) — the mechanism that lets a *first-time* correction still be remembered,
+ *  not just a correction to an already-cataloged product. */
+export async function upsertProductCatalogDefaults(entry: { name: string; category: ItemCategory; unit: ItemUnit; location: PantryLocation }) {
+  const db = getDb()
+  const name = entry.name.trim()
+  if (!name) return
+  const categoryRow = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, entry.category) })
+  if (!categoryRow) return // the 5 category rows are seeded 1:1 with itemCategoryEnum; defensive no-op if that's somehow not the case
+  const existing = await db.query.products.findFirst({ where: ilike(schema.products.name, name) })
+  if (existing) {
+    await db
+      .update(schema.products)
+      .set({ categoryId: categoryRow.id, defaultUnit: entry.unit, defaultLocation: entry.location })
+      .where(eq(schema.products.id, existing.id))
+  } else {
+    await db.insert(schema.products).values({ name, categoryId: categoryRow.id, defaultUnit: entry.unit, defaultLocation: entry.location })
+  }
 }
 
 /** Per-product prices across stores, with any currently active deal folded in. One entry per store's latest recorded price. */

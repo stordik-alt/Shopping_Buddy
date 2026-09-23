@@ -622,6 +622,8 @@ Current logic considers factors such as:
 * store comparison
 * unit price
 * historical prices — `lib/prices.ts`'s `isHistoricLow()`, foundation done 2026-09-21 (see section 13); flags a deal as a genuine all-time low rather than just today's discount, but has no real historical data to act on yet since nothing populates price history in production
+* stock/storage constraints — done 2026-09-22 via the household pantry (section 33): meal-plan generation can prefer in-stock ingredients and skips already-owned ones when adding to the shopping list. The shopping-list optimization itself (`compareStoreTotals`/`cheapestPossibleTotal`) still doesn't consume pantry state directly — see `docs/04_ROADMAP.md` Phase C for the precise scope of what's done
+* bulk-buy recommendations — done 2026-09-22: `lib/prices.ts`'s `suggestsStockingUp()` combines a real "genuinely best price" deal signal with real pantry-quantity data (not invented package/bulk-pricing data, which still doesn't exist) — flags a deal as worth stocking up on only when the household has 1 or fewer in stock. Surfaced in `price-watch.tsx`. This closes out Phase C — every item in `docs/04_ROADMAP.md`'s Smart Shopping Engine phase is now done
 
 The engine is intended to optimize the overall shopping trip rather than simply find the cheapest individual item.
 
@@ -632,8 +634,6 @@ Future improvements should include:
 * household preferences
 * product availability
 * required quantities
-* stock/storage constraints
-* bulk-buy recommendations
 * purchase patterns
 
 The optimization logic must remain deterministic and testable.
@@ -1040,6 +1040,15 @@ Once approved, finished what was left mid-flight:
 - **Verified in a real browser against the real dev database and real Vercel Blob**, not just tests: signed up a fresh account, uploaded a real (tiny, throwaway) image. Since `GOOGLE_VISION_API_KEY` isn't configured locally, this genuinely exercised the failure path end-to-end — confirmed the specific "GOOGLE_VISION_API_KEY is not configured" error surfaced correctly in the UI, confirmed "Zkusit znovu" (retry) correctly failed the same way again, confirmed "Zahodit" (discard) correctly cleared it and set `receipt_imports.status = 'cancelled'` in the database. Then re-verified manual entry still works as a regression check (it created a real `purchases`/`purchase_items` row with `receipt_imports.status = 'imported'`). All disposable test accounts/data deleted afterward, confirmed zero left behind.
 - 187/187 tests passing; `tsc --noEmit` and `next build` both clean.
 - **Known gap, not closed here:** `GOOGLE_VISION_API_KEY` is set in Vercel for Production only, not Development, so the real OCR text-extraction step (as opposed to the structuring step, which authenticates via Vercel OIDC and would work locally) cannot be exercised against real output locally — see `docs/08_OCR_RECEIPT_PIPELINE.md` section 12.
+
+**Update 2026-09-22, decimal quantities + storage-location resolution + manual stock edits.** Follow-up pass, per the owner's prompt (which itself assumed per-item category recognition already existed — it didn't; `extractedReceiptItemSchema` had no `category` field at all until this pass). Full detail in `docs/08_OCR_RECEIPT_PIPELINE.md` section 12b; summary here:
+- Fixed a real bug first, as instructed: `purchase_items.quantity`/`pantry_items.quantity` were `integer`, not `numeric` — a weight-sold receipt item (e.g. "0,582 kg") would have failed to insert or been truncated. Migrated to `numeric(10,3)` (migration `0006_fearless_thunderbolt.sql`); also fixed the manual-entry/review forms, which clamped typed quantity to a minimum of `1`.
+- `lib/pantry.ts`'s `inferPantryLocation()` now returns `null` (never a guessed default) when it genuinely can't classify a food item or the category is the catch-all `'Ostatní'`; new `lib/receipts.ts`'s `resolveItemPlacement()` adds catalog priority on top and now gates `processReceiptImport()`'s automatic completion the same way a missing/inconsistent field already did. An unrecognized unit does too (new `isRecognizedUnit()`).
+- A human-confirmed correction (manual entry, or a completed review) now writes its category/unit/location back into the `products` catalog (new `default_location` column, `upsertProductCatalogDefaults()`) — including creating the catalog row for a never-before-seen product — so the next receipt of the same product resolves automatically. Never happens on an unreviewed automatic OCR pass.
+- The review form (`components/budget/receipt-pending.tsx`) gained a "Datum" field it was previously entirely missing (a review triggered by a missing date had no way to supply one — `confirmReceiptReviewAction` would have silently used today's date; now it throws instead if none is given) and an "Uložení" select per item.
+- New `adjustPantryItemQuantityAction` + a pantry stepper UI for manual stock correction (`−`/exact-value/`+`), separate from purchase history, never touching `purchase_items`.
+- Verified in a real browser against the real dev database: decimal quantity round-tripped exactly through manual entry → purchase history → pantry → stepper edit → reload; a seeded `review_required` import correctly showed one blank (ambiguous) and one pre-filled (catalog-resolved) location select, stayed disabled until both a date and every location were set, and produced a purchase with the explicitly-typed date; the confirmed correction was verified written into the product catalog. All test data cleaned up afterward.
+- 224/224 tests passing (was 194); `tsc --noEmit`/`next build` clean.
 
 ---
 

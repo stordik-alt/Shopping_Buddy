@@ -1,18 +1,27 @@
 import { generateObject } from 'ai'
 import { z } from 'zod'
 import { getVercelOidcToken } from '@vercel/oidc'
-import type { ItemCategory, ItemUnit } from '@/lib/types'
+import { inferPantryLocation } from '@/lib/pantry'
+import { matchProductByName, type ProductCatalogEntry } from '@/lib/products'
+import type { ItemCategory, ItemUnit, PantryLocation } from '@/lib/types'
+
+const ITEM_CATEGORIES = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní'] as const satisfies readonly ItemCategory[]
 
 /** One line item on a receipt as confirmed by the household — whether typed by hand or, for a
  *  real OCR import, accepted after automatic parsing (with or without manual correction). This is
  *  the shape `importReceiptAction` (app/actions/receipts.ts) actually turns into a purchase, so
- *  both entry paths converge here regardless of how the data was produced. */
+ *  both entry paths converge here regardless of how the data was produced. `location` is the
+ *  pantry placement the household confirmed (or the pipeline resolved confidently) — optional
+ *  because a genuinely ambiguous item reaches the review form with it unset, forcing the
+ *  household to pick rather than defaulting it (docs/08_OCR_RECEIPT_PIPELINE.md's "NEHÁDEJ" rule
+ *  extended to storage location, not just OCR values). */
 export type ReceiptLineItem = {
   name: string
   category: ItemCategory
   quantity: number
   unit: ItemUnit
   price: number
+  location?: PantryLocation
   confidence?: number
 }
 
@@ -42,7 +51,10 @@ export interface ReceiptTextExtractor {
  *  `toReceiptLineItems()` below, after validation has had a chance to flag the receipt for review. */
 export const extractedReceiptItemSchema = z.object({
   name: z.string(),
-  category: z.enum(['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']).nullable(),
+  // The item's category, from the app's fixed set — null when the model isn't confident enough to
+  // pick one (never a guess). Missing/null routes the item to review via `resolveItemPlacement()`
+  // below, same "null over a guess" rule as every other field here.
+  category: z.enum(ITEM_CATEGORIES).nullable(),
   quantity: z.number().nullable(),
   unit: z.string().nullable(),
   unitPrice: z.number().nullable(),
@@ -312,7 +324,7 @@ export const geminiStructuringProvider: ReceiptStructuringProvider = {
 
 Extract: the store name, the date (YYYY-MM-DD), the time (HH:MM) if present, the receipt number if present, the currency, every line item (name, category, quantity, unit, unit price, total price, discount), the subtotal, the total discount, and the grand total.
 
-For each line item, classify its category as exactly one of: Potraviny, Drogerie, Děti, Domácnost, Ostatní. Use Ostatní only when the item genuinely does not fit the other categories; if the category cannot be determined reliably from the receipt text, output null.
+Each item's category must be exactly one of: "Potraviny" (food), "Drogerie" (drugstore/hygiene/cleaning), "Děti" (children's/baby products), "Domácnost" (other household goods), "Ostatní" (anything else, or genuinely unclear — use it only when the item genuinely does not fit the other four). If you are not confident which of these five fits, output null — never guess.
 
 Rules — follow these exactly:
 - Never invent or estimate a value. If a value is not unambiguously present in the text, output null for it.
@@ -374,11 +386,22 @@ export function hasRequiredReceiptFields(receipt: ExtractedReceipt): boolean {
 
 /** The single gate deciding `parsed → validating → completed` vs `review_required`
  *  (docs/08_OCR_RECEIPT_PIPELINE.md section 7/11). Confidence scores are informative but never
- *  authoritative on their own (section 8) — this checks the actual math and required fields. */
+ *  authoritative on their own (section 8) — this checks the actual math and required fields, plus
+ *  (below) whether every item's unit could actually be recognized — an unrecognized unit (e.g.
+ *  "furlongs") must not silently become "ks", it must stop the automatic pass. Catalog/storage-
+ *  location ambiguity is a separate, catalog-aware gate — see `resolveItemPlacement()` below, run
+ *  by `app/actions/receipts.ts`'s `processReceiptImport()` since it needs DB access this pure
+ *  function doesn't have. */
 export function needsReview(receipt: ExtractedReceipt): boolean {
   if (!hasRequiredReceiptFields(receipt)) return true
   if (!isReceiptConsistent(receipt)) return true
-  return receipt.items.some((item) => item.category == null || !isLineItemConsistent(item))
+  if (receipt.items.some((item) => !isLineItemConsistent(item))) return true
+  // A missing/unrecognized category or storage location is deliberately NOT checked here — that's
+  // a catalog-aware decision (a null AI category can still be confidently resolved via an existing
+  // catalog match) handled by `resolveItemPlacement()` below, called from
+  // `app/actions/receipts.ts`'s `processReceiptImport()`, which has the DB access this pure
+  // function doesn't.
+  return receipt.items.some((item) => item.name.trim().length > 0 && !isRecognizedUnit(item.unit))
 }
 
 // --- Duplicate detection (docs/08_OCR_RECEIPT_PIPELINE.md section 9) ---------------------------
@@ -413,17 +436,12 @@ const UNIT_ALIASES: Record<string, ItemUnit> = {
   ml: 'ml',
 }
 
-/** Maps a receipt's raw, inconsistently-written unit text onto the app's fixed `ItemUnit` set —
- *  case-insensitive, no fuzzy matching (same no-guessing philosophy as `lib/products.ts`'s
- *  `matchProductByName`). Falls back to 'ks' for anything unrecognized rather than rejecting the
- *  whole item over a unit the app doesn't model — quantity/price are what actually matter for the
- *  resulting purchase. */
 /** Normalizes retailer names so OCR variants of known chains map to one canonical name.
  * Unknown retailers keep a cleaned readable name and can be created automatically. */
 export function normalizeStoreName(rawName: string): string {
-  const cleaned = rawName.normalize('NFC').replace(/\\s+/g, ' ').trim()
+  const cleaned = rawName.normalize('NFC').replace(/\s+/g, ' ').trim()
   if (!cleaned) return ''
-  const key = cleaned.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+  const key = cleaned.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
   const aliases: Array<[string, string]> = [['lidl', 'Lidl'], ['albert', 'Albert'], ['kaufland', 'Kaufland'], ['billa', 'Billa'], ['penny', 'Penny'], ['jip', 'JIP']]
   const known = aliases.find(([alias]) => key === alias || key.startsWith(alias + ' '))
   return known?.[1] ?? cleaned
@@ -431,21 +449,70 @@ export function normalizeStoreName(rawName: string): string {
 
 /** Stable comparison key for store matching across case, accents and punctuation. */
 export function storeNameMatchKey(name: string): string {
-  return normalizeStoreName(name).normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+  return normalizeStoreName(name).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 }
 
+/** Maps a receipt's raw, inconsistently-written unit text onto the app's fixed `ItemUnit` set —
+ *  case-insensitive, no fuzzy matching (same no-guessing philosophy as `lib/products.ts`'s
+ *  `matchProductByName`). Falls back to 'ks' for anything unrecognized rather than rejecting the
+ *  whole item over a unit the app doesn't model — quantity/price are what actually matter for the
+ *  resulting purchase, and `needsReview()` (via `isRecognizedUnit()` below) is what actually stops
+ *  an unrecognized unit from being auto-completed; this function only decides what to *show* the
+ *  household while they're reviewing/correcting it, never a value that silently ships unreviewed. */
 export function normalizeReceiptUnit(rawUnit: string | null): ItemUnit {
   if (!rawUnit) return 'ks'
   return UNIT_ALIASES[rawUnit.trim().toLowerCase()] ?? 'ks'
 }
 
+/** Whether a receipt's raw unit text is one `normalizeReceiptUnit()` actually recognizes — missing
+ *  is fine (defaults to "ks", the overwhelmingly common case for a receipt with no unit printed at
+ *  all), but present-and-unrecognized (e.g. "furlongs") is not: that must stop the automatic pass
+ *  via `needsReview()` rather than silently becoming "ks". */
+export function isRecognizedUnit(rawUnit: string | null): boolean {
+  if (rawUnit == null || rawUnit.trim() === '') return true
+  return UNIT_ALIASES[rawUnit.trim().toLowerCase()] != null
+}
+
+/** Resolves where a receipt item belongs (category + pantry location) with the same catalog-first
+ *  priority as the rest of the app's product handling — or `null` when neither the catalog nor a
+ *  confident deterministic guess can place it, meaning the caller must route the receipt to manual
+ *  review rather than guess (docs/08_OCR_RECEIPT_PIPELINE.md's "NEHÁDEJ" rule, extended by the
+ *  product owner from OCR values to category/storage-location too). Priority:
+ *  1. An existing catalog product's own remembered category/location always wins — even over what
+ *     the AI/OCR guessed for this particular receipt — because a past human correction
+ *     (`lib/db/queries.ts`'s `upsertProductCatalogDefaults()`) is more trustworthy than a fresh
+ *     per-receipt guess. A catalog product with no remembered location yet (never corrected) still
+ *     falls through to the deterministic keyword classification below, using the catalog's own
+ *     category (not the AI's).
+ *  2. No catalog match: the AI-provided category, if any, classified deterministically via
+ *     `lib/pantry.ts`'s `inferPantryLocation()` (itself `null` when the category/name genuinely
+ *     doesn't match a known keyword — see that function's own doc comment).
+ *  3. No catalog match and no AI category either: unplaceable, `null`. */
+export function resolveItemPlacement(
+  catalogEntry: Pick<ProductCatalogEntry, 'category' | 'defaultLocation'> | null,
+  aiCategory: ItemCategory | null,
+  name: string,
+): { category: ItemCategory; location: PantryLocation } | null {
+  if (catalogEntry) {
+    const location = catalogEntry.defaultLocation ?? inferPantryLocation(catalogEntry.category, name)
+    if (location == null) return null
+    return { category: catalogEntry.category, location }
+  }
+  if (!aiCategory) return null
+  const location = inferPantryLocation(aiCategory, name)
+  if (location == null) return null
+  return { category: aiCategory, location }
+}
+
 /** Turns a validated (or human-corrected) extraction into the `ReceiptLineItem[]` shape
  *  `importReceiptAction` already knows how to turn into a real purchase — the point where the OCR
- *  pipeline and the existing manual-entry path converge. Category defaults to 'Ostatní'; real
- *  catalog-product category resolution happens the same way it already does for every other entry
- *  path, via `matchProductByName` in the action layer, not duplicated here. Skips an item with no
- *  usable name — there's nothing to record. */
-export function toReceiptLineItems(receipt: ExtractedReceipt): ReceiptLineItem[] {
+ *  pipeline and the existing manual-entry path converge. `catalog`, when supplied, lets this
+ *  pre-fill each item's real category/location via `resolveItemPlacement()` above (used when
+ *  building the review form's pre-filled values); omitted, every item falls back to the OCR/AI's
+ *  own category (or 'Ostatní' if it couldn't classify) and no location, matching the previous
+ *  behavior for callers that don't have catalog access. Skips an item with no usable name — there's
+ *  nothing to record. */
+export function toReceiptLineItems(receipt: ExtractedReceipt, catalog: ProductCatalogEntry[] = []): ReceiptLineItem[] {
   return receipt.items
     .filter((item) => item.name.trim().length > 0)
     .map((item) => {
@@ -455,12 +522,15 @@ export function toReceiptLineItems(receipt: ExtractedReceipt): ReceiptLineItem[]
       // be divided back down to a unit price, not assigned directly (that would double-count
       // quantity > 1 once multiplied again downstream).
       const price = item.unitPrice ?? (item.totalPrice != null && quantity > 0 ? item.totalPrice / quantity : (item.totalPrice ?? 0))
+      const catalogEntry = matchProductByName(catalog, item.name)
+      const placement = resolveItemPlacement(catalogEntry, item.category, item.name)
       return {
         name: item.name.trim(),
-        category: item.category ?? ('Ostatní' as ItemCategory),
+        category: placement?.category ?? item.category ?? ('Ostatní' as ItemCategory),
         quantity,
         unit: normalizeReceiptUnit(item.unit),
         price,
+        ...(placement != null && { location: placement.location }),
         ...(item.confidence != null && { confidence: item.confidence }),
       }
     })

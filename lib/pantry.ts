@@ -1,4 +1,4 @@
-import type { ItemCategory, PantryLocation } from '@/lib/types'
+import type { ItemCategory, PantryItem, PantryLocation } from '@/lib/types'
 
 /** How many days a pantry item can go unconfirmed before the household gets asked "do you still
  *  have this?" — per category, since shelf life genuinely differs (milk vs. rice), but there's no
@@ -37,22 +37,37 @@ export function findDueForCheckin<T extends PantryCheckinCandidate>(items: T[], 
   return items.filter((item) => isDueForCheckin(item, now))
 }
 
-// Keyword heuristic for splitting "Potraviny" between the fridge and freezer — placeholder,
-// same spirit as CHECKIN_DAYS_BY_CATEGORY above: there's no real per-product storage-requirement
-// data yet, so a small, deliberately conservative Czech keyword list stands in until there is.
-// Substring match on the lowercased name; a name matching neither list defaults to the pantry
-// shelf (shelf-stable is the safe default for an unrecognized food item).
+// Keyword heuristic for splitting "Potraviny" between the fridge, freezer and pantry shelf —
+// placeholder, same spirit as CHECKIN_DAYS_BY_CATEGORY above: there's no real per-product
+// storage-requirement data yet, so a small, deliberately conservative Czech keyword list stands in
+// until there is. Substring match on the lowercased name.
 const FROZEN_KEYWORDS = ['mražen', 'zmrzlina']
 const CHILLED_KEYWORDS = ['mléko', 'mléčný', 'jogurt', 'kefír', 'sýr', 'máslo', 'smetana', 'tvaroh', 'šunka', 'salám', 'párky', 'vejce', 'maso', 'kuřecí', 'vepřové', 'hovězí', 'losos', 'ryba']
+const PANTRY_KEYWORDS = ['rýže', 'těstoviny', 'mouka', 'cukr', 'sůl', 'konzerv', 'olej', 'ocet', 'cereál', 'sušenky', 'trvanl', 'voda', 'nápoj']
 
-/** Where a purchased item should land in the pantry by default. Non-food categories go straight
- *  to "Domácnost" (cleaning/hygiene/household supplies); food is split into shelf-stable/chilled/
- *  frozen by keyword. Only used to seed a *new* pantry row — an existing row's location is never
- *  re-inferred on restock, so a manual move (e.g. chilled meat into the freezer) sticks. */
-export function inferPantryLocation(category: ItemCategory, name: string): PantryLocation {
-  if (category !== 'Potraviny') return category === 'Ostatní' ? 'Spíž' : 'Domácnost'
+/** Where a purchased item should land in the pantry — confidently, or `null` when it genuinely
+ *  can't be determined without guessing (per the owner's explicit "NEHÁDEJ" rule for receipt
+ *  import: an unrecognized storage location must go to manual review, never a silent default).
+ *  Non-food categories go straight to "Domácnost" (cleaning/hygiene/household supplies); food is
+ *  split into frozen/chilled/shelf-stable by keyword, and a `Potraviny` item matching none of the
+ *  three lists — or a catch-all `Ostatní` item, whose category itself was already uncertain — is
+ *  `null`, not a guessed default. Only used to seed a *new* pantry row — an existing row's location
+ *  is never re-inferred on restock, so a manual move (e.g. chilled meat into the freezer) sticks. */
+export function inferPantryLocation(category: ItemCategory, name: string): PantryLocation | null {
+  if (category === 'Drogerie' || category === 'Děti' || category === 'Domácnost') return 'Domácnost'
+  if (category !== 'Potraviny') return null // 'Ostatní' — the category itself was already unclear
   const normalized = name.trim().toLowerCase()
   if (FROZEN_KEYWORDS.some((keyword) => normalized.includes(keyword))) return 'Mrazák'
   if (CHILLED_KEYWORDS.some((keyword) => normalized.includes(keyword))) return 'Lednice'
-  return 'Spíž'
+  if (PANTRY_KEYWORDS.some((keyword) => normalized.includes(keyword))) return 'Spíž'
+  return null
+}
+
+/** How much of a product the household currently has, per its real pantry data — case/whitespace-
+ *  insensitive name match, same philosophy as `lib/products.ts`'s `matchProductByName()`. 0 when
+ *  there's no matching pantry row, which is a genuine "none in stock" rather than an error. */
+export function pantryQuantityFor(pantryItems: PantryItem[], productName: string): number {
+  const normalized = productName.trim().toLowerCase()
+  const match = pantryItems.find((item) => item.name.trim().toLowerCase() === normalized)
+  return match?.quantity ?? 0
 }

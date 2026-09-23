@@ -7,18 +7,20 @@ Long-term technical context for Shopping Buddy / Family Shopping Assistant.
 Never invent data. Preserve uncertainty explicitly. Distinguish actual purchase prices from official or published prices.
 
 ## Price model
-A price observation conceptually contains:
+A price observation is an immutable historical fact. The current price is derived from the latest applicable observation rather than stored as a mutable singleton.
+
+The current schema contains:
 - product_id
 - store_id
 - store_location_id (nullable)
-- price
+- regular_price
 - unit_price
 - currency
 - price_scope
 - source_type
 - location_resolution
 - observed_at
-- valid_from / valid_to
+- valid_from / valid_until
 - source_reference
 - confidence
 

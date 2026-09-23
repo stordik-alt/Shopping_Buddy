@@ -656,24 +656,40 @@ describe('receipt file handling: type detection and OCR preparation', () => {
       expect(entry.imagePrep.note).toBeTruthy()
     })
 
-    it('gives the Azure fallback the untouched original rather than the cleaned-up copy', async () => {
+    /** Runs an import whose primary OCR always fails, recording what each provider was sent. */
+    async function runWithFailingPrimary(bytes: Buffer) {
       vi.spyOn(console, 'info').mockImplementation(() => {})
       process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT = 'https://example.invalid'
       process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY = 'not-a-real-key'
-      const original = await realImage()
-      const receiptImportId = await storeReceiptBytes(original, 'png', 'image/png')
+      const receiptImportId = await storeReceiptBytes(bytes, 'png', 'image/png')
+      const primarySeen: Array<{ base64: string; mimeType: string }> = []
       const fallbackSeen: Array<{ base64: string; mimeType: string }> = []
 
       const row = await processReceiptImport(receiptImportId, {
-        textExtractor: { extractText: async () => { throw new Error('primary down') } },
+        textExtractor: { extractText: async (image) => { primarySeen.push(image); throw new Error('primary down') } },
         fallbackTextExtractor: { extractText: async (image) => { fallbackSeen.push(image); return { fullText: 'AZURE TEXT', lines: ['AZURE TEXT'] } } },
         structuringProvider: fakeProviders(extractedReceipt()).structuringProvider,
       })
+      return { row, primarySeen, fallbackSeen }
+    }
+
+    it('gives the Azure fallback the same cleaned-up image as the primary OCR, not the raw upload', async () => {
+      const original = await realImage()
+      const { row, primarySeen, fallbackSeen } = await runWithFailingPrimary(original)
 
       expect(row.ocrProvider).toBe('azure_document_intelligence')
       expect(fallbackSeen).toHaveLength(1)
-      expect(fallbackSeen[0].mimeType).toBe('image/png')
-      expect(Buffer.from(fallbackSeen[0].base64, 'base64').equals(original)).toBe(true)
+      expect(fallbackSeen[0]).toEqual(primarySeen[0])
+      expect(fallbackSeen[0].mimeType).toBe('image/jpeg') // the upload was a PNG
+      expect(Buffer.from(fallbackSeen[0].base64, 'base64').equals(original)).toBe(false)
+    })
+
+    it('gives both providers the original when preparation fails', async () => {
+      const garbage = Buffer.from('not-a-decodable-image')
+      const { primarySeen, fallbackSeen } = await runWithFailingPrimary(garbage)
+
+      expect(Buffer.from(primarySeen[0].base64, 'base64').equals(garbage)).toBe(true)
+      expect(fallbackSeen[0]).toEqual(primarySeen[0])
     })
 
     it('stops with the HEIC instruction for a stored HEIC and never calls the OCR', async () => {

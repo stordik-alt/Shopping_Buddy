@@ -70,12 +70,19 @@ async function findOrCreateLocation(storeId: string, address: string, city: stri
   const existing = await db.query.storeLocations.findMany({
     where: eq(schema.storeLocations.storeId, storeId),
   })
-  const match = existing.find(
-    (location) =>
-      normalize(location.address) === wantedAddress &&
-      normalize(location.city) === wantedCity,
+  const addressMatches = existing.filter(
+    (location) => normalize(location.address) === wantedAddress,
   )
+  const match =
+    addressMatches.length === 1 &&
+    (!wantedCity || normalize(addressMatches[0].city) === wantedCity)
+      ? addressMatches[0]
+      : null
   if (match) return { id: match.id, created: false }
+
+  if (addressMatches.length > 1 && !wantedCity) {
+    throw new Error(`Ambiguous branch address without city: ${address}`)
+  }
 
   const [created] = await db
     .insert(schema.storeLocations)

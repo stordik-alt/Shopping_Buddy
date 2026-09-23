@@ -29,11 +29,11 @@ export function ExpenseModal({
 
   return (
     <div className="fixed inset-0 z-20 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
-      <div className="w-full max-w-md rounded-t-3xl bg-card p-6 shadow-2xl sm:rounded-3xl">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Nový výdaj</h2>
-          <button onClick={onClose} aria-label="Zavřít" className="icon-button">
-            <X />
+      <div className="w-full max-w-md rounded-t-3xl bg-card p-5 shadow-2xl sm:rounded-3xl sm:p-6">
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="min-w-0 text-lg font-semibold">Nový výdaj</h2>
+          <button onClick={onClose} aria-label="Zavřít" className="icon-button shrink-0">
+            <X aria-hidden="true" />
           </button>
         </div>
         <div className="mt-6 space-y-4">
@@ -46,7 +46,7 @@ export function ExpenseModal({
               type="text"
               inputMode="decimal"
               placeholder="0,00 Kč"
-              className="mt-2 w-full rounded-xl border border-input bg-background px-4 py-3 outline-none focus:ring-2 focus:ring-ring"
+              className="mt-2 min-h-11 w-full rounded-xl border border-input bg-background px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </label>
           <label className="block text-sm">
@@ -54,11 +54,9 @@ export function ExpenseModal({
             <select
               value={category}
               onChange={(event) => setCategory(event.target.value as ItemCategory)}
-              className="mt-2 w-full rounded-xl border border-input bg-background px-4 py-3 outline-none focus:ring-2 focus:ring-ring"
+              className="mt-2 min-h-11 w-full rounded-xl border border-input bg-background px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              {CATEGORIES.map((option) => (
-                <option key={option}>{option}</option>
-              ))}
+              {CATEGORIES.map((option) => <option key={option}>{option}</option>)}
             </select>
           </label>
           <label className="block text-sm">
@@ -67,12 +65,12 @@ export function ExpenseModal({
               value={note}
               onChange={(event) => setNote(event.target.value)}
               placeholder="Např. nákup v Lidlu"
-              className="mt-2 w-full rounded-xl border border-input bg-background px-4 py-3 outline-none focus:ring-2 focus:ring-ring"
+              className="mt-2 min-h-11 w-full rounded-xl border border-input bg-background px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </label>
           <p className="text-xs text-muted-foreground">Datum výdaje: {TODAY}</p>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <button onClick={save} className="w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground">
+          {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+          <button onClick={save} className="min-h-11 w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             Uložit výdaj
           </button>
         </div>

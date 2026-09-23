@@ -78,6 +78,13 @@
       "when": 1790121600000,
       "tag": "0010_price_observation_model",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790168400000,
+      "tag": "0011_receipt_auto_create_store_locations",
+      "breakpoints": true
     }
   ]
 }

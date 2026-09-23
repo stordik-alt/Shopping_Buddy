@@ -1,5 +1,10 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-23 (Purchase analytics: repeated-item threshold)
+- Changed `repeatPurchases()` so an item is shown as a repeated purchase only after appearing in at least **3 separate purchase records**.
+- Kept the existing per-purchase de-duplication: multiple quantities or duplicate OCR lines inside one receipt count as one purchase event.
+- Added unit tests covering the 3-purchase threshold and duplicate lines within one purchase.
+- This prevents a product appearing in only two legitimate purchases from being presented as a regular repeated item; duplicate receipt imports must still be prevented/cleaned at the import layer.
 ## 2026-09-22 (Pantry/receipt-import follow-up: decimal quantities, storage-location resolution, manual stock edits)
 ### Continuation of the OCR receipt-import + pantry work, per the owner's follow-up prompt
 - **Fixed a real data-integrity bug first, as instructed**: `purchase_items.quantity` and `pantry_items.quantity` were `integer`, not `numeric` — a receipt item sold by weight (e.g. "KUŘE 0,582 kg") would have failed to insert at all, or been silently truncated. Migrated both to `numeric(10,3)` (Drizzle `mode: 'number'`, so every existing call site's `item.quantity` stays a plain JS number — no `Number(...)` conversions needed anywhere). Also fixed the manual-entry and review forms, which clamped typed quantity to a minimum of 1 (`Math.max(1, ...)`), silently rounding e.g. `0.582` up to `1`.

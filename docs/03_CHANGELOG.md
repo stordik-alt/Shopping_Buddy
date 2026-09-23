@@ -1,3 +1,12 @@
+## 2026-09-23 — Price observation model
+- Purpose: make current prices and price history provenance-safe before connecting real retailer feeds.
+- Schema: migration `0010_price_observation_model.sql` adds explicit retailer chain, nullable branch, scope, source type, location-resolution state, validity window, source reference and confidence; existing branch-linked rows are backfilled without deleting history.
+- Backend: `recordPriceObservation()` now appends contextual observations and validates STORE/UNKNOWN vs STORE/RESOLVED semantics; `getProductPrices()` derives the latest value from the observation ledger while preserving history and provenance.
+- Receipt flow: receipt prices are stored as STORE + RECEIPT, with RESOLVED when the branch is known and UNKNOWN when it is not.
+- Verification: GitHub Actions CI was triggered after the change; the final run must be checked before declaring tests/typecheck/build green.
+- Known limitation: the Neon connector currently does not expose a usable project ID for direct migration verification, so migration application against the real database has not been claimed.
+- Commit sequence: `298e03b3cdd37b817bac48cdf1748f7d30355bee` through `6a4b3d90ccc982261d7100b4319ab533bba35c19`.
+
 # Shopping Buddy — Change Log
 
 This file records significant architectural and data-model changes.

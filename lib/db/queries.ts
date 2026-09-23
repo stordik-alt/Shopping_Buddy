@@ -424,7 +424,7 @@ export async function getStores(): Promise<Store[]> {
     address: location.address,
     city: location.city,
     country: location.country,
-    gps: { lat: Number(location.lat), lng: Number(location.lng) },
+    gps: location.lat != null && location.lng != null ? { lat: Number(location.lat), lng: Number(location.lng) } : null,
     hours: location.hours,
     dealsCount: location.deals.filter((deal) => deal.validUntil >= TODAY).length,
     availableProducts: Array.from(new Set(location.prices.map((price) => price.product.name))),
@@ -480,6 +480,71 @@ export async function upsertProductCatalogDefaults(entry: { name: string; catego
   } else {
     await db.insert(schema.products).values({ name, categoryId: categoryRow.id, defaultUnit: entry.unit, defaultLocation: entry.location })
   }
+}
+
+/** Creates or enriches a physical store branch from a trusted directory/source.
+ * Matching is by chain + normalized address + normalized city. Non-null source fields enrich an
+ * OCR-created row; an external source must never erase an already known value by sending NULL. */
+export async function upsertStoreLocationFromSource(input: {
+  storeId: string
+  name?: string | null
+  address: string
+  city?: string | null
+  country?: string | null
+  lat?: number | null
+  lng?: number | null
+  hours?: string | null
+}) {
+  const db = getDb()
+  const normalize = (value: string | null | undefined) => value?.trim().toLocaleLowerCase('cs-CZ').replace(/\s+/g, ' ') ?? ''
+  const wantedAddress = normalize(input.address)
+  const wantedCity = normalize(input.city)
+
+  if (!wantedAddress) throw new Error('Store location address is required.')
+
+  const locations = await db.query.storeLocations.findMany({
+    where: eq(schema.storeLocations.storeId, input.storeId),
+  })
+  const existing = locations.find(
+    (location) =>
+      normalize(location.address) === wantedAddress &&
+      normalize(location.city) === wantedCity,
+  )
+
+  if (existing) {
+    const updates = {
+      name: input.name?.trim() || existing.name,
+      address: existing.address,
+      city: existing.city,
+      country: input.country?.trim() || existing.country,
+      lat: input.lat != null ? input.lat.toString() : existing.lat,
+      lng: input.lng != null ? input.lng.toString() : existing.lng,
+      hours: input.hours?.trim() || existing.hours,
+    }
+
+    await db
+      .update(schema.storeLocations)
+      .set(updates)
+      .where(eq(schema.storeLocations.id, existing.id))
+
+    return existing.id
+  }
+
+  const [created] = await db
+    .insert(schema.storeLocations)
+    .values({
+      storeId: input.storeId,
+      name: input.name?.trim() || input.address.trim(),
+      address: input.address.trim(),
+      city: input.city?.trim() ?? '',
+      country: input.country?.trim() || 'Česká republika',
+      lat: input.lat != null ? input.lat.toString() : null,
+      lng: input.lng != null ? input.lng.toString() : null,
+      hours: input.hours?.trim() || null,
+    })
+    .returning({ id: schema.storeLocations.id })
+
+  return created.id
 }
 
 /** Per-product prices across stores, with any currently active deal folded in. One entry per store's latest recorded price. */

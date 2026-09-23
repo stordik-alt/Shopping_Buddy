@@ -6,7 +6,7 @@ This is a living list. Remove an item only after the fix is verified.
 - Real external retailer price ingestion is still being developed.
 - Product normalization across external sources requires stable product identity mapping.
 - Official source prices may not contain branch identity.
-- UNKNOWN branch backfill needs explicit implementation and testing if it is not already present.
+- Existing historical UNKNOWN receipt observations are not automatically rewritten by this change; the new behavior applies when a receipt import resolves or creates its branch.
 
 ## OCR
 - Real OCR availability depends on configured Google Vision credentials in the relevant environment.

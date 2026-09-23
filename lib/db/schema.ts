@@ -158,9 +158,11 @@ export const storeLocations = pgTable('store_locations', {
   address: text('address').notNull(),
   city: text('city').notNull(),
   country: text('country').notNull().default('Česká republika'),
-  lat: numeric('lat', { precision: 9, scale: 6 }).notNull(),
-  lng: numeric('lng', { precision: 9, scale: 6 }).notNull(),
-  hours: text('hours').notNull(),
+  // OCR-created branches may not have coordinates or opening hours yet. These fields are enriched later
+  // by the store-directory data source; never invent coordinates/hours from a receipt address.
+  lat: numeric('lat', { precision: 9, scale: 6 }),
+  lng: numeric('lng', { precision: 9, scale: 6 }),
+  hours: text('hours'),
 })
 
 export const prices = pgTable('prices', {

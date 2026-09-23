@@ -90,19 +90,52 @@ function resolveReceiptPurchaseDate(optionsDate: string | undefined, storedDate:
  *    `resolveItemPlacement()` (the same function `processReceiptImport()` already used to decide
  *    this receipt didn't need review), and nothing gets written back to the catalog, since nothing
  *    here was actually verified by a person. */
-async function findMatchingStoreLocation(storeId: string | null, address?: string | null, city?: string | null): Promise<string | null> {
+function normalizeStoreLocationPart(value: string | null | undefined): string {
+  return value?.trim().toLocaleLowerCase('cs-CZ').replace(/\s+/g, ' ') ?? ''
+}
+
+/** Resolves an OCR address to an existing branch, or creates the branch when OCR has enough
+ *  physical-location data. Missing coordinates/opening hours stay NULL until a trusted store
+ *  directory source enriches the branch; receipt OCR must never invent geographic data. */
+async function findOrCreateStoreLocation(storeId: string | null, address?: string | null, city?: string | null): Promise<string | null> {
   if (!storeId) return null
+  const wantedAddress = normalizeStoreLocationPart(address)
+  const wantedCity = normalizeStoreLocationPart(city)
+  if (!wantedAddress) return null
+
   const db = getDb()
   const locations = await db.query.storeLocations.findMany({ where: eq(schema.storeLocations.storeId, storeId) })
-  const normalize = (value: string | null | undefined) => value?.trim().toLocaleLowerCase('cs-CZ').replace(/\s+/g, ' ') ?? ''
-  const wantedAddress = normalize(address)
-  const wantedCity = normalize(city)
-  if (!wantedAddress && !wantedCity) return locations.length === 1 ? locations[0].id : null
   const exact = locations.find((location) =>
-    (!wantedAddress || normalize(location.address) === wantedAddress) &&
-    (!wantedCity || normalize(location.city) === wantedCity),
+    normalizeStoreLocationPart(location.address) === wantedAddress &&
+    normalizeStoreLocationPart(location.city) === wantedCity,
   )
-  return exact?.id ?? null
+  if (exact) return exact.id
+
+  const [store] = await db.query.stores.findMany({ where: eq(schema.stores.id, storeId) })
+  if (!store) return null
+
+  try {
+    const [created] = await db
+      .insert(schema.storeLocations)
+      .values({
+        storeId,
+        name: address!.trim(),
+        address: address!.trim(),
+        city: city?.trim() ?? '',
+      })
+      .returning({ id: schema.storeLocations.id })
+    return created.id
+  } catch (error) {
+    // The unique normalized chain/address/city index makes concurrent OCR imports converge on
+    // the same branch instead of creating duplicates. Re-read after a uniqueness race.
+    const raced = await db.query.storeLocations.findMany({ where: eq(schema.storeLocations.storeId, storeId) })
+    const match = raced.find((location) =>
+      normalizeStoreLocationPart(location.address) === wantedAddress &&
+      normalizeStoreLocationPart(location.city) === wantedCity,
+    )
+    if (match) return match.id
+    throw error
+  }
 }
 
 async function recordReceiptPriceObservations(
@@ -365,6 +398,20 @@ export async function processReceiptImport(
     items: JSON.stringify(toReceiptLineItems(extracted, catalog)),
   })
 
+  // Resolve the retailer and physical branch immediately after parsing. This keeps the
+  // receipt_imports row authoritative even when later validation sends the receipt to review.
+  // The same IDs are then reused by the purchase and price-observation writes below.
+  const parsedStoreId = await findOrCreateStore(extracted.store.name)
+  const parsedStoreLocationId = await findOrCreateStoreLocation(
+    parsedStoreId,
+    extracted.store.address,
+    extracted.store.city,
+  )
+  const enrichedParsedRow = await update({
+    storeId: parsedStoreId,
+    storeLocationId: parsedStoreLocationId ?? undefined,
+  })
+
   await update({ status: 'validating' })
 
   if (needsReview(extracted)) {
@@ -397,17 +444,15 @@ export async function processReceiptImport(
         candidate.total != null &&
         isPotentialDuplicate(
           { storeLocationId: candidate.storeLocationId, date: candidate.date, total: Number(candidate.total), receiptNumber: candidate.receiptNumber },
-          { storeLocationId: parsedRow.storeLocationId, date: extractedDate, total: extractedTotal, receiptNumber: extracted.receiptNumber },
+          { storeLocationId: enrichedParsedRow.storeLocationId, date: extractedDate, total: extractedTotal, receiptNumber: extracted.receiptNumber },
         ),
     )
     if (duplicate) return update({ status: 'duplicate_review' })
   }
 
   const lineItems = toReceiptLineItems(extracted, catalog)
-  const storeId = await findOrCreateStore(extracted.store.name)
-  const resolvedStoreLocationId =
-    parsedRow.storeLocationId ?? await findMatchingStoreLocation(storeId, extracted.store.address, extracted.store.city)
-  await update({ storeId, storeLocationId: resolvedStoreLocationId ?? undefined })
+  const storeId = enrichedParsedRow.storeId ?? parsedStoreId
+  const resolvedStoreLocationId = enrichedParsedRow.storeLocationId ?? parsedStoreLocationId
   const purchase = await createPurchaseFromReceiptItems(row.householdId, lineItems, {
     date: extracted.date ?? undefined,
     storeLocationId: resolvedStoreLocationId,
@@ -485,7 +530,7 @@ export async function confirmReceiptReviewAction(
   const extractedReview = row.parserResult ? (JSON.parse(row.parserResult) as ExtractedReceipt) : null
   const storeId = row.storeId ?? (extractedReview ? await findOrCreateStore(extractedReview.store.name) : null)
   const resolvedStoreLocationId = options.storeLocationId ?? row.storeLocationId ??
-    (extractedReview ? await findMatchingStoreLocation(storeId, extractedReview.store.address, extractedReview.store.city) : null)
+    (extractedReview ? await findOrCreateStoreLocation(storeId, extractedReview.store.address, extractedReview.store.city) : null)
   const purchase = await createPurchaseFromReceiptItems(householdId, items, {
     date: options.date,
     storedDate: row.date,

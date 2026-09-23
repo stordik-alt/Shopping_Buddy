@@ -18,6 +18,9 @@ Expected: STORE + concrete store_location_id + RESOLVED.
 ### Unknown branch
 Expected: STORE + NULL location + UNKNOWN. Item and price are still stored.
 
+### OCR discovers a new branch
+Expected: a new `store_locations` row is created from the OCR address/city, assigned to the receipt/purchase, and reused by a later import of the same normalized address. Coordinates/hours remain NULL until enriched by a trusted source.
+
 ### Unknown -> resolved
 A later unambiguous address/location match may update only UNKNOWN observations.
 
@@ -49,3 +52,11 @@ Before merging a substantial change, run as available:
 
 ## Verification rule
 A passing unit test is not sufficient for client/server workflows that can fail at runtime. Use browser or integration verification where the change affects live UI, Server Actions, uploads or database behavior.
+
+
+### Historical UNKNOWN branch backfill
+The one-time backfill script `scripts/backfill-receipt-store-locations.ts` must be run in two stages:
+1. default mode is DRY RUN and changes no rows;
+2. after the report is reviewed, run with `--apply`.
+
+It resolves an existing branch from normalized address/city or creates a missing branch when OCR has an address. It also updates the linked purchase. Receipt-derived price observations are updated only when the price-to-receipt relationship is unambiguous; ambiguous historical prices remain UNKNOWN rather than being guessed.

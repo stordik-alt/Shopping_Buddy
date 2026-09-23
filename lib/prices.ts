@@ -7,7 +7,7 @@ export type PriceObservation = { price: number; recordedAt: string; sourceType?:
 export type PricePoint = {
   store: StoreChain
   storeId?: string
-  storeLocationId?: string
+  storeLocationId?: string | null
   priceScope?: PriceScope
   sourceType?: PriceSourceType
   locationResolution?: 'UNKNOWN' | 'RESOLVED' | 'NOT_APPLICABLE'

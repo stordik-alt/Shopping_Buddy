@@ -201,7 +201,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
       db.query.notifications.findMany({ where: eq(schema.notifications.householdId, household.id), orderBy: asc(schema.notifications.createdAt) }),
       db.query.purchases.findMany({
         where: eq(schema.purchases.householdId, household.id),
-        with: { items: true, storeLocation: { with: { store: true } } },
+        with: { items: true, store: true, storeLocation: { with: { store: true } } },
         orderBy: asc(schema.purchases.date),
       }),
       getCurrentMealPlan(household.id),
@@ -307,7 +307,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
         // Was `?? 'Lidl'` — silently mislabeling a purchase with no known store as Lidl. Found
         // while wiring up completePurchaseAction, the first thing that can actually produce a
         // purchase with no store. Per docs/03_DATABASE.md ("never invent data"), leave it unknown.
-        store: purchase.storeLocation?.store.chain,
+        store: purchase.storeLocation?.store.chain ?? purchase.store?.chain,
         total: Number(purchase.total),
         discount: purchase.discount != null ? Number(purchase.discount) : undefined,
         items: purchase.items.map((item) => ({ name: item.name, quantity: item.quantity, unit: item.unit, price: Number(item.price) })),

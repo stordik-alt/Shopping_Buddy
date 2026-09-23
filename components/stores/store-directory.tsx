@@ -25,7 +25,7 @@ export function StoreDirectory({
   const usingGps = locationState === 'granted' && userCoords != null
 
   const storesWithDistance = stores
-    .map((store) => ({ ...store, distanceKm: userCoords ? distanceKm(userCoords, store.gps) : null }))
+    .map((store) => ({ ...store, distanceKm: userCoords && store.gps ? distanceKm(userCoords, store.gps) : null }))
     .sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity))
 
   // While using GPS, real distance already does the "near me" job — the typed location text
@@ -106,7 +106,7 @@ export function StoreDirectory({
             <p className="mt-4 text-sm font-semibold">{store.dealsCount} aktivních akcí</p>
             <div className="mt-2 flex justify-between text-xs text-muted-foreground">
               <span>{store.distanceKm != null ? `${store.distanceKm.toFixed(1)} km` : store.address}</span>
-              <span>{store.hours}</span>
+              <span>{store.hours ?? 'Otevírací doba není zatím známá'}</span>
             </div>
           </button>
         ))}
@@ -120,11 +120,15 @@ export function StoreDirectory({
               <p className="mt-1 text-sm text-muted-foreground">{activeStore.address}</p>
               <p className="mt-1 text-sm text-muted-foreground">
                 {activeStore.distanceKm != null ? `${activeStore.distanceKm.toFixed(1)} km od vaší polohy · ` : ''}
-                {activeStore.hours}
+                {activeStore.hours ?? 'Otevírací doba není zatím známá'}
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                GPS: {activeStore.gps.lat.toFixed(4)}, {activeStore.gps.lng.toFixed(4)}
-              </p>
+              {activeStore.gps ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  GPS: {activeStore.gps.lat.toFixed(4)}, {activeStore.gps.lng.toFixed(4)}
+                </p>
+              ) : (
+                <p className="mt-1 text-xs text-muted-foreground">GPS: zatím není k dispozici</p>
+              )}
             </div>
             <button aria-label="Zavřít detail obchodu" onClick={() => setSelected(null)} className="icon-button">
               <X />

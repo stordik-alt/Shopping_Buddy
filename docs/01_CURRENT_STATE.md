@@ -1079,3 +1079,26 @@ The current focus is therefore the backend and data layer on:
 ```text
 v0/backend
 ```
+---
+
+# 35. Context Continuity
+
+The project now uses a persistent documentation layer to prevent loss of context during long change sequences.
+
+Documentation roles:
+- docs/01_CURRENT_STATE.md — what is actually true now; branch, verification state, architecture and current work.
+- docs/02_PROJECT_CONTEXT.md — stable long-term technical rules and data semantics.
+- docs/03_CHANGELOG.md — significant changes and verification history.
+- docs/04_DATABASE_MODEL.md — conceptual database rules; actual Drizzle schema remains authoritative.
+- docs/05_TEST_PLAN.md — regression and critical workflow tests.
+- docs/06_KNOWN_ISSUES.md — still-relevant issues and recurring failure modes.
+
+When making a substantial change:
+1. inspect current state and schema,
+2. make the smallest coherent change,
+3. test/typecheck/build as applicable,
+4. verify the actual runtime workflow when relevant,
+5. update CURRENT_STATE and CHANGELOG,
+6. record the commit SHA and verification result.
+
+The documentation must never claim a build, deployment, migration or runtime test passed unless it was actually verified.

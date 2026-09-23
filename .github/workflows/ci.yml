@@ -40,5 +40,9 @@ jobs:
         run: pnpm exec tsc --noEmit
 
       - name: Production build
+        env:
+          # Build-time placeholders only; production secrets stay in Vercel.
+          NEON_AUTH_BASE_URL: https://ci.invalid/neon-auth
+          NEON_AUTH_COOKIE_SECRET: ci-only-build-secret-32-characters-min
         run: pnpm build
 

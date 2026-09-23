@@ -1,4 +1,4 @@
-export type Tab = 'Domů' | 'Nákup' | 'Obchody' | 'Rozpočet' | 'AI' | 'Profil'
+export type Tab = 'Domů' | 'Nákup' | 'Zásoby' | 'Obchody' | 'Rozpočet' | 'AI' | 'Profil'
 
 export type ItemCategory = 'Potraviny' | 'Drogerie' | 'Děti' | 'Domácnost' | 'Ostatní'
 export type ItemUnit = 'ks' | 'kg' | 'g' | 'l' | 'ml'

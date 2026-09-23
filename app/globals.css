@@ -65,98 +65,62 @@
   --border: oklch(0.88 0.025 92);
   --input: oklch(0.88 0.025 92);
   --ring: oklch(0.56 0.12 142);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.31 0.08 142);
+  --chart-2: oklch(0.56 0.12 142);
+  --chart-3: oklch(0.72 0.1 95);
+  --chart-4: oklch(0.44 0.06 142);
+  --chart-5: oklch(0.28 0.04 142);
+  --radius: 0.75rem;
+
+  /* Sidebar uses the same brand tokens as the application instead of shadcn's default blue palette. */
+  --sidebar: oklch(0.995 0.005 92);
+  --sidebar-foreground: oklch(0.21 0.025 142);
+  --sidebar-primary: oklch(0.31 0.08 142);
+  --sidebar-primary-foreground: oklch(0.98 0.015 92);
+  --sidebar-accent: oklch(0.94 0.018 92);
+  --sidebar-accent-foreground: oklch(0.21 0.025 142);
+  --sidebar-border: oklch(0.88 0.025 92);
+  --sidebar-ring: oklch(0.56 0.12 142);
 }
 
 .dark {
   color-scheme: dark;
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
+  --background: oklch(0.17 0.018 142);
+  --foreground: oklch(0.96 0.015 92);
+  --card: oklch(0.21 0.022 142);
+  --card-foreground: oklch(0.96 0.015 92);
+  --popover: oklch(0.21 0.022 142);
+  --popover-foreground: oklch(0.96 0.015 92);
+  --primary: oklch(0.72 0.13 120);
+  --primary-foreground: oklch(0.18 0.025 142);
+  --secondary: oklch(0.27 0.03 142);
+  --secondary-foreground: oklch(0.94 0.015 92);
+  --muted: oklch(0.26 0.025 142);
+  --muted-foreground: oklch(0.74 0.025 142);
+  --accent: oklch(0.74 0.13 95);
+  --accent-foreground: oklch(0.2 0.04 142);
+  --destructive: oklch(0.7 0.18 28);
+  --border: oklch(1 0 0 / 11%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-}
+  --ring: oklch(0.68 0.12 120);
+  --chart-1: oklch(0.72 0.13 120);
+  --chart-2: oklch(0.62 0.1 142);
+  --chart-3: oklch(0.74 0.13 95);
+  --chart-4: oklch(0.5 0.07 142);
+  --chart-5: oklch(0.38 0.05 142);
 
-@media (prefers-color-scheme: dark) {
-  :root:not(.light) {
-    color-scheme: dark;
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
-  }
+  --sidebar: oklch(0.19 0.022 142);
+  --sidebar-foreground: oklch(0.96 0.015 92);
+  --sidebar-primary: oklch(0.72 0.13 120);
+  --sidebar-primary-foreground: oklch(0.18 0.025 142);
+  --sidebar-accent: oklch(0.26 0.025 142);
+  --sidebar-accent-foreground: oklch(0.96 0.015 92);
+  --sidebar-border: oklch(1 0 0 / 11%);
+  --sidebar-ring: oklch(0.68 0.12 120);
 }
 
 .icon-button {
   display: inline-flex;
-  height: 2.25rem;
-  width: 2.25rem;
   min-height: 2.75rem;
   min-width: 2.75rem;
   align-items: center;
@@ -175,14 +139,14 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
     overflow-x: clip;
   }
 }
 
-
-/* Mobile touch targets: keep icon controls comfortably tappable without changing desktop sizing. */
+/* Keep all interactive icon controls comfortably tappable on touch devices. */
 @media (max-width: 1023px) {
   .icon-button {
     min-height: 2.75rem;

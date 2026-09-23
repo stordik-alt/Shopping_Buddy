@@ -7,11 +7,13 @@ import {
   markMealCooked,
   matchIngredientToStock,
   mealKey,
+  parseSavedPlan,
   planIngredients,
   recipeFor,
   regenerateMeal,
   splitIngredientsByStock,
 } from '@/lib/meal-plans'
+import type { Ingredient, WeeklyMealPlan } from '@/lib/meal-plans'
 import type { Household, PantryItem } from '@/lib/types'
 
 function pantryItem(overrides: Partial<PantryItem> = {}): PantryItem {
@@ -211,6 +213,91 @@ describe('splitIngredientsByStock', () => {
     expect(fromStock.map((i) => i.name)).toEqual(['Toaletní papír'])
     expect(toBuy.map((i) => i.name)).not.toContain('Toaletní papír')
     expect(fromStock.length + toBuy.length).toBe(planIngredients(plan).length)
+  })
+})
+
+/** A plan as it was saved before ingredients carried a quantity and unit (commit 45d3db7): every
+ *  ingredient is just `{ name, category }`. Stored in `meal_plans.plan` as JSON, so households that
+ *  generated a plan earlier in the week still have this shape in the database. */
+function legacySavedPlanJson(): string {
+  const plan = generateWeeklyPlan(3000, household())
+  const stripped = JSON.parse(JSON.stringify(plan), (key, value) => (key === 'quantity' || key === 'unit' ? undefined : value))
+  // JSON.parse's reviver drops undefined results, but it also matched Recipe-level keys named
+  // `quantity`/`unit`: there are none, so only ingredients were affected. Re-serialize as stored.
+  delete stripped.cookedMeals // the field older still-saved plans also lacked
+  return JSON.stringify(stripped)
+}
+
+describe('saved plans from before ingredients had quantities (regression: dashboard crash)', () => {
+  it('reproduces the original failure: comparing units with an ingredient that has none threw a TypeError', () => {
+    const legacy = JSON.parse(legacySavedPlanJson()) as WeeklyMealPlan
+    expect(legacy.days[0].breakfast.ingredients[0]).not.toHaveProperty('unit')
+    // "Cannot read properties of undefined (reading 'group')" — what the browser showed.
+    expect(() => splitIngredientsByStock(legacy, [pantryItem({ name: legacy.days[0].breakfast.ingredients[0].name })])).not.toThrow()
+  })
+
+  it('convertQuantity treats an unknown or missing unit as not comparable instead of throwing', () => {
+    expect(convertQuantity(1, 'kg', undefined as unknown as 'g')).toBeNull()
+    expect(convertQuantity(1, undefined as unknown as 'kg', 'g')).toBeNull()
+    expect(convertQuantity(1, 'furlong' as unknown as 'kg', 'g')).toBeNull()
+  })
+
+  it('matchIngredientToStock does not throw for a malformed ingredient and simply does not match it', () => {
+    const malformed = { name: 'Mléko polotučné', category: 'Potraviny' } as unknown as Ingredient
+    expect(matchIngredientToStock(malformed, [pantryItem()])).toBeUndefined()
+  })
+
+  it('upgrades a legacy plan: every ingredient gets its real quantity and unit from the recipe catalog', () => {
+    const upgraded = parseSavedPlan(legacySavedPlanJson())
+    expect(upgraded).not.toBeNull()
+    const current = generateWeeklyPlan(3000, household())
+    expect(upgraded!.days).toEqual(current.days) // same recipes, now with current-shape ingredients
+    expect(upgraded!.staples).toEqual(current.staples)
+    for (const ingredient of planIngredients(upgraded!)) {
+      expect(Number.isFinite(ingredient.quantity)).toBe(true)
+      expect(ingredient.unit).toMatch(/^(ks|kg|g|l|ml)$/)
+    }
+  })
+
+  it('the upgraded plan works with the stock logic that used to crash', () => {
+    const upgraded = parseSavedPlan(legacySavedPlanJson())!
+    const first = upgraded.days[0].breakfast.ingredients[0]
+    const { fromStock, toBuy } = splitIngredientsByStock(upgraded, [pantryItem({ name: first.name, quantity: 100, unit: first.unit })])
+    expect(fromStock.map((i) => i.name)).toContain(first.name)
+    expect(fromStock.length + toBuy.length).toBe(planIngredients(upgraded).length)
+  })
+
+  it('backfills cookedMeals for a plan saved before that field existed', () => {
+    expect(parseSavedPlan(legacySavedPlanJson())!.cookedMeals).toEqual([])
+  })
+
+  it('keeps the household\'s own data: cooked meals and each recipe\'s saved name and price', () => {
+    const plan = markMealCooked(generateWeeklyPlan(3000, household()), 'Pondělí', 'Snídaně')
+    const saved = JSON.stringify(plan)
+    const parsed = parseSavedPlan(saved)!
+    expect(parsed.cookedMeals).toEqual(plan.cookedMeals)
+    expect(parsed.estimatedTotal).toBe(plan.estimatedTotal)
+    expect(parsed.days[0].breakfast.price).toBe(plan.days[0].breakfast.price)
+  })
+
+  it('leaves a current-shape plan exactly as saved', () => {
+    const plan = generateWeeklyPlan(3000, household())
+    expect(parseSavedPlan(JSON.stringify(plan))).toEqual(plan)
+  })
+
+  it('returns null (so the household regenerates) when a legacy recipe no longer exists in the catalog', () => {
+    const legacy = JSON.parse(legacySavedPlanJson()) as WeeklyMealPlan
+    legacy.days[2].lunch = { ...legacy.days[2].lunch, id: 'removed-recipe' }
+    expect(parseSavedPlan(JSON.stringify(legacy))).toBeNull()
+  })
+
+  it('returns null for a saved value that is not a plan at all', () => {
+    expect(parseSavedPlan('{"days": "nope"}')).toBeNull()
+    expect(parseSavedPlan('{}')).toBeNull()
+  })
+
+  it('still throws on invalid JSON — corrupt data is not silently ignored', () => {
+    expect(() => parseSavedPlan('{not json')).toThrow()
   })
 })
 

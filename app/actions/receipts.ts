@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { TODAY } from '@/lib/budget'
 import { getDb } from '@/lib/db/client'
-import { getProductCatalog, restockPantryItem, toReceiptImportState, upsertProductCatalogDefaults, type ReceiptImportState } from '@/lib/db/queries'
+import { getProductCatalog, recordPriceObservation, restockPantryItem, toReceiptImportState, upsertProductCatalogDefaults, type ReceiptImportState } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
 import { inferPantryLocation } from '@/lib/pantry'
 import { matchProductByName } from '@/lib/products'
@@ -90,6 +90,45 @@ function resolveReceiptPurchaseDate(optionsDate: string | undefined, storedDate:
  *    `resolveItemPlacement()` (the same function `processReceiptImport()` already used to decide
  *    this receipt didn't need review), and nothing gets written back to the catalog, since nothing
  *    here was actually verified by a person. */
+async function findMatchingStoreLocation(storeId: string | null, address?: string | null, city?: string | null): Promise<string | null> {
+  if (!storeId) return null
+  const locations = await db.query.storeLocations.findMany({ where: eq(schema.storeLocations.storeId, storeId) })
+  const normalize = (value: string | null | undefined) => value?.trim().toLocaleLowerCase('cs-CZ').replace(/\s+/g, ' ') ?? ''
+  const wantedAddress = normalize(address)
+  const wantedCity = normalize(city)
+  if (!wantedAddress && !wantedCity) return locations.length === 1 ? locations[0].id : null
+  const exact = locations.find((location) =>
+    (!wantedAddress || normalize(location.address) === wantedAddress) &&
+    (!wantedCity || normalize(location.city) === wantedCity),
+  )
+  return exact?.id ?? null
+}
+
+async function recordReceiptPriceObservations(
+  items: ReceiptLineItem[],
+  storeLocationId: string | null | undefined,
+  date: string,
+  currency?: string | null,
+): Promise<void> {
+  if (!storeLocationId) return
+  await Promise.all(
+    items
+      .filter((item) => item.productId && item.quantity > 0 && item.price >= 0)
+      .map((item) => {
+        const unitPrice = item.price / item.quantity
+        return recordPriceObservation({
+          productId: item.productId!,
+          storeLocationId,
+          regularPrice: unitPrice,
+          currency: currency ?? 'CZK',
+          unit: item.unit,
+          unitPrice,
+          recordedAt: date,
+        })
+      }),
+  )
+}
+
 async function createPurchaseFromReceiptItems(
   householdId: string,
   items: ReceiptLineItem[],
@@ -99,6 +138,7 @@ async function createPurchaseFromReceiptItems(
     storeLocationId?: string | null
     storeName?: string | null
     storeId?: string | null
+    currency?: string | null
     source: 'confirmed' | 'auto'
   },
 ): Promise<PurchaseRecord> {
@@ -151,6 +191,8 @@ async function createPurchaseFromReceiptItems(
     await restockPantryItem(householdId, { productId: item.productId, name: item.name, category: item.category, quantity: item.quantity, unit: item.unit, location: item.location })
   }
 
+  await recordReceiptPriceObservations(resolvedItems, options.storeLocationId, date, options.currency)
+
   if (options.source === 'confirmed') {
     for (const item of resolvedItems) {
       // Always concrete for 'confirmed' items (resolved above) — the `?? 'Spíž'` here only
@@ -180,7 +222,7 @@ async function createPurchaseFromReceiptItems(
  *  there's no OCR/AI step to fail or need review. */
 export async function importReceiptAction(
   items: ReceiptLineItem[],
-  options: { date?: string; storeLocationId?: string; storeName?: string } = {},
+  options: { date?: string; storeLocationId?: string; storeName?: string; currency?: string } = {},
 ): Promise<{ purchase: PurchaseRecord }> {
   const householdId = await requireHouseholdId()
   const purchase = await createPurchaseFromReceiptItems(householdId, items, { ...options, source: 'confirmed' })
@@ -356,11 +398,14 @@ export async function processReceiptImport(
 
   const lineItems = toReceiptLineItems(extracted, catalog)
   const storeId = await findOrCreateStore(extracted.store.name)
-  await update({ storeId })
+  const resolvedStoreLocationId =
+    parsedRow.storeLocationId ?? await findMatchingStoreLocation(storeId, extracted.store.address, extracted.store.city)
+  await update({ storeId, storeLocationId: resolvedStoreLocationId ?? undefined })
   const purchase = await createPurchaseFromReceiptItems(row.householdId, lineItems, {
     date: extracted.date ?? undefined,
-    storeLocationId: parsedRow.storeLocationId,
+    storeLocationId: resolvedStoreLocationId,
     storeId,
+    currency: extracted.currency,
     source: 'auto',
   })
   return update({ status: 'completed', purchaseId: purchase.id, processedAt: new Date() })

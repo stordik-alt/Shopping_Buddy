@@ -18,6 +18,9 @@ Expected: STORE + concrete store_location_id + RESOLVED.
 ### Unknown branch
 Expected: STORE + NULL location + UNKNOWN. Item and price are still stored.
 
+### OCR discovers a new branch
+Expected: a new `store_locations` row is created from the OCR address/city, assigned to the receipt/purchase, and reused by a later import of the same normalized address. Coordinates/hours remain NULL until enriched by a trusted source.
+
 ### Unknown -> resolved
 A later unambiguous address/location match may update only UNKNOWN observations.
 

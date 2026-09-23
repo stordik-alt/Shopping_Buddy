@@ -30,12 +30,20 @@ export function mostBoughtProducts(records: PurchaseRecord[], limit = 5) {
 
 export function repeatPurchases(records: PurchaseRecord[]) {
   const purchaseCounts = new Map<string, number>()
+
+  // Count each product once per purchase, so quantity or duplicate OCR lines
+  // inside one receipt cannot inflate the number of purchase events.
   for (const record of records) {
     const uniqueNames = new Set(record.items.map((item) => item.name))
-    for (const name of uniqueNames) purchaseCounts.set(name, (purchaseCounts.get(name) ?? 0) + 1)
+    for (const name of uniqueNames) {
+      purchaseCounts.set(name, (purchaseCounts.get(name) ?? 0) + 1)
+    }
   }
+
+  // "Repeated" means a product has appeared in at least three separate
+  // purchase records. A single re-buy is not enough to call it a regular item.
   return Array.from(purchaseCounts.entries())
-    .filter(([, count]) => count > 1)
+    .filter(([, count]) => count >= 3)
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count)
 }

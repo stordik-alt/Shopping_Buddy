@@ -1,9 +1,16 @@
 import type { Item, ItemCategory, ItemUnit, StoreChain } from '@/lib/types'
 
-export type PriceObservation = { price: number; recordedAt: string }
+export type PriceSourceType = 'RECEIPT' | 'OFFICIAL' | 'FLYER' | 'API' | 'OTHER'
+export type PriceScope = 'STORE' | 'STORE_FORMAT' | 'REGION' | 'CHAIN'
+export type PriceObservation = { price: number; recordedAt: string; sourceType?: PriceSourceType; priceScope?: PriceScope }
 
 export type PricePoint = {
   store: StoreChain
+  storeId?: string
+  storeLocationId?: string | null
+  priceScope?: PriceScope
+  sourceType?: PriceSourceType
+  locationResolution?: 'UNKNOWN' | 'RESOLVED' | 'NOT_APPLICABLE'
   regularPrice: number
   dealPrice?: number
   dealValidUntil?: string

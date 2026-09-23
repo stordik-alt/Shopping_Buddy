@@ -1,5 +1,5 @@
 import { TODAY } from '@/lib/budget'
-import { findProductIdByExternalRef, getCanonicalStoreLocationId, recordPriceObservation, resolveOrCreateProductFromExternal, upsertActiveDeal } from '@/lib/db/queries'
+import { findProductIdByExternalRef, getCanonicalStoreLocationId, getStoreIdByChain, recordPriceObservation, resolveOrCreateProductFromExternal, upsertActiveDeal } from '@/lib/db/queries'
 import { fetchLidlProducts, normalizeLidlProduct } from '@/lib/ingestion/lidl'
 
 export type IngestResult = {
@@ -23,6 +23,9 @@ export async function ingestLidlPrices(erpNumbers: string[]): Promise<IngestResu
   const raws = await fetchLidlProducts(erpNumbers)
   result.processed = raws.length
 
+  const storeId = await getStoreIdByChain('Lidl')
+  // Deals are still keyed by a concrete store location (the `deals` table wasn't part of the price
+  // observation model change), so the seeded canonical Lidl branch is used for those only.
   const storeLocationId = await getCanonicalStoreLocationId('Lidl')
 
   for (const raw of raws) {
@@ -43,14 +46,22 @@ export async function ingestLidlPrices(erpNumbers: string[]): Promise<IngestResu
       })
       if (!existedBefore) result.newProducts++
 
+      // Lidl's own website publishes one price per product, not per branch, so this is an official
+      // CHAIN-scope observation with no physical location (docs/02_PROJECT_CONTEXT.md: "Official
+      // chain price: CHAIN + store_location_id=NULL + OFFICIAL"). It never overwrites a receipt-based
+      // STORE observation — `prices` is append-only and current price is derived per context.
       await recordPriceObservation({
         productId,
-        storeLocationId,
+        storeId,
+        storeLocationId: null,
+        priceScope: 'CHAIN',
+        sourceType: 'OFFICIAL',
+        sourceReference: normalized.externalId,
         regularPrice: normalized.regularPrice,
         currency: normalized.currency,
         unit: normalized.unit,
         unitPrice: normalized.unitPrice,
-        recordedAt: normalized.recordedAt,
+        observedAt: normalized.recordedAt,
       })
       result.recorded++
 

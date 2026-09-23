@@ -316,6 +316,8 @@ Store location
 
 Real store locations have been added to the database.
 
+**Update 2026-09-23:** The receipt OCR pipeline now creates a physical `store_locations` row when OCR provides an address for a branch that is not yet in the directory. The chain is still stored in `stores`; the new branch is linked by `store_id` and immediately assigned to the receipt/purchase/receipt price observations. Coordinates and opening hours remain NULL until a trusted store-directory source enriches the branch; the OCR pipeline never invents them. A normalized chain + address + city unique index prevents repeated imports from creating duplicate branches.
+
 The current database contains approximately:
 
 ```text
@@ -396,7 +398,7 @@ and:
 historical price
 ```
 
-**Update 2026-09-21:** The append-only mechanism for real price history now exists — `lib/db/queries.ts`'s `recordPriceObservation()` inserts a new dated row rather than overwriting, and `getProductPrices()` now surfaces each store's full observation history (not just the latest) to the domain layer. Not yet exercised in practice: no ingestion/refresh source calls it, so every real product still has exactly one observation. See section 22 for how this is consumed.
+**Update 2026-09-23:** Price storage was upgraded from a branch-only snapshot model to an explicit immutable observation model. Migration `0010_price_observation_model.sql` has now been applied successfully to the production Neon database, so the deployed application code and production schema are synchronized. Each observation now keeps the retailer chain, optional physical branch, scope (STORE / STORE_FORMAT / REGION / CHAIN), source (RECEIPT / OFFICIAL / FLYER / API / OTHER), location-resolution state, observation date, validity window, optional source reference and optional confidence. Existing branch-linked rows are backfilled with their chain ID and remain STORE + RESOLVED. A receipt whose branch is unknown can therefore be stored as STORE + store_id + NULL location + UNKNOWN without being converted into a CHAIN price. `getProductPrices()` derives the current value from the latest observation in each product/retailer/context group while retaining the full observation history.
 
 Price records include currency information.
 
@@ -472,6 +474,8 @@ The application must never invent price or promotion data.
 Imported data should retain source and timestamp information wherever available.
 
 **Update 2026-09-23, first real connector (Lidl CZ) implemented:** the architecture above is now real for one source, not just aspirational. `lib/ingestion/lidl.ts` (Fetcher + Normalizer/Validator) pulls from two of lidl.cz's own published, machine-readable surfaces — its product sitemap (`product_sitemap.xml.gz`, declared in `robots.txt`'s `Sitemap:` line) and the JSON endpoint (`/p/api/gridboxes/CZ/cs`) its own product-grid pages call to render prices — neither of which is covered by `robots.txt`'s `Disallow` rules (checked 2026-09-23). No CAPTCHA, login, or access control is bypassed. `lib/ingestion/ingest.ts` orchestrates fetch → normalize/validate → `lib/db/queries.ts`'s `resolveOrCreateProductFromExternal()` (new `product_external_refs` table, migration `0010`) → `recordPriceObservation()`/`upsertActiveDeal()`. A new daily cron, `/api/cron/ingest-prices` (`vercel.json`, same `CRON_SECRET` model as the other crons), runs a deliberately small pilot batch (80 grocery products) rather than the full ~12,000-product catalog, per an explicit owner decision (2026-09-23) to verify stability first.
+
+**Update 2026-09-23, Lidl connector reconciled with the price observation model after merging `main`.** `main` independently upgraded `prices` to an immutable observation model (`price_scope`/`source_type`/`location_resolution`, `store_id`, validity window; its migrations `0010_price_observation_model` and `0011_receipt_auto_create_store_locations`), which changed `recordPriceObservation()`'s signature. After the merge the Lidl ingestion records each price as a **`CHAIN`-scope, `OFFICIAL`-source observation with no physical branch** (`store_location_id` NULL, `sourceReference` = Lidl's `erpNumber`), following `docs/02_PROJECT_CONTEXT.md`'s rule for official chain prices, instead of attaching it to an arbitrary seeded Lidl branch as before — Lidl's site publishes one price per product, not per branch, so claiming a specific branch was never accurate. Consequently it never overwrites a receipt-based `STORE` observation. `deals` are unchanged and still keyed by the seeded canonical Lidl location. The connector's own migration was renumbered `0010_far_the_stranger` → **`0012_product_external_refs`** (both branches had created a `0010`) and made idempotent, because it had already been applied under its old name to the shared Neon database and this project's runner tracks migrations by filename. Verified after the merge: `tsc --noEmit`, `next build`, 277/277 tests, and `drizzle-kit generate` reports no schema changes against the merged snapshot.
 
 Real, hands-on verification (not just unit tests) against the actual dev database found and fixed two real precision problems before trusting the pipeline:
 1. A naive substring keyword match (to scope the pilot to groceries, since the sitemap carries no category info) produced real false positives — "olej" (cooking oil) matched inside "petrolejovy" (paraffin, as in a paraffin heater), "mleko" (milk) inside "mlekovar" (a milk-frothing appliance), "kava" (coffee) inside "nepromokava" (waterproof). Fixed by matching whole hyphen-separated slug tokens instead of raw substrings.
@@ -1187,3 +1191,26 @@ The current focus is therefore the backend and data layer on:
 ```text
 v0/backend
 ```
+---
+
+# 35. Context Continuity
+
+The project now uses a persistent documentation layer to prevent loss of context during long change sequences.
+
+Documentation roles:
+- docs/01_CURRENT_STATE.md — what is actually true now; branch, verification state, architecture and current work.
+- docs/02_PROJECT_CONTEXT.md — stable long-term technical rules and data semantics.
+- docs/03_CHANGELOG.md — significant changes and verification history.
+- docs/04_DATABASE_MODEL.md — conceptual database rules; actual Drizzle schema remains authoritative.
+- docs/05_TEST_PLAN.md — regression and critical workflow tests.
+- docs/06_KNOWN_ISSUES.md — still-relevant issues and recurring failure modes.
+
+When making a substantial change:
+1. inspect current state and schema,
+2. make the smallest coherent change,
+3. test/typecheck/build as applicable,
+4. verify the actual runtime workflow when relevant,
+5. update CURRENT_STATE and CHANGELOG,
+6. record the commit SHA and verification result.
+
+The documentation must never claim a build, deployment, migration or runtime test passed unless it was actually verified.

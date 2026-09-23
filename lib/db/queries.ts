@@ -201,7 +201,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
       db.query.notifications.findMany({ where: eq(schema.notifications.householdId, household.id), orderBy: asc(schema.notifications.createdAt) }),
       db.query.purchases.findMany({
         where: eq(schema.purchases.householdId, household.id),
-        with: { items: true, storeLocation: { with: { store: true } } },
+        with: { items: true, store: true, storeLocation: { with: { store: true } } },
         orderBy: asc(schema.purchases.date),
       }),
       getCurrentMealPlan(household.id),
@@ -307,7 +307,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
         // Was `?? 'Lidl'` — silently mislabeling a purchase with no known store as Lidl. Found
         // while wiring up completePurchaseAction, the first thing that can actually produce a
         // purchase with no store. Per docs/03_DATABASE.md ("never invent data"), leave it unknown.
-        store: purchase.storeLocation?.store.chain,
+        store: purchase.storeLocation?.store.chain ?? purchase.store?.chain,
         total: Number(purchase.total),
         discount: purchase.discount != null ? Number(purchase.discount) : undefined,
         items: purchase.items.map((item) => ({ name: item.name, quantity: item.quantity, unit: item.unit, price: Number(item.price) })),
@@ -424,7 +424,7 @@ export async function getStores(): Promise<Store[]> {
     address: location.address,
     city: location.city,
     country: location.country,
-    gps: { lat: Number(location.lat), lng: Number(location.lng) },
+    gps: location.lat != null && location.lng != null ? { lat: Number(location.lat), lng: Number(location.lng) } : null,
     hours: location.hours,
     dealsCount: location.deals.filter((deal) => deal.validUntil >= TODAY).length,
     availableProducts: Array.from(new Set(location.prices.map((price) => price.product.name))),
@@ -491,13 +491,81 @@ export async function upsertProductCatalogDefaults(entry: { name: string; catego
   }
 }
 
+/** Creates or enriches a physical store branch from a trusted directory/source.
+ * Matching is by chain + normalized address + normalized city. Non-null source fields enrich an
+ * OCR-created row; an external source must never erase an already known value by sending NULL. */
+export async function upsertStoreLocationFromSource(input: {
+  storeId: string
+  name?: string | null
+  address: string
+  city?: string | null
+  country?: string | null
+  lat?: number | null
+  lng?: number | null
+  hours?: string | null
+}) {
+  const db = getDb()
+  const normalize = (value: string | null | undefined) => value?.trim().toLocaleLowerCase('cs-CZ').replace(/\s+/g, ' ') ?? ''
+  const wantedAddress = normalize(input.address)
+  const wantedCity = normalize(input.city)
+
+  if (!wantedAddress) throw new Error('Store location address is required.')
+
+  const locations = await db.query.storeLocations.findMany({
+    where: eq(schema.storeLocations.storeId, input.storeId),
+  })
+  const existing = locations.find(
+    (location) =>
+      normalize(location.address) === wantedAddress &&
+      normalize(location.city) === wantedCity,
+  )
+
+  if (existing) {
+    const updates = {
+      name: input.name?.trim() || existing.name,
+      address: existing.address,
+      city: existing.city,
+      country: input.country?.trim() || existing.country,
+      lat: input.lat != null ? input.lat.toString() : existing.lat,
+      lng: input.lng != null ? input.lng.toString() : existing.lng,
+      hours: input.hours?.trim() || existing.hours,
+    }
+
+    await db
+      .update(schema.storeLocations)
+      .set(updates)
+      .where(eq(schema.storeLocations.id, existing.id))
+
+    return existing.id
+  }
+
+  const [created] = await db
+    .insert(schema.storeLocations)
+    .values({
+      storeId: input.storeId,
+      name: input.name?.trim() || input.address.trim(),
+      address: input.address.trim(),
+      city: input.city?.trim() ?? '',
+      country: input.country?.trim() || 'Česká republika',
+      lat: input.lat != null ? input.lat.toString() : null,
+      lng: input.lng != null ? input.lng.toString() : null,
+      hours: input.hours?.trim() || null,
+    })
+    .returning({ id: schema.storeLocations.id })
+
+  return created.id
+}
+
 /** Per-product prices across stores, with any currently active deal folded in. One entry per store's latest recorded price. */
 export async function getProductPrices(): Promise<ProductPrice[]> {
   const db = getDb()
   const products = await db.query.products.findMany({
     with: {
       category: true,
-      prices: { with: { storeLocation: { with: { store: true } } }, orderBy: asc(schema.prices.recordedAt) },
+      prices: {
+        with: { store: true, storeLocation: { with: { store: true } } },
+        orderBy: asc(schema.prices.observedAt),
+      },
       deals: { with: { storeLocation: { with: { store: true } } } },
     },
   })
@@ -505,13 +573,19 @@ export async function getProductPrices(): Promise<ProductPrice[]> {
   return products
     .filter((product) => product.prices.length > 0)
     .map((product) => {
-      // Grouped (not collapsed) by store location, ascending by recordedAt, so a store that's been
-      // re-observed over time keeps its whole history — the last entry is always the latest.
-      const observationsByLocation = new Map<string, typeof product.prices>()
+      // A price context is the same product + scope + retailer + branch (when known). Multiple
+      // sources may coexist in that context; the latest observation remains the current value,
+      // while every observation stays available to historical-price logic.
+      const observationsByContext = new Map<string, typeof product.prices>()
       for (const price of product.prices) {
-        const list = observationsByLocation.get(price.storeLocationId) ?? []
+        const contextKey = [
+          price.priceScope,
+          price.storeId,
+          price.storeLocationId ?? 'NO_LOCATION',
+        ].join(':')
+        const list = observationsByContext.get(contextKey) ?? []
         list.push(price)
-        observationsByLocation.set(price.storeLocationId, list)
+        observationsByContext.set(contextKey, list)
       }
 
       const activeDealByLocation = new Map(
@@ -521,49 +595,88 @@ export async function getProductPrices(): Promise<ProductPrice[]> {
       return {
         productName: product.name,
         category: product.category.name,
-        prices: Array.from(observationsByLocation.values()).map((observations) => {
+        prices: Array.from(observationsByContext.values()).map((observations) => {
           const price = observations[observations.length - 1]
-          const deal = activeDealByLocation.get(price.storeLocationId)
+          const deal = price.storeLocationId ? activeDealByLocation.get(price.storeLocationId) : undefined
           return {
-            store: price.storeLocation.store.chain,
+            store: price.store.chain,
+            storeId: price.storeId,
+            storeLocationId: price.storeLocationId,
+            priceScope: price.priceScope,
+            sourceType: price.sourceType,
+            locationResolution: price.locationResolution,
             regularPrice: Number(price.regularPrice),
             dealPrice: deal ? Number(deal.dealPrice) : undefined,
             dealValidUntil: deal?.validUntil,
             unit: price.unit,
             unitPrice: Number(price.unitPrice),
-            recordedAt: price.recordedAt,
-            priceHistory: observations.map((observation) => ({ price: Number(observation.regularPrice), recordedAt: observation.recordedAt })),
+            recordedAt: price.observedAt,
+            priceHistory: observations.map((observation) => ({
+              price: Number(observation.regularPrice),
+              recordedAt: observation.observedAt,
+              sourceType: observation.sourceType,
+              priceScope: observation.priceScope,
+            })),
           }
         }),
       }
     })
 }
 
-/** Appends a new dated price observation for a product at a store — never overwrites an existing
- *  row, so `prices` genuinely accumulates history over time (docs/04_ROADMAP.md "historical-price
- *  awareness"; the read side above already picks the latest observation per product/store and now
- *  also surfaces the full history). Called from `lib/ingestion/ingest.ts`'s Lidl price ingestion
- *  (docs/01_CURRENT_STATE.md section 15, closed 2026-09-23) — the first real caller. */
+/** Appends an immutable price observation. Current price is derived from the latest observation
+ * for the same product/context; a new source must never overwrite an older observation, so `prices`
+ * genuinely accumulates history over time (docs/04_ROADMAP.md "historical-price awareness").
+ * Callers: receipt import (`app/actions/receipts.ts`) and `lib/ingestion/ingest.ts`'s Lidl price
+ * ingestion (docs/01_CURRENT_STATE.md section 15). */
 export async function recordPriceObservation(observation: {
   productId: string
-  storeLocationId: string
+  storeId: string
+  storeLocationId?: string | null
   regularPrice: number
   currency?: string
   unit: (typeof schema.prices.$inferInsert)['unit']
   unitPrice: number
-  recordedAt: string
+  observedAt: string
+  validFrom?: string
+  validUntil?: string | null
+  priceScope?: (typeof schema.priceScopeEnum.enumValues)[number]
+  sourceType?: (typeof schema.priceSourceTypeEnum.enumValues)[number]
+  locationResolution?: (typeof schema.priceLocationResolutionEnum.enumValues)[number]
+  sourceReference?: string | null
+  confidence?: number | null
 }) {
   const db = getDb()
+  const priceScope = observation.priceScope ?? 'STORE'
+  const storeLocationId = observation.storeLocationId ?? null
+  const locationResolution =
+    observation.locationResolution ??
+    (priceScope === 'STORE' ? (storeLocationId ? 'RESOLVED' : 'UNKNOWN') : 'NOT_APPLICABLE')
+
+  if (priceScope === 'STORE' && locationResolution === 'RESOLVED' && !storeLocationId) {
+    throw new Error('Resolved STORE price observations require a store location.')
+  }
+  if (priceScope === 'STORE' && locationResolution === 'UNKNOWN' && storeLocationId) {
+    throw new Error('UNKNOWN STORE price observations cannot have a store location.')
+  }
+
   const [row] = await db
     .insert(schema.prices)
     .values({
       productId: observation.productId,
-      storeLocationId: observation.storeLocationId,
+      storeId: observation.storeId,
+      storeLocationId,
+      priceScope,
+      sourceType: observation.sourceType ?? 'OTHER',
+      locationResolution,
       regularPrice: observation.regularPrice.toString(),
       currency: observation.currency ?? 'CZK',
       unit: observation.unit,
       unitPrice: observation.unitPrice.toString(),
-      recordedAt: observation.recordedAt,
+      observedAt: observation.observedAt,
+      validFrom: observation.validFrom ?? observation.observedAt,
+      validUntil: observation.validUntil ?? null,
+      sourceReference: observation.sourceReference ?? null,
+      confidence: observation.confidence?.toString() ?? null,
     })
     .returning()
   return row
@@ -637,6 +750,15 @@ export async function resolveOrCreateProductFromExternal(product: {
  *  to a single location rather than duplicating it across every branch. Picks the first location by
  *  id for determinism; throws rather than silently skipping if the chain has no seeded location at
  *  all, since that would otherwise silently drop every price for that chain. */
+/** Resolves a seeded store chain (e.g. 'Lidl') to its `stores.id` — the chain-level key the price
+ *  observation model needs for CHAIN-scope prices, which deliberately carry no physical branch. */
+export async function getStoreIdByChain(chain: string): Promise<string> {
+  const db = getDb()
+  const storeRow = await db.query.stores.findFirst({ where: eq(schema.stores.chain, chain) })
+  if (!storeRow) throw new Error(`No seeded store for chain: ${chain}`)
+  return storeRow.id
+}
+
 export async function getCanonicalStoreLocationId(chain: string): Promise<string> {
   const db = getDb()
   const storeRow = await db.query.stores.findFirst({ where: eq(schema.stores.chain, chain) })

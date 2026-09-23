@@ -75,8 +75,9 @@ async function main() {
         address: store.address,
         city: store.city,
         country: store.country,
-        lat: store.gps.lat.toString(),
-        lng: store.gps.lng.toString(),
+        // Seed fixtures have GPS coordinates; production OCR-created branches may legitimately not.
+        lat: store.gps?.lat.toString() ?? null,
+        lng: store.gps?.lng.toString() ?? null,
         hours: store.hours,
       })),
     )
@@ -92,11 +93,13 @@ async function main() {
       if (!storeLocationId) continue
       await db.insert(schema.prices).values({
         productId,
+        storeId: storeIdByChain.get(price.store)!,
         storeLocationId,
         regularPrice: price.regularPrice.toString(),
         unit: price.unit,
         unitPrice: price.unitPrice.toString(),
-        recordedAt: price.recordedAt,
+        observedAt: price.recordedAt,
+        validFrom: price.recordedAt,
       })
       if (price.dealPrice && price.dealValidUntil) {
         await db.insert(schema.deals).values({

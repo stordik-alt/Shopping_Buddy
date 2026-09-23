@@ -42,7 +42,7 @@ export function ReceiptImport({
   const [error, setError] = useState('')
   const [uploading, setUploading] = useState(false)
   const [lastOcrProvider, setLastOcrProvider] = useState<string | null>(null)
-  const fileInputId = 'receipt-import-file-input'
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   function updateRow(index: number, changes: Partial<ReceiptLineItem>) {
     setRows((current) => current.map((row, i) => (i === index ? { ...row, ...changes } : row)))
@@ -119,14 +119,23 @@ export function ReceiptImport({
         </p>
       )}
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <input id={fileInputId} type="file" accept="image/jpeg,image/png,image/webp,image/heic,application/pdf" capture="environment" onChange={handlePhoto} className="sr-only" disabled={uploading} />
-        <label
-          htmlFor={fileInputId}
-          aria-disabled={uploading}
-          className={`flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground ${uploading ? 'pointer-events-none opacity-60' : 'cursor-pointer'}`}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
+          capture="environment"
+          onChange={handlePhoto}
+          className="sr-only"
+          disabled={uploading}
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className={`flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground ${uploading ? 'opacity-60' : ''}`}
         >
           <Camera className="h-4 w-4" /> {uploading ? 'Zpracovávám účtenku…' : 'Vyfotit nebo nahrát účtenku'}
-        </label>
+        </button>
         <span className="text-xs text-muted-foreground">JPG, PNG, WebP, HEIC nebo PDF · nebo zadejte položky ručně níže</span>
       </div>
       {error && <p className="mt-2 text-xs text-destructive">{error}</p>}

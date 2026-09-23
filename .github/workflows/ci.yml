@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "v0/backend"]
+  pull_request:
+    branches: ["main", "v0/backend"]
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: Unit tests, typecheck and production build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.3.4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Database-backed action tests need a real DATABASE_URL; keep CI deterministic until a repository secret is configured.
+      - name: Unit tests
+        run: pnpm exec vitest run --exclude 'app/actions/**/*.test.ts' --exclude 'lib/db/queries.test.ts'
+
+      - name: Typecheck
+        run: pnpm exec tsc --noEmit
+
+      - name: Production build
+        env:
+          # Build-time placeholders only; production secrets stay in Vercel.
+          NEON_AUTH_BASE_URL: https://ci.invalid/neon-auth
+          NEON_AUTH_COOKIE_SECRET: ci-only-build-secret-32-characters-min
+        run: pnpm build
+

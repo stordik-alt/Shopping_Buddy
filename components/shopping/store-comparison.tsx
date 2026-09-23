@@ -50,7 +50,7 @@ export function StoreComparison({
                 {entry.store}
                 {userCoords &&
                   (() => {
-                    const nearest = nearestLocation(userCoords, stores.filter((store) => store.chain === entry.store))
+                    const nearest = nearestLocation(userCoords, stores.filter((store): store is Store & { gps: GpsCoords } => store.chain === entry.store && store.gps != null))
                     return nearest && <span className="text-xs font-normal text-muted-foreground">· {nearest.distanceKm.toFixed(1)} km</span>
                   })()}
               </p>

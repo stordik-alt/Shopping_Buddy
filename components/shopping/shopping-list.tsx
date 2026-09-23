@@ -103,7 +103,7 @@ export function ShoppingList({
             key={option}
             onClick={() => setCategory(option)}
             aria-pressed={category === option}
-            className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium ${category === option ? 'bg-primary text-primary-foreground' : 'border border-border bg-card text-muted-foreground'}`}
+            className={`min-h-10 rounded-full px-3 py-2 text-xs font-medium ${category === option ? 'bg-primary text-primary-foreground' : 'border border-border bg-card text-muted-foreground'}`}
           >
             {option}
           </button>
@@ -114,7 +114,7 @@ export function ShoppingList({
           <p className="text-sm text-muted-foreground">Sdílené seznamy</p>
           <h2 className="mt-1 text-2xl font-semibold">{activeList}</h2>
         </div>
-        <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+        <span className="min-h-10 rounded-full bg-primary/10 px-3 py-2 text-xs font-medium text-primary">
           {items.length} položek · {completedCount} hotovo
         </span>
       </div>
@@ -126,14 +126,14 @@ export function ShoppingList({
             role="tab"
             aria-selected={activeList === list}
             onClick={() => setActiveList(list)}
-            className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition ${activeList === list ? 'bg-primary text-primary-foreground' : 'border border-border bg-card text-muted-foreground hover:bg-muted'}`}
+            className={`min-h-10 rounded-full px-4 py-2 text-sm font-medium transition ${activeList === list ? 'bg-primary text-primary-foreground' : 'border border-border bg-card text-muted-foreground hover:bg-muted'}`}
           >
             {list}
           </button>
         ))}
         <button
           onClick={() => setListDialog(true)}
-          className="whitespace-nowrap rounded-full border border-dashed border-border px-4 py-2 text-sm text-muted-foreground hover:bg-muted"
+          className="min-h-10 rounded-full border border-dashed border-border px-4 py-2 text-sm text-muted-foreground hover:bg-muted"
           aria-label="Přidat seznam"
         >
           + Nový seznam
@@ -142,7 +142,7 @@ export function ShoppingList({
       <div className="flex flex-wrap items-center gap-2">
         <button
           onClick={() => setShowCompleted((current) => !current)}
-          className="rounded-xl border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted"
+          className="min-h-10 rounded-xl border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-pressed={!showCompleted}
         >
           {showCompleted ? 'Skrýt hotové' : 'Zobrazit hotové'}
@@ -150,7 +150,7 @@ export function ShoppingList({
         {items.some((item) => item.done) && (
           <button
             onClick={() => items.filter((item) => item.done).forEach((item) => removeItem(item.id))}
-            className="rounded-xl border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted"
+            className="min-h-10 rounded-xl border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             Vymazat hotové
           </button>
@@ -158,7 +158,7 @@ export function ShoppingList({
         {items.some((item) => item.done) && (
           <button
             onClick={completePurchase}
-            className="rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-medium text-primary hover:bg-primary/20"
+            className="min-h-10 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-medium text-primary hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             Dokončit nákup
           </button>
@@ -169,7 +169,7 @@ export function ShoppingList({
             aria-label="Řadit položky"
             value={sort}
             onChange={(event) => setSort(event.target.value as SortKey)}
-            className="rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none"
+            className="min-h-10 rounded-lg border border-input bg-background px-2 py-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {(['Výchozí', 'Název', 'Cena', 'Priorita'] as SortKey[]).map((option) => (
               <option key={option}>{option}</option>
@@ -182,7 +182,7 @@ export function ShoppingList({
             aria-label="Seskupit položky"
             value={group}
             onChange={(event) => setGroup(event.target.value as GroupKey)}
-            className="rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none"
+            className="min-h-10 rounded-lg border border-input bg-background px-2 py-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {(['Bez seskupení', 'Podle kategorie', 'Podle obchodu'] as GroupKey[]).map((option) => (
               <option key={option}>{option}</option>
@@ -231,12 +231,12 @@ export function ShoppingList({
               <option key={product.productName} value={product.productName} />
             ))}
           </datalist>
-          <button onClick={addItem} className="flex items-center gap-1 rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">
+          <button onClick={addItem} className="flex min-h-10 items-center gap-1 rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <Plus className="h-4 w-4" /> Přidat
           </button>
         </div>
       </div>
-      <label className="flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+      <label className="flex min-h-11 items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
         <Search className="h-4 w-4" />
         <span className="sr-only">Filtrovat seznam</span>
         <input
@@ -268,7 +268,7 @@ export function ShoppingList({
               </div>
               {groupItemsList.map((item) => (
                 <div key={item.id} className="border-b border-border last:border-0">
-                  <div className="flex items-center gap-3 px-5 py-4">
+                  <div className="flex min-w-0 items-center gap-3 px-4 py-4 sm:px-5">
                     <button
                       aria-label={item.done ? 'Označit jako nedokončené' : 'Označit jako zakoupené'}
                       onClick={() => toggle(item.id)}
@@ -278,7 +278,7 @@ export function ShoppingList({
                     </button>
                     <button onClick={() => setExpandedId((current) => (current === item.id ? null : item.id))} className="min-w-0 flex-1 text-left">
                       <span className="flex items-center gap-2">
-                        <span className={`font-medium ${item.done ? 'text-muted-foreground line-through' : ''}`}>{item.name}</span>
+                        <span className={`min-w-0 break-words font-medium ${item.done ? 'text-muted-foreground line-through' : ''}`}>{item.name}</span>
                         {item.onSale && (
                           <span className="flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
                             <Tag className="h-2.5 w-2.5" /> Akce
@@ -292,18 +292,18 @@ export function ShoppingList({
                         {item.category} · {item.store || 'Bez obchodu'}
                       </span>
                     </button>
-                    <span className="text-sm font-semibold text-primary">{money(item.price * item.quantity)}</span>
+                    <span className="shrink-0 text-sm font-semibold text-primary">{money(item.price * item.quantity)}</span>
                     <button
                       aria-label="Zobrazit detail položky"
                       onClick={() => setExpandedId((current) => (current === item.id ? null : item.id))}
-                      className="rounded-lg p-2 text-muted-foreground hover:bg-muted"
+                      className="flex size-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       <ChevronDown className={`h-4 w-4 transition ${expandedId === item.id ? 'rotate-180' : ''}`} />
                     </button>
                     <button
                       aria-label={`Odstranit ${item.name}`}
                       onClick={() => removeItem(item.id)}
-                      className="rounded-lg p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      className="flex size-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       <X className="h-4 w-4" />
                     </button>

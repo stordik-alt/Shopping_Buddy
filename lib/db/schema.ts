@@ -235,7 +235,7 @@ export const purchaseItems = pgTable('purchase_items', {
   // numeric, not integer — a receipt line item sold by weight has a genuinely fractional quantity
   // (e.g. "KUŘE 0,582 kg"). `mode: 'number'` keeps every existing call site's `item.quantity` a
   // plain JS number, same as before, rather than requiring a `Number(...)` conversion everywhere.
-  quantity: numeric('quantity', { mode: 'number' }).notNull().default(1),
+  quantity: numeric('quantity', { precision: 10, scale: 3, mode: 'number' }).notNull().default(1),
   unit: itemUnitEnum('unit').notNull().default('ks'),
   price: numeric('price', { precision: 10, scale: 2 }).notNull(),
 })
@@ -259,7 +259,7 @@ export const pantryItems = pgTable('pantry_items', {
   location: pantryLocationEnum('location').notNull().default('Spíž'),
   // numeric, not integer — same reason as purchaseItems.quantity above: a restock from a
   // weight-sold receipt item (e.g. 0.582 kg of meat) must not be truncated to a whole number.
-  quantity: numeric('quantity', { mode: 'number' }).notNull().default(1),
+  quantity: numeric('quantity', { precision: 10, scale: 3, mode: 'number' }).notNull().default(1),
   unit: itemUnitEnum('unit').notNull().default('ks'),
   // Reset to now() whenever the item is restocked (another purchase) or the household confirms
   // "ještě mám" — the check-in interval counts from here, not from when the row was first created.

@@ -107,6 +107,15 @@ describe('addShoppingItemAction — product identity', () => {
     expect(item.category).toBe(product.category)
   })
 
+  it('uses the matched product\'s real unit instead of the schema default, when the product is known', async () => {
+    const catalog = await getProductCatalog()
+    const nonKsProduct = catalog.find((product) => product.defaultUnit !== 'ks')
+    if (!nonKsProduct) return // nothing seeded with a non-'ks' unit to assert against
+    currentHouseholdId = householdId
+    const { item } = await addShoppingItemAction(listId, nonKsProduct.name)
+    expect(item.unit).toBe(nonKsProduct.defaultUnit)
+  })
+
   it('lets an explicit category override win over the matched product\'s category', async () => {
     const catalog = await getProductCatalog()
     const foodProduct = catalog.find((product) => product.category === 'Potraviny')

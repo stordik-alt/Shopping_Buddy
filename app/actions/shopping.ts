@@ -54,6 +54,10 @@ export async function addShoppingItemAction(
       // inference, which needs the item actually categorized 'Potraviny' to ever route it to
       // Lednice/Mrazák instead of defaulting everything typed via quick-add to Spíž.
       category: overrides.category ?? matchedProduct?.category,
+      // Same reasoning for unit: without this, every quick-added item defaults to the schema's
+      // 'ks', even for a catalog product remembered in a different unit (e.g. "Mléko polotučné" in
+      // 'l') — which then makes any Kč/l-style unit-price comparison for that item meaningless.
+      unit: matchedProduct?.defaultUnit,
     })
     .returning()
 

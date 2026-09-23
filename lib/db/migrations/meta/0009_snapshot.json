@@ -709,7 +709,7 @@
         },
         "quantity": {
           "name": "quantity",
-          "type": "numeric",
+          "type": "numeric(10, 3)",
           "primaryKey": false,
           "notNull": true,
           "default": 1
@@ -1178,7 +1178,7 @@
         },
         "quantity": {
           "name": "quantity",
-          "type": "numeric",
+          "type": "numeric(10, 3)",
           "primaryKey": false,
           "notNull": true,
           "default": 1

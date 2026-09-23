@@ -464,7 +464,16 @@ export async function getProductCatalog(): Promise<ProductCatalogEntry[]> {
  *  from an unreviewed automatic OCR pass, so the catalog only ever learns from verified corrections,
  *  never AI guesses. Creates the product if it doesn't exist yet (matched case-insensitively, same
  *  as `matchProductByName`) — the mechanism that lets a *first-time* correction still be remembered,
- *  not just a correction to an already-cataloged product. */
+ *  not just a correction to an already-cataloged product.
+ *
+ *  `defaultUnit` is deliberately NOT overwritten on an already-cataloged product. Unlike category
+ *  and pantry location, a receipt's unit describes how *that specific purchase* was rung up (e.g.
+ *  "2 ks" vs. "2 l" of the same milk are both legitimate depending on how it was bought that time),
+ *  not a correction to the product's own identity — so it's not a reliable signal for the catalog's
+ *  canonical measurement unit the way a human explicitly fixing a wrong category/location is.
+ *  Overwriting it here previously let a manual-entry form's unit dropdown (which defaults new rows
+ *  to 'ks') silently downgrade an already-correct unit like 'l' to 'ks' on an unrelated purchase.
+ *  Still set on first insert, since a brand-new product has no existing value to protect. */
 export async function upsertProductCatalogDefaults(entry: { name: string; category: ItemCategory; unit: ItemUnit; location: PantryLocation }) {
   const db = getDb()
   const name = entry.name.trim()
@@ -475,7 +484,7 @@ export async function upsertProductCatalogDefaults(entry: { name: string; catego
   if (existing) {
     await db
       .update(schema.products)
-      .set({ categoryId: categoryRow.id, defaultUnit: entry.unit, defaultLocation: entry.location })
+      .set({ categoryId: categoryRow.id, defaultLocation: entry.location })
       .where(eq(schema.products.id, existing.id))
   } else {
     await db.insert(schema.products).values({ name, categoryId: categoryRow.id, defaultUnit: entry.unit, defaultLocation: entry.location })

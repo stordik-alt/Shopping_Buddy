@@ -195,6 +195,23 @@ describe('importReceiptAction (manual entry)', () => {
     expect(productRow?.defaultUnit).toBe('kg')
     expect(productRow?.defaultLocation).toBe('Spíž') // "kuře" doesn't match the "kuřecí" keyword, and manual entry has no location field — falls back to 'Spíž'
   })
+
+  it('does not let an already-cataloged product\'s unit be overwritten by how a later purchase happened to be rung up', async () => {
+    const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
+    const productName = `__test_unit_protected_${crypto.randomUUID()}`
+    const [product] = await db.insert(schema.products).values({ name: productName, categoryId: category!.id, defaultUnit: 'l' }).returning()
+
+    try {
+      // A manual-entry form defaults new rows to 'ks' — this purchase doesn't correct the unit,
+      // it's just how this particular buy happened to be recorded. The catalog's remembered 'l'
+      // must survive it (category/location, genuine corrections, still update as normal).
+      await importReceiptAction([item({ name: productName, category: 'Potraviny', unit: 'ks' })], { date: TEST_DATE })
+      const productRow = await db.query.products.findFirst({ where: eq(schema.products.id, product.id) })
+      expect(productRow?.defaultUnit).toBe('l')
+    } finally {
+      await db.delete(schema.products).where(eq(schema.products.id, product.id))
+    }
+  })
 })
 
 describe('processReceiptImport — OCR pipeline orchestration (fake OCR/AI, real Blob/DB)', () => {

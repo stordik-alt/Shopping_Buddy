@@ -66,8 +66,8 @@ export const extractedReceiptItemSchema = z.object({
 export const extractedReceiptSchema = z.object({
   store: z.object({
     name: z.string().nullable(),
-    address: z.string().nullable(),
-    city: z.string().nullable(),
+    address: z.string().nullable().optional(),
+    city: z.string().nullable().optional(),
     confidence: z.number().nullable(),
   }),
   date: z.string().nullable(),

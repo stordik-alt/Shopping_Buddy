@@ -1,4 +1,4 @@
-import { Bot, Home, ListChecks, MapPin, Users, Wallet } from 'lucide-react'
+import { Bot, Home, ListChecks, MapPin, Package, Users, Wallet } from 'lucide-react'
 import type { Tab } from '@/lib/types'
 
 const icons = { Domů: Home, Nákup: ListChecks, Obchody: MapPin, Rozpočet: Wallet, AI: Bot, Profil: Users }

@@ -12,6 +12,45 @@ const LOCATIONS: PantryLocation[] = ['Spíž', 'Lednice', 'Mrazák', 'Domácnost
 const FAILED_STATUSES = new Set(['ocr_failed', 'parsing_failed'])
 const TRANSIENT_STATUSES = new Set(['uploaded', 'ocr_processing', 'ocr_completed', 'parsing', 'parsed', 'validating'])
 
+/** The original upload and the raw OCR text, shown next to the recognized values so the reviewer
+ *  can check them against what the receipt actually says (docs/08_OCR_RECEIPT_PIPELINE.md section
+ *  14). The image comes from an authenticated route, not a public URL. It is wrapped/scaled rather
+ *  than scrolled sideways, and a PDF (which `<img>` can't render) falls back to the link. */
+function ReceiptSource({ item }: { item: ReceiptImportState }) {
+  const [imageFailed, setImageFailed] = useState(false)
+  if (!item.hasImage && !item.rawOcrText) return null
+  const imageUrl = `/api/receipts/${item.id}/image`
+
+  return (
+    <div className="mt-3 space-y-2">
+      {item.hasImage && (
+        <div>
+          {!imageFailed && (
+            <a href={imageUrl} target="_blank" rel="noreferrer">
+              {/* eslint-disable-next-line @next/next/no-img-element -- private, authenticated route; next/image can't optimize it */}
+              <img
+                src={imageUrl}
+                alt="Nahraná účtenka"
+                onError={() => setImageFailed(true)}
+                className="max-h-64 w-auto max-w-full rounded-lg border border-border object-contain"
+              />
+            </a>
+          )}
+          <a href={imageUrl} target="_blank" rel="noreferrer" className="mt-1 block text-xs text-primary underline">
+            Otevřít originál účtenky
+          </a>
+        </div>
+      )}
+      {item.rawOcrText && (
+        <details className="rounded-lg border border-border p-2 text-xs">
+          <summary className="cursor-pointer font-medium">Text přečtený z účtenky (OCR)</summary>
+          <pre className="mt-2 max-h-48 overflow-y-auto whitespace-pre-wrap break-words font-sans text-muted-foreground">{item.rawOcrText}</pre>
+        </details>
+      )}
+    </div>
+  )
+}
+
 /** Receipt photo uploads the household still needs to act on — per
  *  docs/08_OCR_RECEIPT_PIPELINE.md sections 13/14/19, a failed/ambiguous import must show the
  *  household a specific, actionable reason rather than silently disappearing. Manual entries
@@ -111,6 +150,7 @@ function ReceiptPendingCard({
           {rows.length} položek{item.extracted?.total != null ? ` · ${money(item.extracted.total)}` : ''}
           {item.extracted?.date ? ` · ${item.extracted.date}` : ''}
         </p>
+        <ReceiptSource item={item} />
         <div className="mt-3 space-y-2">
           <label className="block text-xs font-medium">
             Datum nákupu
@@ -163,6 +203,7 @@ function ReceiptPendingCard({
         <p className="text-sm font-medium">Zkontrolujte rozpoznané položky</p>
         <p className="mt-1 text-xs text-muted-foreground">Rozpoznávání si u téhle účtenky nebylo jisté — projděte a opravte položky před uložením.</p>
         {item.ocrProvider && <p className="mt-1 text-xs text-muted-foreground">OCR: {item.ocrProvider === 'azure_document_intelligence' ? 'Azure Document Intelligence' : 'Google Cloud Vision'}</p>}
+        <ReceiptSource item={item} />
         <div className="mt-3 space-y-2">
           <label className="block text-xs font-medium">
             Datum nákupu
@@ -234,6 +275,22 @@ function ReceiptPendingCard({
                 onChange={(e) => updateRow(index, { price: Math.max(0, Number(e.target.value) || 0) })}
                 className="w-20 rounded-lg border border-input bg-background px-2 py-1 text-xs"
               />
+              {row.discount != null && (
+                // Shown only where the receipt carried a line discount. `price` above is the
+                // pre-discount unit price; this is the total taken off the whole line.
+                <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                  Sleva
+                  <input
+                    aria-label={`Sleva položky ${index + 1}`}
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={row.discount}
+                    onChange={(e) => updateRow(index, { discount: Math.max(0, Number(e.target.value) || 0) })}
+                    className="w-16 rounded-lg border border-input bg-background px-2 py-1 text-xs text-foreground"
+                  />
+                </label>
+              )}
             </div>
           ))}
         </div>
@@ -258,6 +315,29 @@ function ReceiptPendingCard({
   // synchronously, so a caller only ever sees these mid-flight if another household member's
   // upload happens to still be running when this one's page loads. Nothing to act on yet.
   if (TRANSIENT_STATUSES.has(item.status)) {
+    // `stalled` (computed server-side) means nothing has happened for long enough that no run is
+    // plausibly still going — e.g. the browser closed between upload and processing — so offer to
+    // start it again rather than showing "processing" forever.
+    if (item.stalled) {
+      return (
+        <div className="rounded-2xl border border-border bg-muted/40 p-4">
+          <p className="text-xs text-muted-foreground">Zpracování účtenky se zastavilo, než bylo dokončeno.</p>
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={() => run(() => onRetry(item.id))}
+              disabled={busy}
+              className="flex items-center gap-1 rounded-xl bg-primary px-3 py-2 text-xs font-medium text-primary-foreground disabled:opacity-60"
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> Zpracovat znovu
+            </button>
+            <button onClick={() => onCancel(item.id)} className="rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground hover:bg-muted">
+              Zahodit
+            </button>
+          </div>
+          {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
+        </div>
+      )
+    }
     return <div className="rounded-2xl border border-border bg-muted/40 p-4 text-xs text-muted-foreground">Zpracovává se účtenka…</div>
   }
 

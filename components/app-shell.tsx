@@ -21,6 +21,7 @@ import {
   cancelReceiptImportAction,
   confirmReceiptReviewAction,
   importReceiptAction,
+  processUploadedReceiptAction,
   resolveDuplicateReceiptAction,
   retryReceiptImportAction,
   uploadReceiptAction,
@@ -50,6 +51,7 @@ import { TODAY } from '@/lib/budget'
 import type { HouseholdData, ReceiptImportState } from '@/lib/db/queries'
 import type { Ingredient, MealType } from '@/lib/meal-plans'
 import type { ProductPrice } from '@/lib/prices'
+import { pollReceiptStatus } from '@/lib/receipt-progress'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import type { Item, PantryLocation, Store, Tab } from '@/lib/types'
 import { useUserLocation } from '@/lib/use-user-location'
@@ -254,11 +256,23 @@ export function AppShell({
     })
   }
 
-  async function uploadReceipt(base64: string, mimeType: string) {
-    const result = await uploadReceiptAction(base64, mimeType)
-    upsertPendingReceipt(result)
-    router.refresh() // picks up a new purchase/pantry restock if it completed outright
-    return result
+  /** Two calls so the import id is known while the pipeline runs: upload stores the photo, then
+   *  processing runs the whole OCR pipeline in one request. While that request is in flight, the
+   *  status route is polled (a route handler, not an action — Next runs one client's actions
+   *  sequentially, so an action would queue behind the processing call) to report the real stage. */
+  async function uploadReceipt(base64: string, mimeType: string, onProgress: (status: string) => void) {
+    onProgress('uploading')
+    const uploaded = await uploadReceiptAction(base64, mimeType)
+    onProgress(uploaded.status)
+    const stopPolling = pollReceiptStatus(uploaded.id, onProgress)
+    try {
+      const result = await processUploadedReceiptAction(uploaded.id)
+      upsertPendingReceipt(result)
+      router.refresh() // picks up a new purchase/pantry restock if it completed outright
+      return result
+    } finally {
+      stopPolling()
+    }
   }
 
   async function retryReceiptImport(id: string) {

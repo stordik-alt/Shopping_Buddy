@@ -1,7 +1,7 @@
 'use server'
 
 import { del, get, put } from '@vercel/blob'
-import { and, eq, gte } from 'drizzle-orm'
+import { and, eq, gte, inArray, lt, or } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { TODAY } from '@/lib/budget'
@@ -9,6 +9,9 @@ import { getDb } from '@/lib/db/client'
 import { getProductCatalog, recordPriceObservation, restockPantryItem, toReceiptImportState, upsertProductCatalogDefaults, type ReceiptImportState } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
 import { inferPantryLocation } from '@/lib/pantry'
+import { logReceiptImport, newReceiptTrace, type ReceiptTrace } from '@/lib/receipt-log'
+import { detectReceiptFileType, prepareReceiptImageForOcr } from '@/lib/receipt-image'
+import { RECEIPT_STALE_MS } from '@/lib/receipt-progress'
 import { matchProductByName } from '@/lib/products'
 import {
   azureReceiptTextExtractor,
@@ -18,7 +21,9 @@ import {
   isAzureReceiptFallbackConfigured,
   isPotentialDuplicate,
   needsReview,
+  netUnitPrice,
   normalizeOcrText,
+  receiptDiscounts,
   receiptTotal,
   resolveItemPlacement,
   normalizeStoreName,
@@ -32,7 +37,19 @@ import {
 import type { PurchaseRecord } from '@/lib/types'
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024 // 10 MB
-const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'])
+
+const HEIC_UNSUPPORTED_MESSAGE =
+  'Formát HEIC není podporovaný. V iPhonu zvolte Nastavení › Fotoaparát › Formáty › Nejkompatibilnější, nebo fotku před nahráním uložte jako JPEG.'
+
+/** Fallback for a stored file whose bytes are not recognisable (see detectReceiptFileType) — the
+ *  upload action now rejects those, so this only matters for imports created earlier. */
+function mimeTypeFromExtension(url: string): 'application/pdf' | 'image/png' | 'image/webp' | 'image/jpeg' {
+  const lower = url.toLowerCase()
+  if (lower.endsWith('.pdf')) return 'application/pdf'
+  if (lower.endsWith('.png')) return 'image/png'
+  if (lower.endsWith('.webp')) return 'image/webp'
+  return 'image/jpeg'
+}
 
 async function assertOwnsReceiptImport(householdId: string, receiptImportId: string) {
   const db = getDb()
@@ -150,6 +167,10 @@ async function recordReceiptPriceObservations(
     items
       .filter((item) => item.productId && item.quantity > 0 && item.price >= 0)
       .map((item) => {
+        // Deliberately the pre-discount shelf price, not what the household paid: a receipt
+        // discount may be a personal coupon or loyalty rebate, not a shelf promotion, and
+        // recording the discounted amount as the product's regular price would understate it
+        // (CLAUDE.md section 18: a discount is not automatically a promotion).
         const unitPrice = item.price
         return recordPriceObservation({
           productId: item.productId!,
@@ -179,10 +200,19 @@ async function createPurchaseFromReceiptItems(
     storeName?: string | null
     storeId?: string | null
     currency?: string | null
+    /** The receipt's stated total discount (per-line + receipt-wide), when known. */
+    receiptDiscountTotal?: number | null
     source: 'confirmed' | 'auto'
   },
 ): Promise<PurchaseRecord> {
   if (items.length === 0) throw new Error('Receipt has no items')
+  // Reject impossible discounts explicitly (a reviewer can type anything) instead of storing a
+  // negative price or silently clamping it.
+  for (const item of items) {
+    const discount = item.discount ?? 0
+    if (discount < 0) throw new Error(`Sleva u položky „${item.name}“ nemůže být záporná.`)
+    if (discount > item.price * item.quantity + 0.005) throw new Error(`Sleva u položky „${item.name}“ je vyšší než její cena.`)
+  }
   const db = getDb()
   const date = resolveReceiptPurchaseDate(options.date, options.storedDate ?? null)
 
@@ -206,11 +236,15 @@ async function createPurchaseFromReceiptItems(
     return { ...item, productId: catalogEntry?.id ?? null, category: catalogEntry?.category ?? item.category, location }
   })
 
-  const total = receiptTotal(resolvedItems)
+  // `purchases.total` is what was actually paid: line totals net of their own discounts, minus any
+  // receipt-wide discount no line carries. `purchases.discount` records how much was saved, so the
+  // history can show "sleva X Kč" without the total being overstated for spending analytics.
+  const { discount, unallocated } = receiptDiscounts(resolvedItems, options.receiptDiscountTotal ?? null)
+  const total = Math.max(0, Math.round((receiptTotal(resolvedItems) - unallocated) * 100) / 100)
   const storeId = options.storeId ?? await findOrCreateStore(options.storeName)
   const [purchaseRow] = await db
     .insert(schema.purchases)
-    .values({ householdId, storeId, storeLocationId: options.storeLocationId ?? undefined, date, total: total.toString() })
+    .values({ householdId, storeId, storeLocationId: options.storeLocationId ?? undefined, date, total: total.toString(), discount: discount > 0 ? discount.toString() : undefined })
     .returning()
 
   const itemRows = await db
@@ -222,7 +256,9 @@ async function createPurchaseFromReceiptItems(
         name: item.name,
         quantity: item.quantity,
         unit: item.unit,
-        price: item.price.toString(),
+        // Net per-unit price actually paid; the pre-discount price is kept on the price
+        // observation below and, for reviewed imports, in receipt_imports.items.
+        price: netUnitPrice(item).toString(),
       })),
     )
     .returning()
@@ -252,6 +288,7 @@ async function createPurchaseFromReceiptItems(
     date: purchaseRow.date,
     store: storeLocation?.store.chain ?? (storeId ? (await db.query.stores.findFirst({ where: eq(schema.stores.id, storeId) }))?.chain : undefined),
     total: Number(purchaseRow.total),
+    discount: purchaseRow.discount != null ? Number(purchaseRow.discount) : undefined,
     items: itemRows.map((row) => ({ name: row.name, quantity: row.quantity, unit: row.unit, price: Number(row.price) })),
   }
 }
@@ -306,9 +343,41 @@ export async function processReceiptImport(
     fallbackTextExtractor: azureReceiptTextExtractor,
   },
 ): Promise<typeof schema.receiptImports.$inferSelect> {
+  // One structured log line per run (docs/08_OCR_RECEIPT_PIPELINE.md section 19), written even when
+  // the pipeline throws — the trace is filled in by runReceiptPipeline as each stage completes.
+  // This function is exported from a 'use server' module, so it is reachable from the client as an
+  // action — the caller must own the import, like every other action here.
+  await assertOwnsReceiptImport(await requireHouseholdId(), receiptImportId)
+  const startedAt = Date.now()
+  const trace = newReceiptTrace(receiptImportId)
+  try {
+    const finalRow = await runReceiptPipeline(receiptImportId, deps, trace)
+    trace.finalStatus = finalRow.status
+    trace.error = finalRow.errorMessage
+    return finalRow
+  } catch (error) {
+    trace.finalStatus = 'threw'
+    trace.error = error instanceof Error ? error.message : String(error)
+    throw error
+  } finally {
+    trace.totalMs = Date.now() - startedAt
+    logReceiptImport(trace)
+  }
+}
+
+async function runReceiptPipeline(
+  receiptImportId: string,
+  deps: {
+    textExtractor: ReceiptTextExtractor
+    structuringProvider: ReceiptStructuringProvider
+    fallbackTextExtractor?: ReceiptTextExtractor
+  },
+  trace: ReceiptTrace,
+): Promise<typeof schema.receiptImports.$inferSelect> {
   const db = getDb()
   const row = await db.query.receiptImports.findFirst({ where: eq(schema.receiptImports.id, receiptImportId) })
   if (!row) throw new Error('Receipt import not found')
+  trace.householdId = row.householdId
   if (!row.imageUrl) throw new Error('Receipt import has no image to process')
 
   async function update(values: Partial<typeof schema.receiptImports.$inferInsert>) {
@@ -322,31 +391,56 @@ export async function processReceiptImport(
 
   await update({ status: 'ocr_processing' })
 
-  let base64: string
+  const ocrStartedAt = Date.now()
+  let original: Buffer
   try {
     const result = await get(row.imageUrl, { access: 'private' })
     if (!result || result.statusCode !== 200 || !result.stream) throw new Error('Photo not found in storage')
-    const buffer = Buffer.from(await new Response(result.stream).arrayBuffer())
-    base64 = buffer.toString('base64')
+    original = Buffer.from(await new Response(result.stream).arrayBuffer())
   } catch (error) {
+    trace.ocr = { status: 'failed', provider: null, ms: Date.now() - ocrStartedAt }
     return update({ status: 'ocr_failed', errorMessage: `Nepodařilo se načíst uloženou fotografii: ${error instanceof Error ? error.message : String(error)}` })
+  }
+
+  // What the file really is comes from its bytes, not its name or the client's claim.
+  const detected = detectReceiptFileType(original)
+  if (detected.kind === 'heic') {
+    trace.ocr = { status: 'failed', provider: null, ms: Date.now() - ocrStartedAt }
+    return update({ status: 'ocr_failed', errorMessage: HEIC_UNSUPPORTED_MESSAGE })
+  }
+  const storedMimeType = detected.kind === 'supported' ? detected.mimeType : mimeTypeFromExtension(row.imageUrl)
+
+  // Clean the photo up for OCR (orientation, lighting, contrast, tilt — see lib/receipt-image.ts).
+  // The stored original is never modified, and preparation is strictly best-effort: if it fails the
+  // original is sent instead, so this step can only ever help, never block an import. PDFs are sent
+  // as they are.
+  let ocrInput: { base64: string; mimeType: string } = { base64: original.toString('base64'), mimeType: storedMimeType }
+  if (storedMimeType !== 'application/pdf') {
+    const prepStartedAt = Date.now()
+    try {
+      const prepared = await prepareReceiptImageForOcr(original)
+      ocrInput = { base64: prepared.buffer.toString('base64'), mimeType: prepared.mimeType }
+      trace.imagePrep = {
+        status: 'ok',
+        ms: Date.now() - prepStartedAt,
+        steps: prepared.steps,
+        width: prepared.width,
+        height: prepared.height,
+        bytesBefore: prepared.bytesBefore,
+        bytesAfter: prepared.bytesAfter,
+        note: null,
+      }
+    } catch (error) {
+      trace.imagePrep = { ...trace.imagePrep, status: 'failed', ms: Date.now() - prepStartedAt, note: error instanceof Error ? error.message : String(error) }
+    }
   }
 
   let ocrText: string
   let ocrProvider: 'google_vision' | 'azure_document_intelligence' | null = null
   try {
-    const storedMimeType = row.imageUrl.toLowerCase().endsWith('.pdf')
-      ? 'application/pdf'
-      : row.imageUrl.toLowerCase().endsWith('.png')
-        ? 'image/png'
-        : row.imageUrl.toLowerCase().endsWith('.webp')
-          ? 'image/webp'
-          : row.imageUrl.toLowerCase().endsWith('.heic')
-            ? 'image/heic'
-            : 'image/jpeg'
     const extractor = storedMimeType === 'application/pdf' ? googleVisionPdfTextExtractor : deps.textExtractor
     try {
-      const ocrResult = await extractor.extractText({ base64, mimeType: storedMimeType })
+      const ocrResult = await extractor.extractText(ocrInput)
       ocrText = ocrResult.fullText
       ocrProvider = 'google_vision'
     } catch (primaryError) {
@@ -355,7 +449,9 @@ export async function processReceiptImport(
 
       try {
         const fallbackTextExtractor = deps.fallbackTextExtractor ?? azureReceiptTextExtractor
-        const azureResult = await fallbackTextExtractor.extractText({ base64, mimeType: storedMimeType })
+        // The fallback gets the untouched original, not the cleaned-up copy: it is a second,
+        // independent attempt, so it should not share a failure caused by the preparation itself.
+        const azureResult = await fallbackTextExtractor.extractText({ base64: original.toString('base64'), mimeType: storedMimeType })
         ocrText = azureResult.fullText
         ocrProvider = 'azure_document_intelligence'
       } catch (azureError) {
@@ -365,17 +461,29 @@ export async function processReceiptImport(
       }
     }
   } catch (error) {
+    trace.ocr = { status: 'failed', provider: null, ms: Date.now() - ocrStartedAt }
     return update({ status: 'ocr_failed', errorMessage: `Nepodařilo se přečíst účtenku. Zkuste nahrát ostřejší fotografii. (${error instanceof Error ? error.message : String(error)})` })
   }
+  trace.ocr = { status: 'ok', provider: ocrProvider, ms: Date.now() - ocrStartedAt }
 
   await update({ status: 'ocr_completed', ocrProvider, rawOcrText: ocrText })
   await update({ status: 'parsing' })
 
+  const parseStartedAt = Date.now()
   let extracted: ExtractedReceipt
   try {
     const normalized = normalizeOcrText(ocrText)
-    extracted = await deps.structuringProvider.structure(normalized)
+    extracted = await deps.structuringProvider.structure(normalized, {
+      onUsage: (usage) => {
+        trace.parser.inputTokens = usage.inputTokens ?? null
+        trace.parser.outputTokens = usage.outputTokens ?? null
+      },
+    })
+    trace.parser.status = 'ok'
+    trace.parser.ms = Date.now() - parseStartedAt
   } catch (error) {
+    trace.parser.status = 'failed'
+    trace.parser.ms = Date.now() - parseStartedAt
     return update({ status: 'parsing_failed', errorMessage: `Nepodařilo se rozpoznat položky na účtence. (${error instanceof Error ? error.message : String(error)})` })
   }
 
@@ -415,6 +523,7 @@ export async function processReceiptImport(
   await update({ status: 'validating' })
 
   if (needsReview(extracted)) {
+    trace.validation = 'review_required'
     return update({ status: 'review_required' })
   }
 
@@ -426,6 +535,7 @@ export async function processReceiptImport(
     (item) => item.name.trim().length > 0 && resolveItemPlacement(matchProductByName(catalog, item.name), item.category, item.name) == null,
   )
   if (unplaceable) {
+    trace.validation = 'review_required'
     return update({ status: 'review_required' })
   }
 
@@ -447,8 +557,12 @@ export async function processReceiptImport(
           { storeLocationId: enrichedParsedRow.storeLocationId, date: extractedDate, total: extractedTotal, receiptNumber: extracted.receiptNumber },
         ),
     )
-    if (duplicate) return update({ status: 'duplicate_review' })
+    if (duplicate) {
+      trace.validation = 'duplicate_review'
+      return update({ status: 'duplicate_review' })
+    }
   }
+  trace.validation = 'passed'
 
   const lineItems = toReceiptLineItems(extracted, catalog)
   const storeId = enrichedParsedRow.storeId ?? parsedStoreId
@@ -458,28 +572,37 @@ export async function processReceiptImport(
     storeLocationId: resolvedStoreLocationId,
     storeId,
     currency: extracted.currency,
+    receiptDiscountTotal: extracted.discountTotal,
     source: 'auto',
   })
   return update({ status: 'completed', purchaseId: purchase.id, processedAt: new Date() })
 }
 
 /** Upload step (docs/08_OCR_RECEIPT_PIPELINE.md section 2): validates the image, stores it in
- *  Vercel Blob (private — a household's receipts are personal financial data), creates the
- *  `receipt_imports` row, and immediately runs the pipeline. Runs synchronously in one request —
- *  at the target volume (~1,500/month per section 18), a background job queue would be
- *  over-engineering for what's a few-second round trip. */
-export async function uploadReceiptAction(base64Image: string, mimeType: string): Promise<ReceiptImportState> {
+ *  Vercel Blob (private — a household's receipts are personal financial data) and creates the
+ *  `receipt_imports` row in `uploaded`. Processing is a separate call
+ *  (`processUploadedReceiptAction`) so the client knows the import id while the pipeline runs and
+ *  can show its real progress via `/api/receipts/[id]/status` (section 20). The pipeline still runs
+ *  synchronously inside that one request — at the target volume (~1,500/month per section 18) a
+ *  background job queue would be over-engineering for a few-second round trip. */
+export async function uploadReceiptAction(base64Image: string, _declaredMimeType?: string): Promise<ReceiptImportState> {
   const householdId = await requireHouseholdId()
-  if (!ALLOWED_MIME_TYPES.has(mimeType)) throw new Error('Nepodporovaný formát. Použijte JPEG, PNG, WEBP, HEIC nebo PDF.')
 
   const buffer = Buffer.from(base64Image, 'base64')
   if (buffer.byteLength > MAX_IMAGE_BYTES) throw new Error('Fotografie je příliš velká (max. 10 MB).')
   if (buffer.byteLength === 0) throw new Error('Nahraný soubor je prázdný.')
 
-  const extension = mimeType.split('/')[1] ?? 'jpg'
-  const blob = await put(`receipts/${householdId}/${crypto.randomUUID()}.${extension}`, buffer, {
+  // The type is decided from the file's own bytes; the client-declared MIME type
+  // (`_declaredMimeType`, kept only so existing callers still compile) is ignored because it is
+  // attacker-controlled and phones sometimes mislabel files. The stored extension and content type
+  // come from the detection.
+  const fileType = detectReceiptFileType(buffer)
+  if (fileType.kind === 'heic') throw new Error(HEIC_UNSUPPORTED_MESSAGE)
+  if (fileType.kind !== 'supported') throw new Error('Nepodporovaný formát. Použijte JPEG, PNG, WEBP nebo PDF.')
+
+  const blob = await put(`receipts/${householdId}/${crypto.randomUUID()}.${fileType.extension}`, buffer, {
     access: 'private',
-    contentType: mimeType,
+    contentType: fileType.mimeType,
   })
 
   const db = getDb()
@@ -488,18 +611,62 @@ export async function uploadReceiptAction(base64Image: string, mimeType: string)
     .values({ householdId, status: 'uploaded', source: 'ocr', imageUrl: blob.url })
     .returning()
 
-  const finalRow = await processReceiptImport(row.id)
+  revalidatePath('/')
+  return toReceiptImportState(row)
+}
+
+const IN_FLIGHT_STATUSES: (typeof schema.receiptStatusEnum.enumValues)[number][] = ['ocr_processing', 'ocr_completed', 'parsing', 'parsed', 'validating']
+
+/** Atomically takes ownership of an import for processing. The single conditional UPDATE is what
+ *  prevents two concurrent requests (a double-click, two household members, a retry racing the
+ *  original run) from both running the pipeline and both creating a purchase — whichever UPDATE
+ *  matches wins, the other gets no row. An import stuck mid-run (the function was killed) becomes
+ *  claimable again once it has not changed for `RECEIPT_STALE_MS`. Clears the previous error so a
+ *  successful retry does not keep showing the earlier failure. */
+async function claimReceiptImport(
+  householdId: string,
+  receiptImportId: string,
+  claimableStatuses: (typeof schema.receiptStatusEnum.enumValues)[number][],
+): Promise<boolean> {
+  const staleBefore = new Date(Date.now() - RECEIPT_STALE_MS)
+  const claimed = await getDb()
+    .update(schema.receiptImports)
+    .set({ status: 'ocr_processing', errorMessage: null, updatedAt: new Date() })
+    .where(
+      and(
+        eq(schema.receiptImports.id, receiptImportId),
+        eq(schema.receiptImports.householdId, householdId),
+        or(
+          inArray(schema.receiptImports.status, claimableStatuses),
+          and(inArray(schema.receiptImports.status, IN_FLIGHT_STATUSES), lt(schema.receiptImports.updatedAt, staleBefore)),
+        ),
+      ),
+    )
+    .returning({ id: schema.receiptImports.id })
+  return claimed.length > 0
+}
+
+/** Runs the pipeline for a freshly uploaded import (called by the client right after
+ *  `uploadReceiptAction`, which is what lets it poll the status route meanwhile). */
+export async function processUploadedReceiptAction(receiptImportId: string): Promise<ReceiptImportState> {
+  const householdId = await requireHouseholdId()
+  await assertOwnsReceiptImport(householdId, receiptImportId)
+  if (!(await claimReceiptImport(householdId, receiptImportId, ['uploaded']))) {
+    throw new Error('Tento import se už zpracovává nebo je zpracovaný.')
+  }
+  const finalRow = await processReceiptImport(receiptImportId)
   revalidatePath('/')
   return toReceiptImportState(finalRow)
 }
 
 /** Retry (docs/08_OCR_RECEIPT_PIPELINE.md section 13): reprocesses the same stored image without
  *  requiring a new upload. Only meaningful from a failure state — retrying a completed or
- *  in-review import would silently redo work the household already has results for. */
+ *  in-review import would silently redo work the household already has results for — or for an
+ *  import that was uploaded but never started (the browser closed before processing began). */
 export async function retryReceiptImportAction(receiptImportId: string): Promise<ReceiptImportState> {
   const householdId = await requireHouseholdId()
-  const row = await assertOwnsReceiptImport(householdId, receiptImportId)
-  if (row.status !== 'ocr_failed' && row.status !== 'parsing_failed') {
+  await assertOwnsReceiptImport(householdId, receiptImportId)
+  if (!(await claimReceiptImport(householdId, receiptImportId, ['ocr_failed', 'parsing_failed', 'uploaded']))) {
     throw new Error('Tento import nelze znovu spustit — není ve stavu chyby.')
   }
   const finalRow = await processReceiptImport(receiptImportId)
@@ -537,6 +704,7 @@ export async function confirmReceiptReviewAction(
     storeLocationId: resolvedStoreLocationId,
     storeId,
     currency: row.currency,
+    receiptDiscountTotal: row.discountTotal != null ? Number(row.discountTotal) : null,
     source: 'confirmed',
   })
 

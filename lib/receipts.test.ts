@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ProductCatalogEntry } from '@/lib/products'
 import {
+  hasInvalidAmounts,
   hasRequiredReceiptFields,
   isLineItemConsistent,
   isPotentialDuplicate,
@@ -8,7 +9,9 @@ import {
   isRecognizedUnit,
   needsReview,
   normalizeOcrText,
+  netUnitPrice,
   normalizeReceiptUnit,
+  receiptDiscounts,
   receiptTotal,
   resolveItemPlacement,
   toReceiptLineItems,
@@ -86,6 +89,27 @@ describe('isReceiptConsistent', () => {
     expect(isReceiptConsistent(extractedReceipt({ items: [extractedItem({ totalPrice: 50 })], total: 999 }))).toBe(false)
   })
 
+  it('subtracts a discount once, even when it is both attributed to a line and included in discountTotal', () => {
+    // 49.80 line, 5.00 off that line; discountTotal (5) already includes the line discount.
+    const receipt = extractedReceipt({ items: [extractedItem({ discount: 5 })], discountTotal: 5, total: 44.8 })
+    expect(isReceiptConsistent(receipt)).toBe(true)
+  })
+
+  it('falls back to the line discounts when the parser gave no discountTotal', () => {
+    const receipt = extractedReceipt({ items: [extractedItem({ discount: 5 })], discountTotal: null, total: 44.8 })
+    expect(isReceiptConsistent(receipt)).toBe(true)
+  })
+
+  it('accepts a receipt-wide discount (coupon) that no line carries', () => {
+    const receipt = extractedReceipt({ items: [extractedItem({ discount: 5 })], discountTotal: 15, total: 34.8 })
+    expect(isReceiptConsistent(receipt)).toBe(true)
+  })
+
+  it('is inconsistent when line discounts exceed the stated discountTotal', () => {
+    const receipt = extractedReceipt({ items: [extractedItem({ discount: 10 })], discountTotal: 0, total: 49.8 })
+    expect(isReceiptConsistent(receipt)).toBe(false)
+  })
+
   it('is inconsistent (not just "unknown") when the total is missing entirely', () => {
     expect(isReceiptConsistent(extractedReceipt({ total: null }))).toBe(false)
   })
@@ -119,6 +143,30 @@ describe('hasRequiredReceiptFields / needsReview', () => {
 
   it('does not need review just because a unit is missing entirely (defaults to "ks")', () => {
     expect(needsReview(extractedReceipt({ items: [extractedItem({ unit: null })] }))).toBe(false)
+  })
+
+  it('does not need review for a consistent receipt with a per-line discount', () => {
+    expect(needsReview(extractedReceipt({ items: [extractedItem({ discount: 5 })], discountTotal: 5, total: 44.8 }))).toBe(false)
+  })
+
+  it('needs review when a discount was emitted as its own negative item instead of attached to a product', () => {
+    const receipt = extractedReceipt({
+      items: [extractedItem(), extractedItem({ name: 'Sleva', quantity: 1, unitPrice: -5, totalPrice: -5 })],
+      discountTotal: 0,
+      total: 44.8,
+    })
+    expect(hasInvalidAmounts(receipt)).toBe(true)
+    expect(needsReview(receipt)).toBe(true)
+  })
+
+  it('needs review for a negative discount amount or a discount larger than its line', () => {
+    expect(hasInvalidAmounts(extractedReceipt({ items: [extractedItem({ discount: -5 })] }))).toBe(true)
+    expect(hasInvalidAmounts(extractedReceipt({ discountTotal: -1 }))).toBe(true)
+    expect(hasInvalidAmounts(extractedReceipt({ items: [extractedItem({ discount: 80 })], discountTotal: 80, total: 0 }))).toBe(true)
+  })
+
+  it('treats an ordinary receipt with no discounts as valid amounts', () => {
+    expect(hasInvalidAmounts(extractedReceipt())).toBe(false)
   })
 })
 
@@ -267,10 +315,61 @@ describe('toReceiptLineItems', () => {
     const [item] = toReceiptLineItems(extractedReceipt({ items: [extractedItem({ totalPrice: null, unitPrice: 24.9 })] }))
     expect(item.price).toBe(24.9)
   })
+
+  it('carries a line discount separately and keeps the price pre-discount', () => {
+    const [item] = toReceiptLineItems(extractedReceipt({ items: [extractedItem({ quantity: 2, unitPrice: 24.9, totalPrice: 49.8, discount: 5 })] }))
+    expect(item.price).toBe(24.9)
+    expect(item.discount).toBe(5)
+  })
+
+  it('omits the discount key when there is none (null or zero)', () => {
+    const items = toReceiptLineItems(extractedReceipt({ items: [extractedItem({ discount: null }), extractedItem({ discount: 0 })] }))
+    expect(items.every((item) => !('discount' in item))).toBe(true)
+  })
 })
+
+const line = (overrides: Partial<Parameters<typeof receiptTotal>[0][number]> = {}) => ({ name: 'A', category: 'Potraviny' as const, quantity: 1, unit: 'ks' as const, price: 10, ...overrides })
 
 describe('receiptTotal', () => {
   it('sums price × quantity across items', () => {
-    expect(receiptTotal([{ name: 'A', category: 'Potraviny', quantity: 2, unit: 'ks', price: 10 }, { name: 'B', category: 'Potraviny', quantity: 1, unit: 'ks', price: 5 }])).toBe(25)
+    expect(receiptTotal([line({ quantity: 2 }), line({ name: 'B', price: 5 })])).toBe(25)
+  })
+
+  it('subtracts each line\'s own discount', () => {
+    expect(receiptTotal([line({ quantity: 2, price: 24.9, discount: 5 })])).toBeCloseTo(44.8)
+  })
+})
+
+describe('netUnitPrice', () => {
+  it('spreads the line discount over the quantity and rounds to cents', () => {
+    expect(netUnitPrice(line({ quantity: 2, price: 24.9, discount: 5 }))).toBe(22.4)
+    expect(netUnitPrice(line({ quantity: 3, price: 10, discount: 1 }))).toBe(9.67)
+  })
+
+  it('is just the price when there is no discount', () => {
+    expect(netUnitPrice(line({ price: 24.9 }))).toBe(24.9)
+  })
+
+  it('handles a fractional quantity sold by weight', () => {
+    expect(netUnitPrice(line({ quantity: 0.5, unit: 'kg', price: 100, discount: 5 }))).toBe(90)
+  })
+})
+
+describe('receiptDiscounts', () => {
+  it('is zero when nothing was discounted', () => {
+    expect(receiptDiscounts([line()], null)).toEqual({ discount: 0, unallocated: 0 })
+    expect(receiptDiscounts([line()], 0)).toEqual({ discount: 0, unallocated: 0 })
+  })
+
+  it('does not add line discounts on top of a discountTotal that already includes them', () => {
+    expect(receiptDiscounts([line({ discount: 5 })], 5)).toEqual({ discount: 5, unallocated: 0 })
+  })
+
+  it('reports the part of discountTotal that no line carries as unallocated (coupons)', () => {
+    expect(receiptDiscounts([line({ discount: 5 })], 15)).toEqual({ discount: 15, unallocated: 10 })
+  })
+
+  it('keeps a line discount even when the receipt-level total is unknown', () => {
+    expect(receiptDiscounts([line({ discount: 5 })], null)).toEqual({ discount: 5, unallocated: 0 })
   })
 })

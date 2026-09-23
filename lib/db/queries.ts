@@ -2,7 +2,7 @@ import { and, asc, desc, eq, ilike, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { TODAY } from '@/lib/budget'
-import { currentWeekStart, type WeeklyMealPlan } from '@/lib/meal-plans'
+import { currentWeekStart, parseSavedPlan, type WeeklyMealPlan } from '@/lib/meal-plans'
 import { inferPantryLocation } from '@/lib/pantry'
 import type { ProductPrice } from '@/lib/prices'
 import { matchProductByName, type ProductCatalogEntry } from '@/lib/products'
@@ -140,10 +140,10 @@ async function getCurrentMealPlan(householdId: string): Promise<SavedMealPlan | 
     where: and(eq(schema.mealPlans.householdId, householdId), eq(schema.mealPlans.weekStart, weekStart)),
   })
   if (!row) return null
-  // Backfills cookedMeals for a plan saved before that field existed — JSON.parse simply omits it,
-  // even though the type says it's always there.
-  const parsed = JSON.parse(row.plan) as WeeklyMealPlan
-  const plan: WeeklyMealPlan = { ...parsed, cookedMeals: parsed.cookedMeals ?? [] }
+  // Upgrades a plan saved in an older shape (no cookedMeals, no ingredient quantity/unit); a plan
+  // that can't be upgraded is treated as "not generated yet" so the household just regenerates.
+  const plan = parseSavedPlan(row.plan)
+  if (!plan) return null
   return { weekStart: row.weekStart, budgetLimit: Number(row.budgetLimit), plan }
 }
 

@@ -238,9 +238,13 @@ const UNIT_INFO: Record<ItemUnit, { group: UnitGroup; toBase: number }> = {
  *  genuinely can't be resolved without knowing that product's real package size, which per
  *  `docs/01_CURRENT_STATE.md`'s "Product normalization" gap isn't modeled yet. */
 export function convertQuantity(quantity: number, fromUnit: ItemUnit, toUnit: ItemUnit): number | null {
-  if (fromUnit === toUnit) return quantity
   const from = UNIT_INFO[fromUnit]
   const to = UNIT_INFO[toUnit]
+  // A unit we don't know (or none at all — plans saved before ingredients carried a unit, still
+  // stored as JSON in `meal_plans.plan`) is "not comparable", never a crash. Checked before the
+  // same-unit shortcut so two missing units don't count as matching.
+  if (!from || !to) return null
+  if (fromUnit === toUnit) return quantity
   if (from.group !== to.group || from.group === 'count') return null
   return (quantity * from.toBase) / to.toBase
 }
@@ -378,6 +382,69 @@ export function isMealCooked(plan: WeeklyMealPlan, day: string, mealType: MealTy
 export function markMealCooked(plan: WeeklyMealPlan, day: string, mealType: MealType): WeeklyMealPlan {
   if (isMealCooked(plan, day, mealType)) return plan
   return { ...plan, cookedMeals: [...plan.cookedMeals, mealKey(day, mealType)] }
+}
+
+function isCurrentIngredient(value: unknown): value is Ingredient {
+  const ingredient = value as Partial<Ingredient> | null
+  return (
+    typeof ingredient?.name === 'string' &&
+    typeof ingredient.quantity === 'number' &&
+    Number.isFinite(ingredient.quantity) &&
+    typeof ingredient.unit === 'string' &&
+    ingredient.unit in UNIT_INFO
+  )
+}
+
+const MEAL_SLOTS = ['breakfast', 'lunch', 'dinner', 'snack'] as const
+
+/** Reads a plan back from `meal_plans.plan` and brings it up to the current shape, so callers can
+ *  rely on the `WeeklyMealPlan` type instead of trusting whatever JSON was stored.
+ *
+ *  Plans are persisted as JSON, so a household that generated its plan before ingredients carried a
+ *  `quantity`/`unit` (or before `cookedMeals` existed) still has the old shape in the database — and
+ *  reading it as-is crashed the dashboard in `convertQuantity`. Old ingredients are re-resolved from
+ *  the code-based recipe catalog by recipe id (the saved name and price are kept as the household
+ *  saw them). Returns `null` when the value is not a plan, or a legacy recipe/staple can no longer
+ *  be found in the catalog, so the household simply regenerates instead of seeing invented data.
+ *  Invalid JSON still throws — corrupt data must not be silently ignored. */
+export function parseSavedPlan(json: string): WeeklyMealPlan | null {
+  const saved = JSON.parse(json) as Partial<WeeklyMealPlan> | null
+  if (!saved || !Array.isArray(saved.days)) return null
+
+  const days: DayPlan[] = []
+  for (const savedDay of saved.days) {
+    const day = { ...savedDay } as DayPlan
+    for (const slot of MEAL_SLOTS) {
+      const recipe = day[slot]
+      if (!recipe || !Array.isArray(recipe.ingredients)) return null
+      if (recipe.ingredients.every(isCurrentIngredient)) continue
+      const catalogRecipe = RECIPES.find((candidate) => candidate.id === recipe.id)
+      if (!catalogRecipe) return null
+      day[slot] = { ...recipe, ingredients: catalogRecipe.ingredients }
+    }
+    days.push(day)
+  }
+
+  let staples: Ingredient[] = []
+  if (Array.isArray(saved.staples)) {
+    if (saved.staples.every(isCurrentIngredient)) {
+      staples = saved.staples
+    } else {
+      for (const staple of saved.staples as Ingredient[]) {
+        const catalogStaple = STAPLES.find((candidate) => candidate.name === staple?.name)
+        if (!catalogStaple) return null
+        staples.push(catalogStaple)
+      }
+    }
+  }
+
+  return {
+    days,
+    staples,
+    estimatedTotal: saved.estimatedTotal ?? 0,
+    recommendedStores: saved.recommendedStores ?? [],
+    cookedMeals: saved.cookedMeals ?? [],
+  }
 }
 
 /** Splits a plan's full ingredient list into what the household already has (won't be added to

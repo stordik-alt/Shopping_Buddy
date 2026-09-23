@@ -398,6 +398,20 @@ export async function processReceiptImport(
     items: JSON.stringify(toReceiptLineItems(extracted, catalog)),
   })
 
+  // Resolve the retailer and physical branch immediately after parsing. This keeps the
+  // receipt_imports row authoritative even when later validation sends the receipt to review.
+  // The same IDs are then reused by the purchase and price-observation writes below.
+  const parsedStoreId = await findOrCreateStore(extracted.store.name)
+  const parsedStoreLocationId = await findOrCreateStoreLocation(
+    parsedStoreId,
+    extracted.store.address,
+    extracted.store.city,
+  )
+  const enrichedParsedRow = await update({
+    storeId: parsedStoreId,
+    storeLocationId: parsedStoreLocationId ?? undefined,
+  })
+
   await update({ status: 'validating' })
 
   if (needsReview(extracted)) {
@@ -430,17 +444,15 @@ export async function processReceiptImport(
         candidate.total != null &&
         isPotentialDuplicate(
           { storeLocationId: candidate.storeLocationId, date: candidate.date, total: Number(candidate.total), receiptNumber: candidate.receiptNumber },
-          { storeLocationId: parsedRow.storeLocationId, date: extractedDate, total: extractedTotal, receiptNumber: extracted.receiptNumber },
+          { storeLocationId: enrichedParsedRow.storeLocationId, date: extractedDate, total: extractedTotal, receiptNumber: extracted.receiptNumber },
         ),
     )
     if (duplicate) return update({ status: 'duplicate_review' })
   }
 
   const lineItems = toReceiptLineItems(extracted, catalog)
-  const storeId = await findOrCreateStore(extracted.store.name)
-  const resolvedStoreLocationId =
-    parsedRow.storeLocationId ?? await findOrCreateStoreLocation(storeId, extracted.store.address, extracted.store.city)
-  await update({ storeId, storeLocationId: resolvedStoreLocationId ?? undefined })
+  const storeId = enrichedParsedRow.storeId ?? parsedStoreId
+  const resolvedStoreLocationId = enrichedParsedRow.storeLocationId ?? parsedStoreLocationId
   const purchase = await createPurchaseFromReceiptItems(row.householdId, lineItems, {
     date: extracted.date ?? undefined,
     storeLocationId: resolvedStoreLocationId,

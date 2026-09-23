@@ -449,9 +449,9 @@ async function runReceiptPipeline(
 
       try {
         const fallbackTextExtractor = deps.fallbackTextExtractor ?? azureReceiptTextExtractor
-        // The fallback gets the untouched original, not the cleaned-up copy: it is a second,
-        // independent attempt, so it should not share a failure caused by the preparation itself.
-        const azureResult = await fallbackTextExtractor.extractText({ base64: original.toString('base64'), mimeType: storedMimeType })
+        // Same input as the primary provider — the cleaned-up copy when preparation succeeded, the
+        // original when it did not (or for a PDF) — so the fallback benefits from the clean-up too.
+        const azureResult = await fallbackTextExtractor.extractText(ocrInput)
         ocrText = azureResult.fullText
         ocrProvider = 'azure_document_intelligence'
       } catch (azureError) {

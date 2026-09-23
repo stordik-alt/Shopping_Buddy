@@ -9,6 +9,6 @@ ALTER TABLE "store_locations" ALTER COLUMN "hours" DROP NOT NULL;--> statement-b
 CREATE UNIQUE INDEX "store_locations_store_address_city_unique_idx"
   ON "store_locations" (
     "store_id",
-    lower(regexp_replace(trim("address"), '\\s+', ' ', 'g')),
-    lower(regexp_replace(trim("city"), '\\s+', ' ', 'g'))
+    lower(regexp_replace(trim("address"), '\s+', ' ', 'g')),
+    lower(regexp_replace(trim("city"), '\s+', ' ', 'g'))
   );--> statement-breakpoint

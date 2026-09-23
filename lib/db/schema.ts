@@ -11,6 +11,9 @@ export const itemUnitEnum = pgEnum('item_unit', ['ks', 'kg', 'g', 'l', 'ml'])
 export const itemPriorityEnum = pgEnum('item_priority', ['Nízká', 'Normální', 'Vysoká'])
 export const invitationStatusEnum = pgEnum('invitation_status', ['pending', 'accepted', 'revoked'])
 export const pantryLocationEnum = pgEnum('pantry_location', ['Spíž', 'Lednice', 'Mrazák', 'Domácnost'])
+export const priceScopeEnum = pgEnum('price_scope', ['STORE', 'STORE_FORMAT', 'REGION', 'CHAIN'])
+export const priceSourceTypeEnum = pgEnum('price_source_type', ['RECEIPT', 'OFFICIAL', 'FLYER', 'API', 'OTHER'])
+export const priceLocationResolutionEnum = pgEnum('price_location_resolution', ['UNKNOWN', 'RESOLVED', 'NOT_APPLICABLE'])
 // 'pending_review' / 'imported' / 'discarded' are the original manual-entry states — a manual
 // import has no OCR/AI step, so it goes straight to 'imported'. The rest is the real OCR pipeline
 // state machine (docs/08_OCR_RECEIPT_PIPELINE.md section 11): uploaded → ocr_processing →
@@ -163,7 +166,13 @@ export const storeLocations = pgTable('store_locations', {
 export const prices = pgTable('prices', {
   id: uuid('id').primaryKey().defaultRandom(),
   productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
-  storeLocationId: uuid('store_location_id').notNull().references(() => storeLocations.id, { onDelete: 'cascade' }),
+  // Store chain remains explicit even when the physical branch is unknown. This prevents a real
+  // STORE observation from being misrepresented as a CHAIN price.
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  storeLocationId: uuid('store_location_id').references(() => storeLocations.id, { onDelete: 'cascade' }),
+  priceScope: priceScopeEnum('price_scope').notNull().default('STORE'),
+  sourceType: priceSourceTypeEnum('source_type').notNull().default('OTHER'),
+  locationResolution: priceLocationResolutionEnum('location_resolution').notNull().default('RESOLVED'),
   regularPrice: numeric('regular_price', { precision: 10, scale: 2 }).notNull(),
   // ISO 4217 code — per docs/03_DATABASE.md rule 9 ("Prices must have explicit currency").
   // Lives on the price row (not just the store) since a store's prices could in principle span
@@ -171,7 +180,13 @@ export const prices = pgTable('prices', {
   currency: text('currency').notNull().default('CZK'),
   unit: itemUnitEnum('unit').notNull(),
   unitPrice: numeric('unit_price', { precision: 10, scale: 2 }).notNull(),
-  recordedAt: date('recorded_at').notNull(),
+  // Observation date is the historical fact. Current price is derived from the latest applicable
+  // observation; it is not stored as a mutable singleton value.
+  observedAt: date('observed_at').notNull(),
+  validFrom: date('valid_from').notNull(),
+  validUntil: date('valid_until'),
+  sourceReference: text('source_reference'),
+  confidence: numeric('confidence', { precision: 4, scale: 3 }),
 })
 
 export const deals = pgTable('deals', {
@@ -406,6 +421,7 @@ export const storeLocationsRelations = relations(storeLocations, ({ one, many })
 
 export const pricesRelations = relations(prices, ({ one }) => ({
   product: one(products, { fields: [prices.productId], references: [products.id] }),
+  store: one(stores, { fields: [prices.storeId], references: [stores.id] }),
   storeLocation: one(storeLocations, { fields: [prices.storeLocationId], references: [storeLocations.id] }),
 }))
 

@@ -100,7 +100,7 @@ export type PurchaseRecord = {
 /** Where a pantry item is physically kept. Drives what "restock a purchase" defaults to
  *  (`lib/pantry.ts`'s `inferPantryLocation()`) and can be reassigned by hand — e.g. moving
  *  freshly bought chilled meat into the freezer for later use. */
-export type PantryLocation = 'Spíž' | 'Lednice' | 'Mrazák' | 'Domácnost'
+export type PantryLocation = 'Spíž' | 'Lednice' | 'Mrazák' | 'Domácnost' | 'Lékárnička' | 'Drogérka'
 
 export type PantryItem = {
   id: string

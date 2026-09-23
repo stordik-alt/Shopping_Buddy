@@ -34,18 +34,40 @@ store_locations = physical branches
 store_location_id may be NULL when the branch is unknown.
 
 ## Price observations
-The price model distinguishes:
-- physical-store observation
-- store-format observation
-- regional observation
-- chain-wide published price
+The prices table is an append-only observation ledger. It does not store one mutable current-price row.
 
-It also distinguishes source:
-- receipt
-- official
-- flyer
+Each observation contains:
+- product_id
+- store_id — retailer chain, always explicit
+- store_location_id — nullable when the branch is unknown or the scope is chain-wide
+- regular_price
+- unit_price
+- currency
+- price_scope
+- source_type
+- location_resolution
+- observed_at
+- valid_from / valid_until
+- source_reference
+- confidence
+
+### price_scope
+- STORE — physical-store observation
+- STORE_FORMAT — store-format observation
+- REGION — regional observation
+- CHAIN — chain-wide published price
+
+### source_type
+- RECEIPT
+- OFFICIAL
+- FLYER
 - API
-- other
+- OTHER
+
+### location_resolution
+- RESOLVED — physical branch is known
+- UNKNOWN — physical branch is not known
+- NOT_APPLICABLE — branch resolution does not apply, e.g. CHAIN
 
 ### Critical semantic rule
 Receipt + unknown branch:
@@ -57,8 +79,11 @@ Receipt + unknown branch:
 
 This must not be treated as a chain-wide price.
 
+### Current price
+The current price is derived from the latest applicable observation for the same product/retailer/context. Historical rows are never overwritten.
+
 ## Historical integrity
-Prices are append-only observations where practical. Do not overwrite historical observations when a new source reports another price.
+Prices are append-only observations. A new source creates a new observation; it does not mutate or replace an older observation.
 
 ## Backfill
 Backfills must be additive or narrowly corrective. Never delete real purchase or price history just to accommodate a schema improvement.

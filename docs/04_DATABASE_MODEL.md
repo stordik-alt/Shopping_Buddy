@@ -38,6 +38,7 @@ Receipt OCR branch discovery:
 - `address` is the source-of-truth location evidence from OCR; `city` is stored when OCR provides it.
 - `lat`, `lng` and `hours` may remain NULL for an OCR-created branch until trusted store-directory data enriches it.
 - A normalized chain + address + city unique index prevents duplicate branches from repeated OCR imports.
+- Trusted store-directory/API sources use the same chain + address + city key to enrich an existing OCR-created branch. Non-null source fields such as GPS and opening hours update the existing row; missing source fields never erase already known values.
 
 ## Price observations
 The prices table is an append-only observation ledger. It does not store one mutable current-price row.

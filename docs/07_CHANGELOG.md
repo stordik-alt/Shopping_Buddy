@@ -1,5 +1,10 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-23 (Migrations reconciled on the shared database + receipt-upload simulation)
+- The shared Neon database had `0010_far_the_stranger` recorded, `main`'s 0010 applied but unrecorded, and 0011 only half applied. After a read-only audit, the missing 0010 `_migrations` row was inserted by hand and the project runner applied `0011` (unique branch index) and `0012_product_external_refs`. No rows were changed by these migrations.
+- **Receipt-upload simulation, 8/8 passed** (throwaway test, deleted afterwards; real Blob/DB/validation, faked Vision/model). Confirmed: the new unique index rejects a duplicate branch; address variants reuse one branch; duplicates are caught; review-then-confirm works; a no-address receipt is stored as `STORE` + `UNKNOWN`; an inconsistent total stops for review; OCR-created branches keep NULL coordinates/hours. It removed everything it wrote and asserted the database matched its starting state.
+- Not verified: real OCR/model output on a photo, the browser upload flow, `CHAIN`+`OFFICIAL` vs `STORE`+`RECEIPT` price coexistence, and a second all-skip runner pass. Detail in `docs/01_CURRENT_STATE.md` section 15.
+
 ## 2026-09-23 (Merge of main into merge-work: conflicts resolved, Lidl connector adapted to the price observation model)
 - **Conflicts resolved** in `docs/07_CHANGELOG.md` (both sides prepended entries — both kept), `lib/db/schema.ts` (both enum sets kept), `lib/db/queries.ts` (main's new `recordPriceObservation()` kept, this branch's external-ref/deal helpers kept), and `lib/db/migrations/meta/_journal.json`.
 - **Migration collision:** both branches had created a `0010`. `main`'s `0010_price_observation_model` and `0011_receipt_auto_create_store_locations` keep their names (already applied elsewhere); this branch's `0010_far_the_stranger` became `0012_product_external_refs` and was made idempotent (`IF NOT EXISTS` / duplicate-object guards), since it was already applied under the old name to the shared database and the runner tracks migrations by filename. Its snapshot was rebuilt for the merged schema and verified: `drizzle-kit generate` reports "No schema changes".

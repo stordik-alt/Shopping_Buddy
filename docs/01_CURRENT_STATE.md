@@ -234,6 +234,7 @@ Current schema includes tables/entities for:
 * preferences
 * product_categories
 * products
+* product_external_refs
 * stores
 * store_locations
 * prices
@@ -469,6 +470,18 @@ The application must not bypass:
 The application must never invent price or promotion data.
 
 Imported data should retain source and timestamp information wherever available.
+
+**Update 2026-09-23, first real connector (Lidl CZ) implemented:** the architecture above is now real for one source, not just aspirational. `lib/ingestion/lidl.ts` (Fetcher + Normalizer/Validator) pulls from two of lidl.cz's own published, machine-readable surfaces — its product sitemap (`product_sitemap.xml.gz`, declared in `robots.txt`'s `Sitemap:` line) and the JSON endpoint (`/p/api/gridboxes/CZ/cs`) its own product-grid pages call to render prices — neither of which is covered by `robots.txt`'s `Disallow` rules (checked 2026-09-23). No CAPTCHA, login, or access control is bypassed. `lib/ingestion/ingest.ts` orchestrates fetch → normalize/validate → `lib/db/queries.ts`'s `resolveOrCreateProductFromExternal()` (new `product_external_refs` table, migration `0010`) → `recordPriceObservation()`/`upsertActiveDeal()`. A new daily cron, `/api/cron/ingest-prices` (`vercel.json`, same `CRON_SECRET` model as the other crons), runs a deliberately small pilot batch (80 grocery products) rather than the full ~12,000-product catalog, per an explicit owner decision (2026-09-23) to verify stability first.
+
+Real, hands-on verification (not just unit tests) against the actual dev database found and fixed two real precision problems before trusting the pipeline:
+1. A naive substring keyword match (to scope the pilot to groceries, since the sitemap carries no category info) produced real false positives — "olej" (cooking oil) matched inside "petrolejovy" (paraffin, as in a paraffin heater), "mleko" (milk) inside "mlekovar" (a milk-frothing appliance), "kava" (coffee) inside "nepromokava" (waterproof). Fixed by matching whole hyphen-separated slug tokens instead of raw substrings.
+2. Even with exact-token matching, Czech kitchenware is routinely named "<gadget> na <food>" — "regál na víno" (wine rack), "strojek na těstoviny" (pasta maker) — so a real, standalone grocery-keyword token can still belong to a non-food product. Fixed with two layers: an explicit accessory-word exclude list on the cheap slug pre-filter, and — the actually authoritative gate — rejecting anything `mapLidlCategory()` doesn't resolve to `'Potraviny'`, using Lidl's own real category from the fetched response, in `normalizeLidlProduct()`.
+
+After both fixes, a redo of the same 80-item pilot batch recorded 75 real grocery products (5 correctly skipped: 2 more kitchenware items the slug filter still let through but the category check caught, 3 real meat cuts sold by scale with no fixed online price) with 0 non-grocery items and 0 errors — verified by inspecting every resulting product/price row, not just trusting the summary counts. Also confirmed product-identity matching works correctly end-to-end: several real Lidl SKUs share an identical simplified display name (e.g. three different `erpNumber`s all titled "Olivový olej extra panenský", likely different pack sizes/batches) and all correctly resolved to the *same* internal `products` row rather than creating duplicates — though this does mean multiple price observations can land for one product on the same day when its variants' prices differ, a real-world consequence of not yet having package-size/variant modeling (the same still-open "Product normalization" gap).
+
+Deliberately not built yet, per the owner's own phased request (2026-09-23, "ceny můžeme získávat tímto způsobem, potom ještě akce z letáků"): promotion data from Lidl's image-based weekly flyers. Not urgently needed either — the same `/p/api/gridboxes/` response already carries real, structured promotion data (`price.discount`, `price.oldPrice`, validity dates) for online-catalog items currently on sale, which `lib/ingestion/lidl.ts`/`upsertActiveDeal()` already captures; true flyer-only promotions (never listed in the online catalog at all) would need image OCR, which — like the receipt-import pipeline — would need its own explicit owner exception to `CLAUDE.md` section 30 before any AI/vision call is added.
+
+Not yet implemented: connectors for the other five Czech chains. `docs/07_CHANGELOG.md`'s exploration entry for 2026-09-23 records what was actually checked — Albert has no live e-shop (discontinued Dec 2025) and its real prices exist only as flyer images; Kaufland's site returns an active Cloudflare CAPTCHA challenge even for a plain `robots.txt` request, which per this section's own rule means it's off-limits without a different, explicitly-permitted access path. **Planned order (owner decision, 2026-09-23): Albert next, then Billa, then Penny, then Kaufland** — see section 27's "External price ingestion" gap entry for the caveats already known for Albert/Kaufland going in.
 
 ---
 
@@ -834,7 +847,9 @@ Need reliable historical tracking of promotions. Unlike prices, `deals` has no a
 
 ## External price ingestion
 
-Need production-ready retailer connectors and ingestion jobs.
+**First connector done 2026-09-23** (see section 15): Lidl CZ, real pilot batch of 80 grocery products, daily cron. Still needed: connectors for the other five chains; widening the Lidl pilot past 80 products once its stability is confirmed over time; flyer-based promotion data (deferred, see section 15).
+
+**Planned order for the remaining chains (owner decision, 2026-09-23): Albert next, then Billa, then Penny, then Kaufland.** Each still needs its own real, hands-on source check the same way Lidl's did — don't assume the same fetcher approach transfers. Already known going in, from the 2026-09-23 research (section 15): Albert has no live e-shop (discontinued Dec 2025), so its connector will need a different real source (its flyer images, or possibly the Wolt/Foodora listings it now redirects to — neither checked yet); Kaufland's site returned an active Cloudflare CAPTCHA challenge even for a plain `robots.txt` request, which per this section's own rule means it stays off-limits unless a different, explicitly-permitted access path turns up. Billa and Penny haven't been checked yet at all — do the same robots.txt-then-Playwright-network-capture research pass before writing any connector code for either.
 
 ## Currency/localization
 
@@ -905,6 +920,7 @@ Recent development has included:
 * fixed a migration-history drift bug (`_migrations` tracks by filename, not content — an already-applied migration had been edited after the fact) that would have produced a different schema on a fresh database than today's dev database (see section 9)
 * fixed a live product-catalog bug where a manual receipt entry's default unit selection could silently overwrite an already-correct `defaultUnit` (e.g. milk's `l` downgraded to `ks`), breaking unit-price normalization for that product; quick-added shopping-list items now also inherit a known product's unit instead of always defaulting to `ks` (see section 12)
 * real per-ingredient quantities/units for the recipe catalog, closing the "Meal-plan ingredient quantities" gap — pantry stock matching and cooked-meal deduction are now genuinely quantity-aware with real unit conversion, instead of always treating one recipe use as "1 of whatever" (see section 20)
+* first real external price ingestion connector (Lidl CZ) — real grocery products/prices/deals pulled from Lidl's own published sitemap + JSON price endpoint, normalized/validated, and recorded via the existing (previously unused) `recordPriceObservation()`; daily cron with a deliberately small pilot batch (see section 15)
 * currency fields
 * migration baseline
 * automated tests for selected domains

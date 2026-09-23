@@ -92,6 +92,7 @@ function resolveReceiptPurchaseDate(optionsDate: string | undefined, storedDate:
  *    here was actually verified by a person. */
 async function findMatchingStoreLocation(storeId: string | null, address?: string | null, city?: string | null): Promise<string | null> {
   if (!storeId) return null
+  const db = getDb()
   const locations = await db.query.storeLocations.findMany({ where: eq(schema.storeLocations.storeId, storeId) })
   const normalize = (value: string | null | undefined) => value?.trim().toLocaleLowerCase('cs-CZ').replace(/\s+/g, ' ') ?? ''
   const wantedAddress = normalize(address)
@@ -105,7 +106,7 @@ async function findMatchingStoreLocation(storeId: string | null, address?: strin
 }
 
 async function recordReceiptPriceObservations(
-  items: ReceiptLineItem[],
+  items: Array<ReceiptLineItem & { productId?: string | null }>,
   storeLocationId: string | null | undefined,
   date: string,
   currency?: string | null,
@@ -115,7 +116,7 @@ async function recordReceiptPriceObservations(
     items
       .filter((item) => item.productId && item.quantity > 0 && item.price >= 0)
       .map((item) => {
-        const unitPrice = item.price / item.quantity
+        const unitPrice = item.price
         return recordPriceObservation({
           productId: item.productId!,
           storeLocationId,

@@ -424,7 +424,7 @@ export async function getStores(): Promise<Store[]> {
     address: location.address,
     city: location.city,
     country: location.country,
-    gps: { lat: Number(location.lat), lng: Number(location.lng) },
+    gps: location.lat != null && location.lng != null ? { lat: Number(location.lat), lng: Number(location.lng) } : null,
     hours: location.hours,
     dealsCount: location.deals.filter((deal) => deal.validUntil >= TODAY).length,
     availableProducts: Array.from(new Set(location.prices.map((price) => price.product.name))),

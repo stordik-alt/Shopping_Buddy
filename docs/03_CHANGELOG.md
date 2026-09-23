@@ -1,3 +1,10 @@
+## 2026-09-23 — OCR auto-creation of store branches
+- Purpose: when OCR reads a physical branch address that is not yet in the store directory, create the missing branch instead of leaving the receipt permanently UNKNOWN.
+- Schema: migration `0011_receipt_auto_create_store_locations.sql` makes coordinates/opening hours nullable for newly discovered branches and adds a normalized chain/address/city uniqueness guard.
+- Backend: `app/actions/receipts.ts` now resolves an existing branch or creates one from OCR address/city data; the same resolver is used for automatic completion and human-confirmed review.
+- Data integrity: coordinates and opening hours are never invented from receipt OCR; they remain NULL until enriched by a trusted source.
+- Verification: regression coverage added for branch creation, assignment and repeat-import deduplication. Runtime migration/build verification is still pending.
+
 ## 2026-09-23 — Price observation model
 - Purpose: make current prices and price history provenance-safe before connecting real retailer feeds.
 - Schema: migration `0010_price_observation_model.sql` adds explicit retailer chain, nullable branch, scope, source type, location-resolution state, validity window, source reference and confidence; existing branch-linked rows are backfilled without deleting history.

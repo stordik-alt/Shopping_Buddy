@@ -2,7 +2,7 @@ import { Check, Minus, Package, Plus, X } from 'lucide-react'
 import { useState } from 'react'
 import type { ItemUnit, PantryItem, PantryLocation } from '@/lib/types'
 
-const LOCATIONS: PantryLocation[] = ['Spíž', 'Lednice', 'Mrazák', 'Domácnost']
+const LOCATIONS: PantryLocation[] = ['Spíž', 'Lednice', 'Mrazák', 'Domácnost', 'Lékárnička', 'Drogérka']
 
 // −/+ step size: whole units for "ks" (you don't buy 0.3 of a countable item), a tenth for
 // weight/volume units — matches how the household would actually type a correction (section 7).

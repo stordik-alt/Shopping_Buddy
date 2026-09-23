@@ -33,6 +33,12 @@ store_locations = physical branches
 
 store_location_id may be NULL when the branch is unknown.
 
+Receipt OCR branch discovery:
+- If OCR provides a physical address and no matching branch exists for the chain, a new `store_locations` row is created.
+- `address` is the source-of-truth location evidence from OCR; `city` is stored when OCR provides it.
+- `lat`, `lng` and `hours` may remain NULL for an OCR-created branch until trusted store-directory data enriches it.
+- A normalized chain + address + city unique index prevents duplicate branches from repeated OCR imports.
+
 ## Price observations
 The prices table is an append-only observation ledger. It does not store one mutable current-price row.
 

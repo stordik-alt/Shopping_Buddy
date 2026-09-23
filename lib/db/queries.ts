@@ -488,7 +488,10 @@ export async function getProductPrices(): Promise<ProductPrice[]> {
   const products = await db.query.products.findMany({
     with: {
       category: true,
-      prices: { with: { storeLocation: { with: { store: true } } }, orderBy: asc(schema.prices.recordedAt) },
+      prices: {
+        with: { store: true, storeLocation: { with: { store: true } } },
+        orderBy: asc(schema.prices.observedAt),
+      },
       deals: { with: { storeLocation: { with: { store: true } } } },
     },
   })
@@ -496,13 +499,19 @@ export async function getProductPrices(): Promise<ProductPrice[]> {
   return products
     .filter((product) => product.prices.length > 0)
     .map((product) => {
-      // Grouped (not collapsed) by store location, ascending by recordedAt, so a store that's been
-      // re-observed over time keeps its whole history — the last entry is always the latest.
-      const observationsByLocation = new Map<string, typeof product.prices>()
+      // A price context is the same product + scope + retailer + branch (when known). Multiple
+      // sources may coexist in that context; the latest observation remains the current value,
+      // while every observation stays available to historical-price logic.
+      const observationsByContext = new Map<string, typeof product.prices>()
       for (const price of product.prices) {
-        const list = observationsByLocation.get(price.storeLocationId) ?? []
+        const contextKey = [
+          price.priceScope,
+          price.storeId,
+          price.storeLocationId ?? 'NO_LOCATION',
+        ].join(':')
+        const list = observationsByContext.get(contextKey) ?? []
         list.push(price)
-        observationsByLocation.set(price.storeLocationId, list)
+        observationsByContext.set(contextKey, list)
       }
 
       const activeDealByLocation = new Map(
@@ -512,23 +521,35 @@ export async function getProductPrices(): Promise<ProductPrice[]> {
       return {
         productName: product.name,
         category: product.category.name,
-        prices: Array.from(observationsByLocation.values()).map((observations) => {
+        prices: Array.from(observationsByContext.values()).map((observations) => {
           const price = observations[observations.length - 1]
-          const deal = activeDealByLocation.get(price.storeLocationId)
+          const deal = price.storeLocationId ? activeDealByLocation.get(price.storeLocationId) : undefined
           return {
-            store: price.storeLocation.store.chain,
+            store: price.store.chain,
+            storeId: price.storeId,
+            storeLocationId: price.storeLocationId,
+            priceScope: price.priceScope,
+            sourceType: price.sourceType,
+            locationResolution: price.locationResolution,
             regularPrice: Number(price.regularPrice),
             dealPrice: deal ? Number(deal.dealPrice) : undefined,
             dealValidUntil: deal?.validUntil,
             unit: price.unit,
             unitPrice: Number(price.unitPrice),
-            recordedAt: price.recordedAt,
-            priceHistory: observations.map((observation) => ({ price: Number(observation.regularPrice), recordedAt: observation.recordedAt })),
+            recordedAt: price.observedAt,
+            priceHistory: observations.map((observation) => ({
+              price: Number(observation.regularPrice),
+              recordedAt: observation.observedAt,
+              sourceType: observation.sourceType,
+              priceScope: observation.priceScope,
+            })),
           }
         }),
       }
     })
 }
+
+
 
 /** Appends a new dated price observation for a product at a store — never overwrites an existing
  *  row, so `prices` genuinely accumulates history over time (docs/04_ROADMAP.md "historical-price

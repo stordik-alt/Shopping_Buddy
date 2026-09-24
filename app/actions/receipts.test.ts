@@ -483,6 +483,61 @@ describe('processReceiptImport — OCR pipeline orchestration (fake OCR/AI, real
       expect(Number(purchaseItem?.price)).toBe(24.9) // nothing attributable to the line
     })
 
+    // Regression: an Albert receipt whose printed line prices are already the reduced ones and whose
+    // "Díky akcím jste ušetřili 168 Kč" is only a summary was recorded as 886,96 Kč instead of the
+    // 1 055,00 Kč paid — the summary was subtracted from lines that already included it — and sent to
+    // manual review first because the lines did not add up to the total minus that summary.
+    it('does not subtract a receipt-wide savings summary that is already in the line prices', async () => {
+      const receiptImportId = await createUploadedReceipt()
+      const extracted = extractedReceipt({
+        items: [
+          { name: 'Albert mléko', category: 'Potraviny', quantity: 2, unit: 'ks', unitPrice: 24.9, totalPrice: 49.8, discount: null, confidence: 0.96 },
+          { name: 'Albert mléko polotučné', category: 'Potraviny', quantity: 1, unit: 'ks', unitPrice: 50.2, totalPrice: 50.2, discount: null, confidence: 0.96 },
+        ],
+        discountTotal: 20,
+        total: 100,
+      })
+      const row = await processReceiptImport(receiptImportId, fakeProviders(extracted))
+
+      expect(row.status).toBe('completed') // consistent, so no needless manual review
+      const purchase = await db.query.purchases.findFirst({ where: eq(schema.purchases.id, row.purchaseId!) })
+      expect(Number(purchase?.total)).toBe(100) // what was paid, not 80
+      expect(Number(purchase?.discount)).toBe(20) // the saving stays as information
+    })
+
+    it('keeps the stated total when a review is confirmed on such a receipt', async () => {
+      const receiptImportId = await createUploadedReceipt()
+      // A wrong stated total sends the receipt to review first ...
+      await processReceiptImport(receiptImportId, fakeProviders(extractedReceipt({ discountTotal: 20, total: 999 })))
+      // ... the reviewer then corrects the stated total to what the receipt says. (Simulated by
+      // updating the import row, as the review form does not edit the receipt's own total.)
+      await db.update(schema.receiptImports).set({ total: '49.8' }).where(eq(schema.receiptImports.id, receiptImportId))
+      const { purchase } = await confirmReceiptReviewAction(receiptImportId, [item({ name: 'Mléko potvrzené', price: 24.9, quantity: 2 })], { date: TEST_DATE })
+      expect(purchase.total).toBe(49.8) // paid, not 29.8
+      expect(purchase.discount).toBe(20)
+    })
+
+    it('does not import a rounding line as a purchased item', async () => {
+      const receiptImportId = await createUploadedReceipt()
+      const extracted = extractedReceipt({
+        items: [
+          { name: 'Albert mléko', category: 'Potraviny', quantity: 2, unit: 'ks', unitPrice: 24.9, totalPrice: 49.8, discount: null, confidence: 0.96 },
+          { name: 'ZAOKROUHLENÍ PŘÍJEM', category: 'Ostatní', quantity: 1, unit: 'ks', unitPrice: 0.2, totalPrice: 0.2, discount: null, confidence: 0.9 },
+        ],
+        discountTotal: 0,
+        total: 50,
+      })
+      const row = await processReceiptImport(receiptImportId, fakeProviders(extracted))
+
+      expect(row.status).toBe('completed')
+      const items = await db.query.purchaseItems.findMany({ where: eq(schema.purchaseItems.purchaseId, row.purchaseId!) })
+      expect(items.map((purchaseItem) => purchaseItem.name)).toEqual(['Albert mléko'])
+      const purchase = await db.query.purchases.findFirst({ where: eq(schema.purchases.id, row.purchaseId!) })
+      expect(Number(purchase?.total)).toBe(50) // the rounding is part of what was paid
+      const pantry = await db.query.pantryItems.findMany({ where: eq(schema.pantryItems.householdId, householdId) })
+      expect(pantry.some((pantryItem) => /zaokrouhlen/i.test(pantryItem.name))).toBe(false)
+    })
+
     it('leaves purchases.discount empty when nothing was discounted', async () => {
       const receiptImportId = await createUploadedReceipt()
       const row = await processReceiptImport(receiptImportId, fakeProviders(extractedReceipt()))

@@ -23,8 +23,7 @@ import {
   needsReview,
   netUnitPrice,
   normalizeOcrText,
-  receiptDiscounts,
-  receiptTotal,
+  resolvePurchaseAmounts,
   resolveItemPlacement,
   normalizeStoreName,
   storeNameMatchKey,
@@ -202,6 +201,8 @@ async function createPurchaseFromReceiptItems(
     currency?: string | null
     /** The receipt's stated total discount (per-line + receipt-wide), when known. */
     receiptDiscountTotal?: number | null
+    /** The receipt's stated grand total — the amount actually paid — when known. */
+    receiptStatedTotal?: number | null
     source: 'confirmed' | 'auto'
   },
 ): Promise<PurchaseRecord> {
@@ -236,11 +237,11 @@ async function createPurchaseFromReceiptItems(
     return { ...item, productId: catalogEntry?.id ?? null, category: catalogEntry?.category ?? item.category, location }
   })
 
-  // `purchases.total` is what was actually paid: line totals net of their own discounts, minus any
-  // receipt-wide discount no line carries. `purchases.discount` records how much was saved, so the
+  // `purchases.total` is what was actually paid: the receipt's own stated total when it agrees with
+  // the lines, otherwise line totals net of their own discounts minus any receipt-wide discount no
+  // line carries (see resolvePurchaseAmounts). `purchases.discount` records how much was saved, so the
   // history can show "sleva X Kč" without the total being overstated for spending analytics.
-  const { discount, unallocated } = receiptDiscounts(resolvedItems, options.receiptDiscountTotal ?? null)
-  const total = Math.max(0, Math.round((receiptTotal(resolvedItems) - unallocated) * 100) / 100)
+  const { discount, total } = resolvePurchaseAmounts(resolvedItems, options.receiptDiscountTotal ?? null, options.receiptStatedTotal ?? null)
   const storeId = options.storeId ?? await findOrCreateStore(options.storeName)
   const [purchaseRow] = await db
     .insert(schema.purchases)
@@ -573,6 +574,7 @@ async function runReceiptPipeline(
     storeId,
     currency: extracted.currency,
     receiptDiscountTotal: extracted.discountTotal,
+    receiptStatedTotal: extracted.total,
     source: 'auto',
   })
   return update({ status: 'completed', purchaseId: purchase.id, processedAt: new Date() })
@@ -705,6 +707,7 @@ export async function confirmReceiptReviewAction(
     storeId,
     currency: row.currency,
     receiptDiscountTotal: row.discountTotal != null ? Number(row.discountTotal) : null,
+    receiptStatedTotal: row.total != null ? Number(row.total) : null,
     source: 'confirmed',
   })
 

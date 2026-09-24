@@ -92,6 +92,13 @@
       "when": 1790172000000,
       "tag": "0012_product_external_refs",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790258400000,
+      "tag": "0013_pantry_location_first_aid_and_drugstore",
+      "breakpoints": true
     }
   ]
 }

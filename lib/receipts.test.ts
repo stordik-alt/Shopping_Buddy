@@ -254,7 +254,8 @@ describe('resolveItemPlacement', () => {
 
   it('classifies deterministically by AI category + keyword when there is no catalog match', () => {
     expect(resolveItemPlacement(null, 'Potraviny', 'Mražená zelenina')).toEqual({ category: 'Potraviny', location: 'Mrazák' })
-    expect(resolveItemPlacement(null, 'Drogerie', 'Šampon')).toEqual({ category: 'Drogerie', location: 'Domácnost' })
+    expect(resolveItemPlacement(null, 'Drogerie', 'Šampon')).toEqual({ category: 'Drogerie', location: 'Drogérka' })
+    expect(resolveItemPlacement(null, 'Drogerie', 'Prací prostředek')).toEqual({ category: 'Drogerie', location: 'Domácnost' })
   })
 
   it('is unresolvable (null) when there is no catalog match and the AI gave no category at all', () => {

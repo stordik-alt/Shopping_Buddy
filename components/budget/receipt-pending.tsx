@@ -3,11 +3,11 @@ import { AlertTriangle, Check, Copy, RefreshCw, X } from 'lucide-react'
 import type { ReceiptImportState } from '@/lib/db/queries'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import { money } from '@/lib/format'
-import type { ItemCategory, ItemUnit, PantryLocation } from '@/lib/types'
+import { PANTRY_LOCATIONS } from '@/lib/pantry'
+import type { ItemCategory, ItemUnit } from '@/lib/types'
 
 const CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
 const UNITS: ItemUnit[] = ['ks', 'kg', 'g', 'l', 'ml']
-const LOCATIONS: PantryLocation[] = ['Spíž', 'Lednice', 'Mrazák', 'Domácnost']
 
 const FAILED_STATUSES = new Set(['ocr_failed', 'parsing_failed'])
 const TRANSIENT_STATUSES = new Set(['uploaded', 'ocr_processing', 'ocr_completed', 'parsing', 'parsed', 'validating'])
@@ -262,7 +262,7 @@ function ReceiptPendingCard({
                 <option value="" disabled>
                   Vyberte uložení
                 </option>
-                {LOCATIONS.map((location) => (
+                {PANTRY_LOCATIONS.map((location) => (
                   <option key={location}>{location}</option>
                 ))}
               </select>

@@ -10,7 +10,7 @@ export const itemCategoryEnum = pgEnum('item_category', ['Potraviny', 'Drogerie'
 export const itemUnitEnum = pgEnum('item_unit', ['ks', 'kg', 'g', 'l', 'ml'])
 export const itemPriorityEnum = pgEnum('item_priority', ['Nízká', 'Normální', 'Vysoká'])
 export const invitationStatusEnum = pgEnum('invitation_status', ['pending', 'accepted', 'revoked'])
-export const pantryLocationEnum = pgEnum('pantry_location', ['Spíž', 'Lednice', 'Mrazák', 'Domácnost'])
+export const pantryLocationEnum = pgEnum('pantry_location', ['Spíž', 'Lednice', 'Mrazák', 'Domácnost', 'Lékárnička', 'Drogérka'])
 // External price-ingestion sources (docs/32 "Internet Data Integration"). One entry per retailer
 // connector actually implemented — starts with just Lidl.
 export const productSourceEnum = pgEnum('product_source', ['lidl'])

@@ -14,6 +14,39 @@ export const CHECKIN_DAYS_BY_CATEGORY: Record<ItemCategory, number> = {
   Ostatní: 14,
 }
 
+/** Every place stock can be kept, in the order the Zásoby folders are shown. The single source of
+ *  truth for the UI (folder tiles, the per-item move select, the receipt-review location select);
+ *  a test keeps it identical to the `pantry_location` database enum, so a location can never be
+ *  offered in the UI that the database would then reject. */
+export const PANTRY_LOCATIONS: PantryLocation[] = ['Spíž', 'Lednice', 'Mrazák', 'Domácnost', 'Lékárnička', 'Drogérka']
+
+export type LocationSummary = {
+  /** Rows kept in this location. */
+  count: number
+  /** Rows the check-in cron has asked the household about (`askedAt` set) and that are still unanswered. */
+  needsCheck: number
+  /** Rows at zero quantity — kept on purpose by the stepper ("do šlo") until removed. */
+  outOfStock: number
+}
+
+/** Per-location counts for the Zásoby folder tiles. Every location is present — an empty one has
+ *  zeros — so the UI can always offer all folders (an empty folder is still a valid place to move
+ *  something into). Expiry is deliberately not part of this: pantry rows carry no expiry date, and
+ *  inventing one would be a made-up warning. */
+export function summarizeByLocation(items: PantryItem[]): Record<PantryLocation, LocationSummary> {
+  const summary = Object.fromEntries(
+    PANTRY_LOCATIONS.map((location) => [location, { count: 0, needsCheck: 0, outOfStock: 0 }]),
+  ) as Record<PantryLocation, LocationSummary>
+  for (const item of items) {
+    const entry = summary[item.location]
+    if (!entry) continue
+    entry.count += 1
+    if (item.askedAt) entry.needsCheck += 1
+    if (item.quantity <= 0) entry.outOfStock += 1
+  }
+  return summary
+}
+
 export type PantryCheckinCandidate = {
   category: ItemCategory
   addedAt: Date
@@ -45,18 +78,32 @@ const FROZEN_KEYWORDS = ['mražen', 'zmrzlina']
 const CHILLED_KEYWORDS = ['mléko', 'mléčný', 'jogurt', 'kefír', 'sýr', 'máslo', 'smetana', 'tvaroh', 'šunka', 'salám', 'párky', 'vejce', 'maso', 'kuřecí', 'vepřové', 'hovězí', 'losos', 'ryba']
 const PANTRY_KEYWORDS = ['rýže', 'těstoviny', 'mouka', 'cukr', 'sůl', 'konzerv', 'olej', 'ocet', 'cereál', 'sušenky', 'trvanl', 'voda', 'nápoj']
 
+// Same placeholder philosophy for the two non-food folders. Deliberately narrow: only well-known
+// medicine/first-aid and personal-care words, so a non-food item that matches neither keeps landing
+// in "Domácnost" exactly as before (cleaning supplies, toilet paper, nappies, ...). Deliberately
+// avoids ambiguous stems — "dezinfekc" (wound vs. surface), "lék" (also inside "mléko"), "krém" —
+// because a wrong automatic filing is worse than the household's one-tap manual move.
+const FIRST_AID_KEYWORDS = ['paralen', 'ibalgin', 'ibuprofen', 'panadol', 'nurofen', 'acylpyrin', 'aspirin', 'náplast', 'obvaz', 'obinadl', 'teploměr', 'léčiv', 'léky', 'vitamín', 'kapky do nosu', 'tablety proti']
+const DRUGSTORE_KEYWORDS = ['šampon', 'kondicionér', 'mýdlo', 'sprchový', 'zubní', 'kartáček', 'deodorant', 'antiperspirant', 'holicí', 'žiletk', 'tampon', 'vložky', 'vatové', 'vatový', 'kosmetick', 'make-up', 'rtěnka', 'opalovací']
+
 /** Where a purchased item should land in the pantry — confidently, or `null` when it genuinely
  *  can't be determined without guessing (per the owner's explicit "NEHÁDEJ" rule for receipt
  *  import: an unrecognized storage location must go to manual review, never a silent default).
- *  Non-food categories go straight to "Domácnost" (cleaning/hygiene/household supplies); food is
+ *  Non-food categories go to "Domácnost" (cleaning/household supplies) unless the name clearly
+ *  says medicine/first-aid ("Lékárnička") or personal care/cosmetics ("Drogérka"), checked in that
+ *  order; food is
  *  split into frozen/chilled/shelf-stable by keyword, and a `Potraviny` item matching none of the
  *  three lists — or a catch-all `Ostatní` item, whose category itself was already uncertain — is
  *  `null`, not a guessed default. Only used to seed a *new* pantry row — an existing row's location
  *  is never re-inferred on restock, so a manual move (e.g. chilled meat into the freezer) sticks. */
 export function inferPantryLocation(category: ItemCategory, name: string): PantryLocation | null {
-  if (category === 'Drogerie' || category === 'Děti' || category === 'Domácnost') return 'Domácnost'
-  if (category !== 'Potraviny') return null // 'Ostatní' — the category itself was already unclear
   const normalized = name.trim().toLowerCase()
+  if (category === 'Drogerie' || category === 'Děti' || category === 'Domácnost') {
+    if (FIRST_AID_KEYWORDS.some((keyword) => normalized.includes(keyword))) return 'Lékárnička'
+    if (DRUGSTORE_KEYWORDS.some((keyword) => normalized.includes(keyword))) return 'Drogérka'
+    return 'Domácnost'
+  }
+  if (category !== 'Potraviny') return null // 'Ostatní' — the category itself was already unclear
   if (FROZEN_KEYWORDS.some((keyword) => normalized.includes(keyword))) return 'Mrazák'
   if (CHILLED_KEYWORDS.some((keyword) => normalized.includes(keyword))) return 'Lednice'
   if (PANTRY_KEYWORDS.some((keyword) => normalized.includes(keyword))) return 'Spíž'

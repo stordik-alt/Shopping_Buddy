@@ -11,7 +11,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "dotenv -e .env.local -- tsx lib/db/migrate.ts",
     "db:seed": "dotenv -e .env.local -- tsx lib/db/seed.ts",
-    "db:backfill-receipt-locations": "dotenv -e .env.local -- tsx scripts/backfill-receipt-store-locations.ts"
+    "db:backfill-receipt-locations": "dotenv -e .env.local -- tsx scripts/backfill-receipt-store-locations.ts",
+    "db:split-collapsed-products": "dotenv -e .env.local -- tsx scripts/split-collapsed-products.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

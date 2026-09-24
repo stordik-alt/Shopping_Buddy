@@ -1,5 +1,12 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-24 (Fix: a retailer's SKUs merged into one product by name)
+### Product identity — found in the first real ingestion; stacked on the old-price UI PR (#27)
+- **Bug:** the resolver attached a new SKU to any same-named catalog product, and `products.name` is unique, so several SKUs of one retailer that share a name became ONE product (8 products, 12 extra SKUs: Penny flavours of Raw tyčinka Crip Crop / Tyčinka Corny Big / Pribináček; Lidl sizes of olivový olej, kuřecí prsní řízky, rýže, mléko 1,5 %/3,5 %). Prices were mixed and promotions overwrote each other (35 Penny offers → 29 deals).
+- **Fix:** `resolveProductForSku()` never reuses a product already linked to a different SKU of the same source; the SKU gets its own product "<name> (<SKU>)". Cross-store linking by name is unchanged (Billa + Penny "Okurka salátová").
+- **Repair applied to the shared database:** `pnpm db:split-collapsed-products` (dry-run by default). +12 products, refs and official price rows unchanged in number, prices moved with their SKU, nothing deleted, re-run is a no-op. Active deals were left for the next ingestion run to re-upsert per SKU.
+- **Tests:** 6 unit tests for the resolution rules; 4 DB-backed tests (SKUs kept apart across runs and without a shared context, cross-store link preserved, the repair incl. dry-run, price move and idempotency). The regression tests were confirmed to fail without the fix.
+
 ## 2026-09-24 (UI: old prices with dates in the price comparison; migration 0018 applied)
 ### Follow-up to the price-dating change — stacked on #26
 - **Old price in the UI:** under each store in "Porovnání cen mezi obchody" (shopping list) whose price changed, a line "Dříve 50,00 Kč · zaznamenáno 20. 9., změna 24. 9." shows the price before the last change, the date it was recorded and the date the change was seen. Nothing is shown for a price that never changed. Logic stays in `lib/prices.ts` (`previousPrice()`); the component only displays it, using the new `shortDate()` helper (`lib/format.ts`). The row wraps on narrow screens (`flex-wrap`); verified in a real browser at 360 px and 1024 px, no horizontal overflow.

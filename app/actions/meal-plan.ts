@@ -6,7 +6,7 @@ import { requireHouseholdId } from '@/lib/auth/authorize'
 import { TODAY } from '@/lib/budget'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
-import { convertQuantity, currentWeekStart, isMealCooked, markMealCooked, recipeFor, type MealType, type WeeklyMealPlan } from '@/lib/meal-plans'
+import { convertQuantity, currentWeekStart, isMealCooked, markMealCooked, parseSavedPlan, recipeFor, type MealType, type WeeklyMealPlan } from '@/lib/meal-plans'
 
 /** Saves (or overwrites) the household's plan for the current week — one row per household per week. */
 export async function saveMealPlanAction(budgetLimit: number, plan: WeeklyMealPlan) {
@@ -41,8 +41,8 @@ export async function markMealCookedAction(day: string, mealType: MealType) {
   const row = await db.query.mealPlans.findFirst({ where: and(eq(schema.mealPlans.householdId, householdId), eq(schema.mealPlans.weekStart, weekStart)) })
   if (!row) throw new Error('No meal plan for the current week')
 
-  const parsed = JSON.parse(row.plan) as WeeklyMealPlan
-  const plan: WeeklyMealPlan = { ...parsed, cookedMeals: parsed.cookedMeals ?? [] }
+  const plan = parseSavedPlan(row.plan)
+  if (!plan) throw new Error('The saved meal plan is outdated — regenerate it')
   if (isMealCooked(plan, day, mealType)) return
 
   const recipe = recipeFor(plan, day, mealType)

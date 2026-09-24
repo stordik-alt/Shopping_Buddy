@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { MAX_RECEIPT_UPLOAD_BYTES, optimizeReceiptImage } from './receipt-upload'
+import { assertReceiptFitsUpload, MAX_RECEIPT_UPLOAD_BYTES, optimizeReceiptImage } from './receipt-upload'
 
 describe('optimizeReceiptImage', () => {
   beforeEach(() => {
@@ -24,7 +24,7 @@ describe('optimizeReceiptImage', () => {
       })),
       toBlob: vi.fn((callback: BlobCallback, _type?: string, quality?: number) => {
         const ratio = quality ?? 1
-        const size = Math.round(2_500_000 + ratio * 3_000_000)
+        const size = Math.round(2_000_000 + ratio * 2_000_000)
         callback(new Blob([new Uint8Array(size)]))
       }),
     }
@@ -66,5 +66,28 @@ describe('optimizeReceiptImage', () => {
     expect(optimized.name).toBe('receipt.jpg')
     expect(optimized.size).toBeLessThanOrEqual(MAX_RECEIPT_UPLOAD_BYTES)
     expect(optimized.lastModified).toBe(123)
+  })
+
+  it('keeps the base64 request body under the 4.5 MB platform limit', async () => {
+    const file = new File([new Uint8Array(MAX_RECEIPT_UPLOAD_BYTES + 1)], 'receipt.png', { type: 'image/png' })
+
+    const optimized = await optimizeReceiptImage(file)
+
+    // Base64 encodes 3 bytes as 4 characters.
+    expect(Math.ceil(optimized.size / 3) * 4).toBeLessThan(4.5 * 1000 * 1000)
+  })
+})
+
+describe('assertReceiptFitsUpload', () => {
+  it('accepts a file within the limit', () => {
+    const file = new File([new Uint8Array(MAX_RECEIPT_UPLOAD_BYTES)], 'receipt.pdf', { type: 'application/pdf' })
+
+    expect(() => assertReceiptFitsUpload(file)).not.toThrow()
+  })
+
+  it('rejects an oversized file with a readable message', () => {
+    const file = new File([new Uint8Array(MAX_RECEIPT_UPLOAD_BYTES + 1)], 'receipt.pdf', { type: 'application/pdf' })
+
+    expect(() => assertReceiptFitsUpload(file)).toThrow(/příliš velký/)
   })
 })

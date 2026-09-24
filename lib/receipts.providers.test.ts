@@ -328,6 +328,8 @@ describe('geminiStructuringProvider', () => {
     expect(prompt).toContain('Never invent or estimate a value')
     expect(prompt).toContain('output null')
     expect(prompt).toContain('BEFORE any discount')
+    expect(prompt).toContain('sold by weight')
+    expect(prompt).toContain('never derive the weight from the total')
     expect(prompt).toContain('Never output a discount')
   })
 

@@ -194,6 +194,63 @@ own item: a negative price/discount, or a line discount larger than its line, se
 prices, a `total` equal to the amount paid, and `purchases.discount` as the amount saved; price
 observations keep the pre-discount shelf price. VAT is not extracted or stored yet.
 
+**Second reading of a receipt-wide discount (2026-09-24).** The rule above assumes the printed line
+prices are pre-discount. Some retailers print the *reduced* prices on the lines and add only a
+summary of what the promotions saved — Albert: "Díky akcím jste ušetřili 168.00 Kč" under a total
+that equals the plain sum of the lines. Subtracting the summary again made such a purchase come out
+as 886,96 Kč instead of the 1 055,00 Kč paid, and (because `SUM − discount_total ≠ total`) sent the
+correct receipt to manual review first. Now: `isReceiptConsistent()` also accepts
+`SUM(total_price) ≈ total` when no line carries its own discount (`discount_total` is then only
+information), and `resolvePurchaseAmounts()` takes the receipt's stated `total` — the amount
+actually paid — as `purchases.total` whenever it agrees with the lines under either reading
+(within 1 Kč, for cash rounding and weighed-line rounding); only when it agrees with neither is the
+amount computed from the lines, and that receipt is already in review. `purchases.discount` stays
+the amount saved. A cash-rounding line ("ZAOKROUHLENÍ PŘÍJEM") is part of the amount paid but not a
+product: `isRoundingLine()` drops it deterministically in `toReceiptLineItems()`, because the model
+emits it as an item despite the prompt forbidding that.
+
+**Weighed items (2026-09-24).** A weighed line prints "0.37 x 69.90 Kč" (weight × price per kg) and the
+line total. On the same Albert receipt the OCR text lacked that line for two of three weighed items
+("JABLKA GALA", "BRAMBORY KONZ POZDNÍ" — only "15.00 Kč" / "18.60 Kč" survived), so the model
+correctly returned null for quantity and unit price and the line was stored as "1 ks" — while the
+one weighed line that did survive (paprika, 0.37 × 69,90) was stored as 0.37 "ks". Now:
+- `unitForQuantity()`: a fractional quantity cannot be pieces, so "ks" (the default for an empty
+  unit) becomes "kg"; an explicit unit (g, l, …) is kept.
+- `ReceiptLineItem.unitPriceUnknown`: set when the receipt gave neither quantity nor unit price. The
+  line still counts towards the amount spent, but no price observation is recorded for it ("15,00 Kč
+  per piece" is not the product's price).
+- The structuring prompt now says how a weighed line reads (quantity = weight, unit "kg", price per
+  kilogram) and to output null, never derive the weight from the total, when that line is absent.
+- The storage-location gate ignores rounding lines; before, an unplaceable "ZAOKROUHLENÍ" line sent
+  an otherwise clean receipt to review.
+
+**PDF text layer before OCR (implemented 2026-09-24).** A digital PDF (a shop's e-receipt, a browser
+print) carries its own text layer. `lib/receipt-pdf.ts`'s `readPdfTextLayer()` (dependency
+`unpdf`, a serverless build of pdf.js — no other PDF library was available, nothing already
+installed could read PDF text) reads it first; if it is usable — at least 60 non-space characters and
+three amounts with two decimals — that text goes straight to structuring and `ocr_provider` is
+`pdf_text_layer` ("Text přímo z PDF (bez OCR)" in the UI). Otherwise (a scan, an image-only PDF, a
+text layer that is only a footer, an unreadable file) the PDF goes to OCR exactly as before: Google
+Vision, Azure only after a Google failure. On the real Albert PDF the text layer holds all three
+weight lines that the Azure fallback had dropped, with correct Czech diacritics, and OCR is skipped
+(no OCR call, no cost). Photos are unchanged. Verified in a real `next build` + `next start` that
+`unpdf` works when bundled, not only in tests. The receipt's own PDF is never committed as a fixture
+(personal data): tests generate a small PDF with a real text layer (`lib/receipt-pdf.test-helpers.ts`).
+
+**Observability.** The primary OCR's failure used to be logged only when the fallback failed too, so
+"why did Google not read this?" could not be answered after a fallback succeeded. The trace line
+(`lib/receipt-log.ts`, `ocr.note`) now records, redacted, why the primary route was not used: no
+usable text layer, or the primary failure that made the fallback run.
+
+**Why the line was missing — root cause, partly open.** The stored `ocr_provider` for this receipt is
+`azure_document_intelligence`: for PDFs Google Vision is primary and Azure (prebuilt-receipt) runs
+only after Google failed, so the primary OCR failed for this PDF in production. Azure's text omitted
+the weight lines; the PDF itself (Skia/PDF from a browser print, one page, embedded fonts) has them.
+The reason Google failed for that import is still unknown (the owner could not find the runtime
+logs, and the failure was not logged at the time — see Observability above; a missing `GCP_*`
+variable in that environment is one possibility). For digital PDFs it no longer matters, because
+the text layer is read before any OCR; for scanned PDFs the next occurrence will now be logged.
+
 **Missing-data check.** Missing store, date, total, or an item's category → `REVIEW_REQUIRED`. Missing only an
 optional field (e.g. receipt number) does not require flagging the receipt as invalid.
 

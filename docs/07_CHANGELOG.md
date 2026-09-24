@@ -1,5 +1,39 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-24 (Price ingestion: wider catalog so search and the shopping plan have something to work with)
+### Part 3 of the search/planner work — per-source daily batch sizes
+- **Per-source limits:** `PRICE_SOURCES` entries carry their own batch size (Lidl 400, Billa 450, Penny 80, dm 700) instead of one shared pilot size of 80; the cron handler no longer passes a limit (`runPriceSources` still accepts an override).
+- **Billa:** pages through each category (`pageSize` ≤ 50, `ceil(limit / 9 / pageSize)` pages), stops on a short page, and checks the deadline before every request.
+- **dm:** sample modulus 160 → 20 (a superset of the earlier sample, so existing price histories continue), category lookups five at a time with the consecutive-failure circuit breaker kept (in-flight lookups finish; nothing new starts once the source looks down).
+- **Lidl:** grocery slug keywords widened from 31 to ~110 (candidates 111 → 205, ~97 → ~179 normalized products). Lidl's own category still decides what is kept.
+- **Dry run (no DB writes):** Billa 444, dm 680, Lidl 179, Penny 35 normalized products; every id unique; fetching took 0.3–6 s per source.
+- **Tests:** per-source/override limits and the real limits, Billa multi-page and short-page paging, dm concurrency cap (5) with order preserved and the adapted circuit breaker.
+- **Not done:** no ingestion was run against the shared database as part of this change; the next scheduled cron (or an approved manual run) writes the wider catalog.
+
+## 2026-09-24 (Receipts: digital PDFs are read from their text layer before OCR)
+### Owner-approved: new dependency `unpdf` — stacked on the weighed-lines PR (#30)
+- **Why:** the Albert PDF's OCR text (Azure fallback) lacked two weighed lines that the PDF itself contains; OCR of a digital PDF is strictly worse than its embedded text and costs a paid call.
+- **What:** `readPdfTextLayer()` (`lib/receipt-pdf.ts`) is tried first for PDFs; a usable text layer (≥ 60 non-space characters, ≥ 3 two-decimal amounts) goes straight to structuring with `ocr_provider = pdf_text_layer`; otherwise Google/Azure OCR run exactly as before. Photos unchanged. On the real receipt all three weight lines are present with correct diacritics.
+- **Observability:** `ocr.note` in the import's log line now records, redacted, why the primary route was not used — including the primary OCR failure when the fallback succeeded, which was previously lost.
+- **UI:** `ocrProviderLabel()` names all three sources (the two inline ternaries in the receipt screens are replaced).
+- **Verified:** `unpdf` bundles and runs in a real `next build` + `next start`, not only under vitest.
+- **Tests:** 11 unit tests (usable-text rule, reading a generated PDF, image-only PDF, non-PDF bytes, empty file, provider labels) and 3 action-level DB tests (text layer used with no OCR call, image-only PDF falls back to OCR, photos unaffected). The receipts action suite passes against the database.
+
+## 2026-09-24 (Receipts: weighed lines, rounding artifacts removed, placement gate)
+### Follow-up to the Albert receipt report — stacked on the receipt-total PR (#29)
+- **Root cause of the weighed-item weakness:** the OCR text (Azure fallback — Google Vision PDF OCR had failed) dropped the "0.43 x 34.90 Kč" / "0.935 x 19.90 Kč" lines; the model correctly output null. Why Google failed is open (needs production logs).
+- **Handled deterministically:** `unitForQuantity()` (fractional quantity + empty/"ks" unit → kg), `unitPriceUnknown` (no quantity and no unit price on the receipt → keep the total, record no unit price), prompt rule for weighed lines.
+- **Bug found and fixed on the way:** the storage-location gate in `processReceiptImport()` looked at the unfiltered items, so an unplaceable rounding line sent an otherwise clean receipt to review; its test had only passed while the rounding artifacts existed in the catalog.
+- **Data:** rounding artifacts deleted from the shared database (2 purchase items, 2 pantry items, 2 catalog products incl. 1 price observation); purchase totals unchanged.
+- **Tests:** 6 unit tests (weighed lines, `unitForQuantity`, prompt rule) and 2 action-level DB tests; the receipts action suite passes 65/65.
+
+## 2026-09-24 (Fix: receipt total wrongly reduced by a savings summary; rounding line imported as a product)
+### Owner report: an Albert purchase of 1 055,00 Kč was recorded as 886,96 Kč
+- **Cause:** Albert's line prices are already the reduced ones; "Díky akcím jste ušetřili 168.00 Kč" is only a summary. `purchases.total` was always lines − `discountTotal`, and `isReceiptConsistent()` assumed the same, so the correct receipt was sent to review and 168 Kč was subtracted on confirmation.
+- **Fix:** `isReceiptConsistent()` accepts the second reading (no line-level discount and lines ≈ total); new `resolvePurchaseAmounts()` records the stated total (the amount paid) whenever it agrees with the lines under either reading (± 1 Kč), otherwise computes from the lines as before; `purchases.discount` stays the amount saved. New `isRoundingLine()` keeps "ZAOKROUHLENÍ …" out of the imported items.
+- **Data:** the affected purchase corrected 886,96 → 1 055,00 Kč (guarded on the old value). Rounding artifacts already created by the bug were left pending a decision.
+- **Tests:** the whole receipt (31 lines from the PDF) as a fixture, 8 `resolvePurchaseAmounts` cases, rounding-line cases, and 3 action-level DB tests — confirmed to fail on the old code (e.g. 29,8 instead of 49,8) and pass now.
+
 ## 2026-09-24 (Shopping planner: where to buy what in at most N stores, with priorities and savings)
 ### Part 2 of the owner's shopping-planner request — stacked on the product-search PR (#33)
 - **Planner** (`lib/shopping-plan.ts`): cheapest plan over 1..N stores covering the most items; priority stores preferred (then fewer stores, then cheaper) within max(5 Kč, 3 %) of the cheapest; per-item alternatives and differences; saving against the best single store, cost of the store limit and of the priority preference. Pure, deterministic.

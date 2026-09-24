@@ -1,6 +1,7 @@
 import type { ItemCategory } from '@/lib/types'
 import {
   fetchDiscoveryCategoryPage,
+  MAX_PAGE_SIZE,
   toNormalizedUnitPrice,
   unitPriceMatchesPackage,
   UNIT_PRICE_TOLERANCE,
@@ -56,16 +57,23 @@ export async function fetchBillaCategoryPage(slug: string, page: number, pageSiz
 export async function fetchBillaProducts(limit: number, options: FetchOptions = {}): Promise<BillaRawProduct[]> {
   if (limit <= 0) return []
   const perCategory = Math.ceil(limit / BILLA_GROCERY_CATEGORY_SLUGS.length)
+  const pageSize = Math.min(perCategory, MAX_PAGE_SIZE)
+  const pages = Math.ceil(perCategory / pageSize)
   const products: BillaRawProduct[] = []
   const seen = new Set<string>()
   for (const slug of BILLA_GROCERY_CATEGORY_SLUGS) {
-    // Out of time budget: stop asking, keep what we have (the caller reports the run as truncated).
-    if (options.deadline != null && Date.now() >= options.deadline) break
-    for (const product of await fetchBillaCategoryPage(slug, 0, perCategory)) {
-      // A product can be listed under two top-level categories; keep it once.
-      if (seen.has(product.sku)) continue
-      seen.add(product.sku)
-      products.push(product)
+    for (let page = 0; page < pages; page++) {
+      // Out of time budget: stop asking, keep what we have (the caller reports the run as truncated).
+      if (options.deadline != null && Date.now() >= options.deadline) return products.slice(0, limit)
+      const results = await fetchBillaCategoryPage(slug, page, pageSize)
+      for (const product of results) {
+        // A product can be listed under two top-level categories; keep it once.
+        if (seen.has(product.sku)) continue
+        seen.add(product.sku)
+        products.push(product)
+      }
+      // A short page is the category's last: nothing more to ask for.
+      if (results.length < pageSize) break
     }
   }
   return products.slice(0, limit)

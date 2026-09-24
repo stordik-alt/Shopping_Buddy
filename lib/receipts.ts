@@ -25,6 +25,11 @@ export type ReceiptLineItem = {
   /** Total discount applied to this whole line (not per unit), in currency units, never negative.
    *  What was actually paid for the line is `price × quantity − discount`. Omitted when none. */
   discount?: number
+  /** True when the receipt text carried neither a quantity nor a unit price for this line (typically
+   *  a weighed item whose "0.43 x 34.90 Kč" line the OCR dropped), so `price` is only the line total
+   *  taken as one piece. Such a line still counts towards what was spent, but must not be recorded as
+   *  the product's unit price — 15,00 Kč for "1 ks" of apples is not a price per kilo. */
+  unitPriceUnknown?: boolean
   location?: PantryLocation
   confidence?: number
 }
@@ -346,6 +351,7 @@ Rules — follow these exactly:
 - Do not "correct" a product name into a different, more common product based on a guess (e.g. do not change a real product name just because it looks like an OCR error for something else).
 - Every numeric value must come directly from the text — never calculated, rounded, or assumed.
 - Discounts: "totalPrice" is the item line's price BEFORE any discount (the amount printed on the item line, i.e. quantity × unit price). "discount" is the positive amount taken off that one line (e.g. a "Sleva -5,00" line printed right under it) or null if none. Write discount amounts as positive numbers even though the receipt prints them with a minus sign. "discountTotal" is the total of ALL discounts on the receipt, including the per-item ones and any receipt-wide ones (coupons, loyalty-card rebates). "total" is the final amount actually paid.
+- Items sold by weight: the receipt prints the weight and the price per kilogram (e.g. "0.37 x 69.90 Kč") and the line total. "quantity" is the weight (0.37), "unit" is "kg" unless another weight unit is printed, "unitPrice" is the price per kilogram and "totalPrice" the line total. If the weight/price line is not present in the text, output null for quantity and unitPrice — never derive the weight from the total.
 - Never output a discount, coupon, rounding, deposit or payment line as its own item — attach a discount to the item it belongs to, or, if it belongs to no single item, count it only in "discountTotal". Every item must be a purchased product with a non-negative price.
 - Give each item and the overall extraction a confidence score between 0 and 1, reflecting how certain you are the OCR text actually supports that reading.
 
@@ -393,19 +399,27 @@ function sumItemDiscounts(items: ExtractedReceiptItem[]): number {
   return items.reduce((sum, item) => sum + (item.discount ?? 0), 0)
 }
 
-/** Whether the sum of line items minus discounts matches the receipt's stated total. Line
- *  `totalPrice`s are pre-discount (see the structuring prompt), so *all* discounts — per-line and
- *  receipt-wide — are subtracted once via `discountTotal`, which by definition includes the
- *  per-line ones. When the parser gave no `discountTotal` but did attribute discounts to lines,
- *  those are used instead of assuming zero; and line discounts that add up to *more* than a stated
- *  `discountTotal` contradict it, so that's inconsistent rather than silently trusted. */
+/** Whether the receipt's lines and discounts add up to its stated total. Line `totalPrice`s are
+ *  normally pre-discount (see the structuring prompt), so the discounts — per-line and receipt-wide —
+ *  are subtracted once via `discountTotal`, which by definition includes the per-line ones. When
+ *  the parser gave no `discountTotal` but did attribute discounts to lines, those are used instead
+ *  of assuming zero; and line discounts that add up to *more* than a stated `discountTotal`
+ *  contradict it, so that's inconsistent rather than silently trusted.
+ *
+ *  A receipt-wide discount with no line-level ones has a second, equally valid reading: it is only
+ *  a summary of what the promotions saved, and the printed line prices are already the reduced ones
+ *  (Albert prints "Díky akcím jste ušetřili 168.00 Kč" under a total that equals the plain sum of
+ *  its lines). Then the lines add up to the total *without* subtracting anything — subtracting
+ *  again would be wrong, and must not send a correct receipt to manual review. */
 export function isReceiptConsistent(receipt: ExtractedReceipt): boolean {
   if (receipt.total == null) return false
   const itemsTotal = receipt.items.reduce((sum, item) => sum + (item.totalPrice ?? 0), 0)
   const lineDiscounts = sumItemDiscounts(receipt.items)
   if (receipt.discountTotal != null && lineDiscounts > receipt.discountTotal + CONSISTENCY_TOLERANCE) return false
   const discount = receipt.discountTotal ?? lineDiscounts
-  return Math.abs(itemsTotal - discount - receipt.total) <= CONSISTENCY_TOLERANCE
+  if (Math.abs(itemsTotal - discount - receipt.total) <= CONSISTENCY_TOLERANCE) return true
+  // The discount is already reflected in the line prices (only when no line carries its own).
+  return lineDiscounts === 0 && Math.abs(itemsTotal - receipt.total) <= CONSISTENCY_TOLERANCE
 }
 
 /** Amounts that can't be legitimate for a purchased product: negative prices or discounts, or a
@@ -548,6 +562,22 @@ export function resolveItemPlacement(
   return { category: aiCategory, location }
 }
 
+/** A fractional quantity cannot be a count of pieces ("0.37 ks"), so it is a weight: a line printed
+ *  "0.37 x 69.90 Kč" is 0.37 of the unit the price refers to. Czech retail prices weighed goods per
+ *  kilogram, and the model leaves the unit empty for such lines (which defaults to "ks"), so an
+ *  empty/"ks" unit with a fractional quantity becomes "kg". An explicit unit (g, l, ...) is kept. */
+export function unitForQuantity(unit: ItemUnit, quantity: number): ItemUnit {
+  return unit === 'ks' && !Number.isInteger(quantity) ? 'kg' : unit
+}
+
+/** A cash-rounding line ("ZAOKROUHLENÍ PŘÍJEM 0.40 Kč" on an Albert receipt). It is part of the
+ *  amount paid, not a purchased product: the structuring prompt forbids emitting it as an item, but
+ *  the model does anyway, and a rounding "product" would end up in the purchase history and the
+ *  pantry. Matched by name, deterministically, so it doesn't depend on the model obeying. */
+export function isRoundingLine(name: string): boolean {
+  return /^\s*zaokrouhlen/i.test(name.normalize('NFD').replace(/[\u0300-\u036f]/g, ''))
+}
+
 /** Turns a validated (or human-corrected) extraction into the `ReceiptLineItem[]` shape
  *  `importReceiptAction` already knows how to turn into a real purchase — the point where the OCR
  *  pipeline and the existing manual-entry path converge. `catalog`, when supplied, lets this
@@ -558,7 +588,7 @@ export function resolveItemPlacement(
  *  nothing to record. */
 export function toReceiptLineItems(receipt: ExtractedReceipt, catalog: ProductCatalogEntry[] = []): ReceiptLineItem[] {
   return receipt.items
-    .filter((item) => item.name.trim().length > 0)
+    .filter((item) => item.name.trim().length > 0 && !isRoundingLine(item.name))
     .map((item) => {
       const quantity = item.quantity ?? 1
       // ReceiptLineItem.price is a *per-unit* price (receiptTotal/createPurchaseFromReceiptItems
@@ -572,8 +602,9 @@ export function toReceiptLineItems(receipt: ExtractedReceipt, catalog: ProductCa
         name: item.name.trim(),
         category: placement?.category ?? item.category ?? ('Ostatní' as ItemCategory),
         quantity,
-        unit: normalizeReceiptUnit(item.unit),
+        unit: unitForQuantity(normalizeReceiptUnit(item.unit), quantity),
         price,
+        ...(item.unitPrice == null && item.quantity == null && item.totalPrice != null && { unitPriceUnknown: true }),
         // `price` above stays the pre-discount unit price; the line's discount travels separately
         // and is applied when the purchase is created (see receiptTotal / netUnitPrice).
         ...(item.discount != null && item.discount > 0 && { discount: item.discount }),
@@ -608,4 +639,35 @@ export function receiptDiscounts(items: ReceiptLineItem[], receiptDiscountTotal:
   const lineDiscounts = items.reduce((sum, item) => sum + (item.discount ?? 0), 0)
   const discount = Math.max(receiptDiscountTotal ?? 0, lineDiscounts)
   return { discount: roundToCents(discount), unallocated: roundToCents(discount - lineDiscounts) }
+}
+
+/** How far the receipt's stated total may sit from the summed lines and still be considered the
+ *  same amount: cash payments are rounded to whole crowns (up to ±0.50) and weighed lines carry a
+ *  few haléře of rounding each. */
+const TOTAL_RECONCILIATION_TOLERANCE = 1
+
+/** The amounts recorded for a purchase: `discount` is how much was saved (for "sleva X Kč" in the
+ *  history) and `total` is what was actually paid.
+ *
+ *  The receipt's stated total is the amount paid, so when it agrees with the lines it is used as it
+ *  is. It agrees in either of the two ways a receipt-wide discount appears: the line prices already
+ *  include it (Albert: "Díky akcím jste ušetřili 168 Kč" is only a summary, the lines sum to the
+ *  total), or the lines are pre-discount and the total is lower by the receipt-wide part (a coupon).
+ *  Subtracting a discount that is already in the line prices — which the previous calculation always
+ *  did — understated an Albert purchase of 1 055,00 Kč as 886,96 Kč. When the stated total agrees
+ *  with neither reading (or is unknown), the amount is computed from the lines as before and the
+ *  receipt is already flagged for review by `isReceiptConsistent()`. */
+export function resolvePurchaseAmounts(
+  items: ReceiptLineItem[],
+  receiptDiscountTotal: number | null,
+  statedTotal: number | null,
+): { discount: number; total: number } {
+  const { discount, unallocated } = receiptDiscounts(items, receiptDiscountTotal)
+  const itemsNet = receiptTotal(items)
+  if (statedTotal != null && Number.isFinite(statedTotal) && statedTotal > 0) {
+    const alreadyReflected = Math.abs(itemsNet - statedTotal) <= TOTAL_RECONCILIATION_TOLERANCE
+    const subtracted = Math.abs(itemsNet - unallocated - statedTotal) <= TOTAL_RECONCILIATION_TOLERANCE
+    if (alreadyReflected || subtracted) return { discount, total: roundToCents(statedTotal) }
+  }
+  return { discount, total: Math.max(0, roundToCents(itemsNet - unallocated)) }
 }

@@ -10,6 +10,7 @@ import {
 } from '@/lib/db/queries'
 import { billaConnector } from '@/lib/ingestion/billa'
 import { dmConnector } from '@/lib/ingestion/dm'
+import { kosikConnector } from '@/lib/ingestion/kosik'
 import { lidlConnector } from '@/lib/ingestion/lidl'
 import { pennyConnector } from '@/lib/ingestion/penny'
 import { rohlikConnector } from '@/lib/ingestion/rohlik'
@@ -165,6 +166,8 @@ export const PRICE_SOURCES: PriceSource[] = [
   { source: dmConnector.source, limit: 700, run: (limit, options) => ingestPrices(dmConnector, limit, options) },
   // Online-only: a run is ~10 category requests plus 2 requests per 50 products, well inside the budget.
   { source: rohlikConnector.source, limit: 500, run: (limit, options) => ingestPrices(rohlikConnector, limit, options) },
+  // Online-only, 30 products per category request: ~30 requests for the batch, plus the menu.
+  { source: kosikConnector.source, limit: 900, run: (limit, options) => ingestPrices(kosikConnector, limit, options) },
 ]
 
 export type SourceOutcome = IngestResult | { error: string } | { skipped: string }

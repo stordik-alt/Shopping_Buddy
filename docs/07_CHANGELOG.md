@@ -1,5 +1,13 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-24 (Store connectors: Penny CZ connector, shared retailer-platform module)
+### "External price ingestion" — third connector; stacked on the Billa PR (#23)
+- **Penny connector** (`lib/ingestion/penny.ts`): penny.cz uses the same web-shop platform and JSON endpoint as Billa (robots.txt has no Disallow rules; no auth/CAPTCHA). Its whole web catalog is the **current week's offers** (38 products, each with a real validity window), so it feeds `deals` with genuinely dated promotions and records a regular price only when the source states one (`standard`, else `crossed`). Offers with no stated regular price are stored as a deal only.
+- **Shared module** `lib/ingestion/product-discovery.ts` now holds what Billa and Penny share (endpoint fetch, haléře → Kč, unit-price conversion, price-vs-package validation); Billa was switched onto it with its tests unchanged.
+- **Interface change:** `NormalizedProduct.regularPrice`/`unitPrice` are nullable; `ingestPrices()` records no price observation when they are `null`.
+- **Migration `0016_product_source_penny`** adds the `penny` enum value (idempotent); **not yet applied** to the shared database. `PRICE_SOURCES` now runs Lidl, Billa and Penny.
+- **Tests:** 19 new Penny tests plus 1 orchestrator test; live dry run (no DB writes): 35/38 offers normalized, 3 correctly rejected as non-food.
+
 ## 2026-09-24 (Store connectors: shared connector interface, Billa CZ connector)
 ### "External price ingestion" — second connector, built on a refactor of the Lidl-specific pipeline
 - **Shared interface:** `lib/ingestion/types.ts` (`PriceConnector`, `NormalizedProduct`, `IngestResult`) and a generic `ingestPrices(connector, limit)` in `lib/ingestion/ingest.ts` replace the Lidl-only `ingestLidlPrices()`. Lidl's fetch/normalize code and tests are unchanged; it is exposed as `lidlConnector`. `queries.ts`'s hard-coded `'lidl'` source type is now derived from the `product_source` enum.

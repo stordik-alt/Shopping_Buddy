@@ -645,10 +645,17 @@ export async function getProductPrices(): Promise<ProductPrice[]> {
       const activeDealByLocation = new Map(
         product.deals.filter((deal) => deal.validUntil >= TODAY && deal.storeLocationId).map((deal) => [deal.storeLocationId, deal]),
       )
-      // An online-only chain's deals have no branch; they belong to the chain's chain-wide price.
-      const activeChainDealByStore = new Map(
-        product.deals.filter((deal) => deal.validUntil >= TODAY && !deal.storeLocationId).map((deal) => [deal.storeId, deal]),
-      )
+      // A chain-wide (CHAIN-scope) price has no branch, so it takes the chain's active promotion
+      // whichever branch it is stored against: ingestion attaches a retailer's chain-wide promotion to
+      // one canonical branch (getCanonicalStoreLocationId), and an online-only chain's has none at all.
+      // The cheapest active one wins, so the result does not depend on row order. Without this a
+      // retailer's ingested promotions never reached the price comparison for its chain-wide prices.
+      const activeChainDealByStore = new Map<string, (typeof product.deals)[number]>()
+      for (const deal of product.deals) {
+        if (deal.validUntil < TODAY) continue
+        const current = activeChainDealByStore.get(deal.storeId)
+        if (!current || Number(deal.dealPrice) < Number(current.dealPrice)) activeChainDealByStore.set(deal.storeId, deal)
+      }
 
       return {
         productName: product.name,

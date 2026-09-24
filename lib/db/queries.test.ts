@@ -573,6 +573,38 @@ describe('upsertActiveDeal', () => {
       }
     })
 
+    it('shows a branch-attached deal on the same chain\'s chain-wide price, choosing the cheapest active one', async () => {
+      const product = await createProduct()
+      try {
+        const storeId = await getStoreIdByChain('Lidl')
+        const locationId = await getCanonicalStoreLocationId('Lidl')
+        await db.insert(schema.prices).values({
+          productId: product.id,
+          storeId,
+          storeLocationId: null,
+          priceScope: 'CHAIN',
+          sourceType: 'OFFICIAL',
+          locationResolution: 'NOT_APPLICABLE',
+          regularPrice: '30.00',
+          unit: 'ks',
+          unitPrice: '30.00',
+          observedAt: '2026-09-24',
+          validFrom: '2026-09-24',
+        })
+        await db.insert(schema.deals).values([
+          { productId: product.id, storeId, storeLocationId: locationId, dealPrice: '22.00', validFrom: '2026-09-01', validUntil: '2099-01-01' },
+          { productId: product.id, storeId, storeLocationId: locationId, dealPrice: '19.00', validFrom: '2026-09-01', validUntil: '2099-06-01' },
+          { productId: product.id, storeId, storeLocationId: locationId, dealPrice: '5.00', validFrom: '2020-01-01', validUntil: '2020-02-01' }, // expired
+        ])
+
+        const found = (await getProductPrices()).find((entry) => entry.productName === product.name)
+        expect(found?.prices).toHaveLength(1)
+        expect(found?.prices[0]).toMatchObject({ regularPrice: 30, dealPrice: 19, dealValidUntil: '2099-06-01' })
+      } finally {
+        await db.delete(schema.products).where(eq(schema.products.id, product.id))
+      }
+    })
+
     it("shows an online chain's active deal on its chain-wide price", async () => {
       const store = await createOnlineStore()
       const product = await createProduct()

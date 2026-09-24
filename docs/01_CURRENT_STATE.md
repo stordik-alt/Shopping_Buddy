@@ -669,6 +669,8 @@ The long-term shopping-list model should support:
 
 The shopping-list domain should remain deterministic and database-backed.
 
+**Update 2026-09-24 — a receipt import ticks off the list.** When a receipt becomes a purchase (manual entry, automatic OCR, reviewed or duplicate-resolved import — all go through `createPurchaseFromReceiptItems`), the household's open list items are matched against the receipt lines (`lib/receipt-list-match.ts`, pure). A *certain* match (same catalog product, or the same name ignoring case/diacritics/punctuation) is ticked automatically; a *plausible* one (every word of the list item appears in the receipt line, e.g. "Mléko" ↔ "MLEKO POLOTUC. 1L") is offered on the Rozpočet tab (`ReceiptListSuggestions`) and ticked only after confirmation — the server re-derives the proposals and accepts only those, so a client cannot tick an arbitrary item. A ticked item takes the receipt's real quantity, unit and per-unit price paid, and records `shopping_list_items.checked_by_purchase_id`; `completePurchaseAction` skips those items (the receipt already recorded the purchase and restocked the pantry) but still removes them from the list. `shopping_list_items.quantity` is now `numeric(10,3)` (weighed items). Migration `0022_receipt_checks_shopping_list`. Limits: one receipt line per list item (repeated lines of the same product are not summed), and matching is by words, not by fuzzy spelling.
+
 ---
 
 # 18. Budget and Expenses

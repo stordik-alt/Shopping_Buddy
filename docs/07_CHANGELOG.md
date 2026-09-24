@@ -1,5 +1,15 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-24 (Receipts: an imported receipt ticks off the shopping list)
+### New feature — shopping list no longer stays open after the receipt is imported
+- **Behaviour:** after a receipt is imported, list items it certainly covers (same catalog product or same name ignoring case/diacritics) are ticked automatically; plausible ones are offered on the Rozpočet tab for confirmation. A ticked item gets the receipt's real quantity, unit and price paid (owner's requirement).
+- **Matching:** `lib/receipt-list-match.ts` (pure, deterministic): certain pass by product id / normalized name, then a loose word-containment pass that only ever *suggests*. One receipt line per list item and vice versa.
+- **Server:** `lib/db/receipt-list.ts`; auto-tick runs at the end of `createPurchaseFromReceiptItems` (best-effort and logged, so a failure cannot fail an already-saved purchase); `getReceiptListSuggestionsAction` / `applyReceiptListMatchesAction` for the confirmation, household-scoped and limited to server-proposed pairs. Written values come from the stored purchase, never from the client.
+- **No double counting:** `completePurchaseAction` skips items with `checked_by_purchase_id` (the receipt already created the purchase and restocked the pantry) but still removes them from the list.
+- **Database:** migration `0022_receipt_checks_shopping_list` — `shopping_list_items.quantity` integer → numeric(10,3), new nullable `checked_by_purchase_id` FK to `purchases` (ON DELETE SET NULL). Applied to the shared Neon database with `db:migrate`; the journal timestamp was set after 0021's so the migrator does not skip it. Until the new code is deployed, the old code may show a list quantity as "1.000".
+- **UI:** new `components/budget/receipt-list-suggestions.tsx` (wrapping layout, 44 px touch targets, no horizontal scrolling); wired in `app-shell.tsx` for all four import paths.
+- **Tests:** 10 unit tests for the matcher; 8 DB tests in `lib/db/receipt-list.test.ts` (values written, product match, loose match left alone, household scoping, forged pair, already-ticked item); `completePurchaseAction` no-double-purchase tests; a manual-import wiring test. Not yet checked in a real browser or on a phone.
+
 ## 2026-09-24 (Receipts: phone/camera photos failed with React error #441)
 ### Fix — receipt photo is uploaded as a binary File in FormData, not a base64 string argument
 - **Cause (reproduced with the real React Flight encoder/decoder):** the Server Action decoder adds the length of every string it resolves to the action's argument array and throws `Maximum array nesting exceeded` past 1,000,000 characters (hard-coded, not configurable) whenever the array has more than one element. `uploadReceiptAction(base64, mimeType)` therefore failed for any photo over ~750 KB; 0.9 M characters decoded, 1.2 M did not. In production the message is hidden and only `Minified React error #441` reaches the browser. This is why a heavily shrunk photo worked and a 4 MB one did not — the client-side compression to 4 MB could never have fixed it.

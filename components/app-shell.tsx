@@ -20,8 +20,10 @@ import { markAllNotificationsReadAction, markNotificationReadAction } from '@/ap
 import { adjustPantryItemQuantityAction, confirmPantryItemAction, movePantryItemAction, removePantryItemAction } from '@/app/actions/pantry'
 import { completePurchaseAction } from '@/app/actions/purchases'
 import {
+  applyReceiptListMatchesAction,
   cancelReceiptImportAction,
   confirmReceiptReviewAction,
+  getReceiptListSuggestionsAction,
   importReceiptAction,
   processUploadedReceiptAction,
   resolveDuplicateReceiptAction,
@@ -35,6 +37,7 @@ import { ExpenseHistory } from '@/components/budget/expense-history'
 import { ExpenseModal } from '@/components/budget/expense-modal'
 import { PurchaseHistory } from '@/components/budget/purchase-history'
 import { ReceiptImport } from '@/components/budget/receipt-import'
+import { ReceiptListSuggestions } from '@/components/budget/receipt-list-suggestions'
 import { ReceiptPending } from '@/components/budget/receipt-pending'
 import { DashboardOverview } from '@/components/dashboard/dashboard-overview'
 import { MealPlan } from '@/components/dashboard/meal-plan'
@@ -52,6 +55,7 @@ import { StoreDirectory } from '@/components/stores/store-directory'
 import { TODAY } from '@/lib/budget'
 import { longDate } from '@/lib/format'
 import type { HouseholdData, ReceiptImportState } from '@/lib/db/queries'
+import type { ReceiptListSuggestion } from '@/lib/db/receipt-list'
 import type { Ingredient, MealType } from '@/lib/meal-plans'
 import type { ProductPrice } from '@/lib/prices'
 import { pollReceiptStatus } from '@/lib/receipt-progress'
@@ -93,6 +97,9 @@ export function AppShell({
   const [notifications, setNotifications] = useState(initialData.notifications)
   const [expenses, setExpenses] = useState(initialData.expenses)
   const [newItem, setNewItem] = useState('')
+  // Plausible receipt ↔ shopping-list matches waiting for the household to confirm (certain ones were
+  // ticked on the server already).
+  const [listSuggestions, setListSuggestions] = useState<{ purchaseId: string; items: ReceiptListSuggestion[] } | null>(null)
   const [shoppingLists, setShoppingLists] = useState(initialData.shoppingLists)
   const [pendingInvitations, setPendingInvitations] = useState(initialData.pendingInvitations)
   const [pantryItems, setPantryItems] = useState(initialData.pantryItems)
@@ -278,9 +285,33 @@ export function AppShell({
     router.refresh() // picks up the pantry deduction the server action just made
   }
 
+  /** Asks the server which open shopping-list items a just-imported purchase plausibly covers. The
+   *  import itself has already succeeded, so a failure here is logged rather than shown as an import
+   *  error; the household can still tick the items by hand. */
+  async function offerListMatches(purchaseId: string | null | undefined) {
+    if (!purchaseId) return
+    try {
+      const suggestions = await getReceiptListSuggestionsAction(purchaseId)
+      setListSuggestions(suggestions.length > 0 ? { purchaseId, items: suggestions } : null)
+    } catch (error) {
+      console.error('Could not load shopping-list suggestions for the receipt', error)
+    }
+  }
+
+  async function confirmListSuggestions(selected: ReceiptListSuggestion[]) {
+    if (!listSuggestions) return
+    await applyReceiptListMatchesAction(
+      listSuggestions.purchaseId,
+      selected.map((suggestion) => ({ listItemId: suggestion.listItemId, purchaseItemId: suggestion.purchaseItemId })),
+    )
+    setListSuggestions(null)
+    router.refresh() // the list shows the newly ticked items with their real price and quantity
+  }
+
   async function importReceipt(items: ReceiptLineItem[], options: { date?: string; storeLocationId?: string }) {
-    await importReceiptAction(items, options)
+    const { purchase } = await importReceiptAction(items, options)
     router.refresh() // picks up the new purchase-history entry and restocked pantry
+    await offerListMatches(purchase.id)
   }
 
   function upsertPendingReceipt(result: ReceiptImportState) {
@@ -306,6 +337,7 @@ export function AppShell({
       const result = await processUploadedReceiptAction(uploaded.id)
       upsertPendingReceipt(result)
       router.refresh() // picks up a new purchase/pantry restock if it completed outright
+      await offerListMatches(result.purchaseId)
       return result
     } finally {
       stopPolling()
@@ -316,19 +348,22 @@ export function AppShell({
     const result = await retryReceiptImportAction(id)
     upsertPendingReceipt(result)
     router.refresh()
+    await offerListMatches(result.purchaseId)
     return result
   }
 
   async function confirmReceiptReview(id: string, items: ReceiptLineItem[], date: string) {
-    await confirmReceiptReviewAction(id, items, { date })
+    const { purchase } = await confirmReceiptReviewAction(id, items, { date })
     setPendingReceiptImports((current) => current.filter((r) => r.id !== id))
     router.refresh()
+    await offerListMatches(purchase.id)
   }
 
   async function resolveDuplicateReceipt(id: string, resolution: 'save_new' | 'use_existing' | 'cancel', items?: ReceiptLineItem[], date?: string) {
-    await resolveDuplicateReceiptAction(id, resolution, items, { date })
+    const { purchase } = await resolveDuplicateReceiptAction(id, resolution, items, { date })
     setPendingReceiptImports((current) => current.filter((r) => r.id !== id))
     router.refresh()
+    await offerListMatches(purchase?.id)
   }
 
   function cancelReceiptImport(id: string) {
@@ -455,6 +490,14 @@ export function AppShell({
               {tab === 'Rozpočet' && (
                 <div className="space-y-5 lg:space-y-6">
                   {/* Imports waiting on the household come first: they need an answer, everything else is browsing. */}
+                  {listSuggestions && (
+                    <ReceiptListSuggestions
+                      key={listSuggestions.purchaseId}
+                      suggestions={listSuggestions.items}
+                      onConfirm={confirmListSuggestions}
+                      onDismiss={() => setListSuggestions(null)}
+                    />
+                  )}
                   <ReceiptPending
                     items={pendingReceiptImports}
                     onRetry={retryReceiptImport}

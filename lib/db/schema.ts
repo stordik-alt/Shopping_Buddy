@@ -296,10 +296,18 @@ export const shoppingListItems = pgTable('shopping_list_items', {
   name: text('name').notNull(),
   detail: text('detail').notNull().default(''),
   price: numeric('price', { precision: 10, scale: 2 }).notNull().default('0'),
-  quantity: integer('quantity').notNull().default(1),
+  // numeric, not integer — once a receipt has been matched to the item, this holds the quantity
+  // actually bought, which for a weighed product is fractional (0.582 kg). Same reasoning and
+  // `mode: 'number'` as purchaseItems.quantity.
+  quantity: numeric('quantity', { precision: 10, scale: 3, mode: 'number' }).notNull().default(1),
   unit: itemUnitEnum('unit').notNull().default('ks'),
   category: itemCategoryEnum('category').notNull().default('Ostatní'),
   done: boolean('done').notNull().default(false),
+  // The purchase (from an imported receipt) that ticked this item off. Null for an item the user
+  // ticked by hand. completePurchaseAction skips items with this set, because the receipt already
+  // created that purchase and restocked the pantry — turning them into a second purchase would
+  // count the same shopping trip twice.
+  checkedByPurchaseId: uuid('checked_by_purchase_id').references(() => purchases.id, { onDelete: 'set null' }),
   priority: itemPriorityEnum('priority').notNull().default('Normální'),
   note: text('note'),
   preferredStoreLocationId: uuid('preferred_store_location_id').references(() => storeLocations.id, { onDelete: 'set null' }),

@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import styles from './intro-screen.module.css'
 
-const SKIP_INTRO_KEY = 'shopping-buddy:skip-intro'
+// Versioned so an old test value cannot unexpectedly skip the new intro.
+const SKIP_INTRO_KEY = 'shopping-buddy:skip-intro:v2'
 
 export function IntroScreen() {
   const router = useRouter()

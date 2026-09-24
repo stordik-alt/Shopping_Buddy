@@ -12,7 +12,9 @@ export type ReceiptTrace = {
   importId: string
   /** Null only when the import row could not be loaded at all. */
   householdId: string | null
-  ocr: { status: ReceiptStageStatus; provider: string | null; ms: number | null }
+  /** `note` says why the primary route was not used: the PDF had no text layer, or the primary OCR
+   *  failed and a fallback read the file instead (redacted, never the text itself). */
+  ocr: { status: ReceiptStageStatus; provider: string | null; ms: number | null; note?: string | null }
   /** Photo clean-up before OCR (lib/receipt-image.ts): which steps ran and what it did to the
    *  image size. `failed` means the original was sent instead; `not_run` covers PDFs. */
   imagePrep: {

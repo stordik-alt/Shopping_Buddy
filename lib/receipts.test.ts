@@ -17,6 +17,7 @@ import {
   resolveItemPlacement,
   resolvePurchaseAmounts,
   toReceiptLineItems,
+  unitForQuantity,
   type ExtractedReceipt,
   type ExtractedReceiptItem,
   type ReceiptFingerprint,
@@ -479,5 +480,60 @@ describe('resolvePurchaseAmounts', () => {
 
   it('never returns a negative total', () => {
     expect(resolvePurchaseAmounts([line({ quantity: 1, price: 10 })], 50, null).total).toBe(0)
+  })
+})
+
+// The three weighed lines of the real Albert receipt, exactly as the parser returned them: the OCR
+// (Azure fallback) had dropped the "0.43 x 34.90 Kč" and "0.935 x 19.90 Kč" lines, so only the
+// paprika carried a weight and a price per kilo.
+describe('weighed lines', () => {
+  const weighed = (): ExtractedReceipt =>
+    extractedReceipt({
+      items: [
+        extractedItem({ name: 'JABLKA GALA', quantity: null, unit: null, unitPrice: null, totalPrice: 15, discount: null, confidence: 0.8 }),
+        extractedItem({ name: 'PAPRIKA ČERVENÁ', quantity: 0.37, unit: null, unitPrice: 69.9, totalPrice: 25.9, discount: null, confidence: 0.9 }),
+        extractedItem({ name: 'BRAMBORY KONZ POZDNÍ', quantity: null, unit: null, unitPrice: null, totalPrice: 18.6, discount: null, confidence: 0.8 }),
+      ],
+    })
+
+  it('a weight with a price per kilo becomes kilograms, not a fractional number of pieces', () => {
+    const [, paprika] = toReceiptLineItems(weighed())
+    expect(paprika).toMatchObject({ name: 'PAPRIKA ČERVENÁ', quantity: 0.37, unit: 'kg', price: 69.9 })
+  })
+
+  it('a line whose weight and unit price the OCR lost keeps its total but is flagged as having no unit price', () => {
+    const [apples, , potatoes] = toReceiptLineItems(weighed())
+    expect(apples).toMatchObject({ name: 'JABLKA GALA', quantity: 1, price: 15, unitPriceUnknown: true })
+    expect(potatoes).toMatchObject({ name: 'BRAMBORY KONZ POZDNÍ', quantity: 1, price: 18.6, unitPriceUnknown: true })
+    expect(receiptTotal(toReceiptLineItems(weighed()))).toBeCloseTo(15 + 0.37 * 69.9 + 18.6, 2) // spending stays right
+  })
+
+  it('does not flag a line that has a quantity or a unit price', () => {
+    const [ordinary, derived] = toReceiptLineItems(
+      extractedReceipt({
+        items: [
+          extractedItem({ quantity: 2, unitPrice: 24.9, totalPrice: 49.8 }),
+          extractedItem({ quantity: 2, unitPrice: null, totalPrice: 49.8 }), // unit price derived from total / quantity
+        ],
+      }),
+    )
+    expect(ordinary.unitPriceUnknown).toBeUndefined()
+    expect(derived.unitPriceUnknown).toBeUndefined()
+    expect(derived.price).toBe(24.9)
+  })
+})
+
+describe('unitForQuantity', () => {
+  it('turns "ks" with a fractional quantity into kg', () => {
+    expect(unitForQuantity('ks', 0.37)).toBe('kg')
+    expect(unitForQuantity('ks', 0.935)).toBe('kg')
+  })
+
+  it('leaves whole quantities and explicit non-piece units alone', () => {
+    expect(unitForQuantity('ks', 3)).toBe('ks')
+    expect(unitForQuantity('ks', 1)).toBe('ks')
+    expect(unitForQuantity('g', 0.5)).toBe('g')
+    expect(unitForQuantity('l', 1.5)).toBe('l')
+    expect(unitForQuantity('kg', 0.37)).toBe('kg')
   })
 })

@@ -9,7 +9,8 @@ import { getDb } from '@/lib/db/client'
 import { getProductCatalog, recordPriceObservation, restockPantryItem, toReceiptImportState, upsertProductCatalogDefaults, type ReceiptImportState } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
 import { inferPantryLocation } from '@/lib/pantry'
-import { logReceiptImport, newReceiptTrace, type ReceiptTrace } from '@/lib/receipt-log'
+import { logReceiptImport, newReceiptTrace, redactSecrets, type ReceiptTrace } from '@/lib/receipt-log'
+import { PDF_TEXT_LAYER_PROVIDER, readPdfTextLayer } from '@/lib/receipt-pdf'
 import { detectReceiptFileType, prepareReceiptImageForOcr } from '@/lib/receipt-image'
 import { RECEIPT_STALE_MS } from '@/lib/receipt-progress'
 import { matchProductByName } from '@/lib/products'
@@ -19,6 +20,7 @@ import {
   googleVisionPdfTextExtractor,
   googleVisionTextExtractor,
   isAzureReceiptFallbackConfigured,
+  isRoundingLine,
   isPotentialDuplicate,
   needsReview,
   netUnitPrice,
@@ -164,7 +166,8 @@ async function recordReceiptPriceObservations(
   if (!storeId) return
   await Promise.all(
     items
-      .filter((item) => item.productId && item.quantity > 0 && item.price >= 0)
+      // A line whose unit price the receipt never stated (only its total) is no price observation.
+      .filter((item) => item.productId && item.quantity > 0 && item.price >= 0 && !item.unitPriceUnknown)
       .map((item) => {
         // Deliberately the pre-discount shelf price, not what the household paid: a receipt
         // discount may be a personal coupon or loyalty rebate, not a shelf promotion, and
@@ -437,35 +440,56 @@ async function runReceiptPipeline(
   }
 
   let ocrText: string
-  let ocrProvider: 'google_vision' | 'azure_document_intelligence' | null = null
-  try {
-    const extractor = storedMimeType === 'application/pdf' ? googleVisionPdfTextExtractor : deps.textExtractor
-    try {
-      const ocrResult = await extractor.extractText(ocrInput)
-      ocrText = ocrResult.fullText
-      ocrProvider = 'google_vision'
-    } catch (primaryError) {
-      // Google remains primary. Azure runs only after a real OCR failure and only when configured.
-      if (!isAzureReceiptFallbackConfigured()) throw primaryError
+  let ocrProvider: typeof PDF_TEXT_LAYER_PROVIDER | 'google_vision' | 'azure_document_intelligence' | null = null
+  // Why the primary route was not used (no text layer / primary OCR failed) — for the log only.
+  let ocrNote: string | null = null
 
-      try {
-        const fallbackTextExtractor = deps.fallbackTextExtractor ?? azureReceiptTextExtractor
-        // Same input as the primary provider — the cleaned-up copy when preparation succeeded, the
-        // original when it did not (or for a PDF) — so the fallback benefits from the clean-up too.
-        const azureResult = await fallbackTextExtractor.extractText(ocrInput)
-        ocrText = azureResult.fullText
-        ocrProvider = 'azure_document_intelligence'
-      } catch (azureError) {
-        throw new Error(
-          `Primary OCR failed: ${primaryError instanceof Error ? primaryError.message : String(primaryError)}; Azure fallback failed: ${azureError instanceof Error ? azureError.message : String(azureError)}`,
-        )
-      }
-    }
-  } catch (error) {
-    trace.ocr = { status: 'failed', provider: null, ms: Date.now() - ocrStartedAt }
-    return update({ status: 'ocr_failed', errorMessage: `Nepodařilo se přečíst účtenku. Zkuste nahrát ostřejší fotografii. (${error instanceof Error ? error.message : String(error)})` })
+  // A digital PDF (a shop's e-receipt, a browser print) carries its own text, exactly as written —
+  // strictly better than OCR of the same page, which on a real Albert receipt dropped two weighed
+  // lines, and free. OCR runs only when there is no usable text layer (lib/receipt-pdf.ts).
+  let textLayer: string | null = null
+  if (storedMimeType === 'application/pdf') {
+    const layer = await readPdfTextLayer(ocrInput.base64)
+    if (layer.text != null) textLayer = layer.text
+    else ocrNote = layer.reason
   }
-  trace.ocr = { status: 'ok', provider: ocrProvider, ms: Date.now() - ocrStartedAt }
+
+  if (textLayer != null) {
+    ocrText = textLayer
+    ocrProvider = PDF_TEXT_LAYER_PROVIDER
+  } else {
+    try {
+      const extractor = storedMimeType === 'application/pdf' ? googleVisionPdfTextExtractor : deps.textExtractor
+      try {
+        const ocrResult = await extractor.extractText(ocrInput)
+        ocrText = ocrResult.fullText
+        ocrProvider = 'google_vision'
+      } catch (primaryError) {
+        // Google remains primary. Azure runs only after a real OCR failure and only when configured.
+        if (!isAzureReceiptFallbackConfigured()) throw primaryError
+
+        try {
+          const fallbackTextExtractor = deps.fallbackTextExtractor ?? azureReceiptTextExtractor
+          // Same input as the primary provider — the cleaned-up copy when preparation succeeded, the
+          // original when it did not (or for a PDF) — so the fallback benefits from the clean-up too.
+          const azureResult = await fallbackTextExtractor.extractText(ocrInput)
+          ocrText = azureResult.fullText
+          ocrProvider = 'azure_document_intelligence'
+          // The primary failure was otherwise recorded nowhere when the fallback succeeded, which made
+          // "why did Google not read this?" impossible to answer afterwards.
+          ocrNote = `primary OCR failed, fallback used: ${redactSecrets(primaryError instanceof Error ? primaryError.message : String(primaryError))}`
+        } catch (azureError) {
+          throw new Error(
+            `Primary OCR failed: ${primaryError instanceof Error ? primaryError.message : String(primaryError)}; Azure fallback failed: ${azureError instanceof Error ? azureError.message : String(azureError)}`,
+          )
+        }
+      }
+    } catch (error) {
+      trace.ocr = { status: 'failed', provider: null, ms: Date.now() - ocrStartedAt, note: ocrNote }
+      return update({ status: 'ocr_failed', errorMessage: `Nepodařilo se přečíst účtenku. Zkuste nahrát ostřejší fotografii. (${error instanceof Error ? error.message : String(error)})` })
+    }
+  }
+  trace.ocr = { status: 'ok', provider: ocrProvider, ms: Date.now() - ocrStartedAt, note: ocrNote }
 
   await update({ status: 'ocr_completed', ocrProvider, rawOcrText: ocrText })
   await update({ status: 'parsing' })
@@ -532,8 +556,10 @@ async function runReceiptPipeline(
   // review if any item's category+pantry-location can't be resolved confidently — never guess
   // where a product lives (docs/08_OCR_RECEIPT_PIPELINE.md's "NEHÁDEJ" rule, extended per the
   // product owner's pantry-tracking request).
+  // A cash-rounding line is not a product and is never stored (toReceiptLineItems drops it), so it
+  // has no storage location to resolve and must not stop the receipt.
   const unplaceable = extracted.items.some(
-    (item) => item.name.trim().length > 0 && resolveItemPlacement(matchProductByName(catalog, item.name), item.category, item.name) == null,
+    (item) => item.name.trim().length > 0 && !isRoundingLine(item.name) && resolveItemPlacement(matchProductByName(catalog, item.name), item.category, item.name) == null,
   )
   if (unplaceable) {
     trace.validation = 'review_required'

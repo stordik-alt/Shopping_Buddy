@@ -25,6 +25,11 @@ export type ReceiptLineItem = {
   /** Total discount applied to this whole line (not per unit), in currency units, never negative.
    *  What was actually paid for the line is `price × quantity − discount`. Omitted when none. */
   discount?: number
+  /** True when the receipt text carried neither a quantity nor a unit price for this line (typically
+   *  a weighed item whose "0.43 x 34.90 Kč" line the OCR dropped), so `price` is only the line total
+   *  taken as one piece. Such a line still counts towards what was spent, but must not be recorded as
+   *  the product's unit price — 15,00 Kč for "1 ks" of apples is not a price per kilo. */
+  unitPriceUnknown?: boolean
   location?: PantryLocation
   confidence?: number
 }
@@ -346,6 +351,7 @@ Rules — follow these exactly:
 - Do not "correct" a product name into a different, more common product based on a guess (e.g. do not change a real product name just because it looks like an OCR error for something else).
 - Every numeric value must come directly from the text — never calculated, rounded, or assumed.
 - Discounts: "totalPrice" is the item line's price BEFORE any discount (the amount printed on the item line, i.e. quantity × unit price). "discount" is the positive amount taken off that one line (e.g. a "Sleva -5,00" line printed right under it) or null if none. Write discount amounts as positive numbers even though the receipt prints them with a minus sign. "discountTotal" is the total of ALL discounts on the receipt, including the per-item ones and any receipt-wide ones (coupons, loyalty-card rebates). "total" is the final amount actually paid.
+- Items sold by weight: the receipt prints the weight and the price per kilogram (e.g. "0.37 x 69.90 Kč") and the line total. "quantity" is the weight (0.37), "unit" is "kg" unless another weight unit is printed, "unitPrice" is the price per kilogram and "totalPrice" the line total. If the weight/price line is not present in the text, output null for quantity and unitPrice — never derive the weight from the total.
 - Never output a discount, coupon, rounding, deposit or payment line as its own item — attach a discount to the item it belongs to, or, if it belongs to no single item, count it only in "discountTotal". Every item must be a purchased product with a non-negative price.
 - Give each item and the overall extraction a confidence score between 0 and 1, reflecting how certain you are the OCR text actually supports that reading.
 
@@ -556,6 +562,14 @@ export function resolveItemPlacement(
   return { category: aiCategory, location }
 }
 
+/** A fractional quantity cannot be a count of pieces ("0.37 ks"), so it is a weight: a line printed
+ *  "0.37 x 69.90 Kč" is 0.37 of the unit the price refers to. Czech retail prices weighed goods per
+ *  kilogram, and the model leaves the unit empty for such lines (which defaults to "ks"), so an
+ *  empty/"ks" unit with a fractional quantity becomes "kg". An explicit unit (g, l, ...) is kept. */
+export function unitForQuantity(unit: ItemUnit, quantity: number): ItemUnit {
+  return unit === 'ks' && !Number.isInteger(quantity) ? 'kg' : unit
+}
+
 /** A cash-rounding line ("ZAOKROUHLENÍ PŘÍJEM 0.40 Kč" on an Albert receipt). It is part of the
  *  amount paid, not a purchased product: the structuring prompt forbids emitting it as an item, but
  *  the model does anyway, and a rounding "product" would end up in the purchase history and the
@@ -588,8 +602,9 @@ export function toReceiptLineItems(receipt: ExtractedReceipt, catalog: ProductCa
         name: item.name.trim(),
         category: placement?.category ?? item.category ?? ('Ostatní' as ItemCategory),
         quantity,
-        unit: normalizeReceiptUnit(item.unit),
+        unit: unitForQuantity(normalizeReceiptUnit(item.unit), quantity),
         price,
+        ...(item.unitPrice == null && item.quantity == null && item.totalPrice != null && { unitPriceUnknown: true }),
         // `price` above stays the pre-discount unit price; the line's discount travels separately
         // and is applied when the purchase is created (see receiptTotal / netUnitPrice).
         ...(item.discount != null && item.discount > 0 && { discount: item.discount }),

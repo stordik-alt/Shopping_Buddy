@@ -1,5 +1,14 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-24 (Price ingestion: real observation dates, one price per SKU and day, old prices kept with dates)
+### Owner request: the current price follows the latest date; older prices are documented as old prices with their date — stacked on the run-time PR (#26)
+- **Real date:** ingestion now stamps `ingestionDate()` (Europe/Prague calendar date) instead of the fixed demo `TODAY` (2026-09-19), which had made every run's observations look like the same day.
+- **Latest wins, no duplicates:** `recordOfficialPrice()` + pure rules in `lib/ingestion/official-price.ts` — identical same-day repeat writes nothing, a differing same-day fetch refreshes the day's row, older data never displaces newer. Latest observations are loaded once per run (no extra query per product). Migration `0018_prices_official_daily_unique` adds the partial unique index; **not yet applied** to the shared database.
+- **Old prices with dates:** on a price change the previous observation is kept and closed with `valid_until` = the date the new price was first seen. `priceHistory` entries carry `validUntil`; new `previousPrice()` returns the price before the last change with its dates.
+- **Cron response** now also reports `unchanged` and `priceChanges`.
+- **Not done:** no UI for old prices yet; existing official rows keep their wrong 19 Sep date (needs an explicit decision); receipts are unchanged (append-only).
+- **Tests:** 26 new unit tests (write rules, Czech date, `previousPrice`, orchestrator dating/history/counters) and 7 DB-backed tests for the new queries (the unique-index test skips until 0018 is applied).
+
 ## 2026-09-24 (Price ingestion: run time brought under the function limit)
 ### Performance / reliability of `/api/cron/ingest-prices` — stacked on the DM PR (#25)
 - **Cause (measured):** ~1 database round trip per query, ~10 queries per new product (incl. a full-catalog join and a duplicated ref lookup per product) → ~190 s for three stores, ~270 s with Lidl, against a 300 s limit with no `maxDuration`.

@@ -8,6 +8,7 @@ import {
   effectivePrice,
   isDealActive,
   isHistoricLow,
+  previousPrice,
   suggestsStockingUp,
   type DealAssessment,
   type PricePoint,
@@ -83,6 +84,64 @@ describe('isHistoricLow', () => {
   it('ignores observations recorded on or after the current one, so it never compares against itself', () => {
     const current = price({ regularPrice: 40, recordedAt: '2026-09-19', priceHistory: [{ price: 40, recordedAt: '2026-09-19' }] })
     expect(isHistoricLow(current)).toBe(false)
+  })
+})
+
+describe('previousPrice', () => {
+  it('is null when the price has never changed, however often it was observed', () => {
+    const current = price({
+      regularPrice: 50,
+      recordedAt: '2026-09-24',
+      priceHistory: [
+        { price: 50, recordedAt: '2026-09-22' },
+        { price: 50, recordedAt: '2026-09-23' },
+        { price: 50, recordedAt: '2026-09-24' },
+      ],
+    })
+    expect(previousPrice(current)).toBeNull()
+  })
+
+  it('is null without any history', () => {
+    expect(previousPrice(price())).toBeNull()
+  })
+
+  it('returns the old price with the date it was seen and the date it ended', () => {
+    const current = price({
+      regularPrice: 45,
+      recordedAt: '2026-09-24',
+      priceHistory: [
+        { price: 50, recordedAt: '2026-09-20', validUntil: '2026-09-24' },
+        { price: 45, recordedAt: '2026-09-24', validUntil: null },
+      ],
+    })
+    expect(previousPrice(current)).toEqual({ price: 50, recordedAt: '2026-09-20', validUntil: '2026-09-24' })
+  })
+
+  it('returns the price before the LAST change, skipping repeated observations of an old price', () => {
+    const current = price({
+      regularPrice: 45,
+      recordedAt: '2026-09-24',
+      priceHistory: [
+        { price: 60, recordedAt: '2026-09-10', validUntil: '2026-09-15' },
+        { price: 50, recordedAt: '2026-09-15', validUntil: '2026-09-24' },
+        { price: 50, recordedAt: '2026-09-20' },
+        { price: 45, recordedAt: '2026-09-24' },
+      ],
+    })
+    // The most recent old observation is the second 50 (20 Sep); the change is what matters.
+    expect(previousPrice(current)).toMatchObject({ price: 50, recordedAt: '2026-09-20' })
+  })
+
+  it('ignores observations on or after the current date and reports no end date when none is known', () => {
+    const current = price({
+      regularPrice: 45,
+      recordedAt: '2026-09-24',
+      priceHistory: [
+        { price: 50, recordedAt: '2026-09-20' },
+        { price: 99, recordedAt: '2026-09-25' },
+      ],
+    })
+    expect(previousPrice(current)).toEqual({ price: 50, recordedAt: '2026-09-20', validUntil: null })
   })
 })
 

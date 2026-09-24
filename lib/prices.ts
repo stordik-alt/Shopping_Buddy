@@ -2,7 +2,17 @@ import type { Item, ItemCategory, ItemUnit, StoreChain } from '@/lib/types'
 
 export type PriceSourceType = 'RECEIPT' | 'OFFICIAL' | 'FLYER' | 'API' | 'OTHER'
 export type PriceScope = 'STORE' | 'STORE_FORMAT' | 'REGION' | 'CHAIN'
-export type PriceObservation = { price: number; recordedAt: string; sourceType?: PriceSourceType; priceScope?: PriceScope }
+export type PriceObservation = {
+  price: number
+  /** The date this price was observed. */
+  recordedAt: string
+  /** Set once a different, newer price replaced this one: the date the newer price was first
+   *  observed, i.e. the latest this price can have ended. Null/undefined while it is the current
+   *  price (or for sources that record no end date). */
+  validUntil?: string | null
+  sourceType?: PriceSourceType
+  priceScope?: PriceScope
+}
 
 export type PricePoint = {
   store: StoreChain
@@ -36,6 +46,18 @@ export function effectivePrice(price: PricePoint) {
 
 export function isDealActive(price: PricePoint, referenceDate: string) {
   return price.dealPrice != null && (price.dealValidUntil == null || price.dealValidUntil >= referenceDate)
+}
+
+/** The most recent OLDER regular price that differs from the current one — the "old price" — with
+ *  the date it was observed and, when known, the date it ended. `null` when the price has never
+ *  changed (or only one observation exists). Repeated observations of an unchanged price are
+ *  skipped, so this is the price before the last change, not merely the previous day's row. */
+export function previousPrice(price: PricePoint): { price: number; recordedAt: string; validUntil: string | null } | null {
+  const older = (price.priceHistory ?? [])
+    .filter((observation) => observation.recordedAt < price.recordedAt && observation.price !== price.regularPrice)
+    .sort((a, b) => (a.recordedAt < b.recordedAt ? 1 : a.recordedAt > b.recordedAt ? -1 : 0))
+  const latestOld = older[0]
+  return latestOld ? { price: latestOld.price, recordedAt: latestOld.recordedAt, validUntil: latestOld.validUntil ?? null } : null
 }
 
 /** Whether today's effective price matches or beats every regular price this product has actually

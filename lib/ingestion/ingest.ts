@@ -1,9 +1,9 @@
-import { TODAY } from '@/lib/budget'
 import {
   getCanonicalStoreLocationId,
   getStoreIdByChain,
   loadExternalProductContext,
-  recordPriceObservation,
+  loadLatestOfficialPrices,
+  recordOfficialPrice,
   resolveOrCreateProductFromExternal,
   touchExternalRefs,
   upsertActiveDeal,
@@ -12,6 +12,7 @@ import { billaConnector } from '@/lib/ingestion/billa'
 import { dmConnector } from '@/lib/ingestion/dm'
 import { lidlConnector } from '@/lib/ingestion/lidl'
 import { pennyConnector } from '@/lib/ingestion/penny'
+import { ingestionDate } from '@/lib/ingestion/today'
 import type { IngestResult, PriceConnector } from '@/lib/ingestion/types'
 
 export type { IngestResult } from '@/lib/ingestion/types'
@@ -22,6 +23,9 @@ export type IngestOptions = {
   deadline?: number
   /** Clock, injectable for tests. */
   now?: () => number
+  /** The date (`YYYY-MM-DD`) stamped on the observed prices. Defaults to today's real date in
+   *  Czech time — see lib/ingestion/today.ts for why this is not the app's fixed demo date. */
+  today?: string
 }
 
 /** Fetches + normalizes + validates + persists real prices for one store connector — the
@@ -30,16 +34,18 @@ export type IngestOptions = {
  *  batch (per CLAUDE.md section 32, "if a retailer source stops working, the rest of the
  *  application should continue functioning") — it's recorded in `errors` and the rest still runs. */
 export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: number, options: IngestOptions = {}): Promise<IngestResult> {
-  const result: IngestResult = { processed: 0, recorded: 0, newProducts: 0, deals: 0, promotionsWithoutValidity: 0, skipped: 0, truncated: false, errors: [] }
+  const result: IngestResult = { processed: 0, recorded: 0, newProducts: 0, deals: 0, promotionsWithoutValidity: 0, skipped: 0, unchanged: 0, priceChanges: 0, truncated: false, errors: [] }
   if (limit <= 0) return result
   const now = options.now ?? Date.now
+  const today = options.today ?? ingestionDate()
 
   const raws = await connector.fetchProducts(limit, { deadline: options.deadline })
   result.processed = raws.length
 
   // Looked up once per run, not per product: each lookup is a database round trip, and per-product
   // lookups were what made a run of ~80 products take minutes (see loadExternalProductContext()).
-  const [storeId, context] = await Promise.all([getStoreIdByChain(connector.chain), loadExternalProductContext(connector.source)])
+  const storeId = await getStoreIdByChain(connector.chain)
+  const [context, latestPrices] = await Promise.all([loadExternalProductContext(connector.source), loadLatestOfficialPrices(storeId)])
   // Deals are still keyed by a concrete store location (the `deals` table wasn't part of the price
   // observation model change), so the seeded canonical branch is used for those only — looked up
   // lazily, since a connector whose source has no dated promotions never needs one.
@@ -54,7 +60,7 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
       break
     }
     try {
-      const normalized = connector.normalize(raw, TODAY)
+      const normalized = connector.normalize(raw, today)
       if (!normalized) {
         result.skipped++
         continue
@@ -77,24 +83,30 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
       // A retailer's own website publishes one price per product, not per branch, so this is an
       // official CHAIN-scope observation with no physical location (docs/02_PROJECT_CONTEXT.md:
       // "Official chain price: CHAIN + store_location_id=NULL + OFFICIAL"). It never overwrites a
-      // receipt-based STORE observation — `prices` is append-only and current price is derived per
-      // context. Skipped when the source states no regular price (an offers-only source): the offer
-      // then lives only in `deals`.
+      // receipt-based STORE observation. Within the official prices the current one is the latest
+      // by date; a repeat run the same day refreshes that day's row, and a changed price leaves the
+      // previous one as an old price closed with a date (see recordOfficialPrice()). Skipped when
+      // the source states no regular price (an offers-only source): the offer then lives only in
+      // `deals`.
       if (normalized.regularPrice != null && normalized.unitPrice != null) {
-        await recordPriceObservation({
-          productId,
-          storeId,
-          storeLocationId: null,
-          priceScope: 'CHAIN',
-          sourceType: 'OFFICIAL',
-          sourceReference: normalized.externalId,
-          regularPrice: normalized.regularPrice,
-          currency: normalized.currency,
-          unit: normalized.unit,
-          unitPrice: normalized.unitPrice,
-          observedAt: normalized.recordedAt,
-        })
-        result.recorded++
+        const written = await recordOfficialPrice(
+          {
+            productId,
+            storeId,
+            sourceReference: normalized.externalId,
+            regularPrice: normalized.regularPrice,
+            currency: normalized.currency,
+            unit: normalized.unit,
+            unitPrice: normalized.unitPrice,
+            observedAt: normalized.recordedAt,
+          },
+          latestPrices.get(normalized.externalId),
+        )
+        if (written.latest) latestPrices.set(normalized.externalId, written.latest)
+        if (written.action === 'insert' || written.action === 'update-same-day') result.recorded++
+        else if (written.action === 'unchanged') result.unchanged++
+        else result.skipped++ // stale: what is stored is newer than what was fetched
+        if (written.closedPrevious) result.priceChanges++
       }
 
       if (normalized.deal) {

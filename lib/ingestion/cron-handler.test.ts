@@ -11,7 +11,7 @@ vi.mock('@/lib/ingestion/ingest', () => ingest)
 import { handleIngestCron } from '@/lib/ingestion/cron-handler'
 
 const request = (authorization?: string) => new Request('https://app.test/api/cron/ingest-prices', { headers: authorization ? { authorization } : {} })
-const ran = { processed: 1, recorded: 1, newProducts: 0, deals: 0, promotionsWithoutValidity: 0, skipped: 0, truncated: false, errors: [] }
+const ran = { processed: 1, recorded: 1, newProducts: 0, deals: 0, promotionsWithoutValidity: 0, skipped: 0, unchanged: 0, priceChanges: 0, truncated: false, errors: [] }
 
 describe('handleIngestCron', () => {
   beforeEach(() => {

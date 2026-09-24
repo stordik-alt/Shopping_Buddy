@@ -1,4 +1,4 @@
-import { relations } from 'drizzle-orm'
+import { relations, sql } from 'drizzle-orm'
 import { boolean, date, index, integer, numeric, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
 
 // --- Enums -----------------------------------------------------------------
@@ -212,7 +212,15 @@ export const prices = pgTable('prices', {
   validUntil: date('valid_until'),
   sourceReference: text('source_reference'),
   confidence: numeric('confidence', { precision: 4, scale: 3 }),
-})
+}, (table) => [
+  // At most one official (retailer-published) observation per product, store, retailer SKU and day:
+  // a repeat ingestion run the same day refreshes that row instead of adding a duplicate (see
+  // `recordOfficialPrice()`). Partial, so receipt-based observations — where several purchases of
+  // the same product on one day are legitimate separate observations — are unaffected.
+  uniqueIndex('prices_official_daily_unique')
+    .on(table.productId, table.storeId, table.priceScope, table.sourceType, table.sourceReference, table.observedAt)
+    .where(sql`${table.sourceType} = 'OFFICIAL' AND ${table.sourceReference} IS NOT NULL`),
+])
 
 export const deals = pgTable('deals', {
   id: uuid('id').primaryKey().defaultRandom(),

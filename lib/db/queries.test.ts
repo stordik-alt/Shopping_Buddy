@@ -1,8 +1,8 @@
-import { eq, inArray, sql } from 'drizzle-orm'
+import { asc, eq, inArray, sql } from 'drizzle-orm'
 import { afterAll, describe, expect, it } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
-import { findProductIdByExternalRef, getCanonicalStoreLocationId, getHouseholdData, joinHouseholdViaInvitation, loadExternalProductContext, resolveOrCreateProductFromExternal, touchExternalRefs, upsertActiveDeal } from '@/lib/db/queries'
+import { findProductIdByExternalRef, getCanonicalStoreLocationId, getHouseholdData, joinHouseholdViaInvitation, loadExternalProductContext, loadLatestOfficialPrices, recordOfficialPrice, resolveOrCreateProductFromExternal, touchExternalRefs, upsertActiveDeal } from '@/lib/db/queries'
 
 // Regression coverage for the "household events" notification work (docs/07_CHANGELOG.md,
 // 2026-09-21) and for the join-via-invitation logic itself, which docs/01_CURRENT_STATE.md
@@ -227,6 +227,146 @@ describe('ingestion lookup context', () => {
 
     await touchExternalRefs('lidl', []) // an empty batch is a no-op, not an error
     await db.delete(schema.products).where(eq(schema.products.id, product.id))
+  })
+})
+
+describe('recordOfficialPrice', () => {
+  // Uses the seeded `dm` chain and a throwaway product; deleting the product cascades to its prices.
+  async function setup() {
+    const store = await db.query.stores.findFirst({ where: eq(schema.stores.chain, 'dm') })
+    const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Drogerie') })
+    const [product] = await db.insert(schema.products).values({ name: `__test_official_${crypto.randomUUID()}`, categoryId: category!.id }).returning()
+    const sourceReference = `__test_sku_${crypto.randomUUID()}`
+    const observation = (observedAt: string, regularPrice: number, unitPrice = regularPrice * 10) => ({
+      productId: product.id,
+      storeId: store!.id,
+      sourceReference,
+      regularPrice,
+      currency: 'CZK',
+      unit: 'kg' as const,
+      unitPrice,
+      observedAt,
+    })
+    const rows = () => db.query.prices.findMany({ where: eq(schema.prices.productId, product.id), orderBy: asc(schema.prices.observedAt) })
+    return { store: store!, product, sourceReference, observation, rows, cleanup: () => db.delete(schema.products).where(eq(schema.products.id, product.id)) }
+  }
+
+  it('stores the first observation as an open CHAIN/OFFICIAL price valid from its date', async () => {
+    const t = await setup()
+    try {
+      const result = await recordOfficialPrice(t.observation('2026-09-20', 50), undefined)
+      expect(result).toMatchObject({ action: 'insert', closedPrevious: false })
+      const [row] = await t.rows()
+      expect(row).toMatchObject({ priceScope: 'CHAIN', sourceType: 'OFFICIAL', storeLocationId: null, observedAt: '2026-09-20', validFrom: '2026-09-20', validUntil: null, sourceReference: t.sourceReference })
+      expect(Number(row.regularPrice)).toBe(50)
+    } finally {
+      await t.cleanup()
+    }
+  })
+
+  it('a repeat the same day writes nothing when identical and refreshes the one row when the values differ', async () => {
+    const t = await setup()
+    try {
+      const first = await recordOfficialPrice(t.observation('2026-09-20', 50), undefined)
+      const same = await recordOfficialPrice(t.observation('2026-09-20', 50), first.latest)
+      expect(same.action).toBe('unchanged')
+      const changed = await recordOfficialPrice(t.observation('2026-09-20', 45), same.latest)
+      expect(changed.action).toBe('update-same-day')
+      const rows = await t.rows()
+      expect(rows).toHaveLength(1) // never a duplicate for the same SKU and day
+      expect(Number(rows[0].regularPrice)).toBe(45)
+    } finally {
+      await t.cleanup()
+    }
+  })
+
+  it('keeps the previous price as an old price, closed with the date the new price was first seen', async () => {
+    const t = await setup()
+    try {
+      const first = await recordOfficialPrice(t.observation('2026-09-20', 50), undefined)
+      const second = await recordOfficialPrice(t.observation('2026-09-24', 45), first.latest)
+      expect(second).toMatchObject({ action: 'insert', closedPrevious: true })
+      const [old, current] = await t.rows()
+      expect(Number(old.regularPrice)).toBe(50)
+      expect(old.observedAt).toBe('2026-09-20')
+      expect(old.validUntil).toBe('2026-09-24') // old price, with the date it ended
+      expect(Number(current.regularPrice)).toBe(45)
+      expect(current.validUntil).toBeNull() // the current price stays open
+    } finally {
+      await t.cleanup()
+    }
+  })
+
+  it('adds a new day\'s observation without closing the previous one when the price is unchanged', async () => {
+    const t = await setup()
+    try {
+      const first = await recordOfficialPrice(t.observation('2026-09-20', 50), undefined)
+      const second = await recordOfficialPrice(t.observation('2026-09-24', 50), first.latest)
+      expect(second).toMatchObject({ action: 'insert', closedPrevious: false })
+      const rows = await t.rows()
+      expect(rows).toHaveLength(2)
+      expect(rows.map((row) => row.validUntil)).toEqual([null, null])
+    } finally {
+      await t.cleanup()
+    }
+  })
+
+  it('never lets an older observation displace a newer one', async () => {
+    const t = await setup()
+    try {
+      const newer = await recordOfficialPrice(t.observation('2026-09-24', 45), undefined)
+      const older = await recordOfficialPrice(t.observation('2026-09-10', 99), newer.latest)
+      expect(older.action).toBe('stale')
+      const rows = await t.rows()
+      expect(rows).toHaveLength(1)
+      expect(Number(rows[0].regularPrice)).toBe(45)
+    } finally {
+      await t.cleanup()
+    }
+  })
+
+  it('loadLatestOfficialPrices returns the latest observation per SKU, with its close state', async () => {
+    const t = await setup()
+    try {
+      const first = await recordOfficialPrice(t.observation('2026-09-20', 50), undefined)
+      await recordOfficialPrice(t.observation('2026-09-24', 45), first.latest)
+      const latest = (await loadLatestOfficialPrices(t.store.id)).get(t.sourceReference)
+      expect(latest).toMatchObject({ observedAt: '2026-09-24', regularPrice: 45, unit: 'kg', currency: 'CZK', validUntil: null })
+    } finally {
+      await t.cleanup()
+    }
+  })
+
+  it('the database itself refuses a second official observation for the same SKU and day', async (ctx) => {
+    const index = await db.execute<{ indexname: string }>(sql`select indexname from pg_indexes where indexname = 'prices_official_daily_unique'`)
+    if (index.rows.length === 0) ctx.skip() // migration 0018 not applied to this database yet
+    const t = await setup()
+    try {
+      const values = {
+        productId: t.product.id,
+        storeId: t.store.id,
+        priceScope: 'CHAIN' as const,
+        sourceType: 'OFFICIAL' as const,
+        locationResolution: 'NOT_APPLICABLE' as const,
+        regularPrice: '50',
+        unit: 'kg' as const,
+        unitPrice: '500',
+        observedAt: '2026-09-20',
+        validFrom: '2026-09-20',
+        sourceReference: t.sourceReference,
+      }
+      await db.insert(schema.prices).values(values)
+      await expect(db.insert(schema.prices).values(values)).rejects.toThrow()
+      // A racing writer that hits the index falls back to refreshing the existing row.
+      const raced = await recordOfficialPrice(t.observation('2026-09-20', 45), undefined)
+      expect(raced.action).toBe('update-same-day')
+      expect(await t.rows()).toHaveLength(1)
+      // Receipt-based observations are not covered by the index.
+      await db.insert(schema.prices).values({ ...values, sourceType: 'RECEIPT', sourceReference: null, priceScope: 'STORE', locationResolution: 'UNKNOWN' })
+      await db.insert(schema.prices).values({ ...values, sourceType: 'RECEIPT', sourceReference: null, priceScope: 'STORE', locationResolution: 'UNKNOWN' })
+    } finally {
+      await t.cleanup()
+    }
   })
 })
 

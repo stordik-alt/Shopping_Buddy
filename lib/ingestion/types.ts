@@ -64,6 +64,10 @@ export type IngestResult = {
   /** Promotions seen but not stored because the source gives no validity window. */
   promotionsWithoutValidity: number
   skipped: number
+  /** Prices already stored for today with the same values (a repeat run the same day). */
+  unchanged: number
+  /** Prices that differ from the previous observation; the previous one was kept as an old price. */
+  priceChanges: number
   /** True when the run's time budget ran out and some fetched products were not processed. */
   truncated: boolean
   errors: string[]

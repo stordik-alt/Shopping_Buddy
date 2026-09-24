@@ -8,7 +8,8 @@ const queries = vi.hoisted(() => ({
   getCanonicalStoreLocationId: vi.fn(),
   getStoreIdByChain: vi.fn(),
   loadExternalProductContext: vi.fn(),
-  recordPriceObservation: vi.fn(),
+  loadLatestOfficialPrices: vi.fn(),
+  recordOfficialPrice: vi.fn(),
   resolveOrCreateProductFromExternal: vi.fn(),
   touchExternalRefs: vi.fn(),
   upsertActiveDeal: vi.fn(),
@@ -50,6 +51,8 @@ beforeEach(() => {
   queries.getCanonicalStoreLocationId.mockResolvedValue('loc-1')
   queries.loadExternalProductContext.mockResolvedValue(emptyContext())
   queries.touchExternalRefs.mockResolvedValue(undefined)
+  queries.loadLatestOfficialPrices.mockResolvedValue(new Map())
+  queries.recordOfficialPrice.mockResolvedValue({ action: 'insert', latest: undefined, closedPrevious: false })
   queries.resolveOrCreateProductFromExternal.mockResolvedValue('product-1')
 })
 
@@ -59,8 +62,9 @@ describe('ingestPrices', () => {
     expect(result).toMatchObject({ processed: 1, recorded: 1, newProducts: 1, deals: 0, skipped: 0, truncated: false, errors: [] })
     expect(queries.getStoreIdByChain).toHaveBeenCalledWith('Billa')
     expect(queries.resolveOrCreateProductFromExternal).toHaveBeenCalledWith(expect.objectContaining({ externalId: 'a', source: 'billa' }), expect.anything())
-    expect(queries.recordPriceObservation).toHaveBeenCalledWith(
-      expect.objectContaining({ storeId: 'store-1', storeLocationId: null, priceScope: 'CHAIN', sourceType: 'OFFICIAL', sourceReference: 'a', regularPrice: 50 }),
+    expect(queries.recordOfficialPrice).toHaveBeenCalledWith(
+      expect.objectContaining({ productId: 'product-1', storeId: 'store-1', sourceReference: 'a', regularPrice: 50, unit: 'kg', unitPrice: 100 }),
+      undefined,
     )
   })
 
@@ -68,7 +72,7 @@ describe('ingestPrices', () => {
     const deal = { dealPrice: 15.9, validFrom: '2026-09-23', validUntil: '2026-09-29' }
     const result = await ingestPrices(connector([{ id: 'a', product: product('a', { regularPrice: null, unitPrice: null, deal }) }]), 10)
     expect(result).toMatchObject({ processed: 1, recorded: 0, deals: 1, skipped: 0 })
-    expect(queries.recordPriceObservation).not.toHaveBeenCalled()
+    expect(queries.recordOfficialPrice).not.toHaveBeenCalled()
     expect(queries.upsertActiveDeal).toHaveBeenCalledWith(expect.objectContaining({ dealPrice: 15.9 }))
   })
 
@@ -108,7 +112,7 @@ describe('ingestPrices', () => {
   it('skips unusable records without persisting anything', async () => {
     const result = await ingestPrices(connector([{ id: 'a', product: null }]), 10)
     expect(result).toMatchObject({ processed: 1, recorded: 0, skipped: 1 })
-    expect(queries.recordPriceObservation).not.toHaveBeenCalled()
+    expect(queries.recordOfficialPrice).not.toHaveBeenCalled()
   })
 
   it('stores a dated deal against the canonical store location, looked up once', async () => {
@@ -145,7 +149,7 @@ describe('ingestPrices', () => {
   })
 
   it('reports a database failure for one product as an error and keeps going', async () => {
-    queries.recordPriceObservation.mockRejectedValueOnce(new Error('db down')).mockResolvedValue(undefined)
+    queries.recordOfficialPrice.mockRejectedValueOnce(new Error('db down')).mockResolvedValue({ action: 'insert', latest: undefined, closedPrevious: false })
     const result = await ingestPrices(
       connector([
         { id: 'a', product: product('a') },
@@ -168,6 +172,81 @@ describe('ingestPrices', () => {
     const c = connector([])
     ;(c.fetchProducts as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('source down'))
     await expect(ingestPrices(c, 10)).rejects.toThrow('source down')
+  })
+})
+
+describe('ingestPrices price dating and history', () => {
+  const snapshot = (observedAt: string, regularPrice = 50) => ({ id: 'row-1', observedAt, regularPrice, unit: 'kg' as const, unitPrice: 100, currency: 'CZK', validUntil: null })
+
+  it("stamps prices with the run's real date, not the app's fixed demo date", async () => {
+    let seenDate: string | undefined
+    const c = connector([{ id: 'a', product: product('a') }])
+    c.normalize = (_raw, today) => {
+      seenDate = today
+      return product('a')
+    }
+    await ingestPrices(c, 10, { today: '2026-10-05' })
+    expect(seenDate).toBe('2026-10-05')
+  })
+
+  it("defaults to today's real date in Czech time", async () => {
+    let seenDate = ''
+    const c = connector([{ id: 'a', product: product('a') }])
+    c.normalize = (_raw, today) => {
+      seenDate = today
+      return product('a')
+    }
+    await ingestPrices(c, 10)
+    expect(seenDate).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(seenDate).not.toBe('2026-09-19') // the fixed demo date of lib/budget.ts's TODAY
+  })
+
+  it("hands each SKU's latest stored observation to the writer and keeps the map current", async () => {
+    const stored = snapshot('2026-09-20')
+    queries.loadLatestOfficialPrices.mockResolvedValue(new Map([['a', stored]]))
+    const written = snapshot('2026-09-24', 60)
+    queries.recordOfficialPrice.mockResolvedValue({ action: 'insert', latest: written, closedPrevious: true })
+    await ingestPrices(
+      connector([
+        { id: 'a', product: product('a', { regularPrice: 60 }) },
+        { id: 'b', product: product('b') },
+      ]),
+      10,
+    )
+    expect(queries.recordOfficialPrice.mock.calls[0][1]).toBe(stored) // SKU a: its own latest
+    expect(queries.recordOfficialPrice.mock.calls[1][1]).toBeUndefined() // SKU b: nothing stored yet
+  })
+
+  it('counts a price change (old price kept and closed) separately from a plain new observation', async () => {
+    queries.recordOfficialPrice
+      .mockResolvedValueOnce({ action: 'insert', latest: undefined, closedPrevious: true })
+      .mockResolvedValueOnce({ action: 'insert', latest: undefined, closedPrevious: false })
+    const result = await ingestPrices(
+      connector([
+        { id: 'a', product: product('a') },
+        { id: 'b', product: product('b') },
+      ]),
+      10,
+    )
+    expect(result).toMatchObject({ recorded: 2, priceChanges: 1, unchanged: 0 })
+  })
+
+  it('counts a same-day repeat with identical values as unchanged, not as a new price', async () => {
+    queries.recordOfficialPrice.mockResolvedValue({ action: 'unchanged', latest: undefined, closedPrevious: false })
+    const result = await ingestPrices(connector([{ id: 'a', product: product('a') }]), 10)
+    expect(result).toMatchObject({ recorded: 0, unchanged: 1, skipped: 0 })
+  })
+
+  it('counts a refreshed same-day price as recorded', async () => {
+    queries.recordOfficialPrice.mockResolvedValue({ action: 'update-same-day', latest: undefined, closedPrevious: false })
+    const result = await ingestPrices(connector([{ id: 'a', product: product('a') }]), 10)
+    expect(result).toMatchObject({ recorded: 1, unchanged: 0 })
+  })
+
+  it('skips, and does not record, a price older than what is already stored', async () => {
+    queries.recordOfficialPrice.mockResolvedValue({ action: 'stale', latest: undefined, closedPrevious: false })
+    const result = await ingestPrices(connector([{ id: 'a', product: product('a') }]), 10)
+    expect(result).toMatchObject({ recorded: 0, skipped: 1 })
   })
 })
 
@@ -210,6 +289,8 @@ describe('runPriceSources', () => {
     deals: 0,
     promotionsWithoutValidity: 0,
     skipped: 0,
+    unchanged: 0,
+    priceChanges: 0,
     truncated: false,
     errors: [],
     ...extra,

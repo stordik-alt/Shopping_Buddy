@@ -2,6 +2,7 @@ import { and, asc, desc, eq, ilike, inArray, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { TODAY } from '@/lib/budget'
+import { planOfficialPrice, type OfficialPriceAction, type OfficialPriceSnapshot } from '@/lib/ingestion/official-price'
 import type { IngestionSource as ProductSource } from '@/lib/ingestion/types'
 import { currentWeekStart, parseSavedPlan, type WeeklyMealPlan } from '@/lib/meal-plans'
 import { inferPantryLocation } from '@/lib/pantry'
@@ -666,6 +667,7 @@ export async function getProductPrices(): Promise<ProductPrice[]> {
             priceHistory: observations.map((observation) => ({
               price: Number(observation.regularPrice),
               recordedAt: observation.observedAt,
+              validUntil: observation.validUntil,
               sourceType: observation.sourceType,
               priceScope: observation.priceScope,
             })),
@@ -732,6 +734,142 @@ export async function recordPriceObservation(observation: {
     })
     .returning()
   return row
+}
+
+/** The latest stored official observation per retailer SKU (`source_reference`) at one store —
+ *  loaded once per ingestion run so `recordOfficialPrice()` needs no lookup of its own per product
+ *  (each lookup is a database round trip). Keyed by the SKU. */
+export async function loadLatestOfficialPrices(storeId: string): Promise<Map<string, OfficialPriceSnapshot>> {
+  const db = getDb()
+  const rows = await db
+    .selectDistinctOn([schema.prices.sourceReference], {
+      id: schema.prices.id,
+      sourceReference: schema.prices.sourceReference,
+      observedAt: schema.prices.observedAt,
+      regularPrice: schema.prices.regularPrice,
+      unit: schema.prices.unit,
+      unitPrice: schema.prices.unitPrice,
+      currency: schema.prices.currency,
+      validUntil: schema.prices.validUntil,
+    })
+    .from(schema.prices)
+    .where(and(eq(schema.prices.storeId, storeId), eq(schema.prices.priceScope, 'CHAIN'), eq(schema.prices.sourceType, 'OFFICIAL')))
+    .orderBy(schema.prices.sourceReference, desc(schema.prices.observedAt))
+
+  const latest = new Map<string, OfficialPriceSnapshot>()
+  for (const row of rows) {
+    if (row.sourceReference == null) continue
+    latest.set(row.sourceReference, {
+      id: row.id,
+      observedAt: row.observedAt,
+      regularPrice: Number(row.regularPrice),
+      unit: row.unit,
+      unitPrice: Number(row.unitPrice),
+      currency: row.currency,
+      validUntil: row.validUntil,
+    })
+  }
+  return latest
+}
+
+/** True for a Postgres unique-violation (SQLSTATE 23505), which the driver may report directly or
+ *  wrapped as the `cause` of a query error. */
+function isUniqueViolation(err: unknown): boolean {
+  const code = (err as { code?: string } | null)?.code ?? (err as { cause?: { code?: string } } | null)?.cause?.code
+  return code === '23505'
+}
+
+/** Writes a retailer-published (CHAIN scope, OFFICIAL) price under the rules in
+ *  `lib/ingestion/official-price.ts`: the current price is the observation with the latest date; a
+ *  repeat run the same day refreshes that day's row instead of duplicating it; older data never
+ *  displaces newer; and when the price changed, the previous observation stays as the old price,
+ *  closed with `valid_until` = the date the new price was first observed (never deleted or
+ *  overwritten — CLAUDE.md section 16). `latest` is the SKU's latest stored observation from
+ *  `loadLatestOfficialPrices()`. Returns what was done and the SKU's new latest observation, for the
+ *  caller to keep its map current. Receipt-based prices keep using `recordPriceObservation()`. */
+export async function recordOfficialPrice(
+  observation: {
+    productId: string
+    storeId: string
+    sourceReference: string
+    regularPrice: number
+    currency: string
+    unit: ItemUnit
+    unitPrice: number
+    observedAt: string
+  },
+  latest: OfficialPriceSnapshot | undefined,
+): Promise<{ action: OfficialPriceAction['kind']; latest: OfficialPriceSnapshot | undefined; closedPrevious: boolean }> {
+  const db = getDb()
+  const action = planOfficialPrice(observation, latest)
+  if (action.kind === 'stale' || action.kind === 'unchanged') return { action: action.kind, latest, closedPrevious: false }
+
+  const values = {
+    regularPrice: observation.regularPrice.toString(),
+    currency: observation.currency,
+    unit: observation.unit,
+    unitPrice: observation.unitPrice.toString(),
+  }
+  const snapshot = (id: string): OfficialPriceSnapshot => ({
+    id,
+    observedAt: observation.observedAt,
+    regularPrice: observation.regularPrice,
+    unit: observation.unit,
+    unitPrice: observation.unitPrice,
+    currency: observation.currency,
+    validUntil: null,
+  })
+
+  if (action.kind === 'update-same-day') {
+    await db.update(schema.prices).set(values).where(eq(schema.prices.id, latest!.id))
+    return { action: 'update-same-day', latest: snapshot(latest!.id), closedPrevious: false }
+  }
+
+  let id: string
+  try {
+    const [row] = await db
+      .insert(schema.prices)
+      .values({
+        productId: observation.productId,
+        storeId: observation.storeId,
+        storeLocationId: null,
+        priceScope: 'CHAIN',
+        sourceType: 'OFFICIAL',
+        locationResolution: 'NOT_APPLICABLE',
+        ...values,
+        observedAt: observation.observedAt,
+        validFrom: observation.observedAt,
+        validUntil: null,
+        sourceReference: observation.sourceReference,
+      })
+      .returning({ id: schema.prices.id })
+    id = row.id
+  } catch (err) {
+    // A concurrent run stored this SKU's price for the same day first (the unique index on
+    // official prices per SKU and day). Refresh that row instead of failing or duplicating.
+    if (!isUniqueViolation(err)) throw err
+    const [row] = await db
+      .update(schema.prices)
+      .set(values)
+      .where(
+        and(
+          eq(schema.prices.storeId, observation.storeId),
+          eq(schema.prices.productId, observation.productId),
+          eq(schema.prices.priceScope, 'CHAIN'),
+          eq(schema.prices.sourceType, 'OFFICIAL'),
+          eq(schema.prices.sourceReference, observation.sourceReference),
+          eq(schema.prices.observedAt, observation.observedAt),
+        ),
+      )
+      .returning({ id: schema.prices.id })
+    return { action: 'update-same-day', latest: snapshot(row.id), closedPrevious: false }
+  }
+
+  // The previous price is now an old price: it ended when the new one was first observed.
+  if (action.closePrevious && latest) {
+    await db.update(schema.prices).set({ validUntil: observation.observedAt }).where(eq(schema.prices.id, latest.id))
+  }
+  return { action: 'insert', latest: snapshot(id), closedPrevious: action.closePrevious && latest != null }
 }
 
 /** Looks up a catalog product previously linked to an external source's own id (e.g. Lidl's

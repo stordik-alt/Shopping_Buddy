@@ -13,9 +13,7 @@ import { PRICE_SOURCES, runPriceSources } from '@/lib/ingestion/ingest'
 // when the budget ends, plus the closing bookkeeping and the response.
 const BUDGET_MS = 230_000
 
-// Deliberately scoped small for the pilot: PILOT_BATCH_SIZE real products per store, not whole
-// catalogs, per an explicit owner decision (2026-09-23) to verify stability before widening scope.
-const PILOT_BATCH_SIZE = 80
+// How many products a run reads is per store (`PRICE_SOURCES` in lib/ingestion/ingest.ts).
 
 /** Authenticates the cron request and runs ingestion for `only` (one store) or, when it is
  *  undefined, for every store one after another inside the one budget (manual runs).
@@ -34,7 +32,7 @@ export async function handleIngestCron(request: Request, only?: string): Promise
 
   // Per CLAUDE.md section 32: a failing external source must not take the rest of the app — or the
   // other stores' ingestion — down with it; `runPriceSources` isolates each source.
-  const results = await runPriceSources({ only, limit: PILOT_BATCH_SIZE, budgetMs: BUDGET_MS })
+  const results = await runPriceSources({ only, budgetMs: BUDGET_MS })
 
   // 502 only when every source that ran failed (nothing refreshed); a partial success is still a
   // 200 whose body shows which store failed, and a budget-truncated run is reported in its own body.

@@ -263,7 +263,7 @@ describe('fetchDmProducts', () => {
 
   it('stops after a run of consecutive lookup failures instead of timing out on every remaining product', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    const many = Array.from({ length: 9 }, (_, i) => SAMPLE_MODULUS * (i + 1))
+    const many = Array.from({ length: 30 }, (_, i) => SAMPLE_MODULUS * (i + 1))
     const manySitemap = `<urlset>${many.map((id) => `<url><loc>https://www.dm.cz/p/d/${id}/x</loc></url>`).join('')}</urlset>`
     const detailCalls: string[] = []
     vi.stubGlobal(
@@ -279,8 +279,38 @@ describe('fetchDmProducts', () => {
         return { ok: false, status: 500 } as Response
       }),
     )
-    await expect(fetchDmProducts(9)).rejects.toThrow('5 times in a row')
-    expect(detailCalls).toHaveLength(5) // the remaining four products were never requested
+    await expect(fetchDmProducts(30)).rejects.toThrow('times in a row')
+    // Lookups already in flight when the fifth failure lands still complete, but nothing new starts.
+    expect(detailCalls.length).toBeGreaterThanOrEqual(5)
+    expect(detailCalls.length).toBeLessThanOrEqual(5 + 4)
+  })
+
+  it('runs at most five category lookups at once and keeps the sitemap order', async () => {
+    const many = Array.from({ length: 12 }, (_, i) => SAMPLE_MODULUS * (i + 1))
+    const manySitemap = `<urlset>${many.map((id) => `<url><loc>https://www.dm.cz/p/d/${id}/x</loc></url>`).join('')}</urlset>`
+    let inFlight = 0
+    let peak = 0
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string | URL | Request) => {
+        const url = String(input)
+        if (url.endsWith('/product-sitemap.xml')) return { ok: true, status: 200, text: async () => manySitemap } as Response
+        if (url.includes('/tiles/')) {
+          const requested = url.split('/dans/')[1].split(',').map(Number)
+          return { ok: true, status: 200, json: async () => ({ products: Object.fromEntries(requested.map((dan) => [String(dan), { dan }])) }) } as Response
+        }
+        inFlight++
+        peak = Math.max(peak, inFlight)
+        // Earlier products answer slower, so completion order differs from request order.
+        const dan = Number(url.split('/dan/')[1])
+        await new Promise((resolve) => setTimeout(resolve, 30 - (dan / SAMPLE_MODULUS) * 2))
+        inFlight--
+        return { ok: true, status: 200, json: async () => ({ breadcrumbs: ['Líčení'] }) } as Response
+      }),
+    )
+    const products = await fetchDmProducts(12)
+    expect(peak).toBe(5)
+    expect(products.map((p) => p.dan)).toEqual(many)
   })
 
   it('stops requesting once the deadline has passed', async () => {

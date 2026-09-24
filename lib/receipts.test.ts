@@ -7,6 +7,7 @@ import {
   isPotentialDuplicate,
   isReceiptConsistent,
   isRecognizedUnit,
+  isRoundingLine,
   needsReview,
   normalizeOcrText,
   netUnitPrice,
@@ -14,7 +15,9 @@ import {
   receiptDiscounts,
   receiptTotal,
   resolveItemPlacement,
+  resolvePurchaseAmounts,
   toReceiptLineItems,
+  unitForQuantity,
   type ExtractedReceipt,
   type ExtractedReceiptItem,
   type ReceiptFingerprint,
@@ -372,5 +375,165 @@ describe('receiptDiscounts', () => {
 
   it('keeps a line discount even when the receipt-level total is unknown', () => {
     expect(receiptDiscounts([line({ discount: 5 })], null)).toEqual({ discount: 5, unallocated: 0 })
+  })
+})
+
+// The real Albert receipt of 24 Sep 2026 (Brno, Svatopetrská) that was recorded as 886,96 Kč instead
+// of 1 055,00 Kč: every printed line price is already the reduced one, and "Díky akcím jste
+// ušetřili 168.00 Kč" is only a summary. [name, quantity, line total] as printed.
+const albertLines: [string, number | null, number][] = [
+  ['JOJO MARSHMALL.80G', 1, 13.9], ['ALB TAŠKA IGELITOVÁ', 2, 21.8], ['MATTONI HRUŠKA 1,5L', 1, 13.9], ['COCA-COLA 0,5L', 1, 24.9],
+  ['KORUNNÍ ETERA JABLKO', 2, 27.8], ['MAT.BILÉ HROZNY 1,5L', 1, 14.9], ['JUPÍK JABLKO 0,5L', 3, 44.7], ['OVOZOO JABLKO 0,25L', 1, 9.9],
+  ['CB PL.KA. JUNI.40KS', 1, 199], ['PEPSI COLA 2,25L', 1, 24.9], ['FARM F.L&C FRIES600G', 1, 54.9], ['LINTEO BABY UBR.72KS', 4, 79.6],
+  ['GOUDA 48%PLAGR 250G', 1, 32.9], ['KUŘE.PÁRKY SÝR 290G', 1, 38.9], ['ŠUNKA NEJ.JAK.200G', 1, 56.9], ['ANGL.SLANINA 85%150G', 1, 39.9],
+  ['WM FUSI.TŘÍ BAR.500G', 1, 19.9], ['OLMA JAH.JOGURT 105G', 2, 23.8], ['OLMÍCI HARIBO 121G', 1, 16.9], ['ALB PUD.PŘÍCH.VA200G', 1, 10.9],
+  ['ALB PUDINK ČOKO.200G', 1, 10.9], ['BORŮVKY 250G', 1, 74.9], ['HROZNY BÍL.BEZS.500G', 1, 24.9], ['TENTO KU FAM 2VR 1R', 1, 54.9],
+  ['ROHLÍK43GR', 6, 17.4], ['JABLKA GALA', null, 15], ['*ALB TOUST. CHLÉB SV', 1, 29.9], ['PAPRIKA ČERVENÁ', 0.37, 25.9],
+  ['BRAMBORY KONZ POZDNÍ', null, 18.6], ['CROISS.LESNÍ SM. 73G', 1, 11.9], ['ZAOKROUHLENÍ PŘÍJEM', 1, 0.4],
+]
+const albertReceipt = (): ExtractedReceipt =>
+  extractedReceipt({
+    store: { name: 'Albert', confidence: 0.95 },
+    date: '2026-09-24',
+    items: albertLines.map(([name, quantity, totalPrice]) => extractedItem({ name, quantity, unitPrice: null, totalPrice, discount: null })),
+    discountTotal: 168,
+    total: 1055,
+  })
+
+describe('receipt-wide savings summary that is already in the line prices (Albert)', () => {
+  it('the printed lines add up to the stated total', () => {
+    expect(albertLines.reduce((sum, [, , total]) => sum + total, 0)).toBeCloseTo(1055, 2)
+  })
+
+  it('is consistent, so a correct receipt is not sent to manual review', () => {
+    expect(isReceiptConsistent(albertReceipt())).toBe(true)
+    expect(needsReview(albertReceipt())).toBe(false)
+  })
+
+  it('still flags a receipt where neither reading of the discount explains the total', () => {
+    expect(isReceiptConsistent({ ...albertReceipt(), total: 700 })).toBe(false)
+  })
+
+  it('does not apply the "already reflected" reading when a line carries its own discount', () => {
+    // Line totals are pre-discount there, so a total equal to their plain sum means a discount was missed.
+    const receipt = extractedReceipt({ items: [extractedItem({ discount: 5 })], discountTotal: 5, total: 49.8 })
+    expect(isReceiptConsistent(receipt)).toBe(false)
+  })
+
+  it('records the amount paid, 1 055,00 Kč, and the saving as information', () => {
+    const items = toReceiptLineItems(albertReceipt())
+    expect(resolvePurchaseAmounts(items, 168, 1055)).toEqual({ discount: 168, total: 1055 })
+  })
+
+  it('the rounding line is not imported as a product', () => {
+    const items = toReceiptLineItems(albertReceipt())
+    expect(items).toHaveLength(30)
+    expect(items.some((item) => /zaokrouhlen/i.test(item.name))).toBe(false)
+  })
+})
+
+describe('isRoundingLine', () => {
+  it('recognizes rounding lines regardless of case and diacritics', () => {
+    expect(isRoundingLine('ZAOKROUHLENÍ PŘÍJEM')).toBe(true)
+    expect(isRoundingLine('Zaokrouhlení')).toBe(true)
+    expect(isRoundingLine('zaokrouhleni')).toBe(true)
+    expect(isRoundingLine('  ZAOKROUHLENÍ')).toBe(true)
+  })
+
+  it('does not match a real product', () => {
+    expect(isRoundingLine('ROHLÍK43GR')).toBe(false)
+    expect(isRoundingLine('Mléko')).toBe(false)
+  })
+})
+
+describe('resolvePurchaseAmounts', () => {
+  it('uses the stated total when the lines already include the discount', () => {
+    expect(resolvePurchaseAmounts([line({ quantity: 1, price: 100 })], 20, 100)).toEqual({ discount: 20, total: 100 })
+  })
+
+  it('uses the stated total when a receipt-wide discount is still to be subtracted (coupon)', () => {
+    expect(resolvePurchaseAmounts([line({ quantity: 1, price: 100 })], 15, 85)).toEqual({ discount: 15, total: 85 })
+  })
+
+  it('takes the stated total over cash rounding and weighed-line rounding (within a crown)', () => {
+    // Lines sum to 1 054,56; 1 055,00 was paid.
+    expect(resolvePurchaseAmounts([line({ quantity: 1, price: 1054.56 })], 168, 1055).total).toBe(1055)
+  })
+
+  it('subtracts a line discount once, as before', () => {
+    expect(resolvePurchaseAmounts([line({ quantity: 2, price: 24.9, discount: 5 })], 5, 44.8)).toEqual({ discount: 5, total: 44.8 })
+    expect(resolvePurchaseAmounts([line({ quantity: 2, price: 24.9, discount: 5 })], 5, null)).toEqual({ discount: 5, total: 44.8 })
+  })
+
+  it('computes from the lines when no total is stated: a receipt-wide discount is subtracted', () => {
+    expect(resolvePurchaseAmounts([line({ quantity: 1, price: 100 })], 15, null)).toEqual({ discount: 15, total: 85 })
+  })
+
+  it('computes from the lines when the stated total agrees with neither reading', () => {
+    expect(resolvePurchaseAmounts([line({ quantity: 1, price: 100 })], 15, 500)).toEqual({ discount: 15, total: 85 })
+  })
+
+  it('ignores a stated total that is not a positive number', () => {
+    expect(resolvePurchaseAmounts([line({ quantity: 1, price: 100 })], 0, 0)).toEqual({ discount: 0, total: 100 })
+    expect(resolvePurchaseAmounts([line({ quantity: 1, price: 100 })], 0, Number.NaN)).toEqual({ discount: 0, total: 100 })
+  })
+
+  it('never returns a negative total', () => {
+    expect(resolvePurchaseAmounts([line({ quantity: 1, price: 10 })], 50, null).total).toBe(0)
+  })
+})
+
+// The three weighed lines of the real Albert receipt, exactly as the parser returned them: the OCR
+// (Azure fallback) had dropped the "0.43 x 34.90 Kč" and "0.935 x 19.90 Kč" lines, so only the
+// paprika carried a weight and a price per kilo.
+describe('weighed lines', () => {
+  const weighed = (): ExtractedReceipt =>
+    extractedReceipt({
+      items: [
+        extractedItem({ name: 'JABLKA GALA', quantity: null, unit: null, unitPrice: null, totalPrice: 15, discount: null, confidence: 0.8 }),
+        extractedItem({ name: 'PAPRIKA ČERVENÁ', quantity: 0.37, unit: null, unitPrice: 69.9, totalPrice: 25.9, discount: null, confidence: 0.9 }),
+        extractedItem({ name: 'BRAMBORY KONZ POZDNÍ', quantity: null, unit: null, unitPrice: null, totalPrice: 18.6, discount: null, confidence: 0.8 }),
+      ],
+    })
+
+  it('a weight with a price per kilo becomes kilograms, not a fractional number of pieces', () => {
+    const [, paprika] = toReceiptLineItems(weighed())
+    expect(paprika).toMatchObject({ name: 'PAPRIKA ČERVENÁ', quantity: 0.37, unit: 'kg', price: 69.9 })
+  })
+
+  it('a line whose weight and unit price the OCR lost keeps its total but is flagged as having no unit price', () => {
+    const [apples, , potatoes] = toReceiptLineItems(weighed())
+    expect(apples).toMatchObject({ name: 'JABLKA GALA', quantity: 1, price: 15, unitPriceUnknown: true })
+    expect(potatoes).toMatchObject({ name: 'BRAMBORY KONZ POZDNÍ', quantity: 1, price: 18.6, unitPriceUnknown: true })
+    expect(receiptTotal(toReceiptLineItems(weighed()))).toBeCloseTo(15 + 0.37 * 69.9 + 18.6, 2) // spending stays right
+  })
+
+  it('does not flag a line that has a quantity or a unit price', () => {
+    const [ordinary, derived] = toReceiptLineItems(
+      extractedReceipt({
+        items: [
+          extractedItem({ quantity: 2, unitPrice: 24.9, totalPrice: 49.8 }),
+          extractedItem({ quantity: 2, unitPrice: null, totalPrice: 49.8 }), // unit price derived from total / quantity
+        ],
+      }),
+    )
+    expect(ordinary.unitPriceUnknown).toBeUndefined()
+    expect(derived.unitPriceUnknown).toBeUndefined()
+    expect(derived.price).toBe(24.9)
+  })
+})
+
+describe('unitForQuantity', () => {
+  it('turns "ks" with a fractional quantity into kg', () => {
+    expect(unitForQuantity('ks', 0.37)).toBe('kg')
+    expect(unitForQuantity('ks', 0.935)).toBe('kg')
+  })
+
+  it('leaves whole quantities and explicit non-piece units alone', () => {
+    expect(unitForQuantity('ks', 3)).toBe('ks')
+    expect(unitForQuantity('ks', 1)).toBe('ks')
+    expect(unitForQuantity('g', 0.5)).toBe('g')
+    expect(unitForQuantity('l', 1.5)).toBe('l')
+    expect(unitForQuantity('kg', 0.37)).toBe('kg')
   })
 })

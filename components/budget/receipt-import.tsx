@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { AlertTriangle, Camera, Check, Loader2, Plus, Receipt, Trash2 } from 'lucide-react'
 import type { ReceiptImportState } from '@/lib/db/queries'
+import { ocrProviderLabel } from '@/lib/receipt-ocr-provider'
 import { RECEIPT_STEPS, receiptProgress, type ReceiptProgress } from '@/lib/receipt-progress'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import type { ItemCategory, ItemUnit, Store } from '@/lib/types'
@@ -159,7 +160,7 @@ export function ReceiptImport({
       </div>
       {lastOcrProvider && (
         <p className="mb-3 rounded-xl border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-          Poslední OCR: {lastOcrProvider === 'azure_document_intelligence' ? 'Azure Document Intelligence' : 'Google Cloud Vision'}
+          Poslední OCR: {ocrProviderLabel(lastOcrProvider)}
         </p>
       )}
       <div className="mt-4 flex flex-wrap items-center gap-2">

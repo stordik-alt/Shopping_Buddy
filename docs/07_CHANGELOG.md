@@ -1,12 +1,18 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-24 (UI: old prices with dates in the price comparison; migration 0018 applied)
+### Follow-up to the price-dating change — stacked on #26
+- **Old price in the UI:** under each store in "Porovnání cen mezi obchody" (shopping list) whose price changed, a line "Dříve 50,00 Kč · zaznamenáno 20. 9., změna 24. 9." shows the price before the last change, the date it was recorded and the date the change was seen. Nothing is shown for a price that never changed. Logic stays in `lib/prices.ts` (`previousPrice()`); the component only displays it, using the new `shortDate()` helper (`lib/format.ts`). The row wraps on narrow screens (`flex-wrap`); verified in a real browser at 360 px and 1024 px, no horizontal overflow.
+- **Migration `0018_prices_official_daily_unique` applied** to the shared database (0 existing violations checked first); index verified in `pg_indexes`. The DB-backed tests, including the previously skipped unique-index/race test, pass against it.
+- **Tests:** 6 component tests (rendered markup: with/without change date, never-changed, single observation, per store, unknown product) and 3 `shortDate` tests.
+
 ## 2026-09-24 (Price ingestion: real observation dates, one price per SKU and day, old prices kept with dates)
 ### Owner request: the current price follows the latest date; older prices are documented as old prices with their date — stacked on the run-time PR (#26)
 - **Real date:** ingestion now stamps `ingestionDate()` (Europe/Prague calendar date) instead of the fixed demo `TODAY` (2026-09-19), which had made every run's observations look like the same day.
-- **Latest wins, no duplicates:** `recordOfficialPrice()` + pure rules in `lib/ingestion/official-price.ts` — identical same-day repeat writes nothing, a differing same-day fetch refreshes the day's row, older data never displaces newer. Latest observations are loaded once per run (no extra query per product). Migration `0018_prices_official_daily_unique` adds the partial unique index; **not yet applied** to the shared database.
+- **Latest wins, no duplicates:** `recordOfficialPrice()` + pure rules in `lib/ingestion/official-price.ts` — identical same-day repeat writes nothing, a differing same-day fetch refreshes the day's row, older data never displaces newer. Latest observations are loaded once per run (no extra query per product). Migration `0018_prices_official_daily_unique` adds the partial unique index; applied to the shared database on 2026-09-24.
 - **Old prices with dates:** on a price change the previous observation is kept and closed with `valid_until` = the date the new price was first seen. `priceHistory` entries carry `validUntil`; new `previousPrice()` returns the price before the last change with its dates.
 - **Cron response** now also reports `unchanged` and `priceChanges`.
-- **Not done:** no UI for old prices yet; existing official rows keep their wrong 19 Sep date (needs an explicit decision); receipts are unchanged (append-only).
+- **Not done:** existing official rows keep their wrong 19 Sep date (needs an explicit decision); receipts are unchanged (append-only).
 - **Tests:** 26 new unit tests (write rules, Czech date, `previousPrice`, orchestrator dating/history/counters) and 7 DB-backed tests for the new queries (the unique-index test skips until 0018 is applied).
 
 ## 2026-09-24 (Price ingestion: run time brought under the function limit)

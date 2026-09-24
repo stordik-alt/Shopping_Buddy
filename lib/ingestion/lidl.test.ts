@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  fetchLidlProducts,
   mapLidlCategory,
   normalizeLidlProduct,
   parseLidlBasePrice,
@@ -221,5 +222,27 @@ describe('normalizeLidlProduct', () => {
       price: { price: 369.9, currencyCode: 'CZK' },
     }
     expect(normalizeLidlProduct(raw, TODAY)).toBeNull()
+  })
+})
+
+describe('fetchLidlProducts', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('makes no request once the deadline has passed', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    expect(await fetchLidlProducts(['1', '2', '3'], { deadline: Date.now() - 1 })).toEqual([])
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('fetches every batch when there is no deadline', async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, status: 200, json: async () => [{ erpNumber: 'x' }] }) as Response)
+    vi.stubGlobal('fetch', fetchMock)
+    const erpNumbers = Array.from({ length: 45 }, (_, i) => String(i))
+    const products = await fetchLidlProducts(erpNumbers)
+    expect(fetchMock).toHaveBeenCalledTimes(3) // 20 + 20 + 5
+    expect(products).toHaveLength(3)
   })
 })

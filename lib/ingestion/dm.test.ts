@@ -261,6 +261,36 @@ describe('fetchDmProducts', () => {
     await expect(fetchDmProducts(4)).rejects.toThrow('category lookups failed for 2 of 4')
   })
 
+  it('stops after a run of consecutive lookup failures instead of timing out on every remaining product', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const many = Array.from({ length: 9 }, (_, i) => SAMPLE_MODULUS * (i + 1))
+    const manySitemap = `<urlset>${many.map((id) => `<url><loc>https://www.dm.cz/p/d/${id}/x</loc></url>`).join('')}</urlset>`
+    const detailCalls: string[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string | URL | Request) => {
+        const url = String(input)
+        if (url.endsWith('/product-sitemap.xml')) return { ok: true, status: 200, text: async () => manySitemap } as Response
+        if (url.includes('/tiles/')) {
+          const requested = url.split('/dans/')[1].split(',').map(Number)
+          return { ok: true, status: 200, json: async () => ({ products: Object.fromEntries(requested.map((dan) => [String(dan), { dan }])) }) } as Response
+        }
+        detailCalls.push(url)
+        return { ok: false, status: 500 } as Response
+      }),
+    )
+    await expect(fetchDmProducts(9)).rejects.toThrow('5 times in a row')
+    expect(detailCalls).toHaveLength(5) // the remaining four products were never requested
+  })
+
+  it('stops requesting once the deadline has passed', async () => {
+    const fetchMock = stubDm()
+    // Sitemap and tiles are still fetched; no category lookup starts after the deadline.
+    const products = await fetchDmProducts(3, { deadline: Date.now() - 1 })
+    expect(products).toEqual([])
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/detail/'))).toBe(false)
+  })
+
   it('makes no request for a non-positive limit', async () => {
     const fetchMock = stubDm()
     expect(await fetchDmProducts(0)).toEqual([])

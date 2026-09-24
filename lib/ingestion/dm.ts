@@ -1,6 +1,7 @@
 import type { ItemCategory, ItemUnit } from '@/lib/types'
+import { fetchWithTimeout } from '@/lib/ingestion/http'
 import { toNormalizedUnitPrice, unitPriceMatchesPackage } from '@/lib/ingestion/product-discovery'
-import type { NormalizedProduct, PriceConnector } from '@/lib/ingestion/types'
+import type { FetchOptions, NormalizedProduct, PriceConnector } from '@/lib/ingestion/types'
 
 // --- Fetcher (docs/02_ARCHITECTURE.md / CLAUDE.md section 32: External Source -> Fetcher) --------
 // dm.cz (dm drogerie markt) declares a dedicated product sitemap in its robots.txt, whose Disallow
@@ -22,6 +23,9 @@ const USER_AGENT = 'ShoppingBuddy-connector/0.1 (+https://github.com/stordik-alt
 
 // Tile batch size; verified at 50 ids per request.
 export const TILE_BATCH_SIZE = 50
+
+// Consecutive failed detail lookups after which the source is treated as down.
+const MAX_CONSECUTIVE_LOOKUP_FAILURES = 5
 
 // The sitemap lists ~13,000 products, far more than a pilot batch. Sampling ids by a fixed modulus
 // (~1 in 160 -> ~80 products) gives a spread across every aisle and — unlike "the first N" or "every
@@ -64,13 +68,13 @@ export type DmRawProduct = {
 }
 
 async function getJson<T>(url: string): Promise<T> {
-  const response = await fetch(url, { headers: { Accept: 'application/json', 'User-Agent': USER_AGENT } })
+  const response = await fetchWithTimeout(url, { headers: { Accept: 'application/json', 'User-Agent': USER_AGENT } })
   if (!response.ok) throw new Error(`DM request failed: HTTP ${response.status} (${url})`)
   return (await response.json()) as T
 }
 
 export async function fetchDmSitemap(): Promise<number[]> {
-  const response = await fetch(SITEMAP_URL, { headers: { 'User-Agent': USER_AGENT } })
+  const response = await fetchWithTimeout(SITEMAP_URL, { headers: { 'User-Agent': USER_AGENT } })
   if (!response.ok) throw new Error(`DM sitemap fetch failed: HTTP ${response.status}`)
   return parseDmSitemap(await response.text())
 }
@@ -93,22 +97,33 @@ export async function fetchDmTopCategory(id: number): Promise<string | undefined
  *  not parallel. A single failed category lookup drops that product (logged) rather than the whole
  *  batch; if half or more of the lookups fail the source is treated as broken and this throws, so
  *  the failure is visible instead of being reported as a pile of "skipped" products. */
-export async function fetchDmProducts(limit: number): Promise<DmRawProduct[]> {
+export async function fetchDmProducts(limit: number, options: FetchOptions = {}): Promise<DmRawProduct[]> {
   if (limit <= 0) return []
   const ids = selectSampleIds(await fetchDmSitemap(), limit)
   const tiles: DmRawProduct[] = []
   for (let i = 0; i < ids.length; i += TILE_BATCH_SIZE) {
+    if (options.deadline != null && Date.now() >= options.deadline) break
     tiles.push(...(await fetchDmTiles(ids.slice(i, i + TILE_BATCH_SIZE))))
   }
 
   const products: DmRawProduct[] = []
   let failed = 0
+  let consecutiveFailures = 0
   for (const tile of tiles) {
+    // Out of time budget: stop asking, keep what we have (the caller reports the run as truncated).
+    if (options.deadline != null && Date.now() >= options.deadline) break
     try {
       products.push({ ...tile, topCategory: await fetchDmTopCategory(tile.dan) })
+      consecutiveFailures = 0
     } catch (err) {
       failed++
+      consecutiveFailures++
       console.error(`DM category lookup failed for ${tile.dan}:`, err)
+      // A run of failures means the source is down or stalling, not that a few products are bad.
+      // Stop instead of spending a full request timeout on each of the remaining products.
+      if (consecutiveFailures >= MAX_CONSECUTIVE_LOOKUP_FAILURES) {
+        throw new Error(`DM category lookups failed ${consecutiveFailures} times in a row; the source looks down`)
+      }
     }
   }
   if (tiles.length > 0 && failed * 2 >= tiles.length) {

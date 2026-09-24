@@ -234,6 +234,20 @@ describe('fetchBillaProducts', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  it('stops asking once the deadline has passed and returns what it already has', async () => {
+    let calls = 0
+    const fetchMock = stubFetch(() => ({ ok: true, body: { results: [{ sku: `p${(calls += 1)}` }] } }))
+    // Deadline passes after the first category has been fetched.
+    const deadline = Date.now() + 1000
+    const realNow = Date.now
+    let reads = 0
+    vi.spyOn(Date, 'now').mockImplementation(() => (reads++ < 1 ? realNow() : deadline + 1))
+    const products = await fetchBillaProducts(18, { deadline })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(products.map((p) => p.sku)).toEqual(['p1'])
+    vi.restoreAllMocks()
+  })
+
   it('throws on an HTTP error so the caller can isolate the failing source', async () => {
     stubFetch(() => ({ ok: false, status: 503 }))
     await expect(fetchBillaProducts(10)).rejects.toThrow('HTTP 503')

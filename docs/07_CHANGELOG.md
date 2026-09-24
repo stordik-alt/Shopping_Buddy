@@ -1,5 +1,15 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-24 (Price ingestion: run time brought under the function limit)
+### Performance / reliability of `/api/cron/ingest-prices` — stacked on the DM PR (#25)
+- **Cause (measured):** ~1 database round trip per query, ~10 queries per new product (incl. a full-catalog join and a duplicated ref lookup per product) → ~190 s for three stores, ~270 s with Lidl, against a 300 s limit with no `maxDuration`.
+- **Fewer queries:** `loadExternalProductContext()` once per run, `touchExternalRefs()` once per run. Benchmark (40 synthetic products, cleaned up): new 39.1 s → 14.9 s, existing 19.4 s → 5.5 s.
+- **Time budget:** `ingestPrices()`/connectors take a `deadline`; a run ends cleanly between products with `truncated: true`. `runPriceSources()` shares one 230 s budget, skips a source that would start too late and isolates failures. `maxDuration = 300` on the routes.
+- **Request timeouts:** every connector request has a 20 s timeout (`lib/ingestion/http.ts`); DM stops after 5 consecutive failed lookups.
+- **One cron per store:** `/api/cron/ingest-prices/<source>` (lidl 05:00, billa 05:10, penny 05:20, dm 05:30 in `vercel.json`); the bare route still runs all stores for manual runs; unknown source → 400. Dynamic path, not a query string, per Vercel's cron documentation.
+- **Incident, fixed:** a local smoke test request without `CRON_SECRET` set ran a real Billa ingestion against the shared database and added 77 identical duplicate price rows; verified identical, then deleted (Billa is back to 77 rows).
+- **Tests:** 28 new (orchestrator budget/deadline/context, `runPriceSources`, request timeout, connector deadlines, DM circuit breaker, cron handler status codes) plus 4 DB-backed tests for the new query helpers; CI-equivalent suite 407/407, `tsc` and `next build` clean.
+
 ## 2026-09-24 (Store connectors: dm drogerie markt CZ connector)
 ### "External price ingestion" — fourth connector, the first non-grocery source; stacked on the Penny PR (#24)
 - **DM connector** (`lib/ingestion/dm.ts`): reads the `products.dm.de` tile (batch of 50) and detail endpoints that dm.cz's own pages call (robots.txt disallows only transactional paths; the API host publishes none; no auth/CAPTCHA). Pilot = 80 products sampled by `dan % 160 === 0`, which stays the same products as the sitemap changes.

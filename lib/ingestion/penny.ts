@@ -6,7 +6,7 @@ import {
   unitPriceMatchesPackage,
   type DiscoveryProduct,
 } from '@/lib/ingestion/product-discovery'
-import type { NormalizedProduct, PriceConnector } from '@/lib/ingestion/types'
+import type { FetchOptions, NormalizedProduct, PriceConnector } from '@/lib/ingestion/types'
 
 // --- Fetcher (docs/02_ARCHITECTURE.md / CLAUDE.md section 32: External Source -> Fetcher) --------
 // penny.cz runs the same web-shop platform as billa.cz (see product-discovery.ts) and this uses the
@@ -32,7 +32,7 @@ export type PennyRawProduct = DiscoveryProduct
 
 /** Fetches up to `limit` offer products, page after page in the site's own relevance order.
  *  Requests are sequential, not parallel. Deterministic for a given site state. */
-export async function fetchPennyProducts(limit: number): Promise<PennyRawProduct[]> {
+export async function fetchPennyProducts(limit: number, options: FetchOptions = {}): Promise<PennyRawProduct[]> {
   if (limit <= 0) return []
   // A fixed page size for every page — the API's paging is offset-based, so mixing sizes would skip
   // or repeat products.
@@ -40,6 +40,8 @@ export async function fetchPennyProducts(limit: number): Promise<PennyRawProduct
   const products: PennyRawProduct[] = []
   const seen = new Set<string>()
   for (let page = 0; page < MAX_PAGES && products.length < limit; page++) {
+    // Out of time budget: stop asking, keep what we have (the caller reports the run as truncated).
+    if (options.deadline != null && Date.now() >= options.deadline) break
     const { results, total } = await fetchDiscoveryCategoryPage(BASE_URL, 'Penny', OFFERS_CATEGORY_SLUG, page, pageSize)
     for (const product of results) {
       if (seen.has(product.sku)) continue

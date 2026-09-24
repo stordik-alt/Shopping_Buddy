@@ -2,7 +2,7 @@ import { eq, inArray, sql } from 'drizzle-orm'
 import { afterAll, describe, expect, it } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
-import { findProductIdByExternalRef, getCanonicalStoreLocationId, getHouseholdData, joinHouseholdViaInvitation, resolveOrCreateProductFromExternal, upsertActiveDeal } from '@/lib/db/queries'
+import { findProductIdByExternalRef, getCanonicalStoreLocationId, getHouseholdData, joinHouseholdViaInvitation, loadExternalProductContext, resolveOrCreateProductFromExternal, touchExternalRefs, upsertActiveDeal } from '@/lib/db/queries'
 
 // Regression coverage for the "household events" notification work (docs/07_CHANGELOG.md,
 // 2026-09-21) and for the join-via-invitation logic itself, which docs/01_CURRENT_STATE.md
@@ -169,6 +169,64 @@ describe('resolveOrCreateProductFromExternal', () => {
     expect(allWithThatName).toHaveLength(1) // no duplicate created
 
     await db.delete(schema.products).where(eq(schema.products.id, existingProduct.id))
+  })
+})
+
+describe('ingestion lookup context', () => {
+  it('loads the source\'s refs, the catalog and the category ids in one go', async () => {
+    const context = await loadExternalProductContext('lidl')
+    expect(context.categoryIds.has('Potraviny')).toBe(true)
+    expect(context.catalog.length).toBeGreaterThan(0)
+    // Only this source's refs are in the map: every id in it resolves to a real product.
+    const [anyRef] = context.refs.entries()
+    if (anyRef) expect(await findProductIdByExternalRef('lidl', anyRef[0])).toBe(anyRef[1])
+  })
+
+  it('resolves with a shared context, updating it so a later product in the same run sees the earlier one', async () => {
+    const context = await loadExternalProductContext('lidl')
+    const externalId = `__test_erp_${crypto.randomUUID()}`
+    const name = `__test_context_product_${crypto.randomUUID()}`
+    const product = { externalId, source: 'lidl' as const, name, category: 'Potraviny' as const, unit: 'ks' as const }
+
+    const firstId = await resolveOrCreateProductFromExternal(product, context)
+    expect(context.refs.get(externalId)).toBe(firstId)
+    expect(context.catalog.some((entry) => entry.id === firstId && entry.name === name)).toBe(true)
+
+    // A repeat resolves from the context alone: no second product, same id.
+    const secondId = await resolveOrCreateProductFromExternal(product, context)
+    expect(secondId).toBe(firstId)
+    expect(await db.query.products.findMany({ where: eq(schema.products.name, name) })).toHaveLength(1)
+
+    await db.delete(schema.products).where(eq(schema.products.id, firstId)) // cascades to product_external_refs
+  })
+
+  it('rejects an unknown category rather than inserting a product without one', async () => {
+    const context = await loadExternalProductContext('lidl')
+    const name = `__test_bad_category_${crypto.randomUUID()}`
+    await expect(
+      resolveOrCreateProductFromExternal({ externalId: `__test_erp_${crypto.randomUUID()}`, source: 'lidl', name, category: '__nope__' as never, unit: 'ks' }, context),
+    ).rejects.toThrow('Unknown product category')
+    expect(await db.query.products.findMany({ where: eq(schema.products.name, name) })).toHaveLength(0)
+  })
+
+  it('touchExternalRefs refreshes last_seen_at for the given ids only', async () => {
+    const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
+    const [product] = await db.insert(schema.products).values({ name: `__test_touch_${crypto.randomUUID()}`, categoryId: category!.id }).returning()
+    const old = new Date('2020-01-01T00:00:00Z')
+    const touchedId = `__test_erp_${crypto.randomUUID()}`
+    const untouchedId = `__test_erp_${crypto.randomUUID()}`
+    await db.insert(schema.productExternalRefs).values([
+      { productId: product.id, source: 'lidl', externalId: touchedId, lastSeenAt: old },
+      { productId: product.id, source: 'lidl', externalId: untouchedId, lastSeenAt: old },
+    ])
+
+    await touchExternalRefs('lidl', [touchedId])
+    const refs = await db.query.productExternalRefs.findMany({ where: eq(schema.productExternalRefs.productId, product.id) })
+    expect(refs.find((ref) => ref.externalId === touchedId)!.lastSeenAt.getTime()).toBeGreaterThan(old.getTime())
+    expect(refs.find((ref) => ref.externalId === untouchedId)!.lastSeenAt.getTime()).toBe(old.getTime())
+
+    await touchExternalRefs('lidl', []) // an empty batch is a no-op, not an error
+    await db.delete(schema.products).where(eq(schema.products.id, product.id))
   })
 })
 

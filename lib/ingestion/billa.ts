@@ -6,7 +6,7 @@ import {
   UNIT_PRICE_TOLERANCE,
   type DiscoveryProduct,
 } from '@/lib/ingestion/product-discovery'
-import type { NormalizedProduct, PriceConnector } from '@/lib/ingestion/types'
+import type { FetchOptions, NormalizedProduct, PriceConnector } from '@/lib/ingestion/types'
 
 // The unit-price conversion is shared with the other retailers on this web-shop platform.
 export { toNormalizedUnitPrice }
@@ -53,12 +53,14 @@ export async function fetchBillaCategoryPage(slug: string, page: number, pageSiz
  *  in the site's own relevance order) so the pilot batch is diverse instead of one aisle. Requests
  *  run one after another, not in parallel, to stay well clear of anything that looks like abuse.
  *  Deterministic for a given site state, so a product's price history stays continuous run to run. */
-export async function fetchBillaProducts(limit: number): Promise<BillaRawProduct[]> {
+export async function fetchBillaProducts(limit: number, options: FetchOptions = {}): Promise<BillaRawProduct[]> {
   if (limit <= 0) return []
   const perCategory = Math.ceil(limit / BILLA_GROCERY_CATEGORY_SLUGS.length)
   const products: BillaRawProduct[] = []
   const seen = new Set<string>()
   for (const slug of BILLA_GROCERY_CATEGORY_SLUGS) {
+    // Out of time budget: stop asking, keep what we have (the caller reports the run as truncated).
+    if (options.deadline != null && Date.now() >= options.deadline) break
     for (const product of await fetchBillaCategoryPage(slug, 0, perCategory)) {
       // A product can be listed under two top-level categories; keep it once.
       if (seen.has(product.sku)) continue

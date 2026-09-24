@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, ilike, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, ilike, inArray, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { TODAY } from '@/lib/budget'
@@ -746,6 +746,36 @@ export async function findProductIdByExternalRef(source: ProductSource, external
   return ref?.productId ?? null
 }
 
+/** Everything `resolveOrCreateProductFromExternal()` needs to look up, loaded once per ingestion
+ *  run instead of once per product: a run resolves ~80 products, and each individual lookup was a
+ *  network round trip to the database (the catalog lookup alone is a join over every product), which
+ *  is what made a run take minutes. The maps are mutated as products are created, so a later
+ *  product in the same run sees an earlier one exactly as a fresh lookup would. */
+export type ExternalProductContext = {
+  /** externalId -> catalog product id, for this source. */
+  refs: Map<string, string>
+  catalog: ProductCatalogEntry[]
+  /** category name -> product_categories.id */
+  categoryIds: Map<string, string>
+}
+
+export async function loadExternalProductContext(source: ProductSource): Promise<ExternalProductContext> {
+  const db = getDb()
+  const [refRows, catalog, categoryRows] = await Promise.all([
+    db
+      .select({ externalId: schema.productExternalRefs.externalId, productId: schema.productExternalRefs.productId })
+      .from(schema.productExternalRefs)
+      .where(eq(schema.productExternalRefs.source, source)),
+    getProductCatalog(),
+    db.select({ id: schema.productCategories.id, name: schema.productCategories.name }).from(schema.productCategories),
+  ])
+  return {
+    refs: new Map(refRows.map((row) => [row.externalId, row.productId])),
+    catalog,
+    categoryIds: new Map(categoryRows.map((row) => [row.name, row.id])),
+  }
+}
+
 /** Resolves a normalized external product to a real catalog `products.id`, creating both the
  *  product and its external-ref link on first sight. Priority, matching the rest of the app's
  *  product-identity handling:
@@ -756,44 +786,58 @@ export async function findProductIdByExternalRef(source: ProductSource, external
  *     get this source's price attached to it, not a second duplicate product.
  *  3. Neither: create a new catalog product from the external data (owner decision, 2026-09-23 —
  *     the catalog only had 11 hand-seeded products, and real ingested data is how it grows).
- *  Every path ends with an external-ref row recorded (or its `lastSeenAt` refreshed), so a repeat
- *  run of the same product always takes path 1 from then on. */
-export async function resolveOrCreateProductFromExternal(product: {
-  externalId: string
-  source: ProductSource
-  name: string
-  category: ItemCategory
-  unit: ItemUnit
-}): Promise<string> {
+ *  Every path ends with an external-ref row recorded, so a repeat run of the same product always
+ *  takes path 1 from then on. `lastSeenAt` of already-linked products is refreshed separately, in
+ *  one batch, by `touchExternalRefs()`.
+ *  `context` is what an ingestion run passes so the lookups are not repeated per product; without
+ *  it (one-off callers, tests) a fresh one is loaded for this call. */
+export async function resolveOrCreateProductFromExternal(
+  product: {
+    externalId: string
+    source: ProductSource
+    name: string
+    category: ItemCategory
+    unit: ItemUnit
+  },
+  context?: ExternalProductContext,
+): Promise<string> {
   const db = getDb()
+  const ctx = context ?? (await loadExternalProductContext(product.source))
 
-  const existingRefProductId = await findProductIdByExternalRef(product.source, product.externalId)
-  if (existingRefProductId) {
-    await db
-      .update(schema.productExternalRefs)
-      .set({ lastSeenAt: new Date() })
-      .where(and(eq(schema.productExternalRefs.source, product.source), eq(schema.productExternalRefs.externalId, product.externalId)))
-    return existingRefProductId
-  }
+  const existingRefProductId = ctx.refs.get(product.externalId)
+  if (existingRefProductId) return existingRefProductId
 
-  const catalog = await getProductCatalog()
-  const matched = matchProductByName(catalog, product.name)
+  const matched = matchProductByName(ctx.catalog, product.name)
 
   let productId: string
   if (matched) {
     productId = matched.id
   } else {
-    const categoryRow = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, product.category) })
-    if (!categoryRow) throw new Error(`Unknown product category: ${product.category}`)
+    const categoryId = ctx.categoryIds.get(product.category)
+    if (!categoryId) throw new Error(`Unknown product category: ${product.category}`)
     const [row] = await db
       .insert(schema.products)
-      .values({ name: product.name, categoryId: categoryRow.id, defaultUnit: product.unit })
+      .values({ name: product.name, categoryId, defaultUnit: product.unit })
       .returning()
     productId = row.id
+    ctx.catalog.push({ id: row.id, name: row.name, category: product.category, defaultUnit: row.defaultUnit, defaultLocation: row.defaultLocation })
   }
 
   await db.insert(schema.productExternalRefs).values({ productId, source: product.source, externalId: product.externalId })
+  ctx.refs.set(product.externalId, productId)
   return productId
+}
+
+/** Marks external products as seen just now, in one statement per chunk instead of one per product. */
+export async function touchExternalRefs(source: ProductSource, externalIds: string[]): Promise<void> {
+  const db = getDb()
+  const CHUNK = 500
+  for (let i = 0; i < externalIds.length; i += CHUNK) {
+    await db
+      .update(schema.productExternalRefs)
+      .set({ lastSeenAt: new Date() })
+      .where(and(eq(schema.productExternalRefs.source, source), inArray(schema.productExternalRefs.externalId, externalIds.slice(i, i + CHUNK))))
+  }
 }
 
 /** One representative store_location to attach a chain-wide price/deal observation to. Real prices

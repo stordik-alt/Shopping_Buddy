@@ -3,8 +3,10 @@ import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { TODAY } from '@/lib/budget'
 import { planOfficialPrice, type OfficialPriceAction, type OfficialPriceSnapshot } from '@/lib/ingestion/official-price'
+import { ingestionDate } from '@/lib/ingestion/today'
 import type { IngestionSource as ProductSource } from '@/lib/ingestion/types'
 import { currentWeekStart, parseSavedPlan, type WeeklyMealPlan } from '@/lib/meal-plans'
+import type { StandaloneOffer } from '@/lib/offers'
 import { inferPantryLocation } from '@/lib/pantry'
 import type { ProductPrice } from '@/lib/prices'
 import { resolveProductForSku, type ProductCatalogEntry } from '@/lib/products'
@@ -691,6 +693,33 @@ export async function getProductPrices(): Promise<ProductPrice[]> {
         }),
       }
     })
+}
+
+/** Current offers at a chain for a product the app has no price for at that chain — what
+ *  `getProductPrices()` cannot show, since it lists only products with a price. Some retailers publish
+ *  only their offers (Penny), so their promotions have no regular price to compare with, and none is
+ *  invented (CLAUDE.md sections 15 and 18). One row per product and chain: the cheapest offer running
+ *  today. "Today" is the real date (Prague), like ingestion's, not the app's fixed demo date. */
+export async function getStandaloneOffers(today: string = ingestionDate()): Promise<StandaloneOffer[]> {
+  const db = getDb()
+  const rows = await db.execute<{ name: string; category: string; chain: string; store_id: string; deal_price: string; valid_until: string }>(sql`
+    SELECT p.name, c.name AS category, s.chain, s.id AS store_id, min(d.deal_price) AS deal_price, max(d.valid_until) AS valid_until
+    FROM deals d
+    JOIN products p ON p.id = d.product_id
+    JOIN product_categories c ON c.id = p.category_id
+    JOIN stores s ON s.id = d.store_id
+    WHERE d.valid_from <= ${today}::date AND d.valid_until >= ${today}::date
+      AND NOT EXISTS (SELECT 1 FROM prices pr WHERE pr.product_id = d.product_id AND pr.store_id = d.store_id)
+    GROUP BY p.id, p.name, c.name, s.id, s.chain
+  `)
+  return rows.rows.map((row) => ({
+    productName: row.name,
+    category: row.category as ItemCategory,
+    store: row.chain,
+    storeId: row.store_id,
+    dealPrice: Number(row.deal_price),
+    validUntil: String(row.valid_until).slice(0, 10),
+  }))
 }
 
 /** Appends an immutable price observation. Current price is derived from the latest observation

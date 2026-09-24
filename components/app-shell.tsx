@@ -63,6 +63,7 @@ import type { ReceiptLineItem } from '@/lib/receipts'
 import type { Item, PantryLocation, Store, Tab } from '@/lib/types'
 import type { PinRecord } from '@/lib/db/shopping-plan'
 import { filterPricesToNearby, type StoreSelection } from '@/lib/nearby-stores'
+import { nearbyOffers, type StandaloneOffer } from '@/lib/offers'
 import { useUserLocation } from '@/lib/use-user-location'
 
 export function AppShell({
@@ -70,6 +71,7 @@ export function AppShell({
   userName,
   stores,
   productPrices,
+  standaloneOffers,
   storeChains,
   initialStoreSelection,
   initialPins,
@@ -78,6 +80,8 @@ export function AppShell({
   userName: string
   stores: Store[]
   productPrices: ProductPrice[]
+  /** Offers at stores for products with no regular price to compare against (lib/offers.ts). */
+  standaloneOffers: StandaloneOffer[]
   storeChains: { id: string; chain: string; isOnline?: boolean }[]
   initialStoreSelection: StoreSelection
   initialPins: PinRecord[]
@@ -89,6 +93,7 @@ export function AppShell({
   // The products the user pinned to list items, per chain (the shopping planner buys exactly those).
   const [pins, setPins] = useState(initialPins)
   const nearbyProductPrices = useMemo(() => filterPricesToNearby(productPrices, storeSelection), [productPrices, storeSelection])
+  const nearbyStandaloneOffers = useMemo(() => nearbyOffers(standaloneOffers, storeSelection), [standaloneOffers, storeSelection])
   const [household, setHousehold] = useState(initialData.household)
   const [items, setItems] = useState(initialData.items)
   const [dark, setDark] = useState(false)
@@ -439,7 +444,7 @@ export function AppShell({
                     onStores={() => setTab('Obchody')}
                     onSetBudget={() => setTab('Profil')}
                   />
-                  <PriceWatch onStores={() => setTab('Obchody')} productPrices={nearbyProductPrices} pantryItems={pantryItems} />
+                  <PriceWatch onStores={() => setTab('Obchody')} productPrices={nearbyProductPrices} offers={nearbyStandaloneOffers} pantryItems={pantryItems} />
                   <MealPlan household={household} initialPlan={initialData.mealPlan} pantryItems={pantryItems} onAddIngredients={addIngredients} onMarkCooked={markMealCooked} />
                   <div className="grid gap-4 lg:grid-cols-2 lg:gap-6">
                     <SpendingBreakdown expenses={expenses} onDetails={() => setTab('Rozpočet')} />

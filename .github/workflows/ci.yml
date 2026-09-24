@@ -32,11 +32,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Database-backed tests (Server Actions, DB queries, and the receipt API routes, which build a real
+      # Database-backed tests (Server Actions, DB queries and data-access modules, and the receipt API routes, which build a real
       # DB client at import time) need a real DATABASE_URL; keep CI deterministic until a repository
       # secret is configured.
       - name: Unit tests
-        run: pnpm exec vitest run --exclude 'app/actions/**/*.test.ts' --exclude 'app/api/**/*.test.ts' --exclude 'lib/db/queries.test.ts'
+        run: pnpm exec vitest run --exclude 'app/actions/**/*.test.ts' --exclude 'app/api/**/*.test.ts' --exclude 'lib/db/queries.test.ts' --exclude 'lib/db/receipt-list.test.ts'
 
       - name: Typecheck
         run: pnpm exec tsc --noEmit

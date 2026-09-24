@@ -1,5 +1,14 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-24 (Price ingestion: Košík.cz, the second online-only store)
+### Stacked on the Rohlík PR (#47) — uses its online-store model
+- **Connector:** `lib/ingestion/kosik.ts` — the site's menu gives the sub-categories of eight food top-levels; each is read as one 30-product page (the API's stated maximum), round-robin, up to 900 products/day, cron 05:50 UTC. Details, the drained-weight rejects and the promotion-date parsing are in docs/01_CURRENT_STATE.md section 15.
+- **Live check (no DB writes):** 900 products in 26 s, 884 usable, 16 rejected (canned goods priced per drained weight), 104 dated promotions.
+- **Promotions:** only a percentage discount with an "Akce platí do D. M." label becomes a deal; the year is inferred, distant/impossible dates and "Spotřebujte do" clearances are not promotion windows; multi-buy tiers are ignored.
+- **Database:** migration `0024_product_source_kosik` (`product_source` += `kosik`, chain row `Košík` seeded as online) — additive, applied to the shared Neon database.
+- **Tests:** 23 tests (date parsing incl. New Year, every normalization rule, menu round-robin, limit/dedupe/deadline, failing source, unexpected response shape).
+- **Not done:** reading more than the first 30 products of a sub-category (the site's own `/products/more` paging is not used), Teta, Rossmann, Globus.
+
 ## 2026-09-24 (Price ingestion: Rohlík.cz, the first online-only store)
 ### New connector and a model change so a chain without branches can have deals
 - **Connector:** `lib/ingestion/rohlik.ts` — category ids → product ids → batched details and prices (50 ids per request, sequential, 250 ms pause, deadline-aware). Ten food categories, up to 500 products/day, cron 05:40 UTC. Validation and normalization rules are in docs/01_CURRENT_STATE.md section 15.

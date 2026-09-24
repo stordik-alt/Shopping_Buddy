@@ -1,5 +1,15 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-24 (Tests: receipt tests no longer use the production Blob store)
+### Why
+The receipt tests (`app/actions/receipts.test.ts`, `app/api/receipts/[id]/image/route.test.ts`) wrote real private objects to the production Vercel Blob store on every run. After several full-suite runs the store reported "This store has been suspended" — which failed 55 receipt tests for a reason unrelated to the code, and which also blocks receipt upload in the live app. Whether the test runs caused the suspension is not confirmed; the tests should not spend production operations either way.
+### What
+- `test/fake-blob.ts`: an in-memory stand-in for `@vercel/blob` (`put`, `get`, `del`, `list`) with the same result shapes the code reads. Both receipt test files mock `@vercel/blob` with it.
+- `USE_REAL_BLOB=1` runs those tests against the real store deliberately.
+- `test/fake-blob.test.ts`: 6 tests of the fake itself (they are pure and run in CI).
+- **Verified:** with `BLOB_READ_WRITE_TOKEN` set to an invalid value the receipt tests still pass (77 tests across the three files), so no call reaches the real store.
+- **Not fixed by this:** the live store is still suspended and has to be restored in the Vercel dashboard.
+
 ## 2026-09-24 (Fix: a chain's ingested promotions were missing from its chain-wide prices)
 ### Uses `deals.store_id` (from the Rohlík PR)
 - **Bug:** `getProductPrices()` matched a deal to a price only through the price's branch. Prices from a retailer's own site (Lidl, Billa, Penny, dm, Rohlík, Košík) are chain-wide (CHAIN scope, no branch), so their promotions — stored against one canonical branch — never appeared with them. Checked on the live database before the fix: 29 active Penny promotions existed and none of the prices returned by `getProductPrices()` carried a deal (only three seed/demo ones did).

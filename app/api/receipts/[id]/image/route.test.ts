@@ -4,9 +4,14 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 
-// Real DB and real (private) Blob store, same approach as app/actions/receipts.test.ts — only the
-// session lookup is faked, because there is no browser session in a unit test.
+// Real DB and an in-memory fake of the (private) Blob store, same approach as
+// app/actions/receipts.test.ts — the session lookup is faked too, because there is no browser session
+// in a unit test.
 vi.setConfig({ testTimeout: 20_000 })
+// Receipt photos go to Vercel Blob. Tests use an in-memory fake (test/fake-blob.ts) so a run neither
+// spends paid Blob operations nor fails when the real store is suspended; USE_REAL_BLOB=1 runs them
+// against the real store on purpose.
+vi.mock('@vercel/blob', async () => (process.env.USE_REAL_BLOB === '1' ? await vi.importActual('@vercel/blob') : (await import('@/test/fake-blob')).fakeBlobModule))
 
 let currentHouseholdId: string | null = null
 vi.mock('@/lib/auth/authorize', () => {

@@ -472,6 +472,7 @@ export async function getStores(): Promise<Store[]> {
   })
   return locations.map((location) => ({
     id: location.id,
+    storeId: location.storeId,
     chain: location.store.chain,
     name: location.name,
     address: location.address,

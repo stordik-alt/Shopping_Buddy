@@ -1,0 +1,94 @@
+import type { ProductPrice } from '@/lib/prices'
+
+// "Which stores are in my area?" — the user's own answer, until every branch has GPS.
+//
+// Each household member chooses the store chains they have nearby, optionally the specific branches,
+// and how far they are willing to go for a shop. Distances cannot be computed for most branches yet
+// (no coordinates), so for now the *selection* decides what counts as nearby; the distance is stored
+// and will apply to branches that do have coordinates once the user shares a location. The rules
+// live here, free of UI and database code, so they are deterministic and testable (CLAUDE.md
+// sections 5 and 19).
+
+export type StoreSelection = {
+  /** How far the user is willing to walk/travel for a shop, in km; null = not set. */
+  maxDistanceKm: number | null
+  /** The chosen chains (`stores.id`). */
+  chainIds: string[]
+  /** Specific branches the user picked, each with its chain. Optional refinement of `chainIds`. */
+  branches: { storeId: string; storeLocationId: string }[]
+}
+
+/** Nothing chosen yet. */
+export const EMPTY_STORE_SELECTION: StoreSelection = { maxDistanceKm: null, chainIds: [], branches: [] }
+
+/** Whether the user has chosen any stores. Without a choice nothing is filtered: hiding every price
+ *  of a user who simply has not configured this would be worse than showing all of them. */
+export function hasStoreSelection(selection: StoreSelection): boolean {
+  return selection.chainIds.length > 0
+}
+
+/** The parts of a price point that say where it applies. */
+export type PriceLocation = { storeId?: string; storeLocationId?: string | null }
+
+/** Whether a price applies to a store the user has chosen.
+ *  - No selection at all: everything is nearby.
+ *  - A chain that was not chosen: not nearby.
+ *  - A chosen chain with no specific branches picked: every price of the chain is nearby.
+ *  - A chosen chain with branches picked: a branch-specific price (e.g. from a receipt) counts only
+ *    if it is one of those branches; a chain-wide price (published by the retailer for all branches)
+ *    still counts, as the retailer's price applies at the picked branches too.
+ *  - A price whose store cannot be identified is kept: not knowing is not a reason to hide it. */
+export function isNearby(price: PriceLocation, selection: StoreSelection): boolean {
+  if (!hasStoreSelection(selection)) return true
+  if (!price.storeId) return true
+  if (!selection.chainIds.includes(price.storeId)) return false
+  const pickedInChain = selection.branches.filter((branch) => branch.storeId === price.storeId)
+  if (pickedInChain.length === 0) return true
+  if (!price.storeLocationId) return true
+  return pickedInChain.some((branch) => branch.storeLocationId === price.storeLocationId)
+}
+
+/** The product prices restricted to the user's nearby stores. A product left with no price at any
+ *  nearby store is dropped, as `getProductPrices()` already drops products with no prices at all. */
+export function filterPricesToNearby(productPrices: ProductPrice[], selection: StoreSelection): ProductPrice[] {
+  if (!hasStoreSelection(selection)) return productPrices
+  return productPrices
+    .map((product) => ({ ...product, prices: product.prices.filter((price) => isNearby(price, selection)) }))
+    .filter((product) => product.prices.length > 0)
+}
+
+/** The largest distance a user can set, in km (also the database's limit). */
+export const MAX_DISTANCE_KM = 50
+
+/** What a user typed in the distance field: "1,5" or "1.5" -> 1.5; an empty field -> null (not set);
+ *  anything else -> NaN (not a number, so the caller can say so instead of silently ignoring it). */
+export function parseDistanceInput(text: string): number | null {
+  const trimmed = text.trim().replace(',', '.')
+  if (trimmed === '') return null
+  return /^\d+(\.\d+)?$/.test(trimmed) ? Number(trimmed) : Number.NaN
+}
+
+/** A valid distance in km (> 0, ≤ 50, one decimal), or `null` when it is missing or invalid. */
+export function normalizeDistanceKm(value: number | null | undefined): number | null {
+  if (value == null || !Number.isFinite(value) || value <= 0 || value > MAX_DISTANCE_KM) return null
+  return Math.round(value * 10) / 10
+}
+
+/** Normalizes what a user submitted into a consistent selection: a picked branch implies its chain
+ *  (so a branch can never be selected without its chain), duplicates are removed, and the distance
+ *  is validated. `branchChain` maps every known branch id to its chain id; a branch it does not
+ *  know is dropped. Pure — the caller still verifies the ids against the database. */
+export function normalizeStoreSelection(
+  input: { maxDistanceKm?: number | null; chainIds?: string[]; locationIds?: string[] },
+  branchChain: ReadonlyMap<string, string>,
+): StoreSelection {
+  const chainIds = new Set(input.chainIds ?? [])
+  const branches = new Map<string, { storeId: string; storeLocationId: string }>()
+  for (const locationId of input.locationIds ?? []) {
+    const storeId = branchChain.get(locationId)
+    if (!storeId) continue
+    branches.set(locationId, { storeId, storeLocationId: locationId })
+    chainIds.add(storeId)
+  }
+  return { maxDistanceKm: normalizeDistanceKm(input.maxDistanceKm), chainIds: [...chainIds], branches: [...branches.values()] }
+}

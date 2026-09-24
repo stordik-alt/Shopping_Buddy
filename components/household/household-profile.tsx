@@ -3,9 +3,11 @@ import { Users } from 'lucide-react'
 import { ChildCard } from '@/components/household/child-card'
 import { MemberCard } from '@/components/household/member-card'
 import { MemberRow } from '@/components/household/member-row'
+import { NearbyStores } from '@/components/household/nearby-stores'
 import { TagInput } from '@/components/shared/tag-input'
 import type { PendingInvitation } from '@/lib/db/queries'
-import type { Household, HouseholdPreferences, PriceSensitivity, QualityPreference } from '@/lib/types'
+import type { StoreSelection } from '@/lib/nearby-stores'
+import type { Household, HouseholdPreferences, PriceSensitivity, QualityPreference, Store } from '@/lib/types'
 
 const splitList = (value: string) =>
   value
@@ -25,6 +27,10 @@ export function HouseholdProfile({
   onUpdatePreferences,
   onInvite,
   onRevokeInvitation,
+  storeChains,
+  stores,
+  storeSelection,
+  onSaveStorePreferences,
 }: {
   household: Household
   isOwner: boolean
@@ -37,6 +43,11 @@ export function HouseholdProfile({
   onUpdatePreferences: (changes: Partial<HouseholdPreferences>) => void
   onInvite: (email: string) => Promise<{ token: string }>
   onRevokeInvitation: (id: string) => void
+  /** The signed-in user's own "stores in my area" (personal, not the household's). */
+  storeChains: { id: string; chain: string }[]
+  stores: Store[]
+  storeSelection: StoreSelection
+  onSaveStorePreferences: (input: { maxDistanceKm: number | null; chainIds: string[]; locationIds: string[] }) => Promise<StoreSelection>
 }) {
   const [invite, setInvite] = useState('')
   const [inviteLink, setInviteLink] = useState<string | null>(null)
@@ -268,6 +279,8 @@ export function HouseholdProfile({
           </button>
         </div>
       </section>
+
+      <NearbyStores chains={storeChains} stores={stores} selection={storeSelection} onSave={onSaveStorePreferences} />
 
       <section className="surface p-6">
         <p className="font-semibold">Nákupní preference domácnosti</p>

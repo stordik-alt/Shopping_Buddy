@@ -1,5 +1,5 @@
 import { relations, sql } from 'drizzle-orm'
-import { boolean, date, index, integer, numeric, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
+import { boolean, check, date, foreignKey, index, integer, numeric, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
 
 // --- Enums -----------------------------------------------------------------
 
@@ -70,12 +70,19 @@ export const householdMembers = pgTable(
     name: text('name').notNull(),
     role: memberRoleEnum('role').notNull().default('member'),
     joinedAt: timestamp('joined_at').notNull().defaultNow(),
+    // How far this user is willing to walk/travel for a shop, in km. Personal (each member has their
+    // own), null until they set it. Stored now; applied to distances once branches have GPS — until
+    // then the chosen stores (`member_stores`) decide what counts as nearby.
+    maxDistanceKm: numeric('max_distance_km', { precision: 4, scale: 1 }),
   },
   // Looked up by userId on every authenticated request (lib/auth/authorize.ts's requireHousehold()) — the single hottest query in the app.
   // Unique: one account belongs to exactly one household (migration 0014). Concurrent first-login
   // renders raced past an application-level "no membership yet" check and created several
   // households; the database now decides the race. NULL user_ids (profile-only members) stay allowed.
-  (table) => [uniqueIndex('household_members_user_id_unique').on(table.userId)],
+  (table) => [
+    uniqueIndex('household_members_user_id_unique').on(table.userId),
+    check('household_members_max_distance_range', sql`${table.maxDistanceKm} IS NULL OR (${table.maxDistanceKm} > 0 AND ${table.maxDistanceKm} <= 50)`),
+  ],
 )
 
 // A pending (or resolved) invite for someone to join a household. Token-based join link
@@ -186,7 +193,35 @@ export const storeLocations = pgTable('store_locations', {
   lat: numeric('lat', { precision: 9, scale: 6 }),
   lng: numeric('lng', { precision: 9, scale: 6 }),
   hours: text('hours'),
-})
+}, (table) => [
+  // `id` is already unique on its own; this pair exists only so `member_stores` can carry a composite
+  // foreign key (store_location_id, store_id) that makes the database itself refuse a branch that
+  // belongs to a different chain than the row says.
+  uniqueIndex('store_locations_id_store_id_unique').on(table.id, table.storeId),
+])
+
+// The stores a user has chosen as "in my area" (personal, per household member). A row with no
+// `store_location_id` selects a whole chain; a row with one also names a specific branch of that
+// chain. Until every branch has GPS this selection — not a computed distance — is what makes a store
+// "nearby" for price comparison and shopping planning (lib/nearby-stores.ts). That a branch row's
+// chain is also selected is kept by the application (a partial unique index cannot be referenced).
+export const memberStores = pgTable(
+  'member_stores',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    memberId: uuid('member_id').notNull().references(() => householdMembers.id, { onDelete: 'cascade' }),
+    storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+    storeLocationId: uuid('store_location_id'),
+  },
+  (table) => [
+    // Composite FK: when a branch is named, it must be a branch of `store_id`. MATCH SIMPLE — a NULL
+    // `store_location_id` (a chain-level row) skips the check.
+    foreignKey({ columns: [table.storeLocationId, table.storeId], foreignColumns: [storeLocations.id, storeLocations.storeId] }).onDelete('cascade'),
+    // At most one chain-level row per member and chain, and one row per member and branch.
+    uniqueIndex('member_stores_chain_unique').on(table.memberId, table.storeId).where(sql`${table.storeLocationId} IS NULL`),
+    uniqueIndex('member_stores_branch_unique').on(table.memberId, table.storeLocationId).where(sql`${table.storeLocationId} IS NOT NULL`),
+  ],
+)
 
 export const prices = pgTable('prices', {
   id: uuid('id').primaryKey().defaultRandom(),

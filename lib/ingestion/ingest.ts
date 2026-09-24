@@ -1,6 +1,7 @@
 import { TODAY } from '@/lib/budget'
 import { findProductIdByExternalRef, getCanonicalStoreLocationId, getStoreIdByChain, recordPriceObservation, resolveOrCreateProductFromExternal, upsertActiveDeal } from '@/lib/db/queries'
 import { billaConnector } from '@/lib/ingestion/billa'
+import { dmConnector } from '@/lib/ingestion/dm'
 import { lidlConnector } from '@/lib/ingestion/lidl'
 import { pennyConnector } from '@/lib/ingestion/penny'
 import type { IngestResult, PriceConnector } from '@/lib/ingestion/types'
@@ -94,4 +95,5 @@ export const PRICE_SOURCES: { source: string; run: (limit: number) => Promise<In
   { source: lidlConnector.source, run: (limit) => ingestPrices(lidlConnector, limit) },
   { source: billaConnector.source, run: (limit) => ingestPrices(billaConnector, limit) },
   { source: pennyConnector.source, run: (limit) => ingestPrices(pennyConnector, limit) },
+  { source: dmConnector.source, run: (limit) => ingestPrices(dmConnector, limit) },
 ]

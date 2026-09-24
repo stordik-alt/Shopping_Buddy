@@ -1,5 +1,14 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-24 (Store connectors: dm drogerie markt CZ connector)
+### "External price ingestion" — fourth connector, the first non-grocery source; stacked on the Penny PR (#24)
+- **DM connector** (`lib/ingestion/dm.ts`): reads the `products.dm.de` tile (batch of 50) and detail endpoints that dm.cz's own pages call (robots.txt disallows only transactional paths; the API host publishes none; no auth/CAPTCHA). Pilot = 80 products sampled by `dan % 160 === 0`, which stays the same products as the sitemap changes.
+- Top-level category comes from one small detail request per product and maps to Drogerie / Děti / Domácnost / Potraviny (unknown → rejected). Catalog names are "<brand> <headline>" because `products.name` is unique and DM headlines carry no brand.
+- Price handling: numeric price cross-checked against the displayed text, unit price converted to Kč/kg|l|ks and validated against package size; unmodelled units fall back to "1 ks" at the package price. Discounted tiles ("Výprodej") record the original price as regular and are flagged `promotionWithoutValidity` (no dates published) — same as Billa; awaiting the promotion model.
+- **Migration `0017_product_source_dm`** adds the `dm` enum value and inserts the `dm` `stores` row (idempotent); **not yet applied** to the shared database. `PRICE_SOURCES` now runs Lidl, Billa, Penny and DM.
+- **Not done:** GTIN barcode not persisted (no barcode column); no "dm" receipt alias; no branches seeded.
+- **Tests:** 29 new DM tests (number/price/tile-info parsing, sitemap and sampling, category mapping, normalization and rejections, fetcher with stubbed endpoints incl. lookup-failure thresholds). Live dry run (no DB writes): 80/80 products normalized in 3.3 s.
+
 ## 2026-09-24 (Store connectors: Penny CZ connector, shared retailer-platform module)
 ### "External price ingestion" — third connector; stacked on the Billa PR (#23)
 - **Penny connector** (`lib/ingestion/penny.ts`): penny.cz uses the same web-shop platform and JSON endpoint as Billa (robots.txt has no Disallow rules; no auth/CAPTCHA). Its whole web catalog is the **current week's offers** (38 products, each with a real validity window), so it feeds `deals` with genuinely dated promotions and records a regular price only when the source states one (`standard`, else `crossed`). Offers with no stated regular price are stored as a deal only.

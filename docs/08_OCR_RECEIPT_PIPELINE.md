@@ -194,6 +194,21 @@ own item: a negative price/discount, or a line discount larger than its line, se
 prices, a `total` equal to the amount paid, and `purchases.discount` as the amount saved; price
 observations keep the pre-discount shelf price. VAT is not extracted or stored yet.
 
+**Second reading of a receipt-wide discount (2026-09-24).** The rule above assumes the printed line
+prices are pre-discount. Some retailers print the *reduced* prices on the lines and add only a
+summary of what the promotions saved — Albert: "Díky akcím jste ušetřili 168.00 Kč" under a total
+that equals the plain sum of the lines. Subtracting the summary again made such a purchase come out
+as 886,96 Kč instead of the 1 055,00 Kč paid, and (because `SUM − discount_total ≠ total`) sent the
+correct receipt to manual review first. Now: `isReceiptConsistent()` also accepts
+`SUM(total_price) ≈ total` when no line carries its own discount (`discount_total` is then only
+information), and `resolvePurchaseAmounts()` takes the receipt's stated `total` — the amount
+actually paid — as `purchases.total` whenever it agrees with the lines under either reading
+(within 1 Kč, for cash rounding and weighed-line rounding); only when it agrees with neither is the
+amount computed from the lines, and that receipt is already in review. `purchases.discount` stays
+the amount saved. A cash-rounding line ("ZAOKROUHLENÍ PŘÍJEM") is part of the amount paid but not a
+product: `isRoundingLine()` drops it deterministically in `toReceiptLineItems()`, because the model
+emits it as an item despite the prompt forbidding that.
+
 **Missing-data check.** Missing store, date, total, or an item's category → `REVIEW_REQUIRED`. Missing only an
 optional field (e.g. receipt number) does not require flagging the receipt as invalid.
 

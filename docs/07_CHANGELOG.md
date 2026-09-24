@@ -10,6 +10,13 @@
 - **Tests:** per-source/override limits and the real limits, Billa multi-page and short-page paging, dm concurrency cap (5) with order preserved and the adapted circuit breaker.
 - **Not done:** no ingestion was run against the shared database as part of this change; the next scheduled cron (or an approved manual run) writes the wider catalog.
 
+## 2026-09-24 (Fix: receipt total wrongly reduced by a savings summary; rounding line imported as a product)
+### Owner report: an Albert purchase of 1 055,00 Kč was recorded as 886,96 Kč
+- **Cause:** Albert's line prices are already the reduced ones; "Díky akcím jste ušetřili 168.00 Kč" is only a summary. `purchases.total` was always lines − `discountTotal`, and `isReceiptConsistent()` assumed the same, so the correct receipt was sent to review and 168 Kč was subtracted on confirmation.
+- **Fix:** `isReceiptConsistent()` accepts the second reading (no line-level discount and lines ≈ total); new `resolvePurchaseAmounts()` records the stated total (the amount paid) whenever it agrees with the lines under either reading (± 1 Kč), otherwise computes from the lines as before; `purchases.discount` stays the amount saved. New `isRoundingLine()` keeps "ZAOKROUHLENÍ …" out of the imported items.
+- **Data:** the affected purchase corrected 886,96 → 1 055,00 Kč (guarded on the old value). Rounding artifacts already created by the bug were left pending a decision.
+- **Tests:** the whole receipt (31 lines from the PDF) as a fixture, 8 `resolvePurchaseAmounts` cases, rounding-line cases, and 3 action-level DB tests — confirmed to fail on the old code (e.g. 29,8 instead of 49,8) and pass now.
+
 ## 2026-09-24 (Fix: a retailer's SKUs merged into one product by name)
 ### Product identity — found in the first real ingestion; stacked on the old-price UI PR (#27)
 - **Bug:** the resolver attached a new SKU to any same-named catalog product, and `products.name` is unique, so several SKUs of one retailer that share a name became ONE product (8 products, 12 extra SKUs: Penny flavours of Raw tyčinka Crip Crop / Tyčinka Corny Big / Pribináček; Lidl sizes of olivový olej, kuřecí prsní řízky, rýže, mléko 1,5 %/3,5 %). Prices were mixed and promotions overwrote each other (35 Penny offers → 29 deals).

@@ -3,6 +3,7 @@ import { AlertTriangle, Check, Copy, RefreshCw, X } from 'lucide-react'
 import type { ReceiptImportState } from '@/lib/db/queries'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import { money } from '@/lib/format'
+import { ocrProviderLabel } from '@/lib/receipt-ocr-provider'
 import { PANTRY_LOCATIONS } from '@/lib/pantry'
 import type { ItemCategory, ItemUnit } from '@/lib/types'
 
@@ -121,7 +122,7 @@ function ReceiptPendingCard({
           <AlertTriangle className="h-4 w-4" /> Účtenku se nepodařilo zpracovat
         </p>
         <p className="mt-1 text-xs text-muted-foreground">{item.errorMessage ?? 'Neznámá chyba.'}</p>
-        {item.ocrProvider && <p className="mt-1 text-xs text-muted-foreground">OCR: {item.ocrProvider === 'azure_document_intelligence' ? 'Azure Document Intelligence' : 'Google Cloud Vision'}</p>}
+        {item.ocrProvider && <p className="mt-1 text-xs text-muted-foreground">OCR: {ocrProviderLabel(item.ocrProvider)}</p>}
         <div className="mt-3 flex gap-2">
           <button
             onClick={() => run(() => onRetry(item.id))}
@@ -145,7 +146,7 @@ function ReceiptPendingCard({
         <p className="flex items-center gap-2 text-sm font-medium">
           <Copy className="h-4 w-4" /> Vypadá to jako nákup, který už máte zaznamenaný
         </p>
-        {item.ocrProvider && <p className="mt-1 text-xs text-muted-foreground">OCR: {item.ocrProvider === 'azure_document_intelligence' ? 'Azure Document Intelligence' : 'Google Cloud Vision'}</p>}
+        {item.ocrProvider && <p className="mt-1 text-xs text-muted-foreground">OCR: {ocrProviderLabel(item.ocrProvider)}</p>}
         <p className="mt-1 text-xs text-muted-foreground">
           {rows.length} položek{item.extracted?.total != null ? ` · ${money(item.extracted.total)}` : ''}
           {item.extracted?.date ? ` · ${item.extracted.date}` : ''}
@@ -202,7 +203,7 @@ function ReceiptPendingCard({
       <div className="rounded-2xl border border-border bg-card p-4">
         <p className="text-sm font-medium">Zkontrolujte rozpoznané položky</p>
         <p className="mt-1 text-xs text-muted-foreground">Rozpoznávání si u téhle účtenky nebylo jisté — projděte a opravte položky před uložením.</p>
-        {item.ocrProvider && <p className="mt-1 text-xs text-muted-foreground">OCR: {item.ocrProvider === 'azure_document_intelligence' ? 'Azure Document Intelligence' : 'Google Cloud Vision'}</p>}
+        {item.ocrProvider && <p className="mt-1 text-xs text-muted-foreground">OCR: {ocrProviderLabel(item.ocrProvider)}</p>}
         <ReceiptSource item={item} />
         <div className="mt-3 space-y-2">
           <label className="block text-xs font-medium">

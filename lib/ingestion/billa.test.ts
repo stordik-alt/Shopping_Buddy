@@ -222,6 +222,30 @@ describe('fetchBillaProducts', () => {
     expect(String(fetchMock.mock.calls[0][0])).toContain('pageSize=2')
   })
 
+  it('pages through a category when the limit needs more than one page', async () => {
+    const pages: number[] = []
+    // Every page is full (50), so every category is asked for a second page.
+    const fetchMock = stubFetch((url) => {
+      pages.push(Number(/page=(\d+)/.exec(url)?.[1]))
+      const slug = /categories\/([^/]+)\/products/.exec(url)?.[1]
+      const page = Number(/page=(\d+)/.exec(url)?.[1])
+      return { ok: true, body: { results: Array.from({ length: 50 }, (_, i) => ({ sku: `${slug}-${page}-${i}` })) } }
+    })
+    // 540 over 9 categories = 60 each -> page size 50, two pages.
+    const products = await fetchBillaProducts(540)
+    expect(fetchMock).toHaveBeenCalledTimes(BILLA_GROCERY_CATEGORY_SLUGS.length * 2)
+    expect(new Set(pages)).toEqual(new Set([0, 1]))
+    expect(String(fetchMock.mock.calls[0][0])).toContain('pageSize=50')
+    expect(products).toHaveLength(540)
+  })
+
+  it('stops paging a category as soon as a page comes back short', async () => {
+    const fetchMock = stubFetch(() => ({ ok: true, body: { results: [{ sku: 'only' }] } }))
+    await fetchBillaProducts(540)
+    // One request per category: each returned fewer than a full page, so there is no second page.
+    expect(fetchMock).toHaveBeenCalledTimes(BILLA_GROCERY_CATEGORY_SLUGS.length)
+  })
+
   it('caps the result at the requested limit', async () => {
     stubFetch(() => ({ ok: true, body: { results: [{ sku: 'a' }, { sku: 'b' }, { sku: 'c' }] } }))
     const products = await fetchBillaProducts(2)

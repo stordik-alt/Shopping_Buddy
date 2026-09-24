@@ -1,5 +1,10 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Price ingestion: every scheduled run is logged)
+- **Why:** the ingestion cron routes answer with a JSON body (`processed`, `recorded`, `deals`, `truncated`, `errors`…), but Vercel keeps only the request line and duration in its logs, not the body — so whether a run wrote its products, was cut short by the time budget or hit per-product errors could only be seen by calling the route by hand.
+- **What:** `lib/ingestion/cron-log.ts` logs one JSON line per source per run (`event: "price_ingest"`): status (`ok` / `truncated` / `error` / `skipped`), the run's counts, the error count and the first three errors (shortened to 200 characters and passed through `redactSecrets`). Level: `error` for a source that threw, `warn` for a truncated/skipped run or one with per-product errors, `info` for a clean one, so the log viewer's level filter finds runs that need a look. `durationMs` is the whole request. No product data is logged. Called from `handleIngestCron`; the response is unchanged.
+- **Tests:** 6 for the summary/levels (incl. that `IngestResult.skipped`, a count, is not mistaken for the "never started" variant) and 3 in the cron handler test (one line per source, truncated → warning and failed source → error, nothing logged for a rejected request).
+
 ## 2026-09-24 (Tests: receipt tests no longer use the production Blob store)
 ### Why
 The receipt tests (`app/actions/receipts.test.ts`, `app/api/receipts/[id]/image/route.test.ts`) wrote real private objects to the production Vercel Blob store on every run. After several full-suite runs the store reported "This store has been suspended" — which failed 55 receipt tests for a reason unrelated to the code, and which also blocks receipt upload in the live app. Whether the test runs caused the suspension is not confirmed; the tests should not spend production operations either way.

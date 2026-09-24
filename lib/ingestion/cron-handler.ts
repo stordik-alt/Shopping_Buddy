@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { logIngestResults } from '@/lib/ingestion/cron-log'
 import { PRICE_SOURCES, runPriceSources } from '@/lib/ingestion/ingest'
 
 // Shared request handling for the price-ingestion cron routes (app/api/cron/ingest-prices).
@@ -32,7 +33,11 @@ export async function handleIngestCron(request: Request, only?: string): Promise
 
   // Per CLAUDE.md section 32: a failing external source must not take the rest of the app — or the
   // other stores' ingestion — down with it; `runPriceSources` isolates each source.
+  const startedAt = Date.now()
   const results = await runPriceSources({ only, budgetMs: BUDGET_MS })
+  // The response body below is not kept by the platform's logs; this line is what makes a scheduled
+  // run inspectable afterwards (was it truncated? did products error?).
+  logIngestResults(results, Date.now() - startedAt)
 
   // 502 only when every source that ran failed (nothing refreshed); a partial success is still a
   // 200 whose body shows which store failed, and a budget-truncated run is reported in its own body.

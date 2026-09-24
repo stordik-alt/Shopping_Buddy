@@ -14,12 +14,19 @@ const request = (authorization?: string) => new Request('https://app.test/api/cr
 const ran = { processed: 1, recorded: 1, newProducts: 0, deals: 0, promotionsWithoutValidity: 0, skipped: 0, unchanged: 0, priceChanges: 0, truncated: false, errors: [] }
 
 describe('handleIngestCron', () => {
+  let logs: { info: ReturnType<typeof vi.spyOn>; warn: ReturnType<typeof vi.spyOn>; error: ReturnType<typeof vi.spyOn> }
   beforeEach(() => {
+    logs = {
+      info: vi.spyOn(console, 'info').mockImplementation(() => {}),
+      warn: vi.spyOn(console, 'warn').mockImplementation(() => {}),
+      error: vi.spyOn(console, 'error').mockImplementation(() => {}),
+    }
     ingest.runPriceSources.mockReset()
     vi.stubEnv('CRON_SECRET', 'secret')
   })
   afterEach(() => {
     vi.unstubAllEnvs()
+    vi.restoreAllMocks()
   })
 
   it('rejects a request without the right bearer token, before doing any work', async () => {
@@ -67,6 +74,27 @@ describe('handleIngestCron', () => {
     const response = await handleIngestCron(request('Bearer secret'), 'billa')
     expect(response.status).toBe(200)
     expect((await response.json()).billa.truncated).toBe(true)
+  })
+
+  it('logs one line per source so a scheduled run can be inspected afterwards', async () => {
+    ingest.runPriceSources.mockResolvedValue({ billa: ran })
+    await handleIngestCron(request('Bearer secret'), 'billa')
+    expect(logs.info).toHaveBeenCalledTimes(1)
+    expect(JSON.parse(logs.info.mock.calls[0][0] as string)).toMatchObject({ event: 'price_ingest', source: 'billa', status: 'ok', recorded: 1 })
+  })
+
+  it('logs a truncated run as a warning and a failed source as an error', async () => {
+    ingest.runPriceSources.mockResolvedValue({ lidl: { error: 'site changed' }, billa: { ...ran, truncated: true } })
+    await handleIngestCron(request('Bearer secret'))
+    expect(JSON.parse(logs.warn.mock.calls[0][0] as string)).toMatchObject({ source: 'billa', status: 'truncated' })
+    expect(JSON.parse(logs.error.mock.calls[0][0] as string)).toMatchObject({ source: 'lidl', status: 'error', errors: ['site changed'] })
+  })
+
+  it('does not log anything for a rejected request', async () => {
+    await handleIngestCron(request('Bearer wrong'))
+    expect(logs.info).not.toHaveBeenCalled()
+    expect(logs.warn).not.toHaveBeenCalled()
+    expect(logs.error).not.toHaveBeenCalled()
   })
 
   it('runs unauthenticated only when no CRON_SECRET is configured (local development)', async () => {

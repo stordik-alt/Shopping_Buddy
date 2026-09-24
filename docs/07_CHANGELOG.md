@@ -34,6 +34,15 @@
 - **Data:** the affected purchase corrected 886,96 → 1 055,00 Kč (guarded on the old value). Rounding artifacts already created by the bug were left pending a decision.
 - **Tests:** the whole receipt (31 lines from the PDF) as a fixture, 8 `resolvePurchaseAmounts` cases, rounding-line cases, and 3 action-level DB tests — confirmed to fail on the old code (e.g. 29,8 instead of 49,8) and pass now.
 
+## 2026-09-24 (Search for specific products at each chain)
+### Part 1 of the owner's shopping-planner request — stacked on the store-preferences PR (#32)
+- **Search:** accent- and case-insensitive text search over products that have prices, grouped per chain with price, promotion, unit price and price date; words required, sizes ("1l") only raise the rank. New `products.search_name` stored generated column (migration `0020`, applied).
+- **Scope:** limited to the user's chosen chains (switch "Jen mé obchody v okolí"); from a list item, to the item's category.
+- **UI:** "Hledat produkty v obchodech" above the list and "Najít v obchodech" inside each item; debounced, stale-response safe, loading/empty/error states; verified in a browser at 360 px.
+- **Comparable units:** per-gram/millilitre unit prices are shown per kg/l.
+- **Tests:** 32 unit tests (normalization, tokens, scoring, grouping, units) and 17 DB-backed tests (DB and TypeScript normalization agree, latest price wins, promotions, wildcards escaped, injection-safe, chain/category filters, authorization-scoped nearby filter).
+- **Still to come:** pin a specific product to a list item; the N-store planner with priority stores and savings; a wider catalog.
+
 ## 2026-09-24 (Each user chooses the stores in their area and how far they will go)
 ### Owner request: until every branch has GPS, a personal selection of nearby stores — chains and optionally branches, plus a distance
 - **Data — migration `0019_member_store_preferences` (applied):** `household_members.max_distance_km` (CHECK 0–50) and new `member_stores`; composite FK (branch, chain) so the database refuses a branch of another chain; partial unique indexes; cascades. The generated migration would have failed (FK before the unique index it needs) and was reordered and made idempotent.

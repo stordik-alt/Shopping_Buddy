@@ -1,5 +1,6 @@
 import { relations, sql } from 'drizzle-orm'
 import { boolean, check, date, foreignKey, index, integer, numeric, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
+import { SEARCH_ACCENTED, SEARCH_PLAIN } from '@/lib/product-search'
 
 // --- Enums -----------------------------------------------------------------
 
@@ -146,6 +147,10 @@ export const productCategories = pgTable('product_categories', {
 export const products = pgTable('products', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull().unique(),
+  // The name without diacritics, lower-cased ("Čerstvé mléko 1,5%" -> "cerstve mleko 1,5%"), kept by
+  // the database itself so text search (lib/product-search.ts) is accent-insensitive. The character
+  // map is shared with `normalizeSearchText()`, and a DB test checks the two agree.
+  searchName: text('search_name').generatedAlwaysAs(sql`lower(translate(name, '${sql.raw(SEARCH_ACCENTED)}', '${sql.raw(SEARCH_PLAIN)}'))`),
   categoryId: uuid('category_id').notNull().references(() => productCategories.id),
   defaultUnit: itemUnitEnum('default_unit').notNull().default('ks'),
   // Where this product is remembered to live once a household has confirmed/corrected it at least

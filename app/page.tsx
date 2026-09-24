@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function Page() {
   const { data: session } = await auth.getSession()
-  if (!session?.user) redirect('/auth/sign-in')
+  if (!session?.user) redirect('/intro')
 
   const [data, stores, productPrices, storeChains] = await Promise.all([
     getHouseholdData(session.user.id, session.user.name, session.user.email),

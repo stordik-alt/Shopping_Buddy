@@ -27,11 +27,16 @@ export const TILE_BATCH_SIZE = 50
 // Consecutive failed detail lookups after which the source is treated as down.
 const MAX_CONSECUTIVE_LOOKUP_FAILURES = 5
 
-// The sitemap lists ~13,000 products, far more than a pilot batch. Sampling ids by a fixed modulus
-// (~1 in 160 -> ~80 products) gives a spread across every aisle and — unlike "the first N" or "every
-// k-th position" — stays the same products from day to day even as the sitemap gains and loses
-// entries, so each product's price history stays continuous. Ids carry no category pattern.
-export const SAMPLE_MODULUS = 160
+// Category lookups running at the same time. Each is one small request, so a handful in parallel
+// keeps a ~650-product run to well under a minute without hammering the retailer.
+const DETAIL_CONCURRENCY = 5
+
+// The sitemap lists ~13,000 products. Sampling ids by a fixed modulus (~1 in 20 -> ~650 products)
+// gives a spread across every aisle and — unlike "the first N" or "every k-th position" — stays the
+// same products from day to day even as the sitemap gains and loses entries, so each product's price
+// history stays continuous. Ids carry no category pattern. 20 divides the earlier modulus 160, so
+// the products sampled before are all still in the sample and keep their history.
+export const SAMPLE_MODULUS = 20
 
 /** Extracts product ids (`dan`) from the product sitemap's `/p/d/<id>/<slug>` URLs. Pure/testable. */
 export function parseDmSitemap(xml: string): number[] {
@@ -42,7 +47,7 @@ export function parseDmSitemap(xml: string): number[] {
   return ids
 }
 
-/** The deterministic pilot sample: ids divisible by `SAMPLE_MODULUS`, ascending, at most `limit`. */
+/** The deterministic sample: ids divisible by `SAMPLE_MODULUS`, ascending, at most `limit`. */
 export function selectSampleIds(ids: number[], limit: number): number[] {
   return Array.from(new Set(ids))
     .filter((id) => id % SAMPLE_MODULUS === 0)
@@ -93,10 +98,10 @@ export async function fetchDmTopCategory(id: number): Promise<string | undefined
   return body.breadcrumbs?.[0]
 }
 
-/** Fetches up to `limit` sampled products with their top-level category. Requests are sequential,
- *  not parallel. A single failed category lookup drops that product (logged) rather than the whole
- *  batch; if half or more of the lookups fail the source is treated as broken and this throws, so
- *  the failure is visible instead of being reported as a pile of "skipped" products. */
+/** Fetches up to `limit` sampled products with their top-level category. Category lookups run
+ *  `DETAIL_CONCURRENCY` at a time. A single failed lookup drops that product (logged) rather than
+ *  the whole batch; if half or more of the lookups fail the source is treated as broken and this
+ *  throws, so the failure is visible instead of being reported as a pile of "skipped" products. */
 export async function fetchDmProducts(limit: number, options: FetchOptions = {}): Promise<DmRawProduct[]> {
   if (limit <= 0) return []
   const ids = selectSampleIds(await fetchDmSitemap(), limit)
@@ -106,30 +111,45 @@ export async function fetchDmProducts(limit: number, options: FetchOptions = {})
     tiles.push(...(await fetchDmTiles(ids.slice(i, i + TILE_BATCH_SIZE))))
   }
 
-  const products: DmRawProduct[] = []
+  // Results are stored by tile position so the output order does not depend on which lookup
+  // finishes first.
+  const results: (DmRawProduct | null)[] = new Array(tiles.length).fill(null)
+  let next = 0
+  let attempted = 0
   let failed = 0
   let consecutiveFailures = 0
-  for (const tile of tiles) {
-    // Out of time budget: stop asking, keep what we have (the caller reports the run as truncated).
-    if (options.deadline != null && Date.now() >= options.deadline) break
-    try {
-      products.push({ ...tile, topCategory: await fetchDmTopCategory(tile.dan) })
-      consecutiveFailures = 0
-    } catch (err) {
-      failed++
-      consecutiveFailures++
-      console.error(`DM category lookup failed for ${tile.dan}:`, err)
-      // A run of failures means the source is down or stalling, not that a few products are bad.
-      // Stop instead of spending a full request timeout on each of the remaining products.
-      if (consecutiveFailures >= MAX_CONSECUTIVE_LOOKUP_FAILURES) {
-        throw new Error(`DM category lookups failed ${consecutiveFailures} times in a row; the source looks down`)
+  let sourceDown = false
+
+  async function worker(): Promise<void> {
+    while (!sourceDown) {
+      // Out of time budget: stop asking, keep what we have (the caller reports the run as truncated).
+      if (options.deadline != null && Date.now() >= options.deadline) return
+      const index = next++
+      if (index >= tiles.length) return
+      const tile = tiles[index]
+      attempted++
+      try {
+        results[index] = { ...tile, topCategory: await fetchDmTopCategory(tile.dan) }
+        consecutiveFailures = 0
+      } catch (err) {
+        failed++
+        consecutiveFailures++
+        console.error(`DM category lookup failed for ${tile.dan}:`, err)
+        // A run of failures means the source is down or stalling, not that a few products are bad.
+        // Stop instead of spending a full request timeout on each of the remaining products.
+        if (consecutiveFailures >= MAX_CONSECUTIVE_LOOKUP_FAILURES) sourceDown = true
       }
     }
   }
-  if (tiles.length > 0 && failed * 2 >= tiles.length) {
-    throw new Error(`DM category lookups failed for ${failed} of ${tiles.length} products`)
+  await Promise.all(Array.from({ length: DETAIL_CONCURRENCY }, () => worker()))
+
+  if (sourceDown) {
+    throw new Error(`DM category lookups failed ${consecutiveFailures} times in a row; the source looks down`)
   }
-  return products
+  if (attempted > 0 && failed * 2 >= attempted) {
+    throw new Error(`DM category lookups failed for ${failed} of ${attempted} products`)
+  }
+  return results.filter((product): product is DmRawProduct => product !== null)
 }
 
 // --- Normalizer + Validator (pure functions) ----------------------------------------------------

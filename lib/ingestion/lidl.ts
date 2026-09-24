@@ -40,6 +40,15 @@ const GROCERY_SLUG_KEYWORDS = [
   'mleko', 'vejce', 'banany', 'jablka', 'chleb', 'rohliky', 'maslo', 'syr', 'kureci', 'hovezi',
   'vepr', 'ryze', 'testoviny', 'rajcata', 'brambory', 'mrkev', 'jogurt', 'sunka', 'cibule', 'cukr',
   'mouka', 'olej', 'pivo', 'vino', 'kava', 'caj', 'tvaroh', 'salam', 'okurky', 'papriky', 'citron',
+  // Widened 2026-09-24 so the daily batch covers more of the food range. Category names (mapLidlCategory)
+  // still decide what is actually kept, so a keyword that also names a non-food item costs one wasted lookup.
+  'smetana', 'margarin', 'salat', 'cuketa', 'brokolice', 'zeli', 'kapusta', 'houska', 'toust', 'pecivo',
+  'musli', 'vlocky', 'cokolada', 'susenky', 'bonbony', 'chipsy', 'orechy', 'arasidy', 'marmelada', 'med',
+  'dzem', 'kecup', 'horcice', 'majoneza', 'omacka', 'konzerva', 'tunak', 'losos', 'ryba', 'filet', 'parky',
+  'klobasa', 'mlete', 'maso', 'krkovice', 'kruti', 'pizza', 'zmrzlina', 'limonada', 'dzus', 'sirup',
+  'ocet', 'sul', 'koreni', 'pepr', 'paprika', 'jahody', 'hrozny', 'pomerance', 'hrusky', 'avokado', 'broskve',
+  'meloun', 'cesnek', 'zazvor', 'houby', 'hrasek', 'fazole', 'cocka', 'kukurice', 'drozdi', 'nudle', 'knedliky',
+  'lusteniny', 'mozzarella', 'eidam', 'gouda', 'hermelin', 'niva', 'uzeny', 'uzena', 'slanina', 'pasteka',
 ]
 
 // A real pilot run surfaced a second, deeper false-positive pattern beyond simple substring

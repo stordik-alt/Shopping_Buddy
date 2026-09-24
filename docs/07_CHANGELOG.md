@@ -1,5 +1,15 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-24 (Price ingestion: wider catalog so search and the shopping plan have something to work with)
+### Part 3 of the search/planner work — per-source daily batch sizes
+- **Per-source limits:** `PRICE_SOURCES` entries carry their own batch size (Lidl 400, Billa 450, Penny 80, dm 700) instead of one shared pilot size of 80; the cron handler no longer passes a limit (`runPriceSources` still accepts an override).
+- **Billa:** pages through each category (`pageSize` ≤ 50, `ceil(limit / 9 / pageSize)` pages), stops on a short page, and checks the deadline before every request.
+- **dm:** sample modulus 160 → 20 (a superset of the earlier sample, so existing price histories continue), category lookups five at a time with the consecutive-failure circuit breaker kept (in-flight lookups finish; nothing new starts once the source looks down).
+- **Lidl:** grocery slug keywords widened from 31 to ~110 (candidates 111 → 205, ~97 → ~179 normalized products). Lidl's own category still decides what is kept.
+- **Dry run (no DB writes):** Billa 444, dm 680, Lidl 179, Penny 35 normalized products; every id unique; fetching took 0.3–6 s per source.
+- **Tests:** per-source/override limits and the real limits, Billa multi-page and short-page paging, dm concurrency cap (5) with order preserved and the adapted circuit breaker.
+- **Not done:** no ingestion was run against the shared database as part of this change; the next scheduled cron (or an approved manual run) writes the wider catalog.
+
 ## 2026-09-24 (Receipts: weighed lines, rounding artifacts removed, placement gate)
 ### Follow-up to the Albert receipt report — stacked on the receipt-total PR (#29)
 - **Root cause of the weighed-item weakness:** the OCR text (Azure fallback — Google Vision PDF OCR had failed) dropped the "0.43 x 34.90 Kč" / "0.935 x 19.90 Kč" lines; the model correctly output null. Why Google failed is open (needs production logs).

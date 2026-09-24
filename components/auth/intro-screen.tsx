@@ -1,11 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { ArrowRight, Banknote, ShoppingBasket } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import styles from './intro-screen.module.css'
-
-const INTRO_SEEN_KEY = 'shopping-buddy:intro-seen'
 
 function BuddyRobot() {
   return (
@@ -54,21 +51,6 @@ function BuddyRobot() {
 
 export function IntroScreen() {
   const router = useRouter()
-  const [ready, setReady] = useState(false)
-
-  useEffect(() => {
-    if (window.localStorage.getItem(INTRO_SEEN_KEY) === '1') {
-      router.replace('/auth/sign-in')
-      return
-    }
-
-    setReady(true)
-    window.localStorage.setItem(INTRO_SEEN_KEY, '1')
-  }, [router])
-
-  if (!ready) {
-    return <main className={styles.screen} aria-hidden="true" />
-  }
 
   return (
     <main className={styles.screen}>

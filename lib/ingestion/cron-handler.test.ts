@@ -40,7 +40,8 @@ describe('handleIngestCron', () => {
     const response = await handleIngestCron(request('Bearer secret'), 'billa')
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ billa: ran })
-    expect(ingest.runPriceSources).toHaveBeenCalledWith({ only: 'billa', limit: 80, budgetMs: 230_000 })
+    // No batch size is passed: each source reads its own (PRICE_SOURCES).
+    expect(ingest.runPriceSources).toHaveBeenCalledWith({ only: 'billa', budgetMs: 230_000 })
   })
 
   it('runs every source when none is requested', async () => {

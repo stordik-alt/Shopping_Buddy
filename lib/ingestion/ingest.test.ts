@@ -16,7 +16,7 @@ const queries = vi.hoisted(() => ({
 }))
 vi.mock('@/lib/db/queries', () => queries)
 
-import { ingestPrices, runPriceSources } from '@/lib/ingestion/ingest'
+import { ingestPrices, PRICE_SOURCES, runPriceSources } from '@/lib/ingestion/ingest'
 
 type Raw = { id: string; product: NormalizedProduct | null; throws?: boolean }
 
@@ -296,7 +296,32 @@ describe('runPriceSources', () => {
     ...extra,
   })
   type Run = (limit: number, options?: { deadline?: number }) => Promise<IngestResult>
-  const entry = (source: string, run: Run) => ({ source, run })
+  const entry = (source: string, run: Run, limit = 5) => ({ source, run, limit })
+
+  it('gives every source its own batch size', async () => {
+    const seen: Record<string, number> = {}
+    const record = (name: string): Run => async (limit) => {
+      seen[name] = limit
+      return ok()
+    }
+    await runPriceSources({ budgetMs: 1000, sources: [entry('a', record('a'), 400), entry('b', record('b'), 80)] })
+    expect(seen).toEqual({ a: 400, b: 80 })
+  })
+
+  it('lets a caller override the batch size of every source', async () => {
+    const seen: number[] = []
+    const run: Run = async (limit) => {
+      seen.push(limit)
+      return ok()
+    }
+    await runPriceSources({ limit: 7, budgetMs: 1000, sources: [entry('a', run, 400), entry('b', run, 80)] })
+    expect(seen).toEqual([7, 7])
+  })
+
+  it('the real sources read a few hundred products each, Penny only its weekly offers', () => {
+    const limits = Object.fromEntries(PRICE_SOURCES.map((source) => [source.source, source.limit]))
+    expect(limits).toMatchObject({ lidl: 400, billa: 450, penny: 80, dm: 700 })
+  })
 
   it('runs only the requested source', async () => {
     const a = vi.fn(async () => ok())

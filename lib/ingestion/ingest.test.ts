@@ -60,6 +60,14 @@ describe('ingestPrices', () => {
     )
   })
 
+  it('stores a deal but records no price observation when the source states no regular price', async () => {
+    const deal = { dealPrice: 15.9, validFrom: '2026-09-23', validUntil: '2026-09-29' }
+    const result = await ingestPrices(connector([{ id: 'a', product: product('a', { regularPrice: null, unitPrice: null, deal }) }]), 10)
+    expect(result).toMatchObject({ processed: 1, recorded: 0, deals: 1, skipped: 0 })
+    expect(queries.recordPriceObservation).not.toHaveBeenCalled()
+    expect(queries.upsertActiveDeal).toHaveBeenCalledWith(expect.objectContaining({ dealPrice: 15.9 }))
+  })
+
   it('does not count a product already linked to the source as new', async () => {
     queries.findProductIdByExternalRef.mockResolvedValue('existing')
     const result = await ingestPrices(connector([{ id: 'a', product: product('a') }]), 10)

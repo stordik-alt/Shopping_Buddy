@@ -19,9 +19,13 @@ export type NormalizedProduct = {
   category: ItemCategory
   /** Unit the `unitPrice` is expressed in (a normalized unit: kg, l or ks where the source allows). */
   unit: ItemUnit
-  unitPrice: number
-  /** The regular (non-promotional) price. For a product sold by weight it is the price per `unit`. */
-  regularPrice: number
+  /** Unit price of the regular price; `null` together with `regularPrice`. */
+  unitPrice: number | null
+  /** The regular (non-promotional) price. For a product sold by weight it is the price per `unit`.
+   *  `null` when the source publishes only a promotional price and no regular/reference price — then
+   *  no price observation is recorded, since an offer price must not masquerade as the everyday
+   *  price (CLAUDE.md sections 16 and 18). */
+  regularPrice: number | null
   currency: string
   recordedAt: string
   /** A promotion with a known validity window. Connectors whose source publishes no end date must

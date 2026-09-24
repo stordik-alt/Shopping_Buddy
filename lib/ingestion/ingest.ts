@@ -1,7 +1,9 @@
 import { TODAY } from '@/lib/budget'
 import { findProductIdByExternalRef, getCanonicalStoreLocationId, getStoreIdByChain, recordPriceObservation, resolveOrCreateProductFromExternal, upsertActiveDeal } from '@/lib/db/queries'
 import { billaConnector } from '@/lib/ingestion/billa'
+import { dmConnector } from '@/lib/ingestion/dm'
 import { lidlConnector } from '@/lib/ingestion/lidl'
+import { pennyConnector } from '@/lib/ingestion/penny'
 import type { IngestResult, PriceConnector } from '@/lib/ingestion/types'
 
 export type { IngestResult } from '@/lib/ingestion/types'
@@ -46,21 +48,24 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
       // official CHAIN-scope observation with no physical location (docs/02_PROJECT_CONTEXT.md:
       // "Official chain price: CHAIN + store_location_id=NULL + OFFICIAL"). It never overwrites a
       // receipt-based STORE observation — `prices` is append-only and current price is derived per
-      // context.
-      await recordPriceObservation({
-        productId,
-        storeId,
-        storeLocationId: null,
-        priceScope: 'CHAIN',
-        sourceType: 'OFFICIAL',
-        sourceReference: normalized.externalId,
-        regularPrice: normalized.regularPrice,
-        currency: normalized.currency,
-        unit: normalized.unit,
-        unitPrice: normalized.unitPrice,
-        observedAt: normalized.recordedAt,
-      })
-      result.recorded++
+      // context. Skipped when the source states no regular price (an offers-only source): the offer
+      // then lives only in `deals`.
+      if (normalized.regularPrice != null && normalized.unitPrice != null) {
+        await recordPriceObservation({
+          productId,
+          storeId,
+          storeLocationId: null,
+          priceScope: 'CHAIN',
+          sourceType: 'OFFICIAL',
+          sourceReference: normalized.externalId,
+          regularPrice: normalized.regularPrice,
+          currency: normalized.currency,
+          unit: normalized.unit,
+          unitPrice: normalized.unitPrice,
+          observedAt: normalized.recordedAt,
+        })
+        result.recorded++
+      }
 
       if (normalized.deal) {
         storeLocationId ??= await getCanonicalStoreLocationId(connector.chain)
@@ -89,4 +94,6 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
 export const PRICE_SOURCES: { source: string; run: (limit: number) => Promise<IngestResult> }[] = [
   { source: lidlConnector.source, run: (limit) => ingestPrices(lidlConnector, limit) },
   { source: billaConnector.source, run: (limit) => ingestPrices(billaConnector, limit) },
+  { source: pennyConnector.source, run: (limit) => ingestPrices(pennyConnector, limit) },
+  { source: dmConnector.source, run: (limit) => ingestPrices(dmConnector, limit) },
 ]

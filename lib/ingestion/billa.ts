@@ -1,5 +1,15 @@
-import type { ItemCategory, ItemUnit } from '@/lib/types'
+import type { ItemCategory } from '@/lib/types'
+import {
+  fetchDiscoveryCategoryPage,
+  toNormalizedUnitPrice,
+  unitPriceMatchesPackage,
+  UNIT_PRICE_TOLERANCE,
+  type DiscoveryProduct,
+} from '@/lib/ingestion/product-discovery'
 import type { NormalizedProduct, PriceConnector } from '@/lib/ingestion/types'
+
+// The unit-price conversion is shared with the other retailers on this web-shop platform.
+export { toNormalizedUnitPrice }
 
 // --- Fetcher (docs/02_ARCHITECTURE.md / CLAUDE.md section 32: External Source -> Fetcher) --------
 // billa.cz has no public retailer API. Like the Lidl connector, this uses the site's own JSON
@@ -12,10 +22,6 @@ import type { NormalizedProduct, PriceConnector } from '@/lib/ingestion/types'
 // so one request yields many products — far lighter than fetching each ~575 KB product page.
 
 const BASE_URL = 'https://www.billa.cz'
-const CATEGORY_PRODUCTS_PATH = '/api/product-discovery/categories'
-
-// Identifies this app to the retailer instead of hiding behind a browser User-Agent.
-const USER_AGENT = 'ShoppingBuddy-connector/0.1 (+https://github.com/stordik-alt/Shopping_Buddy)'
 
 // Billa's top-level grocery categories, taken from the site's own /produkty navigation
 // (2026-09-24). A category page lists products from all its sub-categories, so these nine cover
@@ -36,44 +42,11 @@ export const BILLA_GROCERY_CATEGORY_SLUGS = [
   'napoje-1474',
 ]
 
-// The API's page-size cap was verified up to 50; stay at or below it.
-const MAX_PAGE_SIZE = 50
+export type BillaRawProduct = DiscoveryProduct
 
-// Shape is a deliberately small subset of the real response — only the fields this connector
-// reads. Prices are integers in haléře (1/100 Kč).
-export type BillaRawProduct = {
-  sku: string
-  name?: string
-  /** Package size as a plain number string, in `volumeLabelShort` units (e.g. "225" with "g"). */
-  amount?: string
-  volumeLabelShort?: string
-  /** Sold by weight at a per-kg price (deli counter, loose produce) rather than a fixed package. */
-  weightArticle?: boolean
-  /** Sold by approximate piece weight (e.g. a chicken quarter ~855 g): `price.*.value` is only the
-   *  estimated price of one typical piece, while the per-kg unit price is exact. */
-  weightPieceArticle?: boolean
-  parentCategories?: { name: string }[][]
-  price?: {
-    baseUnitShort?: string
-    basePriceFactor?: string
-    /** Regular (non-promotional) price — only present while a promotion is running. */
-    standard?: { value?: number; perStandardizedQuantity?: number }
-    /** Current selling price; equals the regular price when no promotion is running. */
-    regular?: { value?: number; perStandardizedQuantity?: number }
-  }
-}
-
-type BillaCategoryResponse = { results?: BillaRawProduct[] }
-
-/** Fetches the first `pageSize` products of one category (0-based `page`). */
+/** Fetches one page (0-based) of a Billa category's products. */
 export async function fetchBillaCategoryPage(slug: string, page: number, pageSize: number): Promise<BillaRawProduct[]> {
-  const size = Math.min(Math.max(pageSize, 1), MAX_PAGE_SIZE)
-  const url = `${BASE_URL}${CATEGORY_PRODUCTS_PATH}/${slug}/products?page=${page}&pageSize=${size}&sortBy=relevance`
-  const response = await fetch(url, { headers: { Accept: 'application/json', 'User-Agent': USER_AGENT } })
-  if (!response.ok) throw new Error(`Billa category ${slug} fetch failed: HTTP ${response.status}`)
-  const body = (await response.json()) as BillaCategoryResponse
-  if (!Array.isArray(body.results)) throw new Error(`Billa category ${slug} returned an unexpected response shape`)
-  return body.results
+  return (await fetchDiscoveryCategoryPage(BASE_URL, 'Billa', slug, page, pageSize)).results
 }
 
 /** Fetches up to `limit` products, spread evenly over the grocery categories (first page of each,
@@ -133,59 +106,6 @@ export function mapBillaCategory(raw: BillaRawProduct): ItemCategory {
   return 'Ostatní'
 }
 
-/** Converts Billa's unit price (per `factor` of `baseUnit`, in haléře) into Kč per kg / l / ks —
- *  the normalized units of CLAUDE.md section 17. Billa quotes gram and millilitre products per
- *  100 g / 100 ml (`basePriceFactor` "100"), which are scaled to a full kg / l so unit prices of
- *  different products stay directly comparable. `null` for a unit this app doesn't model. */
-export function toNormalizedUnitPrice(
-  baseUnit: string | undefined,
-  factor: string | undefined,
-  perStandardizedHalere: number | undefined,
-): { unit: ItemUnit; unitPrice: number } | null {
-  if (perStandardizedHalere == null || !Number.isFinite(perStandardizedHalere) || perStandardizedHalere <= 0) return null
-  const base = Number(factor ?? '1')
-  if (!Number.isFinite(base) || base <= 0) return null
-  const perStandardizedKc = perStandardizedHalere / 100
-  const round = (value: number) => Math.round(value * 100) / 100
-  switch (baseUnit) {
-    case 'kg':
-    case 'l':
-    case 'ks':
-      return { unit: baseUnit, unitPrice: round(perStandardizedKc / base) }
-    case 'g':
-      return { unit: 'kg', unitPrice: round((perStandardizedKc * 1000) / base) }
-    case 'ml':
-      return { unit: 'l', unitPrice: round((perStandardizedKc * 1000) / base) }
-    default:
-      return null
-  }
-}
-
-/** Package size in the normalized unit (kg / l / ks), or `null` when unstated or not convertible. */
-function packageQuantity(amount: string | undefined, label: string | undefined): { quantity: number; unit: ItemUnit } | null {
-  const value = Number((amount ?? '').replace(',', '.'))
-  if (!Number.isFinite(value) || value <= 0) return null
-  switch (label) {
-    case 'g':
-      return { quantity: value / 1000, unit: 'kg' }
-    case 'kg':
-      return { quantity: value, unit: 'kg' }
-    case 'ml':
-      return { quantity: value / 1000, unit: 'l' }
-    case 'l':
-      return { quantity: value, unit: 'l' }
-    case 'ks':
-      return { quantity: value, unit: 'ks' }
-    default:
-      return null
-  }
-}
-
-// Billa's own price, unit price and package size are separate fields that can disagree (the Globus
-// research found the same class of problem). A 3 % band absorbs the retailer rounding the unit
-// price to whole haléře; anything beyond that is treated as bad data, not averaged away.
-const UNIT_PRICE_TOLERANCE = 0.03
-
 /** Turns one raw Billa record into a validated, normalized product — or `null` when it isn't
  *  usable, per CLAUDE.md section 33 ("reject or flag suspicious data rather than silently
  *  inserting it"):
@@ -227,14 +147,8 @@ export function normalizeBillaProduct(raw: BillaRawProduct, today: string): Norm
   } else if (raw.weightArticle) {
     // The listed price is per kg, so it is its own unit price.
     if (unit !== 'kg' || Math.abs(unitPrice - regularPrice) > regularPrice * UNIT_PRICE_TOLERANCE) return null
-  } else {
-    const pack = packageQuantity(raw.amount, raw.volumeLabelShort)
-    // Only cross-check when the stated package size is in the same unit family as the unit price;
-    // otherwise (e.g. a "ks" count on a per-kg product) there is nothing sound to compare.
-    if (pack && pack.unit === unit) {
-      const expectedUnitPrice = regularPrice / pack.quantity
-      if (Math.abs(unitPrice - expectedUnitPrice) > expectedUnitPrice * UNIT_PRICE_TOLERANCE) return null
-    }
+  } else if (!unitPriceMatchesPackage(raw, regularPrice, unit, unitPrice)) {
+    return null
   }
 
   const currentHalere = raw.price?.regular?.value

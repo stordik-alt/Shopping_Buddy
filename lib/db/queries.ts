@@ -702,15 +702,26 @@ export async function getProductPrices(): Promise<ProductPrice[]> {
  *  today. "Today" is the real date (Prague), like ingestion's, not the app's fixed demo date. */
 export async function getStandaloneOffers(today: string = ingestionDate()): Promise<StandaloneOffer[]> {
   const db = getDb()
-  const rows = await db.execute<{ name: string; category: string; chain: string; store_id: string; deal_price: string; valid_until: string }>(sql`
-    SELECT p.name, c.name AS category, s.chain, s.id AS store_id, min(d.deal_price) AS deal_price, max(d.valid_until) AS valid_until
+  const rows = await db.execute<{
+    name: string
+    category: string
+    chain: string
+    store_id: string
+    deal_price: string
+    unit: ItemUnit | null
+    unit_price: string | null
+    valid_until: string
+  }>(sql`
+    SELECT DISTINCT ON (p.id, s.id)
+      p.name, c.name AS category, s.chain, s.id AS store_id, d.deal_price, d.unit, d.unit_price,
+      max(d.valid_until) OVER (PARTITION BY p.id, s.id) AS valid_until
     FROM deals d
     JOIN products p ON p.id = d.product_id
     JOIN product_categories c ON c.id = p.category_id
     JOIN stores s ON s.id = d.store_id
     WHERE d.valid_from <= ${today}::date AND d.valid_until >= ${today}::date
       AND NOT EXISTS (SELECT 1 FROM prices pr WHERE pr.product_id = d.product_id AND pr.store_id = d.store_id)
-    GROUP BY p.id, p.name, c.name, s.id, s.chain
+    ORDER BY p.id, s.id, d.deal_price ASC, d.valid_until DESC
   `)
   return rows.rows.map((row) => ({
     productName: row.name,
@@ -718,6 +729,9 @@ export async function getStandaloneOffers(today: string = ingestionDate()): Prom
     store: row.chain,
     storeId: row.store_id,
     dealPrice: Number(row.deal_price),
+    // The unit price is the cheapest offer's own, so it always describes the price shown.
+    unit: row.unit,
+    unitPrice: row.unit_price == null ? null : Number(row.unit_price),
     validUntil: String(row.valid_until).slice(0, 10),
   }))
 }
@@ -1069,11 +1083,17 @@ export async function upsertActiveDeal(deal: {
   /** The branch it applies at; null for an online-only chain, whose deals have none. */
   storeLocationId: string | null
   dealPrice: number
+  /** The promotion's price per `unit`. Optional so a caller that has none does not invent one; both
+   *  are stored together or not at all (a database check enforces the pair). */
+  unit?: (typeof schema.deals.$inferInsert)['unit']
+  unitPrice?: number
   currency?: string
   validFrom: string
   validUntil: string
 }) {
   const db = getDb()
+  if ((deal.unit == null) !== (deal.unitPrice == null)) throw new Error('A deal needs both unit and unitPrice, or neither')
+  const unitColumns = deal.unit != null && deal.unitPrice != null ? { unit: deal.unit, unitPrice: deal.unitPrice.toString() } : {}
   const existing = await db.query.deals.findFirst({
     where: and(
       eq(schema.deals.productId, deal.productId),
@@ -1085,7 +1105,7 @@ export async function upsertActiveDeal(deal: {
   if (existing) {
     await db
       .update(schema.deals)
-      .set({ dealPrice: deal.dealPrice.toString(), currency: deal.currency ?? 'CZK', validFrom: deal.validFrom, validUntil: deal.validUntil })
+      .set({ dealPrice: deal.dealPrice.toString(), ...unitColumns, currency: deal.currency ?? 'CZK', validFrom: deal.validFrom, validUntil: deal.validUntil })
       .where(eq(schema.deals.id, existing.id))
   } else {
     await db.insert(schema.deals).values({
@@ -1093,6 +1113,7 @@ export async function upsertActiveDeal(deal: {
       storeId: deal.storeId,
       storeLocationId: deal.storeLocationId,
       dealPrice: deal.dealPrice.toString(),
+      ...unitColumns,
       currency: deal.currency ?? 'CZK',
       validFrom: deal.validFrom,
       validUntil: deal.validUntil,

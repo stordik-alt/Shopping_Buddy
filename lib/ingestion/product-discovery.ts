@@ -119,6 +119,13 @@ function packageQuantity(amount: string | undefined, label: string | undefined):
 // unit price to whole haléře; anything beyond that is treated as bad data, not averaged away.
 export const UNIT_PRICE_TOLERANCE = 0.03
 
+/** The unit price of the same package at a different price: it scales by exactly the price ratio
+ *  (rounded to haléře). Derives an offer's unit price from the regular one, or the other way round,
+ *  when a source prints only one of them. */
+export function scaleUnitPrice(unitPrice: number, fromPrice: number, toPrice: number): number {
+  return Math.round(((unitPrice * toPrice) / fromPrice) * 100) / 100
+}
+
 /** For a fixed-package product: does `unitPrice` agree with `priceKc` ÷ the stated package size?
  *  Only cross-checks when the package size is in the same unit family as the unit price; otherwise
  *  (e.g. a "ks" count on a per-kg product) there is nothing sound to compare and it passes. */

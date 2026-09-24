@@ -194,7 +194,28 @@ describe('normalizeLidlProduct', () => {
     }
     const result = normalizeLidlProduct(raw, TODAY)
     expect(result?.regularPrice).toBe(2499)
-    expect(result?.deal).toEqual({ dealPrice: 999, validFrom: '2026-09-13', validUntil: '2026-09-27' })
+    // Priced per package here (no base price text), so 999 Kč/ks at the offer price and 2 499 Kč/ks regular.
+    expect(result?.deal).toEqual({ dealPrice: 999, unitPrice: 999, validFrom: '2026-09-13', validUntil: '2026-09-27' })
+    expect(result?.unitPrice).toBe(2499)
+  })
+
+  it("keeps Lidl's printed unit price on the deal and scales it up for the regular price", () => {
+    const raw: LidlRawProduct = {
+      erpNumber: '100391808',
+      fullTitle: 'Olivový olej v akci',
+      category: 'Food',
+      price: {
+        price: 100,
+        oldPrice: 125,
+        currencyCode: 'CZK',
+        // Lidl prints the unit price of the price it shows now, i.e. the offer price.
+        basePrice: { text: '1 l = 200,00 Kč' },
+        discount: { startDate: '2026-09-13T22:00Z', endDate: '2026-09-27T21:59:59Z' },
+      },
+    }
+    const result = normalizeLidlProduct(raw, TODAY)
+    expect(result).toMatchObject({ unit: 'l', regularPrice: 125, unitPrice: 250 })
+    expect(result?.deal).toMatchObject({ dealPrice: 100, unitPrice: 200 })
   })
 
   it('does not treat an oldPrice of 0 (no real discount) as a deal', () => {

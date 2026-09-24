@@ -1,5 +1,7 @@
+import { money } from '@/lib/format'
 import { isNearby, type StoreSelection } from '@/lib/nearby-stores'
-import type { ItemCategory } from '@/lib/types'
+import { toComparableUnit } from '@/lib/product-search'
+import type { ItemCategory, ItemUnit } from '@/lib/types'
 
 // Offers of a store for a product the app has no regular price for.
 //
@@ -17,8 +19,20 @@ export type StandaloneOffer = {
   storeId: string
   /** The offer price of one package, as the retailer publishes it. */
   dealPrice: number
+  /** The offer's price per `unit`, so it can be compared per kg/l/ks; `null` for an offer stored
+   *  before unit prices were kept (none is invented for it). */
+  unit: ItemUnit | null
+  unitPrice: number | null
   /** Last day the offer is valid (`YYYY-MM-DD`). */
   validUntil: string
+}
+
+/** "159,90 Kč/kg" — the offer's unit price in a comparable unit (per gram becomes per kg), or `null`
+ *  when the offer has none. */
+export function offerUnitPriceLabel(offer: Pick<StandaloneOffer, 'unit' | 'unitPrice'>): string | null {
+  if (offer.unit == null || offer.unitPrice == null) return null
+  const comparable = toComparableUnit(offer.unit, offer.unitPrice)
+  return `${money(comparable.unitPrice)}/${comparable.unit}`
 }
 
 /** The offers at stores the user has chosen as nearby (everything when nothing is chosen), ordered

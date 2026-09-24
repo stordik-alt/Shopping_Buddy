@@ -152,7 +152,9 @@ export function normalizePennyProduct(raw: PennyRawProduct, today: string): Norm
     const from = validFrom.slice(0, 10)
     const until = validUntil.slice(0, 10)
     if (until < from) return null
-    if (until >= today) deal = { dealPrice: offerPrice, validFrom: from, validUntil: until }
+    // The offer's own unit price is stored even when no regular price is known — then it is the only
+    // way to compare the offer per kg/l.
+    if (until >= today) deal = { dealPrice: offerPrice, unitPrice: offerUnit.unitPrice, validFrom: from, validUntil: until }
   } else {
     promotionWithoutValidity = true
   }

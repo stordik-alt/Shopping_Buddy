@@ -283,9 +283,16 @@ export const deals = pgTable('deals', {
   storeLocationId: uuid('store_location_id').references(() => storeLocations.id, { onDelete: 'cascade' }),
   dealPrice: numeric('deal_price', { precision: 10, scale: 2 }).notNull(),
   currency: text('currency').notNull().default('CZK'),
+  // The promotion's price per `unit` (Kč/kg, Kč/l, Kč/ks…) — what makes an offer comparable when the
+  // chain publishes no regular price to derive it from (an offers-only source such as Penny). Nullable
+  // because deals stored before these columns existed have none, and a unit price is never invented
+  // for them; both columns are set together or not at all.
+  unit: itemUnitEnum('unit'),
+  unitPrice: numeric('unit_price', { precision: 10, scale: 2 }),
   validFrom: date('valid_from').notNull(),
   validUntil: date('valid_until').notNull(),
 }, (table) => [
+  check('deals_unit_price_pair', sql`(${table.unit} IS NULL AND ${table.unitPrice} IS NULL) OR (${table.unit} IS NOT NULL AND ${table.unitPrice} > 0)`),
   // Same guard as member_stores: when a branch is named it must be a branch of `store_id`. MATCH
   // SIMPLE — a NULL `store_location_id` (an online chain's deal) skips the check.
   foreignKey({ columns: [table.storeLocationId, table.storeId], foreignColumns: [storeLocations.id, storeLocations.storeId] }).onDelete('cascade'),

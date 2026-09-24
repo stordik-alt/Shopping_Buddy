@@ -258,7 +258,8 @@ export function normalizeKosikProduct(raw: KosikRawProduct, today: string): Norm
     const validUntil = parseKosikPromotionEnd(raw.actionLabel, today)
     // A weighed item's promotion is quoted per kg like its regular price.
     const dealPrice = weighed ? raw.pricePerUnit.price : raw.price
-    if (validUntil) deal = { dealPrice: round2(dealPrice), validFrom: today, validUntil }
+    // The unit price the site prints is already the one of the current (promotional) price.
+    if (validUntil) deal = { dealPrice: round2(dealPrice), unitPrice: round2(raw.pricePerUnit.price), validFrom: today, validUntil }
     else promotionWithoutValidity = true
   }
 

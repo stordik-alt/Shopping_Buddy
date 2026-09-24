@@ -100,7 +100,8 @@ describe('normalizeKosikProduct', () => {
     // (= 89,90 Kč / 0,2 kg), which is what is recorded as the regular unit price.
     expect(result).toMatchObject({ regularPrice: 89.9, unit: 'kg' })
     expect(result?.unitPrice).toBeCloseTo((274.5 * 89.9) / 54.9, 1)
-    expect(result?.deal).toEqual({ dealPrice: 54.9, validFrom: TODAY, validUntil: '2026-09-29' })
+    // The deal keeps the printed unit price of the offer price; only the regular one is scaled up.
+    expect(result?.deal).toEqual({ dealPrice: 54.9, unitPrice: 274.5, validFrom: TODAY, validUntil: '2026-09-29' })
   })
 
   it('records a weighed item at its per-kg price, not the one-piece estimate', () => {
@@ -111,6 +112,7 @@ describe('normalizeKosikProduct', () => {
     const onOffer: KosikRawProduct = { ...pepper, price: 10.7702, recommendedPrice: 15.386, percentageDiscount: 30, pricePerUnit: { price: 76.93, unit: 'kg' }, actionLabel: 'Akce platí do 29. 9.' }
     const result = normalizeKosikProduct(onOffer, TODAY)
     expect(result?.deal?.dealPrice).toBe(76.93)
+    expect(result?.deal?.unitPrice).toBe(76.93)
     expect(result?.regularPrice).toBeCloseTo(109.9, 1)
   })
 

@@ -1,6 +1,6 @@
-import { UNIT_PRICE_TOLERANCE } from '@/lib/ingestion/product-discovery'
+import { scaleUnitPrice, UNIT_PRICE_TOLERANCE } from '@/lib/ingestion/product-discovery'
 import { fetchWithTimeout } from '@/lib/ingestion/http'
-import type { FetchOptions, NormalizedProduct, PriceConnector } from '@/lib/ingestion/types'
+import type { FetchOptions, NormalizedDeal, NormalizedProduct, PriceConnector } from '@/lib/ingestion/types'
 
 // --- Fetcher (docs/02_ARCHITECTURE.md / CLAUDE.md section 32: External Source -> Fetcher) --------
 // Rohlík.cz is an online-only grocer, so its published price *is* the price — there is no separate
@@ -191,8 +191,8 @@ const isPositive = (value: unknown): value is number => typeof value === 'number
 /** The best public promotion running today, or `null`. A promotion whose original price does not
  *  agree with the regular price, that is not cheaper than it, or whose end date is missing/past is
  *  ignored rather than stored with an invented window (CLAUDE.md sections 15 and 33). */
-function pickPublicDeal(raw: RohlikRawProduct, regularPrice: number, today: string): { dealPrice: number; validFrom: string; validUntil: string } | null | 'no-validity' {
-  let best: { dealPrice: number; validFrom: string; validUntil: string } | null = null
+function pickPublicDeal(raw: RohlikRawProduct, regularPrice: number, regularUnitPrice: number, today: string): NormalizedDeal | null | 'no-validity' {
+  let best: NormalizedDeal | null = null
   let sawWithoutValidity = false
   for (const sale of raw.sales) {
     if (!PUBLIC_SALE_TYPES.has(sale.type) || !sale.active || sale.silent || sale.welcomePrice || sale.triggerAmount !== 1 || sale.bundleId != null) continue
@@ -209,7 +209,10 @@ function pickPublicDeal(raw: RohlikRawProduct, regularPrice: number, today: stri
       continue
     }
     if (validUntil < today) continue
-    if (!best || dealPrice < best.dealPrice) best = { dealPrice, validFrom: today, validUntil }
+    // A weighed item's promotion is already per kg; otherwise it is the same package at a lower price,
+    // so the unit price scales by the price ratio.
+    const unitPrice = raw.weightedItem ? dealPrice : scaleUnitPrice(regularUnitPrice, regularPrice, dealPrice)
+    if (!best || dealPrice < best.dealPrice) best = { dealPrice, unitPrice, validFrom: today, validUntil }
   }
   if (best) return best
   return sawWithoutValidity ? 'no-validity' : null
@@ -252,7 +255,7 @@ export function normalizeRohlikProduct(raw: RohlikRawProduct, today: string): No
     }
   }
 
-  const deal = pickPublicDeal(raw, regularPrice, today)
+  const deal = pickPublicDeal(raw, regularPrice, unitPrice, today)
   return {
     externalId: String(raw.id),
     name,

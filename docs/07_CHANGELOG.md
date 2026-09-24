@@ -1,5 +1,12 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-24 (Fix: a chain's ingested promotions were missing from its chain-wide prices)
+### Stacked on #47 — uses `deals.store_id`
+- **Bug:** `getProductPrices()` matched a deal to a price only through the price's branch. Prices from a retailer's own site (Lidl, Billa, Penny, dm, Rohlík, Košík) are chain-wide (CHAIN scope, no branch), so their promotions — stored against one canonical branch — never appeared with them. Checked on the live database before the fix: 29 active Penny promotions existed and none of the prices returned by `getProductPrices()` carried a deal (only three seed/demo ones did).
+- **Fix:** a CHAIN-scope price now takes its chain's cheapest active promotion, whichever branch (or none) the deal is stored against. Branch-specific prices behave as before.
+- **Still not shown:** a product with a promotion but no price at all (Penny publishes only offers, so its products have no regular price) is still dropped by `getProductPrices()`; showing such offers needs their own presentation.
+- **Tests:** a DB test for a chain-wide price picking up a branch-attached deal and choosing the cheapest of two.
+
 ## 2026-09-24 (Price ingestion: Rohlík.cz, the first online-only store)
 ### New connector and a model change so a chain without branches can have deals
 - **Connector:** `lib/ingestion/rohlik.ts` — category ids → product ids → batched details and prices (50 ids per request, sequential, 250 ms pause, deadline-aware). Ten food categories, up to 500 products/day, cron 05:40 UTC. Validation and normalization rules are in docs/01_CURRENT_STATE.md section 15.

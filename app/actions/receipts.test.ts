@@ -20,6 +20,7 @@ vi.mock('@/lib/auth/authorize', () => ({ requireHouseholdId: () => Promise.resol
 vi.mock('next/cache', () => ({ revalidatePath: () => {} }))
 
 import { confirmReceiptReviewAction, importReceiptAction, processReceiptImport, processUploadedReceiptAction, resolveDuplicateReceiptAction, retryReceiptImportAction, uploadReceiptAction } from '@/app/actions/receipts'
+import { ALBERT_STYLE_RECEIPT_LINES, makeTextPdf } from '@/lib/receipt-pdf.test-helpers'
 import { RECEIPT_STALE_MS } from '@/lib/receipt-progress'
 
 const db = getDb()
@@ -55,8 +56,8 @@ const extractedReceipt = (overrides: Partial<ExtractedReceipt> = {}): ExtractedR
 // real Blob store rather than faking that step too. Vision/Gemini are the only faked pieces here;
 // everything else (Blob storage, the receipt_imports state machine, validation, duplicate
 // detection) runs for real.
-async function createUploadedReceipt(): Promise<string> {
-  const blob = await put(`receipts/__test__/${crypto.randomUUID()}.png`, Buffer.from('test-image-bytes'), { access: 'private', contentType: 'image/png' })
+async function createUploadedReceipt(file: { buffer: Buffer; extension: string; contentType: string } = { buffer: Buffer.from('test-image-bytes'), extension: 'png', contentType: 'image/png' }): Promise<string> {
+  const blob = await put(`receipts/__test__/${crypto.randomUUID()}.${file.extension}`, file.buffer, { access: 'private', contentType: file.contentType })
   uploadedBlobUrls.push(blob.url)
   const [row] = await db.insert(schema.receiptImports).values({ householdId, status: 'uploaded', source: 'ocr', imageUrl: blob.url }).returning()
   return row.id
@@ -639,6 +640,53 @@ describe('processReceiptImport — OCR pipeline orchestration (fake OCR/AI, real
         await db.delete(schema.products).where(eq(schema.products.id, product.id)) // prices cascade
       }
     })
+  })
+})
+
+// A digital PDF (a shop's e-receipt) carries its own text; reading that beats OCR, which on a real
+// Albert receipt dropped the "0.43 x 34.90 Kč" line of two weighed items (lib/receipt-pdf.ts).
+describe('processReceiptImport — PDF text layer', () => {
+  const pdfFile = (buffer: Buffer) => ({ buffer, extension: 'pdf', contentType: 'application/pdf' })
+
+  it('reads the text from the PDF itself, without any OCR provider', async () => {
+    const receiptImportId = await createUploadedReceipt(pdfFile(makeTextPdf(ALBERT_STYLE_RECEIPT_LINES)))
+    const ocr = vi.fn(async () => ({ fullText: 'FAKE OCR TEXT', lines: ['FAKE OCR TEXT'] }))
+    let structuredFrom = ''
+    const row = await processReceiptImport(receiptImportId, {
+      textExtractor: { extractText: ocr },
+      structuringProvider: {
+        structure: async (text) => {
+          structuredFrom = text
+          return extractedReceipt()
+        },
+      },
+    })
+
+    expect(row.ocrProvider).toBe('pdf_text_layer')
+    expect(row.status).toBe('completed')
+    expect(row.rawOcrText).toContain('0.43 x 34.90 Kc') // the weighed line is in the text the model sees
+    expect(structuredFrom).toContain('0.935 x 19.90 Kc')
+    expect(ocr).not.toHaveBeenCalled()
+  })
+
+  // Without a usable text layer (a scan) the PDF still goes to OCR. The PDF OCR provider is Google
+  // (hard-wired), which is not configured in a local environment — so reaching it shows up as its
+  // configuration error, proving the OCR path was taken. Skipped where Google is configured, so the
+  // test never makes a live API call.
+  it.skipIf(Boolean(process.env.GCP_PROJECT_ID))('falls back to OCR when the PDF has no usable text layer', async () => {
+    const receiptImportId = await createUploadedReceipt(pdfFile(makeTextPdf([], { withText: false })))
+    const row = await processReceiptImport(receiptImportId, fakeProviders(extractedReceipt()))
+
+    expect(row.status).toBe('ocr_failed')
+    expect(row.ocrProvider).toBeNull()
+    expect(row.errorMessage).toContain('GCP OIDC is not configured')
+  })
+
+  it('does not use the text layer for a photo', async () => {
+    const receiptImportId = await createUploadedReceipt()
+    const row = await processReceiptImport(receiptImportId, fakeProviders(extractedReceipt()))
+    expect(row.ocrProvider).toBe('google_vision')
+    expect(row.rawOcrText).toBe('FAKE OCR TEXT')
   })
 })
 

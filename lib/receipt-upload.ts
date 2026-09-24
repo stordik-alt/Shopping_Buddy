@@ -1,9 +1,4 @@
-// The photo travels to the server as a base64 string inside a Server Action request, and base64
-// inflates the bytes by 4/3. Vercel rejects a request body over ~4.5 MB before the action runs, and
-// that non-RSC error response surfaces in the browser as a minified React error. A 4 MB file became
-// ~5.3 MB on the wire and hit that limit, so the raw-file target is 3 MiB (~4 MiB base64) to leave
-// headroom for the request envelope. A compressed receipt at 2200 px is normally well below this.
-export const MAX_RECEIPT_UPLOAD_BYTES = 3 * 1024 * 1024
+export const MAX_RECEIPT_UPLOAD_BYTES = 4 * 1024 * 1024
 export const MAX_RECEIPT_IMAGE_DIMENSION = 2200
 
 const JPEG_QUALITIES = [0.82, 0.72, 0.62, 0.52, 0.45] as const
@@ -34,20 +29,6 @@ function canvasToBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob>
       quality,
     )
   })
-}
-
-/**
- * Rejects a file that would exceed the request-body limit even after optimization (typically a
- * large PDF, which is not recompressed) with a message the user can act on, instead of letting the
- * oversized request fail opaquely on the server.
- */
-export function assertReceiptFitsUpload(file: File): void {
-  if (file.size > MAX_RECEIPT_UPLOAD_BYTES) {
-    const megabytes = (file.size / (1024 * 1024)).toFixed(1)
-    throw new Error(
-      `Soubor je příliš velký (${megabytes} MB, maximum je ${MAX_RECEIPT_UPLOAD_BYTES / (1024 * 1024)} MB). Nahrajte menší fotografii nebo účtenku zadejte ručně.`,
-    )
-  }
 }
 
 /**
@@ -90,8 +71,9 @@ export async function optimizeReceiptImage(file: File): Promise<File> {
     scale *= 0.8
   }
 
-  // If compression could not reach the target, return the smallest representation we can make; the
-  // caller then checks it with `assertReceiptFitsUpload` and reports a clear error if it is still too big.
+  // If compression could not reach the target, return the best practical representation rather
+  // than blocking the receipt flow. The existing server-side 10 MB raw-file validation remains
+  // the final safety limit.
   const width = Math.max(1, Math.round(image.naturalWidth * scale))
   const height = Math.max(1, Math.round(image.naturalHeight * scale))
   const canvas = document.createElement('canvas')

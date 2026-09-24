@@ -1,5 +1,11 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-24 (Receipts: phone/camera photos failed with React error #441)
+### Fix — receipt photo is uploaded as a binary File in FormData, not a base64 string argument
+- **Cause (reproduced with the real React Flight encoder/decoder):** the Server Action decoder adds the length of every string it resolves to the action's argument array and throws `Maximum array nesting exceeded` past 1,000,000 characters (hard-coded, not configurable) whenever the array has more than one element. `uploadReceiptAction(base64, mimeType)` therefore failed for any photo over ~750 KB; 0.9 M characters decoded, 1.2 M did not. In production the message is hidden and only `Minified React error #441` reaches the browser. This is why a heavily shrunk photo worked and a 4 MB one did not — the client-side compression to 4 MB could never have fixed it.
+- **Fix:** `uploadReceiptAction(formData)` reads a `File` from `FormData` (`app/actions/receipts.ts`); `ReceiptImport`/`app-shell.tsx` pass the optimized `File` instead of base64 and the FileReader helper is gone. A File is not counted by the decoder, and the request is ~25 % smaller. Server-side checks (10 MB cap, type from the file's bytes, HEIC message) are unchanged; a non-File value is rejected.
+- **Tests:** the existing `uploadReceiptAction` DB tests now go through FormData. No automated regression test for the 1 M-character limit itself (it needs the `react-server` condition); it was verified with a one-off script against Next's bundled decoder.
+
 ## 2026-09-24 (Price ingestion: wider catalog so search and the shopping plan have something to work with)
 ### Part 3 of the search/planner work — per-source daily batch sizes
 - **Per-source limits:** `PRICE_SOURCES` entries carry their own batch size (Lidl 400, Billa 450, Penny 80, dm 700) instead of one shared pilot size of 80; the cron handler no longer passes a limit (`runPriceSources` still accepts an override).

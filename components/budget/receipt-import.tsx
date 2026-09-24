@@ -3,7 +3,7 @@ import { AlertTriangle, Camera, Check, Loader2, Plus, Receipt, Trash2 } from 'lu
 import type { ReceiptImportState } from '@/lib/db/queries'
 import { ocrProviderLabel } from '@/lib/receipt-ocr-provider'
 import { RECEIPT_STEPS, receiptProgress, type ReceiptProgress } from '@/lib/receipt-progress'
-import { assertReceiptFitsUpload, optimizeReceiptImage } from '@/lib/receipt-upload'
+import { optimizeReceiptImage } from '@/lib/receipt-upload'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import type { ItemCategory, ItemUnit, Store } from '@/lib/types'
 
@@ -11,15 +11,6 @@ const CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnos
 const UNITS: ItemUnit[] = ['ks', 'kg', 'g', 'l', 'ml']
 
 const emptyRow = (): ReceiptLineItem => ({ name: '', category: 'Potraviny', quantity: 1, unit: 'ks', price: 0 })
-
-function readFileAsBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve((reader.result as string).split(',')[1] ?? '')
-    reader.onerror = () => reject(reader.error ?? new Error('Soubor se nepodařilo přečíst.'))
-    reader.readAsDataURL(file)
-  })
-}
 
 /** The five stages of a photo import (docs/08_OCR_RECEIPT_PIPELINE.md section 20), driven by the
  *  import's real status rather than a timer. Laid out as a wrapping vertical list so long labels
@@ -64,7 +55,7 @@ export function ReceiptImport({
 }: {
   stores: Store[]
   onImport: (items: ReceiptLineItem[], options: { date?: string; storeLocationId?: string }) => Promise<void>
-  onUpload: (base64: string, mimeType: string, onProgress: (status: string) => void) => Promise<ReceiptImportState>
+  onUpload: (file: File, onProgress: (status: string) => void) => Promise<ReceiptImportState>
 }) {
   const [open, setOpen] = useState(false)
   const [rows, setRows] = useState<ReceiptLineItem[]>([emptyRow()])
@@ -119,9 +110,7 @@ export function ReceiptImport({
 
     try {
       const file = await optimizeReceiptImage(selectedFile)
-      assertReceiptFitsUpload(file)
-      const base64 = await readFileAsBase64(file)
-      const result = await onUpload(base64, file.type, (status) => setProgress(receiptProgress(status)))
+      const result = await onUpload(file, (status) => setProgress(receiptProgress(status)))
       setLastOcrProvider(result.ocrProvider)
       setOpen(false) // result (completed, or needing review) surfaces via ReceiptPending
     } catch (err) {

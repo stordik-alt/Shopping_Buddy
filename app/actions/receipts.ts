@@ -613,17 +613,23 @@ async function runReceiptPipeline(
  *  can show its real progress via `/api/receipts/[id]/status` (section 20). The pipeline still runs
  *  synchronously inside that one request — at the target volume (~1,500/month per section 18) a
  *  background job queue would be over-engineering for a few-second round trip. */
-export async function uploadReceiptAction(base64Image: string, _declaredMimeType?: string): Promise<ReceiptImportState> {
+export async function uploadReceiptAction(formData: FormData): Promise<ReceiptImportState> {
   const householdId = await requireHouseholdId()
 
-  const buffer = Buffer.from(base64Image, 'base64')
-  if (buffer.byteLength > MAX_IMAGE_BYTES) throw new Error('Fotografie je příliš velká (max. 10 MB).')
+  // The photo is sent as a binary `File` in FormData rather than a base64 string argument. React's
+  // Server Action decoder adds the length of every string it resolves to the size of the action's
+  // argument array and throws "Maximum array nesting exceeded" past 1,000,000 characters (fixed,
+  // not configurable) — so a base64 photo over ~750 KB failed in production, surfacing only as
+  // minified React error #441. A File is not counted, and it also avoids base64's 33 % overhead.
+  const file = formData.get('file')
+  if (!(file instanceof File)) throw new Error('Nahraný soubor je neplatný.')
+  if (file.size > MAX_IMAGE_BYTES) throw new Error('Fotografie je příliš velká (max. 10 MB).')
+  const buffer = Buffer.from(await file.arrayBuffer())
   if (buffer.byteLength === 0) throw new Error('Nahraný soubor je prázdný.')
 
-  // The type is decided from the file's own bytes; the client-declared MIME type
-  // (`_declaredMimeType`, kept only so existing callers still compile) is ignored because it is
-  // attacker-controlled and phones sometimes mislabel files. The stored extension and content type
-  // come from the detection.
+  // The type is decided from the file's own bytes; the client-declared MIME type (`file.type`) is
+  // ignored because it is attacker-controlled and phones sometimes mislabel files. The stored
+  // extension and content type come from the detection.
   const fileType = detectReceiptFileType(buffer)
   if (fileType.kind === 'heic') throw new Error(HEIC_UNSUPPORTED_MESSAGE)
   if (fileType.kind !== 'supported') throw new Error('Nepodporovaný formát. Použijte JPEG, PNG, WEBP nebo PDF.')

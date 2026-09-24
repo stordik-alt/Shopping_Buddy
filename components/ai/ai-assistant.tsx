@@ -62,7 +62,7 @@ export function AiAssistant({ onShopping }: { onShopping: () => void }) {
           </div>
         )}
       </div>
-      <div className="rounded-3xl border border-border bg-card p-6">
+      <div className="surface p-6">
         <p className="text-sm font-semibold">Co umí váš asistent?</p>
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
           {[

@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
+import { PANTRY_LOCATIONS } from '@/lib/pantry'
 
 // Continues the Server Action test coverage started in app/actions/shopping.test.ts.
 let currentHouseholdId = ''
@@ -60,6 +61,28 @@ describe('movePantryItemAction', () => {
     await movePantryItemAction(item.id, 'Mrazák')
     const row = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, item.id) })
     expect(row?.location).toBe('Mrazák')
+  })
+
+  it('moves an item into and out of every one of the six locations, including Lékárnička and Drogérka', async () => {
+    const [item] = await db.insert(schema.pantryItems).values({ householdId, name: 'Obvaz', category: 'Ostatní', location: 'Spíž' }).returning()
+
+    // Walk the item through every location in turn (each move starts from the previous one's
+    // destination, so every location is both a source and a destination), then back home.
+    for (const location of [...PANTRY_LOCATIONS, 'Spíž' as const]) {
+      await movePantryItemAction(item.id, location)
+      const row = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, item.id) })
+      expect(row?.location).toBe(location)
+    }
+  })
+
+  it('keeps the item\'s quantity, unit and category when it moves', async () => {
+    const [item] = await db
+      .insert(schema.pantryItems)
+      .values({ householdId, name: 'Ibalgin', category: 'Ostatní', location: 'Domácnost', quantity: 2, unit: 'ks' })
+      .returning()
+    await movePantryItemAction(item.id, 'Lékárnička')
+    const row = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, item.id) })
+    expect(row).toMatchObject({ location: 'Lékárnička', quantity: 2, unit: 'ks', category: 'Ostatní', name: 'Ibalgin' })
   })
 })
 

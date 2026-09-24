@@ -18,7 +18,7 @@ export function NotificationPanel({
       id="notifications-panel"
       role="dialog"
       aria-label="Panel upozornění"
-      className="absolute right-4 top-16 z-20 w-[min(calc(100vw-2rem),360px)] rounded-2xl border border-border bg-card p-3 shadow-xl sm:right-8 lg:right-12"
+      className="fixed right-3 top-16 z-40 max-h-[calc(100dvh-8rem)] w-[min(calc(100vw-1.5rem),380px)] overflow-y-auto rounded-2xl border border-border bg-popover p-3 shadow-xl sm:right-6 lg:top-20 lg:right-10"
     >
       <div className="flex items-center justify-between px-2 py-2">
         <div>

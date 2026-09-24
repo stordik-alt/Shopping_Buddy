@@ -1,8 +1,20 @@
-import { Check, Minus, Package, Plus, X } from 'lucide-react'
+import { BriefcaseMedical, Check, House, Minus, Package, Plus, Refrigerator, Snowflake, SprayCan, Wheat, X, type LucideIcon } from 'lucide-react'
 import { useState } from 'react'
+import { itemCountLabel } from '@/lib/format'
+import { PANTRY_LOCATIONS, summarizeByLocation } from '@/lib/pantry'
+import { cn } from '@/lib/utils'
 import type { ItemUnit, PantryItem, PantryLocation } from '@/lib/types'
 
-const LOCATIONS: PantryLocation[] = ['Spíž', 'Lednice', 'Mrazák', 'Domácnost']
+// One distinct, meaningful icon per location so folders can be told apart at a glance on a phone.
+// `satisfies Record<PantryLocation, …>` makes adding a location without an icon a compile error.
+const LOCATION_ICON = {
+  Spíž: Wheat,
+  Lednice: Refrigerator,
+  Mrazák: Snowflake,
+  Domácnost: House,
+  Lékárnička: BriefcaseMedical,
+  Drogérka: SprayCan,
+} satisfies Record<PantryLocation, LucideIcon>
 
 // −/+ step size: whole units for "ks" (you don't buy 0.3 of a countable item), a tenth for
 // weight/volume units — matches how the household would actually type a correction (section 7).
@@ -61,14 +73,17 @@ function QuantityStepper({ quantity, unit, onChange }: { quantity: number; unit:
   )
 }
 
-/** Household pantry ("spíž") — what the household believes it currently has at home, grouped by
- *  where it's physically kept, restocked automatically by completePurchaseAction/
- *  importReceiptAction and periodically re-checked by the pantry-checkin cron (lib/pantry.ts). A
- *  row whose askedAt is set is one the cron just asked the household about, so it's highlighted
- *  here until the household confirms ("Ještě mám") or removes it ("Došlo"). The location select
- *  lets the household reassign an item by hand — e.g. moving freshly bought chilled meat into the
- *  freezer for later use. The quantity stepper lets them correct current stock directly (e.g. after
- *  using some up) without that ever touching purchase history. */
+/** Household stock ("zásoby") — what the household believes it currently has at home, restocked
+ *  automatically by completePurchaseAction/importReceiptAction and periodically re-checked by the
+ *  pantry-checkin cron (lib/pantry.ts). Deliberately not one long list: the storage locations are
+ *  the primary navigation (a folder tile each, with icon, name, item count and warnings), and only
+ *  the opened location's items are shown below — like a file manager for the home.
+ *
+ *  A row whose askedAt is set is one the cron just asked the household about, so it's highlighted
+ *  until the household confirms ("Ještě mám") or removes it ("Došlo"). The location select on each
+ *  row moves the item between *any* of the locations (e.g. chilled meat into the freezer). The
+ *  quantity stepper lets them correct current stock directly without ever touching purchase
+ *  history. */
 export function Pantry({
   items,
   onConfirm,
@@ -82,51 +97,112 @@ export function Pantry({
   onMove: (id: string, location: PantryLocation) => void
   onAdjustQuantity: (id: string, quantity: number) => void
 }) {
-  if (items.length === 0) {
-    return (
-      <div className="rounded-3xl border border-dashed border-border bg-card p-10 text-center">
-        <Package className="mx-auto h-8 w-8 text-muted-foreground" />
-        <p className="mt-3 font-semibold">Spíž je prázdná</p>
-        <p className="mt-1 text-sm text-muted-foreground">Položky se sem přidají automaticky po dokončení nákupu.</p>
-      </div>
-    )
-  }
+  const summary = summarizeByLocation(items)
+  // Open on the first location that has something in it rather than on an empty folder.
+  const [selected, setSelected] = useState<PantryLocation>(() => PANTRY_LOCATIONS.find((location) => summary[location].count > 0) ?? PANTRY_LOCATIONS[0])
+  // Announces a move: the moved row leaves the open folder, so without this it would just vanish.
+  const [notice, setNotice] = useState<string | null>(null)
 
-  const groups = LOCATIONS.map((location) => ({ location, items: items.filter((item) => item.location === location) })).filter((group) => group.items.length > 0)
+  const SelectedIcon = LOCATION_ICON[selected]
+  const selectedItems = items.filter((item) => item.location === selected)
+
+  function move(item: PantryItem, location: PantryLocation) {
+    onMove(item.id, location)
+    setNotice(`${item.name} → ${location}`)
+  }
 
   return (
     <div className="space-y-4">
-      {groups.map(({ location, items: groupItems }) => (
-        <div key={location} className="overflow-hidden rounded-3xl border border-border bg-card">
-          <div className="flex items-center justify-between border-b border-border px-5 py-4">
-            <div className="flex items-center gap-2">
-              <Package className="h-4 w-4 text-primary" />
-              <span className="text-sm font-semibold">{location}</span>
-            </div>
-            <span className="text-xs text-muted-foreground">{groupItems.length} položek</span>
-          </div>
-          {groupItems.map((item) => (
-            <div key={item.id} className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-4 last:border-0">
-              <div className="min-w-0 flex-1 basis-full sm:basis-auto">
-                <span className="flex items-center gap-2">
-                  <span className="font-medium">{item.name}</span>
-                  {item.askedAt && (
-                    <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">Máte ještě?</span>
+      <nav aria-label="Umístění zásob" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {PANTRY_LOCATIONS.map((location) => {
+          const Icon = LOCATION_ICON[location]
+          const { count, needsCheck, outOfStock } = summary[location]
+          const active = location === selected
+          return (
+            <button
+              key={location}
+              type="button"
+              aria-pressed={active}
+              onClick={() => {
+                setSelected(location)
+                setNotice(null)
+              }}
+              className={cn(
+                'flex min-w-0 flex-col items-start gap-2 rounded-2xl border p-3 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+                active ? 'border-primary bg-primary text-primary-foreground shadow-sm' : 'border-border bg-card hover:bg-muted',
+              )}
+            >
+              <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', active ? 'bg-primary-foreground/15' : 'bg-secondary text-secondary-foreground')}>
+                <Icon className="h-5 w-5" aria-hidden />
+              </span>
+              <span className="min-w-0 break-words text-sm font-semibold leading-tight">{location}</span>
+              <span className={cn('text-xs', active ? 'text-primary-foreground/80' : 'text-muted-foreground')}>{itemCountLabel(count)}</span>
+              {(needsCheck > 0 || outOfStock > 0) && (
+                <span className="flex flex-wrap gap-1">
+                  {needsCheck > 0 && (
+                    <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', active ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-primary/15 text-primary')}>
+                      Ověřit: {needsCheck}
+                    </span>
+                  )}
+                  {outOfStock > 0 && (
+                    <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', active ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-destructive/10 text-destructive')}>
+                      Došlo: {outOfStock}
+                    </span>
                   )}
                 </span>
-                <span className="mt-1 block text-xs text-muted-foreground">{item.category}</span>
-              </div>
-              <QuantityStepper quantity={item.quantity} unit={item.unit} onChange={(quantity) => onAdjustQuantity(item.id, quantity)} />
-              <select
-                aria-label={`Umístění ${item.name}`}
-                value={item.location}
-                onChange={(event) => onMove(item.id, event.target.value as PantryLocation)}
-                className="rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none"
-              >
-                {LOCATIONS.map((option) => (
-                  <option key={option}>{option}</option>
-                ))}
-              </select>
+              )}
+            </button>
+          )
+        })}
+      </nav>
+
+      <section aria-label={`Zásoby: ${selected}`} className="overflow-hidden surface">
+        <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
+          <div className="flex min-w-0 items-center gap-2">
+            <SelectedIcon className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+            <h2 className="min-w-0 break-words text-sm font-semibold">{selected}</h2>
+          </div>
+          <span className="shrink-0 text-xs text-muted-foreground">{itemCountLabel(selectedItems.length)}</span>
+        </div>
+
+        <p role="status" aria-live="polite" className={notice ? 'border-b border-border bg-primary/10 px-5 py-2 text-xs text-primary' : 'sr-only'}>
+          {notice ? `Přesunuto: ${notice}` : ''}
+        </p>
+
+        {selectedItems.length === 0 && (
+          <div className="p-10 text-center">
+            <Package className="mx-auto h-8 w-8 text-muted-foreground" aria-hidden />
+            <p className="mt-3 font-semibold">{items.length === 0 ? 'Zásoby jsou prázdné' : `V umístění „${selected}“ zatím nic není`}</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {items.length === 0
+                ? 'Položky se sem přidají automaticky po dokončení nákupu.'
+                : 'Položky se sem přidají po dokončení nákupu nebo je sem přesunete z jiného umístění.'}
+            </p>
+          </div>
+        )}
+
+        {selectedItems.map((item) => (
+          <div key={item.id} className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-4 last:border-0">
+            <div className="min-w-0 flex-1 basis-full sm:basis-auto">
+              <span className="flex flex-wrap items-center gap-2">
+                <span className="min-w-0 break-words font-medium">{item.name}</span>
+                {item.askedAt && <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">Máte ještě?</span>}
+              </span>
+              <span className="mt-1 block text-xs text-muted-foreground">{item.category}</span>
+            </div>
+            <QuantityStepper quantity={item.quantity} unit={item.unit} onChange={(quantity) => onAdjustQuantity(item.id, quantity)} />
+            <select
+              aria-label={`Umístění ${item.name}`}
+              value={item.location}
+              onChange={(event) => move(item, event.target.value as PantryLocation)}
+              className="max-w-full rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none"
+            >
+              {PANTRY_LOCATIONS.map((option) => (
+                <option key={option}>{option}</option>
+              ))}
+            </select>
+            {/* Grouped so the two icon buttons wrap onto a new line together on a narrow phone, not one by one. */}
+            <div className="flex items-center">
               <button
                 aria-label={`Ještě mám: ${item.name}`}
                 onClick={() => onConfirm(item.id)}
@@ -142,9 +218,9 @@ export function Pantry({
                 <X className="h-4 w-4" />
               </button>
             </div>
-          ))}
-        </div>
-      ))}
+          </div>
+        ))}
+      </section>
     </div>
   )
 }

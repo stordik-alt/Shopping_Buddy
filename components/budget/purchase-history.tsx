@@ -37,7 +37,7 @@ export function PurchaseHistory({ records }: { records: PurchaseRecord[] }) {
           </div>
         </div>
       )}
-      <div className="overflow-hidden rounded-3xl border border-border bg-card">
+      <div className="overflow-hidden surface">
         {records
           .slice()
           .reverse()

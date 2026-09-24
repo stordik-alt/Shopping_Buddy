@@ -37,8 +37,8 @@ import { ReceiptPending } from '@/components/budget/receipt-pending'
 import { DashboardOverview } from '@/components/dashboard/dashboard-overview'
 import { MealPlan } from '@/components/dashboard/meal-plan'
 import { PriceWatch } from '@/components/dashboard/price-watch'
-import { QuickActions } from '@/components/dashboard/quick-actions'
 import { SavingsInsight } from '@/components/dashboard/savings-insight'
+import { SpendingBreakdown } from '@/components/dashboard/spending-breakdown'
 import { HouseholdProfile } from '@/components/household/household-profile'
 import { NotificationPanel } from '@/components/notifications/notification-panel'
 import { AppHeader } from '@/components/shared/app-header'
@@ -48,6 +48,7 @@ import { Pantry } from '@/components/shopping/pantry'
 import { ShoppingList } from '@/components/shopping/shopping-list'
 import { StoreDirectory } from '@/components/stores/store-directory'
 import { TODAY } from '@/lib/budget'
+import { longDate } from '@/lib/format'
 import type { HouseholdData, ReceiptImportState } from '@/lib/db/queries'
 import type { Ingredient, MealType } from '@/lib/meal-plans'
 import type { ProductPrice } from '@/lib/prices'
@@ -116,8 +117,10 @@ export function AppShell({
   const completed = items.filter((item) => item.done).length
 
   const firstName = userName.trim().split(/\s+/)[0] || userName
-  const title = tab === 'Domů' ? `Dobré ráno, ${firstName}` : tab
-  const subtitle = tab === 'Domů' ? 'Pojďme dnes ušetřit pár korun.' : 'Vše, co potřebujete mít pod kontrolou.'
+  const title = tab === 'Domů' ? `Ahoj, ${firstName}` : tab
+  const dateLabel = longDate(TODAY)
+  const unreadCount = notifications.filter((notification) => notification.unread).length
+  const pendingNames = items.filter((item) => !item.done).map((item) => item.name)
 
   async function addItem() {
     const name = newItem.trim()
@@ -322,16 +325,17 @@ export function AppShell({
         <div className="mx-auto flex min-h-screen max-w-[1440px]">
           <AppSidebar tab={tab} onTabChange={setTab} />
 
-          <main className="min-w-0 flex-1 overflow-x-clip pb-24 lg:pb-8">
+          <main className="min-w-0 flex-1 overflow-x-clip pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-10">
             <AppHeader
               title={title}
-              date="Pátek 19. září 2026"
+              mobileTitle={tab === 'Domů' ? 'Rodinný nákup' : tab}
+              date={dateLabel}
               dark={dark}
               onToggleDark={() => setDark(!dark)}
               notificationsOpen={notificationsOpen}
               onToggleNotifications={() => setNotificationsOpen((open) => !open)}
-              hasUnread={notifications.some((notification) => notification.unread)}
-              onProfileClick={() => setTab('Profil')}
+              unreadCount={unreadCount}
+              onSelectTab={setTab}
               userName={userName}
             />
             {notificationsOpen && (
@@ -343,29 +347,36 @@ export function AppShell({
               />
             )}
 
-            <div className="px-5 sm:px-8 lg:px-12">
-              <div className="mb-7 lg:hidden">
-                <p className="text-sm text-muted-foreground">Pátek 19. září 2026</p>
-                <h1 className="mt-1 text-2xl font-semibold tracking-tight">{title}</h1>
-                <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
-              </div>
+            <div className="px-4 pt-4 sm:px-8 lg:px-12 lg:pt-0">
+              {tab === 'Domů' && (
+                <div className="mb-4 lg:hidden">
+                  <p className="text-sm text-muted-foreground first-letter:uppercase">{dateLabel}</p>
+                  <p className="mt-0.5 text-2xl font-semibold tracking-tight">{title}</p>
+                </div>
+              )}
 
               {tab === 'Domů' && (
-                <>
+                <div className="space-y-4 lg:space-y-6">
                   <DashboardOverview
                     budget={budget}
                     spent={spent}
                     remaining={remaining}
                     completed={completed}
                     totalItems={items.length}
+                    pendingNames={pendingNames}
                     onShopping={() => setTab('Nákup')}
                     onExpense={() => setExpenseOpen(true)}
+                    onReceipt={() => setTab('Rozpočet')}
+                    onStores={() => setTab('Obchody')}
+                    onSetBudget={() => setTab('Profil')}
                   />
-                  <SavingsInsight remaining={remaining} onAi={() => setTab('AI')} />
-                  <MealPlan household={household} initialPlan={initialData.mealPlan} pantryItems={pantryItems} onAddIngredients={addIngredients} onMarkCooked={markMealCooked} />
                   <PriceWatch onStores={() => setTab('Obchody')} productPrices={productPrices} pantryItems={pantryItems} />
-                  <QuickActions onShopping={() => setTab('Nákup')} onStores={() => setTab('Obchody')} onAi={() => setTab('AI')} />
-                </>
+                  <MealPlan household={household} initialPlan={initialData.mealPlan} pantryItems={pantryItems} onAddIngredients={addIngredients} onMarkCooked={markMealCooked} />
+                  <div className="grid gap-4 lg:grid-cols-2 lg:gap-6">
+                    <SpendingBreakdown expenses={expenses} onDetails={() => setTab('Rozpočet')} />
+                    <SavingsInsight remaining={remaining} onAi={() => setTab('AI')} />
+                  </div>
+                </div>
               )}
               {tab === 'Nákup' && (
                 <div className="mx-auto max-w-3xl space-y-5">
@@ -402,16 +413,8 @@ export function AppShell({
                 />
               )}
               {tab === 'Rozpočet' && (
-                <div className="space-y-6">
-                  <BudgetOverview
-                    budget={budget}
-                    setBudget={(value) => updateHousehold({ monthlyBudget: value })}
-                    spent={spent}
-                    expenses={expenses}
-                    items={items}
-                    onExpense={() => setExpenseOpen(true)}
-                  />
-                  <ExpenseHistory expenses={expenses} />
+                <div className="space-y-5 lg:space-y-6">
+                  {/* Imports waiting on the household come first: they need an answer, everything else is browsing. */}
                   <ReceiptPending
                     items={pendingReceiptImports}
                     onRetry={retryReceiptImport}
@@ -419,7 +422,16 @@ export function AppShell({
                     onResolveDuplicate={resolveDuplicateReceipt}
                     onCancel={cancelReceiptImport}
                   />
+                  <BudgetOverview
+                    budget={budget}
+                    onEditBudget={() => setTab('Profil')}
+                    spent={spent}
+                    expenses={expenses}
+                    items={items}
+                    onExpense={() => setExpenseOpen(true)}
+                  />
                   <ReceiptImport stores={stores} onImport={importReceipt} onUpload={uploadReceipt} />
+                  <ExpenseHistory expenses={expenses} />
                   <PurchaseHistory records={initialData.purchaseHistory} />
                 </div>
               )}

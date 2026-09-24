@@ -128,18 +128,29 @@ export function ReceiptImport({
 
   if (!open) {
     return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="flex items-center gap-2 rounded-xl border border-dashed border-border px-4 py-2.5 text-sm text-muted-foreground hover:bg-muted"
-      >
-        <Receipt className="h-4 w-4" /> Přidat nákup z účtenky
-      </button>
+      <div className="surface flex flex-wrap items-center justify-between gap-4 p-5">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground">
+            <Camera className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">Nákup z účtenky</p>
+            <p className="text-xs text-muted-foreground">Vyfoťte účtenku — doplníme historii i zásoby.</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="flex min-h-11 shrink-0 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Receipt className="h-4 w-4" aria-hidden="true" /> Nahrát účtenku
+        </button>
+      </div>
     )
   }
 
   return (
-    <div className="rounded-3xl border border-border bg-card p-5">
+    <div className="surface p-5">
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold">Nákup z účtenky</p>
         <button type="button" onClick={() => setOpen(false)} className="text-xs text-muted-foreground hover:underline">
@@ -176,13 +187,13 @@ export function ReceiptImport({
       {progress && <ReceiptProgressSteps progress={progress} />}
       {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
       <div className="mt-4 flex flex-wrap gap-2">
-        <label className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs">
+        <label className="flex min-w-0 max-w-full items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs">
           Datum
           <input aria-label="Datum nákupu" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-transparent outline-none" />
         </label>
-        <label className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs">
+        <label className="flex min-w-0 max-w-full basis-full items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs sm:basis-auto">
           Obchod
-          <select aria-label="Obchod" value={storeLocationId} onChange={(e) => setStoreLocationId(e.target.value)} className="bg-transparent outline-none">
+          <select aria-label="Obchod" value={storeLocationId} onChange={(e) => setStoreLocationId(e.target.value)} className="min-w-0 max-w-full flex-1 truncate bg-transparent outline-none">
             <option value="">Neurčeno</option>
             {stores.map((store) => (
               <option key={store.id} value={store.id}>

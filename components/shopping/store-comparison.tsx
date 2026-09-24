@@ -29,7 +29,7 @@ export function StoreComparison({
   const impact = budgetImpact(cheapest.total, remaining)
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-5 sm:p-6">
+    <section className="surface p-5 sm:p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-semibold">Kde nakoupit celý seznam</p>

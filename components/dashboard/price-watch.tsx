@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ArrowUpRight, Info, Package, Tag, TrendingDown } from 'lucide-react'
 import { TODAY } from '@/lib/budget'
 import { money } from '@/lib/format'
-import { shortOfferDate, type StandaloneOffer } from '@/lib/offers'
+import { offerUnitPriceLabel, shortOfferDate, type StandaloneOffer } from '@/lib/offers'
 import { pantryQuantityFor } from '@/lib/pantry'
 import { assessDealQuality, suggestsStockingUp, type ProductPrice } from '@/lib/prices'
 import type { PantryItem } from '@/lib/types'
@@ -99,6 +99,7 @@ export function PriceWatch({
                   <div className="min-w-0">
                     <p className="break-words text-sm font-medium">{offer.productName}</p>
                     <p className="mt-1 text-xs text-muted-foreground">{offer.store} · akce do {shortOfferDate(offer.validUntil)}</p>
+                    {offerUnitPriceLabel(offer) && <p className="mt-0.5 text-xs text-muted-foreground">{offerUnitPriceLabel(offer)}</p>}
                   </div>
                   <span className="shrink-0 text-lg font-semibold">{money(offer.dealPrice)}</span>
                 </div>

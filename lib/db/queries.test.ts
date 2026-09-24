@@ -521,6 +521,44 @@ describe('upsertActiveDeal', () => {
     await db.delete(schema.products).where(eq(schema.products.id, product.id))
   })
 
+  it('stores the deal unit price and refreshes it on a repeat call', async () => {
+    const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
+    const [product] = await db.insert(schema.products).values({ name: `__test_deal_unit_${crypto.randomUUID()}`, categoryId: category!.id }).returning()
+    const storeLocationId = await getCanonicalStoreLocationId('Lidl')
+    const storeId = await getStoreIdByChain('Lidl')
+    try {
+      await upsertActiveDeal({ productId: product.id, storeId, storeLocationId, dealPrice: 19.9, unit: 'kg', unitPrice: 199, validFrom: '2026-09-01', validUntil: '2099-01-01' })
+      await upsertActiveDeal({ productId: product.id, storeId, storeLocationId, dealPrice: 15.9, unit: 'kg', unitPrice: 159, validFrom: '2026-09-10', validUntil: '2099-01-01' })
+
+      const deals = await db.query.deals.findMany({ where: eq(schema.deals.productId, product.id) })
+      expect(deals).toHaveLength(1)
+      expect(deals[0]).toMatchObject({ unit: 'kg' })
+      expect(Number(deals[0].unitPrice)).toBe(159)
+    } finally {
+      await db.delete(schema.deals).where(eq(schema.deals.productId, product.id))
+      await db.delete(schema.products).where(eq(schema.products.id, product.id))
+    }
+  })
+
+  it('keeps a deal without a unit price as such and refuses a half-given pair', async () => {
+    const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
+    const [product] = await db.insert(schema.products).values({ name: `__test_deal_no_unit_${crypto.randomUUID()}`, categoryId: category!.id }).returning()
+    const storeLocationId = await getCanonicalStoreLocationId('Lidl')
+    const storeId = await getStoreIdByChain('Lidl')
+    try {
+      await upsertActiveDeal({ productId: product.id, storeId, storeLocationId, dealPrice: 19.9, validFrom: '2026-09-01', validUntil: '2099-01-01' })
+      const [deal] = await db.query.deals.findMany({ where: eq(schema.deals.productId, product.id) })
+      expect(deal).toMatchObject({ unit: null, unitPrice: null })
+
+      await expect(upsertActiveDeal({ productId: product.id, storeId, storeLocationId, dealPrice: 19.9, unit: 'kg', validFrom: '2026-09-01', validUntil: '2099-01-01' })).rejects.toThrow('both unit and unitPrice')
+      // The database enforces the same pair, so a row written some other way cannot break it either.
+      await expect(db.insert(schema.deals).values({ productId: product.id, storeId, storeLocationId, dealPrice: '5', unitPrice: '50', validFrom: '2026-09-01', validUntil: '2099-01-01' })).rejects.toThrow()
+    } finally {
+      await db.delete(schema.deals).where(eq(schema.deals.productId, product.id))
+      await db.delete(schema.products).where(eq(schema.products.id, product.id))
+    }
+  })
+
   describe('online-only chains (no branches)', () => {
     async function createOnlineStore() {
       const [store] = await db.insert(schema.stores).values({ chain: `__test_online_${crypto.randomUUID()}`, isOnline: true }).returning()
@@ -659,8 +697,23 @@ describe('getStandaloneOffers', () => {
       ])
       const offers = await ours(store.id)
       expect(offers).toEqual([
-        { productName: product.name, category: 'Potraviny', store: store.chain, storeId: store.id, dealPrice: 9.9, validUntil: '2026-09-29' },
+        { productName: product.name, category: 'Potraviny', store: store.chain, storeId: store.id, dealPrice: 9.9, unit: null, unitPrice: null, validUntil: '2026-09-29' },
       ])
+    } finally {
+      await cleanup(store.id, product.id)
+    }
+  })
+
+  it("returns the unit price of the cheapest offer, the one that describes the price shown", async () => {
+    const { store, product } = await setup()
+    try {
+      await db.insert(schema.deals).values([
+        { productId: product.id, storeId: store.id, storeLocationId: null, dealPrice: '12.90', unit: 'kg', unitPrice: '129.00', validFrom: '2026-09-23', validUntil: '2026-09-29' },
+        { productId: product.id, storeId: store.id, storeLocationId: null, dealPrice: '9.90', unit: 'kg', unitPrice: '99.00', validFrom: '2026-09-23', validUntil: '2026-09-28' },
+      ])
+      const offers = await ours(store.id)
+      expect(offers).toHaveLength(1)
+      expect(offers[0]).toMatchObject({ dealPrice: 9.9, unit: 'kg', unitPrice: 99 })
     } finally {
       await cleanup(store.id, product.id)
     }

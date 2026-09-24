@@ -1,5 +1,13 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (A promotion's unit price is stored)
+- **Why:** the entry below lists it as "not done": an offer's unit price was not stored, so offers cannot be compared per kg/l. For an offers-only source (Penny) it cannot be derived either, since there is no regular price to scale.
+- **Database, migration `0025_deal_unit_price`:** `deals.unit` (`item_unit`) and `deals.unit_price` (`numeric(10,2)`), both nullable, plus check `deals_unit_price_pair` (both set with a positive price, or both null). Additive: the previously deployed code keeps working. Old rows stay `NULL`.
+- **Code:** `NormalizedProduct.deal` carries `unitPrice`; Penny, Košík, Rohlík and Lidl fill it (see `docs/01_CURRENT_STATE.md` section 15 for how each derives it); `ingestPrices()` passes `unit` + `unitPrice` to `upsertActiveDeal()`, which refuses one without the other and refreshes them on a repeat run. `getStandaloneOffers()` returns the cheapest offer's own unit price and the Domů offer cards print it.
+- **Fixed on the way:** Lidl's printed unit price is for the price shown now (the offer price in a promotion) but was also stored as the regular unit price; the regular one is now scaled up by the price ratio. Its price history therefore changes once for products on promotion.
+- **Not done:** product search and the shopping planner still derive a promotion's unit price from the regular one, and offers without a regular price are not in them.
+- **Tests:** connector expectations for all four, `scaleUnitPrice()`, `offerUnitPriceLabel()`, ingest passing the fields on, and DB tests for storing/refreshing/refusing a half-given pair and for the cheapest offer's unit price.
+
 ## 2026-09-25 (Offers without a regular price are shown on Domů)
 - **Problem:** Penny publishes only its current offers, so a Penny product has an active promotion and no price. `getProductPrices()` lists only products with a price, so those offers were invisible everywhere — 15 of Penny's 29 active offers on the live database.
 - **What (owner's choice: only show them):** `getStandaloneOffers()` (`lib/db/queries.ts`) returns, per product and chain, the cheapest offer running today for a product the chain has no price for (valid from ≤ today ≤ valid until; "today" is the real Prague date like ingestion's, not the app's demo date). The Domů deals card gets a section "Další nabídky obchodů": store, "akce do 29. 9." and the offer price, with **no discount percentage and no comparison** — the regular price is unknown and none is invented. The list follows the user's chosen nearby stores (`lib/offers.ts`, pure) and is ordered by store and name.

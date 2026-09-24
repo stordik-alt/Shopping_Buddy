@@ -109,13 +109,16 @@ describe('normalizeRohlikProduct', () => {
   it('keeps the regular price and adds a deal for a public promotion with an end date', () => {
     const result = normalizeRohlikProduct(cucumber, TODAY)
     expect(result).toMatchObject({ regularPrice: 24.9, unit: 'ks' })
-    expect(result?.deal).toEqual({ dealPrice: 16.9, validFrom: TODAY, validUntil: '2026-09-28' })
+    // A piece-priced item: 24,90 Kč/ks regular scales to 16,90 Kč/ks at the offer price.
+    expect(result?.deal).toEqual({ dealPrice: 16.9, unitPrice: 16.9, validFrom: TODAY, validUntil: '2026-09-28' })
     expect(result?.promotionWithoutValidity).toBeUndefined()
   })
 
   it('quotes a weighed item\'s deal per kg like its regular price', () => {
     const sale = publicSale({ price: czk(4.2), pricePerUnit: czk(27.9), originalPrice: czk(6.18), originalPricePerUnit: czk(39.9) })
-    expect(normalizeRohlikProduct({ ...banana, sales: [sale] }, TODAY)?.deal?.dealPrice).toBe(27.9)
+    const deal = normalizeRohlikProduct({ ...banana, sales: [sale] }, TODAY)?.deal
+    expect(deal?.dealPrice).toBe(27.9)
+    expect(deal?.unitPrice).toBe(27.9)
   })
 
   it('takes the lowest of several valid promotions', () => {

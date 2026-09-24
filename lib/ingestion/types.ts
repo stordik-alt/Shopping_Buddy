@@ -10,6 +10,17 @@ import type { ItemCategory, ItemUnit } from '@/lib/types'
  *  Postgres enum, so a new connector cannot be added without the migration that adds its value. */
 export type IngestionSource = (typeof productSourceEnum.enumValues)[number]
 
+/** A promotion with a known validity window. */
+export type NormalizedDeal = {
+  dealPrice: number
+  /** The promotion's price per the product's `unit` (kg, l or ks) — the figure that makes an offer
+   *  comparable, and the only one available when the source states no regular price to derive it
+   *  from. */
+  unitPrice: number
+  validFrom: string
+  validUntil: string
+}
+
 /** A validated, normalized product — the connector-independent output of every normalizer. */
 export type NormalizedProduct = {
   /** The source's own stable product id (never the name) — the idempotency key per CLAUDE.md
@@ -31,7 +42,7 @@ export type NormalizedProduct = {
   /** A promotion with a known validity window. Connectors whose source publishes no end date must
    *  leave this undefined and set `promotionWithoutValidity` instead — a validity window is never
    *  invented (CLAUDE.md section 15). */
-  deal?: { dealPrice: number; validFrom: string; validUntil: string }
+  deal?: NormalizedDeal
   /** The source shows a promotion for this product but gives no usable validity window, so it could
    *  not be stored as a deal. Only counted in the ingestion result. */
   promotionWithoutValidity?: boolean

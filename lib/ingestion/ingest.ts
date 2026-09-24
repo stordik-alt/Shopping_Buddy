@@ -118,6 +118,8 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
           storeId,
           storeLocationId,
           dealPrice: normalized.deal.dealPrice,
+          unit: normalized.unit,
+          unitPrice: normalized.deal.unitPrice,
           currency: normalized.currency,
           validFrom: normalized.deal.validFrom,
           validUntil: normalized.deal.validUntil,

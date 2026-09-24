@@ -1,7 +1,8 @@
 import { gunzipSync } from 'node:zlib'
 import type { ItemCategory, ItemUnit } from '@/lib/types'
 import { fetchWithTimeout } from '@/lib/ingestion/http'
-import type { FetchOptions, PriceConnector } from '@/lib/ingestion/types'
+import { scaleUnitPrice } from '@/lib/ingestion/product-discovery'
+import type { FetchOptions, NormalizedDeal, PriceConnector } from '@/lib/ingestion/types'
 
 // --- Fetcher (docs/02_ARCHITECTURE.md / CLAUDE.md section 32: External Source -> Fetcher) --------
 // Lidl CZ has no public retailer API; these are the site's own published, machine-readable
@@ -203,7 +204,7 @@ export type NormalizedLidlProduct = {
   regularPrice: number
   currency: string
   recordedAt: string
-  deal?: { dealPrice: number; validFrom: string; validUntil: string }
+  deal?: NormalizedDeal
 }
 
 /** Turns one raw gridboxes record into a validated, normalized product — or `null` when it isn't
@@ -235,7 +236,9 @@ export function normalizeLidlProduct(raw: LidlRawProduct, today: string): Normal
   const category = mapLidlCategory(raw)
   if (category !== 'Potraviny') return null
 
-  const { unit, unitPrice } = deriveUnitPrice(price, raw)
+  // The unit price of the price Lidl currently shows, i.e. the promotional one while a promotion runs.
+  const { unit, unitPrice: currentUnitPrice } = deriveUnitPrice(price, raw)
+  let unitPrice = currentUnitPrice
 
   const discount = raw.price?.discount
   const oldPrice = raw.price?.oldPrice
@@ -245,8 +248,10 @@ export function normalizeLidlProduct(raw: LidlRawProduct, today: string): Normal
     const validFrom = discount.startDate.slice(0, 10)
     const validUntil = discount.endDate.slice(0, 10)
     if (validUntil < validFrom) return null // a promotion ending before it starts — reject, don't guess which date is wrong
-    deal = { dealPrice: price, validFrom, validUntil }
+    deal = { dealPrice: price, unitPrice: currentUnitPrice, validFrom, validUntil }
     regularPrice = oldPrice
+    // The regular unit price belongs to the regular price: same package, so it scales by the price ratio.
+    unitPrice = scaleUnitPrice(currentUnitPrice, price, oldPrice)
   }
 
   return {

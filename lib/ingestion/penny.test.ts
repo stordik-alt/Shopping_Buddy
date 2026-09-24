@@ -66,7 +66,8 @@ describe('normalizePennyProduct', () => {
       regularPrice: 19.9,
       currency: 'CZK',
       recordedAt: TODAY,
-      deal: { dealPrice: 16.9, validFrom: '2026-09-23', validUntil: '2026-09-29' },
+      // The offer's own unit price (169 Kč/kg), not the regular one (199 Kč/kg).
+      deal: { dealPrice: 16.9, unitPrice: 169, validFrom: '2026-09-23', validUntil: '2026-09-29' },
     })
   })
 
@@ -74,7 +75,8 @@ describe('normalizePennyProduct', () => {
     const result = normalizePennyProduct(kofola, TODAY)
     expect(result?.regularPrice).toBeNull()
     expect(result?.unitPrice).toBeNull()
-    expect(result?.deal).toEqual({ dealPrice: 15.9, validFrom: '2026-09-23', validUntil: '2026-09-29' })
+    // With no regular price the offer's unit price is the only one there is.
+    expect(result?.deal).toEqual({ dealPrice: 15.9, unitPrice: 15.9, validFrom: '2026-09-23', validUntil: '2026-09-29' })
   })
 
   it('uses the crossed-out price as the regular price, scaling the unit price by the same ratio', () => {

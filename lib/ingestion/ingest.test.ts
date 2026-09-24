@@ -69,11 +69,11 @@ describe('ingestPrices', () => {
   })
 
   it('stores a deal but records no price observation when the source states no regular price', async () => {
-    const deal = { dealPrice: 15.9, validFrom: '2026-09-23', validUntil: '2026-09-29' }
+    const deal = { dealPrice: 15.9, unitPrice: 79.5, validFrom: '2026-09-23', validUntil: '2026-09-29' }
     const result = await ingestPrices(connector([{ id: 'a', product: product('a', { regularPrice: null, unitPrice: null, deal }) }]), 10)
     expect(result).toMatchObject({ processed: 1, recorded: 0, deals: 1, skipped: 0 })
     expect(queries.recordOfficialPrice).not.toHaveBeenCalled()
-    expect(queries.upsertActiveDeal).toHaveBeenCalledWith(expect.objectContaining({ dealPrice: 15.9 }))
+    expect(queries.upsertActiveDeal).toHaveBeenCalledWith(expect.objectContaining({ dealPrice: 15.9, unit: 'kg', unitPrice: 79.5 }))
   })
 
   it('does not count a product already linked to the source as new', async () => {
@@ -116,7 +116,7 @@ describe('ingestPrices', () => {
   })
 
   it('stores a dated deal against the canonical store location, looked up once', async () => {
-    const deal = { dealPrice: 40, validFrom: '2026-09-22', validUntil: '2026-09-28' }
+    const deal = { dealPrice: 40, unitPrice: 80, validFrom: '2026-09-22', validUntil: '2026-09-28' }
     const result = await ingestPrices(
       connector([
         { id: 'a', product: product('a', { deal }) },
@@ -126,12 +126,12 @@ describe('ingestPrices', () => {
     )
     expect(result.deals).toBe(2)
     expect(queries.getCanonicalStoreLocationId).toHaveBeenCalledTimes(1)
-    expect(queries.upsertActiveDeal).toHaveBeenCalledWith(expect.objectContaining({ storeId: 'store-1', storeLocationId: 'loc-1', dealPrice: 40, validUntil: '2026-09-28' }))
+    expect(queries.upsertActiveDeal).toHaveBeenCalledWith(expect.objectContaining({ storeId: 'store-1', storeLocationId: 'loc-1', dealPrice: 40, unit: 'kg', unitPrice: 80, validUntil: '2026-09-28' }))
   })
 
   it('stores an online-only chain\'s deal with the chain and no branch, without looking for one', async () => {
     queries.getStoreByChain.mockResolvedValue({ id: 'store-online', isOnline: true })
-    const deal = { dealPrice: 40, validFrom: '2026-09-22', validUntil: '2026-09-28' }
+    const deal = { dealPrice: 40, unitPrice: 80, validFrom: '2026-09-22', validUntil: '2026-09-28' }
     const result = await ingestPrices(connector([{ id: 'a', product: product('a', { deal }) }]), 10)
     expect(result.deals).toBe(1)
     expect(queries.getCanonicalStoreLocationId).not.toHaveBeenCalled()

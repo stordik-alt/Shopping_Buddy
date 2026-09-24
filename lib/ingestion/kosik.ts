@@ -6,8 +6,9 @@ import type { FetchOptions, NormalizedProduct, PriceConnector } from '@/lib/inge
 // Košík.cz is an online-only grocer (like Rohlík), so its published price is the price. There is no
 // public retailer API; like the other connectors this uses the JSON the site's own pages call
 // (observed via network capture, 2026-09-24):
-//   - /api/front/menu/main                          -> the category tree
-//   - /api/front/page/products/flexible?slug=<cat>  -> a category's products
+//   - GET  /api/front/menu/main                         -> the category tree
+//   - GET  /api/front/page/products/flexible?slug=<cat> -> the first page of a category's products
+//   - POST /api/front/products/more {cursor, limit}     -> the next page (the site's own "load more")
 // Checked the same day: robots.txt disallows `/l*_c*` listing pages, `/basket` and
 // `/nakupni-listek*` — none of which this touches — and does not disallow `/api/`; the endpoints
 // need no login or token and showed no CAPTCHA or bot challenge. The API itself states its limit
@@ -60,20 +61,41 @@ type ApiProduct = {
   pricePerUnit?: { price: number; unit: string } | null
   actionLabel?: string | null
 }
-type ProductsResponse = { products?: { items?: ApiProduct[] } | null }
+/** First page of a category: products sit under `products.items` with the cursor for the next page. */
+type CategoryPageResponse = { products?: { items?: ApiProduct[]; cursor?: string | null } | null }
+/** "Load more": the products come back as a plain array next to the next cursor. */
+type MorePageResponse = { products?: ApiProduct[] | null; cursor?: string | null }
+
+/** One page of products and, when there may be more, the cursor that fetches the next page. */
+export type KosikPage = { products: KosikRawProduct[]; cursor: string | null }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
-async function getJson<T>(path: string, what: string): Promise<T> {
-  const response = await fetchWithTimeout(`${BASE_URL}${path}`, { headers: { Accept: 'application/json', 'User-Agent': USER_AGENT } })
+async function request<T>(path: string, what: string, init: { method?: string; body?: string } = {}): Promise<T> {
+  const headers: Record<string, string> = { Accept: 'application/json', 'User-Agent': USER_AGENT }
+  if (init.body) headers['Content-Type'] = 'application/json'
+  const response = await fetchWithTimeout(`${BASE_URL}${path}`, { method: init.method ?? 'GET', headers, body: init.body })
   if (!response.ok) throw new Error(`Kosik ${what} fetch failed: HTTP ${response.status}`)
   return (await response.json()) as T
+}
+
+function toRaw(item: ApiProduct): KosikRawProduct {
+  return {
+    id: item.id,
+    name: item.name,
+    price: item.price,
+    recommendedPrice: item.recommendedPrice ?? item.price,
+    percentageDiscount: item.percentageDiscount ?? 0,
+    productQuantity: item.productQuantity?.value != null && item.productQuantity.unit ? { prefix: item.productQuantity.prefix ?? '', value: item.productQuantity.value, unit: item.productQuantity.unit } : null,
+    pricePerUnit: item.pricePerUnit ?? null,
+    actionLabel: item.actionLabel ?? null,
+  }
 }
 
 /** The sub-categories of every food top-level category, taken round-robin (first of each top-level,
  *  then the second of each, …) so a run that stops early still covers every aisle. */
 export async function fetchKosikCategorySlugs(): Promise<string[]> {
-  const menu = await getJson<MenuResponse>('/api/front/menu/main', 'menu')
+  const menu = await request<MenuResponse>('/api/front/menu/main', 'menu')
   if (!Array.isArray(menu.categories)) throw new Error('Kosik menu returned an unexpected response shape')
   const lists = KOSIK_GROCERY_TOP_LEVEL_IDS.map((topId) => {
     const top = menu.categories!.find((category) => category.id === topId)
@@ -89,41 +111,50 @@ export async function fetchKosikCategorySlugs(): Promise<string[]> {
 /** The first page (30 products, the site's own order) of a category as a flat list. `vertical` is
  *  the site's list/grid view, which returns products directly; its default view groups them by
  *  sub-category instead. */
-export async function fetchKosikCategoryProducts(slug: string): Promise<KosikRawProduct[]> {
+export async function fetchKosikCategoryPage(slug: string): Promise<KosikPage> {
   const path = `/api/front/page/products/flexible?vendor=1&slug=${encodeURIComponent(slug)}&limit=${PAGE_LIMIT}&search_term=&page_display=vertical&platform=web`
-  const body = await getJson<ProductsResponse>(path, `category ${slug}`)
+  const body = await request<CategoryPageResponse>(path, `category ${slug}`)
   const items = body.products?.items
   if (!Array.isArray(items)) throw new Error(`Kosik category ${slug} returned an unexpected response shape`)
-  return items.map((item) => ({
-    id: item.id,
-    name: item.name,
-    price: item.price,
-    recommendedPrice: item.recommendedPrice ?? item.price,
-    percentageDiscount: item.percentageDiscount ?? 0,
-    productQuantity: item.productQuantity?.value != null && item.productQuantity.unit ? { prefix: item.productQuantity.prefix ?? '', value: item.productQuantity.value, unit: item.productQuantity.unit } : null,
-    pricePerUnit: item.pricePerUnit ?? null,
-    actionLabel: item.actionLabel ?? null,
-  }))
+  return { products: items.map(toRaw), cursor: body.products?.cursor ?? null }
 }
 
-/** Fetches up to `limit` products, category after category, each product once. Deterministic for a
- *  given site state; a product keeps its external id, so its price history stays continuous. */
+/** The next page of a category, from the cursor the previous page returned — the request the site
+ *  itself makes when a shopper scrolls. */
+export async function fetchKosikMorePage(cursor: string): Promise<KosikPage> {
+  const body = await request<MorePageResponse>('/api/front/products/more', 'more-products', { method: 'POST', body: JSON.stringify({ cursor, limit: PAGE_LIMIT }) })
+  if (!Array.isArray(body.products)) throw new Error('Kosik more-products returned an unexpected response shape')
+  return { products: body.products.map(toRaw), cursor: body.cursor ?? null }
+}
+
+/** Fetches up to `limit` products in rounds: the first page of every sub-category, then the second page
+ *  of each, and so on, each product once. Breadth first, so a run that stops early (limit or time) has
+ *  covered every aisle rather than exhausted a few. Deterministic for a given site state; a product
+ *  keeps its external id, so its price history stays continuous. */
 export async function fetchKosikCatalog(limit: number, options: FetchOptions & { pauseMs?: number } = {}): Promise<KosikRawProduct[]> {
   if (limit <= 0) return []
   const pauseMs = options.pauseMs ?? REQUEST_PAUSE_MS
   const outOfTime = () => options.deadline != null && Date.now() >= options.deadline
 
-  const slugs = await fetchKosikCategorySlugs()
+  const lanes = (await fetchKosikCategorySlugs()).map((slug) => ({ slug, cursor: null as string | null, started: false, done: false }))
   const products: KosikRawProduct[] = []
   const seen = new Set<number>()
-  for (const slug of slugs) {
-    if (products.length >= limit || outOfTime()) break
-    await sleep(pauseMs)
-    for (const product of await fetchKosikCategoryProducts(slug)) {
-      // A product can be listed under several categories; keep it once.
-      if (seen.has(product.id)) continue
-      seen.add(product.id)
-      products.push(product)
+  while (products.length < limit && lanes.some((lane) => !lane.done)) {
+    for (const lane of lanes) {
+      if (lane.done) continue
+      if (products.length >= limit || outOfTime()) return products.slice(0, limit)
+      await sleep(pauseMs)
+      const page = lane.started ? await fetchKosikMorePage(lane.cursor!) : await fetchKosikCategoryPage(lane.slug)
+      lane.started = true
+      lane.cursor = page.cursor
+      // A short page, or no cursor, is the category's last: nothing more to ask for.
+      if (!page.cursor || page.products.length < PAGE_LIMIT) lane.done = true
+      for (const product of page.products) {
+        // A product can be listed under several categories; keep it once.
+        if (seen.has(product.id)) continue
+        seen.add(product.id)
+        products.push(product)
+      }
     }
   }
   return products.slice(0, limit)

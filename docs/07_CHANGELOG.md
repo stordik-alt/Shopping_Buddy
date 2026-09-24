@@ -10,6 +10,15 @@
 - **Tests:** per-source/override limits and the real limits, Billa multi-page and short-page paging, dm concurrency cap (5) with order preserved and the adapted circuit breaker.
 - **Not done:** no ingestion was run against the shared database as part of this change; the next scheduled cron (or an approved manual run) writes the wider catalog.
 
+## 2026-09-24 (Receipts: digital PDFs are read from their text layer before OCR)
+### Owner-approved: new dependency `unpdf` — stacked on the weighed-lines PR (#30)
+- **Why:** the Albert PDF's OCR text (Azure fallback) lacked two weighed lines that the PDF itself contains; OCR of a digital PDF is strictly worse than its embedded text and costs a paid call.
+- **What:** `readPdfTextLayer()` (`lib/receipt-pdf.ts`) is tried first for PDFs; a usable text layer (≥ 60 non-space characters, ≥ 3 two-decimal amounts) goes straight to structuring with `ocr_provider = pdf_text_layer`; otherwise Google/Azure OCR run exactly as before. Photos unchanged. On the real receipt all three weight lines are present with correct diacritics.
+- **Observability:** `ocr.note` in the import's log line now records, redacted, why the primary route was not used — including the primary OCR failure when the fallback succeeded, which was previously lost.
+- **UI:** `ocrProviderLabel()` names all three sources (the two inline ternaries in the receipt screens are replaced).
+- **Verified:** `unpdf` bundles and runs in a real `next build` + `next start`, not only under vitest.
+- **Tests:** 11 unit tests (usable-text rule, reading a generated PDF, image-only PDF, non-PDF bytes, empty file, provider labels) and 3 action-level DB tests (text layer used with no OCR call, image-only PDF falls back to OCR, photos unaffected). The receipts action suite passes against the database.
+
 ## 2026-09-24 (Receipts: weighed lines, rounding artifacts removed, placement gate)
 ### Follow-up to the Albert receipt report — stacked on the receipt-total PR (#29)
 - **Root cause of the weighed-item weakness:** the OCR text (Azure fallback — Google Vision PDF OCR had failed) dropped the "0.43 x 34.90 Kč" / "0.935 x 19.90 Kč" lines; the model correctly output null. Why Google failed is open (needs production logs).

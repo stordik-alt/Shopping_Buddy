@@ -224,14 +224,32 @@ one weighed line that did survive (paprika, 0.37 × 69,90) was stored as 0.37 "k
 - The storage-location gate ignores rounding lines; before, an unplaceable "ZAOKROUHLENÍ" line sent
   an otherwise clean receipt to review.
 
+**PDF text layer before OCR (implemented 2026-09-24).** A digital PDF (a shop's e-receipt, a browser
+print) carries its own text layer. `lib/receipt-pdf.ts`'s `readPdfTextLayer()` (dependency
+`unpdf`, a serverless build of pdf.js — no other PDF library was available, nothing already
+installed could read PDF text) reads it first; if it is usable — at least 60 non-space characters and
+three amounts with two decimals — that text goes straight to structuring and `ocr_provider` is
+`pdf_text_layer` ("Text přímo z PDF (bez OCR)" in the UI). Otherwise (a scan, an image-only PDF, a
+text layer that is only a footer, an unreadable file) the PDF goes to OCR exactly as before: Google
+Vision, Azure only after a Google failure. On the real Albert PDF the text layer holds all three
+weight lines that the Azure fallback had dropped, with correct Czech diacritics, and OCR is skipped
+(no OCR call, no cost). Photos are unchanged. Verified in a real `next build` + `next start` that
+`unpdf` works when bundled, not only in tests. The receipt's own PDF is never committed as a fixture
+(personal data): tests generate a small PDF with a real text layer (`lib/receipt-pdf.test-helpers.ts`).
+
+**Observability.** The primary OCR's failure used to be logged only when the fallback failed too, so
+"why did Google not read this?" could not be answered after a fallback succeeded. The trace line
+(`lib/receipt-log.ts`, `ocr.note`) now records, redacted, why the primary route was not used: no
+usable text layer, or the primary failure that made the fallback run.
+
 **Why the line was missing — root cause, partly open.** The stored `ocr_provider` for this receipt is
 `azure_document_intelligence`: for PDFs Google Vision is primary and Azure (prebuilt-receipt) runs
 only after Google failed, so the primary OCR failed for this PDF in production. Azure's text omitted
 the weight lines; the PDF itself (Skia/PDF from a browser print, one page, embedded fonts) has them.
-The reason Google failed is not known — it needs the production runtime logs for that import
-(search for "Google Vision PDF request failed" / the import id) and could be a missing `GCP_*`
-variable in that environment. Reading a digital PDF's embedded text layer directly, before any OCR,
-would avoid the loss altogether but adds a PDF-parsing dependency; not done, awaiting a decision.
+The reason Google failed for that import is still unknown (the owner could not find the runtime
+logs, and the failure was not logged at the time — see Observability above; a missing `GCP_*`
+variable in that environment is one possibility). For digital PDFs it no longer matters, because
+the text layer is read before any OCR; for scanned PDFs the next occurrence will now be logged.
 
 **Missing-data check.** Missing store, date, total, or an item's category → `REVIEW_REQUIRED`. Missing only an
 optional field (e.g. receipt number) does not require flagging the receipt as invalid.

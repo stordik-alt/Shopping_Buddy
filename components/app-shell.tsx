@@ -295,9 +295,11 @@ export function AppShell({
    *  processing runs the whole OCR pipeline in one request. While that request is in flight, the
    *  status route is polled (a route handler, not an action — Next runs one client's actions
    *  sequentially, so an action would queue behind the processing call) to report the real stage. */
-  async function uploadReceipt(base64: string, mimeType: string, onProgress: (status: string) => void) {
+  async function uploadReceipt(file: File, onProgress: (status: string) => void) {
     onProgress('uploading')
-    const uploaded = await uploadReceiptAction(base64, mimeType)
+    const formData = new FormData()
+    formData.set('file', file)
+    const uploaded = await uploadReceiptAction(formData)
     onProgress(uploaded.status)
     const stopPolling = pollReceiptStatus(uploaded.id, onProgress)
     try {

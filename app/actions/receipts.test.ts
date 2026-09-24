@@ -727,7 +727,11 @@ describe('receipt file handling: type detection and OCR preparation', () => {
   }
 
   describe('uploadReceiptAction', () => {
-    const upload = async (bytes: Buffer, declaredMimeType: string) => uploadReceiptAction(bytes.toString('base64'), declaredMimeType)
+    const upload = async (bytes: Buffer, declaredMimeType: string) => {
+      const formData = new FormData()
+      formData.set('file', new File([new Uint8Array(bytes)], 'receipt', { type: declaredMimeType }))
+      return uploadReceiptAction(formData)
+    }
 
     it('decides the type from the file\'s bytes: a PNG declared as JPEG is stored as a PNG', async () => {
       const state = await upload(await realImage(), 'image/jpeg') // wrong on purpose

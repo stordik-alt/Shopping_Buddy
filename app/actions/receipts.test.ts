@@ -18,6 +18,10 @@ vi.setConfig({ testTimeout: 20_000 })
 let currentHouseholdId = ''
 vi.mock('@/lib/auth/authorize', () => ({ requireHouseholdId: () => Promise.resolve(currentHouseholdId) }))
 vi.mock('next/cache', () => ({ revalidatePath: () => {} }))
+// Receipt photos go to Vercel Blob. Tests use an in-memory fake (test/fake-blob.ts) so a run neither
+// spends paid Blob operations nor fails when the real store is suspended; USE_REAL_BLOB=1 runs them
+// against the real store on purpose.
+vi.mock('@vercel/blob', async () => (process.env.USE_REAL_BLOB === '1' ? await vi.importActual('@vercel/blob') : (await import('@/test/fake-blob')).fakeBlobModule))
 
 import { confirmReceiptReviewAction, importReceiptAction, processReceiptImport, processUploadedReceiptAction, resolveDuplicateReceiptAction, retryReceiptImportAction, uploadReceiptAction } from '@/app/actions/receipts'
 import { ALBERT_STYLE_RECEIPT_LINES, makeTextPdf } from '@/lib/receipt-pdf.test-helpers'
@@ -239,7 +243,7 @@ describe('importReceiptAction (manual entry)', () => {
   })
 })
 
-describe('processReceiptImport — OCR pipeline orchestration (fake OCR/AI, real Blob/DB)', () => {
+describe('processReceiptImport — OCR pipeline orchestration (fake OCR/AI, fake Blob, real DB)', () => {
   it('goes uploaded → completed and creates a real purchase for a clean, consistent extraction', async () => {
     const receiptImportId = await createUploadedReceipt()
     const row = await processReceiptImport(receiptImportId, fakeProviders(extractedReceipt()))

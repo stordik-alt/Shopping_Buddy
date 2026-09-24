@@ -11,7 +11,7 @@ export default function proxy(request: NextRequest) {
 
   // Keep the landing route public. app/page.tsx decides whether the user
   // should enter the app or see the intro first.
-  if (pathname === '/') {
+  if (pathname === '/' || pathname === '/intro' || pathname.startsWith('/intro/')) {
     return NextResponse.next()
   }
 

@@ -3,7 +3,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { splitCollapsedExternalProducts } from '@/lib/db/split-collapsed-products'
-import { findProductIdByExternalRef, getCanonicalStoreLocationId, getHouseholdData, joinHouseholdViaInvitation, loadExternalProductContext, loadLatestOfficialPrices, recordOfficialPrice, resolveOrCreateProductFromExternal, touchExternalRefs, upsertActiveDeal } from '@/lib/db/queries'
+import { findProductIdByExternalRef, getCanonicalStoreLocationId, getHouseholdData, getProductPrices, getStoreByChain, getStoreIdByChain, joinHouseholdViaInvitation, loadExternalProductContext, loadLatestOfficialPrices, recordOfficialPrice, resolveOrCreateProductFromExternal, touchExternalRefs, upsertActiveDeal } from '@/lib/db/queries'
 
 // Regression coverage for the "household events" notification work (docs/07_CHANGELOG.md,
 // 2026-09-21) and for the join-via-invitation logic itself, which docs/01_CURRENT_STATE.md
@@ -508,9 +508,10 @@ describe('upsertActiveDeal', () => {
     const name = `__test_deal_product_${crypto.randomUUID()}`
     const [product] = await db.insert(schema.products).values({ name, categoryId: category!.id }).returning()
     const storeLocationId = await getCanonicalStoreLocationId('Lidl')
+    const storeId = await getStoreIdByChain('Lidl')
 
-    await upsertActiveDeal({ productId: product.id, storeLocationId, dealPrice: 19.9, validFrom: '2026-09-01', validUntil: '2099-01-01' })
-    await upsertActiveDeal({ productId: product.id, storeLocationId, dealPrice: 15.9, validFrom: '2026-09-10', validUntil: '2099-01-01' })
+    await upsertActiveDeal({ productId: product.id, storeId, storeLocationId, dealPrice: 19.9, validFrom: '2026-09-01', validUntil: '2099-01-01' })
+    await upsertActiveDeal({ productId: product.id, storeId, storeLocationId, dealPrice: 15.9, validFrom: '2026-09-10', validUntil: '2099-01-01' })
 
     const deals = await db.query.deals.findMany({ where: eq(schema.deals.productId, product.id) })
     expect(deals).toHaveLength(1)
@@ -518,5 +519,86 @@ describe('upsertActiveDeal', () => {
 
     await db.delete(schema.deals).where(inArray(schema.deals.id, deals.map((d) => d.id)))
     await db.delete(schema.products).where(eq(schema.products.id, product.id))
+  })
+
+  describe('online-only chains (no branches)', () => {
+    async function createOnlineStore() {
+      const [store] = await db.insert(schema.stores).values({ chain: `__test_online_${crypto.randomUUID()}`, isOnline: true }).returning()
+      return store
+    }
+    async function createProduct() {
+      const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
+      const [product] = await db.insert(schema.products).values({ name: `__test_online_deal_${crypto.randomUUID()}`, categoryId: category!.id }).returning()
+      return product
+    }
+
+    it('reports whether a chain is online-only', async () => {
+      expect((await getStoreByChain('Lidl')).isOnline).toBe(false)
+      const store = await createOnlineStore()
+      try {
+        expect(await getStoreByChain(store.chain)).toEqual({ id: store.id, isOnline: true })
+      } finally {
+        await db.delete(schema.stores).where(eq(schema.stores.id, store.id))
+      }
+    })
+
+    it('stores a chain-wide deal with no branch and updates it in place on a repeat call', async () => {
+      const store = await createOnlineStore()
+      const product = await createProduct()
+      try {
+        await upsertActiveDeal({ productId: product.id, storeId: store.id, storeLocationId: null, dealPrice: 19.9, validFrom: '2026-09-01', validUntil: '2099-01-01' })
+        await upsertActiveDeal({ productId: product.id, storeId: store.id, storeLocationId: null, dealPrice: 15.9, validFrom: '2026-09-10', validUntil: '2099-01-01' })
+
+        const deals = await db.query.deals.findMany({ where: eq(schema.deals.productId, product.id) })
+        expect(deals).toHaveLength(1)
+        expect(deals[0]).toMatchObject({ storeId: store.id, storeLocationId: null })
+        expect(Number(deals[0].dealPrice)).toBe(15.9)
+      } finally {
+        await db.delete(schema.products).where(eq(schema.products.id, product.id))
+        await db.delete(schema.stores).where(eq(schema.stores.id, store.id))
+      }
+    })
+
+    it('refuses a deal whose branch belongs to a different chain than the deal says', async () => {
+      const store = await createOnlineStore()
+      const product = await createProduct()
+      try {
+        const lidlLocationId = await getCanonicalStoreLocationId('Lidl')
+        await expect(
+          db.insert(schema.deals).values({ productId: product.id, storeId: store.id, storeLocationId: lidlLocationId, dealPrice: '10', validFrom: '2026-09-01', validUntil: '2099-01-01' }),
+        ).rejects.toThrow()
+      } finally {
+        await db.delete(schema.products).where(eq(schema.products.id, product.id))
+        await db.delete(schema.stores).where(eq(schema.stores.id, store.id))
+      }
+    })
+
+    it("shows an online chain's active deal on its chain-wide price", async () => {
+      const store = await createOnlineStore()
+      const product = await createProduct()
+      try {
+        await db.insert(schema.prices).values({
+          productId: product.id,
+          storeId: store.id,
+          storeLocationId: null,
+          priceScope: 'CHAIN',
+          sourceType: 'OFFICIAL',
+          locationResolution: 'NOT_APPLICABLE',
+          regularPrice: '24.90',
+          unit: 'ks',
+          unitPrice: '24.90',
+          observedAt: '2026-09-24',
+          validFrom: '2026-09-24',
+        })
+        await upsertActiveDeal({ productId: product.id, storeId: store.id, storeLocationId: null, dealPrice: 16.9, validFrom: '2026-09-24', validUntil: '2099-01-01' })
+
+        const found = (await getProductPrices()).find((entry) => entry.productName === product.name)
+        expect(found?.prices).toHaveLength(1)
+        expect(found?.prices[0]).toMatchObject({ regularPrice: 24.9, dealPrice: 16.9, dealValidUntil: '2099-01-01' })
+      } finally {
+        await db.delete(schema.products).where(eq(schema.products.id, product.id))
+        await db.delete(schema.stores).where(eq(schema.stores.id, store.id))
+      }
+    })
   })
 })

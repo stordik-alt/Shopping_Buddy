@@ -78,7 +78,7 @@ export function AppShell({
   userName: string
   stores: Store[]
   productPrices: ProductPrice[]
-  storeChains: { id: string; chain: string }[]
+  storeChains: { id: string; chain: string; isOnline?: boolean }[]
   initialStoreSelection: StoreSelection
   initialPins: PinRecord[]
 }) {

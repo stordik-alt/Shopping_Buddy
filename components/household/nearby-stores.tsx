@@ -18,7 +18,7 @@ export function NearbyStores({
   selection,
   onSave,
 }: {
-  chains: { id: string; chain: string }[]
+  chains: { id: string; chain: string; isOnline?: boolean }[]
   stores: Store[]
   selection: StoreSelection
   onSave: (input: { maxDistanceKm: number | null; chainIds: string[]; locationIds: string[]; priorityChainIds: string[]; maxShopStores: number | null }) => Promise<StoreSelection>
@@ -126,7 +126,7 @@ export function NearbyStores({
           <p className="mt-2 rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground">Zatím nemáme žádné obchody k výběru.</p>
         ) : (
           <div className="mt-2 flex flex-wrap gap-2">
-            {chains.map(({ id, chain }) => {
+            {chains.map(({ id, chain, isOnline }) => {
               const selected = chainIds.includes(id)
               return (
                 <button
@@ -140,6 +140,8 @@ export function NearbyStores({
                 >
                   {selected && <Check className="h-4 w-4" />}
                   {chain}
+                  {/* An online-only chain has no branches to pick, so say what it is instead of leaving it unexplained. */}
+                  {isOnline && <span className="text-xs font-normal text-muted-foreground">online</span>}
                 </button>
               )
             })}

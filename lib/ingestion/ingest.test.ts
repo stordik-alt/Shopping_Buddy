@@ -6,7 +6,7 @@ import type { IngestResult, NormalizedProduct, PriceConnector } from '@/lib/inge
 // it keeps to its time budget — not the SQL (covered by the DB-backed lib/db/queries.test.ts).
 const queries = vi.hoisted(() => ({
   getCanonicalStoreLocationId: vi.fn(),
-  getStoreIdByChain: vi.fn(),
+  getStoreByChain: vi.fn(),
   loadExternalProductContext: vi.fn(),
   loadLatestOfficialPrices: vi.fn(),
   recordOfficialPrice: vi.fn(),
@@ -47,7 +47,7 @@ const emptyContext = () => ({ refs: new Map<string, string>(), catalog: [], cate
 
 beforeEach(() => {
   vi.clearAllMocks()
-  queries.getStoreIdByChain.mockResolvedValue('store-1')
+  queries.getStoreByChain.mockResolvedValue({ id: 'store-1', isOnline: false })
   queries.getCanonicalStoreLocationId.mockResolvedValue('loc-1')
   queries.loadExternalProductContext.mockResolvedValue(emptyContext())
   queries.touchExternalRefs.mockResolvedValue(undefined)
@@ -60,7 +60,7 @@ describe('ingestPrices', () => {
   it('records an official chain-scope observation per usable product', async () => {
     const result = await ingestPrices(connector([{ id: 'a', product: product('a') }]), 10)
     expect(result).toMatchObject({ processed: 1, recorded: 1, newProducts: 1, deals: 0, skipped: 0, truncated: false, errors: [] })
-    expect(queries.getStoreIdByChain).toHaveBeenCalledWith('Billa')
+    expect(queries.getStoreByChain).toHaveBeenCalledWith('Billa')
     expect(queries.resolveOrCreateProductFromExternal).toHaveBeenCalledWith(expect.objectContaining({ externalId: 'a', source: 'billa' }), expect.anything())
     expect(queries.recordOfficialPrice).toHaveBeenCalledWith(
       expect.objectContaining({ productId: 'product-1', storeId: 'store-1', sourceReference: 'a', regularPrice: 50, unit: 'kg', unitPrice: 100 }),
@@ -96,7 +96,7 @@ describe('ingestPrices', () => {
       10,
     )
     expect(queries.loadExternalProductContext).toHaveBeenCalledTimes(1)
-    expect(queries.getStoreIdByChain).toHaveBeenCalledTimes(1)
+    expect(queries.getStoreByChain).toHaveBeenCalledTimes(1)
     expect(queries.resolveOrCreateProductFromExternal).toHaveBeenCalledTimes(3)
     for (const call of queries.resolveOrCreateProductFromExternal.mock.calls) expect(call[1]).toBe(context)
   })
@@ -126,7 +126,16 @@ describe('ingestPrices', () => {
     )
     expect(result.deals).toBe(2)
     expect(queries.getCanonicalStoreLocationId).toHaveBeenCalledTimes(1)
-    expect(queries.upsertActiveDeal).toHaveBeenCalledWith(expect.objectContaining({ storeLocationId: 'loc-1', dealPrice: 40, validUntil: '2026-09-28' }))
+    expect(queries.upsertActiveDeal).toHaveBeenCalledWith(expect.objectContaining({ storeId: 'store-1', storeLocationId: 'loc-1', dealPrice: 40, validUntil: '2026-09-28' }))
+  })
+
+  it('stores an online-only chain\'s deal with the chain and no branch, without looking for one', async () => {
+    queries.getStoreByChain.mockResolvedValue({ id: 'store-online', isOnline: true })
+    const deal = { dealPrice: 40, validFrom: '2026-09-22', validUntil: '2026-09-28' }
+    const result = await ingestPrices(connector([{ id: 'a', product: product('a', { deal }) }]), 10)
+    expect(result.deals).toBe(1)
+    expect(queries.getCanonicalStoreLocationId).not.toHaveBeenCalled()
+    expect(queries.upsertActiveDeal).toHaveBeenCalledWith(expect.objectContaining({ storeId: 'store-online', storeLocationId: null, dealPrice: 40 }))
   })
 
   it('counts a promotion without a validity window but stores no deal for it', async () => {

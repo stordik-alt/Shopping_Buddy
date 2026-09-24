@@ -162,6 +162,13 @@
       "when": 1791036000000,
       "tag": "0022_receipt_checks_shopping_list",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791122400000,
+      "tag": "0023_online_stores_rohlik",
+      "breakpoints": true
     }
   ]
 }

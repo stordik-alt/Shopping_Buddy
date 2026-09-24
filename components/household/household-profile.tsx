@@ -44,7 +44,7 @@ export function HouseholdProfile({
   onInvite: (email: string) => Promise<{ token: string }>
   onRevokeInvitation: (id: string) => void
   /** The signed-in user's own "stores in my area" (personal, not the household's). */
-  storeChains: { id: string; chain: string }[]
+  storeChains: { id: string; chain: string; isOnline?: boolean }[]
   stores: Store[]
   storeSelection: StoreSelection
   onSaveStorePreferences: (input: { maxDistanceKm: number | null; chainIds: string[]; locationIds: string[]; priorityChainIds: string[]; maxShopStores: number | null }) => Promise<StoreSelection>

@@ -1,6 +1,6 @@
 import {
   getCanonicalStoreLocationId,
-  getStoreIdByChain,
+  getStoreByChain,
   loadExternalProductContext,
   loadLatestOfficialPrices,
   recordOfficialPrice,
@@ -12,6 +12,7 @@ import { billaConnector } from '@/lib/ingestion/billa'
 import { dmConnector } from '@/lib/ingestion/dm'
 import { lidlConnector } from '@/lib/ingestion/lidl'
 import { pennyConnector } from '@/lib/ingestion/penny'
+import { rohlikConnector } from '@/lib/ingestion/rohlik'
 import { ingestionDate } from '@/lib/ingestion/today'
 import type { IngestResult, PriceConnector } from '@/lib/ingestion/types'
 
@@ -44,12 +45,12 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
 
   // Looked up once per run, not per product: each lookup is a database round trip, and per-product
   // lookups were what made a run of ~80 products take minutes (see loadExternalProductContext()).
-  const storeId = await getStoreIdByChain(connector.chain)
+  const { id: storeId, isOnline } = await getStoreByChain(connector.chain)
   const [context, latestPrices] = await Promise.all([loadExternalProductContext(connector.source), loadLatestOfficialPrices(storeId)])
-  // Deals are still keyed by a concrete store location (the `deals` table wasn't part of the price
-  // observation model change), so the seeded canonical branch is used for those only — looked up
-  // lazily, since a connector whose source has no dated promotions never needs one.
-  let storeLocationId: string | undefined
+  // A deal of a chain with physical stores is still attached to the seeded canonical branch, looked up
+  // lazily since a connector whose source has no dated promotions never needs one. An online-only
+  // chain has no branch at all (and none is invented): its deals carry the chain and a null branch.
+  let storeLocationId: string | null | undefined
   // Products that were already linked before this run; their `lastSeenAt` is refreshed in one batch
   // at the end.
   const alreadyLinked: string[] = []
@@ -110,9 +111,10 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
       }
 
       if (normalized.deal) {
-        storeLocationId ??= await getCanonicalStoreLocationId(connector.chain)
+        if (storeLocationId === undefined) storeLocationId = isOnline ? null : await getCanonicalStoreLocationId(connector.chain)
         await upsertActiveDeal({
           productId,
+          storeId,
           storeLocationId,
           dealPrice: normalized.deal.dealPrice,
           currency: normalized.currency,
@@ -161,6 +163,8 @@ export const PRICE_SOURCES: PriceSource[] = [
   { source: billaConnector.source, limit: 450, run: (limit, options) => ingestPrices(billaConnector, limit, options) },
   { source: pennyConnector.source, limit: 80, run: (limit, options) => ingestPrices(pennyConnector, limit, options) },
   { source: dmConnector.source, limit: 700, run: (limit, options) => ingestPrices(dmConnector, limit, options) },
+  // Online-only: a run is ~10 category requests plus 2 requests per 50 products, well inside the budget.
+  { source: rohlikConnector.source, limit: 500, run: (limit, options) => ingestPrices(rohlikConnector, limit, options) },
 ]
 
 export type SourceOutcome = IngestResult | { error: string } | { skipped: string }

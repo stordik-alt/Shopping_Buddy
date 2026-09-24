@@ -23,6 +23,10 @@
     {
       "path": "/api/cron/ingest-prices/dm",
       "schedule": "30 5 * * *"
+    },
+    {
+      "path": "/api/cron/ingest-prices/rohlik",
+      "schedule": "40 5 * * *"
     }
   ]
 }

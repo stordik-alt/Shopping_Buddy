@@ -1,5 +1,15 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-24 (Price ingestion: Rohlík.cz, the first online-only store)
+### New connector and a model change so a chain without branches can have deals
+- **Connector:** `lib/ingestion/rohlik.ts` — category ids → product ids → batched details and prices (50 ids per request, sequential, 250 ms pause, deadline-aware). Ten food categories, up to 500 products/day, cron 05:40 UTC. Validation and normalization rules are in docs/01_CURRENT_STATE.md section 15.
+- **Promotions:** only public single-piece promotions with an end date become deals. Rohlík Premium (members-only) prices, multipacks, bundles, silent or inactive sales are not deals; expired ones are ignored; one with no end date is counted as `promotionWithoutValidity`.
+- **Database (owner-approved model change), migration `0023_online_stores_rohlik`:** `product_source` += `rohlik`; `stores.is_online`; `deals.store_id` (backfilled, NOT NULL) and `deals.store_location_id` nullable, with a composite FK so a named branch must belong to the deal's chain; the chain row `Rohlík` is seeded as online. Applied to the shared Neon database with `db:migrate`. **Until the new code is deployed, the currently deployed ingestion cannot insert deals** (`store_id` is required) — prices are still written and each deal is reported as a per-product error; the next run after deploy recovers.
+- **Code:** `upsertActiveDeal` takes the chain and a nullable branch; ingestion stores an online chain's deal with no branch and never looks for one; `getProductPrices()` folds a branch-less deal into the chain-wide price; product search reads deals by chain; the chain picker labels online chains; `getStoreByChain()` added (`getStoreIdByChain` kept).
+- **Live check (no DB writes):** ~486 products fetched in 11 s, 3 rejected, 73 public promotions. In an earlier 398-product sample the two rejects were a flower bouquet with unit "kytice" and a record whose unit price disagrees with its package size by 5 %.
+- **Tests:** 21 connector tests (package parsing, weighed items, every non-deal sale kind, expired/undated/inconsistent promotions, batching, dedupe, deadline, failing source), an ingestion test for an online chain's deal, 4 DB tests (online-chain deal upsert, composite-FK refusal, deal shown on the chain-wide price, `getStoreByChain`).
+- **Not done:** Košík (next), delivery fee / minimum order / delivery-area availability, and the pre-existing gap that a physical chain's branch-less price does not pick up its (branch-attached) deal.
+
 ## 2026-09-24 (Receipts: an imported receipt ticks off the shopping list)
 ### New feature — shopping list no longer stays open after the receipt is imported
 - **Behaviour:** after a receipt is imported, list items it certainly covers (same catalog product or same name ignoring case/diacritics) are ticked automatically; plausible ones are offered on the Rozpočet tab for confirmation. A ticked item gets the receipt's real quantity, unit and price paid (owner's requirement).

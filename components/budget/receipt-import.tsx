@@ -3,7 +3,7 @@ import { AlertTriangle, Camera, Check, Loader2, Plus, Receipt, Trash2 } from 'lu
 import type { ReceiptImportState } from '@/lib/db/queries'
 import { ocrProviderLabel } from '@/lib/receipt-ocr-provider'
 import { RECEIPT_STEPS, receiptProgress, type ReceiptProgress } from '@/lib/receipt-progress'
-import { optimizeReceiptImage } from '@/lib/receipt-upload'
+import { assertReceiptFitsUpload, optimizeReceiptImage } from '@/lib/receipt-upload'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import type { ItemCategory, ItemUnit, Store } from '@/lib/types'
 
@@ -119,6 +119,7 @@ export function ReceiptImport({
 
     try {
       const file = await optimizeReceiptImage(selectedFile)
+      assertReceiptFitsUpload(file)
       const base64 = await readFileAsBase64(file)
       const result = await onUpload(base64, file.type, (status) => setProgress(receiptProgress(status)))
       setLastOcrProvider(result.ocrProvider)

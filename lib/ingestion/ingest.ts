@@ -138,13 +138,29 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
   return result
 }
 
-/** Every store connector run by the daily cron. Adding a store means adding its connector here
- *  (each entry closes over its own raw type, so the list needs no shared generic). */
-export const PRICE_SOURCES: { source: string; run: (limit: number, options?: IngestOptions) => Promise<IngestResult> }[] = [
-  { source: lidlConnector.source, run: (limit, options) => ingestPrices(lidlConnector, limit, options) },
-  { source: billaConnector.source, run: (limit, options) => ingestPrices(billaConnector, limit, options) },
-  { source: pennyConnector.source, run: (limit, options) => ingestPrices(pennyConnector, limit, options) },
-  { source: dmConnector.source, run: (limit, options) => ingestPrices(dmConnector, limit, options) },
+export type PriceSource = {
+  source: string
+  /** How many products one daily run reads from this store. */
+  limit: number
+  run: (limit: number, options?: IngestOptions) => Promise<IngestResult>
+}
+
+/** Every store connector run by the daily cron, with how many products each reads per run. Adding a
+ *  store means adding its connector here (each entry closes over its own raw type, so the list needs
+ *  no shared generic).
+ *
+ *  The limits are set by what one run can write inside the function time limit (lib/ingestion/
+ *  cron-handler.ts). The database is in us-east-1 and the functions run next to it, so a product costs
+ *  a few dozen milliseconds to write, not the ~0.4 s it costs from a distant machine; a few hundred
+ *  products per store fit comfortably, and a run that still runs out of time stops cleanly and says so
+ *  (`truncated`). Each store reads the same, stable sample every day (see its connector), so every
+ *  product's price history stays continuous. Penny lists only its ~40 weekly offers, so 80 is
+ *  already everything. */
+export const PRICE_SOURCES: PriceSource[] = [
+  { source: lidlConnector.source, limit: 400, run: (limit, options) => ingestPrices(lidlConnector, limit, options) },
+  { source: billaConnector.source, limit: 450, run: (limit, options) => ingestPrices(billaConnector, limit, options) },
+  { source: pennyConnector.source, limit: 80, run: (limit, options) => ingestPrices(pennyConnector, limit, options) },
+  { source: dmConnector.source, limit: 700, run: (limit, options) => ingestPrices(dmConnector, limit, options) },
 ]
 
 export type SourceOutcome = IngestResult | { error: string } | { skipped: string }
@@ -156,7 +172,8 @@ export type SourceOutcome = IngestResult | { error: string } | { skipped: string
  *  finishes on its own, before the platform's function time limit, instead of being killed. */
 export async function runPriceSources(options: {
   only?: string
-  limit: number
+  /** Overrides every source's own batch size (tests, manual small runs). */
+  limit?: number
   budgetMs: number
   now?: () => number
   sources?: typeof PRICE_SOURCES
@@ -167,13 +184,13 @@ export async function runPriceSources(options: {
   const selected = options.only ? all.filter((entry) => entry.source === options.only) : all
 
   const results: Record<string, SourceOutcome> = {}
-  for (const { source, run } of selected) {
+  for (const { source, run, limit } of selected) {
     if (now() >= deadline) {
       results[source] = { skipped: 'time budget exhausted before this source started' }
       continue
     }
     try {
-      results[source] = await run(options.limit, { deadline, now })
+      results[source] = await run(options.limit ?? limit, { deadline, now })
     } catch (err) {
       results[source] = { error: err instanceof Error ? err.message : String(err) }
     }

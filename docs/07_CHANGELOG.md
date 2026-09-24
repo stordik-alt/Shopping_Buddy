@@ -1,5 +1,11 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-24 (Price ingestion: Košík reads more than the first 30 products of a category)
+- **What:** the connector now follows the site's own "load more" request (`POST /api/front/products/more` with `{cursor, limit: 30}`; the response is a plain product array plus the next cursor) after each category's first page. Reading is breadth first — page 1 of every sub-category, then page 2 of each — so a run that stops early still covers every aisle. Daily batch 900 → 1,800.
+- **Live dry run (no DB writes):** 2,400 products in 70 s (~81 requests), all unique, 2,354 usable, 46 rejected (canned goods priced per drained weight, as before), 288 dated promotions.
+- **Tests:** 4 new (follows the cursor to the category's end, stops at the limit, breadth-first order, malformed load-more response); 27 in the file pass.
+- **Not measured:** how long writing ~1,800 products takes on the deployed function; a run that runs out of time stops cleanly and reports `truncated`. Watch the first cron response.
+
 ## 2026-09-24 (Tests: receipt tests no longer use the production Blob store)
 ### Why
 The receipt tests (`app/actions/receipts.test.ts`, `app/api/receipts/[id]/image/route.test.ts`) wrote real private objects to the production Vercel Blob store on every run. After several full-suite runs the store reported "This store has been suspended" — which failed 55 receipt tests for a reason unrelated to the code, and which also blocks receipt upload in the live app. Whether the test runs caused the suspension is not confirmed; the tests should not spend production operations either way.

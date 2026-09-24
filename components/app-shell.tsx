@@ -1,8 +1,9 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { addExpenseAction } from '@/app/actions/budget'
+import { saveMyStorePreferencesAction } from '@/app/actions/store-preferences'
 import {
   addChildAction,
   addHouseholdMemberAction,
@@ -55,6 +56,7 @@ import type { ProductPrice } from '@/lib/prices'
 import { pollReceiptStatus } from '@/lib/receipt-progress'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import type { Item, PantryLocation, Store, Tab } from '@/lib/types'
+import { filterPricesToNearby, type StoreSelection } from '@/lib/nearby-stores'
 import { useUserLocation } from '@/lib/use-user-location'
 
 export function AppShell({
@@ -62,13 +64,21 @@ export function AppShell({
   userName,
   stores,
   productPrices,
+  storeChains,
+  initialStoreSelection,
 }: {
   initialData: HouseholdData
   userName: string
   stores: Store[]
   productPrices: ProductPrice[]
+  storeChains: { id: string; chain: string }[]
+  initialStoreSelection: StoreSelection
 }) {
   const [tab, setTab] = useState<Tab>('Domů')
+  // The user's own "stores in my area". Until every branch has GPS, this selection decides which
+  // stores' prices are compared and planned with (lib/nearby-stores.ts); nothing chosen = all stores.
+  const [storeSelection, setStoreSelection] = useState(initialStoreSelection)
+  const nearbyProductPrices = useMemo(() => filterPricesToNearby(productPrices, storeSelection), [productPrices, storeSelection])
   const [household, setHousehold] = useState(initialData.household)
   const [items, setItems] = useState(initialData.items)
   const [dark, setDark] = useState(false)
@@ -203,6 +213,12 @@ export function AppShell({
   function removeChild(id: string) {
     setHousehold((current) => ({ ...current, children: current.children.filter((child) => child.id !== id) }))
     removeChildAction(id)
+  }
+
+  async function saveStorePreferences(input: { maxDistanceKm: number | null; chainIds: string[]; locationIds: string[] }) {
+    const saved = await saveMyStorePreferencesAction(input)
+    setStoreSelection(saved)
+    return saved
   }
 
   function updatePreferences(changes: Partial<typeof household.preferences>) {
@@ -370,7 +386,7 @@ export function AppShell({
                     onStores={() => setTab('Obchody')}
                     onSetBudget={() => setTab('Profil')}
                   />
-                  <PriceWatch onStores={() => setTab('Obchody')} productPrices={productPrices} pantryItems={pantryItems} />
+                  <PriceWatch onStores={() => setTab('Obchody')} productPrices={nearbyProductPrices} pantryItems={pantryItems} />
                   <MealPlan household={household} initialPlan={initialData.mealPlan} pantryItems={pantryItems} onAddIngredients={addIngredients} onMarkCooked={markMealCooked} />
                   <div className="grid gap-4 lg:grid-cols-2 lg:gap-6">
                     <SpendingBreakdown expenses={expenses} onDetails={() => setTab('Rozpočet')} />
@@ -390,7 +406,7 @@ export function AppShell({
                     toggle={toggleItem}
                     lists={shoppingLists}
                     onAddList={addShoppingListName}
-                    productPrices={productPrices}
+                    productPrices={nearbyProductPrices}
                     remaining={remaining}
                     stores={stores}
                     userCoords={userLocation.coords}
@@ -449,6 +465,10 @@ export function AppShell({
                   onUpdatePreferences={updatePreferences}
                   onInvite={inviteMember}
                   onRevokeInvitation={revokeInvitation}
+                  storeChains={storeChains}
+                  stores={stores}
+                  storeSelection={storeSelection}
+                  onSaveStorePreferences={saveStorePreferences}
                 />
               )}
             </div>

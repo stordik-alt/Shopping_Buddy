@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { longDate, shortDate } from '@/lib/format'
+import { longDate, shortDate, storeCountLabel } from '@/lib/format'
 
 describe('longDate', () => {
   it('formats an ISO date in Czech with the correct weekday', () => {
@@ -26,5 +26,16 @@ describe('shortDate', () => {
 
   it('returns the input unchanged when it is not an ISO date', () => {
     expect(shortDate('včera')).toBe('včera')
+  })
+})
+
+describe('storeCountLabel', () => {
+  it('agrees with the count in Czech', () => {
+    expect(storeCountLabel(1)).toBe('1 prodejna')
+    expect(storeCountLabel(2)).toBe('2 prodejny')
+    expect(storeCountLabel(4)).toBe('4 prodejny')
+    expect(storeCountLabel(5)).toBe('5 prodejen')
+    expect(storeCountLabel(15)).toBe('15 prodejen')
+    expect(storeCountLabel(0)).toBe('0 prodejen')
   })
 })

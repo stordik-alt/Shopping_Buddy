@@ -34,6 +34,15 @@
 - **Data:** the affected purchase corrected 886,96 → 1 055,00 Kč (guarded on the old value). Rounding artifacts already created by the bug were left pending a decision.
 - **Tests:** the whole receipt (31 lines from the PDF) as a fixture, 8 `resolvePurchaseAmounts` cases, rounding-line cases, and 3 action-level DB tests — confirmed to fail on the old code (e.g. 29,8 instead of 49,8) and pass now.
 
+## 2026-09-24 (Each user chooses the stores in their area and how far they will go)
+### Owner request: until every branch has GPS, a personal selection of nearby stores — chains and optionally branches, plus a distance
+- **Data — migration `0019_member_store_preferences` (applied):** `household_members.max_distance_km` (CHECK 0–50) and new `member_stores`; composite FK (branch, chain) so the database refuses a branch of another chain; partial unique indexes; cascades. The generated migration would have failed (FK before the unique index it needs) and was reordered and made idempotent.
+- **Rules (`lib/nearby-stores.ts`):** nothing chosen = no filtering; unchosen chain hidden; picked branches restrict branch-specific prices only; chain-wide prices still count; a picked branch implies its chain; distance validated.
+- **Server:** `saveMyStorePreferencesAction` — member from the session, ids verified against the database, saved as a difference (never momentarily empty), concurrency-safe.
+- **UI:** "Moje obchody v okolí" in the Profil tab; the selection filters deals, per-item price comparison and store totals. Store directory unfiltered.
+- **Known limits:** server-side deal notification on adding an item still uses all stores; distance stored but not used yet.
+- **Tests:** 22 unit tests (rules, normalization, distance parsing), 16 DB-backed tests (saving, replacing, personal scope, validation, concurrency, foreign-key/unique/check constraints, cascades) and Czech plural helper; UI verified in a real browser at 360 px.
+
 ## 2026-09-24 (Fix: a retailer's SKUs merged into one product by name)
 ### Product identity — found in the first real ingestion; stacked on the old-price UI PR (#27)
 - **Bug:** the resolver attached a new SKU to any same-named catalog product, and `products.name` is unique, so several SKUs of one retailer that share a name became ONE product (8 products, 12 extra SKUs: Penny flavours of Raw tyčinka Crip Crop / Tyčinka Corny Big / Pribináček; Lidl sizes of olivový olej, kuřecí prsní řízky, rýže, mléko 1,5 %/3,5 %). Prices were mixed and promotions overwrote each other (35 Penny offers → 29 deals).

@@ -71,6 +71,8 @@ export type StoreChain = string
 
 export type Store = {
   id: string
+  /** The chain's `stores.id`. Present for stores read from the database; the fixtures have none. */
+  storeId?: string
   chain: string
   name: string
   address: string

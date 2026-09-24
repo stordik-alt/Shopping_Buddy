@@ -5,6 +5,9 @@ export const money = (value: number) =>
  *  gets wrong for 1–4. Used where a count is the main thing shown (e.g. the Zásoby folders). */
 export const itemCountLabel = (count: number) => (count === 1 ? '1 položka' : count >= 2 && count <= 4 ? `${count} položky` : `${count} položek`)
 
+/** "1 prodejna" / "2 prodejny" / "5 prodejen" — Czech plural agreement, like `itemCountLabel`. */
+export const storeCountLabel = (count: number) => (count === 1 ? '1 prodejna' : count >= 2 && count <= 4 ? `${count} prodejny` : `${count} prodejen`)
+
 /** "sobota 19. září 2026" from an ISO `YYYY-MM-DD` date. Built at local noon so a timezone offset
  *  can never roll it onto the neighbouring day, and identical on server and client (no hydration
  *  mismatch). Purely presentational — callers keep the ISO string as the value. */

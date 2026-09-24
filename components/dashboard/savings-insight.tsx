@@ -1,6 +1,8 @@
 import { ArrowUpRight, Sparkles } from 'lucide-react'
 
 export function SavingsInsight({ remaining, onAi }: { remaining: number; onAi: () => void }) {
+  // With no budget set or nothing left, "you can spend about 0 Kč" is noise, not a recommendation.
+  if (remaining <= 0) return null
   const weekly = Math.round(remaining / 2.3)
   return (
     <section className="surface p-5 sm:p-6">

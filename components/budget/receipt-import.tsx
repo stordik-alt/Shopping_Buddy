@@ -187,13 +187,13 @@ export function ReceiptImport({
       {progress && <ReceiptProgressSteps progress={progress} />}
       {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
       <div className="mt-4 flex flex-wrap gap-2">
-        <label className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs">
+        <label className="flex min-w-0 max-w-full items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs">
           Datum
           <input aria-label="Datum nákupu" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-transparent outline-none" />
         </label>
-        <label className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs">
+        <label className="flex min-w-0 max-w-full basis-full items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs sm:basis-auto">
           Obchod
-          <select aria-label="Obchod" value={storeLocationId} onChange={(e) => setStoreLocationId(e.target.value)} className="bg-transparent outline-none">
+          <select aria-label="Obchod" value={storeLocationId} onChange={(e) => setStoreLocationId(e.target.value)} className="min-w-0 max-w-full flex-1 truncate bg-transparent outline-none">
             <option value="">Neurčeno</option>
             {stores.map((store) => (
               <option key={store.id} value={store.id}>

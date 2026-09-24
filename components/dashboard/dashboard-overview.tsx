@@ -15,6 +15,7 @@ export function DashboardOverview({
   onExpense,
   onReceipt,
   onStores,
+  onSetBudget,
 }: {
   budget: number
   spent: number
@@ -27,6 +28,7 @@ export function DashboardOverview({
   onExpense: () => void
   onReceipt: () => void
   onStores: () => void
+  onSetBudget: () => void
 }) {
   const shoppingPercent = totalItems > 0 ? Math.round((completed / totalItems) * 100) : 0
   const pendingCount = Math.max(0, totalItems - completed)
@@ -36,7 +38,7 @@ export function DashboardOverview({
     // On a phone the order is budget → quick actions → shopping list, so the everyday actions are
     // visible without scrolling; from lg up the list sits beside the budget and actions span below.
     <section className="grid gap-4 lg:grid-cols-[1.35fr_1fr]" aria-label="Přehled domácnosti">
-      <BudgetHero budget={budget} spent={spent} remaining={remaining} className="order-1" />
+      <BudgetHero budget={budget} spent={spent} remaining={remaining} onSetBudget={onSetBudget} className="order-1" />
 
       <QuickActions className="order-2 lg:order-3 lg:col-span-2" onShopping={onShopping} onExpense={onExpense} onReceipt={onReceipt} onStores={onStores} />
 

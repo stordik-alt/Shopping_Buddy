@@ -368,6 +368,7 @@ export function AppShell({
                     onExpense={() => setExpenseOpen(true)}
                     onReceipt={() => setTab('Rozpočet')}
                     onStores={() => setTab('Obchody')}
+                    onSetBudget={() => setTab('Profil')}
                   />
                   <PriceWatch onStores={() => setTab('Obchody')} productPrices={productPrices} pantryItems={pantryItems} />
                   <MealPlan household={household} initialPlan={initialData.mealPlan} pantryItems={pantryItems} onAddIngredients={addIngredients} onMarkCooked={markMealCooked} />
@@ -423,7 +424,7 @@ export function AppShell({
                   />
                   <BudgetOverview
                     budget={budget}
-                    setBudget={(value) => updateHousehold({ monthlyBudget: value })}
+                    onEditBudget={() => setTab('Profil')}
                     spent={spent}
                     expenses={expenses}
                     items={items}

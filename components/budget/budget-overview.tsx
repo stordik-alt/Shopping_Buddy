@@ -8,14 +8,15 @@ import type { Expense, Item } from '@/lib/types'
 
 export function BudgetOverview({
   budget,
-  setBudget,
+  onEditBudget,
   spent,
   expenses,
   items,
   onExpense,
 }: {
   budget: number
-  setBudget: (v: number) => void
+  /** Opens the profile, where the monthly limit is actually edited. */
+  onEditBudget: () => void
   spent: number
   expenses: Expense[]
   items: Item[]
@@ -39,7 +40,7 @@ export function BudgetOverview({
           <Plus className="h-4 w-4" aria-hidden="true" /> Přidat výdaj
         </button>
       </div>
-      <BudgetHero budget={budget} spent={spent} remaining={remaining} />
+      <BudgetHero budget={budget} spent={spent} remaining={remaining} onSetBudget={onEditBudget} />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
         <Stat label="Denní průměr" value={money(dailyAverage(expenses))} icon={<CalendarClock />} />
         <Stat label="Týdenní průměr" value={money(weeklyAverage(expenses))} icon={<CalendarClock />} />
@@ -51,7 +52,7 @@ export function BudgetOverview({
         <div className="surface p-5 sm:p-6">
           <div className="flex items-center justify-between gap-3">
             <p className="font-semibold">Rozdělení výdajů podle kategorií</p>
-            <button onClick={() => setBudget(budget === 12000 ? 14000 : 12000)} className="min-h-10 shrink-0 rounded-lg px-2 text-xs font-medium text-primary hover:bg-primary/10">
+            <button onClick={onEditBudget} className="min-h-10 shrink-0 rounded-lg px-2 text-xs font-medium text-primary hover:bg-primary/10">
               Upravit limit
             </button>
           </div>

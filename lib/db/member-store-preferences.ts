@@ -1,4 +1,4 @@
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { EMPTY_STORE_SELECTION, normalizeStoreSelection, type StoreSelection } from '@/lib/nearby-stores'
@@ -27,14 +27,19 @@ export async function getMemberIdForUser(userId: string): Promise<string | null>
 export async function getMemberStoreSelection(memberId: string): Promise<StoreSelection> {
   const db = getDb()
   const [member, rows] = await Promise.all([
-    db.query.householdMembers.findFirst({ where: eq(schema.householdMembers.id, memberId), columns: { maxDistanceKm: true } }),
-    db.select({ storeId: schema.memberStores.storeId, storeLocationId: schema.memberStores.storeLocationId }).from(schema.memberStores).where(eq(schema.memberStores.memberId, memberId)),
+    db.query.householdMembers.findFirst({ where: eq(schema.householdMembers.id, memberId), columns: { maxDistanceKm: true, maxShopStores: true } }),
+    db
+      .select({ storeId: schema.memberStores.storeId, storeLocationId: schema.memberStores.storeLocationId, isPriority: schema.memberStores.isPriority })
+      .from(schema.memberStores)
+      .where(eq(schema.memberStores.memberId, memberId)),
   ])
   if (!member) return EMPTY_STORE_SELECTION
   return {
     maxDistanceKm: member.maxDistanceKm != null ? Number(member.maxDistanceKm) : null,
     chainIds: rows.filter((row) => row.storeLocationId === null).map((row) => row.storeId),
     branches: rows.filter((row) => row.storeLocationId !== null).map((row) => ({ storeId: row.storeId, storeLocationId: row.storeLocationId as string })),
+    priorityChainIds: rows.filter((row) => row.storeLocationId === null && row.isPriority).map((row) => row.storeId),
+    maxShopStores: member.maxShopStores,
   }
 }
 
@@ -50,7 +55,7 @@ export class InvalidStoreSelectionError extends Error {}
  *  concurrent identical save harmless. Returns the selection as stored. */
 export async function saveMemberStoreSelection(
   memberId: string,
-  input: { maxDistanceKm?: number | null; chainIds?: string[]; locationIds?: string[] },
+  input: { maxDistanceKm?: number | null; chainIds?: string[]; locationIds?: string[]; priorityChainIds?: string[]; maxShopStores?: number | null },
 ): Promise<StoreSelection> {
   const db = getDb()
   const chainIds = [...new Set(input.chainIds ?? [])]
@@ -74,15 +79,27 @@ export async function saveMemberStoreSelection(
   const desiredBranches = new Set(desired.branches.map((branch) => branch.storeLocationId))
 
   const toInsert = [
-    ...desired.chainIds.filter((storeId) => !currentChains.has(storeId)).map((storeId) => ({ memberId, storeId, storeLocationId: null as string | null })),
+    ...desired.chainIds.filter((storeId) => !currentChains.has(storeId)).map((storeId) => ({ memberId, storeId, storeLocationId: null as string | null, isPriority: desired.priorityChainIds.includes(storeId) })),
     ...desired.branches.filter((branch) => !currentBranches.has(branch.storeLocationId)).map((branch) => ({ memberId, storeId: branch.storeId, storeLocationId: branch.storeLocationId as string | null })),
   ]
   if (toInsert.length > 0) await db.insert(schema.memberStores).values(toInsert).onConflictDoNothing()
 
   await db
     .update(schema.householdMembers)
-    .set({ maxDistanceKm: desired.maxDistanceKm != null ? desired.maxDistanceKm.toString() : null })
+    .set({ maxDistanceKm: desired.maxDistanceKm != null ? desired.maxDistanceKm.toString() : null, maxShopStores: desired.maxShopStores })
     .where(eq(schema.householdMembers.id, memberId))
+
+  // Chains that stay selected but whose priority changed (new rows above already carry theirs).
+  const currentPriority = new Set(current.priorityChainIds)
+  for (const storeId of desired.chainIds.filter((id) => currentChains.has(id))) {
+    const wanted = desired.priorityChainIds.includes(storeId)
+    if (wanted !== currentPriority.has(storeId)) {
+      await db
+        .update(schema.memberStores)
+        .set({ isPriority: wanted })
+        .where(and(eq(schema.memberStores.memberId, memberId), eq(schema.memberStores.storeId, storeId), isNull(schema.memberStores.storeLocationId)))
+    }
+  }
 
   const staleChains = current.chainIds.filter((storeId) => !desiredChains.has(storeId))
   if (staleChains.length > 0) {

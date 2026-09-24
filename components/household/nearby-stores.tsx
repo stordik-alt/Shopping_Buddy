@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Check, ChevronDown, Loader2, MapPin } from 'lucide-react'
+import { Check, ChevronDown, Loader2, MapPin, Star } from 'lucide-react'
 import { storeCountLabel } from '@/lib/format'
-import { MAX_DISTANCE_KM, normalizeDistanceKm, parseDistanceInput, type StoreSelection } from '@/lib/nearby-stores'
+import { MAX_DISTANCE_KM, MAX_SHOP_STORES, normalizeDistanceKm, parseDistanceInput, type StoreSelection } from '@/lib/nearby-stores'
 import type { Store } from '@/lib/types'
 
 const QUICK_DISTANCES_KM = [0.5, 1, 2, 5, 10]
@@ -21,13 +21,15 @@ export function NearbyStores({
   chains: { id: string; chain: string }[]
   stores: Store[]
   selection: StoreSelection
-  onSave: (input: { maxDistanceKm: number | null; chainIds: string[]; locationIds: string[] }) => Promise<StoreSelection>
+  onSave: (input: { maxDistanceKm: number | null; chainIds: string[]; locationIds: string[]; priorityChainIds: string[]; maxShopStores: number | null }) => Promise<StoreSelection>
 }) {
   // What is currently saved; "unsaved changes" is measured against this, and it moves forward when a
   // save succeeds, so the component does not depend on its parent feeding the new value back in.
   const [baseline, setBaseline] = useState(selection)
   const [chainIds, setChainIds] = useState<string[]>(selection.chainIds)
   const [locationIds, setLocationIds] = useState<string[]>(selection.branches.map((branch) => branch.storeLocationId))
+  const [priorityIds, setPriorityIds] = useState<string[]>(selection.priorityChainIds)
+  const [maxStoresText, setMaxStoresText] = useState(selection.maxShopStores != null ? String(selection.maxShopStores) : '')
   const [distanceText, setDistanceText] = useState(selection.maxDistanceKm != null ? String(selection.maxDistanceKm).replace('.', ',') : '')
   const [openChain, setOpenChain] = useState<string | null>(null)
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
@@ -44,6 +46,8 @@ export function NearbyStores({
   const dirty =
     !sameSet(chainIds, baseline.chainIds) ||
     !sameSet(locationIds, baseline.branches.map((branch) => branch.storeLocationId)) ||
+    !sameSet(priorityIds, baseline.priorityChainIds) ||
+    (maxStoresText === '' ? null : Number(maxStoresText)) !== baseline.maxShopStores ||
     (distanceInvalid ? true : normalizeDistanceKm(distance) !== baseline.maxDistanceKm)
 
   function touch() {
@@ -57,11 +61,17 @@ export function NearbyStores({
       // A branch cannot outlive its chain.
       const ofChain = new Set((branchesByChain.get(chainId) ?? []).map((store) => store.id))
       setChainIds(chainIds.filter((id) => id !== chainId))
+      setPriorityIds(priorityIds.filter((id) => id !== chainId))
       setLocationIds(locationIds.filter((id) => !ofChain.has(id)))
       if (openChain === chainId) setOpenChain(null)
     } else {
       setChainIds([...chainIds, chainId])
     }
+  }
+
+  function togglePriority(chainId: string) {
+    touch()
+    setPriorityIds(priorityIds.includes(chainId) ? priorityIds.filter((id) => id !== chainId) : [...priorityIds, chainId])
   }
 
   function toggleBranch(store: Store) {
@@ -84,9 +94,11 @@ export function NearbyStores({
     setStatus('saving')
     setError('')
     try {
-      const saved = await onSave({ maxDistanceKm: distance, chainIds, locationIds })
+      const saved = await onSave({ maxDistanceKm: distance, chainIds, locationIds, priorityChainIds: priorityIds, maxShopStores: maxStoresText === '' ? null : Number(maxStoresText) })
       setBaseline(saved)
       setChainIds(saved.chainIds)
+      setPriorityIds(saved.priorityChainIds)
+      setMaxStoresText(saved.maxShopStores != null ? String(saved.maxShopStores) : '')
       setLocationIds(saved.branches.map((branch) => branch.storeLocationId))
       setDistanceText(saved.maxDistanceKm != null ? String(saved.maxDistanceKm).replace('.', ',') : '')
       setStatus('saved')
@@ -193,6 +205,62 @@ export function NearbyStores({
           </div>
         </div>
       )}
+
+      {chainIds.length > 0 && (
+        <div className="mt-5">
+          <p className="text-sm font-medium">Prioritní obchody <span className="font-normal text-muted-foreground">(volitelné)</span></p>
+          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+            Při plánování nákupu se použijí přednostně, dokud v nich není nákup o víc než pár korun dražší.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {chains
+              .filter(({ id }) => chainIds.includes(id))
+              .map(({ id, chain }) => {
+                const priority = priorityIds.includes(id)
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    aria-pressed={priority}
+                    aria-label={`Prioritní: ${chain}`}
+                    onClick={() => togglePriority(id)}
+                    className={`flex min-h-11 items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                      priority ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-foreground hover:bg-muted'
+                    }`}
+                  >
+                    <Star className={`h-4 w-4 ${priority ? 'fill-current' : ''}`} aria-hidden="true" />
+                    {chain}
+                  </button>
+                )
+              })}
+          </div>
+        </div>
+      )}
+
+      <div className="mt-5">
+        <label htmlFor="nearby-max-stores" className="text-sm font-medium">Kolik obchodů maximálně navštívím při jednom nákupu</label>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <select
+            id="nearby-max-stores"
+            value={maxStoresText}
+            onChange={(event) => {
+              touch()
+              setMaxStoresText(event.target.value)
+            }}
+            className="min-h-11 rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="">Nezadáno</option>
+            {Array.from({ length: MAX_SHOP_STORES }, (_, index) => index + 1).map((count) => (
+              <option key={count} value={count}>
+                {count}
+              </option>
+            ))}
+          </select>
+        </div>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          Plán nákupu nikdy nerozdělí nákup do víc obchodů, než tady zvolíte.
+        </p>
+      </div>
 
       <div className="mt-5">
         <label htmlFor="nearby-distance" className="text-sm font-medium">Kolik km jsem ochoten dojít nebo dojet kvůli nákupu</label>

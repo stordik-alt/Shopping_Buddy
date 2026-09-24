@@ -16,10 +16,14 @@ export type StoreSelection = {
   chainIds: string[]
   /** Specific branches the user picked, each with its chain. Optional refinement of `chainIds`. */
   branches: { storeId: string; storeLocationId: string }[]
+  /** Chains the shopping planner should prefer; always a subset of `chainIds`. */
+  priorityChainIds: string[]
+  /** How many different stores the user is willing to visit for one shop (1-6); null = not set. */
+  maxShopStores: number | null
 }
 
 /** Nothing chosen yet. */
-export const EMPTY_STORE_SELECTION: StoreSelection = { maxDistanceKm: null, chainIds: [], branches: [] }
+export const EMPTY_STORE_SELECTION: StoreSelection = { maxDistanceKm: null, chainIds: [], branches: [], priorityChainIds: [], maxShopStores: null }
 
 /** Whether the user has chosen any stores. Without a choice nothing is filtered: hiding every price
  *  of a user who simply has not configured this would be worse than showing all of them. */
@@ -74,12 +78,22 @@ export function normalizeDistanceKm(value: number | null | undefined): number | 
   return Math.round(value * 10) / 10
 }
 
+/** The most stores a user can say they will visit for one shop (also the database's limit). */
+export const MAX_SHOP_STORES = 6
+
+/** A valid store count (a whole number, 1 to 6), or `null` when it is missing or invalid. */
+export function normalizeMaxShopStores(value: number | null | undefined): number | null {
+  if (value == null || !Number.isInteger(value) || value < 1 || value > MAX_SHOP_STORES) return null
+  return value
+}
+
 /** Normalizes what a user submitted into a consistent selection: a picked branch implies its chain
  *  (so a branch can never be selected without its chain), duplicates are removed, and the distance
- *  is validated. `branchChain` maps every known branch id to its chain id; a branch it does not
+ *  is validated; priority stores must be among the chosen chains and the store count must be 1-6.
+ *  `branchChain` maps every known branch id to its chain id; a branch it does not
  *  know is dropped. Pure — the caller still verifies the ids against the database. */
 export function normalizeStoreSelection(
-  input: { maxDistanceKm?: number | null; chainIds?: string[]; locationIds?: string[] },
+  input: { maxDistanceKm?: number | null; chainIds?: string[]; locationIds?: string[]; priorityChainIds?: string[]; maxShopStores?: number | null },
   branchChain: ReadonlyMap<string, string>,
 ): StoreSelection {
   const chainIds = new Set(input.chainIds ?? [])
@@ -90,5 +104,13 @@ export function normalizeStoreSelection(
     branches.set(locationId, { storeId, storeLocationId: locationId })
     chainIds.add(storeId)
   }
-  return { maxDistanceKm: normalizeDistanceKm(input.maxDistanceKm), chainIds: [...chainIds], branches: [...branches.values()] }
+  // A priority store must be one of the chosen stores; anything else is dropped.
+  const priorityChainIds = [...new Set(input.priorityChainIds ?? [])].filter((id) => chainIds.has(id))
+  return {
+    maxDistanceKm: normalizeDistanceKm(input.maxDistanceKm),
+    chainIds: [...chainIds],
+    branches: [...branches.values()],
+    priorityChainIds,
+    maxShopStores: normalizeMaxShopStores(input.maxShopStores),
+  }
 }

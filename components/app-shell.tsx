@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { addExpenseAction } from '@/app/actions/budget'
+import { buildShoppingPlanAction, pinProductAction, unpinProductAction } from '@/app/actions/shopping-plan'
 import { saveMyStorePreferencesAction } from '@/app/actions/store-preferences'
 import {
   addChildAction,
@@ -56,6 +57,7 @@ import type { ProductPrice } from '@/lib/prices'
 import { pollReceiptStatus } from '@/lib/receipt-progress'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import type { Item, PantryLocation, Store, Tab } from '@/lib/types'
+import type { PinRecord } from '@/lib/db/shopping-plan'
 import { filterPricesToNearby, type StoreSelection } from '@/lib/nearby-stores'
 import { useUserLocation } from '@/lib/use-user-location'
 
@@ -66,6 +68,7 @@ export function AppShell({
   productPrices,
   storeChains,
   initialStoreSelection,
+  initialPins,
 }: {
   initialData: HouseholdData
   userName: string
@@ -73,11 +76,14 @@ export function AppShell({
   productPrices: ProductPrice[]
   storeChains: { id: string; chain: string }[]
   initialStoreSelection: StoreSelection
+  initialPins: PinRecord[]
 }) {
   const [tab, setTab] = useState<Tab>('Domů')
   // The user's own "stores in my area". Until every branch has GPS, this selection decides which
   // stores' prices are compared and planned with (lib/nearby-stores.ts); nothing chosen = all stores.
   const [storeSelection, setStoreSelection] = useState(initialStoreSelection)
+  // The products the user pinned to list items, per chain (the shopping planner buys exactly those).
+  const [pins, setPins] = useState(initialPins)
   const nearbyProductPrices = useMemo(() => filterPricesToNearby(productPrices, storeSelection), [productPrices, storeSelection])
   const [household, setHousehold] = useState(initialData.household)
   const [items, setItems] = useState(initialData.items)
@@ -215,7 +221,17 @@ export function AppShell({
     removeChildAction(id)
   }
 
-  async function saveStorePreferences(input: { maxDistanceKm: number | null; chainIds: string[]; locationIds: string[] }) {
+  async function pinProduct(itemId: string, storeId: string, productId: string) {
+    await pinProductAction({ itemId, storeId, productId })
+    setPins((current) => [...current.filter((pin) => !(pin.itemId === itemId && pin.storeId === storeId)), { itemId, storeId, productId }])
+  }
+
+  async function unpinProduct(itemId: string, storeId: string) {
+    await unpinProductAction({ itemId, storeId })
+    setPins((current) => current.filter((pin) => !(pin.itemId === itemId && pin.storeId === storeId)))
+  }
+
+  async function saveStorePreferences(input: { maxDistanceKm: number | null; chainIds: string[]; locationIds: string[]; priorityChainIds: string[]; maxShopStores: number | null }) {
     const saved = await saveMyStorePreferencesAction(input)
     setStoreSelection(saved)
     return saved
@@ -407,6 +423,12 @@ export function AppShell({
                     lists={shoppingLists}
                     onAddList={addShoppingListName}
                     productPrices={nearbyProductPrices}
+                    pins={pins}
+                    onPin={pinProduct}
+                    onUnpin={unpinProduct}
+                    storeChains={storeChains}
+                    storeSelection={storeSelection}
+                    buildPlan={buildShoppingPlanAction}
                     remaining={remaining}
                     stores={stores}
                     userCoords={userLocation.coords}

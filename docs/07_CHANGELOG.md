@@ -34,6 +34,15 @@
 - **Data:** the affected purchase corrected 886,96 → 1 055,00 Kč (guarded on the old value). Rounding artifacts already created by the bug were left pending a decision.
 - **Tests:** the whole receipt (31 lines from the PDF) as a fixture, 8 `resolvePurchaseAmounts` cases, rounding-line cases, and 3 action-level DB tests — confirmed to fail on the old code (e.g. 29,8 instead of 49,8) and pass now.
 
+## 2026-09-24 (Shopping planner: where to buy what in at most N stores, with priorities and savings)
+### Part 2 of the owner's shopping-planner request — stacked on the product-search PR (#33)
+- **Planner** (`lib/shopping-plan.ts`): cheapest plan over 1..N stores covering the most items; priority stores preferred (then fewer stores, then cheaper) within max(5 Kč, 3 %) of the cheapest; per-item alternatives and differences; saving against the best single store, cost of the store limit and of the priority preference. Pure, deterministic.
+- **Pricing a need** (`lib/shopping-offers.ts`): pro rata by unit price for kg/g/l/ml, packages for pieces, no offer when units cannot be compared; automatic pick = best text match then cheapest.
+- **Migration `0021_shopping_planner`** (applied): `household_members.max_shop_stores`, `member_stores.is_priority`, `shopping_list_item_pins`.
+- **Server/UI:** `buildShoppingPlanAction`, pin/unpin actions; "Plán nákupu" panel; "Vybrat pro tuto položku" in the item's product search; priority and store-count controls in the profile.
+- **Tests:** 35 planner tests, 14 pricing tests, 8 wording tests, unit tests for priority/store-count rules, and 17 + 22 DB-backed tests (planner incl. pins, ownership, fallbacks, unit mismatch; store preferences incl. priority and constraints); UI verified in a browser at 360 px.
+- **Still to come:** widening the catalog (many items have no offer at some chains today).
+
 ## 2026-09-24 (Search for specific products at each chain)
 ### Part 1 of the owner's shopping-planner request — stacked on the store-preferences PR (#32)
 - **Search:** accent- and case-insensitive text search over products that have prices, grouped per chain with price, promotion, unit price and price date; words required, sizes ("1l") only raise the rank. New `products.search_name` stored generated column (migration `0020`, applied).

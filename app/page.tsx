@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { AppShell } from '@/components/app-shell'
 import { auth } from '@/lib/auth/server'
 import { getHouseholdData, getProductPrices, getStores } from '@/lib/db/queries'
+import { listPinsForHousehold } from '@/lib/db/shopping-plan'
 import { getMemberIdForUser, getMemberStoreSelection, getStoreChains } from '@/lib/db/member-store-preferences'
 import { EMPTY_STORE_SELECTION } from '@/lib/nearby-stores'
 
@@ -20,5 +21,6 @@ export default async function Page() {
   // After getHouseholdData: on a first login that call is what creates the member row.
   const memberId = await getMemberIdForUser(session.user.id)
   const storeSelection = memberId ? await getMemberStoreSelection(memberId) : EMPTY_STORE_SELECTION
-  return <AppShell initialData={data} userName={session.user.name} stores={stores} productPrices={productPrices} storeChains={storeChains} initialStoreSelection={storeSelection} />
+  const pins = await listPinsForHousehold(data.household.id)
+  return <AppShell initialData={data} userName={session.user.name} stores={stores} productPrices={productPrices} storeChains={storeChains} initialStoreSelection={storeSelection} initialPins={pins} />
 }

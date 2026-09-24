@@ -58,8 +58,18 @@ export async function searchProductHits(tokens: string[], options: { storeIds?: 
   `)
   if (priceRows.rows.length === 0) return []
 
-  // Active promotions (same "active" rule the rest of the app uses) at any branch of the chain.
-  const productIds = [...new Set(priceRows.rows.map((row) => row.product_id))]
+  const deals = await loadActiveDeals([...new Set(priceRows.rows.map((row) => row.product_id))])
+
+  return priceRows.rows
+    .map((row) => rowToHit(row, deals, scoreMatch(row.search_name, required, optional)))
+    .filter((hit) => hit.score > 0)
+}
+
+/** Active promotions (the same "active" rule the rest of the app uses) at any branch of a chain,
+ *  keyed by `productId|storeId`. */
+async function loadActiveDeals(productIds: string[]): Promise<Map<string, DealRow>> {
+  if (productIds.length === 0) return new Map()
+  const db = getDb()
   const dealRows = await db.execute<DealRow>(sql`
     SELECT d.product_id, l.store_id, min(d.deal_price) AS deal_price, max(d.valid_until) AS valid_until
     FROM deals d
@@ -67,26 +77,45 @@ export async function searchProductHits(tokens: string[], options: { storeIds?: 
     WHERE d.valid_until >= ${TODAY}::date AND d.product_id IN (${sql.join(productIds.map((id) => sql`${id}::uuid`), sql`, `)})
     GROUP BY d.product_id, l.store_id
   `)
-  const deals = new Map(dealRows.rows.map((row) => [`${row.product_id}|${row.store_id}`, row]))
+  return new Map(dealRows.rows.map((row) => [`${row.product_id}|${row.store_id}`, row]))
+}
 
-  return priceRows.rows
-    .map((row): ProductSearchHit => {
-      const deal = deals.get(`${row.product_id}|${row.store_id}`)
-      const comparable = toComparableUnit(row.unit, Number(row.unit_price))
-      return {
-        productId: row.product_id,
-        name: row.name,
-        category: row.category,
-        storeId: row.store_id,
-        chain: row.chain,
-        regularPrice: Number(row.regular_price),
-        dealPrice: deal ? Number(deal.deal_price) : null,
-        dealValidUntil: deal?.valid_until ?? null,
-        unit: comparable.unit,
-        unitPrice: comparable.unitPrice,
-        observedAt: row.observed_at,
-        score: scoreMatch(row.search_name, required, optional),
-      }
-    })
-    .filter((hit) => hit.score > 0)
+function rowToHit(row: PriceRow, deals: Map<string, DealRow>, score: number): ProductSearchHit {
+  const deal = deals.get(`${row.product_id}|${row.store_id}`)
+  const comparable = toComparableUnit(row.unit, Number(row.unit_price))
+  return {
+    productId: row.product_id,
+    name: row.name,
+    category: row.category,
+    storeId: row.store_id,
+    chain: row.chain,
+    regularPrice: Number(row.regular_price),
+    dealPrice: deal ? Number(deal.deal_price) : null,
+    dealValidUntil: deal?.valid_until ?? null,
+    unit: comparable.unit,
+    unitPrice: comparable.unitPrice,
+    observedAt: row.observed_at,
+    score,
+  }
+}
+
+/** The latest price (and active promotion) of specific products at the given chains — how a pinned
+ *  product is priced. Unscored (score 0). A product with no price at a chain is simply absent. */
+export async function getHitsForProducts(productIds: string[], storeIds: string[]): Promise<ProductSearchHit[]> {
+  if (productIds.length === 0 || storeIds.length === 0) return []
+  const db = getDb()
+  const priceRows = await db.execute<PriceRow>(sql`
+    SELECT DISTINCT ON (pr.product_id, pr.store_id)
+      pr.product_id, p.name, p.search_name, c.name AS category, pr.store_id, s.chain,
+      pr.regular_price, pr.unit, pr.unit_price, pr.observed_at
+    FROM prices pr
+    JOIN products p ON p.id = pr.product_id
+    JOIN product_categories c ON c.id = p.category_id
+    JOIN stores s ON s.id = pr.store_id
+    WHERE pr.product_id IN (${sql.join(productIds.map((id) => sql`${id}::uuid`), sql`, `)})
+      AND pr.store_id IN (${sql.join(storeIds.map((id) => sql`${id}::uuid`), sql`, `)})
+    ORDER BY pr.product_id, pr.store_id, pr.observed_at DESC, (pr.source_type = 'OFFICIAL') DESC
+  `)
+  const deals = await loadActiveDeals([...new Set(priceRows.rows.map((row) => row.product_id))])
+  return priceRows.rows.map((row) => rowToHit(row, deals, 0))
 }

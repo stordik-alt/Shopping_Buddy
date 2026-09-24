@@ -4,7 +4,7 @@
 Neon PostgreSQL 18 is the persistent database.
 
 The initial schema already contains:
-`users`, `households`, `household_members`, `profiles`, `children`, `preferences`, `product_categories`, `products`, `product_external_refs`, `member_stores`, `stores`, `store_locations`, `prices`, `deals`, `shopping_lists`, `shopping_list_items`, `budgets`, `expenses`, `purchases`, `purchase_items`, `meal_plans`, `notifications`, `pantry_items`, `receipt_imports`.
+`users`, `households`, `household_members`, `profiles`, `children`, `preferences`, `product_categories`, `products`, `product_external_refs`, `member_stores`, `shopping_list_item_pins`, `stores`, `store_locations`, `prices`, `deals`, `shopping_lists`, `shopping_list_items`, `budgets`, `expenses`, `purchases`, `purchase_items`, `meal_plans`, `notifications`, `pantry_items`, `receipt_imports`.
 
 There is also a `neon_auth` schema.
 
@@ -22,6 +22,7 @@ There is also a `neon_auth` schema.
 11. Product identity must eventually distinguish product/brand/variant/package/unit where required for correct price comparison.
 12. Historical purchase records must remain stable even if a current product or price later changes.
 13. Household access must be enforced server-side.
+16. `shopping_list_item_pins` holds at most one pinned product per shopping-list item and chain (unique index); `member_stores.is_priority` may only be set on chain-level rows (CHECK); `household_members.max_shop_stores` is 1–6 (CHECK).
 15. Product text search uses `products.search_name`, a stored generated column (the name without diacritics, lower-cased). It is derived by the database and must never be written by the application; its character map is shared with `lib/product-search.ts`.
 14. Official (retailer-published) prices: the CURRENT price of a product at a store is its `prices` observation with the latest `observed_at`. There is at most one `OFFICIAL` observation per product + store + retailer SKU (`source_reference`) + day (partial unique index `prices_official_daily_unique`); a repeat run the same day refreshes that row, and older data never displaces a newer observation. When the price changes, the previous observation is kept as the OLD price and closed with `valid_until` = the date the new price was first observed (the change happened on or before that date; the exact day is unknown). `observed_at` is the real calendar date in Czech time, not the app's fixed demo date. Receipt-based observations are not covered by the unique index (several purchases a day are separate facts).
 14. Multi-table writes that represent one user action should use a transaction.

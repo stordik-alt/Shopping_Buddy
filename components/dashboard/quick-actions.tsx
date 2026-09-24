@@ -1,35 +1,38 @@
-import { ChevronRight, Plus, Sparkles, Tag } from 'lucide-react'
+import { Plus, ReceiptText, Tag, Wallet } from 'lucide-react'
 
+/** The four things a household does most often, one tap from the home screen. Two columns on a
+ *  phone (each tile stays a comfortable tap target with room for a wrapping label), four from sm. */
 export function QuickActions({
   onShopping,
+  onExpense,
+  onReceipt,
   onStores,
-  onAi,
+  className = '',
 }: {
   onShopping: () => void
+  onExpense: () => void
+  onReceipt: () => void
   onStores: () => void
-  onAi: () => void
+  className?: string
 }) {
   const actions = [
-    { label: 'Přidat do nákupu', detail: 'Doplňte sdílený seznam', icon: Plus, onClick: onShopping },
-    { label: 'Najít akce', detail: 'Porovnejte obchody poblíž', icon: Tag, onClick: onStores },
-    { label: 'Zeptat se AI', detail: 'Naplánujte úsporný nákup', icon: Sparkles, onClick: onAi },
+    { label: 'Přidat do nákupu', icon: Plus, onClick: onShopping },
+    { label: 'Zapsat výdaj', icon: Wallet, onClick: onExpense },
+    { label: 'Nahrát účtenku', icon: ReceiptText, onClick: onReceipt },
+    { label: 'Najít akce', icon: Tag, onClick: onStores },
   ]
   return (
-    <section className="grid gap-3 sm:grid-cols-3" aria-label="Rychlé akce">
-      {actions.map(({ label, detail, icon: Icon, onClick }) => (
+    <section className={`grid grid-cols-2 gap-3 sm:grid-cols-4 ${className}`} aria-label="Rychlé akce">
+      {actions.map(({ label, icon: Icon, onClick }) => (
         <button
           key={label}
           onClick={onClick}
-          className="group flex items-center gap-3 rounded-2xl border border-border bg-card p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md"
+          className="surface group flex min-h-24 flex-col items-start justify-between gap-3 p-4 text-left transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <Icon />
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground transition group-hover:bg-primary group-hover:text-primary-foreground">
+            <Icon className="h-5 w-5" aria-hidden="true" />
           </span>
-          <span className="min-w-0">
-            <span className="block text-sm font-semibold">{label}</span>
-            <span className="mt-0.5 block truncate text-xs text-muted-foreground">{detail}</span>
-          </span>
-          <ChevronRight className="ml-auto shrink-0 text-muted-foreground transition group-hover:translate-x-0.5" />
+          <span className="text-sm font-semibold leading-snug">{label}</span>
         </button>
       ))}
     </section>

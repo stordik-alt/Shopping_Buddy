@@ -3,7 +3,7 @@ import type { Expense } from '@/lib/types'
 
 export function ExpenseHistory({ expenses }: { expenses: Expense[] }) {
   return (
-    <section className="rounded-3xl border border-border bg-card p-5 sm:p-6">
+    <section className="surface p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold">Poslední výdaje</p>

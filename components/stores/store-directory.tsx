@@ -97,9 +97,9 @@ export function StoreDirectory({
           <button
             key={store.id}
             onClick={() => setSelected(store.id)}
-            className="rounded-3xl border border-border bg-card p-5 text-left transition hover:-translate-y-0.5 hover:shadow-lg"
+            className="surface p-5 text-left transition hover:-translate-y-0.5 hover:shadow-lg"
           >
-            <div className={`flex h-16 items-center justify-between rounded-2xl ${store.color} px-4 text-2xl font-bold text-foreground`}>
+            <div className={`flex h-16 items-center justify-between rounded-2xl ${store.color} px-4 text-2xl font-bold text-neutral-900`}>
               <span>{store.chain}</span>
               <ArrowUpRight className="h-5 w-5" />
             </div>

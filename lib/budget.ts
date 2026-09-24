@@ -55,6 +55,24 @@ export function budgetImpact(cost: number, remaining: number): { overBudget: boo
 
 export type BudgetThreshold = 'reached' | 'exceeded'
 
+// Shared by the notification trigger below and the dashboard's colour state, so "80 %" and "100 %"
+// can never mean different things in two places.
+const BUDGET_WARNING_RATIO = 0.8
+const BUDGET_LIMIT_RATIO = 1
+
+export type BudgetLevel = 'ok' | 'warning' | 'over'
+
+/** Where current spending stands against the monthly budget: below 80 % is `ok`, 80 % up to (not
+ *  including) 100 % is `warning`, 100 % or more is `over`. Without a positive budget there is
+ *  nothing to measure against, so it is `ok` rather than an alarming `over`. */
+export function budgetLevel(spent: number, budget: number): BudgetLevel {
+  if (budget <= 0) return 'ok'
+  const ratio = spent / budget
+  if (ratio >= BUDGET_LIMIT_RATIO) return 'over'
+  if (ratio >= BUDGET_WARNING_RATIO) return 'warning'
+  return 'ok'
+}
+
 /** Detects whether spending just crossed the 80% ("reached") or 100% ("exceeded") budget
  *  threshold, comparing totals from strictly before and after one new expense. Used to fire a
  *  notification exactly once at the moment of crossing rather than on every expense once already
@@ -63,7 +81,7 @@ export function crossedBudgetThreshold(spentBefore: number, spentAfter: number, 
   if (budget <= 0) return null
   const before = spentBefore / budget
   const after = spentAfter / budget
-  if (before < 1 && after >= 1) return 'exceeded'
-  if (before < 0.8 && after >= 0.8) return 'reached'
+  if (before < BUDGET_LIMIT_RATIO && after >= BUDGET_LIMIT_RATIO) return 'exceeded'
+  if (before < BUDGET_WARNING_RATIO && after >= BUDGET_WARNING_RATIO) return 'reached'
   return null
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   budgetImpact,
+  budgetLevel,
   categoryBreakdown,
   crossedBudgetThreshold,
   dailyAverage,
@@ -148,5 +149,35 @@ describe('crossedBudgetThreshold', () => {
 
   it('is null when there is no positive budget to measure against', () => {
     expect(crossedBudgetThreshold(0, 100, 0)).toBeNull()
+  })
+})
+
+describe('budgetLevel', () => {
+  it('is ok below 80 % of the budget', () => {
+    expect(budgetLevel(0, 1000)).toBe('ok')
+    expect(budgetLevel(799, 1000)).toBe('ok')
+  })
+
+  it('is warning from exactly 80 % up to, but not including, 100 %', () => {
+    expect(budgetLevel(800, 1000)).toBe('warning')
+    expect(budgetLevel(999, 1000)).toBe('warning')
+  })
+
+  it('is over at 100 % and beyond', () => {
+    expect(budgetLevel(1000, 1000)).toBe('over')
+    expect(budgetLevel(1500, 1000)).toBe('over')
+  })
+
+  it('never reports an alarm when there is no positive budget to compare against', () => {
+    expect(budgetLevel(500, 0)).toBe('ok')
+    expect(budgetLevel(500, -10)).toBe('ok')
+  })
+
+  it('agrees with the notification thresholds', () => {
+    // The same two boundaries fire the notifications, so a crossing must change the level.
+    expect(crossedBudgetThreshold(799, 800, 1000)).toBe('reached')
+    expect(budgetLevel(800, 1000)).toBe('warning')
+    expect(crossedBudgetThreshold(999, 1000, 1000)).toBe('exceeded')
+    expect(budgetLevel(1000, 1000)).toBe('over')
   })
 })

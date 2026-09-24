@@ -82,7 +82,7 @@ export function MealPlan({
   const stockSplit = plan ? splitIngredientsByStock(plan, pantryItems) : null
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-5 sm:p-6">
+    <section className="surface p-5 sm:p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-semibold">Plán jídel a nákupu na týden</p>

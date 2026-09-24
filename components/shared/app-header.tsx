@@ -1,33 +1,31 @@
-import { Bell, LogOut, Moon, Sun } from 'lucide-react'
+import { Bell } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { AccountMenu } from '@/components/shared/account-menu'
 import { Brand } from '@/components/shared/brand'
 import { authClient } from '@/lib/auth/client'
-
-function initialsFor(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  const letters = parts.length > 1 ? [parts[0][0], parts[parts.length - 1][0]] : [parts[0]?.[0] ?? '?']
-  return letters.join('').toUpperCase()
-}
+import type { Tab } from '@/lib/types'
 
 export function AppHeader({
   title,
+  mobileTitle,
   date,
   dark,
   onToggleDark,
   notificationsOpen,
   onToggleNotifications,
-  hasUnread,
-  onProfileClick,
+  unreadCount,
+  onSelectTab,
   userName,
 }: {
   title: string
+  mobileTitle: string
   date: string
   dark: boolean
   onToggleDark: () => void
   notificationsOpen: boolean
   onToggleNotifications: () => void
-  hasUnread: boolean
-  onProfileClick: () => void
+  unreadCount: number
+  onSelectTab: (tab: Tab) => void
   userName: string
 }) {
   const router = useRouter()
@@ -39,43 +37,33 @@ export function AppHeader({
   }
 
   return (
-    <header className="flex items-center justify-between px-5 py-5 sm:px-8 lg:px-12 lg:py-8">
-      <div className="flex items-center gap-3 lg:hidden">
+    // Sticky with a frosted background on phones so the title and the bell/account controls stay
+    // in reach while scrolling a long list; on desktop it is a plain page heading.
+    <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-border/60 bg-background/85 px-4 py-2.5 backdrop-blur-xl sm:px-8 lg:static lg:border-0 lg:bg-transparent lg:px-12 lg:py-8 lg:backdrop-blur-none">
+      <div className="flex min-w-0 items-center gap-3 lg:hidden">
         <Brand compact />
+        <h1 className="truncate text-base font-semibold tracking-tight">{mobileTitle}</h1>
       </div>
       <div className="hidden lg:block">
-        <p className="text-sm text-muted-foreground">{date}</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">{title}</h1>
+        <p className="text-sm text-muted-foreground first-letter:uppercase">{date}</p>
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight">{title}</h1>
       </div>
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex shrink-0 items-center gap-1">
         <button
-          aria-label={dark ? 'Přepnout na světlý motiv' : 'Přepnout na tmavý motiv'}
-          aria-pressed={dark}
-          onClick={onToggleDark}
-          className="icon-button"
-        >
-          {dark ? <Sun /> : <Moon />}
-        </button>
-        <button
-          aria-label="Oznámení"
+          aria-label={unreadCount > 0 ? `Oznámení, ${unreadCount} nepřečtených` : 'Oznámení'}
           aria-expanded={notificationsOpen}
           aria-controls="notifications-panel"
           onClick={onToggleNotifications}
           className="icon-button relative"
         >
           <Bell />
-          {hasUnread && <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-primary" />}
+          {unreadCount > 0 && (
+            <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
         </button>
-        <button
-          onClick={onProfileClick}
-          aria-label="Otevřít profil domácnosti"
-          className="ml-1 flex h-9 w-9 items-center justify-center rounded-full bg-[#f4b183] text-sm font-semibold text-[#5b321f] transition hover:ring-2 hover:ring-primary/40"
-        >
-          {initialsFor(userName)}
-        </button>
-        <button aria-label="Odhlásit se" onClick={signOut} className="icon-button">
-          <LogOut />
-        </button>
+        <AccountMenu userName={userName} dark={dark} onToggleDark={onToggleDark} onSelectTab={onSelectTab} onSignOut={signOut} />
       </div>
     </header>
   )

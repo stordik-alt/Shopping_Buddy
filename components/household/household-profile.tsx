@@ -95,7 +95,7 @@ export function HouseholdProfile({
         </label>
       </div>
 
-      <div className="rounded-3xl border border-border bg-card p-5">
+      <div className="surface p-5">
         <p className="text-sm font-semibold">Měsíční rozpočet domácnosti</p>
         <div className="mt-3 flex items-center gap-2">
           <input
@@ -110,7 +110,7 @@ export function HouseholdProfile({
         </div>
       </div>
 
-      <section className="rounded-3xl border border-border bg-card p-6">
+      <section className="surface p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="font-semibold">Členové domácnosti</p>
@@ -224,7 +224,7 @@ export function HouseholdProfile({
         )}
       </section>
 
-      <section className="rounded-3xl border border-border bg-card p-6">
+      <section className="surface p-6">
         <p className="font-semibold">Děti</p>
         <p className="mt-1 text-sm leading-relaxed text-muted-foreground">Samostatný profil dítěte s preferencemi a specifickými potřebami.</p>
         <div className="mt-5 flex flex-col gap-2">
@@ -269,7 +269,7 @@ export function HouseholdProfile({
         </div>
       </section>
 
-      <section className="rounded-3xl border border-border bg-card p-6">
+      <section className="surface p-6">
         <p className="font-semibold">Nákupní preference domácnosti</p>
         <p className="mt-1 text-sm leading-relaxed text-muted-foreground">Kontext pro budoucí nákupní engine a AI asistenta.</p>
         <div className="mt-5 flex flex-col gap-5">
@@ -334,7 +334,7 @@ export function HouseholdProfile({
         </div>
       </section>
 
-      <section className="rounded-3xl border border-border bg-card p-6">
+      <section className="surface p-6">
         <p className="font-semibold">Upozornění</p>
         <div className="mt-4 flex flex-col gap-3">
           <label className="flex min-h-14 items-center justify-between rounded-2xl bg-muted p-4 text-sm">

@@ -15,7 +15,7 @@ export function PriceWatch({ onStores, productPrices, pantryItems }: { onStores:
     setSaved((current) => (current.includes(name) ? current.filter((item) => item !== name) : [...current, name]))
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-5 sm:p-6">
+    <section className="surface p-5 sm:p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-semibold">Akce pro váš seznam</p>
@@ -52,13 +52,13 @@ export function PriceWatch({ onStores, productPrices, pantryItems }: { onStores:
                 </button>
               </div>
               {isHistoricLow && (
-                <p className="mt-3 flex items-start gap-1 text-[11px] leading-relaxed text-emerald-700">
+                <p className="mt-3 flex items-start gap-1 text-[11px] leading-relaxed text-success">
                   <TrendingDown className="mt-0.5 h-3 w-3 shrink-0" />
                   Nejnižší zaznamenaná cena tohoto produktu v {price.store}.
                 </p>
               )}
               {suggestsStockingUp({ product, price, isBestPrice, cheapestAlternative, isHistoricLow }, pantryQuantityFor(pantryItems, product.productName)) && (
-                <p className="mt-3 flex items-start gap-1 text-[11px] leading-relaxed text-emerald-700">
+                <p className="mt-3 flex items-start gap-1 text-[11px] leading-relaxed text-success">
                   <Package className="mt-0.5 h-3 w-3 shrink-0" />
                   Doma toho máte málo nebo nic — dobrá chvíle doplnit zásoby.
                 </p>

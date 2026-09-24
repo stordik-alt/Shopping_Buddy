@@ -156,7 +156,7 @@ export function Pantry({
         })}
       </nav>
 
-      <section aria-label={`Zásoby: ${selected}`} className="overflow-hidden rounded-3xl border border-border bg-card">
+      <section aria-label={`Zásoby: ${selected}`} className="overflow-hidden surface">
         <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
           <div className="flex min-w-0 items-center gap-2">
             <SelectedIcon className="h-4 w-4 shrink-0 text-primary" aria-hidden />

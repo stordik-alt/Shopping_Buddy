@@ -141,7 +141,7 @@ function ReceiptPendingCard({
 
   if (item.status === 'duplicate_review') {
     return (
-      <div className="rounded-2xl border border-amber-400/40 bg-amber-50 p-4 dark:bg-amber-950/20">
+      <div className="rounded-2xl border border-warning/40 bg-warning/10 p-4">
         <p className="flex items-center gap-2 text-sm font-medium">
           <Copy className="h-4 w-4" /> Vypadá to jako nákup, který už máte zaznamenaný
         </p>

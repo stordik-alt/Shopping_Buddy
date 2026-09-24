@@ -3,6 +3,7 @@ import { AlertTriangle, Camera, Check, Loader2, Plus, Receipt, Trash2 } from 'lu
 import type { ReceiptImportState } from '@/lib/db/queries'
 import { ocrProviderLabel } from '@/lib/receipt-ocr-provider'
 import { RECEIPT_STEPS, receiptProgress, type ReceiptProgress } from '@/lib/receipt-progress'
+import { optimizeReceiptImage } from '@/lib/receipt-upload'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import type { ItemCategory, ItemUnit, Store } from '@/lib/types'
 
@@ -108,13 +109,16 @@ export function ReceiptImport({
   }
 
   async function handlePhoto(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
+    const selectedFile = event.target.files?.[0]
     event.target.value = '' // lets the same file be picked again after a retry
-    if (!file) return
+    if (!selectedFile) return
+
     setUploading(true)
     setError('')
     setProgress(receiptProgress('uploading'))
+
     try {
+      const file = await optimizeReceiptImage(selectedFile)
       const base64 = await readFileAsBase64(file)
       const result = await onUpload(base64, file.type, (status) => setProgress(receiptProgress(status)))
       setLastOcrProvider(result.ocrProvider)

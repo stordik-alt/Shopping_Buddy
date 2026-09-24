@@ -1,6 +1,7 @@
 import { gunzipSync } from 'node:zlib'
 import type { ItemCategory, ItemUnit } from '@/lib/types'
-import type { PriceConnector } from '@/lib/ingestion/types'
+import { fetchWithTimeout } from '@/lib/ingestion/http'
+import type { FetchOptions, PriceConnector } from '@/lib/ingestion/types'
 
 // --- Fetcher (docs/02_ARCHITECTURE.md / CLAUDE.md section 32: External Source -> Fetcher) --------
 // Lidl CZ has no public retailer API; these are the site's own published, machine-readable
@@ -73,7 +74,7 @@ export function selectGroceryErpNumbers(entries: LidlSitemapEntry[], limit: numb
 }
 
 export async function fetchLidlSitemap(): Promise<LidlSitemapEntry[]> {
-  const response = await fetch(SITEMAP_URL)
+  const response = await fetchWithTimeout(SITEMAP_URL)
   if (!response.ok) throw new Error(`Lidl sitemap fetch failed: HTTP ${response.status}`)
   const gzipped = Buffer.from(await response.arrayBuffer())
   const xml = gunzipSync(gzipped).toString('utf-8')
@@ -100,7 +101,7 @@ export type LidlRawProduct = {
 
 export async function fetchLidlProductBatch(erpNumbers: string[]): Promise<LidlRawProduct[]> {
   const url = `${GRIDBOXES_URL}?erpNumbers=${erpNumbers.join(',')}`
-  const response = await fetch(url)
+  const response = await fetchWithTimeout(url)
   if (!response.ok) throw new Error(`Lidl gridboxes fetch failed: HTTP ${response.status}`)
   return response.json()
 }
@@ -109,9 +110,11 @@ export async function fetchLidlProductBatch(erpNumbers: string[]): Promise<LidlR
  *  site itself uses. Failure isolation per CLAUDE.md section 32 ("if a retailer source stops
  *  working, the rest of the application should continue functioning") happens one level up, in
  *  the cron route — a single bad batch there doesn't need to abort every other batch here. */
-export async function fetchLidlProducts(erpNumbers: string[]): Promise<LidlRawProduct[]> {
+export async function fetchLidlProducts(erpNumbers: string[], options: FetchOptions = {}): Promise<LidlRawProduct[]> {
   const results: LidlRawProduct[] = []
   for (let i = 0; i < erpNumbers.length; i += GRIDBOXES_BATCH_SIZE) {
+    // Out of time budget: stop asking, keep what we have (the caller reports the run as truncated).
+    if (options.deadline != null && Date.now() >= options.deadline) break
     const batch = erpNumbers.slice(i, i + GRIDBOXES_BATCH_SIZE)
     results.push(...(await fetchLidlProductBatch(batch)))
   }
@@ -255,9 +258,9 @@ export function normalizeLidlProduct(raw: LidlRawProduct, today: string): Normal
 export const lidlConnector: PriceConnector<LidlRawProduct> = {
   source: 'lidl',
   chain: 'Lidl',
-  async fetchProducts(limit) {
+  async fetchProducts(limit, options) {
     const sitemap = await fetchLidlSitemap()
-    return fetchLidlProducts(selectGroceryErpNumbers(sitemap, limit))
+    return fetchLidlProducts(selectGroceryErpNumbers(sitemap, limit), options)
   },
   rawId: (raw) => raw.erpNumber,
   normalize: normalizeLidlProduct,

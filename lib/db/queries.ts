@@ -1,7 +1,8 @@
-import { and, asc, desc, eq, ilike, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, ilike, inArray, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { TODAY } from '@/lib/budget'
+import { planOfficialPrice, type OfficialPriceAction, type OfficialPriceSnapshot } from '@/lib/ingestion/official-price'
 import type { IngestionSource as ProductSource } from '@/lib/ingestion/types'
 import { currentWeekStart, parseSavedPlan, type WeeklyMealPlan } from '@/lib/meal-plans'
 import { inferPantryLocation } from '@/lib/pantry'
@@ -666,6 +667,7 @@ export async function getProductPrices(): Promise<ProductPrice[]> {
             priceHistory: observations.map((observation) => ({
               price: Number(observation.regularPrice),
               recordedAt: observation.observedAt,
+              validUntil: observation.validUntil,
               sourceType: observation.sourceType,
               priceScope: observation.priceScope,
             })),
@@ -734,6 +736,142 @@ export async function recordPriceObservation(observation: {
   return row
 }
 
+/** The latest stored official observation per retailer SKU (`source_reference`) at one store —
+ *  loaded once per ingestion run so `recordOfficialPrice()` needs no lookup of its own per product
+ *  (each lookup is a database round trip). Keyed by the SKU. */
+export async function loadLatestOfficialPrices(storeId: string): Promise<Map<string, OfficialPriceSnapshot>> {
+  const db = getDb()
+  const rows = await db
+    .selectDistinctOn([schema.prices.sourceReference], {
+      id: schema.prices.id,
+      sourceReference: schema.prices.sourceReference,
+      observedAt: schema.prices.observedAt,
+      regularPrice: schema.prices.regularPrice,
+      unit: schema.prices.unit,
+      unitPrice: schema.prices.unitPrice,
+      currency: schema.prices.currency,
+      validUntil: schema.prices.validUntil,
+    })
+    .from(schema.prices)
+    .where(and(eq(schema.prices.storeId, storeId), eq(schema.prices.priceScope, 'CHAIN'), eq(schema.prices.sourceType, 'OFFICIAL')))
+    .orderBy(schema.prices.sourceReference, desc(schema.prices.observedAt))
+
+  const latest = new Map<string, OfficialPriceSnapshot>()
+  for (const row of rows) {
+    if (row.sourceReference == null) continue
+    latest.set(row.sourceReference, {
+      id: row.id,
+      observedAt: row.observedAt,
+      regularPrice: Number(row.regularPrice),
+      unit: row.unit,
+      unitPrice: Number(row.unitPrice),
+      currency: row.currency,
+      validUntil: row.validUntil,
+    })
+  }
+  return latest
+}
+
+/** True for a Postgres unique-violation (SQLSTATE 23505), which the driver may report directly or
+ *  wrapped as the `cause` of a query error. */
+function isUniqueViolation(err: unknown): boolean {
+  const code = (err as { code?: string } | null)?.code ?? (err as { cause?: { code?: string } } | null)?.cause?.code
+  return code === '23505'
+}
+
+/** Writes a retailer-published (CHAIN scope, OFFICIAL) price under the rules in
+ *  `lib/ingestion/official-price.ts`: the current price is the observation with the latest date; a
+ *  repeat run the same day refreshes that day's row instead of duplicating it; older data never
+ *  displaces newer; and when the price changed, the previous observation stays as the old price,
+ *  closed with `valid_until` = the date the new price was first observed (never deleted or
+ *  overwritten — CLAUDE.md section 16). `latest` is the SKU's latest stored observation from
+ *  `loadLatestOfficialPrices()`. Returns what was done and the SKU's new latest observation, for the
+ *  caller to keep its map current. Receipt-based prices keep using `recordPriceObservation()`. */
+export async function recordOfficialPrice(
+  observation: {
+    productId: string
+    storeId: string
+    sourceReference: string
+    regularPrice: number
+    currency: string
+    unit: ItemUnit
+    unitPrice: number
+    observedAt: string
+  },
+  latest: OfficialPriceSnapshot | undefined,
+): Promise<{ action: OfficialPriceAction['kind']; latest: OfficialPriceSnapshot | undefined; closedPrevious: boolean }> {
+  const db = getDb()
+  const action = planOfficialPrice(observation, latest)
+  if (action.kind === 'stale' || action.kind === 'unchanged') return { action: action.kind, latest, closedPrevious: false }
+
+  const values = {
+    regularPrice: observation.regularPrice.toString(),
+    currency: observation.currency,
+    unit: observation.unit,
+    unitPrice: observation.unitPrice.toString(),
+  }
+  const snapshot = (id: string): OfficialPriceSnapshot => ({
+    id,
+    observedAt: observation.observedAt,
+    regularPrice: observation.regularPrice,
+    unit: observation.unit,
+    unitPrice: observation.unitPrice,
+    currency: observation.currency,
+    validUntil: null,
+  })
+
+  if (action.kind === 'update-same-day') {
+    await db.update(schema.prices).set(values).where(eq(schema.prices.id, latest!.id))
+    return { action: 'update-same-day', latest: snapshot(latest!.id), closedPrevious: false }
+  }
+
+  let id: string
+  try {
+    const [row] = await db
+      .insert(schema.prices)
+      .values({
+        productId: observation.productId,
+        storeId: observation.storeId,
+        storeLocationId: null,
+        priceScope: 'CHAIN',
+        sourceType: 'OFFICIAL',
+        locationResolution: 'NOT_APPLICABLE',
+        ...values,
+        observedAt: observation.observedAt,
+        validFrom: observation.observedAt,
+        validUntil: null,
+        sourceReference: observation.sourceReference,
+      })
+      .returning({ id: schema.prices.id })
+    id = row.id
+  } catch (err) {
+    // A concurrent run stored this SKU's price for the same day first (the unique index on
+    // official prices per SKU and day). Refresh that row instead of failing or duplicating.
+    if (!isUniqueViolation(err)) throw err
+    const [row] = await db
+      .update(schema.prices)
+      .set(values)
+      .where(
+        and(
+          eq(schema.prices.storeId, observation.storeId),
+          eq(schema.prices.productId, observation.productId),
+          eq(schema.prices.priceScope, 'CHAIN'),
+          eq(schema.prices.sourceType, 'OFFICIAL'),
+          eq(schema.prices.sourceReference, observation.sourceReference),
+          eq(schema.prices.observedAt, observation.observedAt),
+        ),
+      )
+      .returning({ id: schema.prices.id })
+    return { action: 'update-same-day', latest: snapshot(row.id), closedPrevious: false }
+  }
+
+  // The previous price is now an old price: it ended when the new one was first observed.
+  if (action.closePrevious && latest) {
+    await db.update(schema.prices).set({ validUntil: observation.observedAt }).where(eq(schema.prices.id, latest.id))
+  }
+  return { action: 'insert', latest: snapshot(id), closedPrevious: action.closePrevious && latest != null }
+}
+
 /** Looks up a catalog product previously linked to an external source's own id (e.g. Lidl's
  *  `erpNumber`) — checked first on every ingestion run so a product already matched/created once
  *  is found directly, instead of re-matching by name (which could drift) or creating a duplicate.
@@ -746,6 +884,36 @@ export async function findProductIdByExternalRef(source: ProductSource, external
   return ref?.productId ?? null
 }
 
+/** Everything `resolveOrCreateProductFromExternal()` needs to look up, loaded once per ingestion
+ *  run instead of once per product: a run resolves ~80 products, and each individual lookup was a
+ *  network round trip to the database (the catalog lookup alone is a join over every product), which
+ *  is what made a run take minutes. The maps are mutated as products are created, so a later
+ *  product in the same run sees an earlier one exactly as a fresh lookup would. */
+export type ExternalProductContext = {
+  /** externalId -> catalog product id, for this source. */
+  refs: Map<string, string>
+  catalog: ProductCatalogEntry[]
+  /** category name -> product_categories.id */
+  categoryIds: Map<string, string>
+}
+
+export async function loadExternalProductContext(source: ProductSource): Promise<ExternalProductContext> {
+  const db = getDb()
+  const [refRows, catalog, categoryRows] = await Promise.all([
+    db
+      .select({ externalId: schema.productExternalRefs.externalId, productId: schema.productExternalRefs.productId })
+      .from(schema.productExternalRefs)
+      .where(eq(schema.productExternalRefs.source, source)),
+    getProductCatalog(),
+    db.select({ id: schema.productCategories.id, name: schema.productCategories.name }).from(schema.productCategories),
+  ])
+  return {
+    refs: new Map(refRows.map((row) => [row.externalId, row.productId])),
+    catalog,
+    categoryIds: new Map(categoryRows.map((row) => [row.name, row.id])),
+  }
+}
+
 /** Resolves a normalized external product to a real catalog `products.id`, creating both the
  *  product and its external-ref link on first sight. Priority, matching the rest of the app's
  *  product-identity handling:
@@ -756,44 +924,58 @@ export async function findProductIdByExternalRef(source: ProductSource, external
  *     get this source's price attached to it, not a second duplicate product.
  *  3. Neither: create a new catalog product from the external data (owner decision, 2026-09-23 —
  *     the catalog only had 11 hand-seeded products, and real ingested data is how it grows).
- *  Every path ends with an external-ref row recorded (or its `lastSeenAt` refreshed), so a repeat
- *  run of the same product always takes path 1 from then on. */
-export async function resolveOrCreateProductFromExternal(product: {
-  externalId: string
-  source: ProductSource
-  name: string
-  category: ItemCategory
-  unit: ItemUnit
-}): Promise<string> {
+ *  Every path ends with an external-ref row recorded, so a repeat run of the same product always
+ *  takes path 1 from then on. `lastSeenAt` of already-linked products is refreshed separately, in
+ *  one batch, by `touchExternalRefs()`.
+ *  `context` is what an ingestion run passes so the lookups are not repeated per product; without
+ *  it (one-off callers, tests) a fresh one is loaded for this call. */
+export async function resolveOrCreateProductFromExternal(
+  product: {
+    externalId: string
+    source: ProductSource
+    name: string
+    category: ItemCategory
+    unit: ItemUnit
+  },
+  context?: ExternalProductContext,
+): Promise<string> {
   const db = getDb()
+  const ctx = context ?? (await loadExternalProductContext(product.source))
 
-  const existingRefProductId = await findProductIdByExternalRef(product.source, product.externalId)
-  if (existingRefProductId) {
-    await db
-      .update(schema.productExternalRefs)
-      .set({ lastSeenAt: new Date() })
-      .where(and(eq(schema.productExternalRefs.source, product.source), eq(schema.productExternalRefs.externalId, product.externalId)))
-    return existingRefProductId
-  }
+  const existingRefProductId = ctx.refs.get(product.externalId)
+  if (existingRefProductId) return existingRefProductId
 
-  const catalog = await getProductCatalog()
-  const matched = matchProductByName(catalog, product.name)
+  const matched = matchProductByName(ctx.catalog, product.name)
 
   let productId: string
   if (matched) {
     productId = matched.id
   } else {
-    const categoryRow = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, product.category) })
-    if (!categoryRow) throw new Error(`Unknown product category: ${product.category}`)
+    const categoryId = ctx.categoryIds.get(product.category)
+    if (!categoryId) throw new Error(`Unknown product category: ${product.category}`)
     const [row] = await db
       .insert(schema.products)
-      .values({ name: product.name, categoryId: categoryRow.id, defaultUnit: product.unit })
+      .values({ name: product.name, categoryId, defaultUnit: product.unit })
       .returning()
     productId = row.id
+    ctx.catalog.push({ id: row.id, name: row.name, category: product.category, defaultUnit: row.defaultUnit, defaultLocation: row.defaultLocation })
   }
 
   await db.insert(schema.productExternalRefs).values({ productId, source: product.source, externalId: product.externalId })
+  ctx.refs.set(product.externalId, productId)
   return productId
+}
+
+/** Marks external products as seen just now, in one statement per chunk instead of one per product. */
+export async function touchExternalRefs(source: ProductSource, externalIds: string[]): Promise<void> {
+  const db = getDb()
+  const CHUNK = 500
+  for (let i = 0; i < externalIds.length; i += CHUNK) {
+    await db
+      .update(schema.productExternalRefs)
+      .set({ lastSeenAt: new Date() })
+      .where(and(eq(schema.productExternalRefs.source, source), inArray(schema.productExternalRefs.externalId, externalIds.slice(i, i + CHUNK))))
+  }
 }
 
 /** One representative store_location to attach a chain-wide price/deal observation to. Real prices

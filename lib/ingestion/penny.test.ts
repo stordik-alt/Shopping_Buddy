@@ -175,6 +175,12 @@ describe('fetchPennyProducts', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
+  it('makes no request once the deadline has passed', async () => {
+    const fetchMock = stubPages([[{ sku: 'a' }]], 1)
+    expect(await fetchPennyProducts(10, { deadline: Date.now() - 1 })).toEqual([])
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('makes no request for a non-positive limit', async () => {
     const fetchMock = stubPages([], 0)
     expect(await fetchPennyProducts(0)).toEqual([])

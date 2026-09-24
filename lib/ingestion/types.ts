@@ -37,6 +37,8 @@ export type NormalizedProduct = {
   promotionWithoutValidity?: boolean
 }
 
+export type FetchOptions = { deadline?: number }
+
 /** One store's connector: how to fetch a small, deterministic batch of raw products and how to turn
  *  each into a `NormalizedProduct`. `Raw` is the source's own response shape. */
 export type PriceConnector<Raw = unknown> = {
@@ -44,8 +46,10 @@ export type PriceConnector<Raw = unknown> = {
   /** Must match `stores.chain` — the seeded store chain the prices are attributed to. */
   chain: string
   /** Fetches up to `limit` raw products. Throws when the source is unreachable (the caller isolates
-   *  that failure so other connectors still run). */
-  fetchProducts(limit: number): Promise<Raw[]>
+   *  that failure so other connectors still run). `options.deadline` (epoch ms) is the run's time
+   *  budget: once it has passed, no further request is started and the products fetched so far are
+   *  returned. */
+  fetchProducts(limit: number, options?: FetchOptions): Promise<Raw[]>
   /** Source id of a raw record, used to label per-product errors. */
   rawId(raw: Raw): string
   /** Validates + normalizes one record; `null` when it is unusable or not a grocery item. */
@@ -60,5 +64,11 @@ export type IngestResult = {
   /** Promotions seen but not stored because the source gives no validity window. */
   promotionsWithoutValidity: number
   skipped: number
+  /** Prices already stored for today with the same values (a repeat run the same day). */
+  unchanged: number
+  /** Prices that differ from the previous observation; the previous one was kept as an old price. */
+  priceChanges: number
+  /** True when the run's time budget ran out and some fetched products were not processed. */
+  truncated: boolean
   errors: string[]
 }

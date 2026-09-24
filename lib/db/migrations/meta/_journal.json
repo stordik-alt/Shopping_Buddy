@@ -127,6 +127,13 @@
       "when": 1790604000000,
       "tag": "0017_product_source_dm",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790690400000,
+      "tag": "0018_prices_official_daily_unique",
+      "breakpoints": true
     }
   ]
 }

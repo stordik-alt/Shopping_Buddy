@@ -1,3 +1,4 @@
+import { fetchWithTimeout } from '@/lib/ingestion/http'
 import type { ItemUnit } from '@/lib/types'
 
 // Shared building blocks for retailers on the same web-shop platform. billa.cz and penny.cz (both
@@ -58,7 +59,7 @@ export async function fetchDiscoveryCategoryPage(
 ): Promise<{ results: DiscoveryProduct[]; total: number }> {
   const size = Math.min(Math.max(pageSize, 1), MAX_PAGE_SIZE)
   const url = `${baseUrl}/api/product-discovery/categories/${slug}/products?page=${page}&pageSize=${size}&sortBy=relevance`
-  const response = await fetch(url, { headers: { Accept: 'application/json', 'User-Agent': USER_AGENT } })
+  const response = await fetchWithTimeout(url, { headers: { Accept: 'application/json', 'User-Agent': USER_AGENT } })
   if (!response.ok) throw new Error(`${retailer} category ${slug} fetch failed: HTTP ${response.status}`)
   const body = (await response.json()) as DiscoveryResponse
   if (!Array.isArray(body.results)) throw new Error(`${retailer} category ${slug} returned an unexpected response shape`)

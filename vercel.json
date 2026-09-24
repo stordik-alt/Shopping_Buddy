@@ -9,8 +9,20 @@
       "schedule": "0 9 * * *"
     },
     {
-      "path": "/api/cron/ingest-prices",
+      "path": "/api/cron/ingest-prices/lidl",
       "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/ingest-prices/billa",
+      "schedule": "10 5 * * *"
+    },
+    {
+      "path": "/api/cron/ingest-prices/penny",
+      "schedule": "20 5 * * *"
+    },
+    {
+      "path": "/api/cron/ingest-prices/dm",
+      "schedule": "30 5 * * *"
     }
   ]
 }

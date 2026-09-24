@@ -1,5 +1,6 @@
 import { gunzipSync } from 'node:zlib'
 import type { ItemCategory, ItemUnit } from '@/lib/types'
+import type { PriceConnector } from '@/lib/ingestion/types'
 
 // --- Fetcher (docs/02_ARCHITECTURE.md / CLAUDE.md section 32: External Source -> Fetcher) --------
 // Lidl CZ has no public retailer API; these are the site's own published, machine-readable
@@ -247,4 +248,17 @@ export function normalizeLidlProduct(raw: LidlRawProduct, today: string): Normal
     recordedAt: today,
     deal,
   }
+}
+
+/** Lidl as a `PriceConnector` for the shared ingestion orchestrator (`lib/ingestion/ingest.ts`):
+ *  pre-filters the sitemap by grocery slug keywords, then fetches the matching products. */
+export const lidlConnector: PriceConnector<LidlRawProduct> = {
+  source: 'lidl',
+  chain: 'Lidl',
+  async fetchProducts(limit) {
+    const sitemap = await fetchLidlSitemap()
+    return fetchLidlProducts(selectGroceryErpNumbers(sitemap, limit))
+  },
+  rawId: (raw) => raw.erpNumber,
+  normalize: normalizeLidlProduct,
 }

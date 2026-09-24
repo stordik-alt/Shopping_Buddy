@@ -2,6 +2,7 @@ import { and, asc, desc, eq, ilike, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { TODAY } from '@/lib/budget'
+import type { IngestionSource as ProductSource } from '@/lib/ingestion/types'
 import { currentWeekStart, parseSavedPlan, type WeeklyMealPlan } from '@/lib/meal-plans'
 import { inferPantryLocation } from '@/lib/pantry'
 import type { ProductPrice } from '@/lib/prices'
@@ -737,7 +738,7 @@ export async function recordPriceObservation(observation: {
  *  `erpNumber`) — checked first on every ingestion run so a product already matched/created once
  *  is found directly, instead of re-matching by name (which could drift) or creating a duplicate.
  *  Per CLAUDE.md section 34 ("use stable external IDs... unique constraints"). */
-export async function findProductIdByExternalRef(source: 'lidl', externalId: string): Promise<string | null> {
+export async function findProductIdByExternalRef(source: ProductSource, externalId: string): Promise<string | null> {
   const db = getDb()
   const ref = await db.query.productExternalRefs.findFirst({
     where: and(eq(schema.productExternalRefs.source, source), eq(schema.productExternalRefs.externalId, externalId)),
@@ -759,7 +760,7 @@ export async function findProductIdByExternalRef(source: 'lidl', externalId: str
  *  run of the same product always takes path 1 from then on. */
 export async function resolveOrCreateProductFromExternal(product: {
   externalId: string
-  source: 'lidl'
+  source: ProductSource
   name: string
   category: ItemCategory
   unit: ItemUnit

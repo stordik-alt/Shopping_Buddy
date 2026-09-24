@@ -237,6 +237,82 @@ describe('fetching', () => {
     expect(calls).toHaveLength(0)
   })
 
+  describe('paging', () => {
+    /** One sub-category with `total` products: 30 per page, a cursor while there are more. */
+    function stubPagedSite(total: number) {
+      const calls: { url: string; body?: string }[] = []
+      const page = (from: number) => {
+        const ids = Array.from({ length: Math.min(30, total - from) }, (_, i) => 1000 + from + i)
+        return { ids, cursor: from + 30 < total ? `cursor-${from + 30}` : null }
+      }
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((url: string, init?: RequestInit) => {
+          calls.push({ url, body: init?.body as string | undefined })
+          if (url.includes('/api/front/menu/main')) return json({ categories: [{ id: 1026, subCategories: [{ id: 11, url: '/c11-a' }] }] })
+          if (url.includes('/products/flexible')) {
+            const { ids, cursor } = page(0)
+            return json({ products: { items: ids.map(apiProduct), cursor } })
+          }
+          const { cursor } = JSON.parse(init!.body as string) as { cursor: string }
+          const { ids, cursor: next } = page(Number(cursor.replace('cursor-', '')))
+          return json({ products: ids.map(apiProduct), cursor: next })
+        }),
+      )
+      return calls
+    }
+
+    it('follows the cursor with the site\'s own load-more request until the category ends', async () => {
+      const calls = stubPagedSite(75)
+      const products = await fetchKosikCatalog(1000, { pauseMs: 0 })
+      expect(products.map((product) => product.id)).toEqual(Array.from({ length: 75 }, (_, i) => 1000 + i))
+      const more = calls.filter((call) => call.url.includes('/products/more'))
+      expect(more).toHaveLength(2)
+      expect(more[0].body).toBe(JSON.stringify({ cursor: 'cursor-30', limit: 30 }))
+    })
+
+    it('stops paging at the limit', async () => {
+      const calls = stubPagedSite(300)
+      const products = await fetchKosikCatalog(45, { pauseMs: 0 })
+      expect(products).toHaveLength(45)
+      expect(calls.filter((call) => call.url.includes('/products/more'))).toHaveLength(1)
+    })
+
+    it('goes breadth first: every sub-category gets a first page before any gets a second', async () => {
+      const order: string[] = []
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((url: string, init?: RequestInit) => {
+          if (url.includes('/api/front/menu/main')) return json({ categories: [{ id: 1026, subCategories: [{ id: 11, url: '/c11-a' }, { id: 12, url: '/c12-b' }] }] })
+          if (url.includes('/products/flexible')) {
+            const slug = /slug=(c\d+)-/.exec(url)![1]
+            order.push(`first ${slug}`)
+            const base = slug === 'c11' ? 0 : 5000
+            return json({ products: { items: Array.from({ length: 30 }, (_, i) => apiProduct(base + i)), cursor: `next-${slug}` } })
+          }
+          const cursor = (JSON.parse(init!.body as string) as { cursor: string }).cursor
+          order.push(`more ${cursor}`)
+          const base = cursor === 'next-c11' ? 100 : 5100
+          return json({ products: Array.from({ length: 30 }, (_, i) => apiProduct(base + i)), cursor: null })
+        }),
+      )
+      await fetchKosikCatalog(1000, { pauseMs: 0 })
+      expect(order).toEqual(['first c11', 'first c12', 'more next-c11', 'more next-c12'])
+    })
+
+    it('reports a load-more response that is not a product list', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((url: string) => {
+          if (url.includes('/menu/main')) return json({ categories: [{ id: 1026, subCategories: [{ id: 11, url: '/c11-a' }] }] })
+          if (url.includes('/products/flexible')) return json({ products: { items: Array.from({ length: 30 }, (_, i) => apiProduct(i)), cursor: 'x' } })
+          return json({ products: null })
+        }),
+      )
+      await expect(fetchKosikCatalog(1000, { pauseMs: 0 })).rejects.toThrow('more-products returned an unexpected response shape')
+    })
+  })
+
   it('covers the eight food top-levels', () => {
     expect(KOSIK_GROCERY_TOP_LEVEL_IDS).toHaveLength(8)
   })

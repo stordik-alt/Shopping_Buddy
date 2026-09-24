@@ -66,49 +66,22 @@ Historical documents such as older `docs/01...15` feature-stage documents should
 
 Do not make backend development changes directly on `main`.
 
-## Backend development branch
-
-`v0/backend`
-
-All current backend development should happen on:
-
-```text
-v0/backend
-```
-
-The branch should originate from the latest `main`.
-
-### Rules
-
-Before starting work:
-
-1. inspect the current branch
-2. inspect the latest `main`
-3. ensure `v0/backend` is based on the current `main`
-4. switch/use `v0/backend` for backend development
-
-If `v0/backend` does not exist, create it from the latest `main`.
-
-Do not create backend work from an outdated branch.
-
-### Old branch
+## Old branch
 
 `V0/continue-frontend`
 
 This branch is historical/obsolete unless explicitly requested.
 
-Do not use it as the current backend development branch.
+Do not use it as a development branch.
 
 Do not introduce new development there.
 
-### Pull requests
+## Pull requests
 
-Backend work should follow:
+Work should follow:
 
 ```text
 main
-  ↓
-v0/backend
   ↓
 development / testing
   ↓

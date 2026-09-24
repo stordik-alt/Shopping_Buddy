@@ -209,6 +209,30 @@ the amount saved. A cash-rounding line ("ZAOKROUHLENÍ PŘÍJEM") is part of the
 product: `isRoundingLine()` drops it deterministically in `toReceiptLineItems()`, because the model
 emits it as an item despite the prompt forbidding that.
 
+**Weighed items (2026-09-24).** A weighed line prints "0.37 x 69.90 Kč" (weight × price per kg) and the
+line total. On the same Albert receipt the OCR text lacked that line for two of three weighed items
+("JABLKA GALA", "BRAMBORY KONZ POZDNÍ" — only "15.00 Kč" / "18.60 Kč" survived), so the model
+correctly returned null for quantity and unit price and the line was stored as "1 ks" — while the
+one weighed line that did survive (paprika, 0.37 × 69,90) was stored as 0.37 "ks". Now:
+- `unitForQuantity()`: a fractional quantity cannot be pieces, so "ks" (the default for an empty
+  unit) becomes "kg"; an explicit unit (g, l, …) is kept.
+- `ReceiptLineItem.unitPriceUnknown`: set when the receipt gave neither quantity nor unit price. The
+  line still counts towards the amount spent, but no price observation is recorded for it ("15,00 Kč
+  per piece" is not the product's price).
+- The structuring prompt now says how a weighed line reads (quantity = weight, unit "kg", price per
+  kilogram) and to output null, never derive the weight from the total, when that line is absent.
+- The storage-location gate ignores rounding lines; before, an unplaceable "ZAOKROUHLENÍ" line sent
+  an otherwise clean receipt to review.
+
+**Why the line was missing — root cause, partly open.** The stored `ocr_provider` for this receipt is
+`azure_document_intelligence`: for PDFs Google Vision is primary and Azure (prebuilt-receipt) runs
+only after Google failed, so the primary OCR failed for this PDF in production. Azure's text omitted
+the weight lines; the PDF itself (Skia/PDF from a browser print, one page, embedded fonts) has them.
+The reason Google failed is not known — it needs the production runtime logs for that import
+(search for "Google Vision PDF request failed" / the import id) and could be a missing `GCP_*`
+variable in that environment. Reading a digital PDF's embedded text layer directly, before any OCR,
+would avoid the loss altogether but adds a PDF-parsing dependency; not done, awaiting a decision.
+
 **Missing-data check.** Missing store, date, total, or an item's category → `REVIEW_REQUIRED`. Missing only an
 optional field (e.g. receipt number) does not require flagging the receipt as invalid.
 

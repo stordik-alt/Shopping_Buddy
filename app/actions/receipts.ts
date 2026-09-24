@@ -19,6 +19,7 @@ import {
   googleVisionPdfTextExtractor,
   googleVisionTextExtractor,
   isAzureReceiptFallbackConfigured,
+  isRoundingLine,
   isPotentialDuplicate,
   needsReview,
   netUnitPrice,
@@ -164,7 +165,8 @@ async function recordReceiptPriceObservations(
   if (!storeId) return
   await Promise.all(
     items
-      .filter((item) => item.productId && item.quantity > 0 && item.price >= 0)
+      // A line whose unit price the receipt never stated (only its total) is no price observation.
+      .filter((item) => item.productId && item.quantity > 0 && item.price >= 0 && !item.unitPriceUnknown)
       .map((item) => {
         // Deliberately the pre-discount shelf price, not what the household paid: a receipt
         // discount may be a personal coupon or loyalty rebate, not a shelf promotion, and
@@ -532,8 +534,10 @@ async function runReceiptPipeline(
   // review if any item's category+pantry-location can't be resolved confidently — never guess
   // where a product lives (docs/08_OCR_RECEIPT_PIPELINE.md's "NEHÁDEJ" rule, extended per the
   // product owner's pantry-tracking request).
+  // A cash-rounding line is not a product and is never stored (toReceiptLineItems drops it), so it
+  // has no storage location to resolve and must not stop the receipt.
   const unplaceable = extracted.items.some(
-    (item) => item.name.trim().length > 0 && resolveItemPlacement(matchProductByName(catalog, item.name), item.category, item.name) == null,
+    (item) => item.name.trim().length > 0 && !isRoundingLine(item.name) && resolveItemPlacement(matchProductByName(catalog, item.name), item.category, item.name) == null,
   )
   if (unplaceable) {
     trace.validation = 'review_required'

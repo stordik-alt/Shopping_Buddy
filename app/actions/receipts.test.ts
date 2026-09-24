@@ -538,6 +538,61 @@ describe('processReceiptImport — OCR pipeline orchestration (fake OCR/AI, real
       expect(pantry.some((pantryItem) => /zaokrouhlen/i.test(pantryItem.name))).toBe(false)
     })
 
+    // Regression: on the real Albert receipt the OCR had dropped the "0.43 x 34.90 Kč" line of the
+    // weighed apples, leaving only "15.00 Kč". The line was stored as 1 ks and, for a catalog product,
+    // 15,00 Kč was recorded as its unit price; and the weighed paprika (0.37 × 69,90 Kč/kg) was
+    // stored as 0.37 "ks".
+    describe('weighed lines', () => {
+      async function withCatalogProduct<T>(run: (name: string, productId: string) => Promise<T>): Promise<T> {
+        const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
+        const name = `__test_weighed_${crypto.randomUUID()}`
+        const [product] = await db.insert(schema.products).values({ name, categoryId: category!.id, defaultUnit: 'kg', defaultLocation: 'Spíž' }).returning()
+        try {
+          return await run(name, product.id)
+        } finally {
+          await db.delete(schema.products).where(eq(schema.products.id, product.id)) // prices cascade
+        }
+      }
+
+      it('keeps the spending but records no unit price when the weight and price per kilo are missing', async () => {
+        await withCatalogProduct(async (name, productId) => {
+          const receiptImportId = await createUploadedReceipt()
+          const extracted = extractedReceipt({
+            items: [{ name, category: 'Potraviny', quantity: null, unit: null, unitPrice: null, totalPrice: 15, discount: null, confidence: 0.8 }],
+            discountTotal: 0,
+            total: 15,
+          })
+          const row = await processReceiptImport(receiptImportId, fakeProviders(extracted))
+          expect(row.status).toBe('completed')
+
+          const purchase = await db.query.purchases.findFirst({ where: eq(schema.purchases.id, row.purchaseId!) })
+          expect(Number(purchase?.total)).toBe(15) // what was spent is right
+          expect(await db.query.prices.findMany({ where: eq(schema.prices.productId, productId) })).toHaveLength(0) // 15 Kč is not a price per piece
+        })
+      })
+
+      it('stores a weight with a price per kilo as kilograms and records the per-kilo price', async () => {
+        await withCatalogProduct(async (name, productId) => {
+          const receiptImportId = await createUploadedReceipt()
+          const extracted = extractedReceipt({
+            items: [{ name, category: 'Potraviny', quantity: 0.37, unit: null, unitPrice: 69.9, totalPrice: 25.9, discount: null, confidence: 0.9 }],
+            discountTotal: 0,
+            total: 25.9,
+          })
+          const row = await processReceiptImport(receiptImportId, fakeProviders(extracted))
+          expect(row.status).toBe('completed')
+
+          const purchaseItem = await db.query.purchaseItems.findFirst({ where: eq(schema.purchaseItems.purchaseId, row.purchaseId!) })
+          expect(purchaseItem).toMatchObject({ unit: 'kg', quantity: 0.37 })
+          expect(Number(purchaseItem?.price)).toBe(69.9)
+          const observations = await db.query.prices.findMany({ where: eq(schema.prices.productId, productId) })
+          expect(observations).toHaveLength(1)
+          expect(observations[0]).toMatchObject({ unit: 'kg' })
+          expect(Number(observations[0].unitPrice)).toBe(69.9)
+        })
+      })
+    })
+
     it('leaves purchases.discount empty when nothing was discounted', async () => {
       const receiptImportId = await createUploadedReceipt()
       const row = await processReceiptImport(receiptImportId, fakeProviders(extractedReceipt()))

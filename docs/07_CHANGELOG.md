@@ -1,5 +1,13 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-24 (Receipts: weighed lines, rounding artifacts removed, placement gate)
+### Follow-up to the Albert receipt report — stacked on the receipt-total PR (#29)
+- **Root cause of the weighed-item weakness:** the OCR text (Azure fallback — Google Vision PDF OCR had failed) dropped the "0.43 x 34.90 Kč" / "0.935 x 19.90 Kč" lines; the model correctly output null. Why Google failed is open (needs production logs).
+- **Handled deterministically:** `unitForQuantity()` (fractional quantity + empty/"ks" unit → kg), `unitPriceUnknown` (no quantity and no unit price on the receipt → keep the total, record no unit price), prompt rule for weighed lines.
+- **Bug found and fixed on the way:** the storage-location gate in `processReceiptImport()` looked at the unfiltered items, so an unplaceable rounding line sent an otherwise clean receipt to review; its test had only passed while the rounding artifacts existed in the catalog.
+- **Data:** rounding artifacts deleted from the shared database (2 purchase items, 2 pantry items, 2 catalog products incl. 1 price observation); purchase totals unchanged.
+- **Tests:** 6 unit tests (weighed lines, `unitForQuantity`, prompt rule) and 2 action-level DB tests; the receipts action suite passes 65/65.
+
 ## 2026-09-24 (Fix: receipt total wrongly reduced by a savings summary; rounding line imported as a product)
 ### Owner report: an Albert purchase of 1 055,00 Kč was recorded as 886,96 Kč
 - **Cause:** Albert's line prices are already the reduced ones; "Díky akcím jste ušetřili 168.00 Kč" is only a summary. `purchases.total` was always lines − `discountTotal`, and `isReceiptConsistent()` assumed the same, so the correct receipt was sent to review and 168 Kč was subtracted on confirmation.

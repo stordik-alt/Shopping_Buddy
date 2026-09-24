@@ -75,6 +75,9 @@ export const householdMembers = pgTable(
     // own), null until they set it. Stored now; applied to distances once branches have GPS — until
     // then the chosen stores (`member_stores`) decide what counts as nearby.
     maxDistanceKm: numeric('max_distance_km', { precision: 4, scale: 1 }),
+    // How many different stores this user is willing to visit for one shop (1-6); the shopping planner
+    // uses it as its limit. Null until they set it.
+    maxShopStores: integer('max_shop_stores'),
   },
   // Looked up by userId on every authenticated request (lib/auth/authorize.ts's requireHousehold()) — the single hottest query in the app.
   // Unique: one account belongs to exactly one household (migration 0014). Concurrent first-login
@@ -83,6 +86,7 @@ export const householdMembers = pgTable(
   (table) => [
     uniqueIndex('household_members_user_id_unique').on(table.userId),
     check('household_members_max_distance_range', sql`${table.maxDistanceKm} IS NULL OR (${table.maxDistanceKm} > 0 AND ${table.maxDistanceKm} <= 50)`),
+    check('household_members_max_shop_stores_range', sql`${table.maxShopStores} IS NULL OR (${table.maxShopStores} >= 1 AND ${table.maxShopStores} <= 6)`),
   ],
 )
 
@@ -217,8 +221,12 @@ export const memberStores = pgTable(
     memberId: uuid('member_id').notNull().references(() => householdMembers.id, { onDelete: 'cascade' }),
     storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
     storeLocationId: uuid('store_location_id'),
+    // A store the user prefers when the shopping planner has a choice. A property of the chain, so only
+    // chain-level rows (no branch) can be priority.
+    isPriority: boolean('is_priority').notNull().default(false),
   },
   (table) => [
+    check('member_stores_priority_is_chain_level', sql`${table.isPriority} = false OR ${table.storeLocationId} IS NULL`),
     // Composite FK: when a branch is named, it must be a branch of `store_id`. MATCH SIMPLE — a NULL
     // `store_location_id` (a chain-level row) skips the check.
     foreignKey({ columns: [table.storeLocationId, table.storeId], foreignColumns: [storeLocations.id, storeLocations.storeId] }).onDelete('cascade'),
@@ -302,6 +310,21 @@ export const shoppingListItems = pgTable('shopping_list_items', {
   // still-undone item from generating a new reminder every day the job runs.
   remindedAt: timestamp('reminded_at'),
 })
+
+// The specific product a user chose for a shopping list item at one chain — "for this milk, buy THIS
+// one at Lidl". The shopping planner uses a pinned product at that chain instead of guessing by name;
+// where nothing is pinned it picks automatically. One pin per item and chain.
+export const shoppingListItemPins = pgTable(
+  'shopping_list_item_pins',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    itemId: uuid('item_id').notNull().references(() => shoppingListItems.id, { onDelete: 'cascade' }),
+    storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+    productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('shopping_list_item_pins_item_store_unique').on(table.itemId, table.storeId)],
+)
 
 // --- Purchases & budgets ------------------------------------------------------
 

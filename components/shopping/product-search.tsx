@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Loader2, Search, Tag } from 'lucide-react'
+import { Loader2, Pin, Search, Tag } from 'lucide-react'
 import type { ProductSearchResult } from '@/app/actions/product-search'
 import { money, shortDate } from '@/lib/format'
 import { hitPrice, hitUnitPrice, searchTokens } from '@/lib/product-search'
@@ -14,11 +14,19 @@ const DEBOUNCE_MS = 300
 export function ProductSearch({
   initialQuery = '',
   category,
+  pinning,
   search,
 }: {
   initialQuery?: string
   /** Restricts the search to one category (an item's own), so "mléko" for a food item does not offer body milk. */
   category?: ItemCategory
+  /** When searching for a specific list item: lets the user pin a product to it at each chain. */
+  pinning?: {
+    /** storeId -> the productId pinned for this item there. */
+    pinned: Record<string, string>
+    onPin: (storeId: string, productId: string) => Promise<void>
+    onUnpin: (storeId: string) => Promise<void>
+  }
   search: (input: { query: string; onlyNearby: boolean; category?: ItemCategory }) => Promise<ProductSearchResult>
 }) {
   const [query, setQuery] = useState(initialQuery)
@@ -26,11 +34,27 @@ export function ProductSearch({
   const [result, setResult] = useState<ProductSearchResult | null>(null)
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle')
   const [error, setError] = useState('')
+  const [pinError, setPinError] = useState('')
+  const [busyKey, setBusyKey] = useState<string | null>(null)
   // Only the latest request may update the screen: a slow answer to an earlier query must not
   // overwrite the results of the current one.
   const latest = useRef(0)
 
   const hasQuery = searchTokens(query).length > 0
+
+  async function togglePin(storeId: string, productId: string, pinnedNow: boolean) {
+    if (!pinning) return
+    setBusyKey(`${storeId}|${productId}`)
+    setPinError('')
+    try {
+      if (pinnedNow) await pinning.onUnpin(storeId)
+      else await pinning.onPin(storeId, productId)
+    } catch (err) {
+      setPinError(err instanceof Error ? err.message : 'Výběr produktu se nepodařil.')
+    } finally {
+      setBusyKey(null)
+    }
+  }
 
   useEffect(() => {
     if (!hasQuery) {
@@ -80,6 +104,7 @@ export function ProductSearch({
 
       <div className="mt-3" aria-live="polite">
         {status === 'error' && <p role="alert" className="text-destructive">{error}</p>}
+        {pinError && <p role="alert" className="mb-2 text-destructive">{pinError}</p>}
 
         {!hasQuery && status !== 'error' && <p className="text-muted-foreground">Napište, co hledáte, např. „mléko“ nebo „máslo 250 g“. Diakritika nevadí.</p>}
 
@@ -117,6 +142,20 @@ export function ProductSearch({
                         </span>
                         <span className="text-muted-foreground">cena z {shortDate(hit.observedAt)}</span>
                       </p>
+                      {pinning && (
+                        <button
+                          type="button"
+                          aria-pressed={pinning.pinned[hit.storeId] === hit.productId}
+                          disabled={busyKey === `${hit.storeId}|${hit.productId}`}
+                          onClick={() => togglePin(hit.storeId, hit.productId, pinning.pinned[hit.storeId] === hit.productId)}
+                          className={`mt-1.5 flex min-h-10 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 ${
+                            pinning.pinned[hit.storeId] === hit.productId ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background hover:bg-muted'
+                          }`}
+                        >
+                          <Pin className={`h-3.5 w-3.5 ${pinning.pinned[hit.storeId] === hit.productId ? 'fill-current' : ''}`} aria-hidden="true" />
+                          {pinning.pinned[hit.storeId] === hit.productId ? `Vybráno pro ${group.chain} · zrušit` : `Vybrat pro tuto položku v ${group.chain}`}
+                        </button>
+                      )}
                     </li>
                   ))}
                 </ul>

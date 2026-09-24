@@ -5,6 +5,9 @@ import type { Item, ItemCategory, ItemPriority, ItemUnit, Store, StoreChain } fr
 import { money } from '@/lib/format'
 import { comparePrices, type ProductPrice } from '@/lib/prices'
 import { searchProductsAction } from '@/app/actions/product-search'
+import type { PlanResult, PinRecord } from '@/lib/db/shopping-plan'
+import { hasStoreSelection, type StoreSelection } from '@/lib/nearby-stores'
+import { ShoppingPlanPanel } from '@/components/shopping/shopping-plan'
 import { PriceComparison } from '@/components/shopping/price-comparison'
 import { ProductSearch } from '@/components/shopping/product-search'
 import { StoreComparison } from '@/components/shopping/store-comparison'
@@ -48,6 +51,12 @@ export function ShoppingList({
   lists,
   onAddList,
   productPrices,
+  pins,
+  onPin,
+  onUnpin,
+  storeChains,
+  storeSelection,
+  buildPlan,
   remaining,
   stores,
   userCoords,
@@ -63,6 +72,13 @@ export function ShoppingList({
   lists: string[]
   onAddList: (name: string) => void
   productPrices: ProductPrice[]
+  /** Products the user pinned to items, per chain. */
+  pins: PinRecord[]
+  onPin: (itemId: string, storeId: string, productId: string) => Promise<void>
+  onUnpin: (itemId: string, storeId: string) => Promise<void>
+  storeChains: { id: string; chain: string }[]
+  storeSelection: StoreSelection
+  buildPlan: (input: { maxStores: number; priorityChainIds: string[] }) => Promise<PlanResult>
   remaining: number
   stores: Store[]
   userCoords: GpsCoords | null
@@ -468,7 +484,16 @@ export function ShoppingList({
                       </button>
                       {searchItemId === item.id && (
                         <div className="sm:col-span-2">
-                          <ProductSearch initialQuery={item.name} category={item.category} search={searchProductsAction} />
+                          <ProductSearch
+                            initialQuery={item.name}
+                            category={item.category !== 'Ostatní' ? item.category : undefined}
+                            pinning={{
+                              pinned: Object.fromEntries(pins.filter((pin) => pin.itemId === item.id).map((pin) => [pin.storeId, pin.productId])),
+                              onPin: (storeId, productId) => onPin(item.id, storeId, productId),
+                              onUnpin: (storeId) => onUnpin(item.id, storeId),
+                            }}
+                            search={searchProductsAction}
+                          />
                         </div>
                       )}
                       {comparePrices(productPrices, item.name) && (
@@ -496,6 +521,19 @@ export function ShoppingList({
           </button>
         </div>
       )}
+
+      <ShoppingPlanPanel
+        chains={hasStoreSelection(storeSelection) ? storeChains.filter((chain) => storeSelection.chainIds.includes(chain.id)) : storeChains}
+        defaultMaxStores={storeSelection.maxShopStores}
+        defaultPriorityIds={storeSelection.priorityChainIds}
+        openItemCount={items.filter((item) => !item.done).length}
+        // Changes whenever an open item or a pinned product does, so a plan built earlier can be flagged as out of date.
+        inputKey={JSON.stringify([
+          items.filter((item) => !item.done).map((item) => [item.id, item.name, item.quantity, item.unit, item.category]),
+          [...pins].map((pin) => [pin.itemId, pin.storeId, pin.productId]).sort(),
+        ])}
+        build={buildPlan}
+      />
 
       <StoreComparison items={items} productPrices={productPrices} remaining={remaining} stores={stores} userCoords={userCoords} />
     </div>

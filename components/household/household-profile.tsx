@@ -47,7 +47,7 @@ export function HouseholdProfile({
   storeChains: { id: string; chain: string }[]
   stores: Store[]
   storeSelection: StoreSelection
-  onSaveStorePreferences: (input: { maxDistanceKm: number | null; chainIds: string[]; locationIds: string[] }) => Promise<StoreSelection>
+  onSaveStorePreferences: (input: { maxDistanceKm: number | null; chainIds: string[]; locationIds: string[]; priorityChainIds: string[]; maxShopStores: number | null }) => Promise<StoreSelection>
 }) {
   const [invite, setInvite] = useState('')
   const [inviteLink, setInviteLink] = useState<string | null>(null)

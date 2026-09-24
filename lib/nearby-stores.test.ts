@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest'
 import {
   EMPTY_STORE_SELECTION,
   MAX_DISTANCE_KM,
+  MAX_SHOP_STORES,
   filterPricesToNearby,
   hasStoreSelection,
   isNearby,
   normalizeDistanceKm,
+  normalizeMaxShopStores,
   normalizeStoreSelection,
   parseDistanceInput,
   type StoreSelection,
@@ -23,12 +25,12 @@ const point = (overrides: Partial<PricePoint> = {}): PricePoint => ({
   ...overrides,
 })
 const product = (name: string, prices: PricePoint[]): ProductPrice => ({ productName: name, category: 'Potraviny', prices })
-const selection = (overrides: Partial<StoreSelection> = {}): StoreSelection => ({ maxDistanceKm: 2, chainIds: ['lidl', 'albert'], branches: [], ...overrides })
+const selection = (overrides: Partial<StoreSelection> = {}): StoreSelection => ({ maxDistanceKm: 2, chainIds: ['lidl', 'albert'], branches: [], priorityChainIds: [], maxShopStores: null, ...overrides })
 
 describe('hasStoreSelection', () => {
   it('is false until at least one chain is chosen', () => {
     expect(hasStoreSelection(EMPTY_STORE_SELECTION)).toBe(false)
-    expect(hasStoreSelection({ maxDistanceKm: 3, chainIds: [], branches: [] })).toBe(false) // a distance alone selects nothing
+    expect(hasStoreSelection({ ...EMPTY_STORE_SELECTION, maxDistanceKm: 3 })).toBe(false) // a distance alone selects nothing
     expect(hasStoreSelection(selection())).toBe(true)
   })
 })
@@ -118,6 +120,42 @@ describe('normalizeDistanceKm', () => {
   })
 })
 
+describe('normalizeMaxShopStores', () => {
+  it('accepts a whole number from 1 to 6', () => {
+    for (const n of [1, 2, 3, 4, 5, MAX_SHOP_STORES]) expect(normalizeMaxShopStores(n)).toBe(n)
+  })
+
+  it('rejects zero, too many, fractions and non-numbers', () => {
+    for (const bad of [0, -1, MAX_SHOP_STORES + 1, 2.5, Number.NaN, null, undefined]) expect(normalizeMaxShopStores(bad as number)).toBeNull()
+  })
+})
+
+describe('priority stores and the store limit in a selection', () => {
+  const branchChain = new Map([['lidl-brno-1', 'lidl']])
+
+  it('keeps a priority store that is among the chosen chains', () => {
+    const result = normalizeStoreSelection({ chainIds: ['lidl', 'albert'], priorityChainIds: ['albert'] }, branchChain)
+    expect(result.priorityChainIds).toEqual(['albert'])
+  })
+
+  it('drops a priority store that is not chosen', () => {
+    const result = normalizeStoreSelection({ chainIds: ['lidl'], priorityChainIds: ['albert', 'lidl'] }, branchChain)
+    expect(result.priorityChainIds).toEqual(['lidl'])
+  })
+
+  it('counts a chain implied by a picked branch as chosen, so it can be a priority', () => {
+    const result = normalizeStoreSelection({ chainIds: [], locationIds: ['lidl-brno-1'], priorityChainIds: ['lidl'] }, branchChain)
+    expect(result.priorityChainIds).toEqual(['lidl'])
+  })
+
+  it('removes duplicate priority stores and validates the store count', () => {
+    const result = normalizeStoreSelection({ chainIds: ['lidl'], priorityChainIds: ['lidl', 'lidl'], maxShopStores: 3 }, branchChain)
+    expect(result.priorityChainIds).toEqual(['lidl'])
+    expect(result.maxShopStores).toBe(3)
+    expect(normalizeStoreSelection({ chainIds: ['lidl'], maxShopStores: 9 }, branchChain).maxShopStores).toBeNull()
+  })
+})
+
 describe('parseDistanceInput', () => {
   it('reads a decimal point or a decimal comma', () => {
     expect(parseDistanceInput('1.5')).toBe(1.5)
@@ -164,7 +202,7 @@ describe('normalizeStoreSelection', () => {
 
   it('validates the distance and treats missing input as an empty selection', () => {
     expect(normalizeStoreSelection({ maxDistanceKm: 500, chainIds: ['lidl'] }, branchChain).maxDistanceKm).toBeNull()
-    expect(normalizeStoreSelection({ maxDistanceKm: 1.5 }, branchChain)).toEqual({ maxDistanceKm: 1.5, chainIds: [], branches: [] })
+    expect(normalizeStoreSelection({ maxDistanceKm: 1.5 }, branchChain)).toEqual({ ...EMPTY_STORE_SELECTION, maxDistanceKm: 1.5 })
     expect(normalizeStoreSelection({}, branchChain)).toEqual(EMPTY_STORE_SELECTION)
   })
 })

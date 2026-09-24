@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import { getMemberIdForUser, getMemberStoreSelection, getStoreChains } from '@/lib/db/member-store-preferences'
@@ -62,10 +62,12 @@ beforeEach(async () => {
   currentUserId = user.userId
 })
 
+// One statement per table, not one per household: the suite creates dozens, and deleting them one by one
+// over a slow connection exceeded the default 10 s hook timeout.
 afterAll(async () => {
-  for (const id of createdHouseholdIds) await db.delete(schema.households).where(eq(schema.households.id, id)) // cascades to members and member_stores
-  for (const id of createdUserIds) await db.execute(sql`delete from neon_auth."user" where id = ${id}`)
-})
+  if (createdHouseholdIds.length > 0) await db.delete(schema.households).where(inArray(schema.households.id, createdHouseholdIds)) // cascades to members and member_stores
+  if (createdUserIds.length > 0) await db.execute(sql`delete from neon_auth."user" where id in (${sql.join(createdUserIds.map((id) => sql`${id}::uuid`), sql`, `)})`)
+}, 60_000)
 
 describe('saveMyStorePreferencesAction', () => {
   it('saves the chosen chains and the distance for the signed-in member', async () => {
@@ -99,7 +101,7 @@ describe('saveMyStorePreferencesAction', () => {
   it('clears everything when nothing is selected', async () => {
     await saveMyStorePreferencesAction({ maxDistanceKm: 2, chainIds: [lidlId], locationIds: [lidlBranches[0]] })
     const saved = await saveMyStorePreferencesAction({ maxDistanceKm: null, chainIds: [], locationIds: [] })
-    expect(saved).toEqual({ maxDistanceKm: null, chainIds: [], branches: [] })
+    expect(saved).toEqual({ maxDistanceKm: null, chainIds: [], branches: [], priorityChainIds: [], maxShopStores: null })
   })
 
   it('is personal: it never changes another member\'s choices', async () => {
@@ -139,6 +141,54 @@ describe('saveMyStorePreferencesAction', () => {
     await Promise.all([saveMyStorePreferencesAction(input), saveMyStorePreferencesAction(input)])
     const rows = await db.query.memberStores.findMany({ where: eq(schema.memberStores.memberId, user.memberId) })
     expect(rows).toHaveLength(3) // 2 chain rows + 1 branch row, no duplicates
+  })
+})
+
+describe('priority stores and the store limit', () => {
+  it('saves which chosen chains are priority and how many stores the user will visit', async () => {
+    const saved = await saveMyStorePreferencesAction({ maxDistanceKm: 2, chainIds: [lidlId, albertId], locationIds: [], priorityChainIds: [albertId], maxShopStores: 2 })
+    expect(saved.priorityChainIds).toEqual([albertId])
+    expect(saved.maxShopStores).toBe(2)
+    expect(await getMemberStoreSelection(user.memberId)).toEqual(saved)
+  })
+
+  it('changes the priority of a chain that stays selected, without touching its row otherwise', async () => {
+    await saveMyStorePreferencesAction({ maxDistanceKm: null, chainIds: [lidlId, albertId], locationIds: [], priorityChainIds: [albertId] })
+    const before = (await db.query.memberStores.findMany({ where: eq(schema.memberStores.memberId, user.memberId) })).find((row) => row.storeId === albertId)!
+    const saved = await saveMyStorePreferencesAction({ maxDistanceKm: null, chainIds: [lidlId, albertId], locationIds: [], priorityChainIds: [lidlId] })
+    expect(saved.priorityChainIds).toEqual([lidlId])
+    const after = (await db.query.memberStores.findMany({ where: eq(schema.memberStores.memberId, user.memberId) })).find((row) => row.storeId === albertId)!
+    expect(after.id).toBe(before.id)
+    expect(after.isPriority).toBe(false)
+  })
+
+  it('drops a priority store that is not among the chosen chains', async () => {
+    const saved = await saveMyStorePreferencesAction({ maxDistanceKm: null, chainIds: [lidlId], locationIds: [], priorityChainIds: [albertId] })
+    expect(saved.priorityChainIds).toEqual([])
+  })
+
+  it('forgets the priority of a chain that is unselected', async () => {
+    await saveMyStorePreferencesAction({ maxDistanceKm: null, chainIds: [lidlId], locationIds: [], priorityChainIds: [lidlId] })
+    const saved = await saveMyStorePreferencesAction({ maxDistanceKm: null, chainIds: [albertId], locationIds: [] })
+    expect(saved.priorityChainIds).toEqual([])
+    // Selecting it again does not bring the old priority back.
+    expect((await saveMyStorePreferencesAction({ maxDistanceKm: null, chainIds: [albertId, lidlId], locationIds: [] })).priorityChainIds).toEqual([])
+  })
+
+  it('reports an invalid store count instead of silently dropping it', async () => {
+    for (const bad of [0, 7, 2.5, Number.NaN]) {
+      await expect(saveMyStorePreferencesAction({ maxDistanceKm: null, chainIds: [lidlId], locationIds: [], maxShopStores: bad })).rejects.toThrow('celé číslo od 1 do 6')
+    }
+  })
+
+  it('the database refuses a store count outside 1-6 and a priority branch row', async () => {
+    for (const bad of [0, 7]) {
+      await expect(db.update(schema.householdMembers).set({ maxShopStores: bad }).where(eq(schema.householdMembers.id, user.memberId))).rejects.toThrow()
+    }
+    await db.update(schema.householdMembers).set({ maxShopStores: 6 }).where(eq(schema.householdMembers.id, user.memberId)) // the limit itself is allowed
+    await expect(
+      db.insert(schema.memberStores).values({ memberId: user.memberId, storeId: lidlId, storeLocationId: lidlBranches[0], isPriority: true }),
+    ).rejects.toThrow()
   })
 })
 

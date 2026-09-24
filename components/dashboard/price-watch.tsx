@@ -2,11 +2,23 @@ import { useState } from 'react'
 import { ArrowUpRight, Info, Package, Tag, TrendingDown } from 'lucide-react'
 import { TODAY } from '@/lib/budget'
 import { money } from '@/lib/format'
+import { shortOfferDate, type StandaloneOffer } from '@/lib/offers'
 import { pantryQuantityFor } from '@/lib/pantry'
 import { assessDealQuality, suggestsStockingUp, type ProductPrice } from '@/lib/prices'
 import type { PantryItem } from '@/lib/types'
 
-export function PriceWatch({ onStores, productPrices, pantryItems }: { onStores: () => void; productPrices: ProductPrice[]; pantryItems: PantryItem[] }) {
+export function PriceWatch({
+  onStores,
+  productPrices,
+  offers,
+  pantryItems,
+}: {
+  onStores: () => void
+  productPrices: ProductPrice[]
+  /** Offers with no regular price to compare against: shown as they are, without a discount. */
+  offers: StandaloneOffer[]
+  pantryItems: PantryItem[]
+}) {
   const [saved, setSaved] = useState<string[]>([])
   // Per docs/05_BUSINESS_RULES.md: a discount isn't automatically a good deal — check whether
   // it's actually the cheapest option for that product, not just cheaper than its own regular price.
@@ -23,9 +35,11 @@ export function PriceWatch({ onStores, productPrices, pantryItems }: { onStores:
         </div>
         <Tag className="text-primary" />
       </div>
-      {deals.length === 0 ? (
+      {deals.length === 0 && offers.length === 0 ? (
         <p className="mt-5 rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground">Momentálně nemáme žádné aktivní akce.</p>
       ) : (
+      <>
+      {deals.length > 0 && (
       <div className="mt-5 grid gap-3 md:grid-cols-3">
         {deals.map(({ product, price, isBestPrice, cheapestAlternative, isHistoricLow }) => {
           const discount = Math.round((1 - (price.dealPrice ?? price.regularPrice) / price.regularPrice) * 100)
@@ -73,6 +87,27 @@ export function PriceWatch({ onStores, productPrices, pantryItems }: { onStores:
           )
         })}
       </div>
+      )}
+      {offers.length > 0 && (
+        <div className="mt-5">
+          <p className="text-sm font-medium">Další nabídky obchodů</p>
+          <p className="mt-1 text-xs text-muted-foreground">U těchto produktů neznáme běžnou cenu, proto je neporovnáváme a neuvádíme slevu.</p>
+          <div className="mt-3 grid gap-3 md:grid-cols-3">
+            {offers.map((offer) => (
+              <div key={`${offer.productName}-${offer.store}`} className="rounded-2xl bg-muted p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="break-words text-sm font-medium">{offer.productName}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{offer.store} · akce do {shortOfferDate(offer.validUntil)}</p>
+                  </div>
+                  <span className="shrink-0 text-lg font-semibold">{money(offer.dealPrice)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      </>
       )}
       <button onClick={onStores} className="mt-4 text-sm font-medium text-primary">
         Porovnat všechny obchody <ArrowUpRight className="ml-1 inline h-4 w-4" />

@@ -3,7 +3,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { splitCollapsedExternalProducts } from '@/lib/db/split-collapsed-products'
-import { findProductIdByExternalRef, getCanonicalStoreLocationId, getHouseholdData, getProductPrices, getStoreByChain, getStoreIdByChain, joinHouseholdViaInvitation, loadExternalProductContext, loadLatestOfficialPrices, recordOfficialPrice, resolveOrCreateProductFromExternal, touchExternalRefs, upsertActiveDeal } from '@/lib/db/queries'
+import { findProductIdByExternalRef, getCanonicalStoreLocationId, getHouseholdData, getProductPrices, getStandaloneOffers, getStoreByChain, getStoreIdByChain, joinHouseholdViaInvitation, loadExternalProductContext, loadLatestOfficialPrices, recordOfficialPrice, resolveOrCreateProductFromExternal, touchExternalRefs, upsertActiveDeal } from '@/lib/db/queries'
 
 // Regression coverage for the "household events" notification work (docs/07_CHANGELOG.md,
 // 2026-09-21) and for the join-via-invitation logic itself, which docs/01_CURRENT_STATE.md
@@ -632,5 +632,68 @@ describe('upsertActiveDeal', () => {
         await db.delete(schema.stores).where(eq(schema.stores.id, store.id))
       }
     })
+  })
+})
+
+describe('getStandaloneOffers', () => {
+  const TODAY_FOR_TEST = '2026-09-25'
+
+  async function setup() {
+    const [store] = await db.insert(schema.stores).values({ chain: `__test_offers_${crypto.randomUUID()}`, isOnline: true }).returning()
+    const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
+    const [product] = await db.insert(schema.products).values({ name: `__test_offer_${crypto.randomUUID()}`, categoryId: category!.id }).returning()
+    return { store, product }
+  }
+  const cleanup = async (storeId: string, productId: string) => {
+    await db.delete(schema.products).where(eq(schema.products.id, productId))
+    await db.delete(schema.stores).where(eq(schema.stores.id, storeId))
+  }
+  const ours = async (storeId: string) => (await getStandaloneOffers(TODAY_FOR_TEST)).filter((offer) => offer.storeId === storeId)
+
+  it('returns a running offer for a product the chain has no price for, cheapest first when there are several', async () => {
+    const { store, product } = await setup()
+    try {
+      await db.insert(schema.deals).values([
+        { productId: product.id, storeId: store.id, storeLocationId: null, dealPrice: '12.90', validFrom: '2026-09-23', validUntil: '2026-09-29' },
+        { productId: product.id, storeId: store.id, storeLocationId: null, dealPrice: '9.90', validFrom: '2026-09-23', validUntil: '2026-09-28' },
+      ])
+      const offers = await ours(store.id)
+      expect(offers).toEqual([
+        { productName: product.name, category: 'Potraviny', store: store.chain, storeId: store.id, dealPrice: 9.9, validUntil: '2026-09-29' },
+      ])
+    } finally {
+      await cleanup(store.id, product.id)
+    }
+  })
+
+  it('leaves out an offer that has ended, one that has not started, and one for a product the chain has a price for', async () => {
+    const ended = await setup()
+    const future = await setup()
+    const priced = await setup()
+    try {
+      await db.insert(schema.deals).values([
+        { productId: ended.product.id, storeId: ended.store.id, storeLocationId: null, dealPrice: '5', validFrom: '2026-09-01', validUntil: '2026-09-10' },
+        { productId: future.product.id, storeId: future.store.id, storeLocationId: null, dealPrice: '5', validFrom: '2026-10-01', validUntil: '2026-10-07' },
+        { productId: priced.product.id, storeId: priced.store.id, storeLocationId: null, dealPrice: '5', validFrom: '2026-09-23', validUntil: '2026-09-29' },
+      ])
+      await db.insert(schema.prices).values({
+        productId: priced.product.id,
+        storeId: priced.store.id,
+        storeLocationId: null,
+        priceScope: 'CHAIN',
+        sourceType: 'OFFICIAL',
+        locationResolution: 'NOT_APPLICABLE',
+        regularPrice: '20.00',
+        unit: 'ks',
+        unitPrice: '20.00',
+        observedAt: '2026-09-24',
+        validFrom: '2026-09-24',
+      })
+      expect(await ours(ended.store.id)).toEqual([])
+      expect(await ours(future.store.id)).toEqual([])
+      expect(await ours(priced.store.id)).toEqual([])
+    } finally {
+      for (const entry of [ended, future, priced]) await cleanup(entry.store.id, entry.product.id)
+    }
   })
 })

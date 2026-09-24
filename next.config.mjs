@@ -11,6 +11,11 @@ const nextConfig = {
       // overhead. Next's 1 MB default would reject a normal phone photo before the action runs.
       bodySizeLimit: '15mb',
     },
+    // Next 16's Proxy buffers request bodies before passing them to the route/action. Its default
+    // 10 MB buffer truncated larger receipt Server Action requests even though serverActions above
+    // allowed 15 MB. That left the action with an incomplete payload and React surfaced the failure
+    // in production as minified error #441. Keep both limits aligned with the 10 MB raw-file cap.
+    proxyClientMaxBodySize: '15mb',
   },
 }
 

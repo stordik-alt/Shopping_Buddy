@@ -8,12 +8,14 @@ import { TODAY } from '@/lib/budget'
 import { getDb } from '@/lib/db/client'
 import { getProductCatalog, recordPriceObservation, restockPantryItem, toReceiptImportState, upsertProductCatalogDefaults, type ReceiptImportState } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
+import { applyConfirmedReceiptListPairs, autoCheckShoppingListFromPurchase, getReceiptListSuggestions, type ReceiptListSuggestion } from '@/lib/db/receipt-list'
 import { inferPantryLocation } from '@/lib/pantry'
 import { logReceiptImport, newReceiptTrace, redactSecrets, type ReceiptTrace } from '@/lib/receipt-log'
 import { PDF_TEXT_LAYER_PROVIDER, readPdfTextLayer } from '@/lib/receipt-pdf'
 import { detectReceiptFileType, prepareReceiptImageForOcr } from '@/lib/receipt-image'
 import { RECEIPT_STALE_MS } from '@/lib/receipt-progress'
 import { matchProductByName } from '@/lib/products'
+import type { ReceiptListPair } from '@/lib/receipt-list-match'
 import {
   azureReceiptTextExtractor,
   geminiStructuringProvider,
@@ -273,6 +275,16 @@ async function createPurchaseFromReceiptItems(
 
   await recordReceiptPriceObservations(resolvedItems, storeId, options.storeLocationId, date, options.currency)
 
+  // Tick off the shopping-list items this receipt certainly covers (same product/name), recording the
+  // real quantity and price. Best-effort by design: the purchase above is already saved and is the
+  // source of truth, so a failure here must not fail — or make the client retry — the import; it is
+  // logged so it is not silently lost, and the household can still tick the item by hand.
+  try {
+    await autoCheckShoppingListFromPurchase(householdId, purchaseRow.id)
+  } catch (error) {
+    console.error('Could not tick the shopping list from receipt purchase', purchaseRow.id, error)
+  }
+
   if (options.source === 'confirmed') {
     for (const item of resolvedItems) {
       // Always concrete for 'confirmed' items (resolved above) — the `?? 'Spíž'` here only
@@ -295,6 +307,22 @@ async function createPurchaseFromReceiptItems(
     discount: purchaseRow.discount != null ? Number(purchaseRow.discount) : undefined,
     items: itemRows.map((row) => ({ name: row.name, quantity: row.quantity, unit: row.unit, price: Number(row.price) })),
   }
+}
+
+/** Suggested (not certain) matches between a just-imported receipt and the open shopping list, for
+ *  the household to confirm. Certain matches were already ticked when the purchase was created. */
+export async function getReceiptListSuggestionsAction(purchaseId: string): Promise<ReceiptListSuggestion[]> {
+  const householdId = await requireHouseholdId()
+  return getReceiptListSuggestions(householdId, purchaseId)
+}
+
+/** Ticks the suggestions the household confirmed. Only pairs the server itself proposes are
+ *  applied, and the quantity/price written to the list come from the stored purchase. */
+export async function applyReceiptListMatchesAction(purchaseId: string, pairs: ReceiptListPair[]): Promise<{ checked: number }> {
+  const householdId = await requireHouseholdId()
+  const checked = await applyConfirmedReceiptListPairs(householdId, purchaseId, pairs)
+  revalidatePath('/')
+  return { checked }
 }
 
 /** Turns a manually-entered receipt into a real purchase, and keeps a `receipt_imports` record so

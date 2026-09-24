@@ -35,12 +35,17 @@ export async function completePurchaseAction(listId: string): Promise<{ purchase
   })
   if (doneItems.length === 0) return { purchases: [] }
 
-  for (const item of doneItems) {
+  // Items an imported receipt already ticked off were recorded as a purchase (and restocked into the
+  // pantry) by that import; recording them again would count the same trip twice. They are still
+  // removed from the list below, since the trip is over.
+  const itemsToRecord = doneItems.filter((item) => item.checkedByPurchaseId == null)
+
+  for (const item of itemsToRecord) {
     await restockPantryItem(householdId, { productId: item.productId, name: item.name, category: item.category, quantity: item.quantity, unit: item.unit })
   }
 
   const groups = new Map<string, typeof doneItems>()
-  for (const item of doneItems) {
+  for (const item of itemsToRecord) {
     const key = item.preferredStoreLocationId ?? 'none'
     groups.set(key, [...(groups.get(key) ?? []), item])
   }

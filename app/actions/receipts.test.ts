@@ -124,6 +124,20 @@ describe('importReceiptAction (manual entry)', () => {
     await expect(importReceiptAction([])).rejects.toThrow('Receipt has no items')
   })
 
+  it('ticks off the matching shopping-list item with the receipt\'s real quantity and price, and leaves the rest', async () => {
+    const [list] = await db.insert(schema.shoppingLists).values({ householdId, name: 'Test list' }).returning()
+    const [matching] = await db.insert(schema.shoppingListItems).values({ listId: list.id, name: 'Rýže', quantity: 1, price: '0' }).returning()
+    const [untouched] = await db.insert(schema.shoppingListItems).values({ listId: list.id, name: 'Vejce' }).returning()
+
+    const { purchase } = await importReceiptAction([item({ name: 'Rýže', price: 40, quantity: 2 })], { date: TEST_DATE })
+
+    const ticked = await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, matching.id) })
+    expect(ticked).toMatchObject({ done: true, quantity: 2, checkedByPurchaseId: purchase.id })
+    expect(Number(ticked?.price)).toBe(40)
+    const other = await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, untouched.id) })
+    expect(other?.done).toBe(false)
+  })
+
   it('creates a real purchase from manually-entered line items', async () => {
     const { purchase } = await importReceiptAction(
       [item({ name: 'Rýže', price: 40, quantity: 2 }), item({ name: 'Chleba', price: 25, quantity: 1 })],

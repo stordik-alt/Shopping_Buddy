@@ -70,6 +70,32 @@ describe('completePurchaseAction', () => {
     expect(await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, notDone.id) })).toBeDefined()
   })
 
+  it('does not record an item a receipt already ticked off as a second purchase, but still removes it from the list', async () => {
+    const [receiptPurchase] = await db.insert(schema.purchases).values({ householdId, date: '2026-09-20', total: '30' }).returning()
+    const [settled] = await db
+      .insert(schema.shoppingListItems)
+      .values({ listId, name: 'Z účtenky', done: true, price: '30', quantity: 1, checkedByPurchaseId: receiptPurchase.id })
+      .returning()
+    const [manual] = await db.insert(schema.shoppingListItems).values({ listId, name: 'Ručně', done: true, price: '10', quantity: 1 }).returning()
+
+    const { purchases } = await completePurchaseAction(listId)
+
+    expect(purchases).toHaveLength(1)
+    expect(purchases[0].items.map((i) => i.name)).toEqual(['Ručně'])
+    expect(purchases[0].total).toBe(10)
+    expect(await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, settled.id) })).toBeUndefined()
+    expect(await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, manual.id) })).toBeUndefined()
+  })
+
+  it('records nothing when every done item was already settled by a receipt', async () => {
+    const [receiptPurchase] = await db.insert(schema.purchases).values({ householdId, date: '2026-09-20', total: '30' }).returning()
+    await db.insert(schema.shoppingListItems).values({ listId, name: 'Z účtenky', done: true, price: '30', checkedByPurchaseId: receiptPurchase.id })
+
+    const { purchases } = await completePurchaseAction(listId)
+
+    expect(purchases).toEqual([])
+  })
+
   it('groups done items into separate purchases per preferred store', async () => {
     const storeLocation = await db.query.storeLocations.findFirst({ with: { store: true } })
     if (!storeLocation) return // no seeded store locations in this database; nothing to assert without inventing one

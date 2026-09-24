@@ -1,5 +1,10 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Price ingestion: every scheduled run is logged)
+- **Why:** the ingestion cron routes answer with a JSON body (`processed`, `recorded`, `deals`, `truncated`, `errors`…), but Vercel keeps only the request line and duration in its logs, not the body — so whether a run wrote its products, was cut short by the time budget or hit per-product errors could only be seen by calling the route by hand.
+- **What:** `lib/ingestion/cron-log.ts` logs one JSON line per source per run (`event: "price_ingest"`): status (`ok` / `truncated` / `error` / `skipped`), the run's counts, the error count and the first three errors (shortened to 200 characters and passed through `redactSecrets`). Level: `error` for a source that threw, `warn` for a truncated/skipped run or one with per-product errors, `info` for a clean one, so the log viewer's level filter finds runs that need a look. `durationMs` is the whole request. No product data is logged. Called from `handleIngestCron`; the response is unchanged.
+- **Tests:** 6 for the summary/levels (incl. that `IngestResult.skipped`, a count, is not mistaken for the "never started" variant) and 3 in the cron handler test (one line per source, truncated → warning and failed source → error, nothing logged for a rejected request).
+
 ## 2026-09-24 (Price ingestion: Košík reads more than the first 30 products of a category)
 - **What:** the connector now follows the site's own "load more" request (`POST /api/front/products/more` with `{cursor, limit: 30}`; the response is a plain product array plus the next cursor) after each category's first page. Reading is breadth first — page 1 of every sub-category, then page 2 of each — so a run that stops early still covers every aisle. Daily batch 900 → 1,800.
 - **Live dry run (no DB writes):** 2,400 products in 70 s (~81 requests), all unique, 2,354 usable, 46 rejected (canned goods priced per drained weight, as before), 288 dated promotions.

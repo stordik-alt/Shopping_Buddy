@@ -7,7 +7,7 @@ import type { IngestionSource as ProductSource } from '@/lib/ingestion/types'
 import { currentWeekStart, parseSavedPlan, type WeeklyMealPlan } from '@/lib/meal-plans'
 import { inferPantryLocation } from '@/lib/pantry'
 import type { ProductPrice } from '@/lib/prices'
-import { matchProductByName, type ProductCatalogEntry } from '@/lib/products'
+import { resolveProductForSku, type ProductCatalogEntry } from '@/lib/products'
 import { isReceiptStalled } from '@/lib/receipt-progress'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import type {
@@ -920,8 +920,10 @@ export async function loadExternalProductContext(source: ProductSource): Promise
  *  1. Already linked via `product_external_refs` (fastest, and immune to the source renaming a
  *     product slightly between runs).
  *  2. An exact/whitespace/case-insensitive name match against the existing catalog
- *     (`lib/products.ts`'s `matchProductByName()`) — the household's own "Mléko polotučné" should
- *     get this source's price attached to it, not a second duplicate product.
+ *     (`lib/products.ts`'s `resolveProductForSku()`) — the household's own "Mléko polotučné" should
+ *     get this source's price attached to it, not a second duplicate product. Except that a
+ *     product already linked to a different SKU of the same source is never reused: a source's
+ *     SKUs are distinct products even when their names are identical.
  *  3. Neither: create a new catalog product from the external data (owner decision, 2026-09-23 —
  *     the catalog only had 11 hand-seeded products, and real ingested data is how it grows).
  *  Every path ends with an external-ref row recorded, so a repeat run of the same product always
@@ -945,7 +947,8 @@ export async function resolveOrCreateProductFromExternal(
   const existingRefProductId = ctx.refs.get(product.externalId)
   if (existingRefProductId) return existingRefProductId
 
-  const matched = matchProductByName(ctx.catalog, product.name)
+  // Name match, unless that would merge two SKUs of this same source into one product.
+  const { match: matched, name: productName } = resolveProductForSku(ctx.catalog, product.name, product.externalId, new Set(ctx.refs.values()))
 
   let productId: string
   if (matched) {
@@ -955,7 +958,7 @@ export async function resolveOrCreateProductFromExternal(
     if (!categoryId) throw new Error(`Unknown product category: ${product.category}`)
     const [row] = await db
       .insert(schema.products)
-      .values({ name: product.name, categoryId, defaultUnit: product.unit })
+      .values({ name: productName, categoryId, defaultUnit: product.unit })
       .returning()
     productId = row.id
     ctx.catalog.push({ id: row.id, name: row.name, category: product.category, defaultUnit: row.defaultUnit, defaultLocation: row.defaultLocation })

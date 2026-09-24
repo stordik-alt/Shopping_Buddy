@@ -170,6 +170,8 @@ The application supports:
 
 Database operations are scoped to the authenticated household.
 
+One account belongs to exactly one household, enforced by a unique index on `household_members.user_id` (migration 0014, 2026-09-24; members without an account have a NULL `user_id` and are unaffected). The household is created on first login by `createHouseholdForUser` (`lib/db/queries.ts`), which writes the membership row last with `ON CONFLICT DO NOTHING`, so concurrent first-login requests converge on a single household instead of each creating one.
+
 Important household-related data includes:
 
 * profiles

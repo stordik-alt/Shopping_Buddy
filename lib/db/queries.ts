@@ -147,14 +147,40 @@ async function getCurrentMealPlan(householdId: string): Promise<SavedMealPlan | 
   return { weekStart: row.weekStart, budgetLimit: Number(row.budgetLimit), plan }
 }
 
-/** Creates a new household with the signed-in user as its owner (first login after sign-up, no pending invite). */
+/** The household the user is a member of, or `undefined`. One account belongs to exactly one
+ *  household (unique index `household_members_user_id_unique`, migration 0014), so no ordering is
+ *  needed. */
+async function findHouseholdForUser(userId: string) {
+  const db = getDb()
+  const member = await db.query.householdMembers.findFirst({ where: eq(schema.householdMembers.userId, userId) })
+  return member ? db.query.households.findFirst({ where: eq(schema.households.id, member.householdId) }) : undefined
+}
+
+/** Creates a new household with the signed-in user as its owner (first login after sign-up, no pending invite).
+ *
+ *  Safe against concurrent first logins: a page render and a `router.refresh()` can both find "no
+ *  membership yet" and both get here (a real browser pass produced two households for one sign-up).
+ *  The membership row is therefore written LAST and is the commit point — nobody can find the
+ *  household until it exists, so a request that loses the race never sees a half-built one — and
+ *  the unique index on `household_members.user_id` decides who won. The loser deletes the
+ *  household it just built (nothing else references it yet; children cascade) and returns the
+ *  winner's. */
 async function createHouseholdForUser(userId: string, userName: string) {
   const db = getDb()
   const [household] = await db.insert(schema.households).values({ name: `Domácnost – ${userName}` }).returning()
-  await db.insert(schema.householdMembers).values({ householdId: household.id, userId, name: userName, role: 'owner' })
   await db.insert(schema.preferences).values({ householdId: household.id })
   await db.insert(schema.shoppingLists).values({ householdId: household.id, name: 'Hlavní seznam' })
-  return household
+  const claimed = await db
+    .insert(schema.householdMembers)
+    .values({ householdId: household.id, userId, name: userName, role: 'owner' })
+    .onConflictDoNothing({ target: schema.householdMembers.userId })
+    .returning({ id: schema.householdMembers.id })
+  if (claimed.length > 0) return household
+
+  await db.delete(schema.households).where(eq(schema.households.id, household.id))
+  const winner = await findHouseholdForUser(userId)
+  if (!winner) throw new Error(`Lost the household-creation race for user ${userId} but found no household`)
+  return winner
 }
 
 /** Joins the household a pending invitation points to, as a member, marks the invitation
@@ -165,7 +191,19 @@ async function createHouseholdForUser(userId: string, userName: string) {
  *  invitation-validity checks upstream, but the join itself must not be implemented twice. */
 export async function joinHouseholdViaInvitation(userId: string, userName: string, invitation: typeof schema.invitations.$inferSelect) {
   const db = getDb()
-  await db.insert(schema.householdMembers).values({ householdId: invitation.householdId, userId, name: userName, role: 'member' })
+  // A concurrent join for the same account (two renders, a double click) hits the unique index on
+  // `household_members.user_id`; the loser must not raise a second "new member" notification, so
+  // it stops here and returns the household the account is already in.
+  const claimed = await db
+    .insert(schema.householdMembers)
+    .values({ householdId: invitation.householdId, userId, name: userName, role: 'member' })
+    .onConflictDoNothing({ target: schema.householdMembers.userId })
+    .returning({ id: schema.householdMembers.id })
+  if (claimed.length === 0) {
+    const existing = await findHouseholdForUser(userId)
+    if (!existing) throw new Error(`Join for user ${userId} conflicted but found no household`)
+    return existing
+  }
   await db.update(schema.invitations).set({ status: 'accepted' }).where(eq(schema.invitations.id, invitation.id))
   await db.insert(schema.notifications).values({
     householdId: invitation.householdId,

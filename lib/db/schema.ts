@@ -72,7 +72,10 @@ export const householdMembers = pgTable(
     joinedAt: timestamp('joined_at').notNull().defaultNow(),
   },
   // Looked up by userId on every authenticated request (lib/auth/authorize.ts's requireHousehold()) — the single hottest query in the app.
-  (table) => [index('household_members_user_id_idx').on(table.userId)],
+  // Unique: one account belongs to exactly one household (migration 0014). Concurrent first-login
+  // renders raced past an application-level "no membership yet" check and created several
+  // households; the database now decides the race. NULL user_ids (profile-only members) stay allowed.
+  (table) => [uniqueIndex('household_members_user_id_unique').on(table.userId)],
 )
 
 // A pending (or resolved) invite for someone to join a household. Token-based join link

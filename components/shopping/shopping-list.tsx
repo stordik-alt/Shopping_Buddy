@@ -4,7 +4,9 @@ import type { GpsCoords } from '@/lib/geo'
 import type { Item, ItemCategory, ItemPriority, ItemUnit, Store, StoreChain } from '@/lib/types'
 import { money } from '@/lib/format'
 import { comparePrices, type ProductPrice } from '@/lib/prices'
+import { searchProductsAction } from '@/app/actions/product-search'
 import { PriceComparison } from '@/components/shopping/price-comparison'
+import { ProductSearch } from '@/components/shopping/product-search'
 import { StoreComparison } from '@/components/shopping/store-comparison'
 
 const CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
@@ -76,6 +78,10 @@ export function ShoppingList({
   const [group, setGroup] = useState<GroupKey>('Bez seskupení')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [filtersOpen, setFiltersOpen] = useState(false)
+  // Product search: one panel above the list (any product), or one under a single item (prefilled
+  // with its name). Never both at once, so the screen does not fill up with search panels.
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchItemId, setSearchItemId] = useState<string | null>(null)
 
   const filteredItems = items.filter(
     (item) =>
@@ -139,6 +145,25 @@ export function ShoppingList({
             <Plus className="h-4 w-4" aria-hidden="true" /> Přidat
           </button>
         </div>
+      </div>
+
+      <div>
+        <button
+          type="button"
+          aria-expanded={searchOpen}
+          onClick={() => {
+            setSearchOpen((open) => !open)
+            setSearchItemId(null)
+          }}
+          className="flex min-h-11 items-center gap-2 rounded-xl px-2 text-sm font-medium text-primary hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Search className="h-4 w-4" aria-hidden="true" /> {searchOpen ? 'Skrýt hledání produktů' : 'Hledat produkty v obchodech'}
+        </button>
+        {searchOpen && (
+          <div className="mt-2">
+            <ProductSearch search={searchProductsAction} />
+          </div>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-2" role="tablist" aria-label="Nákupní seznamy">
@@ -430,6 +455,22 @@ export function ShoppingList({
                       >
                         <X className="h-4 w-4" aria-hidden="true" /> Odstranit z nákupu
                       </button>
+                      <button
+                        type="button"
+                        aria-expanded={searchItemId === item.id}
+                        onClick={() => {
+                          setSearchItemId((current) => (current === item.id ? null : item.id))
+                          setSearchOpen(false)
+                        }}
+                        className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-border px-3 text-xs font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <Search className="h-4 w-4" aria-hidden="true" /> Najít v obchodech
+                      </button>
+                      {searchItemId === item.id && (
+                        <div className="sm:col-span-2">
+                          <ProductSearch initialQuery={item.name} category={item.category} search={searchProductsAction} />
+                        </div>
+                      )}
                       {comparePrices(productPrices, item.name) && (
                         <div className="sm:col-span-2">
                           <PriceComparison productName={item.name} productPrices={productPrices} />

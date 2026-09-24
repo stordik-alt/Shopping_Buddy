@@ -1,81 +1,34 @@
 'use client'
 
-import { ArrowRight, Banknote, ShoppingBasket } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import styles from './intro-screen.module.css'
-
-function BuddyRobot() {
-  return (
-    <div className={styles.robotWrap} aria-hidden="true">
-      <div className={styles.robotGlow} />
-      <div className={styles.robot}>
-        <div className={styles.cap}>
-          <div className={styles.capTop} />
-          <div className={styles.capBrim} />
-        </div>
-        <div className={styles.head}>
-          <div className={styles.ear} />
-          <div className={styles.face}>
-            <span className={styles.eye} />
-            <span className={styles.eye} />
-            <span className={styles.mouth} />
-          </div>
-        </div>
-        <div className={styles.neck} />
-        <div className={styles.torso}>
-          <div className={styles.chestLight} />
-          <div className={styles.chestLine} />
-        </div>
-        <div className={styles.armLeft}>
-          <div className={styles.hand} />
-          <div className={styles.basket}>
-            <div className={styles.basketHandle} />
-            <div className={styles.basketBody}>
-              <span>🥖</span><span>🥛</span><span>🍎</span>
-            </div>
-          </div>
-        </div>
-        <div className={styles.armRight}>
-          <div className={styles.hand} />
-          <div className={styles.money}>
-            <Banknote />
-            <span>100 Kč</span>
-          </div>
-        </div>
-        <div className={styles.legLeft} />
-        <div className={styles.legRight} />
-      </div>
-    </div>
-  )
-}
 
 export function IntroScreen() {
   const router = useRouter()
 
   return (
     <main className={styles.screen}>
-      <div className={styles.backgroundOrb} />
       <div className={styles.content}>
-        <div className={styles.hero}>
-          <BuddyRobot />
+        <div className={styles.hero} aria-hidden="true">
+          <img
+            className={styles.heroImage}
+            src="/buddy-intro/robot.webp"
+            alt=""
+            draggable={false}
+          />
         </div>
 
-        <div className={styles.copy}>
-          <div className={styles.brandMark}>
-            <ShoppingBasket aria-hidden="true" />
-            <span>Buddy</span>
-          </div>
-          <h1>Chytrý nákupní asistent</h1>
-          <p>pro vaši domácnost</p>
-        </div>
+        <section className={styles.copy} aria-labelledby="buddy-intro-title">
+          <h1 id="buddy-intro-title">Buddy</h1>
+          <p>Chytrý nákupní asistent pro vaši domácnost</p>
+        </section>
 
         <button
           type="button"
           className={styles.continueButton}
           onClick={() => router.push('/auth/sign-in')}
         >
-          <span>Pokračovat na přihlášení</span>
-          <ArrowRight aria-hidden="true" />
+          Pokračovat na přihlášení
         </button>
       </div>
     </main>

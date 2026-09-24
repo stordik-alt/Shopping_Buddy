@@ -14,7 +14,7 @@ export const invitationStatusEnum = pgEnum('invitation_status', ['pending', 'acc
 export const pantryLocationEnum = pgEnum('pantry_location', ['Spíž', 'Lednice', 'Mrazák', 'Domácnost', 'Lékárnička', 'Drogérka'])
 // External price-ingestion sources (docs/32 "Internet Data Integration"). One entry per retailer
 // connector actually implemented — starts with just Lidl.
-export const productSourceEnum = pgEnum('product_source', ['lidl', 'billa', 'penny', 'dm'])
+export const productSourceEnum = pgEnum('product_source', ['lidl', 'billa', 'penny', 'dm', 'rohlik'])
 export const priceScopeEnum = pgEnum('price_scope', ['STORE', 'STORE_FORMAT', 'REGION', 'CHAIN'])
 export const priceSourceTypeEnum = pgEnum('price_source_type', ['RECEIPT', 'OFFICIAL', 'FLYER', 'API', 'OTHER'])
 export const priceLocationResolutionEnum = pgEnum('price_location_resolution', ['UNKNOWN', 'RESOLVED', 'NOT_APPLICABLE'])
@@ -187,6 +187,10 @@ export const productExternalRefs = pgTable(
 export const stores = pgTable('stores', {
   id: uuid('id').primaryKey().defaultRandom(),
   chain: text('chain').notNull().unique(),
+  // True for a retailer with no physical branches (delivery only, e.g. Rohlík). Such a chain has no
+  // `store_locations` rows — inventing one would break "do not invent store locations" — so its prices
+  // are chain-wide (CHAIN scope) and its deals carry `store_id` with no location.
+  isOnline: boolean('is_online').notNull().default(false),
 })
 
 // A physical branch of a store chain.
@@ -273,12 +277,19 @@ export const prices = pgTable('prices', {
 export const deals = pgTable('deals', {
   id: uuid('id').primaryKey().defaultRandom(),
   productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
-  storeLocationId: uuid('store_location_id').notNull().references(() => storeLocations.id, { onDelete: 'cascade' }),
+  // The chain the promotion belongs to. Always set; `storeLocationId` narrows it to a branch and is
+  // null for an online-only chain, which has none.
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  storeLocationId: uuid('store_location_id').references(() => storeLocations.id, { onDelete: 'cascade' }),
   dealPrice: numeric('deal_price', { precision: 10, scale: 2 }).notNull(),
   currency: text('currency').notNull().default('CZK'),
   validFrom: date('valid_from').notNull(),
   validUntil: date('valid_until').notNull(),
-})
+}, (table) => [
+  // Same guard as member_stores: when a branch is named it must be a branch of `store_id`. MATCH
+  // SIMPLE — a NULL `store_location_id` (an online chain's deal) skips the check.
+  foreignKey({ columns: [table.storeLocationId, table.storeId], foreignColumns: [storeLocations.id, storeLocations.storeId] }).onDelete('cascade'),
+])
 
 // --- Shopping lists ----------------------------------------------------------
 
@@ -536,6 +547,7 @@ export const pricesRelations = relations(prices, ({ one }) => ({
 
 export const dealsRelations = relations(deals, ({ one }) => ({
   product: one(products, { fields: [deals.productId], references: [products.id] }),
+  store: one(stores, { fields: [deals.storeId], references: [stores.id] }),
   storeLocation: one(storeLocations, { fields: [deals.storeLocationId], references: [storeLocations.id] }),
 }))
 

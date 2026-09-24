@@ -104,6 +104,7 @@ async function main() {
       if (price.dealPrice && price.dealValidUntil) {
         await db.insert(schema.deals).values({
           productId,
+          storeId: storeIdByChain.get(price.store)!,
           storeLocationId,
           dealPrice: price.dealPrice.toString(),
           validFrom: price.recordedAt,

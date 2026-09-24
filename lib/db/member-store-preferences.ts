@@ -9,10 +9,11 @@ import { EMPTY_STORE_SELECTION, normalizeStoreSelection, type StoreSelection } f
 // here trusts a client-supplied member id.
 
 /** Every store chain, for the picker — including chains that have no branch in the directory yet
- *  (e.g. dm), which `getStores()` (branch-based) cannot list. */
-export async function getStoreChains(): Promise<{ id: string; chain: string }[]> {
+ *  (e.g. dm) and online-only chains (`isOnline`, e.g. Rohlík), which `getStores()` (branch-based)
+ *  cannot list. */
+export async function getStoreChains(): Promise<{ id: string; chain: string; isOnline: boolean }[]> {
   const db = getDb()
-  const rows = await db.select({ id: schema.stores.id, chain: schema.stores.chain }).from(schema.stores)
+  const rows = await db.select({ id: schema.stores.id, chain: schema.stores.chain, isOnline: schema.stores.isOnline }).from(schema.stores)
   return rows.sort((a, b) => a.chain.localeCompare(b.chain, 'cs'))
 }
 

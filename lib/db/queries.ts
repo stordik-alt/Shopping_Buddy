@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, ilike, inArray, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, ilike, inArray, isNull, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { TODAY } from '@/lib/budget'
@@ -643,7 +643,11 @@ export async function getProductPrices(): Promise<ProductPrice[]> {
       }
 
       const activeDealByLocation = new Map(
-        product.deals.filter((deal) => deal.validUntil >= TODAY).map((deal) => [deal.storeLocationId, deal]),
+        product.deals.filter((deal) => deal.validUntil >= TODAY && deal.storeLocationId).map((deal) => [deal.storeLocationId, deal]),
+      )
+      // An online-only chain's deals have no branch; they belong to the chain's chain-wide price.
+      const activeChainDealByStore = new Map(
+        product.deals.filter((deal) => deal.validUntil >= TODAY && !deal.storeLocationId).map((deal) => [deal.storeId, deal]),
       )
 
       return {
@@ -651,7 +655,11 @@ export async function getProductPrices(): Promise<ProductPrice[]> {
         category: product.category.name,
         prices: Array.from(observationsByContext.values()).map((observations) => {
           const price = observations[observations.length - 1]
-          const deal = price.storeLocationId ? activeDealByLocation.get(price.storeLocationId) : undefined
+          const deal = price.storeLocationId
+            ? activeDealByLocation.get(price.storeLocationId)
+            : price.priceScope === 'CHAIN'
+              ? activeChainDealByStore.get(price.storeId)
+              : undefined
           return {
             store: price.store.chain,
             storeId: price.storeId,
@@ -991,10 +999,16 @@ export async function touchExternalRefs(source: ProductSource, externalIds: stri
 /** Resolves a seeded store chain (e.g. 'Lidl') to its `stores.id` — the chain-level key the price
  *  observation model needs for CHAIN-scope prices, which deliberately carry no physical branch. */
 export async function getStoreIdByChain(chain: string): Promise<string> {
+  return (await getStoreByChain(chain)).id
+}
+
+/** A seeded store chain with whether it is online-only (no physical branches, so its deals carry no
+ *  branch). */
+export async function getStoreByChain(chain: string): Promise<{ id: string; isOnline: boolean }> {
   const db = getDb()
   const storeRow = await db.query.stores.findFirst({ where: eq(schema.stores.chain, chain) })
   if (!storeRow) throw new Error(`No seeded store for chain: ${chain}`)
-  return storeRow.id
+  return { id: storeRow.id, isOnline: storeRow.isOnline }
 }
 
 export async function getCanonicalStoreLocationId(chain: string): Promise<string> {
@@ -1014,7 +1028,10 @@ export async function getCanonicalStoreLocationId(chain: string): Promise<string
  *  silently overwrite historical price information") — only the *active* row is touched. */
 export async function upsertActiveDeal(deal: {
   productId: string
-  storeLocationId: string
+  /** The chain the promotion belongs to. */
+  storeId: string
+  /** The branch it applies at; null for an online-only chain, whose deals have none. */
+  storeLocationId: string | null
   dealPrice: number
   currency?: string
   validFrom: string
@@ -1022,7 +1039,12 @@ export async function upsertActiveDeal(deal: {
 }) {
   const db = getDb()
   const existing = await db.query.deals.findFirst({
-    where: and(eq(schema.deals.productId, deal.productId), eq(schema.deals.storeLocationId, deal.storeLocationId), sql`${schema.deals.validUntil} >= ${TODAY}`),
+    where: and(
+      eq(schema.deals.productId, deal.productId),
+      eq(schema.deals.storeId, deal.storeId),
+      deal.storeLocationId ? eq(schema.deals.storeLocationId, deal.storeLocationId) : isNull(schema.deals.storeLocationId),
+      sql`${schema.deals.validUntil} >= ${TODAY}`,
+    ),
   })
   if (existing) {
     await db
@@ -1032,6 +1054,7 @@ export async function upsertActiveDeal(deal: {
   } else {
     await db.insert(schema.deals).values({
       productId: deal.productId,
+      storeId: deal.storeId,
       storeLocationId: deal.storeLocationId,
       dealPrice: deal.dealPrice.toString(),
       currency: deal.currency ?? 'CZK',

@@ -65,17 +65,16 @@ export async function searchProductHits(tokens: string[], options: { storeIds?: 
     .filter((hit) => hit.score > 0)
 }
 
-/** Active promotions (the same "active" rule the rest of the app uses) at any branch of a chain,
- *  keyed by `productId|storeId`. */
+/** Active promotions (the same "active" rule the rest of the app uses) of a chain, at any branch or
+ *  chain-wide (an online-only chain's deals have no branch), keyed by `productId|storeId`. */
 async function loadActiveDeals(productIds: string[]): Promise<Map<string, DealRow>> {
   if (productIds.length === 0) return new Map()
   const db = getDb()
   const dealRows = await db.execute<DealRow>(sql`
-    SELECT d.product_id, l.store_id, min(d.deal_price) AS deal_price, max(d.valid_until) AS valid_until
+    SELECT d.product_id, d.store_id, min(d.deal_price) AS deal_price, max(d.valid_until) AS valid_until
     FROM deals d
-    JOIN store_locations l ON l.id = d.store_location_id
     WHERE d.valid_until >= ${TODAY}::date AND d.product_id IN (${sql.join(productIds.map((id) => sql`${id}::uuid`), sql`, `)})
-    GROUP BY d.product_id, l.store_id
+    GROUP BY d.product_id, d.store_id
   `)
   return new Map(dealRows.rows.map((row) => [`${row.product_id}|${row.store_id}`, row]))
 }

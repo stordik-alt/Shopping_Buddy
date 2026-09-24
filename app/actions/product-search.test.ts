@@ -67,7 +67,7 @@ beforeAll(async () => {
   await addPrice(milkId, albertId, 26.9, 26.9, '2026-09-24')
   await addPrice(cheeseId, lidlId, 39.9, 199.5, '2026-09-24', 'kg')
   // An active promotion on the milk at Lidl.
-  await db.insert(schema.deals).values({ productId: milkId, storeLocationId: lidlLocationId, dealPrice: '19.9', validFrom: '2026-09-01', validUntil: '2099-01-01' })
+  await db.insert(schema.deals).values({ productId: milkId, storeId: lidlId, storeLocationId: lidlLocationId, dealPrice: '19.9', validFrom: '2026-09-01', validUntil: '2099-01-01' })
 
   const result = await db.execute<{ id: string }>(sql`insert into neon_auth."user" (name, email, "emailVerified") values ('Hledání', ${`search-test-${crypto.randomUUID()}@example.com`}, false) returning id`)
   userId = result.rows[0].id

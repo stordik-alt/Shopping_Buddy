@@ -146,6 +146,24 @@ describe('R2 store', () => {
     expect(await r2ObjectDigest(`receipts/${HOUSEHOLD}/${OTHER}.jpg`)).toBeNull()
   })
 
+  it('ignores whitespace pasted around the configuration values', async () => {
+    const { requests } = stubR2()
+    process.env.STORAGE_PROVIDER = 'r2'
+    process.env.R2_BUCKET_NAME = 'receipts-test\n'
+    process.env.R2_ACCOUNT_ID = ' acc123 '
+    process.env.R2_ACCESS_KEY_ID = 'test-access-key\r\n'
+    const ref = await putReceiptFile(HOUSEHOLD, JPEG, { extension: 'jpg', mimeType: 'image/jpeg' })
+    expect(requests[0].url).toBe(`https://acc123.r2.cloudflarestorage.com/receipts-test/${ref.slice(3)}`)
+    expect(requests[0].headers.get('authorization')).toContain('Credential=test-access-key/')
+  })
+
+  it('treats a whitespace-only value as missing', async () => {
+    stubR2()
+    process.env.STORAGE_PROVIDER = 'r2'
+    process.env.R2_BUCKET_NAME = '  \n'
+    await expect(putReceiptFile(HOUSEHOLD, JPEG, { extension: 'jpg', mimeType: 'image/jpeg' })).rejects.toThrow('Missing: R2_BUCKET_NAME')
+  })
+
   it('encodes key segments but keeps the separators', () => {
     expect(r2ObjectUrl({ accountId: 'a', bucket: 'b' }, 'receipts/x y/z.jpg')).toBe('https://a.r2.cloudflarestorage.com/b/receipts/x%20y/z.jpg')
   })

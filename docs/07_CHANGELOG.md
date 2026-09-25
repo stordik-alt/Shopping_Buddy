@@ -1,5 +1,10 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (R2: trim pasted configuration values)
+- **Problem:** the first production upload to R2 failed with `InvalidBucketName` — `R2_BUCKET_NAME` had been saved in Vercel with a trailing newline (`shoppingbuddyprod\n`). The failure was logged (`receipt_upload_failed`) and the user got the "Fotografii se nepodařilo uložit…" message; nothing was stored.
+- **Fix:** `lib/storage/r2.ts` trims all four `R2_*` values; a whitespace-only value counts as missing. `STORAGE_PROVIDER` was already trimmed. The Vercel value should still be corrected.
+- **Tests:** 2 new (padded values produce the right endpoint, bucket and credential; whitespace-only is reported as missing) — 14 storage tests pass.
+
 ## 2026-09-25 (Receipt files: Vercel Blob → Cloudflare R2, behind a switch)
 - **Why:** the Vercel Blob store is over its usage limit, which suspends receipt upload and viewing.
 - **What:** `lib/storage/` is the only place that touches file storage (`putReceiptFile`/`getReceiptFile`/`deleteReceiptFile`); `app/actions/receipts.ts` and `/api/receipts/[id]/image` use it. `STORAGE_PROVIDER=r2` sends new uploads to R2 (S3 API signed with the new dependency `aws4fetch`); unset keeps Vercel Blob. `image_url` holds a storage reference (`https://…` Blob, `r2:<key>` R2), so old receipts keep reading from Blob and no migration is needed. R2 keys are validated (`receipts/{uuid}/{uuid}.{ext}`). A failed file delete on cancel is now logged. `pnpm db:migrate-blob-to-r2` copies old receipts (dry run, verify by SHA-256, idempotent, rollback log, never deletes Blob). Guide: `docs/cloudflare-r2.md`.

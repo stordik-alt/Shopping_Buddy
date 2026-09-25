@@ -44,7 +44,7 @@ describe('parseOsmBranches', () => {
     const base = { 'addr:street': 'Ulice', 'addr:housenumber': '1', 'addr:city': 'Plzeň' }
     const { branches } = parseOsmBranches([
       shop(5, { brand: 'PENNY', name: 'PENNY', ...base }),
-      shop(6, { brand: 'Globus', ...base }),
+      shop(6, { brand: 'COOP', ...base }),
       shop(7, { brand: 'Lidl', ...base, shop: 'vacant' }),
       shop(8, { brand: 'dm', ...base, shop: 'chemist' }),
     ])

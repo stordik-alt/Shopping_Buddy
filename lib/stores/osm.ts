@@ -15,6 +15,7 @@ export const OSM_BRAND_TO_CHAIN: Record<string, string> = {
   albert: 'Albert',
   billa: 'Billa',
   dm: 'dm',
+  globus: 'Globus',
   jip: 'JIP',
   kaufland: 'Kaufland',
   lidl: 'Lidl',

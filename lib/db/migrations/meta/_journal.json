@@ -197,6 +197,13 @@
       "when": 1790332969385,
       "tag": "0027_store_location_import",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1790340118523,
+      "tag": "0028_product_source_globus",
+      "breakpoints": true
     }
   ]
 }

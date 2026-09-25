@@ -4,7 +4,7 @@ import { buildAddressQuery, buildShopQuery, hasOwnAddress } from '@/lib/stores/o
 describe('overpass queries', () => {
   it('asks for every chain the app knows, case-insensitively, within Czechia', () => {
     const query = buildShopQuery()
-    expect(query).toContain('"brand"~"^(albert|billa|dm|jip|kaufland|lidl|penny|tesco)$",i')
+    expect(query).toContain('"brand"~"^(albert|billa|dm|globus|jip|kaufland|lidl|penny|tesco)$",i')
     expect(query).toContain('area["ISO3166-1"="CZ"]')
   })
 

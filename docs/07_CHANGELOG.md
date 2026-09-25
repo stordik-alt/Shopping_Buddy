@@ -1,5 +1,9 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Globus flyer offers)
+- **What:** `lib/ingestion/globus.ts` imports the offers of Globus's national weekly flyers from the per-page JSON its own flyer viewer loads (barcode, name, size, offer and regular price, unit price, validity dates) — no OCR, no AI. Food and household chemistry only; the members-only club price, ended offers and ambiguous unit prices are rejected. Deals are chain-wide (`chainWideDeals`) since a national flyer holds at every hypermarket. Migration `0028` adds the `globus` source and the Globus chain; daily cron at 06:00 UTC; `globus` added to the OpenStreetMap branch import and to `pnpm db:backfill-prices`.
+- **Checked:** live dry run 1,062 offers → 744 usable deals; the analysis of the rejected ones found two bugs before anything was written (the fresh counter's group code is the string "null", and its items have short internal codes instead of an EAN) — both fixed and covered by tests. 16 connector tests.
+
 ## 2026-09-25 (Receipts: "Vyfotit účtenku" and "Nahrát z galerie nebo PDF")
 - **Why:** one button did both. With PDF in its `accept`, Android shows a camera/files/gallery chooser and ignores `capture`, so a gallery photo could be HEIC, which neither Chrome on Android nor the OCR can read.
 - **What:** "Vyfotit účtenku" (`accept="image/jpeg"`, `capture="environment"`) opens the camera directly — a camera started by another app returns a JPEG even when the phone saves its own photos as HEIF. "Nahrát z galerie nebo PDF" takes an existing photo or an e-receipt; HEIC still gets the clear message from the previous fix, and iOS keeps converting to JPEG itself.

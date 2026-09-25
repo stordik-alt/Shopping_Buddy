@@ -18,6 +18,10 @@
     // OpenNext calls the Worker itself through this binding; the service name must equal "name".
     { "binding": "WORKER_SELF_REFERENCE", "service": "shopping-buddy" }
   ],
+  // Next's data cache (open-next.config.ts). Holds only rebuildable cache entries, never user files:
+  // receipts stay in their own private bucket, reached over the S3 API (docs/cloudflare-r2.md).
+  // Create once: `pnpm exec wrangler r2 bucket create shopping-buddy-next-cache`.
+  "r2_buckets": [{ "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "shopping-buddy-next-cache" }],
   // Variables set in the Cloudflare dashboard are kept on deploy instead of being wiped.
   "keep_vars": true,
   "vars": {
@@ -65,6 +69,9 @@
     "staging": {
       "name": "shopping-buddy-staging",
       "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "shopping-buddy-staging" }],
+      // Bindings are not inherited by environments. A separate bucket keeps staging from serving or
+      // overwriting production's cached prices.
+      "r2_buckets": [{ "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "shopping-buddy-next-cache-staging" }],
       "vars": { "STORAGE_PROVIDER": "r2" },
       "triggers": { "crons": [] }
     }

@@ -1,6 +1,6 @@
 # Cloudflare Migration — Status
 
-**Last updated:** 2026-09-25
+**Last updated:** 2026-09-26
 **Current phase:** Phases 2–3 (storage layer + R2) **live in production** since 2026-09-25 (new receipt uploads go to R2) · old Blob receipts not yet copied
 **Production:** Vercel (unchanged). No Cloudflare resource has been created or changed by Claude.
 
@@ -18,8 +18,8 @@
 | 1. Audit | ✅ Done — `docs/cloudflare-migration-audit.md` |
 | 2. Storage abstraction | ✅ Code + unit tests — `lib/storage/` |
 | 3. Vercel Blob → R2 | ✅ New uploads on R2 in production (owner-confirmed 2026-09-25); R2 is the code default (no `STORAGE_PROVIDER` needed); 🟡 copying old Blob receipts pending |
-| 4. Provider-neutral application | 🟡 **Prepared** (PR #83, merged; nothing switched; branch `cloudflare-migration-prep` kept): OpenNext build, Worker entry with crons, `sharp` shim, self-signed GCP OIDC, analytics switch — `docs/cloudflare-deployment.md` |
-| 5. Cloudflare staging | ⏸ Runbook ready (`docs/cloudflare-deployment.md` §8); needs Workers Paid + secrets |
+| 4. Provider-neutral application | 🟡 **Prepared** (PR #83, merged; nothing switched): OpenNext build, Worker entry with crons, `sharp` shim, self-signed GCP OIDC, analytics switch, writable R2 data cache (2026-09-26) — `docs/cloudflare-deployment.md` |
+| 5. Cloudflare staging | ⏸ Runbook ready (`docs/cloudflare-deployment.md` §8); needs Workers Paid, the two data-cache buckets and secrets |
 | 6. Full testing | — Out of current scope |
 | 7. Production cutover | — Out of current scope |
 | 8. Rollback window | — Out of current scope |
@@ -134,6 +134,20 @@ branch. Result, verified with placeholder secrets in the cloud session (details:
   and the `scheduled()` → cron route → Neon query chain all work.
 - Vercel build unchanged; 817 unit tests pass.
 - Not verified: anything needing real secrets (auth, DB pages, upload/OCR on workerd, CPU time).
+
+## PREPARATION REFRESH (2026-09-26)
+
+Checked against `main` after PRs #84–#99 (Web Push, offline list, pantry, cached reads):
+
+- CI job `cloudflare` green on `main`; Worker 4.5 MiB gzip (was 4.2).
+- New code is Worker-compatible: Web Push uses WebCrypto and `fetch`; `after()` is supported by
+  OpenNext; the pantry cron is in `wrangler.jsonc` (guarded by `cloudflare/cron.test.ts`).
+- Gap fixed: the prepared build had a read-only cache, so `lib/db/cached-reads.ts` would run
+  uncached on Cloudflare. Now OpenNext's R2 incremental cache (`NEXT_INC_CACHE_R2_BUCKET`).
+- `pnpm cf:build` now runs from Windows shells; OpenNext bundling there needs WSL or Developer Mode.
+
+Still owner-side before staging: Workers Paid, `wrangler login`, the two data-cache buckets, a
+custom domain in front of Vercel (the biggest step toward an easy cutover, runbook risk 4).
 
 ## PRODUCTION LOG
 

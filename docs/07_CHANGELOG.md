@@ -1,5 +1,13 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-26 (Cloudflare preparation refreshed; nothing migrated)
+- **Why:** the owner wants the project ready for a later move from Vercel to Cloudflare. The OpenNext Worker build from PR #83 still passes on current `main` (CI job `cloudflare`, 4.5 MiB gzip), but its read-only cache would have left `lib/db/cached-reads.ts` uncached on Cloudflare, so every render would read prices again from Neon.
+- **What:**
+  - `open-next.config.ts` uses OpenNext's R2 incremental cache. `wrangler.jsonc` binds `NEXT_INC_CACHE_R2_BUCKET` to `shopping-buddy-next-cache` (staging: `shopping-buddy-next-cache-staging`). The buckets are not created yet.
+  - `pnpm cf:build` sets `BUILD_TARGET` through `dotenv-cli`, so it also runs from Windows shells. OpenNext's bundling still needs symlinks there (WSL or Developer Mode, `docs/cloudflare-deployment.md`).
+- **Vercel:** unchanged. Nothing is deployed to Cloudflare.
+- **Tests:** `cloudflare/` tests pass; `tsc` clean. The full OpenNext build runs in CI (Linux).
+
 ## 2026-09-26 (Less database transfer per page render)
 - **What:** `getHouseholdData` (every page render and refresh) now reads less:
   - Pending receipt imports are filtered by status in the database. Before, every OCR receipt ever imported, with its OCR text, was loaded and filtered in code.

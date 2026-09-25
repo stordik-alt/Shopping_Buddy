@@ -114,3 +114,28 @@ export function normalizeStoreSelection(
     maxShopStores: normalizeMaxShopStores(input.maxShopStores),
   }
 }
+
+// A chain can have hundreds of branches (the OpenStreetMap import, lib/stores/osm.ts), too many to
+// list in the profile at once: the list shows the picked ones and then a limited number of matches.
+export const BRANCH_LIST_LIMIT = 20
+
+const searchable = (text: string) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+
+/** The branches to show in a chain's branch list: every picked one first (so a choice never
+ *  disappears from view), then those whose name, address or city contains every word of `query` —
+ *  ignoring case and diacritics, so "plzen" finds "Plzeň" — up to BRANCH_LIST_LIMIT in total.
+ *  `total` is how many match, for "20 z 143". Pure/testable. */
+export function visibleBranches<T extends { id: string; name: string; address: string; city: string }>(
+  branches: T[],
+  query: string,
+  pickedIds: string[],
+): { shown: T[]; total: number } {
+  const words = searchable(query).split(/\s+/).filter(Boolean)
+  const matches = (branch: T) => {
+    const haystack = searchable(`${branch.name} ${branch.address} ${branch.city}`)
+    return words.every((word) => haystack.includes(word))
+  }
+  const picked = branches.filter((branch) => pickedIds.includes(branch.id))
+  const others = branches.filter((branch) => !pickedIds.includes(branch.id) && matches(branch))
+  return { shown: [...picked, ...others].slice(0, Math.max(BRANCH_LIST_LIMIT, picked.length)), total: picked.length + others.length }
+}

@@ -2,6 +2,7 @@
   "crons": [
     { "path": "/api/cron/shopping-reminders", "schedule": "0 8 * * *" },
     { "path": "/api/cron/pantry-checkin", "schedule": "0 9 * * *" },
+    { "path": "/api/cron/import-stores", "schedule": "0 3 * * 1" },
     { "path": "/api/cron/ingest-prices/lidl", "schedule": "0 5 * * *" },
     { "path": "/api/cron/ingest-prices/billa", "schedule": "10 5 * * *" },
     { "path": "/api/cron/ingest-prices/billa/2", "schedule": "10 13 * * *" },

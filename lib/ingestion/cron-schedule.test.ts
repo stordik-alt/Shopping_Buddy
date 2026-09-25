@@ -28,6 +28,7 @@ describe('price ingestion cron schedule', () => {
   })
 
   it('schedules each entry at most once a day (the Hobby plan limit)', () => {
-    for (const { schedule } of crons) expect(schedule).toMatch(/^\d{1,2} \d{1,2} \* \* \*$/)
+    // A fixed minute and hour; daily, or on one day of the month or week (the store import).
+    for (const { schedule } of crons) expect(schedule).toMatch(/^\d{1,2} \d{1,2} (\*|\d{1,2}) \* (\*|[0-6])$/)
   })
 })

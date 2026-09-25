@@ -1,0 +1,22 @@
+import { importOsmStores } from '@/lib/db/store-directory'
+
+// Imports the store chains' branches from OpenStreetMap (lib/db/store-directory.ts). The same
+// import runs weekly as the cron /api/cron/import-stores; this is for the first fill and for
+// checking what an import would do. Dry run by default — prints the plan and writes nothing.
+//   pnpm db:import-stores           (dry run)
+//   pnpm db:import-stores --apply   (writes to the database in .env.local)
+async function main() {
+  const apply = process.argv.includes('--apply')
+  console.log(apply ? 'Store import — WRITING to the database in .env.local' : 'Store import dry run — nothing is written (pass --apply to write)')
+  const report = await importOsmStores({ apply })
+  console.log(`Found ${report.found} branches with a usable address:`)
+  for (const [chain, count] of Object.entries(report.perChain).sort((a, b) => b[1] - a[1])) console.log(`  ${chain.padEnd(10)} ${count}`)
+  console.log(`New ${report.inserted}, updated ${report.updated}, existing branches adopted ${report.adopted}, unchanged ${report.unchanged}`)
+  console.log(`Rejected: ${report.rejected['no-address']} without an address in the map, ${report.rejected['outside-cz']} outside Czechia; chain not in the app: ${report.unknownChain}`)
+  console.log(`Imported earlier but no longer on the map (kept): ${report.notSeen}`)
+}
+
+main().then(() => process.exit(0)).catch((err) => {
+  console.error(err instanceof Error ? err.message : err)
+  process.exit(1)
+})

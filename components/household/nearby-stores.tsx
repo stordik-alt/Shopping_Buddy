@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Check, ChevronDown, Loader2, MapPin, Star } from 'lucide-react'
+import { Check, ChevronDown, Loader2, MapPin, Search, Star } from 'lucide-react'
 import { storeCountLabel } from '@/lib/format'
-import { MAX_DISTANCE_KM, MAX_SHOP_STORES, normalizeDistanceKm, parseDistanceInput, type StoreSelection } from '@/lib/nearby-stores'
+import { MAX_DISTANCE_KM, MAX_SHOP_STORES, normalizeDistanceKm, parseDistanceInput, visibleBranches, type StoreSelection } from '@/lib/nearby-stores'
 import type { Store } from '@/lib/types'
 
 const QUICK_DISTANCES_KM = [0.5, 1, 2, 5, 10]
@@ -32,6 +32,7 @@ export function NearbyStores({
   const [maxStoresText, setMaxStoresText] = useState(selection.maxShopStores != null ? String(selection.maxShopStores) : '')
   const [distanceText, setDistanceText] = useState(selection.maxDistanceKm != null ? String(selection.maxDistanceKm).replace('.', ',') : '')
   const [openChain, setOpenChain] = useState<string | null>(null)
+  const [branchQuery, setBranchQuery] = useState('')
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [error, setError] = useState('')
 
@@ -167,12 +168,16 @@ export function NearbyStores({
                 const branches = branchesByChain.get(id) ?? []
                 const pickedCount = branches.filter((store) => locationIds.includes(store.id)).length
                 const expanded = openChain === id
+                const { shown, total } = expanded ? visibleBranches(branches, branchQuery, locationIds) : { shown: [], total: 0 }
                 return (
                   <div key={id} className="rounded-2xl border border-border">
                     <button
                       type="button"
                       aria-expanded={expanded}
-                      onClick={() => setOpenChain(expanded ? null : id)}
+                      onClick={() => {
+                        setOpenChain(expanded ? null : id)
+                        setBranchQuery('')
+                      }}
                       className="flex min-h-11 w-full items-center justify-between gap-3 rounded-2xl px-4 py-2 text-left text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       <span className="min-w-0">
@@ -181,9 +186,24 @@ export function NearbyStores({
                       </span>
                       <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`} />
                     </button>
+                    {expanded && branches.length > 8 && (
+                      <label className="mx-3 mb-2 mt-1 flex min-h-11 items-center gap-2 rounded-xl border border-border bg-background px-3 text-sm focus-within:ring-2 focus-within:ring-ring">
+                        <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                        <span className="sr-only">Hledat prodejnu řetězce {chain}</span>
+                        <input
+                          value={branchQuery}
+                          onChange={(event) => setBranchQuery(event.target.value)}
+                          placeholder="Město nebo ulice, např. Plzeň"
+                          className="min-w-0 flex-1 bg-transparent outline-none"
+                        />
+                      </label>
+                    )}
                     {expanded && (
                       <ul className="flex flex-col border-t border-border">
-                        {branches.map((store) => (
+                        {shown.length === 0 && (
+                          <li className="px-4 py-3 text-sm text-muted-foreground">Žádná prodejna neodpovídá hledání. Zkuste jiné město nebo ulici.</li>
+                        )}
+                        {shown.map((store) => (
                           <li key={store.id}>
                             <label className="flex min-h-11 cursor-pointer items-start gap-3 px-4 py-2 text-sm hover:bg-muted/60">
                               <input
@@ -199,6 +219,11 @@ export function NearbyStores({
                             </label>
                           </li>
                         ))}
+                        {total > shown.length && (
+                          <li className="px-4 py-2 text-xs text-muted-foreground" aria-live="polite">
+                            Zobrazeno {shown.length} z {total} — upřesněte hledání městem nebo ulicí.
+                          </li>
+                        )}
                       </ul>
                     )}
                   </div>

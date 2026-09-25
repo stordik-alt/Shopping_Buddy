@@ -205,6 +205,14 @@ export function StoreDirectory({
           Žádný obchod neodpovídá hledání. Zkuste jiné město nebo název řetězce.
         </div>
       )}
+      {/* Branch locations, addresses and opening hours come from OpenStreetMap (lib/stores/osm.ts);
+          its licence (ODbL) requires this attribution wherever the data is shown. */}
+      <p className="text-xs text-muted-foreground">
+        Prodejny, adresy a otevírací doby:{' '}
+        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="underline hover:no-underline">
+          © přispěvatelé OpenStreetMap
+        </a>
+      </p>
     </div>
   )
 }

@@ -145,7 +145,7 @@ export function StoreDirectory({
                     </span>
                     {store.dealsCount > 0 && (
                       <span className="flex items-center gap-1 font-medium text-primary">
-                        <Tag className="h-3 w-3 shrink-0" /> {activeDealCountLabel(store.dealsCount)}
+                        <Tag className="h-3 w-3 shrink-0" /> {activeDealCountLabel(store.dealsCount)} v řetězci
                       </span>
                     )}
                   </span>

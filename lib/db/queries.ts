@@ -466,13 +466,24 @@ export async function getInvitationByToken(token: string): Promise<InvitationInf
   }
 }
 
-/** Store directory: every store location, with active-deal count and available products derived from real price rows. */
+/** Store directory: every store location, with its chain's active-deal count and the products the
+ *  branch has real price rows for. */
 export async function getStores(): Promise<Store[]> {
   const db = getDb()
   const today = todayInPrague()
-  const locations = await db.query.storeLocations.findMany({
-    with: { store: true, prices: { with: { product: true } }, deals: true },
-  })
+  const [locations, chainDeals] = await Promise.all([
+    db.query.storeLocations.findMany({ with: { store: true, prices: { with: { product: true } } } }),
+    // Counted per chain, not per branch: ingestion attaches a chain's web promotions to one
+    // canonical branch (getCanonicalStoreLocationId), so a per-branch count showed all 29 Penny
+    // offers on one of its 9 branches and none on the others. One product with two overlapping
+    // promotions counts once.
+    db
+      .select({ storeId: schema.deals.storeId, count: sql<number>`count(DISTINCT ${schema.deals.productId})::int` })
+      .from(schema.deals)
+      .where(and(sql`${schema.deals.validFrom} <= ${today}`, sql`${schema.deals.validUntil} >= ${today}`))
+      .groupBy(schema.deals.storeId),
+  ])
+  const dealsByChain = new Map(chainDeals.map((row) => [row.storeId, Number(row.count)]))
   return locations.map((location) => ({
     id: location.id,
     storeId: location.storeId,
@@ -483,7 +494,7 @@ export async function getStores(): Promise<Store[]> {
     country: location.country,
     gps: location.lat != null && location.lng != null ? { lat: Number(location.lat), lng: Number(location.lng) } : null,
     hours: location.hours,
-    dealsCount: location.deals.filter((deal) => deal.validUntil >= today).length,
+    dealsCount: dealsByChain.get(location.storeId) ?? 0,
     availableProducts: Array.from(new Set(location.prices.map((price) => price.product.name))),
     color: CHAIN_COLOR[location.store.chain] ?? 'bg-muted',
   }))
@@ -617,6 +628,9 @@ export async function upsertStoreLocationFromSource(input: {
 export async function getProductPrices(): Promise<ProductPrice[]> {
   const db = getDb()
   const today = todayInPrague()
+  // Running today: started and not yet ended. A retailer can publish next week's offers ahead of
+  // time, and those must not show as today's price.
+  const isRunning = (deal: { validFrom: string; validUntil: string }) => deal.validFrom <= today && deal.validUntil >= today
   const products = await db.query.products.findMany({
     with: {
       category: true,
@@ -647,7 +661,7 @@ export async function getProductPrices(): Promise<ProductPrice[]> {
       }
 
       const activeDealByLocation = new Map(
-        product.deals.filter((deal) => deal.validUntil >= today && deal.storeLocationId).map((deal) => [deal.storeLocationId, deal]),
+        product.deals.filter((deal) => isRunning(deal) && deal.storeLocationId).map((deal) => [deal.storeLocationId, deal]),
       )
       // A chain-wide (CHAIN-scope) price has no branch, so it takes the chain's active promotion
       // whichever branch it is stored against: ingestion attaches a retailer's chain-wide promotion to
@@ -656,7 +670,7 @@ export async function getProductPrices(): Promise<ProductPrice[]> {
       // retailer's ingested promotions never reached the price comparison for its chain-wide prices.
       const activeChainDealByStore = new Map<string, (typeof product.deals)[number]>()
       for (const deal of product.deals) {
-        if (deal.validUntil < today) continue
+        if (!isRunning(deal)) continue
         const current = activeChainDealByStore.get(deal.storeId)
         if (!current || Number(deal.dealPrice) < Number(current.dealPrice)) activeChainDealByStore.set(deal.storeId, deal)
       }

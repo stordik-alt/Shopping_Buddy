@@ -1,6 +1,7 @@
 import type { ItemCategory, ItemUnit } from '@/lib/types'
 import { fetchWithTimeout } from '@/lib/ingestion/http'
 import { toNormalizedUnitPrice, unitPriceMatchesPackage } from '@/lib/ingestion/product-discovery'
+import { inPart } from '@/lib/ingestion/parts'
 import type { FetchOptions, NormalizedProduct, PriceConnector } from '@/lib/ingestion/types'
 
 // --- Fetcher (docs/02_ARCHITECTURE.md / CLAUDE.md section 32: External Source -> Fetcher) --------
@@ -105,7 +106,11 @@ export async function fetchDmTopCategory(id: number): Promise<string | undefined
  *  throws, so the failure is visible instead of being reported as a pile of "skipped" products. */
 export async function fetchDmProducts(limit: number, options: FetchOptions = {}): Promise<DmRawProduct[]> {
   if (limit <= 0) return []
-  const ids = selectSampleIds(await fetchDmSitemap(), limit, options.fullCatalog ? 1 : SAMPLE_MODULUS)
+  // The whole catalog (backfill), one part of it (rotating refresh, split by id), or the stable sample.
+  const sitemap = await fetchDmSitemap()
+  const ids = options.part
+    ? selectSampleIds(sitemap.filter((id) => inPart(id, options.part)), limit, 1)
+    : selectSampleIds(sitemap, limit, options.fullCatalog ? 1 : SAMPLE_MODULUS)
   const tiles: DmRawProduct[] = []
   for (let i = 0; i < ids.length; i += TILE_BATCH_SIZE) {
     if (options.deadline != null && Date.now() >= options.deadline) break

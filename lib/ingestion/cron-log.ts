@@ -22,6 +22,8 @@ export type IngestLogEntry = {
    *  `skipped` = never started because the budget was already spent. */
   status: 'ok' | 'truncated' | 'error' | 'skipped'
   durationMs: number
+  /** The catalog part a rotating refresh read ("3/7"). */
+  part?: string
   processed?: number
   recorded?: number
   newProducts?: number
@@ -46,6 +48,7 @@ export function buildIngestLogEntry(source: string, outcome: SourceOutcome, dura
     source,
     status: outcome.truncated ? 'truncated' : 'ok',
     durationMs,
+    ...(outcome.part ? { part: outcome.part } : {}),
     processed: outcome.processed,
     recorded: outcome.recorded,
     newProducts: outcome.newProducts,

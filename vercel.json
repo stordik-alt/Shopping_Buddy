@@ -1,36 +1,22 @@
 {
   "crons": [
-    {
-      "path": "/api/cron/shopping-reminders",
-      "schedule": "0 8 * * *"
-    },
-    {
-      "path": "/api/cron/pantry-checkin",
-      "schedule": "0 9 * * *"
-    },
-    {
-      "path": "/api/cron/ingest-prices/lidl",
-      "schedule": "0 5 * * *"
-    },
-    {
-      "path": "/api/cron/ingest-prices/billa",
-      "schedule": "10 5 * * *"
-    },
-    {
-      "path": "/api/cron/ingest-prices/penny",
-      "schedule": "20 5 * * *"
-    },
-    {
-      "path": "/api/cron/ingest-prices/dm",
-      "schedule": "30 5 * * *"
-    },
-    {
-      "path": "/api/cron/ingest-prices/rohlik",
-      "schedule": "40 5 * * *"
-    },
-    {
-      "path": "/api/cron/ingest-prices/kosik",
-      "schedule": "50 5 * * *"
-    }
+    { "path": "/api/cron/shopping-reminders", "schedule": "0 8 * * *" },
+    { "path": "/api/cron/pantry-checkin", "schedule": "0 9 * * *" },
+    { "path": "/api/cron/ingest-prices/lidl", "schedule": "0 5 * * *" },
+    { "path": "/api/cron/ingest-prices/billa", "schedule": "10 5 * * *" },
+    { "path": "/api/cron/ingest-prices/billa/2", "schedule": "10 13 * * *" },
+    { "path": "/api/cron/ingest-prices/billa/3", "schedule": "10 21 * * *" },
+    { "path": "/api/cron/ingest-prices/penny", "schedule": "20 5 * * *" },
+    { "path": "/api/cron/ingest-prices/dm", "schedule": "30 5 * * *" },
+    { "path": "/api/cron/ingest-prices/dm/2", "schedule": "30 11 * * *" },
+    { "path": "/api/cron/ingest-prices/dm/3", "schedule": "30 17 * * *" },
+    { "path": "/api/cron/ingest-prices/dm/4", "schedule": "30 23 * * *" },
+    { "path": "/api/cron/ingest-prices/rohlik", "schedule": "40 5 * * *" },
+    { "path": "/api/cron/ingest-prices/rohlik/2", "schedule": "40 13 * * *" },
+    { "path": "/api/cron/ingest-prices/rohlik/3", "schedule": "40 21 * * *" },
+    { "path": "/api/cron/ingest-prices/kosik", "schedule": "50 5 * * *" },
+    { "path": "/api/cron/ingest-prices/kosik/2", "schedule": "50 11 * * *" },
+    { "path": "/api/cron/ingest-prices/kosik/3", "schedule": "50 17 * * *" },
+    { "path": "/api/cron/ingest-prices/kosik/4", "schedule": "50 23 * * *" }
   ]
 }

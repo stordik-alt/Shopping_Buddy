@@ -277,6 +277,16 @@ describe('fetchRohlikCatalog', () => {
     expect(categoryCalls.every((url) => url.includes('size=200'))).toBe(true)
   })
 
+  it('fetches details and prices only for the ids of the requested part', async () => {
+    const calls = stubSite()
+    const products = await fetchRohlikCatalog(1_000_000, { pauseMs: 0, part: { index: 1, count: 2 } })
+    // Ids are split by remainder: part 1 of 2 is the odd ids.
+    expect(products.length).toBeGreaterThan(0)
+    expect(products.every((product) => product.id % 2 === 1)).toBe(true)
+    const requested = calls.filter((url) => url.includes('/products/prices')).flatMap((url) => [...url.matchAll(/products=(\d+)/g)].map((m) => Number(m[1])))
+    expect(requested.every((id) => id % 2 === 1)).toBe(true)
+  })
+
   it('reads only the first page per category for the daily batch', async () => {
     const calls = stubSite()
     await fetchRohlikCatalog(1000, { pauseMs: 0 })

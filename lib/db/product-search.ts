@@ -43,17 +43,20 @@ export async function searchProductHits(tokens: string[], options: { storeIds?: 
   const categoryFilter = options.category ? sql`AND c.name = ${options.category}` : sql``
 
   // The latest observation per product and chain is its current price (docs/03_DATABASE.md rule 14);
-  // on the same day the retailer's own (OFFICIAL) price wins over a receipt-derived one.
+  // on the same day the retailer's own (OFFICIAL) price wins over a receipt-derived one. "Latest"
+  // counts the date an unchanged official price was last confirmed (`last_confirmed_at`), not only
+  // when it was first seen, so a confirmed price is neither shown as old nor beaten by an older
+  // receipt; `observed_at` in the result is that date ("cena z …").
   const priceRows = await db.execute<PriceRow>(sql`
     SELECT DISTINCT ON (pr.product_id, pr.store_id)
       pr.product_id, p.name, p.search_name, c.name AS category, pr.store_id, s.chain,
-      pr.regular_price, pr.unit, pr.unit_price, pr.observed_at
+      pr.regular_price, pr.unit, pr.unit_price, coalesce(pr.last_confirmed_at, pr.observed_at) AS observed_at
     FROM prices pr
     JOIN products p ON p.id = pr.product_id
     JOIN product_categories c ON c.id = p.category_id
     JOIN stores s ON s.id = pr.store_id
     WHERE p.search_name LIKE ALL (ARRAY[${patterns}]::text[]) ${chainFilter} ${categoryFilter}
-    ORDER BY pr.product_id, pr.store_id, pr.observed_at DESC, (pr.source_type = 'OFFICIAL') DESC
+    ORDER BY pr.product_id, pr.store_id, coalesce(pr.last_confirmed_at, pr.observed_at) DESC, (pr.source_type = 'OFFICIAL') DESC
     LIMIT ${MAX_ROWS}
   `)
   if (priceRows.rows.length === 0) return []
@@ -107,14 +110,14 @@ export async function getHitsForProducts(productIds: string[], storeIds: string[
   const priceRows = await db.execute<PriceRow>(sql`
     SELECT DISTINCT ON (pr.product_id, pr.store_id)
       pr.product_id, p.name, p.search_name, c.name AS category, pr.store_id, s.chain,
-      pr.regular_price, pr.unit, pr.unit_price, pr.observed_at
+      pr.regular_price, pr.unit, pr.unit_price, coalesce(pr.last_confirmed_at, pr.observed_at) AS observed_at
     FROM prices pr
     JOIN products p ON p.id = pr.product_id
     JOIN product_categories c ON c.id = p.category_id
     JOIN stores s ON s.id = pr.store_id
     WHERE pr.product_id IN (${sql.join(productIds.map((id) => sql`${id}::uuid`), sql`, `)})
       AND pr.store_id IN (${sql.join(storeIds.map((id) => sql`${id}::uuid`), sql`, `)})
-    ORDER BY pr.product_id, pr.store_id, pr.observed_at DESC, (pr.source_type = 'OFFICIAL') DESC
+    ORDER BY pr.product_id, pr.store_id, coalesce(pr.last_confirmed_at, pr.observed_at) DESC, (pr.source_type = 'OFFICIAL') DESC
   `)
   const deals = await loadActiveDeals([...new Set(priceRows.rows.map((row) => row.product_id))])
   return priceRows.rows.map((row) => rowToHit(row, deals, 0))

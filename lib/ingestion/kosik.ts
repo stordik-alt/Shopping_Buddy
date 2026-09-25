@@ -1,5 +1,6 @@
 import { fetchWithTimeout } from '@/lib/ingestion/http'
 import { UNIT_PRICE_TOLERANCE } from '@/lib/ingestion/product-discovery'
+import { inPart } from '@/lib/ingestion/parts'
 import type { FetchOptions, NormalizedProduct, PriceConnector } from '@/lib/ingestion/types'
 
 // --- Fetcher (docs/02_ARCHITECTURE.md / CLAUDE.md section 32: External Source -> Fetcher) --------
@@ -136,7 +137,11 @@ export async function fetchKosikCatalog(limit: number, options: FetchOptions & {
   const pauseMs = options.pauseMs ?? REQUEST_PAUSE_MS
   const outOfTime = () => options.deadline != null && Date.now() >= options.deadline
 
-  const lanes = (await fetchKosikCategorySlugs()).map((slug) => ({ slug, cursor: null as string | null, started: false, done: false }))
+  // Rotating refresh: a part is the set of sub-categories whose slug hashes to it (a listing call
+  // returns full product records, so splitting by category is what saves requests). A product listed
+  // in two sub-categories may be read in two parts — harmless, the second read confirms the first.
+  const slugs = (await fetchKosikCategorySlugs()).filter((slug) => inPart(slug, options.part))
+  const lanes = slugs.map((slug) => ({ slug, cursor: null as string | null, started: false, done: false }))
   const products: KosikRawProduct[] = []
   const seen = new Set<number>()
   while (products.length < limit && lanes.some((lane) => !lane.done)) {

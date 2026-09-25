@@ -826,6 +826,7 @@ export async function loadLatestOfficialPrices(storeId: string): Promise<Map<str
       unitPrice: schema.prices.unitPrice,
       currency: schema.prices.currency,
       validUntil: schema.prices.validUntil,
+      lastConfirmedAt: schema.prices.lastConfirmedAt,
     })
     .from(schema.prices)
     .where(and(eq(schema.prices.storeId, storeId), eq(schema.prices.priceScope, 'CHAIN'), eq(schema.prices.sourceType, 'OFFICIAL')))
@@ -842,6 +843,7 @@ export async function loadLatestOfficialPrices(storeId: string): Promise<Map<str
       unitPrice: Number(row.unitPrice),
       currency: row.currency,
       validUntil: row.validUntil,
+      lastConfirmedAt: row.lastConfirmedAt,
     })
   }
   return latest
@@ -856,7 +858,8 @@ function isUniqueViolation(err: unknown): boolean {
 
 /** Writes a retailer-published (CHAIN scope, OFFICIAL) price under the rules in
  *  `lib/ingestion/official-price.ts`: the current price is the observation with the latest date; a
- *  repeat run the same day refreshes that day's row instead of duplicating it; older data never
+ *  repeat run the same day refreshes that day's row instead of duplicating it; an unchanged price on a
+ *  later day only confirms the open row (`last_confirmed_at`) instead of adding one; older data never
  *  displaces newer; and when the price changed, the previous observation stays as the old price,
  *  closed with `valid_until` = the date the new price was first observed (never deleted or
  *  overwritten — CLAUDE.md section 16). `latest` is the SKU's latest stored observation from
@@ -879,6 +882,11 @@ export async function recordOfficialPrice(
   const action = planOfficialPrice(observation, latest)
   if (action.kind === 'stale' || action.kind === 'unchanged') return { action: action.kind, latest, closedPrevious: false }
 
+  if (action.kind === 'confirm') {
+    await db.update(schema.prices).set({ lastConfirmedAt: observation.observedAt }).where(eq(schema.prices.id, latest!.id))
+    return { action: 'confirm', latest: { ...latest!, lastConfirmedAt: observation.observedAt }, closedPrevious: false }
+  }
+
   const values = {
     regularPrice: observation.regularPrice.toString(),
     currency: observation.currency,
@@ -893,6 +901,7 @@ export async function recordOfficialPrice(
     unitPrice: observation.unitPrice,
     currency: observation.currency,
     validUntil: null,
+    lastConfirmedAt: null,
   })
 
   if (action.kind === 'update-same-day') {
@@ -1042,6 +1051,23 @@ export async function resolveOrCreateProductFromExternal(
   await db.insert(schema.productExternalRefs).values({ productId, source: product.source, externalId: product.externalId })
   ctx.refs.set(product.externalId, productId)
   return productId
+}
+
+/** The part of a store's catalog the next rotating refresh should read (0 when none is stored yet).
+ *  The caller wraps it into range, since the number of parts can change between deployments. */
+export async function getIngestionCursor(source: ProductSource): Promise<number> {
+  const db = getDb()
+  const row = await db.query.ingestionCursors.findFirst({ where: eq(schema.ingestionCursors.source, source) })
+  return row?.nextPart ?? 0
+}
+
+/** Stores the part the next rotating refresh of this store should read. */
+export async function setIngestionCursor(source: ProductSource, nextPart: number): Promise<void> {
+  const db = getDb()
+  await db
+    .insert(schema.ingestionCursors)
+    .values({ source, nextPart, updatedAt: new Date() })
+    .onConflictDoUpdate({ target: schema.ingestionCursors.source, set: { nextPart, updatedAt: new Date() } })
 }
 
 /** Marks external products as seen just now, in one statement per chunk instead of one per product. */

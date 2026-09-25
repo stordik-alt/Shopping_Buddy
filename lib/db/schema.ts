@@ -262,6 +262,11 @@ export const prices = pgTable('prices', {
   observedAt: date('observed_at').notNull(),
   validFrom: date('valid_from').notNull(),
   validUntil: date('valid_until'),
+  // The latest date an OFFICIAL price was seen again unchanged. A re-read that finds the same price
+  // confirms this row instead of inserting a new one, so `prices` grows with real price changes, not
+  // with how often a catalog is read (the Neon free tier caps storage at 0.5 GB). Null until the
+  // first confirmation; the price is then known to hold from `observed_at` to this date.
+  lastConfirmedAt: date('last_confirmed_at'),
   sourceReference: text('source_reference'),
   confidence: numeric('confidence', { precision: 4, scale: 3 }),
 }, (table) => [
@@ -273,6 +278,15 @@ export const prices = pgTable('prices', {
     .on(table.productId, table.storeId, table.priceScope, table.sourceType, table.sourceReference, table.observedAt)
     .where(sql`${table.sourceType} = 'OFFICIAL' AND ${table.sourceReference} IS NOT NULL`),
 ])
+
+// Where each store's rotating price refresh continues. A store's catalog is split into parts that
+// each fit one cron run (PRICE_SOURCES in lib/ingestion/ingest.ts); every run refreshes the part
+// named here and moves the cursor on, so repeated daily runs cover the whole catalog in turn.
+export const ingestionCursors = pgTable('ingestion_cursors', {
+  source: productSourceEnum('source').primaryKey(),
+  nextPart: integer('next_part').notNull().default(0),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [check('ingestion_cursors_next_part_non_negative', sql`${table.nextPart} >= 0`)])
 
 export const deals = pgTable('deals', {
   id: uuid('id').primaryKey().defaultRandom(),

@@ -1,5 +1,6 @@
 import { scaleUnitPrice, UNIT_PRICE_TOLERANCE } from '@/lib/ingestion/product-discovery'
 import { fetchWithTimeout } from '@/lib/ingestion/http'
+import { inPart } from '@/lib/ingestion/parts'
 import type { FetchOptions, NormalizedDeal, NormalizedProduct, PriceConnector } from '@/lib/ingestion/types'
 
 // --- Fetcher (docs/02_ARCHITECTURE.md / CLAUDE.md section 32: External Source -> Fetcher) --------
@@ -125,29 +126,31 @@ export async function fetchRohlikProducts(ids: number[], pauseMs: number = REQUE
 /** Fetches up to `limit` products, spread evenly over the food categories (the first page of each, in
  *  the site's own order) so the batch is diverse instead of one aisle. Deterministic for a given site
  *  state; a product keeps the same external id, so its price history stays continuous.
- *  With `fullCatalog` (backfill) every category is paged through to its end instead. */
+ *  With `fullCatalog` (backfill) every category is paged through to its end instead; with a `part`
+ *  (rotating refresh) too, but details and prices are then fetched only for that part's ids. */
 export async function fetchRohlikCatalog(limit: number, options: FetchOptions & { pauseMs?: number } = {}): Promise<RohlikRawProduct[]> {
   if (limit <= 0) return []
   const pauseMs = options.pauseMs ?? REQUEST_PAUSE_MS
   const outOfTime = () => options.deadline != null && Date.now() >= options.deadline
 
+  const whole = options.fullCatalog || options.part != null
   const perCategory = Math.ceil(limit / ROHLIK_GROCERY_CATEGORY_IDS.length)
   const ids: number[] = []
   const seen = new Set<number>()
   for (const categoryId of ROHLIK_GROCERY_CATEGORY_IDS) {
     if (outOfTime()) break
-    const pageSize = options.fullCatalog ? MAX_CATEGORY_PAGE_SIZE : perCategory
+    const pageSize = whole ? MAX_CATEGORY_PAGE_SIZE : perCategory
     for (let page = 0; page < MAX_FULL_CATALOG_PAGES; page++) {
       const pageIds = await fetchRohlikCategoryProductIds(categoryId, page, pageSize)
       for (const id of pageIds) {
         // A product can be listed under two top-level categories; keep it once.
         if (seen.has(id)) continue
         seen.add(id)
-        ids.push(id)
+        if (inPart(id, options.part)) ids.push(id)
       }
       await sleep(pauseMs)
       // The daily batch reads one page per category; a short page is the category's last.
-      if (!options.fullCatalog || pageIds.length < pageSize || outOfTime()) break
+      if (!whole || pageIds.length < pageSize || outOfTime()) break
     }
   }
 

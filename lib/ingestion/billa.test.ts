@@ -222,6 +222,24 @@ describe('fetchBillaProducts', () => {
     expect(String(fetchMock.mock.calls[0][0])).toContain('pageSize=2')
   })
 
+  it('walks the whole listing for a part and keeps only that part of the SKUs', async () => {
+    const fetchMock = stubFetch((url) => {
+      const slug = /categories\/([^/]+)\/products/.exec(url)?.[1] ?? ''
+      const page = Number(/page=(\d+)/.exec(url)?.[1])
+      // 60 products per category: a full page of 50, then a short page of 10 ends it.
+      const all = Array.from({ length: 60 }, (_, i) => ({ sku: `${slug}-${i}` }))
+      return { ok: true, body: { results: all.slice(page * 50, (page + 1) * 50) } }
+    })
+    const parts = [0, 1, 2].map((index) => ({ index, count: 3 }))
+    const perPart = []
+    for (const part of parts) perPart.push((await fetchBillaProducts(1_000_000, { part })).map((p) => p.sku))
+    expect(fetchMock).toHaveBeenCalledTimes(3 * BILLA_GROCERY_CATEGORY_SLUGS.length * 2)
+    // Together the parts are the whole catalog, each SKU in exactly one of them.
+    const all = perPart.flat()
+    expect(all).toHaveLength(BILLA_GROCERY_CATEGORY_SLUGS.length * 60)
+    expect(new Set(all).size).toBe(all.length)
+  })
+
   it('pages through a category when the limit needs more than one page', async () => {
     const pages: number[] = []
     // Every page is full (50), so every category is asked for a second page.

@@ -183,6 +183,13 @@
       "when": 1790289229846,
       "tag": "0025_deal_unit_price",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1790328474687,
+      "tag": "0026_price_confirmation_and_ingestion_cursors",
+      "breakpoints": true
     }
   ]
 }

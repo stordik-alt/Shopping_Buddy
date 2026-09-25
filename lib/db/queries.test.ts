@@ -417,15 +417,35 @@ describe('recordOfficialPrice', () => {
     }
   })
 
-  it('adds a new day\'s observation without closing the previous one when the price is unchanged', async () => {
+  it('confirms an unchanged price on a later day on the same row instead of adding one', async () => {
     const t = await setup()
     try {
       const first = await recordOfficialPrice(t.observation('2026-09-20', 50), undefined)
       const second = await recordOfficialPrice(t.observation('2026-09-24', 50), first.latest)
-      expect(second).toMatchObject({ action: 'insert', closedPrevious: false })
+      expect(second).toMatchObject({ action: 'confirm', closedPrevious: false })
+      const again = await recordOfficialPrice(t.observation('2026-09-24', 50), second.latest)
+      expect(again.action).toBe('unchanged') // already confirmed for that day: nothing to write
       const rows = await t.rows()
-      expect(rows).toHaveLength(2)
-      expect(rows.map((row) => row.validUntil)).toEqual([null, null])
+      expect(rows).toHaveLength(1)
+      expect(rows[0]).toMatchObject({ observedAt: '2026-09-20', lastConfirmedAt: '2026-09-24', validUntil: null })
+      // The confirmation is what the next run starts from.
+      const latest = (await loadLatestOfficialPrices(t.store.id)).get(t.sourceReference)
+      expect(latest).toMatchObject({ observedAt: '2026-09-20', lastConfirmedAt: '2026-09-24' })
+    } finally {
+      await t.cleanup()
+    }
+  })
+
+  it('a price change after confirmations closes the confirmed row and opens a new one', async () => {
+    const t = await setup()
+    try {
+      const first = await recordOfficialPrice(t.observation('2026-09-20', 50), undefined)
+      const confirmed = await recordOfficialPrice(t.observation('2026-09-22', 50), first.latest)
+      const changed = await recordOfficialPrice(t.observation('2026-09-24', 45), confirmed.latest)
+      expect(changed).toMatchObject({ action: 'insert', closedPrevious: true })
+      const [old, current] = await t.rows()
+      expect(old).toMatchObject({ observedAt: '2026-09-20', lastConfirmedAt: '2026-09-22', validUntil: '2026-09-24' })
+      expect(current).toMatchObject({ observedAt: '2026-09-24', lastConfirmedAt: null, validUntil: null })
     } finally {
       await t.cleanup()
     }

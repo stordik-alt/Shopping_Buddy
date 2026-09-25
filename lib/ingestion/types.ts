@@ -1,4 +1,5 @@
 import type { productSourceEnum } from '@/lib/db/schema'
+import type { CatalogPart } from '@/lib/ingestion/parts'
 import type { ItemCategory, ItemUnit } from '@/lib/types'
 
 // Shared shape of the External Source -> Fetcher -> Normalizer -> Validator -> Database pipeline
@@ -54,6 +55,9 @@ export type FetchOptions = {
    *  backfill (scripts/backfill-prices.ts), which has no function time limit. Connectors whose
    *  daily batch already walks the whole catalog when `limit` allows it ignore this. */
   fullCatalog?: boolean
+  /** Read only this part of the whole catalog (lib/ingestion/parts.ts) — the rotating refresh.
+   *  Connectors whose whole catalog fits one run (Lidl, Penny) ignore it. */
+  part?: CatalogPart
 }
 
 /** One store's connector: how to fetch a small, deterministic batch of raw products and how to turn
@@ -81,11 +85,14 @@ export type IngestResult = {
   /** Promotions seen but not stored because the source gives no validity window. */
   promotionsWithoutValidity: number
   skipped: number
-  /** Prices already stored for today with the same values (a repeat run the same day). */
+  /** Prices found unchanged: confirmed on the existing row (`last_confirmed_at`), or already stored
+   *  for today with the same values. */
   unchanged: number
   /** Prices that differ from the previous observation; the previous one was kept as an old price. */
   priceChanges: number
   /** True when the run's time budget ran out and some fetched products were not processed. */
   truncated: boolean
+  /** Which part of the catalog this run refreshed ("3/7"), for a rotating refresh. */
+  part?: string
   errors: string[]
 }

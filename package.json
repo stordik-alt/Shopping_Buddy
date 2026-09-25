@@ -15,7 +15,8 @@
     "db:backfill-receipt-locations": "dotenv -e .env.local -- tsx scripts/backfill-receipt-store-locations.ts",
     "db:split-collapsed-products": "dotenv -e .env.local -- tsx scripts/split-collapsed-products.ts",
     "db:backfill-prices": "dotenv -e .env.local -- tsx scripts/backfill-prices.ts",
-    "db:import-stores": "dotenv -e .env.local -- tsx scripts/import-stores.ts"
+    "db:import-stores": "dotenv -e .env.local -- tsx scripts/import-stores.ts",
+    "db:migrate-blob-to-r2": "dotenv -e .env.local -- tsx scripts/migrate-vercel-blob-to-r2.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -25,6 +26,7 @@
     "@vercel/blob": "^2.8.0",
     "@vercel/oidc": "^3.8.8",
     "ai": "^7.0.107",
+    "aws4fetch": "1.0.20",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "0.45.2",

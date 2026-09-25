@@ -1,5 +1,18 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Receipt files: Vercel Blob → Cloudflare R2, behind a switch)
+- **Why:** the Vercel Blob store is over its usage limit, which suspends receipt upload and viewing.
+- **What:** `lib/storage/` is the only place that touches file storage (`putReceiptFile`/`getReceiptFile`/`deleteReceiptFile`); `app/actions/receipts.ts` and `/api/receipts/[id]/image` use it. `STORAGE_PROVIDER=r2` sends new uploads to R2 (S3 API signed with the new dependency `aws4fetch`); unset keeps Vercel Blob. `image_url` holds a storage reference (`https://…` Blob, `r2:<key>` R2), so old receipts keep reading from Blob and no migration is needed. R2 keys are validated (`receipts/{uuid}/{uuid}.{ext}`). A failed file delete on cancel is now logged. `pnpm db:migrate-blob-to-r2` copies old receipts (dry run, verify by SHA-256, idempotent, rollback log, never deletes Blob). Guide: `docs/cloudflare-r2.md`.
+- **Tests:** 12 new storage tests (fake Blob, stubbed R2 `fetch`): references, path-traversal rejection, provider switch, SigV4 upload/read/delete, errors, old Blob receipts with `STORAGE_PROVIDER=r2`. Full run 799 passed; the 15 DB-backed files need the test database (not run here). `tsc` clean, `next build` passes.
+- **Not verified:** against a real R2 bucket (waiting for the owner's Cloudflare setup).
+
+## 2026-09-25 (Cloudflare migration — Phase 1 audit)
+- **What:** read-only audit for moving hosting from Vercel to Cloudflare (Neon stays): `docs/cloudflare-migration-audit.md` (Vercel dependencies V1–V10, env vars, storage/Base64 audit, Workers compatibility issues, risks, order), `docs/cloudflare-migration-architecture.md` (target design, `lib/storage/` interface, planned `storage_provider`/`storage_key` columns), `docs/cloudflare-migration-status.md`. No code, dependency, database or infrastructure change.
+- **Findings that need a decision:** PDF OCR depends on Vercel OIDC (`@vercel/oidc` → Google WIF) and receipt structuring on Vercel AI Gateway's OIDC auth — neither works on Cloudflare as is; `sharp` does not run on Workers; 20 crons and 300 s jobs need Workers Paid; the `*.vercel.app` origin cannot move, so a custom domain should come first.
+- **Blocked:** the Cloudflare agent setup could not run — the cloud session's network policy denies `developers.cloudflare.com` and `api.cloudflare.com`, and no Cloudflare credentials are configured.
+- **Checked:** `vitest run` 787 tests passed (15 DB-backed files need the test database, not available here); `tsc` clean; `next build` passes with placeholder auth/DB env.
+- **Scope (owner decision):** for now only Vercel Blob → Cloudflare R2; the app stays on Vercel and uses R2's S3 API. The owner's brief is kept as `docs/cloudflare-migration-brief.md`, without requirements that do not belong to this app.
+
 ## 2026-09-25 (Globus flyer offers)
 - **What:** `lib/ingestion/globus.ts` imports the offers of Globus's national weekly flyers from the per-page JSON its own flyer viewer loads (barcode, name, size, offer and regular price, unit price, validity dates) — no OCR, no AI. Food and household chemistry only; the members-only club price, ended offers and ambiguous unit prices are rejected. Deals are chain-wide (`chainWideDeals`) since a national flyer holds at every hypermarket. Migration `0028` adds the `globus` source and the Globus chain; daily cron at 06:00 UTC; `globus` added to the OpenStreetMap branch import and to `pnpm db:backfill-prices`.
 - **Checked:** live dry run 1,062 offers → 744 usable deals; the analysis of the rejected ones found two bugs before anything was written (the fresh counter's group code is the string "null", and its items have short internal codes instead of an EAN) — both fixed and covered by tests. 16 connector tests.

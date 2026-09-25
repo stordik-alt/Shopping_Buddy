@@ -1,6 +1,5 @@
 'use server'
 
-import { del, get, put } from '@vercel/blob'
 import { and, eq, gte, inArray, lt, or } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { requireHouseholdId } from '@/lib/auth/authorize'
@@ -38,6 +37,7 @@ import {
   type ReceiptTextExtractor,
 } from '@/lib/receipts'
 import { HEIC_UNSUPPORTED_MESSAGE } from '@/lib/receipt-upload'
+import { deleteReceiptFile, getReceiptFile, putReceiptFile } from '@/lib/storage'
 import type { PurchaseRecord } from '@/lib/types'
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024 // 10 MB
@@ -425,9 +425,9 @@ async function runReceiptPipeline(
   const ocrStartedAt = Date.now()
   let original: Buffer
   try {
-    const result = await get(row.imageUrl, { access: 'private' })
-    if (!result || result.statusCode !== 200 || !result.stream) throw new Error('Photo not found in storage')
-    original = Buffer.from(await new Response(result.stream).arrayBuffer())
+    const file = await getReceiptFile(row.imageUrl)
+    if (!file) throw new Error('Photo not found in storage')
+    original = Buffer.from(await new Response(file.body).arrayBuffer())
   } catch (error) {
     trace.ocr = { status: 'failed', provider: null, ms: Date.now() - ocrStartedAt }
     return update({ status: 'ocr_failed', errorMessage: `Nepodařilo se načíst uloženou fotografii: ${error instanceof Error ? error.message : String(error)}` })
@@ -634,7 +634,8 @@ async function runReceiptPipeline(
 }
 
 /** Upload step (docs/08_OCR_RECEIPT_PIPELINE.md section 2): validates the image, stores it in
- *  Vercel Blob (private — a household's receipts are personal financial data) and creates the
+ *  private storage (Vercel Blob or R2 via lib/storage — a household's receipts are personal
+ *  financial data) and creates the
  *  `receipt_imports` row in `uploaded`. Processing is a separate call
  *  (`processUploadedReceiptAction`) so the client knows the import id while the pipeline runs and
  *  can show its real progress via `/api/receipts/[id]/status` (section 20). The pipeline still runs
@@ -668,15 +669,13 @@ export async function uploadReceiptAction(formData: FormData): Promise<UploadRec
   if (fileType.kind !== 'supported') return { ok: false, error: 'Nepodporovaný formát. Použijte fotku JPEG, PNG, WEBP nebo PDF.' }
 
   try {
-    const blob = await put(`receipts/${householdId}/${crypto.randomUUID()}.${fileType.extension}`, buffer, {
-      access: 'private',
-      contentType: fileType.mimeType,
-    })
+    // Vercel Blob or R2 depending on STORAGE_PROVIDER; the reference records which (lib/storage).
+    const imageUrl = await putReceiptFile(householdId, buffer, fileType)
 
     const db = getDb()
     const [row] = await db
       .insert(schema.receiptImports)
-      .values({ householdId, status: 'uploaded', source: 'ocr', imageUrl: blob.url })
+      .values({ householdId, status: 'uploaded', source: 'ocr', imageUrl })
       .returning()
 
     revalidatePath('/')
@@ -831,6 +830,11 @@ export async function cancelReceiptImportAction(receiptImportId: string): Promis
 
   const db = getDb()
   await db.update(schema.receiptImports).set({ status: 'cancelled', updatedAt: new Date() }).where(eq(schema.receiptImports.id, receiptImportId))
-  if (row.imageUrl) await del(row.imageUrl).catch(() => {}) // best-effort — a leftover blob is harmless, unlike losing the cancellation
+  // Best-effort: a leftover file is harmless, unlike losing the cancellation — but it is logged.
+  if (row.imageUrl) {
+    await deleteReceiptFile(row.imageUrl).catch((err) =>
+      console.error(JSON.stringify({ event: 'receipt_file_delete_failed', receiptImportId, error: err instanceof Error ? err.message : String(err) })),
+    )
+  }
   revalidatePath('/')
 }

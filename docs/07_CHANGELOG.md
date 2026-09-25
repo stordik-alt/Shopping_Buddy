@@ -1,5 +1,11 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Rotating price refresh of the whole catalog; confirmed instead of duplicated prices)
+- **Why:** after the backfill the catalog has ~37,000 products, but the daily cron re-read only a fixed few hundred per store; re-reading everything would also have written a new price row per product per read — far beyond the Neon free tier's 0.5 GB.
+- **What:** large catalogs are split into parts of under ~2,000 products (`lib/ingestion/parts.ts`); each cron run refreshes the next part, remembered in the new `ingestion_cursors` table. Billa and Rohlík run 3×, dm and Košík 4× a day (`/api/cron/ingest-prices/<store>/<2–9>` entries in `vercel.json`), so every product is re-read about every two days. An unchanged price only sets `prices.last_confirmed_at` on the existing row; a new row is written only when the price changes. Product search dates the current price by the confirmation. Migration `0026`.
+- **Trade-off:** a new promotion can show up to ~2 days late.
+- **Tests:** confirmation rules, parts (every product in exactly one part), cursor advance/wrap/retry, Billa and Rohlík part filtering, `vercel.json` vs. stores. Live read of one part per store: 1,319–1,920 products, 16–49 s.
+
 ## 2026-09-25 (Full-catalog price backfill)
 - **Why:** the daily cron reads the same small batch per store every day (a few hundred products), so the catalog would never grow past it, however often the cron ran.
 - **What:** `pnpm db:backfill-prices <stores…|all> [--apply] [--limit N]` (`scripts/backfill-prices.ts`) reads each store's whole catalog on a developer machine, without the 300 s function limit, through the cron's own connectors, validation and persistence. New `FetchOptions.fullCatalog`: dm reads every product instead of 1 in 20, Rohlík pages every category to its end. `ingestPrices()` gained `onProgress`. Dry run by default; `--apply` writes. The daily cron is unchanged.

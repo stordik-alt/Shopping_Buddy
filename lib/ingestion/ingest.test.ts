@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { IngestResult, NormalizedProduct, PriceConnector } from '@/lib/ingestion/types'
+import type { IngestionSource, IngestResult, NormalizedProduct, PriceConnector } from '@/lib/ingestion/types'
 
 // The orchestrator is tested against a stubbed data-access layer: what matters here is which
 // persistence calls it makes for each kind of normalized product, how it isolates failures and how
@@ -13,6 +13,8 @@ const queries = vi.hoisted(() => ({
   resolveOrCreateProductFromExternal: vi.fn(),
   touchExternalRefs: vi.fn(),
   upsertActiveDeal: vi.fn(),
+  getIngestionCursor: vi.fn(),
+  setIngestionCursor: vi.fn(),
 }))
 vi.mock('@/lib/db/queries', () => queries)
 
@@ -54,6 +56,8 @@ beforeEach(() => {
   queries.loadLatestOfficialPrices.mockResolvedValue(new Map())
   queries.recordOfficialPrice.mockResolvedValue({ action: 'insert', latest: undefined, closedPrevious: false })
   queries.resolveOrCreateProductFromExternal.mockResolvedValue('product-1')
+  queries.getIngestionCursor.mockResolvedValue(0)
+  queries.setIngestionCursor.mockResolvedValue(undefined)
 })
 
 describe('ingestPrices', () => {
@@ -318,39 +322,70 @@ describe('runPriceSources', () => {
     errors: [],
     ...extra,
   })
-  type Run = (limit: number, options?: { deadline?: number }) => Promise<IngestResult>
-  const entry = (source: string, run: Run, limit = 5) => ({ source, run, limit })
+  type Run = (limit: number, options?: { deadline?: number; part?: { index: number; count: number } }) => Promise<IngestResult>
+  const entry = (source: IngestionSource, run: Run, parts = 1) => ({ source, run, parts })
 
-  it('gives every source its own batch size', async () => {
-    const seen: Record<string, number> = {}
-    const record = (name: string): Run => async (limit) => {
-      seen[name] = limit
-      return ok()
-    }
-    await runPriceSources({ budgetMs: 1000, sources: [entry('a', record('a'), 400), entry('b', record('b'), 80)] })
-    expect(seen).toEqual({ a: 400, b: 80 })
+  it('reads the part the cursor names and moves the cursor on', async () => {
+    queries.getIngestionCursor.mockResolvedValue(2)
+    const run = vi.fn<Run>(async () => ok({ part: '3/5' }))
+    const results = await runPriceSources({ budgetMs: 1000, sources: [entry('billa', run, 5)] })
+    expect(run).toHaveBeenCalledWith(expect.any(Number), expect.objectContaining({ part: { index: 2, count: 5 } }))
+    expect(queries.setIngestionCursor).toHaveBeenCalledWith('billa', 3)
+    expect(results.billa).toMatchObject({ part: '3/5' })
   })
 
-  it('lets a caller override the batch size of every source', async () => {
+  it('wraps from the last part back to the first, and a stored cursor beyond a smaller part count', async () => {
+    queries.getIngestionCursor.mockResolvedValue(4)
+    const run = vi.fn<Run>(async () => ok())
+    await runPriceSources({ budgetMs: 1000, sources: [entry('billa', run, 5)] })
+    expect(queries.setIngestionCursor).toHaveBeenLastCalledWith('billa', 0)
+
+    queries.getIngestionCursor.mockResolvedValue(9) // the part count was lowered since
+    await runPriceSources({ budgetMs: 1000, sources: [entry('billa', run, 5)] })
+    expect(run).toHaveBeenLastCalledWith(expect.any(Number), expect.objectContaining({ part: { index: 4, count: 5 } }))
+  })
+
+  it('moves on after a truncated run but retries the part after a failed one', async () => {
+    await runPriceSources({ budgetMs: 1000, sources: [entry('billa', async () => ok({ truncated: true }), 5)] })
+    expect(queries.setIngestionCursor).toHaveBeenCalledWith('billa', 1)
+
+    queries.setIngestionCursor.mockClear()
+    const results = await runPriceSources({
+      budgetMs: 1000,
+      sources: [entry('billa', async () => { throw new Error('site down') }, 5)],
+    })
+    expect(results.billa).toEqual({ error: 'site down' })
+    expect(queries.setIngestionCursor).not.toHaveBeenCalled()
+  })
+
+  it('reads a single-part store whole, without a cursor', async () => {
+    const run = vi.fn<Run>(async () => ok())
+    await runPriceSources({ budgetMs: 1000, sources: [entry('lidl', run)] })
+    expect(run.mock.calls[0][1]).not.toHaveProperty('part')
+    expect(queries.getIngestionCursor).not.toHaveBeenCalled()
+    expect(queries.setIngestionCursor).not.toHaveBeenCalled()
+  })
+
+  it('lets a caller cap the batch size of every source', async () => {
     const seen: number[] = []
     const run: Run = async (limit) => {
       seen.push(limit)
       return ok()
     }
-    await runPriceSources({ limit: 7, budgetMs: 1000, sources: [entry('a', run, 400), entry('b', run, 80)] })
+    await runPriceSources({ limit: 7, budgetMs: 1000, sources: [entry('lidl', run), entry('penny', run)] })
     expect(seen).toEqual([7, 7])
   })
 
-  it('the real sources read a few hundred products each, Penny only its weekly offers', () => {
-    const limits = Object.fromEntries(PRICE_SOURCES.map((source) => [source.source, source.limit]))
-    expect(limits).toMatchObject({ lidl: 400, billa: 450, penny: 80, dm: 700 })
+  it('splits the large catalogs into parts and reads Lidl and Penny whole', () => {
+    const parts = Object.fromEntries(PRICE_SOURCES.map((source) => [source.source, source.parts]))
+    expect(parts).toEqual({ lidl: 1, penny: 1, billa: 5, dm: 7, rohlik: 6, kosik: 7 })
   })
 
   it('runs only the requested source', async () => {
     const a = vi.fn(async () => ok())
     const b = vi.fn(async () => ok())
-    const results = await runPriceSources({ only: 'b', limit: 5, budgetMs: 1000, sources: [entry('a', a), entry('b', b)] })
-    expect(Object.keys(results)).toEqual(['b'])
+    const results = await runPriceSources({ only: 'penny', limit: 5, budgetMs: 1000, sources: [entry('lidl', a), entry('penny', b)] })
+    expect(Object.keys(results)).toEqual(['penny'])
     expect(a).not.toHaveBeenCalled()
     expect(b).toHaveBeenCalledWith(5, expect.objectContaining({ deadline: expect.any(Number) }))
   })
@@ -361,8 +396,8 @@ describe('runPriceSources', () => {
       seen.push(options?.deadline)
       return ok()
     }
-    const results = await runPriceSources({ limit: 5, budgetMs: 1000, now: () => 0, sources: [entry('a', run), entry('b', run)] })
-    expect(Object.keys(results)).toEqual(['a', 'b'])
+    const results = await runPriceSources({ limit: 5, budgetMs: 1000, now: () => 0, sources: [entry('lidl', run), entry('penny', run)] })
+    expect(Object.keys(results)).toEqual(['lidl', 'penny'])
     expect(seen).toEqual([1000, 1000])
   })
 
@@ -370,9 +405,9 @@ describe('runPriceSources', () => {
     const failing: Run = async () => {
       throw new Error('site changed')
     }
-    const results = await runPriceSources({ limit: 5, budgetMs: 1000, sources: [entry('a', failing), entry('b', async () => ok())] })
-    expect(results.a).toEqual({ error: 'site changed' })
-    expect(results.b).toMatchObject({ recorded: 1 })
+    const results = await runPriceSources({ limit: 5, budgetMs: 1000, sources: [entry('lidl', failing), entry('penny', async () => ok())] })
+    expect(results.lidl).toEqual({ error: 'site changed' })
+    expect(results.penny).toMatchObject({ recorded: 1 })
   })
 
   it('skips, rather than starts, a source once the budget is spent', async () => {
@@ -382,9 +417,9 @@ describe('runPriceSources', () => {
       clock = 1500 // this source used up the whole budget
       return ok({ truncated: true })
     }
-    const results = await runPriceSources({ limit: 5, budgetMs: 1000, now: () => clock, sources: [entry('a', first), entry('b', second)] })
-    expect(results.a).toMatchObject({ truncated: true })
-    expect(results.b).toEqual({ skipped: 'time budget exhausted before this source started' })
+    const results = await runPriceSources({ limit: 5, budgetMs: 1000, now: () => clock, sources: [entry('lidl', first), entry('penny', second)] })
+    expect(results.lidl).toMatchObject({ truncated: true })
+    expect(results.penny).toEqual({ skipped: 'time budget exhausted before this source started' })
     expect(second).not.toHaveBeenCalled()
   })
 })

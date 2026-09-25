@@ -1,10 +1,12 @@
 import {
   getCanonicalStoreLocationId,
+  getIngestionCursor,
   getStoreByChain,
   loadExternalProductContext,
   loadLatestOfficialPrices,
   recordOfficialPrice,
   resolveOrCreateProductFromExternal,
+  setIngestionCursor,
   touchExternalRefs,
   upsertActiveDeal,
 } from '@/lib/db/queries'
@@ -14,8 +16,9 @@ import { kosikConnector } from '@/lib/ingestion/kosik'
 import { lidlConnector } from '@/lib/ingestion/lidl'
 import { pennyConnector } from '@/lib/ingestion/penny'
 import { rohlikConnector } from '@/lib/ingestion/rohlik'
+import { partLabel, type CatalogPart } from '@/lib/ingestion/parts'
 import { ingestionDate } from '@/lib/ingestion/today'
-import type { IngestResult, PriceConnector } from '@/lib/ingestion/types'
+import type { IngestionSource, IngestResult, PriceConnector } from '@/lib/ingestion/types'
 
 export type { IngestResult } from '@/lib/ingestion/types'
 
@@ -30,6 +33,8 @@ export type IngestOptions = {
   today?: string
   /** Passed to the connector's fetch (see FetchOptions.fullCatalog); only the backfill sets it. */
   fullCatalog?: boolean
+  /** Passed to the connector's fetch (see FetchOptions.part): the rotating refresh's current part. */
+  part?: CatalogPart
   /** Called after each product with how many of the fetched products are done — progress for the
    *  long-running backfill script. */
   onProgress?: (done: number, total: number) => void
@@ -46,7 +51,12 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
   const now = options.now ?? Date.now
   const today = options.today ?? ingestionDate()
 
-  const raws = await connector.fetchProducts(limit, options.fullCatalog ? { deadline: options.deadline, fullCatalog: true } : { deadline: options.deadline })
+  const raws = await connector.fetchProducts(limit, {
+    deadline: options.deadline,
+    ...(options.fullCatalog ? { fullCatalog: true } : {}),
+    ...(options.part ? { part: options.part } : {}),
+  })
+  if (options.part) result.part = partLabel(options.part)
   result.processed = raws.length
 
   // Looked up once per run, not per product: each lookup is a database round trip, and per-product
@@ -112,7 +122,7 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
         )
         if (written.latest) latestPrices.set(normalized.externalId, written.latest)
         if (written.action === 'insert' || written.action === 'update-same-day') result.recorded++
-        else if (written.action === 'unchanged') result.unchanged++
+        else if (written.action === 'unchanged' || written.action === 'confirm') result.unchanged++
         else result.skipped++ // stale: what is stored is newer than what was fetched
         if (written.closedPrevious) result.priceChanges++
       }
@@ -152,34 +162,43 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
 }
 
 export type PriceSource = {
-  source: string
-  /** How many products one daily run reads from this store. */
-  limit: number
+  source: IngestionSource
+  /** How many parts the store's catalog is split into for the rotating refresh: each run reads one
+   *  part and the next run continues with the next (`ingestion_cursors`). 1 = the whole catalog every
+   *  run. */
+  parts: number
   run: (limit: number, options?: IngestOptions) => Promise<IngestResult>
 }
 
-/** Every store connector run by the daily cron, with how many products each reads per run. Adding a
- *  store means adding its connector here (each entry closes over its own raw type, so the list needs
- *  no shared generic).
+/** Every store connector run by the cron. Adding a store means adding its connector here (each entry
+ *  closes over its own raw type, so the list needs no shared generic).
  *
- *  The limits are set by what one run can write inside the function time limit (lib/ingestion/
- *  cron-handler.ts). The database is in us-east-1 and the functions run next to it, so a product costs
- *  a few dozen milliseconds to write, not the ~0.4 s it costs from a distant machine; a few hundred
- *  products per store fit comfortably, and a run that still runs out of time stops cleanly and says so
- *  (`truncated`). Each store reads the same, stable sample every day (see its connector), so every
- *  product's price history stays continuous. Penny lists only its ~40 weekly offers, so 80 is
- *  already everything. */
+ *  Rotating refresh. After the full-catalog backfill (scripts/backfill-prices.ts) a store holds up to
+ *  ~13,000 products, more than one run can read and write inside the function time limit
+ *  (lib/ingestion/cron-handler.ts). So a large catalog is split into `parts` of roughly 2,000
+ *  products (lib/ingestion/parts.ts: by the product's or category's own id, so the split is the same
+ *  every day), and each run refreshes one part. `vercel.json` schedules several runs a day for the
+ *  large stores, so every product is re-read about every two days. A re-read of an unchanged price
+ *  only confirms the stored row (lib/ingestion/official-price.ts) — storage grows with real price
+ *  changes, not with the number of runs. About 2,000 products per run: the database is in us-east-1
+ *  next to the functions, so a write costs a few dozen milliseconds (~1 minute for a part), and a run
+ *  that still runs out of time stops cleanly and says so (`truncated`). Lidl (~240 grocery products)
+ *  and Penny (its ~40 weekly offers) are read whole every run. */
 export const PRICE_SOURCES: PriceSource[] = [
-  { source: lidlConnector.source, limit: 400, run: (limit, options) => ingestPrices(lidlConnector, limit, options) },
-  { source: billaConnector.source, limit: 450, run: (limit, options) => ingestPrices(billaConnector, limit, options) },
-  { source: pennyConnector.source, limit: 80, run: (limit, options) => ingestPrices(pennyConnector, limit, options) },
-  { source: dmConnector.source, limit: 700, run: (limit, options) => ingestPrices(dmConnector, limit, options) },
-  // Online-only: a run is ~10 category requests plus 2 requests per 50 products, well inside the budget.
-  { source: rohlikConnector.source, limit: 500, run: (limit, options) => ingestPrices(rohlikConnector, limit, options) },
-  // Online-only, 30 products per request: ~60 requests (about 50 s) for the batch, plus the menu. A live
-  // dry run read 2,400 in 70 s; 1,800 leaves the rest of the time budget for writing them.
-  { source: kosikConnector.source, limit: 1800, run: (limit, options) => ingestPrices(kosikConnector, limit, options) },
+  { source: lidlConnector.source, parts: 1, run: (limit, options) => ingestPrices(lidlConnector, limit, options) },
+  // ~9,400 products; each run walks the whole category listing (~1 min) and keeps one part.
+  { source: billaConnector.source, parts: 5, run: (limit, options) => ingestPrices(billaConnector, limit, options) },
+  { source: pennyConnector.source, parts: 1, run: (limit, options) => ingestPrices(pennyConnector, limit, options) },
+  // ~13,000 products, one category lookup each.
+  { source: dmConnector.source, parts: 7, run: (limit, options) => ingestPrices(dmConnector, limit, options) },
+  // ~11,500 products; the id listing is read whole, details and prices only for the part.
+  { source: rohlikConnector.source, parts: 6, run: (limit, options) => ingestPrices(rohlikConnector, limit, options) },
+  // ~13,100 products; a part is a set of sub-categories, each read to its end.
+  { source: kosikConnector.source, parts: 7, run: (limit, options) => ingestPrices(kosikConnector, limit, options) },
 ]
+
+// No batch cap of its own: a run's size is set by its part (and stopped by the time budget).
+const UNLIMITED = 1_000_000
 
 export type SourceOutcome = IngestResult | { error: string } | { skipped: string }
 
@@ -202,13 +221,19 @@ export async function runPriceSources(options: {
   const selected = options.only ? all.filter((entry) => entry.source === options.only) : all
 
   const results: Record<string, SourceOutcome> = {}
-  for (const { source, run, limit } of selected) {
+  for (const { source, run, parts } of selected) {
     if (now() >= deadline) {
       results[source] = { skipped: 'time budget exhausted before this source started' }
       continue
     }
     try {
-      results[source] = await run(options.limit ?? limit, { deadline, now })
+      // Rotating refresh: this run reads the part the cursor names and moves the cursor on. Wrapped
+      // into range, since the number of parts can change between deployments.
+      const part = parts > 1 ? { index: (await getIngestionCursor(source)) % parts, count: parts } : undefined
+      results[source] = await run(options.limit ?? UNLIMITED, { deadline, now, ...(part ? { part } : {}) })
+      // Moved on also after a truncated run: repeating the same part would hit the same limit again
+      // and never reach the others. A source that threw keeps its cursor and retries the part.
+      if (part) await setIngestionCursor(source, (part.index + 1) % part.count)
     } catch (err) {
       results[source] = { error: err instanceof Error ? err.message : String(err) }
     }

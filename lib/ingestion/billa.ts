@@ -7,6 +7,7 @@ import {
   UNIT_PRICE_TOLERANCE,
   type DiscoveryProduct,
 } from '@/lib/ingestion/product-discovery'
+import { inPart } from '@/lib/ingestion/parts'
 import type { FetchOptions, NormalizedProduct, PriceConnector } from '@/lib/ingestion/types'
 
 // The unit-price conversion is shared with the other retailers on this web-shop platform.
@@ -53,10 +54,14 @@ export async function fetchBillaCategoryPage(slug: string, page: number, pageSiz
 /** Fetches up to `limit` products, spread evenly over the grocery categories (first page of each,
  *  in the site's own relevance order) so the pilot batch is diverse instead of one aisle. Requests
  *  run one after another, not in parallel, to stay well clear of anything that looks like abuse.
- *  Deterministic for a given site state, so a product's price history stays continuous run to run. */
+ *  Deterministic for a given site state, so a product's price history stays continuous run to run.
+ *  With a `part` (rotating refresh) the whole listing is walked and only that part's SKUs are kept:
+ *  the listing is light (~1 minute for the whole catalog), and splitting by SKU rather than by
+ *  category keeps the parts even. */
 export async function fetchBillaProducts(limit: number, options: FetchOptions = {}): Promise<BillaRawProduct[]> {
   if (limit <= 0) return []
-  const perCategory = Math.ceil(limit / BILLA_GROCERY_CATEGORY_SLUGS.length)
+  const whole = options.fullCatalog || options.part != null
+  const perCategory = whole ? Number.MAX_SAFE_INTEGER : Math.ceil(limit / BILLA_GROCERY_CATEGORY_SLUGS.length)
   const pageSize = Math.min(perCategory, MAX_PAGE_SIZE)
   const pages = Math.ceil(perCategory / pageSize)
   const products: BillaRawProduct[] = []
@@ -70,7 +75,7 @@ export async function fetchBillaProducts(limit: number, options: FetchOptions = 
         // A product can be listed under two top-level categories; keep it once.
         if (seen.has(product.sku)) continue
         seen.add(product.sku)
-        products.push(product)
+        if (inPart(product.sku, options.part)) products.push(product)
       }
       // A short page is the category's last: nothing more to ask for.
       if (results.length < pageSize) break

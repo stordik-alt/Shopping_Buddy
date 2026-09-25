@@ -9,6 +9,7 @@ const stored = (overrides: Partial<OfficialPriceSnapshot> = {}): OfficialPriceSn
   unitPrice: 100,
   currency: 'CZK',
   validUntil: null,
+  lastConfirmedAt: null,
   ...overrides,
 })
 const fetched = (overrides: Partial<OfficialPriceInput> = {}): OfficialPriceInput => ({
@@ -35,8 +36,26 @@ describe('planOfficialPrice', () => {
     expect(planOfficialPrice(fetched(), undefined)).toEqual({ kind: 'insert', closePrevious: false })
   })
 
-  it('inserts a new day\'s observation of an unchanged price without closing the previous one', () => {
-    expect(planOfficialPrice(fetched(), stored())).toEqual({ kind: 'insert', closePrevious: false })
+  it('confirms an unchanged price on a later day instead of adding a row', () => {
+    expect(planOfficialPrice(fetched(), stored())).toEqual({ kind: 'confirm' })
+    expect(planOfficialPrice(fetched(), stored({ lastConfirmedAt: '2026-09-22' }))).toEqual({ kind: 'confirm' })
+  })
+
+  it('does nothing when the unchanged price was already confirmed for that day', () => {
+    expect(planOfficialPrice(fetched(), stored({ lastConfirmedAt: '2026-09-24' }))).toEqual({ kind: 'unchanged' })
+  })
+
+  it('ignores an observation older than the latest confirmation', () => {
+    expect(planOfficialPrice(fetched({ observedAt: '2026-09-22' }), stored({ lastConfirmedAt: '2026-09-24' }))).toEqual({ kind: 'stale' })
+    expect(planOfficialPrice(fetched({ observedAt: '2026-09-22', regularPrice: 45 }), stored({ lastConfirmedAt: '2026-09-24' }))).toEqual({ kind: 'stale' })
+  })
+
+  it('records a changed price after confirmations as a new row and closes the confirmed one', () => {
+    expect(planOfficialPrice(fetched({ regularPrice: 45 }), stored({ lastConfirmedAt: '2026-09-23' }))).toEqual({ kind: 'insert', closePrevious: true })
+  })
+
+  it('adds a row when only the unit price changed (e.g. a corrected package size)', () => {
+    expect(planOfficialPrice(fetched({ unitPrice: 90 }), stored())).toEqual({ kind: 'insert', closePrevious: false })
   })
 
   it('closes the previous observation as an old price when the price changed', () => {

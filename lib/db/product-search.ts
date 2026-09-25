@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { TODAY } from '@/lib/budget'
+import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
 import { likePattern, scoreMatch, splitTokens, toComparableUnit, type ProductSearchHit } from '@/lib/product-search'
 import type { ItemCategory, ItemUnit } from '@/lib/types'
@@ -73,7 +73,7 @@ async function loadActiveDeals(productIds: string[]): Promise<Map<string, DealRo
   const dealRows = await db.execute<DealRow>(sql`
     SELECT d.product_id, d.store_id, min(d.deal_price) AS deal_price, max(d.valid_until) AS valid_until
     FROM deals d
-    WHERE d.valid_until >= ${TODAY}::date AND d.product_id IN (${sql.join(productIds.map((id) => sql`${id}::uuid`), sql`, `)})
+    WHERE d.valid_until >= ${todayInPrague()}::date AND d.product_id IN (${sql.join(productIds.map((id) => sql`${id}::uuid`), sql`, `)})
     GROUP BY d.product_id, d.store_id
   `)
   return new Map(dealRows.rows.map((row) => [`${row.product_id}|${row.store_id}`, row]))

@@ -5,22 +5,23 @@ import {
   categoryBreakdown,
   crossedBudgetThreshold,
   dailyAverage,
+  daysInMonth,
+  expensesInMonth,
   monthOverMonthChange,
-  MONTH_START,
   plannedSpend,
-  PREVIOUS_MONTH_TOTAL,
+  previousMonthKey,
   projectedMonthEnd,
   totalSpent,
   weeklyAverage,
 } from '@/lib/budget'
 import type { Expense, Item } from '@/lib/types'
 
-const expense = (amount: number, category: Expense['category'] = 'Potraviny'): Expense => ({
+const expense = (amount: number, category: Expense['category'] = 'Potraviny', date = '2026-09-10'): Expense => ({
   id: crypto.randomUUID(),
   amount,
   note: '',
   category,
-  date: '2026-09-10',
+  date,
 })
 
 const item = (price: number, quantity: number, done = false): Item => ({
@@ -46,24 +47,47 @@ describe('totalSpent', () => {
   })
 })
 
+describe('month helpers', () => {
+  it('knows how long each month is, including February in leap years', () => {
+    expect(daysInMonth('2026-09-25')).toBe(30)
+    expect(daysInMonth('2026-10-01')).toBe(31)
+    expect(daysInMonth('2026-02-10')).toBe(28)
+    expect(daysInMonth('2028-02-10')).toBe(29)
+  })
+
+  it('finds the previous month, across a year boundary too', () => {
+    expect(previousMonthKey('2026-09-25')).toBe('2026-08')
+    expect(previousMonthKey('2027-01-03')).toBe('2026-12')
+  })
+
+  it('keeps only the expenses of the month today falls in', () => {
+    const expenses = [expense(1, 'Potraviny', '2026-08-31'), expense(2, 'Potraviny', '2026-09-01'), expense(3, 'Potraviny', '2026-09-30'), expense(4, 'Potraviny', '2025-09-15')]
+    expect(expensesInMonth(expenses, '2026-09-25').map((e) => e.amount)).toEqual([2, 3])
+  })
+})
+
 describe('dailyAverage / weeklyAverage / projectedMonthEnd', () => {
-  it('divides total spend by days elapsed since the start of the month, inclusive', () => {
-    // MONTH_START is 2026-09-01; on the 10th, 10 days have elapsed (1st through 10th).
-    const daily = dailyAverage([expense(1000)], '2026-09-10')
-    expect(daily).toBeCloseTo(100)
+  it("divides this month's spend by the days elapsed since the 1st, inclusive", () => {
+    // On the 10th, 10 days have elapsed (1st through 10th).
+    expect(dailyAverage([expense(1000)], '2026-09-10')).toBeCloseTo(100)
   })
 
-  it('never divides by zero even on the first day of the month', () => {
-    const daily = dailyAverage([expense(300)], MONTH_START)
-    expect(Number.isFinite(daily)).toBe(true)
-    expect(daily).toBeGreaterThan(0)
+  it('ignores expenses of other months', () => {
+    expect(dailyAverage([expense(1000), expense(5000, 'Potraviny', '2026-08-20')], '2026-09-10')).toBeCloseTo(100)
   })
 
-  it('derives weekly and projected-month-end averages from the same daily rate', () => {
+  it('never divides by zero on the first day of the month', () => {
+    const daily = dailyAverage([expense(300, 'Potraviny', '2026-09-01')], '2026-09-01')
+    expect(daily).toBe(300)
+  })
+
+  it("derives weekly and month-end figures from the same daily rate and the month's real length", () => {
     const expenses = [expense(1000)]
     const daily = dailyAverage(expenses, '2026-09-10')
     expect(weeklyAverage(expenses, '2026-09-10')).toBeCloseTo(daily * 7)
     expect(projectedMonthEnd(expenses, '2026-09-10')).toBeCloseTo(daily * 30)
+    // October has 31 days.
+    expect(projectedMonthEnd([expense(310, 'Potraviny', '2026-10-10')], '2026-10-10')).toBeCloseTo(961)
   })
 })
 
@@ -89,15 +113,30 @@ describe('plannedSpend', () => {
 })
 
 describe('monthOverMonthChange', () => {
-  it('compares against the fixed previous-month baseline', () => {
-    const result = monthOverMonthChange([expense(PREVIOUS_MONTH_TOTAL * 1.1)])
-    expect(result.previous).toBe(PREVIOUS_MONTH_TOTAL)
-    expect(result.changePercent).toBeCloseTo(10, 0)
+  it('compares this month so far with the same days of the previous month', () => {
+    const expenses = [
+      expense(1100, 'Potraviny', '2026-09-05'),
+      expense(1000, 'Potraviny', '2026-08-03'),
+      // After the 10th of August: not part of "the same days", so not compared.
+      expense(9000, 'Potraviny', '2026-08-25'),
+    ]
+    const result = monthOverMonthChange(expenses, '2026-09-10')
+    expect(result).toMatchObject({ current: 1100, previous: 1000 })
+    expect(result?.changePercent).toBeCloseTo(10, 5)
   })
 
   it('reports a negative change when spending less than last month', () => {
-    const result = monthOverMonthChange([expense(PREVIOUS_MONTH_TOTAL / 2)])
-    expect(result.changePercent).toBeLessThan(0)
+    const result = monthOverMonthChange([expense(500, 'Potraviny', '2026-09-02'), expense(1000, 'Potraviny', '2026-08-02')], '2026-09-10')
+    expect(result?.changePercent).toBeLessThan(0)
+  })
+
+  it('compares the 31st with the whole of a shorter previous month', () => {
+    const result = monthOverMonthChange([expense(100, 'Potraviny', '2026-03-31'), expense(200, 'Potraviny', '2026-02-28')], '2026-03-31')
+    expect(result?.previous).toBe(200)
+  })
+
+  it('has no comparison when the previous month has no expenses, rather than an invented baseline', () => {
+    expect(monthOverMonthChange([expense(500)], '2026-09-10')).toBeNull()
   })
 })
 

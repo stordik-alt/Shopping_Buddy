@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
-import { TODAY } from '@/lib/budget'
+import { todayInPrague } from '@/lib/today'
 import { currentWeekStart, generateWeeklyPlan, type WeeklyMealPlan } from '@/lib/meal-plans'
 import type { Household } from '@/lib/types'
 
@@ -59,7 +59,7 @@ describe('saveMealPlanAction', () => {
     await saveMealPlanAction(1000, plan(800))
     const rows = await db.query.mealPlans.findMany({ where: eq(schema.mealPlans.householdId, householdId) })
     expect(rows).toHaveLength(1)
-    expect(rows[0].weekStart).toBe(currentWeekStart(TODAY))
+    expect(rows[0].weekStart).toBe(currentWeekStart(todayInPrague()))
     expect(Number(rows[0].estimatedTotal)).toBe(800)
   })
 

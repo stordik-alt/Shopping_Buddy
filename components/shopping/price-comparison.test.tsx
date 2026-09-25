@@ -16,7 +16,7 @@ const point = (overrides: Partial<ProductPrice['prices'][number]> = {}): Product
 describe('PriceComparison old prices', () => {
   it('shows the old price with the date it was recorded and the date the change was seen', () => {
     const html = renderToStaticMarkup(
-      <PriceComparison
+      <PriceComparison today="2026-09-24"
         productName="Mléko"
         productPrices={product([
           point({
@@ -38,7 +38,7 @@ describe('PriceComparison old prices', () => {
 
   it('omits the change date when the old price has no known end', () => {
     const html = renderToStaticMarkup(
-      <PriceComparison
+      <PriceComparison today="2026-09-24"
         productName="Mléko"
         productPrices={product([point({ priceHistory: [{ price: 50, recordedAt: '2026-09-20' }, { price: 45, recordedAt: '2026-09-24' }] })])}
       />,
@@ -49,7 +49,7 @@ describe('PriceComparison old prices', () => {
 
   it('shows no old-price line when the price has never changed', () => {
     const html = renderToStaticMarkup(
-      <PriceComparison
+      <PriceComparison today="2026-09-24"
         productName="Mléko"
         productPrices={product([point({ priceHistory: [{ price: 45, recordedAt: '2026-09-22' }, { price: 45, recordedAt: '2026-09-24' }] })])}
       />,
@@ -59,13 +59,13 @@ describe('PriceComparison old prices', () => {
   })
 
   it('shows no old-price line for a product with a single observation', () => {
-    const html = renderToStaticMarkup(<PriceComparison productName="Mléko" productPrices={product([point()])} />)
+    const html = renderToStaticMarkup(<PriceComparison today="2026-09-24" productName="Mléko" productPrices={product([point()])} />)
     expect(html).not.toContain('Dříve')
   })
 
   it('shows an old price per store, only where that store changed its price', () => {
     const html = renderToStaticMarkup(
-      <PriceComparison
+      <PriceComparison today="2026-09-24"
         productName="Mléko"
         productPrices={product([
           point({ store: 'Billa', regularPrice: 45, priceHistory: [{ price: 50, recordedAt: '2026-09-20', validUntil: '2026-09-24' }, { price: 45, recordedAt: '2026-09-24' }] }),
@@ -77,6 +77,6 @@ describe('PriceComparison old prices', () => {
   })
 
   it('renders nothing for an unknown product', () => {
-    expect(renderToStaticMarkup(<PriceComparison productName="Neznámé" productPrices={product([point()])} />)).toBe('')
+    expect(renderToStaticMarkup(<PriceComparison today="2026-09-24" productName="Neznámé" productPrices={product([point()])} />)).toBe('')
   })
 })

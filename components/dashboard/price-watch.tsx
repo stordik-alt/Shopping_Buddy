@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { ArrowUpRight, Info, Package, Tag, TrendingDown } from 'lucide-react'
-import { TODAY } from '@/lib/budget'
 import { money } from '@/lib/format'
 import { offerUnitPriceLabel, shortOfferDate, type StandaloneOffer } from '@/lib/offers'
 import { pantryQuantityFor } from '@/lib/pantry'
@@ -8,11 +7,14 @@ import { assessDealQuality, suggestsStockingUp, type ProductPrice } from '@/lib/
 import type { PantryItem } from '@/lib/types'
 
 export function PriceWatch({
+  today,
   onStores,
   productPrices,
   offers,
   pantryItems,
 }: {
+  /** The real date (`YYYY-MM-DD`) — decides which promotions are still running. */
+  today: string
   onStores: () => void
   productPrices: ProductPrice[]
   /** Offers with no regular price to compare against: shown as they are, without a discount. */
@@ -22,7 +24,7 @@ export function PriceWatch({
   const [saved, setSaved] = useState<string[]>([])
   // Per docs/05_BUSINESS_RULES.md: a discount isn't automatically a good deal — check whether
   // it's actually the cheapest option for that product, not just cheaper than its own regular price.
-  const deals = assessDealQuality(productPrices, TODAY)
+  const deals = assessDealQuality(productPrices, today)
   const toggleSaved = (name: string) =>
     setSaved((current) => (current.includes(name) ? current.filter((item) => item !== name) : [...current, name]))
 

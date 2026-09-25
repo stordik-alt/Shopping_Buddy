@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, ilike, inArray, isNull, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
-import { TODAY } from '@/lib/budget'
+import { todayInPrague } from '@/lib/today'
 import { planOfficialPrice, type OfficialPriceAction, type OfficialPriceSnapshot } from '@/lib/ingestion/official-price'
 import { ingestionDate } from '@/lib/ingestion/today'
 import type { IngestionSource as ProductSource } from '@/lib/ingestion/types'
@@ -139,7 +139,7 @@ export function toReceiptImportState(row: typeof schema.receiptImports.$inferSel
 /** The household's saved plan for the current week, if one has been generated yet. */
 async function getCurrentMealPlan(householdId: string): Promise<SavedMealPlan | null> {
   const db = getDb()
-  const weekStart = currentWeekStart(TODAY)
+  const weekStart = currentWeekStart(todayInPrague())
   const row = await db.query.mealPlans.findFirst({
     where: and(eq(schema.mealPlans.householdId, householdId), eq(schema.mealPlans.weekStart, weekStart)),
   })
@@ -469,6 +469,7 @@ export async function getInvitationByToken(token: string): Promise<InvitationInf
 /** Store directory: every store location, with active-deal count and available products derived from real price rows. */
 export async function getStores(): Promise<Store[]> {
   const db = getDb()
+  const today = todayInPrague()
   const locations = await db.query.storeLocations.findMany({
     with: { store: true, prices: { with: { product: true } }, deals: true },
   })
@@ -482,7 +483,7 @@ export async function getStores(): Promise<Store[]> {
     country: location.country,
     gps: location.lat != null && location.lng != null ? { lat: Number(location.lat), lng: Number(location.lng) } : null,
     hours: location.hours,
-    dealsCount: location.deals.filter((deal) => deal.validUntil >= TODAY).length,
+    dealsCount: location.deals.filter((deal) => deal.validUntil >= today).length,
     availableProducts: Array.from(new Set(location.prices.map((price) => price.product.name))),
     color: CHAIN_COLOR[location.store.chain] ?? 'bg-muted',
   }))
@@ -615,6 +616,7 @@ export async function upsertStoreLocationFromSource(input: {
 /** Per-product prices across stores, with any currently active deal folded in. One entry per store's latest recorded price. */
 export async function getProductPrices(): Promise<ProductPrice[]> {
   const db = getDb()
+  const today = todayInPrague()
   const products = await db.query.products.findMany({
     with: {
       category: true,
@@ -645,7 +647,7 @@ export async function getProductPrices(): Promise<ProductPrice[]> {
       }
 
       const activeDealByLocation = new Map(
-        product.deals.filter((deal) => deal.validUntil >= TODAY && deal.storeLocationId).map((deal) => [deal.storeLocationId, deal]),
+        product.deals.filter((deal) => deal.validUntil >= today && deal.storeLocationId).map((deal) => [deal.storeLocationId, deal]),
       )
       // A chain-wide (CHAIN-scope) price has no branch, so it takes the chain's active promotion
       // whichever branch it is stored against: ingestion attaches a retailer's chain-wide promotion to
@@ -654,7 +656,7 @@ export async function getProductPrices(): Promise<ProductPrice[]> {
       // retailer's ingested promotions never reached the price comparison for its chain-wide prices.
       const activeChainDealByStore = new Map<string, (typeof product.deals)[number]>()
       for (const deal of product.deals) {
-        if (deal.validUntil < TODAY) continue
+        if (deal.validUntil < today) continue
         const current = activeChainDealByStore.get(deal.storeId)
         if (!current || Number(deal.dealPrice) < Number(current.dealPrice)) activeChainDealByStore.set(deal.storeId, deal)
       }
@@ -1099,7 +1101,7 @@ export async function upsertActiveDeal(deal: {
       eq(schema.deals.productId, deal.productId),
       eq(schema.deals.storeId, deal.storeId),
       deal.storeLocationId ? eq(schema.deals.storeLocationId, deal.storeLocationId) : isNull(schema.deals.storeLocationId),
-      sql`${schema.deals.validUntil} >= ${TODAY}`,
+      sql`${schema.deals.validUntil} >= ${todayInPrague()}`,
     ),
   })
   if (existing) {

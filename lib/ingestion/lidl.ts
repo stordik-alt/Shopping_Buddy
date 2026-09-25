@@ -222,7 +222,7 @@ export type NormalizedLidlProduct = {
  *    rack's slug contains "vino" as a real, non-substring-collision token). This check, using
  *    Lidl's own real category from the fetched response, is the authoritative gate.
  *  `today` is passed in (not read from the system clock here) so this stays a pure, testable
- *  function — the caller supplies it, same convention as `lib/budget.ts`'s `TODAY`. */
+ *  function — the caller supplies it, same convention as the rest of `lib/ingestion` (see `lib/ingestion/today.ts`). */
 export function normalizeLidlProduct(raw: LidlRawProduct, today: string): NormalizedLidlProduct | null {
   const name = (raw.fullTitle ?? raw.title ?? '').trim()
   if (!name) return null

@@ -13,7 +13,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   try {
-    const report = await importOsmStores({ apply: true })
+    // No new map query starts after 150 s: one query can take up to ~105 s more, and the writes
+    // need the rest of the 300 s limit. Chains not reached are reported and retried next week.
+    const report = await importOsmStores({ apply: true, deadline: Date.now() + 150_000 })
     // The response body is not kept in the platform's logs; this line is.
     console.info(JSON.stringify({ event: 'store_import', ...report }))
     return NextResponse.json(report)

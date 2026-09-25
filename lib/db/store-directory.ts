@@ -3,8 +3,10 @@ import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { ALBERT_HYPERMARKET_CHAIN, fetchAlbertHypermarkets, planAlbertFormats } from '@/lib/stores/albert-formats'
 import { fetchOsmStoreElements } from '@/lib/stores/overpass'
+import type { OverpassElement } from '@/lib/stores/osm'
 import { parseOsmBranches, type OsmBranch, type OsmRejection } from '@/lib/stores/osm'
 import { planStoreSync, type ExistingLocation } from '@/lib/stores/sync'
+import { chainFamily } from '@/lib/stores/chain-family'
 
 // Imports the store chains' branches from OpenStreetMap into `store_locations`: fetch
 // (lib/stores/overpass.ts) → parse and validate (lib/stores/osm.ts) → plan (lib/stores/sync.ts) →
@@ -27,6 +29,10 @@ export type StoreImportReport = {
   notSeen: number
   perChain: Record<string, number>
   applied: boolean
+  /** Chains the map servers did not answer for this time; their branches were left as they are. */
+  failedChains: string[]
+  /** Address batches that failed; those branches may be rejected for a missing address this time. */
+  failedAddressBatches: number
 }
 
 async function loadExisting(): Promise<{ existing: ExistingLocation[]; storeIdByChain: Map<string, string> }> {
@@ -51,13 +57,16 @@ async function loadExisting(): Promise<{ existing: ExistingLocation[]; storeIdBy
 
 /** Fetches, validates and (with `apply`) writes the branches. Without `apply` nothing is written and
  *  the report says what would happen. */
-export async function importOsmStores(options: { apply: boolean; elements?: Awaited<ReturnType<typeof fetchOsmStoreElements>> }): Promise<StoreImportReport> {
-  const elements = options.elements ?? (await fetchOsmStoreElements())
+export async function importOsmStores(options: { apply: boolean; elements?: OverpassElement[]; deadline?: number }): Promise<StoreImportReport> {
+  const fetched = options.elements ? { elements: options.elements, failedChains: [], failedAddressBatches: 0 } : await fetchOsmStoreElements({ deadline: options.deadline })
+  const elements = fetched.elements
   const { branches: parsed, rejected } = parseOsmBranches(elements)
   const { existing, storeIdByChain } = await loadExisting()
 
   const branches = parsed.filter((branch) => storeIdByChain.has(branch.chain))
   const plan = planStoreSync(branches, existing, SOURCE)
+  // Compared by retailer: Albert's hypermarkets live under "Albert Hypermarket" (lib/stores/chain-family.ts).
+  const failedFamilies = new Set(fetched.failedChains.map(chainFamily))
   const seenIds = new Set([...plan.unchanged, ...plan.update.map((entry) => entry.id), ...plan.adopt.map((entry) => entry.id)])
   const report: StoreImportReport = {
     found: parsed.length,
@@ -67,9 +76,12 @@ export async function importOsmStores(options: { apply: boolean; elements?: Awai
     unchanged: plan.unchanged.length,
     rejected: { 'no-address': 0, 'outside-cz': 0 },
     unknownChain: parsed.length - branches.length,
-    notSeen: existing.filter((row) => row.source === SOURCE && !seenIds.has(row.id)).length,
+    // A chain the servers did not answer for is not "no longer on the map".
+    notSeen: existing.filter((row) => row.source === SOURCE && !seenIds.has(row.id) && !failedFamilies.has(chainFamily(row.chain))).length,
     perChain: {},
     applied: options.apply,
+    failedChains: fetched.failedChains,
+    failedAddressBatches: fetched.failedAddressBatches,
   }
   for (const rejection of rejected) report.rejected[rejection.reason]++
   for (const branch of branches) report.perChain[branch.chain] = (report.perChain[branch.chain] ?? 0) + 1

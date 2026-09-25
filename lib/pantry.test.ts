@@ -207,3 +207,18 @@ describe('splitPantryReview', () => {
     expect(splitPantryReview([], ['a'])).toEqual({ goneIds: [], keptIds: [] })
   })
 })
+
+describe('summarizeByLocation with estimates', () => {
+  it('counts an item estimated as used up as one to check, once', () => {
+    const base = { name: 'Mléko', category: 'Potraviny' as const, location: 'Lednice' as const, quantity: 1, unit: 'l' as const, addedAt: '2026-09-01T00:00:00Z' }
+    const summary = summarizeByLocation(
+      [
+        { ...base, id: 'a' },
+        { ...base, id: 'b', askedAt: '2026-09-20T00:00:00Z' },
+        { ...base, id: 'c', askedAt: '2026-09-20T00:00:00Z' },
+      ],
+      new Set(['a', 'c']),
+    )
+    expect(summary.Lednice.needsCheck).toBe(3)
+  })
+})

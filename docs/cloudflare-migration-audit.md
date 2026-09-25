@@ -43,7 +43,7 @@ Where the migration brief assumes something the code does not do, that is called
 |---|---|---|
 | `/api/auth/[...path]` | Neon Auth handler | Neon Auth trusted origins must include the Cloudflare hostname(s) |
 | `/api/cron/shopping-reminders` | daily cron | `CRON_SECRET` bearer auth |
-| `/api/cron/pantry-checkin` | daily cron | same |
+| `/api/cron/pantry-checkin` | weekly cron (Sunday) | same |
 | `/api/cron/import-stores` | weekly OSM import | `maxDuration = 300` |
 | `/api/cron/ingest-prices` | all stores (manual) | `maxDuration = 300` |
 | `/api/cron/ingest-prices/[source]` | one store | `maxDuration = 300` |

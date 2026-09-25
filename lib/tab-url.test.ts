@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { tabFromSlug, tabHref } from '@/lib/tab-url'
+import { PANTRY_CHECK_HREF, tabFromSlug, tabHref } from '@/lib/tab-url'
 import type { Tab } from '@/lib/types'
 
 const ALL_TABS: Tab[] = ['Domů', 'Nákup', 'Zásoby', 'Obchody', 'Rozpočet', 'AI', 'Profil']
@@ -31,5 +31,12 @@ describe('tab URLs', () => {
   it('does not open the hidden AI assistant through its address', () => {
     expect(tabFromSlug('ai', { aiEnabled: false })).toBe('Domů')
     expect(tabFromSlug('ai', { aiEnabled: true })).toBe('AI')
+  })
+})
+
+describe('PANTRY_CHECK_HREF', () => {
+  it('opens Zásoby with the check', () => {
+    expect(PANTRY_CHECK_HREF).toBe('/?tab=zasoby&kontrola=1')
+    expect(tabFromSlug(new URL(PANTRY_CHECK_HREF, 'https://x').searchParams.get('tab'), { aiEnabled: false })).toBe('Zásoby')
   })
 })

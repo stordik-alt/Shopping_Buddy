@@ -33,7 +33,7 @@
     // enforced by cloudflare/cron.test.ts. cloudflare/cron.ts maps each back to its path(s).
     "crons": [
       "0 8 * * *", // /api/cron/shopping-reminders
-      "0 9 * * *", // /api/cron/pantry-checkin
+      "0 15 * * 0", // /api/cron/pantry-checkin (weekly, Sunday)
       "0 3 * * 1", // /api/cron/import-stores
       "0 4 * * 1", // /api/cron/albert-store-formats
       "0 5 * * *", // /api/cron/ingest-prices/lidl

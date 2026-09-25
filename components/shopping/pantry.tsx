@@ -1,8 +1,9 @@
 import { BriefcaseMedical, Check, ClipboardCheck, House, Minus, Package, Plus, Refrigerator, Snowflake, SprayCan, Wheat, X, type LucideIcon } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { PantryReview, type PantryReviewResult } from '@/components/shopping/pantry-review'
 import { itemCountLabel } from '@/lib/format'
-import { PANTRY_LOCATIONS, summarizeByLocation } from '@/lib/pantry'
+import { needsCheck, PANTRY_LOCATIONS, summarizeByLocation } from '@/lib/pantry'
+import { estimateReason, type ConsumptionEstimate } from '@/lib/pantry-estimate'
 import { cn } from '@/lib/utils'
 import type { ItemUnit, PantryItem, PantryLocation } from '@/lib/types'
 
@@ -93,6 +94,9 @@ export function Pantry({
   onMove,
   onAdjustQuantity,
   onReview,
+  estimates,
+  openCheck = false,
+  onCheckOpened,
 }: {
   items: PantryItem[]
   onConfirm: (id: string) => void
@@ -101,16 +105,26 @@ export function Pantry({
   onAdjustQuantity: (id: string, quantity: number) => void
   /** Saves a bulk check; resolves to what was done, rejects when nothing was saved. */
   onReview: (reviewedIds: string[], goneIds: string[], addGoneToList: boolean) => Promise<PantryReviewResult>
+  /** "Asi došlo" estimates by pantry item id (lib/pantry-estimate.ts). */
+  estimates: Map<string, ConsumptionEstimate>
+  /** Open the check of uncertain items right away (the weekly notification's link). */
+  openCheck?: boolean
+  onCheckOpened?: () => void
 }) {
-  const summary = summarizeByLocation(items)
+  const likelyGone = useMemo(() => new Set([...estimates].filter(([, estimate]) => estimate.likelyGone).map(([id]) => id)), [estimates])
+  const summary = summarizeByLocation(items, likelyGone)
   // Open on the first location that has something in it rather than on an empty folder.
   const [selected, setSelected] = useState<PantryLocation>(() => PANTRY_LOCATIONS.find((location) => summary[location].count > 0) ?? PANTRY_LOCATIONS[0])
   // Announces a move: the moved row leaves the open folder, so without this it would just vanish.
   const [notice, setNotice] = useState<string | null>(null)
   // The check opened from the "K ověření" banner covers every location (the asked items can be
   // anywhere); opened from a folder, it starts with that folder.
-  const [reviewing, setReviewing] = useState<'location' | 'all' | null>(null)
-  const toCheck = items.filter((item) => item.askedAt).length
+  const toCheck = items.filter((item) => needsCheck(item, likelyGone)).length
+  const [reviewing, setReviewing] = useState<'location' | 'uncertain' | 'all' | null>(() => (openCheck ? (toCheck > 0 ? 'uncertain' : 'all') : null))
+  // The link that opened the check is consumed once, so a reload or a later visit does not reopen it.
+  useEffect(() => {
+    if (openCheck) onCheckOpened?.()
+  }, [openCheck, onCheckOpened])
 
   const SelectedIcon = LOCATION_ICON[selected]
   const selectedItems = items.filter((item) => item.location === selected)
@@ -138,7 +152,7 @@ export function Pantry({
           <button
             type="button"
             onClick={() => {
-              setReviewing('all')
+              setReviewing('uncertain')
               setNotice(null)
             }}
             className="min-h-9 rounded-xl bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
@@ -191,7 +205,7 @@ export function Pantry({
       </nav>
 
       {reviewing ? (
-        <PantryReview items={items} location={selected} initialScope={reviewing} onSave={onReview} onClose={closeReview} />
+        <PantryReview items={items} location={selected} initialScope={reviewing} estimates={estimates} onSave={onReview} onClose={closeReview} />
       ) : (
       <section aria-label={`Zásoby: ${selected}`} className="overflow-hidden surface">
         <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
@@ -237,9 +251,18 @@ export function Pantry({
             <div className="min-w-0 flex-1 basis-full sm:basis-auto">
               <span className="flex flex-wrap items-center gap-2">
                 <span className="min-w-0 break-words font-medium">{item.name}</span>
-                {item.askedAt && <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">Máte ještě?</span>}
+                {likelyGone.has(item.id) ? (
+                  <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold text-destructive">
+                    Asi došlo
+                  </span>
+                ) : (
+                  item.askedAt && <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">Máte ještě?</span>
+                )}
               </span>
-              <span className="mt-1 block text-xs text-muted-foreground">{item.category}</span>
+              <span className="mt-1 block text-xs text-muted-foreground">
+                {item.category}
+                {likelyGone.has(item.id) && ` · ${estimateReason(estimates.get(item.id)!)}`}
+              </span>
             </div>
             <QuantityStepper quantity={item.quantity} unit={item.unit} onChange={(quantity) => onAdjustQuantity(item.id, quantity)} />
             <select

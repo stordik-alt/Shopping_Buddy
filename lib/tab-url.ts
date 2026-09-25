@@ -31,3 +31,6 @@ export function tabHref(tab: Tab): string {
   const slug = TAB_SLUGS[tab]
   return slug ? `/?tab=${slug}` : '/'
 }
+
+/** The weekly pantry notification's link: Zásoby with the check of uncertain items open. */
+export const PANTRY_CHECK_HREF = `${tabHref('Zásoby')}&kontrola=1`

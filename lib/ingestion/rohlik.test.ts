@@ -250,4 +250,36 @@ describe('fetchRohlikCatalog', () => {
     expect(await fetchRohlikCatalog(0)).toEqual([])
     expect(calls).toHaveLength(0)
   })
+
+  it('pages every category to its end for the full-catalog backfill', async () => {
+    // Each category has 250 products: a full page of 200, then a short page of 50 ends it.
+    const categoryCalls: string[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        const category = /categories\/normal\/(\d+)\/products\?page=(\d+)&size=(\d+)/.exec(url)
+        if (category) {
+          categoryCalls.push(url)
+          const base = Number(category[1]) * 1000
+          const page = Number(category[2])
+          const size = Number(category[3])
+          const all = Array.from({ length: 250 }, (_, i) => base + i)
+          return json({ productIds: all.slice(page * size, (page + 1) * size) })
+        }
+        const ids = [...url.matchAll(/products=(\d+)/g)].map((match) => Number(match[1]))
+        if (url.includes('/products/prices')) return json(ids.map((id) => ({ productId: id, price: czk(10), pricePerUnit: czk(10), sales: [] })))
+        return json(ids.map((id) => ({ id, name: `Produkt ${id}`, unit: 'ks', textualAmount: '1 ks', archived: false, weightedItem: false })))
+      }),
+    )
+    const products = await fetchRohlikCatalog(1_000_000, { pauseMs: 0, fullCatalog: true })
+    expect(products).toHaveLength(ROHLIK_GROCERY_CATEGORY_IDS.length * 250)
+    expect(categoryCalls).toHaveLength(ROHLIK_GROCERY_CATEGORY_IDS.length * 2)
+    expect(categoryCalls.every((url) => url.includes('size=200'))).toBe(true)
+  })
+
+  it('reads only the first page per category for the daily batch', async () => {
+    const calls = stubSite()
+    await fetchRohlikCatalog(1000, { pauseMs: 0 })
+    expect(calls.filter((url) => url.includes('/categories/normal/'))).toHaveLength(ROHLIK_GROCERY_CATEGORY_IDS.length)
+  })
 })

@@ -47,10 +47,11 @@ export function parseDmSitemap(xml: string): number[] {
   return ids
 }
 
-/** The deterministic sample: ids divisible by `SAMPLE_MODULUS`, ascending, at most `limit`. */
-export function selectSampleIds(ids: number[], limit: number): number[] {
+/** The deterministic sample: ids divisible by `modulus` (the daily `SAMPLE_MODULUS`; 1 selects every
+ *  id, for the full-catalog backfill), ascending, at most `limit`. */
+export function selectSampleIds(ids: number[], limit: number, modulus: number = SAMPLE_MODULUS): number[] {
   return Array.from(new Set(ids))
-    .filter((id) => id % SAMPLE_MODULUS === 0)
+    .filter((id) => id % modulus === 0)
     .sort((a, b) => a - b)
     .slice(0, Math.max(limit, 0))
 }
@@ -104,7 +105,7 @@ export async function fetchDmTopCategory(id: number): Promise<string | undefined
  *  throws, so the failure is visible instead of being reported as a pile of "skipped" products. */
 export async function fetchDmProducts(limit: number, options: FetchOptions = {}): Promise<DmRawProduct[]> {
   if (limit <= 0) return []
-  const ids = selectSampleIds(await fetchDmSitemap(), limit)
+  const ids = selectSampleIds(await fetchDmSitemap(), limit, options.fullCatalog ? 1 : SAMPLE_MODULUS)
   const tiles: DmRawProduct[] = []
   for (let i = 0; i < ids.length; i += TILE_BATCH_SIZE) {
     if (options.deadline != null && Date.now() >= options.deadline) break

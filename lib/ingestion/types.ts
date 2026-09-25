@@ -48,7 +48,13 @@ export type NormalizedProduct = {
   promotionWithoutValidity?: boolean
 }
 
-export type FetchOptions = { deadline?: number }
+export type FetchOptions = {
+  deadline?: number
+  /** Read the store's whole catalog instead of the daily run's stable sample — for the one-off
+   *  backfill (scripts/backfill-prices.ts), which has no function time limit. Connectors whose
+   *  daily batch already walks the whole catalog when `limit` allows it ignore this. */
+  fullCatalog?: boolean
+}
 
 /** One store's connector: how to fetch a small, deterministic batch of raw products and how to turn
  *  each into a `NormalizedProduct`. `Raw` is the source's own response shape. */

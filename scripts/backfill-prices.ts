@@ -1,6 +1,7 @@
 import { ingestPrices, PRICE_SOURCES } from '@/lib/ingestion/ingest'
 import { billaConnector } from '@/lib/ingestion/billa'
 import { dmConnector } from '@/lib/ingestion/dm'
+import { globusConnector } from '@/lib/ingestion/globus'
 import { kosikConnector } from '@/lib/ingestion/kosik'
 import { lidlConnector } from '@/lib/ingestion/lidl'
 import { pennyConnector } from '@/lib/ingestion/penny'
@@ -31,6 +32,7 @@ const CONNECTORS: Record<string, PriceConnector<unknown>> = {
   dm: dmConnector,
   rohlik: rohlikConnector,
   kosik: kosikConnector,
+  globus: globusConnector,
 }
 
 // "Everything": far above any store's catalog; the connectors stop at the catalog's end.

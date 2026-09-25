@@ -12,6 +12,7 @@ import {
 } from '@/lib/db/queries'
 import { billaConnector } from '@/lib/ingestion/billa'
 import { dmConnector } from '@/lib/ingestion/dm'
+import { globusConnector } from '@/lib/ingestion/globus'
 import { kosikConnector } from '@/lib/ingestion/kosik'
 import { lidlConnector } from '@/lib/ingestion/lidl'
 import { pennyConnector } from '@/lib/ingestion/penny'
@@ -128,7 +129,7 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
       }
 
       if (normalized.deal) {
-        if (storeLocationId === undefined) storeLocationId = isOnline ? null : await getCanonicalStoreLocationId(connector.chain)
+        if (storeLocationId === undefined) storeLocationId = isOnline || connector.chainWideDeals ? null : await getCanonicalStoreLocationId(connector.chain)
         await upsertActiveDeal({
           productId,
           storeId,
@@ -183,7 +184,7 @@ export type PriceSource = {
  *  changes, not with the number of runs. About 2,000 products per run: the database is in us-east-1
  *  next to the functions, so a write costs a few dozen milliseconds (~1 minute for a part), and a run
  *  that still runs out of time stops cleanly and says so (`truncated`). Lidl (~240 grocery products)
- *  and Penny (its ~40 weekly offers) are read whole every run. */
+ *  and Penny (its ~40 weekly offers) are read whole every run, as are Globus's flyers. */
 export const PRICE_SOURCES: PriceSource[] = [
   { source: lidlConnector.source, parts: 1, run: (limit, options) => ingestPrices(lidlConnector, limit, options) },
   // ~9,400 products; each run walks the whole category listing (~1 min) and keeps one part.
@@ -195,6 +196,8 @@ export const PRICE_SOURCES: PriceSource[] = [
   { source: rohlikConnector.source, parts: 6, run: (limit, options) => ingestPrices(rohlikConnector, limit, options) },
   // ~13,100 products; a part is a set of sub-categories, each read to its end.
   { source: kosikConnector.source, parts: 7, run: (limit, options) => ingestPrices(kosikConnector, limit, options) },
+  // The current national flyers, ~1,000 offers (~170 small page files): read whole every day.
+  { source: globusConnector.source, parts: 1, run: (limit, options) => ingestPrices(globusConnector, limit, options) },
 ]
 
 // No batch cap of its own: a run's size is set by its part (and stopped by the time budget).

@@ -66,6 +66,10 @@ export type PriceConnector<Raw = unknown> = {
   source: IngestionSource
   /** Must match `stores.chain` — the seeded store chain the prices are attributed to. */
   chain: string
+  /** The source's promotions hold at every branch of the chain (a national flyer), so its deals are
+   *  stored chain-wide, with no branch — as for an online-only chain. Otherwise a physical chain's
+   *  deals are attached to its canonical branch. */
+  chainWideDeals?: boolean
   /** Fetches up to `limit` raw products. Throws when the source is unreachable (the caller isolates
    *  that failure so other connectors still run). `options.deadline` (epoch ms) is the run's time
    *  budget: once it has passed, no further request is started and the products fetched so far are

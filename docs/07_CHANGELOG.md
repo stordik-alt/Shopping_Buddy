@@ -1,5 +1,9 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Intro: owner's Buddy artwork)
+- **What:** the intro now follows the owner's supplied design: the rendered Buddy illustration (robot in a cap with a basket of groceries and banknotes, green glow on navy) above the "Buddy" wordmark, tagline and green "Pokračovat na přihlášení" button. The artwork is cropped from the design to `public/intro/buddy-hero.webp` (1080 × 1340, 69 kB) — under `/intro/` so `proxy.ts` serves it to signed-out visitors. Title, tagline and button stay real text (Montserrat), with colours sampled from the artwork so the picture blends into the page. The image shrinks on short screens so the button always fits. The SVG scene (`buddy-scene.tsx`) is removed. The skip-intro checkbox and routing are unchanged; the checkbox now sits under the button.
+- **Checked:** in a real browser at 360 × 640, 390 × 844, 430 × 932 and 1280 × 800 — no overflow, tagline on one line; typecheck.
+
 ## 2026-09-25 (Home: "Dnes je důležité")
 - **Why:** things that need the household's action were spread over tabs or waited under the bell — a receipt stuck in review showed only on Rozpočet, and a promotion on a list item could end unnoticed.
 - **What:** a strip at the top of Domů lists receipts waiting on the household (review, duplicate decision, failed or stalled; not ones still processing) and promotions on items still to buy that end today or tomorrow (one line per product, earliest first). Each line opens the tab where it is dealt with. Nothing to report, no strip. The budget warning is not repeated there — the budget card right below shows it. Logic in `lib/attention.ts` (pure, deterministic), UI in `components/dashboard/today-attention.tsx`.

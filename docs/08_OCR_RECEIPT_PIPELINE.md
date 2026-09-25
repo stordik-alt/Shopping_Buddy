@@ -78,8 +78,9 @@ After upload:
    original when preparation failed / for a PDF), so it benefits from the clean-up too — this
    matters most while Azure is the only provider that works. What ran is in the import log
    (`imagePrep`).
-4. Keep the original image — `uploadReceiptAction` stores it in Vercel Blob (`access: 'private'`,
-   under `receipts/<householdId>/<uuid>.<ext>`), decided and implemented 2026-09-22.
+4. Keep the original image — `uploadReceiptAction` stores it privately under
+   `receipts/<householdId>/<uuid>.<ext>` through `lib/storage` (decided 2026-09-22 with Vercel Blob;
+   since 2026-09-25 Vercel Blob or Cloudflare R2 by `STORAGE_PROVIDER`, see `docs/cloudflare-r2.md`).
 5. Create a unique import ID.
 6. Set status: `UPLOADED`.
 
@@ -339,7 +340,7 @@ How each open question below was resolved when this was implemented (2026-09-22)
   upload's result surfaces via the new `components/budget/receipt-pending.tsx` — retry for a
   failure, an editable review form for `review_required`, and a three-way choice
   (use-existing/save-as-new/cancel) for `duplicate_review`.
-- Image storage: Vercel Blob, private access, per household (`receipts/<householdId>/<uuid>.<ext>`)
+- Image storage: private, per household (`receipts/<householdId>/<uuid>.<ext>`), Vercel Blob or Cloudflare R2 via `lib/storage` (`docs/cloudflare-r2.md`)
   — a real provisioned integration, not a placeholder, per the project's marketplace-integration
   convention.
 - **Known gap, not yet closed:** `GOOGLE_VISION_API_KEY` is set in the Vercel project for
@@ -549,4 +550,4 @@ This is audit metadata only. The same Gemini structuring, validation, duplicate 
 - AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT
 - AZURE_DOCUMENT_INTELLIGENCE_KEY
 
-The fallback uses the Azure Document Intelligence REST API 2024-11-30 and sends the uploaded file bytes as base64, so the private Vercel Blob URL is not exposed to Azure. Azure's analyzeResult.content is fed into the same Gemini structuring and validation pipeline; Azure never bypasses the application's validation rules.
+The fallback uses the Azure Document Intelligence REST API 2024-11-30 and sends the uploaded file bytes as base64, so no storage address is exposed to Azure. Azure's analyzeResult.content is fed into the same Gemini structuring and validation pipeline; Azure never bypasses the application's validation rules.

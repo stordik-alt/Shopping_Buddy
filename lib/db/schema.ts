@@ -454,7 +454,9 @@ export const receiptImports = pgTable('receipt_imports', {
   date: date('date'),
   // 'manual' (hand-typed today) or 'ocr' (docs/08_OCR_RECEIPT_PIPELINE.md pipeline).
   source: text('source').notNull().default('manual'),
-  // Vercel Blob URL of the uploaded photo — private access, so only ever read back server-side.
+  // Storage reference of the uploaded photo (lib/storage): a private Vercel Blob URL for receipts
+  // uploaded before the move to R2, `r2:receipts/…` for R2. Private either way — only ever read back
+  // server-side. The column keeps its old name so the switch needed no migration.
   // Kept even after processing completes so a failed/reviewed import can be retried without
   // re-uploading (pipeline doc section 13).
   imageUrl: text('image_url'),

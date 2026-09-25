@@ -1,6 +1,7 @@
 # Cloudflare Migration — Target Architecture
 
-**Status:** proposed (2026-09-25). Nothing here is implemented yet. It follows from
+**Status:** the interim target (storage layer + R2) is implemented behind `STORAGE_PROVIDER` and
+documented in `docs/cloudflare-r2.md`; the full target below is proposed only. It follows from
 `docs/cloudflare-migration-audit.md`; update this file whenever a decision changes it.
 
 > **Current scope (owner decision, 2026-09-25): only Vercel Blob → R2.** The near-term target is
@@ -11,12 +12,19 @@
 ```text
 Vercel ── Next.js 16 (unchanged)
         ├── lib/storage/ ──► R2 (S3-compatible API, private bucket)      new uploads
-        │               └──► Vercel Blob                                 old receipts / dual-mode copy
+        │               └──► Vercel Blob                                 old receipts / rollback
         └── everything else unchanged (cron, OIDC, AI Gateway, analytics, domain)
 ```
 
-On Vercel there is no R2 binding, so `lib/storage/r2.ts` uses `@aws-sdk/client-s3` with the
-`R2_*` credentials (server-only). A Worker binding can be added later if hosting moves.
+On Vercel there is no R2 binding, so `lib/storage/r2.ts` signs S3 requests with `aws4fetch` using
+the `R2_*` credentials (server-only). `aws4fetch` was chosen over `@aws-sdk/client-s3`: it only signs
+`fetch` requests (no dependencies) and also runs on Workers. A Worker binding can be added later if
+hosting moves.
+
+**Implemented differently from the design below (2026-09-25):** no `storage_provider`/`storage_key`
+columns and no `dual` mode. `image_url` holds a storage reference (`https://…` = Blob, `r2:<key>` =
+R2), so the switch needed no migration while production uploads were failing, and a second copy to
+the over-quota Blob store would fail anyway. The section below is kept as the original design.
 
 ## Current (production)
 

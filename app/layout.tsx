@@ -1,6 +1,7 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
+import { InstallPromptCapture } from '@/components/shared/install-prompt-capture'
 import './globals.css'
 
 // latin-ext is required for Czech diacritics (ě, š, č, ř, ž, ý, á, í, é, ů, ú).
@@ -10,23 +11,13 @@ export const metadata: Metadata = {
   title: 'Rodinný nákup | Chytré nákupy a rozpočet',
   description: 'Moderní pomocník pro rodinné nákupy, akce a rozpočet domácnosti.',
   generator: 'v0.app',
+  // Buddy, like the installed app's icon (app/manifest.ts). Under /brand/ so they load before sign-in.
   icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
-    apple: '/apple-icon.png',
+    icon: [{ url: '/brand/buddy-favicon-32.png', sizes: '32x32', type: 'image/png' }],
+    apple: '/brand/buddy-apple-touch-icon.png',
   },
+  // iPhone: "Přidat na plochu" opens the app full-screen under the name Buddy.
+  appleWebApp: { capable: true, title: 'Buddy', statusBarStyle: 'default' },
 }
 
 export const viewport: Viewport = {
@@ -48,6 +39,7 @@ export default function RootLayout({
     <html lang="cs" className={inter.variable}>
       <body className="antialiased">
         {children}
+        <InstallPromptCapture />
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

@@ -1,9 +1,14 @@
-import { ArrowUpRight, Check, Info, Package, Plus, Tag, TrendingDown } from 'lucide-react'
-import { money, shortDate } from '@/lib/format'
+import { useState } from 'react'
+import { ArrowUpRight, Check, ChevronDown, Info, Package, Plus, Tag, TrendingDown } from 'lucide-react'
+import { countLabel, money, shortDate } from '@/lib/format'
 import { offerUnitPriceLabel, shortOfferDate, type StandaloneOffer } from '@/lib/offers'
 import { pantryQuantityFor } from '@/lib/pantry'
-import { assessDealQuality, suggestsStockingUp, type ProductPrice } from '@/lib/prices'
+import { assessDealQuality, dealDiscount, dealsForList, suggestsStockingUp, type ProductPrice } from '@/lib/prices'
 import type { PantryItem } from '@/lib/types'
+
+// How many cards the home screen shows before "Zobrazit všechny": enough to act on, few enough
+// that the rest of the home screen stays in reach.
+const COLLAPSED_CARDS = 3
 
 export function PriceWatch({
   today,
@@ -31,13 +36,28 @@ export function PriceWatch({
   const deals = assessDealQuality(productPrices, today)
   const onList = new Set(listItemNames.map((name) => name.trim().toLowerCase()))
   const isOnList = (name: string) => onList.has(name.trim().toLowerCase())
+  // Deals for what the household is about to buy come first; the rest by discount.
+  const { onList: listDeals, others } = dealsForList(deals, listItemNames)
+  const orderedDeals = [...listDeals, ...others]
+  const [showAll, setShowAll] = useState(false)
+  // Collapsed, the first cards are deals (list ones first) and any free slots go to offers without
+  // a regular price; expanded, everything is shown.
+  const shownDeals = showAll ? orderedDeals : orderedDeals.slice(0, COLLAPSED_CARDS)
+  const shownOffers = showAll ? offers : offers.slice(0, Math.max(0, COLLAPSED_CARDS - shownDeals.length))
+  const hiddenCount = orderedDeals.length + offers.length - shownDeals.length - shownOffers.length
 
   return (
     <section className="surface p-5 sm:p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold">Akce pro váš seznam</p>
-          <p className="mt-1 text-sm text-muted-foreground">Aktuální ceny, které mohou snížit váš nákup.</p>
+          <p className="text-sm font-semibold">Akce</p>
+          {orderedDeals.length + offers.length > 0 && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              {listDeals.length > 0
+                ? `${countLabel(listDeals.length, 'akce', 'akce', 'akcí')} na položky z vašeho seznamu`
+                : 'Na vašem seznamu teď nic v akci není. Tady jsou nejvýhodnější akce v obchodech.'}
+            </p>
+          )}
         </div>
         <Tag className="text-primary" />
       </div>
@@ -45,12 +65,15 @@ export function PriceWatch({
         <p className="mt-5 rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground">Momentálně nemáme žádné aktivní akce.</p>
       ) : (
       <>
-      {deals.length > 0 && (
+      {shownDeals.length > 0 && (
       <div className="mt-5 grid gap-3 md:grid-cols-3">
-        {deals.map(({ product, price, isBestPrice, cheapestAlternative, isHistoricLow }) => {
-          const discount = Math.round((1 - (price.dealPrice ?? price.regularPrice) / price.regularPrice) * 100)
+        {shownDeals.map(({ product, price, isBestPrice, cheapestAlternative, isHistoricLow }) => {
+          const discount = Math.round(dealDiscount(price) * 100)
           return (
-            <div key={`${product.productName}-${price.store}`} className="rounded-2xl bg-muted p-4">
+            <div
+              key={`${product.productName}-${price.store}`}
+              className={`rounded-2xl bg-muted p-4 ${isOnList(product.productName) ? 'ring-1 ring-primary/40' : ''}`}
+            >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="break-words text-sm font-medium">{product.productName}</p>
@@ -100,12 +123,12 @@ export function PriceWatch({
         })}
       </div>
       )}
-      {offers.length > 0 && (
+      {shownOffers.length > 0 && (
         <div className="mt-5">
           <p className="text-sm font-medium">Další nabídky obchodů</p>
           <p className="mt-1 text-xs text-muted-foreground">U těchto produktů neznáme běžnou cenu, proto je neporovnáváme a neuvádíme slevu.</p>
           <div className="mt-3 grid gap-3 md:grid-cols-3">
-            {offers.map((offer) => (
+            {shownOffers.map((offer) => (
               <div key={`${offer.productName}-${offer.store}`} className="rounded-2xl bg-muted p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -122,9 +145,21 @@ export function PriceWatch({
       )}
       </>
       )}
-      <button onClick={onStores} className="mt-4 text-sm font-medium text-primary">
-        Porovnat všechny obchody <ArrowUpRight className="ml-1 inline h-4 w-4" />
-      </button>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        {(hiddenCount > 0 || showAll) && (
+          <button
+            onClick={() => setShowAll((current) => !current)}
+            aria-expanded={showAll}
+            className="flex min-h-10 items-center gap-1 rounded-full bg-muted px-4 text-sm font-medium text-foreground transition hover:bg-primary/10"
+          >
+            {showAll ? 'Zobrazit méně' : `Zobrazit všechny akce (+${hiddenCount})`}
+            <ChevronDown className={`h-4 w-4 transition ${showAll ? 'rotate-180' : ''}`} aria-hidden="true" />
+          </button>
+        )}
+        <button onClick={onStores} className="min-h-10 text-sm font-medium text-primary">
+          Porovnat všechny obchody <ArrowUpRight className="ml-1 inline h-4 w-4" />
+        </button>
+      </div>
     </section>
   )
 }

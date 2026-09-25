@@ -113,7 +113,32 @@ export function assessDealQuality(products: ProductPrice[], referenceDate: strin
   })
 }
 
-export type ShoppingListItemForPricing = Pick<Item, 'name' | 'price' | 'quantity' | 'done'>
+/** A deal's discount off its own regular price, as a fraction (0.25 = 25 % off). */
+export function dealDiscount(price: PricePoint): number {
+  return price.regularPrice > 0 ? 1 - effectivePrice(price) / price.regularPrice : 0
+}
+
+/** Splits deals into those for products on the household's list — what the home screen shows
+ *  first — and the rest. On-list deals keep the list's order, so the product the household added
+ *  first comes first; the others go biggest discount first, then by name, so the order is stable.
+ *  Names match ignoring case and surrounding spaces, the same way the deals card decides that a
+ *  product is already on the list. */
+export function dealsForList<T extends { product: ProductPrice; price: PricePoint }>(deals: T[], listNames: string[]): { onList: T[]; others: T[] } {
+  const normalize = (name: string) => name.trim().toLowerCase()
+  const position = new Map<string, number>()
+  listNames.forEach((name, index) => {
+    const key = normalize(name)
+    if (!position.has(key)) position.set(key, index)
+  })
+  const onList: T[] = []
+  const others: T[] = []
+  for (const deal of deals) (position.has(normalize(deal.product.productName)) ? onList : others).push(deal)
+  onList.sort((a, b) => position.get(normalize(a.product.productName))! - position.get(normalize(b.product.productName))!)
+  others.sort((a, b) => dealDiscount(b.price) - dealDiscount(a.price) || a.product.productName.localeCompare(b.product.productName, 'cs'))
+  return { onList, others }
+}
+
+export type ShoppingListItemForPricing =Pick<Item, 'name' | 'price' | 'quantity' | 'done'>
 
 /** Whether a deal is worth stocking up on beyond the household's immediate need — per
  *  docs/05_BUSINESS_RULES.md's "Bulk buying" rule: "large quantities may be recommended when the

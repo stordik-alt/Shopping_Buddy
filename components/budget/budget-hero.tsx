@@ -9,6 +9,7 @@ export function BudgetHero({
   spent,
   remaining,
   onSetBudget,
+  compact = false,
   className = '',
 }: {
   budget: number
@@ -16,6 +17,9 @@ export function BudgetHero({
   remaining: number
   /** Opens wherever the monthly limit is edited; offered when no budget is set yet. */
   onSetBudget?: () => void
+  /** A shorter card for the home screen, so the shopping list and deals fit on a phone's first
+   *  screen; the Rozpočet tab keeps the large one. Same numbers and warnings either way. */
+  compact?: boolean
   className?: string
 }) {
   // Display-only: clamped so an overspent month does not draw outside its track.
@@ -47,7 +51,9 @@ export function BudgetHero({
   }
 
   return (
-    <div className={`flex flex-col justify-between gap-6 rounded-3xl bg-primary p-5 text-primary-foreground shadow-[var(--shadow-card)] sm:p-7 ${className}`}>
+    <div
+      className={`flex flex-col justify-between rounded-3xl bg-primary text-primary-foreground shadow-[var(--shadow-card)] ${compact ? 'px-5 py-4' : 'gap-6 p-5 sm:p-7'} ${className}`}
+    >
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm text-primary-foreground/75">{level === 'over' ? 'Rozpočet překročen o' : 'Zbývá v rozpočtu'}</p>
         {level !== 'ok' && (
@@ -57,9 +63,9 @@ export function BudgetHero({
           </span>
         )}
       </div>
-      <p className="mt-2 text-4xl font-semibold tracking-tight break-words sm:text-5xl">{Math.abs(remaining).toLocaleString('cs-CZ')} Kč</p>
+      <p className={`font-semibold tracking-tight break-words ${compact ? 'mt-1 text-3xl' : 'mt-2 text-4xl sm:text-5xl'}`}>{Math.abs(remaining).toLocaleString('cs-CZ')} Kč</p>
       <div
-        className="mt-6 h-2.5 overflow-hidden rounded-full bg-primary-foreground/20"
+        className={`overflow-hidden rounded-full bg-primary-foreground/20 ${compact ? 'mt-3 h-2' : 'mt-6 h-2.5'}`}
         role="progressbar"
         aria-label="Čerpání rozpočtu"
         aria-valuemin={0}
@@ -68,7 +74,7 @@ export function BudgetHero({
       >
         <div className="h-full rounded-full bg-accent transition-[width]" style={{ width: `${spentPercent}%` }} />
       </div>
-      <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-sm text-primary-foreground/80">
+      <div className={`flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-primary-foreground/80 ${compact ? 'mt-2 text-xs' : 'mt-3 text-sm'}`}>
         <span>
           Utraceno <span className="font-semibold text-primary-foreground">{spent.toLocaleString('cs-CZ')} Kč</span> z {budget.toLocaleString('cs-CZ')} Kč
         </span>

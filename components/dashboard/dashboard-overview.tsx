@@ -35,16 +35,17 @@ export function DashboardOverview({
   const preview = pendingNames.slice(0, MAX_PREVIEW_ITEMS)
 
   return (
-    // On a phone the order is budget → quick actions → shopping list, so the everyday actions are
-    // visible without scrolling; from lg up the list sits beside the budget and actions span below.
-    <section className="grid gap-4 lg:grid-cols-[1.35fr_1fr]" aria-label="Přehled domácnosti">
-      <BudgetHero budget={budget} spent={spent} remaining={remaining} onSetBudget={onSetBudget} className="order-1" />
+    // On a phone the order is budget → quick actions → shopping list, all compact enough that the
+    // list and the first deals are on the first screen; from lg up the list sits beside the budget
+    // and the actions span below.
+    <section className="grid gap-3 lg:grid-cols-[1.35fr_1fr] lg:gap-4" aria-label="Přehled domácnosti">
+      <BudgetHero compact budget={budget} spent={spent} remaining={remaining} onSetBudget={onSetBudget} className="order-1" />
 
       <QuickActions className="order-2 lg:order-3 lg:col-span-2" onShopping={onShopping} onExpense={onExpense} onReceipt={onReceipt} onStores={onStores} />
 
       <button
         onClick={onShopping}
-        className="surface group order-3 flex flex-col p-5 text-left transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:p-6 lg:order-2"
+        className="surface group order-3 flex flex-col p-4 text-left transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:p-6 lg:order-2"
       >
         <div className="flex w-full items-center justify-between gap-3">
           <span className="flex items-center gap-2 text-sm font-semibold">
@@ -59,7 +60,7 @@ export function DashboardOverview({
           </>
         ) : (
           <>
-            <p className="mt-4 text-2xl font-semibold tracking-tight">
+            <p className="mt-3 text-2xl font-semibold tracking-tight">
               {completed} z {totalItems} <span className="text-base font-medium text-muted-foreground">hotovo</span>
             </p>
             <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label="Postup nákupu" aria-valuemin={0} aria-valuemax={100} aria-valuenow={shoppingPercent}>
@@ -70,7 +71,7 @@ export function DashboardOverview({
                 <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> Vše nakoupeno
               </p>
             ) : (
-              <ul className="mt-4 space-y-1.5 text-sm">
+              <ul className="mt-3 space-y-1.5 text-sm">
                 {preview.map((name, index) => (
                   <li key={`${name}-${index}`} className="flex items-center gap-2">
                     <span className="size-1.5 shrink-0 rounded-full bg-primary/50" aria-hidden="true" />

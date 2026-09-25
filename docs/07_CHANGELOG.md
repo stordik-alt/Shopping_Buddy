@@ -1,5 +1,12 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Budget card: daily allowance, pace warning, 80 % mark)
+- **Why:** the home screen showed what was left but not where the month was heading; the Rozpočet tab projected the month end (e.g. 10 368 Kč) without comparing it to the limit.
+- **Budget card** (`BudgetHero`, home and Rozpočet): "Na den zbývá … Kč (N dní do konce měsíce)" and, from the 7th of the month, "Při tomto tempu překročíte limit o … Kč" when the current daily rate would break the limit (`lib/budget.ts` `budgetPace`, deterministic; no projection earlier, when one big shop would distort it). The progress bar marks the 80 % warning boundary. Both lines carry an icon; hidden once the limit is already exceeded (the chip says so).
+- **Rozpočet tab:** averages and the projection in whole crowns (`wholeMoney`); the projection says "o … nad limitem" (with an icon) or "v limitu, rezerva …".
+- **Home:** category totals use the same format as the Rozpočet tab.
+- **Checked:** rendered home and Rozpočet at 390 px, light and dark, with the app's built CSS. Tests: `budgetPace` (allowance, projection, overrun, before the 7th, over limit, no budget) and the card's text. CI command: 907 passed; `next build` passes.
+
 ## 2026-09-25 (Price trend per store; Cloudflare build checked in CI)
 - **Price trend:** the per-store rows of "Porovnání cen mezi obchody" show a small step line of that store's recorded regular prices (`components/shopping/price-sparkline.tsx`, `lib/price-trend.ts`) with a text summary ("Nejnižší zaznamenaná cena" or "Nejníže … Kč", since when) and a tooltip per price change — only when the price changed at least once, only from recorded observations (`priceHistory`), nothing interpolated.
 - **CI:** a second job builds the prepared Cloudflare Worker (`pnpm cf:build`, nothing deployed) and fails if the gzip size reaches 9 MiB (Workers Paid limit 10 MiB); today 4.4 MiB.

@@ -1,5 +1,4 @@
 import { categoryBreakdown } from '@/lib/budget'
-import { money } from '@/lib/format'
 import type { Expense } from '@/lib/types'
 
 // One chart token per category so the same category is the same colour on the dashboard and in
@@ -37,7 +36,8 @@ export function SpendingBreakdown({ expenses, onDetails }: { expenses: Expense[]
             <li key={category}>
               <div className="mb-1.5 flex items-baseline justify-between gap-3 text-sm">
                 <span className="min-w-0 break-words">{category}</span>
-                <span className="shrink-0 font-medium">{money(total)}</span>
+                {/* Same format as the Rozpočet tab's breakdown, so one total never reads two ways. */}
+                <span className="shrink-0 font-medium">{total.toLocaleString('cs-CZ')} Kč</span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-muted">
                 <div className={`h-full rounded-full ${CATEGORY_BAR_COLORS[category] ?? 'bg-primary'}`} style={{ width: `${(total / max) * 100}%` }} />

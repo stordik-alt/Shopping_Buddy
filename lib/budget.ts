@@ -90,7 +90,7 @@ export type BudgetThreshold = 'reached' | 'exceeded'
 
 // Shared by the notification trigger below and the dashboard's colour state, so "80 %" and "100 %"
 // can never mean different things in two places.
-const BUDGET_WARNING_RATIO = 0.8
+export const BUDGET_WARNING_RATIO = 0.8
 const BUDGET_LIMIT_RATIO = 1
 
 export type BudgetLevel = 'ok' | 'warning' | 'over'
@@ -122,6 +122,28 @@ export function crossedBudgetThreshold(spentBefore: number, spentAfter: number, 
 /** How much of what is left can go on one week, so the rest of the month is still covered: the
  *  remaining budget spread over the weeks left in the month, counting today. In the last week the
  *  whole remainder is available. Nothing when the budget is used up. */
+/** A projection needs some history: before the 7th, one big shop on the 2nd would extrapolate to
+ *  a month many times over the limit. Until then only the daily allowance is shown. */
+export const PACE_MIN_DAYS = 7
+
+/** Where the month is heading, for the budget card: how much may be spent per remaining day
+ *  (today included) to stay within the limit, and — from `PACE_MIN_DAYS` on — the month-end total
+ *  at the current daily rate and by how much it would exceed the limit. `null` without a budget.
+ *  Deterministic from this month's spending; no guessing about future shops. */
+export function budgetPace(
+  monthSpent: number,
+  budget: number,
+  today: string,
+): { daysLeft: number; perDayLeft: number; projected: number | null; projectedOver: number | null } | null {
+  if (budget <= 0) return null
+  const day = Number(today.slice(8, 10))
+  const daysLeft = daysInMonth(today) - day + 1
+  const perDayLeft = Math.max(0, budget - monthSpent) / daysLeft
+  const projected = day >= PACE_MIN_DAYS ? (monthSpent / day) * daysInMonth(today) : null
+  const projectedOver = projected != null && projected > budget ? projected - budget : null
+  return { daysLeft, perDayLeft, projected, projectedOver }
+}
+
 export function weeklyAllowance(remaining: number, today: string): number {
   if (remaining <= 0) return 0
   const daysLeft = daysInMonth(today) - Number(today.slice(8, 10)) + 1

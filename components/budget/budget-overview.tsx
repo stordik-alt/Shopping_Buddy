@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react'
-import { CalendarClock, Plus, TrendingDown, TrendingUp } from 'lucide-react'
+import { AlertTriangle, CalendarClock, Plus, TrendingDown, TrendingUp } from 'lucide-react'
 import { BudgetHero } from '@/components/budget/budget-hero'
 import { CATEGORY_BAR_COLORS } from '@/components/dashboard/spending-breakdown'
 import { Stat } from '@/components/shared/stat'
 import { categoryBreakdown, dailyAverage, expensesInMonth, monthOverMonthChange, plannedSpend, projectedMonthEnd, weeklyAverage } from '@/lib/budget'
-import { money } from '@/lib/format'
+import { money, wholeMoney } from '@/lib/format'
 import type { Expense, Item } from '@/lib/types'
 
 export function BudgetOverview({
@@ -51,12 +51,17 @@ export function BudgetOverview({
         </button>
       </div>
       {primaryAction}
-      <BudgetHero budget={budget} spent={spent} remaining={remaining} onSetBudget={onEditBudget} />
+      <BudgetHero today={today} budget={budget} spent={spent} remaining={remaining} onSetBudget={onEditBudget} />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
-        <Stat label="Denní průměr" value={money(dailyAverage(expenses, today))} icon={<CalendarClock />} />
-        <Stat label="Týdenní průměr" value={money(weeklyAverage(expenses, today))} icon={<CalendarClock />} />
+        <Stat label="Denní průměr" value={wholeMoney(dailyAverage(expenses, today))} icon={<CalendarClock />} />
+        <Stat label="Týdenní průměr" value={wholeMoney(weeklyAverage(expenses, today))} icon={<CalendarClock />} />
         <div className="col-span-2 sm:col-span-1">
-          <Stat label="Očekáváno do konce měsíce" value={money(projectedMonthEnd(expenses, today))} icon={<TrendingUp />} />
+          <Stat
+            label="Očekáváno do konce měsíce"
+            value={wholeMoney(projectedMonthEnd(expenses, today))}
+            icon={<TrendingUp />}
+            hint={projectionHint(projectedMonthEnd(expenses, today), budget)}
+          />
         </div>
       </div>
       <div className="grid gap-4 lg:grid-cols-[1fr_0.8fr] lg:gap-6">
@@ -110,4 +115,18 @@ export function BudgetOverview({
       </div>
     </div>
   )
+}
+
+/** The month-end projection set against the limit, in words and with an icon — never colour alone. */
+function projectionHint(projected: number, budget: number): ReactNode {
+  if (budget <= 0) return null
+  const difference = projected - budget
+  if (difference > 0) {
+    return (
+      <span className="flex items-center gap-1 font-medium text-destructive">
+        <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> o {wholeMoney(difference)} nad limitem
+      </span>
+    )
+  }
+  return <span>v limitu, rezerva {wholeMoney(-difference)}</span>
 }

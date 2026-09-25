@@ -1,5 +1,10 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (R2: uploads failed with 411 MissingContentLength)
+- **Problem:** after the bucket-name fix, the production upload failed with `R2 upload failed (411): MissingContentLength`. `aws4fetch`'s `fetch()` hands `fetch` a `Request` object whose body is a stream; Next.js's patched `fetch` on Vercel re-sends that body chunked, without `Content-Length`, which R2 requires for PUT. Reproduced locally: the same signed request re-sent from its stream body arrives with `transfer-encoding: chunked` and no length.
+- **Fix:** `lib/storage/r2.ts` only signs with `aws4fetch` and sends with a plain `fetch(url, { body: Uint8Array })` plus an explicit `Content-Length`. GET and DELETE go the same way.
+- **Tests:** the R2 upload test now asserts `Content-Length`, a URL (not a `Request`) and a byte body — it fails on the previous code. 14 storage tests pass.
+
 ## 2026-09-25 (R2: trim pasted configuration values)
 - **Problem:** the first production upload to R2 failed with `InvalidBucketName` — `R2_BUCKET_NAME` had been saved in Vercel with a trailing newline (`shoppingbuddyprod\n`). The failure was logged (`receipt_upload_failed`) and the user got the "Fotografii se nepodařilo uložit…" message; nothing was stored.
 - **Fix:** `lib/storage/r2.ts` trims all four `R2_*` values; a whitespace-only value counts as missing. `STORAGE_PROVIDER` was already trimmed. The Vercel value should still be corrected.

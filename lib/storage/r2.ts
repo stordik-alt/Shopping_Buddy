@@ -54,31 +54,39 @@ async function failure(action: string, response: Response): Promise<Error> {
   return new Error(`R2 ${action} failed (${response.status}): ${detail}`)
 }
 
+/** Signs a request and sends it with a plain `fetch(url, init)`.
+ *
+ *  `aws4fetch`'s own `fetch()` wraps the request in a `Request` object, whose body is a stream. On
+ *  Vercel, Next.js's patched `fetch` re-sends such a body as a stream with chunked transfer encoding
+ *  and no `Content-Length`, and R2 rejects every PUT without one (411 MissingContentLength — the
+ *  second production upload). So only the signature comes from `aws4fetch`; the body goes out as
+ *  bytes with an explicit length. */
+async function send(method: 'PUT' | 'GET' | 'DELETE', key: string, upload?: { body: Buffer; contentType: string }): Promise<Response> {
+  const { config, client: aws } = client()
+  const body = upload ? new Uint8Array(upload.body) : undefined
+  const headers: Record<string, string> = upload ? { 'Content-Type': upload.contentType, 'Content-Length': String(upload.body.byteLength) } : {}
+  const signed = await aws.sign(r2ObjectUrl(config, key), { method, headers, body })
+  return fetch(signed.url, { method, headers: signed.headers, body })
+}
+
 export const r2Store: ReceiptFileStore = {
   provider: 'r2',
 
   async put(key, body, contentType) {
-    const { config, client: aws } = client()
-    const response = await aws.fetch(r2ObjectUrl(config, key), {
-      method: 'PUT',
-      body: new Uint8Array(body),
-      headers: { 'Content-Type': contentType },
-    })
+    const response = await send('PUT', key, { body, contentType })
     if (!response.ok) throw await failure('upload', response)
     return key
   },
 
   async get(key) {
-    const { config, client: aws } = client()
-    const response = await aws.fetch(r2ObjectUrl(config, key), { method: 'GET' })
+    const response = await send('GET', key)
     if (response.status === 404) return null
     if (!response.ok || !response.body) throw await failure('read', response)
     return { body: response.body, contentType: response.headers.get('content-type') ?? 'application/octet-stream' }
   },
 
   async delete(key) {
-    const { config, client: aws } = client()
-    const response = await aws.fetch(r2ObjectUrl(config, key), { method: 'DELETE' })
+    const response = await send('DELETE', key)
     // S3 DELETE of a missing key is a success (204); a 404 means the same thing.
     if (!response.ok && response.status !== 404) throw await failure('delete', response)
   },

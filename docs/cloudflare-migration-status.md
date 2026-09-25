@@ -129,6 +129,9 @@ receipts until they are copied.
   upload failed: `R2 upload failed (400): InvalidBucketName` — `R2_BUCKET_NAME` carried a trailing
   newline. Fix: owner corrects the value; code now trims the `R2_*` values. Real R2 upload still
   to be confirmed after that.
+- 2026-09-25: next upload failed: `R2 upload failed (411): MissingContentLength` — Next's patched
+  `fetch` re-sent the signed `Request`'s stream body chunked. Fix: sign only, send bytes with an
+  explicit `Content-Length`. Real R2 upload still to be confirmed.
 
 ## KNOWN RISKS
 

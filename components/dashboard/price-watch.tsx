@@ -1,7 +1,6 @@
-import { useState } from 'react'
-import { ArrowUpRight, Info, Package, Tag, TrendingDown } from 'lucide-react'
+import { ArrowUpRight, Check, Info, Package, Plus, Tag, TrendingDown } from 'lucide-react'
 import { TODAY } from '@/lib/budget'
-import { money } from '@/lib/format'
+import { money, shortDate } from '@/lib/format'
 import { offerUnitPriceLabel, shortOfferDate, type StandaloneOffer } from '@/lib/offers'
 import { pantryQuantityFor } from '@/lib/pantry'
 import { assessDealQuality, suggestsStockingUp, type ProductPrice } from '@/lib/prices'
@@ -9,22 +8,27 @@ import type { PantryItem } from '@/lib/types'
 
 export function PriceWatch({
   onStores,
+  onAddToList,
+  listItemNames,
   productPrices,
   offers,
   pantryItems,
 }: {
   onStores: () => void
+  /** Puts the product on the household's main shopping list. */
+  onAddToList: (name: string) => void
+  /** Names of the items still to buy, so a product already on the list is not added twice. */
+  listItemNames: string[]
   productPrices: ProductPrice[]
   /** Offers with no regular price to compare against: shown as they are, without a discount. */
   offers: StandaloneOffer[]
   pantryItems: PantryItem[]
 }) {
-  const [saved, setSaved] = useState<string[]>([])
   // Per docs/05_BUSINESS_RULES.md: a discount isn't automatically a good deal — check whether
   // it's actually the cheapest option for that product, not just cheaper than its own regular price.
   const deals = assessDealQuality(productPrices, TODAY)
-  const toggleSaved = (name: string) =>
-    setSaved((current) => (current.includes(name) ? current.filter((item) => item !== name) : [...current, name]))
+  const onList = new Set(listItemNames.map((name) => name.trim().toLowerCase()))
+  const isOnList = (name: string) => onList.has(name.trim().toLowerCase())
 
   return (
     <section className="surface p-5 sm:p-6">
@@ -47,23 +51,29 @@ export function PriceWatch({
             <div key={`${product.productName}-${price.store}`} className="rounded-2xl bg-muted p-4">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{product.productName}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{price.store} · platí do {price.dealValidUntil}</p>
+                  <p className="break-words text-sm font-medium">{product.productName}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{price.store} · akce do {shortDate(price.dealValidUntil ?? '')}</p>
                 </div>
-                <span className="rounded-full bg-primary/15 px-2 py-1 text-[11px] font-semibold text-primary">-{discount} %</span>
+                <span className="shrink-0 rounded-full bg-primary/15 px-2 py-1 text-[11px] font-semibold text-primary">-{discount} %</span>
               </div>
-              <div className="mt-4 flex items-end justify-between">
+              <div className="mt-4 flex flex-wrap items-end justify-between gap-2">
                 <div>
                   <span className="text-lg font-semibold">{money(price.dealPrice ?? price.regularPrice)}</span>
                   <span className="ml-2 text-xs text-muted-foreground line-through">{money(price.regularPrice)}</span>
                 </div>
-                <button
-                  onClick={() => toggleSaved(product.productName)}
-                  aria-label={`${saved.includes(product.productName) ? 'Odebrat' : 'Přidat'} ${product.productName}`}
-                  className="text-xs font-medium text-primary"
-                >
-                  {saved.includes(product.productName) ? 'Přidáno' : 'Přidat'}
-                </button>
+                {isOnList(product.productName) ? (
+                  <span className="flex min-h-9 items-center gap-1 text-xs font-medium text-muted-foreground">
+                    <Check className="h-3.5 w-3.5" /> Na seznamu
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => onAddToList(product.productName)}
+                    aria-label={`Přidat ${product.productName} na nákupní seznam`}
+                    className="flex min-h-9 items-center gap-1 rounded-full bg-card px-3 text-xs font-medium text-primary transition hover:bg-primary hover:text-primary-foreground"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Na seznam
+                  </button>
+                )}
               </div>
               {isHistoricLow && (
                 <p className="mt-3 flex items-start gap-1 text-[11px] leading-relaxed text-success">

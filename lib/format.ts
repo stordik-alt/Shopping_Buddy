@@ -1,12 +1,23 @@
 export const money = (value: number) =>
   `${value.toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč`
 
-/** "1 položka" / "2 položky" / "5 položek" — Czech plural agreement, which a bare "N položek"
- *  gets wrong for 1–4. Used where a count is the main thing shown (e.g. the Zásoby folders). */
-export const itemCountLabel = (count: number) => (count === 1 ? '1 položka' : count >= 2 && count <= 4 ? `${count} položky` : `${count} položek`)
+/** "<count> <word>" with Czech plural agreement: `one` for 1, `few` for 2–4, `many` for 0 and 5+
+ *  — which a bare "N položek" gets wrong for 1–4. Whole counts only (what these labels show). */
+export const countLabel = (count: number, one: string, few: string, many: string) =>
+  `${count} ${count === 1 ? one : count >= 2 && count <= 4 ? few : many}`
 
-/** "1 prodejna" / "2 prodejny" / "5 prodejen" — Czech plural agreement, like `itemCountLabel`. */
-export const storeCountLabel = (count: number) => (count === 1 ? '1 prodejna' : count >= 2 && count <= 4 ? `${count} prodejny` : `${count} prodejen`)
+/** "1 položka" / "2 položky" / "5 položek". Used where a count is the main thing shown (e.g. the
+ *  Zásoby folders). */
+export const itemCountLabel = (count: number) => countLabel(count, 'položka', 'položky', 'položek')
+
+/** "1 prodejna" / "2 prodejny" / "5 prodejen". */
+export const storeCountLabel = (count: number) => countLabel(count, 'prodejna', 'prodejny', 'prodejen')
+
+/** "1 záznam" / "2 záznamy" / "5 záznamů". */
+export const recordCountLabel = (count: number) => countLabel(count, 'záznam', 'záznamy', 'záznamů')
+
+/** "1 aktivní akce" / "2 aktivní akce" / "5 aktivních akcí". */
+export const activeDealCountLabel = (count: number) => countLabel(count, 'aktivní akce', 'aktivní akce', 'aktivních akcí')
 
 /** "sobota 19. září 2026" from an ISO `YYYY-MM-DD` date. Built at local noon so a timezone offset
  *  can never roll it onto the neighbouring day, and identical on server and client (no hydration

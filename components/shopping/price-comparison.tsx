@@ -25,7 +25,7 @@ export function PriceComparison({ productName, productPrices }: { productName: s
                 <span className="flex flex-wrap items-center justify-end gap-x-2">
                   {isDealActive(price, TODAY) && (
                     <span className="flex items-center gap-1 text-[10px] font-semibold">
-                      <Tag className="h-3 w-3" /> akce do {price.dealValidUntil}
+                      <Tag className="h-3 w-3" /> akce do {shortDate(price.dealValidUntil ?? '')}
                     </span>
                   )}
                   <span className="font-semibold">{money(effectivePrice(price))}</span>

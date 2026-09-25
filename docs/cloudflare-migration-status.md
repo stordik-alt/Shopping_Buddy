@@ -18,8 +18,8 @@
 | 1. Audit | ✅ Done — `docs/cloudflare-migration-audit.md` |
 | 2. Storage abstraction | ✅ Code + unit tests — `lib/storage/` |
 | 3. Vercel Blob → R2 | ✅ New uploads on R2 in production (owner-confirmed 2026-09-25); 🟡 copying old Blob receipts pending |
-| 4. Provider-neutral application | — Out of current scope (storage part is covered by phases 2–3) |
-| 5. Cloudflare staging | — Out of current scope |
+| 4. Provider-neutral application | 🟡 **Prepared on branch `cloudflare-migration-prep`** (not merged, nothing switched): OpenNext build, Worker entry with crons, `sharp` shim, self-signed GCP OIDC, analytics switch — `docs/cloudflare-deployment.md` |
+| 5. Cloudflare staging | ⏸ Runbook ready (`docs/cloudflare-deployment.md` §8); needs Workers Paid + secrets |
 | 6. Full testing | — Out of current scope |
 | 7. Production cutover | — Out of current scope |
 | 8. Rollback window | — Out of current scope |
@@ -122,6 +122,18 @@ receipts, `pnpm db:migrate-blob-to-r2 --rollback <log>`. Blob originals are neve
 
 Everything except new receipt uploads once `STORAGE_PROVIDER=r2` is set; Blob stays for old
 receipts until they are copied.
+
+## HOSTING PREPARATION (branch `cloudflare-migration-prep`, 2026-09-25)
+
+Owner request: prepare the whole project for a later move to Cloudflare, migrate nothing, keep the
+branch. Result, verified with placeholder secrets in the cloud session (details:
+`docs/cloudflare-deployment.md` §2):
+
+- `pnpm cf:build` (OpenNext) passes; Worker 4.2 MB gzip (Workers Paid needed, 10 MB limit).
+- Local workerd (`wrangler dev`): public pages, static assets, `proxy.ts` redirect, cron secret check
+  and the `scheduled()` → cron route → Neon query chain all work.
+- Vercel build unchanged; 817 unit tests pass.
+- Not verified: anything needing real secrets (auth, DB pages, upload/OCR on workerd, CPU time).
 
 ## PRODUCTION LOG
 

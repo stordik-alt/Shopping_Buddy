@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { addExpenseAction } from '@/app/actions/budget'
 import { buildShoppingPlanAction, pinProductAction, unpinProductAction } from '@/app/actions/shopping-plan'
 import { saveMyStorePreferencesAction } from '@/app/actions/store-preferences'
@@ -51,6 +51,8 @@ import { AppHeader } from '@/components/shared/app-header'
 import { AppSidebar } from '@/components/shared/app-sidebar'
 import { MobileNav } from '@/components/shared/mobile-nav'
 import { Pantry } from '@/components/shopping/pantry'
+import { OfflineBanner } from '@/components/shopping/offline-banner'
+import { applyPendingOps, enqueue, isNetworkError, loadQueue, newTempId, placeholderItem, remapItemId, saveQueue, type PendingOp } from '@/lib/offline-queue'
 import { estimatePantry } from '@/lib/pantry-estimate'
 import { ShoppingList } from '@/components/shopping/shopping-list'
 import { StoreDirectory } from '@/components/stores/store-directory'
@@ -154,7 +156,8 @@ export function AppShell({
   // periodically and when the tab regains focus — good-enough freshness without websockets.
   useEffect(() => {
     setHousehold(initialData.household)
-    setItems(initialData.items)
+    // Changes still waiting for a connection stay visible on top of the server's copy.
+    setItems(applyPendingOps(initialData.items, queueRef.current))
     setNotifications(initialData.notifications)
     setExpenses(initialData.expenses)
     setShoppingLists(initialData.shoppingLists)
@@ -188,7 +191,10 @@ export function AppShell({
   // the app refreshes at once.
   useEffect(() => {
     const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') router.refresh()
+      if (document.visibilityState !== 'visible') return
+      // Waiting offline changes go first; the flush refreshes when it is done.
+      if (queueRef.current.length > 0) void flushQueue()
+      else router.refresh()
     }, 60_000)
     const onFocus = () => {
       if (document.visibilityState === 'visible') router.refresh()
@@ -200,8 +206,16 @@ export function AppShell({
     }
   }, [router])
 
-  // The push service worker (public/sw.js) tells open windows when a notification arrives, so the
-  // bell panel shows it at once instead of on the next poll.
+  // The service worker (public/sw.js) keeps the last loaded page so the app opens without a signal,
+  // and shows push notifications. Registered for everyone; push itself still needs the member's
+  // permission (components/notifications/push-toggle.tsx).
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return
+    navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' }).catch((error) => console.error('Service worker registration failed', error))
+  }, [])
+
+  // The service worker tells open windows when a notification arrives, so the bell panel shows it at
+  // once instead of on the next poll.
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return
     const onMessage = (event: MessageEvent) => {
@@ -244,9 +258,7 @@ export function AppShell({
 
   // Shared by the "Co koupit?" field and the deals card's "Na seznam" button.
   async function addItemByName(name: string) {
-    const { item, notification } = await addShoppingItemAction(initialData.mainListId, name)
-    setItems((current) => [...current, item])
-    if (notification) setNotifications((current) => [...current, notification])
+    await runOrQueue({ kind: 'add', tempId: newTempId(), name })
   }
 
   // Sequential on purpose — was Promise.all, which fired one addShoppingItemAction per ingredient
@@ -282,23 +294,129 @@ export function AppShell({
 
   function updateItem(id: string, changes: Partial<Item>) {
     setItems((current) => current.map((item) => (item.id === id ? { ...item, ...changes } : item)))
-    updateShoppingItemAction(id, changes)
+    void runOrQueue({ kind: 'update', itemId: id, changes })
   }
 
   function toggleItem(id: string) {
     const next = !items.find((item) => item.id === id)?.done
     setItems((current) => current.map((item) => (item.id === id ? { ...item, done: next } : item)))
-    toggleShoppingItemAction(id, next)
+    void runOrQueue({ kind: 'toggle', itemId: id, done: next })
   }
 
   function removeItem(id: string) {
     setItems((current) => current.filter((item) => item.id !== id))
-    removeShoppingItemAction(id)
+    void runOrQueue({ kind: 'remove', itemId: id })
   }
+
+  // --- Shopping list without a signal (lib/offline-queue.ts) ---------------------------------
+  // List changes are sent at once when there is a connection. Without one — or while earlier changes
+  // still wait — they join a queue stored on the device, stay visible on top of the server's copy,
+  // and are sent in order when the connection returns. A change the server refuses (the item was
+  // removed by another member meanwhile) is dropped and reported; a lost connection keeps the rest.
+  const queueRef = useRef<PendingOp[]>([])
+  const flushingRef = useRef(false)
+  const [pendingCount, setPendingCount] = useState(0)
+  const [online, setOnline] = useState(true)
+  const [droppedCount, setDroppedCount] = useState(0)
+
+  const setQueue = useCallback(
+    (ops: PendingOp[]) => {
+      queueRef.current = ops
+      saveQueue(safeLocalStorage(), initialData.household.id, ops)
+      setPendingCount(ops.length)
+    },
+    [initialData.household.id],
+  )
+
+  // Sends one change; an offline-added item gets its real id from the server here.
+  async function sendOp(op: PendingOp) {
+    switch (op.kind) {
+      case 'add': {
+        const { item, notification } = await addShoppingItemAction(initialData.mainListId, op.name)
+        setItems((current) => (current.some((entry) => entry.id === op.tempId) ? current.map((entry) => (entry.id === op.tempId ? item : entry)) : [...current, item]))
+        queueRef.current = remapItemId(queueRef.current, op.tempId, item.id)
+        if (notification) setNotifications((current) => [...current, notification])
+        return
+      }
+      case 'toggle':
+        return toggleShoppingItemAction(op.itemId, op.done)
+      case 'update':
+        return updateShoppingItemAction(op.itemId, op.changes)
+      case 'remove':
+        return removeShoppingItemAction(op.itemId)
+    }
+  }
+
+  async function runOrQueue(op: PendingOp) {
+    const queueIt = () => {
+      if (op.kind === 'add') setItems((current) => [...current, placeholderItem(op.tempId, op.name)])
+      setQueue(enqueue(queueRef.current, op))
+    }
+    // Behind earlier waiting changes, a new one waits too, so the server sees them in order.
+    if (queueRef.current.length > 0 || !navigator.onLine) return queueIt()
+    try {
+      await sendOp(op)
+    } catch (error) {
+      if (isNetworkError(error, navigator.onLine)) return queueIt()
+      console.error('Shopping list change refused', error)
+      setDroppedCount((count) => count + 1)
+    }
+  }
+
+  const flushQueue = useCallback(async () => {
+    if (flushingRef.current || queueRef.current.length === 0 || !navigator.onLine) return
+    flushingRef.current = true
+    try {
+      while (queueRef.current.length > 0) {
+        const [op] = queueRef.current
+        try {
+          await sendOp(op)
+        } catch (error) {
+          if (isNetworkError(error, navigator.onLine)) return // still offline: keep the rest for later
+          console.error('Queued shopping list change refused', error)
+          setDroppedCount((count) => count + 1)
+        }
+        setQueue(queueRef.current.slice(1))
+      }
+      router.refresh()
+    } finally {
+      flushingRef.current = false
+    }
+    // sendOp only uses stable values and state setters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router, setQueue])
+
+  useEffect(() => {
+    // Restore what was left waiting on this device, and show it on top of the server's copy.
+    const stored = loadQueue(safeLocalStorage(), initialData.household.id)
+    if (stored.length > 0) {
+      queueRef.current = stored
+      setPendingCount(stored.length)
+      setItems((current) => applyPendingOps(current, stored))
+    }
+    setOnline(navigator.onLine)
+    const goOnline = () => {
+      setOnline(true)
+      void flushQueue()
+    }
+    const goOffline = () => setOnline(false)
+    window.addEventListener('online', goOnline)
+    window.addEventListener('offline', goOffline)
+    void flushQueue()
+    return () => {
+      window.removeEventListener('online', goOnline)
+      window.removeEventListener('offline', goOffline)
+    }
+  }, [initialData.household.id, flushQueue])
 
   async function completePurchase() {
     const doneIds = new Set(items.filter((item) => item.done).map((item) => item.id))
     if (doneIds.size === 0) return
+    // The server completes what it knows is ticked, so waiting ticks go first; without a connection
+    // the purchase waits (nothing is lost — the ticks stay queued).
+    if (!navigator.onLine) return
+    await flushQueue()
+    if (queueRef.current.length > 0) return
     const { purchases } = await completePurchaseAction(initialData.mainListId)
     if (purchases.length === 0) return
     setItems((current) => current.filter((item) => !doneIds.has(item.id)))
@@ -608,6 +726,7 @@ export function AppShell({
               )}
               {tab === 'Nákup' && (
                 <div className="mx-auto max-w-3xl space-y-5">
+                  <OfflineBanner online={online} pending={pendingCount} dropped={droppedCount} onDismissDropped={() => setDroppedCount(0)} />
                   <UsualItems suggestions={usualItems} onAdd={addUsualItems} />
                   <ShoppingList
                     today={today}

@@ -1,5 +1,23 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Shopping list without a signal)
+- **Why:** in a shop without coverage, a tick never reached the server, and the next refresh replaced the list with the server's copy, so the tick vanished. Reopening the app without a signal showed nothing.
+- **Queue** (`lib/offline-queue.ts`, pure and tested):
+  - List changes (tick, edit, remove, add) are sent at once when possible.
+  - Without a connection, or behind earlier waiting changes, they join a queue stored on the device, per household.
+  - The queue is folded (last tick wins, updates merge, an item added and removed offline disappears).
+  - Changes stay visible on top of the server's copy and are sent in order on reconnecting.
+  - An item added offline has a temporary id until the server returns the real one.
+  - A change the server refuses (the item was removed by another member) is dropped and reported; a lost connection keeps the rest.
+  - "Dokončit nákup" first sends waiting ticks and waits for a connection.
+- **UI:** a banner shows "Jste bez signálu…" and the number of waiting changes (`components/shopping/offline-banner.tsx`).
+- **Opening offline:**
+  - `public/sw.js` is now registered for everyone. It keeps the last successfully loaded app page (network first; the copy is used only when the network fails; redirects and errors are never stored).
+  - Build files (`/_next/static`) are cached as they load, with a bounded cache.
+  - Data requests and server actions are never cached.
+  - Signing out deletes the cached page.
+- **Tests:** queue rules (apply, fold, remap, network vs. refusal, storage per household, unreadable storage). CI command: 966 passed; `next build` passes. **Not checked on a phone or offline in a signed-in browser** (no signed-in session here).
+
 ## 2026-09-25 (Product names: synonyms)
 - **What:** `lib/synonyms.ts` lists words that name the same grocery but that no stem rule connects: irregular forms ("vejce" / "vajíčka" / "vajec", "párek" / "párky", "mrkev" / "mrkve"), colloquial and regional names ("mlíko", "paradajky"), spelling variants ("kečup" / "kechup"). Subtypes and derived products are deliberately not synonyms.
 - **Where it applies:**

@@ -663,6 +663,8 @@ A more complete localization/currency abstraction remains to be implemented befo
 
 # 17. Shopping Lists
 
+**Update 2026-09-25, offline.** The list works without a signal. Changes are queued on the device (`lib/offline-queue.ts`), shown on top of the server copy and sent in order when the connection returns. The service worker (`public/sw.js`) keeps the last loaded page so the app opens offline; signing out deletes it. Refused changes are dropped and reported.
+
 Shopping lists are persisted in Neon.
 
 The application supports database-backed shopping-list data.

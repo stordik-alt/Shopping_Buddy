@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { longDate, shortDate, storeCountLabel } from '@/lib/format'
+import { activeDealCountLabel, countLabel, itemCountLabel, longDate, recordCountLabel, shortDate, storeCountLabel } from '@/lib/format'
 
 describe('longDate', () => {
   it('formats an ISO date in Czech with the correct weekday', () => {
@@ -37,5 +37,20 @@ describe('storeCountLabel', () => {
     expect(storeCountLabel(5)).toBe('5 prodejen')
     expect(storeCountLabel(15)).toBe('15 prodejen')
     expect(storeCountLabel(0)).toBe('0 prodejen')
+  })
+})
+
+describe('countLabel and its labels', () => {
+  it('picks the Czech form for 1, 2–4 and everything else', () => {
+    expect(countLabel(1, 'kus', 'kusy', 'kusů')).toBe('1 kus')
+    expect(countLabel(3, 'kus', 'kusy', 'kusů')).toBe('3 kusy')
+    expect(countLabel(0, 'kus', 'kusy', 'kusů')).toBe('0 kusů')
+    expect(countLabel(12, 'kus', 'kusy', 'kusů')).toBe('12 kusů')
+  })
+
+  it('agrees items, records and active deals with their count', () => {
+    expect([1, 3, 6].map(itemCountLabel)).toEqual(['1 položka', '3 položky', '6 položek'])
+    expect([1, 3, 6].map(recordCountLabel)).toEqual(['1 záznam', '3 záznamy', '6 záznamů'])
+    expect([1, 2, 5].map(activeDealCountLabel)).toEqual(['1 aktivní akce', '2 aktivní akce', '5 aktivních akcí'])
   })
 })

@@ -159,6 +159,11 @@ export function AppShell({
     const name = newItem.trim()
     if (!name) return
     setNewItem('')
+    await addItemByName(name)
+  }
+
+  // Shared by the "Co koupit?" field and the deals card's "Na seznam" button.
+  async function addItemByName(name: string) {
     const { item, notification } = await addShoppingItemAction(initialData.mainListId, name)
     setItems((current) => [...current, item])
     if (notification) setNotifications((current) => [...current, notification])
@@ -449,7 +454,7 @@ export function AppShell({
                     onStores={() => setTab('Obchody')}
                     onSetBudget={() => setTab('Profil')}
                   />
-                  <PriceWatch today={today} onStores={() => setTab('Obchody')} productPrices={nearbyProductPrices} offers={nearbyStandaloneOffers} pantryItems={pantryItems} />
+                  <PriceWatch today={today} onStores={() => setTab('Obchody')} onAddToList={addItemByName} listItemNames={pendingNames} productPrices={nearbyProductPrices} offers={nearbyStandaloneOffers} pantryItems={pantryItems} />
                   <MealPlan household={household} initialPlan={initialData.mealPlan} pantryItems={pantryItems} onAddIngredients={addIngredients} onMarkCooked={markMealCooked} />
                   <div className="grid gap-4 lg:grid-cols-2 lg:gap-6">
                     <SpendingBreakdown expenses={monthExpenses} onDetails={() => setTab('Rozpočet')} />

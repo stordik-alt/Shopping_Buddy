@@ -1,5 +1,8 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Intro: static, like the artwork)
+- The intro's entrance animations (artwork, title and button fading/sliding in) are removed — the design is a still image, so the screen now appears at once. The button keeps its hover/press feedback. Checked in a real browser: no running animations.
+
 ## 2026-09-25 (Intro: owner's Buddy artwork)
 - **What:** the intro now follows the owner's supplied design: the rendered Buddy illustration (robot in a cap with a basket of groceries and banknotes, green glow on navy) above the "Buddy" wordmark, tagline and green "Pokračovat na přihlášení" button. The artwork is cropped from the design to `public/intro/buddy-hero.webp` (1080 × 1340, 69 kB) — under `/intro/` so `proxy.ts` serves it to signed-out visitors. Title, tagline and button stay real text (Montserrat), with colours sampled from the artwork so the picture blends into the page. The image shrinks on short screens so the button always fits. The SVG scene (`buddy-scene.tsx`) is removed. The skip-intro checkbox and routing are unchanged; the checkbox now sits under the button.
 - **Checked:** in a real browser at 360 × 640, 390 × 844, 430 × 932 and 1280 × 800 — no overflow, tagline on one line; typecheck.

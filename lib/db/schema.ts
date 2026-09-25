@@ -205,12 +205,28 @@ export const storeLocations = pgTable('store_locations', {
   // by the store-directory data source; never invent coordinates/hours from a receipt address.
   lat: numeric('lat', { precision: 9, scale: 6 }),
   lng: numeric('lng', { precision: 9, scale: 6 }),
+  // Free-text opening hours of seeded and receipt-created branches ("Otevřeno do 21:00").
   hours: text('hours'),
+  // Where an imported branch came from: 'osm' (OpenStreetMap, lib/stores/osm.ts) with that source's
+  // own id ('node/123'), so a repeat import updates the branch instead of adding it again. Null for
+  // seeded and receipt-created branches (an import may adopt one of them — see planStoreSync()).
+  source: text('source'),
+  externalId: text('external_id'),
+  // Opening hours in OpenStreetMap's `opening_hours` syntax ("Mo-Sa 07:00-21:00; Su 08:00-20:00"),
+  // kept machine-readable; the UI formats it (formatOpeningHours()) and prefers it over `hours`.
+  openingHours: text('opening_hours'),
+  // The last import that still found the branch in its source; a branch the source no longer lists
+  // keeps an old date (it may have closed) instead of being deleted, since prices and purchases
+  // point at it.
+  lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
 }, (table) => [
   // `id` is already unique on its own; this pair exists only so `member_stores` can carry a composite
   // foreign key (store_location_id, store_id) that makes the database itself refuse a branch that
   // belongs to a different chain than the row says.
   uniqueIndex('store_locations_id_store_id_unique').on(table.id, table.storeId),
+  // One branch per source record: the idempotency key of the store import (CLAUDE.md section 34).
+  uniqueIndex('store_locations_source_external_id_unique').on(table.source, table.externalId).where(sql`${table.externalId} IS NOT NULL`),
+  check('store_locations_source_pair', sql`(${table.source} IS NULL) = (${table.externalId} IS NULL)`),
 ])
 
 // The stores a user has chosen as "in my area" (personal, per household member). A row with no

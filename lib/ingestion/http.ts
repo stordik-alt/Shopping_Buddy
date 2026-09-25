@@ -8,13 +8,14 @@ export const FETCH_TIMEOUT_MS = 20_000
 
 /** `fetch` with a hard timeout. A timeout is rethrown as a plain, descriptive Error (the raw
  *  `TimeoutError` says only "The operation was aborted due to timeout"), so the failing source and
- *  URL show up in the cron response. Non-timeout failures propagate unchanged. */
-export async function fetchWithTimeout(url: string, init: RequestInit = {}): Promise<Response> {
+ *  URL show up in the cron response. Non-timeout failures propagate unchanged. `timeoutMs` is for a
+ *  source that is slow by nature (a whole-country map query), not for retailers. */
+export async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs: number = FETCH_TIMEOUT_MS): Promise<Response> {
   try {
-    return await fetch(url, { ...init, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
+    return await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) })
   } catch (err) {
     if (err instanceof DOMException && err.name === 'TimeoutError') {
-      throw new Error(`Request timed out after ${FETCH_TIMEOUT_MS / 1000}s: ${url}`)
+      throw new Error(`Request timed out after ${timeoutMs / 1000}s: ${url}`)
     }
     throw err
   }

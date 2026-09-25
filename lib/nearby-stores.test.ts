@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  BRANCH_LIST_LIMIT,
   EMPTY_STORE_SELECTION,
   MAX_DISTANCE_KM,
   MAX_SHOP_STORES,
@@ -10,6 +11,7 @@ import {
   normalizeMaxShopStores,
   normalizeStoreSelection,
   parseDistanceInput,
+  visibleBranches,
   type StoreSelection,
 } from '@/lib/nearby-stores'
 import type { PricePoint, ProductPrice } from '@/lib/prices'
@@ -204,5 +206,27 @@ describe('normalizeStoreSelection', () => {
     expect(normalizeStoreSelection({ maxDistanceKm: 500, chainIds: ['lidl'] }, branchChain).maxDistanceKm).toBeNull()
     expect(normalizeStoreSelection({ maxDistanceKm: 1.5 }, branchChain)).toEqual({ ...EMPTY_STORE_SELECTION, maxDistanceKm: 1.5 })
     expect(normalizeStoreSelection({}, branchChain)).toEqual(EMPTY_STORE_SELECTION)
+  })
+})
+
+describe('visibleBranches', () => {
+  const branch = (id: string, name: string, city: string) => ({ id, name, address: `${name} 1`, city })
+  const branches = [branch('a', 'Penny Americká', 'Plzeň'), branch('b', 'Penny Slovanská', 'Plzeň'), branch('c', 'Penny Nádražní', 'Brno')]
+
+  it('finds branches by any word of the name, address or city, ignoring diacritics', () => {
+    expect(visibleBranches(branches, 'plzen', []).shown.map((b) => b.id)).toEqual(['a', 'b'])
+    expect(visibleBranches(branches, 'NADRAZNI', []).shown.map((b) => b.id)).toEqual(['c'])
+    expect(visibleBranches(branches, 'plzeň slovanská', []).shown.map((b) => b.id)).toEqual(['b'])
+  })
+
+  it('always shows the picked branches first, even when the search does not match them', () => {
+    expect(visibleBranches(branches, 'brno', ['a']).shown.map((b) => b.id)).toEqual(['a', 'c'])
+  })
+
+  it('shows at most the limit and says how many match', () => {
+    const many = Array.from({ length: 50 }, (_, i) => branch(`x${i}`, `Lidl Ulice ${i}`, 'Praha'))
+    const { shown, total } = visibleBranches(many, 'praha', [])
+    expect(shown).toHaveLength(BRANCH_LIST_LIMIT)
+    expect(total).toBe(50)
   })
 })

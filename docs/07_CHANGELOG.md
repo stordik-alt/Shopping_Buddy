@@ -1,5 +1,11 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (All branches of our chains from OpenStreetMap)
+- **Why:** the app knew 62 branches, mostly in Prague; the chains have ~1,900 in Czechia.
+- **What:** `pnpm db:import-stores [--apply]` and a weekly cron import the branches of Albert, Billa, dm, JIP, Kaufland, Lidl, Penny and Tesco from OpenStreetMap, with GPS, opening hours and an address — the shop's own, or the address point it stands at. A branch without a stated address is rejected, never guessed. Repeat imports update by the map's id; existing seeded/receipt branches nearby are adopted instead of duplicated; nothing is deleted. Migration `0027`.
+- **UI:** opening hours in Czech; "© přispěvatelé OpenStreetMap" in the store directory; the profile's branch picker has a search (hundreds of branches per chain).
+- **Tests:** parsing, address completion, validation, names, opening hours, adoption/matching plan, branch search, query building.
+
 ## 2026-09-25 (Install the app to the phone: "Stáhnout aplikaci do mobilu")
 - **What:** a web app manifest (`app/manifest.ts`) with Buddy icons makes the app installable as "Buddy". The account menu's new item "Stáhnout aplikaci do mobilu" opens the browser's install dialog where there is one (Chrome, Edge, Samsung Internet on Android) or shows the steps for the device (iPhone: Sdílet → Přidat na plochu). Hidden inside the installed app. The v0 favicons are replaced by Buddy.
 - **Checked:** Chrome reports the app installable with no errors; menu and dialog in a real browser at iPhone size; unit tests for the device detection.

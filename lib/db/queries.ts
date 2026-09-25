@@ -8,6 +8,7 @@ import type { IngestionSource as ProductSource } from '@/lib/ingestion/types'
 import { currentWeekStart, parseSavedPlan, type WeeklyMealPlan } from '@/lib/meal-plans'
 import type { StandaloneOffer } from '@/lib/offers'
 import { inferPantryLocation } from '@/lib/pantry'
+import { formatOpeningHours } from '@/lib/stores/osm'
 import type { ProductPrice } from '@/lib/prices'
 import { resolveProductForSku, type ProductCatalogEntry } from '@/lib/products'
 import { isReceiptStalled } from '@/lib/receipt-progress'
@@ -493,7 +494,9 @@ export async function getStores(): Promise<Store[]> {
     city: location.city,
     country: location.country,
     gps: location.lat != null && location.lng != null ? { lat: Number(location.lat), lng: Number(location.lng) } : null,
-    hours: location.hours,
+    // Opening hours from the map (OpenStreetMap syntax, shown in Czech) win over the free-text ones of
+    // seeded and receipt branches.
+    hours: location.openingHours ? formatOpeningHours(location.openingHours) : location.hours,
     dealsCount: dealsByChain.get(location.storeId) ?? 0,
     availableProducts: Array.from(new Set(location.prices.map((price) => price.product.name))),
     color: CHAIN_COLOR[location.store.chain] ?? 'bg-muted',

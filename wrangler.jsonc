@@ -35,6 +35,7 @@
       "0 8 * * *", // /api/cron/shopping-reminders
       "0 9 * * *", // /api/cron/pantry-checkin
       "0 3 * * 1", // /api/cron/import-stores
+      "0 4 * * 1", // /api/cron/albert-store-formats
       "0 5 * * *", // /api/cron/ingest-prices/lidl
       "10 5 * * *", // /api/cron/ingest-prices/billa
       "10 13 * * *", // /api/cron/ingest-prices/billa/2

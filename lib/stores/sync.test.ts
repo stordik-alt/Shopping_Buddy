@@ -60,6 +60,13 @@ describe('planStoreSync', () => {
     expect(plan.insert).toHaveLength(1)
   })
 
+  it('adopts a branch moved to another chain of the same retailer (an Albert hypermarket)', () => {
+    const albert = branch('node/1', { chain: 'Albert', name: 'Albert Hlavní' })
+    const plan = planStoreSync([albert], [row('hyper', { chain: 'Albert Hypermarket', address: 'Jinak zapsaná 1' })], 'osm')
+    expect(plan.adopt).toEqual([{ id: 'hyper', branch: albert }])
+    expect(plan.insert).toEqual([])
+  })
+
   it('gives an existing branch to its nearest map point only, once', () => {
     const near = branch('node/near', { lat: 50.0002 })
     const far = branch('node/far', { lat: 50.0012, address: 'Jiná 2' })

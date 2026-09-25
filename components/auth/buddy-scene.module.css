@@ -1,0 +1,180 @@
+/* Timeline (from page load):
+   0.0 s  Buddy hops in
+   0.4 s  the cart rolls in from the right, wheels turning, and stops at his hand
+   1.2 s  three coins and a banknote drop into the cart
+   2.0 s  sparkles; Buddy waves twice
+   after  Buddy floats gently, blinks, his chest light pulses
+   Every element's natural position is its final one, so without animations the finished scene
+   is what shows. */
+
+.scene {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* SVG groups animate around their own box unless told otherwise. */
+.buddy,
+.buddyFloat,
+.cart,
+.wheel,
+.coin1,
+.coin2,
+.coin3,
+.note,
+.sparkles,
+.eyes,
+.chestLight,
+.shadowBuddy,
+.shadowCart {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.buddy {
+  transform-origin: center bottom;
+  animation: hopIn 700ms cubic-bezier(.34, 1.56, .64, 1) both;
+}
+
+.buddyFloat {
+  animation: float 4s 2.6s ease-in-out infinite;
+}
+
+.shadowBuddy {
+  animation: shadowIn 700ms ease-out both;
+}
+
+.cart {
+  animation: rollIn 900ms 400ms cubic-bezier(.2, .8, .25, 1) both;
+}
+
+.shadowCart {
+  animation: rollIn 900ms 400ms cubic-bezier(.2, .8, .25, 1) both;
+}
+
+/* Rolling left, so the wheels turn counter-clockwise. */
+.wheel {
+  animation: spin 900ms 400ms cubic-bezier(.2, .8, .25, 1) both;
+}
+
+.coin1 {
+  animation: drop 520ms 1.2s cubic-bezier(.3, 1.4, .6, 1) both;
+}
+
+.coin2 {
+  animation: drop 520ms 1.35s cubic-bezier(.3, 1.4, .6, 1) both;
+}
+
+.coin3 {
+  animation: drop 520ms 1.5s cubic-bezier(.3, 1.4, .6, 1) both;
+}
+
+.note {
+  animation: flutter 1s 1.3s ease-out both;
+}
+
+.sparkles {
+  animation: sparkle 900ms 2s ease-out both;
+}
+
+/* Rotates around the shoulder, in viewBox coordinates. */
+.wave {
+  transform-box: view-box;
+  transform-origin: 86px 178px;
+  animation: wave 1.1s 2s ease-in-out 2;
+}
+
+.eyes {
+  animation: blink 4.5s 1s infinite;
+}
+
+.chestLight {
+  animation: pulse 2.4s 1s ease-in-out infinite;
+}
+
+@keyframes hopIn {
+  from { opacity: 0; transform: translateY(40px) scale(.85); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes shadowIn {
+  from { opacity: 0; transform: scaleX(.4); }
+  to { opacity: .35; transform: scaleX(1); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes rollIn {
+  from { opacity: 0; transform: translateX(220px); }
+  15% { opacity: 1; }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes spin {
+  from { transform: rotate(540deg); }
+  to { transform: rotate(0deg); }
+}
+
+@keyframes drop {
+  from { opacity: 0; transform: translateY(-220px); }
+  30% { opacity: 1; }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes flutter {
+  0% { opacity: 0; transform: translate(-50px, -230px) rotate(25deg); }
+  20% { opacity: 1; }
+  45% { transform: translate(20px, -140px) rotate(-18deg); }
+  70% { transform: translate(-12px, -60px) rotate(12deg); }
+  100% { opacity: 1; transform: translate(0, 0) rotate(0deg); }
+}
+
+@keyframes sparkle {
+  0% { opacity: 0; transform: scale(.2); }
+  50% { opacity: 1; transform: scale(1.15); }
+  100% { opacity: 0; transform: scale(1); }
+}
+
+@keyframes wave {
+  0%, 100% { transform: rotate(0deg); }
+  30% { transform: rotate(-22deg); }
+  65% { transform: rotate(14deg); }
+}
+
+@keyframes blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(.1); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .55; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .buddy,
+  .buddyFloat,
+  .shadowBuddy,
+  .cart,
+  .shadowCart,
+  .wheel,
+  .coin1,
+  .coin2,
+  .coin3,
+  .note,
+  .wave,
+  .eyes,
+  .chestLight {
+    animation: none;
+  }
+
+  /* Sparkles only make sense as a moment; without motion they are left out. */
+  .sparkles {
+    animation: none;
+    opacity: 0;
+  }
+}

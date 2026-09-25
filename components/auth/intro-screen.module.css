@@ -22,33 +22,21 @@
   text-align: center;
 }
 
+/* Buddy's animated scene (buddy-scene.tsx) — it plays its own entrance. */
 .hero {
-  width: min(100%, 27rem);
+  width: min(100%, 26rem);
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
-  animation: heroEnter 900ms cubic-bezier(.2,.8,.2,1) both;
-}
-
-.heroImage {
-  display: block;
-  width: 100%;
-  height: auto;
-  max-height: 68svh;
-  object-fit: contain;
-  object-position: center bottom;
-  user-select: none;
-  -webkit-user-drag: none;
-  filter: drop-shadow(0 1.5rem 2.5rem rgba(0, 0, 0, .28));
-  animation: heroFloat 5s 900ms ease-in-out infinite;
+  padding-top: clamp(1rem, 6svh, 3rem);
 }
 
 .copy {
   width: 100%;
   padding: 0.1rem 0.5rem 0;
-  animation: copyEnter 700ms 420ms cubic-bezier(.2,.8,.2,1) both;
+  animation: copyEnter 700ms 1.6s cubic-bezier(.2,.8,.2,1) both;
 }
 
 .copy h1 {
@@ -77,7 +65,7 @@
   align-items: center;
   gap: 0.7rem;
   margin-top: clamp(0.8rem, 2.2svh, 1.25rem);
-  animation: buttonEnter 700ms 900ms cubic-bezier(.2,.8,.2,1) both;
+  animation: buttonEnter 700ms 2.1s cubic-bezier(.2,.8,.2,1) both;
 }
 
 .skipOption {
@@ -143,26 +131,6 @@
   border-radius: 0.35rem;
 }
 
-@keyframes heroEnter {
-  from {
-    opacity: 0;
-    transform: translateY(1.5rem) scale(.97);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes heroFloat {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-0.35rem);
-  }
-}
-
 @keyframes copyEnter {
   from {
     opacity: 0;
@@ -190,8 +158,9 @@
     padding-top: .5rem;
   }
 
-  .heroImage {
-    max-height: 56svh;
+  .hero {
+    width: min(100%, 20rem);
+    padding-top: .5rem;
   }
 
   .copy h1 {
@@ -213,8 +182,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero,
-  .heroImage,
   .copy,
   .actions {
     animation: none;

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { BuddyScene } from './buddy-scene'
 import styles from './intro-screen.module.css'
 
 // Versioned so an old test value cannot unexpectedly skip the new intro.
@@ -40,13 +41,8 @@ export function IntroScreen() {
   return (
     <main className={styles.screen}>
       <div className={styles.content}>
-        <div className={styles.hero} aria-hidden="true">
-          <img
-            className={styles.heroImage}
-            src="/buddy-intro/robot.webp"
-            alt=""
-            draggable={false}
-          />
+        <div className={styles.hero}>
+          <BuddyScene />
         </div>
 
         <section className={styles.copy} aria-labelledby="buddy-intro-title">

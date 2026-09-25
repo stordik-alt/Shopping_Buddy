@@ -69,6 +69,7 @@ import { useUserLocation } from '@/lib/use-user-location'
 import { attentionItems } from '@/lib/attention'
 import { AI_ASSISTANT_ENABLED } from '@/lib/features'
 import { tabFromSlug, tabHref } from '@/lib/tab-url'
+import { safeLocalStorage } from '@/lib/safe-storage'
 import { readThemeChoice, resolveDark, saveThemeChoice } from '@/lib/theme-preference'
 
 export function AppShell({
@@ -612,13 +613,4 @@ export function AppShell({
       </div>
     </div>
   )
-}
-
-/** `window.localStorage`, or undefined where merely accessing it throws (some browsers' private mode). */
-function safeLocalStorage(): Storage | undefined {
-  try {
-    return window.localStorage
-  } catch {
-    return undefined
-  }
 }

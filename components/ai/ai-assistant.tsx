@@ -3,6 +3,14 @@ import { Bot, Sparkles } from 'lucide-react'
 
 const SUGGESTIONS = ['Nákup na týden do 2 500 Kč', 'Kde ušetřím na seznamu?', 'Rozděl nákup mezi obchody']
 
+// No model is connected yet (CLAUDE.md section 30: the assistant is the last roadmap phase). The
+// answer used to be a canned text quoting invented items and savings ("3 položky v akci… ušetřit
+// přibližně 85 Kč"), which would present made-up prices as the household's own data the moment the
+// feature flag is switched on (CLAUDE.md section 15). It now says plainly that the assistant is not
+// available and points to the features that do answer these questions from real data.
+const NOT_AVAILABLE_ANSWER =
+  'AI asistent zatím není zapojený, takže na dotazy neodpovídá. Porovnání cen, akce a plán nákupu podle rozpočtu najdete v nákupním seznamu.'
+
 export function AiAssistant({ onShopping }: { onShopping: () => void }) {
   const [prompt, setPrompt] = useState('')
   const [answer, setAnswer] = useState('')
@@ -10,11 +18,7 @@ export function AiAssistant({ onShopping }: { onShopping: () => void }) {
   function suggest(value = prompt) {
     if (!value.trim()) return
     setPrompt(value)
-    setAnswer(
-      value.toLowerCase().includes('akce') || value.toLowerCase().includes('ušet')
-        ? 'Na vašem seznamu vidím 3 položky v akci. Přesunem mléka a kuřecích prsou do levnějších obchodů můžete ušetřit přibližně 85 Kč.'
-        : 'Doporučuji týdenní nákup do 2 500 Kč. Přidám základní potraviny, porovnám akce a nechám rezervu 380 Kč.',
-    )
+    setAnswer(NOT_AVAILABLE_ANSWER)
   }
 
   return (

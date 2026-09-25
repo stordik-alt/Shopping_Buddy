@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { addExpenseAction } from '@/app/actions/budget'
 import { buildShoppingPlanAction, pinProductAction, unpinProductAction } from '@/app/actions/shopping-plan'
 import { saveMyStorePreferencesAction } from '@/app/actions/store-preferences'
@@ -67,6 +67,9 @@ import { filterPricesToNearby, type StoreSelection } from '@/lib/nearby-stores'
 import { nearbyOffers, type StandaloneOffer } from '@/lib/offers'
 import { useUserLocation } from '@/lib/use-user-location'
 import { attentionItems } from '@/lib/attention'
+import { AI_ASSISTANT_ENABLED } from '@/lib/features'
+import { tabFromSlug, tabHref } from '@/lib/tab-url'
+import { readThemeChoice, resolveDark, saveThemeChoice } from '@/lib/theme-preference'
 
 export function AppShell({
   initialData,
@@ -78,6 +81,7 @@ export function AppShell({
   initialStoreSelection,
   initialPins,
   today,
+  initialTab,
 }: {
   initialData: HouseholdData
   userName: string
@@ -90,8 +94,23 @@ export function AppShell({
   initialPins: PinRecord[]
   /** The real date (`YYYY-MM-DD`, Czech time) computed on the server, so server and client agree. */
   today: string
+  /** The section named in the address (`/?tab=…`, lib/tab-url.ts), resolved on the server. */
+  initialTab: Tab
 }) {
-  const [tab, setTab] = useState<Tab>('Domů')
+  const [tab, setTabState] = useState<Tab>(initialTab)
+  // Switching sections records the section in the address, so the phone's back gesture returns to
+  // the previous section instead of closing the app, and a reload stays where the user was.
+  const setTab = useCallback((next: Tab) => {
+    setTabState(next)
+    const href = tabHref(next)
+    if (`${window.location.pathname}${window.location.search}` !== href) window.history.pushState(null, '', href)
+  }, [])
+  useEffect(() => {
+    const onPopState = () =>
+      setTabState(tabFromSlug(new URLSearchParams(window.location.search).get('tab'), { aiEnabled: AI_ASSISTANT_ENABLED }))
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
   // The user's own "stores in my area". Until every branch has GPS, this selection decides which
   // stores' prices are compared and planned with (lib/nearby-stores.ts); nothing chosen = all stores.
   const [storeSelection, setStoreSelection] = useState(initialStoreSelection)
@@ -101,6 +120,8 @@ export function AppShell({
   const nearbyStandaloneOffers = useMemo(() => nearbyOffers(standaloneOffers, storeSelection), [standaloneOffers, storeSelection])
   const [household, setHousehold] = useState(initialData.household)
   const [items, setItems] = useState(initialData.items)
+  // Starts light on the server render; the effect below applies the remembered choice or the
+  // system setting right after hydration (lib/theme-preference.ts).
   const [dark, setDark] = useState(false)
   const [expenseOpen, setExpenseOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
@@ -131,6 +152,24 @@ export function AppShell({
     setPantryItems(initialData.pantryItems)
     setPendingReceiptImports(initialData.pendingReceiptImports)
   }, [initialData])
+
+  useEffect(() => {
+    const storage = safeLocalStorage()
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    setDark(resolveDark(readThemeChoice(storage), media.matches))
+    // Follow the system setting live, but only while the user has not chosen explicitly.
+    const onSystemChange = (event: MediaQueryListEvent) => {
+      if (readThemeChoice(safeLocalStorage()) === null) setDark(event.matches)
+    }
+    media.addEventListener('change', onSystemChange)
+    return () => media.removeEventListener('change', onSystemChange)
+  }, [])
+
+  function toggleDark() {
+    const next = !dark
+    setDark(next)
+    saveThemeChoice(safeLocalStorage(), next ? 'dark' : 'light')
+  }
 
   useEffect(() => {
     const interval = setInterval(() => router.refresh(), 20_000)
@@ -419,7 +458,7 @@ export function AppShell({
               mobileTitle={tab === 'Domů' ? 'Rodinný nákup' : tab}
               date={dateLabel}
               dark={dark}
-              onToggleDark={() => setDark(!dark)}
+              onToggleDark={toggleDark}
               notificationsOpen={notificationsOpen}
               onToggleNotifications={() => setNotificationsOpen((open) => !open)}
               unreadCount={unreadCount}
@@ -573,4 +612,13 @@ export function AppShell({
       </div>
     </div>
   )
+}
+
+/** `window.localStorage`, or undefined where merely accessing it throws (some browsers' private mode). */
+function safeLocalStorage(): Storage | undefined {
+  try {
+    return window.localStorage
+  } catch {
+    return undefined
+  }
 }

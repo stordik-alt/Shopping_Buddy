@@ -1,5 +1,11 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Sections have addresses; dark mode remembered; no invented AI answers)
+- **Sections:** each tab has its own address (`/?tab=nakup`, `zasoby`, `obchody`, `rozpocet`, `profil`; Domů is `/`) via `lib/tab-url.ts`. The phone's back gesture now returns to the previous section instead of closing the app, a reload keeps the section, and a section can be linked. `?tab=ai` opens Domů while the assistant is switched off (`lib/features.ts`).
+- **Dark mode:** the header toggle is remembered on the device (`lib/theme-preference.ts`, guarded `localStorage`); without an explicit choice the phone's system setting is followed, also when it changes. Before, every reload or refresh reset it to light.
+- **AI assistant:** still hidden (`AI_ASSISTANT_ENABLED = false`), but its component no longer answers with a canned text quoting invented items and savings; it says the assistant is not connected yet (CLAUDE.md §15, §30).
+- **Tests:** tab ↔ address round-trip, unknown values, hidden AI; theme choice vs. system, broken storage. CI command: 881 passed; `next build` passes. **Not checked in a browser** (no signed-in session or database in the cloud session): back gesture, reload and the theme on a real phone.
+
 ## 2026-09-25 (Fix: slow sign-in and loading after the catalog backfill)
 - **Problem:** after the full-catalog backfill (~47,000 products) the home page loaded every product with every price and deal on each render (`getProductPrices()`): ~25 s and ~22 MB per render, repeated by the app's 20-second refresh. Adding a list item ran the same query.
 - **Fix:** `getProductPrices()` takes a scope (`ProductPriceScope`): the page loads the products named on the household's list plus those with a promotion running today (what price/store comparison, price watch and "Dnes je důležité" use); adding an item loads only that product. Measured on the real database: 2.2 s and 1.8 MB (3,366 products) for the page, 0.5 s for adding an item. The list's autocomplete now offers these products; the full catalog stays searchable through product search.

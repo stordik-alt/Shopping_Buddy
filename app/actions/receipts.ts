@@ -14,6 +14,7 @@ import { PDF_TEXT_LAYER_PROVIDER, readPdfTextLayer } from '@/lib/receipt-pdf'
 import { detectReceiptFileType, prepareReceiptImageForOcr } from '@/lib/receipt-image'
 import { RECEIPT_STALE_MS } from '@/lib/receipt-progress'
 import { matchProductByName } from '@/lib/products'
+import { chainFamily } from '@/lib/stores/chain-family'
 import type { ReceiptListPair } from '@/lib/receipt-list-match'
 import {
   azureReceiptTextExtractor,
@@ -115,23 +116,36 @@ function normalizeStoreLocationPart(value: string | null | undefined): string {
 
 /** Resolves an OCR address to an existing branch, or creates the branch when OCR has enough
  *  physical-location data. Missing coordinates/opening hours stay NULL until a trusted store
- *  directory source enriches the branch; receipt OCR must never invent geographic data. */
-async function findOrCreateStoreLocation(storeId: string | null, address?: string | null, city?: string | null): Promise<string | null> {
-  if (!storeId) return null
+ *  directory source enriches the branch; receipt OCR must never invent geographic data.
+ *  The receipt names the retailer, so the branch is looked for in every chain of that retailer: an
+ *  Albert hypermarket's receipt reads "Albert", but the branch was moved to "Albert Hypermarket"
+ *  (lib/stores/chain-family.ts). The returned `storeId` is the chain of the branch found, so the
+ *  purchase and its prices are attributed where the branch really is. */
+async function findOrCreateStoreLocation(
+  storeId: string | null,
+  address?: string | null,
+  city?: string | null,
+): Promise<{ storeId: string | null; storeLocationId: string | null }> {
+  const none = { storeId, storeLocationId: null }
+  if (!storeId) return none
   const wantedAddress = normalizeStoreLocationPart(address)
   const wantedCity = normalizeStoreLocationPart(city)
-  if (!wantedAddress) return null
+  if (!wantedAddress) return none
 
   const db = getDb()
-  const locations = await db.query.storeLocations.findMany({ where: eq(schema.storeLocations.storeId, storeId) })
-  const exact = locations.find((location) =>
-    normalizeStoreLocationPart(location.address) === wantedAddress &&
-    normalizeStoreLocationPart(location.city) === wantedCity,
-  )
-  if (exact) return exact.id
-
-  const [store] = await db.query.stores.findMany({ where: eq(schema.stores.id, storeId) })
-  if (!store) return null
+  const stores = await db.query.stores.findMany()
+  const store = stores.find((candidate) => candidate.id === storeId)
+  if (!store) return none
+  const familyStoreIds = stores.filter((candidate) => chainFamily(candidate.chain) === chainFamily(store.chain)).map((candidate) => candidate.id)
+  const findExact = async () => {
+    const locations = await db.query.storeLocations.findMany({ where: inArray(schema.storeLocations.storeId, familyStoreIds) })
+    return locations.find((location) =>
+      normalizeStoreLocationPart(location.address) === wantedAddress &&
+      normalizeStoreLocationPart(location.city) === wantedCity,
+    )
+  }
+  const exact = await findExact()
+  if (exact) return { storeId: exact.storeId, storeLocationId: exact.id }
 
   try {
     const [created] = await db
@@ -143,16 +157,12 @@ async function findOrCreateStoreLocation(storeId: string | null, address?: strin
         city: city?.trim() ?? '',
       })
       .returning({ id: schema.storeLocations.id })
-    return created.id
+    return { storeId, storeLocationId: created.id }
   } catch (error) {
     // The unique normalized chain/address/city index makes concurrent OCR imports converge on
     // the same branch instead of creating duplicates. Re-read after a uniqueness race.
-    const raced = await db.query.storeLocations.findMany({ where: eq(schema.storeLocations.storeId, storeId) })
-    const match = raced.find((location) =>
-      normalizeStoreLocationPart(location.address) === wantedAddress &&
-      normalizeStoreLocationPart(location.city) === wantedCity,
-    )
-    if (match) return match.id
+    const match = await findExact()
+    if (match) return { storeId: match.storeId, storeLocationId: match.id }
     throw error
   }
 }
@@ -561,12 +571,13 @@ async function runReceiptPipeline(
   // Resolve the retailer and physical branch immediately after parsing. This keeps the
   // receipt_imports row authoritative even when later validation sends the receipt to review.
   // The same IDs are then reused by the purchase and price-observation writes below.
-  const parsedStoreId = await findOrCreateStore(extracted.store.name)
-  const parsedStoreLocationId = await findOrCreateStoreLocation(
-    parsedStoreId,
+  const parsedBranch = await findOrCreateStoreLocation(
+    await findOrCreateStore(extracted.store.name),
     extracted.store.address,
     extracted.store.city,
   )
+  const parsedStoreId = parsedBranch.storeId
+  const parsedStoreLocationId = parsedBranch.storeLocationId
   const enrichedParsedRow = await update({
     storeId: parsedStoreId,
     storeLocationId: parsedStoreLocationId ?? undefined,
@@ -770,9 +781,14 @@ export async function confirmReceiptReviewAction(
   // (the OCR-read date, for a review triggered by something other than a missing date, e.g. an
   // inconsistent total) and throws rather than defaulting to today if neither is present.
   const extractedReview = row.parserResult ? (JSON.parse(row.parserResult) as ExtractedReceipt) : null
-  const storeId = row.storeId ?? (extractedReview ? await findOrCreateStore(extractedReview.store.name) : null)
-  const resolvedStoreLocationId = options.storeLocationId ?? row.storeLocationId ??
-    (extractedReview ? await findOrCreateStoreLocation(storeId, extractedReview.store.address, extractedReview.store.city) : null)
+  let storeId = row.storeId ?? (extractedReview ? await findOrCreateStore(extractedReview.store.name) : null)
+  let resolvedStoreLocationId = options.storeLocationId ?? row.storeLocationId ?? null
+  if (resolvedStoreLocationId == null && extractedReview) {
+    // The branch may be in another chain of the same retailer (lib/stores/chain-family.ts).
+    const branch = await findOrCreateStoreLocation(storeId, extractedReview.store.address, extractedReview.store.city)
+    storeId = branch.storeId
+    resolvedStoreLocationId = branch.storeLocationId
+  }
   const purchase = await createPurchaseFromReceiptItems(householdId, items, {
     date: options.date,
     storedDate: row.date,

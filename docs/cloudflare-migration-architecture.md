@@ -3,6 +3,21 @@
 **Status:** proposed (2026-09-25). Nothing here is implemented yet. It follows from
 `docs/cloudflare-migration-audit.md`; update this file whenever a decision changes it.
 
+> **Current scope (owner decision, 2026-09-25): only Vercel Blob → R2.** The near-term target is
+> the "Interim" diagram below; the full "Target" is the long-term plan.
+
+## Interim target (current scope)
+
+```text
+Vercel ── Next.js 16 (unchanged)
+        ├── lib/storage/ ──► R2 (S3-compatible API, private bucket)      new uploads
+        │               └──► Vercel Blob                                 old receipts / dual-mode copy
+        └── everything else unchanged (cron, OIDC, AI Gateway, analytics, domain)
+```
+
+On Vercel there is no R2 binding, so `lib/storage/r2.ts` uses `@aws-sdk/client-s3` with the
+`R2_*` credentials (server-only). A Worker binding can be added later if hosting moves.
+
 ## Current (production)
 
 ```text

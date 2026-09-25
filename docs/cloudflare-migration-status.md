@@ -4,18 +4,23 @@
 **Current phase:** Phase 1 (audit) **done** · Step 0 (Cloudflare agent setup) **blocked — needs user action**
 **Production:** Vercel (unchanged). No Cloudflare resource has been created or changed.
 
+> **Current scope (owner decision, 2026-09-25): only Vercel Blob → Cloudflare R2.** The application
+> stays hosted on Vercel and uses R2 through its S3-compatible API (`@aws-sdk/client-s3`,
+> server-side only, private bucket). Hosting, crons, OCR auth, AI Gateway, analytics and DNS are
+> out of scope for now — phases 5–9 below are the long-term plan, not scheduled work.
+
 | Phase | Status |
 |---|---|
 | 0. Cloudflare agent setup | ⛔ Blocked (see below) |
 | 1. Audit | ✅ Done — `docs/cloudflare-migration-audit.md` |
-| 2. Storage abstraction | ⏸ Not started (waiting for step 0 and owner decisions) |
+| 2. Storage abstraction | ⏸ Not started (waiting for step 0) |
 | 3. Vercel Blob → R2 | ⏸ Not started |
-| 4. Provider-neutral application | ⏸ Not started |
-| 5. Cloudflare staging | ⏸ Not started |
-| 6. Full testing | ⏸ Not started |
-| 7. Production cutover | ⏸ Not started |
-| 8. Rollback window | ⏸ Not started |
-| 9. Remove Vercel | ⏸ Not started |
+| 4. Provider-neutral application | — Out of current scope (storage part is covered by phases 2–3) |
+| 5. Cloudflare staging | — Out of current scope |
+| 6. Full testing | — Out of current scope |
+| 7. Production cutover | — Out of current scope |
+| 8. Rollback window | — Out of current scope |
+| 9. Remove Vercel | — Out of current scope |
 
 ## CLOUDFLARE SETUP
 
@@ -28,22 +33,16 @@ Attempted 2026-09-25 from the Claude Code cloud session:
   is not installed (it is installable from npm — the npm registry is reachable).
 - Connection, capabilities, R2 access and deployment options are therefore **unverified**.
 
-**Required user actions:**
+**Required user actions (for the Blob → R2 scope):**
 
 1. In the cloud environment settings (environment menu in the session title bar → Edit → Network
    access), allow `developers.cloudflare.com`, `api.cloudflare.com` and `*.r2.cloudflarestorage.com`
    (or choose a broader access level).
-2. Create a Cloudflare API token scoped to the target account (Workers Scripts: Edit, Workers R2
-   Storage: Edit, Account Settings: Read; later Zone DNS: Edit for the cutover) and add it plus the
-   account id to the environment's secrets as `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
-   Do not paste the token into chat.
-3. Upgrade the account to **Workers Paid** (20 crons, 300 s jobs and the bundle size need it — audit C4–C6).
-4. Decide:
-   - **PDF OCR auth** (audit C2): recommended self-signed JWT + GCP WIF with uploaded JWKS.
-   - **Receipt structuring gateway** (audit V4): API key for Vercel AI Gateway, or Cloudflare AI Gateway.
-   - **Custom domain** (audit V8/risk 2): which domain; recommended to put it in front of Vercel first.
-   - Confirm that "HA/TUP" and "Product Profile / reject reason = reimport" from the brief do not
-     apply to this project (audit section 11).
+2. In the Cloudflare dashboard create two **private** R2 buckets (production and staging/test) and
+   an R2 API token (Object Read & Write, limited to those buckets). Add `R2_ACCOUNT_ID`,
+   `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` and `R2_BUCKET_NAME` to the environment's secrets
+   (and later to Vercel's env). Do not paste the values into chat.
+3. Workers Paid is **not** needed for this scope (R2 has its own pricing with a free tier).
 
 ## CURRENT STATE
 
@@ -62,6 +61,7 @@ Phase 1 (documentation only):
 - new `docs/cloudflare-migration-audit.md`
 - new `docs/cloudflare-migration-architecture.md`
 - new `docs/cloudflare-migration-status.md`
+- new `docs/cloudflare-migration-brief.md` (owner's original brief, with the scope note; requirements that do not belong to this app removed)
 - `docs/07_CHANGELOG.md` (entry)
 
 No application code, dependency or configuration changed.
@@ -123,9 +123,13 @@ Workers Paid prerequisite, old Blob receipts, DB tests not runnable in the cloud
 
 ## NEXT STEP
 
-After the user actions: run the Cloudflare agent setup, verify R2 access with a throwaway staging
-bucket, then start Phase 2 (storage abstraction with the Vercel Blob implementation only — no
-behavior change).
+After the user actions: run the Cloudflare agent setup, verify R2 access with the staging bucket,
+then start Phase 2 (storage abstraction with the Vercel Blob implementation only — no behavior
+change), followed by Phase 3 (R2 implementation, `storage_provider`/`storage_key` migration,
+`STORAGE_PROVIDER=vercel|dual|r2`, copy script with `--dry-run`).
+
+Decisions recorded for later (not needed for the R2 scope): PDF OCR auth without Vercel OIDC
+(audit C2), AI Gateway auth (V4), custom domain (V8), `sharp` on Workers (C1).
 
 ## Phase checklist — Phase 1
 

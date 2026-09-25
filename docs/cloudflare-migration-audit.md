@@ -4,6 +4,11 @@
 **Scope:** `main` at `68b7760` (read-only audit — no application code, dependency, database or infrastructure change was made)
 **Goal:** move production hosting from Vercel to Cloudflare with no planned downtime; Neon PostgreSQL stays.
 
+> **Scope decision (owner, 2026-09-25): for now only Vercel Blob → Cloudflare R2 is migrated.**
+> The app keeps running on Vercel and talks to R2 over R2's S3-compatible API. Everything else in
+> this audit (hosting, crons, OIDC, AI Gateway, `sharp`, analytics, domain) is recorded for a later
+> decision and is **not** current work.
+
 Everything below was verified against the code and a local build, not taken from older docs.
 Where the migration brief assumes something the code does not do, that is called out in
 [section 11](#11-brief-vs-verified-code--discrepancies).
@@ -196,7 +201,6 @@ The migration brief contains requirements that do not match this codebase. They 
 |---|---|
 | "Photo must be compressed before upload" | **No client-side compression exists.** The phone uploads the original (≤ 10 MB). `sharp` only makes a separate OCR copy on the server; the stored original is never modified. Adding compression would be a new feature, not a migration step |
 | Storage key `receipts/{userId}/{receiptId}/…` | Keys and authorization are per **household** (`receipts/{householdId}/{uuid}.ext`). Recommend `receipts/{householdId}/{receiptImportId}/original.{ext}` for R2 |
-| "HA + TUP", "1 HA → 2 TUP (50 %/50 %)" | No such concept exists anywhere in this repository. Looks like it belongs to a different project — **not applicable** unless the owner explains otherwise |
 | "Pending approval → Product Profile → assignment → recalculation" | No "Product Profile" entity. The closest real flow is receipt review (`pending_review` → `confirmReceiptReviewAction`). Regression tests will cover that real flow |
 | "Reimport with reject reason = reimport" | No reject-reason field. Real behavior: a failed/reviewed import can be **re-processed** from the stored file (`processUploadedReceiptAction`, stale-claim logic) and cancelled (`cancelReceiptImportAction`) |
 | "Preview / download / delete" | Preview and download are the same route (`/api/receipts/[id]/image`); delete = cancel of an import without a purchase |

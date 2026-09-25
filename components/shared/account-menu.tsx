@@ -1,5 +1,6 @@
 import { Bot, LogOut, Moon, Sun, Users } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { AI_ASSISTANT_ENABLED } from '@/lib/features'
 import type { Tab } from '@/lib/types'
 
 function initialsFor(name: string) {
@@ -72,9 +73,11 @@ export function AccountMenu({
           <button role="menuitem" className={itemClass} onClick={run(() => onSelectTab('Profil'))}>
             <Users className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> Profil domácnosti
           </button>
-          <button role="menuitem" className={itemClass} onClick={run(() => onSelectTab('AI'))}>
-            <Bot className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> AI asistent
-          </button>
+          {AI_ASSISTANT_ENABLED && (
+            <button role="menuitem" className={itemClass} onClick={run(() => onSelectTab('AI'))}>
+              <Bot className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> AI asistent
+            </button>
+          )}
           <button role="menuitem" className={itemClass} onClick={run(onToggleDark)}>
             {dark ? <Sun className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> : <Moon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
             {dark ? 'Světlý motiv' : 'Tmavý motiv'}

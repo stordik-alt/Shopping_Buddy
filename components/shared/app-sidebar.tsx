@@ -1,9 +1,12 @@
 import { ArrowUpRight, Sparkles } from 'lucide-react'
 import { Brand } from '@/components/shared/brand'
 import { NavItem } from '@/components/shared/nav-item'
+import { AI_ASSISTANT_ENABLED } from '@/lib/features'
 import type { Tab } from '@/lib/types'
 
-const TABS: Tab[] = ['Domů', 'Nákup', 'Zásoby', 'Obchody', 'Rozpočet', 'AI', 'Profil']
+const TABS: Tab[] = (['Domů', 'Nákup', 'Zásoby', 'Obchody', 'Rozpočet', 'AI', 'Profil'] as const).filter(
+  (tab) => tab !== 'AI' || AI_ASSISTANT_ENABLED,
+)
 
 export function AppSidebar({ tab, onTabChange }: { tab: Tab; onTabChange: (tab: Tab) => void }) {
   return (
@@ -16,6 +19,7 @@ export function AppSidebar({ tab, onTabChange }: { tab: Tab; onTabChange: (tab: 
           <NavItem key={item} item={item} active={tab === item} onClick={() => onTabChange(item)} />
         ))}
       </nav>
+      {AI_ASSISTANT_ENABLED && (
       <div className="mt-auto rounded-2xl bg-accent p-4 text-accent-foreground">
         <Sparkles className="mb-4 h-5 w-5" aria-hidden="true" />
         <p className="text-sm font-semibold">Chytré nákupy začínají tady.</p>
@@ -24,6 +28,7 @@ export function AppSidebar({ tab, onTabChange }: { tab: Tab; onTabChange: (tab: 
           Vyzkoušet AI <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
       </div>
+      )}
     </aside>
   )
 }

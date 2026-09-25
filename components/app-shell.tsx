@@ -458,7 +458,7 @@ export function AppShell({
                   <MealPlan household={household} initialPlan={initialData.mealPlan} pantryItems={pantryItems} onAddIngredients={addIngredients} onMarkCooked={markMealCooked} />
                   <div className="grid gap-4 lg:grid-cols-2 lg:gap-6">
                     <SpendingBreakdown expenses={monthExpenses} onDetails={() => setTab('Rozpočet')} />
-                    <SavingsInsight remaining={remaining} onAi={() => setTab('AI')} />
+                    <SavingsInsight remaining={remaining} today={today} />
                   </div>
                 </div>
               )}

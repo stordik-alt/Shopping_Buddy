@@ -118,3 +118,12 @@ export function crossedBudgetThreshold(spentBefore: number, spentAfter: number, 
   if (before < BUDGET_WARNING_RATIO && after >= BUDGET_WARNING_RATIO) return 'reached'
   return null
 }
+
+/** How much of what is left can go on one week, so the rest of the month is still covered: the
+ *  remaining budget spread over the weeks left in the month, counting today. In the last week the
+ *  whole remainder is available. Nothing when the budget is used up. */
+export function weeklyAllowance(remaining: number, today: string): number {
+  if (remaining <= 0) return 0
+  const daysLeft = daysInMonth(today) - Number(today.slice(8, 10)) + 1
+  return remaining / Math.max(1, daysLeft / 7)
+}

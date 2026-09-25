@@ -85,6 +85,7 @@ export function AppShell({
   initialPins,
   today,
   initialTab,
+  pushPublicKey,
 }: {
   initialData: HouseholdData
   userName: string
@@ -99,6 +100,8 @@ export function AppShell({
   today: string
   /** The section named in the address (`/?tab=…`, lib/tab-url.ts), resolved on the server. */
   initialTab: Tab
+  /** The server's Web Push key; null when push notifications are not configured (lib/push/). */
+  pushPublicKey: string | null
 }) {
   const [tab, setTabState] = useState<Tab>(initialTab)
   // Switching sections records the section in the address, so the phone's back gesture returns to
@@ -184,6 +187,17 @@ export function AppShell({
       clearInterval(interval)
       document.removeEventListener('visibilitychange', onFocus)
     }
+  }, [router])
+
+  // The push service worker (public/sw.js) tells open windows when a notification arrives, so the
+  // bell panel shows it at once instead of on the next poll.
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'push-received') router.refresh()
+    }
+    navigator.serviceWorker.addEventListener('message', onMessage)
+    return () => navigator.serviceWorker.removeEventListener('message', onMessage)
   }, [router])
 
   const budget = household.monthlyBudget
@@ -497,6 +511,7 @@ export function AppShell({
                 onRead={readNotification}
                 onReadAll={readAllNotifications}
                 onClose={() => setNotificationsOpen(false)}
+                pushPublicKey={pushPublicKey}
               />
             )}
 

@@ -558,6 +558,32 @@ export const notifications = pgTable('notifications', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
+// One browser/phone that agreed to receive push notifications for a household member (Web Push,
+// lib/push/). `endpoint` is the push service URL the browser created for this app and identifies the
+// device, so it is unique: re-subscribing the same browser updates its row instead of adding another,
+// and a browser handed to a different account moves with it. Deleted when the push service reports
+// the subscription gone (404/410), when the member turns push off, or with the member/household.
+export const pushSubscriptions = pgTable(
+  'push_subscriptions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+    memberId: uuid('member_id').notNull().references(() => householdMembers.id, { onDelete: 'cascade' }),
+    endpoint: text('endpoint').notNull(),
+    // The browser's ECDH public key and auth secret (base64url) that each message is encrypted for.
+    p256dh: text('p256dh').notNull(),
+    auth: text('auth').notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    // Last time a push was accepted by the push service for this device.
+    lastSuccessAt: timestamp('last_success_at'),
+  },
+  (table) => [
+    uniqueIndex('push_subscriptions_endpoint_unique').on(table.endpoint),
+    index('push_subscriptions_household_idx').on(table.householdId),
+    check('push_subscriptions_endpoint_https', sql`${table.endpoint} LIKE 'https://%'`),
+  ],
+)
+
 // --- Relations -----------------------------------------------------------------
 
 export const householdsRelations = relations(households, ({ many, one }) => ({
@@ -570,6 +596,7 @@ export const householdsRelations = relations(households, ({ many, one }) => ({
   expenses: many(expenses),
   mealPlans: many(mealPlans),
   notifications: many(notifications),
+  pushSubscriptions: many(pushSubscriptions),
   invitations: many(invitations),
   pantryItems: many(pantryItems),
   receiptImports: many(receiptImports),

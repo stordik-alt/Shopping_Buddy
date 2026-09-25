@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
+import { createHouseholdNotification } from '@/lib/notify'
 import { findDueForCheckin } from '@/lib/pantry'
 
 // Household pantry ("spíž"): a daily Vercel Cron job that asks each household "do you still have
@@ -42,7 +43,7 @@ export async function GET(request: Request) {
         ? `Máte ještě doma: ${names.join(', ')}?`
         : `Máte ještě doma ${names.length} položek ze spíže, mimo jiné ${names.slice(0, 5).join(', ')}?`
 
-    await db.insert(schema.notifications).values({ householdId, title: 'Kontrola spíže', detail })
+    await createHouseholdNotification(db, householdId, { title: 'Kontrola spíže', detail }, { tab: 'Zásoby' })
     for (const item of due) {
       await db.update(schema.pantryItems).set({ askedAt: now }).where(eq(schema.pantryItems.id, item.id))
     }

@@ -5,6 +5,7 @@ import { getHouseholdData, getProductPrices, getStandaloneOffers, getStores } fr
 import { listPinsForHousehold } from '@/lib/db/shopping-plan'
 import { getMemberIdForUser, getMemberStoreSelection, getStoreChains } from '@/lib/db/member-store-preferences'
 import { EMPTY_STORE_SELECTION } from '@/lib/nearby-stores'
+import { pushPublicKeyForClient } from '@/lib/push/deliver'
 import { AI_ASSISTANT_ENABLED } from '@/lib/features'
 import { tabFromSlug } from '@/lib/tab-url'
 import { todayInPrague } from '@/lib/today'
@@ -31,5 +32,5 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ [
   const memberId = await getMemberIdForUser(session.user.id)
   const storeSelection = memberId ? await getMemberStoreSelection(memberId) : EMPTY_STORE_SELECTION
   const pins = await listPinsForHousehold(data.household.id)
-  return <AppShell initialData={data} userName={session.user.name} stores={stores} productPrices={productPrices} standaloneOffers={standaloneOffers} storeChains={storeChains} initialStoreSelection={storeSelection} initialPins={pins} today={todayInPrague()} initialTab={initialTab} />
+  return <AppShell initialData={data} userName={session.user.name} stores={stores} productPrices={productPrices} standaloneOffers={standaloneOffers} storeChains={storeChains} initialStoreSelection={storeSelection} initialPins={pins} today={todayInPrague()} initialTab={initialTab} pushPublicKey={pushPublicKeyForClient()} />
 }

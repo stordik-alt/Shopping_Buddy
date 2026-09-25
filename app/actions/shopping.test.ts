@@ -18,7 +18,10 @@ import { addShoppingItemAction, removeShoppingItemAction, toggleShoppingItemActi
 // `revalidatePath()` throws outside Next's request-scoped cache store. Both are mocked below;
 // everything else (authorization checks, DB writes, notification logic) is the real code.
 let currentHouseholdId = ''
-vi.mock('@/lib/auth/authorize', () => ({ requireHouseholdId: () => Promise.resolve(currentHouseholdId) }))
+vi.mock('@/lib/auth/authorize', () => ({
+  requireHouseholdId: () => Promise.resolve(currentHouseholdId),
+  requireHousehold: () => Promise.resolve({ userId: '00000000-0000-4000-8000-000000000001', userEmail: 'test@example.com', householdId: currentHouseholdId, role: 'owner' }),
+}))
 vi.mock('next/cache', () => ({ revalidatePath: () => {} }))
 
 const db = getDb()

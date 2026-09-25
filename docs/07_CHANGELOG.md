@@ -1,5 +1,23 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Push notifications to phones)
+- **What:** members can switch on "Upozornění do telefonu" in the bell panel. Budget thresholds, best-price deals, shopping reminders, pantry check-ins and new household members then also arrive as phone/browser notifications, and a tap opens the matching section. There is a "Poslat zkušební upozornění" button to check that it works. The member who caused a notification is not pushed (they are looking at the app).
+- **How:**
+  - `lib/notify.ts` is now the single place that creates notifications; all five call sites use it.
+  - `lib/push/web-push.ts` implements Web Push with WebCrypto only (RFC 8291 aes128gcm encryption, RFC 8292 VAPID), with no new dependency, and runs on Vercel and Cloudflare.
+  - `lib/push/deliver.ts` sends after the response. It deletes subscriptions the push service reports gone and logs other failures; the notification itself is never affected.
+  - `public/sw.js` is a notification-only service worker, with no caching. It is public in `proxy.ts` and not cached (`next.config.mjs`).
+  - Table `push_subscriptions` (migration **0031**): unique endpoint, https check, cascades with member and household.
+  - Only endpoints of the known push services are accepted (Google, Apple, Mozilla, Windows), so the server cannot be made to call arbitrary URLs.
+  - `requireHousehold()` also returns `memberId`.
+- **Setup (owner):** `pnpm db:migrate`, then `pnpm push:vapid-keys` and set `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` in Vercel. Without them the feature stays off: the toggle is hidden and nothing is sent. See `docs/push-notifications.md`.
+- **Tests:**
+  - Encryption reproduces RFC 8291 Appendix A byte for byte; round-trip decryption and VAPID signature verification pass.
+  - Subscription validation covers the SSRF cases and malformed keys; the per-browser availability logic, including iPhone without home-screen install, is tested.
+  - DB tests in `app/actions/push.test.ts` cover saving, moving a device between accounts, removing only one's own device, excluding the actor, and deleting gone subscriptions. They need `TEST_DATABASE_URL`, so they were not run here.
+  - CI command: 922 passed; `next build` passes; `/sw.js` is served publicly with `no-store`.
+  - **Not checked on a phone** (no signed-in session here).
+
 ## 2026-09-25 (Receipt files: R2 is the default store)
 - **What:** new receipt uploads go to Cloudflare R2 without `STORAGE_PROVIDER` (production already set `STORAGE_PROVIDER=r2`, so nothing changes there). `STORAGE_PROVIDER=vercel` stays as the rollback switch; an empty value means R2; an unknown value is still an error.
 - **Tests:** storage tests cover the new default (R2 by default, empty value = R2, `vercel` → Blob). The DB-backed receipt tests set `STORAGE_PROVIDER=vercel` so they keep using the in-memory Blob fake instead of trying to reach R2.

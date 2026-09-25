@@ -2,6 +2,7 @@ import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
+import { createHouseholdNotification } from '@/lib/notify'
 import { findStaleItems } from '@/lib/reminders'
 
 // Phase D "shopping reminders" (docs/04_ROADMAP.md): a daily Vercel Cron job (see vercel.json)
@@ -47,7 +48,7 @@ export async function GET(request: Request) {
         ? `Na seznamu čeká: ${names.join(', ')}.`
         : `Na seznamu čeká ${names.length} položek, mimo jiné ${names.slice(0, 5).join(', ')}.`
 
-    await db.insert(schema.notifications).values({ householdId, title: 'Nezapomeňte na nákup', detail })
+    await createHouseholdNotification(db, householdId, { title: 'Nezapomeňte na nákup', detail }, { tab: 'Nákup' })
     await db
       .update(schema.shoppingListItems)
       .set({ remindedAt: now })

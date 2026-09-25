@@ -1038,6 +1038,16 @@ Need reliable historical tracking of promotions. Unlike prices, `deals` has no a
 
 Database foundation exists, but UI and domain-wide localization still require work.
 
+## Test database
+
+Database-backed tests (Server Actions, `lib/db/*` queries, receipt API routes) run against a separate Neon branch, never production: `test/setup-test-database.ts` swaps `DATABASE_URL` for `TEST_DATABASE_URL` before every test file and clears it when no test URL is set, so those tests fail instead of writing to production. Set up once:
+
+1. In the Neon project, create a branch from `main` named `test` (console: Branches → New branch; or `npx neonctl branches create --name test`). A branch is a copy-on-write copy, so it starts with the production schema and data.
+2. Put its pooled and direct connection strings into `.env.local` as `TEST_DATABASE_URL` and `TEST_DATABASE_URL_UNPOOLED`.
+3. After a new migration, run `pnpm db:migrate:test` as well as `pnpm db:migrate`. To start from fresh production data again, reset the branch from its parent (console, or `npx neonctl branches reset test --parent`) and re-run the migrations.
+
+Tests still clean up after themselves; leftovers from an interrupted run now stay on the test branch, where a reset removes them. Neon Auth is not involved: tests create their users directly in the branch's `neon_auth.user` table.
+
 ## Server action tests
 
 Started 2026-09-21, now covers every file in `app/actions/`: `shopping.test.ts`, `household.test.ts`, `budget.test.ts`, `notifications.test.ts`, `meal-plan.test.ts`, all as integration tests against the real dev database. `requireHouseholdId()`/`requireHousehold()` and `next/cache`'s `revalidatePath()` are mocked, since both need a real Next.js request context a test process doesn't have; `acceptInvitationAction` additionally needed `@/lib/auth/server`'s `auth.getSession()` mocked, since it authorizes off a real session rather than `requireHousehold()`. Everything else — authorization checks, DB writes, notification logic, the budget-threshold and meal-plan-upsert behavior — is the real code running for real.

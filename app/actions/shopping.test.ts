@@ -9,8 +9,8 @@ import { addShoppingItemAction, removeShoppingItemAction, toggleShoppingItemActi
 
 // Integration coverage for the household-scoping gap noted in docs/01_CURRENT_STATE.md ("Server
 // Actions and the auto-provision/auto-join logic ... still have no automated tests"). Runs
-// against the real dev database (needs DATABASE_URL — see `pnpm test`'s dotenv wrapping), not a
-// mock, so it actually exercises the same Drizzle queries production traffic does. Everything it
+// against a real database — the separate test branch (TEST_DATABASE_URL, see
+// test/setup-test-database.ts), not a mock, so it actually exercises the same Drizzle queries production traffic does. Everything it
 // writes is scoped to households created and deleted within this file.
 //
 // Two things a Server Action does that can't run outside a real Next.js request need mocking:

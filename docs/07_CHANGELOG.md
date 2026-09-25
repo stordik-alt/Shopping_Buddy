@@ -1,5 +1,15 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Pantry: bulk check instead of item by item)
+- **Why:** keeping Zásoby current meant walking the house and confirming or removing every item one by one.
+- **What:** "Zkontrolovat" (per folder, or from the new "K ověření" banner for all locations) lists items all marked "Mám". The household taps only what ran out and saves once. Removed items can go straight onto the shopping list (on by default, skipping names already on it); everything else is confirmed. Items the check-in asked about are listed first.
+- **How:** `reviewPantryAction` (`app/actions/pantry.ts`) validates every id against the household, rejects the whole check on any foreign id, and writes the delete and the confirm in one `db.batch`. The ordering and split are pure (`pantryReviewOrder`, `splitPantryReview` in `lib/pantry.ts`). UI: `components/shopping/pantry-review.tsx`.
+- **Tests:**
+  - Pure: order and split.
+  - DB (`app/actions/pantry.test.ts`): remove and confirm, rejection of a foreign id with nothing written, a mark outside the check ignored, malformed input.
+  - CI command: 937 passed; `next build` passes. Rendered at 390 px (temporary preview page, removed).
+- **Also:** `app/actions/push.test.ts` now creates real Neon Auth users. `household_members.user_id` references `neon_auth.user`, so the random ids failed the foreign key in the owner's test run.
+
 ## 2026-09-25 (Product matching: word forms, no soups for eggs)
 - **Why:** the shopping plan offered a soup with egg for the list item "Vejce". Search matched any name containing the text, so "vejce" was found in "Polévka s vejcem". At a chain without eggs, or where eggs fell outside the 400-row cap (which cut rows by product id, i.e. arbitrarily), the soup was the only candidate and was picked.
 - **What** (`lib/product-search.ts`, pure):

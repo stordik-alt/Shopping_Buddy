@@ -1265,6 +1265,15 @@ The application should remain stable while functionality is expanded incremental
 
 **Added 2026-09-22.** A new domain, owner-requested, not part of the original Phase 8 notification set (section 19) but following the same deterministic-generator pattern.
 
+**Update 2026-09-25, bulk check ("Zkontrolovat zásoby").** Checking stock no longer means confirming or removing row by row.
+* **How it works** (`components/shopping/pantry-review.tsx`): "Zkontrolovat" (on the open folder, or on the "K ověření" banner, which covers all locations) shows every item as "Mám". The household taps only what ran out and saves once.
+* **What a save does:** what ran out is removed. Everything else is confirmed like "Ještě mám": `addedAt` is set to now and `askedAt` is cleared, so the check-in clock restarts.
+* **Shopping list:** optionally, removed items are added to the shopping list (skipping names already waiting on it).
+* **Order:** items the check-in asked about come first, then the longest unconfirmed (`pantryReviewOrder`).
+* **Server side:** `reviewPantryAction` checks every id against the household. One foreign id rejects the whole check and nothing is written. The delete and the confirm run in one `db.batch`.
+* **Failure handling:** if adding to the list fails after the save, the notice says so; the check itself is saved.
+* **Checked:** rendered at 390 px with no horizontal overflow; the save bar stays above the bottom navigation (the section uses `overflow-clip`, because `overflow-hidden` pinned the bar over the last rows).
+
 The `pantry_items` table (migration `0003_pantry_items.sql`) tracks what a household believes it currently has at home:
 
 * `completePurchaseAction` (section 21) restocks or creates a pantry row for every item in a finished purchase — matched by `productId` when known, otherwise by case-insensitive name, summing quantity rather than overwriting on a repeat purchase.

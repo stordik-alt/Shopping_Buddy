@@ -9,7 +9,7 @@ let currentHouseholdId = ''
 vi.mock('@/lib/auth/authorize', () => ({ requireHouseholdId: () => Promise.resolve(currentHouseholdId) }))
 vi.mock('next/cache', () => ({ revalidatePath: () => {} }))
 
-import { adjustPantryItemQuantityAction, confirmPantryItemAction, movePantryItemAction, removePantryItemAction } from '@/app/actions/pantry'
+import { adjustPantryItemQuantityAction, confirmPantryItemAction, movePantryItemAction, removePantryItemAction, reviewPantryAction } from '@/app/actions/pantry'
 
 const db = getDb()
 const createdHouseholdIds: string[] = []
@@ -146,5 +146,57 @@ describe('removePantryItemAction', () => {
     await removePantryItemAction(item.id)
     const row = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, item.id) })
     expect(row).toBeUndefined()
+  })
+})
+
+describe('reviewPantryAction', () => {
+  const weekAgo = () => new Date(Date.now() - 7 * 86_400_000)
+
+  it('removes what ran out and confirms everything else in one save', async () => {
+    const [milk, eggs, rice] = await db
+      .insert(schema.pantryItems)
+      .values([
+        { householdId, name: 'Mléko', category: 'Potraviny', addedAt: weekAgo(), askedAt: weekAgo() },
+        { householdId, name: 'Vejce', category: 'Potraviny', addedAt: weekAgo() },
+        { householdId, name: 'Rýže', category: 'Potraviny', addedAt: weekAgo(), askedAt: weekAgo() },
+      ])
+      .returning()
+
+    const result = await reviewPantryAction({ reviewedIds: [milk.id, eggs.id, rice.id], goneIds: [eggs.id] })
+
+    expect(result).toEqual({ removed: 1, confirmed: 2 })
+    const rows = await db.query.pantryItems.findMany({ where: eq(schema.pantryItems.householdId, householdId) })
+    expect(rows.map((row) => row.name).sort()).toEqual(['Mléko', 'Rýže'])
+    for (const row of rows) {
+      expect(row.askedAt).toBeNull()
+      expect(row.addedAt.getTime()).toBeGreaterThan(Date.now() - 60_000)
+    }
+  })
+
+  it('rejects the whole check when any id belongs to another household, and writes nothing', async () => {
+    const [mine] = await db.insert(schema.pantryItems).values({ householdId, name: 'Máslo', category: 'Potraviny', addedAt: weekAgo() }).returning()
+    const [theirs] = await db.insert(schema.pantryItems).values({ householdId: otherHouseholdId, name: 'Sýr', category: 'Potraviny' }).returning()
+
+    await expect(reviewPantryAction({ reviewedIds: [mine.id, theirs.id], goneIds: [mine.id, theirs.id] })).rejects.toThrow('Pantry item not found')
+
+    expect(await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, mine.id) })).toBeDefined()
+    expect(await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, theirs.id) })).toBeDefined()
+  })
+
+  it('ignores a gone mark for an item that was not part of the check', async () => {
+    const [shown, hidden] = await db
+      .insert(schema.pantryItems)
+      .values([
+        { householdId, name: 'Chléb', category: 'Potraviny' },
+        { householdId, name: 'Mouka', category: 'Potraviny' },
+      ])
+      .returning()
+    expect(await reviewPantryAction({ reviewedIds: [shown.id], goneIds: [hidden.id] })).toEqual({ removed: 0, confirmed: 1 })
+    expect(await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, hidden.id) })).toBeDefined()
+  })
+
+  it('rejects malformed input', async () => {
+    await expect(reviewPantryAction({ reviewedIds: 'x' as unknown as string[], goneIds: [] })).rejects.toThrow('Neplatná kontrola')
+    expect(await reviewPantryAction({ reviewedIds: [], goneIds: [] })).toEqual({ removed: 0, confirmed: 0 })
   })
 })

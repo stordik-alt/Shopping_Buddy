@@ -1,5 +1,6 @@
-import { BriefcaseMedical, Check, House, Minus, Package, Plus, Refrigerator, Snowflake, SprayCan, Wheat, X, type LucideIcon } from 'lucide-react'
+import { BriefcaseMedical, Check, ClipboardCheck, House, Minus, Package, Plus, Refrigerator, Snowflake, SprayCan, Wheat, X, type LucideIcon } from 'lucide-react'
 import { useState } from 'react'
+import { PantryReview, type PantryReviewResult } from '@/components/shopping/pantry-review'
 import { itemCountLabel } from '@/lib/format'
 import { PANTRY_LOCATIONS, summarizeByLocation } from '@/lib/pantry'
 import { cn } from '@/lib/utils'
@@ -83,36 +84,69 @@ function QuantityStepper({ quantity, unit, onChange }: { quantity: number; unit:
  *  until the household confirms ("Ještě mám") or removes it ("Došlo"). The location select on each
  *  row moves the item between *any* of the locations (e.g. chilled meat into the freezer). The
  *  quantity stepper lets them correct current stock directly without ever touching purchase
- *  history. */
+ *  history. "Zkontrolovat" opens the bulk check (components/shopping/pantry-review.tsx): tap only
+ *  what ran out, save once, and everything else is confirmed. */
 export function Pantry({
   items,
   onConfirm,
   onRemove,
   onMove,
   onAdjustQuantity,
+  onReview,
 }: {
   items: PantryItem[]
   onConfirm: (id: string) => void
   onRemove: (id: string) => void
   onMove: (id: string, location: PantryLocation) => void
   onAdjustQuantity: (id: string, quantity: number) => void
+  /** Saves a bulk check; resolves to what was done, rejects when nothing was saved. */
+  onReview: (reviewedIds: string[], goneIds: string[], addGoneToList: boolean) => Promise<PantryReviewResult>
 }) {
   const summary = summarizeByLocation(items)
   // Open on the first location that has something in it rather than on an empty folder.
   const [selected, setSelected] = useState<PantryLocation>(() => PANTRY_LOCATIONS.find((location) => summary[location].count > 0) ?? PANTRY_LOCATIONS[0])
   // Announces a move: the moved row leaves the open folder, so without this it would just vanish.
   const [notice, setNotice] = useState<string | null>(null)
+  // The check opened from the "K ověření" banner covers every location (the asked items can be
+  // anywhere); opened from a folder, it starts with that folder.
+  const [reviewing, setReviewing] = useState<'location' | 'all' | null>(null)
+  const toCheck = items.filter((item) => item.askedAt).length
 
   const SelectedIcon = LOCATION_ICON[selected]
   const selectedItems = items.filter((item) => item.location === selected)
 
   function move(item: PantryItem, location: PantryLocation) {
     onMove(item.id, location)
-    setNotice(`${item.name} → ${location}`)
+    setNotice(`Přesunuto: ${item.name} → ${location}`)
+  }
+
+  function closeReview(result: PantryReviewResult | null) {
+    setReviewing(null)
+    if (!result) return
+    const parts = [`došlo ${itemCountLabel(result.removed)}`, `potvrzeno ${itemCountLabel(result.confirmed)}`]
+    if (result.addedToList > 0) parts.push(`na seznam ${itemCountLabel(result.addedToList)}`)
+    setNotice(`Kontrola uložena: ${parts.join(', ')}.${result.listFailed ? ' Některé položky se nepodařilo přidat na nákupní seznam — přidejte je prosím ručně.' : ''}`)
   }
 
   return (
     <div className="space-y-4">
+      {toCheck > 0 && !reviewing && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-primary/10 px-4 py-3">
+          <p className="min-w-0 text-sm">
+            Máte je ještě? K ověření: <span className="font-semibold">{itemCountLabel(toCheck)}</span>
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setReviewing('all')
+              setNotice(null)
+            }}
+            className="min-h-9 rounded-xl bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+          >
+            Zkontrolovat
+          </button>
+        </div>
+      )}
       <nav aria-label="Umístění zásob" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {PANTRY_LOCATIONS.map((location) => {
           const Icon = LOCATION_ICON[location]
@@ -156,17 +190,34 @@ export function Pantry({
         })}
       </nav>
 
+      {reviewing ? (
+        <PantryReview items={items} location={selected} initialScope={reviewing} onSave={onReview} onClose={closeReview} />
+      ) : (
       <section aria-label={`Zásoby: ${selected}`} className="overflow-hidden surface">
         <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
           <div className="flex min-w-0 items-center gap-2">
             <SelectedIcon className="h-4 w-4 shrink-0 text-primary" aria-hidden />
             <h2 className="min-w-0 break-words text-sm font-semibold">{selected}</h2>
           </div>
-          <span className="shrink-0 text-xs text-muted-foreground">{itemCountLabel(selectedItems.length)}</span>
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="text-xs text-muted-foreground">{itemCountLabel(selectedItems.length)}</span>
+            {items.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setReviewing('location')
+                  setNotice(null)
+                }}
+                className="flex min-h-9 items-center gap-1.5 rounded-xl border border-border px-2.5 text-xs font-medium hover:bg-muted"
+              >
+                <ClipboardCheck className="h-3.5 w-3.5" aria-hidden /> Zkontrolovat
+              </button>
+            )}
+          </div>
         </div>
 
         <p role="status" aria-live="polite" className={notice ? 'border-b border-border bg-primary/10 px-5 py-2 text-xs text-primary' : 'sr-only'}>
-          {notice ? `Přesunuto: ${notice}` : ''}
+          {notice ?? ''}
         </p>
 
         {selectedItems.length === 0 && (
@@ -221,6 +272,7 @@ export function Pantry({
           </div>
         ))}
       </section>
+      )}
     </div>
   )
 }

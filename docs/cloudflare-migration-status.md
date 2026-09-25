@@ -1,7 +1,7 @@
 # Cloudflare Migration — Status
 
 **Last updated:** 2026-09-25
-**Current phase:** Phases 2–3 (storage layer + R2) **code ready, not active** · waiting for the owner's R2 bucket + token
+**Current phase:** Phases 2–3 (storage layer + R2) — **R2 is the default for new uploads**; owner set the `R2_*` env vars in Vercel; not yet checked on the live app
 **Production:** Vercel (unchanged). No Cloudflare resource has been created or changed by Claude.
 
 > **Current scope (owner decision, 2026-09-25): only Vercel Blob → Cloudflare R2.** The application
@@ -17,7 +17,7 @@
 | 0. Cloudflare agent setup | ⛔ Blocked from the cloud session (network policy); not needed to ship the R2 code |
 | 1. Audit | ✅ Done — `docs/cloudflare-migration-audit.md` |
 | 2. Storage abstraction | ✅ Code + unit tests — `lib/storage/` |
-| 3. Vercel Blob → R2 | 🟡 Code + unit tests + copy script; **not verified against a real bucket**, not active |
+| 3. Vercel Blob → R2 | 🟡 R2 default for new uploads; env set in Vercel; **not yet verified on the live app**; old receipts not copied yet |
 | 4. Provider-neutral application | — Out of current scope (storage part is covered by phases 2–3) |
 | 5. Cloudflare staging | — Out of current scope |
 | 6. Full testing | — Out of current scope |
@@ -42,8 +42,8 @@ the **test** bucket to the environment's secrets.
 
 ## CURRENT STATE
 
-Vercel hosts everything. Receipt storage goes through `lib/storage/`; with `STORAGE_PROVIDER`
-unset it behaves exactly as before (Vercel Blob).
+Vercel hosts the app. Receipt storage goes through `lib/storage/`; new uploads go to R2 unless
+`STORAGE_PROVIDER=vercel` (rollback). Old receipts are read from Blob by their reference.
 
 ## VERCEL DEPENDENCIES / CLOUDFLARE REPLACEMENTS
 
@@ -75,12 +75,13 @@ require a migration before the deploy while production uploads are failing. Can 
 
 ## NEW ENV VARIABLES
 
-`STORAGE_PROVIDER` (`vercel` default | `r2`), `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
-`R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`. None are set anywhere yet.
+`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME` — set in the Vercel
+project by the owner (2026-09-25). `STORAGE_PROVIDER` is optional (`r2` default, `vercel` = rollback).
 
 ## R2 BUCKETS
 
-None created yet. Planned: `shopping-buddy-receipts` (production), `shopping-buddy-receipts-test`.
+Created by the owner (names are in the Vercel env, not recorded here). Planned layout:
+`shopping-buddy-receipts` (production), `shopping-buddy-receipts-test`.
 
 ## UPLOAD FLOW / OCR FLOW
 
@@ -115,13 +116,12 @@ the same 15 database-backed files as the baseline could not start without `TEST_
 
 ## STAGING STATUS / PRODUCTION STATUS / ROLLBACK STATUS
 
-Not active. Rollback = unset `STORAGE_PROVIDER` (new uploads back to Blob) and, for copied
-receipts, `pnpm db:migrate-blob-to-r2 --rollback <log>`. Blob originals are never deleted.
+R2 active for new uploads once this change is deployed. Rollback = `STORAGE_PROVIDER=vercel` (new
+uploads back to Blob, only while Blob is under its limit) and, for copied receipts, `pnpm db:migrate-blob-to-r2 --rollback <log>`. Blob originals are never deleted.
 
 ## REMAINING VERCEL USAGE
 
-Everything except new receipt uploads once `STORAGE_PROVIDER=r2` is set; Blob stays for old
-receipts until they are copied.
+Everything except new receipt uploads; Blob stays for old receipts until they are copied.
 
 ## KNOWN RISKS
 
@@ -132,10 +132,9 @@ receipts until they are copied.
 
 ## NEXT STEP
 
-1. Owner: Cloudflare setup (`docs/cloudflare-r2.md`).
-2. Run `pnpm test` locally; merge; deploy with `STORAGE_PROVIDER` unset.
-3. Set the R2 env vars + `STORAGE_PROVIDER=r2`, redeploy, check upload/preview/OCR/cancel on a phone.
-4. When Blob is readable: `pnpm db:migrate-blob-to-r2 --dry-run`, then without `--dry-run`.
+1. ~~Owner: Cloudflare setup~~ ✅ env vars set in Vercel.
+2. Merge (R2 becomes the default) and deploy; check upload/preview/OCR/cancel on a phone.
+3. When Blob is readable: `pnpm db:migrate-blob-to-r2 --dry-run`, then without `--dry-run`.
 
 ## Phase checklist — Phases 2–3
 

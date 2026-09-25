@@ -1,5 +1,11 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Receipt files: R2 is now the default store)
+- **Why:** Vercel Blob's usage limit is too tight for receipt uploads; the owner has set the `R2_*` variables in the Vercel project.
+- **What:** new receipt uploads go to Cloudflare R2 without `STORAGE_PROVIDER` (previously they needed `STORAGE_PROVIDER=r2`). `STORAGE_PROVIDER=vercel` is kept only as the rollback switch; an unknown value still fails loudly. Old Blob receipts keep being read from Blob by their reference until copied with `pnpm db:migrate-blob-to-r2`.
+- **Tests:** storage tests updated for the new default (R2 by default, empty value = R2, `vercel` → Blob). `vitest run` 800 passed; the 15 DB-backed files need the test database (not run here; they don't upload through `putReceiptFile`). `tsc` clean.
+- **Not verified:** against the real R2 bucket — the cloud session cannot reach `*.r2.cloudflarestorage.com` and has no R2 credentials. Check upload/preview/OCR/cancel on a phone after deploy.
+
 ## 2026-09-25 (Receipt files: Vercel Blob → Cloudflare R2, behind a switch)
 - **Why:** the Vercel Blob store is over its usage limit, which suspends receipt upload and viewing.
 - **What:** `lib/storage/` is the only place that touches file storage (`putReceiptFile`/`getReceiptFile`/`deleteReceiptFile`); `app/actions/receipts.ts` and `/api/receipts/[id]/image` use it. `STORAGE_PROVIDER=r2` sends new uploads to R2 (S3 API signed with the new dependency `aws4fetch`); unset keeps Vercel Blob. `image_url` holds a storage reference (`https://…` Blob, `r2:<key>` R2), so old receipts keep reading from Blob and no migration is needed. R2 keys are validated (`receipts/{uuid}/{uuid}.{ext}`). A failed file delete on cancel is now logged. `pnpm db:migrate-blob-to-r2` copies old receipts (dry run, verify by SHA-256, idempotent, rollback log, never deletes Blob). Guide: `docs/cloudflare-r2.md`.

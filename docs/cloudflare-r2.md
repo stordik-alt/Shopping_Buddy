@@ -1,7 +1,8 @@
 # Receipt Storage on Cloudflare R2
 
-**Status (2026-09-25):** code ready, **not yet active in production**. The switch happens by
-setting environment variables on Vercel — no database migration, no other deployment step.
+**Status (2026-09-25):** **R2 is the default store for new receipt uploads.** The owner has set
+the `R2_*` variables in the Vercel project. No database migration is needed. Old receipts stay on
+Vercel Blob until copied (see below).
 
 **Why now:** the Vercel Blob store is over its usage limit. When that happened before, Vercel
 suspended the store ("This store has been suspended"). While a store is suspended, receipt upload
@@ -45,8 +46,8 @@ touching storage, the same as before.
 
 | Value | New uploads |
 |---|---|
-| unset / `vercel` | Vercel Blob (previous behavior) |
-| `r2` | R2 |
+| unset / empty / `r2` | R2 (default) |
+| `vercel` | Vercel Blob — rollback only |
 
 - **Unknown value:** it is an error (upload fails with a logged reason), never a silent fallback.
 - **Reads are not affected:** they always follow the row's reference.
@@ -59,7 +60,7 @@ Names only. Never commit values.
 
 | Variable | Meaning |
 |---|---|
-| `STORAGE_PROVIDER` | `r2` to send new uploads to R2 |
+| `STORAGE_PROVIDER` | optional; `vercel` sends new uploads back to Blob (rollback). Unset = R2 |
 | `R2_ACCOUNT_ID` | Cloudflare account id (S3 endpoint `https://<id>.r2.cloudflarestorage.com`) |
 | `R2_ACCESS_KEY_ID` | R2 API token, access key id |
 | `R2_SECRET_ACCESS_KEY` | R2 API token, secret. Server-only: no `NEXT_PUBLIC_` prefix, never logged |
@@ -77,19 +78,19 @@ Names only. Never commit values.
    Write**, limited to those buckets. Copy the Access Key ID and Secret Access Key. They are shown
    only once.
 5. **Vercel env:** in the project's Production environment, set `R2_ACCOUNT_ID`,
-   `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` and `R2_BUCKET_NAME`, plus `STORAGE_PROVIDER=r2`.
-   Then redeploy.
+   `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` and `R2_BUCKET_NAME`. Then redeploy. ✅ done by the
+   owner (2026-09-25). Preview deployments upload to R2 too, so they need the variables as well
+   (ideally pointing at the test bucket).
 
 ## Rollout
 
-1. **Merge and deploy** with `STORAGE_PROVIDER` unset. Behavior is identical to before.
-2. **Set the R2 env vars and `STORAGE_PROVIDER=r2`**, then redeploy.
-3. **Check on a phone:**
+1. **Set the R2 env vars** (done), **merge and deploy.** New uploads go to R2.
+2. **Check on a phone:**
    - Upload a photo and a PDF.
    - Confirm the preview shows.
    - Confirm OCR completes.
    - Cancel one import and confirm its R2 object is deleted.
-4. **Copy old receipts** once the Blob store is readable again. That means after the monthly quota
+3. **Copy old receipts** once the Blob store is readable again. That means after the monthly quota
    resets, or after the plan is raised for a short time. See the next section.
 
 ## Copying old receipts: `pnpm db:migrate-blob-to-r2`
@@ -119,7 +120,7 @@ For each one:
 
 | Situation | Action |
 |---|---|
-| R2 misbehaves for new uploads | unset `STORAGE_PROVIDER` (or set `vercel`) and redeploy. New uploads go back to Blob. Existing `r2:` rows stay readable as long as the R2 env vars remain set |
+| R2 misbehaves for new uploads | set `STORAGE_PROVIDER=vercel` and redeploy (works only while Blob is under its limit). New uploads go back to Blob. Existing `r2:` rows stay readable as long as the R2 env vars remain set |
 | A copy run went wrong | `pnpm db:migrate-blob-to-r2 --rollback <log>` |
 | Revert the code | first switch every `r2:` row back with the logs. Rows uploaded directly to R2 have no Blob copy: keep the R2 bucket, or re-upload those files to Blob before removing the code |
 
@@ -129,14 +130,15 @@ For each one:
 stubbed `fetch` bucket. They cover:
 - reference parsing;
 - rejection of path traversal and foreign layouts;
-- provider choice and rejection of an unknown `STORAGE_PROVIDER`;
+- provider choice (R2 by default, `vercel` for rollback) and rejection of an unknown `STORAGE_PROVIDER`;
 - the R2 path: upload key, SigV4 header, no secret in headers, read-back bytes and type, delete,
   404 → `null`, 403 surfaced with its status, missing config named;
 - digest for copy verification;
 - an old Blob receipt still readable with `STORAGE_PROVIDER=r2`;
-- default uploads going to Blob without touching R2.
+- default uploads going to R2, and `STORAGE_PROVIDER=vercel` uploads going to Blob without touching R2.
 
 **Not verified yet:** requests against a real R2 bucket, which needs the owner's token. The DB-backed
 receipt tests (`app/actions/receipts.test.ts`, `app/api/receipts/[id]/image/route.test.ts`) were not
-run here because there is no test database in the cloud session. They exercise the default Blob path
-through the new layer and must pass locally (`pnpm test`) before merging.
+run here because there is no test database in the cloud session. They read Blob-referenced rows
+through the new layer (they don't upload through `putReceiptFile`) and should pass locally
+(`pnpm test`).

@@ -1,5 +1,9 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Install the app to the phone: "Stáhnout aplikaci do mobilu")
+- **What:** a web app manifest (`app/manifest.ts`) with Buddy icons makes the app installable as "Buddy". The account menu's new item "Stáhnout aplikaci do mobilu" opens the browser's install dialog where there is one (Chrome, Edge, Samsung Internet on Android) or shows the steps for the device (iPhone: Sdílet → Přidat na plochu). Hidden inside the installed app. The v0 favicons are replaced by Buddy.
+- **Checked:** Chrome reports the app installable with no errors; menu and dialog in a real browser at iPhone size; unit tests for the device detection.
+
 ## 2026-09-25 (Rotating price refresh of the whole catalog; confirmed instead of duplicated prices)
 - **Why:** after the backfill the catalog has ~37,000 products, but the daily cron re-read only a fixed few hundred per store; re-reading everything would also have written a new price row per product per read — far beyond the Neon free tier's 0.5 GB.
 - **What:** large catalogs are split into parts of under ~2,000 products (`lib/ingestion/parts.ts`); each cron run refreshes the next part, remembered in the new `ingestion_cursors` table. Billa and Rohlík run 3×, dm and Košík 4× a day (`/api/cron/ingest-prices/<store>/<2–9>` entries in `vercel.json`), so every product is re-read about every two days. An unchanged price only sets `prices.last_confirmed_at` on the existing row; a new row is written only when the price changes. Product search dates the current price by the confirmation. Migration `0026`.

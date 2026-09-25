@@ -1,6 +1,8 @@
-import { Bot, LogOut, Moon, Sun, Users } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { Bot, LogOut, Moon, Smartphone, Sun, Users } from 'lucide-react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { InstallAppDialog } from '@/components/shared/install-app-dialog'
 import { AI_ASSISTANT_ENABLED } from '@/lib/features'
+import { getInstallState, getServerInstallState, promptInstall, subscribeInstallState } from '@/lib/install-prompt'
 import type { Tab } from '@/lib/types'
 
 function initialsFor(name: string) {
@@ -9,7 +11,8 @@ function initialsFor(name: string) {
   return letters.join('').toUpperCase()
 }
 
-/** Avatar button that opens the account menu: household profile, AI, theme and sign-out. Groups the
+/** Avatar button that opens the account menu: household profile, AI, installing the app, theme and
+ *  sign-out. Groups the
  *  rarely used controls so the header stays uncluttered on a phone. Closes on Escape and on any
  *  click outside, and hands focus back to the button on Escape. */
 export function AccountMenu({
@@ -26,6 +29,8 @@ export function AccountMenu({
   onSignOut: () => void
 }) {
   const [open, setOpen] = useState(false)
+  const [installHelpOpen, setInstallHelpOpen] = useState(false)
+  const install = useSyncExternalStore(subscribeInstallState, getInstallState, getServerInstallState)
   const rootRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
 
@@ -55,6 +60,22 @@ export function AccountMenu({
     action()
   }
 
+  // The browser's own install dialog where it offers one (Chrome, Edge, Samsung Internet); otherwise
+  // how to add the app by hand (Safari has no install dialog a page can open).
+  async function installApp() {
+    if (!install.canPrompt) {
+      setInstallHelpOpen(true)
+      return
+    }
+    try {
+      await promptInstall()
+    } catch (err) {
+      // The browser refused to open its dialog (e.g. the offer had expired): the steps still work.
+      console.error('Install prompt failed:', err)
+      setInstallHelpOpen(true)
+    }
+  }
+
   return (
     <div ref={rootRef} className="relative">
       <button
@@ -78,6 +99,11 @@ export function AccountMenu({
               <Bot className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> AI asistent
             </button>
           )}
+          {!install.installed && (
+            <button role="menuitem" className={itemClass} onClick={run(() => void installApp())}>
+              <Smartphone className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> Stáhnout aplikaci do mobilu
+            </button>
+          )}
           <button role="menuitem" className={itemClass} onClick={run(onToggleDark)}>
             {dark ? <Sun className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> : <Moon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
             {dark ? 'Světlý motiv' : 'Tmavý motiv'}
@@ -88,6 +114,7 @@ export function AccountMenu({
           </button>
         </div>
       )}
+      <InstallAppDialog open={installHelpOpen} onClose={() => setInstallHelpOpen(false)} />
     </div>
   )
 }

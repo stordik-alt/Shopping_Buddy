@@ -1086,6 +1086,8 @@ Fully resolved 2026-09-21: `CRON_SECRET` is set in the Vercel project (Productio
 
 # 28. Recent Completed Work
 
+**2026-09-25, installable app (PWA).** `app/manifest.ts` (served at `/manifest.webmanifest`) makes the app installable to a phone's home screen as "Buddy": standalone display, Buddy icons cropped from the intro artwork (`public/brand/buddy-icon-192.png`, `-512.png`, a maskable 512 with margin for Android's round crop), navy splash background. The default v0 favicons/apple icon were replaced by Buddy (`buddy-favicon-32.png`, `buddy-apple-touch-icon.png`); `appleWebApp` gives iPhone the name Buddy. `proxy.ts` excludes `manifest.webmanifest` from the sign-in redirect (browsers fetch it without cookies). The account menu has **"Stáhnout aplikaci do mobilu"**: in Chromium browsers it opens the browser's own install dialog (the `beforeinstallprompt` event, caught on every page by `lib/install-prompt.ts` loaded from the root layout; Chrome's own banner is left alone); where there is none (Safari on iPhone/iPad, Firefox, or after the offer was dismissed) it shows the steps to add the app by hand for that device (`components/shared/install-app-dialog.tsx`, a native `<dialog>`). Hidden when already running as the installed app. No service worker: Chrome no longer requires one to install, so there is no offline mode or cache to keep in sync. **Checked:** Chrome's `Page.getInstallabilityErrors` reports none; the menu item and the iPhone steps in a real browser at iPhone size with a throwaway account (deleted afterwards). **Not checked:** the actual install dialog on a physical Android phone (headless Chrome does not fire the event).
+
 Recent development has included:
 
 * Neon persistence for household/profile data

@@ -248,8 +248,9 @@ export const memberStores = pgTable(
   (table) => [
     check('member_stores_priority_is_chain_level', sql`${table.isPriority} = false OR ${table.storeLocationId} IS NULL`),
     // Composite FK: when a branch is named, it must be a branch of `store_id`. MATCH SIMPLE — a NULL
-    // `store_location_id` (a chain-level row) skips the check.
-    foreignKey({ columns: [table.storeLocationId, table.storeId], foreignColumns: [storeLocations.id, storeLocations.storeId] }).onDelete('cascade'),
+    // `store_location_id` (a chain-level row) skips the check. ON UPDATE CASCADE: a branch moved to
+    // another chain (an Albert hypermarket, lib/stores/albert-formats.ts) takes its rows along.
+    foreignKey({ columns: [table.storeLocationId, table.storeId], foreignColumns: [storeLocations.id, storeLocations.storeId] }).onDelete('cascade').onUpdate('cascade'),
     // At most one chain-level row per member and chain, and one row per member and branch.
     uniqueIndex('member_stores_chain_unique').on(table.memberId, table.storeId).where(sql`${table.storeLocationId} IS NULL`),
     uniqueIndex('member_stores_branch_unique').on(table.memberId, table.storeLocationId).where(sql`${table.storeLocationId} IS NOT NULL`),
@@ -350,8 +351,9 @@ export const deals = pgTable('deals', {
 }, (table) => [
   check('deals_unit_price_pair', sql`(${table.unit} IS NULL AND ${table.unitPrice} IS NULL) OR (${table.unit} IS NOT NULL AND ${table.unitPrice} > 0)`),
   // Same guard as member_stores: when a branch is named it must be a branch of `store_id`. MATCH
-  // SIMPLE — a NULL `store_location_id` (an online chain's deal) skips the check.
-  foreignKey({ columns: [table.storeLocationId, table.storeId], foreignColumns: [storeLocations.id, storeLocations.storeId] }).onDelete('cascade'),
+  // SIMPLE — a NULL `store_location_id` (an online chain's deal) skips the check. Cascades on update like
+  // member_stores', so a branch moved to another chain keeps its deals consistent.
+  foreignKey({ columns: [table.storeLocationId, table.storeId], foreignColumns: [storeLocations.id, storeLocations.storeId] }).onDelete('cascade').onUpdate('cascade'),
 ])
 
 // --- Shopping lists ----------------------------------------------------------

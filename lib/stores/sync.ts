@@ -1,4 +1,5 @@
 import { distanceKm } from '@/lib/geo'
+import { chainFamily } from '@/lib/stores/chain-family'
 import type { OsmBranch } from '@/lib/stores/osm'
 
 // Deciding what an import does with each branch it found — pure, so the rules are testable without
@@ -64,7 +65,8 @@ export function planStoreSync(branches: OsmBranch[], existing: ExistingLocation[
   const pairs: { row: ExistingLocation; branch: OsmBranch; km: number }[] = []
   for (const row of unowned) {
     for (const branch of branches) {
-      if (branch.chain !== row.chain || bySourceId.has(branch.externalId)) continue
+      // Compared by retailer: the map knows a moved Albert hypermarket as "Albert" (lib/stores/chain-family.ts).
+      if (chainFamily(branch.chain) !== chainFamily(row.chain) || bySourceId.has(branch.externalId)) continue
       const sameAddress = normalize(row.address) === normalize(branch.address)
       const km = row.lat != null && row.lng != null ? distanceKm({ lat: row.lat, lng: row.lng }, { lat: branch.lat, lng: branch.lng }) : Infinity
       if (sameAddress || km <= ADOPT_RADIUS_KM) pairs.push({ row, branch, km: sameAddress ? 0 : km })

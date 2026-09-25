@@ -1,5 +1,22 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Pantry: "asi došlo" estimate, weekly check)
+- **Why:** the household forgets to remove what it used up, and daily per-category questions cost more time than they save.
+- **Estimate** (`lib/pantry-estimate.ts`, deterministic):
+  - An item is "asi došlo" once the household's usual interval for it has passed since the last restock or confirmation. The interval is the median of 3+ purchase days in 120 days, computed by `lib/purchase-rhythm.ts`, which was extracted from "Doplnit obvyklé" and is now shared.
+  - Without a history, a short shelf life of fresh food is used instead. Frozen and long-life food gets no estimate.
+  - Nothing is ever removed automatically.
+- **UI:**
+  - The "Asi došlo" badge on a row shows the reason.
+  - The tiles and banner count estimated items as ones to check.
+  - The check has a new "K ověření" scope with the estimated items pre-marked "Došlo", and it scrolls into view when opened.
+- **Weekly check:** the pantry-checkin cron runs on Sundays (15:00 UTC) instead of daily. It sends one notification listing the items due and those estimated as gone. The link `/?tab=zasoby&kontrola=1` opens the check directly. `createHouseholdNotification` gained an `href` option.
+- **Tests:**
+  - Rhythm, shelf life (incl. what gets no estimate), estimate, reason text with Czech plurals, weekly selection and message.
+  - The tile count with estimates and the check link.
+  - "Doplnit obvyklé" tests pass unchanged after the extraction.
+  - CI command: 949 passed; `next build` passes. Rendered at 390 px (temporary preview page, removed).
+
 ## 2026-09-25 (Pantry: bulk check instead of item by item)
 - **Why:** keeping Zásoby current meant walking the house and confirming or removing every item one by one.
 - **What:** "Zkontrolovat" (per folder, or from the new "K ověření" banner for all locations) lists items all marked "Mám". The household taps only what ran out and saves once. Removed items can go straight onto the shopping list (on by default, skipping names already on it); everything else is confirmed. Items the check-in asked about are listed first.

@@ -1265,6 +1265,16 @@ The application should remain stable while functionality is expanded incremental
 
 **Added 2026-09-22.** A new domain, owner-requested, not part of the original Phase 8 notification set (section 19) but following the same deterministic-generator pattern.
 
+**Update 2026-09-25, "asi došlo" estimate and a weekly check.** The pantry now guesses what was used up, so the household mostly only confirms.
+* **Estimate** (`lib/pantry-estimate.ts`, deterministic, no AI): an item is "asi došlo" once its usual time has passed since it was last restocked or confirmed.
+  * The usual time is the household's own purchase rhythm: the median days between purchases, from 3+ purchase days in 120 days (`lib/purchase-rhythm.ts`, now shared with "Doplnit obvyklé").
+  * Without a rhythm, a short shelf life of fresh food is used instead (bread 3 days, fresh meat 3, dairy, vegetables and fruit 7). Frozen and long-life food gets no estimate.
+  * An item at quantity 0 counts as gone.
+  * Nothing is removed automatically.
+* **In Zásoby:** the row shows "Asi došlo" with the reason ("kupujete zhruba každých 7 dní"). The folder tiles and the banner count these items as "k ověření".
+* **In the check:** a new scope "K ověření" lists only the asked and estimated items, and the estimated ones start as "Došlo". When the estimate is right, the answer is one "Uložit".
+* **Weekly instead of daily:** `app/api/cron/pantry-checkin` now runs once a week, Sunday 15:00 UTC (`vercel.json`, `wrangler.jsonc`). It sends one notification per household with the items due for a check-in plus the estimated ones (`selectForWeeklyCheck`, `weeklyCheckMessage`). It links to `/?tab=zasoby&kontrola=1`, which opens the check directly; the parameter is removed from the address after use.
+
 **Update 2026-09-25, bulk check ("Zkontrolovat zásoby").** Checking stock no longer means confirming or removing row by row.
 * **How it works** (`components/shopping/pantry-review.tsx`): "Zkontrolovat" (on the open folder, or on the "K ověření" banner, which covers all locations) shows every item as "Mám". The household taps only what ran out and saves once.
 * **What a save does:** what ran out is removed. Everything else is confirmed like "Ještě mám": `addedAt` is set to now and `askedAt` is cleared, so the check-in clock restarts.

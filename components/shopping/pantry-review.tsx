@@ -1,15 +1,20 @@
 import { Check, ClipboardCheck, X } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { itemCountLabel } from '@/lib/format'
-import { PANTRY_LOCATIONS, pantryReviewOrder, splitPantryReview } from '@/lib/pantry'
+import { needsCheck, PANTRY_LOCATIONS, pantryReviewOrder, splitPantryReview } from '@/lib/pantry'
+import { estimateReason, type ConsumptionEstimate } from '@/lib/pantry-estimate'
 import { cn } from '@/lib/utils'
 import type { PantryItem, PantryLocation } from '@/lib/types'
 
 // "Zkontrolovat zásoby": the whole check in one pass instead of confirming or removing row by row.
-// Every item starts as "Mám"; the household taps only what ran out and saves once. What ran out is
+// Every item starts as "Mám" — except those estimated as used up (lib/pantry-estimate.ts), which
+// start as "Došlo", so when the estimate is right the household only presses Save. They tap only
+// what differs and save once. What ran out is
 // removed (and, if they want, added to the shopping list); everything else is confirmed, which
 // restarts its check-in clock. The split and the order are pure (lib/pantry.ts); the save is one
 // server action (reviewPantryAction) that checks every id against the household.
+
+type Scope = 'location' | 'uncertain' | 'all'
 
 export type PantryReviewResult = { removed: number; confirmed: number; addedToList: number; listFailed: boolean }
 
@@ -17,27 +22,38 @@ export function PantryReview({
   items,
   location,
   initialScope = 'location',
+  estimates,
   onSave,
   onClose,
 }: {
   items: PantryItem[]
   /** The folder the check was opened from; the check can be widened to the whole pantry. */
   location: PantryLocation
-  initialScope?: 'location' | 'all'
+  /** 'uncertain' = only the items asked about or estimated as used up. */
+  initialScope?: Scope
+  estimates: Map<string, ConsumptionEstimate>
   onSave: (reviewedIds: string[], goneIds: string[], addGoneToList: boolean) => Promise<PantryReviewResult>
   onClose: (result: PantryReviewResult | null) => void
 }) {
-  const [scope, setScope] = useState<'location' | 'all'>(initialScope)
-  const [gone, setGone] = useState<Set<string>>(() => new Set())
+  const [scope, setScope] = useState<Scope>(initialScope)
+  const likelyGone = useMemo(() => new Set([...estimates].filter(([, estimate]) => estimate.likelyGone).map(([id]) => id)), [estimates])
+  // Pre-marked once, when the check opens; the household's taps are never overwritten afterwards.
+  const [gone, setGone] = useState<Set<string>>(() => new Set(likelyGone))
   const [addToList, setAddToList] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // The check opens below the location tiles; bring it into view (opened from the banner or the
+  // weekly notification's link, the household should land on it, not on the tiles).
+  const sectionRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
 
   // Grouped by location in the folders' order; within a location the likely-gone items come first.
   const groups = useMemo(() => {
-    const inScope = scope === 'all' ? items : items.filter((item) => item.location === location)
+    const inScope = scope === 'all' ? items : scope === 'uncertain' ? items.filter((item) => needsCheck(item, likelyGone)) : items.filter((item) => item.location === location)
     return PANTRY_LOCATIONS.map((place) => ({ place, items: pantryReviewOrder(inScope.filter((item) => item.location === place)) })).filter((group) => group.items.length > 0)
-  }, [items, location, scope])
+  }, [items, location, scope, likelyGone])
   const reviewed = groups.flatMap((group) => group.items)
   const { goneIds, keptIds } = splitPantryReview(
     reviewed.map((item) => item.id),
@@ -72,7 +88,7 @@ export function PantryReview({
   }
 
   return (
-    <section aria-label="Kontrola zásob" className="surface overflow-clip">
+    <section ref={sectionRef} aria-label="Kontrola zásob" className="surface scroll-mt-20 overflow-clip">
       <div className="border-b border-border px-5 py-4">
         <div className="flex items-center gap-2">
           <ClipboardCheck className="h-4 w-4 shrink-0 text-primary" aria-hidden />
@@ -82,8 +98,9 @@ export function PantryReview({
         <div role="radiogroup" aria-label="Rozsah kontroly" className="mt-3 inline-flex rounded-full border border-border p-0.5 text-xs">
           {(
             [
+              ['uncertain', 'K ověření'],
               ['location', location],
-              ['all', 'Všechny zásoby'],
+              ['all', 'Vše'],
             ] as const
           ).map(([value, label]) => (
             <button
@@ -100,11 +117,11 @@ export function PantryReview({
         </div>
       </div>
 
-      {reviewed.length === 0 && <p className="p-8 text-center text-sm text-muted-foreground">Tady není co kontrolovat.</p>}
+      {reviewed.length === 0 && <p className="p-8 text-center text-sm text-muted-foreground">{scope === 'uncertain' ? 'Nic nečeká na ověření — přepněte na „Vše“, pokud chcete projít všechno.' : 'Tady není co kontrolovat.'}</p>}
 
       {groups.map((group) => (
         <div key={group.place}>
-          {scope === 'all' && <h3 className="bg-muted/50 px-5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{group.place}</h3>}
+          {scope !== 'location' && <h3 className="bg-muted/50 px-5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{group.place}</h3>}
           <ul>
             {group.items.map((item) => {
               const isGone = gone.has(item.id)
@@ -121,7 +138,7 @@ export function PantryReview({
                       <span className={cn('block break-words text-sm font-medium', isGone && 'text-muted-foreground line-through')}>{item.name}</span>
                       <span className="mt-0.5 block text-xs text-muted-foreground">
                         {item.quantity} {item.unit}
-                        {item.askedAt && ' · Máte ještě?'}
+                        {estimates.get(item.id)?.likelyGone ? ` · Asi došlo, ${estimateReason(estimates.get(item.id)!)}` : item.askedAt ? ' · Máte ještě?' : ''}
                       </span>
                     </span>
                     <span

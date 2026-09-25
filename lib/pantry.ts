@@ -23,7 +23,8 @@ export const PANTRY_LOCATIONS: PantryLocation[] = ['Spíž', 'Lednice', 'Mrazák
 export type LocationSummary = {
   /** Rows kept in this location. */
   count: number
-  /** Rows the check-in cron has asked the household about (`askedAt` set) and that are still unanswered. */
+  /** Rows to check: asked about by the check-in cron (`askedAt` set) and still unanswered, or
+   *  estimated as probably used up (lib/pantry-estimate.ts). */
   needsCheck: number
   /** Rows at zero quantity — kept on purpose by the stepper ("do šlo") until removed. */
   outOfStock: number
@@ -33,7 +34,7 @@ export type LocationSummary = {
  *  zeros — so the UI can always offer all folders (an empty folder is still a valid place to move
  *  something into). Expiry is deliberately not part of this: pantry rows carry no expiry date, and
  *  inventing one would be a made-up warning. */
-export function summarizeByLocation(items: PantryItem[]): Record<PantryLocation, LocationSummary> {
+export function summarizeByLocation(items: PantryItem[], likelyGoneIds: ReadonlySet<string> = new Set()): Record<PantryLocation, LocationSummary> {
   const summary = Object.fromEntries(
     PANTRY_LOCATIONS.map((location) => [location, { count: 0, needsCheck: 0, outOfStock: 0 }]),
   ) as Record<PantryLocation, LocationSummary>
@@ -41,10 +42,15 @@ export function summarizeByLocation(items: PantryItem[]): Record<PantryLocation,
     const entry = summary[item.location]
     if (!entry) continue
     entry.count += 1
-    if (item.askedAt) entry.needsCheck += 1
+    if (needsCheck(item, likelyGoneIds)) entry.needsCheck += 1
     if (item.quantity <= 0) entry.outOfStock += 1
   }
   return summary
+}
+
+/** Whether an item belongs in a check: the check-in asked about it, or it is probably used up. */
+export function needsCheck(item: Pick<PantryItem, 'id' | 'askedAt'>, likelyGoneIds: ReadonlySet<string>): boolean {
+  return Boolean(item.askedAt) || likelyGoneIds.has(item.id)
 }
 
 export type PantryCheckinCandidate = {

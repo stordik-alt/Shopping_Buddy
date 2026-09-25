@@ -19,6 +19,8 @@ export async function createHouseholdNotification(
   options: {
     /** The section a tap on the phone notification opens. */
     tab?: Tab
+    /** A more specific address than the section (e.g. the pantry check); wins over `tab`. */
+    href?: string
     /** The member who caused it is looking at the app already; their devices are skipped. */
     excludeUserId?: string
   } = {},
@@ -26,7 +28,7 @@ export async function createHouseholdNotification(
   const [row] = await db.insert(schema.notifications).values({ householdId, title: content.title, detail: content.detail }).returning()
 
   if (pushConfigured()) {
-    const message = { title: content.title, body: content.detail, url: tabHref(options.tab ?? 'Domů'), tag: row.id }
+    const message = { title: content.title, body: content.detail, url: options.href ?? tabHref(options.tab ?? 'Domů'), tag: row.id }
     after(async () => {
       try {
         await pushToHousehold(householdId, message, { excludeUserId: options.excludeUserId })

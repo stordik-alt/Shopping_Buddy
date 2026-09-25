@@ -51,6 +51,7 @@ import { AppHeader } from '@/components/shared/app-header'
 import { AppSidebar } from '@/components/shared/app-sidebar'
 import { MobileNav } from '@/components/shared/mobile-nav'
 import { Pantry } from '@/components/shopping/pantry'
+import { estimatePantry } from '@/lib/pantry-estimate'
 import { ShoppingList } from '@/components/shopping/shopping-list'
 import { StoreDirectory } from '@/components/stores/store-directory'
 import { UsualItems } from '@/components/shopping/usual-items'
@@ -85,6 +86,7 @@ export function AppShell({
   initialPins,
   today,
   initialTab,
+  initialPantryCheck = false,
   pushPublicKey,
 }: {
   initialData: HouseholdData
@@ -100,6 +102,8 @@ export function AppShell({
   today: string
   /** The section named in the address (`/?tab=…`, lib/tab-url.ts), resolved on the server. */
   initialTab: Tab
+  /** Open the pantry check right away (`/?tab=zasoby&kontrola=1`, the weekly notification's link). */
+  initialPantryCheck?: boolean
   /** The server's Web Push key; null when push notifications are not configured (lib/push/). */
   pushPublicKey: string | null
 }) {
@@ -406,6 +410,15 @@ export function AppShell({
     return { ...result, addedToList, listFailed }
   }
 
+  // "Asi došlo" estimates from the household's own purchase rhythm (lib/pantry-estimate.ts).
+  const pantryEstimates = useMemo(() => estimatePantry(pantryItems, initialData.purchaseHistory, today), [pantryItems, initialData.purchaseHistory, today])
+  const [pantryCheckPending, setPantryCheckPending] = useState(initialPantryCheck)
+  // Consumes the check link: drops `kontrola=1` from the address so a reload does not reopen it.
+  const consumePantryCheck = useCallback(() => {
+    setPantryCheckPending(false)
+    if (new URLSearchParams(window.location.search).has('kontrola')) window.history.replaceState(null, '', tabHref('Zásoby'))
+  }, [])
+
   function adjustPantryItemQuantity(id: string, quantity: number) {
     setPantryItems((current) => current.map((item) => (item.id === id ? { ...item, quantity } : item)))
     adjustPantryItemQuantityAction(id, quantity)
@@ -616,7 +629,7 @@ export function AppShell({
               )}
               {tab === 'Zásoby' && (
                 <div className="mx-auto max-w-3xl">
-                  <Pantry items={pantryItems} onConfirm={confirmPantryItem} onRemove={removePantryItem} onMove={movePantryItem} onAdjustQuantity={adjustPantryItemQuantity} onReview={reviewPantry} />
+                  <Pantry items={pantryItems} onConfirm={confirmPantryItem} onRemove={removePantryItem} onMove={movePantryItem} onAdjustQuantity={adjustPantryItemQuantity} onReview={reviewPantry} estimates={pantryEstimates} openCheck={pantryCheckPending} onCheckOpened={consumePantryCheck} />
                 </div>
               )}
               {tab === 'Obchody' && (

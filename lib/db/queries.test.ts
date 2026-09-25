@@ -3,7 +3,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { splitCollapsedExternalProducts } from '@/lib/db/split-collapsed-products'
-import { findProductIdByExternalRef, getCanonicalStoreLocationId, getHouseholdData, getProductPrices, getStandaloneOffers, getStoreByChain, getStoreIdByChain, joinHouseholdViaInvitation, loadExternalProductContext, loadLatestOfficialPrices, recordOfficialPrice, resolveOrCreateProductFromExternal, touchExternalRefs, upsertActiveDeal } from '@/lib/db/queries'
+import { findProductIdByExternalRef, getCanonicalStoreLocationId, getHouseholdData, getProductPrices, getStandaloneOffers, getStoreByChain, getStoreIdByChain, getStores, joinHouseholdViaInvitation, loadExternalProductContext, loadLatestOfficialPrices, recordOfficialPrice, resolveOrCreateProductFromExternal, touchExternalRefs, upsertActiveDeal } from '@/lib/db/queries'
 
 // Regression coverage for the "household events" notification work (docs/07_CHANGELOG.md,
 // 2026-09-21) and for the join-via-invitation logic itself, which docs/01_CURRENT_STATE.md
@@ -747,6 +747,68 @@ describe('getStandaloneOffers', () => {
       expect(await ours(priced.store.id)).toEqual([])
     } finally {
       for (const entry of [ended, future, priced]) await cleanup(entry.store.id, entry.product.id)
+    }
+  })
+})
+
+describe('deal counts and running deals', () => {
+  // A throwaway chain with two branches and one product, so the assertions do not depend on the
+  // real catalog. Everything cascades from the store and product rows deleted in `finally`.
+  async function setup() {
+    const [store] = await db.insert(schema.stores).values({ chain: `__test_chain_deals_${crypto.randomUUID()}` }).returning()
+    const branches = await db
+      .insert(schema.storeLocations)
+      .values([
+        { storeId: store.id, name: 'Test A', address: 'A 1', city: 'Praha' },
+        { storeId: store.id, name: 'Test B', address: 'B 1', city: 'Praha' },
+      ])
+      .returning()
+    const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
+    const [product] = await db.insert(schema.products).values({ name: `__test_chain_deal_product_${crypto.randomUUID()}`, categoryId: category!.id }).returning()
+    return { store, branches, product }
+  }
+  const cleanup = async (storeId: string, productId: string) => {
+    await db.delete(schema.products).where(eq(schema.products.id, productId))
+    await db.delete(schema.stores).where(eq(schema.stores.id, storeId))
+  }
+
+  it("shows the chain's running deals on every branch, not only the one the deal is stored against", async () => {
+    const { store, branches, product } = await setup()
+    try {
+      await db.insert(schema.deals).values([
+        // Stored against branch A only, as ingestion does with its canonical branch.
+        { productId: product.id, storeId: store.id, storeLocationId: branches[0].id, dealPrice: '10', validFrom: '2020-01-01', validUntil: '2099-01-01' },
+        // Not started yet: next week's leaflet published ahead of time.
+        { productId: product.id, storeId: store.id, storeLocationId: branches[0].id, dealPrice: '9', validFrom: '2099-01-02', validUntil: '2099-01-09' },
+      ])
+      const ours = (await getStores()).filter((entry) => entry.storeId === store.id)
+      expect(ours.map((entry) => entry.dealsCount)).toEqual([1, 1])
+    } finally {
+      await cleanup(store.id, product.id)
+    }
+  })
+
+  it('does not apply a deal that has not started yet to the current price', async () => {
+    const { store, product } = await setup()
+    try {
+      await db.insert(schema.prices).values({
+        productId: product.id,
+        storeId: store.id,
+        storeLocationId: null,
+        priceScope: 'CHAIN',
+        sourceType: 'OFFICIAL',
+        locationResolution: 'NOT_APPLICABLE',
+        regularPrice: '30.00',
+        unit: 'ks',
+        unitPrice: '30.00',
+        observedAt: '2026-09-24',
+        validFrom: '2026-09-24',
+      })
+      await db.insert(schema.deals).values({ productId: product.id, storeId: store.id, storeLocationId: null, dealPrice: '9', validFrom: '2099-01-02', validUntil: '2099-01-09' })
+      const found = (await getProductPrices()).find((entry) => entry.productName === product.name)
+      expect(found?.prices[0]).toMatchObject({ regularPrice: 30, dealPrice: undefined })
+    } finally {
+      await cleanup(store.id, product.id)
     }
   })
 })

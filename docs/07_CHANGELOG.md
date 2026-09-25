@@ -1,5 +1,17 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-26 (Store import survives busy map servers)
+- **Why:** `pnpm db:import-stores` kept failing because every public Overpass instance was overloaded.
+- **What:** `lib/stores/overpass.ts` now works in smaller steps:
+  - One query per chain instead of one country-wide query.
+  - A fourth instance (maps.mail.ru mirror).
+  - Up to three rounds over all instances, with 30 s and 90 s pauses.
+  - Address batches of 150, and a failed batch no longer fails the import.
+  - A chain that still fails is skipped and reported (`failedChains`, printed by the script) while the others are imported. This is safe because the import never deletes, so the skipped chain's branches simply stay as they are.
+  - The import fails as a whole only when no chain answers.
+  - The weekly cron starts no new map query after 150 s, to stay inside its 300 s limit.
+- **Tests:** next instance on busy, second round after a pause, give up after three rounds, deadline, partial import with a failed chain, total failure. CI command passes.
+
 ## 2026-09-25 (Pantry: list link, tracking levels, "Došlo mi…"; estimate date fix)
 - **Fix:** `getHouseholdData` sent pantry dates as `Date.toString()` ("Thu Sep 24 2026 …"). The "asi došlo" estimate reads the date part (`YYYY-MM-DD`), so it never triggered in the app, and the check's order was wrong. Dates are now ISO.
 - **List link (point 3):**

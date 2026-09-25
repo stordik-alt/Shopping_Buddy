@@ -17,6 +17,8 @@ async function main() {
   console.log(`New ${report.inserted}, updated ${report.updated}, existing branches adopted ${report.adopted}, unchanged ${report.unchanged}`)
   console.log(`Rejected: ${report.rejected['no-address']} without an address in the map, ${report.rejected['outside-cz']} outside Czechia; chain not in the app: ${report.unknownChain}`)
   console.log(`Imported earlier but no longer on the map (kept): ${report.notSeen}`)
+  if (report.failedChains.length > 0) console.log(`Map servers did not answer for: ${report.failedChains.join(', ')} — those branches were left as they are; run again later.`)
+  if (report.failedAddressBatches > 0) console.log(`Address lookups that failed: ${report.failedAddressBatches} batch(es) — some branches may be rejected for a missing address this time.`)
 
   // In a dry run the branches the import would add are not in the database yet, so this only sorts
   // the branches already there.

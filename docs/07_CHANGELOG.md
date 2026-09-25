@@ -1,5 +1,12 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Design pass: store directory, dates, Czech plurals, deal button)
+- **Obchody:** a branch is one compact row (chain colour as a small badge instead of a 64 px banner), shown in pages of 24 with "Zobrazit další" and a "Zobrazeno 24 z 55 prodejen" count — on a phone the page was over 10 000 px tall with every branch rendered. The detail now opens under the tapped row; it used to render after the whole list, so a tap looked like it did nothing. The detail drops the raw GPS coordinates and the "Vybrat pro nákup" button (it only closed the detail) and gains a "Navigovat" link to the map when the branch has coordinates.
+- **Home deals card:** "Přidat" only toggled its own label and never touched the shopping list. It is now "Na seznam", adds the product to the main list through the same path as the "Co koupit?" field, and shows "Na seznamu" for a product already waiting to be bought. Long product names wrap instead of being cut off.
+- **Dates:** deals, the price comparison, the expense list and the purchase history printed raw ISO dates (`2026-09-26`); they now use `shortDate()` ("26. 9."), like the offers added earlier.
+- **Czech plurals:** "6 záznamy", "3 položek" and "1 aktivních akcí" are fixed through one helper, `countLabel()` in `lib/format.ts` (`itemCountLabel`/`storeCountLabel` now use it; `recordCountLabel`, `activeDealCountLabel` added).
+- **Tests:** `countLabel()` and its labels. Checked in a real browser at 375 px and 1366 px with mock data: no horizontal overflow on any tab.
+
 ## 2026-09-25 (A promotion's unit price is stored)
 - **Why:** the entry below lists it as "not done": an offer's unit price was not stored, so offers cannot be compared per kg/l. For an offers-only source (Penny) it cannot be derived either, since there is no regular price to scale.
 - **Database, migration `0025_deal_unit_price`:** `deals.unit` (`item_unit`) and `deals.unit_price` (`numeric(10,2)`), both nullable, plus check `deals_unit_price_pair` (both set with a positive price, or both null). Additive: the previously deployed code keeps working. Old rows stay `NULL`.

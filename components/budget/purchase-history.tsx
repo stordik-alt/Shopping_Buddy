@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ChevronDown, Repeat, ShoppingBag, Star, TrendingUp } from 'lucide-react'
 import { averageMonthlySpend, favoriteStores, mostBoughtProducts, repeatPurchases } from '@/lib/purchase-history'
 import { Stat } from '@/components/shared/stat'
-import { money } from '@/lib/format'
+import { itemCountLabel, money, shortDate } from '@/lib/format'
 import type { PurchaseRecord } from '@/lib/types'
 
 export function PurchaseHistory({ records }: { records: PurchaseRecord[] }) {
@@ -49,9 +49,9 @@ export function PurchaseHistory({ records }: { records: PurchaseRecord[] }) {
               >
                 <div className="min-w-0">
                   <p className="text-sm font-medium">
-                    {record.store ?? 'Neurčený obchod'} <span className="font-normal text-muted-foreground">· {record.date}</span>
+                    {record.store ?? 'Neurčený obchod'} <span className="font-normal text-muted-foreground">· {shortDate(record.date)}</span>
                   </p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{record.items.length} položek {record.discount ? `· sleva ${record.discount} Kč` : ''}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{itemCountLabel(record.items.length)} {record.discount ? `· sleva ${record.discount} Kč` : ''}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-3">
                   <span className="text-sm font-semibold">{money(record.total)}</span>

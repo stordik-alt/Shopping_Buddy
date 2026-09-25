@@ -1,4 +1,5 @@
 import { Wallet } from 'lucide-react'
+import { recordCountLabel, shortDate } from '@/lib/format'
 import type { Expense } from '@/lib/types'
 
 export function ExpenseHistory({ expenses }: { expenses: Expense[] }) {
@@ -9,7 +10,7 @@ export function ExpenseHistory({ expenses }: { expenses: Expense[] }) {
           <p className="text-sm font-semibold">Poslední výdaje</p>
           <p className="mt-1 text-sm text-muted-foreground">Přehled zadaných výdajů domácnosti.</p>
         </div>
-        <span className="min-h-10 rounded-full bg-primary/10 px-3 py-2 text-xs font-medium text-primary">{expenses.length} záznamy</span>
+        <span className="min-h-10 rounded-full bg-primary/10 px-3 py-2 text-xs font-medium text-primary">{recordCountLabel(expenses.length)}</span>
       </div>
       <div className="mt-5 flex flex-col gap-2">
         {expenses.slice().reverse().map((expense) => (
@@ -21,7 +22,7 @@ export function ExpenseHistory({ expenses }: { expenses: Expense[] }) {
               <span className="min-w-0">
                 <span className="block break-words text-sm font-medium">{expense.note || 'Výdaj domácnosti'}</span>
                 <span className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  <span>{expense.date}</span>
+                  <span>{shortDate(expense.date)}</span>
                   <span className="max-w-full rounded-full bg-background px-2 py-0.5 font-medium break-words">{expense.category}</span>
                 </span>
               </span>

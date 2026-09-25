@@ -1,3 +1,4 @@
+import { describeError } from '@/lib/errors'
 import {
   createAlbertConnector,
   dbFlyerPageCache,
@@ -91,7 +92,7 @@ async function main() {
       }
     } catch (err) {
       failed = true
-      console.error(`  failed:`, err instanceof Error ? err.message : err)
+      console.error(`  failed:`, describeError(err))
     }
   }
   console.log(`\nModel: ${totals.pages} pages, ${totals.input} input + ${totals.output} output tokens`)
@@ -99,6 +100,6 @@ async function main() {
 }
 
 main().then(() => process.exit(process.exitCode ?? 0)).catch((err) => {
-  console.error(err instanceof Error ? err.message : err)
+  console.error(describeError(err))
   process.exit(1)
 })

@@ -1,5 +1,9 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Scripts print the real database error)
+- **Why:** `pnpm db:albert-flyers --apply` printed only Drizzle's generic "Failed query: delete from flyer_pages …"; the actual reason (here Neon's HTTP 402 "exceeded the quota") was hidden in the error's `cause`.
+- **What:** `describeError()` in `lib/errors.ts` follows the cause chain and adds the Postgres code. It is used by `scripts/albert-flyers.ts`, `scripts/backfill-prices.ts` and `scripts/import-stores.ts`. Tested.
+
 ## 2026-09-25 (Pantry: "asi došlo" estimate, weekly check)
 - **Why:** the household forgets to remove what it used up, and daily per-category questions cost more time than they save.
 - **Estimate** (`lib/pantry-estimate.ts`, deterministic):

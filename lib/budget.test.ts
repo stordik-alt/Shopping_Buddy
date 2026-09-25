@@ -12,6 +12,7 @@ import {
   previousMonthKey,
   projectedMonthEnd,
   totalSpent,
+  weeklyAllowance,
   weeklyAverage,
 } from '@/lib/budget'
 import type { Expense, Item } from '@/lib/types'
@@ -218,5 +219,19 @@ describe('budgetLevel', () => {
     expect(budgetLevel(800, 1000)).toBe('warning')
     expect(crossedBudgetThreshold(999, 1000, 1000)).toBe('exceeded')
     expect(budgetLevel(1000, 1000)).toBe('over')
+  })
+})
+
+describe('weeklyAllowance', () => {
+  it('spreads what is left over the weeks remaining in the month, today included', () => {
+    // 25 September: 6 days left (25th–30th) — less than a week, so all of it.
+    expect(weeklyAllowance(4650, '2026-09-25')).toBe(4650)
+    // 3 September: 28 days left = 4 weeks.
+    expect(weeklyAllowance(4000, '2026-09-03')).toBeCloseTo(1000)
+  })
+
+  it('is nothing once the budget is used up', () => {
+    expect(weeklyAllowance(0, '2026-09-10')).toBe(0)
+    expect(weeklyAllowance(-200, '2026-09-10')).toBe(0)
   })
 })

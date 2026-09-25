@@ -1,5 +1,11 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (No entry points to the deferred AI assistant; real weekly allowance)
+- **Why:** the AI Shopping Assistant is the last roadmap item (CLAUDE.md sections 30 and 40), yet the sidebar had an "AI" tab and a "Chytré nákupy začínají tady — Vyzkoušet AI" card, the account menu an "AI asistent" item and the home card "Doporučení pro tento týden" a "Naplánovat s AI" button — all leading to a placeholder.
+- **What:** `lib/features.ts` `AI_ASSISTANT_ENABLED = false` hides those entry points; `components/ai/ai-assistant.tsx` is unchanged and returns by switching the flag on. Receipt OCR (the owner-approved model use) is unaffected.
+- **Weekly card:** it divided the remaining budget by a fixed 2.3 weeks whatever the date. Now "Kolik můžete utratit tento týden" uses `weeklyAllowance()` (`lib/budget.ts`): the remainder spread over the weeks left in the month, today included, the whole remainder in the last week (e.g. 22. 9.: 9 days left, 4 650 Kč → 3 617 Kč).
+- **Tests:** `weeklyAllowance()`. Checked in a real browser: no "AI" text anywhere on the home screen, sidebar or account menu.
+
 ## 2026-09-25 (Home: what matters fits on the first screen)
 - **Problem (measured at 375 × 812):** the top of Domů took 719 px — a large budget card and four large quick-action tiles — so the shopping list was cut off and the deals started at 886 px, below the first screen. "Akce pro váš seznam" listed every deal, not the ones for the list, in no particular order, all at once.
 - **What:** on Domů the budget card is compact (`BudgetHero compact`; the Rozpočet tab keeps the large one, same numbers and 80 %/100 % warnings) and the quick actions are one row of four icons with short labels ("Najít akce" is now "Obchody", since it opens the store directory). The top block is 457 px; the list is fully visible and the deals start at 624 px.

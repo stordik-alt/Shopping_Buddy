@@ -1,5 +1,10 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Rozpočet: receipt upload at the top, shorter history lists)
+- **Problem:** on a phone the receipt upload — the tab's most frequent action, and where the home quick action "Účtenka" leads — sat at 1 211 px, below the charts; the expense list and the purchase history listed every record.
+- **What:** the receipt upload card is right under the "Rozpočet domácnosti" heading (211 px), passed into `BudgetOverview` as `primaryAction`. "Poslední výdaje" and "Historie nákupů" show the newest 5 records with "Zobrazit všechny" for the rest.
+- **Checked:** in a real browser at 375 px with mock data; typecheck and unit tests.
+
 ## 2026-09-25 (No entry points to the deferred AI assistant; real weekly allowance)
 - **Why:** the AI Shopping Assistant is the last roadmap item (CLAUDE.md sections 30 and 40), yet the sidebar had an "AI" tab and a "Chytré nákupy začínají tady — Vyzkoušet AI" card, the account menu an "AI asistent" item and the home card "Doporučení pro tento týden" a "Naplánovat s AI" button — all leading to a placeholder.
 - **What:** `lib/features.ts` `AI_ASSISTANT_ENABLED = false` hides those entry points; `components/ai/ai-assistant.tsx` is unchanged and returns by switching the flag on. Receipt OCR (the owner-approved model use) is unaffected.

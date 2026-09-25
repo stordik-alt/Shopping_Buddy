@@ -1,5 +1,10 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Home: "Dnes je důležité")
+- **Why:** things that need the household's action were spread over tabs or waited under the bell — a receipt stuck in review showed only on Rozpočet, and a promotion on a list item could end unnoticed.
+- **What:** a strip at the top of Domů lists receipts waiting on the household (review, duplicate decision, failed or stalled; not ones still processing) and promotions on items still to buy that end today or tomorrow (one line per product, earliest first). Each line opens the tab where it is dealt with. Nothing to report, no strip. The budget warning is not repeated there — the budget card right below shows it. Logic in `lib/attention.ts` (pure, deterministic), UI in `components/dashboard/today-attention.tsx`.
+- **Tests:** `attentionItems()` — quiet day, which receipt states count, Czech plurals, ending deals on/off the list, one line per product, month boundary. Checked in a real browser at 375 px (light and dark) including where each line leads.
+
 ## 2026-09-25 (Rozpočet: receipt upload at the top, shorter history lists)
 - **Problem:** on a phone the receipt upload — the tab's most frequent action, and where the home quick action "Účtenka" leads — sat at 1 211 px, below the charts; the expense list and the purchase history listed every record.
 - **What:** the receipt upload card is right under the "Rozpočet domácnosti" heading (211 px), passed into `BudgetOverview` as `primaryAction`. "Poslední výdaje" and "Historie nákupů" show the newest 5 records with "Zobrazit všechny" for the rest.

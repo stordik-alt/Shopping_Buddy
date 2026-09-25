@@ -44,6 +44,7 @@ import { MealPlan } from '@/components/dashboard/meal-plan'
 import { PriceWatch } from '@/components/dashboard/price-watch'
 import { SavingsInsight } from '@/components/dashboard/savings-insight'
 import { SpendingBreakdown } from '@/components/dashboard/spending-breakdown'
+import { TodayAttention } from '@/components/dashboard/today-attention'
 import { HouseholdProfile } from '@/components/household/household-profile'
 import { NotificationPanel } from '@/components/notifications/notification-panel'
 import { AppHeader } from '@/components/shared/app-header'
@@ -65,6 +66,7 @@ import type { PinRecord } from '@/lib/db/shopping-plan'
 import { filterPricesToNearby, type StoreSelection } from '@/lib/nearby-stores'
 import { nearbyOffers, type StandaloneOffer } from '@/lib/offers'
 import { useUserLocation } from '@/lib/use-user-location'
+import { attentionItems } from '@/lib/attention'
 
 export function AppShell({
   initialData,
@@ -441,6 +443,10 @@ export function AppShell({
 
               {tab === 'Domů' && (
                 <div className="space-y-4 lg:space-y-6">
+                  <TodayAttention
+                    items={attentionItems({ today, receipts: pendingReceiptImports, productPrices: nearbyProductPrices, listNames: pendingNames })}
+                    onOpen={setTab}
+                  />
                   <DashboardOverview
                     budget={budget}
                     spent={spent}

@@ -9,3 +9,6 @@ allowBuilds:
   # postinstall script only prints a sponsorship message, nothing functional is needed.
   core-js: false
   esbuild: true
+  # workerd (Cloudflare's Workers runtime, pulled in by wrangler for local preview of the Cloudflare
+  # build) checks in its postinstall that the platform binary installed correctly.
+  workerd: true

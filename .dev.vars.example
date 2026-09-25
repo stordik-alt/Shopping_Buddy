@@ -1,0 +1,44 @@
+# Environment for the prepared Cloudflare build (docs/cloudflare-deployment.md).
+# Local preview: copy to .dev.vars (gitignored) and fill in values for the TEST branch/bucket, then
+# `pnpm cf:build && pnpm cf:preview`. Deployed Workers: set each value in the Cloudflare dashboard
+# (Workers → shopping-buddy[-staging] → Settings → Variables and Secrets) or with
+# `pnpm exec wrangler secret put NAME [--env staging]`. Never commit real values.
+
+# --- Database and auth (same meaning as on Vercel) ---
+DATABASE_URL=
+NEON_AUTH_BASE_URL=
+NEON_AUTH_COOKIE_SECRET=
+
+# --- Cron: the Worker's scheduled() handler sends it as `Authorization: Bearer …` ---
+CRON_SECRET=
+
+# --- Receipt files on R2 (docs/cloudflare-r2.md). STORAGE_PROVIDER=r2 comes from wrangler.jsonc. ---
+# BLOB_READ_WRITE_TOKEN only while old receipts are still on Vercel Blob.
+R2_ACCOUNT_ID=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+R2_BUCKET_NAME=
+BLOB_READ_WRITE_TOKEN=
+
+# --- OCR: images (API key) and Azure fallback ---
+GOOGLE_VISION_API_KEY=
+AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT=
+AZURE_DOCUMENT_INTELLIGENCE_KEY=
+
+# --- OCR: PDFs via Google Workload Identity Federation (lib/gcp-oidc.ts) ---
+GCP_PROJECT_ID=
+GCP_PROJECT_NUMBER=
+GCP_WORKLOAD_IDENTITY_POOL_ID=
+# The OIDC provider that trusts the self-signed key (not the Vercel provider).
+GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID=
+GCP_SERVICE_ACCOUNT_EMAIL=
+GCP_OIDC_TOKEN_SOURCE=self-signed
+GCP_OIDC_ISSUER=
+GCP_OIDC_KEY_ID=
+# Contents of gcp-oidc-private-key.pem (pnpm gcp:oidc-key); literal \n sequences are accepted.
+GCP_OIDC_PRIVATE_KEY=
+# Optional, e.g. shopping-buddy-staging, to tell environments apart in Google's audit logs.
+GCP_OIDC_SUBJECT=
+
+# --- Receipt structuring (Vercel AI Gateway, CLAUDE.md §30 OCR exception): off Vercel it needs a key ---
+AI_GATEWAY_API_KEY=

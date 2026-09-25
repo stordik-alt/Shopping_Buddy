@@ -84,7 +84,7 @@ async function migrate(options: Options) {
       counts.bytes += bytes.byteLength
 
       const existing = await r2ObjectDigest(key)
-      const alreadyCopied = existing?.size === bytes.byteLength && existing.sha256 === sha256
+      const alreadyCopied = existing != null && existing.size === bytes.byteLength && existing.sha256 === sha256
       if (existing && !alreadyCopied) {
         // Same key, different bytes: never overwrite something we did not write in this form.
         counts.failed++
@@ -102,7 +102,7 @@ async function migrate(options: Options) {
       else {
         await r2Store.put(key, bytes, file.contentType)
         const copy = await r2ObjectDigest(key)
-        if (copy?.size !== bytes.byteLength || copy.sha256 !== sha256) throw new Error('R2 copy does not match the Blob original')
+        if (copy == null || copy.size !== bytes.byteLength || copy.sha256 !== sha256) throw new Error('R2 copy does not match the Blob original')
         counts.copied++
       }
 

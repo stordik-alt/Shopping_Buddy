@@ -1,6 +1,8 @@
 # Receipt Storage on Cloudflare R2
 
-**Status (2026-09-25):** code ready, **not yet active in production**. The switch happens by
+**Status (2026-09-25):** **live in production** — new receipt uploads go to R2 (owner-confirmed after
+two configuration fixes, see the changelog). Old receipts are still on Vercel Blob until copied.
+Originally: The switch happens by
 setting environment variables on Vercel — no database migration, no other deployment step.
 
 **Why now:** the Vercel Blob store is over its usage limit. When that happened before, Vercel

@@ -1,5 +1,10 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Schema declares every index in the database)
+- **Why:** a full comparison of `lib/db/schema.ts` with the live database (types, defaults, NOT NULL, keys, indexes, checks, foreign keys) found no real difference, but three indexes created by hand-written migrations were missing from the schema, and the token uniqueness of invitations has a different name in production than in the schema.
+- **What:** the schema now declares `prices_product_context_observed_idx`, `prices_store_location_observed_idx`, `store_locations_store_address_city_unique_idx` and `invitations_token_key`. Migration `0032` records them in Drizzle's snapshot; every statement is conditional, so it changed nothing in production (both paths — production, and a database built from the migrations where the constraint is renamed — checked in rolled-back transactions). Also applied: the missing migration `0031` (push subscriptions).
+- **Checked:** after `0032`, `drizzle-kit generate` finds no changes and the database has no index or constraint the schema does not know.
+
 ## 2026-09-25 (Push notifications to phones)
 - **What:** members can switch on "Upozornění do telefonu" in the bell panel. Budget thresholds, best-price deals, shopping reminders, pantry check-ins and new household members then also arrive as phone/browser notifications, and a tap opens the matching section. There is a "Poslat zkušební upozornění" button to check that it works. The member who caused a notification is not pushed (they are looking at the app).
 - **How:**

@@ -16,6 +16,7 @@
     "db:split-collapsed-products": "dotenv -e .env.local -- tsx scripts/split-collapsed-products.ts",
     "db:backfill-prices": "dotenv -e .env.local -- tsx scripts/backfill-prices.ts",
     "db:import-stores": "dotenv -e .env.local -- tsx scripts/import-stores.ts",
+    "db:albert-flyers": "dotenv -e .env.local -- tsx scripts/albert-flyers.ts",
     "db:migrate-blob-to-r2": "dotenv -e .env.local -- tsx scripts/migrate-vercel-blob-to-r2.ts"
   },
   "dependencies": {

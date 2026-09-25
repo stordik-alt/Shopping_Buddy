@@ -1,5 +1,5 @@
 import { relations, sql } from 'drizzle-orm'
-import { boolean, check, date, foreignKey, index, integer, numeric, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
+import { boolean, check, date, foreignKey, index, integer, jsonb, numeric, pgEnum, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
 import { SEARCH_ACCENTED, SEARCH_PLAIN } from '@/lib/product-search'
 
 // --- Enums -----------------------------------------------------------------
@@ -14,7 +14,7 @@ export const invitationStatusEnum = pgEnum('invitation_status', ['pending', 'acc
 export const pantryLocationEnum = pgEnum('pantry_location', ['Spíž', 'Lednice', 'Mrazák', 'Domácnost', 'Lékárnička', 'Drogérka'])
 // External price-ingestion sources (docs/32 "Internet Data Integration"). One entry per retailer
 // connector actually implemented — starts with just Lidl.
-export const productSourceEnum = pgEnum('product_source', ['lidl', 'billa', 'penny', 'dm', 'rohlik', 'kosik', 'globus'])
+export const productSourceEnum = pgEnum('product_source', ['lidl', 'billa', 'penny', 'dm', 'rohlik', 'kosik', 'globus', 'albert'])
 export const priceScopeEnum = pgEnum('price_scope', ['STORE', 'STORE_FORMAT', 'REGION', 'CHAIN'])
 export const priceSourceTypeEnum = pgEnum('price_source_type', ['RECEIPT', 'OFFICIAL', 'FLYER', 'API', 'OTHER'])
 export const priceLocationResolutionEnum = pgEnum('price_location_resolution', ['UNKNOWN', 'RESOLVED', 'NOT_APPLICABLE'])
@@ -303,6 +303,32 @@ export const ingestionCursors = pgTable('ingestion_cursors', {
   nextPart: integer('next_part').notNull().default(0),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [check('ingestion_cursors_next_part_non_negative', sql`${table.nextPart} >= 0`)])
+
+// What a model read off one page of an image-only flyer (Albert: lib/ingestion/albert.ts) — the
+// cached, reusable result of the only paid step of that import (CLAUDE.md section 31). A page is
+// sent to the model once; every later run reads its offers from here. It is also the provenance of
+// the deals made from it (CLAUDE.md section 16): which flyer, which page, when, by which model, at
+// what token cost. `offers` is the model's raw output, validated again by the connector on every
+// read, so a stricter validator applies to pages extracted earlier too.
+export const flyerPages = pgTable('flyer_pages', {
+  source: productSourceEnum('source').notNull(),
+  /** The retailer's own flyer id (Albert: the Publitas publication id, e.g. "3370730"). */
+  flyerId: text('flyer_id').notNull(),
+  pageNumber: integer('page_number').notNull(),
+  /** Which of the chain's store formats the flyer is for ("SUPERMARKET", "HYPERMARKET"). */
+  locationType: text('location_type').notNull(),
+  validFrom: date('valid_from').notNull(),
+  validUntil: date('valid_until').notNull(),
+  offers: jsonb('offers').notNull(),
+  model: text('model').notNull(),
+  inputTokens: integer('input_tokens'),
+  outputTokens: integer('output_tokens'),
+  extractedAt: timestamp('extracted_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  primaryKey({ columns: [table.source, table.flyerId, table.pageNumber] }),
+  check('flyer_pages_page_positive', sql`${table.pageNumber} >= 1`),
+  check('flyer_pages_validity', sql`${table.validUntil} >= ${table.validFrom}`),
+])
 
 export const deals = pgTable('deals', {
   id: uuid('id').primaryKey().defaultRandom(),

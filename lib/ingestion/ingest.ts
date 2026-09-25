@@ -10,6 +10,7 @@ import {
   touchExternalRefs,
   upsertActiveDeal,
 } from '@/lib/db/queries'
+import { albertHypermarketConnector, albertSupermarketConnector, mergeIngestResults } from '@/lib/ingestion/albert'
 import { billaConnector } from '@/lib/ingestion/billa'
 import { dmConnector } from '@/lib/ingestion/dm'
 import { globusConnector } from '@/lib/ingestion/globus'
@@ -198,6 +199,15 @@ export const PRICE_SOURCES: PriceSource[] = [
   { source: kosikConnector.source, parts: 7, run: (limit, options) => ingestPrices(kosikConnector, limit, options) },
   // The current national flyers, ~1,000 offers (~170 small page files): read whole every day.
   { source: globusConnector.source, parts: 1, run: (limit, options) => ingestPrices(globusConnector, limit, options) },
+  // Albert's flyers, read by a model page by page (lib/ingestion/albert.ts): the supermarket flyer
+  // for the "Albert" chain, then the hypermarket flyer for "Albert Hypermarket", in one run. Pages
+  // read before come from a cache; a run that runs out of time continues where it stopped next time.
+  {
+    source: albertSupermarketConnector.source,
+    parts: 1,
+    run: async (limit, options) =>
+      mergeIngestResults(await ingestPrices(albertSupermarketConnector, limit, options), await ingestPrices(albertHypermarketConnector, limit, options)),
+  },
 ]
 
 // No batch cap of its own: a run's size is set by its part (and stopped by the time budget).

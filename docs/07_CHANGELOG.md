@@ -1,5 +1,10 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Price trend per store; Cloudflare build checked in CI)
+- **Price trend:** the per-store rows of "Porovnání cen mezi obchody" show a small step line of that store's recorded regular prices (`components/shopping/price-sparkline.tsx`, `lib/price-trend.ts`) with a text summary ("Nejnižší zaznamenaná cena" or "Nejníže … Kč", since when) and a tooltip per price change — only when the price changed at least once, only from recorded observations (`priceHistory`), nothing interpolated.
+- **CI:** a second job builds the prepared Cloudflare Worker (`pnpm cf:build`, nothing deployed) and fails if the gzip size reaches 9 MiB (Workers Paid limit 10 MiB); today 4.4 MiB.
+- **Tests:** steps (changes only, same-day, unordered, unchanged), summary, rendering with/without a change. CI command: 900 passed; `next build` and `cf:build` pass.
+
 ## 2026-09-25 (Shopping list: "Doplnit obvyklé")
 - **What:** a collapsed card above the shopping list suggests items the household buys regularly and is due for again (`lib/usual-items.ts`, deterministic): bought on at least 3 different days in the last 120 days, and at least 80 % of the median interval between purchases has passed since the last one. Items already on the list or in the pantry are left out; the usual amount is the one bought most often. "Přidat" / "Přidat vše na seznam" add through `addShoppingItemAction` (one at a time), with the amount in the detail. Built only from the household's recorded purchases (already loaded for purchase history) — no new query, no guessing from prices.
 - **Grouping:** purchase lines are grouped by normalized name (`normalizeMatchName`), the only identity a purchase line has on the client; it is a suggestion the user confirms, not a price comparison.

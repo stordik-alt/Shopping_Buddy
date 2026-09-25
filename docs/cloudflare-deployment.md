@@ -53,6 +53,8 @@ Checked in the cloud session, with placeholder secrets and no Cloudflare account
 - 10 MB uploads within the 128 MB isolate memory.
 - `revalidatePath` refresh after actions.
 
+**CI:** the `cloudflare` job in `.github/workflows/ci.yml` runs `pnpm cf:build` and fails at 9 MiB gzip on every PR and push to `main`, so the Worker build cannot break unnoticed.
+
 ## 3. Known risks
 
 1. **Next 16 `proxy.ts` runs as Node.js middleware.** OpenNext warns: "Node.js middleware support is

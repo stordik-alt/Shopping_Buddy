@@ -27,3 +27,7 @@ node_modules
 # Self-signed GCP OIDC key pair (pnpm gcp:oidc-key) — the private key is a secret
 gcp-oidc-private-key.pem
 gcp-oidc-jwks.json
+
+# CI Worker size check output
+.wrangler-dry-run/
+dry-run.log

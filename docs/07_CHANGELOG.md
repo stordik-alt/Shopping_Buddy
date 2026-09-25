@@ -1,5 +1,15 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Product matching: word forms, no soups for eggs)
+- **Why:** the shopping plan offered a soup with egg for the list item "Vejce". Search matched any name containing the text, so "vejce" was found in "Polévka s vejcem". At a chain without eggs, or where eggs fell outside the 400-row cap (which cut rows by product id, i.e. arbitrarily), the soup was the only candidate and was picked.
+- **What** (`lib/product-search.ts`, pure):
+  - **Direct match vs mention:** a product is what was searched for only when every query word appears before the first linking word (s/se/z/ze/na/v/ve/do/pro/bez/k/ke/od/po). Direct matches always rank first. The shopping planner's automatic pick (`pickAutoHit`) takes only direct matches: a chain with only a soup offers nothing for eggs, which is honest.
+  - **Word forms:** query words are looked up by stem ("Rohlíky" now finds "Rohlík"). A name word counts as the same word only as stem + inflectional ending, so derived words ("Banánové chipsy", "Rajčatový protlak", "Kuřecí nugety") are not taken for bananas, tomatoes or chicken.
+  - **Row cap:** `lib/db/product-search.ts` orders rows by where the word appears and name length before cutting at 400.
+  - **Phrase tokens:** tokens with inner punctuation ("coca-cola", "1,5%") are matched as phrases.
+- **Tests:** `searchStem`, `wordRelation`, `isDirectMatch` (link words, forms, derived words, phrases, leading "S-"), ranking of direct above mention, and `pickAutoHit` never picking the soup (regression). CI command: 933 passed; `next build` passes. The DB product-search and plan tests were not run here (no test database).
+- **Not done:** synonyms ("vajíčka" / "vejce") and irregular forms; a pinned product is never second-guessed.
+
 ## 2026-09-25 (Schema declares every index in the database)
 - **Why:** a full comparison of `lib/db/schema.ts` with the live database (types, defaults, NOT NULL, keys, indexes, checks, foreign keys) found no real difference, but three indexes created by hand-written migrations were missing from the schema, and the token uniqueness of invitations has a different name in production than in the schema.
 - **What:** the schema now declares `prices_product_context_observed_idx`, `prices_store_location_observed_idx`, `store_locations_store_address_city_unique_idx` and `invitations_token_key`. Migration `0032` records them in Drizzle's snapshot; every statement is conditional, so it changed nothing in production (both paths — production, and a database built from the migrations where the constraint is renamed — checked in rolled-back transactions). Also applied: the missing migration `0031` (push subscriptions).

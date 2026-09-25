@@ -53,6 +53,7 @@ import { MobileNav } from '@/components/shared/mobile-nav'
 import { Pantry } from '@/components/shopping/pantry'
 import { ShoppingList } from '@/components/shopping/shopping-list'
 import { StoreDirectory } from '@/components/stores/store-directory'
+import { UsualItems } from '@/components/shopping/usual-items'
 import { expensesInMonth, totalSpent } from '@/lib/budget'
 import { longDate } from '@/lib/format'
 import type { HouseholdData, ReceiptImportState } from '@/lib/db/queries'
@@ -69,6 +70,7 @@ import { useUserLocation } from '@/lib/use-user-location'
 import { attentionItems } from '@/lib/attention'
 import { AI_ASSISTANT_ENABLED } from '@/lib/features'
 import { tabFromSlug, tabHref } from '@/lib/tab-url'
+import { suggestUsualItems, type UsualItem } from '@/lib/usual-items'
 import { safeLocalStorage } from '@/lib/safe-storage'
 import { readThemeChoice, resolveDark, saveThemeChoice } from '@/lib/theme-preference'
 
@@ -196,6 +198,17 @@ export function AppShell({
   const dateLabel = longDate(today)
   const unreadCount = notifications.filter((notification) => notification.unread).length
   const pendingNames = items.filter((item) => !item.done).map((item) => item.name)
+  // Regular purchases that are due again and not on the list or in the pantry (lib/usual-items.ts).
+  const usualItems = useMemo(
+    () =>
+      suggestUsualItems({
+        purchases: initialData.purchaseHistory,
+        today,
+        onList: items.filter((item) => !item.done).map((item) => item.name),
+        inPantry: pantryItems.map((item) => item.name),
+      }),
+    [initialData.purchaseHistory, today, items, pantryItems],
+  )
 
   async function addItem() {
     const name = newItem.trim()
@@ -224,6 +237,18 @@ export function AppShell({
         detail: `${ingredient.quantity} ${ingredient.unit} · z jídelníčku`,
         category: ingredient.category,
         unit: ingredient.unit,
+      })
+      setItems((current) => [...current, item])
+      if (notification) setNotifications((current) => [...current, notification])
+    }
+  }
+
+  // Sequential for the same reason as addIngredients above: one revalidation in flight at a time.
+  async function addUsualItems(usual: UsualItem[]) {
+    for (const entry of usual) {
+      const { item, notification } = await addShoppingItemAction(initialData.mainListId, entry.name, {
+        detail: `${entry.quantity} ${entry.unit} · obvyklý nákup`,
+        unit: entry.unit,
       })
       setItems((current) => [...current, item])
       if (notification) setNotifications((current) => [...current, notification])
@@ -512,6 +537,7 @@ export function AppShell({
               )}
               {tab === 'Nákup' && (
                 <div className="mx-auto max-w-3xl space-y-5">
+                  <UsualItems suggestions={usualItems} onAdd={addUsualItems} />
                   <ShoppingList
                     today={today}
                     items={items}

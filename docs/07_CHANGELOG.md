@@ -1,5 +1,10 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Shopping list: "Doplnit obvyklé")
+- **What:** a collapsed card above the shopping list suggests items the household buys regularly and is due for again (`lib/usual-items.ts`, deterministic): bought on at least 3 different days in the last 120 days, and at least 80 % of the median interval between purchases has passed since the last one. Items already on the list or in the pantry are left out; the usual amount is the one bought most often. "Přidat" / "Přidat vše na seznam" add through `addShoppingItemAction` (one at a time), with the amount in the detail. Built only from the household's recorded purchases (already loaded for purchase history) — no new query, no guessing from prices.
+- **Grouping:** purchase lines are grouped by normalized name (`normalizeMatchName`), the only identity a purchase line has on the client; it is a suggestion the user confirms, not a price comparison.
+- **Tests:** due/not due, minimum history, same-day purchases, spelling variants, list/pantry exclusion, window, usual amount and order, limit. CI command: 893 passed; `next build` passes. **Not checked on a phone** (no signed-in session here).
+
 ## 2026-09-25 (Shopping list: remembered view, screen stays on, loading skeleton)
 - **Remembered view:** the list's category filter, "show completed", sort and grouping are stored per device (`lib/list-view-preference.ts`, validated, guarded `localStorage`) instead of resetting on every reload or refresh. The search text is not stored.
 - **Keep the screen on:** a "Nechat displej svítit" toggle next to the list counter holds a Screen Wake Lock (`lib/use-wake-lock.ts`) while shopping and re-acquires it when the page becomes visible again; hidden where the browser has no Wake Lock API.

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { MAX_RECEIPT_UPLOAD_BYTES, optimizeReceiptImage } from './receipt-upload'
+import { isHeicFile, MAX_RECEIPT_UPLOAD_BYTES, optimizeReceiptImage } from './receipt-upload'
 
 describe('optimizeReceiptImage', () => {
   beforeEach(() => {
@@ -66,5 +66,18 @@ describe('optimizeReceiptImage', () => {
     expect(optimized.name).toBe('receipt.jpg')
     expect(optimized.size).toBeLessThanOrEqual(MAX_RECEIPT_UPLOAD_BYTES)
     expect(optimized.lastModified).toBe(123)
+  })
+})
+
+describe('isHeicFile', () => {
+  it('recognises HEIC/HEIF by type or by name, as phones label them', () => {
+    expect(isHeicFile({ name: 'IMG_1234.HEIC', type: '' })).toBe(true)
+    expect(isHeicFile({ name: '20260925_132000.heif', type: 'image/heif' })).toBe(true)
+    expect(isHeicFile({ name: 'photo', type: 'image/heic-sequence' })).toBe(true)
+  })
+
+  it('leaves ordinary photos and PDFs alone', () => {
+    expect(isHeicFile({ name: 'uctenka.jpg', type: 'image/jpeg' })).toBe(false)
+    expect(isHeicFile({ name: 'uctenka.pdf', type: 'application/pdf' })).toBe(false)
   })
 })

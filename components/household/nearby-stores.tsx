@@ -3,6 +3,7 @@ import { Check, ChevronDown, Loader2, MapPin, Search, Star } from 'lucide-react'
 import { storeCountLabel } from '@/lib/format'
 import { MAX_DISTANCE_KM, MAX_SHOP_STORES, normalizeDistanceKm, parseDistanceInput, visibleBranches, type StoreSelection } from '@/lib/nearby-stores'
 import type { Store } from '@/lib/types'
+import { userFacingError } from '@/lib/errors'
 
 const QUICK_DISTANCES_KM = [0.5, 1, 2, 5, 10]
 
@@ -105,7 +106,7 @@ export function NearbyStores({
       setStatus('saved')
     } catch (err) {
       setStatus('error')
-      setError(err instanceof Error ? err.message : 'Nastavení se nepodařilo uložit.')
+      setError(userFacingError(err, 'Nastavení se nepodařilo uložit.'))
     }
   }
 

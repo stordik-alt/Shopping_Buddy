@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Check, ListChecks } from 'lucide-react'
 import type { ReceiptListSuggestion } from '@/lib/db/receipt-list'
 import { money } from '@/lib/format'
+import { userFacingError } from '@/lib/errors'
 
 /** After a receipt is imported, the items on the shopping list that it certainly covers are ticked
  *  automatically. This card lists the *plausible* ones ("Mléko" ↔ "MLEKO POLOTUC. 1L") for the
@@ -37,7 +38,7 @@ export function ReceiptListSuggestions({
     try {
       await onConfirm(suggestions.filter((s) => selected.has(s.listItemId)))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Položky se nepodařilo odškrtnout.')
+      setError(userFacingError(err, 'Položky se nepodařilo odškrtnout.'))
     } finally {
       setSaving(false)
     }

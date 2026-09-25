@@ -8,6 +8,7 @@ import { TagInput } from '@/components/shared/tag-input'
 import type { PendingInvitation } from '@/lib/db/queries'
 import type { StoreSelection } from '@/lib/nearby-stores'
 import type { Household, HouseholdPreferences, PriceSensitivity, QualityPreference, Store } from '@/lib/types'
+import { userFacingError } from '@/lib/errors'
 
 const splitList = (value: string) =>
   value
@@ -66,7 +67,7 @@ export function HouseholdProfile({
       setInviteLink(`${window.location.origin}/invite/${token}`)
       setInvite('')
     } catch (err) {
-      setInviteError(err instanceof Error ? err.message : 'Pozvánku se nepodařilo vytvořit.')
+      setInviteError(userFacingError(err, 'Pozvánku se nepodařilo vytvořit.'))
     }
   }
 

@@ -6,6 +6,7 @@ import { money } from '@/lib/format'
 import { ocrProviderLabel } from '@/lib/receipt-ocr-provider'
 import { PANTRY_LOCATIONS } from '@/lib/pantry'
 import type { ItemCategory, ItemUnit } from '@/lib/types'
+import { userFacingError } from '@/lib/errors'
 
 const CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
 const UNITS: ItemUnit[] = ['ks', 'kg', 'g', 'l', 'ml']
@@ -109,7 +110,7 @@ function ReceiptPendingCard({
     try {
       await action()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Akci se nepodařilo dokončit.')
+      setError(userFacingError(err, 'Akci se nepodařilo dokončit.'))
     } finally {
       setBusy(false)
     }

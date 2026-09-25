@@ -37,12 +37,11 @@ import {
   type ReceiptStructuringProvider,
   type ReceiptTextExtractor,
 } from '@/lib/receipts'
+import { HEIC_UNSUPPORTED_MESSAGE } from '@/lib/receipt-upload'
 import type { PurchaseRecord } from '@/lib/types'
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024 // 10 MB
 
-const HEIC_UNSUPPORTED_MESSAGE =
-  'Formát HEIC není podporovaný. V iPhonu zvolte Nastavení › Fotoaparát › Formáty › Nejkompatibilnější, nebo fotku před nahráním uložte jako JPEG.'
 
 /** Fallback for a stored file whose bytes are not recognisable (see detectReceiptFileType) — the
  *  upload action now rejects those, so this only matters for imports created earlier. */
@@ -641,40 +640,55 @@ async function runReceiptPipeline(
  *  can show its real progress via `/api/receipts/[id]/status` (section 20). The pipeline still runs
  *  synchronously inside that one request — at the target volume (~1,500/month per section 18) a
  *  background job queue would be over-engineering for a few-second round trip. */
-export async function uploadReceiptAction(formData: FormData): Promise<ReceiptImportState> {
+/** What the upload returns. A problem the user can act on (too large, wrong format, HEIC) comes back
+ *  as `ok: false` with a Czech message instead of being thrown: in production Next.js replaces the
+ *  message of an error thrown inside a Server Action with a generic one, so the phone showed only
+ *  "Minified React error #441" and the user never learned why (CLAUDE.md section 26). */
+export type UploadReceiptResult = { ok: true; receipt: ReceiptImportState } | { ok: false; error: string }
+
+export async function uploadReceiptAction(formData: FormData): Promise<UploadReceiptResult> {
   const householdId = await requireHouseholdId()
 
   // The photo is sent as a binary `File` in FormData rather than a base64 string argument. React's
   // Server Action decoder adds the length of every string it resolves to the size of the action's
   // argument array and throws "Maximum array nesting exceeded" past 1,000,000 characters (fixed,
-  // not configurable) — so a base64 photo over ~750 KB failed in production, surfacing only as
-  // minified React error #441. A File is not counted, and it also avoids base64's 33 % overhead.
+  // not configurable) — so a base64 photo over ~750 KB failed in production. A File is not counted,
+  // and it also avoids base64's 33 % overhead.
   const file = formData.get('file')
-  if (!(file instanceof File)) throw new Error('Nahraný soubor je neplatný.')
-  if (file.size > MAX_IMAGE_BYTES) throw new Error('Fotografie je příliš velká (max. 10 MB).')
+  if (!(file instanceof File)) return { ok: false, error: 'Nahraný soubor je neplatný.' }
+  if (file.size > MAX_IMAGE_BYTES) return { ok: false, error: 'Fotografie je příliš velká (max. 10 MB).' }
   const buffer = Buffer.from(await file.arrayBuffer())
-  if (buffer.byteLength === 0) throw new Error('Nahraný soubor je prázdný.')
+  if (buffer.byteLength === 0) return { ok: false, error: 'Nahraný soubor je prázdný.' }
 
   // The type is decided from the file's own bytes; the client-declared MIME type (`file.type`) is
   // ignored because it is attacker-controlled and phones sometimes mislabel files. The stored
   // extension and content type come from the detection.
   const fileType = detectReceiptFileType(buffer)
-  if (fileType.kind === 'heic') throw new Error(HEIC_UNSUPPORTED_MESSAGE)
-  if (fileType.kind !== 'supported') throw new Error('Nepodporovaný formát. Použijte JPEG, PNG, WEBP nebo PDF.')
+  if (fileType.kind === 'heic') return { ok: false, error: HEIC_UNSUPPORTED_MESSAGE }
+  if (fileType.kind !== 'supported') return { ok: false, error: 'Nepodporovaný formát. Použijte fotku JPEG, PNG, WEBP nebo PDF.' }
 
-  const blob = await put(`receipts/${householdId}/${crypto.randomUUID()}.${fileType.extension}`, buffer, {
-    access: 'private',
-    contentType: fileType.mimeType,
-  })
+  try {
+    const blob = await put(`receipts/${householdId}/${crypto.randomUUID()}.${fileType.extension}`, buffer, {
+      access: 'private',
+      contentType: fileType.mimeType,
+    })
 
-  const db = getDb()
-  const [row] = await db
-    .insert(schema.receiptImports)
-    .values({ householdId, status: 'uploaded', source: 'ocr', imageUrl: blob.url })
-    .returning()
+    const db = getDb()
+    const [row] = await db
+      .insert(schema.receiptImports)
+      .values({ householdId, status: 'uploaded', source: 'ocr', imageUrl: blob.url })
+      .returning()
 
-  revalidatePath('/')
-  return toReceiptImportState(row)
+    revalidatePath('/')
+    return { ok: true, receipt: toReceiptImportState(row) }
+  } catch (err) {
+    // Storage or database failure: the details go to the server log (with the household, never the
+    // photo), the user gets a message they can act on.
+    console.error(
+      JSON.stringify({ event: 'receipt_upload_failed', householdId, bytes: buffer.byteLength, type: fileType.mimeType, error: err instanceof Error ? err.message : String(err) }),
+    )
+    return { ok: false, error: 'Fotografii se nepodařilo uložit. Zkuste to prosím za chvíli znovu.' }
+  }
 }
 
 const IN_FLIGHT_STATUSES: (typeof schema.receiptStatusEnum.enumValues)[number][] = ['ocr_processing', 'ocr_completed', 'parsing', 'parsed', 'validating']

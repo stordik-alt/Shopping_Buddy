@@ -529,8 +529,8 @@ export function AppShell({
                     expenses={expenses}
                     items={items}
                     onExpense={() => setExpenseOpen(true)}
+                    primaryAction={<ReceiptImport stores={stores} onImport={importReceipt} onUpload={uploadReceipt} />}
                   />
-                  <ReceiptImport stores={stores} onImport={importReceipt} onUpload={uploadReceipt} />
                   <ExpenseHistory expenses={expenses} />
                   <PurchaseHistory records={initialData.purchaseHistory} />
                 </div>

@@ -5,8 +5,14 @@ import { Stat } from '@/components/shared/stat'
 import { itemCountLabel, money, shortDate } from '@/lib/format'
 import type { PurchaseRecord } from '@/lib/types'
 
+// The newest few purchases are listed; the rest are one tap away, so the tab stays short.
+const VISIBLE_PURCHASES = 5
+
 export function PurchaseHistory({ records }: { records: PurchaseRecord[] }) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [showAll, setShowAll] = useState(false)
+  const newestFirst = records.slice().reverse()
+  const shownRecords = showAll ? newestFirst : newestFirst.slice(0, VISIBLE_PURCHASES)
 
   const topStore = favoriteStores(records)[0]
   const topProduct = mostBoughtProducts(records, 1)[0]
@@ -38,10 +44,7 @@ export function PurchaseHistory({ records }: { records: PurchaseRecord[] }) {
         </div>
       )}
       <div className="overflow-hidden surface">
-        {records
-          .slice()
-          .reverse()
-          .map((record) => (
+        {shownRecords.map((record) => (
             <div key={record.id} className="border-b border-border last:border-0">
               <button
                 onClick={() => setExpandedId((current) => (current === record.id ? null : record.id))}
@@ -73,6 +76,16 @@ export function PurchaseHistory({ records }: { records: PurchaseRecord[] }) {
             </div>
           ))}
       </div>
+      {records.length > VISIBLE_PURCHASES && (
+        <button
+          onClick={() => setShowAll((current) => !current)}
+          aria-expanded={showAll}
+          className="flex min-h-10 items-center gap-1 rounded-full bg-muted px-4 text-sm font-medium transition hover:bg-primary/10"
+        >
+          {showAll ? 'Zobrazit méně' : `Zobrazit všechny nákupy (${records.length})`}
+          <ChevronDown className={`h-4 w-4 transition ${showAll ? 'rotate-180' : ''}`} aria-hidden="true" />
+        </button>
+      )}
     </section>
   )
 }

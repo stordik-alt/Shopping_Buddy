@@ -1,8 +1,15 @@
-import { Wallet } from 'lucide-react'
+import { useState } from 'react'
+import { ChevronDown, Wallet } from 'lucide-react'
 import { recordCountLabel, shortDate } from '@/lib/format'
 import type { Expense } from '@/lib/types'
 
+// The newest few are what a household checks; the full list is one tap away.
+const VISIBLE_EXPENSES = 5
+
 export function ExpenseHistory({ expenses }: { expenses: Expense[] }) {
+  const [showAll, setShowAll] = useState(false)
+  const newestFirst = expenses.slice().reverse()
+  const shown = showAll ? newestFirst : newestFirst.slice(0, VISIBLE_EXPENSES)
   return (
     <section className="surface p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -13,7 +20,7 @@ export function ExpenseHistory({ expenses }: { expenses: Expense[] }) {
         <span className="min-h-10 rounded-full bg-primary/10 px-3 py-2 text-xs font-medium text-primary">{recordCountLabel(expenses.length)}</span>
       </div>
       <div className="mt-5 flex flex-col gap-2">
-        {expenses.slice().reverse().map((expense) => (
+        {shown.map((expense) => (
           <div key={expense.id} className="flex min-w-0 items-center justify-between gap-3 rounded-2xl bg-muted px-3 py-3 sm:px-4">
             <div className="flex min-w-0 items-center gap-3">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-background text-primary">
@@ -31,6 +38,16 @@ export function ExpenseHistory({ expenses }: { expenses: Expense[] }) {
           </div>
         ))}
       </div>
+      {expenses.length > VISIBLE_EXPENSES && (
+        <button
+          onClick={() => setShowAll((current) => !current)}
+          aria-expanded={showAll}
+          className="mt-3 flex min-h-10 items-center gap-1 rounded-full bg-muted px-4 text-sm font-medium transition hover:bg-primary/10"
+        >
+          {showAll ? 'Zobrazit méně' : `Zobrazit všechny (${recordCountLabel(expenses.length)})`}
+          <ChevronDown className={`h-4 w-4 transition ${showAll ? 'rotate-180' : ''}`} aria-hidden="true" />
+        </button>
+      )}
     </section>
   )
 }

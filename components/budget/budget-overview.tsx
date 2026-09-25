@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { CalendarClock, Plus, TrendingDown, TrendingUp } from 'lucide-react'
 import { BudgetHero } from '@/components/budget/budget-hero'
 import { CATEGORY_BAR_COLORS } from '@/components/dashboard/spending-breakdown'
@@ -14,6 +15,7 @@ export function BudgetOverview({
   expenses,
   items,
   onExpense,
+  primaryAction,
 }: {
   /** The real date (`YYYY-MM-DD`); "this month" is the calendar month it falls in. */
   today: string
@@ -26,6 +28,9 @@ export function BudgetOverview({
   expenses: Expense[]
   items: Item[]
   onExpense: () => void
+  /** Rendered right under the heading, above the numbers — the receipt upload, the tab's most
+   *  frequent action, which used to sit far below the charts. */
+  primaryAction?: ReactNode
 }) {
   const breakdown = categoryBreakdown(expensesInMonth(expenses, today))
   const maxCategoryTotal = Math.max(...breakdown.map((entry) => entry.total), 1)
@@ -45,6 +50,7 @@ export function BudgetOverview({
           <Plus className="h-4 w-4" aria-hidden="true" /> Přidat výdaj
         </button>
       </div>
+      {primaryAction}
       <BudgetHero budget={budget} spent={spent} remaining={remaining} onSetBudget={onEditBudget} />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
         <Stat label="Denní průměr" value={money(dailyAverage(expenses, today))} icon={<CalendarClock />} />

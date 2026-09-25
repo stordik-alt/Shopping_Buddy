@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { AlertTriangle, Camera, Check, Loader2, Plus, Receipt, Trash2 } from 'lucide-react'
+import { AlertTriangle, Camera, Check, ImageUp, Loader2, Plus, Receipt, Trash2 } from 'lucide-react'
 import type { ReceiptImportState } from '@/lib/db/queries'
 import { ocrProviderLabel } from '@/lib/receipt-ocr-provider'
 import { RECEIPT_STEPS, receiptProgress, type ReceiptProgress } from '@/lib/receipt-progress'
@@ -67,6 +67,7 @@ export function ReceiptImport({
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState<ReceiptProgress | null>(null)
   const [lastOcrProvider, setLastOcrProvider] = useState<string | null>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   function updateRow(index: number, changes: Partial<ReceiptLineItem>) {
@@ -163,28 +164,53 @@ export function ReceiptImport({
           Poslední OCR: {ocrProviderLabel(lastOcrProvider)}
         </p>
       )}
+      {/* Two ways in, so a new photo comes out in a format the OCR reads. Taking the photo: only JPEG
+          and `capture`, so the phone opens its camera directly — a camera started by another app
+          returns a JPEG even when the phone saves its own photos as HEIF ("high efficiency"). With
+          PDF in `accept` too, Android shows a camera/files/gallery chooser instead and a gallery
+          photo may be HEIC, which Chrome on Android cannot convert. Uploading: an existing photo
+          or an e-receipt PDF; HEIC is deliberately not listed, so iOS converts a chosen photo to
+          JPEG itself, and a HEIC from Android gets a clear message (isHeicFile). */}
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <input
-          ref={fileInputRef}
+          ref={cameraInputRef}
           type="file"
-          // HEIC is deliberately not listed: when it isn't, iOS converts a chosen photo to JPEG
-          // itself, and neither Google Vision nor the server's image library can read HEIC.
-          accept="image/jpeg,image/png,image/webp,application/pdf"
+          accept="image/jpeg"
           capture="environment"
           onChange={handlePhoto}
           className="sr-only"
           disabled={uploading}
+          tabIndex={-1}
+          aria-hidden="true"
         />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,application/pdf"
+          onChange={handlePhoto}
+          className="sr-only"
+          disabled={uploading}
+          tabIndex={-1}
+          aria-hidden="true"
+        />
+        <button
+          type="button"
+          onClick={() => cameraInputRef.current?.click()}
+          disabled={uploading}
+          className={`flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground ${uploading ? 'opacity-60' : ''}`}
+        >
+          {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />} {uploading ? 'Zpracovávám účtenku…' : 'Vyfotit účtenku'}
+        </button>
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading}
-          className={`flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground ${uploading ? 'opacity-60' : ''}`}
+          className={`flex min-h-11 items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium hover:bg-muted ${uploading ? 'opacity-60' : ''}`}
         >
-          <Camera className="h-4 w-4" /> {uploading ? 'Zpracovávám účtenku…' : 'Vyfotit nebo nahrát účtenku'}
+          <ImageUp className="h-4 w-4 text-primary" /> Nahrát z galerie nebo PDF
         </button>
-        <span className="text-xs text-muted-foreground">JPG, PNG, WebP nebo PDF · nebo zadejte položky ručně níže</span>
       </div>
+      <p className="mt-2 text-xs text-muted-foreground">Z galerie JPG, PNG, WebP nebo PDF · nebo zadejte položky ručně níže</p>
       {progress && <ReceiptProgressSteps progress={progress} />}
       {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
       <div className="mt-4 flex flex-wrap gap-2">

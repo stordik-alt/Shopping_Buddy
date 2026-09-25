@@ -5,13 +5,18 @@ import { getHouseholdData, getProductPrices, getStandaloneOffers, getStores } fr
 import { listPinsForHousehold } from '@/lib/db/shopping-plan'
 import { getMemberIdForUser, getMemberStoreSelection, getStoreChains } from '@/lib/db/member-store-preferences'
 import { EMPTY_STORE_SELECTION } from '@/lib/nearby-stores'
+import { AI_ASSISTANT_ENABLED } from '@/lib/features'
+import { tabFromSlug } from '@/lib/tab-url'
 import { todayInPrague } from '@/lib/today'
 
 export const dynamic = 'force-dynamic'
 
-export default async function Page() {
+export default async function Page({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const { data: session } = await auth.getSession()
   if (!session?.user) redirect('/intro')
+  // The section to open (`/?tab=nakup`, lib/tab-url.ts); unknown values open Domů.
+  const tabParam = (await searchParams).tab
+  const initialTab = tabFromSlug(typeof tabParam === 'string' ? tabParam : null, { aiEnabled: AI_ASSISTANT_ENABLED })
 
   const [data, stores, standaloneOffers, storeChains] = await Promise.all([
     getHouseholdData(session.user.id, session.user.name, session.user.email),
@@ -26,5 +31,5 @@ export default async function Page() {
   const memberId = await getMemberIdForUser(session.user.id)
   const storeSelection = memberId ? await getMemberStoreSelection(memberId) : EMPTY_STORE_SELECTION
   const pins = await listPinsForHousehold(data.household.id)
-  return <AppShell initialData={data} userName={session.user.name} stores={stores} productPrices={productPrices} standaloneOffers={standaloneOffers} storeChains={storeChains} initialStoreSelection={storeSelection} initialPins={pins} today={todayInPrague()} />
+  return <AppShell initialData={data} userName={session.user.name} stores={stores} productPrices={productPrices} standaloneOffers={standaloneOffers} storeChains={storeChains} initialStoreSelection={storeSelection} initialPins={pins} today={todayInPrague()} initialTab={initialTab} />
 }

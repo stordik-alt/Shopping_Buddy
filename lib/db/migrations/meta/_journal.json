@@ -225,6 +225,13 @@
       "when": 1790365372515,
       "tag": "0031_push_subscriptions",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1790367449677,
+      "tag": "0032_declare_existing_indexes",
+      "breakpoints": true
     }
   ]
 }

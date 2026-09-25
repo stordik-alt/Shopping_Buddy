@@ -98,7 +98,9 @@ export const invitations = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
     email: text('email').notNull(),
-    token: text('token').notNull().unique(),
+    // The constraint is named `invitations_token_key` in the database (created by hand before the
+    // Drizzle baseline, migration 0002); declared under that name so the schema matches it.
+    token: text('token').notNull().unique('invitations_token_key'),
     status: invitationStatusEnum('status').notNull().default('pending'),
     invitedByMemberId: uuid('invited_by_member_id').references(() => householdMembers.id, { onDelete: 'set null' }),
     expiresAt: timestamp('expires_at').notNull(),
@@ -226,6 +228,15 @@ export const storeLocations = pgTable('store_locations', {
   uniqueIndex('store_locations_id_store_id_unique').on(table.id, table.storeId),
   // One branch per source record: the idempotency key of the store import (CLAUDE.md section 34).
   uniqueIndex('store_locations_source_external_id_unique').on(table.source, table.externalId).where(sql`${table.externalId} IS NOT NULL`),
+  // One branch per chain and address (migration 0011): repeated receipt imports of the same shop
+  // converge on one branch instead of creating duplicates (app/actions/receipts.ts,
+  // findOrCreateStoreLocation(), relies on it when two imports race). The expressions mirror the
+  // application's normalization: trimmed, whitespace collapsed, case-insensitive.
+  uniqueIndex('store_locations_store_address_city_unique_idx').on(
+    table.storeId,
+    sql`lower(regexp_replace(trim(${table.address}), '\\s+', ' ', 'g'))`,
+    sql`lower(regexp_replace(trim(${table.city}), '\\s+', ' ', 'g'))`,
+  ),
   check('store_locations_source_pair', sql`(${table.source} IS NULL) = (${table.externalId} IS NULL)`),
 ])
 
@@ -291,6 +302,10 @@ export const prices = pgTable('prices', {
   // a repeat ingestion run the same day refreshes that row instead of adding a duplicate (see
   // `recordOfficialPrice()`). Partial, so receipt-based observations — where several purchases of
   // the same product on one day are legitimate separate observations — are unaffected.
+  // The current price of a product in one context (product, chain, branch, scope) is its latest
+  // observation (migration 0010): these serve the lookups of that latest row and a branch's history.
+  index('prices_product_context_observed_idx').on(table.productId, table.storeId, table.storeLocationId, table.priceScope, table.observedAt),
+  index('prices_store_location_observed_idx').on(table.storeLocationId, table.observedAt),
   uniqueIndex('prices_official_daily_unique')
     .on(table.productId, table.storeId, table.priceScope, table.sourceType, table.sourceReference, table.observedAt)
     .where(sql`${table.sourceType} = 'OFFICIAL' AND ${table.sourceReference} IS NOT NULL`),

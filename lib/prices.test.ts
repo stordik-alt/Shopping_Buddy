@@ -5,6 +5,8 @@ import {
   cheapestPossibleTotal,
   compareStoreTotals,
   comparePrices,
+  dealDiscount,
+  dealsForList,
   effectivePrice,
   isDealActive,
   isHistoricLow,
@@ -347,5 +349,38 @@ describe('cheapestPossibleTotal', () => {
   it('is never more than the cheapest single-store total, since it is a theoretical floor', () => {
     const totals = compareStoreTotals(items, products)
     expect(cheapestPossibleTotal(items, products)).toBeLessThanOrEqual(totals[0].total)
+  })
+})
+
+describe('dealDiscount', () => {
+  it('is the fraction off the regular price, and 0 without a deal or a regular price', () => {
+    expect(dealDiscount(price({ regularPrice: 40, dealPrice: 30 }))).toBeCloseTo(0.25)
+    expect(dealDiscount(price({ regularPrice: 40 }))).toBe(0)
+    expect(dealDiscount(price({ regularPrice: 0, dealPrice: 5 }))).toBe(0)
+  })
+})
+
+describe('dealsForList', () => {
+  const deal = (productName: string, regularPrice: number, dealPrice: number) => ({
+    product: { productName, category: 'Potraviny' as const, prices: [] },
+    price: price({ regularPrice, dealPrice }),
+  })
+  const deals = [deal('Máslo', 50, 45), deal('Mléko', 30, 20), deal('Chléb', 40, 20), deal('Káva', 200, 150), deal('Banány', 30, 27)]
+
+  it("puts the deals for listed products first, in the list's order", () => {
+    const { onList } = dealsForList(deals, ['banány', '  MLÉKO ', 'Rohlíky'])
+    expect(onList.map((d) => d.product.productName)).toEqual(['Banány', 'Mléko'])
+  })
+
+  it('orders the rest by discount, biggest first, then by name', () => {
+    const { others } = dealsForList(deals, ['Banány', 'Mléko'])
+    // Chléb 50 %, Káva 25 %, Máslo 10 %.
+    expect(others.map((d) => d.product.productName)).toEqual(['Chléb', 'Káva', 'Máslo'])
+  })
+
+  it('has nothing on the list when the list is empty, and keeps every deal', () => {
+    const { onList, others } = dealsForList(deals, [])
+    expect(onList).toEqual([])
+    expect(others).toHaveLength(deals.length)
   })
 })

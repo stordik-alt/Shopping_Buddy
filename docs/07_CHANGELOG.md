@@ -1,5 +1,11 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Home: what matters fits on the first screen)
+- **Problem (measured at 375 × 812):** the top of Domů took 719 px — a large budget card and four large quick-action tiles — so the shopping list was cut off and the deals started at 886 px, below the first screen. "Akce pro váš seznam" listed every deal, not the ones for the list, in no particular order, all at once.
+- **What:** on Domů the budget card is compact (`BudgetHero compact`; the Rozpočet tab keeps the large one, same numbers and 80 %/100 % warnings) and the quick actions are one row of four icons with short labels ("Najít akce" is now "Obchody", since it opens the store directory). The top block is 457 px; the list is fully visible and the deals start at 624 px.
+- **Deals card:** titled "Akce" with a subtitle saying how many are for items on the list (or that none are). `dealsForList()` (`lib/prices.ts`, pure) puts deals for listed products first in list order, outlined, then the rest by discount and name. Three cards are shown; "Zobrazit všechny akce (+N)" expands the rest, including offers without a regular price.
+- **Tests:** `dealDiscount()` and `dealsForList()` (list order, discount order, empty list). Checked in a real browser at 375 px and 1366 px with mock data: collapsed and expanded, no horizontal overflow.
+
 ## 2026-09-25 (Intro: animated Buddy with a shopping cart and money)
 - **Problem:** the intro showed no mascot at all — `public/buddy-intro/robot.webp` (the "approved visual" from 2026-09-24) is not an image: its 15 kB are random bytes with no image header, already corrupted in the commit that added it, so the browser rendered nothing and the screen was an empty dark glow above the title.
 - **What:** `components/auth/buddy-scene.tsx` draws Buddy as inline SVG (robot in a green cap, visor face, chest light) with a ~2.5 s animation in `buddy-scene.module.css`: Buddy hops in, a cart with groceries rolls up to his hand, three coins and a 100 Kč note drop into it, sparkles, he waves; then he floats, blinks and his chest light pulses. The title appears at 1.6 s and the button at 2.1 s so the scene is seen first. With reduced motion the finished scene is shown without movement. No image download; the broken file is removed. The skip-intro option and sign-in routing are unchanged.

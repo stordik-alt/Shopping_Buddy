@@ -28,6 +28,11 @@ export type IngestOptions = {
   /** The date (`YYYY-MM-DD`) stamped on the observed prices. Defaults to today's real date in
    *  Czech time — see lib/ingestion/today.ts for why this is not the app's fixed demo date. */
   today?: string
+  /** Passed to the connector's fetch (see FetchOptions.fullCatalog); only the backfill sets it. */
+  fullCatalog?: boolean
+  /** Called after each product with how many of the fetched products are done — progress for the
+   *  long-running backfill script. */
+  onProgress?: (done: number, total: number) => void
 }
 
 /** Fetches + normalizes + validates + persists real prices for one store connector — the
@@ -41,7 +46,7 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
   const now = options.now ?? Date.now
   const today = options.today ?? ingestionDate()
 
-  const raws = await connector.fetchProducts(limit, { deadline: options.deadline })
+  const raws = await connector.fetchProducts(limit, options.fullCatalog ? { deadline: options.deadline, fullCatalog: true } : { deadline: options.deadline })
   result.processed = raws.length
 
   // Looked up once per run, not per product: each lookup is a database round trip, and per-product
@@ -56,7 +61,8 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
   // at the end.
   const alreadyLinked: string[] = []
 
-  for (const raw of raws) {
+  for (const [index, raw] of raws.entries()) {
+    if (index > 0) options.onProgress?.(index, raws.length)
     if (options.deadline != null && now() >= options.deadline) {
       result.truncated = true
       break
@@ -132,6 +138,8 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
       result.errors.push(`${connector.rawId(raw)}: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
+
+  if (!result.truncated) options.onProgress?.(raws.length, raws.length)
 
   // Bookkeeping only — the prices are already written, so a failure here is reported, not thrown.
   try {

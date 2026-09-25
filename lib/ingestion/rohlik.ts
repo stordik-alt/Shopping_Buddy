@@ -20,6 +20,10 @@ const REQUEST_PAUSE_MS = 250
 /** Ids per details/prices request — well inside what the endpoints accept (60 was tried) and keeps the URL short. */
 const BATCH_SIZE = 50
 const MAX_CATEGORY_PAGE_SIZE = 200
+/** Safety stop for the full-catalog backfill: the API reports no total, so a category ends at its
+ *  first short (normally empty) page — this cap only guards against a response that never shrinks.
+ *  The largest category held ~1,200 products on 2026-09-25; 100 pages is 20,000. */
+const MAX_FULL_CATALOG_PAGES = 100
 
 // Rohlík's top-level *food and drink* categories, taken from its own sitemap_base.xml (2026-09-24).
 // A top-level category lists the products of all its sub-categories. Left out on purpose: drogerie,
@@ -120,7 +124,8 @@ export async function fetchRohlikProducts(ids: number[], pauseMs: number = REQUE
 
 /** Fetches up to `limit` products, spread evenly over the food categories (the first page of each, in
  *  the site's own order) so the batch is diverse instead of one aisle. Deterministic for a given site
- *  state; a product keeps the same external id, so its price history stays continuous. */
+ *  state; a product keeps the same external id, so its price history stays continuous.
+ *  With `fullCatalog` (backfill) every category is paged through to its end instead. */
 export async function fetchRohlikCatalog(limit: number, options: FetchOptions & { pauseMs?: number } = {}): Promise<RohlikRawProduct[]> {
   if (limit <= 0) return []
   const pauseMs = options.pauseMs ?? REQUEST_PAUSE_MS
@@ -131,13 +136,19 @@ export async function fetchRohlikCatalog(limit: number, options: FetchOptions & 
   const seen = new Set<number>()
   for (const categoryId of ROHLIK_GROCERY_CATEGORY_IDS) {
     if (outOfTime()) break
-    for (const id of await fetchRohlikCategoryProductIds(categoryId, 0, perCategory)) {
-      // A product can be listed under two top-level categories; keep it once.
-      if (seen.has(id)) continue
-      seen.add(id)
-      ids.push(id)
+    const pageSize = options.fullCatalog ? MAX_CATEGORY_PAGE_SIZE : perCategory
+    for (let page = 0; page < MAX_FULL_CATALOG_PAGES; page++) {
+      const pageIds = await fetchRohlikCategoryProductIds(categoryId, page, pageSize)
+      for (const id of pageIds) {
+        // A product can be listed under two top-level categories; keep it once.
+        if (seen.has(id)) continue
+        seen.add(id)
+        ids.push(id)
+      }
+      await sleep(pauseMs)
+      // The daily batch reads one page per category; a short page is the category's last.
+      if (!options.fullCatalog || pageIds.length < pageSize || outOfTime()) break
     }
-    await sleep(pauseMs)
   }
 
   const products: RohlikRawProduct[] = []

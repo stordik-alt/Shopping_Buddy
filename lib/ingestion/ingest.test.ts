@@ -284,6 +284,20 @@ describe('ingestPrices time budget', () => {
     expect(c.fetchProducts).toHaveBeenCalledWith(10, { deadline: 99_999 })
   })
 
+  it('asks the connector for the whole catalog only when the backfill says so', async () => {
+    const c = connector([{ id: 'a', product: product('a') }])
+    await ingestPrices(c, 10, { fullCatalog: true })
+    expect(c.fetchProducts).toHaveBeenCalledWith(10, { deadline: undefined, fullCatalog: true })
+  })
+
+  it('reports progress per product, ending with everything done', async () => {
+    const progress: [number, number][] = []
+    await ingestPrices(connector([{ id: 'a', product: product('a') }, { id: 'b', product: product('b') }]), 10, {
+      onProgress: (done, total) => progress.push([done, total]),
+    })
+    expect(progress).toEqual([[1, 2], [2, 2]])
+  })
+
   it('is not truncated when it finishes within the budget', async () => {
     const result = await ingestPrices(connector([{ id: 'a', product: product('a') }]), 10, { deadline: 1e15 })
     expect(result.truncated).toBe(false)

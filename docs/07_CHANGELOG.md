@@ -1,5 +1,11 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Full-catalog price backfill)
+- **Why:** the daily cron reads the same small batch per store every day (a few hundred products), so the catalog would never grow past it, however often the cron ran.
+- **What:** `pnpm db:backfill-prices <stores…|all> [--apply] [--limit N]` (`scripts/backfill-prices.ts`) reads each store's whole catalog on a developer machine, without the 300 s function limit, through the cron's own connectors, validation and persistence. New `FetchOptions.fullCatalog`: dm reads every product instead of 1 in 20, Rohlík pages every category to its end. `ingestPrices()` gained `onProgress`. Dry run by default; `--apply` writes. The daily cron is unchanged.
+- **Live dry run (no writes):** Billa 9,423 products, Rohlík 11,550, Košík 13,112, Lidl 238, Penny 38; dm checked on 500.
+- **Tests:** Rohlík full-catalog paging vs. one page for the daily batch, dm selection without sampling, `fullCatalog` pass-through and progress reporting.
+
 ## 2026-09-25 (Buddy on sign-in and as the app logo)
 - **Sign-in:** above the form, Buddy's bust (shoulders, neck, capped head — cropped from the intro artwork to `public/brand/buddy-bust.webp`) in a round navy portrait. A lightbulb pops up by his cap, flickers on and flashes rays while he gives a small "aha" nod, as if he just had a great idea; then it glows softly. `components/auth/buddy-idea.tsx`; reduced motion shows the lit bulb at once.
 - **Logo:** `Brand` (sidebar, mobile header, sign-up, invitation) shows Buddy's head (`public/brand/buddy-avatar.webp`) instead of the shopping-basket icon.

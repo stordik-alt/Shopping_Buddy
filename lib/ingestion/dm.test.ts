@@ -106,6 +106,10 @@ describe('parseDmSitemap / selectSampleIds', () => {
     expect(selectSampleIds(ids, 0)).toEqual([])
   })
 
+  it('selects every id with modulus 1 (the full-catalog backfill)', () => {
+    expect(selectSampleIds([7, 3, 3, SAMPLE_MODULUS], 10, 1)).toEqual([3, 7, SAMPLE_MODULUS])
+  })
+
   it('does not depend on where an id sits in the sitemap', () => {
     const a = [SAMPLE_MODULUS, 5, SAMPLE_MODULUS * 2]
     const b = [9, SAMPLE_MODULUS * 2, 11, SAMPLE_MODULUS]

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { type FormEvent, Suspense, useState } from 'react'
-import { Brand } from '@/components/shared/brand'
+import { BuddyIdea } from '@/components/auth/buddy-idea'
 import { authClient } from '@/lib/auth/client'
 
 export default function SignInPage() {
@@ -44,8 +44,8 @@ function SignInForm() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
       <div className="w-full max-w-sm">
-        <div className="mb-8 flex justify-center">
-          <Brand />
+        <div className="mb-7 flex justify-center">
+          <BuddyIdea />
         </div>
         <div className="rounded-3xl border border-border bg-card p-6">
           <h1 className="text-xl font-semibold tracking-tight">Přihlásit se</h1>

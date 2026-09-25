@@ -1,0 +1,163 @@
+/* Sequence: Buddy's portrait appears (0–0.5 s), the bulb pops up and flickers on (0.55–1.3 s)
+   while he gives a small "aha" nod, rays flash out; afterwards the bulb glows softly. */
+.scene {
+  position: relative;
+  width: 9.5rem;
+  height: 9.5rem;
+}
+
+/* Navy is the artwork's own background (#001123), so the crop edges disappear into the circle. */
+.portrait {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 70%, #0d5a2c 0%, #001123 62%);
+  box-shadow:
+    0 0 0 3px var(--background),
+    0 0 0 5px color-mix(in oklab, var(--primary) 55%, transparent),
+    0 0.75rem 2rem rgba(0, 17, 35, .25);
+  animation: portraitIn 500ms cubic-bezier(.2, .9, .3, 1.2) both;
+}
+
+.portrait img {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 106%;
+  max-width: none;
+  height: auto;
+  transform: translateX(-50%);
+  transform-origin: 50% 100%;
+  animation: ahaNod 700ms ease-in-out 0.6s both;
+}
+
+.idea {
+  position: absolute;
+  top: -1.1rem;
+  right: -1.3rem;
+  width: 3.75rem;
+  height: 3.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 228, 92, .55) 0%, rgba(255, 228, 92, 0) 70%);
+  animation:
+    ideaPop 550ms cubic-bezier(.2, .9, .3, 1.5) 0.55s both,
+    ideaGlow 2.4s ease-in-out 1.6s infinite alternate;
+}
+
+.bulb {
+  position: relative;
+  width: 2.6rem;
+  height: 2.6rem;
+  color: #8a6400;
+  fill: #ffe45c;
+  filter: drop-shadow(0 0 0.4rem rgba(255, 214, 51, .9));
+  animation: bulbFlicker 600ms linear 0.75s both;
+}
+
+/* Five short rays fanned over the top of the bulb, flashing out once as it lights up. */
+.rays span {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0.22rem;
+  height: 0.7rem;
+  margin: -0.35rem 0 0 -0.11rem;
+  border-radius: 999px;
+  background: #ffd633;
+  transform: rotate(calc(-80deg + var(--ray) * 40deg)) translateY(-2.3rem);
+  opacity: 0;
+  animation: rayFlash 900ms ease-out 1s both;
+}
+
+@keyframes portraitIn {
+  from {
+    opacity: 0;
+    transform: scale(.85);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ahaNod {
+  0%,
+  100% {
+    transform: translateX(-50%);
+  }
+  35% {
+    transform: translateX(-50%) translateY(-4%) rotate(-3deg);
+  }
+  65% {
+    transform: translateX(-50%) translateY(-1%) rotate(1.5deg);
+  }
+}
+
+@keyframes ideaPop {
+  from {
+    opacity: 0;
+    transform: translate(-0.6rem, 0.8rem) scale(.2);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ideaGlow {
+  from {
+    filter: brightness(1);
+  }
+  to {
+    filter: brightness(1.2) drop-shadow(0 0 0.5rem rgba(255, 214, 51, .6));
+  }
+}
+
+/* A switched-off bulb catching on: two quick flickers, then fully lit. */
+@keyframes bulbFlicker {
+  0% {
+    fill: #e8e2c4;
+    filter: none;
+  }
+  20% {
+    fill: #ffe45c;
+    filter: drop-shadow(0 0 0.4rem rgba(255, 214, 51, .9));
+  }
+  35% {
+    fill: #e8e2c4;
+    filter: none;
+  }
+  55%,
+  100% {
+    fill: #ffe45c;
+    filter: drop-shadow(0 0 0.4rem rgba(255, 214, 51, .9));
+  }
+}
+
+@keyframes rayFlash {
+  0% {
+    opacity: 0;
+    transform: rotate(calc(-80deg + var(--ray) * 40deg)) translateY(-1.6rem) scaleY(.4);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(calc(-80deg + var(--ray) * 40deg)) translateY(-2.7rem) scaleY(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portrait,
+  .portrait img,
+  .idea,
+  .bulb,
+  .rays span {
+    animation: none;
+  }
+}

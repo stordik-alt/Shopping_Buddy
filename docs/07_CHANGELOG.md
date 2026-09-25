@@ -1,5 +1,9 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Intro: Buddy's live entrance)
+- **What:** the intro plays a ~2 s entrance on the owner's artwork: Buddy rises in (blurred and bright at first) and lands with a small bounce, two green rings flash on the floor under his feet and the glow behind his chest flares up; the "Buddy" letters pop in one by one with a glow flash, then the tagline and the button. Afterwards Buddy floats gently, the glow breathes, sparks drift up and the button glows softly every few seconds. The effects are placed on the picture itself via container query units, so they stay aligned on any screen size. With reduced motion the final scene is shown at once, without rings, sparks or the recurring glow.
+- **Checked:** frames at 0.2–4 s in a real browser at 390 × 844, and with reduced motion; no overflow; typecheck.
+
 ## 2026-09-25 (Intro: owner's Buddy artwork)
 - **What:** the intro now follows the owner's supplied design: the rendered Buddy illustration (robot in a cap with a basket of groceries and banknotes, green glow on navy) above the "Buddy" wordmark, tagline and green "Pokračovat na přihlášení" button. The artwork is cropped from the design to `public/intro/buddy-hero.webp` (1080 × 1340, 69 kB) — under `/intro/` so `proxy.ts` serves it to signed-out visitors. Title, tagline and button stay real text (Montserrat), with colours sampled from the artwork so the picture blends into the page. The image shrinks on short screens so the button always fits. The SVG scene (`buddy-scene.tsx`) is removed. The skip-intro checkbox and routing are unchanged; the checkbox now sits under the button.
 - **Checked:** in a real browser at 360 × 640, 390 × 844, 430 × 932 and 1280 × 800 — no overflow, tagline on one line; typecheck.

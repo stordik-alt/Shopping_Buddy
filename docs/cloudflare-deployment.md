@@ -183,3 +183,8 @@ Options to restore preparation, to be decided after measuring accuracy on real r
 `cp .dev.vars.example .dev.vars`, fill in test values, then `pnpm cf:build && pnpm cf:preview`
 (http://localhost:8787). Add `--test-scheduled` to `wrangler dev` to fire crons via
 `/__scheduled?cron=<expression>`.
+
+
+## Data cache (added 2026-09-25)
+
+`lib/db/cached-reads.ts` caches the page's global reads for 15 minutes with `unstable_cache`, because Neon's free network transfer ran out. On Vercel this uses the platform's data cache. The prepared Cloudflare build uses the read-only static-assets incremental cache (`open-next.config.ts`), so there the reads run uncached. That is still correct, but it transfers more from the database. Before relying on Cloudflare hosting, configure a writable incremental cache (R2 or KV, see OpenNext for Cloudflare's caching docs).

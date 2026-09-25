@@ -39,7 +39,8 @@ export async function addShoppingItemAction(
   // productId link (shoppingListItems.productId existed in the schema but was never populated —
   // every consumer instead matched on the raw name string). Falls back to the typed name verbatim
   // when nothing matches, same as before.
-  const catalog = await getProductCatalog()
+  // Only the candidates for this one name, not the whole ~47,000-product catalog.
+  const catalog = await getProductCatalog([name])
   const matchedProduct = matchProductByName(catalog, name)
   const canonicalName = matchedProduct?.name ?? name
 

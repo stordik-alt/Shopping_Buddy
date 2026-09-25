@@ -1,3 +1,4 @@
+import { describeError } from '@/lib/errors'
 import { ingestPrices, PRICE_SOURCES } from '@/lib/ingestion/ingest'
 import { billaConnector } from '@/lib/ingestion/billa'
 import { dmConnector } from '@/lib/ingestion/dm'
@@ -109,7 +110,7 @@ async function main() {
     } catch (err) {
       // One store failing (site down, changed API) must not stop the others — same rule as the cron.
       failed = true
-      console.error(`  ${source} failed:`, err instanceof Error ? err.message : err)
+      console.error(`  ${source} failed:`, describeError(err))
     }
     console.log(`  ${minutes(Date.now() - startedAt)}`)
   }
@@ -117,6 +118,6 @@ async function main() {
 }
 
 main().then(() => process.exit(process.exitCode ?? 0)).catch((err) => {
-  console.error(err instanceof Error ? err.message : err)
+  console.error(describeError(err))
   process.exit(1)
 })

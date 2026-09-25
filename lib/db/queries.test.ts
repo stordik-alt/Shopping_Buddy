@@ -3,7 +3,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { splitCollapsedExternalProducts } from '@/lib/db/split-collapsed-products'
-import { findProductIdByExternalRef, getCanonicalStoreLocationId, getHouseholdData, getProductPrices, getStandaloneOffers, getStoreByChain, getStoreIdByChain, getStores, joinHouseholdViaInvitation, loadExternalProductContext, loadLatestOfficialPrices, recordOfficialPrice, resolveOrCreateProductFromExternal, touchExternalRefs, upsertActiveDeal } from '@/lib/db/queries'
+import { findProductIdByExternalRef, getCanonicalStoreLocationId, getProductCatalog, getHouseholdData, getProductPrices, getStandaloneOffers, getStoreByChain, getStoreIdByChain, getStores, joinHouseholdViaInvitation, loadExternalProductContext, loadLatestOfficialPrices, recordOfficialPrice, resolveOrCreateProductFromExternal, touchExternalRefs, upsertActiveDeal } from '@/lib/db/queries'
 
 // Regression coverage for the "household events" notification work (docs/07_CHANGELOG.md,
 // 2026-09-21) and for the join-via-invitation logic itself, which docs/01_CURRENT_STATE.md
@@ -204,6 +204,37 @@ describe('resolveOrCreateProductFromExternal keeps a source\'s SKUs apart', () =
       expect(await findProductIdByExternalRef('penny', skuB)).toBe(idB)
     } finally {
       await cleanup([idA, idB])
+    }
+  })
+
+  it('keeps two SKUs of one name apart when the run loads only its own products (scoped context)', async () => {
+    const name = `__test_scoped_${crypto.randomUUID()}`
+    const skuA = `__test_erp_a_${crypto.randomUUID()}`
+    const skuB = `__test_erp_b_${crypto.randomUUID()}`
+    const make = (externalId: string) => ({ externalId, source: 'penny' as const, name, category: 'Potraviny' as const, unit: 'ks' as const })
+    const idA = await resolveOrCreateProductFromExternal(make(skuA), await loadExternalProductContext('penny', { externalIds: [skuA], names: [name] }))
+    // A later run with only SKU B: the name candidate (A's product) and its ref are loaded, so B does not merge into it.
+    const scoped = await loadExternalProductContext('penny', { externalIds: [skuB], names: [name] })
+    expect(scoped.catalog.map((product) => product.id)).toContain(idA)
+    const idB = await resolveOrCreateProductFromExternal(make(skuB), scoped)
+    try {
+      expect(idB).not.toBe(idA)
+      expect(await resolveOrCreateProductFromExternal(make(skuA), await loadExternalProductContext('penny', { externalIds: [skuA], names: [name] }))).toBe(idA)
+    } finally {
+      await cleanup([idA, idB])
+    }
+  })
+
+  it('getProductCatalog(names) returns the products those names match, ignoring case, accents and spaces', async () => {
+    const tag = crypto.randomUUID().slice(0, 8)
+    const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
+    const [product] = await db.insert(schema.products).values({ name: `__Test Mléko ${tag}`, categoryId: category!.id }).returning()
+    try {
+      expect((await getProductCatalog([`  __test mléko ${tag} `])).map((entry) => entry.id)).toEqual([product.id])
+      expect((await getProductCatalog([`__TEST MLEKO ${tag}`])).map((entry) => entry.id)).toEqual([product.id]) // candidate; the caller's exact match decides
+      expect(await getProductCatalog([])).toEqual([])
+    } finally {
+      await cleanup([product.id])
     }
   })
 

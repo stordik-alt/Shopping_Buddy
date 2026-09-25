@@ -1,3 +1,4 @@
+import { describeError } from '@/lib/errors'
 import { importOsmStores, syncAlbertStoreFormats } from '@/lib/db/store-directory'
 
 // Imports the store chains' branches from OpenStreetMap (lib/db/store-directory.ts). The same
@@ -26,6 +27,6 @@ async function main() {
 }
 
 main().then(() => process.exit(0)).catch((err) => {
-  console.error(err instanceof Error ? err.message : err)
+  console.error(describeError(err))
   process.exit(1)
 })

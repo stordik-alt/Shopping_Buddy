@@ -83,7 +83,6 @@ export type Store = {
   /** Promotions running today at the branch's whole chain — retailers publish them chain-wide, and
    *  whether each branch honours them is not known, so the UI says "v řetězci". */
   dealsCount: number
-  availableProducts: string[]
   color: string
 }
 

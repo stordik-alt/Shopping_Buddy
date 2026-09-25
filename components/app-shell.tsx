@@ -181,8 +181,15 @@ export function AppShell({
     saveThemeChoice(safeLocalStorage(), next ? 'dark' : 'light')
   }
 
+  // Picks up what other household members changed (lightweight polling, no realtime — CLAUDE.md
+  // section 10). Every refresh re-renders the page on the server, so it runs only while the app is
+  // on screen and once a minute: the earlier 20-second refresh, running even in a background tab,
+  // was the main part of the traffic that used up Neon's monthly network transfer. Coming back to
+  // the app refreshes at once.
   useEffect(() => {
-    const interval = setInterval(() => router.refresh(), 20_000)
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') router.refresh()
+    }, 60_000)
     const onFocus = () => {
       if (document.visibilityState === 'visible') router.refresh()
     }

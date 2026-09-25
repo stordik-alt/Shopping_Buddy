@@ -69,7 +69,10 @@ export const initialHousehold: Household = {
   restrictions: ['Bez laktózy pro Tomáše'],
 }
 
-export const stores: Store[] = [
+/** Seed fixtures: a store plus the products the seed gives it prices for (lib/db/seed.ts). */
+export type SeedStore = Store & { availableProducts: string[] }
+
+export const stores: SeedStore[] = [
   {
     id: 'lidl-budejovicka',
     chain: 'Lidl',

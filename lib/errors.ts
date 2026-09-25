@@ -7,3 +7,23 @@ export function userFacingError(err: unknown, fallback: string): string {
   if (!message || /Minified React error|Server Components render|digest/i.test(message)) return fallback
   return message
 }
+
+/** An error with the causes it wraps, for logs and command-line scripts: "Failed query: … ← relation
+ *  "flyer_pages" does not exist (42P01)". Drizzle wraps a database error in a generic "Failed query"
+ *  whose message says nothing about why; the reason is in `cause` (for Postgres, with its code). */
+export function describeError(err: unknown): string {
+  const parts: string[] = []
+  let current: unknown = err
+  for (let depth = 0; current != null && depth < 5; depth++) {
+    if (current instanceof Error) {
+      const rawCode: unknown = (current as Error & { code?: unknown }).code
+      const code = typeof rawCode === 'string' ? ` (${rawCode})` : ''
+      parts.push(`${current.message}${code}`)
+      current = current.cause
+    } else {
+      parts.push(String(current))
+      break
+    }
+  }
+  return parts.join(' ← ')
+}

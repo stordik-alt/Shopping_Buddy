@@ -1,5 +1,33 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Database network transfer: Neon free quota exhausted)
+- **What happened:** Neon started answering every query with HTTP 402 "exceeded the quota". The owner's console showed network transfer at 4.93 GB of the free plan's 5 GB/month, so the app and the scripts could not read the database.
+- **Causes found in the code:**
+  1. **The page refresh:** the app re-rendered the page every 20 s, even in a background tab. Every render re-read global data:
+     - `getStores()` loaded all ~1,800 branches with every price of every branch and its whole product row, only to list product names in the branch detail.
+     - `getProductPrices()` loaded full related rows (store, branch and the branch's store again) for every price and deal of every product on promotion.
+  2. **Every ingestion run (~22 a day):** loaded the whole catalog (~47,000 products), every external ref of the source and every latest price of the store, although a run writes one part (~2,000 products). That is several MB per run.
+  3. **Every "add to list" and receipt:** loaded the whole catalog to match one or a few names.
+- **Fixes:**
+  - Branches load without prices; the branch detail loads its product names on opening (`storeProductNamesAction`, at most 60).
+  - `getProductPrices()` selects only the columns it maps.
+  - Global page data (branches, chains, prices/promotions, standalone offers) is cached for 15 minutes (`lib/db/cached-reads.ts`, `unstable_cache`).
+  - The refresh runs once a minute and only while the app is visible.
+  - Ingestion loads only the run's SKUs and names (`loadExternalProductContext(source, scope)`, `loadLatestOfficialPrices(storeId, refs)`). Name candidates come through `search_name`, and their refs are loaded too, so two SKUs of one name still stay apart.
+  - `getProductCatalog(names)` returns only the candidates for the given names; used by the list and receipt actions.
+- **Known:**
+  - Prices and promotions on the page can be up to 15 minutes old. That includes a household's own receipt prices, until the cache entry expires.
+  - The prepared Cloudflare build has a read-only incremental cache, so these reads are uncached there.
+  - Household data (full purchase history, all notifications) is still loaded on every render.
+- **Tests:**
+  - Ingestion loads only its batch, and a normalization error is still reported.
+  - DB: a scoped context keeps same-name SKUs apart; name-scoped catalog lookup.
+  - CI command: 953 passed; `next build` passes. Not measured against the live database (it answers 402).
+
+## 2026-09-25 (Scripts print the real database error)
+- **Why:** `pnpm db:albert-flyers --apply` printed only Drizzle's generic "Failed query: delete from flyer_pages …"; the actual reason (here Neon's HTTP 402 "exceeded the quota") was hidden in the error's `cause`.
+- **What:** `describeError()` in `lib/errors.ts` follows the cause chain and adds the Postgres code. It is used by `scripts/albert-flyers.ts`, `scripts/backfill-prices.ts` and `scripts/import-stores.ts`. Tested.
+
 ## 2026-09-25 (Pantry: "asi došlo" estimate, weekly check)
 - **Why:** the household forgets to remove what it used up, and daily per-category questions cost more time than they save.
 - **Estimate** (`lib/pantry-estimate.ts`, deterministic):

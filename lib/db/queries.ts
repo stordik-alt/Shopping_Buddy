@@ -34,6 +34,7 @@ import type {
 const CHAIN_COLOR: Record<string, string> = {
   Lidl: 'bg-[#d7f36b]',
   Albert: 'bg-[#f4b183]',
+  'Albert Hypermarket': 'bg-[#f4b183]',
   Kaufland: 'bg-[#b9d8f5]',
   Billa: 'bg-[#f3c0d3]',
   Penny: 'bg-[#f6d38b]',
@@ -1071,6 +1072,39 @@ export async function setIngestionCursor(source: ProductSource, nextPart: number
     .insert(schema.ingestionCursors)
     .values({ source, nextPart, updatedAt: new Date() })
     .onConflictDoUpdate({ target: schema.ingestionCursors.source, set: { nextPart, updatedAt: new Date() } })
+}
+
+export type FlyerPageRow = typeof schema.flyerPages.$inferSelect
+
+/** The pages of these flyers a model has already read (lib/ingestion/albert.ts), keyed
+ *  `flyerId|pageNumber`. */
+export async function loadFlyerPages(source: ProductSource, flyerIds: string[]): Promise<Map<string, FlyerPageRow>> {
+  if (flyerIds.length === 0) return new Map()
+  const db = getDb()
+  const rows = await db.query.flyerPages.findMany({
+    where: and(eq(schema.flyerPages.source, source), inArray(schema.flyerPages.flyerId, flyerIds)),
+  })
+  return new Map(rows.map((row) => [`${row.flyerId}|${row.pageNumber}`, row]))
+}
+
+/** Stores what a model read off one flyer page. A page already stored (two runs extracting it at
+ *  the same time) keeps its first result: the page itself does not change, and nothing is paid for
+ *  twice on a later run. */
+export async function saveFlyerPage(row: typeof schema.flyerPages.$inferInsert): Promise<void> {
+  const db = getDb()
+  await db.insert(schema.flyerPages).values(row).onConflictDoNothing()
+}
+
+/** Removes the cached pages of flyers that ended before `before` (`YYYY-MM-DD`). Their deals stay in
+ *  `deals`; the cache is only needed while a flyer is current, and is kept a while longer as the
+ *  deals' provenance. Returns how many pages were removed. */
+export async function pruneFlyerPages(source: ProductSource, before: string): Promise<number> {
+  const db = getDb()
+  const removed = await db
+    .delete(schema.flyerPages)
+    .where(and(eq(schema.flyerPages.source, source), sql`${schema.flyerPages.validUntil} < ${before}::date`))
+    .returning({ flyerId: schema.flyerPages.flyerId })
+  return removed.length
 }
 
 /** Marks external products as seen just now, in one statement per chunk instead of one per product. */

@@ -51,7 +51,10 @@
       "50 11 * * *", // /api/cron/ingest-prices/kosik/2
       "50 17 * * *", // /api/cron/ingest-prices/kosik/3
       "50 23 * * *", // /api/cron/ingest-prices/kosik/4
-      "0 6 * * *" // /api/cron/ingest-prices/globus
+      "0 6 * * *", // /api/cron/ingest-prices/globus
+      "20 6 * * *", // /api/cron/ingest-prices/albert
+      "20 12 * * *", // /api/cron/ingest-prices/albert/2
+      "20 18 * * *" // /api/cron/ingest-prices/albert/3
     ]
   },
   "env": {

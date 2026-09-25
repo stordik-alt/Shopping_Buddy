@@ -1,5 +1,11 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Buddy on sign-in and as the app logo)
+- **Sign-in:** above the form, Buddy's bust (shoulders, neck, capped head — cropped from the intro artwork to `public/brand/buddy-bust.webp`) in a round navy portrait. A lightbulb pops up by his cap, flickers on and flashes rays while he gives a small "aha" nod, as if he just had a great idea; then it glows softly. `components/auth/buddy-idea.tsx`; reduced motion shows the lit bulb at once.
+- **Logo:** `Brand` (sidebar, mobile header, sign-up, invitation) shows Buddy's head (`public/brand/buddy-avatar.webp`) instead of the shopping-basket icon.
+- **Proxy:** `brand/` is excluded from the `proxy.ts` matcher like `intro/`, so these images load for signed-out visitors (otherwise they would be redirected to sign-in).
+- **Checked:** in a real browser at 390 × 844 as a signed-out visitor — images load, animation frames 0.3–3 s, no overflow; typecheck and build.
+
 ## 2026-09-25 (Intro: Buddy's live entrance)
 - **What:** the intro plays a ~2 s entrance on the owner's artwork: Buddy rises in (blurred and bright at first) and lands with a small bounce, two green rings flash on the floor under his feet and the glow behind his chest flares up; the "Buddy" letters pop in one by one with a glow flash, then the tagline and the button. Afterwards Buddy floats gently, the glow breathes, sparks drift up and the button glows softly every few seconds. The effects are placed on the picture itself via container query units, so they stay aligned on any screen size. With reduced motion the final scene is shown at once, without rings, sparks or the recurring glow.
 - **Checked:** frames at 0.2–4 s in a real browser at 390 × 844, and with reduced motion; no overflow; typecheck.

@@ -18,6 +18,8 @@ export default function proxy(request: NextRequest) {
   return protectRoutes(request)
 }
 
+// brand/ holds the public Buddy images (public/brand) shown on the sign-in and sign-up pages
+// before anyone is signed in.
 export const config = {
-  matcher: ['/((?!api/auth|api/cron|auth/|invite/|intro/|_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!api/auth|api/cron|auth/|invite/|intro/|brand/|_next/static|_next/image|favicon.ico).*)'],
 }

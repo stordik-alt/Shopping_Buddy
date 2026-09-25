@@ -628,14 +628,35 @@ export async function upsertStoreLocationFromSource(input: {
   return created.id
 }
 
+/** Which products `getProductPrices()` loads. The client never needs the whole catalog — after the
+ *  full-catalog backfill that is ~47,000 products, which took ~25 s and ~22 MB per page render, and
+ *  the app re-renders every 20 s (app-shell's refresh). It needs the prices of what is on the
+ *  household's list (price and store comparison — matched by exact name, as `comparePrices()` does)
+ *  and of the products on promotion today (price watch, "Dnes je důležité"). */
+export type ProductPriceScope = {
+  /** Products with exactly these names. */
+  names: string[]
+  /** Also every product with a promotion running today. */
+  runningDeals: boolean
+}
+
 /** Per-product prices across stores, with any currently active deal folded in. One entry per store's latest recorded price. */
-export async function getProductPrices(): Promise<ProductPrice[]> {
+export async function getProductPrices(scope: ProductPriceScope): Promise<ProductPrice[]> {
   const db = getDb()
   const today = todayInPrague()
   // Running today: started and not yet ended. A retailer can publish next week's offers ahead of
   // time, and those must not show as today's price.
   const isRunning = (deal: { validFrom: string; validUntil: string }) => deal.validFrom <= today && deal.validUntil >= today
+  const names = [...new Set(scope.names)]
+  if (names.length === 0 && !scope.runningDeals) return []
   const products = await db.query.products.findMany({
+    where: (products, { or, inArray, sql: where }) =>
+      or(
+        names.length > 0 ? inArray(products.name, names) : undefined,
+        scope.runningDeals
+          ? where`EXISTS (SELECT 1 FROM deals d WHERE d.product_id = ${products.id} AND d.valid_from <= ${today}::date AND d.valid_until >= ${today}::date)`
+          : undefined,
+      ),
     with: {
       category: true,
       prices: {

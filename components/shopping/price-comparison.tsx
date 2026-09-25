@@ -1,6 +1,7 @@
 import { Tag } from 'lucide-react'
 import { money, shortDate } from '@/lib/format'
 import { comparePrices, effectivePrice, isDealActive, previousPrice, type ProductPrice } from '@/lib/prices'
+import { PriceSparkline } from '@/components/shopping/price-sparkline'
 
 export function PriceComparison({ productName, productPrices, today }: { productName: string; productPrices: ProductPrice[]; today: string }) {
   const product = comparePrices(productPrices, productName)
@@ -39,6 +40,7 @@ export function PriceComparison({ productName, productPrices, today }: { product
                   {old.validUntil ? `, změna ${shortDate(old.validUntil)}` : ''}
                 </p>
               )}
+              <PriceSparkline point={price} today={today} />
             </div>
           )
         })}

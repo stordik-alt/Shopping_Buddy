@@ -1035,6 +1035,8 @@ Need reliable historical tracking of promotions. Unlike prices, `deals` has no a
 
 **Update 2026-09-25, "Doplnit obvyklé".** `lib/usual-items.ts` derives, from the household's own purchase history, the items it buys regularly (≥ 3 purchase days in 120 days) that are due again (≥ 80 % of the median interval since the last purchase) and not on the list or in the pantry; `components/shopping/usual-items.tsx` shows them collapsed above the shopping list and adds them via `addShoppingItemAction`.
 
+**Update 2026-09-25, price trend and Cloudflare CI.** Each store row in the price comparison shows a step line of the store's recorded regular prices when the price has changed at least once (`lib/price-trend.ts`, `components/shopping/price-sparkline.tsx`). CI now also runs the Cloudflare Worker build and a size check (`.github/workflows/ci.yml`, job `cloudflare`).
+
 **Research status across every chain/source checked so far (2026-09-23), roughly in the order investigated** — see section 15 for the full detail behind each:
 * **Lidl** — connector built and running (daily cron pilot, see above).
 * **Albert** — fully checked (site, GraphQL API, flyer viewer, and the "Můj Albert" loyalty app). No structured price source found anywhere; the loyalty app is mobile-only and would need a real phone number for SMS verification to even investigate further. Stays blocked until a human does that step, or a completely different source (Wolt/Foodora) is checked.

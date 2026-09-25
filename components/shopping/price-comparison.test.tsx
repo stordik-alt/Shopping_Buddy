@@ -80,3 +80,31 @@ describe('PriceComparison old prices', () => {
     expect(renderToStaticMarkup(<PriceComparison today="2026-09-24" productName="Neznámé" productPrices={product([point()])} />)).toBe('')
   })
 })
+
+describe('PriceComparison price trend', () => {
+  it('draws a trend with a text summary once the price has changed', () => {
+    const html = renderToStaticMarkup(
+      <PriceComparison
+        today="2026-09-24"
+        productName="Mléko"
+        productPrices={product([
+          point({
+            priceHistory: [
+              { price: 50, recordedAt: '2026-09-10', validUntil: '2026-09-20' },
+              { price: 45, recordedAt: '2026-09-20', validUntil: null },
+            ],
+            recordedAt: '2026-09-24',
+          }),
+        ])}
+      />,
+    )
+    expect(html).toContain('data-testid="price-trend"')
+    expect(html).toContain('Nejnižší zaznamenaná cena')
+    expect(html).toContain('role="img"')
+  })
+
+  it('shows no trend for a price that never changed', () => {
+    const html = renderToStaticMarkup(<PriceComparison today="2026-09-24" productName="Mléko" productPrices={product([point()])} />)
+    expect(html).not.toContain('data-testid="price-trend"')
+  })
+})

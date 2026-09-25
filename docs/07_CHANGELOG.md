@@ -9,6 +9,7 @@
   - **Phrase tokens:** tokens with inner punctuation ("coca-cola", "1,5%") are matched as phrases.
 - **Tests:** `searchStem`, `wordRelation`, `isDirectMatch` (link words, forms, derived words, phrases, leading "S-"), ranking of direct above mention, and `pickAutoHit` never picking the soup (regression). CI command: 933 passed; `next build` passes. The DB product-search and plan tests were not run here (no test database).
 - **Not done:** synonyms ("vajíčka" / "vejce") and irregular forms; a pinned product is never second-guessed.
+- **Test setup:** a malformed `TEST_DATABASE_URL` / `TEST_DATABASE_URL_UNPOOLED` (e.g. an https URL, a pasted `psql '…'` snippet, missing user, password or database) now stops `pnpm test` with a message naming the variable and the problem, never the value. Before, it surfaced as neon()'s generic "connection string format" error inside the first DB test (`test/setup-test-database.ts`, tested).
 
 ## 2026-09-25 (Schema declares every index in the database)
 - **Why:** a full comparison of `lib/db/schema.ts` with the live database (types, defaults, NOT NULL, keys, indexes, checks, foreign keys) found no real difference, but three indexes created by hand-written migrations were missing from the schema, and the token uniqueness of invitations has a different name in production than in the schema.

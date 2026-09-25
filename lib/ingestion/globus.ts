@@ -95,6 +95,8 @@ export async function fetchGlobusOffers(limit: number, options: FetchOptions & {
 // chemistry. Everything else — textiles, shoes, toys, appliances, cables, DIY, pet supplies — is not
 // what a household shopping list is for, and is not imported.
 const FOOD_DEPARTMENTS = new Set(['61', '62', '63', '64', '73', '74', '75', '80', '82', '83'])
+// Inside fruit and vegetables (73), group 739 is cut flowers (bouquets, chrysanthemums).
+const NON_FOOD_GROUPS = ['739']
 const HOUSEHOLD_DEPARTMENTS = new Set(['65'])
 
 export function mapGlobusCategory(productGroupCode: string | null | undefined): ItemCategory | null {
@@ -102,6 +104,7 @@ export function mapGlobusCategory(productGroupCode: string | null | undefined): 
   // The fresh counter's records carry no code — as the literal string "null" in the source.
   if (!code || code === 'null' || code === 'undefined') return 'Potraviny'
   const department = code.slice(0, 2)
+  if (NON_FOOD_GROUPS.some((group) => code.startsWith(group))) return null
   if (FOOD_DEPARTMENTS.has(department)) return 'Potraviny'
   if (HOUSEHOLD_DEPARTMENTS.has(department)) return 'Domácnost'
   return null

@@ -116,6 +116,8 @@ describe('mapGlobusCategory', () => {
     expect(mapGlobusCategory('6512345')).toBe('Domácnost')
     expect(mapGlobusCategory('7012345')).toBeNull() // textiles
     expect(mapGlobusCategory('6912345')).toBeNull() // appliances
+    expect(mapGlobusCategory('7391111')).toBeNull() // cut flowers, inside fruit and vegetables
+    expect(mapGlobusCategory('7363111')).toBe('Potraviny') // vegetables
   })
 })
 

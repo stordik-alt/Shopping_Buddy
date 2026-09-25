@@ -515,6 +515,7 @@ export function AppShell({
                     onOpen={setTab}
                   />
                   <DashboardOverview
+                    today={today}
                     budget={budget}
                     spent={spent}
                     remaining={remaining}

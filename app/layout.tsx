@@ -40,7 +40,9 @@ export default function RootLayout({
       <body className="antialiased">
         {children}
         <InstallPromptCapture />
-        {process.env.NODE_ENV === 'production' && <Analytics />}
+        {/* Vercel Analytics reports to /_vercel/insights, which exists only on Vercel; the Cloudflare
+            build sets ANALYTICS_PROVIDER=none (next.config.mjs) and uses Cloudflare Web Analytics. */}
+        {process.env.NODE_ENV === 'production' && process.env.ANALYTICS_PROVIDER !== 'none' && <Analytics />}
       </body>
     </html>
   )

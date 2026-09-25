@@ -1,3 +1,7 @@
+// `BUILD_TARGET=cloudflare` is set only by the prepared Cloudflare build (`pnpm cf:build`,
+// docs/cloudflare-deployment.md). The Vercel build never sets it, so nothing below changes for Vercel.
+const cloudflareBuild = process.env.BUILD_TARGET === 'cloudflare'
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
@@ -17,6 +21,11 @@ const nextConfig = {
     // in production as minified error #441. Keep both limits aligned with the 10 MB raw-file cap.
     proxyClientMaxBodySize: '15mb',
   },
+  // sharp is a native addon that cannot be bundled into a Worker; the Cloudflare build swaps it for a
+  // stub that throws, which the receipt pipeline already treats as "send the original photo to OCR".
+  ...(cloudflareBuild ? { turbopack: { resolveAlias: { sharp: './cloudflare/shims/sharp.js' } } } : {}),
+  // Inlined at build time. Only the Cloudflare build defines it, so Vercel keeps Vercel Analytics.
+  ...(cloudflareBuild ? { env: { ANALYTICS_PROVIDER: 'none' } } : {}),
 }
 
 export default nextConfig

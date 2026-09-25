@@ -7,4 +7,8 @@ export default defineConfig({
       '@': fileURLToPath(new URL('.', import.meta.url)),
     },
   },
+  test: {
+    // Runs before every test file: routes database-backed tests to the test branch, never production.
+    setupFiles: ['./test/setup-test-database.ts'],
+  },
 })

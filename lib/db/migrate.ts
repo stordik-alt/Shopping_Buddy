@@ -20,8 +20,18 @@ function splitStatements(text: string): string[] {
   return parts.map((statement) => statement.trim()).filter(Boolean)
 }
 
+/** The database to migrate: production by default, or with `--test` (`pnpm db:migrate:test`) the
+ *  separate test branch the test suite runs against (test/setup-test-database.ts), which needs the
+ *  same migrations. */
+function connectionString(): string {
+  if (!process.argv.includes('--test')) return process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL!
+  const url = process.env.TEST_DATABASE_URL_UNPOOLED ?? process.env.TEST_DATABASE_URL
+  if (!url) throw new Error('--test needs TEST_DATABASE_URL (the test branch) in .env.local')
+  return url
+}
+
 async function main() {
-  const sql = neon(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL!)
+  const sql = neon(connectionString())
 
   await sql`CREATE TABLE IF NOT EXISTS _migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())`
   const applied = new Set((await sql`SELECT name FROM _migrations`).map((row) => row.name as string))

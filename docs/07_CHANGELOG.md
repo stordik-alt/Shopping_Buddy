@@ -1,5 +1,9 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Fix: slow sign-in and loading after the catalog backfill)
+- **Problem:** after the full-catalog backfill (~47,000 products) the home page loaded every product with every price and deal on each render (`getProductPrices()`): ~25 s and ~22 MB per render, repeated by the app's 20-second refresh. Adding a list item ran the same query.
+- **Fix:** `getProductPrices()` takes a scope (`ProductPriceScope`): the page loads the products named on the household's list plus those with a promotion running today (what price/store comparison, price watch and "Dnes je důležité" use); adding an item loads only that product. Measured on the real database: 2.2 s and 1.8 MB (3,366 products) for the page, 0.5 s for adding an item. The list's autocomplete now offers these products; the full catalog stays searchable through product search.
+- **Checked:** typecheck, build, unit tests. DB-backed tests updated to the new signature (not run: no local test database).
 ## 2026-09-25 (Albert hypermarkets as their own chain)
 - **Why:** the hypermarket flyer's deals belong to "Albert Hypermarket", but every Albert branch was under "Albert", so a household at a hypermarket saw the supermarket flyer's prices.
 - **What:** `lib/stores/albert-formats.ts` reads which stores are hypermarkets from albert.cz (store sitemap + store pages: type, GPS, address) and moves the matching branches (150 m, or same address) to "Albert Hypermarket", together with their prices, purchases and receipts in one transaction; chosen stores and deals follow by `ON UPDATE CASCADE` (migration `0030`). Weekly cron after the OSM import, and part of `pnpm db:import-stores`. The OSM import and receipt branch lookup treat both chains as one retailer (`lib/stores/chain-family.ts`), so a moved branch is not duplicated.

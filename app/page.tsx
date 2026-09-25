@@ -13,13 +13,15 @@ export default async function Page() {
   const { data: session } = await auth.getSession()
   if (!session?.user) redirect('/intro')
 
-  const [data, stores, productPrices, standaloneOffers, storeChains] = await Promise.all([
+  const [data, stores, standaloneOffers, storeChains] = await Promise.all([
     getHouseholdData(session.user.id, session.user.name, session.user.email),
     getStores(),
-    getProductPrices(),
     getStandaloneOffers(),
     getStoreChains(),
   ])
+  // Only the prices the screens use: the list's products and today's promotions (see
+  // ProductPriceScope — the whole catalog is far too large to send on every refresh).
+  const productPrices = await getProductPrices({ names: data.items.map((item) => item.name), runningDeals: true })
   // After getHouseholdData: on a first login that call is what creates the member row.
   const memberId = await getMemberIdForUser(session.user.id)
   const storeSelection = memberId ? await getMemberStoreSelection(memberId) : EMPTY_STORE_SELECTION

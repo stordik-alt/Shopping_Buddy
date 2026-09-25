@@ -3,7 +3,7 @@
 import { and, eq, ilike } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { requireHouseholdId } from '@/lib/auth/authorize'
-import { TODAY } from '@/lib/budget'
+import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { convertQuantity, currentWeekStart, isMealCooked, markMealCooked, parseSavedPlan, recipeFor, type MealType, type WeeklyMealPlan } from '@/lib/meal-plans'
@@ -11,7 +11,7 @@ import { convertQuantity, currentWeekStart, isMealCooked, markMealCooked, parseS
 /** Saves (or overwrites) the household's plan for the current week — one row per household per week. */
 export async function saveMealPlanAction(budgetLimit: number, plan: WeeklyMealPlan) {
   const householdId = await requireHouseholdId()
-  const weekStart = currentWeekStart(TODAY)
+  const weekStart = currentWeekStart(todayInPrague())
   const db = getDb()
 
   const existing = await db.query.mealPlans.findFirst({
@@ -35,7 +35,7 @@ export async function saveMealPlanAction(budgetLimit: number, plan: WeeklyMealPl
  *  invented or driven negative. One-directional: there is no "unmark" that restores the deduction. */
 export async function markMealCookedAction(day: string, mealType: MealType) {
   const householdId = await requireHouseholdId()
-  const weekStart = currentWeekStart(TODAY)
+  const weekStart = currentWeekStart(todayInPrague())
   const db = getDb()
 
   const row = await db.query.mealPlans.findFirst({ where: and(eq(schema.mealPlans.householdId, householdId), eq(schema.mealPlans.weekStart, weekStart)) })

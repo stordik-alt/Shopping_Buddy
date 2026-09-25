@@ -2,11 +2,12 @@ import { CalendarClock, Plus, TrendingDown, TrendingUp } from 'lucide-react'
 import { BudgetHero } from '@/components/budget/budget-hero'
 import { CATEGORY_BAR_COLORS } from '@/components/dashboard/spending-breakdown'
 import { Stat } from '@/components/shared/stat'
-import { categoryBreakdown, dailyAverage, monthOverMonthChange, plannedSpend, projectedMonthEnd, weeklyAverage } from '@/lib/budget'
+import { categoryBreakdown, dailyAverage, expensesInMonth, monthOverMonthChange, plannedSpend, projectedMonthEnd, weeklyAverage } from '@/lib/budget'
 import { money } from '@/lib/format'
 import type { Expense, Item } from '@/lib/types'
 
 export function BudgetOverview({
+  today,
   budget,
   onEditBudget,
   spent,
@@ -14,17 +15,21 @@ export function BudgetOverview({
   items,
   onExpense,
 }: {
+  /** The real date (`YYYY-MM-DD`); "this month" is the calendar month it falls in. */
+  today: string
   budget: number
   /** Opens the profile, where the monthly limit is actually edited. */
   onEditBudget: () => void
   spent: number
+  /** Every expense of the household — this month's are picked here, and the previous month's are
+   *  needed for the comparison. */
   expenses: Expense[]
   items: Item[]
   onExpense: () => void
 }) {
-  const breakdown = categoryBreakdown(expenses)
+  const breakdown = categoryBreakdown(expensesInMonth(expenses, today))
   const maxCategoryTotal = Math.max(...breakdown.map((entry) => entry.total), 1)
-  const comparison = monthOverMonthChange(expenses)
+  const comparison = monthOverMonthChange(expenses, today)
   const planned = plannedSpend(items)
 
   const remaining = budget - spent
@@ -42,10 +47,10 @@ export function BudgetOverview({
       </div>
       <BudgetHero budget={budget} spent={spent} remaining={remaining} onSetBudget={onEditBudget} />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
-        <Stat label="Denní průměr" value={money(dailyAverage(expenses))} icon={<CalendarClock />} />
-        <Stat label="Týdenní průměr" value={money(weeklyAverage(expenses))} icon={<CalendarClock />} />
+        <Stat label="Denní průměr" value={money(dailyAverage(expenses, today))} icon={<CalendarClock />} />
+        <Stat label="Týdenní průměr" value={money(weeklyAverage(expenses, today))} icon={<CalendarClock />} />
         <div className="col-span-2 sm:col-span-1">
-          <Stat label="Očekáváno do konce měsíce" value={money(projectedMonthEnd(expenses))} icon={<TrendingUp />} />
+          <Stat label="Očekáváno do konce měsíce" value={money(projectedMonthEnd(expenses, today))} icon={<TrendingUp />} />
         </div>
       </div>
       <div className="grid gap-4 lg:grid-cols-[1fr_0.8fr] lg:gap-6">
@@ -71,17 +76,19 @@ export function BudgetOverview({
           </div>
         </div>
         <div className="flex flex-col gap-4">
+          {comparison && (
           <div className="rounded-3xl bg-accent p-5 text-accent-foreground sm:p-6">
             {comparison.changePercent <= 0 ? <TrendingDown className="h-5 w-5" aria-hidden="true" /> : <TrendingUp className="h-5 w-5" aria-hidden="true" />}
             <p className="mt-4 text-xl font-semibold leading-snug">
               {comparison.changePercent <= 0 ? 'Utrácíte méně' : 'Utrácíte více'} než minulý měsíc.
             </p>
             <p className="mt-2 text-sm opacity-80">
-              Tento měsíc {money(comparison.current)} oproti {money(comparison.previous)} minulý měsíc (
+              Od začátku měsíce {money(comparison.current)} oproti {money(comparison.previous)} za stejné dny minulého měsíce (
               {comparison.changePercent > 0 ? '+' : ''}
               {comparison.changePercent.toFixed(0)} %).
             </p>
           </div>
+          )}
           <div className="surface p-5">
             <p className="text-sm font-semibold">Plánované vs. skutečné výdaje</p>
             <div className="mt-4 flex items-baseline justify-between gap-3 text-sm">

@@ -1,5 +1,4 @@
 import { ArrowUpRight, Check, Info, Package, Plus, Tag, TrendingDown } from 'lucide-react'
-import { TODAY } from '@/lib/budget'
 import { money, shortDate } from '@/lib/format'
 import { offerUnitPriceLabel, shortOfferDate, type StandaloneOffer } from '@/lib/offers'
 import { pantryQuantityFor } from '@/lib/pantry'
@@ -7,6 +6,7 @@ import { assessDealQuality, suggestsStockingUp, type ProductPrice } from '@/lib/
 import type { PantryItem } from '@/lib/types'
 
 export function PriceWatch({
+  today,
   onStores,
   onAddToList,
   listItemNames,
@@ -14,6 +14,8 @@ export function PriceWatch({
   offers,
   pantryItems,
 }: {
+  /** The real date (`YYYY-MM-DD`) — decides which promotions are still running. */
+  today: string
   onStores: () => void
   /** Puts the product on the household's main shopping list. */
   onAddToList: (name: string) => void
@@ -26,7 +28,7 @@ export function PriceWatch({
 }) {
   // Per docs/05_BUSINESS_RULES.md: a discount isn't automatically a good deal — check whether
   // it's actually the cheapest option for that product, not just cheaper than its own regular price.
-  const deals = assessDealQuality(productPrices, TODAY)
+  const deals = assessDealQuality(productPrices, today)
   const onList = new Set(listItemNames.map((name) => name.trim().toLowerCase()))
   const isOnList = (name: string) => onList.has(name.trim().toLowerCase())
 

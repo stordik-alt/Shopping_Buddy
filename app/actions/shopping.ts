@@ -3,7 +3,7 @@
 import { eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { requireHouseholdId } from '@/lib/auth/authorize'
-import { TODAY } from '@/lib/budget'
+import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
 import { getProductCatalog, getProductPrices } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
@@ -70,7 +70,7 @@ export async function addShoppingItemAction(
   // differences no longer silently miss a real deal.
   let notification: Notification | null = null
   const productPrices = await getProductPrices()
-  const bestDeal = assessDealQuality(productPrices, TODAY).find((assessment) => assessment.product.productName === canonicalName && assessment.isBestPrice)
+  const bestDeal = assessDealQuality(productPrices, todayInPrague()).find((assessment) => assessment.product.productName === canonicalName && assessment.isBestPrice)
   if (bestDeal) {
     const [notificationRow] = await db
       .insert(schema.notifications)

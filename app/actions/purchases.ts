@@ -3,7 +3,7 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { requireHouseholdId } from '@/lib/auth/authorize'
-import { TODAY } from '@/lib/budget'
+import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
 import { restockPantryItem } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
@@ -55,7 +55,7 @@ export async function completePurchaseAction(listId: string): Promise<{ purchase
     const total = items.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0)
     const [purchaseRow] = await db
       .insert(schema.purchases)
-      .values({ householdId, storeLocationId: items[0].preferredStoreLocationId, date: TODAY, total: total.toString() })
+      .values({ householdId, storeLocationId: items[0].preferredStoreLocationId, date: todayInPrague(), total: total.toString() })
       .returning()
     const itemRows = await db
       .insert(schema.purchaseItems)

@@ -41,6 +41,7 @@ function groupItems(items: Item[], group: GroupKey) {
 }
 
 export function ShoppingList({
+  today,
   items,
   newItem,
   setNewItem,
@@ -62,6 +63,8 @@ export function ShoppingList({
   userCoords,
   completePurchase,
 }: {
+  /** The real date (`YYYY-MM-DD`), for which promotions are still running. */
+  today: string
   items: Item[]
   newItem: string
   setNewItem: (v: string) => void
@@ -498,7 +501,7 @@ export function ShoppingList({
                       )}
                       {comparePrices(productPrices, item.name) && (
                         <div className="sm:col-span-2">
-                          <PriceComparison productName={item.name} productPrices={productPrices} />
+                          <PriceComparison productName={item.name} productPrices={productPrices} today={today} />
                         </div>
                       )}
                     </div>

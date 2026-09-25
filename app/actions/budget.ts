@@ -3,7 +3,7 @@
 import { eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { requireHouseholdId } from '@/lib/auth/authorize'
-import { crossedBudgetThreshold, totalSpent } from '@/lib/budget'
+import { crossedBudgetThreshold, expensesInMonth, totalSpent } from '@/lib/budget'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { money } from '@/lib/format'
@@ -19,7 +19,9 @@ export async function addExpenseAction(
     db.query.households.findFirst({ where: eq(schema.households.id, householdId) }),
     db.query.expenses.findMany({ where: eq(schema.expenses.householdId, householdId) }),
   ])
-  const spentBefore = totalSpent(existingExpenses.map((e) => ({ ...e, amount: Number(e.amount) })))
+  // The budget is monthly, so the 80 % / 100 % thresholds are checked against the spending of the
+  // month the new expense falls in — not every expense ever recorded.
+  const spentBefore = totalSpent(expensesInMonth(existingExpenses.map((e) => ({ ...e, amount: Number(e.amount) })), expense.date))
 
   const [row] = await db
     .insert(schema.expenses)

@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import { getProductCatalog, getProductPrices } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
-import { TODAY } from '@/lib/budget'
+import { todayInPrague } from '@/lib/today'
 import { assessDealQuality } from '@/lib/prices'
 import { addShoppingItemAction, removeShoppingItemAction, toggleShoppingItemAction } from '@/app/actions/shopping'
 
@@ -67,7 +67,7 @@ describe('addShoppingItemAction', () => {
 
   it('fires the price/deal-alert notification for a product with a genuinely best-price deal, using real seeded catalog data', async () => {
     const products = await getProductPrices()
-    const bestDeal = assessDealQuality(products, TODAY).find((assessment) => assessment.isBestPrice)
+    const bestDeal = assessDealQuality(products, todayInPrague()).find((assessment) => assessment.isBestPrice)
     if (!bestDeal) {
       // No currently-active best-price deal in the seeded catalog right now — nothing to assert
       // without inventing one, which docs/03_DATABASE.md forbids. Skip rather than fake it.
@@ -127,7 +127,7 @@ describe('addShoppingItemAction — product identity', () => {
 
   it('still fires the deal alert when the typed name differs in case/whitespace from the catalog', async () => {
     const products = await getProductPrices()
-    const bestDeal = assessDealQuality(products, TODAY).find((assessment) => assessment.isBestPrice)
+    const bestDeal = assessDealQuality(products, todayInPrague()).find((assessment) => assessment.isBestPrice)
     if (!bestDeal) return // no currently-active best-price deal to test against; see note above
     currentHouseholdId = householdId
     const { notification } = await addShoppingItemAction(listId, `  ${bestDeal.product.productName.toUpperCase()}  `)

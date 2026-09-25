@@ -52,7 +52,7 @@ import { MobileNav } from '@/components/shared/mobile-nav'
 import { Pantry } from '@/components/shopping/pantry'
 import { ShoppingList } from '@/components/shopping/shopping-list'
 import { StoreDirectory } from '@/components/stores/store-directory'
-import { TODAY } from '@/lib/budget'
+import { expensesInMonth, totalSpent } from '@/lib/budget'
 import { longDate } from '@/lib/format'
 import type { HouseholdData, ReceiptImportState } from '@/lib/db/queries'
 import type { ReceiptListSuggestion } from '@/lib/db/receipt-list'
@@ -75,6 +75,7 @@ export function AppShell({
   storeChains,
   initialStoreSelection,
   initialPins,
+  today,
 }: {
   initialData: HouseholdData
   userName: string
@@ -85,6 +86,8 @@ export function AppShell({
   storeChains: { id: string; chain: string; isOnline?: boolean }[]
   initialStoreSelection: StoreSelection
   initialPins: PinRecord[]
+  /** The real date (`YYYY-MM-DD`, Czech time) computed on the server, so server and client agree. */
+  today: string
 }) {
   const [tab, setTab] = useState<Tab>('Domů')
   // The user's own "stores in my area". Until every branch has GPS, this selection decides which
@@ -140,13 +143,15 @@ export function AppShell({
   }, [router])
 
   const budget = household.monthlyBudget
-  const spent = expenses.reduce((total, expense) => total + expense.amount, 0)
+  // The budget is monthly: only this calendar month's expenses count against it.
+  const monthExpenses = useMemo(() => expensesInMonth(expenses, today), [expenses, today])
+  const spent = totalSpent(monthExpenses)
   const remaining = budget - spent
   const completed = items.filter((item) => item.done).length
 
   const firstName = userName.trim().split(/\s+/)[0] || userName
   const title = tab === 'Domů' ? `Ahoj, ${firstName}` : tab
-  const dateLabel = longDate(TODAY)
+  const dateLabel = longDate(today)
   const unreadCount = notifications.filter((notification) => notification.unread).length
   const pendingNames = items.filter((item) => !item.done).map((item) => item.name)
 
@@ -392,7 +397,7 @@ export function AppShell({
   }
 
   async function saveExpense(amount: number, note: string, category: Item['category']) {
-    const { expense, notification } = await addExpenseAction({ amount, note, category, date: TODAY })
+    const { expense, notification } = await addExpenseAction({ amount, note, category, date: today })
     setExpenses((current) => [...current, expense])
     if (notification) setNotifications((current) => [...current, notification])
     setExpenseOpen(false)
@@ -449,10 +454,10 @@ export function AppShell({
                     onStores={() => setTab('Obchody')}
                     onSetBudget={() => setTab('Profil')}
                   />
-                  <PriceWatch onStores={() => setTab('Obchody')} onAddToList={addItemByName} listItemNames={pendingNames} productPrices={nearbyProductPrices} offers={nearbyStandaloneOffers} pantryItems={pantryItems} />
+                  <PriceWatch today={today} onStores={() => setTab('Obchody')} onAddToList={addItemByName} listItemNames={pendingNames} productPrices={nearbyProductPrices} offers={nearbyStandaloneOffers} pantryItems={pantryItems} />
                   <MealPlan household={household} initialPlan={initialData.mealPlan} pantryItems={pantryItems} onAddIngredients={addIngredients} onMarkCooked={markMealCooked} />
                   <div className="grid gap-4 lg:grid-cols-2 lg:gap-6">
-                    <SpendingBreakdown expenses={expenses} onDetails={() => setTab('Rozpočet')} />
+                    <SpendingBreakdown expenses={monthExpenses} onDetails={() => setTab('Rozpočet')} />
                     <SavingsInsight remaining={remaining} onAi={() => setTab('AI')} />
                   </div>
                 </div>
@@ -460,6 +465,7 @@ export function AppShell({
               {tab === 'Nákup' && (
                 <div className="mx-auto max-w-3xl space-y-5">
                   <ShoppingList
+                    today={today}
                     items={items}
                     newItem={newItem}
                     setNewItem={setNewItem}
@@ -516,6 +522,7 @@ export function AppShell({
                     onCancel={cancelReceiptImport}
                   />
                   <BudgetOverview
+                    today={today}
                     budget={budget}
                     onEditBudget={() => setTab('Profil')}
                     spent={spent}
@@ -554,7 +561,7 @@ export function AppShell({
 
         <MobileNav tab={tab} onTabChange={setTab} />
 
-        {expenseOpen && <ExpenseModal onClose={() => setExpenseOpen(false)} onSave={saveExpense} />}
+        {expenseOpen && <ExpenseModal today={today} onClose={() => setExpenseOpen(false)} onSave={saveExpense} />}
       </div>
     </div>
   )

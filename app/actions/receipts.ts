@@ -4,7 +4,7 @@ import { del, get, put } from '@vercel/blob'
 import { and, eq, gte, inArray, lt, or } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { requireHouseholdId } from '@/lib/auth/authorize'
-import { TODAY } from '@/lib/budget'
+import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
 import { getProductCatalog, recordPriceObservation, restockPantryItem, toReceiptImportState, upsertProductCatalogDefaults, type ReceiptImportState } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
@@ -342,7 +342,7 @@ export async function importReceiptAction(
     status: 'imported',
     storeId: options.storeName ? await findOrCreateStore(options.storeName) : null,
     storeLocationId: options.storeLocationId,
-    date: options.date ?? TODAY,
+    date: options.date ?? todayInPrague(),
     source: 'manual',
     items: JSON.stringify(items),
     purchaseId: purchase.id,

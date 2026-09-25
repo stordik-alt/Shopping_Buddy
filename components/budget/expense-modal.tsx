@@ -1,14 +1,17 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
-import { TODAY } from '@/lib/budget'
+import { longDate } from '@/lib/format'
 import type { ItemCategory } from '@/lib/types'
 
 const CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
 
 export function ExpenseModal({
+  today,
   onClose,
   onSave,
 }: {
+  /** The date the expense is recorded under (`YYYY-MM-DD`). */
+  today: string
   onClose: () => void
   onSave: (amount: number, note: string, category: ItemCategory) => void
 }) {
@@ -68,7 +71,7 @@ export function ExpenseModal({
               className="mt-2 min-h-11 w-full rounded-xl border border-input bg-background px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </label>
-          <p className="text-xs text-muted-foreground">Datum výdaje: {TODAY}</p>
+          <p className="text-xs text-muted-foreground">Datum výdaje: {longDate(today)}</p>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           <button onClick={save} className="min-h-11 w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             Uložit výdaj

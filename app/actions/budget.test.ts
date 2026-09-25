@@ -60,4 +60,11 @@ describe('addExpenseAction', () => {
     const stillOver = await addExpenseAction({ amount: 50, note: '', category: 'Potraviny', date: '2026-09-21' }) // 110%, already over
     expect(stillOver.notification).toBeNull()
   })
+
+  it('counts only the month the expense falls in, so a new month starts from zero', async () => {
+    await addExpenseAction({ amount: 950, note: '', category: 'Potraviny', date: '2026-09-21' }) // 95% of September
+    // October's first expense is 10% of October's budget, not 105% of "everything ever spent".
+    const october = await addExpenseAction({ amount: 100, note: '', category: 'Potraviny', date: '2026-10-01' })
+    expect(october.notification).toBeNull()
+  })
 })

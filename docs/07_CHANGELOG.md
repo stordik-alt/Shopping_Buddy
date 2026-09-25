@@ -1,5 +1,8 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (R2 live for receipt uploads)
+- The owner confirmed that receipt upload works in production with `STORAGE_PROVIDER=r2` after PR #80. Old receipts stay on Vercel Blob until `pnpm db:migrate-blob-to-r2` is run (needs the Blob store readable again).
+
 ## 2026-09-25 (R2: uploads failed with 411 MissingContentLength)
 - **Problem:** after the bucket-name fix, the production upload failed with `R2 upload failed (411): MissingContentLength`. `aws4fetch`'s `fetch()` hands `fetch` a `Request` object whose body is a stream; Next.js's patched `fetch` on Vercel re-sends that body chunked, without `Content-Length`, which R2 requires for PUT. Reproduced locally: the same signed request re-sent from its stream body arrives with `transfer-encoding: chunked` and no length.
 - **Fix:** `lib/storage/r2.ts` only signs with `aws4fetch` and sends with a plain `fetch(url, { body: Uint8Array })` plus an explicit `Content-Length`. GET and DELETE go the same way.

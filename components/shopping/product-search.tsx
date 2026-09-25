@@ -4,6 +4,7 @@ import type { ProductSearchResult } from '@/app/actions/product-search'
 import { money, shortDate } from '@/lib/format'
 import { hitPrice, hitUnitPrice, searchTokens } from '@/lib/product-search'
 import type { ItemCategory } from '@/lib/types'
+import { userFacingError } from '@/lib/errors'
 
 const DEBOUNCE_MS = 300
 
@@ -50,7 +51,7 @@ export function ProductSearch({
       if (pinnedNow) await pinning.onUnpin(storeId)
       else await pinning.onPin(storeId, productId)
     } catch (err) {
-      setPinError(err instanceof Error ? err.message : 'Výběr produktu se nepodařil.')
+      setPinError(userFacingError(err, 'Výběr produktu se nepodařil.'))
     } finally {
       setBusyKey(null)
     }
@@ -75,7 +76,7 @@ export function ProductSearch({
       } catch (err) {
         if (request !== latest.current) return
         setStatus('error')
-        setError(err instanceof Error ? err.message : 'Hledání se nepodařilo.')
+        setError(userFacingError(err, 'Hledání se nepodařilo.'))
       }
     }, DEBOUNCE_MS)
     return () => clearTimeout(timer)

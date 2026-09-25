@@ -1,4 +1,17 @@
 export const MAX_RECEIPT_UPLOAD_BYTES = 4 * 1024 * 1024
+
+/** Shown for a HEIC/HEIF photo, which neither the OCR nor most browsers can read. iPhones save HEIC
+ *  by default, and so do Samsung and other Android phones with "high efficiency" photos turned on. */
+export const HEIC_UNSUPPORTED_MESSAGE =
+  'Fotka je ve formátu HEIC/HEIF, který zatím neumíme přečíst. iPhone: Nastavení › Fotoaparát › Formáty › Nejkompatibilnější. Samsung a jiné Androidy: ve Fotoaparátu › Nastavení › Formáty obrázků vypněte „Snímky s vysokou účinností“ (HEIF). Pak účtenku vyfoťte znovu.'
+
+/** Whether the picked file is a HEIC/HEIF photo, judged by what the phone says about it (type or
+ *  file name) — lets the app explain the problem before uploading. The server still decides from the
+ *  file's own bytes (detectReceiptFileType). Pure/testable. */
+export function isHeicFile(file: { name: string; type: string }): boolean {
+  return /^image\/(heic|heif)(-sequence)?$/i.test(file.type) || /\.(heic|heif)$/i.test(file.name)
+}
+
 export const MAX_RECEIPT_IMAGE_DIMENSION = 2200
 
 const JPEG_QUALITIES = [0.82, 0.72, 0.62, 0.52, 0.45] as const

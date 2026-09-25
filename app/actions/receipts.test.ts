@@ -752,7 +752,9 @@ describe('receipt file handling: type detection and OCR preparation', () => {
     }
 
     it('decides the type from the file\'s bytes: a PNG declared as JPEG is stored as a PNG', async () => {
-      const state = await upload(await realImage(), 'image/jpeg') // wrong on purpose
+      const result = await upload(await realImage(), 'image/jpeg') // wrong on purpose
+      if (!result.ok) throw new Error(result.error)
+      const state = result.receipt
       const row = await db.query.receiptImports.findFirst({ where: eq(schema.receiptImports.id, state.id) })
       uploadedBlobUrls.push(row!.imageUrl!)
       expect(row?.imageUrl).toMatch(/\.png$/)
@@ -761,18 +763,19 @@ describe('receipt file handling: type detection and OCR preparation', () => {
     })
 
     it('rejects a file that is not an image or PDF, even when it claims to be one', async () => {
-      await expect(upload(Buffer.from('<html><script>alert(1)</script></html>'), 'image/jpeg')).rejects.toThrow('Nepodporovaný formát')
+      const result = await upload(Buffer.from('<html><script>alert(1)</script></html>'), 'image/jpeg')
+      expect(result).toMatchObject({ ok: false, error: expect.stringContaining('Nepodporovaný formát') })
       const rows = await db.query.receiptImports.findMany({ where: eq(schema.receiptImports.householdId, householdId) })
       expect(rows).toHaveLength(0) // nothing stored, nothing created
     })
 
     it('rejects HEIC with an instruction the user can act on', async () => {
       const heic = Buffer.concat([Buffer.from([0, 0, 0, 24]), Buffer.from('ftypheic'), Buffer.alloc(32)])
-      await expect(upload(heic, 'image/heic')).rejects.toThrow('Nastavení › Fotoaparát › Formáty › Nejkompatibilnější')
+      expect(await upload(heic, 'image/heic')).toMatchObject({ ok: false, error: expect.stringContaining('Nastavení › Fotoaparát › Formáty › Nejkompatibilnější') })
     })
 
     it('rejects an empty file', async () => {
-      await expect(upload(Buffer.alloc(0), 'image/jpeg')).rejects.toThrow('prázdný')
+      expect(await upload(Buffer.alloc(0), 'image/jpeg')).toMatchObject({ ok: false, error: expect.stringContaining('prázdný') })
     })
   })
 

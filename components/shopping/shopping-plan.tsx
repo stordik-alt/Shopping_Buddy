@@ -4,6 +4,7 @@ import type { PlanResult } from '@/lib/db/shopping-plan'
 import { money } from '@/lib/format'
 import { MAX_SHOP_STORES } from '@/lib/nearby-stores'
 import { alternativeLabel, alternativesToShow, planInsights } from '@/lib/shopping-plan-format'
+import { userFacingError } from '@/lib/errors'
 
 const DEFAULT_MAX_STORES = 2
 
@@ -47,7 +48,7 @@ export function ShoppingPlanPanel({
       setStatus('idle')
     } catch (err) {
       setStatus('error')
-      setError(err instanceof Error ? err.message : 'Plán se nepodařilo sestavit.')
+      setError(userFacingError(err, 'Plán se nepodařilo sestavit.'))
     }
   }
 

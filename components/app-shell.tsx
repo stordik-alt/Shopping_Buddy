@@ -347,7 +347,9 @@ export function AppShell({
     onProgress('uploading')
     const formData = new FormData()
     formData.set('file', file)
-    const uploaded = await uploadReceiptAction(formData)
+    const upload = await uploadReceiptAction(formData)
+    if (!upload.ok) throw new Error(upload.error)
+    const uploaded = upload.receipt
     onProgress(uploaded.status)
     const stopPolling = pollReceiptStatus(uploaded.id, onProgress)
     try {

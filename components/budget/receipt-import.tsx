@@ -3,7 +3,8 @@ import { AlertTriangle, Camera, Check, Loader2, Plus, Receipt, Trash2 } from 'lu
 import type { ReceiptImportState } from '@/lib/db/queries'
 import { ocrProviderLabel } from '@/lib/receipt-ocr-provider'
 import { RECEIPT_STEPS, receiptProgress, type ReceiptProgress } from '@/lib/receipt-progress'
-import { optimizeReceiptImage } from '@/lib/receipt-upload'
+import { userFacingError } from '@/lib/errors'
+import { HEIC_UNSUPPORTED_MESSAGE, isHeicFile, optimizeReceiptImage } from '@/lib/receipt-upload'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import type { ItemCategory, ItemUnit, Store } from '@/lib/types'
 
@@ -93,7 +94,7 @@ export function ReceiptImport({
       setRows([emptyRow()])
       setOpen(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Nákup se nepodařilo uložit.')
+      setError(userFacingError(err, 'Nákup se nepodařilo uložit. Zkuste to prosím znovu.'))
     } finally {
       setSaving(false)
     }
@@ -103,6 +104,11 @@ export function ReceiptImport({
     const selectedFile = event.target.files?.[0]
     event.target.value = '' // lets the same file be picked again after a retry
     if (!selectedFile) return
+    // A HEIC photo cannot be read anywhere down the line; say so before spending the upload on it.
+    if (isHeicFile(selectedFile)) {
+      setError(HEIC_UNSUPPORTED_MESSAGE)
+      return
+    }
 
     setUploading(true)
     setError('')
@@ -114,7 +120,7 @@ export function ReceiptImport({
       setLastOcrProvider(result.ocrProvider)
       setOpen(false) // result (completed, or needing review) surfaces via ReceiptPending
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Fotografii se nepodařilo nahrát.')
+      setError(userFacingError(err, 'Fotografii se nepodařilo nahrát. Zkuste to prosím znovu, případně účtenku vyfoťte znovu.'))
     } finally {
       setUploading(false)
       setProgress(null)

@@ -1,10 +1,11 @@
 'use server'
 
-import { eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
+import { MAX_PANTRY_REVIEW_ITEMS, splitPantryReview } from '@/lib/pantry'
 import type { PantryLocation } from '@/lib/types'
 
 async function assertOwnsPantryItem(householdId: string, pantryItemId: string) {
@@ -60,4 +61,41 @@ export async function removePantryItemAction(pantryItemId: string) {
   const db = getDb()
   await db.delete(schema.pantryItems).where(eq(schema.pantryItems.id, pantryItemId))
   revalidatePath('/')
+}
+
+/** "Zkontrolovat zásoby" — saves a bulk check in one go: the items marked gone are removed, every
+ *  other reviewed item is confirmed like "Ještě mám" (addedAt now, askedAt cleared). All ids must
+ *  belong to the caller's household — one foreign or unknown id rejects the whole check, nothing is
+ *  written. Both writes go in one batch, so a check is never saved half. Returns what was done so
+ *  the client can report it. */
+export async function reviewPantryAction(input: { reviewedIds: string[]; goneIds: string[] }): Promise<{ removed: number; confirmed: number }> {
+  const householdId = await requireHouseholdId()
+  const isIdList = (value: unknown): value is string[] => Array.isArray(value) && value.every((id) => typeof id === 'string')
+  if (!isIdList(input?.reviewedIds) || !isIdList(input?.goneIds)) throw new Error('Neplatná kontrola zásob.')
+  const { goneIds, keptIds } = splitPantryReview(input.reviewedIds, input.goneIds)
+  const all = [...goneIds, ...keptIds]
+  if (all.length === 0) return { removed: 0, confirmed: 0 }
+  if (all.length > MAX_PANTRY_REVIEW_ITEMS) throw new Error('Kontrola obsahuje příliš mnoho položek.')
+
+  const db = getDb()
+  const owned = await db
+    .select({ id: schema.pantryItems.id })
+    .from(schema.pantryItems)
+    .where(and(eq(schema.pantryItems.householdId, householdId), inArray(schema.pantryItems.id, all)))
+  if (owned.length !== all.length) throw new Error('Pantry item not found')
+
+  const inHousehold = (ids: string[]) => and(eq(schema.pantryItems.householdId, householdId), inArray(schema.pantryItems.id, ids))
+  const now = new Date()
+  if (goneIds.length > 0 && keptIds.length > 0) {
+    await db.batch([
+      db.delete(schema.pantryItems).where(inHousehold(goneIds)),
+      db.update(schema.pantryItems).set({ addedAt: now, askedAt: null }).where(inHousehold(keptIds)),
+    ])
+  } else if (goneIds.length > 0) {
+    await db.delete(schema.pantryItems).where(inHousehold(goneIds))
+  } else {
+    await db.update(schema.pantryItems).set({ addedAt: now, askedAt: null }).where(inHousehold(keptIds))
+  }
+  revalidatePath('/')
+  return { removed: goneIds.length, confirmed: keptIds.length }
 }

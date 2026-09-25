@@ -1,4 +1,4 @@
-import { eq, inArray } from 'drizzle-orm'
+import { eq, inArray, sql } from 'drizzle-orm'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
@@ -17,6 +17,7 @@ import { removePushSubscriptionAction, savePushSubscriptionAction } from '@/app/
 
 const db = getDb()
 const createdHouseholdIds: string[] = []
+const createdUserIds: string[] = []
 const p256dh = base64UrlEncode(new Uint8Array([4, ...new Array(64).fill(7)]))
 const auth = base64UrlEncode(new Uint8Array(16).fill(9))
 const subscription = (id: string) => ({ endpoint: `https://fcm.googleapis.com/fcm/send/test-${id}`, keys: { p256dh, auth } })
@@ -26,8 +27,17 @@ let alice: Member
 let bob: Member
 let stranger: Member
 
+/** A real Neon Auth user: household_members.user_id references neon_auth."user". */
+async function createAuthUser(name: string): Promise<string> {
+  const result = await db.execute<{ id: string }>(
+    sql`insert into neon_auth."user" (name, email, "emailVerified") values (${name}, ${`push-test-${crypto.randomUUID()}@example.com`}, false) returning id`,
+  )
+  createdUserIds.push(result.rows[0].id)
+  return result.rows[0].id
+}
+
 async function createMember(householdId: string, name: string): Promise<Member> {
-  const userId = crypto.randomUUID()
+  const userId = await createAuthUser(name)
   const [member] = await db.insert(schema.householdMembers).values({ householdId, userId, name, role: 'member' }).returning()
   return { userId, memberId: member.id, householdId }
 }
@@ -53,6 +63,7 @@ afterEach(() => {
 afterAll(async () => {
   // Members and push subscriptions go with their household (ON DELETE CASCADE).
   if (createdHouseholdIds.length > 0) await db.delete(schema.households).where(inArray(schema.households.id, createdHouseholdIds))
+  if (createdUserIds.length > 0) await db.execute(sql`delete from neon_auth."user" where id in (${sql.join(createdUserIds.map((id) => sql`${id}::uuid`), sql`, `)})`)
 })
 
 const rowsFor = (householdId: string) => db.query.pushSubscriptions.findMany({ where: eq(schema.pushSubscriptions.householdId, householdId) })

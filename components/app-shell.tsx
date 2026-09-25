@@ -17,7 +17,7 @@ import {
 } from '@/app/actions/household'
 import { markMealCookedAction } from '@/app/actions/meal-plan'
 import { markAllNotificationsReadAction, markNotificationReadAction } from '@/app/actions/notifications'
-import { adjustPantryItemQuantityAction, confirmPantryItemAction, movePantryItemAction, removePantryItemAction } from '@/app/actions/pantry'
+import { adjustPantryItemQuantityAction, confirmPantryItemAction, movePantryItemAction, removePantryItemAction, reviewPantryAction } from '@/app/actions/pantry'
 import { completePurchaseAction } from '@/app/actions/purchases'
 import {
   applyReceiptListMatchesAction,
@@ -371,6 +371,41 @@ export function AppShell({
     movePantryItemAction(id, location)
   }
 
+  // Bulk check (components/shopping/pantry-review.tsx). Saved first; the local pantry changes only
+  // once the server accepted it, so a failed save leaves everything as it was. Items that ran out
+  // are then added to the list one at a time (see addIngredients for why not in parallel), skipping
+  // names already waiting on the list.
+  async function reviewPantry(reviewedIds: string[], goneIds: string[], addGoneToList: boolean) {
+    const result = await reviewPantryAction({ reviewedIds, goneIds })
+    const gone = new Set(goneIds)
+    const kept = new Set(reviewedIds.filter((id) => !gone.has(id)))
+    const goneItems = pantryItems.filter((item) => gone.has(item.id))
+    const now = new Date().toISOString()
+    setPantryItems((current) => current.filter((item) => !gone.has(item.id)).map((item) => (kept.has(item.id) ? { ...item, addedAt: now, askedAt: undefined } : item)))
+
+    // The check is saved at this point; a failure while adding to the list is reported as such.
+    let addedToList = 0
+    let listFailed = false
+    if (addGoneToList) {
+      const onList = new Set(items.filter((item) => !item.done).map((item) => item.name.trim().toLowerCase()))
+      try {
+        for (const pantryItem of goneItems) {
+          const key = pantryItem.name.trim().toLowerCase()
+          if (onList.has(key)) continue
+          onList.add(key)
+          const { item, notification } = await addShoppingItemAction(initialData.mainListId, pantryItem.name, { category: pantryItem.category, unit: pantryItem.unit, detail: 'došlo ze zásob' })
+          setItems((current) => [...current, item])
+          if (notification) setNotifications((current) => [...current, notification])
+          addedToList += 1
+        }
+      } catch (error) {
+        console.error('Adding pantry items to the shopping list failed', error)
+        listFailed = true
+      }
+    }
+    return { ...result, addedToList, listFailed }
+  }
+
   function adjustPantryItemQuantity(id: string, quantity: number) {
     setPantryItems((current) => current.map((item) => (item.id === id ? { ...item, quantity } : item)))
     adjustPantryItemQuantityAction(id, quantity)
@@ -581,7 +616,7 @@ export function AppShell({
               )}
               {tab === 'Zásoby' && (
                 <div className="mx-auto max-w-3xl">
-                  <Pantry items={pantryItems} onConfirm={confirmPantryItem} onRemove={removePantryItem} onMove={movePantryItem} onAdjustQuantity={adjustPantryItemQuantity} />
+                  <Pantry items={pantryItems} onConfirm={confirmPantryItem} onRemove={removePantryItem} onMove={movePantryItem} onAdjustQuantity={adjustPantryItemQuantity} onReview={reviewPantry} />
                 </div>
               )}
               {tab === 'Obchody' && (

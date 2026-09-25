@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { pantryLocationEnum } from '@/lib/db/schema'
-import { CHECKIN_DAYS_BY_CATEGORY, findDueForCheckin, inferPantryLocation, isDueForCheckin, PANTRY_LOCATIONS, pantryQuantityFor, summarizeByLocation, type PantryCheckinCandidate } from '@/lib/pantry'
+import { CHECKIN_DAYS_BY_CATEGORY, findDueForCheckin, inferPantryLocation, isDueForCheckin, PANTRY_LOCATIONS, pantryQuantityFor, pantryReviewOrder, splitPantryReview, summarizeByLocation, type PantryCheckinCandidate } from '@/lib/pantry'
 import type { PantryItem } from '@/lib/types'
 
 const NOW = new Date('2026-09-21T08:00:00Z')
@@ -185,5 +185,25 @@ describe('summarizeByLocation', () => {
     const unknown = row({ location: 'Sklep' as never })
     expect(() => summarizeByLocation([unknown])).not.toThrow()
     expect(Object.values(summarizeByLocation([unknown])).reduce((sum, entry) => sum + entry.count, 0)).toBe(0)
+  })
+})
+
+describe('pantryReviewOrder', () => {
+  it('puts the items the check-in asked about first, then the longest unconfirmed, then by name', () => {
+    const items = [
+      { name: 'Rýže', addedAt: '2026-09-20T10:00:00Z', askedAt: undefined },
+      { name: 'Mléko', addedAt: '2026-09-10T10:00:00Z', askedAt: '2026-09-24T08:00:00Z' },
+      { name: 'Cukr', addedAt: '2026-09-01T10:00:00Z', askedAt: undefined },
+      { name: 'Áčko', addedAt: '2026-09-20T10:00:00Z', askedAt: undefined },
+    ]
+    expect(pantryReviewOrder(items).map((item) => item.name)).toEqual(['Mléko', 'Cukr', 'Áčko', 'Rýže'])
+    expect(items[0].name).toBe('Rýže') // the input is not reordered
+  })
+})
+
+describe('splitPantryReview', () => {
+  it('keeps every reviewed item not marked gone, ignores marks outside the check and duplicates', () => {
+    expect(splitPantryReview(['a', 'b', 'c', 'b'], ['b', 'zzz'])).toEqual({ goneIds: ['b'], keptIds: ['a', 'c'] })
+    expect(splitPantryReview([], ['a'])).toEqual({ goneIds: [], keptIds: [] })
   })
 })

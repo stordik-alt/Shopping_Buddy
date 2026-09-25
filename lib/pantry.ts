@@ -118,3 +118,33 @@ export function pantryQuantityFor(pantryItems: PantryItem[], productName: string
   const match = pantryItems.find((item) => item.name.trim().toLowerCase() === normalized)
   return match?.quantity ?? 0
 }
+
+// --- Bulk check ("Zkontrolovat zásoby") -------------------------------------------------------
+//
+// Checking stock one row at a time meant walking the house and tapping every item. The bulk check
+// shows many items at once, all assumed "Mám", so the household only taps what ran out and saves
+// once: what ran out is removed, everything else is confirmed (the check-in clock restarts).
+
+/** The largest check the server accepts in one save — a whole household's pantry fits easily. */
+export const MAX_PANTRY_REVIEW_ITEMS = 1000
+
+/** The order items are shown in a check: the ones the check-in already asked about first ("Máte
+ *  ještě?"), then those unconfirmed the longest, then by name — so the likely-gone items are on top
+ *  and the order never jumps between renders. */
+export function pantryReviewOrder<T extends Pick<PantryItem, 'name' | 'addedAt' | 'askedAt'>>(items: T[]): T[] {
+  return [...items].sort(
+    (a, b) =>
+      Number(Boolean(b.askedAt)) - Number(Boolean(a.askedAt)) ||
+      a.addedAt.localeCompare(b.addedAt) ||
+      a.name.localeCompare(b.name, 'cs'),
+  )
+}
+
+/** Splits a check into what to remove and what to confirm: every reviewed item not marked gone is
+ *  kept. Ids are de-duplicated and a gone mark for an item outside the check is ignored, so a stale
+ *  mark can never remove something the household did not see. */
+export function splitPantryReview(reviewedIds: string[], goneIds: Iterable<string>): { goneIds: string[]; keptIds: string[] } {
+  const reviewed = [...new Set(reviewedIds)]
+  const gone = new Set(goneIds)
+  return { goneIds: reviewed.filter((id) => gone.has(id)), keptIds: reviewed.filter((id) => !gone.has(id)) }
+}

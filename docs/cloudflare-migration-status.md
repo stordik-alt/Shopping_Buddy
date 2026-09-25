@@ -123,6 +123,13 @@ receipts, `pnpm db:migrate-blob-to-r2 --rollback <log>`. Blob originals are neve
 Everything except new receipt uploads once `STORAGE_PROVIDER=r2` is set; Blob stays for old
 receipts until they are copied.
 
+## PRODUCTION LOG
+
+- 2026-09-25: PR #78 merged; owner set the R2 variables and `STORAGE_PROVIDER=r2` on Vercel. First
+  upload failed: `R2 upload failed (400): InvalidBucketName` — `R2_BUCKET_NAME` carried a trailing
+  newline. Fix: owner corrects the value; code now trims the `R2_*` values. Real R2 upload still
+  to be confirmed after that.
+
 ## KNOWN RISKS
 
 - Not yet tested against a real R2 bucket (SigV4 signing is covered only by a stubbed `fetch`).

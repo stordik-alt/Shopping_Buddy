@@ -65,6 +65,9 @@ Names only. Never commit values.
 | `R2_SECRET_ACCESS_KEY` | R2 API token, secret. Server-only: no `NEXT_PUBLIC_` prefix, never logged |
 | `R2_BUCKET_NAME` | private bucket for this environment |
 
+Values are trimmed before use (a trailing newline pasted into Vercel broke the first production
+upload with `InvalidBucketName`), but type them without surrounding spaces anyway.
+
 `BLOB_READ_WRITE_TOKEN` stays set. It is needed to read old receipts until they are copied.
 
 ## Cloudflare setup (done by the owner in the dashboard)

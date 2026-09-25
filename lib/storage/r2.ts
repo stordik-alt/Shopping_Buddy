@@ -11,14 +11,19 @@ const R2_ENV = ['R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2
 
 type R2Config = { accountId: string; accessKeyId: string; secretAccessKey: string; bucket: string }
 
+// Values are trimmed: a value pasted into the Vercel dashboard with a trailing newline made R2 reject
+// the first production upload ("InvalidBucketName ... shoppingbuddyprod\n"). None of these values can
+// legitimately contain surrounding whitespace.
+const env = (name: (typeof R2_ENV)[number]) => process.env[name]?.trim() ?? ''
+
 function readConfig(): R2Config {
-  const missing = R2_ENV.filter((name) => !process.env[name])
+  const missing = R2_ENV.filter((name) => !env(name))
   if (missing.length > 0) throw new Error(`R2 storage is not configured. Missing: ${missing.join(', ')}`)
   return {
-    accountId: process.env.R2_ACCOUNT_ID!,
-    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-    bucket: process.env.R2_BUCKET_NAME!,
+    accountId: env('R2_ACCOUNT_ID'),
+    accessKeyId: env('R2_ACCESS_KEY_ID'),
+    secretAccessKey: env('R2_SECRET_ACCESS_KEY'),
+    bucket: env('R2_BUCKET_NAME'),
   }
 }
 

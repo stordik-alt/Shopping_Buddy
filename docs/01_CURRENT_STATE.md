@@ -537,7 +537,7 @@ The cron (`/api/cron/ingest-prices`) now runs each source in its own try/catch a
   * **The shopping planner picks only direct matches** (`pickAutoHit`): a chain whose only match is a soup offers nothing for "Vejce" (reported regression).
   * The 400-row cap is taken after ordering by where the word appears and name length, instead of by product id (which dropped arbitrary products for common words).
   * A token with inner punctuation ("coca-cola", "1,5%") is matched as a phrase.
-  * Not done: synonyms ("vajíčka" vs "vejce") and irregular forms are not handled.
+  * **Synonyms (2026-09-25):** `lib/synonyms.ts` connects irregular forms, colloquial names and spelling variants ("vajíčka" = "vejce", "párky" = "párek", "mlíko" = "mléko"). They apply in search, the planner, receipt-to-list suggestions and purchase-history keys (`matchKey`).
 
   At most 6 tokens / 80 characters, LIKE wildcards escaped and everything parameterized (tested with quote-like input).
 * **Results** are grouped per chain (up to 8 each, "…a dalších N"), each with the latest recorded price (docs/03_DATABASE.md rule 14), the chain's active promotion and its unit price scaled by the same ratio, and the date the price was observed. Unit prices per gram/millilitre are shown per kg/l (the Lidl data holds "0,10 Kč/g"). A hit at a chain with only receipt-derived prices is shown too, with its date.
@@ -662,6 +662,8 @@ A more complete localization/currency abstraction remains to be implemented befo
 ---
 
 # 17. Shopping Lists
+
+**Update 2026-09-25, offline.** The list works without a signal. Changes are queued on the device (`lib/offline-queue.ts`), shown on top of the server copy and sent in order when the connection returns. The service worker (`public/sw.js`) keeps the last loaded page so the app opens offline; signing out deletes it. Refused changes are dropped and reported.
 
 Shopping lists are persisted in Neon.
 
@@ -1264,6 +1266,13 @@ The application should remain stable while functionality is expanded incremental
 # 32. Household Pantry ("Spíž")
 
 **Added 2026-09-22.** A new domain, owner-requested, not part of the original Phase 8 notification set (section 19) but following the same deterministic-generator pattern.
+
+**Update 2026-09-25, list link, tracking levels, "Došlo mi…".**
+* **Adding to the list:** an item the pantry has at home asks "Došlo?" (one tap).
+* **Restocking:** probably-used-up stock is replaced, not summed.
+* **Tracking per item (migration 0033):** normal / rare (no estimate, check-in every 90 days) / off (never checked).
+* **Home screen:** the "Došlo mi…" card records what ran out in two taps, with undo.
+* **Date fix:** pantry dates reach the client as ISO strings, so the estimate works.
 
 **Update 2026-09-25, "asi došlo" estimate and a weekly check.** The pantry now guesses what was used up, so the household mostly only confirms.
 * **Estimate** (`lib/pantry-estimate.ts`, deterministic, no AI): an item is "asi došlo" once its usual time has passed since it was last restocked or confirmed.

@@ -50,6 +50,7 @@ export async function GET(request: Request) {
       unit: row.unit,
       addedAt: row.addedAt.toISOString(),
       askedAt: row.askedAt?.toISOString(),
+      tracking: row.tracking,
     })
     pantryByHousehold.set(row.householdId, list)
   }

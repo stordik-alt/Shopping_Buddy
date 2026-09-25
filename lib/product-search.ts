@@ -1,3 +1,4 @@
+import { synonymsOf } from '@/lib/synonyms'
 import type { ItemCategory, ItemUnit } from '@/lib/types'
 
 // Finding specific products in the chains' catalogs by what the user types ("mleko 1l").
@@ -80,6 +81,25 @@ export function searchStem(token: string): string {
   return /[aeiouy]$/.test(token) ? token.slice(0, -1) : token
 }
 
+/** How a word of a product name relates to a search word or any of its synonyms (lib/synonyms.ts):
+ *  the closest relation wins, so "vajíčka" finds "Vejce" as the same word. */
+export function wordRelationWithSynonyms(word: string, token: string): 'exact' | 'form' | 'derived' | 'inside' | null {
+  if (/\d/.test(token)) return wordRelation(word, token)
+  const order = ['exact', 'form', 'derived', 'inside'] as const
+  let best: (typeof order)[number] | null = null
+  for (const alternative of synonymsOf(token)) {
+    const relation = wordRelation(word, alternative)
+    if (relation && (best === null || order.indexOf(relation) < order.indexOf(best))) best = relation
+  }
+  return best
+}
+
+/** The stems a search word is looked up by in the database: its own and its synonyms'. */
+export function searchStems(token: string): string[] {
+  if (/\d/.test(token)) return [searchStem(token)]
+  return [...new Set(synonymsOf(token).map(searchStem))]
+}
+
 /** How a word of a product name relates to a search word: 'exact' ("mleko"/"mleko"), 'form' (the
  *  same word inflected: "rohliky"/"rohlik", "vejce"/"vejcem"), 'derived' (a different word built on
  *  the stem: "banan"/"bananove"), 'inside' (somewhere in the word) or null. */
@@ -123,7 +143,7 @@ export function isDirectMatch(searchName: string, tokens: string[]): boolean {
   return tokens.every((token) => {
     if (isPhrase(token)) return phrasePoints(head, token) === WORD_POINTS.exact
     return headWords.some((word) => {
-      const relation = wordRelation(word, token)
+      const relation = wordRelationWithSynonyms(word, token)
       // A size or strength token ("250g") has no word forms; being in the name is enough.
       return relation === 'exact' || relation === 'form' || (/\d/.test(token) && relation === 'inside')
     })
@@ -156,13 +176,13 @@ function rawScore(searchName: string, tokens: string[], optionalTokens: string[]
     const best = isPhrase(token)
       ? phrasePoints(searchName, token)
       : Math.max(0, ...words.map((word) => {
-          const relation = wordRelation(word, token)
+          const relation = wordRelationWithSynonyms(word, token)
           return relation ? WORD_POINTS[relation] : 0
         }))
     if (best === 0) return 0
     score += best
   }
-  const first = words[0] ? wordRelation(words[0], tokens[0]) : null
+  const first = words[0] ? wordRelationWithSynonyms(words[0], tokens[0]) : null
   if (first === 'exact' || first === 'form') score += 2
   if (searchName === tokens.join(' ')) score += 10
   return score

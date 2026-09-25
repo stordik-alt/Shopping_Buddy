@@ -1,5 +1,44 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Pantry: list link, tracking levels, "Došlo mi…"; estimate date fix)
+- **Fix:** `getHouseholdData` sent pantry dates as `Date.toString()` ("Thu Sep 24 2026 …"). The "asi došlo" estimate reads the date part (`YYYY-MM-DD`), so it never triggered in the app, and the check's order was wrong. Dates are now ISO.
+- **List link (point 3):**
+  - Putting something on the list that the pantry says is at home asks "… máte podle zásob doma. Došlo?" (`components/shopping/pantry-prompt.tsx`). The match is by name with synonyms (`pantryItemAtHome`); untracked or empty items are skipped. Nothing changes without a tap.
+  - A purchase restocking stock that is probably used up (at zero or past its shelf life) now replaces it instead of adding to it (`restockedQuantity`). Buying milk a week later no longer shows "3 l".
+- **Tracking levels (point 4, migration 0033):** `pantry_items.tracking` is `normal` / `rare` / `off`, selectable per row.
+  - `rare`: no "asi došlo" estimate and a check-in every 90 days (salt, spices, oil).
+  - `off`: never estimated, asked about or listed as one to check.
+  - Changing it clears a pending question (`setPantryTrackingAction`).
+- **"Došlo mi…" (point 5):** a home-screen card lists the likely-gone items first and lets you search any item at home (`quickOutCandidates`). A tap removes the item from the pantry and optionally adds it to the list, after 5 s with "Zpět".
+- **Tests:** restock replace/sum, tracking in estimate and weekly check, at-home match with synonyms, quick-out ranking and search, DB tests for tracking and restock replacement. CI command: 973 passed; `next build` passes. Rendered at 390 px (temporary preview page, removed).
+- **Setup:** `pnpm db:migrate` (0033) before deploying — the app reads the new column.
+
+## 2026-09-25 (Shopping list without a signal)
+- **Why:** in a shop without coverage, a tick never reached the server, and the next refresh replaced the list with the server's copy, so the tick vanished. Reopening the app without a signal showed nothing.
+- **Queue** (`lib/offline-queue.ts`, pure and tested):
+  - List changes (tick, edit, remove, add) are sent at once when possible.
+  - Without a connection, or behind earlier waiting changes, they join a queue stored on the device, per household.
+  - The queue is folded (last tick wins, updates merge, an item added and removed offline disappears).
+  - Changes stay visible on top of the server's copy and are sent in order on reconnecting.
+  - An item added offline has a temporary id until the server returns the real one.
+  - A change the server refuses (the item was removed by another member) is dropped and reported; a lost connection keeps the rest.
+  - "Dokončit nákup" first sends waiting ticks and waits for a connection.
+- **UI:** a banner shows "Jste bez signálu…" and the number of waiting changes (`components/shopping/offline-banner.tsx`).
+- **Opening offline:**
+  - `public/sw.js` is now registered for everyone. It keeps the last successfully loaded app page (network first; the copy is used only when the network fails; redirects and errors are never stored).
+  - Build files (`/_next/static`) are cached as they load, with a bounded cache.
+  - Data requests and server actions are never cached.
+  - Signing out deletes the cached page.
+- **Tests:** queue rules (apply, fold, remap, network vs. refusal, storage per household, unreadable storage). CI command: 966 passed; `next build` passes. **Not checked on a phone or offline in a signed-in browser** (no signed-in session here).
+
+## 2026-09-25 (Product names: synonyms)
+- **What:** `lib/synonyms.ts` lists words that name the same grocery but that no stem rule connects: irregular forms ("vejce" / "vajíčka" / "vajec", "párek" / "párky", "mrkev" / "mrkve"), colloquial and regional names ("mlíko", "paradajky"), spelling variants ("kečup" / "kechup"). Subtypes and derived products are deliberately not synonyms.
+- **Where it applies:**
+  - Product search and the shopping planner: an AND over the query's words, each an OR over its own and its synonyms' stems. A synonym match counts as the same word, so "vajíčka" finds "Vejce M 10 ks" as the product itself, and the mention rule still keeps "Polévka s vejcem" out.
+  - Receipt lines against list items: "Vajíčka" gets "VEJCE M 10KS" as a suggestion.
+  - Purchase history: `matchKey()` folds synonyms in the purchase rhythm, "Doplnit obvyklé" and the pantry estimate.
+- **Tests:** groups and keys, search relation and direct match, receipt suggestion, usual items across synonyms. CI command: 959 passed.
+
 ## 2026-09-25 (Database network transfer: Neon free quota exhausted)
 - **What happened:** Neon started answering every query with HTTP 402 "exceeded the quota". The owner's console showed network transfer at 4.93 GB of the free plan's 5 GB/month, so the app and the scripts could not read the database.
 - **Causes found in the code:**

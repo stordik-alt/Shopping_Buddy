@@ -114,7 +114,11 @@ export type PantryItem = {
   unit: ItemUnit
   addedAt: string
   askedAt?: string
+  /** How closely it is watched (lib/pantry.ts PANTRY_TRACKING); absent in old fixtures = 'normal'. */
+  tracking?: PantryTracking
 }
+
+export type PantryTracking = 'normal' | 'rare' | 'off'
 
 export type Household = {
   id: string

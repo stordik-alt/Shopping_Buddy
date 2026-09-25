@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { estimateConsumption, estimatePantry, estimateReason, selectForWeeklyCheck, shelfLifeDays, weeklyCheckMessage } from '@/lib/pantry-estimate'
+import { estimateConsumption, estimatePantry, estimateReason, restockedQuantity, selectForWeeklyCheck, shelfLifeDays, weeklyCheckMessage } from '@/lib/pantry-estimate'
 import { purchaseRhythms } from '@/lib/purchase-rhythm'
 import type { PantryItem, PurchaseRecord } from '@/lib/types'
 
@@ -85,5 +85,33 @@ describe('weeklyCheckMessage', () => {
     expect(weeklyCheckMessage(['Chléb', 'Mléko']).detail).toBe('Došlo, nebo ještě máte? Chléb, Mléko. Stačí potvrdit, zabere to chvilku.')
     expect(weeklyCheckMessage(['a', 'b', 'c', 'd', 'e', 'f', 'g']).detail).toContain('a, b, c, d, e a další 2.')
     expect(weeklyCheckMessage(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']).detail).toContain('a dalších 5.')
+  })
+})
+
+describe('restockedQuantity', () => {
+  it('adds to stock that is probably still there', () => {
+    expect(restockedQuantity(item({ name: 'Rýže', location: 'Spíž', quantity: 1, addedAt: '2026-09-01T00:00:00Z' }), 2, '2026-09-25')).toBe(3)
+    expect(restockedQuantity(item({ name: 'Mléko', quantity: 1, addedAt: '2026-09-23T00:00:00Z' }), 2, '2026-09-25')).toBe(3)
+  })
+
+  it('starts again from what was bought when the old stock is used up or past its shelf life', () => {
+    expect(restockedQuantity(item({ name: 'Mléko', quantity: 0 }), 2, '2026-09-21')).toBe(2)
+    expect(restockedQuantity(item({ name: 'Mléko', quantity: 1, addedAt: '2026-09-10T00:00:00Z' }), 2, '2026-09-25')).toBe(2)
+  })
+
+  it('sums as before for items watched rarely or not at all', () => {
+    expect(restockedQuantity(item({ name: 'Mléko', quantity: 1, addedAt: '2026-09-01T00:00:00Z', tracking: 'rare' }), 2, '2026-09-25')).toBe(3)
+  })
+})
+
+describe('tracking levels', () => {
+  it('gives no estimate for items watched rarely or not at all, and never asks about "off" ones', () => {
+    expect(estimateConsumption(item({ name: 'Rohlík', tracking: 'rare' }), undefined, '2026-12-31')).toBeNull()
+    expect(estimateConsumption(item({ name: 'Rohlík', tracking: 'off' }), undefined, '2026-12-31')).toBeNull()
+    const now = new Date('2026-12-31T12:00:00Z')
+    const old = { location: 'Spíž' as const, addedAt: '2026-09-01T00:00:00Z' }
+    expect(selectForWeeklyCheck([item({ id: 'a', name: 'Sůl', ...old, tracking: 'off' })], [], '2026-12-31', now)).toEqual([])
+    expect(selectForWeeklyCheck([item({ id: 'b', name: 'Sůl', ...old, tracking: 'rare' })], [], '2026-12-31', now).map((entry) => entry.id)).toEqual(['b']) // 90 days passed
+    expect(selectForWeeklyCheck([item({ id: 'c', name: 'Sůl', location: 'Spíž', addedAt: '2026-11-01T00:00:00Z', tracking: 'rare' })], [], '2026-12-31', now)).toEqual([])
   })
 })

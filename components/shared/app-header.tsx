@@ -31,6 +31,13 @@ export function AppHeader({
   const router = useRouter()
 
   async function signOut() {
+    // The offline copy of the app page (public/sw.js) belongs to this account; drop it so the next
+    // person on this phone cannot open it without a signal.
+    try {
+      await caches.delete('shopping-buddy-page-v1')
+    } catch (error) {
+      console.error('Could not clear the offline page cache', error)
+    }
     await authClient.signOut()
     router.push('/auth/sign-in')
     router.refresh()

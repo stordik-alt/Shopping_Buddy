@@ -9,6 +9,7 @@ import { currentWeekStart, parseSavedPlan, type WeeklyMealPlan } from '@/lib/mea
 import type { StandaloneOffer } from '@/lib/offers'
 import { createHouseholdNotification } from '@/lib/notify'
 import { inferPantryLocation } from '@/lib/pantry'
+import { restockedQuantity } from '@/lib/pantry-estimate'
 import { formatOpeningHours } from '@/lib/stores/osm'
 import type { ProductPrice } from '@/lib/prices'
 import { distinctProductName, resolveProductForSku, type ProductCatalogEntry } from '@/lib/products'
@@ -384,8 +385,11 @@ export async function getHouseholdData(userId: string, userName: string, userEma
         location: item.location,
         quantity: item.quantity,
         unit: item.unit,
-        addedAt: item.addedAt.toString(),
-        askedAt: item.askedAt?.toString(),
+        // ISO strings: the pantry estimate and the check's order read the date part (YYYY-MM-DD).
+        // `Date.toString()` ("Thu Sep 24 2026 …") made every estimate come out empty.
+        addedAt: item.addedAt.toISOString(),
+        askedAt: item.askedAt?.toISOString(),
+        tracking: item.tracking,
       }),
     ),
     pendingReceiptImports,
@@ -425,9 +429,11 @@ export async function restockPantryItem(
     }))
 
   if (existing) {
+    // Summed with what was left, unless the old stock is probably used up (lib/pantry-estimate.ts).
+    const quantity = restockedQuantity({ ...existing, addedAt: existing.addedAt.toISOString() }, item.quantity, todayInPrague())
     await db
       .update(schema.pantryItems)
-      .set({ quantity: existing.quantity + item.quantity, addedAt: new Date(), askedAt: null, productId: existing.productId ?? item.productId })
+      .set({ quantity, addedAt: new Date(), askedAt: null, productId: existing.productId ?? item.productId })
       .where(eq(schema.pantryItems.id, existing.id))
   } else {
     await db.insert(schema.pantryItems).values({

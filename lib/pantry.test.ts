@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { pantryLocationEnum } from '@/lib/db/schema'
-import { CHECKIN_DAYS_BY_CATEGORY, findDueForCheckin, inferPantryLocation, isDueForCheckin, PANTRY_LOCATIONS, pantryQuantityFor, pantryReviewOrder, splitPantryReview, summarizeByLocation, type PantryCheckinCandidate } from '@/lib/pantry'
+import { CHECKIN_DAYS_BY_CATEGORY, findDueForCheckin, inferPantryLocation, isDueForCheckin, PANTRY_LOCATIONS, pantryQuantityFor, pantryItemAtHome, pantryReviewOrder, quickOutCandidates, splitPantryReview, summarizeByLocation, type PantryCheckinCandidate } from '@/lib/pantry'
 import type { PantryItem } from '@/lib/types'
 
 const NOW = new Date('2026-09-21T08:00:00Z')
@@ -220,5 +220,39 @@ describe('summarizeByLocation with estimates', () => {
       new Set(['a', 'c']),
     )
     expect(summary.Lednice.needsCheck).toBe(3)
+  })
+})
+
+describe('pantryItemAtHome', () => {
+  const base = { category: 'Potraviny' as const, location: 'Lednice' as const, unit: 'ks' as const, addedAt: '2026-09-20T00:00:00Z' }
+  it('finds the tracked item in stock by name, case, accents and synonyms ignored', () => {
+    const items = [
+      { ...base, id: 'eggs', name: 'Vejce', quantity: 6 },
+      { ...base, id: 'salt', name: 'Sůl', quantity: 1, tracking: 'off' as const },
+      { ...base, id: 'milk', name: 'Mléko', quantity: 0 },
+    ]
+    expect(pantryItemAtHome(items, 'vajíčka')?.id).toBe('eggs')
+    expect(pantryItemAtHome(items, 'SŮL')).toBeNull() // not tracked
+    expect(pantryItemAtHome(items, 'Mléko')).toBeNull() // none left
+    expect(pantryItemAtHome(items, '  ')).toBeNull()
+  })
+})
+
+describe('quickOutCandidates', () => {
+  const base = { category: 'Potraviny' as const, location: 'Lednice' as const, unit: 'ks' as const, quantity: 1, addedAt: '2026-09-20T00:00:00Z' }
+  const items = [
+    { ...base, id: 'rice', name: 'Rýže' },
+    { ...base, id: 'milk', name: 'Mléko' },
+    { ...base, id: 'bread', name: 'Chléb', askedAt: '2026-09-24T00:00:00Z' },
+    { ...base, id: 'salt', name: 'Sůl', tracking: 'off' as const },
+    { ...base, id: 'gone', name: 'Máslo', quantity: 0 },
+  ]
+  it('puts the likely-gone items first, then the asked ones, then by name; untracked and empty ones never', () => {
+    expect(quickOutCandidates(items, new Set(['milk']), '').map((item) => item.id)).toEqual(['milk', 'bread', 'rice'])
+    expect(quickOutCandidates(items, new Set(), '', 1).map((item) => item.id)).toEqual(['bread'])
+  })
+  it('filters by name, case and accents ignored', () => {
+    expect(quickOutCandidates(items, new Set(), 'mle').map((item) => item.id)).toEqual(['milk'])
+    expect(quickOutCandidates(items, new Set(), 'SUL')).toEqual([])
   })
 })

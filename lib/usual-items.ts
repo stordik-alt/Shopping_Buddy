@@ -1,5 +1,5 @@
 import { dayNumber, purchaseRhythms } from '@/lib/purchase-rhythm'
-import { normalizeMatchName } from '@/lib/receipt-list-match'
+import { matchKey } from '@/lib/receipt-list-match'
 import type { ItemUnit, PurchaseRecord } from '@/lib/types'
 
 // "Doplnit obvyklé": items the household buys regularly that are due again and not on the list.
@@ -33,7 +33,7 @@ export function suggestUsualItems(input: {
   limit?: number
 }): UsualItem[] {
   const today = dayNumber(input.today)
-  const skip = new Set([...input.onList, ...input.inPantry].map(normalizeMatchName))
+  const skip = new Set([...input.onList, ...input.inPantry].map(matchKey))
 
   const suggestions: (UsualItem & { overdue: number })[] = []
   for (const [key, rhythm] of purchaseRhythms(input.purchases, input.today)) {

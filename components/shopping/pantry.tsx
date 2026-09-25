@@ -2,10 +2,10 @@ import { BriefcaseMedical, Check, ClipboardCheck, House, Minus, Package, Plus, R
 import { useEffect, useMemo, useState } from 'react'
 import { PantryReview, type PantryReviewResult } from '@/components/shopping/pantry-review'
 import { itemCountLabel } from '@/lib/format'
-import { needsCheck, PANTRY_LOCATIONS, summarizeByLocation } from '@/lib/pantry'
+import { needsCheck, PANTRY_LOCATIONS, PANTRY_TRACKING, summarizeByLocation } from '@/lib/pantry'
 import { estimateReason, type ConsumptionEstimate } from '@/lib/pantry-estimate'
 import { cn } from '@/lib/utils'
-import type { ItemUnit, PantryItem, PantryLocation } from '@/lib/types'
+import type { ItemUnit, PantryItem, PantryLocation, PantryTracking } from '@/lib/types'
 
 // One distinct, meaningful icon per location so folders can be told apart at a glance on a phone.
 // `satisfies Record<PantryLocation, …>` makes adding a location without an icon a compile error.
@@ -94,6 +94,7 @@ export function Pantry({
   onMove,
   onAdjustQuantity,
   onReview,
+  onSetTracking,
   estimates,
   openCheck = false,
   onCheckOpened,
@@ -105,6 +106,8 @@ export function Pantry({
   onAdjustQuantity: (id: string, quantity: number) => void
   /** Saves a bulk check; resolves to what was done, rejects when nothing was saved. */
   onReview: (reviewedIds: string[], goneIds: string[], addGoneToList: boolean) => Promise<PantryReviewResult>
+  /** How closely an item is watched: normal, rarely (salt, spices), not at all. */
+  onSetTracking: (id: string, tracking: PantryTracking) => void
   /** "Asi došlo" estimates by pantry item id (lib/pantry-estimate.ts). */
   estimates: Map<string, ConsumptionEstimate>
   /** Open the check of uncertain items right away (the weekly notification's link). */
@@ -273,6 +276,20 @@ export function Pantry({
             >
               {PANTRY_LOCATIONS.map((option) => (
                 <option key={option}>{option}</option>
+              ))}
+            </select>
+            {/* Salt, spices or oil need no weekly question: "Jen zřídka" asks every few months,
+                "Nesledovat" never, and neither is ever estimated as used up. */}
+            <select
+              aria-label={`Sledování ${item.name}`}
+              value={item.tracking ?? 'normal'}
+              onChange={(event) => onSetTracking(item.id, event.target.value as PantryTracking)}
+              className="max-w-full rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none"
+            >
+              {PANTRY_TRACKING.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
               ))}
             </select>
             {/* Grouped so the two icon buttons wrap onto a new line together on a narrow phone, not one by one. */}

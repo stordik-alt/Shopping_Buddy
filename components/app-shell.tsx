@@ -17,7 +17,7 @@ import {
 } from '@/app/actions/household'
 import { markMealCookedAction } from '@/app/actions/meal-plan'
 import { markAllNotificationsReadAction, markNotificationReadAction } from '@/app/actions/notifications'
-import { adjustPantryItemQuantityAction, confirmPantryItemAction, movePantryItemAction, removePantryItemAction, reviewPantryAction } from '@/app/actions/pantry'
+import { adjustPantryItemQuantityAction, confirmPantryItemAction, movePantryItemAction, removePantryItemAction, reviewPantryAction, setPantryTrackingAction } from '@/app/actions/pantry'
 import { completePurchaseAction } from '@/app/actions/purchases'
 import {
   applyReceiptListMatchesAction,
@@ -52,8 +52,12 @@ import { AppSidebar } from '@/components/shared/app-sidebar'
 import { MobileNav } from '@/components/shared/mobile-nav'
 import { Pantry } from '@/components/shopping/pantry'
 import { OfflineBanner } from '@/components/shopping/offline-banner'
+import { QuickOutOfStock } from '@/components/dashboard/quick-out-of-stock'
+import { PantryPrompt, type PantryPromptState } from '@/components/shopping/pantry-prompt'
 import { applyPendingOps, enqueue, isNetworkError, loadQueue, newTempId, placeholderItem, remapItemId, saveQueue, type PendingOp } from '@/lib/offline-queue'
 import { estimatePantry } from '@/lib/pantry-estimate'
+import { pantryItemAtHome } from '@/lib/pantry'
+import { matchKey as matchKeyOf } from '@/lib/receipt-list-match'
 import { ShoppingList } from '@/components/shopping/shopping-list'
 import { StoreDirectory } from '@/components/stores/store-directory'
 import { UsualItems } from '@/components/shopping/usual-items'
@@ -65,7 +69,7 @@ import type { Ingredient, MealType } from '@/lib/meal-plans'
 import type { ProductPrice } from '@/lib/prices'
 import { pollReceiptStatus } from '@/lib/receipt-progress'
 import type { ReceiptLineItem } from '@/lib/receipts'
-import type { Item, PantryLocation, Store, Tab } from '@/lib/types'
+import type { Item, PantryItem, PantryLocation, PantryTracking, Store, Tab } from '@/lib/types'
 import type { PinRecord } from '@/lib/db/shopping-plan'
 import { filterPricesToNearby, type StoreSelection } from '@/lib/nearby-stores'
 import { nearbyOffers, type StandaloneOffer } from '@/lib/offers'
@@ -258,7 +262,17 @@ export function AppShell({
 
   // Shared by the "Co koupit?" field and the deals card's "Na seznam" button.
   async function addItemByName(name: string) {
+    offerPantryCorrection(name)
     await runOrQueue({ kind: 'add', tempId: newTempId(), name })
+  }
+
+  // Putting something on the list that the pantry says is at home: ask once whether it ran out
+  // (components/shopping/pantry-prompt.tsx). Matched by name with synonyms (matchKey); items the
+  // household does not track are left alone.
+  const [pantryPrompt, setPantryPrompt] = useState<PantryPromptState | null>(null)
+  function offerPantryCorrection(name: string) {
+    const atHome = pantryItemAtHome(pantryItems, name)
+    setPantryPrompt(atHome ? { pantryItemId: atHome.id, name: atHome.name, quantity: atHome.quantity, unit: atHome.unit } : null)
   }
 
   // Sequential on purpose — was Promise.all, which fired one addShoppingItemAction per ingredient
@@ -537,12 +551,24 @@ export function AppShell({
 
   // "Asi došlo" estimates from the household's own purchase rhythm (lib/pantry-estimate.ts).
   const pantryEstimates = useMemo(() => estimatePantry(pantryItems, initialData.purchaseHistory, today), [pantryItems, initialData.purchaseHistory, today])
+  const likelyGonePantryIds = useMemo(() => new Set([...pantryEstimates].filter(([, estimate]) => estimate.likelyGone).map(([id]) => id)), [pantryEstimates])
+  // "Došlo mi…" on the home screen: out of the pantry and, if asked, onto the list — without the
+  // "Došlo?" question, since the household just said so.
+  function quickOut(item: PantryItem, addToList: boolean) {
+    removePantryItem(item.id)
+    if (addToList && !items.some((entry) => !entry.done && matchKeyOf(entry.name) === matchKeyOf(item.name))) void runOrQueue({ kind: 'add', tempId: newTempId(), name: item.name })
+  }
   const [pantryCheckPending, setPantryCheckPending] = useState(initialPantryCheck)
   // Consumes the check link: drops `kontrola=1` from the address so a reload does not reopen it.
   const consumePantryCheck = useCallback(() => {
     setPantryCheckPending(false)
     if (new URLSearchParams(window.location.search).has('kontrola')) window.history.replaceState(null, '', tabHref('Zásoby'))
   }, [])
+
+  function setPantryTracking(id: string, tracking: PantryTracking) {
+    setPantryItems((current) => current.map((item) => (item.id === id ? { ...item, tracking, askedAt: undefined } : item)))
+    setPantryTrackingAction(id, tracking)
+  }
 
   function adjustPantryItemQuantity(id: string, quantity: number) {
     setPantryItems((current) => current.map((item) => (item.id === id ? { ...item, quantity } : item)))
@@ -716,6 +742,7 @@ export function AppShell({
                     onStores={() => setTab('Obchody')}
                     onSetBudget={() => setTab('Profil')}
                   />
+                  <QuickOutOfStock pantryItems={pantryItems} likelyGoneIds={likelyGonePantryIds} onGone={quickOut} />
                   <PriceWatch today={today} onStores={() => setTab('Obchody')} onAddToList={addItemByName} listItemNames={pendingNames} productPrices={nearbyProductPrices} offers={nearbyStandaloneOffers} pantryItems={pantryItems} />
                   <MealPlan household={household} initialPlan={initialData.mealPlan} pantryItems={pantryItems} onAddIngredients={addIngredients} onMarkCooked={markMealCooked} />
                   <div className="grid gap-4 lg:grid-cols-2 lg:gap-6">
@@ -727,6 +754,16 @@ export function AppShell({
               {tab === 'Nákup' && (
                 <div className="mx-auto max-w-3xl space-y-5">
                   <OfflineBanner online={online} pending={pendingCount} dropped={droppedCount} onDismissDropped={() => setDroppedCount(0)} />
+                  {pantryPrompt && (
+                    <PantryPrompt
+                      prompt={pantryPrompt}
+                      onGone={() => {
+                        removePantryItem(pantryPrompt.pantryItemId)
+                        setPantryPrompt(null)
+                      }}
+                      onDismiss={() => setPantryPrompt(null)}
+                    />
+                  )}
                   <UsualItems suggestions={usualItems} onAdd={addUsualItems} />
                   <ShoppingList
                     today={today}
@@ -755,7 +792,7 @@ export function AppShell({
               )}
               {tab === 'Zásoby' && (
                 <div className="mx-auto max-w-3xl">
-                  <Pantry items={pantryItems} onConfirm={confirmPantryItem} onRemove={removePantryItem} onMove={movePantryItem} onAdjustQuantity={adjustPantryItemQuantity} onReview={reviewPantry} estimates={pantryEstimates} openCheck={pantryCheckPending} onCheckOpened={consumePantryCheck} />
+                  <Pantry items={pantryItems} onConfirm={confirmPantryItem} onRemove={removePantryItem} onMove={movePantryItem} onAdjustQuantity={adjustPantryItemQuantity} onReview={reviewPantry} onSetTracking={setPantryTracking} estimates={pantryEstimates} openCheck={pantryCheckPending} onCheckOpened={consumePantryCheck} />
                 </div>
               )}
               {tab === 'Obchody' && (

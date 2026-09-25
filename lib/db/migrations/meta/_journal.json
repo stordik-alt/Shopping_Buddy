@@ -232,6 +232,13 @@
       "when": 1790367449677,
       "tag": "0032_declare_existing_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1790378863622,
+      "tag": "0033_pantry_tracking",
+      "breakpoints": true
     }
   ]
 }

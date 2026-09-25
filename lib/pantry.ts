@@ -1,4 +1,6 @@
-import type { ItemCategory, PantryItem, PantryLocation } from '@/lib/types'
+import { normalizeSearchText } from '@/lib/product-search'
+import { matchKey } from '@/lib/receipt-list-match'
+import type { ItemCategory, PantryItem, PantryLocation, PantryTracking } from '@/lib/types'
 
 /** How many days a pantry item can go unconfirmed before the household gets asked "do you still
  *  have this?" — per category, since shelf life genuinely differs (milk vs. rice), but there's no
@@ -49,14 +51,27 @@ export function summarizeByLocation(items: PantryItem[], likelyGoneIds: Readonly
 }
 
 /** Whether an item belongs in a check: the check-in asked about it, or it is probably used up. */
-export function needsCheck(item: Pick<PantryItem, 'id' | 'askedAt'>, likelyGoneIds: ReadonlySet<string>): boolean {
+export function needsCheck(item: Pick<PantryItem, 'id' | 'askedAt' | 'tracking'>, likelyGoneIds: ReadonlySet<string>): boolean {
+  if (item.tracking === 'off') return false
   return Boolean(item.askedAt) || likelyGoneIds.has(item.id)
 }
+
+/** The tracking levels in the order the UI offers them, with their labels. */
+export const PANTRY_TRACKING: { value: PantryTracking; label: string }[] = [
+  { value: 'normal', label: 'Sledovat' },
+  { value: 'rare', label: 'Jen zřídka' },
+  { value: 'off', label: 'Nesledovat' },
+]
+
+/** Check-in interval of an item watched only rarely (salt, spices, oil): a quarter of a year. */
+export const RARE_CHECKIN_DAYS = 90
 
 export type PantryCheckinCandidate = {
   category: ItemCategory
   addedAt: Date
   askedAt: Date | null
+  /** Absent = 'normal'. */
+  tracking?: PantryTracking
 }
 
 /** Whether it's time to ask the household "do you still have this?" — once per category's
@@ -65,7 +80,8 @@ export type PantryCheckinCandidate = {
  *  item left unconfirmed forever isn't useful — unlike a shopping reminder, this isn't a
  *  one-time event. */
 export function isDueForCheckin(item: PantryCheckinCandidate, now: Date): boolean {
-  const intervalMs = CHECKIN_DAYS_BY_CATEGORY[item.category] * 86_400_000
+  if (item.tracking === 'off') return false
+  const intervalMs = (item.tracking === 'rare' ? RARE_CHECKIN_DAYS : CHECKIN_DAYS_BY_CATEGORY[item.category]) * 86_400_000
   if (now.getTime() - item.addedAt.getTime() < intervalMs) return false
   if (item.askedAt === null) return true
   return now.getTime() - item.askedAt.getTime() >= intervalMs
@@ -153,4 +169,25 @@ export function splitPantryReview(reviewedIds: string[], goneIds: Iterable<strin
   const reviewed = [...new Set(reviewedIds)]
   const gone = new Set(goneIds)
   return { goneIds: reviewed.filter((id) => gone.has(id)), keptIds: reviewed.filter((id) => !gone.has(id)) }
+}
+
+/** The pantry item a shopping-list name refers to, if the household has it at home and tracks it:
+ *  same name once case, accents and synonyms are ignored ("Vajíčka" → "Vejce"). For the "Došlo?"
+ *  question when something goes on the list. */
+export function pantryItemAtHome(pantryItems: PantryItem[], name: string): PantryItem | null {
+  const key = matchKey(name)
+  if (!key) return null
+  return pantryItems.find((item) => item.tracking !== 'off' && item.quantity > 0 && matchKey(item.name) === key) ?? null
+}
+
+/** What the home screen's "Došlo mi…" offers (components/dashboard/quick-out-of-stock.tsx): tracked
+ *  items in stock. Without a query, the ones most likely gone come first (estimated as used up, then
+ *  asked about), then by name; with a query, the items whose name contains it (case and accents
+ *  ignored). At most `limit`. */
+export function quickOutCandidates(items: PantryItem[], likelyGoneIds: ReadonlySet<string>, query: string, limit = 6): PantryItem[] {
+  const tracked = items.filter((item) => item.tracking !== 'off' && item.quantity > 0)
+  const needle = normalizeSearchText(query.trim())
+  if (needle) return tracked.filter((item) => normalizeSearchText(item.name).includes(needle)).slice(0, limit)
+  const rank = (item: PantryItem) => (likelyGoneIds.has(item.id) ? 0 : item.askedAt ? 1 : 2)
+  return [...tracked].sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name, 'cs')).slice(0, limit)
 }

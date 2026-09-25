@@ -9,7 +9,7 @@ let currentHouseholdId = ''
 vi.mock('@/lib/auth/authorize', () => ({ requireHouseholdId: () => Promise.resolve(currentHouseholdId) }))
 vi.mock('next/cache', () => ({ revalidatePath: () => {} }))
 
-import { adjustPantryItemQuantityAction, confirmPantryItemAction, movePantryItemAction, removePantryItemAction, reviewPantryAction } from '@/app/actions/pantry'
+import { adjustPantryItemQuantityAction, confirmPantryItemAction, movePantryItemAction, removePantryItemAction, reviewPantryAction, setPantryTrackingAction } from '@/app/actions/pantry'
 
 const db = getDb()
 const createdHouseholdIds: string[] = []
@@ -198,5 +198,17 @@ describe('reviewPantryAction', () => {
   it('rejects malformed input', async () => {
     await expect(reviewPantryAction({ reviewedIds: 'x' as unknown as string[], goneIds: [] })).rejects.toThrow('Neplatná kontrola')
     expect(await reviewPantryAction({ reviewedIds: [], goneIds: [] })).toEqual({ removed: 0, confirmed: 0 })
+  })
+})
+
+describe('setPantryTrackingAction', () => {
+  it("sets the caller's own item and clears a pending question; refuses another household's item and unknown values", async () => {
+    const [mine] = await db.insert(schema.pantryItems).values({ householdId, name: 'Sůl', category: 'Potraviny', askedAt: new Date() }).returning()
+    const [theirs] = await db.insert(schema.pantryItems).values({ householdId: otherHouseholdId, name: 'Pepř', category: 'Potraviny' }).returning()
+    await setPantryTrackingAction(mine.id, 'rare')
+    const row = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, mine.id) })
+    expect(row).toMatchObject({ tracking: 'rare', askedAt: null })
+    await expect(setPantryTrackingAction(theirs.id, 'off')).rejects.toThrow('Pantry item not found')
+    await expect(setPantryTrackingAction(mine.id, 'sometimes' as never)).rejects.toThrow('Neplatná volba')
   })
 })

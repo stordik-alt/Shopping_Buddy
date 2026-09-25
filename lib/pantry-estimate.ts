@@ -49,10 +49,12 @@ export function shelfLifeDays(item: Pick<PantryItem, 'name' | 'category' | 'loca
 
 /** The estimate for one item; null when there is nothing to base one on. */
 export function estimateConsumption(
-  item: Pick<PantryItem, 'name' | 'category' | 'location' | 'addedAt' | 'quantity'>,
+  item: Pick<PantryItem, 'name' | 'category' | 'location' | 'addedAt' | 'quantity' | 'tracking'>,
   rhythm: PurchaseRhythm | undefined,
   today: string,
 ): ConsumptionEstimate | null {
+  // Items watched only rarely or not at all are never estimated ("sůl" is not "asi došlo" weekly).
+  if (item.tracking === 'rare' || item.tracking === 'off') return null
   const age = dayNumber(today) - dayNumber(item.addedAt)
   if (age < 0) return null
   const fromRhythm = rhythm?.intervalDays ?? null
@@ -93,7 +95,7 @@ export function selectForWeeklyCheck(items: PantryItem[], purchases: PurchaseRec
   const estimates = estimatePantry(items, purchases, today)
   const likelyGone = (item: PantryItem) => estimates.get(item.id)?.likelyGone === true
   return items
-    .filter((item) => likelyGone(item) || isDueForCheckin({ category: item.category, addedAt: new Date(item.addedAt), askedAt: item.askedAt ? new Date(item.askedAt) : null }, now))
+    .filter((item) => likelyGone(item) || isDueForCheckin({ category: item.category, addedAt: new Date(item.addedAt), askedAt: item.askedAt ? new Date(item.askedAt) : null, tracking: item.tracking }, now))
     .sort((a, b) => Number(likelyGone(b)) - Number(likelyGone(a)) || a.name.localeCompare(b.name, 'cs'))
 }
 
@@ -103,4 +105,19 @@ export function weeklyCheckMessage(names: string[]): { title: string; detail: st
   const rest = names.length - 5
   const more = rest <= 0 ? '' : rest <= 4 ? ` a další ${rest}` : ` a dalších ${rest}`
   return { title: 'Kontrola zásob', detail: `Došlo, nebo ještě máte? ${shown}${more}. Stačí potvrdit, zabere to chvilku.` }
+}
+
+/** The stock after a purchase restocks an item already in the pantry: what was left plus what was
+ *  bought — unless the old stock is probably used up (at zero, or past its shelf life), in which case
+ *  it starts again from what was bought. Buying milk a week after the last litre used to show "3 l"
+ *  at home when only the new litre was there. Only the shelf-life estimate is used here (the purchase
+ *  rhythm needs the household's history, which the purchase path does not load); an item watched
+ *  rarely or not at all is summed as before. */
+export function restockedQuantity(
+  existing: Pick<PantryItem, 'name' | 'category' | 'location' | 'addedAt' | 'quantity' | 'tracking'>,
+  bought: number,
+  today: string,
+): number {
+  if (existing.quantity <= 0) return bought
+  return estimateConsumption(existing, undefined, today)?.likelyGone ? bought : existing.quantity + bought
 }

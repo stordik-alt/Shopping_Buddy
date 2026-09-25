@@ -12,6 +12,10 @@ export const itemUnitEnum = pgEnum('item_unit', ['ks', 'kg', 'g', 'l', 'ml'])
 export const itemPriorityEnum = pgEnum('item_priority', ['Nízká', 'Normální', 'Vysoká'])
 export const invitationStatusEnum = pgEnum('invitation_status', ['pending', 'accepted', 'revoked'])
 export const pantryLocationEnum = pgEnum('pantry_location', ['Spíž', 'Lednice', 'Mrazák', 'Domácnost', 'Lékárnička', 'Drogérka'])
+// How closely the household wants a pantry item watched (lib/pantry.ts): 'normal' — estimated and
+// checked as usual; 'rare' — no "asi došlo" estimate, a check-in only every few months (salt,
+// spices, oil); 'off' — never estimated or asked about.
+export const pantryTrackingEnum = pgEnum('pantry_tracking', ['normal', 'rare', 'off'])
 // External price-ingestion sources (docs/32 "Internet Data Integration"). One entry per retailer
 // connector actually implemented — starts with just Lidl.
 export const productSourceEnum = pgEnum('product_source', ['lidl', 'billa', 'penny', 'dm', 'rohlik', 'kosik', 'globus', 'albert'])
@@ -477,6 +481,7 @@ export const pantryItems = pgTable('pantry_items', {
   // When we last asked "do you still have this?". Null means never asked. Reset to null on
   // confirmation, so the next check-in interval starts counting from a fresh addedAt.
   askedAt: timestamp('asked_at'),
+  tracking: pantryTrackingEnum('tracking').notNull().default('normal'),
 })
 
 // Receipt import ("nahrávání nákupů přes účtenky"): prepares the ingestion path for a future OCR

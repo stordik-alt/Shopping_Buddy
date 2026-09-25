@@ -5,8 +5,8 @@ import { revalidatePath } from 'next/cache'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
-import { MAX_PANTRY_REVIEW_ITEMS, splitPantryReview } from '@/lib/pantry'
-import type { PantryLocation } from '@/lib/types'
+import { MAX_PANTRY_REVIEW_ITEMS, PANTRY_TRACKING, splitPantryReview } from '@/lib/pantry'
+import type { PantryLocation, PantryTracking } from '@/lib/types'
 
 async function assertOwnsPantryItem(householdId: string, pantryItemId: string) {
   const db = getDb()
@@ -98,4 +98,15 @@ export async function reviewPantryAction(input: { reviewedIds: string[]; goneIds
   }
   revalidatePath('/')
   return { removed: goneIds.length, confirmed: keptIds.length }
+}
+
+/** How closely the household wants an item watched (lib/pantry.ts PANTRY_TRACKING): 'rare' and
+ *  'off' drop it from the "asi došlo" estimate, and 'off' from every check. Changing it also clears
+ *  a pending "Máte ještě?" question — the household just said how they want the item treated. */
+export async function setPantryTrackingAction(pantryItemId: string, tracking: PantryTracking) {
+  const householdId = await requireHouseholdId()
+  await assertOwnsPantryItem(householdId, pantryItemId)
+  if (!PANTRY_TRACKING.some((option) => option.value === tracking)) throw new Error('Neplatná volba sledování.')
+  await getDb().update(schema.pantryItems).set({ tracking, askedAt: null }).where(eq(schema.pantryItems.id, pantryItemId))
+  revalidatePath('/')
 }

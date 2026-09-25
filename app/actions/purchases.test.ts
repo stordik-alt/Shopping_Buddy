@@ -148,6 +148,16 @@ describe('completePurchaseAction — pantry restocking', () => {
     expect(row?.quantity).toBe(2)
   })
 
+  it('replaces stock that is past its shelf life instead of adding to it', async () => {
+    const fiveDaysAgo = new Date(Date.now() - 5 * 86_400_000)
+    await db.insert(schema.pantryItems).values({ householdId, name: 'Rohlík', category: 'Potraviny', location: 'Spíž', quantity: 4, addedAt: fiveDaysAgo })
+    await db.insert(schema.shoppingListItems).values({ listId, name: 'Rohlík', done: true, price: '3', quantity: 6, category: 'Potraviny' })
+    await completePurchaseAction(listId)
+
+    const row = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.householdId, householdId) })
+    expect(row?.quantity).toBe(6) // the rolls from five days ago are gone (3-day shelf life), not 10
+  })
+
   it('sums quantity into an existing pantry row on restock, case-insensitively by name, and resets askedAt', async () => {
     const twoDaysAgo = new Date(Date.now() - 2 * 86_400_000)
     await db.insert(schema.pantryItems).values({ householdId, name: 'Vejce', category: 'Potraviny', quantity: 6, addedAt: twoDaysAgo, askedAt: twoDaysAgo })

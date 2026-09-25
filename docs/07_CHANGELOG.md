@@ -1,5 +1,18 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Pantry: list link, tracking levels, "Došlo mi…"; estimate date fix)
+- **Fix:** `getHouseholdData` sent pantry dates as `Date.toString()` ("Thu Sep 24 2026 …"). The "asi došlo" estimate reads the date part (`YYYY-MM-DD`), so it never triggered in the app, and the check's order was wrong. Dates are now ISO.
+- **List link (point 3):**
+  - Putting something on the list that the pantry says is at home asks "… máte podle zásob doma. Došlo?" (`components/shopping/pantry-prompt.tsx`). The match is by name with synonyms (`pantryItemAtHome`); untracked or empty items are skipped. Nothing changes without a tap.
+  - A purchase restocking stock that is probably used up (at zero or past its shelf life) now replaces it instead of adding to it (`restockedQuantity`). Buying milk a week later no longer shows "3 l".
+- **Tracking levels (point 4, migration 0033):** `pantry_items.tracking` is `normal` / `rare` / `off`, selectable per row.
+  - `rare`: no "asi došlo" estimate and a check-in every 90 days (salt, spices, oil).
+  - `off`: never estimated, asked about or listed as one to check.
+  - Changing it clears a pending question (`setPantryTrackingAction`).
+- **"Došlo mi…" (point 5):** a home-screen card lists the likely-gone items first and lets you search any item at home (`quickOutCandidates`). A tap removes the item from the pantry and optionally adds it to the list, after 5 s with "Zpět".
+- **Tests:** restock replace/sum, tracking in estimate and weekly check, at-home match with synonyms, quick-out ranking and search, DB tests for tracking and restock replacement. CI command: 973 passed; `next build` passes. Rendered at 390 px (temporary preview page, removed).
+- **Setup:** `pnpm db:migrate` (0033) before deploying — the app reads the new column.
+
 ## 2026-09-25 (Shopping list without a signal)
 - **Why:** in a shop without coverage, a tick never reached the server, and the next refresh replaced the list with the server's copy, so the tick vanished. Reopening the app without a signal showed nothing.
 - **Queue** (`lib/offline-queue.ts`, pure and tested):

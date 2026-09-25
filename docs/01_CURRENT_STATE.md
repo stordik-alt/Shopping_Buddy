@@ -1267,6 +1267,13 @@ The application should remain stable while functionality is expanded incremental
 
 **Added 2026-09-22.** A new domain, owner-requested, not part of the original Phase 8 notification set (section 19) but following the same deterministic-generator pattern.
 
+**Update 2026-09-25, list link, tracking levels, "Došlo mi…".**
+* **Adding to the list:** an item the pantry has at home asks "Došlo?" (one tap).
+* **Restocking:** probably-used-up stock is replaced, not summed.
+* **Tracking per item (migration 0033):** normal / rare (no estimate, check-in every 90 days) / off (never checked).
+* **Home screen:** the "Došlo mi…" card records what ran out in two taps, with undo.
+* **Date fix:** pantry dates reach the client as ISO strings, so the estimate works.
+
 **Update 2026-09-25, "asi došlo" estimate and a weekly check.** The pantry now guesses what was used up, so the household mostly only confirms.
 * **Estimate** (`lib/pantry-estimate.ts`, deterministic, no AI): an item is "asi došlo" once its usual time has passed since it was last restocked or confirmed.
   * The usual time is the household's own purchase rhythm: the median days between purchases, from 3+ purchase days in 120 days (`lib/purchase-rhythm.ts`, now shared with "Doplnit obvyklé").

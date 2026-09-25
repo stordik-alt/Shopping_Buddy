@@ -1,5 +1,12 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Shopping list: remembered view, screen stays on, loading skeleton)
+- **Remembered view:** the list's category filter, "show completed", sort and grouping are stored per device (`lib/list-view-preference.ts`, validated, guarded `localStorage`) instead of resetting on every reload or refresh. The search text is not stored.
+- **Keep the screen on:** a "Nechat displej svítit" toggle next to the list counter holds a Screen Wake Lock (`lib/use-wake-lock.ts`) while shopping and re-acquires it when the page becomes visible again; hidden where the browser has no Wake Lock API.
+- **Loading:** `app/loading.tsx` shows a skeleton of the home layout while the server render runs, instead of a blank screen.
+- `lib/safe-storage.ts` is the one guarded `localStorage` accessor (was a private helper in `app-shell.tsx`).
+- **Tests:** view preference round-trip, corrupt/unknown values, broken storage. CI command: 885 passed; `next build` passes. **Not checked on a phone** (no signed-in session here): wake lock behaviour and the skeleton.
+
 ## 2026-09-25 (Sections have addresses; dark mode remembered; no invented AI answers)
 - **Sections:** each tab has its own address (`/?tab=nakup`, `zasoby`, `obchody`, `rozpocet`, `profil`; Domů is `/`) via `lib/tab-url.ts`. The phone's back gesture now returns to the previous section instead of closing the app, a reload keeps the section, and a section can be linked. `?tab=ai` opens Domů while the assistant is switched off (`lib/features.ts`).
 - **Dark mode:** the header toggle is remembered on the device (`lib/theme-preference.ts`, guarded `localStorage`); without an explicit choice the phone's system setting is followed, also when it changes. Before, every reload or refresh reset it to light.

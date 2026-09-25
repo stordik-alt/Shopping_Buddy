@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Check, ChevronDown, ListChecks, Plus, Search, SlidersHorizontal, Tag, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Check, ChevronDown, ListChecks, Plus, Search, SlidersHorizontal, Sun, Tag, X } from 'lucide-react'
 import type { GpsCoords } from '@/lib/geo'
 import type { Item, ItemCategory, ItemPriority, ItemUnit, Store, StoreChain } from '@/lib/types'
 import { money } from '@/lib/format'
@@ -11,6 +11,9 @@ import { ShoppingPlanPanel } from '@/components/shopping/shopping-plan'
 import { PriceComparison } from '@/components/shopping/price-comparison'
 import { ProductSearch } from '@/components/shopping/product-search'
 import { StoreComparison } from '@/components/shopping/store-comparison'
+import { GROUP_KEYS, readListView, saveListView, SORT_KEYS, type GroupKey, type SortKey } from '@/lib/list-view-preference'
+import { safeLocalStorage } from '@/lib/safe-storage'
+import { useWakeLock } from '@/lib/use-wake-lock'
 
 const CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
 const UNITS: ItemUnit[] = ['ks', 'kg', 'g', 'l', 'ml']
@@ -18,8 +21,6 @@ const PRIORITIES: ItemPriority[] = ['Nízká', 'Normální', 'Vysoká']
 const STORES: StoreChain[] = ['Lidl', 'Albert', 'Kaufland', 'Billa', 'Penny', 'JIP']
 const PRIORITY_WEIGHT: Record<ItemPriority, number> = { Vysoká: 0, Normální: 1, Nízká: 2 }
 
-type SortKey = 'Výchozí' | 'Název' | 'Cena' | 'Priorita'
-type GroupKey = 'Bez seskupení' | 'Podle kategorie' | 'Podle obchodu'
 
 function sortItems(items: Item[], sort: SortKey) {
   const sorted = [...items]
@@ -101,6 +102,24 @@ export function ShoppingList({
   // with its name). Never both at once, so the screen does not fill up with search panels.
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchItemId, setSearchItemId] = useState<string | null>(null)
+  const wakeLock = useWakeLock()
+
+  // Filters, sort and grouping are remembered on this device (lib/list-view-preference.ts). They are
+  // read after hydration (the server has no storage), and only saved once read, so the defaults of
+  // the first render never overwrite what the user chose last time. The save effect is declared
+  // first on purpose: effects run in order, so on the first commit it still sees "not loaded".
+  const viewLoaded = useRef(false)
+  useEffect(() => {
+    if (viewLoaded.current) saveListView(safeLocalStorage(), { category, showCompleted, sort, group })
+  }, [category, showCompleted, sort, group])
+  useEffect(() => {
+    const view = readListView(safeLocalStorage(), CATEGORIES)
+    setCategory(view.category)
+    setShowCompleted(view.showCompleted)
+    setSort(view.sort)
+    setGroup(view.group)
+    viewLoaded.current = true
+  }, [])
 
   const filteredItems = items.filter(
     (item) =>
@@ -132,9 +151,21 @@ export function ShoppingList({
           <p className="text-sm text-muted-foreground">Sdílené seznamy</p>
           <h2 className="mt-0.5 break-words text-2xl font-semibold tracking-tight">{activeList}</h2>
         </div>
-        <span className="rounded-full bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground">
-          {remainingCount} k nákupu · {completedCount} hotovo
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground">
+            {remainingCount} k nákupu · {completedCount} hotovo
+          </span>
+          {wakeLock.supported && (
+            <button
+              type="button"
+              onClick={wakeLock.toggle}
+              aria-pressed={wakeLock.active}
+              className={`flex min-h-9 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${wakeLock.active ? 'bg-primary text-primary-foreground' : 'border border-border bg-card text-muted-foreground hover:bg-muted'}`}
+            >
+              <Sun className="h-3.5 w-3.5" aria-hidden="true" /> {wakeLock.active ? 'Displej nezhasne' : 'Nechat displej svítit'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Adding an item is the most frequent action, so it comes first — before filters and comparisons. */}
@@ -272,7 +303,7 @@ export function ShoppingList({
                   onChange={(event) => setSort(event.target.value as SortKey)}
                   className="min-h-10 rounded-lg border border-input bg-background px-2 py-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  {(['Výchozí', 'Název', 'Cena', 'Priorita'] as SortKey[]).map((option) => (
+                  {SORT_KEYS.map((option) => (
                     <option key={option}>{option}</option>
                   ))}
                 </select>
@@ -285,7 +316,7 @@ export function ShoppingList({
                   onChange={(event) => setGroup(event.target.value as GroupKey)}
                   className="min-h-10 rounded-lg border border-input bg-background px-2 py-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  {(['Bez seskupení', 'Podle kategorie', 'Podle obchodu'] as GroupKey[]).map((option) => (
+                  {GROUP_KEYS.map((option) => (
                     <option key={option}>{option}</option>
                   ))}
                 </select>

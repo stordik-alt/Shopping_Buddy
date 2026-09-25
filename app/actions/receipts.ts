@@ -231,7 +231,8 @@ async function createPurchaseFromReceiptItems(
   const db = getDb()
   const date = resolveReceiptPurchaseDate(options.date, options.storedDate ?? null)
 
-  const catalog = await getProductCatalog()
+  // Only the candidates for these item names, not the whole catalog.
+  const catalog = await getProductCatalog(items.map((item) => item.name))
   const resolvedItems = items.map((item) => {
     const catalogEntry = matchProductByName(catalog, item.name)
     if (options.source === 'auto') {
@@ -552,7 +553,8 @@ async function runReceiptPipeline(
   // Fetched once and reused below both to pre-fill each item's category/location for the review
   // form (via toReceiptLineItems) and to decide whether an item's placement is actually resolvable
   // (via resolveItemPlacement) — see that function's doc comment for the catalog-first priority.
-  const catalog = await getProductCatalog()
+  // Only the candidates for the receipt's item names, not the whole catalog.
+  const catalog = await getProductCatalog(extracted.items.map((item) => item.name))
 
   const parsedRow = await update({
     status: 'parsed',

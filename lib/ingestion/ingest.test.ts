@@ -105,6 +105,26 @@ describe('ingestPrices', () => {
     for (const call of queries.resolveOrCreateProductFromExternal.mock.calls) expect(call[1]).toBe(context)
   })
 
+  it('loads only what this run writes: its SKUs and names, not the whole catalog', async () => {
+    await ingestPrices(
+      connector([
+        { id: 'a', product: product('a') },
+        { id: 'x', product: null }, // unusable: not looked up
+        { id: 'b', product: product('b', { name: 'Mléko' }) },
+        { id: 'c', product: null, throws: true },
+      ]),
+      10,
+    )
+    expect(queries.loadExternalProductContext).toHaveBeenCalledWith('billa', { externalIds: ['a', 'b'], names: ['P a', 'Mléko'] })
+    expect(queries.loadLatestOfficialPrices).toHaveBeenCalledWith('store-1', ['a', 'b'])
+  })
+
+  it('still reports a normalization error for its product', async () => {
+    const result = await ingestPrices(connector([{ id: 'c', product: null, throws: true }, { id: 'a', product: product('a') }]), 10)
+    expect(result.errors).toEqual(['c: boom'])
+    expect(result.recorded).toBe(1)
+  })
+
   it('reports a failed last-seen update as an error without failing the run', async () => {
     queries.loadExternalProductContext.mockResolvedValue({ ...emptyContext(), refs: new Map([['a', 'existing']]) })
     queries.touchExternalRefs.mockRejectedValue(new Error('db down'))

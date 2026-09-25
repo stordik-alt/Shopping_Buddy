@@ -61,10 +61,26 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
   if (options.part) result.part = partLabel(options.part)
   result.processed = raws.length
 
+  // Normalized up front so the lookups below can be limited to the products this run writes. A
+  // normalization error is kept and reported for its product in the loop, as before.
+  const prepared = raws.map((raw) => {
+    try {
+      return { raw, normalized: connector.normalize(raw, today), error: null as unknown }
+    } catch (error) {
+      return { raw, normalized: null, error }
+    }
+  })
+  const batch = prepared.flatMap((entry) => (entry.normalized ? [entry.normalized] : []))
+
   // Looked up once per run, not per product: each lookup is a database round trip, and per-product
   // lookups were what made a run of ~80 products take minutes (see loadExternalProductContext()).
+  // Scoped to this run's products: loading the whole catalog and the store's every price each run
+  // (~22 runs a day) used up Neon's monthly network transfer.
   const { id: storeId, isOnline } = await getStoreByChain(connector.chain)
-  const [context, latestPrices] = await Promise.all([loadExternalProductContext(connector.source), loadLatestOfficialPrices(storeId)])
+  const [context, latestPrices] = await Promise.all([
+    loadExternalProductContext(connector.source, { externalIds: batch.map((product) => product.externalId), names: batch.map((product) => product.name) }),
+    loadLatestOfficialPrices(storeId, batch.map((product) => product.externalId)),
+  ])
   // A deal of a chain with physical stores is still attached to the seeded canonical branch, looked up
   // lazily since a connector whose source has no dated promotions never needs one. An online-only
   // chain has no branch at all (and none is invented): its deals carry the chain and a null branch.
@@ -73,14 +89,14 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
   // at the end.
   const alreadyLinked: string[] = []
 
-  for (const [index, raw] of raws.entries()) {
+  for (const [index, { raw, normalized, error: normalizeError }] of prepared.entries()) {
     if (index > 0) options.onProgress?.(index, raws.length)
     if (options.deadline != null && now() >= options.deadline) {
       result.truncated = true
       break
     }
     try {
-      const normalized = connector.normalize(raw, today)
+      if (normalizeError) throw normalizeError
       if (!normalized) {
         result.skipped++
         continue

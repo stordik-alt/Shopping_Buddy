@@ -11,7 +11,8 @@ import { createHouseholdNotification } from '@/lib/notify'
 import { inferPantryLocation } from '@/lib/pantry'
 import { formatOpeningHours } from '@/lib/stores/osm'
 import type { ProductPrice } from '@/lib/prices'
-import { resolveProductForSku, type ProductCatalogEntry } from '@/lib/products'
+import { distinctProductName, resolveProductForSku, type ProductCatalogEntry } from '@/lib/products'
+import { normalizeSearchText } from '@/lib/product-search'
 import { isReceiptStalled } from '@/lib/receipt-progress'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import type {
@@ -474,7 +475,11 @@ export async function getStores(): Promise<Store[]> {
   const db = getDb()
   const today = todayInPrague()
   const [locations, chainDeals] = await Promise.all([
-    db.query.storeLocations.findMany({ with: { store: true, prices: { with: { product: true } } } }),
+    // Branches only. This used to load every price of every branch with its whole product row
+    // just to list product names in the branch detail — after the OSM import (~1,800 branches) that
+    // was most of what the 20-second refresh pulled from the database and used up Neon's monthly
+    // network transfer. The names now load when a branch's detail is opened (getStoreProductNames).
+    db.query.storeLocations.findMany({ with: { store: { columns: { chain: true } } } }),
     // Counted per chain, not per branch: ingestion attaches a chain's web promotions to one
     // canonical branch (getCanonicalStoreLocationId), so a per-branch count showed all 29 Penny
     // offers on one of its 9 branches and none on the others. One product with two overlapping
@@ -499,9 +504,26 @@ export async function getStores(): Promise<Store[]> {
     // seeded and receipt branches.
     hours: location.openingHours ? formatOpeningHours(location.openingHours) : location.hours,
     dealsCount: dealsByChain.get(location.storeId) ?? 0,
-    availableProducts: Array.from(new Set(location.prices.map((price) => price.product.name))),
     color: CHAIN_COLOR[location.store.chain] ?? 'bg-muted',
   }))
+}
+
+/** How many product names a branch detail lists at most. */
+const STORE_PRODUCT_NAMES_LIMIT = 60
+
+/** Names of products with a recorded price at one branch, alphabetically, at most 60 — for the
+ *  branch detail in the store directory, loaded only when it is opened. Store data is global (not
+ *  household-scoped); the caller decides who may ask. */
+export async function getStoreProductNames(storeLocationId: string): Promise<string[]> {
+  const db = getDb()
+  const rows = await db
+    .selectDistinct({ name: schema.products.name })
+    .from(schema.prices)
+    .innerJoin(schema.products, eq(schema.products.id, schema.prices.productId))
+    .where(eq(schema.prices.storeLocationId, storeLocationId))
+    .orderBy(asc(schema.products.name))
+    .limit(STORE_PRODUCT_NAMES_LIMIT)
+  return rows.map((row) => row.name)
 }
 
 /** The full product catalog as id/name/category/defaultUnit/defaultLocation rows — used to resolve
@@ -513,11 +535,19 @@ export async function getStores(): Promise<Store[]> {
  *  depends on the item actually being categorized 'Potraviny' to ever route it to Lednice/Mrazák.
  *  Deliberately not filtered to only priced products, unlike `getProductPrices()` below: an item
  *  can identify a real product even before that product has any price data. */
-export async function getProductCatalog(): Promise<ProductCatalogEntry[]> {
+export async function getProductCatalog(names?: string[]): Promise<ProductCatalogEntry[]> {
   const db = getDb()
+  // With `names`: only the products those names can match. The whole catalog is ~47,000 products
+  // (~5 MB); loading it to match one list item or one receipt was a large share of the database
+  // network transfer. `matchProductByName()` compares trimmed, lower-cased names, so every product it
+  // could match has the same accent-free lower-case form (`search_name`) — the filter below returns
+  // those candidates (a superset: it also ignores accents) and the caller's exact match decides.
+  if (names && names.length === 0) return []
+  const forms = names ? [...new Set(names.map((name) => normalizeSearchText(name.trim())))] : null
   const products = await db.query.products.findMany({
     columns: { id: true, name: true, defaultUnit: true, defaultLocation: true },
     with: { category: { columns: { name: true } } },
+    ...(forms ? { where: inArray(sql`btrim(${schema.products.searchName})`, forms) } : {}),
   })
   return products.map((product) => ({
     id: product.id,
@@ -630,7 +660,7 @@ export async function upsertStoreLocationFromSource(input: {
 
 /** Which products `getProductPrices()` loads. The client never needs the whole catalog — after the
  *  full-catalog backfill that is ~47,000 products, which took ~25 s and ~22 MB per page render, and
- *  the app re-renders every 20 s (app-shell's refresh). It needs the prices of what is on the
+ *  the app re-renders on its periodic refresh (app-shell). It needs the prices of what is on the
  *  household's list (price and store comparison — matched by exact name, as `comparePrices()` does)
  *  and of the products on promotion today (price watch, "Dnes je důležité"). */
 export type ProductPriceScope = {
@@ -657,13 +687,29 @@ export async function getProductPrices(scope: ProductPriceScope): Promise<Produc
           ? where`EXISTS (SELECT 1 FROM deals d WHERE d.product_id = ${products.id} AND d.valid_from <= ${today}::date AND d.valid_until >= ${today}::date)`
           : undefined,
       ),
+    // Only the columns the mapping below reads. Loading whole related rows (each price with its
+    // store, branch and the branch's store again; each deal with its branch) multiplied the data
+    // every 20-second refresh pulled from the database.
+    columns: { id: true, name: true },
     with: {
-      category: true,
+      category: { columns: { name: true } },
       prices: {
-        with: { store: true, storeLocation: { with: { store: true } } },
+        columns: {
+          storeId: true,
+          storeLocationId: true,
+          priceScope: true,
+          sourceType: true,
+          locationResolution: true,
+          regularPrice: true,
+          unit: true,
+          unitPrice: true,
+          observedAt: true,
+          validUntil: true,
+        },
+        with: { store: { columns: { chain: true } } },
         orderBy: asc(schema.prices.observedAt),
       },
-      deals: { with: { storeLocation: { with: { store: true } } } },
+      deals: { columns: { storeId: true, storeLocationId: true, dealPrice: true, validFrom: true, validUntil: true } },
     },
   })
 
@@ -839,7 +885,27 @@ export async function recordPriceObservation(observation: {
 /** The latest stored official observation per retailer SKU (`source_reference`) at one store —
  *  loaded once per ingestion run so `recordOfficialPrice()` needs no lookup of its own per product
  *  (each lookup is a database round trip). Keyed by the SKU. */
-export async function loadLatestOfficialPrices(storeId: string): Promise<Map<string, OfficialPriceSnapshot>> {
+export async function loadLatestOfficialPrices(storeId: string, sourceReferences?: string[]): Promise<Map<string, OfficialPriceSnapshot>> {
+  const latest = new Map<string, OfficialPriceSnapshot>()
+  // With `sourceReferences`, only the SKUs this run writes — a run reads one part of a catalog of up
+  // to ~13,000 SKUs, and loading them all every run was a large share of the network transfer.
+  if (sourceReferences) {
+    for (const refs of chunks([...new Set(sourceReferences)], 1000)) {
+      for (const [key, value] of await loadLatestOfficialPricesWhere(storeId, refs)) latest.set(key, value)
+    }
+    return latest
+  }
+  for (const [key, value] of await loadLatestOfficialPricesWhere(storeId, null)) latest.set(key, value)
+  return latest
+}
+
+function chunks<T>(values: T[], size: number): T[][] {
+  const out: T[][] = []
+  for (let i = 0; i < values.length; i += size) out.push(values.slice(i, i + size))
+  return out
+}
+
+async function loadLatestOfficialPricesWhere(storeId: string, sourceReferences: string[] | null): Promise<Map<string, OfficialPriceSnapshot>> {
   const db = getDb()
   const rows = await db
     .selectDistinctOn([schema.prices.sourceReference], {
@@ -854,7 +920,14 @@ export async function loadLatestOfficialPrices(storeId: string): Promise<Map<str
       lastConfirmedAt: schema.prices.lastConfirmedAt,
     })
     .from(schema.prices)
-    .where(and(eq(schema.prices.storeId, storeId), eq(schema.prices.priceScope, 'CHAIN'), eq(schema.prices.sourceType, 'OFFICIAL')))
+    .where(
+      and(
+        eq(schema.prices.storeId, storeId),
+        eq(schema.prices.priceScope, 'CHAIN'),
+        eq(schema.prices.sourceType, 'OFFICIAL'),
+        sourceReferences ? inArray(schema.prices.sourceReference, sourceReferences) : undefined,
+      ),
+    )
     .orderBy(schema.prices.sourceReference, desc(schema.prices.observedAt))
 
   const latest = new Map<string, OfficialPriceSnapshot>()
@@ -1006,16 +1079,34 @@ export type ExternalProductContext = {
   categoryIds: Map<string, string>
 }
 
-export async function loadExternalProductContext(source: ProductSource): Promise<ExternalProductContext> {
+/** The context for one ingestion run. With `scope` (what the run is about to write), only what those
+ *  products can touch is loaded: their own external refs, the catalog products their names (or the
+ *  SKU-distinct names, see `resolveProductForSku`) can match, and the refs of those candidates, which
+ *  `resolveProductForSku` needs to tell whether a candidate already belongs to another SKU of this
+ *  source. Before, every run (~22 a day) loaded the whole catalog and every ref of the source —
+ *  several MB each time, most of Neon's monthly network transfer. Without `scope`, everything. */
+export async function loadExternalProductContext(source: ProductSource, scope?: { externalIds: string[]; names: string[] }): Promise<ExternalProductContext> {
   const db = getDb()
-  const [refRows, catalog, categoryRows] = await Promise.all([
-    db
-      .select({ externalId: schema.productExternalRefs.externalId, productId: schema.productExternalRefs.productId })
-      .from(schema.productExternalRefs)
-      .where(eq(schema.productExternalRefs.source, source)),
-    getProductCatalog(),
-    db.select({ id: schema.productCategories.id, name: schema.productCategories.name }).from(schema.productCategories),
-  ])
+  const refColumns = { externalId: schema.productExternalRefs.externalId, productId: schema.productExternalRefs.productId }
+  const categoryRowsPromise = db.select({ id: schema.productCategories.id, name: schema.productCategories.name }).from(schema.productCategories)
+
+  let refRows: { externalId: string; productId: string }[]
+  let catalog: ProductCatalogEntry[]
+  if (!scope) {
+    ;[refRows, catalog] = await Promise.all([db.select(refColumns).from(schema.productExternalRefs).where(eq(schema.productExternalRefs.source, source)), getProductCatalog()])
+  } else {
+    const candidateNames = scope.names.flatMap((name, index) => [name, distinctProductName(name, scope.externalIds[index] ?? '')])
+    catalog = await getProductCatalog(candidateNames)
+    const candidateIds = catalog.map((product) => product.id)
+    refRows = []
+    for (const ids of chunks(scope.externalIds, 1000)) {
+      refRows.push(...(await db.select(refColumns).from(schema.productExternalRefs).where(and(eq(schema.productExternalRefs.source, source), inArray(schema.productExternalRefs.externalId, ids)))))
+    }
+    for (const ids of chunks(candidateIds, 1000)) {
+      refRows.push(...(await db.select(refColumns).from(schema.productExternalRefs).where(and(eq(schema.productExternalRefs.source, source), inArray(schema.productExternalRefs.productId, ids)))))
+    }
+  }
+  const categoryRows = await categoryRowsPromise
   return {
     refs: new Map(refRows.map((row) => [row.externalId, row.productId])),
     catalog,

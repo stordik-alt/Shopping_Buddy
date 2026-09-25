@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { storeProductNamesAction } from '@/app/actions/store-directory'
 import { ChevronDown, Clock, Loader2, LocateFixed, MapPin, Navigation, Search, Tag, X } from 'lucide-react'
 import { activeDealCountLabel, storeCountLabel } from '@/lib/format'
 import { distanceKm, type GpsCoords } from '@/lib/geo'
@@ -162,20 +163,8 @@ export function StoreDirectory({
                       <X className="h-4 w-4" />
                     </button>
                   </div>
-                  {store.availableProducts.length > 0 ? (
-                    <>
-                      <p className="mt-2 text-xs text-muted-foreground">Produkty, u kterých tu známe cenu:</p>
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {store.availableProducts.map((product) => (
-                          <span key={product} className="rounded-full bg-card px-3 py-1.5 text-xs font-medium">
-                            {product}
-                          </span>
-                        ))}
-                      </div>
-                    </>
-                  ) : (
-                    <p className="mt-2 text-xs text-muted-foreground">U této prodejny zatím neznáme žádné ceny.</p>
-                  )}
+                  {/* Fixture stores (no storeId) are not in the database, so there is nothing to load. */}
+                  {store.storeId ? <StoreProducts storeLocationId={store.id} /> : <p className="mt-2 text-xs text-muted-foreground">U této prodejny zatím neznáme žádné ceny.</p>}
                   {store.gps && (
                     <a
                       href={`https://www.google.com/maps/search/?api=1&query=${store.gps.lat},${store.gps.lng}`}
@@ -214,5 +203,48 @@ export function StoreDirectory({
         </a>
       </p>
     </div>
+  )
+}
+
+/** Products with a known price at one branch, loaded when its detail opens — not with every page
+ *  render, which is what used up the database's network transfer (lib/db/queries.ts getStores). */
+function StoreProducts({ storeLocationId }: { storeLocationId: string }) {
+  const [state, setState] = useState<{ status: 'loading' } | { status: 'error' } | { status: 'done'; names: string[] }>({ status: 'loading' })
+
+  useEffect(() => {
+    let cancelled = false
+    storeProductNamesAction(storeLocationId)
+      .then((names) => {
+        if (!cancelled) setState({ status: 'done', names })
+      })
+      .catch((error) => {
+        console.error('Loading branch products failed', error)
+        if (!cancelled) setState({ status: 'error' })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [storeLocationId])
+
+  if (state.status === 'loading') {
+    return (
+      <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> Načítám produkty…
+      </p>
+    )
+  }
+  if (state.status === 'error') return <p className="mt-2 text-xs text-destructive">Produkty se nepodařilo načíst. Zkuste detail otevřít znovu.</p>
+  if (state.names.length === 0) return <p className="mt-2 text-xs text-muted-foreground">U této prodejny zatím neznáme žádné ceny.</p>
+  return (
+    <>
+      <p className="mt-2 text-xs text-muted-foreground">Produkty, u kterých tu známe cenu:</p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {state.names.map((product) => (
+          <span key={product} className="rounded-full bg-card px-3 py-1.5 text-xs font-medium">
+            {product}
+          </span>
+        ))}
+      </div>
+    </>
   )
 }

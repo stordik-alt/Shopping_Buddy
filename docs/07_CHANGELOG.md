@@ -1,5 +1,15 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-26 (Less database transfer per page render)
+- **What:** `getHouseholdData` (every page render and refresh) now reads less:
+  - Pending receipt imports are filtered by status in the database. Before, every OCR receipt ever imported, with its OCR text, was loaded and filtered in code.
+  - `parser_result` is no longer loaded.
+  - Only the newest 50 notifications are loaded, still shown oldest first.
+  - Purchases and expenses cover the last 365 days. Purchases are loaded with only the columns the history, usual items and pantry estimate read, no longer the full store and branch rows.
+  - Shopping-list items load only the chain name of their preferred branch.
+- **Known:** purchase statistics and "Zobrazit všechny" now cover the last year. Older records stay in the database.
+- **Tests:** CI command: 979 passed; `next build` passes.
+
 ## 2026-09-26 (Store import survives busy map servers)
 - **Why:** `pnpm db:import-stores` kept failing because every public Overpass instance was overloaded.
 - **What:** `lib/stores/overpass.ts` now works in smaller steps:

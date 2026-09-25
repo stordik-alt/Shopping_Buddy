@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, ilike, inArray, isNull, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, ilike, inArray, isNull, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { todayInPrague } from '@/lib/today'
@@ -118,14 +118,22 @@ const RECEIPT_STATES_NEEDING_ATTENTION: (typeof schema.receiptStatusEnum.enumVal
  *  return a single updated row through the same mapping via `toReceiptImportState`. */
 export async function getPendingReceiptImports(householdId: string): Promise<ReceiptImportState[]> {
   const db = getDb()
+  // Filtered by status in the database: this runs on every page render, and loading every receipt
+  // ever imported (with its OCR text) only to drop the finished ones grew with each receipt.
   const rows = await db.query.receiptImports.findMany({
-    where: and(eq(schema.receiptImports.householdId, householdId), eq(schema.receiptImports.source, 'ocr')),
+    where: and(eq(schema.receiptImports.householdId, householdId), eq(schema.receiptImports.source, 'ocr'), inArray(schema.receiptImports.status, RECEIPT_STATES_NEEDING_ATTENTION)),
+    columns: { id: true, status: true, imageUrl: true, rawOcrText: true, ocrProvider: true, errorMessage: true, items: true, date: true, total: true, purchaseId: true, updatedAt: true },
     orderBy: desc(schema.receiptImports.createdAt),
   })
-  return rows.filter((row) => RECEIPT_STATES_NEEDING_ATTENTION.includes(row.status)).map(toReceiptImportState)
+  return rows.map(toReceiptImportState)
 }
 
-export function toReceiptImportState(row: typeof schema.receiptImports.$inferSelect): ReceiptImportState {
+type ReceiptStateRow = Pick<
+  typeof schema.receiptImports.$inferSelect,
+  'id' | 'status' | 'imageUrl' | 'rawOcrText' | 'ocrProvider' | 'errorMessage' | 'items' | 'date' | 'total' | 'purchaseId' | 'updatedAt'
+>
+
+export function toReceiptImportState(row: ReceiptStateRow): ReceiptImportState {
   return {
     id: row.id,
     status: row.status,
@@ -223,6 +231,11 @@ export async function joinHouseholdViaInvitation(userId: string, userName: strin
   return household
 }
 
+/** How many notifications the page loads (the newest). */
+const NOTIFICATIONS_SHOWN = 50
+/** How far back expenses and purchases are loaded for the page. */
+const HISTORY_DAYS = 365
+
 /** Loads (or, on first login, creates or joins-via-invitation) the signed-in user's household with every domain area the app needs on first render. */
 export async function getHouseholdData(userId: string, userName: string, userEmail: string): Promise<HouseholdData> {
   const db = getDb()
@@ -243,6 +256,9 @@ export async function getHouseholdData(userId: string, userName: string, userEma
   }
   if (!household) throw new Error(`Household ${ownMember!.householdId} referenced by household_members but missing`)
 
+  // Expenses and purchases are sent for the last year (the budget screens compare months, the
+  // purchase stats describe current habits); older records stay in the database.
+  const historySince = new Date(Date.parse(`${todayInPrague()}T00:00:00Z`) - HISTORY_DAYS * 86_400_000).toISOString().slice(0, 10)
   const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows, mealPlan, invitationRows, pantryRows, pendingReceiptImports] =
     await Promise.all([
       db.query.householdMembers.findMany({
@@ -256,11 +272,19 @@ export async function getHouseholdData(userId: string, userName: string, userEma
         where: eq(schema.shoppingLists.householdId, household.id),
         orderBy: asc(schema.shoppingLists.createdAt),
       }),
-      db.query.expenses.findMany({ where: eq(schema.expenses.householdId, household.id), orderBy: asc(schema.expenses.date) }),
-      db.query.notifications.findMany({ where: eq(schema.notifications.householdId, household.id), orderBy: asc(schema.notifications.createdAt) }),
+      db.query.expenses.findMany({ where: and(eq(schema.expenses.householdId, household.id), gte(schema.expenses.date, historySince)), orderBy: asc(schema.expenses.date) }),
+      // The newest 50 are what the bell panel can usefully show; all of them grew with every week.
+      db.query.notifications.findMany({ where: eq(schema.notifications.householdId, household.id), orderBy: desc(schema.notifications.createdAt), limit: NOTIFICATIONS_SHOWN }),
+      // The last year, with only the columns the history, usual items and pantry estimate read. The
+      // whole history with every related row (branch addresses, opening hours…) was sent on every render.
       db.query.purchases.findMany({
-        where: eq(schema.purchases.householdId, household.id),
-        with: { items: true, store: true, storeLocation: { with: { store: true } } },
+        where: and(eq(schema.purchases.householdId, household.id), gte(schema.purchases.date, historySince)),
+        columns: { id: true, date: true, total: true, discount: true },
+        with: {
+          items: { columns: { name: true, quantity: true, unit: true, price: true } },
+          store: { columns: { chain: true } },
+          storeLocation: { columns: { id: true }, with: { store: { columns: { chain: true } } } },
+        },
         orderBy: asc(schema.purchases.date),
       }),
       getCurrentMealPlan(household.id),
@@ -280,7 +304,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
 
   const items = await db.query.shoppingListItems.findMany({
     where: eq(schema.shoppingListItems.listId, mainListId),
-    with: { preferredStoreLocation: { with: { store: true } } },
+    with: { preferredStoreLocation: { columns: { id: true }, with: { store: { columns: { chain: true } } } } },
     orderBy: asc(schema.shoppingListItems.createdAt),
   })
 
@@ -351,7 +375,8 @@ export async function getHouseholdData(userId: string, userName: string, userEma
         date: expense.date,
       }),
     ),
-    notifications: notificationRows.map(
+    // Loaded newest first (for the limit), shown oldest first as before.
+    notifications: notificationRows.slice().reverse().map(
       (notification): Notification => ({
         id: notification.id,
         title: notification.title,

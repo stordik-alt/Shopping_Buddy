@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url'
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 
 export default defineConfig({
   resolve: {
@@ -10,5 +10,7 @@ export default defineConfig({
   test: {
     // Runs before every test file: routes database-backed tests to the test branch, never production.
     setupFiles: ['./test/setup-test-database.ts'],
+    // The Cloudflare build output (`pnpm cf:build`) contains copies of dependencies; never test those.
+    exclude: [...configDefaults.exclude, '.open-next/**', '.wrangler/**'],
   },
 })

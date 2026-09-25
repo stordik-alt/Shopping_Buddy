@@ -17,7 +17,12 @@
     "db:backfill-prices": "dotenv -e .env.local -- tsx scripts/backfill-prices.ts",
     "db:import-stores": "dotenv -e .env.local -- tsx scripts/import-stores.ts",
     "db:albert-flyers": "dotenv -e .env.local -- tsx scripts/albert-flyers.ts",
-    "db:migrate-blob-to-r2": "dotenv -e .env.local -- tsx scripts/migrate-vercel-blob-to-r2.ts"
+    "db:migrate-blob-to-r2": "dotenv -e .env.local -- tsx scripts/migrate-vercel-blob-to-r2.ts",
+    "gcp:oidc-key": "tsx scripts/generate-gcp-oidc-key.ts",
+    "cf:build": "BUILD_TARGET=cloudflare opennextjs-cloudflare build",
+    "cf:preview": "wrangler dev",
+    "cf:deploy:staging": "opennextjs-cloudflare deploy --env staging",
+    "cf:deploy": "opennextjs-cloudflare deploy"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -43,6 +48,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "1.20.6",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^24",
@@ -54,6 +60,7 @@
     "tailwindcss": "^4.3.3",
     "tsx": "4.23.13",
     "typescript": "5.7.3",
-    "vitest": "^5.0.1"
+    "vitest": "^5.0.1",
+    "wrangler": "4.138.0"
   }
 }

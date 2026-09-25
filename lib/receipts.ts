@@ -1,6 +1,6 @@
 import { generateObject } from 'ai'
 import { z } from 'zod'
-import { getVercelOidcToken } from '@vercel/oidc'
+import { googleSubjectToken } from '@/lib/gcp-oidc'
 import { inferPantryLocation } from '@/lib/pantry'
 import { matchProductByName, type ProductCatalogEntry } from '@/lib/products'
 import type { ItemCategory, ItemUnit, PantryLocation } from '@/lib/types'
@@ -105,14 +105,11 @@ export interface ReceiptStructuringProvider {
   ): Promise<ExtractedReceipt>
 }
 
-/** Exchanges Vercel's short-lived OIDC token for a short-lived Google access token.
- *  This replaces service-account JSON keys, which are blocked by the project's Google
- *  organization policy (iam.disableServiceAccountKeyCreation).
- *
- *  Vercel's supported helper is used instead of reading the OIDC header/environment variable
- *  directly. It can refresh the token in development and reads the request-context token in
- *  Vercel Functions. Explicit project/team values keep local development independent of the
- *  current working directory's .vercel/project.json link. */
+/** Exchanges a short-lived OIDC token (Vercel's by default, or a self-signed one on hosts without
+ *  it — lib/gcp-oidc.ts) for a short-lived Google access token. This replaces service-account JSON
+ *  keys, which are blocked by the project's Google organization policy
+ *  (iam.disableServiceAccountKeyCreation). Explicit project/team values keep local development
+ *  independent of the current working directory's .vercel/project.json link. */
 async function googleServiceAccountAccessToken(): Promise<{ token: string; projectId: string }> {
   const projectId = process.env.GCP_PROJECT_ID
   const projectNumber = process.env.GCP_PROJECT_NUMBER
@@ -127,13 +124,10 @@ async function googleServiceAccountAccessToken(): Promise<{ token: string; proje
     )
   }
 
-  // Get a fresh Vercel OIDC token from the runtime instead of reading a raw token directly.
-  const subjectToken = await getVercelOidcToken()
-
-  if (!subjectToken) throw new Error('Vercel OIDC token is not available')
-
   const audience =
     `//iam.googleapis.com/projects/${projectNumber}/locations/global/workloadIdentityPools/${poolId}/providers/${providerId}`
+
+  const subjectToken = await googleSubjectToken(audience)
 
   const stsResponse = await fetch('https://sts.googleapis.com/v1/token', {
     method: 'POST',

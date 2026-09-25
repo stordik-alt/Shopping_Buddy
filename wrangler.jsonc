@@ -1,0 +1,71 @@
+// Cloudflare Workers configuration — PREPARED, NOT DEPLOYED. Production runs on Vercel.
+// Runbook: docs/cloudflare-deployment.md. Secrets are never written here (see .dev.vars.example).
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "shopping-buddy",
+  // Custom entry: OpenNext's generated worker plus a scheduled() handler for the cron jobs.
+  "main": "cloudflare/worker.ts",
+  // At most the date the bundled workerd runtime supports (workerd 1.20260921.x via wrangler 4.138).
+  "compatibility_date": "2026-09-21",
+  // nodejs_compat: Node APIs used by Next.js and the app (node:crypto, node:zlib, Buffer, process.env).
+  // global_fetch_strictly_public: the Worker's fetch() may only reach the public internet.
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    // OpenNext calls the Worker itself through this binding; the service name must equal "name".
+    { "binding": "WORKER_SELF_REFERENCE", "service": "shopping-buddy" }
+  ],
+  // Variables set in the Cloudflare dashboard are kept on deploy instead of being wiped.
+  "keep_vars": true,
+  "vars": {
+    // Receipt files are already on R2 (docs/cloudflare-r2.md); the other R2_* values are secrets.
+    "STORAGE_PROVIDER": "r2"
+  },
+  // Workers Paid is required: 20 cron schedules (Free allows 5 per account) and price-ingestion jobs
+  // that run for minutes (Free allows 10 ms CPU per invocation). 5 minutes is the Paid maximum.
+  "limits": { "cpu_ms": 300000 },
+  "observability": { "enabled": true },
+  "triggers": {
+    // Must list exactly the schedules in vercel.json (UTC on both platforms) —
+    // enforced by cloudflare/cron.test.ts. cloudflare/cron.ts maps each back to its path(s).
+    "crons": [
+      "0 8 * * *", // /api/cron/shopping-reminders
+      "0 9 * * *", // /api/cron/pantry-checkin
+      "0 3 * * 1", // /api/cron/import-stores
+      "0 5 * * *", // /api/cron/ingest-prices/lidl
+      "10 5 * * *", // /api/cron/ingest-prices/billa
+      "10 13 * * *", // /api/cron/ingest-prices/billa/2
+      "10 21 * * *", // /api/cron/ingest-prices/billa/3
+      "20 5 * * *", // /api/cron/ingest-prices/penny
+      "30 5 * * *", // /api/cron/ingest-prices/dm
+      "30 11 * * *", // /api/cron/ingest-prices/dm/2
+      "30 17 * * *", // /api/cron/ingest-prices/dm/3
+      "30 23 * * *", // /api/cron/ingest-prices/dm/4
+      "40 5 * * *", // /api/cron/ingest-prices/rohlik
+      "40 13 * * *", // /api/cron/ingest-prices/rohlik/2
+      "40 21 * * *", // /api/cron/ingest-prices/rohlik/3
+      "50 5 * * *", // /api/cron/ingest-prices/kosik
+      "50 11 * * *", // /api/cron/ingest-prices/kosik/2
+      "50 17 * * *", // /api/cron/ingest-prices/kosik/3
+      "50 23 * * *", // /api/cron/ingest-prices/kosik/4
+      "0 6 * * *", // /api/cron/ingest-prices/globus
+      "20 6 * * *", // /api/cron/ingest-prices/albert
+      "20 12 * * *", // /api/cron/ingest-prices/albert/2
+      "20 18 * * *" // /api/cron/ingest-prices/albert/3
+    ]
+  },
+  "env": {
+    // Staging: a separate Worker for testing next to Vercel production. Point its secrets at the
+    // Neon test branch and the test R2 bucket. No cron triggers, so staging never runs price
+    // ingestion or household reminders.
+    "staging": {
+      "name": "shopping-buddy-staging",
+      "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "shopping-buddy-staging" }],
+      "vars": { "STORAGE_PROVIDER": "r2" },
+      "triggers": { "crons": [] }
+    }
+  }
+}

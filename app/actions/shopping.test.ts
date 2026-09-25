@@ -66,7 +66,7 @@ describe('addShoppingItemAction', () => {
   })
 
   it('fires the price/deal-alert notification for a product with a genuinely best-price deal, using real seeded catalog data', async () => {
-    const products = await getProductPrices()
+    const products = await getProductPrices({ names: [], runningDeals: true })
     const bestDeal = assessDealQuality(products, todayInPrague()).find((assessment) => assessment.isBestPrice)
     if (!bestDeal) {
       // No currently-active best-price deal in the seeded catalog right now — nothing to assert
@@ -126,7 +126,7 @@ describe('addShoppingItemAction — product identity', () => {
   })
 
   it('still fires the deal alert when the typed name differs in case/whitespace from the catalog', async () => {
-    const products = await getProductPrices()
+    const products = await getProductPrices({ names: [], runningDeals: true })
     const bestDeal = assessDealQuality(products, todayInPrague()).find((assessment) => assessment.isBestPrice)
     if (!bestDeal) return // no currently-active best-price deal to test against; see note above
     currentHouseholdId = householdId

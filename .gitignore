@@ -16,3 +16,18 @@ node_modules
 .vercel
 .env*
 *.tsbuildinfo
+
+# Cloudflare (OpenNext / Wrangler) build output and local secrets — see docs/cloudflare-deployment.md
+.open-next/
+.wrangler/
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+
+# Self-signed GCP OIDC key pair (pnpm gcp:oidc-key) — the private key is a secret
+gcp-oidc-private-key.pem
+gcp-oidc-jwks.json
+
+# CI Worker size check output
+.wrangler-dry-run/
+dry-run.log

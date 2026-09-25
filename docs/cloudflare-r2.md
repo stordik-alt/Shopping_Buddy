@@ -1,8 +1,8 @@
 # Receipt Storage on Cloudflare R2
 
-**Status (2026-09-25):** **R2 is the default store for new receipt uploads.** The owner has set
-the `R2_*` variables in the Vercel project. No database migration is needed. Old receipts stay on
-Vercel Blob until copied (see below).
+**Status (2026-09-25):** **live in production** — new receipt uploads go to R2 (owner-confirmed after
+two configuration fixes, see the changelog), and R2 is the code default: `STORAGE_PROVIDER` is only
+needed as `vercel` to roll back. Old receipts are still on Vercel Blob until copied.
 
 **Why now:** the Vercel Blob store is over its usage limit. When that happened before, Vercel
 suspended the store ("This store has been suspended"). While a store is suspended, receipt upload
@@ -65,6 +65,9 @@ Names only. Never commit values.
 | `R2_ACCESS_KEY_ID` | R2 API token, access key id |
 | `R2_SECRET_ACCESS_KEY` | R2 API token, secret. Server-only: no `NEXT_PUBLIC_` prefix, never logged |
 | `R2_BUCKET_NAME` | private bucket for this environment |
+
+Values are trimmed before use (a trailing newline pasted into Vercel broke the first production
+upload with `InvalidBucketName`), but type them without surrounding spaces anyway.
 
 `BLOB_READ_WRITE_TOKEN` stays set. It is needed to read old receipts until they are copied.
 

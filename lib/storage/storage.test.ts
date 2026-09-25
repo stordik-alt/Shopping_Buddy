@@ -12,15 +12,15 @@ const HOUSEHOLD = '0b9d7c3e-1f2a-4b5c-8d6e-7f8091a2b3c4'
 const OTHER = '11111111-2222-4333-8444-555555555555'
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4])
 
-type Request = { method: string; url: string; headers: Headers }
+type SeenRequest = { method: string; url: string; headers: Headers; input: unknown; body: unknown }
 
 /** A fake R2 bucket behind `fetch`: PUT stores, GET returns (404 when missing), DELETE removes. */
 function stubR2() {
   const objects = new Map<string, { bytes: Uint8Array; contentType: string }>()
-  const requests: Request[] = []
+  const requests: SeenRequest[] = []
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const request = input instanceof Request ? input : new Request(input, init)
-    requests.push({ method: request.method, url: request.url, headers: request.headers })
+    requests.push({ method: request.method, url: request.url, headers: request.headers, input, body: init?.body })
     const path = new URL(request.url).pathname
     if (request.method === 'PUT') {
       objects.set(path, { bytes: new Uint8Array(await request.arrayBuffer()), contentType: request.headers.get('content-type') ?? '' })
@@ -116,6 +116,11 @@ describe('R2 store', () => {
     // Signed with SigV4 for R2's "auto" region; the secret itself never appears in the request.
     expect(put.headers.get('authorization')).toMatch(/^AWS4-HMAC-SHA256 Credential=test-access-key\/\d{8}\/auto\/s3\/aws4_request/)
     expect(JSON.stringify([...put.headers])).not.toContain('test-secret')
+    // R2 rejects a PUT without Content-Length (411). The body must go out as bytes with an explicit
+    // length, not as a Request whose stream body Next's fetch re-sends chunked.
+    expect(put.headers.get('content-length')).toBe(String(JPEG.byteLength))
+    expect(put.input).toBe(put.url)
+    expect(put.body).toBeInstanceOf(Uint8Array)
     expect(objects.size).toBe(1)
 
     const file = await getReceiptFile(ref)
@@ -146,6 +151,24 @@ describe('R2 store', () => {
     const ref = await putReceiptFile(HOUSEHOLD, JPEG, { extension: 'jpg', mimeType: 'image/jpeg' })
     expect(await r2ObjectDigest(ref.slice(3))).toEqual({ size: JPEG.byteLength, sha256: await sha256Hex(JPEG) })
     expect(await r2ObjectDigest(`receipts/${HOUSEHOLD}/${OTHER}.jpg`)).toBeNull()
+  })
+
+  it('ignores whitespace pasted around the configuration values', async () => {
+    const { requests } = stubR2()
+    process.env.STORAGE_PROVIDER = 'r2'
+    process.env.R2_BUCKET_NAME = 'receipts-test\n'
+    process.env.R2_ACCOUNT_ID = ' acc123 '
+    process.env.R2_ACCESS_KEY_ID = 'test-access-key\r\n'
+    const ref = await putReceiptFile(HOUSEHOLD, JPEG, { extension: 'jpg', mimeType: 'image/jpeg' })
+    expect(requests[0].url).toBe(`https://acc123.r2.cloudflarestorage.com/receipts-test/${ref.slice(3)}`)
+    expect(requests[0].headers.get('authorization')).toContain('Credential=test-access-key/')
+  })
+
+  it('treats a whitespace-only value as missing', async () => {
+    stubR2()
+    process.env.STORAGE_PROVIDER = 'r2'
+    process.env.R2_BUCKET_NAME = '  \n'
+    await expect(putReceiptFile(HOUSEHOLD, JPEG, { extension: 'jpg', mimeType: 'image/jpeg' })).rejects.toThrow('Missing: R2_BUCKET_NAME')
   })
 
   it('encodes key segments but keeps the separators', () => {

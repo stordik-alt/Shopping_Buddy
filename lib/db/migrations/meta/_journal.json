@@ -204,6 +204,20 @@
       "when": 1790340118523,
       "tag": "0028_product_source_globus",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1790357856346,
+      "tag": "0029_albert_flyers",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1790358781327,
+      "tag": "0030_store_branch_chain_move",
+      "breakpoints": true
     }
   ]
 }

@@ -34,6 +34,7 @@ import type {
 const CHAIN_COLOR: Record<string, string> = {
   Lidl: 'bg-[#d7f36b]',
   Albert: 'bg-[#f4b183]',
+  'Albert Hypermarket': 'bg-[#f4b183]',
   Kaufland: 'bg-[#b9d8f5]',
   Billa: 'bg-[#f3c0d3]',
   Penny: 'bg-[#f6d38b]',
@@ -627,14 +628,35 @@ export async function upsertStoreLocationFromSource(input: {
   return created.id
 }
 
+/** Which products `getProductPrices()` loads. The client never needs the whole catalog — after the
+ *  full-catalog backfill that is ~47,000 products, which took ~25 s and ~22 MB per page render, and
+ *  the app re-renders every 20 s (app-shell's refresh). It needs the prices of what is on the
+ *  household's list (price and store comparison — matched by exact name, as `comparePrices()` does)
+ *  and of the products on promotion today (price watch, "Dnes je důležité"). */
+export type ProductPriceScope = {
+  /** Products with exactly these names. */
+  names: string[]
+  /** Also every product with a promotion running today. */
+  runningDeals: boolean
+}
+
 /** Per-product prices across stores, with any currently active deal folded in. One entry per store's latest recorded price. */
-export async function getProductPrices(): Promise<ProductPrice[]> {
+export async function getProductPrices(scope: ProductPriceScope): Promise<ProductPrice[]> {
   const db = getDb()
   const today = todayInPrague()
   // Running today: started and not yet ended. A retailer can publish next week's offers ahead of
   // time, and those must not show as today's price.
   const isRunning = (deal: { validFrom: string; validUntil: string }) => deal.validFrom <= today && deal.validUntil >= today
+  const names = [...new Set(scope.names)]
+  if (names.length === 0 && !scope.runningDeals) return []
   const products = await db.query.products.findMany({
+    where: (products, { or, inArray, sql: where }) =>
+      or(
+        names.length > 0 ? inArray(products.name, names) : undefined,
+        scope.runningDeals
+          ? where`EXISTS (SELECT 1 FROM deals d WHERE d.product_id = ${products.id} AND d.valid_from <= ${today}::date AND d.valid_until >= ${today}::date)`
+          : undefined,
+      ),
     with: {
       category: true,
       prices: {
@@ -1071,6 +1093,39 @@ export async function setIngestionCursor(source: ProductSource, nextPart: number
     .insert(schema.ingestionCursors)
     .values({ source, nextPart, updatedAt: new Date() })
     .onConflictDoUpdate({ target: schema.ingestionCursors.source, set: { nextPart, updatedAt: new Date() } })
+}
+
+export type FlyerPageRow = typeof schema.flyerPages.$inferSelect
+
+/** The pages of these flyers a model has already read (lib/ingestion/albert.ts), keyed
+ *  `flyerId|pageNumber`. */
+export async function loadFlyerPages(source: ProductSource, flyerIds: string[]): Promise<Map<string, FlyerPageRow>> {
+  if (flyerIds.length === 0) return new Map()
+  const db = getDb()
+  const rows = await db.query.flyerPages.findMany({
+    where: and(eq(schema.flyerPages.source, source), inArray(schema.flyerPages.flyerId, flyerIds)),
+  })
+  return new Map(rows.map((row) => [`${row.flyerId}|${row.pageNumber}`, row]))
+}
+
+/** Stores what a model read off one flyer page. A page already stored (two runs extracting it at
+ *  the same time) keeps its first result: the page itself does not change, and nothing is paid for
+ *  twice on a later run. */
+export async function saveFlyerPage(row: typeof schema.flyerPages.$inferInsert): Promise<void> {
+  const db = getDb()
+  await db.insert(schema.flyerPages).values(row).onConflictDoNothing()
+}
+
+/** Removes the cached pages of flyers that ended before `before` (`YYYY-MM-DD`). Their deals stay in
+ *  `deals`; the cache is only needed while a flyer is current, and is kept a while longer as the
+ *  deals' provenance. Returns how many pages were removed. */
+export async function pruneFlyerPages(source: ProductSource, before: string): Promise<number> {
+  const db = getDb()
+  const removed = await db
+    .delete(schema.flyerPages)
+    .where(and(eq(schema.flyerPages.source, source), sql`${schema.flyerPages.validUntil} < ${before}::date`))
+    .returning({ flyerId: schema.flyerPages.flyerId })
+  return removed.length
 }
 
 /** Marks external products as seen just now, in one statement per chunk instead of one per product. */

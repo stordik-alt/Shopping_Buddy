@@ -655,7 +655,7 @@ describe('upsertActiveDeal', () => {
           { productId: product.id, storeId, storeLocationId: locationId, dealPrice: '5.00', validFrom: '2020-01-01', validUntil: '2020-02-01' }, // expired
         ])
 
-        const found = (await getProductPrices()).find((entry) => entry.productName === product.name)
+        const found = (await getProductPrices({ names: [product.name], runningDeals: false })).find((entry) => entry.productName === product.name)
         expect(found?.prices).toHaveLength(1)
         expect(found?.prices[0]).toMatchObject({ regularPrice: 30, dealPrice: 19, dealValidUntil: '2099-06-01' })
       } finally {
@@ -682,7 +682,7 @@ describe('upsertActiveDeal', () => {
         })
         await upsertActiveDeal({ productId: product.id, storeId: store.id, storeLocationId: null, dealPrice: 16.9, validFrom: '2026-09-24', validUntil: '2099-01-01' })
 
-        const found = (await getProductPrices()).find((entry) => entry.productName === product.name)
+        const found = (await getProductPrices({ names: [product.name], runningDeals: false })).find((entry) => entry.productName === product.name)
         expect(found?.prices).toHaveLength(1)
         expect(found?.prices[0]).toMatchObject({ regularPrice: 24.9, dealPrice: 16.9, dealValidUntil: '2099-01-01' })
       } finally {
@@ -825,7 +825,7 @@ describe('deal counts and running deals', () => {
         validFrom: '2026-09-24',
       })
       await db.insert(schema.deals).values({ productId: product.id, storeId: store.id, storeLocationId: null, dealPrice: '9', validFrom: '2099-01-02', validUntil: '2099-01-09' })
-      const found = (await getProductPrices()).find((entry) => entry.productName === product.name)
+      const found = (await getProductPrices({ names: [product.name], runningDeals: false })).find((entry) => entry.productName === product.name)
       expect(found?.prices[0]).toMatchObject({ regularPrice: 30, dealPrice: undefined })
     } finally {
       await cleanup(store.id, product.id)

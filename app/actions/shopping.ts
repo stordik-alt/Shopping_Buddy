@@ -69,7 +69,8 @@ export async function addShoppingItemAction(
   // on the resolved canonical catalog name, not the raw typed one, so casing/whitespace
   // differences no longer silently miss a real deal.
   let notification: Notification | null = null
-  const productPrices = await getProductPrices()
+  // Only this product: whether its deal is the best price is decided across its own stores.
+  const productPrices = await getProductPrices({ names: [canonicalName], runningDeals: false })
   const bestDeal = assessDealQuality(productPrices, todayInPrague()).find((assessment) => assessment.product.productName === canonicalName && assessment.isBestPrice)
   if (bestDeal) {
     const [notificationRow] = await db

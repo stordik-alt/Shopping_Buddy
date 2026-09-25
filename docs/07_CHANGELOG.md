@@ -1,10 +1,70 @@
 # Shopping Buddy — Change Log
 
-## 2026-09-25 (Receipt files: R2 is now the default store)
-- **Why:** Vercel Blob's usage limit is too tight for receipt uploads; the owner has set the `R2_*` variables in the Vercel project.
-- **What:** new receipt uploads go to Cloudflare R2 without `STORAGE_PROVIDER` (previously they needed `STORAGE_PROVIDER=r2`). `STORAGE_PROVIDER=vercel` is kept only as the rollback switch; an unknown value still fails loudly. Old Blob receipts keep being read from Blob by their reference until copied with `pnpm db:migrate-blob-to-r2`.
-- **Tests:** storage tests updated for the new default (R2 by default, empty value = R2, `vercel` → Blob). `vitest run` 800 passed; the 15 DB-backed files need the test database (not run here; they don't upload through `putReceiptFile`). `tsc` clean.
-- **Not verified:** against the real R2 bucket — the cloud session cannot reach `*.r2.cloudflarestorage.com` and has no R2 credentials. Check upload/preview/OCR/cancel on a phone after deploy.
+## 2026-09-25 (Receipt files: R2 is the default store)
+- **What:** new receipt uploads go to Cloudflare R2 without `STORAGE_PROVIDER` (production already set `STORAGE_PROVIDER=r2`, so nothing changes there). `STORAGE_PROVIDER=vercel` stays as the rollback switch; an empty value means R2; an unknown value is still an error.
+- **Tests:** storage tests cover the new default (R2 by default, empty value = R2, `vercel` → Blob). The DB-backed receipt tests set `STORAGE_PROVIDER=vercel` so they keep using the in-memory Blob fake instead of trying to reach R2.
+
+## 2026-09-25 (Budget card: daily allowance, pace warning, 80 % mark)
+- **Why:** the home screen showed what was left but not where the month was heading; the Rozpočet tab projected the month end (e.g. 10 368 Kč) without comparing it to the limit.
+- **Budget card** (`BudgetHero`, home and Rozpočet): "Na den zbývá … Kč (N dní do konce měsíce)" and, from the 7th of the month, "Při tomto tempu překročíte limit o … Kč" when the current daily rate would break the limit (`lib/budget.ts` `budgetPace`, deterministic; no projection earlier, when one big shop would distort it). The progress bar marks the 80 % warning boundary. Both lines carry an icon; hidden once the limit is already exceeded (the chip says so).
+- **Rozpočet tab:** averages and the projection in whole crowns (`wholeMoney`); the projection says "o … nad limitem" (with an icon) or "v limitu, rezerva …".
+- **Home:** category totals use the same format as the Rozpočet tab.
+- **Checked:** rendered home and Rozpočet at 390 px, light and dark, with the app's built CSS. Tests: `budgetPace` (allowance, projection, overrun, before the 7th, over limit, no budget) and the card's text. CI command: 907 passed; `next build` passes.
+
+## 2026-09-25 (Price trend per store; Cloudflare build checked in CI)
+- **Price trend:** the per-store rows of "Porovnání cen mezi obchody" show a small step line of that store's recorded regular prices (`components/shopping/price-sparkline.tsx`, `lib/price-trend.ts`) with a text summary ("Nejnižší zaznamenaná cena" or "Nejníže … Kč", since when) and a tooltip per price change — only when the price changed at least once, only from recorded observations (`priceHistory`), nothing interpolated.
+- **CI:** a second job builds the prepared Cloudflare Worker (`pnpm cf:build`, nothing deployed) and fails if the gzip size reaches 9 MiB (Workers Paid limit 10 MiB); today 4.4 MiB.
+- **Tests:** steps (changes only, same-day, unordered, unchanged), summary, rendering with/without a change. CI command: 900 passed; `next build` and `cf:build` pass.
+
+## 2026-09-25 (Shopping list: "Doplnit obvyklé")
+- **What:** a collapsed card above the shopping list suggests items the household buys regularly and is due for again (`lib/usual-items.ts`, deterministic): bought on at least 3 different days in the last 120 days, and at least 80 % of the median interval between purchases has passed since the last one. Items already on the list or in the pantry are left out; the usual amount is the one bought most often. "Přidat" / "Přidat vše na seznam" add through `addShoppingItemAction` (one at a time), with the amount in the detail. Built only from the household's recorded purchases (already loaded for purchase history) — no new query, no guessing from prices.
+- **Grouping:** purchase lines are grouped by normalized name (`normalizeMatchName`), the only identity a purchase line has on the client; it is a suggestion the user confirms, not a price comparison.
+- **Tests:** due/not due, minimum history, same-day purchases, spelling variants, list/pantry exclusion, window, usual amount and order, limit. CI command: 893 passed; `next build` passes. **Not checked on a phone** (no signed-in session here).
+
+## 2026-09-25 (Shopping list: remembered view, screen stays on, loading skeleton)
+- **Remembered view:** the list's category filter, "show completed", sort and grouping are stored per device (`lib/list-view-preference.ts`, validated, guarded `localStorage`) instead of resetting on every reload or refresh. The search text is not stored.
+- **Keep the screen on:** a "Nechat displej svítit" toggle next to the list counter holds a Screen Wake Lock (`lib/use-wake-lock.ts`) while shopping and re-acquires it when the page becomes visible again; hidden where the browser has no Wake Lock API.
+- **Loading:** `app/loading.tsx` shows a skeleton of the home layout while the server render runs, instead of a blank screen.
+- `lib/safe-storage.ts` is the one guarded `localStorage` accessor (was a private helper in `app-shell.tsx`).
+- **Tests:** view preference round-trip, corrupt/unknown values, broken storage. CI command: 885 passed; `next build` passes. **Not checked on a phone** (no signed-in session here): wake lock behaviour and the skeleton.
+
+## 2026-09-25 (Sections have addresses; dark mode remembered; no invented AI answers)
+- **Sections:** each tab has its own address (`/?tab=nakup`, `zasoby`, `obchody`, `rozpocet`, `profil`; Domů is `/`) via `lib/tab-url.ts`. The phone's back gesture now returns to the previous section instead of closing the app, a reload keeps the section, and a section can be linked. `?tab=ai` opens Domů while the assistant is switched off (`lib/features.ts`).
+- **Dark mode:** the header toggle is remembered on the device (`lib/theme-preference.ts`, guarded `localStorage`); without an explicit choice the phone's system setting is followed, also when it changes. Before, every reload or refresh reset it to light.
+- **AI assistant:** still hidden (`AI_ASSISTANT_ENABLED = false`), but its component no longer answers with a canned text quoting invented items and savings; it says the assistant is not connected yet (CLAUDE.md §15, §30).
+- **Tests:** tab ↔ address round-trip, unknown values, hidden AI; theme choice vs. system, broken storage. CI command: 881 passed; `next build` passes. **Not checked in a browser** (no signed-in session or database in the cloud session): back gesture, reload and the theme on a real phone.
+
+## 2026-09-25 (Fix: slow sign-in and loading after the catalog backfill)
+- **Problem:** after the full-catalog backfill (~47,000 products) the home page loaded every product with every price and deal on each render (`getProductPrices()`): ~25 s and ~22 MB per render, repeated by the app's 20-second refresh. Adding a list item ran the same query.
+- **Fix:** `getProductPrices()` takes a scope (`ProductPriceScope`): the page loads the products named on the household's list plus those with a promotion running today (what price/store comparison, price watch and "Dnes je důležité" use); adding an item loads only that product. Measured on the real database: 2.2 s and 1.8 MB (3,366 products) for the page, 0.5 s for adding an item. The list's autocomplete now offers these products; the full catalog stays searchable through product search.
+- **Checked:** typecheck, build, unit tests. DB-backed tests updated to the new signature (not run: no local test database).
+## 2026-09-25 (Albert hypermarkets as their own chain)
+- **Why:** the hypermarket flyer's deals belong to "Albert Hypermarket", but every Albert branch was under "Albert", so a household at a hypermarket saw the supermarket flyer's prices.
+- **What:** `lib/stores/albert-formats.ts` reads which stores are hypermarkets from albert.cz (store sitemap + store pages: type, GPS, address) and moves the matching branches (150 m, or same address) to "Albert Hypermarket", together with their prices, purchases and receipts in one transaction; chosen stores and deals follow by `ON UPDATE CASCADE` (migration `0030`). Weekly cron after the OSM import, and part of `pnpm db:import-stores`. The OSM import and receipt branch lookup treat both chains as one retailer (`lib/stores/chain-family.ts`), so a moved branch is not duplicated.
+- **Checked:** tests for parsing, matching and the family adoption; live dry run found all 90 hypermarkets and 6 of the current Albert branches (3–43 m apart); cascade verified in a rolled-back transaction. Not run: DB-backed receipt tests (no local test database).
+
+## 2026-09-25 (Albert flyer offers read by Gemini Flash-Lite)
+- **What:** `lib/ingestion/albert.ts` reads Albert's current flyers (the only public source of its prices): flyer list from albert.cz, page images and text layers from the Publitas viewer's `spreads.json`, and Gemini Flash-Lite reads each page into structured offers — once per page, cached in the new `flyer_pages` table with token counts. A deterministic validator accepts an offer only when its price is printed on the page and a printed discount or unit price confirms the pairing; app-only, multi-buy and "od" prices, size ranges and non-grocery goods are rejected. Supermarket flyer → "Albert", hypermarket flyer → new chain "Albert Hypermarket" (different prices, never mixed). Migration `0029`; cron 3× a day; `pnpm db:albert-flyers` (dry run by default) shows every offer with the reason it was rejected. `CLAUDE.md` section 30 records the owner's approval of this second, narrow model use.
+- **Checked:** 42 connector tests on fixtures from the real week-39 flyer; flyer listing and page reading live (SM 66 pages, HM 87). **Not checked:** the model on real pages (no AI Gateway credentials locally) — to do before relying on the deals. Hypermarket branches are not yet moved to the new chain.
+
+## 2026-09-25 (Cloudflare hosting prepared — PR #83, nothing switched)
+- **Owner request:** prepare the whole project for a later move to Cloudflare; migrate nothing; keep the branch.
+- **What:** OpenNext for Cloudflare (`open-next.config.ts`, static-assets cache — no ISR in the app); `wrangler.jsonc` with a production and a staging Worker (staging without crons), `nodejs_compat`, `limits.cpu_ms`, and 20 Cron Triggers; `cloudflare/worker.ts` adds `scheduled()` to OpenNext's worker and calls the matching `vercel.json` path with `Authorization: Bearer $CRON_SECRET` (`cloudflare/cron.ts`). With `BUILD_TARGET=cloudflare` only, `next.config.mjs` aliases `sharp` to a throwing shim (native addon; the OCR pipeline already falls back to the original photo) and turns Vercel Analytics off. `lib/gcp-oidc.ts`: the Google WIF subject token for PDF OCR comes from Vercel OIDC (default, unchanged) or, with `GCP_OIDC_TOKEN_SOURCE=self-signed`, from an RS256 JWT the app signs itself; `pnpm gcp:oidc-key` generates the key pair. `.dev.vars.example` lists every variable. New devDependencies `@opennextjs/cloudflare` 1.20.6, `wrangler` 4.138.0. Also fixed two strict-null errors in `scripts/migrate-vercel-blob-to-r2.ts` that `tsc` reports once the new packages are installed.
+- **Checked:** `pnpm cf:build` passes (failed on `sharp` before the alias); Worker 18.8 MB / 4.2 MB gzip; local workerd: pages 200, signed-out API → sign-in, wrong cron secret → 401, simulated Cron Trigger → route → Neon query (placeholder DB); Vercel build unchanged (real `sharp`). Tests: 817 passed (+ cron mapping/wrangler sync, sharp shim, self-signed JWT signing/verification).
+- **Not verified:** anything that needs real secrets or a Cloudflare account. Runbook: `docs/cloudflare-deployment.md`.
+
+## 2026-09-25 (R2 live for receipt uploads)
+- The owner confirmed that receipt upload works in production with `STORAGE_PROVIDER=r2` after PR #80. Old receipts stay on Vercel Blob until `pnpm db:migrate-blob-to-r2` is run (needs the Blob store readable again).
+
+## 2026-09-25 (R2: uploads failed with 411 MissingContentLength)
+- **Problem:** after the bucket-name fix, the production upload failed with `R2 upload failed (411): MissingContentLength`. `aws4fetch`'s `fetch()` hands `fetch` a `Request` object whose body is a stream; Next.js's patched `fetch` on Vercel re-sends that body chunked, without `Content-Length`, which R2 requires for PUT. Reproduced locally: the same signed request re-sent from its stream body arrives with `transfer-encoding: chunked` and no length.
+- **Fix:** `lib/storage/r2.ts` only signs with `aws4fetch` and sends with a plain `fetch(url, { body: Uint8Array })` plus an explicit `Content-Length`. GET and DELETE go the same way.
+- **Tests:** the R2 upload test now asserts `Content-Length`, a URL (not a `Request`) and a byte body — it fails on the previous code. 14 storage tests pass.
+
+## 2026-09-25 (R2: trim pasted configuration values)
+- **Problem:** the first production upload to R2 failed with `InvalidBucketName` — `R2_BUCKET_NAME` had been saved in Vercel with a trailing newline (`shoppingbuddyprod\n`). The failure was logged (`receipt_upload_failed`) and the user got the "Fotografii se nepodařilo uložit…" message; nothing was stored.
+- **Fix:** `lib/storage/r2.ts` trims all four `R2_*` values; a whitespace-only value counts as missing. `STORAGE_PROVIDER` was already trimmed. The Vercel value should still be corrected.
+- **Tests:** 2 new (padded values produce the right endpoint, bucket and credential; whitespace-only is reported as missing) — 14 storage tests pass.
 
 ## 2026-09-25 (Receipt files: Vercel Blob → Cloudflare R2, behind a switch)
 - **Why:** the Vercel Blob store is over its usage limit, which suspends receipt upload and viewing.

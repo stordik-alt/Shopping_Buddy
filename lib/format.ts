@@ -1,6 +1,10 @@
 export const money = (value: number) =>
   `${value.toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč`
 
+/** Rounded to whole crowns — for averages, projections and allowances, where haléře are false
+ *  precision ("345,60 Kč" a day). Prices and actual amounts keep `money`. */
+export const wholeMoney = (value: number) => `${Math.round(value).toLocaleString('cs-CZ')} Kč`
+
 /** "<count> <word>" with Czech plural agreement: `one` for 1, `few` for 2–4, `many` for 0 and 5+
  *  — which a bare "N položek" gets wrong for 1–4. Whole counts only (what these labels show). */
 export const countLabel = (count: number, one: string, few: string, many: string) =>

@@ -1,5 +1,6 @@
-import { AlertTriangle } from 'lucide-react'
-import { budgetLevel } from '@/lib/budget'
+import { AlertTriangle, CalendarDays } from 'lucide-react'
+import { BUDGET_WARNING_RATIO, budgetLevel, budgetPace } from '@/lib/budget'
+import { countLabel, wholeMoney } from '@/lib/format'
 
 /** The household's budget at a glance: what is left, how much of the limit is used and — from
  *  80 % — a visible warning. Shared by the dashboard and the Rozpočet tab so both always agree.
@@ -11,6 +12,7 @@ export function BudgetHero({
   onSetBudget,
   compact = false,
   className = '',
+  today,
 }: {
   budget: number
   spent: number
@@ -21,10 +23,14 @@ export function BudgetHero({
    *  screen; the Rozpočet tab keeps the large one. Same numbers and warnings either way. */
   compact?: boolean
   className?: string
+  /** The real date (`YYYY-MM-DD`). When given, the card also says how much is left per day and,
+   *  once the month has enough history, whether the current pace would break the limit. */
+  today?: string
 }) {
   // Display-only: clamped so an overspent month does not draw outside its track.
   const spentPercent = budget > 0 ? Math.min(100, Math.round((spent / budget) * 100)) : 0
   const level = budgetLevel(spent, budget)
+  const pace = today ? budgetPace(spent, budget, today) : null
 
   // A brand-new household has no limit yet. "0 Kč left, 0 %" would read as a real (and alarming)
   // result, so say plainly that nothing is set and offer the way to set it.
@@ -65,7 +71,7 @@ export function BudgetHero({
       </div>
       <p className={`font-semibold tracking-tight break-words ${compact ? 'mt-1 text-3xl' : 'mt-2 text-4xl sm:text-5xl'}`}>{Math.abs(remaining).toLocaleString('cs-CZ')} Kč</p>
       <div
-        className={`overflow-hidden rounded-full bg-primary-foreground/20 ${compact ? 'mt-3 h-2' : 'mt-6 h-2.5'}`}
+        className={`relative overflow-hidden rounded-full bg-primary-foreground/20 ${compact ? 'mt-3 h-2' : 'mt-6 h-2.5'}`}
         role="progressbar"
         aria-label="Čerpání rozpočtu"
         aria-valuemin={0}
@@ -73,6 +79,9 @@ export function BudgetHero({
         aria-valuenow={spentPercent}
       >
         <div className="h-full rounded-full bg-accent transition-[width]" style={{ width: `${spentPercent}%` }} />
+        {/* The 80 % warning boundary (lib/budget.ts), so the household sees it coming, not only
+            once the warning chip appears. A 2px notch in the card colour reads on either fill. */}
+        <div className="absolute inset-y-0 w-0.5 bg-primary" style={{ left: `${BUDGET_WARNING_RATIO * 100}%` }} aria-hidden="true" />
       </div>
       <div className={`flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-primary-foreground/80 ${compact ? 'mt-2 text-xs' : 'mt-3 text-sm'}`}>
         <span>
@@ -80,6 +89,25 @@ export function BudgetHero({
         </span>
         <span className="font-semibold text-primary-foreground">{spentPercent} %</span>
       </div>
+      {pace && level !== 'over' && (
+        <div className={`flex flex-col gap-1 border-t border-primary-foreground/15 text-primary-foreground/85 ${compact ? 'mt-3 pt-3 text-xs' : 'mt-5 pt-4 text-sm'}`}>
+          <p className="flex items-center gap-1.5">
+            <CalendarDays className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>
+              Na den zbývá <span className="font-semibold text-primary-foreground">{wholeMoney(pace.perDayLeft)}</span>
+              {pace.daysLeft > 1 ? ` (${countLabel(pace.daysLeft, 'den', 'dny', 'dní')} do konce měsíce)` : ' (poslední den měsíce)'}
+            </span>
+          </p>
+          {pace.projectedOver != null && (
+            <p className="flex items-center gap-1.5">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span>
+                Při tomto tempu překročíte limit o <span className="font-semibold text-primary-foreground">{wholeMoney(pace.projectedOver)}</span>
+              </span>
+            </p>
+          )}
+        </div>
+      )}
     </div>
   )
 }

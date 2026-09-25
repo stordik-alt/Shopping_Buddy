@@ -112,10 +112,10 @@ MIME is re-detected from bytes today; decide during Phase 3.
 
 | Item | Plan |
 |---|---|
-| `sharp` | Lazy import; on failure the pipeline already sends the original. Replacement measured on real receipts before adoption |
-| OIDC → GCP | Replace `getVercelOidcToken()` with a pluggable subject-token source: Vercel OIDC on Vercel, self-signed JWT on Cloudflare |
-| AI Gateway | Explicit provider/API key so it does not depend on Vercel's OIDC |
-| Crons | `wrangler.jsonc` triggers generated from / checked against `PRICE_SOURCES` (like `cron-schedule.test.ts` does for `vercel.json`) |
+| `sharp` | **Prepared** (branch `cloudflare-migration-prep`): the Cloudflare build aliases `sharp` to a throwing shim; the pipeline sends the original photo. Replacement measured on real receipts before adoption |
+| OIDC → GCP | **Prepared**: `lib/gcp-oidc.ts` — `GCP_OIDC_TOKEN_SOURCE=vercel` (default) or `self-signed` |
+| AI Gateway | **Prepared**: `AI_GATEWAY_API_KEY` (no code change) |
+| Crons | **Prepared**: `wrangler.jsonc` triggers + `cloudflare/worker.ts` `scheduled()`; `vercel.json` stays the job list, `cloudflare/cron.test.ts` keeps both in step |
 
 ## Environments
 

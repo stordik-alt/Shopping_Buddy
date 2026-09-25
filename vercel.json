@@ -3,6 +3,7 @@
     { "path": "/api/cron/shopping-reminders", "schedule": "0 8 * * *" },
     { "path": "/api/cron/pantry-checkin", "schedule": "0 9 * * *" },
     { "path": "/api/cron/import-stores", "schedule": "0 3 * * 1" },
+    { "path": "/api/cron/albert-store-formats", "schedule": "0 4 * * 1" },
     { "path": "/api/cron/ingest-prices/lidl", "schedule": "0 5 * * *" },
     { "path": "/api/cron/ingest-prices/billa", "schedule": "10 5 * * *" },
     { "path": "/api/cron/ingest-prices/billa/2", "schedule": "10 13 * * *" },
@@ -19,6 +20,9 @@
     { "path": "/api/cron/ingest-prices/kosik/2", "schedule": "50 11 * * *" },
     { "path": "/api/cron/ingest-prices/kosik/3", "schedule": "50 17 * * *" },
     { "path": "/api/cron/ingest-prices/kosik/4", "schedule": "50 23 * * *" },
-    { "path": "/api/cron/ingest-prices/globus", "schedule": "0 6 * * *" }
+    { "path": "/api/cron/ingest-prices/globus", "schedule": "0 6 * * *" },
+    { "path": "/api/cron/ingest-prices/albert", "schedule": "20 6 * * *" },
+    { "path": "/api/cron/ingest-prices/albert/2", "schedule": "20 12 * * *" },
+    { "path": "/api/cron/ingest-prices/albert/3", "schedule": "20 18 * * *" }
   ]
 }

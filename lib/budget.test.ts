@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   budgetImpact,
+  budgetPace,
+  PACE_MIN_DAYS,
   budgetLevel,
   categoryBreakdown,
   crossedBudgetThreshold,
@@ -233,5 +235,34 @@ describe('weeklyAllowance', () => {
   it('is nothing once the budget is used up', () => {
     expect(weeklyAllowance(0, '2026-09-10')).toBe(0)
     expect(weeklyAllowance(-200, '2026-09-10')).toBe(0)
+  })
+})
+
+describe('budgetPace', () => {
+  it('spreads what is left over the remaining days, today included', () => {
+    // 25 September: 6 days left (25–30). 10 000 − 8 640 = 1 360 → ~226.67 a day.
+    const pace = budgetPace(8640, 10000, '2026-09-25')!
+    expect(pace.daysLeft).toBe(6)
+    expect(pace.perDayLeft).toBeCloseTo(226.67, 2)
+  })
+
+  it('projects the month end at the current rate and reports the overrun', () => {
+    // 8 640 in 25 days → 345.6 a day → 10 368 over 30 days, 368 over the limit.
+    const pace = budgetPace(8640, 10000, '2026-09-25')!
+    expect(pace.projected).toBeCloseTo(10368, 5)
+    expect(pace.projectedOver).toBeCloseTo(368, 5)
+    expect(budgetPace(5000, 10000, '2026-09-25')!.projectedOver).toBeNull()
+  })
+
+  it('does not project before the 7th', () => {
+    const pace = budgetPace(3000, 10000, '2026-09-02')!
+    expect(pace.projected).toBeNull()
+    expect(pace.projectedOver).toBeNull()
+    expect(budgetPace(3000, 10000, `2026-09-0${PACE_MIN_DAYS}`)!.projected).not.toBeNull()
+  })
+
+  it('has no allowance left once over the limit, and nothing without a budget', () => {
+    expect(budgetPace(12000, 10000, '2026-09-25')!.perDayLeft).toBe(0)
+    expect(budgetPace(500, 0, '2026-09-25')).toBeNull()
   })
 })

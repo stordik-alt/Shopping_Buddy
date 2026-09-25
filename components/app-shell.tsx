@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { addExpenseAction } from '@/app/actions/budget'
 import { buildShoppingPlanAction, pinProductAction, unpinProductAction } from '@/app/actions/shopping-plan'
 import { saveMyStorePreferencesAction } from '@/app/actions/store-preferences'
@@ -53,6 +53,7 @@ import { MobileNav } from '@/components/shared/mobile-nav'
 import { Pantry } from '@/components/shopping/pantry'
 import { ShoppingList } from '@/components/shopping/shopping-list'
 import { StoreDirectory } from '@/components/stores/store-directory'
+import { UsualItems } from '@/components/shopping/usual-items'
 import { expensesInMonth, totalSpent } from '@/lib/budget'
 import { longDate } from '@/lib/format'
 import type { HouseholdData, ReceiptImportState } from '@/lib/db/queries'
@@ -67,6 +68,11 @@ import { filterPricesToNearby, type StoreSelection } from '@/lib/nearby-stores'
 import { nearbyOffers, type StandaloneOffer } from '@/lib/offers'
 import { useUserLocation } from '@/lib/use-user-location'
 import { attentionItems } from '@/lib/attention'
+import { AI_ASSISTANT_ENABLED } from '@/lib/features'
+import { tabFromSlug, tabHref } from '@/lib/tab-url'
+import { suggestUsualItems, type UsualItem } from '@/lib/usual-items'
+import { safeLocalStorage } from '@/lib/safe-storage'
+import { readThemeChoice, resolveDark, saveThemeChoice } from '@/lib/theme-preference'
 
 export function AppShell({
   initialData,
@@ -78,6 +84,7 @@ export function AppShell({
   initialStoreSelection,
   initialPins,
   today,
+  initialTab,
 }: {
   initialData: HouseholdData
   userName: string
@@ -90,8 +97,23 @@ export function AppShell({
   initialPins: PinRecord[]
   /** The real date (`YYYY-MM-DD`, Czech time) computed on the server, so server and client agree. */
   today: string
+  /** The section named in the address (`/?tab=…`, lib/tab-url.ts), resolved on the server. */
+  initialTab: Tab
 }) {
-  const [tab, setTab] = useState<Tab>('Domů')
+  const [tab, setTabState] = useState<Tab>(initialTab)
+  // Switching sections records the section in the address, so the phone's back gesture returns to
+  // the previous section instead of closing the app, and a reload stays where the user was.
+  const setTab = useCallback((next: Tab) => {
+    setTabState(next)
+    const href = tabHref(next)
+    if (`${window.location.pathname}${window.location.search}` !== href) window.history.pushState(null, '', href)
+  }, [])
+  useEffect(() => {
+    const onPopState = () =>
+      setTabState(tabFromSlug(new URLSearchParams(window.location.search).get('tab'), { aiEnabled: AI_ASSISTANT_ENABLED }))
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
   // The user's own "stores in my area". Until every branch has GPS, this selection decides which
   // stores' prices are compared and planned with (lib/nearby-stores.ts); nothing chosen = all stores.
   const [storeSelection, setStoreSelection] = useState(initialStoreSelection)
@@ -101,6 +123,8 @@ export function AppShell({
   const nearbyStandaloneOffers = useMemo(() => nearbyOffers(standaloneOffers, storeSelection), [standaloneOffers, storeSelection])
   const [household, setHousehold] = useState(initialData.household)
   const [items, setItems] = useState(initialData.items)
+  // Starts light on the server render; the effect below applies the remembered choice or the
+  // system setting right after hydration (lib/theme-preference.ts).
   const [dark, setDark] = useState(false)
   const [expenseOpen, setExpenseOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
@@ -133,6 +157,24 @@ export function AppShell({
   }, [initialData])
 
   useEffect(() => {
+    const storage = safeLocalStorage()
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    setDark(resolveDark(readThemeChoice(storage), media.matches))
+    // Follow the system setting live, but only while the user has not chosen explicitly.
+    const onSystemChange = (event: MediaQueryListEvent) => {
+      if (readThemeChoice(safeLocalStorage()) === null) setDark(event.matches)
+    }
+    media.addEventListener('change', onSystemChange)
+    return () => media.removeEventListener('change', onSystemChange)
+  }, [])
+
+  function toggleDark() {
+    const next = !dark
+    setDark(next)
+    saveThemeChoice(safeLocalStorage(), next ? 'dark' : 'light')
+  }
+
+  useEffect(() => {
     const interval = setInterval(() => router.refresh(), 20_000)
     const onFocus = () => {
       if (document.visibilityState === 'visible') router.refresh()
@@ -156,6 +198,17 @@ export function AppShell({
   const dateLabel = longDate(today)
   const unreadCount = notifications.filter((notification) => notification.unread).length
   const pendingNames = items.filter((item) => !item.done).map((item) => item.name)
+  // Regular purchases that are due again and not on the list or in the pantry (lib/usual-items.ts).
+  const usualItems = useMemo(
+    () =>
+      suggestUsualItems({
+        purchases: initialData.purchaseHistory,
+        today,
+        onList: items.filter((item) => !item.done).map((item) => item.name),
+        inPantry: pantryItems.map((item) => item.name),
+      }),
+    [initialData.purchaseHistory, today, items, pantryItems],
+  )
 
   async function addItem() {
     const name = newItem.trim()
@@ -184,6 +237,18 @@ export function AppShell({
         detail: `${ingredient.quantity} ${ingredient.unit} · z jídelníčku`,
         category: ingredient.category,
         unit: ingredient.unit,
+      })
+      setItems((current) => [...current, item])
+      if (notification) setNotifications((current) => [...current, notification])
+    }
+  }
+
+  // Sequential for the same reason as addIngredients above: one revalidation in flight at a time.
+  async function addUsualItems(usual: UsualItem[]) {
+    for (const entry of usual) {
+      const { item, notification } = await addShoppingItemAction(initialData.mainListId, entry.name, {
+        detail: `${entry.quantity} ${entry.unit} · obvyklý nákup`,
+        unit: entry.unit,
       })
       setItems((current) => [...current, item])
       if (notification) setNotifications((current) => [...current, notification])
@@ -419,7 +484,7 @@ export function AppShell({
               mobileTitle={tab === 'Domů' ? 'Rodinný nákup' : tab}
               date={dateLabel}
               dark={dark}
-              onToggleDark={() => setDark(!dark)}
+              onToggleDark={toggleDark}
               notificationsOpen={notificationsOpen}
               onToggleNotifications={() => setNotificationsOpen((open) => !open)}
               unreadCount={unreadCount}
@@ -450,6 +515,7 @@ export function AppShell({
                     onOpen={setTab}
                   />
                   <DashboardOverview
+                    today={today}
                     budget={budget}
                     spent={spent}
                     remaining={remaining}
@@ -472,6 +538,7 @@ export function AppShell({
               )}
               {tab === 'Nákup' && (
                 <div className="mx-auto max-w-3xl space-y-5">
+                  <UsualItems suggestions={usualItems} onAdd={addUsualItems} />
                   <ShoppingList
                     today={today}
                     items={items}

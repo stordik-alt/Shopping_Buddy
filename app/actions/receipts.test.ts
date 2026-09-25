@@ -22,6 +22,9 @@ vi.mock('next/cache', () => ({ revalidatePath: () => {} }))
 // spends paid Blob operations nor fails when the real store is suspended; USE_REAL_BLOB=1 runs them
 // against the real store on purpose.
 vi.mock('@vercel/blob', async () => (process.env.USE_REAL_BLOB === '1' ? await vi.importActual('@vercel/blob') : (await import('@/test/fake-blob')).fakeBlobModule))
+// R2 is the default upload store (lib/storage); these tests upload through the Blob fake above, so
+// pin the provider to Blob instead of letting uploadReceiptAction try to reach an R2 bucket.
+process.env.STORAGE_PROVIDER = 'vercel'
 
 import { confirmReceiptReviewAction, importReceiptAction, processReceiptImport, processUploadedReceiptAction, resolveDuplicateReceiptAction, retryReceiptImportAction, uploadReceiptAction } from '@/app/actions/receipts'
 import { ALBERT_STYLE_RECEIPT_LINES, makeTextPdf } from '@/lib/receipt-pdf.test-helpers'

@@ -48,3 +48,46 @@ jobs:
           NEON_AUTH_COOKIE_SECRET: ci-only-build-secret-32-characters-min
         run: pnpm build
 
+
+  cloudflare:
+    # The prepared Cloudflare Worker build (docs/cloudflare-deployment.md). Nothing is deployed:
+    # this only proves the app still builds for Workers, so a Node-only dependency or a Worker that
+    # outgrows the Workers Paid size limit is caught in the PR instead of on migration day.
+    name: Cloudflare Worker build (not deployed)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.3.4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: OpenNext build
+        env:
+          # Build-time placeholders only.
+          NEON_AUTH_BASE_URL: https://ci.invalid/neon-auth
+          NEON_AUTH_COOKIE_SECRET: ci-only-build-secret-32-characters-min
+          DATABASE_URL: postgresql://ci:ci@ci.invalid/ci
+        run: pnpm cf:build
+
+      - name: Worker size within the Workers Paid limit
+        run: |
+          # --dry-run bundles without contacting Cloudflare. The limit is 10 MiB gzip; fail at 9 MiB
+          # so there is room to react before a deploy would be refused.
+          pnpm exec wrangler deploy --dry-run --env "" --outdir .wrangler-dry-run | tee dry-run.log
+          gzip_kib=$(grep -oE 'gzip: [0-9.]+ KiB' dry-run.log | grep -oE '[0-9.]+')
+          test -n "$gzip_kib" || { echo "Could not read the Worker size from wrangler's output"; exit 1; }
+          echo "Worker gzip size: ${gzip_kib} KiB"
+          awk -v size="$gzip_kib" 'BEGIN { exit !(size < 9216) }' || { echo "Worker is ${gzip_kib} KiB gzip — over 9 MiB"; exit 1; }

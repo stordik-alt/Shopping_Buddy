@@ -7,6 +7,7 @@ import { ingestionDate } from '@/lib/ingestion/today'
 import type { IngestionSource as ProductSource } from '@/lib/ingestion/types'
 import { currentWeekStart, parseSavedPlan, type WeeklyMealPlan } from '@/lib/meal-plans'
 import type { StandaloneOffer } from '@/lib/offers'
+import { createHouseholdNotification } from '@/lib/notify'
 import { inferPantryLocation } from '@/lib/pantry'
 import { formatOpeningHours } from '@/lib/stores/osm'
 import type { ProductPrice } from '@/lib/prices'
@@ -211,11 +212,10 @@ export async function joinHouseholdViaInvitation(userId: string, userName: strin
     return existing
   }
   await db.update(schema.invitations).set({ status: 'accepted' }).where(eq(schema.invitations.id, invitation.id))
-  await db.insert(schema.notifications).values({
-    householdId: invitation.householdId,
+  await createHouseholdNotification(db, invitation.householdId, {
     title: 'Nový člen domácnosti',
     detail: `${userName} se právě připojil/a k domácnosti.`,
-  })
+  }, { tab: 'Profil', excludeUserId: userId })
   const household = await db.query.households.findFirst({ where: eq(schema.households.id, invitation.householdId) })
   if (!household) throw new Error(`Household ${invitation.householdId} referenced by invitation but missing`)
   return household

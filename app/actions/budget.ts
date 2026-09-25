@@ -2,17 +2,18 @@
 
 import { eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
-import { requireHouseholdId } from '@/lib/auth/authorize'
+import { requireHousehold } from '@/lib/auth/authorize'
 import { crossedBudgetThreshold, expensesInMonth, totalSpent } from '@/lib/budget'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { money } from '@/lib/format'
+import { createHouseholdNotification } from '@/lib/notify'
 import type { Expense, ItemCategory, Notification } from '@/lib/types'
 
 export async function addExpenseAction(
   expense: { amount: number; note: string; category: ItemCategory; date: string },
 ): Promise<{ expense: Expense; notification: Notification | null }> {
-  const householdId = await requireHouseholdId()
+  const { householdId, userId } = await requireHousehold()
   const db = getDb()
 
   const [household, existingExpenses] = await Promise.all([
@@ -33,17 +34,19 @@ export async function addExpenseAction(
   const threshold = crossedBudgetThreshold(spentBefore, spentBefore + expense.amount, budget)
   if (threshold) {
     const spentAfter = spentBefore + expense.amount
-    const [notificationRow] = await db
-      .insert(schema.notifications)
-      .values({
-        householdId,
+    // The other members hear about it on their phones; whoever added the expense sees it in the app.
+    const notificationRow = await createHouseholdNotification(
+      db,
+      householdId,
+      {
         title: threshold === 'exceeded' ? 'Rozpočet byl překročen' : 'Blížíte se limitu rozpočtu',
         detail:
           threshold === 'exceeded'
             ? `Měsíční výdaje (${money(spentAfter)}) právě překročily rozpočet ${money(budget)}.`
             : `Měsíční výdaje dosáhly 80 % rozpočtu — ${money(spentAfter)} z ${money(budget)}.`,
-      })
-      .returning()
+      },
+      { tab: 'Rozpočet', excludeUserId: userId },
+    )
     notification = { id: notificationRow.id, title: notificationRow.title, detail: notificationRow.detail, unread: notificationRow.unread }
   }
 

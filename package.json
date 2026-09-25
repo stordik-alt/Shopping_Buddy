@@ -19,6 +19,7 @@
     "db:albert-flyers": "dotenv -e .env.local -- tsx scripts/albert-flyers.ts",
     "db:migrate-blob-to-r2": "dotenv -e .env.local -- tsx scripts/migrate-vercel-blob-to-r2.ts",
     "gcp:oidc-key": "tsx scripts/generate-gcp-oidc-key.ts",
+    "push:vapid-keys": "tsx scripts/generate-vapid-keys.ts",
     "cf:build": "BUILD_TARGET=cloudflare opennextjs-cloudflare build",
     "cf:preview": "wrangler dev",
     "cf:deploy:staging": "opennextjs-cloudflare deploy --env staging",

@@ -1,4 +1,5 @@
 import { X } from 'lucide-react'
+import { PushToggle } from '@/components/notifications/push-toggle'
 import type { Notification } from '@/lib/types'
 
 export function NotificationPanel({
@@ -6,11 +7,13 @@ export function NotificationPanel({
   onRead,
   onReadAll,
   onClose,
+  pushPublicKey,
 }: {
   notifications: Notification[]
   onRead: (id: string) => void
   onReadAll: () => void
   onClose: () => void
+  pushPublicKey: string | null
 }) {
   const unreadCount = notifications.filter((notification) => notification.unread).length
   return (
@@ -36,6 +39,7 @@ export function NotificationPanel({
           </button>
         </div>
       </div>
+      {pushPublicKey && <PushToggle publicKey={pushPublicKey} />}
       <div className="mt-2 flex flex-col gap-1">
         {notifications.map((notification) => (
           <button

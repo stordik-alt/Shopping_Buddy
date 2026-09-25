@@ -21,6 +21,19 @@ const nextConfig = {
     // in production as minified error #441. Keep both limits aligned with the 10 MB raw-file cap.
     proxyClientMaxBodySize: '15mb',
   },
+  // The push service worker (public/sw.js) must never be served from a cache, or a fixed version
+  // would not reach phones that already registered it.
+  async headers() {
+    return [
+      {
+        source: '/sw.js',
+        headers: [
+          { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+          { key: 'Content-Type', value: 'application/javascript; charset=utf-8' },
+        ],
+      },
+    ]
+  },
   // sharp is a native addon that cannot be bundled into a Worker; the Cloudflare build swaps it for a
   // stub that throws, which the receipt pipeline already treats as "send the original photo to OCR".
   ...(cloudflareBuild ? { turbopack: { resolveAlias: { sharp: './cloudflare/shims/sharp.js' } } } : {}),

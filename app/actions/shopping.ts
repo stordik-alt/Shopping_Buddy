@@ -2,12 +2,13 @@
 
 import { eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
-import { requireHouseholdId } from '@/lib/auth/authorize'
+import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
 import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
 import { getProductCatalog, getProductPrices } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
 import { money } from '@/lib/format'
+import { createHouseholdNotification } from '@/lib/notify'
 import { assessDealQuality, effectivePrice } from '@/lib/prices'
 import { matchProductByName } from '@/lib/products'
 import type { Item, Notification } from '@/lib/types'
@@ -29,7 +30,7 @@ export async function addShoppingItemAction(
   name: string,
   overrides: Partial<Pick<Item, 'detail' | 'category' | 'unit'>> = {},
 ): Promise<{ item: Item; notification: Notification | null }> {
-  const householdId = await requireHouseholdId()
+  const { householdId, userId } = await requireHousehold()
   await assertOwnsList(householdId, listId)
   const db = getDb()
 
@@ -73,14 +74,15 @@ export async function addShoppingItemAction(
   const productPrices = await getProductPrices({ names: [canonicalName], runningDeals: false })
   const bestDeal = assessDealQuality(productPrices, todayInPrague()).find((assessment) => assessment.product.productName === canonicalName && assessment.isBestPrice)
   if (bestDeal) {
-    const [notificationRow] = await db
-      .insert(schema.notifications)
-      .values({
-        householdId,
+    const notificationRow = await createHouseholdNotification(
+      db,
+      householdId,
+      {
         title: 'Skvělá cena na vašem seznamu',
         detail: `${name} je nyní v akci v ${bestDeal.price.store} za ${money(effectivePrice(bestDeal.price))} — nejlepší cena mezi obchody.`,
-      })
-      .returning()
+      },
+      { tab: 'Nákup', excludeUserId: userId },
+    )
     notification = { id: notificationRow.id, title: notificationRow.title, detail: notificationRow.detail, unread: notificationRow.unread }
   }
 

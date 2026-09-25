@@ -15,6 +15,7 @@ const hit = (overrides: Partial<ProductSearchHit> = {}): ProductSearchHit => ({
   unitPrice: 30,
   observedAt: '2026-09-24',
   score: 5,
+  direct: true,
   ...overrides,
 })
 
@@ -89,6 +90,15 @@ describe('pickAutoHit', () => {
     const piece = hit({ productId: 'a', unit: 'ks', score: 9 })
     const litre = hit({ productId: 'b', unit: 'l', score: 5 })
     expect(pickAutoHit(need, [piece, litre])?.hit.productId).toBe('b')
+  })
+
+  it('never offers a product that only contains the item (regression: "Vejce" → a soup with egg)', () => {
+    const eggs = { quantity: 10, unit: 'ks' as const }
+    const soup = hit({ productId: 'soup', name: 'Polévka hovězí s vejcem', unit: 'ks', score: 3, direct: false, unitPrice: 25, regularPrice: 25 })
+    const realEggs = hit({ productId: 'eggs', name: 'Vejce M 10 ks', unit: 'ks', score: 106, unitPrice: 4, regularPrice: 40 })
+    expect(pickAutoHit(eggs, [soup, realEggs])?.hit.productId).toBe('eggs')
+    // A chain that has only the soup offers nothing for eggs, rather than the soup.
+    expect(pickAutoHit(eggs, [soup])).toBeNull()
   })
 
   it('is null when nothing can be priced', () => {

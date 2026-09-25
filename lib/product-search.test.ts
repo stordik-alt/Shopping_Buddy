@@ -7,7 +7,10 @@ import {
   hitUnitPrice,
   likePattern,
   normalizeSearchText,
+  isDirectMatch,
   scoreMatch,
+  searchStem,
+  wordRelation,
   searchTokens,
   splitTokens,
   toComparableUnit,
@@ -27,6 +30,7 @@ const hit = (overrides: Partial<ProductSearchHit> = {}): ProductSearchHit => ({
   unitPrice: 20,
   observedAt: '2026-09-24',
   score: 4,
+  direct: true,
   ...overrides,
 })
 
@@ -91,7 +95,93 @@ describe('likePattern', () => {
   })
 })
 
+describe('word forms', () => {
+  it('stems only words long enough to stay specific', () => {
+    expect(searchStem('rohliky')).toBe('rohlik')
+    expect(searchStem('vejce')).toBe('vejc')
+    expect(searchStem('jablka')).toBe('jablk')
+    expect(searchStem('chleb')).toBe('chleb')
+    expect(searchStem('maso')).toBe('maso') // "mas" would also find "maslo"
+    expect(searchStem('syr')).toBe('syr')
+    expect(searchStem('1,5%')).toBe('1,5%')
+  })
+
+  it('tells an inflected form from a derived word', () => {
+    expect(wordRelation('mleko', 'mleko')).toBe('exact')
+    expect(wordRelation('rohlik', 'rohliky')).toBe('form')
+    expect(wordRelation('jablko', 'jablka')).toBe('form')
+    expect(wordRelation('vejcem', 'vejce')).toBe('form')
+    expect(wordRelation('syry', 'syr')).toBe('form')
+    expect(wordRelation('rajcata', 'rajce')).toBe('form')
+    expect(wordRelation('bananove', 'banany')).toBe('derived')
+    expect(wordRelation('kureci', 'kure')).toBe('derived')
+    expect(wordRelation('syrovy', 'syr')).toBe('derived')
+    expect(wordRelation('cokoladovemleko', 'mleko')).toBe('inside')
+    expect(wordRelation('maslo', 'maso')).toBeNull()
+  })
+})
+
+describe('isDirectMatch', () => {
+  it('finds the product under another form of the word', () => {
+    expect(isDirectMatch('rohlik tukovy 43 g', ['rohliky'])).toBe(true)
+    expect(isDirectMatch('jablka cervena', ['jablko'])).toBe(true)
+    expect(isDirectMatch('rajcata cherry', ['rajce'])).toBe(true)
+  })
+
+  it('does not take a product named after the item for the item itself', () => {
+    expect(isDirectMatch('bananove chipsy', ['banany'])).toBe(false)
+    expect(isDirectMatch('rajcatovy protlak', ['rajcata'])).toBe(false)
+    expect(isDirectMatch('kureci nugety', ['kure'])).toBe(false)
+    expect(isDirectMatch('vajecne testoviny', ['vejce'])).toBe(false)
+  })
+
+  it('is the product when the words come before any linking word', () => {
+    expect(isDirectMatch('vejce m 10 ks', ['vejce'])).toBe(true)
+    expect(isDirectMatch('cerstva vejce z podestylky', ['vejce'])).toBe(true)
+    expect(isDirectMatch('mleko na vareni', ['mleko'])).toBe(true)
+    expect(isDirectMatch('tunak v oleji', ['tunak'])).toBe(true)
+    expect(isDirectMatch('jogurty bile', ['jogurt'])).toBe(true)
+    expect(isDirectMatch('sul a pepr', ['pepr'])).toBe(true) // "a" joins two products, it does not describe one
+  })
+
+  it('is only a mention when a word appears only after s/se/z/ze/na/v/do/pro/bez…', () => {
+    expect(isDirectMatch('polevka hovezi s vejcem', ['vejce'])).toBe(false)
+    expect(isDirectMatch('pizza se syrem', ['syr'])).toBe(false)
+    expect(isDirectMatch('koreni na kure', ['kure'])).toBe(false)
+    expect(isDirectMatch('tunak v oleji', ['olej'])).toBe(false)
+    expect(isDirectMatch('omacka do testovin', ['testovin'])).toBe(false)
+    expect(isDirectMatch('krmivo pro psy s kuretem', ['kure'])).toBe(false)
+    expect(isDirectMatch('jogurt bez laktozy', ['laktozy'])).toBe(false)
+  })
+
+  it('needs every token in the product part of the name', () => {
+    expect(isDirectMatch('mleko polotucne 1,5%', ['mleko', 'polotucne'])).toBe(true)
+    expect(isDirectMatch('kase s mlekem a ovocem', ['kase', 'mleko'])).toBe(false)
+  })
+
+  it('matches a token with punctuation inside as a phrase', () => {
+    expect(isDirectMatch('coca-cola 1,5 l', ['coca-cola'])).toBe(true)
+    expect(isDirectMatch('rum s coca-cola', ['coca-cola'])).toBe(false)
+    expect(scoreMatch('__test a_b xyz', ['a_b'])).toBeGreaterThan(0)
+    expect(scoreMatch('mleko 1,5%', ['1,5%'])).toBeGreaterThan(0)
+  })
+
+  it('does not treat a leading "s" or punctuation as a linking word', () => {
+    expect(isDirectMatch('s-budget vejce', ['vejce'])).toBe(true)
+    expect(isDirectMatch('vejce, 10 ks (m)', ['vejce'])).toBe(true)
+  })
+})
+
 describe('scoreMatch', () => {
+  it('ranks every product that is the item above anything that only mentions it', () => {
+    const product = scoreMatch('bio vejce z volneho chovu 6 ks', ['vejce'])
+    const mention = scoreMatch('vejce', ['vejce']) // exact name: highest
+    const soup = scoreMatch('polevka s vejcem', ['vejce'])
+    expect(mention).toBeGreaterThan(product)
+    expect(product).toBeGreaterThan(soup)
+    expect(soup).toBeGreaterThan(0) // still findable by an explicit search
+  })
+
   it('is 0 when any token is missing', () => {
     expect(scoreMatch('cerstve mleko 1,5%', ['mleko', 'chleb'])).toBe(0)
     expect(scoreMatch('cerstve mleko', [])).toBe(0)

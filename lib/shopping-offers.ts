@@ -64,9 +64,12 @@ export type PricedHit = { hit: ProductSearchHit; cost: NeedCost }
 
 /** The product a chain should offer for a need when the user has not chosen one: among the hits that
  *  can be priced for the need, the best text match, then the lowest cost, then the name (so the
- *  choice is stable). `null` when nothing at that chain can be priced. */
+ *  choice is stable). Only products that *are* the item count — "Polévka s vejcem" is never offered
+ *  for "Vejce" (`isDirectMatch`); a chain that sells eggs only inside soups has no offer, which is
+ *  honest, where a soup would be a wrong answer. `null` when nothing at that chain qualifies. */
 export function pickAutoHit(need: Pick<NeedSpec, 'quantity' | 'unit'>, hits: ProductSearchHit[]): PricedHit | null {
   const priced = hits
+    .filter((hit) => hit.direct)
     .map((hit) => ({ hit, cost: costForNeed(need, hit) }))
     .filter((entry): entry is PricedHit => entry.cost !== null)
   if (priced.length === 0) return null

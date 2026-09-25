@@ -1,4 +1,4 @@
-import { normalizeMatchName } from '@/lib/receipt-list-match'
+import { matchKey } from '@/lib/receipt-list-match'
 import type { ItemUnit, PurchaseRecord } from '@/lib/types'
 
 // How often the household buys each thing, from its own recorded purchases (CLAUDE.md section 24 —
@@ -42,7 +42,7 @@ export function purchaseRhythms(purchases: PurchaseRecord[], today: string): Map
     const day = dayNumber(purchase.date)
     if (day > todayNumber || todayNumber - day > RHYTHM_WINDOW_DAYS) continue
     for (const item of purchase.items) {
-      const key = normalizeMatchName(item.name)
+      const key = matchKey(item.name)
       if (!key) continue
       const group = groups.get(key) ?? { name: item.name, latestDay: day, days: new Set<number>(), amounts: new Map() }
       if (day >= group.latestDay) {

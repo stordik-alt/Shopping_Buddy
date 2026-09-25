@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm'
 import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
-import { isDirectMatch, likePattern, scoreMatch, searchStem, splitTokens, toComparableUnit, type ProductSearchHit } from '@/lib/product-search'
+import { isDirectMatch, likePattern, scoreMatch, searchStem, searchStems, splitTokens, toComparableUnit, type ProductSearchHit } from '@/lib/product-search'
 import type { ItemCategory, ItemUnit } from '@/lib/types'
 
 // Text search over the products the chains have prices for (lib/product-search.ts has the rules).
@@ -39,7 +39,12 @@ export async function searchProductHits(tokens: string[], options: { storeIds?: 
   // Words are looked up by their stem, so every inflected form is found ("rohliky" finds "Rohlík");
   // the scoring then tells the same word from a derived one (lib/product-search.ts, word forms).
   const stems = required.map(searchStem)
-  const patterns = sql.join(stems.map((stem) => sql`${likePattern(stem)}`), sql`, `)
+  // Every word must match, by its own stem or a synonym's ("vajíčka" also finds "Vejce",
+  // lib/synonyms.ts): an AND over the words of an OR over each word's stems.
+  const wordFilters = sql.join(
+    required.map((token) => sql`(p.search_name LIKE ANY (ARRAY[${sql.join(searchStems(token).map((stem) => sql`${likePattern(stem)}`), sql`, `)}]::text[]))`),
+    sql` AND `,
+  )
   const chains = options.storeIds
   if (chains && chains.length === 0) return []
   const chainFilter = chains ? sql`AND pr.store_id IN (${sql.join(chains.map((id) => sql`${id}::uuid`), sql`, `)})` : sql``
@@ -64,7 +69,7 @@ export async function searchProductHits(tokens: string[], options: { storeIds?: 
       JOIN products p ON p.id = pr.product_id
       JOIN product_categories c ON c.id = p.category_id
       JOIN stores s ON s.id = pr.store_id
-      WHERE p.search_name LIKE ALL (ARRAY[${patterns}]::text[]) ${chainFilter} ${categoryFilter}
+      WHERE ${wordFilters} ${chainFilter} ${categoryFilter}
       ORDER BY pr.product_id, pr.store_id, coalesce(pr.last_confirmed_at, pr.observed_at) DESC, (pr.source_type = 'OFFICIAL') DESC
     ) latest
     ORDER BY strpos(latest.search_name, ${stems[0]}), length(latest.search_name), latest.product_id, latest.store_id

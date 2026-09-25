@@ -1,5 +1,13 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Product names: synonyms)
+- **What:** `lib/synonyms.ts` lists words that name the same grocery but that no stem rule connects: irregular forms ("vejce" / "vajíčka" / "vajec", "párek" / "párky", "mrkev" / "mrkve"), colloquial and regional names ("mlíko", "paradajky"), spelling variants ("kečup" / "kechup"). Subtypes and derived products are deliberately not synonyms.
+- **Where it applies:**
+  - Product search and the shopping planner: an AND over the query's words, each an OR over its own and its synonyms' stems. A synonym match counts as the same word, so "vajíčka" finds "Vejce M 10 ks" as the product itself, and the mention rule still keeps "Polévka s vejcem" out.
+  - Receipt lines against list items: "Vajíčka" gets "VEJCE M 10KS" as a suggestion.
+  - Purchase history: `matchKey()` folds synonyms in the purchase rhythm, "Doplnit obvyklé" and the pantry estimate.
+- **Tests:** groups and keys, search relation and direct match, receipt suggestion, usual items across synonyms. CI command: 959 passed.
+
 ## 2026-09-25 (Database network transfer: Neon free quota exhausted)
 - **What happened:** Neon started answering every query with HTTP 402 "exceeded the quota". The owner's console showed network transfer at 4.93 GB of the free plan's 5 GB/month, so the app and the scripts could not read the database.
 - **Causes found in the code:**

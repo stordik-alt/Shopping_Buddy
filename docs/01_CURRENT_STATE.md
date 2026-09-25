@@ -537,7 +537,7 @@ The cron (`/api/cron/ingest-prices`) now runs each source in its own try/catch a
   * **The shopping planner picks only direct matches** (`pickAutoHit`): a chain whose only match is a soup offers nothing for "Vejce" (reported regression).
   * The 400-row cap is taken after ordering by where the word appears and name length, instead of by product id (which dropped arbitrary products for common words).
   * A token with inner punctuation ("coca-cola", "1,5%") is matched as a phrase.
-  * Not done: synonyms ("vajíčka" vs "vejce") and irregular forms are not handled.
+  * **Synonyms (2026-09-25):** `lib/synonyms.ts` connects irregular forms, colloquial names and spelling variants ("vajíčka" = "vejce", "párky" = "párek", "mlíko" = "mléko"). They apply in search, the planner, receipt-to-list suggestions and purchase-history keys (`matchKey`).
 
   At most 6 tokens / 80 characters, LIKE wildcards escaped and everything parameterized (tested with quote-like input).
 * **Results** are grouped per chain (up to 8 each, "…a dalších N"), each with the latest recorded price (docs/03_DATABASE.md rule 14), the chain's active promotion and its unit price scaled by the same ratio, and the date the price was observed. Unit prices per gram/millilitre are shown per kg/l (the Lidl data holds "0,10 Kč/g"). A hit at a chain with only receipt-derived prices is shown too, with its date.

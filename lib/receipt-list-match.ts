@@ -1,3 +1,5 @@
+import { canonicalName, canonicalWord } from '@/lib/synonyms'
+
 // Matching what a receipt says was bought against what is still open on a shopping list.
 //
 // Pure and deterministic (CLAUDE.md sections 5 and 25): no database, no network. The receipt's
@@ -41,11 +43,13 @@ function commonPrefixLength(a: string, b: string): number {
   return length
 }
 
-/** Two words are "the same" when equal, when one is a prefix of the other ("mleko"/"mlekem" is not
+/** Two words are "the same" when equal, when they are synonyms, when one is a prefix of the other ("mleko"/"mlekem" is not
  *  covered, "jogurt"/"jogurty" is), or when they share a long stem ("jablka"/"jablko"). Short words
  *  must be equal so "ks"/"kg" or "sul"/"sulc" never match by accident. */
 function tokensMatch(listToken: string, receiptToken: string): boolean {
   if (listToken === receiptToken) return true
+  // Synonyms (lib/synonyms.ts): "Vajíčka" on the list, "VEJCE M 10KS" on the receipt.
+  if (canonicalWord(listToken) === canonicalWord(receiptToken)) return true
   const shortest = Math.min(listToken.length, receiptToken.length)
   if (shortest >= 4 && (listToken.startsWith(receiptToken) || receiptToken.startsWith(listToken))) return true
   return shortest >= 5 && commonPrefixLength(listToken, receiptToken) >= 5
@@ -103,4 +107,11 @@ export function matchReceiptToList(listItems: MatchableListItem[], purchaseItems
   }
 
   return { certain, suggested }
+}
+
+/** A name as a matching key: normalized (`normalizeMatchName`) with synonyms folded together
+ *  (lib/synonyms.ts), so "Vajíčka" and "vejce" are the same key. For grouping purchases and finding
+ *  the pantry item a purchase refers to — never for display. */
+export function matchKey(name: string): string {
+  return canonicalName(normalizeMatchName(name))
 }

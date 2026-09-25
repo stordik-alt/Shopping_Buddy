@@ -1,6 +1,6 @@
 import { dayNumber, purchaseRhythms, type PurchaseRhythm } from '@/lib/purchase-rhythm'
 import { normalizeSearchText } from '@/lib/product-search'
-import { normalizeMatchName } from '@/lib/receipt-list-match'
+import { matchKey } from '@/lib/receipt-list-match'
 import { isDueForCheckin } from '@/lib/pantry'
 import type { PantryItem, PurchaseRecord } from '@/lib/types'
 
@@ -67,7 +67,7 @@ export function estimatePantry(items: PantryItem[], purchases: PurchaseRecord[],
   const rhythms = purchaseRhythms(purchases, today)
   const estimates = new Map<string, ConsumptionEstimate>()
   for (const item of items) {
-    const estimate = estimateConsumption(item, rhythms.get(normalizeMatchName(item.name)), today)
+    const estimate = estimateConsumption(item, rhythms.get(matchKey(item.name)), today)
     if (estimate) estimates.set(item.id, estimate)
   }
   return estimates

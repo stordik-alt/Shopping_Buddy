@@ -680,7 +680,7 @@ export async function uploadReceiptAction(formData: FormData): Promise<UploadRec
   if (fileType.kind !== 'supported') return { ok: false, error: 'Nepodporovaný formát. Použijte fotku JPEG, PNG, WEBP nebo PDF.' }
 
   try {
-    // Vercel Blob or R2 depending on STORAGE_PROVIDER; the reference records which (lib/storage).
+    // R2 (or Vercel Blob when STORAGE_PROVIDER=vercel); the reference records which (lib/storage).
     const imageUrl = await putReceiptFile(householdId, buffer, fileType)
 
     const db = getDb()

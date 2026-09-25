@@ -80,7 +80,7 @@ After upload:
    (`imagePrep`).
 4. Keep the original image — `uploadReceiptAction` stores it privately under
    `receipts/<householdId>/<uuid>.<ext>` through `lib/storage` (decided 2026-09-22 with Vercel Blob;
-   since 2026-09-25 Vercel Blob or Cloudflare R2 by `STORAGE_PROVIDER`, see `docs/cloudflare-r2.md`).
+   since 2026-09-25 Cloudflare R2 by default, Vercel Blob for old receipts or with `STORAGE_PROVIDER=vercel`, see `docs/cloudflare-r2.md`).
 5. Create a unique import ID.
 6. Set status: `UPLOADED`.
 

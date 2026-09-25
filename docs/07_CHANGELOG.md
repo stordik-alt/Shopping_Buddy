@@ -1,5 +1,9 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-25 (Receipt files: R2 is the default store)
+- **What:** new receipt uploads go to Cloudflare R2 without `STORAGE_PROVIDER` (production already set `STORAGE_PROVIDER=r2`, so nothing changes there). `STORAGE_PROVIDER=vercel` stays as the rollback switch; an empty value means R2; an unknown value is still an error.
+- **Tests:** storage tests cover the new default (R2 by default, empty value = R2, `vercel` → Blob). The DB-backed receipt tests set `STORAGE_PROVIDER=vercel` so they keep using the in-memory Blob fake instead of trying to reach R2.
+
 ## 2026-09-25 (Budget card: daily allowance, pace warning, 80 % mark)
 - **Why:** the home screen showed what was left but not where the month was heading; the Rozpočet tab projected the month end (e.g. 10 368 Kč) without comparing it to the limit.
 - **Budget card** (`BudgetHero`, home and Rozpočet): "Na den zbývá … Kč (N dní do konce měsíce)" and, from the 7th of the month, "Při tomto tempu překročíte limit o … Kč" when the current daily rate would break the limit (`lib/budget.ts` `budgetPace`, deterministic; no projection earlier, when one big shop would distort it). The progress bar marks the 80 % warning boundary. Both lines carry an icon; hidden once the limit is already exceeded (the chip says so).

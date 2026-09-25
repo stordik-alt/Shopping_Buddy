@@ -1,6 +1,6 @@
 # Cloudflare Migration — Target Architecture
 
-**Status:** the interim target (storage layer + R2) is implemented behind `STORAGE_PROVIDER` and
+**Status:** the interim target (storage layer + R2) is implemented (R2 default for new uploads, `STORAGE_PROVIDER=vercel` = rollback) and
 documented in `docs/cloudflare-r2.md`; the full target below is proposed only. It follows from
 `docs/cloudflare-migration-audit.md`; update this file whenever a decision changes it.
 

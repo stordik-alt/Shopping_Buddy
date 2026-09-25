@@ -86,8 +86,10 @@ describe('storage references', () => {
 })
 
 describe('uploadProvider', () => {
-  it('defaults to Vercel Blob and accepts r2', () => {
-    expect(uploadProvider()).toBe('vercel_blob')
+  it('defaults to R2 and accepts vercel as the rollback switch', () => {
+    expect(uploadProvider()).toBe('r2')
+    process.env.STORAGE_PROVIDER = ''
+    expect(uploadProvider()).toBe('r2')
     process.env.STORAGE_PROVIDER = 'r2'
     expect(uploadProvider()).toBe('r2')
     process.env.STORAGE_PROVIDER = ' VERCEL '
@@ -185,9 +187,17 @@ describe('Vercel Blob store (old receipts and STORAGE_PROVIDER=vercel)', () => {
     expect(await getReceiptFile(old.url)).toBeNull()
   })
 
-  it('uploads to Blob by default and returns the blob URL as the reference', async () => {
+  it('uploads to R2 by default', async () => {
+    const { objects } = stubR2()
+    const ref = await putReceiptFile(HOUSEHOLD, JPEG, { extension: 'jpg', mimeType: 'image/jpeg' })
+    expect(parseStorageRef(ref).provider).toBe('r2')
+    expect(objects.size).toBe(1)
+  })
+
+  it('uploads to Blob with STORAGE_PROVIDER=vercel and returns the blob URL as the reference', async () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
+    process.env.STORAGE_PROVIDER = 'vercel'
     const ref = await putReceiptFile(HOUSEHOLD, JPEG, { extension: 'jpg', mimeType: 'image/jpeg' })
     expect(parseStorageRef(ref).provider).toBe('vercel_blob')
     expect(fetchMock).not.toHaveBeenCalled() // no R2 request

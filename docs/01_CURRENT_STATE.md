@@ -1039,6 +1039,8 @@ Need reliable historical tracking of promotions. Unlike prices, `deals` has no a
 
 **Update 2026-09-25, budget pace.** The budget card (home and Rozpočet) shows the per-day allowance for the rest of the month and, from the 7th, whether the current daily rate would exceed the limit and by how much (`lib/budget.ts` `budgetPace`); the progress bar marks the 80 % boundary; the Rozpočet tab's month-end projection is set against the limit.
 
+**Update 2026-09-25, R2 is the default for new receipt uploads.** The owner set the `R2_*` variables in Vercel; `STORAGE_PROVIDER` is no longer needed (unset = R2) and `STORAGE_PROVIDER=vercel` is only a rollback switch. Old receipts stay on Blob until `pnpm db:migrate-blob-to-r2` copies them. Not yet checked on the live app.
+
 **Research status across every chain/source checked so far (2026-09-23), roughly in the order investigated** — see section 15 for the full detail behind each:
 * **Lidl** — connector built and running (daily cron pilot, see above).
 * **Albert** — fully checked (site, GraphQL API, flyer viewer, and the "Můj Albert" loyalty app). No structured price source found anywhere; the loyalty app is mobile-only and would need a real phone number for SMS verification to even investigate further. Stays blocked until a human does that step, or a completely different source (Wolt/Foodora) is checked.

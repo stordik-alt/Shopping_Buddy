@@ -37,6 +37,8 @@ export type Expense = {
   /** One of the category's subcategories (lib/expense-categories.ts), or null. */
   subcategory: string | null
   date: string
+  /** The receipt purchase this expense counts (lib/purchase-expenses.ts); null for one typed in. */
+  purchaseId: string | null
 }
 
 export type HouseholdMember = {

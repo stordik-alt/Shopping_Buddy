@@ -559,10 +559,15 @@ export const expenses = pgTable('expenses', {
   // Optional, one of the category's subcategories (lib/expense-categories.ts); checked by the server.
   subcategory: text('subcategory'),
   date: date('date').notNull(),
+  // Set when the expense is a receipt's purchase (lib/purchase-expenses.ts): one row per category of
+  // its items. It goes with the purchase, and is corrected with it, not by hand.
+  purchaseId: uuid('purchase_id').references(() => purchases.id, { onDelete: 'cascade' }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => [
   // The overview reads a household's expenses by date.
   index('expenses_household_date_idx').on(table.householdId, table.date),
+  // A purchase is counted once per category, whatever retries or races happen.
+  uniqueIndex('expenses_purchase_category_unique').on(table.purchaseId, table.category).where(sql`${table.purchaseId} IS NOT NULL`),
 ])
 
 // --- Meal plans & notifications ------------------------------------------------

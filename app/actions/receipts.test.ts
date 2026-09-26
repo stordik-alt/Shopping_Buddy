@@ -29,6 +29,7 @@ process.env.STORAGE_PROVIDER = 'vercel'
 import { confirmReceiptReviewAction, importReceiptAction, processReceiptImport, processUploadedReceiptAction, resolveDuplicateReceiptAction, retryReceiptImportAction, uploadReceiptAction } from '@/app/actions/receipts'
 import { ALBERT_STYLE_RECEIPT_LINES, makeTextPdf } from '@/lib/receipt-pdf.test-helpers'
 import { RECEIPT_STALE_MS } from '@/lib/receipt-progress'
+import { deleteExpenseAction, updateExpenseAction } from '@/app/actions/budget'
 
 const db = getDb()
 const createdHouseholdIds: string[] = []
@@ -125,6 +126,33 @@ afterAll(async () => {
 // date and never falls back to "today" — real manual entry always supplies one from the form's
 // date input, so tests that don't care about the specific value pass this constant instead.
 const TEST_DATE = '2026-09-22'
+
+// A receipt's purchase counts as the household's expenses (lib/purchase-expenses.ts), split by the
+// items' categories and adding up to what was paid; it is corrected with the purchase, not by hand.
+describe('a receipt as expenses', () => {
+  it('records what was paid as expenses per category, once, and keeps them from manual edits', async () => {
+    const shampoo = `__test_sampon_${crypto.randomUUID().slice(0, 8)}`
+    const rice = `__test_ryze_${crypto.randomUUID().slice(0, 8)}`
+    const { purchase } = await importReceiptAction(
+      [item({ name: rice, category: 'Potraviny', price: 40, quantity: 2 }), item({ name: shampoo, category: 'Drogerie', price: 60, quantity: 1 })],
+      { date: TEST_DATE, storeName: 'Lidl' },
+    )
+    const expenses = await db.query.expenses.findMany({ where: eq(schema.expenses.purchaseId, purchase.id) })
+    expect(expenses.map((row) => [row.category, Number(row.amount)]).sort()).toEqual([
+      ['Drogerie', 60],
+      ['Potraviny', 80],
+    ])
+    expect(expenses.every((row) => row.householdId === householdId && row.date === TEST_DATE && row.note === 'Nákup Lidl')).toBe(true)
+    expect(expenses.reduce((sum, row) => sum + Number(row.amount), 0)).toBe(purchase.total)
+
+    await expect(updateExpenseAction(expenses[0].id, { amount: 1, note: '', category: 'Potraviny', subcategory: null, date: TEST_DATE })).rejects.toThrow('Výdaj z účtenky se upravuje s nákupem')
+    await expect(deleteExpenseAction(expenses[0].id)).rejects.toThrow('Výdaj z účtenky se upravuje s nákupem')
+
+    // The purchase takes its expenses with it.
+    await db.delete(schema.purchases).where(eq(schema.purchases.id, purchase.id))
+    expect(await db.query.expenses.findMany({ where: eq(schema.expenses.purchaseId, purchase.id) })).toEqual([])
+  })
+})
 
 describe('importReceiptAction (manual entry)', () => {
   it('rejects an empty receipt', async () => {

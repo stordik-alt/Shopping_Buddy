@@ -7,6 +7,8 @@ import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
 import { getProductCatalog, recordPriceObservation, restockPantryItem, toReceiptImportState, upsertProductCatalogDefaults, type ReceiptImportState } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
+import { notifyBudgetThreshold, spentInMonth } from '@/lib/db/budget-notify'
+import { splitPurchaseByCategory } from '@/lib/purchase-expenses'
 import { applyConfirmedReceiptListPairs, autoCheckShoppingListFromPurchase, getReceiptListSuggestions, type ReceiptListSuggestion } from '@/lib/db/receipt-list'
 import { inferPantryLocation } from '@/lib/pantry'
 import { logReceiptImport, newReceiptTrace, redactSecrets, type ReceiptTrace } from '@/lib/receipt-log'
@@ -203,6 +205,32 @@ async function recordReceiptPriceObservations(
   )
 }
 
+/** A receipt's purchase as expenses: one per category of its items, adding up to what was paid, then
+ *  the budget's 80 %/100 % notification if they cross it (the same one a typed-in expense sends). */
+async function recordPurchaseExpenses(
+  db: ReturnType<typeof getDb>,
+  householdId: string,
+  purchaseId: string,
+  date: string,
+  total: number,
+  storeName: string | null,
+  items: ReceiptLineItem[],
+) {
+  const parts = splitPurchaseByCategory(
+    items.map((item) => ({ category: item.category, amount: netUnitPrice(item) * item.quantity })),
+    total,
+  )
+  if (parts.length === 0) return
+  const spentBefore = await spentInMonth(db, householdId, date)
+  const inserted = await db
+    .insert(schema.expenses)
+    .values(parts.map((part) => ({ householdId, purchaseId, date, category: part.category, amount: part.amount.toString(), note: storeName ? `Nákup ${storeName}` : 'Nákup z účtenky' })))
+    .onConflictDoNothing()
+    .returning({ amount: schema.expenses.amount })
+  const added = inserted.reduce((sum, row) => sum + Number(row.amount), 0)
+  if (added > 0) await notifyBudgetThreshold(db, householdId, spentBefore, added)
+}
+
 async function createPurchaseFromReceiptItems(
   householdId: string,
   items: ReceiptLineItem[],
@@ -278,6 +306,11 @@ async function createPurchaseFromReceiptItems(
       })),
     )
     .returning()
+
+  // What the receipt says was paid counts as the household's expenses, split by the items' categories
+  // (lib/purchase-expenses.ts; only receipts do this — never a shopping list's estimated prices). The
+  // unique (purchase, category) index keeps a retry from counting it twice.
+  await recordPurchaseExpenses(db, householdId, purchaseRow.id, date, total, options.storeName?.trim() ? normalizeStoreName(options.storeName) : null, resolvedItems)
 
   for (const item of resolvedItems) {
     await restockPantryItem(householdId, { productId: item.productId, name: item.name, category: item.category, quantity: item.quantity, unit: item.unit, location: item.location })

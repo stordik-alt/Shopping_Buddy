@@ -17,12 +17,12 @@ export const initialNotifications: Notification[] = [
 ]
 
 export const initialExpenses: Expense[] = [
-  { id: '1', amount: 2350, note: 'Týdenní nákup potravin', category: 'Potraviny', subcategory: null, date: '2026-09-03' },
-  { id: '2', amount: 890, note: 'Drogerie a hygiena', category: 'Drogerie', subcategory: null, date: '2026-09-06' },
-  { id: '3', amount: 1200, note: 'Oblečení pro děti', category: 'Děti', subcategory: null, date: '2026-09-09' },
-  { id: '4', amount: 1980, note: 'Nákup v Kauflandu', category: 'Potraviny', subcategory: null, date: '2026-09-13' },
-  { id: '5', amount: 430, note: 'Čisticí prostředky', category: 'Domácnost', subcategory: null, date: '2026-09-16' },
-  { id: '6', amount: 500, note: 'Různé drobnosti', category: 'Ostatní', subcategory: null, date: '2026-09-18' },
+  { id: '1', amount: 2350, note: 'Týdenní nákup potravin', category: 'Potraviny', subcategory: null, purchaseId: null, date: '2026-09-03' },
+  { id: '2', amount: 890, note: 'Drogerie a hygiena', category: 'Drogerie', subcategory: null, purchaseId: null, date: '2026-09-06' },
+  { id: '3', amount: 1200, note: 'Oblečení pro děti', category: 'Děti', subcategory: null, purchaseId: null, date: '2026-09-09' },
+  { id: '4', amount: 1980, note: 'Nákup v Kauflandu', category: 'Potraviny', subcategory: null, purchaseId: null, date: '2026-09-13' },
+  { id: '5', amount: 430, note: 'Čisticí prostředky', category: 'Domácnost', subcategory: null, purchaseId: null, date: '2026-09-16' },
+  { id: '6', amount: 500, note: 'Různé drobnosti', category: 'Ostatní', subcategory: null, purchaseId: null, date: '2026-09-18' },
 ]
 
 export const initialShoppingLists = ['Týdenní nákup', 'Lidl', 'Drogerie', 'Děti']

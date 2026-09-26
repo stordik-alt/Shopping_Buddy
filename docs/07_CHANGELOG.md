@@ -1,5 +1,10 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-26 (Database tests: timeouts that fit a remote database)
+- **Why:** database-backed tests failed at random (owner's run: `shopping.test.ts` "Test timed out in 5000ms"). A cleanup hook cut off by its 10 s limit left rows on the Neon test branch, which then failed later runs. A leftover "Mléko" product had collected 70 prices and let a receipt that should need review complete on its own; leftover fixture products broke two more receipt tests.
+- **What:** `vitest.config.mts` `testTimeout` 30 s and `hookTimeout` 120 s; pure tests are unaffected. The leftover products were removed from the test branch (never production).
+- **Result:** `receipts.test.ts` + `shopping.test.ts` 80/80, and nothing left behind afterwards.
+
 ## 2026-09-26 (Store import: the town from the municipality boundary)
 - **Bug (owner report):** almost no Polička shops were in the app. OpenStreetMap has Penny (2×), Lidl, Billa, dm and Tesco there; only Tesco was imported, and the others were rejected for "no address". Their nearest address points (RÚIAN import) have street, number and postcode but name the part of town (`addr:place` "Horní Předměstí") instead of the town, and the parser required a town.
 - **Fix:**

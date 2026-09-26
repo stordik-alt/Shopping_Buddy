@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm'
 import { auth } from '@/lib/auth/server'
+import { isAppAdmin } from '@/lib/db/admin'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 
@@ -20,4 +21,12 @@ export async function requireHousehold(): Promise<{ userId: string; userEmail: s
 /** Convenience wrapper for the common case where only the household id is needed. */
 export async function requireHouseholdId(): Promise<string> {
   return (await requireHousehold()).householdId
+}
+
+/** Like `requireHousehold`, but only for an app administrator (`app_admins`). For screens and actions
+ *  that reach across households, such as managing everyone's improvement ideas. */
+export async function requireAdmin(): Promise<Awaited<ReturnType<typeof requireHousehold>>> {
+  const context = await requireHousehold()
+  if (!(await isAppAdmin(context.userId))) throw new ForbiddenError('Administrators only')
+  return context
 }

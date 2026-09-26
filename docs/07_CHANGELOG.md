@@ -1,5 +1,15 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-26 (Ideas management screen for the administrator)
+- **Why (owner request):** a screen to go through the ideas households send, changing their status, and to keep one's own ideas for later; available only to the administrator.
+- **What:**
+  - **Administrator role:** table `app_admins` (migration `0041`; `user_id` → `neon_auth.user`, deleted with the account). It is a role of the whole app, unlike `household_members.role`. Nothing in the app can grant it: `pnpm db:set-admin <email> [--remove]` (`scripts/set-admin.ts`) writes it into the database of `.env.local`. The account must have signed up first.
+  - **Screen** `/admin/ideas` ("Správa nápadů", in the account menu, shown only to an administrator): every household's ideas with author, household and date, a filter by status (with counts; opens on "Nový"), a status selector on each idea, and the same form for adding one's own idea (it goes to the administrator's own household, so it also appears in their "Nápady pro zlepšení" dialog).
+  - **Authorization on the server:** the page answers anyone else with "not found"; `setIdeaStatusAction` calls `requireAdmin()` (`lib/auth/authorize.ts`, decided by `app_admins` from the session's user id). The menu item is only a convenience.
+  - The form is shared (`components/shared/idea-form.tsx`); errors from a failed Server Action are shown through `userFacingError`, since production replaces their text with a generic one.
+- **Tests:** `app/actions/ideas.test.ts` (7, real test DB, real household/admin checks with only the session replaced: a non-administrator is refused and nothing changes; an administrator changes another household's idea; invalid status/unknown idea); `tsc` clean; checked in a real browser at 375 px in dark mode (form, list, admin screen, status change) against the test database. The test account created for this was removed afterwards.
+- **Owner step after deploy:** `pnpm db:set-admin stordik@gmail.com` (the table exists in production only once this is deployed).
+
 ## 2026-09-26 (Store directory: square tiles, only chains near the entered place)
 - **Why (owner feedback on the live tab):** "Albert Hypermarket" wrapped over three lines and broke the tile layout; the branch count on a tile is not useful; and without a locality the tab listed every chain in the country.
 - **What:** tiles are squares, three in a row, with the logo and the chain's name under it on one line (long names are shortened: "Albert Hypermarket" → "Albert Hyper", "Dr Max LÉKÁRNA" → "Dr Max", anything else is cut with "…"); the star sits in the corner and a check mark shows a chosen chain. The branch count is gone from tiles and from above the list (the pager shows how many pages there are). Tiles appear only once a town is typed or the position is used, and then only for chains that have a branch there; before that the tab says what to enter. A badge for a chain without a logo is readable in dark mode too.

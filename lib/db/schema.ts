@@ -800,3 +800,14 @@ export const featureIdeas = pgTable(
     check('feature_ideas_details_length', sql`${table.details} IS NULL OR char_length(${table.details}) <= 2000`),
   ],
 )
+
+// Accounts that administer the app itself (a role of the whole application, not of one household —
+// unlike `household_members.role`). `user_id` is the Neon Auth user id; its foreign key to
+// `neon_auth.user` is in the hand-written part of migration 0041 (Drizzle does not model that
+// schema). Rows are added by the owner of the
+// project with `pnpm db:set-admin <email>`; nothing in the app can grant it, so a request can never
+// make itself an admin. Admins can review and manage everyone's improvement ideas.
+export const appAdmins = pgTable('app_admins', {
+  userId: uuid('user_id').primaryKey(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})

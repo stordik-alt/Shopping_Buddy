@@ -17,6 +17,11 @@ export const IDEA_STATUS_LABEL: Record<IdeaStatus, string> = {
 
 export type Idea = { id: string; title: string; details: string | null; status: IdeaStatus; createdAt: string; authorName: string | null }
 
+export const IDEA_STATUSES: IdeaStatus[] = ['new', 'planned', 'done', 'declined']
+
+/** An idea as the administrator sees it: with the household it came from. */
+export type AdminIdea = Idea & { householdName: string }
+
 export type IdeaInput = { title: string; details: string }
 
 /** The cleaned idea, or a Czech message saying what is wrong. Whitespace is trimmed; an empty
@@ -30,3 +35,6 @@ export function validateIdeaInput(input: IdeaInput): { ok: true; title: string; 
   if (details.length > IDEA_DETAILS_MAX) return { ok: false, error: `Popis je příliš dlouhý (nejvýše ${IDEA_DETAILS_MAX} znaků).` }
   return { ok: true, title, details: details === '' ? null : details }
 }
+
+/** "26. 9. 2026" from an ISO timestamp, for the idea lists. */
+export const ideaDayLabel = (iso: string) => new Date(iso).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric' })

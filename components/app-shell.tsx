@@ -91,6 +91,7 @@ import { readThemeChoice, resolveDark, saveThemeChoice } from '@/lib/theme-prefe
 export function AppShell({
   initialData,
   userName,
+  isAdmin,
   stores,
   productPrices,
   standaloneOffers,
@@ -104,6 +105,8 @@ export function AppShell({
 }: {
   initialData: HouseholdData
   userName: string
+  /** The account administers the app (offers the ideas management screen in the account menu). */
+  isAdmin: boolean
   stores: Store[]
   productPrices: ProductPrice[]
   /** Offers at stores for products with no regular price to compare against (lib/offers.ts). */
@@ -786,6 +789,7 @@ export function AppShell({
               unreadCount={unreadCount}
               onSelectTab={setTab}
               userName={userName}
+              isAdmin={isAdmin}
             />
             {notificationsOpen && (
               <NotificationPanel

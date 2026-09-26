@@ -775,3 +775,28 @@ export const receiptImportsRelations = relations(receiptImports, ({ one }) => ({
   storeLocation: one(storeLocations, { fields: [receiptImports.storeLocationId], references: [storeLocations.id] }),
   purchase: one(purchases, { fields: [receiptImports.purchaseId], references: [purchases.id] }),
 }))
+
+// Ideas for improving the app, sent by household members from the account menu ("Nápady pro
+// zlepšení"). The owner of the project reads them, decides which are relevant and moves them through
+// `status`; the household sees the status of its own ideas. Kept with the household so an idea lives
+// and dies with it; `member_id` is only informational (who wrote it), so leaving does not erase it.
+export const ideaStatusEnum = pgEnum('idea_status', ['new', 'planned', 'done', 'declined'])
+
+export const featureIdeas = pgTable(
+  'feature_ideas',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+    memberId: uuid('member_id').references(() => householdMembers.id, { onDelete: 'set null' }),
+    title: text('title').notNull(),
+    details: text('details'),
+    status: ideaStatusEnum('status').notNull().default('new'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // The household's list is read newest first.
+    index('feature_ideas_household_created_idx').on(table.householdId, table.createdAt),
+    check('feature_ideas_title_length', sql`char_length(${table.title}) BETWEEN 1 AND 120`),
+    check('feature_ideas_details_length', sql`${table.details} IS NULL OR char_length(${table.details}) <= 2000`),
+  ],
+)

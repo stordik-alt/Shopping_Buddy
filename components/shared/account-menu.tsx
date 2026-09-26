@@ -1,5 +1,6 @@
-import { Bot, LogOut, Moon, Smartphone, Sun, Users } from 'lucide-react'
+import { Bot, Lightbulb, LogOut, Moon, Smartphone, Sun, Users } from 'lucide-react'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { IdeasDialog } from '@/components/shared/ideas-dialog'
 import { InstallAppDialog } from '@/components/shared/install-app-dialog'
 import { AI_ASSISTANT_ENABLED } from '@/lib/features'
 import { getInstallState, getServerInstallState, promptInstall, subscribeInstallState } from '@/lib/install-prompt'
@@ -30,6 +31,7 @@ export function AccountMenu({
 }) {
   const [open, setOpen] = useState(false)
   const [installHelpOpen, setInstallHelpOpen] = useState(false)
+  const [ideasOpen, setIdeasOpen] = useState(false)
   const install = useSyncExternalStore(subscribeInstallState, getInstallState, getServerInstallState)
   const rootRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -104,6 +106,9 @@ export function AccountMenu({
               <Smartphone className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> Stáhnout aplikaci do mobilu
             </button>
           )}
+          <button role="menuitem" className={itemClass} onClick={run(() => setIdeasOpen(true))}>
+            <Lightbulb className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> Nápady pro zlepšení
+          </button>
           <button role="menuitem" className={itemClass} onClick={run(onToggleDark)}>
             {dark ? <Sun className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> : <Moon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
             {dark ? 'Světlý motiv' : 'Tmavý motiv'}
@@ -115,6 +120,7 @@ export function AccountMenu({
         </div>
       )}
       <InstallAppDialog open={installHelpOpen} onClose={() => setInstallHelpOpen(false)} />
+      <IdeasDialog open={ideasOpen} onClose={() => setIdeasOpen(false)} />
     </div>
   )
 }

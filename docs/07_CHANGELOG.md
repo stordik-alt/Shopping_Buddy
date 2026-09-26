@@ -1,5 +1,12 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-26 (Ideas for improving the app)
+- **Why (owner request):** collect ideas from the household through a form, so the owner can go through them one by one and build the relevant ones.
+- **What:** the account menu (avatar, top right) has a new item "Nápady pro zlepšení" that opens a dialog with a form (title up to 120 characters, optional details up to 2 000) and the household's earlier ideas with a status badge: Nový, Plánujeme, Hotovo, Nebudeme dělat.
+- **Data:** migration `0040` adds the `feature_ideas` table and the `idea_status` enum (additive, safe to run before the new code is live). Ideas belong to the household (cascade); `member_id` only records the author (set null when they leave). Length limits are also database CHECKs. Statuses are changed by the owner directly in the database — there is deliberately no screen for it yet.
+- **Code:** rules in `lib/ideas.ts` (shared by form and server); `app/actions/ideas.ts` (`submitIdeaAction`, `listIdeasAction`, household from the session; at most 50 ideas waiting per household); `components/shared/ideas-dialog.tsx`.
+- **Tests:** `lib/ideas.test.ts` (5), `app/actions/ideas.test.ts` (4, real test DB: household scoping, ordering, validation, limit); `tsc` clean. Migration applied to the test branch. Not yet checked in a real browser.
+
 ## 2026-09-26 (Store directory: chain tiles, chosen chains, paged branches)
 - **Why (owner request):** the "Obchody" tab shipped all ~1 800 branches to the browser on every render (Neon network transfer) and showed one long list. The owner wanted: pick a locality (or use the position), tiles with the chain's logo, choose one or more chains, then the branches with opening hours, paged.
 - **What:**

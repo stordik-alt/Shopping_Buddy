@@ -7,7 +7,7 @@ import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
 import { getProductCatalog, recordPriceObservation, restockPantryItem, toReceiptImportState, upsertProductCatalogDefaults, type ReceiptImportState } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
-import { notifyBudgetThreshold, spentInMonth } from '@/lib/db/budget-notify'
+import { monthSpending, notifyBudgetThresholds } from '@/lib/db/budget-notify'
 import { splitPurchaseByCategory } from '@/lib/purchase-expenses'
 import { applyConfirmedReceiptListPairs, autoCheckShoppingListFromPurchase, getReceiptListSuggestions, type ReceiptListSuggestion } from '@/lib/db/receipt-list'
 import { inferPantryLocation } from '@/lib/pantry'
@@ -221,14 +221,13 @@ async function recordPurchaseExpenses(
     total,
   )
   if (parts.length === 0) return
-  const spentBefore = await spentInMonth(db, householdId, date)
+  const before = await monthSpending(db, householdId, date)
   const inserted = await db
     .insert(schema.expenses)
     .values(parts.map((part) => ({ householdId, purchaseId, date, category: part.category, amount: part.amount.toString(), note: storeName ? `Nákup ${storeName}` : 'Nákup z účtenky' })))
     .onConflictDoNothing()
-    .returning({ amount: schema.expenses.amount })
-  const added = inserted.reduce((sum, row) => sum + Number(row.amount), 0)
-  if (added > 0) await notifyBudgetThreshold(db, householdId, spentBefore, added)
+    .returning({ amount: schema.expenses.amount, category: schema.expenses.category })
+  if (inserted.length > 0) await notifyBudgetThresholds(db, householdId, before, inserted.map((row) => ({ category: row.category, amount: Number(row.amount) })))
 }
 
 async function createPurchaseFromReceiptItems(

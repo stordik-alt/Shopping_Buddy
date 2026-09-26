@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { addExpenseAction, deleteExpenseAction, updateExpenseAction } from '@/app/actions/budget'
+import { addExpenseAction, deleteExpenseAction, setCategoryBudgetAction, updateExpenseAction } from '@/app/actions/budget'
 import { buildShoppingPlanAction, pinProductAction, unpinProductAction } from '@/app/actions/shopping-plan'
 import { saveMyStorePreferencesAction } from '@/app/actions/store-preferences'
 import {
@@ -33,6 +33,7 @@ import {
 import { addShoppingItemAction, addShoppingListAction, removeShoppingItemAction, toggleShoppingItemAction, updateShoppingItemAction } from '@/app/actions/shopping'
 import { AiAssistant } from '@/components/ai/ai-assistant'
 import { BudgetOverview } from '@/components/budget/budget-overview'
+import { CategoryLimitsModal } from '@/components/budget/category-limits-modal'
 import { ExpenseLedger } from '@/components/budget/expense-ledger'
 import { ExpenseModal } from '@/components/budget/expense-modal'
 import { PurchaseHistory } from '@/components/budget/purchase-history'
@@ -69,6 +70,7 @@ import type { Ingredient, MealType } from '@/lib/meal-plans'
 import type { ProductPrice } from '@/lib/prices'
 import { pollReceiptStatus } from '@/lib/receipt-progress'
 import type { ReceiptLineItem } from '@/lib/receipts'
+import type { ExpenseCategory } from '@/lib/expense-categories'
 import type { ExpenseInput } from '@/lib/expense-input'
 import type { Expense, Item, PantryItem, PantryLocation, PantryTracking, Store, Tab } from '@/lib/types'
 import type { PinRecord } from '@/lib/db/shopping-plan'
@@ -146,6 +148,8 @@ export function AppShell({
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [notifications, setNotifications] = useState(initialData.notifications)
   const [expenses, setExpenses] = useState(initialData.expenses)
+  const [categoryBudgets, setCategoryBudgets] = useState(initialData.categoryBudgets)
+  const [limitsOpen, setLimitsOpen] = useState(false)
   const [newItem, setNewItem] = useState('')
   // Plausible receipt ↔ shopping-list matches waiting for the household to confirm (certain ones were
   // ticked on the server already).
@@ -167,6 +171,7 @@ export function AppShell({
     setItems(applyPendingOps(initialData.items, queueRef.current))
     setNotifications(initialData.notifications)
     setExpenses(initialData.expenses)
+    setCategoryBudgets(initialData.categoryBudgets)
     setShoppingLists(initialData.shoppingLists)
     setPendingInvitations(initialData.pendingInvitations)
     setPantryItems(initialData.pantryItems)
@@ -699,11 +704,19 @@ export function AppShell({
       const { expense } = await updateExpenseAction(editedExpense.id, input)
       setExpenses((current) => byDate(current.map((entry) => (entry.id === expense.id ? expense : entry))))
     } else {
-      const { expense, notification } = await addExpenseAction(input)
+      const { expense, notifications: created } = await addExpenseAction(input)
       setExpenses((current) => byDate([...current, expense]))
-      if (notification) setNotifications((current) => [...current, notification])
+      if (created.length > 0) setNotifications((current) => [...current, ...created])
     }
     closeExpense()
+  }
+
+  /** Saves the changed limits one by one; the last answer holds every limit of the household. */
+  async function saveLimits(changes: { category: ExpenseCategory; amount: number | null }[]) {
+    let latest = categoryBudgets
+    for (const change of changes) latest = await setCategoryBudgetAction(change.category, change.amount)
+    setCategoryBudgets(latest)
+    setLimitsOpen(false)
   }
 
   async function deleteExpense() {
@@ -860,7 +873,7 @@ export function AppShell({
                     onExpense={() => openExpense(null)}
                     primaryAction={<ReceiptImport stores={stores} onImport={importReceipt} onUpload={uploadReceipt} />}
                   />
-                  <ExpenseLedger expenses={expenses} today={today} onAdd={() => openExpense(null)} onEdit={openExpense} />
+                  <ExpenseLedger expenses={expenses} today={today} limits={categoryBudgets} onAdd={() => openExpense(null)} onEdit={openExpense} onLimits={() => setLimitsOpen(true)} />
                   <PurchaseHistory records={initialData.purchaseHistory} />
                 </div>
               )}
@@ -890,6 +903,7 @@ export function AppShell({
 
         <MobileNav tab={tab} onTabChange={setTab} />
 
+        {limitsOpen && <CategoryLimitsModal limits={categoryBudgets} onClose={() => setLimitsOpen(false)} onSave={saveLimits} />}
         {expenseOpen && (
           <ExpenseModal
             // A new key per opened expense, so the form starts from that expense's values.

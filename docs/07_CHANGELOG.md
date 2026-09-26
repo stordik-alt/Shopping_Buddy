@@ -1,5 +1,13 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-26 (Monthly limits per expense category)
+- **Why (owner's choice):** an overall budget plus optional limits per category.
+- **What:**
+  - `expense_category_budgets` (migration `0037`), set by `setCategoryBudgetAction` and edited in Rozpočet → Výdaje → "Limity".
+  - The overview shows spent of limit per category, with a warning in words past 80 %/100 %, and limited categories even with nothing spent.
+  - 80 %/100 % notifications per category, from typed-in expenses and receipts alike (`notifyBudgetThresholds`).
+- **Tests:** `categoryRows` in `lib/budget.test.ts`; the limit display in `components/budget/expense-ledger.test.tsx`. DB-backed: set, change and remove a limit; invalid input refused; each category threshold notifies once, apart from the overall budget; another household's limits untouched. Receipts + budget + purchases: 94 passed.
+
 ## 2026-09-26 (A receipt counts as expenses)
 - **Why (owner's choice):** purchases should appear in the expenses automatically, but only from receipts (what was really paid), and not for past purchases.
 - **What:**

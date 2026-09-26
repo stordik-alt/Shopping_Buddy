@@ -260,6 +260,13 @@
       "when": 1790428680276,
       "tag": "0036_purchase_expenses",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1790436665293,
+      "tag": "0037_category_budgets",
+      "breakpoints": true
     }
   ]
 }

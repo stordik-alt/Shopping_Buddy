@@ -12,6 +12,7 @@ import {
   monthOverMonthChange,
   plannedSpend,
   previousMonthKey,
+  categoryRows,
   expenseMonths,
   monthSummary,
   projectedMonthEnd,
@@ -302,5 +303,27 @@ describe('expense overview by month', () => {
 
   it('is empty for a month without expenses', () => {
     expect(monthSummary(expenses, '2026-10')).toEqual({ total: 0, categories: [] })
+  })
+})
+
+describe('categoryRows', () => {
+  const paid = (amount: number, category: Expense['category'], date = '2026-09-10'): Expense => ({ id: `${category}-${amount}`, amount, note: '', category, subcategory: null, date, purchaseId: null })
+  const summary = monthSummary([paid(4200, 'Auto'), paid(900, 'Zdraví'), paid(12000, 'Bydlení')], '2026-09')
+
+  it('puts each limit next to its category, with the 80 % / 100 % level', () => {
+    const rows = categoryRows(summary, { Auto: 5000, Bydlení: 11000 })
+    expect(rows.map((row) => [row.category, row.total, row.limit, row.level])).toEqual([
+      ['Bydlení', 12000, 11000, 'over'],
+      ['Auto', 4200, 5000, 'warning'],
+      ['Zdraví', 900, null, 'ok'],
+    ])
+  })
+
+  it('shows a limited category with nothing spent yet, after the spent ones', () => {
+    const rows = categoryRows(summary, { Potraviny: 8000, 'Oblečení a obuv': 1500 })
+    expect(rows.slice(3).map((row) => [row.category, row.total, row.limit, row.level])).toEqual([
+      ['Potraviny', 0, 8000, 'ok'],
+      ['Oblečení a obuv', 0, 1500, 'ok'],
+    ])
   })
 })

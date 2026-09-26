@@ -105,3 +105,38 @@ describe('formatOpeningHours', () => {
     expect(formatOpeningHours('Mo-Fr 08:00-20:00 "dle sezóny"')).toBe('Mo-Fr 08:00-20:00 "dle sezóny"')
   })
 })
+
+// Regression 2026-09-26: Polička's Penny, Lidl, Billa and dm were rejected for "no address". Their
+// nearest address points (the RÚIAN import) have street, number and postcode but name the part of
+// town (addr:place "Horní Předměstí") instead of the town — so the town comes from the municipality
+// the shop stands in, which the fetcher looks up (readAddressResult).
+describe('parseOsmBranches with the municipality', () => {
+  const tyrsova = address(1329724115, { 'addr:street': 'Tyršova', 'addr:housenumber': '1001', 'addr:conscriptionnumber': '1001', 'addr:place': 'Horní Předměstí', 'addr:postcode': '57201' }, 49.71826, 16.26705)
+  const penny = { ...shop(663167531, { brand: 'Penny', name: 'Penny' }, 49.71819, 16.26733), municipality: 'Polička' }
+
+  it('takes the town from the municipality when neither the shop nor its address point names it', () => {
+    const { branches, rejected } = parseOsmBranches([penny, tyrsova])
+    expect(rejected).toEqual([])
+    expect(branches[0]).toMatchObject({ name: 'Penny Tyršova', address: 'Tyršova 1001, 572 01 Polička', city: 'Polička' })
+  })
+
+  it('still rejects the shop when nothing names the town', () => {
+    const { municipality: _none, ...withoutMunicipality } = penny
+    expect(parseOsmBranches([withoutMunicipality, tyrsova]).rejected).toEqual([{ externalId: 'node/663167531', chain: 'Penny', reason: 'no-address' }])
+  })
+
+  it('keeps the nearest point that names its town over a closer one that does not (existing addresses stay as they were)', () => {
+    // 20 m away without a town, 40 m away with one: before the municipality existed the import used
+    // the second; switching to the first would renumber existing branches (138 in the first dry run).
+    const closeNoTown = address(10, { 'addr:street': 'Tyršova', 'addr:housenumber': '999' }, 49.71837, 16.26733)
+    const fartherWithTown = address(11, { 'addr:street': 'Tyršova', 'addr:housenumber': '1001', 'addr:city': 'Polička', 'addr:postcode': '57201' }, 49.71855, 16.26733)
+    expect(parseOsmBranches([penny, closeNoTown, fartherWithTown]).branches[0].address).toBe('Tyršova 1001, 572 01 Polička')
+  })
+
+  it("prefers the shop's own town and then its address point's over the municipality", () => {
+    const own = { ...shop(2, { brand: 'Penny', 'addr:city': 'Polička' }, 49.71819, 16.26733), municipality: 'Jinde' }
+    expect(parseOsmBranches([own, tyrsova]).branches[0].city).toBe('Polička')
+    const pointWithTown = address(3, { 'addr:street': 'Tyršova', 'addr:housenumber': '1001', 'addr:city': 'Polička' }, 49.71826, 16.26705)
+    expect(parseOsmBranches([{ ...penny, municipality: 'Jinde' }, pointWithTown]).branches[0].city).toBe('Polička')
+  })
+})

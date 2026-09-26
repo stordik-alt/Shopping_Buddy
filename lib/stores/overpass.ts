@@ -44,7 +44,9 @@ export function buildShopQuery(brands: string[] = Object.keys(OSM_BRAND_TO_CHAIN
   ].join('\n')
 }
 
-/** Address points within 60 m (ADDRESS_RADIUS_KM) of the given map objects. */
+/** Address points within 60 m (ADDRESS_RADIUS_KM) of the given map objects, then — for each of them —
+ *  its own id followed by the municipalities (obec, admin_level 8) it stands in, which
+ *  readAddressResult() pairs back up. A way is located by its nodes. */
 export function buildAddressQuery(shops: Pick<OverpassElement, 'type' | 'id'>[]): string {
   const ids = (type: OverpassElement['type']) => shops.filter((shop) => shop.type === type).map((shop) => shop.id)
   const sets = (['node', 'way', 'relation'] as const)
@@ -52,7 +54,44 @@ export function buildAddressQuery(shops: Pick<OverpassElement, 'type' | 'id'>[])
     .filter(({ list }) => list.length > 0)
     .map(({ type, list }) => `${type}(id:${list.join(',')});`)
     .join('')
-  return [`[out:json][timeout:${QUERY_TIMEOUT_S}];`, `(${sets})->.s;`, 'nwr(around.s:60)["addr:housenumber"];', 'out tags center;'].join('\n')
+  return [
+    `[out:json][timeout:${QUERY_TIMEOUT_S}];`,
+    `(${sets})->.s;`,
+    'nwr(around.s:60)["addr:housenumber"];',
+    'out tags center;',
+    'foreach.s->.shop(',
+    '  .shop out ids;',
+    '  (node.shop; node(w.shop);)->.points;',
+    '  .points is_in->.inside;',
+    '  area.inside["boundary"="administrative"]["admin_level"="8"];',
+    '  out tags;',
+    ');',
+  ].join('\n')
+}
+
+type AreaElement = { type: 'area'; id: number; tags?: Record<string, string> }
+
+/** Splits an address query's answer (buildAddressQuery) into the address points and, per shop, the
+ *  municipality it stands in — only when exactly one is named (a shop drawn across a boundary gets
+ *  none). The shop markers come without tags, each followed by its municipalities. Pure. */
+export function readAddressResult(elements: (OverpassElement | AreaElement)[]): { addressPoints: OverpassElement[]; municipalities: Map<string, string> } {
+  const addressPoints: OverpassElement[] = []
+  const names = new Map<string, Set<string>>()
+  let current: string | null = null
+  for (const element of elements) {
+    if (element.type === 'area') {
+      const name = element.tags?.name?.trim()
+      if (current && name) names.get(current)!.add(name)
+    } else if (!element.tags) {
+      current = `${element.type}/${element.id}`
+      names.set(current, names.get(current) ?? new Set())
+    } else {
+      addressPoints.push(element)
+    }
+  }
+  const municipalities = new Map<string, string>()
+  for (const [key, set] of names) if (set.size === 1) municipalities.set(key, [...set][0])
+  return { addressPoints, municipalities }
 }
 
 /** Whether a branch's own tags already give a full address (street or place, number, town). */
@@ -152,7 +191,13 @@ export async function fetchOsmStoreElements(deps: OverpassDeps = {}): Promise<Os
   let failedAddressBatches = 0
   for (let i = 0; i < incomplete.length; i += ADDRESS_BATCH) {
     try {
-      addressPoints.push(...(await runQuery(buildAddressQuery(incomplete.slice(i, i + ADDRESS_BATCH)), deps)))
+      const batch = incomplete.slice(i, i + ADDRESS_BATCH)
+      const result = readAddressResult(await runQuery(buildAddressQuery(batch), deps))
+      addressPoints.push(...result.addressPoints)
+      for (const shop of batch) {
+        const municipality = result.municipalities.get(`${shop.type}/${shop.id}`)
+        if (municipality) shop.municipality = municipality
+      }
     } catch (err) {
       failedAddressBatches++
       console.error(JSON.stringify({ event: 'osm_address_batch_failed', error: err instanceof Error ? err.message : String(err) }))

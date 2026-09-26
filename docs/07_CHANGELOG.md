@@ -1,5 +1,17 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-26 (Store import: the town from the municipality boundary)
+- **Bug (owner report):** almost no Polička shops were in the app. OpenStreetMap has Penny (2×), Lidl, Billa, dm and Tesco there; only Tesco was imported, and the others were rejected for "no address". Their nearest address points (RÚIAN import) have street, number and postcode but name the part of town (`addr:place` "Horní Předměstí") instead of the town, and the parser required a town.
+- **Fix:**
+  - The address query (`buildAddressQuery`) now also returns, for each shop without a full address, the municipality it stands in (`boundary=administrative`, `admin_level=8`; a way is located by its nodes).
+  - `readAddressResult` pairs it back to the shop. A shop drawn across two municipalities gets none.
+  - `parseOsmBranches` takes the town from the shop, then from its address point, then from the municipality. The nearest address point no longer needs a town of its own.
+  - Everything still comes from the map. A shop with no street and number within 60 m is still rejected.
+  - The nearest address point that names its town still wins over a closer one without it, so existing branches keep their addresses. Without this, the first dry run wanted to renumber 138 of them.
+  - The import writes updates before inserts (`lib/db/store-directory.ts`). The plan lets a new branch take an address an update vacates, and in the old order the insert met the old row and the unique index failed the whole run (`--apply`, 2026-09-26).
+- **Result:** Polička live, all 6 branches with their addresses (e.g. "Penny Tyršova, Tyršova 1001, 572 01 Polička"). The nationwide dry run is in the PR.
+- **Tests:** `lib/stores/osm.test.ts` (Polička's real tags), `lib/stores/overpass.test.ts`.
+
 ## 2026-09-26 (Penny flyer offers)
 - **Why:** penny.cz's web shop has ~40 offers a week; the printed flyer has ~400.
 - **What:**

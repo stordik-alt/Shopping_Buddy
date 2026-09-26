@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { buildAddressQuery, buildShopQuery, fetchOsmStoreElements, hasOwnAddress, runQuery } from '@/lib/stores/overpass'
+import { buildAddressQuery, buildShopQuery, fetchOsmStoreElements, hasOwnAddress, readAddressResult, runQuery } from '@/lib/stores/overpass'
 
 describe('overpass queries', () => {
   it('asks for every chain the app knows, case-insensitively, within Czechia', () => {
@@ -75,5 +75,32 @@ describe('fetching from busy servers', () => {
   it('fails as a whole only when no chain answered', async () => {
     const fetchImpl = vi.fn(async () => busy())
     await expect(fetchOsmStoreElements({ fetchImpl: fetchImpl as unknown as typeof fetch, sleep: noSleep })).rejects.toThrow('failed for every chain')
+  })
+})
+
+describe('the municipality lookup', () => {
+  it('asks, per shop, for the municipality it stands in', () => {
+    const query = buildAddressQuery([{ type: 'node', id: 663167531 }, { type: 'way', id: 7 }])
+    expect(query).toContain('foreach.s->.shop(')
+    expect(query).toContain('(node.shop; node(w.shop);)->.points;')
+    expect(query).toContain('area.inside["boundary"="administrative"]["admin_level"="8"];')
+  })
+
+  it('splits the answer into address points and each shop\'s municipality', () => {
+    const { addressPoints, municipalities } = readAddressResult([
+      { type: 'node', id: 1329724115, lat: 49.71826, lon: 16.26705, tags: { 'addr:street': 'Tyršova', 'addr:housenumber': '1001' } },
+      { type: 'node', id: 663167531 },
+      { type: 'area', id: 3600438520, tags: { name: 'Polička', admin_level: '8' } },
+      { type: 'node', id: 12012216913 },
+      { type: 'area', id: 3600438520, tags: { name: 'Polička', admin_level: '8' } },
+      // Drawn across a boundary: two municipalities, so none.
+      { type: 'way', id: 7 },
+      { type: 'area', id: 1, tags: { name: 'Polička' } },
+      { type: 'area', id: 2, tags: { name: 'Sádek' } },
+      // Outside any municipality boundary the map has.
+      { type: 'node', id: 8 },
+    ])
+    expect(addressPoints.map((point) => point.id)).toEqual([1329724115])
+    expect(Object.fromEntries(municipalities)).toEqual({ 'node/663167531': 'Polička', 'node/12012216913': 'Polička' })
   })
 })

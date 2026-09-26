@@ -14,6 +14,14 @@
 - **Known, not fixed here:** the Albert flyer import stored "MÁSLO + JIHOČESKÉ FERMENTOVANÉ PODMÁSLÍ 70 g" at Albert Hypermarket. It is the "Mistrovská máslová makovka 70 g" (same price and weight) under a name read from the flyer's banner.
 - **Tests:** 7 new cases in `lib/product-search.test.ts`. CI command: 986 passed; `tsc` clean; DB-backed search and shopping tests pass.
 
+## 2026-09-26 (Albert flyers: a claim is not a product name)
+- **Bug:** the Albert Hypermarket flyer's "Mistrovská máslová makovka 70 g" was stored as "MÁSLO + JIHOČESKÉ FERMENTOVANÉ PODMÁSLÍ 70 g", a claim printed on the pastry that the model read as its name. The shopping plan then offered it for butter at 9.90 Kč.
+- **Fix:**
+  - `validateAlbertOffer` rejects a name that joins words with " + " (`albertNameProblem`). Such a name is a claim, or a bundle whose one price does not describe either product. A "+" inside a brand ("Absorb+") is fine.
+  - The extraction prompt now says a slogan or claim is never the name. This affects only newly read pages; cached pages are covered by the validator.
+- **Data repair:** `pnpm db:remove-albert-misread` (dry run by default, `--apply` to write) removes products the import created from such names. It removes only what the import wrote (deals, prices, external ref, product) in one atomic batch, and skips a product a household or another source uses. Dry run on production: "MÁSLO + JIHOČESKÉ FERMENTOVANÉ PODMÁSLÍ 70 g" (1 price, 1 deal) and "Jägermeister + 2 skleničky 0,7 l" (1 deal). **Run it with `--apply` only after this is deployed**, or the next Albert cron re-creates both from the cached pages.
+- **Tests:** a validator case and `albertNameProblem` cases in `lib/ingestion/albert.test.ts`. CI command passes; `tsc` clean.
+
 ## 2026-09-26 (Less database transfer per page render)
 - **What:** `getHouseholdData` (every page render and refresh) now reads less:
   - Pending receipt imports are filtered by status in the database. Before, every OCR receipt ever imported, with its OCR text, was loaded and filtered in code.

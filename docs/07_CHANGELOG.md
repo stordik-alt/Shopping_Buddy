@@ -5,6 +5,74 @@
 - **What:** `vitest.config.mts` `testTimeout` 30 s and `hookTimeout` 120 s; pure tests are unaffected. The leftover products were removed from the test branch (never production).
 - **Result:** `receipts.test.ts` + `shopping.test.ts` 80/80, and nothing left behind afterwards.
 
+## 2026-09-26 (Store import: the town from the municipality boundary)
+- **Bug (owner report):** almost no Polička shops were in the app. OpenStreetMap has Penny (2×), Lidl, Billa, dm and Tesco there; only Tesco was imported, and the others were rejected for "no address". Their nearest address points (RÚIAN import) have street, number and postcode but name the part of town (`addr:place` "Horní Předměstí") instead of the town, and the parser required a town.
+- **Fix:**
+  - The address query (`buildAddressQuery`) now also returns, for each shop without a full address, the municipality it stands in (`boundary=administrative`, `admin_level=8`; a way is located by its nodes).
+  - `readAddressResult` pairs it back to the shop. A shop drawn across two municipalities gets none.
+  - `parseOsmBranches` takes the town from the shop, then from its address point, then from the municipality. The nearest address point no longer needs a town of its own.
+  - Everything still comes from the map. A shop with no street and number within 60 m is still rejected.
+  - The nearest address point that names its town still wins over a closer one without it, so existing branches keep their addresses. Without this, the first dry run wanted to renumber 138 of them.
+  - The import writes updates before inserts (`lib/db/store-directory.ts`). The plan lets a new branch take an address an update vacates, and in the old order the insert met the old row and the unique index failed the whole run (`--apply`, 2026-09-26).
+  - Albert and Albert Hypermarket count as one retailer when checking addresses (`lib/stores/sync.ts`). The map lists some shops twice; one copy was already a hypermarket and the other arrived as "Albert". Moving it to the hypermarkets then hit the unique index and failed the Albert step. `planAlbertFormats` also no longer moves a branch onto an address the hypermarket chain holds; it reports such branches as `blocked`.
+- **Applied to production 2026-09-26:** 1 803 branches with a usable address (e.g. all six in Polička), 14 moved to Albert Hypermarket and 1 blocked, no error.
+- **Result:** Polička live, all 6 branches with their addresses (e.g. "Penny Tyršova, Tyršova 1001, 572 01 Polička"). The nationwide dry run is in the PR.
+- **Tests:** `lib/stores/osm.test.ts` (Polička's real tags), `lib/stores/overpass.test.ts`.
+
+## 2026-09-26 (Shopping list: quantity like "0,5 kg" can be typed)
+- **Bug (owner report):** in an item's detail the quantity field could not be cleared, so "0,5" kg could not be typed. Every keystroke was clamped to at least 1 (`Math.max(1, …)` on a `type="number"` field with `min="1"`). The price field was clamped the same way, to 0.
+- **Fix:**
+  - Both fields are now `DecimalField` (`components/shopping/shopping-list.tsx`): a text field with a decimal keypad that keeps what the user types.
+  - It reads a decimal comma or point (`lib/decimal-input.ts`) and saves each valid value: quantity above 0, price 0 or more.
+  - On leaving the field, an unfinished text goes back to the last saved value.
+- **Server:** `updateShoppingItemAction` refuses a quantity that is not positive and a negative price, and rounds them to the columns' scale. It had checked only who owns the item.
+- **Tests:** `lib/decimal-input.test.ts`; DB-backed cases in `app/actions/shopping.test.ts` (0.5 kg stored; 0, −1, NaN and a negative price refused).
+
+## 2026-09-26 (Recurring payments, confirmed on their due day)
+- **Why (owner's choice):** rent, energy, insurance and the like should be entered once, reminded on their due day, and counted only when confirmed.
+- **What:**
+  - `recurring_payments` and `recurring_payment_occurrences` (migration `0038`), with `app/actions/recurring.ts` to save, stop, confirm and skip.
+  - Rozpočet → Pravidelné platby: what is due (Zaplaceno / Přeskočit), what comes next, and every payment.
+  - A confirmed due date becomes an expense, atomically and once. The morning cron reminds of payments due today, once.
+- **Tests:** `lib/recurring-payments.test.ts` (due dates across short months, leap years and New Year; what waits; reminders), `components/budget/recurring-payments.test.tsx`. DB-backed `app/actions/recurring.test.ts`: validation; confirm once; deleting the expense re-opens; skip; not-due and future dates refused; stop; another household untouched; the reminder once. Unit 1 056 passed.
+
+## 2026-09-26 (Monthly limits per expense category)
+- **Why (owner's choice):** an overall budget plus optional limits per category.
+- **What:**
+  - `expense_category_budgets` (migration `0037`), set by `setCategoryBudgetAction` and edited in Rozpočet → Výdaje → "Limity".
+  - The overview shows spent of limit per category, with a warning in words past 80 %/100 %, and limited categories even with nothing spent.
+  - 80 %/100 % notifications per category, from typed-in expenses and receipts alike (`notifyBudgetThresholds`).
+- **Tests:** `categoryRows` in `lib/budget.test.ts`; the limit display in `components/budget/expense-ledger.test.tsx`. DB-backed: set, change and remove a limit; invalid input refused; each category threshold notifies once, apart from the overall budget; another household's limits untouched. Receipts + budget + purchases: 94 passed.
+
+## 2026-09-26 (A receipt counts as expenses)
+- **Why (owner's choice):** purchases should appear in the expenses automatically, but only from receipts (what was really paid), and not for past purchases.
+- **What:**
+  - A receipt's purchase is recorded as expenses, one per category of its items, adding up to exactly what was paid (`lib/purchase-expenses.ts`, migration `0036` `expenses.purchase_id` with a unique (purchase, category) index).
+  - It sends the budget's 80 %/100 % notification like a typed-in expense (`lib/db/budget-notify.ts`).
+  - It is not editable by hand: the server refuses, the dialog shows it read-only, and the overview marks it "z účtenky".
+- **Tests:** `lib/purchase-expenses.test.ts` (proportional split, exact total after a discount, order-independent, edge cases). DB-backed: a receipt with food and drugstore lines gives two expenses summing to the purchase total, manual edit and delete are refused, and they go with the purchase. Receipts, budget and purchases DB suites: 90 passed.
+
+## 2026-09-26 (Expenses: categories with subcategories, any date, correct and delete, month overview)
+- **Why (owner request):** spending on housing, the household, the car and clothes should be visible and broken down, with an overview of when what was paid.
+- **What:**
+  - Expense categories of their own (`lib/expense-categories.ts`, migration `0035`): Potraviny, Drogerie, Domácnost, Bydlení, Auto, Oblečení a obuv, Děti, Zdraví, Volný čas, Ostatní, each with fixed optional subcategories. Existing expenses keep their category.
+  - The expense dialog gains subcategory and date, and edits and deletes. The server validates the amount, category, subcategory and a date that is not in the future (`lib/expense-input.ts`), and only touches the caller's household.
+  - Rozpočet → Výdaje: month by month, the total, categories with their share and subcategories, every payment with its date, and a by-date list (`components/budget/expense-ledger.tsx`).
+  - Five more chart colours for the new categories, light and dark.
+- **Next parts:** purchases counting as expenses, category limits, recurring payments.
+- **Tests:** `lib/expense-input.test.ts`; month summary in `lib/budget.test.ts`; `components/budget/expense-ledger.test.tsx`; DB-backed `app/actions/budget.test.ts` (subcategory and date stored, invalid input refused, correct/delete, another household's expense untouched). Migration applied to the test branch and re-run to prove it is repeatable.
+
+## 2026-09-26 (Migrations run automatically on production deploy)
+- **Why:** migration `0033_pantry_tracking` (PR #98) was found unapplied on production a day after its code went live. The code read `pantry_items.tracking`, a column that did not exist. It was applied on 2026-09-26 together with `0034`.
+- **What:**
+  - `pnpm build` runs `lib/db/migrate.ts --vercel-production` before `next build`. A Vercel production deployment applies its pending migrations before its code is live.
+  - Preview, CI, local and Cloudflare builds skip (`lib/db/migrate-guard.ts`).
+  - A Vercel build without `VERCEL_ENV` fails with an explanation instead of guessing.
+  - A failed migration fails the build, and the previous deployment keeps serving.
+  - A lease lock (`_migration_lock`, 10 minutes) keeps two deployments from applying the same file at once. The neon-http driver has no session for an advisory lock.
+  - CLAUDE.md §7 now requires migrations to be backward compatible with the running code: add now, rename or drop later.
+- **Tests:** `lib/db/migrate-guard.test.ts`. Checked by hand: local and CI builds skip, a preview skips, a build without `VERCEL_ENV` stops, and two production runs at once against the test branch wait for each other and leave no lock behind.
+
 ## 2026-09-26 (Penny flyer offers)
 - **Why:** penny.cz's web shop has ~40 offers a week; the printed flyer has ~400.
 - **What:**

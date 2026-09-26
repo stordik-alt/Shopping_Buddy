@@ -41,6 +41,9 @@ export type OverpassElement = {
   lon?: number
   center?: { lat: number; lon: number }
   tags?: Record<string, string>
+  /** The municipality (obec, OSM admin_level 8) the shop stands in, looked up by the fetcher for a
+   *  shop without a full address of its own (lib/stores/overpass.ts). Not an OSM field. */
+  municipality?: string
 }
 
 export type OsmBranch = {
@@ -134,7 +137,10 @@ export function parseOsmBranches(elements: OverpassElement[]): { branches: OsmBr
       // A number from the nearest point only when it is on the same street (or the shop names none).
       number: own.number ?? (nearest && (!own.street || nearest.street === own.street) ? nearest.number : null),
       postcode: own.postcode ?? nearest?.postcode ?? null,
-      city: own.city ?? nearest?.city ?? null,
+      // Many Czech address points (the RÚIAN import) name the part of town (`addr:place`) but not the
+      // town (`addr:city`) — all of Polička's, for one — so the town then comes from the municipality
+      // boundary the shop stands in: still the map's own data, never a guess.
+      city: own.city ?? nearest?.city ?? element.municipality ?? null,
     }
     if (!address.street || !address.number || !address.city) {
       rejected.push({ externalId, chain, reason: 'no-address' })
@@ -157,19 +163,26 @@ export function parseOsmBranches(elements: OverpassElement[]): { branches: OsmBr
 // numeric(9, 6) in the database: ~0.1 m, far below the map's own precision.
 const roundCoord = (value: number) => Math.round(value * 1e6) / 1e6
 
+/** The nearest address point within ADDRESS_RADIUS_KM that names its town; only when none does, the
+ *  nearest one without it (street and number, the town then coming from the municipality). Preferring
+ *  a point with a town keeps every address the import gave before the municipality existed exactly as
+ *  it was — a closer point without one would otherwise change the house number of existing branches. */
 function nearestAddress(at: { lat: number; lng: number }, points: { at: { lat: number; lng: number }; address: Address }[]): Address | null {
-  let best: Address | null = null
-  let bestKm = ADDRESS_RADIUS_KM
+  let withTown: { address: Address; km: number } | null = null
+  let withoutTown: { address: Address; km: number } | null = null
   for (const point of points) {
     // A cheap box test first: 0.001° is ~110 m, so anything outside it is beyond the radius.
     if (Math.abs(point.at.lat - at.lat) > 0.001 || Math.abs(point.at.lng - at.lng) > 0.0015) continue
+    if (!point.address.street) continue
     const km = distanceKm(at, point.at)
-    if (km <= bestKm && point.address.street && point.address.city) {
-      best = point.address
-      bestKm = km
+    if (km > ADDRESS_RADIUS_KM) continue
+    if (point.address.city) {
+      if (!withTown || km < withTown.km) withTown = { address: point.address, km }
+    } else if (!withoutTown || km < withoutTown.km) {
+      withoutTown = { address: point.address, km }
     }
   }
-  return best
+  return (withTown ?? withoutTown)?.address ?? null
 }
 
 // --- Opening hours ---------------------------------------------------------------------------------

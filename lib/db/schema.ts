@@ -1,5 +1,6 @@
 import { relations, sql } from 'drizzle-orm'
 import { boolean, check, date, foreignKey, index, integer, jsonb, numeric, pgEnum, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
+import { EXPENSE_CATEGORY_NAMES } from '@/lib/expense-categories'
 import { SEARCH_ACCENTED, SEARCH_PLAIN } from '@/lib/product-search'
 
 // --- Enums -----------------------------------------------------------------
@@ -8,6 +9,8 @@ export const memberRoleEnum = pgEnum('member_role', ['owner', 'member'])
 export const priceSensitivityEnum = pgEnum('price_sensitivity', ['cheapest', 'balanced', 'quality_first'])
 export const qualityPreferenceEnum = pgEnum('quality_preference', ['standard', 'premium'])
 export const itemCategoryEnum = pgEnum('item_category', ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní'])
+// What an expense was for (lib/expense-categories.ts) — a wider list than the item categories above.
+export const expenseCategoryEnum = pgEnum('expense_category', EXPENSE_CATEGORY_NAMES)
 export const itemUnitEnum = pgEnum('item_unit', ['ks', 'kg', 'g', 'l', 'ml'])
 export const itemPriorityEnum = pgEnum('item_priority', ['Nízká', 'Normální', 'Vysoká'])
 export const invitationStatusEnum = pgEnum('invitation_status', ['pending', 'accepted', 'revoked'])
@@ -552,10 +555,69 @@ export const expenses = pgTable('expenses', {
   householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
   amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
   note: text('note').notNull().default(''),
-  category: itemCategoryEnum('category').notNull().default('Ostatní'),
+  category: expenseCategoryEnum('category').notNull().default('Ostatní'),
+  // Optional, one of the category's subcategories (lib/expense-categories.ts); checked by the server.
+  subcategory: text('subcategory'),
   date: date('date').notNull(),
+  // Set when the expense is a receipt's purchase (lib/purchase-expenses.ts): one row per category of
+  // its items. It goes with the purchase, and is corrected with it, not by hand.
+  purchaseId: uuid('purchase_id').references(() => purchases.id, { onDelete: 'cascade' }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
-})
+}, (table) => [
+  // The overview reads a household's expenses by date.
+  index('expenses_household_date_idx').on(table.householdId, table.date),
+  // A purchase is counted once per category, whatever retries or races happen.
+  uniqueIndex('expenses_purchase_category_unique').on(table.purchaseId, table.category).where(sql`${table.purchaseId} IS NOT NULL`),
+])
+
+// A household's monthly limit for one expense category ("Potraviny: 8 000 Kč"), next to the overall
+// monthly budget on households. Optional: a category without a row has no limit. Crossing 80 % or
+// 100 % of it notifies the household once, like the overall budget (lib/db/budget-notify.ts).
+export const expenseCategoryBudgets = pgTable('expense_category_budgets', {
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  category: expenseCategoryEnum('category').notNull(),
+  amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  primaryKey({ columns: [table.householdId, table.category] }),
+  check('expense_category_budgets_amount_positive', sql`${table.amount} > 0`),
+])
+
+// A payment the household makes regularly — rent, energy advances, insurance (lib/recurring-payments.ts).
+// Entered once; each due date is confirmed (it becomes an expense) or skipped in
+// recurring_payment_occurrences. Stopping a payment keeps its history (`active` false).
+export const recurringPayments = pgTable('recurring_payments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  category: expenseCategoryEnum('category').notNull(),
+  subcategory: text('subcategory'),
+  amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
+  intervalMonths: integer('interval_months').notNull(),
+  // The first due date; its day of the month is kept for every later one.
+  startDate: date('start_date').notNull(),
+  active: boolean('active').notNull().default(true),
+  // The due date the household was last reminded of, so the daily cron reminds once per due date.
+  remindedDueDate: date('reminded_due_date'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('recurring_payments_household_idx').on(table.householdId),
+  check('recurring_payments_amount_positive', sql`${table.amount} > 0`),
+  check('recurring_payments_interval', sql`${table.intervalMonths} IN (1, 3, 6, 12)`),
+])
+
+// One due date of a recurring payment the household dealt with: paid (with the expense it became) or
+// skipped. Deleting that expense deletes this row too, so the due date waits again.
+export const recurringPaymentOccurrences = pgTable('recurring_payment_occurrences', {
+  recurringPaymentId: uuid('recurring_payment_id').notNull().references(() => recurringPayments.id, { onDelete: 'cascade' }),
+  dueDate: date('due_date').notNull(),
+  status: text('status').notNull(),
+  expenseId: uuid('expense_id').references(() => expenses.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  primaryKey({ columns: [table.recurringPaymentId, table.dueDate] }),
+  check('recurring_payment_occurrences_status', sql`(${table.status} = 'paid' AND ${table.expenseId} IS NOT NULL) OR (${table.status} = 'skipped' AND ${table.expenseId} IS NULL)`),
+])
 
 // --- Meal plans & notifications ------------------------------------------------
 

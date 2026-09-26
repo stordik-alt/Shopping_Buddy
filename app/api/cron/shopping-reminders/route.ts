@@ -3,7 +3,9 @@ import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { createHouseholdNotification } from '@/lib/notify'
+import { remindDueRecurringPayments } from '@/lib/db/recurring-reminders'
 import { findStaleItems } from '@/lib/reminders'
+import { todayInPrague } from '@/lib/today'
 
 // Phase D "shopping reminders" (docs/04_ROADMAP.md): a daily Vercel Cron job (see vercel.json)
 // that notifies each household about undone list items that have sat around long enough to be
@@ -58,5 +60,9 @@ export async function GET(request: Request) {
     remindedItems += stale.length
   }
 
-  return NextResponse.json({ remindedHouseholds, remindedItems })
+  // The same morning run reminds of recurring payments due today (lib/db/recurring-reminders.ts), so
+  // they need no cron of their own.
+  const recurring = await remindDueRecurringPayments(db, todayInPrague())
+
+  return NextResponse.json({ remindedHouseholds, remindedItems, recurringPaymentsReminded: recurring.payments })
 }

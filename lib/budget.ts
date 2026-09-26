@@ -1,4 +1,5 @@
-import type { Expense, Item, ItemCategory } from '@/lib/types'
+import { EXPENSE_CATEGORY_NAMES, type ExpenseCategory } from '@/lib/expense-categories'
+import type { Expense, Item } from '@/lib/types'
 
 // The budget is monthly. Every function below takes `today` (`YYYY-MM-DD`, from lib/today.ts) and
 // works on the calendar month it falls in, so the numbers move with the real date instead of a fixed
@@ -47,12 +48,74 @@ export function projectedMonthEnd(expenses: Expense[], today: string) {
   return dailyAverage(expenses, today) * daysInMonth(today)
 }
 
-export function categoryBreakdown(expenses: Expense[]): { category: ItemCategory; total: number }[] {
-  const totals = new Map<ItemCategory, number>()
+export function categoryBreakdown(expenses: Expense[]): { category: ExpenseCategory; total: number }[] {
+  const totals = new Map<ExpenseCategory, number>()
   for (const expense of expenses) totals.set(expense.category, (totals.get(expense.category) ?? 0) + expense.amount)
   return Array.from(totals.entries())
     .map(([category, total]) => ({ category, total }))
     .sort((a, b) => b.total - a.total)
+}
+
+/** `YYYY-MM` of an ISO date — the key the expense overview pages by. */
+export const expenseMonth = monthKey
+
+/** The months the overview can show, newest first: the current month (even with nothing in it yet)
+ *  and every month with an expense. */
+export function expenseMonths(expenses: Expense[], today: string): string[] {
+  const months = new Set([monthKey(today), ...expenses.map((expense) => monthKey(expense.date))])
+  return [...months].sort().reverse()
+}
+
+export type CategorySummary = {
+  category: ExpenseCategory
+  total: number
+  /** Per subcategory, largest first; expenses without one are summed under `null`. */
+  subcategories: { subcategory: string | null; total: number }[]
+  /** The category's expenses, newest first. */
+  expenses: Expense[]
+}
+
+/** One month's expenses by category and subcategory — what was paid, on what, and when. Categories
+ *  with the most spent first (ties in the fixed category order); only categories with an expense. */
+export function monthSummary(expenses: Expense[], month: string): { total: number; categories: CategorySummary[] } {
+  const inMonth = expenses.filter((expense) => monthKey(expense.date) === month)
+  const categories: CategorySummary[] = []
+  for (const category of EXPENSE_CATEGORY_NAMES) {
+    const own = inMonth.filter((expense) => expense.category === category)
+    if (own.length === 0) continue
+    const bySub = new Map<string | null, number>()
+    for (const expense of own) bySub.set(expense.subcategory, (bySub.get(expense.subcategory) ?? 0) + expense.amount)
+    categories.push({
+      category,
+      total: totalSpent(own),
+      subcategories: [...bySub.entries()].map(([subcategory, total]) => ({ subcategory, total })).sort((a, b) => b.total - a.total),
+      expenses: own.slice().sort((a, b) => (a.date === b.date ? 0 : a.date < b.date ? 1 : -1)),
+    })
+  }
+  categories.sort((a, b) => b.total - a.total)
+  return { total: totalSpent(inMonth), categories }
+}
+
+export type CategoryRow = CategorySummary & {
+  /** The category's monthly limit, or null without one. */
+  limit: number | null
+  /** Spending against the limit (`ok` without one): the same 80 % / 100 % bands as the budget. */
+  level: BudgetLevel
+}
+
+/** A month's categories with their limits: every category with an expense, plus every category with
+ *  a limit even when nothing was spent in it yet (a limit is worth seeing at 0 Kč). Most spent first;
+ *  limited categories without spending last, in the fixed category order. */
+export function categoryRows(summary: { categories: CategorySummary[] }, limits: Partial<Record<ExpenseCategory, number>>): CategoryRow[] {
+  const withLimit = (entry: CategorySummary): CategoryRow => {
+    const limit = limits[entry.category] ?? null
+    return { ...entry, limit, level: limit == null ? 'ok' : budgetLevel(entry.total, limit) }
+  }
+  const spent = summary.categories.map(withLimit)
+  const unspent = EXPENSE_CATEGORY_NAMES.filter((category) => limits[category] != null && !summary.categories.some((entry) => entry.category === category)).map(
+    (category) => withLimit({ category, total: 0, subcategories: [], expenses: [] }),
+  )
+  return [...spent, ...unspent]
 }
 
 export function plannedSpend(items: Item[]) {

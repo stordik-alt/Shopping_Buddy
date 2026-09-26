@@ -710,6 +710,36 @@ Budget calculations are implemented as application logic rather than being depen
 
 Recent work added notification behavior when spending crosses configured thresholds.
 
+**Update 2026-09-26, expense categories and the expense overview (migration `0035`; part 1 of the owner's expense plan).**
+- **Categories:** expenses have their own categories (`lib/expense-categories.ts`, enum `expense_category`), apart from the shopping-list item categories they used to share: Potraviny, Drogerie, Domácnost, **Bydlení, Auto, Oblečení a obuv**, Děti, **Zdraví, Volný čas**, Ostatní. Each has fixed, optional subcategories (e.g. Bydlení: nájem nebo hypotéka, elektřina, plyn, voda, teplo, internet a TV…; Auto: palivo, servis a opravy, povinné ručení, dálniční známka…) in `expenses.subcategory`, checked by the server. Existing expenses kept their category (the old values exist in the new enum).
+- **Recording:** an expense gets a chosen date (not only today; never in the future, since it is money already paid), and it can be corrected and deleted. `app/actions/budget.ts` has `addExpenseAction`, `updateExpenseAction` and `deleteExpenseAction`, all validated by `lib/expense-input.ts` and scoped to the caller's household. A correction does not re-send the 80 %/100 % notification.
+- **Overview:** on Rozpočet, "Výdaje" (`components/budget/expense-ledger.tsx`) goes month by month (arrows or a month picker, the last 365 days). It shows the month's total, then each category with its share, its subcategory totals and, when opened, every payment with its date. "Podle data" lists all of the month's payments newest first. A payment opens for correction. The numbers come from `lib/budget.ts` (`monthSummary`, `expenseMonths`). The old "Poslední výdaje" list and the budget overview's own category card, which would duplicate it, are gone.
+
+**Update 2026-09-26, a receipt counts as expenses (migration `0036`; part 2).**
+- **What happens:** when a receipt becomes a purchase (manual entry, OCR, review or duplicate resolution — all through `createPurchaseFromReceiptItems`), what it says was paid is recorded as expenses.
+  - One expense per category of its items (`lib/purchase-expenses.ts` `splitPurchaseByCategory`), in proportion to the lines and in whole haléře, adding up to exactly the purchase total. A receipt-wide discount is spread too.
+  - Linked by `expenses.purchase_id` (removed with the purchase).
+  - A unique (purchase, category) index keeps a retry from counting it twice.
+  - The note is "Nákup <obchod>".
+- **Budget:** such a purchase sends the same 80 %/100 % notification as a typed-in expense (`lib/db/budget-notify.ts`, now shared by both).
+- **Editing:** a receipt's expense is corrected with its purchase, not by hand. `updateExpenseAction`/`deleteExpenseAction` refuse it, and the expense dialog shows it read-only; the overview marks it "z účtenky".
+- **Owner's choices:** only receipts count, never the estimated prices of a finished shopping list, which could also double a trip later covered by its receipt. Purchases made before this change are not converted, since they may already have been typed in as expenses.
+
+**Update 2026-09-26, category limits (migration `0037`; part 3).**
+- **Limits:** a household may set a monthly limit for any expense category (`expense_category_budgets`), next to the overall monthly budget. Any member can set it, as with the overall budget, through `setCategoryBudgetAction`, which is validated and scoped to the caller's household. Rozpočet → Výdaje → "Limity" edits all of them; an empty field removes a limit.
+- **Overview:** a limited category shows "utraceno z limitu". Its bar measures the limit, and past 80 % and 100 % a warning appears in words and with an icon (red past 100 %). A limited category is listed even in a month with nothing spent in it (`lib/budget.ts` `categoryRows`).
+- **Notifications:** crossing 80 % or 100 % of a category's limit notifies the household once ("Auto: 80 % limitu", "Auto: limit překročen"), whether by a typed-in expense or a receipt, alongside the overall budget's notification. `lib/db/budget-notify.ts` `notifyBudgetThresholds` reads the month's spending per category once and decides both. `addExpenseAction` now returns `notifications` (a list).
+
+**Update 2026-09-26, recurring payments (migration `0038`; part 4, the last of the expense plan).**
+- **Entering:** a household enters a payment once: name, amount, category and subcategory, how often (monthly, quarterly, half-yearly, yearly) and the first due date (`recurring_payments`, `app/actions/recurring.ts`). The day of the month is kept, falling back to the month's last day in a shorter month. A payment can be changed or stopped; stopping keeps the paid history.
+- **Nothing counts until confirmed.** Rozpočet → "Pravidelné platby" (`components/budget/recurring-payments.tsx`) lists:
+  - due dates up to today that are neither paid nor skipped (at most the last three per payment, none older than a year), each with "Zaplaceno" (the amount and date actually paid, prefilled) and "Přeskočit";
+  - what falls due in the next 31 days;
+  - every payment, to change it.
+- **Confirming:** a confirmed due date becomes an ordinary expense (so the budget, limits and notifications apply) and is marked in `recurring_payment_occurrences`. Both are written in one transaction, and the (payment, due date) key makes a double tap or two members at once count it only once. Deleting that expense re-opens the due date.
+- **Reminder:** the morning cron (`/api/cron/shopping-reminders`, 08:00 UTC) also sends "Dnes je splatná platba …" for payments due today, once per due date (`lib/db/recurring-reminders.ts`, `paymentsToRemind`). No new cron.
+- **Rules:** `lib/recurring-payments.ts` (due dates, what is waiting, what to remind, input validation) is pure and tested.
+
 ---
 
 # 19. Notifications

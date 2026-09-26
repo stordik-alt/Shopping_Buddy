@@ -14,6 +14,7 @@ import { StoreComparison } from '@/components/shopping/store-comparison'
 import { GROUP_KEYS, readListView, saveListView, SORT_KEYS, type GroupKey, type SortKey } from '@/lib/list-view-preference'
 import { safeLocalStorage } from '@/lib/safe-storage'
 import { useWakeLock } from '@/lib/use-wake-lock'
+import { formatDecimalInput, parseDecimalInput } from '@/lib/decimal-input'
 
 const CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
 const UNITS: ItemUnit[] = ['ks', 'kg', 'g', 'l', 'ml']
@@ -406,13 +407,11 @@ export function ShoppingList({
                     <div className="grid gap-3 border-t border-border bg-muted/40 px-5 py-4 sm:grid-cols-2">
                       <label className="text-xs text-muted-foreground">
                         Množství
-                        <input
-                          aria-label={`Množství ${item.name}`}
-                          type="number"
-                          min="1"
+                        <DecimalField
+                          ariaLabel={`Množství ${item.name}`}
                           value={item.quantity}
-                          onChange={(e) => updateItem(item.id, { quantity: Math.max(1, Number(e.target.value) || 1) })}
-                          className="mt-1 w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+                          isValid={(value) => value > 0}
+                          onValue={(quantity) => updateItem(item.id, { quantity })}
                         />
                       </label>
                       <label className="text-xs text-muted-foreground">
@@ -430,14 +429,12 @@ export function ShoppingList({
                       </label>
                       <label className="text-xs text-muted-foreground">
                         Odhadovaná cena
-                        <input
-                          aria-label={`Cena ${item.name}`}
-                          type="number"
-                          min="0"
-                          step="0.1"
+                        <DecimalField
+                          ariaLabel={`Cena ${item.name}`}
                           value={item.price}
-                          onChange={(e) => updateItem(item.id, { price: Math.max(0, Number(e.target.value) || 0) })}
-                          className="mt-1 w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+                          maxDecimals={2}
+                          isValid={(value) => value >= 0}
+                          onValue={(price) => updateItem(item.id, { price })}
                         />
                       </label>
                       <label className="text-xs text-muted-foreground">
@@ -571,5 +568,43 @@ export function ShoppingList({
 
       <StoreComparison items={items} productPrices={productPrices} remaining={remaining} stores={stores} userCoords={userCoords} />
     </div>
+  )
+}
+
+/** A number field that lets the user type freely — clear it, type "0,5" — and saves each value that
+ *  is a valid number (lib/decimal-input.ts). On leaving the field an unfinished or invalid text goes
+ *  back to the last saved value. A text field with a decimal keypad rather than type="number", which
+ *  on Czech phones may refuse the decimal comma. */
+function DecimalField({
+  ariaLabel,
+  value,
+  onValue,
+  isValid,
+  maxDecimals = 3,
+}: {
+  ariaLabel: string
+  value: number
+  onValue: (value: number) => void
+  isValid: (value: number) => boolean
+  maxDecimals?: number
+}) {
+  const [draft, setDraft] = useState<string | null>(null)
+
+  function change(text: string) {
+    setDraft(text)
+    const parsed = parseDecimalInput(text, maxDecimals)
+    if (parsed !== null && isValid(parsed) && parsed !== value) onValue(parsed)
+  }
+
+  return (
+    <input
+      aria-label={ariaLabel}
+      type="text"
+      inputMode="decimal"
+      value={draft ?? formatDecimalInput(value)}
+      onChange={(e) => change(e.target.value)}
+      onBlur={() => setDraft(null)}
+      className="mt-1 w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+    />
   )
 }

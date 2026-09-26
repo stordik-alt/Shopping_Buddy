@@ -1,3 +1,5 @@
+import type { ExpenseCategory } from '@/lib/expense-categories'
+
 export type Tab = 'Domů' | 'Nákup' | 'Zásoby' | 'Obchody' | 'Rozpočet' | 'AI' | 'Profil'
 
 export type ItemCategory = 'Potraviny' | 'Drogerie' | 'Děti' | 'Domácnost' | 'Ostatní'
@@ -31,9 +33,16 @@ export type Expense = {
   id: string
   amount: number
   note: string
-  category: ItemCategory
+  category: ExpenseCategory
+  /** One of the category's subcategories (lib/expense-categories.ts), or null. */
+  subcategory: string | null
   date: string
+  /** The receipt purchase this expense counts (lib/purchase-expenses.ts); null for one typed in. */
+  purchaseId: string | null
 }
+
+/** A household's monthly limit per expense category; a category without one has no limit. */
+export type CategoryBudgets = Partial<Record<ExpenseCategory, number>>
 
 export type HouseholdMember = {
   id: string

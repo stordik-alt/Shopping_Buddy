@@ -85,6 +85,10 @@ export type AlbertFormatPlan = {
   move: string[]
   /** Hypermarkets already in "Albert Hypermarket". */
   alreadyMoved: number
+  /** "Albert" branches that are hypermarkets but stand where "Albert Hypermarket" already has a branch
+   *  (the same shop imported twice): not moved, since the database allows one branch of a chain per
+   *  address; the import keeps new copies from arising (lib/stores/sync.ts). */
+  blocked: string[]
   /** Hypermarkets no branch in the app matches (not created: the store import adds branches). */
   unmatched: AlbertHypermarket[]
 }
@@ -117,13 +121,20 @@ export function planAlbertFormats(hypermarkets: AlbertHypermarket[], branches: A
   pairs.sort((a, b) => a.km - b.km)
   const matchedStores = new Set<string>()
   const matchedBranches = new Set<string>()
-  const plan: AlbertFormatPlan = { move: [], alreadyMoved: 0, unmatched: [] }
+  const plan: AlbertFormatPlan = { move: [], alreadyMoved: 0, blocked: [], unmatched: [] }
+  // Addresses the hypermarket chain holds, as store_locations_store_address_city_unique_idx sees them.
+  const addressKey = (branch: AlbertBranch) => `${normalize(branch.address)}\u0000${normalize(branch.city)}`
+  const hypermarketAddresses = new Set(candidates.filter((branch) => branch.chain === ALBERT_HYPERMARKET_CHAIN).map(addressKey))
   for (const { store, branch } of pairs) {
     if (matchedStores.has(store.url) || matchedBranches.has(branch.id)) continue
     matchedStores.add(store.url)
     matchedBranches.add(branch.id)
     if (branch.chain === ALBERT_HYPERMARKET_CHAIN) plan.alreadyMoved++
-    else plan.move.push(branch.id)
+    else if (hypermarketAddresses.has(addressKey(branch))) plan.blocked.push(branch.id)
+    else {
+      plan.move.push(branch.id)
+      hypermarketAddresses.add(addressKey(branch))
+    }
   }
   plan.unmatched = hypermarkets.filter((store) => !matchedStores.has(store.url))
   return plan

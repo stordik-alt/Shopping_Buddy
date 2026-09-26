@@ -181,6 +181,10 @@ Options to restore preparation, to be decided after measuring accuracy on real r
 4. **Rollback:** point the DNS back to Vercel and re-enable Vercel Cron. Keep Vercel deployable
    for the whole rollback window.
 
+## Database migrations on deploy
+
+On Vercel, `pnpm build` applies pending migrations for production deployments only (`lib/db/migrate-guard.ts` checks `VERCEL`/`VERCEL_ENV`). The Cloudflare build runs the same `build` script but skips them, because it is not a Vercel build. Before production moves to Cloudflare, add a migration step to its deploy: `pnpm db:migrate` with the production `DATABASE_URL`, run before `pnpm cf:deploy`. Otherwise new code would go live before its migrations.
+
 ## 9. Local preview
 
 `cp .dev.vars.example .dev.vars`, fill in test values, then `pnpm cf:build && pnpm cf:preview`

@@ -14,6 +14,11 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+  --color-chart-10: var(--chart-10);
+  --color-chart-9: var(--chart-9);
+  --color-chart-8: var(--chart-8);
+  --color-chart-7: var(--chart-7);
+  --color-chart-6: var(--chart-6);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -79,6 +84,12 @@
   --chart-3: oklch(0.78 0.1 80);
   --chart-4: oklch(0.6 0.07 250);
   --chart-5: oklch(0.65 0.11 40);
+  /* Expense categories 6–10 (lib/expense-categories.ts): housing, car, clothes, health, leisure. */
+  --chart-6: oklch(0.5 0.12 300);
+  --chart-7: oklch(0.55 0.13 20);
+  --chart-8: oklch(0.6 0.1 330);
+  --chart-9: oklch(0.55 0.1 130);
+  --chart-10: oklch(0.55 0.12 220);
   --radius: 0.875rem;
   --shadow-card: 0 1px 2px oklch(0.22 0.02 255 / 0.04), 0 4px 16px -6px oklch(0.22 0.02 255 / 0.08);
 
@@ -119,6 +130,11 @@
   --chart-3: oklch(0.8 0.1 80);
   --chart-4: oklch(0.7 0.08 250);
   --chart-5: oklch(0.72 0.11 40);
+  --chart-6: oklch(0.72 0.12 300);
+  --chart-7: oklch(0.72 0.13 20);
+  --chart-8: oklch(0.76 0.1 330);
+  --chart-9: oklch(0.74 0.1 130);
+  --chart-10: oklch(0.72 0.12 220);
   --shadow-card: 0 1px 2px oklch(0 0 0 / 0.3);
 
   --sidebar: oklch(0.195 0.016 215);

@@ -132,6 +132,13 @@ describe('planStoreSync', () => {
       expect(plan.skipped).toEqual([moved])
     })
 
+    it('treats Albert and Albert Hypermarket as one retailer: no second Albert at a hypermarket\'s address', () => {
+      // The map lists one shop twice; one copy was already moved to the hypermarkets.
+      const copy = branch('way/2', { chain: 'Albert', name: 'Albert Hlavní', lat: 50.01 })
+      const plan = planStoreSync([copy], [row('hyper', { chain: 'Albert Hypermarket', source: 'osm', externalId: 'node/1' }), row('lidl', { source: 'osm', externalId: 'node/9', lat: 51 })], 'osm')
+      expect(plan.insert).toEqual([])
+    })
+
     it('lets a new branch take an address an update has just vacated', () => {
       const moved = branch('node/1', { address: 'Nová 3, 100 00 Praha' })
       const newcomer = branch('node/2', { lat: 50.01 })

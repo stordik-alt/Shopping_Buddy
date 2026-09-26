@@ -710,6 +710,12 @@ Budget calculations are implemented as application logic rather than being depen
 
 Recent work added notification behavior when spending crosses configured thresholds.
 
+**Update 2026-09-26, expense categories and the expense overview (migration `0035`; part 1 of the owner's expense plan).**
+- **Categories:** expenses have their own categories (`lib/expense-categories.ts`, enum `expense_category`), apart from the shopping-list item categories they used to share: Potraviny, Drogerie, Domácnost, **Bydlení, Auto, Oblečení a obuv**, Děti, **Zdraví, Volný čas**, Ostatní. Each has fixed, optional subcategories (e.g. Bydlení: nájem nebo hypotéka, elektřina, plyn, voda, teplo, internet a TV…; Auto: palivo, servis a opravy, povinné ručení, dálniční známka…) in `expenses.subcategory`, checked by the server. Existing expenses kept their category (the old values exist in the new enum).
+- **Recording:** an expense gets a chosen date (not only today; never in the future, since it is money already paid), and it can be corrected and deleted. `app/actions/budget.ts` has `addExpenseAction`, `updateExpenseAction` and `deleteExpenseAction`, all validated by `lib/expense-input.ts` and scoped to the caller's household. A correction does not re-send the 80 %/100 % notification.
+- **Overview:** on Rozpočet, "Výdaje" (`components/budget/expense-ledger.tsx`) goes month by month (arrows or a month picker, the last 365 days). It shows the month's total, then each category with its share, its subcategory totals and, when opened, every payment with its date. "Podle data" lists all of the month's payments newest first. A payment opens for correction. The numbers come from `lib/budget.ts` (`monthSummary`, `expenseMonths`). The old "Poslední výdaje" list and the budget overview's own category card, which would duplicate it, are gone.
+- **Not yet (next parts of the plan):** purchases from receipts and the shopping list counting as expenses automatically; category limits with their own 80 %/100 % notifications; recurring payments (rent, energy, insurance) confirmed on their due day.
+
 ---
 
 # 19. Notifications

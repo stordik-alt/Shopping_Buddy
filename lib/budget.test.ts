@@ -12,6 +12,8 @@ import {
   monthOverMonthChange,
   plannedSpend,
   previousMonthKey,
+  expenseMonths,
+  monthSummary,
   projectedMonthEnd,
   totalSpent,
   weeklyAllowance,
@@ -24,6 +26,7 @@ const expense = (amount: number, category: Expense['category'] = 'Potraviny', da
   amount,
   note: '',
   category,
+  subcategory: null,
   date,
 })
 
@@ -264,5 +267,39 @@ describe('budgetPace', () => {
   it('has no allowance left once over the limit, and nothing without a budget', () => {
     expect(budgetPace(12000, 10000, '2026-09-25')!.perDayLeft).toBe(0)
     expect(budgetPace(500, 0, '2026-09-25')).toBeNull()
+  })
+})
+
+describe('expense overview by month', () => {
+  const paid = (amount: number, category: Expense['category'], subcategory: string | null, date: string): Expense => ({ id: `${date}-${amount}`, amount, note: '', category, subcategory, date })
+  const expenses = [
+    paid(12000, 'Bydlení', 'Nájem nebo hypotéka', '2026-09-01'),
+    paid(1890, 'Bydlení', 'Elektřina', '2026-09-15'),
+    paid(1500, 'Auto', 'Palivo', '2026-09-03'),
+    paid(1400, 'Auto', 'Palivo', '2026-09-20'),
+    paid(900, 'Auto', null, '2026-09-10'),
+    paid(800, 'Oblečení a obuv', 'Obuv', '2026-08-30'),
+  ]
+
+  it('lists the current month and every month with an expense, newest first', () => {
+    expect(expenseMonths(expenses, '2026-10-02')).toEqual(['2026-10', '2026-09', '2026-08'])
+  })
+
+  it("sums one month's expenses by category and subcategory, largest first, with the payments newest first", () => {
+    const summary = monthSummary(expenses, '2026-09')
+    expect(summary.total).toBe(17690)
+    expect(summary.categories.map((entry) => [entry.category, entry.total])).toEqual([
+      ['Bydlení', 13890],
+      ['Auto', 3800],
+    ])
+    expect(summary.categories[1].subcategories).toEqual([
+      { subcategory: 'Palivo', total: 2900 },
+      { subcategory: null, total: 900 },
+    ])
+    expect(summary.categories[1].expenses.map((entry) => entry.date)).toEqual(['2026-09-20', '2026-09-10', '2026-09-03'])
+  })
+
+  it('is empty for a month without expenses', () => {
+    expect(monthSummary(expenses, '2026-10')).toEqual({ total: 0, categories: [] })
   })
 })

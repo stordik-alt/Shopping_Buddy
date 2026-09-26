@@ -37,3 +37,11 @@ export const shortDate = (isoDate: string) => {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(isoDate)
   return match ? `${Number(match[3])}. ${Number(match[2])}.` : isoDate
 }
+
+const MONTHS = ['leden', 'únor', 'březen', 'duben', 'květen', 'červen', 'červenec', 'srpen', 'září', 'říjen', 'listopad', 'prosinec']
+
+/** "září 2026" from a `YYYY-MM` month key — read from the string, like shortDate. */
+export const monthLabel = (month: string) => {
+  const match = /^(\d{4})-(\d{2})$/.exec(month)
+  return match ? `${MONTHS[Number(match[2]) - 1]} ${match[1]}` : month
+}

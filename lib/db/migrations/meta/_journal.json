@@ -246,6 +246,13 @@
       "when": 1790403502898,
       "tag": "0034_penny_flyers",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1790427550504,
+      "tag": "0035_expense_categories",
+      "breakpoints": true
     }
   ]
 }

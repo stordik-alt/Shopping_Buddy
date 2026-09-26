@@ -1,5 +1,15 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-26 (Expenses: categories with subcategories, any date, correct and delete, month overview)
+- **Why (owner request):** spending on housing, the household, the car and clothes should be visible and broken down, with an overview of when what was paid.
+- **What:**
+  - Expense categories of their own (`lib/expense-categories.ts`, migration `0035`): Potraviny, Drogerie, Domácnost, Bydlení, Auto, Oblečení a obuv, Děti, Zdraví, Volný čas, Ostatní, each with fixed optional subcategories. Existing expenses keep their category.
+  - The expense dialog gains subcategory and date, and edits and deletes. The server validates the amount, category, subcategory and a date that is not in the future (`lib/expense-input.ts`), and only touches the caller's household.
+  - Rozpočet → Výdaje: month by month, the total, categories with their share and subcategories, every payment with its date, and a by-date list (`components/budget/expense-ledger.tsx`).
+  - Five more chart colours for the new categories, light and dark.
+- **Next parts:** purchases counting as expenses, category limits, recurring payments.
+- **Tests:** `lib/expense-input.test.ts`; month summary in `lib/budget.test.ts`; `components/budget/expense-ledger.test.tsx`; DB-backed `app/actions/budget.test.ts` (subcategory and date stored, invalid input refused, correct/delete, another household's expense untouched). Migration applied to the test branch and re-run to prove it is repeatable.
+
 ## 2026-09-26 (Migrations run automatically on production deploy)
 - **Why:** migration `0033_pantry_tracking` (PR #98) was found unapplied on production a day after its code went live. The code read `pantry_items.tracking`, a column that did not exist. It was applied on 2026-09-26 together with `0034`.
 - **What:**

@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { addExpenseAction } from '@/app/actions/budget'
+import { addExpenseAction, deleteExpenseAction, updateExpenseAction } from '@/app/actions/budget'
 import { buildShoppingPlanAction, pinProductAction, unpinProductAction } from '@/app/actions/shopping-plan'
 import { saveMyStorePreferencesAction } from '@/app/actions/store-preferences'
 import {
@@ -33,7 +33,7 @@ import {
 import { addShoppingItemAction, addShoppingListAction, removeShoppingItemAction, toggleShoppingItemAction, updateShoppingItemAction } from '@/app/actions/shopping'
 import { AiAssistant } from '@/components/ai/ai-assistant'
 import { BudgetOverview } from '@/components/budget/budget-overview'
-import { ExpenseHistory } from '@/components/budget/expense-history'
+import { ExpenseLedger } from '@/components/budget/expense-ledger'
 import { ExpenseModal } from '@/components/budget/expense-modal'
 import { PurchaseHistory } from '@/components/budget/purchase-history'
 import { ReceiptImport } from '@/components/budget/receipt-import'
@@ -69,7 +69,8 @@ import type { Ingredient, MealType } from '@/lib/meal-plans'
 import type { ProductPrice } from '@/lib/prices'
 import { pollReceiptStatus } from '@/lib/receipt-progress'
 import type { ReceiptLineItem } from '@/lib/receipts'
-import type { Item, PantryItem, PantryLocation, PantryTracking, Store, Tab } from '@/lib/types'
+import type { ExpenseInput } from '@/lib/expense-input'
+import type { Expense, Item, PantryItem, PantryLocation, PantryTracking, Store, Tab } from '@/lib/types'
 import type { PinRecord } from '@/lib/db/shopping-plan'
 import { filterPricesToNearby, type StoreSelection } from '@/lib/nearby-stores'
 import { nearbyOffers, type StandaloneOffer } from '@/lib/offers'
@@ -140,6 +141,8 @@ export function AppShell({
   // system setting right after hydration (lib/theme-preference.ts).
   const [dark, setDark] = useState(false)
   const [expenseOpen, setExpenseOpen] = useState(false)
+  // The expense being corrected in the modal; null while adding a new one.
+  const [editedExpense, setEditedExpense] = useState<Expense | null>(null)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [notifications, setNotifications] = useState(initialData.notifications)
   const [expenses, setExpenses] = useState(initialData.expenses)
@@ -678,11 +681,36 @@ export function AppShell({
     markAllNotificationsReadAction()
   }
 
-  async function saveExpense(amount: number, note: string, category: Item['category']) {
-    const { expense, notification } = await addExpenseAction({ amount, note, category, date: today })
-    setExpenses((current) => [...current, expense])
-    if (notification) setNotifications((current) => [...current, notification])
+  function openExpense(expense: Expense | null) {
+    setEditedExpense(expense)
+    setExpenseOpen(true)
+  }
+
+  function closeExpense() {
     setExpenseOpen(false)
+    setEditedExpense(null)
+  }
+
+  // Kept in date order, as the server loads them, so the monthly numbers read the same after a save.
+  const byDate = (list: Expense[]) => list.slice().sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+
+  async function saveExpense(input: ExpenseInput) {
+    if (editedExpense) {
+      const { expense } = await updateExpenseAction(editedExpense.id, input)
+      setExpenses((current) => byDate(current.map((entry) => (entry.id === expense.id ? expense : entry))))
+    } else {
+      const { expense, notification } = await addExpenseAction(input)
+      setExpenses((current) => byDate([...current, expense]))
+      if (notification) setNotifications((current) => [...current, notification])
+    }
+    closeExpense()
+  }
+
+  async function deleteExpense() {
+    if (!editedExpense) return
+    await deleteExpenseAction(editedExpense.id)
+    setExpenses((current) => current.filter((entry) => entry.id !== editedExpense.id))
+    closeExpense()
   }
 
   return (
@@ -737,7 +765,7 @@ export function AppShell({
                     totalItems={items.length}
                     pendingNames={pendingNames}
                     onShopping={() => setTab('Nákup')}
-                    onExpense={() => setExpenseOpen(true)}
+                    onExpense={() => openExpense(null)}
                     onReceipt={() => setTab('Rozpočet')}
                     onStores={() => setTab('Obchody')}
                     onSetBudget={() => setTab('Profil')}
@@ -829,10 +857,10 @@ export function AppShell({
                     spent={spent}
                     expenses={expenses}
                     items={items}
-                    onExpense={() => setExpenseOpen(true)}
+                    onExpense={() => openExpense(null)}
                     primaryAction={<ReceiptImport stores={stores} onImport={importReceipt} onUpload={uploadReceipt} />}
                   />
-                  <ExpenseHistory expenses={expenses} />
+                  <ExpenseLedger expenses={expenses} today={today} onAdd={() => openExpense(null)} onEdit={openExpense} />
                   <PurchaseHistory records={initialData.purchaseHistory} />
                 </div>
               )}
@@ -862,7 +890,17 @@ export function AppShell({
 
         <MobileNav tab={tab} onTabChange={setTab} />
 
-        {expenseOpen && <ExpenseModal today={today} onClose={() => setExpenseOpen(false)} onSave={saveExpense} />}
+        {expenseOpen && (
+          <ExpenseModal
+            // A new key per opened expense, so the form starts from that expense's values.
+            key={editedExpense?.id ?? 'new'}
+            today={today}
+            expense={editedExpense ?? undefined}
+            onClose={closeExpense}
+            onSave={saveExpense}
+            onDelete={editedExpense ? deleteExpense : undefined}
+          />
+        )}
       </div>
     </div>
   )

@@ -25,7 +25,7 @@ async function main() {
   // the branches already there.
   const albert = await syncAlbertStoreFormats({ apply })
   console.log(`Albert hypermarkets on albert.cz: ${albert.hypermarkets} (${albert.unreadable} pages unreadable)`)
-  console.log(`  moved to "Albert Hypermarket": ${albert.moved}, already there: ${albert.alreadyMoved}, no matching branch: ${albert.unmatched.length}`)
+  console.log(`  moved to "Albert Hypermarket": ${albert.moved}, already there: ${albert.alreadyMoved}, not moved (a hypermarket branch already at that address): ${albert.blocked}, no matching branch: ${albert.unmatched.length}`)
   for (const store of albert.unmatched.slice(0, 10)) console.log(`    ${store}`)
 }
 

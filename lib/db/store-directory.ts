@@ -101,6 +101,16 @@ export async function importOsmStores(options: { apply: boolean; elements?: Over
     lastSeenAt: now,
   })
 
+  // Updates first, in the plan's order: planStoreSync lets a new branch take an address an update
+  // vacates, and lets an update take one an earlier update vacated. Written the other way round, the
+  // insert met the old row still at that address and the unique (store, address, city) index failed
+  // the whole import (2026-09-26).
+  for (const { id, branch } of plan.update) {
+    await db
+      .update(schema.storeLocations)
+      .set({ name: branch.name, address: branch.address, city: branch.city, ...imported(branch) })
+      .where(sql`${schema.storeLocations.id} = ${id}`)
+  }
   for (let i = 0; i < plan.insert.length; i += INSERT_CHUNK) {
     const chunk = plan.insert.slice(i, i + INSERT_CHUNK)
     await db
@@ -108,12 +118,6 @@ export async function importOsmStores(options: { apply: boolean; elements?: Over
       .values(chunk.map((branch) => ({ storeId: storeIdByChain.get(branch.chain)!, name: branch.name, address: branch.address, city: branch.city, ...imported(branch) })))
       // A concurrent import got there first: the unique (source, external_id) index keeps one row.
       .onConflictDoNothing({ target: [schema.storeLocations.source, schema.storeLocations.externalId], where: sql`${schema.storeLocations.externalId} IS NOT NULL` })
-  }
-  for (const { id, branch } of plan.update) {
-    await db
-      .update(schema.storeLocations)
-      .set({ name: branch.name, address: branch.address, city: branch.city, ...imported(branch) })
-      .where(sql`${schema.storeLocations.id} = ${id}`)
   }
   // An adopted branch keeps its own name and address (from a real receipt or the seed); the map adds
   // its position, opening hours and source id.
@@ -132,6 +136,8 @@ export type AlbertFormatReport = {
   unreadable: number
   moved: number
   alreadyMoved: number
+  /** Albert branches that are hypermarkets but stand where "Albert Hypermarket" already has a branch. */
+  blocked: number
   /** Hypermarkets no branch in the app matches, as "street, town". */
   unmatched: string[]
   applied: boolean
@@ -162,6 +168,7 @@ export async function syncAlbertStoreFormats(options: { apply: boolean; fetched?
     unreadable,
     moved: plan.move.length,
     alreadyMoved: plan.alreadyMoved,
+    blocked: plan.blocked.length,
     unmatched: plan.unmatched.map((store) => `${store.street}, ${store.town}`),
     applied: options.apply,
   }

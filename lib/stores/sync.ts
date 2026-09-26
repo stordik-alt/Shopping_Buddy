@@ -50,9 +50,12 @@ export type StoreSyncPlan = {
 
 const normalize = (value: string) => value.trim().toLocaleLowerCase('cs-CZ').replace(/\s+/g, ' ')
 
-// Mirrors store_locations_store_address_city_unique_idx: chain (one `stores` row each), address and
-// city, trimmed, whitespace collapsed, case-insensitive.
-const addressKey = (chain: string, address: string, city: string) => [chain, normalize(address), normalize(city)].join('\u0000')
+// Mirrors store_locations_store_address_city_unique_idx — address and city, trimmed, whitespace
+// collapsed, case-insensitive — but per retailer, not per chain row: one shop mapped twice (a point and
+// its building) can have one copy already moved to "Albert Hypermarket" while the other arrives as
+// "Albert". Keyed by chain, the second was inserted, and moving it to the hypermarkets next
+// (syncAlbertStoreFormats) hit the index (2026-09-26). Stricter than the index, so never weaker.
+const addressKey = (chain: string, address: string, city: string) => [chainFamily(chain), normalize(address), normalize(city)].join('\u0000')
 
 function changed(existing: ExistingLocation, branch: OsmBranch): boolean {
   return (

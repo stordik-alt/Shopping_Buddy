@@ -71,7 +71,7 @@ describe('fetchAlbertHypermarkets', () => {
 
 describe('planAlbertFormats', () => {
   it('moves the Albert branch standing at a hypermarket', () => {
-    expect(planAlbertFormats([VIDENSKA], [branch('a'), branch('far', { lat: 49.2, address: 'Jinde 1' })])).toEqual({ move: ['a'], alreadyMoved: 0, unmatched: [] })
+    expect(planAlbertFormats([VIDENSKA], [branch('a'), branch('far', { lat: 49.2, address: 'Jinde 1' })])).toEqual({ move: ['a'], alreadyMoved: 0, blocked: [], unmatched: [] })
   })
 
   it('matches a branch without GPS (from a receipt) by street and town', () => {
@@ -81,7 +81,7 @@ describe('planAlbertFormats', () => {
 
   it('does not move a branch of another retailer or one already moved', () => {
     const plan = planAlbertFormats([VIDENSKA], [branch('lidl', { chain: 'Lidl' }), branch('done', { chain: 'Albert Hypermarket' })])
-    expect(plan).toEqual({ move: [], alreadyMoved: 1, unmatched: [] })
+    expect(plan).toEqual({ move: [], alreadyMoved: 1, blocked: [], unmatched: [] })
   })
 
   it('gives a hypermarket its nearest branch only', () => {
@@ -91,6 +91,15 @@ describe('planAlbertFormats', () => {
 
   it('reports a hypermarket no branch matches', () => {
     expect(planAlbertFormats([VIDENSKA], []).unmatched).toEqual([VIDENSKA])
+  })
+
+  // Regression 2026-09-26: the same shop imported twice — one copy already a hypermarket (no GPS, from
+  // a receipt), the other a new "Albert" point nearer the store. Moving the second hit the unique
+  // (chain, address, city) index and failed the whole import.
+  it('does not move a branch onto an address the hypermarket chain already holds', () => {
+    const plan = planAlbertFormats([VIDENSKA], [branch('copy'), branch('existing', { chain: 'Albert Hypermarket', lat: null, lng: null })])
+    expect(plan.move).toEqual([])
+    expect(plan.blocked).toEqual(['copy'])
   })
 })
 

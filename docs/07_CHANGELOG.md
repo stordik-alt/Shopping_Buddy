@@ -1,5 +1,10 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-26 (Store directory: square tiles, only chains near the entered place)
+- **Why (owner feedback on the live tab):** "Albert Hypermarket" wrapped over three lines and broke the tile layout; the branch count on a tile is not useful; and without a locality the tab listed every chain in the country.
+- **What:** tiles are squares, three in a row, with the logo and the chain's name under it on one line (long names are shortened: "Albert Hypermarket" → "Albert Hyper", "Dr Max LÉKÁRNA" → "Dr Max", anything else is cut with "…"); the star sits in the corner and a check mark shows a chosen chain. The branch count is gone from tiles and from above the list (the pager shows how many pages there are). Tiles appear only once a town is typed or the position is used, and then only for chains that have a branch there; before that the tab says what to enter. A badge for a chain without a logo is readable in dark mode too.
+- **Tests:** `tsc` clean; checked in a real browser at 375 px in dark mode against the test database.
+
 ## 2026-09-26 (Ideas for improving the app)
 - **Why (owner request):** collect ideas from the household through a form, so the owner can go through them one by one and build the relevant ones.
 - **What:** the account menu (avatar, top right) has a new item "Nápady pro zlepšení" that opens a dialog with a form (title up to 120 characters, optional details up to 2 000) and the household's earlier ideas with a status badge: Nový, Plánujeme, Hotovo, Nebudeme dělat.

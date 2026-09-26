@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { storeBranchesAction, storeChainTilesAction, storeProductNamesAction, type LocalityInput } from '@/app/actions/store-directory'
 import { Check, ChevronDown, ChevronLeft, ChevronRight, Clock, Loader2, LocateFixed, MapPin, Navigation, Star, Tag, X } from 'lucide-react'
-import { ChainLogo } from '@/components/stores/chain-logo'
-import { activeDealCountLabel, storeCountLabel } from '@/lib/format'
+import { ChainLogo, chainShortName } from '@/components/stores/chain-logo'
+import { activeDealCountLabel } from '@/lib/format'
 import type { GpsCoords } from '@/lib/geo'
 import { BRANCH_PAGE_SIZE, NEARBY_RADIUS_KM, pageCount } from '@/lib/stores/branch-search'
 import type { LocationState } from '@/lib/use-user-location'
@@ -62,6 +62,13 @@ export function StoreDirectory({
   }, [locality])
 
   useEffect(() => {
+    // Only chains that have a branch near the entered town or position are offered, so without either
+    // there is nothing to show yet (not the whole country).
+    if (locality == null) {
+      setTiles({ status: 'done', data: [] })
+      setSelectedChainIds([])
+      return
+    }
     let cancelled = false
     setTiles((current) => ({ status: 'loading', previous: current.status === 'done' ? current.data : current.previous }))
     storeChainTilesAction(locality)
@@ -184,31 +191,34 @@ export function StoreDirectory({
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Načítám řetězce…
           </p>
         )}
-        {tileList != null && tileList.length === 0 && (
+        {locality == null && (
+          <div className="rounded-3xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+            Zadejte město nebo použijte svou polohu a ukážeme řetězce, které tam mají prodejnu.
+          </div>
+        )}
+        {locality != null && tileList != null && tileList.length === 0 && tiles.status !== 'loading' && (
           <div className="rounded-3xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
             V této lokalitě nemáme žádné prodejny. Zkuste jiné město nebo použijte svou polohu.
           </div>
         )}
-        {tileList != null && tileList.length > 0 && (
-          <ul className={`grid grid-cols-2 gap-2 sm:grid-cols-3 ${tiles.status === 'loading' ? 'opacity-60' : ''}`} aria-busy={tiles.status === 'loading'}>
+        {locality != null && tileList != null && tileList.length > 0 && (
+          <ul className={`grid grid-cols-3 gap-2 ${tiles.status === 'loading' ? 'opacity-60' : ''}`} aria-busy={tiles.status === 'loading'}>
             {tileList.map((tile) => {
               const selected = selectedChainIds.includes(tile.storeId)
               return (
                 <li key={tile.storeId}>
+                  {/* A square tile: the logo with the chain's name under it. The name is shortened
+                      (chainShortName) and never wraps, so a long name cannot break the grid. */}
                   <button
                     onClick={() => toggleChain(tile.storeId)}
                     aria-pressed={selected}
-                    className={`relative flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition ${selected ? 'border-primary bg-primary/10 ring-1 ring-primary' : 'border-border bg-card hover:bg-muted/60'}`}
+                    aria-label={tile.chain}
+                    className={`relative flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-2xl border p-2 transition ${selected ? 'border-primary bg-primary/10 ring-1 ring-primary' : 'border-border bg-card hover:bg-muted/60'}`}
                   >
-                    <ChainLogo chain={tile.chain} className="size-10" />
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-center gap-1 text-sm font-semibold">
-                        <span className="min-w-0 break-words">{tile.chain}</span>
-                        {tile.isFavorite && <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-500" aria-label="Váš oblíbený řetězec" />}
-                      </span>
-                      <span className="block text-xs text-muted-foreground">{storeCountLabel(tile.branchCount)}</span>
-                    </span>
-                    {selected && <Check className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />}
+                    <ChainLogo chain={tile.chain} className="size-12" />
+                    <span className="w-full truncate text-center text-xs font-semibold">{chainShortName(tile.chain)}</span>
+                    {tile.isFavorite && <Star className="absolute right-1.5 top-1.5 h-3.5 w-3.5 fill-amber-400 text-amber-500" aria-label="Váš oblíbený řetězec" />}
+                    {selected && <Check className="absolute left-1.5 top-1.5 h-4 w-4 text-primary" aria-hidden="true" />}
                   </button>
                 </li>
               )
@@ -217,7 +227,7 @@ export function StoreDirectory({
         )}
       </section>
 
-      {selectedChainIds.length === 0 && tileList != null && tileList.length > 0 && (
+      {selectedChainIds.length === 0 && locality != null && tileList != null && tileList.length > 0 && (
         <p className="rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground">Vyberte jeden nebo více řetězců a zobrazíme jejich prodejny.</p>
       )}
 
@@ -241,10 +251,6 @@ export function StoreDirectory({
       )}
       {branchPage != null && branchPage.total > 0 && (
         <section aria-label="Prodejny">
-          <p className="mb-2 text-xs text-muted-foreground" aria-live="polite">
-            {storeCountLabel(branchPage.total)}
-            {usingGps && ` do ${NEARBY_RADIUS_KM} km`}
-          </p>
           <ul className={`grid gap-3 sm:grid-cols-2 ${branchesBusy ? 'opacity-60' : ''}`} aria-busy={branchesBusy}>
             {branchPage.rows.map((branch) => {
               const expanded = branch.id === openBranchId

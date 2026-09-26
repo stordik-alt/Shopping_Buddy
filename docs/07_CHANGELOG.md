@@ -1,5 +1,17 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-26 (Store directory: chain tiles, chosen chains, paged branches)
+- **Why (owner request):** the "Obchody" tab shipped all ~1 800 branches to the browser on every render (Neon network transfer) and showed one long list. The owner wanted: pick a locality (or use the position), tiles with the chain's logo, choose one or more chains, then the branches with opening hours, paged.
+- **What:**
+  - **Locality:** a typed town (matched against `city` and address, case-insensitive, `%`/`_` taken literally) or "Použít mou polohu" — then only branches within 5 km (bounding box, then the exact great-circle distance in SQL), nearest first with the distance.
+  - **Chain tiles** (`ChainTile`): every chain with a branch in the locality, with its branch count. The member's chains from the profile come first, marked with a star.
+  - **Branches:** after choosing chains, 5 branches per page with a `‹ 1/4 ›` pager. The database returns only that page plus the total (`count(*) OVER ()`); a page past the end falls back to the last page. The member's favourite *branches* (profile, "Moje obchody v okolí") come first with a star, before distance.
+  - **Branch detail:** "Navigovat" (Google Maps) and "Zobrazit akce", which opens Domů with the promotions filtered to that chain (`PriceWatch` `chainFilter`; a chip clears it). The chain's promotion count is shown on each branch as "v řetězci": promotions are published per chain, so no per-branch count is claimed.
+  - **Logos:** `components/stores/chain-logo.tsx`, files in `public/logos` (Lidl, Kaufland, Billa, Penny — Wikimedia Commons, public domain, still registered trademarks; sources in `public/logos/README.md`). Albert and JIP have no logo with a clear licence: they get the coloured badge until the owner adds `albert.svg` / `jip.svg` and lists them in `LOGO_FILES`.
+  - **Code:** pure `lib/stores/branch-search.ts` (paging, bounding box, LIKE escaping); `lib/db/store-branch-search.ts` (`getChainTiles`, `searchBranches`); Server Actions `storeChainTilesAction`, `storeBranchesAction` in `app/actions/store-directory.ts` (input validated; the member comes from the session). `StoreDirectory` no longer receives `stores`.
+- **Not changed:** the `stores` list still loaded by `app/page.tsx` (`getStoresCached`) is used by the shopping planner and stays; `getStores` can be slimmed in a later change.
+- **Tests:** `lib/stores/branch-search.test.ts` (7), `lib/db/store-branch-search.test.ts` (9, real test DB: radius, ordering, paging, favourites, tiles); `tsc` and `next build` clean. Not yet checked in a real browser at 360 px.
+
 ## 2026-09-26 (Less database compute: indexes, fewer re-renders, parallel page reads)
 - **Why (owner request):** find where Neon compute can be saved and the app sped up. Production's `pg_stat_user_tables` showed where it went.
   - `deals` (5 310 rows) had been read whole 8 million times, **26 billion rows** in total. It had no index but its primary key, and every lookup by product scanned it: `getProductPrices` evaluated "has a running promotion?" for each of ~50 000 products, and each ingested offer's upsert did the same.

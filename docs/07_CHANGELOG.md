@@ -1,5 +1,14 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-26 (Store import: one branch per chain and address)
+- **Bug:** `pnpm db:import-stores --apply` failed with `duplicate key value violates unique constraint "store_locations_store_address_city_unique_idx"`. Nothing was written. OpenStreetMap lists some shops twice, as a point and as the building (e.g. Albert Plzeňská 263, Horažďovice: `node/14211627833` and `way/142288943`). The import plan only knew the `(source, external_id)` key, so it inserted both.
+- **Fix:** `planStoreSync` (`lib/stores/sync.ts`) now respects the database rule of one branch per chain and address, normalized like the index:
+  - A second branch at an address the chain already has is skipped.
+  - An earlier import whose OSM id the map has replaced (node → way) is re-pointed to the new id instead of being copied.
+  - An update that would move a branch onto another branch's address is skipped.
+  - The report and the script print the number skipped.
+- **Tests:** 8 new cases in `lib/stores/sync.test.ts`, which fail on the old code. One older test expected exactly the colliding insert and was corrected. CI command: 987 passed; `tsc` clean.
+
 ## 2026-09-26 (Less database transfer per page render)
 - **What:** `getHouseholdData` (every page render and refresh) now reads less:
   - Pending receipt imports are filtered by status in the database. Before, every OCR receipt ever imported, with its OCR text, was loaded and filtered in code.

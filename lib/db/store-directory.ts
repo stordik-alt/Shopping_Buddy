@@ -22,6 +22,8 @@ export type StoreImportReport = {
   updated: number
   adopted: number
   unchanged: number
+  /** Found branches not written: a branch of their chain already has that address (lib/stores/sync.ts). */
+  skipped: number
   rejected: Record<OsmRejection['reason'], number>
   /** Branches found for a chain the app has no `stores` row for (not imported). */
   unknownChain: number
@@ -74,6 +76,7 @@ export async function importOsmStores(options: { apply: boolean; elements?: Over
     updated: plan.update.length,
     adopted: plan.adopt.length,
     unchanged: plan.unchanged.length,
+    skipped: plan.skipped.length,
     rejected: { 'no-address': 0, 'outside-cz': 0 },
     unknownChain: parsed.length - branches.length,
     // A chain the servers did not answer for is not "no longer on the map".

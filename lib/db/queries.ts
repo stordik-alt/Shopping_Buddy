@@ -374,6 +374,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
         category: expense.category,
         subcategory: expense.subcategory,
         date: expense.date,
+        purchaseId: expense.purchaseId,
       }),
     ),
     // Loaded newest first (for the limit), shown oldest first as before.

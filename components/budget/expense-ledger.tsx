@@ -169,6 +169,7 @@ function PaymentList({ expenses, onEdit, showCategory = false }: { expenses: Exp
                   <span>{shortDate(expense.date)}</span>
                   {showCategory && <span className="break-words">{expense.category}</span>}
                   {expense.subcategory && <span className="break-words">{expense.subcategory}</span>}
+                  {expense.purchaseId && <span className="font-medium text-primary">z účtenky</span>}
                 </span>
               </span>
             </span>

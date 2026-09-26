@@ -28,6 +28,7 @@ const expense = (amount: number, category: Expense['category'] = 'Potraviny', da
   category,
   subcategory: null,
   date,
+  purchaseId: null,
 })
 
 const item = (price: number, quantity: number, done = false): Item => ({
@@ -271,7 +272,7 @@ describe('budgetPace', () => {
 })
 
 describe('expense overview by month', () => {
-  const paid = (amount: number, category: Expense['category'], subcategory: string | null, date: string): Expense => ({ id: `${date}-${amount}`, amount, note: '', category, subcategory, date })
+  const paid = (amount: number, category: Expense['category'], subcategory: string | null, date: string): Expense => ({ id: `${date}-${amount}`, amount, note: '', category, subcategory, date, purchaseId: null })
   const expenses = [
     paid(12000, 'Bydlení', 'Nájem nebo hypotéka', '2026-09-01'),
     paid(1890, 'Bydlení', 'Elektřina', '2026-09-15'),

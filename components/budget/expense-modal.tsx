@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Trash2, X } from 'lucide-react'
+import { Receipt, Trash2, X } from 'lucide-react'
+import { longDate, money } from '@/lib/format'
 import { EXPENSE_CATEGORY_NAMES, subcategoriesOf, type ExpenseCategory } from '@/lib/expense-categories'
 import type { ExpenseInput } from '@/lib/expense-input'
 import type { Expense } from '@/lib/types'
@@ -56,6 +57,33 @@ export function ExpenseModal({
       return
     }
     void run(() => onSave({ amount: value, note: note.trim() || subcategory || category, category, subcategory: subcategory || null, date }))
+  }
+
+  // A receipt's expense is what the receipt says was paid (lib/purchase-expenses.ts); the server
+  // refuses to change it by hand, so it is shown, not edited.
+  if (expense?.purchaseId) {
+    return (
+      <div className="fixed inset-0 z-20 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+        <div className="max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-card p-5 shadow-2xl sm:rounded-3xl sm:p-6">
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="min-w-0 text-lg font-semibold">Výdaj z účtenky</h2>
+            <button onClick={onClose} aria-label="Zavřít" className="icon-button shrink-0">
+              <X aria-hidden="true" />
+            </button>
+          </div>
+          <dl className="mt-6 space-y-3 text-sm">
+            <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Částka</dt><dd className="font-semibold">{money(expense.amount)}</dd></div>
+            <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Kategorie</dt><dd className="text-right break-words">{expense.category}</dd></div>
+            <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Datum</dt><dd className="text-right">{longDate(expense.date)}</dd></div>
+            <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Poznámka</dt><dd className="text-right break-words">{expense.note}</dd></div>
+          </dl>
+          <p className="mt-5 flex gap-2 rounded-2xl bg-muted p-3 text-sm text-muted-foreground">
+            <Receipt className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            Částku zapsala nahraná účtenka, rozdělenou podle kategorií položek. Mění se jen s nákupem, ne ručně.
+          </p>
+        </div>
+      </div>
+    )
   }
 
   return (

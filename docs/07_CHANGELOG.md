@@ -1,5 +1,13 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-26 (A receipt counts as expenses)
+- **Why (owner's choice):** purchases should appear in the expenses automatically, but only from receipts (what was really paid), and not for past purchases.
+- **What:**
+  - A receipt's purchase is recorded as expenses, one per category of its items, adding up to exactly what was paid (`lib/purchase-expenses.ts`, migration `0036` `expenses.purchase_id` with a unique (purchase, category) index).
+  - It sends the budget's 80 %/100 % notification like a typed-in expense (`lib/db/budget-notify.ts`).
+  - It is not editable by hand: the server refuses, the dialog shows it read-only, and the overview marks it "z účtenky".
+- **Tests:** `lib/purchase-expenses.test.ts` (proportional split, exact total after a discount, order-independent, edge cases). DB-backed: a receipt with food and drugstore lines gives two expenses summing to the purchase total, manual edit and delete are refused, and they go with the purchase. Receipts, budget and purchases DB suites: 90 passed.
+
 ## 2026-09-26 (Expenses: categories with subcategories, any date, correct and delete, month overview)
 - **Why (owner request):** spending on housing, the household, the car and clothes should be visible and broken down, with an overview of when what was paid.
 - **What:**

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { ExpenseLedger } from '@/components/budget/expense-ledger'
 import type { Expense } from '@/lib/types'
 
-const paid = (amount: number, category: Expense['category'], subcategory: string | null, date: string, note = ''): Expense => ({ id: `${date}-${amount}`, amount, note, category, subcategory, date })
+const paid = (amount: number, category: Expense['category'], subcategory: string | null, date: string, note = ''): Expense => ({ id: `${date}-${amount}`, amount, note, category, subcategory, date, purchaseId: null })
 const noop = () => {}
 
 describe('ExpenseLedger', () => {

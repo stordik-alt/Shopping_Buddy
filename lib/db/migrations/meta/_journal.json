@@ -253,6 +253,13 @@
       "when": 1790427550504,
       "tag": "0035_expense_categories",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1790428680276,
+      "tag": "0036_purchase_expenses",
+      "breakpoints": true
     }
   ]
 }

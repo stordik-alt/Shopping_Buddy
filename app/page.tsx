@@ -30,12 +30,15 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ [
     getStandaloneOffersCached(),
     getStoreChainsCached(),
   ])
-  // Only the prices the screens use: the list's products and today's promotions (see
-  // ProductPriceScope — the whole catalog is far too large to send on every refresh).
-  const productPrices = await getProductPricesCached({ names: data.items.map((item) => item.name), runningDeals: true })
-  // After getHouseholdData: on a first login that call is what creates the member row.
-  const memberId = await getMemberIdForUser(session.user.id)
-  const storeSelection = memberId ? await getMemberStoreSelection(memberId) : EMPTY_STORE_SELECTION
-  const pins = await listPinsForHousehold(data.household.id)
+  // The rest needs the household data but not each other, so they go to the database together
+  // instead of one after another (each wait is a round trip to the database).
+  const [productPrices, storeSelection, pins] = await Promise.all([
+    // Only the prices the screens use: the list's products and today's promotions (see
+    // ProductPriceScope — the whole catalog is far too large to send on every refresh).
+    getProductPricesCached({ names: data.items.map((item) => item.name), runningDeals: true }),
+    // After getHouseholdData: on a first login that call is what creates the member row.
+    getMemberIdForUser(session.user.id).then((memberId) => (memberId ? getMemberStoreSelection(memberId) : EMPTY_STORE_SELECTION)),
+    listPinsForHousehold(data.household.id),
+  ])
   return <AppShell initialData={data} userName={session.user.name} stores={stores} productPrices={productPrices} standaloneOffers={standaloneOffers} storeChains={storeChains} initialStoreSelection={storeSelection} initialPins={pins} today={todayInPrague()} initialTab={initialTab} initialPantryCheck={initialPantryCheck} pushPublicKey={pushPublicKeyForClient()} />
 }

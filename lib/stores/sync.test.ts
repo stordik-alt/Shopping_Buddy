@@ -29,12 +29,12 @@ const row = (id: string, extra: Partial<ExistingLocation> = {}): ExistingLocatio
 
 describe('planStoreSync', () => {
   it('inserts a branch nothing matches', () => {
-    expect(planStoreSync([branch('node/1')], [], 'osm')).toEqual({ insert: [branch('node/1')], update: [], adopt: [], unchanged: [] })
+    expect(planStoreSync([branch('node/1')], [], 'osm')).toEqual({ insert: [branch('node/1')], update: [], adopt: [], unchanged: [], skipped: [] })
   })
 
   it('only marks an already imported, unchanged branch as seen', () => {
     const plan = planStoreSync([branch('node/1')], [row('a', { source: 'osm', externalId: 'node/1' })], 'osm')
-    expect(plan).toEqual({ insert: [], update: [], adopt: [], unchanged: ['a'] })
+    expect(plan).toEqual({ insert: [], update: [], adopt: [], unchanged: ['a'], skipped: [] })
   })
 
   it('updates an imported branch whose data changed at the source', () => {
@@ -76,8 +76,68 @@ describe('planStoreSync', () => {
   })
 
   it('never adopts a branch another source already owns', () => {
-    const plan = planStoreSync([branch('node/1')], [row('other', { source: 'somewhere-else', externalId: 'x' })], 'osm')
+    const plan = planStoreSync([branch('node/1', { address: 'Jiná 2' })], [row('other', { source: 'somewhere-else', externalId: 'x' })], 'osm')
     expect(plan.adopt).toEqual([])
     expect(plan.insert).toHaveLength(1)
+  })
+
+  // One branch per chain and address: store_locations_store_address_city_unique_idx. Breaking it
+  // failed the whole insert of `pnpm db:import-stores --apply` (2026-09-26).
+  describe('one branch per chain and address', () => {
+    it('inserts a shop the map lists twice (point and building) only once', () => {
+      const point = branch('node/14211627833')
+      const building = branch('way/142288943', { lat: 50.0001 })
+      const plan = planStoreSync([point, building], [], 'osm')
+      expect(plan.insert).toEqual([point])
+      expect(plan.skipped).toEqual([building])
+    })
+
+    it('compares addresses like the database: trimmed, whitespace collapsed, any case', () => {
+      const plan = planStoreSync([branch('node/1'), branch('node/2', { address: ' hlavní  1, 100 00 PRAHA', city: 'praha ', lat: 50.01 })], [], 'osm')
+      expect(plan.insert.map((entry) => entry.externalId)).toEqual(['node/1'])
+      expect(plan.skipped.map((entry) => entry.externalId)).toEqual(['node/2'])
+    })
+
+    it('allows the same address for different chains', () => {
+      const plan = planStoreSync([branch('node/1'), branch('node/2', { chain: 'Penny', name: 'Penny Hlavní' })], [], 'osm')
+      expect(plan.insert).toHaveLength(2)
+    })
+
+    it('re-points an earlier import whose id the map has replaced, instead of inserting a copy', () => {
+      const way = branch('way/9', { lat: 50.01 })
+      const plan = planStoreSync([way], [row('old', { source: 'osm', externalId: 'node/1' })], 'osm')
+      expect(plan.adopt).toEqual([{ id: 'old', branch: way }])
+      expect(plan.insert).toEqual([])
+    })
+
+    it('does not take over an earlier import the map still lists', () => {
+      const copy = branch('way/9', { lat: 50.01 })
+      const plan = planStoreSync([branch('node/1'), copy], [row('old', { source: 'osm', externalId: 'node/1' })], 'osm')
+      expect(plan.unchanged).toEqual(['old'])
+      expect(plan.adopt).toEqual([])
+      expect(plan.skipped).toEqual([copy])
+    })
+
+    it('skips a branch at the address of a branch another source owns', () => {
+      const plan = planStoreSync([branch('node/1')], [row('other', { source: 'somewhere-else', externalId: 'x', lat: 51 })], 'osm')
+      expect(plan.insert).toEqual([])
+      expect(plan.skipped).toEqual([branch('node/1')])
+    })
+
+    it("does not move an imported branch onto another branch's address", () => {
+      const moved = branch('node/1', { address: 'Druhá 2, 100 00 Praha' })
+      const plan = planStoreSync([moved], [row('a', { source: 'osm', externalId: 'node/1' }), row('b', { address: 'Druhá 2, 100 00 Praha', lat: 51 })], 'osm')
+      expect(plan.update).toEqual([])
+      expect(plan.unchanged).toEqual(['a'])
+      expect(plan.skipped).toEqual([moved])
+    })
+
+    it('lets a new branch take an address an update has just vacated', () => {
+      const moved = branch('node/1', { address: 'Nová 3, 100 00 Praha' })
+      const newcomer = branch('node/2', { lat: 50.01 })
+      const plan = planStoreSync([newcomer, moved], [row('a', { source: 'osm', externalId: 'node/1' })], 'osm')
+      expect(plan.update).toEqual([{ id: 'a', branch: moved }])
+      expect(plan.insert).toEqual([newcomer])
+    })
   })
 })

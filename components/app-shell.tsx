@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { addExpenseAction, deleteExpenseAction, setCategoryBudgetAction, updateExpenseAction } from '@/app/actions/budget'
+import { confirmRecurringPaymentAction, saveRecurringPaymentAction, skipRecurringPaymentAction, stopRecurringPaymentAction } from '@/app/actions/recurring'
 import { buildShoppingPlanAction, pinProductAction, unpinProductAction } from '@/app/actions/shopping-plan'
 import { saveMyStorePreferencesAction } from '@/app/actions/store-preferences'
 import {
@@ -34,6 +35,8 @@ import { addShoppingItemAction, addShoppingListAction, removeShoppingItemAction,
 import { AiAssistant } from '@/components/ai/ai-assistant'
 import { BudgetOverview } from '@/components/budget/budget-overview'
 import { CategoryLimitsModal } from '@/components/budget/category-limits-modal'
+import { RecurringPaymentModal } from '@/components/budget/recurring-payment-modal'
+import { RecurringPayments } from '@/components/budget/recurring-payments'
 import { ExpenseLedger } from '@/components/budget/expense-ledger'
 import { ExpenseModal } from '@/components/budget/expense-modal'
 import { PurchaseHistory } from '@/components/budget/purchase-history'
@@ -72,6 +75,7 @@ import { pollReceiptStatus } from '@/lib/receipt-progress'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import type { ExpenseCategory } from '@/lib/expense-categories'
 import type { ExpenseInput } from '@/lib/expense-input'
+import type { RecurringPayment, RecurringPaymentInput } from '@/lib/recurring-payments'
 import type { Expense, Item, PantryItem, PantryLocation, PantryTracking, Store, Tab } from '@/lib/types'
 import type { PinRecord } from '@/lib/db/shopping-plan'
 import { filterPricesToNearby, type StoreSelection } from '@/lib/nearby-stores'
@@ -150,6 +154,10 @@ export function AppShell({
   const [expenses, setExpenses] = useState(initialData.expenses)
   const [categoryBudgets, setCategoryBudgets] = useState(initialData.categoryBudgets)
   const [limitsOpen, setLimitsOpen] = useState(false)
+  const [recurringPayments, setRecurringPayments] = useState(initialData.recurringPayments)
+  const [recurringOccurrences, setRecurringOccurrences] = useState(initialData.recurringOccurrences)
+  // The recurring payment being changed in its modal; 'new' while adding one, null while closed.
+  const [recurringEdit, setRecurringEdit] = useState<RecurringPayment | 'new' | null>(null)
   const [newItem, setNewItem] = useState('')
   // Plausible receipt ↔ shopping-list matches waiting for the household to confirm (certain ones were
   // ticked on the server already).
@@ -172,6 +180,8 @@ export function AppShell({
     setNotifications(initialData.notifications)
     setExpenses(initialData.expenses)
     setCategoryBudgets(initialData.categoryBudgets)
+    setRecurringPayments(initialData.recurringPayments)
+    setRecurringOccurrences(initialData.recurringOccurrences)
     setShoppingLists(initialData.shoppingLists)
     setPendingInvitations(initialData.pendingInvitations)
     setPantryItems(initialData.pantryItems)
@@ -719,6 +729,36 @@ export function AppShell({
     setLimitsOpen(false)
   }
 
+  async function saveRecurring(input: RecurringPaymentInput) {
+    const editing = recurringEdit !== 'new' && recurringEdit ? recurringEdit : null
+    const saved = await saveRecurringPaymentAction(input, editing?.id)
+    setRecurringPayments((current) =>
+      (editing ? current.map((entry) => (entry.id === saved.id ? saved : entry)) : [...current, saved]).sort((a, b) => a.name.localeCompare(b.name, 'cs')),
+    )
+    setRecurringEdit(null)
+  }
+
+  async function stopRecurring() {
+    if (!recurringEdit || recurringEdit === 'new') return
+    await stopRecurringPaymentAction(recurringEdit.id)
+    const stopped = recurringEdit.id
+    setRecurringPayments((current) => current.filter((entry) => entry.id !== stopped))
+    setRecurringEdit(null)
+  }
+
+  /** A due date paid: it becomes an expense, and may cross a budget threshold. */
+  async function confirmRecurring(paymentId: string, dueDate: string, paid: { amount: number; date: string }) {
+    const { expense, occurrence, notifications: created } = await confirmRecurringPaymentAction(paymentId, dueDate, paid)
+    setRecurringOccurrences((current) => [...current, occurrence])
+    setExpenses((current) => byDate([...current, expense]))
+    if (created.length > 0) setNotifications((current) => [...current, ...created])
+  }
+
+  async function skipRecurring(paymentId: string, dueDate: string) {
+    const occurrence = await skipRecurringPaymentAction(paymentId, dueDate)
+    setRecurringOccurrences((current) => [...current, occurrence])
+  }
+
   async function deleteExpense() {
     if (!editedExpense) return
     await deleteExpenseAction(editedExpense.id)
@@ -873,6 +913,15 @@ export function AppShell({
                     onExpense={() => openExpense(null)}
                     primaryAction={<ReceiptImport stores={stores} onImport={importReceipt} onUpload={uploadReceipt} />}
                   />
+                  <RecurringPayments
+                    payments={recurringPayments}
+                    occurrences={recurringOccurrences}
+                    today={today}
+                    onAdd={() => setRecurringEdit('new')}
+                    onEdit={setRecurringEdit}
+                    onConfirm={confirmRecurring}
+                    onSkip={skipRecurring}
+                  />
                   <ExpenseLedger expenses={expenses} today={today} limits={categoryBudgets} onAdd={() => openExpense(null)} onEdit={openExpense} onLimits={() => setLimitsOpen(true)} />
                   <PurchaseHistory records={initialData.purchaseHistory} />
                 </div>
@@ -903,6 +952,16 @@ export function AppShell({
 
         <MobileNav tab={tab} onTabChange={setTab} />
 
+        {recurringEdit && (
+          <RecurringPaymentModal
+            key={recurringEdit === 'new' ? 'new' : recurringEdit.id}
+            today={today}
+            payment={recurringEdit === 'new' ? undefined : recurringEdit}
+            onClose={() => setRecurringEdit(null)}
+            onSave={saveRecurring}
+            onStop={recurringEdit === 'new' ? undefined : stopRecurring}
+          />
+        )}
         {limitsOpen && <CategoryLimitsModal limits={categoryBudgets} onClose={() => setLimitsOpen(false)} onSave={saveLimits} />}
         {expenseOpen && (
           <ExpenseModal

@@ -583,6 +583,42 @@ export const expenseCategoryBudgets = pgTable('expense_category_budgets', {
   check('expense_category_budgets_amount_positive', sql`${table.amount} > 0`),
 ])
 
+// A payment the household makes regularly — rent, energy advances, insurance (lib/recurring-payments.ts).
+// Entered once; each due date is confirmed (it becomes an expense) or skipped in
+// recurring_payment_occurrences. Stopping a payment keeps its history (`active` false).
+export const recurringPayments = pgTable('recurring_payments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  category: expenseCategoryEnum('category').notNull(),
+  subcategory: text('subcategory'),
+  amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
+  intervalMonths: integer('interval_months').notNull(),
+  // The first due date; its day of the month is kept for every later one.
+  startDate: date('start_date').notNull(),
+  active: boolean('active').notNull().default(true),
+  // The due date the household was last reminded of, so the daily cron reminds once per due date.
+  remindedDueDate: date('reminded_due_date'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('recurring_payments_household_idx').on(table.householdId),
+  check('recurring_payments_amount_positive', sql`${table.amount} > 0`),
+  check('recurring_payments_interval', sql`${table.intervalMonths} IN (1, 3, 6, 12)`),
+])
+
+// One due date of a recurring payment the household dealt with: paid (with the expense it became) or
+// skipped. Deleting that expense deletes this row too, so the due date waits again.
+export const recurringPaymentOccurrences = pgTable('recurring_payment_occurrences', {
+  recurringPaymentId: uuid('recurring_payment_id').notNull().references(() => recurringPayments.id, { onDelete: 'cascade' }),
+  dueDate: date('due_date').notNull(),
+  status: text('status').notNull(),
+  expenseId: uuid('expense_id').references(() => expenses.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  primaryKey({ columns: [table.recurringPaymentId, table.dueDate] }),
+  check('recurring_payment_occurrences_status', sql`(${table.status} = 'paid' AND ${table.expenseId} IS NOT NULL) OR (${table.status} = 'skipped' AND ${table.expenseId} IS NULL)`),
+])
+
 // --- Meal plans & notifications ------------------------------------------------
 
 export const mealPlans = pgTable('meal_plans', {

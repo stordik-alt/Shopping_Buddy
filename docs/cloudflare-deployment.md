@@ -1,9 +1,9 @@
 # Cloudflare Deployment — Prepared, Not Deployed
 
-**Branch:** `cloudflare-migration-prep` (owner, 2026-09-25: prepare only, migrate nothing; keep the branch)
+**Where:** on `main` since PR #83 (owner, 2026-09-25: prepare only, migrate nothing). Refreshed 2026-09-26: writable data cache on R2, `cf:build` runs on Windows too.
 **Production:** Vercel, unchanged. Receipt files are already on R2 (`docs/cloudflare-r2.md`).
 
-This branch makes the app **buildable and runnable as a Cloudflare Worker** (OpenNext for Cloudflare).
+The prepared setup makes the app **buildable and runnable as a Cloudflare Worker** (OpenNext for Cloudflare).
 It also removes the known blockers behind switches whose defaults keep Vercel behavior. What is left
 is account setup, staging tests and the cutover.
 
@@ -11,8 +11,8 @@ is account setup, staging tests and the cutover.
 
 | File | Purpose |
 |---|---|
-| `open-next.config.ts` | OpenNext config. Prerendered pages come from static assets (no ISR in the app), so no extra R2 bucket, KV or Durable Object is needed |
-| `wrangler.jsonc` | Worker `shopping-buddy` plus `env.staging` (`shopping-buddy-staging`, no crons). Also sets `nodejs_compat`, `STORAGE_PROVIDER=r2`, `limits.cpu_ms` 300000, logs, and the 20 cron triggers |
+| `open-next.config.ts` | OpenNext config. Next's data cache (and the few prerendered pages) in the R2 bucket `shopping-buddy-next-cache`, so `unstable_cache` in `lib/db/cached-reads.ts` works as on Vercel (see "Data cache" below). No tag cache, queue or Durable Object: the app has no `revalidateTag` and no ISR |
+| `wrangler.jsonc` | Worker `shopping-buddy` plus `env.staging` (`shopping-buddy-staging`, no crons). Each has its own data-cache bucket (`NEXT_INC_CACHE_R2_BUCKET`). Also sets `nodejs_compat`, `STORAGE_PROVIDER=r2`, `limits.cpu_ms` 300000, logs, and the 20 cron triggers |
 | `cloudflare/worker.ts` | Worker entry: OpenNext's `fetch` plus a `scheduled()` handler for Cron Triggers |
 | `cloudflare/cron.ts` | Maps a fired cron expression to its path(s) in `vercel.json`, which stays the one list of jobs. Calls the route with `Authorization: Bearer $CRON_SECRET`, like Vercel Cron |
 | `cloudflare/shims/sharp.js` | Throwing stand-in for `sharp` in the Cloudflare build only (see §6) |
@@ -72,10 +72,13 @@ Checked in the cloud session, with placeholder secrets and no Cloudflare account
 ## 4. Owner prerequisites
 
 1. **Workers Paid** on the Cloudflare account ($5/month): 20 cron triggers, CPU time, bundle size.
-2. **Wrangler login** on your computer (`pnpm exec wrangler login`), or a `CLOUDFLARE_API_TOKEN` with
+2. **Data-cache buckets** (once): `pnpm exec wrangler r2 bucket create shopping-buddy-next-cache` and
+   `… shopping-buddy-next-cache-staging`. They hold only rebuildable cache entries, so no backup is
+   needed; a deploy fails while a bound bucket does not exist.
+3. **Wrangler login** on your computer (`pnpm exec wrangler login`), or a `CLOUDFLARE_API_TOKEN` with
    *Workers Scripts: Edit* (+ *Workers Routes/DNS: Edit* for the custom domain).
-3. **Custom domain** on a Cloudflare zone (see risk 4).
-4. **Neon Auth trusted origins:** add the staging and later the production Worker hostnames in the
+4. **Custom domain** on a Cloudflare zone (see risk 4).
+5. **Neon Auth trusted origins:** add the staging and later the production Worker hostnames in the
    Neon Console (Auth → Configuration → Domains), as was done for Vercel.
 
 ## 5. PDF OCR without Vercel OIDC (one-time Google setup)
@@ -185,6 +188,10 @@ Options to restore preparation, to be decided after measuring accuracy on real r
 `/__scheduled?cron=<expression>`.
 
 
-## Data cache (added 2026-09-25)
+## Data cache
 
-`lib/db/cached-reads.ts` caches the page's global reads for 15 minutes with `unstable_cache`, because Neon's free network transfer ran out. On Vercel this uses the platform's data cache. The prepared Cloudflare build uses the read-only static-assets incremental cache (`open-next.config.ts`), so there the reads run uncached. That is still correct, but it transfers more from the database. Before relying on Cloudflare hosting, configure a writable incremental cache (R2 or KV, see OpenNext for Cloudflare's caching docs).
+`lib/db/cached-reads.ts` caches the page's global reads for 15 minutes with `unstable_cache`, because Neon's free network transfer ran out. On Vercel this uses the platform's data cache. On Cloudflare it uses OpenNext's R2 incremental cache (`open-next.config.ts`, binding `NEXT_INC_CACHE_R2_BUCKET`), so the reads stay cached after the move (2026-09-26; before that the prepared build had a read-only cache and these reads ran uncached). Entries expire by their `revalidate` time only. R2 operations fit the free tier at this app's traffic. Not yet verified against a real bucket: check on staging that a second page render within 15 minutes does not query prices again (Neon's query log or the Worker's R2 metrics).
+
+## Building on Windows
+
+`pnpm cf:build` sets `BUILD_TARGET` through `dotenv-cli`, so the script runs in any shell. The OpenNext bundling step, however, creates symlinks, which Windows refuses without extra rights (`EPERM: operation not permitted, symlink`). Either build inside WSL (a separate `pnpm install` there, since `node_modules` contains platform binaries), or turn on Windows **Developer Mode** (Settings → System → For developers), which allows symlinks without administrator rights. CI builds on Linux, so a PR always shows whether the Worker build works.

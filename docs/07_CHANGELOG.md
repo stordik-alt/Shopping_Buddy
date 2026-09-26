@@ -1,5 +1,13 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-26 (Cloudflare preparation refreshed; nothing migrated)
+- **Why:** the owner wants the project ready for a later move from Vercel to Cloudflare. The OpenNext Worker build from PR #83 still passes on current `main` (CI job `cloudflare`, 4.5 MiB gzip), but its read-only cache would have left `lib/db/cached-reads.ts` uncached on Cloudflare, so every render would read prices again from Neon.
+- **What:**
+  - `open-next.config.ts` uses OpenNext's R2 incremental cache. `wrangler.jsonc` binds `NEXT_INC_CACHE_R2_BUCKET` to `shopping-buddy-next-cache` (staging: `shopping-buddy-next-cache-staging`). The buckets are not created yet.
+  - `pnpm cf:build` sets `BUILD_TARGET` through `dotenv-cli`, so it also runs from Windows shells. OpenNext's bundling still needs symlinks there (WSL or Developer Mode, `docs/cloudflare-deployment.md`).
+- **Vercel:** unchanged. Nothing is deployed to Cloudflare.
+- **Tests:** `cloudflare/` tests pass; `tsc` clean. The full OpenNext build runs in CI (Linux).
+
 ## 2026-09-26 (Store import: one branch per chain and address)
 - **Bug:** `pnpm db:import-stores --apply` failed with `duplicate key value violates unique constraint "store_locations_store_address_city_unique_idx"`. Nothing was written. OpenStreetMap lists some shops twice, as a point and as the building (e.g. Albert Plzeňská 263, Horažďovice: `node/14211627833` and `way/142288943`). The import plan only knew the `(source, external_id)` key, so it inserted both.
 - **Fix:** `planStoreSync` (`lib/stores/sync.ts`) now respects the database rule of one branch per chain and address, normalized like the index:

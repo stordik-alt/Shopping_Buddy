@@ -7,7 +7,9 @@ import {
   hitUnitPrice,
   likePattern,
   normalizeSearchText,
+  DIRECT_BONUS,
   isDirectMatch,
+  matchText,
   scoreMatch,
   searchStem,
   wordRelation,
@@ -304,5 +306,56 @@ describe('groupHitsByChain', () => {
     const copy = hits.map((entry) => ({ ...entry }))
     groupHitsByChain(hits, 1)
     expect(hits).toEqual(copy)
+  })
+})
+
+// Regression 2026-09-26: the plan offered "Sedita Horalky arašídové máslo" for "Máslo" at Rohlík.cz
+// (every "… máslo" ranked the same, so the cheapest won) and "Proteinový rohlík" for "Rohlík" at
+// Albert, whose plain roll is listed as "ROHLÍK43GR". Names below are real catalog names, normalized.
+describe('the plain product ranks first', () => {
+  const ranked = (names: string[], query: string) =>
+    [...names].sort((a, b) => scoreMatch(b, searchTokens(query)) - scoreMatch(a, searchTokens(query)))
+
+  it('puts butter above a brand-named butter above a peanut-butter wafer', () => {
+    const plain = scoreMatch('maslo', ['maslo'])
+    const brand = scoreMatch('miil maslo 82%', ['maslo'])
+    const wafer = scoreMatch('sedita horalky arasidove maslo', ['maslo'])
+    const bar = scoreMatch('oshee wholenut tycinka arasidove maslo', ['maslo'])
+    expect(plain).toBeGreaterThan(brand)
+    expect(brand).toBeGreaterThan(wafer)
+    expect(wafer).toBeGreaterThan(bar)
+    expect(bar).toBeGreaterThan(DIRECT_BONUS) // still the item's word, still findable by a search
+  })
+
+  it('does not rank a described roll below one with a flavour in front', () => {
+    expect(ranked(['proteinovy rohlik 60 g', 'rohlik jemny tukovy'], 'rohlík')[0]).toBe('rohlik jemny tukovy')
+    // Descriptions after the word do not count, so these tie and the price decides.
+    expect(scoreMatch('rohlik pivec', ['rohlik'])).toBe(scoreMatch('rohlik jemny tukovy', ['rohlik']))
+  })
+
+  it('does not count a size, a unit or a strength as a word in front', () => {
+    expect(scoreMatch('250 g maslo', ['maslo'])).toBe(DIRECT_BONUS + 5) // the word's own points, no penalty
+  })
+})
+
+describe('matchText', () => {
+  it('finds a word with a size glued to it', () => {
+    expect(matchText('rohlik43gr')).toBe('rohlik 43gr')
+    expect(isDirectMatch('rohlik43gr', ['rohlik'])).toBe(true)
+    expect(scoreMatch('rohlik43gr', ['rohlik'])).toBeGreaterThan(scoreMatch('proteinovy rohlik 60 g', ['rohlik']))
+  })
+
+  it('leaves vitamin and product codes alone', () => {
+    expect(matchText('vitamin b12')).toBe('vitamin b12')
+    expect(matchText('omega3 kapsle')).toBe('omega3 kapsle')
+  })
+
+  it('does not read the "s" of an apostrophe as a linking word', () => {
+    expect(isDirectMatch("nature's promise bio maslo 82% 125 g", ['maslo'])).toBe(true)
+  })
+
+  it('does not take a web-address brand for the product', () => {
+    expect(scoreMatch('rohlik.cz slanina', ['rohlik'])).toBe(0)
+    expect(scoreMatch('rohlik jemny tukovy', ['rohlik'])).toBeGreaterThan(DIRECT_BONUS)
   })
 })

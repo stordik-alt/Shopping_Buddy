@@ -15,6 +15,7 @@ async function main() {
   console.log(`Found ${report.found} branches with a usable address:`)
   for (const [chain, count] of Object.entries(report.perChain).sort((a, b) => b[1] - a[1])) console.log(`  ${chain.padEnd(10)} ${count}`)
   console.log(`New ${report.inserted}, updated ${report.updated}, existing branches adopted ${report.adopted}, unchanged ${report.unchanged}`)
+  if (report.skipped > 0) console.log(`Skipped ${report.skipped}: another branch of the same chain already has that address (the map lists the shop twice)`)
   console.log(`Rejected: ${report.rejected['no-address']} without an address in the map, ${report.rejected['outside-cz']} outside Czechia; chain not in the app: ${report.unknownChain}`)
   console.log(`Imported earlier but no longer on the map (kept): ${report.notSeen}`)
   if (report.failedChains.length > 0) console.log(`Map servers did not answer for: ${report.failedChains.join(', ')} — those branches were left as they are; run again later.`)

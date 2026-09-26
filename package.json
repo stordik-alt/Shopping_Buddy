@@ -17,6 +17,7 @@
     "db:backfill-prices": "dotenv -e .env.local -- tsx scripts/backfill-prices.ts",
     "db:import-stores": "dotenv -e .env.local -- tsx scripts/import-stores.ts",
     "db:albert-flyers": "dotenv -e .env.local -- tsx scripts/albert-flyers.ts",
+    "db:remove-albert-misread": "dotenv -e .env.local -- tsx scripts/remove-albert-misread-products.ts",
     "db:migrate-blob-to-r2": "dotenv -e .env.local -- tsx scripts/migrate-vercel-blob-to-r2.ts",
     "gcp:oidc-key": "tsx scripts/generate-gcp-oidc-key.ts",
     "push:vapid-keys": "tsx scripts/generate-vapid-keys.ts",

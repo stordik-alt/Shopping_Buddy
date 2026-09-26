@@ -117,6 +117,19 @@ function nameWords(searchName: string): string[] {
   return searchName.split(/[^a-z0-9%]+/).filter(Boolean)
 }
 
+/** A normalized name the way matching reads it. Three things in catalog names would otherwise
+ *  mislead the word rules below:
+ *  - an apostrophe splits nothing: "nature's promise" is not "nature" + the linking word "s";
+ *  - a web-address brand ("Rohlik.cz Slanina") names the seller, not the product;
+ *  - a size glued to a word ("ROHLÍK43GR") is split off it, so the word is found whole. Only a
+ *    size with a unit after a real word — "b12" or "omega3" stay as they are. */
+export function matchText(searchName: string): string {
+  return searchName
+    .replace(/['’]/g, '')
+    .replace(/\b[a-z0-9-]+\.(?:cz|sk|com|eu)\b/g, ' ')
+    .replace(/([a-z]{3,})(\d+(?:[.,]\d+)?(?:g|gr|kg|ml|l|ks)\b)/g, '$1 $2')
+}
+
 /** A token with punctuation inside ("coca-cola", "1,5%", "a_b") spans several name words, so it is
  *  matched against the whole name as a phrase instead of word by word. */
 const isPhrase = (token: string) => /[^a-z0-9%]/.test(token)
@@ -135,7 +148,8 @@ function phrasePoints(text: string, token: string): number {
  *  product in "Vejce M 10 ks" and "Čerstvá vejce", but only an ingredient in "Polévka s vejcem", and
  *  "banán" is not "Banánové chipsy". A word at the very start never counts as linking. `searchName`
  *  is the normalized name; tokens are normalized search tokens. */
-export function isDirectMatch(searchName: string, tokens: string[]): boolean {
+export function isDirectMatch(name: string, tokens: string[]): boolean {
+  const searchName = matchText(name)
   // Everything before the first linking word (not counting the very first word) names the product.
   const link = [...searchName.matchAll(/[a-z0-9%]+/g)].find((match, index) => index > 0 && LINK_WORDS.has(match[0]))
   const head = link ? searchName.slice(0, link.index) : searchName
@@ -161,13 +175,40 @@ export function scoreMatch(searchName: string, tokens: string[], optionalTokens:
   if (score === 0) return 0
   // Direct matches score from 100 up, so ranking by score always puts them first; a mention keeps a
   // small positive score so the user can still find it by searching.
-  return isDirectMatch(searchName, tokens) ? score + DIRECT_BONUS : Math.max(1, Math.min(score, DIRECT_BONUS - 1))
+  if (!isDirectMatch(searchName, tokens)) return Math.max(1, Math.min(score, DIRECT_BONUS - 1))
+  return Math.max(1, score - leadingWords(searchName, tokens)) + DIRECT_BONUS
+}
+
+/** Longest run of leading words that still lowers a direct match's rank. */
+const MAX_LEADING_PENALTY = 4
+
+/** Units written apart from their number ("250 g"): part of a size, not a word. */
+const UNIT_WORDS = new Set(['g', 'gr', 'kg', 'ml', 'l', 'ks'])
+
+/** How many words come before the item's own word in a name that *is* the item — among direct
+ *  matches, the plainer product ranks higher. Czech catalog names put what the product is first and
+ *  describe it after ("Rohlík jemný tukový", "Máslo 82%"), while words in front either name the brand
+ *  ("Miil Máslo") or turn it into a different product ("Proteinový rohlík", "Sedita Horalky arašídové
+ *  máslo"). So for "máslo" the plain butter ranks above a brand's, and both above the peanut-butter
+ *  wafer; equal ranks are then decided by price (`pickAutoHit`). Sizes and strengths do not count. */
+function leadingWords(searchName: string, tokens: string[]): number {
+  const words = nameWords(matchText(searchName))
+  const itemWords = tokens.filter((token) => !isPhrase(token) && !/\d/.test(token))
+  const at = words.findIndex((word) =>
+    itemWords.some((token) => {
+      const relation = wordRelationWithSynonyms(word, token)
+      return relation === 'exact' || relation === 'form'
+    }),
+  )
+  if (at <= 0) return 0
+  return Math.min(MAX_LEADING_PENALTY, words.slice(0, at).filter((word) => !/\d/.test(word) && !UNIT_WORDS.has(word)).length)
 }
 
 /** Added to the score of a direct match; above any score a mention can reach. */
 export const DIRECT_BONUS = 100
 
-function rawScore(searchName: string, tokens: string[], optionalTokens: string[]): number {
+function rawScore(name: string, tokens: string[], optionalTokens: string[]): number {
+  const searchName = matchText(name)
   const words = nameWords(searchName)
   let score = 0
   // A size or strength the name also states is a better match ("1l" found in "Mléko 1l").

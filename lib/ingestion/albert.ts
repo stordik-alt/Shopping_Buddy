@@ -147,6 +147,7 @@ Rules — follow these exactly:
 - The smaller price with a slash ("29,90/") next to a discount ("-33 %") is the previous price of the same offer.
 - Copy the package size and the unit price text exactly as printed; do not convert them.
 - An offer that is only an illustration, a recipe, a competition, a coupon or a service is not a product offer — leave it out.
+- The name is the product's own name, never a slogan, banner or claim printed on or next to it (e.g. "MÁSLO + FERMENTOVANÉ PODMÁSLÍ" on a pastry is a claim; the product is the pastry).
 - A page with no product offers (a cover with only a logo, an information page) gives an empty list.
 
 The page's text layer follows (the same page in reading order; use it for exact spelling and numbers, but pair names and prices by the image):
@@ -391,6 +392,15 @@ const MAX_PRICE = 100_000
 
 export type AlbertValidation = { product: NormalizedProduct } | { rejected: string }
 
+/** Why a name the model read cannot be a product's name, or null. A name that joins words with
+ *  " + " is a claim printed on the pack (what it is made with), not its name: on 2026-09-26 the
+ *  "Mistrovská máslová makovka 70 g" was stored as "MÁSLO + JIHOČESKÉ FERMENTOVANÉ PODMÁSLÍ" and the
+ *  shopping plan offered it for butter. A real name with " + " would be a bundle of two products,
+ *  which one price cannot describe either. A "+" inside a brand ("Absorb+") is not a join. Pure. */
+export function albertNameProblem(name: string): string | null {
+  return /\s\+\s/.test(name) ? `name joins two things: ${name.trim()}` : null
+}
+
 /** One offer read by the model → a validated product with its dated deal, or why it was rejected (CLAUDE.md
  *  section 33). The model only reads; this decides, and rejects rather than guesses:
  *  - a condition not every household meets (Albert app price, multi-buy, "od" price, other) or a
@@ -410,6 +420,8 @@ export function validateAlbertOffer(raw: AlbertRawOffer, today: string): AlbertV
   const { offer } = raw
   const name = offer.name.trim()
   if (!name) return reject('no name')
+  const nameProblem = albertNameProblem(name)
+  if (nameProblem) return reject(nameProblem)
   if (offer.condition !== 'none') return reject(`condition: ${offer.condition}`)
   if ((offer.ownValidity ?? '').trim()) return reject(`own validity: ${offer.ownValidity}`)
   if (!offer.category || !IMPORTED_CATEGORIES.has(offer.category)) return reject(`category: ${offer.category ?? 'none'}`)

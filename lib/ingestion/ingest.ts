@@ -11,6 +11,7 @@ import {
   upsertActiveDeal,
 } from '@/lib/db/queries'
 import { albertHypermarketConnector, albertSupermarketConnector, mergeIngestResults } from '@/lib/ingestion/albert'
+import { pennyFlyerConnector } from '@/lib/ingestion/penny-flyer'
 import { billaConnector } from '@/lib/ingestion/billa'
 import { dmConnector } from '@/lib/ingestion/dm'
 import { globusConnector } from '@/lib/ingestion/globus'
@@ -224,6 +225,9 @@ export const PRICE_SOURCES: PriceSource[] = [
     run: async (limit, options) =>
       mergeIngestResults(await ingestPrices(albertSupermarketConnector, limit, options), await ingestPrices(albertHypermarketConnector, limit, options)),
   },
+  // Penny's weekly flyer (~400 offers), read the same way (lib/ingestion/penny-flyer.ts). Two runs a
+  // day: the first reads the pages it can in its time budget, the second the rest.
+  { source: pennyFlyerConnector.source, parts: 1, run: (limit, options) => ingestPrices(pennyFlyerConnector, limit, options) },
 ]
 
 // No batch cap of its own: a run's size is set by its part (and stopped by the time budget).

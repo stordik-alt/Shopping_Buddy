@@ -23,6 +23,8 @@
     { "path": "/api/cron/ingest-prices/globus", "schedule": "0 6 * * *" },
     { "path": "/api/cron/ingest-prices/albert", "schedule": "20 6 * * *" },
     { "path": "/api/cron/ingest-prices/albert/2", "schedule": "20 12 * * *" },
-    { "path": "/api/cron/ingest-prices/albert/3", "schedule": "20 18 * * *" }
+    { "path": "/api/cron/ingest-prices/albert/3", "schedule": "20 18 * * *" },
+    { "path": "/api/cron/ingest-prices/penny_flyer", "schedule": "0 7 * * *" },
+    { "path": "/api/cron/ingest-prices/penny_flyer/2", "schedule": "0 13 * * *" }
   ]
 }

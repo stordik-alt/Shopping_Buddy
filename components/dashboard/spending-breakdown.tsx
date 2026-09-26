@@ -1,14 +1,20 @@
 import { categoryBreakdown } from '@/lib/budget'
+import type { ExpenseCategory } from '@/lib/expense-categories'
 import type { Expense } from '@/lib/types'
 
 // One chart token per category so the same category is the same colour on the dashboard and in
 // the Rozpočet tab (budget-overview.tsx reads the same map).
-export const CATEGORY_BAR_COLORS: Record<string, string> = {
+export const CATEGORY_BAR_COLORS: Record<ExpenseCategory, string> = {
   Potraviny: 'bg-chart-1',
   Drogerie: 'bg-chart-4',
   Děti: 'bg-chart-3',
   Domácnost: 'bg-chart-2',
   Ostatní: 'bg-chart-5',
+  Bydlení: 'bg-chart-6',
+  Auto: 'bg-chart-7',
+  'Oblečení a obuv': 'bg-chart-8',
+  Zdraví: 'bg-chart-9',
+  'Volný čas': 'bg-chart-10',
 }
 
 /** This month's real spending per category, straight from the household's expenses (replaces the

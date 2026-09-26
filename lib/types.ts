@@ -1,3 +1,5 @@
+import type { ExpenseCategory } from '@/lib/expense-categories'
+
 export type Tab = 'Domů' | 'Nákup' | 'Zásoby' | 'Obchody' | 'Rozpočet' | 'AI' | 'Profil'
 
 export type ItemCategory = 'Potraviny' | 'Drogerie' | 'Děti' | 'Domácnost' | 'Ostatní'
@@ -31,7 +33,9 @@ export type Expense = {
   id: string
   amount: number
   note: string
-  category: ItemCategory
+  category: ExpenseCategory
+  /** One of the category's subcategories (lib/expense-categories.ts), or null. */
+  subcategory: string | null
   date: string
 }
 

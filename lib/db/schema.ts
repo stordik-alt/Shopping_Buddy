@@ -1,5 +1,6 @@
 import { relations, sql } from 'drizzle-orm'
 import { boolean, check, date, foreignKey, index, integer, jsonb, numeric, pgEnum, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
+import { EXPENSE_CATEGORY_NAMES } from '@/lib/expense-categories'
 import { SEARCH_ACCENTED, SEARCH_PLAIN } from '@/lib/product-search'
 
 // --- Enums -----------------------------------------------------------------
@@ -8,6 +9,8 @@ export const memberRoleEnum = pgEnum('member_role', ['owner', 'member'])
 export const priceSensitivityEnum = pgEnum('price_sensitivity', ['cheapest', 'balanced', 'quality_first'])
 export const qualityPreferenceEnum = pgEnum('quality_preference', ['standard', 'premium'])
 export const itemCategoryEnum = pgEnum('item_category', ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní'])
+// What an expense was for (lib/expense-categories.ts) — a wider list than the item categories above.
+export const expenseCategoryEnum = pgEnum('expense_category', EXPENSE_CATEGORY_NAMES)
 export const itemUnitEnum = pgEnum('item_unit', ['ks', 'kg', 'g', 'l', 'ml'])
 export const itemPriorityEnum = pgEnum('item_priority', ['Nízká', 'Normální', 'Vysoká'])
 export const invitationStatusEnum = pgEnum('invitation_status', ['pending', 'accepted', 'revoked'])
@@ -552,10 +555,15 @@ export const expenses = pgTable('expenses', {
   householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
   amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
   note: text('note').notNull().default(''),
-  category: itemCategoryEnum('category').notNull().default('Ostatní'),
+  category: expenseCategoryEnum('category').notNull().default('Ostatní'),
+  // Optional, one of the category's subcategories (lib/expense-categories.ts); checked by the server.
+  subcategory: text('subcategory'),
   date: date('date').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
-})
+}, (table) => [
+  // The overview reads a household's expenses by date.
+  index('expenses_household_date_idx').on(table.householdId, table.date),
+])
 
 // --- Meal plans & notifications ------------------------------------------------
 

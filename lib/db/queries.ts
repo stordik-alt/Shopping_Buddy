@@ -372,6 +372,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
         amount: Number(expense.amount),
         note: expense.note,
         category: expense.category,
+        subcategory: expense.subcategory,
         date: expense.date,
       }),
     ),

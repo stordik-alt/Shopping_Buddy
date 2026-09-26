@@ -16,6 +16,7 @@ export function AppHeader({
   unreadCount,
   onSelectTab,
   userName,
+  isAdmin,
 }: {
   title: string
   mobileTitle: string
@@ -27,6 +28,7 @@ export function AppHeader({
   unreadCount: number
   onSelectTab: (tab: Tab) => void
   userName: string
+  isAdmin: boolean
 }) {
   const router = useRouter()
 
@@ -70,7 +72,7 @@ export function AppHeader({
             </span>
           )}
         </button>
-        <AccountMenu userName={userName} dark={dark} onToggleDark={onToggleDark} onSelectTab={onSelectTab} onSignOut={signOut} />
+        <AccountMenu userName={userName} isAdmin={isAdmin} dark={dark} onToggleDark={onToggleDark} onSelectTab={onSelectTab} onSignOut={signOut} />
       </div>
     </header>
   )

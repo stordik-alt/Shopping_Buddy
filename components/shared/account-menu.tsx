@@ -1,4 +1,5 @@
-import { Bot, Lightbulb, LogOut, Moon, Smartphone, Sun, Users } from 'lucide-react'
+import Link from 'next/link'
+import { Bot, Lightbulb, ListChecks, LogOut, Moon, Smartphone, Sun, Users } from 'lucide-react'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { IdeasDialog } from '@/components/shared/ideas-dialog'
 import { InstallAppDialog } from '@/components/shared/install-app-dialog'
@@ -18,12 +19,14 @@ function initialsFor(name: string) {
  *  click outside, and hands focus back to the button on Escape. */
 export function AccountMenu({
   userName,
+  isAdmin,
   dark,
   onToggleDark,
   onSelectTab,
   onSignOut,
 }: {
   userName: string
+  isAdmin: boolean
   dark: boolean
   onToggleDark: () => void
   onSelectTab: (tab: Tab) => void
@@ -109,6 +112,11 @@ export function AccountMenu({
           <button role="menuitem" className={itemClass} onClick={run(() => setIdeasOpen(true))}>
             <Lightbulb className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> Nápady pro zlepšení
           </button>
+          {isAdmin && (
+            <Link role="menuitem" href="/admin/ideas" className={itemClass} onClick={() => setOpen(false)}>
+              <ListChecks className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> Správa nápadů
+            </Link>
+          )}
           <button role="menuitem" className={itemClass} onClick={run(onToggleDark)}>
             {dark ? <Sun className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> : <Moon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
             {dark ? 'Světlý motiv' : 'Tmavý motiv'}

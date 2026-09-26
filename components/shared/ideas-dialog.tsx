@@ -2,28 +2,16 @@
 
 import { Lightbulb, Loader2, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { listIdeasAction, submitIdeaAction } from '@/app/actions/ideas'
-import { IDEA_DETAILS_MAX, IDEA_STATUS_LABEL, IDEA_TITLE_MAX, validateIdeaInput, type Idea, type IdeaStatus } from '@/lib/ideas'
+import { listIdeasAction } from '@/app/actions/ideas'
+import { IdeaForm } from '@/components/shared/idea-form'
+import { IdeaStatusBadge } from '@/components/shared/idea-status-badge'
+import { ideaDayLabel, type Idea } from '@/lib/ideas'
 
 // "Nápady pro zlepšení": a form for ideas on how to improve the app and the list of the household's
 // earlier ideas with their status, so the owner can go through them one by one. A native <dialog>
 // opened with showModal() keeps focus inside and closes on Escape by itself (like InstallAppDialog).
-
-const STATUS_STYLE: Record<IdeaStatus, string> = {
-  new: 'bg-muted text-muted-foreground',
-  planned: 'bg-primary/15 text-primary',
-  done: 'bg-success/15 text-success',
-  declined: 'bg-destructive/10 text-destructive',
-}
-
-const dayLabel = (iso: string) => new Date(iso).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric' })
-
 export function IdeasDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const dialogRef = useRef<HTMLDialogElement>(null)
-  const [title, setTitle] = useState('')
-  const [details, setDetails] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
   const [ideas, setIdeas] = useState<Idea[] | null>(null)
   const [listError, setListError] = useState(false)
   const [attempt, setAttempt] = useState(0)
@@ -53,29 +41,6 @@ export function IdeasDialog({ open, onClose }: { open: boolean; onClose: () => v
     }
   }, [open, attempt])
 
-  async function submit(event: React.FormEvent) {
-    event.preventDefault()
-    // The server checks the same rules; checking here only saves a round trip.
-    const checked = validateIdeaInput({ title, details })
-    if (!checked.ok) {
-      setError(checked.error)
-      return
-    }
-    setSaving(true)
-    setError(null)
-    try {
-      const saved = await submitIdeaAction({ title, details })
-      setIdeas((current) => [saved, ...(current ?? [])])
-      setTitle('')
-      setDetails('')
-    } catch (err) {
-      console.error('Saving idea failed', err)
-      setError(err instanceof Error && err.message ? err.message : 'Nápad se nepodařilo uložit. Zkuste to prosím znovu.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
   return (
     <dialog
       ref={dialogRef}
@@ -103,41 +68,9 @@ export function IdeasDialog({ open, onClose }: { open: boolean; onClose: () => v
           </button>
         </div>
 
-        <form onSubmit={submit} className="mt-4 space-y-3">
-          <label className="block text-sm font-medium">
-            Nápad
-            <input
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              maxLength={IDEA_TITLE_MAX}
-              placeholder="Např. Sdílet nákupní seznam odkazem"
-              className="mt-1 w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm font-normal outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            />
-          </label>
-          <label className="block text-sm font-medium">
-            Podrobnosti <span className="font-normal text-muted-foreground">(nepovinné)</span>
-            <textarea
-              value={details}
-              onChange={(event) => setDetails(event.target.value)}
-              maxLength={IDEA_DETAILS_MAX}
-              rows={4}
-              placeholder="Kdy by se to hodilo a jak by to mělo fungovat?"
-              className="mt-1 w-full resize-y rounded-xl border border-border bg-card px-3 py-2.5 text-sm font-normal outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            />
-          </label>
-          {error && (
-            <p role="alert" className="text-sm text-destructive">
-              {error}
-            </p>
-          )}
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-60"
-          >
-            {saving && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />} Odeslat nápad
-          </button>
-        </form>
+        <div className="mt-4">
+          <IdeaForm onSaved={(saved) => setIdeas((current) => [saved, ...(current ?? [])])} />
+        </div>
 
         <section className="mt-5" aria-label="Vaše nápady">
           <h3 className="text-sm font-semibold">Vaše nápady</h3>
@@ -161,12 +94,12 @@ export function IdeasDialog({ open, onClose }: { open: boolean; onClose: () => v
                 <li key={idea.id} className="rounded-2xl bg-muted p-3">
                   <div className="flex items-start justify-between gap-2">
                     <p className="min-w-0 break-words text-sm font-medium">{idea.title}</p>
-                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATUS_STYLE[idea.status]}`}>{IDEA_STATUS_LABEL[idea.status]}</span>
+                    <IdeaStatusBadge status={idea.status} />
                   </div>
                   {idea.details && <p className="mt-1 whitespace-pre-wrap break-words text-xs text-muted-foreground">{idea.details}</p>}
                   <p className="mt-1.5 text-[11px] text-muted-foreground">
                     {idea.authorName ? `${idea.authorName} · ` : ''}
-                    {dayLabel(idea.createdAt)}
+                    {ideaDayLabel(idea.createdAt)}
                   </p>
                 </li>
               ))}

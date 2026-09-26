@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
-import { ChevronDown, ChevronLeft, ChevronRight, Plus, Receipt } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Gauge, Plus, Receipt } from 'lucide-react'
 import { CATEGORY_BAR_COLORS } from '@/components/dashboard/spending-breakdown'
-import { expenseMonth, expenseMonths, monthSummary } from '@/lib/budget'
+import { categoryRows, expenseMonth, expenseMonths, monthSummary } from '@/lib/budget'
 import { money, monthLabel, recordCountLabel, shortDate } from '@/lib/format'
-import type { Expense } from '@/lib/types'
+import type { CategoryBudgets, Expense } from '@/lib/types'
 
 type View = 'categories' | 'dates'
 
@@ -13,20 +13,26 @@ type View = 'categories' | 'dates'
 export function ExpenseLedger({
   expenses,
   today,
+  limits,
   onAdd,
   onEdit,
+  onLimits,
 }: {
   expenses: Expense[]
   /** The real date (`YYYY-MM-DD`); the overview opens on its month. */
   today: string
+  /** Monthly limits per category (each month is measured against them). */
+  limits: CategoryBudgets
   onAdd: () => void
   onEdit: (expense: Expense) => void
+  onLimits: () => void
 }) {
   const months = useMemo(() => expenseMonths(expenses, today), [expenses, today])
   const [month, setMonth] = useState(expenseMonth(today))
   const [view, setView] = useState<View>('categories')
   const [open, setOpen] = useState<string | null>(null)
   const summary = useMemo(() => monthSummary(expenses, month), [expenses, month])
+  const rows = useMemo(() => categoryRows(summary, limits), [summary, limits])
   const index = months.indexOf(month)
   const byDate = useMemo(() => summary.categories.flatMap((entry) => entry.expenses).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)), [summary])
 
@@ -43,9 +49,14 @@ export function ExpenseLedger({
           <p className="text-sm font-semibold">Výdaje</p>
           <p className="mt-1 text-sm text-muted-foreground">Kdy a za co domácnost platila.</p>
         </div>
-        <button onClick={onAdd} className="flex min-h-10 items-center gap-1.5 rounded-xl bg-primary/10 px-3 text-sm font-medium text-primary hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <Plus className="h-4 w-4" aria-hidden="true" /> Přidat
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={onLimits} className="flex min-h-10 items-center gap-1.5 rounded-xl bg-muted px-3 text-sm font-medium hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <Gauge className="h-4 w-4" aria-hidden="true" /> Limity
+          </button>
+          <button onClick={onAdd} className="flex min-h-10 items-center gap-1.5 rounded-xl bg-primary/10 px-3 text-sm font-medium text-primary hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <Plus className="h-4 w-4" aria-hidden="true" /> Přidat
+          </button>
+        </div>
       </div>
 
       <div className="mt-5 flex items-center justify-between gap-2">
@@ -75,7 +86,7 @@ export function ExpenseLedger({
         <p className="text-xs text-muted-foreground">{recordCountLabel(byDate.length)}</p>
       </div>
 
-      {summary.categories.length === 0 ? (
+      {rows.length === 0 ? (
         <div className="mt-5 rounded-2xl bg-muted px-4 py-6 text-center text-sm text-muted-foreground">
           <p>V tomto měsíci zatím žádné výdaje.</p>
           <button onClick={onAdd} className="mt-3 min-h-10 rounded-xl px-3 font-medium text-primary hover:bg-primary/10">
@@ -105,9 +116,11 @@ export function ExpenseLedger({
 
           {view === 'categories' ? (
             <div className="mt-4 space-y-2">
-              {summary.categories.map((entry) => {
+              {rows.map((entry) => {
                 const expanded = open === entry.category
-                const share = summary.total > 0 ? (entry.total / summary.total) * 100 : 0
+                // With a limit the bar shows how much of it is used; without one, the category's share
+                // of the month.
+                const share = entry.limit != null ? Math.min(100, (entry.total / entry.limit) * 100) : summary.total > 0 ? (entry.total / summary.total) * 100 : 0
                 return (
                   <div key={entry.category} className="rounded-2xl bg-muted">
                     <button
@@ -119,12 +132,20 @@ export function ExpenseLedger({
                         <span className="min-w-0 break-words font-medium">{entry.category}</span>
                         <span className="flex shrink-0 items-center gap-1 font-semibold">
                           {money(entry.total)}
+                          {entry.limit != null && <span className="font-normal text-muted-foreground">z {money(entry.limit)}</span>}
                           <ChevronDown className={`h-4 w-4 transition ${expanded ? 'rotate-180' : ''}`} aria-hidden="true" />
                         </span>
                       </span>
                       <span className="mt-2 block h-2 overflow-hidden rounded-full bg-background">
-                        <span className={`block h-full rounded-full ${CATEGORY_BAR_COLORS[entry.category]}`} style={{ width: `${share}%` }} />
+                        <span className={`block h-full rounded-full ${entry.level === 'over' ? 'bg-destructive' : CATEGORY_BAR_COLORS[entry.category]}`} style={{ width: `${share}%` }} />
                       </span>
+                      {/* The warning in words and an icon, never colour alone. */}
+                      {entry.limit != null && entry.level !== 'ok' && (
+                        <span className={`mt-2 flex items-center gap-1 text-xs font-medium ${entry.level === 'over' ? 'text-destructive' : 'text-foreground'}`}>
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                          {entry.level === 'over' ? `Limit překročen o ${money(entry.total - entry.limit)}` : 'Přes 80 % limitu'}
+                        </span>
+                      )}
                       <span className="mt-2 flex flex-wrap gap-1.5 text-xs text-muted-foreground">
                         {entry.subcategories.map((sub) => (
                           <span key={sub.subcategory ?? '-'} className="rounded-full bg-background px-2 py-0.5 break-words">
@@ -133,7 +154,12 @@ export function ExpenseLedger({
                         ))}
                       </span>
                     </button>
-                    {expanded && <PaymentList expenses={entry.expenses} onEdit={onEdit} />}
+                    {expanded &&
+                      (entry.expenses.length > 0 ? (
+                        <PaymentList expenses={entry.expenses} onEdit={onEdit} />
+                      ) : (
+                        <p className="px-4 pb-3 text-sm text-muted-foreground">V tomto měsíci zatím nic.</p>
+                      ))}
                   </div>
                 )
               })}

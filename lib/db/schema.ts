@@ -570,6 +570,19 @@ export const expenses = pgTable('expenses', {
   uniqueIndex('expenses_purchase_category_unique').on(table.purchaseId, table.category).where(sql`${table.purchaseId} IS NOT NULL`),
 ])
 
+// A household's monthly limit for one expense category ("Potraviny: 8 000 Kč"), next to the overall
+// monthly budget on households. Optional: a category without a row has no limit. Crossing 80 % or
+// 100 % of it notifies the household once, like the overall budget (lib/db/budget-notify.ts).
+export const expenseCategoryBudgets = pgTable('expense_category_budgets', {
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  category: expenseCategoryEnum('category').notNull(),
+  amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  primaryKey({ columns: [table.householdId, table.category] }),
+  check('expense_category_budgets_amount_positive', sql`${table.amount} > 0`),
+])
+
 // --- Meal plans & notifications ------------------------------------------------
 
 export const mealPlans = pgTable('meal_plans', {

@@ -41,6 +41,9 @@ export type Expense = {
   purchaseId: string | null
 }
 
+/** A household's monthly limit per expense category; a category without one has no limit. */
+export type CategoryBudgets = Partial<Record<ExpenseCategory, number>>
+
 export type HouseholdMember = {
   id: string
   name: string

@@ -724,7 +724,12 @@ Recent work added notification behavior when spending crosses configured thresho
 - **Budget:** such a purchase sends the same 80 %/100 % notification as a typed-in expense (`lib/db/budget-notify.ts`, now shared by both).
 - **Editing:** a receipt's expense is corrected with its purchase, not by hand. `updateExpenseAction`/`deleteExpenseAction` refuse it, and the expense dialog shows it read-only; the overview marks it "z účtenky".
 - **Owner's choices:** only receipts count, never the estimated prices of a finished shopping list, which could also double a trip later covered by its receipt. Purchases made before this change are not converted, since they may already have been typed in as expenses.
-- **Not yet (next parts of the plan):** category limits with their own 80 %/100 % notifications; recurring payments (rent, energy, insurance) confirmed on their due day.
+
+**Update 2026-09-26, category limits (migration `0037`; part 3).**
+- **Limits:** a household may set a monthly limit for any expense category (`expense_category_budgets`), next to the overall monthly budget. Any member can set it, as with the overall budget, through `setCategoryBudgetAction`, which is validated and scoped to the caller's household. Rozpočet → Výdaje → "Limity" edits all of them; an empty field removes a limit.
+- **Overview:** a limited category shows "utraceno z limitu". Its bar measures the limit, and past 80 % and 100 % a warning appears in words and with an icon (red past 100 %). A limited category is listed even in a month with nothing spent in it (`lib/budget.ts` `categoryRows`).
+- **Notifications:** crossing 80 % or 100 % of a category's limit notifies the household once ("Auto: 80 % limitu", "Auto: limit překročen"), whether by a typed-in expense or a receipt, alongside the overall budget's notification. `lib/db/budget-notify.ts` `notifyBudgetThresholds` reads the month's spending per category once and decides both. `addExpenseAction` now returns `notifications` (a list).
+- **Not yet (next part of the plan):** recurring payments (rent, energy, insurance) confirmed on their due day.
 
 ---
 

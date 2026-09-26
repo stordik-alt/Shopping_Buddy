@@ -96,6 +96,28 @@ export function monthSummary(expenses: Expense[], month: string): { total: numbe
   return { total: totalSpent(inMonth), categories }
 }
 
+export type CategoryRow = CategorySummary & {
+  /** The category's monthly limit, or null without one. */
+  limit: number | null
+  /** Spending against the limit (`ok` without one): the same 80 % / 100 % bands as the budget. */
+  level: BudgetLevel
+}
+
+/** A month's categories with their limits: every category with an expense, plus every category with
+ *  a limit even when nothing was spent in it yet (a limit is worth seeing at 0 Kč). Most spent first;
+ *  limited categories without spending last, in the fixed category order. */
+export function categoryRows(summary: { categories: CategorySummary[] }, limits: Partial<Record<ExpenseCategory, number>>): CategoryRow[] {
+  const withLimit = (entry: CategorySummary): CategoryRow => {
+    const limit = limits[entry.category] ?? null
+    return { ...entry, limit, level: limit == null ? 'ok' : budgetLevel(entry.total, limit) }
+  }
+  const spent = summary.categories.map(withLimit)
+  const unspent = EXPENSE_CATEGORY_NAMES.filter((category) => limits[category] != null && !summary.categories.some((entry) => entry.category === category)).map(
+    (category) => withLimit({ category, total: 0, subcategories: [], expenses: [] }),
+  )
+  return [...spent, ...unspent]
+}
+
 export function plannedSpend(items: Item[]) {
   return items.filter((item) => !item.done).reduce((sum, item) => sum + item.price * item.quantity, 0)
 }

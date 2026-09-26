@@ -17,6 +17,7 @@ import { normalizeSearchText } from '@/lib/product-search'
 import { isReceiptStalled } from '@/lib/receipt-progress'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import type {
+  CategoryBudgets,
   Child,
   Expense,
   Household,
@@ -91,6 +92,7 @@ export type HouseholdData = {
   shoppingLists: string[]
   items: Item[]
   expenses: Expense[]
+  categoryBudgets: CategoryBudgets
   notifications: Notification[]
   purchaseHistory: PurchaseRecord[]
   mealPlan: SavedMealPlan | null
@@ -259,7 +261,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
   // Expenses and purchases are sent for the last year (the budget screens compare months, the
   // purchase stats describe current habits); older records stay in the database.
   const historySince = new Date(Date.parse(`${todayInPrague()}T00:00:00Z`) - HISTORY_DAYS * 86_400_000).toISOString().slice(0, 10)
-  const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows, mealPlan, invitationRows, pantryRows, pendingReceiptImports] =
+  const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows, mealPlan, invitationRows, pantryRows, pendingReceiptImports, categoryBudgetRows] =
     await Promise.all([
       db.query.householdMembers.findMany({
         where: eq(schema.householdMembers.householdId, household.id),
@@ -294,6 +296,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
       }),
       db.query.pantryItems.findMany({ where: eq(schema.pantryItems.householdId, household.id), orderBy: asc(schema.pantryItems.addedAt) }),
       getPendingReceiptImports(household.id),
+      db.query.expenseCategoryBudgets.findMany({ where: eq(schema.expenseCategoryBudgets.householdId, household.id), columns: { category: true, amount: true } }),
     ])
 
   const myRawMember = members.find((member) => member.userId === userId)
@@ -366,6 +369,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
         onSale: item.onSale,
       }),
     ),
+    categoryBudgets: Object.fromEntries(categoryBudgetRows.map((row) => [row.category, Number(row.amount)])),
     expenses: expenseRows.map(
       (expense): Expense => ({
         id: expense.id,

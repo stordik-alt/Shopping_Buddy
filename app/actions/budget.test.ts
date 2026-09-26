@@ -15,7 +15,7 @@ vi.mock('@/lib/auth/authorize', () => ({
 }))
 vi.mock('next/cache', () => ({ revalidatePath: () => {} }))
 
-import { addExpenseAction, deleteExpenseAction, updateExpenseAction } from '@/app/actions/budget'
+import { addExpenseAction, deleteExpenseAction, setCategoryBudgetAction, updateExpenseAction } from '@/app/actions/budget'
 
 const db = getDb()
 const createdHouseholdIds: string[] = []
@@ -45,23 +45,23 @@ describe('addExpenseAction', () => {
   })
 
   it('does not notify while comfortably under the 80% threshold', async () => {
-    const { notification } = await addExpenseAction({ amount: 100, note: '', category: 'Potraviny', subcategory: null, date: '2026-09-21' })
-    expect(notification).toBeNull()
+    const { notifications } = await addExpenseAction({ amount: 100, note: '', category: 'Potraviny', subcategory: null, date: '2026-09-21' })
+    expect(notifications).toEqual([])
   })
 
   it('fires a "reached" notification exactly when spending crosses 80% of the real household budget', async () => {
     await addExpenseAction({ amount: 700, note: '', category: 'Potraviny', subcategory: null, date: '2026-09-21' }) // 70%, under threshold
-    const { notification } = await addExpenseAction({ amount: 150, note: '', category: 'Potraviny', subcategory: null, date: '2026-09-21' }) // 85%, crosses 80%
-    expect(notification?.title).toBe('Blížíte se limitu rozpočtu')
+    const { notifications } = await addExpenseAction({ amount: 150, note: '', category: 'Potraviny', subcategory: null, date: '2026-09-21' }) // 85%, crosses 80%
+    expect(notifications.map((entry) => entry.title)).toEqual(['Blížíte se limitu rozpočtu'])
   })
 
   it('fires an "exceeded" notification exactly when spending crosses 100%, and does not re-fire while already over', async () => {
     await addExpenseAction({ amount: 950, note: '', category: 'Potraviny', subcategory: null, date: '2026-09-21' }) // 95%
     const crossing = await addExpenseAction({ amount: 100, note: '', category: 'Potraviny', subcategory: null, date: '2026-09-21' }) // 105%, crosses 100%
-    expect(crossing.notification?.title).toBe('Rozpočet byl překročen')
+    expect(crossing.notifications.map((entry) => entry.title)).toEqual(['Rozpočet byl překročen'])
 
     const stillOver = await addExpenseAction({ amount: 50, note: '', category: 'Potraviny', subcategory: null, date: '2026-09-21' }) // 110%, already over
-    expect(stillOver.notification).toBeNull()
+    expect(stillOver.notifications).toEqual([])
   })
 
   it('counts only the month the expense falls in, so a new month starts from zero', async () => {
@@ -69,7 +69,7 @@ describe('addExpenseAction', () => {
     // September's first expense is 10% of September's budget, not 105% of "everything ever spent".
     // (Past months: an expense is money already paid, so a future date is refused.)
     const september = await addExpenseAction({ amount: 100, note: '', category: 'Potraviny', subcategory: null, date: '2026-09-01' })
-    expect(september.notification).toBeNull()
+    expect(september.notifications).toEqual([])
   })
 
   it('stores the new categories with their subcategory and the chosen date', async () => {
@@ -106,5 +106,44 @@ describe('updateExpenseAction and deleteExpenseAction', () => {
     await expect(deleteExpenseAction(expense.id)).rejects.toThrow('Výdaj nebyl nalezen.')
     const row = await db.query.expenses.findFirst({ where: eq(schema.expenses.id, expense.id) })
     expect(Number(row?.amount)).toBe(300)
+  })
+})
+
+describe('category limits', () => {
+  it('sets, changes and removes a category limit', async () => {
+    expect(await setCategoryBudgetAction('Auto', 5000)).toEqual({ Auto: 5000 })
+    expect(await setCategoryBudgetAction('Auto', 4500.555)).toEqual({ Auto: 4500.56 })
+    expect(await setCategoryBudgetAction('Bydlení', 15000)).toEqual({ Auto: 4500.56, Bydlení: 15000 })
+    expect(await setCategoryBudgetAction('Auto', null)).toEqual({ Bydlení: 15000 })
+  })
+
+  it('refuses an unknown category and an amount that is not positive', async () => {
+    await expect(setCategoryBudgetAction('Kasino', 100)).rejects.toThrow('Neznámá kategorie výdaje.')
+    await expect(setCategoryBudgetAction('Auto', 0)).rejects.toThrow('Limit musí být částka větší než 0.')
+    await expect(setCategoryBudgetAction('Auto', Number.NaN)).rejects.toThrow('Limit musí být částka větší než 0.')
+  })
+
+  it('notifies once when a category crosses 80 % and 100 % of its limit, in its own words', async () => {
+    await setCategoryBudgetAction('Auto', 500)
+    // The overall budget of this test household is 1000; the Auto limit 500 crosses first.
+    const first = await addExpenseAction({ amount: 300, note: '', category: 'Auto', subcategory: 'Palivo', date: '2026-09-10' })
+    expect(first.notifications).toEqual([])
+    const reached = await addExpenseAction({ amount: 110, note: '', category: 'Auto', subcategory: 'Palivo', date: '2026-09-11' }) // 410 = 82 % of 500
+    expect(reached.notifications.map((entry) => entry.title)).toEqual(['Auto: 80 % limitu'])
+    const over = await addExpenseAction({ amount: 100, note: '', category: 'Auto', subcategory: 'Servis a opravy', date: '2026-09-12' }) // 510
+    expect(over.notifications.map((entry) => entry.title)).toEqual(['Auto: limit překročen'])
+    // Another category takes the whole month past 80 % of the overall budget: only that one speaks.
+    const overall = await addExpenseAction({ amount: 300, note: '', category: 'Zdraví', subcategory: null, date: '2026-09-12' }) // 810 of 1000
+    expect(overall.notifications.map((entry) => entry.title)).toEqual(['Blížíte se limitu rozpočtu'])
+    const again = await addExpenseAction({ amount: 10, note: '', category: 'Auto', subcategory: null, date: '2026-09-13' })
+    expect(again.notifications).toEqual([])
+  })
+
+  it("never touches another household's limits", async () => {
+    await setCategoryBudgetAction('Zdraví', 700)
+    const [other] = await db.insert(schema.households).values({ name: '__test_household_budget_limits__' }).returning()
+    createdHouseholdIds.push(other.id)
+    currentHouseholdId = other.id
+    expect(await setCategoryBudgetAction('Auto', 100)).toEqual({ Auto: 100 })
   })
 })

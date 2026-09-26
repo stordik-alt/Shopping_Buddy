@@ -136,6 +136,8 @@ export type AlbertFormatReport = {
   unreadable: number
   moved: number
   alreadyMoved: number
+  /** Albert branches that are hypermarkets but stand where "Albert Hypermarket" already has a branch. */
+  blocked: number
   /** Hypermarkets no branch in the app matches, as "street, town". */
   unmatched: string[]
   applied: boolean
@@ -166,6 +168,7 @@ export async function syncAlbertStoreFormats(options: { apply: boolean; fetched?
     unreadable,
     moved: plan.move.length,
     alreadyMoved: plan.alreadyMoved,
+    blocked: plan.blocked.length,
     unmatched: plan.unmatched.map((store) => `${store.street}, ${store.town}`),
     applied: options.apply,
   }

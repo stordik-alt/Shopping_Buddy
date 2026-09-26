@@ -9,6 +9,8 @@
   - Everything still comes from the map. A shop with no street and number within 60 m is still rejected.
   - The nearest address point that names its town still wins over a closer one without it, so existing branches keep their addresses. Without this, the first dry run wanted to renumber 138 of them.
   - The import writes updates before inserts (`lib/db/store-directory.ts`). The plan lets a new branch take an address an update vacates, and in the old order the insert met the old row and the unique index failed the whole run (`--apply`, 2026-09-26).
+  - Albert and Albert Hypermarket count as one retailer when checking addresses (`lib/stores/sync.ts`). The map lists some shops twice; one copy was already a hypermarket and the other arrived as "Albert". Moving it to the hypermarkets then hit the unique index and failed the Albert step. `planAlbertFormats` also no longer moves a branch onto an address the hypermarket chain holds; it reports such branches as `blocked`.
+- **Applied to production 2026-09-26:** 1 803 branches with a usable address (e.g. all six in Polička), 14 moved to Albert Hypermarket and 1 blocked, no error.
 - **Result:** Polička live, all 6 branches with their addresses (e.g. "Penny Tyršova, Tyršova 1001, 572 01 Polička"). The nationwide dry run is in the PR.
 - **Tests:** `lib/stores/osm.test.ts` (Polička's real tags), `lib/stores/overpass.test.ts`.
 

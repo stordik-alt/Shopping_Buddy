@@ -26,6 +26,17 @@
 - **Next parts:** purchases counting as expenses, category limits, recurring payments.
 - **Tests:** `lib/expense-input.test.ts`; month summary in `lib/budget.test.ts`; `components/budget/expense-ledger.test.tsx`; DB-backed `app/actions/budget.test.ts` (subcategory and date stored, invalid input refused, correct/delete, another household's expense untouched). Migration applied to the test branch and re-run to prove it is repeatable.
 
+## 2026-09-26 (Migrations run automatically on production deploy)
+- **Why:** migration `0033_pantry_tracking` (PR #98) was found unapplied on production a day after its code went live. The code read `pantry_items.tracking`, a column that did not exist. It was applied on 2026-09-26 together with `0034`.
+- **What:**
+  - `pnpm build` runs `lib/db/migrate.ts --vercel-production` before `next build`. A Vercel production deployment applies its pending migrations before its code is live.
+  - Preview, CI, local and Cloudflare builds skip (`lib/db/migrate-guard.ts`).
+  - A Vercel build without `VERCEL_ENV` fails with an explanation instead of guessing.
+  - A failed migration fails the build, and the previous deployment keeps serving.
+  - A lease lock (`_migration_lock`, 10 minutes) keeps two deployments from applying the same file at once. The neon-http driver has no session for an advisory lock.
+  - CLAUDE.md §7 now requires migrations to be backward compatible with the running code: add now, rename or drop later.
+- **Tests:** `lib/db/migrate-guard.test.ts`. Checked by hand: local and CI builds skip, a preview skips, a build without `VERCEL_ENV` stops, and two production runs at once against the test branch wait for each other and leave no lock behind.
+
 ## 2026-09-26 (Penny flyer offers)
 - **Why:** penny.cz's web shop has ~40 offers a week; the printed flyer has ~400.
 - **What:**

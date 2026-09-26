@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { ArrowUpRight, Check, ChevronDown, Info, Package, Plus, Tag, TrendingDown } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ArrowUpRight, Check, ChevronDown, Info, Package, Plus, Tag, TrendingDown, X } from 'lucide-react'
 import { countLabel, money, shortDate } from '@/lib/format'
 import { offerUnitPriceLabel, shortOfferDate, type StandaloneOffer } from '@/lib/offers'
 import { pantryQuantityFor } from '@/lib/pantry'
@@ -18,6 +18,8 @@ export function PriceWatch({
   productPrices,
   offers,
   pantryItems,
+  chainFilter = null,
+  onClearChainFilter,
 }: {
   /** The real date (`YYYY-MM-DD`) — decides which promotions are still running. */
   today: string
@@ -30,28 +32,52 @@ export function PriceWatch({
   /** Offers with no regular price to compare against: shown as they are, without a discount. */
   offers: StandaloneOffer[]
   pantryItems: PantryItem[]
+  /** Chain chosen with "Zobrazit akce" in the store directory: only its promotions are listed. */
+  chainFilter?: string | null
+  onClearChainFilter?: () => void
 }) {
   // Per docs/05_BUSINESS_RULES.md: a discount isn't automatically a good deal — check whether
   // it's actually the cheapest option for that product, not just cheaper than its own regular price.
-  const deals = assessDealQuality(productPrices, today)
+  // The quality assessment always sees every store (a deal is judged against the other stores'
+  // prices); the chain filter only narrows what is listed afterwards.
+  const allDeals = assessDealQuality(productPrices, today)
+  const deals = chainFilter ? allDeals.filter((entry) => entry.price.store === chainFilter) : allDeals
+  const listedOffers = chainFilter ? offers.filter((offer) => offer.store === chainFilter) : offers
   const onList = new Set(listItemNames.map((name) => name.trim().toLowerCase()))
   const isOnList = (name: string) => onList.has(name.trim().toLowerCase())
   // Deals for what the household is about to buy come first; the rest by discount.
   const { onList: listDeals, others } = dealsForList(deals, listItemNames)
   const orderedDeals = [...listDeals, ...others]
   const [showAll, setShowAll] = useState(false)
+  // After "Zobrazit akce" in the store directory the home screen opens at the top; bring the
+  // promotions into view so the choice visibly did something.
+  const sectionRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    if (chainFilter) sectionRef.current?.scrollIntoView({ block: 'start' })
+  }, [chainFilter])
   // Collapsed, the first cards are deals (list ones first) and any free slots go to offers without
   // a regular price; expanded, everything is shown.
-  const shownDeals = showAll ? orderedDeals : orderedDeals.slice(0, COLLAPSED_CARDS)
-  const shownOffers = showAll ? offers : offers.slice(0, Math.max(0, COLLAPSED_CARDS - shownDeals.length))
-  const hiddenCount = orderedDeals.length + offers.length - shownDeals.length - shownOffers.length
+  // A chosen chain lists all its promotions: the user asked for exactly those.
+  const expanded = showAll || chainFilter != null
+  const shownDeals = expanded ? orderedDeals : orderedDeals.slice(0, COLLAPSED_CARDS)
+  const shownOffers = expanded ? listedOffers : listedOffers.slice(0, Math.max(0, COLLAPSED_CARDS - shownDeals.length))
+  const hiddenCount = orderedDeals.length + listedOffers.length - shownDeals.length - shownOffers.length
 
   return (
-    <section className="surface p-5 sm:p-6">
+    <section ref={sectionRef} className="surface scroll-mt-4 p-5 sm:p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-semibold">Akce</p>
-          {orderedDeals.length + offers.length > 0 && (
+          {chainFilter && (
+            <button
+              onClick={onClearChainFilter}
+              aria-label={`Zrušit filtr řetězce ${chainFilter}`}
+              className="mt-2 inline-flex min-h-8 items-center gap-1.5 rounded-full bg-primary/10 px-3 text-xs font-medium text-primary"
+            >
+              {chainFilter} <X className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          )}
+          {orderedDeals.length + listedOffers.length > 0 && (
             <p className="mt-1 text-sm text-muted-foreground">
               {listDeals.length > 0
                 ? `${countLabel(listDeals.length, 'akce', 'akce', 'akcí')} na položky z vašeho seznamu`
@@ -61,8 +87,10 @@ export function PriceWatch({
         </div>
         <Tag className="text-primary" />
       </div>
-      {deals.length === 0 && offers.length === 0 ? (
-        <p className="mt-5 rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground">Momentálně nemáme žádné aktivní akce.</p>
+      {deals.length === 0 && listedOffers.length === 0 ? (
+        <p className="mt-5 rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground">
+          {chainFilter ? `Pro ${chainFilter} teď nemáme žádné aktivní akce.` : 'Momentálně nemáme žádné aktivní akce.'}
+        </p>
       ) : (
       <>
       {shownDeals.length > 0 && (
@@ -146,7 +174,7 @@ export function PriceWatch({
       </>
       )}
       <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        {(hiddenCount > 0 || showAll) && (
+        {chainFilter == null && (hiddenCount > 0 || showAll) && (
           <button
             onClick={() => setShowAll((current) => !current)}
             aria-expanded={showAll}

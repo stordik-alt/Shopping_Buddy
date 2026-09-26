@@ -121,6 +121,8 @@ export function AppShell({
   pushPublicKey: string | null
 }) {
   const [tab, setTabState] = useState<Tab>(initialTab)
+  // Chain whose promotions the home screen lists after "Zobrazit akce" in the store directory.
+  const [dealsChain, setDealsChain] = useState<string | null>(null)
   // Switching sections records the section in the address, so the phone's back gesture returns to
   // the previous section instead of closing the app, and a reload stays where the user was.
   const setTab = useCallback((next: Tab) => {
@@ -824,7 +826,7 @@ export function AppShell({
                     onSetBudget={() => setTab('Profil')}
                   />
                   <QuickOutOfStock pantryItems={pantryItems} likelyGoneIds={likelyGonePantryIds} onGone={quickOut} />
-                  <PriceWatch today={today} onStores={() => setTab('Obchody')} onAddToList={addItemByName} listItemNames={pendingNames} productPrices={nearbyProductPrices} offers={nearbyStandaloneOffers} pantryItems={pantryItems} />
+                  <PriceWatch today={today} onStores={() => setTab('Obchody')} onAddToList={addItemByName} listItemNames={pendingNames} productPrices={nearbyProductPrices} offers={nearbyStandaloneOffers} pantryItems={pantryItems} chainFilter={dealsChain} onClearChainFilter={() => setDealsChain(null)} />
                   <MealPlan household={household} initialPlan={initialData.mealPlan} pantryItems={pantryItems} onAddIngredients={addIngredients} onMarkCooked={markMealCooked} />
                   <div className="grid gap-4 lg:grid-cols-2 lg:gap-6">
                     <SpendingBreakdown expenses={monthExpenses} onDetails={() => setTab('Rozpočet')} />
@@ -878,7 +880,10 @@ export function AppShell({
               )}
               {tab === 'Obchody' && (
                 <StoreDirectory
-                  stores={stores}
+                  onShowDeals={(chain) => {
+                    setDealsChain(chain)
+                    setTab('Domů')
+                  }}
                   locationState={userLocation.state}
                   userCoords={userLocation.coords}
                   onRequestLocation={userLocation.requestLocation}

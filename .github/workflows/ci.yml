@@ -36,7 +36,7 @@ jobs:
       # DB client at import time) need a real DATABASE_URL; keep CI deterministic until a repository
       # secret is configured.
       - name: Unit tests
-        run: pnpm exec vitest run --exclude 'app/actions/**/*.test.ts' --exclude 'app/api/**/*.test.ts' --exclude 'lib/db/queries.test.ts' --exclude 'lib/db/receipt-list.test.ts'
+        run: pnpm exec vitest run --exclude 'app/actions/**/*.test.ts' --exclude 'app/api/**/*.test.ts' --exclude 'lib/db/queries.test.ts' --exclude 'lib/db/receipt-list.test.ts' --exclude 'lib/db/store-branch-search.test.ts'
 
       - name: Typecheck
         run: pnpm exec tsc --noEmit

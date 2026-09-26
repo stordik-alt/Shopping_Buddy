@@ -299,6 +299,8 @@ Database schema changes should always be accompanied by appropriate migrations.
 
 Store directory functionality is implemented.
 
+**Update 2026-09-26, tiles and paged branches (owner request).** The "Obchody" tab no longer receives the whole directory: the user picks a locality (typed town, or their position with a 5 km radius), sees a logo tile for each chain that has a branch there (the profile's chains first, starred), chooses one or more, and gets 5 branches per page (`‹ 1/4 ›`) with opening hours, the chain's promotion count, and — in the detail — "Navigovat" and "Zobrazit akce" (Domů filtered to the chain). Favourite branches from the profile come first, starred. Server side: `lib/db/store-branch-search.ts`, actions in `app/actions/store-directory.ts`. Logos: `public/logos` (Albert and JIP pending, coloured badge meanwhile). Details in `docs/07_CHANGELOG.md`.
+
 Initial supported Czech store chains include:
 
 * Lidl

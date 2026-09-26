@@ -1,5 +1,13 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-26 (Recurring payments, confirmed on their due day)
+- **Why (owner's choice):** rent, energy, insurance and the like should be entered once, reminded on their due day, and counted only when confirmed.
+- **What:**
+  - `recurring_payments` and `recurring_payment_occurrences` (migration `0038`), with `app/actions/recurring.ts` to save, stop, confirm and skip.
+  - Rozpočet → Pravidelné platby: what is due (Zaplaceno / Přeskočit), what comes next, and every payment.
+  - A confirmed due date becomes an expense, atomically and once. The morning cron reminds of payments due today, once.
+- **Tests:** `lib/recurring-payments.test.ts` (due dates across short months, leap years and New Year; what waits; reminders), `components/budget/recurring-payments.test.tsx`. DB-backed `app/actions/recurring.test.ts`: validation; confirm once; deleting the expense re-opens; skip; not-due and future dates refused; stop; another household untouched; the reminder once. Unit 1 056 passed.
+
 ## 2026-09-26 (Monthly limits per expense category)
 - **Why (owner's choice):** an overall budget plus optional limits per category.
 - **What:**

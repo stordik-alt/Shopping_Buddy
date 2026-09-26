@@ -146,7 +146,9 @@ export async function updateShoppingItemAction(
       ...(preferredStoreLocationId !== undefined && { preferredStoreLocationId }),
     })
     .where(eq(schema.shoppingListItems.id, itemId))
-  revalidatePath('/')
+  // No revalidatePath: the app has already shown this change (components/app-shell.tsx updates its own
+  // state first), and re-rendering the whole page for every tap re-ran every household query —
+  // compute on the database for nothing. Other members see it on their next refresh (once a minute).
 }
 
 export async function toggleShoppingItemAction(itemId: string, done: boolean) {
@@ -154,7 +156,9 @@ export async function toggleShoppingItemAction(itemId: string, done: boolean) {
   await assertOwnsItem(householdId, itemId)
   const db = getDb()
   await db.update(schema.shoppingListItems).set({ done }).where(eq(schema.shoppingListItems.id, itemId))
-  revalidatePath('/')
+  // No revalidatePath: the app has already shown this change (components/app-shell.tsx updates its own
+  // state first), and re-rendering the whole page for every tap re-ran every household query —
+  // compute on the database for nothing. Other members see it on their next refresh (once a minute).
 }
 
 export async function removeShoppingItemAction(itemId: string) {
@@ -162,7 +166,9 @@ export async function removeShoppingItemAction(itemId: string) {
   await assertOwnsItem(householdId, itemId)
   const db = getDb()
   await db.delete(schema.shoppingListItems).where(eq(schema.shoppingListItems.id, itemId))
-  revalidatePath('/')
+  // No revalidatePath: the app has already shown this change (components/app-shell.tsx updates its own
+  // state first), and re-rendering the whole page for every tap re-ran every household query —
+  // compute on the database for nothing. Other members see it on their next refresh (once a minute).
 }
 
 export async function addShoppingListAction(name: string) {

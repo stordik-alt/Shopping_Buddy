@@ -173,7 +173,12 @@ export const products = pgTable('products', {
   // owner's "BIO KUŘE" example: a correction made once must be remembered for every later receipt
   // of the same product, not re-guessed every time.
   defaultLocation: pantryLocationEnum('default_location'),
-})
+}, (table) => [
+  // Text search looks for a word anywhere in the name (`search_name LIKE '%mlek%'`,
+  // lib/db/product-search.ts), which a plain index cannot serve: every search read all ~50,000
+  // products. A trigram index can (extension pg_trgm, migration 0039).
+  index('products_search_name_trgm_idx').using('gin', table.searchName.op('gin_trgm_ops')),
+])
 
 // Links a catalog product to its identity on an external price source (docs/32 "Internet Data
 // Integration"), e.g. Lidl's own stable `erpNumber`. Per docs/05_BUSINESS_RULES.md ("do not treat
@@ -189,7 +194,11 @@ export const productExternalRefs = pgTable(
     externalId: text('external_id').notNull(),
     lastSeenAt: timestamp('last_seen_at').notNull().defaultNow(),
   },
-  (table) => [uniqueIndex('product_external_refs_source_external_id_idx').on(table.source, table.externalId)],
+  (table) => [
+    uniqueIndex('product_external_refs_source_external_id_idx').on(table.source, table.externalId),
+    // Joins and cascading deletes from products look refs up by product.
+    index('product_external_refs_product_idx').on(table.productId),
+  ],
 )
 
 // A retail chain (brand), e.g. Lidl. First market: Česká republika, architecture allows more.
@@ -371,6 +380,11 @@ export const deals = pgTable('deals', {
   validFrom: date('valid_from').notNull(),
   validUntil: date('valid_until').notNull(),
 }, (table) => [
+  // Deals are always looked up by product (and chain): a product's promotions on every page render,
+  // "does it have a running promotion?" over the catalog, and the upsert of every ingested offer.
+  // Without it each lookup read the whole table — 26 billion rows read by 2026-09-26, the largest
+  // part of the database's compute (pg_stat_user_tables).
+  index('deals_product_store_idx').on(table.productId, table.storeId),
   check('deals_unit_price_pair', sql`(${table.unit} IS NULL AND ${table.unitPrice} IS NULL) OR (${table.unit} IS NOT NULL AND ${table.unitPrice} > 0)`),
   // Same guard as member_stores: when a branch is named it must be a branch of `store_id`. MATCH
   // SIMPLE — a NULL `store_location_id` (an online chain's deal) skips the check. Cascades on update like

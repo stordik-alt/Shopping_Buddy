@@ -22,7 +22,9 @@ export async function confirmPantryItemAction(pantryItemId: string) {
   await assertOwnsPantryItem(householdId, pantryItemId)
   const db = getDb()
   await db.update(schema.pantryItems).set({ addedAt: new Date(), askedAt: null }).where(eq(schema.pantryItems.id, pantryItemId))
-  revalidatePath('/')
+  // No revalidatePath: the app has already shown this change (components/app-shell.tsx updates its own
+  // state first), and re-rendering the whole page for every tap re-ran every household query —
+  // compute on the database for nothing. Other members see it on their next refresh (once a minute).
 }
 
 /** Reassigns which pantry location an item lives in — e.g. moving freshly bought chilled meat
@@ -33,7 +35,9 @@ export async function movePantryItemAction(pantryItemId: string, location: Pantr
   await assertOwnsPantryItem(householdId, pantryItemId)
   const db = getDb()
   await db.update(schema.pantryItems).set({ location }).where(eq(schema.pantryItems.id, pantryItemId))
-  revalidatePath('/')
+  // No revalidatePath: the app has already shown this change (components/app-shell.tsx updates its own
+  // state first), and re-rendering the whole page for every tap re-ran every household query —
+  // compute on the database for nothing. Other members see it on their next refresh (once a minute).
 }
 
 /** Sets a pantry item's quantity to an exact value — covers both the "−/+" stepper and typing an
@@ -49,7 +53,9 @@ export async function adjustPantryItemQuantityAction(pantryItemId: string, quant
   if (!Number.isFinite(quantity) || quantity < 0) throw new Error('Množství nesmí být záporné.')
   const db = getDb()
   await db.update(schema.pantryItems).set({ quantity }).where(eq(schema.pantryItems.id, pantryItemId))
-  revalidatePath('/')
+  // No revalidatePath: the app has already shown this change (components/app-shell.tsx updates its own
+  // state first), and re-rendering the whole page for every tap re-ran every household query —
+  // compute on the database for nothing. Other members see it on their next refresh (once a minute).
 }
 
 /** "Došlo" — the household no longer has this item, so it's removed from the pantry entirely
@@ -60,7 +66,9 @@ export async function removePantryItemAction(pantryItemId: string) {
   await assertOwnsPantryItem(householdId, pantryItemId)
   const db = getDb()
   await db.delete(schema.pantryItems).where(eq(schema.pantryItems.id, pantryItemId))
-  revalidatePath('/')
+  // No revalidatePath: the app has already shown this change (components/app-shell.tsx updates its own
+  // state first), and re-rendering the whole page for every tap re-ran every household query —
+  // compute on the database for nothing. Other members see it on their next refresh (once a minute).
 }
 
 /** "Zkontrolovat zásoby" — saves a bulk check in one go: the items marked gone are removed, every
@@ -108,5 +116,7 @@ export async function setPantryTrackingAction(pantryItemId: string, tracking: Pa
   await assertOwnsPantryItem(householdId, pantryItemId)
   if (!PANTRY_TRACKING.some((option) => option.value === tracking)) throw new Error('Neplatná volba sledování.')
   await getDb().update(schema.pantryItems).set({ tracking, askedAt: null }).where(eq(schema.pantryItems.id, pantryItemId))
-  revalidatePath('/')
+  // No revalidatePath: the app has already shown this change (components/app-shell.tsx updates its own
+  // state first), and re-rendering the whole page for every tap re-ran every household query —
+  // compute on the database for nothing. Other members see it on their next refresh (once a minute).
 }

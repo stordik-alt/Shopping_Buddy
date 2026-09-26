@@ -1,5 +1,26 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-26 (Less database compute: indexes, fewer re-renders, parallel page reads)
+- **Why (owner request):** find where Neon compute can be saved and the app sped up. Production's `pg_stat_user_tables` showed where it went.
+  - `deals` (5 310 rows) had been read whole 8 million times, **26 billion rows** in total. It had no index but its primary key, and every lookup by product scanned it: `getProductPrices` evaluated "has a running promotion?" for each of ~50 000 products, and each ingested offer's upsert did the same.
+  - Text search (`LIKE '%…%'`) read all products every time.
+  - `getStores` asked for the chain once per branch.
+- **What:**
+  - Migration `0039`, declared in the schema:
+    - `deals(product_id, store_id)`;
+    - `product_external_refs(product_id)`;
+    - `pg_trgm` with a trigram GIN index on `products.search_name`.
+  - `getProductPrices` reads today's promoted product ids from `deals` once and loads those products by id.
+  - `getStores` is one join.
+  - `app/page.tsx` loads prices, the member's store selection and the pins in parallel instead of one after another (two fewer round trips per render and refresh).
+  - Frequent small actions no longer re-render the whole page on the server (`revalidatePath` removed): editing, ticking or removing a list item; pantry confirm, move, quantity, remove and tracking; marking notifications read. The app shows each change itself; other members see it on the next refresh, once a minute.
+- **Measured on the test branch:**
+  - deals by product: an index scan, 1.3 ms;
+  - search "mlek": a trigram index scan, 0.7 ms;
+  - today's promoted products: one pass over ~3 900 rows, 2 ms.
+- **Known, not changed here:** `getProductPrices` with today's promotions still loads the whole price history of ~3 500 products, 2.8 s on a cache miss. It is the next candidate. The 26 cron runs a day each wake the database; their number can be revisited once this is live and the real use is visible.
+- **Tests:** CI command 1 071 passed; DB-backed shopping, pantry, notifications, product search and queries: 92 passed; `tsc` clean. Migration applied to the test branch and re-run.
+
 ## 2026-09-26 (Database tests: timeouts that fit a remote database)
 - **Why:** database-backed tests failed at random (owner's run: `shopping.test.ts` "Test timed out in 5000ms"). A cleanup hook cut off by its 10 s limit left rows on the Neon test branch, which then failed later runs. A leftover "Mléko" product had collected 70 prices and let a receipt that should need review complete on its own; leftover fixture products broke two more receipt tests.
 - **What:** `vitest.config.mts` `testTimeout` 30 s and `hookTimeout` 120 s; pure tests are unaffected. The leftover products were removed from the test branch (never production).

@@ -545,7 +545,24 @@ export async function getStores(): Promise<Store[]> {
     // just to list product names in the branch detail — after the OSM import (~1,800 branches) that
     // was most of what the 20-second refresh pulled from the database and used up Neon's monthly
     // network transfer. The names now load when a branch's detail is opened (getStoreProductNames).
-    db.query.storeLocations.findMany({ with: { store: { columns: { chain: true } } } }),
+    // One join: the relational `with: { store }` asked for the chain once per branch (~1,800 small
+    // queries' worth of scans on every refresh of the cache).
+    db
+      .select({
+        id: schema.storeLocations.id,
+        storeId: schema.storeLocations.storeId,
+        chain: schema.stores.chain,
+        name: schema.storeLocations.name,
+        address: schema.storeLocations.address,
+        city: schema.storeLocations.city,
+        country: schema.storeLocations.country,
+        lat: schema.storeLocations.lat,
+        lng: schema.storeLocations.lng,
+        hours: schema.storeLocations.hours,
+        openingHours: schema.storeLocations.openingHours,
+      })
+      .from(schema.storeLocations)
+      .innerJoin(schema.stores, eq(schema.stores.id, schema.storeLocations.storeId)),
     // Counted per chain, not per branch: ingestion attaches a chain's web promotions to one
     // canonical branch (getCanonicalStoreLocationId), so a per-branch count showed all 29 Penny
     // offers on one of its 9 branches and none on the others. One product with two overlapping
@@ -560,7 +577,7 @@ export async function getStores(): Promise<Store[]> {
   return locations.map((location) => ({
     id: location.id,
     storeId: location.storeId,
-    chain: location.store.chain,
+    chain: location.chain,
     name: location.name,
     address: location.address,
     city: location.city,
@@ -570,7 +587,7 @@ export async function getStores(): Promise<Store[]> {
     // seeded and receipt branches.
     hours: location.openingHours ? formatOpeningHours(location.openingHours) : location.hours,
     dealsCount: dealsByChain.get(location.storeId) ?? 0,
-    color: CHAIN_COLOR[location.store.chain] ?? 'bg-muted',
+    color: CHAIN_COLOR[location.chain] ?? 'bg-muted',
   }))
 }
 
@@ -744,15 +761,21 @@ export async function getProductPrices(scope: ProductPriceScope): Promise<Produc
   // time, and those must not show as today's price.
   const isRunning = (deal: { validFrom: string; validUntil: string }) => deal.validFrom <= today && deal.validUntil >= today
   const names = [...new Set(scope.names)]
-  if (names.length === 0 && !scope.runningDeals) return []
+  // The products on promotion today, read from deals once. This used to be an `EXISTS` per product,
+  // which Postgres evaluated for all ~50,000 products, each reading the deals table — most of the
+  // database's compute (docs/07_CHANGELOG.md, 2026-09-26).
+  const dealProductIds = scope.runningDeals
+    ? (
+        await db
+          .selectDistinct({ id: schema.deals.productId })
+          .from(schema.deals)
+          .where(and(sql`${schema.deals.validFrom} <= ${today}::date`, sql`${schema.deals.validUntil} >= ${today}::date`))
+      ).map((row) => row.id)
+    : []
+  if (names.length === 0 && dealProductIds.length === 0) return []
   const products = await db.query.products.findMany({
-    where: (products, { or, inArray, sql: where }) =>
-      or(
-        names.length > 0 ? inArray(products.name, names) : undefined,
-        scope.runningDeals
-          ? where`EXISTS (SELECT 1 FROM deals d WHERE d.product_id = ${products.id} AND d.valid_from <= ${today}::date AND d.valid_until >= ${today}::date)`
-          : undefined,
-      ),
+    where: (products, { or, inArray }) =>
+      or(names.length > 0 ? inArray(products.name, names) : undefined, dealProductIds.length > 0 ? inArray(products.id, dealProductIds) : undefined),
     // Only the columns the mapping below reads. Loading whole related rows (each price with its
     // store, branch and the branch's store again; each deal with its branch) multiplied the data
     // every 20-second refresh pulled from the database.

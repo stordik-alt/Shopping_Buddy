@@ -10,6 +10,17 @@ const LOGO_FILES: Record<string, string> = {
   Penny: '/logos/penny.svg',
 }
 
+// Chain names that are too long for a tile, as shown on it. The full name stays wherever there is room.
+const SHORT_NAME: Record<string, string> = {
+  'Albert Hypermarket': 'Albert Hyper',
+  'Dr Max LÉKÁRNA': 'Dr Max',
+}
+
+/** The chain's name as written on a tile. */
+export function chainShortName(chain: string): string {
+  return SHORT_NAME[chain] ?? chain
+}
+
 // Background of the badge shown for a chain without a logo file.
 const CHAIN_COLOR: Record<string, string> = {
   Lidl: 'bg-[#d7f36b]',
@@ -34,7 +45,7 @@ export function ChainLogo({ chain, className = 'size-11' }: { chain: string; cla
     )
   }
   return (
-    <span className={`${className} flex shrink-0 items-center justify-center rounded-xl text-xs font-bold text-neutral-900 ${CHAIN_COLOR[family] ?? 'bg-muted'}`} aria-hidden="true">
+    <span className={`${className} flex shrink-0 items-center justify-center rounded-xl text-xs font-bold ${CHAIN_COLOR[family] ? `${CHAIN_COLOR[family]} text-neutral-900` : 'bg-muted text-foreground'}`} aria-hidden="true">
       {chain.slice(0, 3)}
     </span>
   )

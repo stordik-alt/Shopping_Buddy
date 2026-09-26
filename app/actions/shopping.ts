@@ -113,6 +113,15 @@ export async function updateShoppingItemAction(
 ) {
   const householdId = await requireHouseholdId()
   await assertOwnsItem(householdId, itemId)
+  // The list's field saves only valid numbers, but the server decides (CLAUDE.md section 9): a
+  // quantity is positive ("0,5 kg" is fine) and a price not negative, within what the numeric columns
+  // hold (10, 3 and 10, 2), rounded to their scale.
+  if (changes.quantity != null && !(Number.isFinite(changes.quantity) && changes.quantity > 0 && changes.quantity < 10_000_000)) {
+    throw new Error('Množství musí být kladné číslo.')
+  }
+  if (changes.price != null && !(Number.isFinite(changes.price) && changes.price >= 0 && changes.price < 100_000_000)) {
+    throw new Error('Cena musí být nezáporné číslo.')
+  }
   const db = getDb()
   let preferredStoreLocationId: string | null | undefined
   if (changes.store !== undefined) {
@@ -127,8 +136,8 @@ export async function updateShoppingItemAction(
   await db
     .update(schema.shoppingListItems)
     .set({
-      ...(changes.quantity != null && { quantity: changes.quantity }),
-      ...(changes.price != null && { price: changes.price.toString() }),
+      ...(changes.quantity != null && { quantity: Math.round(changes.quantity * 1000) / 1000 }),
+      ...(changes.price != null && { price: (Math.round(changes.price * 100) / 100).toString() }),
       ...(changes.unit != null && { unit: changes.unit }),
       ...(changes.category != null && { category: changes.category }),
       ...(changes.priority != null && { priority: changes.priority }),

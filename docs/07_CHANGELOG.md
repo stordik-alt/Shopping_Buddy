@@ -1,5 +1,19 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-26 (Shopping plan picks the plain product)
+- **Bug (owner report):** for "Máslo" the plan offered "Sedita Horalky arašídové máslo" at Rohlík.cz (Košík: an Oshee bar "Arašídové máslo"). For "Rohlík" (10 ks) it offered "Proteinový rohlík" at Albert, about 50 Kč more than elsewhere. Every name with the item's word ranked the same, so the cheapest won, and Albert's plain roll "ROHLÍK43GR" was not recognized as a roll.
+- **Fix (`lib/product-search.ts`):**
+  - Among products that *are* the item, words in front of the item's word lower the rank ("Máslo" > "Miil Máslo" > "Sedita Horalky arašídové máslo"). The penalty is at most 4; sizes and units do not count. Descriptions after the word ("Rohlík jemný tukový") do not count either, so the price decides between those as before.
+  - `matchText`:
+    - A size glued to a word is split off ("ROHLÍK43GR").
+    - An apostrophe no longer creates the linking word "s" ("Nature's Promise … Máslo" is butter again).
+    - A web-address brand is not the product ("Rohlik.cz Slanina" is not a roll).
+- **Result on production data:**
+  - Máslo: Lidl "Máslo", Rohlík.cz "Miil Máslo 82%", Košík "Milko Máslo (82%)".
+  - Rohlík: Albert "ROHLÍK43GR" at 2.90 Kč.
+- **Known, not fixed here:** the Albert flyer import stored "MÁSLO + JIHOČESKÉ FERMENTOVANÉ PODMÁSLÍ 70 g" at Albert Hypermarket. It is the "Mistrovská máslová makovka 70 g" (same price and weight) under a name read from the flyer's banner.
+- **Tests:** 7 new cases in `lib/product-search.test.ts`. CI command: 986 passed; `tsc` clean; DB-backed search and shopping tests pass.
+
 ## 2026-09-26 (Less database transfer per page render)
 - **What:** `getHouseholdData` (every page render and refresh) now reads less:
   - Pending receipt imports are filtered by status in the database. Before, every OCR receipt ever imported, with its OCR text, was loaded and filtered in code.

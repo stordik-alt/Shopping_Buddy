@@ -204,8 +204,14 @@ Use the existing migration workflow.
 Current migration commands include:
 
 ```bash
-pnpm db:migrate
+pnpm db:migrate        # production (.env.local)
+pnpm db:migrate:test   # the Neon test branch the tests use
 ```
+
+**Production migrations run automatically on deploy.** `pnpm build` runs `lib/db/migrate.ts --vercel-production` before `next build`: a Vercel *production* deployment applies its pending migrations before its code goes live; previews, CI, local and Cloudflare builds skip (`lib/db/migrate-guard.ts`). A failed migration fails the build and the previous deployment keeps serving. Two consequences:
+
+* apply new migrations to the test branch (`pnpm db:migrate:test`) and run the tests before merging;
+* a migration runs before the new code is live and stays applied if the build then fails, so it must work with the code already running: add columns, tables and enum values; rename or drop only in a later deployment, after no running code uses them.
 
 Do not create duplicate tables or parallel representations of the same domain concept.
 

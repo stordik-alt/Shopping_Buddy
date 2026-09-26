@@ -1,5 +1,18 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-26 (Penny flyer offers)
+- **Why:** penny.cz's web shop has ~40 offers a week; the printed flyer has ~400.
+- **What:**
+  - New source `penny_flyer` (migration `0034`, `lib/ingestion/penny-flyer.ts`): the current flyer from penny.cz/nabidky/letaky (FlippingBook on files.rewe.co.at), page text layers and images, validity from the pages.
+  - Pages that print any other date are not read, because their weekend offers cannot be dated.
+  - The model, cache, fetch loop, validator and connector are now shared with Albert (`lib/ingestion/flyer.ts`). Albert's behaviour and tests are unchanged.
+  - Model: Gemini 2.5 Flash without thinking. Owner-approved; see CLAUDE.md §30 for the comparison of 12 models from Google, Mistral, OpenAI, Alibaba, Meta and Amazon.
+  - Penny's offers must match the unit price printed with their own name.
+  - Names printed in capitals are shown the catalog way, and footnote stars are dropped.
+  - Crons at 07:00 and 13:00 UTC. `pnpm db:penny-flyers` runs it by hand.
+- **Result (dry run, flyer 23.–29. 9.):** 496 offers read, 227 accepted, $0.16.
+- **Tests:** `lib/ingestion/penny-flyer.test.ts` and `lib/ingestion/flyer.test.ts` (new); Albert's and the cron tests pass unchanged.
+
 ## 2026-09-26 (Cloudflare preparation refreshed; nothing migrated)
 - **Why:** the owner wants the project ready for a later move from Vercel to Cloudflare. The OpenNext Worker build from PR #83 still passes on current `main` (CI job `cloudflare`, 4.5 MiB gzip), but its read-only cache would have left `lib/db/cached-reads.ts` uncached on Cloudflare, so every render would read prices again from Neon.
 - **What:**

@@ -28,7 +28,7 @@
     // Receipt files are already on R2 (docs/cloudflare-r2.md); the other R2_* values are secrets.
     "STORAGE_PROVIDER": "r2"
   },
-  // Workers Paid is required: 20 cron schedules (Free allows 5 per account) and price-ingestion jobs
+  // Workers Paid is required: 26 cron schedules (Free allows 5 per account) and price-ingestion jobs
   // that run for minutes (Free allows 10 ms CPU per invocation). 5 minutes is the Paid maximum.
   "limits": { "cpu_ms": 300000 },
   "observability": { "enabled": true },
@@ -59,7 +59,9 @@
       "0 6 * * *", // /api/cron/ingest-prices/globus
       "20 6 * * *", // /api/cron/ingest-prices/albert
       "20 12 * * *", // /api/cron/ingest-prices/albert/2
-      "20 18 * * *" // /api/cron/ingest-prices/albert/3
+      "20 18 * * *", // /api/cron/ingest-prices/albert/3
+      "0 7 * * *", // /api/cron/ingest-prices/penny_flyer
+      "0 13 * * *" // /api/cron/ingest-prices/penny_flyer/2
     ]
   },
   "env": {

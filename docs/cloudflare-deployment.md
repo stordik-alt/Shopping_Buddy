@@ -12,7 +12,7 @@ is account setup, staging tests and the cutover.
 | File | Purpose |
 |---|---|
 | `open-next.config.ts` | OpenNext config. Next's data cache (and the few prerendered pages) in the R2 bucket `shopping-buddy-next-cache`, so `unstable_cache` in `lib/db/cached-reads.ts` works as on Vercel (see "Data cache" below). No tag cache, queue or Durable Object: the app has no `revalidateTag` and no ISR |
-| `wrangler.jsonc` | Worker `shopping-buddy` plus `env.staging` (`shopping-buddy-staging`, no crons). Each has its own data-cache bucket (`NEXT_INC_CACHE_R2_BUCKET`). Also sets `nodejs_compat`, `STORAGE_PROVIDER=r2`, `limits.cpu_ms` 300000, logs, and the 20 cron triggers |
+| `wrangler.jsonc` | Worker `shopping-buddy` plus `env.staging` (`shopping-buddy-staging`, no crons). Each has its own data-cache bucket (`NEXT_INC_CACHE_R2_BUCKET`). Also sets `nodejs_compat`, `STORAGE_PROVIDER=r2`, `limits.cpu_ms` 300000, logs, and the 26 cron triggers |
 | `cloudflare/worker.ts` | Worker entry: OpenNext's `fetch` plus a `scheduled()` handler for Cron Triggers |
 | `cloudflare/cron.ts` | Maps a fired cron expression to its path(s) in `vercel.json`, which stays the one list of jobs. Calls the route with `Authorization: Bearer $CRON_SECRET`, like Vercel Cron |
 | `cloudflare/shims/sharp.js` | Throwing stand-in for `sharp` in the Cloudflare build only (see §6) |
@@ -71,7 +71,7 @@ Checked in the cloud session, with placeholder secrets and no Cloudflare account
 
 ## 4. Owner prerequisites
 
-1. **Workers Paid** on the Cloudflare account ($5/month): 20 cron triggers, CPU time, bundle size.
+1. **Workers Paid** on the Cloudflare account ($5/month): 26 cron triggers, CPU time, bundle size.
 2. **Data-cache buckets** (once): `pnpm exec wrangler r2 bucket create shopping-buddy-next-cache` and
    `… shopping-buddy-next-cache-staging`. They hold only rebuildable cache entries, so no backup is
    needed; a deploy fails while a bound bucket does not exist.
@@ -150,7 +150,7 @@ Options to restore preparation, to be decided after measuring accuracy on real r
 |---|---|
 | **Receipt structuring and Albert flyers (AI Gateway)** | Set `AI_GATEWAY_API_KEY`: Vercel dashboard → AI Gateway → API Keys. Both model uses (receipts, `lib/ingestion/albert.ts`) go through the same gateway. The AI SDK uses it before Vercel OIDC, so no code change is needed (checked in `@ai-sdk/gateway`). Billing stays with Vercel's gateway. Replacing it (Cloudflare AI Gateway or a direct provider) is a separate decision under CLAUDE.md §30 |
 | **Analytics** | Vercel Analytics is off in the Cloudflare build. Turn on **Cloudflare Web Analytics** for the zone (automatic setup, no code) |
-| **Cron** | 20 Cron Triggers from `wrangler.jsonc` (UTC, same times as `vercel.json`). Adding a job means adding it to `vercel.json` and to `wrangler.jsonc`; `cloudflare/cron.test.ts` fails until both match. Watch for double runs during a period when both Vercel and Cloudflare production are live |
+| **Cron** | 26 Cron Triggers from `wrangler.jsonc` (UTC, same times as `vercel.json`). Adding a job means adding it to `vercel.json` and to `wrangler.jsonc`; `cloudflare/cron.test.ts` fails until both match. Watch for double runs during a period when both Vercel and Cloudflare production are live |
 | **Receipt files** | Already R2 over the S3 API (`lib/storage/r2.ts`). An R2 Worker binding would be an optimization, not a requirement |
 | **Database** | Neon HTTP driver, works on workerd (verified up to the network call) |
 

@@ -398,7 +398,7 @@ describe('runPriceSources', () => {
 
   it('splits the large catalogs into parts and reads Lidl and Penny whole', () => {
     const parts = Object.fromEntries(PRICE_SOURCES.map((source) => [source.source, source.parts]))
-    expect(parts).toEqual({ lidl: 1, penny: 1, billa: 5, dm: 7, rohlik: 6, kosik: 7, globus: 1, albert: 1 })
+    expect(parts).toEqual({ lidl: 1, penny: 1, billa: 5, dm: 7, rohlik: 6, kosik: 7, globus: 1, albert: 1, penny_flyer: 1 })
   })
 
   it('runs only the requested source', async () => {

@@ -1,5 +1,10 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-26 (Database tests: timeouts that fit a remote database)
+- **Why:** database-backed tests failed at random (owner's run: `shopping.test.ts` "Test timed out in 5000ms"). A cleanup hook cut off by its 10 s limit left rows on the Neon test branch, which then failed later runs. A leftover "Mléko" product had collected 70 prices and let a receipt that should need review complete on its own; leftover fixture products broke two more receipt tests.
+- **What:** `vitest.config.mts` `testTimeout` 30 s and `hookTimeout` 120 s; pure tests are unaffected. The leftover products were removed from the test branch (never production).
+- **Result:** `receipts.test.ts` + `shopping.test.ts` 80/80, and nothing left behind afterwards.
+
 ## 2026-09-26 (Penny flyer offers)
 - **Why:** penny.cz's web shop has ~40 offers a week; the printed flyer has ~400.
 - **What:**

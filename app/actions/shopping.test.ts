@@ -5,7 +5,7 @@ import { getProductCatalog, getProductPrices } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
 import { todayInPrague } from '@/lib/today'
 import { assessDealQuality } from '@/lib/prices'
-import { addShoppingItemAction, removeShoppingItemAction, toggleShoppingItemAction } from '@/app/actions/shopping'
+import { addShoppingItemAction, removeShoppingItemAction, toggleShoppingItemAction, updateShoppingItemAction } from '@/app/actions/shopping'
 
 // Integration coverage for the household-scoping gap noted in docs/01_CURRENT_STATE.md ("Server
 // Actions and the auto-provision/auto-join logic ... still have no automated tests"). Runs
@@ -160,5 +160,30 @@ describe('toggleShoppingItemAction / removeShoppingItemAction', () => {
     await removeShoppingItemAction(item.id)
     const removed = await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, item.id) })
     expect(removed).toBeUndefined()
+  })
+})
+
+describe('updateShoppingItemAction', () => {
+  // Regression 2026-09-26: "0,5 kg" could not be entered. The server must accept a fraction and
+  // refuse what the field would never send.
+  it('stores a fractional quantity and a price, rounded to the columns', async () => {
+    currentHouseholdId = householdId
+    const { item } = await addShoppingItemAction(listId, 'Brambory na váhu')
+    await updateShoppingItemAction(item.id, { quantity: 0.5, unit: 'kg', price: 12.345 })
+    const row = await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, item.id) })
+    expect(row?.quantity).toBe(0.5)
+    expect(row?.unit).toBe('kg')
+    expect(row?.price).toBe('12.35')
+  })
+
+  it('refuses a quantity that is not positive and a negative price', async () => {
+    currentHouseholdId = householdId
+    const { item } = await addShoppingItemAction(listId, 'Neplatné množství')
+    await expect(updateShoppingItemAction(item.id, { quantity: 0 })).rejects.toThrow('Množství musí být kladné číslo.')
+    await expect(updateShoppingItemAction(item.id, { quantity: -1 })).rejects.toThrow('Množství musí být kladné číslo.')
+    await expect(updateShoppingItemAction(item.id, { quantity: Number.NaN })).rejects.toThrow('Množství musí být kladné číslo.')
+    await expect(updateShoppingItemAction(item.id, { price: -5 })).rejects.toThrow('Cena musí být nezáporné číslo.')
+    const row = await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, item.id) })
+    expect(row?.quantity).toBe(1)
   })
 })

@@ -1,5 +1,14 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-26 (Shopping list: quantity like "0,5 kg" can be typed)
+- **Bug (owner report):** in an item's detail the quantity field could not be cleared, so "0,5" kg could not be typed. Every keystroke was clamped to at least 1 (`Math.max(1, …)` on a `type="number"` field with `min="1"`). The price field was clamped the same way, to 0.
+- **Fix:**
+  - Both fields are now `DecimalField` (`components/shopping/shopping-list.tsx`): a text field with a decimal keypad that keeps what the user types.
+  - It reads a decimal comma or point (`lib/decimal-input.ts`) and saves each valid value: quantity above 0, price 0 or more.
+  - On leaving the field, an unfinished text goes back to the last saved value.
+- **Server:** `updateShoppingItemAction` refuses a quantity that is not positive and a negative price, and rounds them to the columns' scale. It had checked only who owns the item.
+- **Tests:** `lib/decimal-input.test.ts`; DB-backed cases in `app/actions/shopping.test.ts` (0.5 kg stored; 0, −1, NaN and a negative price refused).
+
 ## 2026-09-26 (Penny flyer offers)
 - **Why:** penny.cz's web shop has ~40 offers a week; the printed flyer has ~400.
 - **What:**

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  albertNameProblem,
   albertProductKey,
   dedupeAlbertOffers,
   fetchAlbertOffers,
@@ -217,6 +218,8 @@ describe('validateAlbertOffer', () => {
     ['a discount that contradicts the prices', { ...MADETA, discountPercent: 33 }, 'discount -33 % contradicts 31.9 → 14.9'],
     ['a previous price not above the offer', { ...MADETA, regularPrice: 12.9 }, 'previous price 12.9 not above the offer 14.9'],
     ['a pairing nothing on the page confirms', { name: 'Jablka', packageSize: '1 kg', offerPrice: 19.9 }, 'pairing not confirmed by a printed discount or unit price'],
+    // Regression 2026-09-26: a pastry's printed claim read as its name, then offered for butter.
+    ['a claim read as the name', { ...MADETA, brand: null, name: 'MÁSLO + JIHOČESKÉ FERMENTOVANÉ PODMÁSLÍ' }, 'name joins two things: MÁSLO + JIHOČESKÉ FERMENTOVANÉ PODMÁSLÍ'],
   ])('rejects %s', (_label, overrides, reason) => {
     expect(validateAlbertOffer(raw(overrides), TODAY)).toEqual({ rejected: reason })
   })
@@ -347,5 +350,17 @@ describe('mergeIngestResults', () => {
       truncated: true,
       errors: ['a', 'b'],
     })
+  })
+})
+
+describe('albertNameProblem', () => {
+  it('rejects a name that joins two things with " + "', () => {
+    expect(albertNameProblem('MÁSLO + JIHOČESKÉ FERMENTOVANÉ PODMÁSLÍ')).toBe('name joins two things: MÁSLO + JIHOČESKÉ FERMENTOVANÉ PODMÁSLÍ')
+    expect(albertNameProblem('Šampon + kondicionér')).not.toBeNull()
+  })
+
+  it('accepts a "+" that is part of a brand or a product name', () => {
+    expect(albertNameProblem('Spontex Absorb+ ECO houbičky')).toBeNull()
+    expect(albertNameProblem('Mistrovská máslová makovka')).toBeNull()
   })
 })

@@ -885,6 +885,7 @@ export function AppShell({
               )}
               {tab === 'Akce' && (
                 <DealsTab
+                  chains={storeChains.map((store) => store.chain)}
                   listItemNames={pendingNames}
                   onAddToList={addItemByName}
                   pantryItems={pantryItems}

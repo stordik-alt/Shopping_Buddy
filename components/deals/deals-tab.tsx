@@ -1,9 +1,9 @@
-import { ChevronLeft, ChevronRight, Loader2, Tag, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2, Tag } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { dealsPageAction } from '@/app/actions/deals'
 import { DealCard } from '@/components/deals/deal-card'
 import { OfferCard } from '@/components/deals/offer-card'
-import { DEAL_CATEGORIES, DEALS_PAGE_SIZE, type DealCategoryFilter } from '@/lib/deals-browse'
+import { DEAL_CATEGORIES, DEALS_PAGE_SIZE, DEAL_SORTS, type DealCategoryFilter, type DealSort } from '@/lib/deals-browse'
 import { activeDealCountLabel } from '@/lib/format'
 import type { DealsPage } from '@/lib/db/deals'
 import { pageCount } from '@/lib/paging'
@@ -25,13 +25,23 @@ const CATEGORY_LABEL: Record<DealCategoryFilter, string> = {
   Ostatní: 'Ostatní',
 }
 
+const SORT_LABEL: Record<DealSort, string> = {
+  name: 'Podle názvu (A–Z)',
+  price: 'Podle ceny (od nejnižší)',
+  discount: 'Podle velikosti slevy',
+}
+
 export function DealsTab({
+  chains,
   listItemNames,
   onAddToList,
   pantryItems,
   initialChain,
   onClearChain,
 }: {
+  /** Every store chain, for the filter — the same list the profile's store picker uses (already
+   *  loaded for the shopping planner, so this needs no extra query). */
+  chains: string[]
   listItemNames: string[]
   onAddToList: (name: string) => void
   pantryItems: PantryItem[]
@@ -41,6 +51,7 @@ export function DealsTab({
 }) {
   const [category, setCategory] = useState<DealCategoryFilter>('all')
   const [chain, setChain] = useState(initialChain)
+  const [sort, setSort] = useState<DealSort>('name')
   const [page, setPage] = useState(1)
   const [result, setResult] = useState<Loadable<DealsPage>>({ status: 'loading', previous: null })
   const [attempt, setAttempt] = useState(0)
@@ -55,7 +66,7 @@ export function DealsTab({
   useEffect(() => {
     let cancelled = false
     setResult((current) => ({ status: 'loading', previous: current.status === 'done' ? current.data : current.previous }))
-    dealsPageAction({ category, chain, page })
+    dealsPageAction({ category, chain, sort, page })
       .then((data) => {
         if (cancelled) return
         setResult({ status: 'done', data })
@@ -69,7 +80,7 @@ export function DealsTab({
     return () => {
       cancelled = true
     }
-  }, [category, chain, page, attempt])
+  }, [category, chain, sort, page, attempt])
 
   const onList = new Set(listItemNames.map((name) => name.trim().toLowerCase()))
   const isOnList = (name: string) => onList.has(name.trim().toLowerCase())
@@ -78,10 +89,16 @@ export function DealsTab({
     setCategory(next)
     setPage(1)
   }
-  const clearChain = () => {
-    setChain(null)
+  // A manual choice here replaces whatever "Zobrazit akce" preset brought the user to this tab, so a
+  // later switch away and back does not silently reapply it.
+  const selectChain = (next: string | null) => {
+    setChain(next)
     setPage(1)
     onClearChain()
+  }
+  const selectSort = (next: DealSort) => {
+    setSort(next)
+    setPage(1)
   }
 
   const page_ = result.status === 'done' ? result.data : result.previous
@@ -108,15 +125,37 @@ export function DealsTab({
           </button>
         ))}
       </div>
-      {chain && (
-        <button
-          onClick={clearChain}
-          aria-label={`Zrušit filtr řetězce ${chain}`}
-          className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-primary/10 px-3 text-xs font-medium text-primary"
-        >
-          {chain} <X className="h-3.5 w-3.5" aria-hidden="true" />
-        </button>
-      )}
+      <div className="flex flex-wrap gap-2">
+        <label className="flex min-h-10 items-center gap-2 rounded-2xl border border-border bg-card px-3 text-sm text-muted-foreground">
+          Řetězec
+          <select
+            value={chain ?? ''}
+            onChange={(event) => selectChain(event.target.value === '' ? null : event.target.value)}
+            className="min-h-9 min-w-0 flex-1 bg-transparent text-foreground outline-none"
+          >
+            <option value="">Všechny řetězce</option>
+            {chains.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex min-h-10 items-center gap-2 rounded-2xl border border-border bg-card px-3 text-sm text-muted-foreground">
+          Řazení
+          <select
+            value={sort}
+            onChange={(event) => selectSort(event.target.value as DealSort)}
+            className="min-h-9 min-w-0 flex-1 bg-transparent text-foreground outline-none"
+          >
+            {DEAL_SORTS.map((value) => (
+              <option key={value} value={value}>
+                {SORT_LABEL[value]}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
 
       {result.status === 'error' && (
         <div role="alert" className="rounded-2xl bg-muted px-4 py-3 text-sm">

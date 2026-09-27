@@ -43,7 +43,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
               <h1 className="text-xl font-semibold tracking-tight">Pozvánka do domácnosti</h1>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                 {invitation.invitedByName ?? 'Někdo'} vás zve do domácnosti{' '}
-                <span className="font-medium text-foreground">{invitation.householdName}</span> na Shopping Buddy.
+                <span className="font-medium text-foreground">{invitation.householdName}</span> na ANITKU.
               </p>
               {!user ? (
                 <div className="mt-6 flex flex-col gap-2">

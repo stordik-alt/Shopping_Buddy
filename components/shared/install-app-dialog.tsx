@@ -9,23 +9,23 @@ import { installPlatform, type InstallPlatform } from '@/lib/install-prompt'
 // <dialog> opened with showModal() keeps focus inside and closes on Escape by itself.
 const STEPS: Record<InstallPlatform, { title: string; steps: string[] }> = {
   ios: {
-    title: 'Přidejte si Buddyho na plochu',
+    title: 'Přidejte si ANITKU na plochu',
     steps: [
       'Dole na liště Safari klepněte na ikonu Sdílet (čtvereček se šipkou nahoru).',
       'V nabídce zvolte „Přidat na plochu“.',
-      'Potvrďte „Přidat“ — Buddy se objeví mezi aplikacemi.',
+      'Potvrďte „Přidat“ — ANITKA se objeví mezi aplikacemi.',
     ],
   },
   android: {
-    title: 'Nainstalujte si Buddyho',
+    title: 'Nainstalujte si ANITKU',
     steps: [
       'Vpravo nahoře v prohlížeči otevřete menu ⋮.',
       'Zvolte „Instalovat aplikaci“ (nebo „Přidat na plochu“).',
-      'Potvrďte instalaci — Buddy se objeví mezi aplikacemi.',
+      'Potvrďte instalaci — ANITKA se objeví mezi aplikacemi.',
     ],
   },
   desktop: {
-    title: 'Buddy v mobilu',
+    title: 'ANITKA v mobilu',
     steps: [
       'Otevřete tuto stránku v prohlížeči v telefonu.',
       'Přihlaste se a v menu účtu vpravo nahoře zvolte „Stáhnout aplikaci do mobilu“.',
@@ -63,7 +63,7 @@ export function InstallAppDialog({ open, onClose }: { open: boolean; onClose: ()
       <div className="p-5">
         <div className="flex items-start gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element -- images are unoptimized in next.config */}
-          <img src="/brand/buddy-icon-192.png" alt="" width={48} height={48} className="size-12 shrink-0 rounded-2xl" />
+          <img src="/brand/anitka-icon-192.png" alt="" width={48} height={48} className="size-12 shrink-0 rounded-2xl" />
           <h2 id="install-app-title" className="min-w-0 flex-1 pt-1 text-base font-semibold leading-snug">{title}</h2>
           <button type="button" onClick={onClose} className="icon-button -mr-2 -mt-2" aria-label="Zavřít">
             <X />

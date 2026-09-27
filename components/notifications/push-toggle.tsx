@@ -12,7 +12,7 @@ import { browserPushFacts, currentSubscription, pushAvailability, subscribeThisD
 type State = { status: 'checking' } | { status: 'unavailable'; reason: Exclude<PushAvailability, 'available'> } | { status: 'off' } | { status: 'on' }
 
 const HINTS: Record<Exclude<PushAvailability, 'available'>, string> = {
-  'ios-needs-install': 'Na iPhonu nejdřív přidejte Buddyho na plochu (Sdílet → Přidat na plochu) a otevřete ho odtamtud.',
+  'ios-needs-install': 'Na iPhonu nejdřív přidejte ANITKU na plochu (Sdílet → Přidat na plochu) a otevřete ho odtamtud.',
   denied: 'Upozornění jsou pro tuto stránku zablokovaná. Povolte je v nastavení prohlížeče nebo telefonu.',
   unsupported: 'Tento prohlížeč upozornění do telefonu nepodporuje.',
 }

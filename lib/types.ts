@@ -95,7 +95,23 @@ export type Store = {
   color: string
 }
 
-export type PurchaseItem = { name: string; quantity: number; unit: ItemUnit; price: number }
+export type PurchaseItem = {
+  // Optional: mock/seed fixtures build a PurchaseItem without a real database row behind it. Real
+  // purchases (lib/db/queries.ts, app/actions/receipts.ts, app/actions/purchases.ts) always set it —
+  // required to reassign the item's expense category (components/budget/purchase-history.tsx).
+  id?: string
+  name: string
+  quantity: number
+  unit: ItemUnit
+  price: number
+  // Undefined/null for a purchase made before these columns existed — its expense split cannot be
+  // recomputed (nothing to recompute it from), so such an item offers no "reassign category" control.
+  category?: ItemCategory | null
+  /** The household's own choice of expense category/subcategory for this line, overriding the
+   *  automatic mapping (lib/purchase-expenses.ts) — e.g. a gift bought during a grocery trip. */
+  expenseCategory?: ExpenseCategory | null
+  expenseSubcategory?: string | null
+}
 
 export type PurchaseRecord = {
   id: string

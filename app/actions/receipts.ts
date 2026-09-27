@@ -224,7 +224,7 @@ async function recordPurchaseExpenses(
   const before = await monthSpending(db, householdId, date)
   const inserted = await db
     .insert(schema.expenses)
-    .values(parts.map((part) => ({ householdId, purchaseId, date, category: part.category, amount: part.amount.toString(), note: storeName ? `Nákup ${storeName}` : 'Nákup z účtenky' })))
+    .values(parts.map((part) => ({ householdId, purchaseId, date, category: part.category, subcategory: part.subcategory, amount: part.amount.toString(), note: storeName ? `Nákup ${storeName}` : 'Nákup z účtenky' })))
     .onConflictDoNothing()
     .returning({ amount: schema.expenses.amount, category: schema.expenses.category })
   if (inserted.length > 0) await notifyBudgetThresholds(db, householdId, before, inserted.map((row) => ({ category: row.category, amount: Number(row.amount) })))
@@ -302,13 +302,16 @@ async function createPurchaseFromReceiptItems(
         // Net per-unit price actually paid; the pre-discount price is kept on the price
         // observation below and, for reviewed imports, in receipt_imports.items.
         price: netUnitPrice(item).toString(),
+        // Kept so the expense split can be recomputed later (a household reassignment,
+        // lib/db/purchase-items.ts) without re-guessing what category this line was.
+        category: item.category,
       })),
     )
     .returning()
 
   // What the receipt says was paid counts as the household's expenses, split by the items' categories
   // (lib/purchase-expenses.ts; only receipts do this — never a shopping list's estimated prices). The
-  // unique (purchase, category) index keeps a retry from counting it twice.
+  // unique (purchase, category, subcategory) index keeps a retry from counting it twice.
   await recordPurchaseExpenses(db, householdId, purchaseRow.id, date, total, options.storeName?.trim() ? normalizeStoreName(options.storeName) : null, resolvedItems)
 
   for (const item of resolvedItems) {
@@ -347,7 +350,16 @@ async function createPurchaseFromReceiptItems(
     store: storeLocation?.store.chain ?? (storeId ? (await db.query.stores.findFirst({ where: eq(schema.stores.id, storeId) }))?.chain : undefined),
     total: Number(purchaseRow.total),
     discount: purchaseRow.discount != null ? Number(purchaseRow.discount) : undefined,
-    items: itemRows.map((row) => ({ name: row.name, quantity: row.quantity, unit: row.unit, price: Number(row.price) })),
+    items: itemRows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      quantity: row.quantity,
+      unit: row.unit,
+      price: Number(row.price),
+      category: row.category,
+      expenseCategory: row.expenseCategory,
+      expenseSubcategory: row.expenseSubcategory,
+    })),
   }
 }
 

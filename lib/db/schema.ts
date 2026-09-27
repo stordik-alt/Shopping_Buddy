@@ -469,7 +469,19 @@ export const purchaseItems = pgTable('purchase_items', {
   quantity: numeric('quantity', { precision: 10, scale: 3, mode: 'number' }).notNull().default(1),
   unit: itemUnitEnum('unit').notNull().default('ks'),
   price: numeric('price', { precision: 10, scale: 2 }).notNull(),
-})
+  // The line's shopping category at the time of purchase (lib/purchase-expenses.ts's automatic
+  // expense split reads this) — null for a row written before this column existed; that purchase's
+  // split cannot be recomputed later since its per-line category was never kept, only used once and
+  // discarded (CLAUDE.md section 5: never invent it after the fact).
+  category: itemCategoryEnum('category'),
+  // The household's own choice of expense category/subcategory for this one line, overriding the
+  // automatic mapping — e.g. a gift bought during a grocery trip, counted under Ostatní ▸ Dárky
+  // instead of Potraviny (owner request, 2026-09-27). Null means "use the automatic mapping".
+  expenseCategory: expenseCategoryEnum('expense_category'),
+  expenseSubcategory: text('expense_subcategory'),
+}, (table) => [
+  check('purchase_items_expense_subcategory_needs_category', sql`${table.expenseSubcategory} IS NULL OR ${table.expenseCategory} IS NOT NULL`),
+])
 
 // Household pantry ("spíž"): what the household believes it currently has at home. Populated by
 // completePurchaseAction (a purchased item restocks or creates its pantry row) and periodically
@@ -573,15 +585,23 @@ export const expenses = pgTable('expenses', {
   // Optional, one of the category's subcategories (lib/expense-categories.ts); checked by the server.
   subcategory: text('subcategory'),
   date: date('date').notNull(),
-  // Set when the expense is a receipt's purchase (lib/purchase-expenses.ts): one row per category of
-  // its items. It goes with the purchase, and is corrected with it, not by hand.
+  // Set when the expense is a receipt's purchase (lib/purchase-expenses.ts): one row per
+  // (category, subcategory) of its items. Goes with the purchase — its rows are replaced wholesale
+  // whenever the purchase's split changes, e.g. reassigning one item's category
+  // (lib/db/purchase-items.ts's recomputePurchaseExpenses), never edited by hand directly.
   purchaseId: uuid('purchase_id').references(() => purchases.id, { onDelete: 'cascade' }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => [
   // The overview reads a household's expenses by date.
   index('expenses_household_date_idx').on(table.householdId, table.date),
-  // A purchase is counted once per category, whatever retries or races happen.
-  uniqueIndex('expenses_purchase_category_unique').on(table.purchaseId, table.category).where(sql`${table.purchaseId} IS NOT NULL`),
+  // A purchase is counted once per (category, subcategory), whatever retries or races happen — the
+  // subcategory joined in (migration 0042) so a household's own override (e.g. one gift item moved
+  // to Ostatní ▸ Dárky) gets its own row instead of colliding with the purchase's other, unmodified
+  // Ostatní items. `coalesce(…, '')`: a bare unique index treats every NULL subcategory as distinct
+  // from every other, which would let a retry insert the same (purchase, category, NULL) row twice.
+  uniqueIndex('expenses_purchase_category_subcategory_unique')
+    .on(table.purchaseId, table.category, sql`coalesce(${table.subcategory}, '')`)
+    .where(sql`${table.purchaseId} IS NOT NULL`),
 ])
 
 // A household's monthly limit for one expense category ("Potraviny: 8 000 Kč"), next to the overall

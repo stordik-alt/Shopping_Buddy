@@ -152,6 +152,15 @@ describe('a receipt as expenses', () => {
     await db.delete(schema.purchases).where(eq(schema.purchases.id, purchase.id))
     expect(await db.query.expenses.findMany({ where: eq(schema.expenses.purchaseId, purchase.id) })).toEqual([])
   })
+
+  it('keeps each item\'s category on purchase_items, so its expense split can be recomputed later', async () => {
+    const { purchase } = await importReceiptAction([item({ name: 'Rýže', category: 'Potraviny' }), item({ name: 'Šampon', category: 'Drogerie' })], { date: TEST_DATE })
+    expect(purchase.items.map((row) => [row.name, row.category]).sort()).toEqual([
+      ['Rýže', 'Potraviny'],
+      ['Šampon', 'Drogerie'],
+    ])
+    expect(purchase.items.every((row) => row.id && row.expenseCategory == null && row.expenseSubcategory == null)).toBe(true)
+  })
 })
 
 describe('importReceiptAction (manual entry)', () => {

@@ -62,7 +62,7 @@ describe('getDealsPage', () => {
     createdProductIds.push(product.id)
     await givePriceAndDeal(product.id, store.id, 100, 60)
 
-    const result = await getDealsPage({ category: 'all', chain: store.chain, page: 1 })
+    const result = await getDealsPage({ category: 'all', chain: store.chain, sort: 'name', page: 1 })
     expect(result.total).toBe(1)
     expect(result.page).toBe(1)
     expect(result.deals).toHaveLength(1)
@@ -71,6 +71,27 @@ describe('getDealsPage', () => {
     expect(result.deals[0].price.dealPrice).toBe(60)
     // The only store for this product, so its own deal is trivially the best price.
     expect(result.deals[0].isBestPrice).toBe(true)
+  })
+
+  it('sorts by price and by discount size, with an offer (no discount) sinking to the end', async () => {
+    const store = await createChain()
+    createdStoreIds.push(store.id)
+    // cheap: 50 Kč, small discount (20%). pricey: 90 Kč, big discount (55%). offerOnly: no price at all.
+    const cheap = await createProduct('Potraviny')
+    const pricey = await createProduct('Potraviny')
+    const offerOnly = await createProduct('Potraviny')
+    createdProductIds.push(cheap.id, pricey.id, offerOnly.id)
+    await givePriceAndDeal(cheap.id, store.id, 62.5, 50)
+    await givePriceAndDeal(pricey.id, store.id, 200, 90)
+    await db.insert(schema.deals).values({ productId: offerOnly.id, storeId: store.id, storeLocationId: null, dealPrice: '10', validFrom: today, validUntil: farFuture })
+
+    const byPrice = await getDealsPage({ category: 'all', chain: store.chain, sort: 'price', page: 1 })
+    expect(byPrice.deals.map((entry) => entry.price.dealPrice)).toEqual([50, 90])
+    expect(byPrice.offers).toHaveLength(1) // cheapest of all (10 Kč), but it has no price to sort by
+
+    const byDiscount = await getDealsPage({ category: 'all', chain: store.chain, sort: 'discount', page: 1 })
+    expect(byDiscount.deals.map((entry) => entry.product.productName)).toEqual([pricey.name, cheap.name])
+    expect(byDiscount.offers.map((offer) => offer.productName)).toEqual([offerOnly.name])
   })
 
   it('filters by category, excluding a deal from a different category', async () => {
@@ -82,15 +103,15 @@ describe('getDealsPage', () => {
     await givePriceAndDeal(food.id, store.id, 50, 40)
     await givePriceAndDeal(drugstore.id, store.id, 80, 70)
 
-    const foodOnly = await getDealsPage({ category: 'Potraviny', chain: store.chain, page: 1 })
+    const foodOnly = await getDealsPage({ category: 'Potraviny', chain: store.chain, sort: 'name', page: 1 })
     expect(foodOnly.total).toBe(1)
     expect(foodOnly.deals[0].product.productName).toBe(food.name)
 
-    const drugstoreOnly = await getDealsPage({ category: 'Drogerie', chain: store.chain, page: 1 })
+    const drugstoreOnly = await getDealsPage({ category: 'Drogerie', chain: store.chain, sort: 'name', page: 1 })
     expect(drugstoreOnly.total).toBe(1)
     expect(drugstoreOnly.deals[0].product.productName).toBe(drugstore.name)
 
-    const all = await getDealsPage({ category: 'all', chain: store.chain, page: 1 })
+    const all = await getDealsPage({ category: 'all', chain: store.chain, sort: 'name', page: 1 })
     expect(all.total).toBe(2)
   })
 
@@ -104,7 +125,7 @@ describe('getDealsPage', () => {
     // A deal with no price row at all — no regular price to compare against.
     await db.insert(schema.deals).values({ productId: offerOnly.id, storeId: store.id, storeLocationId: null, dealPrice: '15', validFrom: today, validUntil: farFuture })
 
-    const result = await getDealsPage({ category: 'all', chain: store.chain, page: 1 })
+    const result = await getDealsPage({ category: 'all', chain: store.chain, sort: 'name', page: 1 })
     expect(result.total).toBe(2)
     expect(result.deals.map((entry) => entry.product.productName)).toEqual([withPrice.name])
     expect(result.offers).toEqual([expect.objectContaining({ productName: offerOnly.name, store: store.chain, dealPrice: 15 })])
@@ -118,8 +139,8 @@ describe('getDealsPage', () => {
     createdProductIds.push(...products.map((product) => product.id))
     for (const product of products) await givePriceAndDeal(product.id, store.id, 100, 50)
 
-    const firstPage = await getDealsPage({ category: 'all', chain: store.chain, page: 1 })
-    const secondPage = await getDealsPage({ category: 'all', chain: store.chain, page: 2 })
+    const firstPage = await getDealsPage({ category: 'all', chain: store.chain, sort: 'name', page: 1 })
+    const secondPage = await getDealsPage({ category: 'all', chain: store.chain, sort: 'name', page: 2 })
     expect(firstPage.total).toBe(count)
     expect(firstPage.deals).toHaveLength(DEALS_PAGE_SIZE)
     expect(secondPage.deals).toHaveLength(1)
@@ -128,7 +149,7 @@ describe('getDealsPage', () => {
 
     // Only one page exists beyond the second; a far-out page number falls back to it instead of
     // returning nothing.
-    const pastTheEnd = await getDealsPage({ category: 'all', chain: store.chain, page: 99 })
+    const pastTheEnd = await getDealsPage({ category: 'all', chain: store.chain, sort: 'name', page: 99 })
     expect(pastTheEnd.page).toBe(2)
     expect(pastTheEnd.deals).toHaveLength(1)
   })
@@ -142,17 +163,17 @@ describe('getDealsPage', () => {
     // No price rows at all: every one of these is an offer, not a deal.
     await db.insert(schema.deals).values(products.map((product) => ({ productId: product.id, storeId: store.id, storeLocationId: null, dealPrice: '10', validFrom: today, validUntil: farFuture })))
 
-    const firstPage = await getDealsPage({ category: 'all', chain: store.chain, page: 1 })
+    const firstPage = await getDealsPage({ category: 'all', chain: store.chain, sort: 'name', page: 1 })
     expect(firstPage.total).toBe(count)
     expect(firstPage.deals).toHaveLength(0)
     expect(firstPage.offers).toHaveLength(DEALS_PAGE_SIZE)
-    const secondPage = await getDealsPage({ category: 'all', chain: store.chain, page: 2 })
+    const secondPage = await getDealsPage({ category: 'all', chain: store.chain, sort: 'name', page: 2 })
     expect(secondPage.offers).toHaveLength(count - DEALS_PAGE_SIZE)
   })
 
   it('returns nothing for a chain with no running deals', async () => {
     const store = await createChain()
     createdStoreIds.push(store.id)
-    expect(await getDealsPage({ category: 'all', chain: store.chain, page: 1 })).toEqual({ deals: [], offers: [], total: 0, page: 1 })
+    expect(await getDealsPage({ category: 'all', chain: store.chain, sort: 'name', page: 1 })).toEqual({ deals: [], offers: [], total: 0, page: 1 })
   })
 })

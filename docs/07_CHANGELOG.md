@@ -1,5 +1,13 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-27 (Akce: filter by chain, sort by name/price/discount)
+- **Why (owner request):** "Akce se musí dát filtrovat podle řetězců... Stejně tak by bylo ideální přidat řazení, podle názvu, podle ceny, podle velikosti akce."
+- **What:**
+  - A "Řetězec" dropdown (every chain, from the same list already loaded for the shopping planner — no extra query) replaces the read-only chain chip the tab had; choosing one filters the page to that chain's own promotions. Picking a chain here also clears whatever chain the store directory's "Zobrazit akce" had preset, so leaving and returning to the tab later does not silently reapply it.
+  - A "Řazení" dropdown: by name (A–Z, the previous default), by price (cheapest first), or by discount size (biggest % off first). Sorting happens in the database, before the page is cut — an offer with no regular price (no discount to speak of) still sorts normally by name/price but sinks to the end under "by discount".
+  - The discount used for sorting is an approximation (the most recent price recorded for that exact product+chain, not the full store/branch/scope resolution `getProductPrices()` does) — cheap, since it only looks up the handful of rows already matching the category/chain filters, never the whole catalog. The price and discount actually shown on each card still come from the real, authoritative calculation; sorting can never show a wrong number, only order the page slightly differently in a rare edge case.
+- **Tests:** `lib/db/deals.test.ts` (+1: price and discount sort order, with an offer verified last); `tsc` and `next build` clean. Checked in a real browser at 375 px against the test database: chain filter narrows correctly (Rohlík: 1480 of 3831), both sort orders read correctly (discount descending, price ascending).
+
 ## 2026-09-27 (Promotions get their own paged, categorized Akce tab)
 - **Why (owner request):** "Rozhodně bych je nenechával na Úvodní stránce, je jich strašně moc" — Domů's promotions list had grown unbounded (every product on promotion, sitewide) and could be expanded inline into an endless scroll. Wanted: a new section, promotions split by product category, paged, mindful of the database.
 - **What:**

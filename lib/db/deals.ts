@@ -2,7 +2,7 @@ import { and, asc, eq, sql, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import { getProductPrices } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
-import { DEALS_PAGE_SIZE, type DealCategoryFilter } from '@/lib/deals-browse'
+import { DEALS_PAGE_SIZE, type DealCategoryFilter, type DealSort } from '@/lib/deals-browse'
 import type { StandaloneOffer } from '@/lib/offers'
 import { clampPage } from '@/lib/paging'
 import { assessDealQuality, type DealAssessment } from '@/lib/prices'
@@ -38,10 +38,29 @@ function filters(today: string, category: DealCategoryFilter, chain: string | nu
   return clauses
 }
 
-/** One page of today's running promotions, by product name then chain for stable, predictable paging
- *  (there is no reliable single "best" ordering across differently-discounted products of different
- *  categories). `total` counts every matching pair; a page past the end falls back to the last one. */
-export async function getDealsPage(options: { category: DealCategoryFilter; chain: string | null; page: number }): Promise<DealsPage> {
+// The most recent regular price recorded for the same (product, chain) — an approximation (it does
+// not resolve STORE vs CHAIN scope or a specific branch the way `getProductPrices()` does) used only
+// to order pages by discount size; the authoritative price and discount shown on the card still come
+// from `assessDealQuality()` below. Cheap: an indexed lookup per matching deal row, not per product in
+// the catalog.
+const approximateRegularPrice = sql`(SELECT ${schema.prices.regularPrice} FROM ${schema.prices} WHERE ${schema.prices.productId} = ${schema.deals.productId} AND ${schema.prices.storeId} = ${schema.deals.storeId} ORDER BY ${schema.prices.observedAt} DESC LIMIT 1)`
+const approximateDiscount = sql`(1 - ${schema.deals.dealPrice}::numeric / NULLIF(${approximateRegularPrice}, 0))`
+
+/** How a page is ordered before it is fetched: alphabetical by default, or by `sort`
+ *  (lib/deals-browse.ts). Product name, chain and deal id are always appended last, so paging stays
+ *  stable and predictable even between rows that tie on the chosen sort. */
+function orderBy(sort: DealSort): SQL[] {
+  const tieBreakers = [asc(schema.products.name), asc(schema.stores.chain), asc(schema.deals.id)]
+  if (sort === 'price') return [asc(schema.deals.dealPrice), ...tieBreakers]
+  // An offer has no regular price to compute a discount from (NULL) and sorts last regardless of
+  // direction — Postgres's default for DESC is NULLS FIRST, so this must be stated explicitly.
+  if (sort === 'discount') return [sql`${approximateDiscount} DESC NULLS LAST`, ...tieBreakers]
+  return tieBreakers
+}
+
+/** One page of today's running promotions. `total` counts every matching pair; a page past the end
+ *  falls back to the last one. */
+export async function getDealsPage(options: { category: DealCategoryFilter; chain: string | null; sort: DealSort; page: number }): Promise<DealsPage> {
   const db = getDb()
   const today = todayInPrague()
   const where = and(...filters(today, options.category, options.chain))
@@ -78,7 +97,7 @@ export async function getDealsPage(options: { category: DealCategoryFilter; chai
 
   const page = clampPage(options.page, total, DEALS_PAGE_SIZE)
   const rows = await base()
-    .orderBy(asc(schema.products.name), asc(schema.stores.chain), asc(schema.deals.id))
+    .orderBy(...orderBy(options.sort))
     .limit(DEALS_PAGE_SIZE)
     .offset((page - 1) * DEALS_PAGE_SIZE)
 

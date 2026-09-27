@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { type FormEvent, Suspense, useState } from 'react'
-import { BuddyIdea } from '@/components/auth/buddy-idea'
 import { authClient } from '@/lib/auth/client'
 
 export default function SignInPage() {
@@ -45,7 +44,8 @@ function SignInForm() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
       <div className="w-full max-w-sm">
         <div className="mb-7 flex justify-center">
-          <BuddyIdea />
+          {/* eslint-disable-next-line @next/next/no-img-element -- images are unoptimized in next.config; the approved logo is a plain static asset */}
+          <img src="/brand/anitka/anitka-logo.png" alt="ANITKA" width={2172} height={724} className="h-auto w-full max-w-[15rem]" />
         </div>
         <div className="rounded-3xl border border-border bg-card p-6">
           <h1 className="text-xl font-semibold tracking-tight">Přihlásit se</h1>

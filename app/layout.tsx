@@ -8,16 +8,16 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin', 'latin-ext'], variable: '--font-inter', display: 'swap' })
 
 export const metadata: Metadata = {
-  title: 'Rodinný nákup | Chytré nákupy a rozpočet',
-  description: 'Moderní pomocník pro rodinné nákupy, akce a rozpočet domácnosti.',
+  title: 'ANITKA | Chytré nákupy a rozpočet',
+  description: 'ANITKA — vaše chytrá pomocnice pro domácnost: nákupy, zásoby, rozpočet a jídelníček na jednom místě.',
   generator: 'v0.app',
-  // Buddy, like the installed app's icon (app/manifest.ts). Under /brand/ so they load before sign-in.
+  // The ANITKA symbol, like the installed app's icon (app/manifest.ts). Under /brand/ so they load before sign-in.
   icons: {
-    icon: [{ url: '/brand/buddy-favicon-32.png', sizes: '32x32', type: 'image/png' }],
-    apple: '/brand/buddy-apple-touch-icon.png',
+    icon: [{ url: '/brand/anitka-favicon-32.png', sizes: '32x32', type: 'image/png' }],
+    apple: '/brand/anitka-apple-touch-icon.png',
   },
-  // iPhone: "Přidat na plochu" opens the app full-screen under the name Buddy.
-  appleWebApp: { capable: true, title: 'Buddy', statusBarStyle: 'default' },
+  // iPhone: "Přidat na plochu" opens the app full-screen under the name ANITKA.
+  appleWebApp: { capable: true, title: 'ANITKA', statusBarStyle: 'default' },
 }
 
 export const viewport: Viewport = {

@@ -154,6 +154,8 @@ The application must not trust client-provided user or household identifiers for
 
 **Update 2026-09-27, ANITKA intro screen (owner brief).** `/intro` (`components/auth/intro-screen.tsx`) — the first screen a signed-out visitor sees, before `/auth/sign-in` — now carries the ANITKA brand: the approved logo asset (`public/brand/anitka/anitka-logo.png`, used unmodified), Deep Navy/Turquoise palette, a headline and supporting line, and "Začít"/"Přeskočit" (both dismiss the intro for good and continue to sign-in, same `shopping-buddy:skip-intro:v2` flag as before). Replaces the previous animated "Buddy" mascot intro. Routing, `proxy.ts` and the sign-in/sign-up flow are unchanged — only this one screen's content and look.
 
+**Update 2026-09-27, Buddy removed everywhere (owner: "Kompletně vymažeme Buddyho... Název aplikace je ANITKA").** Every remaining Buddy image/animation is gone from the app: the sign-in page's "Buddy has an idea" bust is now the full ANITKA logo; the small round avatar in the mobile header and desktop sidebar (`components/shared/brand.tsx`) and every installed-app/PWA/favicon icon are now the ANITKA "A" symbol, cropped from the approved logo (`public/brand/anitka-icon-*.png`, `anitka-favicon-32.png`, `anitka-apple-touch-icon.png`, `anitka-avatar.png` — a plain crop on a white square, not a redraw). The app's displayed name (manifest, page title, install-guide text, push-notification titles) is ANITKA throughout. Internal, non-visible identifiers (`shopping-buddy:*` storage/cache keys, the GCP OIDC subject) are unchanged — renaming those is a separate, infrastructure-affecting decision, not a branding one.
+
 ---
 
 # 6. Household Model

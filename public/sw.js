@@ -67,13 +67,13 @@ self.addEventListener('push', (event) => {
   } catch (error) {
     console.error('Unreadable push payload', error)
   }
-  const title = typeof message.title === 'string' ? message.title : 'Buddy'
+  const title = typeof message.title === 'string' ? message.title : 'ANITKA'
   event.waitUntil(
     Promise.all([
       self.registration.showNotification(title, {
         body: typeof message.body === 'string' ? message.body : 'Máte nové upozornění.',
-        icon: '/brand/buddy-icon-192.png',
-        badge: '/brand/buddy-favicon-32.png',
+        icon: '/brand/anitka-icon-192.png',
+        badge: '/brand/anitka-favicon-32.png',
         tag: typeof message.tag === 'string' ? message.tag : undefined,
         lang: 'cs',
         data: { url: typeof message.url === 'string' && message.url.startsWith('/') ? message.url : '/' },

@@ -45,7 +45,7 @@ export async function removePushSubscriptionAction(endpoint: string): Promise<vo
 export async function sendTestPushAction(): Promise<PushActionResult> {
   const { householdId, userId } = await requireHousehold()
   if (!vapidFromEnv()) return NOT_ENABLED
-  const report = await pushToHousehold(householdId, { title: 'Buddy', body: 'Upozornění do telefonu fungují.', url: '/', tag: 'test' }, { onlyUserId: userId })
+  const report = await pushToHousehold(householdId, { title: 'ANITKA', body: 'Upozornění do telefonu fungují.', url: '/', tag: 'test' }, { onlyUserId: userId })
   if (report.sent === 0) return { ok: false, error: 'Zkušební upozornění se nepodařilo doručit. Zkuste upozornění vypnout a znovu zapnout.' }
   return { ok: true }
 }

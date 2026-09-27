@@ -152,6 +152,8 @@ Protected routes are handled through the existing Next.js proxy/authentication f
 
 The application must not trust client-provided user or household identifiers for authorization decisions.
 
+**Update 2026-09-27, ANITKA intro screen (owner brief).** `/intro` (`components/auth/intro-screen.tsx`) — the first screen a signed-out visitor sees, before `/auth/sign-in` — now carries the ANITKA brand: the approved logo asset (`public/brand/anitka/anitka-logo.png`, used unmodified), Deep Navy/Turquoise palette, a headline and supporting line, and "Začít"/"Přeskočit" (both dismiss the intro for good and continue to sign-in, same `shopping-buddy:skip-intro:v2` flag as before). Replaces the previous animated "Buddy" mascot intro. Routing, `proxy.ts` and the sign-in/sign-up flow are unchanged — only this one screen's content and look.
+
 ---
 
 # 6. Household Model

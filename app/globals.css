@@ -55,31 +55,36 @@
 
 :root {
   color-scheme: light;
-  /* Calm, editorial palette: warm paper background, deep pine-teal as the single brand colour and
-     a soft apricot accent used sparingly for highlights. Every text/background pair below was
-     checked against WCAG AA (>= 4.5:1). Semantic status colours (success / warning) exist so
-     components never hard-code emerald/amber shades. */
+  /* ANITKA brand palette (owner brief, 2026-09-27): Deep Navy as the single brand colour, Turquoise
+     as its accent, on a warm, very light neutral background — the same two hex values as the intro
+     screen (components/auth/intro-screen.tsx) and the app icon (public/brand/anitka-icon-*.png),
+     sampled directly from the approved logo, not invented. Every text/background pair below was
+     checked against WCAG AA (>= 4.5:1). Semantic status colours (success / warning / destructive)
+     are deliberately left alone — they mean something specific (over budget, a warning), not brand
+     identity, and changing them away from the usual red/amber/green would read as a bug, not a
+     rebrand. Background/card/border/muted are unchanged too: already a near-white neutral, which is
+     exactly what the brief itself asks for. */
   --background: oklch(0.978 0.005 85);
   --foreground: oklch(0.22 0.02 255);
   --card: oklch(0.996 0.003 85);
   --card-foreground: oklch(0.22 0.02 255);
   --popover: oklch(0.996 0.003 85);
   --popover-foreground: oklch(0.22 0.02 255);
-  --primary: oklch(0.4 0.08 180);
-  --primary-foreground: oklch(0.985 0.005 85);
-  --secondary: oklch(0.95 0.02 180);
-  --secondary-foreground: oklch(0.36 0.07 180);
+  --primary: #0a1a3f; /* Deep Navy */
+  --primary-foreground: #ffffff;
+  --secondary: #eef1f7; /* pale navy tint */
+  --secondary-foreground: #0a1a3f;
   --muted: oklch(0.955 0.008 85);
   --muted-foreground: oklch(0.5 0.02 255);
-  --accent: oklch(0.93 0.05 75);
-  --accent-foreground: oklch(0.35 0.06 60);
+  --accent: #e3f8fb; /* pale turquoise tint */
+  --accent-foreground: #045a68;
   --destructive: oklch(0.55 0.19 25);
   --success: oklch(0.5 0.11 155);
   --warning: oklch(0.48 0.11 65);
   --border: oklch(0.92 0.006 85);
   --input: oklch(0.89 0.008 85);
-  --ring: oklch(0.55 0.09 180);
-  --chart-1: oklch(0.4 0.08 180);
+  --ring: #03bcdb; /* Turquoise */
+  --chart-1: #0a1a3f;
   --chart-2: oklch(0.62 0.1 160);
   --chart-3: oklch(0.78 0.1 80);
   --chart-4: oklch(0.6 0.07 250);
@@ -95,12 +100,12 @@
 
   --sidebar: oklch(0.996 0.003 85);
   --sidebar-foreground: oklch(0.22 0.02 255);
-  --sidebar-primary: oklch(0.4 0.08 180);
-  --sidebar-primary-foreground: oklch(0.985 0.005 85);
-  --sidebar-accent: oklch(0.95 0.02 180);
-  --sidebar-accent-foreground: oklch(0.36 0.07 180);
+  --sidebar-primary: #0a1a3f;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e3f8fb;
+  --sidebar-accent-foreground: #045a68;
   --sidebar-border: oklch(0.92 0.006 85);
-  --sidebar-ring: oklch(0.55 0.09 180);
+  --sidebar-ring: #03bcdb;
 }
 
 .dark {
@@ -111,21 +116,24 @@
   --card-foreground: oklch(0.96 0.008 85);
   --popover: oklch(0.215 0.016 215);
   --popover-foreground: oklch(0.96 0.008 85);
-  --primary: oklch(0.78 0.1 172);
-  --primary-foreground: oklch(0.17 0.02 215);
-  --secondary: oklch(0.3 0.03 200);
-  --secondary-foreground: oklch(0.92 0.04 172);
+  /* Turquoise, not Navy, is the primary action colour here — a dark Navy button would nearly
+     disappear against this already-dark-navy-ish background, the same reasoning the intro screen
+     uses for its own dark-mode "Začít" button. */
+  --primary: #03bcdb;
+  --primary-foreground: #0a1a3f;
+  --secondary: #16264a; /* navy-tinted surface, a step lighter than the page background */
+  --secondary-foreground: #cfe0ff;
   --muted: oklch(0.26 0.016 215);
   --muted-foreground: oklch(0.75 0.02 215);
-  --accent: oklch(0.38 0.05 70);
-  --accent-foreground: oklch(0.94 0.04 75);
+  --accent: #113947; /* turquoise-tinted surface */
+  --accent-foreground: #7fe6f5;
   --destructive: oklch(0.72 0.17 25);
   --success: oklch(0.78 0.13 155);
   --warning: oklch(0.82 0.12 80);
   --border: oklch(1 0 0 / 9%);
   --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.7 0.1 172);
-  --chart-1: oklch(0.78 0.1 172);
+  --ring: #03bcdb;
+  --chart-1: #03bcdb;
   --chart-2: oklch(0.66 0.1 160);
   --chart-3: oklch(0.8 0.1 80);
   --chart-4: oklch(0.7 0.08 250);
@@ -139,12 +147,12 @@
 
   --sidebar: oklch(0.195 0.016 215);
   --sidebar-foreground: oklch(0.96 0.008 85);
-  --sidebar-primary: oklch(0.78 0.1 172);
-  --sidebar-primary-foreground: oklch(0.17 0.02 215);
-  --sidebar-accent: oklch(0.3 0.03 200);
-  --sidebar-accent-foreground: oklch(0.92 0.04 172);
+  --sidebar-primary: #03bcdb;
+  --sidebar-primary-foreground: #0a1a3f;
+  --sidebar-accent: #16264a;
+  --sidebar-accent-foreground: #cfe0ff;
   --sidebar-border: oklch(1 0 0 / 9%);
-  --sidebar-ring: oklch(0.7 0.1 172);
+  --sidebar-ring: #03bcdb;
 }
 
 /* Shared card surface: soft border + a barely-there shadow instead of heavy outlines. */

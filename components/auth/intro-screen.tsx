@@ -61,11 +61,14 @@ export function IntroScreen() {
           className="relative mx-auto flex w-full max-w-sm flex-1 flex-col items-center px-6 pt-[max(3rem,env(safe-area-inset-top)+2rem)] pb-[max(1.5rem,env(safe-area-inset-bottom)+0.5rem)] text-center"
         >
           <div className="flex flex-1 flex-col items-center justify-center gap-8">
-            {/* The logo is a finished asset with an opaque white background — this plate keeps it
-                crisp against the dark background too, without recolouring the image itself. */}
-            <div className="w-full max-w-[17rem] rounded-[1.75rem] bg-white p-5 shadow-[0_16px_40px_-16px_rgba(10,26,63,0.35)] dark:shadow-[0_16px_40px_-12px_rgba(0,0,0,0.55)]">
-              {/* eslint-disable-next-line @next/next/no-img-element -- images are unoptimized in next.config; the approved logo is a plain static asset */}
-              <img src="/brand/anitka/anitka-logo.png" alt="ANITKA" width={2172} height={724} className="h-auto w-full" fetchPriority="high" />
+            <div className="flex flex-col items-center gap-2">
+              {/* The logo is a finished asset with an opaque white background — this plate keeps it
+                  crisp against the dark background too, without recolouring the image itself. */}
+              <div className="w-full max-w-[17rem] rounded-[1.75rem] bg-white p-5 shadow-[0_16px_40px_-16px_rgba(10,26,63,0.35)] dark:shadow-[0_16px_40px_-12px_rgba(0,0,0,0.55)]">
+                {/* eslint-disable-next-line @next/next/no-img-element -- images are unoptimized in next.config; the approved logo is a plain static asset */}
+                <img src="/brand/anitka/anitka-logo.png" alt="ANITKA" width={2172} height={724} className="h-auto w-full" fetchPriority="high" />
+              </div>
+              <p className="text-xs font-medium uppercase tracking-[0.15em] text-[var(--anitka-navy)]/50 dark:text-white/50">Powered by ANITKA AI</p>
             </div>
 
             <div className="space-y-3">

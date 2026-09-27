@@ -1,14 +1,24 @@
 import { useState } from 'react'
-import { ChevronDown, Repeat, ShoppingBag, Star, TrendingUp } from 'lucide-react'
+import { ChevronDown, Loader2, Repeat, ShoppingBag, Star, TrendingUp } from 'lucide-react'
 import { averageMonthlySpend, favoriteStores, mostBoughtProducts, repeatPurchases } from '@/lib/purchase-history'
 import { Stat } from '@/components/shared/stat'
+import { EXPENSE_CATEGORY_NAMES, subcategoriesOf, type ExpenseCategory } from '@/lib/expense-categories'
+import { userFacingError } from '@/lib/errors'
 import { itemCountLabel, money, shortDate } from '@/lib/format'
-import type { PurchaseRecord } from '@/lib/types'
+import type { PurchaseItem, PurchaseRecord } from '@/lib/types'
 
 // The newest few purchases are listed; the rest are one tap away, so the tab stays short.
 const VISIBLE_PURCHASES = 5
 
-export function PurchaseHistory({ records }: { records: PurchaseRecord[] }) {
+export function PurchaseHistory({
+  records,
+  onReassignItem,
+}: {
+  records: PurchaseRecord[]
+  /** Sets (`category` non-null) or clears (`category: null`) one item's expense-category override —
+   *  e.g. a gift bought during an otherwise ordinary grocery trip. */
+  onReassignItem: (purchaseItemId: string, category: ExpenseCategory | null, subcategory: string | null) => Promise<void>
+}) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [showAll, setShowAll] = useState(false)
   const newestFirst = records.slice().reverse()
@@ -64,12 +74,7 @@ export function PurchaseHistory({ records }: { records: PurchaseRecord[] }) {
               {expandedId === record.id && (
                 <div className="space-y-1.5 border-t border-border bg-muted/40 px-5 py-4">
                   {record.items.map((item) => (
-                    <div key={item.name} className="flex items-center justify-between text-xs">
-                      <span>
-                        {item.name} · {item.quantity} {item.unit}
-                      </span>
-                      <span className="font-medium">{money(item.price * item.quantity)}</span>
-                    </div>
+                    <PurchaseHistoryItemRow key={item.id ?? item.name} item={item} onReassignItem={onReassignItem} />
                   ))}
                 </div>
               )}
@@ -87,5 +92,102 @@ export function PurchaseHistory({ records }: { records: PurchaseRecord[] }) {
         </button>
       )}
     </section>
+  )
+}
+
+/** One line of a purchase, with — when the item is a real, categorized database row — a way to move
+ *  it to a different expense category/subcategory than the automatic mapping chose (owner request,
+ *  2026-09-27: "abychom třeba pokryli nákup dárků"). An item from a purchase made before this
+ *  existed (`category` unknown) is shown plainly instead, since there is nothing to base a
+ *  reassignment on. */
+function PurchaseHistoryItemRow({
+  item,
+  onReassignItem,
+}: {
+  item: PurchaseItem
+  onReassignItem: (purchaseItemId: string, category: ExpenseCategory | null, subcategory: string | null) => Promise<void>
+}) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  // The server action also revalidates, but that refresh happens on the app's own polling schedule
+  // (CLAUDE.md section 10: lightweight polling, no realtime) — this makes the choice stick on screen
+  // immediately, the same way the store directory and the ideas admin screen already do.
+  const [current, setCurrent] = useState({ category: item.expenseCategory ?? null, subcategory: item.expenseSubcategory ?? null })
+
+  const canReassign = item.id != null && item.category != null
+
+  async function changeCategory(next: ExpenseCategory | 'auto') {
+    if (!item.id) return
+    const target = next === 'auto' ? { category: null, subcategory: null } : { category: next, subcategory: null }
+    setBusy(true)
+    setError('')
+    try {
+      await onReassignItem(item.id, target.category, target.subcategory)
+      setCurrent(target)
+    } catch (err) {
+      setError(userFacingError(err, 'Kategorii se nepodařilo změnit.'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function changeSubcategory(next: string) {
+    if (!item.id || !current.category) return
+    const subcategory = next || null
+    setBusy(true)
+    setError('')
+    try {
+      await onReassignItem(item.id, current.category, subcategory)
+      setCurrent({ category: current.category, subcategory })
+    } catch (err) {
+      setError(userFacingError(err, 'Podkategorii se nepodařilo změnit.'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
+      <span className="min-w-0 flex-1">
+        {item.name} · {item.quantity} {item.unit}
+      </span>
+      <span className="font-medium">{money(item.price * item.quantity)}</span>
+      {canReassign && (
+        <div className="flex w-full flex-wrap items-center gap-1.5 text-muted-foreground">
+          <select
+            aria-label={`Kategorie výdaje pro ${item.name}`}
+            value={current.category ?? 'auto'}
+            disabled={busy}
+            onChange={(event) => void changeCategory(event.target.value as ExpenseCategory | 'auto')}
+            className="min-h-8 rounded-lg border border-input bg-background px-2 py-1 text-xs disabled:opacity-60"
+          >
+            <option value="auto">Automaticky</option>
+            {EXPENSE_CATEGORY_NAMES.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
+          </select>
+          {current.category && (
+            <select
+              aria-label={`Podkategorie výdaje pro ${item.name}`}
+              value={current.subcategory ?? ''}
+              disabled={busy}
+              onChange={(event) => void changeSubcategory(event.target.value)}
+              className="min-h-8 rounded-lg border border-input bg-background px-2 py-1 text-xs disabled:opacity-60"
+            >
+              <option value="">Bez podkategorie</option>
+              {subcategoriesOf(current.category).map((subcategory) => (
+                <option key={subcategory} value={subcategory}>
+                  {subcategory}
+                </option>
+              ))}
+            </select>
+          )}
+          {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+          {error && <span className="text-destructive">{error}</span>}
+        </div>
+      )}
+    </div>
   )
 }

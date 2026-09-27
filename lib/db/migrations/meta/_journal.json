@@ -295,6 +295,13 @@
       "when": 1790458614002,
       "tag": "0041_app_admins",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1790494217195,
+      "tag": "0042_receipt_expense_categories",
+      "breakpoints": true
     }
   ]
 }

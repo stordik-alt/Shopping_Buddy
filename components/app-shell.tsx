@@ -19,7 +19,7 @@ import {
 import { markMealCookedAction } from '@/app/actions/meal-plan'
 import { markAllNotificationsReadAction, markNotificationReadAction } from '@/app/actions/notifications'
 import { adjustPantryItemQuantityAction, confirmPantryItemAction, movePantryItemAction, removePantryItemAction, reviewPantryAction, setPantryTrackingAction } from '@/app/actions/pantry'
-import { completePurchaseAction } from '@/app/actions/purchases'
+import { completePurchaseAction, setPurchaseItemCategoryAction } from '@/app/actions/purchases'
 import {
   applyReceiptListMatchesAction,
   cancelReceiptImportAction,
@@ -943,7 +943,10 @@ export function AppShell({
                     onSkip={skipRecurring}
                   />
                   <ExpenseLedger expenses={expenses} today={today} limits={categoryBudgets} onAdd={() => openExpense(null)} onEdit={openExpense} onLimits={() => setLimitsOpen(true)} />
-                  <PurchaseHistory records={initialData.purchaseHistory} />
+                  <PurchaseHistory
+                    records={initialData.purchaseHistory}
+                    onReassignItem={(purchaseItemId, category, subcategory) => setPurchaseItemCategoryAction(purchaseItemId, category, subcategory)}
+                  />
                 </div>
               )}
               {tab === 'AI' && <AiAssistant onShopping={() => setTab('Nákup')} />}

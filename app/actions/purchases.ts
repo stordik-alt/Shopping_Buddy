@@ -6,7 +6,9 @@ import { requireHouseholdId } from '@/lib/auth/authorize'
 import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
 import { restockPantryItem } from '@/lib/db/queries'
+import { setPurchaseItemExpenseOverride } from '@/lib/db/purchase-items'
 import * as schema from '@/lib/db/schema'
+import type { ExpenseCategory } from '@/lib/expense-categories'
 import type { PurchaseRecord } from '@/lib/types'
 
 async function assertOwnsList(householdId: string, listId: string) {
@@ -67,6 +69,7 @@ export async function completePurchaseAction(listId: string): Promise<{ purchase
           quantity: item.quantity,
           unit: item.unit,
           price: item.price,
+          category: item.category,
         })),
       )
       .returning()
@@ -77,7 +80,16 @@ export async function completePurchaseAction(listId: string): Promise<{ purchase
       store: items[0].preferredStoreLocation?.store.chain,
       total: Number(purchaseRow.total),
       discount: purchaseRow.discount != null ? Number(purchaseRow.discount) : undefined,
-      items: itemRows.map((row) => ({ name: row.name, quantity: row.quantity, unit: row.unit, price: Number(row.price) })),
+      items: itemRows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        quantity: row.quantity,
+        unit: row.unit,
+        price: Number(row.price),
+        category: row.category,
+        expenseCategory: row.expenseCategory,
+        expenseSubcategory: row.expenseSubcategory,
+      })),
     })
   }
 
@@ -90,4 +102,20 @@ export async function completePurchaseAction(listId: string): Promise<{ purchase
 
   revalidatePath('/')
   return { purchases: created }
+}
+
+/** The household's own choice of expense category (and optional subcategory) for one item of one of
+ *  its own past purchases — e.g. a gift bought during an otherwise ordinary grocery trip, counted
+ *  under Ostatní ▸ Dárky instead of Potraviny (owner request, 2026-09-27) — overriding the automatic
+ *  mapping. `category: null` clears the override back to automatic. The purchase's expense rows are
+ *  recomputed to match (lib/db/purchase-items.ts). */
+export async function setPurchaseItemCategoryAction(
+  purchaseItemId: string,
+  category: ExpenseCategory | null,
+  subcategory: string | null,
+): Promise<void> {
+  const householdId = await requireHouseholdId()
+  if (typeof purchaseItemId !== 'string' || purchaseItemId.length === 0) throw new Error('Neplatná položka nákupu.')
+  await setPurchaseItemExpenseOverride(householdId, purchaseItemId, category ? { category, subcategory } : null)
+  revalidatePath('/')
 }

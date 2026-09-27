@@ -2,123 +2,98 @@
 
 import { useEffect, useState, type CSSProperties } from 'react'
 import { useRouter } from 'next/navigation'
-import { Montserrat } from 'next/font/google'
-import styles from './intro-screen.module.css'
+import { safeLocalStorage } from '@/lib/safe-storage'
+import { readThemeChoice, resolveDark } from '@/lib/theme-preference'
 
-// Versioned so an old test value cannot unexpectedly skip the new intro.
+// The ANITKA rebrand's own first screen (owner brief, 2026-09-27): a minimalist intro built around
+// the approved logo asset (public/brand/anitka/anitka-logo.png — untouched, per the brief's "do not
+// redraw the logo"; served to signed-out visitors by proxy.ts, same as the rest of public/brand). Its
+// job is unchanged from before — mark the intro seen, then hand off to the existing sign-in screen —
+// only the screen itself is new.
 const SKIP_INTRO_KEY = 'shopping-buddy:skip-intro:v2'
 
-// The intro artwork's wordmark is set in a geometric heavy sans; Montserrat matches it. latin-ext
-// covers the Czech diacritics in the tagline and button.
-const montserrat = Montserrat({ subsets: ['latin', 'latin-ext'], weight: ['500', '700', '800'] })
-
-// The wordmark's letters pop in one after another (the delay step lives in the CSS via --i).
-const TITLE_LETTERS = ['B', 'u', 'd', 'd', 'y']
-
-// Sparks drifting up around Buddy once he has landed: horizontal position (% of the scene),
-// starting height (% from the bottom) and delay, so they don't rise in lockstep.
-const SPARKS = [
-  { x: 24, y: 30, delay: 0 },
-  { x: 72, y: 42, delay: 0.9 },
-  { x: 35, y: 58, delay: 1.7 },
-  { x: 66, y: 22, delay: 2.4 },
-  { x: 18, y: 50, delay: 3.1 },
-  { x: 80, y: 60, delay: 1.3 },
-]
+// Sampled directly from the approved logo asset (not invented): the wordmark's navy and the symbol's
+// turquoise wedge. Scoped to this one screen — the rest of the app keeps its own theme tokens
+// (app/globals.css); this is ANITKA's own fixed brand palette, not a site-wide change.
+const ANITKA_NAVY = '#0a1a3f'
+const ANITKA_TURQUOISE = '#03bcdb'
 
 export function IntroScreen() {
   const router = useRouter()
   const [ready, setReady] = useState(false)
-  const [skipIntro, setSkipIntro] = useState(false)
+  const [dark, setDark] = useState(false)
 
   useEffect(() => {
-    const shouldSkip = window.localStorage.getItem(SKIP_INTRO_KEY) === 'true'
-
-    if (shouldSkip) {
+    const storage = safeLocalStorage()
+    if (storage?.getItem(SKIP_INTRO_KEY) === 'true') {
       router.replace('/auth/sign-in')
       return
     }
-
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    setDark(resolveDark(readThemeChoice(storage), media.matches))
     setReady(true)
   }, [router])
 
-  const handleContinue = () => {
-    if (skipIntro) {
-      window.localStorage.setItem(SKIP_INTRO_KEY, 'true')
-    } else {
-      window.localStorage.removeItem(SKIP_INTRO_KEY)
-    }
-
+  // Either action dismisses the intro for good and continues to the existing sign-in flow — there is
+  // no reason to show it again once someone has gone through it, whichever button they used.
+  function proceed() {
+    safeLocalStorage()?.setItem(SKIP_INTRO_KEY, 'true')
     router.push('/auth/sign-in')
   }
 
-  if (!ready) {
-    return <main className={styles.screen} aria-hidden="true" />
-  }
+  if (!ready) return <main className="min-h-[100svh] bg-white" aria-hidden="true" />
 
   return (
-    <main className={`${styles.screen} ${montserrat.className}`}>
-      <div className={styles.content}>
-        {/* Buddy's entrance (timing in intro-screen.module.css): he rises in and lands with a
-            bounce, rings flash on the floor and the glow behind him lights up; afterwards he
-            gently floats while sparks drift up. Reduced motion shows the final scene at once.
-            The artwork lives under /intro/ so proxy.ts serves it to signed-out visitors. */}
-        <div className={styles.hero}>
-          <div className={styles.glow} aria-hidden="true" />
-          <div className={styles.buddy}>
-            {/* eslint-disable-next-line @next/next/no-img-element -- images are unoptimized in next.config; a plain img keeps the object-fit sizing simple */}
-            <img
-              src="/intro/buddy-hero.webp"
-              alt="Buddy, robot v kšiltovce, s nákupním košíkem a bankovkami"
-              width={1080}
-              height={1340}
-              fetchPriority="high"
-            />
-          </div>
-          <div className={styles.landingRing} aria-hidden="true" />
-          <div className={`${styles.landingRing} ${styles.landingRingLate}`} aria-hidden="true" />
-          <div className={styles.sparks} aria-hidden="true">
-            {SPARKS.map((spark, index) => (
-              <span
-                key={index}
-                style={{
-                  '--x': `${spark.x}%`,
-                  '--y': `${spark.y}%`,
-                  '--delay': `${spark.delay}s`,
-                } as CSSProperties}
-              />
-            ))}
-          </div>
+    <main
+      className={dark ? 'dark' : ''}
+      style={{ '--anitka-navy': ANITKA_NAVY, '--anitka-turquoise': ANITKA_TURQUOISE } as CSSProperties}
+    >
+      <div className="relative flex min-h-[100svh] flex-col overflow-hidden bg-white dark:bg-[var(--anitka-navy)]">
+        {/* A very small decorative touch, per the brief — not a shape competing with the logo. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-64 overflow-hidden"
+        >
+          <div className="absolute left-1/2 top-[-7rem] size-64 -translate-x-1/2 rounded-full bg-[var(--anitka-turquoise)]/10 blur-3xl" />
         </div>
 
-        <section className={styles.copy} aria-labelledby="buddy-intro-title">
-          <h1 id="buddy-intro-title" aria-label="Buddy">
-            {TITLE_LETTERS.map((letter, index) => (
-              <span key={index} aria-hidden="true" style={{ '--i': index } as CSSProperties}>
-                {letter}
-              </span>
-            ))}
-          </h1>
-          <p>Chytrý nákupní asistent pro vaši domácnost</p>
-        </section>
+        <div
+          className="relative mx-auto flex w-full max-w-sm flex-1 flex-col items-center px-6 pt-[max(3rem,env(safe-area-inset-top)+2rem)] pb-[max(1.5rem,env(safe-area-inset-bottom)+0.5rem)] text-center"
+        >
+          <div className="flex flex-1 flex-col items-center justify-center gap-8">
+            {/* The logo is a finished asset with an opaque white background — this plate keeps it
+                crisp against the dark background too, without recolouring the image itself. */}
+            <div className="w-full max-w-[17rem] rounded-[1.75rem] bg-white p-5 shadow-[0_16px_40px_-16px_rgba(10,26,63,0.35)] dark:shadow-[0_16px_40px_-12px_rgba(0,0,0,0.55)]">
+              {/* eslint-disable-next-line @next/next/no-img-element -- images are unoptimized in next.config; the approved logo is a plain static asset */}
+              <img src="/brand/anitka/anitka-logo.png" alt="ANITKA" width={2172} height={724} className="h-auto w-full" fetchPriority="high" />
+            </div>
 
-        <div className={styles.actions}>
-          <button
-            type="button"
-            className={styles.continueButton}
-            onClick={handleContinue}
-          >
-            Pokračovat na přihlášení
-          </button>
+            <div className="space-y-3">
+              <h1 className="text-balance text-2xl font-bold leading-snug text-[var(--anitka-navy)] dark:text-white sm:text-[1.75rem]">
+                Vaše chytrá pomocnice pro domácnost.
+              </h1>
+              <p className="text-balance text-sm text-[var(--anitka-navy)]/70 dark:text-white/75 sm:text-base">
+                Nákupy, zásoby, rozpočet a jídelníček na jednom místě.
+              </p>
+            </div>
+          </div>
 
-          <label className={styles.skipOption}>
-            <input
-              type="checkbox"
-              checked={skipIntro}
-              onChange={(event) => setSkipIntro(event.target.checked)}
-            />
-            <span>Příště už intro nezobrazovat</span>
-          </label>
+          <div className="w-full space-y-3">
+            <button
+              type="button"
+              onClick={proceed}
+              className="flex min-h-14 w-full items-center justify-center rounded-2xl bg-[var(--anitka-navy)] px-6 text-base font-semibold text-white shadow-[0_10px_24px_-8px_rgba(10,26,63,0.45)] transition active:scale-[0.99] dark:bg-[var(--anitka-turquoise)] dark:text-[var(--anitka-navy)]"
+            >
+              Začít
+            </button>
+            <button
+              type="button"
+              onClick={proceed}
+              className="flex min-h-11 w-full items-center justify-center text-sm font-medium text-[var(--anitka-navy)]/60 transition hover:text-[var(--anitka-navy)] dark:text-white/60 dark:hover:text-white"
+            >
+              Přeskočit
+            </button>
+          </div>
         </div>
       </div>
     </main>

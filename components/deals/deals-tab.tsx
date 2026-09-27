@@ -1,8 +1,9 @@
-import { ChevronLeft, ChevronRight, Loader2, Tag } from 'lucide-react'
+import { Loader2, Tag } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { dealsPageAction } from '@/app/actions/deals'
 import { DealCard } from '@/components/deals/deal-card'
 import { OfferCard } from '@/components/deals/offer-card'
+import { Pager } from '@/components/shared/pager'
 import { DEAL_CATEGORIES, DEALS_PAGE_SIZE, DEAL_SORTS, type DealCategoryFilter, type DealSort } from '@/lib/deals-browse'
 import { activeDealCountLabel } from '@/lib/format'
 import type { DealsPage } from '@/lib/db/deals'
@@ -206,36 +207,9 @@ export function DealsTab({
               </div>
             </section>
           )}
-          {totalPages > 1 && <Pager page={page_.page} totalPages={totalPages} busy={busy} onChange={setPage} />}
+          {totalPages > 1 && <Pager page={page_.page} totalPages={totalPages} busy={busy} onChange={setPage} label="Stránkování akcí" />}
         </>
       )}
     </div>
-  )
-}
-
-/** `‹ page/total ›`, the same shape as the store directory's branch pager. */
-function Pager({ page, totalPages, busy, onChange }: { page: number; totalPages: number; busy: boolean; onChange: (page: number) => void }) {
-  return (
-    <nav aria-label="Stránkování akcí" className="flex items-center justify-center gap-4">
-      <button
-        onClick={() => onChange(page - 1)}
-        disabled={page <= 1 || busy}
-        aria-label="Předchozí stránka"
-        className="flex size-11 items-center justify-center rounded-full border border-border bg-card hover:bg-muted disabled:opacity-40"
-      >
-        <ChevronLeft className="h-5 w-5" />
-      </button>
-      <span className="min-w-14 text-center text-sm font-medium tabular-nums" aria-live="polite">
-        {page}/{totalPages}
-      </span>
-      <button
-        onClick={() => onChange(page + 1)}
-        disabled={page >= totalPages || busy}
-        aria-label="Další stránka"
-        className="flex size-11 items-center justify-center rounded-full border border-border bg-card hover:bg-muted disabled:opacity-40"
-      >
-        <ChevronRight className="h-5 w-5" />
-      </button>
-    </nav>
   )
 }

@@ -43,9 +43,10 @@ function SignInForm() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
       <div className="w-full max-w-sm">
-        <div className="mb-7 flex justify-center">
+        <div className="mb-7 flex flex-col items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element -- images are unoptimized in next.config; the approved logo is a plain static asset */}
           <img src="/brand/anitka/anitka-logo.png" alt="ANITKA" width={2172} height={724} className="h-auto w-full max-w-[15rem]" />
+          <p className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground/70">Powered by ANITKA AI</p>
         </div>
         <div className="rounded-3xl border border-border bg-card p-6">
           <h1 className="text-xl font-semibold tracking-tight">Přihlásit se</h1>

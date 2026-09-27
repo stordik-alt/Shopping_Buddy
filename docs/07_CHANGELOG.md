@@ -1,5 +1,12 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-27 (App theme recoloured to ANITKA's Deep Navy/Turquoise; "Powered by ANITKA AI")
+- **Why (owner):** "Uprav barvy aplikace podle loga pro světlý i tmavý režim. Na intro a přihlašovací obrazovku přidej pod logo text Powered by ANITKA AI."
+- **What:**
+  - **Theme (`app/globals.css`):** the app's single brand colour (`--primary`, used for every primary button, the active tab, the "Nastavte si měsíční limit" card, etc.) is now Deep Navy in light mode and Turquoise in dark mode — the same two hex values already used by the intro screen and the app icon (`#0a1a3f` / `#03bcdb`, sampled from the approved logo, not invented), so a button now looks the same colour whether it is drawn from the app's own theme tokens or the intro's local ones. `--ring` (focus outline) is Turquoise in both modes. `--secondary`/`--accent` (chip and callout backgrounds) are now pale navy- and turquoise-tinted instead of the old teal/apricot, keeping the two-colour brand instead of a third stray hue. `--chart-1` follows `--primary` (it always mirrored it). Left alone on purpose: `--background`/`--card`/`--border`/`--muted` (already the near-white neutral the brief itself asks for) and `--destructive`/`--success`/`--warning`/`--chart-2..10` (status/category meaning, not brand identity — recolouring "over budget" red would read as a bug, not a rebrand).
+  - **"Powered by ANITKA AI":** a small caption under the logo on `/intro` and `/auth/sign-in` — a label, not a new AI feature or model call (CLAUDE.md section 30's AI-phase deferral is unaffected).
+- **Tests:** `tsc` and `next build` clean; full non-DB suite (1088) unaffected (no test asserts on exact colours). Checked in a real browser: Domů and Rozpočet in both light and dark mode (buttons, active nav, the budget card, the account avatar all pick up the new colours; text contrast holds up — checked numerically, every new pairing is ≥ 6.6:1, above WCAG AA's 4.5:1), the intro screen and sign-in page both show the caption in light and dark, no horizontal overflow.
+
 ## 2026-09-27 (Buddy removed everywhere: app icon, header, sign-in — ANITKA symbol throughout)
 - **Why (owner):** "Nahradíme našeho buddyho, musí se tedy změnit všude v aplikaci i na ikoně aplikace"; then "Kompletně vymažeme Buddyho. I z přihlašovací stránky, tam bude logo Anitka. V aplikaci v bublině nahoře místo Buddyho bude jen samotný symbol z loga. Stejně tak ikona aplikace musí být symbol A z loga. Název aplikace je ANITKA." Follows the previous turn's ANITKA intro screen.
 - **What:**

@@ -4,7 +4,7 @@ import { NavItem } from '@/components/shared/nav-item'
 import { AI_ASSISTANT_ENABLED } from '@/lib/features'
 import type { Tab } from '@/lib/types'
 
-const TABS: Tab[] = (['Domů', 'Nákup', 'Zásoby', 'Obchody', 'Rozpočet', 'AI', 'Profil'] as const).filter(
+const TABS: Tab[] = (['Domů', 'Akce', 'Nákup', 'Zásoby', 'Obchody', 'Rozpočet', 'AI', 'Profil'] as const).filter(
   (tab) => tab !== 'AI' || AI_ASSISTANT_ENABLED,
 )
 

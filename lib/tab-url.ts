@@ -6,6 +6,7 @@ import type { Tab } from '@/lib/types'
 
 const TAB_SLUGS: Record<Tab, string | null> = {
   Domů: null,
+  Akce: 'akce',
   Nákup: 'nakup',
   Zásoby: 'zasoby',
   Obchody: 'obchody',

@@ -1,7 +1,7 @@
-import { Bot, Home, ListChecks, MapPin, Package, Users, Wallet } from 'lucide-react'
+import { Bot, Home, ListChecks, MapPin, Package, Tag, Users, Wallet } from 'lucide-react'
 import type { Tab } from '@/lib/types'
 
-const icons = { Domů: Home, Nákup: ListChecks, Zásoby: Package, Obchody: MapPin, Rozpočet: Wallet, AI: Bot, Profil: Users }
+const icons = { Domů: Home, Akce: Tag, Nákup: ListChecks, Zásoby: Package, Obchody: MapPin, Rozpočet: Wallet, AI: Bot, Profil: Users }
 
 export function NavItem({
   item,

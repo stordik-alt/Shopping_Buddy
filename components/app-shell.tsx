@@ -46,6 +46,7 @@ import { ReceiptPending } from '@/components/budget/receipt-pending'
 import { DashboardOverview } from '@/components/dashboard/dashboard-overview'
 import { MealPlan } from '@/components/dashboard/meal-plan'
 import { PriceWatch } from '@/components/dashboard/price-watch'
+import { DealsTab } from '@/components/deals/deals-tab'
 import { SavingsInsight } from '@/components/dashboard/savings-insight'
 import { SpendingBreakdown } from '@/components/dashboard/spending-breakdown'
 import { TodayAttention } from '@/components/dashboard/today-attention'
@@ -830,7 +831,7 @@ export function AppShell({
                     onSetBudget={() => setTab('Profil')}
                   />
                   <QuickOutOfStock pantryItems={pantryItems} likelyGoneIds={likelyGonePantryIds} onGone={quickOut} />
-                  <PriceWatch today={today} onStores={() => setTab('Obchody')} onAddToList={addItemByName} listItemNames={pendingNames} productPrices={nearbyProductPrices} offers={nearbyStandaloneOffers} pantryItems={pantryItems} chainFilter={dealsChain} onClearChainFilter={() => setDealsChain(null)} />
+                  <PriceWatch today={today} onBrowseDeals={() => setTab('Akce')} onStores={() => setTab('Obchody')} onAddToList={addItemByName} listItemNames={pendingNames} productPrices={nearbyProductPrices} offers={nearbyStandaloneOffers} pantryItems={pantryItems} />
                   <MealPlan household={household} initialPlan={initialData.mealPlan} pantryItems={pantryItems} onAddIngredients={addIngredients} onMarkCooked={markMealCooked} />
                   <div className="grid gap-4 lg:grid-cols-2 lg:gap-6">
                     <SpendingBreakdown expenses={monthExpenses} onDetails={() => setTab('Rozpočet')} />
@@ -882,11 +883,20 @@ export function AppShell({
                   <Pantry items={pantryItems} onConfirm={confirmPantryItem} onRemove={removePantryItem} onMove={movePantryItem} onAdjustQuantity={adjustPantryItemQuantity} onReview={reviewPantry} onSetTracking={setPantryTracking} estimates={pantryEstimates} openCheck={pantryCheckPending} onCheckOpened={consumePantryCheck} />
                 </div>
               )}
+              {tab === 'Akce' && (
+                <DealsTab
+                  listItemNames={pendingNames}
+                  onAddToList={addItemByName}
+                  pantryItems={pantryItems}
+                  initialChain={dealsChain}
+                  onClearChain={() => setDealsChain(null)}
+                />
+              )}
               {tab === 'Obchody' && (
                 <StoreDirectory
                   onShowDeals={(chain) => {
                     setDealsChain(chain)
-                    setTab('Domů')
+                    setTab('Akce')
                   }}
                   locationState={userLocation.state}
                   userCoords={userLocation.coords}

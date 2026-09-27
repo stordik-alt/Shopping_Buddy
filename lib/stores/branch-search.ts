@@ -1,7 +1,12 @@
 import type { GpsCoords } from '@/lib/geo'
+import { clampPage, pageCount } from '@/lib/paging'
 
 // Pure helpers of the store directory's server-side branch search (lib/db/store-branch-search.ts).
 // They live apart from the database code so the paging and radius maths stay deterministic and testable.
+
+// Paging maths is generic (lib/paging.ts, shared with the Akce tab's deal pages); re-exported here so
+// existing imports of this module keep working.
+export { clampPage, pageCount }
 
 /** Branches per page: what fits on a phone screen without scrolling far, and few enough to keep the
  *  data pulled from Neon per page small (the directory holds ~1,800 branches). */
@@ -27,17 +32,6 @@ export function boundingBox(center: GpsCoords, radiusKm: number): { minLat: numb
   // keeps the function correct for any input.
   const lngDelta = radiusKm / (KM_PER_DEGREE * Math.max(Math.cos((center.lat * Math.PI) / 180), 0.01))
   return { minLat: center.lat - latDelta, maxLat: center.lat + latDelta, minLng: center.lng - lngDelta, maxLng: center.lng + lngDelta }
-}
-
-/** Number of pages for `total` branches; at least 1, so an empty result still reads "1/1". */
-export function pageCount(total: number, pageSize: number = BRANCH_PAGE_SIZE): number {
-  return Math.max(1, Math.ceil(total / pageSize))
-}
-
-/** A requested page forced into 1..pageCount (a stale page number after the result shrank). */
-export function clampPage(page: number, total: number, pageSize: number = BRANCH_PAGE_SIZE): number {
-  if (!Number.isFinite(page)) return 1
-  return Math.min(Math.max(1, Math.trunc(page)), pageCount(total, pageSize))
 }
 
 /** Escapes `%`, `_` and `\` so user text is matched literally inside an SQL `LIKE` pattern. */

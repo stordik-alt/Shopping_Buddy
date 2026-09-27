@@ -36,9 +36,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ [
   // The rest needs the household data but not each other, so they go to the database together
   // instead of one after another (each wait is a round trip to the database).
   const [productPrices, storeSelection, pins] = await Promise.all([
-    // Only the prices the screens use: the list's products and today's promotions (see
-    // ProductPriceScope — the whole catalog is far too large to send on every refresh).
-    getProductPricesCached({ names: data.items.map((item) => item.name), runningDeals: true }),
+    // Only the list's own products — not every product with a running promotion (see
+    // ProductPriceScope): that used to load the whole promoted catalog's full price history on every
+    // refresh, most of the database's compute (docs/07_CHANGELOG.md, 2026-09-26/27). Browsing every
+    // promotion now lives in the Akce tab, which loads only the page being looked at
+    // (app/actions/deals.ts).
+    getProductPricesCached({ names: data.items.map((item) => item.name), runningDeals: false }),
     // After getHouseholdData: on a first login that call is what creates the member row.
     getMemberIdForUser(session.user.id).then((memberId) => (memberId ? getMemberStoreSelection(memberId) : EMPTY_STORE_SELECTION)),
     listPinsForHousehold(data.household.id),

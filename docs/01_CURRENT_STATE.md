@@ -435,6 +435,24 @@ The system must not assume that every advertised percentage discount represents 
 
 Reliable historical promotion data remains an area for further development.
 
+**Update 2026-09-27, promotions moved off Domů into their own Akce tab (owner request: too many to
+scroll through on the home screen).** Domů's "Akce k vašim položkám" (`components/dashboard/price-watch.tsx`)
+now shows only promotions on the household's own shopping list — inherently small, never unbounded —
+with a link to the new **Akce** tab for everything else. Akce browses today's promotions by category
+(the app's one product-category taxonomy: Potraviny, Drogerie, Děti, Domácnost, Ostatní) and page, 6 at
+a time with a `‹ page/total ›` pager, mirroring the store directory's branch pager
+(`lib/paging.ts`, shared by both). The database cost this replaces: the home screen used to load
+every promoted product's full price detail (every store, its whole history) on **every** page
+render/refresh; now only the page being looked at (≤6 products) is ever loaded in full
+(`lib/db/deals.ts`'s `getDealsPage`, behind `app/actions/deals.ts`), through the same
+`getProductPrices()`/`assessDealQuality()` the rest of the app uses. A promotion with no matching
+regular price (a retailer that publishes only its offers, e.g. Penny) is paged together with the rest
+under one shared total — an earlier version of this change paged only the "real" deals and left every
+such offer unpaged on top, which could still run into the hundreds. The store directory's "Zobrazit
+akce" (a branch's chain-wide promotions) now opens Akce with that chain preset, instead of Domů.
+`DealCard`/`OfferCard` (`components/deals/`) are shared by Domů and Akce, so the two never judge a deal
+differently.
+
 ---
 
 # 15. Internet Price and Promotion Data

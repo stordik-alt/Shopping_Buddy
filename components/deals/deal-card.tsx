@@ -1,0 +1,74 @@
+import { Check, Info, Package, Plus, TrendingDown } from 'lucide-react'
+import { money, shortDate } from '@/lib/format'
+import { pantryQuantityFor } from '@/lib/pantry'
+import { dealDiscount, suggestsStockingUp, type DealAssessment } from '@/lib/prices'
+import type { PantryItem } from '@/lib/types'
+
+// A promotion assessed against every store's price for the same product (lib/prices.ts's
+// assessDealQuality — "a discount isn't automatically a good deal", CLAUDE.md section 18). Shared by
+// the home screen's "Akce k vašim položkám" and the Akce tab, so the two never judge a deal
+// differently (CLAUDE.md section 6: don't duplicate business logic).
+export function DealCard({
+  assessment,
+  isOnList,
+  onAddToList,
+  pantryItems,
+}: {
+  assessment: DealAssessment
+  isOnList: boolean
+  onAddToList: (name: string) => void
+  pantryItems: PantryItem[]
+}) {
+  const { product, price, isBestPrice, cheapestAlternative, isHistoricLow } = assessment
+  const discount = Math.round(dealDiscount(price) * 100)
+  return (
+    <div className={`rounded-2xl bg-muted p-4 ${isOnList ? 'ring-1 ring-primary/40' : ''}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="break-words text-sm font-medium">{product.productName}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {price.store} · akce do {shortDate(price.dealValidUntil ?? '')}
+          </p>
+        </div>
+        <span className="shrink-0 rounded-full bg-primary/15 px-2 py-1 text-[11px] font-semibold text-primary">-{discount} %</span>
+      </div>
+      <div className="mt-4 flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <span className="text-lg font-semibold">{money(price.dealPrice ?? price.regularPrice)}</span>
+          <span className="ml-2 text-xs text-muted-foreground line-through">{money(price.regularPrice)}</span>
+        </div>
+        {isOnList ? (
+          <span className="flex min-h-9 items-center gap-1 text-xs font-medium text-muted-foreground">
+            <Check className="h-3.5 w-3.5" /> Na seznamu
+          </span>
+        ) : (
+          <button
+            onClick={() => onAddToList(product.productName)}
+            aria-label={`Přidat ${product.productName} na nákupní seznam`}
+            className="flex min-h-9 items-center gap-1 rounded-full bg-card px-3 text-xs font-medium text-primary transition hover:bg-primary hover:text-primary-foreground"
+          >
+            <Plus className="h-3.5 w-3.5" /> Na seznam
+          </button>
+        )}
+      </div>
+      {isHistoricLow && (
+        <p className="mt-3 flex items-start gap-1 text-[11px] leading-relaxed text-success">
+          <TrendingDown className="mt-0.5 h-3 w-3 shrink-0" />
+          Nejnižší zaznamenaná cena tohoto produktu v {price.store}.
+        </p>
+      )}
+      {suggestsStockingUp(assessment, pantryQuantityFor(pantryItems, product.productName)) && (
+        <p className="mt-3 flex items-start gap-1 text-[11px] leading-relaxed text-success">
+          <Package className="mt-0.5 h-3 w-3 shrink-0" />
+          Doma toho máte málo nebo nic — dobrá chvíle doplnit zásoby.
+        </p>
+      )}
+      {!isBestPrice && cheapestAlternative && (
+        <p className="mt-3 flex items-start gap-1 text-[11px] leading-relaxed text-muted-foreground">
+          <Info className="mt-0.5 h-3 w-3 shrink-0" />
+          Levněji je i bez akce v {cheapestAlternative.store} za {money(cheapestAlternative.price)}.
+        </p>
+      )}
+    </div>
+  )
+}

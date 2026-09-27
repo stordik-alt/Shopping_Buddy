@@ -1,9 +1,11 @@
 import { BriefcaseMedical, Check, ClipboardCheck, House, Minus, Package, Plus, Refrigerator, Snowflake, SprayCan, Wheat, X, type LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { Pager } from '@/components/shared/pager'
 import { PantryReview, type PantryReviewResult } from '@/components/shopping/pantry-review'
 import { itemCountLabel } from '@/lib/format'
-import { needsCheck, PANTRY_LOCATIONS, PANTRY_TRACKING, summarizeByLocation } from '@/lib/pantry'
+import { needsCheck, PANTRY_LOCATIONS, PANTRY_PAGE_SIZE, PANTRY_TRACKING, summarizeByLocation } from '@/lib/pantry'
 import { estimateReason, type ConsumptionEstimate } from '@/lib/pantry-estimate'
+import { clampPage, pageCount } from '@/lib/paging'
 import { cn } from '@/lib/utils'
 import type { ItemUnit, PantryItem, PantryLocation, PantryTracking } from '@/lib/types'
 
@@ -131,6 +133,13 @@ export function Pantry({
 
   const SelectedIcon = LOCATION_ICON[selected]
   const selectedItems = items.filter((item) => item.location === selected)
+  // Clamped at render time (not just reset on folder change) so a page also self-corrects the
+  // moment an item leaves it — moved elsewhere, removed as "Došlo" — instead of showing an empty
+  // page until the household happens to switch folders and back.
+  const [page, setPage] = useState(1)
+  const totalPages = pageCount(selectedItems.length, PANTRY_PAGE_SIZE)
+  const currentPage = clampPage(page, selectedItems.length, PANTRY_PAGE_SIZE)
+  const pagedItems = selectedItems.slice((currentPage - 1) * PANTRY_PAGE_SIZE, currentPage * PANTRY_PAGE_SIZE)
 
   function move(item: PantryItem, location: PantryLocation) {
     onMove(item.id, location)
@@ -176,6 +185,7 @@ export function Pantry({
               aria-pressed={active}
               onClick={() => {
                 setSelected(location)
+                setPage(1)
                 setNotice(null)
               }}
               className={cn(
@@ -249,7 +259,7 @@ export function Pantry({
           </div>
         )}
 
-        {selectedItems.map((item) => (
+        {pagedItems.map((item) => (
           <div key={item.id} className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-4 last:border-0">
             <div className="min-w-0 flex-1 basis-full sm:basis-auto">
               <span className="flex flex-wrap items-center gap-2">
@@ -311,6 +321,11 @@ export function Pantry({
             </div>
           </div>
         ))}
+        {totalPages > 1 && (
+          <div className="px-5 py-4">
+            <Pager page={currentPage} totalPages={totalPages} onChange={setPage} label={`Stránkování zásob: ${selected}`} />
+          </div>
+        )}
       </section>
       )}
     </div>

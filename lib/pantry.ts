@@ -22,6 +22,12 @@ export const CHECKIN_DAYS_BY_CATEGORY: Record<ItemCategory, number> = {
  *  offered in the UI that the database would then reject. */
 export const PANTRY_LOCATIONS: PantryLocation[] = ['Spíž', 'Lednice', 'Mrazák', 'Domácnost', 'Lékárnička', 'Drogérka']
 
+/** How many items a Zásoby folder shows per page (`components/shopping/pantry.tsx`) before the
+ *  household has to page — a well-stocked "Spíž" or "Domácnost" can otherwise run to dozens of
+ *  rows, each with its own stepper, location and tracking selects, and be a very long scroll on a
+ *  phone (owner request, 2026-09-28: "Přidej stránkování i na kartu Zásoby"). */
+export const PANTRY_PAGE_SIZE = 8
+
 export type LocationSummary = {
   /** Rows kept in this location. */
   count: number

@@ -302,6 +302,13 @@
       "when": 1790494217195,
       "tag": "0042_receipt_expense_categories",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1790508831939,
+      "tag": "0043_receipt_item_expense_split",
+      "breakpoints": true
     }
   ]
 }

@@ -52,11 +52,11 @@ describe('splitPurchaseByCategory', () => {
   })
 
   describe('a household override (e.g. a gift bought during a grocery trip)', () => {
-    it('counts an overridden line under its own choice instead of the automatic mapping', () => {
+    it('counts a reassigned line under its own choice instead of the automatic mapping', () => {
       const parts = splitPurchaseByCategory(
         [
           { category: 'Potraviny', amount: 400 },
-          { category: 'Potraviny', amount: 100, expenseOverride: { category: 'Ostatní', subcategory: 'Dárky' } },
+          { category: 'Potraviny', amount: 100, expenseOverride: [{ category: 'Ostatní', subcategory: 'Dárky', amount: 100 }] },
         ],
         500,
       )
@@ -69,8 +69,8 @@ describe('splitPurchaseByCategory', () => {
     it('merges two overridden lines that land on the same category and subcategory', () => {
       const parts = splitPurchaseByCategory(
         [
-          { category: 'Potraviny', amount: 60, expenseOverride: { category: 'Ostatní', subcategory: 'Dárky' } },
-          { category: 'Domácnost', amount: 40, expenseOverride: { category: 'Ostatní', subcategory: 'Dárky' } },
+          { category: 'Potraviny', amount: 60, expenseOverride: [{ category: 'Ostatní', subcategory: 'Dárky', amount: 60 }] },
+          { category: 'Domácnost', amount: 40, expenseOverride: [{ category: 'Ostatní', subcategory: 'Dárky', amount: 40 }] },
         ],
         100,
       )
@@ -80,8 +80,8 @@ describe('splitPurchaseByCategory', () => {
     it('keeps two different subcategories of the same category apart', () => {
       const parts = splitPurchaseByCategory(
         [
-          { category: 'Potraviny', amount: 50, expenseOverride: { category: 'Ostatní', subcategory: 'Dárky' } },
-          { category: 'Potraviny', amount: 50, expenseOverride: { category: 'Ostatní', subcategory: 'Jiné' } },
+          { category: 'Potraviny', amount: 50, expenseOverride: [{ category: 'Ostatní', subcategory: 'Dárky', amount: 50 }] },
+          { category: 'Potraviny', amount: 50, expenseOverride: [{ category: 'Ostatní', subcategory: 'Jiné', amount: 50 }] },
         ],
         100,
       )
@@ -91,10 +91,30 @@ describe('splitPurchaseByCategory', () => {
       ])
     })
 
-    it('an explicit null override is the same as no override', () => {
-      expect(splitPurchaseByCategory([{ category: 'Potraviny', amount: 100, expenseOverride: null }], 100)).toEqual(
+    it('an empty override list is the same as no override', () => {
+      expect(splitPurchaseByCategory([{ category: 'Potraviny', amount: 100, expenseOverride: [] }], 100)).toEqual(
         splitPurchaseByCategory([{ category: 'Potraviny', amount: 100 }], 100),
       )
+    })
+
+    it('splits one line across more than one target — e.g. clothing the receipt does not say is a child\'s', () => {
+      const parts = splitPurchaseByCategory(
+        [
+          {
+            category: 'Ostatní',
+            amount: 1000,
+            expenseOverride: [
+              { category: 'Oblečení a obuv', subcategory: 'Oblečení', amount: 600 },
+              { category: 'Děti', subcategory: 'Oblečení pro děti', amount: 400 },
+            ],
+          },
+        ],
+        1000,
+      )
+      expect(parts).toEqual([
+        { category: 'Děti', subcategory: 'Oblečení pro děti', amount: 400 },
+        { category: 'Oblečení a obuv', subcategory: 'Oblečení', amount: 600 },
+      ])
     })
   })
 })

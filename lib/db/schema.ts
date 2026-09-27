@@ -474,14 +474,50 @@ export const purchaseItems = pgTable('purchase_items', {
   // split cannot be recomputed later since its per-line category was never kept, only used once and
   // discarded (CLAUDE.md section 5: never invent it after the fact).
   category: itemCategoryEnum('category'),
-  // The household's own choice of expense category/subcategory for this one line, overriding the
-  // automatic mapping — e.g. a gift bought during a grocery trip, counted under Ostatní ▸ Dárky
-  // instead of Potraviny (owner request, 2026-09-27). Null means "use the automatic mapping".
+  // Superseded 2026-09-27 by `purchase_item_expense_splits` (a line can now split across more than
+  // one expense target, e.g. clothing that was actually half adult, half a child's — a receipt often
+  // doesn't say). No longer read or written; kept only so a running deployment mid-rollout of that
+  // change still has a consistent schema. Drop in a later migration once nothing references it
+  // (CLAUDE.md section 7: rename/drop only after no running code uses it).
   expenseCategory: expenseCategoryEnum('expense_category'),
   expenseSubcategory: text('expense_subcategory'),
 }, (table) => [
   check('purchase_items_expense_subcategory_needs_category', sql`${table.expenseSubcategory} IS NULL OR ${table.expenseCategory} IS NOT NULL`),
 ])
+
+// A purchase-item's paid amount split across one or more expense targets — the household's own
+// override of the automatic category mapping, e.g. a gift bought during a grocery trip (Ostatní ▸
+// Dárky) or a "Oblečení" line that was actually half adult, half children's wear, which the receipt
+// itself never distinguishes. No rows for an item means "use the automatic mapping" for its whole
+// amount; one row means a plain reassignment; two or more means a genuine split. The rows' amounts
+// must add up to exactly the item's own paid amount (`price × quantity`) — enforced by
+// lib/db/purchase-items.ts, not by the database, since that check spans two tables.
+export const purchaseItemExpenseSplits = pgTable('purchase_item_expense_splits', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  purchaseItemId: uuid('purchase_item_id').notNull().references(() => purchaseItems.id, { onDelete: 'cascade' }),
+  category: expenseCategoryEnum('category').notNull(),
+  subcategory: text('subcategory'),
+  amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
+}, (table) => [
+  // A purchase-item's splits are always read and rewritten together.
+  index('purchase_item_expense_splits_item_idx').on(table.purchaseItemId),
+  check('purchase_item_expense_splits_amount_positive', sql`${table.amount} > 0`),
+])
+
+// Remembers a household's own expense-category choice for a product (owner request, 2026-09-27:
+// "aplikace by se měla postupně učit a postupně přiřazovat kategorie a podkategorie sama ihned po
+// importu účtenky") — so a plain, whole-item reassignment (not a multi-way split, which is treated
+// as specific to that one purchase, not a repeating pattern) applies automatically to every later
+// receipt of the same product, the same way `products.default_location` already does for pantry
+// placement. Per-household, not on `products` itself: whether "Oblečení" means a child's or an
+// adult's depends on the household, unlike where milk belongs in a kitchen.
+export const householdProductExpenseDefaults = pgTable('household_product_expense_defaults', {
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  category: expenseCategoryEnum('category').notNull(),
+  subcategory: text('subcategory'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [primaryKey({ columns: [table.householdId, table.productId] })])
 
 // Household pantry ("spíž"): what the household believes it currently has at home. Populated by
 // completePurchaseAction (a purchased item restocks or creates its pantry row) and periodically
@@ -779,9 +815,19 @@ export const purchasesRelations = relations(purchases, ({ one, many }) => ({
   items: many(purchaseItems),
 }))
 
-export const purchaseItemsRelations = relations(purchaseItems, ({ one }) => ({
+export const purchaseItemsRelations = relations(purchaseItems, ({ one, many }) => ({
   purchase: one(purchases, { fields: [purchaseItems.purchaseId], references: [purchases.id] }),
   product: one(products, { fields: [purchaseItems.productId], references: [products.id] }),
+  expenseSplits: many(purchaseItemExpenseSplits),
+}))
+
+export const purchaseItemExpenseSplitsRelations = relations(purchaseItemExpenseSplits, ({ one }) => ({
+  purchaseItem: one(purchaseItems, { fields: [purchaseItemExpenseSplits.purchaseItemId], references: [purchaseItems.id] }),
+}))
+
+export const householdProductExpenseDefaultsRelations = relations(householdProductExpenseDefaults, ({ one }) => ({
+  household: one(households, { fields: [householdProductExpenseDefaults.householdId], references: [households.id] }),
+  product: one(products, { fields: [householdProductExpenseDefaults.productId], references: [products.id] }),
 }))
 
 export const pantryItemsRelations = relations(pantryItems, ({ one }) => ({

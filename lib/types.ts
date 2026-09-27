@@ -107,10 +107,11 @@ export type PurchaseItem = {
   // Undefined/null for a purchase made before these columns existed — its expense split cannot be
   // recomputed (nothing to recompute it from), so such an item offers no "reassign category" control.
   category?: ItemCategory | null
-  /** The household's own choice of expense category/subcategory for this line, overriding the
-   *  automatic mapping (lib/purchase-expenses.ts) — e.g. a gift bought during a grocery trip. */
-  expenseCategory?: ExpenseCategory | null
-  expenseSubcategory?: string | null
+  /** The household's own split of this line's amount across expense targets, overriding the
+   *  automatic mapping (lib/purchase-expenses.ts) — empty/undefined means "use the automatic
+   *  mapping"; one entry a plain reassignment (e.g. a gift bought during a grocery trip); more than
+   *  one a genuine split (e.g. clothing that was actually half adult, half a child's). */
+  expenseSplits?: { category: ExpenseCategory; subcategory: string | null; amount: number }[]
 }
 
 export type PurchaseRecord = {

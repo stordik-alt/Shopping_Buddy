@@ -291,6 +291,10 @@ export async function getHouseholdData(userId: string, userName: string, userEma
           items: { columns: { id: true, name: true, quantity: true, unit: true, price: true, category: true }, with: { expenseSplits: { columns: { category: true, subcategory: true, amount: true } } } },
           store: { columns: { chain: true } },
           storeLocation: { columns: { id: true }, with: { store: { columns: { chain: true } } } },
+          // Whether this purchase came from a receipt at all — only those can be recorded into the
+          // budget retroactively (see `needsBudgetRecording` below); a completed-shopping-list
+          // purchase's prices are estimates, never counted (owner's choice, 2026-09-26).
+          receiptImports: { columns: { id: true } },
         },
         orderBy: asc(schema.purchases.date),
       }),
@@ -419,27 +423,35 @@ export async function getHouseholdData(userId: string, userName: string, userEma
         unread: notification.unread,
       }),
     ),
-    purchaseHistory: purchaseRows.map(
-      (purchase): PurchaseRecord => ({
-        id: purchase.id,
-        date: purchase.date,
-        // Was `?? 'Lidl'` — silently mislabeling a purchase with no known store as Lidl. Found
-        // while wiring up completePurchaseAction, the first thing that can actually produce a
-        // purchase with no store. Per docs/03_DATABASE.md ("never invent data"), leave it unknown.
-        store: purchase.storeLocation?.store.chain ?? purchase.store?.chain,
-        total: Number(purchase.total),
-        discount: purchase.discount != null ? Number(purchase.discount) : undefined,
-        items: purchase.items.map((item) => ({
-          id: item.id,
-          name: item.name,
-          quantity: item.quantity,
-          unit: item.unit,
-          price: Number(item.price),
-          category: item.category,
-          expenseSplits: item.expenseSplits.map((split) => ({ category: split.category, subcategory: split.subcategory, amount: Number(split.amount) })),
-        })),
-      }),
-    ),
+    purchaseHistory: (() => {
+      const purchaseIdsWithExpenses = new Set(expenseRows.map((expense) => expense.purchaseId).filter((id): id is string => id != null))
+      return purchaseRows.map(
+        (purchase): PurchaseRecord => ({
+          id: purchase.id,
+          date: purchase.date,
+          // Was `?? 'Lidl'` — silently mislabeling a purchase with no known store as Lidl. Found
+          // while wiring up completePurchaseAction, the first thing that can actually produce a
+          // purchase with no store. Per docs/03_DATABASE.md ("never invent data"), leave it unknown.
+          store: purchase.storeLocation?.store.chain ?? purchase.store?.chain,
+          total: Number(purchase.total),
+          discount: purchase.discount != null ? Number(purchase.discount) : undefined,
+          items: purchase.items.map((item) => ({
+            id: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            unit: item.unit,
+            price: Number(item.price),
+            category: item.category,
+            expenseSplits: item.expenseSplits.map((split) => ({ category: split.category, subcategory: split.subcategory, amount: Number(split.amount) })),
+          })),
+          // A receipt-derived purchase with nothing in the budget yet (imported before receipts
+          // started counting as expenses, 2026-09-26, or otherwise missed) can be recorded now
+          // (owner request, 2026-09-27) — never a completed-shopping-list purchase, whose prices are
+          // estimates, not what was actually paid.
+          needsBudgetRecording: purchase.receiptImports.length > 0 && !purchaseIdsWithExpenses.has(purchase.id),
+        }),
+      )
+    })(),
     mealPlan,
     isOwner,
     pendingInvitations: invitationRows.map(

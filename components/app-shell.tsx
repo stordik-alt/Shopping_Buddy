@@ -19,7 +19,7 @@ import {
 import { markMealCookedAction } from '@/app/actions/meal-plan'
 import { markAllNotificationsReadAction, markNotificationReadAction } from '@/app/actions/notifications'
 import { adjustPantryItemQuantityAction, confirmPantryItemAction, movePantryItemAction, removePantryItemAction, reviewPantryAction, setPantryTrackingAction } from '@/app/actions/pantry'
-import { completePurchaseAction, setPurchaseItemExpenseSplitsAction } from '@/app/actions/purchases'
+import { completePurchaseAction, getPurchaseExpenseItemsAction, recordPurchaseAsExpenseAction, setPurchaseItemExpenseSplitsAction } from '@/app/actions/purchases'
 import {
   applyReceiptListMatchesAction,
   cancelReceiptImportAction,
@@ -942,10 +942,29 @@ export function AppShell({
                     onConfirm={confirmRecurring}
                     onSkip={skipRecurring}
                   />
-                  <ExpenseLedger expenses={expenses} today={today} limits={categoryBudgets} onAdd={() => openExpense(null)} onEdit={openExpense} onLimits={() => setLimitsOpen(true)} />
+                  <ExpenseLedger
+                    expenses={expenses}
+                    today={today}
+                    limits={categoryBudgets}
+                    onAdd={() => openExpense(null)}
+                    onEdit={openExpense}
+                    onLimits={() => setLimitsOpen(true)}
+                    onLoadItems={(purchaseId, category, subcategory) => getPurchaseExpenseItemsAction(purchaseId, category, subcategory)}
+                    onSaveSplits={async (purchaseItemId, splits) => {
+                      await setPurchaseItemExpenseSplitsAction(purchaseItemId, splits)
+                      router.refresh() // the reassigned item's own list refetches itself; the category/month totals need this too
+                    }}
+                  />
                   <PurchaseHistory
                     records={initialData.purchaseHistory}
-                    onSaveSplits={(purchaseItemId, splits) => setPurchaseItemExpenseSplitsAction(purchaseItemId, splits)}
+                    onSaveSplits={async (purchaseItemId, splits) => {
+                      await setPurchaseItemExpenseSplitsAction(purchaseItemId, splits)
+                      router.refresh()
+                    }}
+                    onRecordExpenses={async (purchaseId) => {
+                      await recordPurchaseAsExpenseAction(purchaseId)
+                      router.refresh() // the new expense needs to show up in Výdaje above, not just the history row
+                    }}
                   />
                 </div>
               )}

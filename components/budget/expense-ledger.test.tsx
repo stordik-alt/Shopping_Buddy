@@ -5,6 +5,8 @@ import type { Expense } from '@/lib/types'
 
 const paid = (amount: number, category: Expense['category'], subcategory: string | null, date: string, note = ''): Expense => ({ id: `${date}-${amount}`, amount, note, category, subcategory, date, purchaseId: null })
 const noop = () => {}
+const noopAsync = async () => {}
+const noopItems = async () => []
 
 describe('ExpenseLedger', () => {
   it("opens on today's month with its total, categories and their subcategories", () => {
@@ -20,6 +22,8 @@ describe('ExpenseLedger', () => {
         onAdd={noop}
         onEdit={noop}
         onLimits={noop}
+        onLoadItems={noopItems}
+        onSaveSplits={noopAsync}
       />,
     )
     expect(html).toContain('září 2026')
@@ -32,7 +36,9 @@ describe('ExpenseLedger', () => {
   })
 
   it('says what to do when the month has no expenses', () => {
-    const html = renderToStaticMarkup(<ExpenseLedger today="2026-10-02" expenses={[paid(800, 'Auto', null, '2026-09-30')]} limits={{}} onAdd={noop} onEdit={noop} onLimits={noop} />)
+    const html = renderToStaticMarkup(
+      <ExpenseLedger today="2026-10-02" expenses={[paid(800, 'Auto', null, '2026-09-30')]} limits={{}} onAdd={noop} onEdit={noop} onLimits={noop} onLoadItems={noopItems} onSaveSplits={noopAsync} />,
+    )
     expect(html).toContain('V tomto měsíci zatím žádné výdaje.')
     expect(html).toContain('Zapsat první výdaj')
   })
@@ -46,6 +52,8 @@ describe('ExpenseLedger', () => {
         onAdd={noop}
         onEdit={noop}
         onLimits={noop}
+        onLoadItems={noopItems}
+        onSaveSplits={noopAsync}
       />,
     )
     expect(html).toContain('z 5\u00a0000,00 Kč')

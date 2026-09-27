@@ -45,12 +45,19 @@ export type ExpenseShare = ExpenseTarget & { amount: number }
 
 /** Where one line's amount is counted, as (target, weight) pairs: its household split if it has one,
  *  otherwise the automatic mapping of its shopping category (no subcategory — the automatic mapping
- *  does not guess one), as the line's one and only target. */
-function targetsOf(line: Pick<PurchaseExpenseLine, 'category' | 'amount' | 'expenseOverride'>): { target: ExpenseTarget; weight: number }[] {
+ *  does not guess one), as the line's one and only target. Exported so the Výdaje breakdown can
+ *  answer "which of this purchase's items are actually behind this category?" using the exact same
+ *  resolution `splitPurchaseByCategory` uses, not a second copy of it (CLAUDE.md section 6). */
+export function targetsOf(line: Pick<PurchaseExpenseLine, 'category' | 'amount' | 'expenseOverride'>): { target: ExpenseTarget; weight: number }[] {
   if (line.expenseOverride && line.expenseOverride.length > 0) {
     return line.expenseOverride.map(({ amount, ...target }) => ({ target, weight: amount }))
   }
   return [{ target: { category: EXPENSE_CATEGORY_OF_ITEM[line.category], subcategory: null }, weight: line.amount }]
+}
+
+/** Whether two targets are the same category and subcategory (both `null` counts as equal). */
+export function sameExpenseTarget(a: ExpenseTarget, b: ExpenseTarget): boolean {
+  return a.category === b.category && a.subcategory === b.subcategory
 }
 
 /** `total` (what the receipt says was paid) split by the lines' expense targets in proportion to

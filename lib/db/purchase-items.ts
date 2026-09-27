@@ -1,9 +1,10 @@
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull } from 'drizzle-orm'
 import { monthSpending, notifyBudgetThresholds } from '@/lib/db/budget-notify'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { isExpenseCategory, isValidSubcategory, type ExpenseCategory } from '@/lib/expense-categories'
-import { splitPurchaseByCategory, type ExpenseSplitPart, type ExpenseTarget, type PurchaseExpenseLine } from '@/lib/purchase-expenses'
+import { sameExpenseTarget, splitPurchaseByCategory, targetsOf, type ExpenseSplitPart, type ExpenseTarget, type PurchaseExpenseLine } from '@/lib/purchase-expenses'
+import type { ItemCategory, ItemUnit } from '@/lib/types'
 
 // Lets a household split one purchase-item's expense-category assignment by hand — a plain
 // reassignment (e.g. a gift bought during an otherwise ordinary grocery trip, counted under Ostatní ▸
@@ -16,6 +17,9 @@ import { splitPurchaseByCategory, type ExpenseSplitPart, type ExpenseTarget, typ
 export class PurchaseNotFoundError extends Error {}
 export class InvalidExpenseCategoryError extends Error {}
 export class InvalidExpenseSplitError extends Error {}
+export class NotFromReceiptError extends Error {}
+export class AlreadyRecordedError extends Error {}
+export class NothingToRecordError extends Error {}
 
 // A crafted request could otherwise ask for an unbounded number of rows; real receipts never need
 // more than a handful of ways to split one line.
@@ -185,4 +189,72 @@ export async function setPurchaseItemExpenseSplits(householdId: string, purchase
   }
   await learnProductExpenseDefault(db, householdId, item.productId, splits)
   await recomputePurchaseExpenses(db, item.purchaseId)
+}
+
+export type PurchaseExpenseItem = {
+  id: string
+  name: string
+  quantity: number
+  unit: ItemUnit
+  price: number
+  category: ItemCategory | null
+  expenseSplits: ExpenseSplitPart[]
+  /** This item's own amount actually counted under the requested target — equal to
+   *  `price × quantity` unless the item is split across more than one target, in which case it is
+   *  only the part of it that landed here. */
+  matchedAmount: number
+}
+
+/** The purchase-items actually behind one category's (or subcategory's) amount for one purchase —
+ *  the "exact items, not just the whole receipt" view (owner request, 2026-09-27), so a household can
+ *  check (and, per item, correct) what went into that number. Resolved with the exact same
+ *  `targetsOf()` `recomputePurchaseExpenses` uses, so this can never show a different answer than
+ *  what the expense total actually is. Items with no known category (an old purchase) contribute
+ *  nothing to any target and are correctly absent here, same as in the real split. */
+export async function getPurchaseItemsForExpense(householdId: string, purchaseId: string, target: ExpenseTarget): Promise<PurchaseExpenseItem[]> {
+  const db = getDb()
+  const purchase = await db.query.purchases.findFirst({ where: eq(schema.purchases.id, purchaseId), columns: { householdId: true } })
+  if (!purchase || purchase.householdId !== householdId) throw new PurchaseNotFoundError('Nákup neexistuje.')
+
+  const items = await db.query.purchaseItems.findMany({
+    where: eq(schema.purchaseItems.purchaseId, purchaseId),
+    columns: { id: true, name: true, quantity: true, unit: true, price: true, category: true },
+    with: { expenseSplits: { columns: { category: true, subcategory: true, amount: true } } },
+  })
+  const result: PurchaseExpenseItem[] = []
+  for (const item of items) {
+    if (item.category == null) continue
+    const expenseSplits = item.expenseSplits.map((split) => ({ category: split.category, subcategory: split.subcategory, amount: Number(split.amount) }))
+    const line: PurchaseExpenseLine = { category: item.category, amount: Number(item.price) * item.quantity, expenseOverride: expenseSplits }
+    const matched = targetsOf(line).find((entry) => sameExpenseTarget(entry.target, target))
+    if (!matched) continue
+    result.push({ id: item.id, name: item.name, quantity: item.quantity, unit: item.unit, price: Number(item.price), category: item.category, expenseSplits, matchedAmount: matched.weight })
+  }
+  return result.sort((a, b) => b.matchedAmount - a.matchedAmount)
+}
+
+/** Records a receipt-derived purchase's items into the budget after the fact — for one imported
+ *  before receipts started counting as expenses (2026-09-26), or otherwise missed (owner request,
+ *  2026-09-27: "k již nahraný účtenkám bych chtěl možnost, aby se zapsali do rozpočtu dodatečně").
+ *  Refuses a purchase that did not come from a receipt (a completed shopping list's prices are
+ *  estimates, never counted — CLAUDE.md/owner's choice, 2026-09-26) or one that already has expenses
+ *  (recomputePurchaseExpenses is for correcting those, not this). */
+export async function recordPurchaseAsExpense(householdId: string, purchaseId: string): Promise<void> {
+  const db = getDb()
+  const purchase = await db.query.purchases.findFirst({ where: eq(schema.purchases.id, purchaseId), columns: { householdId: true } })
+  if (!purchase || purchase.householdId !== householdId) throw new PurchaseNotFoundError('Nákup neexistuje.')
+
+  const fromReceipt = await db.query.receiptImports.findFirst({ where: eq(schema.receiptImports.purchaseId, purchaseId), columns: { id: true } })
+  if (!fromReceipt) throw new NotFromReceiptError('Tento nákup nepochází z účtenky.')
+
+  const existing = await db.query.expenses.findFirst({ where: eq(schema.expenses.purchaseId, purchaseId), columns: { id: true } })
+  if (existing) throw new AlreadyRecordedError('Tento nákup je už v rozpočtu zapsaný.')
+
+  // An item from before purchase_items.category existed (migration 0042) has no known category —
+  // nothing invents one for it now (CLAUDE.md section 5), so if every item on this purchase is that
+  // old, there is genuinely nothing to record.
+  const hasCategorizedItem = await db.query.purchaseItems.findFirst({ where: and(eq(schema.purchaseItems.purchaseId, purchaseId), isNotNull(schema.purchaseItems.category)), columns: { id: true } })
+  if (!hasCategorizedItem) throw new NothingToRecordError('U položek tohoto nákupu neznáme kategorii, nelze je zapsat do rozpočtu.')
+
+  await recomputePurchaseExpenses(db, purchaseId, { notifyBudget: true, noteForNewPurchase: 'Nákup z účtenky' })
 }

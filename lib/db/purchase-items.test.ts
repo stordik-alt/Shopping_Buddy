@@ -2,12 +2,17 @@ import { eq } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import {
+  AlreadyRecordedError,
   applyLearnedExpenseDefaults,
   getHouseholdProductExpenseDefaults,
+  getPurchaseItemsForExpense,
   InvalidExpenseCategoryError,
   InvalidExpenseSplitError,
+  NotFromReceiptError,
+  NothingToRecordError,
   PurchaseNotFoundError,
   recomputePurchaseExpenses,
+  recordPurchaseAsExpense,
   setPurchaseItemExpenseSplits,
 } from '@/lib/db/purchase-items'
 import * as schema from '@/lib/db/schema'
@@ -29,6 +34,26 @@ async function createPurchase(items: { name: string; category: 'Potraviny' | 'Dr
     .values(items.map((item) => ({ purchaseId: purchase.id, name: item.name, quantity: item.quantity ?? 1, price: item.price.toString(), category: item.category, productId: item.productId })))
     .returning()
   await recomputePurchaseExpenses(db, purchase.id) // the same call app/actions/receipts.ts makes at creation
+  return { householdId: household.id, purchaseId: purchase.id, items: rows }
+}
+
+/** A purchase with no expenses yet — unlike `createPurchase` above, which immediately runs the split
+ *  a real receipt import would. `fromReceipt` adds the `receipt_imports` row that makes a purchase
+ *  eligible for `recordPurchaseAsExpense` at all (a completed-shopping-list purchase never gets one). */
+async function createUnrecordedPurchase(
+  items: { name: string; category?: 'Potraviny' | 'Drogerie'; price: number; quantity?: number }[],
+  options: { fromReceipt?: boolean } = {},
+) {
+  const [household] = await db.insert(schema.households).values({ name: '__test_household_purchase_items__' }).returning()
+  const total = items.reduce((sum, item) => sum + item.price * (item.quantity ?? 1), 0)
+  const [purchase] = await db.insert(schema.purchases).values({ householdId: household.id, date: '2026-09-27', total: total.toString() }).returning()
+  const rows = await db
+    .insert(schema.purchaseItems)
+    .values(items.map((item) => ({ purchaseId: purchase.id, name: item.name, quantity: item.quantity ?? 1, price: item.price.toString(), category: item.category })))
+    .returning()
+  if (options.fromReceipt) {
+    await db.insert(schema.receiptImports).values({ householdId: household.id, purchaseId: purchase.id, status: 'completed', source: 'manual' })
+  }
   return { householdId: household.id, purchaseId: purchase.id, items: rows }
 }
 
@@ -207,5 +232,106 @@ describe('setPurchaseItemExpenseSplits', () => {
         await db.delete(schema.products).where(eq(schema.products.id, product.id))
       }
     })
+  })
+})
+
+describe('getPurchaseItemsForExpense', () => {
+  it('lists the items behind a plain category (the automatic mapping), with their own amount', async () => {
+    const { householdId, purchaseId } = await createPurchase([
+      { name: 'Mléko', category: 'Potraviny', price: 40 },
+      { name: 'Chleba', category: 'Potraviny', price: 30 },
+      { name: 'Šampon', category: 'Drogerie', price: 60 },
+    ])
+    try {
+      const items = await getPurchaseItemsForExpense(householdId, purchaseId, { category: 'Potraviny', subcategory: null })
+      expect(items.map((item) => [item.name, item.matchedAmount]).sort()).toEqual([
+        ['Chleba', 30],
+        ['Mléko', 40],
+      ])
+    } finally {
+      await db.delete(schema.households).where(eq(schema.households.id, householdId))
+    }
+  })
+
+  it('shows only the matching part of an item split across more than one target', async () => {
+    const { householdId, purchaseId, items } = await createPurchase([{ name: 'Oblečení', category: 'Potraviny', price: 1000 }])
+    try {
+      await setPurchaseItemExpenseSplits(householdId, items[0].id, [
+        { category: 'Oblečení a obuv', subcategory: 'Oblečení', amount: 600 },
+        { category: 'Děti', subcategory: 'Oblečení pro děti', amount: 400 },
+      ])
+      const forAdult = await getPurchaseItemsForExpense(householdId, purchaseId, { category: 'Oblečení a obuv', subcategory: 'Oblečení' })
+      expect(forAdult).toMatchObject([{ name: 'Oblečení', matchedAmount: 600 }])
+      const forChild = await getPurchaseItemsForExpense(householdId, purchaseId, { category: 'Děti', subcategory: 'Oblečení pro děti' })
+      expect(forChild).toMatchObject([{ name: 'Oblečení', matchedAmount: 400 }])
+      // Not one of this item's targets at all.
+      expect(await getPurchaseItemsForExpense(householdId, purchaseId, { category: 'Potraviny', subcategory: null })).toEqual([])
+    } finally {
+      await db.delete(schema.households).where(eq(schema.households.id, householdId))
+    }
+  })
+
+  it('rejects a purchase that does not belong to the caller\'s household', async () => {
+    const a = await createPurchase([{ name: 'X', category: 'Potraviny', price: 10 }])
+    const b = await createPurchase([{ name: 'Y', category: 'Potraviny', price: 10 }])
+    try {
+      await expect(getPurchaseItemsForExpense(b.householdId, a.purchaseId, { category: 'Potraviny', subcategory: null })).rejects.toThrow(PurchaseNotFoundError)
+    } finally {
+      await db.delete(schema.households).where(eq(schema.households.id, a.householdId))
+      await db.delete(schema.households).where(eq(schema.households.id, b.householdId))
+    }
+  })
+})
+
+describe('recordPurchaseAsExpense (owner request, 2026-09-27: "zapsat do rozpočtu dodatečně")', () => {
+  it('records a receipt-derived purchase with no expenses yet, using the automatic mapping', async () => {
+    const { householdId, purchaseId } = await createUnrecordedPurchase([{ name: 'Mléko', category: 'Potraviny', price: 40 }], { fromReceipt: true })
+    try {
+      expect(await db.query.expenses.findMany({ where: eq(schema.expenses.purchaseId, purchaseId) })).toEqual([])
+      await recordPurchaseAsExpense(householdId, purchaseId)
+      const expenses = await db.query.expenses.findMany({ where: eq(schema.expenses.purchaseId, purchaseId) })
+      expect(expenses).toMatchObject([{ category: 'Potraviny', subcategory: null, amount: '40.00' }])
+    } finally {
+      await db.delete(schema.households).where(eq(schema.households.id, householdId))
+    }
+  })
+
+  it('refuses a purchase that did not come from a receipt', async () => {
+    const { householdId, purchaseId } = await createUnrecordedPurchase([{ name: 'Mléko', category: 'Potraviny', price: 40 }])
+    try {
+      await expect(recordPurchaseAsExpense(householdId, purchaseId)).rejects.toThrow(NotFromReceiptError)
+    } finally {
+      await db.delete(schema.households).where(eq(schema.households.id, householdId))
+    }
+  })
+
+  it('refuses a purchase that already has expenses', async () => {
+    const { householdId, purchaseId } = await createPurchase([{ name: 'Mléko', category: 'Potraviny', price: 40 }])
+    await db.insert(schema.receiptImports).values({ householdId, purchaseId, status: 'completed', source: 'manual' })
+    try {
+      await expect(recordPurchaseAsExpense(householdId, purchaseId)).rejects.toThrow(AlreadyRecordedError)
+    } finally {
+      await db.delete(schema.households).where(eq(schema.households.id, householdId))
+    }
+  })
+
+  it('refuses a purchase whose items have no known category (older than migration 0042)', async () => {
+    const { householdId, purchaseId } = await createUnrecordedPurchase([{ name: 'Neznámé', price: 40 }], { fromReceipt: true }) // no category
+    try {
+      await expect(recordPurchaseAsExpense(householdId, purchaseId)).rejects.toThrow(NothingToRecordError)
+    } finally {
+      await db.delete(schema.households).where(eq(schema.households.id, householdId))
+    }
+  })
+
+  it('rejects a purchase that does not belong to the caller\'s household', async () => {
+    const a = await createUnrecordedPurchase([{ name: 'X', category: 'Potraviny', price: 10 }], { fromReceipt: true })
+    const b = await createUnrecordedPurchase([{ name: 'Y', category: 'Potraviny', price: 10 }], { fromReceipt: true })
+    try {
+      await expect(recordPurchaseAsExpense(b.householdId, a.purchaseId)).rejects.toThrow(PurchaseNotFoundError)
+    } finally {
+      await db.delete(schema.households).where(eq(schema.households.id, a.householdId))
+      await db.delete(schema.households).where(eq(schema.households.id, b.householdId))
+    }
   })
 })

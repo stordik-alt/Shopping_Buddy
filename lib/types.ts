@@ -124,6 +124,11 @@ export type PurchaseRecord = {
   items: PurchaseItem[]
   total: number
   discount?: number
+  /** A receipt-derived purchase with no expenses yet (imported before receipts started counting
+   *  towards the budget, or otherwise missed) — offers "Zapsat do rozpočtu" (owner request,
+   *  2026-09-27). Undefined/false everywhere else, including a purchase completePurchaseAction made
+   *  from a shopping list, which never counts towards the budget at all. */
+  needsBudgetRecording?: boolean
 }
 
 /** Where a pantry item is physically kept. Drives what "restock a purchase" defaults to

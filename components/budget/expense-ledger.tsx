@@ -1,9 +1,12 @@
 import { useMemo, useState } from 'react'
-import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Gauge, Plus, Receipt } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Gauge, Loader2, Pencil, Plus, Receipt } from 'lucide-react'
 import { CATEGORY_BAR_COLORS } from '@/components/dashboard/spending-breakdown'
+import { PurchaseItemSplitDialog } from '@/components/budget/purchase-item-split-dialog'
 import { categoryRows, expenseMonth, expenseMonths, monthSummary } from '@/lib/budget'
 import { money, monthLabel, recordCountLabel, shortDate } from '@/lib/format'
-import type { CategoryBudgets, Expense } from '@/lib/types'
+import type { PurchaseExpenseItem } from '@/lib/db/purchase-items'
+import type { ExpenseSplitPart } from '@/lib/purchase-expenses'
+import type { CategoryBudgets, Expense, PurchaseItem } from '@/lib/types'
 
 type View = 'categories' | 'dates'
 
@@ -17,6 +20,8 @@ export function ExpenseLedger({
   onAdd,
   onEdit,
   onLimits,
+  onLoadItems,
+  onSaveSplits,
 }: {
   expenses: Expense[]
   /** The real date (`YYYY-MM-DD`); the overview opens on its month. */
@@ -26,6 +31,10 @@ export function ExpenseLedger({
   onAdd: () => void
   onEdit: (expense: Expense) => void
   onLimits: () => void
+  /** The exact items behind a receipt-derived payment's amount (owner request, 2026-09-27: "přesné
+   *  položky, než jen celou účtenku") — loaded when that payment is expanded, not up front. */
+  onLoadItems: (purchaseId: string, category: Expense['category'], subcategory: string | null) => Promise<PurchaseExpenseItem[]>
+  onSaveSplits: (purchaseItemId: string, splits: ExpenseSplitPart[]) => Promise<void>
 }) {
   const months = useMemo(() => expenseMonths(expenses, today), [expenses, today])
   const [month, setMonth] = useState(expenseMonth(today))
@@ -156,7 +165,7 @@ export function ExpenseLedger({
                     </button>
                     {expanded &&
                       (entry.expenses.length > 0 ? (
-                        <PaymentList expenses={entry.expenses} onEdit={onEdit} />
+                        <PaymentList expenses={entry.expenses} onEdit={onEdit} onLoadItems={onLoadItems} onSaveSplits={onSaveSplits} />
                       ) : (
                         <p className="px-4 pb-3 text-sm text-muted-foreground">V tomto měsíci zatím nic.</p>
                       ))}
@@ -166,7 +175,7 @@ export function ExpenseLedger({
             </div>
           ) : (
             <div className="mt-4 rounded-2xl bg-muted">
-              <PaymentList expenses={byDate} onEdit={onEdit} showCategory />
+              <PaymentList expenses={byDate} onEdit={onEdit} onLoadItems={onLoadItems} onSaveSplits={onSaveSplits} showCategory />
             </div>
           )}
         </>
@@ -175,34 +184,134 @@ export function ExpenseLedger({
   )
 }
 
-/** Payments, each one tap from its correction. */
-function PaymentList({ expenses, onEdit, showCategory = false }: { expenses: Expense[]; onEdit: (expense: Expense) => void; showCategory?: boolean }) {
+type ItemsState = { status: 'loading' } | { status: 'error' } | { status: 'done'; items: PurchaseExpenseItem[] }
+
+/** Payments, each one tap from its correction. A receipt-derived one also expands (a separate
+ *  control from the tap-to-correct row) into the exact items behind its amount — "přesné položky,
+ *  než jen celou účtenku" — each reassignable on the spot. */
+function PaymentList({
+  expenses,
+  onEdit,
+  onLoadItems,
+  onSaveSplits,
+  showCategory = false,
+}: {
+  expenses: Expense[]
+  onEdit: (expense: Expense) => void
+  onLoadItems: (purchaseId: string, category: Expense['category'], subcategory: string | null) => Promise<PurchaseExpenseItem[]>
+  onSaveSplits: (purchaseItemId: string, splits: ExpenseSplitPart[]) => Promise<void>
+  showCategory?: boolean
+}) {
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [itemsByExpense, setItemsByExpense] = useState<Record<string, ItemsState>>({})
+  const [editingItem, setEditingItem] = useState<{ expenseId: string; item: PurchaseItem & { id: string; category: NonNullable<PurchaseItem['category']> } } | null>(null)
+
+  function toggle(expense: Expense) {
+    const willOpen = expandedId !== expense.id
+    setExpandedId(willOpen ? expense.id : null)
+    if (willOpen && expense.purchaseId && !(expense.id in itemsByExpense)) {
+      setItemsByExpense((current) => ({ ...current, [expense.id]: { status: 'loading' } }))
+      onLoadItems(expense.purchaseId, expense.category, expense.subcategory)
+        .then((items) => setItemsByExpense((current) => ({ ...current, [expense.id]: { status: 'done', items } })))
+        .catch((error) => {
+          console.error('Loading the expense\'s items failed', error)
+          setItemsByExpense((current) => ({ ...current, [expense.id]: { status: 'error' } }))
+        })
+    }
+  }
+
+  async function saveSplits(splits: ExpenseSplitPart[]) {
+    if (!editingItem) return
+    await onSaveSplits(editingItem.item.id, splits)
+    // The item just moved, possibly out of this expense's category — refetch so the list reflects it.
+    const expense = expenses.find((entry) => entry.id === editingItem.expenseId)
+    if (expense?.purchaseId) {
+      const items = await onLoadItems(expense.purchaseId, expense.category, expense.subcategory).catch(() => null)
+      if (items) setItemsByExpense((current) => ({ ...current, [expense.id]: { status: 'done', items } }))
+    }
+  }
+
   return (
-    <ul className="divide-y divide-border/60 px-2 pb-2">
-      {expenses.map((expense) => (
-        <li key={expense.id}>
-          <button
-            onClick={() => onEdit(expense)}
-            className="flex w-full min-w-0 items-center justify-between gap-3 rounded-xl px-2 py-2.5 text-left hover:bg-background/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <span className="flex min-w-0 items-center gap-3">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-background text-primary">
-                <Receipt className="h-4 w-4" aria-hidden="true" />
-              </span>
-              <span className="min-w-0">
-                <span className="block break-words text-sm font-medium">{expense.note || expense.subcategory || expense.category}</span>
-                <span className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-muted-foreground">
-                  <span>{shortDate(expense.date)}</span>
-                  {showCategory && <span className="break-words">{expense.category}</span>}
-                  {expense.subcategory && <span className="break-words">{expense.subcategory}</span>}
-                  {expense.purchaseId && <span className="font-medium text-primary">z účtenky</span>}
-                </span>
-              </span>
-            </span>
-            <span className="shrink-0 text-sm font-semibold">{money(expense.amount)}</span>
-          </button>
-        </li>
-      ))}
-    </ul>
+    <>
+      <ul className="divide-y divide-border/60 px-2 pb-2">
+        {expenses.map((expense) => {
+          const expanded = expandedId === expense.id
+          const itemsState = itemsByExpense[expense.id]
+          return (
+            <li key={expense.id}>
+              <div className="flex w-full min-w-0 items-center gap-1">
+                <button
+                  onClick={() => onEdit(expense)}
+                  className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-xl px-2 py-2.5 text-left hover:bg-background/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <span className="flex min-w-0 items-center gap-3">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-background text-primary">
+                      <Receipt className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block break-words text-sm font-medium">{expense.note || expense.subcategory || expense.category}</span>
+                      <span className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-muted-foreground">
+                        <span>{shortDate(expense.date)}</span>
+                        {showCategory && <span className="break-words">{expense.category}</span>}
+                        {expense.subcategory && <span className="break-words">{expense.subcategory}</span>}
+                        {expense.purchaseId && <span className="font-medium text-primary">z účtenky</span>}
+                      </span>
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-sm font-semibold">{money(expense.amount)}</span>
+                </button>
+                {expense.purchaseId && (
+                  <button
+                    onClick={() => toggle(expense)}
+                    aria-expanded={expanded}
+                    aria-label={expanded ? 'Skrýt položky nákupu' : 'Zobrazit přesné položky nákupu'}
+                    className="icon-button size-9 shrink-0"
+                  >
+                    <ChevronDown className={`h-4 w-4 transition ${expanded ? 'rotate-180' : ''}`} aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+              {expanded && expense.purchaseId && (
+                <div className="mb-2 ml-2 space-y-1.5 rounded-xl bg-background px-3 py-2.5">
+                  {!itemsState || itemsState.status === 'loading' ? (
+                    <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> Načítám položky…
+                    </p>
+                  ) : itemsState.status === 'error' ? (
+                    <p className="text-xs text-destructive">Položky se nepodařilo načíst.</p>
+                  ) : itemsState.items.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">U položek tohoto nákupu neznáme kategorii.</p>
+                  ) : (
+                    itemsState.items.map((item) => (
+                      <div key={item.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
+                        <span className="min-w-0 flex-1">
+                          {item.name} · {item.quantity} {item.unit}
+                        </span>
+                        <span className="flex shrink-0 items-center gap-2">
+                          <span className="font-medium">{money(item.matchedAmount)}</span>
+                          <button
+                            onClick={() =>
+                              setEditingItem({
+                                expenseId: expense.id,
+                                item: { id: item.id, name: item.name, quantity: item.quantity, unit: item.unit, price: item.price, category: item.category!, expenseSplits: item.expenseSplits },
+                              })
+                            }
+                            aria-label={`Upravit kategorii výdaje pro ${item.name}`}
+                            className="icon-button size-7"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+      {editingItem && <PurchaseItemSplitDialog open={editingItem != null} item={editingItem.item} onClose={() => setEditingItem(null)} onSave={saveSplits} />}
+    </>
   )
 }

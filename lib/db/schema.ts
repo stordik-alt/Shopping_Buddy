@@ -813,6 +813,10 @@ export const purchasesRelations = relations(purchases, ({ one, many }) => ({
   store: one(stores, { fields: [purchases.storeId], references: [stores.id] }),
   storeLocation: one(storeLocations, { fields: [purchases.storeLocationId], references: [storeLocations.id] }),
   items: many(purchaseItems),
+  // `many` even though a receipt import points at a purchase one-to-one in practice — Drizzle needs
+  // the plural relation to query in this direction; whether it's non-empty is what matters
+  // (lib/db/queries.ts: a purchase with no completed shopping-list origin came from a receipt).
+  receiptImports: many(receiptImports),
 }))
 
 export const purchaseItemsRelations = relations(purchaseItems, ({ one, many }) => ({

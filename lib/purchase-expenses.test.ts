@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { splitPurchaseByCategory } from '@/lib/purchase-expenses'
+import { sameExpenseTarget, splitPurchaseByCategory, targetsOf } from '@/lib/purchase-expenses'
 
 const sum = (parts: { amount: number }[]) => Math.round(parts.reduce((total, part) => total + part.amount * 100, 0))
 
@@ -116,5 +116,30 @@ describe('splitPurchaseByCategory', () => {
         { category: 'Oblečení a obuv', subcategory: 'Oblečení', amount: 600 },
       ])
     })
+  })
+})
+
+describe('targetsOf', () => {
+  it('is the automatic mapping, as the line\'s one target, without an override', () => {
+    expect(targetsOf({ category: 'Potraviny', amount: 100 })).toEqual([{ target: { category: 'Potraviny', subcategory: null }, weight: 100 }])
+  })
+
+  it('is the household\'s own targets when it has one, ignoring the automatic mapping entirely', () => {
+    expect(targetsOf({ category: 'Potraviny', amount: 100, expenseOverride: [{ category: 'Ostatní', subcategory: 'Dárky', amount: 100 }] })).toEqual([
+      { target: { category: 'Ostatní', subcategory: 'Dárky' }, weight: 100 },
+    ])
+  })
+})
+
+describe('sameExpenseTarget', () => {
+  it('treats matching category and subcategory (including both null) as the same target', () => {
+    expect(sameExpenseTarget({ category: 'Potraviny', subcategory: null }, { category: 'Potraviny', subcategory: null })).toBe(true)
+    expect(sameExpenseTarget({ category: 'Ostatní', subcategory: 'Dárky' }, { category: 'Ostatní', subcategory: 'Dárky' })).toBe(true)
+  })
+
+  it('is false for a different category or a different (or missing) subcategory', () => {
+    expect(sameExpenseTarget({ category: 'Potraviny', subcategory: null }, { category: 'Drogerie', subcategory: null })).toBe(false)
+    expect(sameExpenseTarget({ category: 'Ostatní', subcategory: 'Dárky' }, { category: 'Ostatní', subcategory: 'Jiné' })).toBe(false)
+    expect(sameExpenseTarget({ category: 'Ostatní', subcategory: 'Dárky' }, { category: 'Ostatní', subcategory: null })).toBe(false)
   })
 })

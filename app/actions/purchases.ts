@@ -6,8 +6,9 @@ import { requireHouseholdId } from '@/lib/auth/authorize'
 import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
 import { restockPantryItem } from '@/lib/db/queries'
-import { setPurchaseItemExpenseSplits } from '@/lib/db/purchase-items'
+import { getPurchaseItemsForExpense, recordPurchaseAsExpense, setPurchaseItemExpenseSplits, type PurchaseExpenseItem } from '@/lib/db/purchase-items'
 import * as schema from '@/lib/db/schema'
+import { isExpenseCategory, isValidSubcategory, type ExpenseCategory } from '@/lib/expense-categories'
 import type { ExpenseSplitPart } from '@/lib/purchase-expenses'
 import type { PurchaseRecord } from '@/lib/types'
 
@@ -123,5 +124,27 @@ export async function setPurchaseItemExpenseSplitsAction(purchaseItemId: string,
     if (split.subcategory != null && typeof split.subcategory !== 'string') throw new Error('Neplatné rozdělení položky.')
   }
   await setPurchaseItemExpenseSplits(householdId, purchaseItemId, splits)
+  revalidatePath('/')
+}
+
+/** The purchase-items behind one category's (or subcategory's) amount for one purchase, for the
+ *  Výdaje breakdown's "exact items, not just the whole receipt" drill-down (owner request,
+ *  2026-09-27). Read-only; reassigning one of these items is the action above. */
+export async function getPurchaseExpenseItemsAction(purchaseId: string, category: ExpenseCategory, subcategory: string | null): Promise<PurchaseExpenseItem[]> {
+  const householdId = await requireHouseholdId()
+  if (typeof purchaseId !== 'string' || purchaseId.length === 0) throw new Error('Neplatný nákup.')
+  if (!isExpenseCategory(category)) throw new Error('Neplatná kategorie výdaje.')
+  if (subcategory != null && (typeof subcategory !== 'string' || !isValidSubcategory(category, subcategory))) throw new Error('Neplatná podkategorie výdaje.')
+  return getPurchaseItemsForExpense(householdId, purchaseId, { category, subcategory })
+}
+
+/** Records a receipt-derived purchase into the budget after the fact — for one imported before
+ *  receipts started counting as expenses, or otherwise missed (owner request, 2026-09-27). Refuses a
+ *  purchase that did not come from a receipt or one that already has expenses
+ *  (lib/db/purchase-items.ts). */
+export async function recordPurchaseAsExpenseAction(purchaseId: string): Promise<void> {
+  const householdId = await requireHouseholdId()
+  if (typeof purchaseId !== 'string' || purchaseId.length === 0) throw new Error('Neplatný nákup.')
+  await recordPurchaseAsExpense(householdId, purchaseId)
   revalidatePath('/')
 }

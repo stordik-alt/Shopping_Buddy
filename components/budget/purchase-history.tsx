@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { ChevronDown, Pencil, Repeat, ShoppingBag, Star, TrendingUp } from 'lucide-react'
+import { ChevronDown, Loader2, Pencil, PiggyBank, Repeat, ShoppingBag, Star, TrendingUp } from 'lucide-react'
 import { averageMonthlySpend, favoriteStores, mostBoughtProducts, repeatPurchases } from '@/lib/purchase-history'
 import { PurchaseItemSplitDialog } from '@/components/budget/purchase-item-split-dialog'
 import { Stat } from '@/components/shared/stat'
+import { userFacingError } from '@/lib/errors'
 import { itemCountLabel, money, shortDate } from '@/lib/format'
 import type { ExpenseSplitPart } from '@/lib/purchase-expenses'
 import type { PurchaseItem, PurchaseRecord } from '@/lib/types'
@@ -13,12 +14,16 @@ const VISIBLE_PURCHASES = 5
 export function PurchaseHistory({
   records,
   onSaveSplits,
+  onRecordExpenses,
 }: {
   records: PurchaseRecord[]
   /** Saves (or, with an empty array, clears) one item's expense-category split — a plain
    *  reassignment or, since a receipt often can't say, a genuine split across more than one target
    *  (e.g. clothing that was actually half a child's). */
   onSaveSplits: (purchaseItemId: string, splits: ExpenseSplitPart[]) => Promise<void>
+  /** Records a receipt-derived purchase into the budget after the fact (`record.needsBudgetRecording`
+   *  — one imported before receipts started counting as expenses, or otherwise missed). */
+  onRecordExpenses: (purchaseId: string) => Promise<void>
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [showAll, setShowAll] = useState(false)
@@ -27,8 +32,24 @@ export function PurchaseHistory({
   // (CLAUDE.md section 10: lightweight polling, no realtime) — this makes a save stick on screen
   // immediately, the same way the store directory and the ideas admin screen already do.
   const [overrides, setOverrides] = useState<Record<string, ExpenseSplitPart[]>>({})
+  const [recording, setRecording] = useState<string | null>(null)
+  const [recorded, setRecorded] = useState<Record<string, boolean>>({})
+  const [recordError, setRecordError] = useState<Record<string, string>>({})
   const splitsOf = (item: PurchaseItem) => (item.id != null && item.id in overrides ? overrides[item.id] : (item.expenseSplits ?? []))
   const newestFirst = records.slice().reverse()
+
+  async function recordExpenses(purchaseId: string) {
+    setRecording(purchaseId)
+    setRecordError((current) => ({ ...current, [purchaseId]: '' }))
+    try {
+      await onRecordExpenses(purchaseId)
+      setRecorded((current) => ({ ...current, [purchaseId]: true }))
+    } catch (err) {
+      setRecordError((current) => ({ ...current, [purchaseId]: userFacingError(err, 'Nákup se nepodařilo zapsat do rozpočtu.') }))
+    } finally {
+      setRecording(null)
+    }
+  }
   const shownRecords = showAll ? newestFirst : newestFirst.slice(0, VISIBLE_PURCHASES)
 
   const topStore = favoriteStores(records)[0]
@@ -80,6 +101,26 @@ export function PurchaseHistory({
               </button>
               {expandedId === record.id && (
                 <div className="space-y-1.5 border-t border-border bg-muted/40 px-5 py-4">
+                  {record.needsBudgetRecording && !recorded[record.id] && (
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-background px-3 py-2.5">
+                      <p className="text-xs text-muted-foreground">Tento nákup zatím není v rozpočtu.</p>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => recordExpenses(record.id)}
+                          disabled={recording === record.id}
+                          className="flex min-h-9 items-center gap-1.5 rounded-full bg-primary/10 px-3 text-xs font-medium text-primary hover:bg-primary/15 disabled:opacity-60"
+                        >
+                          {recording === record.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <PiggyBank className="h-3.5 w-3.5" aria-hidden="true" />}
+                          Zapsat do rozpočtu
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {recordError[record.id] && (
+                    <p role="alert" className="mb-2 text-xs text-destructive">
+                      {recordError[record.id]}
+                    </p>
+                  )}
                   {record.items.map((item) => {
                     // Only a real, categorized database row can be reassigned — a purchase made
                     // before that column existed (`category` unknown) has nothing to base it on.

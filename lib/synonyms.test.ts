@@ -34,6 +34,23 @@ describe('product search with synonyms', () => {
   it('keeps the mention rule: a soup with egg is still not eggs', () => {
     expect(isDirectMatch('polevka s vejcem', ['vajicka'])).toBe(false)
   })
+
+  it('finds a short-root product ("sýr", "čaj", "olej"…) by a declined form, which stemming alone cannot reach', () => {
+    // "sýry"/"sýr", "čajem"/"čaj" etc. are all 4 letters or less at the root, below `searchStem()`'s
+    // 5-letter threshold — without a dictionary entry, "sýry" and "sýr" would not be recognized as
+    // the same word, the same gap `maso`/`masa` was already added to close for "maso".
+    expect(isDirectMatch('syr eidam', ['syry'])).toBe(true)
+    expect(isDirectMatch('cerny caj', ['cajem'])).toBe(true)
+    expect(isDirectMatch('olej slunecnicovy', ['olejem'])).toBe(true)
+    expect(isDirectMatch('pivo svetle', ['pivem'])).toBe(true)
+    expect(isDirectMatch('hovezi maso', ['masem'])).toBe(true)
+  })
+
+  it('finds an irregular Czech declension ("sůl"/"soli", "víno"/"vína", "káva"/"kávou") that changes the word\'s vowel, not just its ending', () => {
+    expect(isDirectMatch('jedla sul', ['soli'])).toBe(true)
+    expect(isDirectMatch('cervene vino', ['vina'])).toBe(true)
+    expect(isDirectMatch('cerna kava', ['kavou'])).toBe(true)
+  })
 })
 
 describe('receipt lines and the list with synonyms', () => {

@@ -17,17 +17,31 @@
 
 const GROUPS: string[][] = [
   ['vejce', 'vajicko', 'vajicka', 'vajec', 'vajicek'],
-  ['parek', 'parky', 'parku'],
+  ['parek', 'parky', 'parku', 'parkem'],
   ['mrkev', 'mrkve', 'mrkvi'],
-  ['mleko', 'mliko'],
+  ['mleko', 'mliko', 'mlekem'],
   ['rajce', 'rajcata', 'paradajka', 'paradajky'],
   ['kecup', 'kechup'],
   ['chipsy', 'chips', 'bramburky'],
-  ['pivo', 'piva'],
-  ['maso', 'masa'],
-  ['cesnek', 'cesneku'],
-  ['chleb', 'chleba', 'chlebu'],
-  ['jogurt', 'jogurty', 'jogurtu'],
+  ['pivo', 'piva', 'pivu', 'pivem'],
+  ['maso', 'masa', 'masu', 'masem'],
+  ['cesnek', 'cesneku', 'cesnekem'],
+  ['chleb', 'chleba', 'chlebu', 'chlebem'],
+  ['jogurt', 'jogurty', 'jogurtu', 'jogurtem'],
+  // The words below are all four letters or shorter at the root, so `searchStem()` (which only
+  // trims a word of 5+ letters) never reduces them — "sýry" cannot otherwise be recognized as the
+  // same word as "sýr" the way "rohlíky"/"rohlík" already is. Same reasoning as `maso`/`masa`
+  // above, just for more of the shortest, most common grocery nouns.
+  ['syr', 'syry', 'syra', 'syru', 'syrem'], // sýr (cheese)
+  ['caj', 'caje', 'caji', 'caju', 'cajem'], // čaj (tea)
+  ['med', 'medu', 'medem'], // med (honey)
+  ['ryze', 'ryzi'], // rýže (rice)
+  ['olej', 'olejem'], // olej (oil) — "oleje"/"oleji" already stem to it
+  // Irregular vowel changes in declension, not just a suffix, so no stem length would find these
+  // either way: sůl → soli, víno → vína/vínu/vínem, káva → kávy/kávě/kávu/kávou.
+  ['sul', 'soli'], // sůl (salt)
+  ['vino', 'vina', 'vinu', 'vinem'], // víno (wine)
+  ['kava', 'kavy', 'kave', 'kavu', 'kavou'], // káva (coffee)
 ]
 
 const GROUP_OF = new Map<string, readonly string[]>()

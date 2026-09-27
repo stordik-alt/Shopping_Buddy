@@ -19,7 +19,7 @@ import {
 import { markMealCookedAction } from '@/app/actions/meal-plan'
 import { markAllNotificationsReadAction, markNotificationReadAction } from '@/app/actions/notifications'
 import { adjustPantryItemQuantityAction, confirmPantryItemAction, movePantryItemAction, removePantryItemAction, reviewPantryAction, setPantryTrackingAction } from '@/app/actions/pantry'
-import { completePurchaseAction, setPurchaseItemCategoryAction } from '@/app/actions/purchases'
+import { completePurchaseAction, setPurchaseItemExpenseSplitsAction } from '@/app/actions/purchases'
 import {
   applyReceiptListMatchesAction,
   cancelReceiptImportAction,
@@ -945,7 +945,7 @@ export function AppShell({
                   <ExpenseLedger expenses={expenses} today={today} limits={categoryBudgets} onAdd={() => openExpense(null)} onEdit={openExpense} onLimits={() => setLimitsOpen(true)} />
                   <PurchaseHistory
                     records={initialData.purchaseHistory}
-                    onReassignItem={(purchaseItemId, category, subcategory) => setPurchaseItemCategoryAction(purchaseItemId, category, subcategory)}
+                    onSaveSplits={(purchaseItemId, splits) => setPurchaseItemExpenseSplitsAction(purchaseItemId, splits)}
                   />
                 </div>
               )}

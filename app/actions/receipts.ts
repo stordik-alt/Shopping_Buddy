@@ -1,14 +1,13 @@
 'use server'
 
-import { and, eq, gte, inArray, lt, or } from 'drizzle-orm'
+import { and, eq, gte, ilike, inArray, lt, or } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
 import { getProductCatalog, recordPriceObservation, restockPantryItem, toReceiptImportState, upsertProductCatalogDefaults, type ReceiptImportState } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
-import { monthSpending, notifyBudgetThresholds } from '@/lib/db/budget-notify'
-import { splitPurchaseByCategory } from '@/lib/purchase-expenses'
+import { applyLearnedExpenseDefaults, recomputePurchaseExpenses } from '@/lib/db/purchase-items'
 import { applyConfirmedReceiptListPairs, autoCheckShoppingListFromPurchase, getReceiptListSuggestions, type ReceiptListSuggestion } from '@/lib/db/receipt-list'
 import { inferPantryLocation } from '@/lib/pantry'
 import { logReceiptImport, newReceiptTrace, redactSecrets, type ReceiptTrace } from '@/lib/receipt-log'
@@ -205,31 +204,6 @@ async function recordReceiptPriceObservations(
   )
 }
 
-/** A receipt's purchase as expenses: one per category of its items, adding up to what was paid, then
- *  the budget's 80 %/100 % notification if they cross it (the same one a typed-in expense sends). */
-async function recordPurchaseExpenses(
-  db: ReturnType<typeof getDb>,
-  householdId: string,
-  purchaseId: string,
-  date: string,
-  total: number,
-  storeName: string | null,
-  items: ReceiptLineItem[],
-) {
-  const parts = splitPurchaseByCategory(
-    items.map((item) => ({ category: item.category, amount: netUnitPrice(item) * item.quantity })),
-    total,
-  )
-  if (parts.length === 0) return
-  const before = await monthSpending(db, householdId, date)
-  const inserted = await db
-    .insert(schema.expenses)
-    .values(parts.map((part) => ({ householdId, purchaseId, date, category: part.category, subcategory: part.subcategory, amount: part.amount.toString(), note: storeName ? `Nákup ${storeName}` : 'Nákup z účtenky' })))
-    .onConflictDoNothing()
-    .returning({ amount: schema.expenses.amount, category: schema.expenses.category })
-  if (inserted.length > 0) await notifyBudgetThresholds(db, householdId, before, inserted.map((row) => ({ category: row.category, amount: Number(row.amount) })))
-}
-
 async function createPurchaseFromReceiptItems(
   householdId: string,
   items: ReceiptLineItem[],
@@ -309,10 +283,16 @@ async function createPurchaseFromReceiptItems(
     )
     .returning()
 
+  // A product the household has reassigned before (e.g. always a gift, never groceries) starts
+  // pre-assigned to it here — the app "learning" the household's own correction (owner request,
+  // 2026-09-27) — before the automatic split below, which honours whichever items got one.
+  const expenseSplitsByItemId = await applyLearnedExpenseDefaults(db, householdId, itemRows)
+
   // What the receipt says was paid counts as the household's expenses, split by the items' categories
   // (lib/purchase-expenses.ts; only receipts do this — never a shopping list's estimated prices). The
   // unique (purchase, category, subcategory) index keeps a retry from counting it twice.
-  await recordPurchaseExpenses(db, householdId, purchaseRow.id, date, total, options.storeName?.trim() ? normalizeStoreName(options.storeName) : null, resolvedItems)
+  const note = options.storeName?.trim() ? `Nákup ${normalizeStoreName(options.storeName)}` : 'Nákup z účtenky'
+  await recomputePurchaseExpenses(db, purchaseRow.id, { notifyBudget: true, noteForNewPurchase: note })
 
   for (const item of resolvedItems) {
     await restockPantryItem(householdId, { productId: item.productId, name: item.name, category: item.category, quantity: item.quantity, unit: item.unit, location: item.location })
@@ -337,6 +317,14 @@ async function createPurchaseFromReceiptItems(
       // `resolvedItems` array type.
       await upsertProductCatalogDefaults({ name: item.name, category: item.category, unit: item.unit, location: item.location ?? 'Spíž' })
     }
+    // A brand-new product has no catalog id yet at the time purchase_items was inserted above (it is
+    // matched against the catalog *before* this loop creates it) — link it now, so a later
+    // expense-category reassignment of this very item can be remembered for the product
+    // (lib/db/purchase-items.ts) instead of only ever applying to this one purchase.
+    for (const row of itemRows.filter((row) => row.productId == null)) {
+      const product = await db.query.products.findFirst({ where: ilike(schema.products.name, row.name.trim()), columns: { id: true } })
+      if (product) await db.update(schema.purchaseItems).set({ productId: product.id }).where(eq(schema.purchaseItems.id, row.id))
+    }
   }
 
   const storeLocation = options.storeLocationId
@@ -357,8 +345,7 @@ async function createPurchaseFromReceiptItems(
       unit: row.unit,
       price: Number(row.price),
       category: row.category,
-      expenseCategory: row.expenseCategory,
-      expenseSubcategory: row.expenseSubcategory,
+      expenseSplits: expenseSplitsByItemId.get(row.id) ?? [],
     })),
   }
 }

@@ -6,10 +6,14 @@ import { requireHouseholdId } from '@/lib/auth/authorize'
 import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
 import { restockPantryItem } from '@/lib/db/queries'
-import { setPurchaseItemExpenseOverride } from '@/lib/db/purchase-items'
+import { setPurchaseItemExpenseSplits } from '@/lib/db/purchase-items'
 import * as schema from '@/lib/db/schema'
-import type { ExpenseCategory } from '@/lib/expense-categories'
+import type { ExpenseSplitPart } from '@/lib/purchase-expenses'
 import type { PurchaseRecord } from '@/lib/types'
+
+// Real receipts never need more than a handful of ways to split one line; this only stops a crafted
+// request from sending something unbounded (lib/db/purchase-items.ts checks the exact limit).
+const MAX_SPLITS_PER_ITEM = 20
 
 async function assertOwnsList(householdId: string, listId: string) {
   const db = getDb()
@@ -87,8 +91,7 @@ export async function completePurchaseAction(listId: string): Promise<{ purchase
         unit: row.unit,
         price: Number(row.price),
         category: row.category,
-        expenseCategory: row.expenseCategory,
-        expenseSubcategory: row.expenseSubcategory,
+        expenseSplits: [],
       })),
     })
   }
@@ -104,18 +107,21 @@ export async function completePurchaseAction(listId: string): Promise<{ purchase
   return { purchases: created }
 }
 
-/** The household's own choice of expense category (and optional subcategory) for one item of one of
- *  its own past purchases — e.g. a gift bought during an otherwise ordinary grocery trip, counted
- *  under Ostatní ▸ Dárky instead of Potraviny (owner request, 2026-09-27) — overriding the automatic
- *  mapping. `category: null` clears the override back to automatic. The purchase's expense rows are
- *  recomputed to match (lib/db/purchase-items.ts). */
-export async function setPurchaseItemCategoryAction(
-  purchaseItemId: string,
-  category: ExpenseCategory | null,
-  subcategory: string | null,
-): Promise<void> {
+/** The household's own split of one item of one of its own past purchases across expense targets —
+ *  a plain reassignment (one target, e.g. a gift bought during an otherwise ordinary grocery trip,
+ *  counted under Ostatní ▸ Dárky instead of Potraviny) or a genuine split across more than one, since
+ *  a receipt often can't say (owner request, 2026-09-27 — "Oblečení" that was actually half adult,
+ *  half a child's clothing). An empty array clears it back to the automatic mapping. The purchase's
+ *  expense rows are recomputed to match, and a plain reassignment is remembered for the product, so
+ *  it applies on its own to that product's next receipt (lib/db/purchase-items.ts). */
+export async function setPurchaseItemExpenseSplitsAction(purchaseItemId: string, splits: ExpenseSplitPart[]): Promise<void> {
   const householdId = await requireHouseholdId()
   if (typeof purchaseItemId !== 'string' || purchaseItemId.length === 0) throw new Error('Neplatná položka nákupu.')
-  await setPurchaseItemExpenseOverride(householdId, purchaseItemId, category ? { category, subcategory } : null)
+  if (!Array.isArray(splits) || splits.length > MAX_SPLITS_PER_ITEM) throw new Error('Neplatné rozdělení položky.')
+  for (const split of splits) {
+    if (typeof split !== 'object' || split == null || typeof split.category !== 'string' || typeof split.amount !== 'number') throw new Error('Neplatné rozdělení položky.')
+    if (split.subcategory != null && typeof split.subcategory !== 'string') throw new Error('Neplatné rozdělení položky.')
+  }
+  await setPurchaseItemExpenseSplits(householdId, purchaseItemId, splits)
   revalidatePath('/')
 }

@@ -27,6 +27,7 @@ vi.mock('@vercel/blob', async () => (process.env.USE_REAL_BLOB === '1' ? await v
 process.env.STORAGE_PROVIDER = 'vercel'
 
 import { confirmReceiptReviewAction, importReceiptAction, processReceiptImport, processUploadedReceiptAction, resolveDuplicateReceiptAction, retryReceiptImportAction, uploadReceiptAction } from '@/app/actions/receipts'
+import { setPurchaseItemExpenseSplits } from '@/lib/db/purchase-items'
 import { ALBERT_STYLE_RECEIPT_LINES, makeTextPdf } from '@/lib/receipt-pdf.test-helpers'
 import { RECEIPT_STALE_MS } from '@/lib/receipt-progress'
 import { deleteExpenseAction, updateExpenseAction } from '@/app/actions/budget'
@@ -159,7 +160,49 @@ describe('a receipt as expenses', () => {
       ['Rýže', 'Potraviny'],
       ['Šampon', 'Drogerie'],
     ])
-    expect(purchase.items.every((row) => row.id && row.expenseCategory == null && row.expenseSubcategory == null)).toBe(true)
+    expect(purchase.items.every((row) => row.id && (row.expenseSplits?.length ?? 0) === 0)).toBe(true)
+  })
+
+  it('remembers a reassignment for the product and applies it on its own to the product\'s next receipt', async () => {
+    const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
+    const productName = `__test_learned_product_${crypto.randomUUID()}`
+    const [product] = await db.insert(schema.products).values({ name: productName, categoryId: category!.id, defaultUnit: 'ks' }).returning()
+
+    try {
+      const first = await importReceiptAction([item({ name: productName, category: 'Potraviny', price: 300 })], { date: TEST_DATE })
+      const firstItem = first.purchase.items.find((row) => row.name === productName)!
+      expect(firstItem.expenseSplits).toEqual([])
+      await setPurchaseItemExpenseSplits(householdId, firstItem.id!, [{ category: 'Ostatní', subcategory: 'Dárky', amount: 300 }])
+
+      // A second, unrelated receipt of the same product: pre-assigned without the household doing
+      // anything, because the product was reassigned once before.
+      const second = await importReceiptAction([item({ name: productName, category: 'Potraviny', price: 150 })], { date: TEST_DATE })
+      const secondItem = second.purchase.items.find((row) => row.name === productName)!
+      expect(secondItem.expenseSplits).toEqual([{ category: 'Ostatní', subcategory: 'Dárky', amount: 150 }])
+      const secondExpenses = await db.query.expenses.findMany({ where: eq(schema.expenses.purchaseId, second.purchase.id) })
+      expect(secondExpenses.map((row) => [row.category, row.subcategory, Number(row.amount)])).toEqual([['Ostatní', 'Dárky', 150]])
+    } finally {
+      await db.delete(schema.products).where(eq(schema.products.id, product.id))
+    }
+  })
+
+  it('also learns from a brand-new product\'s very first receipt (no pre-existing catalog row)', async () => {
+    // Unlike the test above, this product does not exist in the catalog yet — `resolvedItems`
+    // resolves it to `productId: null` at first, since it is matched against the catalog *before*
+    // `upsertProductCatalogDefaults` creates it. The reassignment must still be rememberable once
+    // that catalog row exists, or "learning" would only ever work for products already known before
+    // the purchase that first gets corrected — the common real case (owner's own example: a
+    // freshly-typed "Oblečení" line, corrected the first time it appears).
+    const productName = `__test_new_product_${crypto.randomUUID()}`
+    const first = await importReceiptAction([item({ name: productName, category: 'Potraviny', price: 300 })], { date: TEST_DATE })
+    const firstItem = first.purchase.items.find((row) => row.name === productName)!
+    await setPurchaseItemExpenseSplits(householdId, firstItem.id!, [{ category: 'Ostatní', subcategory: 'Dárky', amount: 300 }])
+
+    const second = await importReceiptAction([item({ name: productName, category: 'Potraviny', price: 150 })], { date: TEST_DATE })
+    const secondItem = second.purchase.items.find((row) => row.name === productName)!
+    expect(secondItem.expenseSplits).toEqual([{ category: 'Ostatní', subcategory: 'Dárky', amount: 150 }])
+    // Cleaned up by this file's afterAll (snapshot of product ids before/after) — the product's id is
+    // only known once `upsertProductCatalogDefaults` created it, not before.
   })
 })
 

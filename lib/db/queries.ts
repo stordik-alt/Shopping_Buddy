@@ -288,7 +288,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
         where: and(eq(schema.purchases.householdId, household.id), gte(schema.purchases.date, historySince)),
         columns: { id: true, date: true, total: true, discount: true },
         with: {
-          items: { columns: { id: true, name: true, quantity: true, unit: true, price: true, category: true, expenseCategory: true, expenseSubcategory: true } },
+          items: { columns: { id: true, name: true, quantity: true, unit: true, price: true, category: true }, with: { expenseSplits: { columns: { category: true, subcategory: true, amount: true } } } },
           store: { columns: { chain: true } },
           storeLocation: { columns: { id: true }, with: { store: { columns: { chain: true } } } },
         },
@@ -436,8 +436,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
           unit: item.unit,
           price: Number(item.price),
           category: item.category,
-          expenseCategory: item.expenseCategory,
-          expenseSubcategory: item.expenseSubcategory,
+          expenseSplits: item.expenseSplits.map((split) => ({ category: split.category, subcategory: split.subcategory, amount: Number(split.amount) })),
         })),
       }),
     ),

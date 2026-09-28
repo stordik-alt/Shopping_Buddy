@@ -31,7 +31,7 @@ describe('attentionItems', () => {
   it('counts receipts that wait on the household, not ones still processing', () => {
     const receipts = [receipt('review_required'), receipt('duplicate_review'), receipt('ocr_failed'), receipt('parsing'), receipt('uploaded', true)]
     const items = attentionItems({ ...base, receipts })
-    expect(items).toEqual([{ id: 'receipts', kind: 'receipt', text: '4 účtenky čekají na vaši kontrolu', tab: 'Rozpočet' }])
+    expect(items).toEqual([{ id: 'receipts', kind: 'receipt', text: '4 účtenky čekají na vaši kontrolu', tab: 'Nákup', nakupView: 'uctenky' }])
     expect(attentionItems({ ...base, receipts: [receipt('review_required')] })[0].text).toBe('1 účtenka čeká na vaši kontrolu')
   })
 

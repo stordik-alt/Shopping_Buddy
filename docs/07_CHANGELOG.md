@@ -1,5 +1,10 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-28 (Navigation/IA: Akce reachable on mobile, účtenky and nákupní historie moved to Nákup)
+- **Why (owner UX/IA brief):** a full Czech-language UX/information-architecture brief asked the app to stay navigable as it grows more features. An audit against the real code found most of it already built; the one clearly unimplemented piece was navigation itself — Akce had no mobile bottom-nav entry, and receipt upload/history lived in Rozpočet despite the brief's own "Účtenka → Nákup → Výdaj → Rozpočet" flow.
+- **What:** `components/shared/mobile-nav.tsx` now shows 6 tabs including Akce. `components/app-shell.tsx`'s Nákup tab gained a segmented Nákupní seznam / Moje nákupy / Účtenky control; `ReceiptImport`, `ReceiptPending`, `ReceiptListSuggestions` and `PurchaseHistory` moved there from Rozpočet, with a pending-count badge on "Účtenky". `lib/attention.ts`'s `AttentionItem` gained `nakupView` so the "Dnes je důležité" receipt item and Přehled's "Nahrát účtenku" quick action open Nákup on the right sub-view.
+- **Tests:** `lib/attention.test.ts` updated; full suite (106 files, 1469 tests) and `tsc --noEmit` clean. Verified live at 375px, light and dark.
+
 ## 2026-09-28 (Flyer-OCR deals added for Billa and Lidl)
 - **Why (owner):** after the Lidl connector fix (below) confirmed its official JSON source structurally cannot state a grocery promotion's validity window, the owner asked to build the flyer-OCR route already used for Albert/Penny: *"V tom případě musíme připravit akce z letáků, stejně tak pro Billu"* — CLAUDE.md section 30's fourth explicit AI exception.
 - **`lib/ingestion/billa-flyer.ts`:** Billa's `/akcni-letaky` listing and each flyer's own page are plain server-rendered HTML (title, validity, and — one level in — a `view.publitas.com/billa-cz/<slug>/` viewer URL, the same Publitas platform Albert already uses). Reads five current national flyers; "Speciál: `<town>`" single-store tiles excluded. The shared Publitas `spreads.json` parsing moved into `lib/ingestion/flyer.ts` (`parsePublitasSpreads()`) so Albert's own copy could reuse it instead of duplicating it.

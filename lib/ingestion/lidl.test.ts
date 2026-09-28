@@ -185,11 +185,14 @@ describe('normalizeLidlProduct', () => {
       erpNumber: '100391807',
       fullTitle: 'Kuřecí prsa v akci',
       category: 'Food',
+      // The validity window lives directly on `price`, not nested under `discount` — checked live
+      // 2026-09-28 against Lidl's real gridboxes response.
       price: {
         price: 999,
         oldPrice: 2499,
         currencyCode: 'CZK',
-        discount: { startDate: '2026-09-13T22:00Z', endDate: '2026-09-27T21:59:59Z' },
+        startDate: '2026-09-13T22:00Z',
+        endDate: '2026-09-27T21:59:59Z',
       },
     }
     const result = normalizeLidlProduct(raw, TODAY)
@@ -197,6 +200,7 @@ describe('normalizeLidlProduct', () => {
     // Priced per package here (no base price text), so 999 Kč/ks at the offer price and 2 499 Kč/ks regular.
     expect(result?.deal).toEqual({ dealPrice: 999, unitPrice: 999, validFrom: '2026-09-13', validUntil: '2026-09-27' })
     expect(result?.unitPrice).toBe(2499)
+    expect(result?.promotionWithoutValidity).toBeUndefined()
   })
 
   it("keeps Lidl's printed unit price on the deal and scales it up for the regular price", () => {
@@ -210,7 +214,8 @@ describe('normalizeLidlProduct', () => {
         currencyCode: 'CZK',
         // Lidl prints the unit price of the price it shows now, i.e. the offer price.
         basePrice: { text: '1 l = 200,00 Kč' },
-        discount: { startDate: '2026-09-13T22:00Z', endDate: '2026-09-27T21:59:59Z' },
+        startDate: '2026-09-13T22:00Z',
+        endDate: '2026-09-27T21:59:59Z',
       },
     }
     const result = normalizeLidlProduct(raw, TODAY)
@@ -222,6 +227,7 @@ describe('normalizeLidlProduct', () => {
     const raw: LidlRawProduct = { erpNumber: '8', fullTitle: 'No Deal Item', category: 'Food', price: { price: 34.9, oldPrice: 0, currencyCode: 'CZK' } }
     const result = normalizeLidlProduct(raw, TODAY)
     expect(result?.deal).toBeUndefined()
+    expect(result?.promotionWithoutValidity).toBeUndefined()
     expect(result?.regularPrice).toBe(34.9)
   })
 
@@ -230,9 +236,23 @@ describe('normalizeLidlProduct', () => {
       erpNumber: '9',
       fullTitle: 'Inconsistent Deal',
       category: 'Food',
-      price: { price: 10, oldPrice: 20, currencyCode: 'CZK', discount: { startDate: '2026-09-27', endDate: '2026-09-13' } },
+      price: { price: 10, oldPrice: 20, currencyCode: 'CZK', startDate: '2026-09-27', endDate: '2026-09-13' },
     }
     expect(normalizeLidlProduct(raw, TODAY)).toBeNull()
+  })
+
+  it('flags a real discount with no stated validity window instead of inventing one (the common in-store grocery case)', () => {
+    const raw: LidlRawProduct = {
+      erpNumber: '10043022',
+      fullTitle: 'Zmrzlina Häagen-Dazs',
+      category: 'Food',
+      price: { price: 99.9, oldPrice: 199.9, currencyCode: 'CZK', packaging: { text: '460 ml' } },
+    }
+    const result = normalizeLidlProduct(raw, TODAY)
+    expect(result?.deal).toBeUndefined()
+    expect(result?.promotionWithoutValidity).toBe(true)
+    // The regular price is still the real oldPrice, never the discounted price masquerading as it.
+    expect(result?.regularPrice).toBe(199.9)
   })
 
   it('rejects a product that resolves to a non-Potraviny category, even with a valid price (a kitchen gadget, not a grocery item)', () => {

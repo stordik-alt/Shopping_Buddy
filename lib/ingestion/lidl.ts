@@ -105,7 +105,14 @@ export type LidlRawProduct = {
     currencyCode?: string
     packaging?: { text?: string }
     basePrice?: { text?: string }
-    discount?: { startDate?: string; endDate?: string }
+    // The promotion's own validity window, when the site states one at all — found live on the
+    // `price` object itself, not nested under `discount` (checked 2026-09-28: a real product's
+    // `discount` block carries only display flags/text like `discountText`/`percentageDiscount`,
+    // no dates). Most grocery promotions ("Pouze v prodejnách" in-store offers) carry no date here
+    // either — Lidl's product-grid endpoint states an oldPrice/price gap with nothing about when it
+    // runs, unlike a directly-orderable ("FLAT") product, which does.
+    startDate?: string
+    endDate?: string
   }
 }
 
@@ -205,6 +212,10 @@ export type NormalizedLidlProduct = {
   currency: string
   recordedAt: string
   deal?: NormalizedDeal
+  /** A real oldPrice/price gap whose validity window `price.startDate`/`price.endDate` doesn't
+   *  state — the common case for an in-store grocery promotion, per `LidlRawProduct.price`'s own
+   *  doc comment. Never turned into a `deal` with an invented window (CLAUDE.md section 15). */
+  promotionWithoutValidity?: boolean
 }
 
 /** Turns one raw gridboxes record into a validated, normalized product — or `null` when it isn't
@@ -221,6 +232,13 @@ export type NormalizedLidlProduct = {
  *    real false positives (Czech kitchenware is routinely named "<gadget> na <food>" — a wine
  *    rack's slug contains "vino" as a real, non-substring-collision token). This check, using
  *    Lidl's own real category from the fetched response, is the authoritative gate.
+ *
+ *  Promotions: whenever `oldPrice` is genuinely higher than the current price, `regularPrice` is
+ *  `oldPrice` — never the discounted price masquerading as the everyday one (CLAUDE.md section 18)
+ *  — regardless of whether a validity window is known. A window (`price.startDate`/`price.endDate`)
+ *  turns it into a `deal`; most grocery promotions state none (checked live 2026-09-28: the site's
+ *  product-grid endpoint gives no date for an in-store-only offer), in which case it is flagged with
+ *  `promotionWithoutValidity` instead, same handling as `lib/ingestion/billa.ts`/`dm.ts`.
  *  `today` is passed in (not read from the system clock here) so this stays a pure, testable
  *  function — the caller supplies it, same convention as the rest of `lib/ingestion` (see `lib/ingestion/today.ts`). */
 export function normalizeLidlProduct(raw: LidlRawProduct, today: string): NormalizedLidlProduct | null {
@@ -240,18 +258,28 @@ export function normalizeLidlProduct(raw: LidlRawProduct, today: string): Normal
   const { unit, unitPrice: currentUnitPrice } = deriveUnitPrice(price, raw)
   let unitPrice = currentUnitPrice
 
-  const discount = raw.price?.discount
   const oldPrice = raw.price?.oldPrice
+  const onPromotion = oldPrice != null && oldPrice > price
   let deal: NormalizedLidlProduct['deal']
+  let promotionWithoutValidity: true | undefined
   let regularPrice = price
-  if (oldPrice != null && oldPrice > price && discount?.startDate && discount?.endDate) {
-    const validFrom = discount.startDate.slice(0, 10)
-    const validUntil = discount.endDate.slice(0, 10)
-    if (validUntil < validFrom) return null // a promotion ending before it starts — reject, don't guess which date is wrong
-    deal = { dealPrice: price, unitPrice: currentUnitPrice, validFrom, validUntil }
+  if (onPromotion) {
     regularPrice = oldPrice
     // The regular unit price belongs to the regular price: same package, so it scales by the price ratio.
     unitPrice = scaleUnitPrice(currentUnitPrice, price, oldPrice)
+    const startDate = raw.price?.startDate
+    const endDate = raw.price?.endDate
+    if (startDate && endDate) {
+      const validFrom = startDate.slice(0, 10)
+      const validUntil = endDate.slice(0, 10)
+      if (validUntil < validFrom) return null // a promotion ending before it starts — reject, don't guess which date is wrong
+      deal = { dealPrice: price, unitPrice: currentUnitPrice, validFrom, validUntil }
+    } else {
+      // The common case: an in-store grocery promotion, whose validity window this endpoint states
+      // nowhere — flagged rather than stored with an invented window (CLAUDE.md section 15), same
+      // handling as lib/ingestion/billa.ts and dm.ts.
+      promotionWithoutValidity = true
+    }
   }
 
   return {
@@ -264,6 +292,7 @@ export function normalizeLidlProduct(raw: LidlRawProduct, today: string): Normal
     currency,
     recordedAt: today,
     deal,
+    promotionWithoutValidity,
   }
 }
 

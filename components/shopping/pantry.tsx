@@ -20,6 +20,11 @@ const LOCATION_ICON = {
   Drogérka: SprayCan,
 } satisfies Record<PantryLocation, LucideIcon>
 
+// Sentinel for the "no subcategory yet" filter chip — never a real subcategory name (spec section
+// 17: items the pipeline couldn't place confidently still show up under their location, just
+// outside any subcategory folder, rather than being hidden).
+const UNCATEGORIZED = '__uncategorized__'
+
 // −/+ step size: whole units for "ks" (you don't buy 0.3 of a countable item), a tenth for
 // weight/volume units — matches how the household would actually type a correction (section 7).
 const STEP_BY_UNIT: Record<ItemUnit, number> = { ks: 1, kg: 0.1, g: 10, l: 0.1, ml: 10 }
@@ -132,7 +137,23 @@ export function Pantry({
   }, [openCheck, onCheckOpened])
 
   const SelectedIcon = LOCATION_ICON[selected]
-  const selectedItems = items.filter((item) => item.location === selected)
+  const itemsInLocation = items.filter((item) => item.location === selected)
+  // Subcategory folder within the selected location (spec: "Lednice ▸ Maso a uzeniny" instead of one
+  // flat list of everything chilled). `null` means "show everything in this location", the same
+  // behavior as before this feature existed. Reset whenever the location changes below.
+  const [subcategoryFilter, setSubcategoryFilter] = useState<string | null>(null)
+  const subcategoryCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    let uncategorized = 0
+    for (const item of itemsInLocation) {
+      if (item.subcategory) counts.set(item.subcategory, (counts.get(item.subcategory) ?? 0) + 1)
+      else uncategorized += 1
+    }
+    return { counts, uncategorized }
+  }, [itemsInLocation])
+  const selectedItems = subcategoryFilter
+    ? itemsInLocation.filter((item) => (subcategoryFilter === UNCATEGORIZED ? !item.subcategory : item.subcategory === subcategoryFilter))
+    : itemsInLocation
   // Clamped at render time (not just reset on folder change) so a page also self-corrects the
   // moment an item leaves it — moved elsewhere, removed as "Došlo" — instead of showing an empty
   // page until the household happens to switch folders and back.
@@ -185,6 +206,7 @@ export function Pantry({
               aria-pressed={active}
               onClick={() => {
                 setSelected(location)
+                setSubcategoryFilter(null)
                 setPage(1)
                 setNotice(null)
               }}
@@ -216,6 +238,58 @@ export function Pantry({
           )
         })}
       </nav>
+
+      {!reviewing && (subcategoryCounts.counts.size > 1 || (subcategoryCounts.counts.size === 1 && subcategoryCounts.uncategorized > 0)) && (
+        // Subcategory folders within the open location (spec sections 17-18) — only shown when
+        // there's more than one group to actually filter by, so a location with a single kind of
+        // item (or none categorized yet) keeps the simpler flat list.
+        <div role="group" aria-label={`Podkategorie v umístění ${selected}`} className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setSubcategoryFilter(null)
+              setPage(1)
+            }}
+            className={cn(
+              'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+              subcategoryFilter === null ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card hover:bg-muted',
+            )}
+          >
+            Vše ({itemsInLocation.length})
+          </button>
+          {[...subcategoryCounts.counts.entries()].sort(([a], [b]) => a.localeCompare(b, 'cs')).map(([name, count]) => (
+            <button
+              key={name}
+              type="button"
+              onClick={() => {
+                setSubcategoryFilter(name)
+                setPage(1)
+              }}
+              className={cn(
+                'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+                subcategoryFilter === name ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card hover:bg-muted',
+              )}
+            >
+              {name} ({count})
+            </button>
+          ))}
+          {subcategoryCounts.uncategorized > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setSubcategoryFilter(UNCATEGORIZED)
+                setPage(1)
+              }}
+              className={cn(
+                'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+                subcategoryFilter === UNCATEGORIZED ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card hover:bg-muted',
+              )}
+            >
+              Nezařazeno ({subcategoryCounts.uncategorized})
+            </button>
+          )}
+        </div>
+      )}
 
       {reviewing ? (
         <PantryReview items={items} location={selected} initialScope={reviewing} estimates={estimates} onSave={onReview} onClose={closeReview} />

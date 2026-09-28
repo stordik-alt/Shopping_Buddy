@@ -157,6 +157,19 @@ export const productCategories = pgTable('product_categories', {
   name: itemCategoryEnum('name').notNull().unique(),
 })
 
+// A fixed subcategory of an item_category (e.g. Potraviny ▸ "Mléčné výrobky") — one layer under the
+// existing item_category enum, shared by products/purchase_items/pantry_items so expenses, the
+// catalog and inventory all read the same value for a given product (lib/product-subcategories.ts
+// is the single source of truth for the fixed name list per category; this table only stores which
+// names exist, the same "enum backed by a lookup table" pattern product_categories already uses).
+// Kept as its own table rather than a second pgEnum so a category's subcategory list can be
+// inspected/extended without an enum-alteration migration for every tweak.
+export const productSubcategories = pgTable('product_subcategories', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  category: itemCategoryEnum('category').notNull(),
+  name: text('name').notNull(),
+}, (table) => [uniqueIndex('product_subcategories_category_name_unique').on(table.category, table.name)])
+
 export const products = pgTable('products', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull().unique(),
@@ -165,6 +178,18 @@ export const products = pgTable('products', {
   // map is shared with `normalizeSearchText()`, and a DB test checks the two agree.
   searchName: text('search_name').generatedAlwaysAs(sql`lower(translate(name, '${sql.raw(SEARCH_ACCENTED)}', '${sql.raw(SEARCH_PLAIN)}'))`),
   categoryId: uuid('category_id').notNull().references(() => productCategories.id),
+  // Null until the categorization pipeline (lib/categorization.ts) or a household correction assigns
+  // one confidently — never guessed just to fill the column (same "NEHÁDEJ" rule as defaultLocation
+  // below). `set null` on delete: a subcategory is never removed by this app (the taxonomy is fixed
+  // code, not user data), but the FK stays defensive rather than blocking a future one.
+  subcategoryId: uuid('subcategory_id').references(() => productSubcategories.id, { onDelete: 'set null' }),
+  // Tags a product as aimed at children (e.g. "Kubík") without changing its main category/subcategory
+  // — spec: "Děti" must not silently replace "Potraviny ▸ Nápoje". Purely additive for reporting.
+  isChildOriented: boolean('is_child_oriented').notNull().default(false),
+  // True for a disposable/service line that is a legitimate expense but must never become inventory
+  // (a shopping bag, a bottle deposit) — set by lib/product-subcategories.ts's keyword detection or a
+  // household correction, never auto-deleted (spec sections 14/15).
+  isNonInventory: boolean('is_non_inventory').notNull().default(false),
   defaultUnit: itemUnitEnum('default_unit').notNull().default('ks'),
   // Where this product is remembered to live once a household has confirmed/corrected it at least
   // once (lib/db/queries.ts's upsertProductCatalogDefaults, called from a human-confirmed receipt
@@ -178,6 +203,37 @@ export const products = pgTable('products', {
   // lib/db/product-search.ts), which a plain index cannot serve: every search read all ~50,000
   // products. A trigram index can (extension pg_trgm, migration 0039).
   index('products_search_name_trgm_idx').using('gin', table.searchName.op('gin_trgm_ops')),
+])
+
+// A reusable abbreviation/alias → product mapping (spec section 6), e.g. Lidl's "MAT 15" → Mattoni
+// 1.5 l. Global (`storeId` null) or store-specific — different retailers can abbreviate the same
+// product differently, so a store-specific row must be checked before falling back to a global one
+// (lib/categorization.ts's matching priority). Seeded by user corrections during receipt review
+// (`source: 'user_correction'`, confidence 1.0 — spec section 12, "corrections must teach the
+// system") as well as, in principle, a curated seed list; nothing in this schema assumes one source
+// over the other.
+export const productAliases = pgTable('product_aliases', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  storeId: uuid('store_id').references(() => stores.id, { onDelete: 'cascade' }),
+  alias: text('alias').notNull(),
+  // lib/product-normalize.ts's normalizeProductText(alias) — what matching actually compares against;
+  // kept as its own column (not generated) so it can use the same normalization function the
+  // matching code calls at read time, without duplicating the character-mapping logic in SQL.
+  normalizedAlias: text('normalized_alias').notNull(),
+  confidence: numeric('confidence', { precision: 4, scale: 3 }).notNull().default('1.000'),
+  // 'user_correction' | 'seed' | 'ai' — free text (not an enum) since new sources are expected as the
+  // pipeline evolves and none of them affect matching behavior, only observability.
+  source: text('source').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  // The lookup matching actually runs: exact normalized alias, optionally narrowed to one store.
+  // Not unique — the same normalized text can plausibly alias different products at different
+  // stores (Lidl's "MAT 15" vs. a hypothetical different meaning at another store), but the same
+  // (product, store, alias) combination should not be duplicated by repeated corrections.
+  index('product_aliases_normalized_alias_idx').on(table.normalizedAlias, table.storeId),
+  uniqueIndex('product_aliases_product_store_alias_unique').on(table.productId, table.storeId, table.normalizedAlias),
 ])
 
 // Links a catalog product to its identity on an external price source (docs/32 "Internet Data
@@ -474,6 +530,12 @@ export const purchaseItems = pgTable('purchase_items', {
   // split cannot be recomputed later since its per-line category was never kept, only used once and
   // discarded (CLAUDE.md section 5: never invent it after the fact).
   category: itemCategoryEnum('category'),
+  // The line's subcategory within `category` (lib/product-subcategories.ts's fixed list) as decided
+  // by the categorization pipeline or a household correction — null for a line categorization never
+  // reached (e.g. rows written before this column existed, or a category so uncertain no subcategory
+  // could be offered either). Kept alongside `category` for the same reason that column exists: so a
+  // purchase's per-line classification survives independent of the product catalog changing later.
+  subcategoryId: uuid('subcategory_id').references(() => productSubcategories.id, { onDelete: 'set null' }),
   // Superseded 2026-09-27 by `purchase_item_expense_splits` (a line can now split across more than
   // one expense target, e.g. clothing that was actually half adult, half a child's — a receipt often
   // doesn't say). No longer read or written; kept only so a running deployment mid-rollout of that
@@ -531,6 +593,11 @@ export const pantryItems = pgTable('pantry_items', {
   productId: uuid('product_id').references(() => products.id, { onDelete: 'set null' }),
   name: text('name').notNull(),
   category: itemCategoryEnum('category').notNull().default('Ostatní'),
+  // The item's subcategory within `category` (lib/product-subcategories.ts) — powers the Zásoby
+  // location + subcategory filtering (spec sections 17-18: "Lednice ▸ Maso a uzeniny" instead of one
+  // flat list). Null when the categorization pipeline could not place it confidently; such items
+  // still show up under their location, just outside any subcategory folder.
+  subcategoryId: uuid('subcategory_id').references(() => productSubcategories.id, { onDelete: 'set null' }),
   // Where the item physically lives — defaults per-category/keyword-heuristic on first restock
   // (lib/pantry.ts's inferPantryLocation()), then only changes when the household moves it by
   // hand (e.g. freshly bought chilled meat into the freezer), never re-inferred on a later restock
@@ -766,9 +833,20 @@ export const householdMembersRelations = relations(householdMembers, ({ one }) =
 
 export const productsRelations = relations(products, ({ one, many }) => ({
   category: one(productCategories, { fields: [products.categoryId], references: [productCategories.id] }),
+  subcategory: one(productSubcategories, { fields: [products.subcategoryId], references: [productSubcategories.id] }),
   prices: many(prices),
   deals: many(deals),
   externalRefs: many(productExternalRefs),
+  aliases: many(productAliases),
+}))
+
+export const productSubcategoriesRelations = relations(productSubcategories, ({ many }) => ({
+  products: many(products),
+}))
+
+export const productAliasesRelations = relations(productAliases, ({ one }) => ({
+  product: one(products, { fields: [productAliases.productId], references: [products.id] }),
+  store: one(stores, { fields: [productAliases.storeId], references: [stores.id] }),
 }))
 
 export const productExternalRefsRelations = relations(productExternalRefs, ({ one }) => ({
@@ -822,6 +900,7 @@ export const purchasesRelations = relations(purchases, ({ one, many }) => ({
 export const purchaseItemsRelations = relations(purchaseItems, ({ one, many }) => ({
   purchase: one(purchases, { fields: [purchaseItems.purchaseId], references: [purchases.id] }),
   product: one(products, { fields: [purchaseItems.productId], references: [products.id] }),
+  subcategory: one(productSubcategories, { fields: [purchaseItems.subcategoryId], references: [productSubcategories.id] }),
   expenseSplits: many(purchaseItemExpenseSplits),
 }))
 
@@ -837,6 +916,7 @@ export const householdProductExpenseDefaultsRelations = relations(householdProdu
 export const pantryItemsRelations = relations(pantryItems, ({ one }) => ({
   household: one(households, { fields: [pantryItems.householdId], references: [households.id] }),
   product: one(products, { fields: [pantryItems.productId], references: [products.id] }),
+  subcategory: one(productSubcategories, { fields: [pantryItems.subcategoryId], references: [productSubcategories.id] }),
 }))
 
 export const receiptImportsRelations = relations(receiptImports, ({ one }) => ({

@@ -1,6 +1,6 @@
 {
-  "id": "61145538-1733-4757-bd82-f52b6ab70d8d",
-  "prevId": "547cce2c-1d61-4ec3-a7c6-1acd28a3f5f0",
+  "id": "590ec105-e27b-4b91-8327-0c64f201c525",
+  "prevId": "61145538-1733-4757-bd82-f52b6ab70d8d",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -4015,7 +4015,9 @@
         "kosik",
         "globus",
         "albert",
-        "penny_flyer"
+        "penny_flyer",
+        "billa_flyer",
+        "lidl_flyer"
       ]
     },
     "public.quality_preference": {

@@ -5,11 +5,14 @@ import { revalidatePath } from 'next/cache'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
-import { getProductCatalog, recordPriceObservation, restockPantryItem, toReceiptImportState, upsertProductCatalogDefaults, type ReceiptImportState } from '@/lib/db/queries'
+import { getProductCatalog, getSubcategoryCatalog, recordPriceObservation, restockPantryItem, toReceiptImportState, upsertProductCatalogDefaults, type ReceiptImportState } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
 import { applyLearnedExpenseDefaults, recomputePurchaseExpenses } from '@/lib/db/purchase-items'
+import { getAliasesForNames, recordProductAlias } from '@/lib/db/product-aliases'
+import { AUTO_ACCEPT_THRESHOLD, matchProduct } from '@/lib/categorization'
 import { applyConfirmedReceiptListPairs, autoCheckShoppingListFromPurchase, getReceiptListSuggestions, type ReceiptListSuggestion } from '@/lib/db/receipt-list'
 import { inferPantryLocation } from '@/lib/pantry'
+import { normalizeProductText } from '@/lib/product-normalize'
 import { logReceiptImport, newReceiptTrace, redactSecrets, type ReceiptTrace } from '@/lib/receipt-log'
 import { PDF_TEXT_LAYER_PROVIDER, readPdfTextLayer } from '@/lib/receipt-pdf'
 import { detectReceiptFileType, prepareReceiptImageForOcr } from '@/lib/receipt-image'
@@ -40,7 +43,7 @@ import {
 } from '@/lib/receipts'
 import { HEIC_UNSUPPORTED_MESSAGE } from '@/lib/receipt-upload'
 import { deleteReceiptFile, getReceiptFile, putReceiptFile } from '@/lib/storage'
-import type { PurchaseRecord } from '@/lib/types'
+import type { ItemCategory, PurchaseRecord } from '@/lib/types'
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024 // 10 MB
 
@@ -221,10 +224,14 @@ async function createPurchaseFromReceiptItems(
     source: 'confirmed' | 'auto'
   },
 ): Promise<PurchaseRecord> {
-  if (items.length === 0) throw new Error('Receipt has no items')
+  // Removed lines (spec section 13: "remove item before the import is finalized") never become part
+  // of the purchase at all — not the expense, not inventory. This is different from `nonInventory`
+  // below, which still counts as an expense; a *removed* line was rejected by the household outright.
+  const activeItems = items.filter((item) => !item.removed)
+  if (activeItems.length === 0) throw new Error('Receipt has no items')
   // Reject impossible discounts explicitly (a reviewer can type anything) instead of storing a
   // negative price or silently clamping it.
-  for (const item of items) {
+  for (const item of activeItems) {
     const discount = item.discount ?? 0
     if (discount < 0) throw new Error(`Sleva u položky „${item.name}“ nemůže být záporná.`)
     if (discount > item.price * item.quantity + 0.005) throw new Error(`Sleva u položky „${item.name}“ je vyšší než její cena.`)
@@ -233,15 +240,31 @@ async function createPurchaseFromReceiptItems(
   const date = resolveReceiptPurchaseDate(options.date, options.storedDate ?? null)
 
   // Only the candidates for these item names, not the whole catalog.
-  const catalog = await getProductCatalog(items.map((item) => item.name))
-  const resolvedItems = items.map((item) => {
-    const catalogEntry = matchProductByName(catalog, item.name)
+  const catalog = await getProductCatalog(activeItems.map((item) => item.name))
+  const subcategories = await getSubcategoryCatalog()
+  const candidateAliases = await getAliasesForNames(activeItems.map((item) => normalizeProductText(item.name)))
+  const subcategoryId = (category: ItemCategory, name: string | undefined) =>
+    name ? subcategories.find((row) => row.category === category && row.name === name)?.id ?? null : null
+  const resolvedItems = activeItems.map((item) => {
+    const exactEntry = matchProductByName(catalog, item.name)
+    // No exact name match: try the deterministic alias/fuzzy tiers before giving up (spec section 7)
+    // — only auto-applied above the auto-accept confidence threshold (spec section 8/9).
+    const fuzzyMatch = !exactEntry ? matchProduct(item.name, catalog, candidateAliases, options.storeId ?? null) : null
+    const catalogEntry = exactEntry ?? (fuzzyMatch && fuzzyMatch.confidence >= AUTO_ACCEPT_THRESHOLD ? catalog.find((product) => product.id === fuzzyMatch.productId) ?? null : null)
     if (options.source === 'auto') {
       // processReceiptImport() already verified every item resolves before calling this, so
       // `placement` is never null here — but fall back to the item's own values rather than a
       // non-null assertion, in case a future caller passes source: 'auto' without that guarantee.
       const placement = resolveItemPlacement(catalogEntry, item.category, item.name)
-      return { ...item, productId: catalogEntry?.id ?? null, category: placement?.category ?? item.category, location: placement?.location ?? item.location }
+      const category = placement?.category ?? item.category
+      return {
+        ...item,
+        productId: catalogEntry?.id ?? null,
+        category,
+        location: placement?.location ?? item.location,
+        subcategory: catalogEntry?.subcategory ?? item.subcategory,
+        nonInventory: catalogEntry?.isNonInventory ?? item.nonInventory ?? false,
+      }
     }
     // 'confirmed': a known catalog product's category is still authoritative (consistent with
     // every other entry path in the app — e.g. addShoppingItemAction) even over what was typed
@@ -250,7 +273,15 @@ async function createPurchaseFromReceiptItems(
     // override, so the typed category always applies. Location, which manual entry has no field
     // for at all, still prefers an explicit value (from a review form) before falling back.
     const location = item.location ?? catalogEntry?.defaultLocation ?? inferPantryLocation(item.category, item.name) ?? 'Spíž'
-    return { ...item, productId: catalogEntry?.id ?? null, category: catalogEntry?.category ?? item.category, location }
+    const category = catalogEntry?.category ?? item.category
+    return {
+      ...item,
+      productId: catalogEntry?.id ?? null,
+      category,
+      location,
+      subcategory: catalogEntry?.subcategory ?? item.subcategory,
+      nonInventory: catalogEntry?.isNonInventory ?? item.nonInventory ?? false,
+    }
   })
 
   // `purchases.total` is what was actually paid: the receipt's own stated total when it agrees with
@@ -279,6 +310,7 @@ async function createPurchaseFromReceiptItems(
         // Kept so the expense split can be recomputed later (a household reassignment,
         // lib/db/purchase-items.ts) without re-guessing what category this line was.
         category: item.category,
+        subcategoryId: subcategoryId(item.category, item.subcategory),
       })),
     )
     .returning()
@@ -294,8 +326,19 @@ async function createPurchaseFromReceiptItems(
   const note = options.storeName?.trim() ? `Nákup ${normalizeStoreName(options.storeName)}` : 'Nákup z účtenky'
   await recomputePurchaseExpenses(db, purchaseRow.id, { notifyBudget: true, noteForNewPurchase: note })
 
-  for (const item of resolvedItems) {
-    await restockPantryItem(householdId, { productId: item.productId, name: item.name, category: item.category, quantity: item.quantity, unit: item.unit, location: item.location })
+  // A non-inventory line (shopping bag, bottle deposit) is still a real expense — recorded above
+  // like any other line — but must never become a pantry row (spec sections 14/15). Skipped here
+  // only, so nothing else about the line's accounting changes.
+  for (const item of resolvedItems.filter((item) => !item.nonInventory)) {
+    await restockPantryItem(householdId, {
+      productId: item.productId,
+      name: item.name,
+      category: item.category,
+      quantity: item.quantity,
+      unit: item.unit,
+      location: item.location,
+      subcategoryId: subcategoryId(item.category, item.subcategory),
+    })
   }
 
   await recordReceiptPriceObservations(resolvedItems, storeId, options.storeLocationId, date, options.currency)
@@ -315,15 +358,42 @@ async function createPurchaseFromReceiptItems(
       // Always concrete for 'confirmed' items (resolved above) — the `?? 'Spíž'` here only
       // satisfies the type checker, which can't see that per-branch guarantee across the shared
       // `resolvedItems` array type.
-      await upsertProductCatalogDefaults({ name: item.name, category: item.category, unit: item.unit, location: item.location ?? 'Spíž' })
+      await upsertProductCatalogDefaults({
+        name: item.name,
+        category: item.category,
+        unit: item.unit,
+        location: item.location ?? 'Spíž',
+        subcategory: item.subcategory,
+        isNonInventory: item.nonInventory,
+      })
     }
     // A brand-new product has no catalog id yet at the time purchase_items was inserted above (it is
     // matched against the catalog *before* this loop creates it) — link it now, so a later
     // expense-category reassignment of this very item can be remembered for the product
     // (lib/db/purchase-items.ts) instead of only ever applying to this one purchase.
+    const productIdByItemId = new Map<string, string>()
     for (const row of itemRows.filter((row) => row.productId == null)) {
       const product = await db.query.products.findFirst({ where: ilike(schema.products.name, row.name.trim()), columns: { id: true } })
-      if (product) await db.update(schema.purchaseItems).set({ productId: product.id }).where(eq(schema.purchaseItems.id, row.id))
+      if (product) {
+        await db.update(schema.purchaseItems).set({ productId: product.id }).where(eq(schema.purchaseItems.id, row.id))
+        productIdByItemId.set(row.id, product.id)
+      }
+    }
+    // Spec section 12: "user corrections must teach the system". A review-corrected line — the
+    // household edited the OCR-extracted `name` into something else before confirming — is treated
+    // as the household approving that correction, so the original text is remembered as an alias of
+    // whichever product the corrected name resolved to (store-specific when the receipt's store is
+    // known, since the same abbreviation can mean different things at different retailers — spec
+    // section 6). Best-effort: an alias failing to save must not fail the whole import.
+    for (const [index, item] of resolvedItems.entries()) {
+      if (!item.rawName || normalizeProductText(item.rawName) === normalizeProductText(item.name)) continue
+      const productId = item.productId ?? productIdByItemId.get(itemRows[index]?.id ?? '')
+      if (!productId) continue
+      try {
+        await recordProductAlias({ productId, storeId: storeId ?? null, alias: item.rawName, source: 'user_correction' })
+      } catch (error) {
+        console.error('Could not record learned product alias', item.rawName, error)
+      }
     }
   }
 
@@ -586,6 +656,9 @@ async function runReceiptPipeline(
   // (via resolveItemPlacement) — see that function's doc comment for the catalog-first priority.
   // Only the candidates for the receipt's item names, not the whole catalog.
   const catalog = await getProductCatalog(extracted.items.map((item) => item.name))
+  // Store not resolved yet at this point in the pipeline (findOrCreateStoreLocation runs below) —
+  // only global aliases can be considered for this first, pre-store-resolution preview.
+  const previewAliases = await getAliasesForNames(extracted.items.map((item) => normalizeProductText(item.name)))
 
   const parsedRow = await update({
     status: 'parsed',
@@ -598,7 +671,7 @@ async function runReceiptPipeline(
     discountTotal: extracted.discountTotal?.toString(),
     total: extracted.total?.toString(),
     confidence: extracted.confidence?.toString(),
-    items: JSON.stringify(toReceiptLineItems(extracted, catalog)),
+    items: JSON.stringify(toReceiptLineItems(extracted, catalog, previewAliases, null)),
   })
 
   // Resolve the retailer and physical branch immediately after parsing. This keeps the
@@ -662,8 +735,9 @@ async function runReceiptPipeline(
   }
   trace.validation = 'passed'
 
-  const lineItems = toReceiptLineItems(extracted, catalog)
   const storeId = enrichedParsedRow.storeId ?? parsedStoreId
+  const finalAliases = await getAliasesForNames(extracted.items.map((item) => normalizeProductText(item.name)))
+  const lineItems = toReceiptLineItems(extracted, catalog, finalAliases, storeId ?? null)
   const resolvedStoreLocationId = enrichedParsedRow.storeLocationId ?? parsedStoreLocationId
   const purchase = await createPurchaseFromReceiptItems(row.householdId, lineItems, {
     date: extracted.date ?? undefined,

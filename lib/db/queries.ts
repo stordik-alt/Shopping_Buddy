@@ -303,7 +303,11 @@ export async function getHouseholdData(userId: string, userName: string, userEma
         where: and(eq(schema.invitations.householdId, household.id), eq(schema.invitations.status, 'pending')),
         orderBy: desc(schema.invitations.createdAt),
       }),
-      db.query.pantryItems.findMany({ where: eq(schema.pantryItems.householdId, household.id), orderBy: asc(schema.pantryItems.addedAt) }),
+      db.query.pantryItems.findMany({
+        where: eq(schema.pantryItems.householdId, household.id),
+        orderBy: asc(schema.pantryItems.addedAt),
+        with: { subcategory: { columns: { name: true } } },
+      }),
       getPendingReceiptImports(household.id),
       db.query.expenseCategoryBudgets.findMany({ where: eq(schema.expenseCategoryBudgets.householdId, household.id), columns: { category: true, amount: true } }),
       db.query.recurringPayments.findMany({
@@ -468,6 +472,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
         id: item.id,
         name: item.name,
         category: item.category,
+        subcategory: item.subcategory?.name ?? null,
         location: item.location,
         quantity: item.quantity,
         unit: item.unit,
@@ -498,7 +503,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
  *  the same item. */
 export async function restockPantryItem(
   householdId: string,
-  item: { productId: string | null; name: string; category: ItemCategory; quantity: number; unit: ItemUnit; location?: PantryLocation },
+  item: { productId: string | null; name: string; category: ItemCategory; quantity: number; unit: ItemUnit; location?: PantryLocation; subcategoryId?: string | null },
 ) {
   const db = getDb()
   const byProductId = item.productId
@@ -519,7 +524,16 @@ export async function restockPantryItem(
     const quantity = restockedQuantity({ ...existing, addedAt: existing.addedAt.toISOString() }, item.quantity, todayInPrague())
     await db
       .update(schema.pantryItems)
-      .set({ quantity, addedAt: new Date(), askedAt: null, productId: existing.productId ?? item.productId })
+      .set({
+        quantity,
+        addedAt: new Date(),
+        askedAt: null,
+        productId: existing.productId ?? item.productId,
+        // A newly-resolved subcategory fills in a row that never had one; an existing row's own
+        // subcategory is never overwritten by a later, possibly less certain restock (same
+        // "don't undo a settled value" rule `location` already follows on restock).
+        subcategoryId: existing.subcategoryId ?? item.subcategoryId ?? null,
+      })
       .where(eq(schema.pantryItems.id, existing.id))
   } else {
     await db.insert(schema.pantryItems).values({
@@ -527,6 +541,7 @@ export async function restockPantryItem(
       productId: item.productId,
       name: item.name,
       category: item.category,
+      subcategoryId: item.subcategoryId ?? null,
       location: item.location ?? inferPantryLocation(item.category, item.name) ?? 'Spíž',
       quantity: item.quantity,
       unit: item.unit,
@@ -654,8 +669,8 @@ export async function getProductCatalog(names?: string[]): Promise<ProductCatalo
   if (names && names.length === 0) return []
   const forms = names ? [...new Set(names.map((name) => normalizeSearchText(name.trim())))] : null
   const products = await db.query.products.findMany({
-    columns: { id: true, name: true, defaultUnit: true, defaultLocation: true },
-    with: { category: { columns: { name: true } } },
+    columns: { id: true, name: true, defaultUnit: true, defaultLocation: true, isChildOriented: true, isNonInventory: true },
+    with: { category: { columns: { name: true } }, subcategory: { columns: { name: true } } },
     ...(forms ? { where: inArray(sql`btrim(${schema.products.searchName})`, forms) } : {}),
   })
   return products.map((product) => ({
@@ -664,7 +679,46 @@ export async function getProductCatalog(names?: string[]): Promise<ProductCatalo
     category: product.category.name,
     defaultUnit: product.defaultUnit,
     defaultLocation: product.defaultLocation,
+    subcategory: product.subcategory?.name ?? null,
+    isChildOriented: product.isChildOriented,
+    isNonInventory: product.isNonInventory,
   }))
+}
+
+/** The fixed subcategory rows (lib/product-subcategories.ts seeds them via migration 0044) — a
+ *  small, rarely-changing table (~35 rows), so callers that need id ↔ name lookups (e.g. writing a
+ *  product's recognized subcategory) fetch it whole rather than one row at a time. */
+export async function getSubcategoryCatalog(): Promise<Array<{ id: string; category: ItemCategory; name: string }>> {
+  const db = getDb()
+  const rows = await db.query.productSubcategories.findMany({ columns: { id: true, category: true, name: true } })
+  return rows
+}
+
+/** Sets a product's recognized subcategory/child-oriented/non-inventory flags — the categorization
+ *  pipeline's write path, called only after a confident automatic match or an explicit household
+ *  correction (never an unreviewed low-confidence guess). `subcategoryName` must be one of
+ *  `category`'s fixed names (lib/product-subcategories.ts); an unknown name is a no-op rather than
+ *  writing a dangling/incorrect reference, since the caller is expected to have already validated it. */
+export async function setProductSubcategory(
+  productId: string,
+  category: ItemCategory,
+  subcategoryName: string | null,
+  flags: { isChildOriented?: boolean; isNonInventory?: boolean } = {},
+): Promise<void> {
+  const db = getDb()
+  let subcategoryId: string | null = null
+  if (subcategoryName) {
+    const row = await db.query.productSubcategories.findFirst({
+      where: and(eq(schema.productSubcategories.category, category), eq(schema.productSubcategories.name, subcategoryName)),
+      columns: { id: true },
+    })
+    if (!row) return // unknown subcategory name — refuse to write a guess (CLAUDE.md section 11)
+    subcategoryId = row.id
+  }
+  await db
+    .update(schema.products)
+    .set({ subcategoryId, ...flags })
+    .where(eq(schema.products.id, productId))
 }
 
 /** Remembers a household-confirmed product correction in the catalog — category, default unit,
@@ -685,20 +739,43 @@ export async function getProductCatalog(names?: string[]): Promise<ProductCatalo
  *  Overwriting it here previously let a manual-entry form's unit dropdown (which defaults new rows
  *  to 'ks') silently downgrade an already-correct unit like 'l' to 'ks' on an unrelated purchase.
  *  Still set on first insert, since a brand-new product has no existing value to protect. */
-export async function upsertProductCatalogDefaults(entry: { name: string; category: ItemCategory; unit: ItemUnit; location: PantryLocation }) {
+export async function upsertProductCatalogDefaults(entry: {
+  name: string
+  category: ItemCategory
+  unit: ItemUnit
+  location: PantryLocation
+  // Optional: a confidently-resolved subcategory/tag from the categorization pipeline
+  // (lib/categorization.ts), applied the same "human-confirmed correction" way as category/location
+  // above — never written from an unreviewed low-confidence guess by the caller's own contract.
+  subcategory?: string | null
+  isChildOriented?: boolean
+  isNonInventory?: boolean
+}) {
   const db = getDb()
   const name = entry.name.trim()
   if (!name) return
   const categoryRow = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, entry.category) })
   if (!categoryRow) return // the 5 category rows are seeded 1:1 with itemCategoryEnum; defensive no-op if that's somehow not the case
+  let subcategoryId: string | undefined
+  if (entry.subcategory) {
+    const subcategoryRow = await db.query.productSubcategories.findFirst({
+      where: and(eq(schema.productSubcategories.category, entry.category), eq(schema.productSubcategories.name, entry.subcategory)),
+      columns: { id: true },
+    })
+    subcategoryId = subcategoryRow?.id
+  }
+  const flags = {
+    ...(entry.isChildOriented != null && { isChildOriented: entry.isChildOriented }),
+    ...(entry.isNonInventory != null && { isNonInventory: entry.isNonInventory }),
+  }
   const existing = await db.query.products.findFirst({ where: ilike(schema.products.name, name) })
   if (existing) {
     await db
       .update(schema.products)
-      .set({ categoryId: categoryRow.id, defaultLocation: entry.location })
+      .set({ categoryId: categoryRow.id, defaultLocation: entry.location, ...(subcategoryId && { subcategoryId }), ...flags })
       .where(eq(schema.products.id, existing.id))
   } else {
-    await db.insert(schema.products).values({ name, categoryId: categoryRow.id, defaultUnit: entry.unit, defaultLocation: entry.location })
+    await db.insert(schema.products).values({ name, categoryId: categoryRow.id, defaultUnit: entry.unit, defaultLocation: entry.location, subcategoryId, ...flags })
   }
 }
 

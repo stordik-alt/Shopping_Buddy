@@ -1300,5 +1300,15 @@ The receipt tests (`app/actions/receipts.test.ts`, `app/api/receipts/[id]/image/
 - Confirmed the application stack is Next.js + React + TypeScript + Tailwind/shadcn + pnpm.
 - Confirmed Neon PostgreSQL is the target persistent database.
 
+## 2026-09-28
+### Product subcategories, receipt aliases and a categorization pipeline
+- New `product_subcategories` table (migration `0044_product_subcategories.sql`, seeded) adds a fixed subcategory layer under the existing `item_category` enum, shared by `products`, `purchase_items` and `pantry_items` — a separate system from `expense_category`'s own subcategories, which is untouched.
+- New `product_aliases` table + `lib/db/product-aliases.ts`: global/store-specific abbreviation → product mappings, learned automatically from a household's own review corrections (`source: 'user_correction'`).
+- New `lib/product-normalize.ts` (accent/case/punctuation normalization + Levenshtein-based fuzzy similarity, no new dependency), `lib/product-subcategories.ts` (fixed taxonomy, keyword classification, child-oriented tag, non-inventory detection), and `lib/categorization.ts` (the deterministic matching pipeline with a confidence score per tier, plus a narrow structured AI fallback — CLAUDE.md section 30's fifth exception).
+- `lib/receipts.ts`/`app/actions/receipts.ts`: every receipt line now gets a subcategory + non-inventory suggestion; a line can be removed (with restore before finalizing) during OCR review without affecting the rest of the receipt; a non-inventory line (shopping bag, deposit) is still recorded as an expense but never restocked into the pantry.
+- `components/shopping/pantry.tsx`: Zásoby location folders now offer a subcategory filter with counts (e.g. "Lednice ▸ Maso a uzeniny"); items without one show under "Nezařazeno".
+- `lib/db/recategorize.ts` + `pnpm db:recategorize-products` (dry run by default): fills in subcategories for historical products/purchase items/pantry rows without touching raw receipt data or overwriting an already-set value.
+- 3 new pure test files, updated `lib/receipts.test.ts` expectations; 1129/1129 runnable tests passing, `tsc --noEmit` clean. DB-backed test suites and `pnpm db:migrate:test` were not run in this environment (no test-branch credentials available) — run them before merging.
+
 ## Documentation rule
 Every future architectural/schema/business-rule change should append a dated entry here. Keep entries concise and factual.

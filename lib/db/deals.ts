@@ -1,4 +1,4 @@
-import { and, asc, eq, sql, type SQL } from 'drizzle-orm'
+import { and, asc, eq, sql, type AnyColumn, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import { getProductPrices } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
@@ -6,6 +6,7 @@ import { DEALS_PAGE_SIZE, type DealCategoryFilter, type DealSort } from '@/lib/d
 import type { StandaloneOffer } from '@/lib/offers'
 import { clampPage } from '@/lib/paging'
 import { assessDealQuality, type DealAssessment } from '@/lib/prices'
+import { likePattern, searchStems, searchTokens, splitTokens, SEARCH_ACCENTED, SEARCH_PLAIN } from '@/lib/product-search'
 import { todayInPrague } from '@/lib/today'
 import type { ItemCategory, ItemUnit } from '@/lib/types'
 
@@ -31,10 +32,46 @@ export type DealsPage = {
   page: number
 }
 
-function filters(today: string, category: DealCategoryFilter, chain: string | null): SQL[] {
+// A word of the search box must appear somewhere relevant — the product's own name (by stem, so
+// "vajíčka" also finds "Vejce", same as the rest of the app's product search), its category, or its
+// subcategory (CLAUDE.md section 16: search "by product name, aliases, category, subcategory").
+// Category/subcategory names are compared the same accent-insensitive way `products.search_name` is
+// generated, so "mlecne" finds "Mléčné výrobky" without needing its own generated column.
+function normalizedNameMatches(column: AnyColumn, stem: string): SQL {
+  // ::text first: product_categories.name is the item_category *enum*, which has no implicit cast to
+  // text — coalescing it against a plain '' literal without this cast fails with "invalid input value
+  // for enum item_category" (Postgres tries to parse '' as an enum value instead of casting the
+  // column to text).
+  return sql`translate(lower(coalesce(${column}::text, '')), ${SEARCH_ACCENTED}, ${SEARCH_PLAIN}) LIKE ${likePattern(stem)}`
+}
+
+function searchFilter(query: string | null): SQL | null {
+  if (!query) return null
+  const tokens = searchTokens(query)
+  if (tokens.length === 0) return null
+  // Sizes/strengths ("1l") only rank higher in full product search; there is no ranking-by-score
+  // here (deals are ordered by name/price/discount, lib/deals-browse.ts), so they are dropped rather
+  // than required — a deal named just "Mléko" would otherwise be hidden by a stray "1l".
+  const { required } = splitTokens(tokens)
+  if (required.length === 0) return null
+  return and(
+    ...required.map(
+      (token) =>
+        sql`(
+          ${schema.products.searchName} LIKE ANY (ARRAY[${sql.join(searchStems(token).map((stem) => sql`${likePattern(stem)}`), sql`, `)}]::text[])
+          OR ${normalizedNameMatches(schema.productCategories.name, token)}
+          OR ${normalizedNameMatches(schema.productSubcategories.name, token)}
+        )`,
+    ),
+  )!
+}
+
+function filters(today: string, category: DealCategoryFilter, chain: string | null, query: string | null): SQL[] {
   const clauses = [sql`${schema.deals.validFrom} <= ${today}::date`, sql`${schema.deals.validUntil} >= ${today}::date`]
   if (category !== 'all') clauses.push(eq(schema.productCategories.name, category))
   if (chain) clauses.push(eq(schema.stores.chain, chain))
+  const search = searchFilter(query)
+  if (search) clauses.push(search)
   return clauses
 }
 
@@ -55,16 +92,19 @@ function orderBy(sort: DealSort): SQL[] {
   // An offer has no regular price to compute a discount from (NULL) and sorts last regardless of
   // direction — Postgres's default for DESC is NULLS FIRST, so this must be stated explicitly.
   if (sort === 'discount') return [sql`${approximateDiscount} DESC NULLS LAST`, ...tieBreakers]
+  if (sort === 'store') return [asc(schema.stores.chain), asc(schema.products.name), asc(schema.deals.id)]
   return tieBreakers
 }
 
 /** One page of today's running promotions. `total` counts every matching pair; a page past the end
  *  falls back to the last one. */
-export async function getDealsPage(options: { category: DealCategoryFilter; chain: string | null; sort: DealSort; page: number }): Promise<DealsPage> {
+export async function getDealsPage(options: { category: DealCategoryFilter; chain: string | null; sort: DealSort; page: number; query?: string | null }): Promise<DealsPage> {
   const db = getDb()
   const today = todayInPrague()
-  const where = and(...filters(today, options.category, options.chain))
+  const where = and(...filters(today, options.category, options.chain, options.query ?? null))
 
+  // The subcategory join is a left join — most products don't have one yet (lib/categorization.ts) —
+  // needed only so the search filter above can also match against it.
   const base = () =>
     db
       .select({
@@ -81,6 +121,7 @@ export async function getDealsPage(options: { category: DealCategoryFilter; chai
       .innerJoin(schema.products, eq(schema.products.id, schema.deals.productId))
       .innerJoin(schema.productCategories, eq(schema.productCategories.id, schema.products.categoryId))
       .innerJoin(schema.stores, eq(schema.stores.id, schema.deals.storeId))
+      .leftJoin(schema.productSubcategories, eq(schema.productSubcategories.id, schema.products.subcategoryId))
       .where(where)
 
   // A plain count first: the `deals` table is small (a few thousand rows in total), so this and the
@@ -92,6 +133,7 @@ export async function getDealsPage(options: { category: DealCategoryFilter; chai
     .innerJoin(schema.products, eq(schema.products.id, schema.deals.productId))
     .innerJoin(schema.productCategories, eq(schema.productCategories.id, schema.products.categoryId))
     .innerJoin(schema.stores, eq(schema.stores.id, schema.deals.storeId))
+    .leftJoin(schema.productSubcategories, eq(schema.productSubcategories.id, schema.products.subcategoryId))
     .where(where)
   if (total === 0) return { deals: [], offers: [], total: 0, page: 1 }
 

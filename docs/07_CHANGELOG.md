@@ -1,5 +1,11 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-28 (Akce: search box and "Podle obchodu" sort, Fáze 5 of the owner's UX/IA brief)
+- **Why:** the brief's Akce section asked for real search (name/category/subcategory, not just exact match) and a store sort alongside name/price/discount.
+- **What:** `lib/db/deals.ts`'s `getDealsPage()` gained a `query` filter reusing `lib/product-search.ts`'s existing tokenizing/stemming/synonym machinery against `products.search_name`, `product_categories.name` and (new left join) `product_subcategories.name` — every word of a multi-word query must match somewhere. `DEAL_SORTS` gained `'store'`. `components/deals/deals-tab.tsx` has a debounced "Co hledáte?" search box above the category chips.
+- **Found and fixed:** `coalesce(product_categories.name, '')` crashed — that column is the `item_category` enum with no implicit text cast; fixed with an explicit `::text` cast.
+- **Tests:** `lib/db/deals.test.ts` (+7). Full suite and `tsc --noEmit` clean; verified live (real deal data, light and dark).
+
 ## 2026-09-28 (Rozpočet split into Aktuální stav / Výdaje, Fáze 3 of the owner's UX/IA brief)
 - **Why:** continuing the navigation/IA work below — the brief wants the glanceable current numbers separated from browsing/editing, so opening Rozpočet doesn't require scrolling past a full editable ledger first.
 - **What:** `components/app-shell.tsx`'s Rozpočet tab now has a segmented control (same pattern as Nákup's): **Aktuální stav** (`BudgetOverview` + new `components/budget/category-snapshot.tsx` + `RecurringPayments`) and **Výdaje** (`ExpenseLedger`, unchanged — already covers "Historie"/"Správa" via its own month picker and edit/reassign/Limity controls). `CategorySnapshot` is a new read-only per-category summary for the current month (budgeted/spent/remaining), built entirely from `lib/budget.ts`'s existing `categoryRows`/`monthSummary` — no new business logic.

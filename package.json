@@ -2,7 +2,7 @@
   "name": "my-project",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "pnpm@12.3.4",
+  "packageManager": "pnpm@12.6.0",
   "scripts": {
     "dev": "next dev",
     "build": "tsx lib/db/migrate.ts --vercel-production && next build",
@@ -19,6 +19,8 @@
     "db:import-stores": "dotenv -e .env.local -- tsx scripts/import-stores.ts",
     "db:albert-flyers": "dotenv -e .env.local -- tsx scripts/albert-flyers.ts",
     "db:penny-flyers": "dotenv -e .env.local -- tsx scripts/penny-flyers.ts",
+    "db:billa-flyers": "dotenv -e .env.local -- tsx scripts/billa-flyers.ts",
+    "db:lidl-flyers": "dotenv -e .env.local -- tsx scripts/lidl-flyers.ts",
     "db:remove-albert-misread": "dotenv -e .env.local -- tsx scripts/remove-albert-misread-products.ts",
     "db:recategorize-products": "dotenv -e .env.local -- tsx scripts/recategorize-products.ts",
     "db:migrate-blob-to-r2": "dotenv -e .env.local -- tsx scripts/migrate-vercel-blob-to-r2.ts",

@@ -9,6 +9,18 @@ export type ProductCatalogEntry = {
   // human-confirmed receipt import (never an unreviewed AI guess) sets it. See
   // `lib/db/queries.ts`'s `upsertProductCatalogDefaults()`.
   defaultLocation: PantryLocation | null
+  // The product's remembered subcategory name within `category` (lib/product-subcategories.ts) —
+  // null/undefined until the categorization pipeline or a household correction sets one. Kept as
+  // the plain name (not the subcategory's row id) so catalog consumers never need a second lookup
+  // just to read it back. Optional (not just nullable) so existing test fixtures/call sites built
+  // before this feature don't all need updating just to add "no subcategory yet".
+  subcategory?: string | null
+  // Tags a product as aimed at children without changing `category` (spec section 10, e.g. "Kubík"
+  // stays Potraviny, tagged child-oriented).
+  isChildOriented?: boolean
+  // True for a disposable/service line (shopping bag, bottle deposit) that must never be restocked
+  // into inventory even though it is a legitimate expense (spec sections 14/15).
+  isNonInventory?: boolean
 }
 
 /** Whether a free-text shopping-list item name identifies a real catalog product. Per

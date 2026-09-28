@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AlertTriangle, Check, Copy, RefreshCw, X } from 'lucide-react'
+import { AlertTriangle, Check, Copy, RefreshCw, RotateCcw, Trash2, X } from 'lucide-react'
 import type { ReceiptImportState } from '@/lib/db/queries'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import { money } from '@/lib/format'
@@ -194,7 +194,10 @@ function ReceiptPendingCard({
   }
 
   if (item.status === 'review_required') {
-    const activeRows = rows.filter((row) => row.name.trim().length > 0)
+    // A row the household removed (spec section 13) stays visible — greyed out, clearly marked —
+    // but is excluded from the location gate below and from the purchase itself
+    // (createPurchaseFromReceiptItems filters `removed` items out entirely).
+    const activeRows = rows.filter((row) => row.name.trim().length > 0 && !row.removed)
     // Blocks saving until every real row has a storage location — the whole reason this receipt
     // needs review might be exactly that the pipeline couldn't place one confidently, and the
     // point of review is to actually ask, not to let a blank silently turn into a default later.
@@ -219,79 +222,108 @@ function ReceiptPendingCard({
             <span className="mt-1 block text-xs font-normal text-muted-foreground">Datum může být opraveno ručně před uložením.</span>
           </label>
           {rows.map((row, index) => (
-            <div key={index} className="flex flex-wrap items-center gap-2 rounded-xl border border-border p-2">
+            <div key={index} className={`flex flex-wrap items-center gap-2 rounded-xl border p-2 ${row.removed ? 'border-border/60 bg-muted/40 opacity-60' : 'border-border'}`}>
               <input
                 aria-label={`Název položky ${index + 1}`}
                 value={row.name}
+                disabled={row.removed}
                 onChange={(e) => updateRow(index, { name: e.target.value })}
-                className="min-w-[8rem] flex-1 bg-transparent px-2 py-1 text-sm outline-none"
+                className={`min-w-[8rem] flex-1 bg-transparent px-2 py-1 text-sm outline-none ${row.removed ? 'line-through' : ''}`}
               />
-              <select
-                aria-label={`Kategorie položky ${index + 1}`}
-                value={row.category}
-                onChange={(e) => updateRow(index, { category: e.target.value as ItemCategory })}
-                className="rounded-lg border border-input bg-background px-2 py-1 text-xs"
-              >
-                {CATEGORIES.map((category) => (
-                  <option key={category}>{category}</option>
-                ))}
-              </select>
-              <input
-                aria-label={`Množství položky ${index + 1}`}
-                type="number"
-                min="0.001"
-                step="any"
-                value={row.quantity}
-                onChange={(e) => updateRow(index, { quantity: Math.max(0.001, Number(e.target.value) || 0.001) })}
-                className="w-16 rounded-lg border border-input bg-background px-2 py-1 text-xs"
-              />
-              <select
-                aria-label={`Jednotka položky ${index + 1}`}
-                value={row.unit}
-                onChange={(e) => updateRow(index, { unit: e.target.value as ItemUnit })}
-                className="rounded-lg border border-input bg-background px-2 py-1 text-xs"
-              >
-                {UNITS.map((unit) => (
-                  <option key={unit}>{unit}</option>
-                ))}
-              </select>
-              <select
-                aria-label={`Uložení položky ${index + 1}`}
-                value={row.location ?? ''}
-                onChange={(e) => updateRow(index, { location: (e.target.value || undefined) as ReceiptLineItem['location'] })}
-                className={`rounded-lg border px-2 py-1 text-xs ${row.location ? 'border-input bg-background' : 'border-destructive/60 bg-destructive/5 text-destructive'}`}
-              >
-                <option value="" disabled>
-                  Vyberte uložení
-                </option>
-                {PANTRY_LOCATIONS.map((location) => (
-                  <option key={location}>{location}</option>
-                ))}
-              </select>
-              <input
-                aria-label={`Cena položky ${index + 1}`}
-                type="number"
-                min="0"
-                step="0.1"
-                value={row.price}
-                onChange={(e) => updateRow(index, { price: Math.max(0, Number(e.target.value) || 0) })}
-                className="w-20 rounded-lg border border-input bg-background px-2 py-1 text-xs"
-              />
-              {row.discount != null && (
-                // Shown only where the receipt carried a line discount. `price` above is the
-                // pre-discount unit price; this is the total taken off the whole line.
-                <label className="flex items-center gap-1 text-xs text-muted-foreground">
-                  Sleva
+              {row.removed ? (
+                // Restore before finalizing (spec section 13) — the line is excluded from the
+                // purchase only once "Potvrdit a uložit" is actually pressed.
+                <button
+                  type="button"
+                  aria-label={`Obnovit položku ${index + 1}`}
+                  onClick={() => updateRow(index, { removed: false })}
+                  className="flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" /> Obnovit
+                </button>
+              ) : (
+                <>
+                  <select
+                    aria-label={`Kategorie položky ${index + 1}`}
+                    value={row.category}
+                    onChange={(e) => updateRow(index, { category: e.target.value as ItemCategory })}
+                    className="rounded-lg border border-input bg-background px-2 py-1 text-xs"
+                  >
+                    {CATEGORIES.map((category) => (
+                      <option key={category}>{category}</option>
+                    ))}
+                  </select>
                   <input
-                    aria-label={`Sleva položky ${index + 1}`}
+                    aria-label={`Množství položky ${index + 1}`}
+                    type="number"
+                    min="0.001"
+                    step="any"
+                    value={row.quantity}
+                    onChange={(e) => updateRow(index, { quantity: Math.max(0.001, Number(e.target.value) || 0.001) })}
+                    className="w-16 rounded-lg border border-input bg-background px-2 py-1 text-xs"
+                  />
+                  <select
+                    aria-label={`Jednotka položky ${index + 1}`}
+                    value={row.unit}
+                    onChange={(e) => updateRow(index, { unit: e.target.value as ItemUnit })}
+                    className="rounded-lg border border-input bg-background px-2 py-1 text-xs"
+                  >
+                    {UNITS.map((unit) => (
+                      <option key={unit}>{unit}</option>
+                    ))}
+                  </select>
+                  <select
+                    aria-label={`Uložení položky ${index + 1}`}
+                    value={row.location ?? ''}
+                    onChange={(e) => updateRow(index, { location: (e.target.value || undefined) as ReceiptLineItem['location'] })}
+                    className={`rounded-lg border px-2 py-1 text-xs ${row.location ? 'border-input bg-background' : 'border-destructive/60 bg-destructive/5 text-destructive'}`}
+                  >
+                    <option value="" disabled>
+                      Vyberte uložení
+                    </option>
+                    {PANTRY_LOCATIONS.map((location) => (
+                      <option key={location}>{location}</option>
+                    ))}
+                  </select>
+                  <input
+                    aria-label={`Cena položky ${index + 1}`}
                     type="number"
                     min="0"
                     step="0.1"
-                    value={row.discount}
-                    onChange={(e) => updateRow(index, { discount: Math.max(0, Number(e.target.value) || 0) })}
-                    className="w-16 rounded-lg border border-input bg-background px-2 py-1 text-xs text-foreground"
+                    value={row.price}
+                    onChange={(e) => updateRow(index, { price: Math.max(0, Number(e.target.value) || 0) })}
+                    className="w-20 rounded-lg border border-input bg-background px-2 py-1 text-xs"
                   />
-                </label>
+                  {row.discount != null && (
+                    // Shown only where the receipt carried a line discount. `price` above is the
+                    // pre-discount unit price; this is the total taken off the whole line.
+                    <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                      Sleva
+                      <input
+                        aria-label={`Sleva položky ${index + 1}`}
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        value={row.discount}
+                        onChange={(e) => updateRow(index, { discount: Math.max(0, Number(e.target.value) || 0) })}
+                        className="w-16 rounded-lg border border-input bg-background px-2 py-1 text-xs text-foreground"
+                      />
+                    </label>
+                  )}
+                  {row.nonInventory && (
+                    // A deterministic suggestion (spec section 14), not a decision — the household
+                    // can still remove or keep it; this just explains why it won't appear in Zásoby.
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">Nebude v zásobách</span>
+                  )}
+                  <button
+                    type="button"
+                    aria-label={`Odstranit položku ${index + 1}`}
+                    onClick={() => updateRow(index, { removed: true })}
+                    className="ml-auto rounded-lg p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </>
               )}
             </div>
           ))}

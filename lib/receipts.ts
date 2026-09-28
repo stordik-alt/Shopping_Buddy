@@ -1,6 +1,7 @@
 import { generateObject } from 'ai'
 import { z } from 'zod'
 import { googleSubjectToken } from '@/lib/gcp-oidc'
+import { AUTO_ACCEPT_THRESHOLD, classifySubcategory, detectNonInventory, matchProduct, type ProductAliasEntry, type RecognitionMethod } from '@/lib/categorization'
 import { inferPantryLocation } from '@/lib/pantry'
 import { matchProductByName, type ProductCatalogEntry } from '@/lib/products'
 import type { ItemCategory, ItemUnit, PantryLocation } from '@/lib/types'
@@ -32,6 +33,25 @@ export type ReceiptLineItem = {
   unitPriceUnknown?: boolean
   location?: PantryLocation
   confidence?: number
+  // --- Categorization pipeline observability/control (lib/categorization.ts) -------------------
+  // The item's subcategory within `category` (lib/product-subcategories.ts's fixed list per item
+  // category) — undefined until the pipeline (or a household correction) resolves one confidently.
+  subcategory?: string
+  // How `subcategory` (and, when it came from matching a catalog product, the product itself) was
+  // decided — kept for debugging/audit (spec section 23), never shown to the household as raw text.
+  recognitionMethod?: RecognitionMethod
+  // True when this line looks like a non-product/disposable line (shopping bag, bottle deposit) that
+  // should not become a pantry row (spec sections 14/15) — a *suggestion* the household can override
+  // during review, never an automatic silent drop.
+  nonInventory?: boolean
+  // Set by the review UI when the household removes this line before finalizing the import (spec
+  // section 13) — such a line is excluded from the purchase entirely, not just from inventory.
+  removed?: boolean
+  // The name exactly as OCR/AI first extracted it, before any household edit to `name` during review
+  // (spec section 4: "never overwrite the original OCR text"). Undefined for a manual-entry row —
+  // there is no OCR text to preserve. Used to learn an alias when the household's final `name`
+  // differs from it (spec section 12): `rawName` → the product the corrected `name` resolves to.
+  rawName?: string
 }
 
 // --- OCR pipeline (docs/08_OCR_RECEIPT_PIPELINE.md) -------------------------------------------
@@ -580,7 +600,12 @@ export function isRoundingLine(name: string): boolean {
  *  own category (or 'Ostatní' if it couldn't classify) and no location, matching the previous
  *  behavior for callers that don't have catalog access. Skips an item with no usable name — there's
  *  nothing to record. */
-export function toReceiptLineItems(receipt: ExtractedReceipt, catalog: ProductCatalogEntry[] = []): ReceiptLineItem[] {
+export function toReceiptLineItems(
+  receipt: ExtractedReceipt,
+  catalog: ProductCatalogEntry[] = [],
+  aliases: ProductAliasEntry[] = [],
+  storeId: string | null = null,
+): ReceiptLineItem[] {
   return receipt.items
     .filter((item) => item.name.trim().length > 0 && !isRoundingLine(item.name))
     .map((item) => {
@@ -590,11 +615,31 @@ export function toReceiptLineItems(receipt: ExtractedReceipt, catalog: ProductCa
       // be divided back down to a unit price, not assigned directly (that would double-count
       // quantity > 1 once multiplied again downstream).
       const price = item.unitPrice ?? (item.totalPrice != null && quantity > 0 ? item.totalPrice / quantity : (item.totalPrice ?? 0))
-      const catalogEntry = matchProductByName(catalog, item.name)
+      const exactEntry = matchProductByName(catalog, item.name)
+      // No exact catalog name match: try the deterministic alias/fuzzy tiers (spec section 7) before
+      // falling back to the AI parser's own guess. Only applied when confident enough to auto-accept
+      // (spec section 8/9) — a low-confidence candidate is not silently applied here; it stays
+      // unresolved for the household to see during review.
+      const fuzzyMatch = !exactEntry ? matchProduct(item.name, catalog, aliases, storeId) : null
+      const catalogEntry = exactEntry ?? (fuzzyMatch && fuzzyMatch.confidence >= AUTO_ACCEPT_THRESHOLD ? catalog.find((product) => product.id === fuzzyMatch.productId) ?? null : null)
       const placement = resolveItemPlacement(catalogEntry, item.category, item.name)
+      const category = placement?.category ?? item.category ?? ('Ostatní' as ItemCategory)
+      // Subcategory: a matched catalog product's own remembered subcategory wins, otherwise the
+      // deterministic keyword rules (lib/categorization.ts's classifySubcategory) — the AI fallback
+      // tier is deliberately not called here, since this runs for every line of every receipt and
+      // must stay a pure, free, synchronous step (spec section 22's cost-control rule); an
+      // uncategorized line is annotated with AI only where the caller opts in (see
+      // app/actions/receipts.ts's runAiCategorizationFallback).
+      const subcategoryMatch = classifySubcategory(category, item.name, catalogEntry?.subcategory ?? null)
+      // Prefer the subcategory tier's own method (it may be a more specific "exact_product"/"keyword"
+      // reason for the subcategory specifically); otherwise fall back to how the *product* itself was
+      // recognized, so a fuzzy/alias product match is still visible on the line even when its
+      // subcategory came from nothing more than the product's own catalog entry.
+      const recognitionMethod = subcategoryMatch?.method ?? fuzzyMatch?.method
       return {
         name: item.name.trim(),
-        category: placement?.category ?? item.category ?? ('Ostatní' as ItemCategory),
+        rawName: item.name.trim(),
+        category,
         quantity,
         unit: unitForQuantity(normalizeReceiptUnit(item.unit), quantity),
         price,
@@ -604,6 +649,12 @@ export function toReceiptLineItems(receipt: ExtractedReceipt, catalog: ProductCa
         ...(item.discount != null && item.discount > 0 && { discount: item.discount }),
         ...(placement != null && { location: placement.location }),
         ...(item.confidence != null && { confidence: item.confidence }),
+        ...(subcategoryMatch != null && { subcategory: subcategoryMatch.subcategory }),
+        ...(recognitionMethod != null && { recognitionMethod }),
+        // A non-inventory suggestion (shopping bag, deposit) is always computed and shown, even when
+        // uncertain about everything else — the household reviews/overrides it, it is never silently
+        // dropped (spec section 14).
+        ...(detectNonInventory(item.name) && { nonInventory: true }),
       }
     })
 }

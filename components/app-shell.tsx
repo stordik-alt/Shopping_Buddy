@@ -35,6 +35,7 @@ import { addShoppingItemAction, addShoppingListAction, removeShoppingItemAction,
 import { AiAssistant } from '@/components/ai/ai-assistant'
 import { BudgetOverview } from '@/components/budget/budget-overview'
 import { CategoryLimitsModal } from '@/components/budget/category-limits-modal'
+import { CategorySnapshot } from '@/components/budget/category-snapshot'
 import { RecurringPaymentModal } from '@/components/budget/recurring-payment-modal'
 import { RecurringPayments } from '@/components/budget/recurring-payments'
 import { ExpenseLedger } from '@/components/budget/expense-ledger'
@@ -175,6 +176,9 @@ export function AppShell({
   // Which of the three things the Nákup tab can show right now — the list itself is what people open
   // it for, so it stays the default even when a receipt is waiting on review.
   const [nakupView, setNakupView] = useState<'seznam' | 'nakupy' | 'uctenky'>('seznam')
+  // Which of Rozpočet's two things is shown — the glanceable current state, or the browsable/editable
+  // ledger (which already covers "historie" via its own month picker, so it is not a third view).
+  const [rozpocetView, setRozpocetView] = useState<'stav' | 'vydaje'>('stav')
   const router = useRouter()
   const userLocation = useUserLocation()
 
@@ -979,37 +983,61 @@ export function AppShell({
               )}
               {tab === 'Rozpočet' && (
                 <div className="space-y-5 lg:space-y-6">
-                  <BudgetOverview
-                    today={today}
-                    budget={budget}
-                    onEditBudget={() => setTab('Profil')}
-                    spent={spent}
-                    expenses={expenses}
-                    items={items}
-                    onExpense={() => openExpense(null)}
-                  />
-                  <RecurringPayments
-                    payments={recurringPayments}
-                    occurrences={recurringOccurrences}
-                    today={today}
-                    onAdd={() => setRecurringEdit('new')}
-                    onEdit={setRecurringEdit}
-                    onConfirm={confirmRecurring}
-                    onSkip={skipRecurring}
-                  />
-                  <ExpenseLedger
-                    expenses={expenses}
-                    today={today}
-                    limits={categoryBudgets}
-                    onAdd={() => openExpense(null)}
-                    onEdit={openExpense}
-                    onLimits={() => setLimitsOpen(true)}
-                    onLoadItems={(purchaseId, category, subcategory) => getPurchaseExpenseItemsAction(purchaseId, category, subcategory)}
-                    onSaveSplits={async (purchaseItemId, splits) => {
-                      await setPurchaseItemExpenseSplitsAction(purchaseItemId, splits)
-                      router.refresh() // the reassigned item's own list refetches itself; the category/month totals need this too
-                    }}
-                  />
+                  <div className="flex flex-wrap gap-2" role="group" aria-label="Zobrazení rozpočtu">
+                    {(
+                      [
+                        ['stav', 'Aktuální stav'],
+                        ['vydaje', 'Výdaje'],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <button
+                        key={value}
+                        onClick={() => setRozpocetView(value)}
+                        aria-pressed={rozpocetView === value}
+                        className={`min-h-9 rounded-full px-3 text-sm font-medium transition ${rozpocetView === value ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground hover:bg-primary/10'}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {rozpocetView === 'stav' && (
+                    <>
+                      <BudgetOverview
+                        today={today}
+                        budget={budget}
+                        onEditBudget={() => setTab('Profil')}
+                        spent={spent}
+                        expenses={expenses}
+                        items={items}
+                        onExpense={() => openExpense(null)}
+                      />
+                      <CategorySnapshot expenses={expenses} today={today} limits={categoryBudgets} />
+                      <RecurringPayments
+                        payments={recurringPayments}
+                        occurrences={recurringOccurrences}
+                        today={today}
+                        onAdd={() => setRecurringEdit('new')}
+                        onEdit={setRecurringEdit}
+                        onConfirm={confirmRecurring}
+                        onSkip={skipRecurring}
+                      />
+                    </>
+                  )}
+                  {rozpocetView === 'vydaje' && (
+                    <ExpenseLedger
+                      expenses={expenses}
+                      today={today}
+                      limits={categoryBudgets}
+                      onAdd={() => openExpense(null)}
+                      onEdit={openExpense}
+                      onLimits={() => setLimitsOpen(true)}
+                      onLoadItems={(purchaseId, category, subcategory) => getPurchaseExpenseItemsAction(purchaseId, category, subcategory)}
+                      onSaveSplits={async (purchaseItemId, splits) => {
+                        await setPurchaseItemExpenseSplitsAction(purchaseItemId, splits)
+                        router.refresh() // the reassigned item's own list refetches itself; the category/month totals need this too
+                      }}
+                    />
+                  )}
                 </div>
               )}
               {tab === 'AI' && <AiAssistant onShopping={() => setTab('Nákup')} />}

@@ -1,5 +1,11 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-28 (Rozpočet split into Aktuální stav / Výdaje, Fáze 3 of the owner's UX/IA brief)
+- **Why:** continuing the navigation/IA work below — the brief wants the glanceable current numbers separated from browsing/editing, so opening Rozpočet doesn't require scrolling past a full editable ledger first.
+- **What:** `components/app-shell.tsx`'s Rozpočet tab now has a segmented control (same pattern as Nákup's): **Aktuální stav** (`BudgetOverview` + new `components/budget/category-snapshot.tsx` + `RecurringPayments`) and **Výdaje** (`ExpenseLedger`, unchanged — already covers "Historie"/"Správa" via its own month picker and edit/reassign/Limity controls). `CategorySnapshot` is a new read-only per-category summary for the current month (budgeted/spent/remaining), built entirely from `lib/budget.ts`'s existing `categoryRows`/`monthSummary` — no new business logic.
+- **Deliberately not done:** a configurable budget period (start day of month) — that touches nearly every function in `lib/budget.ts` and needs its own schema migration; left for a dedicated follow-up.
+- **Tests:** full suite (106 files, 1469 tests) and `tsc --noEmit` clean. Verified live at 375px, light and dark, including the over-limit red state with a real expense and category limit.
+
 ## 2026-09-28 (Navigation/IA: Akce reachable on mobile, účtenky and nákupní historie moved to Nákup)
 - **Why (owner UX/IA brief):** a full Czech-language UX/information-architecture brief asked the app to stay navigable as it grows more features. An audit against the real code found most of it already built; the one clearly unimplemented piece was navigation itself — Akce had no mobile bottom-nav entry, and receipt upload/history lived in Rozpočet despite the brief's own "Účtenka → Nákup → Výdaj → Rozpočet" flow.
 - **What:** `components/shared/mobile-nav.tsx` now shows 6 tabs including Akce. `components/app-shell.tsx`'s Nákup tab gained a segmented Nákupní seznam / Moje nákupy / Účtenky control; `ReceiptImport`, `ReceiptPending`, `ReceiptListSuggestions` and `PurchaseHistory` moved there from Rozpočet, with a pending-count badge on "Účtenky". `lib/attention.ts`'s `AttentionItem` gained `nakupView` so the "Dnes je důležité" receipt item and Přehled's "Nahrát účtenku" quick action open Nákup on the right sub-view.

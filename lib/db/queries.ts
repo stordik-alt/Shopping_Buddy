@@ -447,8 +447,14 @@ export async function getHouseholdData(userId: string, userName: string, userEma
           // A receipt-derived purchase with nothing in the budget yet (imported before receipts
           // started counting as expenses, 2026-09-26, or otherwise missed) can be recorded now
           // (owner request, 2026-09-27) — never a completed-shopping-list purchase, whose prices are
-          // estimates, not what was actually paid.
-          needsBudgetRecording: purchase.receiptImports.length > 0 && !purchaseIdsWithExpenses.has(purchase.id),
+          // estimates, not what was actually paid. Also never one with no categorized item at all: a
+          // purchase imported before purchase_items.category existed (migration 0042,
+          // 2026-09-27) has nothing recordable (recordPurchaseAsExpense would only refuse it with
+          // NothingToRecordError) — offering the button would just be a dead end.
+          needsBudgetRecording:
+            purchase.receiptImports.length > 0 &&
+            !purchaseIdsWithExpenses.has(purchase.id) &&
+            purchase.items.some((item) => item.category != null),
         }),
       )
     })(),

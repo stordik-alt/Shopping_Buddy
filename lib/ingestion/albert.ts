@@ -10,6 +10,7 @@ import {
   normalizeFlyerOffer,
   parseFlyerPackage,
   parseFlyerUnitPrice,
+  parsePublitasSpreads,
   USER_AGENT,
   validateFlyerOffer,
   type FlyerFetchDeps,
@@ -17,6 +18,7 @@ import {
   type FlyerRawOffer,
   type FlyerSource,
   type FlyerValidation,
+  type PublitasSpread,
 } from '@/lib/ingestion/flyer'
 import type { FetchOptions, IngestResult, PriceConnector } from '@/lib/ingestion/types'
 
@@ -94,20 +96,10 @@ export function parseAlbertLeaflets(html: string): AlbertLeaflet[] {
 }
 
 
-type Spread = { pages?: { number?: number; text?: string; images?: Record<string, string> }[] }
-
-/** The pages of a flyer from its viewer's `spreads.json`. Pure/testable. */
-export function parseAlbertSpreads(viewUrl: string, spreads: Spread[]): FlyerPage[] {
-  const origin = new URL(viewUrl).origin
-  const pages: FlyerPage[] = []
-  for (const spread of spreads) {
-    for (const page of spread.pages ?? []) {
-      const image = page.images?.[PAGE_IMAGE_SIZE]
-      if (typeof page.number !== 'number' || page.number < 1 || !image) continue
-      pages.push({ number: page.number, text: page.text ?? '', imageUrl: new URL(image, origin).toString() })
-    }
-  }
-  return pages
+/** The pages of a flyer from its viewer's `spreads.json` (shared Publitas parsing, lib/ingestion/flyer.ts —
+ *  Billa's flyer connector is hosted on the same platform and uses it too). Pure/testable. */
+export function parseAlbertSpreads(viewUrl: string, spreads: PublitasSpread[]): FlyerPage[] {
+  return parsePublitasSpreads(viewUrl, spreads, PAGE_IMAGE_SIZE)
 }
 
 
@@ -124,7 +116,7 @@ export const albertFlyerSource: FlyerSource<AlbertLeaflet> = {
   async loadPages(get, leaflet) {
     const response = await get(new URL('spreads.json', leaflet.viewUrl).toString(), { headers: { Accept: 'application/json', 'User-Agent': USER_AGENT } })
     if (!response.ok) throw new Error(`Albert flyer ${leaflet.id} pages failed: HTTP ${response.status}`)
-    return parseAlbertSpreads(leaflet.viewUrl, (await response.json()) as Spread[])
+    return parseAlbertSpreads(leaflet.viewUrl, (await response.json()) as PublitasSpread[])
   },
 }
 

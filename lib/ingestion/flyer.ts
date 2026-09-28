@@ -162,6 +162,27 @@ export function createDbFlyerPageCache(source: IngestionSource): FlyerPageCache 
   }
 }
 
+// --- Publitas (shared viewer platform: Albert's letaky.albert.cz and Billa's view.publitas.com) ---
+
+export type PublitasSpread = { pages?: { number?: number; text?: string; images?: Record<string, string> }[] }
+
+/** The pages of a flyer from its Publitas viewer's `spreads.json` — shared by every source hosted on
+ *  the Publitas platform (Albert: its own `letaky.albert.cz` instance; Billa: the shared
+ *  `view.publitas.com`). Pure/testable. `imageSize` is one of the viewer's own named renditions
+ *  ("at1600"); small print (unit prices, "vybrané druhy") must stay legible. */
+export function parsePublitasSpreads(viewUrl: string, spreads: PublitasSpread[], imageSize: string): FlyerPage[] {
+  const origin = new URL(viewUrl).origin
+  const pages: FlyerPage[] = []
+  for (const spread of spreads) {
+    for (const page of spread.pages ?? []) {
+      const image = page.images?.[imageSize]
+      if (typeof page.number !== 'number' || page.number < 1 || !image) continue
+      pages.push({ number: page.number, text: page.text ?? '', imageUrl: new URL(image, origin).toString() })
+    }
+  }
+  return pages
+}
+
 export function addDays(isoDate: string, days: number): string {
   const date = new Date(`${isoDate}T00:00:00Z`)
   date.setUTCDate(date.getUTCDate() + days)

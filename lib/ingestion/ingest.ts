@@ -13,10 +13,12 @@ import {
 import { albertHypermarketConnector, albertSupermarketConnector, mergeIngestResults } from '@/lib/ingestion/albert'
 import { pennyFlyerConnector } from '@/lib/ingestion/penny-flyer'
 import { billaConnector } from '@/lib/ingestion/billa'
+import { billaFlyerConnector } from '@/lib/ingestion/billa-flyer'
 import { dmConnector } from '@/lib/ingestion/dm'
 import { globusConnector } from '@/lib/ingestion/globus'
 import { kosikConnector } from '@/lib/ingestion/kosik'
 import { lidlConnector } from '@/lib/ingestion/lidl'
+import { lidlFlyerConnector } from '@/lib/ingestion/lidl-flyer'
 import { pennyConnector } from '@/lib/ingestion/penny'
 import { rohlikConnector } from '@/lib/ingestion/rohlik'
 import { partLabel, type CatalogPart } from '@/lib/ingestion/parts'
@@ -228,6 +230,11 @@ export const PRICE_SOURCES: PriceSource[] = [
   // Penny's weekly flyer (~400 offers), read the same way (lib/ingestion/penny-flyer.ts). Two runs a
   // day: the first reads the pages it can in its time budget, the second the rest.
   { source: pennyFlyerConnector.source, parts: 1, run: (limit, options) => ingestPrices(pennyFlyerConnector, limit, options) },
+  // Billa's and Lidl's flyers (lib/ingestion/billa-flyer.ts, lib/ingestion/lidl-flyer.ts), added
+  // 2026-09-28 after lidlConnector's own official prices turned out unable to state a grocery
+  // promotion's validity at all (see its doc comment) — read the same way as Albert's/Penny's.
+  { source: billaFlyerConnector.source, parts: 1, run: (limit, options) => ingestPrices(billaFlyerConnector, limit, options) },
+  { source: lidlFlyerConnector.source, parts: 1, run: (limit, options) => ingestPrices(lidlFlyerConnector, limit, options) },
 ]
 
 // No batch cap of its own: a run's size is set by its part (and stopped by the time budget).

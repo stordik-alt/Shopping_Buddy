@@ -277,7 +277,20 @@ describe('resolveItemPlacement', () => {
 describe('toReceiptLineItems', () => {
   it('converts a validated extraction into confirmable line items, using the per-unit price and the AI-provided category', () => {
     const items = toReceiptLineItems(extractedReceipt({ items: [extractedItem({ name: 'Mléko', quantity: 2, unit: 'ks', unitPrice: 24.9, totalPrice: 49.8, category: 'Potraviny', confidence: 0.9 })] }))
-    expect(items).toEqual([{ name: 'Mléko', category: 'Potraviny', quantity: 2, unit: 'ks', price: 24.9, location: 'Lednice', confidence: 0.9 }])
+    expect(items).toEqual([
+      {
+        name: 'Mléko',
+        rawName: 'Mléko',
+        category: 'Potraviny',
+        quantity: 2,
+        unit: 'ks',
+        price: 24.9,
+        location: 'Lednice',
+        confidence: 0.9,
+        subcategory: 'Mléčné výrobky',
+        recognitionMethod: 'keyword',
+      },
+    ])
   })
 
   it('defaults category to "Ostatní" and leaves location unset when the AI gave no category and there is no catalog match', () => {

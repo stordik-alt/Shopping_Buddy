@@ -140,6 +140,10 @@ export type PantryItem = {
   id: string
   name: string
   category: ItemCategory
+  /** The item's subcategory within `category` (lib/product-subcategories.ts) — null when the
+   *  categorization pipeline never placed it confidently. Powers the Zásoby location + subcategory
+   *  filtering (components/shopping/pantry.tsx). */
+  subcategory?: string | null
   location: PantryLocation
   quantity: number
   unit: ItemUnit

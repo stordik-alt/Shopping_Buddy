@@ -35,6 +35,21 @@ describe('classifySubcategoryByKeyword — spec section 2/21 examples', () => {
   it('returns null (never a guess) for a name matching no keyword', () => {
     expect(classifySubcategoryByKeyword('Potraviny', normalizeProductText('xyz neznámá položka'))).toBeNull()
   })
+
+  it('classifies a flavored drink as Nápoje, not Ovoce a zelenina, when its name also names a fruit (regression: found via a production dry run)', () => {
+    expect(classifySubcategoryByKeyword('Potraviny', normalizeProductText('KORUNNÍ ETERA JABLKO'))).toBe('Nápoje')
+    expect(classifySubcategoryByKeyword('Potraviny', normalizeProductText('YESS POMERANČ 0,5L'))).toBe('Nápoje')
+  })
+
+  it('still classifies a bare fruit/vegetable name as produce when no beverage brand or volume marker is present', () => {
+    expect(classifySubcategoryByKeyword('Potraviny', normalizeProductText('Jablka'))).toBe('Ovoce a zelenina')
+    expect(classifySubcategoryByKeyword('Potraviny', normalizeProductText('Pomeranče'))).toBe('Ovoce a zelenina')
+  })
+
+  it('does not guess a subcategory for an unbranded liter-volume fruit name (falls back to null over a wrong guess)', () => {
+    expect(classifySubcategoryByKeyword('Potraviny', normalizeProductText('Jablečná limonáda bez brandu 1,5l'))).toBe('Nápoje')
+    expect(classifySubcategoryByKeyword('Potraviny', normalizeProductText('Neznámý pomerančový nápoj 0,5l'))).toBe('Nápoje')
+  })
 })
 
 describe('isValidProductSubcategory', () => {

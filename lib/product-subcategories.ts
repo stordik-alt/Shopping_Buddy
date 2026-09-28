@@ -79,10 +79,7 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
   { subcategory: 'Ovoce a zelenina', keywords: ['jablk', 'banán', 'banan', 'pomeranč', 'pomeranc', 'zelenina', 'ovoce', 'rajče', 'rajce', 'okurk', 'brambor', 'cibul', 'mrkev'] },
   {
     subcategory: 'Nápoje',
-    keywords: [
-      'jupik', 'jupík', 'kubik', 'kubík', 'mattoni', 'matton', 'dobra voda', 'dobrá voda', 'voda', 'napoj', 'nápoj', 'limonada', 'limonáda', 'cola', 'sok', 'šťáva', 'stava',
-      'pivo', 'víno', 'vino', 'čaj', 'caj', 'káva', 'kava',
-    ],
+    keywords: ['voda', 'napoj', 'nápoj', 'limonada', 'limonáda', 'cola', 'sok', 'šťáva', 'stava', 'pivo', 'víno', 'vino', 'čaj', 'caj', 'káva', 'kava'],
   },
   { subcategory: 'Sladkosti', keywords: ['čokoláda', 'cokolada', 'bonbon', 'sušenk', 'susenk', 'oplatk', 'zmrzlin', 'dort', 'keks'] },
   { subcategory: 'Slané pochutiny', keywords: ['brambůrk', 'bramburk', 'chipsy', 'tyčink slan', 'oříšk', 'orisk', 'arašíd', 'arasid'] },
@@ -132,12 +129,35 @@ const RULES_BY_CATEGORY: Record<ItemCategory, SubcategoryRule[]> = {
   Ostatní: [],
 }
 
+// Known Czech beverage brand names, checked before the generic category rules below. A brand name
+// is an unambiguous signal ("Korunní Etera Jablko" and "YESS Pomeranč" are drinks, not produce),
+// unlike a bare fruit/vegetable word, which many flavored drinks also carry in their name — without
+// this tier, "jablk"/"pomeranč" in POTRAVINY_RULES' "Ovoce a zelenina" entry would win first and
+// misclassify these as raw produce (found via a real dry-run of scripts/recategorize-products.ts
+// against production data: KORUNNÍ ETERA JABLKO and YESS POMERANČ 0,5L both landed on "Ovoce a
+// zelenina" before this fix). Deliberately just brand names, not a broader "contains a fruit word"
+// exception — a bare "Jablko" with no brand or volume context should still resolve to produce.
+const BEVERAGE_BRAND_KEYWORDS = [
+  'jupik', 'jupík', 'kubik', 'kubík', 'mattoni', 'matton', 'dobra voda', 'dobrá voda',
+  'korunni', 'korunní', 'yess', 'rajec', 'ondrasovka', 'ondrášovka', 'podebradka', 'poděbradka',
+  'toma', 'kofola', 'birell', 'radler', 'pepsi', 'fanta', 'sprite',
+].map(normalizeProductText)
+
+// A liter-volume marker ("0,5l", "1,5l", "2l" — normalized, the comma becomes a space so the digit
+// run stays attached to "l") is a strong, unambiguous beverage signal for any *unbranded* case the
+// list above misses: raw produce is never sold "1,5l" on a Czech receipt. Used only to suppress a
+// false "Ovoce a zelenina" keyword match, never to force a positive Nápoje guess by itself — falling
+// through to `null` (unresolved) is preferable to a confident wrong category (NEHÁDEJ).
+const LITER_VOLUME_PATTERN = /(^|\s)\d+l(\s|$)/
+
 /** Deterministic keyword classification of a normalized product name into one of its item
  *  category's fixed subcategories — `null` when nothing matches confidently (never a guess). The
  *  caller (lib/categorization.ts) treats this as one priority tier among several; a `null` here
  *  does not stop fuzzy or AI matching from being tried next. */
 export function classifySubcategoryByKeyword(category: ItemCategory, normalizedName: string): string | null {
+  if (category === 'Potraviny' && BEVERAGE_BRAND_KEYWORDS.some((keyword) => normalizedName.includes(keyword))) return 'Nápoje'
   for (const rule of RULES_BY_CATEGORY[category]) {
+    if (rule.subcategory === 'Ovoce a zelenina' && LITER_VOLUME_PATTERN.test(normalizedName)) continue
     if (rule.keywords.some((keyword) => normalizedName.includes(keyword))) return rule.subcategory
   }
   return null

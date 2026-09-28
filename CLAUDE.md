@@ -104,7 +104,7 @@ Current stack:
 * Tailwind CSS 4.x
 * shadcn/ui
 * lucide-react
-* pnpm 12.3.4
+* pnpm 12.6.0
 * Neon PostgreSQL 18
 * Drizzle ORM
 * Neon Auth

@@ -18,7 +18,7 @@ import {
 } from '@/app/actions/household'
 import { markMealCookedAction } from '@/app/actions/meal-plan'
 import { markAllNotificationsReadAction, markNotificationReadAction } from '@/app/actions/notifications'
-import { addPantryPlaceAction, adjustPantryItemQuantityAction, autoCategorizePantryAction, setPantryItemSubcategoryAction, confirmPantryItemAction, movePantryItemAction, removePantryItemAction, removePantryPlaceAction, reviewPantryAction, setPantryCheckinDaysAction, setPantrySubcategoryCheckinDaysAction, setPantryTrackingAction } from '@/app/actions/pantry'
+import { addPantryPlaceAction, adjustPantryItemQuantityAction, autoCategorizePantryAction, setPantryItemCategoryAction, setPantryItemSubcategoryAction, confirmPantryItemAction, movePantryItemAction, removePantryItemAction, removePantryPlaceAction, reviewPantryAction, setPantryCheckinDaysAction, setPantrySubcategoryCheckinDaysAction, setPantryTrackingAction } from '@/app/actions/pantry'
 import { completePurchaseAction, getPurchaseExpenseItemsAction, recordPurchaseAsExpenseAction, setPurchaseItemExpenseSplitsAction } from '@/app/actions/purchases'
 import {
   applyReceiptListMatchesAction,
@@ -78,7 +78,7 @@ import type { ReceiptLineItem } from '@/lib/receipts'
 import type { ExpenseCategory } from '@/lib/expense-categories'
 import type { ExpenseInput } from '@/lib/expense-input'
 import type { RecurringPayment, RecurringPaymentInput } from '@/lib/recurring-payments'
-import type { Expense, Item, PantryArea, PantryItem, PantryLocation, PantryTracking, Store, Tab } from '@/lib/types'
+import type { Expense, Item, ItemCategory, PantryArea, PantryItem, PantryLocation, PantryTracking, Store, Tab } from '@/lib/types'
 import type { PinRecord } from '@/lib/db/shopping-plan'
 import { filterPricesToNearby, type StoreSelection } from '@/lib/nearby-stores'
 import { nearbyOffers, type StandaloneOffer } from '@/lib/offers'
@@ -637,6 +637,11 @@ export function AppShell({
     return setPantryItemSubcategoryAction(id, subcategory)
   }
 
+  function setPantryItemCategory(id: string, category: ItemCategory) {
+    setPantryItems((current) => current.map((item) => (item.id === id ? { ...item, category, subcategory: null } : item)))
+    return setPantryItemCategoryAction(id, category)
+  }
+
   // Resolves to how many items the keyword rules placed; the server decides, the state follows it.
   async function autoCategorizePantry(): Promise<number> {
     const assigned = await autoCategorizePantryAction()
@@ -1010,6 +1015,7 @@ export function AppShell({
                     onReview={reviewPantry}
                     onSetTracking={setPantryTracking}
                     onSetSubcategory={setPantryItemSubcategory}
+                    onSetCategory={setPantryItemCategory}
                     onAutoCategorize={autoCategorizePantry}
                     estimates={pantryEstimates}
                     openCheck={pantryCheckPending}

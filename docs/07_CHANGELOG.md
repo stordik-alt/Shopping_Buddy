@@ -1,5 +1,10 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-29 (Subcategories for the item category Ostatní)
+- **Why (owner):** clothing and an e-cigarette in Zásoby had no subcategory select, because "Ostatní" had an empty subcategory list.
+- **What:** `PRODUCT_SUBCATEGORIES.Ostatní` = Oblečení a obuv, Elektronika, Tabák a e-cigarety, Ostatní zboží, with keyword rules for the automatic button; migration `0051` seeds the rows (additive, idempotent). Expenses are unchanged (only Potraviny uses the item subcategory). An item wrongly filed (e.g. a drink under Ostatní) can now change its category from a select in Zásoby (`setPantryItemCategoryAction`): it clears the old subcategory and also teaches the shared catalog product its new category (its old subcategory is cleared), so later receipts of it — in any household — land in the corrected category. Unlike subcategory moves, category changes have no administrator approval step.
+- **Tests:** `lib/product-subcategories.test.ts` (+4); full suite green.
+
 ## 2026-09-29 (Catalog subcategory moves: free up to 3, then administrator approval)
 - **Why (owner):** the shared catalog is corrected by hand from the pantry; a wrong assignment must be fixable later, but a product moved back and forth by many households needs a decision.
 - **What:** new table `product_subcategory_changes` (migration `0050`, additive) logs every hand-made catalog change. `proposeProductSubcategory` (`lib/db/subcategory-changes.ts`) applies the first placement and the first three moves at once (rule in `lib/product-subcategory-changes.ts`); the fourth and later moves are stored as `pending`, the household's own pantry item keeps its choice and is told the catalog change awaits approval. Administrators (`app_admins`) approve or reject on `/admin/subcategories`; approval writes the subcategory to the shared product. One household cannot queue the same proposal twice.

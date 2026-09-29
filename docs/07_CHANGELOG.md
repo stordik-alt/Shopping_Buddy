@@ -1,5 +1,8 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-29 (Content-Security-Policy)
+- `next.config.mjs` sends a Content-Security-Policy on every route: everything (scripts, styles, connections, workers, manifest) only from the app's own origin, images also `data:`/`blob:` (receipt previews), no plugins, no framing, no foreign `<base>` or form targets. Scripts and styles keep `unsafe-inline` because Next.js writes inline bootstrap scripts; a nonce would need a per-request policy and make every page dynamic. Dev adds `unsafe-eval`; the Cloudflare build allows Cloudflare Web Analytics. `tsc` and `next build` pass; the production server showed no CSP violations on the intro and sign-in pages, signed-in pages not checked (needs a test account) — if one breaks, the console names the blocked origin.
+
 ## 2026-09-29 (Reduced motion)
 - `app/globals.css`: under `prefers-reduced-motion: reduce` transitions, animations, smooth scrolling and hover lifts are switched off; `animate-spin` is exempt because it is the only sign of work in progress. Build passes, not checked on a device.
 

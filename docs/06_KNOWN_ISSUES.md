@@ -14,6 +14,9 @@ This is a living list. Remove an item only after the fix is verified.
 - Ambiguous OCR output must not be treated as certain data.
 
 ## Infrastructure / verification
+- The CI `database` job skips itself until the repository secret `TEST_DATABASE_URL` (Neon test branch) is added, so database-backed tests (server actions, receipt routes, `lib/db`) currently run only locally (`pnpm test`).
+- No Content-Security-Policy is set; only the basic security headers in `next.config.mjs`.
+- `retryReceiptImportAction` is not counted by the receipt upload limit (30 per household per 24 h).
 - Vercel build/deployment must be explicitly checked after relevant changes.
 - Neon migrations must be verified against the real development database before production use.
 
@@ -25,6 +28,7 @@ Previously encountered classes of errors include:
 - Vercel configuration/build failures
 - receipt import/reimport duplication
 - mobile overflow/content clipping
+- CI red because a database-backed test was missing from the pure-test job's exclude list (fixed 2026-09-29: keep that list and the `database` job's include list in step)
 
 When one reappears, document exact reproduction and the fixing commit.
 

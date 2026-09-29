@@ -1,7 +1,7 @@
 'use client'
 
 import { MoreHorizontal } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { MobileNavButton, NavItem, tabIcons } from '@/components/shared/nav-item'
 import { AI_ASSISTANT_ENABLED } from '@/lib/features'
 import type { Tab } from '@/lib/types'
@@ -13,13 +13,20 @@ const MORE_TABS: Tab[] = (['Akce', 'Obchody', 'Profil', 'AI'] as const).filter((
 
 export function MobileNav({ tab, onTabChange }: { tab: Tab; onTabChange: (tab: Tab) => void }) {
   const [moreOpen, setMoreOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const moreButtonRef = useRef<HTMLDivElement>(null)
   // "Více" shows as the active slot while one of the sections behind it is open.
   const moreActive = MORE_TABS.includes(tab)
 
   useEffect(() => {
     if (!moreOpen) return
+    // The sheet sits before the bar in the page, so Tab from "Více" would skip it: move focus into it
+    // on open, and back to "Více" when Escape closes it.
+    menuRef.current?.querySelector('button')?.focus()
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMoreOpen(false)
+      if (event.key !== 'Escape') return
+      setMoreOpen(false)
+      moreButtonRef.current?.querySelector('button')?.focus()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
@@ -38,6 +45,7 @@ export function MobileNav({ tab, onTabChange }: { tab: Tab; onTabChange: (tab: T
           <button type="button" aria-label="Zavřít nabídku" className="fixed inset-0 z-20 cursor-default bg-black/30 lg:hidden" onClick={() => setMoreOpen(false)} />
           <div
             id="mobile-more-menu"
+            ref={menuRef}
             role="group"
             aria-label="Další sekce"
             className="fixed inset-x-2 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-30 mx-auto max-w-lg space-y-1 rounded-2xl border border-border bg-card p-2 shadow-lg lg:hidden"
@@ -56,7 +64,9 @@ export function MobileNav({ tab, onTabChange }: { tab: Tab; onTabChange: (tab: T
           {PRIMARY_TABS.map((item) => (
             <MobileNavButton key={item} label={item} Icon={tabIcons[item]} active={tab === item} onClick={() => select(item)} />
           ))}
-          <MobileNavButton label="Více" Icon={MoreHorizontal} active={moreActive || moreOpen} expanded={moreOpen} onClick={() => setMoreOpen((open) => !open)} />
+          <div ref={moreButtonRef} className="contents">
+            <MobileNavButton label="Více" Icon={MoreHorizontal} active={moreActive || moreOpen} expanded={moreOpen} onClick={() => setMoreOpen((open) => !open)} />
+          </div>
         </div>
       </nav>
     </>

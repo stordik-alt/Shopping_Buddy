@@ -1,0 +1,1 @@
+ALTER TABLE "flyer_pages" ADD COLUMN "page_text" text;

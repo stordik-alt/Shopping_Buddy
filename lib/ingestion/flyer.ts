@@ -134,8 +134,8 @@ export type FlyerRawOffer = {
 
 /** The cache of pages already read (the `flyer_pages` table), behind an interface for tests. */
 export type FlyerPageCache = {
-  load(flyerIds: string[]): Promise<Map<string, Pick<FlyerPageRow, 'offers'>>>
-  save(flyer: Flyer, pageNumber: number, extraction: PageExtraction, model: string): Promise<void>
+  load(flyerIds: string[]): Promise<Map<string, Pick<FlyerPageRow, 'offers'> & { pageText?: string | null }>>
+  save(flyer: Flyer, pageNumber: number, extraction: PageExtraction, model: string, pageText?: string): Promise<void>
   prune(before: string): Promise<void>
 }
 
@@ -143,8 +143,9 @@ export type FlyerPageCache = {
 export function createDbFlyerPageCache(source: IngestionSource): FlyerPageCache {
   return {
     load: (flyerIds) => loadFlyerPages(source, flyerIds),
-    save: (flyer, pageNumber, extraction, model) =>
+    save: (flyer, pageNumber, extraction, model, pageText) =>
       saveFlyerPage({
+        pageText,
         source,
         flyerId: flyer.id,
         pageNumber,
@@ -215,6 +216,10 @@ export type FlyerSource<F extends Flyer> = {
   listFlyers(get: typeof fetchWithTimeout, today: string): Promise<F[]>
   /** The pages of one flyer worth reading. */
   loadPages(get: typeof fetchWithTimeout, flyer: F): Promise<FlyerPage[]>
+  /** For a retailer whose own page text cannot confirm a price (Lidl's is a keyword bag): reads the
+   *  page image's real text by OCR. It is read once with the page, kept in the cache, and is what the
+   *  validator checks the model's prices against. A page cached without it is read again. */
+  readPageText?(page: FlyerPage): Promise<string>
 }
 
 /** Every offer of the source's current flyers. Pages read before come from the cache; the others are
@@ -250,15 +255,18 @@ export async function fetchFlyerOffers<F extends Flyer>(
     const missing: FlyerPage[] = []
     for (const page of pages) {
       const hit = cached.get(`${flyer.id}|${page.number}`)
-      if (hit) collect(page, readCachedOffers(hit.offers))
+      // With OCR text, a cached page counts only when its text was kept too.
+      if (hit && (!source.readPageText || hit.pageText)) collect({ ...page, text: hit.pageText ?? page.text }, readCachedOffers(hit.offers))
       else missing.push(page)
     }
     await runPool(missing, EXTRACTION_CONCURRENCY, stop, async (page) => {
       started++
       try {
-        const extraction = await deps.extractor.extract(page)
-        await deps.cache.save(flyer, page.number, extraction, deps.extractor.model)
-        collect(page, extraction.offers)
+        const text = source.readPageText ? await source.readPageText(page) : undefined
+        const readPage = text === undefined ? page : { ...page, text }
+        const extraction = await deps.extractor.extract(readPage)
+        await deps.cache.save(flyer, page.number, extraction, deps.extractor.model, text)
+        collect(readPage, extraction.offers)
       } catch (err) {
         failures.push(`${flyer.id}/${page.number}: ${err instanceof Error ? err.message : String(err)}`)
       }

@@ -1508,10 +1508,28 @@ export async function loadFlyerPages(source: ProductSource, flyerIds: string[]):
 
 /** Stores what a model read off one flyer page. A page already stored (two runs extracting it at
  *  the same time) keeps its first result: the page itself does not change, and nothing is paid for
- *  twice on a later run. */
+ *  twice on a later run. The one exception: a stored page without OCR text is completed by a re-read
+ *  that has it (Lidl pages read before their text came from OCR, whose keyword bag could not confirm
+ *  any price), never the other way round. */
 export async function saveFlyerPage(row: typeof schema.flyerPages.$inferInsert): Promise<void> {
   const db = getDb()
-  await db.insert(schema.flyerPages).values(row).onConflictDoNothing()
+  const insert = db.insert(schema.flyerPages).values(row)
+  if (row.pageText == null) {
+    await insert.onConflictDoNothing()
+    return
+  }
+  await insert.onConflictDoUpdate({
+    target: [schema.flyerPages.source, schema.flyerPages.flyerId, schema.flyerPages.pageNumber],
+    set: {
+      offers: row.offers,
+      pageText: row.pageText,
+      model: row.model,
+      inputTokens: row.inputTokens ?? null,
+      outputTokens: row.outputTokens ?? null,
+      extractedAt: sql`now()`,
+    },
+    setWhere: isNull(schema.flyerPages.pageText),
+  })
 }
 
 /** Removes the cached pages of flyers that ended before `before` (`YYYY-MM-DD`). Their deals stay in

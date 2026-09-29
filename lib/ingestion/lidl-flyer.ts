@@ -8,6 +8,7 @@ import {
   type FlyerPage,
   type FlyerSource,
 } from '@/lib/ingestion/flyer'
+import { readFlyerPageText } from '@/lib/ingestion/flyer-ocr'
 
 // --- Source (docs/02_ARCHITECTURE.md / CLAUDE.md section 32: External Source -> Fetcher) ---------
 // Lidl's weekly flyers (researched 2026-09-28, following the owner's decision to add flyer-OCR after
@@ -21,9 +22,11 @@ import {
 //   no Disallow on `/l/`, and this JSON endpoint is a different, unauthenticated host entirely — no
 //   login, no CAPTCHA seen).
 // - That response lists every page with a full-size image and a `keyWords` bag of the words printed
-//   on it (not reading-order running text, unlike Albert's/Penny's/Billa's text layers, but enough
-//   for the shared validator's presence checks — see lib/ingestion/flyer.ts's `priceIsOnPage()`,
-//   which only needs a price to appear anywhere in the text, not at a specific position).
+//   on it. That bag is NOT usable to confirm prices (checked live 2026-09-29: of 23 offers a model read
+//   from three pages, 11 had a price the bag did not contain — e.g. it holds a unit price "1660" but
+//   not the offer price 24,90 — so the validator rejected every offer). The pages' real text therefore
+//   comes from OCR of the page image (`readPageText`: Google Vision, else Azure — lib/ingestion/flyer-ocr.ts),
+//   which the shared validator's presence checks (`priceIsOnPage()`) then use.
 // - The flyer's own `offerStartDate`/`offerEndDate` are used as its validity. Not `startDate`/`endDate`,
 //   which start noticeably earlier (early access before the flyer is the current one) and would
 //   overstate how long a price actually runs. Cross-checked against 4 concurrent flyers 2026-09-28:
@@ -98,6 +101,7 @@ export const lidlFlyerSource: FlyerSource<LidlFlyer> = {
     return flyers
   },
   loadPages: async (_get, flyer) => flyer.pages,
+  readPageText: (page) => readFlyerPageText(page),
 }
 
 export const lidlFlyerExtractor = createGeminiFlyerExtractor('Lidl')

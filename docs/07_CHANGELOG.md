@@ -1,5 +1,22 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-28 (Akce: search box and "Podle obchodu" sort, Fáze 5 of the owner's UX/IA brief)
+- **Why:** the brief's Akce section asked for real search (name/category/subcategory, not just exact match) and a store sort alongside name/price/discount.
+- **What:** `lib/db/deals.ts`'s `getDealsPage()` gained a `query` filter reusing `lib/product-search.ts`'s existing tokenizing/stemming/synonym machinery against `products.search_name`, `product_categories.name` and (new left join) `product_subcategories.name` — every word of a multi-word query must match somewhere. `DEAL_SORTS` gained `'store'`. `components/deals/deals-tab.tsx` has a debounced "Co hledáte?" search box above the category chips.
+- **Found and fixed:** `coalesce(product_categories.name, '')` crashed — that column is the `item_category` enum with no implicit text cast; fixed with an explicit `::text` cast.
+- **Tests:** `lib/db/deals.test.ts` (+7). Full suite and `tsc --noEmit` clean; verified live (real deal data, light and dark).
+
+## 2026-09-28 (Rozpočet split into Aktuální stav / Výdaje, Fáze 3 of the owner's UX/IA brief)
+- **Why:** continuing the navigation/IA work below — the brief wants the glanceable current numbers separated from browsing/editing, so opening Rozpočet doesn't require scrolling past a full editable ledger first.
+- **What:** `components/app-shell.tsx`'s Rozpočet tab now has a segmented control (same pattern as Nákup's): **Aktuální stav** (`BudgetOverview` + new `components/budget/category-snapshot.tsx` + `RecurringPayments`) and **Výdaje** (`ExpenseLedger`, unchanged — already covers "Historie"/"Správa" via its own month picker and edit/reassign/Limity controls). `CategorySnapshot` is a new read-only per-category summary for the current month (budgeted/spent/remaining), built entirely from `lib/budget.ts`'s existing `categoryRows`/`monthSummary` — no new business logic.
+- **Deliberately not done:** a configurable budget period (start day of month) — that touches nearly every function in `lib/budget.ts` and needs its own schema migration; left for a dedicated follow-up.
+- **Tests:** full suite (106 files, 1469 tests) and `tsc --noEmit` clean. Verified live at 375px, light and dark, including the over-limit red state with a real expense and category limit.
+
+## 2026-09-28 (Navigation/IA: Akce reachable on mobile, účtenky and nákupní historie moved to Nákup)
+- **Why (owner UX/IA brief):** a full Czech-language UX/information-architecture brief asked the app to stay navigable as it grows more features. An audit against the real code found most of it already built; the one clearly unimplemented piece was navigation itself — Akce had no mobile bottom-nav entry, and receipt upload/history lived in Rozpočet despite the brief's own "Účtenka → Nákup → Výdaj → Rozpočet" flow.
+- **What:** `components/shared/mobile-nav.tsx` now shows 6 tabs including Akce. `components/app-shell.tsx`'s Nákup tab gained a segmented Nákupní seznam / Moje nákupy / Účtenky control; `ReceiptImport`, `ReceiptPending`, `ReceiptListSuggestions` and `PurchaseHistory` moved there from Rozpočet, with a pending-count badge on "Účtenky". `lib/attention.ts`'s `AttentionItem` gained `nakupView` so the "Dnes je důležité" receipt item and Přehled's "Nahrát účtenku" quick action open Nákup on the right sub-view.
+- **Tests:** `lib/attention.test.ts` updated; full suite (106 files, 1469 tests) and `tsc --noEmit` clean. Verified live at 375px, light and dark.
+
 ## 2026-09-28 (Flyer-OCR deals added for Billa and Lidl)
 - **Why (owner):** after the Lidl connector fix (below) confirmed its official JSON source structurally cannot state a grocery promotion's validity window, the owner asked to build the flyer-OCR route already used for Albert/Penny: *"V tom případě musíme připravit akce z letáků, stejně tak pro Billu"* — CLAUDE.md section 30's fourth explicit AI exception.
 - **`lib/ingestion/billa-flyer.ts`:** Billa's `/akcni-letaky` listing and each flyer's own page are plain server-rendered HTML (title, validity, and — one level in — a `view.publitas.com/billa-cz/<slug>/` viewer URL, the same Publitas platform Albert already uses). Reads five current national flyers; "Speciál: `<town>`" single-store tiles excluded. The shared Publitas `spreads.json` parsing moved into `lib/ingestion/flyer.ts` (`parsePublitasSpreads()`) so Albert's own copy could reuse it instead of duplicating it.

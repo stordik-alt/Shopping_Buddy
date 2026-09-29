@@ -16,6 +16,8 @@ export type AttentionItem = {
   text: string
   /** Where the household acts on it. */
   tab: Tab
+  /** For a `tab: 'Nákup'` item, which of its sub-views to land on; undefined leaves the default. */
+  nakupView?: 'uctenky'
 }
 
 /** Receipt imports stopped on the household: a review, a duplicate decision, a failure, or one
@@ -48,7 +50,8 @@ export function attentionItems({
       id: 'receipts',
       kind: 'receipt',
       text: `${countLabel(waiting, 'účtenka čeká', 'účtenky čekají', 'účtenek čeká')} na vaši kontrolu`,
-      tab: 'Rozpočet',
+      tab: 'Nákup',
+      nakupView: 'uctenky',
     })
   }
 

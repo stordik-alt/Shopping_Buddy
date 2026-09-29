@@ -1,10 +1,9 @@
 import { ChevronRight, Clock, ReceiptText } from 'lucide-react'
 import type { AttentionItem } from '@/lib/attention'
-import type { Tab } from '@/lib/types'
 
 /** "Dnes je důležité": what needs the household's action now (lib/attention.ts), at the top of the
  *  home screen, each line leading to where it is dealt with. Renders nothing on a quiet day. */
-export function TodayAttention({ items, onOpen }: { items: AttentionItem[]; onOpen: (tab: Tab) => void }) {
+export function TodayAttention({ items, onOpen }: { items: AttentionItem[]; onOpen: (item: AttentionItem) => void }) {
   if (items.length === 0) return null
   return (
     <section aria-label="Dnes je důležité" className="rounded-3xl border border-accent bg-accent/40 p-2">
@@ -15,7 +14,7 @@ export function TodayAttention({ items, onOpen }: { items: AttentionItem[]; onOp
           return (
             <li key={item.id}>
               <button
-                onClick={() => onOpen(item.tab)}
+                onClick={() => onOpen(item)}
                 className="flex min-h-11 w-full items-center gap-3 rounded-2xl px-3 py-2 text-left text-sm transition hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <Icon className="h-4 w-4 shrink-0 text-accent-foreground" aria-hidden="true" />

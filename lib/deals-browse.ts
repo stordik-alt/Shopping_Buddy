@@ -20,12 +20,16 @@ export function isDealCategoryFilter(value: unknown): value is DealCategoryFilte
   return value === 'all' || (typeof value === 'string' && (DEAL_CATEGORIES as string[]).includes(value))
 }
 
-/** How a page of deals is ordered: alphabetically, cheapest first, or biggest discount first. An
- *  offer with no regular price (lib/db/deals.ts) has no discount to sort by and sinks to the end
- *  under `'discount'`, but still sorts normally under `'name'`/`'price'`. */
-export const DEAL_SORTS = ['name', 'price', 'discount'] as const
+/** How a page of deals is ordered: alphabetically, cheapest first, biggest discount first, or grouped
+ *  by store. An offer with no regular price (lib/db/deals.ts) has no discount to sort by and sinks to
+ *  the end under `'discount'`, but still sorts normally under the others. */
+export const DEAL_SORTS = ['name', 'price', 'discount', 'store'] as const
 export type DealSort = (typeof DEAL_SORTS)[number]
 
 export function isDealSort(value: unknown): value is DealSort {
   return (DEAL_SORTS as readonly string[]).includes(value as string)
 }
+
+/** A search box's raw text is trusted as far as its length; lib/product-search.ts's `searchTokens()`
+ *  does the actual normalizing/tokenizing, same as the rest of the app's product search. */
+export const MAX_DEALS_QUERY_LENGTH = 80

@@ -1,14 +1,18 @@
-import { Loader2, Tag } from 'lucide-react'
+import { Loader2, Search, Tag, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { dealsPageAction } from '@/app/actions/deals'
 import { DealCard } from '@/components/deals/deal-card'
 import { OfferCard } from '@/components/deals/offer-card'
 import { Pager } from '@/components/shared/pager'
-import { DEAL_CATEGORIES, DEALS_PAGE_SIZE, DEAL_SORTS, type DealCategoryFilter, type DealSort } from '@/lib/deals-browse'
+import { DEAL_CATEGORIES, DEALS_PAGE_SIZE, DEAL_SORTS, MAX_DEALS_QUERY_LENGTH, type DealCategoryFilter, type DealSort } from '@/lib/deals-browse'
 import { activeDealCountLabel } from '@/lib/format'
 import type { DealsPage } from '@/lib/db/deals'
 import { pageCount } from '@/lib/paging'
 import type { PantryItem } from '@/lib/types'
+
+// Debounced the same way the store directory's town search is (components/stores/store-directory.tsx)
+// so typing "kuřecí maso" does not fire a server query after every keystroke.
+const TYPING_DELAY_MS = 400
 
 // Today's promotions, browsed by category and page instead of loaded all at once (the home screen
 // used to do that — docs/07_CHANGELOG.md, 2026-09-27, the owner's own words: too many to scroll
@@ -30,6 +34,7 @@ const SORT_LABEL: Record<DealSort, string> = {
   name: 'Podle názvu (A–Z)',
   price: 'Podle ceny (od nejnižší)',
   discount: 'Podle velikosti slevy',
+  store: 'Podle obchodu',
 }
 
 export function DealsTab({
@@ -53,6 +58,8 @@ export function DealsTab({
   const [category, setCategory] = useState<DealCategoryFilter>('all')
   const [chain, setChain] = useState(initialChain)
   const [sort, setSort] = useState<DealSort>('name')
+  const [query, setQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [page, setPage] = useState(1)
   const [result, setResult] = useState<Loadable<DealsPage>>({ status: 'loading', previous: null })
   const [attempt, setAttempt] = useState(0)
@@ -65,9 +72,19 @@ export function DealsTab({
   }, [initialChain])
 
   useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), TYPING_DELAY_MS)
+    return () => clearTimeout(timer)
+  }, [query])
+
+  // A fresh search should start from page 1, same as changing category/chain does.
+  useEffect(() => {
+    setPage(1)
+  }, [debouncedQuery])
+
+  useEffect(() => {
     let cancelled = false
     setResult((current) => ({ status: 'loading', previous: current.status === 'done' ? current.data : current.previous }))
-    dealsPageAction({ category, chain, sort, page })
+    dealsPageAction({ category, chain, sort, page, query: debouncedQuery.trim() || null })
       .then((data) => {
         if (cancelled) return
         setResult({ status: 'done', data })
@@ -81,7 +98,7 @@ export function DealsTab({
     return () => {
       cancelled = true
     }
-  }, [category, chain, sort, page, attempt])
+  }, [category, chain, sort, page, debouncedQuery, attempt])
 
   const onList = new Set(listItemNames.map((name) => name.trim().toLowerCase()))
   const isOnList = (name: string) => onList.has(name.trim().toLowerCase())
@@ -113,6 +130,22 @@ export function DealsTab({
         <h2 className="mt-1 text-2xl font-semibold">Akce</h2>
         <p className="mt-1 text-sm text-muted-foreground">Procházejte akce podle kategorie, po stránkách.</p>
       </div>
+
+      <label className="flex min-h-11 items-center gap-2 rounded-2xl border border-border bg-card px-3 text-sm">
+        <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value.slice(0, MAX_DEALS_QUERY_LENGTH))}
+          placeholder="Co hledáte? Např. kuřecí maso, vejce, máslo…"
+          aria-label="Hledat v akcích"
+          className="min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
+        />
+        {query && (
+          <button onClick={() => setQuery('')} aria-label="Vymazat hledání" className="icon-button size-7 shrink-0">
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        )}
+      </label>
 
       <div className="flex flex-wrap gap-2" role="group" aria-label="Filtr podle kategorie">
         {(['all', ...DEAL_CATEGORIES] as DealCategoryFilter[]).map((value) => (
@@ -173,7 +206,11 @@ export function DealsTab({
       )}
       {page_ != null && page_.total === 0 && !busy && (
         <div className="rounded-3xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          {chain ? `Pro ${chain} teď nemáme žádné aktivní akce.` : 'V této kategorii teď nemáme žádné aktivní akce.'}
+          {debouncedQuery.trim()
+            ? `Pro „${debouncedQuery.trim()}" jsme žádnou aktivní akci nenašli.`
+            : chain
+              ? `Pro ${chain} teď nemáme žádné aktivní akce.`
+              : 'V této kategorii teď nemáme žádné aktivní akce.'}
         </div>
       )}
       {page_ != null && page_.total > 0 && (

@@ -35,6 +35,7 @@ import { addShoppingItemAction, addShoppingListAction, removeShoppingItemAction,
 import { AiAssistant } from '@/components/ai/ai-assistant'
 import { BudgetOverview } from '@/components/budget/budget-overview'
 import { CategoryLimitsModal } from '@/components/budget/category-limits-modal'
+import { CategorySnapshot } from '@/components/budget/category-snapshot'
 import { RecurringPaymentModal } from '@/components/budget/recurring-payment-modal'
 import { RecurringPayments } from '@/components/budget/recurring-payments'
 import { ExpenseLedger } from '@/components/budget/expense-ledger'
@@ -172,6 +173,12 @@ export function AppShell({
   const [pendingInvitations, setPendingInvitations] = useState(initialData.pendingInvitations)
   const [pantryItems, setPantryItems] = useState(initialData.pantryItems)
   const [pendingReceiptImports, setPendingReceiptImports] = useState(initialData.pendingReceiptImports)
+  // Which of the three things the Nákup tab can show right now — the list itself is what people open
+  // it for, so it stays the default even when a receipt is waiting on review.
+  const [nakupView, setNakupView] = useState<'seznam' | 'nakupy' | 'uctenky'>('seznam')
+  // Which of Rozpočet's two things is shown — the glanceable current state, or the browsable/editable
+  // ledger (which already covers "historie" via its own month picker, so it is not a third view).
+  const [rozpocetView, setRozpocetView] = useState<'stav' | 'vydaje'>('stav')
   const router = useRouter()
   const userLocation = useUserLocation()
 
@@ -814,7 +821,10 @@ export function AppShell({
                 <div className="space-y-4 lg:space-y-6">
                   <TodayAttention
                     items={attentionItems({ today, receipts: pendingReceiptImports, productPrices: nearbyProductPrices, listNames: pendingNames })}
-                    onOpen={setTab}
+                    onOpen={(item) => {
+                      setTab(item.tab)
+                      if (item.nakupView) setNakupView(item.nakupView)
+                    }}
                   />
                   <DashboardOverview
                     today={today}
@@ -826,7 +836,10 @@ export function AppShell({
                     pendingNames={pendingNames}
                     onShopping={() => setTab('Nákup')}
                     onExpense={() => openExpense(null)}
-                    onReceipt={() => setTab('Rozpočet')}
+                    onReceipt={() => {
+                      setTab('Nákup')
+                      setNakupView('uctenky')
+                    }}
                     onStores={() => setTab('Obchody')}
                     onSetBudget={() => setTab('Profil')}
                   />
@@ -842,40 +855,103 @@ export function AppShell({
               {tab === 'Nákup' && (
                 <div className="mx-auto max-w-3xl space-y-5">
                   <OfflineBanner online={online} pending={pendingCount} dropped={droppedCount} onDismissDropped={() => setDroppedCount(0)} />
-                  {pantryPrompt && (
-                    <PantryPrompt
-                      prompt={pantryPrompt}
-                      onGone={() => {
-                        removePantryItem(pantryPrompt.pantryItemId)
-                        setPantryPrompt(null)
+                  <div className="flex flex-wrap gap-2" role="group" aria-label="Zobrazení nákupu">
+                    {(
+                      [
+                        ['seznam', 'Nákupní seznam'],
+                        ['nakupy', 'Moje nákupy'],
+                        ['uctenky', 'Účtenky'],
+                      ] as const
+                    ).map(([value, label]) => {
+                      const pendingCountForView = value === 'uctenky' ? pendingReceiptImports.length + (listSuggestions ? 1 : 0) : 0
+                      return (
+                        <button
+                          key={value}
+                          onClick={() => setNakupView(value)}
+                          aria-pressed={nakupView === value}
+                          className={`relative min-h-9 rounded-full px-3 text-sm font-medium transition ${nakupView === value ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground hover:bg-primary/10'}`}
+                        >
+                          {label}
+                          {pendingCountForView > 0 && (
+                            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold leading-none text-destructive-foreground">
+                              {pendingCountForView > 9 ? '9+' : pendingCountForView}
+                            </span>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {nakupView === 'seznam' && (
+                    <>
+                      {pantryPrompt && (
+                        <PantryPrompt
+                          prompt={pantryPrompt}
+                          onGone={() => {
+                            removePantryItem(pantryPrompt.pantryItemId)
+                            setPantryPrompt(null)
+                          }}
+                          onDismiss={() => setPantryPrompt(null)}
+                        />
+                      )}
+                      <UsualItems suggestions={usualItems} onAdd={addUsualItems} />
+                      <ShoppingList
+                        today={today}
+                        items={items}
+                        newItem={newItem}
+                        setNewItem={setNewItem}
+                        addItem={addItem}
+                        updateItem={updateItem}
+                        removeItem={removeItem}
+                        toggle={toggleItem}
+                        lists={shoppingLists}
+                        onAddList={addShoppingListName}
+                        productPrices={nearbyProductPrices}
+                        pins={pins}
+                        onPin={pinProduct}
+                        onUnpin={unpinProduct}
+                        storeChains={storeChains}
+                        storeSelection={storeSelection}
+                        buildPlan={buildShoppingPlanAction}
+                        remaining={remaining}
+                        stores={stores}
+                        userCoords={userLocation.coords}
+                        completePurchase={completePurchase}
+                      />
+                    </>
+                  )}
+                  {nakupView === 'nakupy' && (
+                    <PurchaseHistory
+                      records={initialData.purchaseHistory}
+                      onSaveSplits={async (purchaseItemId, splits) => {
+                        await setPurchaseItemExpenseSplitsAction(purchaseItemId, splits)
+                        router.refresh()
                       }}
-                      onDismiss={() => setPantryPrompt(null)}
+                      onRecordExpenses={async (purchaseId) => {
+                        await recordPurchaseAsExpenseAction(purchaseId)
+                        router.refresh() // the new expense needs to show up in Rozpočet, not just the history row
+                      }}
                     />
                   )}
-                  <UsualItems suggestions={usualItems} onAdd={addUsualItems} />
-                  <ShoppingList
-                    today={today}
-                    items={items}
-                    newItem={newItem}
-                    setNewItem={setNewItem}
-                    addItem={addItem}
-                    updateItem={updateItem}
-                    removeItem={removeItem}
-                    toggle={toggleItem}
-                    lists={shoppingLists}
-                    onAddList={addShoppingListName}
-                    productPrices={nearbyProductPrices}
-                    pins={pins}
-                    onPin={pinProduct}
-                    onUnpin={unpinProduct}
-                    storeChains={storeChains}
-                    storeSelection={storeSelection}
-                    buildPlan={buildShoppingPlanAction}
-                    remaining={remaining}
-                    stores={stores}
-                    userCoords={userLocation.coords}
-                    completePurchase={completePurchase}
-                  />
+                  {nakupView === 'uctenky' && (
+                    <div className="space-y-5">
+                      <ReceiptImport stores={stores} onImport={importReceipt} onUpload={uploadReceipt} />
+                      {listSuggestions && (
+                        <ReceiptListSuggestions
+                          key={listSuggestions.purchaseId}
+                          suggestions={listSuggestions.items}
+                          onConfirm={confirmListSuggestions}
+                          onDismiss={() => setListSuggestions(null)}
+                        />
+                      )}
+                      <ReceiptPending
+                        items={pendingReceiptImports}
+                        onRetry={retryReceiptImport}
+                        onConfirmReview={confirmReceiptReview}
+                        onResolveDuplicate={resolveDuplicateReceipt}
+                        onCancel={cancelReceiptImport}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
               {tab === 'Zásoby' && (
@@ -907,65 +983,61 @@ export function AppShell({
               )}
               {tab === 'Rozpočet' && (
                 <div className="space-y-5 lg:space-y-6">
-                  {/* Imports waiting on the household come first: they need an answer, everything else is browsing. */}
-                  {listSuggestions && (
-                    <ReceiptListSuggestions
-                      key={listSuggestions.purchaseId}
-                      suggestions={listSuggestions.items}
-                      onConfirm={confirmListSuggestions}
-                      onDismiss={() => setListSuggestions(null)}
+                  <div className="flex flex-wrap gap-2" role="group" aria-label="Zobrazení rozpočtu">
+                    {(
+                      [
+                        ['stav', 'Aktuální stav'],
+                        ['vydaje', 'Výdaje'],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <button
+                        key={value}
+                        onClick={() => setRozpocetView(value)}
+                        aria-pressed={rozpocetView === value}
+                        className={`min-h-9 rounded-full px-3 text-sm font-medium transition ${rozpocetView === value ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground hover:bg-primary/10'}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {rozpocetView === 'stav' && (
+                    <>
+                      <BudgetOverview
+                        today={today}
+                        budget={budget}
+                        onEditBudget={() => setTab('Profil')}
+                        spent={spent}
+                        expenses={expenses}
+                        items={items}
+                        onExpense={() => openExpense(null)}
+                      />
+                      <CategorySnapshot expenses={expenses} today={today} limits={categoryBudgets} />
+                      <RecurringPayments
+                        payments={recurringPayments}
+                        occurrences={recurringOccurrences}
+                        today={today}
+                        onAdd={() => setRecurringEdit('new')}
+                        onEdit={setRecurringEdit}
+                        onConfirm={confirmRecurring}
+                        onSkip={skipRecurring}
+                      />
+                    </>
+                  )}
+                  {rozpocetView === 'vydaje' && (
+                    <ExpenseLedger
+                      expenses={expenses}
+                      today={today}
+                      limits={categoryBudgets}
+                      onAdd={() => openExpense(null)}
+                      onEdit={openExpense}
+                      onLimits={() => setLimitsOpen(true)}
+                      onLoadItems={(purchaseId, category, subcategory) => getPurchaseExpenseItemsAction(purchaseId, category, subcategory)}
+                      onSaveSplits={async (purchaseItemId, splits) => {
+                        await setPurchaseItemExpenseSplitsAction(purchaseItemId, splits)
+                        router.refresh() // the reassigned item's own list refetches itself; the category/month totals need this too
+                      }}
                     />
                   )}
-                  <ReceiptPending
-                    items={pendingReceiptImports}
-                    onRetry={retryReceiptImport}
-                    onConfirmReview={confirmReceiptReview}
-                    onResolveDuplicate={resolveDuplicateReceipt}
-                    onCancel={cancelReceiptImport}
-                  />
-                  <BudgetOverview
-                    today={today}
-                    budget={budget}
-                    onEditBudget={() => setTab('Profil')}
-                    spent={spent}
-                    expenses={expenses}
-                    items={items}
-                    onExpense={() => openExpense(null)}
-                    primaryAction={<ReceiptImport stores={stores} onImport={importReceipt} onUpload={uploadReceipt} />}
-                  />
-                  <RecurringPayments
-                    payments={recurringPayments}
-                    occurrences={recurringOccurrences}
-                    today={today}
-                    onAdd={() => setRecurringEdit('new')}
-                    onEdit={setRecurringEdit}
-                    onConfirm={confirmRecurring}
-                    onSkip={skipRecurring}
-                  />
-                  <ExpenseLedger
-                    expenses={expenses}
-                    today={today}
-                    limits={categoryBudgets}
-                    onAdd={() => openExpense(null)}
-                    onEdit={openExpense}
-                    onLimits={() => setLimitsOpen(true)}
-                    onLoadItems={(purchaseId, category, subcategory) => getPurchaseExpenseItemsAction(purchaseId, category, subcategory)}
-                    onSaveSplits={async (purchaseItemId, splits) => {
-                      await setPurchaseItemExpenseSplitsAction(purchaseItemId, splits)
-                      router.refresh() // the reassigned item's own list refetches itself; the category/month totals need this too
-                    }}
-                  />
-                  <PurchaseHistory
-                    records={initialData.purchaseHistory}
-                    onSaveSplits={async (purchaseItemId, splits) => {
-                      await setPurchaseItemExpenseSplitsAction(purchaseItemId, splits)
-                      router.refresh()
-                    }}
-                    onRecordExpenses={async (purchaseId) => {
-                      await recordPurchaseAsExpenseAction(purchaseId)
-                      router.refresh() // the new expense needs to show up in Výdaje above, not just the history row
-                    }}
-                  />
                 </div>
               )}
               {tab === 'AI' && <AiAssistant onShopping={() => setTab('Nákup')} />}

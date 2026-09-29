@@ -52,7 +52,7 @@ export function MobileNav({ tab, onTabChange }: { tab: Tab; onTabChange: (tab: T
         className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/90 px-2 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-xl lg:hidden"
         aria-label="Mobilní navigace"
       >
-        <div className="mx-auto grid max-w-lg grid-cols-5 gap-1">
+        <div className="mx-auto grid max-w-lg grid-cols-5 gap-0.5">
           {PRIMARY_TABS.map((item) => (
             <MobileNavButton key={item} label={item} Icon={tabIcons[item]} active={tab === item} onClick={() => select(item)} />
           ))}

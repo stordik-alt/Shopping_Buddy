@@ -23,7 +23,7 @@ export function MobileNavButton({
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
       aria-expanded={expanded}
-      className="flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-xs font-medium leading-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-0 py-1.5 text-xs font-medium leading-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <span className={`flex h-7 w-12 items-center justify-center rounded-full transition-colors ${active ? 'bg-primary/15 text-primary' : 'text-muted-foreground'}`}>
         <Icon className="h-5 w-5" aria-hidden="true" />

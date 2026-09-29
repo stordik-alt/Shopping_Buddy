@@ -28,14 +28,46 @@ async function assertOwnsItem(householdId: string, itemId: string) {
   if (!item || item.list.householdId !== householdId) throw new Error('Shopping list item not found')
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function toItem(row: typeof schema.shoppingListItems.$inferSelect): Item {
+  return {
+    id: row.id,
+    name: row.name,
+    detail: row.detail,
+    price: Number(row.price),
+    quantity: row.quantity,
+    unit: row.unit,
+    category: row.category,
+    done: row.done,
+    color: 'bg-emerald-100 text-emerald-700',
+    priority: row.priority,
+    note: row.note ?? undefined,
+    onSale: row.onSale,
+  }
+}
+
+/** Adds an item to a list. `clientId` (a UUID the device made up) becomes the item's primary key, which
+ *  makes the add idempotent: an add whose answer never reached the phone (a reload or a dropped
+ *  connection while it was in flight) is replayed from the offline queue, and the second insert finds
+ *  the row already there and returns it instead of adding a duplicate. */
 export async function addShoppingItemAction(
   listId: string,
   name: string,
   overrides: Partial<Pick<Item, 'detail' | 'category' | 'unit'>> = {},
+  clientId?: string,
 ): Promise<{ item: Item; notification: Notification | null }> {
   const { householdId, userId } = await requireHousehold()
   await assertOwnsList(householdId, listId)
+  if (clientId !== undefined && (typeof clientId !== 'string' || !UUID_PATTERN.test(clientId))) throw new Error('Neplatný identifikátor položky.')
   const db = getDb()
+
+  if (clientId) {
+    const existing = await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, clientId) })
+    // Never hand back (or overwrite) a row of another list, whoever picked the id.
+    if (existing && existing.listId !== listId) throw new Error('Neplatný identifikátor položky.')
+    if (existing) return { item: toItem(existing), notification: null }
+  }
 
   // Per CLAUDE.md ("do not treat product names as sufficient identifiers"): resolve the typed
   // free-text name to a real catalog product, case/whitespace-insensitively, and store the real
@@ -47,9 +79,10 @@ export async function addShoppingItemAction(
   const matchedProduct = matchProductByName(catalog, name)
   const canonicalName = matchedProduct?.name ?? name
 
-  const [row] = await db
+  const [inserted] = await db
     .insert(schema.shoppingListItems)
     .values({
+      ...(clientId && { id: clientId }),
       listId,
       name,
       productId: matchedProduct?.id,
@@ -66,7 +99,13 @@ export async function addShoppingItemAction(
       // specifically what unit this particular item needs than the product's own remembered default.
       unit: overrides.unit ?? matchedProduct?.defaultUnit,
     })
+    .onConflictDoNothing()
     .returning()
+  // Lost a race with an identical replay that inserted between the check above and this insert.
+  const row = inserted ?? (await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, clientId!) }))
+  if (!row) throw new Error('Položku se nepodařilo přidat.')
+  if (row.listId !== listId) throw new Error('Neplatný identifikátor položky.')
+  if (!inserted) return { item: toItem(row), notification: null }
 
   // Per docs/04_ROADMAP.md Phase D "price/deal alerts": if the product just added to the list has
   // a currently active deal that is genuinely the best price across known stores (not just a
@@ -91,20 +130,7 @@ export async function addShoppingItemAction(
   }
 
   return {
-    item: {
-      id: row.id,
-      name: row.name,
-      detail: row.detail,
-      price: Number(row.price),
-      quantity: row.quantity,
-      unit: row.unit,
-      category: row.category,
-      done: row.done,
-      color: 'bg-emerald-100 text-emerald-700',
-      priority: row.priority,
-      note: row.note ?? undefined,
-      onSale: row.onSale,
-    },
+    item: toItem(row),
     notification,
   }
 }

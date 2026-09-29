@@ -293,6 +293,146 @@ export async function getHouseholdNotifications(householdId: string): Promise<No
   return rows.slice().reverse().map(toNotification)
 }
 
+/** The last year of purchases, with only the columns the history, usual items and pantry estimate
+ *  read. The whole history with every related row (branch addresses, opening hours…) was sent on
+ *  every render. */
+function queryPurchaseRows(householdId: string) {
+  return getDb().query.purchases.findMany({
+    where: and(eq(schema.purchases.householdId, householdId), gte(schema.purchases.date, historySinceDate())),
+    columns: { id: true, date: true, total: true, discount: true },
+    with: {
+      items: { columns: { id: true, name: true, quantity: true, unit: true, price: true, category: true }, with: { expenseSplits: { columns: { category: true, subcategory: true, amount: true } } } },
+      store: { columns: { chain: true } },
+      storeLocation: { columns: { id: true }, with: { store: { columns: { chain: true } } } },
+      // Whether this purchase came from a receipt at all — only those can be recorded into the
+      // budget retroactively (see `needsBudgetRecording` in toPurchaseRecords); a completed-shopping-list
+      // purchase's prices are estimates, never counted (owner's choice, 2026-09-26).
+      receiptImports: { columns: { id: true } },
+    },
+    orderBy: asc(schema.purchases.date),
+  })
+}
+
+function toPurchaseRecords(purchaseRows: Awaited<ReturnType<typeof queryPurchaseRows>>, expenseRows: Array<{ purchaseId: string | null }>): PurchaseRecord[] {
+  const purchaseIdsWithExpenses = new Set(expenseRows.map((expense) => expense.purchaseId).filter((id): id is string => id != null))
+  return purchaseRows.map(
+    (purchase): PurchaseRecord => ({
+      id: purchase.id,
+      date: purchase.date,
+      // Was `?? 'Lidl'` — silently mislabeling a purchase with no known store as Lidl. Found
+      // while wiring up completePurchaseAction, the first thing that can actually produce a
+      // purchase with no store. Per docs/03_DATABASE.md ("never invent data"), leave it unknown.
+      store: purchase.storeLocation?.store.chain ?? purchase.store?.chain,
+      total: Number(purchase.total),
+      discount: purchase.discount != null ? Number(purchase.discount) : undefined,
+      items: purchase.items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit,
+        price: Number(item.price),
+        category: item.category,
+        expenseSplits: item.expenseSplits.map((split) => ({ category: split.category, subcategory: split.subcategory, amount: Number(split.amount) })),
+      })),
+      // A receipt-derived purchase with nothing in the budget yet (imported before receipts
+      // started counting as expenses, 2026-09-26, or otherwise missed) can be recorded now
+      // (owner request, 2026-09-27) — never a completed-shopping-list purchase, whose prices are
+      // estimates, not what was actually paid. Also never one with no categorized item at all: a
+      // purchase imported before purchase_items.category existed (migration 0042,
+      // 2026-09-27) has nothing recordable (recordPurchaseAsExpense would only refuse it with
+      // NothingToRecordError) — offering the button would just be a dead end.
+      needsBudgetRecording:
+        purchase.receiptImports.length > 0 &&
+        !purchaseIdsWithExpenses.has(purchase.id) &&
+        purchase.items.some((item) => item.category != null),
+    }),
+  )
+}
+
+function queryPantryRows(householdId: string) {
+  return getDb().query.pantryItems.findMany({
+    where: eq(schema.pantryItems.householdId, householdId),
+    orderBy: asc(schema.pantryItems.addedAt),
+    with: { subcategory: { columns: { name: true } } },
+  })
+}
+
+function toPantryItem(item: Awaited<ReturnType<typeof queryPantryRows>>[number]): PantryItem {
+  return {
+    id: item.id,
+    name: item.name,
+    category: item.category,
+    subcategory: item.subcategory?.name ?? null,
+    location: item.location,
+    customPlaceId: item.customPlaceId,
+    quantity: item.quantity,
+    unit: item.unit,
+    // ISO strings: the pantry estimate and the check's order read the date part (YYYY-MM-DD).
+    // `Date.toString()` ("Thu Sep 24 2026 …") made every estimate come out empty.
+    addedAt: item.addedAt.toISOString(),
+    askedAt: item.askedAt?.toISOString(),
+    tracking: item.tracking,
+  }
+}
+
+/** The household's pantry exactly as the page loads it (see getHouseholdExpenses). */
+export async function getPantryItems(householdId: string): Promise<PantryItem[]> {
+  return (await queryPantryRows(householdId)).map(toPantryItem)
+}
+
+/** What a purchase-creating action changed, in the shape the page holds it: the purchase history,
+ *  the pantry (restocked), the expenses (a receipt records them) and the notifications (a budget
+ *  threshold may have fired). Returned by those actions instead of revalidating the whole page, so
+ *  finishing a trip or importing a receipt does not re-download the rest of the household. */
+export type PurchaseAftermath = {
+  purchaseHistory: PurchaseRecord[]
+  pantryItems: PantryItem[]
+  expenses: Expense[]
+  notifications: Notification[]
+  /** Shopping-list items the purchase ticked off (a receipt matching the open list), with the real
+   *  quantity and price — merged onto the list the page already holds. */
+  tickedListItems: TickedListItem[]
+}
+
+export type TickedListItem = Pick<Item, 'id' | 'done' | 'quantity' | 'unit' | 'price'>
+
+/** The household's list items a purchase ticked off (see receipt-list.ts). Scoped through the list
+ *  to the household, so a purchase id from another household yields nothing. */
+export async function getTickedListItems(householdId: string, purchaseId: string): Promise<TickedListItem[]> {
+  const rows = await getDb()
+    .select({
+      id: schema.shoppingListItems.id,
+      done: schema.shoppingListItems.done,
+      quantity: schema.shoppingListItems.quantity,
+      unit: schema.shoppingListItems.unit,
+      price: schema.shoppingListItems.price,
+    })
+    .from(schema.shoppingListItems)
+    .innerJoin(schema.shoppingLists, eq(schema.shoppingLists.id, schema.shoppingListItems.listId))
+    .where(and(eq(schema.shoppingLists.householdId, householdId), eq(schema.shoppingListItems.checkedByPurchaseId, purchaseId)))
+  return rows.map((row) => ({ ...row, price: Number(row.price) }))
+}
+
+export async function getPurchaseAftermath(householdId: string, purchaseId?: string | null): Promise<PurchaseAftermath> {
+  const [purchaseRows, pantryRows, expenseRows, notifications, tickedListItems] = await Promise.all([
+    queryPurchaseRows(householdId),
+    queryPantryRows(householdId),
+    getDb().query.expenses.findMany({
+      where: and(eq(schema.expenses.householdId, householdId), gte(schema.expenses.date, historySinceDate())),
+      orderBy: asc(schema.expenses.date),
+    }),
+    getHouseholdNotifications(householdId),
+    purchaseId ? getTickedListItems(householdId, purchaseId) : Promise.resolve([]),
+  ])
+  return {
+    purchaseHistory: toPurchaseRecords(purchaseRows, expenseRows),
+    pantryItems: pantryRows.map(toPantryItem),
+    expenses: expenseRows.map(toExpense),
+    notifications,
+    tickedListItems,
+  }
+}
+
 /** Loads (or, on first login, creates or joins-via-invitation) the signed-in user's household with every domain area the app needs on first render. */
 export async function getHouseholdData(userId: string, userName: string, userEmail: string): Promise<HouseholdData> {
   const db = getDb()
@@ -334,30 +474,13 @@ export async function getHouseholdData(userId: string, userName: string, userEma
       db.query.notifications.findMany({ where: eq(schema.notifications.householdId, household.id), orderBy: desc(schema.notifications.createdAt), limit: NOTIFICATIONS_SHOWN }),
       // The last year, with only the columns the history, usual items and pantry estimate read. The
       // whole history with every related row (branch addresses, opening hours…) was sent on every render.
-      db.query.purchases.findMany({
-        where: and(eq(schema.purchases.householdId, household.id), gte(schema.purchases.date, historySince)),
-        columns: { id: true, date: true, total: true, discount: true },
-        with: {
-          items: { columns: { id: true, name: true, quantity: true, unit: true, price: true, category: true }, with: { expenseSplits: { columns: { category: true, subcategory: true, amount: true } } } },
-          store: { columns: { chain: true } },
-          storeLocation: { columns: { id: true }, with: { store: { columns: { chain: true } } } },
-          // Whether this purchase came from a receipt at all — only those can be recorded into the
-          // budget retroactively (see `needsBudgetRecording` below); a completed-shopping-list
-          // purchase's prices are estimates, never counted (owner's choice, 2026-09-26).
-          receiptImports: { columns: { id: true } },
-        },
-        orderBy: asc(schema.purchases.date),
-      }),
+      queryPurchaseRows(household.id),
       getCurrentMealPlan(household.id),
       db.query.invitations.findMany({
         where: and(eq(schema.invitations.householdId, household.id), eq(schema.invitations.status, 'pending')),
         orderBy: desc(schema.invitations.createdAt),
       }),
-      db.query.pantryItems.findMany({
-        where: eq(schema.pantryItems.householdId, household.id),
-        orderBy: asc(schema.pantryItems.addedAt),
-        with: { subcategory: { columns: { name: true } } },
-      }),
+      queryPantryRows(household.id),
       db.query.pantryPlaces.findMany({ where: eq(schema.pantryPlaces.householdId, household.id), orderBy: asc(schema.pantryPlaces.createdAt) }),
       db.query.pantryCheckinIntervals.findMany({ where: eq(schema.pantryCheckinIntervals.householdId, household.id) }),
       db.query.pantryCheckinSubcategoryIntervals.findMany({ where: eq(schema.pantryCheckinSubcategoryIntervals.householdId, household.id) }),
@@ -464,63 +587,13 @@ export async function getHouseholdData(userId: string, userName: string, userEma
     expenses: expenseRows.map(toExpense),
     // Loaded newest first (for the limit), shown oldest first as before.
     notifications: notificationRows.slice().reverse().map(toNotification),
-    purchaseHistory: (() => {
-      const purchaseIdsWithExpenses = new Set(expenseRows.map((expense) => expense.purchaseId).filter((id): id is string => id != null))
-      return purchaseRows.map(
-        (purchase): PurchaseRecord => ({
-          id: purchase.id,
-          date: purchase.date,
-          // Was `?? 'Lidl'` — silently mislabeling a purchase with no known store as Lidl. Found
-          // while wiring up completePurchaseAction, the first thing that can actually produce a
-          // purchase with no store. Per docs/03_DATABASE.md ("never invent data"), leave it unknown.
-          store: purchase.storeLocation?.store.chain ?? purchase.store?.chain,
-          total: Number(purchase.total),
-          discount: purchase.discount != null ? Number(purchase.discount) : undefined,
-          items: purchase.items.map((item) => ({
-            id: item.id,
-            name: item.name,
-            quantity: item.quantity,
-            unit: item.unit,
-            price: Number(item.price),
-            category: item.category,
-            expenseSplits: item.expenseSplits.map((split) => ({ category: split.category, subcategory: split.subcategory, amount: Number(split.amount) })),
-          })),
-          // A receipt-derived purchase with nothing in the budget yet (imported before receipts
-          // started counting as expenses, 2026-09-26, or otherwise missed) can be recorded now
-          // (owner request, 2026-09-27) — never a completed-shopping-list purchase, whose prices are
-          // estimates, not what was actually paid. Also never one with no categorized item at all: a
-          // purchase imported before purchase_items.category existed (migration 0042,
-          // 2026-09-27) has nothing recordable (recordPurchaseAsExpense would only refuse it with
-          // NothingToRecordError) — offering the button would just be a dead end.
-          needsBudgetRecording:
-            purchase.receiptImports.length > 0 &&
-            !purchaseIdsWithExpenses.has(purchase.id) &&
-            purchase.items.some((item) => item.category != null),
-        }),
-      )
-    })(),
+    purchaseHistory: toPurchaseRecords(purchaseRows, expenseRows),
     mealPlan,
     isOwner,
     pendingInvitations: invitationRows.map(
       (invitation): PendingInvitation => ({ id: invitation.id, email: invitation.email, expiresAt: invitation.expiresAt.toString() }),
     ),
-    pantryItems: pantryRows.map(
-      (item): PantryItem => ({
-        id: item.id,
-        name: item.name,
-        category: item.category,
-        subcategory: item.subcategory?.name ?? null,
-        location: item.location,
-        customPlaceId: item.customPlaceId,
-        quantity: item.quantity,
-        unit: item.unit,
-        // ISO strings: the pantry estimate and the check's order read the date part (YYYY-MM-DD).
-        // `Date.toString()` ("Thu Sep 24 2026 …") made every estimate come out empty.
-        addedAt: item.addedAt.toISOString(),
-        askedAt: item.askedAt?.toISOString(),
-        tracking: item.tracking,
-      }),
-    ),
+    pantryItems: pantryRows.map(toPantryItem),
     pantryPlaces: pantryPlaceRows.map((place): PantryPlace => ({ id: place.id, area: place.area, name: place.name })),
     pantryCheckinDays: Object.fromEntries(pantryCheckinRows.map((row) => [row.category, row.days])),
     pantryCheckinSubcategoryDays: Object.fromEntries(pantryCheckinSubcategoryRows.map((row) => [checkinSubcategoryKey(row.category, row.subcategory), row.days])),

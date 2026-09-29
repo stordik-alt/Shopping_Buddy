@@ -63,6 +63,26 @@ describe('addShoppingItemAction', () => {
     expect(row?.listId).toBe(listId)
   })
 
+  it('is idempotent for a replayed add with the same client id (no duplicate after a reload mid-request)', async () => {
+    currentHouseholdId = householdId
+    const clientId = crypto.randomUUID()
+    const first = await addShoppingItemAction(listId, 'Replay mléko', {}, clientId)
+    const replay = await addShoppingItemAction(listId, 'Replay mléko', {}, clientId)
+    expect(first.item.id).toBe(clientId)
+    expect(replay.item.id).toBe(clientId)
+    const rows = await db.query.shoppingListItems.findMany({ where: eq(schema.shoppingListItems.id, clientId) })
+    expect(rows).toHaveLength(1)
+  })
+
+  it('does not let a client id reach an item of another list, and rejects a malformed one', async () => {
+    const [foreign] = await db.insert(schema.shoppingListItems).values({ listId: otherListId, name: 'Cizí položka' }).returning()
+    currentHouseholdId = householdId
+    await expect(addShoppingItemAction(listId, 'x', {}, foreign.id)).rejects.toThrow('Neplatný identifikátor položky.')
+    await expect(addShoppingItemAction(listId, 'x', {}, 'not-a-uuid')).rejects.toThrow('Neplatný identifikátor položky.')
+    const untouched = await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, foreign.id) })
+    expect(untouched?.listId).toBe(otherListId)
+  })
+
   it('rejects a list that belongs to a different household, rather than trusting the client-supplied id', async () => {
     currentHouseholdId = householdId // caller is household A
     await expect(addShoppingItemAction(otherListId, 'x')).rejects.toThrow('Shopping list not found')

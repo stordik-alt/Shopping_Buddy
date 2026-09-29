@@ -22,6 +22,11 @@ export function newTempId(): string {
   return `${TEMP_PREFIX}${crypto.randomUUID()}`
 }
 
+/** The UUID inside a temporary id: sent to the server as the item's key so a replayed add cannot duplicate it. */
+export function tempIdToUuid(tempId: string): string {
+  return tempId.slice(TEMP_PREFIX.length)
+}
+
 export function isTempId(id: string): boolean {
   return id.startsWith(TEMP_PREFIX)
 }

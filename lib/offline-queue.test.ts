@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyPendingOps, enqueue, isNetworkError, isTempId, loadQueue, newTempId, placeholderItem, remapItemId, saveQueue, type PendingOp } from '@/lib/offline-queue'
+import { applyPendingOps, enqueue, isNetworkError, isTempId, loadQueue, newTempId, placeholderItem, remapItemId, saveQueue, tempIdToUuid, type PendingOp } from '@/lib/offline-queue'
 import type { Item } from '@/lib/types'
 
 const item = (id: string, overrides: Partial<Item> = {}): Item => ({ id, name: id, detail: '', price: 0, quantity: 1, unit: 'ks', category: 'Potraviny', done: false, color: 'x', priority: 'Normální', ...overrides })
@@ -75,6 +75,7 @@ describe('remapItemId', () => {
       { kind: 'toggle', itemId: 'b', done: true },
     ])
     expect(isTempId(tempId)).toBe(true)
+    expect(tempIdToUuid(tempId)).toMatch(/^[0-9a-f-]{36}$/)
     expect(isTempId('real')).toBe(false)
   })
 })

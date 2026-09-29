@@ -1,11 +1,12 @@
 'use server'
 
 import { and, eq, ilike } from 'drizzle-orm'
-import { revalidatePath } from 'next/cache'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
+import { getPantryItems } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
+import type { PantryItem } from '@/lib/types'
 import { convertQuantity, currentWeekStart, isMealCooked, markMealCooked, parseSavedPlan, recipeFor, type MealType, type WeeklyMealPlan } from '@/lib/meal-plans'
 
 /** Saves (or overwrites) the household's plan for the current week — one row per household per week. */
@@ -32,8 +33,9 @@ export async function saveMealPlanAction(budgetLimit: number, plan: WeeklyMealPl
  *  (spíž/lednice/mrazák). Idempotent: calling it again for an already-cooked meal does nothing, so
  *  a duplicate click (or request) can never double-deduct. Never deducts below zero — an
  *  ingredient with no matching pantry row, or already at zero, is simply skipped rather than
- *  invented or driven negative. One-directional: there is no "unmark" that restores the deduction. */
-export async function markMealCookedAction(day: string, mealType: MealType) {
+ *  invented or driven negative. One-directional: there is no "unmark" that restores the deduction.
+ *  Returns the pantry as it is afterwards, so the page can show the deduction without a full refresh. */
+export async function markMealCookedAction(day: string, mealType: MealType): Promise<{ pantryItems: PantryItem[] }> {
   const householdId = await requireHouseholdId()
   const weekStart = currentWeekStart(todayInPrague())
   const db = getDb()
@@ -43,7 +45,7 @@ export async function markMealCookedAction(day: string, mealType: MealType) {
 
   const plan = parseSavedPlan(row.plan)
   if (!plan) throw new Error('The saved meal plan is outdated — regenerate it')
-  if (isMealCooked(plan, day, mealType)) return
+  if (isMealCooked(plan, day, mealType)) return { pantryItems: await getPantryItems(householdId) }
 
   const recipe = recipeFor(plan, day, mealType)
   if (!recipe) throw new Error('Meal not found in the current plan')
@@ -68,5 +70,5 @@ export async function markMealCookedAction(day: string, mealType: MealType) {
 
   const updatedPlan = markMealCooked(plan, day, mealType)
   await db.update(schema.mealPlans).set({ plan: JSON.stringify(updatedPlan) }).where(eq(schema.mealPlans.id, row.id))
-  revalidatePath('/')
+  return { pantryItems: await getPantryItems(householdId) }
 }

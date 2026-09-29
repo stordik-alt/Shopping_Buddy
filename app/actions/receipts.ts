@@ -1,11 +1,10 @@
 'use server'
 
 import { and, eq, gte, ilike, inArray, lt, or } from 'drizzle-orm'
-import { revalidatePath } from 'next/cache'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
-import { getProductCatalog, getSubcategoryCatalog, recordPriceObservation, restockPantryItem, toReceiptImportState, upsertProductCatalogDefaults, type ReceiptImportState } from '@/lib/db/queries'
+import { getProductCatalog, getPurchaseAftermath, getSubcategoryCatalog, getTickedListItems, recordPriceObservation, restockPantryItem, toReceiptImportState, upsertProductCatalogDefaults, type PurchaseAftermath, type ReceiptImportState, type TickedListItem } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
 import { applyLearnedExpenseDefaults, recomputePurchaseExpenses } from '@/lib/db/purchase-items'
 import { getAliasesForNames, recordProductAlias } from '@/lib/db/product-aliases'
@@ -429,11 +428,11 @@ export async function getReceiptListSuggestionsAction(purchaseId: string): Promi
 
 /** Ticks the suggestions the household confirmed. Only pairs the server itself proposes are
  *  applied, and the quantity/price written to the list come from the stored purchase. */
-export async function applyReceiptListMatchesAction(purchaseId: string, pairs: ReceiptListPair[]): Promise<{ checked: number }> {
+export async function applyReceiptListMatchesAction(purchaseId: string, pairs: ReceiptListPair[]): Promise<{ checked: number; tickedListItems: TickedListItem[] }> {
   const householdId = await requireHouseholdId()
   const checked = await applyConfirmedReceiptListPairs(householdId, purchaseId, pairs)
-  revalidatePath('/')
-  return { checked }
+  // No revalidatePath (it would re-render the whole page): the ticked items are returned for the list to merge.
+  return { checked, tickedListItems: await getTickedListItems(householdId, purchaseId) }
 }
 
 /** Turns a manually-entered receipt into a real purchase, and keeps a `receipt_imports` record so
@@ -443,7 +442,7 @@ export async function applyReceiptListMatchesAction(purchaseId: string, pairs: R
 export async function importReceiptAction(
   items: ReceiptLineItem[],
   options: { date?: string; storeLocationId?: string; storeName?: string; currency?: string } = {},
-): Promise<{ purchase: PurchaseRecord }> {
+): Promise<{ purchase: PurchaseRecord; aftermath: PurchaseAftermath }> {
   const householdId = await requireHouseholdId()
   const purchase = await createPurchaseFromReceiptItems(householdId, items, { ...options, source: 'confirmed' })
 
@@ -460,8 +459,8 @@ export async function importReceiptAction(
     processedAt: new Date(),
   })
 
-  revalidatePath('/')
-  return { purchase }
+  // No revalidatePath: what the import changed is returned instead of re-rendering the whole page.
+  return { purchase, aftermath: await getPurchaseAftermath(householdId, purchase.id) }
 }
 
 // --- OCR pipeline (docs/08_OCR_RECEIPT_PIPELINE.md) ---------------------------------------------
@@ -796,7 +795,6 @@ export async function uploadReceiptAction(formData: FormData): Promise<UploadRec
       .values({ householdId, status: 'uploaded', source: 'ocr', imageUrl })
       .returning()
 
-    revalidatePath('/')
     return { ok: true, receipt: toReceiptImportState(row) }
   } catch (err) {
     // Storage or database failure: the details go to the server log (with the household, never the
@@ -839,32 +837,38 @@ async function claimReceiptImport(
   return claimed.length > 0
 }
 
+/** An import's state, plus — when the run completed outright and created a purchase — what that
+ *  purchase changed, so the page can show it without a full refresh. */
+export type ReceiptImportResult = ReceiptImportState & { aftermath: PurchaseAftermath | null }
+
+async function toReceiptImportResult(householdId: string, row: typeof schema.receiptImports.$inferSelect): Promise<ReceiptImportResult> {
+  return { ...toReceiptImportState(row), aftermath: row.purchaseId ? await getPurchaseAftermath(householdId, row.purchaseId) : null }
+}
+
 /** Runs the pipeline for a freshly uploaded import (called by the client right after
  *  `uploadReceiptAction`, which is what lets it poll the status route meanwhile). */
-export async function processUploadedReceiptAction(receiptImportId: string): Promise<ReceiptImportState> {
+export async function processUploadedReceiptAction(receiptImportId: string): Promise<ReceiptImportResult> {
   const householdId = await requireHouseholdId()
   await assertOwnsReceiptImport(householdId, receiptImportId)
   if (!(await claimReceiptImport(householdId, receiptImportId, ['uploaded']))) {
     throw new Error('Tento import se už zpracovává nebo je zpracovaný.')
   }
   const finalRow = await processReceiptImport(receiptImportId)
-  revalidatePath('/')
-  return toReceiptImportState(finalRow)
+  return toReceiptImportResult(householdId, finalRow)
 }
 
 /** Retry (docs/08_OCR_RECEIPT_PIPELINE.md section 13): reprocesses the same stored image without
  *  requiring a new upload. Only meaningful from a failure state — retrying a completed or
  *  in-review import would silently redo work the household already has results for — or for an
  *  import that was uploaded but never started (the browser closed before processing began). */
-export async function retryReceiptImportAction(receiptImportId: string): Promise<ReceiptImportState> {
+export async function retryReceiptImportAction(receiptImportId: string): Promise<ReceiptImportResult> {
   const householdId = await requireHouseholdId()
   await assertOwnsReceiptImport(householdId, receiptImportId)
   if (!(await claimReceiptImport(householdId, receiptImportId, ['ocr_failed', 'parsing_failed', 'uploaded']))) {
     throw new Error('Tento import nelze znovu spustit — není ve stavu chyby.')
   }
   const finalRow = await processReceiptImport(receiptImportId)
-  revalidatePath('/')
-  return toReceiptImportState(finalRow)
+  return toReceiptImportResult(householdId, finalRow)
 }
 
 /** Manual review (docs/08_OCR_RECEIPT_PIPELINE.md section 14): the household corrects/confirms the
@@ -874,7 +878,7 @@ export async function confirmReceiptReviewAction(
   receiptImportId: string,
   items: ReceiptLineItem[],
   options: { date?: string; storeLocationId?: string } = {},
-): Promise<{ purchase: PurchaseRecord }> {
+): Promise<{ purchase: PurchaseRecord; aftermath: PurchaseAftermath }> {
   const householdId = await requireHouseholdId()
   const row = await assertOwnsReceiptImport(householdId, receiptImportId)
   if (row.status !== 'review_required' && row.status !== 'duplicate_review') {
@@ -913,8 +917,7 @@ export async function confirmReceiptReviewAction(
     .set({ status: 'completed', items: JSON.stringify(items), storeLocationId: resolvedStoreLocationId, purchaseId: purchase.id, processedAt: new Date(), updatedAt: new Date() })
     .where(eq(schema.receiptImports.id, receiptImportId))
 
-  revalidatePath('/')
-  return { purchase }
+  return { purchase, aftermath: await getPurchaseAftermath(householdId, purchase.id) }
 }
 
 /** Duplicate resolution (docs/08_OCR_RECEIPT_PIPELINE.md section 9): the household decides whether
@@ -926,7 +929,7 @@ export async function resolveDuplicateReceiptAction(
   resolution: 'save_new' | 'use_existing' | 'cancel',
   items?: ReceiptLineItem[],
   options: { date?: string } = {},
-): Promise<{ purchase: PurchaseRecord | null }> {
+): Promise<{ purchase: PurchaseRecord | null; aftermath: PurchaseAftermath | null }> {
   const householdId = await requireHouseholdId()
   const row = await assertOwnsReceiptImport(householdId, receiptImportId)
   if (row.status !== 'duplicate_review') throw new Error('Tento import nečeká na vyřešení duplicity.')
@@ -934,13 +937,11 @@ export async function resolveDuplicateReceiptAction(
   if (resolution !== 'save_new') {
     const db = getDb()
     await db.update(schema.receiptImports).set({ status: 'cancelled', updatedAt: new Date() }).where(eq(schema.receiptImports.id, receiptImportId))
-    revalidatePath('/')
-    return { purchase: null }
+    return { purchase: null, aftermath: null }
   }
 
   const finalItems = items ?? (row.items ? (JSON.parse(row.items) as ReceiptLineItem[]) : [])
-  const { purchase } = await confirmReceiptReviewAction(receiptImportId, finalItems, options)
-  return { purchase }
+  return confirmReceiptReviewAction(receiptImportId, finalItems, options)
 }
 
 /** Discards an import outright (docs/08_OCR_RECEIPT_PIPELINE.md's `CANCELLED` state) — e.g. the
@@ -959,5 +960,4 @@ export async function cancelReceiptImportAction(receiptImportId: string): Promis
       console.error(JSON.stringify({ event: 'receipt_file_delete_failed', receiptImportId, error: err instanceof Error ? err.message : String(err) })),
     )
   }
-  revalidatePath('/')
 }

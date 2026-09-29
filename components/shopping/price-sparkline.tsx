@@ -49,7 +49,7 @@ export function PriceSparkline({ point, today }: { point: PricePoint; today: str
           </g>
         ))}
       </svg>
-      <p className="text-[11px] leading-snug text-muted-foreground">
+      <p className="text-xs leading-snug text-muted-foreground">
         {summary.atLowest ? 'Nejnižší zaznamenaná cena' : `Nejníže ${money(summary.min)}`} · od {shortDate(steps[0].date)}
       </p>
     </div>

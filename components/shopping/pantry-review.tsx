@@ -131,7 +131,7 @@ export function PantryReview({
 
       {groups.map((group) => (
         <div key={group.place}>
-          {scope !== 'location' && <h3 className="bg-muted/50 px-5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{group.place}</h3>}
+          {scope !== 'location' && <h3 className="bg-muted/50 px-5 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group.place}</h3>}
           <ul>
             {group.items.map((item) => {
               const isGone = gone.has(item.id)

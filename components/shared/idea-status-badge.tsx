@@ -8,5 +8,5 @@ const STATUS_STYLE: Record<IdeaStatus, string> = {
 }
 
 export function IdeaStatusBadge({ status }: { status: IdeaStatus }) {
-  return <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATUS_STYLE[status]}`}>{IDEA_STATUS_LABEL[status]}</span>
+  return <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_STYLE[status]}`}>{IDEA_STATUS_LABEL[status]}</span>
 }

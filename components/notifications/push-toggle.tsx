@@ -134,7 +134,7 @@ export function PushToggle({ publicKey }: { publicKey: string }) {
         )}
       </div>
       {on && (
-        <button type="button" onClick={sendTest} disabled={busy} className="mt-2 rounded-lg px-2 py-1 text-[11px] font-medium text-primary hover:bg-muted disabled:opacity-60">
+        <button type="button" onClick={sendTest} disabled={busy} className="mt-2 rounded-lg px-2 py-1 text-xs font-medium text-primary hover:bg-muted disabled:opacity-60">
           Poslat zkušební upozornění
         </button>
       )}

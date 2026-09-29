@@ -29,6 +29,7 @@ function renderPantry(items: PantryItem[], customPlaces: PantryPlace[] = []) {
       onReview={noopAsync}
       onSetTracking={noop}
       onSetSubcategory={noop}
+      onSetCategory={noop}
       onAutoCategorize={async () => 0}
       estimates={new Map()}
     />,
@@ -72,6 +73,12 @@ describe('Pantry subcategory assignment', () => {
     expect(html).toContain('Podkategorie Položka 1')
     expect(html).toContain('Zařadit automaticky')
     expect(html).toContain('Bez podkategorie')
+  })
+
+  it('offers a category select on every row so a wrongly filed item can be corrected', () => {
+    const html = renderPantry([{ ...item(1), category: 'Ostatní' }])
+    expect(html).toContain('Kategorie Položka 1')
+    expect(html).toContain('Podkategorie Položka 1')
   })
 
   it('hides the auto-categorize banner once everything has a subcategory', () => {

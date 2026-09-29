@@ -14,6 +14,7 @@ import {
   adjustPantryItemQuantityAction,
   autoCategorizePantryAction,
   setPantryItemSubcategoryAction,
+  setPantryItemCategoryAction,
   confirmPantryItemAction,
   movePantryItemAction,
   removePantryItemAction,
@@ -313,6 +314,19 @@ describe('setPantryItemSubcategoryAction', () => {
     await expect(setPantryItemSubcategoryAction(theirs.id, 'Pečivo')).rejects.toThrow('Pantry item not found')
     await expect(setPantryItemSubcategoryAction(mine.id, 'Neexistuje')).rejects.toThrow('Neplatná podkategorie')
     await expect(setPantryItemSubcategoryAction(mine.id, 'Kosmetika a hygiena')).rejects.toThrow('Neplatná podkategorie')
+  })
+})
+
+describe('setPantryItemCategoryAction', () => {
+  it("changes the caller's own item's category and clears its old subcategory; refuses another household's item and an unknown category", async () => {
+    const [mine] = await db.insert(schema.pantryItems).values({ householdId, name: 'Jupík', category: 'Ostatní' }).returning()
+    const [theirs] = await db.insert(schema.pantryItems).values({ householdId: otherHouseholdId, name: 'Chléb', category: 'Ostatní' }).returning()
+    await setPantryItemSubcategoryAction(mine.id, 'Oblečení a obuv')
+    await setPantryItemCategoryAction(mine.id, 'Potraviny')
+    const row = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, mine.id) })
+    expect(row).toMatchObject({ category: 'Potraviny', subcategoryId: null })
+    await expect(setPantryItemCategoryAction(theirs.id, 'Potraviny')).rejects.toThrow('Pantry item not found')
+    await expect(setPantryItemCategoryAction(mine.id, 'Nesmysl' as never)).rejects.toThrow('Neplatná kategorie')
   })
 })
 

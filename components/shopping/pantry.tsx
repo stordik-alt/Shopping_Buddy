@@ -7,9 +7,9 @@ import { findDuplicatePlacements, needsCheck, PANTRY_PAGE_SIZE, PANTRY_TRACKING,
 import { estimateReason, type ConsumptionEstimate } from '@/lib/pantry-estimate'
 import { clampPage, pageCount } from '@/lib/paging'
 import type { CatalogChangeOutcome } from '@/lib/product-subcategory-changes'
-import { subcategoriesOfItem } from '@/lib/product-subcategories'
+import { PRODUCT_SUBCATEGORIES, subcategoriesOfItem } from '@/lib/product-subcategories'
 import { cn } from '@/lib/utils'
-import type { ItemUnit, PantryArea, PantryItem, PantryLocation, PantryPlace, PantryTracking } from '@/lib/types'
+import type { ItemCategory, ItemUnit, PantryArea, PantryItem, PantryLocation, PantryPlace, PantryTracking } from '@/lib/types'
 
 // One distinct, meaningful icon per location so folders can be told apart at a glance on a phone.
 // `satisfies Record<PantryLocation, …>` makes adding a location without an icon a compile error.
@@ -114,6 +114,8 @@ function QuantityStepper({ quantity, unit, onChange }: { quantity: number; unit:
  *  quantity stepper lets them correct current stock directly without ever touching purchase
  *  history. "Zkontrolovat" opens the bulk check (components/shopping/pantry-review.tsx): tap only
  *  what ran out, save once, and everything else is confirmed. */
+const ITEM_CATEGORY_NAMES = Object.keys(PRODUCT_SUBCATEGORIES) as ItemCategory[]
+
 export function Pantry({
   items,
   customPlaces,
@@ -124,6 +126,7 @@ export function Pantry({
   onReview,
   onSetTracking,
   onSetSubcategory,
+  onSetCategory,
   onAutoCategorize,
   estimates,
   openCheck = false,
@@ -143,6 +146,7 @@ export function Pantry({
   onSetTracking: (id: string, tracking: PantryTracking) => void
   /** Sets an item's subcategory by hand; null clears it. */
   onSetSubcategory: (id: string, subcategory: string | null) => Promise<CatalogChangeOutcome | 'none'> | void
+  onSetCategory: (id: string, category: ItemCategory) => Promise<void> | void
   /** Places every uncategorized item by the keyword rules; resolves to how many were placed. */
   onAutoCategorize: () => Promise<number>
   /** "Asi došlo" estimates by pantry item id (lib/pantry-estimate.ts). */
@@ -212,6 +216,15 @@ export function Pantry({
     } catch (error) {
       console.error('Setting the pantry subcategory failed', error)
       setNotice('Podkategorii se nepodařilo uložit. Zkuste to prosím znovu.')
+    }
+  }
+
+  async function setCategory(item: PantryItem, category: ItemCategory) {
+    try {
+      await onSetCategory(item.id, category)
+    } catch (error) {
+      console.error('Setting the pantry category failed', error)
+      setNotice('Kategorii se nepodařilo uložit. Zkuste to prosím znovu.')
     }
   }
 
@@ -434,7 +447,18 @@ export function Pantry({
                 )}
               </span>
               <span className="mt-1 block text-xs text-muted-foreground">
-                {item.category}
+                <select
+                  aria-label={`Kategorie ${item.name}`}
+                  value={item.category}
+                  onChange={(event) => void setCategory(item, event.target.value as ItemCategory)}
+                  className="max-w-full rounded border border-input bg-background px-1 py-0.5 text-xs outline-none"
+                >
+                  {ITEM_CATEGORY_NAMES.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
                 {likelyGone.has(item.id) && ` · ${estimateReason(estimates.get(item.id)!)}`}
               </span>
             </div>

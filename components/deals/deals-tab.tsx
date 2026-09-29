@@ -211,6 +211,22 @@ export function DealsTab({
             : chain
               ? `Pro ${chain} teď nemáme žádné aktivní akce.`
               : 'V této kategorii teď nemáme žádné aktivní akce.'}
+          {(debouncedQuery.trim() || chain || category !== 'all') && (
+            <div className="mt-3">
+              <button
+                onClick={() => {
+                  setQuery('')
+                  setCategory('all')
+                  setChain(null)
+                  onClearChain()
+                  setPage(1)
+                }}
+                className="min-h-11 rounded-2xl bg-muted px-4 text-sm font-semibold text-foreground hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Zobrazit všechny akce
+              </button>
+            </div>
+          )}
         </div>
       )}
       {page_ != null && page_.total > 0 && (

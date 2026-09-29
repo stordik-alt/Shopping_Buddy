@@ -131,6 +131,8 @@ export function Pantry({
   estimates,
   openCheck = false,
   onCheckOpened,
+  onShopping,
+  onReceipts,
 }: {
   items: PantryItem[]
   /** The household's own places, beyond the fixed locations (Profil domácnosti → Zásoby). */
@@ -154,6 +156,9 @@ export function Pantry({
   /** Open the check of uncertain items right away (the weekly notification's link). */
   openCheck?: boolean
   onCheckOpened?: () => void
+  /** Next steps offered while the pantry is empty: the shopping list, and the receipt upload. */
+  onShopping?: () => void
+  onReceipts?: () => void
 }) {
   const options = useMemo(() => pantryPlaceOptions(customPlaces), [customPlaces])
   const likelyGone = useMemo(() => new Set([...estimates].filter(([, estimate]) => estimate.likelyGone).map(([id]) => id)), [estimates])
@@ -429,9 +434,23 @@ export function Pantry({
             <p className="mt-3 font-semibold">{items.length === 0 ? 'Zásoby jsou prázdné' : `V umístění „${selectedOption.name}“ zatím nic není`}</p>
             <p className="mt-1 text-sm text-muted-foreground">
               {items.length === 0
-                ? 'Položky se sem přidají automaticky po dokončení nákupu.'
+                ? 'Zásoby se plní samy, když dokončíte nákup nebo nahrajete účtenku.'
                 : 'Položky se sem přidají po dokončení nákupu nebo je sem přesunete z jiného umístění.'}
             </p>
+            {items.length === 0 && (onReceipts || onShopping) && (
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
+                {onReceipts && (
+                  <button onClick={onReceipts} className="min-h-11 rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    Nahrát účtenku
+                  </button>
+                )}
+                {onShopping && (
+                  <button onClick={onShopping} className="min-h-11 rounded-2xl bg-muted px-4 text-sm font-semibold hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    Otevřít nákupní seznam
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
 

@@ -523,6 +523,7 @@ export function AppShell({
                     <PurchaseHistory
                       records={purchaseHistory}
                       onSaveSplits={saveItemSplits}
+                      onUploadReceipt={() => setNakupView('uctenky')}
                       onRecordExpenses={async (purchaseId) => {
                         const result = await recordPurchaseAsExpenseAction(purchaseId)
                         setExpenses(result.expenses)
@@ -570,6 +571,14 @@ export function AppShell({
                     estimates={pantryEstimates}
                     openCheck={pantryCheckPending}
                     onCheckOpened={consumePantryCheck}
+                    onShopping={() => {
+                      setNakupView('seznam')
+                      setTab('Nákup')
+                    }}
+                    onReceipts={() => {
+                      setNakupView('uctenky')
+                      setTab('Nákup')
+                    }}
                   />
                 </div>
               )}

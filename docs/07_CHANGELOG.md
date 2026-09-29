@@ -1,5 +1,9 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-29 (Bottom bar with "Více", empty states with a next step)
+- `components/shared/mobile-nav.tsx`: the phone bar has five slots (Domů, Nákup, Zásoby, Rozpočet, Více) instead of six. "Více" opens a sheet above the bar with Akce, Obchody, Profil (and AI when enabled); it closes on an outside tap, Escape or choosing a section, and is highlighted while one of its sections is open. Labels are 12 px now; `MobileNavButton` in `nav-item.tsx` is shared by the bar.
+- Empty states: an empty Zásoby offers "Nahrát účtenku" and "Otevřít nákupní seznam"; Historie nákupů, which showed an empty box, now explains how purchases appear and offers the receipt upload; an empty Akce result caused by a search, chain or category offers "Zobrazit všechny akce". Tests: `components/shared/mobile-nav.test.tsx`. `tsc` and the component tests pass; not checked on a phone.
+
 ## 2026-09-29 (Content-Security-Policy)
 - `next.config.mjs` sends a Content-Security-Policy on every route: everything (scripts, styles, connections, workers, manifest) only from the app's own origin, images also `data:`/`blob:` (receipt previews), no plugins, no framing, no foreign `<base>` or form targets. Scripts and styles keep `unsafe-inline` because Next.js writes inline bootstrap scripts; a nonce would need a per-request policy and make every page dynamic. Dev adds `unsafe-eval`; the Cloudflare build allows Cloudflare Web Analytics. `tsc` and `next build` pass; the production server showed no CSP violations on the intro and sign-in pages, signed-in pages not checked (needs a test account) — if one breaks, the console names the blocked origin.
 

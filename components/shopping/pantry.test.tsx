@@ -28,6 +28,8 @@ function renderPantry(items: PantryItem[], customPlaces: PantryPlace[] = []) {
       onAdjustQuantity={noop}
       onReview={noopAsync}
       onSetTracking={noop}
+      onSetSubcategory={noop}
+      onAutoCategorize={async () => 0}
       estimates={new Map()}
     />,
   )
@@ -61,6 +63,20 @@ describe('Pantry duplicate-placement banner', () => {
   it('says nothing when every item is kept at exactly one place', () => {
     const html = renderPantry([item(1), item(2)])
     expect(html).not.toContain('Na více místech')
+  })
+})
+
+describe('Pantry subcategory assignment', () => {
+  it('offers a subcategory select on every row and the auto-categorize button when items are uncategorized', () => {
+    const html = renderPantry([item(1), { ...item(2), subcategory: 'Pečivo' }])
+    expect(html).toContain('Podkategorie Položka 1')
+    expect(html).toContain('Zařadit automaticky')
+    expect(html).toContain('Bez podkategorie')
+  })
+
+  it('hides the auto-categorize banner once everything has a subcategory', () => {
+    const html = renderPantry([{ ...item(1), subcategory: 'Pečivo' }])
+    expect(html).not.toContain('Zařadit automaticky')
   })
 })
 

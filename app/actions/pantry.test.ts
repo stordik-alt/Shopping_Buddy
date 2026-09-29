@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
@@ -12,6 +12,8 @@ vi.mock('next/cache', () => ({ revalidatePath: () => {} }))
 import {
   addPantryPlaceAction,
   adjustPantryItemQuantityAction,
+  autoCategorizePantryAction,
+  setPantryItemSubcategoryAction,
   confirmPantryItemAction,
   movePantryItemAction,
   removePantryItemAction,
@@ -295,6 +297,36 @@ describe('setPantryTrackingAction', () => {
     expect(row).toMatchObject({ tracking: 'rare', askedAt: null })
     await expect(setPantryTrackingAction(theirs.id, 'off')).rejects.toThrow('Pantry item not found')
     await expect(setPantryTrackingAction(mine.id, 'sometimes' as never)).rejects.toThrow('Neplatná volba')
+  })
+})
+
+describe('setPantryItemSubcategoryAction', () => {
+  it("sets and clears the caller's own item's subcategory; refuses another household's item and a foreign or unknown name", async () => {
+    const [mine] = await db.insert(schema.pantryItems).values({ householdId, name: 'Rohlík', category: 'Potraviny' }).returning()
+    const [theirs] = await db.insert(schema.pantryItems).values({ householdId: otherHouseholdId, name: 'Chléb', category: 'Potraviny' }).returning()
+    await setPantryItemSubcategoryAction(mine.id, 'Pečivo')
+    const set = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, mine.id), with: { subcategory: true } })
+    expect(set?.subcategory?.name).toBe('Pečivo')
+    await setPantryItemSubcategoryAction(mine.id, null)
+    const cleared = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, mine.id) })
+    expect(cleared?.subcategoryId).toBeNull()
+    await expect(setPantryItemSubcategoryAction(theirs.id, 'Pečivo')).rejects.toThrow('Pantry item not found')
+    await expect(setPantryItemSubcategoryAction(mine.id, 'Neexistuje')).rejects.toThrow('Neplatná podkategorie')
+    await expect(setPantryItemSubcategoryAction(mine.id, 'Kosmetika a hygiena')).rejects.toThrow('Neplatná podkategorie')
+  })
+})
+
+describe('autoCategorizePantryAction', () => {
+  it("places the household's uncategorized items by keyword, leaves unknown ones, and never touches another household", async () => {
+    const [bread] = await db.insert(schema.pantryItems).values({ householdId, name: 'Rohlík tukový', category: 'Potraviny' }).returning()
+    const [unknown] = await db.insert(schema.pantryItems).values({ householdId, name: 'Zzxqv', category: 'Potraviny' }).returning()
+    const [theirs] = await db.insert(schema.pantryItems).values({ householdId: otherHouseholdId, name: 'Rohlík', category: 'Potraviny' }).returning()
+    const assigned = await autoCategorizePantryAction()
+    expect(assigned).toEqual([{ id: bread.id, subcategory: 'Pečivo' }])
+    const rows = await db.query.pantryItems.findMany({ where: inArray(schema.pantryItems.id, [bread.id, unknown.id, theirs.id]) })
+    expect(rows.find((row) => row.id === bread.id)?.subcategoryId).not.toBeNull()
+    expect(rows.find((row) => row.id === unknown.id)?.subcategoryId).toBeNull()
+    expect(rows.find((row) => row.id === theirs.id)?.subcategoryId).toBeNull()
   })
 })
 

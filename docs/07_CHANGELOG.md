@@ -1,5 +1,10 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-29 (Zásoby: assigning a subcategory to "Nezařazeno" items)
+- **Why (owner):** dozens of pantry items sat under "Nezařazeno" (23 Spíž, 29 Lednice, …) with no way to place them.
+- **What:** each pantry row has a "Podkategorie" select (options from the item's own category; server validates the name against the fixed list) via `setPantryItemSubcategoryAction`; a "Zařadit automaticky" banner runs `autoCategorizePantryAction`, which places all the household's uncategorized items with the deterministic keyword rules of `classifySubcategory` (no AI) and leaves the rest for manual choice. No schema change.
+- **Tests:** `app/actions/pantry.test.ts` (+2), `components/shopping/pantry.test.tsx` (+2). Not checked in a browser.
+
 ## 2026-09-29 (Potraviny subcategories in the budget, per-subcategory pantry check-in, receipt "Zařadit do výdajů" button)
 - **Why (owner):** the budget offered only 4 Potraviny subcategories, one of them the meaningless "Nákup potravin"; the receipt-to-expense button was buried; and one check-in interval for all of Potraviny ignores that bread, meat and tins keep very differently.
 - **What:** `EXPENSE_CATEGORIES.Potraviny` now uses `PRODUCT_SUBCATEGORIES.Potraviny` (one vocabulary for products, pantry and expenses); migration `0048` clears the removed "Nákup potravin" from existing rows. "Zařadit do výdajů" is shown on the collapsed purchase row in Nákup → Moje nákupy. New table `pantry_checkin_subcategory_intervals` (migration `0049`, additive) plus built-in `CHECKIN_DAYS_BY_SUBCATEGORY` defaults; `checkinDaysFor()` resolves household subcategory value → built-in subcategory default → category value → category default. Profil domácnosti → Zásoby lists Potraviny per subcategory plus a "Bez podkategorie" row. This supersedes the "deliberately category granularity" note of the entry below.

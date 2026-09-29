@@ -18,7 +18,7 @@ import {
 } from '@/app/actions/household'
 import { markMealCookedAction } from '@/app/actions/meal-plan'
 import { markAllNotificationsReadAction, markNotificationReadAction } from '@/app/actions/notifications'
-import { addPantryPlaceAction, adjustPantryItemQuantityAction, confirmPantryItemAction, movePantryItemAction, removePantryItemAction, removePantryPlaceAction, reviewPantryAction, setPantryCheckinDaysAction, setPantrySubcategoryCheckinDaysAction, setPantryTrackingAction } from '@/app/actions/pantry'
+import { addPantryPlaceAction, adjustPantryItemQuantityAction, autoCategorizePantryAction, setPantryItemSubcategoryAction, confirmPantryItemAction, movePantryItemAction, removePantryItemAction, removePantryPlaceAction, reviewPantryAction, setPantryCheckinDaysAction, setPantrySubcategoryCheckinDaysAction, setPantryTrackingAction } from '@/app/actions/pantry'
 import { completePurchaseAction, getPurchaseExpenseItemsAction, recordPurchaseAsExpenseAction, setPurchaseItemExpenseSplitsAction } from '@/app/actions/purchases'
 import {
   applyReceiptListMatchesAction,
@@ -631,6 +631,19 @@ export function AppShell({
     setPantryTrackingAction(id, tracking)
   }
 
+  function setPantryItemSubcategory(id: string, subcategory: string | null) {
+    setPantryItems((current) => current.map((item) => (item.id === id ? { ...item, subcategory } : item)))
+    setPantryItemSubcategoryAction(id, subcategory)
+  }
+
+  // Resolves to how many items the keyword rules placed; the server decides, the state follows it.
+  async function autoCategorizePantry(): Promise<number> {
+    const assigned = await autoCategorizePantryAction()
+    const byId = new Map(assigned.map((entry) => [entry.id, entry.subcategory]))
+    setPantryItems((current) => current.map((item) => (byId.has(item.id) ? { ...item, subcategory: byId.get(item.id) } : item)))
+    return assigned.length
+  }
+
   function adjustPantryItemQuantity(id: string, quantity: number) {
     setPantryItems((current) => current.map((item) => (item.id === id ? { ...item, quantity } : item)))
     adjustPantryItemQuantityAction(id, quantity)
@@ -995,6 +1008,8 @@ export function AppShell({
                     onAdjustQuantity={adjustPantryItemQuantity}
                     onReview={reviewPantry}
                     onSetTracking={setPantryTracking}
+                    onSetSubcategory={setPantryItemSubcategory}
+                    onAutoCategorize={autoCategorizePantry}
                     estimates={pantryEstimates}
                     openCheck={pantryCheckPending}
                     onCheckOpened={consumePantryCheck}

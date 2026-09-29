@@ -6,6 +6,7 @@ import { itemCountLabel } from '@/lib/format'
 import { findDuplicatePlacements, needsCheck, PANTRY_PAGE_SIZE, PANTRY_TRACKING, pantryPlaceOptions, placeKeyOf, summarizeByPlace, type PantryPlaceOption } from '@/lib/pantry'
 import { estimateReason, type ConsumptionEstimate } from '@/lib/pantry-estimate'
 import { clampPage, pageCount } from '@/lib/paging'
+import { subcategoriesOfItem } from '@/lib/product-subcategories'
 import { cn } from '@/lib/utils'
 import type { ItemUnit, PantryArea, PantryItem, PantryLocation, PantryPlace, PantryTracking } from '@/lib/types'
 
@@ -121,6 +122,8 @@ export function Pantry({
   onAdjustQuantity,
   onReview,
   onSetTracking,
+  onSetSubcategory,
+  onAutoCategorize,
   estimates,
   openCheck = false,
   onCheckOpened,
@@ -137,6 +140,10 @@ export function Pantry({
   onReview: (reviewedIds: string[], goneIds: string[], addGoneToList: boolean) => Promise<PantryReviewResult>
   /** How closely an item is watched: normal, rarely (salt, spices), not at all. */
   onSetTracking: (id: string, tracking: PantryTracking) => void
+  /** Sets an item's subcategory by hand; null clears it. */
+  onSetSubcategory: (id: string, subcategory: string | null) => void
+  /** Places every uncategorized item by the keyword rules; resolves to how many were placed. */
+  onAutoCategorize: () => Promise<number>
   /** "Asi došlo" estimates by pantry item id (lib/pantry-estimate.ts). */
   estimates: Map<string, ConsumptionEstimate>
   /** Open the check of uncertain items right away (the weekly notification's link). */
@@ -193,6 +200,21 @@ export function Pantry({
     onMove(item.id, placeKey)
     const target = options.find((option) => option.key === placeKey)
     setNotice(`Přesunuto: ${item.name} → ${target?.name ?? placeKey}`)
+  }
+
+  const totalUncategorized = items.filter((item) => !item.subcategory && subcategoriesOfItem(item.category).length > 0).length
+  const [categorizing, setCategorizing] = useState(false)
+  async function autoCategorize() {
+    setCategorizing(true)
+    try {
+      const placed = await onAutoCategorize()
+      setNotice(placed > 0 ? `Zařazeno automaticky: ${itemCountLabel(placed)}. Zbytek zařaďte ručně u položky.` : 'Nic se nepodařilo zařadit automaticky. Zařaďte položky ručně.')
+    } catch (error) {
+      console.error('Auto-categorizing the pantry failed', error)
+      setNotice('Automatické zařazení se nepodařilo. Zkuste to prosím znovu.')
+    } finally {
+      setCategorizing(false)
+    }
   }
 
   function closeReview(result: PantryReviewResult | null) {
@@ -274,6 +296,22 @@ export function Pantry({
           )
         })}
       </nav>
+
+      {!reviewing && totalUncategorized > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-muted px-4 py-3">
+          <p className="min-w-0 text-sm">
+            Bez podkategorie: <span className="font-semibold">{itemCountLabel(totalUncategorized)}</span>
+          </p>
+          <button
+            type="button"
+            onClick={autoCategorize}
+            disabled={categorizing}
+            className="min-h-9 rounded-xl border border-border bg-card px-3 text-sm font-medium hover:bg-background disabled:opacity-50"
+          >
+            {categorizing ? 'Zařazuji…' : 'Zařadit automaticky'}
+          </button>
+        </div>
+      )}
 
       {!reviewing && (subcategoryCounts.counts.size > 1 || (subcategoryCounts.counts.size === 1 && subcategoryCounts.uncategorized > 0)) && (
         // Subcategory folders within the open location (spec sections 17-18) — only shown when
@@ -400,6 +438,22 @@ export function Pantry({
                 </option>
               ))}
             </select>
+            {/* Only categories with a fixed subcategory list get the select (all do today). */}
+            {subcategoriesOfItem(item.category).length > 0 && (
+              <select
+                aria-label={`Podkategorie ${item.name}`}
+                value={item.subcategory ?? ''}
+                onChange={(event) => onSetSubcategory(item.id, event.target.value || null)}
+                className="max-w-full rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none"
+              >
+                <option value="">Nezařazeno</option>
+                {subcategoriesOfItem(item.category).map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            )}
             {/* Salt, spices or oil need no weekly question: "Jen zřídka" asks every few months,
                 "Nesledovat" never, and neither is ever estimated as used up. */}
             <select

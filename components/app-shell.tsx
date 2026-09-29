@@ -1,96 +1,69 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { addExpenseAction, deleteExpenseAction, setCategoryBudgetAction, updateExpenseAction } from '@/app/actions/budget'
-import { confirmRecurringPaymentAction, saveRecurringPaymentAction, skipRecurringPaymentAction, stopRecurringPaymentAction } from '@/app/actions/recurring'
+import { useMemo, useEffect, useState } from 'react'
 import { buildShoppingPlanAction, pinProductAction, unpinProductAction } from '@/app/actions/shopping-plan'
 import { saveMyStorePreferencesAction } from '@/app/actions/store-preferences'
-import {
-  addChildAction,
-  addHouseholdMemberAction,
-  inviteMemberAction,
-  removeChildAction,
-  removeHouseholdMemberAction,
-  revokeInvitationAction,
-  updateHouseholdAction,
-  updateHouseholdPreferencesAction,
-} from '@/app/actions/household'
 import { markMealCookedAction } from '@/app/actions/meal-plan'
 import { markAllNotificationsReadAction, markNotificationReadAction } from '@/app/actions/notifications'
-import { addPantryPlaceAction, adjustPantryItemQuantityAction, autoCategorizePantryAction, setPantryItemCategoryAction, setPantryItemSubcategoryAction, confirmPantryItemAction, movePantryItemAction, removePantryItemAction, removePantryPlaceAction, reviewPantryAction, setPantryCheckinDaysAction, setPantrySubcategoryCheckinDaysAction, setPantryTrackingAction } from '@/app/actions/pantry'
 import type { ExpenseSplitPart } from '@/lib/purchase-expenses'
 import { completePurchaseAction, getPurchaseExpenseItemsAction, recordPurchaseAsExpenseAction, setPurchaseItemExpenseSplitsAction } from '@/app/actions/purchases'
-import {
-  applyReceiptListMatchesAction,
-  cancelReceiptImportAction,
-  confirmReceiptReviewAction,
-  getReceiptListSuggestionsAction,
-  importReceiptAction,
-  processUploadedReceiptAction,
-  resolveDuplicateReceiptAction,
-  retryReceiptImportAction,
-  uploadReceiptAction,
-} from '@/app/actions/receipts'
-import { addShoppingItemAction, addShoppingListAction, removeShoppingItemAction, toggleShoppingItemAction, updateShoppingItemAction } from '@/app/actions/shopping'
-import { AiAssistant } from '@/components/ai/ai-assistant'
-import { BudgetOverview } from '@/components/budget/budget-overview'
-import { CategoryLimitsModal } from '@/components/budget/category-limits-modal'
-import { CategorySnapshot } from '@/components/budget/category-snapshot'
-import { RecurringPaymentModal } from '@/components/budget/recurring-payment-modal'
-import { RecurringPayments } from '@/components/budget/recurring-payments'
-import { ExpenseLedger } from '@/components/budget/expense-ledger'
-import { ExpenseModal } from '@/components/budget/expense-modal'
-import { PurchaseHistory } from '@/components/budget/purchase-history'
-import { ReceiptImport } from '@/components/budget/receipt-import'
-import { ReceiptListSuggestions } from '@/components/budget/receipt-list-suggestions'
-import { ReceiptPending } from '@/components/budget/receipt-pending'
-import { DashboardOverview } from '@/components/dashboard/dashboard-overview'
-import { MealPlan } from '@/components/dashboard/meal-plan'
-import { PriceWatch } from '@/components/dashboard/price-watch'
-import { DealsTab } from '@/components/deals/deals-tab'
-import { SavingsInsight } from '@/components/dashboard/savings-insight'
-import { SpendingBreakdown } from '@/components/dashboard/spending-breakdown'
-import { TodayAttention } from '@/components/dashboard/today-attention'
-import { HouseholdProfile } from '@/components/household/household-profile'
-import { NotificationPanel } from '@/components/notifications/notification-panel'
+import { addShoppingItemAction, addShoppingListAction } from '@/app/actions/shopping'
 import { AppHeader } from '@/components/shared/app-header'
 import { AppSidebar } from '@/components/shared/app-sidebar'
 import { MobileNav } from '@/components/shared/mobile-nav'
-import { Pantry } from '@/components/shopping/pantry'
 import { OfflineBanner } from '@/components/shopping/offline-banner'
-import { QuickOutOfStock } from '@/components/dashboard/quick-out-of-stock'
-import { PantryPrompt, type PantryPromptState } from '@/components/shopping/pantry-prompt'
-import { applyPendingOps, enqueue, isNetworkError, loadQueue, newTempId, placeholderItem, remapItemId, saveQueue, tempIdToUuid, type PendingOp } from '@/lib/offline-queue'
-import { estimatePantry } from '@/lib/pantry-estimate'
-import { customPlaceIdFromKey, pantryItemAtHome } from '@/lib/pantry'
-import { matchKey as matchKeyOf } from '@/lib/receipt-list-match'
-import { ShoppingList } from '@/components/shopping/shopping-list'
-import { StoreDirectory } from '@/components/stores/store-directory'
-import { UsualItems } from '@/components/shopping/usual-items'
+import {
+  AiAssistant,
+  BudgetOverview,
+  CategoryLimitsModal,
+  CategorySnapshot,
+  DashboardOverview,
+  DealsTab,
+  ExpenseLedger,
+  ExpenseModal,
+  HouseholdProfile,
+  MealPlan,
+  NotificationPanel,
+  Pantry,
+  PantryPrompt,
+  PriceWatch,
+  PurchaseHistory,
+  QuickOutOfStock,
+  ReceiptImport,
+  ReceiptListSuggestions,
+  ReceiptPending,
+  RecurringPaymentModal,
+  RecurringPayments,
+  SavingsInsight,
+  ShoppingList,
+  SpendingBreakdown,
+  StoreDirectory,
+  TodayAttention,
+  UsualItems,
+} from '@/components/shell/lazy-views'
+import { useBudget } from '@/components/shell/use-budget'
+import { useHousehold } from '@/components/shell/use-household'
+import { usePantry } from '@/components/shell/use-pantry'
+import { useReceipts } from '@/components/shell/use-receipts'
+import { useServiceWorker, useTabNavigation, useTheme } from '@/components/shell/use-shell-environment'
+import { useShoppingQueue } from '@/components/shell/use-shopping-queue'
+import { applyPendingOps, newTempId } from '@/lib/offline-queue'
 import { expensesInPeriod, totalSpent } from '@/lib/budget'
 import { longDate, thisPeriodTitle } from '@/lib/format'
-import type { HouseholdData, PurchaseAftermath, ReceiptImportState, TickedListItem } from '@/lib/db/queries'
-import type { ReceiptListSuggestion } from '@/lib/db/receipt-list'
+import type { HouseholdData, PurchaseAftermath, TickedListItem } from '@/lib/db/queries'
 import { currentWeekStart, markMealCooked as markCooked, type Ingredient, type MealType } from '@/lib/meal-plans'
 import type { ProductPrice } from '@/lib/prices'
-import { pollReceiptStatus } from '@/lib/receipt-progress'
-import type { ReceiptLineItem } from '@/lib/receipts'
-import type { ExpenseCategory } from '@/lib/expense-categories'
-import type { ExpenseInput } from '@/lib/expense-input'
-import type { RecurringPayment, RecurringPaymentInput } from '@/lib/recurring-payments'
-import type { Expense, Item, ItemCategory, PantryArea, PantryItem, PantryLocation, PantryTracking, Store, Tab } from '@/lib/types'
+import type { Item, Store, Tab } from '@/lib/types'
 import type { PinRecord } from '@/lib/db/shopping-plan'
 import { filterPricesToNearby, type StoreSelection } from '@/lib/nearby-stores'
 import { nearbyOffers, type StandaloneOffer } from '@/lib/offers'
 import { useUserLocation } from '@/lib/use-user-location'
 import { attentionItems } from '@/lib/attention'
-import { AI_ASSISTANT_ENABLED } from '@/lib/features'
-import { tabFromSlug, tabHref } from '@/lib/tab-url'
 import { suggestUsualItems, type UsualItem } from '@/lib/usual-items'
-import { safeLocalStorage } from '@/lib/safe-storage'
-import { readThemeChoice, resolveDark, saveThemeChoice } from '@/lib/theme-preference'
 
+// The shell owns what several sections share (the shopping list, notifications, purchase history)
+// and wires the per-domain hooks in components/shell/ together; each hook keeps its own state,
+// server actions and resync from a fresh server copy.
 export function AppShell({
   initialData,
   userName,
@@ -126,22 +99,11 @@ export function AppShell({
   /** The server's Web Push key; null when push notifications are not configured (lib/push/). */
   pushPublicKey: string | null
 }) {
-  const [tab, setTabState] = useState<Tab>(initialTab)
+  const { tab, setTab } = useTabNavigation(initialTab)
+  const { dark, toggleDark } = useTheme()
+  useServiceWorker()
   // Chain whose promotions the home screen lists after "Zobrazit akce" in the store directory.
   const [dealsChain, setDealsChain] = useState<string | null>(null)
-  // Switching sections records the section in the address, so the phone's back gesture returns to
-  // the previous section instead of closing the app, and a reload stays where the user was.
-  const setTab = useCallback((next: Tab) => {
-    setTabState(next)
-    const href = tabHref(next)
-    if (`${window.location.pathname}${window.location.search}` !== href) window.history.pushState(null, '', href)
-  }, [])
-  useEffect(() => {
-    const onPopState = () =>
-      setTabState(tabFromSlug(new URLSearchParams(window.location.search).get('tab'), { aiEnabled: AI_ASSISTANT_ENABLED }))
-    window.addEventListener('popstate', onPopState)
-    return () => window.removeEventListener('popstate', onPopState)
-  }, [])
   // The user's own "stores in my area". Until every branch has GPS, this selection decides which
   // stores' prices are compared and planned with (lib/nearby-stores.ts); nothing chosen = all stores.
   const [storeSelection, setStoreSelection] = useState(initialStoreSelection)
@@ -149,97 +111,106 @@ export function AppShell({
   const [pins, setPins] = useState(initialPins)
   const nearbyProductPrices = useMemo(() => filterPricesToNearby(productPrices, storeSelection), [productPrices, storeSelection])
   const nearbyStandaloneOffers = useMemo(() => nearbyOffers(standaloneOffers, storeSelection), [standaloneOffers, storeSelection])
-  const [household, setHousehold] = useState(initialData.household)
   const [items, setItems] = useState(initialData.items)
-  // Starts light on the server render; the effect below applies the remembered choice or the
-  // system setting right after hydration (lib/theme-preference.ts).
-  const [dark, setDark] = useState(false)
-  const [expenseOpen, setExpenseOpen] = useState(false)
-  // The expense being corrected in the modal; null while adding a new one.
-  const [editedExpense, setEditedExpense] = useState<Expense | null>(null)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [notifications, setNotifications] = useState(initialData.notifications)
-  const [expenses, setExpenses] = useState(initialData.expenses)
   // Kept in state so a category reassignment or a recorded purchase shows on the history screen
   // without re-rendering the whole page from the server.
   const [purchaseHistory, setPurchaseHistory] = useState(initialData.purchaseHistory)
   // The saved menu, kept here so it is still shown after switching tabs (saving it no longer re-renders the page).
   const [mealPlan, setMealPlan] = useState(initialData.mealPlan)
-  const [categoryBudgets, setCategoryBudgets] = useState(initialData.categoryBudgets)
-  const [limitsOpen, setLimitsOpen] = useState(false)
-  const [recurringPayments, setRecurringPayments] = useState(initialData.recurringPayments)
-  const [recurringOccurrences, setRecurringOccurrences] = useState(initialData.recurringOccurrences)
-  // The recurring payment being changed in its modal; 'new' while adding one, null while closed.
-  const [recurringEdit, setRecurringEdit] = useState<RecurringPayment | 'new' | null>(null)
   const [newItem, setNewItem] = useState('')
-  // Plausible receipt ↔ shopping-list matches waiting for the household to confirm (certain ones were
-  // ticked on the server already).
-  const [listSuggestions, setListSuggestions] = useState<{ purchaseId: string; items: ReceiptListSuggestion[] } | null>(null)
   const [shoppingLists, setShoppingLists] = useState(initialData.shoppingLists)
-  const [pendingInvitations, setPendingInvitations] = useState(initialData.pendingInvitations)
-  const [pantryItems, setPantryItems] = useState(initialData.pantryItems)
-  const [pantryPlaces, setPantryPlaces] = useState(initialData.pantryPlaces)
-  const [pantryCheckinDays, setPantryCheckinDays] = useState(initialData.pantryCheckinDays)
-  const [pantryCheckinSubcategoryDays, setPantryCheckinSubcategoryDays] = useState(initialData.pantryCheckinSubcategoryDays)
-  const [pendingReceiptImports, setPendingReceiptImports] = useState(initialData.pendingReceiptImports)
   // Which of the three things the Nákup tab can show right now — the list itself is what people open
   // it for, so it stays the default even when a receipt is waiting on review.
   const [nakupView, setNakupView] = useState<'seznam' | 'nakupy' | 'uctenky'>('seznam')
   // Which of Rozpočet's two things is shown — the glanceable current state, or the browsable/editable
   // ledger (which already covers "historie" via its own month picker, so it is not a third view).
   const [rozpocetView, setRozpocetView] = useState<'stav' | 'vydaje'>('stav')
-  const router = useRouter()
   const userLocation = useUserLocation()
+
+  const { queueRef, pendingCount, online, droppedCount, dismissDropped, runOrQueue, flushQueue } = useShoppingQueue({
+    householdId: initialData.household.id,
+    mainListId: initialData.mainListId,
+    setItems,
+    setNotifications,
+  })
+  const { household, pendingInvitations, updateHousehold, addMember, removeMember, addChild, removeChild, updatePreferences, inviteMember, revokeInvitation } = useHousehold(initialData)
+  const {
+    expenses,
+    setExpenses,
+    expenseOpen,
+    editedExpense,
+    categoryBudgets,
+    limitsOpen,
+    setLimitsOpen,
+    recurringPayments,
+    recurringOccurrences,
+    recurringEdit,
+    setRecurringEdit,
+    openExpense,
+    closeExpense,
+    saveExpense,
+    deleteExpense,
+    saveLimits,
+    saveRecurring,
+    stopRecurring,
+    confirmRecurring,
+    skipRecurring,
+  } = useBudget({ initialData, setNotifications })
+  const pantry = usePantry({ initialData, initialPantryCheck, items, purchaseHistory, today, setItems, setNotifications, runOrQueue })
+  const {
+    pantryItems,
+    pantryPlaces,
+    pantryCheckinDays,
+    pantryCheckinSubcategoryDays,
+    pantryCheckPending,
+    pantryPrompt,
+    setPantryPrompt,
+    pantryEstimates,
+    likelyGonePantryIds,
+    confirmPantryItem,
+    removePantryItem,
+    movePantryItem,
+    addPantryPlace,
+    removePantryPlace,
+    setPantryCheckinDaysFor,
+    setPantrySubcategoryCheckinDaysFor,
+    reviewPantry,
+    quickOut,
+    consumePantryCheck,
+    setPantryTracking,
+    setPantryItemSubcategory,
+    setPantryItemCategory,
+    autoCategorizePantry,
+    adjustPantryItemQuantity,
+  } = pantry
+  const {
+    pendingReceiptImports,
+    listSuggestions,
+    dismissListSuggestions,
+    confirmListSuggestions,
+    importReceipt,
+    uploadReceipt,
+    retryReceiptImport,
+    confirmReceiptReview,
+    resolveDuplicateReceipt,
+    cancelReceiptImport,
+  } = useReceipts({ initialPending: initialData.pendingReceiptImports, applyPurchaseAftermath, applyTickedListItems })
 
   // initialData comes from a Server Component fetch. Resync local state whenever a fresh one arrives
   // (after a user-triggered router.refresh() or a reload). The app never triggers that re-render on
   // its own — an automatic refresh threw people back to the top of the page mid-task — so another
-  // member's changes show up on the next reload or after the user's own next action.
+  // member's changes show up on the next reload or after the user's own next action. The hooks
+  // resync their own state the same way.
   useEffect(() => {
-    setHousehold(initialData.household)
     // Changes still waiting for a connection stay visible on top of the server's copy.
     setItems(applyPendingOps(initialData.items, queueRef.current))
     setNotifications(initialData.notifications)
-    setExpenses(initialData.expenses)
     setPurchaseHistory(initialData.purchaseHistory)
     setMealPlan(initialData.mealPlan)
-    setCategoryBudgets(initialData.categoryBudgets)
-    setRecurringPayments(initialData.recurringPayments)
-    setRecurringOccurrences(initialData.recurringOccurrences)
     setShoppingLists(initialData.shoppingLists)
-    setPendingInvitations(initialData.pendingInvitations)
-    setPantryItems(initialData.pantryItems)
-    setPantryPlaces(initialData.pantryPlaces)
-    setPantryCheckinDays(initialData.pantryCheckinDays)
-    setPantryCheckinSubcategoryDays(initialData.pantryCheckinSubcategoryDays)
-    setPendingReceiptImports(initialData.pendingReceiptImports)
-  }, [initialData])
-
-  useEffect(() => {
-    const storage = safeLocalStorage()
-    const media = window.matchMedia('(prefers-color-scheme: dark)')
-    setDark(resolveDark(readThemeChoice(storage), media.matches))
-    // Follow the system setting live, but only while the user has not chosen explicitly.
-    const onSystemChange = (event: MediaQueryListEvent) => {
-      if (readThemeChoice(safeLocalStorage()) === null) setDark(event.matches)
-    }
-    media.addEventListener('change', onSystemChange)
-    return () => media.removeEventListener('change', onSystemChange)
-  }, [])
-
-  function toggleDark() {
-    const next = !dark
-    setDark(next)
-    saveThemeChoice(safeLocalStorage(), next ? 'dark' : 'light')
-  }
-
-  // The service worker (public/sw.js) keeps the last loaded page so the app opens without a signal,
-  // and shows push notifications. Registered for everyone; push itself still needs the member's
-  // permission (components/notifications/push-toggle.tsx).
-  useEffect(() => {
-    if (!('serviceWorker' in navigator)) return
-    navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' }).catch((error) => console.error('Service worker registration failed', error))
-  }, [])
+  }, [initialData, queueRef])
 
   const budget = household.monthlyBudget
   // Only the expenses of the household's current budget period count against it (the calendar month
@@ -286,17 +257,8 @@ export function AppShell({
 
   // Shared by the "Co koupit?" field and the deals card's "Na seznam" button.
   async function addItemByName(name: string) {
-    offerPantryCorrection(name)
+    pantry.offerPantryCorrection(name)
     await runOrQueue({ kind: 'add', tempId: newTempId(), name })
-  }
-
-  // Putting something on the list that the pantry says is at home: ask once whether it ran out
-  // (components/shopping/pantry-prompt.tsx). Matched by name with synonyms (matchKey); items the
-  // household does not track are left alone.
-  const [pantryPrompt, setPantryPrompt] = useState<PantryPromptState | null>(null)
-  function offerPantryCorrection(name: string) {
-    const atHome = pantryItemAtHome(pantryItems, name)
-    setPantryPrompt(atHome ? { pantryItemId: atHome.id, name: atHome.name, quantity: atHome.quantity, unit: atHome.unit } : null)
   }
 
   // Sequential on purpose — was Promise.all, which fired one addShoppingItemAction per ingredient
@@ -346,116 +308,11 @@ export function AppShell({
     void runOrQueue({ kind: 'remove', itemId: id })
   }
 
-  // --- Shopping list without a signal (lib/offline-queue.ts) ---------------------------------
-  // List changes are sent at once when there is a connection. Without one — or while earlier changes
-  // still wait — they join a queue stored on the device, stay visible on top of the server's copy,
-  // and are sent in order when the connection returns. A change the server refuses (the item was
-  // removed by another member meanwhile) is dropped and reported; a lost connection keeps the rest.
-  const queueRef = useRef<PendingOp[]>([])
-  const flushingRef = useRef(false)
-  const [pendingCount, setPendingCount] = useState(0)
-  const [online, setOnline] = useState(true)
-  const [droppedCount, setDroppedCount] = useState(0)
-
-  const setQueue = useCallback(
-    (ops: PendingOp[]) => {
-      queueRef.current = ops
-      saveQueue(safeLocalStorage(), initialData.household.id, ops)
-      setPendingCount(ops.length)
-    },
-    [initialData.household.id],
-  )
-
-  // Sends one change; an offline-added item gets its real id from the server here.
-  async function sendOp(op: PendingOp) {
-    switch (op.kind) {
-      case 'add': {
-        const { item, notification } = await addShoppingItemAction(initialData.mainListId, op.name, {}, tempIdToUuid(op.tempId))
-        setItems((current) => (current.some((entry) => entry.id === op.tempId) ? current.map((entry) => (entry.id === op.tempId ? item : entry)) : [...current, item]))
-        queueRef.current = remapItemId(queueRef.current, op.tempId, item.id)
-        if (notification) setNotifications((current) => [...current, notification])
-        return
-      }
-      case 'toggle':
-        return toggleShoppingItemAction(op.itemId, op.done)
-      case 'update':
-        return updateShoppingItemAction(op.itemId, op.changes)
-      case 'remove':
-        return removeShoppingItemAction(op.itemId)
-    }
-  }
-
-  async function runOrQueue(op: PendingOp) {
-    const queueIt = () => {
-      if (op.kind === 'add') setItems((current) => [...current, placeholderItem(op.tempId, op.name)])
-      setQueue(enqueue(queueRef.current, op))
-    }
-    // Behind earlier waiting changes, a new one waits too, so the server sees them in order.
-    if (queueRef.current.length > 0 || !navigator.onLine) return queueIt()
-    try {
-      await sendOp(op)
-    } catch (error) {
-      if (isNetworkError(error, navigator.onLine)) return queueIt()
-      console.error('Shopping list change refused', error)
-      setDroppedCount((count) => count + 1)
-    }
-  }
-
-  const flushQueue = useCallback(async () => {
-    if (flushingRef.current || queueRef.current.length === 0 || !navigator.onLine) return
-    flushingRef.current = true
-    let refused = false
-    try {
-      while (queueRef.current.length > 0) {
-        const [op] = queueRef.current
-        try {
-          await sendOp(op)
-        } catch (error) {
-          if (isNetworkError(error, navigator.onLine)) return // still offline: keep the rest for later
-          console.error('Queued shopping list change refused', error)
-          setDroppedCount((count) => count + 1)
-          refused = true
-        }
-        setQueue(queueRef.current.slice(1))
-      }
-      // Every sent change already updated the list locally, so a refresh is needed only when the
-      // server refused one (the item was changed elsewhere) and the local list may now differ.
-      if (refused) router.refresh()
-    } finally {
-      flushingRef.current = false
-    }
-    // sendOp only uses stable values and state setters.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router, setQueue])
-
-  useEffect(() => {
-    // Restore what was left waiting on this device, and show it on top of the server's copy.
-    const stored = loadQueue(safeLocalStorage(), initialData.household.id)
-    if (stored.length > 0) {
-      queueRef.current = stored
-      setPendingCount(stored.length)
-      setItems((current) => applyPendingOps(current, stored))
-    }
-    setOnline(navigator.onLine)
-    const goOnline = () => {
-      setOnline(true)
-      void flushQueue()
-    }
-    const goOffline = () => setOnline(false)
-    window.addEventListener('online', goOnline)
-    window.addEventListener('offline', goOffline)
-    void flushQueue()
-    return () => {
-      window.removeEventListener('online', goOnline)
-      window.removeEventListener('offline', goOffline)
-    }
-  }, [initialData.household.id, flushQueue])
-
   // What a purchase-creating action changed, in the shape the page holds it — replaces a full
   // page refresh (see getPurchaseAftermath).
   function applyPurchaseAftermath(aftermath: PurchaseAftermath) {
     setPurchaseHistory(aftermath.purchaseHistory)
-    setPantryItems(aftermath.pantryItems)
+    pantry.setPantryItems(aftermath.pantryItems)
     setExpenses(aftermath.expenses)
     setNotifications(aftermath.notifications)
     applyTickedListItems(aftermath.tickedListItems)
@@ -489,31 +346,6 @@ export function AppShell({
     addShoppingListAction(name)
   }
 
-  function updateHousehold(changes: { name?: string; monthlyBudget?: number; budgetPeriodStartDay?: number }) {
-    setHousehold((current) => ({ ...current, ...changes }))
-    updateHouseholdAction(changes)
-  }
-
-  async function addMember(member: { name: string; age: number; favoriteFoods: string[]; dislikedFoods: string[]; allergies: string[] }) {
-    const created = await addHouseholdMemberAction(member)
-    setHousehold((current) => ({ ...current, members: [...current.members, created] }))
-  }
-
-  function removeMember(id: string) {
-    setHousehold((current) => ({ ...current, members: current.members.filter((member) => member.id !== id) }))
-    removeHouseholdMemberAction(id)
-  }
-
-  async function addChild(child: { name: string; age: number; preferences: string; specialNeeds?: string }) {
-    const created = await addChildAction(child)
-    setHousehold((current) => ({ ...current, children: [...current.children, created] }))
-  }
-
-  function removeChild(id: string) {
-    setHousehold((current) => ({ ...current, children: current.children.filter((child) => child.id !== id) }))
-    removeChildAction(id)
-  }
-
   async function pinProduct(itemId: string, storeId: string, productId: string) {
     await pinProductAction({ itemId, storeId, productId })
     setPins((current) => [...current.filter((pin) => !(pin.itemId === itemId && pin.storeId === storeId)), { itemId, storeId, productId }])
@@ -530,235 +362,10 @@ export function AppShell({
     return saved
   }
 
-  function updatePreferences(changes: Partial<typeof household.preferences>) {
-    setHousehold((current) => ({ ...current, preferences: { ...current.preferences, ...changes } }))
-    updateHouseholdPreferencesAction(changes)
-  }
-
-  async function inviteMember(email: string) {
-    const invitation = await inviteMemberAction(email)
-    setPendingInvitations((current) => [...current, { id: invitation.id, email: invitation.email, expiresAt: invitation.expiresAt }])
-    return invitation
-  }
-
-  function revokeInvitation(id: string) {
-    setPendingInvitations((current) => current.filter((invitation) => invitation.id !== id))
-    revokeInvitationAction(id)
-  }
-
-  function confirmPantryItem(id: string) {
-    setPantryItems((current) => current.map((item) => (item.id === id ? { ...item, addedAt: new Date().toISOString(), askedAt: undefined } : item)))
-    confirmPantryItemAction(id)
-  }
-
-  function removePantryItem(id: string) {
-    setPantryItems((current) => current.filter((item) => item.id !== id))
-    removePantryItemAction(id)
-  }
-
-  function movePantryItem(id: string, placeKey: string) {
-    const customPlaceId = customPlaceIdFromKey(placeKey)
-    setPantryItems((current) => current.map((item) => (item.id === id ? (customPlaceId ? { ...item, customPlaceId } : { ...item, location: placeKey as PantryLocation, customPlaceId: null }) : item)))
-    movePantryItemAction(id, placeKey)
-  }
-
-  async function addPantryPlace(area: PantryArea, name: string) {
-    const place = await addPantryPlaceAction(area, name)
-    setPantryPlaces((current) => [...current, place])
-    return place
-  }
-
-  async function removePantryPlace(placeId: string) {
-    await removePantryPlaceAction(placeId)
-    setPantryPlaces((current) => current.filter((place) => place.id !== placeId))
-  }
-
-  async function setPantryCheckinDaysFor(category: PantryItem['category'], days: number | null) {
-    const overrides = await setPantryCheckinDaysAction(category, days)
-    setPantryCheckinDays(overrides)
-    return overrides
-  }
-
-  async function setPantrySubcategoryCheckinDaysFor(category: PantryItem['category'], subcategory: string, days: number | null) {
-    const overrides = await setPantrySubcategoryCheckinDaysAction(category, subcategory, days)
-    setPantryCheckinSubcategoryDays(overrides)
-    return overrides
-  }
-
-  // Bulk check (components/shopping/pantry-review.tsx). Saved first; the local pantry changes only
-  // once the server accepted it, so a failed save leaves everything as it was. Items that ran out
-  // are then added to the list one at a time (see addIngredients for why not in parallel), skipping
-  // names already waiting on the list.
-  async function reviewPantry(reviewedIds: string[], goneIds: string[], addGoneToList: boolean) {
-    const result = await reviewPantryAction({ reviewedIds, goneIds })
-    const gone = new Set(goneIds)
-    const kept = new Set(reviewedIds.filter((id) => !gone.has(id)))
-    const goneItems = pantryItems.filter((item) => gone.has(item.id))
-    const now = new Date().toISOString()
-    setPantryItems((current) => current.filter((item) => !gone.has(item.id)).map((item) => (kept.has(item.id) ? { ...item, addedAt: now, askedAt: undefined } : item)))
-
-    // The check is saved at this point; a failure while adding to the list is reported as such.
-    let addedToList = 0
-    let listFailed = false
-    if (addGoneToList) {
-      const onList = new Set(items.filter((item) => !item.done).map((item) => item.name.trim().toLowerCase()))
-      try {
-        for (const pantryItem of goneItems) {
-          const key = pantryItem.name.trim().toLowerCase()
-          if (onList.has(key)) continue
-          onList.add(key)
-          const { item, notification } = await addShoppingItemAction(initialData.mainListId, pantryItem.name, { category: pantryItem.category, unit: pantryItem.unit, detail: 'došlo ze zásob' })
-          setItems((current) => [...current, item])
-          if (notification) setNotifications((current) => [...current, notification])
-          addedToList += 1
-        }
-      } catch (error) {
-        console.error('Adding pantry items to the shopping list failed', error)
-        listFailed = true
-      }
-    }
-    return { ...result, addedToList, listFailed }
-  }
-
-  // "Asi došlo" estimates from the household's own purchase rhythm (lib/pantry-estimate.ts).
-  const pantryEstimates = useMemo(() => estimatePantry(pantryItems, purchaseHistory, today), [pantryItems, purchaseHistory, today])
-  const likelyGonePantryIds = useMemo(() => new Set([...pantryEstimates].filter(([, estimate]) => estimate.likelyGone).map(([id]) => id)), [pantryEstimates])
-  // "Došlo mi…" on the home screen: out of the pantry and, if asked, onto the list — without the
-  // "Došlo?" question, since the household just said so.
-  function quickOut(item: PantryItem, addToList: boolean) {
-    removePantryItem(item.id)
-    if (addToList && !items.some((entry) => !entry.done && matchKeyOf(entry.name) === matchKeyOf(item.name))) void runOrQueue({ kind: 'add', tempId: newTempId(), name: item.name })
-  }
-  const [pantryCheckPending, setPantryCheckPending] = useState(initialPantryCheck)
-  // Consumes the check link: drops `kontrola=1` from the address so a reload does not reopen it.
-  const consumePantryCheck = useCallback(() => {
-    setPantryCheckPending(false)
-    if (new URLSearchParams(window.location.search).has('kontrola')) window.history.replaceState(null, '', tabHref('Zásoby'))
-  }, [])
-
-  function setPantryTracking(id: string, tracking: PantryTracking) {
-    setPantryItems((current) => current.map((item) => (item.id === id ? { ...item, tracking, askedAt: undefined } : item)))
-    setPantryTrackingAction(id, tracking)
-  }
-
-  // Resolves to whether the shared catalog took the choice or it waits for an administrator.
-  function setPantryItemSubcategory(id: string, subcategory: string | null) {
-    setPantryItems((current) => current.map((item) => (item.id === id ? { ...item, subcategory } : item)))
-    return setPantryItemSubcategoryAction(id, subcategory)
-  }
-
-  // The server decides (a locked product cannot change), so the state follows its answer.
-  async function setPantryItemCategory(id: string, category: ItemCategory) {
-    const outcome = await setPantryItemCategoryAction(id, category)
-    if (outcome !== 'locked') setPantryItems((current) => current.map((item) => (item.id === id ? { ...item, category, subcategory: null } : item)))
-    return outcome
-  }
-
-  // Resolves to how many items the keyword rules placed; the server decides, the state follows it.
-  async function autoCategorizePantry(): Promise<number> {
-    const assigned = await autoCategorizePantryAction()
-    const byId = new Map(assigned.map((entry) => [entry.id, entry.subcategory]))
-    setPantryItems((current) => current.map((item) => (byId.has(item.id) ? { ...item, subcategory: byId.get(item.id) } : item)))
-    return assigned.length
-  }
-
-  function adjustPantryItemQuantity(id: string, quantity: number) {
-    setPantryItems((current) => current.map((item) => (item.id === id ? { ...item, quantity } : item)))
-    adjustPantryItemQuantityAction(id, quantity)
-  }
-
   async function markMealCooked(day: string, mealType: MealType) {
     const { pantryItems: fresh } = await markMealCookedAction(day, mealType)
-    setPantryItems(fresh) // the server deducted the meal's ingredients from the pantry
+    pantry.setPantryItems(fresh) // the server deducted the meal's ingredients from the pantry
     setMealPlan((current) => (current ? { ...current, plan: markCooked(current.plan, day, mealType) } : current))
-  }
-
-  /** Asks the server which open shopping-list items a just-imported purchase plausibly covers. The
-   *  import itself has already succeeded, so a failure here is logged rather than shown as an import
-   *  error; the household can still tick the items by hand. */
-  async function offerListMatches(purchaseId: string | null | undefined) {
-    if (!purchaseId) return
-    try {
-      const suggestions = await getReceiptListSuggestionsAction(purchaseId)
-      setListSuggestions(suggestions.length > 0 ? { purchaseId, items: suggestions } : null)
-    } catch (error) {
-      console.error('Could not load shopping-list suggestions for the receipt', error)
-    }
-  }
-
-  async function confirmListSuggestions(selected: ReceiptListSuggestion[]) {
-    if (!listSuggestions) return
-    const { tickedListItems } = await applyReceiptListMatchesAction(
-      listSuggestions.purchaseId,
-      selected.map((suggestion) => ({ listItemId: suggestion.listItemId, purchaseItemId: suggestion.purchaseItemId })),
-    )
-    setListSuggestions(null)
-    applyTickedListItems(tickedListItems) // the list shows the newly ticked items with their real price and quantity
-  }
-
-  async function importReceipt(items: ReceiptLineItem[], options: { date?: string; storeLocationId?: string }) {
-    const { purchase, aftermath } = await importReceiptAction(items, options)
-    applyPurchaseAftermath(aftermath)
-    await offerListMatches(purchase.id)
-  }
-
-  function upsertPendingReceipt(result: ReceiptImportState) {
-    setPendingReceiptImports((current) => {
-      const withoutThis = current.filter((r) => r.id !== result.id)
-      const stillPending = result.status !== 'completed' && result.status !== 'cancelled'
-      return stillPending ? [...withoutThis, result] : withoutThis
-    })
-  }
-
-  /** Two calls so the import id is known while the pipeline runs: upload stores the photo, then
-   *  processing runs the whole OCR pipeline in one request. While that request is in flight, the
-   *  status route is polled (a route handler, not an action — Next runs one client's actions
-   *  sequentially, so an action would queue behind the processing call) to report the real stage. */
-  async function uploadReceipt(file: File, onProgress: (status: string) => void) {
-    onProgress('uploading')
-    const formData = new FormData()
-    formData.set('file', file)
-    const upload = await uploadReceiptAction(formData)
-    if (!upload.ok) throw new Error(upload.error)
-    const uploaded = upload.receipt
-    onProgress(uploaded.status)
-    const stopPolling = pollReceiptStatus(uploaded.id, onProgress)
-    try {
-      const { aftermath, ...result } = await processUploadedReceiptAction(uploaded.id)
-      upsertPendingReceipt(result)
-      if (aftermath) applyPurchaseAftermath(aftermath) // a new purchase/pantry restock if it completed outright
-      await offerListMatches(result.purchaseId)
-      return result
-    } finally {
-      stopPolling()
-    }
-  }
-
-  async function retryReceiptImport(id: string) {
-    const { aftermath, ...result } = await retryReceiptImportAction(id)
-    upsertPendingReceipt(result)
-    if (aftermath) applyPurchaseAftermath(aftermath)
-    await offerListMatches(result.purchaseId)
-    return result
-  }
-
-  async function confirmReceiptReview(id: string, items: ReceiptLineItem[], date: string) {
-    const { purchase, aftermath } = await confirmReceiptReviewAction(id, items, { date })
-    setPendingReceiptImports((current) => current.filter((r) => r.id !== id))
-    applyPurchaseAftermath(aftermath)
-    await offerListMatches(purchase.id)
-  }
-
-  async function resolveDuplicateReceipt(id: string, resolution: 'save_new' | 'use_existing' | 'cancel', items?: ReceiptLineItem[], date?: string) {
-    const { purchase, aftermath } = await resolveDuplicateReceiptAction(id, resolution, items, { date })
-    setPendingReceiptImports((current) => current.filter((r) => r.id !== id))
-    if (aftermath) applyPurchaseAftermath(aftermath)
-    await offerListMatches(purchase?.id)
-  }
-
-  function cancelReceiptImport(id: string) {
-    setPendingReceiptImports((current) => current.filter((r) => r.id !== id))
-    cancelReceiptImportAction(id)
   }
 
   function readNotification(id: string) {
@@ -769,76 +376,6 @@ export function AppShell({
   function readAllNotifications() {
     setNotifications((current) => current.map((notification) => ({ ...notification, unread: false })))
     markAllNotificationsReadAction()
-  }
-
-  function openExpense(expense: Expense | null) {
-    setEditedExpense(expense)
-    setExpenseOpen(true)
-  }
-
-  function closeExpense() {
-    setExpenseOpen(false)
-    setEditedExpense(null)
-  }
-
-  // Kept in date order, as the server loads them, so the monthly numbers read the same after a save.
-  const byDate = (list: Expense[]) => list.slice().sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
-
-  async function saveExpense(input: ExpenseInput) {
-    if (editedExpense) {
-      const { expense } = await updateExpenseAction(editedExpense.id, input)
-      setExpenses((current) => byDate(current.map((entry) => (entry.id === expense.id ? expense : entry))))
-    } else {
-      const { expense, notifications: created } = await addExpenseAction(input)
-      setExpenses((current) => byDate([...current, expense]))
-      if (created.length > 0) setNotifications((current) => [...current, ...created])
-    }
-    closeExpense()
-  }
-
-  /** Saves the changed limits one by one; the last answer holds every limit of the household. */
-  async function saveLimits(changes: { category: ExpenseCategory; amount: number | null }[]) {
-    let latest = categoryBudgets
-    for (const change of changes) latest = await setCategoryBudgetAction(change.category, change.amount)
-    setCategoryBudgets(latest)
-    setLimitsOpen(false)
-  }
-
-  async function saveRecurring(input: RecurringPaymentInput) {
-    const editing = recurringEdit !== 'new' && recurringEdit ? recurringEdit : null
-    const saved = await saveRecurringPaymentAction(input, editing?.id)
-    setRecurringPayments((current) =>
-      (editing ? current.map((entry) => (entry.id === saved.id ? saved : entry)) : [...current, saved]).sort((a, b) => a.name.localeCompare(b.name, 'cs')),
-    )
-    setRecurringEdit(null)
-  }
-
-  async function stopRecurring() {
-    if (!recurringEdit || recurringEdit === 'new') return
-    await stopRecurringPaymentAction(recurringEdit.id)
-    const stopped = recurringEdit.id
-    setRecurringPayments((current) => current.filter((entry) => entry.id !== stopped))
-    setRecurringEdit(null)
-  }
-
-  /** A due date paid: it becomes an expense, and may cross a budget threshold. */
-  async function confirmRecurring(paymentId: string, dueDate: string, paid: { amount: number; date: string }) {
-    const { expense, occurrence, notifications: created } = await confirmRecurringPaymentAction(paymentId, dueDate, paid)
-    setRecurringOccurrences((current) => [...current, occurrence])
-    setExpenses((current) => byDate([...current, expense]))
-    if (created.length > 0) setNotifications((current) => [...current, ...created])
-  }
-
-  async function skipRecurring(paymentId: string, dueDate: string) {
-    const occurrence = await skipRecurringPaymentAction(paymentId, dueDate)
-    setRecurringOccurrences((current) => [...current, occurrence])
-  }
-
-  async function deleteExpense() {
-    if (!editedExpense) return
-    await deleteExpenseAction(editedExpense.id)
-    setExpenses((current) => current.filter((entry) => entry.id !== editedExpense.id))
-    closeExpense()
   }
 
   return (
@@ -917,7 +454,7 @@ export function AppShell({
               )}
               {tab === 'Nákup' && (
                 <div className="mx-auto max-w-3xl space-y-5">
-                  <OfflineBanner online={online} pending={pendingCount} dropped={droppedCount} onDismissDropped={() => setDroppedCount(0)} />
+                  <OfflineBanner online={online} pending={pendingCount} dropped={droppedCount} onDismissDropped={() => dismissDropped()} />
                   <div className="flex flex-wrap gap-2" role="group" aria-label="Zobrazení nákupu">
                     {(
                       [
@@ -1002,7 +539,7 @@ export function AppShell({
                           key={listSuggestions.purchaseId}
                           suggestions={listSuggestions.items}
                           onConfirm={confirmListSuggestions}
-                          onDismiss={() => setListSuggestions(null)}
+                          onDismiss={() => dismissListSuggestions()}
                         />
                       )}
                       <ReceiptPending

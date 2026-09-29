@@ -2,7 +2,7 @@
 
 ## 2026-09-29 (Subcategories for the item category Ostatní)
 - **Why (owner):** clothing and an e-cigarette in Zásoby had no subcategory select, because "Ostatní" had an empty subcategory list.
-- **What:** `PRODUCT_SUBCATEGORIES.Ostatní` = Oblečení a obuv, Elektronika, Tabák a e-cigarety, Ostatní zboží, with keyword rules for the automatic button; migration `0051` seeds the rows (additive, idempotent). Expenses are unchanged (only Potraviny uses the item subcategory). An item wrongly filed (e.g. a drink under Ostatní) can now change its category from a select in Zásoby (`setPantryItemCategoryAction`): it clears the old subcategory and changes only that household's pantry item, not the shared catalog (category changes have no administrator approval).
+- **What:** `PRODUCT_SUBCATEGORIES.Ostatní` = Oblečení a obuv, Elektronika, Tabák a e-cigarety, Ostatní zboží, with keyword rules for the automatic button; migration `0051` seeds the rows (additive, idempotent). Expenses are unchanged (only Potraviny uses the item subcategory). An item wrongly filed (e.g. a drink under Ostatní) can now change its category from a select in Zásoby (`setPantryItemCategoryAction`): it clears the old subcategory and also teaches the shared catalog product its new category (its old subcategory is cleared), so later receipts of it — in any household — land in the corrected category. Unlike subcategory moves, category changes have no administrator approval step.
 - **Tests:** `lib/product-subcategories.test.ts` (+4); full suite green.
 
 ## 2026-09-29 (Catalog subcategory moves: free up to 3, then administrator approval)

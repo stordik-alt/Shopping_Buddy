@@ -330,6 +330,23 @@ describe('setPantryItemCategoryAction', () => {
   })
 })
 
+describe('setPantryItemCategoryAction learning', () => {
+  it('teaches the shared catalog product its new category and drops its old subcategory', async () => {
+    const other = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Ostatní') })
+    const food = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
+    const [product] = await db.insert(schema.products).values({ name: '__test_product_category_learning__', categoryId: other!.id }).returning()
+    try {
+      const [mine] = await db.insert(schema.pantryItems).values({ householdId, productId: product.id, name: product.name, category: 'Ostatní' }).returning()
+      await setPantryItemCategoryAction(mine.id, 'Potraviny')
+      const learned = await db.query.products.findFirst({ where: eq(schema.products.id, product.id) })
+      expect(learned).toMatchObject({ categoryId: food!.id, subcategoryId: null })
+    } finally {
+      await db.delete(schema.pantryItems).where(eq(schema.pantryItems.productId, product.id))
+      await db.delete(schema.products).where(eq(schema.products.id, product.id))
+    }
+  })
+})
+
 describe('setPantryItemSubcategoryAction learning', () => {
   it("teaches the shared catalog product, so it is placed the same way for every household", async () => {
     const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })

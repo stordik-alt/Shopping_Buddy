@@ -135,7 +135,7 @@ A full-project review produced a list of improvements; the first block was imple
 
 **Done**
 - **Error pages:** `app/error.tsx`, `app/global-error.tsx`, `app/not-found.tsx` (Czech text, retry button, only the error digest shown). Next 16's boundary receives `retry`, not `reset`.
-- **Security headers** on all routes in `next.config.mjs`: `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy` (geolocation and camera for the app, no microphone). No Content-Security-Policy yet.
+- **Security headers** on all routes in `next.config.mjs`: `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy` (geolocation and camera for the app, no microphone), and a **Content-Security-Policy** that allows only the app's own origin (scripts and styles keep `unsafe-inline` because Next.js writes inline bootstrap scripts and a nonce would make every page dynamic; dev adds `unsafe-eval`; the Cloudflare build adds Web Analytics origins). Public pages checked for violations in a browser; signed-in pages not yet.
 - **Text size:** labels and badges that were 10–11 px are 12 px (`text-xs`). Kept smaller on purpose: the count badges in the 16 px circles (`app-shell.tsx`, `app-header.tsx`) and the six bottom-navigation labels (`nav-item.tsx`). Not yet checked on a phone.
 - **CI:** the "Unit tests, typecheck and production build" job had been red on every recent PR because two database tests (`lib/db/category-changes.test.ts`, `lib/db/subcategory-changes.test.ts`) were missing from its exclude list. Fixed, and a separate `database` job now runs every database-backed test against the Neon **test** branch. It needs the repository secrets `TEST_DATABASE_URL` (and optionally `TEST_DATABASE_URL_UNPOOLED`); until they exist the job skips itself and shows as passing, so **the database tests do not yet run in CI**. Tests never use the production database (`test/setup-test-database.ts`); locally `pnpm test` runs against the test branch.
 - **Receipt upload limit:** `uploadReceiptAction` refuses the 31st OCR import of a household within a rolling 24 hours (`lib/receipt-upload-limit.ts`), before storing or processing anything. Counted from `receipt_imports`, no migration. A failed import's retry (`retryReceiptImportAction`) is not counted.
@@ -144,7 +144,7 @@ A full-project review produced a list of improvements; the first block was imple
 **Open (from the same review, not started)**
 - Playwright smoke tests (Playwright is a dev dependency but there is no config or `e2e/`); needs the test branch secret and a safe way to create a test account.
 - ~~Split `components/app-shell.tsx`~~ done (PR #156): sections and dialogs load with `next/dynamic` (`components/shell/lazy-views.tsx`), state and actions live in hooks in `components/shell/`; shell is ~715 lines. Not clicked through in a browser.
-- Content-Security-Policy, after a pass over inline scripts and the analytics/OCR origins.
+- Content-Security-Policy without `unsafe-inline` for scripts (nonce-based), and a browser check of the signed-in pages against the current policy.
 - Bottom navigation has six tabs at 375 px; consider five plus "Více" (as the UX/IA brief proposes).
 - ~~`prefers-reduced-motion`~~ done 2026-09-29: one rule in `app/globals.css` removes transitions, pulses and hover lifts; spinners keep turning (essential progress indication). Not checked on a device.
 - Empty states with a next step in Zásoby, Účtenky and Akce were not reviewed.

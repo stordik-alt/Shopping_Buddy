@@ -2,6 +2,29 @@
 // docs/cloudflare-deployment.md). The Vercel build never sets it, so nothing below changes for Vercel.
 const cloudflareBuild = process.env.BUILD_TARGET === 'cloudflare'
 
+// Content-Security-Policy. Every request the browser code makes goes to the app's own origin (Server
+// Actions, /api/auth, receipt routes), images are same-origin files plus data:/blob: previews, and
+// the OCR/model providers are only called from the server, so nothing external is allowed. Next.js
+// writes small inline bootstrap scripts, which a nonce-based script-src would need on every request
+// (and would make every page dynamic), so 'unsafe-inline' stays for scripts for now; the value is in
+// the rest: no plugins, no framing, no foreign base/form targets, no third-party connections.
+// Dev needs 'unsafe-eval' for React's debugging tools. Cloudflare's build gets Web Analytics.
+const isDev = process.env.NODE_ENV !== 'production'
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}${cloudflareBuild ? ' https://static.cloudflareinsights.com' : ''}`,
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "font-src 'self' data:",
+  `connect-src 'self'${cloudflareBuild ? ' https://cloudflareinsights.com' : ''}`,
+  "worker-src 'self'",
+  "manifest-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ')
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
@@ -26,12 +49,11 @@ const nextConfig = {
   async headers() {
     return [
       {
-        // Conservative security headers for every page. No Content-Security-Policy on purpose: it
-        // needs its own pass over the inline scripts and the analytics/OCR origins to avoid breaking
-        // the app. The app is never embedded, location is used by the store directory and the
+        // Conservative security headers for every page. The app is never embedded, location is used by the store directory and the
         // camera by the receipt photo, and nothing needs the microphone.
         source: '/:path*',
         headers: [
+          { key: 'Content-Security-Policy', value: contentSecurityPolicy },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },

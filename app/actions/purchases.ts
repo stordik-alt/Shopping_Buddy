@@ -5,12 +5,12 @@ import { revalidatePath } from 'next/cache'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
-import { restockPantryItem } from '@/lib/db/queries'
+import { getHouseholdExpenses, getHouseholdNotifications, restockPantryItem } from '@/lib/db/queries'
 import { getPurchaseItemsForExpense, recordPurchaseAsExpense, setPurchaseItemExpenseSplits, type PurchaseExpenseItem } from '@/lib/db/purchase-items'
 import * as schema from '@/lib/db/schema'
 import { isExpenseCategory, isValidSubcategory, type ExpenseCategory } from '@/lib/expense-categories'
 import type { ExpenseSplitPart } from '@/lib/purchase-expenses'
-import type { PurchaseRecord } from '@/lib/types'
+import type { Expense, Notification, PurchaseRecord } from '@/lib/types'
 
 // Real receipts never need more than a handful of ways to split one line; this only stops a crafted
 // request from sending something unbounded (lib/db/purchase-items.ts checks the exact limit).
@@ -115,7 +115,7 @@ export async function completePurchaseAction(listId: string): Promise<{ purchase
  *  half a child's clothing). An empty array clears it back to the automatic mapping. The purchase's
  *  expense rows are recomputed to match, and a plain reassignment is remembered for the product, so
  *  it applies on its own to that product's next receipt (lib/db/purchase-items.ts). */
-export async function setPurchaseItemExpenseSplitsAction(purchaseItemId: string, splits: ExpenseSplitPart[]): Promise<void> {
+export async function setPurchaseItemExpenseSplitsAction(purchaseItemId: string, splits: ExpenseSplitPart[]): Promise<{ expenses: Expense[] }> {
   const householdId = await requireHouseholdId()
   if (typeof purchaseItemId !== 'string' || purchaseItemId.length === 0) throw new Error('Neplatná položka nákupu.')
   if (!Array.isArray(splits) || splits.length > MAX_SPLITS_PER_ITEM) throw new Error('Neplatné rozdělení položky.')
@@ -124,7 +124,8 @@ export async function setPurchaseItemExpenseSplitsAction(purchaseItemId: string,
     if (split.subcategory != null && typeof split.subcategory !== 'string') throw new Error('Neplatné rozdělení položky.')
   }
   await setPurchaseItemExpenseSplits(householdId, purchaseItemId, splits)
-  revalidatePath('/')
+  // No revalidatePath: it would re-render the whole page. The recomputed expenses are all that changed.
+  return { expenses: await getHouseholdExpenses(householdId) }
 }
 
 /** The purchase-items behind one category's (or subcategory's) amount for one purchase, for the
@@ -142,9 +143,11 @@ export async function getPurchaseExpenseItemsAction(purchaseId: string, category
  *  receipts started counting as expenses, or otherwise missed (owner request, 2026-09-27). Refuses a
  *  purchase that did not come from a receipt or one that already has expenses
  *  (lib/db/purchase-items.ts). */
-export async function recordPurchaseAsExpenseAction(purchaseId: string): Promise<void> {
+export async function recordPurchaseAsExpenseAction(purchaseId: string): Promise<{ expenses: Expense[]; notifications: Notification[] }> {
   const householdId = await requireHouseholdId()
   if (typeof purchaseId !== 'string' || purchaseId.length === 0) throw new Error('Neplatný nákup.')
   await recordPurchaseAsExpense(householdId, purchaseId)
-  revalidatePath('/')
+  // No revalidatePath (see above). Recording can also raise a budget-threshold notification, so both are returned.
+  const [expenses, notifications] = await Promise.all([getHouseholdExpenses(householdId), getHouseholdNotifications(householdId)])
+  return { expenses, notifications }
 }

@@ -1,7 +1,6 @@
 'use server'
 
 import { and, eq } from 'drizzle-orm'
-import { revalidatePath } from 'next/cache'
 import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
 import { periodSpending, notifyBudgetThresholds } from '@/lib/db/budget-notify'
 import { getDb } from '@/lib/db/client'
@@ -10,6 +9,10 @@ import { isExpenseCategory } from '@/lib/expense-categories'
 import { validateExpenseInput, type ExpenseInput } from '@/lib/expense-input'
 import { todayInPrague } from '@/lib/today'
 import type { CategoryBudgets, Expense, Notification } from '@/lib/types'
+
+// No revalidatePath in this file: each of these saves is already shown by components/app-shell.tsx from its
+// own state or from the data the action returns. Re-rendering the whole page after every save re-ran
+// every household query and re-sent the result (Neon network transfer) and, at worst, reset the view.
 
 type ExpenseRow = typeof schema.expenses.$inferSelect
 
@@ -48,8 +51,6 @@ export async function addExpenseAction(input: ExpenseInput): Promise<{ expense: 
     .returning()
 
   const notifications = await notifyBudgetThresholds(db, householdId, before, [{ category: expense.category, amount: expense.amount }], userId)
-
-  revalidatePath('/')
   return { expense: toExpense(row), notifications }
 }
 
@@ -64,7 +65,6 @@ export async function updateExpenseAction(expenseId: string, input: ExpenseInput
     .set({ amount: expense.amount.toString(), note: expense.note, category: expense.category, subcategory: expense.subcategory, date: expense.date })
     .where(and(eq(schema.expenses.id, expenseId), eq(schema.expenses.householdId, householdId)))
     .returning()
-  revalidatePath('/')
   return { expense: toExpense(row) }
 }
 
@@ -72,7 +72,6 @@ export async function deleteExpenseAction(expenseId: string): Promise<void> {
   const householdId = await requireHouseholdId()
   await ownEditableExpense(householdId, expenseId)
   await getDb().delete(schema.expenses).where(and(eq(schema.expenses.id, expenseId), eq(schema.expenses.householdId, householdId)))
-  revalidatePath('/')
 }
 
 /** Sets a category's monthly limit, or removes it (`amount` null). Any member may, as with the overall
@@ -92,6 +91,5 @@ export async function setCategoryBudgetAction(category: string, amount: number |
       .onConflictDoUpdate({ target: [schema.expenseCategoryBudgets.householdId, schema.expenseCategoryBudgets.category], set: { amount: value, updatedAt: new Date() } })
   }
   const rows = await db.query.expenseCategoryBudgets.findMany({ where: eq(schema.expenseCategoryBudgets.householdId, householdId) })
-  revalidatePath('/')
   return Object.fromEntries(rows.map((row) => [row.category, Number(row.amount)]))
 }

@@ -19,6 +19,7 @@ import {
 import { markMealCookedAction } from '@/app/actions/meal-plan'
 import { markAllNotificationsReadAction, markNotificationReadAction } from '@/app/actions/notifications'
 import { addPantryPlaceAction, adjustPantryItemQuantityAction, autoCategorizePantryAction, setPantryItemCategoryAction, setPantryItemSubcategoryAction, confirmPantryItemAction, movePantryItemAction, removePantryItemAction, removePantryPlaceAction, reviewPantryAction, setPantryCheckinDaysAction, setPantrySubcategoryCheckinDaysAction, setPantryTrackingAction } from '@/app/actions/pantry'
+import type { ExpenseSplitPart } from '@/lib/purchase-expenses'
 import { completePurchaseAction, getPurchaseExpenseItemsAction, recordPurchaseAsExpenseAction, setPurchaseItemExpenseSplitsAction } from '@/app/actions/purchases'
 import {
   applyReceiptListMatchesAction,
@@ -71,7 +72,7 @@ import { expensesInPeriod, totalSpent } from '@/lib/budget'
 import { longDate, thisPeriodTitle } from '@/lib/format'
 import type { HouseholdData, ReceiptImportState } from '@/lib/db/queries'
 import type { ReceiptListSuggestion } from '@/lib/db/receipt-list'
-import type { Ingredient, MealType } from '@/lib/meal-plans'
+import { currentWeekStart, type Ingredient, type MealType } from '@/lib/meal-plans'
 import type { ProductPrice } from '@/lib/prices'
 import { pollReceiptStatus } from '@/lib/receipt-progress'
 import type { ReceiptLineItem } from '@/lib/receipts'
@@ -159,6 +160,11 @@ export function AppShell({
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [notifications, setNotifications] = useState(initialData.notifications)
   const [expenses, setExpenses] = useState(initialData.expenses)
+  // Kept in state so a category reassignment or a recorded purchase shows on the history screen
+  // without re-rendering the whole page from the server.
+  const [purchaseHistory, setPurchaseHistory] = useState(initialData.purchaseHistory)
+  // The saved menu, kept here so it is still shown after switching tabs (saving it no longer re-renders the page).
+  const [mealPlan, setMealPlan] = useState(initialData.mealPlan)
   const [categoryBudgets, setCategoryBudgets] = useState(initialData.categoryBudgets)
   const [limitsOpen, setLimitsOpen] = useState(false)
   const [recurringPayments, setRecurringPayments] = useState(initialData.recurringPayments)
@@ -195,6 +201,8 @@ export function AppShell({
     setItems(applyPendingOps(initialData.items, queueRef.current))
     setNotifications(initialData.notifications)
     setExpenses(initialData.expenses)
+    setPurchaseHistory(initialData.purchaseHistory)
+    setMealPlan(initialData.mealPlan)
     setCategoryBudgets(initialData.categoryBudgets)
     setRecurringPayments(initialData.recurringPayments)
     setRecurringOccurrences(initialData.recurringOccurrences)
@@ -251,13 +259,23 @@ export function AppShell({
   const usualItems = useMemo(
     () =>
       suggestUsualItems({
-        purchases: initialData.purchaseHistory,
+        purchases: purchaseHistory,
         today,
         onList: items.filter((item) => !item.done).map((item) => item.name),
         inPantry: pantryItems.map((item) => item.name),
       }),
-    [initialData.purchaseHistory, today, items, pantryItems],
+    [purchaseHistory, today, items, pantryItems],
   )
+
+  // Reassigns (or splits) one purchase item's expense. The server returns the recomputed expenses, so
+  // the category and period totals update without re-rendering the whole page.
+  async function saveItemSplits(purchaseItemId: string, splits: ExpenseSplitPart[]) {
+    const result = await setPurchaseItemExpenseSplitsAction(purchaseItemId, splits)
+    setExpenses(result.expenses)
+    setPurchaseHistory((current) =>
+      current.map((record) => (record.items.some((item) => item.id === purchaseItemId) ? { ...record, items: record.items.map((item) => (item.id === purchaseItemId ? { ...item, expenseSplits: splits } : item)) } : record)),
+    )
+  }
 
   async function addItem() {
     const name = newItem.trim()
@@ -580,7 +598,7 @@ export function AppShell({
   }
 
   // "Asi došlo" estimates from the household's own purchase rhythm (lib/pantry-estimate.ts).
-  const pantryEstimates = useMemo(() => estimatePantry(pantryItems, initialData.purchaseHistory, today), [pantryItems, initialData.purchaseHistory, today])
+  const pantryEstimates = useMemo(() => estimatePantry(pantryItems, purchaseHistory, today), [pantryItems, purchaseHistory, today])
   const likelyGonePantryIds = useMemo(() => new Set([...pantryEstimates].filter(([, estimate]) => estimate.likelyGone).map(([id]) => id)), [pantryEstimates])
   // "Došlo mi…" on the home screen: out of the pantry and, if asked, onto the list — without the
   // "Došlo?" question, since the household just said so.
@@ -866,7 +884,7 @@ export function AppShell({
                   />
                   <QuickOutOfStock pantryItems={pantryItems} likelyGoneIds={likelyGonePantryIds} onGone={quickOut} />
                   <PriceWatch today={today} onBrowseDeals={() => setTab('Akce')} onStores={() => setTab('Obchody')} onAddToList={addItemByName} listItemNames={pendingNames} productPrices={nearbyProductPrices} offers={nearbyStandaloneOffers} pantryItems={pantryItems} />
-                  <MealPlan household={household} initialPlan={initialData.mealPlan} pantryItems={pantryItems} onAddIngredients={addIngredients} onMarkCooked={markMealCooked} />
+                  <MealPlan household={household} initialPlan={mealPlan} pantryItems={pantryItems} onAddIngredients={addIngredients} onMarkCooked={markMealCooked} onPlanSaved={(budgetLimit, plan) => setMealPlan({ weekStart: currentWeekStart(today), budgetLimit, plan })} />
                   <div className="grid gap-4 lg:grid-cols-2 lg:gap-6">
                     <SpendingBreakdown expenses={periodExpenses} periodTitle={thisPeriodTitle(today, periodStartDay)} onDetails={() => setTab('Rozpočet')} />
                     <SavingsInsight remaining={remaining} today={today} periodStartDay={periodStartDay} />
@@ -942,14 +960,13 @@ export function AppShell({
                   )}
                   {nakupView === 'nakupy' && (
                     <PurchaseHistory
-                      records={initialData.purchaseHistory}
-                      onSaveSplits={async (purchaseItemId, splits) => {
-                        await setPurchaseItemExpenseSplitsAction(purchaseItemId, splits)
-                        router.refresh()
-                      }}
+                      records={purchaseHistory}
+                      onSaveSplits={saveItemSplits}
                       onRecordExpenses={async (purchaseId) => {
-                        await recordPurchaseAsExpenseAction(purchaseId)
-                        router.refresh() // the new expense needs to show up in Rozpočet, not just the history row
+                        const result = await recordPurchaseAsExpenseAction(purchaseId)
+                        setExpenses(result.expenses)
+                        setNotifications(result.notifications)
+                        setPurchaseHistory((current) => current.map((record) => (record.id === purchaseId ? { ...record, needsBudgetRecording: false } : record)))
                       }}
                     />
                   )}
@@ -1070,10 +1087,7 @@ export function AppShell({
                       onEdit={openExpense}
                       onLimits={() => setLimitsOpen(true)}
                       onLoadItems={(purchaseId, category, subcategory) => getPurchaseExpenseItemsAction(purchaseId, category, subcategory)}
-                      onSaveSplits={async (purchaseItemId, splits) => {
-                        await setPurchaseItemExpenseSplitsAction(purchaseItemId, splits)
-                        router.refresh() // the reassigned item's own list refetches itself; the category/month totals need this too
-                      }}
+                      onSaveSplits={saveItemSplits}
                     />
                   )}
                 </div>

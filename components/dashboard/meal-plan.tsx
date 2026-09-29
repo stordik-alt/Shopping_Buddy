@@ -40,13 +40,21 @@ export function MealPlan({
   pantryItems,
   onAddIngredients,
   onMarkCooked,
+  onPlanSaved,
 }: {
   household: Household
   initialPlan: SavedMealPlan | null
   pantryItems: PantryItem[]
   onAddIngredients: (ingredients: Ingredient[]) => void
   onMarkCooked: (day: string, mealType: MealType) => void
+  /** Lets the parent keep the saved plan, so it is still there when this card is shown again. */
+  onPlanSaved: (budgetLimit: number, plan: WeeklyMealPlan) => void
 }) {
+  function savePlan(limit: number, updated: WeeklyMealPlan) {
+    onPlanSaved(limit, updated)
+    saveMealPlanAction(limit, updated)
+  }
+
   const [budget, setBudget] = useState(initialPlan ? String(initialPlan.budgetLimit) : '2500')
   const [plan, setPlan] = useState<WeeklyMealPlan | null>(initialPlan?.plan ?? null)
   const [useStock, setUseStock] = useState(false)
@@ -71,7 +79,7 @@ export function MealPlan({
     })
     setPlan(newPlan)
     setAdded(false)
-    saveMealPlanAction(limit, newPlan)
+    savePlan(limit, newPlan)
   }
 
   function toggleMealType(type: MealType) {
@@ -83,7 +91,7 @@ export function MealPlan({
     const updated = regenerateMeal(plan, day, mealType, household, useStock ? pantryItems : null)
     setPlan(updated)
     setAdded(false)
-    saveMealPlanAction(Number(budget), updated)
+    savePlan(Number(budget), updated)
   }
 
   function markCooked(day: string, mealType: MealType) {
@@ -106,7 +114,7 @@ export function MealPlan({
     if (plan && Number.isFinite(limit) && limit > 0) {
       const updated = { ...plan, recommendedStores: recommendStores(plan.estimatedTotal, limit, household) }
       setPlan(updated)
-      saveMealPlanAction(limit, updated)
+      savePlan(limit, updated)
     }
   }
 

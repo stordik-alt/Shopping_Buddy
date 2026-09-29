@@ -10,7 +10,8 @@ let currentHouseholdId = ''
 vi.mock('@/lib/auth/authorize', () => ({ requireHouseholdId: () => Promise.resolve(currentHouseholdId) }))
 vi.mock('next/cache', () => ({ revalidatePath: () => {} }))
 
-import { completePurchaseAction } from '@/app/actions/purchases'
+import { completePurchaseAction, recordPurchaseAsExpenseAction, setPurchaseItemExpenseSplitsAction } from '@/app/actions/purchases'
+import { recomputePurchaseExpenses } from '@/lib/db/purchase-items'
 
 const db = getDb()
 const createdHouseholdIds: string[] = []
@@ -170,5 +171,47 @@ describe('completePurchaseAction — pantry restocking', () => {
     expect(pantryRows[0].quantity).toBe(16)
     expect(pantryRows[0].askedAt).toBeNull()
     expect(pantryRows[0].addedAt.getTime()).toBeGreaterThan(twoDaysAgo.getTime())
+  })
+})
+
+describe('setPurchaseItemExpenseSplitsAction', () => {
+  it('returns the household expenses after the change, so the page needs no refresh', async () => {
+    const [purchase] = await db.insert(schema.purchases).values({ householdId, date: '2026-09-27', total: '500' }).returning()
+    const [, gift] = await db
+      .insert(schema.purchaseItems)
+      .values([
+        { purchaseId: purchase.id, name: 'Mléko', quantity: 1, price: '400', category: 'Potraviny' },
+        { purchaseId: purchase.id, name: 'Dárkový koš', quantity: 1, price: '100', category: 'Potraviny' },
+      ])
+      .returning()
+    await recomputePurchaseExpenses(db, purchase.id)
+
+    const { expenses } = await setPurchaseItemExpenseSplitsAction(gift.id, [{ category: 'Ostatní', subcategory: 'Dárky', amount: 100 }])
+    expect(expenses.map((expense) => [expense.category, expense.subcategory, expense.amount]).sort()).toEqual([
+      ['Ostatní', 'Dárky', 100],
+      ['Potraviny', null, 400],
+    ])
+  })
+
+  it('does not return another household’s expenses', async () => {
+    await db.insert(schema.expenses).values({ householdId: otherHouseholdId, amount: '77', note: 'cizí', category: 'Potraviny', date: '2026-09-27' })
+    const [purchase] = await db.insert(schema.purchases).values({ householdId, date: '2026-09-27', total: '100' }).returning()
+    const [item] = await db.insert(schema.purchaseItems).values({ purchaseId: purchase.id, name: 'Mléko', quantity: 1, price: '100', category: 'Potraviny' }).returning()
+    await recomputePurchaseExpenses(db, purchase.id)
+
+    const { expenses } = await setPurchaseItemExpenseSplitsAction(item.id, [{ category: 'Potraviny', subcategory: null, amount: 100 }])
+    expect(expenses.every((expense) => expense.note !== 'cizí')).toBe(true)
+  })
+})
+
+describe('recordPurchaseAsExpenseAction', () => {
+  it('returns the new expenses and notifications of the household', async () => {
+    const [purchase] = await db.insert(schema.purchases).values({ householdId, date: '2026-09-27', total: '120' }).returning()
+    await db.insert(schema.purchaseItems).values({ purchaseId: purchase.id, name: 'Mléko', quantity: 1, price: '120', category: 'Potraviny' })
+    await db.insert(schema.receiptImports).values({ householdId, purchaseId: purchase.id, status: 'completed', source: 'manual' })
+
+    const { expenses, notifications } = await recordPurchaseAsExpenseAction(purchase.id)
+    expect(expenses.filter((expense) => expense.purchaseId === purchase.id).map((expense) => expense.amount)).toEqual([120])
+    expect(Array.isArray(notifications)).toBe(true)
   })
 })

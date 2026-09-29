@@ -1,7 +1,6 @@
 'use server'
 
 import { and, eq, inArray, isNull } from 'drizzle-orm'
-import { revalidatePath } from 'next/cache'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { getDb } from '@/lib/db/client'
 import { proposeProductCategory } from '@/lib/db/category-changes'
@@ -12,6 +11,10 @@ import type { CatalogChangeOutcome, CategoryChangeOutcome } from '@/lib/product-
 import { PRODUCT_SUBCATEGORIES, subcategoriesOfItem } from '@/lib/product-subcategories'
 import { CHECKIN_DAYS_BY_CATEGORY, checkinSubcategoryKey, customPlaceIdFromKey, MAX_PANTRY_REVIEW_ITEMS, PANTRY_AREAS, PANTRY_LOCATIONS, PANTRY_TRACKING, splitPantryReview } from '@/lib/pantry'
 import type { ItemCategory, PantryArea, PantryTracking } from '@/lib/types'
+
+// No revalidatePath in this file: each of these saves is already shown by components/app-shell.tsx from its
+// own state or from the data the action returns. Re-rendering the whole page after every save re-ran
+// every household query and re-sent the result (Neon network transfer) and, at worst, reset the view.
 
 async function assertOwnsPantryItem(householdId: string, pantryItemId: string) {
   const db = getDb()
@@ -29,7 +32,7 @@ export async function confirmPantryItemAction(pantryItemId: string) {
   await db.update(schema.pantryItems).set({ addedAt: new Date(), askedAt: null }).where(eq(schema.pantryItems.id, pantryItemId))
   // No revalidatePath: the app has already shown this change (components/app-shell.tsx updates its own
   // state first), and re-rendering the whole page for every tap re-ran every household query —
-  // compute on the database for nothing. Other members see it on their next refresh (once a minute).
+  // compute on the database for nothing. Other members see it on their next reload.
 }
 
 /** Reassigns which place an item lives in — e.g. moving freshly bought chilled meat into the
@@ -55,7 +58,7 @@ export async function movePantryItemAction(pantryItemId: string, placeKey: strin
   }
   // No revalidatePath: the app has already shown this change (components/app-shell.tsx updates its own
   // state first), and re-rendering the whole page for every tap re-ran every household query —
-  // compute on the database for nothing. Other members see it on their next refresh (once a minute).
+  // compute on the database for nothing. Other members see it on their next reload.
 }
 
 const MAX_PLACE_NAME_LENGTH = 60
@@ -74,7 +77,6 @@ export async function addPantryPlaceAction(area: PantryArea, name: string): Prom
   const existing = await db.query.pantryPlaces.findFirst({ where: and(eq(schema.pantryPlaces.householdId, householdId), eq(schema.pantryPlaces.area, area), eq(schema.pantryPlaces.name, trimmed)) })
   if (existing) throw new Error('Toto místo už v dané oblasti existuje.')
   const [place] = await db.insert(schema.pantryPlaces).values({ householdId, area, name: trimmed }).returning()
-  revalidatePath('/')
   return { id: place.id, area: place.area, name: place.name }
 }
 
@@ -95,7 +97,6 @@ export async function setPantryCheckinDaysAction(category: ItemCategory, days: n
       .onConflictDoUpdate({ target: [schema.pantryCheckinIntervals.householdId, schema.pantryCheckinIntervals.category], set: { days, updatedAt: new Date() } })
   }
   const rows = await db.query.pantryCheckinIntervals.findMany({ where: eq(schema.pantryCheckinIntervals.householdId, householdId) })
-  revalidatePath('/')
   return Object.fromEntries(rows.map((row) => [row.category, row.days]))
 }
 
@@ -122,7 +123,6 @@ export async function setPantrySubcategoryCheckinDaysAction(category: ItemCatego
       })
   }
   const rows = await db.query.pantryCheckinSubcategoryIntervals.findMany({ where: eq(schema.pantryCheckinSubcategoryIntervals.householdId, householdId) })
-  revalidatePath('/')
   return Object.fromEntries(rows.map((row) => [checkinSubcategoryKey(row.category, row.subcategory), row.days]))
 }
 
@@ -138,7 +138,6 @@ export async function removePantryPlaceAction(placeId: string) {
   const [itemHere] = await db.select({ id: schema.pantryItems.id }).from(schema.pantryItems).where(eq(schema.pantryItems.customPlaceId, placeId)).limit(1)
   if (itemHere) throw new Error('Nejdřív přesuňte položky z tohoto místa jinam.')
   await db.delete(schema.pantryPlaces).where(eq(schema.pantryPlaces.id, placeId))
-  revalidatePath('/')
 }
 
 /** Sets a pantry item's quantity to an exact value — covers both the "−/+" stepper and typing an
@@ -156,7 +155,7 @@ export async function adjustPantryItemQuantityAction(pantryItemId: string, quant
   await db.update(schema.pantryItems).set({ quantity }).where(eq(schema.pantryItems.id, pantryItemId))
   // No revalidatePath: the app has already shown this change (components/app-shell.tsx updates its own
   // state first), and re-rendering the whole page for every tap re-ran every household query —
-  // compute on the database for nothing. Other members see it on their next refresh (once a minute).
+  // compute on the database for nothing. Other members see it on their next reload.
 }
 
 /** "Došlo" — the household no longer has this item, so it's removed from the pantry entirely
@@ -169,7 +168,7 @@ export async function removePantryItemAction(pantryItemId: string) {
   await db.delete(schema.pantryItems).where(eq(schema.pantryItems.id, pantryItemId))
   // No revalidatePath: the app has already shown this change (components/app-shell.tsx updates its own
   // state first), and re-rendering the whole page for every tap re-ran every household query —
-  // compute on the database for nothing. Other members see it on their next refresh (once a minute).
+  // compute on the database for nothing. Other members see it on their next reload.
 }
 
 /** "Zkontrolovat zásoby" — saves a bulk check in one go: the items marked gone are removed, every
@@ -205,7 +204,6 @@ export async function reviewPantryAction(input: { reviewedIds: string[]; goneIds
   } else {
     await db.update(schema.pantryItems).set({ addedAt: now, askedAt: null }).where(inHousehold(keptIds))
   }
-  revalidatePath('/')
   return { removed: goneIds.length, confirmed: keptIds.length }
 }
 
@@ -256,7 +254,6 @@ export async function setPantryItemCategoryAction(pantryItemId: string, category
   const outcome = item.productId ? await proposeProductCategory(householdId, item.productId, category) : 'applied'
   if (outcome === 'locked') return outcome
   await db.update(schema.pantryItems).set({ category, subcategoryId: null }).where(eq(schema.pantryItems.id, pantryItemId))
-  revalidatePath('/')
   return outcome
 }
 
@@ -298,5 +295,5 @@ export async function setPantryTrackingAction(pantryItemId: string, tracking: Pa
   await getDb().update(schema.pantryItems).set({ tracking, askedAt: null }).where(eq(schema.pantryItems.id, pantryItemId))
   // No revalidatePath: the app has already shown this change (components/app-shell.tsx updates its own
   // state first), and re-rendering the whole page for every tap re-ran every household query —
-  // compute on the database for nothing. Other members see it on their next refresh (once a minute).
+  // compute on the database for nothing. Other members see it on their next reload.
 }

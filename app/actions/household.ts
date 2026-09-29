@@ -2,7 +2,6 @@
 
 import { randomBytes } from 'node:crypto'
 import { eq } from 'drizzle-orm'
-import { revalidatePath } from 'next/cache'
 import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
 import { auth } from '@/lib/auth/server'
 import { isValidPeriodStartDay, MAX_PERIOD_START_DAY } from '@/lib/budget'
@@ -10,6 +9,10 @@ import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { joinHouseholdViaInvitation } from '@/lib/db/queries'
 import type { Child, HouseholdMember, HouseholdPreferences, PriceSensitivity, QualityPreference } from '@/lib/types'
+
+// No revalidatePath in this file: each of these saves is already shown by components/app-shell.tsx from its
+// own state or from the data the action returns. Re-rendering the whole page after every save re-ran
+// every household query and re-sent the result (Neon network transfer) and, at worst, reset the view.
 
 export async function updateHouseholdAction(changes: { name?: string; monthlyBudget?: number; budgetPeriodStartDay?: number }) {
   const householdId = await requireHouseholdId()
@@ -26,7 +29,6 @@ export async function updateHouseholdAction(changes: { name?: string; monthlyBud
       ...(changes.budgetPeriodStartDay != null && { budgetPeriodStartDay: changes.budgetPeriodStartDay }),
     })
     .where(eq(schema.households.id, householdId))
-  revalidatePath('/')
 }
 
 export async function addHouseholdMemberAction(member: {
@@ -46,7 +48,6 @@ export async function addHouseholdMemberAction(member: {
     dislikedFoods: member.dislikedFoods,
     allergies: member.allergies,
   })
-  revalidatePath('/')
   return {
     id: memberRow.id,
     name: memberRow.name,
@@ -65,7 +66,6 @@ export async function removeHouseholdMemberAction(memberId: string) {
   const member = await db.query.householdMembers.findFirst({ where: eq(schema.householdMembers.id, memberId) })
   if (!member || member.householdId !== householdId) throw new Error('Household member not found')
   await db.delete(schema.householdMembers).where(eq(schema.householdMembers.id, memberId))
-  revalidatePath('/')
 }
 
 export async function addChildAction(child: { name: string; age: number; preferences: string; specialNeeds?: string }): Promise<Child> {
@@ -75,7 +75,6 @@ export async function addChildAction(child: { name: string; age: number; prefere
     .insert(schema.children)
     .values({ householdId, name: child.name, age: child.age, preferences: child.preferences, specialNeeds: child.specialNeeds || null })
     .returning()
-  revalidatePath('/')
   return { id: row.id, name: row.name, age: row.age, preferences: row.preferences, specialNeeds: row.specialNeeds ?? undefined }
 }
 
@@ -85,7 +84,6 @@ export async function removeChildAction(childId: string) {
   const child = await db.query.children.findFirst({ where: eq(schema.children.id, childId) })
   if (!child || child.householdId !== householdId) throw new Error('Child not found')
   await db.delete(schema.children).where(eq(schema.children.id, childId))
-  revalidatePath('/')
 }
 
 const PRICE_SENSITIVITY_VALUE: Record<PriceSensitivity, 'cheapest' | 'balanced' | 'quality_first'> = {
@@ -114,7 +112,6 @@ export async function updateHouseholdPreferencesAction(changes: Partial<Househol
       ...(changes.preferCzechProducts != null && { preferCzechProducts: changes.preferCzechProducts }),
     })
     .where(eq(schema.preferences.householdId, householdId))
-  revalidatePath('/')
 }
 
 const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000
@@ -137,7 +134,6 @@ export async function inviteMemberAction(email: string): Promise<{ id: string; t
       expiresAt: new Date(Date.now() + INVITATION_TTL_MS),
     })
     .returning()
-  revalidatePath('/')
   return { id: invitation.id, token, email: invitation.email, expiresAt: invitation.expiresAt.toString() }
 }
 
@@ -148,7 +144,6 @@ export async function revokeInvitationAction(invitationId: string) {
   const invitation = await db.query.invitations.findFirst({ where: eq(schema.invitations.id, invitationId) })
   if (!invitation || invitation.householdId !== householdId) throw new Error('Pozvánka nenalezena')
   await db.update(schema.invitations).set({ status: 'revoked' }).where(eq(schema.invitations.id, invitationId))
-  revalidatePath('/')
 }
 
 /** Accepts a household invitation. Requires the signed-in account's email to match the invite,

@@ -13,7 +13,7 @@ export async function markNotificationReadAction(notificationId: string) {
   await db.update(schema.notifications).set({ unread: false }).where(eq(schema.notifications.id, notificationId))
   // No revalidatePath: the app has already shown this change (components/app-shell.tsx updates its own
   // state first), and re-rendering the whole page for every tap re-ran every household query —
-  // compute on the database for nothing. Other members see it on their next refresh (once a minute).
+  // compute on the database for nothing. Other members see it after their next reload.
 }
 
 export async function markAllNotificationsReadAction() {
@@ -22,5 +22,5 @@ export async function markAllNotificationsReadAction() {
   await db.update(schema.notifications).set({ unread: false }).where(eq(schema.notifications.householdId, householdId))
   // No revalidatePath: the app has already shown this change (components/app-shell.tsx updates its own
   // state first), and re-rendering the whole page for every tap re-ran every household query —
-  // compute on the database for nothing. Other members see it on their next refresh (once a minute).
+  // compute on the database for nothing. Other members see it after their next reload.
 }

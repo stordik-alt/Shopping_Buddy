@@ -292,7 +292,7 @@ Current membership model:
 
 Invitations are stored and processed through the existing invitation system.
 
-Concurrent editing currently uses lightweight refresh/polling rather than websockets.
+The app does not refresh itself automatically (no polling, no refresh on focus): another member's changes appear after a reload or the user's own next refreshing action. There are no websockets.
 
 Do not introduce realtime infrastructure unless there is a concrete requirement.
 

@@ -28,8 +28,8 @@ export function PurchaseHistory({
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [showAll, setShowAll] = useState(false)
   const [editingItem, setEditingItem] = useState<(PurchaseItem & { id: string; category: NonNullable<PurchaseItem['category']> }) | null>(null)
-  // The server action also revalidates, but that refresh happens on the app's own polling schedule
-  // (CLAUDE.md section 10: lightweight polling, no realtime) — this makes a save stick on screen
+  // The server action also revalidates, but the app never refreshes itself on a schedule
+  // (CLAUDE.md section 10) — this makes a save stick on screen
   // immediately, the same way the store directory and the ideas admin screen already do.
   const [overrides, setOverrides] = useState<Record<string, ExpenseSplitPart[]>>({})
   const [recording, setRecording] = useState<string | null>(null)

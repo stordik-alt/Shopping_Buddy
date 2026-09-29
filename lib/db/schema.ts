@@ -420,6 +420,9 @@ export const flyerPages = pgTable('flyer_pages', {
   validFrom: date('valid_from').notNull(),
   validUntil: date('valid_until').notNull(),
   offers: jsonb('offers').notNull(),
+  /** The page's OCR text, for a retailer whose own flyer data carries no usable text layer (Lidl). The
+   *  validator checks the model's prices against it on every read, so it is kept with the page. */
+  pageText: text('page_text'),
   model: text('model').notNull(),
   inputTokens: integer('input_tokens'),
   outputTokens: integer('output_tokens'),

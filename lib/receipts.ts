@@ -253,15 +253,17 @@ export function isAzureReceiptFallbackConfigured(): boolean {
   return Boolean(process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT && process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY)
 }
 
-/** Azure Document Intelligence prebuilt-receipt fallback using the current 2024-11-30 REST API.
- * Uploaded bytes are sent directly as base64, so the private Vercel Blob URL is never exposed. */
-export const azureReceiptTextExtractor: ReceiptTextExtractor = {
+/** Azure Document Intelligence text extractor for one prebuilt model, using the current 2024-11-30
+ * REST API. Uploaded bytes are sent directly as base64, so the private Vercel Blob URL is never
+ * exposed. `prebuilt-receipt` suits receipts; `prebuilt-read` is plain OCR for any other page. */
+export function createAzureTextExtractor(modelId: 'prebuilt-receipt' | 'prebuilt-read'): ReceiptTextExtractor {
+  return {
   async extractText(file) {
     const endpoint = process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT?.replace(/\/$/, '')
     const key = process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY
     if (!endpoint || !key) throw new Error('Azure Document Intelligence fallback is not configured')
 
-    const analyzeUrl = endpoint + '/documentintelligence/documentModels/prebuilt-receipt:analyze?api-version=2024-11-30'
+    const analyzeUrl = endpoint + '/documentintelligence/documentModels/' + modelId + ':analyze?api-version=2024-11-30'
     const response = await fetch(analyzeUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Ocp-Apim-Subscription-Key': key },
@@ -304,7 +306,10 @@ export const azureReceiptTextExtractor: ReceiptTextExtractor = {
 
     throw new Error('Azure Document Intelligence analysis timed out')
   },
+  }
 }
+
+export const azureReceiptTextExtractor = createAzureTextExtractor('prebuilt-receipt')
 
 /** Google Cloud Vision's `DOCUMENT_TEXT_DETECTION` via the plain REST API (no Google Cloud client
  *  library needed for this one call) — per docs/08_OCR_RECEIPT_PIPELINE.md section 3. Requires

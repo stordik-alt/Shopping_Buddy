@@ -39,6 +39,8 @@ export function HouseholdProfile({
   onRemovePantryPlace,
   pantryCheckinDays,
   onSetPantryCheckinDays,
+  pantryCheckinSubcategoryDays,
+  onSetPantrySubcategoryCheckinDays,
 }: {
   household: Household
   isOwner: boolean
@@ -63,6 +65,9 @@ export function HouseholdProfile({
   /** The household's own per-category pantry check-in interval overrides. */
   pantryCheckinDays: Partial<Record<ItemCategory, number>>
   onSetPantryCheckinDays: (category: ItemCategory, days: number | null) => Promise<Partial<Record<ItemCategory, number>>>
+  /** The same per subcategory, keyed by `checkinSubcategoryKey`. */
+  pantryCheckinSubcategoryDays: Record<string, number>
+  onSetPantrySubcategoryCheckinDays: (category: ItemCategory, subcategory: string, days: number | null) => Promise<Record<string, number>>
 }) {
   const [invite, setInvite] = useState('')
   const [inviteLink, setInviteLink] = useState<string | null>(null)
@@ -299,7 +304,12 @@ export function HouseholdProfile({
 
       <PantryPlaces places={pantryPlaces} onAdd={onAddPantryPlace} onRemove={onRemovePantryPlace} />
 
-      <PantryCheckinSettings overrides={pantryCheckinDays} onSave={onSetPantryCheckinDays} />
+      <PantryCheckinSettings
+        overrides={pantryCheckinDays}
+        onSave={onSetPantryCheckinDays}
+        subcategoryOverrides={pantryCheckinSubcategoryDays}
+        onSaveSubcategory={onSetPantrySubcategoryCheckinDays}
+      />
 
       <section className="surface p-6">
         <p className="font-semibold">Nákupní preference domácnosti</p>

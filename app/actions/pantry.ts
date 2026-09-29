@@ -5,7 +5,8 @@ import { revalidatePath } from 'next/cache'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
-import { CHECKIN_DAYS_BY_CATEGORY, customPlaceIdFromKey, MAX_PANTRY_REVIEW_ITEMS, PANTRY_AREAS, PANTRY_LOCATIONS, PANTRY_TRACKING, splitPantryReview } from '@/lib/pantry'
+import { subcategoriesOfItem } from '@/lib/product-subcategories'
+import { CHECKIN_DAYS_BY_CATEGORY, checkinSubcategoryKey, customPlaceIdFromKey, MAX_PANTRY_REVIEW_ITEMS, PANTRY_AREAS, PANTRY_LOCATIONS, PANTRY_TRACKING, splitPantryReview } from '@/lib/pantry'
 import type { ItemCategory, PantryArea, PantryTracking } from '@/lib/types'
 
 async function assertOwnsPantryItem(householdId: string, pantryItemId: string) {
@@ -92,6 +93,33 @@ export async function setPantryCheckinDaysAction(category: ItemCategory, days: n
   const rows = await db.query.pantryCheckinIntervals.findMany({ where: eq(schema.pantryCheckinIntervals.householdId, householdId) })
   revalidatePath('/')
   return Object.fromEntries(rows.map((row) => [row.category, row.days]))
+}
+
+/** The same for one subcategory (Potraviny ▸ Pečivo …); `days: null` clears back to the built-in
+ *  default (`CHECKIN_DAYS_BY_SUBCATEGORY`). Returns every subcategory override, keyed by
+ *  `checkinSubcategoryKey`. */
+export async function setPantrySubcategoryCheckinDaysAction(category: ItemCategory, subcategory: string, days: number | null): Promise<Record<string, number>> {
+  const householdId = await requireHouseholdId()
+  if (!(category in CHECKIN_DAYS_BY_CATEGORY)) throw new Error('Neznámá kategorie.')
+  if (typeof subcategory !== 'string' || !(subcategoriesOfItem(category) as readonly string[]).includes(subcategory)) throw new Error('Neznámá podkategorie.')
+  const db = getDb()
+  if (days === null) {
+    await db
+      .delete(schema.pantryCheckinSubcategoryIntervals)
+      .where(and(eq(schema.pantryCheckinSubcategoryIntervals.householdId, householdId), eq(schema.pantryCheckinSubcategoryIntervals.category, category), eq(schema.pantryCheckinSubcategoryIntervals.subcategory, subcategory)))
+  } else {
+    if (!Number.isInteger(days) || days <= 0 || days > 365) throw new Error('Počet dní musí být celé číslo mezi 1 a 365.')
+    await db
+      .insert(schema.pantryCheckinSubcategoryIntervals)
+      .values({ householdId, category, subcategory, days })
+      .onConflictDoUpdate({
+        target: [schema.pantryCheckinSubcategoryIntervals.householdId, schema.pantryCheckinSubcategoryIntervals.category, schema.pantryCheckinSubcategoryIntervals.subcategory],
+        set: { days, updatedAt: new Date() },
+      })
+  }
+  const rows = await db.query.pantryCheckinSubcategoryIntervals.findMany({ where: eq(schema.pantryCheckinSubcategoryIntervals.householdId, householdId) })
+  revalidatePath('/')
+  return Object.fromEntries(rows.map((row) => [checkinSubcategoryKey(row.category, row.subcategory), row.days]))
 }
 
 /** Removes one of the household's own storage places. Refuses while it still holds items — the

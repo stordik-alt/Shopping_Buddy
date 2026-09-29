@@ -337,6 +337,20 @@
       "when": 1790651440273,
       "tag": "0047_pantry_checkin_intervals",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1790668388917,
+      "tag": "0048_drop_grocery_shopping_subcategory",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1790668482550,
+      "tag": "0049_pantry_checkin_subcategory_intervals",
+      "breakpoints": true
     }
   ]
 }

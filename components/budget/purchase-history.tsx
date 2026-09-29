@@ -99,28 +99,28 @@ export function PurchaseHistory({
                   <ChevronDown className={`h-4 w-4 text-muted-foreground transition ${expandedId === record.id ? 'rotate-180' : ''}`} />
                 </div>
               </button>
+              {/* Shown on the collapsed row, not only once expanded, so a receipt that never reached the
+                  budget is noticed without opening it. */}
+              {record.needsBudgetRecording && !recorded[record.id] && (
+                <div className="flex flex-wrap items-center justify-between gap-2 px-5 pb-4">
+                  <p className="text-xs text-muted-foreground">Tento nákup zatím není v rozpočtu.</p>
+                  <button
+                    onClick={() => recordExpenses(record.id)}
+                    disabled={recording === record.id}
+                    className="flex min-h-9 items-center gap-1.5 rounded-full bg-primary/10 px-3 text-xs font-medium text-primary hover:bg-primary/15 disabled:opacity-60"
+                  >
+                    {recording === record.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <PiggyBank className="h-3.5 w-3.5" aria-hidden="true" />}
+                    Zařadit do výdajů
+                  </button>
+                </div>
+              )}
+              {recordError[record.id] && (
+                <p role="alert" className="px-5 pb-4 text-xs text-destructive">
+                  {recordError[record.id]}
+                </p>
+              )}
               {expandedId === record.id && (
                 <div className="space-y-1.5 border-t border-border bg-muted/40 px-5 py-4">
-                  {record.needsBudgetRecording && !recorded[record.id] && (
-                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-background px-3 py-2.5">
-                      <p className="text-xs text-muted-foreground">Tento nákup zatím není v rozpočtu.</p>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => recordExpenses(record.id)}
-                          disabled={recording === record.id}
-                          className="flex min-h-9 items-center gap-1.5 rounded-full bg-primary/10 px-3 text-xs font-medium text-primary hover:bg-primary/15 disabled:opacity-60"
-                        >
-                          {recording === record.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <PiggyBank className="h-3.5 w-3.5" aria-hidden="true" />}
-                          Zapsat do rozpočtu
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  {recordError[record.id] && (
-                    <p role="alert" className="mb-2 text-xs text-destructive">
-                      {recordError[record.id]}
-                    </p>
-                  )}
                   {record.items.map((item) => {
                     // Only a real, categorized database row can be reassigned — a purchase made
                     // before that column existed (`category` unknown) has nothing to base it on.

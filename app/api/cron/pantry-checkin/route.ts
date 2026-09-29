@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { createHouseholdNotification } from '@/lib/notify'
+import { checkinSubcategoryKey } from '@/lib/pantry'
 import { selectForWeeklyCheck, weeklyCheckMessage } from '@/lib/pantry-estimate'
 import { RHYTHM_WINDOW_DAYS } from '@/lib/purchase-rhythm'
 import { PANTRY_CHECK_HREF } from '@/lib/tab-url'
@@ -26,7 +27,7 @@ export async function GET(request: Request) {
   }
 
   const db = getDb()
-  const allItems = await db.query.pantryItems.findMany()
+  const allItems = await db.query.pantryItems.findMany({ with: { subcategory: { columns: { name: true } } } })
   const householdIds = [...new Set(allItems.map((item) => item.householdId))]
   if (householdIds.length === 0) return NextResponse.json({ askedHouseholds: 0, askedItems: 0 })
 
@@ -38,6 +39,13 @@ export async function GET(request: Request) {
     const overrides = checkinOverridesByHousehold.get(row.householdId) ?? {}
     overrides[row.category] = row.days
     checkinOverridesByHousehold.set(row.householdId, overrides)
+  }
+  const subcategoryRows = await db.query.pantryCheckinSubcategoryIntervals.findMany({ where: inArray(schema.pantryCheckinSubcategoryIntervals.householdId, householdIds) })
+  const subcategoryOverridesByHousehold = new Map<string, Record<string, number>>()
+  for (const row of subcategoryRows) {
+    const overrides = subcategoryOverridesByHousehold.get(row.householdId) ?? {}
+    overrides[checkinSubcategoryKey(row.category, row.subcategory)] = row.days
+    subcategoryOverridesByHousehold.set(row.householdId, overrides)
   }
 
   // Only the window the purchase rhythm looks at (lib/purchase-rhythm.ts), for households with a pantry.
@@ -55,6 +63,7 @@ export async function GET(request: Request) {
       id: row.id,
       name: row.name,
       category: row.category,
+      subcategory: row.subcategory?.name ?? null,
       location: row.location,
       quantity: row.quantity,
       unit: row.unit,
@@ -75,7 +84,7 @@ export async function GET(request: Request) {
   let askedHouseholds = 0
   let askedItems = 0
   for (const [householdId, items] of pantryByHousehold) {
-    const selected = selectForWeeklyCheck(items, purchasesByHousehold.get(householdId) ?? [], today, now, checkinOverridesByHousehold.get(householdId) ?? {})
+    const selected = selectForWeeklyCheck(items, purchasesByHousehold.get(householdId) ?? [], today, now, checkinOverridesByHousehold.get(householdId) ?? {}, subcategoryOverridesByHousehold.get(householdId) ?? {})
     if (selected.length === 0) continue
     await createHouseholdNotification(db, householdId, weeklyCheckMessage(selected.map((item) => item.name)), { tab: 'Zásoby', href: PANTRY_CHECK_HREF })
     // Marks them "Máte ještě?" in the app and restarts the check-in interval for the asked ones.

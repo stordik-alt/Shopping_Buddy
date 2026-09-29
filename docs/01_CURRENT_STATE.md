@@ -143,10 +143,10 @@ A full-project review produced a list of improvements; the first block was imple
 
 **Open (from the same review, not started)**
 - Playwright smoke tests (Playwright is a dev dependency but there is no config or `e2e/`); needs the test branch secret and a safe way to create a test account.
-- Split `components/app-shell.tsx` (about 1,200 lines, every action and tab in one client tree) and load the heavy tabs (Rozpočet, Obchody, Akce, Profil) with `next/dynamic`.
+- ~~Split `components/app-shell.tsx`~~ done (PR #156): sections and dialogs load with `next/dynamic` (`components/shell/lazy-views.tsx`), state and actions live in hooks in `components/shell/`; shell is ~715 lines. Not clicked through in a browser.
 - Content-Security-Policy, after a pass over inline scripts and the analytics/OCR origins.
 - Bottom navigation has six tabs at 375 px; consider five plus "Více" (as the UX/IA brief proposes).
-- `prefers-reduced-motion` is not respected anywhere (`hover:-translate-y-*`, `animate-pulse`).
+- ~~`prefers-reduced-motion`~~ done 2026-09-29: one rule in `app/globals.css` removes transitions, pulses and hover lifts; spinners keep turning (essential progress indication). Not checked on a device.
 - Empty states with a next step in Zásoby, Účtenky and Akce were not reviewed.
 - Product ideas: pantry-aware "you still have 2, the deal ends this week" hint when adding to the list; read-only share link for a list; last-updated time per retailer on Akce; one product detail with price history and a buy-timing hint; correction statistics for the AI subcategory fallback.
 - Documentation is duplicated and long: `02_ARCHITECTURE`/`02_PROJECT_CONTEXT`, `03_DATABASE`/`04_DATABASE_MODEL`, `03_CHANGELOG`/`07_CHANGELOG`; this file names the branch `v0/backend` and pnpm 12.3.4 in its header sections although `main` and pnpm 12.6.0 are current. Historical documents must not be deleted without an explicit request (CLAUDE.md section 2), so archiving them is a decision for the owner.

@@ -198,3 +198,30 @@
     min-width: 2.75rem;
   }
 }
+
+/* Respect the system "reduce motion" setting: no decorative transitions, hover lifts, pulses or
+   enter animations. Spinners keep turning because they are the only sign that work is in progress
+   (essential motion under WCAG 2.3.3), and durations are near-zero rather than none so
+   transitionend/animationend listeners in components still fire. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    animation-delay: 0ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Hover lifts (hover:-translate-y-*) would otherwise still jump, only instantly. */
+  [class*='hover:-translate-y-']:hover {
+    translate: none !important;
+  }
+
+  .animate-spin {
+    animation-duration: 1s !important;
+    animation-iteration-count: infinite !important;
+  }
+}

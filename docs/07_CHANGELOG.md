@@ -1,5 +1,8 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-29 (Reduced motion)
+- `app/globals.css`: under `prefers-reduced-motion: reduce` transitions, animations, smooth scrolling and hover lifts are switched off; `animate-spin` is exempt because it is the only sign of work in progress. Build passes, not checked on a device.
+
 ## 2026-09-29 (App shell: sections load as separate chunks, state and handlers split into hooks)
 - `components/shell/lazy-views.tsx` wraps every section body and dialog of `AppShell` in `next/dynamic` (skeleton fallback for sections, none for dialogs), so the initial bundle carries only the navigation, header and the section that is open. Server rendering stays on, so the opened section is still in the first HTML. (`ShoppingList`, `StoreDirectory` and `UsualItems` were first missed and imported statically; fixed.)
 - `components/app-shell.tsx` went from ~1180 to ~715 lines: state, server actions and resync per domain moved to hooks in `components/shell/` — `use-shopping-queue` (offline queue), `use-pantry`, `use-receipts`, `use-household`, `use-budget` (expenses, limits, recurring payments) and `use-shell-environment` (theme, tab/address navigation, service worker). The shell keeps only what sections share (list items, notifications, purchase history, meal plan) and the JSX. Behaviour unchanged; `tsc` and `next build` pass, not checked in a browser.

@@ -4,7 +4,7 @@
 **Stable branch:** `main`
 **Current backend development branch:** `v0/backend`
 **Previous frontend branch:** `V0/continue-frontend` — historical/obsolete unless explicitly requested
-**Last updated:** 2026-09-23
+**Last updated:** 2026-09-29
 
 ---
 
@@ -95,7 +95,7 @@ Current application stack:
 * Tailwind CSS 4.x
 * shadcn/ui
 * lucide-react
-* pnpm 12.3.4
+* pnpm 12.6.0
 * Neon PostgreSQL 18
 * Drizzle ORM
 * Neon Auth
@@ -129,6 +129,27 @@ The frontend currently contains functionality for areas including:
 * shared household functionality
 
 Existing UI should be preserved when working on backend functionality unless a UI change is required.
+
+## Update 2026-09-29, project audit: robustness and CI (PRs #152–#154)
+A full-project review produced a list of improvements; the first block was implemented, the rest is recorded below as open.
+
+**Done**
+- **Error pages:** `app/error.tsx`, `app/global-error.tsx`, `app/not-found.tsx` (Czech text, retry button, only the error digest shown). Next 16's boundary receives `retry`, not `reset`.
+- **Security headers** on all routes in `next.config.mjs`: `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy` (geolocation and camera for the app, no microphone). No Content-Security-Policy yet.
+- **Text size:** labels and badges that were 10–11 px are 12 px (`text-xs`). Kept smaller on purpose: the count badges in the 16 px circles (`app-shell.tsx`, `app-header.tsx`) and the six bottom-navigation labels (`nav-item.tsx`). Not yet checked on a phone.
+- **CI:** the "Unit tests, typecheck and production build" job had been red on every recent PR because two database tests (`lib/db/category-changes.test.ts`, `lib/db/subcategory-changes.test.ts`) were missing from its exclude list. Fixed, and a separate `database` job now runs every database-backed test against the Neon **test** branch. It needs the repository secrets `TEST_DATABASE_URL` (and optionally `TEST_DATABASE_URL_UNPOOLED`); until they exist the job skips itself and shows as passing, so **the database tests do not yet run in CI**. Tests never use the production database (`test/setup-test-database.ts`); locally `pnpm test` runs against the test branch.
+- **Receipt upload limit:** `uploadReceiptAction` refuses the 31st OCR import of a household within a rolling 24 hours (`lib/receipt-upload-limit.ts`), before storing or processing anything. Counted from `receipt_imports`, no migration. A failed import's retry (`retryReceiptImportAction`) is not counted.
+- `scratch-*` files are git-ignored.
+
+**Open (from the same review, not started)**
+- Playwright smoke tests (Playwright is a dev dependency but there is no config or `e2e/`); needs the test branch secret and a safe way to create a test account.
+- Split `components/app-shell.tsx` (about 1,200 lines, every action and tab in one client tree) and load the heavy tabs (Rozpočet, Obchody, Akce, Profil) with `next/dynamic`.
+- Content-Security-Policy, after a pass over inline scripts and the analytics/OCR origins.
+- Bottom navigation has six tabs at 375 px; consider five plus "Více" (as the UX/IA brief proposes).
+- `prefers-reduced-motion` is not respected anywhere (`hover:-translate-y-*`, `animate-pulse`).
+- Empty states with a next step in Zásoby, Účtenky and Akce were not reviewed.
+- Product ideas: pantry-aware "you still have 2, the deal ends this week" hint when adding to the list; read-only share link for a list; last-updated time per retailer on Akce; one product detail with price history and a buy-timing hint; correction statistics for the AI subcategory fallback.
+- Documentation is duplicated and long: `02_ARCHITECTURE`/`02_PROJECT_CONTEXT`, `03_DATABASE`/`04_DATABASE_MODEL`, `03_CHANGELOG`/`07_CHANGELOG`; this file names the branch `v0/backend` and pnpm 12.3.4 in its header sections although `main` and pnpm 12.6.0 are current. Historical documents must not be deleted without an explicit request (CLAUDE.md section 2), so archiving them is a decision for the owner.
 
 ## ✅ HOTOVO — nastavitelné rozpočtové období (UX/IA brief section 5), 2026-09-29
 

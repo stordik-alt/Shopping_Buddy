@@ -5,8 +5,8 @@ import { revalidatePath } from 'next/cache'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
-import { customPlaceIdFromKey, MAX_PANTRY_REVIEW_ITEMS, PANTRY_AREAS, PANTRY_LOCATIONS, PANTRY_TRACKING, splitPantryReview } from '@/lib/pantry'
-import type { PantryArea, PantryTracking } from '@/lib/types'
+import { CHECKIN_DAYS_BY_CATEGORY, customPlaceIdFromKey, MAX_PANTRY_REVIEW_ITEMS, PANTRY_AREAS, PANTRY_LOCATIONS, PANTRY_TRACKING, splitPantryReview } from '@/lib/pantry'
+import type { ItemCategory, PantryArea, PantryTracking } from '@/lib/types'
 
 async function assertOwnsPantryItem(householdId: string, pantryItemId: string) {
   const db = getDb()
@@ -71,6 +71,27 @@ export async function addPantryPlaceAction(area: PantryArea, name: string): Prom
   const [place] = await db.insert(schema.pantryPlaces).values({ householdId, area, name: trimmed }).returning()
   revalidatePath('/')
   return { id: place.id, area: place.area, name: place.name }
+}
+
+/** Sets (or, with `days: null`, clears back to the fixed default) how many days a pantry item of
+ *  `category` can go unconfirmed before the weekly check-in asks about it (spec section 13, Profil
+ *  domácnosti → Zásoby). Returns every category's override, same shape as `setCategoryBudgetAction`. */
+export async function setPantryCheckinDaysAction(category: ItemCategory, days: number | null): Promise<Partial<Record<ItemCategory, number>>> {
+  const householdId = await requireHouseholdId()
+  if (!(category in CHECKIN_DAYS_BY_CATEGORY)) throw new Error('Neznámá kategorie.')
+  const db = getDb()
+  if (days === null) {
+    await db.delete(schema.pantryCheckinIntervals).where(and(eq(schema.pantryCheckinIntervals.householdId, householdId), eq(schema.pantryCheckinIntervals.category, category)))
+  } else {
+    if (!Number.isInteger(days) || days <= 0 || days > 365) throw new Error('Počet dní musí být celé číslo mezi 1 a 365.')
+    await db
+      .insert(schema.pantryCheckinIntervals)
+      .values({ householdId, category, days })
+      .onConflictDoUpdate({ target: [schema.pantryCheckinIntervals.householdId, schema.pantryCheckinIntervals.category], set: { days, updatedAt: new Date() } })
+  }
+  const rows = await db.query.pantryCheckinIntervals.findMany({ where: eq(schema.pantryCheckinIntervals.householdId, householdId) })
+  revalidatePath('/')
+  return Object.fromEntries(rows.map((row) => [row.category, row.days]))
 }
 
 /** Removes one of the household's own storage places. Refuses while it still holds items — the

@@ -1,5 +1,11 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-29 (Configurable pantry check-in interval per category)
+- **Why:** section 13 of the UX/IA brief wanted the household to set how many days a category can go unconfirmed before the weekly check-in asks about it, instead of the fixed `CHECKIN_DAYS_BY_CATEGORY` placeholder.
+- **What:** new `pantry_checkin_intervals` table (migration `0047`), same shape as `expense_category_budgets`. `isDueForCheckin()`/`findDueForCheckin()`/`selectForWeeklyCheck()` take the household's overrides; the weekly cron loads them per household. New `components/household/pantry-checkin-settings.tsx` (Profil domácnosti → Zásoby) to edit them; `setPantryCheckinDaysAction`.
+- **Deliberately at category granularity**, not subcategory — a documented, intentional scope choice, not an overlooked gap.
+- **Tests:** `lib/pantry.test.ts`, `lib/pantry-estimate.test.ts`, `app/actions/pantry.test.ts` (+7). Full suite and `tsc --noEmit` clean; verified live (setting persists across reload).
+
 ## 2026-09-29 (30-day price low and unit price on the Akce card, Fáze 6 of the owner's UX/IA brief)
 - **Why:** the brief wanted "nejnižší cena za posledních 30 dní" with a real value and comparison, plus a unit price next to the deal price.
 - **What:** `lib/prices.ts`'s all-time `isHistoricLow()` boolean is replaced by `recentPriceLow()` (30-day window, three states: unchanged/at-low/above-low, matching the brief's own worked examples). `DealAssessment.recentLow` replaces `isHistoricLow`. New `dealEffectiveUnitPrice()` shows the deal-time unit price (not the regular price's own) on `components/deals/deal-card.tsx`, using the same per-kg/per-l conversion the rest of the app uses.

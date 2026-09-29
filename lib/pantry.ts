@@ -134,18 +134,20 @@ export type PantryCheckinCandidate = {
  *  check-in interval, counted from whichever is more recent: when the item was added/restocked,
  *  or when it was last asked about. Re-asks periodically rather than only once, since a pantry
  *  item left unconfirmed forever isn't useful — unlike a shopping reminder, this isn't a
- *  one-time event. */
-export function isDueForCheckin(item: PantryCheckinCandidate, now: Date): boolean {
+ *  one-time event. `overrides` is the household's own per-category interval (Profil domácnosti →
+ *  Zásoby, spec section 13); a category with none falls back to `CHECKIN_DAYS_BY_CATEGORY`. */
+export function isDueForCheckin(item: PantryCheckinCandidate, now: Date, overrides: Partial<Record<ItemCategory, number>> = {}): boolean {
   if (item.tracking === 'off') return false
-  const intervalMs = (item.tracking === 'rare' ? RARE_CHECKIN_DAYS : CHECKIN_DAYS_BY_CATEGORY[item.category]) * 86_400_000
+  const days = item.tracking === 'rare' ? RARE_CHECKIN_DAYS : (overrides[item.category] ?? CHECKIN_DAYS_BY_CATEGORY[item.category])
+  const intervalMs = days * 86_400_000
   if (now.getTime() - item.addedAt.getTime() < intervalMs) return false
   if (item.askedAt === null) return true
   return now.getTime() - item.askedAt.getTime() >= intervalMs
 }
 
 /** Candidates that are due for a check-in right now. */
-export function findDueForCheckin<T extends PantryCheckinCandidate>(items: T[], now: Date): T[] {
-  return items.filter((item) => isDueForCheckin(item, now))
+export function findDueForCheckin<T extends PantryCheckinCandidate>(items: T[], now: Date, overrides: Partial<Record<ItemCategory, number>> = {}): T[] {
+  return items.filter((item) => isDueForCheckin(item, now, overrides))
 }
 
 // Keyword heuristic for splitting "Potraviny" between the fridge, freezer and pantry shelf —

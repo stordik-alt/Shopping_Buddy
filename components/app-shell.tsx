@@ -18,7 +18,7 @@ import {
 } from '@/app/actions/household'
 import { markMealCookedAction } from '@/app/actions/meal-plan'
 import { markAllNotificationsReadAction, markNotificationReadAction } from '@/app/actions/notifications'
-import { addPantryPlaceAction, adjustPantryItemQuantityAction, confirmPantryItemAction, movePantryItemAction, removePantryItemAction, removePantryPlaceAction, reviewPantryAction, setPantryTrackingAction } from '@/app/actions/pantry'
+import { addPantryPlaceAction, adjustPantryItemQuantityAction, confirmPantryItemAction, movePantryItemAction, removePantryItemAction, removePantryPlaceAction, reviewPantryAction, setPantryCheckinDaysAction, setPantryTrackingAction } from '@/app/actions/pantry'
 import { completePurchaseAction, getPurchaseExpenseItemsAction, recordPurchaseAsExpenseAction, setPurchaseItemExpenseSplitsAction } from '@/app/actions/purchases'
 import {
   applyReceiptListMatchesAction,
@@ -173,6 +173,7 @@ export function AppShell({
   const [pendingInvitations, setPendingInvitations] = useState(initialData.pendingInvitations)
   const [pantryItems, setPantryItems] = useState(initialData.pantryItems)
   const [pantryPlaces, setPantryPlaces] = useState(initialData.pantryPlaces)
+  const [pantryCheckinDays, setPantryCheckinDays] = useState(initialData.pantryCheckinDays)
   const [pendingReceiptImports, setPendingReceiptImports] = useState(initialData.pendingReceiptImports)
   // Which of the three things the Nákup tab can show right now — the list itself is what people open
   // it for, so it stays the default even when a receipt is waiting on review.
@@ -200,6 +201,7 @@ export function AppShell({
     setPendingInvitations(initialData.pendingInvitations)
     setPantryItems(initialData.pantryItems)
     setPantryPlaces(initialData.pantryPlaces)
+    setPantryCheckinDays(initialData.pantryCheckinDays)
     setPendingReceiptImports(initialData.pendingReceiptImports)
   }, [initialData])
 
@@ -557,6 +559,12 @@ export function AppShell({
   async function removePantryPlace(placeId: string) {
     await removePantryPlaceAction(placeId)
     setPantryPlaces((current) => current.filter((place) => place.id !== placeId))
+  }
+
+  async function setPantryCheckinDaysFor(category: PantryItem['category'], days: number | null) {
+    const overrides = await setPantryCheckinDaysAction(category, days)
+    setPantryCheckinDays(overrides)
+    return overrides
   }
 
   // Bulk check (components/shopping/pantry-review.tsx). Saved first; the local pantry changes only
@@ -1087,6 +1095,8 @@ export function AppShell({
                   pantryPlaces={pantryPlaces}
                   onAddPantryPlace={addPantryPlace}
                   onRemovePantryPlace={removePantryPlace}
+                  pantryCheckinDays={pantryCheckinDays}
+                  onSetPantryCheckinDays={setPantryCheckinDaysFor}
                 />
               )}
             </div>

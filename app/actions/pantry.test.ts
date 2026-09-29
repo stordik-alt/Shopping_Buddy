@@ -1,15 +1,25 @@
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
-import { customPlaceKey, PANTRY_LOCATIONS } from '@/lib/pantry'
+import { CHECKIN_DAYS_BY_CATEGORY, customPlaceKey, PANTRY_LOCATIONS } from '@/lib/pantry'
 
 // Continues the Server Action test coverage started in app/actions/shopping.test.ts.
 let currentHouseholdId = ''
 vi.mock('@/lib/auth/authorize', () => ({ requireHouseholdId: () => Promise.resolve(currentHouseholdId) }))
 vi.mock('next/cache', () => ({ revalidatePath: () => {} }))
 
-import { addPantryPlaceAction, adjustPantryItemQuantityAction, confirmPantryItemAction, movePantryItemAction, removePantryItemAction, removePantryPlaceAction, reviewPantryAction, setPantryTrackingAction } from '@/app/actions/pantry'
+import {
+  addPantryPlaceAction,
+  adjustPantryItemQuantityAction,
+  confirmPantryItemAction,
+  movePantryItemAction,
+  removePantryItemAction,
+  removePantryPlaceAction,
+  reviewPantryAction,
+  setPantryCheckinDaysAction,
+  setPantryTrackingAction,
+} from '@/app/actions/pantry'
 
 const db = getDb()
 const createdHouseholdIds: string[] = []
@@ -29,6 +39,7 @@ afterAll(async () => {
   for (const id of createdHouseholdIds) {
     await db.delete(schema.pantryItems).where(eq(schema.pantryItems.householdId, id))
     await db.delete(schema.pantryPlaces).where(eq(schema.pantryPlaces.householdId, id))
+    await db.delete(schema.pantryCheckinIntervals).where(eq(schema.pantryCheckinIntervals.householdId, id))
     await db.delete(schema.households).where(eq(schema.households.id, id))
   }
 })
@@ -282,5 +293,55 @@ describe('setPantryTrackingAction', () => {
     expect(row).toMatchObject({ tracking: 'rare', askedAt: null })
     await expect(setPantryTrackingAction(theirs.id, 'off')).rejects.toThrow('Pantry item not found')
     await expect(setPantryTrackingAction(mine.id, 'sometimes' as never)).rejects.toThrow('Neplatná volba')
+  })
+})
+
+describe('setPantryCheckinDaysAction', () => {
+  it('sets an override and returns every override of the household', async () => {
+    const result = await setPantryCheckinDaysAction('Potraviny', 5)
+    expect(result).toEqual({ Potraviny: 5 })
+    const row = await db.query.pantryCheckinIntervals.findFirst({ where: eq(schema.pantryCheckinIntervals.householdId, householdId) })
+    expect(row).toMatchObject({ category: 'Potraviny', days: 5 })
+  })
+
+  it('updates an existing override rather than duplicating it', async () => {
+    await setPantryCheckinDaysAction('Drogerie', 20)
+    const result = await setPantryCheckinDaysAction('Drogerie', 25)
+    expect(result.Drogerie).toBe(25)
+    const rows = await db.query.pantryCheckinIntervals.findMany({ where: and(eq(schema.pantryCheckinIntervals.householdId, householdId), eq(schema.pantryCheckinIntervals.category, 'Drogerie')) })
+    expect(rows).toHaveLength(1)
+  })
+
+  it('clears an override back to the fixed default with days: null', async () => {
+    await setPantryCheckinDaysAction('Děti', 10)
+    const result = await setPantryCheckinDaysAction('Děti', null)
+    expect(result.Děti).toBeUndefined()
+    expect(await db.query.pantryCheckinIntervals.findFirst({ where: and(eq(schema.pantryCheckinIntervals.householdId, householdId), eq(schema.pantryCheckinIntervals.category, 'Děti')) })).toBeUndefined()
+  })
+
+  it('rejects a non-integer, zero, negative or absurdly large number of days', async () => {
+    await expect(setPantryCheckinDaysAction('Potraviny', 1.5)).rejects.toThrow('celé číslo')
+    await expect(setPantryCheckinDaysAction('Potraviny', 0)).rejects.toThrow('celé číslo')
+    await expect(setPantryCheckinDaysAction('Potraviny', -3)).rejects.toThrow('celé číslo')
+    await expect(setPantryCheckinDaysAction('Potraviny', 1000)).rejects.toThrow('celé číslo')
+  })
+
+  it('rejects an unknown category', async () => {
+    await expect(setPantryCheckinDaysAction('Elektronika' as never, 5)).rejects.toThrow('Neznámá kategorie')
+  })
+
+  it('keeps one household\'s overrides separate from another\'s', async () => {
+    await setPantryCheckinDaysAction('Ostatní', 3)
+    currentHouseholdId = otherHouseholdId
+    expect(await setPantryCheckinDaysAction('Ostatní', 40)).toEqual({ Ostatní: 40 })
+    currentHouseholdId = householdId
+    const mine = await db.query.pantryCheckinIntervals.findFirst({ where: and(eq(schema.pantryCheckinIntervals.householdId, householdId), eq(schema.pantryCheckinIntervals.category, 'Ostatní')) })
+    expect(mine?.days).toBe(3)
+  })
+
+  it('every category in CHECKIN_DAYS_BY_CATEGORY is a valid category to override', async () => {
+    for (const category of Object.keys(CHECKIN_DAYS_BY_CATEGORY) as (keyof typeof CHECKIN_DAYS_BY_CATEGORY)[]) {
+      await expect(setPantryCheckinDaysAction(category, 7)).resolves.toBeDefined()
+    }
   })
 })

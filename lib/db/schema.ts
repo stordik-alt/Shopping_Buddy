@@ -587,6 +587,20 @@ export const householdProductExpenseDefaults = pgTable('household_product_expens
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [primaryKey({ columns: [table.householdId, table.productId] })])
 
+// A household's own override of how many days a pantry item of a category can go unconfirmed before
+// being asked "do you still have this?" (spec section 13) — `lib/pantry.ts`'s
+// `CHECKIN_DAYS_BY_CATEGORY` is the fixed default a category falls back to without one. Same
+// "override table alongside a fixed default" shape as `expense_category_budgets`.
+export const pantryCheckinIntervals = pgTable('pantry_checkin_intervals', {
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  category: itemCategoryEnum('category').notNull(),
+  days: integer('days').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  primaryKey({ columns: [table.householdId, table.category] }),
+  check('pantry_checkin_intervals_days_positive', sql`${table.days} > 0`),
+])
+
 // A household's own storage place beyond the fixed `pantry_location` list (spec section 12: "Uživatel
 // musí mít možnost vytvořit vlastní místo") — e.g. "Kufr auta" under the Auto area, or "Sklep" under
 // Bydlení. The fixed locations (Spíž, Lednice, ...) stay a plain enum on `pantry_items.location`
@@ -844,7 +858,12 @@ export const householdsRelations = relations(households, ({ many, one }) => ({
   invitations: many(invitations),
   pantryItems: many(pantryItems),
   pantryPlaces: many(pantryPlaces),
+  pantryCheckinIntervals: many(pantryCheckinIntervals),
   receiptImports: many(receiptImports),
+}))
+
+export const pantryCheckinIntervalsRelations = relations(pantryCheckinIntervals, ({ one }) => ({
+  household: one(households, { fields: [pantryCheckinIntervals.householdId], references: [households.id] }),
 }))
 
 export const pantryPlacesRelations = relations(pantryPlaces, ({ one }) => ({

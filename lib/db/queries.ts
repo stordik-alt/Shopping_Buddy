@@ -107,6 +107,9 @@ export type HouseholdData = {
   pantryItems: PantryItem[]
   /** The household's own storage places, beyond the fixed `PantryLocation` list (lib/pantry.ts). */
   pantryPlaces: PantryPlace[]
+  /** The household's own per-category pantry check-in interval overrides (lib/pantry.ts's
+   *  CHECKIN_DAYS_BY_CATEGORY is the fixed default a category without one falls back to). */
+  pantryCheckinDays: Partial<Record<ItemCategory, number>>
   pendingReceiptImports: ReceiptImportState[]
 }
 
@@ -269,7 +272,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
   // Expenses and purchases are sent for the last year (the budget screens compare months, the
   // purchase stats describe current habits); older records stay in the database.
   const historySince = new Date(Date.parse(`${todayInPrague()}T00:00:00Z`) - HISTORY_DAYS * 86_400_000).toISOString().slice(0, 10)
-  const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows, mealPlan, invitationRows, pantryRows, pantryPlaceRows, pendingReceiptImports, categoryBudgetRows, recurringRows, occurrenceRows] =
+  const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows, mealPlan, invitationRows, pantryRows, pantryPlaceRows, pantryCheckinRows, pendingReceiptImports, categoryBudgetRows, recurringRows, occurrenceRows] =
     await Promise.all([
       db.query.householdMembers.findMany({
         where: eq(schema.householdMembers.householdId, household.id),
@@ -312,6 +315,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
         with: { subcategory: { columns: { name: true } } },
       }),
       db.query.pantryPlaces.findMany({ where: eq(schema.pantryPlaces.householdId, household.id), orderBy: asc(schema.pantryPlaces.createdAt) }),
+      db.query.pantryCheckinIntervals.findMany({ where: eq(schema.pantryCheckinIntervals.householdId, household.id) }),
       getPendingReceiptImports(household.id),
       db.query.expenseCategoryBudgets.findMany({ where: eq(schema.expenseCategoryBudgets.householdId, household.id), columns: { category: true, amount: true } }),
       db.query.recurringPayments.findMany({
@@ -489,6 +493,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
       }),
     ),
     pantryPlaces: pantryPlaceRows.map((place): PantryPlace => ({ id: place.id, area: place.area, name: place.name })),
+    pantryCheckinDays: Object.fromEntries(pantryCheckinRows.map((row) => [row.category, row.days])),
     pendingReceiptImports,
   }
 }

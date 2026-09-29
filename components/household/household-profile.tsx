@@ -4,11 +4,12 @@ import { ChildCard } from '@/components/household/child-card'
 import { MemberCard } from '@/components/household/member-card'
 import { MemberRow } from '@/components/household/member-row'
 import { NearbyStores } from '@/components/household/nearby-stores'
+import { PantryCheckinSettings } from '@/components/household/pantry-checkin-settings'
 import { PantryPlaces } from '@/components/household/pantry-places'
 import { TagInput } from '@/components/shared/tag-input'
 import type { PendingInvitation } from '@/lib/db/queries'
 import type { StoreSelection } from '@/lib/nearby-stores'
-import type { Household, HouseholdPreferences, PantryArea, PantryPlace, PriceSensitivity, QualityPreference, Store } from '@/lib/types'
+import type { Household, HouseholdPreferences, ItemCategory, PantryArea, PantryPlace, PriceSensitivity, QualityPreference, Store } from '@/lib/types'
 import { userFacingError } from '@/lib/errors'
 
 const splitList = (value: string) =>
@@ -36,6 +37,8 @@ export function HouseholdProfile({
   pantryPlaces,
   onAddPantryPlace,
   onRemovePantryPlace,
+  pantryCheckinDays,
+  onSetPantryCheckinDays,
 }: {
   household: Household
   isOwner: boolean
@@ -57,6 +60,9 @@ export function HouseholdProfile({
   pantryPlaces: PantryPlace[]
   onAddPantryPlace: (area: PantryArea, name: string) => Promise<PantryPlace>
   onRemovePantryPlace: (placeId: string) => Promise<void>
+  /** The household's own per-category pantry check-in interval overrides. */
+  pantryCheckinDays: Partial<Record<ItemCategory, number>>
+  onSetPantryCheckinDays: (category: ItemCategory, days: number | null) => Promise<Partial<Record<ItemCategory, number>>>
 }) {
   const [invite, setInvite] = useState('')
   const [inviteLink, setInviteLink] = useState<string | null>(null)
@@ -292,6 +298,8 @@ export function HouseholdProfile({
       <NearbyStores chains={storeChains} stores={stores} selection={storeSelection} onSave={onSaveStorePreferences} />
 
       <PantryPlaces places={pantryPlaces} onAdd={onAddPantryPlace} onRemove={onRemovePantryPlace} />
+
+      <PantryCheckinSettings overrides={pantryCheckinDays} onSave={onSetPantryCheckinDays} />
 
       <section className="surface p-6">
         <p className="font-semibold">Nákupní preference domácnosti</p>

@@ -56,6 +56,20 @@ describe('isDueForCheckin', () => {
     const item = candidate({ addedAt: daysAgo(100), askedAt: daysAgo(1) })
     expect(isDueForCheckin(item, NOW)).toBe(false)
   })
+
+  it("uses the household's own override instead of the fixed default when one is set", () => {
+    const item = candidate({ addedAt: daysAgo(CHECKIN_DAYS_BY_CATEGORY.Potraviny) })
+    // The fixed default has elapsed, but a longer household override has not.
+    expect(isDueForCheckin(item, NOW, { Potraviny: CHECKIN_DAYS_BY_CATEGORY.Potraviny + 5 })).toBe(false)
+    // A shorter override makes it due sooner than the fixed default would.
+    const notYetByDefault = candidate({ addedAt: daysAgo(CHECKIN_DAYS_BY_CATEGORY.Potraviny - 1) })
+    expect(isDueForCheckin(notYetByDefault, NOW, { Potraviny: CHECKIN_DAYS_BY_CATEGORY.Potraviny - 1 })).toBe(true)
+  })
+
+  it("an override for a different category does not affect this item's own", () => {
+    const item = candidate({ addedAt: daysAgo(CHECKIN_DAYS_BY_CATEGORY.Potraviny) })
+    expect(isDueForCheckin(item, NOW, { Drogerie: 1 })).toBe(true)
+  })
 })
 
 describe('findDueForCheckin', () => {

@@ -7,7 +7,7 @@ import { selectForWeeklyCheck, weeklyCheckMessage } from '@/lib/pantry-estimate'
 import { RHYTHM_WINDOW_DAYS } from '@/lib/purchase-rhythm'
 import { PANTRY_CHECK_HREF } from '@/lib/tab-url'
 import { todayInPrague } from '@/lib/today'
-import type { PantryItem, PurchaseRecord } from '@/lib/types'
+import type { ItemCategory, PantryItem, PurchaseRecord } from '@/lib/types'
 
 // Household pantry ("spíž"): the weekly check (vercel.json, Sunday afternoon). One notification per
 // household listing what to check — items whose per-category check-in interval has elapsed
@@ -29,6 +29,16 @@ export async function GET(request: Request) {
   const allItems = await db.query.pantryItems.findMany()
   const householdIds = [...new Set(allItems.map((item) => item.householdId))]
   if (householdIds.length === 0) return NextResponse.json({ askedHouseholds: 0, askedItems: 0 })
+
+  // Each household's own check-in interval overrides (spec section 13); a category with none uses
+  // lib/pantry.ts's fixed CHECKIN_DAYS_BY_CATEGORY default.
+  const checkinRows = await db.query.pantryCheckinIntervals.findMany({ where: inArray(schema.pantryCheckinIntervals.householdId, householdIds) })
+  const checkinOverridesByHousehold = new Map<string, Partial<Record<ItemCategory, number>>>()
+  for (const row of checkinRows) {
+    const overrides = checkinOverridesByHousehold.get(row.householdId) ?? {}
+    overrides[row.category] = row.days
+    checkinOverridesByHousehold.set(row.householdId, overrides)
+  }
 
   // Only the window the purchase rhythm looks at (lib/purchase-rhythm.ts), for households with a pantry.
   const today = todayInPrague()
@@ -65,7 +75,7 @@ export async function GET(request: Request) {
   let askedHouseholds = 0
   let askedItems = 0
   for (const [householdId, items] of pantryByHousehold) {
-    const selected = selectForWeeklyCheck(items, purchasesByHousehold.get(householdId) ?? [], today, now)
+    const selected = selectForWeeklyCheck(items, purchasesByHousehold.get(householdId) ?? [], today, now, checkinOverridesByHousehold.get(householdId) ?? {})
     if (selected.length === 0) continue
     await createHouseholdNotification(db, householdId, weeklyCheckMessage(selected.map((item) => item.name)), { tab: 'Zásoby', href: PANTRY_CHECK_HREF })
     // Marks them "Máte ještě?" in the app and restarts the check-in interval for the asked ones.

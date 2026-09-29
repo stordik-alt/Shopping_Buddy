@@ -78,6 +78,13 @@ describe('selectForWeeklyCheck', () => {
     const items = [item({ id: 'flour', name: 'Mouka', location: 'Spíž', addedAt: '2026-09-01T00:00:00Z', askedAt: '2026-09-24T00:00:00Z' })]
     expect(selectForWeeklyCheck(items, [], '2026-09-27', now)).toEqual([])
   })
+
+  it("uses the household's own check-in interval override instead of the fixed default", () => {
+    // 6 days old: not yet due by the fixed 10-day default for Potraviny, but is with a 5-day override.
+    const items = [item({ id: 'rice', name: 'Rýže', location: 'Spíž', addedAt: '2026-09-21T00:00:00Z' })]
+    expect(selectForWeeklyCheck(items, [], '2026-09-27', now)).toEqual([])
+    expect(selectForWeeklyCheck(items, [], '2026-09-27', now, { Potraviny: 5 }).map((entry) => entry.id)).toEqual(['rice'])
+  })
 })
 
 describe('weeklyCheckMessage', () => {

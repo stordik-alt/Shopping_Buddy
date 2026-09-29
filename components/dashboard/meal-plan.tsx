@@ -210,9 +210,9 @@ export function MealPlan({
                         </dd>
                       </div>
                       {missing.length > 0 && (
-                        <p className="mt-0.5 break-words text-right text-[11px] text-destructive">Chybí: {missing.map((ingredient) => ingredient.name).join(', ')}</p>
+                        <p className="mt-0.5 break-words text-right text-xs text-destructive">Chybí: {missing.map((ingredient) => ingredient.name).join(', ')}</p>
                       )}
-                      {!cooked && missing.length === 0 && <p className="mt-0.5 text-right text-[11px] text-primary">Vše ze zásob</p>}
+                      {!cooked && missing.length === 0 && <p className="mt-0.5 text-right text-xs text-primary">Vše ze zásob</p>}
                       </div>
                     )
                   })}
@@ -252,7 +252,7 @@ export function MealPlan({
                 Odhadovaná cena nákupu: <span className="font-semibold">{money(plan.estimatedTotal)}</span>
               </span>
               {budgetLimit > 0 && (
-                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${overBudget ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}>
+                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${overBudget ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}>
                   {overBudget ? 'Nad rozpočtem' : 'V rozpočtu'}
                 </span>
               )}

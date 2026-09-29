@@ -54,7 +54,7 @@ export function NotificationPanel({
         </div>
         <div className="flex items-center gap-1">
           {unreadCount > 0 && (
-            <button onClick={onReadAll} className="rounded-lg px-2 py-1 text-[11px] font-medium text-primary hover:bg-muted">
+            <button onClick={onReadAll} className="rounded-lg px-2 py-1 text-xs font-medium text-primary hover:bg-muted">
               Označit vše
             </button>
           )}

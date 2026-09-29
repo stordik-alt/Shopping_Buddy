@@ -97,7 +97,7 @@ export function IdeasDialog({ open, onClose }: { open: boolean; onClose: () => v
                     <IdeaStatusBadge status={idea.status} />
                   </div>
                   {idea.details && <p className="mt-1 whitespace-pre-wrap break-words text-xs text-muted-foreground">{idea.details}</p>}
-                  <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  <p className="mt-1.5 text-xs text-muted-foreground">
                     {idea.authorName ? `${idea.authorName} · ` : ''}
                     {ideaDayLabel(idea.createdAt)}
                   </p>

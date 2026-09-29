@@ -24,7 +24,7 @@ export function PriceComparison({ productName, productPrices, today }: { product
                 <span className="font-medium">{price.store}</span>
                 <span className="flex flex-wrap items-center justify-end gap-x-2">
                   {isDealActive(price, today) && (
-                    <span className="flex items-center gap-1 text-[10px] font-semibold">
+                    <span className="flex items-center gap-1 text-xs font-semibold">
                       <Tag className="h-3 w-3" /> akce do {shortDate(price.dealValidUntil ?? '')}
                     </span>
                   )}
@@ -35,7 +35,7 @@ export function PriceComparison({ productName, productPrices, today }: { product
                 </span>
               </div>
               {old && (
-                <p className="mt-1 text-[11px] leading-snug text-muted-foreground" data-testid="old-price">
+                <p className="mt-1 text-xs leading-snug text-muted-foreground" data-testid="old-price">
                   Dříve {money(old.price)} · zaznamenáno {shortDate(old.recordedAt)}
                   {old.validUntil ? `, změna ${shortDate(old.validUntil)}` : ''}
                 </p>

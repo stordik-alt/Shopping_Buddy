@@ -128,7 +128,7 @@ export function ProductSearch({
                     <li key={hit.productId} className="rounded-lg bg-muted px-3 py-2">
                       <p className="break-words font-medium">
                         {hit.name}
-                        {!category && hit.category !== 'Potraviny' && <span className="ml-2 rounded-full bg-background px-2 py-0.5 text-[11px] font-normal text-muted-foreground">{hit.category}</span>}
+                        {!category && hit.category !== 'Potraviny' && <span className="ml-2 rounded-full bg-background px-2 py-0.5 text-xs font-normal text-muted-foreground">{hit.category}</span>}
                       </p>
                       <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
                         <span className="text-sm font-semibold">{money(hitPrice(hit))}</span>

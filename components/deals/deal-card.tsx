@@ -32,13 +32,13 @@ export function DealCard({
             {price.store} · akce do {shortDate(price.dealValidUntil ?? '')}
           </p>
         </div>
-        <span className="shrink-0 rounded-full bg-primary/15 px-2 py-1 text-[11px] font-semibold text-primary">-{discount} %</span>
+        <span className="shrink-0 rounded-full bg-primary/15 px-2 py-1 text-xs font-semibold text-primary">-{discount} %</span>
       </div>
       <div className="mt-4 flex flex-wrap items-end justify-between gap-2">
         <div>
           <span className="text-lg font-semibold">{money(price.dealPrice ?? price.regularPrice)}</span>
           <span className="ml-2 text-xs text-muted-foreground line-through">{money(price.regularPrice)}</span>
-          <span className="mt-0.5 block text-[11px] text-muted-foreground">
+          <span className="mt-0.5 block text-xs text-muted-foreground">
             {money(comparableUnit.unitPrice)}/{comparableUnit.unit}
           </span>
         </div>
@@ -57,7 +57,7 @@ export function DealCard({
         )}
       </div>
       {recentLow && (
-        <p className="mt-3 flex items-start gap-1 text-[11px] leading-relaxed text-success">
+        <p className="mt-3 flex items-start gap-1 text-xs leading-relaxed text-success">
           <TrendingDown className="mt-0.5 h-3 w-3 shrink-0" />
           <span>
             Nejnižší cena za posledních 30 dní: <span className="font-semibold">{money(recentLow.low)}</span>
@@ -68,13 +68,13 @@ export function DealCard({
         </p>
       )}
       {suggestsStockingUp(assessment, pantryQuantityFor(pantryItems, product.productName)) && (
-        <p className="mt-3 flex items-start gap-1 text-[11px] leading-relaxed text-success">
+        <p className="mt-3 flex items-start gap-1 text-xs leading-relaxed text-success">
           <Package className="mt-0.5 h-3 w-3 shrink-0" />
           Doma toho máte málo nebo nic — dobrá chvíle doplnit zásoby.
         </p>
       )}
       {!isBestPrice && cheapestAlternative && (
-        <p className="mt-3 flex items-start gap-1 text-[11px] leading-relaxed text-muted-foreground">
+        <p className="mt-3 flex items-start gap-1 text-xs leading-relaxed text-muted-foreground">
           <Info className="mt-0.5 h-3 w-3 shrink-0" />
           Levněji je i bez akce v {cheapestAlternative.store} za {money(cheapestAlternative.price)}.
         </p>

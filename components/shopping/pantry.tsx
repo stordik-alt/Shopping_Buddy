@@ -309,12 +309,12 @@ export function Pantry({
               {(needsCheck > 0 || outOfStock > 0) && (
                 <span className="flex flex-wrap gap-1">
                   {needsCheck > 0 && (
-                    <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', active ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-primary/15 text-primary')}>
+                    <span className={cn('rounded-full px-2 py-0.5 text-xs font-semibold', active ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-primary/15 text-primary')}>
                       Ověřit: {needsCheck}
                     </span>
                   )}
                   {outOfStock > 0 && (
-                    <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', active ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-destructive/10 text-destructive')}>
+                    <span className={cn('rounded-full px-2 py-0.5 text-xs font-semibold', active ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-destructive/10 text-destructive')}>
                       Došlo: {outOfStock}
                     </span>
                   )}
@@ -441,11 +441,11 @@ export function Pantry({
               <span className="flex flex-wrap items-center gap-2">
                 <span className="min-w-0 break-words font-medium">{item.name}</span>
                 {likelyGone.has(item.id) ? (
-                  <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold text-destructive">
+                  <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
                     Asi došlo
                   </span>
                 ) : (
-                  item.askedAt && <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">Máte ještě?</span>
+                  item.askedAt && <span className="rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">Máte ještě?</span>
                 )}
               </span>
               <span className="mt-1 block text-xs text-muted-foreground">

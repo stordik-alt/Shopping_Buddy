@@ -25,17 +25,17 @@ export function MemberCard({ member, onRemove }: { member: HouseholdMember; onRe
       {(member.favoriteFoods.length > 0 || member.dislikedFoods.length > 0 || member.allergies.length > 0) && (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {member.favoriteFoods.map((food) => (
-            <span key={food} className="max-w-full rounded-full bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary break-words">
+            <span key={food} className="max-w-full rounded-full bg-primary/10 px-2 py-1 text-xs font-medium text-primary break-words">
               Oblíbené: {food}
             </span>
           ))}
           {member.dislikedFoods.map((food) => (
-            <span key={food} className="max-w-full rounded-full bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground break-words">
+            <span key={food} className="max-w-full rounded-full bg-background px-2 py-1 text-xs font-medium text-muted-foreground break-words">
               Nechce: {food}
             </span>
           ))}
           {member.allergies.map((allergy) => (
-            <span key={allergy} className="max-w-full rounded-full bg-destructive/10 px-2 py-1 text-[11px] font-medium text-destructive break-words">
+            <span key={allergy} className="max-w-full rounded-full bg-destructive/10 px-2 py-1 text-xs font-medium text-destructive break-words">
               Alergie: {allergy}
             </span>
           ))}

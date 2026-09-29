@@ -26,6 +26,19 @@ const nextConfig = {
   async headers() {
     return [
       {
+        // Conservative security headers for every page. No Content-Security-Policy on purpose: it
+        // needs its own pass over the inline scripts and the analytics/OCR origins to avoid breaking
+        // the app. The app is never embedded, location is used by the store directory and the
+        // camera by the receipt photo, and nothing needs the microphone.
+        source: '/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'geolocation=(self), camera=(self), microphone=()' },
+        ],
+      },
+      {
         source: '/sw.js',
         headers: [
           { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },

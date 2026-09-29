@@ -267,7 +267,7 @@ export function ShoppingList({
           <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
           Filtry a řazení
           {activeFilterCount > 0 && (
-            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground">{activeFilterCount}</span>
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">{activeFilterCount}</span>
           )}
           <ChevronDown className={`h-4 w-4 transition ${filtersOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
         </button>
@@ -378,12 +378,12 @@ export function ShoppingList({
                           {item.category} · {item.store || 'Bez obchodu'}
                         </span>
                         {item.onSale && (
-                          <span className="flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                          <span className="flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">
                             <Tag className="h-2.5 w-2.5" aria-hidden="true" /> Akce
                           </span>
                         )}
                         {item.priority === 'Vysoká' && (
-                          <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold text-destructive">Priorita</span>
+                          <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">Priorita</span>
                         )}
                       </span>
                     </button>

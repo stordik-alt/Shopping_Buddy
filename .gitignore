@@ -31,3 +31,6 @@ gcp-oidc-jwks.json
 # CI Worker size check output
 .wrangler-dry-run/
 dry-run.log
+
+# Throwaway exploration files (retailer/API investigations), never committed
+scratch-*

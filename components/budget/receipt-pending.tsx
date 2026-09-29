@@ -313,7 +313,7 @@ function ReceiptPendingCard({
                   {row.nonInventory && (
                     // A deterministic suggestion (spec section 14), not a decision — the household
                     // can still remove or keep it; this just explains why it won't appear in Zásoby.
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">Nebude v zásobách</span>
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">Nebude v zásobách</span>
                   )}
                   <button
                     type="button"

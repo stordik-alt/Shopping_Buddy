@@ -1,5 +1,11 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-29 (Error pages, security headers, minimum text size)
+- **Error pages:** `app/error.tsx`, `app/global-error.tsx` and `app/not-found.tsx` replace the framework's generic screens when a page fails to render or an address does not exist. Next 16's error boundary receives `retry` (not `reset` as in older versions). The message is generic; only the error digest is shown, the full error goes to the console.
+- **Security headers** on every route (`next.config.mjs`): `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy` (geolocation and camera for the app itself, no microphone). No Content-Security-Policy yet: it needs its own pass over inline scripts and the analytics/OCR origins. Checked against a production build (`next start`).
+- **Text size:** the 10–11 px labels and badges are now 12 px (`text-xs`); the count badges in the 16 px circles and the six bottom-navigation labels stay at 10–11 px so they do not overflow. Not checked visually on a phone.
+- `.gitignore` ignores `scratch-*` exploration files.
+
 ## 2026-09-29 (Wolt: terms checked, no connector)
 - Wolt's User Terms of Service (section 13.6) forbid collecting information without Wolt's consent and using bots or automated methods, so a Wolt price connector is not built; recorded in `docs/01_CURRENT_STATE.md`. Wolt's open `robots.txt` does not change that.
 

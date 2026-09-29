@@ -231,7 +231,7 @@ Current functionality includes:
 * joining an existing household
 * owner/member roles
 
-The current synchronization approach uses lightweight refresh/polling rather than websocket infrastructure.
+There is no realtime infrastructure and, since 2026-09-29, no automatic refresh either: the app no longer re-renders itself on a timer, on regaining focus or on a push message (it threw people back to the top of the page mid-task). Another member's changes appear after a reload or after the user's own next action that refreshes.
 
 The application currently uses:
 

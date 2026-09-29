@@ -1,5 +1,10 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-29 (No more automatic page refresh)
+- **Why (owner):** "Člověk něco dělá a najednou mu to skočí zpátky na začátek stránky" — the app re-rendered itself on its own and threw people back to the top mid-task.
+- **What:** removed the three automatic `router.refresh()` triggers in `components/app-shell.tsx`: the 60-second poll, the refresh when the tab regains focus, and the refresh on the service worker's `push-received` message. Refreshes that follow the user's own action (completing a purchase, saving an expense, …) and the flush of offline-queued changes are unchanged.
+- **Consequence:** another household member's changes, and a new notification in the bell, show up after a reload or after the user's own next refreshing action; push notifications themselves still arrive. Neon transfer also drops. Not checked in a browser; `tsc --noEmit` clean.
+
 ## 2026-09-29 (Configurable budget period — start day of the month)
 - **Why (owner, UX/IA brief section 5):** a household paid on the 28th wants its budget to run "28th → 27th" instead of the calendar month.
 - **What:** new `households.budget_period_start_day` (1–28, default 1, CHECK; migration `0053_budget_period_start_day.sql`, additive). `lib/budget.ts` now works on *periods* keyed by their start date; every function takes the household's `startDay` (default 1 = the old calendar-month behaviour). `lib/db/budget-notify.ts` `periodSpending()` measures the 80 % / 100 % thresholds over the household's real period. `BudgetOverview`, `BudgetHero`, `CategorySnapshot`, `ExpenseLedger`, `SpendingBreakdown` and `SavingsInsight` are wired to `household.budgetPeriodStartDay`; the Profile has a start-day select. See `docs/01_CURRENT_STATE.md` for the full writeup.

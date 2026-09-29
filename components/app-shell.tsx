@@ -185,10 +185,10 @@ export function AppShell({
   const router = useRouter()
   const userLocation = useUserLocation()
 
-  // Shared households (Phase B "concurrent edits"): initialData comes from a Server Component
-  // fetch, so another member's changes only reach this client on the next server re-render.
-  // Resync local state whenever a fresh initialData arrives, and trigger that re-render
-  // periodically and when the tab regains focus — good-enough freshness without websockets.
+  // initialData comes from a Server Component fetch. Resync local state whenever a fresh one arrives
+  // (after a user-triggered router.refresh() or a reload). The app never triggers that re-render on
+  // its own — an automatic refresh threw people back to the top of the page mid-task — so another
+  // member's changes show up on the next reload or after the user's own next action.
   useEffect(() => {
     setHousehold(initialData.household)
     // Changes still waiting for a connection stay visible on top of the server's copy.
@@ -225,28 +225,6 @@ export function AppShell({
     saveThemeChoice(safeLocalStorage(), next ? 'dark' : 'light')
   }
 
-  // Picks up what other household members changed (lightweight polling, no realtime — CLAUDE.md
-  // section 10). Every refresh re-renders the page on the server, so it runs only while the app is
-  // on screen and once a minute: the earlier 20-second refresh, running even in a background tab,
-  // was the main part of the traffic that used up Neon's monthly network transfer. Coming back to
-  // the app refreshes at once.
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (document.visibilityState !== 'visible') return
-      // Waiting offline changes go first; the flush refreshes when it is done.
-      if (queueRef.current.length > 0) void flushQueue()
-      else router.refresh()
-    }, 60_000)
-    const onFocus = () => {
-      if (document.visibilityState === 'visible') router.refresh()
-    }
-    document.addEventListener('visibilitychange', onFocus)
-    return () => {
-      clearInterval(interval)
-      document.removeEventListener('visibilitychange', onFocus)
-    }
-  }, [router])
-
   // The service worker (public/sw.js) keeps the last loaded page so the app opens without a signal,
   // and shows push notifications. Registered for everyone; push itself still needs the member's
   // permission (components/notifications/push-toggle.tsx).
@@ -254,17 +232,6 @@ export function AppShell({
     if (!('serviceWorker' in navigator)) return
     navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' }).catch((error) => console.error('Service worker registration failed', error))
   }, [])
-
-  // The service worker tells open windows when a notification arrives, so the bell panel shows it at
-  // once instead of on the next poll.
-  useEffect(() => {
-    if (!('serviceWorker' in navigator)) return
-    const onMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'push-received') router.refresh()
-    }
-    navigator.serviceWorker.addEventListener('message', onMessage)
-    return () => navigator.serviceWorker.removeEventListener('message', onMessage)
-  }, [router])
 
   const budget = household.monthlyBudget
   // Only the expenses of the household's current budget period count against it (the calendar month

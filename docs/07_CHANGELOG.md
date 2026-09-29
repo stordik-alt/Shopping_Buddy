@@ -1,5 +1,9 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-29 (Fix: production build failed on migration 0048)
+- **Cause:** 0048 nulled `expenses.subcategory` "Nákup potravin", but a purchase that also had a Potraviny row without a subcategory then collided with `expenses_purchase_category_subcategory_unique`, so every production deploy since #138 failed at the migration step (previews skip migrations, hence only Production failed; 0048/0049 were never applied to production).
+- **Fix:** 0048 first adds the "Nákup potravin" amount to the purchase's existing no-subcategory Potraviny row and deletes the duplicate, then nulls the rest. Verified on the test branch with a reproducing purchase (100 + 50 → one 150 row).
+
 ## 2026-09-29 (Zásoby: assigning a subcategory to "Nezařazeno" items)
 - **Why (owner):** dozens of pantry items sat under "Nezařazeno" (23 Spíž, 29 Lednice, …) with no way to place them.
 - **What:** each pantry row has a "Podkategorie" select (options from the item's own category; server validates the name against the fixed list) via `setPantryItemSubcategoryAction`; a "Zařadit automaticky" banner runs `autoCategorizePantryAction`, which places all the household's uncategorized items with the deterministic keyword rules of `classifySubcategory` (no AI) and leaves the rest for manual choice. No schema change.

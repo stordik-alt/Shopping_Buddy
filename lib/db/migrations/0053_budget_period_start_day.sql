@@ -1,0 +1,2 @@
+ALTER TABLE "households" ADD COLUMN "budget_period_start_day" integer DEFAULT 1 NOT NULL;--> statement-breakpoint
+ALTER TABLE "households" ADD CONSTRAINT "households_budget_period_start_day_range" CHECK ("households"."budget_period_start_day" >= 1 AND "households"."budget_period_start_day" <= 28);

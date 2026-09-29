@@ -1,20 +1,20 @@
 import { CATEGORY_BAR_COLORS } from '@/components/dashboard/spending-breakdown'
-import { categoryRows, expenseMonth, monthSummary } from '@/lib/budget'
-import { money } from '@/lib/format'
+import { categoryRows, expensePeriod, periodSummary } from '@/lib/budget'
+import { money, thisPeriodTitle } from '@/lib/format'
 import type { CategoryBudgets, Expense } from '@/lib/types'
 
 /** This month's spending by category, at a glance — budgeted vs. spent vs. remaining, no drill-down
  *  or editing (that lives in Výdaje/ExpenseLedger). Belongs on "Aktuální stav": the household should
  *  see where it stands without opening anything. Nothing calculated here; lib/budget.ts owns the
  *  numbers, same as ExpenseLedger. */
-export function CategorySnapshot({ expenses, today, limits }: { expenses: Expense[]; today: string; limits: CategoryBudgets }) {
-  const rows = categoryRows(monthSummary(expenses, expenseMonth(today)), limits)
+export function CategorySnapshot({ expenses, today, limits, periodStartDay = 1 }: { expenses: Expense[]; today: string; limits: CategoryBudgets; periodStartDay?: number }) {
+  const rows = categoryRows(periodSummary(expenses, expensePeriod(today, periodStartDay), periodStartDay), limits)
   if (rows.length === 0) return null
 
   return (
-    <section className="surface p-5 sm:p-6" aria-label="Výdaje podle kategorií tento měsíc">
+    <section className="surface p-5 sm:p-6" aria-label="Výdaje podle kategorií v aktuálním období">
       <p className="text-sm font-semibold">Podle kategorií</p>
-      <p className="mt-1 text-sm text-muted-foreground">Tento měsíc, na první pohled.</p>
+      <p className="mt-1 text-sm text-muted-foreground">{thisPeriodTitle(today, periodStartDay)}, na první pohled.</p>
       <div className="mt-4 space-y-2">
         {rows.map((row) => {
           const remaining = row.limit != null ? row.limit - row.total : null

@@ -24,6 +24,7 @@ import {
   removeChildAction,
   removeHouseholdMemberAction,
   revokeInvitationAction,
+  updateHouseholdAction,
 } from '@/app/actions/household'
 
 const db = getDb()
@@ -123,5 +124,25 @@ describe('acceptInvitationAction', () => {
       .returning()
     currentSession = { user: { id: userId, email: 'already-member@example.com', name: 'Existující Uživatel' } }
     await expect(acceptInvitationAction(invitation.token)).rejects.toThrow('Už jste členem')
+  })
+})
+
+describe('updateHouseholdAction: budget period start day', () => {
+  it('saves the chosen start day for the caller\'s own household only', async () => {
+    await updateHouseholdAction({ budgetPeriodStartDay: 28 })
+    const own = await db.query.households.findFirst({ where: eq(schema.households.id, householdId) })
+    const other = await db.query.households.findFirst({ where: eq(schema.households.id, otherHouseholdId) })
+    expect(own?.budgetPeriodStartDay).toBe(28)
+    expect(other?.budgetPeriodStartDay).toBe(1)
+  })
+
+  it.each([0, 29, 31, 1.5])('refuses the start day %s with a readable error, leaving the household unchanged', async (day) => {
+    await expect(updateHouseholdAction({ budgetPeriodStartDay: day })).rejects.toThrow('Rozpočtové období')
+    const row = await db.query.households.findFirst({ where: eq(schema.households.id, householdId) })
+    expect(row?.budgetPeriodStartDay).toBe(1)
+  })
+
+  it('the database itself refuses a start day outside 1–28', async () => {
+    await expect(db.update(schema.households).set({ budgetPeriodStartDay: 31 }).where(eq(schema.households.id, householdId))).rejects.toThrow()
   })
 })

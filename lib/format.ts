@@ -1,3 +1,4 @@
+import { periodEnd, periodStart } from '@/lib/budget'
 export const money = (value: number) =>
   `${value.toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč`
 
@@ -44,4 +45,21 @@ const MONTHS = ['leden', 'únor', 'březen', 'duben', 'květen', 'červen', 'če
 export const monthLabel = (month: string) => {
   const match = /^(\d{4})-(\d{2})$/.exec(month)
   return match ? `${MONTHS[Number(match[2]) - 1]} ${match[1]}` : month
+}
+
+/** The label of a budget period from its first and last day (`YYYY-MM-DD`): "září 2026" for a
+ *  calendar month (a period starting on the 1st), otherwise the range, "28. 8. – 27. 9. 2026" (the
+ *  year on both ends when it changes, "28. 12. 2026 – 27. 1. 2027"). Read from the strings, like shortDate. */
+export const periodLabel = (start: string, end: string) => {
+  if (Number(start.slice(8, 10)) === 1) return monthLabel(start.slice(0, 7))
+  const sameYear = start.slice(0, 4) === end.slice(0, 4)
+  return `${shortDate(start)}${sameYear ? '' : ` ${start.slice(0, 4)}`} – ${shortDate(end)} ${end.slice(0, 4)}`
+}
+
+/** The heading for the budget period `today` falls in: "Tento měsíc" for a calendar-month budget,
+ *  otherwise the period's date range. */
+export const thisPeriodTitle = (today: string, startDay: number) => {
+  if (startDay === 1) return 'Tento měsíc'
+  const start = periodStart(today, startDay)
+  return periodLabel(start, periodEnd(start))
 }

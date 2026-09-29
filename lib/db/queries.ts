@@ -352,6 +352,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
     id: household.id,
     name: household.name,
     monthlyBudget: Number(household.monthlyBudget),
+    budgetPeriodStartDay: household.budgetPeriodStartDay,
     members: members.map(
       (member): HouseholdMember => ({
         id: member.id,

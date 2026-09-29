@@ -70,8 +70,11 @@ export const households = pgTable('households', {
   // purchases) are denominated in this. Defaults to CZK; the first market is Czech Republic
   // (docs/00_PROJECT_CONTEXT.md), but the column exists so a future household isn't hard-coded to it.
   currency: text('currency').notNull().default('CZK'),
+  // Day of the month (1–28) the household's budget period starts on: 1 is the calendar month, 28 is
+  // "28th to 27th of the next month" (lib/budget.ts). Capped at 28 so every month has that day.
+  budgetPeriodStartDay: integer('budget_period_start_day').notNull().default(1),
   createdAt: timestamp('created_at').notNull().defaultNow(),
-})
+}, (table) => [check('households_budget_period_start_day_range', sql`${table.budgetPeriodStartDay} >= 1 AND ${table.budgetPeriodStartDay} <= 28`)])
 
 // Membership: links a user account to a household with a permission role.
 export const householdMembers = pgTable(

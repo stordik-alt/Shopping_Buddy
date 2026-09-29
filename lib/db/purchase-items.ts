@@ -1,5 +1,5 @@
 import { and, eq, inArray, isNotNull } from 'drizzle-orm'
-import { monthSpending, notifyBudgetThresholds } from '@/lib/db/budget-notify'
+import { periodSpending, notifyBudgetThresholds } from '@/lib/db/budget-notify'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { isExpenseCategory, isValidSubcategory, type ExpenseCategory } from '@/lib/expense-categories'
@@ -65,7 +65,7 @@ export async function recomputePurchaseExpenses(
   // right note itself via `noteForNewPurchase`.
   const existingNote = (await db.query.expenses.findFirst({ where: eq(schema.expenses.purchaseId, purchaseId), columns: { note: true } }))?.note ?? options.noteForNewPurchase ?? 'Nákup z účtenky'
 
-  const before = options.notifyBudget ? await monthSpending(db, purchase.householdId, purchase.date) : null
+  const before = options.notifyBudget ? await periodSpending(db, purchase.householdId, purchase.date) : null
 
   if (parts.length === 0) {
     await db.delete(schema.expenses).where(eq(schema.expenses.purchaseId, purchaseId))

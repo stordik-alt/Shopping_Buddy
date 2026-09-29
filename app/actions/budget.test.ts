@@ -147,3 +147,19 @@ describe('category limits', () => {
     expect(await setCategoryBudgetAction('Auto', 100)).toEqual({ Auto: 100 })
   })
 })
+
+describe('budget thresholds follow the household\'s budget period', () => {
+  it('counts a period that starts on the 28th across the month boundary, and starts from zero on the next 28th', async () => {
+    await db.update(schema.households).set({ budgetPeriodStartDay: 28 }).where(eq(schema.households.id, householdId))
+    // 28 Aug – 27 Sep is one period: 700 on 30 Aug plus 150 on 5 Sep is 85 % of 1 000.
+    await addExpenseAction({ amount: 700, note: '', category: 'Potraviny', subcategory: null, date: '2026-08-30' })
+    const crossing = await addExpenseAction({ amount: 150, note: '', category: 'Potraviny', subcategory: null, date: '2026-09-05' })
+    expect(crossing.notifications.map((entry) => entry.title)).toEqual(['Blížíte se limitu rozpočtu'])
+
+    // 27 Aug belongs to the period before, so it does not count towards this one (700 + 150 + 200 = 105 % once added below).
+    const earlier = await addExpenseAction({ amount: 900, note: '', category: 'Potraviny', subcategory: null, date: '2026-08-27' })
+    expect(earlier.notifications.map((entry) => entry.title)).toEqual(['Blížíte se limitu rozpočtu'])
+    const later = await addExpenseAction({ amount: 200, note: '', category: 'Potraviny', subcategory: null, date: '2026-09-06' })
+    expect(later.notifications.map((entry) => entry.title)).toEqual(['Rozpočet byl překročen'])
+  })
+})

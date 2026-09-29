@@ -1,5 +1,5 @@
 import { and, eq, gte, lt } from 'drizzle-orm'
-import { crossedBudgetThreshold } from '@/lib/budget'
+import { crossedBudgetThreshold, nextPeriodStart, periodStart } from '@/lib/budget'
 import type { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import type { ExpenseCategory } from '@/lib/expense-categories'
@@ -7,25 +7,21 @@ import { money } from '@/lib/format'
 import { createHouseholdNotification } from '@/lib/notify'
 import type { Notification } from '@/lib/types'
 
-// The budget's 80 % / 100 % notifications, for the overall monthly budget and for each category's
+// The budget's 80 % / 100 % notifications, for the overall budget of the household's period and for each category's
 // own limit (expense_category_budgets). Shared by an expense typed in (app/actions/budget.ts) and a
-// receipt's purchase (app/actions/receipts.ts): read the month's spending before writing, then pass
+// receipt's purchase (app/actions/receipts.ts): read the period's spending before writing, then pass
 // what was added. Each threshold fires once, at the crossing (lib/budget.ts crossedBudgetThreshold).
 
 type Db = ReturnType<typeof getDb>
 
-export type MonthSpending = { total: number; byCategory: Map<ExpenseCategory, number> }
+export type PeriodSpending = { total: number; byCategory: Map<ExpenseCategory, number> }
 
-/** First day of the month an ISO date falls in, and of the next one. */
-function monthBounds(date: string): { from: string; until: string } {
-  const [year, month] = date.split('-').map(Number)
-  const next = month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, '0')}-01`
-  return { from: `${date.slice(0, 7)}-01`, until: next }
-}
-
-/** What the household had spent in the month of `date`, overall and per category. */
-export async function monthSpending(db: Db, householdId: string, date: string): Promise<MonthSpending> {
-  const { from, until } = monthBounds(date)
+/** What the household had spent in the budget period `date` falls in (it starts on the household's
+ *  chosen day of the month, lib/budget.ts), overall and per category. */
+export async function periodSpending(db: Db, householdId: string, date: string): Promise<PeriodSpending> {
+  const household = await db.query.households.findFirst({ where: eq(schema.households.id, householdId), columns: { budgetPeriodStartDay: true } })
+  const from = periodStart(date, household?.budgetPeriodStartDay ?? 1)
+  const until = nextPeriodStart(from)
   const rows = await db.query.expenses.findMany({
     where: and(eq(schema.expenses.householdId, householdId), gte(schema.expenses.date, from), lt(schema.expenses.date, until)),
     columns: { amount: true, category: true },
@@ -41,13 +37,13 @@ export async function monthSpending(db: Db, householdId: string, date: string): 
 }
 
 /** Notifies the household of every threshold the `added` expenses cross — the overall monthly budget
- *  and each category's limit. `before` is monthSpending() read before they were written;
+ *  and each category's limit. `before` is periodSpending() read before they were written;
  *  `excludeUserId` is who caused it (they see it in the app, the others on their phones). Returns the
  *  notifications created, overall first. */
 export async function notifyBudgetThresholds(
   db: Db,
   householdId: string,
-  before: MonthSpending,
+  before: PeriodSpending,
   added: { category: ExpenseCategory; amount: number }[],
   excludeUserId?: string,
 ): Promise<Notification[]> {

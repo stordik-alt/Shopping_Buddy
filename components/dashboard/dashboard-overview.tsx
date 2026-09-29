@@ -17,9 +17,12 @@ export function DashboardOverview({
   onStores,
   onSetBudget,
   today,
+  periodStartDay = 1,
 }: {
   /** The real date (`YYYY-MM-DD`), for the budget card's per-day allowance and pace. */
   today: string
+  /** Day of the month the budget period starts on (1 = calendar month). */
+  periodStartDay?: number
   budget: number
   spent: number
   remaining: number
@@ -42,7 +45,7 @@ export function DashboardOverview({
     // list and the first deals are on the first screen; from lg up the list sits beside the budget
     // and the actions span below.
     <section className="grid gap-3 lg:grid-cols-[1.35fr_1fr] lg:gap-4" aria-label="Přehled domácnosti">
-      <BudgetHero compact today={today} budget={budget} spent={spent} remaining={remaining} onSetBudget={onSetBudget} className="order-1" />
+      <BudgetHero compact today={today} periodStartDay={periodStartDay} budget={budget} spent={spent} remaining={remaining} onSetBudget={onSetBudget} className="order-1" />
 
       <QuickActions className="order-2 lg:order-3 lg:col-span-2" onShopping={onShopping} onExpense={onExpense} onReceipt={onReceipt} onStores={onStores} />
 

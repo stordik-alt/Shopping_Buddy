@@ -176,6 +176,8 @@ export type Household = {
   id: string
   name: string
   monthlyBudget: number
+  /** Day of the month (1–28) the budget period starts on; 1 is the calendar month. */
+  budgetPeriodStartDay: number
   members: HouseholdMember[]
   children: Child[]
   preferences: HouseholdPreferences

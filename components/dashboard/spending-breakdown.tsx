@@ -19,7 +19,7 @@ export const CATEGORY_BAR_COLORS: Record<ExpenseCategory, string> = {
 
 /** This month's real spending per category, straight from the household's expenses (replaces the
  *  earlier decorative chart that showed made-up numbers). */
-export function SpendingBreakdown({ expenses, onDetails }: { expenses: Expense[]; onDetails: () => void }) {
+export function SpendingBreakdown({ expenses, onDetails, periodTitle = 'Tento měsíc' }: { expenses: Expense[]; onDetails: () => void; periodTitle?: string }) {
   const breakdown = categoryBreakdown(expenses)
   const max = Math.max(...breakdown.map((entry) => entry.total), 1)
 
@@ -28,7 +28,7 @@ export function SpendingBreakdown({ expenses, onDetails }: { expenses: Expense[]
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold">Výdaje podle kategorií</p>
-          <p className="mt-1 text-xs text-muted-foreground">Tento měsíc</p>
+          <p className="mt-1 text-xs text-muted-foreground">{periodTitle}</p>
         </div>
         <button onClick={onDetails} className="min-h-10 shrink-0 rounded-lg px-2 text-xs font-medium text-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           Podrobnosti

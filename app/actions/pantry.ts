@@ -4,9 +4,10 @@ import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { getDb } from '@/lib/db/client'
-import { setProductSubcategory } from '@/lib/db/queries'
+import { proposeProductSubcategory } from '@/lib/db/subcategory-changes'
 import * as schema from '@/lib/db/schema'
 import { classifySubcategory } from '@/lib/categorization'
+import type { CatalogChangeOutcome } from '@/lib/product-subcategory-changes'
 import { subcategoriesOfItem } from '@/lib/product-subcategories'
 import { CHECKIN_DAYS_BY_CATEGORY, checkinSubcategoryKey, customPlaceIdFromKey, MAX_PANTRY_REVIEW_ITEMS, PANTRY_AREAS, PANTRY_LOCATIONS, PANTRY_TRACKING, splitPantryReview } from '@/lib/pantry'
 import type { ItemCategory, PantryArea, PantryTracking } from '@/lib/types'
@@ -220,7 +221,7 @@ async function subcategoryIdFor(category: ItemCategory, name: string): Promise<s
 
 /** Sets (or clears, with null) an item's subcategory by hand. The name must belong to the item's own
  *  category (lib/product-subcategories.ts) — the server, not the select in the UI, is the authority. */
-export async function setPantryItemSubcategoryAction(pantryItemId: string, subcategory: string | null) {
+export async function setPantryItemSubcategoryAction(pantryItemId: string, subcategory: string | null): Promise<CatalogChangeOutcome | 'none'> {
   const householdId = await requireHouseholdId()
   const db = getDb()
   const item = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, pantryItemId) })
@@ -230,8 +231,10 @@ export async function setPantryItemSubcategoryAction(pantryItemId: string, subca
   // Learn from the correction: a product's subcategory is a fact about the product, not the
   // household, so the shared catalog remembers it and every later receipt of that product (any
   // household) is placed — and counted in the budget — under it automatically. Only a hand-made
-  // choice teaches the catalog; clearing one does not erase what the catalog already knows.
-  if (item.productId && subcategory !== null) await setProductSubcategory(item.productId, item.category, subcategory)
+  // choice teaches the catalog; clearing one does not erase what the catalog already knows. A product
+  // that has already been moved several times waits for an administrator ('pending') instead.
+  if (item.productId && subcategory !== null) return proposeProductSubcategory(householdId, item.productId, item.category, subcategory)
+  return 'none'
 }
 
 /** Places every uncategorized item of the household by the deterministic keyword rules — the same

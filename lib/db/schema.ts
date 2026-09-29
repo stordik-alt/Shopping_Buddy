@@ -1030,3 +1030,38 @@ export const appAdmins = pgTable('app_admins', {
   userId: uuid('user_id').primaryKey(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
+
+// Every change of a shared catalog product's subcategory that a household made by hand (from the
+// pantry). The catalog is shared by all households, so a product moved back and forth is a sign of
+// disagreement: the first few moves apply at once, later ones wait here as 'pending' until an
+// administrator approves or rejects them (lib/product-subcategory-changes.ts). `from_subcategory_id`
+// null means the product had none yet — that first placement is not counted as a move.
+export const productSubcategoryChanges = pgTable(
+  'product_subcategory_changes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+    householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+    fromSubcategoryId: uuid('from_subcategory_id').references(() => productSubcategories.id, { onDelete: 'set null' }),
+    toSubcategoryId: uuid('to_subcategory_id').notNull().references(() => productSubcategories.id, { onDelete: 'cascade' }),
+    status: text('status').notNull().default('applied'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+    decidedBy: uuid('decided_by'),
+  },
+  (table) => [
+    index('product_subcategory_changes_product_status_idx').on(table.productId, table.status),
+    // One household cannot pile up the same waiting proposal twice.
+    uniqueIndex('product_subcategory_changes_pending_unique')
+      .on(table.productId, table.householdId, table.toSubcategoryId)
+      .where(sql`${table.status} = 'pending'`),
+    check('product_subcategory_changes_status_valid', sql`${table.status} IN ('applied', 'pending', 'approved', 'rejected')`),
+  ],
+)
+
+export const productSubcategoryChangesRelations = relations(productSubcategoryChanges, ({ one }) => ({
+  product: one(products, { fields: [productSubcategoryChanges.productId], references: [products.id] }),
+  household: one(households, { fields: [productSubcategoryChanges.householdId], references: [households.id] }),
+  from: one(productSubcategories, { fields: [productSubcategoryChanges.fromSubcategoryId], references: [productSubcategories.id] }),
+  to: one(productSubcategories, { fields: [productSubcategoryChanges.toSubcategoryId], references: [productSubcategories.id] }),
+}))

@@ -351,6 +351,13 @@
       "when": 1790668482550,
       "tag": "0049_pantry_checkin_subcategory_intervals",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1790674436656,
+      "tag": "0050_product_subcategory_changes",
+      "breakpoints": true
     }
   ]
 }

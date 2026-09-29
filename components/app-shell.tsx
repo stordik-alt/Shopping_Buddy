@@ -631,9 +631,10 @@ export function AppShell({
     setPantryTrackingAction(id, tracking)
   }
 
+  // Resolves to whether the shared catalog took the choice or it waits for an administrator.
   function setPantryItemSubcategory(id: string, subcategory: string | null) {
     setPantryItems((current) => current.map((item) => (item.id === id ? { ...item, subcategory } : item)))
-    setPantryItemSubcategoryAction(id, subcategory)
+    return setPantryItemSubcategoryAction(id, subcategory)
   }
 
   // Resolves to how many items the keyword rules placed; the server decides, the state follows it.

@@ -1,5 +1,10 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-29 (Catalog subcategory moves: free up to 3, then administrator approval)
+- **Why (owner):** the shared catalog is corrected by hand from the pantry; a wrong assignment must be fixable later, but a product moved back and forth by many households needs a decision.
+- **What:** new table `product_subcategory_changes` (migration `0050`, additive) logs every hand-made catalog change. `proposeProductSubcategory` (`lib/db/subcategory-changes.ts`) applies the first placement and the first three moves at once (rule in `lib/product-subcategory-changes.ts`); the fourth and later moves are stored as `pending`, the household's own pantry item keeps its choice and is told the catalog change awaits approval. Administrators (`app_admins`) approve or reject on `/admin/subcategories`; approval writes the subcategory to the shared product. One household cannot queue the same proposal twice.
+- **Tests:** `lib/product-subcategory-changes.test.ts`, `lib/db/subcategory-changes.test.ts`. Not checked in a browser.
+
 ## 2026-09-29 (Manual pantry subcategory teaches the shared catalog; Potraviny expenses use the item subcategory)
 - **Why (owner):** a product belongs to the same subcategory in every household, so a hand-made correction should be remembered and reused, including for the budget.
 - **What:** `setPantryItemSubcategoryAction` also writes the choice to the shared `products` row (`setProductSubcategory`) when the pantry item has a product; later receipts already read the catalog subcategory (`classifySubcategory`). `targetsOf()` (`lib/purchase-expenses.ts`) now counts a Potraviny receipt line under its item subcategory (Potraviny ▸ Pečivo) instead of always without one; other categories are unchanged because their expense subcategory lists differ from the product lists. The automatic keyword button does not teach the catalog, only hand-made choices do. Existing purchases pick this up when their expenses are next recomputed.

@@ -29,6 +29,7 @@ import type {
   Notification,
   PantryItem,
   PantryLocation,
+  PantryPlace,
   PriceSensitivity,
   PurchaseRecord,
   QualityPreference,
@@ -104,6 +105,8 @@ export type HouseholdData = {
   isOwner: boolean
   pendingInvitations: PendingInvitation[]
   pantryItems: PantryItem[]
+  /** The household's own storage places, beyond the fixed `PantryLocation` list (lib/pantry.ts). */
+  pantryPlaces: PantryPlace[]
   pendingReceiptImports: ReceiptImportState[]
 }
 
@@ -266,7 +269,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
   // Expenses and purchases are sent for the last year (the budget screens compare months, the
   // purchase stats describe current habits); older records stay in the database.
   const historySince = new Date(Date.parse(`${todayInPrague()}T00:00:00Z`) - HISTORY_DAYS * 86_400_000).toISOString().slice(0, 10)
-  const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows, mealPlan, invitationRows, pantryRows, pendingReceiptImports, categoryBudgetRows, recurringRows, occurrenceRows] =
+  const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows, mealPlan, invitationRows, pantryRows, pantryPlaceRows, pendingReceiptImports, categoryBudgetRows, recurringRows, occurrenceRows] =
     await Promise.all([
       db.query.householdMembers.findMany({
         where: eq(schema.householdMembers.householdId, household.id),
@@ -308,6 +311,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
         orderBy: asc(schema.pantryItems.addedAt),
         with: { subcategory: { columns: { name: true } } },
       }),
+      db.query.pantryPlaces.findMany({ where: eq(schema.pantryPlaces.householdId, household.id), orderBy: asc(schema.pantryPlaces.createdAt) }),
       getPendingReceiptImports(household.id),
       db.query.expenseCategoryBudgets.findMany({ where: eq(schema.expenseCategoryBudgets.householdId, household.id), columns: { category: true, amount: true } }),
       db.query.recurringPayments.findMany({
@@ -474,6 +478,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
         category: item.category,
         subcategory: item.subcategory?.name ?? null,
         location: item.location,
+        customPlaceId: item.customPlaceId,
         quantity: item.quantity,
         unit: item.unit,
         // ISO strings: the pantry estimate and the check's order read the date part (YYYY-MM-DD).
@@ -483,6 +488,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
         tracking: item.tracking,
       }),
     ),
+    pantryPlaces: pantryPlaceRows.map((place): PantryPlace => ({ id: place.id, area: place.area, name: place.name })),
     pendingReceiptImports,
   }
 }

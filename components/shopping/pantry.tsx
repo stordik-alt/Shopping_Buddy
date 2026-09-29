@@ -1,13 +1,13 @@
-import { BriefcaseMedical, Check, ClipboardCheck, House, Minus, Package, Plus, Refrigerator, Snowflake, SprayCan, Wheat, X, type LucideIcon } from 'lucide-react'
+import { AlertTriangle, BriefcaseMedical, Car, Cat, Check, ClipboardCheck, House, Minus, Package, PackageSearch, Plus, Refrigerator, Snowflake, SprayCan, Warehouse, Wheat, X, type LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Pager } from '@/components/shared/pager'
 import { PantryReview, type PantryReviewResult } from '@/components/shopping/pantry-review'
 import { itemCountLabel } from '@/lib/format'
-import { needsCheck, PANTRY_LOCATIONS, PANTRY_PAGE_SIZE, PANTRY_TRACKING, summarizeByLocation } from '@/lib/pantry'
+import { findDuplicatePlacements, needsCheck, PANTRY_PAGE_SIZE, PANTRY_TRACKING, pantryPlaceOptions, placeKeyOf, summarizeByPlace, type PantryPlaceOption } from '@/lib/pantry'
 import { estimateReason, type ConsumptionEstimate } from '@/lib/pantry-estimate'
 import { clampPage, pageCount } from '@/lib/paging'
 import { cn } from '@/lib/utils'
-import type { ItemUnit, PantryItem, PantryLocation, PantryTracking } from '@/lib/types'
+import type { ItemUnit, PantryArea, PantryItem, PantryLocation, PantryPlace, PantryTracking } from '@/lib/types'
 
 // One distinct, meaningful icon per location so folders can be told apart at a glance on a phone.
 // `satisfies Record<PantryLocation, …>` makes adding a location without an icon a compile error.
@@ -19,6 +19,24 @@ const LOCATION_ICON = {
   Lékárnička: BriefcaseMedical,
   Drogérka: SprayCan,
 } satisfies Record<PantryLocation, LucideIcon>
+
+// A custom place has no icon of its own (the household just typed a name) — one per area instead,
+// the same idea as LOCATION_ICON but coarser. `satisfies Record<PantryArea, …>` makes adding an area
+// without an icon a compile error.
+const AREA_ICON = {
+  Potraviny: Wheat,
+  Drogerie: SprayCan,
+  Domácnost: House,
+  Děti: Package,
+  Auto: Car,
+  Bydlení: Warehouse,
+  Zvířata: Cat,
+  Ostatní: PackageSearch,
+} satisfies Record<PantryArea, LucideIcon>
+
+function iconFor(option: PantryPlaceOption): LucideIcon {
+  return option.custom ? AREA_ICON[option.area] : LOCATION_ICON[option.key as PantryLocation]
+}
 
 // Sentinel for the "no subcategory yet" filter chip — never a real subcategory name (spec section
 // 17: items the pipeline couldn't place confidently still show up under their location, just
@@ -96,6 +114,7 @@ function QuantityStepper({ quantity, unit, onChange }: { quantity: number; unit:
  *  what ran out, save once, and everything else is confirmed. */
 export function Pantry({
   items,
+  customPlaces,
   onConfirm,
   onRemove,
   onMove,
@@ -107,9 +126,12 @@ export function Pantry({
   onCheckOpened,
 }: {
   items: PantryItem[]
+  /** The household's own places, beyond the fixed locations (Profil domácnosti → Zásoby). */
+  customPlaces: PantryPlace[]
   onConfirm: (id: string) => void
   onRemove: (id: string) => void
-  onMove: (id: string, location: PantryLocation) => void
+  /** `place` is a `PantryPlaceOption.key` — a fixed location name, or `custom:<id>`. */
+  onMove: (id: string, place: string) => void
   onAdjustQuantity: (id: string, quantity: number) => void
   /** Saves a bulk check; resolves to what was done, rejects when nothing was saved. */
   onReview: (reviewedIds: string[], goneIds: string[], addGoneToList: boolean) => Promise<PantryReviewResult>
@@ -121,23 +143,28 @@ export function Pantry({
   openCheck?: boolean
   onCheckOpened?: () => void
 }) {
+  const options = useMemo(() => pantryPlaceOptions(customPlaces), [customPlaces])
   const likelyGone = useMemo(() => new Set([...estimates].filter(([, estimate]) => estimate.likelyGone).map(([id]) => id)), [estimates])
-  const summary = summarizeByLocation(items, likelyGone)
-  // Open on the first location that has something in it rather than on an empty folder.
-  const [selected, setSelected] = useState<PantryLocation>(() => PANTRY_LOCATIONS.find((location) => summary[location].count > 0) ?? PANTRY_LOCATIONS[0])
+  const summary = summarizeByPlace(items, options, likelyGone)
+  // Open on the first place that has something in it rather than on an empty folder.
+  const [selected, setSelected] = useState<string>(() => options.find((option) => summary[option.key].count > 0)?.key ?? options[0].key)
   // Announces a move: the moved row leaves the open folder, so without this it would just vanish.
   const [notice, setNotice] = useState<string | null>(null)
-  // The check opened from the "K ověření" banner covers every location (the asked items can be
+  // The check opened from the "K ověření" banner covers every place (the asked items can be
   // anywhere); opened from a folder, it starts with that folder.
   const toCheck = items.filter((item) => needsCheck(item, likelyGone)).length
+  // "Zkontrolovat zásoby" (spec section 11): the same item name kept at more than one place — worth
+  // the household's attention (maybe a genuine spare, maybe a forgotten duplicate), never auto-merged.
+  const duplicates = useMemo(() => findDuplicatePlacements(items), [items])
   const [reviewing, setReviewing] = useState<'location' | 'uncertain' | 'all' | null>(() => (openCheck ? (toCheck > 0 ? 'uncertain' : 'all') : null))
   // The link that opened the check is consumed once, so a reload or a later visit does not reopen it.
   useEffect(() => {
     if (openCheck) onCheckOpened?.()
   }, [openCheck, onCheckOpened])
 
-  const SelectedIcon = LOCATION_ICON[selected]
-  const itemsInLocation = items.filter((item) => item.location === selected)
+  const selectedOption = options.find((option) => option.key === selected) ?? options[0]
+  const SelectedIcon = iconFor(selectedOption)
+  const itemsInLocation = items.filter((item) => placeKeyOf(item) === selected)
   // Subcategory folder within the selected location (spec: "Lednice ▸ Maso a uzeniny" instead of one
   // flat list of everything chilled). `null` means "show everything in this location", the same
   // behavior as before this feature existed. Reset whenever the location changes below.
@@ -162,9 +189,10 @@ export function Pantry({
   const currentPage = clampPage(page, selectedItems.length, PANTRY_PAGE_SIZE)
   const pagedItems = selectedItems.slice((currentPage - 1) * PANTRY_PAGE_SIZE, currentPage * PANTRY_PAGE_SIZE)
 
-  function move(item: PantryItem, location: PantryLocation) {
-    onMove(item.id, location)
-    setNotice(`Přesunuto: ${item.name} → ${location}`)
+  function move(item: PantryItem, placeKey: string) {
+    onMove(item.id, placeKey)
+    const target = options.find((option) => option.key === placeKey)
+    setNotice(`Přesunuto: ${item.name} → ${target?.name ?? placeKey}`)
   }
 
   function closeReview(result: PantryReviewResult | null) {
@@ -194,18 +222,26 @@ export function Pantry({
           </button>
         </div>
       )}
+      {duplicates.length > 0 && !reviewing && (
+        <div className="flex items-start gap-2 rounded-2xl border border-border bg-muted px-4 py-3 text-sm">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+          <p className="min-w-0">
+            Na více místech: <span className="font-medium text-foreground">{duplicates.map((entry) => entry.name).join(', ')}</span>. Zkontrolujte, zda nejde o duplicitu.
+          </p>
+        </div>
+      )}
       <nav aria-label="Umístění zásob" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {PANTRY_LOCATIONS.map((location) => {
-          const Icon = LOCATION_ICON[location]
-          const { count, needsCheck, outOfStock } = summary[location]
-          const active = location === selected
+        {options.map((option) => {
+          const Icon = iconFor(option)
+          const { count, needsCheck, outOfStock } = summary[option.key]
+          const active = option.key === selected
           return (
             <button
-              key={location}
+              key={option.key}
               type="button"
               aria-pressed={active}
               onClick={() => {
-                setSelected(location)
+                setSelected(option.key)
                 setSubcategoryFilter(null)
                 setPage(1)
                 setNotice(null)
@@ -218,7 +254,7 @@ export function Pantry({
               <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', active ? 'bg-primary-foreground/15' : 'bg-secondary text-secondary-foreground')}>
                 <Icon className="h-5 w-5" aria-hidden />
               </span>
-              <span className="min-w-0 break-words text-sm font-semibold leading-tight">{location}</span>
+              <span className="min-w-0 break-words text-sm font-semibold leading-tight">{option.name}</span>
               <span className={cn('text-xs', active ? 'text-primary-foreground/80' : 'text-muted-foreground')}>{itemCountLabel(count)}</span>
               {(needsCheck > 0 || outOfStock > 0) && (
                 <span className="flex flex-wrap gap-1">
@@ -243,7 +279,7 @@ export function Pantry({
         // Subcategory folders within the open location (spec sections 17-18) — only shown when
         // there's more than one group to actually filter by, so a location with a single kind of
         // item (or none categorized yet) keeps the simpler flat list.
-        <div role="group" aria-label={`Podkategorie v umístění ${selected}`} className="flex flex-wrap gap-2">
+        <div role="group" aria-label={`Podkategorie v umístění ${selectedOption.name}`} className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => {
@@ -292,13 +328,13 @@ export function Pantry({
       )}
 
       {reviewing ? (
-        <PantryReview items={items} location={selected} initialScope={reviewing} estimates={estimates} onSave={onReview} onClose={closeReview} />
+        <PantryReview items={items} customPlaces={customPlaces} placeKey={selected} placeLabel={selectedOption.name} initialScope={reviewing} estimates={estimates} onSave={onReview} onClose={closeReview} />
       ) : (
-      <section aria-label={`Zásoby: ${selected}`} className="overflow-hidden surface">
+      <section aria-label={`Zásoby: ${selectedOption.name}`} className="overflow-hidden surface">
         <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
           <div className="flex min-w-0 items-center gap-2">
             <SelectedIcon className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-            <h2 className="min-w-0 break-words text-sm font-semibold">{selected}</h2>
+            <h2 className="min-w-0 break-words text-sm font-semibold">{selectedOption.name}</h2>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <span className="text-xs text-muted-foreground">{itemCountLabel(selectedItems.length)}</span>
@@ -324,7 +360,7 @@ export function Pantry({
         {selectedItems.length === 0 && (
           <div className="p-10 text-center">
             <Package className="mx-auto h-8 w-8 text-muted-foreground" aria-hidden />
-            <p className="mt-3 font-semibold">{items.length === 0 ? 'Zásoby jsou prázdné' : `V umístění „${selected}“ zatím nic není`}</p>
+            <p className="mt-3 font-semibold">{items.length === 0 ? 'Zásoby jsou prázdné' : `V umístění „${selectedOption.name}“ zatím nic není`}</p>
             <p className="mt-1 text-sm text-muted-foreground">
               {items.length === 0
                 ? 'Položky se sem přidají automaticky po dokončení nákupu.'
@@ -354,12 +390,14 @@ export function Pantry({
             <QuantityStepper quantity={item.quantity} unit={item.unit} onChange={(quantity) => onAdjustQuantity(item.id, quantity)} />
             <select
               aria-label={`Umístění ${item.name}`}
-              value={item.location}
-              onChange={(event) => move(item, event.target.value as PantryLocation)}
+              value={placeKeyOf(item)}
+              onChange={(event) => move(item, event.target.value)}
               className="max-w-full rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none"
             >
-              {PANTRY_LOCATIONS.map((option) => (
-                <option key={option}>{option}</option>
+              {options.map((option) => (
+                <option key={option.key} value={option.key}>
+                  {option.name}
+                </option>
               ))}
             </select>
             {/* Salt, spices or oil need no weekly question: "Jen zřídka" asks every few months,
@@ -397,7 +435,7 @@ export function Pantry({
         ))}
         {totalPages > 1 && (
           <div className="px-5 py-4">
-            <Pager page={currentPage} totalPages={totalPages} onChange={setPage} label={`Stránkování zásob: ${selected}`} />
+            <Pager page={currentPage} totalPages={totalPages} onChange={setPage} label={`Stránkování zásob: ${selectedOption.name}`} />
           </div>
         )}
       </section>

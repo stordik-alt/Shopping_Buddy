@@ -1,6 +1,6 @@
 import { normalizeSearchText } from '@/lib/product-search'
 import { matchKey } from '@/lib/receipt-list-match'
-import type { ItemCategory, PantryItem, PantryLocation, PantryTracking } from '@/lib/types'
+import type { ItemCategory, PantryArea, PantryItem, PantryLocation, PantryPlace, PantryTracking } from '@/lib/types'
 
 /** How many days a pantry item can go unconfirmed before the household gets asked "do you still
  *  have this?" — per category, since shelf life genuinely differs (milk vs. rice), but there's no
@@ -28,6 +28,58 @@ export const PANTRY_LOCATIONS: PantryLocation[] = ['Spíž', 'Lednice', 'Mrazák
  *  phone (owner request, 2026-09-28: "Přidej stránkování i na kartu Zásoby"). */
 export const PANTRY_PAGE_SIZE = 8
 
+/** Every area a pantry place can belong to (`lib/db/schema.ts`'s `pantryAreaEnum`) — a test keeps
+ *  this identical to the database enum, the same guard `PANTRY_LOCATIONS` already has. */
+export const PANTRY_AREAS: PantryArea[] = ['Potraviny', 'Drogerie', 'Domácnost', 'Děti', 'Auto', 'Bydlení', 'Zvířata', 'Ostatní']
+
+/** The area each fixed location belongs to, for grouping a household's custom places alongside them
+ *  and for suggesting a sensible default area when the household adds a new custom place. */
+export const FIXED_LOCATION_AREA: Record<PantryLocation, PantryArea> = {
+  Spíž: 'Potraviny',
+  Lednice: 'Potraviny',
+  Mrazák: 'Potraviny',
+  Domácnost: 'Domácnost',
+  Lékárnička: 'Domácnost',
+  Drogérka: 'Drogerie',
+}
+
+/** One place a pantry item can be kept — either one of the fixed `PantryLocation`s or a household's
+ *  own (`PantryPlace`), presented the same way so the UI does not need two separate code paths. `key`
+ *  is what `PantryItem`s are grouped and moved by (`placeKeyOf()` below); for a fixed location it is
+ *  the location name itself (matching `PantryItem.location`), for a custom place it is prefixed so
+ *  the two spaces can never collide. */
+export type PantryPlaceOption = { key: string; name: string; area: PantryArea; custom: boolean; id?: string }
+
+/** Prefix marking a `PantryPlaceOption.key`/`<select>` value as a custom place's id rather than a
+ *  fixed `PantryLocation` name — exported so the UI and the server action agree on the format. */
+export const CUSTOM_PLACE_KEY_PREFIX = 'custom:'
+
+export function customPlaceKey(placeId: string): string {
+  return `${CUSTOM_PLACE_KEY_PREFIX}${placeId}`
+}
+
+/** The custom place id encoded in a `PantryPlaceOption.key`/`<select>` value, or null when the key
+ *  names a fixed `PantryLocation` instead. */
+export function customPlaceIdFromKey(key: string): string | null {
+  return key.startsWith(CUSTOM_PLACE_KEY_PREFIX) ? key.slice(CUSTOM_PLACE_KEY_PREFIX.length) : null
+}
+
+/** Every place the household can keep stock in right now: the fixed locations, then its own custom
+ *  places grouped by area and named alphabetically within it. */
+export function pantryPlaceOptions(customPlaces: PantryPlace[]): PantryPlaceOption[] {
+  const fixed: PantryPlaceOption[] = PANTRY_LOCATIONS.map((location) => ({ key: location, name: location, area: FIXED_LOCATION_AREA[location], custom: false }))
+  const customs: PantryPlaceOption[] = [...customPlaces]
+    .sort((a, b) => PANTRY_AREAS.indexOf(a.area) - PANTRY_AREAS.indexOf(b.area) || a.name.localeCompare(b.name, 'cs'))
+    .map((place) => ({ key: customPlaceKey(place.id), name: place.name, area: place.area, custom: true, id: place.id }))
+  return [...fixed, ...customs]
+}
+
+/** The place key a pantry item is currently kept at — its custom place when it has one, otherwise
+ *  its fixed location. The one thing every place-aware function groups/moves items by. */
+export function placeKeyOf(item: Pick<PantryItem, 'location' | 'customPlaceId'>): string {
+  return item.customPlaceId ? customPlaceKey(item.customPlaceId) : item.location
+}
+
 export type LocationSummary = {
   /** Rows kept in this location. */
   count: number
@@ -38,16 +90,14 @@ export type LocationSummary = {
   outOfStock: number
 }
 
-/** Per-location counts for the Zásoby folder tiles. Every location is present — an empty one has
- *  zeros — so the UI can always offer all folders (an empty folder is still a valid place to move
- *  something into). Expiry is deliberately not part of this: pantry rows carry no expiry date, and
- *  inventing one would be a made-up warning. */
-export function summarizeByLocation(items: PantryItem[], likelyGoneIds: ReadonlySet<string> = new Set()): Record<PantryLocation, LocationSummary> {
-  const summary = Object.fromEntries(
-    PANTRY_LOCATIONS.map((location) => [location, { count: 0, needsCheck: 0, outOfStock: 0 }]),
-  ) as Record<PantryLocation, LocationSummary>
+/** Per-place counts for the Zásoby folder tiles, keyed by `PantryPlaceOption.key`. Every place in
+ *  `options` is present — an empty one has zeros — so the UI can always offer all folders (an empty
+ *  folder is still a valid place to move something into). Expiry is deliberately not part of this:
+ *  pantry rows carry no expiry date, and inventing one would be a made-up warning. */
+export function summarizeByPlace(items: PantryItem[], options: PantryPlaceOption[], likelyGoneIds: ReadonlySet<string> = new Set()): Record<string, LocationSummary> {
+  const summary = Object.fromEntries(options.map((option) => [option.key, { count: 0, needsCheck: 0, outOfStock: 0 }])) as Record<string, LocationSummary>
   for (const item of items) {
-    const entry = summary[item.location]
+    const entry = summary[placeKeyOf(item)]
     if (!entry) continue
     entry.count += 1
     if (needsCheck(item, likelyGoneIds)) entry.needsCheck += 1
@@ -184,6 +234,34 @@ export function pantryItemAtHome(pantryItems: PantryItem[], name: string): Pantr
   const key = matchKey(name)
   if (!key) return null
   return pantryItems.find((item) => item.tracking !== 'off' && item.quantity > 0 && matchKey(item.name) === key) ?? null
+}
+
+export type DuplicatePlacement = {
+  /** The name shared by the duplicate rows (as typed on the first of them, for display). */
+  name: string
+  ids: string[]
+}
+
+/** Items kept at more than one place under the same name (spec section 11: "stejnou položku na
+ *  více místech") — case/whitespace-insensitive, the same match rule `pantryQuantityFor()` already
+ *  uses. Flags the household's attention rather than guessing which row is the "right" one: they
+ *  might genuinely mean to have milk in both the fridge and a spare in the pantry, so this is a
+ *  question ("Zkontrolovat zásoby"), not an automatic merge. */
+export function findDuplicatePlacements(items: PantryItem[]): DuplicatePlacement[] {
+  const byName = new Map<string, PantryItem[]>()
+  for (const item of items) {
+    const key = item.name.trim().toLowerCase()
+    if (!key) continue
+    const group = byName.get(key)
+    if (group) group.push(item)
+    else byName.set(key, [item])
+  }
+  const duplicates: DuplicatePlacement[] = []
+  for (const group of byName.values()) {
+    const distinctPlaces = new Set(group.map((item) => placeKeyOf(item)))
+    if (distinctPlaces.size > 1) duplicates.push({ name: group[0].name, ids: group.map((item) => item.id) })
+  }
+  return duplicates.sort((a, b) => a.name.localeCompare(b.name, 'cs'))
 }
 
 /** What the home screen's "Došlo mi…" offers (components/dashboard/quick-out-of-stock.tsx): tracked

@@ -18,7 +18,7 @@ import {
 } from '@/app/actions/household'
 import { markMealCookedAction } from '@/app/actions/meal-plan'
 import { markAllNotificationsReadAction, markNotificationReadAction } from '@/app/actions/notifications'
-import { adjustPantryItemQuantityAction, confirmPantryItemAction, movePantryItemAction, removePantryItemAction, reviewPantryAction, setPantryTrackingAction } from '@/app/actions/pantry'
+import { addPantryPlaceAction, adjustPantryItemQuantityAction, confirmPantryItemAction, movePantryItemAction, removePantryItemAction, removePantryPlaceAction, reviewPantryAction, setPantryTrackingAction } from '@/app/actions/pantry'
 import { completePurchaseAction, getPurchaseExpenseItemsAction, recordPurchaseAsExpenseAction, setPurchaseItemExpenseSplitsAction } from '@/app/actions/purchases'
 import {
   applyReceiptListMatchesAction,
@@ -62,7 +62,7 @@ import { QuickOutOfStock } from '@/components/dashboard/quick-out-of-stock'
 import { PantryPrompt, type PantryPromptState } from '@/components/shopping/pantry-prompt'
 import { applyPendingOps, enqueue, isNetworkError, loadQueue, newTempId, placeholderItem, remapItemId, saveQueue, type PendingOp } from '@/lib/offline-queue'
 import { estimatePantry } from '@/lib/pantry-estimate'
-import { pantryItemAtHome } from '@/lib/pantry'
+import { customPlaceIdFromKey, pantryItemAtHome } from '@/lib/pantry'
 import { matchKey as matchKeyOf } from '@/lib/receipt-list-match'
 import { ShoppingList } from '@/components/shopping/shopping-list'
 import { StoreDirectory } from '@/components/stores/store-directory'
@@ -78,7 +78,7 @@ import type { ReceiptLineItem } from '@/lib/receipts'
 import type { ExpenseCategory } from '@/lib/expense-categories'
 import type { ExpenseInput } from '@/lib/expense-input'
 import type { RecurringPayment, RecurringPaymentInput } from '@/lib/recurring-payments'
-import type { Expense, Item, PantryItem, PantryLocation, PantryTracking, Store, Tab } from '@/lib/types'
+import type { Expense, Item, PantryArea, PantryItem, PantryLocation, PantryTracking, Store, Tab } from '@/lib/types'
 import type { PinRecord } from '@/lib/db/shopping-plan'
 import { filterPricesToNearby, type StoreSelection } from '@/lib/nearby-stores'
 import { nearbyOffers, type StandaloneOffer } from '@/lib/offers'
@@ -172,6 +172,7 @@ export function AppShell({
   const [shoppingLists, setShoppingLists] = useState(initialData.shoppingLists)
   const [pendingInvitations, setPendingInvitations] = useState(initialData.pendingInvitations)
   const [pantryItems, setPantryItems] = useState(initialData.pantryItems)
+  const [pantryPlaces, setPantryPlaces] = useState(initialData.pantryPlaces)
   const [pendingReceiptImports, setPendingReceiptImports] = useState(initialData.pendingReceiptImports)
   // Which of the three things the Nákup tab can show right now — the list itself is what people open
   // it for, so it stays the default even when a receipt is waiting on review.
@@ -198,6 +199,7 @@ export function AppShell({
     setShoppingLists(initialData.shoppingLists)
     setPendingInvitations(initialData.pendingInvitations)
     setPantryItems(initialData.pantryItems)
+    setPantryPlaces(initialData.pantryPlaces)
     setPendingReceiptImports(initialData.pendingReceiptImports)
   }, [initialData])
 
@@ -540,9 +542,21 @@ export function AppShell({
     removePantryItemAction(id)
   }
 
-  function movePantryItem(id: string, location: PantryLocation) {
-    setPantryItems((current) => current.map((item) => (item.id === id ? { ...item, location } : item)))
-    movePantryItemAction(id, location)
+  function movePantryItem(id: string, placeKey: string) {
+    const customPlaceId = customPlaceIdFromKey(placeKey)
+    setPantryItems((current) => current.map((item) => (item.id === id ? (customPlaceId ? { ...item, customPlaceId } : { ...item, location: placeKey as PantryLocation, customPlaceId: null }) : item)))
+    movePantryItemAction(id, placeKey)
+  }
+
+  async function addPantryPlace(area: PantryArea, name: string) {
+    const place = await addPantryPlaceAction(area, name)
+    setPantryPlaces((current) => [...current, place])
+    return place
+  }
+
+  async function removePantryPlace(placeId: string) {
+    await removePantryPlaceAction(placeId)
+    setPantryPlaces((current) => current.filter((place) => place.id !== placeId))
   }
 
   // Bulk check (components/shopping/pantry-review.tsx). Saved first; the local pantry changes only
@@ -956,7 +970,19 @@ export function AppShell({
               )}
               {tab === 'Zásoby' && (
                 <div className="mx-auto max-w-3xl">
-                  <Pantry items={pantryItems} onConfirm={confirmPantryItem} onRemove={removePantryItem} onMove={movePantryItem} onAdjustQuantity={adjustPantryItemQuantity} onReview={reviewPantry} onSetTracking={setPantryTracking} estimates={pantryEstimates} openCheck={pantryCheckPending} onCheckOpened={consumePantryCheck} />
+                  <Pantry
+                    items={pantryItems}
+                    customPlaces={pantryPlaces}
+                    onConfirm={confirmPantryItem}
+                    onRemove={removePantryItem}
+                    onMove={movePantryItem}
+                    onAdjustQuantity={adjustPantryItemQuantity}
+                    onReview={reviewPantry}
+                    onSetTracking={setPantryTracking}
+                    estimates={pantryEstimates}
+                    openCheck={pantryCheckPending}
+                    onCheckOpened={consumePantryCheck}
+                  />
                 </div>
               )}
               {tab === 'Akce' && (
@@ -1058,6 +1084,9 @@ export function AppShell({
                   stores={stores}
                   storeSelection={storeSelection}
                   onSaveStorePreferences={saveStorePreferences}
+                  pantryPlaces={pantryPlaces}
+                  onAddPantryPlace={addPantryPlace}
+                  onRemovePantryPlace={removePantryPlace}
                 />
               )}
             </div>

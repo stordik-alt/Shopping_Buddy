@@ -1,7 +1,26 @@
 import { describe, expect, it } from 'vitest'
-import { pantryLocationEnum } from '@/lib/db/schema'
-import { CHECKIN_DAYS_BY_CATEGORY, findDueForCheckin, inferPantryLocation, isDueForCheckin, PANTRY_LOCATIONS, pantryQuantityFor, pantryItemAtHome, pantryReviewOrder, quickOutCandidates, splitPantryReview, summarizeByLocation, type PantryCheckinCandidate } from '@/lib/pantry'
-import type { PantryItem } from '@/lib/types'
+import { pantryAreaEnum, pantryLocationEnum } from '@/lib/db/schema'
+import {
+  CHECKIN_DAYS_BY_CATEGORY,
+  customPlaceIdFromKey,
+  customPlaceKey,
+  findDueForCheckin,
+  findDuplicatePlacements,
+  inferPantryLocation,
+  isDueForCheckin,
+  PANTRY_AREAS,
+  PANTRY_LOCATIONS,
+  pantryPlaceOptions,
+  pantryQuantityFor,
+  pantryItemAtHome,
+  pantryReviewOrder,
+  placeKeyOf,
+  quickOutCandidates,
+  splitPantryReview,
+  summarizeByPlace,
+  type PantryCheckinCandidate,
+} from '@/lib/pantry'
+import type { PantryItem, PantryPlace } from '@/lib/types'
 
 const NOW = new Date('2026-09-21T08:00:00Z')
 const daysAgo = (n: number) => new Date(NOW.getTime() - n * 86_400_000)
@@ -141,7 +160,37 @@ describe('PANTRY_LOCATIONS', () => {
   })
 })
 
-describe('summarizeByLocation', () => {
+describe('PANTRY_AREAS', () => {
+  it('offers exactly the areas the database enum accepts, in the same order', () => {
+    expect(PANTRY_AREAS).toEqual([...pantryAreaEnum.enumValues])
+  })
+})
+
+describe('pantryPlaceOptions / placeKeyOf', () => {
+  const custom = (overrides: Partial<PantryPlace> = {}): PantryPlace => ({ id: 'place-1', area: 'Auto', name: 'Kufr', ...overrides })
+
+  it('lists the fixed locations first, then custom places grouped by area and named alphabetically', () => {
+    const options = pantryPlaceOptions([custom({ id: 'a', area: 'Bydlení', name: 'Sklep' }), custom({ id: 'b', area: 'Auto', name: 'Schránka' }), custom({ id: 'c', area: 'Auto', name: 'Kufr' })])
+    expect(options.slice(0, PANTRY_LOCATIONS.length).map((option) => option.key)).toEqual(PANTRY_LOCATIONS)
+    expect(options.slice(PANTRY_LOCATIONS.length).map((option) => option.name)).toEqual(['Kufr', 'Schránka', 'Sklep'])
+    expect(options.slice(0, PANTRY_LOCATIONS.length).every((option) => option.custom === false)).toBe(true)
+    expect(options.slice(PANTRY_LOCATIONS.length).every((option) => option.custom === true)).toBe(true)
+  })
+
+  it('gives a custom place a key distinct from every fixed location, round-tripping its id', () => {
+    const key = customPlaceKey('abc-123')
+    expect(PANTRY_LOCATIONS as string[]).not.toContain(key)
+    expect(customPlaceIdFromKey(key)).toBe('abc-123')
+    expect(customPlaceIdFromKey('Lednice')).toBeNull()
+  })
+
+  it('keys an item by its custom place when it has one, otherwise by its fixed location', () => {
+    expect(placeKeyOf({ location: 'Lednice', customPlaceId: null })).toBe('Lednice')
+    expect(placeKeyOf({ location: 'Spíž', customPlaceId: 'place-1' })).toBe(customPlaceKey('place-1'))
+  })
+})
+
+describe('summarizeByPlace', () => {
   const row = (overrides: Partial<PantryItem>): PantryItem => ({
     id: 'p',
     name: 'Rýže',
@@ -152,20 +201,19 @@ describe('summarizeByLocation', () => {
     addedAt: '2026-09-20',
     ...overrides,
   })
+  const options = pantryPlaceOptions([])
 
   it('has an entry with zeros for every location, even with no stock at all', () => {
-    const summary = summarizeByLocation([])
+    const summary = summarizeByPlace([], options)
     expect(Object.keys(summary)).toEqual(PANTRY_LOCATIONS)
     for (const location of PANTRY_LOCATIONS) expect(summary[location]).toEqual({ count: 0, needsCheck: 0, outOfStock: 0 })
   })
 
   it('counts each row in the location it is kept in, and only there', () => {
-    const summary = summarizeByLocation([
-      row({ id: '1', location: 'Spíž' }),
-      row({ id: '2', location: 'Spíž' }),
-      row({ id: '3', location: 'Lékárnička', name: 'Ibalgin' }),
-      row({ id: '4', location: 'Drogérka', name: 'Šampon' }),
-    ])
+    const summary = summarizeByPlace(
+      [row({ id: '1', location: 'Spíž' }), row({ id: '2', location: 'Spíž' }), row({ id: '3', location: 'Lékárnička', name: 'Ibalgin' }), row({ id: '4', location: 'Drogérka', name: 'Šampon' })],
+      options,
+    )
     expect(summary.Spíž.count).toBe(2)
     expect(summary.Lékárnička.count).toBe(1)
     expect(summary.Drogérka.count).toBe(1)
@@ -173,18 +221,53 @@ describe('summarizeByLocation', () => {
   })
 
   it('flags rows the check-in cron asked about, and rows at zero quantity', () => {
-    const summary = summarizeByLocation([
-      row({ id: '1', location: 'Lednice', askedAt: '2026-09-21' }),
-      row({ id: '2', location: 'Lednice', quantity: 0 }),
-      row({ id: '3', location: 'Lednice' }),
-    ])
+    const summary = summarizeByPlace([row({ id: '1', location: 'Lednice', askedAt: '2026-09-21' }), row({ id: '2', location: 'Lednice', quantity: 0 }), row({ id: '3', location: 'Lednice' })], options)
     expect(summary.Lednice).toEqual({ count: 3, needsCheck: 1, outOfStock: 1 })
   })
 
   it('ignores a row with a location it does not know instead of crashing', () => {
     const unknown = row({ location: 'Sklep' as never })
-    expect(() => summarizeByLocation([unknown])).not.toThrow()
-    expect(Object.values(summarizeByLocation([unknown])).reduce((sum, entry) => sum + entry.count, 0)).toBe(0)
+    expect(() => summarizeByPlace([unknown], options)).not.toThrow()
+    expect(Object.values(summarizeByPlace([unknown], options)).reduce((sum, entry) => sum + entry.count, 0)).toBe(0)
+  })
+
+  it('counts a custom-place row under its custom place, not its (harmless default) fixed location', () => {
+    const place = { id: 'place-1', area: 'Auto' as const, name: 'Kufr' }
+    const summary = summarizeByPlace([row({ id: '1', location: 'Spíž', customPlaceId: 'place-1' })], pantryPlaceOptions([place]))
+    expect(summary[customPlaceKey('place-1')].count).toBe(1)
+    expect(summary.Spíž.count).toBe(0)
+  })
+})
+
+describe('findDuplicatePlacements', () => {
+  const row = (overrides: Partial<PantryItem>): PantryItem => ({
+    id: 'p',
+    name: 'Mléko',
+    category: 'Potraviny',
+    location: 'Lednice',
+    quantity: 1,
+    unit: 'l',
+    addedAt: '2026-09-20',
+    ...overrides,
+  })
+
+  it('flags the same name kept at more than one place', () => {
+    const duplicates = findDuplicatePlacements([row({ id: '1', location: 'Lednice' }), row({ id: '2', location: 'Mrazák' })])
+    expect(duplicates).toEqual([{ name: 'Mléko', ids: ['1', '2'] }])
+  })
+
+  it('is case/whitespace-insensitive, matching pantryQuantityFor\'s own rule', () => {
+    const duplicates = findDuplicatePlacements([row({ id: '1', name: 'mléko', location: 'Lednice' }), row({ id: '2', name: ' Mléko ', location: 'Spíž' })])
+    expect(duplicates).toHaveLength(1)
+  })
+
+  it('does not flag the same name kept only at one place, even in several rows', () => {
+    expect(findDuplicatePlacements([row({ id: '1', location: 'Lednice' }), row({ id: '2', location: 'Lednice' })])).toEqual([])
+  })
+
+  it('treats a custom place as distinct from any fixed location with the same underlying column value', () => {
+    const duplicates = findDuplicatePlacements([row({ id: '1', location: 'Spíž', customPlaceId: null }), row({ id: '2', location: 'Spíž', customPlaceId: 'place-1' })])
+    expect(duplicates).toEqual([{ name: 'Mléko', ids: ['1', '2'] }])
   })
 })
 
@@ -208,15 +291,16 @@ describe('splitPantryReview', () => {
   })
 })
 
-describe('summarizeByLocation with estimates', () => {
+describe('summarizeByPlace with estimates', () => {
   it('counts an item estimated as used up as one to check, once', () => {
     const base = { name: 'Mléko', category: 'Potraviny' as const, location: 'Lednice' as const, quantity: 1, unit: 'l' as const, addedAt: '2026-09-01T00:00:00Z' }
-    const summary = summarizeByLocation(
+    const summary = summarizeByPlace(
       [
         { ...base, id: 'a' },
         { ...base, id: 'b', askedAt: '2026-09-20T00:00:00Z' },
         { ...base, id: 'c', askedAt: '2026-09-20T00:00:00Z' },
       ],
+      pantryPlaceOptions([]),
       new Set(['a', 'c']),
     )
     expect(summary.Lednice.needsCheck).toBe(3)

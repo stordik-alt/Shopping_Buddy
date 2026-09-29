@@ -1,5 +1,12 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-29 (Hierarchical pantry places — Oblast → Místo, Fáze 4 of the owner's UX/IA brief)
+- **Why:** the brief's section 12 wanted Zásoby to stop being limited to a fixed lednice/mrazák/spíž list and let households add their own places under a broader area (Auto, Bydlení, Zvířata — not things a product is ever categorized as, so a deliberately separate system from `item_category`).
+- **What:** migration `0046_pantry_places.sql` — purely additive: new `pantry_area` enum, a household-scoped `pantry_places` table, and a nullable `pantry_items.custom_place_id`; the existing `pantry_location` enum/column are untouched. `lib/pantry.ts`'s `pantryPlaceOptions()`/`placeKeyOf()`/`summarizeByPlace()` merge fixed locations with a household's own places for the Zásoby tiles, the bulk-check groups, and the move select. New `components/household/pantry-places.tsx` (Profil domácnosti → Zásoby) lets the household add/remove places; removal is refused while the place still holds items.
+- **Also:** `findDuplicatePlacements()` flags the same item name kept at more than one place (spec section 11), shown as an informational banner in Zásoby.
+- **Deliberately not done:** the rest of section 11's checks (missing place/category, quantity anomalies) and section 13's configurable check-in interval — separate follow-ups.
+- **Tests:** `lib/pantry.test.ts`, `app/actions/pantry.test.ts` (+11), `components/shopping/pantry.test.tsx` (+4). Full suite and `tsc --noEmit` clean; verified live (375px, light/dark, real account).
+
 ## 2026-09-28 (Akce: search box and "Podle obchodu" sort, Fáze 5 of the owner's UX/IA brief)
 - **Why:** the brief's Akce section asked for real search (name/category/subcategory, not just exact match) and a store sort alongside name/price/discount.
 - **What:** `lib/db/deals.ts`'s `getDealsPage()` gained a `query` filter reusing `lib/product-search.ts`'s existing tokenizing/stemming/synonym machinery against `products.search_name`, `product_categories.name` and (new left join) `product_subcategories.name` — every word of a multi-word query must match somewhere. `DEAL_SORTS` gained `'store'`. `components/deals/deals-tab.tsx` has a debounced "Co hledáte?" search box above the category chips.

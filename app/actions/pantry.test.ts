@@ -2,14 +2,14 @@ import { eq } from 'drizzle-orm'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
-import { PANTRY_LOCATIONS } from '@/lib/pantry'
+import { customPlaceKey, PANTRY_LOCATIONS } from '@/lib/pantry'
 
 // Continues the Server Action test coverage started in app/actions/shopping.test.ts.
 let currentHouseholdId = ''
 vi.mock('@/lib/auth/authorize', () => ({ requireHouseholdId: () => Promise.resolve(currentHouseholdId) }))
 vi.mock('next/cache', () => ({ revalidatePath: () => {} }))
 
-import { adjustPantryItemQuantityAction, confirmPantryItemAction, movePantryItemAction, removePantryItemAction, reviewPantryAction, setPantryTrackingAction } from '@/app/actions/pantry'
+import { addPantryPlaceAction, adjustPantryItemQuantityAction, confirmPantryItemAction, movePantryItemAction, removePantryItemAction, removePantryPlaceAction, reviewPantryAction, setPantryTrackingAction } from '@/app/actions/pantry'
 
 const db = getDb()
 const createdHouseholdIds: string[] = []
@@ -28,6 +28,7 @@ beforeEach(async () => {
 afterAll(async () => {
   for (const id of createdHouseholdIds) {
     await db.delete(schema.pantryItems).where(eq(schema.pantryItems.householdId, id))
+    await db.delete(schema.pantryPlaces).where(eq(schema.pantryPlaces.householdId, id))
     await db.delete(schema.households).where(eq(schema.households.id, id))
   }
 })
@@ -83,6 +84,77 @@ describe('movePantryItemAction', () => {
     await movePantryItemAction(item.id, 'Lékárnička')
     const row = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, item.id) })
     expect(row).toMatchObject({ location: 'Lékárnička', quantity: 2, unit: 'ks', category: 'Ostatní', name: 'Ibalgin' })
+  })
+
+  it('moves the caller\'s own item into one of the household\'s custom places, and back to a fixed location', async () => {
+    const [place] = await db.insert(schema.pantryPlaces).values({ householdId, area: 'Auto', name: 'Kufr auta' }).returning()
+    const [item] = await db.insert(schema.pantryItems).values({ householdId, name: 'Motorový olej', category: 'Ostatní', location: 'Spíž' }).returning()
+
+    await movePantryItemAction(item.id, customPlaceKey(place.id))
+    let row = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, item.id) })
+    expect(row?.customPlaceId).toBe(place.id)
+
+    await movePantryItemAction(item.id, 'Domácnost')
+    row = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, item.id) })
+    expect(row).toMatchObject({ location: 'Domácnost', customPlaceId: null })
+  })
+
+  it('rejects a custom place belonging to a different household', async () => {
+    const [theirPlace] = await db.insert(schema.pantryPlaces).values({ householdId: otherHouseholdId, area: 'Auto', name: 'Kufr auta' }).returning()
+    const [item] = await db.insert(schema.pantryItems).values({ householdId, name: 'Motorový olej', category: 'Ostatní' }).returning()
+    await expect(movePantryItemAction(item.id, customPlaceKey(theirPlace.id))).rejects.toThrow('Vlastní místo nenalezeno')
+  })
+
+  it('rejects a place key that is neither a known fixed location nor a real custom place id', async () => {
+    const [item] = await db.insert(schema.pantryItems).values({ householdId, name: 'Mléko', category: 'Potraviny' }).returning()
+    await expect(movePantryItemAction(item.id, 'Garáž')).rejects.toThrow('Neplatné umístění')
+    await expect(movePantryItemAction(item.id, customPlaceKey('00000000-0000-0000-0000-000000000000'))).rejects.toThrow('Vlastní místo nenalezeno')
+  })
+})
+
+describe('addPantryPlaceAction', () => {
+  it('adds a custom place under the given area', async () => {
+    const place = await addPantryPlaceAction('Auto', 'Kufr auta')
+    expect(place).toMatchObject({ area: 'Auto', name: 'Kufr auta' })
+    const row = await db.query.pantryPlaces.findFirst({ where: eq(schema.pantryPlaces.id, place.id) })
+    expect(row).toMatchObject({ householdId, area: 'Auto', name: 'Kufr auta' })
+  })
+
+  it('trims the name and rejects an empty one', async () => {
+    const place = await addPantryPlaceAction('Bydlení', '  Sklep  ')
+    expect(place.name).toBe('Sklep')
+    await expect(addPantryPlaceAction('Bydlení', '   ')).rejects.toThrow('Zadejte název')
+  })
+
+  it('rejects an unknown area', async () => {
+    await expect(addPantryPlaceAction('Vesmír' as never, 'Raketa')).rejects.toThrow('Neplatná oblast')
+  })
+
+  it('rejects a duplicate name within the same area, but allows the same name in a different area', async () => {
+    await addPantryPlaceAction('Auto', 'Garáž')
+    await expect(addPantryPlaceAction('Auto', 'Garáž')).rejects.toThrow('už v dané oblasti existuje')
+    await expect(addPantryPlaceAction('Bydlení', 'Garáž')).resolves.toMatchObject({ area: 'Bydlení', name: 'Garáž' })
+  })
+})
+
+describe('removePantryPlaceAction', () => {
+  it('removes an empty custom place', async () => {
+    const place = await addPantryPlaceAction('Auto', 'Schránka')
+    await removePantryPlaceAction(place.id)
+    expect(await db.query.pantryPlaces.findFirst({ where: eq(schema.pantryPlaces.id, place.id) })).toBeUndefined()
+  })
+
+  it('refuses to remove a place that still holds items', async () => {
+    const place = await addPantryPlaceAction('Auto', 'Kufr auta')
+    const [item] = await db.insert(schema.pantryItems).values({ householdId, name: 'Motorový olej', category: 'Ostatní', customPlaceId: place.id }).returning()
+    await expect(removePantryPlaceAction(place.id)).rejects.toThrow('Nejdřív přesuňte položky')
+    expect(await db.query.pantryPlaces.findFirst({ where: eq(schema.pantryPlaces.id, place.id) })).toBeDefined()
+    await db.delete(schema.pantryItems).where(eq(schema.pantryItems.id, item.id)) // clean up for the next test
+  })
+
+  it('rejects a place belonging to a different household', async () => {
+    const [theirPlace] = await db.insert(schema.pantryPlaces).values({ householdId: otherHouseholdId, area: 'Auto', name: 'Kufr' }).returning()
+    await expect(removePantryPlaceAction(theirPlace.id)).rejects.toThrow('Vlastní místo nenalezeno')
   })
 })
 

@@ -136,6 +136,20 @@ export type PurchaseRecord = {
  *  freshly bought chilled meat into the freezer for later use. */
 export type PantryLocation = 'Spíž' | 'Lednice' | 'Mrazák' | 'Domácnost' | 'Lékárnička' | 'Drogérka'
 
+/** The broader zone a household-created pantry place (below) belongs to — wider than `ItemCategory`
+ *  on purpose, since a household stores things at home that are not a product category at all (a
+ *  car, a garage). See lib/db/schema.ts's `pantryAreaEnum` comment for why this is a separate system
+ *  from `ItemCategory` rather than reusing it. */
+export type PantryArea = 'Potraviny' | 'Drogerie' | 'Domácnost' | 'Děti' | 'Auto' | 'Bydlení' | 'Zvířata' | 'Ostatní'
+
+/** A place a household added itself, beyond the fixed `PantryLocation` list (spec: "Uživatel musí
+ *  mít možnost vytvořit vlastní místo"), e.g. "Kufr auta" under the Auto area. */
+export type PantryPlace = {
+  id: string
+  area: PantryArea
+  name: string
+}
+
 export type PantryItem = {
   id: string
   name: string
@@ -145,6 +159,9 @@ export type PantryItem = {
    *  filtering (components/shopping/pantry.tsx). */
   subcategory?: string | null
   location: PantryLocation
+  /** A household's own place (`PantryPlace` above) that overrides `location` for display/grouping
+   *  when set; null/undefined means the item lives at its fixed `location` as before this existed. */
+  customPlaceId?: string | null
   quantity: number
   unit: ItemUnit
   addedAt: string

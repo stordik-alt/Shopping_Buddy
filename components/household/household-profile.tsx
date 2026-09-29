@@ -4,10 +4,11 @@ import { ChildCard } from '@/components/household/child-card'
 import { MemberCard } from '@/components/household/member-card'
 import { MemberRow } from '@/components/household/member-row'
 import { NearbyStores } from '@/components/household/nearby-stores'
+import { PantryPlaces } from '@/components/household/pantry-places'
 import { TagInput } from '@/components/shared/tag-input'
 import type { PendingInvitation } from '@/lib/db/queries'
 import type { StoreSelection } from '@/lib/nearby-stores'
-import type { Household, HouseholdPreferences, PriceSensitivity, QualityPreference, Store } from '@/lib/types'
+import type { Household, HouseholdPreferences, PantryArea, PantryPlace, PriceSensitivity, QualityPreference, Store } from '@/lib/types'
 import { userFacingError } from '@/lib/errors'
 
 const splitList = (value: string) =>
@@ -32,6 +33,9 @@ export function HouseholdProfile({
   stores,
   storeSelection,
   onSaveStorePreferences,
+  pantryPlaces,
+  onAddPantryPlace,
+  onRemovePantryPlace,
 }: {
   household: Household
   isOwner: boolean
@@ -49,6 +53,10 @@ export function HouseholdProfile({
   stores: Store[]
   storeSelection: StoreSelection
   onSaveStorePreferences: (input: { maxDistanceKm: number | null; chainIds: string[]; locationIds: string[]; priorityChainIds: string[]; maxShopStores: number | null }) => Promise<StoreSelection>
+  /** The household's own Zásoby places, beyond the fixed Spíž/Lednice/Mrazák/... list. */
+  pantryPlaces: PantryPlace[]
+  onAddPantryPlace: (area: PantryArea, name: string) => Promise<PantryPlace>
+  onRemovePantryPlace: (placeId: string) => Promise<void>
 }) {
   const [invite, setInvite] = useState('')
   const [inviteLink, setInviteLink] = useState<string | null>(null)
@@ -282,6 +290,8 @@ export function HouseholdProfile({
       </section>
 
       <NearbyStores chains={storeChains} stores={stores} selection={storeSelection} onSave={onSaveStorePreferences} />
+
+      <PantryPlaces places={pantryPlaces} onAdd={onAddPantryPlace} onRemove={onRemovePantryPlace} />
 
       <section className="surface p-6">
         <p className="font-semibold">Nákupní preference domácnosti</p>

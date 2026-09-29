@@ -1,10 +1,10 @@
 import { Check, ClipboardCheck, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { itemCountLabel } from '@/lib/format'
-import { needsCheck, PANTRY_LOCATIONS, pantryReviewOrder, splitPantryReview } from '@/lib/pantry'
+import { needsCheck, pantryPlaceOptions, pantryReviewOrder, placeKeyOf, splitPantryReview } from '@/lib/pantry'
 import { estimateReason, type ConsumptionEstimate } from '@/lib/pantry-estimate'
 import { cn } from '@/lib/utils'
-import type { PantryItem, PantryLocation } from '@/lib/types'
+import type { PantryItem, PantryPlace } from '@/lib/types'
 
 // "Zkontrolovat zásoby": the whole check in one pass instead of confirming or removing row by row.
 // Every item starts as "Mám" — except those estimated as used up (lib/pantry-estimate.ts), which
@@ -20,21 +20,29 @@ export type PantryReviewResult = { removed: number; confirmed: number; addedToLi
 
 export function PantryReview({
   items,
-  location,
+  customPlaces,
+  placeKey,
+  placeLabel,
   initialScope = 'location',
   estimates,
   onSave,
   onClose,
 }: {
   items: PantryItem[]
-  /** The folder the check was opened from; the check can be widened to the whole pantry. */
-  location: PantryLocation
+  /** The household's own places, beyond the fixed locations. */
+  customPlaces: PantryPlace[]
+  /** The folder the check was opened from (a `PantryPlaceOption.key`); the check can be widened to
+   *  the whole pantry. */
+  placeKey: string
+  /** That folder's display name. */
+  placeLabel: string
   /** 'uncertain' = only the items asked about or estimated as used up. */
   initialScope?: Scope
   estimates: Map<string, ConsumptionEstimate>
   onSave: (reviewedIds: string[], goneIds: string[], addGoneToList: boolean) => Promise<PantryReviewResult>
   onClose: (result: PantryReviewResult | null) => void
 }) {
+  const options = useMemo(() => pantryPlaceOptions(customPlaces), [customPlaces])
   const [scope, setScope] = useState<Scope>(initialScope)
   const likelyGone = useMemo(() => new Set([...estimates].filter(([, estimate]) => estimate.likelyGone).map(([id]) => id)), [estimates])
   // Pre-marked once, when the check opens; the household's taps are never overwritten afterwards.
@@ -49,11 +57,13 @@ export function PantryReview({
     sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [])
 
-  // Grouped by location in the folders' order; within a location the likely-gone items come first.
+  // Grouped by place in the folders' order; within a place the likely-gone items come first.
   const groups = useMemo(() => {
-    const inScope = scope === 'all' ? items : scope === 'uncertain' ? items.filter((item) => needsCheck(item, likelyGone)) : items.filter((item) => item.location === location)
-    return PANTRY_LOCATIONS.map((place) => ({ place, items: pantryReviewOrder(inScope.filter((item) => item.location === place)) })).filter((group) => group.items.length > 0)
-  }, [items, location, scope, likelyGone])
+    const inScope = scope === 'all' ? items : scope === 'uncertain' ? items.filter((item) => needsCheck(item, likelyGone)) : items.filter((item) => placeKeyOf(item) === placeKey)
+    return options
+      .map((option) => ({ place: option.name, items: pantryReviewOrder(inScope.filter((item) => placeKeyOf(item) === option.key)) }))
+      .filter((group) => group.items.length > 0)
+  }, [items, options, placeKey, scope, likelyGone])
   const reviewed = groups.flatMap((group) => group.items)
   const { goneIds, keptIds } = splitPantryReview(
     reviewed.map((item) => item.id),
@@ -99,7 +109,7 @@ export function PantryReview({
           {(
             [
               ['uncertain', 'K ověření'],
-              ['location', location],
+              ['location', placeLabel],
               ['all', 'Vše'],
             ] as const
           ).map(([value, label]) => (

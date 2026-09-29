@@ -15,6 +15,12 @@ export const itemUnitEnum = pgEnum('item_unit', ['ks', 'kg', 'g', 'l', 'ml'])
 export const itemPriorityEnum = pgEnum('item_priority', ['Nízká', 'Normální', 'Vysoká'])
 export const invitationStatusEnum = pgEnum('invitation_status', ['pending', 'accepted', 'revoked'])
 export const pantryLocationEnum = pgEnum('pantry_location', ['Spíž', 'Lednice', 'Mrazák', 'Domácnost', 'Lékárnička', 'Drogérka'])
+// The broader zone a pantry place belongs to (spec section 12: "Datový model nesmí být pevně omezen
+// pouze na lednici, mrazák, spíž... Oblast → Místo"). Wider than `item_category` on purpose — a
+// household stores things Zásoby never classified a *product* as (a car, a garage), so this is a
+// deliberately separate system, the same way expense categories are already kept separate from item
+// categories (lib/product-subcategories.ts's own comment explains that precedent).
+export const pantryAreaEnum = pgEnum('pantry_area', ['Potraviny', 'Drogerie', 'Domácnost', 'Děti', 'Auto', 'Bydlení', 'Zvířata', 'Ostatní'])
 // How closely the household wants a pantry item watched (lib/pantry.ts): 'normal' — estimated and
 // checked as usual; 'rare' — no "asi došlo" estimate, a check-in only every few months (salt,
 // spices, oil); 'off' — never estimated or asked about.
@@ -581,6 +587,20 @@ export const householdProductExpenseDefaults = pgTable('household_product_expens
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [primaryKey({ columns: [table.householdId, table.productId] })])
 
+// A household's own storage place beyond the fixed `pantry_location` list (spec section 12: "Uživatel
+// musí mít možnost vytvořit vlastní místo") — e.g. "Kufr auta" under the Auto area, or "Sklep" under
+// Bydlení. The fixed locations (Spíž, Lednice, ...) stay a plain enum on `pantry_items.location`
+// unchanged (zero migration risk to existing rows); a custom place is only ever referenced through
+// `pantry_items.custom_place_id` below, which — when set — is what the household actually sees as the
+// item's place, not `location` (kept at its harmless default in that case; see that column's comment).
+export const pantryPlaces = pgTable('pantry_places', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  area: pantryAreaEnum('area').notNull(),
+  name: text('name').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [uniqueIndex('pantry_places_household_area_name_unique').on(table.householdId, table.area, table.name)])
+
 // Household pantry ("spíž"): what the household believes it currently has at home. Populated by
 // completePurchaseAction (a purchased item restocks or creates its pantry row) and periodically
 // re-checked by the pantry-checkin cron, which asks "do you still have this?" per
@@ -603,6 +623,11 @@ export const pantryItems = pgTable('pantry_items', {
   // hand (e.g. freshly bought chilled meat into the freezer), never re-inferred on a later restock
   // of the same row — otherwise a manual move would silently get undone by the next purchase.
   location: pantryLocationEnum('location').notNull().default('Spíž'),
+  // A household-created place (pantry_places above) that overrides `location` for display/grouping
+  // when set — `location` keeps whatever value it had (or the harmless default) and is simply
+  // ignored, so no existing code path that only knows about `location` needs to change to stay
+  // correct; only the Zásoby UI and its actions need to know about this column at all.
+  customPlaceId: uuid('custom_place_id').references(() => pantryPlaces.id, { onDelete: 'set null' }),
   // numeric, not integer — same reason as purchaseItems.quantity above: a restock from a
   // weight-sold receipt item (e.g. 0.582 kg of meat) must not be truncated to a whole number.
   quantity: numeric('quantity', { precision: 10, scale: 3, mode: 'number' }).notNull().default(1),
@@ -818,7 +843,12 @@ export const householdsRelations = relations(households, ({ many, one }) => ({
   pushSubscriptions: many(pushSubscriptions),
   invitations: many(invitations),
   pantryItems: many(pantryItems),
+  pantryPlaces: many(pantryPlaces),
   receiptImports: many(receiptImports),
+}))
+
+export const pantryPlacesRelations = relations(pantryPlaces, ({ one }) => ({
+  household: one(households, { fields: [pantryPlaces.householdId], references: [households.id] }),
 }))
 
 export const invitationsRelations = relations(invitations, ({ one }) => ({
@@ -917,6 +947,7 @@ export const pantryItemsRelations = relations(pantryItems, ({ one }) => ({
   household: one(households, { fields: [pantryItems.householdId], references: [households.id] }),
   product: one(products, { fields: [pantryItems.productId], references: [products.id] }),
   subcategory: one(productSubcategories, { fields: [pantryItems.subcategoryId], references: [productSubcategories.id] }),
+  customPlace: one(pantryPlaces, { fields: [pantryItems.customPlaceId], references: [pantryPlaces.id] }),
 }))
 
 export const receiptImportsRelations = relations(receiptImports, ({ one }) => ({

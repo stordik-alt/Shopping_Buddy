@@ -1,5 +1,10 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-29 (Accessibility: keyboard focus in "Více", intro contrast)
+- Checked with axe-core in a headless browser (run from outside the repo, no dependency added). The "Více" sheet sits before the bar in the page, so Tab from the button skipped it; now focus moves to its first item when it opens and back to "Více" when Escape closes it (`components/shared/mobile-nav.tsx`). The sheet itself has no axe violations.
+- `/intro`: the "Powered by ANITKA AI" line was 3.4:1 in light mode (needs 4.5:1); now `text-[var(--anitka-navy)]/70`, no axe violations on `/intro` in light or dark.
+- Not fixed: `/auth/sign-in` reports one contrast issue and missing `main`/region landmarks; that page is rendered by the Neon Auth UI library, not by this app. Signed-in pages were not scanned (needs a test account).
+
 ## 2026-09-29 (Bottom bar with "Více", empty states with a next step)
 - `components/shared/mobile-nav.tsx`: the phone bar has five slots (Domů, Nákup, Zásoby, Rozpočet, Více) instead of six. "Více" opens a sheet above the bar with Akce, Obchody, Profil (and AI when enabled); it closes on an outside tap, Escape or choosing a section, and is highlighted while one of its sections is open. Labels are 12 px now; `MobileNavButton` in `nav-item.tsx` is shared by the bar.
 - Empty states: an empty Zásoby offers "Nahrát účtenku" and "Otevřít nákupní seznam"; Historie nákupů, which showed an empty box, now explains how purchases appear and offers the receipt upload; an empty Akce result caused by a search, chain or category offers "Zobrazit všechny akce". Tests: `components/shared/mobile-nav.test.tsx`. `tsc` and the component tests pass; not checked on a phone.

@@ -68,7 +68,7 @@ export function IntroScreen() {
                 {/* eslint-disable-next-line @next/next/no-img-element -- images are unoptimized in next.config; the approved logo is a plain static asset */}
                 <img src="/brand/anitka/anitka-logo.png" alt="ANITKA" width={2172} height={724} className="h-auto w-full" fetchPriority="high" />
               </div>
-              <p className="text-xs font-medium uppercase tracking-[0.15em] text-[var(--anitka-navy)]/50 dark:text-white/50">Powered by ANITKA AI</p>
+              <p className="text-xs font-medium uppercase tracking-[0.15em] text-[var(--anitka-navy)]/70 dark:text-white/50">Powered by ANITKA AI</p>
             </div>
 
             <div className="space-y-3">

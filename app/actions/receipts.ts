@@ -1,6 +1,6 @@
 'use server'
 
-import { and, eq, gte, ilike, inArray, lt, or } from 'drizzle-orm'
+import { and, count, eq, gte, ilike, inArray, lt, or } from 'drizzle-orm'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
@@ -41,6 +41,7 @@ import {
   type ReceiptTextExtractor,
 } from '@/lib/receipts'
 import { HEIC_UNSUPPORTED_MESSAGE } from '@/lib/receipt-upload'
+import { mayUploadReceipt, RECEIPT_UPLOAD_LIMIT_MESSAGE, RECEIPT_UPLOAD_WINDOW_MS } from '@/lib/receipt-upload-limit'
 import { deleteReceiptFile, getReceiptFile, putReceiptFile } from '@/lib/storage'
 import type { ItemCategory, PurchaseRecord } from '@/lib/types'
 
@@ -786,10 +787,18 @@ export async function uploadReceiptAction(formData: FormData): Promise<UploadRec
   if (fileType.kind !== 'supported') return { ok: false, error: 'Nepodporovaný formát. Použijte fotku JPEG, PNG, WEBP nebo PDF.' }
 
   try {
+    // Checked after the cheap file checks and before anything is stored or sent to OCR, so a refused
+    // upload costs nothing. Counted from the household's own OCR imports of the last 24 hours.
+    const db = getDb()
+    const [{ recent }] = await db
+      .select({ recent: count() })
+      .from(schema.receiptImports)
+      .where(and(eq(schema.receiptImports.householdId, householdId), eq(schema.receiptImports.source, 'ocr'), gte(schema.receiptImports.createdAt, new Date(Date.now() - RECEIPT_UPLOAD_WINDOW_MS))))
+    if (!mayUploadReceipt(recent)) return { ok: false, error: RECEIPT_UPLOAD_LIMIT_MESSAGE }
+
     // R2 (or Vercel Blob when STORAGE_PROVIDER=vercel); the reference records which (lib/storage).
     const imageUrl = await putReceiptFile(householdId, buffer, fileType)
 
-    const db = getDb()
     const [row] = await db
       .insert(schema.receiptImports)
       .values({ householdId, status: 'uploaded', source: 'ocr', imageUrl })

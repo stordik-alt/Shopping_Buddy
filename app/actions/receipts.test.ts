@@ -26,6 +26,7 @@ vi.mock('@vercel/blob', async () => (process.env.USE_REAL_BLOB === '1' ? await v
 // pin the provider to Blob instead of letting uploadReceiptAction try to reach an R2 bucket.
 process.env.STORAGE_PROVIDER = 'vercel'
 
+import { MAX_RECEIPT_UPLOADS_PER_DAY } from '@/lib/receipt-upload-limit'
 import { confirmReceiptReviewAction, importReceiptAction, processReceiptImport, processUploadedReceiptAction, resolveDuplicateReceiptAction, retryReceiptImportAction, uploadReceiptAction } from '@/app/actions/receipts'
 import { setPurchaseItemExpenseSplits } from '@/lib/db/purchase-items'
 import { ALBERT_STYLE_RECEIPT_LINES, makeTextPdf } from '@/lib/receipt-pdf.test-helpers'
@@ -859,6 +860,28 @@ describe('receipt file handling: type detection and OCR preparation', () => {
 
     it('rejects an empty file', async () => {
       expect(await upload(Buffer.alloc(0), 'image/jpeg')).toMatchObject({ ok: false, error: expect.stringContaining('prázdný') })
+    })
+
+    it('refuses another upload once the household has reached the daily limit, without storing anything', async () => {
+      await db.insert(schema.receiptImports).values(
+        Array.from({ length: MAX_RECEIPT_UPLOADS_PER_DAY }, () => ({ householdId, status: 'cancelled' as const, source: 'ocr', imageUrl: 'r2:receipts/test-limit' })),
+      )
+      const result = await upload(await realImage(), 'image/jpeg')
+      expect(result).toMatchObject({ ok: false, error: expect.stringContaining('maximum účtenek') })
+      const rows = await db.query.receiptImports.findMany({ where: eq(schema.receiptImports.householdId, householdId) })
+      expect(rows).toHaveLength(MAX_RECEIPT_UPLOADS_PER_DAY) // no new row
+    })
+
+    it('does not count imports older than 24 hours', async () => {
+      const old = new Date(Date.now() - 25 * 60 * 60 * 1000)
+      await db.insert(schema.receiptImports).values(
+        Array.from({ length: MAX_RECEIPT_UPLOADS_PER_DAY }, () => ({ householdId, status: 'cancelled' as const, source: 'ocr', imageUrl: 'r2:receipts/test-limit', createdAt: old })),
+      )
+      const result = await upload(await realImage(), 'image/jpeg')
+      if (!result.ok) throw new Error(result.error)
+      const row = await db.query.receiptImports.findFirst({ where: eq(schema.receiptImports.id, result.receipt.id) })
+      uploadedBlobUrls.push(row!.imageUrl!)
+      expect(result.ok).toBe(true)
     })
   })
 

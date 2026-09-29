@@ -1,5 +1,8 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-29 (Receipt upload limit)
+- `uploadReceiptAction` refuses an upload once the household already has 30 OCR imports in the last rolling 24 hours (`lib/receipt-upload-limit.ts`), before anything is stored or sent to OCR, with a Czech message that suggests entering the receipt manually. Each upload can end in a paid OCR call and a model call, so this stops a runaway client loop or abuse from spending the monthly credit; real use is a few receipts a week. No migration: the count comes from `receipt_imports` (`source = 'ocr'`, `created_at`). Not covered: retrying a failed import (`retryReceiptImportAction`) reruns OCR on an existing upload without counting again; it needs a user action per run. Tests: `lib/receipt-upload-limit.test.ts` and two cases in `app/actions/receipts.test.ts` (limit reached, older imports not counted).
+
 ## 2026-09-29 (CI: fixed the red unit-test job, database tests get their own job)
 - **Found:** the CI job "Unit tests, typecheck and production build" had been failing on every recent PR because `lib/db/category-changes.test.ts` and `lib/db/subcategory-changes.test.ts` need a database but were missing from the job's exclude list ("No database connection string was provided to `neon()`"). Nothing to do with those PRs' changes.
 - **Fix:** both are excluded from the pure job, and a new `database` job runs every database-backed test against the Neon test branch. It needs the repository secret `TEST_DATABASE_URL` (optionally `TEST_DATABASE_URL_UNPOOLED`); until the secret exists the job skips itself and passes. Runs are serialised (`concurrency: neon-test-branch`) because they share one branch. Migrates the test branch first.

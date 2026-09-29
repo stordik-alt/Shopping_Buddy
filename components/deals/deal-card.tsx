@@ -1,7 +1,8 @@
 import { Check, Info, Package, Plus, TrendingDown } from 'lucide-react'
 import { money, shortDate } from '@/lib/format'
 import { pantryQuantityFor } from '@/lib/pantry'
-import { dealDiscount, suggestsStockingUp, type DealAssessment } from '@/lib/prices'
+import { dealDiscount, dealEffectiveUnitPrice, effectivePrice, suggestsStockingUp, type DealAssessment } from '@/lib/prices'
+import { toComparableUnit } from '@/lib/product-search'
 import type { PantryItem } from '@/lib/types'
 
 // A promotion assessed against every store's price for the same product (lib/prices.ts's
@@ -19,8 +20,9 @@ export function DealCard({
   onAddToList: (name: string) => void
   pantryItems: PantryItem[]
 }) {
-  const { product, price, isBestPrice, cheapestAlternative, isHistoricLow } = assessment
+  const { product, price, isBestPrice, cheapestAlternative, recentLow } = assessment
   const discount = Math.round(dealDiscount(price) * 100)
+  const comparableUnit = toComparableUnit(price.unit, dealEffectiveUnitPrice(price))
   return (
     <div className={`rounded-2xl bg-muted p-4 ${isOnList ? 'ring-1 ring-primary/40' : ''}`}>
       <div className="flex items-start justify-between gap-2">
@@ -36,6 +38,9 @@ export function DealCard({
         <div>
           <span className="text-lg font-semibold">{money(price.dealPrice ?? price.regularPrice)}</span>
           <span className="ml-2 text-xs text-muted-foreground line-through">{money(price.regularPrice)}</span>
+          <span className="mt-0.5 block text-[11px] text-muted-foreground">
+            {money(comparableUnit.unitPrice)}/{comparableUnit.unit}
+          </span>
         </div>
         {isOnList ? (
           <span className="flex min-h-9 items-center gap-1 text-xs font-medium text-muted-foreground">
@@ -51,10 +56,15 @@ export function DealCard({
           </button>
         )}
       </div>
-      {isHistoricLow && (
+      {recentLow && (
         <p className="mt-3 flex items-start gap-1 text-[11px] leading-relaxed text-success">
           <TrendingDown className="mt-0.5 h-3 w-3 shrink-0" />
-          Nejnižší zaznamenaná cena tohoto produktu v {price.store}.
+          <span>
+            Nejnižší cena za posledních 30 dní: <span className="font-semibold">{money(recentLow.low)}</span>
+            {recentLow.status === 'unchanged' && ' · Cena se nezměnila.'}
+            {recentLow.status === 'at-low' && ' · Aktuálně nejnižší cena za 30 dní.'}
+            {recentLow.status === 'above-low' && ` · Aktuálně o ${money(effectivePrice(price) - recentLow.low)} vyšší.`}
+          </span>
         </p>
       )}
       {suggestsStockingUp(assessment, pantryQuantityFor(pantryItems, product.productName)) && (

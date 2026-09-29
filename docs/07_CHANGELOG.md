@@ -1,5 +1,11 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-29 (30-day price low and unit price on the Akce card, Fáze 6 of the owner's UX/IA brief)
+- **Why:** the brief wanted "nejnižší cena za posledních 30 dní" with a real value and comparison, plus a unit price next to the deal price.
+- **What:** `lib/prices.ts`'s all-time `isHistoricLow()` boolean is replaced by `recentPriceLow()` (30-day window, three states: unchanged/at-low/above-low, matching the brief's own worked examples). `DealAssessment.recentLow` replaces `isHistoricLow`. New `dealEffectiveUnitPrice()` shows the deal-time unit price (not the regular price's own) on `components/deals/deal-card.tsx`, using the same per-kg/per-l conversion the rest of the app uses.
+- **Deliberately not done:** package/variant-aware price comparability — still blocked on the catalog having no product with more than one package size yet.
+- **Tests:** `lib/prices.test.ts`, new `components/deals/deal-card.test.tsx` (5 cases). Full suite (107 files, 1509 tests) and `tsc --noEmit` clean; verified live against real deal data, light and dark.
+
 ## 2026-09-29 (Hierarchical pantry places — Oblast → Místo, Fáze 4 of the owner's UX/IA brief)
 - **Why:** the brief's section 12 wanted Zásoby to stop being limited to a fixed lednice/mrazák/spíž list and let households add their own places under a broader area (Auto, Bydlení, Zvířata — not things a product is ever categorized as, so a deliberately separate system from `item_category`).
 - **What:** migration `0046_pantry_places.sql` — purely additive: new `pantry_area` enum, a household-scoped `pantry_places` table, and a nullable `pantry_items.custom_place_id`; the existing `pantry_location` enum/column are untouched. `lib/pantry.ts`'s `pantryPlaceOptions()`/`placeKeyOf()`/`summarizeByPlace()` merge fixed locations with a household's own places for the Zásoby tiles, the bulk-check groups, and the move select. New `components/household/pantry-places.tsx` (Profil domácnosti → Zásoby) lets the household add/remove places; removal is refused while the place still holds items.

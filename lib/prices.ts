@@ -60,16 +60,30 @@ export function previousPrice(price: PricePoint): { price: number; recordedAt: s
   return latestOld ? { price: latestOld.price, recordedAt: latestOld.recordedAt, validUntil: latestOld.validUntil ?? null } : null
 }
 
-/** Whether today's effective price matches or beats every regular price this product has actually
- *  been recorded at, at this store, before today — a genuine historic low rather than merely
- *  cheaper than today's own regular price. Per docs/05_BUSINESS_RULES.md, "historical price" is
- *  one of the factors a promotion assessment should consider. Always false with no recorded prior
- *  observation to compare against — this is awareness of real history, not a guess. */
-export function isHistoricLow(price: PricePoint): boolean {
-  const priorObservations = (price.priceHistory ?? []).filter((observation) => observation.recordedAt < price.recordedAt)
-  if (priorObservations.length === 0) return false
+/** How far back "nejnižší cena za posledních X dní" looks (spec section 19). */
+export const RECENT_LOW_WINDOW_DAYS = 30
+
+export type RecentPriceLow = {
+  /** The lowest price (today's or a recorded one) within the window. */
+  low: number
+  /** 'unchanged' — every observation in the window costs the same as today, nothing to compare;
+   *  'at-low' — today's price is the window's lowest, and it *did* change at some point in it;
+   *  'above-low' — a cheaper price was recorded within the window than today's. */
+  status: 'unchanged' | 'at-low' | 'above-low'
+}
+
+/** The lowest price this product has actually been recorded at, at this store, within the last
+ *  `windowDays` days (spec section 19: "Nejnižší cena za posledních 30 dní" — real history, never
+ *  invented). `null` with no recorded observation in the window to compare today's price against. */
+export function recentPriceLow(price: PricePoint, referenceDate: string, windowDays: number = RECENT_LOW_WINDOW_DAYS): RecentPriceLow | null {
+  const cutoff = new Date(Date.parse(`${referenceDate}T00:00:00Z`) - windowDays * 86_400_000).toISOString().slice(0, 10)
+  const inWindow = (price.priceHistory ?? []).filter((observation) => observation.recordedAt >= cutoff && observation.recordedAt <= referenceDate)
+  if (inWindow.length === 0) return null
   const current = effectivePrice(price)
-  return priorObservations.every((observation) => current <= observation.price)
+  const historicMin = Math.min(...inWindow.map((observation) => observation.price))
+  const low = Math.min(current, historicMin)
+  if (inWindow.every((observation) => observation.price === current)) return { low, status: 'unchanged' }
+  return { low, status: current <= historicMin ? 'at-low' : 'above-low' }
 }
 
 /** Prices for one product across stores, cheapest (effective price) first. */
@@ -90,14 +104,15 @@ export type DealAssessment = {
   price: PricePoint
   isBestPrice: boolean
   cheapestAlternative: { store: StoreChain; price: number } | null
-  isHistoricLow: boolean
+  /** The last 30 days' lowest recorded price, when there is history to compare against. */
+  recentLow: RecentPriceLow | null
 }
 
 /** Whether each active deal is actually the best price available for that product across all
  *  known stores, not just a discount off its own regular price. Per docs/05_BUSINESS_RULES.md:
  *  "A promotion is not automatically a good deal just because its percentage discount is large."
- *  A store's "-50%" deal can still be pricier than another store's everyday price. Also notes
- *  whether it's a genuine historic low where price history is actually available. */
+ *  A store's "-50%" deal can still be pricier than another store's everyday price. Also notes the
+ *  last 30 days' lowest price where history is actually available. */
 export function assessDealQuality(products: ProductPrice[], referenceDate: string): DealAssessment[] {
   return activeDeals(products, referenceDate).map(({ product, price }) => {
     const dealEffective = effectivePrice(price)
@@ -108,7 +123,7 @@ export function assessDealQuality(products: ProductPrice[], referenceDate: strin
       price,
       isBestPrice,
       cheapestAlternative: isBestPrice ? null : { store: cheapestOverall.store, price: effectivePrice(cheapestOverall) },
-      isHistoricLow: isHistoricLow(price),
+      recentLow: recentPriceLow(price, referenceDate),
     }
   })
 }
@@ -116,6 +131,17 @@ export function assessDealQuality(products: ProductPrice[], referenceDate: strin
 /** A deal's discount off its own regular price, as a fraction (0.25 = 25 % off). */
 export function dealDiscount(price: PricePoint): number {
   return price.regularPrice > 0 ? 1 - effectivePrice(price) / price.regularPrice : 0
+}
+
+/** The unit price at what a shopper actually pays right now (spec section 20/21: "cena za
+ *  jednotku" next to the deal price, so differently-sized packages stay comparable). `unitPrice`
+ *  on `PricePoint` belongs to the *regular* price; scaled down by the same fraction the deal price
+ *  is below it — rounded to haléře, same rule as `lib/product-search.ts`'s `hitUnitPrice()`, which
+ *  this mirrors for a `PricePoint` instead of a `ProductSearchHit`. Equal to `unitPrice` with no
+ *  active deal. */
+export function dealEffectiveUnitPrice(price: PricePoint): number {
+  if (price.dealPrice == null || price.regularPrice <= 0) return price.unitPrice
+  return Math.round(((price.unitPrice * price.dealPrice) / price.regularPrice) * 100) / 100
 }
 
 /** Splits deals into those for products on the household's list — what the home screen shows

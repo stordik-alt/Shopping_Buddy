@@ -1,10 +1,11 @@
 'use server'
 
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
+import { classifySubcategory } from '@/lib/categorization'
 import { subcategoriesOfItem } from '@/lib/product-subcategories'
 import { CHECKIN_DAYS_BY_CATEGORY, checkinSubcategoryKey, customPlaceIdFromKey, MAX_PANTRY_REVIEW_ITEMS, PANTRY_AREAS, PANTRY_LOCATIONS, PANTRY_TRACKING, splitPantryReview } from '@/lib/pantry'
 import type { ItemCategory, PantryArea, PantryTracking } from '@/lib/types'
@@ -203,6 +204,56 @@ export async function reviewPantryAction(input: { reviewedIds: string[]; goneIds
   }
   revalidatePath('/')
   return { removed: goneIds.length, confirmed: keptIds.length }
+}
+
+/** Resolves a subcategory name of `category` to its row id; throws on a name outside the fixed list. */
+async function subcategoryIdFor(category: ItemCategory, name: string): Promise<string> {
+  if (!subcategoriesOfItem(category).includes(name)) throw new Error('Neplatná podkategorie.')
+  const row = await getDb().query.productSubcategories.findFirst({
+    where: and(eq(schema.productSubcategories.category, category), eq(schema.productSubcategories.name, name)),
+    columns: { id: true },
+  })
+  if (!row) throw new Error('Neplatná podkategorie.')
+  return row.id
+}
+
+/** Sets (or clears, with null) an item's subcategory by hand. The name must belong to the item's own
+ *  category (lib/product-subcategories.ts) — the server, not the select in the UI, is the authority. */
+export async function setPantryItemSubcategoryAction(pantryItemId: string, subcategory: string | null) {
+  const householdId = await requireHouseholdId()
+  const db = getDb()
+  const item = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, pantryItemId) })
+  if (!item || item.householdId !== householdId) throw new Error('Pantry item not found')
+  const subcategoryId = subcategory === null ? null : await subcategoryIdFor(item.category, subcategory)
+  await db.update(schema.pantryItems).set({ subcategoryId }).where(eq(schema.pantryItems.id, pantryItemId))
+}
+
+/** Places every uncategorized item of the household by the deterministic keyword rules — the same
+ *  ones a receipt import uses (lib/categorization.ts classifySubcategory) — never AI. Items the rules
+ *  cannot place stay uncategorized for the household to choose by hand. Returns what was assigned so
+ *  the client can show it without reloading. */
+export async function autoCategorizePantryAction(): Promise<{ id: string; subcategory: string }[]> {
+  const householdId = await requireHouseholdId()
+  const db = getDb()
+  const rows = await db.query.pantryItems.findMany({
+    where: and(eq(schema.pantryItems.householdId, householdId), isNull(schema.pantryItems.subcategoryId)),
+    columns: { id: true, name: true, category: true },
+  })
+  const assigned: { id: string; subcategory: string }[] = []
+  const idCache = new Map<string, string>()
+  for (const row of rows) {
+    const match = classifySubcategory(row.category, row.name, null)
+    if (!match) continue
+    const cacheKey = `${row.category}:${match.subcategory}`
+    let subcategoryId = idCache.get(cacheKey)
+    if (!subcategoryId) {
+      subcategoryId = await subcategoryIdFor(row.category, match.subcategory)
+      idCache.set(cacheKey, subcategoryId)
+    }
+    await db.update(schema.pantryItems).set({ subcategoryId }).where(and(eq(schema.pantryItems.id, row.id), eq(schema.pantryItems.householdId, householdId)))
+    assigned.push({ id: row.id, subcategory: match.subcategory })
+  }
+  return assigned
 }
 
 /** How closely the household wants an item watched (lib/pantry.ts PANTRY_TRACKING): 'rare' and

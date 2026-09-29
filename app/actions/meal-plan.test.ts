@@ -88,11 +88,13 @@ describe('markMealCookedAction', () => {
       await db.insert(schema.pantryItems).values({ householdId, name: ingredient.name, category: 'Potraviny', quantity: ingredient.quantity * 3, unit: ingredient.unit })
     }
 
-    await markMealCookedAction(breakfast.day, 'Snídaně')
+    const { pantryItems } = await markMealCookedAction(breakfast.day, 'Snídaně')
 
     for (const ingredient of ingredients) {
       const row = await db.query.pantryItems.findFirst({ where: and(eq(schema.pantryItems.householdId, householdId), eq(schema.pantryItems.name, ingredient.name)) })
       expect(Number(row?.quantity)).toBeCloseTo(ingredient.quantity * 2)
+      // The action also returns the pantry as it is afterwards, so the page needs no refresh.
+      expect(pantryItems.find((entry) => entry.name === ingredient.name)?.quantity).toBeCloseTo(ingredient.quantity * 2)
     }
     const savedRow = await db.query.mealPlans.findFirst({ where: eq(schema.mealPlans.householdId, householdId) })
     const savedPlan = JSON.parse(savedRow!.plan) as WeeklyMealPlan

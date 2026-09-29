@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { getDb } from '@/lib/db/client'
+import { getTickedListItems } from '@/lib/db/queries'
 import { applyConfirmedReceiptListPairs, autoCheckShoppingListFromPurchase, getReceiptListSuggestions } from '@/lib/db/receipt-list'
 import * as schema from '@/lib/db/schema'
 
@@ -132,5 +133,17 @@ describe('suggestions and confirmation', () => {
 
     expect(await applyConfirmedReceiptListPairs(householdId, purchase.id, [{ listItemId: foreign.id, purchaseItemId: rows[0].id }])).toBe(0)
     expect((await getItem(foreign.id))?.done).toBe(false)
+  })
+})
+
+describe('getTickedListItems', () => {
+  it('returns the items a purchase ticked with their real values, and nothing for another household', async () => {
+    const [item] = await db.insert(schema.shoppingListItems).values({ listId, name: 'Maso', quantity: 1, unit: 'ks', price: '0' }).returning()
+    await db.insert(schema.shoppingListItems).values({ listId, name: 'Vejce' })
+    const { purchase } = await purchaseWith(householdId, [{ name: 'MASO', quantity: 0.582, unit: 'kg', price: '199.90' }])
+    await autoCheckShoppingListFromPurchase(householdId, purchase.id)
+
+    expect(await getTickedListItems(householdId, purchase.id)).toEqual([{ id: item.id, done: true, quantity: 0.582, unit: 'kg', price: 199.9 }])
+    expect(await getTickedListItems(otherHouseholdId, purchase.id)).toEqual([])
   })
 })

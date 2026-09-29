@@ -1,11 +1,10 @@
 'use server'
 
 import { and, eq, inArray } from 'drizzle-orm'
-import { revalidatePath } from 'next/cache'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
-import { getHouseholdExpenses, getHouseholdNotifications, restockPantryItem } from '@/lib/db/queries'
+import { getHouseholdExpenses, getHouseholdNotifications, getPurchaseAftermath, restockPantryItem, type PurchaseAftermath } from '@/lib/db/queries'
 import { getPurchaseItemsForExpense, recordPurchaseAsExpense, setPurchaseItemExpenseSplits, type PurchaseExpenseItem } from '@/lib/db/purchase-items'
 import * as schema from '@/lib/db/schema'
 import { isExpenseCategory, isValidSubcategory, type ExpenseCategory } from '@/lib/expense-categories'
@@ -31,7 +30,7 @@ async function assertOwnsList(householdId: string, listId: string) {
  *  land in the pantry. Removes the completed items from the active list, since the trip is over.
  *  Per docs/05_BUSINESS_RULES.md ("past purchases are historical facts... must not be rewritten"),
  *  this only ever creates new purchases, never edits one. */
-export async function completePurchaseAction(listId: string): Promise<{ purchases: PurchaseRecord[] }> {
+export async function completePurchaseAction(listId: string): Promise<{ purchases: PurchaseRecord[]; aftermath: PurchaseAftermath | null }> {
   const householdId = await requireHouseholdId()
   await assertOwnsList(householdId, listId)
   const db = getDb()
@@ -40,7 +39,7 @@ export async function completePurchaseAction(listId: string): Promise<{ purchase
     where: and(eq(schema.shoppingListItems.listId, listId), eq(schema.shoppingListItems.done, true)),
     with: { preferredStoreLocation: { with: { store: true } } },
   })
-  if (doneItems.length === 0) return { purchases: [] }
+  if (doneItems.length === 0) return { purchases: [], aftermath: null }
 
   // Items an imported receipt already ticked off were recorded as a purchase (and restocked into the
   // pantry) by that import; recording them again would count the same trip twice. They are still
@@ -104,8 +103,8 @@ export async function completePurchaseAction(listId: string): Promise<{ purchase
     ),
   )
 
-  revalidatePath('/')
-  return { purchases: created }
+  // No revalidatePath: it would re-render the whole page. The new history and the restocked pantry are returned instead.
+  return { purchases: created, aftermath: await getPurchaseAftermath(householdId) }
 }
 
 /** The household's own split of one item of one of its own past purchases across expense targets —

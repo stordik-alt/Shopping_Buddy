@@ -1145,9 +1145,11 @@ describe('confirmReceiptReviewAction', () => {
     const receiptImportId = await createUploadedReceipt()
     await processReceiptImport(receiptImportId, fakeProviders(extractedReceipt({ total: 999 }))) // → review_required
 
-    const { purchase } = await confirmReceiptReviewAction(receiptImportId, [item({ name: 'Opravená položka', price: 49.8 })], { date: '2026-09-18' })
+    const { purchase, aftermath } = await confirmReceiptReviewAction(receiptImportId, [item({ name: 'Opravená položka', price: 49.8 })], { date: '2026-09-18' })
     expect(purchase.total).toBe(49.8)
     expect(purchase.date).toBe('2026-09-18')
+    // What the page needs to show the new purchase without a refresh comes back with it.
+    expect(aftermath.purchaseHistory.map((entry) => entry.id)).toContain(purchase.id)
 
     const purchaseRow = await db.query.purchases.findFirst({ where: eq(schema.purchases.id, purchase.id) })
     expect(purchaseRow?.date).toBe('2026-09-18')
@@ -1231,8 +1233,9 @@ describe('resolveDuplicateReceiptAction', () => {
     const second = await createUploadedReceipt()
     await processReceiptImport(second, fakeProviders(extractedReceipt())) // → duplicate_review
 
-    const { purchase } = await resolveDuplicateReceiptAction(second, 'use_existing')
+    const { purchase, aftermath } = await resolveDuplicateReceiptAction(second, 'use_existing')
     expect(purchase).toBeNull()
+    expect(aftermath).toBeNull()
 
     const row = await db.query.receiptImports.findFirst({ where: eq(schema.receiptImports.id, second) })
     expect(row?.status).toBe('cancelled')

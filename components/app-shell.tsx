@@ -61,7 +61,7 @@ import { Pantry } from '@/components/shopping/pantry'
 import { OfflineBanner } from '@/components/shopping/offline-banner'
 import { QuickOutOfStock } from '@/components/dashboard/quick-out-of-stock'
 import { PantryPrompt, type PantryPromptState } from '@/components/shopping/pantry-prompt'
-import { applyPendingOps, enqueue, isNetworkError, loadQueue, newTempId, placeholderItem, remapItemId, saveQueue, type PendingOp } from '@/lib/offline-queue'
+import { applyPendingOps, enqueue, isNetworkError, loadQueue, newTempId, placeholderItem, remapItemId, saveQueue, tempIdToUuid, type PendingOp } from '@/lib/offline-queue'
 import { estimatePantry } from '@/lib/pantry-estimate'
 import { customPlaceIdFromKey, pantryItemAtHome } from '@/lib/pantry'
 import { matchKey as matchKeyOf } from '@/lib/receipt-list-match'
@@ -70,9 +70,9 @@ import { StoreDirectory } from '@/components/stores/store-directory'
 import { UsualItems } from '@/components/shopping/usual-items'
 import { expensesInPeriod, totalSpent } from '@/lib/budget'
 import { longDate, thisPeriodTitle } from '@/lib/format'
-import type { HouseholdData, ReceiptImportState } from '@/lib/db/queries'
+import type { HouseholdData, PurchaseAftermath, ReceiptImportState, TickedListItem } from '@/lib/db/queries'
 import type { ReceiptListSuggestion } from '@/lib/db/receipt-list'
-import { currentWeekStart, type Ingredient, type MealType } from '@/lib/meal-plans'
+import { currentWeekStart, markMealCooked as markCooked, type Ingredient, type MealType } from '@/lib/meal-plans'
 import type { ProductPrice } from '@/lib/prices'
 import { pollReceiptStatus } from '@/lib/receipt-progress'
 import type { ReceiptLineItem } from '@/lib/receipts'
@@ -370,7 +370,7 @@ export function AppShell({
   async function sendOp(op: PendingOp) {
     switch (op.kind) {
       case 'add': {
-        const { item, notification } = await addShoppingItemAction(initialData.mainListId, op.name)
+        const { item, notification } = await addShoppingItemAction(initialData.mainListId, op.name, {}, tempIdToUuid(op.tempId))
         setItems((current) => (current.some((entry) => entry.id === op.tempId) ? current.map((entry) => (entry.id === op.tempId ? item : entry)) : [...current, item]))
         queueRef.current = remapItemId(queueRef.current, op.tempId, item.id)
         if (notification) setNotifications((current) => [...current, notification])
@@ -404,6 +404,7 @@ export function AppShell({
   const flushQueue = useCallback(async () => {
     if (flushingRef.current || queueRef.current.length === 0 || !navigator.onLine) return
     flushingRef.current = true
+    let refused = false
     try {
       while (queueRef.current.length > 0) {
         const [op] = queueRef.current
@@ -413,10 +414,13 @@ export function AppShell({
           if (isNetworkError(error, navigator.onLine)) return // still offline: keep the rest for later
           console.error('Queued shopping list change refused', error)
           setDroppedCount((count) => count + 1)
+          refused = true
         }
         setQueue(queueRef.current.slice(1))
       }
-      router.refresh()
+      // Every sent change already updated the list locally, so a refresh is needed only when the
+      // server refused one (the item was changed elsewhere) and the local list may now differ.
+      if (refused) router.refresh()
     } finally {
       flushingRef.current = false
     }
@@ -447,6 +451,23 @@ export function AppShell({
     }
   }, [initialData.household.id, flushQueue])
 
+  // What a purchase-creating action changed, in the shape the page holds it — replaces a full
+  // page refresh (see getPurchaseAftermath).
+  function applyPurchaseAftermath(aftermath: PurchaseAftermath) {
+    setPurchaseHistory(aftermath.purchaseHistory)
+    setPantryItems(aftermath.pantryItems)
+    setExpenses(aftermath.expenses)
+    setNotifications(aftermath.notifications)
+    applyTickedListItems(aftermath.tickedListItems)
+  }
+
+  // Merged onto the list the page holds, so the items keep their colour and store.
+  function applyTickedListItems(ticked: TickedListItem[]) {
+    if (ticked.length === 0) return
+    const tickedById = new Map(ticked.map((item) => [item.id, item]))
+    setItems((current) => current.map((item) => (tickedById.has(item.id) ? { ...item, ...tickedById.get(item.id) } : item)))
+  }
+
   async function completePurchase() {
     const doneIds = new Set(items.filter((item) => item.done).map((item) => item.id))
     if (doneIds.size === 0) return
@@ -455,10 +476,12 @@ export function AppShell({
     if (!navigator.onLine) return
     await flushQueue()
     if (queueRef.current.length > 0) return
-    const { purchases } = await completePurchaseAction(initialData.mainListId)
-    if (purchases.length === 0) return
+    const { aftermath } = await completePurchaseAction(initialData.mainListId)
+    // No aftermath means the server found nothing ticked; otherwise it removed every ticked item
+    // (also ones an imported receipt had already recorded, which create no purchase here).
+    if (!aftermath) return
     setItems((current) => current.filter((item) => !doneIds.has(item.id)))
-    router.refresh() // picks up the new purchase-history entries on the next server render
+    applyPurchaseAftermath(aftermath)
   }
 
   function addShoppingListName(name: string) {
@@ -644,9 +667,10 @@ export function AppShell({
     adjustPantryItemQuantityAction(id, quantity)
   }
 
-  function markMealCooked(day: string, mealType: MealType) {
-    markMealCookedAction(day, mealType)
-    router.refresh() // picks up the pantry deduction the server action just made
+  async function markMealCooked(day: string, mealType: MealType) {
+    const { pantryItems: fresh } = await markMealCookedAction(day, mealType)
+    setPantryItems(fresh) // the server deducted the meal's ingredients from the pantry
+    setMealPlan((current) => (current ? { ...current, plan: markCooked(current.plan, day, mealType) } : current))
   }
 
   /** Asks the server which open shopping-list items a just-imported purchase plausibly covers. The
@@ -664,17 +688,17 @@ export function AppShell({
 
   async function confirmListSuggestions(selected: ReceiptListSuggestion[]) {
     if (!listSuggestions) return
-    await applyReceiptListMatchesAction(
+    const { tickedListItems } = await applyReceiptListMatchesAction(
       listSuggestions.purchaseId,
       selected.map((suggestion) => ({ listItemId: suggestion.listItemId, purchaseItemId: suggestion.purchaseItemId })),
     )
     setListSuggestions(null)
-    router.refresh() // the list shows the newly ticked items with their real price and quantity
+    applyTickedListItems(tickedListItems) // the list shows the newly ticked items with their real price and quantity
   }
 
   async function importReceipt(items: ReceiptLineItem[], options: { date?: string; storeLocationId?: string }) {
-    const { purchase } = await importReceiptAction(items, options)
-    router.refresh() // picks up the new purchase-history entry and restocked pantry
+    const { purchase, aftermath } = await importReceiptAction(items, options)
+    applyPurchaseAftermath(aftermath)
     await offerListMatches(purchase.id)
   }
 
@@ -700,9 +724,9 @@ export function AppShell({
     onProgress(uploaded.status)
     const stopPolling = pollReceiptStatus(uploaded.id, onProgress)
     try {
-      const result = await processUploadedReceiptAction(uploaded.id)
+      const { aftermath, ...result } = await processUploadedReceiptAction(uploaded.id)
       upsertPendingReceipt(result)
-      router.refresh() // picks up a new purchase/pantry restock if it completed outright
+      if (aftermath) applyPurchaseAftermath(aftermath) // a new purchase/pantry restock if it completed outright
       await offerListMatches(result.purchaseId)
       return result
     } finally {
@@ -711,24 +735,24 @@ export function AppShell({
   }
 
   async function retryReceiptImport(id: string) {
-    const result = await retryReceiptImportAction(id)
+    const { aftermath, ...result } = await retryReceiptImportAction(id)
     upsertPendingReceipt(result)
-    router.refresh()
+    if (aftermath) applyPurchaseAftermath(aftermath)
     await offerListMatches(result.purchaseId)
     return result
   }
 
   async function confirmReceiptReview(id: string, items: ReceiptLineItem[], date: string) {
-    const { purchase } = await confirmReceiptReviewAction(id, items, { date })
+    const { purchase, aftermath } = await confirmReceiptReviewAction(id, items, { date })
     setPendingReceiptImports((current) => current.filter((r) => r.id !== id))
-    router.refresh()
+    applyPurchaseAftermath(aftermath)
     await offerListMatches(purchase.id)
   }
 
   async function resolveDuplicateReceipt(id: string, resolution: 'save_new' | 'use_existing' | 'cancel', items?: ReceiptLineItem[], date?: string) {
-    const { purchase } = await resolveDuplicateReceiptAction(id, resolution, items, { date })
+    const { purchase, aftermath } = await resolveDuplicateReceiptAction(id, resolution, items, { date })
     setPendingReceiptImports((current) => current.filter((r) => r.id !== id))
-    router.refresh()
+    if (aftermath) applyPurchaseAftermath(aftermath)
     await offerListMatches(purchase?.id)
   }
 

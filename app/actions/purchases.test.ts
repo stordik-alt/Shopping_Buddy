@@ -50,6 +50,17 @@ describe('completePurchaseAction', () => {
     expect(purchases).toEqual([])
   })
 
+  it('returns the new history and the restocked pantry, so the page needs no refresh', async () => {
+    await db.insert(schema.shoppingListItems).values({ listId, name: 'Jogurt', done: true, price: '20', quantity: 3, category: 'Potraviny' })
+    await db.insert(schema.purchases).values({ householdId: otherHouseholdId, date: '2026-01-01', total: '99' })
+
+    const { aftermath } = await completePurchaseAction(listId)
+
+    expect(aftermath?.purchaseHistory).toHaveLength(1)
+    expect(aftermath?.purchaseHistory[0].items.map((entry) => entry.name)).toEqual(['Jogurt'])
+    expect(aftermath?.pantryItems.map((entry) => entry.name)).toContain('Jogurt')
+  })
+
   it('rejects a list belonging to a different household', async () => {
     await expect(completePurchaseAction(otherListId)).rejects.toThrow('Shopping list not found')
   })

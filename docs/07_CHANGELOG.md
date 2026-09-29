@@ -1,5 +1,8 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-29 (Deferred: configurable budget period — planned, not started)
+- The owner's UX/IA brief's last remaining large item (section 5: a household-chosen budget period like "28. – 27." instead of the calendar month) is deliberately not started yet — see the "⏳ OTEVŘENÉ" entry near the top of `docs/01_CURRENT_STATE.md` for the full scope/risk writeup and implementation plan. It reshapes `lib/budget.ts`'s period-key concept across 8 consumer files plus the budget-threshold cron, so it gets its own dedicated session with full manual verification rather than being folded into this one.
+
 ## 2026-09-29 (Configurable pantry check-in interval per category)
 - **Why:** section 13 of the UX/IA brief wanted the household to set how many days a category can go unconfirmed before the weekly check-in asks about it, instead of the fixed `CHECKIN_DAYS_BY_CATEGORY` placeholder.
 - **What:** new `pantry_checkin_intervals` table (migration `0047`), same shape as `expense_category_budgets`. `isDueForCheckin()`/`findDueForCheckin()`/`selectForWeeklyCheck()` take the household's overrides; the weekly cron loads them per household. New `components/household/pantry-checkin-settings.tsx` (Profil domácnosti → Zásoby) to edit them; `setPantryCheckinDaysAction`.

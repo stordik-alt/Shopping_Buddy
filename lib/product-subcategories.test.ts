@@ -84,3 +84,18 @@ describe('isChildOrientedByKeyword — spec section 10', () => {
     expect(isChildOrientedByKeyword(normalizeProductText('Mattoni 1.5l'))).toBe(false)
   })
 })
+
+describe('Ostatní item category', () => {
+  it('offers its own subcategories', () => {
+    expect(subcategoriesOfItem('Ostatní')).toContain('Oblečení a obuv')
+    expect(isValidProductSubcategory('Ostatní', 'Tabák a e-cigarety')).toBe(true)
+  })
+
+  it.each([
+    ['spodni pradlo', 'Oblečení a obuv'],
+    ['X4 Bar Chladivé liči jednorázová e-cigareta', 'Tabák a e-cigarety'],
+    ['Baterie AA', 'Elektronika'],
+  ])('%s -> %s', (name, expected) => {
+    expect(classifySubcategoryByKeyword('Ostatní', normalizeProductText(name))).toBe(expected)
+  })
+})

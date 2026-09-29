@@ -35,9 +35,8 @@ export const PRODUCT_SUBCATEGORIES = {
   Drogerie: ['Praní', 'Mytí nádobí', 'Čištění domácnosti', 'Kosmetika', 'Hygiena', 'Dětská hygiena', 'Ostatní drogerie'],
   Domácnost: ['Papír', 'Kuchyň', 'Úklid', 'Ostatní'],
   Děti: ['Pleny', 'Dětská kosmetika', 'Dětské potřeby', 'Hračky', 'Ostatní'],
-  // 'Ostatní' (the item category, distinct from the "Ostatní" subcategory names above) has no
-  // subcategory list of its own — a genuinely uncategorizable item has no finer bucket to offer.
-  Ostatní: [],
+  // Things that are neither food, drugstore, household nor children's goods.
+  Ostatní: ['Oblečení a obuv', 'Elektronika', 'Tabák a e-cigarety', 'Ostatní zboží'],
 } as const satisfies Record<ItemCategory, readonly string[]>
 
 export type ProductSubcategory = (typeof PRODUCT_SUBCATEGORIES)[keyof typeof PRODUCT_SUBCATEGORIES][number]
@@ -113,6 +112,12 @@ const DETI_RULES: SubcategoryRule[] = [
   { subcategory: 'Dětské potřeby', keywords: ['dudlík', 'dudlik', 'kojeneck', 'láhev', 'lahev'] },
 ]
 
+const OSTATNI_RULES: SubcategoryRule[] = [
+  { subcategory: 'Tabák a e-cigarety', keywords: ['cigaret', 'tabák', 'tabak', 'vape', 'doutník', 'doutnik'] },
+  { subcategory: 'Elektronika', keywords: ['baterie', 'nabíječk', 'nabijeck', 'kabel', 'sluchátk', 'sluchatk', 'žárovk', 'zarovk'] },
+  { subcategory: 'Oblečení a obuv', keywords: ['prádlo', 'pradlo', 'ponožk', 'ponozk', 'tričko', 'tricko', 'kalhot', 'boty', 'obuv', 'pyžamo', 'pyzamo', 'košile', 'kosile', 'čepice', 'cepice'] },
+]
+
 // Keyword lists above are written with normal Czech spelling (diacritics included, plus a few
 // obvious unaccented duplicates left over from earlier drafts) — `normalizedName` at match time has
 // its accents stripped (lib/product-normalize.ts), so every keyword must go through the same
@@ -126,7 +131,7 @@ const RULES_BY_CATEGORY: Record<ItemCategory, SubcategoryRule[]> = {
   Drogerie: normalizeRules(DROGERIE_RULES),
   Domácnost: normalizeRules(DOMACNOST_RULES),
   Děti: normalizeRules(DETI_RULES),
-  Ostatní: [],
+  Ostatní: normalizeRules(OSTATNI_RULES),
 }
 
 // Known Czech beverage brand names, checked before the generic category rules below. A brand name

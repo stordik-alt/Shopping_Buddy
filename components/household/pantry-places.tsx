@@ -1,5 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
+import { CollapsibleSection } from '@/components/shared/collapsible-section'
 import { PANTRY_AREAS } from '@/lib/pantry'
 import { userFacingError } from '@/lib/errors'
 import type { PantryArea, PantryPlace } from '@/lib/types'
@@ -54,9 +55,8 @@ export function PantryPlaces({
   }
 
   return (
-    <section className="surface p-6">
-      <p className="font-semibold">Zásoby — vlastní místa</p>
-      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+    <CollapsibleSection title="Zásoby — vlastní místa" summary={places.length > 0 ? `Vlastních míst: ${places.length}` : 'Zatím žádná vlastní místa'}>
+      <p className="text-sm leading-relaxed text-muted-foreground">
         Spíž, lednice a mrazák jsou vždy k dispozici. Přidejte si další místa, kde doma něco skladujete — např. kufr auta nebo sklep.
       </p>
 
@@ -123,6 +123,6 @@ export function PantryPlaces({
           ))}
         </div>
       )}
-    </section>
+    </CollapsibleSection>
   )
 }

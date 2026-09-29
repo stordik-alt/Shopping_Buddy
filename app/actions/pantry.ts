@@ -4,6 +4,7 @@ import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { getDb } from '@/lib/db/client'
+import { setProductSubcategory } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
 import { classifySubcategory } from '@/lib/categorization'
 import { subcategoriesOfItem } from '@/lib/product-subcategories'
@@ -226,6 +227,11 @@ export async function setPantryItemSubcategoryAction(pantryItemId: string, subca
   if (!item || item.householdId !== householdId) throw new Error('Pantry item not found')
   const subcategoryId = subcategory === null ? null : await subcategoryIdFor(item.category, subcategory)
   await db.update(schema.pantryItems).set({ subcategoryId }).where(eq(schema.pantryItems.id, pantryItemId))
+  // Learn from the correction: a product's subcategory is a fact about the product, not the
+  // household, so the shared catalog remembers it and every later receipt of that product (any
+  // household) is placed — and counted in the budget — under it automatically. Only a hand-made
+  // choice teaches the catalog; clearing one does not erase what the catalog already knows.
+  if (item.productId && subcategory !== null) await setProductSubcategory(item.productId, item.category, subcategory)
 }
 
 /** Places every uncategorized item of the household by the deterministic keyword rules — the same

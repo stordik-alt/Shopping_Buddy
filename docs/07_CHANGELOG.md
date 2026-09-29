@@ -1,5 +1,10 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-29 (Manual pantry subcategory teaches the shared catalog; Potraviny expenses use the item subcategory)
+- **Why (owner):** a product belongs to the same subcategory in every household, so a hand-made correction should be remembered and reused, including for the budget.
+- **What:** `setPantryItemSubcategoryAction` also writes the choice to the shared `products` row (`setProductSubcategory`) when the pantry item has a product; later receipts already read the catalog subcategory (`classifySubcategory`). `targetsOf()` (`lib/purchase-expenses.ts`) now counts a Potraviny receipt line under its item subcategory (Potraviny ▸ Pečivo) instead of always without one; other categories are unchanged because their expense subcategory lists differ from the product lists. The automatic keyword button does not teach the catalog, only hand-made choices do. Existing purchases pick this up when their expenses are next recomputed.
+- **Tests:** `lib/purchase-expenses.test.ts`, `app/actions/pantry.test.ts` (+1); full suite green.
+
 ## 2026-09-29 (Fix: production build failed on migration 0048)
 - **Cause:** 0048 nulled `expenses.subcategory` "Nákup potravin", but a purchase that also had a Potraviny row without a subcategory then collided with `expenses_purchase_category_subcategory_unique`, so every production deploy since #138 failed at the migration step (previews skip migrations, hence only Production failed; 0048/0049 were never applied to production).
 - **Fix:** 0048 first adds the "Nákup potravin" amount to the purchase's existing no-subcategory Potraviny row and deletes the duplicate, then nulls the rest. Verified on the test branch with a reproducing purchase (100 + 50 → one 150 row).

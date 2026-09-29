@@ -1,4 +1,4 @@
-import type { ExpenseCategory } from '@/lib/expense-categories'
+import { isValidSubcategory, type ExpenseCategory } from '@/lib/expense-categories'
 import type { ItemCategory } from '@/lib/types'
 
 // A receipt's purchase counted as expenses (the owner's choice, 2026-09-26: only receipts — what was
@@ -33,6 +33,10 @@ export type ExpenseSplitPart = ExpenseTarget & { amount: number }
 export type PurchaseExpenseLine = {
   category: ItemCategory
   amount: number
+  /** The item's own subcategory (lib/product-subcategories.ts), e.g. "Pečivo". Used by the automatic
+   *  mapping when the expense category offers the same subcategory, so a receipt line lands in
+   *  Potraviny ▸ Pečivo without the household assigning it. */
+  subcategory?: string | null
   /** The household's own split of this one line's amount across expense targets, replacing the
    *  automatic mapping above — one entry is a plain reassignment, more than one a genuine split.
    *  Every entry's `amount` is a weight within this line (like every other line's `amount`, it is
@@ -48,11 +52,15 @@ export type ExpenseShare = ExpenseTarget & { amount: number }
  *  does not guess one), as the line's one and only target. Exported so the Výdaje breakdown can
  *  answer "which of this purchase's items are actually behind this category?" using the exact same
  *  resolution `splitPurchaseByCategory` uses, not a second copy of it (CLAUDE.md section 6). */
-export function targetsOf(line: Pick<PurchaseExpenseLine, 'category' | 'amount' | 'expenseOverride'>): { target: ExpenseTarget; weight: number }[] {
+export function targetsOf(line: Pick<PurchaseExpenseLine, 'category' | 'amount' | 'subcategory' | 'expenseOverride'>): { target: ExpenseTarget; weight: number }[] {
   if (line.expenseOverride && line.expenseOverride.length > 0) {
     return line.expenseOverride.map(({ amount, ...target }) => ({ target, weight: amount }))
   }
-  return [{ target: { category: EXPENSE_CATEGORY_OF_ITEM[line.category], subcategory: null }, weight: line.amount }]
+  const category = EXPENSE_CATEGORY_OF_ITEM[line.category]
+  // Only Potraviny: its expense subcategories are the product subcategories (one vocabulary). The
+  // other categories' expense lists differ from the product lists, so nothing is guessed across.
+  const subcategory = line.category === 'Potraviny' && line.subcategory && isValidSubcategory(category, line.subcategory) ? line.subcategory : null
+  return [{ target: { category, subcategory }, weight: line.amount }]
 }
 
 /** Whether two targets are the same category and subcategory (both `null` counts as equal). */

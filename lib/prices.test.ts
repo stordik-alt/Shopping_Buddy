@@ -6,11 +6,13 @@ import {
   compareStoreTotals,
   comparePrices,
   dealDiscount,
+  dealEffectiveUnitPrice,
   dealsForList,
   effectivePrice,
   isDealActive,
-  isHistoricLow,
   previousPrice,
+  RECENT_LOW_WINDOW_DAYS,
+  recentPriceLow,
   suggestsStockingUp,
   type DealAssessment,
   type PricePoint,
@@ -53,39 +55,37 @@ describe('isDealActive', () => {
   })
 })
 
-describe('isHistoricLow', () => {
-  it('is false with no recorded history to compare against', () => {
-    expect(isHistoricLow(price({ regularPrice: 40 }))).toBe(false)
+describe('recentPriceLow', () => {
+  const today = '2026-09-19'
+
+  it('is null with no recorded observation in the window to compare against', () => {
+    expect(recentPriceLow(price({ regularPrice: 40 }), today)).toBeNull()
   })
 
-  it('is true when the current effective price matches or beats every prior observation', () => {
-    const current = price({
-      regularPrice: 30,
-      dealPrice: 25,
-      recordedAt: '2026-09-19',
-      priceHistory: [
-        { price: 40, recordedAt: '2026-08-01' },
-        { price: 35, recordedAt: '2026-09-01' },
-      ],
-    })
-    expect(isHistoricLow(current)).toBe(true)
+  it('ignores an observation older than the window, even if it would otherwise be relevant', () => {
+    const current = price({ regularPrice: 40, priceHistory: [{ price: 25, recordedAt: '2026-08-01' }] }) // 49 days before "today"
+    expect(recentPriceLow(current, today)).toBeNull()
   })
 
-  it('is false when a prior observation was cheaper', () => {
-    const current = price({
-      regularPrice: 40,
-      recordedAt: '2026-09-19',
-      priceHistory: [
-        { price: 40, recordedAt: '2026-08-01' },
-        { price: 25, recordedAt: '2026-09-01' },
-      ],
-    })
-    expect(isHistoricLow(current)).toBe(false)
+  it("'unchanged': every observation in the window costs the same as today", () => {
+    const current = price({ regularPrice: 40, priceHistory: [{ price: 40, recordedAt: '2026-09-05' }, { price: 40, recordedAt: '2026-09-12' }] })
+    expect(recentPriceLow(current, today)).toEqual({ low: 40, status: 'unchanged' })
   })
 
-  it('ignores observations recorded on or after the current one, so it never compares against itself', () => {
-    const current = price({ regularPrice: 40, recordedAt: '2026-09-19', priceHistory: [{ price: 40, recordedAt: '2026-09-19' }] })
-    expect(isHistoricLow(current)).toBe(false)
+  it("'at-low': today's (deal) price is the window's lowest, and the price did change within it", () => {
+    const current = price({ regularPrice: 30, dealPrice: 25, priceHistory: [{ price: 40, recordedAt: '2026-09-01' }, { price: 30, recordedAt: '2026-09-10' }] })
+    expect(recentPriceLow(current, today)).toEqual({ low: 25, status: 'at-low' })
+  })
+
+  it("'above-low': a cheaper price was recorded within the window than today's", () => {
+    const current = price({ regularPrice: 89.9, priceHistory: [{ price: 84.9, recordedAt: '2026-09-05' }] })
+    expect(recentPriceLow(current, today)).toEqual({ low: 84.9, status: 'above-low' })
+  })
+
+  it('includes an observation on the window boundary and on "today" itself', () => {
+    const boundary = new Date(Date.parse(`${today}T00:00:00Z`) - RECENT_LOW_WINDOW_DAYS * 86_400_000).toISOString().slice(0, 10)
+    const current = price({ regularPrice: 40, priceHistory: [{ price: 20, recordedAt: boundary }, { price: 40, recordedAt: today }] })
+    expect(recentPriceLow(current, today)).toEqual({ low: 20, status: 'above-low' })
   })
 })
 
@@ -235,7 +235,7 @@ describe('assessDealQuality', () => {
     expect(assessDealQuality(products, '2026-09-19')).toHaveLength(0)
   })
 
-  it('flags a deal that is also a genuine historic low', () => {
+  it('includes the last 30 days\' lowest recorded price alongside the deal', () => {
     const products: ProductPrice[] = [
       {
         productName: 'E',
@@ -246,13 +246,13 @@ describe('assessDealQuality', () => {
             regularPrice: 40,
             dealPrice: 20,
             dealValidUntil: '2026-09-30',
-            priceHistory: [{ price: 30, recordedAt: '2026-08-01' }],
+            priceHistory: [{ price: 30, recordedAt: '2026-09-05' }],
           }),
         ],
       },
     ]
     const [assessment] = assessDealQuality(products, '2026-09-19')
-    expect(assessment.isHistoricLow).toBe(true)
+    expect(assessment.recentLow).toEqual({ low: 20, status: 'at-low' })
   })
 })
 
@@ -261,7 +261,7 @@ const dealAssessment = (overrides: Partial<DealAssessment> = {}): DealAssessment
   price: price(),
   isBestPrice: true,
   cheapestAlternative: null,
-  isHistoricLow: false,
+  recentLow: null,
   ...overrides,
 })
 
@@ -357,6 +357,20 @@ describe('dealDiscount', () => {
     expect(dealDiscount(price({ regularPrice: 40, dealPrice: 30 }))).toBeCloseTo(0.25)
     expect(dealDiscount(price({ regularPrice: 40 }))).toBe(0)
     expect(dealDiscount(price({ regularPrice: 0, dealPrice: 5 }))).toBe(0)
+  })
+})
+
+describe('dealEffectiveUnitPrice', () => {
+  it('scales the unit price down by the same fraction the deal price is off the regular one', () => {
+    expect(dealEffectiveUnitPrice(price({ regularPrice: 100, dealPrice: 80, unitPrice: 50 }))).toBeCloseTo(40)
+  })
+
+  it('is the plain unit price with no active deal', () => {
+    expect(dealEffectiveUnitPrice(price({ regularPrice: 100, unitPrice: 50 }))).toBe(50)
+  })
+
+  it('falls back to the plain unit price rather than dividing by zero with no regular price', () => {
+    expect(dealEffectiveUnitPrice(price({ regularPrice: 0, dealPrice: 5, unitPrice: 50 }))).toBe(50)
   })
 })
 

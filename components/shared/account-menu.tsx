@@ -118,7 +118,7 @@ export function AccountMenu({
                 <ListChecks className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> Správa nápadů
               </Link>
               <Link role="menuitem" href="/admin/subcategories" className={itemClass} onClick={() => setOpen(false)}>
-                <Tags className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> Schvalování podkategorií
+                <Tags className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> Schvalování kategorií
               </Link>
             </>
           )}

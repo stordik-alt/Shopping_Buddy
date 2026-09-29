@@ -4,10 +4,11 @@ import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { getDb } from '@/lib/db/client'
+import { proposeProductCategory } from '@/lib/db/category-changes'
 import { proposeProductSubcategory } from '@/lib/db/subcategory-changes'
 import * as schema from '@/lib/db/schema'
 import { classifySubcategory } from '@/lib/categorization'
-import type { CatalogChangeOutcome } from '@/lib/product-subcategory-changes'
+import type { CatalogChangeOutcome, CategoryChangeOutcome } from '@/lib/product-subcategory-changes'
 import { PRODUCT_SUBCATEGORIES, subcategoriesOfItem } from '@/lib/product-subcategories'
 import { CHECKIN_DAYS_BY_CATEGORY, checkinSubcategoryKey, customPlaceIdFromKey, MAX_PANTRY_REVIEW_ITEMS, PANTRY_AREAS, PANTRY_LOCATIONS, PANTRY_TRACKING, splitPantryReview } from '@/lib/pantry'
 import type { ItemCategory, PantryArea, PantryTracking } from '@/lib/types'
@@ -241,22 +242,22 @@ export async function setPantryItemSubcategoryAction(pantryItemId: string, subca
  *  belongs to the old category, so it is cleared — the household or the keyword rules place it again.
  *  A product's category is a fact about the product, so the shared catalog learns it too and later
  *  receipts of the product (any household) land in the corrected category. The catalog product's old
- *  subcategory is cleared for the same reason as the item's. Unlike subcategory moves, category
- *  changes have no administrator approval step. */
-export async function setPantryItemCategoryAction(pantryItemId: string, category: ItemCategory): Promise<void> {
+ *  subcategory is cleared for the same reason as the item's. A product moved more than a few times
+ *  waits for an administrator ('pending': the household's own item keeps its choice); once an
+ *  administrator has decided, the product's category is final and the item cannot be changed
+ *  ('locked', nothing is written). */
+export async function setPantryItemCategoryAction(pantryItemId: string, category: ItemCategory): Promise<CategoryChangeOutcome> {
   if (!Object.prototype.hasOwnProperty.call(PRODUCT_SUBCATEGORIES, category)) throw new Error('Neplatná kategorie.')
   const householdId = await requireHouseholdId()
   const db = getDb()
   const item = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, pantryItemId) })
   if (!item || item.householdId !== householdId) throw new Error('Pantry item not found')
-  if (item.category === category) return
+  if (item.category === category) return 'unchanged'
+  const outcome = item.productId ? await proposeProductCategory(householdId, item.productId, category) : 'applied'
+  if (outcome === 'locked') return outcome
   await db.update(schema.pantryItems).set({ category, subcategoryId: null }).where(eq(schema.pantryItems.id, pantryItemId))
-  if (item.productId) {
-    const categoryRow = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, category), columns: { id: true } })
-    if (!categoryRow) throw new Error('Neplatná kategorie.')
-    await db.update(schema.products).set({ categoryId: categoryRow.id, subcategoryId: null }).where(eq(schema.products.id, item.productId))
-  }
   revalidatePath('/')
+  return outcome
 }
 
 /** Places every uncategorized item of the household by the deterministic keyword rules — the same

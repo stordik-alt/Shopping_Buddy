@@ -347,6 +347,22 @@ describe('setPantryItemCategoryAction learning', () => {
   })
 })
 
+describe('setPantryItemCategoryAction locking', () => {
+  it('leaves the item untouched once an administrator has locked the product category', async () => {
+    const other = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Ostatní') })
+    const [product] = await db.insert(schema.products).values({ name: '__test_product_category_locked__', categoryId: other!.id, categoryLocked: true }).returning()
+    try {
+      const [mine] = await db.insert(schema.pantryItems).values({ householdId, productId: product.id, name: product.name, category: 'Ostatní' }).returning()
+      expect(await setPantryItemCategoryAction(mine.id, 'Potraviny')).toBe('locked')
+      const row = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, mine.id) })
+      expect(row?.category).toBe('Ostatní')
+    } finally {
+      await db.delete(schema.pantryItems).where(eq(schema.pantryItems.productId, product.id))
+      await db.delete(schema.products).where(eq(schema.products.id, product.id))
+    }
+  })
+})
+
 describe('setPantryItemSubcategoryAction learning', () => {
   it("teaches the shared catalog product, so it is placed the same way for every household", async () => {
     const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })

@@ -6,6 +6,7 @@ import { itemCountLabel } from '@/lib/format'
 import { findDuplicatePlacements, needsCheck, PANTRY_PAGE_SIZE, PANTRY_TRACKING, pantryPlaceOptions, placeKeyOf, summarizeByPlace, type PantryPlaceOption } from '@/lib/pantry'
 import { estimateReason, type ConsumptionEstimate } from '@/lib/pantry-estimate'
 import { clampPage, pageCount } from '@/lib/paging'
+import type { CatalogChangeOutcome } from '@/lib/product-subcategory-changes'
 import { subcategoriesOfItem } from '@/lib/product-subcategories'
 import { cn } from '@/lib/utils'
 import type { ItemUnit, PantryArea, PantryItem, PantryLocation, PantryPlace, PantryTracking } from '@/lib/types'
@@ -141,7 +142,7 @@ export function Pantry({
   /** How closely an item is watched: normal, rarely (salt, spices), not at all. */
   onSetTracking: (id: string, tracking: PantryTracking) => void
   /** Sets an item's subcategory by hand; null clears it. */
-  onSetSubcategory: (id: string, subcategory: string | null) => void
+  onSetSubcategory: (id: string, subcategory: string | null) => Promise<CatalogChangeOutcome | 'none'> | void
   /** Places every uncategorized item by the keyword rules; resolves to how many were placed. */
   onAutoCategorize: () => Promise<number>
   /** "Asi došlo" estimates by pantry item id (lib/pantry-estimate.ts). */
@@ -202,7 +203,19 @@ export function Pantry({
     setNotice(`Přesunuto: ${item.name} → ${target?.name ?? placeKey}`)
   }
 
-  const totalUncategorized = items.filter((item) => !item.subcategory && subcategoriesOfItem(item.category).length > 0).length
+  // The item keeps the household's choice at once; only the shared catalog may hold it back for an
+  // administrator when the product has been moved many times, which the household is told about.
+  async function setSubcategory(item: PantryItem, subcategory: string | null) {
+    try {
+      const outcome = await onSetSubcategory(item.id, subcategory)
+      if (outcome === 'pending') setNotice(`Podkategorie u „${item.name}“ je uložená u vás. Ve sdíleném katalogu ji musí schválit správce, protože se produkt už několikrát přesouval.`)
+    } catch (error) {
+      console.error('Setting the pantry subcategory failed', error)
+      setNotice('Podkategorii se nepodařilo uložit. Zkuste to prosím znovu.')
+    }
+  }
+
+  const totalUncategorized =items.filter((item) => !item.subcategory && subcategoriesOfItem(item.category).length > 0).length
   const [categorizing, setCategorizing] = useState(false)
   async function autoCategorize() {
     setCategorizing(true)
@@ -443,7 +456,7 @@ export function Pantry({
               <select
                 aria-label={`Podkategorie ${item.name}`}
                 value={item.subcategory ?? ''}
-                onChange={(event) => onSetSubcategory(item.id, event.target.value || null)}
+                onChange={(event) => void setSubcategory(item, event.target.value || null)}
                 className="max-w-full rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none"
               >
                 <option value="">Nezařazeno</option>

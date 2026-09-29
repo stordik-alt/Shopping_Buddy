@@ -316,6 +316,22 @@ describe('setPantryItemSubcategoryAction', () => {
   })
 })
 
+describe('setPantryItemSubcategoryAction learning', () => {
+  it("teaches the shared catalog product, so it is placed the same way for every household", async () => {
+    const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
+    const [product] = await db.insert(schema.products).values({ name: '__test_product_learning__', categoryId: category!.id }).returning()
+    try {
+      const [mine] = await db.insert(schema.pantryItems).values({ householdId, productId: product.id, name: product.name, category: 'Potraviny' }).returning()
+      await setPantryItemSubcategoryAction(mine.id, 'Pečivo')
+      const learned = await db.query.products.findFirst({ where: eq(schema.products.id, product.id), with: { subcategory: true } })
+      expect(learned?.subcategory?.name).toBe('Pečivo')
+    } finally {
+      await db.delete(schema.pantryItems).where(eq(schema.pantryItems.productId, product.id))
+      await db.delete(schema.products).where(eq(schema.products.id, product.id))
+    }
+  })
+})
+
 describe('autoCategorizePantryAction', () => {
   it("places the household's uncategorized items by keyword, leaves unknown ones, and never touches another household", async () => {
     const [bread] = await db.insert(schema.pantryItems).values({ householdId, name: 'Rohlík tukový', category: 'Potraviny' }).returning()

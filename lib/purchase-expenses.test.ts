@@ -121,6 +121,9 @@ describe('splitPurchaseByCategory', () => {
 
 describe('targetsOf', () => {
   it('is the automatic mapping, as the line\'s one target, without an override', () => {
+    expect(targetsOf({ category: 'Potraviny', amount: 100, subcategory: 'Pečivo' })).toEqual([{ target: { category: 'Potraviny', subcategory: 'Pečivo' }, weight: 100 }])
+    expect(targetsOf({ category: 'Potraviny', amount: 100, subcategory: 'Nesmysl' })).toEqual([{ target: { category: 'Potraviny', subcategory: null }, weight: 100 }])
+    expect(targetsOf({ category: 'Drogerie', amount: 100, subcategory: 'Pečivo' })).toEqual([{ target: { category: 'Drogerie', subcategory: null }, weight: 100 }])
     expect(targetsOf({ category: 'Potraviny', amount: 100 })).toEqual([{ target: { category: 'Potraviny', subcategory: null }, weight: 100 }])
   })
 

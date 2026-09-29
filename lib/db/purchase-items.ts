@@ -44,7 +44,7 @@ export async function recomputePurchaseExpenses(
   const items = await db.query.purchaseItems.findMany({
     where: eq(schema.purchaseItems.purchaseId, purchaseId),
     columns: { price: true, quantity: true, category: true },
-    with: { expenseSplits: { columns: { category: true, subcategory: true, amount: true } } },
+    with: { subcategory: { columns: { name: true } }, expenseSplits: { columns: { category: true, subcategory: true, amount: true } } },
   })
   // An item without a known category (a purchase made before that column existed) contributes
   // nothing usable to the split — CLAUDE.md section 5: its original category was never kept, so
@@ -54,6 +54,7 @@ export async function recomputePurchaseExpenses(
     .map((item) => ({
       category: item.category,
       amount: Number(item.price) * item.quantity,
+      subcategory: item.subcategory?.name ?? null,
       expenseOverride: item.expenseSplits.map((split) => ({ category: split.category, subcategory: split.subcategory, amount: Number(split.amount) })),
     }))
   const parts = splitPurchaseByCategory(lines, Number(purchase.total))
@@ -219,13 +220,13 @@ export async function getPurchaseItemsForExpense(householdId: string, purchaseId
   const items = await db.query.purchaseItems.findMany({
     where: eq(schema.purchaseItems.purchaseId, purchaseId),
     columns: { id: true, name: true, quantity: true, unit: true, price: true, category: true },
-    with: { expenseSplits: { columns: { category: true, subcategory: true, amount: true } } },
+    with: { subcategory: { columns: { name: true } }, expenseSplits: { columns: { category: true, subcategory: true, amount: true } } },
   })
   const result: PurchaseExpenseItem[] = []
   for (const item of items) {
     if (item.category == null) continue
     const expenseSplits = item.expenseSplits.map((split) => ({ category: split.category, subcategory: split.subcategory, amount: Number(split.amount) }))
-    const line: PurchaseExpenseLine = { category: item.category, amount: Number(item.price) * item.quantity, expenseOverride: expenseSplits }
+    const line: PurchaseExpenseLine = { category: item.category, amount: Number(item.price) * item.quantity, subcategory: item.subcategory?.name ?? null, expenseOverride: expenseSplits }
     const matched = targetsOf(line).find((entry) => sameExpenseTarget(entry.target, target))
     if (!matched) continue
     result.push({ id: item.id, name: item.name, quantity: item.quantity, unit: item.unit, price: Number(item.price), category: item.category, expenseSplits, matchedAmount: matched.weight })

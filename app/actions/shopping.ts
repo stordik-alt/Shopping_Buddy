@@ -1,7 +1,6 @@
 'use server'
 
 import { eq } from 'drizzle-orm'
-import { revalidatePath } from 'next/cache'
 import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
 import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
@@ -12,6 +11,10 @@ import { createHouseholdNotification } from '@/lib/notify'
 import { assessDealQuality, effectivePrice } from '@/lib/prices'
 import { matchProductByName } from '@/lib/products'
 import type { Item, Notification } from '@/lib/types'
+
+// No revalidatePath in this file: each of these saves is already shown by components/app-shell.tsx from its
+// own state or from the data the action returns. Re-rendering the whole page after every save re-ran
+// every household query and re-sent the result (Neon network transfer) and, at worst, reset the view.
 
 async function assertOwnsList(householdId: string, listId: string) {
   const db = getDb()
@@ -87,7 +90,6 @@ export async function addShoppingItemAction(
     notification = { id: notificationRow.id, title: notificationRow.title, detail: notificationRow.detail, unread: notificationRow.unread }
   }
 
-  revalidatePath('/')
   return {
     item: {
       id: row.id,
@@ -148,7 +150,7 @@ export async function updateShoppingItemAction(
     .where(eq(schema.shoppingListItems.id, itemId))
   // No revalidatePath: the app has already shown this change (components/app-shell.tsx updates its own
   // state first), and re-rendering the whole page for every tap re-ran every household query —
-  // compute on the database for nothing. Other members see it on their next refresh (once a minute).
+  // compute on the database for nothing. Other members see it on their next reload.
 }
 
 export async function toggleShoppingItemAction(itemId: string, done: boolean) {
@@ -158,7 +160,7 @@ export async function toggleShoppingItemAction(itemId: string, done: boolean) {
   await db.update(schema.shoppingListItems).set({ done }).where(eq(schema.shoppingListItems.id, itemId))
   // No revalidatePath: the app has already shown this change (components/app-shell.tsx updates its own
   // state first), and re-rendering the whole page for every tap re-ran every household query —
-  // compute on the database for nothing. Other members see it on their next refresh (once a minute).
+  // compute on the database for nothing. Other members see it on their next reload.
 }
 
 export async function removeShoppingItemAction(itemId: string) {
@@ -168,12 +170,11 @@ export async function removeShoppingItemAction(itemId: string) {
   await db.delete(schema.shoppingListItems).where(eq(schema.shoppingListItems.id, itemId))
   // No revalidatePath: the app has already shown this change (components/app-shell.tsx updates its own
   // state first), and re-rendering the whole page for every tap re-ran every household query —
-  // compute on the database for nothing. Other members see it on their next refresh (once a minute).
+  // compute on the database for nothing. Other members see it on their next reload.
 }
 
 export async function addShoppingListAction(name: string) {
   const householdId = await requireHouseholdId()
   const db = getDb()
   await db.insert(schema.shoppingLists).values({ householdId, name })
-  revalidatePath('/')
 }

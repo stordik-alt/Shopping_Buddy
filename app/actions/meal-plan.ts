@@ -24,7 +24,7 @@ export async function saveMealPlanAction(budgetLimit: number, plan: WeeklyMealPl
   } else {
     await db.insert(schema.mealPlans).values({ householdId, weekStart, ...values })
   }
-  revalidatePath('/')
+  // No revalidatePath: the menu is already on screen (components/app-shell.tsx keeps it in its own state).
 }
 
 /** Marks a meal from the current week's saved plan as actually cooked and deducts its recipe's

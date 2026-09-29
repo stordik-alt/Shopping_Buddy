@@ -1,7 +1,6 @@
 'use server'
 
 import { and, eq } from 'drizzle-orm'
-import { revalidatePath } from 'next/cache'
 import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
 import { periodSpending, notifyBudgetThresholds } from '@/lib/db/budget-notify'
 import { getDb } from '@/lib/db/client'
@@ -10,6 +9,10 @@ import { validateExpenseInput } from '@/lib/expense-input'
 import { isDueDate, validateRecurringPaymentInput, type RecurringInterval, type RecurringOccurrence, type RecurringPayment, type RecurringPaymentInput } from '@/lib/recurring-payments'
 import { todayInPrague } from '@/lib/today'
 import type { Expense, Notification } from '@/lib/types'
+
+// No revalidatePath in this file: each of these saves is already shown by components/app-shell.tsx from its
+// own state or from the data the action returns. Re-rendering the whole page after every save re-ran
+// every household query and re-sent the result (Neon network transfer) and, at worst, reset the view.
 
 // Recurring payments (lib/recurring-payments.ts has the rules). Every action works only on the
 // caller's own household's payments (CLAUDE.md section 9); a due date counts as an expense only once
@@ -60,7 +63,6 @@ export async function saveRecurringPaymentAction(input: RecurringPaymentInput, p
   } else {
     ;[row] = await db.insert(schema.recurringPayments).values({ householdId, ...values }).returning()
   }
-  revalidatePath('/')
   return toPayment(row)
 }
 
@@ -72,7 +74,6 @@ export async function stopRecurringPaymentAction(paymentId: string): Promise<voi
     .update(schema.recurringPayments)
     .set({ active: false })
     .where(and(eq(schema.recurringPayments.id, paymentId), eq(schema.recurringPayments.householdId, householdId)))
-  revalidatePath('/')
 }
 
 /** A due date the household may still deal with: a real due date of an active payment, not after
@@ -116,7 +117,6 @@ export async function confirmRecurringPaymentAction(
     throw err
   }
   const notifications = await notifyBudgetThresholds(db, householdId, before, [{ category: expense.category, amount: expense.amount }], userId)
-  revalidatePath('/')
   return {
     expense: { id: expenseId, ...expense, purchaseId: null },
     occurrence: { recurringPaymentId: paymentId, dueDate, status: 'paid' },
@@ -134,6 +134,5 @@ export async function skipRecurringPaymentAction(paymentId: string, dueDate: str
     .onConflictDoNothing()
     .returning()
   if (inserted.length === 0) throw new Error('Tuto platbu už mezitím vyřídil někdo jiný.')
-  revalidatePath('/')
   return { recurringPaymentId: paymentId, dueDate, status: 'skipped' }
 }

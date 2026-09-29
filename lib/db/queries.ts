@@ -251,6 +251,48 @@ const NOTIFICATIONS_SHOWN = 50
 /** How far back expenses and purchases are loaded for the page. */
 const HISTORY_DAYS = 365
 
+/** The first day of the window of expenses and purchases the page loads. */
+function historySinceDate(): string {
+  return new Date(Date.parse(`${todayInPrague()}T00:00:00Z`) - HISTORY_DAYS * 86_400_000).toISOString().slice(0, 10)
+}
+
+function toExpense(expense: typeof schema.expenses.$inferSelect): Expense {
+  return {
+    id: expense.id,
+    amount: Number(expense.amount),
+    note: expense.note,
+    category: expense.category,
+    subcategory: expense.subcategory,
+    date: expense.date,
+    purchaseId: expense.purchaseId,
+  }
+}
+
+function toNotification(notification: typeof schema.notifications.$inferSelect): Notification {
+  return { id: notification.id, title: notification.title, detail: notification.detail, unread: notification.unread }
+}
+
+/** The household's expenses exactly as the page loads them. Server actions that change expenses in
+ *  bulk (splitting a purchase item, recording a purchase) return this instead of revalidating the
+ *  whole page, so a small save does not re-download every other area from the database. */
+export async function getHouseholdExpenses(householdId: string): Promise<Expense[]> {
+  const rows = await getDb().query.expenses.findMany({
+    where: and(eq(schema.expenses.householdId, householdId), gte(schema.expenses.date, historySinceDate())),
+    orderBy: asc(schema.expenses.date),
+  })
+  return rows.map(toExpense)
+}
+
+/** The newest notifications, oldest first, exactly as the page loads them (see getHouseholdExpenses). */
+export async function getHouseholdNotifications(householdId: string): Promise<Notification[]> {
+  const rows = await getDb().query.notifications.findMany({
+    where: eq(schema.notifications.householdId, householdId),
+    orderBy: desc(schema.notifications.createdAt),
+    limit: NOTIFICATIONS_SHOWN,
+  })
+  return rows.slice().reverse().map(toNotification)
+}
+
 /** Loads (or, on first login, creates or joins-via-invitation) the signed-in user's household with every domain area the app needs on first render. */
 export async function getHouseholdData(userId: string, userName: string, userEmail: string): Promise<HouseholdData> {
   const db = getDb()
@@ -273,7 +315,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
 
   // Expenses and purchases are sent for the last year (the budget screens compare months, the
   // purchase stats describe current habits); older records stay in the database.
-  const historySince = new Date(Date.parse(`${todayInPrague()}T00:00:00Z`) - HISTORY_DAYS * 86_400_000).toISOString().slice(0, 10)
+  const historySince = historySinceDate()
   const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows, mealPlan, invitationRows, pantryRows, pantryPlaceRows, pantryCheckinRows, pantryCheckinSubcategoryRows, pendingReceiptImports, categoryBudgetRows, recurringRows, occurrenceRows] =
     await Promise.all([
       db.query.householdMembers.findMany({
@@ -419,26 +461,9 @@ export async function getHouseholdData(userId: string, userName: string, userEma
       active: row.active,
     })),
     recurringOccurrences: occurrenceRows.map((row) => ({ ...row, status: row.status === 'skipped' ? 'skipped' : 'paid' })),
-    expenses: expenseRows.map(
-      (expense): Expense => ({
-        id: expense.id,
-        amount: Number(expense.amount),
-        note: expense.note,
-        category: expense.category,
-        subcategory: expense.subcategory,
-        date: expense.date,
-        purchaseId: expense.purchaseId,
-      }),
-    ),
+    expenses: expenseRows.map(toExpense),
     // Loaded newest first (for the limit), shown oldest first as before.
-    notifications: notificationRows.slice().reverse().map(
-      (notification): Notification => ({
-        id: notification.id,
-        title: notification.title,
-        detail: notification.detail,
-        unread: notification.unread,
-      }),
-    ),
+    notifications: notificationRows.slice().reverse().map(toNotification),
     purchaseHistory: (() => {
       const purchaseIdsWithExpenses = new Set(expenseRows.map((expense) => expense.purchaseId).filter((id): id is string => id != null))
       return purchaseRows.map(

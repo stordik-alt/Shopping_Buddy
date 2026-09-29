@@ -1,9 +1,12 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
 import { ForbiddenError, requireHousehold } from '@/lib/auth/authorize'
 import { getMemberIdForUser, InvalidStoreSelectionError, saveMemberStoreSelection } from '@/lib/db/member-store-preferences'
 import { MAX_DISTANCE_KM, MAX_SHOP_STORES, normalizeDistanceKm, normalizeMaxShopStores, type StoreSelection } from '@/lib/nearby-stores'
+
+// No revalidatePath in this file: each of these saves is already shown by components/app-shell.tsx from its
+// own state or from the data the action returns. Re-rendering the whole page after every save re-ran
+// every household query and re-sent the result (Neon network transfer) and, at worst, reset the view.
 
 // Generous bound on what a picker can send (there are well under 100 chains and branches in total);
 // only there so a crafted request cannot ask the database to look up an unbounded list.
@@ -38,7 +41,6 @@ export async function saveMyStorePreferencesAction(input: {
 
   try {
     const saved = await saveMemberStoreSelection(memberId, input)
-    revalidatePath('/')
     return saved
   } catch (error) {
     if (error instanceof InvalidStoreSelectionError) throw new Error(error.message)

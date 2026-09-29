@@ -1,9 +1,12 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
 import { requireHousehold } from '@/lib/auth/authorize'
 import { getMemberIdForUser } from '@/lib/db/member-store-preferences'
 import { buildShoppingPlan, PlanInputError, pinProduct, unpinProduct, type PlanResult } from '@/lib/db/shopping-plan'
+
+// No revalidatePath in this file: each of these saves is already shown by components/app-shell.tsx from its
+// own state or from the data the action returns. Re-rendering the whole page after every save re-ran
+// every household query and re-sent the result (Neon network transfer) and, at worst, reset the view.
 
 /** Runs a domain call and turns its input errors into ordinary user-facing errors. */
 async function withInputErrors<T>(work: () => Promise<T>): Promise<T> {
@@ -30,12 +33,10 @@ export async function buildShoppingPlanAction(input: { maxStores: number; priori
 export async function pinProductAction(input: { itemId: string; storeId: string; productId: string }): Promise<void> {
   const { householdId } = await requireHousehold()
   await withInputErrors(() => pinProduct(householdId, input.itemId, input.storeId, input.productId))
-  revalidatePath('/')
 }
 
 /** Removes the pinned product of a list item at one chain; the planner then chooses automatically. */
 export async function unpinProductAction(input: { itemId: string; storeId: string }): Promise<void> {
   const { householdId } = await requireHousehold()
   await withInputErrors(() => unpinProduct(householdId, input.itemId, input.storeId))
-  revalidatePath('/')
 }

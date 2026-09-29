@@ -1,5 +1,9 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-29 (Notification panel closes on Escape and outside click)
+- **Found by a Playwright walkthrough of the app:** the notification panel (bell) only closed with the bell or its own X, so opening the account menu (avatar) left both popovers open on top of each other, and Escape / a click outside did nothing to the panel.
+- **Fix:** `components/notifications/notification-panel.tsx` now closes on Escape and on a pointer press outside it (the bell is excluded because it toggles the panel itself), like the account menu. Verified in a real browser: bell toggle, Escape, click inside (stays open), X, and opening the avatar menu.
+
 ## 2026-09-29 (No more automatic page refresh)
 - **Why (owner):** "Člověk něco dělá a najednou mu to skočí zpátky na začátek stránky" — the app re-rendered itself on its own and threw people back to the top mid-task.
 - **What:** removed the three automatic `router.refresh()` triggers in `components/app-shell.tsx`: the 60-second poll, the refresh when the tab regains focus, and the refresh on the service worker's `push-received` message. Refreshes that follow the user's own action (completing a purchase, saving an expense, …) and the flush of offline-queued changes are unchanged.

@@ -1,5 +1,9 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-29 (CI: fixed the red unit-test job, database tests get their own job)
+- **Found:** the CI job "Unit tests, typecheck and production build" had been failing on every recent PR because `lib/db/category-changes.test.ts` and `lib/db/subcategory-changes.test.ts` need a database but were missing from the job's exclude list ("No database connection string was provided to `neon()`"). Nothing to do with those PRs' changes.
+- **Fix:** both are excluded from the pure job, and a new `database` job runs every database-backed test against the Neon test branch. It needs the repository secret `TEST_DATABASE_URL` (optionally `TEST_DATABASE_URL_UNPOOLED`); until the secret exists the job skips itself and passes. Runs are serialised (`concurrency: neon-test-branch`) because they share one branch. Migrates the test branch first.
+
 ## 2026-09-29 (Error pages, security headers, minimum text size)
 - **Error pages:** `app/error.tsx`, `app/global-error.tsx` and `app/not-found.tsx` replace the framework's generic screens when a page fails to render or an address does not exist. Next 16's error boundary receives `retry` (not `reset` as in older versions). The message is generic; only the error digest is shown, the full error goes to the console.
 - **Security headers** on every route (`next.config.mjs`): `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy` (geolocation and camera for the app itself, no microphone). No Content-Security-Policy yet: it needs its own pass over inline scripts and the analytics/OCR origins. Checked against a production build (`next start`).

@@ -31,10 +31,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # Database-backed tests (Server Actions, DB queries and data-access modules, and the receipt API routes, which build a real
-      # DB client at import time) need a real DATABASE_URL; keep CI deterministic until a repository
-      # secret is configured.
+      # DB client at import time) need a database; they run in the separate "database" job below.
+      # Keep this list in step with that job's include list (any test that calls getDb).
       - name: Unit tests
-        run: pnpm exec vitest run --exclude 'app/actions/**/*.test.ts' --exclude 'app/api/**/*.test.ts' --exclude 'lib/db/queries.test.ts' --exclude 'lib/db/receipt-list.test.ts' --exclude 'lib/db/store-branch-search.test.ts' --exclude 'lib/db/deals.test.ts' --exclude 'lib/db/purchase-items.test.ts'
+        run: pnpm exec vitest run --exclude 'app/actions/**/*.test.ts' --exclude 'app/api/**/*.test.ts' --exclude 'lib/db/queries.test.ts' --exclude 'lib/db/receipt-list.test.ts' --exclude 'lib/db/store-branch-search.test.ts' --exclude 'lib/db/deals.test.ts' --exclude 'lib/db/purchase-items.test.ts' --exclude 'lib/db/category-changes.test.ts' --exclude 'lib/db/subcategory-changes.test.ts'
 
       - name: Typecheck
         run: pnpm exec tsc --noEmit
@@ -87,3 +87,57 @@ jobs:
           test -n "$gzip_kib" || { echo "Could not read the Worker size from wrangler's output"; exit 1; }
           echo "Worker gzip size: ${gzip_kib} KiB"
           awk -v size="$gzip_kib" 'BEGIN { exit !(size < 9216) }' || { echo "Worker is ${gzip_kib} KiB gzip — over 9 MiB"; exit 1; }
+
+  database:
+    # The database-backed tests, against the Neon *test* branch (never production: test/setup-test-database.ts
+    # clears DATABASE_URL). Needs the repository secret TEST_DATABASE_URL (the test branch's pooled
+    # connection string) and optionally TEST_DATABASE_URL_UNPOOLED; without it (a fork's PR, or the
+    # secret not yet added) the job is skipped rather than failing. Runs one at a time because all
+    # runs share that one branch and the tests write and clean real rows.
+    name: Database-backed tests (Neon test branch)
+    runs-on: ubuntu-latest
+    concurrency:
+      group: neon-test-branch
+      cancel-in-progress: false
+    env:
+      TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+      TEST_DATABASE_URL_UNPOOLED: ${{ secrets.TEST_DATABASE_URL_UNPOOLED }}
+
+    steps:
+      - name: Check for the test database secret
+        id: secret
+        run: |
+          if [ -z "$TEST_DATABASE_URL" ]; then
+            echo "TEST_DATABASE_URL is not set: skipping the database-backed tests"
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.secret.outputs.available == 'true'
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        if: steps.secret.outputs.available == 'true'
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        if: steps.secret.outputs.available == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        if: steps.secret.outputs.available == 'true'
+        run: pnpm install --frozen-lockfile
+
+      # The test branch needs the same migrations as production (docs/01_CURRENT_STATE.md, "Test database").
+      - name: Migrate the test branch
+        if: steps.secret.outputs.available == 'true'
+        run: pnpm exec tsx lib/db/migrate.ts --test
+
+      - name: Database-backed tests
+        if: steps.secret.outputs.available == 'true'
+        run: pnpm exec vitest run app/actions app/api lib/db/queries.test.ts lib/db/receipt-list.test.ts lib/db/store-branch-search.test.ts lib/db/deals.test.ts lib/db/purchase-items.test.ts lib/db/category-changes.test.ts lib/db/subcategory-changes.test.ts

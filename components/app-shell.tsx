@@ -637,9 +637,11 @@ export function AppShell({
     return setPantryItemSubcategoryAction(id, subcategory)
   }
 
-  function setPantryItemCategory(id: string, category: ItemCategory) {
-    setPantryItems((current) => current.map((item) => (item.id === id ? { ...item, category, subcategory: null } : item)))
-    return setPantryItemCategoryAction(id, category)
+  // The server decides (a locked product cannot change), so the state follows its answer.
+  async function setPantryItemCategory(id: string, category: ItemCategory) {
+    const outcome = await setPantryItemCategoryAction(id, category)
+    if (outcome !== 'locked') setPantryItems((current) => current.map((item) => (item.id === id ? { ...item, category, subcategory: null } : item)))
+    return outcome
   }
 
   // Resolves to how many items the keyword rules placed; the server decides, the state follows it.

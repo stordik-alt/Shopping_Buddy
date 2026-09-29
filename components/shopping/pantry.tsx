@@ -6,7 +6,7 @@ import { itemCountLabel } from '@/lib/format'
 import { findDuplicatePlacements, needsCheck, PANTRY_PAGE_SIZE, PANTRY_TRACKING, pantryPlaceOptions, placeKeyOf, summarizeByPlace, type PantryPlaceOption } from '@/lib/pantry'
 import { estimateReason, type ConsumptionEstimate } from '@/lib/pantry-estimate'
 import { clampPage, pageCount } from '@/lib/paging'
-import type { CatalogChangeOutcome } from '@/lib/product-subcategory-changes'
+import type { CatalogChangeOutcome, CategoryChangeOutcome } from '@/lib/product-subcategory-changes'
 import { PRODUCT_SUBCATEGORIES, subcategoriesOfItem } from '@/lib/product-subcategories'
 import { cn } from '@/lib/utils'
 import type { ItemCategory, ItemUnit, PantryArea, PantryItem, PantryLocation, PantryPlace, PantryTracking } from '@/lib/types'
@@ -146,7 +146,7 @@ export function Pantry({
   onSetTracking: (id: string, tracking: PantryTracking) => void
   /** Sets an item's subcategory by hand; null clears it. */
   onSetSubcategory: (id: string, subcategory: string | null) => Promise<CatalogChangeOutcome | 'none'> | void
-  onSetCategory: (id: string, category: ItemCategory) => Promise<void> | void
+  onSetCategory: (id: string, category: ItemCategory) => Promise<CategoryChangeOutcome | void> | void
   /** Places every uncategorized item by the keyword rules; resolves to how many were placed. */
   onAutoCategorize: () => Promise<number>
   /** "Asi došlo" estimates by pantry item id (lib/pantry-estimate.ts). */
@@ -221,7 +221,9 @@ export function Pantry({
 
   async function setCategory(item: PantryItem, category: ItemCategory) {
     try {
-      await onSetCategory(item.id, category)
+      const outcome = await onSetCategory(item.id, category)
+      if (outcome === 'locked') setNotice(`Kategorie u „${item.name}“ je pevně daná, správce ji už rozhodl. Nelze ji změnit.`)
+      else if (outcome === 'pending') setNotice(`Kategorie u „${item.name}“ je uložená u vás. Ve sdíleném katalogu ji musí schválit správce, protože se produkt už několikrát přesouval.`)
     } catch (error) {
       console.error('Setting the pantry category failed', error)
       setNotice('Kategorii se nepodařilo uložit. Zkuste to prosím znovu.')

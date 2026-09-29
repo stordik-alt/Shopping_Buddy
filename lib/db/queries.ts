@@ -787,7 +787,8 @@ export async function upsertProductCatalogDefaults(entry: {
   if (existing) {
     await db
       .update(schema.products)
-      .set({ categoryId: categoryRow.id, defaultLocation: entry.location, ...(subcategoryId && { subcategoryId }), ...flags })
+      // A category an administrator has decided is final: a receipt correction must not undo it.
+      .set({ ...(!existing.categoryLocked && { categoryId: categoryRow.id }), defaultLocation: entry.location, ...(subcategoryId && { subcategoryId }), ...flags })
       .where(eq(schema.products.id, existing.id))
   } else {
     await db.insert(schema.products).values({ name, categoryId: categoryRow.id, defaultUnit: entry.unit, defaultLocation: entry.location, subcategoryId, ...flags })

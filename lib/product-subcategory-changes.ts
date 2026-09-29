@@ -15,3 +15,7 @@ export function moveNeedsApproval(previousMoves: number): boolean {
 }
 
 export type CatalogChangeOutcome = 'applied' | 'pending' | 'unchanged'
+
+// Category changes follow the same free-moves rule (every change of a product's category is a move).
+// An administrator's decision on a disputed one — approve or reject — locks the category for good.
+export type CategoryChangeOutcome = CatalogChangeOutcome | 'locked'

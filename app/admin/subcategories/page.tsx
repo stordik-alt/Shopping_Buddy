@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation'
 import { AdminSubcategoryChanges } from '@/components/admin/admin-subcategory-changes'
 import { auth } from '@/lib/auth/server'
 import { isAppAdmin } from '@/lib/db/admin'
+import { listPendingCategoryChanges } from '@/lib/db/category-changes'
 import { listPendingSubcategoryChanges } from '@/lib/db/subcategory-changes'
 
 export const dynamic = 'force-dynamic'
@@ -12,5 +13,5 @@ export default async function AdminSubcategoriesPage() {
   const { data: session } = await auth.getSession()
   if (!session?.user) redirect('/intro')
   if (!(await isAppAdmin(session.user.id))) notFound()
-  return <AdminSubcategoryChanges initialChanges={await listPendingSubcategoryChanges()} />
+  return <AdminSubcategoryChanges initialChanges={await listPendingSubcategoryChanges()} initialCategoryChanges={await listPendingCategoryChanges()} />
 }

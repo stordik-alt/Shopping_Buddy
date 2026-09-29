@@ -192,6 +192,9 @@ export const products = pgTable('products', {
   // Tags a product as aimed at children (e.g. "Kubík") without changing its main category/subcategory
   // — spec: "Děti" must not silently replace "Potraviny ▸ Nápoje". Purely additive for reporting.
   isChildOriented: boolean('is_child_oriented').notNull().default(false),
+  // Set once an administrator has decided a disputed category change of this product (approved or
+  // rejected): the category is then final and no household or import can change it any more.
+  categoryLocked: boolean('category_locked').notNull().default(false),
   // True for a disposable/service line that is a legitimate expense but must never become inventory
   // (a shopping bag, a bottle deposit) — set by lib/product-subcategories.ts's keyword detection or a
   // household correction, never auto-deleted (spec sections 14/15).
@@ -1058,6 +1061,39 @@ export const productSubcategoryChanges = pgTable(
     check('product_subcategory_changes_status_valid', sql`${table.status} IN ('applied', 'pending', 'approved', 'rejected')`),
   ],
 )
+
+// Households' hand-made category changes of a shared catalog product, mirroring
+// product_subcategory_changes: the first few apply at once, a further one waits as 'pending' for an
+// administrator, whose decision (either way) locks the product's category for good
+// (`products.category_locked`, lib/product-subcategory-changes.ts).
+export const productCategoryChanges = pgTable(
+  'product_category_changes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+    householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+    fromCategoryId: uuid('from_category_id').notNull().references(() => productCategories.id, { onDelete: 'cascade' }),
+    toCategoryId: uuid('to_category_id').notNull().references(() => productCategories.id, { onDelete: 'cascade' }),
+    status: text('status').notNull().default('applied'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+    decidedBy: uuid('decided_by'),
+  },
+  (table) => [
+    index('product_category_changes_product_status_idx').on(table.productId, table.status),
+    uniqueIndex('product_category_changes_pending_unique')
+      .on(table.productId, table.householdId, table.toCategoryId)
+      .where(sql`${table.status} = 'pending'`),
+    check('product_category_changes_status_valid', sql`${table.status} IN ('applied', 'pending', 'approved', 'rejected')`),
+  ],
+)
+
+export const productCategoryChangesRelations = relations(productCategoryChanges, ({ one }) => ({
+  product: one(products, { fields: [productCategoryChanges.productId], references: [products.id] }),
+  household: one(households, { fields: [productCategoryChanges.householdId], references: [households.id] }),
+  from: one(productCategories, { fields: [productCategoryChanges.fromCategoryId], references: [productCategories.id] }),
+  to: one(productCategories, { fields: [productCategoryChanges.toCategoryId], references: [productCategories.id] }),
+}))
 
 export const productSubcategoryChangesRelations = relations(productSubcategoryChanges, ({ one }) => ({
   product: one(products, { fields: [productSubcategoryChanges.productId], references: [products.id] }),

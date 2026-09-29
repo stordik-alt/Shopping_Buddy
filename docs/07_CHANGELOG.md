@@ -1,5 +1,10 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-29 (Category changes: free up to 3, then administrator approval, then locked)
+- **Why (owner):** a product whose category keeps being changed needs a decision, and once decided it must stay put.
+- **What:** new table `product_category_changes` and column `products.category_locked` (migration `0052`, additive). `proposeProductCategory` (`lib/db/category-changes.ts`) applies the first three category changes at once; the fourth waits as `pending` (the household's own pantry item keeps its choice). An administrator's decision on `/admin/subcategories` (now also listing category proposals) — approve or reject — locks the product's category: later changes return `locked` and nothing is written, and receipt corrections (`upsertProductCatalogDefaults`) no longer overwrite it. Other households' waiting proposals for the product are settled by the decision. The pantry item of a locked product cannot change category.
+- **Tests:** `lib/db/category-changes.test.ts`, `app/actions/pantry.test.ts` (+1); not checked in a browser.
+
 ## 2026-09-29 (Subcategories for the item category Ostatní)
 - **Why (owner):** clothing and an e-cigarette in Zásoby had no subcategory select, because "Ostatní" had an empty subcategory list.
 - **What:** `PRODUCT_SUBCATEGORIES.Ostatní` = Oblečení a obuv, Elektronika, Tabák a e-cigarety, Ostatní zboží, with keyword rules for the automatic button; migration `0051` seeds the rows (additive, idempotent). Expenses are unchanged (only Potraviny uses the item subcategory). An item wrongly filed (e.g. a drink under Ostatní) can now change its category from a select in Zásoby (`setPantryItemCategoryAction`): it clears the old subcategory and also teaches the shared catalog product its new category (its old subcategory is cleared), so later receipts of it — in any household — land in the corrected category. Unlike subcategory moves, category changes have no administrator approval step.

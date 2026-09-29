@@ -82,7 +82,7 @@ describe('markMealCookedAction', () => {
     const realPlan = generateWeeklyPlan(3000, household())
     await saveMealPlanAction(3000, realPlan)
     const breakfast = realPlan.days[0]
-    const ingredients = breakfast.breakfast.ingredients
+    const ingredients = breakfast.breakfast!.ingredients
     for (const ingredient of ingredients) {
       await db.insert(schema.pantryItems).values({ householdId, name: ingredient.name, category: 'Potraviny', quantity: ingredient.quantity * 3, unit: ingredient.unit })
     }
@@ -102,7 +102,7 @@ describe('markMealCookedAction', () => {
     const realPlan = generateWeeklyPlan(3000, household())
     await saveMealPlanAction(3000, realPlan)
     const breakfast = realPlan.days[0]
-    const ingredient = breakfast.breakfast.ingredients[0]
+    const ingredient = breakfast.breakfast!.ingredients[0]
     const [pantryRow] = await db
       .insert(schema.pantryItems)
       .values({ householdId, name: ingredient.name, category: 'Potraviny', quantity: ingredient.quantity, unit: ingredient.unit })
@@ -117,7 +117,7 @@ describe('markMealCookedAction', () => {
     const realPlan = generateWeeklyPlan(3000, household())
     await saveMealPlanAction(3000, realPlan)
     const breakfast = realPlan.days[0]
-    const ingredient = breakfast.breakfast.ingredients[0]
+    const ingredient = breakfast.breakfast!.ingredients[0]
     const [pantryRow] = await db
       .insert(schema.pantryItems)
       .values({ householdId, name: ingredient.name, category: 'Potraviny', quantity: ingredient.quantity / 2, unit: ingredient.unit })
@@ -134,7 +134,7 @@ describe('markMealCookedAction', () => {
     const breakfast = realPlan.days[0]
     // b1's "Banány" is tracked in 'ks' by the recipe itself; pick an ingredient this recipe tracks
     // in kg/g/l (mass or volume) and give it an incompatible 'ks' pantry row instead.
-    const massOrVolumeIngredient = breakfast.breakfast.ingredients.find((i) => i.unit !== 'ks')!
+    const massOrVolumeIngredient = breakfast.breakfast!.ingredients.find((i) => i.unit !== 'ks')!
     const [pantryRow] = await db
       .insert(schema.pantryItems)
       .values({ householdId, name: massOrVolumeIngredient.name, category: 'Potraviny', quantity: 10, unit: 'ks' })
@@ -157,7 +157,7 @@ describe('markMealCookedAction', () => {
     const realPlan = generateWeeklyPlan(3000, household())
     await saveMealPlanAction(3000, realPlan)
     const breakfast = realPlan.days[0]
-    const ingredient = breakfast.breakfast.ingredients[0]
+    const ingredient = breakfast.breakfast!.ingredients[0]
     await db.insert(schema.pantryItems).values({ householdId, name: ingredient.name, category: 'Potraviny', quantity: ingredient.quantity * 5, unit: ingredient.unit })
 
     await markMealCookedAction(breakfast.day, 'Snídaně')

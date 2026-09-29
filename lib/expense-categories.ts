@@ -7,8 +7,12 @@
 // reliably. The database stores the category as an enum (migration 0035) and the subcategory as text
 // checked against this list by the server (isValidSubcategory).
 
+import { PRODUCT_SUBCATEGORIES } from '@/lib/product-subcategories'
+
 export const EXPENSE_CATEGORIES = [
-  { name: 'Potraviny', subcategories: ['Nákup potravin', 'Pečivo', 'Maso a uzeniny', 'Nápoje'] },
+  // The same fixed list the products and the pantry use (lib/product-subcategories.ts), so a
+  // receipt line's product subcategory and its expense subcategory are one vocabulary.
+  { name: 'Potraviny', subcategories: PRODUCT_SUBCATEGORIES.Potraviny },
   { name: 'Drogerie', subcategories: ['Kosmetika a hygiena', 'Čisticí prostředky'] },
   { name: 'Domácnost', subcategories: ['Vybavení a nádobí', 'Nábytek', 'Elektronika a spotřebiče', 'Opravy a údržba', 'Zahrada'] },
   {

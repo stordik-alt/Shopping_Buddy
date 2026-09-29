@@ -1,5 +1,10 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-29 (Potraviny subcategories in the budget, per-subcategory pantry check-in, receipt "Zařadit do výdajů" button)
+- **Why (owner):** the budget offered only 4 Potraviny subcategories, one of them the meaningless "Nákup potravin"; the receipt-to-expense button was buried; and one check-in interval for all of Potraviny ignores that bread, meat and tins keep very differently.
+- **What:** `EXPENSE_CATEGORIES.Potraviny` now uses `PRODUCT_SUBCATEGORIES.Potraviny` (one vocabulary for products, pantry and expenses); migration `0048` clears the removed "Nákup potravin" from existing rows. "Zařadit do výdajů" is shown on the collapsed purchase row in Nákup → Moje nákupy. New table `pantry_checkin_subcategory_intervals` (migration `0049`, additive) plus built-in `CHECKIN_DAYS_BY_SUBCATEGORY` defaults; `checkinDaysFor()` resolves household subcategory value → built-in subcategory default → category value → category default. Profil domácnosti → Zásoby lists Potraviny per subcategory plus a "Bez podkategorie" row. This supersedes the "deliberately category granularity" note of the entry below.
+- **Tests:** `lib/pantry.test.ts` (+3), `app/actions/pantry.test.ts` (+2); `tsc --noEmit` clean. Not checked in a browser.
+
 ## 2026-09-29 (Deferred: configurable budget period — planned, not started)
 - The owner's UX/IA brief's last remaining large item (section 5: a household-chosen budget period like "28. – 27." instead of the calendar month) is deliberately not started yet — see the "⏳ OTEVŘENÉ" entry near the top of `docs/01_CURRENT_STATE.md` for the full scope/risk writeup and implementation plan. It reshapes `lib/budget.ts`'s period-key concept across 8 consumer files plus the budget-threshold cron, so it gets its own dedicated session with full manual verification rather than being folded into this one.
 

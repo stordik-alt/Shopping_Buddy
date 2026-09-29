@@ -18,6 +18,7 @@ import {
   removePantryPlaceAction,
   reviewPantryAction,
   setPantryCheckinDaysAction,
+  setPantrySubcategoryCheckinDaysAction,
   setPantryTrackingAction,
 } from '@/app/actions/pantry'
 
@@ -40,6 +41,7 @@ afterAll(async () => {
     await db.delete(schema.pantryItems).where(eq(schema.pantryItems.householdId, id))
     await db.delete(schema.pantryPlaces).where(eq(schema.pantryPlaces.householdId, id))
     await db.delete(schema.pantryCheckinIntervals).where(eq(schema.pantryCheckinIntervals.householdId, id))
+    await db.delete(schema.pantryCheckinSubcategoryIntervals).where(eq(schema.pantryCheckinSubcategoryIntervals.householdId, id))
     await db.delete(schema.households).where(eq(schema.households.id, id))
   }
 })
@@ -293,6 +295,20 @@ describe('setPantryTrackingAction', () => {
     expect(row).toMatchObject({ tracking: 'rare', askedAt: null })
     await expect(setPantryTrackingAction(theirs.id, 'off')).rejects.toThrow('Pantry item not found')
     await expect(setPantryTrackingAction(mine.id, 'sometimes' as never)).rejects.toThrow('Neplatná volba')
+  })
+})
+
+describe('setPantrySubcategoryCheckinDaysAction', () => {
+  it('sets, updates and clears a subcategory override', async () => {
+    expect(await setPantrySubcategoryCheckinDaysAction('Potraviny', 'Pečivo', 2)).toEqual({ 'Potraviny::Pečivo': 2 })
+    expect(await setPantrySubcategoryCheckinDaysAction('Potraviny', 'Pečivo', 4)).toEqual({ 'Potraviny::Pečivo': 4 })
+    expect(await setPantrySubcategoryCheckinDaysAction('Potraviny', 'Pečivo', null)).toEqual({})
+  })
+
+  it('rejects an unknown subcategory, a subcategory of another category and bad day counts', async () => {
+    await expect(setPantrySubcategoryCheckinDaysAction('Potraviny', 'Nákup potravin', 5)).rejects.toThrow('Neznámá podkategorie')
+    await expect(setPantrySubcategoryCheckinDaysAction('Drogerie', 'Pečivo', 5)).rejects.toThrow('Neznámá podkategorie')
+    await expect(setPantrySubcategoryCheckinDaysAction('Potraviny', 'Pečivo', 0)).rejects.toThrow('celé číslo')
   })
 })
 

@@ -16,6 +16,35 @@ export const CHECKIN_DAYS_BY_CATEGORY: Record<ItemCategory, number> = {
   Ostatní: 14,
 }
 
+/** Check-in days for the Potraviny subcategories (lib/product-subcategories.ts) — bread, meat and
+ *  vegetables go off within days, tinned food and pasta keep for months, so one interval for the whole
+ *  category asks too early about some and too late about others. Placeholder defaults like the
+ *  category ones above; a subcategory not listed falls back to its category. */
+export const CHECKIN_DAYS_BY_SUBCATEGORY: Partial<Record<ItemCategory, Record<string, number>>> = {
+  Potraviny: {
+    'Pečivo': 3,
+    'Maso a uzeniny': 4,
+    'Ovoce a zelenina': 5,
+    'Mléčné výrobky': 7,
+    'Ostatní potraviny': 10,
+    'Nápoje': 30,
+    'Sladkosti': 30,
+    'Slané pochutiny': 30,
+    'Dětská výživa': 30,
+    'Omáčky a dochucovadla': 45,
+    'Cereálie a snídaně': 45,
+    'Mražené potraviny': 60,
+    'Těstoviny a rýže': 60,
+    'Trvanlivé potraviny': 60,
+    'Konzervy': 90,
+  },
+}
+
+/** Key of a subcategory override in the map `isDueForCheckin` takes. */
+export function checkinSubcategoryKey(category: ItemCategory, subcategory: string): string {
+  return `${category}::${subcategory}`
+}
+
 /** Every place stock can be kept, in the order the Zásoby folders are shown. The single source of
  *  truth for the UI (folder tiles, the per-item move select, the receipt-review location select);
  *  a test keeps it identical to the `pantry_location` database enum, so a location can never be
@@ -124,6 +153,7 @@ export const RARE_CHECKIN_DAYS = 90
 
 export type PantryCheckinCandidate = {
   category: ItemCategory
+  subcategory?: string | null
   addedAt: Date
   askedAt: Date | null
   /** Absent = 'normal'. */
@@ -134,11 +164,32 @@ export type PantryCheckinCandidate = {
  *  check-in interval, counted from whichever is more recent: when the item was added/restocked,
  *  or when it was last asked about. Re-asks periodically rather than only once, since a pantry
  *  item left unconfirmed forever isn't useful — unlike a shopping reminder, this isn't a
- *  one-time event. `overrides` is the household's own per-category interval (Profil domácnosti →
- *  Zásoby, spec section 13); a category with none falls back to `CHECKIN_DAYS_BY_CATEGORY`. */
-export function isDueForCheckin(item: PantryCheckinCandidate, now: Date, overrides: Partial<Record<ItemCategory, number>> = {}): boolean {
+ *  one-time event. `overrides` is the household's own per-category interval and
+ *  `subcategoryOverrides` its own per-subcategory one (Profil domácnosti → Zásoby, spec section 13).
+ *  The most specific wins: the household's subcategory value, then the built-in subcategory default,
+ *  then the category's own (household value, else `CHECKIN_DAYS_BY_CATEGORY`). */
+export function checkinDaysFor(
+  item: Pick<PantryCheckinCandidate, 'category' | 'subcategory'>,
+  overrides: Partial<Record<ItemCategory, number>> = {},
+  subcategoryOverrides: Record<string, number> = {},
+): number {
+  if (item.subcategory) {
+    const own = subcategoryOverrides[checkinSubcategoryKey(item.category, item.subcategory)]
+    if (own != null) return own
+    const builtIn = CHECKIN_DAYS_BY_SUBCATEGORY[item.category]?.[item.subcategory]
+    if (builtIn != null) return builtIn
+  }
+  return overrides[item.category] ?? CHECKIN_DAYS_BY_CATEGORY[item.category]
+}
+
+export function isDueForCheckin(
+  item: PantryCheckinCandidate,
+  now: Date,
+  overrides: Partial<Record<ItemCategory, number>> = {},
+  subcategoryOverrides: Record<string, number> = {},
+): boolean {
   if (item.tracking === 'off') return false
-  const days = item.tracking === 'rare' ? RARE_CHECKIN_DAYS : (overrides[item.category] ?? CHECKIN_DAYS_BY_CATEGORY[item.category])
+  const days = item.tracking === 'rare' ? RARE_CHECKIN_DAYS : checkinDaysFor(item, overrides, subcategoryOverrides)
   const intervalMs = days * 86_400_000
   if (now.getTime() - item.addedAt.getTime() < intervalMs) return false
   if (item.askedAt === null) return true
@@ -146,8 +197,13 @@ export function isDueForCheckin(item: PantryCheckinCandidate, now: Date, overrid
 }
 
 /** Candidates that are due for a check-in right now. */
-export function findDueForCheckin<T extends PantryCheckinCandidate>(items: T[], now: Date, overrides: Partial<Record<ItemCategory, number>> = {}): T[] {
-  return items.filter((item) => isDueForCheckin(item, now, overrides))
+export function findDueForCheckin<T extends PantryCheckinCandidate>(
+  items: T[],
+  now: Date,
+  overrides: Partial<Record<ItemCategory, number>> = {},
+  subcategoryOverrides: Record<string, number> = {},
+): T[] {
+  return items.filter((item) => isDueForCheckin(item, now, overrides, subcategoryOverrides))
 }
 
 // Keyword heuristic for splitting "Potraviny" between the fridge, freezer and pantry shelf —

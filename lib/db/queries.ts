@@ -8,7 +8,7 @@ import type { IngestionSource as ProductSource } from '@/lib/ingestion/types'
 import { currentWeekStart, parseSavedPlan, type WeeklyMealPlan } from '@/lib/meal-plans'
 import type { StandaloneOffer } from '@/lib/offers'
 import { createHouseholdNotification } from '@/lib/notify'
-import { inferPantryLocation } from '@/lib/pantry'
+import { checkinSubcategoryKey, inferPantryLocation } from '@/lib/pantry'
 import { restockedQuantity } from '@/lib/pantry-estimate'
 import { formatOpeningHours } from '@/lib/stores/osm'
 import type { ProductPrice } from '@/lib/prices'
@@ -110,6 +110,8 @@ export type HouseholdData = {
   /** The household's own per-category pantry check-in interval overrides (lib/pantry.ts's
    *  CHECKIN_DAYS_BY_CATEGORY is the fixed default a category without one falls back to). */
   pantryCheckinDays: Partial<Record<ItemCategory, number>>
+  /** The same per subcategory, keyed by `checkinSubcategoryKey(category, subcategory)` (lib/pantry.ts). */
+  pantryCheckinSubcategoryDays: Record<string, number>
   pendingReceiptImports: ReceiptImportState[]
 }
 
@@ -272,7 +274,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
   // Expenses and purchases are sent for the last year (the budget screens compare months, the
   // purchase stats describe current habits); older records stay in the database.
   const historySince = new Date(Date.parse(`${todayInPrague()}T00:00:00Z`) - HISTORY_DAYS * 86_400_000).toISOString().slice(0, 10)
-  const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows, mealPlan, invitationRows, pantryRows, pantryPlaceRows, pantryCheckinRows, pendingReceiptImports, categoryBudgetRows, recurringRows, occurrenceRows] =
+  const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows, mealPlan, invitationRows, pantryRows, pantryPlaceRows, pantryCheckinRows, pantryCheckinSubcategoryRows, pendingReceiptImports, categoryBudgetRows, recurringRows, occurrenceRows] =
     await Promise.all([
       db.query.householdMembers.findMany({
         where: eq(schema.householdMembers.householdId, household.id),
@@ -316,6 +318,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
       }),
       db.query.pantryPlaces.findMany({ where: eq(schema.pantryPlaces.householdId, household.id), orderBy: asc(schema.pantryPlaces.createdAt) }),
       db.query.pantryCheckinIntervals.findMany({ where: eq(schema.pantryCheckinIntervals.householdId, household.id) }),
+      db.query.pantryCheckinSubcategoryIntervals.findMany({ where: eq(schema.pantryCheckinSubcategoryIntervals.householdId, household.id) }),
       getPendingReceiptImports(household.id),
       db.query.expenseCategoryBudgets.findMany({ where: eq(schema.expenseCategoryBudgets.householdId, household.id), columns: { category: true, amount: true } }),
       db.query.recurringPayments.findMany({
@@ -494,6 +497,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
     ),
     pantryPlaces: pantryPlaceRows.map((place): PantryPlace => ({ id: place.id, area: place.area, name: place.name })),
     pantryCheckinDays: Object.fromEntries(pantryCheckinRows.map((row) => [row.category, row.days])),
+    pantryCheckinSubcategoryDays: Object.fromEntries(pantryCheckinSubcategoryRows.map((row) => [checkinSubcategoryKey(row.category, row.subcategory), row.days])),
     pendingReceiptImports,
   }
 }

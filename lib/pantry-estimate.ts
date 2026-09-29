@@ -92,14 +92,14 @@ export function estimateReason(estimate: ConsumptionEstimate): string {
 
 /** The items the weekly check asks about, probably-used-up first, then by name. `checkinOverrides`
  *  is the household's own per-category check-in interval (lib/pantry.ts, spec section 13). */
-export function selectForWeeklyCheck(items: PantryItem[], purchases: PurchaseRecord[], today: string, now: Date, checkinOverrides: Partial<Record<ItemCategory, number>> = {}): PantryItem[] {
+export function selectForWeeklyCheck(items: PantryItem[], purchases: PurchaseRecord[], today: string, now: Date, checkinOverrides: Partial<Record<ItemCategory, number>> = {}, checkinSubcategoryOverrides: Record<string, number> = {}): PantryItem[] {
   const estimates = estimatePantry(items, purchases, today)
   const likelyGone = (item: PantryItem) => estimates.get(item.id)?.likelyGone === true
   return items
     .filter(
       (item) =>
         likelyGone(item) ||
-        isDueForCheckin({ category: item.category, addedAt: new Date(item.addedAt), askedAt: item.askedAt ? new Date(item.askedAt) : null, tracking: item.tracking }, now, checkinOverrides),
+        isDueForCheckin({ category: item.category, subcategory: item.subcategory, addedAt: new Date(item.addedAt), askedAt: item.askedAt ? new Date(item.askedAt) : null, tracking: item.tracking }, now, checkinOverrides, checkinSubcategoryOverrides),
     )
     .sort((a, b) => Number(likelyGone(b)) - Number(likelyGone(a)) || a.name.localeCompare(b.name, 'cs'))
 }

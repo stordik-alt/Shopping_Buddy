@@ -18,7 +18,7 @@ import {
 } from '@/app/actions/household'
 import { markMealCookedAction } from '@/app/actions/meal-plan'
 import { markAllNotificationsReadAction, markNotificationReadAction } from '@/app/actions/notifications'
-import { addPantryPlaceAction, adjustPantryItemQuantityAction, confirmPantryItemAction, movePantryItemAction, removePantryItemAction, removePantryPlaceAction, reviewPantryAction, setPantryCheckinDaysAction, setPantryTrackingAction } from '@/app/actions/pantry'
+import { addPantryPlaceAction, adjustPantryItemQuantityAction, confirmPantryItemAction, movePantryItemAction, removePantryItemAction, removePantryPlaceAction, reviewPantryAction, setPantryCheckinDaysAction, setPantrySubcategoryCheckinDaysAction, setPantryTrackingAction } from '@/app/actions/pantry'
 import { completePurchaseAction, getPurchaseExpenseItemsAction, recordPurchaseAsExpenseAction, setPurchaseItemExpenseSplitsAction } from '@/app/actions/purchases'
 import {
   applyReceiptListMatchesAction,
@@ -174,6 +174,7 @@ export function AppShell({
   const [pantryItems, setPantryItems] = useState(initialData.pantryItems)
   const [pantryPlaces, setPantryPlaces] = useState(initialData.pantryPlaces)
   const [pantryCheckinDays, setPantryCheckinDays] = useState(initialData.pantryCheckinDays)
+  const [pantryCheckinSubcategoryDays, setPantryCheckinSubcategoryDays] = useState(initialData.pantryCheckinSubcategoryDays)
   const [pendingReceiptImports, setPendingReceiptImports] = useState(initialData.pendingReceiptImports)
   // Which of the three things the Nákup tab can show right now — the list itself is what people open
   // it for, so it stays the default even when a receipt is waiting on review.
@@ -202,6 +203,7 @@ export function AppShell({
     setPantryItems(initialData.pantryItems)
     setPantryPlaces(initialData.pantryPlaces)
     setPantryCheckinDays(initialData.pantryCheckinDays)
+    setPantryCheckinSubcategoryDays(initialData.pantryCheckinSubcategoryDays)
     setPendingReceiptImports(initialData.pendingReceiptImports)
   }, [initialData])
 
@@ -564,6 +566,12 @@ export function AppShell({
   async function setPantryCheckinDaysFor(category: PantryItem['category'], days: number | null) {
     const overrides = await setPantryCheckinDaysAction(category, days)
     setPantryCheckinDays(overrides)
+    return overrides
+  }
+
+  async function setPantrySubcategoryCheckinDaysFor(category: PantryItem['category'], subcategory: string, days: number | null) {
+    const overrides = await setPantrySubcategoryCheckinDaysAction(category, subcategory, days)
+    setPantryCheckinSubcategoryDays(overrides)
     return overrides
   }
 
@@ -1097,6 +1105,8 @@ export function AppShell({
                   onRemovePantryPlace={removePantryPlace}
                   pantryCheckinDays={pantryCheckinDays}
                   onSetPantryCheckinDays={setPantryCheckinDaysFor}
+                  pantryCheckinSubcategoryDays={pantryCheckinSubcategoryDays}
+                  onSetPantrySubcategoryCheckinDays={setPantrySubcategoryCheckinDaysFor}
                 />
               )}
             </div>

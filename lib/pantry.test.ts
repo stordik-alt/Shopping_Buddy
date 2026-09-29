@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { pantryAreaEnum, pantryLocationEnum } from '@/lib/db/schema'
 import {
   CHECKIN_DAYS_BY_CATEGORY,
+  CHECKIN_DAYS_BY_SUBCATEGORY,
+  checkinDaysFor,
+  checkinSubcategoryKey,
   customPlaceIdFromKey,
   customPlaceKey,
   findDueForCheckin,
@@ -352,5 +355,25 @@ describe('quickOutCandidates', () => {
   it('filters by name, case and accents ignored', () => {
     expect(quickOutCandidates(items, new Set(), 'mle').map((item) => item.id)).toEqual(['milk'])
     expect(quickOutCandidates(items, new Set(), 'SUL')).toEqual([])
+  })
+})
+
+describe('check-in interval by subcategory', () => {
+  it('gives perishables a shorter default than long-life food', () => {
+    expect(checkinDaysFor({ category: 'Potraviny', subcategory: 'Pečivo' })).toBeLessThan(checkinDaysFor({ category: 'Potraviny', subcategory: 'Konzervy' }))
+  })
+
+  it('prefers the household subcategory value, then the built-in one, then the category value', () => {
+    const own = { [checkinSubcategoryKey('Potraviny', 'Pečivo')]: 2 }
+    expect(checkinDaysFor({ category: 'Potraviny', subcategory: 'Pečivo' }, { Potraviny: 20 }, own)).toBe(2)
+    expect(checkinDaysFor({ category: 'Potraviny', subcategory: 'Maso a uzeniny' }, { Potraviny: 20 }, own)).toBe(CHECKIN_DAYS_BY_SUBCATEGORY.Potraviny!['Maso a uzeniny'])
+    expect(checkinDaysFor({ category: 'Potraviny', subcategory: null }, { Potraviny: 20 }, own)).toBe(20)
+    expect(checkinDaysFor({ category: 'Drogerie', subcategory: 'Praní' })).toBe(CHECKIN_DAYS_BY_CATEGORY.Drogerie)
+  })
+
+  it('asks about bread before tinned food that was added at the same time', () => {
+    const added = daysAgo(10)
+    expect(isDueForCheckin(candidate({ subcategory: 'Pečivo', addedAt: added }), NOW)).toBe(true)
+    expect(isDueForCheckin(candidate({ subcategory: 'Konzervy', addedAt: added }), NOW)).toBe(false)
   })
 })

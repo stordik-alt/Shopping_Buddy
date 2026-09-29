@@ -13,13 +13,21 @@ export type Recipe = {
   ingredients: Ingredient[]
 }
 
+// A meal slot is absent when the household did not ask for that meal (e.g. no snack) in the plan.
 export type DayPlan = {
   day: string
-  breakfast: Recipe
-  lunch: Recipe
-  dinner: Recipe
-  snack: Recipe
+  breakfast?: Recipe
+  lunch?: Recipe
+  dinner?: Recipe
+  snack?: Recipe
 }
+
+/** What a menu covers: how many days (1–7, starting at `startDayIndex`, 0 = Monday) and which meals.
+ *  The default is the classic whole week from Monday with every meal. */
+export type MealPlanOptions = { dayCount: number; startDayIndex: number; mealTypes: MealType[] }
+
+export const ALL_MEAL_TYPES: MealType[] = ['Snídaně', 'Oběd', 'Večeře', 'Svačina']
+export const DEFAULT_MEAL_PLAN_OPTIONS: MealPlanOptions = { dayCount: 7, startDayIndex: 0, mealTypes: ALL_MEAL_TYPES }
 
 export type WeeklyMealPlan = {
   days: DayPlan[]
@@ -291,37 +299,57 @@ function pickRecipe(pool: Recipe[], index: number, pantryItems: PantryItem[] | n
  *  ingredients, so the plan leans on what's already at home; `splitIngredientsByStock()` below is
  *  what then decides which remaining ingredients actually need buying. Omitting `pantryItems`
  *  (or passing null) reproduces the original stock-agnostic rotation exactly. */
-export function generateWeeklyPlan(budgetLimit: number, household: Household, pantryItems: PantryItem[] | null = null): WeeklyMealPlan {
+export function generateWeeklyPlan(
+  budgetLimit: number,
+  household: Household,
+  pantryItems: PantryItem[] | null = null,
+  options: MealPlanOptions = DEFAULT_MEAL_PLAN_OPTIONS,
+): WeeklyMealPlan {
   const excludedAllergens = new Set(
     household.members.flatMap((member) => member.allergies.map((allergy) => allergy.toLowerCase())),
   )
 
-  const days: DayPlan[] = DAYS.map((day, index) => {
-    const breakfastPool = recipesFor('Snídaně', excludedAllergens)
-    const lunchPool = recipesFor('Oběd', excludedAllergens)
-    const dinnerPool = recipesFor('Večeře', excludedAllergens)
-    const snackPool = recipesFor('Svačina', excludedAllergens)
-    return {
-      day,
-      breakfast: pickRecipe(breakfastPool, index, pantryItems),
-      lunch: pickRecipe(lunchPool, index, pantryItems),
-      dinner: pickRecipe(dinnerPool, index, pantryItems),
-      snack: pickRecipe(snackPool, index, pantryItems),
-    }
+  const dayCount = Math.min(7, Math.max(1, Math.round(options.dayCount)))
+  const mealTypes = ALL_MEAL_TYPES.filter((type) => options.mealTypes.includes(type))
+  if (mealTypes.length === 0) throw new Error('Vyberte aspoň jeden chod.')
+
+  const days: DayPlan[] = Array.from({ length: dayCount }, (_, index) => {
+    const day: DayPlan = { day: DAYS[(options.startDayIndex + index) % DAYS.length] }
+    for (const type of mealTypes) day[MEAL_SLOT[type]] = pickRecipe(recipesFor(type, excludedAllergens), index, pantryItems)
+    return day
   })
 
-  const mealsTotal = days.reduce((sum, day) => sum + day.breakfast.price + day.lunch.price + day.dinner.price + day.snack.price, 0)
-  const staplesTotal = STAPLES.length * 60
-  const estimatedTotal = mealsTotal + staplesTotal
+  const estimatedTotal = planTotal(days, STAPLES.length)
+  return { days, staples: STAPLES, estimatedTotal, recommendedStores: recommendStores(estimatedTotal, budgetLimit, household), cookedMeals: [] }
+}
 
-  const recommendedStores =
-    budgetLimit > 0 && estimatedTotal > budgetLimit
-      ? ['Lidl', 'Penny']
-      : household.preferences.preferredStores.length > 0
-        ? household.preferences.preferredStores
-        : ['Lidl', 'Albert']
+/** Price of the chosen recipes plus the staples, which are scaled to the number of days covered
+ *  (a whole week's staples for a single day would overstate the shopping). */
+function planTotal(days: DayPlan[], stapleCount: number): number {
+  const mealsTotal = days.reduce((sum, day) => sum + mealsOf(day).reduce((daySum, recipe) => daySum + recipe.price, 0), 0)
+  return mealsTotal + Math.round((stapleCount * 60 * days.length) / DAYS.length)
+}
 
-  return { days, staples: STAPLES, estimatedTotal, recommendedStores, cookedMeals: [] }
+function mealsOf(day: DayPlan): Recipe[] {
+  return [day.breakfast, day.lunch, day.dinner, day.snack].filter((recipe): recipe is Recipe => recipe !== undefined)
+}
+
+/** Stores to suggest: the cheap discounters when the plan is over the budget, otherwise the
+ *  household's own preferred stores. Kept separate so the budget can be set after the menu exists. */
+export function recommendStores(estimatedTotal: number, budgetLimit: number, household: Household): string[] {
+  if (budgetLimit > 0 && estimatedTotal > budgetLimit) return ['Lidl', 'Penny']
+  return household.preferences.preferredStores.length > 0 ? household.preferences.preferredStores : ['Lidl', 'Albert']
+}
+
+/** The meals that appear in a plan, in the usual order — what its options were, as far as the plan shows. */
+export function mealTypesOf(plan: WeeklyMealPlan): MealType[] {
+  return ALL_MEAL_TYPES.filter((type) => plan.days.some((day) => day[MEAL_SLOT[type]] !== undefined))
+}
+
+/** The ingredients of one recipe that the pantry does not cover (missing or not enough) — shown next
+ *  to each meal so the household sees what it still has to buy. */
+export function missingIngredients(recipe: Recipe, pantryItems: PantryItem[]): Ingredient[] {
+  return recipe.ingredients.filter((ingredient) => matchIngredientToStock(ingredient, pantryItems) == null)
 }
 
 const MEAL_SLOT: Record<MealType, 'breakfast' | 'lunch' | 'dinner' | 'snack'> = {
@@ -350,6 +378,7 @@ export function regenerateMeal(
   const excludedAllergens = new Set(household.members.flatMap((member) => member.allergies.map((allergy) => allergy.toLowerCase())))
   const slot = MEAL_SLOT[mealType]
   const currentRecipe = plan.days[dayIndex][slot]
+  if (!currentRecipe) return plan
 
   const fullPool = recipesFor(mealType, excludedAllergens)
   const remaining = fullPool.filter((recipe) => recipe.id !== currentRecipe.id)
@@ -357,10 +386,7 @@ export function regenerateMeal(
   const nextRecipe = pickRecipe(pool, dayIndex, pantryItems)
 
   const newDays = plan.days.map((dayPlan, index) => (index === dayIndex ? { ...dayPlan, [slot]: nextRecipe } : dayPlan))
-  const mealsTotal = newDays.reduce((sum, dayPlan) => sum + dayPlan.breakfast.price + dayPlan.lunch.price + dayPlan.dinner.price + dayPlan.snack.price, 0)
-  const staplesTotal = plan.staples.length * 60
-
-  return { ...plan, days: newDays, estimatedTotal: mealsTotal + staplesTotal }
+  return { ...plan, days: newDays, estimatedTotal: planTotal(newDays, plan.staples.length) }
 }
 
 export function recipeFor(plan: WeeklyMealPlan, day: string, mealType: MealType): Recipe | undefined {
@@ -416,6 +442,7 @@ export function parseSavedPlan(json: string): WeeklyMealPlan | null {
     const day = { ...savedDay } as DayPlan
     for (const slot of MEAL_SLOTS) {
       const recipe = day[slot]
+      if (recipe === undefined) continue // a meal the household did not ask for
       if (!recipe || !Array.isArray(recipe.ingredients)) return null
       if (recipe.ingredients.every(isCurrentIngredient)) continue
       const catalogRecipe = RECIPES.find((candidate) => candidate.id === recipe.id)
@@ -483,7 +510,7 @@ export function currentWeekStart(today: string): string {
 export function planIngredients(plan: WeeklyMealPlan): Ingredient[] {
   const combined = new Map<string, Ingredient>()
   for (const day of plan.days) {
-    for (const recipe of [day.breakfast, day.lunch, day.dinner, day.snack]) {
+    for (const recipe of mealsOf(day)) {
       for (const ingredient of recipe.ingredients) {
         const existing = combined.get(ingredient.name)
         combined.set(ingredient.name, existing ? { ...ingredient, quantity: existing.quantity + ingredient.quantity } : ingredient)

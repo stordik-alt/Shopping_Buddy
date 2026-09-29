@@ -7,6 +7,8 @@ import {
   markMealCooked,
   matchIngredientToStock,
   mealKey,
+  mealTypesOf,
+  missingIngredients,
   parseSavedPlan,
   planIngredients,
   recipeFor,
@@ -58,7 +60,7 @@ describe('generateWeeklyPlan', () => {
     // so a household with a nut allergy must never see 'ořechy' in any selected recipe.
     const plan = generateWeeklyPlan(3000, household({ members: [{ id: 'm1', name: 'A', role: 'Správce domácnosti', age: 30, preferences: '', favoriteFoods: [], dislikedFoods: [], allergies: ['Ořechy'] }] }))
     for (const day of plan.days) {
-      for (const recipe of [day.breakfast, day.lunch, day.dinner, day.snack]) {
+      for (const recipe of [day.breakfast!, day.lunch!, day.dinner!, day.snack!]) {
         expect(recipe.allergens.map((a) => a.toLowerCase())).not.toContain('ořechy')
       }
     }
@@ -67,7 +69,7 @@ describe('generateWeeklyPlan', () => {
   it('matches allergies case-insensitively', () => {
     const plan = generateWeeklyPlan(3000, household({ members: [{ id: 'm1', name: 'A', role: 'Správce domácnosti', age: 30, preferences: '', favoriteFoods: [], dislikedFoods: [], allergies: ['LEPEK'] }] }))
     for (const day of plan.days) {
-      for (const recipe of [day.breakfast, day.lunch, day.dinner, day.snack]) {
+      for (const recipe of [day.breakfast!, day.lunch!, day.dinner!, day.snack!]) {
         expect(recipe.allergens.map((a) => a.toLowerCase())).not.toContain('lepek')
       }
     }
@@ -78,7 +80,7 @@ describe('generateWeeklyPlan', () => {
     const plan = generateWeeklyPlan(3000, household({ members: [{ id: 'm1', name: 'A', role: 'Správce domácnosti', age: 30, preferences: '', favoriteFoods: [], dislikedFoods: [], allergies }] }))
     const excluded = new Set(allergies.map((a) => a.toLowerCase()))
     for (const day of plan.days) {
-      for (const recipe of [day.breakfast, day.lunch, day.dinner, day.snack]) {
+      for (const recipe of [day.breakfast!, day.lunch!, day.dinner!, day.snack!]) {
         expect(recipe).toBeDefined()
         for (const allergen of recipe.allergens) expect(excluded.has(allergen.toLowerCase())).toBe(false)
       }
@@ -112,7 +114,7 @@ describe('planIngredients', () => {
     const plan = generateWeeklyPlan(3000, household())
     // Every meal-type pool has 3-4 recipes but the week has 7 days, so at least one recipe (and
     // therefore its ingredients) necessarily repeats — count real occurrences and compare.
-    const allIngredients = plan.days.flatMap((day) => [day.breakfast, day.lunch, day.dinner, day.snack].flatMap((r) => r.ingredients))
+    const allIngredients = plan.days.flatMap((day) => [day.breakfast!, day.lunch!, day.dinner!, day.snack!].flatMap((r) => r.ingredients))
     const [sampleName] = allIngredients.map((i) => i.name)
     const occurrences = allIngredients.filter((i) => i.name === sampleName)
     const expectedTotal = occurrences.reduce((sum, i) => sum + i.quantity, 0)
@@ -125,19 +127,19 @@ describe('generateWeeklyPlan — stock-aware (pantryItems supplied)', () => {
   it('prefers a recipe that uses an ingredient the household already has in stock', () => {
     // b1 (Ovesná kaše s banánem) needs 0.25 l Mléko polotučné; the other breakfast recipes don't use it.
     const withMilk = generateWeeklyPlan(3000, household(), [pantryItem({ name: 'Mléko polotučné', unit: 'l', quantity: 1 })])
-    expect(withMilk.days[0].breakfast.id).toBe('b1')
+    expect(withMilk.days[0].breakfast!.id).toBe('b1')
   })
 
   it('is unaffected by stock the household does not actually have (quantity 0)', () => {
     const emptyStock = generateWeeklyPlan(3000, household(), [pantryItem({ name: 'Mléko polotučné', quantity: 0 })])
     const noStock = generateWeeklyPlan(3000, household(), null)
-    expect(emptyStock.days[0].breakfast.id).toBe(noStock.days[0].breakfast.id)
+    expect(emptyStock.days[0].breakfast!.id).toBe(noStock.days[0].breakfast!.id)
   })
 
   it('still fills every meal and respects allergens when stock-aware', () => {
     const plan = generateWeeklyPlan(3000, household({ members: [{ id: 'm1', name: 'A', role: 'Správce domácnosti', age: 30, preferences: '', favoriteFoods: [], dislikedFoods: [], allergies: ['lepek'] }] }), [pantryItem({ name: 'Těstoviny' })])
     for (const day of plan.days) {
-      for (const recipe of [day.breakfast, day.lunch, day.dinner, day.snack]) {
+      for (const recipe of [day.breakfast!, day.lunch!, day.dinner!, day.snack!]) {
         expect(recipe.allergens.map((a) => a.toLowerCase())).not.toContain('lepek')
       }
     }
@@ -231,9 +233,9 @@ function legacySavedPlanJson(): string {
 describe('saved plans from before ingredients had quantities (regression: dashboard crash)', () => {
   it('reproduces the original failure: comparing units with an ingredient that has none threw a TypeError', () => {
     const legacy = JSON.parse(legacySavedPlanJson()) as WeeklyMealPlan
-    expect(legacy.days[0].breakfast.ingredients[0]).not.toHaveProperty('unit')
+    expect(legacy.days[0].breakfast!.ingredients[0]).not.toHaveProperty('unit')
     // "Cannot read properties of undefined (reading 'group')" — what the browser showed.
-    expect(() => splitIngredientsByStock(legacy, [pantryItem({ name: legacy.days[0].breakfast.ingredients[0].name })])).not.toThrow()
+    expect(() => splitIngredientsByStock(legacy, [pantryItem({ name: legacy.days[0].breakfast!.ingredients[0].name })])).not.toThrow()
   })
 
   it('convertQuantity treats an unknown or missing unit as not comparable instead of throwing', () => {
@@ -261,7 +263,7 @@ describe('saved plans from before ingredients had quantities (regression: dashbo
 
   it('the upgraded plan works with the stock logic that used to crash', () => {
     const upgraded = parseSavedPlan(legacySavedPlanJson())!
-    const first = upgraded.days[0].breakfast.ingredients[0]
+    const first = upgraded.days[0].breakfast!.ingredients[0]
     const { fromStock, toBuy } = splitIngredientsByStock(upgraded, [pantryItem({ name: first.name, quantity: 100, unit: first.unit })])
     expect(fromStock.map((i) => i.name)).toContain(first.name)
     expect(fromStock.length + toBuy.length).toBe(planIngredients(upgraded).length)
@@ -277,7 +279,7 @@ describe('saved plans from before ingredients had quantities (regression: dashbo
     const parsed = parseSavedPlan(saved)!
     expect(parsed.cookedMeals).toEqual(plan.cookedMeals)
     expect(parsed.estimatedTotal).toBe(plan.estimatedTotal)
-    expect(parsed.days[0].breakfast.price).toBe(plan.days[0].breakfast.price)
+    expect(parsed.days[0].breakfast!.price).toBe(plan.days[0].breakfast!.price)
   })
 
   it('leaves a current-shape plan exactly as saved', () => {
@@ -287,7 +289,7 @@ describe('saved plans from before ingredients had quantities (regression: dashbo
 
   it('returns null (so the household regenerates) when a legacy recipe no longer exists in the catalog', () => {
     const legacy = JSON.parse(legacySavedPlanJson()) as WeeklyMealPlan
-    legacy.days[2].lunch = { ...legacy.days[2].lunch, id: 'removed-recipe' }
+    legacy.days[2].lunch = { ...legacy.days[2].lunch!, id: 'removed-recipe' }
     expect(parseSavedPlan(JSON.stringify(legacy))).toBeNull()
   })
 
@@ -313,13 +315,13 @@ describe('regenerateMeal', () => {
   it('always picks a different recipe than the one currently assigned, when an alternative exists', () => {
     const plan = generateWeeklyPlan(3000, household())
     const updated = regenerateMeal(plan, 'Pondělí', 'Snídaně', household())
-    expect(updated.days[0].breakfast.id).not.toBe(plan.days[0].breakfast.id)
+    expect(updated.days[0].breakfast!.id).not.toBe(plan.days[0].breakfast!.id)
   })
 
   it('recomputes estimatedTotal to reflect the swapped recipe', () => {
     const plan = generateWeeklyPlan(3000, household())
     const updated = regenerateMeal(plan, 'Pondělí', 'Snídaně', household())
-    const priceDiff = updated.days[0].breakfast.price - plan.days[0].breakfast.price
+    const priceDiff = updated.days[0].breakfast!.price - plan.days[0].breakfast!.price
     expect(updated.estimatedTotal).toBe(plan.estimatedTotal + priceDiff)
   })
 
@@ -364,5 +366,41 @@ describe('currentWeekStart', () => {
 
   it('is stable across a year boundary', () => {
     expect(currentWeekStart('2027-01-01')).toBe('2026-12-28')
+  })
+})
+
+describe('menu period and meals', () => {
+  it('covers only the chosen number of days and meals, starting at the chosen weekday', () => {
+    const plan = generateWeeklyPlan(0, household(), null, { dayCount: 3, startDayIndex: 5, mealTypes: ['Oběd', 'Večeře'] })
+    expect(plan.days.map((day) => day.day)).toEqual(['Sobota', 'Neděle', 'Pondělí'])
+    for (const day of plan.days) {
+      expect(day.lunch).toBeDefined()
+      expect(day.dinner).toBeDefined()
+      expect(day.breakfast).toBeUndefined()
+      expect(day.snack).toBeUndefined()
+    }
+    expect(mealTypesOf(plan)).toEqual(['Oběd', 'Večeře'])
+  })
+
+  it('prices only what was asked for, and needs at least one meal', () => {
+    const week = generateWeeklyPlan(0, household())
+    const oneDay = generateWeeklyPlan(0, household(), null, { dayCount: 1, startDayIndex: 0, mealTypes: ['Oběd'] })
+    expect(oneDay.estimatedTotal).toBeLessThan(week.estimatedTotal / 4)
+    expect(() => generateWeeklyPlan(0, household(), null, { dayCount: 2, startDayIndex: 0, mealTypes: [] })).toThrow('aspoň jeden chod')
+  })
+
+  it('keeps regenerating, saving and reading a partial plan working', () => {
+    const plan = generateWeeklyPlan(0, household(), null, { dayCount: 2, startDayIndex: 0, mealTypes: ['Snídaně'] })
+    const updated = regenerateMeal(plan, 'Pondělí', 'Snídaně', household())
+    expect(updated.days[0].breakfast!.id).not.toBe(plan.days[0].breakfast!.id)
+    expect(regenerateMeal(plan, 'Pondělí', 'Oběd', household())).toBe(plan) // a meal that is not in the plan
+    expect(parseSavedPlan(JSON.stringify(plan))).toEqual(plan)
+  })
+
+  it('lists what a recipe still needs from the pantry', () => {
+    const recipe = generateWeeklyPlan(0, household()).days[0].breakfast!
+    expect(missingIngredients(recipe, [])).toHaveLength(recipe.ingredients.length)
+    const covered = recipe.ingredients.map((ingredient, index) => pantryItem({ id: `p${index}`, name: ingredient.name, quantity: ingredient.quantity, unit: ingredient.unit }))
+    expect(missingIngredients(recipe, covered)).toEqual([])
   })
 })

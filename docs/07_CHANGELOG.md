@@ -1,5 +1,9 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-29 (App shell: sections load as separate chunks, state and handlers split into hooks)
+- `components/shell/lazy-views.tsx` wraps every section body and dialog of `AppShell` in `next/dynamic` (skeleton fallback for sections, none for dialogs), so the initial bundle carries only the navigation, header and the section that is open. Server rendering stays on, so the opened section is still in the first HTML. (`ShoppingList`, `StoreDirectory` and `UsualItems` were first missed and imported statically; fixed.)
+- `components/app-shell.tsx` went from ~1180 to ~715 lines: state, server actions and resync per domain moved to hooks in `components/shell/` — `use-shopping-queue` (offline queue), `use-pantry`, `use-receipts`, `use-household`, `use-budget` (expenses, limits, recurring payments) and `use-shell-environment` (theme, tab/address navigation, service worker). The shell keeps only what sections share (list items, notifications, purchase history, meal plan) and the JSX. Behaviour unchanged; `tsc` and `next build` pass, not checked in a browser.
+
 ## 2026-09-29 (Receipt upload limit)
 - `uploadReceiptAction` refuses an upload once the household already has 30 OCR imports in the last rolling 24 hours (`lib/receipt-upload-limit.ts`), before anything is stored or sent to OCR, with a Czech message that suggests entering the receipt manually. Each upload can end in a paid OCR call and a model call, so this stops a runaway client loop or abuse from spending the monthly credit; real use is a few receipts a week. No migration: the count comes from `receipt_imports` (`source = 'ocr'`, `created_at`). Not covered: retrying a failed import (`retryReceiptImportAction`) reruns OCR on an existing upload without counting again; it needs a user action per run. Tests: `lib/receipt-upload-limit.test.ts` and two cases in `app/actions/receipts.test.ts` (limit reached, older imports not counted).
 

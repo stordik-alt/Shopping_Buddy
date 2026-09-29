@@ -1,5 +1,10 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-29 (Monitoring and backup strategy)
+- `GET /api/health` (`app/api/health/route.ts`, excluded from sign-in in `proxy.ts`): 200 `{"status":"ok"}` when the database answers `select 1`, otherwise 503 `{"status":"unavailable"}`; the reason goes to the log only. Meant for a free uptime monitor with e-mail alerts.
+- `pnpm db:backup` (`scripts/backup-db.ts`): `pg_dump` custom-format dump of the whole database, including the `neon_auth` accounts, into the git-ignored `backups/`. Needed because Neon's free plan restores only the last 6 hours (checked in Neon's docs). Dumps must not go to GitHub Actions artifacts: the repository is public.
+- New `docs/09_BACKUP_RECOVERY.md`: what lives where, Neon restore, the dump, a restore drill and what monitoring exists. Not done: stored cron run history, alerting on failed crons, client error reporting. `pg_dump` and the restore drill were not run on this machine (no PostgreSQL client installed).
+
 ## 2026-09-29 (Accessibility: keyboard focus in "Více", intro contrast)
 - Checked with axe-core in a headless browser (run from outside the repo, no dependency added). The "Více" sheet sits before the bar in the page, so Tab from the button skipped it; now focus moves to its first item when it opens and back to "Více" when Escape closes it (`components/shared/mobile-nav.tsx`). The sheet itself has no axe violations.
 - `/intro`: the "Powered by ANITKA AI" line was 3.4:1 in light mode (needs 4.5:1); now `text-[var(--anitka-navy)]/70`, no axe violations on `/intro` in light or dark.

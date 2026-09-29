@@ -21,7 +21,8 @@ export default function proxy(request: NextRequest) {
 // brand/ holds the public Buddy images (public/brand) shown on the sign-in and sign-up pages
 // before anyone is signed in, and the installed app's icons. manifest.webmanifest (app/manifest.ts)
 // must be public too: browsers fetch it without cookies, so behind sign-in it would never load. The
-// same goes for sw.js, the push-notification service worker (public/sw.js).
+// same goes for sw.js, the push-notification service worker (public/sw.js). api/health is the uptime
+// monitor's check, which has no session either.
 export const config = {
-  matcher: ['/((?!api/auth|api/cron|auth/|invite/|intro/|brand/|manifest.webmanifest|sw.js|_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!api/auth|api/cron|api/health|auth/|invite/|intro/|brand/|manifest.webmanifest|sw.js|_next/static|_next/image|favicon.ico).*)'],
 }

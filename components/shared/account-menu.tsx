@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Bot, Lightbulb, ListChecks, LogOut, Moon, Smartphone, Sun, Users } from 'lucide-react'
+import { Bot, Lightbulb, ListChecks, LogOut, Moon, Smartphone, Sun, Tags, Users } from 'lucide-react'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { IdeasDialog } from '@/components/shared/ideas-dialog'
 import { InstallAppDialog } from '@/components/shared/install-app-dialog'
@@ -113,9 +113,14 @@ export function AccountMenu({
             <Lightbulb className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> Nápady pro zlepšení
           </button>
           {isAdmin && (
-            <Link role="menuitem" href="/admin/ideas" className={itemClass} onClick={() => setOpen(false)}>
-              <ListChecks className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> Správa nápadů
-            </Link>
+            <>
+              <Link role="menuitem" href="/admin/ideas" className={itemClass} onClick={() => setOpen(false)}>
+                <ListChecks className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> Správa nápadů
+              </Link>
+              <Link role="menuitem" href="/admin/subcategories" className={itemClass} onClick={() => setOpen(false)}>
+                <Tags className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> Schvalování podkategorií
+              </Link>
+            </>
           )}
           <button role="menuitem" className={itemClass} onClick={run(onToggleDark)}>
             {dark ? <Sun className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> : <Moon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}

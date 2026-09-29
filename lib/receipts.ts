@@ -253,6 +253,22 @@ export function isAzureReceiptFallbackConfigured(): boolean {
   return Boolean(process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT && process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY)
 }
 
+const AZURE_MAX_RATE_LIMIT_RETRIES = 2
+const AZURE_MAX_RATE_LIMIT_WAIT_MS = 60_000
+
+/** fetch that waits out Azure's rate limit (429, "Retry-After") and tries again a couple of times.
+ *  The free F0 tier allows only about 20 calls a minute, and each poll for a result counts as one, so
+ *  a burst of pages otherwise fails outright instead of merely taking longer. */
+async function fetchAzure(url: string, init: RequestInit): Promise<Response> {
+  for (let retry = 0; ; retry += 1) {
+    const response = await fetch(url, init)
+    if (response.status !== 429 || retry >= AZURE_MAX_RATE_LIMIT_RETRIES) return response
+    const seconds = Number(response.headers.get('Retry-After'))
+    const waitMs = Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 20_000
+    await new Promise((resolve) => setTimeout(resolve, Math.min(waitMs, AZURE_MAX_RATE_LIMIT_WAIT_MS)))
+  }
+}
+
 /** Azure Document Intelligence text extractor for one prebuilt model, using the current 2024-11-30
  * REST API. Uploaded bytes are sent directly as base64, so the private Vercel Blob URL is never
  * exposed. `prebuilt-receipt` suits receipts; `prebuilt-read` is plain OCR for any other page. */
@@ -264,7 +280,7 @@ export function createAzureTextExtractor(modelId: 'prebuilt-receipt' | 'prebuilt
     if (!endpoint || !key) throw new Error('Azure Document Intelligence fallback is not configured')
 
     const analyzeUrl = endpoint + '/documentintelligence/documentModels/' + modelId + ':analyze?api-version=2024-11-30'
-    const response = await fetch(analyzeUrl, {
+    const response = await fetchAzure(analyzeUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Ocp-Apim-Subscription-Key': key },
       body: JSON.stringify({ base64Source: file.base64 }),
@@ -281,7 +297,7 @@ export function createAzureTextExtractor(modelId: 'prebuilt-receipt' | 'prebuilt
     // Bound polling so an Azure outage cannot hang the receipt import indefinitely.
     for (let attempt = 0; attempt < 20; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 500))
-      const resultResponse = await fetch(operationLocation, {
+      const resultResponse = await fetchAzure(operationLocation, {
         headers: { 'Ocp-Apim-Subscription-Key': key },
       })
       const result = await resultResponse.json().catch(() => null)

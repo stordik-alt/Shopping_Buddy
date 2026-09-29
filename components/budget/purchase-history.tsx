@@ -15,8 +15,11 @@ export function PurchaseHistory({
   records,
   onSaveSplits,
   onRecordExpenses,
+  onUploadReceipt,
 }: {
   records: PurchaseRecord[]
+  /** Next step offered while there is no purchase yet. */
+  onUploadReceipt?: () => void
   /** Saves (or, with an empty array, clears) one item's expense-category split — a plain
    *  reassignment or, since a receipt often can't say, a genuine split across more than one target
    *  (e.g. clothing that was actually half a child's). */
@@ -81,7 +84,19 @@ export function PurchaseHistory({
           </div>
         </div>
       )}
-      <div className="overflow-hidden surface">
+      {records.length === 0 && (
+        <div className="surface p-8 text-center">
+          <ShoppingBag className="mx-auto h-8 w-8 text-muted-foreground" aria-hidden="true" />
+          <p className="mt-3 font-semibold">Zatím tu není žádný nákup</p>
+          <p className="mt-1 text-sm text-muted-foreground">Nákupy se zapíšou, když dokončíte nákup ze seznamu nebo nahrajete účtenku.</p>
+          {onUploadReceipt && (
+            <button onClick={onUploadReceipt} className="mt-4 min-h-11 rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              Nahrát účtenku
+            </button>
+          )}
+        </div>
+      )}
+      <div className={records.length === 0 ? 'hidden' : 'overflow-hidden surface'}>
         {shownRecords.map((record) => (
             <div key={record.id} className="border-b border-border last:border-0">
               <button

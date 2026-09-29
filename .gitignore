@@ -32,5 +32,8 @@ gcp-oidc-jwks.json
 .wrangler-dry-run/
 dry-run.log
 
+# Local database dumps (pnpm db:backup) — they hold personal data
+backups/
+
 # Throwaway exploration files (retailer/API investigations), never committed
 scratch-*

@@ -45,7 +45,7 @@
 - regional data providers
 
 ## Phase F — Product hardening
-Progress 2026-09-29 (audit, `docs/01_CURRENT_STATE.md`): error pages, basic security headers, receipt upload limit and CI database-test job are done; Content-Security-Policy is in place (same-origin only, `unsafe-inline` for scripts), Playwright smoke tests are open; splitting `app-shell.tsx` (PR #156) and reduced-motion support are done.
+Progress 2026-09-29 (audit, `docs/01_CURRENT_STATE.md`): error pages, basic security headers, receipt upload limit and CI database-test job are done; Content-Security-Policy is in place (same-origin only, `unsafe-inline` for scripts), Playwright smoke tests are open; splitting `app-shell.tsx` (PR #156) and reduced-motion support are done. Basic observability (`/api/health`) and the backup/recovery strategy (`docs/09_BACKUP_RECOVERY.md`, `pnpm db:backup`) are in place; stored cron history and failure alerting are open.
 - security audit
 - accessibility
 - performance

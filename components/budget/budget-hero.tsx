@@ -13,6 +13,7 @@ export function BudgetHero({
   compact = false,
   className = '',
   today,
+  periodStartDay = 1,
 }: {
   budget: number
   spent: number
@@ -26,11 +27,14 @@ export function BudgetHero({
   /** The real date (`YYYY-MM-DD`). When given, the card also says how much is left per day and,
    *  once the month has enough history, whether the current pace would break the limit. */
   today?: string
+  /** Day of the month the budget period starts on (1 = calendar month). */
+  periodStartDay?: number
 }) {
   // Display-only: clamped so an overspent month does not draw outside its track.
   const spentPercent = budget > 0 ? Math.min(100, Math.round((spent / budget) * 100)) : 0
   const level = budgetLevel(spent, budget)
-  const pace = today ? budgetPace(spent, budget, today) : null
+  const pace = today ? budgetPace(spent, budget, today, periodStartDay) : null
+  const periodNoun = periodStartDay === 1 ? 'měsíce' : 'období'
 
   // A brand-new household has no limit yet. "0 Kč left, 0 %" would read as a real (and alarming)
   // result, so say plainly that nothing is set and offer the way to set it.
@@ -95,7 +99,7 @@ export function BudgetHero({
             <CalendarDays className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             <span>
               Na den zbývá <span className="font-semibold text-primary-foreground">{wholeMoney(pace.perDayLeft)}</span>
-              {pace.daysLeft > 1 ? ` (${countLabel(pace.daysLeft, 'den', 'dny', 'dní')} do konce měsíce)` : ' (poslední den měsíce)'}
+              {pace.daysLeft > 1 ? ` (${countLabel(pace.daysLeft, 'den', 'dny', 'dní')} do konce ${periodNoun})` : ` (poslední den ${periodNoun})`}
             </span>
           </p>
           {pace.projectedOver != null && (

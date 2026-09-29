@@ -67,8 +67,8 @@ import { matchKey as matchKeyOf } from '@/lib/receipt-list-match'
 import { ShoppingList } from '@/components/shopping/shopping-list'
 import { StoreDirectory } from '@/components/stores/store-directory'
 import { UsualItems } from '@/components/shopping/usual-items'
-import { expensesInMonth, totalSpent } from '@/lib/budget'
-import { longDate } from '@/lib/format'
+import { expensesInPeriod, totalSpent } from '@/lib/budget'
+import { longDate, thisPeriodTitle } from '@/lib/format'
 import type { HouseholdData, ReceiptImportState } from '@/lib/db/queries'
 import type { ReceiptListSuggestion } from '@/lib/db/receipt-list'
 import type { Ingredient, MealType } from '@/lib/meal-plans'
@@ -267,9 +267,11 @@ export function AppShell({
   }, [router])
 
   const budget = household.monthlyBudget
-  // The budget is monthly: only this calendar month's expenses count against it.
-  const monthExpenses = useMemo(() => expensesInMonth(expenses, today), [expenses, today])
-  const spent = totalSpent(monthExpenses)
+  // Only the expenses of the household's current budget period count against it (the calendar month
+  // unless the household starts its period on another day).
+  const periodStartDay = household.budgetPeriodStartDay
+  const periodExpenses = useMemo(() => expensesInPeriod(expenses, today, periodStartDay), [expenses, today, periodStartDay])
+  const spent = totalSpent(periodExpenses)
   const remaining = budget - spent
   const completed = items.filter((item) => item.done).length
 
@@ -479,7 +481,7 @@ export function AppShell({
     addShoppingListAction(name)
   }
 
-  function updateHousehold(changes: { name?: string; monthlyBudget?: number }) {
+  function updateHousehold(changes: { name?: string; monthlyBudget?: number; budgetPeriodStartDay?: number }) {
     setHousehold((current) => ({ ...current, ...changes }))
     updateHouseholdAction(changes)
   }
@@ -879,6 +881,7 @@ export function AppShell({
                   />
                   <DashboardOverview
                     today={today}
+                    periodStartDay={periodStartDay}
                     budget={budget}
                     spent={spent}
                     remaining={remaining}
@@ -898,8 +901,8 @@ export function AppShell({
                   <PriceWatch today={today} onBrowseDeals={() => setTab('Akce')} onStores={() => setTab('Obchody')} onAddToList={addItemByName} listItemNames={pendingNames} productPrices={nearbyProductPrices} offers={nearbyStandaloneOffers} pantryItems={pantryItems} />
                   <MealPlan household={household} initialPlan={initialData.mealPlan} pantryItems={pantryItems} onAddIngredients={addIngredients} onMarkCooked={markMealCooked} />
                   <div className="grid gap-4 lg:grid-cols-2 lg:gap-6">
-                    <SpendingBreakdown expenses={monthExpenses} onDetails={() => setTab('Rozpočet')} />
-                    <SavingsInsight remaining={remaining} today={today} />
+                    <SpendingBreakdown expenses={periodExpenses} periodTitle={thisPeriodTitle(today, periodStartDay)} onDetails={() => setTab('Rozpočet')} />
+                    <SavingsInsight remaining={remaining} today={today} periodStartDay={periodStartDay} />
                   </div>
                 </div>
               )}
@@ -1070,6 +1073,7 @@ export function AppShell({
                     <>
                       <BudgetOverview
                         today={today}
+                        periodStartDay={periodStartDay}
                         budget={budget}
                         onEditBudget={() => setTab('Profil')}
                         spent={spent}
@@ -1077,7 +1081,7 @@ export function AppShell({
                         items={items}
                         onExpense={() => openExpense(null)}
                       />
-                      <CategorySnapshot expenses={expenses} today={today} limits={categoryBudgets} />
+                      <CategorySnapshot expenses={expenses} today={today} periodStartDay={periodStartDay} limits={categoryBudgets} />
                       <RecurringPayments
                         payments={recurringPayments}
                         occurrences={recurringOccurrences}
@@ -1093,6 +1097,7 @@ export function AppShell({
                     <ExpenseLedger
                       expenses={expenses}
                       today={today}
+                      periodStartDay={periodStartDay}
                       limits={categoryBudgets}
                       onAdd={() => openExpense(null)}
                       onEdit={openExpense}

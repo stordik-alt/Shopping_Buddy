@@ -5,19 +5,25 @@ import { eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
 import { auth } from '@/lib/auth/server'
+import { isValidPeriodStartDay, MAX_PERIOD_START_DAY } from '@/lib/budget'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { joinHouseholdViaInvitation } from '@/lib/db/queries'
 import type { Child, HouseholdMember, HouseholdPreferences, PriceSensitivity, QualityPreference } from '@/lib/types'
 
-export async function updateHouseholdAction(changes: { name?: string; monthlyBudget?: number }) {
+export async function updateHouseholdAction(changes: { name?: string; monthlyBudget?: number; budgetPeriodStartDay?: number }) {
   const householdId = await requireHouseholdId()
+  // Validated here as well as by the database check, so the user gets a readable error, not a constraint violation.
+  if (changes.budgetPeriodStartDay != null && !isValidPeriodStartDay(changes.budgetPeriodStartDay)) {
+    throw new Error(`Rozpočtové období může začínat nejvýše ${MAX_PERIOD_START_DAY}. dnem v měsíci.`)
+  }
   const db = getDb()
   await db
     .update(schema.households)
     .set({
       ...(changes.name != null && { name: changes.name }),
       ...(changes.monthlyBudget != null && { monthlyBudget: changes.monthlyBudget.toString() }),
+      ...(changes.budgetPeriodStartDay != null && { budgetPeriodStartDay: changes.budgetPeriodStartDay }),
     })
     .where(eq(schema.households.id, householdId))
   revalidatePath('/')

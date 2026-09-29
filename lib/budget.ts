@@ -1,51 +1,100 @@
 import { EXPENSE_CATEGORY_NAMES, type ExpenseCategory } from '@/lib/expense-categories'
 import type { Expense, Item } from '@/lib/types'
 
-// The budget is monthly. Every function below takes `today` (`YYYY-MM-DD`, from lib/today.ts) and
-// works on the calendar month it falls in, so the numbers move with the real date instead of a fixed
-// demo month. Dates are handled as strings, never as `Date` objects, so no time zone can shift a day.
+// The budget runs over a period that starts on the household's chosen day of the month (1–28): with
+// day 1 that is the calendar month, with 28 it is "28th to 27th of the next month". Every function
+// below takes `today` (`YYYY-MM-DD`, from lib/today.ts) and the household's `startDay`, and works on
+// the period `today` falls in, so the numbers move with the real date. A period is identified by its
+// start date (`YYYY-MM-DD`). Dates are handled as strings and UTC day numbers, never local `Date`s,
+// so no time zone can shift a day. `startDay` defaults to 1, which is exactly the calendar month.
 
-/** `YYYY-MM` of an ISO date. */
-const monthKey = (isoDate: string) => isoDate.slice(0, 7)
+/** The latest day of the month a period may start on: every month has one, so the period always
+ *  begins on a real date (a start on the 31st would have no February). */
+export const MAX_PERIOD_START_DAY = 28
 
-/** Number of days in the month `today` falls in (28–31). */
-export function daysInMonth(today: string): number {
-  const [year, month] = today.split('-').map(Number)
-  // Day 0 of the next month is the last day of this one; UTC so no local offset is involved.
-  return new Date(Date.UTC(year, month, 0)).getUTCDate()
+const DAY_MS = 86_400_000
+
+const pad2 = (n: number) => String(n).padStart(2, '0')
+
+/** Whole days since the Unix epoch of an ISO date. */
+const dayNumber = (isoDate: string) => {
+  const [year, month, day] = isoDate.split('-').map(Number)
+  return Date.UTC(year, month - 1, day) / DAY_MS
 }
 
-/** `YYYY-MM` of the month before the one `today` falls in. */
-export function previousMonthKey(today: string): string {
-  const [year, month] = today.split('-').map(Number)
-  return month === 1 ? `${year - 1}-12` : `${year}-${String(month - 1).padStart(2, '0')}`
+const isoFromDayNumber = (days: number) => new Date(days * DAY_MS).toISOString().slice(0, 10)
+
+/** Whether `value` is a usable period start day: a whole number from 1 to 28. */
+export const isValidPeriodStartDay = (value: number) => Number.isInteger(value) && value >= 1 && value <= MAX_PERIOD_START_DAY
+
+/** The first day of the period `date` falls in: the latest `startDay` on or before it. */
+export function periodStart(date: string, startDay = 1): string {
+  const [year, month, day] = date.split('-').map(Number)
+  if (day >= startDay) return `${year}-${pad2(month)}-${pad2(startDay)}`
+  return month === 1 ? `${year - 1}-12-${pad2(startDay)}` : `${year}-${pad2(month - 1)}-${pad2(startDay)}`
 }
 
-/** The expenses dated in the same calendar month as `today` — what "this month" means everywhere
- *  the monthly budget is shown or checked. */
-export function expensesInMonth(expenses: Expense[], today: string): Expense[] {
-  const key = monthKey(today)
-  return expenses.filter((expense) => monthKey(expense.date) === key)
+/** The first day of the period after the one that starts on `start` (a value from periodStart). */
+export function nextPeriodStart(start: string): string {
+  const [year, month, day] = start.split('-').map(Number)
+  return month === 12 ? `${year + 1}-01-${pad2(day)}` : `${year}-${pad2(month + 1)}-${pad2(day)}`
+}
+
+/** The last day (inclusive) of the period that starts on `start`. */
+export function periodEnd(start: string): string {
+  return isoFromDayNumber(dayNumber(nextPeriodStart(start)) - 1)
+}
+
+/** Number of days in the period that starts on `start` (28–31). */
+function periodLengthFrom(start: string): number {
+  return dayNumber(nextPeriodStart(start)) - dayNumber(start)
+}
+
+/** The start of the period before the one `today` falls in. */
+export function previousPeriodStart(today: string, startDay = 1): string {
+  return periodStart(isoFromDayNumber(dayNumber(periodStart(today, startDay)) - 1), startDay)
+}
+
+/** Number of days in the period `today` falls in (28–31). */
+export function periodLength(today: string, startDay = 1): number {
+  return periodLengthFrom(periodStart(today, startDay))
+}
+
+/** Which day of its period `today` is, counting the first day as 1 — so the first day of a period
+ *  divides by 1, never by 0. */
+export function periodDay(today: string, startDay = 1): number {
+  return dayNumber(today) - dayNumber(periodStart(today, startDay)) + 1
+}
+
+/** Days left in the period, today included (1 on its last day). */
+export function periodDaysLeft(today: string, startDay = 1): number {
+  return periodLength(today, startDay) - periodDay(today, startDay) + 1
+}
+
+/** The expenses dated in the period `today` falls in — what "this month" means everywhere the
+ *  monthly budget is shown or checked. */
+export function expensesInPeriod(expenses: Expense[], today: string, startDay = 1): Expense[] {
+  const key = periodStart(today, startDay)
+  return expenses.filter((expense) => periodStart(expense.date, startDay) === key)
 }
 
 export function totalSpent(expenses: Expense[]) {
   return expenses.reduce((sum, expense) => sum + expense.amount, 0)
 }
 
-/** This month's spending per day so far: days elapsed count the 1st through `today` inclusive, so
- *  the 1st of the month divides by 1, never by 0. */
-export function dailyAverage(expenses: Expense[], today: string) {
-  const daysElapsed = Number(today.slice(8, 10))
-  return totalSpent(expensesInMonth(expenses, today)) / daysElapsed
+/** This period's spending per day so far: days elapsed count its first day through `today`
+ *  inclusive, so the first day divides by 1, never by 0. */
+export function dailyAverage(expenses: Expense[], today: string, startDay = 1) {
+  return totalSpent(expensesInPeriod(expenses, today, startDay)) / periodDay(today, startDay)
 }
 
-export function weeklyAverage(expenses: Expense[], today: string) {
-  return dailyAverage(expenses, today) * 7
+export function weeklyAverage(expenses: Expense[], today: string, startDay = 1) {
+  return dailyAverage(expenses, today, startDay) * 7
 }
 
-/** This month's spending extrapolated to the whole month at the current daily rate. */
-export function projectedMonthEnd(expenses: Expense[], today: string) {
-  return dailyAverage(expenses, today) * daysInMonth(today)
+/** This period's spending extrapolated to the whole period at the current daily rate. */
+export function projectedPeriodEnd(expenses: Expense[], today: string, startDay = 1) {
+  return dailyAverage(expenses, today, startDay) * periodLength(today, startDay)
 }
 
 export function categoryBreakdown(expenses: Expense[]): { category: ExpenseCategory; total: number }[] {
@@ -56,14 +105,14 @@ export function categoryBreakdown(expenses: Expense[]): { category: ExpenseCateg
     .sort((a, b) => b.total - a.total)
 }
 
-/** `YYYY-MM` of an ISO date — the key the expense overview pages by. */
-export const expenseMonth = monthKey
+/** The period key (its start date) of an expense's date — what the expense overview pages by. */
+export const expensePeriod = periodStart
 
-/** The months the overview can show, newest first: the current month (even with nothing in it yet)
- *  and every month with an expense. */
-export function expenseMonths(expenses: Expense[], today: string): string[] {
-  const months = new Set([monthKey(today), ...expenses.map((expense) => monthKey(expense.date))])
-  return [...months].sort().reverse()
+/** The periods the overview can show, newest first: the current one (even with nothing in it yet)
+ *  and every period with an expense. Keys are period start dates. */
+export function expensePeriods(expenses: Expense[], today: string, startDay = 1): string[] {
+  const periods = new Set([periodStart(today, startDay), ...expenses.map((expense) => periodStart(expense.date, startDay))])
+  return [...periods].sort().reverse()
 }
 
 export type CategorySummary = {
@@ -75,13 +124,14 @@ export type CategorySummary = {
   expenses: Expense[]
 }
 
-/** One month's expenses by category and subcategory — what was paid, on what, and when. Categories
- *  with the most spent first (ties in the fixed category order); only categories with an expense. */
-export function monthSummary(expenses: Expense[], month: string): { total: number; categories: CategorySummary[] } {
-  const inMonth = expenses.filter((expense) => monthKey(expense.date) === month)
+/** One period's expenses by category and subcategory — what was paid, on what, and when. Categories
+ *  with the most spent first (ties in the fixed category order); only categories with an expense.
+ *  `period` is the period's start date; `startDay` must be the one it was made with. */
+export function periodSummary(expenses: Expense[], period: string, startDay = 1): { total: number; categories: CategorySummary[] } {
+  const inPeriod = expenses.filter((expense) => periodStart(expense.date, startDay) === period)
   const categories: CategorySummary[] = []
   for (const category of EXPENSE_CATEGORY_NAMES) {
-    const own = inMonth.filter((expense) => expense.category === category)
+    const own = inPeriod.filter((expense) => expense.category === category)
     if (own.length === 0) continue
     const bySub = new Map<string | null, number>()
     for (const expense of own) bySub.set(expense.subcategory, (bySub.get(expense.subcategory) ?? 0) + expense.amount)
@@ -93,17 +143,17 @@ export function monthSummary(expenses: Expense[], month: string): { total: numbe
     })
   }
   categories.sort((a, b) => b.total - a.total)
-  return { total: totalSpent(inMonth), categories }
+  return { total: totalSpent(inPeriod), categories }
 }
 
 export type CategoryRow = CategorySummary & {
-  /** The category's monthly limit, or null without one. */
+  /** The category's limit for a period, or null without one. */
   limit: number | null
   /** Spending against the limit (`ok` without one): the same 80 % / 100 % bands as the budget. */
   level: BudgetLevel
 }
 
-/** A month's categories with their limits: every category with an expense, plus every category with
+/** A period's categories with their limits: every category with an expense, plus every category with
  *  a limit even when nothing was spent in it yet (a limit is worth seeing at 0 Kč). Most spent first;
  *  limited categories without spending last, in the fixed category order. */
 export function categoryRows(summary: { categories: CategorySummary[] }, limits: Partial<Record<ExpenseCategory, number>>): CategoryRow[] {
@@ -122,19 +172,23 @@ export function plannedSpend(items: Item[]) {
   return items.filter((item) => !item.done).reduce((sum, item) => sum + item.price * item.quantity, 0)
 }
 
-/** This month's spending so far against the same part of the previous month: the 1st through the
- *  same day (capped at that month's last day, e.g. 31 March compares with the whole of February).
- *  Comparing a running month with a whole finished one would read "you spend less" every early
- *  month. From the household's real expenses; `null` when the previous month has no expenses up to
- *  that day — there is nothing to compare with, and a baseline is never invented (it used to be a
- *  fixed 8 120 Kč). */
-export function monthOverMonthChange(expenses: Expense[], today: string): { current: number; previous: number; changePercent: number } | null {
-  const current = totalSpent(expensesInMonth(expenses, today))
-  const previousKey = previousMonthKey(today)
-  const lastComparableDay = Math.min(Number(today.slice(8, 10)), daysInMonth(`${previousKey}-01`))
-  const previous = totalSpent(
-    expenses.filter((expense) => monthKey(expense.date) === previousKey && Number(expense.date.slice(8, 10)) <= lastComparableDay),
-  )
+/** This period's spending so far against the same part of the previous period: its first day through
+ *  the same day count (capped at that period's length, e.g. day 31 of one period compares with the
+ *  whole of a 28-day one). Comparing a running period with a whole finished one would read "you
+ *  spend less" every early period. From the household's real expenses; `null` when the previous
+ *  period has no expenses up to that day — there is nothing to compare with, and a baseline is never
+ *  invented (it used to be a fixed 8 120 Kč). */
+export function periodOverPeriodChange(
+  expenses: Expense[],
+  today: string,
+  startDay = 1,
+): { current: number; previous: number; changePercent: number } | null {
+  const current = totalSpent(expensesInPeriod(expenses, today, startDay))
+  const previousStart = previousPeriodStart(today, startDay)
+  const comparableDays = Math.min(periodDay(today, startDay), periodLengthFrom(previousStart))
+  // Exclusive upper bound: the day after the last comparable one.
+  const until = isoFromDayNumber(dayNumber(previousStart) + comparableDays)
+  const previous = totalSpent(expenses.filter((expense) => expense.date >= previousStart && expense.date < until))
   if (previous <= 0) return null
   return { current, previous, changePercent: ((current - previous) / previous) * 100 }
 }
@@ -158,7 +212,7 @@ const BUDGET_LIMIT_RATIO = 1
 
 export type BudgetLevel = 'ok' | 'warning' | 'over'
 
-/** Where current spending stands against the monthly budget: below 80 % is `ok`, 80 % up to (not
+/** Where current spending stands against the period's budget: below 80 % is `ok`, 80 % up to (not
  *  including) 100 % is `warning`, 100 % or more is `over`. Without a positive budget there is
  *  nothing to measure against, so it is `ok` rather than an alarming `over`. */
 export function budgetLevel(spent: number, budget: number): BudgetLevel {
@@ -182,33 +236,34 @@ export function crossedBudgetThreshold(spentBefore: number, spentAfter: number, 
   return null
 }
 
-/** How much of what is left can go on one week, so the rest of the month is still covered: the
- *  remaining budget spread over the weeks left in the month, counting today. In the last week the
- *  whole remainder is available. Nothing when the budget is used up. */
-/** A projection needs some history: before the 7th, one big shop on the 2nd would extrapolate to
- *  a month many times over the limit. Until then only the daily allowance is shown. */
+/** A projection needs some history: before the 7th day, one big shop on the 2nd would extrapolate
+ *  to a period many times over the limit. Until then only the daily allowance is shown. */
 export const PACE_MIN_DAYS = 7
 
-/** Where the month is heading, for the budget card: how much may be spent per remaining day
- *  (today included) to stay within the limit, and — from `PACE_MIN_DAYS` on — the month-end total
+/** Where the period is heading, for the budget card: how much may be spent per remaining day
+ *  (today included) to stay within the limit, and — from `PACE_MIN_DAYS` on — the period-end total
  *  at the current daily rate and by how much it would exceed the limit. `null` without a budget.
- *  Deterministic from this month's spending; no guessing about future shops. */
+ *  Deterministic from this period's spending; no guessing about future shops. */
 export function budgetPace(
-  monthSpent: number,
+  periodSpent: number,
   budget: number,
   today: string,
+  startDay = 1,
 ): { daysLeft: number; perDayLeft: number; projected: number | null; projectedOver: number | null } | null {
   if (budget <= 0) return null
-  const day = Number(today.slice(8, 10))
-  const daysLeft = daysInMonth(today) - day + 1
-  const perDayLeft = Math.max(0, budget - monthSpent) / daysLeft
-  const projected = day >= PACE_MIN_DAYS ? (monthSpent / day) * daysInMonth(today) : null
+  const day = periodDay(today, startDay)
+  const length = periodLength(today, startDay)
+  const daysLeft = length - day + 1
+  const perDayLeft = Math.max(0, budget - periodSpent) / daysLeft
+  const projected = day >= PACE_MIN_DAYS ? (periodSpent / day) * length : null
   const projectedOver = projected != null && projected > budget ? projected - budget : null
   return { daysLeft, perDayLeft, projected, projectedOver }
 }
 
-export function weeklyAllowance(remaining: number, today: string): number {
+/** How much of what is left can go on one week, so the rest of the period is still covered: the
+ *  remaining budget spread over the weeks left in the period, counting today. In the last week the
+ *  whole remainder is available. Nothing when the budget is used up. */
+export function weeklyAllowance(remaining: number, today: string, startDay = 1): number {
   if (remaining <= 0) return 0
-  const daysLeft = daysInMonth(today) - Number(today.slice(8, 10)) + 1
-  return remaining / Math.max(1, daysLeft / 7)
+  return remaining / Math.max(1, periodDaysLeft(today, startDay) / 7)
 }

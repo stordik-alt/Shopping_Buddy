@@ -372,6 +372,13 @@
       "when": 1790677600687,
       "tag": "0052_product_category_changes",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1790682164506,
+      "tag": "0053_budget_period_start_day",
+      "breakpoints": true
     }
   ]
 }

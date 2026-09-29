@@ -3,7 +3,7 @@
 import { and, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
-import { monthSpending, notifyBudgetThresholds } from '@/lib/db/budget-notify'
+import { periodSpending, notifyBudgetThresholds } from '@/lib/db/budget-notify'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { isExpenseCategory } from '@/lib/expense-categories'
@@ -40,7 +40,7 @@ export async function addExpenseAction(input: ExpenseInput): Promise<{ expense: 
   const db = getDb()
   // The budget and the category limits are monthly, so the 80 % / 100 % thresholds are checked
   // against the spending of the month the new expense falls in — not every expense ever recorded.
-  const before = await monthSpending(db, householdId, expense.date)
+  const before = await periodSpending(db, householdId, expense.date)
 
   const [row] = await db
     .insert(schema.expenses)

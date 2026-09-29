@@ -2,12 +2,13 @@ import type { ReactNode } from 'react'
 import { AlertTriangle, CalendarClock, Plus, TrendingDown, TrendingUp } from 'lucide-react'
 import { BudgetHero } from '@/components/budget/budget-hero'
 import { Stat } from '@/components/shared/stat'
-import { dailyAverage, monthOverMonthChange, plannedSpend, projectedMonthEnd, weeklyAverage } from '@/lib/budget'
-import { money, wholeMoney } from '@/lib/format'
+import { dailyAverage, periodOverPeriodChange, plannedSpend, projectedPeriodEnd, weeklyAverage } from '@/lib/budget'
+import { money, thisPeriodTitle, wholeMoney } from '@/lib/format'
 import type { Expense, Item } from '@/lib/types'
 
 export function BudgetOverview({
   today,
+  periodStartDay = 1,
   budget,
   onEditBudget,
   spent,
@@ -18,6 +19,8 @@ export function BudgetOverview({
 }: {
   /** The real date (`YYYY-MM-DD`); "this month" is the calendar month it falls in. */
   today: string
+  /** Day of the month the budget period starts on (1 = calendar month). */
+  periodStartDay?: number
   budget: number
   /** Opens the profile, where the monthly limit is actually edited. */
   onEditBudget: () => void
@@ -31,8 +34,10 @@ export function BudgetOverview({
    *  frequent action, which used to sit far below the charts. */
   primaryAction?: ReactNode
 }) {
-  const comparison = monthOverMonthChange(expenses, today)
+  const comparison = periodOverPeriodChange(expenses, today, periodStartDay)
   const planned = plannedSpend(items)
+  const calendar = periodStartDay === 1
+  const periodNoun = calendar ? 'měsíce' : 'období'
 
   const remaining = budget - spent
 
@@ -40,7 +45,7 @@ export function BudgetOverview({
     <div className="space-y-5 lg:space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm text-muted-foreground">Tento měsíc</p>
+          <p className="text-sm text-muted-foreground">{thisPeriodTitle(today, periodStartDay)}</p>
           <h2 className="mt-0.5 text-2xl font-semibold tracking-tight">Rozpočet domácnosti</h2>
         </div>
         <button onClick={onExpense} className="flex min-h-11 items-center gap-1.5 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -48,16 +53,16 @@ export function BudgetOverview({
         </button>
       </div>
       {primaryAction}
-      <BudgetHero today={today} budget={budget} spent={spent} remaining={remaining} onSetBudget={onEditBudget} />
+      <BudgetHero today={today} periodStartDay={periodStartDay} budget={budget} spent={spent} remaining={remaining} onSetBudget={onEditBudget} />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
-        <Stat label="Denní průměr" value={wholeMoney(dailyAverage(expenses, today))} icon={<CalendarClock />} />
-        <Stat label="Týdenní průměr" value={wholeMoney(weeklyAverage(expenses, today))} icon={<CalendarClock />} />
+        <Stat label="Denní průměr" value={wholeMoney(dailyAverage(expenses, today, periodStartDay))} icon={<CalendarClock />} />
+        <Stat label="Týdenní průměr" value={wholeMoney(weeklyAverage(expenses, today, periodStartDay))} icon={<CalendarClock />} />
         <div className="col-span-2 sm:col-span-1">
           <Stat
-            label="Očekáváno do konce měsíce"
-            value={wholeMoney(projectedMonthEnd(expenses, today))}
+            label={`Očekáváno do konce ${periodNoun}`}
+            value={wholeMoney(projectedPeriodEnd(expenses, today, periodStartDay))}
             icon={<TrendingUp />}
-            hint={projectionHint(projectedMonthEnd(expenses, today), budget)}
+            hint={projectionHint(projectedPeriodEnd(expenses, today, periodStartDay), budget)}
           />
         </div>
       </div>
@@ -68,10 +73,10 @@ export function BudgetOverview({
         <div className="rounded-3xl bg-accent p-5 text-accent-foreground sm:p-6">
           {comparison.changePercent <= 0 ? <TrendingDown className="h-5 w-5" aria-hidden="true" /> : <TrendingUp className="h-5 w-5" aria-hidden="true" />}
           <p className="mt-4 text-xl font-semibold leading-snug">
-            {comparison.changePercent <= 0 ? 'Utrácíte méně' : 'Utrácíte více'} než minulý měsíc.
+            {comparison.changePercent <= 0 ? 'Utrácíte méně' : 'Utrácíte více'} než {calendar ? 'minulý měsíc' : 'v minulém období'}.
           </p>
           <p className="mt-2 text-sm opacity-80">
-            Od začátku měsíce {money(comparison.current)} oproti {money(comparison.previous)} za stejné dny minulého měsíce (
+            Od začátku {periodNoun} {money(comparison.current)} oproti {money(comparison.previous)} za stejné dny {calendar ? 'minulého měsíce' : 'minulého období'} (
             {comparison.changePercent > 0 ? '+' : ''}
             {comparison.changePercent.toFixed(0)} %).
           </p>

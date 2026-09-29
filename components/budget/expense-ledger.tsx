@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react'
 import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Gauge, Loader2, Pencil, Plus, Receipt } from 'lucide-react'
 import { CATEGORY_BAR_COLORS } from '@/components/dashboard/spending-breakdown'
 import { PurchaseItemSplitDialog } from '@/components/budget/purchase-item-split-dialog'
-import { categoryRows, expenseMonth, expenseMonths, monthSummary } from '@/lib/budget'
-import { money, monthLabel, recordCountLabel, shortDate } from '@/lib/format'
+import { categoryRows, expensePeriod, expensePeriods, periodEnd, periodSummary } from '@/lib/budget'
+import { money, periodLabel, recordCountLabel, shortDate } from '@/lib/format'
 import type { PurchaseExpenseItem } from '@/lib/db/purchase-items'
 import type { ExpenseSplitPart } from '@/lib/purchase-expenses'
 import type { CategoryBudgets, Expense, PurchaseItem } from '@/lib/types'
@@ -12,10 +12,11 @@ type View = 'categories' | 'dates'
 
 /** The household's expenses month by month: how much went where (category, then subcategory) and
  *  every payment with its date — "kdy a co jsme zaplatili". A payment opens for correction. All the
- *  numbers come from lib/budget.ts (monthSummary); nothing is calculated here. */
+ *  numbers come from lib/budget.ts (periodSummary); nothing is calculated here. */
 export function ExpenseLedger({
   expenses,
   today,
+  periodStartDay = 1,
   limits,
   onAdd,
   onEdit,
@@ -26,7 +27,9 @@ export function ExpenseLedger({
   expenses: Expense[]
   /** The real date (`YYYY-MM-DD`); the overview opens on its month. */
   today: string
-  /** Monthly limits per category (each month is measured against them). */
+  /** Day of the month the household's budget period starts on (1 = calendar month). */
+  periodStartDay?: number
+  /** Limits per category (each period is measured against them). */
   limits: CategoryBudgets
   onAdd: () => void
   onEdit: (expense: Expense) => void
@@ -36,11 +39,11 @@ export function ExpenseLedger({
   onLoadItems: (purchaseId: string, category: Expense['category'], subcategory: string | null) => Promise<PurchaseExpenseItem[]>
   onSaveSplits: (purchaseItemId: string, splits: ExpenseSplitPart[]) => Promise<void>
 }) {
-  const months = useMemo(() => expenseMonths(expenses, today), [expenses, today])
-  const [month, setMonth] = useState(expenseMonth(today))
+  const months = useMemo(() => expensePeriods(expenses, today, periodStartDay), [expenses, today, periodStartDay])
+  const [month, setMonth] = useState(expensePeriod(today, periodStartDay))
   const [view, setView] = useState<View>('categories')
   const [open, setOpen] = useState<string | null>(null)
-  const summary = useMemo(() => monthSummary(expenses, month), [expenses, month])
+  const summary = useMemo(() => periodSummary(expenses, month, periodStartDay), [expenses, month, periodStartDay])
   const rows = useMemo(() => categoryRows(summary, limits), [summary, limits])
   const index = months.indexOf(month)
   const byDate = useMemo(() => summary.categories.flatMap((entry) => entry.expenses).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)), [summary])
@@ -52,7 +55,7 @@ export function ExpenseLedger({
   }
 
   return (
-    <section className="surface p-5 sm:p-6" aria-label="Výdaje podle měsíců">
+    <section className="surface p-5 sm:p-6" aria-label="Výdaje podle období">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold">Výdaje</p>
@@ -70,22 +73,22 @@ export function ExpenseLedger({
 
       <div className="mt-5 flex items-center justify-between gap-2">
         {/* Months are listed newest first, so "older" is the next index. */}
-        <button onClick={() => go(months[index + 1])} disabled={index >= months.length - 1} aria-label="Starší měsíc" className="icon-button shrink-0 disabled:opacity-30">
+        <button onClick={() => go(months[index + 1])} disabled={index >= months.length - 1} aria-label="Starší období" className="icon-button shrink-0 disabled:opacity-30">
           <ChevronLeft aria-hidden="true" />
         </button>
         <select
           value={month}
           onChange={(event) => go(event.target.value)}
-          aria-label="Měsíc"
+          aria-label="Období"
           className="min-h-10 min-w-0 flex-1 rounded-xl border border-input bg-background px-3 text-center text-sm font-medium capitalize"
         >
           {months.map((option) => (
             <option key={option} value={option}>
-              {monthLabel(option)}
+              {periodLabel(option, periodEnd(option))}
             </option>
           ))}
         </select>
-        <button onClick={() => go(months[index - 1])} disabled={index <= 0} aria-label="Novější měsíc" className="icon-button shrink-0 disabled:opacity-30">
+        <button onClick={() => go(months[index - 1])} disabled={index <= 0} aria-label="Novější období" className="icon-button shrink-0 disabled:opacity-30">
           <ChevronRight aria-hidden="true" />
         </button>
       </div>
@@ -97,7 +100,7 @@ export function ExpenseLedger({
 
       {rows.length === 0 ? (
         <div className="mt-5 rounded-2xl bg-muted px-4 py-6 text-center text-sm text-muted-foreground">
-          <p>V tomto měsíci zatím žádné výdaje.</p>
+          <p>V tomto {periodStartDay === 1 ? 'měsíci' : 'období'} zatím žádné výdaje.</p>
           <button onClick={onAdd} className="mt-3 min-h-10 rounded-xl px-3 font-medium text-primary hover:bg-primary/10">
             Zapsat první výdaj
           </button>
@@ -167,7 +170,7 @@ export function ExpenseLedger({
                       (entry.expenses.length > 0 ? (
                         <PaymentList expenses={entry.expenses} onEdit={onEdit} onLoadItems={onLoadItems} onSaveSplits={onSaveSplits} />
                       ) : (
-                        <p className="px-4 pb-3 text-sm text-muted-foreground">V tomto měsíci zatím nic.</p>
+                        <p className="px-4 pb-3 text-sm text-muted-foreground">V tomto {periodStartDay === 1 ? 'měsíci' : 'období'} zatím nic.</p>
                       ))}
                   </div>
                 )

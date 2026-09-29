@@ -7,6 +7,7 @@ import { NearbyStores } from '@/components/household/nearby-stores'
 import { PantryCheckinSettings } from '@/components/household/pantry-checkin-settings'
 import { PantryPlaces } from '@/components/household/pantry-places'
 import { TagInput } from '@/components/shared/tag-input'
+import { MAX_PERIOD_START_DAY } from '@/lib/budget'
 import type { PendingInvitation } from '@/lib/db/queries'
 import type { StoreSelection } from '@/lib/nearby-stores'
 import type { Household, HouseholdPreferences, ItemCategory, PantryArea, PantryPlace, PriceSensitivity, QualityPreference, Store } from '@/lib/types'
@@ -45,7 +46,7 @@ export function HouseholdProfile({
   household: Household
   isOwner: boolean
   pendingInvitations: PendingInvitation[]
-  onUpdateHousehold: (changes: { name?: string; monthlyBudget?: number }) => void
+  onUpdateHousehold: (changes: { name?: string; monthlyBudget?: number; budgetPeriodStartDay?: number }) => void
   onAddMember: (member: { name: string; age: number; favoriteFoods: string[]; dislikedFoods: string[]; allergies: string[] }) => void
   onRemoveMember: (id: string) => void
   onAddChild: (child: { name: string; age: number; preferences: string; specialNeeds?: string }) => void
@@ -137,8 +138,27 @@ export function HouseholdProfile({
             onChange={(event) => onUpdateHousehold({ monthlyBudget: Math.max(0, Number(event.target.value) || 0) })}
             className="min-h-11 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring sm:w-32"
           />
-          <span className="text-sm text-muted-foreground">Kč / měsíc</span>
+          <span className="text-sm text-muted-foreground">{household.budgetPeriodStartDay === 1 ? 'Kč / měsíc' : 'Kč / období'}</span>
         </div>
+        <label className="mt-4 block text-sm">
+          <span className="font-medium">Rozpočtové období začíná</span>
+          <select
+            value={household.budgetPeriodStartDay}
+            onChange={(event) => onUpdateHousehold({ budgetPeriodStartDay: Number(event.target.value) })}
+            className="mt-2 min-h-11 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring sm:w-56"
+          >
+            {Array.from({ length: MAX_PERIOD_START_DAY }, (_, index) => index + 1).map((day) => (
+              <option key={day} value={day}>
+                {day === 1 ? '1. dne v měsíci (kalendářní měsíc)' : `${day}. dne v měsíci`}
+              </option>
+            ))}
+          </select>
+          <span className="mt-2 block text-xs leading-relaxed text-muted-foreground">
+            {household.budgetPeriodStartDay === 1
+              ? 'Rozpočet se počítá za kalendářní měsíc. Pokud vám plat chodí jindy, začátek období posuňte.'
+              : `Rozpočet se počítá od ${household.budgetPeriodStartDay}. dne v měsíci do ${household.budgetPeriodStartDay - 1}. dne následujícího měsíce.`}
+          </span>
+        </label>
       </div>
 
       <section className="surface p-6">

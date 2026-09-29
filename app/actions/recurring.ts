@@ -3,7 +3,7 @@
 import { and, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
-import { monthSpending, notifyBudgetThresholds } from '@/lib/db/budget-notify'
+import { periodSpending, notifyBudgetThresholds } from '@/lib/db/budget-notify'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { validateExpenseInput } from '@/lib/expense-input'
@@ -103,7 +103,7 @@ export async function confirmRecurringPaymentAction(
   if ('error' in result) throw new Error(result.error)
   const expense = result.expense
   const db = getDb()
-  const before = await monthSpending(db, householdId, expense.date)
+  const before = await periodSpending(db, householdId, expense.date)
   const expenseId = crypto.randomUUID()
   try {
     await db.batch([

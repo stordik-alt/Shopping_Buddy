@@ -31,6 +31,7 @@ export const initialHousehold: Household = {
   id: 'seed-household',
   name: 'Rodina Králových',
   monthlyBudget: 12000,
+  budgetPeriodStartDay: 1,
   members: [
     {
       id: '1',

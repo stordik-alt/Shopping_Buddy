@@ -275,6 +275,8 @@ export async function fetchFlyerOffers<F extends Flyer>(
   }
   // Every page failed and nothing was cached: the model (or the images) are down — say so instead of
   // reporting an empty flyer.
+  // Pages that failed are only retried by the next run, so say how many were left (not hidden).
+  if (failures.length > 0) console.warn(`${source.name} flyer: ${failures.length} page(s) not read, left for the next run. First: ${failures[0]}`)
   if (offers.length === 0 && failures.length > 0) throw new Error(`${source.name} flyer pages failed: ${failures.slice(0, 3).join('; ')}`)
   return offers
 }

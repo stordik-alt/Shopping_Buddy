@@ -1,4 +1,5 @@
 import { X } from 'lucide-react'
+import { useEffect, useRef } from 'react'
 import { PushToggle } from '@/components/notifications/push-toggle'
 import type { Notification } from '@/lib/types'
 
@@ -16,8 +17,31 @@ export function NotificationPanel({
   pushPublicKey: string | null
 }) {
   const unreadCount = notifications.filter((notification) => notification.unread).length
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  // Closes on Escape and on a click anywhere outside, like the account menu, so the two popovers
+  // never stay open on top of each other. The bell itself is excluded: it toggles the panel, and
+  // closing here first would make its click reopen it.
+  useEffect(() => {
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Element | null
+      if (panelRef.current?.contains(target) || target?.closest('[aria-controls="notifications-panel"]')) return
+      onClose()
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [onClose])
+
   return (
     <div
+      ref={panelRef}
       id="notifications-panel"
       role="dialog"
       aria-label="Panel upozornění"

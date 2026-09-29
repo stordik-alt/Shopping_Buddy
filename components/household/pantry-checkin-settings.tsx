@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { CollapsibleSection } from '@/components/shared/collapsible-section'
 import { CHECKIN_DAYS_BY_CATEGORY, CHECKIN_DAYS_BY_SUBCATEGORY, checkinSubcategoryKey } from '@/lib/pantry'
 import { subcategoriesOfItem } from '@/lib/product-subcategories'
 import { userFacingError } from '@/lib/errors'
@@ -35,6 +36,7 @@ export function PantryCheckinSettings({
   const [drafts, setDrafts] = useState<Record<string, string | undefined>>({})
   const [saving, setSaving] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const overrideCount = Object.keys(overrides).length + Object.keys(subcategoryOverrides).length
 
   const groups = CATEGORIES.map((category) => {
     const defaults = CHECKIN_DAYS_BY_SUBCATEGORY[category]
@@ -108,9 +110,11 @@ export function PantryCheckinSettings({
   }
 
   return (
-    <section className="surface p-6">
-      <p className="font-semibold">Zásoby — kontrola podle kategorie</p>
-      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+    <CollapsibleSection
+      title="Zásoby — kontrola podle kategorie"
+      summary={overrideCount > 0 ? `Vlastních nastavení: ${overrideCount}` : 'Výchozí hodnoty'}
+    >
+      <p className="text-sm leading-relaxed text-muted-foreground">
         Za kolik dní se má domácnost zeptat „Máte ještě?", pokud položku nikdo nepotvrdí. U potravin se doba liší podle podkategorie. Prázdné pole = výchozí hodnota.
       </p>
       {error && (
@@ -131,6 +135,6 @@ export function PantryCheckinSettings({
           ),
         )}
       </div>
-    </section>
+    </CollapsibleSection>
   )
 }

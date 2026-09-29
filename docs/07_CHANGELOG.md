@@ -1,5 +1,8 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-29 (Profil: collapsible sections)
+- The Profil page showed every section fully open, so it was a very long scroll. New `components/shared/collapsible-section.tsx`: a tappable header with a chevron and a one-line summary (member names, number of chosen chains, custom places, overrides, preferences, alert state) while closed. Members, Děti, Moje obchody v okolí, both Zásoby settings, Nákupní preference and Upozornění start closed; the small budget block stays open. Panels are hidden, not unmounted, so half-typed forms survive closing. The "add member" and "add child" forms sit behind a "+ Přidat" button and close after saving. `tsc` and the test suite pass; not checked on a phone.
+
 ## 2026-09-29 (Monitoring and backup strategy)
 - `GET /api/health` (`app/api/health/route.ts`, excluded from sign-in in `proxy.ts`): 200 `{"status":"ok"}` when the database answers `select 1`, otherwise 503 `{"status":"unavailable"}`; the reason goes to the log only. Meant for a free uptime monitor with e-mail alerts.
 - `pnpm db:backup` (`scripts/backup-db.ts`): `pg_dump` custom-format dump of the whole database, including the `neon_auth` accounts, into the git-ignored `backups/`. Needed because Neon's free plan restores only the last 6 hours (checked in Neon's docs). Dumps must not go to GitHub Actions artifacts: the repository is public.

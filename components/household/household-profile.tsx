@@ -6,6 +6,7 @@ import { MemberRow } from '@/components/household/member-row'
 import { NearbyStores } from '@/components/household/nearby-stores'
 import { PantryCheckinSettings } from '@/components/household/pantry-checkin-settings'
 import { PantryPlaces } from '@/components/household/pantry-places'
+import { CollapsibleSection } from '@/components/shared/collapsible-section'
 import { TagInput } from '@/components/shared/tag-input'
 import { MAX_PERIOD_START_DAY } from '@/lib/budget'
 import type { PendingInvitation } from '@/lib/db/queries'
@@ -77,6 +78,8 @@ export function HouseholdProfile({
 
   const [memberForm, setMemberForm] = useState({ name: '', age: '', favoriteFoods: '', dislikedFoods: '', allergies: '' })
   const [childForm, setChildForm] = useState({ name: '', age: '', preferences: '', specialNeeds: '' })
+  const [showMemberForm, setShowMemberForm] = useState(false)
+  const [showChildForm, setShowChildForm] = useState(false)
 
   async function sendInvite() {
     const email = invite.trim()
@@ -103,6 +106,7 @@ export function HouseholdProfile({
       allergies: splitList(memberForm.allergies),
     })
     setMemberForm({ name: '', age: '', favoriteFoods: '', dislikedFoods: '', allergies: '' })
+    setShowMemberForm(false)
   }
 
   function addChild() {
@@ -111,10 +115,14 @@ export function HouseholdProfile({
     if (!name || !Number.isFinite(age) || age <= 0) return
     onAddChild({ name, age, preferences: childForm.preferences.trim(), specialNeeds: childForm.specialNeeds.trim() || undefined })
     setChildForm({ name: '', age: '', preferences: '', specialNeeds: '' })
+    setShowChildForm(false)
   }
 
+  const { preferredBrands, preferredStores, preferredProducts, excludedProducts } = household.preferences
+  const preferenceCount = preferredBrands.length + preferredStores.length + preferredProducts.length + excludedProducts.length
+
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-4">
       <div>
         <p className="text-sm text-muted-foreground">Spolu v domácnosti</p>
         <label className="mt-1 block">
@@ -161,20 +169,26 @@ export function HouseholdProfile({
         </label>
       </div>
 
-      <section className="surface p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="font-semibold">Členové domácnosti</p>
-            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">Profil každého člena pomáhá personalizovat nákupy i jídelníček.</p>
-          </div>
-          <Users className="text-primary" />
-        </div>
+      <CollapsibleSection
+        title="Členové domácnosti"
+        icon={<Users />}
+        summary={household.members.map((member) => member.name).join(', ') || 'Zatím nikdo'}
+      >
+        <p className="text-sm leading-relaxed text-muted-foreground">Profil každého člena pomáhá personalizovat nákupy i jídelníček.</p>
         <div className="mt-5 flex flex-col gap-2">
           {household.members.map((member) => (
             <MemberCard key={member.id} member={member} onRemove={() => onRemoveMember(member.id)} />
           ))}
         </div>
-        <div className="mt-5 grid gap-2 rounded-2xl border border-dashed border-border p-4 sm:grid-cols-2">
+        <button
+          type="button"
+          aria-expanded={showMemberForm}
+          onClick={() => setShowMemberForm((current) => !current)}
+          className="mt-5 min-h-11 w-full rounded-xl border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {showMemberForm ? 'Zavřít formulář' : '+ Přidat člena'}
+        </button>
+        <div className={`mt-3 gap-2 rounded-2xl border border-dashed border-border p-4 sm:grid-cols-2 ${showMemberForm ? 'grid' : 'hidden'}`}>
           <input
             aria-label="Jméno člena"
             value={memberForm.name}
@@ -273,17 +287,24 @@ export function HouseholdProfile({
             ))}
           </div>
         )}
-      </section>
+      </CollapsibleSection>
 
-      <section className="surface p-6">
-        <p className="font-semibold">Děti</p>
-        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">Samostatný profil dítěte s preferencemi a specifickými potřebami.</p>
+      <CollapsibleSection title="Děti" summary={household.children.map((child) => child.name).join(', ') || 'Zatím žádné dítě'}>
+        <p className="text-sm leading-relaxed text-muted-foreground">Samostatný profil dítěte s preferencemi a specifickými potřebami.</p>
         <div className="mt-5 flex flex-col gap-2">
           {household.children.map((child) => (
             <ChildCard key={child.id} child={child} onRemove={() => onRemoveChild(child.id)} />
           ))}
         </div>
-        <div className="mt-5 grid gap-2 rounded-2xl border border-dashed border-border p-4 sm:grid-cols-2">
+        <button
+          type="button"
+          aria-expanded={showChildForm}
+          onClick={() => setShowChildForm((current) => !current)}
+          className="mt-5 min-h-11 w-full rounded-xl border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {showChildForm ? 'Zavřít formulář' : '+ Přidat dítě'}
+        </button>
+        <div className={`mt-3 gap-2 rounded-2xl border border-dashed border-border p-4 sm:grid-cols-2 ${showChildForm ? 'grid' : 'hidden'}`}>
           <input
             aria-label="Jméno dítěte"
             value={childForm.name}
@@ -318,7 +339,7 @@ export function HouseholdProfile({
             Přidat dítě
           </button>
         </div>
-      </section>
+      </CollapsibleSection>
 
       <NearbyStores chains={storeChains} stores={stores} selection={storeSelection} onSave={onSaveStorePreferences} />
 
@@ -331,9 +352,8 @@ export function HouseholdProfile({
         onSaveSubcategory={onSetPantrySubcategoryCheckinDays}
       />
 
-      <section className="surface p-6">
-        <p className="font-semibold">Nákupní preference domácnosti</p>
-        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">Kontext pro budoucí nákupní engine a AI asistenta.</p>
+      <CollapsibleSection title="Nákupní preference domácnosti" summary={`Počet uložených preferencí: ${preferenceCount}`}>
+        <p className="text-sm leading-relaxed text-muted-foreground">Kontext pro budoucí nákupní engine a AI asistenta.</p>
         <div className="mt-5 flex flex-col gap-5">
           <TagInput
             label="Preferované značky"
@@ -394,11 +414,10 @@ export function HouseholdProfile({
             />
           </label>
         </div>
-      </section>
+      </CollapsibleSection>
 
-      <section className="surface p-6">
-        <p className="font-semibold">Upozornění</p>
-        <div className="mt-4 flex flex-col gap-3">
+      <CollapsibleSection title="Upozornění" summary={alerts ? 'Týdenní souhrn zapnutý' : 'Týdenní souhrn vypnutý'}>
+        <div className="flex flex-col gap-3">
           <label className="flex min-h-14 items-center justify-between rounded-2xl bg-muted p-4 text-sm">
             <div>
               <p className="font-medium">Týdenní souhrn</p>
@@ -407,7 +426,7 @@ export function HouseholdProfile({
             <input type="checkbox" checked={alerts} onChange={(event) => setAlerts(event.target.checked)} className="size-4 accent-primary" />
           </label>
         </div>
-      </section>
+      </CollapsibleSection>
     </div>
   )
 }

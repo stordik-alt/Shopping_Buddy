@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Check, ChevronDown, Loader2, MapPin, Search, Star } from 'lucide-react'
+import { CollapsibleSection } from '@/components/shared/collapsible-section'
 import { storeCountLabel } from '@/lib/format'
 import { MAX_DISTANCE_KM, MAX_SHOP_STORES, normalizeDistanceKm, parseDistanceInput, visibleBranches, type StoreSelection } from '@/lib/nearby-stores'
 import type { Store } from '@/lib/types'
@@ -111,16 +112,14 @@ export function NearbyStores({
   }
 
   return (
-    <section className="surface p-6" aria-labelledby="nearby-stores-title">
-      <div className="flex items-start gap-3">
-        <MapPin className="mt-1 h-5 w-5 shrink-0 text-primary" />
-        <div className="min-w-0">
-          <p id="nearby-stores-title" className="font-semibold">Moje obchody v okolí</p>
-          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-            Vyberte obchody, které máte poblíž. Ceny a plánování nákupu pak počítají jen s nimi. Nastavení je jen vaše, ostatní členové domácnosti mají své.
-          </p>
-        </div>
-      </div>
+    <CollapsibleSection
+      title="Moje obchody v okolí"
+      icon={<MapPin className="h-5 w-5" />}
+      summary={chainIds.length > 0 ? `Vybráno řetězců: ${chainIds.length}` : 'Zatím nic nevybráno'}
+    >
+      <p className="text-sm leading-relaxed text-muted-foreground">
+        Vyberte obchody, které máte poblíž. Ceny a plánování nákupu pak počítají jen s nimi. Nastavení je jen vaše, ostatní členové domácnosti mají své.
+      </p>
 
       <div className="mt-5">
         <p className="text-sm font-medium">Obchodní řetězce</p>
@@ -346,6 +345,6 @@ export function NearbyStores({
           </span>
         )}
       </div>
-    </section>
+    </CollapsibleSection>
   )
 }

@@ -19,6 +19,26 @@ function tokenMatches(queryToken: string, textToken: string): boolean {
   return textToken === queryToken || textToken.startsWith(queryToken) || queryToken.startsWith(textToken)
 }
 
+/**
+ * Prevent portal search pages that return a generic catalogue from feeding
+ * unrelated recipes into the importer candidate set.
+ *
+ * Czech prefix matching is intentional: "kuře" must match "kuřecí".
+ * For multi-word queries, all terms are preferred; otherwise a meaningful
+ * (>= 4 characters) matching term is sufficient for the candidate gate.
+ */
+export function isRecipeTitleRelevant(title: string, query: string): boolean {
+  const queryTokens = tokens(query)
+  const titleTokens = tokens(title)
+  if (queryTokens.length === 0 || titleTokens.length === 0) return false
+
+  const matches = queryTokens.map((queryToken) =>
+    titleTokens.some((titleToken) => tokenMatches(queryToken, titleToken)),
+  )
+
+  return matches.every(Boolean) || queryTokens.some((queryToken, index) => queryToken.length >= 4 && matches[index])
+}
+
 export function recipeRelevanceScore(recipe: RecipeSearchCandidate, query: string): number {
   const queryTokens = tokens(query)
   if (queryTokens.length === 0) return 0

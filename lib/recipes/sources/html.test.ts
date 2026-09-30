@@ -13,7 +13,7 @@ describe('recipe result link extraction', () => {
     expect(extractRecipeLinks(
       html,
       'https://example.com/search?q=rizoto',
-      /^\\/recept\\//,
+      /^\/recept\//,
     )).toEqual([
       { url: 'https://example.com/recept/abc', title: 'Kuřecí rizoto' },
     ])

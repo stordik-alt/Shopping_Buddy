@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowUpRight, Clock3, Search, Star } from 'lucide-react'
-import { getRecipeAction, getRecipeCollectionsAction, getRecipeRecommendationsAction, searchRecipesAction, toggleRecipeFavoriteAction } from '@/app/actions/recipes'
+import { getRecipeAction, getRecipeCollectionsAction, getRecipePricingAction, getRecipeRecommendationsAction, searchRecipesAction, toggleRecipeFavoriteAction } from '@/app/actions/recipes'
 import { analyzeRecipeIngredients, type RecipeShoppingItem } from '@/lib/recipes/shopping'
 import { formatIngredientQuantity, scaleRecipeIngredients } from '@/lib/recipes/scaling'
+import type { RecipePriceEstimate } from '@/lib/recipes/pricing'
+import { money, shortDate } from '@/lib/format'
 import type { Recipe, RecipeSearchResult, SavedRecipe } from '@/lib/recipes/types'
 import type { RecipePantryRecommendation } from '@/lib/recipes/recommendations'
 import type { PantryItem } from '@/lib/types'
@@ -98,6 +100,33 @@ export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: Recip
   const [householdFilter, setHouseholdFilter] = useState(false)
   const [recommendations, setRecommendations] = useState<RecipePantryRecommendation[]>([])
   const [recommendationsLoading, setRecommendationsLoading] = useState(false)
+  const [pricing, setPricing] = useState<RecipePriceEstimate | null>(null)
+  const [pricingLoading, setPricingLoading] = useState(false)
+
+  useEffect(() => {
+    if (!selected) {
+      setPricing(null)
+      setPricingLoading(false)
+      return
+    }
+
+    let active = true
+    setPricingLoading(true)
+    void getRecipePricingAction(selected.sourceId, selected.canonicalUrl, servings)
+      .then((data) => {
+        if (active) setPricing(data)
+      })
+      .catch(() => {
+        if (active) setPricing(null)
+      })
+      .finally(() => {
+        if (active) setPricingLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [selected, servings])
 
   useEffect(() => {
     let active = true
@@ -149,6 +178,7 @@ export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: Recip
       setServings(initialServings)
       setSelectedIngredientIds(new Set(analysis.filter((entry) => !entry.problem && (entry.missingQuantity ?? 0) > 0).map((entry) => entry.ingredient.id)))
       setAddedCount(0)
+      setPricing(null)
       setCollectionView(null)
     } catch {
       setError('Detail receptu se nepodařilo načíst. Otevřete prosím původní recept.')

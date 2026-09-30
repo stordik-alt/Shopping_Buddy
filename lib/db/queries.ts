@@ -1094,7 +1094,7 @@ export async function getProductPrices(scope: ProductPriceScope): Promise<Produc
  *  only their offers (Penny), so their promotions have no regular price to compare with, and none is
  *  invented (CLAUDE.md sections 15 and 18). One row per product and chain: the cheapest offer running
  *  today. "Today" is the real date (Prague), like ingestion's, not the app's fixed demo date. */
-export async function getStandaloneOffers(today: string = ingestionDate()): Promise<StandaloneOffer[]> {
+export async function getStandaloneOffers(today: string = ingestionDate(), productNames?: string[]): Promise<StandaloneOffer[]> {
   const db = getDb()
   const rows = await db.execute<{
     name: string
@@ -1115,6 +1115,7 @@ export async function getStandaloneOffers(today: string = ingestionDate()): Prom
     JOIN stores s ON s.id = d.store_id
     WHERE d.valid_from <= ${today}::date AND d.valid_until >= ${today}::date
       AND NOT EXISTS (SELECT 1 FROM prices pr WHERE pr.product_id = d.product_id AND pr.store_id = d.store_id)
+      ${productNames && productNames.length > 0 ? sql`AND p.name IN (${sql.join(productNames.map((name) => sql`${name}`), sql`, `)})` : sql``}
     ORDER BY p.id, s.id, d.deal_price ASC, d.valid_until DESC
   `)
   return rows.rows.map((row) => ({

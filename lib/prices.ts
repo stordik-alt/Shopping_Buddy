@@ -221,7 +221,7 @@ export function compareStoreTotals(items: ShoppingListItemForPricing[], products
         const product = products.find((entry) => entry.productName === item.name)
         const priceAtStore = product?.prices.find((price) => price.store === store)
         if (priceAtStore) {
-          total += effectivePrice(priceAtStore) * item.quantity
+          total += effectivePrice(priceAtStore)
           itemsPriced++
         } else {
           total += item.price * item.quantity
@@ -242,6 +242,6 @@ export function cheapestPossibleTotal(items: ShoppingListItemForPricing[], produ
       const product = products.find((entry) => entry.productName === item.name)
       if (!product || product.prices.length === 0) return sum + item.price * item.quantity
       const cheapest = Math.min(...product.prices.map(effectivePrice))
-      return sum + cheapest * item.quantity
+      return sum + cheapest
     }, 0)
 }

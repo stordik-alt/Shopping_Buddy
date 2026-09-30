@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { isLocalDatabaseUrl } from './local'
+import { usesPgDriver } from './local'
 import { createRawSql, type RawSql } from './raw-sql'
 import { deployMigrationDecision } from './migrate-guard'
 
@@ -80,7 +80,7 @@ async function main() {
   const sql = createRawSql(url)
   try {
     // A plain local PostgreSQL has no Neon Auth: create the identity tables the migrations reference.
-    if (isLocalDatabaseUrl(url)) await sql.query(readFileSync(join(import.meta.dirname, 'local-auth-schema.sql'), 'utf8'))
+    if (usesPgDriver(url)) await sql.query(readFileSync(join(import.meta.dirname, 'local-auth-schema.sql'), 'utf8'))
     await withMigrationLock(sql, () => applyMigrations(sql))
   } finally {
     await sql.end()

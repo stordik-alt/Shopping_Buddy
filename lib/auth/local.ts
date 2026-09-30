@@ -4,6 +4,7 @@ import { betterAuth } from 'better-auth'
 import { getSessionCookie } from 'better-auth/cookies'
 import { nextCookies } from 'better-auth/next-js'
 import { Pool } from 'pg'
+import { poolMax } from '@/lib/db/local'
 import type { AppAuth } from '@/lib/auth/types'
 
 // Self-hosted Better Auth — the engine Neon Auth runs managed — for a local PostgreSQL where Neon
@@ -14,6 +15,7 @@ const globalPool = globalThis as unknown as { __shoppingBuddyAuthPool?: Pool }
 function createLocalBetterAuth() {
   globalPool.__shoppingBuddyAuthPool ??= new Pool({
     connectionString: process.env.DATABASE_URL!,
+    max: poolMax(),
     // Better Auth addresses tables as "user", "session", … without a schema, so put neon_auth on the path.
     options: '-c search_path=neon_auth',
   })

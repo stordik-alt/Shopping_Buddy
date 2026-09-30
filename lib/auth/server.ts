@@ -1,7 +1,7 @@
 import { createNeonAuth } from '@neondatabase/auth/next/server'
 import type { NextRequest } from 'next/server'
 import type { AppAuth } from '@/lib/auth/types'
-import { isLocalDatabaseUrl } from '@/lib/db/local'
+import { usesPgDriver } from '@/lib/db/local'
 
 // Loaded on first use only, so production (Vercel, Cloudflare) never pulls in the pg driver.
 const loadLocalAuth = async () => (await import('@/lib/auth/local')).localAuth
@@ -19,7 +19,7 @@ const lazyLocalAuth: AppAuth = {
 // Single server-side auth instance: getSession, .handler() for the API route and .middleware() for
 // proxy.ts route protection. Neon Auth in production; with a local DATABASE_URL (docs/10_LOCAL_DATABASE.md)
 // a self-hosted Better Auth on the same neon_auth tables.
-export const auth: AppAuth = isLocalDatabaseUrl(process.env.DATABASE_URL)
+export const auth: AppAuth = usesPgDriver(process.env.DATABASE_URL)
   ? lazyLocalAuth
   : (createNeonAuth({
       baseUrl: process.env.NEON_AUTH_BASE_URL!,

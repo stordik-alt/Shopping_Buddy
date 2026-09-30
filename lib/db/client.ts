@@ -3,7 +3,7 @@ import { drizzle as drizzleNeon } from 'drizzle-orm/neon-http'
 import { drizzle as drizzlePg } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
 import * as schema from '@/lib/db/schema'
-import { isLocalDatabaseUrl } from '@/lib/db/local'
+import { poolMax, usesPgDriver } from '@/lib/db/local'
 
 // Neon (HTTP) in production; a loopback DATABASE_URL selects a local PostgreSQL over TCP. Both
 // drivers expose the same Drizzle query API, so nothing above this file cares which one it is.
@@ -33,10 +33,10 @@ async function runBatch(pool: Pool, queries: BatchQuery[]) {
 
 function createDb() {
   const url = process.env.DATABASE_URL!
-  if (isLocalDatabaseUrl(url)) {
+  if (usesPgDriver(url)) {
     // One pool per process: Next.js dev hot reloads would otherwise leak a pool per reload.
     const globalPool = globalThis as unknown as { __shoppingBuddyPool?: Pool }
-    const pool = (globalPool.__shoppingBuddyPool ??= new Pool({ connectionString: url }))
+    const pool = (globalPool.__shoppingBuddyPool ??= new Pool({ connectionString: url, max: poolMax() }))
     const db = drizzlePg(pool, { schema })
     return Object.assign(db, { batch: (queries: BatchQuery[]) => runBatch(pool, queries) }) as unknown as ReturnType<typeof drizzleNeon<typeof schema>>
   }

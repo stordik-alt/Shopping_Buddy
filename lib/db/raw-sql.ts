@@ -1,6 +1,6 @@
 import { neon } from '@neondatabase/serverless'
 import { Pool } from 'pg'
-import { isLocalDatabaseUrl } from '@/lib/db/local'
+import { poolMax, usesPgDriver } from '@/lib/db/local'
 
 // Minimal raw-SQL handle for the migration runner: a tagged template for parameterised statements
 // and .query() for a statement text. Backed by Neon's HTTP driver, or by pg for a local database.
@@ -11,14 +11,14 @@ export type RawSql = {
 }
 
 export function createRawSql(url: string): RawSql {
-  if (!isLocalDatabaseUrl(url)) {
+  if (!usesPgDriver(url)) {
     const sql = neon(url)
     return Object.assign((strings: TemplateStringsArray, ...values: unknown[]) => sql(strings, ...values) as Promise<Record<string, unknown>[]>, {
       query: (text: string) => sql.query(text),
       end: async () => {},
     })
   }
-  const pool = new Pool({ connectionString: url })
+  const pool = new Pool({ connectionString: url, max: poolMax() })
   const run = async (strings: TemplateStringsArray, ...values: unknown[]) => {
     // Turn the tagged template into $1, $2, … placeholders.
     const text = strings.reduce((acc, part, i) => acc + part + (i < values.length ? `$${i + 1}` : ''), '')

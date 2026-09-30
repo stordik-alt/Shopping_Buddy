@@ -323,6 +323,18 @@ describe('compareStoreTotals', () => {
     expect(albert.itemsFallback).toBe(1)
   })
 
+  it('uses the item\'s assigned store and stored price even without a catalog name match', () => {
+    const assignedItems = [
+      item({ name: 'Okurka salátová hadovka 1 ks', price: 25.8, quantity: 1, store: 'Albert' }),
+      item({ name: 'Kuře bez drobů 1 kg', price: 99.8, quantity: 1, store: 'Albert' }),
+      item({ name: 'Kuřecí prsní řízky 1 kg', price: 259.8, quantity: 1, store: 'Albert' }),
+    ]
+    const totals = compareStoreTotals(assignedItems, [])
+    expect(totals).toEqual([
+      { store: 'Albert', total: 385.4, itemsPriced: 3, itemsFallback: 0 },
+    ])
+  })
+
   it('ignores done items entirely', () => {
     const withoutDone = compareStoreTotals(items.filter((i) => !i.done), products)
     const withDone = compareStoreTotals(items, products)

@@ -1,6 +1,6 @@
 import type { ExpenseCategory } from '@/lib/expense-categories'
 
-export type Tab = 'Domů' | 'Akce' | 'Nákup' | 'Zásoby' | 'Obchody' | 'Rozpočet' | 'AI' | 'Profil'
+export type Tab = 'Domů' | 'Akce' | 'Nákup' | 'Zásoby' | 'Obchody' | 'Recepty' | 'Rozpočet' | 'AI' | 'Profil'
 
 export type ItemCategory = 'Potraviny' | 'Drogerie' | 'Děti' | 'Domácnost' | 'Ostatní'
 export type ItemUnit = 'ks' | 'kg' | 'g' | 'l' | 'ml'

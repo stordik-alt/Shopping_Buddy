@@ -26,10 +26,6 @@ function containsNormalizedTerm(text: string, term: string): boolean {
   return Boolean(key && term && (key === term || key.includes(term) || term.includes(key)))
 }
 
-function allergyKeys(recipe: Recipe): string[] {
-  return (recipe.ratingSource ? [] : recipe.allergens ?? []).map((value) => matchKey(value)).filter(Boolean)
-}
-
 export function toRecipeSearchResult(recipe: Recipe): RecipeSearchResult {
   return {
     id: recipe.id,
@@ -55,9 +51,9 @@ export function toRecipeSearchResult(recipe: Recipe): RecipeSearchResult {
 export function filterRecipeForHousehold(recipe: Recipe, context: RecipeHouseholdContext): boolean {
   const allergies = normalizedTerms(context.allergies)
   const dislikedFoods = normalizedTerms(context.dislikedFoods)
-  const allergens = allergyKeys(recipe)
-
-  if (allergies.some((allergy) => allergens.includes(allergy))) return false
+  if (recipe.ingredients.some((ingredient) => allergies.some((term) => containsNormalizedTerm(ingredient.name, term)))) {
+    return false
+  }
 
   if (dislikedFoods.length > 0) {
     if (recipe.ingredients.some((ingredient) => dislikedFoods.some((term) => containsNormalizedTerm(ingredient.name, term)))) {

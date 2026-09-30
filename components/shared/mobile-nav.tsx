@@ -9,7 +9,7 @@ import type { Tab } from '@/lib/types'
 // Five slots keep every label at 12 px and readable at 320 px. The four sections used most often get
 // a slot; the rest sit behind "Více" (a sheet above the bar) and stay one tap further.
 const PRIMARY_TABS: Tab[] = ['Domů', 'Nákup', 'Zásoby', 'Rozpočet']
-const MORE_TABS: Tab[] = (['Akce', 'Obchody', 'Profil', 'AI'] as const).filter((tab) => tab !== 'AI' || AI_ASSISTANT_ENABLED)
+const MORE_TABS: Tab[] = (['Akce', 'Obchody', 'Recepty', 'Profil', 'AI'] as const.filter((tab) => tab !== 'AI' || AI_ASSISTANT_ENABLED)
 
 export function MobileNav({ tab, onTabChange }: { tab: Tab; onTabChange: (tab: Tab) => void }) {
   const [moreOpen, setMoreOpen] = useState(false)

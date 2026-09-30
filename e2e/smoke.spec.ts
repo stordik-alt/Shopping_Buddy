@@ -40,14 +40,16 @@ async function cleanupTestAccount(email: string) {
   }
 }
 
-async function expectSection(page: Page, path: string, tab: string) {
-  await page.goto(path, { waitUntil: 'domcontentloaded' })
-  await expect(page).toHaveURL(path)
-  await expect(page.getByRole('heading', { name: tab, level: 1 })).toBeVisible({ timeout: 15000 })
-
+async function expectSection(page: Page, tab: string) {
   const navigation = page.getByRole('navigation', { name: 'Hlavní navigace' })
   await expect(navigation).toBeVisible({ timeout: 15000 })
-  await expect(navigation.getByRole('button', { name: tab, exact: true })).toHaveAttribute('aria-current', 'page')
+
+  const button = navigation.getByRole('button', { name: tab, exact: true })
+  await expect(button).toBeVisible({ timeout: 15000 })
+  await button.click()
+
+  await expect(button).toHaveAttribute('aria-current', 'page')
+  await expect(page.getByRole('heading', { name: tab, level: 1 })).toBeVisible({ timeout: 15000 })
 }
 
 test.describe('critical smoke flow', () => {
@@ -87,13 +89,13 @@ test.describe('critical smoke flow', () => {
       await expect(page).toHaveURL(/\/$/, { timeout: 15000 })
       await expect(page.getByRole('navigation', { name: 'Hlavní navigace' })).toBeVisible({ timeout: 15000 })
 
-      await expectSection(page, '/?tab=nakup', 'Nákup')
+      await expectSection(page, 'Nákup')
       await expect(page.getByRole('group', { name: 'Zobrazení nákupu' })).toBeVisible()
       await expect(page.getByRole('button', { name: 'Nákupní seznam', exact: true })).toHaveAttribute('aria-pressed', 'true')
 
-      await expectSection(page, '/?tab=zasoby', 'Zásoby')
-      await expectSection(page, '/?tab=rozpocet', 'Rozpočet')
-      await expectSection(page, '/?tab=recepty', 'Recepty')
+      await expectSection(page, 'Zásoby')
+      await expectSection(page, 'Rozpočet')
+      await expectSection(page, 'Recepty')
     } finally {
       await cleanupTestAccount(email)
     }

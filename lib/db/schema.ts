@@ -819,6 +819,56 @@ export const recurringPaymentOccurrences = pgTable('recurring_payment_occurrence
   check('recurring_payment_occurrences_status', sql`(${table.status} = 'paid' AND ${table.expenseId} IS NOT NULL) OR (${table.status} = 'skipped' AND ${table.expenseId} IS NULL)`),
 ])
 
+// --- Recipes -----------------------------------------------------------------
+
+// Household-owned recipe bookmarks. Only normalized recipe metadata is stored; the original cooking
+// instructions remain on the source website (docs/10_RECIPES.md).
+export const recipeFavorites = pgTable('recipe_favorites', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  sourceId: text('source_id').notNull(),
+  sourceName: text('source_name').notNull(),
+  sourceUrl: text('source_url').notNull(),
+  canonicalUrl: text('canonical_url').notNull(),
+  title: text('title').notNull(),
+  description: text('description'),
+  imageUrl: text('image_url'),
+  servings: numeric('servings', { precision: 8, scale: 2 }),
+  totalTimeMinutes: integer('total_time_minutes'),
+  ratingValue: numeric('rating_value', { precision: 6, scale: 3 }),
+  ratingScale: numeric('rating_scale', { precision: 6, scale: 3 }),
+  ratingCount: integer('rating_count'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('recipe_favorites_household_canonical_unique').on(table.householdId, table.canonicalUrl),
+  index('recipe_favorites_household_created_idx').on(table.householdId, table.createdAt),
+])
+
+// Last opened recipe per household. Re-opening updates the timestamp and count instead of storing
+// an unbounded event stream. This is enough for the v1 "Historie" list while keeping the table small.
+export const recipeHistory = pgTable('recipe_history', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  sourceId: text('source_id').notNull(),
+  sourceName: text('source_name').notNull(),
+  sourceUrl: text('source_url').notNull(),
+  canonicalUrl: text('canonical_url').notNull(),
+  title: text('title').notNull(),
+  description: text('description'),
+  imageUrl: text('image_url'),
+  servings: numeric('servings', { precision: 8, scale: 2 }),
+  totalTimeMinutes: integer('total_time_minutes'),
+  ratingValue: numeric('rating_value', { precision: 6, scale: 3 }),
+  ratingScale: numeric('rating_scale', { precision: 6, scale: 3 }),
+  ratingCount: integer('rating_count'),
+  firstViewedAt: timestamp('first_viewed_at', { withTimezone: true }).notNull().defaultNow(),
+  lastViewedAt: timestamp('last_viewed_at', { withTimezone: true }).notNull().defaultNow(),
+  viewCount: integer('view_count').notNull().default(1),
+}, (table) => [
+  uniqueIndex('recipe_history_household_canonical_unique').on(table.householdId, table.canonicalUrl),
+  index('recipe_history_household_last_viewed_idx').on(table.householdId, table.lastViewedAt),
+])
+
 // --- Meal plans & notifications ------------------------------------------------
 
 export const mealPlans = pgTable('meal_plans', {

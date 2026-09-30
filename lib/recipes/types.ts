@@ -39,6 +39,12 @@ export type RecipeSearchResult = Pick<
   'ratingValue' | 'ratingScale' | 'ratingCount' | 'ratingSource'
 >
 
+export type SavedRecipe = RecipeSearchResult & {
+  savedAt: string
+  viewedAt?: string
+  viewCount?: number
+}
+
 export type RecipeSourceAdapter = {
   id: string
   name: string

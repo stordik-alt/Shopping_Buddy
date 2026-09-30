@@ -194,6 +194,24 @@ export type StoreTotal = {
  *  given store falls back to the item's own stored price (store-agnostic), so every candidate
  *  store still gets a comparable total instead of being silently excluded. Per
  *  docs/05_BUSINESS_RULES.md, this compares real, already-fetched prices — it never invents one. */
+function catalogCostForItem(item: ShoppingListItemForPricing, price: PricePoint): number | null {
+  if (!Number.isFinite(item.quantity) || item.quantity <= 0) return null
+
+  if (item.unit === 'ks') return Math.round(effectivePrice(price) * item.quantity * 100) / 100
+
+  if ((item.unit === 'kg' || item.unit === 'g') && price.unit === 'kg') {
+    const quantityKg = item.unit === 'g' ? item.quantity / 1000 : item.quantity
+    return Math.round(dealEffectiveUnitPrice(price) * quantityKg * 100) / 100
+  }
+
+  if ((item.unit === 'l' || item.unit === 'ml') && price.unit === 'l') {
+    const quantityL = item.unit === 'ml' ? item.quantity / 1000 : item.quantity
+    return Math.round(dealEffectiveUnitPrice(price) * quantityL * 100) / 100
+  }
+
+  return null
+}
+
 export function compareStoreTotals(items: ShoppingListItemForPricing[], products: ProductPrice[]): StoreTotal[] {
   const pending = items.filter((item) => !item.done)
   const stores = new Set<StoreChain>()
@@ -220,8 +238,9 @@ export function compareStoreTotals(items: ShoppingListItemForPricing[], products
 
         const product = products.find((entry) => entry.productName === item.name)
         const priceAtStore = product?.prices.find((price) => price.store === store)
-        if (priceAtStore) {
-          total += effectivePrice(priceAtStore)
+        const catalogCost = priceAtStore ? catalogCostForItem(item, priceAtStore) : null
+        if (catalogCost != null) {
+          total += catalogCost
           itemsPriced++
         } else {
           total += item.price * item.quantity
@@ -241,7 +260,10 @@ export function cheapestPossibleTotal(items: ShoppingListItemForPricing[], produ
     .reduce((sum, item) => {
       const product = products.find((entry) => entry.productName === item.name)
       if (!product || product.prices.length === 0) return sum + item.price * item.quantity
-      const cheapest = Math.min(...product.prices.map(effectivePrice))
-      return sum + cheapest
+      const costs = product.prices
+        .map((price) => catalogCostForItem(item, price))
+        .filter((cost): cost is number => cost != null)
+      if (costs.length === 0) return sum + item.price * item.quantity
+      return sum + Math.min(...costs)
     }, 0)
 }

@@ -33,6 +33,12 @@ The long-term goal is to provide intelligent shopping assistance based on reliab
 
 The AI Shopping Assistant is intentionally planned as the final major development phase.
 
+## Recipe integration — phase 1 in progress
+
+The recipe feature is now entering implementation from the concept in docs/10_RECIPES.md. The first phase contains a normalized recipe model, Schema.org Recipe JSON-LD parser, ingredient/serving normalization, serving scaling, short-lived cache and a guarded server-side fetch layer. Tests cover these foundations.
+
+No external recipe portal adapter or recipe UI is connected yet; those remain subsequent implementation phases from the concept.
+
 ---
 
 # 2. Current Git State

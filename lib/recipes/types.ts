@@ -49,6 +49,7 @@ export type RecipeSourceAdapter = {
   id: string
   name: string
   domains: string[]
+  imageDomains?: string[]
   search(query: string): Promise<RecipeSearchResult[]>
   getRecipe(url: string): Promise<Recipe>
 }

@@ -7,6 +7,7 @@ type PortalConfig = {
   id: string
   name: string
   domain: string
+  imageDomains?: string[]
   searchUrl: (query: string) => string
   recipePath: RegExp
 }
@@ -16,6 +17,7 @@ function createPortalAdapter(config: PortalConfig): RecipeSourceAdapter {
     id: config.id,
     name: config.name,
     domains: [config.domain],
+    imageDomains: config.imageDomains,
 
     async search(query: string): Promise<RecipeSearchResult[]> {
       const normalizedQuery = query.trim()

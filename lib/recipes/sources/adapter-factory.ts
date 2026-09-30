@@ -9,7 +9,8 @@ type PortalConfig = {
   name: string
   domain: string
   imageDomains?: string[]
-  searchUrl: (query: string) => string
+  searchPageCount?: number
+  searchUrl: (query: string, page?: number) => string
   recipePath: RegExp
 }
 
@@ -24,11 +25,19 @@ function createPortalAdapter(config: PortalConfig): RecipeSourceAdapter {
       const normalizedQuery = query.trim()
       if (!normalizedQuery) return []
 
-      const searchUrl = config.searchUrl(normalizedQuery)
-      const html = await fetchRecipeHtml(searchUrl, [config.domain])
-      const links = extractRecipeLinks(html, searchUrl, config.recipePath)
+      const pageCount = Math.max(1, config.searchPageCount ?? 1)
+      const allLinks = new Map<string, { url: string; title: string }>()
 
-      const relevantLinks = links.filter((link) => isRecipeTitleRelevant(link.title, normalizedQuery))
+      for (let page = 1; page <= pageCount; page += 1) {
+        const searchUrl = config.searchUrl(normalizedQuery, page)
+        const html = await fetchRecipeHtml(searchUrl, [config.domain])
+        const links = extractRecipeLinks(html, searchUrl, config.recipePath)
+        for (const link of links) {
+          if (!allLinks.has(link.url)) allLinks.set(link.url, link)
+        }
+      }
+
+      const relevantLinks = [...allLinks.values()].filter((link) => isRecipeTitleRelevant(link.title, normalizedQuery))
 
       return relevantLinks.map((link) => ({
         id: link.url,

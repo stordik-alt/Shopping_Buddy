@@ -23,5 +23,12 @@ export default defineConfig({
     url: process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3000/intro',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    env: {
+      // The CI/local smoke suite uses the self-hosted Better Auth implementation. Keep the
+      // browser client on the same implementation as lib/auth/server.ts; otherwise a missing
+      // NEXT_PUBLIC_LOCAL_DATABASE value makes the browser use Neon Auth while the server uses
+      // local Better Auth, producing a successful-looking signup request without a usable session.
+      NEXT_PUBLIC_LOCAL_DATABASE: '1',
+    },
   },
 })

@@ -34,7 +34,7 @@ describe('recipe portal adapter fixtures', () => {
   beforeEach(() => mockedFetch.mockReset())
 
   const cases = [
-    { adapter: receptyCzAdapter, searchUrl: 'https://www.recepty.cz/vyhledavani/pokrocile?search=ku%C5%99e&showResults=1', recipeUrl: 'https://www.recepty.cz/recept/testovaci-recept', title: 'Kuřecí rizoto' },
+    { adapter: receptyCzAdapter, searchUrl: 'https://www.recepty.cz/vyhledavani/pokrocile?search=ku%C5%99e&showResults=1', recipeUrl: 'https://www.recepty.cz/recept/testovaci-recept-123456', title: 'Kuřecí rizoto' },
     { adapter: apetitAdapter, searchUrl: 'https://www.apetitonline.cz/vyhledavani?search_api_fulltext=ku%C5%99e', recipeUrl: 'https://www.apetitonline.cz/recept/testovaci-recept', title: 'Kuřecí rizoto' },
     { adapter: topreceptyAdapter, searchUrl: 'https://www.toprecepty.cz/vyhledavani-receptu?hledam=ku%C5%99e', recipeUrl: 'https://www.toprecepty.cz/recept/12345-testovaci-recept/', title: 'Kuřecí rizoto' },
     { adapter: vareniAdapter, searchUrl: 'https://www.vareni.cz/vyhledavani/?q=ku%C5%99e', recipeUrl: 'https://www.vareni.cz/recepty/testovaci-recept/', title: 'Kuřecí rizoto' },

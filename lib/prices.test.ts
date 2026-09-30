@@ -287,6 +287,7 @@ const item = (overrides: Partial<ShoppingListItemForPricing> = {}): ShoppingList
   name: 'Mléko',
   price: 999, // deliberately implausible so tests fail loudly if a catalog price is wrongly ignored in favor of this fallback
   quantity: 1,
+  unit: 'ks',
   done: false,
   ...overrides,
 })

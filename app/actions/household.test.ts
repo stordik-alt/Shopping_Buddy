@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
@@ -29,10 +29,13 @@ import {
 
 const db = getDb()
 
+// A real login row (household_members.user_id references neon_auth."user"): created here and removed in
+// afterAll, so the test does not depend on the database already having accounts (a fresh local one has none).
+const createdUserIds: string[] = []
 async function anyRealUserId(): Promise<string> {
-  const result = await db.execute<{ id: string }>(`select id from neon_auth."user" limit 1`)
+  const result = await db.execute<{ id: string }>(sql`insert into neon_auth."user" (name, email, "emailVerified") values ('Household test', ${`household-test-${crypto.randomUUID()}@example.com`}, false) returning id`)
   const row = result.rows[0]
-  if (!row) throw new Error('No neon_auth user exists in this database to run this test against')
+  createdUserIds.push(row.id)
   return row.id
 }
 
@@ -56,6 +59,7 @@ afterAll(async () => {
     await db.delete(schema.invitations).where(eq(schema.invitations.householdId, id))
     await db.delete(schema.households).where(eq(schema.households.id, id))
   }
+  for (const id of createdUserIds) await db.execute(sql`delete from neon_auth."user" where id = ${id}::uuid`)
 })
 
 describe('removeHouseholdMemberAction / removeChildAction', () => {

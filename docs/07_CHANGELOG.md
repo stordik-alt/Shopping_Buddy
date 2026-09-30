@@ -1,5 +1,9 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-29 (Local database: run without Neon)
+
+Added an optional local mode: a locally installed PostgreSQL 18, a `pg` driver picked when `DATABASE_URL` is a loopback host (`lib/db/client.ts`, with `db.batch` as a transaction), the migration runner and seed on the same switch, and a self-hosted Better Auth (`lib/auth/local.ts`) on the `neon_auth` tables in place of Neon Auth. Production behaviour is unchanged. The full test suite passes against the local database. Setup and limits: `docs/10_LOCAL_DATABASE.md`. Two household tests now create their own login instead of borrowing an existing one.
+
 ## 2026-09-29 (Profil: collapsible sections)
 - The Profil page showed every section fully open, so it was a very long scroll. New `components/shared/collapsible-section.tsx`: a tappable header with a chevron and a one-line summary (member names, number of chosen chains, custom places, overrides, preferences, alert state) while closed. Members, Děti, Moje obchody v okolí, both Zásoby settings, Nákupní preference and Upozornění start closed; the small budget block stays open. Panels are hidden, not unmounted, so half-typed forms survive closing. The "add member" and "add child" forms sit behind a "+ Přidat" button and close after saving. `tsc` and the test suite pass; not checked on a phone.
 

@@ -85,13 +85,14 @@ export function rankPantryRecommendations(
   recipes: Recipe[],
   pantryItems: PantryItem[],
   context: RecipeHouseholdContext,
+  analyze: typeof analyzeRecipeIngredients = analyzeRecipeIngredients,
 ): RecipePantryRecommendation[] {
   const recommendations: RecipePantryRecommendation[] = []
 
   for (const recipe of recipes) {
     if (recipe.ingredients.length === 0 || !filterRecipeForHousehold(recipe, context)) continue
 
-    const analysis = analyzeRecipeIngredients(recipe.ingredients, pantryItems)
+    const analysis = analyze(recipe.ingredients, pantryItems)
     const ingredientCount = analysis.length
     const coveredIngredientCount = analysis.filter((entry) => entry.problem === null && entry.missingQuantity === 0).length
     const matchedIngredientCount = analysis.filter((entry) => entry.problem === null && entry.stockQuantity > 0).length

@@ -79,14 +79,16 @@ function parseIngredient(text: string, index: number): RecipeIngredient {
   if (!leading) return { id: `ingredient-${index + 1}`, originalText, name: originalText, scalable: false }
 
   const quantity = parseNumber(leading[1])
-  const rawUnit = leading[2]?.trim()
-  const name = leading[3].trim()
-  if (quantity === undefined || !name) return { id: `ingredient-${index + 1}`, originalText, name: originalText, scalable: false }
+  const remainder = leading[2].trim()
+  if (quantity === undefined || !remainder) return { id: `ingredient-${index + 1}`, originalText, name: originalText, scalable: false }
 
-  if (!rawUnit || !KNOWN_UNITS.has(rawUnit.toLowerCase())) {
-    return { id: `ingredient-${index + 1}`, originalText, quantity, name: rawUnit ? `${rawUnit} ${name}` : name, scalable: true }
+  const parts = remainder.split(/\s+/)
+  const first = parts[0]
+  if (KNOWN_UNITS.has(first.toLowerCase()) && parts.length > 1) {
+    return { id: `ingredient-${index + 1}`, originalText, quantity, unit: first, name: parts.slice(1).join(' '), scalable: true }
   }
-  return { id: `ingredient-${index + 1}`, originalText, quantity, unit: rawUnit, name, scalable: true }
+
+  return { id: `ingredient-${index + 1}`, originalText, quantity, name: remainder, scalable: true }
 }
 
 function ratingData(value: unknown): { value?: number; scale?: number; count?: number } {

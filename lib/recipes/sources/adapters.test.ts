@@ -42,7 +42,7 @@ describe('recipe portal adapter fixtures', () => {
 
   it.each(cases)('parses search results and detail for $adapter.name', async ({ adapter, searchUrl, recipeUrl, title }) => {
     if (adapter === receptyCzAdapter) {
-      mockedFetch.mockImplementation(async (url) => url.includes('recipePage=') ? searchFixture(recipeUrl, title) : searchFixture(recipeUrl, title))
+      mockedFetch.mockImplementation(async (url) => url.includes('/recept/') ? detailFixture(title, recipeUrl) : searchFixture(recipeUrl, title))
     } else {
       mockedFetch.mockResolvedValue(searchFixture(recipeUrl, title))
     }
@@ -55,7 +55,6 @@ describe('recipe portal adapter fixtures', () => {
       canonicalUrl: recipeUrl,
     })
 
-    mockedFetch.mockResolvedValueOnce(detailFixture(title, recipeUrl))
     const recipe = await adapter.getRecipe(recipeUrl)
     expect(recipe).toMatchObject({
       title,
@@ -70,13 +69,13 @@ describe('recipe portal adapter fixtures', () => {
     expect(recipe.ingredients).toHaveLength(2)
   })
   it('ignores Recepty.cz system pages and keeps individual recipes', async () => {
-    mockedFetch.mockResolvedValueOnce(
-      [
-        '<a href="https://www.recepty.cz/recept/oblibene">Oblíbené</a>',
-        '<a href="https://www.recepty.cz/recept/vsechny-vypisy-receptu">Všechny recepty</a>',
-        '<a href="https://www.recepty.cz/recept/kureci-rizoto-123456">Kuřecí rizoto</a>',
-      ].join(''),
-    )
+    mockedFetch.mockImplementation(async (url) => url.includes('recipePage=')
+      ? ''
+      : [
+          '<a href="https://www.recepty.cz/recept/oblibene">Oblíbené</a>',
+          '<a href="https://www.recepty.cz/recept/vsechny-vypisy-receptu">Všechny recepty</a>',
+          '<a href="https://www.recepty.cz/recept/kureci-rizoto-123456">Kuřecí rizoto</a>',
+        ].join(''))
 
     const results = await receptyCzAdapter.search('kuře')
 

@@ -1,9 +1,10 @@
 import { recipeDetailCache, recipeSearchCache } from '@/lib/recipes/cache'
 import { RECIPE_SOURCE_ADAPTERS, getRecipeSourceAdapter } from '@/lib/recipes/sources'
 import type { Recipe, RecipeSearchResult } from '@/lib/recipes/types'
+import { filterAndRankRecipeResults } from '@/lib/recipes/relevance'
 
 const MAX_QUERY_LENGTH = 120
-const MAX_RESULTS_PER_SOURCE = 6
+const MAX_RESULTS_PER_SOURCE = 8
 const MAX_RESULTS = 24
 
 function normalizeQuery(query: string): string {
@@ -76,8 +77,10 @@ async function searchRecipesDetailedInternal(
   }
 
   const enriched = await Promise.all([...unique.values()].slice(0, MAX_RESULTS).map(enrichResult))
-  recipeSearchCache.set(key, enriched)
-  return sortResults(enriched, options.sort ?? 'relevance') as Recipe[]
+  const relevant = filterAndRankRecipeResults(enriched, normalizedQuery)
+  const sorted = sortResults(relevant, options.sort ?? 'relevance') as Recipe[]
+  recipeSearchCache.set(key, sorted)
+  return sorted
 }
 
 export async function searchRecipes(

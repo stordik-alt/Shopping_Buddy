@@ -89,72 +89,13 @@ jobs:
           echo "Worker gzip size: ${gzip_kib} KiB"
           awk -v size="$gzip_kib" 'BEGIN { exit !(size < 9216) }' || { echo "Worker is ${gzip_kib} KiB gzip — over 9 MiB"; exit 1; }
 
-  e2e:
-    # Browser smoke tests use the isolated Neon test branch with the local Better Auth fallback.
-    # They never point at production. Serialized with the database job because both jobs write to the same test branch.
-    name: Playwright smoke tests
-    runs-on: ubuntu-latest
-    concurrency:
-      group: neon-test-branch
-      cancel-in-progress: false
-    env:
-      TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
-      TEST_DATABASE_URL_UNPOOLED: ${{ secrets.TEST_DATABASE_URL_UNPOOLED }}
-      # Better Auth's local pg adapter uses search_path=neon_auth, which Neon accepts on an unpooled
-      # connection but rejects on the pooled endpoint. Keep the web app on the test branch's unpooled
-      # connection while leaving TEST_DATABASE_URL available for the safety checks.
-      DATABASE_URL: ${{ secrets.TEST_DATABASE_URL_UNPOOLED }}
-      DATABASE_URL_UNPOOLED: ${{ secrets.TEST_DATABASE_URL_UNPOOLED }}
-      DATABASE_DRIVER: pg
-      NEXT_PUBLIC_LOCAL_DATABASE: '1'
-      NEON_AUTH_COOKIE_SECRET: ci-e2e-smoke-secret-32-characters-min
-      BETTER_AUTH_URL: http://127.0.0.1:3000
-
-    steps:
-      - name: Check for the test database secrets
-        id: secret
-        run: |
-          if [ -z "$TEST_DATABASE_URL" ]; then
-            echo "TEST_DATABASE_URL is not set"
-            exit 1
-          fi
-          if [ -z "$TEST_DATABASE_URL_UNPOOLED" ]; then
-            echo "TEST_DATABASE_URL_UNPOOLED is not set; Playwright smoke tests require the unpooled test-branch connection"
-            exit 1
-          fi
-
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Migrate the test branch
-        run: pnpm exec tsx lib/db/migrate.ts --test
-
-      - name: Install Playwright browser
-        run: pnpm exec playwright install --with-deps chromium
-
-      - name: Run Playwright smoke tests
-        env:
-          GITHUB_RUN_ID: ${{ github.run_id }}
-        run: pnpm test:e2e
-
   database:
     # The database-backed tests, against the Neon *test* branch (never production: test/setup-test-database.ts
     # clears DATABASE_URL). Needs the repository secret TEST_DATABASE_URL (the test branch's pooled
-    # connection string) and optionally TEST_DATABASE_URL_UNPOOLED; without it (a fork's PR, or the
-    # secret not yet added) the job is skipped rather than failing. Runs one at a time because all
-    # runs share that one branch and the tests write and clean real rows.
+    # connection string) and optionally TEST_DATABASE_URL_UNPOOLED; without it the database-backed
+    # tests and Playwright smoke tests are skipped. Runs one at a time because all runs share that
+    # branch and the tests write and clean real rows. Playwright is kept in this same locked job to
+    # avoid GitHub's one-pending-run concurrency behaviour cancelling a waiting browser job.
     name: Database-backed tests (Neon test branch)
     runs-on: ubuntu-latest
     concurrency:
@@ -202,3 +143,15 @@ jobs:
       - name: Database-backed tests
         if: steps.secret.outputs.available == 'true'
         run: pnpm exec vitest run app/actions app/api lib/db/queries.test.ts lib/db/receipt-list.test.ts lib/db/store-branch-search.test.ts lib/db/deals.test.ts lib/db/purchase-items.test.ts lib/db/category-changes.test.ts lib/db/subcategory-changes.test.ts
+
+      # The Playwright suite uses the same isolated test branch and the same Neon concurrency lock.
+      # Keep it in this job so migration, DB-backed tests and browser writes are serialized as one unit.
+      - name: Install Playwright browser
+        if: steps.secret.outputs.available == 'true'
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run Playwright smoke tests
+        if: steps.secret.outputs.available == 'true'
+        env:
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: pnpm test:e2e

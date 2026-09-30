@@ -6,7 +6,7 @@ describe('recipe result link extraction', () => {
     const html = `
       <a href="/recept/abc#comments"><span>Kuřecí rizoto</span></a>
       <a href="/recept/abc">Kuřecí rizoto</a>
-      <a href="https://example.com/recept/nope">Cizí web</a>
+      <a href="https://other.example/recept/nope">Cizí web</a>
       <a href="/clanek/abc">Článek</a>
     `
 

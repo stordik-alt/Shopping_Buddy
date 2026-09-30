@@ -1,5 +1,10 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-30 (Recipe parser total-time fallback)
+
+- Recipe JSON-LD parsing now derives `totalTimeMinutes` from prep and cook time when Schema.org `totalTime` is absent.
+- This fixes the parser test case where prep time is 15 minutes and cook time is 30 minutes.
+
 ## 2026-09-30 (Recipe foundation — phase 1)
 
 Implemented the first recipe-integration foundation described in docs/10_RECIPES.md:

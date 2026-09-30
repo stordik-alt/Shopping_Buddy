@@ -22,7 +22,9 @@ function createLocalBetterAuth() {
   return betterAuth({
     database: globalPool.__shoppingBuddyAuthPool,
     secret: process.env.NEON_AUTH_COOKIE_SECRET,
-    baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:3000',
+    // Unset locally: Better Auth then takes the origin from the request, so any dev port works. Set
+    // BETTER_AUTH_URL when the app is served from a fixed public address (hosted fallback).
+    baseURL: process.env.BETTER_AUTH_URL,
     emailAndPassword: { enabled: true, autoSignIn: true },
     // household_members.user_id and app_admins.user_id are uuid columns that reference neon_auth."user"(id).
     advanced: { database: { generateId: 'uuid' } },

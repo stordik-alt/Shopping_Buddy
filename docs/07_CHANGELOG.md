@@ -1,3 +1,13 @@
+## 2026-09-30 (Recipe sources — phase 2)
+
+Implemented the recipe source layer defined in docs/10_RECIPES.md:
+- adapters for Recepty.cz, Apetit Online, Toprecepty and Vaření.cz
+- shared adapter factory using the existing guarded fetch and Schema.org parser
+- source registry and source-id lookup
+- normalized recipe-result link extraction with same-host filtering and deduplication
+- fixture tests covering search-result normalization and recipe-detail parsing for all four adapters
+- current implementation does not yet add recipe UI, shopping-list integration or production network smoke tests.
+
 # Shopping Buddy — Change Log
 
 ## 2026-09-30 (Recipe foundation — phase 1)

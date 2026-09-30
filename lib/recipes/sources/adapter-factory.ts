@@ -2,6 +2,7 @@ import type { Recipe, RecipeSearchResult, RecipeSourceAdapter } from '@/lib/reci
 import { parseRecipeJsonLd } from '@/lib/recipes/parser'
 import { fetchRecipeHtml } from '@/lib/recipes/fetch'
 import { extractRecipeLinks } from '@/lib/recipes/sources/html'
+import { isRecipeTitleRelevant } from '@/lib/recipes/relevance'
 
 type PortalConfig = {
   id: string
@@ -27,7 +28,9 @@ function createPortalAdapter(config: PortalConfig): RecipeSourceAdapter {
       const html = await fetchRecipeHtml(searchUrl, [config.domain])
       const links = extractRecipeLinks(html, searchUrl, config.recipePath)
 
-      return links.map((link) => ({
+      const relevantLinks = links.filter((link) => isRecipeTitleRelevant(link.title, normalizedQuery))
+
+      return relevantLinks.map((link) => ({
         id: link.url,
         sourceId: config.id,
         sourceName: config.name,

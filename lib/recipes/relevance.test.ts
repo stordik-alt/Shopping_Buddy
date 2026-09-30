@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filterAndRankRecipeResults, recipeRelevanceScore } from '@/lib/recipes/relevance'
+import { filterAndRankRecipeResults, isRecipeTitleRelevant, recipeRelevanceScore } from '@/lib/recipes/relevance'
 import type { Recipe } from '@/lib/recipes/types'
 
 const recipe = (title: string, ingredients: string[] = []): Recipe => ({
@@ -38,5 +38,11 @@ describe('recipe search relevance', () => {
     ], 'kuře')
 
     expect(results.map((item) => item.title)).toEqual(['Kuřecí kari', 'Kuře na paprice'])
+  })
+
+  it('rejects unrelated portal catalogue titles', () => {
+    expect(isRecipeTitleRelevant('Čokoládový dort', 'kuřecí')).toBe(false)
+    expect(isRecipeTitleRelevant('Kuřecí maso na paprice', 'kuře')).toBe(true)
+    expect(isRecipeTitleRelevant('Kuřecí řízky', 'kuřecí maso')).toBe(true)
   })
 })

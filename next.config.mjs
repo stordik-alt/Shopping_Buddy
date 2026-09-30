@@ -30,6 +30,10 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Playwright's CI web server uses 127.0.0.1 while Next dev serves its page resources through the
+  // dev server origin. Explicitly allow that local development origin so browser smoke tests can
+  // load the app's scripts/chunks instead of having Next block them as cross-origin resources.
+  ...(isDev ? { allowedDevOrigins: ['127.0.0.1'] } : {}),
   experimental: {
     serverActions: {
       // Receipt photo/PDF upload (uploadReceiptAction) sends the file as a base64 string inside the

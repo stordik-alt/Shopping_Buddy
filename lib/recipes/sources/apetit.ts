@@ -4,6 +4,6 @@ export const apetitAdapter = createPortalAdapter({
   id: 'apetit',
   name: 'Apetit Online',
   domain: 'apetitonline.cz',
-  searchUrl: (query) => `https://www.apetitonline.cz/vyhledavani?search=${encodeURIComponent(query)}`,
+  searchUrl: (query) => `https://www.apetitonline.cz/vyhledavani?search_api_fulltext=${encodeURIComponent(query)}`,
   recipePath: /^\/recept\//i,
 })

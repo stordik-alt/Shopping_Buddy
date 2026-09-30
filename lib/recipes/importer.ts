@@ -214,7 +214,7 @@ export async function importRecipeBatch(options: RecipeImportOptions): Promise<R
       if (options.importImages && recipe.imageUrl && !options.dryRun) {
         try {
           const sourceDomain = adapter.domains[0] ?? new URL(recipe.canonicalUrl).hostname
-          const hosts = normalizeHostList(sourceDomain, options.imageHosts)
+          const hosts = normalizeHostList(sourceDomain, [...(adapter.imageDomains ?? []), ...(options.imageHosts ?? [])])
           imageRef = await storeRecipeImage(recipe, adapter, hosts)
           summary.imageImported += 1
         } catch (error) {

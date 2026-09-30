@@ -164,7 +164,7 @@ export function dealsForList<T extends { product: ProductPrice; price: PricePoin
   return { onList, others }
 }
 
-export type ShoppingListItemForPricing = Pick<Item, 'name' | 'price' | 'quantity' | 'done' | 'store'>
+export type ShoppingListItemForPricing = Pick<Item, 'name' | 'price' | 'quantity' | 'unit' | 'done' | 'store'>
 
 /** Whether a deal is worth stocking up on beyond the household's immediate need — per
  *  docs/05_BUSINESS_RULES.md's "Bulk buying" rule: "large quantities may be recommended when the

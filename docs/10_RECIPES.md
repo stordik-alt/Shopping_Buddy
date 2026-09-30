@@ -337,8 +337,9 @@ Každý adapter má fixture test s reprezentativní strukturou zdroje.
 
 #### Fáze 5B — doporučení a rozšířené filtry
 - volitelný filtr „Podle domácnosti“ pro běžné vyhledávání
-- automaticky vyřadit recepty s explicitně uvedeným alergenem, který má uložený člen domácnosti
+- automaticky vyřadit recepty obsahující ingredienci, jejíž normalizovaný název odpovídá alergenu uloženému u člena domácnosti
 - automaticky vyřadit recepty obsahující ingredienci, kterou má některý člen v poli „Nechce“, pomocí deterministického normalizovaného porovnání názvu ingredience
+- pokud portál nebo parser alergii z ingredience spolehlivě neodvodí (např. mléko vs. laktóza), ANITKA nesmí vztah vytvořit odhadem; takový recept může filtrem projít
 - oblíbené potraviny členů domácnosti použít pouze jako měkký signál pro řazení, nikdy jako podmínku
 - profily dětí a volný text „specifické potřeby“ v této fázi nepřevádět na automatické dietní závěry
 - nabídnout samostatný režim **„Co uvařit z toho, co mám doma“**

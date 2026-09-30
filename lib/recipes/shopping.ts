@@ -42,7 +42,7 @@ const UNIT_ALIASES: Record<string, { unit: ItemUnit; multiplier: number }> = {
 }
 
 function normalizeUnit(unit: string): string {
-  return unit.trim().toLocaleLowerCase('cs-CZ').replace(/\\./g, '').replace(/\\s+/g, '')
+  return unit.trim().toLocaleLowerCase('cs-CZ').replace(/\./g, '').replace(/\s+/g, '')
 }
 
 export function mapRecipeUnit(unit: string | undefined): { unit: ItemUnit; multiplier: number } | null {

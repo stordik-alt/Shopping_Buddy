@@ -40,12 +40,14 @@ describe('recipe portal adapter fixtures', () => {
     { adapter: vareniAdapter, searchUrl: 'https://www.vareni.cz/vyhledavani/?q=ku%C5%99e', recipeUrl: 'https://www.vareni.cz/recepty/testovaci-recept/', title: 'Kuřecí rizoto' },
   ] as const
 
-  it.each(cases)('parses search results and detail for $adapter.name', async ({ adapter, searchUrl, recipeUrl, title }) => {
-    if (adapter === receptyCzAdapter) {
-      mockedFetch.mockImplementation(async (url) => url.includes('/recept/') ? detailFixture(title, recipeUrl) : searchFixture(recipeUrl, title))
-    } else {
-      mockedFetch.mockResolvedValue(searchFixture(recipeUrl, title))
-    }
+  it.each(cases)('parses search results and detail for $adapter.name', async ({ adapter, recipeUrl, title }) => {
+    let searchCalls = 0
+    mockedFetch.mockImplementation(async (url = '') => {
+      if (url === recipeUrl) return detailFixture(title, recipeUrl)
+      searchCalls += 1
+      return searchCalls === 1 ? searchFixture(recipeUrl, title) : ''
+    })
+
     const results = await adapter.search('kuře')
     expect(results[0]).toMatchObject({
       title,
@@ -68,8 +70,9 @@ describe('recipe portal adapter fixtures', () => {
     })
     expect(recipe.ingredients).toHaveLength(2)
   })
+
   it('ignores Recepty.cz system pages and keeps individual recipes', async () => {
-    mockedFetch.mockImplementation(async (url) => url.includes('recipePage=')
+    mockedFetch.mockImplementation(async (url = '') => url.includes('recipePage=')
       ? ''
       : [
           '<a href="https://www.recepty.cz/recept/oblibene">Oblíbené</a>',
@@ -90,8 +93,9 @@ describe('recipe portal adapter fixtures', () => {
     { adapter: topreceptyAdapter, host: 'www.toprecepty.cz', path: (page: number) => `/recept/12345-kure-page-${page}/`, pageMarker: 'stranka=2' },
     { adapter: vareniAdapter, host: 'www.vareni.cz', path: (page: number) => `/recepty/kure-page-${page}/`, pageMarker: 'page=2' },
   ])('continues pagination for $adapter.name and skips excluded URLs', async ({ adapter, host, path, pageMarker }) => {
-    mockedFetch.mockImplementation(async (url) => {
-      const page = mockedFetch.mock.calls.length
+    let page = 0
+    mockedFetch.mockImplementation(async () => {
+      page += 1
       const recipeUrl = `https://${host}${path(page)}`
       return searchFixture(recipeUrl, `Kuře stránka ${page}`)
     })

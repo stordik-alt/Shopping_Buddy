@@ -92,39 +92,43 @@ function historyValues(householdId: string, recipe: Recipe) {
 
 export async function listRecipeFavorites(householdId: string): Promise<RecipeSearchResult[]> {
   const db = getDb()
-  const rows = await db.query.recipeFavorites.findMany({
-    where: eq(schema.recipeFavorites.householdId, householdId),
-    orderBy: [desc(schema.recipeFavorites.createdAt)],
-    limit: 30,
-  })
+  const rows = await db
+    .select()
+    .from(schema.recipeFavorites)
+    .where(eq(schema.recipeFavorites.householdId, householdId))
+    .orderBy(desc(schema.recipeFavorites.createdAt))
+    .limit(30)
   return rows.map(toSearchResult)
 }
 
 export async function listRecipeHistory(householdId: string): Promise<SavedRecipe[]> {
   const db = getDb()
-  const rows = await db.query.recipeHistory.findMany({
-    where: eq(schema.recipeHistory.householdId, householdId),
-    orderBy: [desc(schema.recipeHistory.lastViewedAt)],
-    limit: 30,
-  })
+  const rows = await db
+    .select()
+    .from(schema.recipeHistory)
+    .where(eq(schema.recipeHistory.householdId, householdId))
+    .orderBy(desc(schema.recipeHistory.lastViewedAt))
+    .limit(30)
   return rows.map(toHistoryResult)
 }
 
 export async function getRecipeFavoriteState(householdId: string, canonicalUrl: string): Promise<boolean> {
   const db = getDb()
-  const row = await db.query.recipeFavorites.findFirst({
-    where: and(eq(schema.recipeFavorites.householdId, householdId), eq(schema.recipeFavorites.canonicalUrl, canonicalUrl)),
-    columns: { id: true },
-  })
+  const [row] = await db
+    .select({ id: schema.recipeFavorites.id })
+    .from(schema.recipeFavorites)
+    .where(and(eq(schema.recipeFavorites.householdId, householdId), eq(schema.recipeFavorites.canonicalUrl, canonicalUrl)))
+    .limit(1)
   return Boolean(row)
 }
 
 export async function toggleRecipeFavorite(householdId: string, recipe: Recipe): Promise<boolean> {
   const db = getDb()
-  const existing = await db.query.recipeFavorites.findFirst({
-    where: and(eq(schema.recipeFavorites.householdId, householdId), eq(schema.recipeFavorites.canonicalUrl, recipe.canonicalUrl)),
-    columns: { id: true },
-  })
+  const [existing] = await db
+    .select({ id: schema.recipeFavorites.id })
+    .from(schema.recipeFavorites)
+    .where(and(eq(schema.recipeFavorites.householdId, householdId), eq(schema.recipeFavorites.canonicalUrl, recipe.canonicalUrl)))
+    .limit(1)
 
   if (existing) {
     await db.delete(schema.recipeFavorites).where(eq(schema.recipeFavorites.id, existing.id))
@@ -138,10 +142,11 @@ export async function toggleRecipeFavorite(householdId: string, recipe: Recipe):
 export async function recordRecipeView(householdId: string, recipe: Recipe): Promise<void> {
   const db = getDb()
   const now = new Date()
-  const existing = await db.query.recipeHistory.findFirst({
-    where: and(eq(schema.recipeHistory.householdId, householdId), eq(schema.recipeHistory.canonicalUrl, recipe.canonicalUrl)),
-    columns: { id: true },
-  })
+  const [existing] = await db
+    .select({ id: schema.recipeHistory.id })
+    .from(schema.recipeHistory)
+    .where(and(eq(schema.recipeHistory.householdId, householdId), eq(schema.recipeHistory.canonicalUrl, recipe.canonicalUrl)))
+    .limit(1)
 
   if (existing) {
     await db

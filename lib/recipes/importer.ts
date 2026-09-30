@@ -67,7 +67,7 @@ async function assertSafeImageUrl(value: string, allowedHosts: string[]): Promis
     const pattern = allowedHost.trim().toLowerCase().replace(/\.$/, '')
     if (!pattern) return false
     if (!pattern.includes('*')) return pattern === hostname
-    if (pattern === 'ms*.ostium.cz') return /^ms[^.]*\\.ostium\\.cz$/.test(hostname)
+    if (pattern === 'ms*.ostium.cz') return /^ms[^.]*\.ostium\.cz$/.test(hostname)
     return false
   })
   if (!hostAllowed) throw new Error('Image host is not allowlisted')

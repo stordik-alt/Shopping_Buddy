@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ClipboardCheck } from 'lucide-react'
 import { CollapsibleSection } from '@/components/shared/collapsible-section'
 import { CHECKIN_DAYS_BY_CATEGORY, CHECKIN_DAYS_BY_SUBCATEGORY, checkinSubcategoryKey } from '@/lib/pantry'
 import { subcategoriesOfItem } from '@/lib/product-subcategories'
@@ -112,6 +113,7 @@ export function PantryCheckinSettings({
   return (
     <CollapsibleSection
       title="Zásoby — kontrola podle kategorie"
+      icon={<ClipboardCheck />}
       summary={overrideCount > 0 ? `Vlastních nastavení: ${overrideCount}` : 'Výchozí hodnoty'}
     >
       <p className="text-sm leading-relaxed text-muted-foreground">

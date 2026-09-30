@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Users } from 'lucide-react'
+import { Bell, Baby, SlidersHorizontal, Users, WalletCards } from 'lucide-react'
 import { ChildCard } from '@/components/household/child-card'
 import { MemberCard } from '@/components/household/member-card'
 import { MemberRow } from '@/components/household/member-row'
@@ -136,7 +136,10 @@ export function HouseholdProfile({
       </div>
 
       <div className="surface p-5">
-        <p className="text-sm font-semibold">Měsíční rozpočet domácnosti</p>
+        <div className="flex items-center gap-3">
+          <WalletCards className="size-5 shrink-0 text-primary" aria-hidden />
+          <p className="text-sm font-semibold">Měsíční rozpočet domácnosti</p>
+        </div>
         <div className="mt-3 flex items-center gap-2">
           <input
             type="number"
@@ -289,7 +292,7 @@ export function HouseholdProfile({
         )}
       </CollapsibleSection>
 
-      <CollapsibleSection title="Děti" summary={household.children.map((child) => child.name).join(', ') || 'Zatím žádné dítě'}>
+      <CollapsibleSection title="Děti" icon={<Baby />} summary={household.children.map((child) => child.name).join(', ') || 'Zatím žádné dítě'}>
         <p className="text-sm leading-relaxed text-muted-foreground">Samostatný profil dítěte s preferencemi a specifickými potřebami.</p>
         <div className="mt-5 flex flex-col gap-2">
           {household.children.map((child) => (
@@ -352,7 +355,7 @@ export function HouseholdProfile({
         onSaveSubcategory={onSetPantrySubcategoryCheckinDays}
       />
 
-      <CollapsibleSection title="Nákupní preference domácnosti" summary={`Počet uložených preferencí: ${preferenceCount}`}>
+      <CollapsibleSection title="Nákupní preference domácnosti" icon={<SlidersHorizontal />} summary={`Počet uložených preferencí: ${preferenceCount}`}>
         <p className="text-sm leading-relaxed text-muted-foreground">Kontext pro budoucí nákupní engine a AI asistenta.</p>
         <div className="mt-5 flex flex-col gap-5">
           <TagInput
@@ -416,7 +419,7 @@ export function HouseholdProfile({
         </div>
       </CollapsibleSection>
 
-      <CollapsibleSection title="Upozornění" summary={alerts ? 'Týdenní souhrn zapnutý' : 'Týdenní souhrn vypnutý'}>
+      <CollapsibleSection title="Upozornění" icon={<Bell />} summary={alerts ? 'Týdenní souhrn zapnutý' : 'Týdenní souhrn vypnutý'}>
         <div className="flex flex-col gap-3">
           <label className="flex min-h-14 items-center justify-between rounded-2xl bg-muted p-4 text-sm">
             <div>

@@ -178,7 +178,7 @@ export async function buildShoppingPlan(householdId: string, memberId: string | 
   })
 
   const plan = planShopping(
-    needs.map((need) => ({ id: need.id, name: need.name })),
+    needs.map((need) => ({ id: need.id, name: need.name, quantity: need.quantity, unit: need.unit })),
     offers,
     { maxStores: request.maxStores, priorityStoreIds: request.priorityChainIds, allowedStoreIds: allowedIds },
   )

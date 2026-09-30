@@ -61,6 +61,7 @@ import { nearbyOffers, type StandaloneOffer } from '@/lib/offers'
 import { useUserLocation } from '@/lib/use-user-location'
 import { attentionItems } from '@/lib/attention'
 import { suggestUsualItems, type UsualItem } from '@/lib/usual-items'
+import type { RecipeShoppingItem } from '@/lib/recipes/shopping'
 
 // The shell owns what several sections share (the shopping list, notifications, purchase history)
 // and wires the per-domain hooks in components/shell/ together; each hook keeps its own state,
@@ -279,6 +280,24 @@ export function AppShell({
       setItems((current) => [...current, item])
       if (notification) setNotifications((current) => [...current, notification])
     }
+  }
+
+  // Recipe ingredients reuse the same server-side shopping-item creation as manual additions, so
+  // catalog matching, categorization, deal alerts and household authorization stay in one place.
+  // The recipe flow has already removed any quantity covered by the pantry before it gets here.
+  async function addRecipeIngredients(ingredients: RecipeShoppingItem[]): Promise<number> {
+    let added = 0
+    for (const ingredient of ingredients) {
+      pantry.offerPantryCorrection(ingredient.name)
+      const { item, notification } = await addShoppingItemAction(initialData.mainListId, ingredient.name, {
+        detail: `${ingredient.quantity} ${ingredient.unit} · z receptu`,
+        unit: ingredient.unit,
+      })
+      setItems((current) => [...current, item])
+      if (notification) setNotifications((current) => [...current, notification])
+      added += 1
+    }
+    return added
   }
 
   // Sequential for the same reason as addIngredients above: one revalidation in flight at a time.
@@ -605,7 +624,7 @@ export function AppShell({
                   onClearLocation={userLocation.clearLocation}
                 />
               )}
-              {tab === 'Recepty' && <Recipes />}
+              {tab === 'Recepty' && <Recipes pantryItems={pantryItems} onAddIngredients={addRecipeIngredients} onGoToShopping={() => setTab('Nákup')} />}
               {tab === 'Rozpočet' && (
                 <div className="space-y-5 lg:space-y-6">
                   <div className="flex flex-wrap gap-2" role="group" aria-label="Zobrazení rozpočtu">

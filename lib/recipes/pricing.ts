@@ -81,12 +81,12 @@ function standaloneUnitCost(quantity: number, unit: RecipeIngredient['unit'], of
   return null
 }
 
-function bestCandidateForProduct(
+function candidatesForProduct(
   ingredient: RecipeIngredient,
   product: ProductPrice,
   standaloneOffers: StandaloneOffer[],
-): Candidate | null {
-  if (ingredient.quantity == null) return null
+): Candidate[] {
+  if (ingredient.quantity == null) return []
   const candidates: Candidate[] = []
 
   for (const price of product.prices) {
@@ -124,7 +124,7 @@ function bestCandidateForProduct(
     })
   }
 
-  return candidates.sort((a, b) => a.cost - b.cost || a.store.localeCompare(b.store, 'cs'))[0] ?? null
+  return candidates.sort((a, b) => a.cost - b.cost || a.store.localeCompare(b.store, 'cs'))
 }
 
 export function estimateRecipePrice(
@@ -133,10 +133,11 @@ export function estimateRecipePrice(
   standaloneOffers: StandaloneOffer[] = [],
 ): RecipePriceEstimate {
   const productByName = new Map(matchedProducts.map((product) => [product.productName.trim().toLocaleLowerCase('cs-CZ'), product]))
-  const ingredientCandidates = ingredients.map((ingredient) => {
+  const allIngredientCandidates = ingredients.map((ingredient) => {
     const product = productByName.get(ingredient.name.trim().toLocaleLowerCase('cs-CZ'))
-    return product ? bestCandidateForProduct(ingredient, product, standaloneOffers) : null
+    return product ? candidatesForProduct(ingredient, product, standaloneOffers) : []
   })
+  const ingredientCandidates = allIngredientCandidates.map((candidates) => candidates[0] ?? null)
 
   const ingredientPrices = ingredientCandidates.filter((candidate): candidate is Candidate => candidate != null)
   const unpricedIngredients = ingredients
@@ -147,18 +148,11 @@ export function estimateRecipePrice(
     ? Math.round(ingredientPrices.reduce((sum, candidate) => sum + candidate.cost, 0) * 100) / 100
     : null
 
-  const stores = [...new Set(ingredientPrices.map((candidate) => candidate.store))]
+  const stores = [...new Set(allIngredientCandidates.flatMap((candidates) => candidates.map((candidate) => candidate.store)))]
   const completeStoreEstimates = stores
     .map((store) => {
-      const candidates = ingredientCandidates.map((candidate, index) => {
-        if (!candidate || candidate.store !== store) return null
-        const ingredient = ingredients[index]
-        const product = productByName.get(ingredient.name.trim().toLocaleLowerCase('cs-CZ'))
-        return product ? bestCandidateForProduct(ingredient, product, standaloneOffers)?.store === store
-          ? bestCandidateForProduct(ingredient, product, standaloneOffers)
-          : null
-          : null
-      }).filter((candidate): candidate is Candidate => candidate != null)
+      const candidates = allIngredientCandidates.map((candidates) => candidates.find((candidate) => candidate.store === store) ?? null)
+        .filter((candidate): candidate is Candidate => candidate != null)
 
       if (candidates.length !== ingredients.length || ingredients.length === 0) return null
       return {

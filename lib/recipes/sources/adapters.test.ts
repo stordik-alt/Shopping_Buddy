@@ -44,7 +44,7 @@ describe('recipe portal adapter fixtures', () => {
     if (adapter === receptyCzAdapter) {
       mockedFetch.mockImplementation(async (url) => url.includes('recipePage=') ? searchFixture(recipeUrl, title) : searchFixture(recipeUrl, title))
     } else {
-      mockedFetch.mockResolvedValueOnce(searchFixture(recipeUrl, title))
+      mockedFetch.mockResolvedValue(searchFixture(recipeUrl, title))
     }
     const results = await adapter.search('kuře')
     expect(results[0]).toMatchObject({

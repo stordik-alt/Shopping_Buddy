@@ -1,10 +1,22 @@
-import { Bot, Home, ListChecks, MapPin, Package, Tag, Users, Wallet, type LucideIcon } from 'lucide-react'
+import { Bot, House, Package, ShoppingCart, Store, Tag, Users, WalletCards, type LucideIcon } from 'lucide-react'
 import type { Tab } from '@/lib/types'
 
-export const tabIcons = { Domů: Home, Akce: Tag, Nákup: ListChecks, Zásoby: Package, Obchody: MapPin, Rozpočet: Wallet, AI: Bot, Profil: Users }
+/** ANITKA navigation icon system.
+ * Primary product areas use the same semantic Lucide icon everywhere.
+ */
+export const tabIcons = {
+  Domů: House,
+  Akce: Tag,
+  Nákup: ShoppingCart,
+  Zásoby: Package,
+  Obchody: Store,
+  Rozpočet: WalletCards,
+  AI: Bot,
+  Profil: Users,
+} satisfies Record<Tab, LucideIcon>
 
 /** One slot of the phone's bottom bar. The active state is a filled pill behind the icon (not just a
- *  colour change), so it is still obvious for users who cannot tell the two colours apart. */
+ * colour change), so it is still obvious for users who cannot tell the two colours apart. */
 export function MobileNavButton({
   label,
   Icon,

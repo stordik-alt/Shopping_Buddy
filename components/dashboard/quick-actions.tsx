@@ -1,9 +1,7 @@
-import { MapPin, Plus, ReceiptText, Wallet } from 'lucide-react'
+import { MapPin, Plus, ReceiptText, WalletCards } from 'lucide-react'
 
 /** The four things a household does most often, one tap from the home screen, as one compact row
- *  of icons. It used to be four large tiles in a 2 × 2 grid, which on a phone took most of the first
- *  screen and pushed the shopping list and the deals below it. The visible labels are short; the
- *  accessible name says what the button does. */
+ * of icons. It uses the ANITKA semantic icon system without changing the interaction model. */
 export function QuickActions({
   onShopping,
   onExpense,
@@ -19,7 +17,7 @@ export function QuickActions({
 }) {
   const actions = [
     { label: 'Do nákupu', name: 'Přidat do nákupu', icon: Plus, onClick: onShopping },
-    { label: 'Výdaj', name: 'Zapsat výdaj', icon: Wallet, onClick: onExpense },
+    { label: 'Výdaj', name: 'Zapsat výdaj', icon: WalletCards, onClick: onExpense },
     { label: 'Účtenka', name: 'Nahrát účtenku', icon: ReceiptText, onClick: onReceipt },
     { label: 'Obchody', name: 'Najít obchod', icon: MapPin, onClick: onStores },
   ]

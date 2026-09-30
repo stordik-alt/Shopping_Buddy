@@ -1,14 +1,10 @@
-import { Check, Info, Package, Plus, TrendingDown } from 'lucide-react'
+import { Check, History, Info, Package, Plus } from 'lucide-react'
 import { money, shortDate } from '@/lib/format'
 import { pantryQuantityFor } from '@/lib/pantry'
 import { dealDiscount, dealEffectiveUnitPrice, effectivePrice, suggestsStockingUp, type DealAssessment } from '@/lib/prices'
 import { toComparableUnit } from '@/lib/product-search'
 import type { PantryItem } from '@/lib/types'
 
-// A promotion assessed against every store's price for the same product (lib/prices.ts's
-// assessDealQuality — "a discount isn't automatically a good deal", CLAUDE.md section 18). Shared by
-// the home screen's "Akce k vašim položkám" and the Akce tab, so the two never judge a deal
-// differently (CLAUDE.md section 6: don't duplicate business logic).
 export function DealCard({
   assessment,
   isOnList,
@@ -38,9 +34,7 @@ export function DealCard({
         <div>
           <span className="text-lg font-semibold">{money(price.dealPrice ?? price.regularPrice)}</span>
           <span className="ml-2 text-xs text-muted-foreground line-through">{money(price.regularPrice)}</span>
-          <span className="mt-0.5 block text-xs text-muted-foreground">
-            {money(comparableUnit.unitPrice)}/{comparableUnit.unit}
-          </span>
+          <span className="mt-0.5 block text-xs text-muted-foreground">{money(comparableUnit.unitPrice)}/{comparableUnit.unit}</span>
         </div>
         {isOnList ? (
           <span className="flex min-h-9 items-center gap-1 text-xs font-medium text-muted-foreground">
@@ -58,7 +52,7 @@ export function DealCard({
       </div>
       {recentLow && (
         <p className="mt-3 flex items-start gap-1 text-xs leading-relaxed text-success">
-          <TrendingDown className="mt-0.5 h-3 w-3 shrink-0" />
+          <History className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
           <span>
             Nejnižší cena za posledních 30 dní: <span className="font-semibold">{money(recentLow.low)}</span>
             {recentLow.status === 'unchanged' && ' · Cena se nezměnila.'}

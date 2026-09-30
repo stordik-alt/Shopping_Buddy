@@ -83,7 +83,7 @@ export async function searchRecipes(
 export async function getRecipeByUrl(sourceId: string, url: string): Promise<Recipe> {
   const adapter = getRecipeSourceAdapter(sourceId)
   const parsed = new URL(url)
-  if (!adapter.domains.some((domain) => parsed.protocol === 'https:' && parsed.hostname === domain)) {
+  if (!adapter.domains.some((domain) => parsed.protocol === 'https:' && (parsed.hostname === domain || parsed.hostname.endsWith('.' + domain)))) {
     throw new Error('Nepovolený zdroj receptu')
   }
   const cached = recipeDetailCache.get(parsed.toString()) as Recipe | undefined

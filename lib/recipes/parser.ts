@@ -130,6 +130,12 @@ export function parseRecipeJsonLd(html: string, source: {
     : []
 
   const rating = ratingData(recipe.aggregateRating)
+  const prepTimeMinutes = parseDuration(recipe.prepTime)
+  const cookTimeMinutes = parseDuration(recipe.cookTime)
+  const totalTimeMinutes = parseDuration(recipe.totalTime) ??
+    (prepTimeMinutes !== undefined || cookTimeMinutes !== undefined
+      ? (prepTimeMinutes ?? 0) + (cookTimeMinutes ?? 0)
+      : undefined)
   const canonicalUrl = canonicalizeUrl(source.canonicalUrl ?? source.sourceUrl)
 
   return {
@@ -143,9 +149,9 @@ export function parseRecipeJsonLd(html: string, source: {
     imageUrl: imageUrl(recipe.image),
     servings: parseServings(recipe.recipeYield),
     servingsText: firstString(recipe.recipeYield),
-    prepTimeMinutes: parseDuration(recipe.prepTime),
-    cookTimeMinutes: parseDuration(recipe.cookTime),
-    totalTimeMinutes: parseDuration(recipe.totalTime),
+    prepTimeMinutes,
+    cookTimeMinutes,
+    totalTimeMinutes,
     category: firstString(recipe.recipeCategory),
     cuisine: firstString(recipe.recipeCuisine),
     ratingValue: rating.value,

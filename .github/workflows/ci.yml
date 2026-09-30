@@ -100,7 +100,10 @@ jobs:
     env:
       TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
       TEST_DATABASE_URL_UNPOOLED: ${{ secrets.TEST_DATABASE_URL_UNPOOLED }}
-      DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+      # Better Auth's local pg adapter uses search_path=neon_auth, which Neon accepts on an unpooled
+      # connection but rejects on the pooled endpoint. Keep the web app on the test branch's unpooled
+      # connection while leaving TEST_DATABASE_URL available for the safety checks.
+      DATABASE_URL: ${{ secrets.TEST_DATABASE_URL_UNPOOLED }}
       DATABASE_URL_UNPOOLED: ${{ secrets.TEST_DATABASE_URL_UNPOOLED }}
       DATABASE_DRIVER: pg
       NEXT_PUBLIC_LOCAL_DATABASE: '1'
@@ -108,45 +111,40 @@ jobs:
       BETTER_AUTH_URL: http://127.0.0.1:3000
 
     steps:
-      - name: Check for the test database secret
+      - name: Check for the test database secrets
         id: secret
         run: |
           if [ -z "$TEST_DATABASE_URL" ]; then
-            echo "TEST_DATABASE_URL is not set: skipping Playwright smoke tests"
-            echo "available=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "TEST_DATABASE_URL is not set"
+            exit 1
+          fi
+          if [ -z "$TEST_DATABASE_URL_UNPOOLED" ]; then
+            echo "TEST_DATABASE_URL_UNPOOLED is not set; Playwright smoke tests require the unpooled test-branch connection"
+            exit 1
           fi
 
       - name: Checkout
-        if: steps.secret.outputs.available == 'true'
         uses: actions/checkout@v4
 
       - name: Setup pnpm
-        if: steps.secret.outputs.available == 'true'
         uses: pnpm/action-setup@v4
 
       - name: Setup Node.js
-        if: steps.secret.outputs.available == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
 
       - name: Install dependencies
-        if: steps.secret.outputs.available == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Migrate the test branch
-        if: steps.secret.outputs.available == 'true'
         run: pnpm exec tsx lib/db/migrate.ts --test
 
       - name: Install Playwright browser
-        if: steps.secret.outputs.available == 'true'
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Run Playwright smoke tests
-        if: steps.secret.outputs.available == 'true'
         env:
           GITHUB_RUN_ID: ${{ github.run_id }}
         run: pnpm test:e2e

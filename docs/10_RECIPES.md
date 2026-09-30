@@ -336,18 +336,20 @@ Každý adapter má fixture test s reprezentativní strukturou zdroje.
 - oblíbené i historie musí být per-household a serverově autorizované
 
 #### Fáze 5B — doporučení a rozšířené filtry
-- filtry podle domácnosti
-- „Co uvařit z toho, co mám doma“
+- volitelný filtr „Podle domácnosti“ pro běžné vyhledávání
+- automaticky vyřadit recepty obsahující ingredienci, jejíž normalizovaný název odpovídá alergenu uloženému u člena domácnosti
+- automaticky vyřadit recepty obsahující ingredienci, kterou má některý člen v poli „Nechce“, pomocí deterministického normalizovaného porovnání názvu ingredience
+- pokud portál nebo parser alergii z ingredience spolehlivě neodvodí (např. mléko vs. laktóza), ANITKA nesmí vztah vytvořit odhadem; takový recept může filtrem projít
+- oblíbené potraviny členů domácnosti použít pouze jako měkký signál pro řazení, nikdy jako podmínku
+- profily dětí a volný text „specifické potřeby“ v této fázi nepřevádět na automatické dietní závěry
+- nabídnout samostatný režim **„Co uvařit z toho, co mám doma“**
+- návrhy mají vznikat z aktuálně evidovaných zásob domácnosti, bez AI odhadů a bez automatického převodu neporovnatelných jednotek
+- pro každý návrh zobrazit pokrytí surovin ze zásob (např. „Máte doma 4 z 5 surovin“) a chybějící množství; detail používá stejnou analýzu zásob jako fáze 4
+- recept musí mít alespoň jednu spolehlivě spárovanou surovinu se zásobou, aby se dostal do tohoto režimu
+- doporučení nesmí obcházet ochranu zdrojů, allowlist ani cache zavedené ve fázích 1–2
+- žádná nová per-user/per-household databázová tabulka není pro 5B potřeba; používají se existující profily, preference a zásoby
 
 #### Fáze 5C — ceny a akce
-- napojení receptů na akce a ceny
-- odhad ceny receptu podle aktuálních cen
-- doporučení receptů podle zásob
-
-- oblíbené recepty
-- historie
-- filtry podle domácnosti
-- „Co uvařit z toho, co mám doma“
 - napojení receptů na akce a ceny
 - odhad ceny receptu podle aktuálních cen
 - doporučení receptů podle zásob

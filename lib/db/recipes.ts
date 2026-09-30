@@ -1,7 +1,8 @@
-import { and, desc, eq, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, sql } from 'drizzle-orm'
 import type { Recipe, RecipeSearchResult, SavedRecipe } from '@/lib/recipes/types'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
+import type { PantryItem } from '@/lib/types'
 
 function optionalNumber(value: string | number | null | undefined): number | undefined {
   if (value == null) return undefined
@@ -131,6 +132,62 @@ export async function toggleRecipeFavorite(householdId: string, recipe: Recipe):
 
   await db.insert(schema.recipeFavorites).values(favoriteValues(householdId, recipe))
   return true
+}
+
+
+
+export type RecipeHouseholdData = {
+  allergies: string[]
+  dislikedFoods: string[]
+  favoriteFoods: string[]
+}
+
+/** Household profile data used by recipe filters/recommendations. Only structured member profile
+ * fields are returned; free-text child needs/preferences are intentionally excluded. */
+export async function getRecipeHouseholdData(householdId: string): Promise<RecipeHouseholdData> {
+  const db = getDb()
+  const rows = await db
+    .select({
+      allergies: schema.profiles.allergies,
+      dislikedFoods: schema.profiles.dislikedFoods,
+      favoriteFoods: schema.profiles.favoriteFoods,
+    })
+    .from(schema.profiles)
+    .innerJoin(schema.householdMembers, eq(schema.householdMembers.id, schema.profiles.memberId))
+    .where(eq(schema.householdMembers.householdId, householdId))
+
+  return {
+    allergies: [...new Set(rows.flatMap((row) => row.allergies))],
+    dislikedFoods: [...new Set(rows.flatMap((row) => row.dislikedFoods))],
+    favoriteFoods: [...new Set(rows.flatMap((row) => row.favoriteFoods))],
+  }
+}
+
+/** Current household pantry rows used by the server-side "Co uvařit z toho, co mám doma" flow. */
+export async function listRecipePantryItems(householdId: string): Promise<PantryItem[]> {
+  const db = getDb()
+  const rows = await db
+    .select({
+      id: schema.pantryItems.id,
+      name: schema.pantryItems.name,
+      category: schema.pantryItems.category,
+      location: schema.pantryItems.location,
+      customPlaceId: schema.pantryItems.customPlaceId,
+      quantity: schema.pantryItems.quantity,
+      unit: schema.pantryItems.unit,
+      addedAt: schema.pantryItems.addedAt,
+      askedAt: schema.pantryItems.askedAt,
+      tracking: schema.pantryItems.tracking,
+    })
+    .from(schema.pantryItems)
+    .where(eq(schema.pantryItems.householdId, householdId))
+    .orderBy(asc(schema.pantryItems.addedAt))
+
+  return rows.map((row) => ({
+    ...row,
+    addedAt: row.addedAt.toISOString(),
+    askedAt: row.askedAt?.toISOString(),
+  }))
 }
 
 export async function recordRecipeView(householdId: string, recipe: Recipe): Promise<void> {

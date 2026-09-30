@@ -43,16 +43,16 @@ async function enrichResult(result: RecipeSearchResult): Promise<RecipeSearchRes
   }
 }
 
-export async function searchRecipes(
+async function searchRecipesDetailedInternal(
   query: string,
   options: { sourceId?: string; sort?: 'relevance' | 'rating' | 'time' } = {},
-): Promise<RecipeSearchResult[]> {
+): Promise<Recipe[]> {
   const normalizedQuery = normalizeQuery(query)
   if (!normalizedQuery) return []
 
   const key = cacheKey(normalizedQuery, options.sourceId)
-  const cached = recipeSearchCache.get(key) as RecipeSearchResult[] | undefined
-  if (cached) return sortResults(cached, options.sort ?? 'relevance')
+  const cached = recipeSearchCache.get(key) as Recipe[] | undefined
+  if (cached) return sortResults(cached, options.sort ?? 'relevance') as Recipe[]
 
   const adapters = options.sourceId
     ? [getRecipeSourceAdapter(options.sourceId)]
@@ -77,7 +77,21 @@ export async function searchRecipes(
 
   const enriched = await Promise.all([...unique.values()].slice(0, MAX_RESULTS).map(enrichResult))
   recipeSearchCache.set(key, enriched)
-  return sortResults(enriched, options.sort ?? 'relevance')
+  return sortResults(enriched, options.sort ?? 'relevance') as Recipe[]
+}
+
+export async function searchRecipes(
+  query: string,
+  options: { sourceId?: string; sort?: 'relevance' | 'rating' | 'time' } = {},
+): Promise<RecipeSearchResult[]> {
+  return searchRecipesDetailedInternal(query, options)
+}
+
+export async function searchRecipesDetailed(
+  query: string,
+  options: { sourceId?: string; sort?: 'relevance' | 'rating' | 'time' } = {},
+): Promise<Recipe[]> {
+  return searchRecipesDetailedInternal(query, options)
 }
 
 export async function getRecipeByUrl(sourceId: string, url: string): Promise<Recipe> {

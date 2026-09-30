@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowUpRight, Clock3, Search, Star } from 'lucide-react'
-import { getRecipeAction, getRecipeCollectionsAction, searchRecipesAction, toggleRecipeFavoriteAction } from '@/app/actions/recipes'
+import { getRecipeAction, getRecipeCollectionsAction, getRecipeRecommendationsAction, searchRecipesAction, toggleRecipeFavoriteAction } from '@/app/actions/recipes'
 import { analyzeRecipeIngredients, type RecipeShoppingItem } from '@/lib/recipes/shopping'
 import { formatIngredientQuantity, scaleRecipeIngredients } from '@/lib/recipes/scaling'
 import type { Recipe, RecipeSearchResult, SavedRecipe } from '@/lib/recipes/types'
+import type { RecipePantryRecommendation } from '@/lib/recipes/recommendations'
 import type { PantryItem } from '@/lib/types'
 
 const SOURCES = [
@@ -24,7 +25,15 @@ function rating(recipe: RecipeSearchResult) {
   return ((recipe.ratingValue / scale) * 5).toFixed(1).replace('.', ',')
 }
 
-function RecipeCard({ recipe, onOpen }: { recipe: RecipeSearchResult; onOpen: () => void }) {
+function RecipeCard({
+  recipe,
+  onOpen,
+  recommendation,
+}: {
+  recipe: RecipeSearchResult
+  onOpen: () => void
+  recommendation?: RecipePantryRecommendation
+}) {
   const score = rating(recipe)
   return (
     <button type="button" onClick={onOpen} className="w-full rounded-2xl border border-border bg-card p-4 text-left shadow-sm transition hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -50,6 +59,12 @@ function RecipeCard({ recipe, onOpen }: { recipe: RecipeSearchResult; onOpen: ()
               <span className="inline-flex items-center gap-1 text-foreground"><Star className="h-3.5 w-3.5 fill-current" />{score}{recipe.ratingCount !== undefined ? ` · ${recipe.ratingCount} hodnocení` : ''}</span>
             )}
           </div>
+          {recommendation && (
+            <p className="mt-2 text-xs font-medium text-primary">
+              Máte doma {recommendation.coveredIngredientCount} z {recommendation.ingredientCount} surovin
+              {recommendation.missingIngredientCount > 0 ? ` · chybí ${recommendation.missingIngredientCount}` : ''}
+            </p>
+          )}
         </div>
       </div>
     </button>
@@ -80,6 +95,9 @@ export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: Recip
   const [collectionView, setCollectionView] = useState<'favorites' | 'history' | null>(null)
   const [collectionsLoading, setCollectionsLoading] = useState(true)
   const [favoriteSaving, setFavoriteSaving] = useState(false)
+  const [householdFilter, setHouseholdFilter] = useState(false)
+  const [recommendations, setRecommendations] = useState<RecipePantryRecommendation[]>([])
+  const [recommendationsLoading, setRecommendationsLoading] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -106,7 +124,11 @@ export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: Recip
     setLoading(true)
     setError(null)
     try {
-      const next = await searchRecipesAction(normalized, { sourceId: sourceId || undefined, sort })
+      const next = await searchRecipesAction(normalized, {
+        sourceId: sourceId || undefined,
+        sort,
+        householdFilter,
+      })
       setResults(next)
     } catch {
       setError('Recepty se nepodařilo načíst. Zkuste to znovu.')
@@ -132,6 +154,20 @@ export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: Recip
       setError('Detail receptu se nepodařilo načíst. Otevřete prosím původní recept.')
     } finally {
       setDetailLoading(false)
+    }
+  }
+
+  async function loadRecommendations() {
+    if (recommendationsLoading) return
+    setRecommendationsLoading(true)
+    setError(null)
+    try {
+      const data = await getRecipeRecommendationsAction()
+      setRecommendations(data.recipes)
+    } catch {
+      setError('Doporučení podle zásob se nepodařilo načíst. Zkuste to znovu.')
+    } finally {
+      setRecommendationsLoading(false)
     }
   }
 
@@ -341,10 +377,31 @@ export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: Recip
         </button>
       </form>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {QUICK_FILTERS.map((filter) => (
           <button key={filter} type="button" onClick={() => applyQuickFilter(filter)} className="min-h-9 rounded-full bg-muted px-3 text-sm font-medium hover:bg-primary/10">{filter}</button>
         ))}
+        <label className="inline-flex min-h-9 items-center gap-2 rounded-full bg-muted px-3 text-sm font-medium">
+          <input
+            type="checkbox"
+            checked={householdFilter}
+            onChange={(event) => {
+              const enabled = event.target.checked
+              setHouseholdFilter(enabled)
+              if (query.trim()) void search(query)
+            }}
+            className="size-4 accent-primary"
+          />
+          Podle domácnosti
+        </label>
+        <button
+          type="button"
+          onClick={() => void loadRecommendations()}
+          disabled={recommendationsLoading}
+          className="min-h-9 rounded-full bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-50"
+        >
+          {recommendationsLoading ? 'Hledám podle zásob…' : 'Co uvařit z toho, co mám doma'}
+        </button>
       </div>
 
             {collectionView && (
@@ -381,6 +438,28 @@ export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: Recip
           <option value="time">Řazení: Doba přípravy</option>
         </select>
       </div>
+
+      {recommendations.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold">Co uvařit z toho, co mám doma</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Návrhy využívají aktuální zásoby a zohledňují uložené alergie a položky, které domácnost nechce.</p>
+            </div>
+            <button type="button" onClick={() => setRecommendations([])} className="text-sm font-medium text-primary hover:underline">Skrýt</button>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {recommendations.map((recipe) => (
+              <RecipeCard
+                key={recipe.canonicalUrl}
+                recipe={recipe}
+                recommendation={recipe}
+                onOpen={() => void openRecipe(recipe)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       {error && <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm">{error}</div>}
       {detailLoading && <div role="status" className="rounded-xl bg-muted p-4 text-sm">Načítám detail receptu…</div>}

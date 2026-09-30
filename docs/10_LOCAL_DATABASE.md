@@ -34,7 +34,6 @@ TEST_DATABASE_URL=postgresql://shopping_buddy:shopping_buddy@localhost:5433/shop
 TEST_DATABASE_URL_UNPOOLED=postgresql://shopping_buddy:shopping_buddy@localhost:5433/shopping_buddy_test
 NEXT_PUBLIC_LOCAL_DATABASE=1
 NEON_AUTH_COOKIE_SECRET=any-random-string-of-32-or-more-characters
-BETTER_AUTH_URL=http://localhost:3000
 ```
 
 Then:

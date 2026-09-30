@@ -22,7 +22,7 @@ function createPortalAdapter(config: PortalConfig): RecipeSourceAdapter {
       if (!normalizedQuery) return []
 
       const searchUrl = config.searchUrl(normalizedQuery)
-      const html = await fetchRecipeHtml(searchUrl, config.domain)
+      const html = await fetchRecipeHtml(searchUrl, [config.domain])
       const links = extractRecipeLinks(html, searchUrl, config.recipePath)
 
       return links.map((link) => ({
@@ -36,7 +36,7 @@ function createPortalAdapter(config: PortalConfig): RecipeSourceAdapter {
     },
 
     async getRecipe(url: string): Promise<Recipe> {
-      const html = await fetchRecipeHtml(url, config.domain)
+      const html = await fetchRecipeHtml(url, [config.domain])
       return parseRecipeJsonLd(html, {
         sourceId: config.id,
         sourceName: config.name,

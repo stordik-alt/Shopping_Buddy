@@ -1,4 +1,6 @@
-import type { RecipeSearchResult } from '@/lib/recipes/types'
+import type { Recipe, RecipeSearchResult } from '@/lib/recipes/types'
+
+type RecipeSearchCandidate = RecipeSearchResult & Pick<Partial<Recipe>, 'ingredients'>
 
 function normalize(value: string): string {
   return value
@@ -17,7 +19,7 @@ function tokenMatches(queryToken: string, textToken: string): boolean {
   return textToken === queryToken || textToken.startsWith(queryToken) || queryToken.startsWith(textToken)
 }
 
-export function recipeRelevanceScore(recipe: RecipeSearchResult, query: string): number {
+export function recipeRelevanceScore(recipe: RecipeSearchCandidate, query: string): number {
   const queryTokens = tokens(query)
   if (queryTokens.length === 0) return 0
 
@@ -28,19 +30,15 @@ export function recipeRelevanceScore(recipe: RecipeSearchResult, query: string):
   let score = 0
 
   for (const queryToken of queryTokens) {
-    const titleMatch = titleTokens.some((token) => tokenMatches(queryToken, token))
-    const descriptionMatch = descriptionTokens.some((token) => tokenMatches(queryToken, token))
-    const ingredientMatch = ingredientTokens.some((token) => tokenMatches(queryToken, token))
-
-    if (titleMatch) score += 100
-    else if (descriptionMatch) score += 40
-    else if (ingredientMatch) score += 60
+    if (titleTokens.some((token) => tokenMatches(queryToken, token))) score += 100
+    else if (ingredientTokens.some((token) => tokenMatches(queryToken, token))) score += 60
+    else if (descriptionTokens.some((token) => tokenMatches(queryToken, token))) score += 40
   }
 
   return score
 }
 
-export function filterAndRankRecipeResults<T extends RecipeSearchResult>(recipes: T[], query: string): T[] {
+export function filterAndRankRecipeResults<T extends RecipeSearchCandidate>(recipes: T[], query: string): T[] {
   return recipes
     .map((recipe, index) => ({ recipe, score: recipeRelevanceScore(recipe, query), index }))
     .filter((entry) => entry.score > 0)

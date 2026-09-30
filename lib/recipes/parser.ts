@@ -145,7 +145,7 @@ export function parseRecipeJsonLd(html: string, source: {
     servingsText: firstString(recipe.recipeYield),
     prepTimeMinutes: parseDuration(recipe.prepTime),
     cookTimeMinutes: parseDuration(recipe.cookTime),
-    totalTimeMinutes: parseDuration(recipe.totalTime),
+    totalTimeMinutes: parseDuration(recipe.totalTime) ?? (() => {\n      const prep = parseDuration(recipe.prepTime)\n      const cook = parseDuration(recipe.cookTime)\n      return prep !== undefined && cook !== undefined ? prep + cook : undefined\n    })(),
     category: firstString(recipe.recipeCategory),
     cuisine: firstString(recipe.recipeCuisine),
     ratingValue: rating.value,

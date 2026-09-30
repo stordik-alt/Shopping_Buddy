@@ -192,11 +192,12 @@ export function estimateRecipePrice(
     .sort((a, b) => a.total - b.total || a.store.localeCompare(b.store, 'cs'))
 
   const activeDeals = ingredientPrices
-    .filter((candidate) => candidate.isDeal && candidate.dealValidUntil)
+    .filter((candidate) => candidate.isDeal && candidate.dealValidUntil && candidate.dealPrice != null)
     .map((candidate) => ({
       ingredientName: candidate.ingredientName,
       store: candidate.store,
-      price: candidate.cost,
+      price: candidate.dealPrice as number,
+      estimatedCost: candidate.cost,
       validUntil: candidate.dealValidUntil as string,
     }))
     .sort((a, b) => a.price - b.price || a.store.localeCompare(b.store, 'cs'))

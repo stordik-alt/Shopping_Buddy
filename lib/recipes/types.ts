@@ -45,11 +45,16 @@ export type SavedRecipe = RecipeSearchResult & {
   viewCount?: number
 }
 
+export type RecipeSearchOptions = {
+  limit?: number
+  excludeUrls?: ReadonlySet<string>
+}
+
 export type RecipeSourceAdapter = {
   id: string
   name: string
   domains: string[]
   imageDomains?: string[]
-  search(query: string): Promise<RecipeSearchResult[]>
+  search(query: string, options?: RecipeSearchOptions): Promise<RecipeSearchResult[]>
   getRecipe(url: string): Promise<Recipe>
 }

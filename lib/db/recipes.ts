@@ -1,13 +1,7 @@
 import { and, desc, eq, sql } from 'drizzle-orm'
-import type { Recipe, RecipeSearchResult } from '@/lib/recipes/types'
+import type { Recipe, RecipeSearchResult, SavedRecipe } from '@/lib/recipes/types'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
-
-export type SavedRecipe = RecipeSearchResult & {
-  savedAt: string
-  viewedAt?: string
-  viewCount?: number
-}
 
 function optionalNumber(value: string | number | null | undefined): number | undefined {
   if (value == null) return undefined

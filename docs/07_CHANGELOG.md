@@ -1,5 +1,17 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-30 (Recipe foundation — phase 1)
+
+Implemented the first recipe-integration foundation described in docs/10_RECIPES.md:
+- normalized recipe and source-adapter types
+- Schema.org Recipe JSON-LD parser with @graph support
+- ingredient quantity/unit normalization, serving parsing and rating metadata
+- deterministic serving scaling
+- short-lived in-memory search/detail cache
+- server-side HTTPS fetch with domain allowlist, private-IP protection, timeout and response-size/content-type limits
+- unit tests for parser, ratings, scaling, cache and fetch security
+- external recipe portals and UI are not yet connected in this phase.
+
 ## 2026-09-30 (Concept-first development and changelog)
 - Development workflow now requires reviewing the relevant concept/specification document before implementation changes.
 - If a requested change alters the documented concept, the concept must be updated in the same coherent change so it remains the source of truth.

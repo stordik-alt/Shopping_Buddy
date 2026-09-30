@@ -1,21 +1,11 @@
-## 2026-09-30 (Recipes — phases 3 and 4)
+## 2026-09-30 (Recipes — phases 5A–5C)
 
-Verified and merged recipe UI phase 3:
-- Recepty added to the navigation and mobile Více menu
-- server-side search across the configured Czech sources
-- source filtering and sorting by relevance, rating and time
-- result cards with source, servings, time and available ratings
-- recipe detail with serving selection, scaled ingredients and original-source link
-- preparation instructions are not copied into ANITKA
-
-Implemented recipe shopping integration phase 4 on `feat/recipes-shopping-integration`:
-- ingredient review with selectable lines
-- supported recipe-unit mapping to the shopping-list model
-- pantry-aware quantity subtraction, including compatible units and multiple pantry placements
-- explicit problem states for unquantifiable or unsupported ingredients
-- selected missing quantities added through the existing shopping action, preserving catalog matching, categorization and deal notifications
-
-Validation of phase 4 is pending CI.
+Verified and merged the remaining planned recipe expansion phases:
+- **5A — Oblíbené a historie:** household-scoped favorites and compact recent-history persistence, with server-side authorization and metadata-only storage.
+- **5B — Doporučení a rozšířené filtry:** optional household filtering from structured member profile fields, deterministic exclusion of matching allergens/disliked ingredients, soft favorite-food ordering, and pantry-based „Co uvařit z toho, co mám doma“ recommendations.
+- **5C — Ceny a akce:** recipe cost estimates from existing product prices and active deals, safe kg/g and l/ml comparisons, incomplete-data reporting, cheapest complete single-store total, and active-deal display.
+- Automated tests for the merged phases passed.
+- Vercel production deployment was not available for verification because the project hit the free-plan build limit.
 
 ## 2026-09-30 (Recipe sources — phase 2)
 

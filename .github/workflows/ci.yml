@@ -94,9 +94,9 @@ jobs:
     # clears DATABASE_URL). Needs the repository secret TEST_DATABASE_URL (the test branch's pooled
     # connection string) and optionally TEST_DATABASE_URL_UNPOOLED; without it the database-backed
     # tests and Playwright smoke tests are skipped. Runs one at a time because all runs share that
-    # branch and the tests write and clean real rows. Playwright is kept in this same locked job to
-    # avoid GitHub's one-pending-run concurrency behaviour cancelling a waiting browser job.
-    name: Database-backed tests (Neon test branch)
+    # branch and the tests write and clean real rows. Smoke tests run first, then database-backed
+    # tests, all within this single serialized job.
+    name: Database and Playwright tests (Neon test branch)
     runs-on: ubuntu-latest
     concurrency:
       group: neon-test-branch
@@ -140,12 +140,8 @@ jobs:
         if: steps.secret.outputs.available == 'true'
         run: pnpm exec tsx lib/db/migrate.ts --test
 
-      - name: Database-backed tests
-        if: steps.secret.outputs.available == 'true'
-        run: pnpm exec vitest run app/actions app/api lib/db/queries.test.ts lib/db/receipt-list.test.ts lib/db/store-branch-search.test.ts lib/db/deals.test.ts lib/db/purchase-items.test.ts lib/db/category-changes.test.ts lib/db/subcategory-changes.test.ts
-
-      # The Playwright suite uses the same isolated test branch and the same Neon concurrency lock.
-      # Keep it in this job so migration, DB-backed tests and browser writes are serialized as one unit.
+      # Run browser smoke tests first. They create and clean a disposable account, so the DB-backed
+      # unit tests run afterwards against a clean test branch.
       - name: Install Playwright browser
         if: steps.secret.outputs.available == 'true'
         run: pnpm exec playwright install --with-deps chromium
@@ -155,3 +151,7 @@ jobs:
         env:
           GITHUB_RUN_ID: ${{ github.run_id }}
         run: pnpm test:e2e
+
+      - name: Database-backed tests
+        if: steps.secret.outputs.available == 'true'
+        run: pnpm exec vitest run app/actions app/api lib/db/queries.test.ts lib/db/receipt-list.test.ts lib/db/store-branch-search.test.ts lib/db/deals.test.ts lib/db/purchase-items.test.ts lib/db/category-changes.test.ts lib/db/subcategory-changes.test.ts

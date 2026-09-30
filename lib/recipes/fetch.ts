@@ -3,7 +3,13 @@ import { isIP } from 'node:net'
 
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 const DEFAULT_TIMEOUT_MS = 10_000
+const MAX_REDIRECTS = 3
 const BLOCKED_HOSTNAMES = new Set(['localhost', 'localhost.localdomain', 'metadata.google.internal'])
+const DEFAULT_HEADERS = {
+  Accept: 'text/html,application/xhtml+xml',
+  'Accept-Language': 'cs-CZ,cs;q=0.9,en;q=0.7',
+  'User-Agent': 'ANITKA Recipe Importer/1.0 (+https://github.com/stordik-alt/Shopping_Buddy)',
+}
 
 function isPrivateIpv4(ip: string): boolean {
   const octets = ip.split('.').map(Number)
@@ -47,55 +53,68 @@ export async function fetchRecipeHtml(
   allowedDomains: readonly string[],
   options: { timeoutMs?: number; maxBytes?: number } = {},
 ): Promise<string> {
-  const parsed = await assertSafeRecipeUrl(url, allowedDomains)
+  let current = await assertSafeRecipeUrl(url, allowedDomains)
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS)
 
   try {
-    const response = await fetch(parsed, {
-      signal: controller.signal,
-      headers: { Accept: 'text/html,application/xhtml+xml' },
-      redirect: 'error',
-      cache: 'no-store',
-    })
+    for (let redirect = 0; redirect <= MAX_REDIRECTS; redirect += 1) {
+      const response = await fetch(current, {
+        signal: controller.signal,
+        headers: DEFAULT_HEADERS,
+        redirect: 'manual',
+        cache: 'no-store',
+      })
 
-    if (!response.ok) throw new Error('Recipe source returned HTTP ' + response.status)
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get('location')
+        if (!location || redirect === MAX_REDIRECTS) {
+          throw new Error('Recipe source redirect limit reached')
+        }
+        current = await assertSafeRecipeUrl(new URL(location, current).toString(), allowedDomains)
+        continue
+      }
 
-    const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''
-    if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) {
-      throw new Error('Recipe source returned an unsupported content type')
-    }
+      if (!response.ok) throw new Error('Recipe source returned HTTP ' + response.status)
 
-    const maxBytes = options.maxBytes ?? MAX_RESPONSE_BYTES
-    const contentLength = Number(response.headers.get('content-length'))
-    if (Number.isFinite(contentLength) && contentLength > maxBytes) {
-      throw new Error('Recipe source response is too large')
-    }
-    if (!response.body) throw new Error('Recipe source returned no body')
+      const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''
+      if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) {
+        throw new Error('Recipe source returned an unsupported content type')
+      }
 
-    const reader = response.body.getReader()
-    const chunks: Uint8Array[] = []
-    let total = 0
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      total += value.byteLength
-      if (total > maxBytes) {
-        await reader.cancel()
+      const maxBytes = options.maxBytes ?? MAX_RESPONSE_BYTES
+      const contentLength = Number(response.headers.get('content-length'))
+      if (Number.isFinite(contentLength) && contentLength > maxBytes) {
         throw new Error('Recipe source response is too large')
       }
-      chunks.push(value)
+      if (!response.body) throw new Error('Recipe source returned no body')
+
+      const reader = response.body.getReader()
+      const chunks: Uint8Array[] = []
+      let total = 0
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        total += value.byteLength
+        if (total > maxBytes) {
+          await reader.cancel()
+          throw new Error('Recipe source response is too large')
+        }
+        chunks.push(value)
+      }
+
+      const result = new Uint8Array(total)
+      let offset = 0
+      for (const chunk of chunks) {
+        result.set(chunk, offset)
+        offset += chunk.byteLength
+      }
+
+      return new TextDecoder().decode(result)
     }
 
-    const result = new Uint8Array(total)
-    let offset = 0
-    for (const chunk of chunks) {
-      result.set(chunk, offset)
-      offset += chunk.byteLength
-    }
-
-    return new TextDecoder().decode(result)
+    throw new Error('Recipe source redirect limit reached')
   } finally {
     clearTimeout(timeout)
   }

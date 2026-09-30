@@ -150,6 +150,15 @@ jobs:
         if: steps.secret.outputs.available == 'true'
         env:
           GITHUB_RUN_ID: ${{ github.run_id }}
+          # Playwright must run the app with the local PostgreSQL/Better Auth path.
+          # Use the unpooled test-branch connection because lib/auth/local.ts sets
+          # search_path=neon_auth, which Neon rejects on pooled connections.
+          DATABASE_URL: ${{ secrets.TEST_DATABASE_URL_UNPOOLED }}
+          DATABASE_URL_UNPOOLED: ${{ secrets.TEST_DATABASE_URL_UNPOOLED }}
+          DATABASE_DRIVER: pg
+          NEON_AUTH_COOKIE_SECRET: ci-e2e-smoke-secret-32-characters-min
+          BETTER_AUTH_URL: http://127.0.0.1:3000
+          NEXT_PUBLIC_LOCAL_DATABASE: '1'
         run: pnpm test:e2e
 
       - name: Database-backed tests

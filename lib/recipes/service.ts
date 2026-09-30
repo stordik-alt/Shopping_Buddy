@@ -1,4 +1,7 @@
+import { eq } from 'drizzle-orm'
 import { recipeDetailCache, recipeSearchCache } from '@/lib/recipes/cache'
+import { getDb } from '@/lib/db/client'
+import * as schema from '@/lib/db/schema'
 import { RECIPE_SOURCE_ADAPTERS, getRecipeSourceAdapter } from '@/lib/recipes/sources'
 import type { Recipe, RecipeSearchResult } from '@/lib/recipes/types'
 import { filterAndRankRecipeResults } from '@/lib/recipes/relevance'
@@ -32,15 +35,31 @@ function sortResults(results: RecipeSearchResult[], sort: 'relevance' | 'rating'
   })
 }
 
+async function getCatalogImageUrl(canonicalUrl: string): Promise<string | undefined> {
+  const [row] = await getDb()
+    .select({
+      imageUrl: schema.recipeCatalog.imageUrl,
+      imageRef: schema.recipeCatalog.imageRef,
+    })
+    .from(schema.recipeCatalog)
+    .where(eq(schema.recipeCatalog.canonicalUrl, canonicalUrl))
+    .limit(1)
+
+  return row?.imageRef && row.imageUrl ? row.imageUrl : undefined
+}
+
 async function enrichResult(result: RecipeSearchResult): Promise<RecipeSearchResult> {
+  const catalogImageUrl = await getCatalogImageUrl(result.canonicalUrl)
   const cached = recipeDetailCache.get(result.canonicalUrl) as Recipe | undefined
-  if (cached) return cached
+  if (cached) return catalogImageUrl ? { ...cached, imageUrl: catalogImageUrl } : cached
+
   try {
     const recipe = await getRecipeSourceAdapter(result.sourceId).getRecipe(result.canonicalUrl)
-    recipeDetailCache.set(result.canonicalUrl, recipe)
-    return recipe
+    const enriched = catalogImageUrl ? { ...recipe, imageUrl: catalogImageUrl } : recipe
+    recipeDetailCache.set(result.canonicalUrl, enriched)
+    return enriched
   } catch {
-    return result
+    return catalogImageUrl ? { ...result, imageUrl: catalogImageUrl } : result
   }
 }
 
@@ -103,9 +122,12 @@ export async function getRecipeByUrl(sourceId: string, url: string): Promise<Rec
   if (!adapter.domains.some((domain) => parsed.protocol === 'https:' && (parsed.hostname === domain || parsed.hostname.endsWith('.' + domain)))) {
     throw new Error('Nepovolený zdroj receptu')
   }
+  const catalogImageUrl = await getCatalogImageUrl(parsed.toString())
   const cached = recipeDetailCache.get(parsed.toString()) as Recipe | undefined
-  if (cached) return cached
+  if (cached) return catalogImageUrl ? { ...cached, imageUrl: catalogImageUrl } : cached
+
   const recipe = await adapter.getRecipe(parsed.toString())
-  recipeDetailCache.set(parsed.toString(), recipe)
-  return recipe
+  const enriched = catalogImageUrl ? { ...recipe, imageUrl: catalogImageUrl } : recipe
+  recipeDetailCache.set(parsed.toString(), enriched)
+  return enriched
 }

@@ -51,12 +51,15 @@ export function toRecipeSearchResult(recipe: Recipe): RecipeSearchResult {
 export function filterRecipeForHousehold(recipe: Recipe, context: RecipeHouseholdContext): boolean {
   const allergies = normalizedTerms(context.allergies)
   const dislikedFoods = normalizedTerms(context.dislikedFoods)
-  if (recipe.ingredients.some((ingredient) => allergies.some((term) => containsNormalizedTerm(ingredient.name, term)))) {
+  const ingredients = Array.isArray(recipe.ingredients) ? recipe.ingredients : []
+  if (ingredients.length === 0 && (allergies.length > 0 || dislikedFoods.length > 0)) return false
+
+  if (ingredients.some((ingredient) => allergies.some((term) => containsNormalizedTerm(ingredient.name, term)))) {
     return false
   }
 
   if (dislikedFoods.length > 0) {
-    if (recipe.ingredients.some((ingredient) => dislikedFoods.some((term) => containsNormalizedTerm(ingredient.name, term)))) {
+    if (ingredients.some((ingredient) => dislikedFoods.some((term) => containsNormalizedTerm(ingredient.name, term)))) {
       return false
     }
   }
@@ -68,7 +71,8 @@ export function householdPreferenceScore(recipe: Recipe, context: RecipeHousehol
   const favorites = normalizedTerms(context.favoriteFoods)
   if (favorites.length === 0) return 0
 
-  return recipe.ingredients.reduce(
+  const ingredients = Array.isArray(recipe.ingredients) ? recipe.ingredients : []
+  return ingredients.reduce(
     (score, ingredient) => score + (favorites.some((term) => containsNormalizedTerm(ingredient.name, term)) ? 1 : 0),
     0,
   )
@@ -90,7 +94,7 @@ export function rankPantryRecommendations(
   const recommendations: RecipePantryRecommendation[] = []
 
   for (const recipe of recipes) {
-    if (recipe.ingredients.length === 0 || !filterRecipeForHousehold(recipe, context)) continue
+    if (!Array.isArray(recipe.ingredients) || recipe.ingredients.length === 0 || !filterRecipeForHousehold(recipe, context)) continue
 
     const analysis = analyze(recipe.ingredients, pantryItems)
     const ingredientCount = analysis.length

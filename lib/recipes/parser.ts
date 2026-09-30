@@ -75,7 +75,7 @@ const KNOWN_UNITS = new Set([
 
 function parseIngredient(text: string, index: number): RecipeIngredient {
   const originalText = text.trim()
-  const leading = originalText.match(/^\\s*((?:\\d+(?:[,.]\\d+)?|\\d+\\s*\\/\\s*\\d+))\\s+(.+?)\\s*$/)
+  const leading = originalText.match(/^\s*((?:\d+(?:[,.]\d+)?|\d+\s*\/\s*\d+))\s+(.+?)\s*$/)
   if (!leading) return { id: `ingredient-${index + 1}`, originalText, name: originalText, scalable: false }
 
   const quantity = parseNumber(leading[1])

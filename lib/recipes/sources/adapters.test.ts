@@ -65,4 +65,19 @@ describe('recipe portal adapter fixtures', () => {
     })
     expect(recipe.ingredients).toHaveLength(2)
   })
+  it('ignores Recepty.cz system pages and keeps individual recipes', async () => {
+    mockedFetch.mockResolvedValueOnce(
+      [
+        '<a href="https://www.recepty.cz/recept/oblibene">Oblíbené</a>',
+        '<a href="https://www.recepty.cz/recept/vsechny-vypisy-receptu">Všechny recepty</a>',
+        '<a href="https://www.recepty.cz/recept/kureci-rizoto-123456">Kuřecí rizoto</a>',
+      ].join(''),
+    )
+
+    const results = await receptyCzAdapter.search('kuře')
+
+    expect(results).toHaveLength(1)
+    expect(results[0].sourceUrl).toBe('https://www.recepty.cz/recept/kureci-rizoto-123456')
+  })
+
 })

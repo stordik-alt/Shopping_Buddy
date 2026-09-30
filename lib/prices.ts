@@ -164,7 +164,7 @@ export function dealsForList<T extends { product: ProductPrice; price: PricePoin
   return { onList, others }
 }
 
-export type ShoppingListItemForPricing =Pick<Item, 'name' | 'price' | 'quantity' | 'done'>
+export type ShoppingListItemForPricing = Pick<Item, 'name' | 'price' | 'quantity' | 'done' | 'store'>
 
 /** Whether a deal is worth stocking up on beyond the household's immediate need — per
  *  docs/05_BUSINESS_RULES.md's "Bulk buying" rule: "large quantities may be recommended when the
@@ -183,9 +183,9 @@ export function suggestsStockingUp(assessment: DealAssessment, currentPantryQuan
 export type StoreTotal = {
   store: StoreChain
   total: number
-  /** How many of the not-done items this total is based on real per-store catalog prices for. */
+  /** How many of the not-done items this total is based on a real stored price: an explicitly assigned store price on the item, or a catalog price for that store. */
   itemsPriced: number
-  /** How many fell back to the item's own stored price because we have no catalog price for that product at this store. */
+  /** How many had neither an explicitly assigned store price nor a catalog price, so the item's own price was used as an estimate. */
   itemsFallback: number
 }
 
@@ -197,6 +197,10 @@ export type StoreTotal = {
 export function compareStoreTotals(items: ShoppingListItemForPricing[], products: ProductPrice[]): StoreTotal[] {
   const pending = items.filter((item) => !item.done)
   const stores = new Set<StoreChain>()
+  // A store explicitly assigned to a list item is itself a valid candidate even when that item
+  // has no matching catalog product. Its stored item price is the real price the user sees in the
+  // list and must therefore not disappear from the whole-trip total.
+  for (const item of pending) if (item.store) stores.add(item.store)
   for (const product of products) for (const price of product.prices) stores.add(price.store)
 
   return Array.from(stores)
@@ -205,6 +209,15 @@ export function compareStoreTotals(items: ShoppingListItemForPricing[], products
       let itemsPriced = 0
       let itemsFallback = 0
       for (const item of pending) {
+        // If the user explicitly assigned this item to this store, prefer the price already stored
+        // on the shopping-list item. This keeps the whole-list total consistent with the list's
+        // own store-group estimate, even when the catalog has no exact product-name match.
+        if (item.store === store) {
+          total += item.price * item.quantity
+          itemsPriced++
+          continue
+        }
+
         const product = products.find((entry) => entry.productName === item.name)
         const priceAtStore = product?.prices.find((price) => price.store === store)
         if (priceAtStore) {

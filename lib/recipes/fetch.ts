@@ -1,1 +1,102 @@
-import { lookup } from 'node:dns/promises'\nimport { isIP } from 'node:net'\n\nconst MAX_RESPONSE_BYTES = 2 * 1024 * 1024\nconst DEFAULT_TIMEOUT_MS = 10_000\nconst BLOCKED_HOSTNAMES = new Set(['localhost', 'localhost.localdomain', 'metadata.google.internal'])\n\nfunction isPrivateIpv4(ip: string): boolean {\n  const octets = ip.split('.').map(Number)\n  if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) return true\n  const [a, b] = octets\n  return a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || a === 0\n}\n\nfunction isPrivateIpv6(ip: string): boolean {\n  const normalized = ip.toLowerCase()\n  return normalized === '::1' || normalized === '::' || normalized.startsWith('fc') || normalized.startsWith('fd') || normalized.startsWith('fe80:')\n}\n\nfunction isBlockedIp(ip: string): boolean {\n  return isIP(ip) === 4 ? isPrivateIpv4(ip) : isIP(ip) === 6 ? isPrivateIpv6(ip) : true\n}\n\nexport async function assertSafeRecipeUrl(url: string, allowedDomains: readonly string[]): Promise<URL> {\n  const parsed = new URL(url)\n  if (parsed.protocol !== 'https:') throw new Error('Recipe source must use HTTPS')\n  const hostname = parsed.hostname.toLowerCase().replace(/\.$/, '')\n  const allowed = allowedDomains.some((domain) => hostname === domain || hostname.endsWith('.' + domain))\n  if (!allowed || BLOCKED_HOSTNAMES.has(hostname)) throw new Error('Recipe source domain is not allowed')\n  if (isIP(hostname)) {\n    if (isBlockedIp(hostname)) throw new Error('Recipe source IP is not allowed')\n    return parsed\n  }\n  const addresses = await lookup(hostname, { all: true })\n  if (addresses.length === 0 || addresses.some(({ address }) => isBlockedIp(address))) throw new Error('Recipe source resolves to a blocked IP')\n  return parsed\n}\n\nexport async function fetchRecipeHtml(url: string, allowedDomains: readonly string[], options: { timeoutMs?: number; maxBytes?: number } = {}): Promise<string> {\n  const parsed = await assertSafeRecipeUrl(url, allowedDomains)\n  const controller = new AbortController()\n  const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS)\n  try {\n    const response = await fetch(parsed, { signal: controller.signal, headers: { Accept: 'text/html,application/xhtml+xml' }, redirect: 'error', cache: 'no-store' })\n    if (!response.ok) throw new Error('Recipe source returned HTTP ' + response.status)\n    const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''\n    if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) throw new Error('Recipe source returned an unsupported content type')\n    const maxBytes = options.maxBytes ?? MAX_RESPONSE_BYTES\n    const contentLength = Number(response.headers.get('content-length'))\n    if (Number.isFinite(contentLength) && contentLength > maxBytes) throw new Error('Recipe source response is too large')\n    if (!response.body) throw new Error('Recipe source returned no body')\n    const reader = response.body.getReader()\n    const chunks: Uint8Array[] = []\n    let total = 0\n    while (true) {\n      const { done, value } = await reader.read()\n      if (done) break\n      total += value.byteLength\n      if (total > maxBytes) { await reader.cancel(); throw new Error('Recipe source response is too large') }\n      chunks.push(value)\n    }\n    const result = new Uint8Array(total)\n    let offset = 0\n    for (const chunk of chunks) { result.set(chunk, offset); offset += chunk.byteLength }\n    return new TextDecoder().decode(result)\n  } finally { clearTimeout(timeout) }\n}
+import { lookup } from 'node:dns/promises'
+import { isIP } from 'node:net'
+
+const MAX_RESPONSE_BYTES = 2 * 1024 * 1024
+const DEFAULT_TIMEOUT_MS = 10_000
+const BLOCKED_HOSTNAMES = new Set(['localhost', 'localhost.localdomain', 'metadata.google.internal'])
+
+function isPrivateIpv4(ip: string): boolean {
+  const octets = ip.split('.').map(Number)
+  if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) return true
+  const [a, b] = octets
+  return a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || a === 0
+}
+
+function isPrivateIpv6(ip: string): boolean {
+  const normalized = ip.toLowerCase()
+  return normalized === '::1' || normalized === '::' || normalized.startsWith('fc') || normalized.startsWith('fd') || normalized.startsWith('fe80:')
+}
+
+function isBlockedIp(ip: string): boolean {
+  return isIP(ip) === 4 ? isPrivateIpv4(ip) : isIP(ip) === 6 ? isPrivateIpv6(ip) : true
+}
+
+export async function assertSafeRecipeUrl(url: string, allowedDomains: readonly string[]): Promise<URL> {
+  const parsed = new URL(url)
+  if (parsed.protocol !== 'https:') throw new Error('Recipe source must use HTTPS')
+
+  const hostname = parsed.hostname.toLowerCase().replace(/\.$/, '')
+  const allowed = allowedDomains.some((domain) => hostname === domain || hostname.endsWith('.' + domain))
+  if (!allowed || BLOCKED_HOSTNAMES.has(hostname)) throw new Error('Recipe source domain is not allowed')
+
+  if (isIP(hostname)) {
+    if (isBlockedIp(hostname)) throw new Error('Recipe source IP is not allowed')
+    return parsed
+  }
+
+  const addresses = await lookup(hostname, { all: true })
+  if (addresses.length === 0 || addresses.some(({ address }) => isBlockedIp(address))) {
+    throw new Error('Recipe source resolves to a blocked IP')
+  }
+
+  return parsed
+}
+
+export async function fetchRecipeHtml(
+  url: string,
+  allowedDomains: readonly string[],
+  options: { timeoutMs?: number; maxBytes?: number } = {},
+): Promise<string> {
+  const parsed = await assertSafeRecipeUrl(url, allowedDomains)
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS)
+
+  try {
+    const response = await fetch(parsed, {
+      signal: controller.signal,
+      headers: { Accept: 'text/html,application/xhtml+xml' },
+      redirect: 'error',
+      cache: 'no-store',
+    })
+
+    if (!response.ok) throw new Error('Recipe source returned HTTP ' + response.status)
+
+    const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''
+    if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) {
+      throw new Error('Recipe source returned an unsupported content type')
+    }
+
+    const maxBytes = options.maxBytes ?? MAX_RESPONSE_BYTES
+    const contentLength = Number(response.headers.get('content-length'))
+    if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+      throw new Error('Recipe source response is too large')
+    }
+    if (!response.body) throw new Error('Recipe source returned no body')
+
+    const reader = response.body.getReader()
+    const chunks: Uint8Array[] = []
+    let total = 0
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      total += value.byteLength
+      if (total > maxBytes) {
+        await reader.cancel()
+        throw new Error('Recipe source response is too large')
+      }
+      chunks.push(value)
+    }
+
+    const result = new Uint8Array(total)
+    let offset = 0
+    for (const chunk of chunks) {
+      result.set(chunk, offset)
+      offset += chunk.byteLength
+    }
+
+    return new TextDecoder().decode(result)
+  } finally {
+    clearTimeout(timeout)
+  }
+}

@@ -4,8 +4,10 @@ import { Client } from 'pg'
 function testDatabaseUrl(): string {
   const value = process.env.DATABASE_URL?.trim()
   const testValue = process.env.TEST_DATABASE_URL?.trim()
-  if (!value || !testValue || value !== testValue) {
-    throw new Error('E2E smoke tests require DATABASE_URL to be exactly the isolated TEST_DATABASE_URL.')
+  const testUnpooledValue = process.env.TEST_DATABASE_URL_UNPOOLED?.trim()
+  const expectedValues = [testValue, testUnpooledValue].filter((item): item is string => Boolean(item))
+  if (!value || expectedValues.length === 0 || !expectedValues.includes(value)) {
+    throw new Error('E2E smoke tests require DATABASE_URL to be exactly the isolated TEST_DATABASE_URL or TEST_DATABASE_URL_UNPOOLED.')
   }
   if (process.env.VERCEL === '1' && process.env.VERCEL_ENV === 'production') {
     throw new Error('E2E smoke tests must never run against a Vercel production deployment.')

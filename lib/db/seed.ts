@@ -1,5 +1,4 @@
-import { neon } from '@neondatabase/serverless'
-import { drizzle } from 'drizzle-orm/neon-http'
+import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import {
   initialExpenses,
@@ -13,8 +12,7 @@ import {
 } from '@/lib/mock-data'
 import type { ItemCategory, ItemUnit } from '@/lib/types'
 
-const sql = neon(process.env.DATABASE_URL!)
-const db = drizzle(sql, { schema })
+const db = getDb()
 
 const CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
 

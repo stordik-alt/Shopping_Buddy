@@ -71,7 +71,7 @@ const nextConfig = {
   },
   // sharp is a native addon that cannot be bundled into a Worker; the Cloudflare build swaps it for a
   // stub that throws, which the receipt pipeline already treats as "send the original photo to OCR".
-  ...(cloudflareBuild ? { turbopack: { resolveAlias: { sharp: './cloudflare/shims/sharp.js' } } } : {}),
+  ...(cloudflareBuild ? { turbopack: { resolveAlias: { sharp: './cloudflare/shims/sharp.js', pg: './cloudflare/shims/pg.js' } } } : {}),
   // Inlined at build time. Only the Cloudflare build defines it, so Vercel keeps Vercel Analytics.
   ...(cloudflareBuild ? { env: { ANALYTICS_PROVIDER: 'none' } } : {}),
 }

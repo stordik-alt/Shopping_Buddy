@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { neon } from '@neondatabase/serverless'
+import { isLocalDatabaseUrl } from './local'
+import { createRawSql, type RawSql } from './raw-sql'
 import { deployMigrationDecision } from './migrate-guard'
 
 // Minimal migration runner: applies any *.sql file in this directory that
@@ -44,7 +45,7 @@ const LOCK_LEASE = '10 minutes'
 const LOCK_WAIT_MS = 5_000
 const LOCK_ATTEMPTS = 36 // three minutes
 
-type Sql = ReturnType<typeof neon<false, false>>
+type Sql = RawSql
 
 /** One runner at a time: two deployments building at once must not apply the same file twice. The
  *  neon-http driver has no session to hold an advisory lock, so the lock is a row with a lease. */
@@ -75,8 +76,15 @@ async function main() {
     }
     console.log('Vercel production deployment: applying migrations before the build.')
   }
-  const sql = neon(connectionString())
-  await withMigrationLock(sql, () => applyMigrations(sql))
+  const url = connectionString()
+  const sql = createRawSql(url)
+  try {
+    // A plain local PostgreSQL has no Neon Auth: create the identity tables the migrations reference.
+    if (isLocalDatabaseUrl(url)) await sql.query(readFileSync(join(import.meta.dirname, 'local-auth-schema.sql'), 'utf8'))
+    await withMigrationLock(sql, () => applyMigrations(sql))
+  } finally {
+    await sql.end()
+  }
 }
 
 async function applyMigrations(sql: Sql) {

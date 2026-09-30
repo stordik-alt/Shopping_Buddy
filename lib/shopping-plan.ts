@@ -27,7 +27,7 @@ export type PlanOffer = {
   source: 'pinned' | 'auto'
 }
 
-export type PlanNeed = { id: string; name: string }
+export type PlanNeed = { id: string; name: string; quantity: number; unit: string }
 
 export type PlanSettings = {
   /** How many stores the user is willing to visit for this shop (≥ 1). */
@@ -50,6 +50,8 @@ export const MAX_CANDIDATE_STORES = 12
 export type PlannedLine = {
   needId: string
   name: string
+  quantity: number
+  unit: string
   storeId: string
   chain: string
   productId: string
@@ -236,6 +238,8 @@ export function planShopping(needs: PlanNeed[], offers: PlanOffer[], settings: P
           return {
             needId: need.id,
             name: need.name,
+            quantity: need.quantity,
+            unit: need.unit,
             storeId,
             chain: offer.chain,
             productId: offer.productId,

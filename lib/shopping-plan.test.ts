@@ -12,7 +12,7 @@ const offer = (needId: string, storeId: string, cost: number, extra: Partial<Pla
   source: 'auto',
   ...extra,
 })
-const need = (id: string): PlanNeed => ({ id, name: id })
+const need = (id: string, quantity = 1, unit = 'ks'): PlanNeed => ({ id, name: id, quantity, unit })
 const settings = (overrides: Partial<Parameters<typeof planShopping>[2]> = {}) => ({ maxStores: 2, priorityStoreIds: [], allowedStoreIds: ['lidl', 'albert', 'billa', 'penny'], ...overrides })
 
 // milk: Lidl 20, Albert 45, Billa 50 · bread: Albert 30, Billa 55, Lidl 60 · butter: Billa 50, Albert 90, Lidl 95
@@ -201,6 +201,17 @@ describe('fewer stores when a trip is not worth it', () => {
     const plan = planShopping([need('x'), need('y')], real, settings({ maxStores: 2 }))
     expect(storeIds(plan)).toEqual(['albert', 'lidl'])
     expect(plan.total).toBe(80)
+  })
+})
+
+describe('quantity is preserved for display', () => {
+  it('carries the requested quantity and unit into the planned line', () => {
+    const plan = planShopping(
+      [need('cucumber', 2, 'ks')],
+      [offer('cucumber', 'albert', 51.6)],
+      settings({ maxStores: 1 }),
+    )
+    expect(plan.stores[0].lines[0]).toMatchObject({ quantity: 2, unit: 'ks', cost: 51.6 })
   })
 })
 

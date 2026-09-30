@@ -17,7 +17,8 @@ export default defineConfig({
     // should need review complete on its own). Pure tests finish in milliseconds either way.
     testTimeout: 30_000,
     hookTimeout: 120_000,
-    // The Cloudflare build output (`pnpm cf:build`) contains copies of dependencies; never test those.
-    exclude: [...configDefaults.exclude, '.open-next/**', '.wrangler/**'],
+    // The Cloudflare build output (pnpm cf:build) contains copies of dependencies; never test those.
+    // Playwright specs are run by the dedicated pnpm test:e2e command and must not be loaded by Vitest.
+    exclude: [...configDefaults.exclude, '.open-next/**', '.wrangler/**', 'e2e/**'],
   },
 })

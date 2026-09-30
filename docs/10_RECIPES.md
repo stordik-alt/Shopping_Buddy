@@ -37,12 +37,28 @@ Horní část:
 - volitelný filtr zdroje
 - rychlé filtry: Rychlé, Večeře, Oběd, Polévky, Maso, Těstoviny, Dezerty, Bezmasé
 
+### Řazení výsledků
+
+U výsledků přidat možnost řazení:
+- Relevance
+- Hodnocení
+- Doba přípravy
+- Nejnovější, pokud zdroj poskytuje datum
+
+Řazení podle **Hodnocení** používá uživatelské hodnocení převzaté ze zdrojového portálu. Pokud zdroj poskytuje i počet hodnocení, zobrazit jej společně s hodnocením a použít jej jako sekundární údaj pro transparentnost výsledku.
+
+Pokud různé zdroje používají odlišnou stupnici hodnocení, interně ji normalizovat na společnou stupnici 0–5, ale zároveň zachovat původní hodnotu a původní stupnici pro zobrazení, pokud je dostupná.
+
+Pokud hodnocení nebo počet hodnocení není dostupný, pole zůstane prázdné. Recept bez hodnocení nesmí být chybně považován za recept s nulovým hodnocením.
+
 Karta výsledku:
 - název
 - zdroj
 - obrázek, pokud je bezpečně dostupný
 - počet porcí
 - čas přípravy
+- uživatelské hodnocení ze zdrojového webu, pokud je dostupné
+- počet hodnocení, pokud je dostupný
 - krátký popis
 
 ### Detail
@@ -119,6 +135,9 @@ Relevantní pole:
 - totalTime
 - recipeCategory
 - recipeCuisine
+- aggregateRating.ratingValue
+- aggregateRating.bestRating
+- aggregateRating.ratingCount
 
 ## Vyhledávání
 Klient nesmí přímo stahovat libovolné webové stránky.
@@ -156,6 +175,10 @@ type Recipe = {
   totalTimeMinutes?: number
   category?: string
   cuisine?: string
+  ratingValue?: number
+  ratingScale?: number
+  ratingCount?: number
+  ratingSource?: string
   ingredients: RecipeIngredient[]
   fetchedAt: string
   parserVersion: number
@@ -234,6 +257,9 @@ a deaktivovat přepočet.
 - chybějící pole
 - textový recipeYield
 - číselný recipeYield
+- aggregateRating
+- ratingCount
+- odlišná stupnice hodnocení
 - více jednotek
 - desetinná množství
 - neškálovatelné ingredience
@@ -259,6 +285,8 @@ Každý adapter má fixture test s reprezentativní strukturou zdroje.
 ### UI
 - Recepty přes Více
 - vyhledávání
+- řazení podle relevance, hodnocení a doby přípravy
+- zobrazení hodnocení a počtu hodnocení
 - detail
 - změna porcí
 - přepočet

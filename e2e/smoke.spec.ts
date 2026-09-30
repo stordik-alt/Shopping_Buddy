@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { Client } from 'pg'
 
 function testDatabaseUrl(): string {
@@ -40,6 +40,16 @@ async function cleanupTestAccount(email: string) {
   }
 }
 
+async function expectSection(page: Page, path: string, tab: string) {
+  await page.goto(path, { waitUntil: 'domcontentloaded' })
+  await expect(page).toHaveURL(path)
+  await expect(page.getByRole('heading', { name: tab, level: 1 })).toBeVisible({ timeout: 15000 })
+
+  const navigation = page.getByRole('navigation', { name: 'Hlavní navigace' })
+  await expect(navigation).toBeVisible({ timeout: 15000 })
+  await expect(navigation.getByRole('button', { name: tab, exact: true })).toHaveAttribute('aria-current', 'page')
+}
+
 test.describe('critical smoke flow', () => {
   test('public intro is reachable', async ({ page }) => {
     await page.goto('/intro')
@@ -71,21 +81,15 @@ test.describe('critical smoke flow', () => {
       }
 
       await expect(page).toHaveURL(/\/$/, { timeout: 15000 })
-      await expect(
-        page.getByRole('navigation', { name: 'Hlavní navigace' }),
-      ).toBeVisible({ timeout: 15000 })
+      await expect(page.getByRole('navigation', { name: 'Hlavní navigace' })).toBeVisible({ timeout: 15000 })
 
-      await page.goto('/?tab=nakup')
-      await expect(page.getByRole('heading', { name: 'Nákupní seznam', level: 1 })).toBeVisible()
+      await expectSection(page, '/?tab=nakup', 'Nákup')
+      await expect(page.getByRole('group', { name: 'Zobrazení nákupu' })).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Nákupní seznam', exact: true })).toHaveAttribute('aria-pressed', 'true')
 
-      await page.goto('/?tab=zasoby')
-      await expect(page.getByRole('heading', { name: 'Zásoby', level: 1 })).toBeVisible()
-
-      await page.goto('/?tab=rozpocet')
-      await expect(page.getByRole('heading', { name: 'Aktuální stav', level: 1 })).toBeVisible()
-
-      await page.goto('/?tab=recepty')
-      await expect(page.getByRole('heading', { name: 'Recepty', level: 1 })).toBeVisible()
+      await expectSection(page, '/?tab=zasoby', 'Zásoby')
+      await expectSection(page, '/?tab=rozpocet', 'Rozpočet')
+      await expectSection(page, '/?tab=recepty', 'Recepty')
     } finally {
       await cleanupTestAccount(email)
     }

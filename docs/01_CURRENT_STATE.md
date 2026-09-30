@@ -33,11 +33,11 @@ The long-term goal is to provide intelligent shopping assistance based on reliab
 
 The AI Shopping Assistant is intentionally planned as the final major development phase.
 
-## Recipe integration — phase 2 in progress
+## Recipe integration — phase 4 in progress
 
-Recipe phase 1 is merged into `main`: normalized recipe model, Schema.org Recipe JSON-LD parser, ingredient/serving normalization, serving scaling, short-lived cache and guarded server-side fetch.
+Recipe phases 1–3 are merged into `main`: normalized recipe model, Schema.org Recipe JSON-LD parser, ingredient/serving normalization, serving scaling, guarded fetch/cache, four Czech source adapters, search/detail normalization, and the Recepty UI with source filters, sorting, ratings, serving controls and source links.
 
-Phase 2 is now implemented on `feat/recipes-sources`: source adapters for Recepty.cz, Apetit Online, Toprecepty and Vaření.cz, a shared adapter factory, source registry, search-result link normalization and fixture coverage for search/detail parsing. UI, shopping integration and production network verification remain subsequent steps.
+Phase 4 is implemented on `feat/recipes-shopping-integration`: recipe ingredients can be reviewed, supported units are mapped to the shopping-list model, compatible pantry stock is deducted (including partial stock and multiple placements), problematic/unquantifiable ingredients are flagged instead of guessed, and selected missing quantities use the existing shopping action and its catalog/deal logic. CI and production network verification remain subsequent validation steps.
 
 ---
 

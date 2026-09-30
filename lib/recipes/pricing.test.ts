@@ -32,7 +32,7 @@ describe('recipe pricing', () => {
     )
     expect(result.estimatedTotal).toBe(60)
     expect(result.ingredientPrices[0]?.isDeal).toBe(true)
-    expect(result.activeDeals).toEqual([{ ingredientName: 'Kuřecí prsa', store: 'Albert', price: 60, validUntil: '2026-10-05' }])
+    expect(result.activeDeals).toEqual([{ ingredientName: 'Kuřecí prsa', store: 'Albert', price: 120, estimatedCost: 60, validUntil: '2026-10-05' }])
   })
 
   it('converts grams against a price recorded per kilogram', () => {

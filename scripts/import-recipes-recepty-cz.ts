@@ -1,1 +1,6 @@
-import { runRecipeImportCli } from '@/lib/recipes/importer'\n\nrunRecipeImportCli('recepty-cz').catch((error) => {\n  console.error(error)\n  process.exit(1)\n})\n
+import { runRecipeImportCli } from '@/lib/recipes/importer'
+
+runRecipeImportCli('recepty-cz').catch((error) => {
+  console.error(error)
+  process.exit(1)
+})

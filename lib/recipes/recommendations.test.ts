@@ -45,7 +45,7 @@ function recipe(
 const household: RecipeHouseholdContext = {
   allergies: ['ořechy'],
   dislikedFoods: ['celer'],
-  favoriteFoods: ['kuřecí maso'],
+  favoriteFoods: ['kuřecí prsa'],
 }
 
 describe('recipe household recommendations', () => {

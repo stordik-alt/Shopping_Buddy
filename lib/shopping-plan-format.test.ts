@@ -15,6 +15,8 @@ const alt = (overrides: Partial<PlannedLine['alternatives'][number]> = {}): Plan
 const line = (alternatives: PlannedLine['alternatives']): PlannedLine => ({
   needId: 'n',
   name: 'mléko',
+  quantity: 1,
+  unit: 'ks',
   storeId: 'lidl',
   chain: 'Lidl',
   productId: 'p',

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filterAndRankRecipeResults, recipeRelevanceScore } from '@/lib/recipes/relevance'
+import { filterAndRankRecipeResults, isRecipeTitleRelevant, recipeRelevanceScore } from '@/lib/recipes/relevance'
 import type { Recipe } from '@/lib/recipes/types'
 
 const recipe = (title: string, ingredients: string[] = []): Recipe => ({

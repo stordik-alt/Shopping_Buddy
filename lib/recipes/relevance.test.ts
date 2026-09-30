@@ -17,11 +17,6 @@ const recipe = (title: string, ingredients: string[] = []): Recipe => ({
   })),
   fetchedAt: new Date().toISOString(),
   parserVersion: 1,
-  it('rejects unrelated portal catalogue titles', () => {
-    expect(isRecipeTitleRelevant('Čokoládový dort', 'kuřecí')).toBe(false)
-    expect(isRecipeTitleRelevant('Kuřecí maso na paprice', 'kuře')).toBe(true)
-    expect(isRecipeTitleRelevant('Kuřecí řízky', 'kuřecí maso')).toBe(true)
-  })
 })
 
 describe('recipe search relevance', () => {
@@ -43,5 +38,11 @@ describe('recipe search relevance', () => {
     ], 'kuře')
 
     expect(results.map((item) => item.title)).toEqual(['Kuřecí kari', 'Kuře na paprice'])
+  })
+
+  it('rejects unrelated portal catalogue titles', () => {
+    expect(isRecipeTitleRelevant('Čokoládový dort', 'kuřecí')).toBe(false)
+    expect(isRecipeTitleRelevant('Kuřecí maso na paprice', 'kuře')).toBe(true)
+    expect(isRecipeTitleRelevant('Kuřecí řízky', 'kuřecí maso')).toBe(true)
   })
 })

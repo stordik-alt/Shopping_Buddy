@@ -27,7 +27,7 @@ function createPortalAdapter(config: PortalConfig): RecipeSourceAdapter {
 
       const requestedLimit = Math.max(1, options.limit ?? 20)
       const excludedUrls = options.excludeUrls ?? new Set<string>()
-      const maxPages = Math.max(1, config.maxSearchPages ?? 100)
+      const maxPages = Math.max(1, config.maxSearchPages ?? 500)
       const allLinks = new Map<string, { url: string; title: string }>()
       let pagesWithoutNewLinks = 0
 

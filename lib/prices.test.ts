@@ -311,7 +311,7 @@ describe('compareStoreTotals', () => {
   it('uses the real catalog price where available and the item\'s own price as a fallback where not, per store', () => {
     const totals = compareStoreTotals(items, products)
     const lidl = totals.find((t) => t.store === 'Lidl')!
-    // Mléko via catalog deal price (30*2=60) + Chleba unavailable at Lidl, falls back to 25*1 + unknown item falls back to 15*1
+    // Mléko: 2 ks at the catalog deal price = 30*2 = 60; Chleba and unknown item use the per-unit fallback.
     expect(lidl.total).toBe(60 + 25 + 15)
     expect(lidl.itemsPriced).toBe(1)
     expect(lidl.itemsFallback).toBe(2)
@@ -325,13 +325,13 @@ describe('compareStoreTotals', () => {
 
   it('uses the item\'s assigned store and stored price even without a catalog name match', () => {
     const assignedItems = [
-      item({ name: 'Okurka salátová hadovka 1 ks', price: 25.8, quantity: 1, store: 'Albert' }),
-      item({ name: 'Kuře bez drobů 1 kg', price: 99.8, quantity: 1, store: 'Albert' }),
+      item({ name: 'Okurka salátová hadovka 1 ks', price: 25.8, quantity: 2, store: 'Albert' }),
+      item({ name: 'Kuře bez drobů 1 kg', price: 99.8, quantity: 3, store: 'Albert' }),
       item({ name: 'Kuřecí prsní řízky 1 kg', price: 259.8, quantity: 1, store: 'Albert' }),
     ]
     const totals = compareStoreTotals(assignedItems, [])
     expect(totals).toEqual([
-      { store: 'Albert', total: 385.4, itemsPriced: 3, itemsFallback: 0 },
+      { store: 'Albert', total: 25.8 * 2 + 99.8 * 3 + 259.8, itemsPriced: 3, itemsFallback: 0 },
     ])
   })
 
@@ -354,7 +354,7 @@ describe('cheapestPossibleTotal', () => {
   const items = [item({ name: 'Mléko', quantity: 2 }), item({ name: 'Chleba', price: 25, quantity: 1 }), item({ name: 'Nezname zbozi', price: 15, quantity: 1 })]
 
   it('picks the cheapest known store per item, ignoring the single-trip constraint', () => {
-    // Mléko: min(30, 50) * 2 = 60; Chleba: 20 * 1 = 20 (its only known price); unknown item falls back to 15 * 1
+    // Mléko: min(30, 50) * 2 = 60; Chleba: 20 * 1 = 20; unknown item falls back to 15 * 1.
     expect(cheapestPossibleTotal(items, products)).toBe(60 + 20 + 15)
   })
 

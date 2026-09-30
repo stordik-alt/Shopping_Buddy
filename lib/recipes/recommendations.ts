@@ -1,5 +1,7 @@
 import { matchKey } from '@/lib/receipt-list-match'
+import { analyzeRecipeIngredients } from '@/lib/recipes/shopping'
 import type { Recipe, RecipeSearchResult } from '@/lib/recipes/types'
+import type { PantryItem } from '@/lib/types'
 
 export type RecipeHouseholdContext = {
   allergies: string[]
@@ -24,23 +26,41 @@ function containsNormalizedTerm(text: string, term: string): boolean {
   return Boolean(key && term && (key === term || key.includes(term) || term.includes(key)))
 }
 
-function normalizedAllergens(recipe: RecipeSearchResult): string[] {
-  const raw = (recipe as Recipe).allergens
-  return Array.isArray(raw) ? raw.map((value) => matchKey(value)).filter(Boolean) : []
+function allergyKeys(recipe: Recipe): string[] {
+  return (recipe.ratingSource ? [] : recipe.allergens ?? []).map((value) => matchKey(value)).filter(Boolean)
 }
 
-/** Hard household rules come only from structured member profile fields. No diet is inferred from
- * free-text child needs/preferences or from a vague household note. */
-export function filterRecipeForHousehold(recipe: RecipeSearchResult, context: RecipeHouseholdContext): boolean {
+export function toRecipeSearchResult(recipe: Recipe): RecipeSearchResult {
+  return {
+    id: recipe.id,
+    sourceId: recipe.sourceId,
+    sourceName: recipe.sourceName,
+    sourceUrl: recipe.sourceUrl,
+    canonicalUrl: recipe.canonicalUrl,
+    title: recipe.title,
+    description: recipe.description,
+    imageUrl: recipe.imageUrl,
+    servings: recipe.servings,
+    servingsText: recipe.servingsText,
+    totalTimeMinutes: recipe.totalTimeMinutes,
+    ratingValue: recipe.ratingValue,
+    ratingScale: recipe.ratingScale,
+    ratingCount: recipe.ratingCount,
+    ratingSource: recipe.ratingSource,
+  }
+}
+
+/** Hard household rules use only structured member profile fields. Free-text child needs/preferences
+ * are deliberately not converted into automatic diet exclusions. */
+export function filterRecipeForHousehold(recipe: Recipe, context: RecipeHouseholdContext): boolean {
   const allergies = normalizedTerms(context.allergies)
   const dislikedFoods = normalizedTerms(context.dislikedFoods)
-  const allergens = normalizedAllergens(recipe)
+  const allergens = allergyKeys(recipe)
 
   if (allergies.some((allergy) => allergens.includes(allergy))) return false
 
-  const ingredients = (recipe as Recipe).ingredients
-  if (Array.isArray(ingredients) && dislikedFoods.length > 0) {
-    if (ingredients.some((ingredient) => dislikedFoods.some((term) => containsNormalizedTerm(ingredient.name, term)))) {
+  if (dislikedFoods.length > 0) {
+    if (recipe.ingredients.some((ingredient) => dislikedFoods.some((term) => containsNormalizedTerm(ingredient.name, term)))) {
       return false
     }
   }
@@ -48,44 +68,34 @@ export function filterRecipeForHousehold(recipe: RecipeSearchResult, context: Re
   return true
 }
 
-export function householdPreferenceScore(recipe: RecipeSearchResult, context: RecipeHouseholdContext): number {
+export function householdPreferenceScore(recipe: Recipe, context: RecipeHouseholdContext): number {
   const favorites = normalizedTerms(context.favoriteFoods)
   if (favorites.length === 0) return 0
 
-  const ingredients = (recipe as Recipe).ingredients
-  if (!Array.isArray(ingredients)) return 0
-
-  return ingredients.reduce(
+  return recipe.ingredients.reduce(
     (score, ingredient) => score + (favorites.some((term) => containsNormalizedTerm(ingredient.name, term)) ? 1 : 0),
     0,
   )
 }
 
-export function rankByHouseholdPreference(
-  recipes: RecipeSearchResult[],
-  context: RecipeHouseholdContext,
-): RecipeSearchResult[] {
+export function rankByHouseholdPreference(recipes: Recipe[], context: RecipeHouseholdContext): RecipeSearchResult[] {
   return recipes
     .map((recipe, index) => ({ recipe, index, score: householdPreferenceScore(recipe, context) }))
     .sort((a, b) => b.score - a.score || a.index - b.index)
-    .map(({ recipe }) => recipe)
+    .map(({ recipe }) => toRecipeSearchResult(recipe))
 }
 
-/** Selects recipes that make meaningful use of the pantry. An ingredient counts as covered only when
- * the same deterministic recipe-shopping analysis says the household has the full required amount.
- * Partial stock is still reported separately so the detail can show the exact missing quantity. */
 export function rankPantryRecommendations(
-  recipes: RecipeSearchResult[],
-  pantryItems: Parameters<typeof import('@/lib/recipes/shopping').pantryStockQuantity>[0],
-  analyze: typeof import('@/lib/recipes/shopping').analyzeRecipeIngredients,
+  recipes: Recipe[],
+  pantryItems: PantryItem[],
+  context: RecipeHouseholdContext,
 ): RecipePantryRecommendation[] {
   const recommendations: RecipePantryRecommendation[] = []
 
-  for (const result of recipes) {
-    const recipe = result as Recipe
-    if (!Array.isArray(recipe.ingredients) || recipe.ingredients.length === 0) continue
+  for (const recipe of recipes) {
+    if (recipe.ingredients.length === 0 || !filterRecipeForHousehold(recipe, context)) continue
 
-    const analysis = analyze(recipe.ingredients, pantryItems)
+    const analysis = analyzeRecipeIngredients(recipe.ingredients, pantryItems)
     const ingredientCount = analysis.length
     const coveredIngredientCount = analysis.filter((entry) => entry.problem === null && entry.missingQuantity === 0).length
     const matchedIngredientCount = analysis.filter((entry) => entry.problem === null && entry.stockQuantity > 0).length
@@ -94,12 +104,12 @@ export function rankPantryRecommendations(
     if (matchedIngredientCount === 0) continue
 
     recommendations.push({
-      ...result,
+      ...toRecipeSearchResult(recipe),
       coveredIngredientCount,
       ingredientCount,
       matchedIngredientCount,
       missingIngredientCount,
-      householdPreferenceScore: 0,
+      householdPreferenceScore: householdPreferenceScore(recipe, context),
     })
   }
 
@@ -110,24 +120,4 @@ export function rankPantryRecommendations(
       b.householdPreferenceScore - a.householdPreferenceScore ||
       a.missingIngredientCount - b.missingIngredientCount,
   )
-}
-
-export function addHouseholdPreferenceToPantryRecommendations(
-  recommendations: RecipePantryRecommendation[],
-  context: RecipeHouseholdContext,
-): RecipePantryRecommendation[] {
-  return recommendations
-    .map((recipe, index) => ({
-      recipe,
-      index,
-      score: householdPreferenceScore(recipe, context),
-    }))
-    .sort((a, b) =>
-      b.recipe.coveredIngredientCount - a.recipe.coveredIngredientCount ||
-      b.recipe.matchedIngredientCount - a.recipe.matchedIngredientCount ||
-      b.score - a.score ||
-      a.recipe.missingIngredientCount - b.recipe.missingIngredientCount ||
-      a.index - b.index,
-    )
-    .map(({ recipe, score }) => ({ ...recipe, householdPreferenceScore: score }))
 }

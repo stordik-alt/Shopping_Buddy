@@ -1,11 +1,11 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ArrowUpRight, Clock3, Search, Star } from 'lucide-react'
-import { getRecipeAction, searchRecipesAction } from '@/app/actions/recipes'
+import { getRecipeAction, getRecipeCollectionsAction, searchRecipesAction, toggleRecipeFavoriteAction } from '@/app/actions/recipes'
 import { analyzeRecipeIngredients, type RecipeShoppingItem } from '@/lib/recipes/shopping'
 import { formatIngredientQuantity, scaleRecipeIngredients } from '@/lib/recipes/scaling'
-import type { Recipe, RecipeSearchResult } from '@/lib/recipes/types'
+import type { Recipe, RecipeSearchResult, SavedRecipe } from '@/lib/recipes/types'
 import type { PantryItem } from '@/lib/types'
 
 const SOURCES = [
@@ -75,6 +75,30 @@ export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: Recip
   const [selectedIngredientIds, setSelectedIngredientIds] = useState<Set<string>>(new Set())
   const [addingIngredients, setAddingIngredients] = useState(false)
   const [addedCount, setAddedCount] = useState(0)
+  const [favorites, setFavorites] = useState<RecipeSearchResult[]>([])
+  const [history, setHistory] = useState<SavedRecipe[]>([])
+  const [collectionView, setCollectionView] = useState<'favorites' | 'history' | null>(null)
+  const [collectionsLoading, setCollectionsLoading] = useState(true)
+  const [favoriteSaving, setFavoriteSaving] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    void getRecipeCollectionsAction()
+      .then((data) => {
+        if (!active) return
+        setFavorites(data.favorites)
+        setHistory(data.history)
+      })
+      .catch(() => {
+        // Collections are a convenience layer; search/detail can still work when loading them fails.
+      })
+      .finally(() => {
+        if (active) setCollectionsLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   async function search(term = query) {
     const normalized = term.trim()
@@ -103,6 +127,7 @@ export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: Recip
       setServings(initialServings)
       setSelectedIngredientIds(new Set(analysis.filter((entry) => !entry.problem && (entry.missingQuantity ?? 0) > 0).map((entry) => entry.ingredient.id)))
       setAddedCount(0)
+      setCollectionView(null)
     } catch {
       setError('Detail receptu se nepodařilo načíst. Otevřete prosím původní recept.')
     } finally {
@@ -120,6 +145,24 @@ export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: Recip
   const selectedShoppingItems = shoppingAnalysis
     .filter((entry) => selectedIngredientIds.has(entry.ingredient.id) && entry.missingQuantity !== null && entry.missingQuantity > 0 && entry.unit)
     .map((entry) => ({ name: entry.ingredient.name, quantity: entry.missingQuantity as number, unit: entry.unit as RecipeShoppingItem['unit'] }))
+
+  async function toggleFavorite() {
+    if (!selected || favoriteSaving) return
+    setFavoriteSaving(true)
+    setError(null)
+    try {
+      const isFavorite = await toggleRecipeFavoriteAction(selected)
+      setFavorites((current) =>
+        isFavorite
+          ? [selected, ...current.filter((recipe) => recipe.canonicalUrl !== selected.canonicalUrl)]
+          : current.filter((recipe) => recipe.canonicalUrl !== selected.canonicalUrl),
+      )
+    } catch {
+      setError('Oblíbený recept se nepodařilo uložit. Zkuste to znovu.')
+    } finally {
+      setFavoriteSaving(false)
+    }
+  }
 
   async function addSelectedIngredients() {
     if (selectedShoppingItems.length === 0 || addingIngredients) return
@@ -148,10 +191,23 @@ export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: Recip
             <img src={selected.imageUrl} alt="" className="max-h-72 w-full object-cover" referrerPolicy="no-referrer" />
           )}
           <div className="space-y-5 p-5">
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">{selected.sourceName}</p>
-              <h2 className="mt-1 text-2xl font-semibold tracking-tight">{selected.title}</h2>
-              {selected.description && <p className="mt-2 text-sm text-muted-foreground">{selected.description}</p>}
+            <div className="flex items-start gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium text-muted-foreground">{selected.sourceName}</p>
+                <h2 className="mt-1 text-2xl font-semibold tracking-tight">{selected.title}</h2>
+                {selected.description && <p className="mt-2 text-sm text-muted-foreground">{selected.description}</p>}
+              </div>
+              <button
+                type="button"
+                aria-pressed={favorites.some((recipe) => recipe.canonicalUrl === selected.canonicalUrl)}
+                aria-label={favorites.some((recipe) => recipe.canonicalUrl === selected.canonicalUrl) ? 'Odebrat z oblíbených' : 'Uložit do oblíbených'}
+                title={favorites.some((recipe) => recipe.canonicalUrl === selected.canonicalUrl) ? 'Odebrat z oblíbených' : 'Uložit do oblíbených'}
+                disabled={favoriteSaving}
+                onClick={() => void toggleFavorite()}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground transition hover:bg-primary/10 disabled:opacity-50"
+              >
+                <Star className={favorites.some((recipe) => recipe.canonicalUrl === selected.canonicalUrl) ? 'h-5 w-5 fill-current' : 'h-5 w-5'} aria-hidden="true" />
+              </button>
             </div>
 
             <div className="flex flex-wrap items-center gap-3 rounded-xl bg-muted/60 p-3">
@@ -250,9 +306,29 @@ export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: Recip
 
   return (
     <div className="mx-auto max-w-5xl space-y-5">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight">Recepty</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Vyhledejte recept, upravte počet porcí a pokračujte na původní web.</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight">Recepty</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Vyhledejte recept, upravte počet porcí a pokračujte na původní web.</p>
+        </div>
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Moje recepty">
+          <button
+            type="button"
+            aria-pressed={collectionView === 'favorites'}
+            onClick={() => setCollectionView((current) => current === 'favorites' ? null : 'favorites')}
+            className={`min-h-9 rounded-full px-3 text-sm font-medium transition ${collectionView === 'favorites' ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-primary/10'}`}
+          >
+            Oblíbené{collectionsLoading ? '' : ` · ${favorites.length}`}
+          </button>
+          <button
+            type="button"
+            aria-pressed={collectionView === 'history'}
+            onClick={() => setCollectionView((current) => current === 'history' ? null : 'history')}
+            className={`min-h-9 rounded-full px-3 text-sm font-medium transition ${collectionView === 'history' ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-primary/10'}`}
+          >
+            Historie{collectionsLoading ? '' : ` · ${history.length}`}
+          </button>
+        </div>
       </div>
 
       <form onSubmit={(event) => { event.preventDefault(); void search() }} className="flex flex-col gap-2 sm:flex-row">
@@ -271,7 +347,31 @@ export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: Recip
         ))}
       </div>
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            {collectionView && (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-lg font-semibold">{collectionView === 'favorites' ? 'Oblíbené recepty' : 'Naposledy otevřené'}</h3>
+            <button type="button" onClick={() => setCollectionView(null)} className="text-sm font-medium text-primary hover:underline">Skrýt</button>
+          </div>
+          {(collectionView === 'favorites' ? favorites : history).length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+              {collectionView === 'favorites' ? 'Zatím nemáte žádné oblíbené recepty.' : 'Historie je zatím prázdná.'}
+            </div>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2">
+              {(collectionView === 'favorites' ? favorites : history).map((recipe) => (
+                <RecipeCard
+                  key={recipe.canonicalUrl}
+                  recipe={recipe}
+                  onOpen={() => void openRecipe(recipe)}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <select value={sourceId} onChange={(event) => setSourceId(event.target.value)} className="min-h-10 rounded-xl border border-input bg-background px-3 text-sm">
           {SOURCES.map((source) => <option key={source.id} value={source.id}>{source.name}</option>)}
         </select>

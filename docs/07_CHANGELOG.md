@@ -1,3 +1,22 @@
+## 2026-09-30 (Recipes — phases 3 and 4)
+
+Verified and merged recipe UI phase 3:
+- Recepty added to the navigation and mobile Více menu
+- server-side search across the configured Czech sources
+- source filtering and sorting by relevance, rating and time
+- result cards with source, servings, time and available ratings
+- recipe detail with serving selection, scaled ingredients and original-source link
+- preparation instructions are not copied into ANITKA
+
+Implemented recipe shopping integration phase 4 on `feat/recipes-shopping-integration`:
+- ingredient review with selectable lines
+- supported recipe-unit mapping to the shopping-list model
+- pantry-aware quantity subtraction, including compatible units and multiple pantry placements
+- explicit problem states for unquantifiable or unsupported ingredients
+- selected missing quantities added through the existing shopping action, preserving catalog matching, categorization and deal notifications
+
+Validation of phase 4 is pending CI.
+
 ## 2026-09-30 (Recipe sources — phase 2)
 
 Implemented the recipe source layer defined in docs/10_RECIPES.md:

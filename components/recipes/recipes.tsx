@@ -1,10 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ArrowUpRight, Clock3, Search, Star } from 'lucide-react'
 import { getRecipeAction, searchRecipesAction } from '@/app/actions/recipes'
+import { analyzeRecipeIngredients, type RecipeShoppingItem } from '@/lib/recipes/shopping'
 import { formatIngredientQuantity, scaleRecipeIngredients } from '@/lib/recipes/scaling'
 import type { Recipe, RecipeSearchResult } from '@/lib/recipes/types'
+import type { PantryItem } from '@/lib/types'
 
 const SOURCES = [
   { id: '', name: 'Všechny zdroje' },
@@ -54,7 +56,13 @@ function RecipeCard({ recipe, onOpen }: { recipe: RecipeSearchResult; onOpen: ()
   )
 }
 
-export function Recipes() {
+type RecipesProps = {
+  pantryItems: PantryItem[]
+  onAddIngredients: (ingredients: RecipeShoppingItem[]) => Promise<number>
+  onGoToShopping: () => void
+}
+
+export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: RecipesProps) {
   const [query, setQuery] = useState('')
   const [sourceId, setSourceId] = useState('')
   const [sort, setSort] = useState<'relevance' | 'rating' | 'time'>('relevance')
@@ -64,6 +72,9 @@ export function Recipes() {
   const [loading, setLoading] = useState(false)
   const [detailLoading, setDetailLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedIngredientIds, setSelectedIngredientIds] = useState<Set<string>>(new Set())
+  const [addingIngredients, setAddingIngredients] = useState(false)
+  const [addedCount, setAddedCount] = useState(0)
 
   async function search(term = query) {
     const normalized = term.trim()
@@ -85,8 +96,13 @@ export function Recipes() {
     setError(null)
     try {
       const recipe = await getRecipeAction(result.sourceId, result.canonicalUrl)
+      const initialServings = recipe.servings
+      const initialIngredients = initialServings !== undefined ? scaleRecipeIngredients(recipe, initialServings) : recipe.ingredients
+      const analysis = analyzeRecipeIngredients(initialIngredients, pantryItems)
       setSelected(recipe)
-      setServings(recipe.servings)
+      setServings(initialServings)
+      setSelectedIngredientIds(new Set(analysis.filter((entry) => !entry.problem && (entry.missingQuantity ?? 0) > 0).map((entry) => entry.ingredient.id)))
+      setAddedCount(0)
     } catch {
       setError('Detail receptu se nepodařilo načíst. Otevřete prosím původní recept.')
     } finally {
@@ -100,6 +116,25 @@ export function Recipes() {
   }
 
   const scaled = selected && servings !== undefined ? scaleRecipeIngredients(selected, servings) : selected?.ingredients ?? []
+  const shoppingAnalysis = useMemo(() => (selected ? analyzeRecipeIngredients(scaled, pantryItems) : []), [selected, scaled, pantryItems])
+  const selectedShoppingItems = shoppingAnalysis
+    .filter((entry) => selectedIngredientIds.has(entry.ingredient.id) && entry.missingQuantity !== null && entry.missingQuantity > 0 && entry.unit)
+    .map((entry) => ({ name: entry.ingredient.name, quantity: entry.missingQuantity as number, unit: entry.unit as RecipeShoppingItem['unit'] }))
+
+  async function addSelectedIngredients() {
+    if (selectedShoppingItems.length === 0 || addingIngredients) return
+    setAddingIngredients(true)
+    setError(null)
+    try {
+      const count = await onAddIngredients(selectedShoppingItems)
+      setAddedCount(count)
+      setSelectedIngredientIds(new Set())
+    } catch {
+      setError('Suroviny se nepodařilo přidat do nákupu. Zkuste to znovu.')
+    } finally {
+      setAddingIngredients(false)
+    }
+  }
 
   if (selected) {
     return (
@@ -130,16 +165,72 @@ export function Recipes() {
             <section>
               <h3 className="text-lg font-semibold">Suroviny</h3>
               <ul className="mt-3 divide-y divide-border rounded-xl border border-border">
-                {scaled.map((ingredient) => (
-                  <li key={ingredient.id} className="flex items-baseline justify-between gap-4 px-4 py-3 text-sm">
-                    <span>{ingredient.name}</span>
-                    <span className="shrink-0 text-muted-foreground">
-                      {ingredient.quantity !== undefined ? formatIngredientQuantity(ingredient.quantity) : ''}
-                      {ingredient.unit ? ` ${ingredient.unit}` : ''}
-                    </span>
-                  </li>
-                ))}
+                {shoppingAnalysis.map((entry) => {
+                  const selectedForShopping = selectedIngredientIds.has(entry.ingredient.id)
+                  const missing = entry.missingQuantity ?? 0
+                  return (
+                    <li key={entry.ingredient.id} className="px-4 py-3 text-sm">
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedForShopping}
+                          disabled={entry.problem !== null || missing <= 0}
+                          onChange={() => {
+                            setSelectedIngredientIds((current) => {
+                              const next = new Set(current)
+                              if (next.has(entry.ingredient.id)) next.delete(entry.ingredient.id)
+                              else next.add(entry.ingredient.id)
+                              return next
+                            })
+                          }}
+                          className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+                          aria-label={`Přidat ${entry.ingredient.name} do nákupu`}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-baseline justify-between gap-4">
+                            <span>{entry.ingredient.name}</span>
+                            <span className="shrink-0 text-muted-foreground">
+                              {entry.quantity !== null ? formatIngredientQuantity(entry.quantity) : ''}
+                              {entry.unit ? ` ${entry.unit}` : entry.ingredient.unit ? ` ${entry.ingredient.unit}` : ''}
+                            </span>
+                          </div>
+                          {entry.problem && (
+                            <p className="mt-1 text-xs text-destructive">{entry.problem} {entry.ingredient.originalText}</p>
+                          )}
+                          {!entry.problem && entry.stockQuantity > 0 && (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {missing > 0
+                                ? `Máte doma ${formatIngredientQuantity(entry.stockQuantity)} ${entry.unit}; do nákupu ${formatIngredientQuantity(missing)} ${entry.unit}.`
+                                : `Máte doma dostatečné množství: ${formatIngredientQuantity(entry.stockQuantity)} ${entry.unit}.`}
+                            </p>
+                          )}
+                          {!entry.problem && entry.stockQuantity === 0 && (
+                            <p className="mt-1 text-xs text-muted-foreground">Nemáte evidovanou zásobu.</p>
+                          )}
+                        </div>
+                      </div>
+                    </li>
+                  )
+                })}
               </ul>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void addSelectedIngredients()}
+                  disabled={addingIngredients || selectedShoppingItems.length === 0}
+                  className="min-h-10 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                >
+                  {addingIngredients ? 'Přidávám…' : 'Přidat vybrané suroviny do nákupu'}
+                </button>
+                {addedCount > 0 && (
+                  <>
+                    <span className="text-sm text-muted-foreground">Přidáno {addedCount} položek do nákupu.</span>
+                    <button type="button" onClick={onGoToShopping} className="text-sm font-medium text-primary hover:underline">
+                      Přejít do nákupu
+                    </button>
+                  </>
+                )}
+              </div>
             </section>
 
             <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">

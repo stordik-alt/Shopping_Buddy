@@ -34,7 +34,7 @@ describe('recipe portal adapter fixtures', () => {
   beforeEach(() => mockedFetch.mockReset())
 
   const cases = [
-    { adapter: receptyCzAdapter, searchUrl: 'https://www.recepty.cz/vyhledavani/pokrocile?search=ku%C5%99e&showResults=1', recipeUrl: 'https://www.recepty.cz/recept/testovaci-recept', title: 'Kuřecí rizoto' },
+    { adapter: receptyCzAdapter, searchUrl: 'https://www.recepty.cz/vyhledavani/pokrocile?search=ku%C5%99e&showResults=1', recipeUrl: 'https://www.recepty.cz/recept/testovaci-recept-123456', title: 'Kuřecí rizoto' },
     { adapter: apetitAdapter, searchUrl: 'https://www.apetitonline.cz/vyhledavani?search_api_fulltext=ku%C5%99e', recipeUrl: 'https://www.apetitonline.cz/recept/testovaci-recept', title: 'Kuřecí rizoto' },
     { adapter: topreceptyAdapter, searchUrl: 'https://www.toprecepty.cz/vyhledavani-receptu?hledam=ku%C5%99e', recipeUrl: 'https://www.toprecepty.cz/recept/12345-testovaci-recept/', title: 'Kuřecí rizoto' },
     { adapter: vareniAdapter, searchUrl: 'https://www.vareni.cz/vyhledavani/?q=ku%C5%99e', recipeUrl: 'https://www.vareni.cz/recepty/testovaci-recept/', title: 'Kuřecí rizoto' },
@@ -65,4 +65,19 @@ describe('recipe portal adapter fixtures', () => {
     })
     expect(recipe.ingredients).toHaveLength(2)
   })
+  it('ignores Recepty.cz system pages and keeps individual recipes', async () => {
+    mockedFetch.mockResolvedValueOnce(
+      [
+        '<a href="https://www.recepty.cz/recept/oblibene">Oblíbené</a>',
+        '<a href="https://www.recepty.cz/recept/vsechny-vypisy-receptu">Všechny recepty</a>',
+        '<a href="https://www.recepty.cz/recept/kureci-rizoto-123456">Kuřecí rizoto</a>',
+      ].join(''),
+    )
+
+    const results = await receptyCzAdapter.search('kuře')
+
+    expect(results).toHaveLength(1)
+    expect(results[0].sourceUrl).toBe('https://www.recepty.cz/recept/kureci-rizoto-123456')
+  })
+
 })

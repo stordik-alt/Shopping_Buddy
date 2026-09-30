@@ -81,6 +81,23 @@ function standaloneUnitCost(quantity: number, unit: RecipeIngredient['unit'], of
   return null
 }
 
+function candidateFromStandaloneOffer(ingredient: RecipeIngredient, offer: StandaloneOffer): Candidate | null {
+  const cost = standaloneUnitCost(ingredient.quantity ?? 0, ingredient.unit, offer)
+  if (cost == null) return null
+  return {
+    ingredientId: ingredient.id,
+    ingredientName: ingredient.name,
+    productName: offer.productName,
+    quantity: ingredient.quantity ?? 0,
+    unit: ingredient.unit,
+    cost,
+    store: offer.store,
+    isDeal: true,
+    dealValidUntil: offer.validUntil,
+    sourceType: 'OTHER',
+  }
+}
+
 function candidatesForProduct(
   ingredient: RecipeIngredient,
   product: ProductPrice,
@@ -135,7 +152,12 @@ export function estimateRecipePrice(
   const productByName = new Map(matchedProducts.map((product) => [product.productName.trim().toLocaleLowerCase('cs-CZ'), product]))
   const allIngredientCandidates = ingredients.map((ingredient) => {
     const product = productByName.get(ingredient.name.trim().toLocaleLowerCase('cs-CZ'))
-    return product ? candidatesForProduct(ingredient, product, standaloneOffers) : []
+    if (product) return candidatesForProduct(ingredient, product, standaloneOffers)
+    return standaloneOffers
+      .filter((offer) => offer.productName.trim().toLocaleLowerCase('cs-CZ') === ingredient.name.trim().toLocaleLowerCase('cs-CZ'))
+      .map((offer) => candidateFromStandaloneOffer(ingredient, offer))
+      .filter((candidate): candidate is Candidate => candidate != null)
+      .sort((a, b) => a.cost - b.cost || a.store.localeCompare(b.store, 'cs'))
   })
   const ingredientCandidates = allIngredientCandidates.map((candidates) => candidates[0] ?? null)
 

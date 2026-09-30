@@ -169,8 +169,8 @@ export function ShoppingPlanPanel({
                           <div className="min-w-0">
                             <p className="break-words font-medium">{line.name}</p>
                             <p className="break-words text-xs text-muted-foreground">
-                              {line.productName}
-                              {size ? ` · ${size}` : ''}
+                              Potřeba: {String(line.quantity).replace('.', ',')} {line.unit} · {line.productName}
+                              {size ? ` · balení ${size}` : ''}
                               {line.source === 'pinned' && (
                                 <span className="ml-1.5 inline-flex items-center gap-0.5 font-medium text-primary">
                                   <Pin className="h-3 w-3" aria-hidden="true" /> vybráno vámi

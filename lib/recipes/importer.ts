@@ -67,7 +67,7 @@ async function assertSafeImageUrl(value: string, allowedHosts: string[]): Promis
     const pattern = allowedHost.trim().toLowerCase().replace(/\.$/, '')
     if (!pattern) return false
     if (!pattern.includes('*')) return pattern === hostname
-    if (pattern === 'ms*.ostium.cz') return /^ms[^.]*\\.ostium\\.cz$/.test(hostname)
+    if (pattern === 'ms*.ostium.cz') return /^ms[^.]*\.ostium\.cz$/.test(hostname)
     return false
   })
   if (!hostAllowed) throw new Error('Image host is not allowlisted')
@@ -192,12 +192,31 @@ export async function importRecipeBatch(options: RecipeImportOptions): Promise<R
 
   const summary: RecipeImportSummary = { sourceId: adapter.id, discovered: 0, imported: 0, updated: 0, skipped: 0, failed: 0, imageImported: 0, imageSkipped: 0 }
   const links = new Map<string, string>()
+  const knownUrls = new Set<string>()
+
+  if (!options.dryRun) {
+    const existingRows = await getDb()
+      .select({ canonicalUrl: schema.recipeCatalog.canonicalUrl })
+      .from(schema.recipeCatalog)
+      .where(eq(schema.recipeCatalog.sourceId, adapter.id))
+
+    for (const row of existingRows) {
+      if (row.canonicalUrl) knownUrls.add(row.canonicalUrl)
+    }
+  }
+
   for (const query of options.queries) {
     if (links.size >= options.limit) break
-    const found = await adapter.search(query)
+
+    const excludedUrls = new Set([...knownUrls, ...links.keys()])
+    const found = await adapter.search(query, {
+      limit: options.limit - links.size,
+      excludeUrls: excludedUrls,
+    })
+
     for (const result of found) {
       const url = result.canonicalUrl || result.sourceUrl
-      if (!links.has(url)) links.set(url, result.title)
+      if (!knownUrls.has(url) && !links.has(url)) links.set(url, result.title)
       if (links.size >= options.limit) break
     }
   }

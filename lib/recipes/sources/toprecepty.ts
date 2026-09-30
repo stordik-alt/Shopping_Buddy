@@ -4,6 +4,7 @@ export const topreceptyAdapter = createPortalAdapter({
   id: 'toprecepty',
   name: 'Toprecepty',
   domain: 'toprecepty.cz',
-  searchUrl: (query) => `https://www.toprecepty.cz/vyhledavani-receptu?hledam=${encodeURIComponent(query)}`,
+  maxSearchPages: 500,
+  searchUrl: (query, page = 1) => 'https://www.toprecepty.cz/vyhledavani-receptu?hledam=' + encodeURIComponent(query) + (page > 1 ? '&stranka=' + page : ''),
   recipePath: /^\/recept\//i,
 })

@@ -1,4 +1,4 @@
-import type { Recipe, RecipeSearchResult, RecipeSourceAdapter } from '@/lib/recipes/types'
+import type { Recipe, RecipeSearchResult, RecipeSearchOptions, RecipeSourceAdapter } from '@/lib/recipes/types'
 import { parseRecipeJsonLd } from '@/lib/recipes/parser'
 import { fetchRecipeHtml } from '@/lib/recipes/fetch'
 import { extractRecipeLinks } from '@/lib/recipes/sources/html'
@@ -9,7 +9,8 @@ type PortalConfig = {
   name: string
   domain: string
   imageDomains?: string[]
-  searchUrl: (query: string) => string
+  maxSearchPages?: number
+  searchUrl: (query: string, page?: number) => string
   recipePath: RegExp
 }
 
@@ -20,15 +21,42 @@ function createPortalAdapter(config: PortalConfig): RecipeSourceAdapter {
     domains: [config.domain],
     imageDomains: config.imageDomains,
 
-    async search(query: string): Promise<RecipeSearchResult[]> {
+    async search(query: string, options: RecipeSearchOptions = {}): Promise<RecipeSearchResult[]> {
       const normalizedQuery = query.trim()
       if (!normalizedQuery) return []
 
-      const searchUrl = config.searchUrl(normalizedQuery)
-      const html = await fetchRecipeHtml(searchUrl, [config.domain])
-      const links = extractRecipeLinks(html, searchUrl, config.recipePath)
+      const requestedLimit = Math.max(1, options.limit ?? 20)
+      const excludedUrls = options.excludeUrls ?? new Set<string>()
+      const maxPages = Math.max(1, config.maxSearchPages ?? 500)
+      const allLinks = new Map<string, { url: string; title: string }>()
+      let pagesWithoutNewLinks = 0
 
-      const relevantLinks = links.filter((link) => isRecipeTitleRelevant(link.title, normalizedQuery))
+      for (let page = 1; page <= maxPages; page += 1) {
+        const searchUrl = config.searchUrl(normalizedQuery, page)
+        const html = await fetchRecipeHtml(searchUrl, [config.domain])
+        const links = extractRecipeLinks(html, searchUrl, config.recipePath)
+        let pageAddedLinks = 0
+
+        for (const link of links) {
+          if (!allLinks.has(link.url)) {
+            allLinks.set(link.url, link)
+            pageAddedLinks += 1
+          }
+        }
+
+        pagesWithoutNewLinks = pageAddedLinks === 0 ? pagesWithoutNewLinks + 1 : 0
+
+        const relevantCount = [...allLinks.values()].filter(
+          (link) => !excludedUrls.has(link.url) && isRecipeTitleRelevant(link.title, normalizedQuery),
+        ).length
+
+        if (relevantCount >= requestedLimit) break
+        if (links.length === 0 || pagesWithoutNewLinks >= 2) break
+      }
+
+      const relevantLinks = [...allLinks.values()]
+        .filter((link) => !excludedUrls.has(link.url) && isRecipeTitleRelevant(link.title, normalizedQuery))
+        .slice(0, requestedLimit)
 
       return relevantLinks.map((link) => ({
         id: link.url,

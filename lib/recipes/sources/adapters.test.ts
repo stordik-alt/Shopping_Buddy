@@ -34,14 +34,20 @@ describe('recipe portal adapter fixtures', () => {
   beforeEach(() => mockedFetch.mockReset())
 
   const cases = [
-    { adapter: receptyCzAdapter, searchUrl: 'https://www.recepty.cz/vyhledavani/pokrocile?search=ku%C5%99e&showResults=1', recipeUrl: 'https://www.recepty.cz/recept/testovaci-recept-123456', title: 'Kuřecí rizoto' },
+    { adapter: receptyCzAdapter, searchUrl: 'https://www.recepty.cz/vyhledavani?text=ku%C5%99e', recipeUrl: 'https://www.recepty.cz/recept/testovaci-recept-123456', title: 'Kuřecí rizoto' },
     { adapter: apetitAdapter, searchUrl: 'https://www.apetitonline.cz/vyhledavani?search_api_fulltext=ku%C5%99e', recipeUrl: 'https://www.apetitonline.cz/recept/testovaci-recept', title: 'Kuřecí rizoto' },
     { adapter: topreceptyAdapter, searchUrl: 'https://www.toprecepty.cz/vyhledavani-receptu?hledam=ku%C5%99e', recipeUrl: 'https://www.toprecepty.cz/recept/12345-testovaci-recept/', title: 'Kuřecí rizoto' },
     { adapter: vareniAdapter, searchUrl: 'https://www.vareni.cz/vyhledavani/?q=ku%C5%99e', recipeUrl: 'https://www.vareni.cz/recepty/testovaci-recept/', title: 'Kuřecí rizoto' },
   ] as const
 
-  it.each(cases)('parses search results and detail for $adapter.name', async ({ adapter, searchUrl, recipeUrl, title }) => {
-    mockedFetch.mockResolvedValueOnce(searchFixture(recipeUrl, title))
+  it.each(cases)('parses search results and detail for $adapter.name', async ({ adapter, recipeUrl, title }) => {
+    let searchCalls = 0
+    mockedFetch.mockImplementation(async (url = '') => {
+      if (url === recipeUrl) return detailFixture(title, recipeUrl)
+      searchCalls += 1
+      return searchCalls === 1 ? searchFixture(recipeUrl, title) : ''
+    })
+
     const results = await adapter.search('kuře')
     expect(results[0]).toMatchObject({
       title,
@@ -51,7 +57,6 @@ describe('recipe portal adapter fixtures', () => {
       canonicalUrl: recipeUrl,
     })
 
-    mockedFetch.mockResolvedValueOnce(detailFixture(title, recipeUrl))
     const recipe = await adapter.getRecipe(recipeUrl)
     expect(recipe).toMatchObject({
       title,
@@ -65,20 +70,45 @@ describe('recipe portal adapter fixtures', () => {
     })
     expect(recipe.ingredients).toHaveLength(2)
   })
+
   it('ignores Recepty.cz system pages and keeps individual recipes', async () => {
-    mockedFetch.mockResolvedValueOnce(
-      [
-        '<a href="https://www.recepty.cz/recept/oblibene">Oblíbené</a>',
-        '<a href="https://www.recepty.cz/recept/vsechny-vypisy-receptu">Všechny recepty</a>',
-        '<a href="https://www.recepty.cz/recept/kureci-rizoto-123456">Kuřecí rizoto</a>',
-      ].join(''),
-    )
+    mockedFetch.mockImplementation(async (url = '') => url.includes('recipePage=')
+      ? ''
+      : [
+          '<a href="https://www.recepty.cz/recept/oblibene">Oblíbené</a>',
+          '<a href="https://www.recepty.cz/recept/vsechny-vypisy-receptu">Všechny recepty</a>',
+          '<a href="https://www.recepty.cz/recept/kureci-rizoto-123456">Kuřecí rizoto</a>',
+        ].join(''))
 
     const results = await receptyCzAdapter.search('kuře')
 
     expect(results).toHaveLength(1)
     expect(results[0].sourceUrl).toBe('https://www.recepty.cz/recept/kureci-rizoto-123456')
     expect(receptyCzAdapter.imageDomains).toEqual(['ms*.ostium.cz'])
+  })
+
+  it.each([
+    { adapter: receptyCzAdapter, host: 'www.recepty.cz', path: (page: number) => `/recept/kure-page-${page}-123456`, pageMarker: 'recipePage=2' },
+    { adapter: apetitAdapter, host: 'www.apetitonline.cz', path: (page: number) => `/recept/kure-page-${page}`, pageMarker: 'page=1' },
+    { adapter: topreceptyAdapter, host: 'www.toprecepty.cz', path: (page: number) => `/recept/12345-kure-page-${page}/`, pageMarker: 'stranka=2' },
+    { adapter: vareniAdapter, host: 'www.vareni.cz', path: (page: number) => `/recepty/kure-page-${page}/`, pageMarker: 'page=2' },
+  ])('continues pagination for $adapter.name and skips excluded URLs', async ({ adapter, host, path, pageMarker }) => {
+    let page = 0
+    mockedFetch.mockImplementation(async () => {
+      page += 1
+      const recipeUrl = `https://${host}${path(page)}`
+      return searchFixture(recipeUrl, `Kuře stránka ${page}`)
+    })
+
+    const firstUrl = `https://${host}${path(1)}`
+    const results = await adapter.search('kuře', {
+      limit: 1,
+      excludeUrls: new Set([firstUrl]),
+    })
+
+    expect(results).toHaveLength(1)
+    expect(results[0].sourceUrl).toBe(`https://${host}${path(2)}`)
+    expect(mockedFetch.mock.calls[1]?.[0]).toContain(pageMarker)
   })
 
 })

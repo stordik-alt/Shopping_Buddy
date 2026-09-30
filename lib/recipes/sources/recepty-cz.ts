@@ -5,6 +5,7 @@ export const receptyCzAdapter = createPortalAdapter({
   name: 'Recepty.cz',
   domain: 'recepty.cz',
   imageDomains: ['ms*.ostium.cz'],
-  searchUrl: (query) => 'https://www.recepty.cz/vyhledavani/pokrocile?search=' + encodeURIComponent(query) + '&showResults=1',
+  maxSearchPages: 500,
+  searchUrl: (query, page = 1) => 'https://www.recepty.cz/vyhledavani?text=' + encodeURIComponent(query) + (page > 1 ? '&recipePage=' + page : ''),
   recipePath: new RegExp('^/recept/[^/]+-\\d+/?$', 'i'),
 })

@@ -10,6 +10,7 @@ const TAB_SLUGS: Record<Tab, string | null> = {
   Nákup: 'nakup',
   Zásoby: 'zasoby',
   Obchody: 'obchody',
+  Recepty: 'recepty',
   Rozpočet: 'rozpocet',
   AI: 'ai',
   Profil: 'profil',

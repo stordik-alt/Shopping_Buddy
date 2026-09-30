@@ -57,7 +57,19 @@ test.describe('critical smoke flow', () => {
       await page.getByLabel('Jméno').fill(name)
       await page.getByLabel('E-mail').fill(email)
       await page.getByLabel('Heslo').fill(password)
+      const signUpResponsePromise = page.waitForResponse((response) => {
+        const url = new URL(response.url())
+        return response.request().method() === 'POST' && url.pathname === '/api/auth/sign-up/email'
+      })
       await page.getByRole('button', { name: 'Založit účet' }).click()
+
+      const signUpResponse = await signUpResponsePromise
+      const signUpBody = await signUpResponse.text()
+      if (!signUpResponse.ok()) {
+        throw new Error(
+          `Sign-up API failed with HTTP ${signUpResponse.status()}: ${signUpBody || '(empty response body)'}`,
+        )
+      }
 
       await expect(page).toHaveURL(/\/$/)
       await expect(page.getByText('Rodinný nákup')).toBeVisible()

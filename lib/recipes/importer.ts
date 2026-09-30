@@ -63,7 +63,14 @@ async function assertSafeImageUrl(value: string, allowedHosts: string[]): Promis
   const parsed = new URL(value)
   if (parsed.protocol !== 'https:') throw new Error('Image URL must use HTTPS')
   const hostname = parsed.hostname.toLowerCase().replace(/\.$/, '')
-  if (!allowedHosts.includes(hostname)) throw new Error('Image host is not allowlisted')
+  const hostAllowed = allowedHosts.some((allowedHost) => {
+    const pattern = allowedHost.trim().toLowerCase().replace(/\.$/, '')
+    if (!pattern) return false
+    if (!pattern.includes('*')) return pattern === hostname
+    if (pattern === 'ms*.ostium.cz') return /^ms[^.]*\\.ostium\\.cz$/.test(hostname)
+    return false
+  })
+  if (!hostAllowed) throw new Error('Image host is not allowlisted')
   if (isIP(hostname)) {
     if (blockedIp(hostname)) throw new Error('Image IP is not allowed')
     return parsed

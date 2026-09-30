@@ -355,6 +355,69 @@ export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: Recip
               </div>
             </section>
 
+            <section className="rounded-xl border border-border bg-muted/40 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-semibold">Odhad ceny</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">Podle aktuálně evidovaných cen a akcí. Cena není garantovaná.</p>
+                </div>
+                {pricingLoading ? (
+                  <span role="status" className="text-sm text-muted-foreground">Počítám…</span>
+                ) : pricing?.estimatedTotal != null ? (
+                  <span className="text-xl font-semibold">{money(pricing.estimatedTotal)}</span>
+                ) : (
+                  <span className="text-sm font-medium text-muted-foreground">Cena není dostupná</span>
+                )}
+              </div>
+
+              {pricing && (
+                <>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Oceněno {pricing.pricedIngredientCount} z {pricing.ingredientCount} surovin.
+                    {!pricing.complete && pricing.estimatedTotal != null ? ' Jde o neúplný odhad.' : ''}
+                  </p>
+
+                  {pricing.ingredientPrices.length > 0 && (
+                    <div className="mt-3 space-y-1.5">
+                      <p className="text-xs font-semibold">Nejlevnější známé ceny surovin</p>
+                      {pricing.ingredientPrices.map((item) => (
+                        <div key={item.ingredientId} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                          <span>{item.ingredientName}</span>
+                          <span>
+                            <span className="font-medium text-foreground">{money(item.cost)}</span> · {item.store}
+                            {item.isDeal && <span className="ml-1 font-medium text-primary">akce</span>}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {pricing.cheapestCompleteStore && (
+                    <p className="mt-3 text-sm">
+                      Kompletní nákup v <span className="font-semibold">{pricing.cheapestCompleteStore.store}</span> vychází přibližně na <span className="font-semibold">{money(pricing.cheapestCompleteStore.total)}</span>.
+                    </p>
+                  )}
+
+                  {pricing.unpricedIngredients.length > 0 && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Bez bezpečně použitelné ceny: {pricing.unpricedIngredients.join(', ')}.
+                    </p>
+                  )}
+
+                  {pricing.activeDeals.length > 0 && (
+                    <div className="mt-3 space-y-1">
+                      <p className="text-xs font-semibold">Aktuální akce</p>
+                      {pricing.activeDeals.slice(0, 4).map((deal) => (
+                        <p key={deal.ingredientName + deal.store} className="text-xs text-muted-foreground">
+                          {deal.ingredientName}: <span className="font-medium text-foreground">{money(deal.price)}</span> v {deal.store} do {shortDate(deal.validUntil)}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </section>
+
             <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
               {selected.totalTimeMinutes !== undefined && <span>{selected.totalTimeMinutes} min celkem</span>}
               {selected.ratingValue !== undefined && <span>Hodnocení {rating(selected)}{selected.ratingCount !== undefined ? ` · ${selected.ratingCount} hodnocení` : ''}</span>}

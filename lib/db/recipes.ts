@@ -163,9 +163,9 @@ export async function getRecipeHouseholdData(householdId: string): Promise<Recip
 }
 
 /** Current household pantry rows used by the server-side "Co uvařit z toho, co mám doma" flow. */
-export async function listRecipePantryItems(householdId: string) {
+export async function listRecipePantryItems(householdId: string): Promise<PantryItem[]> {
   const db = getDb()
-  return db
+  const rows = await db
     .select({
       id: schema.pantryItems.id,
       name: schema.pantryItems.name,
@@ -181,6 +181,12 @@ export async function listRecipePantryItems(householdId: string) {
     .from(schema.pantryItems)
     .where(eq(schema.pantryItems.householdId, householdId))
     .orderBy(asc(schema.pantryItems.addedAt))
+
+  return rows.map((row) => ({
+    ...row,
+    addedAt: row.addedAt.toISOString(),
+    askedAt: row.askedAt?.toISOString(),
+  }))
 }
 
 export async function recordRecipeView(householdId: string, recipe: Recipe): Promise<void> {

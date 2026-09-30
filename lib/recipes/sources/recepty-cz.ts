@@ -5,5 +5,5 @@ export const receptyCzAdapter = createPortalAdapter({
   name: 'Recepty.cz',
   domain: 'recepty.cz',
   searchUrl: (query) => `https://www.recepty.cz/vyhledavani/pokrocile?search=${encodeURIComponent(query)}&showResults=1`,
-  recipePath: /recept$/i,
+  recipePath: /^\/recept\//i,
 })

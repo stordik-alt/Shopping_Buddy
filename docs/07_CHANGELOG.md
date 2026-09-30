@@ -1,5 +1,9 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-30 (Fallback: pg driver for a hosted PostgreSQL)
+
+`DATABASE_DRIVER=pg` now selects the `pg` driver (and the self-hosted Better Auth) for any PostgreSQL, not only a loopback one, so production can move off Neon by changing environment variables (`docs/10_LOCAL_DATABASE.md`, "Fallback"). Optional `DATABASE_POOL_MAX` (default 5). Neon stays the default; nothing changes without the variable. Not yet tried against a real hosted provider.
+
 ## 2026-09-29 (Local database: run without Neon)
 
 Added an optional local mode: a locally installed PostgreSQL 18, a `pg` driver picked when `DATABASE_URL` is a loopback host (`lib/db/client.ts`, with `db.batch` as a transaction), the migration runner and seed on the same switch, and a self-hosted Better Auth (`lib/auth/local.ts`) on the `neon_auth` tables in place of Neon Auth. Production behaviour is unchanged. The full test suite passes against the local database. Setup and limits: `docs/10_LOCAL_DATABASE.md`. Two household tests now create their own login instead of borrowing an existing one.

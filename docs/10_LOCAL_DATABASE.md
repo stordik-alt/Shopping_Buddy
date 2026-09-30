@@ -1,6 +1,6 @@
 # Local database (Neon replacement)
 
-The app can run entirely on this machine: a plain PostgreSQL 18 installed on it instead of Neon, and a self-hosted Better Auth instead of Neon Auth. Production is unchanged; the switch is the `DATABASE_URL`: a loopback host (`localhost`, `127.0.0.1`) selects local mode (`lib/db/local.ts`).
+The app can run entirely on this machine: a plain PostgreSQL 18 installed on it instead of Neon, and a self-hosted Better Auth instead of Neon Auth. Production is unchanged; the switch is the `DATABASE_URL`: a loopback host (`localhost`, `127.0.0.1`) or `DATABASE_DRIVER=pg` selects the `pg` mode (`lib/db/local.ts`).
 
 ## What changes in local mode
 
@@ -57,6 +57,25 @@ pg_restore --no-owner --no-acl -h localhost -p 5433 -U shopping_buddy -d shoppin
 ```
 
 Accounts come along (`neon_auth`) and the password hashes are Better Auth's, so existing logins work locally. Neon's `neon_auth` tables have a few extra nullable columns (`role`, `banned`, …) that the local stand-in lacks and the restore brings; Better Auth ignores them. `backups/` is git-ignored: the dump holds personal data.
+
+## Fallback: a hosted PostgreSQL instead of Neon
+
+If Neon is unavailable (free limits, suspended project), the same code can run production on any hosted PostgreSQL (Supabase, Railway, a VPS, …) without code changes. Set these on the Vercel project (Production) and redeploy:
+
+```env
+DATABASE_DRIVER=pg
+DATABASE_URL=postgresql://user:password@host:5432/db?sslmode=require   # use the provider's pooled URL on serverless
+DATABASE_URL_UNPOOLED=<the direct URL, used by the migration runner at build time>
+NEXT_PUBLIC_LOCAL_DATABASE=1        # build-time: use the Better Auth client
+NEON_AUTH_COOKIE_SECRET=<the existing secret>   # signs the session cookies
+BETTER_AUTH_URL=https://<your production domain>
+DATABASE_POOL_MAX=5                 # optional, default 5 per function instance
+```
+
+Steps: restore a fresh `pnpm db:backup` dump into the new database (`pg_restore --no-owner --no-acl`, see above), then switch the variables. Accounts and password hashes come along, so users keep their logins, but existing sessions end (Neon Auth's session cookies are not valid for Better Auth) and everyone signs in once more. Not exercised against a real hosted provider yet; `pg` mode itself is covered by the whole test suite.
+
+* Vercel only: the Cloudflare build stubs `pg` (`cloudflare/shims/pg.js`), so the prepared Worker cannot use this mode.
+* `DATABASE_POOL_MAX` is per function instance: keep it low and use the provider's connection pooler so many instances do not exhaust the database's connection limit.
 
 ## Limits
 

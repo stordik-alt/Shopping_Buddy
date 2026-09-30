@@ -24,8 +24,7 @@ async function cleanupTestAccount(email: string) {
       'SELECT id FROM neon_auth."user" WHERE lower(email) = lower($1)',
       [email],
     )
-    if (result.rows.length > 0) {
-      const userId = result.rows[0].id
+    for (const { id: userId } of result.rows) {
       await client.query(
         'DELETE FROM households WHERE id IN (SELECT household_id FROM household_members WHERE user_id = $1)',
         [userId],
@@ -47,8 +46,8 @@ test.describe('critical smoke flow', () => {
     await expect(page.getByRole('img', { name: 'ANITKA' })).toBeVisible()
   })
 
-  test('new account reaches the protected app and main navigation remains usable', async ({ page }) => {
-    const email = `e2e-${process.env.GITHUB_RUN_ID ?? Date.now()}-${process.env.PLAYWRIGHT_WORKER_INDEX ?? 0}@example.com`
+  test('new account reaches the protected app and main navigation remains usable', async ({ page }, testInfo) => {
+    const email = `e2e-${process.env.GITHUB_RUN_ID ?? Date.now()}-${process.env.GITHUB_RUN_ATTEMPT ?? 1}-${testInfo.retry}-${process.env.PLAYWRIGHT_WORKER_INDEX ?? 0}@example.com`
     const password = 'SmokeTest-2026!'
     const name = 'E2E Smoke'
 
@@ -77,16 +76,16 @@ test.describe('critical smoke flow', () => {
       ).toBeVisible({ timeout: 15000 })
 
       await page.goto('/?tab=nakup')
-      await expect(page.getByText('Nákupní seznam', { exact: true })).toBeVisible()
+      await expect(page.getByRole('heading', { name: 'Nákupní seznam', level: 1 })).toBeVisible()
 
       await page.goto('/?tab=zasoby')
-      await expect(page.getByText('Zásoby', { exact: true })).toBeVisible()
+      await expect(page.getByRole('heading', { name: 'Zásoby', level: 1 })).toBeVisible()
 
       await page.goto('/?tab=rozpocet')
-      await expect(page.getByText('Aktuální stav', { exact: true })).toBeVisible()
+      await expect(page.getByRole('heading', { name: 'Aktuální stav', level: 1 })).toBeVisible()
 
       await page.goto('/?tab=recepty')
-      await expect(page.getByText('Recepty', { exact: true })).toBeVisible()
+      await expect(page.getByRole('heading', { name: 'Recepty', level: 1 })).toBeVisible()
     } finally {
       await cleanupTestAccount(email)
     }

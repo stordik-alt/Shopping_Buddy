@@ -350,9 +350,17 @@ Každý adapter má fixture test s reprezentativní strukturou zdroje.
 - žádná nová per-user/per-household databázová tabulka není pro 5B potřeba; používají se existující profily, preference a zásoby
 
 #### Fáze 5C — ceny a akce
-- napojení receptů na akce a ceny
-- odhad ceny receptu podle aktuálních cen
-- doporučení receptů podle zásob
+- napojit recepty na existující aktuální cenová a akční data ANITKY; nevytvářet novou paralelní cenovou databázi
+- pro ingredienci použít pouze spolehlivě nalezený katalogový produkt; název receptové ingredience sám o sobě nesmí vytvořit falešnou shodu s jiným produktem
+- respektovat stejné převody porovnatelných jednotek jako ve fázi 4: kg↔g a l↔ml; neporovnávat ks s hmotností/objemem bez skutečně uložené produktové jednotky
+- zobrazit u receptu odhad ceny jen z aktuálně evidovaných cen; chybějící nebo neporovnatelnou ingredienci nepřepočítávat odhadem
+- uvést, kolik ingrediencí vstoupilo do odhadu a kolik jich nelze z aktuálních dat bezpečně ocenit
+- pro každou ocenitelnou ingredienci použít aktuálně platnou cenu; aktivní akce má přednost před běžnou cenou, stejně jako v existující cenové logice
+- umožnit zobrazit nejlevnější známou variantu mezi řetězci a samostatně informaci o aktuální akci, pokud existuje
+- při výpočtu celkové ceny receptu sčítat cenu potřebného množství, nikoliv cenu celé balíčkové jednotky; pro kg/l využít uloženou jednotkovou cenu, pro ks pouze skutečně srovnatelnou cenu za kus
+- zachovat původní datový zdroj, platnost akce a transparentnost ceny; nezobrazovat cenu jako jistou, pokud jde pouze o odhad z neúplných dat
+- žádná nová per-user/per-household cenová tabulka není pro 5C potřeba; používají se existující ceny, akce, produktový katalog a stávající cenové služby
+- Phase 5C nesmí obcházet allowlist, cache ani ochranu zdrojů zavedenou ve fázích 1–2
 
 ## Akce + recepty
 Budoucí rozšíření může využít existující cenová data ANITKY.

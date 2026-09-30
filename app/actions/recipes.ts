@@ -10,6 +10,10 @@ import {
   toggleRecipeFavorite,
 } from '@/lib/db/recipes'
 import { getRecipeByUrl, searchRecipes, searchRecipesDetailed } from '@/lib/recipes/service'
+import { estimateRecipePrice } from '@/lib/recipes/pricing'
+import { scaleRecipeIngredients } from '@/lib/recipes/scaling'
+import { getProductCatalog, getProductPrices, getStandaloneOffers } from '@/lib/db/queries'
+import { matchProductByName } from '@/lib/products'
 import {
   filterRecipeForHousehold,
   rankByHouseholdPreference,
@@ -119,4 +123,28 @@ export async function toggleRecipeFavoriteAction(recipe: Recipe): Promise<boolea
   const householdId = await requireHouseholdId()
   await validateRecipeReference(recipe)
   return toggleRecipeFavorite(householdId, recipe)
+}
+
+export async function getRecipePricingAction(sourceId: string, url: string, servings?: number) {
+  await requireHouseholdId()
+  const recipe = await getRecipeByUrl(sourceId, url)
+  await validateRecipeReference(recipe)
+
+  const ingredients = scaleRecipeIngredients(recipe, servings ?? recipe.servings ?? 0)
+  const ingredientNames = [...new Set(ingredients.map((ingredient) => ingredient.name.trim()).filter(Boolean))]
+  if (ingredientNames.length === 0) {
+    return estimateRecipePrice(ingredients, [])
+  }
+
+  const catalog = await getProductCatalog(ingredientNames)
+  const matchedNames = ingredients
+    .map((ingredient) => matchProductByName(catalog, ingredient.name)?.name)
+    .filter((name): name is string => Boolean(name))
+
+  const [products, offers] = await Promise.all([
+    getProductPrices({ names: [...new Set(matchedNames)], runningDeals: false }),
+    getStandaloneOffers(undefined, [...new Set(matchedNames)]),
+  ])
+
+  return estimateRecipePrice(ingredients, products, offers)
 }

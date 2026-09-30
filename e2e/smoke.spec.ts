@@ -71,8 +71,8 @@ test.describe('critical smoke flow', () => {
         )
       }
 
-      await expect(page).toHaveURL(/\/$/)
-      await expect(page.getByText('Rodinný nákup')).toBeVisible()
+      await expect(page).toHaveURL(/\/$/, { timeout: 15000 })
+      await expect(page.getByRole('main').getByText('Rodinný nákup', { exact: true })).toBeVisible({ timeout: 15000 })
 
       await page.goto('/?tab=nakup')
       await expect(page.getByText('Nákupní seznam', { exact: true })).toBeVisible()

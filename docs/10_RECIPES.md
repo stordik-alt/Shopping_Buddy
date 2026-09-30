@@ -327,6 +327,23 @@ Každý adapter má fixture test s reprezentativní strukturou zdroje.
 - označení problematických ingrediencí
 
 ### Fáze 5 — pozdější rozšíření
+
+#### Fáze 5A — oblíbené a historie
+- ukládání oblíbených receptů pro domácnost
+- historie naposledy otevřených receptů
+- opětovné otevření detailu z obou seznamů
+- ukládat pouze normalizovaná metadata receptu, nikoliv postup přípravy
+- oblíbené i historie musí být per-household a serverově autorizované
+
+#### Fáze 5B — doporučení a rozšířené filtry
+- filtry podle domácnosti
+- „Co uvařit z toho, co mám doma“
+
+#### Fáze 5C — ceny a akce
+- napojení receptů na akce a ceny
+- odhad ceny receptu podle aktuálních cen
+- doporučení receptů podle zásob
+
 - oblíbené recepty
 - historie
 - filtry podle domácnosti

@@ -116,6 +116,7 @@ export function rankPantryRecommendations(
 
   return recommendations.sort(
     (a, b) =>
+      (b.coveredIngredientCount / b.ingredientCount) - (a.coveredIngredientCount / a.ingredientCount) ||
       b.coveredIngredientCount - a.coveredIngredientCount ||
       b.matchedIngredientCount - a.matchedIngredientCount ||
       b.householdPreferenceScore - a.householdPreferenceScore ||

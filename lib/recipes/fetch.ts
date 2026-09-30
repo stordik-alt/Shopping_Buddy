@@ -3,6 +3,12 @@ import { isIP } from 'node:net'
 
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 const DEFAULT_TIMEOUT_MS = 10_000
+const MAX_REDIRECTS = 3
+const DEFAULT_HEADERS = {
+  Accept: 'text/html,application/xhtml+xml',
+  'Accept-Language': 'cs-CZ,cs;q=0.9,en;q=0.7',
+  'User-Agent': 'ANITKA Recipe Importer/1.0 (+https://github.com/stordik-alt/Shopping_Buddy)',
+}
 const BLOCKED_HOSTNAMES = new Set(['localhost', 'localhost.localdomain', 'metadata.google.internal'])
 
 function isPrivateIpv4(ip: string): boolean {
@@ -47,19 +53,28 @@ export async function fetchRecipeHtml(
   allowedDomains: readonly string[],
   options: { timeoutMs?: number; maxBytes?: number } = {},
 ): Promise<string> {
-  const parsed = await assertSafeRecipeUrl(url, allowedDomains)
+  let current = await assertSafeRecipeUrl(url, allowedDomains)
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS)
 
   try {
-    const response = await fetch(parsed, {
-      signal: controller.signal,
-      headers: { Accept: 'text/html,application/xhtml+xml' },
-      redirect: 'error',
-      cache: 'no-store',
-    })
+    for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount += 1) {
+      const response = await fetch(current, {
+        signal: controller.signal,
+        headers: DEFAULT_HEADERS,
+        redirect: 'manual',
+        cache: 'no-store',
+      })
 
-    if (!response.ok) throw new Error('Recipe source returned HTTP ' + response.status)
+      if (response.status >= 300 && response.status < 400) {
+        if (redirectCount === MAX_REDIRECTS) throw new Error('Recipe source redirected too many times')
+        const location = response.headers.get('location')
+        if (!location) throw new Error('Recipe source returned a redirect without a location')
+        current = await assertSafeRecipeUrl(new URL(location, current).toString(), allowedDomains)
+        continue
+      }
+
+      if (!response.ok) throw new Error('Recipe source returned HTTP ' + response.status)
 
     const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''
     if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) {
@@ -95,7 +110,10 @@ export async function fetchRecipeHtml(
       offset += chunk.byteLength
     }
 
-    return new TextDecoder().decode(result)
+      return new TextDecoder().decode(result)
+    }
+
+    throw new Error('Recipe source redirect handling failed')
   } finally {
     clearTimeout(timeout)
   }

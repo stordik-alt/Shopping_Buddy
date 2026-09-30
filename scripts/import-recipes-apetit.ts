@@ -1,0 +1,1 @@
+import { runRecipeImportCli } from '@/lib/recipes/importer'\n\nrunRecipeImportCli('apetit').catch((error) => {\n  console.error(error)\n  process.exit(1)\n})\n

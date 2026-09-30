@@ -211,7 +211,7 @@ export async function importRecipeBatch(options: RecipeImportOptions): Promise<R
 
       let imageRef = existing?.imageRef ?? null
       let storedImageUrl = existing?.imageUrl ?? recipe.imageUrl ?? null
-      if (options.importImages && recipe.imageUrl) {
+      if (options.importImages && recipe.imageUrl && !options.dryRun) {
         try {
           const sourceDomain = adapter.domains[0] ?? new URL(recipe.canonicalUrl).hostname
           const hosts = normalizeHostList(sourceDomain, options.imageHosts)
@@ -224,6 +224,7 @@ export async function importRecipeBatch(options: RecipeImportOptions): Promise<R
       }
 
       if (options.dryRun) {
+        if (options.importImages && recipe.imageUrl) console.log('DRY-RUN IMAGE-COPY skipped: ' + recipe.imageUrl)
         console.log('DRY-RUN ' + adapter.name + ': ' + recipe.title + ' — ' + recipe.canonicalUrl)
         continue
       }

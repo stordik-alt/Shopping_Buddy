@@ -918,6 +918,12 @@ Do not document functionality that does not exist.
 
 # 36. Working Method for Claude
 
+Before making any implementation change, first identify and read the relevant concept/specification document(s). The documented concept is the starting point for the change, not an optional reference.
+
+For a feature that already has a concept document, review that document together with the current implementation before changing code. If the requested change modifies the concept, update the concept document first or in the same coherent change so it remains the source of truth.
+
+After implementation, update docs/07_CHANGELOG.md with a concise dated entry describing what actually changed. Do not put planned work into the changelog; only record completed/verified changes. If the implementation differs from the concept, update the concept/documentation in the same change and explicitly describe the resulting behavior.
+
 Before making changes:
 
 ### Step 1 — Inspect
@@ -977,13 +983,22 @@ Check:
 * duplicated logic
 * unnecessary dependencies
 
-### Step 6 — Documentation
+### Step 6 — Reconcile documentation
 
-Update documentation if the implementation changed the documented project state.
+Re-read the relevant concept/specification after implementation and compare it with the actual code. Update the concept and current-state documentation when the implementation changes the documented behavior.
 
 ### Step 7 — Changelog
 
-Add a concise entry describing the completed change.
+Add a concise dated entry to docs/07_CHANGELOG.md describing the completed and verified change. The changelog is historical: do not use it as a task list or write speculative/planned changes into it.
+
+### Step 8 — Final review
+
+Before opening the pull request, verify that:
+
+* the relevant concept was reviewed before implementation
+* the implementation matches the concept, or the concept was updated
+* docs/07_CHANGELOG.md records the actual completed change
+* tests/validation reflect the final implementation
 
 ---
 

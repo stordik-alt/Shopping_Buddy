@@ -1,5 +1,11 @@
 # Shopping Buddy — Change Log
 
+## 2026-09-30 (Concept-first development and changelog)
+- Development workflow now requires reviewing the relevant concept/specification document before implementation changes.
+- If a requested change alters the documented concept, the concept must be updated in the same coherent change so it remains the source of truth.
+- Completed changes must be recorded in docs/07_CHANGELOG.md; planned or speculative work must not be added to the changelog.
+- Before a pull request, the implementation, concept documentation, changelog and validation results must be reconciled.
+
 ## 2026-09-30 (Fallback: pg driver for a hosted PostgreSQL)
 
 `DATABASE_DRIVER=pg` now selects the `pg` driver (and the self-hosted Better Auth) for any PostgreSQL, not only a loopback one, so production can move off Neon by changing environment variables (`docs/10_LOCAL_DATABASE.md`, "Fallback"). Optional `DATABASE_POOL_MAX` (default 5). Neon stays the default; nothing changes without the variable. Not yet tried against a real hosted provider.

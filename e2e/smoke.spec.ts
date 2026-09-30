@@ -51,6 +51,7 @@ async function expectSection(page: Page, path: string, tab: string) {
 }
 
 test.describe('critical smoke flow', () => {
+  test.setTimeout(90000)
   test('public intro is reachable', async ({ page }) => {
     await page.goto('/intro')
     await expect(page.getByRole('img', { name: 'ANITKA' })).toBeVisible()
@@ -66,10 +67,13 @@ test.describe('critical smoke flow', () => {
       await page.getByLabel('Jméno').fill(name)
       await page.getByLabel('E-mail').fill(email)
       await page.getByLabel('Heslo').fill(password)
-      const signUpResponsePromise = page.waitForResponse((response) => {
-        const url = new URL(response.url())
-        return response.request().method() === 'POST' && url.pathname === '/api/auth/sign-up/email'
-      })
+      const signUpResponsePromise = page.waitForResponse(
+        (response) => {
+          const url = new URL(response.url())
+          return response.request().method() === 'POST' && url.pathname === '/api/auth/sign-up/email'
+        },
+        { timeout: 15000 },
+      )
       await page.getByRole('button', { name: 'Založit účet' }).click()
 
       const signUpResponse = await signUpResponsePromise

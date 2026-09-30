@@ -2,6 +2,7 @@ import { and, asc, desc, eq, sql } from 'drizzle-orm'
 import type { Recipe, RecipeSearchResult, SavedRecipe } from '@/lib/recipes/types'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
+import type { PantryItem } from '@/lib/types'
 
 function optionalNumber(value: string | number | null | undefined): number | undefined {
   if (value == null) return undefined

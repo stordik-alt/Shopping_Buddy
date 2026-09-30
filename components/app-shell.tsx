@@ -27,6 +27,7 @@ import {
   Pantry,
   PantryPrompt,
   PriceWatch,
+  Recipes,
   PurchaseHistory,
   QuickOutOfStock,
   ReceiptImport,
@@ -604,6 +605,7 @@ export function AppShell({
                   onClearLocation={userLocation.clearLocation}
                 />
               )}
+              {tab === 'Recepty' && <Recipes />}
               {tab === 'Rozpočet' && (
                 <div className="space-y-5 lg:space-y-6">
                   <div className="flex flex-wrap gap-2" role="group" aria-label="Zobrazení rozpočtu">

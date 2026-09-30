@@ -1,4 +1,4 @@
-import { Bot, House, Package, ShoppingCart, Store, Tag, Users, WalletCards, type LucideIcon } from 'lucide-react'
+import { Bot, CookingPot, House, Package, ShoppingCart, Store, Tag, Users, WalletCards, type LucideIcon } from 'lucide-react'
 import type { Tab } from '@/lib/types'
 
 /** ANITKA navigation icon system.
@@ -10,6 +10,7 @@ export const tabIcons = {
   Nákup: ShoppingCart,
   Zásoby: Package,
   Obchody: Store,
+  Recepty: CookingPot,
   Rozpočet: WalletCards,
   AI: Bot,
   Profil: Users,

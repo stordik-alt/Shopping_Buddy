@@ -12,6 +12,7 @@ export type RecipeIngredientPrice = {
   cost: number
   store: string
   isDeal: boolean
+  dealPrice?: number
   dealValidUntil?: string
   sourceType?: PricePoint['sourceType']
 }
@@ -36,6 +37,7 @@ export type RecipePriceEstimate = {
     ingredientName: string
     store: string
     price: number
+    estimatedCost: number
     validUntil: string
   }>
 }
@@ -93,6 +95,7 @@ function candidateFromStandaloneOffer(ingredient: RecipeIngredient, offer: Stand
     cost,
     store: offer.store,
     isDeal: true,
+    dealPrice: offer.dealPrice,
     dealValidUntil: offer.validUntil,
     sourceType: 'OTHER',
   }
@@ -118,6 +121,7 @@ function candidatesForProduct(
       cost,
       store: price.store,
       isDeal: price.dealPrice != null,
+      dealPrice: price.dealPrice,
       dealValidUntil: price.dealValidUntil,
       sourceType: price.sourceType,
     })

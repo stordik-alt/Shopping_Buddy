@@ -36,16 +36,21 @@ function sortResults(results: RecipeSearchResult[], sort: 'relevance' | 'rating'
 }
 
 async function getCatalogImageUrl(canonicalUrl: string): Promise<string | undefined> {
-  const [row] = await getDb()
-    .select({
-      imageUrl: schema.recipeCatalog.imageUrl,
-      imageRef: schema.recipeCatalog.imageRef,
-    })
-    .from(schema.recipeCatalog)
-    .where(eq(schema.recipeCatalog.canonicalUrl, canonicalUrl))
-    .limit(1)
+  try {
+    const [row] = await getDb()
+      .select({
+        imageUrl: schema.recipeCatalog.imageUrl,
+        imageRef: schema.recipeCatalog.imageRef,
+      })
+      .from(schema.recipeCatalog)
+      .where(eq(schema.recipeCatalog.canonicalUrl, canonicalUrl))
+      .limit(1)
 
-  return row?.imageRef && row.imageUrl ? row.imageUrl : undefined
+    return row?.imageRef && row.imageUrl ? row.imageUrl : undefined
+  } catch {
+    // Catalog images are an enhancement; recipe search/detail must still work if the catalog is unavailable.
+    return undefined
+  }
 }
 
 async function enrichResult(result: RecipeSearchResult): Promise<RecipeSearchResult> {

@@ -85,4 +85,27 @@ describe('recipe portal adapter fixtures', () => {
     expect(receptyCzAdapter.imageDomains).toEqual(['ms*.ostium.cz'])
   })
 
+  it.each([
+    { adapter: receptyCzAdapter, host: 'www.recepty.cz', path: (page: number) => `/recept/kure-page-${page}-123456`, pageMarker: 'recipePage=2' },
+    { adapter: apetitAdapter, host: 'www.apetitonline.cz', path: (page: number) => `/recept/kure-page-${page}`, pageMarker: 'page=1' },
+    { adapter: topreceptyAdapter, host: 'www.toprecepty.cz', path: (page: number) => `/recept/12345-kure-page-${page}/`, pageMarker: 'stranka=2' },
+    { adapter: vareniAdapter, host: 'www.vareni.cz', path: (page: number) => `/recepty/kure-page-${page}/`, pageMarker: 'page=2' },
+  ])('continues pagination for $adapter.name and skips excluded URLs', async ({ adapter, host, path, pageMarker }) => {
+    mockedFetch.mockImplementation(async (url) => {
+      const page = mockedFetch.mock.calls.length
+      const recipeUrl = `https://${host}${path(page)}`
+      return searchFixture(recipeUrl, `Kuře stránka ${page}`)
+    })
+
+    const firstUrl = `https://${host}${path(1)}`
+    const results = await adapter.search('kuře', {
+      limit: 1,
+      excludeUrls: new Set([firstUrl]),
+    })
+
+    expect(results).toHaveLength(1)
+    expect(results[0].sourceUrl).toBe(`https://${host}${path(2)}`)
+    expect(mockedFetch.mock.calls[1]?.[0]).toContain(pageMarker)
+  })
+
 })

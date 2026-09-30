@@ -871,6 +871,42 @@ export const recipeHistory = pgTable('recipe_history', {
 
 // --- Meal plans & notifications ------------------------------------------------
 
+// Persistent shared recipe catalog populated by the source importers. Unlike favorites/history,
+// this table is global: it is not household-owned. Cooking instructions are intentionally not stored;
+// users open sourceUrl for the full recipe (docs/10_RECIPES.md).
+export const recipeCatalog = pgTable('recipe_catalog', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  sourceId: text('source_id').notNull(),
+  sourceName: text('source_name').notNull(),
+  sourceUrl: text('source_url').notNull(),
+  canonicalUrl: text('canonical_url').notNull(),
+  title: text('title').notNull(),
+  description: text('description'),
+  imageUrl: text('image_url'),
+  sourceImageUrl: text('source_image_url'),
+  imageRef: text('image_ref'),
+  servings: numeric('servings', { precision: 8, scale: 2 }),
+  servingsText: text('servings_text'),
+  prepTimeMinutes: integer('prep_time_minutes'),
+  cookTimeMinutes: integer('cook_time_minutes'),
+  totalTimeMinutes: integer('total_time_minutes'),
+  category: text('category'),
+  cuisine: text('cuisine'),
+  ratingValue: numeric('rating_value', { precision: 6, scale: 3 }),
+  ratingScale: numeric('rating_scale', { precision: 6, scale: 3 }),
+  ratingCount: integer('rating_count'),
+  ratingSource: text('rating_source'),
+  ingredients: jsonb('ingredients').notNull(),
+  fetchedAt: timestamp('fetched_at', { withTimezone: true }).notNull(),
+  parserVersion: integer('parser_version').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('recipe_catalog_canonical_url_unique').on(table.canonicalUrl),
+  index('recipe_catalog_source_idx').on(table.sourceId, table.updatedAt),
+  index('recipe_catalog_title_idx').on(table.title),
+])
+
 export const mealPlans = pgTable('meal_plans', {
   id: uuid('id').primaryKey().defaultRandom(),
   householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),

@@ -1,5 +1,5 @@
 import { AwsClient } from 'aws4fetch'
-import type { ReceiptFileStore } from '@/lib/storage/types'
+import type { ReceiptFileStore, StoredFile } from '@/lib/storage/types'
 
 // Cloudflare R2 through its S3-compatible API. The app runs on Vercel, where there is no R2 Worker
 // binding, so requests are signed with an R2 API token (SigV4). `aws4fetch` is used instead of the
@@ -67,6 +67,19 @@ async function send(method: 'PUT' | 'GET' | 'DELETE', key: string, upload?: { bo
   const headers: Record<string, string> = upload ? { 'Content-Type': upload.contentType, 'Content-Length': String(upload.body.byteLength) } : {}
   const signed = await aws.sign(r2ObjectUrl(config, key), { method, headers, body })
   return fetch(signed.url, { method, headers: signed.headers, body })
+}
+
+export async function r2PutObject(key: string, body: Buffer, contentType: string): Promise<string> {
+  const response = await send('PUT', key, { body, contentType })
+  if (!response.ok) throw await failure('object upload', response)
+  return key
+}
+
+export async function r2GetObject(key: string): Promise<StoredFile | null> {
+  const response = await send('GET', key)
+  if (response.status === 404) return null
+  if (!response.ok || !response.body) throw await failure('object read', response)
+  return { body: response.body, contentType: response.headers.get('content-type') ?? 'application/octet-stream' }
 }
 
 export const r2Store: ReceiptFileStore = {

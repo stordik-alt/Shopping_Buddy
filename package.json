@@ -34,7 +34,11 @@
     "cf:preview": "wrangler dev",
     "cf:deploy:staging": "opennextjs-cloudflare deploy --env staging",
     "cf:deploy": "opennextjs-cloudflare deploy",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "db:recipes:recepty-cz": "dotenv -e .env.local -- tsx scripts/import-recipes-recepty-cz.ts",
+    "db:recipes:apetit": "dotenv -e .env.local -- tsx scripts/import-recipes-apetit.ts",
+    "db:recipes:toprecepty": "dotenv -e .env.local -- tsx scripts/import-recipes-toprecepty.ts",
+    "db:recipes:vareni": "dotenv -e .env.local -- tsx scripts/import-recipes-vareni.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

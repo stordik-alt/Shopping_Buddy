@@ -33,11 +33,19 @@ The long-term goal is to provide intelligent shopping assistance based on reliab
 
 The AI Shopping Assistant is intentionally planned as the final major development phase.
 
-## Recipe integration — phase 4 in progress
+## Recipe integration — phases 1–5C merged
 
-Recipe phases 1–3 are merged into `main`: normalized recipe model, Schema.org Recipe JSON-LD parser, ingredient/serving normalization, serving scaling, guarded fetch/cache, four Czech source adapters, search/detail normalization, and the Recepty UI with source filters, sorting, ratings, serving controls and source links.
+Recipe integration phases 1–5C are merged into `main`.
 
-Phase 4 is implemented on `feat/recipes-shopping-integration`: recipe ingredients can be reviewed, supported units are mapped to the shopping-list model, compatible pantry stock is deducted (including partial stock and multiple placements), problematic/unquantifiable ingredients are flagged instead of guessed, and selected missing quantities use the existing shopping action and its catalog/deal logic. CI and production network verification remain subsequent validation steps.
+- **Phase 1:** normalized recipe model, Schema.org Recipe JSON-LD parser, ingredient/serving normalization, serving scaling, guarded fetch/cache and tests.
+- **Phase 2:** adapters for Recepty.cz, Apetit Online, Toprecepty and Vaření.cz with normalized results, guarded source access and fixture tests.
+- **Phase 3:** Recepty UI, mobile `Více` navigation, search, source filter, sorting, ratings, detail, serving controls and original-source link.
+- **Phase 4:** recipe-to-shopping integration, supported unit mapping, multi-placement pantry subtraction, explicit problem states and reuse of the existing shopping action.
+- **Phase 5A:** household-scoped favorites and compact recipe history with server authorization; metadata only, no cooking instructions stored.
+- **Phase 5B:** optional household-aware filtering, soft preference ordering and „Co uvařit z toho, co mám doma“ based on current pantry data.
+- **Phase 5C:** recipe price estimates from existing product prices/deals, comparable-unit conversion and transparent incomplete-data handling.
+
+Automated tests for the merged recipe phases passed. Vercel production builds are currently constrained by the project's free-plan build limit, so a production deployment verification has not been claimed.
 
 ---
 

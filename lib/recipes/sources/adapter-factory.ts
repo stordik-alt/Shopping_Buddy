@@ -37,6 +37,7 @@ function createPortalAdapter(config: PortalConfig): RecipeSourceAdapter {
           ...(config.fallbackSearchUrls?.(normalizedQuery, page) ?? []),
         ]
         let pageAddedLinks = 0
+        let pageHadLinks = false
         let fetchedAnyPage = false
         let lastFetchError: unknown = undefined
 
@@ -45,6 +46,7 @@ function createPortalAdapter(config: PortalConfig): RecipeSourceAdapter {
             const html = await fetchRecipeHtml(searchUrl, [config.domain])
             fetchedAnyPage = true
             const links = extractRecipeLinks(html, searchUrl, config.recipePath)
+            pageHadLinks = pageHadLinks || links.length > 0
             for (const link of links) {
               if (!allLinks.has(link.url)) {
                 allLinks.set(link.url, link)
@@ -59,18 +61,12 @@ function createPortalAdapter(config: PortalConfig): RecipeSourceAdapter {
         }
 
         if (!fetchedAnyPage && lastFetchError) throw lastFetchError
-        for (const link of links) {
-          if (!allLinks.has(link.url)) {
-            allLinks.set(link.url, link)
-            pageAddedLinks += 1
-          }
-        }
         pagesWithoutNewLinks = pageAddedLinks === 0 ? pagesWithoutNewLinks + 1 : 0
         const relevantCount = [...allLinks.values()].filter(
           (link) => !excludedUrls.has(link.url) && isRecipeTitleRelevant(link.title, normalizedQuery),
         ).length
         if (relevantCount >= requestedLimit) break
-        if (links.length === 0 || pagesWithoutNewLinks >= 2) break
+        if (!pageHadLinks || pagesWithoutNewLinks >= 2) break
       }
 
       const relevantLinks = [...allLinks.values()]

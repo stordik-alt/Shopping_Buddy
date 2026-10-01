@@ -222,3 +222,50 @@ export async function getRecipeByUrl(sourceId: string, url: string): Promise<Rec
   recipeDetailCache.set(parsed.toString(), recipe)
   return recipe
 }
+
+const MEAL_PLAN_CATEGORY_PATTERNS: Record<string, string[]> = {
+  'Snídaně': ['snídan', 'snidan', 'breakfast'],
+  'Oběd': ['oběd', 'obed', 'lunch', 'hlavní chod', 'hlavni chod'],
+  'Večeře': ['večeř', 'vecer', 'dinner', 'hlavní chod', 'hlavni chod'],
+  'Svačina': ['svačin', 'svacin', 'snack'],
+}
+
+/** Returns detailed catalog recipes that are explicitly associated with a meal type by their
+ * category/title/description. The meal planner uses these real catalog rows instead of the legacy
+ * code-only recipe fixtures. */
+export async function getMealPlanRecipeCandidates(
+  mealType: 'Snídaně' | 'Oběd' | 'Večeře' | 'Svačina',
+  limit = 36,
+): Promise<Recipe[]> {
+  const patterns = MEAL_PLAN_CATEGORY_PATTERNS[mealType] ?? []
+  if (patterns.length === 0) return []
+
+  const where = or(
+    ...patterns.flatMap((pattern) => [
+      ilike(schema.recipeCatalog.category, '%' + escapeLike(pattern) + '%'),
+      ilike(schema.recipeCatalog.title, '%' + escapeLike(pattern) + '%'),
+      ilike(schema.recipeCatalog.description, '%' + escapeLike(pattern) + '%'),
+      ilike(schema.recipeCatalog.searchText, '%' + escapeLike(pattern) + '%'),
+    ]),
+  )
+
+  const rows = await getDb()
+    .select()
+    .from(schema.recipeCatalog)
+    .where(where)
+    .orderBy(
+      desc(sql`CASE WHEN ${schema.recipeCatalog.ratingValue} IS NULL THEN 1 ELSE 0 END`),
+      desc(schema.recipeCatalog.ratingValue),
+      asc(schema.recipeCatalog.title),
+    )
+    .limit(Math.max(1, Math.min(limit, 60)))
+
+  const seen = new Set<string>()
+  return rows
+    .map(rowToRecipe)
+    .filter((recipe) => {
+      if (seen.has(recipe.canonicalUrl)) return false
+      seen.add(recipe.canonicalUrl)
+      return true
+    })
+}

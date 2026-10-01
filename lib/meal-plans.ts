@@ -2,7 +2,14 @@ import type { Household, ItemCategory, ItemUnit, PantryItem } from '@/lib/types'
 
 export type MealType = 'Snídaně' | 'Oběd' | 'Večeře' | 'Svačina'
 
-export type Ingredient = { name: string; category: ItemCategory; quantity: number; unit: ItemUnit }
+export type Ingredient = {
+  name: string
+  category: ItemCategory
+  quantity: number
+  unit: ItemUnit
+  /** Original recipe measure when the value is a shopping placeholder (e.g. "množství neuvedeno" or "2 balení"). */
+  sourceMeasure?: string
+}
 
 export type Recipe = {
   id: string
@@ -11,6 +18,16 @@ export type Recipe = {
   price: number
   allergens: string[]
   ingredients: Ingredient[]
+  /** Original recipe serving count, when the source provides one. */
+  servings?: number
+  /** Household-selected servings for this meal. Zero is a valid value. */
+  selectedServings?: number
+  /** Source metadata used to open the actual recipe from the meal plan. */
+  sourceId?: string
+  sourceName?: string
+  sourceUrl?: string
+  canonicalUrl?: string
+  imageUrl?: string
 }
 
 // A meal slot is absent when the household did not ask for that meal (e.g. no snack) in the plan.
@@ -24,7 +41,7 @@ export type DayPlan = {
 
 /** What a menu covers: how many days (1–7, starting at `startDayIndex`, 0 = Monday) and which meals.
  *  The default is the classic whole week from Monday with every meal. */
-export type MealPlanOptions = { dayCount: number; startDayIndex: number; mealTypes: MealType[] }
+export type MealPlanOptions = { dayCount: number; startDayIndex: number; mealTypes: MealType[]; recipePools?: Partial<Record<MealType, Recipe[]>> }
 
 export const ALL_MEAL_TYPES: MealType[] = ['Snídaně', 'Oběd', 'Večeře', 'Svačina']
 export const DEFAULT_MEAL_PLAN_OPTIONS: MealPlanOptions = { dayCount: 7, startDayIndex: 0, mealTypes: ALL_MEAL_TYPES }
@@ -33,6 +50,8 @@ export type WeeklyMealPlan = {
   days: DayPlan[]
   staples: Ingredient[]
   estimatedTotal: number
+  /** Real catalog recipes currently have no recipe-level price, so their total is not yet a price estimate. */
+  pricingPending?: boolean
   recommendedStores: string[]
   // Keys of meals the household has confirmed they actually cooked this week (see mealKey()),
   // each one deducting its recipe's ingredients from the pantry exactly once (markMealCookedAction
@@ -225,7 +244,13 @@ const RECIPES: Recipe[] = [
   },
 ]
 
-function recipesFor(mealType: MealType, excludedAllergens: Set<string>) {
+function recipesFor(mealType: MealType, excludedAllergens: Set<string>, recipePools?: Partial<Record<MealType, Recipe[]>>) {
+  const suppliedPool = recipePools?.[mealType]
+  if (suppliedPool && suppliedPool.length > 0) {
+    const safePool = suppliedPool.filter((recipe) => !recipe.allergens.some((allergen) => excludedAllergens.has(allergen)))
+    if (safePool.length > 0) return safePool
+    return suppliedPool
+  }
   const pool = RECIPES.filter((recipe) => recipe.mealType === mealType && !recipe.allergens.some((allergen) => excludedAllergens.has(allergen)))
   return pool.length > 0 ? pool : RECIPES.filter((recipe) => recipe.mealType === mealType)
 }
@@ -272,7 +297,7 @@ export function matchIngredientToStock(ingredient: Ingredient, pantryItems: Pant
 }
 
 function stockCoverageScore(recipe: Recipe, pantryItems: PantryItem[]): number {
-  return recipe.ingredients.filter((ingredient) => matchIngredientToStock(ingredient, pantryItems) != null).length
+  return plannedRecipeIngredients(recipe).filter((ingredient) => ingredient.quantity > 0 && matchIngredientToStock(ingredient, pantryItems) != null).length
 }
 
 /** Picks a recipe from `pool` for a given day-index slot. With no pantry stock supplied, this is
@@ -280,6 +305,31 @@ function stockCoverageScore(recipe: Recipe, pantryItems: PantryItem[]): number {
  *  whichever recipe in the pool uses the most ingredients the household already has — "use up what
  *  you have" — falling back to the plain rotation when nothing in the pool matches any stock at
  *  all (rather than picking pool[0] every time, which would make every stock-less slot identical). */
+function defaultSelectedServings(recipe: Recipe): number {
+  return recipe.servings !== undefined && Number.isFinite(recipe.servings) && recipe.servings > 0 ? recipe.servings : 1
+}
+
+function withSelectedServings(recipe: Recipe, selectedServings?: number): Recipe {
+  const value = selectedServings ?? recipe.selectedServings ?? defaultSelectedServings(recipe)
+  return { ...recipe, selectedServings: Number.isFinite(value) ? Math.max(0, value) : defaultSelectedServings(recipe) }
+}
+
+/** Ingredient quantities actually used by this meal-plan item. A missing source serving count means
+ *  the recipe stays at its authored quantities; a selected value of 0 is valid and produces zero
+ *  scalable quantities without being treated as an ingredient validation error. Shopping-placeholder
+ *  ingredients (unknown/cooking units or missing quantity) intentionally stay as one placeholder. */
+export function plannedRecipeIngredients(recipe: Recipe): Ingredient[] {
+  const selected = recipe.selectedServings ?? defaultSelectedServings(recipe)
+  if (recipe.servings === undefined || !Number.isFinite(recipe.servings) || recipe.servings <= 0) {
+    return recipe.ingredients.map((ingredient) => ({ ...ingredient }))
+  }
+  const factor = selected / recipe.servings
+  return recipe.ingredients.map((ingredient) => {
+    if (ingredient.sourceMeasure) return { ...ingredient }
+    return { ...ingredient, quantity: ingredient.quantity * factor }
+  })
+}
+
 function pickRecipe(pool: Recipe[], index: number, pantryItems: PantryItem[] | null): Recipe {
   if (!pantryItems || pantryItems.length === 0) return pool[index % pool.length]
   let best = pool[0]
@@ -315,12 +365,13 @@ export function generateWeeklyPlan(
 
   const days: DayPlan[] = Array.from({ length: dayCount }, (_, index) => {
     const day: DayPlan = { day: DAYS[(options.startDayIndex + index) % DAYS.length] }
-    for (const type of mealTypes) day[MEAL_SLOT[type]] = pickRecipe(recipesFor(type, excludedAllergens), index, pantryItems)
+    for (const type of mealTypes) day[MEAL_SLOT[type]] = withSelectedServings(pickRecipe(recipesFor(type, excludedAllergens, options.recipePools), index, pantryItems))
     return day
   })
 
   const estimatedTotal = planTotal(days, STAPLES.length)
-  return { days, staples: STAPLES, estimatedTotal, recommendedStores: recommendStores(estimatedTotal, budgetLimit, household), cookedMeals: [] }
+  const pricingPending = days.some((day) => mealsOf(day).some((recipe) => Boolean(recipe.sourceUrl)))
+  return { days, staples: STAPLES, estimatedTotal, pricingPending, recommendedStores: pricingPending ? [] : recommendStores(estimatedTotal, budgetLimit, household), cookedMeals: [] }
 }
 
 /** Price of the chosen recipes plus the staples, which are scaled to the number of days covered
@@ -349,7 +400,7 @@ export function mealTypesOf(plan: WeeklyMealPlan): MealType[] {
 /** The ingredients of one recipe that the pantry does not cover (missing or not enough) — shown next
  *  to each meal so the household sees what it still has to buy. */
 export function missingIngredients(recipe: Recipe, pantryItems: PantryItem[]): Ingredient[] {
-  return recipe.ingredients.filter((ingredient) => matchIngredientToStock(ingredient, pantryItems) == null)
+  return plannedRecipeIngredients(recipe).filter((ingredient) => ingredient.quantity > 0 && matchIngredientToStock(ingredient, pantryItems) == null)
 }
 
 const MEAL_SLOT: Record<MealType, 'breakfast' | 'lunch' | 'dinner' | 'snack'> = {
@@ -371,6 +422,7 @@ export function regenerateMeal(
   mealType: MealType,
   household: Household,
   pantryItems: PantryItem[] | null = null,
+  recipePools?: Partial<Record<MealType, Recipe[]>>,
 ): WeeklyMealPlan {
   const dayIndex = plan.days.findIndex((d) => d.day === day)
   if (dayIndex === -1) return plan
@@ -380,13 +432,20 @@ export function regenerateMeal(
   const currentRecipe = plan.days[dayIndex][slot]
   if (!currentRecipe) return plan
 
-  const fullPool = recipesFor(mealType, excludedAllergens)
+  const fullPool = recipesFor(mealType, excludedAllergens, recipePools)
   const remaining = fullPool.filter((recipe) => recipe.id !== currentRecipe.id)
   const pool = remaining.length > 0 ? remaining : fullPool
-  const nextRecipe = pickRecipe(pool, dayIndex, pantryItems)
+  const nextRecipe = withSelectedServings(pickRecipe(pool, dayIndex, pantryItems), currentRecipe.selectedServings)
 
   const newDays = plan.days.map((dayPlan, index) => (index === dayIndex ? { ...dayPlan, [slot]: nextRecipe } : dayPlan))
-  return { ...plan, days: newDays, estimatedTotal: planTotal(newDays, plan.staples.length) }
+  const pricingPending = newDays.some((dayPlan) => mealsOf(dayPlan).some((recipe) => Boolean(recipe.sourceUrl)))
+  return {
+    ...plan,
+    days: newDays,
+    estimatedTotal: planTotal(newDays, plan.staples.length),
+    pricingPending,
+    recommendedStores: pricingPending ? [] : plan.recommendedStores,
+  }
 }
 
 export function recipeFor(plan: WeeklyMealPlan, day: string, mealType: MealType): Recipe | undefined {
@@ -444,10 +503,16 @@ export function parseSavedPlan(json: string): WeeklyMealPlan | null {
       const recipe = day[slot]
       if (recipe === undefined) continue // a meal the household did not ask for
       if (!recipe || !Array.isArray(recipe.ingredients)) return null
-      if (recipe.ingredients.every(isCurrentIngredient)) continue
-      const catalogRecipe = RECIPES.find((candidate) => candidate.id === recipe.id)
-      if (!catalogRecipe) return null
-      day[slot] = { ...recipe, ingredients: catalogRecipe.ingredients }
+      const normalizedRecipe = recipe.ingredients.every(isCurrentIngredient)
+        ? { ...recipe, selectedServings: withSelectedServings(recipe).selectedServings }
+        : (() => {
+            const catalogRecipe = RECIPES.find((candidate) => candidate.id === recipe.id)
+            return catalogRecipe
+              ? { ...recipe, ingredients: catalogRecipe.ingredients, selectedServings: withSelectedServings({ ...catalogRecipe, ...recipe }).selectedServings }
+              : null
+          })()
+      if (!normalizedRecipe) return null
+      day[slot] = normalizedRecipe
     }
     days.push(day)
   }
@@ -465,10 +530,12 @@ export function parseSavedPlan(json: string): WeeklyMealPlan | null {
     }
   }
 
+  const inferredPricingPending = days.some((dayPlan) => mealsOf(dayPlan).some((recipe) => Boolean(recipe.sourceUrl)))
   return {
     days,
     staples,
     estimatedTotal: saved.estimatedTotal ?? 0,
+    pricingPending: Boolean(saved.pricingPending) || inferredPricingPending,
     recommendedStores: saved.recommendedStores ?? [],
     cookedMeals: saved.cookedMeals ?? [],
   }
@@ -511,9 +578,16 @@ export function planIngredients(plan: WeeklyMealPlan): Ingredient[] {
   const combined = new Map<string, Ingredient>()
   for (const day of plan.days) {
     for (const recipe of mealsOf(day)) {
-      for (const ingredient of recipe.ingredients) {
+      for (const ingredient of plannedRecipeIngredients(recipe)) {
+        if (ingredient.quantity <= 0) continue
         const existing = combined.get(ingredient.name)
-        combined.set(ingredient.name, existing ? { ...ingredient, quantity: existing.quantity + ingredient.quantity } : ingredient)
+        if (!existing) {
+          combined.set(ingredient.name, ingredient)
+        } else if (existing.sourceMeasure || ingredient.sourceMeasure) {
+          combined.set(ingredient.name, { ...existing, sourceMeasure: existing.sourceMeasure ?? ingredient.sourceMeasure })
+        } else {
+          combined.set(ingredient.name, { ...ingredient, quantity: existing.quantity + ingredient.quantity })
+        }
       }
     }
   }

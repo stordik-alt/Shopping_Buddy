@@ -164,6 +164,28 @@ describe('setPurchaseItemExpenseSplits', () => {
   })
 
   describe('learning a product\'s reassignment (owner request, 2026-09-27)', () => {
+  it('propagates a product-compatible budget category back to the product and its purchase history', async () => {
+    const product = await createProduct()
+    const first = await createPurchase([{ name: product.name, category: 'Potraviny', price: 100, productId: product.id }])
+    const second = await createPurchase([{ name: product.name, category: 'Potraviny', price: 50, productId: product.id }])
+    try {
+      await setPurchaseItemExpenseSplits(first.householdId, first.items[0].id, [{ category: 'Ostatní', subcategory: 'Oblečení a obuv', amount: 100 }])
+      const updatedProduct = await db.query.products.findFirst({ where: eq(schema.products.id, product.id), with: { category: true, subcategory: true } })
+      expect(updatedProduct?.category.name).toBe('Ostatní')
+      expect(updatedProduct?.subcategory?.name).toBe('Oblečení a obuv')
+      const firstItem = await db.query.purchaseItems.findFirst({ where: eq(schema.purchaseItems.id, first.items[0].id) })
+      const secondItem = await db.query.purchaseItems.findFirst({ where: eq(schema.purchaseItems.id, second.items[0].id) })
+      expect(firstItem).toMatchObject({ category: 'Ostatní' })
+      expect(secondItem).toMatchObject({ category: 'Ostatní' })
+      const secondExpenses = await db.query.expenses.findMany({ where: eq(schema.expenses.purchaseId, second.purchaseId) })
+      expect(secondExpenses.map((row) => [row.category, row.subcategory, Number(row.amount)])).toEqual([['Ostatní', 'Oblečení a obuv', 50]])
+    } finally {
+      await db.delete(schema.households).where(eq(schema.households.id, first.householdId))
+      await db.delete(schema.households).where(eq(schema.households.id, second.householdId))
+      await db.delete(schema.products).where(eq(schema.products.id, product.id))
+    }
+  })
+
     it('remembers a plain (one-target) reassignment for the product', async () => {
       const product = await createProduct()
       const { householdId, items } = await createPurchase([{ name: product.name, category: 'Potraviny', price: 100, productId: product.id }])

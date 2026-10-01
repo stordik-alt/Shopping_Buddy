@@ -232,9 +232,12 @@ export async function setPurchaseItemExpenseSplitsAction(purchaseItemId: string,
     if (typeof split !== 'object' || split == null || typeof split.category !== 'string' || typeof split.amount !== 'number') throw new Error('Neplatné rozdělení položky.')
     if (split.subcategory != null && typeof split.subcategory !== 'string') throw new Error('Neplatné rozdělení položky.')
   }
+  const purchaseItem = await getDb().query.purchaseItems.findFirst({ where: eq(schema.purchaseItems.id, purchaseItemId), columns: { purchaseId: true } })
   await setPurchaseItemExpenseSplits(householdId, purchaseItemId, splits)
   // No revalidatePath: it would re-render the whole page. The recomputed expenses are all that changed.
-  return { expenses: await getHouseholdExpenses(householdId) }
+  // Include the affected purchase even when its date is outside the current budget period; this is an
+  // immediate mutation response, not the normal history read.
+  return { expenses: await getHouseholdExpenses(householdId, 1, purchaseItem?.purchaseId) }
 }
 
 /** The purchase-items behind one category's (or subcategory's) amount for one purchase, for the
@@ -257,6 +260,6 @@ export async function recordPurchaseAsExpenseAction(purchaseId: string): Promise
   if (typeof purchaseId !== 'string' || purchaseId.length === 0) throw new Error('Neplatný nákup.')
   await recordPurchaseAsExpense(householdId, purchaseId)
   // No revalidatePath (see above). Recording can also raise a budget-threshold notification, so both are returned.
-  const [expenses, notifications] = await Promise.all([getHouseholdExpenses(householdId), getHouseholdNotifications(householdId)])
+  const [expenses, notifications] = await Promise.all([getHouseholdExpenses(householdId, 1, purchaseId), getHouseholdNotifications(householdId)])
   return { expenses, notifications }
 }

@@ -149,6 +149,19 @@ async function storeRecipeImage(recipe: Recipe, adapter: RecipeSourceAdapter, im
   return 'r2:' + key
 }
 
+function recipeSearchText(recipe: Recipe): string {
+  const raw = [
+    recipe.title,
+    recipe.description ?? '',
+    ...recipe.ingredients.map((ingredient) => ingredient.name),
+  ].join(' ')
+  const normalized = raw
+    .toLocaleLowerCase('cs-CZ')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+  return raw.toLocaleLowerCase('cs-CZ') + ' ' + normalized
+}
+
 function recipeValues(recipe: Recipe, id: string, imageRef: string | null, imageUrl: string | null) {
   return {
     id,
@@ -157,6 +170,7 @@ function recipeValues(recipe: Recipe, id: string, imageRef: string | null, image
     sourceUrl: recipe.sourceUrl,
     canonicalUrl: recipe.canonicalUrl,
     title: recipe.title,
+    searchText: recipeSearchText(recipe),
     description: recipe.description ?? null,
     imageUrl,
     sourceImageUrl: recipe.imageUrl ?? null,
@@ -345,7 +359,7 @@ export async function importRecipeBatch(options: RecipeImportOptions): Promise<R
         target: schema.recipeCatalog.canonicalUrl,
         set: {
           sourceId: values.sourceId, sourceName: values.sourceName, sourceUrl: values.sourceUrl, title: values.title,
-          description: values.description, imageUrl: values.imageUrl, sourceImageUrl: values.sourceImageUrl, imageRef: values.imageRef,
+          searchText: values.searchText, description: values.description, imageUrl: values.imageUrl, sourceImageUrl: values.sourceImageUrl, imageRef: values.imageRef,
           servings: values.servings, servingsText: values.servingsText, prepTimeMinutes: values.prepTimeMinutes, cookTimeMinutes: values.cookTimeMinutes,
           totalTimeMinutes: values.totalTimeMinutes, category: values.category, cuisine: values.cuisine, ratingValue: values.ratingValue,
           ratingScale: values.ratingScale, ratingCount: values.ratingCount, ratingSource: values.ratingSource, ingredients: values.ingredients,

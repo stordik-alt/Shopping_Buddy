@@ -13,6 +13,9 @@ const VISIBLE_PURCHASES = 5
 
 export function PurchaseHistory({
   records,
+  today,
+  storeChains,
+  onCreateManualPurchase,
   onSaveSplits,
   onRecordExpenses,
   onUploadReceipt,

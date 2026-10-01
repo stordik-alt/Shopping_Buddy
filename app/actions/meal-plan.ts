@@ -14,6 +14,7 @@ import {
   isMealCooked,
   markMealCooked,
   parseSavedPlan,
+  plannedRecipeIngredients,
   recipeFor,
   type MealType,
   type Recipe as MealPlanRecipe,
@@ -122,7 +123,10 @@ export async function markMealCookedAction(day: string, mealType: MealType): Pro
   const recipe = recipeFor(plan, day, mealType)
   if (!recipe) throw new Error('Meal not found in the current plan')
 
-  for (const ingredient of recipe.ingredients) {
+  for (const ingredient of plannedRecipeIngredients(recipe)) {
+    // A recipe with a missing/culinary/unknown measure is represented by a shopping placeholder.
+    // It can be added to the shopping list, but it must never cause an invented pantry deduction.
+    if (ingredient.sourceMeasure || ingredient.quantity <= 0) continue
     const pantryRow = await db.query.pantryItems.findFirst({
       where: and(eq(schema.pantryItems.householdId, householdId), ilike(schema.pantryItems.name, ingredient.name.trim())),
     })

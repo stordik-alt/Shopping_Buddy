@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowUpRight, Clock3, Search, Star } from 'lucide-react'
+import { ArrowLeft, ArrowRight, ArrowUpRight, Clock3, Search, Star } from 'lucide-react'
 import { getRecipeAction, getRecipeCollectionsAction, getRecipePricingAction, getRecipeRecommendationsAction, searchRecipesAction, toggleRecipeFavoriteAction } from '@/app/actions/recipes'
 import { analyzeRecipeIngredients, type RecipeShoppingItem } from '@/lib/recipes/shopping'
 import { formatIngredientQuantity, scaleRecipeIngredients } from '@/lib/recipes/scaling'
@@ -20,6 +20,7 @@ const SOURCES = [
 ]
 
 const QUICK_FILTERS = ['Rychlé', 'Večeře', 'Oběd', 'Polévky', 'Maso', 'Těstoviny', 'Dezerty', 'Bezmasé'] as const
+const RECIPES_PER_PAGE = 6
 
 function rating(recipe: RecipeSearchResult) {
   if (recipe.ratingValue === undefined) return null
@@ -84,6 +85,7 @@ export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: Recip
   const [sourceId, setSourceId] = useState('')
   const [sort, setSort] = useState<'relevance' | 'rating' | 'time'>('relevance')
   const [results, setResults] = useState<RecipeSearchResult[]>([])
+  const [resultsPage, setResultsPage] = useState(1)
   const [selected, setSelected] = useState<Recipe | null>(null)
   const [servings, setServings] = useState<number | undefined>()
   const [loading, setLoading] = useState(false)
@@ -159,6 +161,7 @@ export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: Recip
         householdFilter,
       })
       setResults(next)
+      setResultsPage(1)
     } catch {
       setError('Recepty se nepodařilo načíst. Zkuste to znovu.')
     } finally {
@@ -205,6 +208,9 @@ export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: Recip
     setQuery(filter)
     void search(filter)
   }
+
+  const totalResultPages = Math.max(1, Math.ceil(results.length / RECIPES_PER_PAGE))
+  const pagedResults = results.slice((resultsPage - 1) * RECIPES_PER_PAGE, resultsPage * RECIPES_PER_PAGE)
 
   const scaled = selected && servings !== undefined ? scaleRecipeIngredients(selected, servings) : selected?.ingredients ?? []
   const shoppingAnalysis = useMemo(() => (selected ? analyzeRecipeIngredients(scaled, pantryItems) : []), [selected, scaled, pantryItems])
@@ -567,9 +573,37 @@ export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: Recip
       {!loading && query.trim() && results.length === 0 && !error && (
         <div className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">Pro tento dotaz se recepty nenašly.</div>
       )}
-      <div className="grid gap-3 md:grid-cols-2">
-        {results.map((recipe) => <RecipeCard key={recipe.canonicalUrl} recipe={recipe} onOpen={() => void openRecipe(recipe)} />)}
-      </div>
+      {results.length > 0 && (
+        <section aria-label="Výsledky vyhledávání" className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+            <span>{results.length} nalezených receptů · stránka {resultsPage} z {totalResultPages}</span>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {pagedResults.map((recipe) => <RecipeCard key={recipe.canonicalUrl} recipe={recipe} onOpen={() => void openRecipe(recipe)} />)}
+          </div>
+          {totalResultPages > 1 && (
+            <nav aria-label="Stránkování receptů" className="flex items-center justify-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setResultsPage((page) => Math.max(1, page - 1))}
+                disabled={resultsPage === 1}
+                className="inline-flex min-h-10 items-center gap-1 rounded-xl border border-border bg-card px-3 text-sm font-medium disabled:opacity-40"
+              >
+                <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Předchozí
+              </button>
+              <span className="min-w-16 text-center text-sm font-medium">{resultsPage} / {totalResultPages}</span>
+              <button
+                type="button"
+                onClick={() => setResultsPage((page) => Math.min(totalResultPages, page + 1))}
+                disabled={resultsPage === totalResultPages}
+                className="inline-flex min-h-10 items-center gap-1 rounded-xl border border-border bg-card px-3 text-sm font-medium disabled:opacity-40"
+              >
+                Další <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </nav>
+          )}
+        </section>
+      )}
     </div>
   )
 }

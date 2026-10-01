@@ -327,8 +327,12 @@ export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: Recip
                           <div className="flex items-baseline justify-between gap-4">
                             <span>{entry.ingredient.name}</span>
                             <span className="shrink-0 text-muted-foreground">
-                              {entry.quantity !== null ? formatIngredientQuantity(entry.quantity) : ''}
-                              {entry.unit ? ` ${entry.unit}` : entry.ingredient.unit ? ` ${entry.ingredient.unit}` : ''}
+                              {entry.sourceMeasure ?? (
+                                <>
+                                  {entry.quantity !== null ? formatIngredientQuantity(entry.quantity) : ''}
+                                  {entry.unit ? ` ${entry.unit}` : entry.ingredient.unit ? ` ${entry.ingredient.unit}` : ''}
+                                </>
+                              )}
                             </span>
                           </div>
                           {entry.problem && (

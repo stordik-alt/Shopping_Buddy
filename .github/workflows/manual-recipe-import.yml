@@ -6,7 +6,7 @@ on:
       production_url:
         description: "Production Vercel URL"
         required: true
-        default: "https://vantage-storek.vercel.app"
+        default: "https://s-anitkou.vercel.app"
 
 permissions:
   contents: read

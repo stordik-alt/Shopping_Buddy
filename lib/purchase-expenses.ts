@@ -57,9 +57,9 @@ export function targetsOf(line: Pick<PurchaseExpenseLine, 'category' | 'amount' 
     return line.expenseOverride.map(({ amount, ...target }) => ({ target, weight: amount }))
   }
   const category = EXPENSE_CATEGORY_OF_ITEM[line.category]
-  // Only Potraviny: its expense subcategories are the product subcategories (one vocabulary). The
-  // other categories' expense lists differ from the product lists, so nothing is guessed across.
-  const subcategory = line.category === 'Potraviny' && line.subcategory && isValidSubcategory(category, line.subcategory) ? line.subcategory : null
+  // Product-derived expenses use the exact same subcategory vocabulary as the product. Non-product
+  // expenses (rent, energy, insurance, etc.) continue to use their own fixed subcategories.
+  const subcategory = line.subcategory && isValidSubcategory(category, line.subcategory) ? line.subcategory : null
   return [{ target: { category, subcategory }, weight: line.amount }]
 }
 

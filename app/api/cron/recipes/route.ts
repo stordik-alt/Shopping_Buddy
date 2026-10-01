@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { importRecipeBatch } from '@/lib/recipes/importer'
 import { RECIPE_SOURCE_ADAPTERS } from '@/lib/recipes/sources'
+import { invalidateRecipeCaches } from '@/lib/db/cache-invalidation'
 
 export const maxDuration = 300
 
@@ -68,6 +69,7 @@ export async function GET(request: Request) {
   }
 
   const failed = Object.values(results).filter((result) => typeof result === 'object' && result !== null && 'error' in result).length
+  if (failed < RECIPE_SOURCE_ADAPTERS.length) invalidateRecipeCaches()
 
   return NextResponse.json({
     ok: failed < RECIPE_SOURCE_ADAPTERS.length,

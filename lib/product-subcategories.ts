@@ -1,10 +1,8 @@
 // Fixed subcategory taxonomy for products/inventory, one layer under the existing `item_category`
-// enum (Potraviny/Drogerie/Děti/Domácnost/Ostatní) — shared by products, purchase_items and
-// pantry_items so expenses/products/inventory all read the same subcategory for a given product
-// (CLAUDE.md's product-categorization decision, mirroring how lib/expense-categories.ts already
-// keeps expense subcategories fixed and server-validated rather than free text). Deliberately a
-// *separate* system from expense_category's own subcategories — see lib/purchase-expenses.ts's
-// EXPENSE_CATEGORY_OF_ITEM for the (unchanged) mapping from item_category to expense_category.
+// enum (Potraviny/Drogerie/Děti/Domácnost/Ostatní). The same values are used by products,
+// purchase_items, pantry_items and ordinary receipt-derived budget expenses, so one product has one
+// shared category/subcategory across Zásoby and Rozpočet. Non-product expense targets keep their own
+// separate subcategory taxonomy in lib/expense-categories.ts.
 //
 // "Děti" is intentionally not one of the item categories a child-oriented product is forced into:
 // a children's drink (Kubík) stays classified as Potraviny ▸ Nápoje, with `isChildOriented` as a

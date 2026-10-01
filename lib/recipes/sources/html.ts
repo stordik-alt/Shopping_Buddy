@@ -49,3 +49,49 @@ export function extractRecipeLinks(
 
   return links
 }
+
+
+export function extractRecipeLinksFromRss(
+  xml: string,
+  baseUrl: string,
+  pathPattern: RegExp,
+  limit = 20,
+): RecipeLink[] {
+  const base = new URL(baseUrl)
+  const baseSite = base.hostname.replace(/^www\./i, '').toLowerCase()
+  const links: RecipeLink[] = []
+  const seen = new Set<string>()
+
+  for (const item of xml.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)) {
+    const block = item[1]
+    const titleMatch = block.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)
+    const linkMatch = block.match(/<link\b[^>]*>([\s\S]*?)<\/link>/i)
+    if (!linkMatch) continue
+
+    const rawHref = linkMatch[1].replace(/^<!\[CDATA\[|\]\]>$/g, '').trim()
+    let url: URL
+    try {
+      url = new URL(decodeHtmlEntities(rawHref), base)
+    } catch {
+      continue
+    }
+
+    const urlSite = url.hostname.replace(/^www\./i, '').toLowerCase()
+    if (urlSite !== baseSite || !pathPattern.test(url.pathname)) continue
+
+    url.hash = ''
+    const canonicalUrl = url.toString()
+    if (seen.has(canonicalUrl)) continue
+    seen.add(canonicalUrl)
+
+    const rawTitle = titleMatch?.[1]?.replace(/^<!\[CDATA\[|\]\]>$/g, '') ?? ''
+    const title = stripTags(rawTitle)
+    links.push({
+      url: canonicalUrl,
+      title: title || url.pathname.split('/').filter(Boolean).at(-1)?.replace(/[-_]+/g, ' ') || canonicalUrl,
+    })
+    if (links.length >= limit) break
+  }
+
+  return links
+}

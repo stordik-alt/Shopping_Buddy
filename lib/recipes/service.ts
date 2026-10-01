@@ -1,9 +1,12 @@
+import { unstable_cache } from 'next/cache'
 import { and, asc, count, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm'
-import { recipeDetailCache, recipeSearchCache } from '@/lib/recipes/cache'
+import { GLOBAL_CACHE_TAGS } from '@/lib/db/cache-tags'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { normalizeRecipeIngredient } from '@/lib/recipes/parser'
 import type { Recipe, RecipeSearchPage, RecipeSearchResult } from '@/lib/recipes/types'
+
+const ONE_DAY = 24 * 60 * 60
 
 const MAX_QUERY_LENGTH = 120
 const DEFAULT_PAGE_SIZE = 6
@@ -120,55 +123,24 @@ async function fetchCatalogCandidates(query: string, sourceId?: string, limit = 
   return rows.map(rowToSearchResult)
 }
 
-export async function searchRecipeCatalog(
-  query: string,
-  options: {
-    sourceId?: string
-    sort?: 'relevance' | 'rating' | 'time'
-    page?: number
-    pageSize?: number
-  } = {},
-): Promise<RecipeSearchPage> {
+async function searchRecipeCatalogUncached(query: string, sourceId?: string, sort: 'relevance' | 'rating' | 'time' = 'relevance', page = 1, pageSize = DEFAULT_PAGE_SIZE): Promise<RecipeSearchPage> {
   const normalizedQuery = normalizeQuery(query)
   if (!normalizedQuery) return { results: [], total: 0, page: 1, pageSize: DEFAULT_PAGE_SIZE }
-
-  const page = Math.max(1, Math.floor(options.page ?? 1))
-  const pageSize = Math.max(1, Math.min(MAX_PAGE_SIZE, Math.floor(options.pageSize ?? DEFAULT_PAGE_SIZE)))
-  const where = buildSearchWhere(normalizedQuery, options.sourceId)
-  if (!where) return { results: [], total: 0, page, pageSize }
-
-  const cacheKeyForPage = `${cacheKey(normalizedQuery, options.sourceId)}:${options.sort ?? 'relevance'}:${page}:${pageSize}`
-  const cached = recipeSearchCache.get(cacheKeyForPage) as RecipeSearchPage | undefined
-  if (cached) return cached
-
+  const safePage = Math.max(1, Math.floor(page))
+  const safePageSize = Math.max(1, Math.min(MAX_PAGE_SIZE, Math.floor(pageSize)))
+  const where = buildSearchWhere(normalizedQuery, sourceId)
+  if (!where) return { results: [], total: 0, page: safePage, pageSize: safePageSize }
   const relevance = buildRelevanceScore(normalizedQuery)
-  const orderBy = options.sort === 'rating'
-    ? [sql`${schema.recipeCatalog.ratingValue} IS NULL`, desc(schema.recipeCatalog.ratingValue), desc(schema.recipeCatalog.ratingCount)]
-    : options.sort === 'time'
-      ? [sql`${schema.recipeCatalog.totalTimeMinutes} IS NULL`, asc(schema.recipeCatalog.totalTimeMinutes), asc(schema.recipeCatalog.title)]
-      : [desc(relevance), asc(schema.recipeCatalog.title)]
-
-  const [totalRow, rows] = await Promise.all([
-    getDb().select({ count: count() }).from(schema.recipeCatalog).where(where),
-    getDb()
-      .select()
-      .from(schema.recipeCatalog)
-      .where(where)
-      .orderBy(...orderBy)
-      .limit(pageSize)
-      .offset((page - 1) * pageSize),
-  ])
-
-  const result: RecipeSearchPage = {
-    results: rows.map(rowToSearchResult),
-    total: Number(totalRow[0]?.count ?? 0),
-    page,
-    pageSize,
-  }
-  recipeSearchCache.set(cacheKeyForPage, result)
-  return result
+  const orderBy = sort === 'rating' ? [`schema.recipeCatalog.ratingValue IS NULL`, desc(schema.recipeCatalog.ratingValue), desc(schema.recipeCatalog.ratingCount)] : sort === 'time' ? [`schema.recipeCatalog.totalTimeMinutes IS NULL`, asc(schema.recipeCatalog.totalTimeMinutes), asc(schema.recipeCatalog.title)] : [desc(relevance), asc(schema.recipeCatalog.title)]
+  const [totalRow, rows] = await Promise.all([getDb().select({ count: count() }).from(schema.recipeCatalog).where(where), getDb().select().from(schema.recipeCatalog).where(where).orderBy(...orderBy).limit(safePageSize).offset((safePage - 1) * safePageSize)])
+  return { results: rows.map(rowToSearchResult), total: Number(totalRow[0]?.count ?? 0), page: safePage, pageSize: safePageSize }
 }
 
+const searchRecipeCatalogCached = unstable_cache((query: string, sourceId: string | undefined, sort: 'relevance' | 'rating' | 'time', page: number, pageSize: number) => searchRecipeCatalogUncached(query, sourceId, sort, page, pageSize), ['recipe-search-v2'], { revalidate: ONE_DAY, tags: [GLOBAL_CACHE_TAGS.recipes] })
+
+export async function searchRecipeCatalog(query: string, options: { sourceId?: string; sort?: 'relevance' | 'rating' | 'time'; page?: number; pageSize?: number } = {}): Promise<RecipeSearchPage> {
+  return searchRecipeCatalogCached(query, options.sourceId, options.sort ?? 'relevance', Math.max(1, Math.floor(options.page ?? 1)), Math.max(1, Math.min(MAX_PAGE_SIZE, Math.floor(options.pageSize ?? DEFAULT_PAGE_SIZE))))
+}
 export async function searchRecipes(
   query: string,
   options: { sourceId?: string; sort?: 'relevance' | 'rating' | 'time' } = {},
@@ -177,52 +149,36 @@ export async function searchRecipes(
   return page.results
 }
 
-export async function searchRecipesDetailed(
-  query: string,
-  options: { sourceId?: string; sort?: 'relevance' | 'rating' | 'time' } = {},
-): Promise<Recipe[]> {
+async function searchRecipesDetailedUncached(query: string, sourceId?: string): Promise<Recipe[]> {
   const normalizedQuery = normalizeQuery(query)
   if (!normalizedQuery) return []
-  const key = `detailed:${cacheKey(normalizedQuery, options.sourceId)}`
-  const cached = recipeSearchCache.get(key) as Recipe[] | undefined
-  if (cached) return sortResults(cached, options.sort ?? 'relevance') as Recipe[]
-
-  const candidates = await fetchCatalogCandidates(normalizedQuery, options.sourceId)
-  const rows = candidates.length
-    ? await getDb()
-        .select()
-        .from(schema.recipeCatalog)
-        .where(inArray(schema.recipeCatalog.canonicalUrl, candidates.map((item) => item.canonicalUrl)))
-    : []
+  const candidates = await fetchCatalogCandidates(normalizedQuery, sourceId)
+  const rows = candidates.length ? await getDb().select().from(schema.recipeCatalog).where(inArray(schema.recipeCatalog.canonicalUrl, candidates.map((item) => item.canonicalUrl))) : []
   const byUrl = new Map(rows.map((row) => [row.canonicalUrl, rowToRecipe(row)]))
-  const recipes = candidates.map((item) => byUrl.get(item.canonicalUrl)).filter((item): item is Recipe => Boolean(item))
-  const sorted = sortResults(recipes, options.sort ?? 'relevance') as Recipe[]
-  recipeSearchCache.set(key, sorted)
-  return sorted
+  return candidates.map((item) => byUrl.get(item.canonicalUrl)).filter((item): item is Recipe => Boolean(item))
 }
+
+const searchRecipesDetailedCached = unstable_cache((query: string, sourceId: string | undefined) => searchRecipesDetailedUncached(query, sourceId), ['recipe-detailed-search-v2'], { revalidate: ONE_DAY, tags: [GLOBAL_CACHE_TAGS.recipes] })
+
+export async function searchRecipesDetailed(query: string, options: { sourceId?: string; sort?: 'relevance' | 'rating' | 'time' } = {}): Promise<Recipe[]> {
+  const recipes = await searchRecipesDetailedCached(query, options.sourceId)
+  return sortResults(recipes, options.sort ?? 'relevance') as Recipe[]
+}
+async function getRecipeByUrlUncached(sourceId: string, url: string): Promise<Recipe> {
+  const parsed = new URL(url)
+  if (parsed.protocol !== 'https:') throw new Error('Nepovolený zdroj receptu')
+  const [row] = await getDb().select().from(schema.recipeCatalog).where(and(eq(schema.recipeCatalog.sourceId, sourceId), eq(schema.recipeCatalog.canonicalUrl, parsed.toString()))).limit(1)
+  if (!row) throw new Error('Recept není v katalogu')
+  return rowToRecipe(row)
+}
+
+const getRecipeByUrlCached = unstable_cache((sourceId: string, url: string) => getRecipeByUrlUncached(sourceId, url), ['recipe-detail-v2'], { revalidate: ONE_DAY, tags: [GLOBAL_CACHE_TAGS.recipes] })
 
 export async function getRecipeByUrl(sourceId: string, url: string): Promise<Recipe> {
   const parsed = new URL(url)
   if (parsed.protocol !== 'https:') throw new Error('Nepovolený zdroj receptu')
-
-  const cached = recipeDetailCache.get(parsed.toString()) as Recipe | undefined
-  if (cached) return cached
-
-  const [row] = await getDb()
-    .select()
-    .from(schema.recipeCatalog)
-    .where(and(
-      eq(schema.recipeCatalog.sourceId, sourceId),
-      eq(schema.recipeCatalog.canonicalUrl, parsed.toString()),
-    ))
-    .limit(1)
-
-  if (!row) throw new Error('Recept není v katalogu')
-  const recipe = rowToRecipe(row)
-  recipeDetailCache.set(parsed.toString(), recipe)
-  return recipe
+  return getRecipeByUrlCached(sourceId, parsed.toString())
 }
-
 const MEAL_PLAN_CATEGORY_PATTERNS: Record<string, string[]> = {
   'Snídaně': ['snídan', 'snidan', 'breakfast'],
   'Oběd': ['oběd', 'obed', 'lunch', 'hlavní chod', 'hlavni chod'],
@@ -233,39 +189,17 @@ const MEAL_PLAN_CATEGORY_PATTERNS: Record<string, string[]> = {
 /** Returns detailed catalog recipes that are explicitly associated with a meal type by their
  * category/title/description. The meal planner uses these real catalog rows instead of the legacy
  * code-only recipe fixtures. */
-export async function getMealPlanRecipeCandidates(
-  mealType: 'Snídaně' | 'Oběd' | 'Večeře' | 'Svačina',
-  limit = 36,
-): Promise<Recipe[]> {
+async function getMealPlanRecipeCandidatesUncached(mealType: 'Snídaně' | 'Oběd' | 'Večeře' | 'Svačina', limit: number): Promise<Recipe[]> {
   const patterns = MEAL_PLAN_CATEGORY_PATTERNS[mealType] ?? []
   if (patterns.length === 0) return []
-
-  const where = or(
-    ...patterns.flatMap((pattern) => [
-      ilike(schema.recipeCatalog.category, '%' + escapeLike(pattern) + '%'),
-      ilike(schema.recipeCatalog.title, '%' + escapeLike(pattern) + '%'),
-      ilike(schema.recipeCatalog.description, '%' + escapeLike(pattern) + '%'),
-      ilike(schema.recipeCatalog.searchText, '%' + escapeLike(pattern) + '%'),
-    ]),
-  )
-
-  const rows = await getDb()
-    .select()
-    .from(schema.recipeCatalog)
-    .where(where)
-    .orderBy(
-      desc(sql`CASE WHEN ${schema.recipeCatalog.ratingValue} IS NULL THEN 1 ELSE 0 END`),
-      desc(schema.recipeCatalog.ratingValue),
-      asc(schema.recipeCatalog.title),
-    )
-    .limit(Math.max(1, Math.min(limit, 60)))
-
+  const where = or(...patterns.flatMap((pattern) => [ilike(schema.recipeCatalog.category, '%' + escapeLike(pattern) + '%'), ilike(schema.recipeCatalog.title, '%' + escapeLike(pattern) + '%'), ilike(schema.recipeCatalog.description, '%' + escapeLike(pattern) + '%'), ilike(schema.recipeCatalog.searchText, '%' + escapeLike(pattern) + '%')]))
+  const rows = await getDb().select().from(schema.recipeCatalog).where(where).orderBy(desc(`CASE WHEN ${schema.recipeCatalog.ratingValue} IS NULL THEN 1 ELSE 0 END`), desc(schema.recipeCatalog.ratingValue), asc(schema.recipeCatalog.title)).limit(Math.max(1, Math.min(limit, 60)))
   const seen = new Set<string>()
-  return rows
-    .map(rowToRecipe)
-    .filter((recipe) => {
-      if (seen.has(recipe.canonicalUrl)) return false
-      seen.add(recipe.canonicalUrl)
-      return true
-    })
+  return rows.map(rowToRecipe).filter((recipe) => { if (seen.has(recipe.canonicalUrl)) return false; seen.add(recipe.canonicalUrl); return true })
+}
+
+const getMealPlanRecipeCandidatesCached = unstable_cache((mealType: 'Snídaně' | 'Oběd' | 'Večeře' | 'Svačina', limit: number) => getMealPlanRecipeCandidatesUncached(mealType, limit), ['recipe-meal-plan-v2'], { revalidate: ONE_DAY, tags: [GLOBAL_CACHE_TAGS.recipes] })
+
+export async function getMealPlanRecipeCandidates(mealType: 'Snídaně' | 'Oběd' | 'Večeře' | 'Svačina', limit = 36): Promise<Recipe[]> {
+  return getMealPlanRecipeCandidatesCached(mealType, Math.max(1, Math.min(limit, 60)))
 }

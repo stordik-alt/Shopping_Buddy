@@ -95,6 +95,39 @@ describe('recipe portal adapter fixtures', () => {
   })
 
 
+  it('falls back to the Vaření RSS feed when the search endpoint is unavailable', async () => {
+    mockedFetch.mockImplementation(async (url = '') => {
+      if (url === 'https://www.vareni.cz/rss/recepty.xml') {
+        return `<?xml version="1.0"?>
+          <rss><channel>
+            <item>
+              <title>Zeleninová polévka</title>
+              <link>https://www.vareni.cz/recepty/zeleninova-polevka/</link>
+            </item>
+            <item>
+              <title>Čokoládový dort</title>
+              <link>https://www.vareni.cz/recepty/cokoladovy-dort/</link>
+            </item>
+          </channel></rss>`
+      }
+      if (url === 'https://www.vareni.cz/vyhledavani/?q=zelenina') {
+        throw new Error('Recipe source returned HTTP 404')
+      }
+      throw new Error('Unexpected fetch URL: ' + url)
+    })
+
+    const results = await vareniAdapter.search('zelenina', { limit: 5 })
+
+    expect(results).toHaveLength(1)
+    expect(results[0]).toMatchObject({
+      title: 'Zeleninová polévka',
+      sourceId: 'vareni',
+      sourceUrl: 'https://www.vareni.cz/recepty/zeleninova-polevka/',
+    })
+    expect(mockedFetch.mock.calls[0]?.[0]).toContain('/vyhledavani/?q=zelenina')
+    expect(mockedFetch.mock.calls[1]?.[0]).toContain('/rss/recepty.xml')
+  })
+
   it('ignores Recepty.cz system pages and keeps individual recipes', async () => {
     mockedFetch.mockImplementation(async (url = '') => url.includes('recipePage=')
       ? ''
@@ -116,7 +149,6 @@ describe('recipe portal adapter fixtures', () => {
     { adapter: receptyCzAdapter, host: 'www.recepty.cz', path: (page: number) => `/recept/kure-page-${page}-123456`, pageMarker: 'recipePage=2' },
     { adapter: apetitAdapter, host: 'www.apetitonline.cz', path: (page: number) => `/recept/kure-page-${page}`, pageMarker: 'page=1' },
     { adapter: topreceptyAdapter, host: 'www.toprecepty.cz', path: (page: number) => `/recept/12345-kure-page-${page}/`, pageMarker: 'stranka=2' },
-    { adapter: vareniAdapter, host: 'www.vareni.cz', path: (page: number) => `/recepty/kure-page-${page}/`, pageMarker: 'page=2' },
   ])('continues pagination for $adapter.name and skips excluded URLs', async ({ adapter, host, path, pageMarker }) => {
     let page = 0
     mockedFetch.mockImplementation(async () => {

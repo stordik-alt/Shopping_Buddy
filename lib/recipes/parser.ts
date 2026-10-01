@@ -151,7 +151,7 @@ const NON_QUANTITATIVE_UNITS = new Set([
 ])
 
 function normalizeUnit(unit: string): string {
-  return unit.trim().toLocaleLowerCase('cs-CZ').replace(/\\./g, '').replace(/\\s+/g, ' ')
+  return unit.trim().toLocaleLowerCase('cs-CZ').replace(/\./g, '').replace(/\s+/g, ' ')
 }
 
 function canonicalUnit(unit: string): string | undefined {

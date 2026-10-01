@@ -73,3 +73,6 @@ Kitchen measures are estimates, not exact retail units. A teaspoon or tablespoon
 Package sizes are standardized separately from recipe quantities. When the source does not provide an explicit package size, it may be derived from package price and comparable unit price. The result is canonicalized to `kg`, `l` or `ks` for comparison.
 
 Every recipe price derived from a culinary estimate must remain identifiable as an estimate; the system must not present an estimated quantity as an exact measured fact.
+## Recipe import quality gate
+
+The scheduled recipe import must exclude recipes rated below **4.0/5.0**. If a source uses another rating scale, the importer normalizes it to a five-point scale before applying the threshold. Recipes without a rating are not rejected by this rule, because absence of a rating is not evidence of a low rating.

@@ -111,6 +111,19 @@ export function toRecipeShoppingItem(ingredient: RecipeIngredient, quantity = in
     }
   }
 
+  // A recipe can contain a quantity with a unit that is not a standard store unit
+  // (for example "2 balení" or a source-specific unit). Do not block shopping merely
+  // because the unit cannot be converted reliably. Keep the original measure as a note
+  // and add one product placeholder instead of inventing a conversion.
+  if (quantity !== undefined && Number.isFinite(quantity) && quantity > 0 && ingredient.name.trim() && !mapped) {
+    return {
+      name: ingredient.name,
+      quantity: 1,
+      unit: 'ks',
+      sourceMeasure: ingredient.unit ? `${quantity} ${ingredient.unit}` : `${quantity}`,
+    }
+  }
+
   // Cooking measures such as "špetka", "lžička" or "stroužek" are valid recipe data,
   // but they are not reliable store units. Keep the recipe measure as a note and add one
   // shopping-list item in ks instead of blocking the ingredient entirely. The package/count

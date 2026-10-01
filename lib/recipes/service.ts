@@ -131,8 +131,15 @@ async function searchRecipeCatalogUncached(query: string, sourceId?: string, sor
   const where = buildSearchWhere(normalizedQuery, sourceId)
   if (!where) return { results: [], total: 0, page: safePage, pageSize: safePageSize }
   const relevance = buildRelevanceScore(normalizedQuery)
-  const orderBy = sort === 'rating' ? [`schema.recipeCatalog.ratingValue IS NULL`, desc(schema.recipeCatalog.ratingValue), desc(schema.recipeCatalog.ratingCount)] : sort === 'time' ? [`schema.recipeCatalog.totalTimeMinutes IS NULL`, asc(schema.recipeCatalog.totalTimeMinutes), asc(schema.recipeCatalog.title)] : [desc(relevance), asc(schema.recipeCatalog.title)]
-  const [totalRow, rows] = await Promise.all([getDb().select({ count: count() }).from(schema.recipeCatalog).where(where), getDb().select().from(schema.recipeCatalog).where(where).orderBy(...orderBy).limit(safePageSize).offset((safePage - 1) * safePageSize)])
+  const rowsQuery = getDb().select().from(schema.recipeCatalog).where(where).limit(safePageSize).offset((safePage - 1) * safePageSize)
+  const [totalRow, rows] = await Promise.all([
+    getDb().select({ count: count() }).from(schema.recipeCatalog).where(where),
+    sort === 'rating'
+      ? rowsQuery.orderBy(sql`CASE WHEN ${schema.recipeCatalog.ratingValue} IS NULL THEN 1 ELSE 0 END`, desc(schema.recipeCatalog.ratingValue), desc(schema.recipeCatalog.ratingCount))
+      : sort === 'time'
+        ? rowsQuery.orderBy(sql`CASE WHEN ${schema.recipeCatalog.totalTimeMinutes} IS NULL THEN 1 ELSE 0 END`, asc(schema.recipeCatalog.totalTimeMinutes), asc(schema.recipeCatalog.title))
+        : rowsQuery.orderBy(desc(relevance), asc(schema.recipeCatalog.title)),
+  ])
   return { results: rows.map(rowToSearchResult), total: Number(totalRow[0]?.count ?? 0), page: safePage, pageSize: safePageSize }
 }
 
@@ -193,7 +200,7 @@ async function getMealPlanRecipeCandidatesUncached(mealType: 'Snídaně' | 'Obě
   const patterns = MEAL_PLAN_CATEGORY_PATTERNS[mealType] ?? []
   if (patterns.length === 0) return []
   const where = or(...patterns.flatMap((pattern) => [ilike(schema.recipeCatalog.category, '%' + escapeLike(pattern) + '%'), ilike(schema.recipeCatalog.title, '%' + escapeLike(pattern) + '%'), ilike(schema.recipeCatalog.description, '%' + escapeLike(pattern) + '%'), ilike(schema.recipeCatalog.searchText, '%' + escapeLike(pattern) + '%')]))
-  const rows = await getDb().select().from(schema.recipeCatalog).where(where).orderBy(desc(`CASE WHEN ${schema.recipeCatalog.ratingValue} IS NULL THEN 1 ELSE 0 END`), desc(schema.recipeCatalog.ratingValue), asc(schema.recipeCatalog.title)).limit(Math.max(1, Math.min(limit, 60)))
+  const rows = await getDb().select().from(schema.recipeCatalog).where(where).orderBy(desc(sql`CASE WHEN ${schema.recipeCatalog.ratingValue} IS NULL THEN 1 ELSE 0 END`), desc(schema.recipeCatalog.ratingValue), asc(schema.recipeCatalog.title)).limit(Math.max(1, Math.min(limit, 60)))
   const seen = new Set<string>()
   return rows.map(rowToRecipe).filter((recipe) => { if (seen.has(recipe.canonicalUrl)) return false; seen.add(recipe.canonicalUrl); return true })
 }

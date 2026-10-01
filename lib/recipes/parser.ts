@@ -195,6 +195,16 @@ function parseUnnumberedMeasure(text: string, index: number): RecipeIngredient |
   }
 }
 
+export function normalizeRecipeIngredient(ingredient: RecipeIngredient, index = 0): RecipeIngredient {
+  const reparsed = parseIngredient(ingredient.originalText, index)
+  return {
+    ...ingredient,
+    ...reparsed,
+    id: ingredient.id,
+    originalText: ingredient.originalText,
+  }
+}
+
 function ratingData(value: unknown): { value?: number; scale?: number; count?: number } {
   const object = asObject(value)
   if (!object) return {}

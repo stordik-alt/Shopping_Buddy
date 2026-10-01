@@ -11,6 +11,7 @@ import {
   missingIngredients,
   parseSavedPlan,
   planIngredients,
+  plannedRecipeIngredients,
   recipeFor,
   regenerateMeal,
   splitIngredientsByStock,
@@ -43,6 +44,66 @@ function household(overrides: Partial<Household> = {}): Household {
     ...overrides,
   }
 }
+
+describe('planned recipe servings', () => {
+  const base = {
+    id: 'real-1',
+    name: 'Reálný recept',
+    mealType: 'Oběd' as const,
+    price: 0,
+    allergens: [],
+    servings: 4,
+    ingredients: [
+      { name: 'Rýže', category: 'Potraviny' as const, quantity: 400, unit: 'g' as const },
+      { name: 'Sůl', category: 'Potraviny' as const, quantity: 1, unit: 'ks' as const, sourceMeasure: 'množství neuvedeno' },
+    ],
+  }
+
+  it('scales recipe quantities from the original serving count', () => {
+    const ingredients = plannedRecipeIngredients({ ...base, selectedServings: 2 })
+    expect(ingredients[0].quantity).toBe(200)
+    expect(ingredients[0].unit).toBe('g')
+  })
+
+  it('accepts zero selected servings without reporting an ingredient quantity error', () => {
+    const recipe = { ...base, selectedServings: 0 }
+    expect(() => plannedRecipeIngredients(recipe)).not.toThrow()
+    expect(plannedRecipeIngredients(recipe)[0].quantity).toBe(0)
+    expect(plannedRecipeIngredients(recipe)[1]).toMatchObject({ sourceMeasure: 'množství neuvedeno', quantity: 1, unit: 'ks' })
+    expect(planIngredients({
+      days: [{ day: 'Pondělí', lunch: recipe }],
+      staples: [],
+      estimatedTotal: 0,
+      recommendedStores: [],
+      cookedMeals: [],
+    })).toEqual([])
+  })
+
+  it('keeps authored quantities when the recipe has no serving count', () => {
+    const recipe = { ...base, servings: undefined, selectedServings: 8 }
+    expect(plannedRecipeIngredients(recipe)[0].quantity).toBe(400)
+  })
+
+  it('keeps shopping placeholders for ingredients without a measurable quantity', () => {
+    const recipe = {
+      ...base,
+      selectedServings: 4,
+      ingredients: [
+        { name: 'Sůl', category: 'Potraviny' as const, quantity: 1, unit: 'ks' as const, sourceMeasure: 'množství neuvedeno' },
+      ],
+    }
+    const plan: WeeklyMealPlan = {
+      days: [{ day: 'Pondělí', lunch: recipe }],
+      staples: [],
+      estimatedTotal: 0,
+      recommendedStores: [],
+      cookedMeals: [],
+    }
+    const { toBuy } = splitIngredientsByStock(plan, [])
+    expect(toBuy).toHaveLength(1)
+    expect(toBuy[0]).toMatchObject({ name: 'Sůl', quantity: 1, unit: 'ks', sourceMeasure: 'množství neuvedeno' })
+  })
+})
 
 describe('generateWeeklyPlan', () => {
   it('produces exactly 7 days with all 4 meals filled', () => {

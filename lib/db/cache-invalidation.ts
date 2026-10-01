@@ -11,6 +11,11 @@ export function invalidatePriceAndOfferCaches(): void {
   revalidateTag(GLOBAL_CACHE_TAGS.standaloneOffers, 'max')
 }
 
+/** Marks recipe catalog reads stale after the daily recipe import. */
+export function invalidateRecipeCaches(): void {
+  revalidateTag(GLOBAL_CACHE_TAGS.recipes, 'max')
+}
+
 /** Marks store metadata stale after a store/branch import. */
 export function invalidateStoreCaches(): void {
   revalidateTag(GLOBAL_CACHE_TAGS.stores, 'max')

@@ -2,6 +2,7 @@
 
 import { useMemo, useEffect, useState } from 'react'
 import { buildShoppingPlanAction, pinProductAction, unpinProductAction } from '@/app/actions/shopping-plan'
+import { createManualPurchaseAction } from '@/app/actions/purchases'
 import { saveMyStorePreferencesAction } from '@/app/actions/store-preferences'
 import { markMealCookedAction } from '@/app/actions/meal-plan'
 import { markAllNotificationsReadAction, markNotificationReadAction } from '@/app/actions/notifications'
@@ -542,6 +543,15 @@ export function AppShell({
                   {nakupView === 'nakupy' && (
                     <PurchaseHistory
                       records={purchaseHistory}
+                      today={today}
+                      storeChains={storeChains}
+                      onCreateManualPurchase={async (input) => {
+                        const result = await createManualPurchaseAction(input)
+                        setPurchaseHistory((current) => [...current, result.purchase])
+                        setExpenses(result.expenses)
+                        setNotifications(result.notifications)
+                        return result
+                      }}
                       onSaveSplits={saveItemSplits}
                       onUploadReceipt={() => setNakupView('uctenky')}
                       onRecordExpenses={async (purchaseId) => {

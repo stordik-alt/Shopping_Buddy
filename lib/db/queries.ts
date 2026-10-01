@@ -273,9 +273,18 @@ function toNotification(notification: typeof schema.notifications.$inferSelect):
 /** The household's expenses exactly as the page loads them. Server actions that change expenses in
  *  bulk (splitting a purchase item, recording a purchase) return this instead of revalidating the
  *  whole page, so a small save does not re-download every other area from the database. */
-export async function getHouseholdExpenses(householdId: string, startDay = 1): Promise<Expense[]> {
-  const rows = await getDb().query.expenses.findMany({
-    where: and(eq(schema.expenses.householdId, householdId), gte(schema.expenses.date, currentBudgetPeriodStart(startDay))),
+export async function getHouseholdExpenses(householdId: string, startDay = 1, includePurchaseId?: string | null): Promise<Expense[]> {
+  const db = getDb()
+  const effectiveStartDay = includePurchaseId
+    ? (await db.query.households.findFirst({ where: eq(schema.households.id, householdId), columns: { budgetPeriodStartDay: true } }))?.budgetPeriodStartDay ?? startDay
+    : startDay
+  const rows = await db.query.expenses.findMany({
+    where: and(
+      eq(schema.expenses.householdId, householdId),
+      includePurchaseId
+        ? sql`(${schema.expenses.date} >= ${currentBudgetPeriodStart(effectiveStartDay)} OR ${schema.expenses.purchaseId} = ${includePurchaseId})`
+        : gte(schema.expenses.date, currentBudgetPeriodStart(effectiveStartDay)),
+    ),
     orderBy: asc(schema.expenses.date),
   })
   return rows.map(toExpense)

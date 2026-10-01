@@ -179,6 +179,84 @@ function recipeValues(recipe: Recipe, id: string, imageRef: string | null, image
   }
 }
 
+export type RecipeImageBackfillOptions = {
+  sourceId?: string
+  limit: number
+  delayMs?: number
+  dryRun?: boolean
+  imageHosts?: string[]
+}
+
+export type RecipeImageBackfillSummary = {
+  discovered: number
+  imageImported: number
+  imageSkipped: number
+  failed: number
+}
+
+export async function backfillRecipeImages(options: RecipeImageBackfillOptions): Promise<RecipeImageBackfillSummary> {
+  if (process.env.RECIPE_IMPORT_IMAGE_COPY_ALLOWED !== 'true') {
+    throw new Error('Image copying requires RECIPE_IMPORT_IMAGE_COPY_ALLOWED=true')
+  }
+  if (process.env.STORAGE_PROVIDER?.trim().toLowerCase() !== 'r2') {
+    throw new Error('Recipe image backfill requires STORAGE_PROVIDER=r2')
+  }
+  if (options.limit < 1 || options.limit > 5000) throw new Error('--limit must be an integer from 1 to 5000')
+
+  const db = getDb()
+  const rows = await db
+    .select()
+    .from(schema.recipeCatalog)
+    .where(options.sourceId ? eq(schema.recipeCatalog.sourceId, options.sourceId) : undefined)
+    .limit(options.limit)
+
+  const summary: RecipeImageBackfillSummary = { discovered: rows.length, imageImported: 0, imageSkipped: 0, failed: 0 }
+
+  for (const row of rows) {
+    if (row.imageRef?.startsWith('r2:')) {
+      console.log('SKIP existing image: ' + row.title)
+      continue
+    }
+
+    try {
+      const adapter = getRecipeSourceAdapter(row.sourceId)
+      const imageUrl = row.sourceImageUrl || (row.imageUrl && !row.imageUrl.startsWith('/api/') ? row.imageUrl : null)
+      if (!imageUrl) {
+        summary.imageSkipped += 1
+        console.warn('IMAGE-SKIP ' + row.canonicalUrl + ': no source image URL')
+        continue
+      }
+
+      const sourceDomain = adapter.domains[0] ?? new URL(row.canonicalUrl).hostname
+      const hosts = normalizeHostList(sourceDomain, [...(adapter.imageDomains ?? []), ...(options.imageHosts ?? [])])
+      const imageRef = await storeRecipeImage({ imageUrl } as Recipe, adapter, hosts)
+
+      if (options.dryRun) {
+        console.log('DRY-RUN IMAGE-COPY: ' + row.title + ' — ' + imageUrl)
+      } else {
+        await db
+          .update(schema.recipeCatalog)
+          .set({
+            imageRef,
+            imageUrl: '/api/recipes/images/' + row.id,
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.recipeCatalog.id, row.id))
+        console.log('IMAGE-BACKFILL ' + adapter.name + ': ' + row.title)
+      }
+      summary.imageImported += 1
+    } catch (error) {
+      summary.imageSkipped += 1
+      console.warn('IMAGE-SKIP ' + row.canonicalUrl + ': ' + (error instanceof Error ? error.message : String(error)))
+    }
+
+    await sleep(options.delayMs ?? DEFAULT_DELAY_MS)
+  }
+
+  console.log(JSON.stringify(summary, null, 2))
+  return summary
+}
+
 export async function importRecipeBatch(options: RecipeImportOptions): Promise<RecipeImportSummary> {
   const adapter = getRecipeSourceAdapter(options.sourceId)
   if (!options.acknowledgeSourceTerms) throw new Error('Import requires --acknowledge-source-terms')

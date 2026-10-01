@@ -16,12 +16,13 @@ import { ingestionDate } from '@/lib/ingestion/today'
 // prepared Cloudflare build the incremental cache is read-only, so there these reads are uncached.
 
 const FIFTEEN_MINUTES = 15 * 60
+const SIX_HOURS = 6 * 60 * 60
 
 export const getStoresCached = unstable_cache(getStores, ['stores-v1'], { revalidate: FIFTEEN_MINUTES })
 
 export const getStoreChainsCached = unstable_cache(getStoreChains, ['store-chains-v1'], { revalidate: FIFTEEN_MINUTES })
 
-const standaloneOffersFor = unstable_cache((today: string) => getStandaloneOffers(today), ['standalone-offers-v1'], { revalidate: FIFTEEN_MINUTES })
+const standaloneOffersFor = unstable_cache((today: string) => getStandaloneOffers(today), ['standalone-offers-v2'], { revalidate: SIX_HOURS })
 /** Today's offers without a regular price; keyed by the date, so a new day never serves yesterday's. */
 export const getStandaloneOffersCached = () => standaloneOffersFor(ingestionDate())
 

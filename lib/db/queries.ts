@@ -414,7 +414,7 @@ export async function getTickedListItems(householdId: string, purchaseId: string
 }
 
 /** Full purchase history used by the Nákupy tab. Kept separate from the initial page loader so
- * the Dashboard does not pay for a year's worth of purchase rows and expense splits. */
+ * the Dashboard does not pay for purchases and expense splits outside the current budget period. */
 export async function getHouseholdPurchaseHistory(householdId: string, startDay = 1): Promise<PurchaseRecord[]> {
   const [purchaseRows, expenseRows] = await Promise.all([
     queryPurchaseRows(householdId, startDay),
@@ -446,7 +446,7 @@ export async function getPurchaseAftermath(householdId: string, purchaseId?: str
 }
 
 /** Loads (or, on first login, creates or joins-via-invitation) the signed-in user's household with every domain area the app needs on first render. */
-export async function getHouseholdData(userId: string, userName: string, userEmail: string, initialTab?: string): Promise<HouseholdData> {
+export async function getHouseholdData(userId: string, userName: string, userEmail: string): Promise<HouseholdData> {
   const db = getDb()
 
   const ownMember = await db.query.householdMembers.findFirst({ where: eq(schema.householdMembers.userId, userId) })
@@ -484,8 +484,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
       db.query.expenses.findMany({ where: and(eq(schema.expenses.householdId, household.id), gte(schema.expenses.date, currentBudgetPeriodStart(budgetPeriodStartDay))), orderBy: asc(schema.expenses.date) }),
       // The newest 50 are what the bell panel can usefully show; all of them grew with every week.
       db.query.notifications.findMany({ where: eq(schema.notifications.householdId, household.id), orderBy: desc(schema.notifications.createdAt), limit: NOTIFICATIONS_SHOWN }),
-      // The last year, with only the columns the history, usual items and pantry estimate read. The
-      // whole history with every related row (branch addresses, opening hours…) was sent on every render.
+      // Only the current budget period, with the columns the history, usual items and pantry estimate read.
       queryPurchaseRows(household.id, budgetPeriodStartDay),
       getCurrentMealPlan(household.id),
       db.query.invitations.findMany({

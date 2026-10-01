@@ -50,6 +50,8 @@ export type WeeklyMealPlan = {
   days: DayPlan[]
   staples: Ingredient[]
   estimatedTotal: number
+  /** Real catalog recipes currently have no recipe-level price, so their total is not yet a price estimate. */
+  pricingPending?: boolean
   recommendedStores: string[]
   // Keys of meals the household has confirmed they actually cooked this week (see mealKey()),
   // each one deducting its recipe's ingredients from the pantry exactly once (markMealCookedAction
@@ -368,7 +370,8 @@ export function generateWeeklyPlan(
   })
 
   const estimatedTotal = planTotal(days, STAPLES.length)
-  return { days, staples: STAPLES, estimatedTotal, recommendedStores: recommendStores(estimatedTotal, budgetLimit, household), cookedMeals: [] }
+  const pricingPending = days.some((day) => mealsOf(day).some((recipe) => Boolean(recipe.sourceUrl)))
+  return { days, staples: STAPLES, estimatedTotal, pricingPending, recommendedStores: pricingPending ? [] : recommendStores(estimatedTotal, budgetLimit, household), cookedMeals: [] }
 }
 
 /** Price of the chosen recipes plus the staples, which are scaled to the number of days covered
@@ -419,6 +422,7 @@ export function regenerateMeal(
   mealType: MealType,
   household: Household,
   pantryItems: PantryItem[] | null = null,
+  recipePools?: Partial<Record<MealType, Recipe[]>>,
 ): WeeklyMealPlan {
   const dayIndex = plan.days.findIndex((d) => d.day === day)
   if (dayIndex === -1) return plan
@@ -428,13 +432,20 @@ export function regenerateMeal(
   const currentRecipe = plan.days[dayIndex][slot]
   if (!currentRecipe) return plan
 
-  const fullPool = recipesFor(mealType, excludedAllergens)
+  const fullPool = recipesFor(mealType, excludedAllergens, recipePools)
   const remaining = fullPool.filter((recipe) => recipe.id !== currentRecipe.id)
   const pool = remaining.length > 0 ? remaining : fullPool
   const nextRecipe = withSelectedServings(pickRecipe(pool, dayIndex, pantryItems), currentRecipe.selectedServings)
 
   const newDays = plan.days.map((dayPlan, index) => (index === dayIndex ? { ...dayPlan, [slot]: nextRecipe } : dayPlan))
-  return { ...plan, days: newDays, estimatedTotal: planTotal(newDays, plan.staples.length) }
+  const pricingPending = newDays.some((dayPlan) => mealsOf(dayPlan).some((recipe) => Boolean(recipe.sourceUrl)))
+  return {
+    ...plan,
+    days: newDays,
+    estimatedTotal: planTotal(newDays, plan.staples.length),
+    pricingPending,
+    recommendedStores: pricingPending ? [] : plan.recommendedStores,
+  }
 }
 
 export function recipeFor(plan: WeeklyMealPlan, day: string, mealType: MealType): Recipe | undefined {
@@ -523,6 +534,7 @@ export function parseSavedPlan(json: string): WeeklyMealPlan | null {
     days,
     staples,
     estimatedTotal: saved.estimatedTotal ?? 0,
+    pricingPending: Boolean(saved.pricingPending),
     recommendedStores: saved.recommendedStores ?? [],
     cookedMeals: saved.cookedMeals ?? [],
   }

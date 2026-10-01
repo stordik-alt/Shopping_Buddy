@@ -2,7 +2,7 @@
 ### Recipe measure normalization, package standardization and usage-based pricing
 - Recipe shopping now accepts culinary measures instead of blocking them.
 - Added `lib/recipes/measurements.ts`: ingredient-specific mass estimates can override generic volume measures for teaspoons/tablespoons; pinch uses ingredient-specific or generic estimates.
-- Added `lib/recipes/packaging.ts`: package size can be derived from package price and comparable unit price and normalized to `kg`, `l` or `ks`.
+- Added `lib/packaging.ts (backed by `lib/recipes/packaging.ts`)`: package size can be derived from package price and comparable unit price and normalized to `kg`, `l` or `ks`.
 - Recipe pricing now charges the actual estimated quantity consumed and marks estimates separately from exact quantities.
 - Added tests for culinary measure estimation, package-size derivation and recipe price calculation.
 - The persistent product-variant/package-size schema remains a future catalog-model step.

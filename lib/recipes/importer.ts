@@ -339,7 +339,7 @@ export async function importRecipeBatch(options: RecipeImportOptions): Promise<R
         : options.importImages
           ? null
           : recipe.imageUrl ?? null
-      if (options.importImages && recipe.imageUrl && !options.dryRun) {
+      if (options.importImages && recipe.imageUrl && !options.dryRun && !imageRef) {
         try {
           const sourceDomain = adapter.domains[0] ?? new URL(recipe.canonicalUrl).hostname
           const hosts = normalizeHostList(sourceDomain, [...(adapter.imageDomains ?? []), ...(options.imageHosts ?? [])])

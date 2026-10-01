@@ -995,6 +995,7 @@ export async function getProductPrices(scope: ProductPriceScope): Promise<Produc
   // entire deals table just to discover promoted products. The product relation below can resolve
   // active deals for those named products directly. Only the global Deals/price discovery path needs
   // the full active-product-id set.
+  const dealProductIds = scope.runningDeals && names.length === 0
     ? (
         await db
           .selectDistinct({ id: schema.deals.productId })

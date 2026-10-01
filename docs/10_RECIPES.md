@@ -384,3 +384,18 @@ Receptová sekce má být především **pomůcka pro výběr jídla a vytvořen
 Hlavní cesta:
 
 **Vyhledat → vybrat → nastavit porce → zkontrolovat suroviny → přidat do nákupu → otevřít originál pro postup.**
+
+## Recipe pricing — culinary measures and package sizes (2026-10-01)
+
+Recipe pricing uses the actual consumed amount multiplied by the product's comparable unit price.
+
+Culinary measures are resolved before pricing:
+- `lžička` / `lžíce`: ingredient-specific mass takes precedence when available; otherwise the standard volume is used (`5 ml` / `15 ml`).
+- `špetka`: ingredient-specific mass is preferred; otherwise a small generic estimate is used and marked as estimated.
+- `hrnek` / `šálek`: standard volume estimate.
+- `stroužek`: ingredient-specific mass is currently supported for garlic.
+- unsupported or genuinely unquantifiable expressions such as `podle chuti` remain unpriced.
+
+Retail package size is standardized independently from recipe consumption. If no explicit package size is available, the domain layer derives it from package price divided by comparable unit price and exposes a canonical `kg`, `l` or `ks` label.
+
+The UI marks recipe costs that depend on an estimated culinary measure and can show the derived retail package size. Estimated values must never be presented as exact measurements.

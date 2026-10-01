@@ -76,13 +76,39 @@ describe('recipe shopping helpers', () => {
     })
   })
 
-  it('still flags a genuinely unknown unit', () => {
+  it('allows positive quantities with unknown units as shopping placeholders', () => {
     expect(
       analyzeRecipeIngredient(
-        { id: 'i2', originalText: '2 neznámé jednotky česneku', quantity: 2, unit: 'neznámé', name: 'česnek', scalable: true },
+        { id: 'i2', originalText: '2 balení česneku', quantity: 2, unit: 'balení', name: 'česnek', scalable: true },
+        [],
+      ),
+    ).toMatchObject({
+      quantity: 1,
+      unit: 'ks',
+      problem: null,
+      missingQuantity: 1,
+      sourceMeasure: '2 balení',
+    })
+
+    expect(
+      toRecipeShoppingItem(
+        { id: 'i3', originalText: '2 česneky', quantity: 2, name: 'česnek', scalable: true },
+      ),
+    ).toEqual({
+      name: 'česnek',
+      quantity: 1,
+      unit: 'ks',
+      sourceMeasure: '2',
+    })
+  })
+
+  it('still flags an invalid quantity', () => {
+    expect(
+      analyzeRecipeIngredient(
+        { id: 'i2', originalText: '0 balení česneku', quantity: 0, unit: 'balení', name: 'česnek', scalable: true },
         [],
       ).problem,
-    ).toContain('Jednotku')
+    ).toBe('Množství není platné.')
   })
 
   it('subtracts all compatible pantry placements from the recipe quantity', () => {

@@ -10,6 +10,7 @@ vi.mock('@/lib/auth/authorize', () => ({ requireHouseholdId: () => Promise.resol
 vi.mock('next/cache', () => ({ revalidatePath: () => {} }))
 
 import {
+  addPantryItemAction,
   addPantryPlaceAction,
   adjustPantryItemQuantityAction,
   autoCategorizePantryAction,
@@ -47,6 +48,85 @@ afterAll(async () => {
     await db.delete(schema.pantryCheckinSubcategoryIntervals).where(eq(schema.pantryCheckinSubcategoryIntervals.householdId, id))
     await db.delete(schema.households).where(eq(schema.households.id, id))
   }
+})
+
+describe('addPantryItemAction', () => {
+  it('adds stock directly to the pantry and creates no purchase or expense', async () => {
+    const result = await addPantryItemAction({
+      name: '__test_free_eggs__',
+      quantity: 12,
+      unit: 'ks',
+      category: 'Potraviny',
+      placeKey: 'Lednice',
+    })
+
+    const row = result.find((item) => item.name === '__test_free_eggs__')
+    expect(row).toMatchObject({ quantity: 12, unit: 'ks', category: 'Potraviny', location: 'Lednice' })
+    expect(await db.query.purchases.findMany({ where: eq(schema.purchases.householdId, householdId) })).toHaveLength(0)
+    expect(await db.query.expenses.findMany({ where: eq(schema.expenses.householdId, householdId) })).toHaveLength(0)
+  })
+
+  it('uses the existing catalog product identity and subcategory', async () => {
+    const food = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
+    const subcategory = await db.query.productSubcategories.findFirst({ where: and(eq(schema.productSubcategories.category, 'Potraviny'), eq(schema.productSubcategories.name, 'Pečivo')) })
+    const [product] = await db.insert(schema.products).values({
+      name: '__test_free_catalog_product__',
+      categoryId: food!.id,
+      subcategoryId: subcategory!.id,
+      defaultUnit: 'ks',
+      defaultLocation: 'Spíž',
+    }).returning()
+    try {
+      const result = await addPantryItemAction({
+        name: product.name,
+        quantity: 2,
+        unit: 'ks',
+        category: 'Potraviny',
+        placeKey: 'Mrazák',
+      })
+      expect(result.find((item) => item.name === product.name)).toMatchObject({
+        quantity: 2,
+        productId: product.id,
+        category: 'Potraviny',
+        subcategory: 'Pečivo',
+        location: 'Mrazák',
+      })
+    } finally {
+      await db.delete(schema.pantryItems).where(eq(schema.pantryItems.productId, product.id))
+      await db.delete(schema.products).where(eq(schema.products.id, product.id))
+    }
+  })
+
+  it('rejects a custom place belonging to another household', async () => {
+    const [place] = await db.insert(schema.pantryPlaces).values({ householdId: otherHouseholdId, area: 'Auto', name: '__test_other_place__' }).returning()
+    await expect(addPantryItemAction({
+      name: '__test_foreign_place_stock__',
+      quantity: 1,
+      unit: 'ks',
+      category: 'Ostatní',
+      placeKey: 'custom:' + place.id,
+    })).rejects.toThrow('Vlastní místo nenalezeno')
+  })
+
+  it('rejects a non-inventory catalog product', async () => {
+    const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Domácnost') })
+    const [product] = await db.insert(schema.products).values({
+      name: '__test_non_inventory_stock__',
+      categoryId: category!.id,
+      isNonInventory: true,
+    }).returning()
+    try {
+      await expect(addPantryItemAction({
+        name: product.name,
+        quantity: 1,
+        unit: 'ks',
+        category: 'Domácnost',
+        placeKey: 'Domácnost',
+      })).rejects.toThrow('nelze přidat do zásob')
+    } finally {
+      await db.delete(schema.products).where(eq(schema.products.id, product.id))
+    }
+  })
 })
 
 describe('confirmPantryItemAction', () => {

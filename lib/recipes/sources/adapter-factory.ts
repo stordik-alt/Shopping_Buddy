@@ -11,6 +11,7 @@ type PortalConfig = {
   imageDomains?: string[]
   maxSearchPages?: number
   searchUrl: (query: string, page?: number) => string
+  fallbackSearchUrls?: (query: string, page?: number) => string[]
   recipePath: RegExp
 }
 
@@ -31,10 +32,33 @@ function createPortalAdapter(config: PortalConfig): RecipeSourceAdapter {
       let pagesWithoutNewLinks = 0
 
       for (let page = 1; page <= maxPages; page += 1) {
-        const searchUrl = config.searchUrl(normalizedQuery, page)
-        const html = await fetchRecipeHtml(searchUrl, [config.domain])
-        const links = extractRecipeLinks(html, searchUrl, config.recipePath)
+        const searchUrls = [
+          config.searchUrl(normalizedQuery, page),
+          ...(config.fallbackSearchUrls?.(normalizedQuery, page) ?? []),
+        ]
         let pageAddedLinks = 0
+        let fetchedAnyPage = false
+        let lastFetchError: unknown = undefined
+
+        for (const searchUrl of searchUrls) {
+          try {
+            const html = await fetchRecipeHtml(searchUrl, [config.domain])
+            fetchedAnyPage = true
+            const links = extractRecipeLinks(html, searchUrl, config.recipePath)
+            for (const link of links) {
+              if (!allLinks.has(link.url)) {
+                allLinks.set(link.url, link)
+                pageAddedLinks += 1
+              }
+            }
+
+            if (links.length > 0) break
+          } catch (error) {
+            lastFetchError = error
+          }
+        }
+
+        if (!fetchedAnyPage && lastFetchError) throw lastFetchError
         for (const link of links) {
           if (!allLinks.has(link.url)) {
             allLinks.set(link.url, link)

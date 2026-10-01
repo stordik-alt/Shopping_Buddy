@@ -721,6 +721,54 @@ describe('upsertActiveDeal', () => {
         await db.delete(schema.stores).where(eq(schema.stores.id, store.id))
       }
     })
+    it('bounds price history to 30 days plus the previous distinct price', async () => {
+      const product = await createProduct()
+      try {
+        const storeId = await getStoreIdByChain('Lidl')
+        await db.insert(schema.prices).values([
+          { productId: product.id, storeId, storeLocationId: null, priceScope: 'CHAIN', sourceType: 'OFFICIAL', locationResolution: 'NOT_APPLICABLE', regularPrice: '20.00', unit: 'ks', unitPrice: '20.00', observedAt: '2026-08-10', validFrom: '2026-08-10' },
+          { productId: product.id, storeId, storeLocationId: null, priceScope: 'CHAIN', sourceType: 'OFFICIAL', locationResolution: 'NOT_APPLICABLE', regularPrice: '25.00', unit: 'ks', unitPrice: '25.00', observedAt: '2026-08-20', validFrom: '2026-08-20' },
+          { productId: product.id, storeId, storeLocationId: null, priceScope: 'CHAIN', sourceType: 'OFFICIAL', locationResolution: 'NOT_APPLICABLE', regularPrice: '30.00', unit: 'ks', unitPrice: '30.00', observedAt: '2026-08-01', validFrom: '2026-08-01' },
+          { productId: product.id, storeId, storeLocationId: null, priceScope: 'CHAIN', sourceType: 'OFFICIAL', locationResolution: 'NOT_APPLICABLE', regularPrice: '25.00', unit: 'ks', unitPrice: '25.00', observedAt: '2026-09-10', validFrom: '2026-09-10' },
+          { productId: product.id, storeId, storeLocationId: null, priceScope: 'CHAIN', sourceType: 'OFFICIAL', locationResolution: 'NOT_APPLICABLE', regularPrice: '27.00', unit: 'ks', unitPrice: '27.00', observedAt: '2026-09-20', validFrom: '2026-09-20' },
+          { productId: product.id, storeId, storeLocationId: null, priceScope: 'CHAIN', sourceType: 'OFFICIAL', locationResolution: 'NOT_APPLICABLE', regularPrice: '30.00', unit: 'ks', unitPrice: '30.00', observedAt: '2026-09-30', validFrom: '2026-09-30' },
+        ])
+
+        const found = (await getProductPrices({ names: [product.name], runningDeals: false })).find((entry) => entry.productName === product.name)
+        expect(found?.prices).toHaveLength(1)
+        expect(found?.prices[0].regularPrice).toBe(30)
+        expect(found?.prices[0].priceHistory).toEqual([
+          expect.objectContaining({ price: 25, recordedAt: '2026-08-20' }),
+          expect.objectContaining({ price: 25, recordedAt: '2026-09-10' }),
+          expect.objectContaining({ price: 27, recordedAt: '2026-09-20' }),
+          expect.objectContaining({ price: 30, recordedAt: '2026-09-30' }),
+        ])
+      } finally {
+        await db.delete(schema.products).where(eq(schema.products.id, product.id))
+      }
+    })
+
+    it('keeps the current price even when it is older than the 30-day window', async () => {
+      const product = await createProduct()
+      try {
+        const storeId = await getStoreIdByChain('Albert')
+        await db.insert(schema.prices).values([
+          { productId: product.id, storeId, storeLocationId: null, priceScope: 'CHAIN', sourceType: 'OFFICIAL', locationResolution: 'NOT_APPLICABLE', regularPrice: '12.00', unit: 'ks', unitPrice: '12.00', observedAt: '2026-08-25', validFrom: '2026-08-25' },
+          { productId: product.id, storeId, storeLocationId: null, priceScope: 'CHAIN', sourceType: 'OFFICIAL', locationResolution: 'NOT_APPLICABLE', regularPrice: '10.00', unit: 'ks', unitPrice: '10.00', observedAt: '2026-08-10', validFrom: '2026-08-10' },
+        ])
+
+        const found = (await getProductPrices({ names: [product.name], runningDeals: false })).find((entry) => entry.productName === product.name)
+        expect(found?.prices).toHaveLength(1)
+        expect(found?.prices[0]).toMatchObject({ regularPrice: 12, recordedAt: '2026-08-25' })
+        expect(found?.prices[0].priceHistory).toEqual([
+          expect.objectContaining({ price: 10, recordedAt: '2026-08-10' }),
+          expect.objectContaining({ price: 12, recordedAt: '2026-08-25' }),
+        ])
+      } finally {
+        await db.delete(schema.products).where(eq(schema.products.id, product.id))
+      }
+    })
+
   })
 })
 

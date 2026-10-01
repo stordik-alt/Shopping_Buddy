@@ -252,10 +252,6 @@ export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: Recip
           ← Zpět na recepty
         </button>
         <article className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-          {selected.imageUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={selected.imageUrl} alt="" className="max-h-72 w-full object-cover" referrerPolicy="no-referrer" />
-          )}
           <div className="space-y-5 p-5">
             <div className="flex items-start gap-3">
               <div className="min-w-0 flex-1">
@@ -275,6 +271,18 @@ export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: Recip
                 <Star className={favorites.some((recipe) => recipe.canonicalUrl === selected.canonicalUrl) ? 'h-5 w-5 fill-current' : 'h-5 w-5'} aria-hidden="true" />
               </button>
             </div>
+
+            {selected.imageUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <div className="-mx-5 overflow-hidden bg-muted/30">
+                <img
+                  src={selected.imageUrl}
+                  alt={selected.title}
+                  className="block h-auto max-h-[70vh] w-full object-contain"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+            )}
 
             <div className="flex flex-wrap items-center gap-3 rounded-xl bg-muted/60 p-3">
               <span className="text-sm font-medium">Počet porcí</span>

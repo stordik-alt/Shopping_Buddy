@@ -3,7 +3,6 @@ import { recipeDetailCache, recipeSearchCache } from '@/lib/recipes/cache'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import type { Recipe, RecipeSearchPage, RecipeSearchResult } from '@/lib/recipes/types'
-import { filterAndRankRecipeResults } from '@/lib/recipes/relevance'
 
 const MAX_QUERY_LENGTH = 120
 const DEFAULT_PAGE_SIZE = 6

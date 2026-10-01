@@ -40,7 +40,7 @@ export function BudgetHero({
   // result, so say plainly that nothing is set and offer the way to set it.
   if (budget <= 0) {
     return (
-      <div className={`flex flex-col justify-between gap-6 rounded-3xl bg-primary p-5 text-primary-foreground shadow-[var(--shadow-card)] sm:p-7 ${className}`}>
+      <div className={`flex flex-col justify-between gap-6 rounded-[1.75rem] bg-primary p-5 shadow-[var(--shadow-card)] text-primary-foreground shadow-[var(--shadow-card)] sm:p-7 ${className}`}>
         <div>
           <p className="text-sm text-primary-foreground/75">Rozpočet domácnosti</p>
           <p className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Nastavte si měsíční limit</p>
@@ -62,12 +62,12 @@ export function BudgetHero({
 
   return (
     <div
-      className={`flex flex-col justify-between rounded-3xl bg-primary text-primary-foreground shadow-[var(--shadow-card)] ${compact ? 'px-5 py-4' : 'gap-6 p-5 sm:p-7'} ${className}`}
+      className={`flex flex-col justify-between rounded-[1.75rem] bg-primary text-primary-foreground shadow-[var(--shadow-card)] ${compact ? 'px-5 py-4' : 'gap-6 p-5 sm:p-7'} ${className}`}
     >
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm text-primary-foreground/75">{level === 'over' ? 'Rozpočet překročen o' : 'Zbývá v rozpočtu'}</p>
         {level !== 'ok' && (
-          <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-accent px-2.5 py-1 text-xs font-semibold text-accent-foreground">
+          <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-accent px-2.5 py-1 ring-1 ring-accent/20 text-xs font-semibold text-accent-foreground">
             <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
             {level === 'over' ? 'Limit překročen' : 'Přes 80 % limitu'}
           </span>

@@ -61,11 +61,14 @@ export async function syncProductClassificationToPurchases(productId: string): P
   // redundant, but an explicit exception such as Dárky is still meaningful for that household.
   const defaults = await db.query.householdProductExpenseDefaults.findMany({
     where: eq(schema.householdProductExpenseDefaults.productId, productId),
-    columns: { id: true, category: true, subcategory: true },
+    columns: { householdId: true, productId: true, category: true, subcategory: true },
   })
-  const canonicalDefaultIds = defaults.filter((row) => isProductExpenseTarget(row.category, row.subcategory)).map((row) => row.id)
-  if (canonicalDefaultIds.length > 0) {
-    await db.delete(schema.householdProductExpenseDefaults).where(inArray(schema.householdProductExpenseDefaults.id, canonicalDefaultIds))
+  const canonicalDefaults = defaults.filter((row) => isProductExpenseTarget(row.category, row.subcategory))
+  for (const row of canonicalDefaults) {
+    await db.delete(schema.householdProductExpenseDefaults).where(and(
+      eq(schema.householdProductExpenseDefaults.householdId, row.householdId),
+      eq(schema.householdProductExpenseDefaults.productId, row.productId),
+    ))
   }
 
   for (const purchaseId of purchaseIds) await recomputePurchaseExpenses(db, purchaseId)
@@ -259,7 +262,7 @@ export async function setPurchaseItemExpenseSplits(householdId: string, purchase
         ? await db.query.productSubcategories.findFirst({ where: and(eq(schema.productSubcategories.category, target.category as ItemCategory), eq(schema.productSubcategories.name, target.subcategory)), columns: { id: true } })
         : null
       if (categoryRow && target.subcategory && !targetSubcategory) throw new InvalidExpenseCategoryError('Neplatná podkategorie výdaje.')
-      if (categoryRow && !product?.categoryLocked && (product.categoryId !== categoryRow.id || product.subcategoryId !== (targetSubcategory?.id ?? null))) {
+      if (categoryRow && product && !product.categoryLocked && (product.categoryId !== categoryRow.id || product.subcategoryId !== (targetSubcategory?.id ?? null))) {
         await db.update(schema.products).set({ categoryId: categoryRow.id, subcategoryId: targetSubcategory?.id ?? null }).where(eq(schema.products.id, item.productId))
         await syncProductClassificationToPurchases(item.productId)
         return

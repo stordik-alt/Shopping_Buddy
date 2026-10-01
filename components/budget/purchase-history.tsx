@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { ChevronDown, Loader2, Pencil, PiggyBank, Repeat, ShoppingBag, Star, TrendingUp } from 'lucide-react'
+import { ChevronDown, Loader2, Pencil, PiggyBank, Plus, Repeat, ShoppingBag, Star, Trash2, TrendingUp } from 'lucide-react'
 import { averageMonthlySpend, favoriteStores, mostBoughtProducts, repeatPurchases } from '@/lib/purchase-history'
 import { PurchaseItemSplitDialog } from '@/components/budget/purchase-item-split-dialog'
 import { Stat } from '@/components/shared/stat'
 import { userFacingError } from '@/lib/errors'
 import { itemCountLabel, money, shortDate } from '@/lib/format'
 import type { ExpenseSplitPart } from '@/lib/purchase-expenses'
-import type { PurchaseItem, PurchaseRecord } from '@/lib/types'
+import type { Expense, ItemCategory, ItemUnit, Notification, PurchaseItem, PurchaseRecord } from '@/lib/types'
 
 // The newest few purchases are listed; the rest are one tap away, so the tab stays short.
 const VISIBLE_PURCHASES = 5
@@ -18,6 +18,14 @@ export function PurchaseHistory({
   onUploadReceipt,
 }: {
   records: PurchaseRecord[]
+  today: string
+  storeChains: { id: string; chain: string; isOnline?: boolean }[]
+  onCreateManualPurchase: (input: {
+    date: string
+    storeChain?: string | null
+    discount?: number | null
+    items: Array<{ name: string; quantity: number; unit: ItemUnit; price: number; category?: ItemCategory }>
+  }) => Promise<{ purchase: PurchaseRecord; expenses: Expense[]; notifications: Notification[] }>
   /** Next step offered while there is no purchase yet. */
   onUploadReceipt?: () => void
   /** Saves (or, with an empty array, clears) one item's expense-category split — a plain
@@ -38,6 +46,15 @@ export function PurchaseHistory({
   const [recording, setRecording] = useState<string | null>(null)
   const [recorded, setRecorded] = useState<Record<string, boolean>>({})
   const [recordError, setRecordError] = useState<Record<string, string>>({})
+  const [manualOpen, setManualOpen] = useState(false)
+  const [manualSaving, setManualSaving] = useState(false)
+  const [manualError, setManualError] = useState('')
+  const [manualDate, setManualDate] = useState(today)
+  const [manualStore, setManualStore] = useState('')
+  const [manualDiscount, setManualDiscount] = useState('')
+  const [manualItems, setManualItems] = useState<Array<{ name: string; quantity: string; unit: ItemUnit; price: string; category: ItemCategory }>>([
+    { name: '', quantity: '1', unit: 'ks', price: '', category: 'Potraviny' },
+  ])
   const splitsOf = (item: PurchaseItem) => (item.id != null && item.id in overrides ? overrides[item.id] : (item.expenseSplits ?? []))
   const newestFirst = records.slice().reverse()
 
@@ -55,15 +72,53 @@ export function PurchaseHistory({
   }
   const shownRecords = showAll ? newestFirst : newestFirst.slice(0, VISIBLE_PURCHASES)
 
+  async function saveManualPurchase() {
+    setManualSaving(true)
+    setManualError('')
+    try {
+      const items = manualItems.filter((item) => item.name.trim()).map((item) => ({
+        name: item.name.trim(),
+        quantity: Number(item.quantity),
+        unit: item.unit,
+        price: Number(item.price),
+        category: item.category,
+      }))
+      if (items.length === 0) throw new Error('Přidejte alespoň jednu položku.')
+      if (items.some((item) => !Number.isFinite(item.quantity) || item.quantity <= 0 || !Number.isFinite(item.price) || item.price < 0)) {
+        throw new Error('Zkontrolujte množství a cenu položek.')
+      }
+      await onCreateManualPurchase({
+        date: manualDate,
+        storeChain: manualStore || null,
+        discount: manualDiscount === '' ? null : Number(manualDiscount),
+        items,
+      })
+      setManualOpen(false)
+      setManualItems([{ name: '', quantity: '1', unit: 'ks', price: '', category: 'Potraviny' }])
+      setManualDiscount('')
+      setManualStore('')
+      setManualDate(today)
+    } catch (err) {
+      setManualError(err instanceof Error ? err.message : 'Nákup se nepodařilo uložit.')
+    } finally {
+      setManualSaving(false)
+    }
+  }
+
   const topStore = favoriteStores(records)[0]
   const topProduct = mostBoughtProducts(records, 1)[0]
   const repeats = repeatPurchases(records)
 
   return (
     <section className="space-y-4">
-      <div>
-        <p className="text-sm font-semibold">Historie nákupů</p>
-        <p className="mt-1 text-sm text-muted-foreground">Dlouhodobé statistiky z uskutečněných nákupů domácnosti.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold">Historie nákupů</p>
+          <p className="mt-1 text-sm text-muted-foreground">Dlouhodobé statistiky z uskutečněných nákupů domácnosti.</p>
+        </div>
+        <button onClick={() => { setManualError(''); setManualOpen(true) }} className="flex min-h-10 items-center gap-2 rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground">
+          <Plus className="h-4 w-4" aria-hidden="true" /> Zadat nákup ručně
+        </button>
       </div>
       <div className="grid gap-4 sm:grid-cols-3">
         <Stat label="Běžná měsíční útrata" value={money(averageMonthlySpend(records))} icon={<TrendingUp />} />
@@ -89,11 +144,10 @@ export function PurchaseHistory({
           <ShoppingBag className="mx-auto h-8 w-8 text-muted-foreground" aria-hidden="true" />
           <p className="mt-3 font-semibold">Zatím tu není žádný nákup</p>
           <p className="mt-1 text-sm text-muted-foreground">Nákupy se zapíšou, když dokončíte nákup ze seznamu nebo nahrajete účtenku.</p>
-          {onUploadReceipt && (
-            <button onClick={onUploadReceipt} className="mt-4 min-h-11 rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              Nahrát účtenku
-            </button>
-          )}
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            {onUploadReceipt && <button onClick={onUploadReceipt} className="min-h-11 rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground">Nahrát účtenku</button>}
+            <button onClick={() => { setManualError(''); setManualOpen(true) }} className="min-h-11 rounded-2xl border border-border px-4 text-sm font-semibold">Zadat ručně</button>
+          </div>
         </div>
       )}
       <div className={records.length === 0 ? 'hidden' : 'overflow-hidden surface'}>
@@ -178,6 +232,58 @@ export function PurchaseHistory({
           <ChevronDown className={`h-4 w-4 transition ${showAll ? 'rotate-180' : ''}`} aria-hidden="true" />
         </button>
       )}
+      {manualOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="manual-purchase-title">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-background p-5 shadow-xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p id="manual-purchase-title" className="text-lg font-semibold">Zadat nákup ručně</p>
+                <p className="mt-1 text-sm text-muted-foreground">Po uložení se nákup započítá do rozpočtu a doplní zásoby.</p>
+              </div>
+              <button onClick={() => setManualOpen(false)} className="icon-button" aria-label="Zavřít">×</button>
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <label className="text-sm font-medium">Datum
+                <input type="date" value={manualDate} onChange={(e) => setManualDate(e.target.value)} className="mt-1 min-h-10 w-full rounded-xl border border-border bg-background px-3" />
+              </label>
+              <label className="text-sm font-medium">Obchod
+                <select value={manualStore} onChange={(e) => setManualStore(e.target.value)} className="mt-1 min-h-10 w-full rounded-xl border border-border bg-background px-3">
+                  <option value="">Neurčený obchod</option>
+                  {storeChains.filter((store) => !store.isOnline).map((store) => <option key={store.id} value={store.chain}>{store.chain}</option>)}
+                </select>
+              </label>
+              <label className="text-sm font-medium">Sleva celkem
+                <input type="number" min="0" step="0.01" value={manualDiscount} onChange={(e) => setManualDiscount(e.target.value)} placeholder="0" className="mt-1 min-h-10 w-full rounded-xl border border-border bg-background px-3" />
+              </label>
+            </div>
+            <div className="mt-5 space-y-2">
+              {manualItems.map((item, index) => (
+                <div key={index} className="grid gap-2 rounded-2xl border border-border p-3 sm:grid-cols-[1fr_90px_90px_110px_130px_40px]">
+                  <input value={item.name} onChange={(e) => setManualItems((rows) => rows.map((row, i) => i === index ? { ...row, name: e.target.value } : row))} placeholder="Produkt" className="min-h-10 rounded-xl border border-border bg-background px-3 text-sm" />
+                  <input type="number" min="0.001" step="0.001" value={item.quantity} onChange={(e) => setManualItems((rows) => rows.map((row, i) => i === index ? { ...row, quantity: e.target.value } : row))} placeholder="Množství" className="min-h-10 rounded-xl border border-border bg-background px-3 text-sm" />
+                  <select value={item.unit} onChange={(e) => setManualItems((rows) => rows.map((row, i) => i === index ? { ...row, unit: e.target.value as ItemUnit } : row))} className="min-h-10 rounded-xl border border-border bg-background px-2 text-sm">
+                    {(['ks','kg','g','l','ml'] as ItemUnit[]).map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+                  </select>
+                  <input type="number" min="0" step="0.01" value={item.price} onChange={(e) => setManualItems((rows) => rows.map((row, i) => i === index ? { ...row, price: e.target.value } : row))} placeholder="Cena/ks" className="min-h-10 rounded-xl border border-border bg-background px-3 text-sm" />
+                  <select value={item.category} onChange={(e) => setManualItems((rows) => rows.map((row, i) => i === index ? { ...row, category: e.target.value as ItemCategory } : row))} className="min-h-10 rounded-xl border border-border bg-background px-2 text-sm">
+                    {(['Potraviny','Drogerie','Děti','Domácnost','Ostatní'] as ItemCategory[]).map((category) => <option key={category} value={category}>{category}</option>)}
+                  </select>
+                  <button type="button" onClick={() => setManualItems((rows) => rows.filter((_, i) => i !== index))} disabled={manualItems.length === 1} className="icon-button size-9 disabled:opacity-40" aria-label="Odebrat položku"><Trash2 className="h-4 w-4" /></button>
+                </div>
+              ))}
+              <button type="button" onClick={() => setManualItems((rows) => [...rows, { name: '', quantity: '1', unit: 'ks', price: '', category: 'Potraviny' }])} className="flex min-h-10 items-center gap-2 rounded-xl bg-muted px-3 text-sm font-medium">
+                <Plus className="h-4 w-4" /> Přidat položku
+              </button>
+            </div>
+            {manualError && <p role="alert" className="mt-3 text-sm text-destructive">{manualError}</p>}
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => setManualOpen(false)} disabled={manualSaving} className="min-h-10 rounded-xl border border-border px-4 text-sm font-medium">Zrušit</button>
+              <button onClick={saveManualPurchase} disabled={manualSaving} className="min-h-10 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60">{manualSaving ? 'Ukládám…' : 'Uložit nákup'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {editingItem && (
         <PurchaseItemSplitDialog
           open={editingItem != null}

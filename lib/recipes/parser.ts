@@ -199,6 +199,8 @@ function parseUnnumberedMeasure(text: string, index: number): RecipeIngredient |
 
 export function normalizeRecipeIngredient(ingredient: RecipeIngredient, index = 0): RecipeIngredient {
   const reparsed = parseIngredient(ingredient.originalText, index)
+  const parsedSuccessfully = reparsed.scalable || reparsed.quantity !== undefined || reparsed.unit !== undefined
+  if (!parsedSuccessfully) return ingredient
   return {
     ...ingredient,
     ...reparsed,

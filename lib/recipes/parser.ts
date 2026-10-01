@@ -181,7 +181,7 @@ function parseIngredient(text: string, index: number): RecipeIngredient {
 }
 
 function parseUnnumberedMeasure(text: string, index: number): RecipeIngredient | undefined {
-  const match = text.trim().match(/^([^\\s]+)\\s+(.+?)\\s*$/)
+  const match = text.trim().match(/^([^\s]+)\s+(.+?)\s*$/)
   if (!match) return undefined
   const unit = canonicalUnit(match[1])
   if (!unit || !NON_QUANTITATIVE_UNITS.has(unit)) return undefined

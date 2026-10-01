@@ -17,11 +17,17 @@ const UNIT_ALIASES: Record<string, string> = {
   spet: 'špetka',
   hrs: 'hrst',
   lzicka: 'lžička',
+  lzicky: 'lžička',
   lzice: 'lžíce',
+  lzici: 'lžíce',
   hrnek: 'hrnek',
+  hrnky: 'hrnek',
   salek: 'šálek',
+  saleky: 'šálek',
   spetka: 'špetka',
+  spetky: 'špetka',
   strouzek: 'stroužek',
+  strouzky: 'stroužek',
 }
 
 const STANDARD_VOLUME: Record<string, number> = {

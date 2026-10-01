@@ -98,6 +98,19 @@ export function toRecipeShoppingItem(ingredient: RecipeIngredient, quantity = in
   const recipeUnit = ingredient.unit ? canonicalRecipeUnit(ingredient.unit) : null
   const mapped = mapRecipeUnit(ingredient.unit)
 
+  // Some recipes intentionally omit a measurable amount (for example "sůl podle chuti"
+  // or "pepř dle potřeby"). The missing amount must not make the ingredient impossible
+  // to add to the shopping list. Treat it as one product placeholder and preserve the
+  // fact that the recipe did not specify a quantity.
+  if (quantity === undefined && ingredient.name.trim()) {
+    return {
+      name: ingredient.name,
+      quantity: 1,
+      unit: 'ks',
+      sourceMeasure: 'množství neuvedeno',
+    }
+  }
+
   // Cooking measures such as "špetka", "lžička" or "stroužek" are valid recipe data,
   // but they are not reliable store units. Keep the recipe measure as a note and add one
   // shopping-list item in ks instead of blocking the ingredient entirely. The package/count

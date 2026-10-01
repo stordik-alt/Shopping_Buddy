@@ -217,7 +217,12 @@ export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: Recip
   const shoppingAnalysis = useMemo(() => (selected ? analyzeRecipeIngredients(scaled, pantryItems) : []), [selected, scaled, pantryItems])
   const selectedShoppingItems = shoppingAnalysis
     .filter((entry) => selectedIngredientIds.has(entry.ingredient.id) && entry.missingQuantity !== null && entry.missingQuantity > 0 && entry.unit)
-    .map((entry) => ({ name: entry.ingredient.name, quantity: entry.missingQuantity as number, unit: entry.unit as RecipeShoppingItem['unit'] }))
+    .map((entry) => ({
+      name: entry.ingredient.name,
+      quantity: entry.missingQuantity as number,
+      unit: entry.unit as RecipeShoppingItem['unit'],
+      sourceMeasure: entry.sourceMeasure,
+    }))
 
   async function toggleFavorite() {
     if (!selected || favoriteSaving) return

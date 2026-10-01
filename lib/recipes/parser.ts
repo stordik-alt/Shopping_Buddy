@@ -38,11 +38,20 @@ function firstString(value: unknown): string | undefined {
   return undefined
 }
 
-function imageUrl(value: unknown): string | undefined {
-  if (typeof value === 'string') return value.trim() || undefined
-  if (Array.isArray(value)) return imageUrl(value[0])
-  const object = asObject(value)
-  return object ? firstString(object.url) : undefined
+function imageUrl(value: unknown, baseUrl?: string): string | undefined {
+  const raw = (() => {
+    if (typeof value === 'string') return value.trim() || undefined
+    if (Array.isArray(value)) return imageUrl(value[0], baseUrl)
+    const object = asObject(value)
+    return object ? firstString(object.url) : undefined
+  })()
+  if (!raw) return undefined
+
+  try {
+    return new URL(raw, baseUrl).toString()
+  } catch {
+    return raw
+  }
 }
 
 function parseDuration(value: unknown): number | undefined {
@@ -258,7 +267,7 @@ export function parseRecipeJsonLd(html: string, source: {
     canonicalUrl,
     title,
     description: firstString(recipe.description),
-    imageUrl: imageUrl(recipe.image),
+    imageUrl: imageUrl(recipe.image, source.sourceUrl),
     servings: parseServings(recipe.recipeYield),
     servingsText: firstString(recipe.recipeYield),
     prepTimeMinutes: parseDuration(recipe.prepTime),
@@ -279,7 +288,7 @@ export function parseRecipeJsonLd(html: string, source: {
     parserVersion: RECIPE_PARSER_VERSION,
   }
 }
-
+ 
 export function normalizeRatingToFive(value: number | undefined, scale = 5): number | undefined {
   if (value === undefined || !Number.isFinite(value) || !Number.isFinite(scale) || scale <= 0) return undefined
   return Math.max(0, Math.min(5, (value / scale) * 5))

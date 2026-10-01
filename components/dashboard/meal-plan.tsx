@@ -14,7 +14,7 @@ import {
   splitIngredientsByStock,
   plannedRecipeIngredients,
   type Ingredient,
-  type MealPlanRecipe,
+  type Recipe as MealPlanRecipe,
   type MealType,
   type WeeklyMealPlan,
 } from '@/lib/meal-plans'

@@ -21,6 +21,30 @@ export class NotFromReceiptError extends Error {}
 export class AlreadyRecordedError extends Error {}
 export class NothingToRecordError extends Error {}
 
+/** Syncs the shared product classification into historical receipt items and ordinary budget rows.
+ * Genuine multi-way expense splits remain explicit per-purchase exceptions; plain one-target overrides
+ * and learned defaults are cleared because the product is now the canonical classification. */
+export async function syncProductClassificationToPurchases(productId: string): Promise<void> {
+  const db = getDb()
+  const product = await db.query.products.findFirst({
+    where: eq(schema.products.id, productId),
+    columns: { id: true, categoryId: true, subcategoryId: true },
+    with: { category: { columns: { name: true } } },
+  })
+  if (!product) return
+  const items = await db.query.purchaseItems.findMany({
+    where: eq(schema.purchaseItems.productId, productId),
+    columns: { id: true, purchaseId: true },
+    with: { expenseSplits: { columns: { id: true } } },
+  })
+  const purchaseIds = [...new Set(items.map((item) => item.purchaseId))]
+  const plainOverrideIds = items.filter((item) => item.expenseSplits.length === 1).flatMap((item) => item.expenseSplits.map((split) => split.id))
+  await db.update(schema.purchaseItems).set({ category: product.category.name, subcategoryId: product.subcategoryId }).where(eq(schema.purchaseItems.productId, productId))
+  if (plainOverrideIds.length > 0) await db.delete(schema.purchaseItemExpenseSplits).where(inArray(schema.purchaseItemExpenseSplits.id, plainOverrideIds))
+  await db.delete(schema.householdProductExpenseDefaults).where(eq(schema.householdProductExpenseDefaults.productId, productId))
+  for (const purchaseId of purchaseIds) await recomputePurchaseExpenses(db, purchaseId)
+}
+
 // A crafted request could otherwise ask for an unbounded number of rows; real receipts never need
 // more than a handful of ways to split one line.
 const MAX_SPLITS_PER_ITEM = 6

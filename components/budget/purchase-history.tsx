@@ -18,9 +18,9 @@ export function PurchaseHistory({
   onUploadReceipt,
 }: {
   records: PurchaseRecord[]
-  today: string
-  storeChains: { id: string; chain: string; isOnline?: boolean }[]
-  onCreateManualPurchase: (input: {
+  today?: string
+  storeChains?: { id: string; chain: string; isOnline?: boolean }[]
+  onCreateManualPurchase?: (input: {
     date: string
     storeChain?: string | null
     discount?: number | null
@@ -49,7 +49,7 @@ export function PurchaseHistory({
   const [manualOpen, setManualOpen] = useState(false)
   const [manualSaving, setManualSaving] = useState(false)
   const [manualError, setManualError] = useState('')
-  const [manualDate, setManualDate] = useState(today)
+  const [manualDate, setManualDate] = useState(today ?? '')
   const [manualStore, setManualStore] = useState('')
   const [manualDiscount, setManualDiscount] = useState('')
   const [manualItems, setManualItems] = useState<Array<{ name: string; quantity: string; unit: ItemUnit; price: string; category: ItemCategory }>>([
@@ -87,6 +87,7 @@ export function PurchaseHistory({
       if (items.some((item) => !Number.isFinite(item.quantity) || item.quantity <= 0 || !Number.isFinite(item.price) || item.price < 0)) {
         throw new Error('Zkontrolujte množství a cenu položek.')
       }
+      if (!onCreateManualPurchase) throw new Error('Ruční zadání nákupu není dostupné.')
       await onCreateManualPurchase({
         date: manualDate,
         storeChain: manualStore || null,
@@ -97,7 +98,7 @@ export function PurchaseHistory({
       setManualItems([{ name: '', quantity: '1', unit: 'ks', price: '', category: 'Potraviny' }])
       setManualDiscount('')
       setManualStore('')
-      setManualDate(today)
+      setManualDate(today ?? '')
     } catch (err) {
       setManualError(err instanceof Error ? err.message : 'Nákup se nepodařilo uložit.')
     } finally {
@@ -249,7 +250,7 @@ export function PurchaseHistory({
               <label className="text-sm font-medium">Obchod
                 <select value={manualStore} onChange={(e) => setManualStore(e.target.value)} className="mt-1 min-h-10 w-full rounded-xl border border-border bg-background px-3">
                   <option value="">Neurčený obchod</option>
-                  {storeChains.filter((store) => !store.isOnline).map((store) => <option key={store.id} value={store.chain}>{store.chain}</option>)}
+                  {(storeChains ?? []).filter((store) => !store.isOnline).map((store) => <option key={store.id} value={store.chain}>{store.chain}</option>)}
                 </select>
               </label>
               <label className="text-sm font-medium">Sleva celkem

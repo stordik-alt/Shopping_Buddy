@@ -332,7 +332,13 @@ export async function importRecipeBatch(options: RecipeImportOptions): Promise<R
       }
 
       let imageRef = existing?.imageRef ?? null
-      let storedImageUrl = existing?.imageUrl ?? recipe.imageUrl ?? null
+      // When image import is enabled (Cron), never expose the external source image to runtime.
+      // The source URL remains in sourceImageUrl for provenance; runtime images must come from R2.
+      let storedImageUrl = existing?.imageRef && existing.imageUrl
+        ? existing.imageUrl
+        : options.importImages
+          ? null
+          : recipe.imageUrl ?? null
       if (options.importImages && recipe.imageUrl && !options.dryRun) {
         try {
           const sourceDomain = adapter.domains[0] ?? new URL(recipe.canonicalUrl).hostname

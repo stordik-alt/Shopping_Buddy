@@ -109,6 +109,7 @@ describe('recipe portal adapter fixtures', () => {
     expect(results).toHaveLength(1)
     expect(results[0].sourceUrl).toBe('https://www.recepty.cz/recept/kureci-rizoto-123456')
     expect(receptyCzAdapter.imageDomains).toEqual(['ms*.ostium.cz'])
+    expect(topreceptyAdapter.imageDomains).toEqual(['static.toprecepty.cz'])
   })
 
   it.each([

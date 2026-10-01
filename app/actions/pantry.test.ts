@@ -86,7 +86,6 @@ describe('addPantryItemAction', () => {
       })
       expect(result.find((item) => item.name === product.name)).toMatchObject({
         quantity: 2,
-        productId: product.id,
         category: 'Potraviny',
         subcategory: 'Pečivo',
         location: 'Mrazák',

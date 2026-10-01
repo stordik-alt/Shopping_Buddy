@@ -2,7 +2,7 @@
 ### Recipe import quality gate
 - Scheduled recipe imports now skip recipes rated below 4.0/5.0.
 - Ratings on other scales are normalized to a five-point scale before filtering.
-- Recipes without a rating remain eligible for import because missing rating data is not treated as a low rating.
+- Recipes without a rating are also excluded from import.
 - Added unit tests for the threshold and scale normalization.
 
 ## 2026-10-01

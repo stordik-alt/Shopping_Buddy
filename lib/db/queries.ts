@@ -424,11 +424,13 @@ export async function getHouseholdPurchaseHistory(householdId: string, startDay 
 }
 
 export async function getPurchaseAftermath(householdId: string, purchaseId?: string | null): Promise<PurchaseAftermath> {
+  const household = await getDb().query.households.findFirst({ where: eq(schema.households.id, householdId), columns: { budgetPeriodStartDay: true } })
+  const startDay = household?.budgetPeriodStartDay ?? 1
   const [purchaseRows, pantryRows, expenseRows, notifications, tickedListItems] = await Promise.all([
-    queryPurchaseRows(householdId),
+    queryPurchaseRows(householdId, startDay),
     queryPantryRows(householdId),
     getDb().query.expenses.findMany({
-      where: and(eq(schema.expenses.householdId, householdId), gte(schema.expenses.date, historySinceDate())),
+      where: and(eq(schema.expenses.householdId, householdId), gte(schema.expenses.date, currentBudgetPeriodStart(startDay))),
       orderBy: asc(schema.expenses.date),
     }),
     getHouseholdNotifications(householdId),
@@ -479,7 +481,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
         where: eq(schema.shoppingLists.householdId, household.id),
         orderBy: asc(schema.shoppingLists.createdAt),
       }),
-      db.query.expenses.findMany({ where: and(eq(schema.expenses.householdId, household.id), gte(schema.expenses.date, historySince)), orderBy: asc(schema.expenses.date) }),
+      db.query.expenses.findMany({ where: and(eq(schema.expenses.householdId, household.id), gte(schema.expenses.date, currentBudgetPeriodStart(budgetPeriodStartDay))), orderBy: asc(schema.expenses.date) }),
       // The newest 50 are what the bell panel can usefully show; all of them grew with every week.
       db.query.notifications.findMany({ where: eq(schema.notifications.householdId, household.id), orderBy: desc(schema.notifications.createdAt), limit: NOTIFICATIONS_SHOWN }),
       // The last year, with only the columns the history, usual items and pantry estimate read. The

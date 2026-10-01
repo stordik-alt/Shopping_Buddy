@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 import {
+  addPantryItemAction,
   addPantryPlaceAction,
   adjustPantryItemQuantityAction,
   autoCategorizePantryAction,
@@ -24,7 +25,7 @@ import { customPlaceIdFromKey, pantryItemAtHome } from '@/lib/pantry'
 import { estimatePantry } from '@/lib/pantry-estimate'
 import { matchKey as matchKeyOf } from '@/lib/receipt-list-match'
 import { tabHref } from '@/lib/tab-url'
-import type { Item, ItemCategory, PantryArea, PantryItem, PantryLocation, PantryTracking } from '@/lib/types'
+import type { Item, ItemCategory, ItemUnit, PantryArea, PantryItem, PantryLocation, PantryTracking } from '@/lib/types'
 
 /** The pantry: its items, places and check-in settings, and everything the household does to them. */
 export function usePantry({
@@ -85,6 +86,11 @@ export function usePantry({
     movePantryItemAction(id, placeKey)
   }
 
+  async function addPantryItem(input: { name: string; quantity: number; unit: ItemUnit; category: ItemCategory; placeKey: string }) {
+    const updated = await addPantryItemAction(input)
+    setPantryItems(updated)
+    return updated
+  }
   async function addPantryPlace(area: PantryArea, name: string) {
     const place = await addPantryPlaceAction(area, name)
     setPantryPlaces((current) => [...current, place])
@@ -203,6 +209,7 @@ export function usePantry({
     pantryEstimates,
     likelyGonePantryIds,
     offerPantryCorrection,
+    addPantryItem,
     confirmPantryItem,
     removePantryItem,
     movePantryItem,

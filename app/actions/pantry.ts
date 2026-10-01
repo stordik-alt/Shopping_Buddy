@@ -3,14 +3,16 @@
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { getDb } from '@/lib/db/client'
+import { getPantryItems, getProductCatalog, getSubcategoryCatalog, restockPantryItem } from '@/lib/db/queries'
 import { proposeProductCategory } from '@/lib/db/category-changes'
 import { proposeProductSubcategory } from '@/lib/db/subcategory-changes'
 import * as schema from '@/lib/db/schema'
 import { classifySubcategory } from '@/lib/categorization'
 import type { CatalogChangeOutcome, CategoryChangeOutcome } from '@/lib/product-subcategory-changes'
 import { PRODUCT_SUBCATEGORIES, subcategoriesOfItem } from '@/lib/product-subcategories'
-import { CHECKIN_DAYS_BY_CATEGORY, checkinSubcategoryKey, customPlaceIdFromKey, MAX_PANTRY_REVIEW_ITEMS, PANTRY_AREAS, PANTRY_LOCATIONS, PANTRY_TRACKING, splitPantryReview } from '@/lib/pantry'
-import type { ItemCategory, PantryArea, PantryTracking } from '@/lib/types'
+import { CHECKIN_DAYS_BY_CATEGORY, checkinSubcategoryKey, customPlaceIdFromKey, inferPantryLocation, MAX_PANTRY_REVIEW_ITEMS, PANTRY_AREAS, PANTRY_LOCATIONS, PANTRY_TRACKING, splitPantryReview } from '@/lib/pantry'
+import { matchProductByName } from '@/lib/products'
+import type { ItemCategory, ItemUnit, PantryArea, PantryItem, PantryTracking } from '@/lib/types'
 
 // No revalidatePath in this file: each of these saves is already shown by components/app-shell.tsx from its
 // own state or from the data the action returns. Re-rendering the whole page after every save re-ran
@@ -21,6 +23,75 @@ async function assertOwnsPantryItem(householdId: string, pantryItemId: string) {
   const item = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, pantryItemId) })
   if (!item || item.householdId !== householdId) throw new Error('Pantry item not found')
 }
+
+/** Adds stock directly to Zásoby without creating a purchase or budget expense.
+ * This is for things the household obtained without spending money — e.g. a gift, meat from
+ * someone, or eggs/vegetables from the household's own production. A known catalog product keeps
+ * its canonical category/subcategory; an unknown product requires the caller to provide a category.
+ *
+ * The existing pantry row is restocked/merged using the same quantity semantics as a real purchase.
+ * No purchase, purchase_item or expense row is ever written by this action. */
+export async function addPantryItemAction(input: {
+  name: string
+  quantity: number
+  unit: ItemUnit
+  category?: ItemCategory
+  placeKey?: string | null
+}): Promise<PantryItem[]> {
+  const householdId = await requireHouseholdId()
+  const name = typeof input?.name === 'string' ? input.name.trim() : ''
+  if (!name) throw new Error('Zadejte název položky.')
+  if (name.length > 200) throw new Error('Název položky je příliš dlouhý.')
+
+  const quantity = Number(input.quantity)
+  if (!Number.isFinite(quantity) || quantity <= 0 || quantity > 1_000_000) throw new Error('Množství musí být větší než 0.')
+  if (!(PANTRY_UNITS as string[]).includes(input.unit)) throw new Error('Neplatná jednotka.')
+  if (input.category != null && !(PANTRY_ITEM_CATEGORIES as string[]).includes(input.category)) throw new Error('Neplatná kategorie.')
+
+  const catalog = await getProductCatalog([name])
+  const product = matchProductByName(catalog, name)
+  if (product?.isNonInventory) throw new Error('Tento produkt nelze přidat do zásob.')
+
+  const category = product?.category ?? input.category
+  if (!category) throw new Error('U nové položky vyberte kategorii.')
+
+  const placeKey = typeof input.placeKey === 'string' && input.placeKey.trim() ? input.placeKey.trim() : null
+  let location = product?.defaultLocation ?? inferPantryLocation(category, name) ?? 'Spíž'
+  let customPlaceId: string | null = null
+  if (placeKey) {
+    customPlaceId = customPlaceIdFromKey(placeKey)
+    if (customPlaceId) {
+      const db = getDb()
+      const place = await db.query.pantryPlaces.findFirst({ where: eq(schema.pantryPlaces.id, customPlaceId) })
+      if (!place || place.householdId !== householdId) throw new Error('Vlastní místo nenalezeno.')
+    } else {
+      if (!(PANTRY_LOCATIONS as string[]).includes(placeKey)) throw new Error('Neplatné umístění.')
+      location = placeKey as typeof PANTRY_LOCATIONS[number]
+    }
+  }
+
+  let subcategoryId: string | null = null
+  if (product?.subcategory) {
+    const subcategories = await getSubcategoryCatalog()
+    subcategoryId = subcategories.find((row) => row.category === category && row.name === product.subcategory)?.id ?? null
+  }
+
+  await restockPantryItem(householdId, {
+    productId: product?.id ?? null,
+    name,
+    category,
+    quantity,
+    unit: input.unit,
+    location,
+    customPlaceId,
+    subcategoryId,
+  })
+
+  return getPantryItems(householdId)
+}
+
+const PANTRY_ITEM_CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
+const PANTRY_UNITS: ItemUnit[] = ['ks', 'kg', 'g', 'l', 'ml']
 
 /** "Ještě mám" — confirms the household still has this pantry item. Resets addedAt to now and
  *  clears askedAt, so the check-in interval (lib/pantry.ts) restarts from a fresh confirmation

@@ -21,6 +21,7 @@ function renderPantry(items: PantryItem[], customPlaces: PantryPlace[] = []) {
   return renderToStaticMarkup(
     <Pantry
       items={items}
+      onAddPantryItem={async () => items}
       customPlaces={customPlaces}
       onConfirm={noop}
       onRemove={noop}

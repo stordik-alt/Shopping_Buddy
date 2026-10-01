@@ -1,3 +1,9 @@
+## 2026-10-01 (Direct pantry stock without a budget entry)
+- **Owner request:** items obtained without spending money — e.g. a gift, received meat, or eggs/vegetables from own production — must be addable to Zásoby without appearing in Rozpočet.
+- **What:** Zásoby now has **Přidat** → a dedicated form for product, quantity, unit, category and storage place. The server writes only to `pantry_items`; it never creates `purchases`, `purchase_items` or `expenses`.
+- Existing pantry rows are merged using the same restock logic as purchased stock. Known catalog products keep their canonical category/subcategory and non-inventory products are rejected.
+- **Tests:** Server-action coverage verifies the zero-budget behavior, catalog matching, custom-place authorization and non-inventory protection.
+
 ## 2026-10-01 (Product classification is the single source for inventory and receipt expenses)
 - **Owner request:** a product must have one category/subcategory shared by Zásoby and Rozpočet/Výdaje; the household should not classify the same product twice.
 - **What:** product category/subcategory is now authoritative for ordinary receipt-derived budget lines. Receipt import already stores the catalog classification on purchase_items; budget recomputation now carries the exact product subcategory for all five product categories, not only Potraviny.

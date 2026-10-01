@@ -167,6 +167,7 @@ export function AppShell({
   const {
     pantryItems,
     pantryPlaces,
+    addPantryItem,
     pantryCheckinDays,
     pantryCheckinSubcategoryDays,
     pantryCheckPending,
@@ -591,6 +592,7 @@ export function AppShell({
                   <Pantry
                     items={pantryItems}
                     customPlaces={pantryPlaces}
+                    onAddPantryItem={addPantryItem}
                     onConfirm={confirmPantryItem}
                     onRemove={removePantryItem}
                     onMove={movePantryItem}

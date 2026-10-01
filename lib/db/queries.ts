@@ -648,7 +648,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
  *  the same item. */
 export async function restockPantryItem(
   householdId: string,
-  item: { productId: string | null; name: string; category: ItemCategory; quantity: number; unit: ItemUnit; location?: PantryLocation; subcategoryId?: string | null },
+  item: { productId: string | null; name: string; category: ItemCategory; quantity: number; unit: ItemUnit; location?: PantryLocation; customPlaceId?: string | null; subcategoryId?: string | null },
 ) {
   const db = getDb()
   const byProductId = item.productId
@@ -690,6 +690,7 @@ export async function restockPantryItem(
       location: item.location ?? inferPantryLocation(item.category, item.name) ?? 'Spíž',
       quantity: item.quantity,
       unit: item.unit,
+      customPlaceId: item.customPlaceId ?? null,
     })
   }
 }

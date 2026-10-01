@@ -294,9 +294,14 @@ export async function getHouseholdNotifications(householdId: string): Promise<No
 /** The last year of purchases, with only the columns the history, usual items and pantry estimate
  *  read. The whole history with every related row (branch addresses, opening hours…) was sent on
  *  every render. */
-function queryPurchaseRows(householdId: string, startDay = 1) {
+function queryPurchaseRows(householdId: string, startDay = 1, includePurchaseId?: string | null) {
   return getDb().query.purchases.findMany({
-    where: and(eq(schema.purchases.householdId, householdId), gte(schema.purchases.date, currentBudgetPeriodStart(startDay))),
+    where: and(
+      eq(schema.purchases.householdId, householdId),
+      includePurchaseId
+        ? sql`(${schema.purchases.date} >= ${currentBudgetPeriodStart(startDay)} OR ${schema.purchases.id} = ${includePurchaseId})`
+        : gte(schema.purchases.date, currentBudgetPeriodStart(startDay)),
+    ),
     columns: { id: true, date: true, total: true, discount: true },
     with: {
       items: { columns: { id: true, name: true, quantity: true, unit: true, price: true, category: true }, with: { expenseSplits: { columns: { category: true, subcategory: true, amount: true } } } },
@@ -427,10 +432,15 @@ export async function getPurchaseAftermath(householdId: string, purchaseId?: str
   if (!household) throw new Error(`Household ${householdId} not found`)
   const startDay = household.budgetPeriodStartDay
   const [purchaseRows, pantryRows, expenseRows, notifications, tickedListItems] = await Promise.all([
-    queryPurchaseRows(householdId, startDay),
+    queryPurchaseRows(householdId, startDay, purchaseId),
     queryPantryRows(householdId),
     getDb().query.expenses.findMany({
-      where: and(eq(schema.expenses.householdId, householdId), gte(schema.expenses.date, currentBudgetPeriodStart(startDay))),
+      where: and(
+        eq(schema.expenses.householdId, householdId),
+        purchaseId
+          ? sql`(${schema.expenses.date} >= ${currentBudgetPeriodStart(startDay)} OR ${schema.expenses.purchaseId} = ${purchaseId})`
+          : gte(schema.expenses.date, currentBudgetPeriodStart(startDay)),
+      ),
       orderBy: asc(schema.expenses.date),
     }),
     getHouseholdNotifications(householdId),

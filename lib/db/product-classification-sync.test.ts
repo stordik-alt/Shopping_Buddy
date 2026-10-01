@@ -51,5 +51,41 @@ describe('syncProductClassificationToPurchases', () => {
       await db.delete(schema.households).where(eq(schema.households.id, household.id))
       await db.delete(schema.products).where(eq(schema.products.id, product.id))
     }
+
+  it('does not let a budget reassignment bypass a locked product classification', async () => {
+    const foodCategory = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
+    const otherCategory = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Ostatní') })
+    const clothing = await db.query.productSubcategories.findFirst({
+      where: and(eq(schema.productSubcategories.category, 'Ostatní'), eq(schema.productSubcategories.name, 'Oblečení a obuv')),
+    })
+    const [household] = await db.insert(schema.households).values({ name: '__test_product_classification_sync__' }).returning()
+    const [product] = await db
+      .insert(schema.products)
+      .values({ name: `__test_product_classification_locked_${crypto.randomUUID()}`, categoryId: foodCategory!.id, categoryLocked: true })
+      .returning()
+    const [purchase] = await db
+      .insert(schema.purchases)
+      .values({ householdId: household.id, date: '2026-09-27', total: '100' })
+      .returning()
+    const [item] = await db
+      .insert(schema.purchaseItems)
+      .values({ purchaseId: purchase.id, name: product.name, price: '100', category: 'Potraviny', productId: product.id })
+      .returning()
+
+    try {
+      await recomputePurchaseExpenses(db, purchase.id)
+      await setPurchaseItemExpenseSplits(household.id, item.id, [{ category: 'Ostatní', subcategory: 'Oblečení a obuv', amount: 100 }])
+
+      const unchangedProduct = await db.query.products.findFirst({ where: eq(schema.products.id, product.id), with: { category: true, subcategory: true } })
+      expect(unchangedProduct?.category.name).toBe('Potraviny')
+      expect(unchangedProduct?.subcategory).toBeNull()
+
+      const expenses = await db.query.expenses.findMany({ where: eq(schema.expenses.purchaseId, purchase.id) })
+      expect(expenses.map((row) => [row.category, row.subcategory, Number(row.amount)])).toEqual([['Ostatní', 'Oblečení a obuv', 100]])
+    } finally {
+      await db.delete(schema.households).where(eq(schema.households.id, household.id))
+      await db.delete(schema.products).where(eq(schema.products.id, product.id))
+    }
+  })
   })
 })

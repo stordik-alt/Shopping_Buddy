@@ -831,7 +831,6 @@ export const recipeFavorites = pgTable('recipe_favorites', {
   sourceUrl: text('source_url').notNull(),
   canonicalUrl: text('canonical_url').notNull(),
   title: text('title').notNull(),
-  searchText: text('search_text').notNull().default(''),
   description: text('description'),
   imageUrl: text('image_url'),
   servings: numeric('servings', { precision: 8, scale: 2 }),

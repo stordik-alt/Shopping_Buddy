@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+vi.mock('next/cache', () => ({ revalidateTag: () => {} }))
+
 // The handler is tested with the ingestion itself stubbed: what matters here is authentication,
 // source selection and how outcomes map to HTTP status codes.
 const ingest = vi.hoisted(() => ({

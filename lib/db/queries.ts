@@ -252,7 +252,7 @@ const NOTIFICATIONS_SHOWN = 50
 const HISTORY_DAYS = 365
 // The Dashboard only needs enough recent history to calculate the current budget period and short-term insights.
 // Full purchase/expense history is hydrated when the corresponding history tab is opened.
-const INITIAL_DASHBOARD_HISTORY_DAYS = 45
+const INITIAL_DASHBOARD_HISTORY_DAYS = 120
 
 /** The first day of the requested history window. */
 function historySinceDate(days = HISTORY_DAYS): string {
@@ -468,7 +468,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
 
   // The initial Dashboard only needs recent expense history; the full year is loaded server-side when
   // Nákup or Rozpočet is the opened section (the same business data, just delayed until it is useful).
-  const loadFullHistory = initialTab === 'Nákup' || initialTab === 'Rozpočet'
+  const loadFullHistory = initialTab == null || initialTab === 'Nákup' || initialTab === 'Rozpočet'
   const initialHistoryDays = loadFullHistory ? HISTORY_DAYS : INITIAL_DASHBOARD_HISTORY_DAYS
   const historySince = historySinceDate(initialHistoryDays)
   const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows, mealPlan, invitationRows, pantryRows, pantryPlaceRows, pantryCheckinRows, pantryCheckinSubcategoryRows, pendingReceiptImports, categoryBudgetRows, recurringRows, occurrenceRows] =

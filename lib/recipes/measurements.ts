@@ -68,7 +68,7 @@ const MASS_PER_CLOVE: Record<string, number> = {
 
 const normalizeName = (name: string) =>
   normalizeSearchText(name)
-    .replace(/\\b(mlety|mleta|mlete|suseny|susena|susene|drt|drz)\\b/g, '')
+    .replace(/\b(mlety|mleta|mlete|suseny|susena|susene|drt|drz)\b/g, '')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
 

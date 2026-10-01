@@ -1,5 +1,5 @@
 {
-  "id": "3022befd-69a6-401a-9bc7-fb354f88d803",
+  "id": "8d3e7c24-2b3f-4f1d-9aa4-5c2d6e1b7f40",
   "prevId": "67df764a-d256-422b-9bda-8fcd74484099",
   "version": "7",
   "dialect": "postgresql",
@@ -125,7 +125,23 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "children_household_idx": {
+          "name": "children_household_idx",
+          "columns": [
+            {
+              "expression": "household_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "children_household_id_households_id_fk": {
           "name": "children_household_id_households_id_fk",
@@ -227,6 +243,33 @@
             },
             {
               "expression": "store_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "deals_validity_product_idx": {
+          "name": "deals_validity_product_idx",
+          "columns": [
+            {
+              "expression": "valid_from",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "valid_until",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "product_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -683,12 +726,6 @@
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true
-        },
-        "page_text": {
-          "name": "page_text",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         },
         "model": {
           "name": "model",
@@ -1189,7 +1226,29 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "meal_plans_household_week_unique_idx": {
+          "name": "meal_plans_household_week_unique_idx",
+          "columns": [
+            {
+              "expression": "household_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "week_start",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "meal_plans_household_id_households_id_fk": {
           "name": "meal_plans_household_id_households_id_fk",
@@ -1392,7 +1451,29 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "notifications_household_created_idx": {
+          "name": "notifications_household_created_idx",
+          "columns": [
+            {
+              "expression": "household_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "notifications_household_id_households_id_fk": {
           "name": "notifications_household_id_households_id_fk",
@@ -1647,7 +1728,29 @@
           "default": "'normal'"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "pantry_items_household_product_idx": {
+          "name": "pantry_items_household_product_idx",
+          "columns": [
+            {
+              "expression": "household_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "product_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "pantry_items_household_id_households_id_fk": {
           "name": "pantry_items_household_id_households_id_fk",
@@ -3231,7 +3334,38 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "purchase_items_purchase_idx": {
+          "name": "purchase_items_purchase_idx",
+          "columns": [
+            {
+              "expression": "purchase_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "purchase_items_product_idx": {
+          "name": "purchase_items_product_idx",
+          "columns": [
+            {
+              "expression": "product_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "purchase_items_purchase_id_purchases_id_fk": {
           "name": "purchase_items_purchase_id_purchases_id_fk",
@@ -3332,7 +3466,29 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "purchases_household_date_idx": {
+          "name": "purchases_household_date_idx",
+          "columns": [
+            {
+              "expression": "household_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "purchases_household_id_households_id_fk": {
           "name": "purchases_household_id_households_id_fk",
@@ -3662,7 +3818,35 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "receipt_imports_household_status_created_idx": {
+          "name": "receipt_imports_household_status_created_idx",
+          "columns": [
+            {
+              "expression": "household_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "receipt_imports_household_id_households_id_fk": {
           "name": "receipt_imports_household_id_households_id_fk",
@@ -4156,7 +4340,44 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "shopping_list_items_list_created_idx": {
+          "name": "shopping_list_items_list_created_idx",
+          "columns": [
+            {
+              "expression": "list_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "shopping_list_items_checked_purchase_idx": {
+          "name": "shopping_list_items_checked_purchase_idx",
+          "columns": [
+            {
+              "expression": "checked_by_purchase_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "shopping_list_items_list_id_shopping_lists_id_fk": {
           "name": "shopping_list_items_list_id_shopping_lists_id_fk",
@@ -4248,7 +4469,29 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "shopping_lists_household_created_idx": {
+          "name": "shopping_lists_household_created_idx",
+          "columns": [
+            {
+              "expression": "household_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "shopping_lists_household_id_households_id_fk": {
           "name": "shopping_lists_household_id_households_id_fk",

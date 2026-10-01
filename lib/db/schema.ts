@@ -143,7 +143,9 @@ export const children = pgTable('children', {
   age: integer('age').notNull(),
   preferences: text('preferences').notNull().default(''),
   specialNeeds: text('special_needs'),
-})
+}, (table) => [
+  index('children_household_idx').on(table.householdId),
+])
 
 // Household-level shopping preferences (one row per household).
 export const preferences = pgTable('preferences', {
@@ -456,6 +458,7 @@ export const deals = pgTable('deals', {
   // Without it each lookup read the whole table — 26 billion rows read by 2026-09-26, the largest
   // part of the database's compute (pg_stat_user_tables).
   index('deals_product_store_idx').on(table.productId, table.storeId),
+  index('deals_validity_product_idx').on(table.validFrom, table.validUntil, table.productId),
   check('deals_unit_price_pair', sql`(${table.unit} IS NULL AND ${table.unitPrice} IS NULL) OR (${table.unit} IS NOT NULL AND ${table.unitPrice} > 0)`),
   // Same guard as member_stores: when a branch is named it must be a branch of `store_id`. MATCH
   // SIMPLE — a NULL `store_location_id` (an online chain's deal) skips the check. Cascades on update like
@@ -470,7 +473,9 @@ export const shoppingLists = pgTable('shopping_lists', {
   householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
-})
+}, (table) => [
+  index('shopping_lists_household_created_idx').on(table.householdId, table.createdAt),
+])
 
 export const shoppingListItems = pgTable('shopping_list_items', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -500,7 +505,10 @@ export const shoppingListItems = pgTable('shopping_list_items', {
   // app/api/cron/shopping-reminders). Null means never reminded yet. Prevents the same
   // still-undone item from generating a new reminder every day the job runs.
   remindedAt: timestamp('reminded_at'),
-})
+}, (table) => [
+  index('shopping_list_items_list_created_idx').on(table.listId, table.createdAt),
+  index('shopping_list_items_checked_purchase_idx').on(table.checkedByPurchaseId),
+])
 
 // The specific product a user chose for a shopping list item at one chain — "for this milk, buy THIS
 // one at Lidl". The shopping planner uses a pinned product at that chain instead of guessing by name;
@@ -527,7 +535,9 @@ export const purchases = pgTable('purchases', {
   date: date('date').notNull(),
   total: numeric('total', { precision: 10, scale: 2 }).notNull(),
   discount: numeric('discount', { precision: 10, scale: 2 }),
-})
+}, (table) => [
+  index('purchases_household_date_idx').on(table.householdId, table.date),
+])
 
 export const purchaseItems = pgTable('purchase_items', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -559,6 +569,8 @@ export const purchaseItems = pgTable('purchase_items', {
   expenseCategory: expenseCategoryEnum('expense_category'),
   expenseSubcategory: text('expense_subcategory'),
 }, (table) => [
+  index('purchase_items_purchase_idx').on(table.purchaseId),
+  index('purchase_items_product_idx').on(table.productId),
   check('purchase_items_expense_subcategory_needs_category', sql`${table.expenseSubcategory} IS NULL OR ${table.expenseCategory} IS NOT NULL`),
 ])
 
@@ -677,7 +689,9 @@ export const pantryItems = pgTable('pantry_items', {
   // confirmation, so the next check-in interval starts counting from a fresh addedAt.
   askedAt: timestamp('asked_at'),
   tracking: pantryTrackingEnum('tracking').notNull().default('normal'),
-})
+}, (table) => [
+  index('pantry_items_household_product_idx').on(table.householdId, table.productId),
+])
 
 // Receipt import ("nahrávání nákupů přes účtenky"): prepares the ingestion path for a future OCR
 // provider (lib/receipts.ts's ReceiptOcrProvider) without wiring one up yet, per CLAUDE.md section
@@ -733,7 +747,9 @@ export const receiptImports = pgTable('receipt_imports', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
   processedAt: timestamp('processed_at'),
-})
+}, (table) => [
+  index('receipt_imports_household_status_created_idx').on(table.householdId, table.status, table.createdAt),
+])
 
 export const budgets = pgTable('budgets', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -917,7 +933,9 @@ export const mealPlans = pgTable('meal_plans', {
   estimatedTotal: numeric('estimated_total', { precision: 10, scale: 2 }).notNull(),
   plan: text('plan').notNull(), // JSON-serialized WeeklyMealPlan snapshot
   generatedAt: timestamp('generated_at').notNull().defaultNow(),
-})
+}, (table) => [
+  uniqueIndex('meal_plans_household_week_unique_idx').on(table.householdId, table.weekStart),
+])
 
 export const notifications = pgTable('notifications', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -926,7 +944,9 @@ export const notifications = pgTable('notifications', {
   detail: text('detail').notNull(),
   unread: boolean('unread').notNull().default(true),
   createdAt: timestamp('created_at').notNull().defaultNow(),
-})
+}, (table) => [
+  index('notifications_household_created_idx').on(table.householdId, table.createdAt),
+])
 
 // One browser/phone that agreed to receive push notifications for a household member (Web Push,
 // lib/push/). `endpoint` is the push service URL the browser created for this app and identifies the

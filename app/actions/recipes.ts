@@ -9,7 +9,7 @@ import {
   recordRecipeView,
   toggleRecipeFavorite,
 } from '@/lib/db/recipes'
-import { getRecipeByUrl, searchRecipes, searchRecipesDetailed } from '@/lib/recipes/service'
+import { getRecipeByUrl, searchRecipeCatalog, searchRecipesDetailed } from '@/lib/recipes/service'
 import { estimateRecipePrice } from '@/lib/recipes/pricing'
 import { scaleRecipeIngredients } from '@/lib/recipes/scaling'
 import { getProductCatalog, getProductPrices, getStandaloneOffers } from '@/lib/db/queries'
@@ -32,13 +32,26 @@ async function validateRecipeReference(recipe: Recipe): Promise<void> {
 
 export async function searchRecipesAction(
   query: string,
-  options: { sourceId?: string; sort?: 'relevance' | 'rating' | 'time'; householdFilter?: boolean } = {},
+  options: {
+    sourceId?: string
+    sort?: 'relevance' | 'rating' | 'time'
+    householdFilter?: boolean
+    page?: number
+    pageSize?: number
+  } = {},
 ) {
   const householdId = await requireHouseholdId()
   const sort = options.sort ?? 'relevance'
+  const page = Math.max(1, options.page ?? 1)
+  const pageSize = Math.max(1, Math.min(6, options.pageSize ?? 6))
 
   if (!options.householdFilter) {
-    return searchRecipes(query, options)
+    return searchRecipeCatalog(query, {
+      sourceId: options.sourceId,
+      sort,
+      page,
+      pageSize,
+    })
   }
 
   const context = await getRecipeHouseholdData(householdId)
@@ -47,12 +60,17 @@ export async function searchRecipesAction(
     sort,
   })
   const filtered = detailed.filter((recipe) => filterRecipeForHousehold(recipe, context))
+  const ranked = sort === 'relevance'
+    ? rankByHouseholdPreference(filtered, context)
+    : filtered.map(toRecipeSearchResult)
+  const start = (page - 1) * pageSize
 
-  if (sort === 'relevance') {
-    return rankByHouseholdPreference(filtered, context)
+  return {
+    results: ranked.slice(start, start + pageSize),
+    total: ranked.length,
+    page,
+    pageSize,
   }
-
-  return filtered.map(toRecipeSearchResult)
 }
 
 const MAX_PANTRY_SEARCH_TERMS = 5

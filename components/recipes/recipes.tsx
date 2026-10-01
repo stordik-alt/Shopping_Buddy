@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowUpRight, Clock3, Search, Star } from 'lucide-react'
+import { ArrowLeft, ArrowRight, ArrowUpRight, Clock3, Search, Star } from 'lucide-react'
 import { getRecipeAction, getRecipeCollectionsAction, getRecipePricingAction, getRecipeRecommendationsAction, searchRecipesAction, toggleRecipeFavoriteAction } from '@/app/actions/recipes'
 import { analyzeRecipeIngredients, type RecipeShoppingItem } from '@/lib/recipes/shopping'
 import { formatIngredientQuantity, scaleRecipeIngredients } from '@/lib/recipes/scaling'
@@ -84,6 +84,9 @@ export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: Recip
   const [sourceId, setSourceId] = useState('')
   const [sort, setSort] = useState<'relevance' | 'rating' | 'time'>('relevance')
   const [results, setResults] = useState<RecipeSearchResult[]>([])
+  const [resultsPage, setResultsPage] = useState(1)
+  const [totalResultCount, setTotalResultCount] = useState(0)
+  const RECIPES_PER_PAGE = 6
   const [selected, setSelected] = useState<Recipe | null>(null)
   const [servings, setServings] = useState<number | undefined>()
   const [loading, setLoading] = useState(false)
@@ -147,7 +150,7 @@ export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: Recip
     }
   }, [])
 
-  async function search(term = query) {
+  async function search(term = query, page = 1) {
     const normalized = term.trim()
     if (!normalized) return
     setLoading(true)
@@ -157,8 +160,12 @@ export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: Recip
         sourceId: sourceId || undefined,
         sort,
         householdFilter,
+        page,
+        pageSize: RECIPES_PER_PAGE,
       })
-      setResults(next)
+      setResults(next.results)
+      setTotalResultCount(next.total)
+      setResultsPage(next.page)
     } catch {
       setError('Recepty se nepodařilo načíst. Zkuste to znovu.')
     } finally {
@@ -567,9 +574,39 @@ export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: Recip
       {!loading && query.trim() && results.length === 0 && !error && (
         <div className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">Pro tento dotaz se recepty nenašly.</div>
       )}
-      <div className="grid gap-3 md:grid-cols-2">
-        {results.map((recipe) => <RecipeCard key={recipe.canonicalUrl} recipe={recipe} onOpen={() => void openRecipe(recipe)} />)}
-      </div>
+      {results.length > 0 && (
+        <section aria-label="Výsledky vyhledávání" className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+            <span>{totalResultCount} nalezených receptů · stránka {resultsPage} z {Math.max(1, Math.ceil(totalResultCount / RECIPES_PER_PAGE))}</span>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {results.map((recipe) => <RecipeCard key={recipe.canonicalUrl} recipe={recipe} onOpen={() => void openRecipe(recipe)} />)}
+          </div>
+          {totalResultCount > RECIPES_PER_PAGE && (
+            <nav aria-label="Stránkování receptů" className="flex items-center justify-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => void search(query, resultsPage - 1)}
+                disabled={loading || resultsPage <= 1}
+                className="inline-flex min-h-10 items-center gap-1 rounded-xl border border-border px-3 text-sm font-medium disabled:opacity-40"
+              >
+                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                Předchozí
+              </button>
+              <span className="min-w-16 text-center text-sm font-medium">{resultsPage} / {Math.ceil(totalResultCount / RECIPES_PER_PAGE)}</span>
+              <button
+                type="button"
+                onClick={() => void search(query, resultsPage + 1)}
+                disabled={loading || resultsPage >= Math.ceil(totalResultCount / RECIPES_PER_PAGE)}
+                className="inline-flex min-h-10 items-center gap-1 rounded-xl border border-border px-3 text-sm font-medium disabled:opacity-40"
+              >
+                Další
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </nav>
+          )}
+        </section>
+      )}
     </div>
   )
 }

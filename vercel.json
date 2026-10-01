@@ -1,5 +1,6 @@
 {
   "crons": [
+    { "path": "/api/cron/recipes", "schedule": "0 13 * * *" },
     { "path": "/api/cron/shopping-reminders", "schedule": "0 8 * * *" },
     { "path": "/api/cron/pantry-checkin", "schedule": "0 15 * * 0" },
     { "path": "/api/cron/import-stores", "schedule": "0 3 * * 1" },

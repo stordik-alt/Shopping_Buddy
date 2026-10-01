@@ -32,6 +32,13 @@ export type Recipe = {
   parserVersion: number
 }
 
+export type RecipeSearchPage = {
+  results: RecipeSearchResult[]
+  total: number
+  page: number
+  pageSize: number
+}
+
 export type RecipeSearchResult = Pick<
   Recipe,
   'id' | 'sourceId' | 'sourceName' | 'sourceUrl' | 'canonicalUrl' | 'title' |

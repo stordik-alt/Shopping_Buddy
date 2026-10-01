@@ -901,10 +901,12 @@ export const recipeCatalog = pgTable('recipe_catalog', {
   parserVersion: integer('parser_version').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  searchText: text('search_text').notNull().default(''),
 }, (table) => [
   uniqueIndex('recipe_catalog_canonical_url_unique').on(table.canonicalUrl),
   index('recipe_catalog_source_idx').on(table.sourceId, table.updatedAt),
   index('recipe_catalog_title_idx').on(table.title),
+  index('recipe_catalog_search_text_trgm_idx').using('gin', table.searchText.op('gin_trgm_ops')),
 ])
 
 export const mealPlans = pgTable('meal_plans', {

@@ -273,7 +273,7 @@ export function AppShell({
     setTab('Nákup')
     for (const ingredient of ingredients) {
       const { item, notification } = await addShoppingItemAction(initialData.mainListId, ingredient.name, {
-        detail: `${ingredient.quantity} ${ingredient.unit} · z jídelníčku`,
+        detail: `${ingredient.sourceMeasure ?? `${ingredient.quantity} ${ingredient.unit}`} · z jídelníčku`,
         category: ingredient.category,
         unit: ingredient.unit,
       })

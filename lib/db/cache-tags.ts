@@ -4,4 +4,5 @@ export const GLOBAL_CACHE_TAGS = {
   storeChains: 'global-store-chains',
   standaloneOffers: 'global-standalone-offers',
   productPrices: 'global-product-prices',
+  recipes: 'global-recipes',
 } as const

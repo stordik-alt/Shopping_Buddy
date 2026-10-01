@@ -10,12 +10,18 @@ export type RecipeMeasureEstimate = {
 }
 
 const UNIT_ALIASES: Record<string, string> = {
-  'lž': 'lžíce',
-  'plž': 'lžíce',
-  'lžič': 'lžička',
-  'člž': 'lžička',
-  'špet': 'špetka',
-  'hrs': 'hrst',
+  lz: 'lžíce',
+  plz: 'lžíce',
+  lzic: 'lžička',
+  clz: 'lžička',
+  spet: 'špetka',
+  hrs: 'hrst',
+  lzicka: 'lžička',
+  lzice: 'lžíce',
+  hrnek: 'hrnek',
+  salek: 'šálek',
+  spetka: 'špetka',
+  strouzek: 'stroužek',
 }
 
 const STANDARD_VOLUME: Record<string, number> = {

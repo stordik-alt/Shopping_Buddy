@@ -16,7 +16,21 @@ function tokens(value: string): string[] {
 }
 
 function tokenMatches(queryToken: string, textToken: string): boolean {
-  return textToken === queryToken || textToken.startsWith(queryToken) || queryToken.startsWith(textToken)
+  if (textToken === queryToken || textToken.startsWith(queryToken) || queryToken.startsWith(textToken)) return true
+
+  // Czech inflections/derivations often change the ending rather than keeping
+  // the complete query token as a prefix (e.g. "zelenina" -> "zeleninový",
+  // "rýže" -> "rýžový"). Treat a stable three-character stem as a match for
+  // meaningful query tokens.
+  if (queryToken.length >= 4 && textToken.length >= 4) {
+    let commonPrefix = 0
+    while (commonPrefix < queryToken.length && commonPrefix < textToken.length && queryToken[commonPrefix] === textToken[commonPrefix]) {
+      commonPrefix += 1
+    }
+    return commonPrefix >= 3
+  }
+
+  return false
 }
 
 /**

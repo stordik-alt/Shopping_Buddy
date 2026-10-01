@@ -11,6 +11,7 @@ type PortalConfig = {
   imageDomains?: string[]
   maxSearchPages?: number
   searchUrl: (query: string, page?: number) => string
+  fallbackSearchUrls?: (query: string, page?: number) => string[]
   recipePath: RegExp
 }
 
@@ -31,22 +32,52 @@ function createPortalAdapter(config: PortalConfig): RecipeSourceAdapter {
       let pagesWithoutNewLinks = 0
 
       for (let page = 1; page <= maxPages; page += 1) {
-        const searchUrl = config.searchUrl(normalizedQuery, page)
-        const html = await fetchRecipeHtml(searchUrl, [config.domain])
-        const links = extractRecipeLinks(html, searchUrl, config.recipePath)
+        const searchUrls = [
+          config.searchUrl(normalizedQuery, page),
+          ...(config.fallbackSearchUrls?.(normalizedQuery, page) ?? []),
+        ]
         let pageAddedLinks = 0
-        for (const link of links) {
-          if (!allLinks.has(link.url)) {
-            allLinks.set(link.url, link)
-            pageAddedLinks += 1
+        let pageHadLinks = false
+        let fetchedAnyPage = false
+        let lastFetchError: unknown = undefined
+
+        for (const [searchIndex, searchUrl] of searchUrls.entries()) {
+          try {
+            const html = await fetchRecipeHtml(searchUrl, [config.domain])
+            fetchedAnyPage = true
+            const links = extractRecipeLinks(html, searchUrl, config.recipePath)
+            pageHadLinks = pageHadLinks || links.length > 0
+
+            for (const link of links) {
+              if (!allLinks.has(link.url)) {
+                allLinks.set(link.url, link)
+                pageAddedLinks += 1
+              }
+            }
+
+            const relevantCount = [...allLinks.values()].filter(
+              (link) => !excludedUrls.has(link.url) && isRecipeTitleRelevant(link.title, normalizedQuery),
+            ).length
+            if (relevantCount >= requestedLimit) break
+
+            // Fallback discovery is only needed when the primary search page
+            // contained no recipe links. Do not switch sources merely because
+            // all links happened to be excluded or irrelevant; that preserves
+            // normal pagination semantics for adapters with a fallback.
+            if (searchIndex === 0 && links.length > 0) break
+          } catch (error) {
+            lastFetchError = error
+            if (searchIndex === 0 && searchUrls.length > 1) continue
           }
         }
+
+        if (!fetchedAnyPage && lastFetchError) throw lastFetchError
         pagesWithoutNewLinks = pageAddedLinks === 0 ? pagesWithoutNewLinks + 1 : 0
         const relevantCount = [...allLinks.values()].filter(
           (link) => !excludedUrls.has(link.url) && isRecipeTitleRelevant(link.title, normalizedQuery),
         ).length
         if (relevantCount >= requestedLimit) break
-        if (links.length === 0 || pagesWithoutNewLinks >= 2) break
+        if (!pageHadLinks || pagesWithoutNewLinks >= 2) break
       }
 
       const relevantLinks = [...allLinks.values()]

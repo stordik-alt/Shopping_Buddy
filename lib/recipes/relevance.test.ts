@@ -24,6 +24,11 @@ describe('recipe search relevance', () => {
     expect(recipeRelevanceScore(recipe('Kuřecí rizoto'), 'kuře')).toBeGreaterThan(0)
   })
 
+  it('recognizes common Czech word stems', () => {
+    expect(isRecipeTitleRelevant('Zeleninový salát', 'zelenina')).toBe(true)
+    expect(isRecipeTitleRelevant('Rýžový nákyp', 'rýže')).toBe(true)
+  })
+
   it('prefers title matches over ingredient-only matches', () => {
     const titleMatch = recipe('Kuřecí řízky')
     const ingredientMatch = recipe('Rizoto se zeleninou', ['kuřecí maso'])

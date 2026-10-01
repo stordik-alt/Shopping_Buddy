@@ -22,7 +22,7 @@ Všechny používají jeden lib/recipes/importer.ts, aby se mezi portály nedupl
 
 ## Důležité: není to skrytý full-site crawler
 
-Aktuální adaptéry vracejí výsledky ze search stránky a jejich vlastní omezený počet odkazů. Proto importer vyžaduje explicitní --query a --limit.
+Aktuální adaptéry používají search stránku a jejich vlastní omezený počet odkazů. Toprecepty má navíc záložní discovery přes aktuální katalogový výpis (vsechny_recepty.php), protože starší search endpoint může vrátit HTML bez receptových odkazů. Proto importer vyžaduje explicitní --query a --limit.
 
 Příklad:
 

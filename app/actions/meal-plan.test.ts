@@ -9,7 +9,7 @@ import type { Household } from '@/lib/types'
 // Continues the Server Action test coverage started in app/actions/shopping.test.ts.
 let currentHouseholdId = ''
 vi.mock('@/lib/auth/authorize', () => ({ requireHouseholdId: () => Promise.resolve(currentHouseholdId) }))
-vi.mock('next/cache', () => ({ revalidatePath: () => {} }))
+vi.mock('next/cache', () => ({ revalidatePath: () => {}, unstable_cache: (fn: (...args: any[]) => any) => fn }))
 
 import { markMealCookedAction, saveMealPlanAction } from '@/app/actions/meal-plan'
 

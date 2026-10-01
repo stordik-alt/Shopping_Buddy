@@ -530,11 +530,12 @@ export function parseSavedPlan(json: string): WeeklyMealPlan | null {
     }
   }
 
+  const inferredPricingPending = days.some((dayPlan) => mealsOf(dayPlan).some((recipe) => Boolean(recipe.sourceUrl)))
   return {
     days,
     staples,
     estimatedTotal: saved.estimatedTotal ?? 0,
-    pricingPending: Boolean(saved.pricingPending),
+    pricingPending: Boolean(saved.pricingPending) || inferredPricingPending,
     recommendedStores: saved.recommendedStores ?? [],
     cookedMeals: saved.cookedMeals ?? [],
   }

@@ -1,7 +1,6 @@
 export * from '@/lib/recipes/types'
 export * from '@/lib/recipes/parser'
 export * from '@/lib/recipes/scaling'
-export * from '@/lib/recipes/cache'
 export * from '@/lib/recipes/fetch'
 export * from '@/lib/recipes/sources'
 export * from '@/lib/recipes/shopping'

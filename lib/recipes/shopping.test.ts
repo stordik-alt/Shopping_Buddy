@@ -50,14 +50,33 @@ describe('recipe shopping helpers', () => {
     ).toMatchObject({ quantity: 1, unit: 'ks', sourceMeasure: '2 stroužek' })
   })
 
-  it('still flags a genuinely unknown unit or missing amount', () => {
+  it('allows ingredients without a quantity to be added as a shopping placeholder', () => {
     expect(
       analyzeRecipeIngredient(
         { id: 'i1', originalText: 'sůl podle chuti', name: 'sůl', scalable: false },
         [],
-      ).problem,
-    ).toBe('Množství nelze bezpečně určit.')
+      ),
+    ).toMatchObject({
+      quantity: 1,
+      unit: 'ks',
+      problem: null,
+      missingQuantity: 1,
+      sourceMeasure: 'množství neuvedeno',
+    })
 
+    expect(
+      toRecipeShoppingItem(
+        { id: 'i2', originalText: 'pepř dle potřeby', name: 'pepř', scalable: false },
+      ),
+    ).toEqual({
+      name: 'pepř',
+      quantity: 1,
+      unit: 'ks',
+      sourceMeasure: 'množství neuvedeno',
+    })
+  })
+
+  it('still flags a genuinely unknown unit', () => {
     expect(
       analyzeRecipeIngredient(
         { id: 'i2', originalText: '2 neznámé jednotky česneku', quantity: 2, unit: 'neznámé', name: 'česnek', scalable: true },

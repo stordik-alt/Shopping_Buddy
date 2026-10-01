@@ -54,7 +54,10 @@ function createPortalAdapter(config: PortalConfig): RecipeSourceAdapter {
               }
             }
 
-            if (links.length > 0) break
+            const relevantCount = [...allLinks.values()].filter(
+              (link) => !excludedUrls.has(link.url) && isRecipeTitleRelevant(link.title, normalizedQuery),
+            ).length
+            if (relevantCount >= requestedLimit) break
           } catch (error) {
             lastFetchError = error
           }

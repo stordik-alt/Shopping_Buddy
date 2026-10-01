@@ -1,6 +1,10 @@
 -- Performance indexes for the household hot paths and current promotion lookups.
 -- These indexes support the query shapes used during page load and the most frequent mutations.
 
+-- The current schema already declares flyer_pages.page_text. Keep the additive migration here so
+-- fresh databases and the existing production database converge on the same schema.
+ALTER TABLE "flyer_pages" ADD COLUMN IF NOT EXISTS "page_text" text;
+
 CREATE INDEX IF NOT EXISTS "children_household_idx" ON "children" ("household_id");
 CREATE INDEX IF NOT EXISTS "deals_validity_product_idx" ON "deals" ("valid_from", "valid_until", "product_id");
 CREATE INDEX IF NOT EXISTS "shopping_lists_household_created_idx" ON "shopping_lists" ("household_id", "created_at");

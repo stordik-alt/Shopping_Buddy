@@ -41,6 +41,9 @@ export async function GET(request: Request) {
   if (process.env.RECIPE_IMPORT_IMAGE_COPY_ALLOWED !== 'true') {
     return NextResponse.json({ error: 'RECIPE_IMPORT_IMAGE_COPY_ALLOWED=true is required' }, { status: 500 })
   }
+  if (process.env.RECIPE_IMPORT_SOURCE_TERMS_ACK !== 'true') {
+    return NextResponse.json({ error: 'RECIPE_IMPORT_SOURCE_TERMS_ACK=true is required' }, { status: 500 })
+  }
 
   const startedAt = Date.now()
   const results: Record<string, unknown> = {}
@@ -54,7 +57,7 @@ export async function GET(request: Request) {
         limit: 6,
         delayMs: 300,
         importImages: true,
-        acknowledgeSourceTerms: true,
+        acknowledgeSourceTerms: process.env.RECIPE_IMPORT_SOURCE_TERMS_ACK === 'true',
       })
     } catch (error) {
       results[adapter.id] = {

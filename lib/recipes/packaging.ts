@@ -1,0 +1,63 @@
+import type { PricePoint } from '@/lib/prices'
+import type { ItemUnit } from '@/lib/types'
+
+export type StandardPackage = {
+  quantity: number
+  unit: 'ks' | 'kg' | 'l'
+  label: string
+  source: 'derived-from-price'
+}
+
+/**
+ * Derives the size of one retail package from the package price and its unit price.
+ * Example: 60 Kč package / 60 Kč per kg = 1 kg package.
+ *
+ * This is intentionally derived at runtime for now. A future product-variant model can
+ * persist an explicit package size when the retailer provides one.
+ */
+export function inferPackageSize(price: Pick<PricePoint, 'regularPrice' | 'unit' | 'unitPrice'>): StandardPackage | null {
+  if (!Number.isFinite(price.regularPrice) || price.regularPrice <= 0 || !Number.isFinite(price.unitPrice) || price.unitPrice <= 0) {
+    return null
+  }
+
+  if (price.unit === 'ks') {
+    return { quantity: 1, unit: 'ks', label: '1 ks', source: 'derived-from-price' }
+  }
+
+  if (price.unit !== 'kg' && price.unit !== 'g' && price.unit !== 'l' && price.unit !== 'ml') return null
+
+  const rawQuantity = price.regularPrice / price.unitPrice
+  if (!Number.isFinite(rawQuantity) || rawQuantity <= 0) return null
+
+  const quantity = price.unit === 'g' || price.unit === 'kg'
+    ? price.unit === 'g' ? rawQuantity / 1000 : rawQuantity
+    : price.unit === 'ml' ? rawQuantity / 1000 : rawQuantity
+
+  const unit: 'kg' | 'l' = price.unit === 'g' || price.unit === 'kg' ? 'kg' : 'l'
+  const rounded = Math.round(quantity * 1000) / 1000
+
+  return {
+    quantity: rounded,
+    unit,
+    label: formatPackageSize(rounded, unit),
+    source: 'derived-from-price',
+  }
+}
+
+export function formatPackageSize(quantity: number, unit: 'ks' | 'kg' | 'l'): string {
+  if (unit === 'ks') return `${quantity} ks`
+  if (unit === 'kg') {
+    if (quantity < 1) return `${Math.round(quantity * 1000)} g`
+    return `${quantity} kg`
+  }
+  if (quantity < 1) return `${Math.round(quantity * 1000)} ml`
+  return `${quantity} l`
+}
+
+/** Converts an ItemUnit into the canonical comparison unit used for package sizes. */
+export function canonicalPackageUnit(unit: ItemUnit): 'ks' | 'kg' | 'l' | null {
+  if (unit === 'ks' || unit === 'kg' || unit === 'l') return unit
+  if (unit === 'g') return 'kg'
+  if (unit === 'ml') return 'l'
+  return null
+}

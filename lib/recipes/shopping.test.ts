@@ -28,17 +28,39 @@ describe('recipe shopping helpers', () => {
     ).toEqual({ name: 'Máslo', quantity: 20, unit: 'g' })
   })
 
-  it('flags unquantifiable or unsupported ingredients as problems', () => {
+  it('keeps culinary measures addable instead of blocking them', () => {
     expect(
       analyzeRecipeIngredient(
-        { id: 'i1', originalText: 'špetka soli', name: 'sůl', scalable: false },
+        { id: 'i1', originalText: 'špetka soli', quantity: 1, unit: 'špetka', name: 'sůl', scalable: true },
+        [],
+      ),
+    ).toMatchObject({ quantity: 1, unit: 'ks', problem: null, missingQuantity: 1 })
+
+    expect(
+      analyzeRecipeIngredient(
+        { id: 'i2', originalText: '1 lžička grilovacího koření', quantity: 1, unit: 'lžička', name: 'grilovacího koření', scalable: true },
+        [],
+      ),
+    ).toMatchObject({ quantity: 1, unit: 'ks', problem: null, missingQuantity: 1 })
+
+    expect(
+      toRecipeShoppingItem(
+        { id: 'i3', originalText: '2 stroužky česneku', quantity: 2, unit: 'stroužek', name: 'česnek', scalable: true },
+      ),
+    ).toMatchObject({ quantity: 1, unit: 'ks', sourceMeasure: '2 stroužek' })
+  })
+
+  it('still flags a genuinely unknown unit or missing amount', () => {
+    expect(
+      analyzeRecipeIngredient(
+        { id: 'i1', originalText: 'sůl podle chuti', name: 'sůl', scalable: false },
         [],
       ).problem,
     ).toBe('Množství nelze bezpečně určit.')
 
     expect(
       analyzeRecipeIngredient(
-        { id: 'i2', originalText: '2 stroužky česneku', quantity: 2, unit: 'stroužek', name: 'česnek', scalable: true },
+        { id: 'i2', originalText: '2 neznámé jednotky česneku', quantity: 2, unit: 'neznámé', name: 'česnek', scalable: true },
         [],
       ).problem,
     ).toContain('Jednotku')

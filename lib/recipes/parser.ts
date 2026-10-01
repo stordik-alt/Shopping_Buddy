@@ -1,6 +1,6 @@
 import type { Recipe, RecipeIngredient } from '@/lib/recipes/types'
 
-export const RECIPE_PARSER_VERSION = 1
+export const RECIPE_PARSER_VERSION = 2
 type JsonLdValue = Record<string, unknown>
 
 function asObject(value: unknown): JsonLdValue | null {
@@ -66,15 +66,105 @@ export function parseServings(value: unknown): number | undefined {
   return parseNumber(value)
 }
 
-const KNOWN_UNITS = new Set([
-  'g','kg','mg','ml','l','dl','cl','ks','kus','kusu','kusy',
-  'stroužek','stroužky','stroužků','plátek','plátky','plátků',
-  'lžíce','lžička','lžičky','lžic','lžiček','hrnek','hrnky','hrnků',
-  'šálek','šálky','šálků','balení','bal',
+const UNIT_ALIASES: Record<string, string> = {
+  g: 'g',
+  gram: 'g',
+  gramy: 'g',
+  kg: 'kg',
+  kilogram: 'kg',
+  kilogramy: 'kg',
+  mg: 'mg',
+  milligram: 'mg',
+  ml: 'ml',
+  millilitr: 'ml',
+  millilitry: 'ml',
+  l: 'l',
+  litr: 'l',
+  litry: 'l',
+  dl: 'dl',
+  cl: 'cl',
+  dkg: 'dkg',
+  dag: 'dag',
+  ks: 'ks',
+  kus: 'ks',
+  kusu: 'ks',
+  kusy: 'ks',
+  kousek: 'ks',
+  kousky: 'ks',
+  stroužek: 'stroužek',
+  stroužky: 'stroužek',
+  stroužků: 'stroužek',
+  'strouž': 'stroužek',
+  plátek: 'plátek',
+  plátky: 'plátek',
+  plátků: 'plátek',
+  'plát': 'plátek',
+  lžíce: 'lžíce',
+  lžíci: 'lžíce',
+  lžic: 'lžíce',
+  'lž': 'lžíce',
+  'plž': 'lžíce',
+  lžička: 'lžička',
+  lžičky: 'lžička',
+  lžiček: 'lžička',
+  'lžič': 'lžička',
+  'člž': 'lžička',
+  hrnek: 'hrnek',
+  hrnky: 'hrnek',
+  hrnků: 'hrnek',
+  'hrn': 'hrnek',
+  šálek: 'šálek',
+  šálky: 'šálek',
+  šálků: 'šálek',
+  balení: 'balení',
+  bal: 'balení',
+  špetka: 'špetka',
+  špetky: 'špetka',
+  špetek: 'špetka',
+  'špet': 'špetka',
+  hrst: 'hrst',
+  hrsti: 'hrst',
+  'hrs': 'hrst',
+  snítka: 'snítka',
+  snítky: 'snítka',
+  snítek: 'snítka',
+  'snít': 'snítka',
+  svazek: 'svazek',
+  svazky: 'svazek',
+  'svaz': 'svazek',
+  řapík: 'řapík',
+  řapíky: 'řapík',
+  'řap': 'řapík',
+  kopeček: 'kopeček',
+  kopečky: 'kopeček',
+  kopečků: 'kopeček',
+  'kop': 'kopeček',
+}
+
+const NON_QUANTITATIVE_UNITS = new Set([
+  'špetka',
+  'hrst',
+  'stroužek',
+  'plátek',
+  'snítka',
+  'svazek',
+  'řapík',
+  'kopeček',
 ])
+
+function normalizeUnit(unit: string): string {
+  return unit.trim().toLocaleLowerCase('cs-CZ').replace(/\./g, '').replace(/\s+/g, ' ')
+}
+
+function canonicalUnit(unit: string): string | undefined {
+  return UNIT_ALIASES[normalizeUnit(unit)]
+}
 
 function parseIngredient(text: string, index: number): RecipeIngredient {
   const originalText = text.trim()
+  const unnumberedMeasure = parseUnnumberedMeasure(originalText, index)
+  if (unnumberedMeasure) return unnumberedMeasure
+
   const leading = originalText.match(/^\s*((?:\d+(?:[,.]\d+)?|\d+\s*\/\s*\d+))\s+(.+?)\s*$/)
   if (!leading) return { id: `ingredient-${index + 1}`, originalText, name: originalText, scalable: false }
 
@@ -84,11 +174,39 @@ function parseIngredient(text: string, index: number): RecipeIngredient {
 
   const parts = remainder.split(/\s+/)
   const first = parts[0]
-  if (KNOWN_UNITS.has(first.toLowerCase()) && parts.length > 1) {
-    return { id: `ingredient-${index + 1}`, originalText, quantity, unit: first, name: parts.slice(1).join(' '), scalable: true }
+  const unit = canonicalUnit(first)
+  if (unit && parts.length > 1) {
+    return { id: `ingredient-${index + 1}`, originalText, quantity, unit, name: parts.slice(1).join(' '), scalable: true }
   }
 
   return { id: `ingredient-${index + 1}`, originalText, quantity, name: remainder, scalable: true }
+}
+
+function parseUnnumberedMeasure(text: string, index: number): RecipeIngredient | undefined {
+  const match = text.trim().match(/^([^\s]+)\s+(.+?)\s*$/)
+  if (!match) return undefined
+  const unit = canonicalUnit(match[1])
+  if (!unit || !NON_QUANTITATIVE_UNITS.has(unit)) return undefined
+  return {
+    id: `ingredient-${index + 1}`,
+    originalText: text.trim(),
+    quantity: 1,
+    unit,
+    name: match[2].trim(),
+    scalable: true,
+  }
+}
+
+export function normalizeRecipeIngredient(ingredient: RecipeIngredient, index = 0): RecipeIngredient {
+  const reparsed = parseIngredient(ingredient.originalText, index)
+  const parsedSuccessfully = reparsed.scalable || reparsed.quantity !== undefined || reparsed.unit !== undefined
+  if (!parsedSuccessfully) return ingredient
+  return {
+    ...ingredient,
+    ...reparsed,
+    id: ingredient.id,
+    originalText: ingredient.originalText,
+  }
 }
 
 function ratingData(value: unknown): { value?: number; scale?: number; count?: number } {

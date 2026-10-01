@@ -1,3 +1,19 @@
+## 2026-10-01
+### Recipe import quality gate
+- Scheduled recipe imports now skip recipes rated below 4.0/5.0.
+- Ratings on other scales are normalized to a five-point scale before filtering.
+- Recipes without a rating remain eligible for import because missing rating data is not treated as a low rating.
+- Added unit tests for the threshold and scale normalization.
+
+## 2026-10-01
+### Recipe measure normalization, package standardization and usage-based pricing
+- Recipe shopping now accepts culinary measures instead of blocking them.
+- Added `lib/recipes/measurements.ts`: ingredient-specific mass estimates can override generic volume measures for teaspoons/tablespoons; pinch uses ingredient-specific or generic estimates.
+- Added `lib/packaging.ts`: package size can be derived from package price and comparable unit price and normalized to `kg`, `l` or `ks`.
+- Recipe pricing now charges the actual estimated quantity consumed and marks estimates separately from exact quantities.
+- Added tests for culinary measure estimation, package-size derivation and recipe price calculation.
+- The persistent product-variant/package-size schema remains a future catalog-model step.
+
 ## 2026-09-30 (Recipes — phases 5A–5C)
 
 Verified and merged the remaining planned recipe expansion phases:

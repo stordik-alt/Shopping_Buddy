@@ -2,6 +2,7 @@ import { and, asc, count, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm'
 import { recipeDetailCache, recipeSearchCache } from '@/lib/recipes/cache'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
+import { normalizeRecipeIngredient } from '@/lib/recipes/parser'
 import type { Recipe, RecipeSearchPage, RecipeSearchResult } from '@/lib/recipes/types'
 
 const MAX_QUERY_LENGTH = 120
@@ -78,7 +79,9 @@ function rowToRecipe(row: typeof schema.recipeCatalog.$inferSelect): Recipe {
     cookTimeMinutes: row.cookTimeMinutes ?? undefined,
     category: row.category ?? undefined,
     cuisine: row.cuisine ?? undefined,
-    ingredients: Array.isArray(row.ingredients) ? row.ingredients as Recipe['ingredients'] : [],
+    ingredients: Array.isArray(row.ingredients)
+      ? row.ingredients.map((ingredient, index) => normalizeRecipeIngredient(ingredient as Recipe['ingredients'][number], index))
+      : [],
     fetchedAt: row.fetchedAt.toISOString(),
     parserVersion: row.parserVersion,
   }

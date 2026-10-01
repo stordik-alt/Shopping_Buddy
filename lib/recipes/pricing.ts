@@ -1,5 +1,7 @@
 import { dealEffectiveUnitPrice, effectivePrice, type PricePoint, type ProductPrice } from '@/lib/prices'
 import { toComparableUnit } from '@/lib/product-search'
+import { estimateRecipeMeasure } from '@/lib/recipes/measurements'
+import { inferPackageSize } from '@/lib/packaging'
 import type { StandaloneOffer } from '@/lib/offers'
 import type { RecipeIngredient } from '@/lib/recipes/types'
 
@@ -12,6 +14,11 @@ export type RecipeIngredientPrice = {
   cost: number
   store: string
   isDeal: boolean
+  /** True when the recipe quantity had to be estimated from a culinary measure. */
+  estimatedQuantity: boolean
+  estimateDescription?: string
+  /** Canonical retail package size derived from the stored package and unit price. */
+  packageSize?: string
   dealPrice?: number
   dealValidUntil?: string
   sourceType?: PricePoint['sourceType']
@@ -43,6 +50,27 @@ export type RecipePriceEstimate = {
 }
 
 type Candidate = RecipeIngredientPrice
+
+function effectiveRecipeQuantity(ingredient: RecipeIngredient): {
+  quantity: number
+  unit: RecipeIngredient['unit']
+  estimatedQuantity: boolean
+  estimateDescription?: string
+} | null {
+  if (ingredient.quantity == null || !ingredient.unit) return null
+  if (ingredient.unit === 'ks' || ingredient.unit === 'kg' || ingredient.unit === 'g' || ingredient.unit === 'l' || ingredient.unit === 'ml') {
+    return { quantity: ingredient.quantity, unit: ingredient.unit, estimatedQuantity: false }
+  }
+
+  const estimate = estimateRecipeMeasure(ingredient)
+  if (!estimate) return null
+  return {
+    quantity: estimate.quantity,
+    unit: estimate.unit,
+    estimatedQuantity: estimate.estimated,
+    estimateDescription: estimate.description,
+  }
+}
 
 function recipeUnitCost(quantity: number, unit: RecipeIngredient['unit'], price: PricePoint): number | null {
   if (!Number.isFinite(quantity) || quantity <= 0 || !unit) return null
@@ -84,17 +112,21 @@ function standaloneUnitCost(quantity: number, unit: RecipeIngredient['unit'], of
 }
 
 function candidateFromStandaloneOffer(ingredient: RecipeIngredient, offer: StandaloneOffer): Candidate | null {
-  const cost = standaloneUnitCost(ingredient.quantity ?? 0, ingredient.unit, offer)
+  const resolved = effectiveRecipeQuantity(ingredient)
+  if (!resolved) return null
+  const cost = standaloneUnitCost(resolved.quantity, resolved.unit, offer)
   if (cost == null) return null
   return {
     ingredientId: ingredient.id,
     ingredientName: ingredient.name,
     productName: offer.productName,
-    quantity: ingredient.quantity ?? 0,
-    unit: ingredient.unit,
+    quantity: resolved.quantity,
+    unit: resolved.unit,
     cost,
     store: offer.store,
     isDeal: true,
+    estimatedQuantity: resolved.estimatedQuantity,
+    estimateDescription: resolved.estimateDescription,
     dealPrice: offer.dealPrice,
     dealValidUntil: offer.validUntil,
     sourceType: 'OTHER',
@@ -106,21 +138,25 @@ function candidatesForProduct(
   product: ProductPrice,
   standaloneOffers: StandaloneOffer[],
 ): Candidate[] {
-  if (ingredient.quantity == null) return []
+  const resolved = effectiveRecipeQuantity(ingredient)
+  if (!resolved) return []
   const candidates: Candidate[] = []
 
   for (const price of product.prices) {
-    const cost = recipeUnitCost(ingredient.quantity, ingredient.unit, price)
+    const cost = recipeUnitCost(resolved.quantity, resolved.unit, price)
     if (cost == null) continue
     candidates.push({
       ingredientId: ingredient.id,
       ingredientName: ingredient.name,
       productName: product.productName,
-      quantity: ingredient.quantity,
-      unit: ingredient.unit,
+      quantity: resolved.quantity,
+      unit: resolved.unit,
       cost,
       store: price.store,
       isDeal: price.dealPrice != null,
+      estimatedQuantity: resolved.estimatedQuantity,
+      estimateDescription: resolved.estimateDescription,
+      packageSize: inferPackageSize(price)?.label,
       dealPrice: price.dealPrice,
       dealValidUntil: price.dealValidUntil,
       sourceType: price.sourceType,
@@ -129,17 +165,21 @@ function candidatesForProduct(
 
   for (const offer of standaloneOffers) {
     if (offer.productName.trim().toLocaleLowerCase('cs-CZ') !== product.productName.trim().toLocaleLowerCase('cs-CZ')) continue
-    const cost = standaloneUnitCost(ingredient.quantity, ingredient.unit, offer)
+    const resolved = effectiveRecipeQuantity(ingredient)
+    if (!resolved) continue
+    const cost = standaloneUnitCost(resolved.quantity, resolved.unit, offer)
     if (cost == null) continue
     candidates.push({
       ingredientId: ingredient.id,
       ingredientName: ingredient.name,
       productName: offer.productName,
-      quantity: ingredient.quantity,
-      unit: ingredient.unit,
+      quantity: resolved.quantity,
+      unit: resolved.unit,
       cost,
       store: offer.store,
       isDeal: true,
+      estimatedQuantity: resolved.estimatedQuantity,
+      estimateDescription: resolved.estimateDescription,
       dealValidUntil: offer.validUntil,
       sourceType: 'OTHER',
     })

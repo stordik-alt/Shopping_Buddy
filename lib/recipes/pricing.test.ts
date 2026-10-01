@@ -25,6 +25,38 @@ describe('recipe pricing', () => {
     expect(result.complete).toBe(true)
   })
 
+  it('prices a teaspoon by ingredient-specific mass when the product is sold by weight', () => {
+    const result = estimateRecipePrice(
+      [ingredient('i1', 'cukr krupice', 1, 'lžička')],
+      [product('cukr krupice', [price('Lidl', 25, 25, 'kg')])],
+    )
+    expect(result.estimatedTotal).toBe(0.1)
+    expect(result.ingredientPrices[0]).toMatchObject({
+      estimatedQuantity: true,
+      estimateDescription: '1 lžička ≈ 4 g',
+      packageSize: '1 kg',
+    })
+  })
+
+  it('prices a teaspoon by volume when the product is a liquid', () => {
+    const result = estimateRecipePrice(
+      [ingredient('i1', 'olivový olej', 1, 'lžička')],
+      [product('olivový olej', [price('Lidl', 120, 120, 'l')])],
+    )
+    expect(result.estimatedTotal).toBe(0.6)
+    expect(result.ingredientPrices[0]?.unit).toBe('ml')
+    expect(result.ingredientPrices[0]?.estimatedQuantity).toBe(true)
+  })
+
+  it('prices a pinch using an ingredient-specific estimate', () => {
+    const result = estimateRecipePrice(
+      [ingredient('i1', 'pepř mletý', 1, 'špetka')],
+      [product('pepř mletý', [price('Lidl', 200, 200, 'kg')])],
+    )
+    expect(result.estimatedTotal).toBe(0.04)
+    expect(result.ingredientPrices[0]?.estimatedQuantity).toBe(true)
+  })
+
   it('uses an active deal price before the regular price', () => {
     const result = estimateRecipePrice(
       [ingredient('i1', 'Kuřecí prsa', 0.5)],

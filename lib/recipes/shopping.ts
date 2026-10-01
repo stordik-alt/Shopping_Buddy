@@ -7,6 +7,8 @@ export type RecipeShoppingItem = {
   name: string
   quantity: number
   unit: ItemUnit
+  /** Original recipe measure when the cooking unit cannot be represented as a store quantity. */
+  sourceMeasure?: string
 }
 
 export type RecipeShoppingAnalysis = {
@@ -15,6 +17,8 @@ export type RecipeShoppingAnalysis = {
   unit: ItemUnit | null
   stockQuantity: number
   missingQuantity: number | null
+  /** Original recipe measure for a culinary unit represented as one shopping item. */
+  sourceMeasure?: string
   problem: string | null
 }
 
@@ -45,13 +49,69 @@ function normalizeUnit(unit: string): string {
   return unit.trim().toLocaleLowerCase('cs-CZ').replace(/\./g, '').replace(/\s+/g, '')
 }
 
+const SHOPPING_PLACEHOLDER_UNITS = new Set([
+  'špetka',
+  'hrst',
+  'stroužek',
+  'plátek',
+  'snítka',
+  'svazek',
+  'řapík',
+  'kopeček',
+  'lžíce',
+  'lžička',
+  'hrnek',
+  'šálek',
+])
+
+const SHOPPING_UNIT_ALIASES: Record<string, string> = {
+  kus: 'ks',
+  kusu: 'ks',
+  kusy: 'ks',
+  kousek: 'ks',
+  kousky: 'ks',
+  'lž': 'lžíce',
+  plž: 'lžíce',
+  člž: 'lžička',
+  'lžič': 'lžička',
+  'špet': 'špetka',
+  'hrs': 'hrst',
+  'strouž': 'stroužek',
+  'plát': 'plátek',
+  'snít': 'snítka',
+  'svaz': 'svazek',
+  'řap': 'řapík',
+  'kop': 'kopeček',
+}
+
+function canonicalRecipeUnit(unit: string): string {
+  const normalized = normalizeUnit(unit)
+  return SHOPPING_UNIT_ALIASES[normalized] ?? normalized
+}
+
 export function mapRecipeUnit(unit: string | undefined): { unit: ItemUnit; multiplier: number } | null {
   if (!unit) return null
   return UNIT_ALIASES[normalizeUnit(unit)] ?? null
 }
 
 export function toRecipeShoppingItem(ingredient: RecipeIngredient, quantity = ingredient.quantity): RecipeShoppingItem | null {
+  const recipeUnit = ingredient.unit ? canonicalRecipeUnit(ingredient.unit) : null
   const mapped = mapRecipeUnit(ingredient.unit)
+
+  // Cooking measures such as "špetka", "lžička" or "stroužek" are valid recipe data,
+  // but they are not reliable store units. Keep the recipe measure as a note and add one
+  // shopping-list item in ks instead of blocking the ingredient entirely. The package/count
+  // decision remains with the user because it depends on the product being bought.
+  if (recipeUnit && SHOPPING_PLACEHOLDER_UNITS.has(recipeUnit)) {
+    if (quantity !== undefined && (!Number.isFinite(quantity) || quantity <= 0)) return null
+    return {
+      name: ingredient.name,
+      quantity: 1,
+      unit: 'ks',
+      sourceMeasure: quantity !== undefined ? `${quantity} ${recipeUnit}` : recipeUnit,
+    }
+  }
+
   if (quantity === undefined || !Number.isFinite(quantity) || quantity <= 0 || !mapped) return null
   const normalizedQuantity = quantity * mapped.multiplier
   if (!Number.isFinite(normalizedQuantity) || normalizedQuantity <= 0) return null
@@ -81,8 +141,10 @@ export function analyzeRecipeIngredient(ingredient: RecipeIngredient, pantryItem
     return { ingredient, quantity: null, unit: null, stockQuantity: 0, missingQuantity: null, problem: reason }
   }
 
-  const stockQuantity = pantryStockQuantity(pantryItems, shoppingItem)
-  const missingQuantity = Math.max(0, shoppingItem.quantity - stockQuantity)
+  // A culinary measure is deliberately treated as one "buy this product" placeholder.
+  // Without package-size data we must not claim that an existing pantry quantity satisfies it.
+  const stockQuantity = shoppingItem.sourceMeasure ? 0 : pantryStockQuantity(pantryItems, shoppingItem)
+  const missingQuantity = shoppingItem.sourceMeasure ? 1 : Math.max(0, shoppingItem.quantity - stockQuantity)
 
   return {
     ingredient,
@@ -90,6 +152,7 @@ export function analyzeRecipeIngredient(ingredient: RecipeIngredient, pantryItem
     unit: shoppingItem.unit,
     stockQuantity,
     missingQuantity,
+    sourceMeasure: shoppingItem.sourceMeasure,
     problem: null,
   }
 }

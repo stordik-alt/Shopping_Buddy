@@ -36,6 +36,21 @@ describe('parseRecipeJsonLd', () => {
     expect(recipe.ratingCount).toBe(128)
   })
 
+  it('resolves relative and protocol-relative recipe image URLs', () => {
+    const html = `
+      <script type="application/ld+json">
+        {"@type":"Recipe","name":"Toprecepty fixture",
+         "image":["//static.toprecepty.cz/fotky/recepty/test.jpg"]}
+      </script>`
+    const recipe = parseRecipeJsonLd(html, {
+      sourceId: 'toprecepty',
+      sourceName: 'Toprecepty',
+      sourceUrl: 'https://www.toprecepty.cz/recept/test/',
+    })
+
+    expect(recipe.imageUrl).toBe('https://static.toprecepty.cz/fotky/recepty/test.jpg')
+  })
+
   it('supports numeric servings, decimal commas and fractional quantities', () => {
     const html = `<script type="application/ld+json">
       {"@type":"Recipe","name":"Test","recipeYield":6,"recipeIngredient":["1/2 l mléka","0,75 kg mouky"]}
@@ -83,6 +98,7 @@ describe('ingredient normalization', () => {
         id: 'legacy-2',
         originalText: '1 lžička grilovacího koření',
         quantity: 1,
+        unit: 'lžička',
         name: 'lžička grilovacího koření',
         scalable: true,
       }),

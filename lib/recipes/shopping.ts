@@ -141,8 +141,10 @@ export function analyzeRecipeIngredient(ingredient: RecipeIngredient, pantryItem
     return { ingredient, quantity: null, unit: null, stockQuantity: 0, missingQuantity: null, problem: reason }
   }
 
-  const stockQuantity = pantryStockQuantity(pantryItems, shoppingItem)
-  const missingQuantity = Math.max(0, shoppingItem.quantity - stockQuantity)
+  // A culinary measure is deliberately treated as one "buy this product" placeholder.
+  // Without package-size data we must not claim that an existing pantry quantity satisfies it.
+  const stockQuantity = shoppingItem.sourceMeasure ? 0 : pantryStockQuantity(pantryItems, shoppingItem)
+  const missingQuantity = shoppingItem.sourceMeasure ? 1 : Math.max(0, shoppingItem.quantity - stockQuantity)
 
   return {
     ingredient,

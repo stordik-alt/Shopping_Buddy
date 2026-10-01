@@ -1,7 +1,7 @@
 import { dealEffectiveUnitPrice, effectivePrice, type PricePoint, type ProductPrice } from '@/lib/prices'
 import { toComparableUnit } from '@/lib/product-search'
 import { estimateRecipeMeasure } from '@/lib/recipes/measurements'
-import { inferPackageSize } from '@/lib/recipes/packaging'
+import { inferPackageSize } from '@/lib/packaging'
 import type { StandaloneOffer } from '@/lib/offers'
 import type { RecipeIngredient } from '@/lib/recipes/types'
 

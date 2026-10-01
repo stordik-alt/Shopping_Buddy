@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeRatingToFive, parseRecipeJsonLd, parseServings } from '@/lib/recipes/parser'
+import { normalizeRatingToFive, normalizeRecipeIngredient, parseRecipeJsonLd, parseServings } from '@/lib/recipes/parser'
 
 const source = {
   sourceId: 'test',
@@ -51,6 +51,29 @@ describe('parseRecipeJsonLd', () => {
     const recipe = parseRecipeJsonLd(html, source)
     expect(recipe.ratingValue).toBeUndefined()
     expect(recipe.ratingCount).toBeUndefined()
+  })
+})
+
+describe('ingredient normalization', () => {
+  it('normalizes legacy stored ingredient text as well as newly parsed ingredients', () => {
+    expect(
+      normalizeRecipeIngredient({
+        id: 'legacy-1',
+        originalText: 'špetka soli',
+        name: 'špetka soli',
+        scalable: false,
+      }),
+    ).toMatchObject({ quantity: 1, unit: 'špetka', name: 'soli', scalable: true })
+
+    expect(
+      normalizeRecipeIngredient({
+        id: 'legacy-2',
+        originalText: '1 lžička grilovacího koření',
+        quantity: 1,
+        name: 'lžička grilovacího koření',
+        scalable: true,
+      }),
+    ).toMatchObject({ quantity: 1, unit: 'lžička', name: 'grilovacího koření' })
   })
 })
 

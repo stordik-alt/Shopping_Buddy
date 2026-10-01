@@ -41,12 +41,13 @@ function createPortalAdapter(config: PortalConfig): RecipeSourceAdapter {
         let fetchedAnyPage = false
         let lastFetchError: unknown = undefined
 
-        for (const searchUrl of searchUrls) {
+        for (const [searchIndex, searchUrl] of searchUrls.entries()) {
           try {
             const html = await fetchRecipeHtml(searchUrl, [config.domain])
             fetchedAnyPage = true
             const links = extractRecipeLinks(html, searchUrl, config.recipePath)
             pageHadLinks = pageHadLinks || links.length > 0
+
             for (const link of links) {
               if (!allLinks.has(link.url)) {
                 allLinks.set(link.url, link)
@@ -58,8 +59,15 @@ function createPortalAdapter(config: PortalConfig): RecipeSourceAdapter {
               (link) => !excludedUrls.has(link.url) && isRecipeTitleRelevant(link.title, normalizedQuery),
             ).length
             if (relevantCount >= requestedLimit) break
+
+            // Fallback discovery is only needed when the primary search page
+            // contained no recipe links. Do not switch sources merely because
+            // all links happened to be excluded or irrelevant; that preserves
+            // normal pagination semantics for adapters with a fallback.
+            if (searchIndex === 0 && links.length > 0) break
           } catch (error) {
             lastFetchError = error
+            if (searchIndex === 0 && searchUrls.length > 1) continue
           }
         }
 

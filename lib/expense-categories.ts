@@ -13,8 +13,8 @@ export const EXPENSE_CATEGORIES = [
   // The same fixed list the products and the pantry use (lib/product-subcategories.ts), so a
   // receipt line's product subcategory and its expense subcategory are one vocabulary.
   { name: 'Potraviny', subcategories: PRODUCT_SUBCATEGORIES.Potraviny },
-  { name: 'Drogerie', subcategories: ['Kosmetika a hygiena', 'Čisticí prostředky'] },
-  { name: 'Domácnost', subcategories: ['Vybavení a nádobí', 'Nábytek', 'Elektronika a spotřebiče', 'Opravy a údržba', 'Zahrada'] },
+  { name: 'Drogerie', subcategories: ['Praní', 'Mytí nádobí', 'Čištění domácnosti', 'Kosmetika', 'Hygiena', 'Dětská hygiena', 'Ostatní drogerie', 'Kosmetika a hygiena', 'Čisticí prostředky'] },
+  { name: 'Domácnost', subcategories: ['Papír', 'Kuchyň', 'Úklid', 'Ostatní', 'Vybavení a nádobí', 'Nábytek', 'Elektronika a spotřebiče', 'Opravy a údržba', 'Zahrada'] },
   {
     name: 'Bydlení',
     subcategories: ['Nájem nebo hypotéka', 'Elektřina', 'Plyn', 'Voda', 'Teplo', 'Internet a TV', 'Telefon', 'Poplatky SVJ a fond oprav', 'Pojištění domácnosti', 'Odpady'],
@@ -24,10 +24,10 @@ export const EXPENSE_CATEGORIES = [
     subcategories: ['Palivo', 'Nabíjení', 'Servis a opravy', 'Pneumatiky', 'Povinné ručení', 'Havarijní pojištění', 'Dálniční známka', 'Parkování', 'STK a emise', 'Mytí'],
   },
   { name: 'Oblečení a obuv', subcategories: ['Oblečení', 'Obuv', 'Doplňky'] },
-  { name: 'Děti', subcategories: ['Školka a škola', 'Kroužky', 'Hračky', 'Oblečení pro děti', 'Kapesné'] },
+  { name: 'Děti', subcategories: ['Pleny', 'Dětská kosmetika', 'Dětské potřeby', 'Hračky', 'Ostatní', 'Školka a škola', 'Kroužky', 'Oblečení pro děti', 'Kapesné'] },
   { name: 'Zdraví', subcategories: ['Léky a lékárna', 'Lékař a zubař', 'Brýle a čočky'] },
   { name: 'Volný čas', subcategories: ['Restaurace a kavárny', 'Kultura', 'Sport', 'Dovolená', 'Předplatné'] },
-  { name: 'Ostatní', subcategories: ['Dárky', 'Poplatky a daně', 'Jiné'] },
+  { name: 'Ostatní', subcategories: ['Oblečení a obuv', 'Elektronika', 'Tabák a e-cigarety', 'Ostatní zboží', 'Dárky', 'Poplatky a daně', 'Jiné'] },
 ] as const
 
 export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number]['name']

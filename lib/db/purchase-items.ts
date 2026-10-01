@@ -5,6 +5,7 @@ import * as schema from '@/lib/db/schema'
 import { isExpenseCategory, isValidSubcategory, type ExpenseCategory } from '@/lib/expense-categories'
 import { sameExpenseTarget, splitPurchaseByCategory, targetsOf, type ExpenseSplitPart, type ExpenseTarget, type PurchaseExpenseLine } from '@/lib/purchase-expenses'
 import type { ItemCategory, ItemUnit } from '@/lib/types'
+import { isValidProductSubcategory } from '@/lib/product-subcategories'
 
 // Lets a household split one purchase-item's expense-category assignment by hand — a plain
 // reassignment (e.g. a gift bought during an otherwise ordinary grocery trip, counted under Ostatní ▸
@@ -20,6 +21,30 @@ export class InvalidExpenseSplitError extends Error {}
 export class NotFromReceiptError extends Error {}
 export class AlreadyRecordedError extends Error {}
 export class NothingToRecordError extends Error {}
+
+/** Syncs the shared product classification into historical receipt items and ordinary budget rows.
+ * Genuine multi-way expense splits remain explicit per-purchase exceptions; plain one-target overrides
+ * and learned defaults are cleared because the product is now the canonical classification. */
+export async function syncProductClassificationToPurchases(productId: string): Promise<void> {
+  const db = getDb()
+  const product = await db.query.products.findFirst({
+    where: eq(schema.products.id, productId),
+    columns: { id: true, categoryId: true, subcategoryId: true },
+    with: { category: { columns: { name: true } } },
+  })
+  if (!product) return
+  const items = await db.query.purchaseItems.findMany({
+    where: eq(schema.purchaseItems.productId, productId),
+    columns: { id: true, purchaseId: true },
+    with: { expenseSplits: { columns: { id: true } } },
+  })
+  const purchaseIds = [...new Set(items.map((item) => item.purchaseId))]
+  const plainOverrideIds = items.filter((item) => item.expenseSplits.length === 1).flatMap((item) => item.expenseSplits.map((split) => split.id))
+  await db.update(schema.purchaseItems).set({ category: product.category.name, subcategoryId: product.subcategoryId }).where(eq(schema.purchaseItems.productId, productId))
+  if (plainOverrideIds.length > 0) await db.delete(schema.purchaseItemExpenseSplits).where(inArray(schema.purchaseItemExpenseSplits.id, plainOverrideIds))
+  await db.delete(schema.householdProductExpenseDefaults).where(eq(schema.householdProductExpenseDefaults.productId, productId))
+  for (const purchaseId of purchaseIds) await recomputePurchaseExpenses(db, purchaseId)
+}
 
 // A crafted request could otherwise ask for an unbounded number of rows; real receipts never need
 // more than a handful of ways to split one line.
@@ -189,6 +214,28 @@ export async function setPurchaseItemExpenseSplits(householdId: string, purchase
     ])
   }
   await learnProductExpenseDefault(db, householdId, item.productId, splits)
+
+  // A plain budget assignment can also be the product's canonical classification. When it is,
+  // propagate it back to the shared product so Zásoby, future receipts and historical ordinary
+  // expenses all show the same category/subcategory. A non-product expense target (e.g. Dárky)
+  // remains a one-purchase override, and a multi-way split remains purchase-specific.
+  if (item.productId && splits.length === 1) {
+    const target = splits[0]
+    const itemCategories: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
+    if (itemCategories.includes(target.category as ItemCategory) && isValidProductSubcategory(target.category as ItemCategory, target.subcategory)) {
+      const product = await db.query.products.findFirst({ where: eq(schema.products.id, item.productId), columns: { categoryId: true, subcategoryId: true } })
+      const categoryRow = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, target.category as ItemCategory), columns: { id: true } })
+      const targetSubcategory = target.subcategory
+        ? await db.query.productSubcategories.findFirst({ where: and(eq(schema.productSubcategories.category, target.category as ItemCategory), eq(schema.productSubcategories.name, target.subcategory)), columns: { id: true } })
+        : null
+      if (categoryRow && target.subcategory && !targetSubcategory) throw new InvalidExpenseCategoryError('Neplatná podkategorie výdaje.')
+      if (categoryRow && (product?.categoryId !== categoryRow.id || product.subcategoryId !== (targetSubcategory?.id ?? null))) {
+        await db.update(schema.products).set({ categoryId: categoryRow.id, subcategoryId: targetSubcategory?.id ?? null }).where(eq(schema.products.id, item.productId))
+        await syncProductClassificationToPurchases(item.productId)
+        return
+      }
+    }
+  }
   await recomputePurchaseExpenses(db, item.purchaseId)
 }
 

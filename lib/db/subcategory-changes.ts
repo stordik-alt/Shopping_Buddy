@@ -4,6 +4,7 @@ import * as schema from '@/lib/db/schema'
 import { moveNeedsApproval, type CatalogChangeOutcome } from '@/lib/product-subcategory-changes'
 import { subcategoriesOfItem } from '@/lib/product-subcategories'
 import type { ItemCategory } from '@/lib/types'
+import { syncProductClassificationToPurchases } from '@/lib/db/purchase-items'
 
 /** A household's hand-made subcategory choice for a shared catalog product. Applies it to the catalog
  *  at once while the product has had fewer than FREE_SUBCATEGORY_MOVES moves; after that it is stored
@@ -50,6 +51,7 @@ export async function proposeProductSubcategory(
     return 'pending'
   }
   await db.update(schema.products).set({ subcategoryId: target.id }).where(eq(schema.products.id, productId))
+  await syncProductClassificationToPurchases(productId)
   await db.insert(schema.productSubcategoryChanges).values({ productId, householdId, fromSubcategoryId: product.subcategoryId, toSubcategoryId: target.id, status: 'applied' })
   return 'applied'
 }
@@ -92,6 +94,9 @@ export async function decideSubcategoryChange(changeId: string, approve: boolean
     .where(and(eq(schema.productSubcategoryChanges.id, changeId), eq(schema.productSubcategoryChanges.status, 'pending')))
     .returning()
   if (!change) return false
-  if (approve) await db.update(schema.products).set({ subcategoryId: change.toSubcategoryId }).where(eq(schema.products.id, change.productId))
+  if (approve) {
+    await db.update(schema.products).set({ subcategoryId: change.toSubcategoryId }).where(eq(schema.products.id, change.productId))
+    await syncProductClassificationToPurchases(change.productId)
+  }
   return true
 }

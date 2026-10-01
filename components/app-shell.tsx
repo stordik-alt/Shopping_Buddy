@@ -1,9 +1,8 @@
 'use client'
 
-import { useCallback, useMemo, useEffect, useState } from 'react'
+import { useMemo, useEffect, useState } from 'react'
 import { buildShoppingPlanAction, pinProductAction, unpinProductAction } from '@/app/actions/shopping-plan'
 import { createManualPurchaseAction } from '@/app/actions/purchases'
-import { loadExpenseHistoryAction, loadPurchaseHistoryAction } from '@/app/actions/history'
 import { saveMyStorePreferencesAction } from '@/app/actions/store-preferences'
 import { markMealCookedAction } from '@/app/actions/meal-plan'
 import { markAllNotificationsReadAction, markNotificationReadAction } from '@/app/actions/notifications'
@@ -103,9 +102,7 @@ export function AppShell({
   /** The server's Web Push key; null when push notifications are not configured (lib/push/). */
   pushPublicKey: string | null
 }) {
-  const { tab, setTab: setTabState } = useTabNavigation(initialTab)
-  const [purchaseHistoryLoaded, setPurchaseHistoryLoaded] = useState(initialTab === 'Nákup')
-  const [expenseHistoryLoaded, setExpenseHistoryLoaded] = useState(initialTab === 'Rozpočet')
+  const { tab, setTab } = useTabNavigation(initialTab)
 
   const { dark, toggleDark } = useTheme()
   useServiceWorker()
@@ -166,25 +163,6 @@ export function AppShell({
     skipRecurring,
   } = useBudget({ initialData, setNotifications })
 
-  // The first render is intentionally light on history. Fetch the full data set only when a history
-  // screen is actually opened; the Dashboard itself only needs current-period expenses.
-  const setTab = useCallback((next: Tab) => {
-    setTabState(next)
-    if (next === 'Nákup' && !purchaseHistoryLoaded) {
-      setPurchaseHistoryLoaded(true)
-      void loadPurchaseHistoryAction().then(setPurchaseHistory).catch((error) => {
-        setPurchaseHistoryLoaded(false)
-        console.error('Loading purchase history failed', error)
-      })
-    }
-    if (next === 'Rozpočet' && !expenseHistoryLoaded) {
-      setExpenseHistoryLoaded(true)
-      void loadExpenseHistoryAction().then(setExpenses).catch((error) => {
-        setExpenseHistoryLoaded(false)
-        console.error('Loading expense history failed', error)
-      })
-    }
-  }, [expenseHistoryLoaded, purchaseHistoryLoaded, setExpenses, setPurchaseHistory, setTabState])
   const pantry = usePantry({ initialData, initialPantryCheck, items, purchaseHistory, today, setItems, setNotifications, runOrQueue })
   const {
     pantryItems,

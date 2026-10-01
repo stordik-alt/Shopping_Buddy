@@ -16,7 +16,7 @@ describe('parseRecipeJsonLd', () => {
           {"@type":"Recipe","name":"Kuřecí rizoto","description":"Rychlá večeře",
            "image":["https://example.com/rizoto.jpg"],
            "recipeYield":"4 porce","prepTime":"PT15M","cookTime":"PT30M",
-           "recipeIngredient":["750 g kuřecího masa","450 g rýže","2 ks cibule","sůl podle chuti"],
+           "recipeIngredient":["750 g kuřecího masa","450 g rýže","2 ks cibule","1 lžička grilovacího koření","špetka soli","sůl podle chuti"],
            "aggregateRating":{"ratingValue":"4,5","bestRating":"5","ratingCount":"128"}}
         ]}
       </script>`
@@ -28,7 +28,9 @@ describe('parseRecipeJsonLd', () => {
     expect(recipe.totalTimeMinutes).toBe(45)
     expect(recipe.ingredients[0]).toMatchObject({ quantity: 750, unit: 'g', name: 'kuřecího masa', scalable: true })
     expect(recipe.ingredients[2]).toMatchObject({ quantity: 2, unit: 'ks', name: 'cibule' })
-    expect(recipe.ingredients[3]).toMatchObject({ name: 'sůl podle chuti', scalable: false })
+    expect(recipe.ingredients[3]).toMatchObject({ quantity: 1, unit: 'lžička', name: 'grilovacího koření', scalable: true })
+    expect(recipe.ingredients[4]).toMatchObject({ quantity: 1, unit: 'špetka', name: 'soli', scalable: true })
+    expect(recipe.ingredients[5]).toMatchObject({ name: 'sůl podle chuti', scalable: false })
     expect(recipe.ratingValue).toBe(4.5)
     expect(recipe.ratingScale).toBe(5)
     expect(recipe.ratingCount).toBe(128)

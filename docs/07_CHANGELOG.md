@@ -1,3 +1,11 @@
+## 2026-10-01 (Product classification is the single source for inventory and receipt expenses)
+- **Owner request:** a product must have one category/subcategory shared by Zásoby and Rozpočet/Výdaje; the household should not classify the same product twice.
+- **What:** product category/subcategory is now authoritative for ordinary receipt-derived budget lines. Receipt import already stores the catalog classification on purchase_items; budget recomputation now carries the exact product subcategory for all five product categories, not only Potraviny.
+- **Sync from Zásoby:** when a shared product category/subcategory is changed and applied, all historical purchase_items for that product are updated and their ordinary expenses are recomputed. Existing one-target expense overrides and learned one-target defaults are cleared because they are superseded by the canonical product classification. Genuine multi-way splits remain explicit exceptions for that individual purchase.
+- **Sync from Rozpočet:** a plain reassignment to a product-compatible category/subcategory updates the shared product and propagates the classification back to its purchase history. Non-product budget targets such as Ostatní ▸ Dárky remain purchase-specific overrides; genuine multi-way splits are unchanged.
+- **Taxonomy:** product subcategories are now accepted by the corresponding product-derived expense category in lib/expense-categories.ts; the existing non-product expense categories/subcategories remain available.
+- **Tests:** lib/purchase-expenses.test.ts covers non-Potraviny product subcategories; lib/db/purchase-items.test.ts covers the reverse budget → product propagation and historical purchase synchronization.
+
 ## 2026-10-01
 ### Recipe import quality gate
 - Scheduled recipe imports now skip recipes rated below 4.0/5.0.

@@ -1,0 +1,41 @@
+name: Manual recipe import
+
+on:
+  workflow_dispatch:
+    inputs:
+      production_url:
+        description: "Production Vercel URL"
+        required: true
+        default: "https://s-anitkou.vercel.app"
+
+permissions:
+  contents: read
+
+jobs:
+  import:
+    name: Import recipes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run recipe import
+        env:
+          PRODUCTION_URL: ${{ inputs.production_url }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+
+          url="${PRODUCTION_URL%/}/api/cron/recipes"
+          echo "Starting recipe import: $url"
+
+          if [ -n "${CRON_SECRET}" ]; then
+            curl --fail-with-body --show-error --silent \
+              --max-time 330 \
+              -H "Authorization: Bearer ${CRON_SECRET}" \
+              "${url}"
+          else
+            curl --fail-with-body --show-error --silent \
+              --max-time 330 \
+              "${url}"
+          fi
+
+          echo
+          echo "Recipe import completed."

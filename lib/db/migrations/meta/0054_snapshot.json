@@ -733,6 +733,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "page_text": {
+          "name": "page_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "input_tokens": {
           "name": "input_tokens",
           "type": "integer",

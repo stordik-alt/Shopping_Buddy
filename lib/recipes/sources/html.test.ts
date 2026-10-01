@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { extractRecipeLinks } from '@/lib/recipes/sources/html'
+import { extractRecipeLinks, extractRecipeLinksFromRss } from '@/lib/recipes/sources/html'
 
 describe('recipe result link extraction', () => {
   it('extracts same-host recipe links, strips fragments and deduplicates', () => {
@@ -19,3 +19,32 @@ describe('recipe result link extraction', () => {
     ])
   })
 })
+
+
+  it('extracts recipe links from RSS items', () => {
+    const xml = `<rss><channel>
+      <item>
+        <title><![CDATA[Kuřecí zelené kari]]></title>
+        <link>https://www.vareni.cz/recepty/kureci-na-zelenem-kari/</link>
+      </item>
+      <item>
+        <title>Článek</title>
+        <link>https://www.vareni.cz/magazin/clanek/</link>
+      </item>
+      <item>
+        <title>Duplicitní recept</title>
+        <link>https://www.vareni.cz/recepty/kureci-na-zelenem-kari/#x</link>
+      </item>
+    </channel></rss>`
+
+    expect(extractRecipeLinksFromRss(
+      xml,
+      'https://www.vareni.cz/rss/recepty.xml',
+      /^\/recepty\//,
+    )).toEqual([
+      {
+        url: 'https://www.vareni.cz/recepty/kureci-na-zelenem-kari/',
+        title: 'Kuřecí zelené kari',
+      },
+    ])
+  })

@@ -991,10 +991,10 @@ export async function getProductPrices(scope: ProductPriceScope): Promise<Produc
   // time, and those must not show as today's price.
   const isRunning = (deal: { validFrom: string; validUntil: string }) => deal.validFrom <= today && deal.validUntil >= today
   const names = [...new Set(scope.names)]
-  // The products on promotion today, read from deals once. This used to be an `EXISTS` per product,
-  // which Postgres evaluated for all ~50,000 products, each reading the deals table — most of the
-  // database's compute (docs/07_CHANGELOG.md, 2026-09-26).
-  const dealProductIds = scope.runningDeals
+  // When the caller already supplies product names (the normal shopping-list path), do not scan the
+  // entire deals table just to discover promoted products. The product relation below can resolve
+  // active deals for those named products directly. Only the global Deals/price discovery path needs
+  // the full active-product-id set.
     ? (
         await db
           .selectDistinct({ id: schema.deals.productId })

@@ -64,6 +64,8 @@ describe('addPantryItemAction', () => {
     expect(row).toMatchObject({ quantity: 12, unit: 'ks', category: 'Potraviny', location: 'Lednice' })
     expect(await db.query.purchases.findMany({ where: eq(schema.purchases.householdId, householdId) })).toHaveLength(0)
     expect(await db.query.expenses.findMany({ where: eq(schema.expenses.householdId, householdId) })).toHaveLength(0)
+    // Unknown free stock is household-only pantry data; it must never create a shared catalog product.
+    expect(await db.query.products.findFirst({ where: eq(schema.products.name, '__test_free_eggs__') })).toBeUndefined()
   })
 
   it('uses the existing catalog product identity and subcategory', async () => {

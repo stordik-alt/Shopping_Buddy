@@ -73,7 +73,7 @@ describe('recipe portal adapter fixtures', () => {
 
   it('falls back to the Vaření RSS feed when the legacy search endpoint is unavailable', async () => {
     mockedFetch.mockImplementation(async (url = '') => {
-      if (url.includes('/rss/recepty.xml')) {
+      if (url === 'https://www.vareni.cz/rss/recepty.xml') {
         return `<?xml version="1.0"?>
           <rss><channel>
             <item>
@@ -86,7 +86,10 @@ describe('recipe portal adapter fixtures', () => {
             </item>
           </channel></rss>`
       }
-      throw new Error('Recipe source returned HTTP 404')
+      if (url === 'https://www.vareni.cz/vyhledavani/?q=zelenina') {
+        throw new Error('Recipe source returned HTTP 404')
+      }
+      throw new Error('Unexpected fetch URL: ' + url)
     })
 
     const results = await vareniAdapter.search('zelenina', { limit: 2 })

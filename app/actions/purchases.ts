@@ -4,12 +4,13 @@ import { and, eq, inArray } from 'drizzle-orm'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
-import { getHouseholdExpenses, getHouseholdNotifications, getPurchaseAftermath, restockPantryItem, type PurchaseAftermath } from '@/lib/db/queries'
-import { getPurchaseItemsForExpense, recordPurchaseAsExpense, setPurchaseItemExpenseSplits, type PurchaseExpenseItem } from '@/lib/db/purchase-items'
+import { getHouseholdExpenses, getHouseholdNotifications, getProductCatalog, getPurchaseAftermath, restockPantryItem, type PurchaseAftermath } from '@/lib/db/queries'
+import { getPurchaseItemsForExpense, recordPurchaseAsExpense, recomputePurchaseExpenses, setPurchaseItemExpenseSplits, type PurchaseExpenseItem } from '@/lib/db/purchase-items'
 import * as schema from '@/lib/db/schema'
 import { isExpenseCategory, isValidSubcategory, type ExpenseCategory } from '@/lib/expense-categories'
+import { matchProductByName } from '@/lib/products'
 import type { ExpenseSplitPart } from '@/lib/purchase-expenses'
-import type { Expense, Notification, PurchaseRecord } from '@/lib/types'
+import type { Expense, ItemCategory, ItemUnit, Notification, PurchaseRecord } from '@/lib/types'
 
 // Real receipts never need more than a handful of ways to split one line; this only stops a crafted
 // request from sending something unbounded (lib/db/purchase-items.ts checks the exact limit).
@@ -105,6 +106,115 @@ export async function completePurchaseAction(listId: string): Promise<{ purchase
 
   // No revalidatePath: it would re-render the whole page. The new history and the restocked pantry are returned instead.
   return { purchases: created, aftermath: await getPurchaseAftermath(householdId) }
+}
+
+/** Creates a real purchase directly from user-entered lines. It counts immediately towards
+ * the budget and restocks inventory just like an imported receipt. */
+export async function createManualPurchaseAction(input: {
+  date: string
+  storeChain?: string | null
+  discount?: number | null
+  items: Array<{ name: string; quantity: number; unit: ItemUnit; price: number; category?: ItemCategory }>
+}): Promise<{ purchase: PurchaseRecord; expenses: Expense[]; notifications: Notification[] }> {
+  const householdId = await requireHouseholdId()
+  if (!input || typeof input.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(input.date)) throw new Error('Neplatné datum nákupu.')
+  if (!Array.isArray(input.items) || input.items.length === 0) throw new Error('Nákup musí obsahovat alespoň jednu položku.')
+  if (input.items.length > 100) throw new Error('Nákup může obsahovat nejvýše 100 položek.')
+
+  const items = input.items.map((item, index) => {
+    const name = String(item.name ?? '').trim()
+    const quantity = Number(item.quantity)
+    const price = Number(item.price)
+    if (!name) throw new Error(`Položka ${index + 1} nemá název.`)
+    if (!Number.isFinite(quantity) || quantity <= 0) throw new Error(`Neplatné množství u položky „${name}“.`)
+    if (!Number.isFinite(price) || price < 0) throw new Error(`Neplatná cena u položky „${name}“.`)
+    if (!['ks', 'kg', 'g', 'l', 'ml'].includes(item.unit)) throw new Error(`Neplatná jednotka u položky „${name}“.`)
+    return { name, quantity, price, unit: item.unit, category: item.category }
+  })
+
+  const catalog = await getProductCatalog(items.map((item) => item.name))
+  const resolved = items.map((item) => {
+    const product = matchProductByName(catalog, item.name)
+    const category = product?.category ?? item.category
+    if (!category) throw new Error(`U položky „${item.name}“ vyberte kategorii.`)
+    return { ...item, product, category }
+  })
+
+  const db = getDb()
+  let storeLocationId: string | null = null
+  if (input.storeChain?.trim()) {
+    const store = await db.query.stores.findFirst({ where: eq(schema.stores.chain, input.storeChain.trim()) })
+    if (store) {
+      const location = await db.query.storeLocations.findFirst({ where: eq(schema.storeLocations.storeId, store.id) })
+      storeLocationId = location?.id ?? null
+    }
+  }
+
+  const subtotal = resolved.reduce((sum, item) => sum + item.quantity * item.price, 0)
+  const discount = input.discount == null ? null : Number(input.discount)
+  if (discount != null && (!Number.isFinite(discount) || discount < 0 || discount > subtotal)) throw new Error('Neplatná sleva.')
+  const total = Math.max(0, subtotal - (discount ?? 0))
+
+  const [purchaseRow] = await db.insert(schema.purchases).values({
+    householdId,
+    storeLocationId,
+    date: input.date,
+    total: total.toFixed(2),
+    discount: discount?.toFixed(2),
+  }).returning()
+
+  const itemRows = await db.insert(schema.purchaseItems).values(
+    resolved.map((item) => ({
+      purchaseId: purchaseRow.id,
+      productId: item.product?.id ?? null,
+      name: item.name,
+      quantity: item.quantity,
+      unit: item.unit,
+      price: item.price.toFixed(2),
+      category: item.category,
+    })),
+  ).returning()
+
+  for (const item of resolved) {
+    if (!item.product?.isNonInventory) {
+      await restockPantryItem(householdId, {
+        productId: item.product?.id ?? null,
+        name: item.name,
+        category: item.category,
+        quantity: item.quantity,
+        unit: item.unit,
+      })
+    }
+  }
+
+  const note = input.storeChain?.trim() ? `Nákup ${input.storeChain.trim()} (ručně)` : 'Nákup (ručně)'
+  await recomputePurchaseExpenses(db, purchaseRow.id, { notifyBudget: true, noteForNewPurchase: note })
+
+  const [expenses, notifications] = await Promise.all([
+    getHouseholdExpenses(householdId),
+    getHouseholdNotifications(householdId),
+  ])
+
+  return {
+    purchase: {
+      id: purchaseRow.id,
+      date: purchaseRow.date,
+      store: input.storeChain?.trim() || undefined,
+      total: Number(purchaseRow.total),
+      discount: purchaseRow.discount != null ? Number(purchaseRow.discount) : undefined,
+      items: itemRows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        quantity: Number(row.quantity),
+        unit: row.unit,
+        price: Number(row.price),
+        category: row.category,
+        expenseSplits: [],
+      })),
+    },
+    expenses,
+    notifications,
+  }
 }
 
 /** The household's own split of one item of one of its own past purchases across expense targets —

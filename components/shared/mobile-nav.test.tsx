@@ -24,7 +24,7 @@ describe('MobileNav', () => {
 
 describe('PurchaseHistory empty state', () => {
   it('explains how purchases appear and offers the receipt upload', () => {
-    const html = renderToStaticMarkup(<PurchaseHistory records={[]} onSaveSplits={async () => {}} onRecordExpenses={async () => {}} onUploadReceipt={() => {}} />)
+    const html = renderToStaticMarkup(<PurchaseHistory records={[]} today="2026-10-01" storeChains={[]} onCreateManualPurchase={async () => ({ purchase: {} as never, expenses: [], notifications: [] })} onSaveSplits={async () => {}} onRecordExpenses={async () => {}} onUploadReceipt={() => {}} />)
     expect(html).toContain('Zatím tu není žádný nákup')
     expect(html).toContain('Nahrát účtenku')
   })

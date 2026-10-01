@@ -1,18 +1,16 @@
 export function Brand({ compact = false }: { compact?: boolean }) {
   return (
-    <div className="flex items-center gap-2.5">
-      {/* The ANITKA symbol alone (no wordmark) — cropped straight from the approved logo
-          (public/brand/anitka/anitka-logo.png), not redrawn or recoloured. Served to signed-out
-          visitors by proxy.ts. Decorative: the name next to it, or the page title, says what this is. */}
-      {/* eslint-disable-next-line @next/next/no-img-element -- images are unoptimized in next.config */}
-      <img
-        src="/brand/anitka-avatar.png"
-        alt=""
-        width={36}
-        height={36}
-        className="h-9 w-9 shrink-0 rounded-xl bg-white object-cover shadow-sm ring-1 ring-primary/30"
-      />
-      {!compact && <span className="text-lg font-semibold tracking-tight">Rodinný nákup</span>}
+    <div className="flex items-center gap-3">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary p-1 shadow-sm ring-1 ring-primary/10">
+        {/* eslint-disable-next-line @next/next/no-img-element -- approved static brand asset */}
+        <img src="/brand/anitka-avatar.png" alt="" width={36} height={36} className="h-full w-full rounded-xl object-cover" />
+      </div>
+      {!compact && (
+        <div className="min-w-0">
+          <span className="block text-[1.05rem] font-bold tracking-[-0.02em] text-primary">ANITKA</span>
+          <span className="block text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">Rodinný nákup</span>
+        </div>
+      )}
     </div>
   )
 }

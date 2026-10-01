@@ -1513,6 +1513,10 @@ Once approved, finished what was left mid-flight:
 
 ---
 
+## 2026-10-01 — Recipe measures, package standardization and usage-based recipe pricing
+
+Started the next recipe-pricing block on `fix/recipe-ingredient-normalization`. Recipe costs now resolve culinary measures before applying the stored product unit price: teaspoon/tablespoon may resolve to ingredient-specific grams or standard millilitres; pinch uses an ingredient-specific estimate when available and a generic fallback otherwise. Estimates are explicitly flagged in `RecipeIngredientPrice`. Retail package size can be derived from package price divided by comparable unit price and normalized to `kg`, `l` or `ks`. Added pure domain helpers and tests in `lib/recipes/measurements.ts` and `lib/recipes/packaging.ts`; documentation updated in `02_ARCHITECTURE` and `05_BUSINESS_RULES`. This is intentionally a runtime standardization step; persistent product-variant/package-size storage remains a later catalog-model task.
+
 # 34. Current Development Principle
 
 The current priority is not to add the largest number of features as quickly as possible.

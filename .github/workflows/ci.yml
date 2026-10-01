@@ -173,6 +173,8 @@ jobs:
     env:
       TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shopping_buddy_test
       TEST_DATABASE_URL_UNPOOLED: postgresql://postgres:postgres@localhost:5432/shopping_buddy_test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shopping_buddy_test
+      DATABASE_URL_UNPOOLED: postgresql://postgres:postgres@localhost:5432/shopping_buddy_test
       DATABASE_DRIVER: pg
 
     steps:
@@ -193,6 +195,9 @@ jobs:
 
       - name: Migrate the local test database
         run: pnpm exec tsx lib/db/migrate.ts --test
+
+      - name: Seed the local test database
+        run: pnpm exec tsx lib/db/seed.ts
 
       - name: Database-backed tests
         run: pnpm exec vitest run app/actions app/api lib/db/queries.test.ts lib/db/receipt-list.test.ts lib/db/store-branch-search.test.ts lib/db/deals.test.ts lib/db/purchase-items.test.ts lib/db/category-changes.test.ts lib/db/subcategory-changes.test.ts lib/db/product-classification-sync.test.ts

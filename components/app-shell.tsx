@@ -107,25 +107,6 @@ export function AppShell({
   const [purchaseHistoryLoaded, setPurchaseHistoryLoaded] = useState(initialTab === 'Nákup')
   const [expenseHistoryLoaded, setExpenseHistoryLoaded] = useState(initialTab === 'Rozpočet')
 
-  // The first render is intentionally light on history. Fetch the full data set only when a history
-  // screen is actually opened; the Dashboard itself only needs current-period expenses.
-  const setTab = useCallback((next: Tab) => {
-    setTabState(next)
-    if (next === 'Nákup' && !purchaseHistoryLoaded) {
-      setPurchaseHistoryLoaded(true)
-      void loadPurchaseHistoryAction().then(setPurchaseHistory).catch((error) => {
-        setPurchaseHistoryLoaded(false)
-        console.error('Loading purchase history failed', error)
-      })
-    }
-    if (next === 'Rozpočet' && !expenseHistoryLoaded) {
-      setExpenseHistoryLoaded(true)
-      void loadExpenseHistoryAction().then(setExpenses).catch((error) => {
-        setExpenseHistoryLoaded(false)
-        console.error('Loading expense history failed', error)
-      })
-    }
-  }, [expenseHistoryLoaded, purchaseHistoryLoaded, setExpenses, setPurchaseHistory, setTabState])
   const { dark, toggleDark } = useTheme()
   useServiceWorker()
   // Chain whose promotions the home screen lists after "Zobrazit akce" in the store directory.
@@ -184,6 +165,26 @@ export function AppShell({
     confirmRecurring,
     skipRecurring,
   } = useBudget({ initialData, setNotifications })
+
+  // The first render is intentionally light on history. Fetch the full data set only when a history
+  // screen is actually opened; the Dashboard itself only needs current-period expenses.
+  const setTab = useCallback((next: Tab) => {
+    setTabState(next)
+    if (next === 'Nákup' && !purchaseHistoryLoaded) {
+      setPurchaseHistoryLoaded(true)
+      void loadPurchaseHistoryAction().then(setPurchaseHistory).catch((error) => {
+        setPurchaseHistoryLoaded(false)
+        console.error('Loading purchase history failed', error)
+      })
+    }
+    if (next === 'Rozpočet' && !expenseHistoryLoaded) {
+      setExpenseHistoryLoaded(true)
+      void loadExpenseHistoryAction().then(setExpenses).catch((error) => {
+        setExpenseHistoryLoaded(false)
+        console.error('Loading expense history failed', error)
+      })
+    }
+  }, [expenseHistoryLoaded, purchaseHistoryLoaded, setExpenses, setPurchaseHistory, setTabState])
   const pantry = usePantry({ initialData, initialPantryCheck, items, purchaseHistory, today, setItems, setNotifications, runOrQueue })
   const {
     pantryItems,

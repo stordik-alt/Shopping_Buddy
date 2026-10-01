@@ -5,7 +5,7 @@ export type RecipeMeasureEstimate = {
   quantity: number
   unit: 'g' | 'ml'
   estimated: boolean
-  basis: 'exact' | 'standard-volume' | 'ingredient-mass' | 'ingredient-specific'
+  basis: 'standard-volume' | 'ingredient-mass' | 'ingredient-specific' | 'generic-estimate'
   description: string
 }
 
@@ -73,7 +73,7 @@ const normalizeName = (name: string) =>
     .trim()
 
 function canonicalMeasure(unit: string): string {
-  const normalized = normalizeSearchText(unit).replace(/\\./g, '').replace(/\\s+/g, '')
+  const normalized = normalizeSearchText(unit).replace(/\./g, '').replace(/\s+/g, '')
   return UNIT_ALIASES[normalized] ?? normalized
 }
 
@@ -93,7 +93,7 @@ function findMassPerPinch(name: string): number | null {
   return entry?.[1] ?? null
 }
 
-function findMassPerClover(name: string): number | null {
+function findMassPerClove(name: string): number | null {
   const normalized = normalizeName(name)
   const direct = MASS_PER_CLOVE[normalized]
   if (direct != null) return direct
@@ -148,13 +148,13 @@ export function estimateRecipeMeasure(ingredient: RecipeIngredient): RecipeMeasu
       quantity: Math.round(grams * 100) / 100,
       unit: 'g',
       estimated: true,
-      basis: gramsPerPinch == null ? 'standard-volume' : 'ingredient-specific',
+      basis: gramsPerPinch == null ? 'generic-estimate' : 'ingredient-specific',
       description: `${quantity} ${unit} ≈ ${grams} g`,
     }
   }
 
   if (unit === 'stroužek') {
-    const gramsPerClove = findMassPerClover(ingredient.name)
+    const gramsPerClove = findMassPerClove(ingredient.name)
     if (gramsPerClove == null) return null
     return {
       quantity: Math.round(gramsPerClove * quantity * 100) / 100,

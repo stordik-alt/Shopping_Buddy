@@ -3,6 +3,7 @@ import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { moveNeedsApproval, type CategoryChangeOutcome } from '@/lib/product-subcategory-changes'
 import type { ItemCategory } from '@/lib/types'
+import { syncProductClassificationToPurchases } from '@/lib/db/purchase-items'
 
 /** A household's hand-made category change of a shared catalog product. Applies it to the catalog at
  *  once while the product has had fewer than FREE_SUBCATEGORY_MOVES category moves; after that it is
@@ -32,6 +33,7 @@ export async function proposeProductCategory(householdId: string, productId: str
     return 'pending'
   }
   await db.update(schema.products).set({ categoryId: target.id, subcategoryId: null }).where(eq(schema.products.id, productId))
+  await syncProductClassificationToPurchases(productId)
   await db.insert(schema.productCategoryChanges).values({ productId, householdId, fromCategoryId: product.categoryId, toCategoryId: target.id, status: 'applied' })
   return 'applied'
 }
@@ -77,6 +79,7 @@ export async function decideCategoryChange(changeId: string, approve: boolean, a
     .update(schema.products)
     .set(approve ? { categoryId: change.toCategoryId, subcategoryId: null, categoryLocked: true } : { categoryLocked: true })
     .where(eq(schema.products.id, change.productId))
+  if (approve) await syncProductClassificationToPurchases(change.productId)
   // Other households' waiting proposals for the same product are settled by this decision.
   await db
     .update(schema.productCategoryChanges)

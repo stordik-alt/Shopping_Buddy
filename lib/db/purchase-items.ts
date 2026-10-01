@@ -253,13 +253,13 @@ export async function setPurchaseItemExpenseSplits(householdId: string, purchase
     const target = splits[0]
     const itemCategories: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
     if (itemCategories.includes(target.category as ItemCategory) && isValidProductSubcategory(target.category as ItemCategory, target.subcategory)) {
-      const product = await db.query.products.findFirst({ where: eq(schema.products.id, item.productId), columns: { categoryId: true, subcategoryId: true } })
+      const product = await db.query.products.findFirst({ where: eq(schema.products.id, item.productId), columns: { categoryId: true, subcategoryId: true, categoryLocked: true } })
       const categoryRow = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, target.category as ItemCategory), columns: { id: true } })
       const targetSubcategory = target.subcategory
         ? await db.query.productSubcategories.findFirst({ where: and(eq(schema.productSubcategories.category, target.category as ItemCategory), eq(schema.productSubcategories.name, target.subcategory)), columns: { id: true } })
         : null
       if (categoryRow && target.subcategory && !targetSubcategory) throw new InvalidExpenseCategoryError('Neplatná podkategorie výdaje.')
-      if (categoryRow && (product?.categoryId !== categoryRow.id || product.subcategoryId !== (targetSubcategory?.id ?? null))) {
+      if (categoryRow && !product?.categoryLocked && (product.categoryId !== categoryRow.id || product.subcategoryId !== (targetSubcategory?.id ?? null))) {
         await db.update(schema.products).set({ categoryId: categoryRow.id, subcategoryId: targetSubcategory?.id ?? null }).where(eq(schema.products.id, item.productId))
         await syncProductClassificationToPurchases(item.productId)
         return

@@ -17,7 +17,7 @@ vi.setConfig({ testTimeout: 20_000 })
 
 let currentHouseholdId = ''
 vi.mock('@/lib/auth/authorize', () => ({ requireHouseholdId: () => Promise.resolve(currentHouseholdId) }))
-vi.mock('next/cache', () => ({ revalidatePath: () => {} }))
+vi.mock('next/cache', () => ({ revalidatePath: () => {}, revalidateTag: () => {} }))
 // Receipt photos go to Vercel Blob. Tests use an in-memory fake (test/fake-blob.ts) so a run neither
 // spends paid Blob operations nor fails when the real store is suspended; USE_REAL_BLOB=1 runs them
 // against the real store on purpose.

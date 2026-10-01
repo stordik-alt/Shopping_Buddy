@@ -21,7 +21,7 @@ const MIN_IMPORT_RATING = 4
  * Sources with another rating scale are normalized to 5; missing ratings are allowed.
  */
 export function recipeMeetsImportRatingThreshold(ratingValue?: number, ratingScale?: number): boolean {
-  if (ratingValue === undefined || !Number.isFinite(ratingValue)) return true
+  if (ratingValue === undefined || !Number.isFinite(ratingValue)) return false
   const normalized = ratingScale && Number.isFinite(ratingScale) && ratingScale > 0
     ? (ratingValue / ratingScale) * 5
     : ratingValue

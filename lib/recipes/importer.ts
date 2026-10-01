@@ -14,6 +14,19 @@ const DEFAULT_DELAY_MS = 250
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024
 const IMAGE_TIMEOUT_MS = 10_000
 const MAX_IMAGE_REDIRECTS = 2
+const MIN_IMPORT_RATING = 4
+
+/**
+ * Import only recipes whose rating is at least 4.0 on a 5-point scale.
+ * Sources with another rating scale are normalized to 5; missing ratings are allowed.
+ */
+export function recipeMeetsImportRatingThreshold(ratingValue?: number, ratingScale?: number): boolean {
+  if (ratingValue === undefined || !Number.isFinite(ratingValue)) return true
+  const normalized = ratingScale && Number.isFinite(ratingScale) && ratingScale > 0
+    ? (ratingValue / ratingScale) * 5
+    : ratingValue
+  return normalized >= MIN_IMPORT_RATING
+}
 
 export type RecipeImportOptions = {
   sourceId: string

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { extractRecipeLinks } from '@/lib/recipes/sources/html'
+import { extractRecipeLinks, extractRecipeLinksFromRss } from '@/lib/recipes/sources/html'
 
 describe('recipe result link extraction', () => {
   it('extracts same-host recipe links, strips fragments and deduplicates', () => {
@@ -19,3 +19,32 @@ describe('recipe result link extraction', () => {
     ])
   })
 })
+
+
+  it('extracts recipe links from RSS items', () => {
+    const xml = `<rss><channel>
+      <item>
+        <title><![CDATA[Zeleninová polévka]]></title>
+        <link>https://www.vareni.cz/recepty/zeleninova-polevka/</link>
+      </item>
+      <item>
+        <title>Článek</title>
+        <link>https://www.vareni.cz/magazin/clanek/</link>
+      </item>
+      <item>
+        <title>Duplicitní recept</title>
+        <link>https://www.vareni.cz/recepty/zeleninova-polevka/#comments</link>
+      </item>
+    </channel></rss>`
+
+    expect(extractRecipeLinksFromRss(
+      xml,
+      'https://www.vareni.cz/rss/recepty.xml',
+      /^\/recepty\//,
+    )).toEqual([
+      {
+        url: 'https://www.vareni.cz/recepty/zeleninova-polevka/',
+        title: 'Zeleninová polévka',
+      },
+    ])
+  })

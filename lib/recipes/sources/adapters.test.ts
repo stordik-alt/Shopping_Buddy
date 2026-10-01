@@ -71,6 +71,35 @@ describe('recipe portal adapter fixtures', () => {
     expect(recipe.ingredients).toHaveLength(2)
   })
 
+  it('falls back to the Vaření RSS feed when the legacy search endpoint is unavailable', async () => {
+    mockedFetch.mockImplementation(async (url = '') => {
+      if (url.includes('/rss/recepty.xml')) {
+        return `<?xml version="1.0"?>
+          <rss><channel>
+            <item>
+              <title>Kuřecí zelené kari</title>
+              <link>https://www.vareni.cz/recepty/kureci-na-zelenem-kari/</link>
+            </item>
+            <item>
+              <title>Velikonoční věnec</title>
+              <link>https://www.vareni.cz/recepty/velikonocni-venec/</link>
+            </item>
+          </channel></rss>`
+      }
+      throw new Error('Recipe source returned HTTP 404')
+    })
+
+    const results = await vareniAdapter.search('zelenina', { limit: 2 })
+
+    expect(results).toHaveLength(2)
+    expect(results.map((item) => item.sourceUrl)).toEqual([
+      'https://www.vareni.cz/recepty/kureci-na-zelenem-kari/',
+      'https://www.vareni.cz/recepty/velikonocni-venec/',
+    ])
+    expect(mockedFetch.mock.calls[0]?.[0]).toContain('/vyhledavani/?q=zelenina')
+    expect(mockedFetch.mock.calls[1]?.[0]).toContain('/rss/recepty.xml')
+  })
+
   it('ignores Recepty.cz system pages and keeps individual recipes', async () => {
     mockedFetch.mockImplementation(async (url = '') => url.includes('recipePage=')
       ? ''
@@ -91,7 +120,6 @@ describe('recipe portal adapter fixtures', () => {
     { adapter: receptyCzAdapter, host: 'www.recepty.cz', path: (page: number) => `/recept/kure-page-${page}-123456`, pageMarker: 'recipePage=2' },
     { adapter: apetitAdapter, host: 'www.apetitonline.cz', path: (page: number) => `/recept/kure-page-${page}`, pageMarker: 'page=1' },
     { adapter: topreceptyAdapter, host: 'www.toprecepty.cz', path: (page: number) => `/recept/12345-kure-page-${page}/`, pageMarker: 'stranka=2' },
-    { adapter: vareniAdapter, host: 'www.vareni.cz', path: (page: number) => `/recepty/kure-page-${page}/`, pageMarker: 'page=2' },
   ])('continues pagination for $adapter.name and skips excluded URLs', async ({ adapter, host, path, pageMarker }) => {
     let page = 0
     mockedFetch.mockImplementation(async () => {

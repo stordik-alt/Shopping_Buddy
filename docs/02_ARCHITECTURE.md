@@ -80,3 +80,19 @@ At minimum plan for:
 - retailer
 - unit conventions
 - timezone
+
+
+## Recipe pricing and packaging standardization — 2026-10-01
+
+Recipe cost calculation uses the actual amount consumed, not the price of the whole retail package. A stored product price contains a package price and a comparable unit price; the recipe cost engine multiplies the consumed quantity by that unit price.
+
+Recipe culinary measures are normalized before pricing:
+- exact units remain exact (`g`, `kg`, `ml`, `l`, `ks`);
+- teaspoon/tablespoon can resolve either to volume or ingredient-specific mass;
+- ingredient-specific estimates take precedence over generic volume estimates;
+- pinch uses an ingredient-specific mass estimate when available, otherwise a small generic estimate;
+- estimates are explicitly marked so the UI can distinguish estimated recipe cost from exact quantity data.
+
+Retail package sizes are standardized at the domain layer. When an explicit package size is not stored, it can currently be derived from `regularPrice / unitPrice` and represented canonically as `kg`, `l` or `ks`. This is a runtime derivation until the product catalog has a first-class product-variant/package-size model.
+
+Do not silently convert an imprecise culinary measure into a falsely exact quantity. If no reasonable estimate exists, the ingredient remains unpriced rather than inventing a price.

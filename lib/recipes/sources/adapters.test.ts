@@ -71,6 +71,30 @@ describe('recipe portal adapter fixtures', () => {
     expect(recipe.ingredients).toHaveLength(2)
   })
 
+  it('falls back to the Toprecepty catalog when search discovery returns no recipe links', async () => {
+    mockedFetch.mockImplementation(async (url = '') => {
+      if (url.includes('/vsechny_recepty.php?stranka=1')) {
+        return searchFixture(
+          'https://www.toprecepty.cz/recept/12345-zeleninovy-salat/',
+          'Zeleninový salát',
+        )
+      }
+      return '<html><body>Vyhledávání bez výsledků</body></html>'
+    })
+
+    const results = await topreceptyAdapter.search('zelenina', { limit: 1 })
+
+    expect(results).toHaveLength(1)
+    expect(results[0]).toMatchObject({
+      title: 'Zeleninový salát',
+      sourceId: 'toprecepty',
+      sourceUrl: 'https://www.toprecepty.cz/recept/12345-zeleninovy-salat/',
+    })
+    expect(mockedFetch.mock.calls[0]?.[0]).toContain('/vyhledavani-receptu?hledam=zelenina')
+    expect(mockedFetch.mock.calls[1]?.[0]).toContain('/vsechny_recepty.php?stranka=1')
+  })
+
+
   it('ignores Recepty.cz system pages and keeps individual recipes', async () => {
     mockedFetch.mockImplementation(async (url = '') => url.includes('recipePage=')
       ? ''

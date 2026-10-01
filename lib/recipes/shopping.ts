@@ -111,6 +111,13 @@ export function toRecipeShoppingItem(ingredient: RecipeIngredient, quantity = in
     }
   }
 
+  // Explicit but invalid quantities must always be rejected before applying any
+  // unknown-unit fallback. Otherwise e.g. "0 balení" would be reported as an
+  // unsupported unit instead of an invalid quantity.
+  if (quantity !== undefined && (!Number.isFinite(quantity) || quantity <= 0)) {
+    return null
+  }
+
   // A recipe can contain a quantity with a unit that is not a standard store unit
   // (for example "2 balení" or a source-specific unit). Do not block shopping merely
   // because the unit cannot be converted reliably. Keep the original measure as a note

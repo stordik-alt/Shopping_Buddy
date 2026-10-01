@@ -25,7 +25,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ [
   const initialPantryCheck = initialTab === 'Zásoby' && params.kontrola === '1'
 
   const [data, stores, standaloneOffers, storeChains, isAdmin] = await Promise.all([
-    getHouseholdData(session.user.id, session.user.name, session.user.email, initialTab),
+    getHouseholdData(session.user.id, session.user.name, session.user.email),
     // Global data (the same for every household) comes from a 15-minute cache (lib/db/cached-reads.ts).
     getStoresCached(),
     getStandaloneOffersCached(),

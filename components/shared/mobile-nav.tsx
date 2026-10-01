@@ -48,7 +48,7 @@ export function MobileNav({ tab, onTabChange }: { tab: Tab; onTabChange: (tab: T
             ref={menuRef}
             role="group"
             aria-label="Další sekce"
-            className="fixed inset-x-2 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-30 mx-auto max-w-lg space-y-1 rounded-2xl border border-border bg-card p-2 shadow-lg lg:hidden"
+            className="fixed inset-x-2 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-30 mx-auto max-w-lg space-y-1 rounded-3xl border border-primary/10 bg-card p-2 shadow-[0_18px_50px_-20px_rgba(10,26,63,0.35)] lg:hidden"
           >
             {MORE_TABS.map((item) => (
               <NavItem key={item} item={item} active={tab === item} onClick={() => select(item)} />
@@ -57,7 +57,7 @@ export function MobileNav({ tab, onTabChange }: { tab: Tab; onTabChange: (tab: T
         </>
       )}
       <nav
-        className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/90 px-2 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-xl lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-primary/10 bg-card/95 px-2 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-xl lg:hidden"
         aria-label="Mobilní navigace"
       >
         <div className="mx-auto grid max-w-lg grid-cols-5 gap-0.5">

@@ -17,6 +17,8 @@ export type RecipeShoppingAnalysis = {
   unit: ItemUnit | null
   stockQuantity: number
   missingQuantity: number | null
+  /** Original recipe measure for a culinary unit represented as one shopping item. */
+  sourceMeasure?: string
   problem: string | null
 }
 
@@ -148,6 +150,7 @@ export function analyzeRecipeIngredient(ingredient: RecipeIngredient, pantryItem
     unit: shoppingItem.unit,
     stockQuantity,
     missingQuantity,
+    sourceMeasure: shoppingItem.sourceMeasure,
     problem: null,
   }
 }

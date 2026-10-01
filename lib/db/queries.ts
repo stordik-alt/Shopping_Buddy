@@ -250,10 +250,13 @@ export async function joinHouseholdViaInvitation(userId: string, userName: strin
 const NOTIFICATIONS_SHOWN = 50
 /** How far back expenses and purchases are loaded for the page. */
 const HISTORY_DAYS = 365
+// The Dashboard only needs enough recent history to calculate the current budget period and short-term insights.
+// Full purchase/expense history is hydrated when the corresponding history tab is opened.
+const INITIAL_DASHBOARD_HISTORY_DAYS = 120
 
-/** The first day of the window of expenses and purchases the page loads. */
-function historySinceDate(): string {
-  return new Date(Date.parse(`${todayInPrague()}T00:00:00Z`) - HISTORY_DAYS * 86_400_000).toISOString().slice(0, 10)
+/** The first day of the requested history window. */
+function historySinceDate(days = HISTORY_DAYS): string {
+  return new Date(Date.parse(`${todayInPrague()}T00:00:00Z`) - days * 86_400_000).toISOString().slice(0, 10)
 }
 
 function toExpense(expense: typeof schema.expenses.$inferSelect): Expense {
@@ -275,9 +278,9 @@ function toNotification(notification: typeof schema.notifications.$inferSelect):
 /** The household's expenses exactly as the page loads them. Server actions that change expenses in
  *  bulk (splitting a purchase item, recording a purchase) return this instead of revalidating the
  *  whole page, so a small save does not re-download every other area from the database. */
-export async function getHouseholdExpenses(householdId: string): Promise<Expense[]> {
+export async function getHouseholdExpenses(householdId: string, days = HISTORY_DAYS): Promise<Expense[]> {
   const rows = await getDb().query.expenses.findMany({
-    where: and(eq(schema.expenses.householdId, householdId), gte(schema.expenses.date, historySinceDate())),
+    where: and(eq(schema.expenses.householdId, householdId), gte(schema.expenses.date, historySinceDate(days))),
     orderBy: asc(schema.expenses.date),
   })
   return rows.map(toExpense)
@@ -296,9 +299,9 @@ export async function getHouseholdNotifications(householdId: string): Promise<No
 /** The last year of purchases, with only the columns the history, usual items and pantry estimate
  *  read. The whole history with every related row (branch addresses, opening hours…) was sent on
  *  every render. */
-function queryPurchaseRows(householdId: string) {
+function queryPurchaseRows(householdId: string, days = HISTORY_DAYS) {
   return getDb().query.purchases.findMany({
-    where: and(eq(schema.purchases.householdId, householdId), gte(schema.purchases.date, historySinceDate())),
+    where: and(eq(schema.purchases.householdId, householdId), gte(schema.purchases.date, historySinceDate(days))),
     columns: { id: true, date: true, total: true, discount: true },
     with: {
       items: { columns: { id: true, name: true, quantity: true, unit: true, price: true, category: true }, with: { expenseSplits: { columns: { category: true, subcategory: true, amount: true } } } },
@@ -413,6 +416,16 @@ export async function getTickedListItems(householdId: string, purchaseId: string
   return rows.map((row) => ({ ...row, price: Number(row.price) }))
 }
 
+/** Full purchase history used by the Nákupy tab. Kept separate from the initial page loader so
+ * the Dashboard does not pay for a year's worth of purchase rows and expense splits. */
+export async function getHouseholdPurchaseHistory(householdId: string, days = HISTORY_DAYS): Promise<PurchaseRecord[]> {
+  const [purchaseRows, expenseRows] = await Promise.all([
+    queryPurchaseRows(householdId, days),
+    getHouseholdExpenses(householdId, days),
+  ])
+  return toPurchaseRecords(purchaseRows, expenseRows)
+}
+
 export async function getPurchaseAftermath(householdId: string, purchaseId?: string | null): Promise<PurchaseAftermath> {
   const [purchaseRows, pantryRows, expenseRows, notifications, tickedListItems] = await Promise.all([
     queryPurchaseRows(householdId),
@@ -434,7 +447,7 @@ export async function getPurchaseAftermath(householdId: string, purchaseId?: str
 }
 
 /** Loads (or, on first login, creates or joins-via-invitation) the signed-in user's household with every domain area the app needs on first render. */
-export async function getHouseholdData(userId: string, userName: string, userEmail: string): Promise<HouseholdData> {
+export async function getHouseholdData(userId: string, userName: string, userEmail: string, initialTab?: string): Promise<HouseholdData> {
   const db = getDb()
 
   const ownMember = await db.query.householdMembers.findFirst({ where: eq(schema.householdMembers.userId, userId) })
@@ -453,9 +466,11 @@ export async function getHouseholdData(userId: string, userName: string, userEma
   }
   if (!household) throw new Error(`Household ${ownMember!.householdId} referenced by household_members but missing`)
 
-  // Expenses and purchases are sent for the last year (the budget screens compare months, the
-  // purchase stats describe current habits); older records stay in the database.
-  const historySince = historySinceDate()
+  // The initial Dashboard only needs recent expense history; the full year is loaded server-side when
+  // Nákup or Rozpočet is the opened section (the same business data, just delayed until it is useful).
+  const loadFullHistory = initialTab == null || initialTab === 'Nákup' || initialTab === 'Rozpočet'
+  const initialHistoryDays = loadFullHistory ? HISTORY_DAYS : INITIAL_DASHBOARD_HISTORY_DAYS
+  const historySince = historySinceDate(initialHistoryDays)
   const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows, mealPlan, invitationRows, pantryRows, pantryPlaceRows, pantryCheckinRows, pantryCheckinSubcategoryRows, pendingReceiptImports, categoryBudgetRows, recurringRows, occurrenceRows] =
     await Promise.all([
       db.query.householdMembers.findMany({
@@ -474,7 +489,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
       db.query.notifications.findMany({ where: eq(schema.notifications.householdId, household.id), orderBy: desc(schema.notifications.createdAt), limit: NOTIFICATIONS_SHOWN }),
       // The last year, with only the columns the history, usual items and pantry estimate read. The
       // whole history with every related row (branch addresses, opening hours…) was sent on every render.
-      queryPurchaseRows(household.id),
+      queryPurchaseRows(household.id, initialHistoryDays),
       getCurrentMealPlan(household.id),
       db.query.invitations.findMany({
         where: and(eq(schema.invitations.householdId, household.id), eq(schema.invitations.status, 'pending')),

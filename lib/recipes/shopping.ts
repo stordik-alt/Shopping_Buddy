@@ -168,9 +168,11 @@ export function analyzeRecipeIngredient(ingredient: RecipeIngredient, pantryItem
   if (!shoppingItem) {
     const reason = ingredient.quantity === undefined
       ? 'Množství nelze bezpečně určit.'
-      : !mapRecipeUnit(ingredient.unit)
-        ? 'Jednotku nelze bezpečně převést do nákupního seznamu.'
-        : 'Množství není platné.'
+      : !Number.isFinite(ingredient.quantity) || ingredient.quantity <= 0
+        ? 'Množství není platné.'
+        : !mapRecipeUnit(ingredient.unit)
+          ? 'Jednotku nelze bezpečně převést do nákupního seznamu.'
+          : 'Množství není platné.'
     return { ingredient, quantity: null, unit: null, stockQuantity: 0, missingQuantity: null, problem: reason }
   }
 

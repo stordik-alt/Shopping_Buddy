@@ -23,8 +23,9 @@ export class AlreadyRecordedError extends Error {}
 export class NothingToRecordError extends Error {}
 
 /** Syncs the shared product classification into historical receipt items and ordinary budget rows.
- * Genuine multi-way expense splits remain explicit per-purchase exceptions; plain one-target overrides
- * and learned defaults are cleared because the product is now the canonical classification. */
+ * Genuine multi-way expense splits remain explicit per-purchase exceptions. One-target overrides/defaults
+ * that use the product taxonomy are superseded by the canonical product classification, while explicit
+ * non-product exceptions such as Ostatní ▸ Dárky remain purchase/household-specific. */
 export async function syncProductClassificationToPurchases(productId: string): Promise<void> {
   const db = getDb()
   const product = await db.query.products.findFirst({
@@ -36,14 +37,43 @@ export async function syncProductClassificationToPurchases(productId: string): P
   const items = await db.query.purchaseItems.findMany({
     where: eq(schema.purchaseItems.productId, productId),
     columns: { id: true, purchaseId: true },
-    with: { expenseSplits: { columns: { id: true } } },
+    with: { expenseSplits: { columns: { id: true, category: true, subcategory: true } } },
   })
   const purchaseIds = [...new Set(items.map((item) => item.purchaseId))]
-  const plainOverrideIds = items.filter((item) => item.expenseSplits.length === 1).flatMap((item) => item.expenseSplits.map((split) => split.id))
+
+  // A one-target override that uses the same product taxonomy is superseded by the shared product
+  // classification. Explicit expense-only targets (e.g. Ostatní ▸ Dárky) are genuine exceptions and
+  // must survive a later product classification change.
+  const canonicalOverrideIds = items
+    .filter((item) => item.expenseSplits.length === 1)
+    .filter((item) => {
+      const [split] = item.expenseSplits
+      return isProductExpenseTarget(split.category, split.subcategory)
+    })
+    .flatMap((item) => item.expenseSplits.map((split) => split.id))
+
   await db.update(schema.purchaseItems).set({ category: product.category.name, subcategoryId: product.subcategoryId }).where(eq(schema.purchaseItems.productId, productId))
-  if (plainOverrideIds.length > 0) await db.delete(schema.purchaseItemExpenseSplits).where(inArray(schema.purchaseItemExpenseSplits.id, plainOverrideIds))
-  await db.delete(schema.householdProductExpenseDefaults).where(eq(schema.householdProductExpenseDefaults.productId, productId))
+  if (canonicalOverrideIds.length > 0) {
+    await db.delete(schema.purchaseItemExpenseSplits).where(inArray(schema.purchaseItemExpenseSplits.id, canonicalOverrideIds))
+  }
+
+  // The same rule applies to remembered household defaults: a product-taxonomy default is now
+  // redundant, but an explicit exception such as Dárky is still meaningful for that household.
+  const defaults = await db.query.householdProductExpenseDefaults.findMany({
+    where: eq(schema.householdProductExpenseDefaults.productId, productId),
+    columns: { id: true, category: true, subcategory: true },
+  })
+  const canonicalDefaultIds = defaults.filter((row) => isProductExpenseTarget(row.category, row.subcategory)).map((row) => row.id)
+  if (canonicalDefaultIds.length > 0) {
+    await db.delete(schema.householdProductExpenseDefaults).where(inArray(schema.householdProductExpenseDefaults.id, canonicalDefaultIds))
+  }
+
   for (const purchaseId of purchaseIds) await recomputePurchaseExpenses(db, purchaseId)
+}
+
+function isProductExpenseTarget(category: string, subcategory: string | null): boolean {
+  const itemCategories: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
+  return itemCategories.includes(category as ItemCategory) && isValidProductSubcategory(category as ItemCategory, subcategory)
 }
 
 // A crafted request could otherwise ask for an unbounded number of rows; real receipts never need

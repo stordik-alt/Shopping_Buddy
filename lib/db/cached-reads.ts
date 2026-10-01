@@ -5,11 +5,9 @@ import { ingestionDate } from '@/lib/ingestion/today'
 import { GLOBAL_CACHE_TAGS } from '@/lib/db/cache-tags'
 
 // Cached versions of the page's global reads — branches, chains, prices and promotions are the same
-// for every household. The app re-renders the page on its periodic refresh (components/app-shell.tsx)
-// and on every change; without a cache each render read all of this from Neon again, which used up
-// the free plan's monthly network transfer (5 GB). Cached for 15 minutes in Next's data cache, so the
-// refresh reads only the household's own data from the database. Prices and promotions change a few
-// times a day (the ingestion crons), so 15 minutes of delay is harmless.
+// for every household. These data change at most daily, so the normal TTL is 24 hours. Price/deal
+// ingestion explicitly invalidates the relevant tags after a successful import, while the date in
+// the price/offer cache key also prevents yesterday's data from living into a new ingestion day.
 //
 // `unstable_cache` is what this Next version still supports without switching the app to Cache
 // Components (docs: node_modules/next/dist/docs/.../unstable_cache.md). A result it cannot store

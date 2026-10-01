@@ -13,6 +13,7 @@ import {
   regenerateMeal,
   splitIngredientsByStock,
   type Ingredient,
+  type MealPlanRecipe,
   type MealType,
   type WeeklyMealPlan,
 } from '@/lib/meal-plans'
@@ -64,8 +65,8 @@ export function MealPlan({
   const [startToday, setStartToday] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [recipePools, setRecipePools] = useState<Partial<Record<MealType, WeeklyMealPlan['days'][number]['breakfast'][]>>>({})
-  const [selectedRecipe, setSelectedRecipe] = useState<NonNullable<WeeklyMealPlan['days'][number]['breakfast']> | null>(null)
+  const [recipePools, setRecipePools] = useState<Partial<Record<MealType, MealPlanRecipe[]>>>({})
+  const [selectedRecipe, setSelectedRecipe] = useState<MealPlanRecipe | null>(null)
 
   // The menu itself needs no budget: the budget is set afterwards, in the shopping panel below it.
   async function generate() {
@@ -81,7 +82,7 @@ export function MealPlan({
         mealTypes
           .map((mealType) => [mealType, pools[mealType] ?? []] as const)
           .filter(([, recipes]) => recipes.length > 0),
-      ) as Partial<Record<MealType, NonNullable<WeeklyMealPlan['days'][number]['breakfast']>[]>>
+      ) as Partial<Record<MealType, MealPlanRecipe[]>>
       if (mealTypes.some((mealType) => (usablePools[mealType]?.length ?? 0) === 0)) {
         throw new Error('Pro některý zvolený chod nejsou v katalogu dostupné vhodné recepty.')
       }
@@ -180,7 +181,7 @@ export function MealPlan({
   function changeBudget(value: string) {
     setBudget(value)
     const limit = Number(value)
-    if (plan && Number.isFinite(limit) && limit > 0) {
+    if (plan && !plan.pricingPending && Number.isFinite(limit) && limit > 0) {
       const updated = { ...plan, recommendedStores: recommendStores(plan.estimatedTotal, limit, household) }
       setPlan(updated)
       savePlan(limit, updated)
@@ -188,7 +189,7 @@ export function MealPlan({
   }
 
   const budgetLimit = Number(budget)
-  const overBudget = plan && budgetLimit > 0 ? plan.estimatedTotal > budgetLimit : false
+  const overBudget = plan && !plan.pricingPending && budgetLimit > 0 ? plan.estimatedTotal > budgetLimit : false
   const stockSplit = plan ? splitIngredientsByStock(plan, pantryItems) : null
 
   return (
@@ -354,9 +355,11 @@ export function MealPlan({
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <Sparkles className="h-4 w-4 text-primary" />
               <span>
-                Odhadovaná cena nákupu: <span className="font-semibold">{money(plan.estimatedTotal)}</span>
+                {plan.pricingPending
+                  ? <>Odhad ceny receptů zatím není dostupný.</>
+                  : <>Odhadovaná cena nákupu: <span className="font-semibold">{money(plan.estimatedTotal)}</span></>}
               </span>
-              {budgetLimit > 0 && (
+              {budgetLimit > 0 && !plan.pricingPending && (
                 <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${overBudget ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}>
                   {overBudget ? 'Nad rozpočtem' : 'V rozpočtu'}
                 </span>
@@ -364,12 +367,13 @@ export function MealPlan({
             </div>
             <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
               Doporučené obchody:
-              {plan.recommendedStores.map((store) => (
-                <span key={store} className="rounded-full bg-background px-2 py-1 font-medium">
-                  {store}
-                </span>
-              ))}
-            </div>
+                {plan.recommendedStores.map((store) => (
+                  <span key={store} className="rounded-full bg-background px-2 py-1 font-medium">
+                    {store}
+                  </span>
+                ))}
+              </div>
+            )}
             {stockSplit && (
               <div className="text-xs text-muted-foreground">
                 <p className="flex items-center gap-1.5">

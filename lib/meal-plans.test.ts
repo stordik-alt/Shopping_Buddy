@@ -70,13 +70,15 @@ describe('planned recipe servings', () => {
     expect(() => plannedRecipeIngredients(recipe)).not.toThrow()
     expect(plannedRecipeIngredients(recipe)[0].quantity).toBe(0)
     expect(plannedRecipeIngredients(recipe)[1]).toMatchObject({ sourceMeasure: 'množství neuvedeno', quantity: 1, unit: 'ks' })
-    expect(planIngredients({
+    const planned = planIngredients({
       days: [{ day: 'Pondělí', lunch: recipe }],
       staples: [],
       estimatedTotal: 0,
       recommendedStores: [],
       cookedMeals: [],
-    })).toEqual([])
+    })
+    expect(planned).toHaveLength(1)
+    expect(planned[0]).toMatchObject({ name: 'Sůl', quantity: 1, unit: 'ks', sourceMeasure: 'množství neuvedeno' })
   })
 
   it('keeps authored quantities when the recipe has no serving count', () => {

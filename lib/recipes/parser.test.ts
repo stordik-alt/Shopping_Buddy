@@ -55,6 +55,19 @@ describe('parseRecipeJsonLd', () => {
 })
 
 describe('ingredient normalization', () => {
+  it('preserves structured legacy data when the original text is not parseable', () => {
+    expect(
+      normalizeRecipeIngredient({
+        id: 'legacy-3',
+        originalText: 'grilovací koření',
+        quantity: 1,
+        unit: 'lžička',
+        name: 'grilovací koření',
+        scalable: true,
+      }),
+    ).toMatchObject({ quantity: 1, unit: 'lžička', name: 'grilovací koření', scalable: true })
+  })
+
   it('normalizes legacy stored ingredient text as well as newly parsed ingredients', () => {
     expect(
       normalizeRecipeIngredient({

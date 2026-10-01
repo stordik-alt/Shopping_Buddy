@@ -402,9 +402,16 @@ export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: Recip
                       {pricing.ingredientPrices.map((item) => (
                         <div key={item.ingredientId} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-muted-foreground">
                           <span>{item.ingredientName}</span>
-                          <span>
+                          <span className="text-right">
                             <span className="font-medium text-foreground">{money(item.cost)}</span> · {item.store}
                             {item.isDeal && <span className="ml-1 font-medium text-primary">akce</span>}
+                            {(item.estimatedQuantity || item.packageSize) && (
+                              <span className="block text-[11px] text-muted-foreground">
+                                {item.estimatedQuantity && 'odhad spotřeby'}
+                                {item.estimatedQuantity && item.packageSize ? ' · ' : ''}
+                                {item.packageSize ? `balení ${item.packageSize}` : ''}
+                              </span>
+                            )}
                           </span>
                         </div>
                       ))}

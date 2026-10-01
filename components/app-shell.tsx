@@ -125,7 +125,7 @@ export function AppShell({
         console.error('Loading expense history failed', error)
       })
     }
-  }, [expenseHistoryLoaded, purchaseHistoryLoaded, setTabState])
+  }, [expenseHistoryLoaded, purchaseHistoryLoaded, setExpenses, setPurchaseHistory, setTabState])
   const { dark, toggleDark } = useTheme()
   useServiceWorker()
   // Chain whose promotions the home screen lists after "Zobrazit akce" in the store directory.

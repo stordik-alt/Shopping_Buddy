@@ -12,6 +12,7 @@ import {
   recommendStores,
   regenerateMeal,
   splitIngredientsByStock,
+  plannedRecipeIngredients,
   type Ingredient,
   type MealPlanRecipe,
   type MealType,
@@ -115,31 +116,14 @@ export function MealPlan({
     try {
       const pools = Object.keys(recipePools).length > 0 ? recipePools : await getMealPlanRecipePoolsAction()
       setRecipePools(pools)
-      const updated = generateWeeklyPlan(
-        Number(budget) || 0,
-        household,
-        useStock ? pantryItems : null,
-        {
-          dayCount: plan.days.length,
-          startDayIndex: Math.max(0, ['Pondělí', 'Úterý', 'Středa', 'Čtvrtek', 'Pátek', 'Sobota', 'Neděle'].indexOf(plan.days[0]?.day ?? 'Pondělí')),
-          mealTypes: [mealType],
-          recipePools: pools,
-        },
-      )
-      const replacement = updated.days[0]?.[RECIPE_BY_MEAL[mealType]]
-      const current = plan.days.find((entry) => entry.day === day)?.[RECIPE_BY_MEAL[mealType]]
-      if (!replacement || !current) return
-      const swapped = {
-        ...replacement,
-        selectedServings: current.selectedServings ?? replacement.selectedServings,
-      }
-      const nextPlan = {
-        ...plan,
-        days: plan.days.map((entry) => entry.day === day ? { ...entry, [RECIPE_BY_MEAL[mealType]]: swapped } : entry),
+      const nextPlan = regenerateMeal(plan, day, mealType, household, useStock ? pantryItems : null, pools)
+      if (nextPlan === plan) {
+        setError('Pro tento typ jídla už není k dispozici jiný recept.')
+        return
       }
       setPlan(nextPlan)
       setAdded(false)
-      savePlan(Number(budget), nextPlan)
+      savePlan(Number(budget) || 0, nextPlan)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Jiné jídlo se nepodařilo navrhnout.')
     } finally {
@@ -191,6 +175,7 @@ export function MealPlan({
   const budgetLimit = Number(budget)
   const overBudget = plan && !plan.pricingPending && budgetLimit > 0 ? plan.estimatedTotal > budgetLimit : false
   const stockSplit = plan ? splitIngredientsByStock(plan, pantryItems) : null
+  const selectedRecipeIngredients = selectedRecipe ? plannedRecipeIngredients(selectedRecipe) : []
 
   return (
     <section className="surface p-5 sm:p-6">
@@ -365,8 +350,9 @@ export function MealPlan({
                 </span>
               )}
             </div>
-            <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-              Doporučené obchody:
+            {!plan.pricingPending && (
+              <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                <span>Doporučené obchody:</span>
                 {plan.recommendedStores.map((store) => (
                   <span key={store} className="rounded-full bg-background px-2 py-1 font-medium">
                     {store}
@@ -428,7 +414,7 @@ export function MealPlan({
             <section className="mt-4">
               <h4 className="text-sm font-semibold">Suroviny</h4>
               <ul className="mt-2 divide-y divide-border rounded-xl border border-border">
-                {selectedRecipe.ingredients.map((ingredient, index) => (
+                {selectedRecipeIngredients.map((ingredient, index) => (
                   <li key={ingredient.name + index} className="flex items-start justify-between gap-4 px-3 py-2.5 text-sm">
                     <span>{ingredient.name}</span>
                     <span className="shrink-0 text-right text-muted-foreground">

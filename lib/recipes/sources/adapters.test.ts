@@ -96,25 +96,19 @@ describe('recipe portal adapter fixtures', () => {
 
 
   it('falls back to the Vaření RSS feed when the search endpoint is unavailable', async () => {
-    mockedFetch.mockImplementation(async (url = '') => {
-      if (url === 'https://www.vareni.cz/rss/recepty.xml') {
-        return `<?xml version="1.0"?>
-          <rss><channel>
-            <item>
-              <title>Zeleninová polévka</title>
-              <link>https://www.vareni.cz/recepty/zeleninova-polevka/</link>
-            </item>
-            <item>
-              <title>Čokoládový dort</title>
-              <link>https://www.vareni.cz/recepty/cokoladovy-dort/</link>
-            </item>
-          </channel></rss>`
-      }
-      if (url === 'https://www.vareni.cz/vyhledavani/?q=zelenina') {
-        throw new Error('Recipe source returned HTTP 404')
-      }
-      throw new Error('Unexpected fetch URL: ' + url)
-    })
+    mockedFetch
+      .mockRejectedValueOnce(new Error('Recipe source returned HTTP 404'))
+      .mockResolvedValueOnce(`<?xml version="1.0"?>
+        <rss><channel>
+          <item>
+            <title>Zeleninová polévka</title>
+            <link>https://www.vareni.cz/recepty/zeleninova-polevka/</link>
+          </item>
+          <item>
+            <title>Čokoládový dort</title>
+            <link>https://www.vareni.cz/recepty/cokoladovy-dort/</link>
+          </item>
+        </channel></rss>`)
 
     const results = await vareniAdapter.search('zelenina', { limit: 5 })
 
@@ -124,8 +118,12 @@ describe('recipe portal adapter fixtures', () => {
       sourceId: 'vareni',
       sourceUrl: 'https://www.vareni.cz/recepty/zeleninova-polevka/',
     })
+    expect(mockedFetch.mock.calls).toHaveLength(2)
     expect(mockedFetch.mock.calls[0]?.[0]).toContain('/vyhledavani/?q=zelenina')
     expect(mockedFetch.mock.calls[1]?.[0]).toContain('/rss/recepty.xml')
+    expect(mockedFetch.mock.calls[1]?.[2]).toMatchObject({
+      allowedContentTypes: ['application/rss+xml', 'application/xml', 'text/xml'],
+    })
   })
 
   it('ignores Recepty.cz system pages and keeps individual recipes', async () => {

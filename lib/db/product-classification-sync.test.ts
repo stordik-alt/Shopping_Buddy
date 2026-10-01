@@ -51,13 +51,10 @@ describe('syncProductClassificationToPurchases', () => {
       await db.delete(schema.households).where(eq(schema.households.id, household.id))
       await db.delete(schema.products).where(eq(schema.products.id, product.id))
     }
+  })
 
   it('does not let a budget reassignment bypass a locked product classification', async () => {
     const foodCategory = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
-    const otherCategory = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Ostatní') })
-    const clothing = await db.query.productSubcategories.findFirst({
-      where: and(eq(schema.productSubcategories.category, 'Ostatní'), eq(schema.productSubcategories.name, 'Oblečení a obuv')),
-    })
     const [household] = await db.insert(schema.households).values({ name: '__test_product_classification_sync__' }).returning()
     const [product] = await db
       .insert(schema.products)
@@ -86,6 +83,5 @@ describe('syncProductClassificationToPurchases', () => {
       await db.delete(schema.households).where(eq(schema.households.id, household.id))
       await db.delete(schema.products).where(eq(schema.products.id, product.id))
     }
-  })
   })
 })

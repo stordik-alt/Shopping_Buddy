@@ -67,7 +67,7 @@ export function NavItem({
       aria-current={active ? 'page' : undefined}
       className={[
         'flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        active ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+        active ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
       ].join(' ')}
     >
       <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />

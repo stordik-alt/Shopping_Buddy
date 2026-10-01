@@ -1,6 +1,7 @@
 import { AlertTriangle, BriefcaseMedical, Car, Cat, Check, ClipboardCheck, House, Minus, Package, PackageSearch, Plus, Refrigerator, Snowflake, SprayCan, Warehouse, Wheat, X, type LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Pager } from '@/components/shared/pager'
+import { PantryAddModal, type PantryAddInput } from '@/components/shopping/pantry-add-modal'
 import { PantryReview, type PantryReviewResult } from '@/components/shopping/pantry-review'
 import { itemCountLabel } from '@/lib/format'
 import { findDuplicatePlacements, needsCheck, PANTRY_PAGE_SIZE, PANTRY_TRACKING, pantryPlaceOptions, placeKeyOf, summarizeByPlace, type PantryPlaceOption } from '@/lib/pantry'
@@ -135,6 +136,7 @@ export function Pantry({
   onReceipts,
 }: {
   items: PantryItem[]
+  onAddPantryItem: (input: PantryAddInput) => Promise<PantryItem[]>
   /** The household's own places, beyond the fixed locations (Profil domácnosti → Zásoby). */
   customPlaces: PantryPlace[]
   onConfirm: (id: string) => void
@@ -167,6 +169,7 @@ export function Pantry({
   const [selected, setSelected] = useState<string>(() => options.find((option) => summary[option.key].count > 0)?.key ?? options[0].key)
   // Announces a move: the moved row leaves the open folder, so without this it would just vanish.
   const [notice, setNotice] = useState<string | null>(null)
+  const [adding, setAdding] = useState(false)
   // The check opened from the "K ověření" banner covers every place (the asked items can be
   // anywhere); opened from a folder, it starts with that folder.
   const toCheck = items.filter((item) => needsCheck(item, likelyGone)).length
@@ -408,19 +411,31 @@ export function Pantry({
             <h2 className="min-w-0 break-words text-sm font-semibold">{selectedOption.name}</h2>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <span className="text-xs text-muted-foreground">{itemCountLabel(selectedItems.length)}</span>
-            {items.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">{itemCountLabel(selectedItems.length)}</span>
               <button
                 type="button"
                 onClick={() => {
-                  setReviewing('location')
+                  setAdding(true)
                   setNotice(null)
                 }}
-                className="flex min-h-9 items-center gap-1.5 rounded-xl border border-border px-2.5 text-xs font-medium hover:bg-muted"
+                className="flex min-h-9 items-center gap-1.5 rounded-xl bg-primary px-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
               >
-                <ClipboardCheck className="h-3.5 w-3.5" aria-hidden /> Zkontrolovat
+                <Plus className="h-3.5 w-3.5" aria-hidden /> Přidat
               </button>
-            )}
+              {items.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReviewing('location')
+                    setNotice(null)
+                  }}
+                  className="flex min-h-9 items-center gap-1.5 rounded-xl border border-border px-2.5 text-xs font-medium hover:bg-muted"
+                >
+                  <ClipboardCheck className="h-3.5 w-3.5" aria-hidden /> Zkontrolovat
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -551,6 +566,16 @@ export function Pantry({
           </div>
         )}
       </section>
+      )}
+      {adding && (
+        <PantryAddModal
+          customPlaces={customPlaces}
+          onClose={() => setAdding(false)}
+          onSubmit={async (input) => {
+            await onAddPantryItem(input)
+            setNotice('Přidáno do zásob. Do rozpočtu se nic nezapočítává.')
+          }}
+        />
       )}
     </div>
   )

@@ -8,6 +8,7 @@ import { getHouseholdExpenses, getHouseholdNotifications, getProductCatalog, get
 import { getPurchaseItemsForExpense, recordPurchaseAsExpense, recomputePurchaseExpenses, setPurchaseItemExpenseSplits, type PurchaseExpenseItem } from '@/lib/db/purchase-items'
 import * as schema from '@/lib/db/schema'
 import { isExpenseCategory, isValidSubcategory, type ExpenseCategory } from '@/lib/expense-categories'
+import { matchProductByName } from '@/lib/products'
 import type { ExpenseSplitPart } from '@/lib/purchase-expenses'
 import type { Expense, ItemCategory, ItemUnit, Notification, PurchaseRecord } from '@/lib/types'
 
@@ -132,9 +133,8 @@ export async function createManualPurchaseAction(input: {
   })
 
   const catalog = await getProductCatalog(items.map((item) => item.name))
-  const byName = new Map(catalog.map((product) => [product.name.trim().toLocaleLowerCase(), product]))
   const resolved = items.map((item) => {
-    const product = byName.get(item.name.toLocaleLowerCase())
+    const product = matchProductByName(catalog, item.name)
     const category = product?.category ?? item.category
     if (!category) throw new Error(`U položky „${item.name}“ vyberte kategorii.`)
     return { ...item, product, category }

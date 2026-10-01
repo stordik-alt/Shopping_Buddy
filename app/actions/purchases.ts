@@ -170,7 +170,7 @@ export async function createManualPurchaseAction(input: {
       name: item.name,
       quantity: item.quantity,
       unit: item.unit,
-      price: item.price,
+      price: item.price.toFixed(2),
       category: item.category,
     })),
   ).returning()

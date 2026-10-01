@@ -38,7 +38,8 @@
     "db:recipes:recepty-cz": "dotenv -e .env.local -- tsx scripts/import-recipes-recepty-cz.ts",
     "db:recipes:apetit": "dotenv -e .env.local -- tsx scripts/import-recipes-apetit.ts",
     "db:recipes:toprecepty": "dotenv -e .env.local -- tsx scripts/import-recipes-toprecepty.ts",
-    "db:recipes:vareni": "dotenv -e .env.local -- tsx scripts/import-recipes-vareni.ts"
+    "db:recipes:vareni": "dotenv -e .env.local -- tsx scripts/import-recipes-vareni.ts",
+    "db:recipes:backfill-images": "dotenv -e .env.local -- tsx scripts/backfill-recipe-images.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

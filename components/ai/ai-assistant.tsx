@@ -23,15 +23,15 @@ export function AiAssistant({ onShopping }: { onShopping: () => void }) {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div className="rounded-3xl bg-primary p-6 text-primary-foreground sm:p-8">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-foreground/90 text-primary">
+      <div className="rounded-[1.75rem] bg-primary p-6 shadow-[var(--shadow-card)] text-primary-foreground sm:p-8">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
           <Bot />
         </div>
         <h2 className="mt-6 text-3xl font-semibold tracking-tight">Váš nákupní parťák.</h2>
         <p className="mt-3 max-w-lg text-sm leading-relaxed text-primary-foreground/75">
           Řekněte mi, co potřebujete. Pomůžu vám sestavit nákup, najít akce a uhlídat rozpočet.
         </p>
-        <div className="mt-7 flex flex-col gap-2 rounded-2xl bg-primary-foreground/10 p-2 sm:flex-row">
+        <div className="mt-7 flex flex-col gap-2 rounded-2xl bg-primary-foreground/10 p-2 ring-1 ring-primary-foreground/10 sm:flex-row">
           <input
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
@@ -41,7 +41,7 @@ export function AiAssistant({ onShopping }: { onShopping: () => void }) {
             placeholder="Např. nákup na týden do 2 500 Kč"
             className="min-h-10 min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-primary-foreground outline-none placeholder:text-primary-foreground/50 focus-visible:ring-2 focus-visible:ring-ring"
           />
-          <button onClick={() => suggest()} className="min-h-10 rounded-xl bg-primary-foreground/90 px-4 py-2 text-sm font-semibold text-primary transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <button onClick={() => suggest()} className="min-h-10 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             Navrhnout
           </button>
         </div>

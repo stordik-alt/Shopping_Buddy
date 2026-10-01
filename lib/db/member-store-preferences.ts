@@ -37,9 +37,12 @@ export async function getMemberStoreSelection(memberId: string): Promise<StoreSe
   if (!member) return EMPTY_STORE_SELECTION
   return {
     maxDistanceKm: member.maxDistanceKm != null ? Number(member.maxDistanceKm) : null,
-    chainIds: rows.filter((row) => row.storeLocationId === null).map((row) => row.storeId),
-    branches: rows.filter((row) => row.storeLocationId !== null).map((row) => ({ storeId: row.storeId, storeLocationId: row.storeLocationId as string })),
-    priorityChainIds: rows.filter((row) => row.storeLocationId === null && row.isPriority).map((row) => row.storeId),
+    chainIds: rows.filter((row) => row.storeLocationId === null).map((row) => row.storeId).sort(),
+    branches: rows
+      .filter((row) => row.storeLocationId !== null)
+      .map((row) => ({ storeId: row.storeId, storeLocationId: row.storeLocationId as string }))
+      .sort((a, b) => a.storeLocationId.localeCompare(b.storeLocationId)),
+    priorityChainIds: rows.filter((row) => row.storeLocationId === null && row.isPriority).map((row) => row.storeId).sort(),
     maxShopStores: member.maxShopStores,
   }
 }

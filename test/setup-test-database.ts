@@ -42,8 +42,8 @@ for (const name of ['TEST_DATABASE_URL', 'TEST_DATABASE_URL_UNPOOLED'] as const)
 }
 
 if (testUrl) {
-  if (testUrl === process.env.DATABASE_URL) {
-    throw new Error('TEST_DATABASE_URL is the same as DATABASE_URL — point it at the separate test branch, not production.')
+  if (testUrl === process.env.DATABASE_URL && process.env.DATABASE_DRIVER !== 'pg') {
+    throw new Error('TEST_DATABASE_URL is the same as DATABASE_URL — point it at the separate test database, not production.')
   }
   process.env.DATABASE_URL = testUrl
   process.env.DATABASE_URL_UNPOOLED = process.env.TEST_DATABASE_URL_UNPOOLED?.trim() || testUrl

@@ -229,11 +229,15 @@ export async function backfillRecipeImages(options: RecipeImageBackfillOptions):
 
       const sourceDomain = adapter.domains[0] ?? new URL(row.canonicalUrl).hostname
       const hosts = normalizeHostList(sourceDomain, [...(adapter.imageDomains ?? []), ...(options.imageHosts ?? [])])
-      const imageRef = await storeRecipeImage({ imageUrl } as Recipe, adapter, hosts)
-
       if (options.dryRun) {
         console.log('DRY-RUN IMAGE-COPY: ' + row.title + ' — ' + imageUrl)
-      } else {
+        summary.imageImported += 1
+        continue
+      }
+
+      const imageRef = await storeRecipeImage({ imageUrl } as Recipe, adapter, hosts)
+
+      {
         await db
           .update(schema.recipeCatalog)
           .set({

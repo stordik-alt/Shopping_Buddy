@@ -119,6 +119,7 @@ const ITEM_CATEGORY_NAMES = Object.keys(PRODUCT_SUBCATEGORIES) as ItemCategory[]
 
 export function Pantry({
   items,
+  onAddPantryItem,
   customPlaces,
   onConfirm,
   onRemove,

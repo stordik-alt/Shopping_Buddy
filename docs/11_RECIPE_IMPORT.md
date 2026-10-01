@@ -22,7 +22,7 @@ Všechny používají jeden lib/recipes/importer.ts, aby se mezi portály nedupl
 
 ## Důležité: není to skrytý full-site crawler
 
-Aktuální adaptéry používají search stránku a jejich vlastní omezený počet odkazů. Toprecepty má navíc záložní discovery přes aktuální katalogový výpis (vsechny_recepty.php), protože starší search endpoint může vrátit HTML bez receptových odkazů. Proto importer vyžaduje explicitní --query a --limit.
+Aktuální adaptéry používají search stránku a jejich vlastní omezený počet odkazů. Toprecepty má navíc záložní discovery přes aktuální katalogový výpis (vsechny_recepty.php), protože starší search endpoint může vrátit HTML bez receptových odkazů. Vaření.cz má záložní discovery přes RSS feed /rss/recepty.xml, protože vyhledávací endpoint může vracet HTTP 404. Proto importer vyžaduje explicitní --query a --limit.
 
 Příklad:
 

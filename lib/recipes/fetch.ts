@@ -51,7 +51,11 @@ export async function assertSafeRecipeUrl(url: string, allowedDomains: readonly 
 export async function fetchRecipeHtml(
   url: string,
   allowedDomains: readonly string[],
-  options: { timeoutMs?: number; maxBytes?: number } = {},
+  options: {
+    timeoutMs?: number
+    maxBytes?: number
+    allowedContentTypes?: readonly string[]
+  } = {},
 ): Promise<string> {
   let current = await assertSafeRecipeUrl(url, allowedDomains)
   const controller = new AbortController()
@@ -77,7 +81,8 @@ export async function fetchRecipeHtml(
       if (!response.ok) throw new Error('Recipe source returned HTTP ' + response.status)
 
     const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''
-    if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) {
+    const allowedContentTypes = options.allowedContentTypes ?? ['text/html', 'application/xhtml+xml']
+    if (!allowedContentTypes.some((allowedType) => contentType.includes(allowedType))) {
       throw new Error('Recipe source returned an unsupported content type')
     }
 

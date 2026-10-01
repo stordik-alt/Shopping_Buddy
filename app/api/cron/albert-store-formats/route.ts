@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { syncAlbertStoreFormats } from '@/lib/db/store-directory'
+import { invalidateStoreCaches } from '@/lib/db/cache-invalidation'
 
 // Weekly, an hour after the OpenStreetMap store import (/api/cron/import-stores): moves the Albert
 // branches that are hypermarkets — per albert.cz's own store pages — to the "Albert Hypermarket"
@@ -15,6 +16,7 @@ export async function GET(request: Request) {
   }
   try {
     const report = await syncAlbertStoreFormats({ apply: true })
+    invalidateStoreCaches()
     // The response body is not kept in the platform's logs; this line is.
     console.info(JSON.stringify({ event: 'albert_store_formats', ...report }))
     return NextResponse.json(report)

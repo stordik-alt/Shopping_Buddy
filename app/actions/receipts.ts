@@ -4,6 +4,7 @@ import { and, count, eq, gte, ilike, inArray, lt, or } from 'drizzle-orm'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
+import { invalidateProductPriceCache } from '@/lib/db/cache-invalidation'
 import { getProductCatalog, getPurchaseAftermath, getSubcategoryCatalog, getTickedListItems, recordPriceObservation, restockPantryItem, toReceiptImportState, upsertProductCatalogDefaults, type PurchaseAftermath, type ReceiptImportState, type TickedListItem } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
 import { applyLearnedExpenseDefaults, recomputePurchaseExpenses } from '@/lib/db/purchase-items'
@@ -342,6 +343,8 @@ async function createPurchaseFromReceiptItems(
   }
 
   await recordReceiptPriceObservations(resolvedItems, storeId, options.storeLocationId, date, options.currency)
+  // Receipt observations can change the price history used by the global product-price cache.
+  invalidateProductPriceCache()
 
   // Tick off the shopping-list items this receipt certainly covers (same product/name), recording the
   // real quantity and price. Best-effort by design: the purchase above is already saved and is the

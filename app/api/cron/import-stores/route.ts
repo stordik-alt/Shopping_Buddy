@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { importOsmStores } from '@/lib/db/store-directory'
+import { invalidateStoreCaches } from '@/lib/db/cache-invalidation'
 
 // Weekly refresh of the store chains' branches from OpenStreetMap (lib/db/store-directory.ts):
 // new branches appear, moved or re-timed ones follow the map; nothing is deleted. Same auth model as
@@ -16,6 +17,7 @@ export async function GET(request: Request) {
     // No new map query starts after 150 s: one query can take up to ~105 s more, and the writes
     // need the rest of the 300 s limit. Chains not reached are reported and retried next week.
     const report = await importOsmStores({ apply: true, deadline: Date.now() + 150_000 })
+    invalidateStoreCaches()
     // The response body is not kept in the platform's logs; this line is.
     console.info(JSON.stringify({ event: 'store_import', ...report }))
     return NextResponse.json(report)

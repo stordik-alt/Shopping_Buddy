@@ -1023,6 +1023,7 @@ export async function getProductPrices(scope: ProductPriceScope): Promise<Produc
       ).map((row) => row.id)
     : []
   if (names.length === 0 && dealProductIds.length === 0) return []
+
   const products = await db.query.products.findMany({
     where: (products, { or, inArray }) =>
       or(names.length > 0 ? inArray(products.name, names) : undefined, dealProductIds.length > 0 ? inArray(products.id, dealProductIds) : undefined),
@@ -1032,8 +1033,82 @@ export async function getProductPrices(scope: ProductPriceScope): Promise<Produc
     columns: { id: true, name: true },
     with: {
       category: { columns: { name: true } },
-      prices: {
+      deals: { columns: { storeId: true, storeLocationId: true, dealPrice: true, validFrom: true, validUntil: true } },
+    },
+  })
+  if (products.length === 0) return []
+
+  const productIds = products.map((product) => product.id)
+  const productIdList = sql.join(productIds.map((id) => sql`${id}::uuid`), sql`, `)
+  const cutoff = sql`${today}::date - interval '30 days'`
+
+  // Price history is intentionally bounded. For every product/store/context keep:
+  //   1. the latest observation (the current price),
+  //   2. all observations from the recent 30-day window,
+  //   3. one older observation with a different price, so previousPrice() still works when
+  //      the last price change was more than 30 days ago.
+  //
+  // This preserves the semantics used by recentPriceLow(), priceSteps() and previousPrice() while
+  // preventing an ever-growing prices table from being reloaded on every page refresh.
+  const selectedPriceIds = await db.execute(sql`
+    with latest as (
+      select distinct on (p.product_id, p.store_id, p.store_location_id, p.price_scope)
+        p.id,
+        p.product_id,
+        p.store_id,
+        p.store_location_id,
+        p.price_scope,
+        p.regular_price
+      from prices p
+      where p.product_id in (${productIdList})
+      order by
+        p.product_id,
+        p.store_id,
+        p.store_location_id,
+        p.price_scope,
+        p.observed_at desc,
+        p.id desc
+    ),
+    recent as (
+      select p.id
+      from prices p
+      where p.product_id in (${productIdList})
+        and p.observed_at >= (${cutoff})
+    ),
+    previous_distinct as (
+      select distinct on (p.product_id, p.store_id, p.store_location_id, p.price_scope)
+        p.id
+      from prices p
+      inner join latest l
+        on l.product_id = p.product_id
+        and l.store_id = p.store_id
+        and l.store_location_id is not distinct from p.store_location_id
+        and l.price_scope = p.price_scope
+      where p.observed_at < (${cutoff})
+        and p.regular_price <> l.regular_price
+      order by
+        p.product_id,
+        p.store_id,
+        p.store_location_id,
+        p.price_scope,
+        p.observed_at desc,
+        p.id desc
+    )
+    select id from latest
+    union
+    select id from recent
+    union
+    select id from previous_distinct
+  `)
+
+  const priceIds = selectedPriceIds.rows.map((row) => String((row as { id: string }).id))
+  const prices = priceIds.length === 0
+    ? []
+    : await db.query.prices.findMany({
+        where: inArray(schema.prices.id, priceIds),
         columns: {
+          id: true,
+          productId: true,
           storeId: true,
           storeLocationId: true,
           priceScope: true,
@@ -1047,19 +1122,25 @@ export async function getProductPrices(scope: ProductPriceScope): Promise<Produc
         },
         with: { store: { columns: { chain: true } } },
         orderBy: asc(schema.prices.observedAt),
-      },
-      deals: { columns: { storeId: true, storeLocationId: true, dealPrice: true, validFrom: true, validUntil: true } },
-    },
-  })
+      })
+
+  const pricesByProduct = new Map<string, typeof prices>()
+  for (const price of prices) {
+    const list = pricesByProduct.get(price.productId) ?? []
+    list.push(price)
+    pricesByProduct.set(price.productId, list)
+  }
 
   return products
-    .filter((product) => product.prices.length > 0)
     .map((product) => {
+      const productPrices = pricesByProduct.get(product.id) ?? []
+      if (productPrices.length === 0) return null
+
       // A price context is the same product + scope + retailer + branch (when known). Multiple
       // sources may coexist in that context; the latest observation remains the current value,
-      // while every observation stays available to historical-price logic.
-      const observationsByContext = new Map<string, typeof product.prices>()
-      for (const price of product.prices) {
+      // while the bounded observation set stays available to historical-price logic.
+      const observationsByContext = new Map<string, typeof productPrices>()
+      for (const price of productPrices) {
         const contextKey = [
           price.priceScope,
           price.storeId,
@@ -1119,6 +1200,7 @@ export async function getProductPrices(scope: ProductPriceScope): Promise<Produc
         }),
       }
     })
+    .filter((product): product is NonNullable<typeof product> => product != null)
 }
 
 /** Current offers at a chain for a product the app has no price for at that chain — what

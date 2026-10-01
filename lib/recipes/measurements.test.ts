@@ -21,6 +21,19 @@ describe('recipe culinary measure estimates', () => {
     })
   })
 
+  it('accepts inflected culinary units', () => {
+    expect(estimateRecipeMeasure(ingredient('cukr krupice', 2, 'lžičky'))).toMatchObject({
+      quantity: 8,
+      unit: 'g',
+      estimated: true,
+    })
+    expect(estimateRecipeMeasure(ingredient('pepř mletý', 1, 'špetky'))).toMatchObject({
+      quantity: 0.2,
+      unit: 'g',
+      estimated: true,
+    })
+  })
+
   it('uses volume for a teaspoon of oil', () => {
     expect(estimateRecipeMeasure(ingredient('olivový olej', 1, 'lžička'))).toMatchObject({
       quantity: 5,

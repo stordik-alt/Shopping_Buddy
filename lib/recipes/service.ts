@@ -135,15 +135,36 @@ export async function searchRecipeCatalog(
   const where = buildSearchWhere(normalizedQuery, options.sourceId)
   if (!where) return { results: [], total: 0, page, pageSize }
 
-  const key = cacheKey(normalizedQuery, options.sourceId)
-  const cached = recipeSearchCache.get(key) as RecipeSearchResult[] | undefined
-  const all = cached ?? await fetchCatalogCandidates(normalizedQuery, options.sourceId)
-  if (!cached) recipeSearchCache.set(key, all)
+  const cacheKeyForPage = `${cacheKey(normalizedQuery, options.sourceId)}:${options.sort ?? 'relevance'}:${page}:${pageSize}`
+  const cached = recipeSearchCache.get(cacheKeyForPage) as RecipeSearchPage | undefined
+  if (cached) return cached
 
-  const sorted = sortResults(filterAndRankRecipeResults(all, normalizedQuery), options.sort ?? 'relevance')
-  const total = sorted.length
-  const start = (page - 1) * pageSize
-  return { results: sorted.slice(start, start + pageSize), total, page, pageSize }
+  const relevance = buildRelevanceScore(normalizedQuery)
+  const orderBy = options.sort === 'rating'
+    ? [sql`${schema.recipeCatalog.ratingValue} IS NULL`, desc(schema.recipeCatalog.ratingValue), desc(schema.recipeCatalog.ratingCount)]
+    : options.sort === 'time'
+      ? [sql`${schema.recipeCatalog.totalTimeMinutes} IS NULL`, asc(schema.recipeCatalog.totalTimeMinutes), asc(schema.recipeCatalog.title)]
+      : [desc(relevance), asc(schema.recipeCatalog.title)]
+
+  const [totalRow, rows] = await Promise.all([
+    getDb().select({ count: count() }).from(schema.recipeCatalog).where(where),
+    getDb()
+      .select()
+      .from(schema.recipeCatalog)
+      .where(where)
+      .orderBy(...orderBy)
+      .limit(pageSize)
+      .offset((page - 1) * pageSize),
+  ])
+
+  const result: RecipeSearchPage = {
+    results: rows.map(rowToSearchResult),
+    total: Number(totalRow[0]?.count ?? 0),
+    page,
+    pageSize,
+  }
+  recipeSearchCache.set(cacheKeyForPage, result)
+  return result
 }
 
 export async function searchRecipes(

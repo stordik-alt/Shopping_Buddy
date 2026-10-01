@@ -339,6 +339,12 @@ export async function importRecipeBatch(options: RecipeImportOptions): Promise<R
         continue
       }
 
+      if (!recipeMeetsImportRatingThreshold(recipe.ratingValue, recipe.ratingScale)) {
+        summary.skipped += 1
+        console.log('SKIP LOW-RATING ' + adapter.name + ': ' + recipe.title + ' — ' + recipe.ratingValue + '/' + (recipe.ratingScale ?? 5))
+        continue
+      }
+
       let existing: typeof schema.recipeCatalog.$inferSelect | undefined
       if (!options.dryRun) {
         existing = await getDb().query.recipeCatalog.findFirst({ where: eq(schema.recipeCatalog.canonicalUrl, recipe.canonicalUrl) })

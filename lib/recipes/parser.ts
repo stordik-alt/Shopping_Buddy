@@ -83,6 +83,8 @@ const UNIT_ALIASES: Record<string, string> = {
   litry: 'l',
   dl: 'dl',
   cl: 'cl',
+  dkg: 'dkg',
+  dag: 'dag',
   ks: 'ks',
   kus: 'ks',
   kusu: 'ks',

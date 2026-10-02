@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm'
 import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
 import { isDirectMatch, likePattern, normalizeSearchText, scoreMatch, searchStem, searchStems, splitTokens, toComparableUnit, type ProductSearchHit } from '@/lib/product-search'
+import { inferPackageSize, resolveCatalogPackageSize, type CatalogPackage } from '@/lib/recipes/packaging'
 import type { ItemCategory, ItemUnit } from '@/lib/types'
 
 // Text search over the products the chains have prices for (lib/product-search.ts has the rules).
@@ -79,7 +80,11 @@ export async function searchProductHitsBatch(requests: ProductSearchRequest[]): 
   `)
   if (priceRows.rows.length === 0) return results
 
-  const deals = await loadActiveDeals([...new Set(priceRows.rows.map((row) => row.product_id))])
+  const productIds = [...new Set(priceRows.rows.map((row) => row.product_id))]
+  const [deals, packagesByProduct] = await Promise.all([
+    loadActiveDeals(productIds),
+    loadProductPackages(productIds),
+  ])
   for (const entry of active) {
     results[entry.index] = priceRows.rows
       .map((row) => {
@@ -87,7 +92,7 @@ export async function searchProductHitsBatch(requests: ProductSearchRequest[]): 
         if (entry.category && row.category !== entry.category) return null
         const score = scoreMatch(row.search_name, entry.required, entry.optional)
         if (score <= 0) return null
-        return rowToHit(row, deals, score, isDirectMatch(row.search_name, entry.required))
+        return rowToHit(row, deals, score, isDirectMatch(row.search_name, entry.required), packagesByProduct)
       })
       .filter((hit): hit is ProductSearchHit => hit !== null)
       .sort((a, b) => {
@@ -149,10 +154,14 @@ export async function searchProductHits(tokens: string[], options: { storeIds?: 
   `)
   if (priceRows.rows.length === 0) return []
 
-  const deals = await loadActiveDeals([...new Set(priceRows.rows.map((row) => row.product_id))])
+  const productIds = [...new Set(priceRows.rows.map((row) => row.product_id))]
+  const [deals, packagesByProduct] = await Promise.all([
+    loadActiveDeals(productIds),
+    loadProductPackages(productIds),
+  ])
 
   return priceRows.rows
-    .map((row) => rowToHit(row, deals, scoreMatch(row.search_name, required, optional), isDirectMatch(row.search_name, required)))
+    .map((row) => rowToHit(row, deals, scoreMatch(row.search_name, required, optional), isDirectMatch(row.search_name, required), packagesByProduct))
     .filter((hit) => hit.score > 0)
 }
 
@@ -171,9 +180,35 @@ async function loadActiveDeals(productIds: string[]): Promise<Map<string, DealRo
   return new Map(dealRows.rows.map((row) => [`${row.product_id}|${row.store_id}`, row]))
 }
 
-function rowToHit(row: PriceRow, deals: Map<string, DealRow>, score: number, direct: boolean): ProductSearchHit {
+
+async function loadProductPackages(productIds: string[]): Promise<Map<string, CatalogPackage[]>> {
+  if (productIds.length === 0) return new Map()
+  const db = getDb()
+  const rows = await db.execute<{ product_id: string; quantity: string; unit: ItemUnit }>(sql\`
+    SELECT product_id, quantity, unit
+    FROM product_packages
+    WHERE product_id IN (\${sql.join(productIds.map((id) => sql\`\${id}::uuid\`), sql\`, \`)})
+  \`)
+  const packages = new Map<string, CatalogPackage[]>()
+  for (const row of rows.rows) {
+    if (row.unit !== 'kg' && row.unit !== 'l') continue
+    packages.set(row.product_id, [...(packages.get(row.product_id) ?? []), { quantity: Number(row.quantity), unit: row.unit }])
+  }
+  return packages
+}
+
+function rowToHit(row: PriceRow, deals: Map<string, DealRow>, score: number, direct: boolean, packagesByProduct: Map<string, CatalogPackage[]>): ProductSearchHit {
   const deal = deals.get(`${row.product_id}|${row.store_id}`)
   const comparable = toComparableUnit(row.unit, Number(row.unit_price))
+  const packageSize = resolveCatalogPackageSize(packagesByProduct.get(row.product_id) ?? [], {
+    regularPrice: Number(row.regular_price),
+    unit: row.unit,
+    unitPrice: Number(row.unit_price),
+  }) ?? inferPackageSize({
+    regularPrice: Number(row.regular_price),
+    unit: row.unit,
+    unitPrice: Number(row.unit_price),
+  })
   return {
     productId: row.product_id,
     name: row.name,
@@ -185,6 +220,7 @@ function rowToHit(row: PriceRow, deals: Map<string, DealRow>, score: number, dir
     dealValidUntil: deal?.valid_until ?? null,
     unit: comparable.unit,
     unitPrice: comparable.unitPrice,
+    packageSize,
     observedAt: row.observed_at,
     score,
     direct,
@@ -209,6 +245,10 @@ export async function getHitsForProducts(productIds: string[], storeIds: string[
       AND pr.store_id IN (${sql.join(storeIds.map((id) => sql`${id}::uuid`), sql`, `)})
     ORDER BY pr.product_id, pr.store_id, coalesce(pr.last_confirmed_at, pr.observed_at) DESC, (pr.source_type = 'OFFICIAL') DESC
   `)
-  const deals = await loadActiveDeals([...new Set(priceRows.rows.map((row) => row.product_id))])
-  return priceRows.rows.map((row) => rowToHit(row, deals, 0, true))
+  const productIds = [...new Set(priceRows.rows.map((row) => row.product_id))]
+  const [deals, packagesByProduct] = await Promise.all([
+    loadActiveDeals(productIds),
+    loadProductPackages(productIds),
+  ])
+  return priceRows.rows.map((row) => rowToHit(row, deals, 0, true, packagesByProduct))
 }

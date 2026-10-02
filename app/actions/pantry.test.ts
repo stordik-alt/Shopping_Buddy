@@ -71,7 +71,7 @@ describe('addPantryItemAction', () => {
   it('manual category and subcategory override catalog classification and create no purchase or expense', async () => {
     const catalogCategory = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
     const catalogSubcategory = await db.query.productSubcategories.findFirst({ where: and(eq(schema.productSubcategories.category, 'Potraviny'), eq(schema.productSubcategories.name, 'Pečivo')) })
-    const manualSubcategory = await db.query.productSubcategories.findFirst({ where: and(eq(schema.productSubcategories.category, 'Děti'), eq(schema.productSubcategories.name, 'Oblečení a obuv')) })
+    const manualSubcategory = await db.query.productSubcategories.findFirst({ where: and(eq(schema.productSubcategories.category, 'Děti'), eq(schema.productSubcategories.name, 'Hračky')) })
     const [product] = await db.insert(schema.products).values({
       name: '__test_manual_pantry_classification__',
       categoryId: catalogCategory!.id,

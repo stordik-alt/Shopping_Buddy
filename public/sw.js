@@ -4,14 +4,12 @@
 //
 // Offline: the app page is fetched from the network first, always; only when that fails (no signal)
 // is the last successfully loaded page shown, so the shopping list opens in a shop without coverage.
-// Changes made there are queued on the device (lib/offline-queue.ts). The app's own script and style
-// files (/_next/static, named by content hash, never change) are cached as they load. Nothing else is
-// cached — data requests and server actions always go to the network. The cached page belongs to the
-// signed-in account, so signing out deletes it (components/shared/app-header.tsx).
+// Changes made there are queued on the device (lib/offline-queue.ts). Next.js build files are deliberately
+// not intercepted here: Vercel/CDN and the browser already cache immutable /_next/static assets by content
+// hash, while a service-worker cache can otherwise keep an older dynamic chunk after a deployment.
+// The cached page belongs to the signed-in account, so signing out deletes it (components/shared/app-header.tsx).
 
 const PAGE_CACHE = 'shopping-buddy-page-v1'
-const STATIC_CACHE = 'shopping-buddy-static-v2'
-const MAX_STATIC_ENTRIES = 400
 
 self.addEventListener('install', () => self.skipWaiting())
 
@@ -51,24 +49,6 @@ self.addEventListener('fetch', (event) => {
         .catch(async () => (await caches.match('/', { cacheName: PAGE_CACHE })) || Response.error()),
     )
     return
-  }
-
-  // Immutable build files: cache first.
-  if (url.pathname.startsWith('/_next/static/')) {
-    event.respondWith(
-      caches.open(STATIC_CACHE).then(async (cache) => {
-        const cached = await cache.match(request)
-        if (cached) return cached
-        const response = await fetch(request)
-        if (response.ok) {
-          await cache.put(request, response.clone())
-          // Old builds' files pile up after deployments; keep the cache bounded (oldest first).
-          const keys = await cache.keys()
-          for (const key of keys.slice(0, Math.max(0, keys.length - MAX_STATIC_ENTRIES))) await cache.delete(key)
-        }
-        return response
-      }),
-    )
   }
 })
 

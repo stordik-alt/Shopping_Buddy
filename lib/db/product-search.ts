@@ -58,7 +58,7 @@ export async function searchProductHitsBatch(requests: ProductSearchRequest[]): 
       let where = wordFilters
       if (request.category) where = sql`${where} AND c.name = ${request.category}`
       if (request.storeIds) where = sql`pr.store_id IN (${sql.join(request.storeIds.map((id) => sql`${id}::uuid`), sql`, `)}) AND ${where}`
-      return { index, tokens: request.tokens, required, optional, firstStem: searchStem(required[0]), where }
+      return { index, tokens: request.tokens, required, optional, firstStem: searchStem(required[0]), storeIds: request.storeIds ? new Set(request.storeIds) : null, category: request.category, where }
     })
     .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
 
@@ -83,6 +83,8 @@ export async function searchProductHitsBatch(requests: ProductSearchRequest[]): 
   for (const entry of active) {
     results[entry.index] = priceRows.rows
       .map((row) => {
+        if (entry.storeIds && !entry.storeIds.has(row.store_id)) return null
+        if (entry.category && row.category !== entry.category) return null
         const score = scoreMatch(row.search_name, entry.required, entry.optional)
         if (score <= 0) return null
         return rowToHit(row, deals, score, isDirectMatch(row.search_name, entry.required))

@@ -121,6 +121,7 @@ beforeAll(async () => {
 })
 
 beforeEach(async () => {
+  stubReceiptStorage()
   const [household] = await db.insert(schema.households).values({ name: '__test_household_receipts__' }).returning()
   householdId = household.id
   createdHouseholdIds.push(householdId)

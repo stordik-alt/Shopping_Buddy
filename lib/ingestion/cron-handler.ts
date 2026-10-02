@@ -40,12 +40,16 @@ export async function handleIngestCron(request: Request, only?: string): Promise
   // run inspectable afterwards (was it truncated? did products error?).
   logIngestResults(results, Date.now() - startedAt)
 
-  // The global price/offer cache is long-lived; refresh it only after an ingestion run actually
-  // completes. A partial run is enough to invalidate because it may have written new prices/deals.
-  const allFailed = Object.values(results).every((outcome) => 'error' in outcome)
+  // Invalidate only the global datasets that this run actually changed. A successful connector
+  // can process thousands of unchanged observations; revalidating every shared cache after those
+  // confirmations wastes cache churn without improving freshness.
+  const outcomes = Object.values(results)
+  const allFailed = outcomes.every((outcome) => 'error' in outcome)
+  const changedPrices = outcomes.some((outcome) => 'priceCacheChanged' in outcome && outcome.priceCacheChanged)
+  const changedDeals = outcomes.some((outcome) => 'dealsCacheChanged' in outcome && outcome.dealsCacheChanged)
   if (!allFailed && Object.keys(results).length > 0) {
-    invalidatePriceAndOfferCaches()
-    invalidateDealsCache()
+    if (changedPrices) invalidatePriceAndOfferCaches()
+    if (changedDeals) invalidateDealsCache()
   }
 
   // 502 only when every source that ran failed (nothing refreshed); a partial success is still a

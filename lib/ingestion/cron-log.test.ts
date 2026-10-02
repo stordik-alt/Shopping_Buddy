@@ -11,6 +11,8 @@ const result = (overrides: Partial<IngestResult> = {}): IngestResult => ({
   skipped: 2,
   unchanged: 3,
   priceChanges: 4,
+  priceCacheChanged: false,
+  dealsCacheChanged: false,
   truncated: false,
   errors: [],
   ...overrides,

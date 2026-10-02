@@ -342,6 +342,8 @@ describe('runPriceSources', () => {
     skipped: 0,
     unchanged: 0,
     priceChanges: 0,
+    priceCacheChanged: false,
+    dealsCacheChanged: false,
     truncated: false,
     errors: [],
     ...extra,

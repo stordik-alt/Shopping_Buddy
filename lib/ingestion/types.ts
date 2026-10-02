@@ -52,8 +52,8 @@ export type NormalizedProduct = {
 export type FetchOptions = {
   deadline?: number
   /** Read the store's whole catalog instead of the daily run's stable sample — for the one-off
-   *  backfill (scripts/backfill-prices.ts), which has no function time limit. Connectors whose
-   *  daily batch already walks the whole catalog when `limit` allows it ignore this. */
+   *  backfill (scripts/backfill-prices.ts), which has no function time limit. Connectors whose daily
+   *  batch already walks the whole catalog when `limit` allows it ignore this. */
   fullCatalog?: boolean
   /** Read only this part of the whole catalog (lib/ingestion/parts.ts) — the rotating refresh.
    *  Connectors whose whole catalog fits one run (Lidl, Penny) ignore it. */
@@ -71,9 +71,7 @@ export type PriceConnector<Raw = unknown> = {
    *  deals are attached to its canonical branch. */
   chainWideDeals?: boolean
   /** Fetches up to `limit` raw products. Throws when the source is unreachable (the caller isolates
-   *  that failure so other connectors still run). `options.deadline` (epoch ms) is the run's time
-   *  budget: once it has passed, no further request is started and the products fetched so far are
-   *  returned. */
+   *  that failure so other connectors can continue. */
   fetchProducts(limit: number, options?: FetchOptions): Promise<Raw[]>
   /** Source id of a raw record, used to label per-product errors. */
   rawId(raw: Raw): string
@@ -94,6 +92,10 @@ export type IngestResult = {
   unchanged: number
   /** Prices that differ from the previous observation; the previous one was kept as an old price. */
   priceChanges: number
+  /** True when at least one regular price was inserted or updated during the run. */
+  priceCacheChanged: boolean
+  /** True when at least one active deal was inserted or materially changed during the run. */
+  dealsCacheChanged: boolean
   /** True when the run's time budget ran out and some fetched products were not processed. */
   truncated: boolean
   /** Which part of the catalog this run refreshed ("3/7"), for a rotating refresh. */

@@ -191,8 +191,11 @@ async function loadProductPackages(productIds: string[]): Promise<Map<string, Ca
   `)
   const packages = new Map<string, CatalogPackage[]>()
   for (const row of rows.rows) {
-    if (row.unit !== 'kg' && row.unit !== 'l') continue
-    packages.set(row.product_id, [...(packages.get(row.product_id) ?? []), { quantity: Number(row.quantity), unit: row.unit }])
+    if (row.unit !== 'ks' && row.unit !== 'kg' && row.unit !== 'l') continue
+    packages.set(row.product_id, [...(packages.get(row.product_id) ?? []), {
+      quantity: Number(row.quantity),
+      unit: row.unit,
+    }])
   }
   return packages
 }
@@ -204,7 +207,7 @@ function rowToHit(row: PriceRow, deals: Map<string, DealRow>, score: number, dir
     regularPrice: Number(row.regular_price),
     unit: row.unit,
     unitPrice: Number(row.unit_price),
-  }) ?? resolveNamedPackageSize(row.name, {
+  }, row.name) ?? resolveNamedPackageSize(row.name, {
     regularPrice: Number(row.regular_price),
     unit: row.unit,
     unitPrice: Number(row.unit_price),

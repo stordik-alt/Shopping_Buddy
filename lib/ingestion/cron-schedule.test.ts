@@ -3,28 +3,34 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { PRICE_SOURCES } from '@/lib/ingestion/ingest'
 
-// vercel.json schedules rotating catalog refreshes daily, while flyer OCR jobs follow the retailers'
-// publication cycles. The tests below keep both kinds of schedules explicit and in sync with sources.
+// Catalog refreshes run once per week per source. Sources that exceed the per-run budget keep
+// their existing number of same-day continuation runs. Flyer OCR jobs follow publication cycles.
 type Cron = { path: string; schedule: string }
 const crons: Cron[] = JSON.parse(readFileSync(join(process.cwd(), 'vercel.json'), 'utf8')).crons
 
-const runsPerDay = (source: string) =>
-  crons.filter((cron) => cron.path === `/api/cron/ingest-prices/${source}` || cron.path.startsWith(`/api/cron/ingest-prices/${source}/`)).length
+const runsForSource = (source: string) =>
+  crons.filter((cron) => cron.path === `/api/cron/ingest-prices/${source}` || cron.path.startsWith(`/api/cron/ingest-prices/${source}/`))
 
 const flyerSources = new Set(['penny_flyer', 'billa_flyer', 'lidl_flyer'])
 
 describe('price ingestion cron schedule', () => {
-  it('runs every rotating catalog source at least once a day', () => {
+  it('runs every rotating catalog source on exactly one weekday per week', () => {
     for (const { source } of PRICE_SOURCES) {
       if (flyerSources.has(source)) continue
-      expect(runsPerDay(source), source).toBeGreaterThanOrEqual(1)
+      const runs = runsForSource(source)
+      expect(runs.length, source).toBeGreaterThanOrEqual(1)
+      const weekdays = new Set(runs.map(({ schedule }) => schedule.split(' ')[4]))
+      expect(weekdays.size, source).toBe(1)
     }
   })
 
-  it('covers every rotating catalog split within two days', () => {
+  it('keeps all catalog continuation runs on the same weekly day and preserves split coverage', () => {
     for (const { source, parts } of PRICE_SOURCES) {
       if (flyerSources.has(source)) continue
-      expect(runsPerDay(source) * 2, source).toBeGreaterThanOrEqual(parts)
+      const runs = runsForSource(source)
+      const weekdays = new Set(runs.map(({ schedule }) => schedule.split(' ')[4]))
+      expect(weekdays.size, source).toBe(1)
+      expect(runs.length, source).toBeGreaterThanOrEqual(parts)
     }
   })
 
@@ -54,8 +60,9 @@ describe('price ingestion cron schedule', () => {
     expect(new Set(crons.map((cron) => cron.path)).size).toBe(crons.length)
   })
 
-  it('schedules each entry at most once a day', () => {
-    // A fixed minute/hour with either a daily cadence or a single weekday/monthday.
-    for (const { schedule } of crons) expect(schedule).toMatch(/^\d{1,2} \d{1,2} (\*|\d{1,2}) \* (\*|[0-6])$/)
+  it('uses valid Vercel cron schedule shapes', () => {
+    for (const { schedule } of crons) {
+      expect(schedule).toMatch(/^\d{1,2} \d{1,2} (\*|\d{1,2}) \* (\*|[0-6])$/)
+    }
   })
 })

@@ -146,11 +146,22 @@ export async function buildShoppingPlan(householdId: string, memberId: string | 
   const pinnedByKey = new Map(pinnedHits.map((hit) => [`${hit.productId}|${hit.storeId}`, hit]))
 
   // Automatic candidates for every item, over all allowed chains at once. 'Ostatní' means the category
-  // is unknown, so it must not restrict the search.
+  // is unknown, so it must not restrict the search. Reuse an in-flight search when multiple list items
+  // resolve to the same name/category/store query — the result depends only on those search inputs,
+  // not on quantity or unit. This keeps duplicate needs from issuing duplicate database queries.
+  const autoSearchCache = new Map<string, Promise<ProductSearchHit[]>>()
   const autoHits = await mapWithConcurrency(needs, 5, async (need) => {
     const tokens = searchTokens(need.name)
     if (tokens.length === 0 || allowedIds.length === 0) return [] as ProductSearchHit[]
-    return searchProductHits(tokens, { storeIds: allowedIds, ...(need.category !== 'Ostatní' ? { category: need.category } : {}) })
+
+    const category = need.category !== 'Ostatní' ? need.category : undefined
+    const key = JSON.stringify({ tokens, category, storeIds: allowedIds })
+    let search = autoSearchCache.get(key)
+    if (!search) {
+      search = searchProductHits(tokens, { storeIds: allowedIds, ...(category ? { category } : {}) })
+      autoSearchCache.set(key, search)
+    }
+    return search
   })
 
   const offers: PlanOffer[] = []

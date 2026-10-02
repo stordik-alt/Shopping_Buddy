@@ -867,6 +867,7 @@ export async function setProductSubcategory(
     .update(schema.products)
     .set({ subcategoryId, ...flags })
     .where(eq(schema.products.id, productId))
+  invalidateProductCatalogCache()
 }
 
 /** Remembers a household-confirmed product correction in the catalog — category, default unit,
@@ -926,6 +927,7 @@ export async function upsertProductCatalogDefaults(entry: {
   } else {
     await db.insert(schema.products).values({ name, categoryId: categoryRow.id, defaultUnit: entry.unit, defaultLocation: entry.location, subcategoryId, ...flags })
   }
+  invalidateProductCatalogCache()
 }
 
 /** Creates or enriches a physical store branch from a trusted directory/source.

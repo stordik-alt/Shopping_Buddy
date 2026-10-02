@@ -37,6 +37,18 @@ function renderPantry(items: PantryItem[], customPlaces: PantryPlace[] = []) {
   )
 }
 
+describe('Pantry header', () => {
+  it('keeps the location title and count together and puts actions in a separate mobile row', () => {
+    const html = renderPantry([item(1)])
+    expect(html).toContain('Spíž')
+    expect(html).toContain('1 položka')
+    expect(html).toContain('Přidat')
+    expect(html).toContain('Zkontrolovat')
+    expect(html).toContain('flex flex-col gap-3')
+    expect(html).toContain('sm:flex-row')
+  })
+})
+
 describe('Pantry pagination', () => {
   it('shows every item and no pager when a folder has one page or fewer', () => {
     const items = Array.from({ length: PANTRY_PAGE_SIZE }, (_, i) => item(i + 1))

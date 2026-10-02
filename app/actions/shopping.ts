@@ -54,7 +54,7 @@ function toItem(row: typeof schema.shoppingListItems.$inferSelect): Item {
 export async function addShoppingItemAction(
   listId: string,
   name: string,
-  overrides: Partial<Pick<Item, 'detail' | 'category' | 'unit'>> = {},
+  overrides: Partial<Pick<Item, 'detail' | 'category' | 'unit' | 'quantity'>> = {},
   clientId?: string,
 ): Promise<{ item: Item; notification: Notification | null }> {
   const { householdId, userId } = await requireHousehold()
@@ -87,6 +87,7 @@ export async function addShoppingItemAction(
       name,
       productId: matchedProduct?.id,
       detail: overrides.detail ?? '1 ks · bez detailu',
+      quantity: overrides.quantity ?? 1,
       // An explicit override wins; otherwise fall back to the matched product's real category
       // rather than the schema default ('Ostatní') — found missing while testing pantry-location
       // inference, which needs the item actually categorized 'Potraviny' to ever route it to

@@ -157,7 +157,7 @@ describe('automatic product package catalog', () => {
       unit: 'kg',
       source: 'name-extracted',
       confidence: 0.98,
-      observationCount: 1,
+      observationCount: 2,
       lastSeenAt: '2026-10-01',
     })
   })

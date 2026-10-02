@@ -273,6 +273,18 @@ describe('buildShoppingPlanAction', () => {
   })
 })
 
+  it('does not treat chicken meat as chicken ham', async () => {
+    const ham = await addProduct(`Kuřecí šunka ${tag} skutečná`)
+    const meat = await addProduct(`Kuřecí maso ${tag} skutečné`)
+    await addPrice(ham, lidlId, 40, 400, 'kg')
+    await addPrice(meat, lidlId, 50, 500, 'kg')
+    await addItem(`kureci sunka ${tag}`, 1, 'kg')
+
+    const { plan } = await buildShoppingPlanAction({ maxStores: 1, priorityChainIds: [] })
+    expect(linesOf(plan)[0].productId).toBe(ham)
+    expect(linesOf(plan)[0].productName).toContain('Kuřecí šunka')
+  })
+
 describe('pinning', () => {
   it('replaces the pin for the same item and chain, and keeps one pin per item and chain', async () => {
     const a = await addProduct(`Med ${tag} a`)

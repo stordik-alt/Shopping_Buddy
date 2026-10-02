@@ -22,6 +22,7 @@ const line = (alternatives: PlannedLine['alternatives']): PlannedLine => ({
   productId: 'p',
   productName: 'Mléko',
   cost: 40,
+  packages: 1,
   source: 'auto',
   alternatives,
 })

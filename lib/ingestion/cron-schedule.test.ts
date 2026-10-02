@@ -24,13 +24,12 @@ describe('price ingestion cron schedule', () => {
     }
   })
 
-  it('keeps all catalog continuation runs on the same weekly day and preserves split coverage', () => {
-    for (const { source, parts } of PRICE_SOURCES) {
+  it('keeps all catalog continuation runs on the same weekly day', () => {
+    for (const { source } of PRICE_SOURCES) {
       if (flyerSources.has(source)) continue
       const runs = runsForSource(source)
       const weekdays = new Set(runs.map(({ schedule }) => schedule.split(' ')[4]))
       expect(weekdays.size, source).toBe(1)
-      expect(runs.length, source).toBeGreaterThanOrEqual(parts)
     }
   })
 

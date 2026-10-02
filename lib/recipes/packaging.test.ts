@@ -74,6 +74,26 @@ describe('recipe package standardization', () => {
     ])
   })
 
+  it('parses a spaced thousands quantity in a product name', () => {
+    expect(extractExplicitPackageSizes('Finish sůl do myčky 1 500 g')).toMatchObject([
+      {
+        quantity: 1.5,
+        unit: 'kg',
+        label: '1.5 kg',
+      },
+    ])
+  })
+
+  it('does not treat a strength number before a package size as a thousands separator', () => {
+    expect(extractExplicitPackageSizes('Pivo světlé 10 500ml')).toMatchObject([
+      {
+        quantity: 0.5,
+        unit: 'l',
+        label: '500 ml',
+      },
+    ])
+  })
+
   it('uses an explicit piece count for a ks-priced multipack', () => {
     expect(resolveNamedPackageSize('Papírové kapesníky 10 ks', {
       regularPrice: 39.9,

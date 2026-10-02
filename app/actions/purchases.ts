@@ -4,7 +4,8 @@ import { and, eq, inArray } from 'drizzle-orm'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
-import { getHouseholdExpenses, getHouseholdNotifications, getProductCatalog, getPurchaseAftermath, getSubcategoryCatalog, restockPantryItem, upsertProductCatalogDefaults, type PurchaseAftermath } from '@/lib/db/queries'
+import { getHouseholdExpenses, getHouseholdNotifications, getPurchaseAftermath, restockPantryItem, upsertProductCatalogDefaults, type PurchaseAftermath } from '@/lib/db/queries'
+import { getProductCatalogCached, getSubcategoryCatalogCached } from '@/lib/db/cached-reads'
 import { getPurchaseItemsForExpense, recordPurchaseAsExpense, recomputePurchaseExpenses, setPurchaseItemExpenseSplits, type PurchaseExpenseItem } from '@/lib/db/purchase-items'
 import * as schema from '@/lib/db/schema'
 import { isExpenseCategory, isValidSubcategory, type ExpenseCategory } from '@/lib/expense-categories'
@@ -137,7 +138,7 @@ export async function createManualPurchaseAction(input: {
     return { name, quantity, price, unit: item.unit, category: item.category, subcategory: item.subcategory ?? null }
   })
 
-  const catalog = await getProductCatalog(items.map((item) => item.name))
+  const catalog = await getProductCatalogCached(items.map((item) => item.name))
   const resolved = items.map((item) => {
     const product = matchProductByName(catalog, item.name)
     const category = item.category
@@ -145,7 +146,7 @@ export async function createManualPurchaseAction(input: {
     if (!isValidProductSubcategory(category, subcategory)) throw new Error(`Neplatná podkategorie u položky „${item.name}“.`)
     return { ...item, product, category, subcategory }
   })
-  const subcategories = await getSubcategoryCatalog()
+  const subcategories = await getSubcategoryCatalogCached()
   const subcategoryId = (category: ItemCategory, name: string | null) => name ? subcategories.find((row) => row.category === category && row.name === name)?.id ?? null : null
 
   const db = getDb()

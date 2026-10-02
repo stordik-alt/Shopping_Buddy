@@ -18,6 +18,8 @@ const queries = vi.hoisted(() => ({
   setIngestionCursor: vi.fn(),
 }))
 vi.mock('@/lib/db/queries', () => queries)
+// Cache invalidation is a Next server concern; the orchestrator tests stub it so they stay focused on ingestion persistence.
+vi.mock('@/lib/db/cache-invalidation', () => ({ invalidateProductCatalogCache: vi.fn() }))
 
 import { ingestPrices, PRICE_SOURCES, runPriceSources } from '@/lib/ingestion/ingest'
 

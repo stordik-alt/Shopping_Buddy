@@ -2,6 +2,10 @@ import { revalidateTag } from 'next/cache'
 import { GLOBAL_CACHE_TAGS } from '@/lib/db/cache-tags'
 
 /** Marks global catalog/price reads stale after an ingestion or catalog mutation. */
+export function invalidateProductCatalogCache(): void {
+  revalidateTag(GLOBAL_CACHE_TAGS.products, 'max')
+}
+
 export function invalidateProductPriceCache(): void {
   revalidateTag(GLOBAL_CACHE_TAGS.productPrices, 'max')
 }

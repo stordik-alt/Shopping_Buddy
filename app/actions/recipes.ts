@@ -12,7 +12,8 @@ import {
 import { getRecipeByUrl, searchRecipeCatalog, searchRecipesDetailed } from '@/lib/recipes/service'
 import { estimateRecipePrice } from '@/lib/recipes/pricing'
 import { scaleRecipeIngredients } from '@/lib/recipes/scaling'
-import { getProductCatalog, getProductPrices, getStandaloneOffers } from '@/lib/db/queries'
+import { getProductPrices, getStandaloneOffers } from '@/lib/db/queries'
+import { getProductCatalogCached } from '@/lib/db/cached-reads'
 import { matchProductByName } from '@/lib/products'
 import {
   filterRecipeForHousehold,
@@ -154,7 +155,7 @@ export async function getRecipePricingAction(sourceId: string, url: string, serv
     return estimateRecipePrice(ingredients, [])
   }
 
-  const catalog = await getProductCatalog(ingredientNames)
+  const catalog = await getProductCatalogCached(ingredientNames)
   const matchedNames = ingredients
     .map((ingredient) => matchProductByName(catalog, ingredient.name)?.name)
     .filter((name): name is string => Boolean(name))

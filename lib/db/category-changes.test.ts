@@ -1,7 +1,9 @@
 import { eq } from 'drizzle-orm'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it, vi } from 'vitest'
 import { decideCategoryChange, proposeProductCategory } from '@/lib/db/category-changes'
 import { getDb } from '@/lib/db/client'
+
+vi.mock('@/lib/db/cache-invalidation', () => ({ invalidateProductCatalogCache: vi.fn() }))
 import { upsertProductCatalogDefaults } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
 

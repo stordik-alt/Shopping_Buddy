@@ -5,6 +5,7 @@ import { moveNeedsApproval, type CatalogChangeOutcome } from '@/lib/product-subc
 import { subcategoriesOfItem } from '@/lib/product-subcategories'
 import type { ItemCategory } from '@/lib/types'
 import { syncProductClassificationToPurchases } from '@/lib/db/purchase-items'
+import { invalidateProductCatalogCache } from '@/lib/db/cache-invalidation'
 
 /** A household's hand-made subcategory choice for a shared catalog product. Applies it to the catalog
  *  at once while the product has had fewer than FREE_SUBCATEGORY_MOVES moves; after that it is stored
@@ -52,6 +53,7 @@ export async function proposeProductSubcategory(
   }
   await db.update(schema.products).set({ subcategoryId: target.id }).where(eq(schema.products.id, productId))
   await syncProductClassificationToPurchases(productId)
+  invalidateProductCatalogCache()
   await db.insert(schema.productSubcategoryChanges).values({ productId, householdId, fromSubcategoryId: product.subcategoryId, toSubcategoryId: target.id, status: 'applied' })
   return 'applied'
 }
@@ -97,6 +99,7 @@ export async function decideSubcategoryChange(changeId: string, approve: boolean
   if (approve) {
     await db.update(schema.products).set({ subcategoryId: change.toSubcategoryId }).where(eq(schema.products.id, change.productId))
     await syncProductClassificationToPurchases(change.productId)
+    invalidateProductCatalogCache()
   }
   return true
 }

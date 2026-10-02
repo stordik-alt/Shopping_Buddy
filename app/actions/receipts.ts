@@ -5,7 +5,8 @@ import { requireHouseholdId } from '@/lib/auth/authorize'
 import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
 import { invalidateProductPriceCache } from '@/lib/db/cache-invalidation'
-import { getProductCatalog, getPurchaseAftermath, getSubcategoryCatalog, getTickedListItems, recordPriceObservation, restockPantryItem, toReceiptImportState, upsertProductCatalogDefaults, type PurchaseAftermath, type ReceiptImportState, type TickedListItem } from '@/lib/db/queries'
+import { getPurchaseAftermath, getTickedListItems, recordPriceObservation, restockPantryItem, toReceiptImportState, upsertProductCatalogDefaults, type PurchaseAftermath, type ReceiptImportState, type TickedListItem } from '@/lib/db/queries'
+import { getProductCatalogCached, getSubcategoryCatalogCached } from '@/lib/db/cached-reads'
 import * as schema from '@/lib/db/schema'
 import { applyLearnedExpenseDefaults, recomputePurchaseExpenses } from '@/lib/db/purchase-items'
 import { isValidProductSubcategory } from '@/lib/product-subcategories'
@@ -253,8 +254,8 @@ async function createPurchaseFromReceiptItems(
   const date = resolveReceiptPurchaseDate(options.date, options.storedDate ?? null)
 
   // Only the candidates for these item names, not the whole catalog.
-  const catalog = await getProductCatalog(activeItems.map((item) => item.name))
-  const subcategories = await getSubcategoryCatalog()
+  const catalog = await getProductCatalogCached(activeItems.map((item) => item.name))
+  const subcategories = await getSubcategoryCatalogCached()
   const candidateAliases = await getAliasesForNames(activeItems.map((item) => normalizeProductText(item.name)))
   const subcategoryId = (category: ItemCategory, name: string | null | undefined) =>
     name ? subcategories.find((row) => row.category === category && row.name === name)?.id ?? null : null
@@ -675,7 +676,7 @@ async function runReceiptPipeline(
   // form (via toReceiptLineItems) and to decide whether an item's placement is actually resolvable
   // (via resolveItemPlacement) — see that function's doc comment for the catalog-first priority.
   // Only the candidates for the receipt's item names, not the whole catalog.
-  const catalog = await getProductCatalog(extracted.items.map((item) => item.name))
+  const catalog = await getProductCatalogCached(extracted.items.map((item) => item.name))
   // Store not resolved yet at this point in the pipeline (findOrCreateStoreLocation runs below) —
   // only global aliases can be considered for this first, pre-store-resolution preview.
   const previewAliases = await getAliasesForNames(extracted.items.map((item) => normalizeProductText(item.name)))

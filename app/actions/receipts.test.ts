@@ -42,7 +42,7 @@ vi.mock('@/lib/storage', () => {
   }
 })
 
-vi.mock('next/cache', () => ({ revalidatePath: () => {}, revalidateTag: () => {} }))
+vi.mock('next/cache', () => ({ revalidatePath: () => {}, revalidateTag: () => {}, unstable_cache: (fn: (...args: any[]) => any) => fn }))
 // Receipt storage is exercised through the production R2 abstraction, with a local in-memory S3 stub.
 process.env.R2_ACCOUNT_ID = 'test-account'
 process.env.R2_ACCESS_KEY_ID = 'test-access-key'

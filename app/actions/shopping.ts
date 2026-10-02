@@ -4,7 +4,8 @@ import { eq } from 'drizzle-orm'
 import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
 import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
-import { getProductCatalog, getProductPrices } from '@/lib/db/queries'
+import { getProductPrices } from '@/lib/db/queries'
+import { getProductCatalogCached } from '@/lib/db/cached-reads'
 import * as schema from '@/lib/db/schema'
 import { money } from '@/lib/format'
 import { createHouseholdNotification } from '@/lib/notify'
@@ -77,7 +78,7 @@ export async function addShoppingItemAction(
   // every consumer instead matched on the raw name string). Falls back to the typed name verbatim
   // when nothing matches, same as before.
   // Only the candidates for this one name, not the whole ~47,000-product catalog.
-  const catalog = await getProductCatalog([name])
+  const catalog = await getProductCatalogCached([name])
   const matchedProduct = matchProductByName(catalog, name)
   const canonicalName = matchedProduct?.name ?? name
 

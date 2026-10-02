@@ -23,6 +23,8 @@ export type PlanOffer = {
   productName: string
   /** What the needed quantity costs at this store (already reflects a promotion). */
   cost: number
+  /** Number of whole retail packages required for this need. */
+  packages: number
   /** Where the offer comes from: the user pinned this product, or it was picked automatically. */
   source: 'pinned' | 'auto'
 }
@@ -57,6 +59,8 @@ export type PlannedLine = {
   productId: string
   productName: string
   cost: number
+  /** Number of whole retail packages required for this need. */
+  packages: number
   source: 'pinned' | 'auto'
   /** What the same item costs at each other allowed store that offers it, cheapest first.
    *  `difference` is that store's cost minus this line's cost: positive = dearer there (the saving of
@@ -245,6 +249,7 @@ export function planShopping(needs: PlanNeed[], offers: PlanOffer[], settings: P
             productId: offer.productId,
             productName: offer.productName,
             cost: cents(offer.cost),
+            packages: offer.packages,
             source: offer.source,
             alternatives,
           }

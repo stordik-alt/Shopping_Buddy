@@ -86,6 +86,8 @@ export type PlanResult = {
   usedNearbySelection: boolean
   /** The package size of each offered product ("1 l"), keyed `needId|storeId`; null for piece-priced products. */
   packageSizes: Record<string, { value: number; unit: string } | null>
+  /** Number of whole retail packages required for each offered item. */
+  packageCounts: Record<string, number>
 }
 
 /** Builds a shopping plan for the household's not-yet-done shopping items (all its lists — the app
@@ -143,6 +145,7 @@ export async function buildShoppingPlan(householdId: string, memberId: string | 
 
   const offers: PlanOffer[] = []
   const packageSizes: PlanResult['packageSizes'] = {}
+  const packageCounts: PlanResult['packageCounts'] = {}
   needs.forEach((need, index) => {
     const byChain = new Map<string, ProductSearchHit[]>()
     for (const hit of autoHits[index]) byChain.set(hit.storeId, [...(byChain.get(hit.storeId) ?? []), hit])
@@ -160,8 +163,10 @@ export async function buildShoppingPlan(householdId: string, memberId: string | 
         if (auto) chosen = { hit: auto.hit, cost: auto.cost.cost, source: 'auto' }
       }
       if (!chosen) continue
-      offers.push({ needId: need.id, storeId, chain: chosen.hit.chain, productId: chosen.hit.productId, productName: chosen.hit.name, cost: chosen.cost, source: chosen.source })
+      offers.push({ needId: need.id, storeId, chain: chosen.hit.chain, productId: chosen.hit.productId, productName: chosen.hit.name, cost: chosen.cost, packages: costForNeed(need, chosen.hit)?.packages ?? 1, source: chosen.source })
+      const pricedChosen = costForNeed(need, chosen.hit)
       packageSizes[`${need.id}|${storeId}`] = packageSize(chosen.hit)
+      packageCounts[`${need.id}|${storeId}`] = pricedChosen?.packages ?? 1
     }
   })
 
@@ -171,5 +176,5 @@ export async function buildShoppingPlan(householdId: string, memberId: string | 
     { maxStores: request.maxStores, priorityStoreIds: request.priorityChainIds, allowedStoreIds: allowedIds },
   )
   plan.notes.push(...notes)
-  return { plan, allowedChains, usedNearbySelection, packageSizes }
+  return { plan, allowedChains, usedNearbySelection, packageSizes, packageCounts }
 }

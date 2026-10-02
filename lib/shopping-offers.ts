@@ -30,6 +30,8 @@ export type NeedCost = {
   cost: number
   /** How it was worked out: pro rata by unit price, or by whole packages of the product. */
   basis: 'per-unit' | 'per-package'
+  /** Number of whole retail packages required to cover the need. */
+  packages: number
 }
 
 const round = (value: number) => Math.round(value * 100) / 100
@@ -52,7 +54,7 @@ export function costForNeed(need: Pick<NeedSpec, 'quantity' | 'unit'>, hit: Pick
       const size = packageSize(hit)
       const piecesPerPackage = size?.unit === 'ks' ? size.value : 1
       const packages = Math.max(1, Math.ceil((need.quantity / piecesPerPackage) - Number.EPSILON))
-      return { cost: round(packages * hitPrice(hit)), basis: 'per-package' }
+      return { cost: round(packages * hitPrice(hit)), basis: 'per-package', packages }
     }
     case 'kg':
     case 'g': {
@@ -61,7 +63,7 @@ export function costForNeed(need: Pick<NeedSpec, 'quantity' | 'unit'>, hit: Pick
       const size = packageSize(hit)
       if (!size) return null
       const packages = Math.max(1, Math.ceil((kilograms / size.value) - Number.EPSILON))
-      return { cost: round(packages * hitPrice(hit)), basis: 'per-package' }
+      return { cost: round(packages * hitPrice(hit)), basis: 'per-package', packages }
     }
     case 'l':
     case 'ml': {
@@ -70,7 +72,7 @@ export function costForNeed(need: Pick<NeedSpec, 'quantity' | 'unit'>, hit: Pick
       const size = packageSize(hit)
       if (!size) return null
       const packages = Math.max(1, Math.ceil((litres / size.value) - Number.EPSILON))
-      return { cost: round(packages * hitPrice(hit)), basis: 'per-package' }
+      return { cost: round(packages * hitPrice(hit)), basis: 'per-package', packages }
     }
   }
 }

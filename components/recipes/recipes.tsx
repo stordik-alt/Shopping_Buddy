@@ -12,6 +12,7 @@ import type { RecipePantryRecommendation } from '@/lib/recipes/recommendations'
 import type { Household, PantryItem } from '@/lib/types'
 import type { SavedMealPlan } from '@/lib/db/queries'
 import type { Ingredient, MealType, WeeklyMealPlan } from '@/lib/meal-plans'
+import { MealPlan } from '@/components/dashboard/meal-plan'
 
 const SOURCES = [
   { id: '', name: 'Všechny zdroje' },

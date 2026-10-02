@@ -162,6 +162,7 @@ export function ShoppingPlanPanel({
                 <ul className="mt-1.5 flex flex-col gap-1.5">
                   {store.lines.map((line) => {
                     const size = packageLabel(result.packageSizes[`${line.needId}|${line.storeId}`])
+                    const packageCount = result.packageCounts[`${line.needId}|${line.storeId}`]
                     const alternatives = alternativesToShow(line)
                     return (
                       <li key={line.needId} className="rounded-lg bg-muted px-3 py-2 text-sm">
@@ -170,7 +171,7 @@ export function ShoppingPlanPanel({
                             <p className="break-words font-medium">{line.name}</p>
                             <p className="break-words text-xs text-muted-foreground">
                               Potřeba: {String(line.quantity).replace('.', ',')} {line.unit} · {line.productName}
-                              {size ? ` · balení ${size}` : ''}
+                              {size ? ` · ${packageCount ?? 1}× balení ${size}` : ''}
                               {line.source === 'pinned' && (
                                 <span className="ml-1.5 inline-flex items-center gap-0.5 font-medium text-primary">
                                   <Pin className="h-3 w-3" aria-hidden="true" /> vybráno vámi

@@ -245,10 +245,10 @@ export async function getHitsForProducts(productIds: string[], storeIds: string[
       AND pr.store_id IN (${sql.join(storeIds.map((id) => sql`${id}::uuid`), sql`, `)})
     ORDER BY pr.product_id, pr.store_id, coalesce(pr.last_confirmed_at, pr.observed_at) DESC, (pr.source_type = 'OFFICIAL') DESC
   `)
-  const productIds = [...new Set(priceRows.rows.map((row) => row.product_id))]
+  const resultProductIds = [...new Set(priceRows.rows.map((row) => row.product_id))]
   const [deals, packagesByProduct] = await Promise.all([
-    loadActiveDeals(productIds),
-    loadProductPackages(productIds),
+    loadActiveDeals(resultProductIds),
+    loadProductPackages(resultProductIds),
   ])
   return priceRows.rows.map((row) => rowToHit(row, deals, 0, true, packagesByProduct))
 }

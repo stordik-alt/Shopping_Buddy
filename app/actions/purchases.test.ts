@@ -10,7 +10,7 @@ let currentHouseholdId = ''
 vi.mock('@/lib/auth/authorize', () => ({ requireHouseholdId: () => Promise.resolve(currentHouseholdId) }))
 vi.mock('next/cache', () => ({ revalidatePath: () => {} }))
 
-import { completePurchaseAction, recordPurchaseAsExpenseAction, setPurchaseItemExpenseSplitsAction } from '@/app/actions/purchases'
+import { completePurchaseAction, createManualPurchaseAction, recordPurchaseAsExpenseAction, setPurchaseItemExpenseSplitsAction } from '@/app/actions/purchases'
 import { recomputePurchaseExpenses } from '@/lib/db/purchase-items'
 
 const db = getDb()
@@ -212,6 +212,28 @@ describe('setPurchaseItemExpenseSplitsAction', () => {
 
     const { expenses } = await setPurchaseItemExpenseSplitsAction(item.id, [{ category: 'Potraviny', subcategory: null, amount: 100 }])
     expect(expenses.every((expense) => expense.note !== 'cizí')).toBe(true)
+  })
+})
+
+describe('createManualPurchaseAction — classification', () => {
+  it('stores the chosen category and subcategory on the purchase and resulting expense', async () => {
+    try {
+    const name = `__test_manual_classification_${crypto.randomUUID()}`
+    const { purchase, expenses } = await createManualPurchaseAction({
+      date: '2026-09-27',
+      items: [{ name, quantity: 1, unit: 'ks', price: 150, category: 'Drogerie', subcategory: 'Kosmetika' }],
+      } finally {
+      await db.delete(schema.products).where(eq(schema.products.name, name))
+    }
+  })
+
+    const item = await db.query.purchaseItems.findFirst({ where: eq(schema.purchaseItems.purchaseId, purchase.id) })
+    const subcategory = await db.query.productSubcategories.findFirst({ where: eq(schema.productSubcategories.name, 'Kosmetika') })
+    expect(item?.category).toBe('Drogerie')
+    expect(item?.subcategoryId).toBe(subcategory?.id)
+    expect(expenses.filter((expense) => expense.purchaseId === purchase.id)).toEqual([
+      expect.objectContaining({ category: 'Drogerie', subcategory: 'Kosmetika', amount: 150 }),
+    ])
   })
 })
 

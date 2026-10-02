@@ -1346,6 +1346,7 @@ export type NamedPackageEvidence = {
  * INSERT ... ON CONFLICT statement to update the same target row twice. */
 export async function persistNamedPackageEvidence(evidence: NamedPackageEvidence[]): Promise<number> {
   if (evidence.length === 0) return 0
+  const db = getDb()
 
   const unique = new Map<string, {
     productId: string

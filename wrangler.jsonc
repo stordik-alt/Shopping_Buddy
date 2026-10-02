@@ -25,8 +25,6 @@
   // Variables set in the Cloudflare dashboard are kept on deploy instead of being wiped.
   "keep_vars": true,
   "vars": {
-    // Receipt files are already on R2 (docs/cloudflare-r2.md); the other R2_* values are secrets.
-    "STORAGE_PROVIDER": "r2"
   },
   // Workers Paid is required: 30 cron schedules (Free allows 5 per account) and price-ingestion jobs
   // that run for minutes (Free allows 10 ms CPU per invocation). 5 minutes is the Paid maximum.

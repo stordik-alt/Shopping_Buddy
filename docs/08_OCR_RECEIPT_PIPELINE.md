@@ -377,6 +377,12 @@ pre-existing missing-field/inconsistent-math checks. The review form
 select per item — blank when genuinely ambiguous, pre-filled otherwise — and the confirm button
 stays disabled until every item has a location and a date.
 
+**Classification at import.** The manual receipt-entry form and every OCR review path expose both
+category and subcategory for each line. Manual imports are marked as human classification server-side;
+during OCR review, changing either field marks that line as a manual correction. A marked correction
+is authoritative for that purchase even when a matching product already has a different catalog
+classification, and the confirmed value is then eligible to be remembered by the shared product
+catalog. An untouched automatic OCR line keeps the catalog/deterministic classification priority.
 **Corrections are remembered.** Confirming a manual entry or a review
 (`lib/db/queries.ts`'s `upsertProductCatalogDefaults()`) writes the confirmed category/unit/location
 back into the `products` table (`default_location`, a new nullable column; `default_unit` already

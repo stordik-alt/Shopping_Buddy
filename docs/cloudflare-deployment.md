@@ -11,7 +11,7 @@ is account setup, staging tests and the cutover.
 
 | File | Purpose |
 |---|---|
-| `open-next.config.ts` | OpenNext config. Next's data cache (and the few prerendered pages) in the R2 bucket `shopping-buddy-next-cache`, so `unstable_cache` in `lib/db/cached-reads.ts` works as on Vercel (see "Data cache" below). No tag cache, queue or Durable Object: the app has no `revalidateTag` and no ISR |
+| `open-next.config.ts` | OpenNext config. Next's data cache (and the few prerendered pages) lives in the R2 bucket `shopping-buddy-next-cache`, so `unstable_cache` in `lib/db/cached-reads.ts` works as on Vercel (see "Data cache" below). Global catalog caches also use Next cache tags for explicit invalidation after successful ingestion or catalog mutations; no queue or Durable Object is required |
 | `wrangler.jsonc` | Worker `shopping-buddy` plus `env.staging` (`shopping-buddy-staging`, no crons). Each has its own data-cache bucket (`NEXT_INC_CACHE_R2_BUCKET`). Also sets `nodejs_compat`, `STORAGE_PROVIDER=r2`, `limits.cpu_ms` 300000, logs, and the 26 cron triggers |
 | `cloudflare/worker.ts` | Worker entry: OpenNext's `fetch` plus a `scheduled()` handler for Cron Triggers |
 | `cloudflare/cron.ts` | Maps a fired cron expression to its path(s) in `vercel.json`, which stays the one list of jobs. Calls the route with `Authorization: Bearer $CRON_SECRET`, like Vercel Cron |
@@ -194,7 +194,7 @@ On Vercel, `pnpm build` applies pending migrations for production deployments on
 
 ## Data cache
 
-`lib/db/cached-reads.ts` caches the page's global reads for 15 minutes with `unstable_cache`, because Neon's free network transfer ran out. On Vercel this uses the platform's data cache. On Cloudflare it uses OpenNext's R2 incremental cache (`open-next.config.ts`, binding `NEXT_INC_CACHE_R2_BUCKET`), so the reads stay cached after the move (2026-09-26; before that the prepared build had a read-only cache and these reads ran uncached). Entries expire by their `revalidate` time only. R2 operations fit the free tier at this app's traffic. Not yet verified against a real bucket: check on staging that a second page render within 15 minutes does not query prices again (Neon's query log or the Worker's R2 metrics).
+`lib/db/cached-reads.ts` uses `unstable_cache` for global catalog reads. Entries have a one-day safety `revalidate`, but the catalog is primarily refreshed by explicit cache-tag invalidation after successful ingestion or catalog mutations. Product, price/offer, deal, store and recipe caches have separate tags, so a CRON only invalidates the global data it can change. User/household-specific data is not placed in these shared caches. On Vercel this uses the platform data cache; on Cloudflare it uses OpenNext's R2 incremental cache (`open-next.config.ts`, binding `NEXT_INC_CACHE_R2_BUCKET`). Not yet verified against a real bucket: staging should confirm both cache reuse and tag-driven refresh after an ingestion run.
 
 ## Building on Windows
 

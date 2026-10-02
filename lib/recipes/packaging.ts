@@ -1,11 +1,18 @@
 import type { PricePoint } from '@/lib/prices'
 import type { ItemUnit } from '@/lib/types'
 
+export type PackageSource = 'catalog' | 'derived-from-price'
+
 export type StandardPackage = {
   quantity: number
   unit: 'ks' | 'kg' | 'l'
   label: string
-  source: 'derived-from-price'
+  source: PackageSource
+}
+
+export type CatalogPackage = {
+  quantity: number
+  unit: 'kg' | 'l'
 }
 
 /**
@@ -60,4 +67,29 @@ export function canonicalPackageUnit(unit: ItemUnit): 'ks' | 'kg' | 'l' | null {
   if (unit === 'g') return 'kg'
   if (unit === 'ml') return 'l'
   return null
+}
+
+/**
+ * Uses the persistent package catalog only when the current price observation agrees with a known
+ * canonical package size. This avoids guessing between multiple package sizes of the same product.
+ * If there is no exact catalog match, callers can safely fall back to inferPackageSize().
+ */
+export function resolveCatalogPackageSize(
+  packages: CatalogPackage[],
+  price: { regularPrice: number; unit: ItemUnit; unitPrice: number },
+): StandardPackage | null {
+  const inferred = inferPackageSize(price)
+  if (!inferred || inferred.unit === 'ks') return null
+
+  const match = packages.find((candidate) =>
+    candidate.unit === inferred.unit && Math.abs(candidate.quantity - inferred.quantity) < 0.0005,
+  )
+  if (!match) return null
+
+  return {
+    quantity: match.quantity,
+    unit: match.unit,
+    label: formatPackageSize(match.quantity, match.unit),
+    source: 'catalog',
+  }
 }

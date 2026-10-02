@@ -17,6 +17,7 @@ import { inferPackageSize, resolveCatalogPackageSize, resolveNamedPackageSize } 
 import { distinctProductName, resolveProductForSku, type ProductCatalogEntry } from '@/lib/products'
 import { normalizeSearchText } from '@/lib/product-search'
 import { isReceiptStalled } from '@/lib/receipt-progress'
+import { invalidateProductCatalogCache } from '@/lib/db/cache-invalidation'
 import type { RecurringInterval, RecurringOccurrence, RecurringPayment } from '@/lib/recurring-payments'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import type {

@@ -167,6 +167,8 @@ export function mergeIngestResults(a: IngestResult, b: IngestResult): IngestResu
     skipped: a.skipped + b.skipped,
     unchanged: a.unchanged + b.unchanged,
     priceChanges: a.priceChanges + b.priceChanges,
+    priceCacheChanged: a.priceCacheChanged || b.priceCacheChanged,
+    dealsCacheChanged: a.dealsCacheChanged || b.dealsCacheChanged,
     truncated: a.truncated || b.truncated,
     errors: [...a.errors, ...b.errors],
   }

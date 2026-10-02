@@ -1,3 +1,10 @@
+## 2026-10-02 (Persistent package learning from explicit product names — phase 4)
+- **What:** price ingestion now batches explicit, price-consistent weight/volume package evidence into the persistent `product_packages` catalog.
+- **Promotion:** when the exact name-derived size already exists as a ratio-derived package, its source is promoted to `name-extracted` and confidence to 0.98; when rounding differences produce a nearby but distinct canonical size, the verified name size is added as a separate catalog row.
+- **Safety:** the same product-name evidence is persisted only when `regularPrice / unitPrice` agrees within the existing 2% tolerance. Receipt prices are not used for this learning.
+- **Performance:** evidence is collected during the existing ingestion pass and written with one batched upsert after the product loop, avoiding a new database round trip per product.
+- **Coverage:** added a database-backed regression test for promotion, new-date observation counting and idempotent same-date behavior.
+
 ## 2026-10-02 (Explicit package-size evidence — phase 3)
 - **What:** price/search resolution now reads explicit package markers from catalog product names after persistent product-level package evidence and before the generic price-ratio fallback.
 - **Multipacks:** expressions such as `8x 100 g`, `6x 0,33 l` and explicit `10 ks` are canonicalized to the full retail package size; the inner `100 g` is not treated as a standalone package when it belongs to a multipack.

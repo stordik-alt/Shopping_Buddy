@@ -1513,9 +1513,9 @@ Once approved, finished what was left mid-flight:
 
 ---
 
-## 2026-10-01 — Recipe measures, package standardization and usage-based recipe pricing
+## 2026-10-02 — Persistent learning of explicit package sizes
 
-Started the next recipe-pricing block on `fix/recipe-ingredient-normalization`. Recipe costs now resolve culinary measures before applying the stored product unit price: teaspoon/tablespoon may resolve to ingredient-specific grams or standard millilitres; pinch uses an ingredient-specific estimate when available and a generic fallback otherwise. Estimates are explicitly flagged in `RecipeIngredientPrice`. Retail package size can be derived from package price divided by comparable unit price and normalized to `kg`, `l` or `ks`. Added pure domain helpers and tests in `lib/recipes/measurements.ts` and `lib/packaging.ts`; documentation updated in `02_ARCHITECTURE` and `05_BUSINESS_RULES`. This is intentionally a runtime standardization step; persistent product-variant/package-size storage remains a later catalog-model task.
+The package standardization path now has a persistent `product_packages` catalog (migration `0057`) and a second learning step during official price ingestion. When a product name explicitly contains a weight/volume package size and that size agrees with the current package-price/unit-price ratio within 2%, the evidence is batch-upserted into `product_packages` with source `name-extracted` and confidence 0.98. This can promote a ratio-derived row or add a nearby canonical size when rounding would otherwise lose the explicit value. Receipt prices are excluded. Explicit `N ks` piece counts remain runtime name evidence only; the persistent catalog still intentionally stores kg/l so a piece-priced product cannot be mistaken for a multipack without a first-class package/SKU model.
 
 # 34. Current Development Principle
 

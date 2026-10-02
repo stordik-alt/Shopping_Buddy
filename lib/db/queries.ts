@@ -1332,6 +1332,80 @@ export async function recordPriceObservation(observation: {
   return row
 }
 
+export type NamedPackageEvidence = {
+  productId: string
+  name: string
+  regularPrice: number
+  unit: ItemUnit
+  unitPrice: number
+  observedAt: string
+}
+
+/** Promotes explicit, price-consistent weight/volume package sizes from product names into the
+ * persistent package catalog. The batch is deduplicated because PostgreSQL does not allow one
+ * INSERT ... ON CONFLICT statement to update the same target row twice. */
+export async function persistNamedPackageEvidence(evidence: NamedPackageEvidence[]): Promise<number> {
+  if (evidence.length === 0) return 0
+  const db = getDb()
+
+  const unique = new Map<string, {
+    productId: string
+    quantity: number
+    unit: 'kg' | 'l'
+    observedAt: string
+  }>()
+
+  for (const item of evidence) {
+    const packageSize = resolveNamedPackageSize(item.name, {
+      regularPrice: item.regularPrice,
+      unit: item.unit,
+      unitPrice: item.unitPrice,
+    })
+    if (!packageSize || packageSize.unit === 'ks') continue
+
+    const quantity = Math.round(packageSize.quantity * 1000) / 1000
+    if (!Number.isFinite(quantity) || quantity <= 0) continue
+
+    const key = item.productId + ':' + packageSize.unit + ':' + quantity
+    const existing = unique.get(key)
+    if (!existing || item.observedAt > existing.observedAt) {
+      unique.set(key, {
+        productId: item.productId,
+        quantity,
+        unit: packageSize.unit,
+        observedAt: item.observedAt,
+      })
+    }
+  }
+
+  const rows = [...unique.values()]
+  if (rows.length === 0) return 0
+
+  await db
+    .insert(schema.productPackages)
+    .values(rows.map((row) => ({
+      productId: row.productId,
+      quantity: row.quantity,
+      unit: row.unit,
+      source: 'name-extracted',
+      confidence: 0.98,
+      firstSeenAt: row.observedAt,
+      lastSeenAt: row.observedAt,
+      observationCount: 1,
+    })))
+    .onConflictDoUpdate({
+      target: [schema.productPackages.productId, schema.productPackages.quantity, schema.productPackages.unit],
+      set: {
+        source: 'name-extracted',
+        confidence: sql`GREATEST(${schema.productPackages.confidence}, 0.980)`,
+        firstSeenAt: sql`LEAST(${schema.productPackages.firstSeenAt}, EXCLUDED.first_seen_at)`,
+        lastSeenAt: sql`GREATEST(${schema.productPackages.lastSeenAt}, EXCLUDED.last_seen_at)`,
+      },
+    })
+
+  return rows.length
+}
+
 /** The latest stored official observation per retailer SKU (`source_reference`) at one store —
  *  loaded once per ingestion run so `recordOfficialPrice()` needs no lookup of its own per product
  *  (each lookup is a database round trip). Keyed by the SKU. */

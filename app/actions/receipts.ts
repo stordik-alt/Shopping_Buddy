@@ -8,6 +8,7 @@ import { invalidateProductPriceCache } from '@/lib/db/cache-invalidation'
 import { getProductCatalog, getPurchaseAftermath, getSubcategoryCatalog, getTickedListItems, recordPriceObservation, restockPantryItem, toReceiptImportState, upsertProductCatalogDefaults, type PurchaseAftermath, type ReceiptImportState, type TickedListItem } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
 import { applyLearnedExpenseDefaults, recomputePurchaseExpenses } from '@/lib/db/purchase-items'
+import { isValidProductSubcategory } from '@/lib/product-subcategories'
 import { getAliasesForNames, recordProductAlias } from '@/lib/db/product-aliases'
 import { AUTO_ACCEPT_THRESHOLD, matchProduct } from '@/lib/categorization'
 import { applyConfirmedReceiptListPairs, autoCheckShoppingListFromPurchase, getReceiptListSuggestions, type ReceiptListSuggestion } from '@/lib/db/receipt-list'
@@ -47,6 +48,7 @@ import { deleteReceiptFile, getReceiptFile, putReceiptFile } from '@/lib/storage
 import type { ItemCategory, PurchaseRecord } from '@/lib/types'
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024 // 10 MB
+const ITEM_CATEGORIES = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní'] as const
 
 
 /** Fallback for a stored file whose bytes are not recognisable (see detectReceiptFileType) — the
@@ -230,6 +232,16 @@ async function createPurchaseFromReceiptItems(
   // below, which still counts as an expense; a *removed* line was rejected by the household outright.
   const activeItems = items.filter((item) => !item.removed)
   if (activeItems.length === 0) throw new Error('Receipt has no items')
+  // Classification is part of the import contract too: every client-supplied category/subcategory
+  // must belong to the fixed product taxonomy before it can reach purchase_items or the shared catalog.
+  for (const item of activeItems) {
+    if (!(ITEM_CATEGORIES as readonly string[]).includes(item.category)) {
+      throw new Error('Neplatná kategorie u položky „' + item.name + '“.')
+    }
+    if (item.subcategory != null && !isValidProductSubcategory(item.category, item.subcategory)) {
+      throw new Error('Neplatná podkategorie u položky „' + item.name + '“.')
+    }
+  }
   // Reject impossible discounts explicitly (a reviewer can type anything) instead of storing a
   // negative price or silently clamping it.
   for (const item of activeItems) {
@@ -263,7 +275,7 @@ async function createPurchaseFromReceiptItems(
         productId: catalogEntry?.id ?? null,
         category,
         location: placement?.location ?? item.location,
-        subcategory: catalogEntry?.subcategory ?? item.subcategory,
+        subcategory: (manuallyClassified ? subcategory : (catalogEntry?.subcategory ?? item.subcategory)) ?? undefined,
         nonInventory: catalogEntry?.isNonInventory ?? item.nonInventory ?? false,
       }
     }
@@ -273,8 +285,11 @@ async function createPurchaseFromReceiptItems(
     // (see upsertProductCatalogDefaults below) — for a *new* product, there's no catalog entry to
     // override, so the typed category always applies. Location, which manual entry has no field
     // for at all, still prefers an explicit value (from a review form) before falling back.
-    const location = item.location ?? catalogEntry?.defaultLocation ?? inferPantryLocation(item.category, item.name) ?? 'Spíž'
-    const category = catalogEntry?.category ?? item.category
+    // An explicit category/subcategory change made by the household is authoritative for this purchase.
+    const manuallyClassified = item.classificationSource === 'manual'
+    const category = manuallyClassified ? item.category : (catalogEntry?.category ?? item.category)
+    const subcategory = manuallyClassified ? (item.subcategory ?? null) : (catalogEntry?.subcategory ?? item.subcategory ?? null)
+    const location = item.location ?? catalogEntry?.defaultLocation ?? inferPantryLocation(category, item.name) ?? 'Spíž'
     return {
       ...item,
       productId: catalogEntry?.id ?? null,
@@ -448,7 +463,9 @@ export async function importReceiptAction(
   options: { date?: string; storeLocationId?: string; storeName?: string; currency?: string } = {},
 ): Promise<{ purchase: PurchaseRecord; aftermath: PurchaseAftermath }> {
   const householdId = await requireHouseholdId()
-  const purchase = await createPurchaseFromReceiptItems(householdId, items, { ...options, source: 'confirmed' })
+  // This action is explicitly the manual import path, so its classification is authoritative.
+  const manualItems = items.map((item) => ({ ...item, classificationSource: 'manual' as const }))
+  const purchase = await createPurchaseFromReceiptItems(householdId, manualItems, { ...options, source: 'confirmed' })
 
   const db = getDb()
   await db.insert(schema.receiptImports).values({
@@ -458,7 +475,7 @@ export async function importReceiptAction(
     storeLocationId: options.storeLocationId,
     date: options.date ?? todayInPrague(),
     source: 'manual',
-    items: JSON.stringify(items),
+    items: JSON.stringify(manualItems),
     purchaseId: purchase.id,
     processedAt: new Date(),
   })

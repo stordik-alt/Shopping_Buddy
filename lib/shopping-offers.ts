@@ -52,7 +52,7 @@ export function costForNeed(need: Pick<NeedSpec, 'quantity' | 'unit'>, hit: Pick
       const size = packageSize(hit)
       const piecesPerPackage = size?.unit === 'ks' ? size.value : 1
       const packages = Math.max(1, Math.ceil((need.quantity / piecesPerPackage) - Number.EPSILON))
-      return { cost: round(packages * hitPrice(hit)), basis: 'per-package' }
+      return { cost: round(packages * hitPrice(hit)), basis: 'per-package', packages }
     }
     case 'kg':
     case 'g': {
@@ -61,7 +61,7 @@ export function costForNeed(need: Pick<NeedSpec, 'quantity' | 'unit'>, hit: Pick
       const size = packageSize(hit)
       if (!size) return null
       const packages = Math.max(1, Math.ceil((kilograms / size.value) - Number.EPSILON))
-      return { cost: round(packages * hitPrice(hit)), basis: 'per-package' }
+      return { cost: round(packages * hitPrice(hit)), basis: 'per-package', packages }
     }
     case 'l':
     case 'ml': {
@@ -70,7 +70,7 @@ export function costForNeed(need: Pick<NeedSpec, 'quantity' | 'unit'>, hit: Pick
       const size = packageSize(hit)
       if (!size) return null
       const packages = Math.max(1, Math.ceil((litres / size.value) - Number.EPSILON))
-      return { cost: round(packages * hitPrice(hit)), basis: 'per-package' }
+      return { cost: round(packages * hitPrice(hit)), basis: 'per-package', packages }
     }
   }
 }

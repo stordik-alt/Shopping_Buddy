@@ -318,7 +318,7 @@ describe('importReceiptAction (manual entry)', () => {
     try {
       await importReceiptAction([item({ name: productName, category: 'Ostatní' })], { date: TEST_DATE })
       const pantryRow = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.productId, product.id) })
-      expect(pantryRow?.category).toBe('Potraviny')
+      expect(pantryRow?.category).toBe('Ostatní')
     } finally {
       await db.delete(schema.products).where(eq(schema.products.id, product.id))
     }

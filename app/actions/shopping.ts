@@ -77,7 +77,7 @@ export async function addShoppingItemAction(
   // every consumer instead matched on the raw name string). Falls back to the typed name verbatim
   // when nothing matches, same as before.
   // Only the candidates for this one name, not the whole ~47,000-product catalog.
-  const catalog = await getProductCatalog([name])
+  const catalog = await getProductCatalogCached([name])
   const matchedProduct = matchProductByName(catalog, name)
   const canonicalName = matchedProduct?.name ?? name
 

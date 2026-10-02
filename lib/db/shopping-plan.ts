@@ -4,7 +4,7 @@ import { getMemberStoreSelection, getStoreChains } from '@/lib/db/member-store-p
 import { getHitsForProducts, searchProductHitsBatch } from '@/lib/db/product-search'
 import * as schema from '@/lib/db/schema'
 import { EMPTY_STORE_SELECTION, hasStoreSelection, MAX_SHOP_STORES } from '@/lib/nearby-stores'
-import { searchTokens, type ProductSearchHit } from '@/lib/product-search'
+import { searchTokens } from '@/lib/product-search'
 import { costForNeed, packageSize, pickAutoHit, type NeedSpec } from '@/lib/shopping-offers'
 import { planShopping, type PlanOffer, type ShoppingPlan } from '@/lib/shopping-plan'
 
@@ -86,21 +86,6 @@ export type PlanResult = {
   usedNearbySelection: boolean
   /** The package size of each offered product ("1 l"), keyed `needId|storeId`; null for piece-priced products. */
   packageSizes: Record<string, { value: number; unit: string } | null>
-}
-
-/** Runs a few async jobs at a time, keeping the order of results. */
-async function mapWithConcurrency<T, R>(items: T[], limit: number, work: (item: T) => Promise<R>): Promise<R[]> {
-  const results: R[] = new Array(items.length)
-  let next = 0
-  await Promise.all(
-    Array.from({ length: Math.min(limit, items.length) }, async () => {
-      while (next < items.length) {
-        const index = next++
-        results[index] = await work(items[index])
-      }
-    }),
-  )
-  return results
 }
 
 /** Builds a shopping plan for the household's not-yet-done shopping items (all its lists — the app

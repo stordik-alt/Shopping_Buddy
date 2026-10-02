@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 
-const storageFiles = new Map<string, { body: Buffer; contentType: string }>()
+const storageFiles = vi.hoisted(() => new Map<string, { body: Buffer; contentType: string }>())
 vi.mock('@/lib/storage', () => ({
   putReceiptFile: async (householdId: string, body: Buffer, file: { extension: string; mimeType: string }) => {
     const ref = `r2:receipts/${householdId}/${crypto.randomUUID()}.${file.extension}`

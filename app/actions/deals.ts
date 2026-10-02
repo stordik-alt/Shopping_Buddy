@@ -1,7 +1,8 @@
 'use server'
 
 import { requireHousehold } from '@/lib/auth/authorize'
-import { getDealsPage, type DealsPage } from '@/lib/db/deals'
+import { type DealsPage } from '@/lib/db/deals'
+import { getDealsPageCached } from '@/lib/db/cached-reads'
 import { isDealCategoryFilter, isDealSort, MAX_DEALS_QUERY_LENGTH, type DealCategoryFilter, type DealSort } from '@/lib/deals-browse'
 
 // The Akce tab's paged, categorized browsing of today's promotions. Price/deal data is global (not

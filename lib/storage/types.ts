@@ -1,8 +1,8 @@
 // Provider-neutral receipt file storage (docs/cloudflare-migration-architecture.md).
 // Receipts are the only files the app stores. The rest of the app talks to `lib/storage` only, never
-// to `@vercel/blob` or R2 directly, so the provider can change without touching the pipeline.
+directly to the R2 implementation, so the provider can change without touching the pipeline.
 
-export type StorageProvider = 'vercel_blob' | 'r2'
+export type StorageProvider = 'r2'
 
 /** A stored file as read back from a provider. */
 export type StoredFile = {

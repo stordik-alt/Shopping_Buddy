@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm'
 import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
-import { isDirectMatch, likePattern, scoreMatch, searchStem, searchStems, splitTokens, toComparableUnit, type ProductSearchHit } from '@/lib/product-search'
+import { isDirectMatch, likePattern, normalizeSearchText, scoreMatch, searchStem, searchStems, splitTokens, toComparableUnit, type ProductSearchHit } from '@/lib/product-search'
 import type { ItemCategory, ItemUnit } from '@/lib/types'
 
 // Text search over the products the chains have prices for (lib/product-search.ts has the rules).

@@ -200,7 +200,7 @@ export async function createManualPurchaseAction(input: {
       name: item.name,
       category: item.category,
       unit: item.unit,
-      location: inferPantryLocation(item.category, item.name) ?? 'Spíž',
+      location: item.product?.defaultLocation ?? inferPantryLocation(item.category, item.name) ?? 'Spíž',
       subcategory: item.subcategory,
       isNonInventory: item.product?.isNonInventory,
     })

@@ -396,6 +396,6 @@ Culinary measures are resolved before pricing:
 - `stroužek`: ingredient-specific mass is currently supported for garlic.
 - unsupported or genuinely unquantifiable expressions such as `podle chuti` remain unpriced.
 
-Retail package size is standardized independently from recipe consumption. If no explicit package size is available, the domain layer derives it from package price divided by comparable unit price and exposes a canonical `kg`, `l` or `ks` label.
+Retail package size is standardized independently from recipe consumption. The persistent `product_packages` catalog is now read by price queries when the current package price/unit-price ratio matches a known canonical size; otherwise the domain layer safely falls back to deriving the size from package price divided by comparable unit price. The resolved value is canonicalized to `kg`, `l` or `ks` for display/comparison.
 
-The UI marks recipe costs that depend on an estimated culinary measure and can show the derived retail package size. Estimated values must never be presented as exact measurements.
+The UI marks recipe costs that depend on an estimated culinary measure and can show the resolved retail package size. Recipe cost itself still uses the amount actually consumed and must not be replaced by the whole package price.

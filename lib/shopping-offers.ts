@@ -16,7 +16,10 @@ export type NeedSpec = {
 
 /** The size of one package of a hit, in its comparable unit ("1 l", "0.85 kg"): regular price ÷
  *  unit price. `null` for a piece-priced product, where one package is one piece. */
-export function packageSize(hit: Pick<ProductSearchHit, 'regularPrice' | 'unitPrice' | 'unit'>): { value: number; unit: ItemUnit } | null {
+export function packageSize(hit: Pick<ProductSearchHit, 'regularPrice' | 'unitPrice' | 'unit' | 'packageSize'>): { value: number; unit: ItemUnit } | null {
+  if (hit.packageSize && hit.packageSize.unit !== 'ks') {
+    return { value: hit.packageSize.quantity, unit: hit.packageSize.unit }
+  }
   if (hit.unit === 'ks' || hit.unitPrice <= 0) return null
   return { value: Math.round((hit.regularPrice / hit.unitPrice) * 1000) / 1000, unit: hit.unit }
 }

@@ -13,6 +13,7 @@ import { checkinSubcategoryKey, inferPantryLocation } from '@/lib/pantry'
 import { restockedQuantity } from '@/lib/pantry-estimate'
 import { formatOpeningHours } from '@/lib/stores/osm'
 import type { ProductPrice } from '@/lib/prices'
+import { inferPackageSize, resolveCatalogPackageSize } from '@/lib/recipes/packaging'
 import { distinctProductName, resolveProductForSku, type ProductCatalogEntry } from '@/lib/products'
 import { normalizeSearchText } from '@/lib/product-search'
 import { isReceiptStalled } from '@/lib/receipt-progress'
@@ -1125,6 +1126,19 @@ export async function getProductPrices(scope: ProductPriceScope): Promise<Produc
         orderBy: asc(schema.prices.observedAt),
       })
 
+  const packageRows = productIds.length === 0
+    ? []
+    : await db
+        .select({ productId: schema.productPackages.productId, quantity: schema.productPackages.quantity, unit: schema.productPackages.unit })
+        .from(schema.productPackages)
+        .where(inArray(schema.productPackages.productId, productIds))
+  const packagesByProduct = new Map<string, { quantity: number; unit: 'kg' | 'l' }[]>()
+  for (const row of packageRows) {
+    const list = packagesByProduct.get(row.productId) ?? []
+    if (row.unit === 'kg' || row.unit === 'l') list.push({ quantity: Number(row.quantity), unit: row.unit })
+    packagesByProduct.set(row.productId, list)
+  }
+
   const pricesByProduct = new Map<string, typeof prices>()
   for (const price of prices) {
     const list = pricesByProduct.get(price.productId) ?? []
@@ -1189,6 +1203,15 @@ export async function getProductPrices(scope: ProductPriceScope): Promise<Produc
             dealValidUntil: deal?.validUntil,
             unit: price.unit,
             unitPrice: Number(price.unitPrice),
+            packageSize: resolveCatalogPackageSize(packagesByProduct.get(product.id) ?? [], {
+              regularPrice: Number(price.regularPrice),
+              unit: price.unit,
+              unitPrice: Number(price.unitPrice),
+            }) ?? inferPackageSize({
+              regularPrice: Number(price.regularPrice),
+              unit: price.unit,
+              unitPrice: Number(price.unitPrice),
+            }),
             recordedAt: price.observedAt,
             priceHistory: observations.map((observation) => ({
               price: Number(observation.regularPrice),

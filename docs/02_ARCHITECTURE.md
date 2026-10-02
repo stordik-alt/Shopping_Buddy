@@ -85,6 +85,8 @@ At minimum plan for:
 ## Recipe pricing and packaging standardization — 2026-10-01
 
 Recipe cost calculation uses the actual amount consumed, not the price of the whole retail package. A stored product price contains a package price and a comparable unit price; the recipe cost engine multiplies the consumed quantity by that unit price.
+Package sizes are backed by the shared `product_packages` catalog. Price/search queries resolve a catalog size only when it agrees with the current observation's package/unit-price ratio; otherwise they retain the derived runtime size as a fallback. Shopping-plan whole-package purchasing uses that resolved size.
+
 
 Recipe culinary measures are normalized before pricing:
 - exact units remain exact (`g`, `kg`, `ml`, `l`, `ks`);

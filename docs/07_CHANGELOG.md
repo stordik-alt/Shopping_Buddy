@@ -1,3 +1,10 @@
+## 2026-10-02 (Automatic product package catalog — phase 2)
+- **What:** the persistent `product_packages` catalog is now read by the normal price-query and product-search paths instead of being write-only schema.
+- **Resolution rule:** a stored package is used only when the current price observation agrees with that canonical size; otherwise the existing runtime derivation remains the fallback. This prevents choosing the wrong size when one product has multiple recorded packages.
+- **Shopping plan:** whole-package cost calculation now prefers the resolved catalog package size, while keeping the existing kg↔g and l↔ml conversion and promotion-price rules.
+- **Recipe pricing:** recipe cost still charges only the amount actually consumed. The catalog is used for package-size display/evidence, not to inflate a recipe cost to a whole retail package.
+- **Tests:** added pure package-resolution coverage and a database-backed check that `getProductPrices()` exposes catalog evidence.
+
 ## 2026-10-02 (Recipes / Meal Plan navigation)
 - **What:** moved the main Jídelníček experience out of the Dashboard and into the Recepty section as a top-level `Recepty / Jídelníček` switch.
 - **Navigation:** the existing main navigation remains unchanged; Jídelníček stays available from **Více**. The Dashboard no longer renders a duplicate full meal-plan card.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatPackageSize, inferPackageSize } from '@/lib/recipes/packaging'
+import { formatPackageSize, inferPackageSize, resolveCatalogPackageSize } from '@/lib/recipes/packaging'
 import type { PricePoint } from '@/lib/prices'
 
 const price = (regularPrice: number, unitPrice: number, unit: PricePoint['unit'] = 'kg'): PricePoint => ({
@@ -42,6 +42,25 @@ describe('recipe package standardization', () => {
       unit: 'ks',
       label: '1 ks',
     })
+  })
+
+  it('prefers a matching persistent package over the derived runtime value', () => {
+    expect(resolveCatalogPackageSize(
+      [{ quantity: 0.25, unit: 'kg' }],
+      price(39.9, 159.6, 'kg'),
+    )).toMatchObject({
+      quantity: 0.25,
+      unit: 'kg',
+      label: '250 g',
+      source: 'catalog',
+    })
+  })
+
+  it('does not choose a different catalog size when the current price does not match it', () => {
+    expect(resolveCatalogPackageSize(
+      [{ quantity: 0.5, unit: 'kg' }],
+      price(39.9, 159.6, 'kg'),
+    )).toBeNull()
   })
 
   it('formats canonical package labels', () => {

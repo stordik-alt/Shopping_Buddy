@@ -25,6 +25,15 @@ describe('packageSize', () => {
     expect(packageSize(hit({ regularPrice: 39.9, unitPrice: 159.6, unit: 'kg' }))).toEqual({ value: 0.25, unit: 'kg' })
   })
 
+  it('prefers the persistent catalog size when it is present', () => {
+    expect(packageSize(hit({
+      regularPrice: 39.9,
+      unitPrice: 159.6,
+      unit: 'kg',
+      packageSize: { quantity: 0.25, unit: 'kg', label: '250 g', source: 'catalog' },
+    }))).toEqual({ value: 0.25, unit: 'kg' })
+  })
+
   it('is null for a piece-priced product or a zero unit price', () => {
     expect(packageSize(hit({ unit: 'ks' }))).toBeNull()
     expect(packageSize(hit({ unitPrice: 0 }))).toBeNull()

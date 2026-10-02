@@ -1,4 +1,5 @@
 import type { Item, ItemCategory, ItemUnit, StoreChain } from '@/lib/types'
+import type { StandardPackage } from '@/lib/recipes/packaging'
 
 export type PriceSourceType = 'RECEIPT' | 'OFFICIAL' | 'FLYER' | 'API' | 'OTHER'
 export type PriceScope = 'STORE' | 'STORE_FORMAT' | 'REGION' | 'CHAIN'
@@ -26,6 +27,8 @@ export type PricePoint = {
   dealValidUntil?: string
   unit: ItemUnit
   unitPrice: number
+  /** Persistent package evidence when the current price agrees with the product package catalog. */
+  packageSize?: StandardPackage | null
   recordedAt: string
   /** Every regular-price observation recorded for this product at this store, oldest first,
    *  including the current one (`regularPrice`/`recordedAt` above). Empty/undefined when only one

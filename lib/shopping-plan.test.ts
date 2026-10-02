@@ -9,6 +9,7 @@ const offer = (needId: string, storeId: string, cost: number, extra: Partial<Pla
   productId: `${storeId}-${needId}`,
   productName: `${needId} @ ${storeId}`,
   cost,
+  packages: 1,
   source: 'auto',
   ...extra,
 })

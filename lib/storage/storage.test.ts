@@ -46,7 +46,6 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals()
-  delete process.env.STORAGE_PROVIDER
   for (const name of ['R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_BUCKET_NAME']) delete process.env[name]
 })
 
@@ -80,8 +79,6 @@ describe('storage references', () => {
 describe('R2 store', () => {
   it('uploads under the household folder, reads back the same bytes and type, and deletes', async () => {
     const { objects, requests } = stubR2()
-    process.env.STORAGE_PROVIDER = 'r2'
-
     const ref = await putReceiptFile(HOUSEHOLD, JPEG, { extension: 'jpg', mimeType: 'image/jpeg' })
     expect(ref).toMatch(new RegExp(`^r2:receipts/${HOUSEHOLD}/[0-9a-f-]{36}\\.jpg$`))
 
@@ -109,20 +106,17 @@ describe('R2 store', () => {
 
   it('reports a missing configuration by variable name', async () => {
     stubR2()
-    process.env.STORAGE_PROVIDER = 'r2'
     delete process.env.R2_SECRET_ACCESS_KEY
     await expect(putReceiptFile(HOUSEHOLD, JPEG, { extension: 'jpg', mimeType: 'image/jpeg' })).rejects.toThrow('Missing: R2_SECRET_ACCESS_KEY')
   })
 
   it('surfaces an R2 error with its status instead of pretending the upload worked', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('<Error><Code>AccessDenied</Code></Error>', { status: 403 })))
-    process.env.STORAGE_PROVIDER = 'r2'
     await expect(putReceiptFile(HOUSEHOLD, JPEG, { extension: 'jpg', mimeType: 'image/jpeg' })).rejects.toThrow('R2 upload failed (403): <Error><Code>AccessDenied')
   })
 
   it('computes size and SHA-256 of a stored object for copy verification', async () => {
     stubR2()
-    process.env.STORAGE_PROVIDER = 'r2'
     const ref = await putReceiptFile(HOUSEHOLD, JPEG, { extension: 'jpg', mimeType: 'image/jpeg' })
     expect(await r2ObjectDigest(ref.slice(3))).toEqual({ size: JPEG.byteLength, sha256: await sha256Hex(JPEG) })
     expect(await r2ObjectDigest(`receipts/${HOUSEHOLD}/${OTHER}.jpg`)).toBeNull()
@@ -130,7 +124,6 @@ describe('R2 store', () => {
 
   it('ignores whitespace pasted around the configuration values', async () => {
     const { requests } = stubR2()
-    process.env.STORAGE_PROVIDER = 'r2'
     process.env.R2_BUCKET_NAME = 'receipts-test\n'
     process.env.R2_ACCOUNT_ID = ' acc123 '
     process.env.R2_ACCESS_KEY_ID = 'test-access-key\r\n'
@@ -141,7 +134,6 @@ describe('R2 store', () => {
 
   it('treats a whitespace-only value as missing', async () => {
     stubR2()
-    process.env.STORAGE_PROVIDER = 'r2'
     process.env.R2_BUCKET_NAME = '  \n'
     await expect(putReceiptFile(HOUSEHOLD, JPEG, { extension: 'jpg', mimeType: 'image/jpeg' })).rejects.toThrow('Missing: R2_BUCKET_NAME')
   })

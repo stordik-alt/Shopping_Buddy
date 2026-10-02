@@ -105,6 +105,14 @@ describe('automatic product package catalog', () => {
       unitPrice: 160,
       observedAt: '2026-09-30',
     }])
+    await persistNamedPackageEvidence([{
+      productId,
+      name: `__Test named weight 250 g ${tag}`,
+      regularPrice: 40,
+      unit: 'kg',
+      unitPrice: 160,
+      observedAt: '2026-09-30',
+    }])
 
     const packages = await db.query.productPackages.findMany({
       where: eq(schema.productPackages.productId, productId),

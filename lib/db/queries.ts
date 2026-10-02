@@ -13,7 +13,7 @@ import { checkinSubcategoryKey, inferPantryLocation } from '@/lib/pantry'
 import { restockedQuantity } from '@/lib/pantry-estimate'
 import { formatOpeningHours } from '@/lib/stores/osm'
 import type { ProductPrice } from '@/lib/prices'
-import { inferPackageSize, resolveCatalogPackageSize } from '@/lib/recipes/packaging'
+import { inferPackageSize, resolveCatalogPackageSize, resolveNamedPackageSize } from '@/lib/recipes/packaging'
 import { distinctProductName, resolveProductForSku, type ProductCatalogEntry } from '@/lib/products'
 import { normalizeSearchText } from '@/lib/product-search'
 import { isReceiptStalled } from '@/lib/receipt-progress'
@@ -1204,6 +1204,10 @@ export async function getProductPrices(scope: ProductPriceScope): Promise<Produc
             unit: price.unit,
             unitPrice: Number(price.unitPrice),
             packageSize: resolveCatalogPackageSize(packagesByProduct.get(product.id) ?? [], {
+              regularPrice: Number(price.regularPrice),
+              unit: price.unit,
+              unitPrice: Number(price.unitPrice),
+            }) ?? resolveNamedPackageSize(product.name, {
               regularPrice: Number(price.regularPrice),
               unit: price.unit,
               unitPrice: Number(price.unitPrice),

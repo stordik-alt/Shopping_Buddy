@@ -80,6 +80,36 @@ describe('automatic product package catalog', () => {
     })
   })
 
+  it('uses explicit package size from a product name when the ratio agrees', async () => {
+    const productId = await addProduct('__Test named multipack ' + tag)
+    const storeId = (await db.query.stores.findFirst())!.id
+
+    await recordPriceObservation({
+      productId,
+      storeId,
+      regularPrice: 119.2,
+      unit: 'kg',
+      unitPrice: 149,
+      observedAt: '2026-10-01',
+      priceScope: 'CHAIN',
+      sourceType: 'OFFICIAL',
+      locationResolution: 'NOT_APPLICABLE',
+      sourceReference: '__test_named_package_' + tag,
+    })
+
+    await db.update(schema.products)
+      .set({ name: 'Actimel Kids 8x 100 g ' + tag })
+      .where(eq(schema.products.id, productId))
+
+    const productPrice = (await getProductPrices({ names: ['Actimel Kids 8x 100 g ' + tag], runningDeals: false }))[0]
+    expect(productPrice?.prices[0]?.packageSize).toMatchObject({
+      quantity: 0.8,
+      unit: 'kg',
+      source: 'name-extracted',
+      label: '800 g',
+    })
+  })
+
   it('does not learn a package size from receipt prices', async () => {
     const productId = await addProduct(`__Test receipt balení ${tag}`)
     const storeId = (await db.query.stores.findFirst())!.id

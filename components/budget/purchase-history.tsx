@@ -28,7 +28,7 @@ export function PurchaseHistory({
     date: string
     storeChain?: string | null
     discount?: number | null
-    items: Array<{ name: string; quantity: number; unit: ItemUnit; price: number; category?: ItemCategory; subcategory?: string | null }>
+    items: Array<{ name: string; quantity: number; unit: ItemUnit; price: number; category: ItemCategory; subcategory?: string | null }>
   }) => Promise<{ purchase: PurchaseRecord; expenses: Expense[]; notifications: Notification[] }>
   /** Next step offered while there is no purchase yet. */
   onUploadReceipt?: () => void

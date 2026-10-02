@@ -475,7 +475,7 @@ export async function importReceiptAction(
     storeLocationId: options.storeLocationId,
     date: options.date ?? todayInPrague(),
     source: 'manual',
-    items: JSON.stringify(manualItems),
+    items: JSON.stringify(items),
     purchaseId: purchase.id,
     processedAt: new Date(),
   })
@@ -929,7 +929,8 @@ export async function confirmReceiptReviewAction(
     storeId = branch.storeId
     resolvedStoreLocationId = branch.storeLocationId
   }
-  const purchase = await createPurchaseFromReceiptItems(householdId, items, {
+  const confirmedItems = items.map((item) => ({ ...item, classificationSource: 'manual' as const }))
+  const purchase = await createPurchaseFromReceiptItems(householdId, confirmedItems, {
     date: options.date,
     storedDate: row.date,
     storeLocationId: resolvedStoreLocationId,

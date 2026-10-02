@@ -1,38 +1,140 @@
 {
   "crons": [
-    { "path": "/api/cron/recipes", "schedule": "0 13 * * *" },
-    { "path": "/api/cron/shopping-reminders", "schedule": "0 8 * * *" },
-    { "path": "/api/cron/pantry-checkin", "schedule": "0 15 * * 0" },
-    { "path": "/api/cron/import-stores", "schedule": "0 3 * * 1" },
-    { "path": "/api/cron/albert-store-formats", "schedule": "0 4 * * 1" },
-    { "path": "/api/cron/ingest-prices/lidl", "schedule": "0 5 * * 3" },
-    { "path": "/api/cron/ingest-prices/billa", "schedule": "10 5 * * 2" },
-    { "path": "/api/cron/ingest-prices/billa/2", "schedule": "10 13 * * 2" },
-    { "path": "/api/cron/ingest-prices/billa/3", "schedule": "10 21 * * 2" },
-    { "path": "/api/cron/ingest-prices/penny", "schedule": "20 5 * * 2" },
-    { "path": "/api/cron/ingest-prices/dm", "schedule": "30 5 * * 4" },
-    { "path": "/api/cron/ingest-prices/dm/2", "schedule": "30 11 * * 4" },
-    { "path": "/api/cron/ingest-prices/dm/3", "schedule": "30 17 * * 4" },
-    { "path": "/api/cron/ingest-prices/dm/4", "schedule": "30 23 * * 4" },
-    { "path": "/api/cron/ingest-prices/rohlik", "schedule": "40 5 * * 5" },
-    { "path": "/api/cron/ingest-prices/rohlik/2", "schedule": "40 13 * * 5" },
-    { "path": "/api/cron/ingest-prices/rohlik/3", "schedule": "40 21 * * 5" },
-    { "path": "/api/cron/ingest-prices/kosik", "schedule": "50 5 * * 6" },
-    { "path": "/api/cron/ingest-prices/kosik/2", "schedule": "50 11 * * 6" },
-    { "path": "/api/cron/ingest-prices/kosik/3", "schedule": "50 17 * * 6" },
-    { "path": "/api/cron/ingest-prices/kosik/4", "schedule": "50 23 * * 6" },
-    { "path": "/api/cron/ingest-prices/globus", "schedule": "0 6 * * 0" },
-    { "path": "/api/cron/ingest-prices/albert", "schedule": "20 6 * * 1" },
-    { "path": "/api/cron/ingest-prices/albert/2", "schedule": "20 12 * * 1" },
-    { "path": "/api/cron/ingest-prices/albert/3", "schedule": "20 18 * * 1" },
-
-    { "path": "/api/cron/ingest-prices/penny_flyer", "schedule": "0 21 * * 2" },
-    { "path": "/api/cron/ingest-prices/penny_flyer/2", "schedule": "0 23 * * 2" },
-    { "path": "/api/cron/ingest-prices/billa_flyer", "schedule": "10 21 * * 2" },
-    { "path": "/api/cron/ingest-prices/billa_flyer/2", "schedule": "10 23 * * 2" },
-    { "path": "/api/cron/ingest-prices/lidl_flyer", "schedule": "20 21 * * 0" },
-    { "path": "/api/cron/ingest-prices/lidl_flyer/2", "schedule": "20 23 * * 0" },
-    { "path": "/api/cron/ingest-prices/lidl_flyer/3", "schedule": "20 21 * * 3" },
-    { "path": "/api/cron/ingest-prices/lidl_flyer/4", "schedule": "20 23 * * 3" }
-  ]
+    {
+      "path": "/api/cron/recipes",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/shopping-reminders",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/pantry-checkin",
+      "schedule": "0 15 * * 0"
+    },
+    {
+      "path": "/api/cron/import-stores",
+      "schedule": "0 3 * * 1"
+    },
+    {
+      "path": "/api/cron/albert-store-formats",
+      "schedule": "0 4 * * 1"
+    },
+    {
+      "path": "/api/cron/ingest-prices/lidl",
+      "schedule": "0 5 * * 3"
+    },
+    {
+      "path": "/api/cron/ingest-prices/billa",
+      "schedule": "10 5 * * 2"
+    },
+    {
+      "path": "/api/cron/ingest-prices/billa/2",
+      "schedule": "10 13 * * 2"
+    },
+    {
+      "path": "/api/cron/ingest-prices/billa/3",
+      "schedule": "10 21 * * 2"
+    },
+    {
+      "path": "/api/cron/ingest-prices/penny",
+      "schedule": "20 5 * * 2"
+    },
+    {
+      "path": "/api/cron/ingest-prices/dm",
+      "schedule": "30 5 * * 4"
+    },
+    {
+      "path": "/api/cron/ingest-prices/dm/2",
+      "schedule": "30 11 * * 4"
+    },
+    {
+      "path": "/api/cron/ingest-prices/dm/3",
+      "schedule": "30 17 * * 4"
+    },
+    {
+      "path": "/api/cron/ingest-prices/dm/4",
+      "schedule": "30 23 * * 4"
+    },
+    {
+      "path": "/api/cron/ingest-prices/rohlik",
+      "schedule": "40 5 * * 5"
+    },
+    {
+      "path": "/api/cron/ingest-prices/rohlik/2",
+      "schedule": "40 13 * * 5"
+    },
+    {
+      "path": "/api/cron/ingest-prices/rohlik/3",
+      "schedule": "40 21 * * 5"
+    },
+    {
+      "path": "/api/cron/ingest-prices/kosik",
+      "schedule": "50 5 * * 6"
+    },
+    {
+      "path": "/api/cron/ingest-prices/kosik/2",
+      "schedule": "50 11 * * 6"
+    },
+    {
+      "path": "/api/cron/ingest-prices/kosik/3",
+      "schedule": "50 17 * * 6"
+    },
+    {
+      "path": "/api/cron/ingest-prices/kosik/4",
+      "schedule": "50 23 * * 6"
+    },
+    {
+      "path": "/api/cron/ingest-prices/globus",
+      "schedule": "0 6 * * 0"
+    },
+    {
+      "path": "/api/cron/ingest-prices/albert",
+      "schedule": "20 6 * * 1"
+    },
+    {
+      "path": "/api/cron/ingest-prices/albert/2",
+      "schedule": "20 12 * * 1"
+    },
+    {
+      "path": "/api/cron/ingest-prices/albert/3",
+      "schedule": "20 18 * * 1"
+    },
+    {
+      "path": "/api/cron/ingest-prices/penny_flyer",
+      "schedule": "0 21 * * 2"
+    },
+    {
+      "path": "/api/cron/ingest-prices/penny_flyer/2",
+      "schedule": "0 23 * * 2"
+    },
+    {
+      "path": "/api/cron/ingest-prices/billa_flyer",
+      "schedule": "10 21 * * 2"
+    },
+    {
+      "path": "/api/cron/ingest-prices/billa_flyer/2",
+      "schedule": "10 23 * * 2"
+    },
+    {
+      "path": "/api/cron/ingest-prices/lidl_flyer",
+      "schedule": "20 21 * * 0"
+    },
+    {
+      "path": "/api/cron/ingest-prices/lidl_flyer/2",
+      "schedule": "20 23 * * 0"
+    },
+    {
+      "path": "/api/cron/ingest-prices/lidl_flyer/3",
+      "schedule": "20 21 * * 3"
+    },
+    {
+      "path": "/api/cron/ingest-prices/lidl_flyer/4",
+      "schedule": "20 23 * * 3"
+    }
+  ],
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "git": {
+    "deploymentEnabled": false
+  }
 }

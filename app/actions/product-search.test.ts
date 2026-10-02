@@ -188,14 +188,17 @@ describe('searchProductHitsBatch', () => {
       { tokens: searchTokens(`mleko ${tag}`), ...options },
       { tokens: searchTokens(`syr eidam ${tag}`), ...options },
       { tokens: searchTokens(`mleko ${tag}`), ...options },
+      { tokens: searchTokens(`mleko ${tag}`), storeIds: [albertId] },
     ])
 
     const singleMilk = await searchProductHits(searchTokens(`mleko ${tag}`), options)
     const singleCheese = await searchProductHits(searchTokens(`syr eidam ${tag}`), options)
+    const singleAlbert = await searchProductHits(searchTokens(`mleko ${tag}`), { storeIds: [albertId] })
 
     expect(batch[0]).toEqual(singleMilk)
     expect(batch[1]).toEqual(singleCheese)
     expect(batch[2]).toEqual(singleMilk)
+    expect(batch[3]).toEqual(singleAlbert)
   })
 
   it('keeps empty requests empty without affecting other requests', async () => {

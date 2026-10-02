@@ -66,6 +66,18 @@ export function useServiceWorker() {
     let active = true
     const hadController = Boolean(navigator.serviceWorker.controller)
 
+    const reloadAfterUpdate = () => {
+      if (!active) return
+      window.location.reload()
+    }
+
+    // Register the controller-change listener before checking for an updated worker.
+    // Otherwise a fast update can activate between registration.update() and listener setup,
+    // leaving the current page on the old client bundle.
+    if (hadController) {
+      navigator.serviceWorker.addEventListener('controllerchange', reloadAfterUpdate)
+    }
+
     void navigator.serviceWorker
       .register('/sw.js', { scope: '/', updateViaCache: 'none' })
       .then(async (registration) => {
@@ -75,20 +87,11 @@ export function useServiceWorker() {
       })
       .catch((error) => console.error('Service worker registration/update failed', error))
 
-    if (hadController) {
-      const reloadAfterUpdate = () => {
-        if (!active) return
-        window.location.reload()
-      }
-      navigator.serviceWorker.addEventListener('controllerchange', reloadAfterUpdate)
-      return () => {
-        active = false
-        navigator.serviceWorker.removeEventListener('controllerchange', reloadAfterUpdate)
-      }
-    }
-
     return () => {
       active = false
+      if (hadController) {
+        navigator.serviceWorker.removeEventListener('controllerchange', reloadAfterUpdate)
+      }
     }
   }, [])
 }

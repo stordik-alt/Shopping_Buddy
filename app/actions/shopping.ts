@@ -60,6 +60,8 @@ export async function addShoppingItemAction(
   const { householdId, userId } = await requireHousehold()
   await assertOwnsList(householdId, listId)
   if (clientId !== undefined && (typeof clientId !== 'string' || !UUID_PATTERN.test(clientId))) throw new Error('Neplatný identifikátor položky.')
+  const quantity = overrides.quantity ?? 1
+  if (!(Number.isFinite(quantity) && quantity > 0 && quantity < 10_000_000)) throw new Error('Množství musí být kladné číslo.')
   const db = getDb()
 
   if (clientId) {
@@ -87,7 +89,7 @@ export async function addShoppingItemAction(
       name,
       productId: matchedProduct?.id,
       detail: overrides.detail ?? '1 ks · bez detailu',
-      quantity: overrides.quantity ?? 1,
+      quantity: Math.round(quantity * 1000) / 1000,
       // An explicit override wins; otherwise fall back to the matched product's real category
       // rather than the schema default ('Ostatní') — found missing while testing pantry-location
       // inference, which needs the item actually categorized 'Potraviny' to ever route it to

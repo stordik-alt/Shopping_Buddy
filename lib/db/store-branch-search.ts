@@ -1,10 +1,12 @@
-import { and, asc, desc, eq, sql, type SQL } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, sql, type SQL } from 'drizzle-orm'
+import { unstable_cache } from 'next/cache'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import type { GpsCoords } from '@/lib/geo'
 import { boundingBox, clampPage, escapeLike, type Locality } from '@/lib/stores/branch-search'
 import { formatOpeningHours } from '@/lib/stores/osm'
 import { todayInPrague } from '@/lib/today'
+import { GLOBAL_CACHE_TAGS } from '@/lib/db/cache-tags'
 
 // The store directory's server-side search: chain tiles for a locality, and one page of branches for
 // the chosen chains. The old directory shipped every branch (~1,800) to the browser on each page
@@ -69,101 +71,137 @@ function localityConditions(locality: Locality): SQL[] {
   return []
 }
 
-/** Chains that have at least one branch in the locality, with how many, and today's promotions. The
- *  member's own chains (profile) come first, the rest alphabetically. */
+type GlobalChainTile = Omit<ChainTile, 'isFavorite'>
+type GlobalBranchRow = Omit<BranchRow, 'isFavorite'>
+type GlobalBranchPage = { rows: GlobalBranchRow[]; total: number; page: number }
+
+const ONE_DAY = 24 * 60 * 60
+
+function localityKey(locality: Locality): string {
+  return JSON.stringify(locality)
+}
+
+const getChainTilesGlobal = unstable_cache(
+  async (serializedLocality: string, today: string): Promise<GlobalChainTile[]> => {
+    const db = getDb()
+    const locality = JSON.parse(serializedLocality) as Locality
+    const [chains, deals] = await Promise.all([
+      db
+        .select({ storeId: schema.stores.id, chain: schema.stores.chain, branchCount: sql<number>`count(*)::int` })
+        .from(schema.storeLocations)
+        .innerJoin(schema.stores, eq(schema.stores.id, schema.storeLocations.storeId))
+        .where(and(...localityConditions(locality)))
+        .groupBy(schema.stores.id, schema.stores.chain),
+      db
+        .select({ storeId: schema.deals.storeId, count: sql<number>`count(DISTINCT ${schema.deals.productId})::int` })
+        .from(schema.deals)
+        .where(and(sql`${schema.deals.validFrom} <= ${today}`, sql`${schema.deals.validUntil} >= ${today}`))
+        .groupBy(schema.deals.storeId),
+    ])
+    const dealsByChain = new Map(deals.map((row) => [row.storeId, Number(row.count)]))
+    return chains.map((row) => ({
+      storeId: row.storeId,
+      chain: row.chain,
+      branchCount: Number(row.branchCount),
+      dealsCount: dealsByChain.get(row.storeId) ?? 0,
+    }))
+  },
+  ['store-chain-tiles-v1'],
+  { revalidate: ONE_DAY, tags: [GLOBAL_CACHE_TAGS.stores, GLOBAL_CACHE_TAGS.deals] },
+)
+
+/** Chains with branch counts and today's promotions are global; only member favourites stay outside the shared cache. */
 export async function getChainTiles(locality: Locality, memberId: string): Promise<ChainTile[]> {
   const db = getDb()
-  const today = todayInPrague()
-  const [chains, deals, favouriteChains] = await Promise.all([
-    db
-      .select({ storeId: schema.stores.id, chain: schema.stores.chain, branchCount: sql<number>`count(*)::int` })
-      .from(schema.storeLocations)
-      .innerJoin(schema.stores, eq(schema.stores.id, schema.storeLocations.storeId))
-      .where(and(...localityConditions(locality)))
-      .groupBy(schema.stores.id, schema.stores.chain),
-    db
-      .select({ storeId: schema.deals.storeId, count: sql<number>`count(DISTINCT ${schema.deals.productId})::int` })
-      .from(schema.deals)
-      .where(and(sql`${schema.deals.validFrom} <= ${today}`, sql`${schema.deals.validUntil} >= ${today}`))
-      .groupBy(schema.deals.storeId),
+  const [chains, favouriteChains] = await Promise.all([
+    getChainTilesGlobal(localityKey(locality), todayInPrague()),
     db
       .select({ storeId: schema.memberStores.storeId })
       .from(schema.memberStores)
       .where(and(eq(schema.memberStores.memberId, memberId), sql`${schema.memberStores.storeLocationId} IS NULL`)),
   ])
-  const dealsByChain = new Map(deals.map((row) => [row.storeId, Number(row.count)]))
   const favourites = new Set(favouriteChains.map((row) => row.storeId))
   return chains
-    .map((row) => ({
-      storeId: row.storeId,
-      chain: row.chain,
-      branchCount: Number(row.branchCount),
-      dealsCount: dealsByChain.get(row.storeId) ?? 0,
-      isFavorite: favourites.has(row.storeId),
-    }))
+    .map((row) => ({ ...row, isFavorite: favourites.has(row.storeId) }))
     .sort((a, b) => Number(b.isFavorite) - Number(a.isFavorite) || a.chain.localeCompare(b.chain, 'cs'))
 }
 
-/** One page of the branches of the chosen chains in the locality: the member's favourite branches
- *  first, then nearest (position search) or by town and name. `total` counts every match, so the UI
- *  can show "2/4" while only this page was read. A page past the end falls back to the last page. */
+const searchBranchesGlobal = unstable_cache(
+  async (serializedChainIds: string, serializedLocality: string, requestedPage: number, pageSize: number): Promise<GlobalBranchPage> => {
+    const db = getDb()
+    const chainIds = JSON.parse(serializedChainIds) as string[]
+    const locality = JSON.parse(serializedLocality) as Locality
+    const distance = locality.kind === 'gps' ? distanceSql(locality.center) : null
+    const where = and(sql`${schema.storeLocations.storeId} IN (${sql.join(chainIds.map((id) => sql`${id}::uuid`), sql`, `)})`, ...localityConditions(locality))
+
+    const load = (page: number) =>
+      db
+        .select({
+          id: schema.storeLocations.id,
+          storeId: schema.storeLocations.storeId,
+          chain: schema.stores.chain,
+          name: schema.storeLocations.name,
+          address: schema.storeLocations.address,
+          city: schema.storeLocations.city,
+          lat: schema.storeLocations.lat,
+          lng: schema.storeLocations.lng,
+          hours: schema.storeLocations.hours,
+          openingHours: schema.storeLocations.openingHours,
+          distanceKm: distance ?? sql<null>`NULL`,
+          total: sql<number>`count(*) OVER ()::int`,
+        })
+        .from(schema.storeLocations)
+        .innerJoin(schema.stores, eq(schema.stores.id, schema.storeLocations.storeId))
+        .where(where)
+        .orderBy(...(distance ? [asc(distance)] : [asc(schema.storeLocations.city)]), asc(schema.storeLocations.name), asc(schema.storeLocations.id))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize)
+
+    let page = Math.max(1, Math.trunc(requestedPage))
+    let rows = await load(page)
+    if (rows.length === 0 && page > 1) {
+      const [{ total }] = await db.select({ total: sql<number>`count(*)::int` }).from(schema.storeLocations).where(where)
+      page = clampPage(page, Number(total), pageSize)
+      rows = await load(page)
+    }
+    return {
+      page,
+      total: rows.length > 0 ? Number(rows[0].total) : 0,
+      rows: rows.map((row) => ({
+        id: row.id,
+        storeId: row.storeId,
+        chain: row.chain,
+        name: row.name,
+        address: row.address,
+        city: row.city,
+        gps: row.lat != null && row.lng != null ? { lat: Number(row.lat), lng: Number(row.lng) } : null,
+        hours: row.openingHours ? formatOpeningHours(row.openingHours) : row.hours,
+        distanceKm: row.distanceKm != null ? Number(row.distanceKm) : null,
+      })),
+    }
+  },
+  ['store-branch-search-v1'],
+  { revalidate: ONE_DAY, tags: [GLOBAL_CACHE_TAGS.stores] },
+)
+
+/** Branch rows are global and cached; favourite-branch flags are member-specific and queried separately. */
 export async function searchBranches(input: { chainIds: string[]; locality: Locality; memberId: string; page: number; pageSize: number }): Promise<BranchPage> {
   const { chainIds, locality, memberId, pageSize } = input
   if (chainIds.length === 0) return { rows: [], total: 0, page: 1 }
   const db = getDb()
-
-  const distance = locality.kind === 'gps' ? distanceSql(locality.center) : null
-  const isFavorite = sql<boolean>`EXISTS (SELECT 1 FROM ${schema.memberStores} WHERE ${schema.memberStores.memberId} = ${memberId} AND ${schema.memberStores.storeLocationId} = ${schema.storeLocations.id})`
-  const where = and(sql`${schema.storeLocations.storeId} IN (${sql.join(chainIds.map((id) => sql`${id}::uuid`), sql`, `)})`, ...localityConditions(locality))
-
-  const load = (page: number) =>
-    db
-      .select({
-        id: schema.storeLocations.id,
-        storeId: schema.storeLocations.storeId,
-        chain: schema.stores.chain,
-        name: schema.storeLocations.name,
-        address: schema.storeLocations.address,
-        city: schema.storeLocations.city,
-        lat: schema.storeLocations.lat,
-        lng: schema.storeLocations.lng,
-        hours: schema.storeLocations.hours,
-        openingHours: schema.storeLocations.openingHours,
-        distanceKm: distance ?? sql<null>`NULL`,
-        isFavorite,
-        // Window count over the whole filtered set: the total comes with the page, no second query.
-        total: sql<number>`count(*) OVER ()::int`,
-      })
-      .from(schema.storeLocations)
-      .innerJoin(schema.stores, eq(schema.stores.id, schema.storeLocations.storeId))
-      .where(where)
-      .orderBy(desc(isFavorite), ...(distance ? [asc(distance)] : [asc(schema.storeLocations.city)]), asc(schema.storeLocations.name), asc(schema.storeLocations.id))
-      .limit(pageSize)
-      .offset((page - 1) * pageSize)
-
-  let page = Math.max(1, Math.trunc(input.page))
-  let rows = await load(page)
-  // The result shrank since the page was requested (or a page number was made up): show the last page.
-  if (rows.length === 0 && page > 1) {
-    const [{ total }] = await db.select({ total: sql<number>`count(*)::int` }).from(schema.storeLocations).where(where)
-    page = clampPage(page, Number(total), pageSize)
-    rows = await load(page)
-  }
+  const canonicalChainIds = [...new Set(chainIds)].sort()
+  const global = await searchBranchesGlobal(JSON.stringify(canonicalChainIds), localityKey(locality), input.page, pageSize)
+  const locationIds = global.rows.map((row) => row.id)
+  const favouriteRows = locationIds.length
+    ? await db
+        .select({ storeLocationId: schema.memberStores.storeLocationId })
+        .from(schema.memberStores)
+        .where(and(eq(schema.memberStores.memberId, memberId), inArray(schema.memberStores.storeLocationId, locationIds)))
+    : []
+  const favourites = new Set(favouriteRows.map((row) => row.storeLocationId).filter((id): id is string => id != null))
   return {
-    page,
-    total: rows.length > 0 ? Number(rows[0].total) : 0,
-    rows: rows.map((row) => ({
-      id: row.id,
-      storeId: row.storeId,
-      chain: row.chain,
-      name: row.name,
-      address: row.address,
-      city: row.city,
-      gps: row.lat != null && row.lng != null ? { lat: Number(row.lat), lng: Number(row.lng) } : null,
-      // Opening hours from the map win over the free-text ones of seeded and receipt branches.
-      hours: row.openingHours ? formatOpeningHours(row.openingHours) : row.hours,
-      distanceKm: row.distanceKm != null ? Number(row.distanceKm) : null,
-      isFavorite: Boolean(row.isFavorite),
-    })),
+    page: global.page,
+    total: global.total,
+    rows: global.rows.map((row) => ({ ...row, isFavorite: favourites.has(row.id) })),
   }
 }

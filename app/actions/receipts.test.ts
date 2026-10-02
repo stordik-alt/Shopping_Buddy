@@ -208,6 +208,36 @@ describe('a receipt as expenses', () => {
 })
 
 describe('importReceiptAction (manual entry)', () => {
+  it('uses the category and subcategory explicitly chosen during manual import', async () => {
+    const productName = `__test_receipt_classification_${crypto.randomUUID()}`
+    const [foodCategory] = await db.query.productCategories.findMany({ where: eq(schema.productCategories.name, 'Potraviny') })
+    const [childrenCategory] = await db.query.productCategories.findMany({ where: eq(schema.productCategories.name, 'Děti') })
+    const childSubcategory = await db.query.productSubcategories.findFirst({ where: eq(schema.productSubcategories.category, 'Děti'), columns: { id: true } })
+    expect(foodCategory).toBeDefined()
+    expect(childrenCategory).toBeDefined()
+    expect(childSubcategory).toBeDefined()
+    await db.insert(schema.products).values({
+      name: productName,
+      categoryId: foodCategory!.id,
+      defaultUnit: 'ks',
+    })
+
+    const result = await importReceiptAction([item({ name: productName, category: 'Děti', subcategory: 'Dětské potřeby', price: 80 })], { date: TEST_DATE })
+    const purchaseItem = result.purchase.items.find((row) => row.name === productName)
+    const subcategory = await db.query.productSubcategories.findFirst({ where: eq(schema.productSubcategories.name, 'Dětské potřeby') })
+    expect(purchaseItem?.category).toBe('Děti')
+    expect(subcategory).toBeDefined()
+    const [stored] = await db.select({ category: schema.purchaseItems.category, subcategoryId: schema.purchaseItems.subcategoryId })
+      .from(schema.purchaseItems)
+      .where(eq(schema.purchaseItems.id, purchaseItem!.id!))
+    expect(stored.category).toBe('Děti')
+    expect(stored.subcategoryId).toBe(subcategory!.id)
+  })
+
+  it('rejects a subcategory outside the selected product category', async () => {
+    await expect(importReceiptAction([item({ category: 'Děti', subcategory: 'Mléčné výrobky' })], { date: TEST_DATE })).rejects.toThrow('Neplatná podkategorie')
+  })
+
   it('rejects an empty receipt', async () => {
     await expect(importReceiptAction([])).rejects.toThrow('Receipt has no items')
   })

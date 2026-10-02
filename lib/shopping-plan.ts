@@ -23,6 +23,8 @@ export type PlanOffer = {
   productName: string
   /** What the needed quantity costs at this store (already reflects a promotion). */
   cost: number
+  /** Number of whole retail packages required for this need. */
+  packages: number
   /** Where the offer comes from: the user pinned this product, or it was picked automatically. */
   source: 'pinned' | 'auto'
 }
@@ -247,6 +249,7 @@ export function planShopping(needs: PlanNeed[], offers: PlanOffer[], settings: P
             productId: offer.productId,
             productName: offer.productName,
             cost: cents(offer.cost),
+            packages: offer.packages,
             source: offer.source,
             alternatives,
           }

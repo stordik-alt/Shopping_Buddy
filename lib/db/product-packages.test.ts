@@ -80,16 +80,16 @@ describe('automatic product package catalog', () => {
     })
   })
 
-  it('uses explicit package size from a product name when the ratio agrees', async () => {
+  it('uses explicit piece package size from a product name when no catalog size exists', async () => {
     const productId = await addProduct('__Test named multipack ' + tag)
     const storeId = (await db.query.stores.findFirst())!.id
 
     await recordPriceObservation({
       productId,
       storeId,
-      regularPrice: 119.2,
-      unit: 'kg',
-      unitPrice: 149,
+      regularPrice: 39.9,
+      unit: 'ks',
+      unitPrice: 6.65,
       observedAt: '2026-10-01',
       priceScope: 'CHAIN',
       sourceType: 'OFFICIAL',
@@ -98,15 +98,15 @@ describe('automatic product package catalog', () => {
     })
 
     await db.update(schema.products)
-      .set({ name: 'Actimel Kids 8x 100 g ' + tag })
+      .set({ name: 'Papírové kapesníky 6 ks ' + tag })
       .where(eq(schema.products.id, productId))
 
-    const productPrice = (await getProductPrices({ names: ['Actimel Kids 8x 100 g ' + tag], runningDeals: false }))[0]
+    const productPrice = (await getProductPrices({ names: ['Papírové kapesníky 6 ks ' + tag], runningDeals: false }))[0]
     expect(productPrice?.prices[0]?.packageSize).toMatchObject({
-      quantity: 0.8,
-      unit: 'kg',
+      quantity: 6,
+      unit: 'ks',
       source: 'name-extracted',
-      label: '800 g',
+      label: '6 ks',
     })
   })
 

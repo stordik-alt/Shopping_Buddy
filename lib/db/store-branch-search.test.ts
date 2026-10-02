@@ -1,8 +1,12 @@
 import { eq, inArray, sql } from 'drizzle-orm'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { getChainTiles, searchBranches } from '@/lib/db/store-branch-search'
+
+// Next's request-scoped cache is unavailable in the standalone PostgreSQL integration runner.
+// The production cache behaviour is covered by the application build; these tests exercise the DB semantics.
+vi.mock('next/cache', () => ({ unstable_cache: (fn: (...args: any[]) => unknown) => fn }))
 
 // Integration coverage of the store directory's server-side search against the real test database.
 // Everything is written under a chain, household and auth user created (and deleted) in this file, so

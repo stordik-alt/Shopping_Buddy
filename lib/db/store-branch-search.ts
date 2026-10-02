@@ -127,46 +127,35 @@ export async function getChainTiles(locality: Locality, memberId: string): Promi
 }
 
 const searchBranchesGlobal = unstable_cache(
-  async (serializedChainIds: string, serializedLocality: string, requestedPage: number, pageSize: number): Promise<GlobalBranchPage> => {
+  async (serializedChainIds: string, serializedLocality: string): Promise<GlobalBranchPage> => {
     const db = getDb()
     const chainIds = JSON.parse(serializedChainIds) as string[]
     const locality = JSON.parse(serializedLocality) as Locality
     const distance = locality.kind === 'gps' ? distanceSql(locality.center) : null
     const where = and(sql`${schema.storeLocations.storeId} IN (${sql.join(chainIds.map((id) => sql`${id}::uuid`), sql`, `)})`, ...localityConditions(locality))
 
-    const load = (page: number) =>
-      db
-        .select({
-          id: schema.storeLocations.id,
-          storeId: schema.storeLocations.storeId,
-          chain: schema.stores.chain,
-          name: schema.storeLocations.name,
-          address: schema.storeLocations.address,
-          city: schema.storeLocations.city,
-          lat: schema.storeLocations.lat,
-          lng: schema.storeLocations.lng,
-          hours: schema.storeLocations.hours,
-          openingHours: schema.storeLocations.openingHours,
-          distanceKm: distance ?? sql<null>`NULL`,
-          total: sql<number>`count(*) OVER ()::int`,
-        })
-        .from(schema.storeLocations)
-        .innerJoin(schema.stores, eq(schema.stores.id, schema.storeLocations.storeId))
-        .where(where)
-        .orderBy(...(distance ? [asc(distance)] : [asc(schema.storeLocations.city)]), asc(schema.storeLocations.name), asc(schema.storeLocations.id))
-        .limit(pageSize)
-        .offset((page - 1) * pageSize)
+    const rows = await db
+      .select({
+        id: schema.storeLocations.id,
+        storeId: schema.storeLocations.storeId,
+        chain: schema.stores.chain,
+        name: schema.storeLocations.name,
+        address: schema.storeLocations.address,
+        city: schema.storeLocations.city,
+        lat: schema.storeLocations.lat,
+        lng: schema.storeLocations.lng,
+        hours: schema.storeLocations.hours,
+        openingHours: schema.storeLocations.openingHours,
+        distanceKm: distance ?? sql<null>`NULL`,
+      })
+      .from(schema.storeLocations)
+      .innerJoin(schema.stores, eq(schema.stores.id, schema.storeLocations.storeId))
+      .where(where)
+      .orderBy(...(distance ? [asc(distance)] : [asc(schema.storeLocations.city)]), asc(schema.storeLocations.name), asc(schema.storeLocations.id))
 
-    let page = Math.max(1, Math.trunc(requestedPage))
-    let rows = await load(page)
-    if (rows.length === 0 && page > 1) {
-      const [{ total }] = await db.select({ total: sql<number>`count(*)::int` }).from(schema.storeLocations).where(where)
-      page = clampPage(page, Number(total), pageSize)
-      rows = await load(page)
-    }
     return {
-      page,
-      total: rows.length > 0 ? Number(rows[0].total) : 0,
+      page: 1,
+      total: rows.length,
       rows: rows.map((row) => ({
         id: row.id,
         storeId: row.storeId,
@@ -180,7 +169,7 @@ const searchBranchesGlobal = unstable_cache(
       })),
     }
   },
-  ['store-branch-search-v1'],
+  ['store-branch-search-v2'],
   { revalidate: ONE_DAY, tags: [GLOBAL_CACHE_TAGS.stores] },
 )
 
@@ -190,7 +179,7 @@ export async function searchBranches(input: { chainIds: string[]; locality: Loca
   if (chainIds.length === 0) return { rows: [], total: 0, page: 1 }
   const db = getDb()
   const canonicalChainIds = [...new Set(chainIds)].sort()
-  const global = await searchBranchesGlobal(JSON.stringify(canonicalChainIds), localityKey(locality), input.page, pageSize)
+  const global = await searchBranchesGlobal(JSON.stringify(canonicalChainIds), localityKey(locality))
   const locationIds = global.rows.map((row) => row.id)
   const favouriteRows = locationIds.length
     ? await db
@@ -199,9 +188,19 @@ export async function searchBranches(input: { chainIds: string[]; locality: Loca
         .where(and(eq(schema.memberStores.memberId, memberId), inArray(schema.memberStores.storeLocationId, locationIds)))
     : []
   const favourites = new Set(favouriteRows.map((row) => row.storeLocationId).filter((id): id is string => id != null))
+  const orderedRows = [...global.rows].sort(
+    (a, b) => Number(favourites.has(b.id)) - Number(favourites.has(a.id))
+      || (locality.kind === 'gps'
+        ? (a.distanceKm ?? Number.POSITIVE_INFINITY) - (b.distanceKm ?? Number.POSITIVE_INFINITY)
+        : a.city.localeCompare(b.city, 'cs'))
+      || a.name.localeCompare(b.name, 'cs')
+      || a.id.localeCompare(b.id),
+  )
+  const page = clampPage(input.page, orderedRows.length, pageSize)
+  const start = (page - 1) * pageSize
   return {
-    page: global.page,
-    total: global.total,
-    rows: global.rows.map((row) => ({ ...row, isFavorite: favourites.has(row.id) })),
+    page,
+    total: orderedRows.length,
+    rows: orderedRows.slice(start, start + pageSize).map((row) => ({ ...row, isFavorite: favourites.has(row.id) })),
   }
 }

@@ -1,5 +1,6 @@
 import { synonymsOf } from '@/lib/synonyms'
 import type { StandardPackage } from '@/lib/recipes/packaging'
+import type { StandardPackage } from '@/lib/recipes/packaging'
 import type { ItemCategory, ItemUnit } from '@/lib/types'
 
 // Finding specific products in the chains' catalogs by what the user types ("mleko 1l").

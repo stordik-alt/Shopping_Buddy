@@ -67,8 +67,8 @@ describe('costForNeed', () => {
     }
   })
 
-  it('rounds to whole haléře', () => {
-    expect(costForNeed({ quantity: 1, unit: 'l' }, hit({ unitPrice: 19.996 }))?.cost).toBe(20)
+  it('rounds the final package total to whole haléře', () => {
+    expect(costForNeed({ quantity: 1, unit: 'l' }, hit({ regularPrice: 30, unitPrice: 19.996 }))?.cost).toBe(30)
   })
 })
 

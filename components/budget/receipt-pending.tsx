@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { AlertTriangle, Check, Copy, RefreshCw, RotateCcw, Trash2, X } from 'lucide-react'
+import { subcategoriesOfItem } from '@/lib/product-subcategories'
 import type { ReceiptImportState } from '@/lib/db/queries'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import { money } from '@/lib/format'
@@ -101,7 +102,12 @@ function ReceiptPendingCard({
   const [error, setError] = useState('')
 
   function updateRow(index: number, changes: Partial<ReceiptLineItem>) {
-    setRows((current) => current.map((row, i) => (i === index ? { ...row, ...changes } : row)))
+    setRows((current) => current.map((row, i) => {
+      if (i !== index) return row
+      const next = { ...row, ...changes }
+      if ('category' in changes || 'subcategory' in changes) next.classificationSource = 'manual'
+      return next
+    }))
   }
 
   async function run(action: () => Promise<unknown>) {
@@ -164,6 +170,20 @@ function ReceiptPendingCard({
               className="mt-1 block rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
             />
           </label>
+        </div>
+        <div className="mt-3 space-y-2">
+          {rows.map((row, index) => (
+            <div key={index} className="flex flex-wrap items-center gap-2 rounded-xl border border-border p-2">
+              <span className="min-w-[10rem] flex-1 text-xs font-medium">{row.name}</span>
+              <select aria-label={`Kategorie položky ${index + 1}`} value={row.category} onChange={(e) => updateRow(index, { category: e.target.value as ItemCategory, subcategory: undefined })} className="rounded-lg border border-input bg-background px-2 py-1.5 text-xs">
+                {CATEGORIES.map((category) => <option key={category}>{category}</option>)}
+              </select>
+              <select aria-label={`Podkategorie položky ${index + 1}`} value={row.subcategory ?? ''} onChange={(e) => updateRow(index, { subcategory: e.target.value || undefined })} className="rounded-lg border border-input bg-background px-2 py-1.5 text-xs">
+                <option value="">Bez podkategorie</option>
+                {subcategoriesOfItem(row.category).map((subcategory) => <option key={subcategory}>{subcategory}</option>)}
+              </select>
+            </div>
+          ))}
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           <button
@@ -246,11 +266,22 @@ function ReceiptPendingCard({
                   <select
                     aria-label={`Kategorie položky ${index + 1}`}
                     value={row.category}
-                    onChange={(e) => updateRow(index, { category: e.target.value as ItemCategory })}
+                    onChange={(e) => updateRow(index, { category: e.target.value as ItemCategory, subcategory: undefined })}
                     className="rounded-lg border border-input bg-background px-2 py-1 text-xs"
                   >
                     {CATEGORIES.map((category) => (
                       <option key={category}>{category}</option>
+                    ))}
+                  </select>
+                  <select
+                    aria-label={`Podkategorie položky ${index + 1}`}
+                    value={row.subcategory ?? ''}
+                    onChange={(e) => updateRow(index, { subcategory: e.target.value || undefined })}
+                    className="rounded-lg border border-input bg-background px-2 py-1 text-xs"
+                  >
+                    <option value="">Bez podkategorie</option>
+                    {subcategoriesOfItem(row.category).map((subcategory) => (
+                      <option key={subcategory}>{subcategory}</option>
                     ))}
                   </select>
                   <input

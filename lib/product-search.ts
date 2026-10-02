@@ -1,4 +1,5 @@
 import { synonymsOf } from '@/lib/synonyms'
+import type { StandardPackage } from '@/lib/recipes/packaging'
 import type { ItemCategory, ItemUnit } from '@/lib/types'
 
 // Finding specific products in the chains' catalogs by what the user types ("mleko 1l").
@@ -253,6 +254,8 @@ export type ProductSearchHit = {
   unit: ItemUnit
   /** Price per `unit` (Kč/kg, Kč/l or Kč/ks), so hits of different pack sizes can be compared. */
   unitPrice: number
+  /** Persistent package evidence when the current price agrees with the product package catalog. */
+  packageSize?: StandardPackage | null
   /** The date the price was observed. */
   observedAt: string
   score: number

@@ -94,10 +94,24 @@ export function PantryAddModal({
 
           <label className='block text-sm font-medium'>
             Kategorie
-            <select value={category} onChange={(event) => setCategory(event.target.value as ItemCategory)} className='mt-1 w-full rounded-xl border border-input bg-background px-3 py-2.5 font-normal outline-none'>
+            <select value={category} onChange={(event) => {
+              const nextCategory = event.target.value as ItemCategory
+              setCategory(nextCategory)
+              setSubcategory(null)
+            }} className='mt-1 w-full rounded-xl border border-input bg-background px-3 py-2.5 font-normal outline-none'>
               {CATEGORIES.map((value) => <option key={value} value={value}>{value}</option>)}
             </select>
           </label>
+
+          {subcategories.length > 0 && (
+            <label className='block text-sm font-medium'>
+              Podkategorie
+              <select value={subcategory ?? ''} onChange={(event) => setSubcategory(event.target.value || null)} className='mt-1 w-full rounded-xl border border-input bg-background px-3 py-2.5 font-normal outline-none'>
+                <option value=''>Nezařazeno</option>
+                {subcategories.map((value) => <option key={value} value={value}>{value}</option>)}
+              </select>
+            </label>
+          )}
 
           <label className='block text-sm font-medium'>
             Umístění

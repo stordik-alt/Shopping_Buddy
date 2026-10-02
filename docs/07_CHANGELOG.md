@@ -1,3 +1,9 @@
+## 2026-10-02 (Explicit package-size evidence — phase 3)
+- **What:** price/search resolution now reads explicit package markers from catalog product names after persistent product-level package evidence and before the generic price-ratio fallback.
+- **Multipacks:** expressions such as `8x 100 g`, `6x 0,33 l` and explicit `10 ks` are canonicalized to the full retail package size; the inner `100 g` is not treated as a standalone package when it belongs to a multipack.
+- **Safety:** weight/volume name evidence is accepted only when it agrees with the current `regularPrice / unitPrice` ratio within 2%; `ks` counts require an explicit piece marker because piece price alone cannot distinguish a single item from a multipack.
+- **Coverage:** added unit tests for multipacks, explicit piece counts, rounded unit prices, and conflicting name/price evidence; existing catalog resolution remains first priority.
+
 ## 2026-10-02 (Automatic product package catalog — phase 2)
 - **What:** the persistent `product_packages` catalog is now read by the normal price-query and product-search paths instead of being write-only schema.
 - **Resolution rule:** a stored package is used only when the current price observation agrees with that canonical size; otherwise the existing runtime derivation remains the fallback. This prevents choosing the wrong size when one product has multiple recorded packages.

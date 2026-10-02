@@ -63,7 +63,7 @@ export function costForNeed(need: Pick<NeedSpec, 'quantity' | 'unit'>, hit: Pick
       const size = packageSize(hit)
       if (!size) return null
       const packages = Math.max(1, Math.ceil((kilograms / size.value) - Number.EPSILON))
-      return { cost: round(packages * hitPrice(hit)), basis: 'per-package' }
+      return { cost: round(packages * hitPrice(hit)), basis: 'per-package', packages }
     }
     case 'l':
     case 'ml': {

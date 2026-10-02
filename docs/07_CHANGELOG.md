@@ -1574,3 +1574,14 @@ The receipt tests (`app/actions/receipts.test.ts`, `app/api/receipts/[id]/image/
 
 ## Documentation rule
 Every future architectural/schema/business-rule change should append a dated entry here. Keep entries concise and factual.
+
+
+## 2026-10-02 — Receipt storage migration completed
+
+- Verified production `receipt_imports.image_url`: 0 Vercel Blob references, 24 R2 references.
+- Converted the final 9 historical Blob references to matching `r2:receipts/...` references.
+- Removed the Vercel Blob provider and rollback path from `lib/storage/`.
+- Removed `@vercel/blob`, the Blob→R2 migration script/command, and Blob-specific test helpers.
+- Updated receipt tests to exercise the production R2 storage abstraction through an in-memory S3-compatible stub.
+- `BLOB_READ_WRITE_TOKEN` and `STORAGE_PROVIDER` are no longer application requirements.
+- Blob originals were not deleted during this cleanup.

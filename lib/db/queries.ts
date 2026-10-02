@@ -1831,14 +1831,13 @@ export async function upsertActiveDeal(deal: {
   /** The branch it applies at; null for an online-only chain, whose deals have none. */
   storeLocationId: string | null
   dealPrice: number
-  /** The promotion's price per `unit`. Optional so a caller that has none does not invent one; both
-   *  are stored together or not at all (a database check enforces the pair). */
+  /** Promotion price per the product's unit. */
   unit?: (typeof schema.deals.$inferInsert)['unit']
   unitPrice?: number
   currency?: string
   validFrom: string
   validUntil: string
-}) {
+}): Promise<boolean> {
   const db = getDb()
   if ((deal.unit == null) !== (deal.unitPrice == null)) throw new Error('A deal needs both unit and unitPrice, or neither')
   const unitColumns = deal.unit != null && deal.unitPrice != null ? { unit: deal.unit, unitPrice: deal.unitPrice.toString() } : {}
@@ -1850,21 +1849,34 @@ export async function upsertActiveDeal(deal: {
       sql`${schema.deals.validUntil} >= ${todayInPrague()}`,
     ),
   })
+  const currency = deal.currency ?? 'CZK'
   if (existing) {
+    const changed =
+      existing.dealPrice !== deal.dealPrice.toString() ||
+      (existing.unit ?? null) !== (deal.unit ?? null) ||
+      (existing.unitPrice ?? null) !== (deal.unitPrice != null ? deal.unitPrice.toString() : null) ||
+      existing.currency !== currency ||
+      existing.validFrom !== deal.validFrom ||
+      existing.validUntil !== deal.validUntil
+
+    if (!changed) return false
+
     await db
       .update(schema.deals)
-      .set({ dealPrice: deal.dealPrice.toString(), ...unitColumns, currency: deal.currency ?? 'CZK', validFrom: deal.validFrom, validUntil: deal.validUntil })
+      .set({ dealPrice: deal.dealPrice.toString(), ...unitColumns, currency, validFrom: deal.validFrom, validUntil: deal.validUntil })
       .where(eq(schema.deals.id, existing.id))
-  } else {
-    await db.insert(schema.deals).values({
-      productId: deal.productId,
-      storeId: deal.storeId,
-      storeLocationId: deal.storeLocationId,
-      dealPrice: deal.dealPrice.toString(),
-      ...unitColumns,
-      currency: deal.currency ?? 'CZK',
-      validFrom: deal.validFrom,
-      validUntil: deal.validUntil,
-    })
+    return true
   }
+
+  await db.insert(schema.deals).values({
+    productId: deal.productId,
+    storeId: deal.storeId,
+    storeLocationId: deal.storeLocationId,
+    dealPrice: deal.dealPrice.toString(),
+    ...unitColumns,
+    currency,
+    validFrom: deal.validFrom,
+    validUntil: deal.validUntil,
+  })
+  return true
 }

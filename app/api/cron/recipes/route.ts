@@ -5,6 +5,8 @@ import { invalidateRecipeCaches } from '@/lib/db/cache-invalidation'
 
 export const maxDuration = 300
 
+const DAILY_RECIPE_LIMIT = 6
+
 const DAILY_QUERIES = [
   'kuře',
   'maso',
@@ -49,13 +51,22 @@ export async function GET(request: Request) {
   const startedAt = Date.now()
   const results: Record<string, unknown> = {}
 
-  for (const [index, adapter] of RECIPE_SOURCE_ADAPTERS.entries()) {
+  const sourceCount = RECIPE_SOURCE_ADAPTERS.length
+  const baseLimit = Math.floor(DAILY_RECIPE_LIMIT / sourceCount)
+  const remainder = DAILY_RECIPE_LIMIT % sourceCount
+  const rotationStart = dayOfYear(new Date()) % sourceCount
+
+  for (let offset = 0; offset < sourceCount; offset += 1) {
+    const index = (rotationStart + offset) % sourceCount
+    const adapter = RECIPE_SOURCE_ADAPTERS[index]
+    const limit = baseLimit + (offset < remainder ? 1 : 0)
+    if (limit === 0) continue
     const query = queryForSource(index)
     try {
       results[adapter.id] = await importRecipeBatch({
         sourceId: adapter.id,
         queries: [query],
-        limit: 6,
+        limit,
         delayMs: 300,
         importImages: true,
         acknowledgeSourceTerms: process.env.RECIPE_IMPORT_SOURCE_TERMS_ACK === 'true',

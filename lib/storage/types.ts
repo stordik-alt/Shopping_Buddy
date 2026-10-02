@@ -1,5 +1,5 @@
 // Provider-neutral receipt file storage (docs/cloudflare-migration-architecture.md).
-// Receipts are the only files the app stores. The rest of the app talks to `lib/storage` only, never
+// // Receipts are the only files the app stores. The rest of the app talks to `lib/storage` only, never
 directly to the R2 implementation, so the provider can change without touching the pipeline.
 
 export type StorageProvider = 'r2'

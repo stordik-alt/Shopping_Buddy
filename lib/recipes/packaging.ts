@@ -81,7 +81,7 @@ export type ExplicitPackageCandidate = {
 export function extractExplicitPackageSizes(name: string): StandardPackage[] {
   const text = name.replace(/,/g, '.')
   const candidates: { start: number; end: number; package: StandardPackage }[] = []
-  const parseNumber = (value: string) => Number(value.replace(/[\\s\\u00a0]/g, ''))
+  const parseNumber = (value: string) => Number(value.replace(/[\s\u00a0]/g, ''))
 
   const toCanonical = (quantity: number, rawUnit: string): ExplicitPackageCandidate | null => {
     const unit = rawUnit.toLowerCase()
@@ -108,7 +108,7 @@ export function extractExplicitPackageSizes(name: string): StandardPackage[] {
   }
 
   const overlapsMultipack = (start: number, end: number) => candidates.some((entry) => start >= entry.start && end <= entry.end)
-  const single = /((?:[1-9]\d{0,2}[\\s\\u00a0]\d{3}|\d+(?:\.\d+)?))\s*(kg|ml|g|l)(?![a-z])/gi
+  const single = /(?<![\d.])((?:\d{1,3}[\s\u00a0]\d{3}|\d+(?:\.\d+)?))\s*(kg|ml|g|l)(?![a-z])/gi
   for (const match of text.matchAll(single)) {
     const start = match.index ?? -1
     if (start < 0 || overlapsMultipack(start, start + match[0].length)) continue

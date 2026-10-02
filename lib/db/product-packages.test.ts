@@ -1,7 +1,7 @@
 import { eq, inArray } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { getDb } from '@/lib/db/client'
-import { recordPriceObservation } from '@/lib/db/queries'
+import { getProductPrices, recordPriceObservation } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
 
 const db = getDb()
@@ -69,6 +69,14 @@ describe('automatic product package catalog', () => {
       observationCount: 2,
       firstSeenAt: '2026-09-30',
       lastSeenAt: '2026-10-01',
+    })
+
+    const productPrice = (await getProductPrices({ names: [`__Test balení máslo ${tag}`], runningDeals: false }))[0]
+    expect(productPrice?.prices[0]?.packageSize).toMatchObject({
+      quantity: 0.25,
+      unit: 'kg',
+      source: 'catalog',
+      label: '250 g',
     })
   })
 

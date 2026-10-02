@@ -4,6 +4,7 @@ import { averageMonthlySpend, favoriteStores, mostBoughtProducts, repeatPurchase
 import { PurchaseItemSplitDialog } from '@/components/budget/purchase-item-split-dialog'
 import { Stat } from '@/components/shared/stat'
 import { userFacingError } from '@/lib/errors'
+import { subcategoriesOfItem } from '@/lib/product-subcategories'
 import { itemCountLabel, money, shortDate } from '@/lib/format'
 import type { ExpenseSplitPart } from '@/lib/purchase-expenses'
 import type { Expense, ItemCategory, ItemUnit, Notification, PurchaseItem, PurchaseRecord } from '@/lib/types'
@@ -27,7 +28,7 @@ export function PurchaseHistory({
     date: string
     storeChain?: string | null
     discount?: number | null
-    items: Array<{ name: string; quantity: number; unit: ItemUnit; price: number; category?: ItemCategory }>
+    items: Array<{ name: string; quantity: number; unit: ItemUnit; price: number; category: ItemCategory; subcategory?: string | null }>
   }) => Promise<{ purchase: PurchaseRecord; expenses: Expense[]; notifications: Notification[] }>
   /** Next step offered while there is no purchase yet. */
   onUploadReceipt?: () => void
@@ -55,8 +56,8 @@ export function PurchaseHistory({
   const [manualDate, setManualDate] = useState(today ?? '')
   const [manualStore, setManualStore] = useState('')
   const [manualDiscount, setManualDiscount] = useState('')
-  const [manualItems, setManualItems] = useState<Array<{ name: string; quantity: string; unit: ItemUnit; price: string; category: ItemCategory }>>([
-    { name: '', quantity: '1', unit: 'ks', price: '', category: 'Potraviny' },
+  const [manualItems, setManualItems] = useState<Array<{ name: string; quantity: string; unit: ItemUnit; price: string; category: ItemCategory; subcategory: string }>>([
+    { name: '', quantity: '1', unit: 'ks', price: '', category: 'Potraviny', subcategory: '' },
   ])
   const splitsOf = (item: PurchaseItem) => (item.id != null && item.id in overrides ? overrides[item.id] : (item.expenseSplits ?? []))
   const newestFirst = records.slice().reverse()
@@ -85,6 +86,7 @@ export function PurchaseHistory({
         unit: item.unit,
         price: Number(item.price),
         category: item.category,
+        subcategory: item.subcategory || null,
       }))
       if (items.length === 0) throw new Error('Přidejte alespoň jednu položku.')
       if (items.some((item) => !Number.isFinite(item.quantity) || item.quantity <= 0 || !Number.isFinite(item.price) || item.price < 0)) {
@@ -98,7 +100,7 @@ export function PurchaseHistory({
         items,
       })
       setManualOpen(false)
-      setManualItems([{ name: '', quantity: '1', unit: 'ks', price: '', category: 'Potraviny' }])
+      setManualItems([{ name: '', quantity: '1', unit: 'ks', price: '', category: 'Potraviny', subcategory: '' }])
       setManualDiscount('')
       setManualStore('')
       setManualDate(today ?? '')
@@ -262,20 +264,26 @@ export function PurchaseHistory({
             </div>
             <div className="mt-5 space-y-2">
               {manualItems.map((item, index) => (
-                <div key={index} className="grid gap-2 rounded-2xl border border-border p-3 sm:grid-cols-[1fr_90px_90px_110px_130px_40px]">
+                <div key={index} className="grid gap-2 rounded-2xl border border-border p-3 sm:grid-cols-[1fr_90px_90px_110px_1.4fr_40px]">
                   <input value={item.name} onChange={(e) => setManualItems((rows) => rows.map((row, i) => i === index ? { ...row, name: e.target.value } : row))} placeholder="Produkt" className="min-h-10 rounded-xl border border-border bg-background px-3 text-sm" />
                   <input type="number" min="0.001" step="0.001" value={item.quantity} onChange={(e) => setManualItems((rows) => rows.map((row, i) => i === index ? { ...row, quantity: e.target.value } : row))} placeholder="Množství" className="min-h-10 rounded-xl border border-border bg-background px-3 text-sm" />
                   <select value={item.unit} onChange={(e) => setManualItems((rows) => rows.map((row, i) => i === index ? { ...row, unit: e.target.value as ItemUnit } : row))} className="min-h-10 rounded-xl border border-border bg-background px-2 text-sm">
                     {(['ks','kg','g','l','ml'] as ItemUnit[]).map((unit) => <option key={unit} value={unit}>{unit}</option>)}
                   </select>
                   <input type="number" min="0" step="0.01" value={item.price} onChange={(e) => setManualItems((rows) => rows.map((row, i) => i === index ? { ...row, price: e.target.value } : row))} placeholder="Cena/ks" className="min-h-10 rounded-xl border border-border bg-background px-3 text-sm" />
-                  <select value={item.category} onChange={(e) => setManualItems((rows) => rows.map((row, i) => i === index ? { ...row, category: e.target.value as ItemCategory } : row))} className="min-h-10 rounded-xl border border-border bg-background px-2 text-sm">
-                    {(['Potraviny','Drogerie','Děti','Domácnost','Ostatní'] as ItemCategory[]).map((category) => <option key={category} value={category}>{category}</option>)}
-                  </select>
+                  <div className="grid min-w-0 gap-2 sm:grid-cols-2">
+                    <select aria-label={'Kategorie položky ' + (index + 1)} value={item.category} onChange={(e) => setManualItems((rows) => rows.map((row, i) => i === index ? { ...row, category: e.target.value as ItemCategory, subcategory: '' } : row))} className="min-h-10 rounded-xl border border-border bg-background px-2 text-sm">
+                      {(['Potraviny','Drogerie','Děti','Domácnost','Ostatní'] as ItemCategory[]).map((category) => <option key={category} value={category}>{category}</option>)}
+                    </select>
+                    <select aria-label={'Podkategorie položky ' + (index + 1)} value={item.subcategory} onChange={(e) => setManualItems((rows) => rows.map((row, i) => i === index ? { ...row, subcategory: e.target.value } : row))} className="min-h-10 rounded-xl border border-border bg-background px-2 text-sm">
+                      <option value="">Bez podkategorie</option>
+                      {subcategoriesOfItem(item.category).map((subcategory) => <option key={subcategory} value={subcategory}>{subcategory}</option>)}
+                    </select>
+                  </div>
                   <button type="button" onClick={() => setManualItems((rows) => rows.filter((_, i) => i !== index))} disabled={manualItems.length === 1} className="icon-button size-9 disabled:opacity-40" aria-label="Odebrat položku"><Trash2 className="h-4 w-4" /></button>
                 </div>
               ))}
-              <button type="button" onClick={() => setManualItems((rows) => [...rows, { name: '', quantity: '1', unit: 'ks', price: '', category: 'Potraviny' }])} className="flex min-h-10 items-center gap-2 rounded-xl bg-muted px-3 text-sm font-medium">
+              <button type="button" onClick={() => setManualItems((rows) => [...rows, { name: '', quantity: '1', unit: 'ks', price: '', category: 'Potraviny', subcategory: '' }])} className="flex min-h-10 items-center gap-2 rounded-xl bg-muted px-3 text-sm font-medium">
                 <Plus className="h-4 w-4" /> Přidat položku
               </button>
             </div>

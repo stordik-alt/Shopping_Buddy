@@ -1,3 +1,10 @@
+## 2026-10-02 (Persistent explicit piece package evidence — phase 5)
+- **What:** the persistent `product_packages` catalog now supports canonical `ks` rows alongside `kg` and `l`.
+- **Evidence:** an explicit `N ks` marker in a piece-priced product name is persisted during the existing batched official-price evidence pass; a `ks` price by itself never invents a package count.
+- **Resolution:** a stored piece count is used only when the current product name independently confirms the same `N ks` marker, preventing ambiguous catalog selection when a product has multiple package variants.
+- **Counting:** same-day reprocessing is idempotent; a later-date explicit piece observation increments the package observation count. Weight/volume counts remain owned by the existing prices trigger.
+- **Coverage:** added pure and database-backed tests for persistence, idempotence and catalog resolution.
+
 ## 2026-10-02 (Persistent package learning from explicit product names — phase 4)
 - **What:** price ingestion now batches explicit, price-consistent weight/volume package evidence into the persistent `product_packages` catalog.
 - **Promotion:** when the exact name-derived size already exists as a ratio-derived package, its source is promoted to `name-extracted` and confidence to 0.98; when rounding differences produce a nearby but distinct canonical size, the verified name size is added as a separate catalog row.

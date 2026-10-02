@@ -57,6 +57,8 @@ export type PlannedLine = {
   productId: string
   productName: string
   cost: number
+  /** Number of whole retail packages required for this need. */
+  packages: number
   source: 'pinned' | 'auto'
   /** What the same item costs at each other allowed store that offers it, cheapest first.
    *  `difference` is that store's cost minus this line's cost: positive = dearer there (the saving of

@@ -19,8 +19,8 @@ export type CatalogPackage = {
  * Derives the size of one retail package from the package price and its unit price.
  * Example: 60 Kč package / 60 Kč per kg = 1 kg package.
  *
- * This is intentionally derived at runtime for now. A future product-variant model can
- * persist an explicit package size when the retailer provides one.
+ * This remains the safe fallback when the persistent product package catalog has no matching entry.
+ * Explicit retailer-provided package metadata can be modeled separately when product variants are added.
  */
 export function inferPackageSize(price: Pick<PricePoint, 'regularPrice' | 'unit' | 'unitPrice'>): StandardPackage | null {
   if (!Number.isFinite(price.regularPrice) || price.regularPrice <= 0 || !Number.isFinite(price.unitPrice) || price.unitPrice <= 0) {

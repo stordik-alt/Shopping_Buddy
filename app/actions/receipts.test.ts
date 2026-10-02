@@ -17,6 +17,31 @@ vi.setConfig({ testTimeout: 20_000 })
 
 let currentHouseholdId = ''
 vi.mock('@/lib/auth/authorize', () => ({ requireHouseholdId: () => Promise.resolve(currentHouseholdId) }))
+vi.mock('@/lib/storage', () => {
+  const objects = new Map<string, { body: Buffer; contentType: string }>()
+  return {
+    putReceiptFile: async (householdId: string, body: Buffer, file: { extension: string; mimeType: string }) => {
+      const ref = `r2:receipts/${householdId}/${crypto.randomUUID()}.${file.extension === 'pdf' ? 'pdf' : 'png'}`
+      objects.set(ref, { body: Buffer.from(body), contentType: file.mimeType })
+      return ref
+    },
+    getReceiptFile: async (ref: string) => {
+      const object = objects.get(ref)
+      if (!object) return null
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new Uint8Array(object.body))
+          controller.close()
+        },
+      })
+      return { body: stream, contentType: object.contentType }
+    },
+    deleteReceiptFile: async (ref: string) => {
+      objects.delete(ref)
+    },
+  }
+})
+
 vi.mock('next/cache', () => ({ revalidatePath: () => {}, revalidateTag: () => {} }))
 // Receipt storage is exercised through the production R2 abstraction, with a local in-memory S3 stub.
 process.env.R2_ACCOUNT_ID = 'test-account'

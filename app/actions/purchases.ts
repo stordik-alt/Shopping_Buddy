@@ -117,7 +117,7 @@ export async function createManualPurchaseAction(input: {
   date: string
   storeChain?: string | null
   discount?: number | null
-  items: Array<{ name: string; quantity: number; unit: ItemUnit; price: number; category?: ItemCategory; subcategory?: string | null }>
+  items: Array<{ name: string; quantity: number; unit: ItemUnit; price: number; category: ItemCategory; subcategory?: string | null }>
 }): Promise<{ purchase: PurchaseRecord; expenses: Expense[]; notifications: Notification[] }> {
   const householdId = await requireHouseholdId()
   if (!input || typeof input.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(input.date)) throw new Error('Neplatné datum nákupu.')
@@ -132,18 +132,16 @@ export async function createManualPurchaseAction(input: {
     if (!Number.isFinite(quantity) || quantity <= 0) throw new Error(`Neplatné množství u položky „${name}“.`)
     if (!Number.isFinite(price) || price < 0) throw new Error(`Neplatná cena u položky „${name}“.`)
     if (!['ks', 'kg', 'g', 'l', 'ml'].includes(item.unit)) throw new Error(`Neplatná jednotka u položky „${name}“.`)
-    if (item.category != null && !(PRODUCT_ITEM_CATEGORIES as readonly string[]).includes(item.category)) throw new Error(`Neplatná kategorie u položky „${name}“.`)
-    if (item.subcategory != null && item.category != null && !isValidProductSubcategory(item.category, item.subcategory)) throw new Error(`Neplatná podkategorie u položky „${name}“.`)
-    if (item.subcategory != null && item.category == null) throw new Error(`Podkategorie u položky „${name}“ vyžaduje kategorii.`)
+    if (!(PRODUCT_ITEM_CATEGORIES as readonly string[]).includes(item.category)) throw new Error(`Neplatná kategorie u položky „${name}“.`)
+    if (item.subcategory != null && !isValidProductSubcategory(item.category, item.subcategory)) throw new Error(`Neplatná podkategorie u položky „${name}“.`)
     return { name, quantity, price, unit: item.unit, category: item.category, subcategory: item.subcategory ?? null }
   })
 
   const catalog = await getProductCatalog(items.map((item) => item.name))
   const resolved = items.map((item) => {
     const product = matchProductByName(catalog, item.name)
-    const category = item.category ?? product?.category
-    if (!category) throw new Error(`U položky „${item.name}“ vyberte kategorii.`)
-    const subcategory = item.category != null ? item.subcategory : (item.subcategory ?? product?.subcategory ?? null)
+    const category = item.category
+    const subcategory = item.subcategory ?? null
     if (!isValidProductSubcategory(category, subcategory)) throw new Error(`Neplatná podkategorie u položky „${item.name}“.`)
     return { ...item, product, category, subcategory }
   })

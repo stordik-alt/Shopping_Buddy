@@ -62,6 +62,33 @@ export function useTabNavigation(initialTab: Tab) {
 export function useServiceWorker() {
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return
-    navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' }).catch((error) => console.error('Service worker registration failed', error))
+
+    let active = true
+    const hadController = Boolean(navigator.serviceWorker.controller)
+
+    void navigator.serviceWorker
+      .register('/sw.js', { scope: '/', updateViaCache: 'none' })
+      .then(async (registration) => {
+        if (!active) return
+        // Check immediately after a deploy so an older worker cannot keep serving cached Next.js chunks.
+        await registration.update()
+      })
+      .catch((error) => console.error('Service worker registration/update failed', error))
+
+    if (hadController) {
+      const reloadAfterUpdate = () => {
+        if (!active) return
+        window.location.reload()
+      }
+      navigator.serviceWorker.addEventListener('controllerchange', reloadAfterUpdate)
+      return () => {
+        active = false
+        navigator.serviceWorker.removeEventListener('controllerchange', reloadAfterUpdate)
+      }
+    }
+
+    return () => {
+      active = false
+    }
   }, [])
 }

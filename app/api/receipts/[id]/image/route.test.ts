@@ -1,4 +1,4 @@
-import { del, put } from '@vercel/blob'
+import { deleteReceiptFile, putReceiptFile } from '@/lib/storage'
 import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { getDb } from '@/lib/db/client'
@@ -8,10 +8,20 @@ import * as schema from '@/lib/db/schema'
 // app/actions/receipts.test.ts — the session lookup is faked too, because there is no browser session
 // in a unit test.
 vi.setConfig({ testTimeout: 20_000 })
-// Receipt photos go to Vercel Blob. Tests use an in-memory fake (test/fake-blob.ts) so a run neither
-// spends paid Blob operations nor fails when the real store is suspended; USE_REAL_BLOB=1 runs them
-// against the real store on purpose.
-vi.mock('@vercel/blob', async () => (process.env.USE_REAL_BLOB === '1' ? await vi.importActual('@vercel/blob') : (await import('@/test/fake-blob')).fakeBlobModule))
+// Receipt storage is exercised through the production R2 abstraction, with a local in-memory S3 stub.
+process.env.R2_ACCOUNT_ID = 'test-account'
+process.env.R2_ACCESS_KEY_ID = 'test-access-key'
+process.env.R2_SECRET_ACCESS_KEY = 'test-secret'
+process.env.R2_BUCKET_NAME = 'test-receipts'
+const r2Objects = new Map<string, { bytes: Uint8Array; contentType: string }>()
+vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+  const request = input instanceof Request ? input : new Request(input, init)
+  const key = new URL(request.url).pathname.split('/').slice(2).join('/')
+  if (request.method === 'PUT') { r2Objects.set(key, { bytes: new Uint8Array(await request.arrayBuffer()), contentType: request.headers.get('content-type') ?? 'application/octet-stream' }); return new Response(null, { status: 200 }) }
+  if (request.method === 'GET') { const object = r2Objects.get(key); return object ? new Response(object.bytes.slice(), { status: 200, headers: { 'content-type': object.contentType } }) : new Response(null, { status: 404 }) }
+  if (request.method === 'DELETE') { r2Objects.delete(key); return new Response(null, { status: 204 }) }
+  return new Response(null, { status: 405 })
+}))
 
 let currentHouseholdId: string | null = null
 vi.mock('@/lib/auth/authorize', () => {
@@ -30,7 +40,7 @@ let ownerHouseholdId: string
 let otherHouseholdId: string
 let receiptImportId: string
 let receiptWithoutImageId: string
-let blobUrl: string
+let receiptRef: string
 
 const call = (id: string) => GET(new Request('http://localhost/api/receipts/x/image'), { params: Promise.resolve({ id }) })
 
@@ -40,9 +50,8 @@ beforeAll(async () => {
   ownerHouseholdId = owner.id
   otherHouseholdId = other.id
 
-  const blob = await put(`receipts/__test__/${crypto.randomUUID()}.png`, IMAGE_BYTES, { access: 'private', contentType: 'image/png' })
-  blobUrl = blob.url
-  const [row] = await db.insert(schema.receiptImports).values({ householdId: ownerHouseholdId, status: 'review_required', source: 'ocr', imageUrl: blobUrl }).returning()
+  receiptRef = await putReceiptFile(ownerHouseholdId, IMAGE_BYTES, { extension: 'png', mimeType: 'image/png' })
+  const [row] = await db.insert(schema.receiptImports).values({ householdId: ownerHouseholdId, status: 'review_required', source: 'ocr', imageUrl: receiptRef }).returning()
   receiptImportId = row.id
   const [noImage] = await db.insert(schema.receiptImports).values({ householdId: ownerHouseholdId, status: 'review_required', source: 'ocr' }).returning()
   receiptWithoutImageId = noImage.id
@@ -52,7 +61,9 @@ afterAll(async () => {
   // households cascade to receipt_imports
   await db.delete(schema.households).where(eq(schema.households.id, ownerHouseholdId))
   await db.delete(schema.households).where(eq(schema.households.id, otherHouseholdId))
-  await del(blobUrl).catch(() => {})
+  await deleteReceiptFile(receiptRef).catch(() => {})
+  vi.unstubAllGlobals()
+  r2Objects.clear()
 })
 
 describe('GET /api/receipts/[id]/image', () => {

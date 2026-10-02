@@ -1,3 +1,13 @@
+## Update 2026-10-02 — Receipt storage migration complete
+
+Receipt storage is now R2-only in production. The nine remaining historical Blob references in `receipt_imports.image_url` were converted to their corresponding `r2:receipts/...` references; production verification reports 0 Blob references and 24 R2 references.
+
+The application cleanup removes the Vercel Blob provider, `@vercel/blob`, the Blob→R2 migration script/command, and Blob-specific test helpers. `STORAGE_PROVIDER` and `BLOB_READ_WRITE_TOKEN` are no longer used by the application. R2 remains the only receipt storage backend.
+
+The application is still hosted on Vercel. Full Cloudflare hosting migration remains separate and is not part of this change.
+
+---
+
 # Shopping Buddy — Current State
 
 **Repository:** `stordik-alt/Shopping_Buddy`

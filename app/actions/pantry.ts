@@ -36,6 +36,7 @@ export async function addPantryItemAction(input: {
   quantity: number
   unit: ItemUnit
   category?: ItemCategory
+  subcategory?: string | null
   placeKey?: string | null
 }): Promise<PantryItem[]> {
   const householdId = await requireHouseholdId()
@@ -52,8 +53,15 @@ export async function addPantryItemAction(input: {
   const product = matchProductByName(catalog, name)
   if (product?.isNonInventory) throw new Error('Tento produkt nelze přidat do zásob.')
 
-  const category = product?.category ?? input.category
+  // A category selected during manual pantry entry is authoritative for this entry.
+  // Catalog classification is only the fallback when the caller did not provide one.
+  const category = input.category ?? product?.category
   if (!category) throw new Error('U nové položky vyberte kategorii.')
+
+  const requestedSubcategory = input.subcategory ?? null
+  if (requestedSubcategory !== null && !subcategoriesOfItem(category).includes(requestedSubcategory)) {
+    throw new Error('Neplatná podkategorie.')
+  }
 
   const placeKey = typeof input.placeKey === 'string' && input.placeKey.trim() ? input.placeKey.trim() : null
   let location = product?.defaultLocation ?? inferPantryLocation(category, name) ?? 'Spíž'
@@ -71,9 +79,11 @@ export async function addPantryItemAction(input: {
   }
 
   let subcategoryId: string | null = null
-  if (product?.subcategory) {
+  const selectedSubcategory = requestedSubcategory ?? (input.category ? null : product?.subcategory ?? null)
+  if (selectedSubcategory) {
     const subcategories = await getSubcategoryCatalog()
-    subcategoryId = subcategories.find((row) => row.category === category && row.name === product.subcategory)?.id ?? null
+    subcategoryId = subcategories.find((row) => row.category === category && row.name === selectedSubcategory)?.id ?? null
+    if (!subcategoryId) throw new Error('Neplatná podkategorie.')
   }
 
   await restockPantryItem(householdId, {

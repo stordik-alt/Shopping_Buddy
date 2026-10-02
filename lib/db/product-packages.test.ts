@@ -164,6 +164,7 @@ describe('automatic product package catalog', () => {
   it('uses explicit piece package size from a product name when no catalog size exists', async () => {
     const productId = await addProduct('__Test named multipack ' + tag)
     const storeId = (await db.query.stores.findFirst())!.id
+    const productName = 'Papírové kapesníky 6 ks ' + tag
 
     await recordPriceObservation({
       productId,

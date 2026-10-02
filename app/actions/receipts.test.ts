@@ -15,7 +15,7 @@ import type { ExtractedReceipt, ReceiptLineItem, ReceiptStructuringProvider, Rec
 // at least once.
 vi.setConfig({ testTimeout: 20_000 })
 
-const storageFiles = new Map<string, { body: Buffer; contentType: string }>()
+const storageFiles = vi.hoisted(() => new Map<string, { body: Buffer; contentType: string }>())
 
 vi.mock('@/lib/storage', () => ({
   putReceiptFile: async (householdId: string, body: Buffer, file: { extension: string; mimeType: string }) => {
@@ -68,11 +68,9 @@ const extractedReceipt = (overrides: Partial<ExtractedReceipt> = {}): ExtractedR
   ...overrides,
 })
 
-// processReceiptImport always fetches the row's stored image from Blob first, regardless of which
-// text/structuring providers are injected — so tests upload a real (tiny, throwaway) image to the
-// real Blob store rather than faking that step too. Vision/Gemini are the only faked pieces here;
-// everything else (Blob storage, the receipt_imports state machine, validation, duplicate
-// detection) runs for real.
+// processReceiptImport fetches the row's stored image through the storage abstraction; the test
+// uses the in-memory R2 store above while the receipt_imports state machine, validation and duplicate
+// detection run for real.
 async function createUploadedReceipt(file: { buffer: Buffer; extension: string; contentType: string } = { buffer: Buffer.from('test-image-bytes'), extension: 'png', contentType: 'image/png' }): Promise<string> {
   const imageUrl = await putReceiptFile(householdId, file.buffer, { extension: file.extension as 'jpg' | 'png' | 'webp' | 'pdf', mimeType: file.contentType })
   const [row] = await db.insert(schema.receiptImports).values({ householdId, status: 'uploaded', source: 'ocr', imageUrl }).returning()

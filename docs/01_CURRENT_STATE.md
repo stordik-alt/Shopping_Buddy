@@ -4,7 +4,7 @@
 **Stable branch:** `main`
 **Current backend development branch:** `v0/backend`
 **Previous frontend branch:** `V0/continue-frontend` — historical/obsolete unless explicitly requested
-**Last updated:** 2026-09-29
+**Last updated:** 2026-10-02
 
 ---
 
@@ -144,6 +144,14 @@ The frontend currently contains functionality for areas including:
 
 Existing UI should be preserved when working on backend functionality unless a UI change is required.
 
+## Update 2026-10-02 — category and subcategory are selectable during import
+Receipt entry now exposes the shared product category and subcategory directly at the point of
+import. The manual receipt form stores an explicit human classification; the OCR review and duplicate
+resolution forms let the household correct both fields before saving. The shared purchase creation
+path validates the fixed taxonomy and preserves an explicit correction instead of letting an older
+catalog value silently overwrite the user's current choice. Confirmed classifications continue through
+the existing purchase expense recomputation and catalog-learning path. The ordinary "Nový výdaj"
+flow already had category/subcategory controls, so no separate expense-only migration was needed.
 ## Update 2026-09-29, project audit: robustness and CI (PRs #152–#154)
 A full-project review produced a list of improvements; the first block was implemented, the rest is recorded below as open.
 

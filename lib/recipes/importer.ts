@@ -155,9 +155,6 @@ async function storeRecipeImage(recipe: Recipe, adapter: RecipeSourceAdapter, im
     .toBuffer()
   const digest = createHash('sha256').update(output).digest('hex')
   const key = 'recipe-images/' + adapter.id + '/' + digest + '.webp'
-  if (process.env.STORAGE_PROVIDER?.trim().toLowerCase() !== 'r2') {
-    throw new Error('Recipe image import requires STORAGE_PROVIDER=r2')
-  }
   await r2PutObject(key, output, 'image/webp')
   return 'r2:' + key
 }

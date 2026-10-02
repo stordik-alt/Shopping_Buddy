@@ -35,6 +35,8 @@ Where the migration brief assumes something the code does not do, that is called
 | Caching | No `unstable_cache` / `'use cache'` / `revalidateTag`. `revalidatePath('/')` in server actions. `/` and `/invite/[token]` are `force-dynamic`. `images.unoptimized: true`. |
 | Background processing | None beyond crons. The receipt pipeline runs synchronously inside `processUploadedReceiptAction`. |
 
+> **Cache status update — 2026-10-02:** The original audit's cache snapshot is historical. The application now uses `unstable_cache` for global catalog reads with separate tags for products, prices/offers, deals, stores/chains and recipes. Successful ingestion and catalog mutations invalidate the relevant tags; household-specific data is not placed in shared cache.
+
 ## 2. Routes and server actions
 
 **Route handlers** (`app/api/**/route.ts`):
@@ -152,7 +154,7 @@ Target runtime: **OpenNext for Cloudflare** (`@opennextjs/cloudflare` `1.20.6`, 
 | C5 | 20 cron entries (V5) | Free: 5 triggers | Workers Paid, or one trigger with in-code dispatch |
 | C6 | Worker bundle size (Paid: 10 MB compressed) | Next + Neon Auth + AI SDK + unpdf (pdf.js) may be large | Measure with `opennextjs-cloudflare build`; `unpdf` ships a serverless pdf.js build, but confirm |
 | C7 | Memory: 128 MB per isolate | 10 MB upload → Buffer + base64 copies (~13 MB each) + pdf.js | Fits, but trim the PDF base64 round-trip (section 6); keep the 10 MB cap |
-| C8 | `revalidatePath` / Next cache | OpenNext needs an incremental cache + tag cache to honor revalidation; pages here are dynamic | Configure OpenNext with R2 incremental cache (or none) and verify that `revalidatePath('/')` still refreshes after actions |
+| C8 | `revalidatePath` / Next cache | Global catalog reads now use `unstable_cache` with cache tags; user-specific reads remain uncached | OpenNext uses the R2 incremental cache. Verify tag-driven invalidation and `revalidatePath('/')` on staging before Cloudflare cutover |
 | C9 | `node:zlib` `gunzipSync` (Lidl), `node:crypto` `randomBytes` | Supported under `nodejs_compat` | Verify on staging |
 | C10 | `proxyClientMaxBodySize` / `bodySizeLimit` 15 MB | Workers accept up to 100 MB request bodies | Verify that OpenNext honors both Next settings |
 | C11 | Neon Auth | Trusted origins list must include the staging and production Cloudflare origins; cookies are per-origin | Add origins in Neon Console before staging auth tests |

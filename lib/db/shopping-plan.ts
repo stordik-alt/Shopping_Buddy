@@ -4,7 +4,7 @@ import { getMemberStoreSelection, getStoreChains } from '@/lib/db/member-store-p
 import { getHitsForProducts, searchProductHitsBatch } from '@/lib/db/product-search'
 import * as schema from '@/lib/db/schema'
 import { EMPTY_STORE_SELECTION, hasStoreSelection, MAX_SHOP_STORES } from '@/lib/nearby-stores'
-import { searchTokens } from '@/lib/product-search'
+import { searchTokens, type ProductSearchHit } from '@/lib/product-search'
 import { costForNeed, packageSize, pickAutoHit, type NeedSpec } from '@/lib/shopping-offers'
 import { planShopping, type PlanOffer, type ShoppingPlan } from '@/lib/shopping-plan'
 

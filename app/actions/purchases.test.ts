@@ -219,7 +219,7 @@ describe('createManualPurchaseAction — classification', () => {
   it('stores the chosen category and subcategory on the purchase and resulting expense', async () => {
     const name = `__test_manual_classification_${crypto.randomUUID()}`
     try {
-      const { purchase, expenses } = await createManualPurchaseAction({
+      const { purchase } = await createManualPurchaseAction({
         date: '2026-09-27',
         items: [{ name, quantity: 1, unit: 'ks', price: 150, category: 'Drogerie', subcategory: 'Kosmetika' }],
       })
@@ -228,9 +228,11 @@ describe('createManualPurchaseAction — classification', () => {
       const subcategory = await db.query.productSubcategories.findFirst({ where: eq(schema.productSubcategories.name, 'Kosmetika') })
       expect(item?.category).toBe('Drogerie')
       expect(item?.subcategoryId).toBe(subcategory?.id)
-      expect(expenses.filter((expense) => expense.purchaseId === purchase.id)).toEqual([
-        expect.objectContaining({ category: 'Drogerie', subcategory: 'Kosmetika', amount: 150 }),
-      ])
+
+      const expense = await db.query.expenses.findFirst({
+        where: eq(schema.expenses.purchaseId, purchase.id),
+      })
+      expect(expense).toMatchObject({ category: 'Drogerie', subcategory: 'Kosmetika', amount: '150' })
     } finally {
       await db.delete(schema.products).where(eq(schema.products.name, name))
     }

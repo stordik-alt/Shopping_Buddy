@@ -81,6 +81,7 @@ export type ExplicitPackageCandidate = {
 export function extractExplicitPackageSizes(name: string): StandardPackage[] {
   const text = name.replace(/,/g, '.')
   const candidates: { start: number; end: number; package: StandardPackage }[] = []
+  const parseNumber = (value: string) => Number(value.replace(/[\\s\\u00a0]/g, ''))
 
   const toCanonical = (quantity: number, rawUnit: string): ExplicitPackageCandidate | null => {
     const unit = rawUnit.toLowerCase()
@@ -93,8 +94,8 @@ export function extractExplicitPackageSizes(name: string): StandardPackage[] {
 
   const multipack = /(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)\s*(kg|ml|g|l)(?![a-z])/gi
   for (const match of text.matchAll(multipack)) {
-    const count = Number(match[1])
-    const each = Number(match[2])
+    const count = parseNumber(match[1])
+    const each = parseNumber(match[2])
     const canonical = toCanonical(count * each, match[3])
     const start = match.index ?? -1
     if (!canonical || start < 0) continue
@@ -107,11 +108,11 @@ export function extractExplicitPackageSizes(name: string): StandardPackage[] {
   }
 
   const overlapsMultipack = (start: number, end: number) => candidates.some((entry) => start >= entry.start && end <= entry.end)
-  const single = /(\d+(?:\.\d+)?)\s*(kg|ml|g|l)(?![a-z])/gi
+  const single = /((?:[1-9]\d{0,2}[\\s\\u00a0]\d{3}|\d+(?:\.\d+)?))\s*(kg|ml|g|l)(?![a-z])/gi
   for (const match of text.matchAll(single)) {
     const start = match.index ?? -1
     if (start < 0 || overlapsMultipack(start, start + match[0].length)) continue
-    const canonical = toCanonical(Number(match[1]), match[2])
+    const canonical = toCanonical(parseNumber(match[1]), match[2])
     if (!canonical) continue
     const quantity = Math.round(canonical.quantity * 1000) / 1000
     candidates.push({

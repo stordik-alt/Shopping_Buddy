@@ -463,7 +463,10 @@ export async function importReceiptAction(
   options: { date?: string; storeLocationId?: string; storeName?: string; currency?: string } = {},
 ): Promise<{ purchase: PurchaseRecord; aftermath: PurchaseAftermath }> {
   const householdId = await requireHouseholdId()
-  const purchase = await createPurchaseFromReceiptItems(householdId, items, { ...options, source: 'confirmed' })
+  // This action is explicitly the manual import path, so the category/subcategory supplied by the
+  // user is authoritative even when the product already exists in the shared catalog.
+  const manualItems = items.map((item) => ({ ...item, classificationSource: 'manual' as const }))
+  const purchase = await createPurchaseFromReceiptItems(householdId, manualItems, { ...options, source: 'confirmed' })
 
   const db = getDb()
   await db.insert(schema.receiptImports).values({
@@ -473,7 +476,7 @@ export async function importReceiptAction(
     storeLocationId: options.storeLocationId,
     date: options.date ?? todayInPrague(),
     source: 'manual',
-    items: JSON.stringify(items),
+    items: JSON.stringify(manualItems),
     purchaseId: purchase.id,
     processedAt: new Date(),
   })

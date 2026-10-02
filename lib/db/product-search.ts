@@ -184,11 +184,11 @@ async function loadActiveDeals(productIds: string[]): Promise<Map<string, DealRo
 async function loadProductPackages(productIds: string[]): Promise<Map<string, CatalogPackage[]>> {
   if (productIds.length === 0) return new Map()
   const db = getDb()
-  const rows = await db.execute<{ product_id: string; quantity: string; unit: ItemUnit }>(sql\`
+  const rows = await db.execute<{ product_id: string; quantity: string; unit: ItemUnit }>(sql`
     SELECT product_id, quantity, unit
     FROM product_packages
-    WHERE product_id IN (\${sql.join(productIds.map((id) => sql\`\${id}::uuid\`), sql\`, \`)})
-  \`)
+    WHERE product_id IN (${sql.join(productIds.map((id) => sql`${id}::uuid`), sql`, `)})
+  `)
   const packages = new Map<string, CatalogPackage[]>()
   for (const row of rows.rows) {
     if (row.unit !== 'kg' && row.unit !== 'l') continue

@@ -406,37 +406,35 @@ export function Pantry({
         <PantryReview items={items} customPlaces={customPlaces} placeKey={selected} placeLabel={selectedOption.name} initialScope={reviewing} estimates={estimates} onSave={onReview} onClose={closeReview} />
       ) : (
       <section aria-label={`Zásoby: ${selectedOption.name}`} className="overflow-hidden surface">
-        <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
+        <div className="flex flex-col gap-3 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-2">
             <SelectedIcon className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-            <h2 className="min-w-0 break-words text-sm font-semibold">{selectedOption.name}</h2>
+            <h2 className="min-w-0 text-sm font-semibold">{selectedOption.name}</h2>
+            <span className="shrink-0 text-xs text-muted-foreground">{itemCountLabel(selectedItems.length)}</span>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">{itemCountLabel(selectedItems.length)}</span>
+          <div className="flex shrink-0 items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setAdding(true)
+                setNotice(null)
+              }}
+              className="flex min-h-9 items-center gap-1.5 rounded-xl bg-primary px-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+            >
+              <Plus className="h-3.5 w-3.5" aria-hidden /> Přidat
+            </button>
+            {items.length > 0 && (
               <button
                 type="button"
                 onClick={() => {
-                  setAdding(true)
+                  setReviewing('location')
                   setNotice(null)
                 }}
-                className="flex min-h-9 items-center gap-1.5 rounded-xl bg-primary px-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+                className="flex min-h-9 items-center gap-1.5 rounded-xl border border-border px-2.5 text-xs font-medium hover:bg-muted"
               >
-                <Plus className="h-3.5 w-3.5" aria-hidden /> Přidat
+                <ClipboardCheck className="h-3.5 w-3.5" aria-hidden /> Zkontrolovat
               </button>
-              {items.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setReviewing('location')
-                    setNotice(null)
-                  }}
-                  className="flex min-h-9 items-center gap-1.5 rounded-xl border border-border px-2.5 text-xs font-medium hover:bg-muted"
-                >
-                  <ClipboardCheck className="h-3.5 w-3.5" aria-hidden /> Zkontrolovat
-                </button>
-              )}
-            </div>
+            )}
           </div>
         </div>
 

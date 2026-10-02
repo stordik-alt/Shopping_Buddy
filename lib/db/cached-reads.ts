@@ -2,6 +2,7 @@ import { unstable_cache } from 'next/cache'
 import { getStoreChains } from '@/lib/db/member-store-preferences'
 import { getProductCatalog, getProductPrices, getStandaloneOffers, getStores, getSubcategoryCatalog } from '@/lib/db/queries'
 import type { ProductCatalogEntry } from '@/lib/products'
+import { normalizeSearchText } from '@/lib/product-search'
 import type { ItemCategory } from '@/lib/types'
 import { ingestionDate } from '@/lib/ingestion/today'
 import { GLOBAL_CACHE_TAGS } from '@/lib/db/cache-tags'
@@ -57,9 +58,6 @@ const productCatalogByNames = unstable_cache(
 
 const productCatalogBucket = unstable_cache(
   (bucket: string) => {
-    if (bucket === 'other') {
-      return getProductCatalog()
-    }
     return getProductCatalogByPrefix(bucket)
   },
   ['product-catalog-bucket-v1'],
@@ -70,7 +68,7 @@ async function getProductCatalogByPrefix(prefix: string): Promise<ProductCatalog
   // Prefix reads stay bounded and individually cacheable; the complete catalog is too large for one
   // Next Data Cache item. The query uses the same normalized search_name column as name matching.
   const db = (await import('@/lib/db/client')).getDb()
-  const { like } = await import('drizzle-orm')
+  const { sql } = await import('drizzle-orm')
   const schema = await import('@/lib/db/schema')
   const products = await db.query.products.findMany({
     columns: { id: true, name: true, defaultUnit: true, defaultLocation: true, isChildOriented: true, isNonInventory: true },
@@ -93,7 +91,7 @@ async function getProductCatalogByPrefix(prefix: string): Promise<ProductCatalog
 export const getProductCatalogCached = async (names?: string[]): Promise<ProductCatalogEntry[]> => {
   if (names && names.length === 0) return []
   if (names) {
-    const normalized = [...new Set(names.map((name) => name.trim()))].sort()
+    const normalized = [...new Set(names.map((name) => normalizeSearchText(name.trim())))].sort()
     return productCatalogByNames(normalized)
   }
 

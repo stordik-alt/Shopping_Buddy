@@ -67,25 +67,25 @@ describe('costForNeed', () => {
 
   it('prices a count of pieces as whole packages, including explicit multipacks', () => {
     expect(costForNeed({ quantity: 3, unit: 'ks' }, hit({ regularPrice: 24.9, unitPrice: 24.9, unit: 'ks' }))).toEqual({ cost: 74.7, basis: 'per-package' })
-    expect(costForNeed({ quantity: 2, unit: 'ks' }, hit({ regularPrice: 30, dealPrice: 22.9, unit: 'ks' }))).toEqual({ cost: 45.8, basis: 'per-package' })
+    expect(costForNeed({ quantity: 2, unit: 'ks' }, hit({ regularPrice: 30, dealPrice: 22.9, unit: 'ks' }))).toEqual({ cost: 45.8, basis: 'per-package', packages: 2 })
     expect(costForNeed({ quantity: 2, unit: 'ks' }, hit({
       regularPrice: 40,
       unitPrice: 4,
       unit: 'ks',
       packageSize: { quantity: 10, unit: 'ks', label: '10 ks', source: 'name-extracted' },
-    }))).toEqual({ cost: 40, basis: 'per-package' })
+    }))).toEqual({ cost: 40, basis: 'per-package', packages: 1 })
     expect(costForNeed({ quantity: 10, unit: 'ks' }, hit({
       regularPrice: 40,
       unitPrice: 4,
       unit: 'ks',
       packageSize: { quantity: 10, unit: 'ks', label: '10 ks', source: 'name-extracted' },
-    }))).toEqual({ cost: 40, basis: 'per-package' })
+    }))).toEqual({ cost: 40, basis: 'per-package', packages: 1 })
     expect(costForNeed({ quantity: 11, unit: 'ks' }, hit({
       regularPrice: 40,
       unitPrice: 4,
       unit: 'ks',
       packageSize: { quantity: 10, unit: 'ks', label: '10 ks', source: 'name-extracted' },
-    }))).toEqual({ cost: 80, basis: 'per-package' })
+    }))).toEqual({ cost: 80, basis: 'per-package', packages: 2 })
   })
 
   it('cannot compare a weight need with a volume or piece product, or the reverse', () => {

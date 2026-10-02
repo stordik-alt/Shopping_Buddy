@@ -9,6 +9,7 @@ const queries = vi.hoisted(() => ({
   getStoreByChain: vi.fn(),
   loadExternalProductContext: vi.fn(),
   loadLatestOfficialPrices: vi.fn(),
+  persistNamedPackageEvidence: vi.fn(),
   recordOfficialPrice: vi.fn(),
   resolveOrCreateProductFromExternal: vi.fn(),
   touchExternalRefs: vi.fn(),
@@ -54,6 +55,7 @@ beforeEach(() => {
   queries.loadExternalProductContext.mockResolvedValue(emptyContext())
   queries.touchExternalRefs.mockResolvedValue(undefined)
   queries.loadLatestOfficialPrices.mockResolvedValue(new Map())
+  queries.persistNamedPackageEvidence.mockResolvedValue(0)
   queries.recordOfficialPrice.mockResolvedValue({ action: 'insert', latest: undefined, closedPrevious: false })
   queries.resolveOrCreateProductFromExternal.mockResolvedValue('product-1')
   queries.getIngestionCursor.mockResolvedValue(0)

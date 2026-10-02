@@ -1,18 +1,15 @@
-// Provider-neutral receipt file storage (docs/cloudflare-migration-architecture.md).
-// Receipts are the only files the app stores. The rest of the app talks to `lib/storage` only, never
-// to `@vercel/blob` or R2 directly, so the provider can change without touching the pipeline.
+// Provider-neutral receipt file storage. Receipts are the only files the app stores. The rest of the app talks to `lib/storage` only.
+// R2 is the only receipt storage provider; household authorization happens before storage access.
 
-export type StorageProvider = 'vercel_blob' | 'r2'
+export type StorageProvider = 'r2'
 
-/** A stored file as read back from a provider. */
+/** A stored file as read back from the provider. */
 export type StoredFile = {
   body: ReadableStream<Uint8Array>
   contentType: string
 }
 
-/** One provider. `key` is the provider's own identifier: the object key for R2, the blob URL for
- *  Vercel Blob (its `get`/`del` take the URL). Household authorization is the caller's job and
- *  happens before any of these calls (lib/receipt-access.ts, assertOwnsReceiptImport). */
+/** The provider's object key. Household authorization is the caller's responsibility. */
 export interface ReceiptFileStore {
   readonly provider: StorageProvider
   /** Stores the bytes under `key` and returns the identifier to read them back with. */

@@ -799,7 +799,7 @@ export async function uploadReceiptAction(formData: FormData): Promise<UploadRec
       .where(and(eq(schema.receiptImports.householdId, householdId), eq(schema.receiptImports.source, 'ocr'), gte(schema.receiptImports.createdAt, new Date(Date.now() - RECEIPT_UPLOAD_WINDOW_MS))))
     if (!mayUploadReceipt(recent)) return { ok: false, error: RECEIPT_UPLOAD_LIMIT_MESSAGE }
 
-    // R2 (or Vercel Blob when STORAGE_PROVIDER=vercel); the reference records which (lib/storage).
+    // Receipt files are stored in R2 through lib/storage.
     const imageUrl = await putReceiptFile(householdId, buffer, fileType)
 
     const [row] = await db

@@ -1,190 +1,67 @@
 # Cloudflare Migration — Status
 
-**Last updated:** 2026-09-26
-**Current phase:** Phases 2–3 (storage layer + R2) **live in production** since 2026-09-25 (new receipt uploads go to R2) · old Blob receipts not yet copied
-**Production:** Vercel (unchanged). No Cloudflare resource has been created or changed by Claude.
+**Last updated:** 2026-10-02
 
-> **Current scope (owner decision, 2026-09-25): only Vercel Blob → Cloudflare R2.** The application
-> stays hosted on Vercel and uses R2 through its S3-compatible API (`aws4fetch`, server-side only,
-> private bucket). Hosting, crons, OCR auth, AI Gateway, analytics and DNS are out of scope for
-> now — phases 5–9 below are the long-term plan, not scheduled work.
->
-> **Urgency:** the Vercel Blob store is over its usage limit (owner, 2026-09-25), which suspends
-> receipt upload and viewing. Operating guide: `docs/cloudflare-r2.md`.
+**Current state:** Receipt storage migration is complete. Production receipt references are now R2-only and the application no longer contains a Vercel Blob provider or rollback path.
 
 | Phase | Status |
 |---|---|
-| 0. Cloudflare agent setup | ⛔ Blocked from the cloud session (network policy); not needed to ship the R2 code |
-| 1. Audit | ✅ Done — `docs/cloudflare-migration-audit.md` |
-| 2. Storage abstraction | ✅ Code + unit tests — `lib/storage/` |
-| 3. Vercel Blob → R2 | ✅ New uploads on R2 in production (owner-confirmed 2026-09-25); R2 is the code default (no `STORAGE_PROVIDER` needed); 🟡 copying old Blob receipts pending |
-| 4. Provider-neutral application | 🟡 **Prepared** (PR #83, merged; nothing switched): OpenNext build, Worker entry with crons, `sharp` shim, self-signed GCP OIDC, analytics switch, writable R2 data cache (2026-09-26) — `docs/cloudflare-deployment.md` |
-| 5. Cloudflare staging | ⏸ Runbook ready (`docs/cloudflare-deployment.md` §8); needs Workers Paid, the two data-cache buckets and secrets |
-| 6. Full testing | — Out of current scope |
+| 0. Cloudflare agent setup | ⛔ Not required for the R2 runtime currently used from Vercel |
+| 1. Audit | ✅ Done |
+| 2. Storage abstraction | ✅ Done — lib/storage/ |
+| 3. Vercel Blob → R2 | ✅ **Complete** — all production receipt_imports.image_url references are R2 |
+| 4. Provider-neutral application | 🟡 Prepared (PR #83 merged) |
+| 5. Cloudflare staging | ⏸ Out of current scope |
+| 6. Full Cloudflare testing | — Out of current scope |
 | 7. Production cutover | — Out of current scope |
-| 8. Rollback window | — Out of current scope |
+| 8. Rollback window | — Closed for the Blob provider |
 | 9. Remove Vercel | — Out of current scope |
 
-## CLOUDFLARE SETUP
+## Production verification — 2026-10-02
 
-Attempted 2026-09-25 from the Claude Code cloud session:
+Production Neon branch br-twilight-firefly-au389m1e was checked after the historical receipt copy:
 
-- `https://developers.cloudflare.com/agent-setup/prompt.md` and `https://api.cloudflare.com` —
-  **not reachable**: the session's network egress policy denies them.
-- No Cloudflare credentials in the environment.
-- R2 needs a payment method on the Cloudflare account even within the free tier (owner, 2026-09-25).
+- receipt_imports with a Vercel Blob URL: **0**
+- receipt_imports with an R2 reference: **24**
+- receipt_imports with an image reference: **24**
+- The remaining nine historical Blob references were converted to the corresponding r2:receipts/... references.
+- Blob originals were not deleted as part of the DB reference migration.
 
-**Required user actions:** see `docs/cloudflare-r2.md` → "Cloudflare setup" (payment method,
-billing alert, two private buckets, Object Read & Write token, Vercel env vars). To let Claude
-verify against the real test bucket from the cloud session, also allow
-`*.r2.cloudflarestorage.com` in the environment's network access and add the `R2_*` variables of
-the **test** bucket to the environment's secrets.
+## Current storage architecture
 
-## CURRENT STATE
+The application remains hosted on Vercel. Receipt files are stored in Cloudflare R2 through the S3-compatible API using aws4fetch.
 
-Vercel hosts the app. Receipt storage goes through `lib/storage/`; new uploads go to R2 unless
-`STORAGE_PROVIDER=vercel` (rollback). Old receipts are read from Blob by their reference.
+- lib/storage/index.ts — storage entry point and R2 reference validation
+- lib/storage/r2.ts — R2 implementation
+- lib/storage/types.ts — provider-neutral interface
+- receipt_imports.image_url — stores r2:receipts/{householdId}/{uuid}.{ext}
 
-## VERCEL DEPENDENCIES / CLOUDFLARE REPLACEMENTS
+There is no STORAGE_PROVIDER switch and no Vercel Blob fallback.
 
-See audit section 3 (V1–V10) and section 8. In scope: V1/V2 (Blob → R2) — implemented behind the
-switch. Recorded for later: Cron, OIDC, AI Gateway, Analytics, domain, `sharp`.
+## Removed
 
-## CHANGED FILES / NEW FILES
+The cleanup removes:
 
-Phases 2–3:
+- @vercel/blob
+- lib/storage/vercel-blob.ts
+- scripts/migrate-vercel-blob-to-r2.ts
+- db:migrate-blob-to-r2
+- the obsolete Blob test fake and Blob-specific tests
+- the Blob rollback path
 
-- new `lib/storage/types.ts`, `lib/storage/index.ts`, `lib/storage/r2.ts`, `lib/storage/vercel-blob.ts`
-- new `lib/storage/storage.test.ts` (12 tests)
-- new `scripts/migrate-vercel-blob-to-r2.ts` (+ `db:migrate-blob-to-r2` in `package.json`)
-- new `docs/cloudflare-r2.md`
-- `app/actions/receipts.ts` — upload / pipeline read / cancel use `lib/storage`; a failed file
-  delete on cancel is now logged (`receipt_file_delete_failed`) instead of silently swallowed
-- `app/api/receipts/[id]/image/route.ts` — reads via `lib/storage`
-- `lib/db/schema.ts` — comment on `image_url` only (no schema change)
-- `package.json`, `pnpm-lock.yaml` — `aws4fetch` 1.0.20 (MIT, no dependencies)
-- `docs/08_OCR_RECEIPT_PIPELINE.md`, `docs/cloudflare-migration-architecture.md`, `docs/01_CURRENT_STATE.md`, `docs/07_CHANGELOG.md`
+BLOB_READ_WRITE_TOKEN is no longer required by the application.
 
-Phase 1: the `docs/cloudflare-migration-*.md` files.
+## R2 environment variables
 
-## DATABASE CHANGES
+The Vercel project still needs:
 
-None. `receipt_imports.image_url` now holds a storage reference (`https://…` = Blob, `r2:<key>` =
-R2). The planned `storage_provider`/`storage_key` columns were deliberately not added: they would
-require a migration before the deploy while production uploads are failing. Can be added later.
+- R2_ACCOUNT_ID
+- R2_ACCESS_KEY_ID
+- R2_SECRET_ACCESS_KEY
+- R2_BUCKET_NAME
 
-## NEW ENV VARIABLES
+These are server-only values.
 
-`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME` — set in the Vercel
-project by the owner (2026-09-25). `STORAGE_PROVIDER` is optional (`r2` default, `vercel` = rollback).
+## Scope
 
-## R2 BUCKETS
-
-Created by the owner (names are in the Vercel env, not recorded here). Planned layout:
-`shopping-buddy-receipts` (production), `shopping-buddy-receipts-test`.
-
-## UPLOAD FLOW / OCR FLOW
-
-Unchanged apart from the storage call: validation (size, magic bytes, HEIC) → `putReceiptFile` →
-row → pipeline reads via `getReceiptFile` → same OCR/structuring. No client-side compression exists
-(audit section 11); none was added.
-
-## BACKWARD COMPATIBILITY
-
-Each row is read from the provider its reference names, so every old Blob receipt stays readable
-(preview, OCR re-processing, cancel/delete) after new uploads switch to R2 — covered by a unit test.
-Old receipts are readable only while the Blob store itself is readable.
-
-## TESTS
-
-After phases 2–3 (cloud session): `vitest run` → **799 passed** in 49 files (+12 storage tests);
-the same 15 database-backed files as the baseline could not start without `TEST_DATABASE_URL`.
-**The DB-backed receipt tests must be run locally (`pnpm test`) before merging.** `tsc` clean.
-
-## BUILD
-
-`next build` passes (placeholder auth/DB env values, as in the baseline).
-
-## SECURITY
-
-- Private bucket; no public URL is ever produced; files still reach the browser only through the
-  household-authorized route with `private, no-store`.
-- R2 credentials are server-only env vars, never logged; a test asserts the secret is not sent in
-  any header.
-- R2 keys are validated against `receipts/{uuid}/{uuid}.{jpg|png|webp|pdf}` on every write and read.
-- Unknown `STORAGE_PROVIDER` fails loudly.
-
-## STAGING STATUS / PRODUCTION STATUS / ROLLBACK STATUS
-
-R2 active for new uploads once this change is deployed. Rollback = `STORAGE_PROVIDER=vercel` (new
-uploads back to Blob, only while Blob is under its limit) and, for copied receipts, `pnpm db:migrate-blob-to-r2 --rollback <log>`. Blob originals are never deleted.
-
-## REMAINING VERCEL USAGE
-
-Everything except new receipt uploads; Blob stays for old receipts until they are copied.
-
-## HOSTING PREPARATION (branch `cloudflare-migration-prep`, 2026-09-25)
-
-Owner request: prepare the whole project for a later move to Cloudflare, migrate nothing, keep the
-branch. Result, verified with placeholder secrets in the cloud session (details:
-`docs/cloudflare-deployment.md` §2):
-
-- `pnpm cf:build` (OpenNext) passes; Worker 4.2 MB gzip (Workers Paid needed, 10 MB limit).
-- Local workerd (`wrangler dev`): public pages, static assets, `proxy.ts` redirect, cron secret check
-  and the `scheduled()` → cron route → Neon query chain all work.
-- Vercel build unchanged; 817 unit tests pass.
-- Not verified: anything needing real secrets (auth, DB pages, upload/OCR on workerd, CPU time).
-
-## PREPARATION REFRESH (2026-09-26)
-
-Checked against `main` after PRs #84–#99 (Web Push, offline list, pantry, cached reads):
-
-- CI job `cloudflare` green on `main`; Worker 4.5 MiB gzip (was 4.2).
-- New code is Worker-compatible: Web Push uses WebCrypto and `fetch`; `after()` is supported by
-  OpenNext; the pantry cron is in `wrangler.jsonc` (guarded by `cloudflare/cron.test.ts`).
-- Gap fixed: the prepared build had a read-only cache, so `lib/db/cached-reads.ts` would run
-  uncached on Cloudflare. Now OpenNext's R2 incremental cache (`NEXT_INC_CACHE_R2_BUCKET`).
-- `pnpm cf:build` now runs from Windows shells; OpenNext bundling there needs WSL or Developer Mode.
-
-Still owner-side before staging: Workers Paid, `wrangler login`, the two data-cache buckets, a
-custom domain in front of Vercel (the biggest step toward an easy cutover, runbook risk 4).
-
-## PRODUCTION LOG
-
-- 2026-09-25: PR #78 merged; owner set the R2 variables and `STORAGE_PROVIDER=r2` on Vercel. First
-  upload failed: `R2 upload failed (400): InvalidBucketName` — `R2_BUCKET_NAME` carried a trailing
-  newline. Fix: owner corrects the value; code now trims the `R2_*` values. Real R2 upload still
-  to be confirmed after that.
-- 2026-09-25: next upload failed: `R2 upload failed (411): MissingContentLength` — Next's patched
-  `fetch` re-sent the signed `Request`'s stream body chunked. Fix: sign only, send bytes with an
-  explicit `Content-Length`.
-- 2026-09-25: after PR #80 was deployed the owner reported that receipt upload to R2 works in
-  production. Still open: copying old Blob receipts (`pnpm db:migrate-blob-to-r2`, once the Blob
-  store is readable).
-
-## KNOWN RISKS
-
-- DB-backed receipt tests not run in the cloud session.
-- Old receipts are unreadable while the Blob store is suspended; the copy script needs it readable.
-- Audit section 9 risks for the later phases.
-
-## NEXT STEP
-
-1. ~~Owner: Cloudflare setup~~ ✅ env vars set in Vercel.
-2. Merge (R2 becomes the default) and deploy; check upload/preview/OCR/cancel on a phone.
-3. When Blob is readable: `pnpm db:migrate-blob-to-r2 --dry-run`, then without `--dry-run`.
-
-## Phase checklist — Phases 2–3
-
-- [x] changes are written in documentation
-- [x] documentation matches the real state
-- [x] changed files recorded
-- [x] new environment variables recorded
-- [x] DB changes recorded (none)
-- [x] Cloudflare resources recorded (none yet)
-- [x] tests recorded (incl. what was not run)
-- [x] build recorded
-- [x] risks recorded
-- [x] rollback described
-- [x] next step stated
-- [x] verified against the real production bucket (owner, 2026-09-25)
+This completes the receipt-storage migration only. Hosting, Vercel Cron, Vercel OIDC, AI Gateway, analytics and the eventual Cloudflare hosting cutover remain separate work.

@@ -8,7 +8,7 @@ import * as schema from '@/lib/db/schema'
 // Next.js request).
 let currentHouseholdId = ''
 vi.mock('@/lib/auth/authorize', () => ({ requireHouseholdId: () => Promise.resolve(currentHouseholdId) }))
-vi.mock('next/cache', () => ({ revalidatePath: () => {} }))
+vi.mock('next/cache', () => ({ revalidatePath: () => {}, unstable_cache: (fn: (...args: any[]) => any) => fn }))
 
 import { completePurchaseAction, createManualPurchaseAction, recordPurchaseAsExpenseAction, setPurchaseItemExpenseSplitsAction } from '@/app/actions/purchases'
 import { recomputePurchaseExpenses } from '@/lib/db/purchase-items'

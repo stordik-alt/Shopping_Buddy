@@ -1,17 +1,26 @@
-import { del, put } from '@vercel/blob'
 import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 
-// Real DB and an in-memory fake of the (private) Blob store, same approach as
-// app/actions/receipts.test.ts — the session lookup is faked too, because there is no browser session
-// in a unit test.
+const storageFiles = new Map<string, { body: Buffer; contentType: string }>()
+vi.mock('@/lib/storage', () => ({
+  putReceiptFile: async (householdId: string, body: Buffer, file: { extension: string; mimeType: string }) => {
+    const ref = `r2:receipts/${householdId}/${crypto.randomUUID()}.${file.extension}`
+    storageFiles.set(ref, { body: Buffer.from(body), contentType: file.mimeType })
+    return ref
+  },
+  getReceiptFile: async (ref: string) => {
+    const file = storageFiles.get(ref)
+    if (!file) return null
+    return { body: new Response(file.body).body!, contentType: file.contentType }
+  },
+  deleteReceiptFile: async (ref: string) => { storageFiles.delete(ref) },
+}))
+import { putReceiptFile } from '@/lib/storage'
+
+// Real DB and in-memory R2 storage; the session lookup is faked too, because there is no browser session in a unit test.
 vi.setConfig({ testTimeout: 20_000 })
-// Receipt photos go to Vercel Blob. Tests use an in-memory fake (test/fake-blob.ts) so a run neither
-// spends paid Blob operations nor fails when the real store is suspended; USE_REAL_BLOB=1 runs them
-// against the real store on purpose.
-vi.mock('@vercel/blob', async () => (process.env.USE_REAL_BLOB === '1' ? await vi.importActual('@vercel/blob') : (await import('@/test/fake-blob')).fakeBlobModule))
 
 let currentHouseholdId: string | null = null
 vi.mock('@/lib/auth/authorize', () => {
@@ -30,7 +39,7 @@ let ownerHouseholdId: string
 let otherHouseholdId: string
 let receiptImportId: string
 let receiptWithoutImageId: string
-let blobUrl: string
+let imageRef: string
 
 const call = (id: string) => GET(new Request('http://localhost/api/receipts/x/image'), { params: Promise.resolve({ id }) })
 
@@ -40,9 +49,8 @@ beforeAll(async () => {
   ownerHouseholdId = owner.id
   otherHouseholdId = other.id
 
-  const blob = await put(`receipts/__test__/${crypto.randomUUID()}.png`, IMAGE_BYTES, { access: 'private', contentType: 'image/png' })
-  blobUrl = blob.url
-  const [row] = await db.insert(schema.receiptImports).values({ householdId: ownerHouseholdId, status: 'review_required', source: 'ocr', imageUrl: blobUrl }).returning()
+  imageRef = await putReceiptFile(ownerHouseholdId, IMAGE_BYTES, { extension: 'png', mimeType: 'image/png' })
+  const [row] = await db.insert(schema.receiptImports).values({ householdId: ownerHouseholdId, status: 'review_required', source: 'ocr', imageUrl: imageRef }).returning()
   receiptImportId = row.id
   const [noImage] = await db.insert(schema.receiptImports).values({ householdId: ownerHouseholdId, status: 'review_required', source: 'ocr' }).returning()
   receiptWithoutImageId = noImage.id
@@ -52,7 +60,7 @@ afterAll(async () => {
   // households cascade to receipt_imports
   await db.delete(schema.households).where(eq(schema.households.id, ownerHouseholdId))
   await db.delete(schema.households).where(eq(schema.households.id, otherHouseholdId))
-  await del(blobUrl).catch(() => {})
+  storageFiles.clear()
 })
 
 describe('GET /api/receipts/[id]/image', () => {

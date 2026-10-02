@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { pantryPlaceOptions } from '@/lib/pantry'
+import { subcategoriesOfItem } from '@/lib/product-subcategories'
 import type { ItemCategory, ItemUnit, PantryPlace } from '@/lib/types'
 
 export type PantryAddInput = {
@@ -7,6 +8,7 @@ export type PantryAddInput = {
   quantity: number
   unit: ItemUnit
   category: ItemCategory
+  subcategory: string | null
   placeKey: string
 }
 
@@ -26,11 +28,13 @@ export function PantryAddModal({
   const [quantity, setQuantity] = useState('1')
   const [unit, setUnit] = useState<ItemUnit>('ks')
   const [category, setCategory] = useState<ItemCategory>('Potraviny')
+  const [subcategory, setSubcategory] = useState<string | null>(null)
   const [placeKey, setPlaceKey] = useState('Spíž')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const options = pantryPlaceOptions(customPlaces)
+  const subcategories = subcategoriesOfItem(category)
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -48,7 +52,7 @@ export function PantryAddModal({
     setSaving(true)
     setError(null)
     try {
-      await onSubmit({ name: trimmed, quantity: parsedQuantity, unit, category, placeKey })
+      await onSubmit({ name: trimmed, quantity: parsedQuantity, unit, category, subcategory, placeKey })
       onClose()
     } catch (err) {
       console.error('Adding pantry stock failed', err)

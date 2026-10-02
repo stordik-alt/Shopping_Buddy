@@ -191,6 +191,81 @@ describe('automatic product package catalog', () => {
     })
   })
 
+  it('persists an explicit piece-count package and resolves it from the catalog', async () => {
+    const productId = await addProduct('__Test persistent piece pack ' + tag)
+    const storeId = (await db.query.stores.findFirst())!.id
+
+    await recordPriceObservation({
+      productId,
+      storeId,
+      regularPrice: 39.9,
+      unit: 'ks',
+      unitPrice: 6.65,
+      observedAt: '2026-10-01',
+      priceScope: 'CHAIN',
+      sourceType: 'OFFICIAL',
+      locationResolution: 'NOT_APPLICABLE',
+      sourceReference: '__test_persistent_piece_' + tag + '_1',
+    })
+
+    await persistNamedPackageEvidence([{
+      productId,
+      name: 'Papírové kapesníky 6 ks ' + tag,
+      regularPrice: 39.9,
+      unit: 'ks',
+      unitPrice: 6.65,
+      observedAt: '2026-10-01',
+    }])
+    await persistNamedPackageEvidence([{
+      productId,
+      name: 'Papírové kapesníky 6 ks ' + tag,
+      regularPrice: 39.9,
+      unit: 'ks',
+      unitPrice: 6.65,
+      observedAt: '2026-10-01',
+    }])
+
+    const first = await db.query.productPackages.findMany({
+      where: eq(schema.productPackages.productId, productId),
+    })
+    expect(first).toHaveLength(1)
+    expect(first[0]).toMatchObject({
+      quantity: 6,
+      unit: 'ks',
+      source: 'name-extracted',
+      confidence: 0.98,
+      observationCount: 1,
+      firstSeenAt: '2026-10-01',
+      lastSeenAt: '2026-10-01',
+    })
+
+    const productPrice = (await getProductPrices({
+      names: ['Papírové kapesníky 6 ks ' + tag],
+      runningDeals: false,
+    }))[0]
+    expect(productPrice?.prices[0]?.packageSize).toMatchObject({
+      quantity: 6,
+      unit: 'ks',
+      source: 'catalog',
+      label: '6 ks',
+    })
+
+    await persistNamedPackageEvidence([{
+      productId,
+      name: 'Papírové kapesníky 6 ks ' + tag,
+      regularPrice: 42,
+      unit: 'ks',
+      unitPrice: 7,
+      observedAt: '2026-10-02',
+    }])
+
+    const updated = await db.query.productPackages.findMany({
+      where: eq(schema.productPackages.productId, productId),
+    })
+    expect(updated[0]?.observationCount).toBe(2)
+    expect(updated[0]?.lastSeenAt).toBe('2026-10-02')
+  })
+
   it('does not learn a package size from receipt prices', async () => {
     const productId = await addProduct(`__Test receipt balení ${tag}`)
     const storeId = (await db.query.stores.findFirst())!.id

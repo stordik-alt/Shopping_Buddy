@@ -18,5 +18,5 @@ export async function dealsPageAction(input: { category: DealCategoryFilter; cha
   if (!isDealSort(input.sort)) throw new Error('Neplatné řazení.')
   if (!Number.isInteger(input.page) || input.page < 1) throw new Error('Neplatná stránka.')
   if (input.query != null && (typeof input.query !== 'string' || input.query.length > MAX_DEALS_QUERY_LENGTH)) throw new Error('Neplatné hledání.')
-  return getDealsPage(input)
+  return getDealsPageCached(input)
 }

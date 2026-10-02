@@ -220,10 +220,10 @@ export const products = pgTable('products', {
 ])
 
 
-// A detected retail package size for a catalog product. Package size is canonicalized to kg/l so
-// the same physical size is not stored twice as "250 g" and "0.25 kg". Phase 1 only auto-discovers
-// weight/volume packages from reliable price observations; piece-count packages need explicit SKU/package
-// information because a "ks" price can represent either one piece or a multipack.
+// A detected retail package size for a catalog product. Package size is canonicalized to kg/l/ks so
+// the same physical size is not stored twice as "250 g" and "0.25 kg". Weight/volume packages are derived
+// from reliable price observations; piece-count packages are persisted only when the product name explicitly
+// confirms the count because a "ks" price alone cannot distinguish one piece from a multipack.
 export const productPackages = pgTable('product_packages', {
   id: uuid('id').primaryKey().defaultRandom(),
   productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
@@ -238,7 +238,7 @@ export const productPackages = pgTable('product_packages', {
   uniqueIndex('product_packages_product_size_unique').on(table.productId, table.quantity, table.unit),
   index('product_packages_product_idx').on(table.productId),
   check('product_packages_quantity_positive', sql`${table.quantity} > 0`),
-  check('product_packages_canonical_unit', sql`${table.unit} IN ('kg', 'l')`),
+  check('product_packages_canonical_unit', sql`${table.unit} IN ('ks', 'kg', 'l')`),
 ])
 
 

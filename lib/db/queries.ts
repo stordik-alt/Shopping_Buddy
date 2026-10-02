@@ -819,7 +819,7 @@ export async function getProductCatalog(names?: string[]): Promise<ProductCatalo
   const products = await db.query.products.findMany({
     columns: { id: true, name: true, defaultUnit: true, defaultLocation: true, isChildOriented: true, isNonInventory: true },
     with: { category: { columns: { name: true } }, subcategory: { columns: { name: true } } },
-    ...(forms ? { where: inArray(sql`btrim(${schema.products.searchName})`, forms) } : {}),
+    ...(forms ? { where: inArray(schema.products.searchName, forms) } : {}),
   })
   return products.map((product) => ({
     id: product.id,

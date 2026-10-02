@@ -4,6 +4,7 @@ import {
   getStoreByChain,
   loadExternalProductContext,
   loadLatestOfficialPrices,
+  persistNamedPackageEvidence,
   recordOfficialPrice,
   resolveOrCreateProductFromExternal,
   setIngestionCursor,
@@ -91,6 +92,7 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
   // Products that were already linked before this run; their `lastSeenAt` is refreshed in one batch
   // at the end.
   const alreadyLinked: string[] = []
+  const namedPackageEvidence: Parameters<typeof persistNamedPackageEvidence>[0] = []
 
   for (const [index, { raw, normalized, error: normalizeError }] of prepared.entries()) {
     if (index > 0) options.onProgress?.(index, raws.length)
@@ -146,6 +148,15 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
         else if (written.action === 'unchanged' || written.action === 'confirm') result.unchanged++
         else result.skipped++ // stale: what is stored is newer than what was fetched
         if (written.closedPrevious) result.priceChanges++
+
+        namedPackageEvidence.push({
+          productId,
+          name: normalized.name,
+          regularPrice: normalized.regularPrice,
+          unit: normalized.unit,
+          unitPrice: normalized.unitPrice,
+          observedAt: normalized.recordedAt,
+        })
       }
 
       if (normalized.deal) {
@@ -171,6 +182,14 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
   }
 
   if (!result.truncated) options.onProgress?.(raws.length, raws.length)
+
+  // Package evidence is derived from the already-normalized product name and price. Write it
+  // in one batch so package learning does not add a database round trip per product.
+  try {
+    await persistNamedPackageEvidence(namedPackageEvidence)
+  } catch (err) {
+    result.errors.push(`package catalog update: ${err instanceof Error ? err.message : String(err)}`)
+  }
 
   // Bookkeeping only — the prices are already written, so a failure here is reported, not thrown.
   try {

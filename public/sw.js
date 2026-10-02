@@ -14,11 +14,18 @@ const STATIC_CACHE = 'shopping-buddy-static-v2'
 const MAX_STATIC_ENTRIES = 400
 
 self.addEventListener('install', () => self.skipWaiting())
+
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key.startsWith('shopping-buddy-static-') && key !== STATIC_CACHE).map((key) => caches.delete(key))))
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => key === PAGE_CACHE || key.startsWith('shopping-buddy-static-'))
+            .map((key) => caches.delete(key)),
+        ),
+      )
       .then(() => self.clients.claim()),
   )
 })

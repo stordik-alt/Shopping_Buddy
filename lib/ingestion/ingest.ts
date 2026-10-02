@@ -24,6 +24,7 @@ import { pennyConnector } from '@/lib/ingestion/penny'
 import { rohlikConnector } from '@/lib/ingestion/rohlik'
 import { partLabel, type CatalogPart } from '@/lib/ingestion/parts'
 import { ingestionDate } from '@/lib/ingestion/today'
+import { invalidateProductCatalogCache } from '@/lib/db/cache-invalidation'
 import type { IngestionSource, IngestResult, PriceConnector } from '@/lib/ingestion/types'
 
 export type { IngestResult } from '@/lib/ingestion/types'
@@ -192,6 +193,8 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
   }
 
   // Bookkeeping only — the prices are already written, so a failure here is reported, not thrown.
+  if (result.newProducts > 0) invalidateProductCatalogCache()
+
   try {
     await touchExternalRefs(connector.source, alreadyLinked)
   } catch (err) {

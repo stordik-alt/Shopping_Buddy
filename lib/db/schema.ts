@@ -236,7 +236,6 @@ export const productPackages = pgTable('product_packages', {
   observationCount: integer('observation_count').notNull().default(1),
 }, (table) => [
   uniqueIndex('product_packages_product_size_unique').on(table.productId, table.quantity, table.unit),
-  index('product_packages_product_idx').on(table.productId),
   check('product_packages_quantity_positive', sql`${table.quantity} > 0`),
   check('product_packages_canonical_unit', sql`${table.unit} IN ('ks', 'kg', 'l')`),
 ])

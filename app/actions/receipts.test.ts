@@ -1,4 +1,4 @@
-import { del, get, put } from '@vercel/blob'
+import { deleteReceiptFile, putReceiptFile } from '@/lib/storage'
 import sharp from 'sharp'
 import { eq, inArray } from 'drizzle-orm'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -18,13 +18,35 @@ vi.setConfig({ testTimeout: 20_000 })
 let currentHouseholdId = ''
 vi.mock('@/lib/auth/authorize', () => ({ requireHouseholdId: () => Promise.resolve(currentHouseholdId) }))
 vi.mock('next/cache', () => ({ revalidatePath: () => {}, revalidateTag: () => {} }))
-// Receipt photos go to Vercel Blob. Tests use an in-memory fake (test/fake-blob.ts) so a run neither
-// spends paid Blob operations nor fails when the real store is suspended; USE_REAL_BLOB=1 runs them
-// against the real store on purpose.
-vi.mock('@vercel/blob', async () => (process.env.USE_REAL_BLOB === '1' ? await vi.importActual('@vercel/blob') : (await import('@/test/fake-blob')).fakeBlobModule))
-// R2 is the default upload store (lib/storage); these tests upload through the Blob fake above, so
-// pin the provider to Blob instead of letting uploadReceiptAction try to reach an R2 bucket.
-process.env.STORAGE_PROVIDER = 'vercel'
+// Receipt storage is exercised through the production R2 abstraction, with a local in-memory S3 stub.
+process.env.R2_ACCOUNT_ID = 'test-account'
+process.env.R2_ACCESS_KEY_ID = 'test-access-key'
+process.env.R2_SECRET_ACCESS_KEY = 'test-secret'
+process.env.R2_BUCKET_NAME = 'test-receipts'
+
+const r2Objects = new Map<string, { bytes: Uint8Array; contentType: string }>()
+
+function stubReceiptStorage() {
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const request = input instanceof Request ? input : new Request(input, init)
+    const key = new URL(request.url).pathname.split('/').slice(2).join('/')
+    if (request.method === 'PUT') {
+      r2Objects.set(key, { bytes: new Uint8Array(await request.arrayBuffer()), contentType: request.headers.get('content-type') ?? 'application/octet-stream' })
+      return new Response(null, { status: 200 })
+    }
+    if (request.method === 'GET') {
+      const object = r2Objects.get(key)
+      if (!object) return new Response(null, { status: 404 })
+      return new Response(object.bytes.slice(), { status: 200, headers: { 'content-type': object.contentType } })
+    }
+    if (request.method === 'DELETE') {
+      r2Objects.delete(key)
+      return new Response(null, { status: 204 })
+    }
+    return new Response(null, { status: 405 })
+  }))
+}
+
 
 import { MAX_RECEIPT_UPLOADS_PER_DAY } from '@/lib/receipt-upload-limit'
 import { confirmReceiptReviewAction, importReceiptAction, processReceiptImport, processUploadedReceiptAction, resolveDuplicateReceiptAction, retryReceiptImportAction, uploadReceiptAction } from '@/app/actions/receipts'
@@ -35,7 +57,7 @@ import { deleteExpenseAction, updateExpenseAction } from '@/app/actions/budget'
 
 const db = getDb()
 const createdHouseholdIds: string[] = []
-const uploadedBlobUrls: string[] = []
+const uploadedReceiptRefs: string[] = []
 let householdId: string
 
 const item = (overrides: Partial<ReceiptLineItem> = {}): ReceiptLineItem => ({
@@ -61,15 +83,13 @@ const extractedReceipt = (overrides: Partial<ExtractedReceipt> = {}): ExtractedR
   ...overrides,
 })
 
-// processReceiptImport always fetches the row's stored image from Blob first, regardless of which
-// text/structuring providers are injected — so tests upload a real (tiny, throwaway) image to the
-// real Blob store rather than faking that step too. Vision/Gemini are the only faked pieces here;
-// everything else (Blob storage, the receipt_imports state machine, validation, duplicate
-// detection) runs for real.
+// processReceiptImport fetches the stored image through the same R2 abstraction used in production.
+// Vision/Gemini are the only faked pieces here; the receipt storage state machine, validation and
+// duplicate detection still run for real.
 async function createUploadedReceipt(file: { buffer: Buffer; extension: string; contentType: string } = { buffer: Buffer.from('test-image-bytes'), extension: 'png', contentType: 'image/png' }): Promise<string> {
-  const blob = await put(`receipts/__test__/${crypto.randomUUID()}.${file.extension}`, file.buffer, { access: 'private', contentType: file.contentType })
-  uploadedBlobUrls.push(blob.url)
-  const [row] = await db.insert(schema.receiptImports).values({ householdId, status: 'uploaded', source: 'ocr', imageUrl: blob.url }).returning()
+  const ref = await putReceiptFile(householdId, file.buffer, { extension: file.extension as 'jpg' | 'png' | 'webp' | 'pdf', mimeType: file.contentType })
+  uploadedReceiptRefs.push(ref)
+  const [row] = await db.insert(schema.receiptImports).values({ householdId, status: 'uploaded', source: 'ocr', imageUrl: ref }).returning()
   return row.id
 }
 
@@ -93,6 +113,7 @@ let existingProductIds: Set<string>
 let existingStoreLocationIds: Set<string>
 
 beforeAll(async () => {
+  stubReceiptStorage()
   const rows = await db.query.products.findMany({ columns: { id: true } })
   existingProductIds = new Set(rows.map((row) => row.id))
   const storeLocations = await db.query.storeLocations.findMany({ columns: { id: true } })
@@ -121,7 +142,9 @@ afterAll(async () => {
   if (newStoreLocationIds.length > 0) {
     await db.delete(schema.storeLocations).where(inArray(schema.storeLocations.id, newStoreLocationIds))
   }
-  await del(uploadedBlobUrls).catch(() => {})
+  for (const ref of uploadedReceiptRefs) await deleteReceiptFile(ref).catch(() => {})
+  vi.unstubAllGlobals()
+  r2Objects.clear()
 })
 
 // resolveReceiptPurchaseDate() (app/actions/receipts.ts) requires an explicit, validly-formatted

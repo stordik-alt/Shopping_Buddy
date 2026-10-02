@@ -37,6 +37,8 @@ export type ReceiptLineItem = {
   // The item's subcategory within `category` (lib/product-subcategories.ts's fixed list per item
   // category) — undefined until the pipeline (or a household correction) resolves one confidently.
   subcategory?: string
+  /** Present only when the household explicitly changes the suggested category/subcategory during import review. */
+  classificationSource?: 'manual'
   // How `subcategory` (and, when it came from matching a catalog product, the product itself) was
   // decided — kept for debugging/audit (spec section 23), never shown to the household as raw text.
   recognitionMethod?: RecognitionMethod

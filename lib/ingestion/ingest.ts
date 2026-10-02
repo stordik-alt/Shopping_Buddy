@@ -53,7 +53,7 @@ export type IngestOptions = {
  *  batch (per CLAUDE.md section 32, "if a retailer source stops working, the rest of the
  *  application should continue functioning") — it's recorded in `errors` and the rest still runs. */
 export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: number, options: IngestOptions = {}): Promise<IngestResult> {
-  const result: IngestResult = { processed: 0, recorded: 0, newProducts: 0, deals: 0, promotionsWithoutValidity: 0, skipped: 0, unchanged: 0, priceChanges: 0, truncated: false, errors: [] }
+  const result: IngestResult = { processed: 0, recorded: 0, newProducts: 0, deals: 0, promotionsWithoutValidity: 0, skipped: 0, unchanged: 0, priceChanges: 0, priceCacheChanged: false, dealsCacheChanged: false, truncated: false, errors: [] }
   if (limit <= 0) return result
   const now = options.now ?? Date.now
   const today = options.today ?? ingestionDate()
@@ -145,7 +145,10 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
           latestPrices.get(normalized.externalId),
         )
         if (written.latest) latestPrices.set(normalized.externalId, written.latest)
-        if (written.action === 'insert' || written.action === 'update-same-day') result.recorded++
+        if (written.action === 'insert' || written.action === 'update-same-day') {
+          result.recorded++
+          result.priceCacheChanged = true
+        }
         else if (written.action === 'unchanged' || written.action === 'confirm') result.unchanged++
         else result.skipped++ // stale: what is stored is newer than what was fetched
         if (written.closedPrevious) result.priceChanges++
@@ -162,7 +165,7 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
 
       if (normalized.deal) {
         if (storeLocationId === undefined) storeLocationId = isOnline || connector.chainWideDeals ? null : await getCanonicalStoreLocationId(connector.chain)
-        await upsertActiveDeal({
+        const dealChanged = await upsertActiveDeal({
           productId,
           storeId,
           storeLocationId,
@@ -174,6 +177,7 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
           validUntil: normalized.deal.validUntil,
         })
         result.deals++
+        if (dealChanged) result.dealsCacheChanged = true
       } else if (normalized.promotionWithoutValidity) {
         result.promotionsWithoutValidity++
       }

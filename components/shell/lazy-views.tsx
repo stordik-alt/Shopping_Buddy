@@ -42,7 +42,7 @@ export const ReceiptPending = dynamic(() => import('@/components/budget/receipt-
 export const Pantry = dynamic(() => import('@/components/shopping/pantry').then((m) => m.Pantry), { loading })
 export const DealsTab = dynamic(() => import('@/components/deals/deals-tab').then((m) => m.DealsTab), { loading })
 export const StoreDirectory = dynamic(() => import('@/components/stores/store-directory').then((m) => m.StoreDirectory), { loading })
-export const Recipes = dynamic(() => import('@/components/recipes/recipes').then((m) => m.Recipes), { loading })
+export const Recipes = dynamic(() => import('@/components/recipes/recipes-entry').then((m) => m.Recipes), { loading })
 export const AiAssistant = dynamic(() => import('@/components/ai/ai-assistant').then((m) => m.AiAssistant), { loading })
 export const HouseholdProfile = dynamic(() => import('@/components/household/household-profile').then((m) => m.HouseholdProfile), { loading })
 

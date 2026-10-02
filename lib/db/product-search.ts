@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm'
 import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
 import { isDirectMatch, likePattern, normalizeSearchText, scoreMatch, searchStem, searchStems, splitTokens, toComparableUnit, type ProductSearchHit } from '@/lib/product-search'
-import { inferPackageSize, resolveCatalogPackageSize, type CatalogPackage } from '@/lib/recipes/packaging'
+import { inferPackageSize, resolveCatalogPackageSize, resolveNamedPackageSize, type CatalogPackage } from '@/lib/recipes/packaging'
 import type { ItemCategory, ItemUnit } from '@/lib/types'
 
 // Text search over the products the chains have prices for (lib/product-search.ts has the rules).
@@ -201,6 +201,10 @@ function rowToHit(row: PriceRow, deals: Map<string, DealRow>, score: number, dir
   const deal = deals.get(`${row.product_id}|${row.store_id}`)
   const comparable = toComparableUnit(row.unit, Number(row.unit_price))
   const packageSize = resolveCatalogPackageSize(packagesByProduct.get(row.product_id) ?? [], {
+    regularPrice: Number(row.regular_price),
+    unit: row.unit,
+    unitPrice: Number(row.unit_price),
+  }) ?? resolveNamedPackageSize(row.name, {
     regularPrice: Number(row.regular_price),
     unit: row.unit,
     unitPrice: Number(row.unit_price),

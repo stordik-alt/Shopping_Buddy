@@ -846,7 +846,7 @@ describe('receipt file handling: type detection and OCR preparation', () => {
 
   async function storeReceiptBytes(bytes: Buffer, extension: string, contentType: string): Promise<string> {
     const blob = await put(`receipts/__test__/${crypto.randomUUID()}.${extension}`, bytes, { access: 'private', contentType })
-    uploadedBlobUrls.push(blob.url)
+    uploadedReceiptRefs.push(blob.url)
     const [row] = await db.insert(schema.receiptImports).values({ householdId, status: 'uploaded', source: 'ocr', imageUrl: blob.url }).returning()
     return row.id
   }
@@ -863,7 +863,7 @@ describe('receipt file handling: type detection and OCR preparation', () => {
       if (!result.ok) throw new Error(result.error)
       const state = result.receipt
       const row = await db.query.receiptImports.findFirst({ where: eq(schema.receiptImports.id, state.id) })
-      uploadedBlobUrls.push(row!.imageUrl!)
+      uploadedReceiptRefs.push(row!.imageUrl!)
       expect(row?.imageUrl).toMatch(/\.png$/)
       expect(row?.status).toBe('uploaded')
       expect(state.hasImage).toBe(true)
@@ -903,7 +903,7 @@ describe('receipt file handling: type detection and OCR preparation', () => {
       const result = await upload(await realImage(), 'image/jpeg')
       if (!result.ok) throw new Error(result.error)
       const row = await db.query.receiptImports.findFirst({ where: eq(schema.receiptImports.id, result.receipt.id) })
-      uploadedBlobUrls.push(row!.imageUrl!)
+      uploadedReceiptRefs.push(row!.imageUrl!)
       expect(result.ok).toBe(true)
     })
   })

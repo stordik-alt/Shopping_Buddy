@@ -1,7 +1,7 @@
 import { eq, inArray } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { getDb } from '@/lib/db/client'
-import { getProductPrices, recordPriceObservation } from '@/lib/db/queries'
+import { getProductPrices, persistNamedPackageEvidence, recordPriceObservation } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
 
 const db = getDb()
@@ -80,6 +80,79 @@ describe('automatic product package catalog', () => {
     })
   })
 
+  it('promotes a price-consistent named weight to the persistent catalog', async () => {
+    const productId = await addProduct(`__Test named weight 250 g ${tag}`)
+    const storeId = (await db.query.stores.findFirst())!.id
+
+    await recordPriceObservation({
+      productId,
+      storeId,
+      regularPrice: 40,
+      unit: 'kg',
+      unitPrice: 160,
+      observedAt: '2026-09-30',
+      priceScope: 'CHAIN',
+      sourceType: 'OFFICIAL',
+      locationResolution: 'NOT_APPLICABLE',
+      sourceReference: '__test_named_weight_' + tag + '_1',
+    })
+
+    await persistNamedPackageEvidence([{
+      productId,
+      name: `__Test named weight 250 g ${tag}`,
+      regularPrice: 40,
+      unit: 'kg',
+      unitPrice: 160,
+      observedAt: '2026-09-30',
+    }])
+
+    const packages = await db.query.productPackages.findMany({
+      where: eq(schema.productPackages.productId, productId),
+    })
+    expect(packages).toHaveLength(1)
+    expect(packages[0]).toMatchObject({
+      quantity: 0.25,
+      unit: 'kg',
+      source: 'name-extracted',
+      confidence: 0.98,
+      observationCount: 1,
+      firstSeenAt: '2026-09-30',
+      lastSeenAt: '2026-09-30',
+    })
+
+    await recordPriceObservation({
+      productId,
+      storeId,
+      regularPrice: 42.5,
+      unit: 'kg',
+      unitPrice: 170,
+      observedAt: '2026-10-01',
+      priceScope: 'CHAIN',
+      sourceType: 'OFFICIAL',
+      locationResolution: 'NOT_APPLICABLE',
+      sourceReference: '__test_named_weight_' + tag + '_2',
+    })
+    await persistNamedPackageEvidence([{
+      productId,
+      name: `__Test named weight 250 g ${tag}`,
+      regularPrice: 42.5,
+      unit: 'kg',
+      unitPrice: 170,
+      observedAt: '2026-10-01',
+    }])
+
+    const updated = await db.query.productPackages.findMany({
+      where: eq(schema.productPackages.productId, productId),
+    })
+    expect(updated[0]).toMatchObject({
+      quantity: 0.25,
+      unit: 'kg',
+      source: 'name-extracted',
+      confidence: 0.98,
+      observationCount: 2,
+      lastSeenAt: '2026-10-01',
+    })
+  })
   it('uses explicit piece package size from a product name when no catalog size exists', async () => {
     const productId = await addProduct('__Test named multipack ' + tag)
     const storeId = (await db.query.stores.findFirst())!.id

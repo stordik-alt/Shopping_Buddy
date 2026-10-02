@@ -232,7 +232,7 @@ describe('createManualPurchaseAction — classification', () => {
       const expense = await db.query.expenses.findFirst({
         where: eq(schema.expenses.purchaseId, purchase.id),
       })
-      expect(expense).toMatchObject({ category: 'Drogerie', subcategory: 'Kosmetika', amount: '150' })
+      expect(expense).toMatchObject({ category: 'Drogerie', subcategory: 'Kosmetika', amount: '150.00' })
     } finally {
       await db.delete(schema.products).where(eq(schema.products.name, name))
     }

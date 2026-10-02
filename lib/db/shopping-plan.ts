@@ -163,7 +163,7 @@ export async function buildShoppingPlan(householdId: string, memberId: string | 
         if (auto) chosen = { hit: auto.hit, cost: auto.cost.cost, source: 'auto' }
       }
       if (!chosen) continue
-      offers.push({ needId: need.id, storeId, chain: chosen.hit.chain, productId: chosen.hit.productId, productName: chosen.hit.name, cost: chosen.cost, packages: priced?.packages ?? costForNeed(need, chosen.hit)?.packages ?? 1, source: chosen.source })
+      offers.push({ needId: need.id, storeId, chain: chosen.hit.chain, productId: chosen.hit.productId, productName: chosen.hit.name, cost: chosen.cost, packages: costForNeed(need, chosen.hit)?.packages ?? 1, source: chosen.source })
       const pricedChosen = costForNeed(need, chosen.hit)
       packageSizes[`${need.id}|${storeId}`] = packageSize(chosen.hit)
       packageCounts[`${need.id}|${storeId}`] = pricedChosen?.packages ?? 1

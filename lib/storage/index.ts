@@ -29,7 +29,6 @@ export function parseStorageRef(ref: string): { provider: StorageProvider; id: s
     if (!isValidReceiptKey(key)) throw new Error('Invalid R2 receipt reference')
     return { provider: 'r2', id: key }
   }
-  if (ref.startsWith('https://')) return { provider: 'vercel_blob', id: ref }
   throw new Error('Unknown receipt storage reference')
 }
 
@@ -40,9 +39,7 @@ export function r2Ref(key: string): string {
 
 const STORES: Record<StorageProvider, ReceiptFileStore> = { r2: r2Store }
 
-/** The provider new uploads go to: R2 unless STORAGE_PROVIDER says `vercel` (rollback). An unknown
- *  value is an error, not a silent fallback, so a typo in the environment cannot quietly write to
- *  the wrong store. */
+/** New receipt uploads always use Cloudflare R2. */
 export function uploadProvider(): StorageProvider {
   return 'r2'
 }
@@ -52,7 +49,7 @@ export async function putReceiptFile(householdId: string, body: Buffer, file: { 
   const provider = uploadProvider()
   const key = receiptKey(householdId, file.extension)
   const id = await STORES[provider].put(key, body, file.mimeType)
-  return provider === 'r2' ? r2Ref(id) : id
+  return r2Ref(id)
 }
 
 /** Reads a stored receipt file; `null` when it no longer exists. */

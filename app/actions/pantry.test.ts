@@ -101,7 +101,7 @@ describe('addPantryItemAction', () => {
     }
   })
 
-  it('uses the existing catalog product identity and subcategory', async () => {
+  it('uses the existing catalog product identity and subcategory when classification is omitted', async () => {
     const food = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
     const subcategory = await db.query.productSubcategories.findFirst({ where: and(eq(schema.productSubcategories.category, 'Potraviny'), eq(schema.productSubcategories.name, 'Pečivo')) })
     const [product] = await db.insert(schema.products).values({
@@ -116,7 +116,6 @@ describe('addPantryItemAction', () => {
         name: product.name,
         quantity: 2,
         unit: 'ks',
-        category: 'Potraviny',
         placeKey: 'Mrazák',
       })
       expect(result.find((item) => item.name === product.name)).toMatchObject({

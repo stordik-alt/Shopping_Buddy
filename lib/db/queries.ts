@@ -1400,7 +1400,6 @@ export async function persistNamedPackageEvidence(evidence: NamedPackageEvidence
         confidence: sql`GREATEST(${schema.productPackages.confidence}, 0.980)`,
         firstSeenAt: sql`LEAST(${schema.productPackages.firstSeenAt}, EXCLUDED.first_seen_at)`,
         lastSeenAt: sql`GREATEST(${schema.productPackages.lastSeenAt}, EXCLUDED.last_seen_at)`,
-        observationCount: sql`CASE WHEN EXCLUDED.last_seen_at > ${schema.productPackages.lastSeenAt} THEN ${schema.productPackages.observationCount} + 1 ELSE ${schema.productPackages.observationCount} END`,
       },
     })
 

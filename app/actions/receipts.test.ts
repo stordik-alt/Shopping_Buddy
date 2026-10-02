@@ -845,7 +845,7 @@ describe('receipt file handling: type detection and OCR preparation', () => {
   }
 
   async function storeReceiptBytes(bytes: Buffer, extension: string, contentType: string): Promise<string> {
-    const ref = await putReceiptFile(householdId, bytes, { extension: extension as 'jpg' | 'png' | 'webp' | 'pdf', mimeType: contentType })
+    const ref = await putReceiptFile(householdId, bytes, { extension: extension === 'pdf' ? 'pdf' : 'png', mimeType: contentType })
     uploadedReceiptRefs.push(ref)
     const [row] = await db.insert(schema.receiptImports).values({ householdId, status: 'uploaded', source: 'ocr', imageUrl: ref }).returning()
     return row.id

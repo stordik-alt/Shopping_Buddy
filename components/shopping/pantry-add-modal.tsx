@@ -103,6 +103,16 @@ export function PantryAddModal({
             </select>
           </label>
 
+          {subcategories.length > 0 && (
+            <label className='block text-sm font-medium'>
+              Podkategorie
+              <select value={subcategory ?? ''} onChange={(event) => setSubcategory(event.target.value || null)} className='mt-1 w-full rounded-xl border border-input bg-background px-3 py-2.5 font-normal outline-none'>
+                <option value=''>Nezařazeno</option>
+                {subcategories.map((value) => <option key={value} value={value}>{value}</option>)}
+              </select>
+            </label>
+          )}
+
           <label className='block text-sm font-medium'>
             Umístění
             <select value={placeKey} onChange={(event) => setPlaceKey(event.target.value)} className='mt-1 w-full rounded-xl border border-input bg-background px-3 py-2.5 font-normal outline-none'>

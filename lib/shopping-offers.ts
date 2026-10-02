@@ -14,10 +14,11 @@ export type NeedSpec = {
   category: ItemCategory
 }
 
-/** The size of one package of a hit, in its comparable unit ("1 l", "0.85 kg"): regular price ÷
- *  unit price. `null` for a piece-priced product, where one package is one piece. */
+/** The size of one retail package of a hit. Explicit/catalogued package evidence wins; otherwise
+ *  weight/volume products use regular price ÷ unit price. A piece-priced product without explicit
+ *  package evidence defaults to one piece per package. */
 export function packageSize(hit: Pick<ProductSearchHit, 'regularPrice' | 'unitPrice' | 'unit' | 'packageSize'>): { value: number; unit: ItemUnit } | null {
-  if (hit.packageSize && hit.packageSize.unit !== 'ks') {
+  if (hit.packageSize) {
     return { value: hit.packageSize.quantity, unit: hit.packageSize.unit }
   }
   if (hit.unit === 'ks' || hit.unitPrice <= 0) return null
@@ -39,14 +40,20 @@ const round = (value: number) => Math.round(value * 100) / 100
  *    packages. A recipe asking for 1 g of butter therefore costs one real package, not one gram's worth
  *    of that package. Different pack sizes are still compared by unit price when choosing the product.
  *  - A need in litres or millilitres is handled the same way.
- *  - A need counted in pieces ("2 ks") is 2 packages of the product, at its package price.
+ *  - A need counted in pieces ("2 ks") buys enough whole retail packages to cover the requested pieces;
+ *    an explicit "10 ks" package therefore costs one package for a 2- or 10-piece need.
  *  A weight need against a piece-priced product (or a volume need against a weight-priced one) has no
  *  sound conversion and yields \`null\` — never a guess. */
-export function costForNeed(need: Pick<NeedSpec, 'quantity' | 'unit'>, hit: Pick<ProductSearchHit, 'regularPrice' | 'dealPrice' | 'unitPrice' | 'unit'>): NeedCost | null {
+export function costForNeed(need: Pick<NeedSpec, 'quantity' | 'unit'>, hit: Pick<ProductSearchHit, 'regularPrice' | 'dealPrice' | 'unitPrice' | 'unit' | 'packageSize'>): NeedCost | null {
   if (!Number.isFinite(need.quantity) || need.quantity <= 0) return null
   switch (need.unit) {
-    case 'ks':
-      return { cost: round(hitPrice(hit) * need.quantity), basis: 'per-package' }
+    case 'ks': {
+      if (hit.unit !== 'ks') return null
+      const size = packageSize(hit)
+      const piecesPerPackage = size?.unit === 'ks' ? size.value : 1
+      const packages = Math.max(1, Math.ceil((need.quantity / piecesPerPackage) - Number.EPSILON))
+      return { cost: round(packages * hitPrice(hit)), basis: 'per-package' }
+    }
     case 'kg':
     case 'g': {
       if (hit.unit !== 'kg') return null

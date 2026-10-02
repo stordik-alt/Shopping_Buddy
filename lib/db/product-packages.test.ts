@@ -80,6 +80,36 @@ describe('automatic product package catalog', () => {
     })
   })
 
+  it('uses explicit piece package size from a product name when no catalog size exists', async () => {
+    const productId = await addProduct('__Test named multipack ' + tag)
+    const storeId = (await db.query.stores.findFirst())!.id
+
+    await recordPriceObservation({
+      productId,
+      storeId,
+      regularPrice: 39.9,
+      unit: 'ks',
+      unitPrice: 6.65,
+      observedAt: '2026-10-01',
+      priceScope: 'CHAIN',
+      sourceType: 'OFFICIAL',
+      locationResolution: 'NOT_APPLICABLE',
+      sourceReference: '__test_named_package_' + tag,
+    })
+
+    await db.update(schema.products)
+      .set({ name: 'Papírové kapesníky 6 ks ' + tag })
+      .where(eq(schema.products.id, productId))
+
+    const productPrice = (await getProductPrices({ names: ['Papírové kapesníky 6 ks ' + tag], runningDeals: false }))[0]
+    expect(productPrice?.prices[0]?.packageSize).toMatchObject({
+      quantity: 6,
+      unit: 'ks',
+      source: 'name-extracted',
+      label: '6 ks',
+    })
+  })
+
   it('does not learn a package size from receipt prices', async () => {
     const productId = await addProduct(`__Test receipt balení ${tag}`)
     const storeId = (await db.query.stores.findFirst())!.id

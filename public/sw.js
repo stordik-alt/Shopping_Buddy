@@ -10,11 +10,18 @@
 // signed-in account, so signing out deletes it (components/shared/app-header.tsx).
 
 const PAGE_CACHE = 'shopping-buddy-page-v1'
-const STATIC_CACHE = 'shopping-buddy-static-v1'
+const STATIC_CACHE = 'shopping-buddy-static-v2'
 const MAX_STATIC_ENTRIES = 400
 
 self.addEventListener('install', () => self.skipWaiting())
-self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()))
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.filter((key) => key.startsWith('shopping-buddy-static-') && key !== STATIC_CACHE).map((key) => caches.delete(key))))
+      .then(() => self.clients.claim()),
+  )
+})
 
 self.addEventListener('fetch', (event) => {
   const request = event.request

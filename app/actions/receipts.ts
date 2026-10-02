@@ -11,6 +11,7 @@ import { applyLearnedExpenseDefaults, recomputePurchaseExpenses } from '@/lib/db
 import { getAliasesForNames, recordProductAlias } from '@/lib/db/product-aliases'
 import { AUTO_ACCEPT_THRESHOLD, matchProduct } from '@/lib/categorization'
 import { applyConfirmedReceiptListPairs, autoCheckShoppingListFromPurchase, getReceiptListSuggestions, type ReceiptListSuggestion } from '@/lib/db/receipt-list'
+import { isValidProductSubcategory } from '@/lib/product-subcategories'
 import { inferPantryLocation } from '@/lib/pantry'
 import { normalizeProductText } from '@/lib/product-normalize'
 import { logReceiptImport, newReceiptTrace, redactSecrets, type ReceiptTrace } from '@/lib/receipt-log'
@@ -47,6 +48,7 @@ import { deleteReceiptFile, getReceiptFile, putReceiptFile } from '@/lib/storage
 import type { ItemCategory, PurchaseRecord } from '@/lib/types'
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024 // 10 MB
+const ITEM_CATEGORIES = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní'] as const
 
 
 /** Fallback for a stored file whose bytes are not recognisable (see detectReceiptFileType) — the
@@ -103,10 +105,9 @@ function resolveReceiptPurchaseDate(optionsDate: string | undefined, storedDate:
 /** `source` decides how each item's category/pantry-location gets resolved, and whether the
  *  catalog learns from it:
  *  - `'confirmed'`: a human directly typed or reviewed every item (manual entry, or a completed
- *    review). A known catalog product's category still wins even over what was typed this time —
- *    consistent with every other entry path (e.g. `addShoppingItemAction`) — since the catalog
- *    *is* the remembered correction; there's simply no catalog entry to override for a genuinely
- *    new product, so the typed value always applies there. Missing a `location` (manual entry has
+ *    review). An explicit category/subcategory change made in the import UI is authoritative for
+ *    this purchase and is then learned by the shared product catalog; otherwise the existing
+ *    catalog classification remains the suggestion. Missing a `location` (manual entry has
  *    no location field) falls back to the catalog's remembered one, then `inferPantryLocation()`,
  *    then 'Spíž' as an absolute last resort. Every item is then written back into the product
  *    catalog (`upsertProductCatalogDefaults`) so the *next* receipt of the same product resolves
@@ -230,6 +231,16 @@ async function createPurchaseFromReceiptItems(
   // below, which still counts as an expense; a *removed* line was rejected by the household outright.
   const activeItems = items.filter((item) => !item.removed)
   if (activeItems.length === 0) throw new Error('Receipt has no items')
+  // Classification is part of the import contract too: every client-supplied category/subcategory
+  // must belong to the fixed product taxonomy before it can reach purchase_items or the shared catalog.
+  for (const item of activeItems) {
+    if (!(ITEM_CATEGORIES as readonly string[]).includes(item.category)) {
+      throw new Error('Neplatná kategorie u položky „' + item.name + '“.')
+    }
+    if (item.subcategory != null && !isValidProductSubcategory(item.category, item.subcategory)) {
+      throw new Error('Neplatná podkategorie u položky „' + item.name + '“.')
+    }
+  }
   // Reject impossible discounts explicitly (a reviewer can type anything) instead of storing a
   // negative price or silently clamping it.
   for (const item of activeItems) {
@@ -273,14 +284,18 @@ async function createPurchaseFromReceiptItems(
     // (see upsertProductCatalogDefaults below) — for a *new* product, there's no catalog entry to
     // override, so the typed category always applies. Location, which manual entry has no field
     // for at all, still prefers an explicit value (from a review form) before falling back.
-    const location = item.location ?? catalogEntry?.defaultLocation ?? inferPantryLocation(item.category, item.name) ?? 'Spíž'
-    const category = catalogEntry?.category ?? item.category
+    // A human classification made in the import UI is authoritative for this purchase. Without
+    // that explicit marker we keep the existing catalog-first behavior for OCR suggestions.
+    const manuallyClassified = item.classificationSource === 'manual'
+    const category = manuallyClassified ? item.category : (catalogEntry?.category ?? item.category)
+    const subcategory = manuallyClassified ? (item.subcategory ?? null) : (catalogEntry?.subcategory ?? item.subcategory ?? null)
+    const location = item.location ?? catalogEntry?.defaultLocation ?? inferPantryLocation(category, item.name) ?? 'Spíž'
     return {
       ...item,
       productId: catalogEntry?.id ?? null,
       category,
       location,
-      subcategory: catalogEntry?.subcategory ?? item.subcategory,
+      subcategory: subcategory ?? undefined,
       nonInventory: catalogEntry?.isNonInventory ?? item.nonInventory ?? false,
     }
   })

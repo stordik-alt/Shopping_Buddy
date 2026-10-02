@@ -9,7 +9,10 @@ import type { RecipePriceEstimate } from '@/lib/recipes/pricing'
 import { money, shortDate } from '@/lib/format'
 import type { Recipe, RecipeSearchResult, SavedRecipe } from '@/lib/recipes/types'
 import type { RecipePantryRecommendation } from '@/lib/recipes/recommendations'
-import type { PantryItem } from '@/lib/types'
+import type { Household, PantryItem } from '@/lib/types'
+import type { SavedMealPlan } from '@/lib/db/queries'
+import type { Ingredient, MealType, WeeklyMealPlan } from '@/lib/meal-plans'
+import { MealPlan } from '@/components/dashboard/meal-plan'
 
 const SOURCES = [
   { id: '', name: 'Všechny zdroje' },
@@ -74,12 +77,18 @@ function RecipeCard({
 }
 
 type RecipesProps = {
+  household: Household
+  initialPlan: SavedMealPlan | null
   pantryItems: PantryItem[]
   onAddIngredients: (ingredients: RecipeShoppingItem[]) => Promise<number>
+  onAddMealPlanIngredients: (ingredients: Ingredient[]) => void
+  onMarkCooked: (day: string, mealType: MealType) => void
+  onPlanSaved: (budgetLimit: number, plan: WeeklyMealPlan) => void
   onGoToShopping: () => void
 }
 
-export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: RecipesProps) {
+export function Recipes({ household, initialPlan, pantryItems, onAddIngredients, onAddMealPlanIngredients, onMarkCooked, onPlanSaved, onGoToShopping }: RecipesProps) {
+  const [section, setSection] = useState<'recipes' | 'meal-plan'>('recipes')
   const [query, setQuery] = useState('')
   const [sourceId, setSourceId] = useState('')
   const [sort, setSort] = useState<'relevance' | 'rating' | 'time'>('relevance')
@@ -224,6 +233,30 @@ export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: Recip
       sourceMeasure: entry.sourceMeasure,
     }))
 
+  const sectionTabs = (
+    <div className="mb-5 flex flex-wrap gap-2" role="tablist" aria-label="Recepty">
+      {([
+        ['recipes', 'Recepty'],
+        ['meal-plan', 'Jídelníček'],
+      ] as const).map(([value, label]) => (
+        <button
+          key={value}
+          type="button"
+          role="tab"
+          aria-selected={section === value}
+          onClick={() => {
+            setSection(value)
+            if (value === 'recipes') setSelected(null)
+          }}
+          className={`min-h-9 rounded-full px-4 text-sm font-medium transition ${section === value ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground hover:bg-primary/10'}`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+
+
   async function toggleFavorite() {
     if (!selected || favoriteSaving) return
     setFavoriteSaving(true)
@@ -257,9 +290,26 @@ export function Recipes({ pantryItems, onAddIngredients, onGoToShopping }: Recip
     }
   }
 
+  if (section === 'meal-plan') {
+    return (
+      <div className="space-y-5">
+        {sectionTabs}
+        <MealPlan
+          household={household}
+          initialPlan={initialPlan}
+          pantryItems={pantryItems}
+          onAddIngredients={onAddMealPlanIngredients}
+          onMarkCooked={onMarkCooked}
+          onPlanSaved={onPlanSaved}
+        />
+      </div>
+    )
+  }
+
   if (selected) {
     return (
       <div className="mx-auto max-w-3xl space-y-5">
+        {sectionTabs}
         <button type="button" onClick={() => setSelected(null)} className="text-sm font-medium text-primary hover:underline">
           ← Zpět na recepty
         </button>

@@ -23,7 +23,6 @@ import {
   ExpenseLedger,
   ExpenseModal,
   HouseholdProfile,
-  MealPlan,
   NotificationPanel,
   Pantry,
   PantryPrompt,
@@ -469,7 +468,6 @@ export function AppShell({
                   />
                   <QuickOutOfStock pantryItems={pantryItems} likelyGoneIds={likelyGonePantryIds} onGone={quickOut} />
                   <PriceWatch today={today} onBrowseDeals={() => setTab('Akce')} onStores={() => setTab('Obchody')} onAddToList={addItemByName} listItemNames={pendingNames} productPrices={nearbyProductPrices} offers={nearbyStandaloneOffers} pantryItems={pantryItems} />
-                  <MealPlan household={household} initialPlan={mealPlan} pantryItems={pantryItems} onAddIngredients={addIngredients} onMarkCooked={markMealCooked} onPlanSaved={(budgetLimit, plan) => setMealPlan({ weekStart: currentWeekStart(today), budgetLimit, plan })} />
                   <div className="grid gap-4 lg:grid-cols-2 lg:gap-6">
                     <SpendingBreakdown expenses={periodExpenses} periodTitle={thisPeriodTitle(today, periodStartDay)} onDetails={() => setTab('Rozpočet')} />
                     <SavingsInsight remaining={remaining} today={today} periodStartDay={periodStartDay} />
@@ -638,7 +636,7 @@ export function AppShell({
                   onClearLocation={userLocation.clearLocation}
                 />
               )}
-              {tab === 'Recepty' && <Recipes pantryItems={pantryItems} onAddIngredients={addRecipeIngredients} onGoToShopping={() => setTab('Nákup')} />}
+              {tab === 'Recepty' && <Recipes household={household} initialPlan={mealPlan} pantryItems={pantryItems} onAddIngredients={addRecipeIngredients} onAddMealPlanIngredients={addIngredients} onMarkCooked={markMealCooked} onPlanSaved={(budgetLimit, plan) => setMealPlan({ weekStart: currentWeekStart(today), budgetLimit, plan })} onGoToShopping={() => setTab('Nákup')} />}
               {tab === 'Rozpočet' && (
                 <div className="space-y-5 lg:space-y-6">
                   <div className="flex flex-wrap gap-2" role="group" aria-label="Zobrazení rozpočtu">

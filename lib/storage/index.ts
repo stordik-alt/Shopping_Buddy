@@ -1,19 +1,7 @@
 import { r2Store } from '@/lib/storage/r2'
 import type { ReceiptFileStore, StorageProvider, StoredFile } from '@/lib/storage/types'
-import { vercelBlobStore } from '@/lib/storage/vercel-blob'
 
 export type { StorageProvider, StoredFile } from '@/lib/storage/types'
-
-// Receipt file storage entry point. `receipt_imports.image_url` holds a *storage reference*:
-//
-//   https://…blob.vercel-storage.com/receipts/…   → Vercel Blob (every receipt uploaded before R2)
-//   r2:receipts/{householdId}/{uuid}.{ext}          → Cloudflare R2
-//
-// The provider is read from the reference itself, so old Vercel Blob receipts keep working after
-// new uploads switch to R2, and no database migration is needed to deploy the switch (the column
-// keeps its name for now; see docs/cloudflare-migration-architecture.md). New uploads go to R2 by
-// default; STORAGE_PROVIDER=vercel sends them back to Blob and exists only as a rollback switch
-// (Blob's usage limit is too tight for receipt uploads, which is why R2 replaced it).
 
 const R2_PREFIX = 'r2:'
 
@@ -50,16 +38,13 @@ export function r2Ref(key: string): string {
   return `${R2_PREFIX}${key}`
 }
 
-const STORES: Record<StorageProvider, ReceiptFileStore> = { vercel_blob: vercelBlobStore, r2: r2Store }
+const STORES: Record<StorageProvider, ReceiptFileStore> = { r2: r2Store }
 
 /** The provider new uploads go to: R2 unless STORAGE_PROVIDER says `vercel` (rollback). An unknown
  *  value is an error, not a silent fallback, so a typo in the environment cannot quietly write to
  *  the wrong store. */
 export function uploadProvider(): StorageProvider {
-  const value = (process.env.STORAGE_PROVIDER ?? 'r2').trim().toLowerCase() || 'r2'
-  if (value === 'vercel' || value === 'vercel_blob') return 'vercel_blob'
-  if (value === 'r2') return 'r2'
-  throw new Error(`Unknown STORAGE_PROVIDER "${value}" (expected "vercel" or "r2")`)
+  return 'r2'
 }
 
 /** Stores a new receipt file and returns the reference to save in `receipt_imports.image_url`. */

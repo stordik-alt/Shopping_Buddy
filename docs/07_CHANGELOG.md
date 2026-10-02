@@ -31,6 +31,12 @@
 - **Navigation:** the existing main navigation remains unchanged; Jídelníček stays available from **Více**. The Dashboard no longer renders a duplicate full meal-plan card.
 - **Behavior:** existing meal-plan persistence, pantry-aware generation, cooking/stock deduction and shopping-list integration are unchanged; the app shell continues to own the shared saved plan and pantry state.
 
+## 2026-10-02 (Category + subcategory chosen during import)
+- **Why:** the household should be able to classify a line while importing it, rather than save it first and correct the expense afterward.
+- **What:** manual receipt entry and the OCR review/duplicate-save flows now show both category and subcategory per item. Manual purchase history entry persists the selected subcategory on `purchase_items`; the confirmed receipt path validates the fixed product taxonomy and treats an explicit review correction as authoritative for that purchase instead of silently replacing it from the existing catalog.
+- **Inventory/expenses:** the same category/subcategory is carried into pantry restocking and purchase expense recomputation. Ordinary standalone "Nový výdaj" already had both selectors, so no schema migration was required.
+- **Tests:** server-action regression coverage verifies manual purchase/receipt classification persistence and rejects a subcategory from the wrong category.
+
 ## 2026-10-01 (Direct pantry stock without a budget entry)
 - **Owner request:** items obtained without spending money — e.g. a gift, received meat, or eggs/vegetables from own production — must be addable to Zásoby without appearing in Rozpočet.
 - **What:** Zásoby now has **Přidat** → a dedicated form for product, quantity, unit, category and storage place. The server writes only to `pantry_items`; it never creates `purchases`, `purchase_items` or `expenses`.

@@ -73,7 +73,7 @@ async function getProductCatalogByPrefix(prefix: string): Promise<ProductCatalog
   const products = await db.query.products.findMany({
     columns: { id: true, name: true, defaultUnit: true, defaultLocation: true, isChildOriented: true, isNonInventory: true },
     with: { category: { columns: { name: true } }, subcategory: { columns: { name: true } } },
-    where: like(schema.products.searchName, `${prefix}%`),
+    where: prefix === 'other' ? sql`${schema.products.searchName} !~ '^[a-z]'` : sql`${schema.products.searchName} LIKE ${`${prefix}%`}`,
   })
   return products.map((product) => ({
     id: product.id,

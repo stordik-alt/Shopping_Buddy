@@ -68,6 +68,39 @@ describe('addPantryItemAction', () => {
     expect(await db.query.products.findFirst({ where: eq(schema.products.name, '__test_free_eggs__') })).toBeUndefined()
   })
 
+  it('manual category and subcategory override catalog classification and create no purchase or expense', async () => {
+    const catalogCategory = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
+    const catalogSubcategory = await db.query.productSubcategories.findFirst({ where: and(eq(schema.productSubcategories.category, 'Potraviny'), eq(schema.productSubcategories.name, 'Pečivo')) })
+    const manualSubcategory = await db.query.productSubcategories.findFirst({ where: and(eq(schema.productSubcategories.category, 'Děti'), eq(schema.productSubcategories.name, 'Oblečení a obuv')) })
+    const [product] = await db.insert(schema.products).values({
+      name: '__test_manual_pantry_classification__',
+      categoryId: catalogCategory!.id,
+      subcategoryId: catalogSubcategory!.id,
+      defaultUnit: 'ks',
+      defaultLocation: 'Spíž',
+    }).returning()
+    try {
+      const result = await addPantryItemAction({
+        name: product.name,
+        quantity: 1,
+        unit: 'ks',
+        category: 'Děti',
+        subcategory: manualSubcategory!.name,
+        placeKey: 'Spíž',
+      })
+      expect(result.find((item) => item.name === product.name)).toMatchObject({
+        category: 'Děti',
+        subcategory: manualSubcategory!.name,
+      })
+      expect(await db.query.purchases.findMany({ where: eq(schema.purchases.householdId, householdId) })).toHaveLength(0)
+      expect(await db.query.purchaseItems.findMany({ where: eq(schema.purchaseItems.name, product.name) })).toHaveLength(0)
+      expect(await db.query.expenses.findMany({ where: eq(schema.expenses.householdId, householdId) })).toHaveLength(0)
+    } finally {
+      await db.delete(schema.pantryItems).where(eq(schema.pantryItems.productId, product.id))
+      await db.delete(schema.products).where(eq(schema.products.id, product.id))
+    }
+  })
+
   it('uses the existing catalog product identity and subcategory', async () => {
     const food = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
     const subcategory = await db.query.productSubcategories.findFirst({ where: and(eq(schema.productSubcategories.category, 'Potraviny'), eq(schema.productSubcategories.name, 'Pečivo')) })

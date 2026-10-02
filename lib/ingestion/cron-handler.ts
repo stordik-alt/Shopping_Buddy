@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { logIngestResults } from '@/lib/ingestion/cron-log'
 import { PRICE_SOURCES, runPriceSources } from '@/lib/ingestion/ingest'
-import { invalidatePriceAndOfferCaches } from '@/lib/db/cache-invalidation'
+import { invalidateDealsCache, invalidatePriceAndOfferCaches } from '@/lib/db/cache-invalidation'
 
 // Shared request handling for the price-ingestion cron routes (app/api/cron/ingest-prices).
 //
@@ -43,7 +43,10 @@ export async function handleIngestCron(request: Request, only?: string): Promise
   // The global price/offer cache is long-lived; refresh it only after an ingestion run actually
   // completes. A partial run is enough to invalidate because it may have written new prices/deals.
   const allFailed = Object.values(results).every((outcome) => 'error' in outcome)
-  if (!allFailed && Object.keys(results).length > 0) invalidatePriceAndOfferCaches()
+  if (!allFailed && Object.keys(results).length > 0) {
+    invalidatePriceAndOfferCaches()
+    invalidateDealsCache()
+  }
 
   // 502 only when every source that ran failed (nothing refreshed); a partial success is still a
   // 200 whose body shows which store failed, and a budget-truncated run is reported in its own body.

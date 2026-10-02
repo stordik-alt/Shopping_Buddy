@@ -10,6 +10,10 @@ export function invalidateProductPriceCache(): void {
   revalidateTag(GLOBAL_CACHE_TAGS.productPrices, 'max')
 }
 
+export function invalidateDealsCache(): void {
+  revalidateTag(GLOBAL_CACHE_TAGS.deals, 'max')
+}
+
 export function invalidatePriceAndOfferCaches(): void {
   invalidateProductPriceCache()
   revalidateTag(GLOBAL_CACHE_TAGS.standaloneOffers, 'max')

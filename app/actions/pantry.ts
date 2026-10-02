@@ -49,7 +49,7 @@ export async function addPantryItemAction(input: {
   if (!(PANTRY_UNITS as string[]).includes(input.unit)) throw new Error('Neplatná jednotka.')
   if (input.category != null && !(PANTRY_ITEM_CATEGORIES as string[]).includes(input.category)) throw new Error('Neplatná kategorie.')
 
-  const catalog = await getProductCatalog([name])
+  const catalog = await getProductCatalogCached([name])
   const product = matchProductByName(catalog, name)
   if (product?.isNonInventory) throw new Error('Tento produkt nelze přidat do zásob.')
 
@@ -81,7 +81,7 @@ export async function addPantryItemAction(input: {
   let subcategoryId: string | null = null
   const selectedSubcategory = requestedSubcategory ?? (input.category ? null : product?.subcategory ?? null)
   if (selectedSubcategory) {
-    const subcategories = await getSubcategoryCatalog()
+    const subcategories = await getSubcategoryCatalogCached()
     subcategoryId = subcategories.find((row) => row.category === category && row.name === selectedSubcategory)?.id ?? null
     if (!subcategoryId) throw new Error('Neplatná podkategorie.')
   }

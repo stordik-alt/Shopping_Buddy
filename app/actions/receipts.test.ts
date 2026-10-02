@@ -845,9 +845,9 @@ describe('receipt file handling: type detection and OCR preparation', () => {
   }
 
   async function storeReceiptBytes(bytes: Buffer, extension: string, contentType: string): Promise<string> {
-    const blob = await put(`receipts/__test__/${crypto.randomUUID()}.${extension}`, bytes, { access: 'private', contentType })
-    uploadedReceiptRefs.push(blob.url)
-    const [row] = await db.insert(schema.receiptImports).values({ householdId, status: 'uploaded', source: 'ocr', imageUrl: blob.url }).returning()
+    const ref = await putReceiptFile(householdId, bytes, { extension: extension as 'jpg' | 'png' | 'webp' | 'pdf', mimeType: contentType })
+    uploadedReceiptRefs.push(ref)
+    const [row] = await db.insert(schema.receiptImports).values({ householdId, status: 'uploaded', source: 'ocr', imageUrl: ref }).returning()
     return row.id
   }
 

@@ -22,7 +22,7 @@ vi.mock('@/lib/auth/authorize', () => ({
   requireHouseholdId: () => Promise.resolve(currentHouseholdId),
   requireHousehold: () => Promise.resolve({ userId: '00000000-0000-4000-8000-000000000001', userEmail: 'test@example.com', householdId: currentHouseholdId, role: 'owner' }),
 }))
-vi.mock('next/cache', () => ({ revalidatePath: () => {}, unstable_cache: (fn: (...args: any[]) => any) => fn }))
+vi.mock('next/cache', () => ({ revalidatePath: () => {}, revalidateTag: () => {}, unstable_cache: (fn: (...args: any[]) => any) => fn }))
 
 const db = getDb()
 

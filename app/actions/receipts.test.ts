@@ -1,4 +1,3 @@
-import { del, get, put } from '@vercel/blob'
 import sharp from 'sharp'
 import { eq, inArray } from 'drizzle-orm'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -15,17 +14,25 @@ import type { ExtractedReceipt, ReceiptLineItem, ReceiptStructuringProvider, Rec
 // at least once.
 vi.setConfig({ testTimeout: 20_000 })
 
+const storageFiles = new Map<string, { body: Buffer; contentType: string }>()
+
+vi.mock('@/lib/storage', () => ({
+  putReceiptFile: async (householdId: string, body: Buffer, file: { extension: string; mimeType: string }) => {
+    const ref = `r2:receipts/${householdId}/${crypto.randomUUID()}.${file.extension}`
+    storageFiles.set(ref, { body: Buffer.from(body), contentType: file.mimeType })
+    return ref
+  },
+  getReceiptFile: async (ref: string) => {
+    const file = storageFiles.get(ref)
+    if (!file) return null
+    return { body: new Response(file.body).body!, contentType: file.contentType }
+  },
+  deleteReceiptFile: async (ref: string) => { storageFiles.delete(ref) },
+}))
+
 let currentHouseholdId = ''
 vi.mock('@/lib/auth/authorize', () => ({ requireHouseholdId: () => Promise.resolve(currentHouseholdId) }))
 vi.mock('next/cache', () => ({ revalidatePath: () => {}, revalidateTag: () => {} }))
-// Receipt photos go to Vercel Blob. Tests use an in-memory fake (test/fake-blob.ts) so a run neither
-// spends paid Blob operations nor fails when the real store is suspended; USE_REAL_BLOB=1 runs them
-// against the real store on purpose.
-vi.mock('@vercel/blob', async () => (process.env.USE_REAL_BLOB === '1' ? await vi.importActual('@vercel/blob') : (await import('@/test/fake-blob')).fakeBlobModule))
-// R2 is the default upload store (lib/storage); these tests upload through the Blob fake above, so
-// pin the provider to Blob instead of letting uploadReceiptAction try to reach an R2 bucket.
-process.env.STORAGE_PROVIDER = 'vercel'
-
 import { MAX_RECEIPT_UPLOADS_PER_DAY } from '@/lib/receipt-upload-limit'
 import { confirmReceiptReviewAction, importReceiptAction, processReceiptImport, processUploadedReceiptAction, resolveDuplicateReceiptAction, retryReceiptImportAction, uploadReceiptAction } from '@/app/actions/receipts'
 import { setPurchaseItemExpenseSplits } from '@/lib/db/purchase-items'
@@ -35,7 +42,6 @@ import { deleteExpenseAction, updateExpenseAction } from '@/app/actions/budget'
 
 const db = getDb()
 const createdHouseholdIds: string[] = []
-const uploadedBlobUrls: string[] = []
 let householdId: string
 
 const item = (overrides: Partial<ReceiptLineItem> = {}): ReceiptLineItem => ({
@@ -67,9 +73,8 @@ const extractedReceipt = (overrides: Partial<ExtractedReceipt> = {}): ExtractedR
 // everything else (Blob storage, the receipt_imports state machine, validation, duplicate
 // detection) runs for real.
 async function createUploadedReceipt(file: { buffer: Buffer; extension: string; contentType: string } = { buffer: Buffer.from('test-image-bytes'), extension: 'png', contentType: 'image/png' }): Promise<string> {
-  const blob = await put(`receipts/__test__/${crypto.randomUUID()}.${file.extension}`, file.buffer, { access: 'private', contentType: file.contentType })
-  uploadedBlobUrls.push(blob.url)
-  const [row] = await db.insert(schema.receiptImports).values({ householdId, status: 'uploaded', source: 'ocr', imageUrl: blob.url }).returning()
+  const imageUrl = await putReceiptFile(householdId, file.buffer, { extension: file.extension as 'jpg' | 'png' | 'webp' | 'pdf', mimeType: file.contentType })
+  const [row] = await db.insert(schema.receiptImports).values({ householdId, status: 'uploaded', source: 'ocr', imageUrl }).returning()
   return row.id
 }
 
@@ -121,7 +126,7 @@ afterAll(async () => {
   if (newStoreLocationIds.length > 0) {
     await db.delete(schema.storeLocations).where(inArray(schema.storeLocations.id, newStoreLocationIds))
   }
-  await del(uploadedBlobUrls).catch(() => {})
+  storageFiles.clear()
 })
 
 // resolveReceiptPurchaseDate() (app/actions/receipts.ts) requires an explicit, validly-formatted

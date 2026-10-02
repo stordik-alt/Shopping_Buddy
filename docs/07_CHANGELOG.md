@@ -1,3 +1,8 @@
+## 2026-10-02 (Recipes / Meal Plan navigation)
+- **What:** moved the main Jídelníček experience out of the Dashboard and into the Recepty section as a top-level `Recepty / Jídelníček` switch.
+- **Navigation:** the existing main navigation remains unchanged; Jídelníček stays available from **Více**. The Dashboard no longer renders a duplicate full meal-plan card.
+- **Behavior:** existing meal-plan persistence, pantry-aware generation, cooking/stock deduction and shopping-list integration are unchanged; the app shell continues to own the shared saved plan and pantry state.
+
 ## 2026-10-01 (Direct pantry stock without a budget entry)
 - **Owner request:** items obtained without spending money — e.g. a gift, received meat, or eggs/vegetables from own production — must be addable to Zásoby without appearing in Rozpočet.
 - **What:** Zásoby now has **Přidat** → a dedicated form for product, quantity, unit, category and storage place. The server writes only to `pantry_items`; it never creates `purchases`, `purchase_items` or `expenses`.

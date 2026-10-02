@@ -179,10 +179,10 @@ describe('automatic product package catalog', () => {
     })
 
     await db.update(schema.products)
-      .set({ name: 'Papírové kapesníky 6 ks ' + tag })
+      .set({ name: productName })
       .where(eq(schema.products.id, productId))
 
-    const productPrice = (await getProductPrices({ names: ['Papírové kapesníky 6 ks ' + tag], runningDeals: false }))[0]
+    const productPrice = (await getProductPrices({ names: [productName], runningDeals: false }))[0]
     expect(productPrice?.prices[0]?.packageSize).toMatchObject({
       quantity: 6,
       unit: 'ks',
@@ -192,7 +192,8 @@ describe('automatic product package catalog', () => {
   })
 
   it('persists an explicit piece-count package and resolves it from the catalog', async () => {
-    const productId = await addProduct('__Test persistent piece pack ' + tag)
+    const productName = 'Papírové kapesníky 6 ks persistent ' + tag
+    const productId = await addProduct(productName)
     const storeId = (await db.query.stores.findFirst())!.id
 
     await recordPriceObservation({
@@ -210,7 +211,7 @@ describe('automatic product package catalog', () => {
 
     await persistNamedPackageEvidence([{
       productId,
-      name: 'Papírové kapesníky 6 ks ' + tag,
+      name: productName,
       regularPrice: 39.9,
       unit: 'ks',
       unitPrice: 6.65,
@@ -218,7 +219,7 @@ describe('automatic product package catalog', () => {
     }])
     await persistNamedPackageEvidence([{
       productId,
-      name: 'Papírové kapesníky 6 ks ' + tag,
+      name: productName,
       regularPrice: 39.9,
       unit: 'ks',
       unitPrice: 6.65,
@@ -240,7 +241,7 @@ describe('automatic product package catalog', () => {
     })
 
     const productPrice = (await getProductPrices({
-      names: ['Papírové kapesníky 6 ks ' + tag],
+      names: [productName],
       runningDeals: false,
     }))[0]
     expect(productPrice?.prices[0]?.packageSize).toMatchObject({
@@ -252,7 +253,7 @@ describe('automatic product package catalog', () => {
 
     await persistNamedPackageEvidence([{
       productId,
-      name: 'Papírové kapesníky 6 ks ' + tag,
+      name: productName,
       regularPrice: 42,
       unit: 'ks',
       unitPrice: 7,

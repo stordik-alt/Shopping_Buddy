@@ -27,10 +27,6 @@ type PriceRow = {
 
 type DealRow = { product_id: string; store_id: string; deal_price: string; valid_until: string }
 
-/** Products whose name contains every token, each with its latest recorded price at each chain that
- *  has one, and the chain's active promotion when there is one. `storeIds`, when given, restricts the
- *  chains. Scored, unsorted — group and order with `groupHitsByChain()`. Tokens are matched as
- *  parameterized LIKE patterns with wildcards escaped, never spliced into SQL. */
 /** One product-search request used by the shopping planner batch query. */
 export type ProductSearchRequest = {
   tokens: string[]
@@ -45,6 +41,10 @@ export type ProductSearchRequest = {
  * product/store, and the application then splits and scores the rows for each request. This preserves
  * the existing per-request semantics while avoiding one catalog/prices query per shopping item.
  */
+/** Products whose name contains every token, each with its latest recorded price at each chain that
+ *  has one, and the chain's active promotion when there is one. `storeIds`, when given, restricts the
+ *  chains. Scored, unsorted — group and order with `groupHitsByChain()`. Tokens are matched as
+ *  parameterized LIKE patterns with wildcards escaped, never spliced into SQL. */
 export async function searchProductHitsBatch(requests: ProductSearchRequest[]): Promise<ProductSearchHit[][]> {
   if (requests.length === 0) return []
 

@@ -2,7 +2,7 @@ import { eq, inArray, sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import { getStoreChains, saveMemberStoreSelection } from '@/lib/db/member-store-preferences'
-import { searchProductHits } from '@/lib/db/product-search'
+import { searchProductHits, searchProductHitsBatch } from '@/lib/db/product-search'
 import * as schema from '@/lib/db/schema'
 import { SEARCH_ACCENTED, normalizeSearchText, searchTokens } from '@/lib/product-search'
 import { searchProductsAction } from '@/app/actions/product-search'
@@ -177,6 +177,40 @@ describe('searchProductHits', () => {
   it('does not fail on quote-like input (parameterized, not spliced into SQL)', async () => {
     await expect(searchProductHits(["x'); drop table products; --"])).resolves.toEqual([])
     expect((await db.query.products.findFirst({ where: eq(schema.products.id, milkId) }))?.id).toBe(milkId)
+  })
+})
+
+
+describe('searchProductHitsBatch', () => {
+  it('returns the same results as individual searches, including duplicate requests', async () => {
+    const options = { storeIds: [lidlId, albertId] }
+    const batch = await searchProductHitsBatch([
+      { tokens: searchTokens(`mleko ${tag}`), ...options },
+      { tokens: searchTokens(`syr eidam ${tag}`), ...options },
+      { tokens: searchTokens(`mleko ${tag}`), ...options },
+      { tokens: searchTokens(`mleko ${tag}`), storeIds: [albertId] },
+    ])
+
+    const singleMilk = await searchProductHits(searchTokens(`mleko ${tag}`), options)
+    const singleCheese = await searchProductHits(searchTokens(`syr eidam ${tag}`), options)
+    const singleAlbert = await searchProductHits(searchTokens(`mleko ${tag}`), { storeIds: [albertId] })
+
+    expect(batch[0]).toEqual(singleMilk)
+    expect(batch[1]).toEqual(singleCheese)
+    expect(batch[2]).toEqual(singleMilk)
+    expect(batch[3]).toEqual(singleAlbert)
+  })
+
+  it('keeps empty requests empty without affecting other requests', async () => {
+    const batch = await searchProductHitsBatch([
+      { tokens: [] },
+      { tokens: searchTokens(`mleko ${tag}`), storeIds: [lidlId] },
+      { tokens: [], storeIds: [] },
+    ])
+
+    expect(batch[0]).toEqual([])
+    expect(batch[1].map((hit) => hit.productId)).toContain(milkId)
+    expect(batch[2]).toEqual([])
   })
 })
 

@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm'
 import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
-import { isDirectMatch, likePattern, scoreMatch, searchStem, searchStems, splitTokens, toComparableUnit, type ProductSearchHit } from '@/lib/product-search'
+import { isDirectMatch, likePattern, normalizeSearchText, scoreMatch, searchStem, searchStems, splitTokens, toComparableUnit, type ProductSearchHit } from '@/lib/product-search'
 import type { ItemCategory, ItemUnit } from '@/lib/types'
 
 // Text search over the products the chains have prices for (lib/product-search.ts has the rules).
@@ -27,6 +27,78 @@ type PriceRow = {
 
 type DealRow = { product_id: string; store_id: string; deal_price: string; valid_until: string }
 
+/** One product-search request used by the shopping planner batch query. */
+export type ProductSearchRequest = {
+  tokens: string[]
+  storeIds?: string[]
+  category?: ItemCategory
+}
+
+/**
+ * Runs multiple independent product searches through one SQL statement.
+ *
+ * The database first finds the union of rows matching any request, keeps the latest price once per
+ * product/store, and the application then splits and scores the rows for each request. This preserves
+ * the existing per-request semantics while avoiding one catalog/prices query per shopping item.
+ */
+export async function searchProductHitsBatch(requests: ProductSearchRequest[]): Promise<ProductSearchHit[][]> {
+  if (requests.length === 0) return []
+
+  const results = Array.from({ length: requests.length }, () => [] as ProductSearchHit[])
+  const active = requests
+    .map((request, index) => {
+      if (request.tokens.length === 0 || request.storeIds?.length === 0) return null
+      const { required, optional } = splitTokens(request.tokens)
+      if (required.length === 0) return null
+
+      const wordFilters = sql.join(
+        required.map((token) => sql`(p.search_name LIKE ANY (ARRAY[${sql.join(searchStems(token).map((stem) => sql`${likePattern(stem)}`), sql`, `)}]::text[]))`),
+        sql` AND `,
+      )
+      let where = wordFilters
+      if (request.category) where = sql`${where} AND c.name = ${request.category}`
+      if (request.storeIds) where = sql`pr.store_id IN (${sql.join(request.storeIds.map((id) => sql`${id}::uuid`), sql`, `)}) AND ${where}`
+      return { index, tokens: request.tokens, required, optional, firstStem: searchStem(required[0]), storeIds: request.storeIds ? new Set(request.storeIds) : null, category: request.category, where }
+    })
+    .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+
+  if (active.length === 0) return results
+
+  const unionFilter = sql.join(active.map((entry) => sql`(${entry.where})`), sql` OR `)
+  const db = getDb()
+  const priceRows = await db.execute<PriceRow>(sql`
+    SELECT DISTINCT ON (pr.product_id, pr.store_id)
+      pr.product_id, p.name, p.search_name, c.name AS category, pr.store_id, s.chain,
+      pr.regular_price, pr.unit, pr.unit_price, coalesce(pr.last_confirmed_at, pr.observed_at) AS observed_at
+    FROM prices pr
+    JOIN products p ON p.id = pr.product_id
+    JOIN product_categories c ON c.id = p.category_id
+    JOIN stores s ON s.id = pr.store_id
+    WHERE ${unionFilter}
+    ORDER BY pr.product_id, pr.store_id, coalesce(pr.last_confirmed_at, pr.observed_at) DESC, (pr.source_type = 'OFFICIAL') DESC
+  `)
+  if (priceRows.rows.length === 0) return results
+
+  const deals = await loadActiveDeals([...new Set(priceRows.rows.map((row) => row.product_id))])
+  for (const entry of active) {
+    results[entry.index] = priceRows.rows
+      .map((row) => {
+        if (entry.storeIds && !entry.storeIds.has(row.store_id)) return null
+        if (entry.category && row.category !== entry.category) return null
+        const score = scoreMatch(row.search_name, entry.required, entry.optional)
+        if (score <= 0) return null
+        return rowToHit(row, deals, score, isDirectMatch(row.search_name, entry.required))
+      })
+      .filter((hit): hit is ProductSearchHit => hit !== null)
+      .sort((a, b) => {
+        const positionA = normalizeSearchText(a.name).indexOf(entry.firstStem)
+        const positionB = normalizeSearchText(b.name).indexOf(entry.firstStem)
+        return positionA - positionB || a.name.length - b.name.length || a.productId.localeCompare(b.productId) || a.storeId.localeCompare(b.storeId)
+      })
+      .slice(0, MAX_ROWS)
+  }
+  return results
+}
 /** Products whose name contains every token, each with its latest recorded price at each chain that
  *  has one, and the chain's active promotion when there is one. `storeIds`, when given, restricts the
  *  chains. Scored, unsorted — group and order with `groupHitsByChain()`. Tokens are matched as

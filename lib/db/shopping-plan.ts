@@ -1,7 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import { getMemberStoreSelection, getStoreChains } from '@/lib/db/member-store-preferences'
-import { getHitsForProducts, searchProductHits } from '@/lib/db/product-search'
+import { getHitsForProducts, searchProductHitsBatch } from '@/lib/db/product-search'
 import * as schema from '@/lib/db/schema'
 import { EMPTY_STORE_SELECTION, hasStoreSelection, MAX_SHOP_STORES } from '@/lib/nearby-stores'
 import { searchTokens, type ProductSearchHit } from '@/lib/product-search'
@@ -88,21 +88,6 @@ export type PlanResult = {
   packageSizes: Record<string, { value: number; unit: string } | null>
 }
 
-/** Runs a few async jobs at a time, keeping the order of results. */
-async function mapWithConcurrency<T, R>(items: T[], limit: number, work: (item: T) => Promise<R>): Promise<R[]> {
-  const results: R[] = new Array(items.length)
-  let next = 0
-  await Promise.all(
-    Array.from({ length: Math.min(limit, items.length) }, async () => {
-      while (next < items.length) {
-        const index = next++
-        results[index] = await work(items[index])
-      }
-    }),
-  )
-  return results
-}
-
 /** Builds a shopping plan for the household's not-yet-done shopping items (all its lists — the app
  *  shows them as one list).
  *
@@ -145,13 +130,16 @@ export async function buildShoppingPlan(householdId: string, memberId: string | 
   const pinnedHits = await getHitsForProducts(pinnedProductIds, allowedIds)
   const pinnedByKey = new Map(pinnedHits.map((hit) => [`${hit.productId}|${hit.storeId}`, hit]))
 
-  // Automatic candidates for every item, over all allowed chains at once. 'Ostatní' means the category
-  // is unknown, so it must not restrict the search.
-  const autoHits = await mapWithConcurrency(needs, 5, async (need) => {
-    const tokens = searchTokens(need.name)
-    if (tokens.length === 0 || allowedIds.length === 0) return [] as ProductSearchHit[]
-    return searchProductHits(tokens, { storeIds: allowedIds, ...(need.category !== 'Ostatní' ? { category: need.category } : {}) })
-  })
+  // Automatic candidates for every item, over all allowed chains in one database query. 'Ostatní' means
+  // the category is unknown, so it must not restrict the search. The batch function returns one hit list
+  // per need with the same matching, scoring and 400-row cap as searchProductHits().
+  const autoHits = await searchProductHitsBatch(
+    needs.map((need) => ({
+      tokens: searchTokens(need.name),
+      storeIds: allowedIds,
+      ...(need.category !== 'Ostatní' ? { category: need.category } : {}),
+    })),
+  )
 
   const offers: PlanOffer[] = []
   const packageSizes: PlanResult['packageSizes'] = {}

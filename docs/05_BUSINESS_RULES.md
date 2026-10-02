@@ -70,7 +70,7 @@ Recipe cost is based on the quantity actually used:
 
 Kitchen measures are estimates, not exact retail units. A teaspoon or tablespoon may be interpreted as volume or as ingredient-specific mass. Ingredient-specific rules take precedence over generic volume rules. A pinch uses an ingredient-specific estimate where available and otherwise a clearly marked generic estimate. Ingredients such as "podle chuti" with no defensible quantity remain unpriced.
 
-Package sizes are standardized separately from recipe quantities. When the source does not provide an explicit package size, it may be derived from package price and comparable unit price. The result is canonicalized to `kg`, `l` or `ks` for comparison.
+Package sizes are standardized separately from recipe quantities. When available, an explicit package marker in the product name may provide evidence (including multipacks and explicit piece counts); weight/volume markers must agree with the current package price and comparable unit price before being used. Otherwise the persistent package catalog is consulted, then the size may be derived from package price and comparable unit price. The result is canonicalized to `kg`, `l` or `ks` for comparison.
 
 Every recipe price derived from a culinary estimate must remain identifiable as an estimate; the system must not present an estimated quantity as an exact measured fact.
 ## Recipe import quality gate

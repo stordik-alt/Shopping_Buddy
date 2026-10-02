@@ -12,7 +12,7 @@ export type StandardPackage = {
 
 export type CatalogPackage = {
   quantity: number
-  unit: 'kg' | 'l'
+  unit: 'ks' | 'kg' | 'l'
 }
 
 /**
@@ -173,13 +173,34 @@ export function resolveNamedPackageSize(
 
 /**
  * Uses the persistent package catalog only when the current price observation agrees with a known
- * canonical package size. This avoids guessing between multiple package sizes of the same product.
- * If there is no exact catalog match, callers can safely fall back to inferPackageSize().
+ * canonical package size. For ks-priced products, the stored count is used only when the
+ * product name independently confirms the same explicit count. This avoids guessing between multiple
+ * package sizes of the same product. If there is no exact catalog match, callers can safely fall back
+ * to inferPackageSize().
  */
 export function resolveCatalogPackageSize(
   packages: CatalogPackage[],
   price: { regularPrice: number; unit: ItemUnit; unitPrice: number },
+  name?: string,
 ): StandardPackage | null {
+  if (price.unit === 'ks') {
+    if (!name) return null
+    const named = resolveNamedPackageSize(name, price)
+    if (!named || named.unit !== 'ks') return null
+
+    const match = packages.find((candidate) =>
+      candidate.unit === 'ks' && candidate.quantity === named.quantity,
+    )
+    if (!match) return null
+
+    return {
+      quantity: match.quantity,
+      unit: match.unit,
+      label: formatPackageSize(match.quantity, match.unit),
+      source: 'catalog',
+    }
+  }
+
   const inferred = inferPackageSize(price)
   if (!inferred || inferred.unit === 'ks') return null
 

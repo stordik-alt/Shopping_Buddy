@@ -34,7 +34,7 @@ export async function proposeProductCategory(householdId: string, productId: str
   }
   await db.update(schema.products).set({ categoryId: target.id, subcategoryId: null }).where(eq(schema.products.id, productId))
   await syncProductClassificationToPurchases(productId)
-  await db.insert(schema.productCategoryChanges).values({ productId, householdId, fromCategoryId: product.categoryId, toCategoryId: target.id, status: 'applied' })
+  invalidateProductCatalogCache()  await db.insert(schema.productCategoryChanges).values({ productId, householdId, fromCategoryId: product.categoryId, toCategoryId: target.id, status: 'applied' })
   return 'applied'
 }
 

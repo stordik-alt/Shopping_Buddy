@@ -108,7 +108,7 @@ export function extractExplicitPackageSizes(name: string): StandardPackage[] {
   }
 
   const overlapsMultipack = (start: number, end: number) => candidates.some((entry) => start >= entry.start && end <= entry.end)
-  const single = /(?<![\d.])((?:\d{1,3}[\s\u00a0]\d{3}|\d+(?:\.\d+)?))\s*(kg|ml|g|l)(?![a-z])/gi
+  const single = /(?<![\d.])((?:\d[\s\u00a0]\d{3}|\d+(?:\.\d+)?))\s*(kg|ml|g|l)(?![a-z])/gi
   for (const match of text.matchAll(single)) {
     const start = match.index ?? -1
     if (start < 0 || overlapsMultipack(start, start + match[0].length)) continue

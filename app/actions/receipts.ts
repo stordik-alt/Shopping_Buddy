@@ -256,7 +256,7 @@ async function createPurchaseFromReceiptItems(
   const catalog = await getProductCatalog(activeItems.map((item) => item.name))
   const subcategories = await getSubcategoryCatalog()
   const candidateAliases = await getAliasesForNames(activeItems.map((item) => normalizeProductText(item.name)))
-  const subcategoryId = (category: ItemCategory, name: string | undefined) =>
+  const subcategoryId = (category: ItemCategory, name: string | null | undefined) =>
     name ? subcategories.find((row) => row.category === category && row.name === name)?.id ?? null : null
   const resolvedItems = activeItems.map((item) => {
     const exactEntry = matchProductByName(catalog, item.name)
@@ -275,7 +275,7 @@ async function createPurchaseFromReceiptItems(
         productId: catalogEntry?.id ?? null,
         category,
         location: placement?.location ?? item.location,
-        subcategory: (manuallyClassified ? subcategory : (catalogEntry?.subcategory ?? item.subcategory)) ?? undefined,
+        subcategory: catalogEntry?.subcategory ?? item.subcategory,
         nonInventory: catalogEntry?.isNonInventory ?? item.nonInventory ?? false,
       }
     }
@@ -295,7 +295,7 @@ async function createPurchaseFromReceiptItems(
       productId: catalogEntry?.id ?? null,
       category,
       location,
-      subcategory: catalogEntry?.subcategory ?? item.subcategory,
+      subcategory: subcategory ?? undefined,
       nonInventory: catalogEntry?.isNonInventory ?? item.nonInventory ?? false,
     }
   })

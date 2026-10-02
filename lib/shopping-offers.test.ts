@@ -32,20 +32,21 @@ describe('packageSize', () => {
 })
 
 describe('costForNeed', () => {
-  it('prices a volume need pro rata by the price per litre', () => {
-    // 1,5 l pack at 45 Kč = 30 Kč/l; 2 l of milk = 60 Kč whatever the pack size.
-    expect(costForNeed({ quantity: 2, unit: 'l' }, hit({ regularPrice: 45, unitPrice: 30 }))).toEqual({ cost: 60, basis: 'per-unit' })
+  it('buys whole packages for a volume need', () => {
+    // 1,5 l pack at 45 Kč; 2 l needs two packages.
+    expect(costForNeed({ quantity: 2, unit: 'l' }, hit({ regularPrice: 45, unitPrice: 30 }))).toEqual({ cost: 90, basis: 'per-package' })
   })
 
-  it('converts millilitres and grams', () => {
-    expect(costForNeed({ quantity: 500, unit: 'ml' }, hit({ unitPrice: 30 }))).toEqual({ cost: 15, basis: 'per-unit' })
-    expect(costForNeed({ quantity: 250, unit: 'g' }, hit({ unit: 'kg', unitPrice: 160 }))).toEqual({ cost: 40, basis: 'per-unit' })
-    expect(costForNeed({ quantity: 2, unit: 'kg' }, hit({ unit: 'kg', unitPrice: 160 }))).toEqual({ cost: 320, basis: 'per-unit' })
+  it('converts millilitres and grams and never charges less than one package', () => {
+    expect(costForNeed({ quantity: 500, unit: 'ml' }, hit({ regularPrice: 45, unitPrice: 30 }))).toEqual({ cost: 45, basis: 'per-package' })
+    expect(costForNeed({ quantity: 1, unit: 'g' }, hit({ regularPrice: 40, unit: 'kg', unitPrice: 160 }))).toEqual({ cost: 40, basis: 'per-package' })
+    expect(costForNeed({ quantity: 500, unit: 'g' }, hit({ regularPrice: 40, unit: 'kg', unitPrice: 160 }))).toEqual({ cost: 80, basis: 'per-package' })
+    expect(costForNeed({ quantity: 2, unit: 'kg' }, hit({ regularPrice: 40, unit: 'kg', unitPrice: 160 }))).toEqual({ cost: 320, basis: 'per-package' })
   })
 
-  it('uses the promotional price, scaling the unit price with it', () => {
-    // Regular 30 Kč/l, on promotion at 20 Kč instead of 30 Kč per pack -> 20 Kč/l.
-    expect(costForNeed({ quantity: 3, unit: 'l' }, hit({ regularPrice: 30, dealPrice: 20, unitPrice: 30 }))).toEqual({ cost: 60, basis: 'per-unit' })
+  it('uses the promotional package price when buying whole packages', () => {
+    // 1 l pack at 30 Kč, on promotion for 20 Kč; 3 l needs three packages.
+    expect(costForNeed({ quantity: 3, unit: 'l' }, hit({ regularPrice: 30, dealPrice: 20, unitPrice: 30 }))).toEqual({ cost: 60, basis: 'per-package' })
   })
 
   it('prices a count of pieces as that many packages at the package price', () => {
@@ -66,8 +67,8 @@ describe('costForNeed', () => {
     }
   })
 
-  it('rounds to whole haléře', () => {
-    expect(costForNeed({ quantity: 1, unit: 'l' }, hit({ unitPrice: 19.996 }))?.cost).toBe(20)
+  it('rounds the final package total to whole haléře', () => {
+    expect(costForNeed({ quantity: 1, unit: 'l' }, hit({ regularPrice: 30, unitPrice: 19.996 }))?.cost).toBe(30)
   })
 })
 

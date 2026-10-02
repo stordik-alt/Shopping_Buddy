@@ -294,6 +294,7 @@ export function AppShell({
       pantry.offerPantryCorrection(ingredient.name)
       const { item, notification } = await addShoppingItemAction(initialData.mainListId, ingredient.name, {
         detail: `${ingredient.sourceMeasure ?? `${ingredient.quantity} ${ingredient.unit}`} · z receptu`,
+        quantity: ingredient.quantity,
         unit: ingredient.unit,
       })
       setItems((current) => [...current, item])

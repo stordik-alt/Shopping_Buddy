@@ -32,12 +32,11 @@ const round = (value: number) => Math.round(value * 100) / 100
 
 /** What buying `need` costs with the product in `hit`, or `null` when the two cannot be compared.
  *
- *  - A need in kilograms or grams is priced pro rata by the hit's price per kilogram — fair across
- *    pack sizes (CLAUDE.md section 17: never compare package prices of different sizes).
- *  - A need in litres or millilitres likewise, by price per litre.
- *  - A need counted in pieces ("2 ks") is 2 packages of the product, at its package price. The pack
- *    sizes of different chains may then differ (see \`packageSize\`); pinning a product is how the user
- *    chooses the size they mean.
+ *  - A need in kilograms or grams is converted to the product's package size and rounded up to whole
+ *    packages. A recipe asking for 1 g of butter therefore costs one real package, not one gram's worth
+ *    of that package. Different pack sizes are still compared by unit price when choosing the product.
+ *  - A need in litres or millilitres is handled the same way.
+ *  - A need counted in pieces ("2 ks") is 2 packages of the product, at its package price.
  *  A weight need against a piece-priced product (or a volume need against a weight-priced one) has no
  *  sound conversion and yields \`null\` — never a guess. */
 export function costForNeed(need: Pick<NeedSpec, 'quantity' | 'unit'>, hit: Pick<ProductSearchHit, 'regularPrice' | 'dealPrice' | 'unitPrice' | 'unit'>): NeedCost | null {
@@ -49,13 +48,19 @@ export function costForNeed(need: Pick<NeedSpec, 'quantity' | 'unit'>, hit: Pick
     case 'g': {
       if (hit.unit !== 'kg') return null
       const kilograms = need.unit === 'g' ? need.quantity / 1000 : need.quantity
-      return { cost: round(hitUnitPrice(hit) * kilograms), basis: 'per-unit' }
+      const size = packageSize(hit)
+      if (!size) return null
+      const packages = Math.max(1, Math.ceil((kilograms / size.value) - Number.EPSILON))
+      return { cost: round(packages * hitPrice(hit)), basis: 'per-package' }
     }
     case 'l':
     case 'ml': {
       if (hit.unit !== 'l') return null
       const litres = need.unit === 'ml' ? need.quantity / 1000 : need.quantity
-      return { cost: round(hitUnitPrice(hit) * litres), basis: 'per-unit' }
+      const size = packageSize(hit)
+      if (!size) return null
+      const packages = Math.max(1, Math.ceil((litres / size.value) - Number.EPSILON))
+      return { cost: round(packages * hitPrice(hit)), basis: 'per-package' }
     }
   }
 }

@@ -190,7 +190,7 @@ export async function searchBranches(input: { chainIds: string[]; locality: Loca
   if (chainIds.length === 0) return { rows: [], total: 0, page: 1 }
   const db = getDb()
   const canonicalChainIds = [...new Set(chainIds)].sort()
-  const global = await searchBranchesGlobal(JSON.stringify(canonicalChainIds), localityKey(locality), input.page, pageSize)
+  const global = await searchBranchesGlobal(JSON.stringify(canonicalChainIds), localityKey(locality))
   const locationIds = global.rows.map((row) => row.id)
   const favouriteRows = locationIds.length
     ? await db
@@ -199,9 +199,19 @@ export async function searchBranches(input: { chainIds: string[]; locality: Loca
         .where(and(eq(schema.memberStores.memberId, memberId), inArray(schema.memberStores.storeLocationId, locationIds)))
     : []
   const favourites = new Set(favouriteRows.map((row) => row.storeLocationId).filter((id): id is string => id != null))
+  const orderedRows = [...global.rows].sort(
+    (a, b) => Number(favourites.has(b.id)) - Number(favourites.has(a.id))
+      || (locality.kind === 'gps'
+        ? (a.distanceKm ?? Number.POSITIVE_INFINITY) - (b.distanceKm ?? Number.POSITIVE_INFINITY)
+        : a.city.localeCompare(b.city, 'cs'))
+      || a.name.localeCompare(b.name, 'cs')
+      || a.id.localeCompare(b.id),
+  )
+  const page = clampPage(input.page, orderedRows.length, pageSize)
+  const start = (page - 1) * pageSize
   return {
-    page: global.page,
-    total: global.total,
-    rows: global.rows.map((row) => ({ ...row, isFavorite: favourites.has(row.id) })),
+    page,
+    total: orderedRows.length,
+    rows: orderedRows.slice(start, start + pageSize).map((row) => ({ ...row, isFavorite: favourites.has(row.id) })),
   }
 }

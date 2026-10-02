@@ -948,8 +948,8 @@ describe('receipt file handling: type detection and OCR preparation', () => {
       await processReceiptImport(receiptImportId, capturingProviders().providers)
 
       const stored = await db.query.receiptImports.findFirst({ where: eq(schema.receiptImports.id, receiptImportId) })
-      const blob = await get(stored!.imageUrl!, { access: 'private' })
-      const bytes = Buffer.from(await new Response(blob!.stream!).arrayBuffer())
+      const storedFile = await (await import('@/lib/storage')).getReceiptFile(stored!.imageUrl!)
+      const bytes = Buffer.from(await new Response(storedFile!.body).arrayBuffer())
       expect(bytes.equals(original)).toBe(true)
     })
 

@@ -2,6 +2,7 @@ import sharp from 'sharp'
 import { eq, inArray } from 'drizzle-orm'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getDb } from '@/lib/db/client'
+import { putReceiptFile } from '@/lib/storage'
 import * as schema from '@/lib/db/schema'
 import type { ExtractedReceipt, ReceiptLineItem, ReceiptStructuringProvider, ReceiptTextExtractor } from '@/lib/receipts'
 

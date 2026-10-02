@@ -1,11 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-// Vercel Blob is the in-memory fake (test/fake-blob.ts); R2 requests go to a stubbed `fetch` that
-// behaves like a tiny S3 bucket. Nothing reaches a real store.
-vi.mock('@vercel/blob', async () => (await import('@/test/fake-blob')).fakeBlobModule)
-
-import { put as fakeBlobPut } from '@/test/fake-blob'
-import { deleteReceiptFile, getReceiptFile, isValidReceiptKey, parseStorageRef, putReceiptFile, r2Ref, uploadProvider } from '@/lib/storage'
+// R2 requests go to a stubbed `fetch` that behaves like a tiny S3 bucket. Nothing reaches a real store.
+import { deleteReceiptFile, getReceiptFile, isValidReceiptKey, parseStorageRef, putReceiptFile, r2Ref } from '@/lib/storage'
 import { r2ObjectDigest, r2ObjectUrl, sha256Hex } from '@/lib/storage/r2'
 
 const HOUSEHOLD = '0b9d7c3e-1f2a-4b5c-8d6e-7f8091a2b3c4'
@@ -55,11 +51,7 @@ afterEach(() => {
 })
 
 describe('storage references', () => {
-  it('reads the provider from the reference', () => {
-    expect(parseStorageRef('https://abc.private.blob.vercel-storage.com/receipts/x/y.jpg')).toEqual({
-      provider: 'vercel_blob',
-      id: 'https://abc.private.blob.vercel-storage.com/receipts/x/y.jpg',
-    })
+  it('reads and validates an R2 reference', () => {
     const key = `receipts/${HOUSEHOLD}/${OTHER}.pdf`
     expect(parseStorageRef(`r2:${key}`)).toEqual({ provider: 'r2', id: key })
   })
@@ -74,7 +66,7 @@ describe('storage references', () => {
     ]) {
       expect(() => parseStorageRef(bad)).toThrow('Invalid R2 receipt reference')
     }
-    expect(() => parseStorageRef('http://insecure.example/receipts/a.jpg')).toThrow('Unknown receipt storage reference')
+    expect(() => parseStorageRef('https://old.blob.vercel-storage.com/receipts/a.jpg')).toThrow('Unknown receipt storage reference')
     expect(() => r2Ref('receipts/not-a-uuid/x.jpg')).toThrow()
   })
 
@@ -82,23 +74,6 @@ describe('storage references', () => {
     expect(isValidReceiptKey(`receipts/${HOUSEHOLD}/${OTHER}.webp`)).toBe(true)
     expect(isValidReceiptKey(`receipts/${HOUSEHOLD}/${OTHER}.heic`)).toBe(false)
     expect(isValidReceiptKey(`receipts/${HOUSEHOLD}/sub/${OTHER}.jpg`)).toBe(false)
-  })
-})
-
-describe('uploadProvider', () => {
-  it('defaults to R2 and accepts vercel as the rollback switch', () => {
-    expect(uploadProvider()).toBe('r2')
-    process.env.STORAGE_PROVIDER = ''
-    expect(uploadProvider()).toBe('r2')
-    process.env.STORAGE_PROVIDER = 'r2'
-    expect(uploadProvider()).toBe('r2')
-    process.env.STORAGE_PROVIDER = ' VERCEL '
-    expect(uploadProvider()).toBe('vercel_blob')
-  })
-
-  it('rejects an unknown value instead of silently falling back', () => {
-    process.env.STORAGE_PROVIDER = 'r3'
-    expect(() => uploadProvider()).toThrow('Unknown STORAGE_PROVIDER')
   })
 })
 
@@ -176,30 +151,3 @@ describe('R2 store', () => {
   })
 })
 
-describe('Vercel Blob store (old receipts and STORAGE_PROVIDER=vercel)', () => {
-  it('still reads a receipt uploaded to Blob before the switch to R2', async () => {
-    process.env.STORAGE_PROVIDER = 'r2' // new uploads go to R2 ...
-    const old = await fakeBlobPut(`receipts/${HOUSEHOLD}/${OTHER}.jpg`, JPEG, { access: 'private', contentType: 'image/jpeg' })
-    const file = await getReceiptFile(old.url) // ... but the old Blob reference is read from Blob
-    expect(file?.contentType).toBe('image/jpeg')
-    expect(Buffer.from(await new Response(file!.body).arrayBuffer())).toEqual(JPEG)
-    await deleteReceiptFile(old.url)
-    expect(await getReceiptFile(old.url)).toBeNull()
-  })
-
-  it('uploads to R2 by default', async () => {
-    const { objects } = stubR2()
-    const ref = await putReceiptFile(HOUSEHOLD, JPEG, { extension: 'jpg', mimeType: 'image/jpeg' })
-    expect(parseStorageRef(ref).provider).toBe('r2')
-    expect(objects.size).toBe(1)
-  })
-
-  it('uploads to Blob with STORAGE_PROVIDER=vercel and returns the blob URL as the reference', async () => {
-    const fetchMock = vi.fn()
-    vi.stubGlobal('fetch', fetchMock)
-    process.env.STORAGE_PROVIDER = 'vercel'
-    const ref = await putReceiptFile(HOUSEHOLD, JPEG, { extension: 'jpg', mimeType: 'image/jpeg' })
-    expect(parseStorageRef(ref).provider).toBe('vercel_blob')
-    expect(fetchMock).not.toHaveBeenCalled() // no R2 request
-  })
-})

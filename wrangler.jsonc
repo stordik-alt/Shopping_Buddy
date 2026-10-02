@@ -34,7 +34,7 @@
     // Must list exactly the schedules in vercel.json (UTC on both platforms) —
     // enforced by cloudflare/cron.test.ts. cloudflare/cron.ts maps each back to its path(s).
     "crons": [
-      "0 13 * * *", // /api/cron/recipes + /api/cron/ingest-prices/penny_flyer/2
+      "0 13 * * *", // /api/cron/recipes
       "0 8 * * *", // /api/cron/shopping-reminders
       "0 15 * * 0", // /api/cron/pantry-checkin (weekly, Sunday)
       "0 3 * * 1", // /api/cron/import-stores
@@ -59,11 +59,14 @@
       "20 6 * * *", // /api/cron/ingest-prices/albert
       "20 12 * * *", // /api/cron/ingest-prices/albert/2
       "20 18 * * *", // /api/cron/ingest-prices/albert/3
-      "0 7 * * *", // /api/cron/ingest-prices/penny_flyer
-      "10 7 * * *", // /api/cron/ingest-prices/billa_flyer
-      "10 14 * * *", // /api/cron/ingest-prices/billa_flyer/2
-      "20 7 * * *", // /api/cron/ingest-prices/lidl_flyer
-      "20 14 * * *" // /api/cron/ingest-prices/lidl_flyer/2
+      "0 21 * * 2", // /api/cron/ingest-prices/penny_flyer
+      "0 23 * * 2", // /api/cron/ingest-prices/penny_flyer/2
+      "10 21 * * 2", // /api/cron/ingest-prices/billa_flyer
+      "10 23 * * 2", // /api/cron/ingest-prices/billa_flyer/2
+      "20 21 * * 0", // /api/cron/ingest-prices/lidl_flyer
+      "20 23 * * 0", // /api/cron/ingest-prices/lidl_flyer/2
+      "20 21 * * 3", // /api/cron/ingest-prices/lidl_flyer/3
+      "20 23 * * 3" // /api/cron/ingest-prices/lidl_flyer/4
     ]
   },
   "env": {

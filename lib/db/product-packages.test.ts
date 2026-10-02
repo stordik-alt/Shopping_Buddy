@@ -29,7 +29,7 @@ describe('automatic product package catalog', () => {
   })
 
   it('creates and accumulates a canonical package from official price observations', async () => {
-    const productId = await addProduct(\`__Test balení máslo \${tag}\`)
+    const productId = await addProduct(`__Test balení máslo ${tag}`)
     const storeId = (await db.query.stores.findFirst())!.id
 
     await recordPriceObservation({
@@ -42,7 +42,7 @@ describe('automatic product package catalog', () => {
       priceScope: 'CHAIN',
       sourceType: 'OFFICIAL',
       locationResolution: 'NOT_APPLICABLE',
-      sourceReference: \`__test_package_\${tag}_1\`,
+      sourceReference: `__test_package_${tag}_1`,
     })
     await recordPriceObservation({
       productId,
@@ -54,7 +54,7 @@ describe('automatic product package catalog', () => {
       priceScope: 'CHAIN',
       sourceType: 'OFFICIAL',
       locationResolution: 'NOT_APPLICABLE',
-      sourceReference: \`__test_package_\${tag}_2\`,
+      sourceReference: `__test_package_${tag}_2`,
     })
 
     const packages = await db.query.productPackages.findMany({
@@ -73,7 +73,7 @@ describe('automatic product package catalog', () => {
   })
 
   it('does not learn a package size from receipt prices', async () => {
-    const productId = await addProduct(\`__Test receipt balení \${tag}\`)
+    const productId = await addProduct(`__Test receipt balení ${tag}`)
     const storeId = (await db.query.stores.findFirst())!.id
 
     await recordPriceObservation({

@@ -219,6 +219,29 @@ export const products = pgTable('products', {
   index('products_search_name_trgm_idx').using('gin', table.searchName.op('gin_trgm_ops')),
 ])
 
+
+// A detected retail package size for a catalog product. Package size is canonicalized to kg/l so
+// the same physical size is not stored twice as "250 g" and "0.25 kg". Phase 1 only auto-discovers
+// weight/volume packages from reliable price observations; piece-count packages need explicit SKU/package
+// information because a "ks" price can represent either one piece or a multipack.
+export const productPackages = pgTable('product_packages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  quantity: numeric('quantity', { precision: 10, scale: 3, mode: 'number' }).notNull(),
+  unit: itemUnitEnum('unit').notNull(),
+  source: text('source').notNull().default('derived-from-price'),
+  confidence: numeric('confidence', { precision: 4, scale: 3, mode: 'number' }).notNull().default(0.750),
+  firstSeenAt: date('first_seen_at').notNull(),
+  lastSeenAt: date('last_seen_at').notNull(),
+  observationCount: integer('observation_count').notNull().default(1),
+}, (table) => [
+  uniqueIndex('product_packages_product_size_unique').on(table.productId, table.quantity, table.unit),
+  index('product_packages_product_idx').on(table.productId),
+  check('product_packages_quantity_positive', sql`${table.quantity} > 0`),
+  check('product_packages_canonical_unit', sql`${table.unit} IN ('kg', 'l')`),
+])
+
+
 // A reusable abbreviation/alias → product mapping (spec section 6), e.g. Lidl's "MAT 15" → Mattoni
 // 1.5 l. Global (`storeId` null) or store-specific — different retailers can abbreviate the same
 // product differently, so a store-specific row must be checked before falling back to a global one
@@ -1023,6 +1046,7 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   deals: many(deals),
   externalRefs: many(productExternalRefs),
   aliases: many(productAliases),
+  packages: many(productPackages),
 }))
 
 export const productSubcategoriesRelations = relations(productSubcategories, ({ many }) => ({
@@ -1036,6 +1060,10 @@ export const productAliasesRelations = relations(productAliases, ({ one }) => ({
 
 export const productExternalRefsRelations = relations(productExternalRefs, ({ one }) => ({
   product: one(products, { fields: [productExternalRefs.productId], references: [products.id] }),
+}))
+
+export const productPackagesRelations = relations(productPackages, ({ one }) => ({
+  product: one(products, { fields: [productPackages.productId], references: [products.id] }),
 }))
 
 export const storesRelations = relations(stores, ({ many }) => ({

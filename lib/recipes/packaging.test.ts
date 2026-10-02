@@ -63,6 +63,26 @@ describe('recipe package standardization', () => {
     )).toBeNull()
   })
 
+  it('resolves a persisted explicit piece package when the name confirms the count', () => {
+    expect(resolveCatalogPackageSize(
+      [{ quantity: 6, unit: 'ks' }],
+      price(39.9, 6.65, 'ks'),
+      'Papírové kapesníky 6 ks',
+    )).toMatchObject({
+      quantity: 6,
+      unit: 'ks',
+      label: '6 ks',
+      source: 'catalog',
+    })
+  })
+
+  it('does not resolve a persisted piece package without explicit name evidence', () => {
+    expect(resolveCatalogPackageSize(
+      [{ quantity: 6, unit: 'ks' }],
+      price(39.9, 6.65, 'ks'),
+    )).toBeNull()
+  })
+
   it('extracts a multipack size from a product name', () => {
     expect(extractExplicitPackageSizes('Actimel Kids 8x 100 g')).toEqual([
       {

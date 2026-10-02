@@ -1132,10 +1132,10 @@ export async function getProductPrices(scope: ProductPriceScope): Promise<Produc
         .select({ productId: schema.productPackages.productId, quantity: schema.productPackages.quantity, unit: schema.productPackages.unit })
         .from(schema.productPackages)
         .where(inArray(schema.productPackages.productId, productIds))
-  const packagesByProduct = new Map<string, { quantity: number; unit: 'kg' | 'l' }[]>()
+  const packagesByProduct = new Map<string, { quantity: number; unit: 'ks' | 'kg' | 'l' }[]>()
   for (const row of packageRows) {
     const list = packagesByProduct.get(row.productId) ?? []
-    if (row.unit === 'kg' || row.unit === 'l') list.push({ quantity: Number(row.quantity), unit: row.unit })
+    if (row.unit === 'ks' || row.unit === 'kg' || row.unit === 'l') list.push({ quantity: Number(row.quantity), unit: row.unit })
     packagesByProduct.set(row.productId, list)
   }
 
@@ -1207,7 +1207,7 @@ export async function getProductPrices(scope: ProductPriceScope): Promise<Produc
               regularPrice: Number(price.regularPrice),
               unit: price.unit,
               unitPrice: Number(price.unitPrice),
-            }) ?? resolveNamedPackageSize(product.name, {
+            }, product.name) ?? resolveNamedPackageSize(product.name, {
               regularPrice: Number(price.regularPrice),
               unit: price.unit,
               unitPrice: Number(price.unitPrice),
@@ -1341,9 +1341,11 @@ export type NamedPackageEvidence = {
   observedAt: string
 }
 
-/** Promotes explicit, price-consistent weight/volume package sizes from product names into the
- * persistent package catalog. The batch is deduplicated because PostgreSQL does not allow one
- * INSERT ... ON CONFLICT statement to update the same target row twice. */
+/** Promotes explicit, price-consistent weight/volume or explicit piece-count package sizes from
+ * product names into the persistent package catalog. Weight/volume observations are already counted
+ * by the prices trigger; explicit ks evidence is counted here when it arrives on a later date.
+ * The batch is deduplicated because PostgreSQL does not allow one INSERT ... ON CONFLICT statement to
+ * update the same target row twice. */
 export async function persistNamedPackageEvidence(evidence: NamedPackageEvidence[]): Promise<number> {
   if (evidence.length === 0) return 0
   const db = getDb()
@@ -1351,7 +1353,7 @@ export async function persistNamedPackageEvidence(evidence: NamedPackageEvidence
   const unique = new Map<string, {
     productId: string
     quantity: number
-    unit: 'kg' | 'l'
+    unit: 'ks' | 'kg' | 'l'
     observedAt: string
   }>()
 
@@ -1361,9 +1363,11 @@ export async function persistNamedPackageEvidence(evidence: NamedPackageEvidence
       unit: item.unit,
       unitPrice: item.unitPrice,
     })
-    if (!packageSize || packageSize.unit === 'ks') continue
+    if (!packageSize) continue
 
-    const quantity = Math.round(packageSize.quantity * 1000) / 1000
+    const quantity = packageSize.unit === 'ks'
+      ? Math.round(packageSize.quantity)
+      : Math.round(packageSize.quantity * 1000) / 1000
     if (!Number.isFinite(quantity) || quantity <= 0) continue
 
     const key = item.productId + ':' + packageSize.unit + ':' + quantity
@@ -1400,6 +1404,14 @@ export async function persistNamedPackageEvidence(evidence: NamedPackageEvidence
         confidence: sql`GREATEST(${schema.productPackages.confidence}, 0.980)`,
         firstSeenAt: sql`LEAST(${schema.productPackages.firstSeenAt}, EXCLUDED.first_seen_at)`,
         lastSeenAt: sql`GREATEST(${schema.productPackages.lastSeenAt}, EXCLUDED.last_seen_at)`,
+        observationCount: sql`
+          ${schema.productPackages.observationCount}
+          + CASE
+              WHEN EXCLUDED.unit = 'ks' AND EXCLUDED.last_seen_at > ${schema.productPackages.lastSeenAt}
+              THEN 1
+              ELSE 0
+            END
+        `,
       },
     })
 

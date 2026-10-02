@@ -5,13 +5,14 @@ import { ocrProviderLabel } from '@/lib/receipt-ocr-provider'
 import { RECEIPT_STEPS, receiptProgress, type ReceiptProgress } from '@/lib/receipt-progress'
 import { userFacingError } from '@/lib/errors'
 import { HEIC_UNSUPPORTED_MESSAGE, isHeicFile, optimizeReceiptImage } from '@/lib/receipt-upload'
+import { subcategoriesOfItem } from '@/lib/product-subcategories'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import type { ItemCategory, ItemUnit, Store } from '@/lib/types'
 
 const CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
 const UNITS: ItemUnit[] = ['ks', 'kg', 'g', 'l', 'ml']
 
-const emptyRow = (): ReceiptLineItem => ({ name: '', category: 'Potraviny', quantity: 1, unit: 'ks', price: 0 })
+const emptyRow = (): ReceiptLineItem => ({ name: '', category: 'Potraviny', quantity: 1, unit: 'ks', price: 0, classificationSource: 'manual' })
 
 /** The five stages of a photo import (docs/08_OCR_RECEIPT_PIPELINE.md section 20), driven by the
  *  import's real status rather than a timer. Laid out as a wrapping vertical list so long labels
@@ -71,7 +72,12 @@ export function ReceiptImport({
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   function updateRow(index: number, changes: Partial<ReceiptLineItem>) {
-    setRows((current) => current.map((row, i) => (i === index ? { ...row, ...changes } : row)))
+    setRows((current) => current.map((row, i) => {
+      if (i !== index) return row
+      const next = { ...row, ...changes }
+      if ('category' in changes || 'subcategory' in changes) next.classificationSource = 'manual'
+      return next
+    }))
   }
 
   function addRow() {
@@ -243,11 +249,22 @@ export function ReceiptImport({
             <select
               aria-label={`Kategorie položky ${index + 1}`}
               value={row.category}
-              onChange={(e) => updateRow(index, { category: e.target.value as ItemCategory })}
+              onChange={(e) => updateRow(index, { category: e.target.value as ItemCategory, subcategory: undefined })}
               className="rounded-lg border border-input bg-background px-2 py-1 text-xs"
             >
               {CATEGORIES.map((category) => (
                 <option key={category}>{category}</option>
+              ))}
+            </select>
+            <select
+              aria-label={`Podkategorie položky ${index + 1}`}
+              value={row.subcategory ?? ''}
+              onChange={(e) => updateRow(index, { subcategory: e.target.value || undefined })}
+              className="rounded-lg border border-input bg-background px-2 py-1 text-xs"
+            >
+              <option value="">Bez podkategorie</option>
+              {subcategoriesOfItem(row.category).map((subcategory) => (
+                <option key={subcategory}>{subcategory}</option>
               ))}
             </select>
             <input

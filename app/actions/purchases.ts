@@ -137,7 +137,7 @@ export async function createManualPurchaseAction(input: {
     return { name, quantity, price, unit: item.unit, category: item.category, subcategory: item.subcategory ?? null }
   })
 
-  const catalog = await getProductCatalog(items.map((item) => item.name))
+  const catalog = await getProductCatalogCached(items.map((item) => item.name))
   const resolved = items.map((item) => {
     const product = matchProductByName(catalog, item.name)
     const category = item.category
@@ -145,7 +145,7 @@ export async function createManualPurchaseAction(input: {
     if (!isValidProductSubcategory(category, subcategory)) throw new Error(`Neplatná podkategorie u položky „${item.name}“.`)
     return { ...item, product, category, subcategory }
   })
-  const subcategories = await getSubcategoryCatalog()
+  const subcategories = await getSubcategoryCatalogCached()
   const subcategoryId = (category: ItemCategory, name: string | null) => name ? subcategories.find((row) => row.category === category && row.name === name)?.id ?? null : null
 
   const db = getDb()

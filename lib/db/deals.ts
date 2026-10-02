@@ -127,14 +127,22 @@ export async function getDealsPage(options: { category: DealCategoryFilter; chai
   // A plain count first: the `deals` table is small (a few thousand rows in total), so this and the
   // page query below stay cheap regardless of how many products are on promotion — unlike loading
   // every one of them in full.
-  const [{ total }] = await db
-    .select({ total: sql<number>`count(*)::int` })
-    .from(schema.deals)
-    .innerJoin(schema.products, eq(schema.products.id, schema.deals.productId))
-    .innerJoin(schema.productCategories, eq(schema.productCategories.id, schema.products.categoryId))
-    .innerJoin(schema.stores, eq(schema.stores.id, schema.deals.storeId))
-    .leftJoin(schema.productSubcategories, eq(schema.productSubcategories.id, schema.products.subcategoryId))
-    .where(where)
+  // When no product/category/store/search filter is active, the count depends only on
+  // deals validity. Avoid joining the catalog tables just to count today's promotions.
+  const hasJoinedFilters = options.category !== 'all' || options.chain !== null || Boolean(options.query?.trim())
+  const [{ total }] = hasJoinedFilters
+    ? await db
+        .select({ total: sql<number>`count(*)::int` })
+        .from(schema.deals)
+        .innerJoin(schema.products, eq(schema.products.id, schema.deals.productId))
+        .innerJoin(schema.productCategories, eq(schema.productCategories.id, schema.products.categoryId))
+        .innerJoin(schema.stores, eq(schema.stores.id, schema.deals.storeId))
+        .leftJoin(schema.productSubcategories, eq(schema.productSubcategories.id, schema.products.subcategoryId))
+        .where(where)
+    : await db
+        .select({ total: sql<number>`count(*)::int` })
+        .from(schema.deals)
+        .where(and(sql`${schema.deals.validFrom} <= ${today}::date`, sql`${schema.deals.validUntil} >= ${today}::date`))
   if (total === 0) return { deals: [], offers: [], total: 0, page: 1 }
 
   const page = clampPage(options.page, total, DEALS_PAGE_SIZE)

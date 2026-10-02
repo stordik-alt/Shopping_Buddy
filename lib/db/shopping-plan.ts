@@ -1,7 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import { getMemberStoreSelection, getStoreChains } from '@/lib/db/member-store-preferences'
-import { getHitsForProducts, searchProductHits } from '@/lib/db/product-search'
+import { getHitsForProducts, searchProductHitsBatch } from '@/lib/db/product-search'
 import * as schema from '@/lib/db/schema'
 import { EMPTY_STORE_SELECTION, hasStoreSelection, MAX_SHOP_STORES } from '@/lib/nearby-stores'
 import { searchTokens, type ProductSearchHit } from '@/lib/product-search'
@@ -145,24 +145,16 @@ export async function buildShoppingPlan(householdId: string, memberId: string | 
   const pinnedHits = await getHitsForProducts(pinnedProductIds, allowedIds)
   const pinnedByKey = new Map(pinnedHits.map((hit) => [`${hit.productId}|${hit.storeId}`, hit]))
 
-  // Automatic candidates for every item, over all allowed chains at once. 'Ostatní' means the category
-  // is unknown, so it must not restrict the search. Reuse an in-flight search when multiple list items
-  // resolve to the same name/category/store query — the result depends only on those search inputs,
-  // not on quantity or unit. This keeps duplicate needs from issuing duplicate database queries.
-  const autoSearchCache = new Map<string, Promise<ProductSearchHit[]>>()
-  const autoHits = await mapWithConcurrency(needs, 5, async (need) => {
-    const tokens = searchTokens(need.name)
-    if (tokens.length === 0 || allowedIds.length === 0) return [] as ProductSearchHit[]
-
-    const category = need.category !== 'Ostatní' ? need.category : undefined
-    const key = JSON.stringify({ tokens, category, storeIds: allowedIds })
-    let search = autoSearchCache.get(key)
-    if (!search) {
-      search = searchProductHits(tokens, { storeIds: allowedIds, ...(category ? { category } : {}) })
-      autoSearchCache.set(key, search)
-    }
-    return search
-  })
+  // Automatic candidates for every item, over all allowed chains in one database query. 'Ostatní' means
+  // the category is unknown, so it must not restrict the search. The batch function returns one hit list
+  // per need with the same matching, scoring and 400-row cap as searchProductHits().
+  const autoHits = await searchProductHitsBatch(
+    needs.map((need) => ({
+      tokens: searchTokens(need.name),
+      storeIds: allowedIds,
+      ...(need.category !== 'Ostatní' ? { category: need.category } : {}),
+    })),
+  )
 
   const offers: PlanOffer[] = []
   const packageSizes: PlanResult['packageSizes'] = {}

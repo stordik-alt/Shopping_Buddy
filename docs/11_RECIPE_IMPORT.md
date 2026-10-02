@@ -39,13 +39,12 @@ Opakovaný běh je idempotentní: stejný canonical URL aktualizuje existující
 Kopie obrázků je explicitně vypnutá, dokud operátor nenastaví RECIPE_IMPORT_IMAGE_COPY_ALLOWED=true.
 
 Pro import obrázků je současně nutné:
-- STORAGE_PROVIDER=r2,
 - přepínač --images,
 - případné CDN hostname přidat pomocí --image-host=host.example.
 
 Příklad:
 
-STORAGE_PROVIDER=r2 RECIPE_IMPORT_IMAGE_COPY_ALLOWED=true pnpm db:recipes:recepty-cz -- --query "kuře" --limit=20 --images --acknowledge-source-terms
+RECIPE_IMPORT_IMAGE_COPY_ALLOWED=true pnpm db:recipes:recepty-cz -- --query "kuře" --limit=20 --images --acknowledge-source-terms
 
 Obrázek se přes Sharp převede na WebP, maximálně 1600 × 1600 px, a uloží se pod recipe-images/<source>/<sha256>.webp.
 

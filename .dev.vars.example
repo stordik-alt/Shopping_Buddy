@@ -12,8 +12,7 @@ NEON_AUTH_COOKIE_SECRET=
 # --- Cron: the Worker's scheduled() handler sends it as `Authorization: Bearer …` ---
 CRON_SECRET=
 
-# --- Receipt files on R2 (docs/cloudflare-r2.md). STORAGE_PROVIDER=r2 comes from wrangler.jsonc. ---
-# BLOB_READ_WRITE_TOKEN only while old receipts are still on Vercel Blob.
+# --- Receipt files on R2 (docs/cloudflare-r2.md). ---
 R2_ACCOUNT_ID=
 R2_ACCESS_KEY_ID=
 R2_SECRET_ACCESS_KEY=

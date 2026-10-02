@@ -4,17 +4,20 @@ import { and, eq, inArray } from 'drizzle-orm'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
-import { getHouseholdExpenses, getHouseholdNotifications, getProductCatalog, getPurchaseAftermath, restockPantryItem, type PurchaseAftermath } from '@/lib/db/queries'
+import { getHouseholdExpenses, getHouseholdNotifications, getProductCatalog, getPurchaseAftermath, getSubcategoryCatalog, restockPantryItem, upsertProductCatalogDefaults, type PurchaseAftermath } from '@/lib/db/queries'
 import { getPurchaseItemsForExpense, recordPurchaseAsExpense, recomputePurchaseExpenses, setPurchaseItemExpenseSplits, type PurchaseExpenseItem } from '@/lib/db/purchase-items'
 import * as schema from '@/lib/db/schema'
 import { isExpenseCategory, isValidSubcategory, type ExpenseCategory } from '@/lib/expense-categories'
 import { matchProductByName } from '@/lib/products'
+import { isValidProductSubcategory } from '@/lib/product-subcategories'
+import { inferPantryLocation } from '@/lib/pantry'
 import type { ExpenseSplitPart } from '@/lib/purchase-expenses'
 import type { Expense, ItemCategory, ItemUnit, Notification, PurchaseRecord } from '@/lib/types'
 
 // Real receipts never need more than a handful of ways to split one line; this only stops a crafted
 // request from sending something unbounded (lib/db/purchase-items.ts checks the exact limit).
 const MAX_SPLITS_PER_ITEM = 20
+const PRODUCT_ITEM_CATEGORIES = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní'] as const
 
 async function assertOwnsList(householdId: string, listId: string) {
   const db = getDb()
@@ -114,7 +117,7 @@ export async function createManualPurchaseAction(input: {
   date: string
   storeChain?: string | null
   discount?: number | null
-  items: Array<{ name: string; quantity: number; unit: ItemUnit; price: number; category?: ItemCategory }>
+  items: Array<{ name: string; quantity: number; unit: ItemUnit; price: number; category: ItemCategory; subcategory?: string | null }>
 }): Promise<{ purchase: PurchaseRecord; expenses: Expense[]; notifications: Notification[] }> {
   const householdId = await requireHouseholdId()
   if (!input || typeof input.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(input.date)) throw new Error('Neplatné datum nákupu.')
@@ -129,16 +132,21 @@ export async function createManualPurchaseAction(input: {
     if (!Number.isFinite(quantity) || quantity <= 0) throw new Error(`Neplatné množství u položky „${name}“.`)
     if (!Number.isFinite(price) || price < 0) throw new Error(`Neplatná cena u položky „${name}“.`)
     if (!['ks', 'kg', 'g', 'l', 'ml'].includes(item.unit)) throw new Error(`Neplatná jednotka u položky „${name}“.`)
-    return { name, quantity, price, unit: item.unit, category: item.category }
+    if (!(PRODUCT_ITEM_CATEGORIES as readonly string[]).includes(item.category)) throw new Error(`Neplatná kategorie u položky „${name}“.`)
+    if (item.subcategory != null && !isValidProductSubcategory(item.category, item.subcategory)) throw new Error(`Neplatná podkategorie u položky „${name}“.`)
+    return { name, quantity, price, unit: item.unit, category: item.category, subcategory: item.subcategory ?? null }
   })
 
   const catalog = await getProductCatalog(items.map((item) => item.name))
   const resolved = items.map((item) => {
     const product = matchProductByName(catalog, item.name)
-    const category = product?.category ?? item.category
-    if (!category) throw new Error(`U položky „${item.name}“ vyberte kategorii.`)
-    return { ...item, product, category }
+    const category = item.category
+    const subcategory = item.subcategory ?? null
+    if (!isValidProductSubcategory(category, subcategory)) throw new Error(`Neplatná podkategorie u položky „${item.name}“.`)
+    return { ...item, product, category, subcategory }
   })
+  const subcategories = await getSubcategoryCatalog()
+  const subcategoryId = (category: ItemCategory, name: string | null) => name ? subcategories.find((row) => row.category === category && row.name === name)?.id ?? null : null
 
   const db = getDb()
   let storeLocationId: string | null = null
@@ -172,6 +180,7 @@ export async function createManualPurchaseAction(input: {
       unit: item.unit,
       price: item.price.toFixed(2),
       category: item.category,
+      subcategoryId: subcategoryId(item.category, item.subcategory),
     })),
   ).returning()
 
@@ -183,8 +192,18 @@ export async function createManualPurchaseAction(input: {
         category: item.category,
         quantity: item.quantity,
         unit: item.unit,
+        subcategoryId: subcategoryId(item.category, item.subcategory),
       })
     }
+    // A manual import is a human-confirmed classification, so remember it for future imports too.
+    await upsertProductCatalogDefaults({
+      name: item.name,
+      category: item.category,
+      unit: item.unit,
+      location: item.product?.defaultLocation ?? inferPantryLocation(item.category, item.name) ?? 'Spíž',
+      subcategory: item.subcategory,
+      isNonInventory: item.product?.isNonInventory,
+    })
   }
 
   const note = input.storeChain?.trim() ? `Nákup ${input.storeChain.trim()} (ručně)` : 'Nákup (ručně)'

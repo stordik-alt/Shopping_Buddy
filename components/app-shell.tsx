@@ -10,6 +10,7 @@ import type { ExpenseSplitPart } from '@/lib/purchase-expenses'
 import { completePurchaseAction, getPurchaseExpenseItemsAction, recordPurchaseAsExpenseAction, setPurchaseItemExpenseSplitsAction } from '@/app/actions/purchases'
 import { addShoppingItemAction, addShoppingListAction } from '@/app/actions/shopping'
 import { AppHeader } from '@/components/shared/app-header'
+import { Recipes } from '@/components/recipes/recipes'
 import { AppSidebar } from '@/components/shared/app-sidebar'
 import { MobileNav } from '@/components/shared/mobile-nav'
 import { OfflineBanner } from '@/components/shopping/offline-banner'
@@ -27,7 +28,6 @@ import {
   Pantry,
   PantryPrompt,
   PriceWatch,
-  Recipes,
   PurchaseHistory,
   QuickOutOfStock,
   ReceiptImport,

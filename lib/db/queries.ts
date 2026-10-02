@@ -1132,10 +1132,10 @@ export async function getProductPrices(scope: ProductPriceScope): Promise<Produc
         .select({ productId: schema.productPackages.productId, quantity: schema.productPackages.quantity, unit: schema.productPackages.unit })
         .from(schema.productPackages)
         .where(inArray(schema.productPackages.productId, productIds))
-  const packagesByProduct = new Map<string, { quantity: number; unit: 'kg' | 'l' }[]>()
+  const packagesByProduct = new Map<string, { quantity: number; unit: 'ks' | 'kg' | 'l' }[]>()
   for (const row of packageRows) {
     const list = packagesByProduct.get(row.productId) ?? []
-    if (row.unit === 'kg' || row.unit === 'l') list.push({ quantity: Number(row.quantity), unit: row.unit })
+    if (row.unit === 'ks' || row.unit === 'kg' || row.unit === 'l') list.push({ quantity: Number(row.quantity), unit: row.unit })
     packagesByProduct.set(row.productId, list)
   }
 
@@ -1207,7 +1207,7 @@ export async function getProductPrices(scope: ProductPriceScope): Promise<Produc
               regularPrice: Number(price.regularPrice),
               unit: price.unit,
               unitPrice: Number(price.unitPrice),
-            }) ?? resolveNamedPackageSize(product.name, {
+            }, product.name) ?? resolveNamedPackageSize(product.name, {
               regularPrice: Number(price.regularPrice),
               unit: price.unit,
               unitPrice: Number(price.unitPrice),
@@ -1407,7 +1407,7 @@ export async function persistNamedPackageEvidence(evidence: NamedPackageEvidence
         observationCount: sql`
           ${schema.productPackages.observationCount}
           + CASE
-              WHEN EXCLUDED.unit = 'ks'::${schema.productPackages.unit} AND EXCLUDED.last_seen_at > ${schema.productPackages.lastSeenAt}
+              WHEN EXCLUDED.unit = 'ks' AND EXCLUDED.last_seen_at > ${schema.productPackages.lastSeenAt}
               THEN 1
               ELSE 0
             END

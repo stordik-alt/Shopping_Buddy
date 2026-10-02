@@ -103,6 +103,30 @@ describe('addShoppingItemAction', () => {
   })
 })
 
+describe('addShoppingItemAction — recipe quantities', () => {
+  it('persists fractional or small recipe quantities instead of defaulting to one', async () => {
+    currentHouseholdId = householdId
+    const { item } = await addShoppingItemAction(listId, 'Máslo z receptu', {
+      quantity: 1,
+      unit: 'g',
+      detail: '1 g · z receptu',
+    })
+    expect(item.quantity).toBe(1)
+    expect(item.unit).toBe('g')
+  })
+
+  it('persists a recipe quantity in kg unchanged', async () => {
+    currentHouseholdId = householdId
+    const { item } = await addShoppingItemAction(listId, 'Kuřecí šunka z receptu', {
+      quantity: 1,
+      unit: 'kg',
+      detail: '1 kg · z receptu',
+    })
+    expect(item.quantity).toBe(1)
+    expect(item.unit).toBe('kg')
+  })
+})
+
 describe('addShoppingItemAction — product identity', () => {
   it('resolves the real productId for a name matching the catalog, case/whitespace-insensitively', async () => {
     const catalog = await getProductCatalog()

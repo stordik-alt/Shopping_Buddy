@@ -1,7 +1,7 @@
 import { dealEffectiveUnitPrice, effectivePrice, type PricePoint, type ProductPrice } from '@/lib/prices'
 import { toComparableUnit } from '@/lib/product-search'
 import { estimateRecipeMeasure } from '@/lib/recipes/measurements'
-import { inferPackageSize } from '@/lib/packaging'
+import { formatPackageSize, inferPackageSize } from '@/lib/packaging'
 import type { StandaloneOffer } from '@/lib/offers'
 import type { RecipeIngredient } from '@/lib/recipes/types'
 
@@ -156,7 +156,9 @@ function candidatesForProduct(
       isDeal: price.dealPrice != null,
       estimatedQuantity: resolved.estimatedQuantity,
       estimateDescription: resolved.estimateDescription,
-      packageSize: inferPackageSize(price)?.label,
+      packageSize: price.packageSize
+        ? formatPackageSize(price.packageSize.quantity, price.packageSize.unit)
+        : inferPackageSize(price)?.label,
       dealPrice: price.dealPrice,
       dealValidUntil: price.dealValidUntil,
       sourceType: price.sourceType,

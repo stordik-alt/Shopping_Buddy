@@ -16,15 +16,27 @@ export const PRODUCT_SUBCATEGORIES = {
   Potraviny: [
     'Pečivo',
     'Mléčné výrobky',
+    'Vejce',
     'Maso a uzeniny',
+    'Ryby a mořské plody',
     'Ovoce a zelenina',
+    'Luštěniny',
+    'Ořechy, semínka a sušené ovoce',
     'Nápoje',
+    'Káva a čaj',
+    'Alkoholické nápoje',
     'Sladkosti',
+    'Džemy, med a pomazánky',
     'Slané pochutiny',
+    'Lahůdky a hotová jídla',
+    'Rostlinné alternativy',
     'Trvanlivé potraviny',
+    'Mouka a pečení',
+    'Oleje a tuky',
     'Konzervy',
     'Mražené potraviny',
     'Těstoviny a rýže',
+    'Koření a bylinky',
     'Omáčky a dochucovadla',
     'Cereálie a snídaně',
     'Dětská výživa',
@@ -38,6 +50,24 @@ export const PRODUCT_SUBCATEGORIES = {
 } as const satisfies Record<ItemCategory, readonly string[]>
 
 export type ProductSubcategory = (typeof PRODUCT_SUBCATEGORIES)[keyof typeof PRODUCT_SUBCATEGORIES][number]
+
+/** The Potraviny subcategories added on 2026-10-03 (migration 0060). Products, purchase lines and
+ *  pantry rows the keyword rules now place in one of them are moved there once by
+ *  `scripts/move-to-new-subcategories.ts` (lib/db/new-subcategories.ts). */
+export const NEW_FOOD_SUBCATEGORIES = [
+  'Vejce',
+  'Ryby a mořské plody',
+  'Luštěniny',
+  'Ořechy, semínka a sušené ovoce',
+  'Káva a čaj',
+  'Alkoholické nápoje',
+  'Džemy, med a pomazánky',
+  'Lahůdky a hotová jídla',
+  'Rostlinné alternativy',
+  'Mouka a pečení',
+  'Oleje a tuky',
+  'Koření a bylinky',
+] as const satisfies readonly (typeof PRODUCT_SUBCATEGORIES.Potraviny)[number][]
 
 /** The subcategories offered for an item category, in display order. */
 export function subcategoriesOfItem(category: ItemCategory): readonly string[] {
@@ -60,32 +90,107 @@ export function isValidProductSubcategory(category: ItemCategory, subcategory: s
 // household to decide. Ordered so a more specific rule (e.g. "mražen" → Mražené potraviny) is
 // checked before a broader one that could otherwise also match (e.g. "zelenina").
 
-type SubcategoryRule = { subcategory: string; keywords: string[] }
+/** A keyword matches anywhere in the normalized name ("mléčn" in "mléčná čokoláda"). A leading or
+ *  trailing space ties it to a word boundary: " ryby " is fish, never "rybíz"; " stika" is pike,
+ *  never "paštika". `exclude` keywords veto the rule ("Kinder vajíčko s překvapením" is no egg), so
+ *  the name falls through to a later rule or stays unplaced. */
+type SubcategoryRule = { subcategory: string; keywords: string[]; exclude?: string[] }
 
+// The first rule that matches wins, so a narrower or ambiguous group comes before a broader one:
+// non-alcoholic beer before alcohol; alcohol, coffee and tea before "Nápoje"; ready meals and plant
+// alternatives before the eggs, dairy and meat they mention; fish before meat and tins ("Tuňák v
+// konzervě" is fish); pulses before vegetables ("Fazole v nálevu"); sauces before spices ("Rajská
+// omáčka … koření"); oil before nuts ("Olej z vlašských ořechů"). Every keyword was checked against
+// the real catalog (2026-10-03): a short one is tied to word boundaries where it is part of other
+// words ("čočk" is "cock" in "Cocktails", "caj" starts "Cajthaml").
 const POTRAVINY_RULES: SubcategoryRule[] = [
   { subcategory: 'Mražené potraviny', keywords: ['mražen', 'zmrzlina', 'mraž'] },
+  { subcategory: 'Nápoje', keywords: ['nealko', ' 0 0 '] },
+  {
+    subcategory: 'Alkoholické nápoje',
+    keywords: [
+      ' pivo', ' piva ', 'lezak', 'ležák', ' ipa ', ' vino ', ' vína ', 'víno ', ' sekt ', 'prosecco', 'šampaňsk', 'champagne', 'spumante', 'cider', 'medovina',
+      'vodka', ' rum ', 'whisk', ' gin ', 'liker', 'likér', 'liquore', 'liqueur', 'tequila', 'brandy', 'koňak', 'slivovice', 'hruškovice', 'meruňkovice', 'becherovka', 'fernet', 'griotka', 'aperitiv',
+      'merlot', 'cabernet', 'chardonnay', 'sauvignon', 'riesling', 'ryzlink', 'frankovka', 'rulandsk', 'müller thurgau', 'pinot', 'primitivo', 'tramín', 'veltlínsk', 'svatovavřineck', 'zweigelt', 'chianti', 'rioja', 'hibernal', 'muškát moravský', 'tempranillo', 'garnacha', 'shiraz', 'syrah', 'malbec', 'montepulciano', 'peprmint',
+      'suché červené', 'suché bílé', 'polosuché', 'polosladké',
+      ' igt ', ' doc ', ' docg ', ' aoc ', ' 0 75 l', ' 0 75l',
+    ],
+  },
+  {
+    subcategory: 'Lahůdky a hotová jídla',
+    keywords: ['bramborový salát', 'vlašský salát', 'těstovinový salát', 'pochoutkový salát', 'vajíčkový salát', 'majonézový salát', 'hotové jídlo', 'hotová jídla', ' aspik ', ' aspiku ', 'utopenc', 'obložen', 'sendvič', ' wrap '],
+  },
+  {
+    subcategory: 'Rostlinné alternativy',
+    keywords: ['rostlinný nápoj', 'rostlinná alternativa', 'rostlinný jogurt', 'rostlinný sýr', 'vegan', ' tofu', 'tempeh', 'seitan', 'sójový nápoj', 'ovesný nápoj', 'mandlový nápoj', 'rýžový nápoj', 'kokosový nápoj', 'alpro', 'oatly'],
+  },
+  { subcategory: 'Slané pochutiny', keywords: ['brambůrk', 'bramburk', 'chipsy', ' chips', 'tyčink slan', 'arašíd', 'arasid', 'krekr', 'křupky', 'tyčinky pekařské', 'doritos'] },
   { subcategory: 'Pečivo', keywords: ['chleb', 'rohlík', 'rohliky', 'houska', 'bageta', 'croissant', 'peciv', 'bulka', 'veka'] },
   {
     subcategory: 'Mléčné výrobky',
-    keywords: ['mléko', 'mleko', 'mléčn', 'jogurt', 'kefír', 'kefir', 'sýr', 'syr', 'máslo', 'maslo', 'smetana', 'tvaroh', 'skyr', 'termix', 'pribináček', 'pribinacek'],
+    keywords: ['mléko', 'mleko', 'mléčn', 'jogurt', 'kefír', 'kefir', 'sýr', 'syr', 'máslo', 'maslo', 'smetana', 'tvaroh', 'skyr', 'termix', 'pribináček', 'pribinacek', 'gouda', 'camembert', 'eidam', 'hermelín', 'mozzarell', 'parmaz', 'cheddar', 'niva', 'brie', 'feta'],
+  },
+  {
+    subcategory: 'Ryby a mořské plody',
+    keywords: [
+      'losos', 'tuňák', 'tunak', 'treska', ' sleď', ' sledě', 'makrel', 'krevet', 'pstruh', ' kapr', 'sardink', 'sardel', ' ryba ', ' ryby ', ' rybí ', ' rybích ', 'rybí filé',
+      'chobotnic', 'kalamár', 'surimi', 'tilapie', 'pangasius', 'candát', ' štika', ' mušle', 'ančovič', 'hering', 'šprot',
+    ],
+    exclude: ['koření'],
   },
   {
     subcategory: 'Maso a uzeniny',
-    keywords: ['šunka', 'sunka', 'salám', 'salam', 'párky', 'parky', 'klobás', 'klobas', 'maso', 'kuřecí', 'kureci', 'vepřov', 'veprov', 'hovězí', 'hovezi', 'slanina', 'uzenin'],
+    keywords: ['šunka', 'sunka', 'salám', 'salam', 'párky', 'parky', 'klobás', 'klobas', 'maso', 'kuřecí', 'kureci', 'vepřov', 'veprov', 'hovězí', 'hovezi', 'slanina', 'uzenin', 'mortadel'],
   },
+  { subcategory: 'Luštěniny', keywords: ['čočka', 'čočky', 'čočkov', 'čočce', 'fazol', 'cizrn', ' hrách ', 'luštěnin', 'lusteniny'] },
   { subcategory: 'Ovoce a zelenina', keywords: ['jablk', 'banán', 'banan', 'pomeranč', 'pomeranc', 'zelenina', 'ovoce', 'rajče', 'rajce', 'okurk', 'brambor', 'cibul', 'mrkev'] },
   {
-    subcategory: 'Nápoje',
-    keywords: ['voda', 'napoj', 'nápoj', 'limonada', 'limonáda', 'cola', 'sok', 'šťáva', 'stava', 'pivo', 'víno', 'vino', 'čaj', 'caj', 'káva', 'kava'],
+    subcategory: 'Káva a čaj',
+    keywords: [' káva', ' kávy', 'kávová zrna', 'zrnková káva', 'mletá káva', 'instantní káva', 'espresso', 'cappuccino', ' kafe ', ' čaj ', ' čaje ', ' čajů ', ' čajový', 'rooibos', 'yerba'],
   },
-  { subcategory: 'Sladkosti', keywords: ['čokoláda', 'cokolada', 'bonbon', 'sušenk', 'susenk', 'oplatk', 'zmrzlin', 'dort', 'keks'] },
-  { subcategory: 'Slané pochutiny', keywords: ['brambůrk', 'bramburk', 'chipsy', 'tyčink slan', 'oříšk', 'orisk', 'arašíd', 'arasid'] },
+  {
+    subcategory: 'Nápoje',
+    keywords: ['voda', 'napoj', 'nápoj', 'limonada', 'limonáda', 'cola', 'sok', 'šťáva', 'stava', 'džus', 'dzus', 'sirup'],
+  },
+  { subcategory: 'Sladkosti', keywords: ['čokolád', 'pralink', 'tyčinka', 'bonbon', 'sušenk', 'susenk', 'oplatk', 'zmrzlin', 'dort', 'keks'] },
+  { subcategory: 'Omáčky a dochucovadla', keywords: ['kečup', 'kecup', 'hořčice', 'horcice', 'majonéz', 'majonez', 'omáčk', 'omack', 'dochucovad', ' ocet', 'sójová omáčka'] },
+  {
+    subcategory: 'Džemy, med a pomazánky',
+    keywords: ['džem', 'dzem', 'marmelád', 'lekvár', 'povidl', ' med ', ' medu ', 'nutella', 'pomazánk', 'pomazank'],
+  },
   { subcategory: 'Konzervy', keywords: ['konzerv', 'kompot'] },
-  { subcategory: 'Těstoviny a rýže', keywords: ['těstovin', 'testovin', 'rýže', 'ryze', 'špagety', 'spagety'] },
-  { subcategory: 'Omáčky a dochucovadla', keywords: ['kečup', 'kecup', 'hořčice', 'horcice', 'majonéz', 'majonez', 'omáčk', 'omack', 'koření', 'koreni', 'dochucovad'] },
   { subcategory: 'Cereálie a snídaně', keywords: ['cereál', 'cerealie', 'müsli', 'musli', 'ovesné vločky', 'ovesne vlocky'] },
+  { subcategory: 'Těstoviny a rýže', keywords: ['těstovin', 'testovin', 'rýže', 'ryze', 'špagety', 'spagety'] },
+  {
+    subcategory: 'Oleje a tuky',
+    keywords: [' olej ', ' oleje ', 'sádlo', 'margarín', 'margarin', 'palmarín', 'palmarin', ' ghí', ' ghee', 'kokosový tuk', 'pokrmový tuk'],
+  },
+  {
+    subcategory: 'Ořechy, semínka a sušené ovoce',
+    keywords: ['ořech', 'orech', 'oříšk', 'orisk', 'mandl', 'kešu', 'kesu', 'pistáci', 'semínk', 'semink', ' chia', 'rozink', 'datle', 'sušené ovoce', 'sušené meruňky', 'sušené švestky', 'brusinky sušené'],
+  },
+  {
+    subcategory: 'Koření a bylinky',
+    keywords: [
+      'koření', 'koreni', ' pepř ', ' pepře ', ' sůl ', ' sul ', 'mletá paprika', 'paprika mletá', 'paprika sladká', 'skořice', 'oregano', 'bazalka', 'majoránka', 'kmín', 'bobkov', 'muškátový ořech',
+      'hřebíček', 'kurkum', ' kari ', 'drcené chilli', 'chilli mleté', 'sušené chilli', 'chilli koření', 'tymián', 'rozmarýn', 'koriandr', 'dobromysl', 'zázvor mletý', 'česnek granulovaný', 'česnek sušený', 'vanilkový lusk', 'vanilkové lusky',
+    ],
+  },
   { subcategory: 'Dětská výživa', keywords: ['dětská výživa', 'detska vyziva', 'příkrm', 'prikrm', 'kojenecké mléko', 'kojenecke mleko'] },
-  { subcategory: 'Trvanlivé potraviny', keywords: ['mouka', 'cukr', 'sůl', 'sul', 'olej', 'ocet', 'trvanl'] },
+  {
+    subcategory: 'Mouka a pečení',
+    keywords: [
+      'mouka', 'mouky', ' droždí', 'kvasnice', 'prášek do pečiva', 'kypřic', 'krupice', 'strouhank', ' cukr ', 'cukr krupice', 'cukr krystal', 'cukr moučka', 'třtinový cukr', 'vanilkový cukr', 'vanilinový cukr',
+      'kakaový prášek', 'kakao na pečení', 'holandské kakao', 'pudinkový prášek', 'želatina',
+    ],
+    exclude: ['bez droždí'],
+  },
+  {
+    subcategory: 'Vejce',
+    keywords: [' vejce', ' vajíčka', ' vajíčko', ' vajec ', 'křepelčí vejce'],
+    exclude: ['polévk', 'překvapení', 'čokolád', 'kulajda', 's vejcem', 'do kapsy'],
+  },
+  { subcategory: 'Trvanlivé potraviny', keywords: ['trvanl'] },
 ]
 
 const DROGERIE_RULES: SubcategoryRule[] = [
@@ -121,8 +226,13 @@ const OSTATNI_RULES: SubcategoryRule[] = [
 // its accents stripped (lib/product-normalize.ts), so every keyword must go through the same
 // normalization once here, or an accented-only keyword like "šunka" would never match a haystack
 // that has already been reduced to "sunka". Applied once at module load, not per lookup.
+// A leading/trailing space (a word boundary, see SubcategoryRule) survives normalization, which
+// would otherwise trim it.
+const normalizeKeyword = (keyword: string): string =>
+  `${keyword.startsWith(' ') ? ' ' : ''}${normalizeProductText(keyword)}${keyword.endsWith(' ') ? ' ' : ''}`
+
 const normalizeRules = (rules: SubcategoryRule[]): SubcategoryRule[] =>
-  rules.map((rule) => ({ subcategory: rule.subcategory, keywords: rule.keywords.map(normalizeProductText) }))
+  rules.map((rule) => ({ subcategory: rule.subcategory, keywords: rule.keywords.map(normalizeKeyword), exclude: rule.exclude?.map(normalizeKeyword) }))
 
 const RULES_BY_CATEGORY: Record<ItemCategory, SubcategoryRule[]> = {
   Potraviny: normalizeRules(POTRAVINY_RULES),
@@ -159,9 +269,11 @@ const LITER_VOLUME_PATTERN = /(^|\s)\d+l(\s|$)/
  *  does not stop fuzzy or AI matching from being tried next. */
 export function classifySubcategoryByKeyword(category: ItemCategory, normalizedName: string): string | null {
   if (category === 'Potraviny' && BEVERAGE_BRAND_KEYWORDS.some((keyword) => normalizedName.includes(keyword))) return 'Nápoje'
+  // Padded so a boundary keyword (" med ") also matches at the start or end of the name.
+  const haystack = ` ${normalizedName} `
   for (const rule of RULES_BY_CATEGORY[category]) {
     if (rule.subcategory === 'Ovoce a zelenina' && LITER_VOLUME_PATTERN.test(normalizedName)) continue
-    if (rule.keywords.some((keyword) => normalizedName.includes(keyword))) return rule.subcategory
+    if (rule.keywords.some((keyword) => haystack.includes(keyword)) && !rule.exclude?.some((keyword) => haystack.includes(keyword))) return rule.subcategory
   }
   return null
 }

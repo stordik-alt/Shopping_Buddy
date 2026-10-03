@@ -14,8 +14,14 @@ process.env.R2_ACCESS_KEY_ID = 'test-access-key'
 process.env.R2_SECRET_ACCESS_KEY = 'test-secret'
 process.env.R2_BUCKET_NAME = 'test-receipts'
 const r2Objects = new Map<string, { bytes: Uint8Array; contentType: string }>()
+// Only the fake bucket is answered here. Everything else — notably the Neon HTTP driver, which sends
+// SQL as POST requests through fetch — goes to the real fetch; answering it with 405 failed every
+// database query in this file whenever the tests ran against Neon instead of a local PostgreSQL.
+const passThroughFetch = globalThis.fetch
+const R2_TEST_HOST = `${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
 vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
   const request = input instanceof Request ? input : new Request(input, init)
+  if (new URL(request.url).hostname !== R2_TEST_HOST) return passThroughFetch(input, init)
   const key = new URL(request.url).pathname.split('/').slice(2).join('/')
   if (request.method === 'PUT') { r2Objects.set(key, { bytes: new Uint8Array(await request.arrayBuffer()), contentType: request.headers.get('content-type') ?? 'application/octet-stream' }); return new Response(null, { status: 200 }) }
   if (request.method === 'GET') { const object = r2Objects.get(key); return object ? new Response(object.bytes.slice(), { status: 200, headers: { 'content-type': object.contentType } }) : new Response(null, { status: 404 }) }

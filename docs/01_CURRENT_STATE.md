@@ -1306,6 +1306,8 @@ International support is planned later.
 
 Fully resolved 2026-09-21: `CRON_SECRET` is set in the Vercel project (Production), PR #4 (`v0/backend` → `main`) is merged, and a production deployment ran. Confirmed live via `vercel cron ls`, which now lists `/api/cron/shopping-reminders` (no longer `not deployed`). The route will get its first real scheduled invocation at the next `0 8 * * *` (08:00 UTC) tick.
 
+**Update 2026-10-03:** every `app/api/cron/*` route authorizes through one helper, `lib/cron-auth.ts` (`rejectUnauthorizedCron`), which fails closed: a request needs `Authorization: Bearer $CRON_SECRET` (compared in constant time), and when `CRON_SECRET` is not configured at all the route answers `503` and runs nothing — locally too. Previously a missing secret skipped the check. `CRON_SECRET` is set on Vercel for Production and Preview; a Cloudflare Worker needs its own before its Cron Triggers can run.
+
 ---
 
 # 28. Recent Completed Work

@@ -4,7 +4,7 @@ import { getReceiptFile } from '@/lib/storage'
 
 // Streams a household's own uploaded receipt photo/PDF back to the review UI
 // (docs/08_OCR_RECEIPT_PIPELINE.md section 14: the reviewer must see the original next to the
-// recognized values). The file is stored privately (Vercel Blob or R2, lib/storage) — its storage
+// recognized values). The file is stored privately (R2, lib/storage) — its storage
 // address is not fetchable by a browser — so this route is the only way it reaches a client, and
 // access is decided server-side (see loadOwnedReceiptImport).
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {

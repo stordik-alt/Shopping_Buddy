@@ -51,9 +51,16 @@ process.env.R2_BUCKET_NAME = 'test-receipts'
 
 const r2Objects = new Map<string, { bytes: Uint8Array; contentType: string }>()
 
+// Only the fake bucket is answered here. Everything else — notably the Neon HTTP driver, which sends
+// SQL as POST requests through fetch — goes to the real fetch; answering it with 405 failed every
+// database query in this file whenever the tests ran against Neon instead of a local PostgreSQL.
+const passThroughFetch = globalThis.fetch
+const R2_TEST_HOST = `${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+
 function stubReceiptStorage() {
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const request = input instanceof Request ? input : new Request(input, init)
+    if (new URL(request.url).hostname !== R2_TEST_HOST) return passThroughFetch(input, init)
     const key = new URL(request.url).pathname.split('/').slice(2).join('/')
     if (request.method === 'PUT') {
       r2Objects.set(key, { bytes: new Uint8Array(await request.arrayBuffer()), contentType: request.headers.get('content-type') ?? 'application/octet-stream' })
@@ -74,7 +81,8 @@ function stubReceiptStorage() {
 
 
 import { MAX_RECEIPT_UPLOADS_PER_DAY } from '@/lib/receipt-upload-limit'
-import { confirmReceiptReviewAction, importReceiptAction, processReceiptImport, processUploadedReceiptAction, resolveDuplicateReceiptAction, retryReceiptImportAction, uploadReceiptAction } from '@/app/actions/receipts'
+import { confirmReceiptReviewAction, importReceiptAction, processUploadedReceiptAction, resolveDuplicateReceiptAction, retryReceiptImportAction, uploadReceiptAction } from '@/app/actions/receipts'
+import { processReceiptImport } from '@/lib/receipt-import'
 import { setPurchaseItemExpenseSplits } from '@/lib/db/purchase-items'
 import { ALBERT_STYLE_RECEIPT_LINES, makeTextPdf } from '@/lib/receipt-pdf.test-helpers'
 import { RECEIPT_STALE_MS } from '@/lib/receipt-progress'

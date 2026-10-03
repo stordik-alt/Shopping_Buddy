@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { importOsmStores } from '@/lib/db/store-directory'
 import { invalidateStoreCaches } from '@/lib/db/cache-invalidation'
+import { rejectUnauthorizedCron } from '@/lib/cron-auth'
 
 // Weekly refresh of the store chains' branches from OpenStreetMap (lib/db/store-directory.ts):
 // new branches appear, moved or re-timed ones follow the map; nothing is deleted. Same auth model as
@@ -9,10 +10,8 @@ import { invalidateStoreCaches } from '@/lib/db/cache-invalidation'
 export const maxDuration = 300
 
 export async function GET(request: Request) {
-  const cronSecret = process.env.CRON_SECRET
-  if (cronSecret && request.headers.get('authorization') !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const rejected = rejectUnauthorizedCron(request)
+  if (rejected) return rejected
   try {
     // No new map query starts after 150 s: one query can take up to ~105 s more, and the writes
     // need the rest of the 300 s limit. Chains not reached are reported and retried next week.

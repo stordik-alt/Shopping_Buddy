@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { logIngestResults } from '@/lib/ingestion/cron-log'
 import { PRICE_SOURCES, runPriceSources } from '@/lib/ingestion/ingest'
 import { invalidateDealsCache, invalidatePriceAndOfferCaches } from '@/lib/db/cache-invalidation'
+import { rejectUnauthorizedCron } from '@/lib/cron-auth'
 
 // Shared request handling for the price-ingestion cron routes (app/api/cron/ingest-prices).
 //
@@ -22,10 +23,8 @@ const BUDGET_MS = 230_000
  *  Same auth model as the other cron routes: Vercel sends `Authorization: Bearer $CRON_SECRET`;
  *  proxy.ts's matcher excludes all of api/cron/* from session protection. */
 export async function handleIngestCron(request: Request, only?: string): Promise<NextResponse> {
-  const cronSecret = process.env.CRON_SECRET
-  if (cronSecret && request.headers.get('authorization') !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const rejected = rejectUnauthorizedCron(request)
+  if (rejected) return rejected
 
   // An unknown name is a client error, not a silent no-op.
   if (only && !PRICE_SOURCES.some((entry) => entry.source === only)) {

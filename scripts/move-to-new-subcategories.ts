@@ -10,10 +10,10 @@ import { applyNewSubcategoryMoves, planNewSubcategoryMoves, type SubcategoryMove
 
 function report(label: string, moves: SubcategoryMove[]) {
   const counts = new Map<string, number>()
-  for (const move of moves) counts.set(`${move.from ?? '(none)'} → ${move.to}`, (counts.get(`${move.from ?? '(none)'} → ${move.to}`) ?? 0) + 1)
+  for (const move of moves) counts.set(`${move.from ?? '(none)'} → ${move.to ?? '(none)'}`, (counts.get(`${move.from ?? '(none)'} → ${move.to ?? '(none)'}`) ?? 0) + 1)
   console.log(`\n${label}: ${moves.length}`)
   for (const [change, count] of [...counts].sort((a, b) => b[1] - a[1])) console.log(`    ${String(count).padStart(5)}  ${change}`)
-  for (const move of moves.slice(0, 15)) console.log(`      e.g. ${move.name} — ${move.from ?? '(none)'} → ${move.to}`)
+  for (const move of moves.slice(0, 15)) console.log(`      e.g. ${move.name} — ${move.from ?? '(none)'} → ${move.to ?? '(none)'}`)
 }
 
 async function main() {

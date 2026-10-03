@@ -151,6 +151,48 @@ describe('classifySubcategoryByKeyword — new food subcategories (real catalog 
     expect(place(name)).not.toBe(wrong)
   })
 
+  // Found after the first production run (2026-10-03): a drink, nut, spice or pulse that is only the
+  // flavour or filling of another food, and a few keywords that were too broad.
+  it.each([
+    ['Lindt Mléčná čokoláda plněná likérem Marc de Champagne 350g', 'Sladkosti'],
+    ['Mon Chéri Čokoládové bonbony formované s likérovou náplní a celou třešní uvnitř 157,5g', 'Sladkosti'],
+    ['After Eight Hořká čokoláda s peprmintovou náplní', 'Sladkosti'],
+    ['Krajanka Vaječný likér zakysaná smetana', 'Mléčné výrobky'],
+    ['Krajanka DeLuXe smetanový jogurt pomeranč a vaječný likér', 'Mléčné výrobky'],
+    ['Snowdonia Cheddar amber mist sýr s whisky', 'Mléčné výrobky'],
+    ['Bohemilk Opočenské čerstvé mléko plnotučné 0,75l', 'Mléčné výrobky'],
+    ['Rohlik.cz Řemeslná paštika s whisky a uzenými mandlemi', 'Maso a uzeniny'],
+    ['Živina BBQ pálivá omáčka s medem a bourbon whiskey', 'Omáčky a dochucovadla'],
+    ['Bottega Gianduia Cioccolato Liquore 17% čokoláda s lískovými ořechy', 'Alkoholické nápoje'],
+    ['Baileys Original krémový likér 17%', 'Alkoholické nápoje'],
+    ['U Sedmi Kašen Originál vodka 0,5l', 'Alkoholické nápoje'],
+    ['Křivoklátská dezertní medovina Višňová (18%)', 'Alkoholické nápoje'],
+    ['R56-HANACKA PEPRMINT 20% 0,5L', 'Alkoholické nápoje'],
+    ['Biogena Majestic Tea ovocný čaj Pivoňka & Broskev 20x2 g, 50 g', 'Káva a čaj'],
+    ['Oxalis Belgické pralinky aromatizovaná mletá káva', 'Káva a čaj'],
+    ['Jupí Sirup Ice Tea černý čaj s citronem 0,7l', 'Nápoje'],
+    ['Gepa bílá čokoláda s kousky kávy, 100 g', 'Sladkosti'],
+    ['Orient Gourmet Rybí omáčka', 'Omáčky a dochucovadla'],
+    ['Losos steak s kořením na gril', 'Ryby a mořské plody'],
+    ['Miss Can Paštika z chobotnice', 'Ryby a mořské plody'],
+    ['Vitana Ryby koření', 'Koření a bylinky'],
+    ['Vitana Perníkové koření 23g', 'Koření a bylinky'],
+    ['Vitana Čočková polévka', 'Lahůdky a hotová jídla'],
+    ['Arax Polévková směs Čočka červená loupaná a pohanka', 'Luštěniny'],
+    ['Marks & Spencer Čočky z mléčné čokolády s barevnou cukrovou krustou', 'Sladkosti'],
+    ['Honestly Proteinová kaše ořechová', 'Cereálie a snídaně'],
+    ['Dr. Oetker Ovesná kaše jablko, skořice', 'Cereálie a snídaně'],
+    ['Srdce domova Paštika s mandlemi 150g', 'Maso a uzeniny'],
+    ['Rohlik.cz Kešu ořechy natural WW240', 'Ořechy, semínka a sušené ovoce'],
+    ['iChoc BIO Vegan čokoláda classic', 'Sladkosti'],
+    ['Zárubova Vegan Mayo (neobsahuje vejce)', 'Rostlinné alternativy'],
+    ['Well Well Pomazánka z tofu s rybí příchutí', 'Rostlinné alternativy'],
+    ['Český toust Super sendvič, světlý', 'Pečivo'],
+    ['Gastro Menu Salát vajíčkový', 'Lahůdky a hotová jídla'],
+  ])('%s → %s', (name, subcategory) => {
+    expect(place(name)).toBe(subcategory)
+  })
+
   it('keeps non-alcoholic beer among the drinks', () => {
     expect(place('Krušovice HOŘKÉ NEALKO nealkoholické pivo 0,5 l')).toBe('Nápoje')
   })

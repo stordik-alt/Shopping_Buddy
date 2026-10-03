@@ -151,18 +151,67 @@ function phrasePoints(text: string, token: string): number {
  *  is the normalized name; tokens are normalized search tokens. */
 export function isDirectMatch(name: string, tokens: string[]): boolean {
   const searchName = matchText(name)
+  // A parenthesis adds a detail ("Kuřecí šunka (92% masa)", "Máslo (82%)"); it does not name the
+  // product, so its words never make the name match — that "masa" made ham a match for "kuřecí maso".
+  const named = withoutParentheses(searchName)
   // Everything before the first linking word (not counting the very first word) names the product.
-  const link = [...searchName.matchAll(/[a-z0-9%]+/g)].find((match, index) => index > 0 && LINK_WORDS.has(match[0]))
-  const head = link ? searchName.slice(0, link.index) : searchName
+  const link = [...named.matchAll(/[a-z0-9%]+/g)].find((match, index) => index > 0 && LINK_WORDS.has(match[0]))
+  const head = link ? named.slice(0, link.index) : named
   const headWords = nameWords(head)
-  return tokens.every((token) => {
+  const isItem = tokens.every((token) => {
     if (isPhrase(token)) return phrasePoints(head, token) === WORD_POINTS.exact
+    // A size or strength token ("250g", "82%") has no word forms; being anywhere in the name is enough.
+    if (/\d/.test(token)) return nameWords(searchName).some((word) => wordRelation(word, token) !== null)
     return headWords.some((word) => {
       const relation = wordRelationWithSynonyms(word, token)
-      // A size or strength token ("250g") has no word forms; being in the name is enough.
-      return relation === 'exact' || relation === 'form' || (/\d/.test(token) && relation === 'inside')
+      return relation === 'exact' || relation === 'form'
     })
   })
+  return isItem && !namesAnotherProduct(searchName, headWords, tokens)
+}
+
+const withoutParentheses = (text: string) => text.replace(/\([^)]*\)/g, ' ')
+
+// --- Words that turn the item into another product ------------------------------------------------
+//
+// "Sendvič šunka, slanina", "Radegast Ryze … pivo", "Banány želé v čokoládě", "Corny Smoothie jablko",
+// "Perník vejce": the item's word is there, but another word in the name says what the product
+// really is. Such a name is not the item — unless that word is what was asked for ("Šunka", "Pivo").
+// Only the part before a linking word counts, where the words name the product: "Pizza se šunkou"
+// is still a pizza. A finer, per-item identity (what exactly counts as "Kuřecí maso") is the product
+// types concept (docs/12_PRODUCT_TYPES.md); this list only catches what is plainly another product.
+
+/** Words for another kind of product, matched as the same word or an inflected form ("šunka",
+ *  "šunkou"). Not as a derived adjective: "Salátová okurka" is a cucumber, "Šunkový salám" a salami. */
+const OTHER_PRODUCT_WORDS = [
+  'sunka', 'salam', 'parek', 'klobasa', 'pastika', 'pomazanka', 'sendvic', 'bageta', 'toust', 'salat',
+  'susenka', 'oplatka', 'zele', 'cokolada', 'bonbon', 'tycinka', 'pernik', 'dort', 'zakusek', 'pudink',
+  'polevka', 'prikrm', 'pyre', 'jerky', 'smoothie', 'dzus', 'napoj', 'limonada', 'sirup', 'pivo',
+  'krmivo', 'pamlsek',
+]
+
+/** Of those, the ones whose adjective also makes another product: "Čokoládová vejce", "Toustový chléb",
+ *  "Perníkové srdce". */
+const OTHER_PRODUCT_ADJECTIVES = new Set(['cokolada', 'toust', 'pernik'])
+
+/** Phrases that make a different product wherever they stand: "Ruské vejce v aspiku", "Kinder vejce s
+ *  překvapením", "Kuřecí prsa … (set k přípravě hotového jídla)". */
+const OTHER_PRODUCT_PHRASES = ['aspik', 's prekvapenim', 'set k priprave', 'hotove jidlo', 'hotoveho jidla']
+
+/** Whether `word` is `marker` — the same word or an inflected form, or (for `withAdjectives`) a word
+ *  derived from it. */
+function isWordFor(word: string, marker: string, withAdjectives: boolean): boolean {
+  const relation = wordRelationWithSynonyms(word, marker)
+  return relation === 'exact' || relation === 'form' || (withAdjectives && relation === 'derived')
+}
+
+function namesAnotherProduct(searchName: string, headWords: string[], tokens: string[]): boolean {
+  // Asked for when a search word is that word in any form, including its adjective ("šunkový" asks
+  // for "šunka"), so a search for the other product itself is never filtered out.
+  const asked = (marker: string) => tokens.some((token) => !isPhrase(token) && (isWordFor(token, marker, true) || isWordFor(marker, token, true)))
+  const wordHit = OTHER_PRODUCT_WORDS.some((marker) => !asked(marker) && headWords.some((word) => isWordFor(word, marker, OTHER_PRODUCT_ADJECTIVES.has(marker))))
+  if (wordHit) return true
+  return OTHER_PRODUCT_PHRASES.some((phrase) => searchName.includes(phrase) && !tokens.some((token) => phrase.includes(token)))
 }
 
 /** How well a product name matches the tokens: 0 when any token is missing, otherwise higher for

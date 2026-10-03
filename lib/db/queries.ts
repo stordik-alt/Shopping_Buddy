@@ -818,11 +818,37 @@ export async function getProductCatalog(names?: string[]): Promise<ProductCatalo
   if (names && names.length === 0) return []
   const forms = names ? [...new Set(names.map((name) => normalizeSearchText(name.trim())))] : null
   const products = await db.query.products.findMany({
-    columns: { id: true, name: true, defaultUnit: true, defaultLocation: true, isChildOriented: true, isNonInventory: true },
-    with: { category: { columns: { name: true } }, subcategory: { columns: { name: true } } },
+    ...CATALOG_ENTRY_QUERY,
     ...(forms ? { where: inArray(schema.products.searchName, forms) } : {}),
   })
-  return products.map((product) => ({
+  return products.map(toCatalogEntry)
+}
+
+/** Catalog entries of exactly these products — the ones a receipt line was linked to by an alias or
+ *  by the household's own choice in review, whose names the line's text does not match. */
+export async function getProductCatalogByIds(ids: string[]): Promise<ProductCatalogEntry[]> {
+  const unique = [...new Set(ids)]
+  if (unique.length === 0) return []
+  const products = await getDb().query.products.findMany({ ...CATALOG_ENTRY_QUERY, where: inArray(schema.products.id, unique) })
+  return products.map(toCatalogEntry)
+}
+
+const CATALOG_ENTRY_QUERY = {
+  columns: { id: true, name: true, defaultUnit: true, defaultLocation: true, isChildOriented: true, isNonInventory: true },
+  with: { category: { columns: { name: true } }, subcategory: { columns: { name: true } } },
+} as const
+
+function toCatalogEntry(product: {
+  id: string
+  name: string
+  defaultUnit: ItemUnit
+  defaultLocation: PantryLocation | null
+  isChildOriented: boolean
+  isNonInventory: boolean
+  category: { name: ItemCategory }
+  subcategory: { name: string } | null
+}): ProductCatalogEntry {
+  return {
     id: product.id,
     name: product.name,
     category: product.category.name,
@@ -831,7 +857,7 @@ export async function getProductCatalog(names?: string[]): Promise<ProductCatalo
     subcategory: product.subcategory?.name ?? null,
     isChildOriented: product.isChildOriented,
     isNonInventory: product.isNonInventory,
-  }))
+  }
 }
 
 /** The fixed subcategory rows (lib/product-subcategories.ts seeds them via migration 0044) — a

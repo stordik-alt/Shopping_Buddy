@@ -9,20 +9,22 @@ import { and, eq, gte, ilike, inArray } from 'drizzle-orm'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { getDb } from '@/lib/db/client'
 import { invalidateProductPriceCache } from '@/lib/db/cache-invalidation'
-import { recordPriceObservation, restockPantryItem, upsertProductCatalogDefaults } from '@/lib/db/queries'
+import { getProductCatalogByIds, recordPriceObservation, restockPantryItem, upsertProductCatalogDefaults } from '@/lib/db/queries'
 import { getProductCatalogCached, getSubcategoryCatalogCached } from '@/lib/db/cached-reads'
 import * as schema from '@/lib/db/schema'
 import { applyLearnedExpenseDefaults, recomputePurchaseExpenses } from '@/lib/db/purchase-items'
 import { isValidProductSubcategory } from '@/lib/product-subcategories'
 import { getAliasesForNames, recordProductAlias } from '@/lib/db/product-aliases'
-import { AUTO_ACCEPT_THRESHOLD, matchProduct } from '@/lib/categorization'
+import type { ProductAliasEntry } from '@/lib/categorization'
+import { suggestProductsForReceiptLines } from '@/lib/db/receipt-candidates'
+import type { ReceiptSuggestions } from '@/lib/receipt-product-match'
 import { autoCheckShoppingListFromPurchase } from '@/lib/db/receipt-list'
 import { inferPantryLocation } from '@/lib/pantry'
 import { normalizeProductText } from '@/lib/product-normalize'
 import { logReceiptImport, newReceiptTrace, redactSecrets, type ReceiptTrace } from '@/lib/receipt-log'
 import { PDF_TEXT_LAYER_PROVIDER, readPdfTextLayer } from '@/lib/receipt-pdf'
 import { detectReceiptFileType, prepareReceiptImageForOcr } from '@/lib/receipt-image'
-import { matchProductByName } from '@/lib/products'
+import type { ProductCatalogEntry } from '@/lib/products'
 import { chainFamily } from '@/lib/stores/chain-family'
 import {
   azureReceiptTextExtractor,
@@ -36,6 +38,7 @@ import {
   netUnitPrice,
   normalizeOcrText,
   resolvePurchaseAmounts,
+  resolveCatalogProduct,
   resolveItemPlacement,
   normalizeStoreName,
   storeNameMatchKey,
@@ -121,6 +124,48 @@ export function resolveReceiptPurchaseDate(optionsDate: string | undefined, stor
  *    here was actually verified by a person. */
 function normalizeStoreLocationPart(value: string | null | undefined): string {
   return value?.trim().toLocaleLowerCase('cs-CZ').replace(/\s+/g, ' ') ?? ''
+}
+
+
+/** The catalog a receipt's lines are matched against: the products named like its lines, plus the
+ *  products its candidate aliases (and `extraIds`, the products a household picked in review) point
+ *  to. An alias names a product by other text, so looking products up by the lines' names alone never
+ *  loads it — and without its entry, an alias match had nothing to resolve to and was dropped. */
+async function receiptMatchingCatalog(names: string[], aliases: ProductAliasEntry[], extraIds: string[] = []): Promise<ProductCatalogEntry[]> {
+  const catalog = await getProductCatalogCached(names)
+  const known = new Set(catalog.map((product) => product.id))
+  const missing = [...aliases.map((alias) => alias.productId), ...extraIds].filter((id) => !known.has(id))
+  return missing.length > 0 ? [...catalog, ...(await getProductCatalogByIds(missing))] : catalog
+}
+
+/** Adds the review form's product suggestions (lib/receipt-product-match.ts) to the lines that no
+ *  catalog name or alias recognized, pre-selecting one only where it is clearly the one. A shopping
+ *  bag or deposit is not a product to link. Suggestions are a convenience on top of a review that
+ *  works without them, so a failed lookup is logged and the lines are returned as they were. */
+export async function withProductSuggestions(
+  items: ReceiptLineItem[],
+  catalog: ProductCatalogEntry[],
+  aliases: ProductAliasEntry[],
+  storeId: string | null,
+): Promise<ReceiptLineItem[]> {
+  const open = items
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => !item.nonInventory && resolveCatalogProduct(item.name, catalog, aliases, storeId).entry == null)
+  if (open.length === 0) return items
+  let found: ReceiptSuggestions[]
+  try {
+    found = await suggestProductsForReceiptLines(open.map(({ item }) => item.name), storeId)
+  } catch (error) {
+    console.error('Could not look up product suggestions for receipt review', error)
+    return items
+  }
+  const result = [...items]
+  open.forEach(({ item, index }, position) => {
+    const { suggestions, confident } = found[position]
+    if (suggestions.length === 0) return
+    result[index] = { ...item, productSuggestions: suggestions, ...(confident && { productId: suggestions[0].productId }) }
+  })
+  return result
 }
 
 /** Resolves an OCR address to an existing branch, or creates the branch when OCR has enough
@@ -254,18 +299,23 @@ export async function createPurchaseFromReceiptItems(
   const db = getDb()
   const date = resolveReceiptPurchaseDate(options.date, options.storedDate ?? null)
 
-  // Only the candidates for these item names, not the whole catalog.
-  const catalog = await getProductCatalogCached(activeItems.map((item) => item.name))
-  const subcategories = await getSubcategoryCatalogCached()
   const candidateAliases = await getAliasesForNames(activeItems.map((item) => normalizeProductText(item.name)))
+  // The products a household picked in review are authoritative for their lines — but only ids of
+  // products that exist: the id comes from the browser.
+  const chosenProductIds = activeItems.flatMap((item) => (item.productId ? [item.productId] : []))
+  // Only the candidates for these item names (and their aliases and picks), not the whole catalog.
+  const catalog = await receiptMatchingCatalog(activeItems.map((item) => item.name), candidateAliases, chosenProductIds)
+  if (chosenProductIds.some((id) => !catalog.some((product) => product.id === id))) {
+    throw new Error('Vybraný produkt už v katalogu není. Vyberte u položky jiný, nebo žádný.')
+  }
+  const subcategories = await getSubcategoryCatalogCached()
   const subcategoryId = (category: ItemCategory, name: string | null | undefined) =>
     name ? subcategories.find((row) => row.category === category && row.name === name)?.id ?? null : null
   const resolvedItems = activeItems.map((item) => {
-    const exactEntry = matchProductByName(catalog, item.name)
-    // No exact name match: try the deterministic alias/fuzzy tiers before giving up (spec section 7)
-    // — only auto-applied above the auto-accept confidence threshold (spec section 8/9).
-    const fuzzyMatch = !exactEntry ? matchProduct(item.name, catalog, candidateAliases, options.storeId ?? null) : null
-    const catalogEntry = exactEntry ?? (fuzzyMatch && fuzzyMatch.confidence >= AUTO_ACCEPT_THRESHOLD ? catalog.find((product) => product.id === fuzzyMatch.productId) ?? null : null)
+    // The household's own pick first; else the line's name — exactly, or by the alias/fuzzy tiers
+    // when confident enough to auto-accept (spec sections 7–9).
+    const chosenEntry = item.productId ? catalog.find((product) => product.id === item.productId) ?? null : null
+    const catalogEntry = chosenEntry ?? resolveCatalogProduct(item.name, catalog, candidateAliases, options.storeId ?? null).entry
     if (options.source === 'auto') {
       // processReceiptImport() already verified every item resolves before calling this, so
       // `placement` is never null here — but fall back to the item's own values rather than a
@@ -279,6 +329,7 @@ export async function createPurchaseFromReceiptItems(
         location: placement?.location ?? item.location,
         subcategory: catalogEntry?.subcategory ?? item.subcategory,
         nonInventory: catalogEntry?.isNonInventory ?? item.nonInventory ?? false,
+        pickedInReview: chosenEntry != null,
       }
     }
     // 'confirmed': a known catalog product's category is still authoritative (consistent with
@@ -299,6 +350,7 @@ export async function createPurchaseFromReceiptItems(
       location,
       subcategory: subcategory ?? undefined,
       nonInventory: catalogEntry?.isNonInventory ?? item.nonInventory ?? false,
+      pickedInReview: chosenEntry != null,
     }
   })
 
@@ -374,7 +426,10 @@ export async function createPurchaseFromReceiptItems(
   }
 
   if (options.source === 'confirmed') {
-    for (const item of resolvedItems) {
+    // A line the household linked to a catalog product in review is that product: no catalog entry
+    // is created or changed under the receipt's printed text ("KUR.PRSA"), which would only be a
+    // duplicate of it. What the household corrected stays on the purchase line itself.
+    for (const item of resolvedItems.filter((item) => !item.pickedInReview)) {
       // Always concrete for 'confirmed' items (resolved above) — the `?? 'Spíž'` here only
       // satisfies the type checker, which can't see that per-branch guarantee across the shared
       // `resolvedItems` array type.
@@ -405,8 +460,11 @@ export async function createPurchaseFromReceiptItems(
     // whichever product the corrected name resolved to (store-specific when the receipt's store is
     // known, since the same abbreviation can mean different things at different retailers — spec
     // section 6). Best-effort: an alias failing to save must not fail the whole import.
+    // The same goes for a product picked in review: the receipt's text becomes that product's alias at
+    // this store, so the next receipt printing it is recognized without review.
     for (const [index, item] of resolvedItems.entries()) {
-      if (!item.rawName || normalizeProductText(item.rawName) === normalizeProductText(item.name)) continue
+      if (!item.rawName) continue
+      if (!item.pickedInReview && normalizeProductText(item.rawName) === normalizeProductText(item.name)) continue
       const productId = item.productId ?? productIdByItemId.get(itemRows[index]?.id ?? '')
       if (!productId) continue
       try {
@@ -631,10 +689,10 @@ async function runReceiptPipeline(
   // form (via toReceiptLineItems) and to decide whether an item's placement is actually resolvable
   // (via resolveItemPlacement) — see that function's doc comment for the catalog-first priority.
   // Only the candidates for the receipt's item names, not the whole catalog.
-  const catalog = await getProductCatalogCached(extracted.items.map((item) => item.name))
-  // Store not resolved yet at this point in the pipeline (findOrCreateStoreLocation runs below) —
-  // only global aliases can be considered for this first, pre-store-resolution preview.
-  const previewAliases = await getAliasesForNames(extracted.items.map((item) => normalizeProductText(item.name)))
+  // Every alias of the lines' texts, global and per store; which apply is decided per store when
+  // matching (lib/categorization.ts), so this one read serves the preview and the final pass.
+  const aliases = await getAliasesForNames(extracted.items.map((item) => normalizeProductText(item.name)))
+  const catalog = await receiptMatchingCatalog(extracted.items.map((item) => item.name), aliases)
 
   const parsedRow = await update({
     status: 'parsed',
@@ -647,7 +705,9 @@ async function runReceiptPipeline(
     discountTotal: extracted.discountTotal?.toString(),
     total: extracted.total?.toString(),
     confidence: extracted.confidence?.toString(),
-    items: JSON.stringify(toReceiptLineItems(extracted, catalog, previewAliases, null)),
+    // Store not resolved yet at this point (findOrCreateStoreLocation runs below) — only global
+    // aliases apply to this first preview.
+    items: JSON.stringify(toReceiptLineItems(extracted, catalog, aliases, null)),
   })
 
   // Resolve the retailer and physical branch immediately after parsing. This keeps the
@@ -667,10 +727,16 @@ async function runReceiptPipeline(
 
   await update({ status: 'validating' })
 
-  if (needsReview(extracted)) {
+  const storeId = enrichedParsedRow.storeId ?? parsedStoreId ?? null
+  // A receipt sent to review gets its lines again, now with the store's own aliases and with
+  // product suggestions for the lines nothing recognized.
+  const toReview = async () => {
     trace.validation = 'review_required'
-    return update({ status: 'review_required' })
+    const items = await withProductSuggestions(toReceiptLineItems(extracted, catalog, aliases, storeId), catalog, aliases, storeId)
+    return update({ status: 'review_required', items: JSON.stringify(items) })
   }
+
+  if (needsReview(extracted)) return toReview()
 
   // Storage-location/category gate: even a mathematically-consistent, complete receipt must go to
   // review if any item's category+pantry-location can't be resolved confidently — never guess
@@ -678,13 +744,14 @@ async function runReceiptPipeline(
   // product owner's pantry-tracking request).
   // A cash-rounding line is not a product and is never stored (toReceiptLineItems drops it), so it
   // has no storage location to resolve and must not stop the receipt.
+  // A line recognized by a learned alias is placed by its product, like one recognized by name.
   const unplaceable = extracted.items.some(
-    (item) => item.name.trim().length > 0 && !isRoundingLine(item.name) && resolveItemPlacement(matchProductByName(catalog, item.name), item.category, item.name) == null,
+    (item) =>
+      item.name.trim().length > 0 &&
+      !isRoundingLine(item.name) &&
+      resolveItemPlacement(resolveCatalogProduct(item.name, catalog, aliases, storeId).entry, item.category, item.name) == null,
   )
-  if (unplaceable) {
-    trace.validation = 'review_required'
-    return update({ status: 'review_required' })
-  }
+  if (unplaceable) return toReview()
 
   // Duplicate check: same household, same date, matched by receipt number or by store+total.
   const extractedDate = extracted.date
@@ -711,9 +778,7 @@ async function runReceiptPipeline(
   }
   trace.validation = 'passed'
 
-  const storeId = enrichedParsedRow.storeId ?? parsedStoreId
-  const finalAliases = await getAliasesForNames(extracted.items.map((item) => normalizeProductText(item.name)))
-  const lineItems = toReceiptLineItems(extracted, catalog, finalAliases, storeId ?? null)
+  const lineItems = toReceiptLineItems(extracted, catalog, aliases, storeId)
   const resolvedStoreLocationId = enrichedParsedRow.storeLocationId ?? parsedStoreLocationId
   const purchase = await createPurchaseFromReceiptItems(row.householdId, lineItems, {
     date: extracted.date ?? undefined,

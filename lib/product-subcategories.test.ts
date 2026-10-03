@@ -99,3 +99,64 @@ describe('Ostatní item category', () => {
     expect(classifySubcategoryByKeyword('Ostatní', normalizeProductText(name))).toBe(expected)
   })
 })
+
+// The Potraviny subcategories added on 2026-10-03, checked on real catalog names — including the
+// substring traps found while building them ("čočk" inside "Cocktails", "štika" inside "Paštika").
+describe('classifySubcategoryByKeyword — new food subcategories (real catalog names)', () => {
+  const place = (name: string) => classifySubcategoryByKeyword('Potraviny', normalizeProductText(name))
+
+  it.each([
+    ['Vejce M-L 10 ks volný výběh', 'Vejce'],
+    ['Martin Prchal Vejce křepelčí', 'Vejce'],
+    ['Rio Mare Tuňák ve vlastní šťávě', 'Ryby a mořské plody'],
+    ['Nowaco Rybí prsty nemleté exclusive', 'Ryby a mořské plody'],
+    ['Lagris Čočka červená půlená 1kg', 'Luštěniny'],
+    ['clever Cizrna ve slaném nálevu 400g', 'Luštěniny'],
+    ['ARO Vlašské ořechy jádra', 'Ořechy, semínka a sušené ovoce'],
+    ['Jihlavanka Standard original pražená mletá káva 1000g', 'Káva a čaj'],
+    ['Dilmah Zelený Čaj Jasmín plech', 'Káva a čaj'],
+    ['Velkopopovický Kozel 12, ležák', 'Alkoholické nápoje'],
+    ['Finlandia Vodka 700ml', 'Alkoholické nápoje'],
+    ['Frankovka Morava Selection 0,75l', 'Alkoholické nápoje'],
+    ['Schwartau Malinový džem výběrový 340g', 'Džemy, med a pomazánky'],
+    ['Medokom Med květový 900g', 'Džemy, med a pomazánky'],
+    ['Srdce domova Vlašský salát 400g', 'Lahůdky a hotová jídla'],
+    ['alpro sójový nápoj, 1 000 ml', 'Rostlinné alternativy'],
+    ['ALNATURA BIO Tofu natur', 'Rostlinné alternativy'],
+    ['Vitana Droždí sušené pekařské', 'Mouka a pečení'],
+    ['Cukrovar Vrbátky Cukr krupice', 'Mouka a pečení'],
+    ['ARO Olej řepkový', 'Oleje a tuky'],
+    ['Flora margarín 400 g', 'Oleje a tuky'],
+    ['Benkor Majoránka', 'Koření a bylinky'],
+    ['Chion Sůl mořská', 'Koření a bylinky'],
+  ])('%s → %s', (name, subcategory) => {
+    expect(place(name)).toBe(subcategory)
+  })
+
+  it.each([
+    ['Srdce domova Paštika s kanadskými brusinkami 150g', 'Ryby a mořské plody'], // "štika" inside "paštika"
+    ['Šafránka BIO Černý rybíz extra džem', 'Ryby a mořské plody'], // "rybí" inside "rybíz"
+    ['MIX Pornstar Martini Cocktail 0,33l', 'Luštěniny'], // "čočk" without accents is "cock"
+    ['Lahůdky Cajthaml Laskonka 3x40g', 'Káva a čaj'], // "caj" starts "Cajthaml"
+    ['Jupí Sirup citrón 0,7l', 'Alkoholické nápoje'], // 0,7 l is not only spirits
+    ['Müllermilch Mléčný nápoj s pistáciovo-kokosovou příchutí', 'Alkoholické nápoje'],
+    ['Krušovice HOŘKÉ NEALKO nealkoholické pivo 0,5 l', 'Alkoholické nápoje'],
+    ['Kinder Surprise čokoládové vajíčko s překvapením', 'Vejce'],
+    ['Maggi Přidej vejce Formanská polévka', 'Vejce'],
+    ['Olma Olmíci Haribo Vanilka', 'Koření a bylinky'],
+    ['bombus Protein tyčinka s příchutí kakao a kokos, 50 g', 'Mouka a pečení'],
+    ['Kitchin Artyčoky v oleji', 'Oleje a tuky'],
+    ['R56-HANACKA PEPRMINT 20% 0,5L', 'Koření a bylinky'],
+  ])('%s is not %s', (name, wrong) => {
+    expect(place(name)).not.toBe(wrong)
+  })
+
+  it('keeps non-alcoholic beer among the drinks', () => {
+    expect(place('Krušovice HOŘKÉ NEALKO nealkoholické pivo 0,5 l')).toBe('Nápoje')
+  })
+
+  it('lists every new subcategory in PRODUCT_SUBCATEGORIES.Potraviny', async () => {
+    const { NEW_FOOD_SUBCATEGORIES } = await import('@/lib/product-subcategories')
+    for (const name of NEW_FOOD_SUBCATEGORIES) expect(isValidProductSubcategory('Potraviny', name)).toBe(true)
+  })
+})

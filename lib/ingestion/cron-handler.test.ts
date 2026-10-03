@@ -99,9 +99,18 @@ describe('handleIngestCron', () => {
     expect(logs.error).not.toHaveBeenCalled()
   })
 
-  it('runs unauthenticated only when no CRON_SECRET is configured (local development)', async () => {
+  it('refuses every request when CRON_SECRET is missing, before doing any work', async () => {
     vi.stubEnv('CRON_SECRET', '')
-    ingest.runPriceSources.mockResolvedValue({ billa: ran })
-    expect((await handleIngestCron(request(), 'billa')).status).toBe(200)
+    const response = await handleIngestCron(request(), 'billa')
+    expect(response.status).toBe(503)
+    expect(await response.json()).toEqual({ error: 'Cron is not configured' })
+    expect(ingest.runPriceSources).not.toHaveBeenCalled()
+    expect(logs.error).toHaveBeenCalledWith('[cron] CRON_SECRET is not configured; refusing the cron request')
+  })
+
+  it('refuses a token that only shares a prefix with the secret', async () => {
+    expect((await handleIngestCron(request('Bearer secretX'))).status).toBe(401)
+    expect((await handleIngestCron(request('Bearer secre'))).status).toBe(401)
+    expect(ingest.runPriceSources).not.toHaveBeenCalled()
   })
 })

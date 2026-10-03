@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { syncAlbertStoreFormats } from '@/lib/db/store-directory'
 import { invalidateStoreCaches } from '@/lib/db/cache-invalidation'
+import { rejectUnauthorizedCron } from '@/lib/cron-auth'
 
 // Weekly, an hour after the OpenStreetMap store import (/api/cron/import-stores): moves the Albert
 // branches that are hypermarkets — per albert.cz's own store pages — to the "Albert Hypermarket"
@@ -10,10 +11,8 @@ import { invalidateStoreCaches } from '@/lib/db/cache-invalidation'
 export const maxDuration = 300
 
 export async function GET(request: Request) {
-  const cronSecret = process.env.CRON_SECRET
-  if (cronSecret && request.headers.get('authorization') !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const rejected = rejectUnauthorizedCron(request)
+  if (rejected) return rejected
   try {
     const report = await syncAlbertStoreFormats({ apply: true })
     invalidateStoreCaches()

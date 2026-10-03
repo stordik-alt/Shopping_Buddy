@@ -63,7 +63,7 @@ describe('Cloudflare cron triggers', () => {
     expect(request.method).toBe('GET')
     expect(new URL(request.url).pathname).toBe('/api/cron/shopping-reminders')
     expect(request.headers.get('authorization')).toBe('Bearer s3cret')
-    // Without a secret no header is sent, so the route's own check decides (it rejects when CRON_SECRET is set).
+    // Without a secret no header is sent, and the route refuses the call (lib/cron-auth.ts fails closed).
     expect(cronRequest('/api/cron/x', undefined).headers.get('authorization')).toBeNull()
   })
 })

@@ -6,6 +6,7 @@ import { createHouseholdNotification } from '@/lib/notify'
 import { remindDueRecurringPayments } from '@/lib/db/recurring-reminders'
 import { findStaleItems } from '@/lib/reminders'
 import { todayInPrague } from '@/lib/today'
+import { rejectUnauthorizedCron } from '@/lib/cron-auth'
 
 // Phase D "shopping reminders" (docs/04_ROADMAP.md): a daily Vercel Cron job (see vercel.json)
 // that notifies each household about undone list items that have sat around long enough to be
@@ -18,10 +19,8 @@ import { todayInPrague } from '@/lib/today'
 // Vercel project's environment variables for that check to actually protect this route; until
 // it's set, the route allows the request through unauthenticated (see docs/07_CHANGELOG.md).
 export async function GET(request: Request) {
-  const cronSecret = process.env.CRON_SECRET
-  if (cronSecret && request.headers.get('authorization') !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const rejected = rejectUnauthorizedCron(request)
+  if (rejected) return rejected
 
   const db = getDb()
   const pendingItems = await db.query.shoppingListItems.findMany({

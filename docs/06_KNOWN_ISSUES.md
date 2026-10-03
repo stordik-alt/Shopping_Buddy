@@ -15,7 +15,7 @@ This is a living list. Remove an item only after the fix is verified.
 
 ## Infrastructure / verification
 - The CI `database` job skips itself until the repository secret `TEST_DATABASE_URL` (Neon test branch) is added, so database-backed tests (server actions, receipt routes, `lib/db`) currently run only locally (`pnpm test`).
-- No Content-Security-Policy is set; only the basic security headers in `next.config.mjs`.
+- The Content-Security-Policy in `next.config.mjs` still allows `'unsafe-inline'` scripts (no nonces).
 - `retryReceiptImportAction` is not counted by the receipt upload limit (30 per household per 24 h).
 - Vercel build/deployment must be explicitly checked after relevant changes.
 - Neon migrations must be verified against the real development database before production use.

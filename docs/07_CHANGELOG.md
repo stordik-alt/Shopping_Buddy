@@ -1,3 +1,11 @@
+## 2026-10-03 (Audit fixes: receipt re-processing, fail-closed crons, receipt test stub)
+- **Bug fixed — a completed receipt could be recorded twice:** `processReceiptImport` was still exported from the `'use server'` module `app/actions/receipts.ts`, so the browser could call it directly. Its ownership check held, but the call skipped `claimReceiptImport`; and because the duplicate check skips the import itself, re-running it on an already completed import created a second purchase with its expenses (budget counted twice), overwrote `purchaseId`, and paid for OCR and the model again outside the upload limit. The pipeline and its helpers moved unchanged into `lib/receipt-import.ts`, which is not a server-action module; `app/actions/receipts.ts` now exports only actions.
+- **Regression guard:** `test/server-action-exports.test.ts` (static, no database) fails when any `'use server'` module exports a runtime value not named `…Action`; it fails on the previous code.
+- **Crons fail closed:** the six copies of the cron check became `lib/cron-auth.ts`. A missing `CRON_SECRET` now refuses the request with `503` instead of skipping authorization (the old behaviour is how a local request once wrote 77 duplicate prices, 2026-09-24); the token comparison is constant-time.
+- **Receipt tests on the Neon driver:** the in-memory R2 stub in `app/actions/receipts.test.ts` and `app/api/receipts/[id]/image/route.test.ts` answered every non-R2 `fetch` with 405, which failed every query of the Neon HTTP driver, so those 81 tests could only pass on a local PostgreSQL. The stub now answers only the fake bucket's host and passes everything else to the real `fetch`.
+- **Docs:** stale "Vercel Blob" comments in the receipt code; `docs/06_KNOWN_ISSUES.md` no longer claims there is no CSP.
+- **Verification:** `tsc` clean; full suite on the local PostgreSQL (`pnpm test:local`, no Neon) and `next build` against the local database.
+
 ## 2026-10-02 (Persistent explicit piece package evidence — phase 5)
 - **What:** the persistent `product_packages` catalog now supports canonical `ks` rows alongside `kg` and `l`.
 - **Evidence:** an explicit `N ks` marker in a piece-priced product name is persisted during the existing batched official-price evidence pass; a `ks` price by itself never invents a package count.

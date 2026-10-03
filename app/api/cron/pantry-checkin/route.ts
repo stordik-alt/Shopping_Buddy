@@ -9,6 +9,7 @@ import { RHYTHM_WINDOW_DAYS } from '@/lib/purchase-rhythm'
 import { PANTRY_CHECK_HREF } from '@/lib/tab-url'
 import { todayInPrague } from '@/lib/today'
 import type { ItemCategory, PantryItem, PurchaseRecord } from '@/lib/types'
+import { rejectUnauthorizedCron } from '@/lib/cron-auth'
 
 // Household pantry ("spíž"): the weekly check (vercel.json, Sunday afternoon). One notification per
 // household listing what to check — items whose per-category check-in interval has elapsed
@@ -21,10 +22,8 @@ import type { ItemCategory, PantryItem, PurchaseRecord } from '@/lib/types'
 // $CRON_SECRET`; proxy.ts's matcher excludes all of api/cron/* from session protection, since
 // there's no session to check here.
 export async function GET(request: Request) {
-  const cronSecret = process.env.CRON_SECRET
-  if (cronSecret && request.headers.get('authorization') !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const rejected = rejectUnauthorizedCron(request)
+  if (rejected) return rejected
 
   const db = getDb()
   const allItems = await db.query.pantryItems.findMany({ with: { subcategory: { columns: { name: true } } } })

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { importRecipeBatch } from '@/lib/recipes/importer'
 import { RECIPE_SOURCE_ADAPTERS } from '@/lib/recipes/sources'
 import { invalidateRecipeCaches } from '@/lib/db/cache-invalidation'
+import { rejectUnauthorizedCron } from '@/lib/cron-auth'
 
 export const maxDuration = 300
 
@@ -36,10 +37,8 @@ function queryForSource(sourceIndex: number): string {
 }
 
 export async function GET(request: Request) {
-  const cronSecret = process.env.CRON_SECRET
-  if (cronSecret && request.headers.get('authorization') !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const rejected = rejectUnauthorizedCron(request)
+  if (rejected) return rejected
 
   if (process.env.RECIPE_IMPORT_IMAGE_COPY_ALLOWED !== 'true') {
     return NextResponse.json({ error: 'RECIPE_IMPORT_IMAGE_COPY_ALLOWED=true is required' }, { status: 500 })

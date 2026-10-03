@@ -3,7 +3,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { splitCollapsedExternalProducts } from '@/lib/db/split-collapsed-products'
-import { findProductIdByExternalRef, getCanonicalStoreLocationId, getProductCatalog, getHouseholdData, getProductPrices, getStandaloneOffers, getStoreByChain, getStoreIdByChain, getStores, joinHouseholdViaInvitation, loadExternalProductContext, loadLatestOfficialPrices, recordOfficialPrice, resolveOrCreateProductFromExternal, touchExternalRefs, upsertActiveDeal } from '@/lib/db/queries'
+import { confirmOfficialPrices, createActiveDealWriter, findProductIdByExternalRef, getCanonicalStoreLocationId, getProductCatalog, getHouseholdData, getProductPrices, getStandaloneOffers, getStoreByChain, getStoreIdByChain, getStores, joinHouseholdViaInvitation, loadExternalProductContext, loadLatestOfficialPrices, recordOfficialPrice, resolveOrCreateProductFromExternal, touchExternalRefs, upsertActiveDeal } from '@/lib/db/queries'
 
 // Regression coverage for the "household events" notification work (docs/07_CHANGELOG.md,
 // 2026-09-21) and for the join-via-invitation logic itself, which docs/01_CURRENT_STATE.md
@@ -769,6 +769,65 @@ describe('upsertActiveDeal', () => {
       }
     })
 
+  })
+})
+
+describe('confirmOfficialPrices', () => {
+  it('confirms many rows per date in one write and never moves a confirmation backwards', async () => {
+    const store = await db.query.stores.findFirst({ where: eq(schema.stores.chain, 'dm') })
+    const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Drogerie') })
+    const products = await db.insert(schema.products).values([1, 2].map((n) => ({ name: `__test_confirm_${n}_${crypto.randomUUID()}`, categoryId: category!.id }))).returning()
+    try {
+      const written = await Promise.all(products.map((product) => recordOfficialPrice({ productId: product.id, storeId: store!.id, sourceReference: `__test_sku_${crypto.randomUUID()}`, regularPrice: 50, currency: 'CZK', unit: 'kg', unitPrice: 500, observedAt: '2026-09-20' }, undefined)))
+      const ids = written.map((result) => result.latest!.id)
+      // Deferred, as an ingestion run collects them; a later reading arrives before an older one.
+      const collected: { id: string; confirmedAt: string }[] = []
+      for (const [index, product] of products.entries()) {
+        const result = await recordOfficialPrice({ productId: product.id, storeId: store!.id, sourceReference: 'ignored', regularPrice: 50, currency: 'CZK', unit: 'kg', unitPrice: 500, observedAt: '2026-09-24' }, written[index].latest, { deferConfirm: (confirmation) => collected.push(confirmation) })
+        expect(result.action).toBe('confirm')
+      }
+      expect(await db.query.prices.findMany({ where: inArray(schema.prices.id, ids) })).toEqual(expect.arrayContaining([expect.objectContaining({ lastConfirmedAt: null })]))
+      await confirmOfficialPrices([...collected, { id: ids[0], confirmedAt: '2026-09-22' }])
+      const rows = await db.query.prices.findMany({ where: inArray(schema.prices.id, ids) })
+      expect(rows.map((row) => row.lastConfirmedAt)).toEqual(['2026-09-24', '2026-09-24'])
+    } finally {
+      await db.delete(schema.products).where(inArray(schema.products.id, products.map((product) => product.id)))
+    }
+  })
+})
+
+describe('createActiveDealWriter', () => {
+  it('leaves an unchanged active deal alone, queues new deals until flush, and keeps the later of two readings', async () => {
+    const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
+    const [known, fresh] = await db.insert(schema.products).values([1, 2].map((n) => ({ name: `__test_deal_writer_${n}_${crypto.randomUUID()}`, categoryId: category!.id }))).returning()
+    const storeLocationId = await getCanonicalStoreLocationId('Lidl')
+    const storeId = await getStoreIdByChain('Lidl')
+    const deal = (productId: string, dealPrice: number) => ({ productId, storeId, storeLocationId, dealPrice, validFrom: '2026-09-01', validUntil: '2099-01-01' })
+    try {
+      await upsertActiveDeal(deal(known.id, 19.9))
+      const [before] = await db.query.deals.findMany({ where: eq(schema.deals.productId, known.id) })
+
+      const writer = await createActiveDealWriter(storeId, [known.id])
+      expect(await writer.upsert(deal(known.id, 19.9))).toBe(false) // same promotion read again
+      expect(await writer.upsert(deal(fresh.id, 9.9))).toBe(true)
+      expect(await writer.upsert(deal(fresh.id, 8.9))).toBe(true) // read twice in one run: later wins
+      expect(await db.query.deals.findMany({ where: eq(schema.deals.productId, fresh.id) })).toHaveLength(0) // not before flush
+      expect(await writer.flush()).toBe(1)
+
+      const [after] = await db.query.deals.findMany({ where: eq(schema.deals.productId, known.id) })
+      expect(after).toEqual(before) // untouched
+      const freshDeals = await db.query.deals.findMany({ where: eq(schema.deals.productId, fresh.id) })
+      expect(freshDeals).toHaveLength(1)
+      expect(Number(freshDeals[0].dealPrice)).toBe(8.9)
+    } finally {
+      await db.delete(schema.deals).where(inArray(schema.deals.productId, [known.id, fresh.id]))
+      await db.delete(schema.products).where(inArray(schema.products.id, [known.id, fresh.id]))
+    }
+  })
+
+  it('refuses a deal of another store', async () => {
+    const writer = await createActiveDealWriter(await getStoreIdByChain('Lidl'), [])
+    await expect(writer.upsert({ productId: crypto.randomUUID(), storeId: await getStoreIdByChain('dm'), storeLocationId: null, dealPrice: 1, validFrom: '2026-09-01', validUntil: '2099-01-01' })).rejects.toThrow('given to the writer of store')
   })
 })
 

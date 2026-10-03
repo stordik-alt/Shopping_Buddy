@@ -123,6 +123,66 @@ describe('word forms', () => {
   })
 })
 
+describe('isDirectMatch — other products and parentheses (real catalog names)', () => {
+  it('does not let words in parentheses make the match', () => {
+    // "(92% masa)" used to make chicken ham a match for "kuřecí maso".
+    expect(isDirectMatch('baskeeto kureci sunka nejvyssi jakosti (92% masa)', ['kureci', 'maso'])).toBe(false)
+    expect(isDirectMatch('berger kureci sunka (85% masa)', ['kureci', 'maso'])).toBe(false)
+    expect(isDirectMatch('trhane kureci maso', ['kureci', 'maso'])).toBe(true)
+    // A size or strength in parentheses still counts.
+    expect(isDirectMatch('madeta jihoceske maslo (82%)', ['maslo', '82%'])).toBe(true)
+  })
+
+  it('does not take a name that says it is another product for the item', () => {
+    expect(isDirectMatch('radegast ryze horka 12 pivo lezak svetly 6 x 0,33l', ['ryze'])).toBe(false)
+    expect(isDirectMatch('orion banany zele v cokolade 4x45g', ['banany'])).toBe(false)
+    expect(isDirectMatch('corny smoothie jablko, jahoda, boruvka a oves', ['jablka'])).toBe(false)
+    expect(isDirectMatch('jogurt jahoda zakusek 2 ks', ['jogurt'])).toBe(false)
+    expect(isDirectMatch('sendvic sunka, slanina, tunak 200 g', ['sunka'])).toBe(false)
+    expect(isDirectMatch('pernik vejce male s obrazkem 70 g', ['vejce'])).toBe(false)
+    expect(isDirectMatch('*alb toust. chleb sv', ['chleb'])).toBe(false)
+    expect(isDirectMatch('cokoladova vejce', ['vejce'])).toBe(false)
+  })
+
+  it('treats some phrases as another product wherever they stand', () => {
+    expect(isDirectMatch('vahala vejce v aspiku', ['vejce'])).toBe(false)
+    expect(isDirectMatch('kinder maxi vejce s prekvapenim 220 g', ['vejce'])).toBe(false)
+    expect(isDirectMatch('kureci prsa s opecenou karotkou a bbq omackou (set k priprave hotoveho jidla)', ['kureci', 'prsa'])).toBe(false)
+  })
+
+  it('keeps the product when that word is what was asked for', () => {
+    expect(isDirectMatch('sunka od kosti', ['sunka'])).toBe(true)
+    expect(isDirectMatch('kureci prsni sunka', ['kureci', 'sunka'])).toBe(true)
+    expect(isDirectMatch('pivo lezak svetly', ['pivo'])).toBe(true)
+    expect(isDirectMatch('cokolada horka 70%', ['cokolada'])).toBe(true)
+    expect(isDirectMatch('aspik veprovy 150 g', ['aspik'])).toBe(true)
+  })
+
+  it('still counts the item when the other word only describes a flavour after a linking word', () => {
+    expect(isDirectMatch('pizza se sunkou', ['pizza'])).toBe(true)
+    expect(isDirectMatch('rohlik s cokoladou', ['rohlik'])).toBe(true)
+  })
+
+  it('catches pet food, ready salads and purées', () => {
+    expect(isDirectMatch('papky kureci salam krmivo pro psy', ['salam'])).toBe(false)
+    expect(isDirectMatch('pappudia salat vejce & tunak', ['vejce'])).toBe(false)
+    expect(isDirectMatch('dmbio bio ovocne pyre jablko & banan, 360 g', ['banany'])).toBe(false)
+  })
+
+  it('does not treat an adjective of such a word as another product, except for the listed ones', () => {
+    expect(isDirectMatch('okurka salatova hadovka 1 ks', ['okurka'])).toBe(true)
+    expect(isDirectMatch('sunkovy salam', ['salam'])).toBe(true)
+    expect(isDirectMatch('toustovy chleb', ['chleb'])).toBe(false)
+  })
+
+  it('does not mistake an unrelated word for another product', () => {
+    // "zele" (jelly) is short: only the same word counts, not "zelenina".
+    expect(isDirectMatch('brambory zelenina mix', ['brambory'])).toBe(true)
+    expect(isDirectMatch('vejce m 10 ks', ['vejce'])).toBe(true)
+    expect(isDirectMatch('maslo 82% 250 g', ['maslo'])).toBe(true)
+  })
+})
+
 describe('isDirectMatch', () => {
   it('finds the product under another form of the word', () => {
     expect(isDirectMatch('rohlik tukovy 43 g', ['rohliky'])).toBe(true)
@@ -324,7 +384,10 @@ describe('the plain product ranks first', () => {
     expect(plain).toBeGreaterThan(brand)
     expect(brand).toBeGreaterThan(wafer)
     expect(wafer).toBeGreaterThan(bar)
-    expect(bar).toBeGreaterThan(DIRECT_BONUS) // still the item's word, still findable by a search
+    // "tyčinka" names another product: a bar is not butter, so it is no longer a direct match — but
+    // it still mentions butter and stays findable by a search, below every real butter.
+    expect(bar).toBeGreaterThan(0)
+    expect(bar).toBeLessThan(DIRECT_BONUS)
   })
 
   it('does not rank a described roll below one with a flavour in front', () => {

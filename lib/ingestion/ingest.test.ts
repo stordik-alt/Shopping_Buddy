@@ -4,7 +4,10 @@ import type { IngestionSource, IngestResult, NormalizedProduct, PriceConnector }
 // The orchestrator is tested against a stubbed data-access layer: what matters here is which
 // persistence calls it makes for each kind of normalized product, how it isolates failures and how
 // it keeps to its time budget — not the SQL (covered by the DB-backed lib/db/queries.test.ts).
+const dealWriter = vi.hoisted(() => ({ upsert: vi.fn(), flush: vi.fn() }))
 const queries = vi.hoisted(() => ({
+  confirmOfficialPrices: vi.fn(),
+  createActiveDealWriter: vi.fn(),
   getCanonicalStoreLocationId: vi.fn(),
   getStoreByChain: vi.fn(),
   loadExternalProductContext: vi.fn(),
@@ -13,7 +16,6 @@ const queries = vi.hoisted(() => ({
   recordOfficialPrice: vi.fn(),
   resolveOrCreateProductFromExternal: vi.fn(),
   touchExternalRefs: vi.fn(),
-  upsertActiveDeal: vi.fn(),
   getIngestionCursor: vi.fn(),
   setIngestionCursor: vi.fn(),
 }))
@@ -62,6 +64,10 @@ beforeEach(() => {
   queries.resolveOrCreateProductFromExternal.mockResolvedValue('product-1')
   queries.getIngestionCursor.mockResolvedValue(0)
   queries.setIngestionCursor.mockResolvedValue(undefined)
+  queries.confirmOfficialPrices.mockResolvedValue(undefined)
+  queries.createActiveDealWriter.mockResolvedValue(dealWriter)
+  dealWriter.upsert.mockResolvedValue(true)
+  dealWriter.flush.mockResolvedValue(0)
 })
 
 describe('ingestPrices', () => {
@@ -73,6 +79,7 @@ describe('ingestPrices', () => {
     expect(queries.recordOfficialPrice).toHaveBeenCalledWith(
       expect.objectContaining({ productId: 'product-1', storeId: 'store-1', sourceReference: 'a', regularPrice: 50, unit: 'kg', unitPrice: 100 }),
       undefined,
+      { deferConfirm: expect.any(Function) },
     )
   })
 
@@ -81,7 +88,7 @@ describe('ingestPrices', () => {
     const result = await ingestPrices(connector([{ id: 'a', product: product('a', { regularPrice: null, unitPrice: null, deal }) }]), 10)
     expect(result).toMatchObject({ processed: 1, recorded: 0, deals: 1, skipped: 0 })
     expect(queries.recordOfficialPrice).not.toHaveBeenCalled()
-    expect(queries.upsertActiveDeal).toHaveBeenCalledWith(expect.objectContaining({ dealPrice: 15.9, unit: 'kg', unitPrice: 79.5 }))
+    expect(dealWriter.upsert).toHaveBeenCalledWith(expect.objectContaining({ dealPrice: 15.9, unit: 'kg', unitPrice: 79.5 }))
   })
 
   it('does not count a product already linked to the source as new', async () => {
@@ -154,7 +161,7 @@ describe('ingestPrices', () => {
     )
     expect(result.deals).toBe(2)
     expect(queries.getCanonicalStoreLocationId).toHaveBeenCalledTimes(1)
-    expect(queries.upsertActiveDeal).toHaveBeenCalledWith(expect.objectContaining({ storeId: 'store-1', storeLocationId: 'loc-1', dealPrice: 40, unit: 'kg', unitPrice: 80, validUntil: '2026-09-28' }))
+    expect(dealWriter.upsert).toHaveBeenCalledWith(expect.objectContaining({ storeId: 'store-1', storeLocationId: 'loc-1', dealPrice: 40, unit: 'kg', unitPrice: 80, validUntil: '2026-09-28' }))
   })
 
   it('stores an online-only chain\'s deal with the chain and no branch, without looking for one', async () => {
@@ -163,13 +170,13 @@ describe('ingestPrices', () => {
     const result = await ingestPrices(connector([{ id: 'a', product: product('a', { deal }) }]), 10)
     expect(result.deals).toBe(1)
     expect(queries.getCanonicalStoreLocationId).not.toHaveBeenCalled()
-    expect(queries.upsertActiveDeal).toHaveBeenCalledWith(expect.objectContaining({ storeId: 'store-online', storeLocationId: null, dealPrice: 40 }))
+    expect(dealWriter.upsert).toHaveBeenCalledWith(expect.objectContaining({ storeId: 'store-online', storeLocationId: null, dealPrice: 40 }))
   })
 
   it('counts a promotion without a validity window but stores no deal for it', async () => {
     const result = await ingestPrices(connector([{ id: 'a', product: product('a', { promotionWithoutValidity: true }) }]), 10)
     expect(result).toMatchObject({ recorded: 1, deals: 0, promotionsWithoutValidity: 1 })
-    expect(queries.upsertActiveDeal).not.toHaveBeenCalled()
+    expect(dealWriter.upsert).not.toHaveBeenCalled()
     expect(queries.getCanonicalStoreLocationId).not.toHaveBeenCalled()
   })
 
@@ -284,6 +291,62 @@ describe('ingestPrices price dating and history', () => {
     queries.recordOfficialPrice.mockResolvedValue({ action: 'stale', latest: undefined, closedPrevious: false })
     const result = await ingestPrices(connector([{ id: 'a', product: product('a') }]), 10)
     expect(result).toMatchObject({ recorded: 0, skipped: 1 })
+  })
+})
+
+describe('ingestPrices batched writes', () => {
+  const deal = { dealPrice: 40, unitPrice: 80, validFrom: '2026-09-22', validUntil: '2026-09-28' }
+
+  it('collects confirmations of unchanged prices and writes them in one call after the loop', async () => {
+    queries.recordOfficialPrice.mockImplementation(async (observation, _latest, options) => {
+      options.deferConfirm({ id: `row-${observation.sourceReference}`, confirmedAt: observation.observedAt })
+      return { action: 'confirm', latest: undefined, closedPrevious: false }
+    })
+    const result = await ingestPrices(connector(['a', 'b', 'c'].map((id) => ({ id, product: product(id) }))), 10, { today: '2026-10-03' })
+    expect(result).toMatchObject({ unchanged: 3, recorded: 0 })
+    expect(queries.confirmOfficialPrices).toHaveBeenCalledTimes(1)
+    expect(queries.confirmOfficialPrices).toHaveBeenCalledWith([
+      { id: 'row-a', confirmedAt: expect.any(String) },
+      { id: 'row-b', confirmedAt: expect.any(String) },
+      { id: 'row-c', confirmedAt: expect.any(String) },
+    ])
+  })
+
+  it('preloads active deals only for already linked products that carry a deal, and flushes once', async () => {
+    queries.loadExternalProductContext.mockResolvedValue({ ...emptyContext(), refs: new Map([['a', 'product-a'], ['b', 'product-b']]) })
+    await ingestPrices(
+      connector([
+        { id: 'a', product: product('a', { deal }) }, // linked, with a deal
+        { id: 'b', product: product('b') }, // linked, no deal
+        { id: 'c', product: product('c', { deal }) }, // new product: cannot have a deal yet
+      ]),
+      10,
+    )
+    expect(queries.createActiveDealWriter).toHaveBeenCalledWith('store-1', ['product-a'])
+    expect(dealWriter.upsert).toHaveBeenCalledTimes(2)
+    expect(dealWriter.flush).toHaveBeenCalledTimes(1)
+  })
+
+  it('creates no deal writer when no product of the run carries a deal', async () => {
+    await ingestPrices(connector([{ id: 'a', product: product('a') }]), 10)
+    expect(queries.createActiveDealWriter).not.toHaveBeenCalled()
+  })
+
+  it('still writes what was collected when the run is truncated', async () => {
+    let clock = 0
+    const now = () => (clock += 100)
+    const raws = ['a', 'b', 'c', 'd'].map((id) => ({ id, product: product(id, { deal }) }))
+    const result = await ingestPrices(connector(raws), 10, { deadline: 350, now })
+    expect(result.truncated).toBe(true)
+    expect(queries.confirmOfficialPrices).toHaveBeenCalledTimes(1)
+    expect(dealWriter.flush).toHaveBeenCalledTimes(1)
+  })
+
+  it('reports a failed batched write in errors instead of throwing', async () => {
+    queries.confirmOfficialPrices.mockRejectedValue(new Error('db down'))
+    dealWriter.flush.mockRejectedValue(new Error('fk violation'))
+    const result = await ingestPrices(connector([{ id: 'a', product: product('a', { deal }) }]), 10)
+    expect(result.errors).toEqual(['price confirmations (0): db down', 'new deals: fk violation'])
   })
 })
 

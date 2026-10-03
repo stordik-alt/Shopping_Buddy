@@ -1,4 +1,6 @@
 import {
+  confirmOfficialPrices,
+  createActiveDealWriter,
   getCanonicalStoreLocationId,
   getIngestionCursor,
   getStoreByChain,
@@ -9,7 +11,7 @@ import {
   resolveOrCreateProductFromExternal,
   setIngestionCursor,
   touchExternalRefs,
-  upsertActiveDeal,
+  type OfficialPriceConfirmation,
 } from '@/lib/db/queries'
 import { albertHypermarketConnector, albertSupermarketConnector, mergeIngestResults } from '@/lib/ingestion/albert'
 import { pennyFlyerConnector } from '@/lib/ingestion/penny-flyer'
@@ -94,6 +96,16 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
   // at the end.
   const alreadyLinked: string[] = []
   const namedPackageEvidence: Parameters<typeof persistNamedPackageEvidence>[0] = []
+  // Most products of a re-read only confirm an unchanged price, and the store's promotions repeat
+  // from run to run: both are collected here and written together after the loop, instead of one
+  // round trip per product (each round trip keeps the Neon compute busy).
+  const confirmations: OfficialPriceConfirmation[] = []
+  const dealWriter = batch.some((product) => product.deal)
+    ? await createActiveDealWriter(storeId, batch.flatMap((product) => {
+        const productId = product.deal ? context.refs.get(product.externalId) : undefined
+        return productId ? [productId] : []
+      }))
+    : null
 
   for (const [index, { raw, normalized, error: normalizeError }] of prepared.entries()) {
     if (index > 0) options.onProgress?.(index, raws.length)
@@ -143,6 +155,7 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
             observedAt: normalized.recordedAt,
           },
           latestPrices.get(normalized.externalId),
+          { deferConfirm: (confirmation) => confirmations.push(confirmation) },
         )
         if (written.latest) latestPrices.set(normalized.externalId, written.latest)
         if (written.action === 'insert' || written.action === 'update-same-day') {
@@ -165,7 +178,7 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
 
       if (normalized.deal) {
         if (storeLocationId === undefined) storeLocationId = isOnline || connector.chainWideDeals ? null : await getCanonicalStoreLocationId(connector.chain)
-        const dealChanged = await upsertActiveDeal({
+        const dealChanged = await dealWriter!.upsert({
           productId,
           storeId,
           storeLocationId,
@@ -187,6 +200,20 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
   }
 
   if (!result.truncated) options.onProgress?.(raws.length, raws.length)
+
+  // Written even for a truncated run: these belong to the products that were processed.
+  try {
+    await confirmOfficialPrices(confirmations)
+  } catch (err) {
+    result.errors.push(`price confirmations (${confirmations.length}): ${err instanceof Error ? err.message : String(err)}`)
+  }
+  if (dealWriter) {
+    try {
+      await dealWriter.flush()
+    } catch (err) {
+      result.errors.push(`new deals: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
 
   // Package evidence is derived from the already-normalized product name and price. Write it
   // in one batch so package learning does not add a database round trip per product.

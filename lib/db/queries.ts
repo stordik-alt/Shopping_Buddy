@@ -4,6 +4,7 @@ import * as schema from '@/lib/db/schema'
 import { periodStart } from '@/lib/budget'
 import { todayInPrague } from '@/lib/today'
 import { planOfficialPrice, type OfficialPriceAction, type OfficialPriceSnapshot } from '@/lib/ingestion/official-price'
+import { activeDealKey, dealValues, planActiveDeal, type ActiveDealSnapshot, type IngestedDeal } from '@/lib/ingestion/active-deal'
 import { ingestionDate } from '@/lib/ingestion/today'
 import type { IngestionSource as ProductSource } from '@/lib/ingestion/types'
 import { currentWeekStart, parseSavedPlan, type WeeklyMealPlan } from '@/lib/meal-plans'
@@ -1493,6 +1494,30 @@ function isUniqueViolation(err: unknown): boolean {
   return code === '23505'
 }
 
+/** An unchanged official price seen again on a later date: its row's `last_confirmed_at` moves to that date. */
+export type OfficialPriceConfirmation = { id: string; confirmedAt: string }
+
+/** Writes confirmations of unchanged official prices — one UPDATE per date and 1,000 rows instead of
+ *  one per product. A confirmation never moves `last_confirmed_at` backwards, so an older reading
+ *  written late cannot undo a newer one. */
+export async function confirmOfficialPrices(confirmations: OfficialPriceConfirmation[]): Promise<void> {
+  const db = getDb()
+  const idsByDate = new Map<string, string[]>()
+  for (const { id, confirmedAt } of confirmations) {
+    const ids = idsByDate.get(confirmedAt)
+    if (ids) ids.push(id)
+    else idsByDate.set(confirmedAt, [id])
+  }
+  for (const [confirmedAt, ids] of idsByDate) {
+    for (const part of chunks([...new Set(ids)], 1000)) {
+      await db
+        .update(schema.prices)
+        .set({ lastConfirmedAt: confirmedAt })
+        .where(and(inArray(schema.prices.id, part), sql`(${schema.prices.lastConfirmedAt} IS NULL OR ${schema.prices.lastConfirmedAt} < ${confirmedAt}::date)`))
+    }
+  }
+}
+
 /** Writes a retailer-published (CHAIN scope, OFFICIAL) price under the rules in
  *  `lib/ingestion/official-price.ts`: the current price is the observation with the latest date; a
  *  repeat run the same day refreshes that day's row instead of duplicating it; an unchanged price on a
@@ -1514,13 +1539,20 @@ export async function recordOfficialPrice(
     observedAt: string
   },
   latest: OfficialPriceSnapshot | undefined,
+  options: {
+    /** Collects a `confirm` instead of writing it, for `confirmOfficialPrices()` to write a run's
+     *  confirmations together — most products of a re-read only confirm an unchanged price. */
+    deferConfirm?: (confirmation: OfficialPriceConfirmation) => void
+  } = {},
 ): Promise<{ action: OfficialPriceAction['kind']; latest: OfficialPriceSnapshot | undefined; closedPrevious: boolean }> {
   const db = getDb()
   const action = planOfficialPrice(observation, latest)
   if (action.kind === 'stale' || action.kind === 'unchanged') return { action: action.kind, latest, closedPrevious: false }
 
   if (action.kind === 'confirm') {
-    await db.update(schema.prices).set({ lastConfirmedAt: observation.observedAt }).where(eq(schema.prices.id, latest!.id))
+    const confirmation = { id: latest!.id, confirmedAt: observation.observedAt }
+    if (options.deferConfirm) options.deferConfirm(confirmation)
+    else await confirmOfficialPrices([confirmation])
     return { action: 'confirm', latest: { ...latest!, lastConfirmedAt: observation.observedAt }, closedPrevious: false }
   }
 
@@ -1818,65 +1850,83 @@ export async function getCanonicalStoreLocationId(chain: string): Promise<string
   return location.id
 }
 
-/** Upserts the currently-active deal for a product at a store — "currently active" meaning any
- *  existing row whose validity window hasn't ended yet. Re-running ingestion for the same ongoing
- *  promotion updates that one row (price or dates may have shifted slightly) instead of creating a
- *  duplicate every day; a genuinely new promotion (no still-active row) gets its own new row, so
- *  the history of past promotions in `deals` isn't overwritten. Per CLAUDE.md section 16 ("do not
- *  silently overwrite historical price information") — only the *active* row is touched. */
-export async function upsertActiveDeal(deal: {
-  productId: string
-  /** The chain the promotion belongs to. */
-  storeId: string
-  /** The branch it applies at; null for an online-only chain, whose deals have none. */
-  storeLocationId: string | null
-  dealPrice: number
-  /** Promotion price per the product's unit. */
-  unit?: (typeof schema.deals.$inferInsert)['unit']
-  unitPrice?: number
-  currency?: string
-  validFrom: string
-  validUntil: string
-}): Promise<boolean> {
+/** Writes ingested promotions under the active-deal rule (`planActiveDeal` in lib/ingestion/active-deal.ts):
+ *  one still-active row per product, chain and branch, adjusted in place when the same promotion is
+ *  read again, and a new row only when none is active, so past promotions stay in `deals` (CLAUDE.md
+ *  section 16).
+ *
+ *  Built for an ingestion run: the store's active deals for the run's products are loaded up front
+ *  (one query per 1,000 products) instead of one lookup per deal, and new deals are inserted together
+ *  by `flush()` instead of one round trip each. Each round trip keeps the Neon compute busy, and a
+ *  run handles up to ~2,000 products. An adjusted deal is still written at once — those are rare.
+ *  `knownProductIds` are the products that may already have a deal; one created during the run has
+ *  none yet. Call `flush()` once at the end; until then a new deal exists only in memory. */
+export async function createActiveDealWriter(storeId: string, knownProductIds: string[]) {
   const db = getDb()
-  if ((deal.unit == null) !== (deal.unitPrice == null)) throw new Error('A deal needs both unit and unitPrice, or neither')
-  const unitColumns = deal.unit != null && deal.unitPrice != null ? { unit: deal.unit, unitPrice: deal.unitPrice.toString() } : {}
-  const existing = await db.query.deals.findFirst({
-    where: and(
-      eq(schema.deals.productId, deal.productId),
-      eq(schema.deals.storeId, deal.storeId),
-      deal.storeLocationId ? eq(schema.deals.storeLocationId, deal.storeLocationId) : isNull(schema.deals.storeLocationId),
-      sql`${schema.deals.validUntil} >= ${todayInPrague()}`,
-    ),
-  })
-  const currency = deal.currency ?? 'CZK'
-  if (existing) {
-    const changed =
-      existing.dealPrice !== deal.dealPrice.toString() ||
-      (existing.unit ?? null) !== (deal.unit ?? null) ||
-      (existing.unitPrice ?? null) !== (deal.unitPrice != null ? deal.unitPrice.toString() : null) ||
-      existing.currency !== currency ||
-      existing.validFrom !== deal.validFrom ||
-      existing.validUntil !== deal.validUntil
-
-    if (!changed) return false
-
-    await db
-      .update(schema.deals)
-      .set({ dealPrice: deal.dealPrice.toString(), ...unitColumns, currency, validFrom: deal.validFrom, validUntil: deal.validUntil })
-      .where(eq(schema.deals.id, existing.id))
-    return true
+  const active = new Map<string, ActiveDealSnapshot>()
+  const columns = {
+    id: schema.deals.id,
+    productId: schema.deals.productId,
+    storeId: schema.deals.storeId,
+    storeLocationId: schema.deals.storeLocationId,
+    dealPrice: schema.deals.dealPrice,
+    unit: schema.deals.unit,
+    unitPrice: schema.deals.unitPrice,
+    currency: schema.deals.currency,
+    validFrom: schema.deals.validFrom,
+    validUntil: schema.deals.validUntil,
   }
+  const today = todayInPrague()
+  for (const ids of chunks([...new Set(knownProductIds)], 1000)) {
+    const rows = await db
+      .select(columns)
+      .from(schema.deals)
+      .where(and(eq(schema.deals.storeId, storeId), inArray(schema.deals.productId, ids), sql`${schema.deals.validUntil} >= ${today}`))
+      .orderBy(asc(schema.deals.id))
+    // Should a slot ever hold two active rows, the first by id is the one kept current, every run.
+    for (const row of rows) if (!active.has(activeDealKey(row))) active.set(activeDealKey(row), row)
+  }
+  const pending = new Map<string, typeof schema.deals.$inferInsert>()
 
-  await db.insert(schema.deals).values({
-    productId: deal.productId,
-    storeId: deal.storeId,
-    storeLocationId: deal.storeLocationId,
-    dealPrice: deal.dealPrice.toString(),
-    ...unitColumns,
-    currency,
-    validFrom: deal.validFrom,
-    validUntil: deal.validUntil,
-  })
-  return true
+  return {
+    /** Applies one promotion. Returns whether it changed anything (a new or adjusted deal). */
+    async upsert(deal: IngestedDeal): Promise<boolean> {
+      if (deal.storeId !== storeId) throw new Error(`Deal for store ${deal.storeId} given to the writer of store ${storeId}`)
+      const key = activeDealKey(deal)
+      const queued = pending.get(key)
+      if (queued) {
+        // The same promotion twice in one run: the later reading wins, as two separate upserts would.
+        const values = dealValues(deal)
+        const next = { productId: deal.productId, storeId: deal.storeId, storeLocationId: deal.storeLocationId, ...values }
+        const same = queued.dealPrice === next.dealPrice && (queued.unit ?? null) === (next.unit ?? null) && (queued.unitPrice ?? null) === (next.unitPrice ?? null) && queued.currency === next.currency && queued.validFrom === next.validFrom && queued.validUntil === next.validUntil
+        pending.set(key, next)
+        return !same
+      }
+      const plan = planActiveDeal(active.get(key), deal)
+      if (plan.kind === 'unchanged') return false
+      if (plan.kind === 'update') {
+        await db.update(schema.deals).set(plan.values).where(eq(schema.deals.id, plan.id))
+        active.set(key, { id: plan.id, unit: null, unitPrice: null, ...plan.values })
+        return true
+      }
+      pending.set(key, { productId: deal.productId, storeId: deal.storeId, storeLocationId: deal.storeLocationId, ...plan.values })
+      return true
+    },
+    /** Inserts the new deals collected so far. Returns how many were written. */
+    async flush(): Promise<number> {
+      const rows = [...pending.values()]
+      for (const part of chunks(rows, 500)) await db.insert(schema.deals).values(part)
+      pending.clear()
+      return rows.length
+    },
+  }
+}
+
+/** Upserts one product's currently active deal — the single-deal form of `createActiveDealWriter`,
+ *  with the same rule. Returns whether anything changed. */
+export async function upsertActiveDeal(deal: IngestedDeal): Promise<boolean> {
+  const writer = await createActiveDealWriter(deal.storeId, [deal.productId])
+  const changed = await writer.upsert(deal)
+  await writer.flush()
+  return changed
 }

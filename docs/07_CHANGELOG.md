@@ -1,3 +1,7 @@
+## 2026-10-03 (Next.js 16.3.3 → 16.3.8)
+- **What:** patch upgrade of `next` (still pinned exactly) to the current `latest`, 16.3.8. 16.3.3 carried a critical advisory (remote code execution in `next/og`'s `ImageResponse`, fixed in 16.3.6); the app does not use `next/og`, so it was not exploitable here, but `pnpm audit` no longer reports it. No code changes were needed.
+- **Verification:** `tsc` clean; full suite on the local PostgreSQL (`pnpm test:local`, no Neon) and `next build` against the local database.
+
 ## 2026-10-03 (Audit fixes: receipt re-processing, fail-closed crons, receipt test stub)
 - **Bug fixed — a completed receipt could be recorded twice:** `processReceiptImport` was still exported from the `'use server'` module `app/actions/receipts.ts`, so the browser could call it directly. Its ownership check held, but the call skipped `claimReceiptImport`; and because the duplicate check skips the import itself, re-running it on an already completed import created a second purchase with its expenses (budget counted twice), overwrote `purchaseId`, and paid for OCR and the model again outside the upload limit. The pipeline and its helpers moved unchanged into `lib/receipt-import.ts`, which is not a server-action module; `app/actions/receipts.ts` now exports only actions.
 - **Regression guard:** `test/server-action-exports.test.ts` (static, no database) fails when any `'use server'` module exports a runtime value not named `…Action`; it fails on the previous code.

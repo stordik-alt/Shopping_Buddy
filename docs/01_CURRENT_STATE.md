@@ -113,7 +113,7 @@ Do not use it for new backend development unless explicitly requested.
 
 Current application stack:
 
-* Next.js 16.3.3
+* Next.js 16.3.8
 * React 19
 * TypeScript 5.7.3
 * Tailwind CSS 4.x

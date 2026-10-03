@@ -418,6 +418,10 @@ For `REVIEW_REQUIRED`, show the user: the receipt photo, the OCR text, the recog
 individual line items, the total, and any validation errors. The user must be able to correct the
 data. After correction: `REVIEW_REQUIRED → COMPLETED`.
 
+A line no catalog name or alias recognized also offers up to three catalog products it could be
+(section 15), as a "Produkt" choice; one is pre-selected only when it clearly fits. "Žádný z
+nabízených" keeps the line as read.
+
 ---
 
 ## 15. Product matching
@@ -428,6 +432,33 @@ application's existing matching logic (`lib/products.ts`'s `matchProductByName()
 by `addShoppingItemAction` and `importReceiptAction`; extending it for OCR's messier input, rather
 than writing a second matcher, is the expected approach). Matching must not change the item's
 original raw name from the receipt — store `raw_name` and, separately, `productId` when matched.
+
+**As implemented (2026-10-03).** Recognition runs in this order (`resolveCatalogProduct` in
+`lib/receipts.ts`): the product of exactly the line's name; a store-specific alias; a global alias;
+fuzzy similarity — the last three only above the auto-accept confidence. The catalog the line is
+matched against holds the products named like the lines *and* the products their aliases point to
+(`receiptMatchingCatalog` in `lib/receipt-import.ts`); before, it held only the former, so an alias
+match had nothing to resolve to and was dropped.
+
+Receipts print shortened names ("ALB TOUS.CHL. SV.250G") that whole-string similarity cannot tie to
+a retailer's full name. For a receipt sent to review, each line still unrecognized gets
+**suggestions** (`lib/receipt-product-match.ts`, candidates from `lib/db/receipt-candidates.ts`):
+abbreviations are spelled out from a small dictionary, letters OCR misreads on Albert receipts are
+fixed (Ą→Č, Ę→Ě), and a product fits when at least two thirds of the line's words each start a word
+of its name; an agreeing package size (a multipack counts as its whole contents) raises it, a
+different one lowers it, and a chain's own brand ("ALB …") ranks that brand's product first.
+Candidates are only products with a non-receipt price — never one that exists only because an
+earlier receipt line was saved under its printed text — from any chain, the receipt's own winning a
+tie. Pre-selection needs every word to fit, a clear lead over the runner-up, and, for an own-brand
+line, the same brand. Suggestions are never applied without review; a lookup failure only leaves
+them out.
+
+Confirming a pick links the line to that product (the id from the browser is checked to exist),
+records the printed text as that product's **alias at the receipt's store**, and creates or changes
+no catalog product under the printed text. Without a pick, the line is saved as before: the
+catalog keeps the household's category, unit and storage place under the printed text, which is
+what lets the same line complete without review next time. A line recognized by a learned alias
+is placed by its product, so it does not send the receipt to review either.
 
 ---
 

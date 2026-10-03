@@ -82,7 +82,7 @@ function stubReceiptStorage() {
 
 import { MAX_RECEIPT_UPLOADS_PER_DAY } from '@/lib/receipt-upload-limit'
 import { confirmReceiptReviewAction, importReceiptAction, processUploadedReceiptAction, resolveDuplicateReceiptAction, retryReceiptImportAction, uploadReceiptAction } from '@/app/actions/receipts'
-import { processReceiptImport } from '@/lib/receipt-import'
+import { findOrCreateStore, processReceiptImport } from '@/lib/receipt-import'
 import { setPurchaseItemExpenseSplits } from '@/lib/db/purchase-items'
 import { ALBERT_STYLE_RECEIPT_LINES, makeTextPdf } from '@/lib/receipt-pdf.test-helpers'
 import { RECEIPT_STALE_MS } from '@/lib/receipt-progress'
@@ -1354,5 +1354,85 @@ describe('resolveDuplicateReceiptAction', () => {
 
     const row = await db.query.receiptImports.findFirst({ where: eq(schema.receiptImports.id, second) })
     expect(row?.status).toBe('completed')
+  })
+})
+describe('linking receipt lines to catalog products in review', () => {
+  // A retailer's product (it has an official price, so it is a real catalog product, not one saved
+  // under a receipt's printed text). Its words are random letters so no other catalog row can match.
+  async function retailerProduct() {
+    const word = Array.from({ length: 8 }, () => String.fromCharCode(97 + Math.floor(Math.random() * 26))).join('')
+    const storeId = (await findOrCreateStore('Lidl'))!
+    const potraviny = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
+    const [product] = await db
+      .insert(schema.products)
+      .values({ name: `Smetanovka ${word} 125 g`, categoryId: potraviny!.id, defaultUnit: 'ks', defaultLocation: 'Lednice' })
+      .returning()
+    await db.insert(schema.prices).values({
+      productId: product.id,
+      storeId,
+      priceScope: 'CHAIN',
+      sourceType: 'OFFICIAL',
+      locationResolution: 'NOT_APPLICABLE',
+      regularPrice: '39.90',
+      unit: 'ks',
+      unitPrice: '39.90',
+      observedAt: '2026-09-20',
+      validFrom: '2026-09-20',
+    })
+    // How a receipt prints it: shortened, upper case.
+    return { product, storeId, printed: `SMETANOV.${word.slice(0, 6).toUpperCase()} 125G` }
+  }
+
+  const receiptWith = (name: string, overrides: Partial<ExtractedReceipt> = {}) =>
+    extractedReceipt({
+      items: [{ name, category: 'Potraviny', quantity: 1, unit: 'ks', unitPrice: 39.9, totalPrice: 39.9, discount: 0, confidence: 0.9 }],
+      subtotal: 39.9,
+      total: 39.9,
+      ...overrides,
+    })
+
+  it('suggests the product in review, and a confirmed pick links the line and teaches the printed text', async () => {
+    const { product, storeId, printed } = await retailerProduct()
+    const receiptImportId = await createUploadedReceipt()
+    const reviewed = await processReceiptImport(receiptImportId, fakeProviders(receiptWith(printed, { total: 999 }))) // → review_required
+    expect(reviewed.status).toBe('review_required')
+    const [line] = JSON.parse(reviewed.items!) as ReceiptLineItem[]
+    expect(line.productSuggestions?.[0]).toEqual({ productId: product.id, name: product.name })
+    // The only candidate, matching word for word and in size: pre-selected.
+    expect(line.productId).toBe(product.id)
+
+    const { purchase } = await confirmReceiptReviewAction(receiptImportId, [{ ...line, location: 'Lednice' }], { date: TEST_DATE })
+    const purchaseItem = await db.query.purchaseItems.findFirst({ where: eq(schema.purchaseItems.purchaseId, purchase.id) })
+    expect(purchaseItem?.productId).toBe(product.id)
+    // No product was created under the printed text…
+    expect(await db.query.products.findFirst({ where: eq(schema.products.name, printed) })).toBeUndefined()
+    // …and the printed text is now the product's alias at this store.
+    const alias = await db.query.productAliases.findFirst({ where: eq(schema.productAliases.productId, product.id) })
+    expect(alias).toMatchObject({ alias: printed, storeId, source: 'user_correction' })
+
+    // The next receipt printing the same text is recognized on its own — no review.
+    const nextImportId = await createUploadedReceipt()
+    const next = await processReceiptImport(nextImportId, fakeProviders(receiptWith(printed, { date: '2026-09-25' })))
+    expect(next.status).toBe('completed')
+    const nextItem = await db.query.purchaseItems.findFirst({ where: eq(schema.purchaseItems.purchaseId, next.purchaseId!) })
+    expect(nextItem?.productId).toBe(product.id)
+  })
+
+  it('keeps a line unlinked when the household picks none of the suggestions', async () => {
+    const { product, printed } = await retailerProduct()
+    const receiptImportId = await createUploadedReceipt()
+    const reviewed = await processReceiptImport(receiptImportId, fakeProviders(receiptWith(printed, { total: 999 })))
+    const [line] = JSON.parse(reviewed.items!) as ReceiptLineItem[]
+
+    const { purchase } = await confirmReceiptReviewAction(receiptImportId, [{ ...line, productId: null, location: 'Lednice' }], { date: TEST_DATE })
+    const purchaseItem = await db.query.purchaseItems.findFirst({ where: eq(schema.purchaseItems.purchaseId, purchase.id) })
+    expect(purchaseItem?.productId).not.toBe(product.id)
+    expect(await db.query.productAliases.findFirst({ where: eq(schema.productAliases.productId, product.id) })).toBeUndefined()
+  })
+
+  it('rejects a pick of a product that does not exist', async () => {
+    const receiptImportId = await createUploadedReceipt()
+    await processReceiptImport(receiptImportId, fakeProviders(extractedReceipt({ total: 999 })))
+    await expect(confirmReceiptReviewAction(receiptImportId, [item({ productId: crypto.randomUUID(), location: 'Spíž' })], { date: TEST_DATE })).rejects.toThrow('už v katalogu není')
   })
 })

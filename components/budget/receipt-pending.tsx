@@ -263,6 +263,27 @@ function ReceiptPendingCard({
                 </button>
               ) : (
                 <>
+                  {row.productSuggestions && row.productSuggestions.length > 0 && (
+                    // Which catalog product this line is (lib/receipt-product-match.ts). Confirming a
+                    // pick links the line to it and teaches the printed text for next time; "none"
+                    // keeps the line as it was read.
+                    <label className="flex w-full min-w-0 items-center gap-2 text-xs text-muted-foreground">
+                      <span className="shrink-0">Produkt</span>
+                      <select
+                        aria-label={`Produkt položky ${index + 1}`}
+                        value={row.productId ?? ''}
+                        onChange={(e) => updateRow(index, { productId: e.target.value || null })}
+                        className="min-w-0 flex-1 rounded-lg border border-input bg-background px-2 py-1 text-xs text-foreground"
+                      >
+                        <option value="">Žádný z nabízených</option>
+                        {row.productSuggestions.map((suggestion) => (
+                          <option key={suggestion.productId} value={suggestion.productId}>
+                            {suggestion.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
                   <select
                     aria-label={`Kategorie položky ${index + 1}`}
                     value={row.category}

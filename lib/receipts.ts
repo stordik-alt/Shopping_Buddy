@@ -1,7 +1,7 @@
 import { generateObject } from 'ai'
 import { z } from 'zod'
 import { googleSubjectToken } from '@/lib/gcp-oidc'
-import { AUTO_ACCEPT_THRESHOLD, classifySubcategory, detectNonInventory, matchProduct, type ProductAliasEntry, type RecognitionMethod } from '@/lib/categorization'
+import { AUTO_ACCEPT_THRESHOLD, classifySubcategory, detectNonInventory, matchProduct, type ProductAliasEntry, type ProductMatch, type RecognitionMethod } from '@/lib/categorization'
 import { inferPantryLocation } from '@/lib/pantry'
 import { matchProductByName, type ProductCatalogEntry } from '@/lib/products'
 import type { ItemCategory, ItemUnit, PantryLocation } from '@/lib/types'
@@ -54,6 +54,15 @@ export type ReceiptLineItem = {
   // there is no OCR text to preserve. Used to learn an alias when the household's final `name`
   // differs from it (spec section 12): `rawName` → the product the corrected `name` resolves to.
   rawName?: string
+  /** The catalog product the household confirmed this line is, picked in the review form from
+   *  `productSuggestions` (or pre-selected there when one was clearly the one). Confirming it links
+   *  the line to that product and teaches the receipt's text as a store-specific alias, so the same
+   *  printed name is recognized on its own next time. Verified to exist on the server; never trusted
+   *  as anything more than a product id. */
+  productId?: string | null
+  /** Catalog products this line could be, best first (lib/receipt-product-match.ts) — offered in the
+   *  review form for a line no catalog name or alias recognized. Shown only, never applied unasked. */
+  productSuggestions?: { productId: string; name: string }[]
 }
 
 // --- OCR pipeline (docs/08_OCR_RECEIPT_PIPELINE.md) -------------------------------------------
@@ -638,13 +647,7 @@ export function toReceiptLineItems(
       // be divided back down to a unit price, not assigned directly (that would double-count
       // quantity > 1 once multiplied again downstream).
       const price = item.unitPrice ?? (item.totalPrice != null && quantity > 0 ? item.totalPrice / quantity : (item.totalPrice ?? 0))
-      const exactEntry = matchProductByName(catalog, item.name)
-      // No exact catalog name match: try the deterministic alias/fuzzy tiers (spec section 7) before
-      // falling back to the AI parser's own guess. Only applied when confident enough to auto-accept
-      // (spec section 8/9) — a low-confidence candidate is not silently applied here; it stays
-      // unresolved for the household to see during review.
-      const fuzzyMatch = !exactEntry ? matchProduct(item.name, catalog, aliases, storeId) : null
-      const catalogEntry = exactEntry ?? (fuzzyMatch && fuzzyMatch.confidence >= AUTO_ACCEPT_THRESHOLD ? catalog.find((product) => product.id === fuzzyMatch.productId) ?? null : null)
+      const { entry: catalogEntry, match: fuzzyMatch } = resolveCatalogProduct(item.name, catalog, aliases, storeId)
       const placement = resolveItemPlacement(catalogEntry, item.category, item.name)
       const category = placement?.category ?? item.category ?? ('Ostatní' as ItemCategory)
       // Subcategory: a matched catalog product's own remembered subcategory wins, otherwise the
@@ -680,6 +683,25 @@ export function toReceiptLineItems(
         ...(detectNonInventory(item.name) && { nonInventory: true }),
       }
     })
+}
+
+/** The catalog product a receipt line's text names, if any: the product of exactly that name, else the
+ *  alias/fuzzy tiers of `matchProduct()` (spec section 7) — but only when confident enough to
+ *  auto-accept (spec section 8/9); a weaker candidate is not applied and the line stays unresolved for
+ *  review. `catalog` must hold the products the aliases point to (see lib/receipt-import.ts's
+ *  `receiptMatchingCatalog`), or an alias match has no entry to resolve to. `match` is how a
+ *  non-exact entry was found, for the line's recognition method. */
+export function resolveCatalogProduct(
+  name: string,
+  catalog: ProductCatalogEntry[],
+  aliases: ProductAliasEntry[],
+  storeId: string | null,
+): { entry: ProductCatalogEntry | null; match: ProductMatch | null } {
+  const exact = matchProductByName(catalog, name)
+  if (exact) return { entry: exact, match: null }
+  const match = matchProduct(name, catalog, aliases, storeId)
+  const entry = match && match.confidence >= AUTO_ACCEPT_THRESHOLD ? catalog.find((product) => product.id === match.productId) ?? null : null
+  return { entry, match }
 }
 
 const roundToCents = (value: number): number => Math.round(value * 100) / 100

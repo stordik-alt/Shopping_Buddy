@@ -128,7 +128,6 @@ jobs:
               exit 1
             }
 
-jobs:
   deploy:
     docker:
       - image: cimg/node:22.19

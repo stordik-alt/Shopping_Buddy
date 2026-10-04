@@ -28,6 +28,7 @@
     "db:remove-albert-misread": "dotenv -e .env.local -- tsx scripts/remove-albert-misread-products.ts",
     "db:recategorize-products": "dotenv -e .env.local -- tsx scripts/recategorize-products.ts",
     "db:reclassify-products": "dotenv -e .env.local -- tsx scripts/reclassify-products.ts",
+    "db:assign-product-types": "dotenv -e .env.local -- tsx scripts/assign-product-types.ts",
     "db:move-new-subcategories": "dotenv -e .env.local -- tsx scripts/move-to-new-subcategories.ts",
     "gcp:oidc-key": "tsx scripts/generate-gcp-oidc-key.ts",
     "push:vapid-keys": "tsx scripts/generate-vapid-keys.ts",

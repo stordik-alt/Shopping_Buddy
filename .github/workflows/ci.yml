@@ -35,7 +35,7 @@ jobs:
       # DB client at import time) need a database; they run in the separate "database" job below.
       # Keep this list in step with that job's include list (any test that calls getDb).
       - name: Unit tests
-        run: pnpm exec vitest run --exclude 'app/actions/**/*.test.ts' --exclude 'app/api/**/*.test.ts' --exclude 'lib/db/queries.test.ts' --exclude 'lib/db/receipt-list.test.ts' --exclude 'lib/db/store-branch-search.test.ts' --exclude 'lib/db/deals.test.ts' --exclude 'lib/db/purchase-items.test.ts' --exclude 'lib/db/category-changes.test.ts' --exclude 'lib/db/subcategory-changes.test.ts' --exclude 'lib/db/product-classification-sync.test.ts' --exclude 'lib/db/product-packages.test.ts' --exclude 'lib/db/new-subcategories.test.ts' --exclude 'lib/db/recategorize.test.ts'
+        run: pnpm exec vitest run --exclude 'app/actions/**/*.test.ts' --exclude 'app/api/**/*.test.ts' --exclude 'lib/db/queries.test.ts' --exclude 'lib/db/receipt-list.test.ts' --exclude 'lib/db/store-branch-search.test.ts' --exclude 'lib/db/deals.test.ts' --exclude 'lib/db/purchase-items.test.ts' --exclude 'lib/db/category-changes.test.ts' --exclude 'lib/db/subcategory-changes.test.ts' --exclude 'lib/db/product-classification-sync.test.ts' --exclude 'lib/db/product-packages.test.ts' --exclude 'lib/db/new-subcategories.test.ts' --exclude 'lib/db/recategorize.test.ts' --exclude 'lib/db/reclassify.test.ts'
 
       - name: Typecheck
         run: pnpm exec tsc --noEmit
@@ -200,4 +200,4 @@ jobs:
         run: pnpm exec tsx lib/db/seed.ts
 
       - name: Database-backed tests
-        run: pnpm exec vitest run app/actions app/api lib/db/queries.test.ts lib/db/receipt-list.test.ts lib/db/store-branch-search.test.ts lib/db/deals.test.ts lib/db/purchase-items.test.ts lib/db/category-changes.test.ts lib/db/subcategory-changes.test.ts lib/db/product-classification-sync.test.ts lib/db/product-packages.test.ts lib/db/new-subcategories.test.ts lib/db/recategorize.test.ts
+        run: pnpm exec vitest run app/actions app/api lib/db/queries.test.ts lib/db/receipt-list.test.ts lib/db/store-branch-search.test.ts lib/db/deals.test.ts lib/db/purchase-items.test.ts lib/db/category-changes.test.ts lib/db/subcategory-changes.test.ts lib/db/product-classification-sync.test.ts lib/db/product-packages.test.ts lib/db/new-subcategories.test.ts lib/db/recategorize.test.ts lib/db/reclassify.test.ts

@@ -100,6 +100,37 @@ export function receiptWords(name: string): string[] {
   return words
 }
 
+/** Further abbreviations that only matter for telling the *kind* of goods (docs/12_PRODUCT_TYPES.md
+ *  phase 4): the words the product-type rules look for, as receipts print them ("KUR.PRSA",
+ *  "MLETE VEP.", "KRUT.STEHNA"). Same form as RECEIPT_ABBREVIATIONS; kept apart because matching a
+ *  line against catalog names must not expand these (it would only lose the prefix match). */
+const TYPE_ABBREVIATIONS: Readonly<Record<string, string>> = {
+  kurec: 'kureci',
+  krut: 'kruti',
+  mlet: 'mlete',
+  mas: 'maso',
+  stehn: 'stehna',
+  krid: 'krida',
+  plnotuc: 'plnotucne',
+  rohl: 'rohlik',
+  jogur: 'jogurt',
+}
+
+/** A receipt line as text the product-type rules (lib/product-types.ts) can read: accents and OCR
+ *  confusions fixed, glued sizes split, and the abbreviations above and in RECEIPT_ABBREVIATIONS
+ *  spelled out. Unlike `receiptWords` it keeps numbers and "ks" — a rule may need them (avocado is
+ *  only a type when sold by the piece). Used only to classify, never to store. */
+export function receiptTypeText(name: string): string {
+  const words: string[] = []
+  for (const word of fixLitreOcr(plainText(name)).split(/[^a-z0-9]+/)) {
+    if (!word || word in OWN_BRANDS) continue
+    if (word in TYPE_ABBREVIATIONS) words.push(TYPE_ABBREVIATIONS[word])
+    else if (word in RECEIPT_ABBREVIATIONS && RECEIPT_ABBREVIATIONS[word] !== '') words.push(RECEIPT_ABBREVIATIONS[word])
+    else words.push(word)
+  }
+  return words.join(' ')
+}
+
 /** The chain whose own brand the line names ("ALB …" → "albert"), or null. */
 export function receiptOwnBrand(name: string): string | null {
   for (const word of plainText(name).split(/[^a-z0-9]+/)) if (word in OWN_BRANDS) return OWN_BRANDS[word]

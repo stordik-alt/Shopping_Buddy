@@ -147,3 +147,63 @@ describe('getTickedListItems', () => {
     expect(await getTickedListItems(otherHouseholdId, purchase.id)).toEqual([])
   })
 })
+
+// docs/12_PRODUCT_TYPES.md phase 4: the list is ticked by the kind of goods, not only by words.
+describe('ticking by product type', () => {
+  async function productOfType(name: string, typeKey: string | null, source: 'rule' | 'manual' | 'alias' | null = typeKey ? 'rule' : null) {
+    const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
+    const type = typeKey ? await db.query.productTypes.findFirst({ where: eq(schema.productTypes.key, typeKey) }) : null
+    const [product] = await db
+      .insert(schema.products)
+      .values({ name: `${name} __test ${crypto.randomUUID()}`, categoryId: category!.id, defaultUnit: 'kg', productTypeId: type?.id ?? null, productTypeSource: source })
+      .returning()
+    createdProductIds.push(product.id)
+    return product
+  }
+
+  it('ticks automatically when the line is a catalog product of a type the item asks for', async () => {
+    const product = await productOfType('Vodňanské prsní řízky', 'kureci-prsa')
+    const [item] = await db.insert(schema.shoppingListItems).values({ listId, name: 'Kuřecí maso' }).returning()
+    const { purchase } = await purchaseWith(householdId, [{ name: 'VODN.PRS.RIZ.', quantity: 0.6, unit: 'kg', price: '120', productId: product.id }])
+
+    expect(await autoCheckShoppingListFromPurchase(householdId, purchase.id)).toBe(1)
+    expect((await getItem(item.id))?.done).toBe(true)
+  })
+
+  it('never ticks or suggests a product of another type', async () => {
+    const ham = await productOfType('Kuřecí šunka', 'sunka')
+    const [item] = await db.insert(schema.shoppingListItems).values({ listId, name: 'Kuřecí maso' }).returning()
+    const { purchase } = await purchaseWith(householdId, [{ name: 'KURECI SUNKA', quantity: 1, price: '40', productId: ham.id }])
+
+    expect(await autoCheckShoppingListFromPurchase(householdId, purchase.id)).toBe(0)
+    expect(await getReceiptListSuggestions(householdId, purchase.id)).toEqual([])
+    expect((await getItem(item.id))?.done).toBe(false)
+  })
+
+  it('suggests a line by its abbreviated text, and a confirmed single type is learned by its product', async () => {
+    const product = await productOfType('Xyzzy', null)
+    const [item] = await db.insert(schema.shoppingListItems).values({ listId, name: 'Kuřecí prsa' }).returning()
+    const { purchase, rows } = await purchaseWith(householdId, [{ name: 'KUR.PRSA 500G', quantity: 1, price: '99', productId: product.id }])
+
+    expect(await getReceiptListSuggestions(householdId, purchase.id)).toHaveLength(1)
+    expect(await applyConfirmedReceiptListPairs(householdId, purchase.id, [{ listItemId: item.id, purchaseItemId: rows[0].id }])).toBe(1)
+
+    const learned = await db.query.products.findFirst({ where: eq(schema.products.id, product.id), with: { productType: true } })
+    expect(learned).toMatchObject({ productTypeSource: 'alias', productType: { key: 'kureci-prsa' } })
+  })
+
+  it('learns nothing from a group, and never overwrites a type', async () => {
+    const untyped = await productOfType('Xyzzy', null)
+    const manual = await productOfType('Plumpf', 'kureci-stehna', 'manual')
+    const [groupItem] = await db.insert(schema.shoppingListItems).values({ listId, name: 'Kuřecí maso' }).returning()
+    const { purchase, rows } = await purchaseWith(householdId, [{ name: 'KUR.PRSA 500G', quantity: 1, price: '99', productId: untyped.id }])
+    await applyConfirmedReceiptListPairs(householdId, purchase.id, [{ listItemId: groupItem.id, purchaseItemId: rows[0].id }])
+
+    expect(await db.query.products.findFirst({ where: eq(schema.products.id, untyped.id) })).toMatchObject({ productTypeId: null, productTypeSource: null })
+
+    const [typedItem] = await db.insert(schema.shoppingListItems).values({ listId, name: 'Kuřecí prsa' }).returning()
+    const second = await purchaseWith(householdId, [{ name: 'KUR.PRSA 500G', quantity: 1, price: '99', productId: manual.id }])
+    await applyConfirmedReceiptListPairs(householdId, second.purchase.id, [{ listItemId: typedItem.id, purchaseItemId: second.rows[0].id }])
+    expect(await db.query.products.findFirst({ where: eq(schema.products.id, manual.id) })).toMatchObject({ productTypeSource: 'manual' })
+  })
+})

@@ -11,6 +11,7 @@
 // against the real catalog (local copy, 2026-10-04) and the golden set in the tests.
 
 import { normalizeProductText } from '@/lib/product-normalize'
+import { receiptTypeText } from '@/lib/receipt-product-match'
 import { classifySubcategoryByKeyword, compileKeywordRule, FOOD_HEAD_WORDS, matchesKeywordRule, type KeywordRule } from '@/lib/product-subcategories'
 import type { ItemCategory } from '@/lib/types'
 
@@ -93,6 +94,7 @@ export const PRODUCT_TYPES: ProductTypeDefinition[] = [
   { key: 'taveny-syr', name: 'Tavený sýr', categories: [P], subcategory: 'Mléčné výrobky', unit: 'kg', rule: food([' tavený sýr', ' tavený', ' veselá kráva', ' ves kráva', ' ves krava', ' apetito', ' tavený plátkový'], ['křup', 'snack']) },
   { key: 'niva', name: 'Niva', categories: [P], subcategory: 'Mléčné výrobky', unit: 'kg', rule: food([' niva'], ['pomazánk', 'nivová']) },
   { key: 'cottage', name: 'Cottage', categories: [P], subcategory: 'Mléčné výrobky', unit: 'kg', rule: food([' cottage']) },
+  { key: 'kefir', name: 'Kefír', categories: [P], subcategory: 'Mléčné výrobky', unit: 'kg', rule: food([' kefír', ' kefir'], ['ovocn', 'jahod', 'borůvk', 'malin', 'broskv', 'kefírov']) },
   { key: 'vejce', name: 'Vejce', categories: [P], subcategory: 'Vejce', unit: 'ks', rule: food([' vejce', ' vajíčka', ' vajec '], ['čokolád', 'překvapen', 'polévk', 'nudle', 'těstovin', 'salát', 'majonéz', 'pomazánk', 'kinder', 'perník', 'velikonoční dekor', 'barvy na', 'likér', 'koňak']) },
 
   // --- Pečivo ---------------------------------------------------------------------------------------
@@ -124,6 +126,8 @@ export const PRODUCT_TYPES: ProductTypeDefinition[] = [
   { key: 'salat', name: 'Salát hlávkový a ledový', categories: [P], subcategory: 'Ovoce a zelenina', unit: 'ks', rule: produce(['ledový salát', 'salát ledový', 'salát hlávkový', 'hlávkový salát', 'salát římský', 'římský salát', 'salát little gem', 'salát l gem', 'salat l gem', 'salát lollo', 'salat ledovy'], [], ['salát']) },
   { key: 'zeli', name: 'Zelí', categories: [P], subcategory: 'Ovoce a zelenina', unit: 'kg', rule: produce(['zelí bílé', 'zelí červené', 'bílé zelí', 'červené zelí', 'zelí hlávkové', 'zelí'], ['kysan', 'kvašen', 'sterilovan', 'dušen', 'polévk']) },
   { key: 'zampiony', name: 'Žampiony', categories: [P], subcategory: 'Ovoce a zelenina', unit: 'kg', rule: produce(['žampiony', 'žampióny'], ['krájené ve', 'sterilovan', 'v nálevu', 'konzerv']) },
+  { key: 'cuketa', name: 'Cuketa', categories: [P], subcategory: 'Ovoce a zelenina', unit: 'kg', rule: produce(['cuketa', 'cukety', 'cuket']) },
+  { key: 'celer', name: 'Celer', categories: [P], subcategory: 'Ovoce a zelenina', unit: 'kg', rule: produce(['celer', 'celeru'], ['salát', 'nať', 'koření', 'sůl']) },
   { key: 'brokolice', name: 'Brokolice', categories: [P], subcategory: 'Ovoce a zelenina', unit: 'kg', rule: produce(['brokolice'], ['mražen', 'polévk', 'krém']) },
 
   // --- Kuřecí maso (owner: every raw part, marinated, minced and offal included; never a product) --
@@ -180,6 +184,9 @@ export const PRODUCT_TYPES: ProductTypeDefinition[] = [
   { key: 'olej-slunecnicovy', name: 'Slunečnicový olej', categories: [P], subcategory: 'Oleje a tuky', unit: 'l', rule: food([' slunečnicový olej', ' olej slunečnicový', ' sl olej', ' slunečn olej'], ['v slunečnicovém', 've slunečnicovém', 'sardink', 'tuňák', 'chips']) },
   { key: 'olej-repkovy', name: 'Řepkový olej', categories: [P], subcategory: 'Oleje a tuky', unit: 'l', rule: food([' řepkový olej', ' olej řepkový'], ['v řepkovém', 've řepkovém', 'sardink', 'tuňák', 'chips', 'olivy']) },
   { key: 'olej-olivovy', name: 'Olivový olej', categories: [P], subcategory: 'Oleje a tuky', unit: 'l', rule: food([' olivový olej', ' olej olivový', ' extra panenský olivový', ' olive oil'], ['v olivovém', 've olivovém', 's olivovým', 'sardink', 'tuňák', 'chips', 'olivy', 'pokrutin', 'sprej', 'aroma', 'chilli', 'provoněn']) },
+  { key: 'cocka', name: 'Čočka', categories: [P], subcategory: 'Luštěniny', unit: 'kg', rule: food([' čočka', ' čočky', ' cocka'], ['salát', 'polévk', 'konzerv', 'chips', 'křupky', 'těstovin', 'nudle', 'sendvič', 'se zeleninou', 'na kyselo', 'pomazánk', 'puffed', 'smažen', 'chipsy', 'hrnec', 'plátek', 'bowl', 'karamel']) },
+  { key: 'med', name: 'Med', categories: [P], subcategory: 'Džemy, med a pomazánky', unit: 'kg', rule: food([' květový med', ' lesní med', ' akátový med', ' luční med', ' medovicový med', ' včelí med', ' med květový', ' med lesní', ' med akátový', ' med luční', ' med pastovaný', ' med krémový', ' med tekutý'], ['medov', 'medvěd', 'perník', 'lupínk', 'křupky', 'hořčic', 'ocet', 'sušenk', 'cereál', 'müsli', 'tyčink', 'sirup', 'pivo', 'medovin', 'kapsle', 'sprej']) },
+  { key: 'ocet', name: 'Ocet', categories: [P], subcategory: 'Omáčky a dochucovadla', unit: 'l', rule: food([' ocet', ' octa', ' octový'], ['okurk', 'nakládan', 'čistič', 'odvápň', 'dresink', 'balsamic krém', 'glazur', 'zelenin', 'cibulk', 'česnek', 'sůl a ocet', 'pringles', 'chipsy', 'omáčk']) },
   { key: 'sul', name: 'Sůl', categories: [P], subcategory: 'Koření a bylinky', unit: 'kg', rule: food([' sůl jemná', ' sůl kamenná', ' jemná sůl', ' kamenná sůl', ' sůl jodidovaná', ' jedlá sůl', ' sůl mořská', ' mořská sůl', ' himálajská sůl', ' sůl '], ['s mořskou', 'se solí', 'chips', 'lupínk', 'křupky', 'tyčinky', 'preclík', 'karamel', 'do myčky', 'koupel', 'pepř', 'směs', 'na brambory', 'vroubk', 'rice', 'cakes', 'chlebíčk']) },
   { key: 'drozdi', name: 'Droždí', categories: [P], subcategory: 'Mouka a pečení', unit: 'kg', rule: food([' droždí', ' drožd'], ['bez droždí', 'pečivo']) },
   { key: 'kava-mleta', name: 'Káva mletá', categories: [P], subcategory: 'Káva a čaj', unit: 'kg', rule: food([' mletá káva', ' káva mletá', ' pražená mletá'], ['kapsl', 'instant', 'rozpustn', 'bonbon', 'čokolád', 'latte', 'cappuccino']) },
@@ -256,6 +263,25 @@ export function classifyProductType(category: ItemCategory, name: string): strin
   return keys.length === 1 ? keys[0] : null
 }
 
+/** The type of a receipt line (phase 4), from its printed text with abbreviations spelled out
+ *  ("KUR.PRSA 500G" → kureci-prsa). Same honesty rule: none, or more than one, gives null. A line
+ *  without a category is tried in every category and counts only when exactly one type fits. */
+export function classifyReceiptLineType(category: ItemCategory | null, name: string): string | null {
+  const text = receiptTypeText(name)
+  if (category) return classifyProductType(category, text)
+  const categories = new Set(PRODUCT_TYPES.flatMap((type) => type.categories))
+  const keys = new Set([...categories].flatMap((candidate) => matchingProductTypes(candidate, text)))
+  return keys.size === 1 ? [...keys][0] : null
+}
+
+/** A receipt line's type and where it came from: its catalog product's own type (`fromProduct`, the
+ *  household or an import already settled what it is) or the rules read off the line's text. */
+export function resolveReceiptLineType(line: { productTypeKey: string | null; category: ItemCategory | null; name: string }): { key: string; fromProduct: boolean } | null {
+  if (line.productTypeKey) return { key: line.productTypeKey, fromProduct: true }
+  const key = classifyReceiptLineType(line.category, line.name)
+  return key ? { key, fromProduct: false } : null
+}
+
 export function productTypeByKey(key: string): ProductTypeDefinition | undefined {
   return PRODUCT_TYPES.find((type) => type.key === key)
 }
@@ -294,6 +320,12 @@ const ITEM_PHRASES: Record<string, string[]> = {
   'zakysana-smetana': ['zakysaná smetana', 'zakysanka'],
   'jogurt-bily': ['bílý jogurt', 'jogurt bílý', 'jogurt', 'jogurty', 'řecký jogurt'],
   tvaroh: ['tvaroh', 'tvarohy'],
+  kefir: ['kefír', 'kefíry'],
+  cuketa: ['cuketa', 'cukety'],
+  celer: ['celer', 'celer bulva'],
+  cocka: ['čočka', 'čočku'],
+  med: ['med', 'květový med', 'lesní med', 'akátový med', 'včelí med'],
+  ocet: ['ocet', 'jablečný ocet', 'vinný ocet'],
   eidam: ['eidam'],
   gouda: ['gouda'],
   mozzarella: ['mozzarella', 'mozarella'],

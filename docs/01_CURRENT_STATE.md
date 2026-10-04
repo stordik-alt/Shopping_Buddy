@@ -1,3 +1,7 @@
+## Update 2026-10-04 — Product types, phases 4–5
+
+Receipt lines now carry a product type (their catalog product's, else read from the printed text with receipt abbreviations spelled out), and ticking the shopping list from a receipt compares types: a catalog product of the requested type ticks the item automatically, a text-read type is only suggested, and a line of a different known type never matches. A confirmed suggestion teaches an untyped product its type (source `alias`, never over an existing type). Six more types (kefír, cuketa, celer, čočka, med, ocet; 109 in all, migration `0065`). The optional model for the long tail is not built — it needs the owner's explicit approval (`CLAUDE.md` section 30). Details: `docs/12_PRODUCT_TYPES.md`.
+
 ## Update 2026-10-02 — Receipt storage migration complete
 
 Receipt storage is now R2-only in production. The nine remaining historical Blob references in `receipt_imports.image_url` were converted to their corresponding `r2:receipts/...` references; production verification reports 0 Blob references and 24 R2 references.

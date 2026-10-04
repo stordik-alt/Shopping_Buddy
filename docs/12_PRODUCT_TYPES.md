@@ -1,7 +1,7 @@
 # Product types (druhy zboží) — concept
 
-Status: **concept, owner-approved 2026-10-03**. Phases 0–3 are implemented (see below); phases
-4–5 are not built yet. Update this document before or together with each phase.
+Status: **concept, owner-approved 2026-10-03**. Phases 0–5 are implemented (see below), except the optional
+model for the long tail, which waits for an explicit owner approval. Update this document before or together with each phase.
 
 ## 1. Problem
 
@@ -113,8 +113,8 @@ every rule change is measured on it, so fixing one type cannot silently break an
 | 1 | `product_types` table and code rules for the ~60–100 most common list items (from real lists and purchases), batch backfill of the catalog, golden set | **done 2026-10-04** (see below) |
 | 2 | Planner uses types for items that have one | **done 2026-10-04** (see below) |
 | 3 | Type/group picker on the shopping list | **done 2026-10-04** (see below) |
-| 4 | Receipts and list ticking by type; receipt abbreviation dictionary; learning from corrections | — |
-| 5 | Wider coverage; optionally a model choosing from the closed list of types for the long tail, once per product, validated — **only after an explicit owner approval** (CLAUDE.md section 30) | — |
+| 4 | Receipts and list ticking by type; receipt abbreviation dictionary; learning from corrections | **done 2026-10-04** (see below) |
+| 5 | Wider coverage (109 types); optionally a model choosing from the closed list of types for the long tail, once per product, validated — **only after an explicit owner approval** (CLAUDE.md section 30) | coverage **done 2026-10-04**; model **not built** |
 
 ### Phase 1 as implemented (2026-10-04)
 
@@ -161,5 +161,24 @@ every rule change is measured on it, so fixing one type cannot silently break an
   name and that results may be inexact.
 - The planner takes the chosen types before the name's (`lib/db/shopping-plan.ts`).
 
-Phases 0–4 are deterministic. Related but separate: extending the Potraviny subcategories (koření,
+Phases 0–5 are deterministic. Related but separate: extending the Potraviny subcategories (koření,
 vejce, …), which types will sit under.
+
+### Phase 4 as implemented (2026-10-04)
+
+- A receipt line's type: its catalog product's (`fromProduct`), else the rules read the printed text after
+  abbreviations are spelled out (`receiptTypeText`: "KUR.PRSA", "MLETÉ", "TOUST. CHLEB"); a line without a
+  category is tried in every category and counts only when exactly one type fits (honesty rule).
+- `matchReceiptToList`: a catalog product whose type is one the list item asks for is a certain match
+  (ticked automatically); when both sides have a type it alone decides — a text-read type gives only a
+  suggestion, a different type never matches ("Máslové sušenky" for "Máslo"); with no type on either side the
+  earlier text matching applies. The item's types are its chosen ones, else what its name resolves to.
+- Learning: a confirmed suggestion gives an untyped catalog product the item's single type (source `alias`),
+  only if the type fits the product's category, its own name does not read as another type, and never over an
+  existing type (`learnProductTypes`). No migration was needed.
+
+### Phase 5 as implemented (2026-10-04)
+
+- Six more types (kefír, cuketa, celer, čočka, med, ocet; 109 in all), migration `0065_more_product_types.sql`,
+  checked against the local catalog copy and the golden set. The model for the long tail is **not built**: it
+  needs the owner's explicit approval (CLAUDE.md section 30).

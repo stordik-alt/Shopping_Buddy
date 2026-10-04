@@ -605,6 +605,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
         note: item.note ?? undefined,
         store: item.preferredStoreLocation?.store.chain,
         onSale: item.onSale,
+        productTypes: item.productTypes ?? null,
       }),
     ),
     categoryBudgets: Object.fromEntries(categoryBudgetRows.map((row) => [row.category, Number(row.amount)])),

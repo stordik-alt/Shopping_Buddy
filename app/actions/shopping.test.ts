@@ -230,4 +230,19 @@ describe('updateShoppingItemAction', () => {
     const row = await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, item.id) })
     expect(row?.quantity).toBe(1)
   })
+
+  // Product types, phase 3: the household's choice of types for an item.
+  it('stores chosen product types, clears them with null, and refuses unknown or empty choices', async () => {
+    currentHouseholdId = householdId
+    const { item } = await addShoppingItemAction(listId, 'Kuřecí maso')
+    expect(item.productTypes).toBeNull()
+    await updateShoppingItemAction(item.id, { productTypes: ['kureci-stehna', 'kureci-prsa', 'kureci-prsa'] })
+    let row = await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, item.id) })
+    expect(row?.productTypes).toEqual(['kureci-prsa', 'kureci-stehna'])
+    await expect(updateShoppingItemAction(item.id, { productTypes: ['neexistuje'] })).rejects.toThrow('Neplatný druh zboží.')
+    await expect(updateShoppingItemAction(item.id, { productTypes: [] })).rejects.toThrow('Neplatný druh zboží.')
+    await updateShoppingItemAction(item.id, { productTypes: null })
+    row = await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, item.id) })
+    expect(row?.productTypes).toBeNull()
+  })
 })

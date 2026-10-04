@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { ItemTypePicker } from '@/components/shopping/item-type-picker'
+import { describeItemTypes, productTypeSuggestionNames } from '@/lib/product-types'
 import { Check, ChevronDown, ListChecks, Plus, Search, SlidersHorizontal, Sun, Tag, X } from 'lucide-react'
 import type { GpsCoords } from '@/lib/geo'
 import type { Item, ItemCategory, ItemPriority, ItemUnit, Store, StoreChain } from '@/lib/types'
@@ -22,6 +24,8 @@ const PRIORITIES: ItemPriority[] = ['Nízká', 'Normální', 'Vysoká']
 const STORES: StoreChain[] = ['Lidl', 'Albert', 'Kaufland', 'Billa', 'Penny', 'JIP']
 const PRIORITY_WEIGHT: Record<ItemPriority, number> = { Vysoká: 0, Normální: 1, Nízká: 2 }
 
+
+const TYPE_SUGGESTIONS = productTypeSuggestionNames()
 
 function sortItems(items: Item[], sort: SortKey) {
   const sorted = [...items]
@@ -188,6 +192,11 @@ export function ShoppingList({
               case/whitespace match resolves to a real productId on the first try, not just when
               luckily typed exactly right. Still plain free text otherwise: no picker is enforced. */}
           <datalist id="product-catalog-suggestions">
+            {/* Product types and groups first ("Kuřecí maso", "Máslo"): picking one gives the planner
+                an exact kind of goods to look for (docs/12_PRODUCT_TYPES.md, phase 3). */}
+            {TYPE_SUGGESTIONS.map((name) => (
+              <option key={`type:${name}`} value={name} />
+            ))}
             {productPrices.map((product) => (
               <option key={product.productName} value={product.productName} />
             ))}
@@ -377,6 +386,10 @@ export function ShoppingList({
                         <span>
                           {item.category} · {item.store || 'Bez obchodu'}
                         </span>
+                        {(() => {
+                          const typeLabel = describeItemTypes(item.name, item.productTypes).label
+                          return typeLabel ? <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground">{typeLabel}</span> : null
+                        })()}
                         {item.onSale && (
                           <span className="flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">
                             <Tag className="h-2.5 w-2.5" aria-hidden="true" /> Akce
@@ -477,6 +490,9 @@ export function ShoppingList({
                           ))}
                         </select>
                       </label>
+                      <div className="sm:col-span-2">
+                        <ItemTypePicker name={item.name} productTypes={item.productTypes} onChange={(productTypes) => updateItem(item.id, { productTypes })} />
+                      </div>
                       <label className="text-xs text-muted-foreground sm:col-span-2">
                         Poznámka
                         <input

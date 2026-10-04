@@ -440,3 +440,61 @@ export function resolveListItemTypes(name: string): ListItemTypes | null {
 export function listItemPhraseEntries(): { phrase: string; key: string }[] {
   return phraseEntries().map((entry) => ({ phrase: entry.phrase, key: entry.value.key }))
 }
+
+// --- Chosen types on a shopping-list item (phase 3) -----------------------------------------------
+
+/** `keys` as stored: known type keys only, at least one, deduplicated, in the code's order — or
+ *  undefined when the input is not that (the server then refuses the change). */
+export function validProductTypeKeys(keys: unknown): string[] | undefined {
+  if (!Array.isArray(keys) || keys.length === 0 || keys.length > PRODUCT_TYPES.length) return undefined
+  if (!keys.every((key) => typeof key === 'string' && PRODUCT_TYPES.some((type) => type.key === key))) return undefined
+  const chosen = new Set(keys as string[])
+  return PRODUCT_TYPES.filter((type) => chosen.has(type.key)).map((type) => type.key)
+}
+
+export type ItemTypeChoice = {
+  /** The type keys the planner accepts for the item, or null: it searches by text. */
+  accepted: string[] | null
+  /** Where they come from: the household's own choice, or the item's name. */
+  source: 'chosen' | 'name' | null
+  /** What the item is shown as: a type or group name, "Kuřecí maso (2 z 5)" for part of a group. */
+  label: string | null
+  /** The group whose types can be ticked off for this item, if any. */
+  group: ProductTypeGroup | null
+}
+
+const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((key) => b.includes(key))
+
+/** What a list item asks for: its chosen types when it has them, else what its name resolves to. */
+export function describeItemTypes(name: string, productTypes: string[] | null | undefined): ItemTypeChoice {
+  const byName = resolveListItemTypes(name)
+  const nameGroup = byName?.kind === 'group' ? PRODUCT_TYPE_GROUPS.find((group) => group.key === byName.key) ?? null : null
+  if (productTypes && productTypes.length > 0) {
+    // The group to tick off in: the name's own group when the choice is part of it, else any group
+    // the chosen types all belong to.
+    const group =
+      (nameGroup && productTypes.every((key) => nameGroup.types.includes(key)) ? nameGroup : null) ??
+      PRODUCT_TYPE_GROUPS.find((candidate) => productTypes.every((key) => candidate.types.includes(key)) && productTypes.length > 1) ??
+      null
+    let label: string
+    if (group && sameSet(group.types, productTypes)) label = group.name
+    else if (group) label = `${group.name} (${productTypes.length} z ${group.types.length})`
+    else label = productTypes.map((key) => productTypeByKey(key)?.name ?? key).join(', ')
+    return { accepted: productTypes, source: 'chosen', label, group }
+  }
+  if (byName) return { accepted: byName.types, source: 'name', label: byName.name, group: nameGroup }
+  return { accepted: null, source: null, label: null, group: null }
+}
+
+/** What the "Druh zboží" choice lists: the groups first, then the types, each with the keys it sets. */
+export function productTypeOptions(): { value: string; label: string; types: string[] }[] {
+  return [
+    ...PRODUCT_TYPE_GROUPS.map((group) => ({ value: `group:${group.key}`, label: `${group.name} (skupina)`, types: group.types })),
+    ...[...PRODUCT_TYPES].sort((a, b) => a.name.localeCompare(b.name, 'cs')).map((type) => ({ value: `type:${type.key}`, label: type.name, types: [type.key] })),
+  ]
+}
+
+/** Names worth suggesting while typing a new item: every group and type name. */
+export function productTypeSuggestionNames(): string[] {
+  return [...PRODUCT_TYPE_GROUPS.map((group) => group.name), ...PRODUCT_TYPES.map((type) => type.name)]
+}

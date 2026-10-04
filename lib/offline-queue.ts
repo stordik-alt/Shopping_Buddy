@@ -7,7 +7,7 @@ import type { Item } from '@/lib/types'
 // when the connection is back (components/app-shell.tsx). Pure except for the storage helpers at the
 // end, so the rules are tested (offline-queue.test.ts).
 
-export type ItemChanges = Partial<Pick<Item, 'quantity' | 'price' | 'unit' | 'category' | 'priority' | 'note' | 'onSale' | 'store'>>
+export type ItemChanges = Partial<Pick<Item, 'quantity' | 'price' | 'unit' | 'category' | 'priority' | 'note' | 'onSale' | 'store' | 'productTypes'>>
 
 export type PendingOp =
   | { kind: 'toggle'; itemId: string; done: boolean }

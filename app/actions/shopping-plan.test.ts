@@ -305,6 +305,11 @@ describe('buildShoppingPlanAction', () => {
 
     const { plan } = await buildShoppingPlanAction({ maxStores: 1, priorityChainIds: [] })
     expect(linesOf(plan).map((line) => line.productId)).toEqual([thighs])
+
+    // Phase 3: the household narrows the group to breast only — the dearer breast is offered.
+    await db.update(schema.shoppingListItems).set({ productTypes: ['kureci-prsa'] }).where(eq(schema.shoppingListItems.listId, listId))
+    const narrowed = await buildShoppingPlanAction({ maxStores: 1, priorityChainIds: [] })
+    expect(linesOf(narrowed.plan).map((line) => line.productId)).toEqual([breast])
   })
 
 describe('pinning', () => {

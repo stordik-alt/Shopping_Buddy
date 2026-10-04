@@ -50,7 +50,9 @@ jobs:
       - run:
           name: Setup pnpm
           command: |
-            corepack enable
+            mkdir -p "$HOME/.local/bin"
+            echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASH_ENV"
+            corepack enable --install-directory "$HOME/.local/bin"
             corepack prepare pnpm@12.6.0 --activate
             pnpm --version
       - run:

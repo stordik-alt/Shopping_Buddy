@@ -14,6 +14,12 @@ describe('normalizeProductText', () => {
     expect(normalizeProductText('MAT 1,5L')).toBe('mat 1 5l')
   })
 
+  it('keeps a possessive "\'s" with its word, so it never reads as the Czech "s"', () => {
+    expect(normalizeProductText("Nature's Promise Eidam")).toBe('natures promise eidam')
+    expect(normalizeProductText('McLLOYD´S lupínky')).toBe('mclloyds lupinky')
+    expect(normalizeProductText('Jogurt s jahodami')).toBe('jogurt s jahodami')
+  })
+
   it('keeps quantity/volume digits, so different sizes stay distinguishable', () => {
     // CLAUDE.md section 12: "Milk 1L / Milk 500ml / Milk 2L must not be treated as equivalent".
     expect(normalizeProductText('Mattoni 1L')).not.toBe(normalizeProductText('Mattoni 2L'))

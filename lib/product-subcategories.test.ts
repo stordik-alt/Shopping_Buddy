@@ -202,3 +202,76 @@ describe('classifySubcategoryByKeyword — new food subcategories (real catalog 
     for (const name of NEW_FOOD_SUBCATEGORIES) expect(isValidProductSubcategory('Potraviny', name)).toBe(true)
   })
 })
+
+// More kinds of products (2026-10-04), checked against the catalog: produce only as the product
+// itself, never as a flavour; the head of a name decides; drugstore, household and children's goods.
+describe('classifySubcategoryByKeyword — extended rules (real catalog names)', () => {
+  const place = (category: 'Potraviny' | 'Drogerie' | 'Domácnost' | 'Děti' | 'Ostatní', name: string) => classifySubcategoryByKeyword(category, normalizeProductText(name))
+
+  it.each([
+    ['Metro Chef Žampiony bílé čerstvé, vanička', 'Ovoce a zelenina'],
+    ['Cherry rajčata datlová 250 g', 'Ovoce a zelenina'],
+    ['BIO Paprika žlutá, balení', 'Ovoce a zelenina'],
+    ['Jablka zelená, taška', 'Ovoce a zelenina'],
+    ['Krůtí prsa', 'Maso a uzeniny'],
+    ['Metro Premium Párky vídeňské se sýrem (60% masa)', 'Maso a uzeniny'],
+    ['Barilla Penne Rigate rodinné balení', 'Těstoviny a rýže'],
+    ['Maggi Nudle z pánve Kuře na kari', 'Těstoviny a rýže'],
+    ['Monster Energy Zero Sugar 500ml', 'Nápoje'],
+    ['Schweppes Tonic 0,33 l', 'Nápoje'],
+    ['Gambrinus 12 Patron pl 6x0,5l', 'Alkoholické nápoje'],
+    ['Radegast Ryze Hořká 12 plech 6×0,5 l', 'Alkoholické nápoje'],
+    ['Magnum Classic nanuk', 'Mražené potraviny'],
+    ['McCain 123 hranolky vlnky 750g', 'Mražené potraviny'],
+    ['Orbit žvýkačky White Classic dražé, 10 ks', 'Sladkosti'],
+    ['Barilla Pesto Peperoncino', 'Omáčky a dochucovadla'],
+    ['Svíčková omáčka 280 g', 'Omáčky a dochucovadla'],
+    ['Giana Olivy bez pecky 180g', 'Konzervy'],
+    ['Authentic Hummus Classico', 'Džemy, med a pomazánky'],
+    ['NESCAFÉ® Dolce Gusto® Cortado - kávové kapsle - 16 ks', 'Káva a čaj'],
+    ["Nature's Promise Bio Eidam 30% – plátky 100 g", 'Mléčné výrobky'],
+    ['Kiri Z tvarohu a smetany (12 porcí)', 'Mléčné výrobky'],
+    ['ARO Olej olivový z pokrutin', 'Oleje a tuky'],
+  ])('Potraviny: %s → %s', (name, subcategory) => {
+    expect(place('Potraviny', name)).toBe(subcategory)
+  })
+
+  it.each([
+    ['Mirinda Mango Tangerine', 'Ovoce a zelenina'],
+    ['Lindt Sensation maliny/brusinky', 'Ovoce a zelenina'],
+    ['Gervais s paprikou a rajčaty', 'Ovoce a zelenina'],
+    ['Don Peppe Jahodové knedlíky 600g', 'Ovoce a zelenina'],
+    ['Avokádo Kmín celý 30g', 'Ovoce a zelenina'],
+    ['Avokádo Medová hořčice', 'Ovoce a zelenina'],
+    ['Billa Gnocchi s Parmigiano Reggiano 500 g', 'Mléčné výrobky'],
+    ['Friskies Granule pro kočky s kuřecím 4 kg (vybrané druhy)', 'Maso a uzeniny'],
+    ['BIG BOY® Maliny v matcha a bílé čokoládě', 'Káva a čaj'],
+    ['Jojo Ice tea želé bonbóny', 'Nápoje'],
+  ])('Potraviny: %s is not %s', (name, wrong) => {
+    expect(place('Potraviny', name)).not.toBe(wrong)
+  })
+
+  it.each([
+    ['Drogerie', 'MAYBELLINE NEW YORK korektor Fit Me Microscopic 20 Sand, 0,28 g', 'Kosmetika'],
+    ['Drogerie', 'Balea sprej na vlasy tepelná ochrana, 75 ml', 'Kosmetika'],
+    ['Drogerie', 'RIMMEL LONDON rtěnka Lasting Finish Satin 006 Pink Blush, 4 g', 'Kosmetika'],
+    ['Drogerie', 'Gillette Mach3 Extra Comfort gel na holení, 240 ml', 'Hygiena'],
+    ['Drogerie', 'Jessa menstruační kalhotky Teens, velikost 148/152, 1 ks', 'Hygiena'],
+    ['Drogerie', 'Bellinda punčochové kalhoty MATT, velikost 48/52, amber, 1 ks', 'Ostatní drogerie'],
+    ['Drogerie', 'Ariel Prací kapsle All in 1 Color na barevné prádlo 44 ks', 'Praní'],
+    ['Drogerie', 'Somat Excellence 5 v 1 Tablety do myčky 80 ks', 'Mytí nádobí'],
+    ['Drogerie', 'SANYTOL tekuté mýdlo antibakteriální vyživující, 250 ml', 'Hygiena'],
+    ['Domácnost', 'Persil prací kapsle Discs 4v1 Deep Clean Expert Sensitive, 54 PD', 'Úklid'],
+    ['Domácnost', 'Bolsius vonná svíčka Everyday Mango Sorbet, 1 ks', 'Ostatní'],
+    ['Děti', 'HiPP Babysanft koupel na dobrou noc, 350 ml', 'Dětská kosmetika'],
+    ['Děti', 'LOVI savička dynamická MAMMAFEEL 6m+ střední, 1 ks', 'Dětské potřeby'],
+    ['Děti', 'JIRI MODELS kniha omalovánky s tetováním Paw Patrol, 1 ks', 'Hračky'],
+    ['Ostatní', 'Marlboro Gold', 'Tabák a e-cigarety'],
+  ] as const)('%s: %s → %s', (category, name, subcategory) => {
+    expect(place(category, name)).toBe(subcategory)
+  })
+
+  it('leaves baby food out of the children\'s cosmetics', () => {
+    expect(place('Děti', 'HiPP mléčná kaše PRAEBIOTIK vanilková, 250 g')).toBeNull()
+  })
+})

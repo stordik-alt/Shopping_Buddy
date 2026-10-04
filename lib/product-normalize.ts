@@ -18,6 +18,9 @@
  *  approach was abandoned). */
 export function normalizeProductText(raw: string): string {
   return raw
+    // A possessive "'s" stays part of its word ("Nature's Promise" → "natures promise"): left on its
+    // own it would read as the Czech "s" ("with"), which the subcategory rules treat as a link word.
+    .replace(/['’´`]s(?![a-z])/gi, 's')
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase()

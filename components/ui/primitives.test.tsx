@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardButton, CardHeader } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Field, Input } from '@/components/ui/field'
-import { ProductThumb } from '@/components/ui/product-thumb'
 import { ProgressBar } from '@/components/ui/progress-bar'
 import { SegmentedControl } from '@/components/ui/segmented-control'
 
@@ -20,20 +19,6 @@ describe('ProgressBar', () => {
 
   it('shows 0 % when the maximum is zero instead of dividing by zero', () => {
     expect(renderToStaticMarkup(<ProgressBar value={5} max={0} label="x" />)).toContain('aria-valuenow="0"')
-  })
-})
-
-describe('ProductThumb', () => {
-  it('renders nothing without an image URL so the card keeps its text-only layout', () => {
-    expect(renderToStaticMarkup(<ProductThumb src={null} />)).toBe('')
-    expect(renderToStaticMarkup(<ProductThumb />)).toBe('')
-  })
-
-  it('renders a decorative lazy image for a URL', () => {
-    const html = renderToStaticMarkup(<ProductThumb src="https://example.com/a.png" />)
-    expect(html).toContain('src="https://example.com/a.png"')
-    expect(html).toContain('alt=""')
-    expect(html).toContain('loading="lazy"')
   })
 })
 

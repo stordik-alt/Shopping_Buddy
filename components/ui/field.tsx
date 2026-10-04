@@ -15,10 +15,6 @@ function Select({ className, ...props }: ComponentProps<'select'>) {
   return <select data-slot="select" className={cn(CONTROL, className)} {...props} />
 }
 
-function Textarea({ className, ...props }: ComponentProps<'textarea'>) {
-  return <textarea data-slot="textarea" className={cn(CONTROL, 'min-h-24 resize-y', className)} {...props} />
-}
-
 type ControlProps = { id: string; 'aria-describedby'?: string; 'aria-invalid'?: true }
 
 /** A label, a control, an optional hint and an error message, wired together for screen readers.
@@ -46,4 +42,4 @@ function Field({ label, hint, error, children, className }: { label: string; hin
   )
 }
 
-export { Field, Input, Select, Textarea }
+export { Field, Input, Select }

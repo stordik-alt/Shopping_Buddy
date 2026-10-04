@@ -1,6 +1,6 @@
 # 13 — UI/UX Redesign (ANITKA design system)
 
-Status: **Phase 1 (audit) done; plan steps 1–6 (tokens, primitives, shell, Domů, all cards, detail screens and deep links) implemented on the local branch `ui-redesign`; steps 7–8 (cleanup, docs, final verification, one deployment) remain.** All redesign work stays on a local
+Status: **Phase 1 (audit) done; plan steps 1–6 (tokens, primitives, shell, Domů, all cards, detail screens and deep links) implemented on the local branch `ui-redesign`; step 7 (cleanup, docs) done; step 8 (final verification, one deployment) remains.** All redesign work stays on a local
 branch and is deployed once, as a whole, after it is complete and tested (owner brief, section 16). The Picsart images
 are inspiration, not a layout specification; the current application is the source of truth for functionality.
 
@@ -253,6 +253,11 @@ Sections with nothing to say collapse or disappear (as `TodayAttention` already 
    list item open with its detail), leaving and returning does not reopen it; Profil at 320/390/1280 px light/dark
    without overflow or errors.
 7. **Cleanup**: remove dead styles, document in `docs/01_CURRENT_STATE.md`, `docs/08_ICON_SYSTEM.md`, `docs/07_CHANGELOG.md`.
+   *Done (local):* `ProductThumb` and `Textarea` removed as unused (products have no picture in the data; bring
+   `ProductThumb` back with one when they do); the last hand-built single-choice pill toggle (admin ideas filter) is
+   `SegmentedControl`; no text under 12 px and no hand-built `fixed inset-0` overlay is left. `docs/08_ICON_SYSTEM.md`
+   was rewritten (it was a single line with literal backslash-n escapes, so it did not render) with the redesign's
+   colour and state rules; `docs/01_CURRENT_STATE.md` and `docs/07_CHANGELOG.md` describe the change.
 8. **Final verification as one integrated whole**: lint, typecheck, unit tests (pure ones; DB tests only via local
    PostgreSQL, never Neon), `pnpm build`, Playwright run through every tab and every dashboard link, light/dark, 320–1280 px,
    contrast re-check of every token pair. Only then one deployment.

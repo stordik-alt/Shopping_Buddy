@@ -23,26 +23,26 @@ jobs:
       - run:
           name: Wait for PostgreSQL
           command: |
-            node <<'NODE'
-            const net = require("net");
-            let attempts = 0;
-            const check = () => {
-              const socket = net.createConnection({ host: "127.0.0.1", port: 5432 });
-              socket.setTimeout(1000);
-              socket.on("connect", () => { socket.destroy(); process.exit(0); });
-              socket.on("error", () => { socket.destroy(); retry(); });
-              socket.on("timeout", () => { socket.destroy(); retry(); });
-            };
-            const retry = () => {
-              attempts += 1;
-              if (attempts >= 30) {
-                console.error("PostgreSQL did not become ready");
-                process.exit(1);
-              }
-              setTimeout(check, 1000);
-            };
-            check();
-            NODE
+            node -e '
+              const net = require("net");
+              let attempts = 0;
+              const retry = () => {
+                attempts += 1;
+                if (attempts >= 30) {
+                  console.error("PostgreSQL did not become ready");
+                  process.exit(1);
+                }
+                setTimeout(check, 1000);
+              };
+              const check = () => {
+                const socket = net.createConnection({ host: "127.0.0.1", port: 5432 });
+                socket.setTimeout(1000);
+                socket.on("connect", () => { socket.destroy(); process.exit(0); });
+                socket.on("error", () => { socket.destroy(); retry(); });
+                socket.on("timeout", () => { socket.destroy(); retry(); });
+              };
+              check();
+            '
       - restore_cache:
           keys:
             - pnpm-store-v1-{{ checksum "pnpm-lock.yaml" }}

@@ -44,7 +44,9 @@ export const PRODUCT_SUBCATEGORIES = {
   ],
   Drogerie: ['Praní', 'Mytí nádobí', 'Čištění domácnosti', 'Kosmetika', 'Hygiena', 'Dětská hygiena', 'Ostatní drogerie'],
   Domácnost: ['Papír', 'Kuchyň', 'Úklid', 'Ostatní'],
-  Děti: ['Pleny', 'Dětská kosmetika', 'Dětské potřeby', 'Hračky', 'Ostatní'],
+  // Food for children (owner request 2026-10-04: "Přidej do Děti i potravinové podkategorie"):
+  // the chains list baby milk, purées, porridge, snacks and drinks under Děti, not under Potraviny.
+  Děti: ['Pleny', 'Dětská kosmetika', 'Dětské potřeby', 'Hračky', 'Kojenecké mléko', 'Příkrmy', 'Kaše a cereálie', 'Dětské svačinky', 'Dětské nápoje', 'Ostatní'],
   // Things that are neither food, drugstore, household nor children's goods.
   Ostatní: ['Oblečení a obuv', 'Elektronika', 'Tabák a e-cigarety', 'Ostatní zboží'],
 } as const satisfies Record<ItemCategory, readonly string[]>
@@ -378,19 +380,44 @@ const DOMACNOST_RULES: SubcategoryRule[] = [
 
 const DETI_RULES: SubcategoryRule[] = [
   { subcategory: 'Pleny', keywords: ['plen', 'pampers'] },
+  // Children's food first, so a purée "s tvarohovým krémem" or "olej" in a ready meal never reads as
+  // cosmetics; a purée with oat flakes is a purée, a milk "s kaší" is porridge.
+  { subcategory: 'Příkrmy', keywords: ['příkrm', 'prikrm', 'přesnídávk', 'pyré', 'kašičk', 'polévka', 'vývar', 'bolognese', 'boloňsk', 'smoothie', 'těstovin', 'špagety'] },
+  { subcategory: 'Kaše a cereálie', keywords: ['kaše', 'kaši', 'müsli', 'cereál', 'vločk'] },
+  {
+    subcategory: 'Kojenecké mléko',
+    keywords: ['kojenecké mléko', 'kojenecká výživa', 'mléčná výživa', 'batolecí', 'počáteční mléko', 'pokračovací mléko', 'junior combiotik', 'beba', 'nutrilon', 'kendamil'],
+    // A baby bottle ("kojenecká lahev") is no milk.
+    exclude: ['lahev', 'láhev', 'dávkovač'],
+  },
+  {
+    subcategory: 'Dětské svačinky',
+    keywords: ['sušenk', 'křupk', 'krupk', 'tyčink', 'krekr', 'oplat', 'preclík', 'popcorn', 'snack', 'keksík', 'piškot', 'bonbónk', 'želé', 'lyofiliz', 'rybičky', 'taštičk', 'dezert', 'prstýnk'],
+    exclude: ['mycí', 'sprej', 'tělov', 'krém na'],
+  },
+  {
+    subcategory: 'Dětské nápoje',
+    keywords: ['nápoj', 'napoj', ' čaj', 'šťáva', 'džus', ' voda'],
+    // "tělová voda" and "toaletní voda" are cosmetics.
+    exclude: ['tělov', 'toaletní', 'parfém', ' edt', 'mycí'],
+  },
   {
     subcategory: 'Dětská kosmetika',
     keywords: [
       'dětský krém', 'detsky krem', 'dětský šampon', 'detsky sampon', 'dětský olej', 'detsky olej',
       'šampon', 'sprchov', ' krém', 'tělové mléko', 'pleťové mléko', 'olej', 'koupel', 'pěna do koupele', 'balzám', 'zubní', 'kartáček', 'vlhčené ubrousky', 'ubrousky',
+      'mycí', 'na mytí', 'kondicionér', ' edt', 'tělová voda', 'tělová mlha', 'intimní',
     ],
     // Baby food and drinks are no cosmetics ("mléčná kaše", "olej" in a ready meal).
     exclude: ['příkrm', 'kaše', 'mléčn', 'nápoj', 'kojenecké mléko'],
   },
-  { subcategory: 'Hračky', keywords: ['hračk', 'hracka', 'hračky', 'kniha', 'knihy', 'puzzle', 'figurk', 'omalovánk', 'plyš'] },
+  { subcategory: 'Hračky', keywords: ['hračk', 'hracka', 'hračky', 'kniha', 'knihy', 'puzzle', 'figurk', 'omalovánk', 'plyš', 'chrastítk', 'kostky', 'bublifuk'] },
   {
     subcategory: 'Dětské potřeby',
-    keywords: ['dudlík', 'dudlik', 'kojeneck', 'láhev', 'lahev', 'savičk', 'hrnek', 'hrneček', 'miska', 'lžičk', 'odsávačk', 'teploměr', 'plavky', 'kousátk', 'prsní vložky', 'bryndák', 'nočník'],
+    keywords: [
+      'dudlík', 'dudlik', 'kojeneck', 'láhev', 'lahev', 'savičk', 'hrnek', 'hrneček', 'miska', 'lžičk', 'odsávačk', 'teploměr', 'plavky', 'kousátk', 'prsní vložky', 'bryndák', 'nočník',
+      'přebalovací', 'podložk', 'nádobí', 'příbor', ' nůž', 'svačinový box', 'sada na pití', 'dávkovač', 'talíř',
+    ],
   },
 ]
 

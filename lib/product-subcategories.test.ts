@@ -271,7 +271,27 @@ describe('classifySubcategoryByKeyword — extended rules (real catalog names)',
     expect(place(category, name)).toBe(subcategory)
   })
 
-  it('leaves baby food out of the children\'s cosmetics', () => {
-    expect(place('Děti', 'HiPP mléčná kaše PRAEBIOTIK vanilková, 250 g')).toBeNull()
+  // Children's food (owner request 2026-10-04), never read as cosmetics or as a baby bottle.
+  it.each([
+    ['HiPP mléčná kaše PRAEBIOTIK vanilková, 250 g', 'Kaše a cereálie'],
+    ['Nutrilon pokračovací mléčná kojenecká výživa 3 Advanced..., 800 g', 'Kojenecké mléko'],
+    ['BEBA EXPERTpro SENSITIVE od 1 roku, 800 g', 'Kojenecké mléko'],
+    ['HiPP BIO příkrm Broskev-Meruňka s tvarohovým krémem, 160 g', 'Příkrmy'],
+    ['Hami přesnídávka 100% ovoce jablko, kiwi, acerola, 400 g', 'Příkrmy'],
+    ['babylove bio boloňské špagety, 250 g', 'Příkrmy'],
+    ['Goodies křupky srdíčka s příchutí banánu a jahody, 30 g', 'Dětské svačinky'],
+    ['dmBio bio dětský čaj s příchutí ovoce, 40 g', 'Dětské nápoje'],
+    ['PHILIPS AVENT kojenecká lahev Natural Response 6m+, 330ml, 1 ks', 'Dětské potřeby'],
+    ['Chicco parfémovaná tělová voda Pop Vanilla wrap, 150 ml', 'Dětská kosmetika'],
+  ])('Děti: %s → %s', (name, subcategory) => {
+    expect(place('Děti', name)).toBe(subcategory)
+  })
+
+  it("offers the children's food subcategories in the budget too, so a receipt line keeps its subcategory there", async () => {
+    const { subcategoriesOf } = await import('@/lib/expense-categories')
+    for (const name of ['Kojenecké mléko', 'Příkrmy', 'Kaše a cereálie', 'Dětské svačinky', 'Dětské nápoje']) {
+      expect(isValidProductSubcategory('Děti', name)).toBe(true)
+      expect(subcategoriesOf('Děti')).toContain(name)
+    }
   })
 })

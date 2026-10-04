@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classifyProductType, describeItemTypes, listItemPhraseEntries, PRODUCT_TYPE_GROUPS, PRODUCT_TYPES, resolveListItemTypes, validProductTypeKeys } from '@/lib/product-types'
+import { classifyProductType, classifyReceiptLineType, describeItemTypes, listItemPhraseEntries, PRODUCT_TYPE_GROUPS, PRODUCT_TYPES, resolveListItemTypes, resolveReceiptLineType, validProductTypeKeys } from '@/lib/product-types'
 import { isValidProductSubcategory } from '@/lib/product-subcategories'
 import type { ItemCategory } from '@/lib/types'
 
@@ -13,6 +13,27 @@ const GOLDEN: [string, string | null][] = [
   ['Jihočeské máslo nedělní 77% 250 g', 'maslo'],
   ['MÁSLO 250G', 'maslo'],
   ['Šufan Pistáciové máslo 100%', null],
+  // Phase 5 additions
+  ['ACTIVIA Kefír Bílý 280g', 'kefir'],
+  ['Olma BIO Kefír', 'kefir'],
+  ['Kefírové mléko', null],
+  ['Srdce domova Kefírové mléko jahodové 450g', null],
+  ['Cuketa zelená 1 ks', 'cuketa'],
+  ['Marks & Spencer Rajčatová omáčka na těstoviny s cuketou', null],
+  ['Celer bulvový 1ks', 'celer'],
+  ['Česká Farma Celer řapík', 'celer'],
+  ['Vital Celerový salát s jogurtem', null],
+  ['Lagris Čočka 500g', 'cocka'],
+  ['Čočka Beluga 400 g', 'cocka'],
+  ['Čočkýna BIO smažená čočka - česnek', null],
+  ['Vitana Poctivá Čočková polévka v pytlíku', null],
+  ['Bohemia Chipsy čočkové mořská sůl 65g', null],
+  ['Bzenecký ocet kvasný jablečný 5% 0,5L PET', 'ocet'],
+  ['Hels Ocet 8% 1l', 'ocet'],
+  ['Pringles Sůl a ocet 165g', null],
+  ['Alnatura BIO Ocet balsamico krémový', null],
+  ['Včelpo Květový med 500 g', 'med'],
+  ['Medvědí med perník', null],
   ['Allnature Arašídové máslo jemné', null],
   ['Opavia Club s máslovou příchutí Sušenky Balení 140 g', null],
   ['Madeta Jihočeské trvanlivé mléko polotučné 1,5% 1l', 'mleko-polotucne'],
@@ -296,5 +317,36 @@ describe('chosen types on a list item (phase 3)', () => {
     expect(describeItemTypes('Kuřecí maso', ['kureci-prsa', 'kureci-stehna'])).toMatchObject({ source: 'chosen', label: 'Kuřecí maso (2 z 5)', accepted: ['kureci-prsa', 'kureci-stehna'] })
     expect(describeItemTypes('Večeře', ['maslo'])).toMatchObject({ source: 'chosen', label: 'Máslo', group: null })
     expect(describeItemTypes('Večeře', null)).toEqual({ accepted: null, source: null, label: null, group: null })
+  })
+})
+
+describe('receipt lines → product types (phase 4)', () => {
+  // [receipt line as printed, category, expected type or null]
+  const lines: Array<[string, ItemCategory | null, string | null]> = [
+    ['KUR.PRSA 500G', 'Potraviny', 'kureci-prsa'],
+    ['KUR.PRSNI RIZKY 0,6KG', 'Potraviny', 'kureci-prsa'],
+    ['KURECI STEHNA CHLAZ.', 'Potraviny', 'kureci-stehna'],
+    ['KRUT.STEHNA 1KG', 'Potraviny', 'kruti-stehna'],
+    ['MLETE VEP.MASO 500G', 'Potraviny', 'veprove-mlete'],
+    ['MLETE HOV. 400G', 'Potraviny', 'hovezi-mlete'],
+    ['TOUST. CHLEB 250G', 'Potraviny', 'toustovy-chleb'],
+    ['MASLO 250G', 'Potraviny', 'maslo'],
+    ['MASLO 250G', null, 'maslo'],
+    ['ROHLIK43GR', 'Potraviny', 'rohlik'],
+    ['SMET.KE SLEH.33% 200ML', 'Potraviny', 'smetana-ke-slehani'],
+    ['ZAK.SMETANA 180G', 'Potraviny', 'zakysana-smetana'],
+    // Not a type, or not one the rules can name: never a guess.
+    ['KURECI SUNKA 100G', 'Potraviny', 'sunka'],
+    ['MASLOVE SUSENKY', 'Potraviny', null],
+    ['SACEK 1KS', 'Potraviny', null],
+  ]
+  it.each(lines)('%s (%s) → %s', (name, category, expected) => {
+    expect(classifyReceiptLineType(category, name)).toBe(expected)
+  })
+
+  it('keeps a type found in the line (not its own) over nothing', () => {
+    expect(resolveReceiptLineType({ productTypeKey: 'maslo', category: 'Potraviny', name: 'XYZZY' })).toEqual({ key: 'maslo', fromProduct: true })
+    expect(resolveReceiptLineType({ productTypeKey: null, category: 'Potraviny', name: 'MASLO 250G' })).toEqual({ key: 'maslo', fromProduct: false })
+    expect(resolveReceiptLineType({ productTypeKey: null, category: 'Potraviny', name: 'XYZZY' })).toBeNull()
   })
 })

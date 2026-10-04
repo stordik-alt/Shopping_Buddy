@@ -1,7 +1,9 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
+import { loadProductTypeIds } from '@/lib/db/product-type-assignment'
 import * as schema from '@/lib/db/schema'
-import { matchReceiptToList, type ReceiptListPair } from '@/lib/receipt-list-match'
+import { describeItemTypes, matchingProductTypes, productTypeByKey, resolveReceiptLineType } from '@/lib/product-types'
+import { matchReceiptToList, type MatchableListItem, type MatchablePurchaseItem, type ReceiptListPair } from '@/lib/receipt-list-match'
 import type { ItemUnit } from '@/lib/types'
 
 // Data access for "an imported receipt ticks off the shopping list" (CLAUDE.md section 6: the
@@ -40,13 +42,50 @@ async function loadMatchCandidates(householdId: string, purchaseId: string) {
   return { purchaseItems: purchase.items, openListItems }
 }
 
+type MatchCandidates = NonNullable<Awaited<ReturnType<typeof loadMatchCandidates>>>
+
+/** The candidates in the form the pure matcher reads (docs/12_PRODUCT_TYPES.md phase 4): each open
+ *  list item with the product types it asks for (its chosen types, else what its name resolves to),
+ *  each receipt line with its type — its catalog product's, else the rules' reading of its text. */
+async function toMatchable(candidates: MatchCandidates): Promise<{ listItems: MatchableListItem[]; purchaseItems: MatchablePurchaseItem[] }> {
+  const productIds = [...new Set(candidates.purchaseItems.flatMap((item) => (item.productId ? [item.productId] : [])))]
+  const typeKeyByProduct = new Map<string, string>()
+  if (productIds.length > 0) {
+    const rows = await getDb()
+      .select({ productId: schema.products.id, key: schema.productTypes.key })
+      .from(schema.products)
+      .innerJoin(schema.productTypes, eq(schema.productTypes.id, schema.products.productTypeId))
+      .where(inArray(schema.products.id, productIds))
+    for (const row of rows) typeKeyByProduct.set(row.productId, row.key)
+  }
+  return {
+    listItems: candidates.openListItems.map((item) => ({
+      id: item.id,
+      name: item.name,
+      productId: item.productId,
+      acceptedTypes: describeItemTypes(item.name, item.productTypes).accepted,
+    })),
+    purchaseItems: candidates.purchaseItems.map((item) => ({
+      id: item.id,
+      name: item.name,
+      productId: item.productId,
+      type: resolveReceiptLineType({ productTypeKey: item.productId ? typeKeyByProduct.get(item.productId) ?? null : null, category: item.category, name: item.name }),
+    })),
+  }
+}
+
+async function matchCandidates(candidates: MatchCandidates) {
+  const { listItems, purchaseItems } = await toMatchable(candidates)
+  return matchReceiptToList(listItems, purchaseItems)
+}
+
 /** Ticks the given list items off using the purchase's real figures: the quantity, unit and
  *  per-unit price that were actually paid replace the planned ones (the owner's requirement — the
  *  list then shows what the trip really cost). The values come from the stored purchase, never from
  *  the client. The `done = false` condition on the UPDATE makes a concurrent tick harmless.
- *  Returns how many list items were updated. */
-async function applyPairs(householdId: string, purchaseId: string, pairs: ReceiptListPair[]): Promise<number> {
-  if (pairs.length === 0) return 0
+ *  Returns the pairs that were applied. */
+async function applyPairs(householdId: string, purchaseId: string, pairs: ReceiptListPair[]): Promise<ReceiptListPair[]> {
+  if (pairs.length === 0) return []
   const candidates = await loadMatchCandidates(householdId, purchaseId)
   if (!candidates) throw new Error('Nákup nebyl nalezen.')
 
@@ -54,7 +93,7 @@ async function applyPairs(householdId: string, purchaseId: string, pairs: Receip
   const purchaseItemById = new Map(candidates.purchaseItems.map((item) => [item.id, item]))
   const db = getDb()
 
-  let updated = 0
+  const applied: ReceiptListPair[] = []
   const usedPurchaseItems = new Set<string>()
   for (const pair of pairs) {
     const listItem = openById.get(pair.listItemId)
@@ -74,11 +113,54 @@ async function applyPairs(householdId: string, purchaseId: string, pairs: Receip
       .where(and(eq(schema.shoppingListItems.id, listItem.id), eq(schema.shoppingListItems.done, false)))
       .returning({ id: schema.shoppingListItems.id })
     if (rows.length > 0) {
-      updated += 1
+      applied.push(pair)
       usedPurchaseItems.add(purchaseItem.id)
     }
   }
-  return updated
+  return applied
+}
+
+/** Learning from a confirmed match (docs/12_PRODUCT_TYPES.md phase 4): when the household confirmed
+ *  that a receipt line is the single type its list item asks for, and the line's catalog product has
+ *  no type yet, the product takes that type (source 'alias'). Never overwrites a type, never guesses
+ *  from a group (which part of the chicken?), and never gives a product a type of another category
+ *  or one its own name contradicts. */
+async function learnProductTypes(householdId: string, purchaseId: string, applied: ReceiptListPair[]): Promise<void> {
+  if (applied.length === 0) return
+  const candidates = await loadMatchCandidates(householdId, purchaseId)
+  if (!candidates) return
+  // The list items are ticked now, so read them from the lists again rather than from the open ones.
+  const lists = await getDb().query.shoppingLists.findMany({ where: eq(schema.shoppingLists.householdId, householdId), with: { items: true } })
+  const listById = new Map(lists.flatMap((list) => list.items).map((item) => [item.id, item]))
+  const purchaseById = new Map(candidates.purchaseItems.map((item) => [item.id, item]))
+  const wanted = new Map<string, string>()
+  for (const pair of applied) {
+    const listItem = listById.get(pair.listItemId)
+    const productId = purchaseById.get(pair.purchaseItemId)?.productId
+    const accepted = listItem ? describeItemTypes(listItem.name, listItem.productTypes).accepted : null
+    if (productId && accepted?.length === 1) wanted.set(productId, accepted[0])
+  }
+  if (wanted.size === 0) return
+
+  const db = getDb()
+  const typeIds = await loadProductTypeIds()
+  const products = await db.query.products.findMany({
+    where: and(inArray(schema.products.id, [...wanted.keys()]), isNull(schema.products.productTypeId)),
+    columns: { id: true, name: true },
+    with: { category: { columns: { name: true } } },
+  })
+  for (const product of products) {
+    const key = wanted.get(product.id)
+    const typeId = key ? typeIds.get(key) : undefined
+    const definition = key ? productTypeByKey(key) : undefined
+    if (!typeId || !definition || !definition.categories.includes(product.category.name)) continue
+    // A name the rules read as another type (or as several) says what it is better than one tick.
+    if (matchingProductTypes(product.category.name, product.name).some((other) => other !== key)) continue
+    await db
+      .update(schema.products)
+      .set({ productTypeId: typeId, productTypeSource: 'alias' })
+      .where(and(eq(schema.products.id, product.id), isNull(schema.products.productTypeId)))
+  }
 }
 
 /** Ticks off every list item that a receipt line matches with certainty (same catalog product or
@@ -86,8 +168,8 @@ async function applyPairs(householdId: string, purchaseId: string, pairs: Receip
 export async function autoCheckShoppingListFromPurchase(householdId: string, purchaseId: string): Promise<number> {
   const candidates = await loadMatchCandidates(householdId, purchaseId)
   if (!candidates) return 0
-  const { certain } = matchReceiptToList(candidates.openListItems, candidates.purchaseItems)
-  return applyPairs(householdId, purchaseId, certain)
+  const { certain } = await matchCandidates(candidates)
+  return (await applyPairs(householdId, purchaseId, certain)).length
 }
 
 /** Plausible-but-unconfirmed matches for the household to accept or reject. Recomputed from the
@@ -95,7 +177,7 @@ export async function autoCheckShoppingListFromPurchase(householdId: string, pur
 export async function getReceiptListSuggestions(householdId: string, purchaseId: string): Promise<ReceiptListSuggestion[]> {
   const candidates = await loadMatchCandidates(householdId, purchaseId)
   if (!candidates) return []
-  const { suggested } = matchReceiptToList(candidates.openListItems, candidates.purchaseItems)
+  const { suggested } = await matchCandidates(candidates)
   const listById = new Map(candidates.openListItems.map((item) => [item.id, item]))
   const purchaseById = new Map(candidates.purchaseItems.map((item) => [item.id, item]))
   return suggested.flatMap((pair) => {
@@ -123,5 +205,7 @@ export async function applyConfirmedReceiptListPairs(householdId: string, purcha
   const proposed = await getReceiptListSuggestions(householdId, purchaseId)
   const allowed = new Set(proposed.map((suggestion) => `${suggestion.listItemId}:${suggestion.purchaseItemId}`))
   const valid = pairs.filter((pair) => allowed.has(`${pair.listItemId}:${pair.purchaseItemId}`))
-  return applyPairs(householdId, purchaseId, valid)
+  const applied = await applyPairs(householdId, purchaseId, valid)
+  await learnProductTypes(householdId, purchaseId, applied)
+  return applied.length
 }

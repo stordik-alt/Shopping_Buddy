@@ -5,15 +5,34 @@ import { canonicalName, canonicalWord } from '@/lib/synonyms'
 // Pure and deterministic (CLAUDE.md sections 5 and 25): no database, no network. The receipt's
 // wording ("MLEKO POLOTUC. 1L") almost never equals the list's ("Mléko"), so there are two levels of
 // confidence and the caller treats them differently:
-//   - certain:   the same catalog product, or the same name once case, diacritics and punctuation are
-//                ignored. Safe to tick automatically.
-//   - suggested: every word of the list item also appears (loosely) in the receipt line. Plausible,
-//                but only a person can say "Mléko" was the 1 l semi-skimmed one — so it is offered
-//                for confirmation and never applied on its own (nothing is guessed).
+//   - certain:   the same catalog product, the same name once case, diacritics and punctuation are
+//                ignored, or a catalog product whose type is one the list item asks for (docs/
+//                12_PRODUCT_TYPES.md phase 4). Safe to tick automatically.
+//   - suggested: a line whose type, read off its printed text, is one the item asks for ("KUR.PRSA"
+//                for "Kuřecí maso"); or, when either side has no type, every word of the list item
+//                also appears (loosely) in the receipt line. Plausible, but only a person can say
+//                "Mléko" was the 1 l semi-skimmed one — so it is offered for confirmation and never
+//                applied on its own (nothing is guessed).
+// A line whose type is known and is not one the item asks for is never matched to it, however well
+// the words fit ("Máslové sušenky" for "Máslo").
 // A receipt line is matched to at most one list item and vice versa.
 
-export type MatchableListItem = { id: string; name: string; productId: string | null }
-export type MatchablePurchaseItem = { id: string; name: string; productId: string | null }
+export type MatchableListItem = {
+  id: string
+  name: string
+  productId: string | null
+  /** The product-type keys the item asks for (lib/product-types.ts `describeItemTypes`), or null/absent
+   *  when it has none and is matched by text alone. */
+  acceptedTypes?: string[] | null
+}
+export type MatchablePurchaseItem = {
+  id: string
+  name: string
+  productId: string | null
+  /** The line's product type, if known, and whether its catalog product states it (`fromProduct`) or
+   *  only the rules read it off the printed text. Absent: the line has no known type. */
+  type?: { key: string; fromProduct: boolean } | null
+}
 
 export type ReceiptListPair = { listItemId: string; purchaseItemId: string }
 
@@ -91,13 +110,32 @@ export function matchReceiptToList(listItems: MatchableListItem[], purchaseItems
     }
   }
 
+  // Pass 1b — a catalog product of a type the item asks for is the kind of goods wanted.
+  for (const listItem of listItems) {
+    const accepted = listItem.acceptedTypes
+    if (matchedList.has(listItem.id) || !accepted?.length) continue
+    const hit = purchaseItems.find((purchase) => !takenPurchase.has(purchase.id) && purchase.type?.fromProduct && accepted.includes(purchase.type.key))
+    if (hit) {
+      certain.push({ listItemId: listItem.id, purchaseItemId: hit.id })
+      takenPurchase.add(hit.id)
+      matchedList.add(listItem.id)
+    }
+  }
+
   // Pass 2 — suggestions for what is left, each list item taking the closest remaining line.
   for (const listItem of listItems) {
     if (matchedList.has(listItem.id)) continue
+    const accepted = listItem.acceptedTypes?.length ? listItem.acceptedTypes : null
     let best: { id: string; extra: number } | null = null
     for (const purchase of purchaseItems) {
       if (takenPurchase.has(purchase.id)) continue
-      const extra = looseMatchExtraWords(listItem.name, purchase.name)
+      let extra: number | null
+      if (accepted && purchase.type) {
+        // Both sides know their kind, so it alone decides; the words only rank several fitting lines.
+        extra = accepted.includes(purchase.type.key) ? (looseMatchExtraWords(listItem.name, purchase.name) ?? Number.MAX_SAFE_INTEGER) : null
+      } else {
+        extra = looseMatchExtraWords(listItem.name, purchase.name)
+      }
       if (extra != null && (best == null || extra < best.extra)) best = { id: purchase.id, extra }
     }
     if (best) {

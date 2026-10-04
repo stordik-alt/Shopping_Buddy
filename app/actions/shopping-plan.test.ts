@@ -285,6 +285,28 @@ describe('buildShoppingPlanAction', () => {
     expect(linesOf(plan)[0].productName).toContain('Kuřecí šunka')
   })
 
+  // Product types, phase 2 (docs/12_PRODUCT_TYPES.md): an item that names a group is offered only
+  // products of its types — the cheapest raw chicken for "Kuřecí maso", never the cheaper ham.
+  it('offers "Kuřecí maso" only raw chicken parts, the cheapest for the need, never ham', async () => {
+    const typeId = async (key: string) => (await db.query.productTypes.findFirst({ where: eq(schema.productTypes.key, key) }))!.id
+    const typed = async (name: string, key: string) => {
+      const id = await addProduct(name)
+      await db.update(schema.products).set({ productTypeId: await typeId(key), productTypeSource: 'rule' }).where(eq(schema.products.id, id))
+      return id
+    }
+    const ham = await typed(`Kuřecí šunka ${tag}`, 'sunka')
+    const breast = await typed(`Kuřecí prsní řízky ${tag}`, 'kureci-prsa')
+    const thighs = await typed(`Kuřecí stehna ${tag}`, 'kureci-stehna')
+    await addPrice(ham, lidlId, 30, 60, 'kg')
+    await addPrice(breast, lidlId, 75, 150, 'kg')
+    await addPrice(thighs, lidlId, 90, 90, 'kg')
+    await saveMemberStoreSelection(memberId, { maxDistanceKm: null, chainIds: [lidlId], locationIds: [] })
+    await addItem('Kuřecí maso', 1, 'kg')
+
+    const { plan } = await buildShoppingPlanAction({ maxStores: 1, priorityChainIds: [] })
+    expect(linesOf(plan).map((line) => line.productId)).toEqual([thighs])
+  })
+
 describe('pinning', () => {
   it('replaces the pin for the same item and chain, and keeps one pin per item and chain', async () => {
     const a = await addProduct(`Med ${tag} a`)

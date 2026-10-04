@@ -92,3 +92,15 @@ export function pickAutoHit(need: Pick<NeedSpec, 'quantity' | 'unit'>, hits: Pro
   if (priced.length === 0) return null
   return priced.sort((a, b) => b.hit.score - a.hit.score || a.cost.cost - b.cost.cost || a.hit.name.localeCompare(b.hit.name, 'cs'))[0]
 }
+
+/** The product a chain should offer for a need that names a product type or group
+ *  (lib/product-types.ts): every hit is already a product of an accepted type, so text scores do not
+ *  matter — the cheapest one for the need wins, then the lower unit price, then the name. `null` when
+ *  none of them can be priced for the need. */
+export function pickTypedHit(need: Pick<NeedSpec, 'quantity' | 'unit'>, hits: ProductSearchHit[]): PricedHit | null {
+  const priced = hits
+    .map((hit) => ({ hit, cost: costForNeed(need, hit) }))
+    .filter((entry): entry is PricedHit => entry.cost !== null)
+  if (priced.length === 0) return null
+  return priced.sort((a, b) => a.cost.cost - b.cost.cost || a.hit.unitPrice - b.hit.unitPrice || a.hit.name.localeCompare(b.hit.name, 'cs'))[0]
+}

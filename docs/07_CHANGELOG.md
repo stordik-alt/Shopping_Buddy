@@ -1,3 +1,9 @@
+## 2026-10-04 (Product types, phase 2: the planner offers products by type)
+- **What:** a shopping-list item that names a product type or group ("Máslo", "Kuřecí maso", "vajíčka", "Sýr") is offered only products of those types — the cheapest for the needed quantity — and never a product that merely shares a word; a chain without such a product has no offer. Items are matched against fixed phrases per type and group (`resolveListItemTypes`, sizes and qualifiers ignored, any word order); anything else keeps the text search.
+- **Owner decisions:** "Kuřecí maso" is the meat itself (breast, thighs, wings, whole chicken, minced) — offal and soup parts only when named; "Sýr" is eidam, gouda, mozzarella and balkánský. Migration `0063_narrower_type_groups.sql` removes the other members.
+- **Checked on the local catalog copy:** a list of Kuřecí maso, Máslo, Mléko, Vejce, Rohlíky, Sýr and Kuřecí šunka gave whole chicken, butter, semi-skimmed milk, eggs, rolls and eidam; "Kuřecí šunka" stayed on the text search (ham).
+- **Coverage:** phrase resolution and collision tests, `pickTypedHit` tests, and a planner database test (local PostgreSQL, not Neon) that "Kuřecí maso" gets the cheapest raw chicken and never the cheaper ham.
+
 ## 2026-10-04 (Product types, phase 1: druhy zboží with rules, groups and storage)
 - **Why:** the owner's requirement — for "Máslo" only butter, for "Kuřecí maso" only chicken itself — needs to know what kind of product each catalog product is, which neither names nor subcategories tell (docs/12_PRODUCT_TYPES.md). Phase 1 builds that layer; the planner starts using it in phase 2.
 - **Owner decisions (2026-10-04):** "Kuřecí maso" includes marinated/seasoned raw parts, minced chicken and offal, not cooked parts; pork, beef and turkey groups work the same way.

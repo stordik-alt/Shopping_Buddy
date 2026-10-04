@@ -203,12 +203,14 @@ export const PRODUCT_TYPES: ProductTypeDefinition[] = [
 ]
 
 export const PRODUCT_TYPE_GROUPS: ProductTypeGroup[] = [
-  { key: 'kureci-maso', name: 'Kuřecí maso', types: ['kureci-prsa', 'kureci-stehna', 'kureci-kridla', 'kure-cele', 'kureci-mlete', 'kureci-vnitrnosti', 'kureci-na-polevku'] },
+  // Owner, 2026-10-04: the meat itself; offal and soup parts only when an item names them.
+  { key: 'kureci-maso', name: 'Kuřecí maso', types: ['kureci-prsa', 'kureci-stehna', 'kureci-kridla', 'kure-cele', 'kureci-mlete'] },
   { key: 'veprove-maso', name: 'Vepřové maso', types: ['veprova-krkovice', 'veprova-pecene', 'veprova-panenka', 'veprova-kyta', 'veprova-plec', 'veprovy-bucek', 'veprova-zebra', 'veprove-mlete', 'veprove-na-gulas'] },
   { key: 'hovezi-maso', name: 'Hovězí maso', types: ['hovezi-svickova', 'hovezi-zadni', 'hovezi-predni', 'hovezi-steak', 'hovezi-mlete', 'hovezi-na-gulas'] },
   { key: 'kruti-maso', name: 'Krůtí maso', types: ['kruti-prsa', 'kruti-stehna', 'kruti-mlete'] },
   { key: 'mlete-maso', name: 'Mleté maso', types: ['kureci-mlete', 'veprove-mlete', 'hovezi-mlete', 'kruti-mlete', 'mlete-smesne'] },
-  { key: 'syr', name: 'Sýr', types: ['eidam', 'gouda', 'mozzarella', 'balkansky-syr', 'hermelin', 'parmazan', 'taveny-syr', 'niva', 'cottage'] },
+  // Owner, 2026-10-04: everyday cheese; the others only when an item names them.
+  { key: 'syr', name: 'Sýr', types: ['eidam', 'gouda', 'mozzarella', 'balkansky-syr'] },
   { key: 'mleko', name: 'Mléko', types: ['mleko-polotucne', 'mleko-plnotucne', 'mleko-bez-laktozy'] },
   { key: 'smetana', name: 'Smetana', types: ['smetana-na-vareni', 'smetana-ke-slehani', 'zakysana-smetana'] },
   { key: 'mouka', name: 'Mouka', types: ['mouka-hladka', 'mouka-polohruba', 'mouka-hruba'] },
@@ -256,4 +258,185 @@ export function classifyProductType(category: ItemCategory, name: string): strin
 
 export function productTypeByKey(key: string): ProductTypeDefinition | undefined {
   return PRODUCT_TYPES.find((type) => type.key === key)
+}
+
+// --- From a shopping-list item to types (phase 2) ---------------------------------------------------
+//
+// What a household writes on its list ("Máslo", "Kuřecí maso", "vajíčka 10") is matched against a
+// fixed set of phrases per type and group. Only a whole-item match counts — the item's words, without
+// sizes, quantities and plain qualifiers, must be one of the phrases in any word order. "Kuřecí maso"
+// is the group; "Kuřecí prsa" the type; "kuřecí šunka" is neither, so it stays on the text search, as
+// does anything else not listed.
+
+/** Further ways a household writes a type or group, beyond its own name. */
+const ITEM_PHRASES: Record<string, string[]> = {
+  // Groups
+  'kureci-maso': ['kuřecí maso', 'maso kuřecí', 'kuřecí', 'kuřecí maso chlazené'],
+  'veprove-maso': ['vepřové maso', 'maso vepřové', 'vepřové'],
+  'hovezi-maso': ['hovězí maso', 'maso hovězí', 'hovězí'],
+  'kruti-maso': ['krůtí maso', 'maso krůtí', 'krůtí'],
+  'mlete-maso': ['mleté maso', 'mleté', 'maso mleté'],
+  syr: ['sýr', 'sýry', 'sýr plátky', 'plátkový sýr', 'sýr na chleba'],
+  mleko: ['mléko', 'mlíko', 'mléka'],
+  smetana: ['smetana'],
+  mouka: ['mouka', 'mouku'],
+  cukr: ['cukr'],
+  olej: ['olej'],
+  voda: ['voda', 'minerálka', 'minerálky', 'vody'],
+  kava: ['káva', 'kafe', 'kávu'],
+  // Types
+  maslo: ['máslo', 'másla'],
+  'mleko-polotucne': ['polotučné mléko', 'mléko polotučné'],
+  'mleko-plnotucne': ['plnotučné mléko', 'mléko plnotučné'],
+  'mleko-bez-laktozy': ['mléko bez laktózy', 'bezlaktózové mléko'],
+  'smetana-na-vareni': ['smetana na vaření'],
+  'smetana-ke-slehani': ['smetana ke šlehání', 'šlehačka', 'smetana na šlehání'],
+  'zakysana-smetana': ['zakysaná smetana', 'zakysanka'],
+  'jogurt-bily': ['bílý jogurt', 'jogurt bílý', 'jogurt', 'jogurty', 'řecký jogurt'],
+  tvaroh: ['tvaroh', 'tvarohy'],
+  eidam: ['eidam'],
+  gouda: ['gouda'],
+  mozzarella: ['mozzarella', 'mozarella'],
+  'balkansky-syr': ['balkánský sýr', 'balkán', 'feta'],
+  hermelin: ['hermelín', 'camembert'],
+  parmazan: ['parmazán', 'parmezán', 'grana padano'],
+  'taveny-syr': ['tavený sýr', 'tavené sýry'],
+  niva: ['niva'],
+  cottage: ['cottage', 'cottage sýr'],
+  vejce: ['vejce', 'vajíčka', 'vajíčko'],
+  rohlik: ['rohlík', 'rohlíky'],
+  chleb: ['chléb', 'chleba', 'chleby'],
+  'toustovy-chleb': ['toustový chléb', 'toustový chleba', 'toust', 'tousty'],
+  houska: ['houska', 'housky', 'kaiserka', 'kaiserky', 'žemle', 'bulky'],
+  bageta: ['bageta', 'bagety'],
+  jablka: ['jablka', 'jablko'],
+  banany: ['banány', 'banán'],
+  pomerance: ['pomeranče', 'pomeranč'],
+  mandarinky: ['mandarinky', 'mandarinka', 'klementinky'],
+  citrony: ['citrony', 'citron', 'citrón', 'citróny'],
+  hrusky: ['hrušky', 'hruška'],
+  hrozny: ['hrozny', 'hroznové víno'],
+  jahody: ['jahody'],
+  boruvky: ['borůvky'],
+  maliny: ['maliny'],
+  avokado: ['avokádo', 'avokáda'],
+  rajcata: ['rajčata', 'rajče', 'cherry rajčata', 'rajčátka'],
+  okurky: ['okurka', 'okurky', 'salátová okurka', 'hadovka'],
+  paprika: ['paprika', 'papriky'],
+  brambory: ['brambory', 'brambor'],
+  cibule: ['cibule', 'červená cibule'],
+  cesnek: ['česnek'],
+  mrkev: ['mrkev'],
+  salat: ['salát', 'ledový salát', 'hlávkový salát'],
+  zeli: ['zelí', 'bílé zelí', 'červené zelí'],
+  zampiony: ['žampiony', 'žampióny'],
+  brokolice: ['brokolice'],
+  'kureci-prsa': ['kuřecí prsa', 'kuřecí prsní řízky', 'kuřecí řízky', 'kuřecí prsní řízek', 'kuřecí filety', 'kuřecí prsíčka', 'prsní řízky'],
+  'kureci-stehna': ['kuřecí stehna', 'kuřecí stehno', 'kuřecí čtvrtky', 'kuřecí stehenní řízky', 'kuřecí paličky'],
+  'kureci-kridla': ['kuřecí křídla', 'kuřecí křidýlka', 'křidýlka'],
+  'kure-cele': ['kuře', 'celé kuře', 'kuře celé'],
+  'kureci-mlete': ['kuřecí mleté', 'mleté kuřecí', 'mleté kuřecí maso'],
+  'kureci-vnitrnosti': ['kuřecí játra', 'kuřecí srdíčka', 'kuřecí žaludky', 'kuřecí vnitřnosti'],
+  'kureci-na-polevku': ['kuřecí na polévku', 'kuřecí hřbety', 'kuřecí skelet'],
+  'veprova-krkovice': ['vepřová krkovice', 'krkovice', 'krkovička'],
+  'veprova-pecene': ['vepřová pečeně', 'vepřové kotlety', 'vepřová kotleta', 'kotlety'],
+  'veprova-panenka': ['vepřová panenka', 'panenka', 'vepřová svíčková'],
+  'veprova-kyta': ['vepřová kýta', 'vepřové plátky', 'vepřový řízek', 'vepřové řízky'],
+  'veprova-plec': ['vepřová plec'],
+  'veprovy-bucek': ['bůček', 'vepřový bůček'],
+  'veprova-zebra': ['vepřová žebra', 'žebra', 'žebírka'],
+  'veprove-mlete': ['vepřové mleté', 'mleté vepřové', 'mleté vepřové maso'],
+  'veprove-na-gulas': ['vepřové na guláš', 'vepřové kostky'],
+  'hovezi-svickova': ['hovězí svíčková', 'svíčková'],
+  'hovezi-zadni': ['hovězí zadní', 'zadní hovězí', 'hovězí roštěná'],
+  'hovezi-predni': ['hovězí přední', 'přední hovězí'],
+  'hovezi-steak': ['hovězí steak', 'steak', 'steaky'],
+  'hovezi-mlete': ['hovězí mleté', 'mleté hovězí', 'mleté hovězí maso'],
+  'hovezi-na-gulas': ['hovězí na guláš', 'maso na guláš', 'hovězí kližka', 'kližka'],
+  'kruti-prsa': ['krůtí prsa', 'krůtí řízky', 'krůtí prsní řízky'],
+  'kruti-stehna': ['krůtí stehna', 'krůtí stehno'],
+  'kruti-mlete': ['krůtí mleté', 'mleté krůtí'],
+  'mlete-smesne': ['mleté maso mix', 'mleté vepřovo hovězí', 'mleté mix'],
+  sunka: ['šunka', 'šunky'],
+  parky: ['párky', 'párek', 'párečky', 'vídeňské párky'],
+  slanina: ['slanina', 'anglická slanina'],
+  losos: ['losos', 'losos filet'],
+  'tunak-konzerva': ['tuňák', 'tuňák v konzervě'],
+  ryze: ['rýže'],
+  testoviny: ['těstoviny', 'špagety', 'spaghetti', 'penne', 'kolínka', 'vřetena', 'fusilli', 'makarony'],
+  'mouka-hladka': ['hladká mouka', 'mouka hladká'],
+  'mouka-polohruba': ['polohrubá mouka', 'mouka polohrubá'],
+  'mouka-hruba': ['hrubá mouka', 'mouka hrubá'],
+  'cukr-krupice': ['cukr krupice', 'krupice cukr', 'cukr krystal', 'krystal', 'bílý cukr'],
+  'cukr-moucka': ['cukr moučka', 'moučkový cukr'],
+  'olej-slunecnicovy': ['slunečnicový olej', 'olej slunečnicový'],
+  'olej-repkovy': ['řepkový olej', 'olej řepkový'],
+  'olej-olivovy': ['olivový olej', 'olej olivový'],
+  sul: ['sůl'],
+  drozdi: ['droždí'],
+  'kava-mleta': ['mletá káva', 'káva mletá'],
+  'kava-zrnkova': ['zrnková káva', 'káva zrnková', 'kávová zrna'],
+  'voda-neperliva': ['neperlivá voda', 'voda neperlivá', 'neperlivá'],
+  'voda-perliva': ['perlivá voda', 'voda perlivá', 'perlivá'],
+  pivo: ['pivo', 'piva', 'pivko'],
+  'toaletni-papir': ['toaletní papír', 'toaleťák'],
+  'kuchynske-uterky': ['kuchyňské utěrky', 'papírové utěrky', 'kuchyňská role'],
+  'zubni-pasta': ['zubní pasta'],
+  'sprchovy-gel': ['sprchový gel'],
+  sampon: ['šampon', 'šampón'],
+  'praci-prostredek': ['prací prášek', 'prací gel', 'prášek na praní', 'prací prostředek', 'prací kapsle'],
+  'tablety-do-mycky': ['tablety do myčky', 'kapsle do myčky'],
+  jar: ['jar', 'prostředek na nádobí', 'saponát'],
+  pleny: ['pleny', 'plenky'],
+}
+
+export type ListItemTypes = {
+  kind: 'type' | 'group'
+  key: string
+  name: string
+  /** The type keys the item accepts: the one type, or every type of the group. */
+  types: string[]
+}
+
+/** Words that say nothing about which kind of product an item is: a qualifier or a unit. */
+const FILLER = new Set(['bio', 'cerstve', 'cerstva', 'cerstvy', 'chlazene', 'chlazena', 'chlazeny', 'ks', 'kus', 'kusy', 'kg', 'g', 'dkg', 'l', 'ml', 'baleni', 'x'])
+
+/** An item name or phrase reduced to its words, sorted: numbers, sizes and fillers left out. */
+function phraseKey(text: string): string {
+  return normalizeProductText(text)
+    .split(' ')
+    .filter((word) => word && !/^\d+$/.test(word) && !/^\d+(g|kg|l|ml|ks|x)$/.test(word) && !FILLER.has(word))
+    .sort()
+    .join(' ')
+}
+
+type PhraseEntry = { phrase: string; value: ListItemTypes }
+
+function phraseEntries(): PhraseEntry[] {
+  const entries: PhraseEntry[] = []
+  for (const group of PRODUCT_TYPE_GROUPS) {
+    const value: ListItemTypes = { kind: 'group', key: group.key, name: group.name, types: group.types }
+    for (const phrase of [group.name, ...(ITEM_PHRASES[group.key] ?? [])]) entries.push({ phrase: phraseKey(phrase), value })
+  }
+  for (const type of PRODUCT_TYPES) {
+    const value: ListItemTypes = { kind: 'type', key: type.key, name: type.name, types: [type.key] }
+    for (const phrase of [type.name, ...(ITEM_PHRASES[type.key] ?? [])]) entries.push({ phrase: phraseKey(phrase), value })
+  }
+  return entries.filter((entry) => entry.phrase)
+}
+
+// Built once. Two different types or groups never share a phrase (the tests check), so the order of
+// insertion does not matter.
+const ITEM_PHRASE_INDEX = new Map(phraseEntries().map((entry) => [entry.phrase, entry.value]))
+
+/** The type or group a shopping-list item asks for, or null when its text is not one of the known
+ *  phrases (the planner then searches by text, as before). */
+export function resolveListItemTypes(name: string): ListItemTypes | null {
+  const key = phraseKey(name)
+  return key ? ITEM_PHRASE_INDEX.get(key) ?? null : null
+}
+
+/** Every phrase and what it resolves to — for the tests' collision check. */
+export function listItemPhraseEntries(): { phrase: string; key: string }[] {
+  return phraseEntries().map((entry) => ({ phrase: entry.phrase, key: entry.value.key }))
 }

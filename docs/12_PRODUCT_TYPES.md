@@ -1,7 +1,7 @@
 # Product types (druhy zboží) — concept
 
-Status: **concept, owner-approved 2026-10-03**. Phases 0 and 1 are implemented (see below); phases
-2–5 are not built yet. Update this document before or together with each phase.
+Status: **concept, owner-approved 2026-10-03**. Phases 0–2 are implemented (see below); phases
+3–5 are not built yet. Update this document before or together with each phase.
 
 ## 1. Problem
 
@@ -50,9 +50,16 @@ Group      Kuřecí maso (syrové)            — what a list item may ask for
 fillets/schnitzels, thighs, upper and lower thighs (drumsticks), quarters, wings, and other raw parts.
 Excluded: ham, salami, sausages, nuggets, smoked or cooked products, ready meals, baby food.
 
-Confirmed by the owner (2026-10-04): raw parts sold **marinated or seasoned**, **minced chicken** and
-**offal** (liver, hearts, gizzards) belong to "Kuřecí maso"; parts sold **cooked** (sous-vide, roast)
-do not — they are ready meals.
+Confirmed by the owner (2026-10-04): raw parts sold **marinated or seasoned** and **minced chicken**
+belong to "Kuřecí maso"; parts sold **cooked** (sous-vide, roast) do not — they are ready meals.
+**Offal** (liver, hearts, gizzards) and **soup parts** (backs, necks) are chicken types of their own
+but not part of the group (owner, 2026-10-04, after the planner offered chicken backs as the cheapest
+"Kuřecí maso"): they are offered only when a list item names them ("kuřecí játra").
+
+### Owner decision: "Sýr"
+
+"Sýr" on a list means everyday cheese — eidam, gouda, mozzarella, balkánský (owner, 2026-10-04).
+Camembert, parmesan, processed cheese, cottage and niva are types of their own, offered when named.
 
 ### Owner decision: other meat
 
@@ -104,7 +111,7 @@ every rule change is measured on it, so fixing one type cannot silently break an
 |---|---|---|
 | 0 | `isDirectMatch` ignores parentheses and rejects names whose leading words name another product (šunka, pivo, želé, smoothie, krmivo, …) or contain "v aspiku" / "s překvapením" / "set k přípravě" | **done 2026-10-03** |
 | 1 | `product_types` table and code rules for the ~60–100 most common list items (from real lists and purchases), batch backfill of the catalog, golden set | **done 2026-10-04** (see below) |
-| 2 | Planner uses types for items that have one | — |
+| 2 | Planner uses types for items that have one | **done 2026-10-04** (see below) |
 | 3 | Type/group picker on the shopping list | — |
 | 4 | Receipts and list ticking by type; receipt abbreviation dictionary; learning from corrections | — |
 | 5 | Wider coverage; optionally a model choosing from the closed list of types for the long tail, once per product, validated — **only after an explicit owner approval** (CLAUDE.md section 30) | — |
@@ -130,6 +137,17 @@ every rule change is measured on it, so fixing one type cannot silently break an
 - **Golden set**: ~200 real catalog names with their expected type or "none" (`lib/product-types.test.ts`),
   fewer than the ~500 planned; it grows with each rule change. On the local catalog copy 7,259 of
   53,326 products get a type; 8 match two types (shower gel & shampoo 2-in-1) and get none.
+
+### Phase 2 as implemented (2026-10-04)
+
+- A list item's text is matched against a fixed set of phrases per type and group
+  (`resolveListItemTypes` in `lib/product-types.ts`): the item's words, without numbers, sizes and
+  plain qualifiers (bio, čerstvé, chlazené, ks, kg …), must equal one phrase in any word order —
+  "Kuřecí maso", "maso kuřecí 1 kg", "vajíčka", "máslo 250g". No phrase has two meanings (tested).
+- The planner (`lib/db/shopping-plan.ts`) gives such an item only products of its types
+  (`getHitsForProductTypes`), the cheapest for the needed quantity (`pickTypedHit`, then unit price,
+  then name). A chain without one has no offer for the item — it never falls back to text matching,
+  which is what offered ham for chicken. Every other item is matched by text as before.
 
 Phases 0–4 are deterministic. Related but separate: extending the Potraviny subcategories (koření,
 vejce, …), which types will sit under.

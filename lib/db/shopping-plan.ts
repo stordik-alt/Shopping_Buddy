@@ -1,11 +1,12 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import { getMemberStoreSelection, getStoreChains } from '@/lib/db/member-store-preferences'
-import { getHitsForProducts, searchProductHitsBatch } from '@/lib/db/product-search'
+import { getHitsForProducts, getHitsForProductTypes, searchProductHitsBatch } from '@/lib/db/product-search'
 import * as schema from '@/lib/db/schema'
 import { EMPTY_STORE_SELECTION, hasStoreSelection, MAX_SHOP_STORES } from '@/lib/nearby-stores'
 import { searchTokens, type ProductSearchHit } from '@/lib/product-search'
-import { costForNeed, packageSize, pickAutoHit, type NeedSpec } from '@/lib/shopping-offers'
+import { resolveListItemTypes } from '@/lib/product-types'
+import { costForNeed, packageSize, pickAutoHit, pickTypedHit, type NeedSpec } from '@/lib/shopping-offers'
 import { planShopping, type PlanOffer, type ShoppingPlan } from '@/lib/shopping-plan'
 
 // Everything the shopping planner needs from the database: a household's list items, the stores the
@@ -94,7 +95,10 @@ export type PlanResult = {
  *  shows them as one list).
  *
  *  For every item and every allowed chain there is at most one offer: the product the user pinned
- *  for that chain, else the automatic pick (`pickAutoHit`) among products found by the item's name.
+ *  for that chain, else the automatic pick. An item that names a product type or group ("Máslo",
+ *  "Kuřecí maso" — lib/product-types.ts) is offered only products of those types, the cheapest for
+ *  the need (`pickTypedHit`); a chain with none of them has no offer, never a product that merely
+ *  shares a word ("Kuřecí šunka"). Any other item is matched by its name as before (`pickAutoHit`).
  *  A pinned product that no longer has a price at its chain falls back to the automatic pick and is
  *  reported in `notes`. The plan itself is the pure `planShopping()`. */
 export async function buildShoppingPlan(householdId: string, memberId: string | null, request: PlanRequest): Promise<PlanResult> {
@@ -132,12 +136,18 @@ export async function buildShoppingPlan(householdId: string, memberId: string | 
   const pinnedHits = await getHitsForProducts(pinnedProductIds, allowedIds)
   const pinnedByKey = new Map(pinnedHits.map((hit) => [`${hit.productId}|${hit.storeId}`, hit]))
 
-  // Automatic candidates for every item, over all allowed chains in one database query. 'Ostatní' means
-  // the category is unknown, so it must not restrict the search. The batch function returns one hit list
-  // per need with the same matching, scoring and 400-row cap as searchProductHits().
+  // Items that name a product type or group (docs/12_PRODUCT_TYPES.md, phase 2): their candidates are
+  // the products of those types, all fetched in one go.
+  const typed = needs.map((need) => resolveListItemTypes(need.name))
+  const typedHits = await getHitsForProductTypes([...new Set(typed.flatMap((entry) => entry?.types ?? []))], allowedIds)
+
+  // Automatic candidates for every other item, over all allowed chains in one database query. 'Ostatní'
+  // means the category is unknown, so it must not restrict the search. The batch function returns one
+  // hit list per need with the same matching, scoring and 400-row cap as searchProductHits(); a typed
+  // item gets an empty request (no tokens), which the batch skips.
   const autoHits = await searchProductHitsBatch(
-    needs.map((need) => ({
-      tokens: searchTokens(need.name),
+    needs.map((need, index) => ({
+      tokens: typed[index] ? [] : searchTokens(need.name),
       storeIds: allowedIds,
       ...(need.category !== 'Ostatní' ? { category: need.category } : {}),
     })),
@@ -147,8 +157,10 @@ export async function buildShoppingPlan(householdId: string, memberId: string | 
   const packageSizes: PlanResult['packageSizes'] = {}
   const packageCounts: PlanResult['packageCounts'] = {}
   needs.forEach((need, index) => {
+    const accepted = typed[index] ? new Set(typed[index].types) : null
+    const candidates = accepted ? typedHits.filter((entry) => accepted.has(entry.typeKey)).map((entry) => entry.hit) : autoHits[index]
     const byChain = new Map<string, ProductSearchHit[]>()
-    for (const hit of autoHits[index]) byChain.set(hit.storeId, [...(byChain.get(hit.storeId) ?? []), hit])
+    for (const hit of candidates) byChain.set(hit.storeId, [...(byChain.get(hit.storeId) ?? []), hit])
     for (const storeId of allowedIds) {
       let chosen: { hit: ProductSearchHit; cost: number; source: 'pinned' | 'auto' } | null = null
       const pinnedProductId = pins.get(need.id)?.get(storeId)
@@ -159,7 +171,7 @@ export async function buildShoppingPlan(householdId: string, memberId: string | 
         else notes.push(`U položky „${need.name}“ už připnutý produkt v obchodě ${chainName.get(storeId) ?? ''} nelze ocenit, použit byl automatický výběr.`)
       }
       if (!chosen) {
-        const auto = pickAutoHit(need, byChain.get(storeId) ?? [])
+        const auto = accepted ? pickTypedHit(need, byChain.get(storeId) ?? []) : pickAutoHit(need, byChain.get(storeId) ?? [])
         if (auto) chosen = { hit: auto.hit, cost: auto.cost.cost, source: 'auto' }
       }
       if (!chosen) continue

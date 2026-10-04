@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { costForNeed, packageSize, pickAutoHit } from '@/lib/shopping-offers'
+import { costForNeed, packageSize, pickAutoHit, pickTypedHit } from '@/lib/shopping-offers'
 import type { ProductSearchHit } from '@/lib/product-search'
 
 const hit = (overrides: Partial<ProductSearchHit> = {}): ProductSearchHit => ({
@@ -145,5 +145,20 @@ describe('pickAutoHit', () => {
     const a = hit({ productId: 'a', name: 'Mléko A', score: 5, unitPrice: 20 })
     const b = hit({ productId: 'b', name: 'Mléko B', score: 5, unitPrice: 20 })
     expect(pickAutoHit(need, [a, b])?.hit.productId).toBe(pickAutoHit(need, [b, a])?.hit.productId)
+  })
+})
+
+describe('pickTypedHit', () => {
+  it('offers the cheapest product of the accepted types for the need, whatever its text score', () => {
+    const breast = hit({ productId: 'breast', name: 'Kuřecí prsní řízky 500 g', unit: 'kg', regularPrice: 75, unitPrice: 150, score: 9 })
+    const thighs = hit({ productId: 'thighs', name: 'Kuřecí stehna 1 kg', unit: 'kg', regularPrice: 90, unitPrice: 90, score: 1, direct: false })
+    expect(pickTypedHit({ quantity: 1, unit: 'kg' }, [breast, thighs])?.hit.productId).toBe('thighs')
+  })
+
+  it('breaks a cost tie by unit price, then name, and offers nothing it cannot price', () => {
+    const a = hit({ productId: 'a', name: 'B máslo', unit: 'ks', regularPrice: 50, unitPrice: 200 })
+    const b = hit({ productId: 'b', name: 'A máslo', unit: 'ks', regularPrice: 50, unitPrice: 180 })
+    expect(pickTypedHit({ quantity: 1, unit: 'ks' }, [a, b])?.hit.productId).toBe('b')
+    expect(pickTypedHit({ quantity: 1, unit: 'l' }, [a, b])).toBeNull()
   })
 })

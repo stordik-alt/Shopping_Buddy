@@ -134,8 +134,25 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Plan deployment
+          command: |
+            circleci run release plan "${CIRCLE_JOB}" \
+              --environment-name="production" \
+              --component-name="${CIRCLE_PROJECT_REPONAME}" \
+              --target-version="1.0.${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1:0:7}"
+      - run:
           name: Deploy production to Vercel
           command: npx vercel@latest deploy --prod --yes --token "$VERCEL_TOKEN"
+      - run:
+          name: Update deployment status to failed
+          command: circleci run release update "${CIRCLE_JOB}" --status=FAILED
+          when: on_fail
+  deploy-release:
+    type: release
+    plan_name: deploy
+    validation:
+      enabled: true
+      auto_rollback_on_failure: true
 
 workflows:
   ci:
@@ -145,6 +162,13 @@ workflows:
       - deploy:
           requires:
             - ci
+          filters:
+            branches:
+              only: main
+
+      - deploy-release:
+          requires:
+            - deploy
           filters:
             branches:
               only: main

@@ -15,6 +15,7 @@ import {
   recipeFor,
   regenerateMeal,
   splitIngredientsByStock,
+  todaysMeals,
 } from '@/lib/meal-plans'
 import type { Ingredient, WeeklyMealPlan } from '@/lib/meal-plans'
 import type { Household, PantryItem } from '@/lib/types'
@@ -466,5 +467,29 @@ describe('menu period and meals', () => {
     expect(missingIngredients(recipe, [])).toHaveLength(recipe.ingredients.length)
     const covered = recipe.ingredients.map((ingredient, index) => pantryItem({ id: `p${index}`, name: ingredient.name, quantity: ingredient.quantity, unit: ingredient.unit }))
     expect(missingIngredients(recipe, covered)).toEqual([])
+  })
+})
+
+describe('todaysMeals', () => {
+  // 2026-10-04 is a Sunday; its week starts on Monday 2026-09-28.
+  const plan = markMealCooked(generateWeeklyPlan(3000, household()), 'Neděle', 'Snídaně')
+
+  it("returns today's meals in meal order, with the cooked flag", () => {
+    const meals = todaysMeals({ weekStart: '2026-09-28', plan }, '2026-10-04')
+    expect(meals.map((meal) => meal.mealType)).toEqual(['Snídaně', 'Oběd', 'Večeře', 'Svačina'])
+    expect(meals[0].cooked).toBe(true)
+    expect(meals[1].cooked).toBe(false)
+    expect(meals[1].recipe).toBe(recipeFor(plan, 'Neděle', 'Oběd'))
+  })
+
+  it('returns nothing for a plan saved for another week, or no plan', () => {
+    expect(todaysMeals({ weekStart: '2026-09-21', plan }, '2026-10-04')).toEqual([])
+    expect(todaysMeals(null, '2026-10-04')).toEqual([])
+  })
+
+  it('returns nothing when the plan does not cover today', () => {
+    const weekdaysOnly = generateWeeklyPlan(3000, household(), null, { dayCount: 5, startDayIndex: 0, mealTypes: ['Oběd'] })
+    expect(todaysMeals({ weekStart: '2026-09-28', plan: weekdaysOnly }, '2026-10-04')).toEqual([])
+    expect(todaysMeals({ weekStart: '2026-09-28', plan: weekdaysOnly }, '2026-09-28').map((meal) => meal.mealType)).toEqual(['Oběd'])
   })
 })

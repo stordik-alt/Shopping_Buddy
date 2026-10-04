@@ -65,19 +65,19 @@ export function QuickOutOfStock({
   }
 
   return (
-    <section aria-label="Došlo mi" className="surface p-4">
+    <section aria-label="Došlo mi" className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)] sm:p-5">
       <div className="flex items-center gap-2">
-        <PackageX className="h-4 w-4 text-primary" aria-hidden />
+        <PackageX className="size-4 text-accent-text" aria-hidden />
         <h2 className="text-sm font-semibold">Došlo mi…</h2>
       </div>
       <label className="mt-3 flex items-center gap-2 rounded-xl border border-input bg-background px-3">
-        <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+        <Search className="size-4 shrink-0 text-fg-muted" aria-hidden />
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Najít v zásobách"
           aria-label="Najít v zásobách"
-          className="min-h-10 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground sm:text-sm"
+          className="min-h-10 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-fg-muted sm:text-sm"
         />
       </label>
       <div className="mt-3 flex flex-wrap gap-2">
@@ -86,15 +86,15 @@ export function QuickOutOfStock({
             key={item.id}
             type="button"
             onClick={() => markGone(item)}
-            className={`min-h-9 max-w-full truncate rounded-full border px-3 text-xs font-medium transition hover:bg-muted ${likelyGoneIds.has(item.id) ? 'border-destructive/40 text-destructive' : 'border-border'}`}
+            className={`min-h-10 max-w-full truncate rounded-full border px-3.5 text-sm font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${likelyGoneIds.has(item.id) ? 'border-warning/50 bg-warning-subtle text-warning' : 'border-border'}`}
           >
             {item.name}
           </button>
         ))}
-        {candidates.length === 0 && <p className="text-xs text-muted-foreground">{query ? 'V zásobách nic takového není.' : 'Nic dalšího v zásobách.'}</p>}
+        {candidates.length === 0 && <p className="text-sm text-fg-muted">{query ? 'V zásobách nic takového není.' : 'Nic dalšího v zásobách.'}</p>}
       </div>
-      <label className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-        <input type="checkbox" checked={addToList} onChange={(event) => setAddToList(event.target.checked)} className="h-4 w-4 accent-[var(--primary)]" />
+      <label className="mt-3 flex min-h-10 items-center gap-2 text-sm text-fg-secondary">
+        <input type="checkbox" checked={addToList} onChange={(event) => setAddToList(event.target.checked)} className="size-4 accent-[var(--accent-solid)]" />
         Přidat i na nákupní seznam
       </label>
       {pending.length > 0 && (
@@ -104,7 +104,7 @@ export function QuickOutOfStock({
               <span className="min-w-0 truncate">
                 {entry.item.name}: došlo{entry.addToList ? ', přidám na seznam' : ''}
               </span>
-              <button type="button" onClick={() => undo(entry)} className="flex shrink-0 items-center gap-1 font-medium text-primary">
+              <button type="button" onClick={() => undo(entry)} className="flex min-h-9 shrink-0 items-center gap-1 px-1 font-medium text-accent-text">
                 <Undo2 className="h-3.5 w-3.5" aria-hidden /> Zpět
               </button>
             </li>

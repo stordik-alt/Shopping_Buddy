@@ -40,6 +40,7 @@ describe('RecurringPayments', () => {
 
   it('explains what to do without any payment', () => {
     const html = renderToStaticMarkup(<RecurringPayments payments={[]} occurrences={[]} today="2026-09-26" onAdd={noop} onEdit={noop} onConfirm={noop} onSkip={noop} />)
-    expect(html).toContain('Zatím žádné.')
+    expect(html).toContain('Zatím žádné pravidelné platby')
+    expect(html).toContain('Přidejte platbu, která se opakuje')
   })
 })

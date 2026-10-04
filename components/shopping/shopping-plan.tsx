@@ -107,7 +107,7 @@ export function ShoppingPlanPanel({
                   aria-label={`Prioritní: ${chain}`}
                   onClick={() => setPriorityIds(on ? priorityIds.filter((entry) => entry !== id) : [...priorityIds, id])}
                   className={`flex min-h-10 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                    on ? 'border-primary bg-primary/10 font-medium text-primary' : 'border-border bg-background hover:bg-muted'
+                    on ? 'border-accent-solid bg-accent-subtle font-medium text-accent-text' : 'border-border bg-background hover:bg-muted'
                   }`}
                 >
                   <Star className={`h-3.5 w-3.5 ${on ? 'fill-current' : ''}`} aria-hidden="true" />
@@ -138,7 +138,7 @@ export function ShoppingPlanPanel({
               <p className="text-xs text-muted-foreground">Nemáte zvolené obchody v okolí (Profil), plánuje se ze všech obchodů.</p>
             )}
 
-            <div className="rounded-2xl bg-primary/10 px-4 py-3 text-primary">
+            <div className="rounded-2xl bg-accent-subtle px-4 py-3 text-accent-text">
               <p className="text-sm">
                 {plan.plannedCount} z {plan.needCount} položek · {plan.stores.length} {plan.stores.length === 1 ? 'obchod' : plan.stores.length < 5 ? 'obchody' : 'obchodů'}
               </p>

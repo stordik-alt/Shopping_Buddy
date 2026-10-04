@@ -8,7 +8,7 @@ export function Brand({ compact = false }: { compact?: boolean }) {
       {!compact && (
         <div className="min-w-0">
           <span className="block text-[1.05rem] font-bold tracking-[-0.02em] text-primary">ANITKA</span>
-          <span className="block text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">Rodinný nákup</span>
+          <span className="block text-xs font-medium uppercase tracking-[0.12em] text-fg-muted">Rodinný nákup</span>
         </div>
       )}
     </div>

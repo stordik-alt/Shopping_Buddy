@@ -94,8 +94,8 @@ export function AccountMenu({
         {initialsFor(userName)}
       </button>
       {open && (
-        <div role="menu" aria-label="Účet" className="absolute right-0 top-full z-40 mt-2 w-64 rounded-2xl border border-border bg-popover p-2 text-popover-foreground shadow-xl">
-          <p className="truncate px-3 py-2 text-xs text-muted-foreground">{userName}</p>
+        <div role="menu" aria-label="Účet" className="absolute right-0 top-full z-40 mt-2 w-64 rounded-2xl border border-border bg-surface-elevated p-2 text-foreground shadow-elevated">
+          <p className="truncate px-3 py-2 text-xs text-fg-muted">{userName}</p>
           <button role="menuitem" className={itemClass} onClick={run(() => onSelectTab('Profil'))}>
             <Users className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> Profil domácnosti
           </button>

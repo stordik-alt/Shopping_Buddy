@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { ChevronDown, Plus, RotateCcw } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { userFacingError } from '@/lib/errors'
 import type { UsualItem } from '@/lib/usual-items'
 
@@ -50,10 +51,10 @@ export function UsualItems({ suggestions, onAdd }: { suggestions: UsualItem[]; o
         className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <span className="flex min-w-0 items-center gap-2">
-          <RotateCcw className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+          <RotateCcw className="size-4 shrink-0 text-accent-text" aria-hidden="true" />
           <span className="min-w-0">
             <span className="block text-sm font-semibold">Doplnit obvyklé</span>
-            <span className="block text-xs text-muted-foreground">
+            <span className="block text-sm text-fg-muted">
               {suggestions.length === 1 ? '1 položka je na řadě' : suggestions.length < 5 ? `${suggestions.length} položky jsou na řadě` : `${suggestions.length} položek je na řadě`}
             </span>
           </span>
@@ -68,34 +69,23 @@ export function UsualItems({ suggestions, onAdd }: { suggestions: UsualItem[]; o
               <li key={item.name} className="flex items-center justify-between gap-3 py-2">
                 <div className="min-w-0">
                   <p className="break-words text-sm font-medium">{item.name}</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-fg-muted">
                     {item.quantity} {item.unit} · {intervalLabel(item.intervalDays)}, {lastBoughtLabel(item.daysSinceLast)}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  disabled={busy !== null}
-                  onClick={() => void add([item], item.name)}
-                  aria-label={`Přidat ${item.name} na seznam`}
-                  className="flex min-h-10 shrink-0 items-center gap-1 rounded-xl border border-border px-3 text-xs font-medium hover:bg-muted disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <Plus className="h-3.5 w-3.5" aria-hidden="true" /> {busy === item.name ? 'Přidávám…' : 'Přidat'}
-                </button>
+                <Button variant="outline" size="lg" disabled={busy !== null} onClick={() => void add([item], item.name)} aria-label={`Přidat ${item.name} na seznam`}>
+                  <Plus aria-hidden="true" /> {busy === item.name ? 'Přidávám…' : 'Přidat'}
+                </Button>
               </li>
             ))}
           </ul>
           {suggestions.length > 1 && (
-            <button
-              type="button"
-              disabled={busy !== null}
-              onClick={() => void add(suggestions, '*')}
-              className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <Plus className="h-4 w-4" aria-hidden="true" /> {busy === '*' ? 'Přidávám…' : 'Přidat vše na seznam'}
-            </button>
+            <Button size="lg" className="w-full" disabled={busy !== null} onClick={() => void add(suggestions, '*')}>
+              <Plus aria-hidden="true" /> {busy === '*' ? 'Přidávám…' : 'Přidat vše na seznam'}
+            </Button>
           )}
           {error && (
-            <p role="alert" className="text-xs text-destructive">
+            <p role="alert" className="text-sm text-destructive">
               {error}
             </p>
           )}

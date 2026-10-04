@@ -1,6 +1,11 @@
-import { AlertTriangle, BriefcaseMedical, Car, Cat, Check, ClipboardCheck, House, Minus, Package, PackageSearch, Plus, Refrigerator, Snowflake, SprayCan, Warehouse, Wheat, X, type LucideIcon } from 'lucide-react'
+import { AlertTriangle, BriefcaseMedical, Car, Cat, Check, ChevronDown, ClipboardCheck, House, Minus, Package, PackageSearch, Plus, Refrigerator, Snowflake, SprayCan, Warehouse, Wheat, X, type LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Pager } from '@/components/shared/pager'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Select } from '@/components/ui/field'
+import { SegmentedControl } from '@/components/ui/segmented-control'
 import { PantryAddModal, type PantryAddInput } from '@/components/shopping/pantry-add-modal'
 import { PantryReview, type PantryReviewResult } from '@/components/shopping/pantry-review'
 import { itemCountLabel } from '@/lib/format'
@@ -45,6 +50,7 @@ function iconFor(option: PantryPlaceOption): LucideIcon {
 // 17: items the pipeline couldn't place confidently still show up under their location, just
 // outside any subcategory folder, rather than being hidden).
 const UNCATEGORIZED = '__uncategorized__'
+const ALL_SUBCATEGORIES = '__all__'
 
 // −/+ step size: whole units for "ks" (you don't buy 0.3 of a countable item), a tenth for
 // weight/volume units — matches how the household would actually type a correction (section 7).
@@ -73,12 +79,13 @@ function QuantityStepper({ quantity, unit, onChange }: { quantity: number; unit:
   return (
     <div className="flex items-center gap-1">
       <button
+        type="button"
         aria-label={`Ubrat ${unit}`}
         onClick={() => onChange(Math.max(0, round3(quantity - step)))}
-        className="rounded-lg border border-input p-1 text-muted-foreground hover:bg-muted disabled:opacity-40"
+        className="flex size-11 items-center justify-center rounded-xl border border-input text-fg-secondary hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"
         disabled={quantity <= 0}
       >
-        <Minus className="h-3.5 w-3.5" />
+        <Minus className="size-4" aria-hidden="true" />
       </button>
       <input
         aria-label={`Množství (${unit})`}
@@ -89,15 +96,16 @@ function QuantityStepper({ quantity, unit, onChange }: { quantity: number; unit:
         onChange={(e) => setDraft(e.target.value)}
         onBlur={(e) => commit(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && commit(e.currentTarget.value)}
-        className="w-14 rounded-lg border border-input bg-background px-1 py-1 text-center text-xs"
+        className="h-11 w-16 rounded-xl border border-input bg-background px-1 text-center text-base outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
       />
-      <span className="text-xs text-muted-foreground">{unit}</span>
+      <span className="min-w-6 text-sm text-fg-muted">{unit}</span>
       <button
+        type="button"
         aria-label={`Přidat ${unit}`}
         onClick={() => onChange(round3(quantity + step))}
-        className="rounded-lg border border-input p-1 text-muted-foreground hover:bg-muted"
+        className="flex size-11 items-center justify-center rounded-xl border border-input text-fg-secondary hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <Plus className="h-3.5 w-3.5" />
+        <Plus className="size-4" aria-hidden="true" />
       </button>
     </div>
   )
@@ -265,31 +273,29 @@ export function Pantry({
   return (
     <div className="space-y-4">
       {toCheck > 0 && !reviewing && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-primary/10 px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-accent-subtle px-4 py-3">
           <p className="min-w-0 text-sm">
             Máte je ještě? K ověření: <span className="font-semibold">{itemCountLabel(toCheck)}</span>
           </p>
-          <button
-            type="button"
+          <Button
             onClick={() => {
               setReviewing('uncertain')
               setNotice(null)
             }}
-            className="min-h-9 rounded-xl bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
           >
             Zkontrolovat
-          </button>
+          </Button>
         </div>
       )}
       {duplicates.length > 0 && !reviewing && (
-        <div className="flex items-start gap-2 rounded-2xl border border-border bg-muted px-4 py-3 text-sm">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+        <div className="flex items-start gap-2 rounded-2xl bg-warning-subtle px-4 py-3 text-sm">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
           <p className="min-w-0">
             Na více místech: <span className="font-medium text-foreground">{duplicates.map((entry) => entry.name).join(', ')}</span>. Zkontrolujte, zda nejde o duplicitu.
           </p>
         </div>
       )}
-      <nav aria-label="Umístění zásob" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <nav aria-label="Umístění zásob" className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
         {options.map((option) => {
           const Icon = iconFor(option)
           const { count, needsCheck, outOfStock } = summary[option.key]
@@ -306,26 +312,30 @@ export function Pantry({
                 setNotice(null)
               }}
               className={cn(
-                'flex min-w-0 flex-col items-start gap-2 rounded-2xl border p-3 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
-                active ? 'border-primary bg-primary text-primary-foreground shadow-sm' : 'border-border bg-card hover:bg-muted',
+                // Compact row tiles (icon beside name and count) so the six places do not fill a phone's first screen.
+                'grid min-w-0 grid-cols-[auto_1fr] items-center gap-x-2.5 gap-y-1.5 rounded-2xl border-2 p-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:p-3',
+                // Active = turquoise outline + tinted tile, not a solid slab (it would dominate the screen in dark mode).
+                active ? 'border-accent-solid bg-accent-subtle' : 'border-transparent bg-card shadow-[var(--shadow-card)] hover:bg-muted',
               )}
             >
-              <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', active ? 'bg-primary-foreground/15' : 'bg-secondary text-secondary-foreground')}>
-                <Icon className="h-5 w-5" aria-hidden />
+              <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-xl', active ? 'bg-accent-solid text-accent-solid-foreground' : 'bg-muted text-accent-text')}>
+                <Icon className="size-5" aria-hidden />
               </span>
-              <span className="min-w-0 break-words text-sm font-semibold leading-tight">{option.name}</span>
-              <span className={cn('text-xs', active ? 'text-primary-foreground/80' : 'text-muted-foreground')}>{itemCountLabel(count)}</span>
+              <span className="min-w-0">
+                <span className="block break-words text-sm font-semibold leading-tight">{option.name}</span>
+                <span className="block text-xs text-fg-muted">{itemCountLabel(count)}</span>
+              </span>
               {(needsCheck > 0 || outOfStock > 0) && (
-                <span className="flex flex-wrap gap-1">
+                <span className="col-span-2 flex flex-wrap gap-1">
                   {needsCheck > 0 && (
-                    <span className={cn('rounded-full px-2 py-0.5 text-xs font-semibold', active ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-primary/15 text-primary')}>
+                    <Badge tone="accent" className="py-0.5">
                       Ověřit: {needsCheck}
-                    </span>
+                    </Badge>
                   )}
                   {outOfStock > 0 && (
-                    <span className={cn('rounded-full px-2 py-0.5 text-xs font-semibold', active ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-destructive/10 text-destructive')}>
+                    <Badge tone="warning" className="py-0.5">
                       Došlo: {outOfStock}
-                    </span>
+                    </Badge>
                   )}
                 </span>
               )}
@@ -335,18 +345,13 @@ export function Pantry({
       </nav>
 
       {!reviewing && totalUncategorized > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-muted px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-muted px-4 py-3">
           <p className="min-w-0 text-sm">
             Bez podkategorie: <span className="font-semibold">{itemCountLabel(totalUncategorized)}</span>
           </p>
-          <button
-            type="button"
-            onClick={autoCategorize}
-            disabled={categorizing}
-            className="min-h-9 rounded-xl border border-border bg-card px-3 text-sm font-medium hover:bg-background disabled:opacity-50"
-          >
+          <Button variant="outline" onClick={autoCategorize} disabled={categorizing}>
             {categorizing ? 'Zařazuji…' : 'Zařadit automaticky'}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -354,52 +359,19 @@ export function Pantry({
         // Subcategory folders within the open location (spec sections 17-18) — only shown when
         // there's more than one group to actually filter by, so a location with a single kind of
         // item (or none categorized yet) keeps the simpler flat list.
-        <div role="group" aria-label={`Podkategorie v umístění ${selectedOption.name}`} className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setSubcategoryFilter(null)
-              setPage(1)
-            }}
-            className={cn(
-              'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
-              subcategoryFilter === null ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card hover:bg-muted',
-            )}
-          >
-            Vše ({itemsInLocation.length})
-          </button>
-          {[...subcategoryCounts.counts.entries()].sort(([a], [b]) => a.localeCompare(b, 'cs')).map(([name, count]) => (
-            <button
-              key={name}
-              type="button"
-              onClick={() => {
-                setSubcategoryFilter(name)
-                setPage(1)
-              }}
-              className={cn(
-                'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
-                subcategoryFilter === name ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card hover:bg-muted',
-              )}
-            >
-              {name} ({count})
-            </button>
-          ))}
-          {subcategoryCounts.uncategorized > 0 && (
-            <button
-              type="button"
-              onClick={() => {
-                setSubcategoryFilter(UNCATEGORIZED)
-                setPage(1)
-              }}
-              className={cn(
-                'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
-                subcategoryFilter === UNCATEGORIZED ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card hover:bg-muted',
-              )}
-            >
-              Nezařazeno ({subcategoryCounts.uncategorized})
-            </button>
-          )}
-        </div>
+        <SegmentedControl
+          label={`Podkategorie v umístění ${selectedOption.name}`}
+          value={subcategoryFilter ?? ALL_SUBCATEGORIES}
+          onChange={(value) => {
+            setSubcategoryFilter(value === ALL_SUBCATEGORIES ? null : value)
+            setPage(1)
+          }}
+          options={[
+            { value: ALL_SUBCATEGORIES, label: `Vše (${itemsInLocation.length})` },
+            ...[...subcategoryCounts.counts.entries()].sort(([a], [b]) => a.localeCompare(b, 'cs')).map(([name, count]) => ({ value: name, label: `${name} (${count})` })),
+            ...(subcategoryCounts.uncategorized > 0 ? [{ value: UNCATEGORIZED, label: `Nezařazeno (${subcategoryCounts.uncategorized})` }] : []),
+          ]}
+        />
       )}
 
       {reviewing ? (
@@ -408,155 +380,157 @@ export function Pantry({
       <section aria-label={`Zásoby: ${selectedOption.name}`} className="overflow-hidden surface">
         <div className="flex flex-col gap-3 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-2">
-            <SelectedIcon className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+            <SelectedIcon className="size-4 shrink-0 text-accent-text" aria-hidden />
             <h2 className="min-w-0 text-sm font-semibold">{selectedOption.name}</h2>
-            <span className="shrink-0 text-xs text-muted-foreground">{itemCountLabel(selectedItems.length)}</span>
+            <span className="shrink-0 text-sm text-fg-muted">{itemCountLabel(selectedItems.length)}</span>
           </div>
           <div className="flex shrink-0 items-center justify-end gap-2">
-            <button
-              type="button"
+            <Button
               onClick={() => {
                 setAdding(true)
                 setNotice(null)
               }}
-              className="flex min-h-9 items-center gap-1.5 rounded-xl bg-primary px-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
             >
-              <Plus className="h-3.5 w-3.5" aria-hidden /> Přidat
-            </button>
+              <Plus aria-hidden /> Přidat
+            </Button>
             {items.length > 0 && (
-              <button
-                type="button"
+              <Button
+                variant="outline"
                 onClick={() => {
                   setReviewing('location')
                   setNotice(null)
                 }}
-                className="flex min-h-9 items-center gap-1.5 rounded-xl border border-border px-2.5 text-xs font-medium hover:bg-muted"
               >
-                <ClipboardCheck className="h-3.5 w-3.5" aria-hidden /> Zkontrolovat
-              </button>
+                <ClipboardCheck aria-hidden /> Zkontrolovat
+              </Button>
             )}
           </div>
         </div>
 
-        <p role="status" aria-live="polite" className={notice ? 'border-b border-border bg-primary/10 px-5 py-2 text-xs text-primary' : 'sr-only'}>
+        <p role="status" aria-live="polite" className={notice ? 'border-b border-border bg-accent-subtle px-5 py-2.5 text-sm text-accent-text' : 'sr-only'}>
           {notice ?? ''}
         </p>
 
         {selectedItems.length === 0 && (
-          <div className="p-10 text-center">
-            <Package className="mx-auto h-8 w-8 text-muted-foreground" aria-hidden />
-            <p className="mt-3 font-semibold">{items.length === 0 ? 'Zásoby jsou prázdné' : `V umístění „${selectedOption.name}“ zatím nic není`}</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {items.length === 0
+          <EmptyState
+            className="m-4 bg-transparent"
+            icon={<Package />}
+            title={items.length === 0 ? 'Zásoby jsou prázdné' : `V umístění „${selectedOption.name}“ zatím nic není`}
+            description={
+              items.length === 0
                 ? 'Zásoby se plní samy, když dokončíte nákup nebo nahrajete účtenku.'
-                : 'Položky se sem přidají po dokončení nákupu nebo je sem přesunete z jiného umístění.'}
-            </p>
-            {items.length === 0 && (onReceipts || onShopping) && (
-              <div className="mt-4 flex flex-wrap justify-center gap-2">
-                {onReceipts && (
-                  <button onClick={onReceipts} className="min-h-11 rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    Nahrát účtenku
-                  </button>
-                )}
-                {onShopping && (
-                  <button onClick={onShopping} className="min-h-11 rounded-2xl bg-muted px-4 text-sm font-semibold hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    Otevřít nákupní seznam
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
+                : 'Položky se sem přidají po dokončení nákupu nebo je sem přesunete z jiného umístění.'
+            }
+            action={
+              items.length === 0 && (onReceipts || onShopping) ? (
+                <div className="flex flex-wrap justify-center gap-2">
+                  {onReceipts && (
+                    <Button size="lg" onClick={onReceipts}>
+                      Nahrát účtenku
+                    </Button>
+                  )}
+                  {onShopping && (
+                    <Button variant="outline" size="lg" onClick={onShopping}>
+                      Otevřít nákupní seznam
+                    </Button>
+                  )}
+                </div>
+              ) : undefined
+            }
+          />
         )}
 
         {pagedItems.map((item) => (
-          <div key={item.id} className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-4 last:border-0">
-            <div className="min-w-0 flex-1 basis-full sm:basis-auto">
-              <span className="flex flex-wrap items-center gap-2">
-                <span className="min-w-0 break-words font-medium">{item.name}</span>
-                {likelyGone.has(item.id) ? (
-                  <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
-                    Asi došlo
-                  </span>
-                ) : (
-                  item.askedAt && <span className="rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">Máte ještě?</span>
+          // At a glance only what the household acts on: name, state, amount, "Ještě mám" / "Došlo".
+          // Corrections (category, subcategory, place, tracking) sit behind "Upravit" — still in the
+          // page (a native <details>), just not competing for attention on every row.
+          <div key={item.id} className="border-b border-border px-4 py-3 last:border-0 sm:px-5">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <div className="min-w-0 flex-1 basis-full sm:basis-auto">
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className="min-w-0 break-words font-medium">{item.name}</span>
+                  {likelyGone.has(item.id) ? (
+                    <Badge tone="warning" className="py-0.5">
+                      Asi došlo
+                    </Badge>
+                  ) : (
+                    item.askedAt && (
+                      <Badge tone="accent" className="py-0.5">
+                        Máte ještě?
+                      </Badge>
+                    )
+                  )}
+                </span>
+                <span className="mt-1 block text-xs text-fg-muted">
+                  {item.category}
+                  {item.subcategory ? ` ▸ ${item.subcategory}` : ''}
+                  {likelyGone.has(item.id) && ` · ${estimateReason(estimates.get(item.id)!)}`}
+                </span>
+              </div>
+              <QuantityStepper quantity={item.quantity} unit={item.unit} onChange={(quantity) => onAdjustQuantity(item.id, quantity)} />
+              {/* Grouped so the two icon buttons wrap onto a new line together on a narrow phone, not one by one. */}
+              <div className="ml-auto flex items-center">
+                <button type="button" aria-label={`Ještě mám: ${item.name}`} onClick={() => onConfirm(item.id)} className="icon-button hover:!bg-success-subtle hover:!text-success">
+                  <Check className="size-5" aria-hidden="true" />
+                </button>
+                <button type="button" aria-label={`Došlo: ${item.name}`} onClick={() => onRemove(item.id)} className="icon-button hover:!bg-destructive-subtle hover:!text-destructive">
+                  <X className="size-5" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+            <details className="group mt-1">
+              <summary className="flex min-h-11 w-fit cursor-pointer list-none items-center gap-1 rounded-lg text-sm font-medium text-accent-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+                Upravit <ChevronDown className="size-4 transition group-open:rotate-180" aria-hidden="true" />
+              </summary>
+              <div className="mt-2 grid gap-3 rounded-xl bg-muted/50 p-3 sm:grid-cols-2">
+                <label className="block space-y-1.5 text-sm font-medium">
+                  <span>Kategorie</span>
+                  <Select aria-label={`Kategorie ${item.name}`} value={item.category} onChange={(event) => void setCategory(item, event.target.value as ItemCategory)}>
+                    {ITEM_CATEGORY_NAMES.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+                {/* Only categories with a fixed subcategory list get the select (all do today). */}
+                {subcategoriesOfItem(item.category).length > 0 && (
+                  <label className="block space-y-1.5 text-sm font-medium">
+                    <span>Podkategorie</span>
+                    <Select aria-label={`Podkategorie ${item.name}`} value={item.subcategory ?? ''} onChange={(event) => void setSubcategory(item, event.target.value || null)}>
+                      <option value="">Nezařazeno</option>
+                      {subcategoriesOfItem(item.category).map((name) => (
+                        <option key={name} value={name}>
+                          {name}
+                        </option>
+                      ))}
+                    </Select>
+                  </label>
                 )}
-              </span>
-              <span className="mt-1 block text-xs text-muted-foreground">
-                <select
-                  aria-label={`Kategorie ${item.name}`}
-                  value={item.category}
-                  onChange={(event) => void setCategory(item, event.target.value as ItemCategory)}
-                  className="max-w-full rounded border border-input bg-background px-1 py-0.5 text-xs outline-none"
-                >
-                  {ITEM_CATEGORY_NAMES.map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
-                {likelyGone.has(item.id) && ` · ${estimateReason(estimates.get(item.id)!)}`}
-              </span>
-            </div>
-            <QuantityStepper quantity={item.quantity} unit={item.unit} onChange={(quantity) => onAdjustQuantity(item.id, quantity)} />
-            <select
-              aria-label={`Umístění ${item.name}`}
-              value={placeKeyOf(item)}
-              onChange={(event) => move(item, event.target.value)}
-              className="max-w-full rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none"
-            >
-              {options.map((option) => (
-                <option key={option.key} value={option.key}>
-                  {option.name}
-                </option>
-              ))}
-            </select>
-            {/* Only categories with a fixed subcategory list get the select (all do today). */}
-            {subcategoriesOfItem(item.category).length > 0 && (
-              <select
-                aria-label={`Podkategorie ${item.name}`}
-                value={item.subcategory ?? ''}
-                onChange={(event) => void setSubcategory(item, event.target.value || null)}
-                className="max-w-full rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none"
-              >
-                <option value="">Nezařazeno</option>
-                {subcategoriesOfItem(item.category).map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            )}
-            {/* Salt, spices or oil need no weekly question: "Jen zřídka" asks every few months,
-                "Nesledovat" never, and neither is ever estimated as used up. */}
-            <select
-              aria-label={`Sledování ${item.name}`}
-              value={item.tracking ?? 'normal'}
-              onChange={(event) => onSetTracking(item.id, event.target.value as PantryTracking)}
-              className="max-w-full rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none"
-            >
-              {PANTRY_TRACKING.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            {/* Grouped so the two icon buttons wrap onto a new line together on a narrow phone, not one by one. */}
-            <div className="flex items-center">
-              <button
-                aria-label={`Ještě mám: ${item.name}`}
-                onClick={() => onConfirm(item.id)}
-                className="rounded-lg p-2 text-muted-foreground hover:bg-primary/10 hover:text-primary"
-              >
-                <Check className="h-4 w-4" />
-              </button>
-              <button
-                aria-label={`Došlo: ${item.name}`}
-                onClick={() => onRemove(item.id)}
-                className="rounded-lg p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+                <label className="block space-y-1.5 text-sm font-medium">
+                  <span>Umístění</span>
+                  <Select aria-label={`Umístění ${item.name}`} value={placeKeyOf(item)} onChange={(event) => move(item, event.target.value)}>
+                    {options.map((option) => (
+                      <option key={option.key} value={option.key}>
+                        {option.name}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+                {/* Salt, spices or oil need no weekly question: "Jen zřídka" asks every few months,
+                    "Nesledovat" never, and neither is ever estimated as used up. */}
+                <label className="block space-y-1.5 text-sm font-medium">
+                  <span>Sledování</span>
+                  <Select aria-label={`Sledování ${item.name}`} value={item.tracking ?? 'normal'} onChange={(event) => onSetTracking(item.id, event.target.value as PantryTracking)}>
+                    {PANTRY_TRACKING.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+              </div>
+            </details>
           </div>
         ))}
         {totalPages > 1 && (

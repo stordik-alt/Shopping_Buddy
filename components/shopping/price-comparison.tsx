@@ -18,7 +18,7 @@ export function PriceComparison({ productName, productPrices, today }: { product
           return (
             <div
               key={price.store}
-              className={`rounded-lg px-2 py-1.5 ${index === 0 ? 'bg-primary/10 text-primary' : 'bg-muted text-foreground'}`}
+              className={`rounded-lg px-2 py-1.5 ${index === 0 ? 'bg-accent-subtle text-accent-text' : 'bg-muted text-foreground'}`}
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="font-medium">{price.store}</span>

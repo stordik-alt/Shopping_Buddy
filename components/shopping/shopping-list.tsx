@@ -10,6 +10,11 @@ import { searchProductsAction } from '@/app/actions/product-search'
 import type { PlanResult, PinRecord } from '@/lib/db/shopping-plan'
 import { hasStoreSelection, type StoreSelection } from '@/lib/nearby-stores'
 import { ShoppingPlanPanel } from '@/components/shopping/shopping-plan'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Input, Select } from '@/components/ui/field'
+import { SegmentedControl } from '@/components/ui/segmented-control'
 import { PriceComparison } from '@/components/shopping/price-comparison'
 import { ProductSearch } from '@/components/shopping/product-search'
 import { StoreComparison } from '@/components/shopping/store-comparison'
@@ -153,21 +158,21 @@ export function ShoppingList({
     <div className="mx-auto max-w-3xl space-y-4 sm:space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm text-muted-foreground">Sdílené seznamy</p>
+          <p className="text-sm text-fg-muted">Sdílené seznamy</p>
           <h2 className="mt-0.5 break-words text-2xl font-semibold tracking-tight">{activeList}</h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground">
+          <Badge>
             {remainingCount} k nákupu · {completedCount} hotovo
-          </span>
+          </Badge>
           {wakeLock.supported && (
             <button
               type="button"
               onClick={wakeLock.toggle}
               aria-pressed={wakeLock.active}
-              className={`flex min-h-9 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${wakeLock.active ? 'bg-primary text-primary-foreground' : 'border border-border bg-card text-muted-foreground hover:bg-muted'}`}
+              className={`flex min-h-10 items-center gap-1.5 rounded-full px-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${wakeLock.active ? 'bg-accent-subtle text-accent-text' : 'border border-border bg-card text-fg-secondary hover:bg-muted'}`}
             >
-              <Sun className="h-3.5 w-3.5" aria-hidden="true" /> {wakeLock.active ? 'Displej nezhasne' : 'Nechat displej svítit'}
+              <Sun className="size-4" aria-hidden="true" /> {wakeLock.active ? 'Displej nezhasne' : 'Nechat displej svítit'}
             </button>
           )}
         </div>
@@ -185,7 +190,7 @@ export function ShoppingList({
             }}
             placeholder="Co koupit?"
             list="product-catalog-suggestions"
-            className="min-h-11 min-w-0 flex-1 bg-transparent px-3 text-base outline-none placeholder:text-muted-foreground sm:text-sm"
+            className="min-h-11 min-w-0 flex-1 bg-transparent px-3 text-base outline-none placeholder:text-fg-muted"
           />
           {/* Native autocomplete against the real catalog (docs/07_CHANGELOG.md, "product
               normalization phase 1") — picking a suggestion means addShoppingItemAction's
@@ -201,9 +206,9 @@ export function ShoppingList({
               <option key={product.productName} value={product.productName} />
             ))}
           </datalist>
-          <button onClick={addItem} className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <Plus className="h-4 w-4" aria-hidden="true" /> Přidat
-          </button>
+          <Button size="lg" onClick={addItem}>
+            <Plus aria-hidden="true" /> Přidat
+          </Button>
         </div>
       </div>
 
@@ -215,9 +220,9 @@ export function ShoppingList({
             setSearchOpen((open) => !open)
             setSearchItemId(null)
           }}
-          className="flex min-h-11 items-center gap-2 rounded-xl px-2 text-sm font-medium text-primary hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-h-11 items-center gap-2 rounded-xl px-2 text-sm font-medium text-accent-text hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <Search className="h-4 w-4" aria-hidden="true" /> {searchOpen ? 'Skrýt hledání produktů' : 'Hledat produkty v obchodech'}
+          <Search className="size-4" aria-hidden="true" /> {searchOpen ? 'Skrýt hledání produktů' : 'Hledat produkty v obchodech'}
         </button>
         {searchOpen && (
           <div className="mt-2">
@@ -226,21 +231,12 @@ export function ShoppingList({
         )}
       </div>
 
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Nákupní seznamy">
-        {lists.map((list) => (
-          <button
-            key={list}
-            role="tab"
-            aria-selected={activeList === list}
-            onClick={() => setActiveList(list)}
-            className={`min-h-10 rounded-full px-4 py-2 text-sm font-medium transition ${activeList === list ? 'bg-primary text-primary-foreground' : 'border border-border bg-card text-muted-foreground hover:bg-muted'}`}
-          >
-            {list}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center gap-2">
+        <SegmentedControl label="Nákupní seznamy" value={activeList} onChange={setActiveList} options={lists.map((list) => ({ value: list, label: list }))} />
         <button
+          type="button"
           onClick={() => setListDialog(true)}
-          className="min-h-10 rounded-full border border-dashed border-input px-4 py-2 text-sm text-muted-foreground hover:bg-muted"
+          className="min-h-10 rounded-full border border-dashed border-input px-4 text-sm text-fg-secondary hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="Přidat seznam"
         >
           + Nový seznam
@@ -248,21 +244,21 @@ export function ShoppingList({
       </div>
       {listDialog && (
         <div className="surface flex flex-wrap gap-2 p-3">
-          <input
+          <Input
             autoFocus
             aria-label="Název nového seznamu"
             value={listName}
             onChange={(event) => setListName(event.target.value)}
             onKeyDown={(event) => event.key === 'Enter' && createList()}
             placeholder="Např. Vánoce"
-            className="min-h-10 min-w-0 flex-1 basis-40 bg-transparent px-2 text-sm outline-none"
+            className="min-w-0 flex-1 basis-40"
           />
-          <button onClick={createList} className="min-h-10 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground">
+          <Button size="lg" onClick={createList}>
             Vytvořit
-          </button>
-          <button onClick={() => setListDialog(false)} className="min-h-10 rounded-xl px-3 text-sm text-muted-foreground hover:bg-muted">
+          </Button>
+          <Button variant="ghost" size="lg" onClick={() => setListDialog(false)}>
             Zrušit
-          </button>
+          </Button>
         </div>
       )}
 
@@ -271,18 +267,21 @@ export function ShoppingList({
           onClick={() => setFiltersOpen((open) => !open)}
           aria-expanded={filtersOpen}
           aria-controls="shopping-filters"
-          className="flex min-h-10 items-center gap-2 rounded-xl border border-border bg-card px-3 text-sm font-medium text-muted-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-h-11 items-center gap-2 rounded-xl border border-border bg-card px-3 text-sm font-medium text-fg-secondary transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+          <SlidersHorizontal className="size-4" aria-hidden="true" />
           Filtry a řazení
           {activeFilterCount > 0 && (
-            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">{activeFilterCount}</span>
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-accent-solid px-1.5 text-xs font-semibold text-accent-solid-foreground">
+              {activeFilterCount}
+              <span className="sr-only"> aktivní</span>
+            </span>
           )}
           <ChevronDown className={`h-4 w-4 transition ${filtersOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
         </button>
         {filtersOpen && (
           <div id="shopping-filters" className="surface mt-3 space-y-4 p-4">
-            <label className="flex min-h-11 items-center gap-2 rounded-xl border border-input bg-background px-3 text-sm text-muted-foreground">
+            <label className="flex min-h-11 items-center gap-2 rounded-xl border border-input bg-background px-3 text-sm text-fg-muted focus-within:ring-2 focus-within:ring-ring/40">
               <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
               <input
                 aria-label="Filtrovat seznam"
@@ -292,59 +291,33 @@ export function ShoppingList({
                 className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none sm:text-sm"
               />
             </label>
-            <div className="flex flex-wrap gap-2" aria-label="Kategorie nákupu">
-              {['Vše', ...CATEGORIES].map((option) => (
-                <button
-                  key={option}
-                  onClick={() => setCategory(option)}
-                  aria-pressed={category === option}
-                  className={`min-h-10 rounded-full px-3 py-2 text-xs font-medium ${category === option ? 'bg-primary text-primary-foreground' : 'border border-border bg-card text-muted-foreground'}`}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                Řadit
-                <select
-                  aria-label="Řadit položky"
-                  value={sort}
-                  onChange={(event) => setSort(event.target.value as SortKey)}
-                  className="min-h-10 rounded-lg border border-input bg-background px-2 py-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
+            <SegmentedControl label="Kategorie nákupu" value={category} onChange={setCategory} options={['Vše', ...CATEGORIES].map((option) => ({ value: option, label: option }))} />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block space-y-1.5 text-sm font-medium">
+                <span>Řadit</span>
+                <Select aria-label="Řadit položky" value={sort} onChange={(event) => setSort(event.target.value as SortKey)}>
                   {SORT_KEYS.map((option) => (
                     <option key={option}>{option}</option>
                   ))}
-                </select>
+                </Select>
               </label>
-              <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                Seskupit
-                <select
-                  aria-label="Seskupit položky"
-                  value={group}
-                  onChange={(event) => setGroup(event.target.value as GroupKey)}
-                  className="min-h-10 rounded-lg border border-input bg-background px-2 py-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
+              <label className="block space-y-1.5 text-sm font-medium">
+                <span>Seskupit</span>
+                <Select aria-label="Seskupit položky" value={group} onChange={(event) => setGroup(event.target.value as GroupKey)}>
                   {GROUP_KEYS.map((option) => (
                     <option key={option}>{option}</option>
                   ))}
-                </select>
+                </Select>
               </label>
-              <button
-                onClick={() => setShowCompleted((current) => !current)}
-                className="min-h-10 rounded-xl border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                aria-pressed={!showCompleted}
-              >
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" size="lg" onClick={() => setShowCompleted((current) => !current)} aria-pressed={!showCompleted}>
                 {showCompleted ? 'Skrýt hotové' : 'Zobrazit hotové'}
-              </button>
+              </Button>
               {items.some((item) => item.done) && (
-                <button
-                  onClick={() => items.filter((item) => item.done).forEach((item) => removeItem(item.id))}
-                  className="min-h-10 rounded-xl border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
+                <Button variant="outline" size="lg" onClick={() => items.filter((item) => item.done).forEach((item) => removeItem(item.id))}>
                   Vymazat hotové
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -352,73 +325,79 @@ export function ShoppingList({
       </div>
 
       {items.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-border bg-card p-10 text-center">
-          <ListChecks className="mx-auto h-8 w-8 text-muted-foreground" />
-          <p className="mt-3 font-semibold">Seznam je prázdný</p>
-          <p className="mt-1 text-sm text-muted-foreground">Přidejte první položku do pole nahoře.</p>
-        </div>
+        <EmptyState icon={<ListChecks />} title="Seznam je prázdný" description="Přidejte první položku do pole nahoře." />
       ) : (
         <div className="space-y-4">
           {groupedItems.map(({ label, items: groupItemsList }) => (
             <div key={label ?? 'all'} className="overflow-hidden surface">
               <div className="flex items-center justify-between border-b border-border px-5 py-4">
                 <div className="flex items-center gap-2">
-                  <ListChecks className="h-4 w-4 text-primary" />
+                  <ListChecks className="size-4 text-accent-text" aria-hidden="true" />
                   <span className="text-sm font-semibold">{label ?? `${filteredItems.filter((i) => !i.done).length} zbývá`}</span>
                 </div>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-sm text-fg-muted">
                   Odhad {money(groupItemsList.reduce((sum, i) => sum + i.price * i.quantity, 0))}
                 </span>
               </div>
               {groupItemsList.map((item) => (
                 <div key={item.id} className="border-b border-border last:border-0">
-                  <div className="flex min-w-0 items-center gap-2.5 px-3 py-3.5 sm:gap-3 sm:px-5 sm:py-4">
+                  <div className="flex min-w-0 items-center gap-1.5 py-2 pr-2 pl-1 sm:gap-2 sm:pr-4 sm:pl-3">
+                    {/* The most used control in the shop: a 44 px target around a 28 px circle. */}
                     <button
-                      aria-label={item.done ? 'Označit jako nedokončené' : 'Označit jako zakoupené'}
+                      type="button"
+                      aria-label={item.done ? `${item.name}: označit jako nedokončené` : `${item.name}: označit jako zakoupené`}
+                      aria-pressed={item.done}
                       onClick={() => toggle(item.id)}
-                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${item.done ? 'border-primary bg-primary text-primary-foreground' : 'border-input'}`}
+                      className="group flex size-11 shrink-0 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                      {item.done && <Check className="h-4 w-4" />}
+                      <span className={`flex size-7 items-center justify-center rounded-full border-2 transition ${item.done ? 'border-accent-solid bg-accent-solid text-accent-solid-foreground' : 'border-input group-hover:border-accent-solid'}`}>
+                        {item.done && <Check className="size-4" strokeWidth={3} aria-hidden="true" />}
+                      </span>
                     </button>
-                    <button onClick={() => setExpandedId((current) => (current === item.id ? null : item.id))} className="min-w-0 flex-1 text-left">
-                      <span className={`block break-words font-medium ${item.done ? 'text-muted-foreground line-through' : ''}`}>{item.name}</span>
-                      <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                    <button type="button" onClick={() => setExpandedId((current) => (current === item.id ? null : item.id))} className="min-h-11 min-w-0 flex-1 py-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg">
+                      <span className={`block break-words font-medium ${item.done ? 'text-fg-muted line-through' : ''}`}>{item.name}</span>
+                      <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-fg-muted">
                         <span>
                           {item.category} · {item.store || 'Bez obchodu'}
                         </span>
                         {(() => {
                           const typeLabel = describeItemTypes(item.name, item.productTypes).label
-                          return typeLabel ? <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground">{typeLabel}</span> : null
+                          return typeLabel ? <Badge className="py-0.5">{typeLabel}</Badge> : null
                         })()}
                         {item.onSale && (
-                          <span className="flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">
-                            <Tag className="h-2.5 w-2.5" aria-hidden="true" /> Akce
-                          </span>
+                          <Badge tone="accent" className="py-0.5">
+                            <Tag className="size-3" aria-hidden="true" /> Akce
+                          </Badge>
                         )}
                         {item.priority === 'Vysoká' && (
-                          <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">Priorita</span>
+                          <Badge tone="danger" className="py-0.5">
+                            Priorita
+                          </Badge>
                         )}
                       </span>
                     </button>
-                    <span className="shrink-0 text-sm font-semibold text-primary">{money(item.price * item.quantity)}</span>
+                    <span className="shrink-0 text-sm font-semibold">{money(item.price * item.quantity)}</span>
                     <button
-                      aria-label="Zobrazit detail položky"
+                      type="button"
+                      aria-label={`Detail položky ${item.name}`}
+                      aria-expanded={expandedId === item.id}
                       onClick={() => setExpandedId((current) => (current === item.id ? null : item.id))}
-                      className="flex size-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="icon-button shrink-0"
                     >
-                      <ChevronDown className={`h-4 w-4 transition ${expandedId === item.id ? 'rotate-180' : ''}`} />
+                      <ChevronDown className={`size-4 transition ${expandedId === item.id ? 'rotate-180' : ''}`} aria-hidden="true" />
                     </button>
                     <button
+                      type="button"
                       aria-label={`Odstranit ${item.name}`}
                       onClick={() => removeItem(item.id)}
-                      className="hidden size-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:flex"
+                      className="icon-button hidden shrink-0 hover:!bg-destructive-subtle hover:!text-destructive sm:inline-flex"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="size-4" aria-hidden="true" />
                     </button>
                   </div>
                   {expandedId === item.id && (
                     <div className="grid gap-3 border-t border-border bg-muted/40 px-5 py-4 sm:grid-cols-2">
-                      <label className="text-xs text-muted-foreground">
+                      <label className="text-sm font-medium">
                         Množství
                         <DecimalField
                           ariaLabel={`Množství ${item.name}`}
@@ -427,20 +406,20 @@ export function ShoppingList({
                           onValue={(quantity) => updateItem(item.id, { quantity })}
                         />
                       </label>
-                      <label className="text-xs text-muted-foreground">
+                      <label className="text-sm font-medium">
                         Jednotka
                         <select
                           aria-label={`Jednotka ${item.name}`}
                           value={item.unit}
                           onChange={(e) => updateItem(item.id, { unit: e.target.value as ItemUnit })}
-                          className="mt-1 w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+                          className="mt-1.5 min-h-11 w-full rounded-xl border border-input bg-background px-3 text-base text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
                         >
                           {UNITS.map((unit) => (
                             <option key={unit}>{unit}</option>
                           ))}
                         </select>
                       </label>
-                      <label className="text-xs text-muted-foreground">
+                      <label className="text-sm font-medium">
                         Odhadovaná cena
                         <DecimalField
                           ariaLabel={`Cena ${item.name}`}
@@ -450,26 +429,26 @@ export function ShoppingList({
                           onValue={(price) => updateItem(item.id, { price })}
                         />
                       </label>
-                      <label className="text-xs text-muted-foreground">
+                      <label className="text-sm font-medium">
                         Kategorie
                         <select
                           aria-label={`Kategorie ${item.name}`}
                           value={item.category}
                           onChange={(e) => updateItem(item.id, { category: e.target.value as ItemCategory })}
-                          className="mt-1 w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+                          className="mt-1.5 min-h-11 w-full rounded-xl border border-input bg-background px-3 text-base text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
                         >
                           {CATEGORIES.map((cat) => (
                             <option key={cat}>{cat}</option>
                           ))}
                         </select>
                       </label>
-                      <label className="text-xs text-muted-foreground">
+                      <label className="text-sm font-medium">
                         Preferovaný obchod
                         <select
                           aria-label={`Obchod ${item.name}`}
                           value={item.store || ''}
                           onChange={(e) => updateItem(item.id, { store: e.target.value || undefined })}
-                          className="mt-1 w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+                          className="mt-1.5 min-h-11 w-full rounded-xl border border-input bg-background px-3 text-base text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
                         >
                           <option value="">Bez preference</option>
                           {STORES.map((store) => (
@@ -477,13 +456,13 @@ export function ShoppingList({
                           ))}
                         </select>
                       </label>
-                      <label className="text-xs text-muted-foreground">
+                      <label className="text-sm font-medium">
                         Priorita
                         <select
                           aria-label={`Priorita ${item.name}`}
                           value={item.priority}
                           onChange={(e) => updateItem(item.id, { priority: e.target.value as ItemPriority })}
-                          className="mt-1 w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+                          className="mt-1.5 min-h-11 w-full rounded-xl border border-input bg-background px-3 text-base text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
                         >
                           {PRIORITIES.map((priority) => (
                             <option key={priority}>{priority}</option>
@@ -493,30 +472,31 @@ export function ShoppingList({
                       <div className="sm:col-span-2">
                         <ItemTypePicker name={item.name} productTypes={item.productTypes} onChange={(productTypes) => updateItem(item.id, { productTypes })} />
                       </div>
-                      <label className="text-xs text-muted-foreground sm:col-span-2">
+                      <label className="text-sm font-medium sm:col-span-2">
                         Poznámka
                         <input
                           aria-label={`Poznámka ${item.name}`}
                           value={item.note || ''}
                           onChange={(e) => updateItem(item.id, { note: e.target.value })}
                           placeholder="Např. vzít bez laktózy"
-                          className="mt-1 w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+                          className="mt-1.5 min-h-11 w-full rounded-xl border border-input bg-background px-3 text-base text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
                         />
                       </label>
-                      <label className="flex items-center gap-2 text-xs text-muted-foreground sm:col-span-2">
+                      <label className="flex min-h-11 items-center gap-2 text-sm sm:col-span-2">
                         <input
                           type="checkbox"
                           checked={item.onSale || false}
                           onChange={(e) => updateItem(item.id, { onSale: e.target.checked })}
-                          className="size-4 accent-primary"
+                          className="size-5 accent-[var(--accent-solid)]"
                         />
                         Aktuálně v akci
                       </label>
                       <button
                         onClick={() => removeItem(item.id)}
-                        className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-border px-3 text-xs font-medium text-destructive hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:hidden"
+                        type="button"
+                        className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border px-3 text-sm font-medium text-destructive hover:bg-destructive-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:hidden"
                       >
-                        <X className="h-4 w-4" aria-hidden="true" /> Odstranit z nákupu
+                        <X className="size-4" aria-hidden="true" /> Odstranit z nákupu
                       </button>
                       <button
                         type="button"
@@ -525,9 +505,9 @@ export function ShoppingList({
                           setSearchItemId((current) => (current === item.id ? null : item.id))
                           setSearchOpen(false)
                         }}
-                        className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-border px-3 text-xs font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border px-3 text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
-                        <Search className="h-4 w-4" aria-hidden="true" /> Najít v obchodech
+                        <Search className="size-4" aria-hidden="true" /> Najít v obchodech
                       </button>
                       {searchItemId === item.id && (
                         <div className="sm:col-span-2">
@@ -560,12 +540,10 @@ export function ShoppingList({
       {completedCount > 0 && (
         // Sticks just above the mobile bottom navigation so finishing a trip is always one tap away.
         <div className="sticky bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-10 lg:bottom-4">
-          <button
-            onClick={completePurchase}
-            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-lg transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <Check className="h-4 w-4" aria-hidden="true" /> Dokončit nákup ({completedCount})
-          </button>
+          {/* The trip's one primary action: the turquoise CTA (navy text, 7.5:1). */}
+          <Button variant="accent" className="min-h-12 w-full rounded-2xl text-base shadow-elevated" onClick={completePurchase}>
+            <Check aria-hidden="true" /> Dokončit nákup ({completedCount})
+          </Button>
         </div>
       )}
 
@@ -620,7 +598,7 @@ function DecimalField({
       value={draft ?? formatDecimalInput(value)}
       onChange={(e) => change(e.target.value)}
       onBlur={() => setDraft(null)}
-      className="mt-1 w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+      className="mt-1.5 min-h-11 w-full rounded-xl border border-input bg-background px-3 text-base text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
     />
   )
 }

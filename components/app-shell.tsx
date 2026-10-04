@@ -14,6 +14,10 @@ import { Recipes } from '@/components/recipes/recipes'
 import { AppSidebar } from '@/components/shared/app-sidebar'
 import { MobileNav } from '@/components/shared/mobile-nav'
 import { OfflineBanner } from '@/components/shopping/offline-banner'
+import { CollapsibleSection } from '@/components/shared/collapsible-section'
+import { TodayMeals } from '@/components/dashboard/today-meals'
+import { PieChart } from 'lucide-react'
+import { SegmentedControl } from '@/components/ui/segmented-control'
 import {
   AiAssistant,
   BudgetOverview,
@@ -52,7 +56,7 @@ import { applyPendingOps, newTempId } from '@/lib/offline-queue'
 import { expensesInPeriod, totalSpent } from '@/lib/budget'
 import { longDate, thisPeriodTitle } from '@/lib/format'
 import type { HouseholdData, PurchaseAftermath, TickedListItem } from '@/lib/db/queries'
-import { currentWeekStart, markMealCooked as markCooked, type Ingredient, type MealType } from '@/lib/meal-plans'
+import { currentWeekStart, markMealCooked as markCooked, todaysMeals, type Ingredient, type MealType } from '@/lib/meal-plans'
 import type { ProductPrice } from '@/lib/prices'
 import type { Item, Store, Tab } from '@/lib/types'
 import type { PinRecord } from '@/lib/db/shopping-plan'
@@ -458,7 +462,14 @@ export function AppShell({
                     completed={completed}
                     totalItems={items.length}
                     pendingNames={pendingNames}
-                    onShopping={() => setTab('Nákup')}
+                    onBudget={() => {
+                      setTab('Rozpočet')
+                      setRozpocetView('stav')
+                    }}
+                    onShopping={() => {
+                      setTab('Nákup')
+                      setNakupView('seznam')
+                    }}
                     onExpense={() => openExpense(null)}
                     onReceipt={() => {
                       setTab('Nákup')
@@ -467,43 +478,39 @@ export function AppShell({
                     onStores={() => setTab('Obchody')}
                     onSetBudget={() => setTab('Profil')}
                   />
+                  <TodayMeals meals={todaysMeals(mealPlan, today)} onOpen={() => setTab('Recepty')} />
                   <QuickOutOfStock pantryItems={pantryItems} likelyGoneIds={likelyGonePantryIds} onGone={quickOut} />
                   <PriceWatch today={today} onBrowseDeals={() => setTab('Akce')} onStores={() => setTab('Obchody')} onAddToList={addItemByName} listItemNames={pendingNames} productPrices={nearbyProductPrices} offers={nearbyStandaloneOffers} pantryItems={pantryItems} />
-                  <div className="grid gap-4 lg:grid-cols-2 lg:gap-6">
-                    <SpendingBreakdown expenses={periodExpenses} periodTitle={thisPeriodTitle(today, periodStartDay)} onDetails={() => setTab('Rozpočet')} />
-                    <SavingsInsight remaining={remaining} today={today} periodStartDay={periodStartDay} />
-                  </div>
+                  {/* Secondary detail, closed by default: the budget card above already gives the key numbers. */}
+                  <CollapsibleSection title="Výdaje podle kategorií" summary={`${thisPeriodTitle(today, periodStartDay)} · utraceno ${spent.toLocaleString('cs-CZ')} Kč`} icon={<PieChart className="size-5" aria-hidden="true" />}>
+                    <div className="space-y-6">
+                      <SavingsInsight embedded remaining={remaining} today={today} periodStartDay={periodStartDay} />
+                      <SpendingBreakdown
+                        embedded
+                        expenses={periodExpenses}
+                        periodTitle={thisPeriodTitle(today, periodStartDay)}
+                        onDetails={() => {
+                          setTab('Rozpočet')
+                          setRozpocetView('stav')
+                        }}
+                      />
+                    </div>
+                  </CollapsibleSection>
                 </div>
               )}
               {tab === 'Nákup' && (
                 <div className="mx-auto max-w-3xl space-y-5">
                   <OfflineBanner online={online} pending={pendingCount} dropped={droppedCount} onDismissDropped={() => dismissDropped()} />
-                  <div className="flex flex-wrap gap-2" role="group" aria-label="Zobrazení nákupu">
-                    {(
-                      [
-                        ['seznam', 'Nákupní seznam'],
-                        ['nakupy', 'Moje nákupy'],
-                        ['uctenky', 'Účtenky'],
-                      ] as const
-                    ).map(([value, label]) => {
-                      const pendingCountForView = value === 'uctenky' ? pendingReceiptImports.length + (listSuggestions ? 1 : 0) : 0
-                      return (
-                        <button
-                          key={value}
-                          onClick={() => setNakupView(value)}
-                          aria-pressed={nakupView === value}
-                          className={`relative min-h-9 rounded-full px-3 text-sm font-medium transition ${nakupView === value ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground hover:bg-primary/10'}`}
-                        >
-                          {label}
-                          {pendingCountForView > 0 && (
-                            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold leading-none text-destructive-foreground">
-                              {pendingCountForView > 9 ? '9+' : pendingCountForView}
-                            </span>
-                          )}
-                        </button>
-                      )
-                    })}
-                  </div>
+                  <SegmentedControl
+                    label="Zobrazení nákupu"
+                    value={nakupView}
+                    onChange={setNakupView}
+                    options={[
+                      { value: 'seznam', label: 'Nákupní seznam' },
+                      { value: 'nakupy', label: 'Moje nákupy' },
+                      { value: 'uctenky', label: 'Účtenky', badge: pendingReceiptImports.length + (listSuggestions ? 1 : 0) },
+                    ]}
+                  />
                   {nakupView === 'seznam' && (
                     <>
                       {pantryPrompt && (
@@ -640,23 +647,15 @@ export function AppShell({
               {tab === 'Recepty' && <Recipes household={household} initialPlan={mealPlan} pantryItems={pantryItems} onAddIngredients={addRecipeIngredients} onAddMealPlanIngredients={addIngredients} onMarkCooked={markMealCooked} onPlanSaved={(budgetLimit, plan) => setMealPlan({ weekStart: currentWeekStart(today), budgetLimit, plan })} onGoToShopping={() => setTab('Nákup')} />}
               {tab === 'Rozpočet' && (
                 <div className="space-y-5 lg:space-y-6">
-                  <div className="flex flex-wrap gap-2" role="group" aria-label="Zobrazení rozpočtu">
-                    {(
-                      [
-                        ['stav', 'Aktuální stav'],
-                        ['vydaje', 'Výdaje'],
-                      ] as const
-                    ).map(([value, label]) => (
-                      <button
-                        key={value}
-                        onClick={() => setRozpocetView(value)}
-                        aria-pressed={rozpocetView === value}
-                        className={`min-h-9 rounded-full px-3 text-sm font-medium transition ${rozpocetView === value ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground hover:bg-primary/10'}`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
+                  <SegmentedControl
+                    label="Zobrazení rozpočtu"
+                    value={rozpocetView}
+                    onChange={setRozpocetView}
+                    options={[
+                      { value: 'stav', label: 'Aktuální stav' },
+                      { value: 'vydaje', label: 'Výdaje' },
+                    ]}
+                  />
                   {rozpocetView === 'stav' && (
                     <>
                       <BudgetOverview

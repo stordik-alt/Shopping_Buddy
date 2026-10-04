@@ -44,7 +44,9 @@ export const PRODUCT_SUBCATEGORIES = {
   ],
   Drogerie: ['Praní', 'Mytí nádobí', 'Čištění domácnosti', 'Kosmetika', 'Hygiena', 'Dětská hygiena', 'Ostatní drogerie'],
   Domácnost: ['Papír', 'Kuchyň', 'Úklid', 'Ostatní'],
-  Děti: ['Pleny', 'Dětská kosmetika', 'Dětské potřeby', 'Hračky', 'Ostatní'],
+  // Food for children (owner request 2026-10-04: "Přidej do Děti i potravinové podkategorie"):
+  // the chains list baby milk, purées, porridge, snacks and drinks under Děti, not under Potraviny.
+  Děti: ['Pleny', 'Dětská kosmetika', 'Dětské potřeby', 'Hračky', 'Kojenecké mléko', 'Příkrmy', 'Kaše a cereálie', 'Dětské svačinky', 'Dětské nápoje', 'Ostatní'],
   // Things that are neither food, drugstore, household nor children's goods.
   Ostatní: ['Oblečení a obuv', 'Elektronika', 'Tabák a e-cigarety', 'Ostatní zboží'],
 } as const satisfies Record<ItemCategory, readonly string[]>
@@ -97,7 +99,21 @@ export function isValidProductSubcategory(category: ItemCategory, subcategory: s
  *  when they come before the first matching keyword: a name says what the product is first and what
  *  it tastes of or contains after — "Mléčná čokoláda plněná likérem" is chocolate, while
  *  "Bottega Liquore 17% čokoláda" is a liqueur. */
-type SubcategoryRule = { subcategory: string; keywords: string[]; exclude?: string[]; excludeBefore?: string[] }
+type SubcategoryRule = { subcategory: string; keywords: string[]; exclude?: string[]; excludeBefore?: string[]; headOnly?: boolean; startOnly?: boolean }
+
+/** What may stand before a `startOnly` keyword: produce brands and plain qualifiers ("BIO", "Metro
+ *  Chef", "Česká Farma", "cherry", a colour). Any other word in front ("Mirinda Mango", "ZON Malina",
+ *  "Avokádo Jalovec") means the fruit is only a flavour or a brand, and the rule does not apply. */
+const PRODUCE_PREFIXES = [
+  'bio', 'metro chef', 'bon via', 'bonvia', 'premium', 'fine life', 'čerstvě utrženo', 'čerstvé', 'čerstvá', 'česká farma', 'farma', 'aro', 'bonduelle', 'gold', 'efko', 'clever', 'billa',
+  'albert', "nature's promise", 'nature s promise', 'jeden tag', 'monoprix', 'alnatura', 'dmbio', 'eat me', 'titbit', 'cherry', 'baby', 'mini', 'zralé', 'zralý', 'zlatá', 'velké', 'velký',
+  'červená', 'červené', 'červený', 'žlutá', 'žluté', 'žlutý', 'bílá', 'bílé', 'bílý', 'černé', 'černý', 'zelená', 'zelené', 'zelený', 'sladká', 'sladké', 'kanadské', 'české', 'český',
+]
+
+/** Words after which a name lists what the product contains or tastes of: "Gervais s paprikou",
+ *  "Gnocchi s Parmigiano", "Jogurt bez laktózy". A `headOnly` rule's keyword must come before the
+ *  first of them — the fruit, vegetable or cheese must be the product itself. */
+const LINKING_WORDS = [' s ', ' se ', ' z ', ' ze ', ' na ', ' v ', ' ve ', ' do ', ' pro ', ' bez ', ' příchu', ' prichu']
 
 /** Words naming a kind of food that a drink, nut, spice or pulse is often only the flavour or the
  *  filling of ("čokoláda s kousky kávy", "omáčka s fazolemi", "jogurt … vaječný likér"). Used as
@@ -115,8 +131,25 @@ const FOOD_HEADS = [
 // omáčka … koření"); oil before nuts ("Olej z vlašských ořechů"). Every keyword was checked against
 // the real catalog (2026-10-03): a short one is tied to word boundaries where it is part of other
 // words ("čočk" is "cock" in "Cocktails", "caj" starts "Cajthaml").
+/** Drinks, sweets, jams, teas, seasonings and snacks only flavoured with — or named after — a fruit or
+ *  vegetable ("Monster Mango", "Malinový džem", "Paprika mletá", "Jahodové knedlíky"). */
+const PRODUCE_EXCLUDE = [
+  ...FOOD_HEADS, 'nápoj', 'napoj', 'drink', 'nektar', 'džus', 'dzus', 'šťáv', 'sirup', 'limonád', 'smoothie', 'kombucha', 'energy', 'tonic', ' voda', 'příchu', 'prichu',
+  'jogurt', 'žvýk', 'džem', 'marmel', 'povidl', 'kompot', 'konzerv', ' želé ', 'ocet', ' čaj', 'čaje', ' tea', 'müsli', 'sušen', 'kysan', 'sterilovan', 'nálev',
+  'mlet', 'lahůdkov', 'uzen', 'koření', 'kořen', 'granul', 'protlak', 'pesto', 'kečup', 'krmiv', 'kočk', ' psy', 'likér', 'cider', ' víno', 'mošt', 'krém', 'kousky',
+  // Drinks, sweets and snacks sold under a fruit's name.
+  'shock', 'cappy', 'rauch', 'relax', 'hello', 'tymbark', 'pfanner', 'lindt', 'milka', 'fruitfunk', 'kiddylicious', 'semtex', 'hami', 'gervais', 'jarritos', 'saguaro', 'il sano', 'onigiri', 'sushi',
+  // Produce is sold as a noun ("Jahody", "Švestky"); the adjective names a flavour ("Jahodové knedlíky").
+  'jahodov', 'malinov', 'meruňkov', 'borůvkov', 'švestkov', 'višňov', 'třešňov', 'hruškov', 'jablečn', 'broskvov', 'ananasov', 'mangov', 'citronov', 'pomerančov',
+  'knedl', 'kuličk', 'lodičk', 'rolls', 'plátky',
+  // Spices sold under the brand "Avokádo" ("Avokádo Kmín celý").
+  'kmín', 'bobkov', 'pepř', 'jalovec', 'majoránk', 'oregano', 'tymián', 'rozmarýn', 'skořic', 'hřebíč', 'badyán', 'nové koření', 'hořčic',
+  // Dishes and snacks made from a vegetable.
+  'snack', 'taštičk', 'řízek', 'pomaz', 'gyoza', 'mysli',
+]
+
 const POTRAVINY_RULES: SubcategoryRule[] = [
-  { subcategory: 'Mražené potraviny', keywords: ['mražen', 'zmrzlina', 'mraž'] },
+  { subcategory: 'Mražené potraviny', keywords: ['mražen', 'zmrzlina', 'mraž', 'hranolky', 'nanuk', 'sorbet', 'magnum', 'gelato', 'mrož', 'miamo'], exclude: [' koření ', 'kořen'] },
   { subcategory: 'Nápoje', keywords: ['nealko', ' 0 0 '] },
   {
     subcategory: 'Alkoholické nápoje',
@@ -126,6 +159,8 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
       'merlot', 'cabernet', 'chardonnay', 'sauvignon', 'riesling', 'ryzlink', 'frankovka', 'rulandsk', 'müller thurgau', 'pinot', 'primitivo', 'tramín', 'veltlínsk', 'svatovavřineck', 'zweigelt', 'chianti', 'rioja', 'hibernal', 'muškát moravský', 'tempranillo', 'garnacha', 'shiraz', 'syrah', 'malbec', 'montepulciano', 'peprmint',
       'suché červené', 'suché bílé', 'polosuché', 'polosladké',
       ' igt ', ' doc ', ' docg ', ' 0 75 l', ' 0 75l',
+      // Beer and spirits named only by brand or style (non-alcoholic beer is caught by "nealko" above).
+      'výčepní', 'kozel', 'pilsner', 'gambrinus', 'radegast', 'staropramen', 'krušovic', 'budvar', 'svijan', 'božkov', 'chateau', 'château', ' brut', 'jägermeister', 'bacardi', 'captain morgan', 'meruňkovic', 'jelínek', 'žufánek', 'frisco',
     ],
     // Food flavoured with a drink: "zakysaná smetana vaječný likér", "Cheddar … sýr s whisky".
     exclude: ['zakysan', 'cheddar', ' sýr ', 'sýrov', 'krekr'],
@@ -138,9 +173,10 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
       ' aspik ', ' aspiku ', 'utopenc', 'obložen', 'sendvič', ' wrap ',
       // A soup, ready or instant — "polévka" only, so "na polévku" and "polévková směs" stay out.
       'polévka',
+      'pizza', 'kimchi',
     ],
-    // Toast bread called "sendvič" and tortilla wraps are bread.
-    exclude: [' toust ', 'tortil'],
+    // Toast bread called "sendvič" and tortilla wraps are bread; pizza flour, sauce or spice is no pizza.
+    exclude: [' toust ', 'tortil', 'mouka', 'omáčk', 'koření', 'kořen', 'směs na', 'tyčink', 'chips', 'lupínk', 'vroubk', 'krekr'],
   },
   {
     subcategory: 'Rostlinné alternativy',
@@ -154,17 +190,18 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
     keywords: ['vegan'],
     exclude: ['čokolád', 'omáčk', 'sušenk', 'granol', 'bonbon', 'tyčink', 'pomazánk', 'protein', 'puding', 'pudding', 'chléb', 'croissant'],
   },
-  { subcategory: 'Slané pochutiny', keywords: ['brambůrk', 'bramburk', 'chipsy', ' chips', 'tyčink slan', 'arašíd', 'arasid', 'krekr', 'křupky', 'tyčinky pekařské', 'doritos', 'lupínk'], exclude: ['strouhank'] },
+  { subcategory: 'Slané pochutiny', keywords: ['brambůrk', 'bramburk', 'chipsy', ' chips', 'tyčink slan', 'arašíd', 'arasid', 'krekr', 'křupky', 'tyčinky pekařské', 'doritos', 'lupínk', 'popcorn', 'preclík', 'nachos', 'slané tyčinky', 'solené tyčinky'], exclude: ['strouhank'] },
   {
     subcategory: 'Pečivo',
-    keywords: ['chleb', 'rohlík', 'rohliky', 'houska', 'bageta', 'croissant', 'peciv', 'bulka', 'veka', ' toust ', 'tortil'],
+    keywords: ['chleb', 'rohlík', 'rohliky', 'houska', 'bageta', 'croissant', 'peciv', 'bulka', 'veka', ' toust ', 'tortil', 'kaiserk', 'koláč', 'buchta', 'závin', 'vánočk', 'mazanec', 'ciabatt', 'focaccia'],
     // "Rohlik.cz" is a shop's name, not a roll; seasoning for tortillas is no bread.
     exclude: ['rohlik cz', ' koření ', 'kořenící'],
   },
   {
     subcategory: 'Mléčné výrobky',
-    keywords: ['mléko', 'mleko', 'mléčn', 'jogurt', 'kefír', 'kefir', 'sýr', 'syr', 'máslo', 'maslo', 'smetana', 'tvaroh', 'skyr', 'termix', 'pribináček', 'pribinacek', 'gouda', 'camembert', 'eidam', 'hermelín', 'mozzarell', 'parmaz', 'cheddar', 'niva', 'brie', 'feta'],
-    exclude: ['mléčná čokoláda', 'mléčné čokolády', 'mléčnou čokolád', 'mléčné čokoládě'],
+    keywords: ['mléko', 'mleko', 'mléčn', 'jogurt', 'kefír', 'kefir', 'sýr', 'syr', 'máslo', 'maslo', 'smetana', 'tvaroh', 'skyr', 'termix', 'pribináček', 'pribinacek', 'gouda', 'camembert', 'eidam', 'hermelín', 'mozzarell', 'parmaz', 'cheddar', 'niva', 'brie', 'feta', 'lučina', 'cottage', 'mascarpone', 'ricotta', 'halloumi', 'grana padano', 'parmigiano', 'ementál', 'tvarůžk', 'žervé', 'lipánek', 'smetanov', 'creme fraiche', 'actimel', 'activia', 'kiri '],
+    headOnly: true,
+    exclude: ['mléčná čokoláda', 'mléčné čokolády', 'mléčnou čokolád', 'mléčné čokoládě', 'arašídové máslo', 'ořechové máslo', 'mandlové máslo', 'kakaové máslo', 'bambucké máslo'],
   },
   {
     subcategory: 'Ryby a mořské plody',
@@ -178,37 +215,83 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
   },
   {
     subcategory: 'Maso a uzeniny',
-    keywords: ['šunka', 'sunka', 'salám', 'salam', 'párky', 'parky', 'klobás', 'klobas', 'maso', 'kuřecí', 'kureci', 'vepřov', 'veprov', 'hovězí', 'hovezi', 'slanina', 'uzenin', 'mortadel', 'paštik'],
+    keywords: [
+      'šunka', 'sunka', 'salám', 'salam', 'párky', 'parky', 'klobás', 'klobas', 'maso', 'kuřecí', 'kureci', 'vepřov', 'veprov', 'hovězí', 'hovezi', 'slanina', 'uzenin', 'mortadel', 'paštik',
+      ' kuře ', ' kuřete', ' krůt', 'kachn', 'telecí', 'jehněčí', 'králík', 'prosciutto', 'pancetta', 'chorizo', 'párečk', 'tlačenk', 'jitrnic', 'jelito', 'špekáč', 'vysočina', 'debrecín',
+      'krkovic', 'svíčková', 'roštěn', 'žebírk', 'bratwurst', 'frankfurt', 'játr', 'stehn', 'křídl',
+    ],
+    exclude: ['koření', 'kořen', 'příchu', 'prichu', 'krmiv', 'kočk', ' psy', 'pamlsk', 'veggie', 'vegetarián', 'rostlinn', 'sádlo', 'omáčk', 'nudle', 'těstovin', 'tortellin', 'ravioli'],
   },
   { subcategory: 'Luštěniny', keywords: ['čočka', 'čočky', 'čočkov', 'čočce', 'fazol', 'cizrn', ' hrách ', 'luštěnin', 'lusteniny'], exclude: ['čokolád'], excludeBefore: FOOD_HEADS },
-  { subcategory: 'Ovoce a zelenina', keywords: ['jablk', 'banán', 'banan', 'pomeranč', 'pomeranc', 'zelenina', 'ovoce', 'rajče', 'rajce', 'okurk', 'brambor', 'cibul', 'mrkev'], excludeBefore: FOOD_HEADS },
+  {
+    subcategory: 'Ovoce a zelenina',
+    keywords: ['jablk', 'banán', 'banan', 'pomeranč', 'pomeranc', 'zelenina', 'ovoce', 'rajče', 'rajce', 'okurk', 'brambor', 'cibul', 'mrkev'],
+    exclude: PRODUCE_EXCLUDE,
+    headOnly: true,
+  },
+  {
+    // More kinds of produce — only as the first word of the name (after a produce brand or a plain
+    // qualifier): "Metro Chef Žampiony", "Cherry rajčata", but never "Mirinda Mango".
+    subcategory: 'Ovoce a zelenina',
+    keywords: [
+      'rajčat', 'mango', 'hrušk', 'broskv', 'grapefruit', 'jahod', 'malin', 'borůvk', 'ananas', 'citron', 'limetk', 'kiwi', 'meloun', 'hrozn', 'švestk', 'meruňk', 'třešn', 'višn',
+      'žampion', 'špenát', 'brokolic', 'květák', 'cuket', 'lilek', 'dýně', 'ledový salát', 'zelí', 'kapust', 'celer', 'petržel', 'pórek', 'ředkvičk', 'řepa', 'kukuřice', 'hrášek', 'paprika', 'česnek',
+    ],
+    exclude: PRODUCE_EXCLUDE,
+    startOnly: true,
+  },
   {
     subcategory: 'Káva a čaj',
-    keywords: [' káva', ' kávy', 'kávová zrna', 'zrnková káva', 'mletá káva', 'instantní káva', 'espresso', 'cappuccino', ' kafe ', ' čaj ', ' čaje ', ' čajů ', ' čajový', 'rooibos', 'yerba'],
-    // Tea drinks, syrups and kombucha are drinks; a bar or biscuit "with espresso" is a sweet.
-    exclude: ['sirup', 'kombucha', 'extrakt', 'tyčink'],
+    keywords: [
+      ' káva', ' kávy', 'kávová zrna', 'zrnková káva', 'mletá káva', 'instantní káva', 'espresso', 'cappuccino', ' kafe ', ' čaj ', ' čaje ', ' čajů ', ' čajový', 'rooibos', 'yerba',
+      'kávové kapsle', 'kapsle', 'nescafé', 'nescafe', 'dolce gusto', 'nespresso', 'matcha', 'caffe', ' latte',
+    ],
+    // Tea drinks, syrups and kombucha are drinks; a bar or biscuit "with espresso" is a sweet;
+    // dishwasher capsules are no coffee.
+    exclude: ['sirup', 'kombucha', 'extrakt', 'tyčink', 'myčk', 'jogurt', 'energy', 'drink', 'lívance', 'snídaňová', 'směs na', 'čokolád', 'mochi', 'zmrzlin', 'limonád'],
     excludeBefore: [...FOOD_HEADS.filter((head) => head !== 'pralin'), 'krém', 'nápoj'],
   },
   {
     subcategory: 'Nápoje',
-    keywords: ['voda', 'napoj', 'nápoj', 'limonada', 'limonáda', 'cola', 'sok', 'šťáva', 'stava', 'džus', 'dzus', 'sirup'],
+    keywords: [
+      'voda', 'napoj', 'nápoj', 'limonada', 'limonáda', 'cola', 'sok', 'šťáva', 'stava', 'džus', 'dzus', 'sirup',
+      'drink', 'energetick', 'tonic', 'nektar', 'kombucha', 'ice tea', 'ledový čaj', 'monster', 'red bull', 'smoothie', 'isoton', 'ginger ale',
+    ],
+    exclude: ['tyčink', 'bonbon', 'bonbón', ' želé '],
   },
   {
     subcategory: 'Sladkosti',
-    keywords: ['čokolád', 'pralink', 'tyčinka', 'bonbon', 'bonbón', 'sušenk', 'susenk', 'oplatk', 'zmrzlin', 'dort', 'keks', 'perník'],
+    keywords: [
+      'čokolád', 'pralink', 'tyčinka', 'bonbon', 'bonbón', 'sušenk', 'susenk', 'oplatk', 'zmrzlin', 'dort', 'keks', 'perník',
+      'žvýkačk', 'orbit', 'wrigley', 'haribo', 'kinder', 'piškot', 'lízátk', 'chupa chups', 'marshmallow', 'gumov', ' dezert', 'puding', 'pudink', 'trubičk',
+    ],
     // Gingerbread spice and baking powder are for baking, not sweets.
     exclude: [' koření ', 'kypřic', 'kypříc', 'prášek do'],
   },
-  { subcategory: 'Omáčky a dochucovadla', keywords: ['kečup', 'kecup', 'hořčice', 'horcice', 'majonéz', 'majonez', 'omáčk', 'omack', 'dochucovad', ' ocet', 'sójová omáčka'] },
+  {
+    subcategory: 'Omáčky a dochucovadla',
+    keywords: [
+      'kečup', 'kecup', 'hořčice', 'horcice', 'majonéz', 'majonez', 'omáčk', 'omack', 'dochucovad', ' ocet', 'sójová omáčka',
+      'pesto', 'protlak', 'passata', 'dresink', 'dressing', 'bujón', 'bujon', 'salsa', 'sriracha', 'worcester', 'tabasco', 'teriyaki',
+    ],
+    // "Nudle s příchutí Teriyaki" are noodles.
+    exclude: ['nudle', 'příchu', 'prichu', 'chips', 'lupínk'],
+  },
   {
     subcategory: 'Džemy, med a pomazánky',
-    keywords: ['džem', 'dzem', 'marmelád', 'lekvár', 'povidl', ' med ', ' medu ', 'nutella', 'pomazánk', 'pomazank'],
+    keywords: ['džem', 'dzem', 'marmelád', 'lekvár', 'povidl', ' med ', ' medu ', 'nutella', 'pomazánk', 'pomazank', 'hummus', 'arašídové máslo', 'ořechové máslo', 'mandlové máslo'],
     // "Perník s povidly", "Tyčinky ořechy a med" are sweets.
     excludeBefore: FOOD_HEADS,
   },
-  { subcategory: 'Konzervy', keywords: ['konzerv', 'kompot'] },
+  { subcategory: 'Konzervy', keywords: ['konzerv', 'kompot', 'olivy', 'olivami', 'sterilovan', 'v nálevu', 'kysané zelí'] },
   { subcategory: 'Cereálie a snídaně', keywords: ['cereál', 'cerealie', 'müsli', 'musli', 'ovesné vločky', 'ovesne vlocky', 'kaše '], exclude: [' koření ', 'krupice'] },
-  { subcategory: 'Těstoviny a rýže', keywords: ['těstovin', 'testovin', 'rýže', 'ryze', 'špagety', 'spagety'] },
+  {
+    subcategory: 'Těstoviny a rýže',
+    keywords: [
+      'těstovin', 'testovin', 'rýže', 'ryze', 'špagety', 'spagety', 'nudle', 'spaghetti', 'penne', 'fusilli', 'tagliatelle', 'pappardelle', 'lasagne', 'gnocchi', 'tortellini', 'ravioli',
+      'vřetena', 'kolínka', 'farfalle', 'kuskus', 'bulgur', 'quinoa',
+    ],
+  },
   {
     subcategory: 'Oleje a tuky',
     keywords: [' olej ', ' oleje ', 'sádlo', 'margarín', 'margarin', 'palmarín', 'palmarin', ' ghí', ' ghee', 'kokosový tuk', 'pokrmový tuk'],
@@ -217,7 +300,7 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
     subcategory: 'Ořechy, semínka a sušené ovoce',
     keywords: ['ořech', 'orech', 'oříšk', 'orisk', 'mandl', 'kešu', 'kesu', 'pistáci', 'semínk', 'semink', ' chia', 'rozink', 'datle', 'sušené ovoce', 'sušené meruňky', 'sušené švestky', 'brusinky sušené'],
     // Porridge, granola and bars with nuts are breakfast or sweets, not nuts.
-    exclude: ['tyčink', 'granol', 'kaše ', 'müsli'],
+    exclude: ['tyčink', 'granol', 'kaše ', 'müsli', 'kořen'],
     excludeBefore: [...FOOD_HEADS, 'krém', 'paštik'],
   },
   {
@@ -229,7 +312,7 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
     // "Perníkové koření" is a spice; "Ovesná kaše jablko a skořice" is not.
     excludeBefore: FOOD_HEADS.filter((head) => head !== 'perník'),
   },
-  { subcategory: 'Dětská výživa', keywords: ['dětská výživa', 'detska vyziva', 'příkrm', 'prikrm', 'kojenecké mléko', 'kojenecke mleko'] },
+  { subcategory: 'Dětská výživa', keywords: ['dětská výživa', 'detska vyziva', 'příkrm', 'prikrm', 'kojenecké mléko', 'kojenecke mleko', 'kapsičk'], exclude: ['kočk', ' psy', 'krmiv', 'protein'] },
   {
     subcategory: 'Mouka a pečení',
     keywords: [
@@ -246,30 +329,100 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
   { subcategory: 'Trvanlivé potraviny', keywords: ['trvanl'] },
 ]
 
+// Drugstore goods (2026-10-04, checked against the catalog): the chains also sell tights, glasses and
+// contact lenses here, which go to "Ostatní drogerie" before any cosmetics word in their name can
+// claim them.
 const DROGERIE_RULES: SubcategoryRule[] = [
-  { subcategory: 'Praní', keywords: ['prášek na praní', 'prasek na prani', 'aviváž', 'avivaz', 'gel na praní', 'gel na prani'] },
-  { subcategory: 'Mytí nádobí', keywords: ['jar', 'mytí nádobí', 'myti nadobi', 'tableta do myčky', 'tableta do mycky'] },
-  { subcategory: 'Čištění domácnosti', keywords: ['savo', 'čistič', 'cistic', 'úklid', 'uklid', 'wc gel', 'dezinfek'] },
+  {
+    subcategory: 'Praní',
+    keywords: ['prášek na praní', 'prasek na prani', 'aviváž', 'avivaz', 'gel na praní', 'gel na prani', 'prací', 'praci', 'persil', 'ariel', 'lenor', 'perwoll', 'odstraňovač skvrn', 'vanish'],
+  },
+  { subcategory: 'Mytí nádobí', keywords: [' jar ', 'mytí nádobí', 'myti nadobi', 'tableta do myčky', 'tableta do mycky', 'myčk', 'somat'] },
+  { subcategory: 'Čištění domácnosti', keywords: ['savo', 'čistič', 'cistic', 'úklid', 'uklid', 'wc gel', 'dezinfek', ' wc ', 'čisticí', 'odvápňov'] },
   { subcategory: 'Dětská hygiena', keywords: ['dětsk', 'detsk'] },
-  { subcategory: 'Hygiena', keywords: ['zubní', 'zubni', 'sprchový', 'sprchovy', 'mýdlo', 'mydlo', 'toaletní papír', 'toaletni papir', 'vložky', 'vlozky', 'tampon'] },
-  { subcategory: 'Kosmetika', keywords: ['šampon', 'sampon', 'krém', 'krem', 'deodorant', 'kosmetik', 'rtěnka', 'rtenka'] },
+  {
+    subcategory: 'Ostatní drogerie',
+    keywords: ['punčoch', 'ponožk', 'kalhotky', 'podkolenk', 'brýle', 'kontaktní čočky', 'oční kapky', 'roztok na čočky', 'pouzdro na brýle', 'gumičk', 'sponk', 'čelenk', 'hřeben', 'kartáč na vlasy'],
+    exclude: ['menstruač'],
+  },
+  {
+    subcategory: 'Hygiena',
+    keywords: [
+      'zubní', 'zubni', 'sprchový', 'sprchovy', 'mýdlo', 'mydlo', 'toaletní papír', 'toaletni papir', 'vložky', 'vlozky', 'tampon',
+      'ústní voda', 'ústní', 'holicí', 'holení', 'žiletk', 'strojek', 'kondom', 'durex', 'intimní', 'menstruač', 'vatové', 'vatov', 'tyčinky do uší', 'vlhčené ubrousky', 'sprchov',
+    ],
+  },
+  {
+    subcategory: 'Kosmetika',
+    keywords: [
+      'šampon', 'sampon', 'krém', 'krem', 'deodorant', 'kosmetik', 'rtěnka', 'rtenka',
+      'na vlasy', 'vlasů', 'kondicionér', 'balzám', 'barva na vlasy', 'maska', 'sérum', 'řasenk', 'tužka na', 'oční linky', 'lak na nehty', 'nehty', 'nehtů', 'make up', 'makeup',
+      'pudr', 'korektor', 'stíny', 'stínů', 'lesk na rty', 'na rty', 'obočí', 'tvářenk', 'parfém', ' edt', ' edp', 'toaletní voda', 'pleťov', 'tělov', 'opalování', ' spf', 'antiperspirant',
+      'micelární', 'odličov', 'tonikum', 'peeling', 'styling', 'lak na vlasy',
+    ],
+  },
 ]
 
 const DOMACNOST_RULES: SubcategoryRule[] = [
   { subcategory: 'Papír', keywords: ['toaletní papír', 'toaletni papir', 'kuchyňské utěrky', 'kuchynske uterky', 'ubrousk', 'papírov', 'papirov'] },
   { subcategory: 'Kuchyň', keywords: ['alobal', 'fólie', 'folie', 'sáčky', 'sacky', 'nádobí', 'nadobi', 'hrnec', 'pánev', 'panev'] },
-  { subcategory: 'Úklid', keywords: ['úklid', 'uklid', 'houba na nádobí', 'houba na nadobi', 'hadr', 'mop', 'koště', 'koste'] },
+  {
+    // Cleaning, laundry and dishwasher products sold as household goods.
+    subcategory: 'Úklid',
+    keywords: [
+      'úklid', 'uklid', 'houba na nádobí', 'houba na nadobi', 'hadr', 'mop', 'koště', 'koste',
+      'prací', 'praci', 'aviváž', 'persil', 'ariel', 'lenor', 'perwoll', 'čistič', 'čisticí', ' wc ', 'myčk', 'somat', 'savo', 'dezinfek', 'odstraňovač', 'skvrn',
+      'houbičk', 'prachovk', 'rukavice', 'pytle', 'odpadk', 'kolíčk', 'impregnac',
+    ],
+  },
+  { subcategory: 'Ostatní', keywords: ['svíčk', 'svícen', 'osvěžovač', 'difuzér', 'air wick', 'glade', 'vonn', 'baterie', 'žárovk', 'deštník', 'proti hmyzu'] },
 ]
 
 const DETI_RULES: SubcategoryRule[] = [
   { subcategory: 'Pleny', keywords: ['plen', 'pampers'] },
-  { subcategory: 'Dětská kosmetika', keywords: ['dětský krém', 'detsky krem', 'dětský šampon', 'detsky sampon', 'dětský olej', 'detsky olej'] },
-  { subcategory: 'Hračky', keywords: ['hračk', 'hracka', 'hračky'] },
-  { subcategory: 'Dětské potřeby', keywords: ['dudlík', 'dudlik', 'kojeneck', 'láhev', 'lahev'] },
+  // Children's food first, so a purée "s tvarohovým krémem" or "olej" in a ready meal never reads as
+  // cosmetics; a purée with oat flakes is a purée, a milk "s kaší" is porridge.
+  { subcategory: 'Příkrmy', keywords: ['příkrm', 'prikrm', 'přesnídávk', 'pyré', 'kašičk', 'polévka', 'vývar', 'bolognese', 'boloňsk', 'smoothie', 'těstovin', 'špagety'] },
+  { subcategory: 'Kaše a cereálie', keywords: ['kaše', 'kaši', 'müsli', 'cereál', 'vločk'] },
+  {
+    subcategory: 'Kojenecké mléko',
+    keywords: ['kojenecké mléko', 'kojenecká výživa', 'mléčná výživa', 'batolecí', 'počáteční mléko', 'pokračovací mléko', 'junior combiotik', 'beba', 'nutrilon', 'kendamil'],
+    // A baby bottle ("kojenecká lahev") is no milk.
+    exclude: ['lahev', 'láhev', 'dávkovač'],
+  },
+  {
+    subcategory: 'Dětské svačinky',
+    keywords: ['sušenk', 'křupk', 'krupk', 'tyčink', 'krekr', 'oplat', 'preclík', 'popcorn', 'snack', 'keksík', 'piškot', 'bonbónk', 'želé', 'lyofiliz', 'rybičky', 'taštičk', 'dezert', 'prstýnk'],
+    exclude: ['mycí', 'sprej', 'tělov', 'krém na'],
+  },
+  {
+    subcategory: 'Dětské nápoje',
+    keywords: ['nápoj', 'napoj', ' čaj', 'šťáva', 'džus', ' voda'],
+    // "tělová voda" and "toaletní voda" are cosmetics.
+    exclude: ['tělov', 'toaletní', 'parfém', ' edt', 'mycí'],
+  },
+  {
+    subcategory: 'Dětská kosmetika',
+    keywords: [
+      'dětský krém', 'detsky krem', 'dětský šampon', 'detsky sampon', 'dětský olej', 'detsky olej',
+      'šampon', 'sprchov', ' krém', 'tělové mléko', 'pleťové mléko', 'olej', 'koupel', 'pěna do koupele', 'balzám', 'zubní', 'kartáček', 'vlhčené ubrousky', 'ubrousky',
+      'mycí', 'na mytí', 'kondicionér', ' edt', 'tělová voda', 'tělová mlha', 'intimní',
+    ],
+    // Baby food and drinks are no cosmetics ("mléčná kaše", "olej" in a ready meal).
+    exclude: ['příkrm', 'kaše', 'mléčn', 'nápoj', 'kojenecké mléko'],
+  },
+  { subcategory: 'Hračky', keywords: ['hračk', 'hracka', 'hračky', 'kniha', 'knihy', 'puzzle', 'figurk', 'omalovánk', 'plyš', 'chrastítk', 'kostky', 'bublifuk'] },
+  {
+    subcategory: 'Dětské potřeby',
+    keywords: [
+      'dudlík', 'dudlik', 'kojeneck', 'láhev', 'lahev', 'savičk', 'hrnek', 'hrneček', 'miska', 'lžičk', 'odsávačk', 'teploměr', 'plavky', 'kousátk', 'prsní vložky', 'bryndák', 'nočník',
+      'přebalovací', 'podložk', 'nádobí', 'příbor', ' nůž', 'svačinový box', 'sada na pití', 'dávkovač', 'talíř',
+    ],
+  },
 ]
 
 const OSTATNI_RULES: SubcategoryRule[] = [
-  { subcategory: 'Tabák a e-cigarety', keywords: ['cigaret', 'tabák', 'tabak', 'vape', 'doutník', 'doutnik'] },
+  { subcategory: 'Tabák a e-cigarety', keywords: ['cigaret', 'tabák', 'tabak', 'vape', 'doutník', 'doutnik', 'marlboro', 'nic salt'] },
   { subcategory: 'Elektronika', keywords: ['baterie', 'nabíječk', 'nabijeck', 'kabel', 'sluchátk', 'sluchatk', 'žárovk', 'zarovk'] },
   { subcategory: 'Oblečení a obuv', keywords: ['prádlo', 'pradlo', 'ponožk', 'ponozk', 'tričko', 'tricko', 'kalhot', 'boty', 'obuv', 'pyžamo', 'pyzamo', 'košile', 'kosile', 'čepice', 'cepice'] },
 ]
@@ -290,7 +443,13 @@ const normalizeRules = (rules: SubcategoryRule[]): SubcategoryRule[] =>
     keywords: rule.keywords.map(normalizeKeyword),
     exclude: rule.exclude?.map(normalizeKeyword),
     excludeBefore: rule.excludeBefore?.map(normalizeKeyword),
+    headOnly: rule.headOnly,
+    startOnly: rule.startOnly,
   }))
+
+const NORMALIZED_LINKING_WORDS = LINKING_WORDS.map(normalizeKeyword)
+// " bio ", " metro chef " — padded, as they are matched at the start of the padded name.
+const NORMALIZED_PRODUCE_PREFIXES = PRODUCE_PREFIXES.map((prefix) => ` ${normalizeProductText(prefix)} `)
 
 /** Whether `rule` places the padded, normalized `haystack`: a keyword matches and nothing vetoes it. */
 function rulePlaces(rule: SubcategoryRule, haystack: string): boolean {
@@ -300,6 +459,23 @@ function rulePlaces(rule: SubcategoryRule, haystack: string): boolean {
     if (index >= 0 && (first < 0 || index < first)) first = index
   }
   if (first < 0) return false
+  if (rule.startOnly) {
+    let rest = haystack
+    for (let stripped = true; stripped; ) {
+      stripped = false
+      for (const prefix of NORMALIZED_PRODUCE_PREFIXES) {
+        if (rest.startsWith(prefix)) {
+          rest = rest.slice(prefix.length - 1)
+          stripped = true
+        }
+      }
+    }
+    if (!rule.keywords.some((keyword) => rest.startsWith(` ${keyword.trim()}`))) return false
+  }
+  if (rule.headOnly) {
+    const link = NORMALIZED_LINKING_WORDS.map((word) => haystack.indexOf(word)).filter((index) => index >= 0)
+    if (link.length > 0 && Math.min(...link) < first) return false
+  }
   if (rule.exclude?.some((keyword) => haystack.includes(keyword))) return false
   return !rule.excludeBefore?.some((keyword) => {
     const index = haystack.indexOf(keyword)
@@ -334,7 +510,7 @@ const BEVERAGE_BRAND_KEYWORDS = [
 // list above misses: raw produce is never sold "1,5l" on a Czech receipt. Used only to suppress a
 // false "Ovoce a zelenina" keyword match, never to force a positive Nápoje guess by itself — falling
 // through to `null` (unresolved) is preferable to a confident wrong category (NEHÁDEJ).
-const LITER_VOLUME_PATTERN = /(^|\s)\d+l(\s|$)/
+const LITER_VOLUME_PATTERN = /(^|\s)\d+( \d+)? ?(l|ml)(\s|$)|\d 51(\s|$)/
 
 /** Deterministic keyword classification of a normalized product name into one of its item
  *  category's fixed subcategories — `null` when nothing matches confidently (never a guess). The

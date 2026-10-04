@@ -72,7 +72,7 @@ describe('moving rows into the new food subcategories', () => {
       .values([
         // Placed among the drinks by the first run's rules ("likér" anywhere in the name).
         { name: `__test Lindt Mléčná čokoláda plněná likérem ${suffix}`, categoryId: potraviny!.id, subcategoryId: alcohol },
-        { name: `__test Miamo Nanuk rum a kokos ${suffix}`, categoryId: potraviny!.id, subcategoryId: alcohol },
+        { name: `__test ORION Krémové figurky s příchutí vaječného likéru ${suffix}`, categoryId: potraviny!.id, subcategoryId: alcohol },
         // No keyword of the subcategory in its name: a household chose it.
         { name: `__test Jägermeister ${suffix}`, categoryId: potraviny!.id, subcategoryId: alcohol },
       ])

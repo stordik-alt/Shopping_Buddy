@@ -24,7 +24,15 @@ export const EXPENSE_CATEGORIES = [
     subcategories: ['Palivo', 'Nabíjení', 'Servis a opravy', 'Pneumatiky', 'Povinné ručení', 'Havarijní pojištění', 'Dálniční známka', 'Parkování', 'STK a emise', 'Mytí'],
   },
   { name: 'Oblečení a obuv', subcategories: ['Oblečení', 'Obuv', 'Doplňky'] },
-  { name: 'Děti', subcategories: ['Pleny', 'Dětská kosmetika', 'Dětské potřeby', 'Hračky', 'Ostatní', 'Školka a škola', 'Kroužky', 'Oblečení pro děti', 'Kapesné'] },
+  {
+    name: 'Děti',
+    // The product subcategories of Děti (lib/product-subcategories.ts) first, so a receipt line keeps
+    // its subcategory in the budget, then the spending-only ones.
+    subcategories: [
+      'Pleny', 'Dětská kosmetika', 'Dětské potřeby', 'Hračky', 'Kojenecké mléko', 'Příkrmy', 'Kaše a cereálie', 'Dětské svačinky', 'Dětské nápoje', 'Ostatní',
+      'Školka a škola', 'Kroužky', 'Oblečení pro děti', 'Kapesné',
+    ],
+  },
   { name: 'Zdraví', subcategories: ['Léky a lékárna', 'Lékař a zubař', 'Brýle a čočky'] },
   { name: 'Volný čas', subcategories: ['Restaurace a kavárny', 'Kultura', 'Sport', 'Dovolená', 'Předplatné'] },
   { name: 'Ostatní', subcategories: ['Oblečení a obuv', 'Elektronika', 'Tabák a e-cigarety', 'Ostatní zboží', 'Dárky', 'Poplatky a daně', 'Jiné'] },

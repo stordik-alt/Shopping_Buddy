@@ -116,5 +116,6 @@ jobs:
 
 workflows:
   ci:
+    when: pipeline.event.name == "pull_request" or pipeline.git.branch == "main"
     jobs:
       - ci

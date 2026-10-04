@@ -119,7 +119,7 @@ jobs:
             pnpm cf:build
             pnpm exec wrangler deploy --dry-run --env "" --outdir .wrangler-dry-run | tee dry-run.log
             gzip_kib=$(grep -oE 'gzip: [0-9.]+ KiB' dry-run.log | grep -oE '[0-9.]+')
-            test -n "$gzip_kib" || { echo "Could not read Worker size"; exit 1; }
+            test -n "$gzip_kib" || { echo "Could not read Worker size" ; exit 1; }
             echo "Worker gzip size: ${gzip_kib} KiB"
             awk -v size="$gzip_kib" 'BEGIN { exit !(size < 9216) }' || {
               echo "Worker is ${gzip_kib} KiB gzip — over 9 MiB"
@@ -128,6 +128,6 @@ jobs:
 
 workflows:
   ci:
-    when: pipeline.event.name == "pull_request" or pipeline.git.branch == "main"
+    when: pipeline.event.name == "api" or pipeline.event.name == "pull_request" or pipeline.git.branch == "main"
     jobs:
       - ci

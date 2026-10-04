@@ -1,4 +1,5 @@
-import { sql } from 'drizzle-orm'
+import { eq, inArray, sql } from 'drizzle-orm'
+import * as schema from '@/lib/db/schema'
 import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
 import { isDirectMatch, likePattern, normalizeSearchText, scoreMatch, searchStem, searchStems, splitTokens, toComparableUnit, type ProductSearchHit } from '@/lib/product-search'
@@ -258,4 +259,19 @@ export async function getHitsForProducts(productIds: string[], storeIds: string[
     loadProductPackages(resultProductIds),
   ])
   return priceRows.rows.map((row) => rowToHit(row, deals, 0, true, packagesByProduct))
+}
+
+/** The latest price at each of `storeIds` of every product of the given types (lib/product-types.ts),
+ *  with the type key of each product — the candidates of shopping-list items that name a type or a
+ *  group. Products without a type are never among them. */
+export async function getHitsForProductTypes(typeKeys: string[], storeIds: string[]): Promise<{ hit: ProductSearchHit; typeKey: string }[]> {
+  if (typeKeys.length === 0 || storeIds.length === 0) return []
+  const rows = await getDb()
+    .select({ id: schema.products.id, key: schema.productTypes.key })
+    .from(schema.products)
+    .innerJoin(schema.productTypes, eq(schema.productTypes.id, schema.products.productTypeId))
+    .where(inArray(schema.productTypes.key, typeKeys))
+  const typeOf = new Map(rows.map((row) => [row.id, row.key]))
+  const hits = await getHitsForProducts([...typeOf.keys()], storeIds)
+  return hits.map((hit) => ({ hit, typeKey: typeOf.get(hit.productId)! }))
 }

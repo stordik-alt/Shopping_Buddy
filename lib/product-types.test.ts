@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classifyProductType, PRODUCT_TYPE_GROUPS, PRODUCT_TYPES } from '@/lib/product-types'
+import { classifyProductType, listItemPhraseEntries, PRODUCT_TYPE_GROUPS, PRODUCT_TYPES, resolveListItemTypes } from '@/lib/product-types'
 import { isValidProductSubcategory } from '@/lib/product-subcategories'
 import type { ItemCategory } from '@/lib/types'
 
@@ -233,8 +233,52 @@ describe('product type definitions', () => {
     for (const group of PRODUCT_TYPE_GROUPS) for (const type of group.types) expect(keys.has(type)).toBe(true)
   })
 
-  it('make "Kuřecí maso" every raw part of the chicken (owner decision)', () => {
+  it('make "Kuřecí maso" the chicken meat itself — no offal or soup parts (owner decision)', () => {
     const chicken = PRODUCT_TYPE_GROUPS.find((group) => group.key === 'kureci-maso')
-    expect(chicken?.types).toEqual(['kureci-prsa', 'kureci-stehna', 'kureci-kridla', 'kure-cele', 'kureci-mlete', 'kureci-vnitrnosti', 'kureci-na-polevku'])
+    expect(chicken?.types).toEqual(['kureci-prsa', 'kureci-stehna', 'kureci-kridla', 'kure-cele', 'kureci-mlete'])
+  })
+})
+
+describe('shopping-list items → product types (phase 2)', () => {
+  it.each([
+    ['Kuřecí maso', 'group', 'kureci-maso'],
+    ['kuřecí maso 1 kg', 'group', 'kureci-maso'],
+    ['maso kuřecí', 'group', 'kureci-maso'],
+    ['Máslo', 'type', 'maslo'],
+    ['máslo 250g', 'type', 'maslo'],
+    ['vajíčka', 'type', 'vejce'],
+    ['Vejce 10 ks', 'type', 'vejce'],
+    ['Mléko', 'group', 'mleko'],
+    ['mléko polotučné', 'type', 'mleko-polotucne'],
+    ['Kuřecí prsa', 'type', 'kureci-prsa'],
+    ['kuřecí řízky', 'type', 'kureci-prsa'],
+    ['Kuře', 'type', 'kure-cele'],
+    ['Vepřové maso', 'group', 'veprove-maso'],
+    ['Mleté maso', 'group', 'mlete-maso'],
+    ['Sýr', 'group', 'syr'],
+    ['BIO jablka', 'type', 'jablka'],
+    ['rohlíky', 'type', 'rohlik'],
+    ['Toaletní papír', 'type', 'toaletni-papir'],
+  ] as const)('%s → %s %s', (name, kind, key) => {
+    expect(resolveListItemTypes(name)).toMatchObject({ kind, key })
+  })
+
+  it('leaves anything else to the text search', () => {
+    for (const name of ['Kuřecí šunka', 'Máslové sušenky', 'Jogurt jahodový', 'Kinder vajíčko', 'Pizza', 'Hermelínky', '']) {
+      expect(resolveListItemTypes(name)).toBeNull()
+    }
+  })
+
+  it('gives every phrase one meaning', () => {
+    const meaning = new Map<string, string>()
+    for (const { phrase, key } of listItemPhraseEntries()) {
+      expect(meaning.get(phrase) ?? key, `"${phrase}" means both ${meaning.get(phrase)} and ${key}`).toBe(key)
+      meaning.set(phrase, key)
+    }
+  })
+
+  it('has groups that accept every one of their types', () => {
+    const chicken = resolveListItemTypes('Kuřecí maso')
+    expect(chicken?.types).toEqual(PRODUCT_TYPE_GROUPS.find((group) => group.key === 'kureci-maso')!.types)
   })
 })

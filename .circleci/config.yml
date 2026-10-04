@@ -1,0 +1,124 @@
+version: 2.1
+
+jobs:
+  ci:
+    docker:
+      - image: cimg/node:22.19
+      - image: postgres:16
+        environment:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: shopping_buddy_test
+    resource_class: medium
+    environment:
+      TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/shopping_buddy_test
+      TEST_DATABASE_URL_UNPOOLED: postgresql://postgres:postgres@127.0.0.1:5432/shopping_buddy_test
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/shopping_buddy_test
+      DATABASE_URL_UNPOOLED: postgresql://postgres:postgres@127.0.0.1:5432/shopping_buddy_test
+      DATABASE_DRIVER: pg
+      NEON_AUTH_BASE_URL: https://ci.invalid/neon-auth
+      NEON_AUTH_COOKIE_SECRET: ci-only-build-secret-32-characters-min
+    steps:
+      - checkout
+      - run:
+          name: Wait for PostgreSQL
+          command: |
+            for i in $(seq 1 30); do
+              if pg_isready -h 127.0.0.1 -p 5432 -U postgres -d shopping_buddy_test; then
+                exit 0
+              fi
+              sleep 1
+            done
+            echo "PostgreSQL did not become ready"
+            exit 1
+      - restore_cache:
+          keys:
+            - pnpm-store-v1-{{ checksum "pnpm-lock.yaml" }}
+            - pnpm-store-v1-
+      - run:
+          name: Setup pnpm
+          command: |
+            corepack enable
+            corepack prepare pnpm@12.6.0 --activate
+            pnpm --version
+      - run:
+          name: Install dependencies
+          command: pnpm install --frozen-lockfile
+      - save_cache:
+          key: pnpm-store-v1-{{ checksum "pnpm-lock.yaml" }}
+          paths:
+            - ~/.local/share/pnpm/store
+      - run:
+          name: Unit tests
+          command: >-
+            pnpm exec vitest run
+            --exclude 'app/actions/**/*.test.ts'
+            --exclude 'app/api/**/*.test.ts'
+            --exclude 'lib/db/queries.test.ts'
+            --exclude 'lib/db/receipt-list.test.ts'
+            --exclude 'lib/db/store-branch-search.test.ts'
+            --exclude 'lib/db/deals.test.ts'
+            --exclude 'lib/db/purchase-items.test.ts'
+            --exclude 'lib/db/category-changes.test.ts'
+            --exclude 'lib/db/subcategory-changes.test.ts'
+            --exclude 'lib/db/product-classification-sync.test.ts'
+            --exclude 'lib/db/product-packages.test.ts'
+            --exclude 'lib/db/new-subcategories.test.ts'
+            --exclude 'lib/db/recategorize.test.ts'
+            --exclude 'lib/db/reclassify.test.ts'
+      - run:
+          name: Typecheck
+          command: pnpm exec tsc --noEmit
+      - run:
+          name: Prepare test database
+          command: |
+            pnpm exec tsx lib/db/migrate.ts --test
+            pnpm exec tsx lib/db/seed.ts
+      - run:
+          name: Database-backed tests
+          command: >-
+            pnpm exec vitest run
+            app/actions
+            app/api
+            lib/db/queries.test.ts
+            lib/db/receipt-list.test.ts
+            lib/db/store-branch-search.test.ts
+            lib/db/deals.test.ts
+            lib/db/purchase-items.test.ts
+            lib/db/category-changes.test.ts
+            lib/db/subcategory-changes.test.ts
+            lib/db/product-classification-sync.test.ts
+            lib/db/product-packages.test.ts
+            lib/db/new-subcategories.test.ts
+            lib/db/recategorize.test.ts
+            lib/db/reclassify.test.ts
+      - run:
+          name: Production build
+          command: pnpm build
+      - run:
+          name: Cloudflare Worker build and size check
+          command: |
+            if git diff --quiet "$CIRCLE_SHA1^" "$CIRCLE_SHA1" --               app/ lib/ scripts/ public/               package.json pnpm-lock.yaml               next.config.* open-next.config.* wrangler.toml               .dev.vars* docs/cloudflare-deployment.md; then
+              echo "No Cloudflare-relevant changes detected; skipping Worker build."
+              exit 0
+            fi
+            echo "Cloudflare-relevant changes detected; validating Worker build."
+            export DATABASE_URL=postgresql://ci:ci@ci.invalid/ci
+            pnpm cf:build
+            pnpm exec wrangler deploy --dry-run --env "" --outdir .wrangler-dry-run | tee dry-run.log
+            gzip_kib=$(grep -oE 'gzip: [0-9.]+ KiB' dry-run.log | grep -oE '[0-9.]+')
+            test -n "$gzip_kib" || { echo "Could not read Worker size"; exit 1; }
+            echo "Worker gzip size: ${gzip_kib} KiB"
+            awk -v size="$gzip_kib" 'BEGIN { exit !(size < 9216) }' || {
+              echo "Worker is ${gzip_kib} KiB gzip — over 9 MiB"
+              exit 1
+            }
+
+workflows:
+  ci:
+    jobs:
+      - ci:
+          filters:
+            branches:
+              only:
+                - main

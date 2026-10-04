@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classifyProductType, listItemPhraseEntries, PRODUCT_TYPE_GROUPS, PRODUCT_TYPES, resolveListItemTypes } from '@/lib/product-types'
+import { classifyProductType, describeItemTypes, listItemPhraseEntries, PRODUCT_TYPE_GROUPS, PRODUCT_TYPES, resolveListItemTypes, validProductTypeKeys } from '@/lib/product-types'
 import { isValidProductSubcategory } from '@/lib/product-subcategories'
 import type { ItemCategory } from '@/lib/types'
 
@@ -280,5 +280,21 @@ describe('shopping-list items → product types (phase 2)', () => {
   it('has groups that accept every one of their types', () => {
     const chicken = resolveListItemTypes('Kuřecí maso')
     expect(chicken?.types).toEqual(PRODUCT_TYPE_GROUPS.find((group) => group.key === 'kureci-maso')!.types)
+  })
+})
+
+describe('chosen types on a list item (phase 3)', () => {
+  it('keeps only known keys, in the code order, and refuses anything else', () => {
+    expect(validProductTypeKeys(['kureci-stehna', 'kureci-prsa', 'kureci-prsa'])).toEqual(['kureci-prsa', 'kureci-stehna'])
+    expect(validProductTypeKeys([])).toBeUndefined()
+    expect(validProductTypeKeys(['neexistuje'])).toBeUndefined()
+    expect(validProductTypeKeys('maslo')).toBeUndefined()
+  })
+
+  it('describes an item by its name, by a whole group, by part of a group, and by a hand-picked type', () => {
+    expect(describeItemTypes('Kuřecí maso', null)).toMatchObject({ source: 'name', label: 'Kuřecí maso', group: { key: 'kureci-maso' } })
+    expect(describeItemTypes('Kuřecí maso', ['kureci-prsa', 'kureci-stehna'])).toMatchObject({ source: 'chosen', label: 'Kuřecí maso (2 z 5)', accepted: ['kureci-prsa', 'kureci-stehna'] })
+    expect(describeItemTypes('Večeře', ['maslo'])).toMatchObject({ source: 'chosen', label: 'Máslo', group: null })
+    expect(describeItemTypes('Večeře', null)).toEqual({ accepted: null, source: null, label: null, group: null })
   })
 })

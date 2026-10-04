@@ -115,6 +115,7 @@ export async function buildShoppingPlan(householdId: string, memberId: string | 
         quantity: schema.shoppingListItems.quantity,
         unit: schema.shoppingListItems.unit,
         category: schema.shoppingListItems.category,
+        productTypes: schema.shoppingListItems.productTypes,
       })
       .from(schema.shoppingListItems)
       .innerJoin(schema.shoppingLists, eq(schema.shoppingLists.id, schema.shoppingListItems.listId))
@@ -138,7 +139,8 @@ export async function buildShoppingPlan(householdId: string, memberId: string | 
 
   // Items that name a product type or group (docs/12_PRODUCT_TYPES.md, phase 2): their candidates are
   // the products of those types, all fetched in one go.
-  const typed = needs.map((need) => resolveListItemTypes(need.name))
+  // The household's own choice of types wins over what the name resolves to (phase 3).
+  const typed = items.map((item) => (item.productTypes && item.productTypes.length > 0 ? { types: item.productTypes } : resolveListItemTypes(item.name)))
   const typedHits = await getHitsForProductTypes([...new Set(typed.flatMap((entry) => entry?.types ?? []))], allowedIds)
 
   // Automatic candidates for every other item, over all allowed chains in one database query. 'Ostatní'

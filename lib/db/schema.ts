@@ -557,6 +557,10 @@ export const shoppingListItems = pgTable('shopping_list_items', {
   note: text('note'),
   preferredStoreLocationId: uuid('preferred_store_location_id').references(() => storeLocations.id, { onDelete: 'set null' }),
   onSale: boolean('on_sale').notNull().default(false),
+  // The product types (lib/product-types.ts keys) the household chose for this item — a subset of a
+  // group ("Kuřecí maso", but only breast and thighs) or a type picked by hand. Null: the types come
+  // from the item's name (`resolveListItemTypes`), or none, and the planner searches by text.
+  productTypes: text('product_types').array(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   // Set once a "shopping reminder" notification has covered this item (see the cron job at
   // app/api/cron/shopping-reminders). Null means never reminded yet. Prevents the same

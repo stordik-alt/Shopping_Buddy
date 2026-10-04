@@ -1,7 +1,7 @@
 # Product types (druhy zboží) — concept
 
-Status: **concept, owner-approved 2026-10-03**. Phases 0–2 are implemented (see below); phases
-3–5 are not built yet. Update this document before or together with each phase.
+Status: **concept, owner-approved 2026-10-03**. Phases 0–3 are implemented (see below); phases
+4–5 are not built yet. Update this document before or together with each phase.
 
 ## 1. Problem
 
@@ -112,7 +112,7 @@ every rule change is measured on it, so fixing one type cannot silently break an
 | 0 | `isDirectMatch` ignores parentheses and rejects names whose leading words name another product (šunka, pivo, želé, smoothie, krmivo, …) or contain "v aspiku" / "s překvapením" / "set k přípravě" | **done 2026-10-03** |
 | 1 | `product_types` table and code rules for the ~60–100 most common list items (from real lists and purchases), batch backfill of the catalog, golden set | **done 2026-10-04** (see below) |
 | 2 | Planner uses types for items that have one | **done 2026-10-04** (see below) |
-| 3 | Type/group picker on the shopping list | — |
+| 3 | Type/group picker on the shopping list | **done 2026-10-04** (see below) |
 | 4 | Receipts and list ticking by type; receipt abbreviation dictionary; learning from corrections | — |
 | 5 | Wider coverage; optionally a model choosing from the closed list of types for the long tail, once per product, validated — **only after an explicit owner approval** (CLAUDE.md section 30) | — |
 
@@ -148,6 +148,18 @@ every rule change is measured on it, so fixing one type cannot silently break an
   (`getHitsForProductTypes`), the cheapest for the needed quantity (`pickTypedHit`, then unit price,
   then name). A chain without one has no offer for the item — it never falls back to text matching,
   which is what offered ham for chicken. Every other item is matched by text as before.
+
+### Phase 3 as implemented (2026-10-04)
+
+- `shopping_list_items.product_types` (text[], migration `0064_shopping_item_product_types.sql`) holds
+  the types the household chose for an item; null means "from the name" (phase 2). The server accepts
+  only known keys, at least one (`validProductTypeKeys`); null resets.
+- The list (`components/shopping/shopping-list.tsx`): typing suggests the group and type names first;
+  each row with a type shows it as a chip ("Kuřecí maso", "Kuřecí maso (3 z 5)"); the item's detail has
+  `ItemTypePicker` — a "Druh zboží" choice (by name, a group or a type) and, for a group, its types as
+  checkboxes, all ticked by default, at least one kept. An item with no type says it is searched by
+  name and that results may be inexact.
+- The planner takes the chosen types before the name's (`lib/db/shopping-plan.ts`).
 
 Phases 0–4 are deterministic. Related but separate: extending the Potraviny subcategories (koření,
 vejce, …), which types will sit under.

@@ -20,6 +20,9 @@ export type Item = {
   note?: string
   store?: string
   onSale?: boolean
+  /** The product types chosen for the item (lib/product-types.ts keys); null or missing: derived from
+   *  the name. */
+  productTypes?: string[] | null
 }
 
 export type Notification = {

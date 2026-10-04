@@ -11,6 +11,7 @@ import { money } from '@/lib/format'
 import { createHouseholdNotification } from '@/lib/notify'
 import { assessDealQuality, effectivePrice } from '@/lib/prices'
 import { matchProductByName } from '@/lib/products'
+import { validProductTypeKeys } from '@/lib/product-types'
 import type { Item, Notification } from '@/lib/types'
 
 // No revalidatePath in this file: each of these saves is already shown by components/app-shell.tsx from its
@@ -45,6 +46,7 @@ function toItem(row: typeof schema.shoppingListItems.$inferSelect): Item {
     priority: row.priority,
     note: row.note ?? undefined,
     onSale: row.onSale,
+    productTypes: row.productTypes ?? null,
   }
 }
 
@@ -141,10 +143,17 @@ export async function addShoppingItemAction(
 
 export async function updateShoppingItemAction(
   itemId: string,
-  changes: Partial<Pick<Item, 'quantity' | 'price' | 'unit' | 'category' | 'priority' | 'note' | 'onSale' | 'store'>>,
+  changes: Partial<Pick<Item, 'quantity' | 'price' | 'unit' | 'category' | 'priority' | 'note' | 'onSale' | 'store' | 'productTypes'>>,
 ) {
   const householdId = await requireHouseholdId()
   await assertOwnsItem(householdId, itemId)
+  // Product types come from the browser: only known type keys, at least one, no duplicates; null
+  // returns the item to "derived from its name".
+  let productTypes: string[] | null | undefined
+  if (changes.productTypes !== undefined) {
+    productTypes = changes.productTypes === null ? null : validProductTypeKeys(changes.productTypes)
+    if (productTypes === undefined) throw new Error('Neplatný druh zboží.')
+  }
   // The list's field saves only valid numbers, but the server decides (CLAUDE.md section 9): a
   // quantity is positive ("0,5 kg" is fine) and a price not negative, within what the numeric columns
   // hold (10, 3 and 10, 2), rounded to their scale.
@@ -175,6 +184,7 @@ export async function updateShoppingItemAction(
       ...(changes.priority != null && { priority: changes.priority }),
       ...(changes.note !== undefined && { note: changes.note || null }),
       ...(changes.onSale != null && { onSale: changes.onSale }),
+      ...(productTypes !== undefined && { productTypes }),
       ...(preferredStoreLocationId !== undefined && { preferredStoreLocationId }),
     })
     .where(eq(schema.shoppingListItems.id, itemId))

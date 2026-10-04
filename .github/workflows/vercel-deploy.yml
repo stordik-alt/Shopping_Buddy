@@ -1,10 +1,6 @@
 name: Vercel production deploy
 
 on:
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
-    branches: ["main"]
   workflow_dispatch:
 
 permissions:
@@ -17,7 +13,7 @@ concurrency:
 jobs:
   deploy:
     name: Deploy production to Vercel
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}

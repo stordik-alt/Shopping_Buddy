@@ -128,8 +128,23 @@ jobs:
               exit 1
             }
 
+  deploy:
+    docker:
+      - image: cimg/node:22.19
+    steps:
+      - checkout
+      - run:
+          name: Deploy production to Vercel
+          command: npx vercel@latest deploy --prod --yes --token "$VERCEL_TOKEN"
+
 workflows:
   ci:
     when: pipeline.event.name == "api" or pipeline.event.name == "pull_request" or pipeline.git.branch == "main"
     jobs:
       - ci
+      - deploy:
+          requires:
+            - ci
+          filters:
+            branches:
+              only: main

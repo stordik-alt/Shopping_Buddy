@@ -52,8 +52,8 @@ jobs:
           command: |
             mkdir -p "$HOME/.local/bin"
             echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASH_ENV"
-            corepack enable --install-directory "$HOME/.local/bin"
-            corepack prepare pnpm@12.6.0 --activate
+            export PATH="$HOME/.local/bin:$PATH"
+            npm install --global --prefix "$HOME/.local" pnpm@12.6.0
             pnpm --version
       - run:
           name: Install dependencies

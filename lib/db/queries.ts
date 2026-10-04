@@ -19,6 +19,7 @@ import { distinctProductName, resolveProductForSku, type ProductCatalogEntry } f
 import { normalizeSearchText } from '@/lib/product-search'
 import { isReceiptStalled } from '@/lib/receipt-progress'
 import { invalidateProductCatalogCache } from '@/lib/db/cache-invalidation'
+import { loadProductTypeIds, productTypeIdFor } from '@/lib/db/product-type-assignment'
 import type { RecurringInterval, RecurringOccurrence, RecurringPayment } from '@/lib/recurring-payments'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import type {
@@ -952,7 +953,17 @@ export async function upsertProductCatalogDefaults(entry: {
       .set({ ...(!existing.categoryLocked && { categoryId: categoryRow.id }), defaultLocation: entry.location, ...(subcategoryId && { subcategoryId }), ...flags })
       .where(eq(schema.products.id, existing.id))
   } else {
-    await db.insert(schema.products).values({ name, categoryId: categoryRow.id, defaultUnit: entry.unit, defaultLocation: entry.location, subcategoryId, ...flags })
+    const productTypeId = productTypeIdFor(entry.category, name, await loadProductTypeIds())
+    await db.insert(schema.products).values({
+      name,
+      categoryId: categoryRow.id,
+      defaultUnit: entry.unit,
+      defaultLocation: entry.location,
+      subcategoryId,
+      ...flags,
+      productTypeId,
+      productTypeSource: productTypeId ? 'rule' : null,
+    })
   }
   invalidateProductCatalogCache()
 }
@@ -1674,6 +1685,8 @@ export type ExternalProductContext = {
   catalog: ProductCatalogEntry[]
   /** category name -> product_categories.id */
   categoryIds: Map<string, string>
+  /** product_types.key -> id, loaded on the first product this run creates. */
+  productTypeIds?: Map<string, string>
 }
 
 /** The context for one ingestion run. With `scope` (what the run is about to write), only what those
@@ -1753,9 +1766,12 @@ export async function resolveOrCreateProductFromExternal(
   } else {
     const categoryId = ctx.categoryIds.get(product.category)
     if (!categoryId) throw new Error(`Unknown product category: ${product.category}`)
+    // A new product gets its type (druh zboží) from the rules right away (lib/product-types.ts).
+    ctx.productTypeIds ??= await loadProductTypeIds()
+    const productTypeId = productTypeIdFor(product.category, productName, ctx.productTypeIds)
     const [row] = await db
       .insert(schema.products)
-      .values({ name: productName, categoryId, defaultUnit: product.unit })
+      .values({ name: productName, categoryId, defaultUnit: product.unit, productTypeId, productTypeSource: productTypeId ? 'rule' : null })
       .returning()
     productId = row.id
     ctx.catalog.push({ id: row.id, name: row.name, category: product.category, defaultUnit: row.defaultUnit, defaultLocation: row.defaultLocation })

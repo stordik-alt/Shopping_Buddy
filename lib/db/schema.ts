@@ -181,6 +181,33 @@ export const productSubcategories = pgTable('product_subcategories', {
   name: text('name').notNull(),
 }, (table) => [uniqueIndex('product_subcategories_category_name_unique').on(table.category, table.name)])
 
+// Product types (druhy zboží, docs/12_PRODUCT_TYPES.md): one kind of goods a shopper treats as
+// interchangeable apart from brand, size and price ("Máslo", "Kuřecí prsa"). The list and the rules
+// that assign them are code (lib/product-types.ts); these rows give each type a stable id the catalog
+// can point to. `key` is the code's identity and never changes; `unit` is the unit its unit prices are
+// compared in.
+export const productTypes = pgTable('product_types', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  key: text('key').notNull().unique(),
+  name: text('name').notNull(),
+  category: itemCategoryEnum('category').notNull(),
+  unit: itemUnitEnum('unit').notNull(),
+})
+
+// A named set of types one list item can ask for at once ("Kuřecí maso" = every raw part of the
+// chicken, owner decision 2026-10-03/04). A type may be in several groups ("Kuřecí mleté" is in
+// "Kuřecí maso" and "Mleté maso").
+export const productTypeGroups = pgTable('product_type_groups', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  key: text('key').notNull().unique(),
+  name: text('name').notNull(),
+})
+
+export const productTypeGroupMembers = pgTable('product_type_group_members', {
+  groupId: uuid('group_id').notNull().references(() => productTypeGroups.id, { onDelete: 'cascade' }),
+  typeId: uuid('type_id').notNull().references(() => productTypes.id, { onDelete: 'cascade' }),
+}, (table) => [primaryKey({ columns: [table.groupId, table.typeId] })])
+
 export const products = pgTable('products', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull().unique(),
@@ -212,7 +239,15 @@ export const products = pgTable('products', {
   // owner's "BIO KUŘE" example: a correction made once must be remembered for every later receipt
   // of the same product, not re-guessed every time.
   defaultLocation: pantryLocationEnum('default_location'),
+  // The product's type (druh zboží), or null when the rules find none or more than one — such a
+  // product is never offered automatically for a type. `product_type_source` says who decided:
+  // 'rule' (lib/product-types.ts, re-evaluated when the rules change), 'manual' (a person; never
+  // overwritten by a rule) or 'alias' (taken over from a confirmed receipt match).
+  productTypeId: uuid('product_type_id').references(() => productTypes.id, { onDelete: 'set null' }),
+  productTypeSource: text('product_type_source'),
 }, (table) => [
+  index('products_product_type_idx').on(table.productTypeId),
+  check('products_product_type_source_valid', sql`${table.productTypeSource} IS NULL OR ${table.productTypeSource} IN ('rule', 'manual', 'alias')`),
   // Text search looks for a word anywhere in the name (`search_name LIKE '%mlek%'`,
   // lib/db/product-search.ts), which a plain index cannot serve: every search read all ~50,000
   // products. A trigram index can (extension pg_trgm, migration 0039).
@@ -1041,6 +1076,7 @@ export const householdMembersRelations = relations(householdMembers, ({ one }) =
 export const productsRelations = relations(products, ({ one, many }) => ({
   category: one(productCategories, { fields: [products.categoryId], references: [productCategories.id] }),
   subcategory: one(productSubcategories, { fields: [products.subcategoryId], references: [productSubcategories.id] }),
+  productType: one(productTypes, { fields: [products.productTypeId], references: [productTypes.id] }),
   prices: many(prices),
   deals: many(deals),
   externalRefs: many(productExternalRefs),
@@ -1050,6 +1086,20 @@ export const productsRelations = relations(products, ({ one, many }) => ({
 
 export const productSubcategoriesRelations = relations(productSubcategories, ({ many }) => ({
   products: many(products),
+}))
+
+export const productTypesRelations = relations(productTypes, ({ many }) => ({
+  products: many(products),
+  groups: many(productTypeGroupMembers),
+}))
+
+export const productTypeGroupsRelations = relations(productTypeGroups, ({ many }) => ({
+  members: many(productTypeGroupMembers),
+}))
+
+export const productTypeGroupMembersRelations = relations(productTypeGroupMembers, ({ one }) => ({
+  group: one(productTypeGroups, { fields: [productTypeGroupMembers.groupId], references: [productTypeGroups.id] }),
+  type: one(productTypes, { fields: [productTypeGroupMembers.typeId], references: [productTypes.id] }),
 }))
 
 export const productAliasesRelations = relations(productAliases, ({ one }) => ({

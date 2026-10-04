@@ -1,7 +1,7 @@
 # Product types (druhy zboží) — concept
 
-Status: **concept, owner-approved 2026-10-03**. Phase 0 is implemented (see below); phases 1–5 are
-not built yet. Update this document before or together with each phase.
+Status: **concept, owner-approved 2026-10-03**. Phases 0 and 1 are implemented (see below); phases
+2–5 are not built yet. Update this document before or together with each phase.
 
 ## 1. Problem
 
@@ -50,8 +50,14 @@ Group      Kuřecí maso (syrové)            — what a list item may ask for
 fillets/schnitzels, thighs, upper and lower thighs (drumsticks), quarters, wings, and other raw parts.
 Excluded: ham, salami, sausages, nuggets, smoked or cooked products, ready meals, baby food.
 
-Open, to confirm when the chicken types are defined: raw parts sold marinated or seasoned, minced
-chicken, offal (liver, hearts, gizzards), and raw parts sold cooked sous-vide.
+Confirmed by the owner (2026-10-04): raw parts sold **marinated or seasoned**, **minced chicken** and
+**offal** (liver, hearts, gizzards) belong to "Kuřecí maso"; parts sold **cooked** (sous-vide, roast)
+do not — they are ready meals.
+
+### Owner decision: other meat
+
+"Vepřové maso", "Hovězí maso" and "Krůtí maso" work the same way (owner, 2026-10-04): every raw cut
+(and minced meat), never ham, salami, sausages or smoked meat.
 
 ## 3. Assigning a type to a product
 
@@ -97,11 +103,33 @@ every rule change is measured on it, so fixing one type cannot silently break an
 | Phase | Content | State |
 |---|---|---|
 | 0 | `isDirectMatch` ignores parentheses and rejects names whose leading words name another product (šunka, pivo, želé, smoothie, krmivo, …) or contain "v aspiku" / "s překvapením" / "set k přípravě" | **done 2026-10-03** |
-| 1 | `product_types` table and code rules for the ~60–100 most common list items (from real lists and purchases), batch backfill of the catalog, golden set | — |
+| 1 | `product_types` table and code rules for the ~60–100 most common list items (from real lists and purchases), batch backfill of the catalog, golden set | **done 2026-10-04** (see below) |
 | 2 | Planner uses types for items that have one | — |
 | 3 | Type/group picker on the shopping list | — |
 | 4 | Receipts and list ticking by type; receipt abbreviation dictionary; learning from corrections | — |
 | 5 | Wider coverage; optionally a model choosing from the closed list of types for the long tail, once per product, validated — **only after an explicit owner approval** (CLAUDE.md section 30) | — |
+
+### Phase 1 as implemented (2026-10-04)
+
+- **Types and groups** are code (`lib/product-types.ts`): 103 types — dairy (máslo, mléko by fat,
+  smetana, jogurt, tvaroh, cheeses), eggs, bread, produce, every raw chicken / pork / beef / turkey cut,
+  minced meats, šunka / párky / slanina, salmon, tuna, rice, pasta, flour, sugar, oils, salt, yeast,
+  coffee, water, beer, and a few drugstore staples — and 13 groups (Kuřecí maso, Vepřové maso, Hovězí
+  maso, Krůtí maso, Mleté maso, Sýr, Mléko, Smetana, Mouka, Cukr, Olej, Voda, Káva). The list came
+  from common Czech shopping (the app's own lists and purchases were still too few to rank by).
+- **Rules** reuse the subcategory keyword engine (word boundaries, `exclude`, `headOnly`,
+  `startOnly` for produce) plus `requires` (the chicken cuts need "kuřecí"); a shared exclusion list
+  removes products made from or flavoured with the thing, and for meat anything no longer raw. A name
+  the subcategory rules place in another subcategory is never of the type ("Máslové sušenky").
+- **Storage**: `product_types`, `product_type_groups`, `product_type_group_members` and
+  `products.product_type_id` / `product_type_source` (`rule` | `manual` | `alias`), migration
+  `0062_product_types.sql`, whose rows a database test compares with the code. A new product gets its
+  type when ingestion or a confirmed receipt creates it; `pnpm db:assign-product-types` (dry run first)
+  assigns the existing catalog and re-evaluates rule-made types after a rule change, never touching a
+  manual one.
+- **Golden set**: ~200 real catalog names with their expected type or "none" (`lib/product-types.test.ts`),
+  fewer than the ~500 planned; it grows with each rule change. On the local catalog copy 7,259 of
+  53,326 products get a type; 8 match two types (shower gel & shampoo 2-in-1) and get none.
 
 Phases 0–4 are deterministic. Related but separate: extending the Potraviny subcategories (koření,
 vejce, …), which types will sit under.

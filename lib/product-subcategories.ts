@@ -145,7 +145,7 @@ const PRODUCE_EXCLUDE = [
   // Spices sold under the brand "Avokádo" ("Avokádo Kmín celý").
   'kmín', 'bobkov', 'pepř', 'jalovec', 'majoránk', 'oregano', 'tymián', 'rozmarýn', 'skořic', 'hřebíč', 'badyán', 'nové koření', 'hořčic',
   // Dishes and snacks made from a vegetable.
-  'snack', 'taštičk', 'řízek', 'pomaz', 'gyoza', 'mysli',
+  'snack', 'taštičk', 'řízek', 'pomaz', 'gyoza', 'mysli', 'paprika sladká',
 ]
 
 const POTRAVINY_RULES: SubcategoryRule[] = [
@@ -190,7 +190,10 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
     keywords: ['vegan'],
     exclude: ['čokolád', 'omáčk', 'sušenk', 'granol', 'bonbon', 'tyčink', 'pomazánk', 'protein', 'puding', 'pudding', 'chléb', 'croissant'],
   },
-  { subcategory: 'Slané pochutiny', keywords: ['brambůrk', 'bramburk', 'chipsy', ' chips', 'tyčink slan', 'arašíd', 'arasid', 'krekr', 'křupky', 'tyčinky pekařské', 'doritos', 'lupínk', 'popcorn', 'preclík', 'nachos', 'slané tyčinky', 'solené tyčinky'], exclude: ['strouhank'] },
+  { subcategory: 'Slané pochutiny', keywords: ['brambůrk', 'bramburk', 'chipsy', ' chips', 'tyčink slan', 'arašíd', 'arasid', 'krekr', 'křupky', 'tyčinky pekařské', 'doritos', 'lupínk', 'popcorn', 'preclík', 'nachos', 'slané tyčinky', 'solené tyčinky'],
+    // Peanuts in chocolate, peanut butter and peanut cookies are no salty snack.
+    exclude: ['strouhank', 'čokolád', 'arašídové máslo', 'cookies', 'sušenk'],
+  },
   {
     subcategory: 'Pečivo',
     keywords: ['chleb', 'rohlík', 'rohliky', 'houska', 'bageta', 'croissant', 'peciv', 'bulka', 'veka', ' toust ', 'tortil', 'kaiserk', 'koláč', 'buchta', 'závin', 'vánočk', 'mazanec', 'ciabatt', 'focaccia'],
@@ -206,7 +209,7 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
   {
     subcategory: 'Ryby a mořské plody',
     keywords: [
-      'losos', 'tuňák', 'tunak', 'treska', ' sleď', ' sledě', 'makrel', 'krevet', 'pstruh', ' kapr', 'sardink', 'sardel', ' ryba ', ' ryby ', ' rybí ', ' rybích ', 'rybí filé',
+      'losos', 'tuňák', 'tunak', 'treska', 'tresčí', ' sleď', ' sledě', 'makrel', 'krevet', 'pstruh', ' kapr', 'sardink', 'sardel', ' ryba ', ' ryby ', ' rybí ', ' rybích ', 'rybí filé',
       'chobotnic', 'kalamár', 'surimi', 'tilapie', 'pangasius', 'candát', ' štika', ' mušle', 'ančovič', 'hering', 'šprot',
     ],
     // Seasoning for fish and fish sauce are not fish ("Krevety … s černým kořením" are).
@@ -218,7 +221,7 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
     keywords: [
       'šunka', 'sunka', 'salám', 'salam', 'párky', 'parky', 'klobás', 'klobas', 'maso', 'kuřecí', 'kureci', 'vepřov', 'veprov', 'hovězí', 'hovezi', 'slanina', 'uzenin', 'mortadel', 'paštik',
       ' kuře ', ' kuřete', ' krůt', 'kachn', 'telecí', 'jehněčí', 'králík', 'prosciutto', 'pancetta', 'chorizo', 'párečk', 'tlačenk', 'jitrnic', 'jelito', 'špekáč', 'vysočina', 'debrecín',
-      'krkovic', 'svíčková', 'roštěn', 'žebírk', 'bratwurst', 'frankfurt', 'játr', 'stehn', 'křídl',
+      'krkovic', 'svíčková', 'roštěn', 'žebírk', 'bratwurst', 'frankfurt', 'játr', 'stehn', 'křídl', 'kabanos',
     ],
     exclude: ['koření', 'kořen', 'příchu', 'prichu', 'krmiv', 'kočk', ' psy', 'pamlsk', 'veggie', 'vegetarián', 'rostlinn', 'sádlo', 'omáčk', 'nudle', 'těstovin', 'tortellin', 'ravioli'],
   },
@@ -265,8 +268,8 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
       'čokolád', 'pralink', 'tyčinka', 'bonbon', 'bonbón', 'sušenk', 'susenk', 'oplatk', 'zmrzlin', 'dort', 'keks', 'perník',
       'žvýkačk', 'orbit', 'wrigley', 'haribo', 'kinder', 'piškot', 'lízátk', 'chupa chups', 'marshmallow', 'gumov', ' dezert', 'puding', 'pudink', 'trubičk',
     ],
-    // Gingerbread spice and baking powder are for baking, not sweets.
-    exclude: [' koření ', 'kypřic', 'kypříc', 'prášek do'],
+    // Gingerbread spice and baking powder are for baking, and muesli with chocolate is breakfast.
+    exclude: [' koření ', 'kypřic', 'kypříc', 'prášek do', 'müsli', 'musli', 'cereálie'],
   },
   {
     subcategory: 'Omáčky a dochucovadla',

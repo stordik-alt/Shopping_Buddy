@@ -1,9 +1,14 @@
-import { Loader2, Search, Tag, X } from 'lucide-react'
+import { Search, Tag, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { dealsPageAction } from '@/app/actions/deals'
 import { DealCard } from '@/components/deals/deal-card'
 import { OfferCard } from '@/components/deals/offer-card'
 import { Pager } from '@/components/shared/pager'
+import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Select } from '@/components/ui/field'
+import { SegmentedControl } from '@/components/ui/segmented-control'
+import { Skeleton } from '@/components/ui/skeleton'
 import { DEAL_CATEGORIES, DEALS_PAGE_SIZE, DEAL_SORTS, MAX_DEALS_QUERY_LENGTH, type DealCategoryFilter, type DealSort } from '@/lib/deals-browse'
 import { activeDealCountLabel } from '@/lib/format'
 import type { DealsPage } from '@/lib/db/deals'
@@ -125,95 +130,85 @@ export function DealsTab({
 
   return (
     <div className="space-y-5">
-      <div>
-        <p className="text-sm text-muted-foreground">Dnešní akce · Česká republika</p>
-        <h2 className="mt-1 text-2xl font-semibold">Akce</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Procházejte akce podle kategorie, po stránkách.</p>
-      </div>
+      {/* The tab name is already the page heading; one line of context is enough. */}
+      <p className="text-sm text-fg-secondary">Dnešní akce v Česku — podle kategorie, řetězce a po stránkách.</p>
 
-      <label className="flex min-h-11 items-center gap-2 rounded-2xl border border-border bg-card px-3 text-sm">
-        <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+      <label className="flex min-h-12 items-center gap-2 rounded-2xl border border-input bg-card pl-4 pr-1 text-base focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/40">
+        <Search className="size-4 shrink-0 text-fg-muted" aria-hidden="true" />
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value.slice(0, MAX_DEALS_QUERY_LENGTH))}
           placeholder="Co hledáte? Např. kuřecí maso, vejce, máslo…"
           aria-label="Hledat v akcích"
-          className="min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
+          className="min-h-11 min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-fg-muted"
         />
         {query && (
-          <button onClick={() => setQuery('')} aria-label="Vymazat hledání" className="icon-button size-7 shrink-0">
-            <X className="h-4 w-4" aria-hidden="true" />
+          <button type="button" onClick={() => setQuery('')} aria-label="Vymazat hledání" className="icon-button shrink-0">
+            <X className="size-4" aria-hidden="true" />
           </button>
         )}
       </label>
 
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Filtr podle kategorie">
-        {(['all', ...DEAL_CATEGORIES] as DealCategoryFilter[]).map((value) => (
-          <button
-            key={value}
-            onClick={() => selectCategory(value)}
-            aria-pressed={category === value}
-            className={`min-h-9 rounded-full px-3 text-sm font-medium transition ${category === value ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground hover:bg-primary/10'}`}
-          >
-            {CATEGORY_LABEL[value]}
-          </button>
-        ))}
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <label className="flex min-h-10 items-center gap-2 rounded-2xl border border-border bg-card px-3 text-sm text-muted-foreground">
-          Řetězec
-          <select
-            value={chain ?? ''}
-            onChange={(event) => selectChain(event.target.value === '' ? null : event.target.value)}
-            className="min-h-9 min-w-0 flex-1 bg-transparent text-foreground outline-none"
-          >
+      <SegmentedControl
+        label="Filtr podle kategorie"
+        value={category}
+        onChange={selectCategory}
+        options={(['all', ...DEAL_CATEGORIES] as DealCategoryFilter[]).map((value) => ({ value, label: CATEGORY_LABEL[value] }))}
+      />
+      <div className="grid gap-3 min-[380px]:grid-cols-2">
+        <label className="block space-y-1.5 text-sm font-medium">
+          <span>Řetězec</span>
+          <Select value={chain ?? ''} onChange={(event) => selectChain(event.target.value === '' ? null : event.target.value)}>
             <option value="">Všechny řetězce</option>
             {chains.map((name) => (
               <option key={name} value={name}>
                 {name}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
-        <label className="flex min-h-10 items-center gap-2 rounded-2xl border border-border bg-card px-3 text-sm text-muted-foreground">
-          Řazení
-          <select
-            value={sort}
-            onChange={(event) => selectSort(event.target.value as DealSort)}
-            className="min-h-9 min-w-0 flex-1 bg-transparent text-foreground outline-none"
-          >
+        <label className="block space-y-1.5 text-sm font-medium">
+          <span>Řazení</span>
+          <Select value={sort} onChange={(event) => selectSort(event.target.value as DealSort)}>
             {DEAL_SORTS.map((value) => (
               <option key={value} value={value}>
                 {SORT_LABEL[value]}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
       </div>
 
       {result.status === 'error' && (
-        <div role="alert" className="rounded-2xl bg-muted px-4 py-3 text-sm">
-          Akce se nepodařilo načíst.{' '}
-          <button onClick={() => setAttempt((n) => n + 1)} className="font-medium text-primary underline">
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-destructive-subtle px-4 py-3 text-sm text-destructive">
+          Akce se nepodařilo načíst.
+          <Button variant="outline" onClick={() => setAttempt((n) => n + 1)}>
             Zkusit znovu
-          </button>
+          </Button>
         </div>
       )}
       {result.status === 'loading' && page_ == null && (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Načítám akce…
-        </p>
+        <div role="status" aria-label="Načítám akce" className="grid gap-3 md:grid-cols-3">
+          <Skeleton className="h-36" />
+          <Skeleton className="h-36" />
+          <Skeleton className="h-36" />
+        </div>
       )}
       {page_ != null && page_.total === 0 && !busy && (
-        <div className="rounded-3xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          {debouncedQuery.trim()
-            ? `Pro „${debouncedQuery.trim()}" jsme žádnou aktivní akci nenašli.`
-            : chain
-              ? `Pro ${chain} teď nemáme žádné aktivní akce.`
-              : 'V této kategorii teď nemáme žádné aktivní akce.'}
-          {(debouncedQuery.trim() || chain || category !== 'all') && (
-            <div className="mt-3">
-              <button
+        <EmptyState
+          icon={<Tag />}
+          title={
+            debouncedQuery.trim()
+              ? `Pro „${debouncedQuery.trim()}" jsme žádnou aktivní akci nenašli.`
+              : chain
+                ? `Pro ${chain} teď nemáme žádné aktivní akce.`
+                : 'V této kategorii teď nemáme žádné aktivní akce.'
+          }
+          action={
+            debouncedQuery.trim() || chain || category !== 'all' ? (
+              <Button
+                variant="outline"
+                size="lg"
                 onClick={() => {
                   setQuery('')
                   setCategory('all')
@@ -221,18 +216,17 @@ export function DealsTab({
                   onClearChain()
                   setPage(1)
                 }}
-                className="min-h-11 rounded-2xl bg-muted px-4 text-sm font-semibold text-foreground hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 Zobrazit všechny akce
-              </button>
-            </div>
-          )}
-        </div>
+              </Button>
+            ) : undefined
+          }
+        />
       )}
       {page_ != null && page_.total > 0 && (
         <>
-          <p className="flex items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
-            <Tag className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" /> {activeDealCountLabel(page_.total)}
+          <p className="flex items-center gap-2 text-sm text-fg-secondary" aria-live="polite">
+            <Tag className="size-4 shrink-0 text-accent-text" aria-hidden="true" /> {activeDealCountLabel(page_.total)}
           </p>
           {page_.deals.length > 0 && (
             <section aria-label="Akce">
@@ -252,7 +246,7 @@ export function DealsTab({
           {page_.offers.length > 0 && (
             <section aria-label="Další nabídky obchodů">
               <p className="text-sm font-medium">Další nabídky obchodů</p>
-              <p className="mt-1 text-xs text-muted-foreground">U těchto produktů neznáme běžnou cenu, proto je neporovnáváme a neuvádíme slevu.</p>
+              <p className="mt-1 text-xs text-fg-muted">U těchto produktů neznáme běžnou cenu, proto je neporovnáváme a neuvádíme slevu.</p>
               <div className={`mt-3 grid gap-3 md:grid-cols-3 ${busy ? 'opacity-60' : ''}`} aria-busy={busy}>
                 {page_.offers.map((offer) => (
                   <OfferCard key={`${offer.productName}-${offer.store}`} offer={offer} />

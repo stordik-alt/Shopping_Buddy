@@ -1,4 +1,6 @@
 import { Check, History, Info, Package, Plus } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { money, shortDate } from '@/lib/format'
 import { pantryQuantityFor } from '@/lib/pantry'
 import { dealDiscount, dealEffectiveUnitPrice, effectivePrice, suggestsStockingUp, type DealAssessment } from '@/lib/prices'
@@ -20,39 +22,35 @@ export function DealCard({
   const discount = Math.round(dealDiscount(price) * 100)
   const comparableUnit = toComparableUnit(price.unit, dealEffectiveUnitPrice(price))
   return (
-    <div className={`rounded-2xl bg-muted p-4 ${isOnList ? 'ring-1 ring-primary/40' : ''}`}>
+    <div className={`rounded-2xl border bg-card p-4 shadow-[var(--shadow-card)] ${isOnList ? 'border-accent-solid' : 'border-border'}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="break-words text-sm font-medium">{product.productName}</p>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 text-xs text-fg-muted">
             {price.store} · akce do {shortDate(price.dealValidUntil ?? '')}
           </p>
         </div>
-        <span className="shrink-0 rounded-full bg-primary/15 px-2 py-1 text-xs font-semibold text-primary">-{discount} %</span>
+        <Badge tone="accent" className="shrink-0">-{discount} %</Badge>
       </div>
       <div className="mt-4 flex flex-wrap items-end justify-between gap-2">
         <div>
           <span className="text-lg font-semibold">{money(price.dealPrice ?? price.regularPrice)}</span>
-          <span className="ml-2 text-xs text-muted-foreground line-through">{money(price.regularPrice)}</span>
-          <span className="mt-0.5 block text-xs text-muted-foreground">{money(comparableUnit.unitPrice)}/{comparableUnit.unit}</span>
+          <span className="ml-2 text-xs text-fg-muted line-through">{money(price.regularPrice)}</span>
+          <span className="mt-0.5 block text-xs text-fg-secondary">{money(comparableUnit.unitPrice)}/{comparableUnit.unit}</span>
         </div>
         {isOnList ? (
-          <span className="flex min-h-9 items-center gap-1 text-xs font-medium text-muted-foreground">
-            <Check className="h-3.5 w-3.5" /> Na seznamu
-          </span>
+          <Badge tone="success" className="min-h-10">
+            <Check className="size-3.5" aria-hidden="true" /> Na seznamu
+          </Badge>
         ) : (
-          <button
-            onClick={() => onAddToList(product.productName)}
-            aria-label={`Přidat ${product.productName} na nákupní seznam`}
-            className="flex min-h-9 items-center gap-1 rounded-full bg-card px-3 text-xs font-medium text-primary transition hover:bg-primary hover:text-primary-foreground"
-          >
-            <Plus className="h-3.5 w-3.5" /> Na seznam
-          </button>
+          <Button variant="secondary" onClick={() => onAddToList(product.productName)} aria-label={`Přidat ${product.productName} na nákupní seznam`}>
+            <Plus aria-hidden="true" /> Na seznam
+          </Button>
         )}
       </div>
       {recentLow && (
         <p className="mt-3 flex items-start gap-1 text-xs leading-relaxed text-success">
-          <History className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
+          <History className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
           <span>
             Nejnižší cena za posledních 30 dní: <span className="font-semibold">{money(recentLow.low)}</span>
             {recentLow.status === 'unchanged' && ' · Cena se nezměnila.'}
@@ -63,13 +61,13 @@ export function DealCard({
       )}
       {suggestsStockingUp(assessment, pantryQuantityFor(pantryItems, product.productName)) && (
         <p className="mt-3 flex items-start gap-1 text-xs leading-relaxed text-success">
-          <Package className="mt-0.5 h-3 w-3 shrink-0" />
+          <Package className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
           Doma toho máte málo nebo nic — dobrá chvíle doplnit zásoby.
         </p>
       )}
       {!isBestPrice && cheapestAlternative && (
-        <p className="mt-3 flex items-start gap-1 text-xs leading-relaxed text-muted-foreground">
-          <Info className="mt-0.5 h-3 w-3 shrink-0" />
+        <p className="mt-3 flex items-start gap-1 text-xs leading-relaxed text-fg-secondary">
+          <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
           Levněji je i bez akce v {cheapestAlternative.store} za {money(cheapestAlternative.price)}.
         </p>
       )}

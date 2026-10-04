@@ -1,6 +1,6 @@
 # 13 — UI/UX Redesign (ANITKA design system)
 
-Status: **Phase 1 (audit) done; plan step 1 (tokens) implemented on the local branch `ui-redesign`.** All redesign work stays on a local
+Status: **Phase 1 (audit) done; plan steps 1–5 (tokens, primitives, shell, Domů, all cards) implemented on the local branch `ui-redesign`; step 6 (detail screens) waits for the owner's review of the cards.** All redesign work stays on a local
 branch and is deployed once, as a whole, after it is complete and tested (owner brief, section 16). The Picsart images
 are inspiration, not a layout specification; the current application is the source of truth for functionality.
 
@@ -210,6 +210,30 @@ Sections with nothing to say collapse or disappear (as `TodayAttention` already 
    cooked button is 44 px, Domů shows "Dnes vaříme"; no overflow, no errors. Not verifiable locally: recipe search,
    recipe detail and generating a new plan need the recipe catalog / sources, which the local database does not
    have — to be checked in the final integrated run against data.
+   *Obchody done (local):* calmer header (the tab name is in the app header); locality field 48 px with focus ring,
+   GPS state as an accent chip with a 40 px "Zadat ručně", "Použít mou polohu" is `Button`; chain tiles are smaller
+   (3 → 4 columns from 380 px, 6 from `sm`) so branches start sooner, selected = turquoise outline + tint + check
+   badge, favourite star in the warning token instead of raw amber; loading is `Skeleton`, failures are destructive
+   tints with a "Zkusit znovu" `Button`, empty states are `EmptyState`; branch detail actions are `Button`s; the
+   directory's own pager copy was replaced by the shared `Pager` (which got `type="button"` and a focus ring).
+   Verified in Playwright (320/390/1280 px, light/dark) against the local branch data for Brno: tiles load, two
+   chains selected, a branch detail opens under its row, the pager goes to page 2; no overflow, no errors.
+   *Akce done (local):* one line of context instead of a heading that repeated the tab name; search 48 px with focus
+   ring and a 44 px clear button; categories are `SegmentedControl`; chain and sort are labelled `Select`s side by side
+   from 380 px; loading is `Skeleton`, failure a destructive tint with "Zkusit znovu", no result an `EmptyState` with
+   "Zobrazit všechny akce". `DealCard` / `OfferCard` are cards on the card surface (were grey wells), the discount and
+   "Na seznamu" are `Badge`s, "Na seznam" is a `Button` (was 36 px / 12 px), an item on the list gets a turquoise
+   border. Verified in Playwright (320/390/1280 px, light/dark) against 3 102 local deals: adding a deal shows "Na
+   seznamu", the category filter works, the pager is the shared one; no overflow, no errors.
+   *Účtenky done (local) — step 5 complete:* every pending import carries a status `Badge` as the brief asks (Ke
+   schválení / Duplicita / Chyba / Zastaveno / Zpracovává se); duplicate and failed imports are card surfaces with a
+   coloured outline instead of large tinted slabs (calmer in dark mode); line items use the shared 44 px `Input` /
+   `Select` in a grid (name + remove, then quantity / unit / price, then category, subcategory and storage place);
+   the storage place that blocks saving is marked `aria-invalid` and the reason is said in words above the save
+   button. The upload card leads with "Vyfotit účtenku" (turquoise CTA) and "Nahrát z galerie nebo PDF"; the manual
+   entry fallback sits behind "Zadat položky ručně". The list-suggestion card uses `Button`s and whole-row labels.
+   Verified in Playwright (320/390/1280 px, light/dark) with seeded review / duplicate / failed imports: badges show,
+   saving is blocked until a place is chosen, a removed row can be restored, no overflow, no errors.
 6. **Detail screens** after the owner approves the cards (brief, phase 4).
 7. **Cleanup**: remove dead styles, document in `docs/01_CURRENT_STATE.md`, `docs/08_ICON_SYSTEM.md`, `docs/07_CHANGELOG.md`.
 8. **Final verification as one integrated whole**: lint, typecheck, unit tests (pure ones; DB tests only via local
@@ -225,6 +249,10 @@ Sections with nothing to say collapse or disappear (as `TodayAttention` already 
   (whether lists should hold their own items).
 - "Plán nákupu" lists every chain as a priority chip (about 25), which is long on a phone; worth condensing with the
   detail screens (step 6).
+- Products have no picture in the data model (`image_url` exists only for receipts and recipes), so `ProductThumb` has
+  nothing to show on deal or list cards yet; adding a product image URL is a schema change outside this redesign.
+- Akce: "Doma toho máte málo nebo nic — dobrá chvíle doplnit zásoby" (`suggestsStockingUp`) appears on almost every
+  deal card when the pantry holds no matching item, so it reads as noise; worth reviewing the rule (documented only).
 
 ## 9. Open questions for the owner
 - The Picsart references were received after the audit and used as visual inspiration only (not a layout spec).

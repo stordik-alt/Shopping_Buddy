@@ -1,0 +1,68 @@
+version: 2.1
+
+jobs:
+  deploy-rollback:
+    docker:
+      - image: cimg/node:22.19
+    environment:
+      COMPONENT_NAME: "<< pipeline.deploy.component_name >>"
+      ENVIRONMENT_NAME: "<< pipeline.deploy.environment_name >>"
+      NAMESPACE: "<< pipeline.deploy.namespace >>"
+      TARGET_VERSION: "<< pipeline.deploy.target_version >>"
+    steps:
+      - checkout
+      - run:
+          name: Plan rollback
+          command: |
+            circleci run release plan deploy-rollback \
+              --environment-name=${ENVIRONMENT_NAME} \
+              --namespace=${NAMESPACE} \
+              --component-name=${COMPONENT_NAME} \
+              --target-version=${TARGET_VERSION} \
+              --rollback
+      - run:
+          name: Perform rollback
+          command: |
+            # TODO: add rollback logic using ${TARGET_VERSION}
+            # Vercel does not support direct rollback via CLI. Consider using:
+            # - Vercel dashboard to promote a previous deployment
+            # - Git revert and redeploy
+            # - Custom rollback script that targets ${TARGET_VERSION}
+            echo "Rolling back to version ${TARGET_VERSION}"
+      - run:
+          name: Update deployment status to failed
+          command: circleci run release update deploy-rollback --status=FAILED
+          when: on_fail
+  cancel-deploy-rollback:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - run:
+          name: Update planned release to CANCELED
+          command: |
+            circleci run release update deploy-rollback \
+              --status=CANCELED
+  deploy-rollback-release:
+    type: release
+    plan_name: deploy-rollback
+    validation:
+      enabled: true
+
+
+workflows:
+  rollback:
+    jobs:
+      - deploy-rollback:
+          filters:
+            branches:
+              only: main
+      - deploy-rollback-release:
+          requires:
+            - deploy-rollback
+          filters:
+            branches:
+              only: main
+      - cancel-deploy-rollback:
+          requires:
+            - deploy-rollback:
+              - canceled

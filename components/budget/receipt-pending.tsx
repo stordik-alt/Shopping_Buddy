@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AlertTriangle, Check, Copy, RefreshCw, RotateCcw, Trash2, X } from 'lucide-react'
 import { subcategoriesOfItem } from '@/lib/product-subcategories'
 import type { ReceiptImportState } from '@/lib/db/queries'
@@ -67,20 +67,36 @@ export function ReceiptPending({
   onConfirmReview,
   onResolveDuplicate,
   onCancel,
+  focusId = null,
+  onFocusHandled,
 }: {
   items: ReceiptImportState[]
   onRetry: (id: string) => Promise<ReceiptImportState>
   onConfirmReview: (id: string, items: ReceiptLineItem[], date: string) => Promise<void>
   onResolveDuplicate: (id: string, resolution: 'save_new' | 'use_existing' | 'cancel', items?: ReceiptLineItem[], date?: string) => Promise<void>
   onCancel: (id: string) => void
+  /** A receipt to bring into view and focus ("Dnes je důležité" on Domů); consumed once. */
+  focusId?: string | null
+  onFocusHandled?: () => void
 }) {
+  useEffect(() => {
+    if (!focusId) return
+    const card = document.getElementById(`receipt-${focusId}`)
+    card?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    card?.focus({ preventScroll: true })
+    onFocusHandled?.()
+  }, [focusId, onFocusHandled])
+
   if (items.length === 0) return null
 
   return (
     <section className="space-y-3">
       <h2 className="text-sm font-semibold">Účtenky čekající na vyřízení</h2>
       {items.map((item) => (
-        <ReceiptPendingCard key={item.id} item={item} onRetry={onRetry} onConfirmReview={onConfirmReview} onResolveDuplicate={onResolveDuplicate} onCancel={onCancel} />
+        // Focusable (tabIndex -1) so a link from Domů can land on this receipt; scroll-mt keeps it clear of the sticky header.
+        <div key={item.id} id={`receipt-${item.id}`} tabIndex={-1} className="scroll-mt-20 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <ReceiptPendingCard item={item} onRetry={onRetry} onConfirmReview={onConfirmReview} onResolveDuplicate={onResolveDuplicate} onCancel={onCancel} />
+        </div>
       ))}
     </section>
   )

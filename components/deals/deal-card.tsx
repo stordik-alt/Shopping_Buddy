@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { money, shortDate } from '@/lib/format'
 import { pantryQuantityFor } from '@/lib/pantry'
-import { dealDiscount, dealEffectiveUnitPrice, effectivePrice, suggestsStockingUp, type DealAssessment } from '@/lib/prices'
+import { dealDiscount, dealEffectiveUnitPrice, dealSaving, effectivePrice, suggestsStockingUp, type DealAssessment } from '@/lib/prices'
 import { toComparableUnit } from '@/lib/product-search'
 import type { PantryItem } from '@/lib/types'
 
@@ -36,7 +36,11 @@ export function DealCard({
         <div>
           <span className="text-lg font-semibold">{money(price.dealPrice ?? price.regularPrice)}</span>
           <span className="ml-2 text-xs text-fg-muted line-through">{money(price.regularPrice)}</span>
-          <span className="mt-0.5 block text-xs text-fg-secondary">{money(comparableUnit.unitPrice)}/{comparableUnit.unit}</span>
+          <span className="mt-0.5 block text-xs text-fg-secondary">
+            {money(comparableUnit.unitPrice)}/{comparableUnit.unit}
+            {price.packageSize ? ` · balení ${price.packageSize.label}` : ''}
+          </span>
+          {dealSaving(price) > 0 && <span className="mt-0.5 block text-xs font-medium text-success">Ušetříte {money(dealSaving(price))}</span>}
         </div>
         {isOnList ? (
           <Badge tone="success" className="min-h-10">

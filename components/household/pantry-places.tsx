@@ -4,6 +4,7 @@ import { CollapsibleSection } from '@/components/shared/collapsible-section'
 import { PANTRY_AREAS } from '@/lib/pantry'
 import { userFacingError } from '@/lib/errors'
 import type { PantryArea, PantryPlace } from '@/lib/types'
+import { Input, Select } from '@/components/ui/field'
 
 /** Profil domácnosti → Zásoby: the household's own storage places, beyond the fixed Spíž/Lednice/
  *  Mrazák/... list (spec section 12: "Uživatel musí mít možnost vytvořit vlastní místo") — e.g.
@@ -61,31 +62,31 @@ export function PantryPlaces({
       </p>
 
       <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-        <select
+        <Select
           aria-label="Oblast nového místa"
           value={area}
           onChange={(event) => setArea(event.target.value as PantryArea)}
-          className="min-h-11 rounded-xl border border-input bg-background px-3 text-sm outline-none"
+          className="px-3"
         >
           {PANTRY_AREAS.map((option) => (
             <option key={option} value={option}>
               {option}
             </option>
           ))}
-        </select>
-        <input
+        </Select>
+        <Input
           aria-label="Název nového místa"
           value={name}
           onChange={(event) => setName(event.target.value)}
           onKeyDown={(event) => event.key === 'Enter' && add()}
           placeholder="Např. Kufr auta"
-          className="min-h-11 flex-1 rounded-xl border border-input bg-background px-3 text-sm outline-none"
+          className="px-3 flex-1"
         />
         <button
           type="button"
           onClick={add}
           disabled={saving || !name.trim()}
-          className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+          className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
         >
           <Plus className="h-4 w-4" aria-hidden /> Přidat
         </button>

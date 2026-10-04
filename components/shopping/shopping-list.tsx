@@ -73,6 +73,8 @@ export function ShoppingList({
   stores,
   userCoords,
   completePurchase,
+  focusItemName = null,
+  onFocusHandled,
 }: {
   /** The real date (`YYYY-MM-DD`), for which promotions are still running. */
   today: string
@@ -97,6 +99,9 @@ export function ShoppingList({
   stores: Store[]
   userCoords: GpsCoords | null
   completePurchase: () => void
+  /** A list item to open and bring into view (e.g. "Akce na Mléko končí dnes" on Domů); consumed once. */
+  focusItemName?: string | null
+  onFocusHandled?: () => void
 }) {
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('Vše')
@@ -130,6 +135,28 @@ export function ShoppingList({
     setGroup(view.group)
     viewLoaded.current = true
   }, [])
+
+  // Declared after the preference load on purpose: on the first render it runs after it, so a filter
+  // remembered from last time cannot hide the item the link points to.
+  useEffect(() => {
+    if (!focusItemName) return
+    const wanted = focusItemName.trim().toLowerCase()
+    const target = items.find((item) => item.name.trim().toLowerCase() === wanted)
+    if (target) {
+      setCategory('Vše')
+      setQuery('')
+      setShowCompleted(true)
+      setExpandedId(target.id)
+      requestAnimationFrame(() => {
+        const row = document.getElementById(`list-item-${target.id}`)
+        row?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+        row?.focus({ preventScroll: true })
+      })
+    }
+    onFocusHandled?.()
+    // Only a new link should run this, not every change of the list.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusItemName])
 
   const filteredItems = items.filter(
     (item) =>
@@ -340,7 +367,7 @@ export function ShoppingList({
                 </span>
               </div>
               {groupItemsList.map((item) => (
-                <div key={item.id} className="border-b border-border last:border-0">
+                <div key={item.id} id={`list-item-${item.id}`} tabIndex={-1} className="scroll-mt-24 border-b border-border outline-none last:border-0 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
                   <div className="flex min-w-0 items-center gap-1.5 py-2 pr-2 pl-1 sm:gap-2 sm:pr-4 sm:pl-3">
                     {/* The most used control in the shop: a 44 px target around a 28 px circle. */}
                     <button

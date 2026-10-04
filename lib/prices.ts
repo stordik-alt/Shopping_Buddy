@@ -136,6 +136,12 @@ export function dealDiscount(price: PricePoint): number {
   return price.regularPrice > 0 ? 1 - effectivePrice(price) / price.regularPrice : 0
 }
 
+/** How much one package saves against its own regular price, in the price's currency ("Ušetříte
+ *  10 Kč"). Never negative: a "deal" above the regular price saves nothing. Rounded to haléře. */
+export function dealSaving(price: PricePoint): number {
+  return Math.max(0, Math.round((price.regularPrice - effectivePrice(price)) * 100) / 100)
+}
+
 /** The unit price at what a shopper actually pays right now (spec section 20/21: "cena za
  *  jednotku" next to the deal price, so differently-sized packages stay comparable). `unitPrice`
  *  on `PricePoint` belongs to the *regular* price; scaled down by the same fraction the deal price

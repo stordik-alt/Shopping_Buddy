@@ -27,12 +27,12 @@ export function CollapsibleSection({
         onClick={() => setOpen((current) => !current)}
         className="flex min-h-16 w-full items-center gap-3 rounded-[inherit] p-5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        {icon && <span className="shrink-0 text-primary">{icon}</span>}
+        {icon && <span className="shrink-0 text-accent-text" aria-hidden="true">{icon}</span>}
         <span className="min-w-0 flex-1">
           <span className="block font-semibold">{title}</span>
-          {summary && !open && <span className="mt-0.5 block truncate text-sm text-muted-foreground">{summary}</span>}
+          {summary && !open && <span className="mt-0.5 block truncate text-sm text-fg-muted">{summary}</span>}
         </span>
-        <ChevronDown className={`size-5 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
+        <ChevronDown className={`size-5 shrink-0 text-fg-muted transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
       </button>
       {/* Kept mounted (only hidden) so unsaved drafts in forms survive closing the section. */}
       <div id={panelId} hidden={!open} className="px-5 pb-5">

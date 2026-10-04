@@ -143,6 +143,7 @@ export function Pantry({
   onCheckOpened,
   onShopping,
   onReceipts,
+  initialPlace,
 }: {
   items: PantryItem[]
   onAddPantryItem: (input: PantryAddInput) => Promise<PantryItem[]>
@@ -170,12 +171,16 @@ export function Pantry({
   /** Next steps offered while the pantry is empty: the shopping list, and the receipt upload. */
   onShopping?: () => void
   onReceipts?: () => void
+  /** The place to open on (a link from Domů to where something ran out); a place key as in onMove. */
+  initialPlace?: string
 }) {
   const options = useMemo(() => pantryPlaceOptions(customPlaces), [customPlaces])
   const likelyGone = useMemo(() => new Set([...estimates].filter(([, estimate]) => estimate.likelyGone).map(([id]) => id)), [estimates])
   const summary = summarizeByPlace(items, options, likelyGone)
   // Open on the first place that has something in it rather than on an empty folder.
-  const [selected, setSelected] = useState<string>(() => options.find((option) => summary[option.key].count > 0)?.key ?? options[0].key)
+  const [selected, setSelected] = useState<string>(() =>
+    initialPlace && options.some((option) => option.key === initialPlace) ? initialPlace : (options.find((option) => summary[option.key].count > 0)?.key ?? options[0].key),
+  )
   // Announces a move: the moved row leaves the open folder, so without this it would just vanish.
   const [notice, setNotice] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)

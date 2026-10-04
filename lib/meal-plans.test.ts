@@ -480,6 +480,7 @@ describe('todaysMeals', () => {
     expect(meals[0].cooked).toBe(true)
     expect(meals[1].cooked).toBe(false)
     expect(meals[1].recipe).toBe(recipeFor(plan, 'Neděle', 'Oběd'))
+    expect(meals.every((meal) => meal.day === 'Neděle')).toBe(true)
   })
 
   it('returns nothing for a plan saved for another week, or no plan', () => {

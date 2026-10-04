@@ -13,6 +13,8 @@ import type { PendingInvitation } from '@/lib/db/queries'
 import type { StoreSelection } from '@/lib/nearby-stores'
 import type { Household, HouseholdPreferences, ItemCategory, PantryArea, PantryPlace, PriceSensitivity, QualityPreference, Store } from '@/lib/types'
 import { userFacingError } from '@/lib/errors'
+import { Button } from '@/components/ui/button'
+import { Input, Select } from '@/components/ui/field'
 
 const splitList = (value: string) =>
   value
@@ -127,43 +129,44 @@ export function HouseholdProfile({
         <p className="text-sm text-muted-foreground">Spolu v domácnosti</p>
         <label className="mt-1 block">
           <span className="sr-only">Název domácnosti</span>
+          {/* The household's name as the page heading, editable in place (not a boxed form field). */}
           <input
             value={household.name}
             onChange={(event) => onUpdateHousehold({ name: event.target.value })}
-            className="min-h-11 w-full rounded-xl border border-transparent bg-transparent px-1 text-2xl font-semibold outline-none focus:border-input focus:bg-background focus:px-2 focus:py-1"
+            className="min-h-11 w-full rounded-xl border border-transparent bg-transparent px-1 text-2xl font-semibold outline-none hover:border-border focus:border-ring focus:bg-background focus:px-2 focus:py-1 focus-visible:ring-2 focus-visible:ring-ring/40"
           />
         </label>
       </div>
 
       <div className="surface p-5">
         <div className="flex items-center gap-3">
-          <WalletCards className="size-5 shrink-0 text-primary" aria-hidden />
+          <WalletCards className="size-5 shrink-0 text-accent-text" aria-hidden />
           <p className="text-sm font-semibold">Měsíční rozpočet domácnosti</p>
         </div>
         <div className="mt-3 flex items-center gap-2">
-          <input
+          <Input
             type="number"
             min="0"
             aria-label="Měsíční rozpočet"
             value={household.monthlyBudget}
             onChange={(event) => onUpdateHousehold({ monthlyBudget: Math.max(0, Number(event.target.value) || 0) })}
-            className="min-h-11 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring sm:w-32"
+            className="w-40 px-3"
           />
           <span className="text-sm text-muted-foreground">{household.budgetPeriodStartDay === 1 ? 'Kč / měsíc' : 'Kč / období'}</span>
         </div>
         <label className="mt-4 block text-sm">
           <span className="font-medium">Rozpočtové období začíná</span>
-          <select
+          <Select
             value={household.budgetPeriodStartDay}
             onChange={(event) => onUpdateHousehold({ budgetPeriodStartDay: Number(event.target.value) })}
-            className="mt-2 min-h-11 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring sm:w-56"
+            className="px-3 mt-2 sm:w-56"
           >
             {Array.from({ length: MAX_PERIOD_START_DAY }, (_, index) => index + 1).map((day) => (
               <option key={day} value={day}>
                 {day === 1 ? '1. dne v měsíci (kalendářní měsíc)' : `${day}. dne v měsíci`}
               </option>
             ))}
-          </select>
+          </Select>
           <span className="mt-2 block text-xs leading-relaxed text-muted-foreground">
             {household.budgetPeriodStartDay === 1
               ? 'Rozpočet se počítá za kalendářní měsíc. Pokud vám plat chodí jindy, začátek období posuňte.'
@@ -192,51 +195,52 @@ export function HouseholdProfile({
           {showMemberForm ? 'Zavřít formulář' : '+ Přidat člena'}
         </button>
         <div className={`mt-3 gap-2 rounded-2xl border border-dashed border-border p-4 sm:grid-cols-2 ${showMemberForm ? 'grid' : 'hidden'}`}>
-          <input
+          <Input
             aria-label="Jméno člena"
             value={memberForm.name}
             onChange={(event) => setMemberForm((current) => ({ ...current, name: event.target.value }))}
             placeholder="Jméno"
-            className="min-h-11 rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            className="px-3"
           />
-          <input
+          <Input
             aria-label="Věk člena"
             type="number"
             min="0"
             value={memberForm.age}
             onChange={(event) => setMemberForm((current) => ({ ...current, age: event.target.value }))}
             placeholder="Věk"
-            className="rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            className="px-3"
           />
-          <input
+          <Input
             aria-label="Oblíbené potraviny"
             value={memberForm.favoriteFoods}
             onChange={(event) => setMemberForm((current) => ({ ...current, favoriteFoods: event.target.value }))}
-            placeholder="Oblíbené potraviny (odděleno čárkou)"
-            className="rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring sm:col-span-2"
+            placeholder="Oblíbené potraviny"
+            className="px-3 sm:col-span-2"
           />
-          <input
+          <Input
             aria-label="Nechce potraviny"
             value={memberForm.dislikedFoods}
             onChange={(event) => setMemberForm((current) => ({ ...current, dislikedFoods: event.target.value }))}
-            placeholder="Nechce (odděleno čárkou)"
-            className="rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            placeholder="Nechce"
+            className="px-3"
           />
-          <input
+          <Input
             aria-label="Alergie a intolerance"
             value={memberForm.allergies}
             onChange={(event) => setMemberForm((current) => ({ ...current, allergies: event.target.value }))}
-            placeholder="Alergie / intolerance (odděleno čárkou)"
-            className="rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            placeholder="Alergie / intolerance"
+            className="px-3"
           />
-          <button onClick={addMember} className="min-h-11 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:col-span-2">
+          <p className="text-xs text-fg-muted sm:col-span-2">Víc potravin nebo alergií oddělte čárkou.</p>
+          <Button size="lg" onClick={addMember} className="sm:col-span-2">
             Přidat člena domácnosti
-          </button>
+          </Button>
         </div>
         {isOwner && (
           <div className="mt-5 border-t border-border pt-5">
             <div className="flex flex-col gap-3 sm:flex-row">
-              <input
+              <Input
                 aria-label="E-mail člena domácnosti"
                 type="email"
                 value={invite}
@@ -245,11 +249,11 @@ export function HouseholdProfile({
                   if (event.key === 'Enter' && !event.nativeEvent.isComposing && event.keyCode !== 229) sendInvite()
                 }}
                 placeholder="email@rodina.cz"
-                className="min-w-0 flex-1 rounded-xl border border-input bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+                className="px-3 min-w-0 flex-1"
               />
-              <button onClick={sendInvite} className="min-h-11 rounded-xl border border-border px-4 py-3 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <Button variant="outline" size="lg" onClick={sendInvite}>
                 Pozvat člena
-              </button>
+              </Button>
             </div>
             {inviteError && <p className="mt-2 text-sm text-destructive">{inviteError}</p>}
             {inviteLink && (
@@ -258,8 +262,9 @@ export function HouseholdProfile({
                 <div className="mt-1.5 flex items-center gap-2">
                   <code className="min-w-0 flex-1 break-words">{inviteLink}</code>
                   <button
+                    type="button"
                     onClick={() => navigator.clipboard.writeText(inviteLink)}
-                    className="min-h-10 shrink-0 rounded-lg bg-background px-3 py-2 font-medium hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="min-h-10 shrink-0 rounded-lg bg-background px-3 py-2 text-sm font-medium hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     Kopírovat
                   </button>
@@ -280,7 +285,8 @@ export function HouseholdProfile({
                   isOwner && (
                     <button
                       onClick={() => onRevokeInvitation(invitation.id)}
-                      className="min-h-10 shrink-0 rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-background hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      type="button"
+                      className="min-h-10 shrink-0 rounded-lg px-3 py-2 text-sm font-medium text-fg-secondary hover:bg-background hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       Zrušit
                     </button>
@@ -308,39 +314,39 @@ export function HouseholdProfile({
           {showChildForm ? 'Zavřít formulář' : '+ Přidat dítě'}
         </button>
         <div className={`mt-3 gap-2 rounded-2xl border border-dashed border-border p-4 sm:grid-cols-2 ${showChildForm ? 'grid' : 'hidden'}`}>
-          <input
+          <Input
             aria-label="Jméno dítěte"
             value={childForm.name}
             onChange={(event) => setChildForm((current) => ({ ...current, name: event.target.value }))}
             placeholder="Jméno"
-            className="rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            className="px-3"
           />
-          <input
+          <Input
             aria-label="Věk dítěte"
             type="number"
             min="0"
             value={childForm.age}
             onChange={(event) => setChildForm((current) => ({ ...current, age: event.target.value }))}
             placeholder="Věk"
-            className="rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            className="px-3"
           />
-          <input
+          <Input
             aria-label="Preference dítěte"
             value={childForm.preferences}
             onChange={(event) => setChildForm((current) => ({ ...current, preferences: event.target.value }))}
             placeholder="Preference"
-            className="rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            className="px-3"
           />
-          <input
+          <Input
             aria-label="Specifické potřeby dítěte"
             value={childForm.specialNeeds}
             onChange={(event) => setChildForm((current) => ({ ...current, specialNeeds: event.target.value }))}
             placeholder="Specifické potřeby"
-            className="rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            className="px-3"
           />
-          <button onClick={addChild} className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground sm:col-span-2">
+          <Button size="lg" onClick={addChild} className="sm:col-span-2">
             Přidat dítě
-          </button>
+          </Button>
         </div>
       </CollapsibleSection>
 
@@ -385,26 +391,26 @@ export function HouseholdProfile({
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="text-sm">
               Cenová preference
-              <select
+              <Select
                 value={household.preferences.priceSensitivity}
                 onChange={(event) => onUpdatePreferences({ priceSensitivity: event.target.value as PriceSensitivity })}
-                className="mt-2 w-full rounded-xl border border-input bg-background px-3 py-2 outline-none"
+                className="px-3 mt-2"
               >
                 <option>Nejlevnější</option>
                 <option>Vyvážené</option>
                 <option>Kvalita především</option>
-              </select>
+              </Select>
             </label>
             <label className="text-sm">
               Preference kvality
-              <select
+              <Select
                 value={household.preferences.qualityPreference}
                 onChange={(event) => onUpdatePreferences({ qualityPreference: event.target.value as QualityPreference })}
-                className="mt-2 w-full rounded-xl border border-input bg-background px-3 py-2 outline-none"
+                className="px-3 mt-2"
               >
                 <option>Standardní</option>
                 <option>Prémiová</option>
-              </select>
+              </Select>
             </label>
           </div>
           <label className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-border px-3 py-2 text-sm">
@@ -413,7 +419,7 @@ export function HouseholdProfile({
               type="checkbox"
               checked={household.preferences.preferCzechProducts}
               onChange={(event) => onUpdatePreferences({ preferCzechProducts: event.target.checked })}
-              className="size-4 accent-primary"
+              className="size-5 accent-[var(--accent-solid)]"
             />
           </label>
         </div>
@@ -426,7 +432,7 @@ export function HouseholdProfile({
               <p className="font-medium">Týdenní souhrn</p>
               <p className="text-xs text-muted-foreground">Rozpočet, úspory a otevřené položky</p>
             </div>
-            <input type="checkbox" checked={alerts} onChange={(event) => setAlerts(event.target.checked)} className="size-4 accent-primary" />
+            <input type="checkbox" checked={alerts} onChange={(event) => setAlerts(event.target.checked)} className="size-5 accent-[var(--accent-solid)]" />
           </label>
         </div>
       </CollapsibleSection>

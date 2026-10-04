@@ -47,6 +47,7 @@ export function MealPlan({
   onAddIngredients,
   onMarkCooked,
   onPlanSaved,
+  initialMeal = null,
 }: {
   household: Household
   initialPlan: SavedMealPlan | null
@@ -55,6 +56,8 @@ export function MealPlan({
   onMarkCooked: (day: string, mealType: MealType) => void
   /** Lets the parent keep the saved plan, so it is still there when this card is shown again. */
   onPlanSaved: (budgetLimit: number, plan: WeeklyMealPlan) => void
+  /** A meal to open straight away (a tap on it in "Dnes vaříme" on Domů). */
+  initialMeal?: { day: string; mealType: MealType } | null
 }) {
   function savePlan(limit: number, updated: WeeklyMealPlan) {
     onPlanSaved(limit, updated)
@@ -71,7 +74,7 @@ export function MealPlan({
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [recipePools, setRecipePools] = useState<Partial<Record<MealType, MealPlanRecipe[]>>>({})
-  const [selectedMeal, setSelectedMeal] = useState<{ day: string; mealType: MealType } | null>(null)
+  const [selectedMeal, setSelectedMeal] = useState<{ day: string; mealType: MealType } | null>(initialMeal)
 
   // The menu itself needs no budget: the budget is set afterwards, in the shopping panel below it.
   async function generate() {

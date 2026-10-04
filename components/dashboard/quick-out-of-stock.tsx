@@ -1,8 +1,8 @@
 'use client'
 
-import { PackageX, Search, Undo2 } from 'lucide-react'
+import { ChevronRight, PackageX, Search, Undo2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { quickOutCandidates } from '@/lib/pantry'
+import { placeKeyOf, quickOutCandidates } from '@/lib/pantry'
 import type { PantryItem } from '@/lib/types'
 
 // "Došlo mi…" on the home screen: record that something ran out in two taps, without opening Zásoby.
@@ -18,10 +18,13 @@ export function QuickOutOfStock({
   pantryItems,
   likelyGoneIds,
   onGone,
+  onOpenPantry,
 }: {
   pantryItems: PantryItem[]
   likelyGoneIds: ReadonlySet<string>
   onGone: (item: PantryItem, addToList: boolean) => void
+  /** Opens Zásoby — at the place of the first item that probably ran out, when there is one. */
+  onOpenPantry: (placeKey?: string) => void
 }) {
   const [query, setQuery] = useState('')
   const [addToList, setAddToList] = useState(true)
@@ -66,9 +69,21 @@ export function QuickOutOfStock({
 
   return (
     <section aria-label="Došlo mi" className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)] sm:p-5">
-      <div className="flex items-center gap-2">
-        <PackageX className="size-4 text-accent-text" aria-hidden />
-        <h2 className="text-sm font-semibold">Došlo mi…</h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 text-sm font-semibold">
+          <PackageX className="size-4 text-accent-text" aria-hidden />
+          Došlo mi…
+        </h2>
+        <button
+          type="button"
+          onClick={() => {
+            const firstGone = pantryItems.find((item) => likelyGoneIds.has(item.id))
+            onOpenPantry(firstGone ? placeKeyOf(firstGone) : undefined)
+          }}
+          className="-mr-2 flex min-h-10 items-center gap-0.5 rounded-lg px-2 text-sm text-fg-muted hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Zásoby <ChevronRight className="size-4" aria-hidden />
+        </button>
       </div>
       <label className="mt-3 flex items-center gap-2 rounded-xl border border-input bg-background px-3">
         <Search className="size-4 shrink-0 text-fg-muted" aria-hidden />

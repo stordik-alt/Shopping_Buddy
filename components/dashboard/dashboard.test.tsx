@@ -37,23 +37,26 @@ describe('DashboardOverview', () => {
 describe('TodayMeals', () => {
   const recipe = (name: string) => ({ id: name, name, mealType: 'Oběd', price: 0, allergens: [], ingredients: [] }) as Recipe
 
-  it("lists today's meals and marks the cooked one", () => {
+  it("lists today's meals, each its own tap target, and marks the cooked one", () => {
     const html = renderToStaticMarkup(
       <TodayMeals
         meals={[
-          { mealType: 'Oběd', recipe: recipe('Svíčková'), cooked: true },
-          { mealType: 'Večeře', recipe: recipe('Rizoto'), cooked: false },
+          { day: 'Neděle', mealType: 'Oběd', recipe: recipe('Svíčková'), cooked: true },
+          { day: 'Neděle', mealType: 'Večeře', recipe: recipe('Rizoto'), cooked: false },
         ]}
         onOpen={() => {}}
+        onOpenMeal={() => {}}
       />,
     )
     expect(html).toContain('Dnes vaříme')
     expect(html).toContain('Svíčková')
+    // The heading plus one button per meal.
+    expect(html.match(/<button/g)).toHaveLength(3)
     expect(html).toContain('aria-label="uvařeno"')
     expect(html).not.toMatch(BLOCK_IN_BUTTON)
   })
 
   it('is a single quiet line without a plan for today', () => {
-    expect(renderToStaticMarkup(<TodayMeals meals={[]} onOpen={() => {}} />)).toContain('na dnešek nic naplánováno')
+    expect(renderToStaticMarkup(<TodayMeals meals={[]} onOpen={() => {}} onOpenMeal={() => {}} />)).toContain('na dnešek nic naplánováno')
   })
 })

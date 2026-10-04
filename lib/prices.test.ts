@@ -6,6 +6,7 @@ import {
   compareStoreTotals,
   comparePrices,
   dealDiscount,
+  dealSaving,
   dealEffectiveUnitPrice,
   dealsForList,
   effectivePrice,
@@ -370,6 +371,15 @@ describe('dealDiscount', () => {
     expect(dealDiscount(price({ regularPrice: 40, dealPrice: 30 }))).toBeCloseTo(0.25)
     expect(dealDiscount(price({ regularPrice: 40 }))).toBe(0)
     expect(dealDiscount(price({ regularPrice: 0, dealPrice: 5 }))).toBe(0)
+  })
+})
+
+describe('dealSaving', () => {
+  it('is the amount off the regular price per package, never negative', () => {
+    expect(dealSaving(price({ regularPrice: 39.9, dealPrice: 29.9 }))).toBe(10)
+    expect(dealSaving(price({ regularPrice: 40 }))).toBe(0)
+    expect(dealSaving(price({ regularPrice: 20, dealPrice: 25 }))).toBe(0)
+    expect(dealSaving(price({ regularPrice: 10.1, dealPrice: 9.99 }))).toBe(0.11)
   })
 })
 

@@ -1,6 +1,6 @@
 # 13 — UI/UX Redesign (ANITKA design system)
 
-Status: **Phase 1 (audit) done; plan steps 1–5 (tokens, primitives, shell, Domů, all cards) implemented on the local branch `ui-redesign`; step 6 (detail screens) waits for the owner's review of the cards.** All redesign work stays on a local
+Status: **Phase 1 (audit) done; plan steps 1–6 (tokens, primitives, shell, Domů, all cards, detail screens and deep links) implemented on the local branch `ui-redesign`; steps 7–8 (cleanup, docs, final verification, one deployment) remain.** All redesign work stays on a local
 branch and is deployed once, as a whole, after it is complete and tested (owner brief, section 16). The Picsart images
 are inspiration, not a layout specification; the current application is the source of truth for functionality.
 
@@ -235,6 +235,23 @@ Sections with nothing to say collapse or disappear (as `TodayAttention` already 
    Verified in Playwright (320/390/1280 px, light/dark) with seeded review / duplicate / failed imports: badges show,
    saving is blocked until a place is chosen, a removed row can be restored, no overflow, no errors.
 6. **Detail screens** after the owner approves the cards (brief, phase 4).
+   *Done (local), started after the owner's go-ahead ("Přejdi na krok 6"):*
+   - 6a **Exact targets from Domů** — `lib/focus-target.ts` (`FocusTarget`: meal / receipt / pantry place / list
+     item) is UI state in the shell, consumed once by the screen it points to: "Dnes je důležité" opens the first
+     waiting receipt (scrolled into view and focused) or the list item a deal ends for (filters cleared, its detail
+     open); each meal in "Dnes vaříme" opens the meal's detail sheet in Recepty ▸ Jídelníček; "Došlo mi… ▸ Zásoby"
+     opens the place of the first item that probably ran out. `lib/attention.ts` items carry the target.
+   - 6b **Deal detail on the card** — saving in money (`dealSaving` in `lib/prices.ts`, tested) and the package size
+     when the price knows it (`packageSize.label`).
+   - 6c **Plán nákupu** — the 20+ priority-chain chips wait behind a `<details>` whose summary names the chosen ones.
+   - 6d **Profil** — every form field is the shared `Input` / `Select` (20 fields converted), primary actions are
+     `Button`, member tags use the accent / danger tints, the household name stays an in-place heading with a visible
+     focus; shorter placeholders with one "oddělte čárkou" hint.
+   - 6e **Remaining dialogs** (ideas, install app, item split) already were native `<dialog>`s with `showModal()`
+     (focus trap, Escape); they now use the elevated surface and shadow.
+   Verified in Playwright (390 px): every Domů link lands on its item (receipt focused and in view, meal sheet open,
+   list item open with its detail), leaving and returning does not reopen it; Profil at 320/390/1280 px light/dark
+   without overflow or errors.
 7. **Cleanup**: remove dead styles, document in `docs/01_CURRENT_STATE.md`, `docs/08_ICON_SYSTEM.md`, `docs/07_CHANGELOG.md`.
 8. **Final verification as one integrated whole**: lint, typecheck, unit tests (pure ones; DB tests only via local
    PostgreSQL, never Neon), `pnpm build`, Playwright run through every tab and every dashboard link, light/dark, 320–1280 px,
@@ -253,6 +270,11 @@ Sections with nothing to say collapse or disappear (as `TodayAttention` already 
   nothing to show on deal or list cards yet; adding a product image URL is a schema change outside this redesign.
 - Akce: "Doma toho máte málo nebo nic — dobrá chvíle doplnit zásoby" (`suggestsStockingUp`) appears on almost every
   deal card when the pantry holds no matching item, so it reads as noise; worth reviewing the rule (documented only).
+- Notifications carry only a title and a detail (no kind or target), so a notification cannot open "the place where it is
+  solved" without a data change; documented only.
+- Recipes from the catalogue have no instructions ("postup") in the data; the detail links to the original recipe.
+- Profil ▸ Upozornění: the "Týdenní souhrn" switch is local component state only — it is not saved and changes
+  nothing; worth removing or wiring to a real setting (documented only, not changed here).
 
 ## 9. Open questions for the owner
 - The Picsart references were received after the audit and used as visual inspiration only (not a layout spec).

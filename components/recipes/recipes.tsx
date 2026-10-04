@@ -91,10 +91,18 @@ type RecipesProps = {
   onMarkCooked: (day: string, mealType: MealType) => void
   onPlanSaved: (budgetLimit: number, plan: WeeklyMealPlan) => void
   onGoToShopping: () => void
+  /** A meal of the plan to open (from "Dnes vaříme" on Domů); consumed once via onFocusHandled. */
+  focusMeal?: { day: string; mealType: MealType } | null
+  onFocusHandled?: () => void
 }
 
-export function Recipes({ household, initialPlan, pantryItems, onAddIngredients, onAddMealPlanIngredients, onMarkCooked, onPlanSaved, onGoToShopping }: RecipesProps) {
-  const [section, setSection] = useState<'recipes' | 'meal-plan'>('recipes')
+export function Recipes({ household, initialPlan, pantryItems, onAddIngredients, onAddMealPlanIngredients, onMarkCooked, onPlanSaved, onGoToShopping, focusMeal = null, onFocusHandled }: RecipesProps) {
+  const [section, setSection] = useState<'recipes' | 'meal-plan'>(focusMeal ? 'meal-plan' : 'recipes')
+  // The focus is read once, at mount (the tab mounts this view); clear it so it does not reopen later.
+  const [initialMeal] = useState(focusMeal)
+  useEffect(() => {
+    if (focusMeal) onFocusHandled?.()
+  }, [focusMeal, onFocusHandled])
   const [query, setQuery] = useState('')
   const [sourceId, setSourceId] = useState('')
   const [sort, setSort] = useState<'relevance' | 'rating' | 'time'>('relevance')
@@ -299,6 +307,7 @@ export function Recipes({ household, initialPlan, pantryItems, onAddIngredients,
           onAddIngredients={onAddMealPlanIngredients}
           onMarkCooked={onMarkCooked}
           onPlanSaved={onPlanSaved}
+          initialMeal={initialMeal}
         />
       </div>
     )

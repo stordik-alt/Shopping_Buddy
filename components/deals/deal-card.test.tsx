@@ -18,6 +18,14 @@ function render(a: DealAssessment) {
 }
 
 describe('DealCard', () => {
+  it('says the saving in money and, when known, the package size', () => {
+    const html = render(assessment({ price: { store: 'Lidl', regularPrice: 100, dealPrice: 80, unit: 'kg', unitPrice: 50, recordedAt: '2026-09-28', packageSize: { quantity: 0.5, unit: 'kg', label: '500 g', source: 'catalog' } as never } }))
+    expect(html).toContain('Ušetříte 20,00 Kč')
+    expect(html).toContain('balení 500 g')
+    expect(render(assessment())).not.toContain('balení')
+  })
+
+
   it('shows the unit price scaled to the deal price, not the regular one', () => {
     const html = render(assessment())
     expect(html).toContain('40,00 Kč')

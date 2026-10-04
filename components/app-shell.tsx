@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useEffect, useState } from 'react'
+import { useCallback, useMemo, useEffect, useState } from 'react'
+import type { FocusTarget } from '@/lib/focus-target'
 import { buildShoppingPlanAction, pinProductAction, unpinProductAction } from '@/app/actions/shopping-plan'
 import { createManualPurchaseAction } from '@/app/actions/purchases'
 import { saveMyStorePreferencesAction } from '@/app/actions/store-preferences'
@@ -131,6 +132,13 @@ export function AppShell({
   // Which of the three things the Nákup tab can show right now — the list itself is what people open
   // it for, so it stays the default even when a receipt is waiting on review.
   const [nakupView, setNakupView] = useState<'seznam' | 'nakupy' | 'uctenky'>('seznam')
+  // What a tap on Domů should open inside its tab (lib/focus-target.ts); each screen consumes it once.
+  const [focus, setFocus] = useState<FocusTarget | null>(null)
+  const clearFocus = useCallback(() => setFocus(null), [])
+  // Zásoby reads its place only when it mounts, so the target can go as soon as the tab is open.
+  useEffect(() => {
+    if (tab === 'Zásoby' && focus?.kind === 'pantry-place') setFocus(null)
+  }, [tab, focus])
   // Which of Rozpočet's two things is shown — the glanceable current state, or the browsable/editable
   // ledger (which already covers "historie" via its own month picker, so it is not a third view).
   const [rozpocetView, setRozpocetView] = useState<'stav' | 'vydaje'>('stav')
@@ -449,8 +457,9 @@ export function AppShell({
                   <TodayAttention
                     items={attentionItems({ today, receipts: pendingReceiptImports, productPrices: nearbyProductPrices, listNames: pendingNames })}
                     onOpen={(item) => {
+                      setFocus(item.focus ?? null)
+                      setNakupView(item.nakupView ?? 'seznam')
                       setTab(item.tab)
-                      if (item.nakupView) setNakupView(item.nakupView)
                     }}
                   />
                   <DashboardOverview
@@ -478,8 +487,26 @@ export function AppShell({
                     onStores={() => setTab('Obchody')}
                     onSetBudget={() => setTab('Profil')}
                   />
-                  <TodayMeals meals={todaysMeals(mealPlan, today)} onOpen={() => setTab('Recepty')} />
-                  <QuickOutOfStock pantryItems={pantryItems} likelyGoneIds={likelyGonePantryIds} onGone={quickOut} />
+                  <TodayMeals
+                    meals={todaysMeals(mealPlan, today)}
+                    onOpen={() => {
+                      setFocus(null)
+                      setTab('Recepty')
+                    }}
+                    onOpenMeal={(day, mealType) => {
+                      setFocus({ kind: 'meal', day, mealType })
+                      setTab('Recepty')
+                    }}
+                  />
+                  <QuickOutOfStock
+                    pantryItems={pantryItems}
+                    likelyGoneIds={likelyGonePantryIds}
+                    onGone={quickOut}
+                    onOpenPantry={(placeKey) => {
+                      setFocus(placeKey ? { kind: 'pantry-place', placeKey } : null)
+                      setTab('Zásoby')
+                    }}
+                  />
                   <PriceWatch today={today} onBrowseDeals={() => setTab('Akce')} onStores={() => setTab('Obchody')} onAddToList={addItemByName} listItemNames={pendingNames} productPrices={nearbyProductPrices} offers={nearbyStandaloneOffers} pantryItems={pantryItems} />
                   {/* Secondary detail, closed by default: the budget card above already gives the key numbers. */}
                   <CollapsibleSection title="Výdaje podle kategorií" summary={`${thisPeriodTitle(today, periodStartDay)} · utraceno ${spent.toLocaleString('cs-CZ')} Kč`} icon={<PieChart className="size-5" aria-hidden="true" />}>
@@ -525,6 +552,8 @@ export function AppShell({
                       )}
                       <UsualItems suggestions={usualItems} onAdd={addUsualItems} />
                       <ShoppingList
+                        focusItemName={focus?.kind === 'list-item' ? focus.name : null}
+                        onFocusHandled={clearFocus}
                         today={today}
                         items={items}
                         newItem={newItem}
@@ -588,6 +617,8 @@ export function AppShell({
                         onConfirmReview={confirmReceiptReview}
                         onResolveDuplicate={resolveDuplicateReceipt}
                         onCancel={cancelReceiptImport}
+                        focusId={focus?.kind === 'receipt' ? focus.id : null}
+                        onFocusHandled={clearFocus}
                       />
                     </div>
                   )}
@@ -596,6 +627,7 @@ export function AppShell({
               {tab === 'Zásoby' && (
                 <div className="mx-auto max-w-3xl">
                   <Pantry
+                    initialPlace={focus?.kind === 'pantry-place' ? focus.placeKey : undefined}
                     items={pantryItems}
                     customPlaces={pantryPlaces}
                     onAddPantryItem={addPantryItem}
@@ -644,7 +676,7 @@ export function AppShell({
                   onClearLocation={userLocation.clearLocation}
                 />
               )}
-              {tab === 'Recepty' && <Recipes household={household} initialPlan={mealPlan} pantryItems={pantryItems} onAddIngredients={addRecipeIngredients} onAddMealPlanIngredients={addIngredients} onMarkCooked={markMealCooked} onPlanSaved={(budgetLimit, plan) => setMealPlan({ weekStart: currentWeekStart(today), budgetLimit, plan })} onGoToShopping={() => setTab('Nákup')} />}
+              {tab === 'Recepty' && <Recipes focusMeal={focus?.kind === 'meal' ? { day: focus.day, mealType: focus.mealType } : null} onFocusHandled={clearFocus} household={household} initialPlan={mealPlan} pantryItems={pantryItems} onAddIngredients={addRecipeIngredients} onAddMealPlanIngredients={addIngredients} onMarkCooked={markMealCooked} onPlanSaved={(budgetLimit, plan) => setMealPlan({ weekStart: currentWeekStart(today), budgetLimit, plan })} onGoToShopping={() => setTab('Nákup')} />}
               {tab === 'Rozpočet' && (
                 <div className="space-y-5 lg:space-y-6">
                   <SegmentedControl

@@ -50,7 +50,7 @@ export function IdeasDialog({ open, onClose }: { open: boolean; onClose: () => v
         if (event.target === dialogRef.current) onClose()
       }}
       aria-labelledby="ideas-title"
-      className="m-auto max-h-[calc(100dvh-2rem)] w-[min(calc(100vw-1.5rem),30rem)] rounded-3xl border border-border bg-popover p-0 text-popover-foreground shadow-2xl backdrop:bg-black/50"
+      className="m-auto max-h-[calc(100dvh-2rem)] w-[min(calc(100vw-1.5rem),30rem)] rounded-3xl border border-border bg-surface-elevated p-0 text-foreground shadow-elevated backdrop:bg-black/40"
     >
       <div className="p-5">
         <div className="flex items-start gap-3">

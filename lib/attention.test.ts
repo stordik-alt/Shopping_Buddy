@@ -31,7 +31,9 @@ describe('attentionItems', () => {
   it('counts receipts that wait on the household, not ones still processing', () => {
     const receipts = [receipt('review_required'), receipt('duplicate_review'), receipt('ocr_failed'), receipt('parsing'), receipt('uploaded', true)]
     const items = attentionItems({ ...base, receipts })
-    expect(items).toEqual([{ id: 'receipts', kind: 'receipt', text: '4 účtenky čekají na vaši kontrolu', tab: 'Nákup', nakupView: 'uctenky' }])
+    // Opens the first receipt that waits, not one still processing.
+    expect(items).toEqual([{ id: 'receipts', kind: 'receipt', text: '4 účtenky čekají na vaši kontrolu', tab: 'Nákup', nakupView: 'uctenky', focus: { kind: 'receipt', id: receipts[0].id } }])
+    expect(attentionItems({ ...base, receipts: [receipts[3], receipts[1]] })[0].focus).toEqual({ kind: 'receipt', id: receipts[1].id })
     expect(attentionItems({ ...base, receipts: [receipt('review_required')] })[0].text).toBe('1 účtenka čeká na vaši kontrolu')
   })
 
@@ -45,6 +47,11 @@ describe('attentionItems', () => {
     const items = attentionItems({ ...base, productPrices, listNames: ['mléko', 'Máslo', 'Káva'] })
     expect(items.map((item) => item.text)).toEqual(['Akce na Máslo končí dnes · Penny', 'Akce na Mléko končí zítra · Lidl'])
     expect(items.every((item) => item.tab === 'Nákup')).toBe(true)
+    // Each line opens the list item its deal is for.
+    expect(items.map((item) => item.focus)).toEqual([
+      { kind: 'list-item', name: 'Máslo' },
+      { kind: 'list-item', name: 'Mléko' },
+    ])
   })
 
   it('shows one line per product, for its earliest-ending deal, and ignores ended ones', () => {

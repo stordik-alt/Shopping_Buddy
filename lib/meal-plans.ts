@@ -599,7 +599,7 @@ export function planIngredients(plan: WeeklyMealPlan): Ingredient[] {
 
 /** Today's planned meals from a saved plan, in the usual meal order, for the home screen. Empty when the
  *  saved plan is for another week (it is stored per week, Monday-based) or does not cover today. */
-export function todaysMeals(saved: { weekStart: string; plan: WeeklyMealPlan } | null, today: string): { mealType: MealType; recipe: Recipe; cooked: boolean }[] {
+export function todaysMeals(saved: { weekStart: string; plan: WeeklyMealPlan } | null, today: string): { day: string; mealType: MealType; recipe: Recipe; cooked: boolean }[] {
   if (!saved || saved.weekStart !== currentWeekStart(today)) return []
   const [year, month, day] = today.split('-').map(Number)
   // getUTCDay: 0 = Sunday; DAYS starts on Monday.
@@ -608,6 +608,6 @@ export function todaysMeals(saved: { weekStart: string; plan: WeeklyMealPlan } |
   if (!dayPlan) return []
   return ALL_MEAL_TYPES.flatMap((mealType) => {
     const recipe = dayPlan[MEAL_SLOT[mealType]]
-    return recipe ? [{ mealType, recipe, cooked: isMealCooked(saved.plan, dayName, mealType) }] : []
+    return recipe ? [{ day: dayName, mealType, recipe, cooked: isMealCooked(saved.plan, dayName, mealType) }] : []
   })
 }

@@ -117,8 +117,4 @@ jobs:
 workflows:
   ci:
     jobs:
-      - ci:
-          filters:
-            branches:
-              only:
-                - main
+      - ci

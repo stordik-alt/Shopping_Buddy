@@ -1,10 +1,7 @@
 name: CI
 
 on:
-  push:
-    branches: ["main"]
-  pull_request:
-    branches: ["main"]
+  # CI moved to CircleCI. Keep this workflow available only for manual fallback/debug runs.
   workflow_dispatch:
 
 permissions:

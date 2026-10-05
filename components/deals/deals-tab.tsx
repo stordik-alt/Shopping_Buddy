@@ -1,4 +1,4 @@
-import { Search, Tag, X } from 'lucide-react'
+import { Heart, Search, Tag, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { dealsPageAction } from '@/app/actions/deals'
 import { DealCard } from '@/components/deals/deal-card'
@@ -49,6 +49,8 @@ export function DealsTab({
   pantryItems,
   initialChain,
   onClearChain,
+  hasPreferences = false,
+  initialForMe = false,
 }: {
   /** Every store chain, for the filter — the same list the profile's store picker uses (already
    *  loaded for the shopping planner, so this needs no extra query). */
@@ -59,10 +61,17 @@ export function DealsTab({
   /** A chain preset by "Zobrazit akce" in the store directory branch detail. */
   initialChain: string | null
   onClearChain: () => void
+  /** Whether the household has preferred products or brands — only then is "Pro mě" offered. */
+  hasPreferences?: boolean
+  /** Opened from Domů's "Akce na vaše oblíbené": start with "Pro mě" on. */
+  initialForMe?: boolean
 }) {
   const [category, setCategory] = useState<DealCategoryFilter>('all')
   const [chain, setChain] = useState(initialChain)
-  const [sort, setSort] = useState<DealSort>('name')
+  // "Pro mě": only deals on the household's preferred products and brands (docs/16_PREFERENCE_DEALS.md),
+  // largest discount first.
+  const [forMe, setForMe] = useState(initialForMe && hasPreferences)
+  const [sort, setSort] = useState<DealSort>(initialForMe && hasPreferences ? 'discount' : 'name')
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const [page, setPage] = useState(1)
@@ -89,7 +98,7 @@ export function DealsTab({
   useEffect(() => {
     let cancelled = false
     setResult((current) => ({ status: 'loading', previous: current.status === 'done' ? current.data : current.previous }))
-    dealsPageAction({ category, chain, sort, page, query: debouncedQuery.trim() || null })
+    dealsPageAction({ category, chain, sort, page, query: debouncedQuery.trim() || null, forMe })
       .then((data) => {
         if (cancelled) return
         setResult({ status: 'done', data })
@@ -103,7 +112,7 @@ export function DealsTab({
     return () => {
       cancelled = true
     }
-  }, [category, chain, sort, page, debouncedQuery, attempt])
+  }, [category, chain, sort, page, debouncedQuery, forMe, attempt])
 
   const onList = new Set(listItemNames.map((name) => name.trim().toLowerCase()))
   const isOnList = (name: string) => onList.has(name.trim().toLowerCase())
@@ -148,6 +157,26 @@ export function DealsTab({
           </button>
         )}
       </label>
+
+      {hasPreferences && (
+        <button
+          type="button"
+          role="switch"
+          aria-checked={forMe}
+          onClick={() => {
+            setForMe((value) => !value)
+            setPage(1)
+          }}
+          className={`flex min-h-11 w-full items-center gap-3 rounded-2xl border px-4 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${forMe ? 'border-accent-solid bg-accent-subtle' : 'border-border bg-card'}`}
+        >
+          <Heart className={`size-4 shrink-0 ${forMe ? 'fill-current text-accent-text' : 'text-fg-muted'}`} aria-hidden="true" />
+          <span className="min-w-0 flex-1">
+            <span className="block font-medium">Pro mě</span>
+            <span className="block text-xs text-fg-muted">Jen oblíbené produkty a značky z profilu</span>
+          </span>
+          <span className="shrink-0 text-xs font-medium">{forMe ? 'Zapnuto' : 'Vypnuto'}</span>
+        </button>
+      )}
 
       <SegmentedControl
         label="Filtr podle kategorie"
@@ -198,14 +227,16 @@ export function DealsTab({
         <EmptyState
           icon={<Tag />}
           title={
-            debouncedQuery.trim()
+            forMe && !debouncedQuery.trim() && !chain && category === 'all'
+              ? 'Na vaše oblíbené produkty a značky teď žádná akce neběží.'
+              : debouncedQuery.trim()
               ? `Pro „${debouncedQuery.trim()}" jsme žádnou aktivní akci nenašli.`
               : chain
                 ? `Pro ${chain} teď nemáme žádné aktivní akce.`
                 : 'V této kategorii teď nemáme žádné aktivní akce.'
           }
           action={
-            debouncedQuery.trim() || chain || category !== 'all' ? (
+            debouncedQuery.trim() || chain || category !== 'all' || forMe ? (
               <Button
                 variant="outline"
                 size="lg"
@@ -213,6 +244,7 @@ export function DealsTab({
                   setQuery('')
                   setCategory('all')
                   setChain(null)
+                  setForMe(false)
                   onClearChain()
                   setPage(1)
                 }}

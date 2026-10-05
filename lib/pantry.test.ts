@@ -18,6 +18,7 @@ import {
   pantryItemAtHome,
   pantryReviewOrder,
   placeKeyOf,
+  reviewQuantityChanges,
   splitPantryReview,
   summarizeByPlace,
   type PantryCheckinCandidate,
@@ -297,6 +298,25 @@ describe('pantryReviewOrder', () => {
     ]
     expect(pantryReviewOrder(items).map((item) => item.name)).toEqual(['Mléko', 'Cukr', 'Áčko', 'Rýže'])
     expect(items[0].name).toBe('Rýže') // the input is not reordered
+  })
+})
+
+describe('reviewQuantityChanges', () => {
+  it('accepts remaining quantities of items that stay, rounded like the stepper', () => {
+    expect(reviewQuantityChanges([{ id: 'a', quantity: 1 }, { id: 'b', quantity: 0.12345 }], ['a', 'b', 'c'])).toEqual([
+      { id: 'a', quantity: 1 },
+      { id: 'b', quantity: 0.123 },
+    ])
+    expect(reviewQuantityChanges(undefined, ['a'])).toEqual([])
+  })
+
+  it('rejects a quantity for an item that ran out, zero or negative, duplicates and malformed input', () => {
+    expect(() => reviewQuantityChanges([{ id: 'gone', quantity: 1 }], ['a'])).toThrow('Neplatné množství')
+    expect(() => reviewQuantityChanges([{ id: 'a', quantity: 0 }], ['a'])).toThrow('Neplatné množství')
+    expect(() => reviewQuantityChanges([{ id: 'a', quantity: -1 }], ['a'])).toThrow('Neplatné množství')
+    expect(() => reviewQuantityChanges([{ id: 'a', quantity: Number.NaN }], ['a'])).toThrow('Neplatné množství')
+    expect(() => reviewQuantityChanges([{ id: 'a', quantity: 2 }, { id: 'a', quantity: 3 }], ['a'])).toThrow('Neplatné množství')
+    expect(() => reviewQuantityChanges('a', ['a'])).toThrow('Neplatné množství')
   })
 })
 

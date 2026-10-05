@@ -1,5 +1,5 @@
 import { matchKey } from '@/lib/receipt-list-match'
-import type { ItemCategory, PantryArea, PantryItem, PantryLocation, PantryPlace, PantryTracking } from '@/lib/types'
+import type { ItemCategory, ItemUnit, PantryArea, PantryItem, PantryLocation, PantryPlace, PantryTracking } from '@/lib/types'
 
 /** How many days a pantry item can go unconfirmed before the household gets asked "do you still
  *  have this?" — per category, since shelf life genuinely differs (milk vs. rice), but there's no
@@ -282,6 +282,33 @@ export function splitPantryReview(reviewedIds: string[], goneIds: Iterable<strin
   const reviewed = [...new Set(reviewedIds)]
   const gone = new Set(goneIds)
   return { goneIds: reviewed.filter((id) => gone.has(id)), keptIds: reviewed.filter((id) => !gone.has(id)) }
+}
+
+/** −/+ step size: whole units for "ks" (you don't buy 0.3 of a countable item), a tenth for
+ *  weight/volume units — matches how the household would actually type a correction. */
+export const PANTRY_QUANTITY_STEP: Record<ItemUnit, number> = { ks: 1, kg: 0.1, g: 10, l: 0.1, ml: 10 }
+
+/** A remaining quantity the household set during the check ("had 4, 1 left"). */
+export type PantryQuantityChange = { id: string; quantity: number }
+
+/** Validates the remaining quantities sent with a check: each must belong to an item that stays (an
+ *  item that ran out is removed, not set to 0), be a positive finite number, and appear once. Rounded
+ *  to three decimals like the quantity stepper. Throws on anything else, so a bad payload changes
+ *  nothing. */
+export function reviewQuantityChanges(changes: unknown, keptIds: string[]): PantryQuantityChange[] {
+  if (changes === undefined) return []
+  if (!Array.isArray(changes)) throw new Error('Neplatné množství v kontrole zásob.')
+  const kept = new Set(keptIds)
+  const seen = new Set<string>()
+  return changes.map((change) => {
+    const id = (change as PantryQuantityChange)?.id
+    const quantity = (change as PantryQuantityChange)?.quantity
+    if (typeof id !== 'string' || !kept.has(id) || seen.has(id) || typeof quantity !== 'number' || !Number.isFinite(quantity) || quantity <= 0) {
+      throw new Error('Neplatné množství v kontrole zásob.')
+    }
+    seen.add(id)
+    return { id, quantity: Math.round(quantity * 1000) / 1000 }
+  })
 }
 
 /** The pantry item a shopping-list name refers to, if the household has it at home and tracks it:

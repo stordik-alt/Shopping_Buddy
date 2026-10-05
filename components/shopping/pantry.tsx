@@ -9,7 +9,7 @@ import { SegmentedControl } from '@/components/ui/segmented-control'
 import { PantryAddModal, type PantryAddInput } from '@/components/shopping/pantry-add-modal'
 import { PantryReview, type PantryReviewResult } from '@/components/shopping/pantry-review'
 import { itemCountLabel } from '@/lib/format'
-import { findDuplicatePlacements, needsCheck, PANTRY_PAGE_SIZE, PANTRY_TRACKING, pantryPlaceOptions, placeKeyOf, summarizeByPlace, type PantryPlaceOption } from '@/lib/pantry'
+import { type PantryQuantityChange, findDuplicatePlacements, PANTRY_QUANTITY_STEP, needsCheck, PANTRY_PAGE_SIZE, PANTRY_TRACKING, pantryPlaceOptions, placeKeyOf, summarizeByPlace, type PantryPlaceOption } from '@/lib/pantry'
 import { estimateReason, type ConsumptionEstimate } from '@/lib/pantry-estimate'
 import { clampPage, pageCount } from '@/lib/paging'
 import type { CatalogChangeOutcome, CategoryChangeOutcome } from '@/lib/product-subcategory-changes'
@@ -52,9 +52,6 @@ function iconFor(option: PantryPlaceOption): LucideIcon {
 const UNCATEGORIZED = '__uncategorized__'
 const ALL_SUBCATEGORIES = '__all__'
 
-// −/+ step size: whole units for "ks" (you don't buy 0.3 of a countable item), a tenth for
-// weight/volume units — matches how the household would actually type a correction (section 7).
-const STEP_BY_UNIT: Record<ItemUnit, number> = { ks: 1, kg: 0.1, g: 10, l: 0.1, ml: 10 }
 
 function round3(value: number): number {
   return Math.round(value * 1000) / 1000
@@ -68,7 +65,7 @@ function round3(value: number): number {
  *  regardless). */
 function QuantityStepper({ quantity, unit, onChange }: { quantity: number; unit: ItemUnit; onChange: (quantity: number) => void }) {
   const [draft, setDraft] = useState<string | null>(null)
-  const step = STEP_BY_UNIT[unit]
+  const step = PANTRY_QUANTITY_STEP[unit]
 
   function commit(raw: string) {
     setDraft(null)
@@ -154,7 +151,7 @@ export function Pantry({
   onMove: (id: string, place: string) => void
   onAdjustQuantity: (id: string, quantity: number) => void
   /** Saves a bulk check; resolves to what was done, rejects when nothing was saved. */
-  onReview: (reviewedIds: string[], goneIds: string[], addGoneToList: boolean) => Promise<PantryReviewResult>
+  onReview: (reviewedIds: string[], goneIds: string[], addGoneToList: boolean, quantities: PantryQuantityChange[]) => Promise<PantryReviewResult>
   /** How closely an item is watched: normal, rarely (salt, spices), not at all. */
   onSetTracking: (id: string, tracking: PantryTracking) => void
   /** Sets an item's subcategory by hand; null clears it. */
@@ -266,6 +263,7 @@ export function Pantry({
     setReviewing(null)
     if (!result) return
     const parts = [`došlo ${itemCountLabel(result.removed)}`, `potvrzeno ${itemCountLabel(result.confirmed)}`]
+    if (result.adjusted > 0) parts.push(`množství upraveno ${itemCountLabel(result.adjusted)}`)
     if (result.addedToList > 0) parts.push(`na seznam ${itemCountLabel(result.addedToList)}`)
     setNotice(`Kontrola uložena: ${parts.join(', ')}.${result.listFailed ? ' Některé položky se nepodařilo přidat na nákupní seznam — přidejte je prosím ručně.' : ''}`)
   }

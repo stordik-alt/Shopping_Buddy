@@ -11,7 +11,8 @@ import * as schema from '@/lib/db/schema'
 import { classifySubcategory } from '@/lib/categorization'
 import type { CatalogChangeOutcome, CategoryChangeOutcome } from '@/lib/product-subcategory-changes'
 import { PRODUCT_SUBCATEGORIES, subcategoriesOfItem } from '@/lib/product-subcategories'
-import { CHECKIN_DAYS_BY_CATEGORY, checkinSubcategoryKey, customPlaceIdFromKey, inferPantryLocation, MAX_PANTRY_REVIEW_ITEMS, PANTRY_AREAS, PANTRY_LOCATIONS, PANTRY_TRACKING, splitPantryReview } from '@/lib/pantry'
+import type { PantryQuantityChange } from '@/lib/pantry'
+import { CHECKIN_DAYS_BY_CATEGORY, checkinSubcategoryKey, customPlaceIdFromKey, inferPantryLocation, MAX_PANTRY_REVIEW_ITEMS, PANTRY_AREAS, PANTRY_LOCATIONS, PANTRY_TRACKING, reviewQuantityChanges, splitPantryReview } from '@/lib/pantry'
 import { matchProductByName } from '@/lib/products'
 import type { ItemCategory, ItemUnit, PantryArea, PantryItem, PantryTracking } from '@/lib/types'
 
@@ -254,17 +255,19 @@ export async function removePantryItemAction(pantryItemId: string) {
 }
 
 /** "Zkontrolovat zásoby" — saves a bulk check in one go: the items marked gone are removed, every
- *  other reviewed item is confirmed like "Ještě mám" (addedAt now, askedAt cleared). All ids must
- *  belong to the caller's household — one foreign or unknown id rejects the whole check, nothing is
- *  written. Both writes go in one batch, so a check is never saved half. Returns what was done so
- *  the client can report it. */
-export async function reviewPantryAction(input: { reviewedIds: string[]; goneIds: string[] }): Promise<{ removed: number; confirmed: number }> {
+ *  other reviewed item is confirmed like "Ještě mám" (addedAt now, askedAt cleared), and an item whose
+ *  remaining amount the household set ("had 4, 1 left") gets that quantity. All ids must belong to the
+ *  caller's household and every quantity to an item that stays — one bad id or quantity rejects the
+ *  whole check, nothing is written. All writes go in one batch, so a check is never saved half.
+ *  Returns what was done so the client can report it. */
+export async function reviewPantryAction(input: { reviewedIds: string[]; goneIds: string[]; quantities?: PantryQuantityChange[] }): Promise<{ removed: number; confirmed: number; adjusted: number }> {
   const householdId = await requireHouseholdId()
   const isIdList = (value: unknown): value is string[] => Array.isArray(value) && value.every((id) => typeof id === 'string')
   if (!isIdList(input?.reviewedIds) || !isIdList(input?.goneIds)) throw new Error('Neplatná kontrola zásob.')
   const { goneIds, keptIds } = splitPantryReview(input.reviewedIds, input.goneIds)
+  const quantities = reviewQuantityChanges(input.quantities, keptIds)
   const all = [...goneIds, ...keptIds]
-  if (all.length === 0) return { removed: 0, confirmed: 0 }
+  if (all.length === 0) return { removed: 0, confirmed: 0, adjusted: 0 }
   if (all.length > MAX_PANTRY_REVIEW_ITEMS) throw new Error('Kontrola obsahuje příliš mnoho položek.')
 
   const db = getDb()
@@ -276,17 +279,14 @@ export async function reviewPantryAction(input: { reviewedIds: string[]; goneIds
 
   const inHousehold = (ids: string[]) => and(eq(schema.pantryItems.householdId, householdId), inArray(schema.pantryItems.id, ids))
   const now = new Date()
-  if (goneIds.length > 0 && keptIds.length > 0) {
-    await db.batch([
-      db.delete(schema.pantryItems).where(inHousehold(goneIds)),
-      db.update(schema.pantryItems).set({ addedAt: now, askedAt: null }).where(inHousehold(keptIds)),
-    ])
-  } else if (goneIds.length > 0) {
-    await db.delete(schema.pantryItems).where(inHousehold(goneIds))
-  } else {
-    await db.update(schema.pantryItems).set({ addedAt: now, askedAt: null }).where(inHousehold(keptIds))
-  }
-  return { removed: goneIds.length, confirmed: keptIds.length }
+  const writes = [
+    ...(goneIds.length > 0 ? [db.delete(schema.pantryItems).where(inHousehold(goneIds))] : []),
+    ...(keptIds.length > 0 ? [db.update(schema.pantryItems).set({ addedAt: now, askedAt: null }).where(inHousehold(keptIds))] : []),
+    ...quantities.map((change) => db.update(schema.pantryItems).set({ quantity: change.quantity }).where(inHousehold([change.id]))),
+  ]
+  // `all` is non-empty, so there is at least one write; db.batch needs that in its type.
+  await db.batch(writes as [(typeof writes)[number], ...(typeof writes)[number][]])
+  return { removed: goneIds.length, confirmed: keptIds.length, adjusted: quantities.length }
 }
 
 /** Resolves a subcategory name of `category` to its row id; throws on a name outside the fixed list. */

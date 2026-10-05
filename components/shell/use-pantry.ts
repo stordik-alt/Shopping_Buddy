@@ -20,7 +20,7 @@ import {
 import { addShoppingItemAction } from '@/app/actions/shopping'
 import type { PantryPromptState } from '@/components/shopping/pantry-prompt'
 import type { HouseholdData } from '@/lib/db/queries'
-import { customPlaceIdFromKey, pantryItemAtHome } from '@/lib/pantry'
+import { customPlaceIdFromKey, pantryItemAtHome, type PantryQuantityChange } from '@/lib/pantry'
 import { estimatePantry } from '@/lib/pantry-estimate'
 import { tabHref } from '@/lib/tab-url'
 import type { Item, ItemCategory, ItemUnit, PantryArea, PantryItem, PantryLocation, PantryTracking } from '@/lib/types'
@@ -114,13 +114,18 @@ export function usePantry({
   // once the server accepted it, so a failed save leaves everything as it was. Items that ran out
   // are then added to the list one at a time (one revalidation in flight at a time, see the
   // shell's addIngredients), skipping names already waiting on the list.
-  async function reviewPantry(reviewedIds: string[], goneIds: string[], addGoneToList: boolean) {
-    const result = await reviewPantryAction({ reviewedIds, goneIds })
+  async function reviewPantry(reviewedIds: string[], goneIds: string[], addGoneToList: boolean, quantities: PantryQuantityChange[] = []) {
+    const result = await reviewPantryAction({ reviewedIds, goneIds, quantities })
+    const newQuantity = new Map(quantities.map((change) => [change.id, change.quantity]))
     const gone = new Set(goneIds)
     const kept = new Set(reviewedIds.filter((id) => !gone.has(id)))
     const goneItems = pantryItems.filter((item) => gone.has(item.id))
     const now = new Date().toISOString()
-    setPantryItems((current) => current.filter((item) => !gone.has(item.id)).map((item) => (kept.has(item.id) ? { ...item, addedAt: now, askedAt: undefined } : item)))
+    setPantryItems((current) =>
+      current
+        .filter((item) => !gone.has(item.id))
+        .map((item) => (kept.has(item.id) ? { ...item, addedAt: now, askedAt: undefined, quantity: newQuantity.get(item.id) ?? item.quantity } : item)),
+    )
 
     // The check is saved at this point; a failure while adding to the list is reported as such.
     let addedToList = 0

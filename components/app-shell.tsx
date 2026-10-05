@@ -51,6 +51,7 @@ import {
 } from '@/components/shell/lazy-views'
 import { useBudget } from '@/components/shell/use-budget'
 import { useBudgetPeriods } from '@/components/shell/use-budget-periods'
+import { PreferredDeals } from '@/components/dashboard/preferred-deals'
 import { BudgetPlanCard, BudgetPlanSheet } from '@/components/budget/budget-plan'
 import { useHousehold } from '@/components/shell/use-household'
 import { usePantry } from '@/components/shell/use-pantry'
@@ -116,6 +117,12 @@ export function AppShell({
   useServiceWorker()
   // Chain whose promotions the home screen lists after "Zobrazit akce" in the store directory.
   const [dealsChain, setDealsChain] = useState<string | null>(null)
+  // Akce opened from Domů's "Akce na vaše oblíbené" starts with "Pro mě" on.
+  const [dealsForMe, setDealsForMe] = useState(false)
+  useEffect(() => {
+    // Leaving Akce forgets it; opened again from the menu it shows every deal.
+    if (tab !== 'Akce') setDealsForMe(false)
+  }, [tab])
   // The user's own "stores in my area". Until every branch has GPS, this selection decides which
   // stores' prices are compared and planned with (lib/nearby-stores.ts); nothing chosen = all stores.
   const [storeSelection, setStoreSelection] = useState(initialStoreSelection)
@@ -541,7 +548,19 @@ export function AppShell({
                     }}
                     onOpen={() => setTab('Zásoby')}
                   />
-                  <PriceWatch today={today} onBrowseDeals={() => setTab('Akce')} onStores={() => setTab('Obchody')} onAddToList={addItemByName} listItemNames={pendingNames} productPrices={nearbyProductPrices} offers={nearbyStandaloneOffers} pantryItems={pantryItems} />
+                  <PreferredDeals
+                    hasPreferences={household.preferences.preferredProducts.length + household.preferences.preferredBrands.length > 0}
+                    listItemNames={pendingNames}
+                    onAddToList={addItemByName}
+                    onShowAll={() => {
+                      setDealsForMe(true)
+                      setTab('Akce')
+                    }}
+                  />
+                  <PriceWatch today={today} onBrowseDeals={() => {
+                    setDealsForMe(false)
+                    setTab('Akce')
+                  }} onStores={() => setTab('Obchody')} onAddToList={addItemByName} listItemNames={pendingNames} productPrices={nearbyProductPrices} offers={nearbyStandaloneOffers} pantryItems={pantryItems} />
                 </div>
               )}
               {tab === 'Nákup' && (
@@ -674,6 +693,9 @@ export function AppShell({
               )}
               {tab === 'Akce' && (
                 <DealsTab
+                  key={dealsForMe ? 'pro-me' : 'vse'}
+                  hasPreferences={household.preferences.preferredProducts.length + household.preferences.preferredBrands.length > 0}
+                  initialForMe={dealsForMe}
                   chains={storeChains.map((store) => store.chain)}
                   listItemNames={pendingNames}
                   onAddToList={addItemByName}

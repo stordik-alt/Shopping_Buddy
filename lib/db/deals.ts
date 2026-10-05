@@ -1,4 +1,4 @@
-import { and, asc, eq, sql, type AnyColumn, type SQL } from 'drizzle-orm'
+import { and, asc, eq, not, or, sql, type AnyColumn, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import { getProductPrices } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
@@ -17,6 +17,19 @@ import type { ItemCategory, ItemUnit } from '@/lib/types'
 // they turn out to have a comparable regular price or not — and only their full detail is then
 // loaded, through `getProductPrices()` (the same function the rest of the app uses, so "is this
 // really the best price?" is not judged twice, in two different ways).
+
+export type DealsPageOptions = {
+  category: DealCategoryFilter
+  chain: string | null
+  sort: DealSort
+  page: number
+  query?: string | null
+  /** Only deals matching at least one of these terms (the household's preferred products and brands,
+   *  lib/preference-deals.ts); null or absent = no such filter, [] = nothing matches. */
+  preferred?: string[] | null
+  /** Never deals matching any of these terms (the household's excluded products). */
+  excluded?: string[]
+}
 
 export type DealsPage = {
   /** Promotions with a real regular price to compare against. */
@@ -66,12 +79,21 @@ function searchFilter(query: string | null): SQL | null {
   )!
 }
 
-function filters(today: string, category: DealCategoryFilter, chain: string | null, query: string | null): SQL[] {
+function filters(today: string, options: DealsPageOptions): SQL[] {
   const clauses = [sql`${schema.deals.validFrom} <= ${today}::date`, sql`${schema.deals.validUntil} >= ${today}::date`]
-  if (category !== 'all') clauses.push(eq(schema.productCategories.name, category))
-  if (chain) clauses.push(eq(schema.stores.chain, chain))
-  const search = searchFilter(query)
+  if (options.category !== 'all') clauses.push(eq(schema.productCategories.name, options.category))
+  if (options.chain) clauses.push(eq(schema.stores.chain, options.chain))
+  const search = searchFilter(options.query ?? null)
   if (search) clauses.push(search)
+  // A preference term matches the way the search box would (docs/16_PREFERENCE_DEALS.md).
+  if (options.preferred != null) {
+    const anyOf = options.preferred.map(searchFilter).filter((clause): clause is SQL => clause !== null)
+    clauses.push(anyOf.length > 0 ? or(...anyOf)! : sql`false`)
+  }
+  for (const term of options.excluded ?? []) {
+    const match = searchFilter(term)
+    if (match) clauses.push(not(match))
+  }
   return clauses
 }
 
@@ -98,10 +120,10 @@ function orderBy(sort: DealSort): SQL[] {
 
 /** One page of today's running promotions. `total` counts every matching pair; a page past the end
  *  falls back to the last one. */
-export async function getDealsPage(options: { category: DealCategoryFilter; chain: string | null; sort: DealSort; page: number; query?: string | null }): Promise<DealsPage> {
+export async function getDealsPage(options: DealsPageOptions): Promise<DealsPage> {
   const db = getDb()
   const today = todayInPrague()
-  const where = and(...filters(today, options.category, options.chain, options.query ?? null))
+  const where = and(...filters(today, options))
 
   // The subcategory join is a left join — most products don't have one yet (lib/categorization.ts) —
   // needed only so the search filter above can also match against it.
@@ -129,7 +151,7 @@ export async function getDealsPage(options: { category: DealCategoryFilter; chai
   // every one of them in full.
   // When no product/category/store/search filter is active, the count depends only on
   // deals validity. Avoid joining the catalog tables just to count today's promotions.
-  const hasJoinedFilters = options.category !== 'all' || options.chain !== null || Boolean(options.query?.trim())
+  const hasJoinedFilters = options.category !== 'all' || options.chain !== null || Boolean(options.query?.trim()) || options.preferred != null || (options.excluded?.length ?? 0) > 0
   const [{ total }] = hasJoinedFilters
     ? await db
         .select({ total: sql<number>`count(*)::int` })

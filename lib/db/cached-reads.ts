@@ -1,7 +1,6 @@
 import { unstable_cache } from 'next/cache'
 import { getStoreChains } from '@/lib/db/member-store-preferences'
-import { getDealsPage, type DealsPage } from '@/lib/db/deals'
-import type { DealCategoryFilter, DealSort } from '@/lib/deals-browse'
+import { getDealsPage, type DealsPage, type DealsPageOptions } from '@/lib/db/deals'
 import { getProductCatalog, getProductPrices, getStandaloneOffers, getStores, getSubcategoryCatalog } from '@/lib/db/queries'
 import type { ProductCatalogEntry } from '@/lib/products'
 import { normalizeSearchText } from '@/lib/product-search'
@@ -22,14 +21,14 @@ import { GLOBAL_CACHE_TAGS } from '@/lib/db/cache-tags'
 const ONE_DAY = 24 * 60 * 60
 
 const dealsPageFor = unstable_cache(
-  (options: { category: DealCategoryFilter; chain: string | null; sort: DealSort; page: number; query?: string | null }, _today: string): Promise<DealsPage> =>
+  (options: DealsPageOptions, _today: string): Promise<DealsPage> =>
     getDealsPage(options),
   ['deals-page-v1'],
   { revalidate: ONE_DAY, tags: [GLOBAL_CACHE_TAGS.deals] },
 )
 
 /** Today's paged promotions. The date is part of the cache key so a new day cannot reuse yesterday's page. */
-export const getDealsPageCached = (options: { category: DealCategoryFilter; chain: string | null; sort: DealSort; page: number; query?: string | null }) =>
+export const getDealsPageCached = (options: DealsPageOptions) =>
   dealsPageFor(options, ingestionDate())
 
 export const getStoresCached = unstable_cache(getStores, ['stores-v2'], {

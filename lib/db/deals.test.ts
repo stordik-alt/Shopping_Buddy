@@ -286,3 +286,29 @@ describe('getDealsPage', () => {
     })
   })
 })
+
+describe('getDealsPage with household preferences (docs/16_PREFERENCE_DEALS.md)', () => {
+  it('keeps only deals matching a preferred term, and never one matching an excluded term', async () => {
+    const store = await createChain()
+    createdStoreIds.push(store.id)
+    const tag = crypto.randomUUID().slice(0, 8)
+    const milka = await createProduct('Potraviny', `Milka mléčná čokoláda ${tag}`)
+    const oats = await createProduct('Potraviny', `Ovesné vločky jemné ${tag}`)
+    const energy = await createProduct('Potraviny', `Energetický nápoj ${tag}`)
+    createdProductIds.push(milka.id, oats.id, energy.id)
+    for (const product of [milka, oats, energy]) await givePriceAndDeal(product.id, store.id, 50, 40)
+
+    const forMe = await getDealsPage({ category: 'all', chain: store.chain, sort: 'name', page: 1, preferred: ['Milka', 'ovesné vločky'], excluded: [] })
+    expect(forMe.deals.map((entry) => entry.product.productName).sort()).toEqual([milka.name, oats.name].sort())
+
+    const withoutEnergy = await getDealsPage({ category: 'all', chain: store.chain, sort: 'name', page: 1, excluded: ['energetický nápoj'] })
+    expect(withoutEnergy.total).toBe(2)
+    expect(withoutEnergy.deals.map((entry) => entry.product.productName)).not.toContain(energy.name)
+
+    const both = await getDealsPage({ category: 'all', chain: store.chain, sort: 'name', page: 1, preferred: ['Milka'], excluded: ['čokoláda'] })
+    expect(both.total).toBe(0)
+
+    const none = await getDealsPage({ category: 'all', chain: store.chain, sort: 'name', page: 1, preferred: [] })
+    expect(none.total).toBe(0)
+  })
+})

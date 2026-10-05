@@ -80,6 +80,7 @@ jobs:
             --exclude 'lib/db/new-subcategories.test.ts'
             --exclude 'lib/db/recategorize.test.ts'
             --exclude 'lib/db/reclassify.test.ts'
+            --exclude 'lib/db/product-type-assignment.test.ts'
       - run:
           name: Typecheck
           command: pnpm exec tsc --noEmit
@@ -106,6 +107,7 @@ jobs:
             lib/db/new-subcategories.test.ts
             lib/db/recategorize.test.ts
             lib/db/reclassify.test.ts
+            lib/db/product-type-assignment.test.ts
       - run:
           name: Production build
           command: pnpm build

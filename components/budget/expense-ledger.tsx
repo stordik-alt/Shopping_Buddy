@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Gauge, Loader2, Pencil, Plus, Receipt } from 'lucide-react'
 import { CATEGORY_BAR_COLORS } from '@/components/dashboard/spending-breakdown'
 import { PurchaseItemSplitDialog } from '@/components/budget/purchase-item-split-dialog'
@@ -25,6 +25,12 @@ export function ExpenseLedger({
   onLimits,
   onLoadItems,
   onSaveSplits,
+  extraPeriods = [],
+  initialPeriod,
+  onShowPeriod,
+  loadingPeriod = null,
+  periodError = null,
+  onRetryPeriod,
 }: {
   expenses: Expense[]
   /** The real date (`YYYY-MM-DD`); the overview opens on its month. */
@@ -40,9 +46,23 @@ export function ExpenseLedger({
    *  položky, než jen celou účtenku") — loaded when that payment is expanded, not up front. */
   onLoadItems: (purchaseId: string, category: Expense['category'], subcategory: string | null) => Promise<PurchaseExpenseItem[]>
   onSaveSplits: (purchaseItemId: string, splits: ExpenseSplitPart[]) => Promise<void>
+  /** Past periods with spending whose expenses are not on the page yet (docs/15_BUDGET_PERIODS.md). */
+  extraPeriods?: string[]
+  /** The period to open on (a finished period chosen in Plán a úspory); the current one otherwise. */
+  initialPeriod?: string
+  /** Called with the period shown, so a past one is loaded. */
+  onShowPeriod?: (period: string) => void
+  loadingPeriod?: string | null
+  periodError?: { period: string; message: string } | null
+  onRetryPeriod?: () => void
 }) {
-  const months = useMemo(() => expensePeriods(expenses, today, periodStartDay), [expenses, today, periodStartDay])
-  const [month, setMonth] = useState(expensePeriod(today, periodStartDay))
+  const months = useMemo(() => [...new Set([...expensePeriods(expenses, today, periodStartDay), ...extraPeriods])].sort().reverse(), [expenses, today, periodStartDay, extraPeriods])
+  const [month, setMonth] = useState(initialPeriod ?? expensePeriod(today, periodStartDay))
+  useEffect(() => {
+    onShowPeriod?.(month)
+  }, [month, onShowPeriod])
+  const loading = loadingPeriod === month
+  const failed = periodError?.period === month ? periodError.message : null
   const [view, setView] = useState<View>('categories')
   const [open, setOpen] = useState<string | null>(null)
   const summary = useMemo(() => periodSummary(expenses, month, periodStartDay), [expenses, month, periodStartDay])
@@ -95,6 +115,19 @@ export function ExpenseLedger({
         </button>
       </div>
 
+      {failed ? (
+        <div role="alert" className="mt-5 rounded-2xl bg-muted px-4 py-6 text-center text-sm">
+          <p className="text-destructive">{failed}</p>
+          <button type="button" onClick={onRetryPeriod} className="mt-3 min-h-10 rounded-xl px-3 font-medium text-accent-text hover:bg-accent-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            Zkusit znovu
+          </button>
+        </div>
+      ) : loading ? (
+        <p className="mt-5 flex items-center justify-center gap-2 rounded-2xl bg-muted px-4 py-6 text-sm text-fg-muted">
+          <Loader2 className="size-4 animate-spin" aria-hidden="true" /> Načítám výdaje období…
+        </p>
+      ) : (
+      <>
       <div className="mt-4 flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-2xl font-semibold tracking-tight">{money(summary.total)}</p>
         <p className="text-sm text-fg-muted">{recordCountLabel(byDate.length)}</p>
@@ -167,6 +200,8 @@ export function ExpenseLedger({
             <DateList entries={groupExpensesByPurchase(byDate)} onEdit={onEdit} onLoadItems={onLoadItems} onSaveSplits={onSaveSplits} />
           )}
         </>
+      )}
+      </>
       )}
     </section>
   )

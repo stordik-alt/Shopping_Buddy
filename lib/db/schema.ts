@@ -73,6 +73,8 @@ export const households = pgTable('households', {
   // Day of the month (1–28) the household's budget period starts on: 1 is the calendar month, 28 is
   // "28th to 27th of the next month" (lib/budget.ts). Capped at 28 so every month has that day.
   budgetPeriodStartDay: integer('budget_period_start_day').notNull().default(1),
+  // Monthly savings goal (docs/15_BUDGET_PERIODS.md); 0 = none.
+  savingsGoal: numeric('savings_goal', { precision: 10, scale: 2 }).notNull().default('0'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => [check('households_budget_period_start_day_range', sql`${table.budgetPeriodStartDay} >= 1 AND ${table.budgetPeriodStartDay} <= 28`)])
 
@@ -812,12 +814,14 @@ export const receiptImports = pgTable('receipt_imports', {
   index('receipt_imports_household_status_created_idx').on(table.householdId, table.status, table.createdAt),
 ])
 
+// A budget period's own amount, keyed by the period's start date (`month`); a period without a row uses
+// households.monthly_budget (docs/15_BUDGET_PERIODS.md, lib/budget.ts budgetForPeriod).
 export const budgets = pgTable('budgets', {
   id: uuid('id').primaryKey().defaultRandom(),
   householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
   month: date('month').notNull(),
   amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
-})
+}, (table) => [uniqueIndex('budgets_household_month_unique').on(table.householdId, table.month)])
 
 export const expenses = pgTable('expenses', {
   id: uuid('id').primaryKey().defaultRandom(),

@@ -1,3 +1,7 @@
+## Update 2026-10-05 — Budget by period, savings goal, past periods
+
+Rozpočet ▸ Aktuální stav has the card "Plán a úspory": the budget of this and the next period (a period's own amount in `budgets`, else the default `households.monthly_budget`), a monthly savings goal (`households.savings_goal`), what is left and how much is missing to the goal, and every finished period with its budget, spending and saved amount (budget − spending) plus "Ušetřeno celkem". Past periods are not part of the page load: their per-day totals load while Rozpočet is open, a period's expenses when Výdaje shows it. The 80 % / 100 % notifications use the period's own budget. Migration 0067; concept `docs/15_BUDGET_PERIODS.md`.
+
 ## Update 2026-10-05 — Notification preferences
 
 Each member chooses in Profil ▸ Upozornění which of the seven kinds of notification they get (budget, category limits, deal on a list item, shopping reminder, pantry check, recurring payments, new member); a kind switched off is neither pushed to their devices nor shown in their bell panel. Stored per member in `member_notification_settings` (migration 0066); concept `docs/14_NOTIFICATION_PREFERENCES.md`.

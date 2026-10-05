@@ -15,7 +15,18 @@ vi.mock('@/lib/auth/authorize', () => ({
 }))
 vi.mock('next/cache', () => ({ revalidatePath: () => {} }))
 
-import { addExpenseAction, deleteExpenseAction, setCategoryBudgetAction, updateExpenseAction } from '@/app/actions/budget'
+import {
+  addExpenseAction,
+  deleteExpenseAction,
+  getBudgetHistoryAction,
+  getPeriodExpensesAction,
+  setCategoryBudgetAction,
+  setPeriodBudgetAction,
+  setSavingsGoalAction,
+  updateExpenseAction,
+} from '@/app/actions/budget'
+import { nextPeriodStart, periodStart } from '@/lib/budget'
+import { todayInPrague } from '@/lib/today'
 
 const db = getDb()
 const createdHouseholdIds: string[] = []
@@ -161,5 +172,50 @@ describe('budget thresholds follow the household\'s budget period', () => {
     expect(earlier.notifications.map((entry) => entry.title)).toEqual(['Blížíte se limitu rozpočtu'])
     const later = await addExpenseAction({ amount: 200, note: '', category: 'Potraviny', subcategory: null, date: '2026-09-06' })
     expect(later.notifications.map((entry) => entry.title)).toEqual(['Rozpočet byl překročen'])
+  })
+})
+
+describe('budget by period', () => {
+  const current = periodStart(todayInPrague())
+  const next = nextPeriodStart(current)
+
+  it('sets the current and next period budget, back to the default with null, never a finished period', async () => {
+    expect(await setPeriodBudgetAction(next, 1500)).toEqual({ [next]: 1500 })
+    expect(await setPeriodBudgetAction(current, 800)).toEqual({ [next]: 1500, [current]: 800 })
+    expect(await setPeriodBudgetAction(current, 900)).toEqual({ [next]: 1500, [current]: 900 })
+    expect(await setPeriodBudgetAction(next, null)).toEqual({ [current]: 900 })
+    await expect(setPeriodBudgetAction('2020-01-01', 100)).rejects.toThrow('aktuální a příští')
+    await expect(setPeriodBudgetAction(current, -1)).rejects.toThrow()
+  })
+
+  it("checks the thresholds against the period's own budget", async () => {
+    await setPeriodBudgetAction(current, 500)
+    const { notifications } = await addExpenseAction({ amount: 450, note: '', category: 'Potraviny', subcategory: null, date: todayInPrague() })
+    // 450 is 45 % of the default 1 000 but 90 % of this period's 500.
+    expect(notifications.map((entry) => entry.title)).toEqual(['Blížíte se limitu rozpočtu'])
+  })
+
+  it('stores the savings goal and refuses a negative one', async () => {
+    expect(await setSavingsGoalAction(2500.556)).toBe(2500.56)
+    const row = await db.query.households.findFirst({ where: eq(schema.households.id, householdId) })
+    expect(Number(row?.savingsGoal)).toBe(2500.56)
+    await expect(setSavingsGoalAction(-5)).rejects.toThrow()
+  })
+
+  it("returns daily totals and a past period's expenses, only the household's own", async () => {
+    await addExpenseAction({ amount: 100, note: '', category: 'Potraviny', subcategory: null, date: '2026-08-03' })
+    await addExpenseAction({ amount: 50.5, note: '', category: 'Drogerie', subcategory: null, date: '2026-08-03' })
+    await addExpenseAction({ amount: 70, note: '', category: 'Potraviny', subcategory: null, date: '2026-09-01' })
+    expect(await getBudgetHistoryAction()).toEqual([
+      { date: '2026-08-03', total: 150.5 },
+      { date: '2026-09-01', total: 70 },
+    ])
+    expect((await getPeriodExpensesAction('2026-08-20')).map((expense) => expense.amount).sort((a, b) => a - b)).toEqual([50.5, 100])
+
+    const [other] = await db.insert(schema.households).values({ name: '__test_household_budget_history__' }).returning()
+    createdHouseholdIds.push(other.id)
+    currentHouseholdId = other.id
+    expect(await getBudgetHistoryAction()).toEqual([])
+    expect(await getPeriodExpensesAction('2026-08-01')).toEqual([])
   })
 })

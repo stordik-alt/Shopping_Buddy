@@ -16,9 +16,13 @@ const byDate = (list: Expense[]) => list.slice().sort((a, b) => (a.date < b.date
 export function useBudget({
   initialData,
   setNotifications,
+  onExpenseDatesChanged,
 }: {
   initialData: HouseholdData
   setNotifications: Dispatch<SetStateAction<HouseholdData['notifications']>>
+  /** The dates an add, correction or removal touched — a past period shown from its own copy
+   *  (use-budget-periods.ts) is loaded again. */
+  onExpenseDatesChanged?: (dates: string[]) => void
 }) {
   const [expenses, setExpenses] = useState(initialData.expenses)
   const [expenseOpen, setExpenseOpen] = useState(false)
@@ -52,10 +56,12 @@ export function useBudget({
     if (editedExpense) {
       const { expense } = await updateExpenseAction(editedExpense.id, input)
       setExpenses((current) => byDate(current.map((entry) => (entry.id === expense.id ? expense : entry))))
+      onExpenseDatesChanged?.([editedExpense.date, expense.date])
     } else {
       const { expense, notifications: created } = await addExpenseAction(input)
       setExpenses((current) => byDate([...current, expense]))
       if (created.length > 0) setNotifications((current) => [...current, ...created])
+      onExpenseDatesChanged?.([expense.date])
     }
     closeExpense()
   }
@@ -64,6 +70,7 @@ export function useBudget({
     if (!editedExpense) return
     await deleteExpenseAction(editedExpense.id)
     setExpenses((current) => current.filter((entry) => entry.id !== editedExpense.id))
+    onExpenseDatesChanged?.([editedExpense.date])
     closeExpense()
   }
 

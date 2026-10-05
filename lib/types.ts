@@ -183,6 +183,11 @@ export type Household = {
   monthlyBudget: number
   /** Day of the month (1–28) the budget period starts on; 1 is the calendar month. */
   budgetPeriodStartDay: number
+  /** Budgets the household set for single periods, keyed by the period's start date; any other period
+   *  uses monthlyBudget (lib/budget.ts budgetForPeriod). */
+  periodBudgets: Record<string, number>
+  /** Monthly savings goal; 0 = none. */
+  savingsGoal: number
   members: HouseholdMember[]
   children: Child[]
   preferences: HouseholdPreferences

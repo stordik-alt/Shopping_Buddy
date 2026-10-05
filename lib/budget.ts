@@ -310,3 +310,47 @@ export function groupExpensesByPurchase(expenses: Expense[]): LedgerEntry[] {
   }
   return entries
 }
+
+// --- Budget by period (docs/15_BUDGET_PERIODS.md) ---------------------------------------------------
+
+/** A period's budget: its own amount when the household set one, else the default from Profil. */
+export function budgetForPeriod(period: string, periodBudgets: Readonly<Record<string, number>>, defaultBudget: number): number {
+  return periodBudgets[period] ?? defaultBudget
+}
+
+/** Spending per budget period from per-day totals (what Rozpočet loads for past periods instead of every
+ *  expense). Keyed by the period's start date; rounded to haléře. */
+export function spendingByPeriod(daily: ReadonlyArray<{ date: string; total: number }>, startDay = 1): Map<string, number> {
+  const totals = new Map<string, number>()
+  for (const { date, total } of daily) {
+    const period = periodStart(date, startDay)
+    totals.set(period, Math.round(((totals.get(period) ?? 0) + total) * 100) / 100)
+  }
+  return totals
+}
+
+/** What a period saved: its budget minus its spending (negative = overspent). Null without a budget, where
+ *  "saved" would mean nothing. */
+export function periodSavings(budget: number, spent: number): number | null {
+  if (budget <= 0) return null
+  return Math.round((budget - spent) * 100) / 100
+}
+
+/** "Ušetřeno celkem": the savings of the finished periods (before `currentPeriod`) that had a budget,
+ *  oldest first, and their sum. */
+export function savingsHistory(
+  spending: ReadonlyMap<string, number>,
+  currentPeriod: string,
+  budgetOf: (period: string) => number,
+): { periods: { period: string; budget: number; spent: number; saved: number }[]; total: number } {
+  const periods = [...spending.keys()]
+    .filter((period) => period < currentPeriod)
+    .sort()
+    .flatMap((period) => {
+      const budget = budgetOf(period)
+      const spent = spending.get(period) ?? 0
+      const saved = periodSavings(budget, spent)
+      return saved === null ? [] : [{ period, budget, spent, saved }]
+    })
+  return { periods, total: Math.round(periods.reduce((sum, entry) => sum + entry.saved, 0) * 100) / 100 }
+}

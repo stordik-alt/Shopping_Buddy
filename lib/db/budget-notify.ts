@@ -14,7 +14,9 @@ import type { Notification } from '@/lib/types'
 
 type Db = ReturnType<typeof getDb>
 
-export type PeriodSpending = { total: number; byCategory: Map<ExpenseCategory, number> }
+/** `period` is the budget period's start date: its own budget (docs/15_BUDGET_PERIODS.md) is what the
+ *  overall thresholds are checked against. */
+export type PeriodSpending = { period: string; total: number; byCategory: Map<ExpenseCategory, number> }
 
 /** What the household had spent in the budget period `date` falls in (it starts on the household's
  *  chosen day of the month, lib/budget.ts), overall and per category. */
@@ -33,7 +35,7 @@ export async function periodSpending(db: Db, householdId: string, date: string):
     total += amount
     byCategory.set(row.category, (byCategory.get(row.category) ?? 0) + amount)
   }
-  return { total, byCategory }
+  return { period: from, total, byCategory }
 }
 
 /** Notifies the household of every threshold the `added` expenses cross — the overall monthly budget
@@ -47,8 +49,9 @@ export async function notifyBudgetThresholds(
   added: { category: ExpenseCategory; amount: number }[],
   excludeUserId?: string,
 ): Promise<Notification[]> {
-  const [household, limits] = await Promise.all([
+  const [household, periodBudget, limits] = await Promise.all([
     db.query.households.findFirst({ where: eq(schema.households.id, householdId), columns: { monthlyBudget: true } }),
+    db.query.budgets.findFirst({ where: and(eq(schema.budgets.householdId, householdId), eq(schema.budgets.month, before.period)), columns: { amount: true } }),
     db.query.expenseCategoryBudgets.findMany({ where: eq(schema.expenseCategoryBudgets.householdId, householdId) }),
   ])
   const notify = async (kind: 'budget' | 'category_limit', title: string, detail: string): Promise<Notification> => {
@@ -57,7 +60,8 @@ export async function notifyBudgetThresholds(
   }
   const created: Notification[] = []
 
-  const budget = Number(household?.monthlyBudget ?? 0)
+  // The period's own budget when the household set one, else the default (lib/budget.ts budgetForPeriod).
+  const budget = Number(periodBudget?.amount ?? household?.monthlyBudget ?? 0)
   const totalAdded = added.reduce((sum, entry) => sum + entry.amount, 0)
   const overall = crossedBudgetThreshold(before.total, before.total + totalAdded, budget)
   if (overall) {

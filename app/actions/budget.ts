@@ -1,7 +1,8 @@
 'use server'
 
-import { and, eq } from 'drizzle-orm'
+import { and, asc, eq, gte, lt, sql } from 'drizzle-orm'
 import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
+import { nextPeriodStart, periodStart } from '@/lib/budget'
 import { periodSpending, notifyBudgetThresholds } from '@/lib/db/budget-notify'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
@@ -92,4 +93,78 @@ export async function setCategoryBudgetAction(category: string, amount: number |
   }
   const rows = await db.query.expenseCategoryBudgets.findMany({ where: eq(schema.expenseCategoryBudgets.householdId, householdId) })
   return Object.fromEntries(rows.map((row) => [row.category, Number(row.amount)]))
+}
+
+// --- Budget by period (docs/15_BUDGET_PERIODS.md) ---------------------------------------------------
+
+const MAX_AMOUNT = 99_999_999.99
+
+function validAmount(amount: number, message: string): string {
+  if (!Number.isFinite(amount) || amount < 0 || amount > MAX_AMOUNT) throw new Error(message)
+  return (Math.round(amount * 100) / 100).toString()
+}
+
+async function ownStartDay(householdId: string): Promise<number> {
+  const household = await getDb().query.households.findFirst({ where: eq(schema.households.id, householdId), columns: { budgetPeriodStartDay: true } })
+  if (!household) throw new Error('Domácnost nebyla nalezena.')
+  return household.budgetPeriodStartDay
+}
+
+/** The household's spending per day, all of it: one small aggregate the page turns into past periods,
+ *  their totals and savings (lib/budget.ts spendingByPeriod), without loading every expense. */
+export async function getBudgetHistoryAction(): Promise<{ date: string; total: number }[]> {
+  const householdId = await requireHouseholdId()
+  const rows = await getDb()
+    .select({ date: schema.expenses.date, total: sql<string>`sum(${schema.expenses.amount})` })
+    .from(schema.expenses)
+    .where(eq(schema.expenses.householdId, householdId))
+    .groupBy(schema.expenses.date)
+    .orderBy(asc(schema.expenses.date))
+  return rows.map((row) => ({ date: row.date, total: Number(row.total) }))
+}
+
+/** Every expense of one past (or the current) budget period, loaded when the household opens it. */
+export async function getPeriodExpensesAction(period: string): Promise<Expense[]> {
+  const householdId = await requireHouseholdId()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(period)) throw new Error('Neplatné období.')
+  // Normalised to the household's own period start, so any date inside a period loads that period.
+  const from = periodStart(period, await ownStartDay(householdId))
+  const rows = await getDb().query.expenses.findMany({
+    where: and(eq(schema.expenses.householdId, householdId), gte(schema.expenses.date, from), lt(schema.expenses.date, nextPeriodStart(from))),
+    orderBy: asc(schema.expenses.date),
+  })
+  return rows.map(toExpense)
+}
+
+/** Sets the budget of the current or the next period (`amount`), or returns it to the default from
+ *  Profil (`null`). A finished period's budget stays as it was — its savings must not change after the
+ *  fact. Returns every period budget of the household. */
+export async function setPeriodBudgetAction(period: string, amount: number | null): Promise<Record<string, number>> {
+  const householdId = await requireHouseholdId()
+  const current = periodStart(todayInPrague(), await ownStartDay(householdId))
+  if (period !== current && period !== nextPeriodStart(current)) throw new Error('Rozpočet lze nastavit jen pro aktuální a příští období.')
+  const db = getDb()
+  if (amount === null) {
+    await db.delete(schema.budgets).where(and(eq(schema.budgets.householdId, householdId), eq(schema.budgets.month, period)))
+  } else {
+    const value = validAmount(amount, 'Rozpočet musí být částka 0 Kč nebo vyšší.')
+    await db
+      .insert(schema.budgets)
+      .values({ householdId, month: period, amount: value })
+      .onConflictDoUpdate({ target: [schema.budgets.householdId, schema.budgets.month], set: { amount: value } })
+  }
+  return getPeriodBudgets(householdId)
+}
+
+/** The household's monthly savings goal; 0 removes it. */
+export async function setSavingsGoalAction(amount: number): Promise<number> {
+  const householdId = await requireHouseholdId()
+  const value = validAmount(amount, 'Cíl úspor musí být částka 0 Kč nebo vyšší.')
+  await getDb().update(schema.households).set({ savingsGoal: value }).where(eq(schema.households.id, householdId))
+  return Number(value)
+}
+
+async function getPeriodBudgets(householdId: string): Promise<Record<string, number>> {
+  const rows = await getDb().query.budgets.findMany({ where: eq(schema.budgets.householdId, householdId), columns: { month: true, amount: true } })
+  return Object.fromEntries(rows.map((row) => [row.month, Number(row.amount)]))
 }

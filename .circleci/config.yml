@@ -128,8 +128,7 @@ jobs:
               exit 1
             }
 
-# Production is deployed by the Vercel Git integration on every push to main; CircleCI only checks.
-# (A deploy job here had no VERCEL_TOKEN and would have deployed main a second time.)
+# CircleCI only checks. Production is deployed to Vercel by hand (CircleCI has no Vercel token).
 workflows:
   ci:
     when: pipeline.event.name == "api" or pipeline.event.name == "pull_request" or pipeline.git.branch == "main"

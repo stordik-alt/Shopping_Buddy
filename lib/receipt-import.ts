@@ -21,7 +21,7 @@ import type { ReceiptSuggestions } from '@/lib/receipt-product-match'
 import { autoCheckShoppingListFromPurchase } from '@/lib/db/receipt-list'
 import { inferPantryLocation } from '@/lib/pantry'
 import { normalizeProductText } from '@/lib/product-normalize'
-import { logReceiptImport, newReceiptTrace, redactSecrets, type ReceiptTrace } from '@/lib/receipt-log'
+import { logReceiptImport, newReceiptTrace, type ReceiptTrace } from '@/lib/receipt-log'
 import { PDF_TEXT_LAYER_PROVIDER, readPdfTextLayer } from '@/lib/receipt-pdf'
 import { detectReceiptFileType, prepareReceiptImageForOcr } from '@/lib/receipt-image'
 import type { ProductCatalogEntry } from '@/lib/products'
@@ -502,7 +502,7 @@ export async function createPurchaseFromReceiptItems(
 
 /** Runs the OCR pipeline's automated stages (docs/08_OCR_RECEIPT_PIPELINE.md sections 3–9) against
  *  an already-uploaded receipt image, updating the same `receipt_imports` row throughout rather
- *  than creating a new one per stage. `textExtractor`/`structuringProvider` are injectable so the
+ *  than creating a new one per stage. The extractors and `structuringProvider` are injectable so the
  *  orchestration logic itself — the state transitions, validation gate, and duplicate check — can
  *  be integration-tested with fakes, independently of whether real Google Vision/Gemini
  *  credentials are configured. Never throws: every failure is recorded on the row as
@@ -513,11 +513,11 @@ export async function processReceiptImport(
   deps: {
     textExtractor: ReceiptTextExtractor
     structuringProvider: ReceiptStructuringProvider
-    fallbackTextExtractor?: ReceiptTextExtractor
+    azureTextExtractor?: ReceiptTextExtractor
   } = {
     textExtractor: googleVisionTextExtractor,
     structuringProvider: geminiStructuringProvider,
-    fallbackTextExtractor: azureReceiptTextExtractor,
+    azureTextExtractor: azureReceiptTextExtractor,
   },
 ): Promise<typeof schema.receiptImports.$inferSelect> {
   // One structured log line per run (docs/08_OCR_RECEIPT_PIPELINE.md section 19), written even when
@@ -547,7 +547,7 @@ async function runReceiptPipeline(
   deps: {
     textExtractor: ReceiptTextExtractor
     structuringProvider: ReceiptStructuringProvider
-    fallbackTextExtractor?: ReceiptTextExtractor
+    azureTextExtractor?: ReceiptTextExtractor
   },
   trace: ReceiptTrace,
 ): Promise<typeof schema.receiptImports.$inferSelect> {
@@ -614,7 +614,7 @@ async function runReceiptPipeline(
 
   let ocrText: string
   let ocrProvider: typeof PDF_TEXT_LAYER_PROVIDER | 'google_vision' | 'azure_document_intelligence' | null = null
-  // Why the primary route was not used (no text layer / primary OCR failed) — for the log only.
+  // Why the text layer was not used (none / unusable) — for the log only.
   let ocrNote: string | null = null
 
   // A digital PDF (a shop's e-receipt, a browser print) carries its own text, exactly as written —
@@ -632,30 +632,19 @@ async function runReceiptPipeline(
     ocrProvider = PDF_TEXT_LAYER_PROVIDER
   } else {
     try {
-      const extractor = storedMimeType === 'application/pdf' ? googleVisionPdfTextExtractor : deps.textExtractor
-      try {
-        const ocrResult = await extractor.extractText(ocrInput)
-        ocrText = ocrResult.fullText
+      // Azure Document Intelligence reads every photo and scanned PDF whenever it is configured.
+      // Google Vision is skipped then (owner's decision, 2026-10-05): it fails in production for every
+      // request (the GCP project has no billing), so trying it first only made each import wait for a
+      // refusal. Without Azure (local development, tests) Google Vision is used as before.
+      if (isAzureReceiptFallbackConfigured()) {
+        // The cleaned-up copy when preparation succeeded, the original when it did not (or for a PDF).
+        const azureResult = await (deps.azureTextExtractor ?? azureReceiptTextExtractor).extractText(ocrInput)
+        ocrText = azureResult.fullText
+        ocrProvider = 'azure_document_intelligence'
+      } else {
+        const extractor = storedMimeType === 'application/pdf' ? googleVisionPdfTextExtractor : deps.textExtractor
+        ocrText = (await extractor.extractText(ocrInput)).fullText
         ocrProvider = 'google_vision'
-      } catch (primaryError) {
-        // Google remains primary. Azure runs only after a real OCR failure and only when configured.
-        if (!isAzureReceiptFallbackConfigured()) throw primaryError
-
-        try {
-          const fallbackTextExtractor = deps.fallbackTextExtractor ?? azureReceiptTextExtractor
-          // Same input as the primary provider — the cleaned-up copy when preparation succeeded, the
-          // original when it did not (or for a PDF) — so the fallback benefits from the clean-up too.
-          const azureResult = await fallbackTextExtractor.extractText(ocrInput)
-          ocrText = azureResult.fullText
-          ocrProvider = 'azure_document_intelligence'
-          // The primary failure was otherwise recorded nowhere when the fallback succeeded, which made
-          // "why did Google not read this?" impossible to answer afterwards.
-          ocrNote = `primary OCR failed, fallback used: ${redactSecrets(primaryError instanceof Error ? primaryError.message : String(primaryError))}`
-        } catch (azureError) {
-          throw new Error(
-            `Primary OCR failed: ${primaryError instanceof Error ? primaryError.message : String(primaryError)}; Azure fallback failed: ${azureError instanceof Error ? azureError.message : String(azureError)}`,
-          )
-        }
       }
     } catch (error) {
       trace.ocr = { status: 'failed', provider: null, ms: Date.now() - ocrStartedAt, note: ocrNote }

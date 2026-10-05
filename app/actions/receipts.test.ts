@@ -538,7 +538,7 @@ describe('processReceiptImport — OCR pipeline orchestration (fake OCR/AI, fake
     expect(row.errorMessage).toContain('Vision unavailable')
   })
 
-  it('uses the configured Azure fallback when the primary OCR provider fails', async () => {
+  it('reads with Azure whenever it is configured and never calls Google Vision', async () => {
     const receiptImportId = await createUploadedReceipt()
     const previousEndpoint = process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT
     const previousKey = process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY
@@ -549,10 +549,10 @@ describe('processReceiptImport — OCR pipeline orchestration (fake OCR/AI, fake
       const row = await processReceiptImport(receiptImportId, {
         textExtractor: {
           extractText: async () => {
-            throw new Error('Vision billing unavailable')
+            throw new Error('Google Vision must not be called when Azure is configured')
           },
         },
-        fallbackTextExtractor: {
+        azureTextExtractor: {
           extractText: async () => ({ fullText: 'AZURE FALLBACK OCR', lines: ['AZURE FALLBACK OCR'] }),
         },
         structuringProvider: fakeProviders(extractedReceipt()).structuringProvider,
@@ -1024,8 +1024,8 @@ describe('receipt file handling: type detection and OCR preparation', () => {
       expect(entry.imagePrep.note).toBeTruthy()
     })
 
-    /** Runs an import whose primary OCR always fails, recording what each provider was sent. */
-    async function runWithFailingPrimary(bytes: Buffer) {
+    /** Runs an import with Azure configured, recording what each provider was sent. */
+    async function runWithAzure(bytes: Buffer) {
       vi.spyOn(console, 'info').mockImplementation(() => {})
       process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT = 'https://example.invalid'
       process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY = 'not-a-real-key'
@@ -1035,29 +1035,29 @@ describe('receipt file handling: type detection and OCR preparation', () => {
 
       const row = await processReceiptImport(receiptImportId, {
         textExtractor: { extractText: async (image) => { primarySeen.push(image); throw new Error('primary down') } },
-        fallbackTextExtractor: { extractText: async (image) => { fallbackSeen.push(image); return { fullText: 'AZURE TEXT', lines: ['AZURE TEXT'] } } },
+        azureTextExtractor: { extractText: async (image) => { fallbackSeen.push(image); return { fullText: 'AZURE TEXT', lines: ['AZURE TEXT'] } } },
         structuringProvider: fakeProviders(extractedReceipt()).structuringProvider,
       })
       return { row, primarySeen, fallbackSeen }
     }
 
-    it('gives the Azure fallback the same cleaned-up image as the primary OCR, not the raw upload', async () => {
+    it('gives Azure the cleaned-up image, not the raw upload, and skips Google Vision', async () => {
       const original = await realImage()
-      const { row, primarySeen, fallbackSeen } = await runWithFailingPrimary(original)
+      const { row, primarySeen, fallbackSeen } = await runWithAzure(original)
 
       expect(row.ocrProvider).toBe('azure_document_intelligence')
+      expect(primarySeen).toHaveLength(0)
       expect(fallbackSeen).toHaveLength(1)
-      expect(fallbackSeen[0]).toEqual(primarySeen[0])
       expect(fallbackSeen[0].mimeType).toBe('image/jpeg') // the upload was a PNG
       expect(Buffer.from(fallbackSeen[0].base64, 'base64').equals(original)).toBe(false)
     })
 
-    it('gives both providers the original when preparation fails', async () => {
+    it('gives Azure the original when preparation fails', async () => {
       const garbage = Buffer.from('not-a-decodable-image')
-      const { primarySeen, fallbackSeen } = await runWithFailingPrimary(garbage)
+      const { primarySeen, fallbackSeen } = await runWithAzure(garbage)
 
-      expect(Buffer.from(primarySeen[0].base64, 'base64').equals(garbage)).toBe(true)
-      expect(fallbackSeen[0]).toEqual(primarySeen[0])
+      expect(primarySeen).toHaveLength(0)
+      expect(Buffer.from(fallbackSeen[0].base64, 'base64').equals(garbage)).toBe(true)
     })
 
     it('stops with the HEIC instruction for a stored HEIC and never calls the OCR', async () => {

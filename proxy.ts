@@ -12,6 +12,9 @@ export default function proxy(request: NextRequest) {
   // Keep the landing route public. app/page.tsx decides whether the user
   // should enter the app or see the intro first.
   if (pathname === '/' || pathname === '/intro' || pathname.startsWith('/intro/')) {
+    // A HEAD request (uptime monitors, link checkers) wants no body: answer it here instead of
+    // rendering the home page, which would look up the session and, signed in, load the household.
+    if (request.method === 'HEAD') return new NextResponse(null, { status: 200 })
     return NextResponse.next()
   }
 

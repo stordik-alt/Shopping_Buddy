@@ -1,3 +1,8 @@
+## 2026-10-05 (Fewer Neon wake-ups from anonymous and HEAD requests)
+- **Why:** the owner asked to check what keeps the database awake (e.g. HEAD requests). Findings: `/api/health` already avoids the database; robots on protected paths get no session lookup (no session cookie); but the public home page `/` is rendered for every request, and Neon Auth's server `getSession()` asks its service (which reads the session table in our database) whenever the signed 5-minute session cache is missing — also for a request with no session at all.
+- **What:** `proxy.ts` answers a HEAD request to `/` and `/intro` with an empty 200 instead of rendering the page; `lib/auth/server.ts` answers "signed out" without asking Neon Auth when the request has no session-token cookie (`mayHaveNeonSession`, tested). Signed-in behaviour is unchanged.
+- **Checked:** `tsc --noEmit`; the new test; HEAD `/` on the local server returns 200 in 0.06 s without a render. The Neon path itself cannot run locally (local auth is self-hosted Better Auth).
+
 ## 2026-10-05 (Výdaje: short lists instead of dozens of rows)
 - **Why:** the owner: opening "Potraviny" listed dozens of rows by subcategory and date, long and hard to read. Cause: the budget keeps every receipt split into one expense per (category, subcategory), so one shop became up to ten rows.
 - **Podle kategorií:** a closed category is one row (total, bar, limit warning — the subcategory chips are gone); opened, it lists its subcategories, one row each with total, number of records and share of the category (`subcategoryGroups` in `lib/budget.ts`); a subcategory opens its own payments, newest first, five at a time with "Zobrazit další (N)".

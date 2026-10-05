@@ -18,7 +18,7 @@ import {
   pantryItemAtHome,
   pantryReviewOrder,
   placeKeyOf,
-  quickOutCandidates,
+  reviewQuantityChanges,
   splitPantryReview,
   summarizeByPlace,
   type PantryCheckinCandidate,
@@ -301,6 +301,25 @@ describe('pantryReviewOrder', () => {
   })
 })
 
+describe('reviewQuantityChanges', () => {
+  it('accepts remaining quantities of items that stay, rounded like the stepper', () => {
+    expect(reviewQuantityChanges([{ id: 'a', quantity: 1 }, { id: 'b', quantity: 0.12345 }], ['a', 'b', 'c'])).toEqual([
+      { id: 'a', quantity: 1 },
+      { id: 'b', quantity: 0.123 },
+    ])
+    expect(reviewQuantityChanges(undefined, ['a'])).toEqual([])
+  })
+
+  it('rejects a quantity for an item that ran out, zero or negative, duplicates and malformed input', () => {
+    expect(() => reviewQuantityChanges([{ id: 'gone', quantity: 1 }], ['a'])).toThrow('Neplatné množství')
+    expect(() => reviewQuantityChanges([{ id: 'a', quantity: 0 }], ['a'])).toThrow('Neplatné množství')
+    expect(() => reviewQuantityChanges([{ id: 'a', quantity: -1 }], ['a'])).toThrow('Neplatné množství')
+    expect(() => reviewQuantityChanges([{ id: 'a', quantity: Number.NaN }], ['a'])).toThrow('Neplatné množství')
+    expect(() => reviewQuantityChanges([{ id: 'a', quantity: 2 }, { id: 'a', quantity: 3 }], ['a'])).toThrow('Neplatné množství')
+    expect(() => reviewQuantityChanges('a', ['a'])).toThrow('Neplatné množství')
+  })
+})
+
 describe('splitPantryReview', () => {
   it('keeps every reviewed item not marked gone, ignores marks outside the check and duplicates', () => {
     expect(splitPantryReview(['a', 'b', 'c', 'b'], ['b', 'zzz'])).toEqual({ goneIds: ['b'], keptIds: ['a', 'c'] })
@@ -336,25 +355,6 @@ describe('pantryItemAtHome', () => {
     expect(pantryItemAtHome(items, 'SŮL')).toBeNull() // not tracked
     expect(pantryItemAtHome(items, 'Mléko')).toBeNull() // none left
     expect(pantryItemAtHome(items, '  ')).toBeNull()
-  })
-})
-
-describe('quickOutCandidates', () => {
-  const base = { category: 'Potraviny' as const, location: 'Lednice' as const, unit: 'ks' as const, quantity: 1, addedAt: '2026-09-20T00:00:00Z' }
-  const items = [
-    { ...base, id: 'rice', name: 'Rýže' },
-    { ...base, id: 'milk', name: 'Mléko' },
-    { ...base, id: 'bread', name: 'Chléb', askedAt: '2026-09-24T00:00:00Z' },
-    { ...base, id: 'salt', name: 'Sůl', tracking: 'off' as const },
-    { ...base, id: 'gone', name: 'Máslo', quantity: 0 },
-  ]
-  it('puts the likely-gone items first, then the asked ones, then by name; untracked and empty ones never', () => {
-    expect(quickOutCandidates(items, new Set(['milk']), '').map((item) => item.id)).toEqual(['milk', 'bread', 'rice'])
-    expect(quickOutCandidates(items, new Set(), '', 1).map((item) => item.id)).toEqual(['bread'])
-  })
-  it('filters by name, case and accents ignored', () => {
-    expect(quickOutCandidates(items, new Set(), 'mle').map((item) => item.id)).toEqual(['milk'])
-    expect(quickOutCandidates(items, new Set(), 'SUL')).toEqual([])
   })
 })
 

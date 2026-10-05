@@ -1,11 +1,12 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { Pantry } from '@/components/shopping/pantry'
+import { PantryReview } from '@/components/shopping/pantry-review'
 import { PANTRY_PAGE_SIZE } from '@/lib/pantry'
 import type { PantryItem, PantryPlace } from '@/lib/types'
 
 const noop = () => {}
-const noopAsync = async () => ({ removed: 0, confirmed: 0, addedToList: 0, listFailed: false })
+const noopAsync = async () => ({ removed: 0, confirmed: 0, adjusted: 0, addedToList: 0, listFailed: false })
 
 const item = (n: number): PantryItem => ({
   id: `p${n}`,
@@ -114,5 +115,25 @@ describe('Pantry custom places', () => {
     const html = renderPantry([inCustomPlace], [place])
     expect(html).toContain(`Zásoby: Kufr auta`)
     expect(html).toContain(inCustomPlace.name)
+  })
+})
+
+describe('PantryReview remaining amounts', () => {
+  const render = (estimates = new Map()) =>
+    renderToStaticMarkup(
+      <PantryReview items={[{ ...item(1), quantity: 4 }, item(2)]} customPlaces={[]} placeKey="Spíž" placeLabel="Spíž" estimates={estimates} onSave={noopAsync} onClose={noop} />,
+    )
+
+  it('offers −/+ for what is left on every item that stays', () => {
+    const html = render()
+    expect(html).toContain('aria-label="Méně: Položka 1"')
+    expect(html).toContain('aria-label="Více: Položka 1"')
+    expect(html).toContain('4 ks')
+  })
+
+  it('has no amount control on an item that starts as ran out', () => {
+    const html = render(new Map([['p1', { likelyGone: true, daysSince: 30, typicalDays: 7 } as never]]))
+    expect(html).not.toContain('Méně: Položka 1')
+    expect(html).toContain('Méně: Položka 2')
   })
 })

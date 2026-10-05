@@ -20,10 +20,8 @@ import {
 import { addShoppingItemAction } from '@/app/actions/shopping'
 import type { PantryPromptState } from '@/components/shopping/pantry-prompt'
 import type { HouseholdData } from '@/lib/db/queries'
-import { newTempId, type PendingOp } from '@/lib/offline-queue'
-import { customPlaceIdFromKey, pantryItemAtHome } from '@/lib/pantry'
+import { customPlaceIdFromKey, pantryItemAtHome, type PantryQuantityChange } from '@/lib/pantry'
 import { estimatePantry } from '@/lib/pantry-estimate'
-import { matchKey as matchKeyOf } from '@/lib/receipt-list-match'
 import { tabHref } from '@/lib/tab-url'
 import type { Item, ItemCategory, ItemUnit, PantryArea, PantryItem, PantryLocation, PantryTracking } from '@/lib/types'
 
@@ -36,7 +34,6 @@ export function usePantry({
   today,
   setItems,
   setNotifications,
-  runOrQueue,
 }: {
   initialData: HouseholdData
   initialPantryCheck: boolean
@@ -45,7 +42,6 @@ export function usePantry({
   today: string
   setItems: Dispatch<SetStateAction<Item[]>>
   setNotifications: Dispatch<SetStateAction<HouseholdData['notifications']>>
-  runOrQueue: (op: PendingOp) => Promise<void>
 }) {
   const [pantryItems, setPantryItems] = useState(initialData.pantryItems)
   const [pantryPlaces, setPantryPlaces] = useState(initialData.pantryPlaces)
@@ -118,13 +114,18 @@ export function usePantry({
   // once the server accepted it, so a failed save leaves everything as it was. Items that ran out
   // are then added to the list one at a time (one revalidation in flight at a time, see the
   // shell's addIngredients), skipping names already waiting on the list.
-  async function reviewPantry(reviewedIds: string[], goneIds: string[], addGoneToList: boolean) {
-    const result = await reviewPantryAction({ reviewedIds, goneIds })
+  async function reviewPantry(reviewedIds: string[], goneIds: string[], addGoneToList: boolean, quantities: PantryQuantityChange[] = []) {
+    const result = await reviewPantryAction({ reviewedIds, goneIds, quantities })
+    const newQuantity = new Map(quantities.map((change) => [change.id, change.quantity]))
     const gone = new Set(goneIds)
     const kept = new Set(reviewedIds.filter((id) => !gone.has(id)))
     const goneItems = pantryItems.filter((item) => gone.has(item.id))
     const now = new Date().toISOString()
-    setPantryItems((current) => current.filter((item) => !gone.has(item.id)).map((item) => (kept.has(item.id) ? { ...item, addedAt: now, askedAt: undefined } : item)))
+    setPantryItems((current) =>
+      current
+        .filter((item) => !gone.has(item.id))
+        .map((item) => (kept.has(item.id) ? { ...item, addedAt: now, askedAt: undefined, quantity: newQuantity.get(item.id) ?? item.quantity } : item)),
+    )
 
     // The check is saved at this point; a failure while adding to the list is reported as such.
     let addedToList = 0
@@ -153,12 +154,9 @@ export function usePantry({
   const pantryEstimates = useMemo(() => estimatePantry(pantryItems, purchaseHistory, today), [pantryItems, purchaseHistory, today])
   const likelyGonePantryIds = useMemo(() => new Set([...pantryEstimates].filter(([, estimate]) => estimate.likelyGone).map(([id]) => id)), [pantryEstimates])
 
-  // "Došlo mi…" on the home screen: out of the pantry and, if asked, onto the list — without the
-  // "Došlo?" question, since the household just said so.
-  function quickOut(item: PantryItem, addToList: boolean) {
-    removePantryItem(item.id)
-    if (addToList && !items.some((entry) => !entry.done && matchKeyOf(entry.name) === matchKeyOf(item.name))) void runOrQueue({ kind: 'add', tempId: newTempId(), name: item.name })
-  }
+  // Domů's "Zkontrolovat zásoby": the Zásoby tab opens straight into the check, the same way the
+  // weekly notification's link does.
+  const openPantryCheck = useCallback(() => setPantryCheckPending(true), [])
 
   // Consumes the check link: drops `kontrola=1` from the address so a reload does not reopen it.
   const consumePantryCheck = useCallback(() => {
@@ -218,7 +216,7 @@ export function usePantry({
     setPantryCheckinDaysFor,
     setPantrySubcategoryCheckinDaysFor,
     reviewPantry,
-    quickOut,
+    openPantryCheck,
     consumePantryCheck,
     setPantryTracking,
     setPantryItemSubcategory,

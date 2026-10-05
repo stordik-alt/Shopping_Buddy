@@ -54,7 +54,8 @@ export function BudgetOverview({
         </Button>
       </div>
       {primaryAction}
-      <BudgetHero today={today} periodStartDay={periodStartDay} budget={budget} spent={spent} remaining={remaining} onSetBudget={onEditBudget} />
+      {/* The compact card, as on Domů: the full-size one filled most of a phone screen (owner, 2026-10-05). */}
+      <BudgetHero compact today={today} periodStartDay={periodStartDay} budget={budget} spent={spent} remaining={remaining} onSetBudget={onEditBudget} />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
         <Stat label="Denní průměr" value={wholeMoney(dailyAverage(expenses, today, periodStartDay))} icon={<CalendarClock />} />
         <Stat label="Týdenní průměr" value={wholeMoney(weeklyAverage(expenses, today, periodStartDay))} icon={<CalendarClock />} />

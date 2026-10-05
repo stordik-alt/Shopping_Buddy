@@ -365,7 +365,7 @@ describe('reviewPantryAction', () => {
 
     const result = await reviewPantryAction({ reviewedIds: [milk.id, eggs.id, rice.id], goneIds: [eggs.id] })
 
-    expect(result).toEqual({ removed: 1, confirmed: 2 })
+    expect(result).toEqual({ removed: 1, confirmed: 2, adjusted: 0 })
     const rows = await db.query.pantryItems.findMany({ where: eq(schema.pantryItems.householdId, householdId) })
     expect(rows.map((row) => row.name).sort()).toEqual(['Mléko', 'Rýže'])
     for (const row of rows) {
@@ -392,13 +392,37 @@ describe('reviewPantryAction', () => {
         { householdId, name: 'Mouka', category: 'Potraviny' },
       ])
       .returning()
-    expect(await reviewPantryAction({ reviewedIds: [shown.id], goneIds: [hidden.id] })).toEqual({ removed: 0, confirmed: 1 })
+    expect(await reviewPantryAction({ reviewedIds: [shown.id], goneIds: [hidden.id] })).toEqual({ removed: 0, confirmed: 1, adjusted: 0 })
     expect(await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, hidden.id) })).toBeDefined()
   })
 
   it('rejects malformed input', async () => {
     await expect(reviewPantryAction({ reviewedIds: 'x' as unknown as string[], goneIds: [] })).rejects.toThrow('Neplatná kontrola')
-    expect(await reviewPantryAction({ reviewedIds: [], goneIds: [] })).toEqual({ removed: 0, confirmed: 0 })
+    expect(await reviewPantryAction({ reviewedIds: [], goneIds: [] })).toEqual({ removed: 0, confirmed: 0, adjusted: 0 })
+  })
+
+  it('saves the remaining amount set during the check (had 4, 1 left) together with the confirmation', async () => {
+    const [yogurt, rolls] = await db
+      .insert(schema.pantryItems)
+      .values([
+        { householdId, name: 'Jogurt', category: 'Potraviny', quantity: 4, addedAt: weekAgo(), askedAt: weekAgo() },
+        { householdId, name: 'Rohlíky', category: 'Potraviny', quantity: 6, addedAt: weekAgo() },
+      ])
+      .returning()
+
+    const result = await reviewPantryAction({ reviewedIds: [yogurt.id, rolls.id], goneIds: [], quantities: [{ id: yogurt.id, quantity: 1 }] })
+
+    expect(result).toEqual({ removed: 0, confirmed: 2, adjusted: 1 })
+    const saved = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, yogurt.id) })
+    expect(saved).toMatchObject({ quantity: 1, askedAt: null })
+    expect(await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, rolls.id) })).toMatchObject({ quantity: 6 })
+  })
+
+  it('rejects a quantity for an item that ran out or is not in the check, and writes nothing', async () => {
+    const [cheese] = await db.insert(schema.pantryItems).values({ householdId, name: 'Eidam', category: 'Potraviny', quantity: 2, addedAt: weekAgo() }).returning()
+    await expect(reviewPantryAction({ reviewedIds: [cheese.id], goneIds: [cheese.id], quantities: [{ id: cheese.id, quantity: 1 }] })).rejects.toThrow('Neplatné množství')
+    await expect(reviewPantryAction({ reviewedIds: [cheese.id], goneIds: [], quantities: [{ id: cheese.id, quantity: 0 }] })).rejects.toThrow('Neplatné množství')
+    expect(await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, cheese.id) })).toMatchObject({ quantity: 2 })
   })
 })
 

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { BudgetHero } from '@/components/budget/budget-hero'
 import { DashboardOverview } from '@/components/dashboard/dashboard-overview'
 import { TodayMeals } from '@/components/dashboard/today-meals'
+import { PantryCheckCard } from '@/components/dashboard/pantry-check-card'
 import type { Recipe } from '@/lib/meal-plans'
 
 // A <button> may hold phrasing content only; block elements inside it are invalid HTML.
@@ -58,5 +59,21 @@ describe('TodayMeals', () => {
 
   it('is a single quiet line without a plan for today', () => {
     expect(renderToStaticMarkup(<TodayMeals meals={[]} onOpen={() => {}} onOpenMeal={() => {}} />)).toContain('na dnešek nic naplánováno')
+  })
+})
+
+describe('PantryCheckCard', () => {
+  it('shows only the count and the way into the check, no item list', () => {
+    const html = renderToStaticMarkup(<PantryCheckCard toCheck={3} onCheck={() => {}} onOpen={() => {}} />)
+    expect(html).toContain('3 položky čekají')
+    expect(html).toContain('Zkontrolovat zásoby')
+    expect(html.match(/<button/g)).toHaveLength(1)
+    expect(html).not.toContain('<input')
+  })
+
+  it('is one quiet line to Zásoby when nothing waits', () => {
+    const html = renderToStaticMarkup(<PantryCheckCard toCheck={0} onCheck={() => {}} onOpen={() => {}} />)
+    expect(html).toContain('nic ke kontrole')
+    expect(html).not.toContain('Zkontrolovat zásoby')
   })
 })

@@ -1,8 +1,8 @@
-import { Check, ClipboardCheck, X } from 'lucide-react'
+import { Check, ClipboardCheck, Minus, Plus, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { itemCountLabel } from '@/lib/format'
-import { needsCheck, pantryPlaceOptions, pantryReviewOrder, placeKeyOf, splitPantryReview } from '@/lib/pantry'
+import { needsCheck, PANTRY_QUANTITY_STEP, pantryPlaceOptions, pantryReviewOrder, placeKeyOf, splitPantryReview, type PantryQuantityChange } from '@/lib/pantry'
 import { estimateReason, type ConsumptionEstimate } from '@/lib/pantry-estimate'
 import { cn } from '@/lib/utils'
 import type { PantryItem, PantryPlace } from '@/lib/types'
@@ -17,7 +17,7 @@ import type { PantryItem, PantryPlace } from '@/lib/types'
 
 type Scope = 'location' | 'uncertain' | 'all'
 
-export type PantryReviewResult = { removed: number; confirmed: number; addedToList: number; listFailed: boolean }
+export type PantryReviewResult = { removed: number; confirmed: number; adjusted: number; addedToList: number; listFailed: boolean }
 
 export function PantryReview({
   items,
@@ -40,7 +40,7 @@ export function PantryReview({
   /** 'uncertain' = only the items asked about or estimated as used up. */
   initialScope?: Scope
   estimates: Map<string, ConsumptionEstimate>
-  onSave: (reviewedIds: string[], goneIds: string[], addGoneToList: boolean) => Promise<PantryReviewResult>
+  onSave: (reviewedIds: string[], goneIds: string[], addGoneToList: boolean, quantities: PantryQuantityChange[]) => Promise<PantryReviewResult>
   onClose: (result: PantryReviewResult | null) => void
 }) {
   const options = useMemo(() => pantryPlaceOptions(customPlaces), [customPlaces])
@@ -48,6 +48,8 @@ export function PantryReview({
   const likelyGone = useMemo(() => new Set([...estimates].filter(([, estimate]) => estimate.likelyGone).map(([id]) => id)), [estimates])
   // Pre-marked once, when the check opens; the household's taps are never overwritten afterwards.
   const [gone, setGone] = useState<Set<string>>(() => new Set(likelyGone))
+  // What is left of an item that stays, when the household changed it ("had 4, 1 left"); absent = unchanged.
+  const [remaining, setRemaining] = useState<Map<string, number>>(() => new Map())
   const [addToList, setAddToList] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -78,7 +80,28 @@ export function PantryReview({
       else next.add(id)
       return next
     })
+    // Back to "Mám" (or to "Došlo") starts from the recorded amount again.
+    setRemaining((current) => {
+      const next = new Map(current)
+      next.delete(id)
+      return next
+    })
   }
+
+  // −/+ on an item that stays. Going down to nothing means it ran out: the row turns "Došlo".
+  function changeRemaining(item: PantryItem, direction: 1 | -1) {
+    const current = remaining.get(item.id) ?? item.quantity
+    const next = Math.round((current + direction * PANTRY_QUANTITY_STEP[item.unit]) * 1000) / 1000
+    if (next <= 0) {
+      toggle(item.id)
+      return
+    }
+    setRemaining((map) => new Map(map).set(item.id, next))
+  }
+
+  const quantityChanges: PantryQuantityChange[] = keptIds
+    .map((id) => ({ id, quantity: remaining.get(id) }))
+    .filter((change): change is PantryQuantityChange => change.quantity !== undefined && change.quantity !== items.find((item) => item.id === change.id)?.quantity)
 
   async function save() {
     setSaving(true)
@@ -89,6 +112,7 @@ export function PantryReview({
           reviewed.map((item) => item.id),
           goneIds,
           addToList,
+          quantityChanges,
         ),
       )
     } catch (err) {
@@ -105,7 +129,7 @@ export function PantryReview({
           <ClipboardCheck className="size-4 shrink-0 text-accent-text" aria-hidden />
           <h2 className="text-sm font-semibold">Kontrola zásob</h2>
         </div>
-        <p className="mt-1 text-sm leading-relaxed text-fg-secondary">Klepněte jen na to, co už doma není. Všechno ostatní se po uložení potvrdí jako „Mám“.</p>
+        <p className="mt-1 text-sm leading-relaxed text-fg-secondary">Klepněte na to, co už doma není, a u ostatního případně −/+ upravte, kolik zbývá. Zbytek se po uložení potvrdí jako „Mám“.</p>
         <div role="radiogroup" aria-label="Rozsah kontroly" className="mt-3 inline-flex max-w-full flex-wrap rounded-full bg-muted p-1 text-sm">
           {(
             [
@@ -136,32 +160,52 @@ export function PantryReview({
           <ul>
             {group.items.map((item) => {
               const isGone = gone.has(item.id)
+              const left = remaining.get(item.id) ?? item.quantity
+              const changed = !isGone && left !== item.quantity
               return (
-                <li key={item.id} className="border-b border-border last:border-0">
+                // Wraps instead of squeezing: on a narrow phone the amount control moves under the name.
+                <li key={item.id} className={cn('flex flex-wrap items-center justify-end gap-x-1 border-b border-border pr-3 last:border-0 sm:pr-4', isGone && 'bg-destructive-subtle/60')}>
                   <button
                     type="button"
                     aria-pressed={isGone}
                     aria-label={`${item.name}: ${isGone ? 'došlo' : 'mám'}`}
                     onClick={() => toggle(item.id)}
-                    className={cn('flex min-h-12 w-full items-center gap-3 px-5 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring', isGone ? 'bg-destructive-subtle/60' : 'hover:bg-muted')}
+                    className={cn('flex min-h-14 min-w-[15rem] flex-1 items-center gap-3 py-2.5 pl-4 text-left transition sm:pl-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring', !isGone && 'hover:bg-muted')}
                   >
-                    <span className="min-w-0 flex-1">
-                      <span className={cn('block break-words text-sm font-medium', isGone && 'text-muted-foreground line-through')}>{item.name}</span>
-                      <span className="mt-0.5 block text-xs text-muted-foreground">
-                        {item.quantity} {item.unit}
-                        {estimates.get(item.id)?.likelyGone ? ` · Asi došlo, ${estimateReason(estimates.get(item.id)!)}` : item.askedAt ? ' · Máte ještě?' : ''}
-                      </span>
-                    </span>
                     <span
                       className={cn(
                         'flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold',
                         isGone ? 'bg-destructive-subtle text-destructive' : 'bg-success-subtle text-success',
                       )}
                     >
-                      {isGone ? <X className="h-3.5 w-3.5" aria-hidden /> : <Check className="h-3.5 w-3.5" aria-hidden />}
+                      {isGone ? <X className="size-3.5" aria-hidden /> : <Check className="size-3.5" aria-hidden />}
                       {isGone ? 'Došlo' : 'Mám'}
                     </span>
+                    <span className="min-w-0 flex-1">
+                      <span className={cn('block break-words text-sm font-medium', isGone && 'text-fg-muted line-through')}>{item.name}</span>
+                      <span className="mt-0.5 block text-xs text-fg-muted">
+                        {changed ? `bylo ${item.quantity} ${item.unit}` : `${item.quantity} ${item.unit}`}
+                        {estimates.get(item.id)?.likelyGone ? ` · Asi došlo, ${estimateReason(estimates.get(item.id)!)}` : item.askedAt ? ' · Máte ještě?' : ''}
+                      </span>
+                    </span>
                   </button>
+                  {!isGone && (
+                    // How much is left, when only part was used ("had 4, 1 left").
+                    <span className="flex shrink-0 items-center gap-0.5 pb-1 sm:pb-0" role="group" aria-label={`Zbývá: ${item.name}`}>
+                      <span className="mr-1 text-xs text-fg-muted" aria-hidden="true">
+                        zbývá
+                      </span>
+                      <button type="button" aria-label={`Méně: ${item.name}`} onClick={() => changeRemaining(item, -1)} className="icon-button">
+                        <Minus className="size-4" aria-hidden="true" />
+                      </button>
+                      <span className={cn('min-w-12 text-center text-sm tabular-nums', changed ? 'font-semibold text-accent-text' : 'text-fg-secondary')} aria-live="polite">
+                        {left} {item.unit}
+                      </span>
+                      <button type="button" aria-label={`Více: ${item.name}`} onClick={() => changeRemaining(item, 1)} className="icon-button">
+                        <Plus className="size-4" aria-hidden="true" />
+                      </button>
+                    </span>
+                  )}
                 </li>
               )
             })}
@@ -187,6 +231,7 @@ export function PantryReview({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm text-fg-muted" aria-live="polite">
             Došlo: {itemCountLabel(goneIds.length)} · Mám: {itemCountLabel(keptIds.length)}
+            {quantityChanges.length > 0 ? ` · upraveno množství: ${quantityChanges.length}` : ''}
           </p>
           <div className="flex gap-2">
             <Button variant="ghost" size="lg" onClick={() => onClose(null)} disabled={saving}>

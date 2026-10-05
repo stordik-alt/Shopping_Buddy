@@ -173,6 +173,18 @@ export function dealsForList<T extends { product: ProductPrice; price: PricePoin
   return { onList, others }
 }
 
+/** The cheapest running deal per product, keyed by the product name in lower case — what a shopping-list
+ *  row shows next to its item (names matched as in `dealsForList`). Ties keep the first deal. */
+export function bestDealByName<T extends { product: ProductPrice; price: PricePoint }>(deals: T[]): Map<string, T> {
+  const best = new Map<string, T>()
+  for (const deal of deals) {
+    const key = deal.product.productName.trim().toLowerCase()
+    const current = best.get(key)
+    if (!current || effectivePrice(deal.price) < effectivePrice(current.price)) best.set(key, deal)
+  }
+  return best
+}
+
 export type ShoppingListItemForPricing = Pick<Item, 'name' | 'price' | 'quantity' | 'unit' | 'done' | 'store'>
 
 /** Whether a deal is worth stocking up on beyond the household's immediate need — per

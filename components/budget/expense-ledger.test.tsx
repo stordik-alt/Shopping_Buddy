@@ -9,7 +9,7 @@ const noopAsync = async () => {}
 const noopItems = async () => []
 
 describe('ExpenseLedger', () => {
-  it("opens on today's month with its total, categories and their subcategories", () => {
+  it("opens on today's month with its total and categories, subcategories waiting inside them", () => {
     const html = renderToStaticMarkup(
       <ExpenseLedger
         today="2026-09-26"
@@ -30,7 +30,8 @@ describe('ExpenseLedger', () => {
     expect(html).toContain('srpen 2026') // an older month to switch to
     expect(html).toContain('13 500,00 Kč')
     expect(html).toContain('Bydlení')
-    expect(html).toContain('Nájem nebo hypotéka 12 000,00 Kč')
+    // A closed category is one short row; its subcategories are listed only once it is opened.
+    expect(html).not.toContain('Nájem nebo hypotéka')
     expect(html).toContain('Auto')
     expect(html).not.toContain('Oblečení a obuv') // August's expense is not in September
   })

@@ -19,6 +19,8 @@ import {
   previousPeriodStart,
   categoryRows,
   expensePeriods,
+  groupExpensesByPurchase,
+  subcategoryGroups,
   periodSummary,
   projectedPeriodEnd,
   totalSpent,
@@ -397,5 +399,35 @@ describe('budget periods that start on a chosen day', () => {
   it('accepts only whole start days from 1 to 28', () => {
     expect([1, 15, 28].every(isValidPeriodStartDay)).toBe(true)
     expect([0, 29, 31, 1.5, -1, Number.NaN].some(isValidPeriodStartDay)).toBe(false)
+  })
+})
+
+describe('subcategoryGroups', () => {
+  it('lists each subcategory once with its total and its own payments, largest first', () => {
+    const meat = { ...expense(300), subcategory: 'Maso' }
+    const dairy1 = { ...expense(120), subcategory: 'Mléčné výrobky', date: '2026-09-12' }
+    const dairy2 = { ...expense(80), subcategory: 'Mléčné výrobky' }
+    const other = expense(50)
+    const [entry] = periodSummary([meat, dairy1, dairy2, other], '2026-09-01').categories
+    const groups = subcategoryGroups(entry)
+    expect(groups.map((group) => [group.subcategory, group.total, group.expenses.length])).toEqual([
+      ['Maso', 300, 1],
+      ['Mléčné výrobky', 200, 2],
+      [null, 50, 1],
+    ])
+    expect(groups[1].expenses[0].id).toBe(dairy1.id)
+  })
+})
+
+describe('groupExpensesByPurchase', () => {
+  it('joins a receipt split by category back into one purchase, keeping the order and the total', () => {
+    const single = { ...expense(500, 'Bydlení', '2026-09-20'), note: 'Nájem' }
+    const partA = { ...expense(123.45, 'Potraviny', '2026-09-15'), note: 'Albert', purchaseId: 'p1' }
+    const partB = { ...expense(76.55, 'Drogerie', '2026-09-15'), note: 'Albert', purchaseId: 'p1' }
+    const otherReceipt = { ...expense(40, 'Potraviny', '2026-09-10'), note: 'Lidl', purchaseId: 'p2' }
+    const entries = groupExpensesByPurchase([single, partA, partB, otherReceipt])
+    expect(entries.map((entry) => entry.kind)).toEqual(['single', 'purchase', 'purchase'])
+    expect(entries[1]).toMatchObject({ kind: 'purchase', purchaseId: 'p1', note: 'Albert', date: '2026-09-15', total: 200 })
+    expect(entries[1].kind === 'purchase' && entries[1].parts.map((part) => part.id)).toEqual([partA.id, partB.id])
   })
 })

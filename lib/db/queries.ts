@@ -495,7 +495,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
   // History is scoped to the household's configured budget period. Older records remain in the database
   // but are not loaded on normal page renders, which keeps the common read path bounded.
   const historySince = currentBudgetPeriodStart(household.budgetPeriodStartDay)
-  const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows, mealPlan, invitationRows, pantryRows, pantryPlaceRows, pantryCheckinRows, pantryCheckinSubcategoryRows, pendingReceiptImports, categoryBudgetRows, recurringRows, occurrenceRows, notificationsOffRows] =
+  const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows, mealPlan, invitationRows, pantryRows, pantryPlaceRows, pantryCheckinRows, pantryCheckinSubcategoryRows, pendingReceiptImports, categoryBudgetRows, recurringRows, occurrenceRows, notificationsOffRows, periodBudgetRows] =
     await Promise.all([
       db.query.householdMembers.findMany({
         where: eq(schema.householdMembers.householdId, household.id),
@@ -542,7 +542,9 @@ export async function getHouseholdData(userId: string, userName: string, userEma
         .select({ kind: schema.memberNotificationSettings.kind })
         .from(schema.memberNotificationSettings)
         .innerJoin(schema.householdMembers, eq(schema.householdMembers.id, schema.memberNotificationSettings.memberId))
-        .where(and(eq(schema.householdMembers.userId, userId), eq(schema.memberNotificationSettings.enabled, false)))
+        .where(and(eq(schema.householdMembers.userId, userId), eq(schema.memberNotificationSettings.enabled, false))),
+      // A handful of rows at most: only periods the household gave their own budget.
+      db.query.budgets.findMany({ where: eq(schema.budgets.householdId, household.id), columns: { month: true, amount: true } }),
     ])
 
   const myRawMember = members.find((member) => member.userId === userId)
@@ -562,6 +564,8 @@ export async function getHouseholdData(userId: string, userName: string, userEma
     name: household.name,
     monthlyBudget: Number(household.monthlyBudget),
     budgetPeriodStartDay: household.budgetPeriodStartDay,
+    periodBudgets: Object.fromEntries(periodBudgetRows.map((row) => [row.month, Number(row.amount)])),
+    savingsGoal: Number(household.savingsGoal),
     members: members.map(
       (member): HouseholdMember => ({
         id: member.id,

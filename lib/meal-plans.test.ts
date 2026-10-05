@@ -30,6 +30,8 @@ function household(overrides: Partial<Household> = {}): Household {
     name: 'Test Household',
     monthlyBudget: 10000,
     budgetPeriodStartDay: 1,
+    periodBudgets: {},
+    savingsGoal: 0,
     members: [],
     children: [],
     preferences: {

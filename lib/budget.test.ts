@@ -19,6 +19,10 @@ import {
   previousPeriodStart,
   categoryRows,
   expensePeriods,
+  budgetForPeriod,
+  periodSavings,
+  savingsHistory,
+  spendingByPeriod,
   groupExpensesByPurchase,
   subcategoryGroups,
   periodSummary,
@@ -429,5 +433,43 @@ describe('groupExpensesByPurchase', () => {
     expect(entries.map((entry) => entry.kind)).toEqual(['single', 'purchase', 'purchase'])
     expect(entries[1]).toMatchObject({ kind: 'purchase', purchaseId: 'p1', note: 'Albert', date: '2026-09-15', total: 200 })
     expect(entries[1].kind === 'purchase' && entries[1].parts.map((part) => part.id)).toEqual([partA.id, partB.id])
+  })
+})
+
+describe('budget by period', () => {
+  it("uses a period's own budget, else the default", () => {
+    expect(budgetForPeriod('2026-10-01', { '2026-10-01': 30000 }, 26000)).toBe(30000)
+    expect(budgetForPeriod('2026-11-01', { '2026-10-01': 30000 }, 26000)).toBe(26000)
+  })
+
+  it('sums daily totals per period, also for a period starting on the 15th', () => {
+    const daily = [
+      { date: '2026-09-14', total: 100 },
+      { date: '2026-09-15', total: 200.1 },
+      { date: '2026-10-14', total: 50.2 },
+      { date: '2026-10-15', total: 10 },
+    ]
+    expect(Object.fromEntries(spendingByPeriod(daily, 15))).toEqual({ '2026-08-15': 100, '2026-09-15': 250.3, '2026-10-15': 10 })
+  })
+
+  it('saves budget minus spending, negative when overspent, nothing without a budget', () => {
+    expect(periodSavings(26000, 23500)).toBe(2500)
+    expect(periodSavings(26000, 27000)).toBe(-1000)
+    expect(periodSavings(0, 500)).toBeNull()
+  })
+
+  it('totals the finished periods with a budget, not the current one', () => {
+    const spending = new Map([
+      ['2026-08-01', 20000],
+      ['2026-09-01', 27000],
+      ['2026-10-01', 5000],
+    ])
+    const history = savingsHistory(spending, '2026-10-01', (period) => (period === '2026-08-01' ? 25000 : 26000))
+    expect(history.periods.map((entry) => [entry.period, entry.saved])).toEqual([
+      ['2026-08-01', 5000],
+      ['2026-09-01', -1000],
+    ])
+    expect(history.total).toBe(4000)
+    expect(savingsHistory(spending, '2026-10-01', () => 0).periods).toEqual([])
   })
 })

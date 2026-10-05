@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { AlertTriangle, ListChecks, Loader2, Pin, Star } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ListChecks, Loader2, Pin, Star } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Select } from '@/components/ui/field'
 import type { PlanResult } from '@/lib/db/shopping-plan'
 import { money } from '@/lib/format'
 import { MAX_SHOP_STORES } from '@/lib/nearby-stores'
@@ -58,10 +60,10 @@ export function ShoppingPlanPanel({
   return (
     <section className="surface p-4 sm:p-5" aria-labelledby="shopping-plan-title">
       <div className="flex items-start gap-3">
-        <ListChecks className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+        <ListChecks className="mt-0.5 size-5 shrink-0 text-accent-text" aria-hidden="true" />
         <div className="min-w-0">
           <h3 id="shopping-plan-title" className="font-semibold">Plán nákupu</h3>
-          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+          <p className="mt-1 text-sm leading-relaxed text-fg-secondary">
             Kde co koupit, aby vás nákup vyšel nejlevněji a přitom v nejvýš tolika obchodech, kolik zvolíte. U každé položky uvidíte, kolik by stála jinde.
           </p>
         </div>
@@ -70,32 +72,30 @@ export function ShoppingPlanPanel({
       <div className="mt-4 flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-sm font-medium">
           Kolik obchodů projdu
-          <select
-            value={maxStores}
-            onChange={(event) => setMaxStores(event.target.value)}
-            className="min-h-11 rounded-xl border border-input bg-background px-3 py-2 text-sm font-normal outline-none focus:ring-2 focus:ring-ring"
-          >
+          <Select value={maxStores} onChange={(event) => setMaxStores(event.target.value)} className="w-28 px-3 font-normal">
             {Array.from({ length: MAX_SHOP_STORES }, (_, index) => index + 1).map((count) => (
               <option key={count} value={count}>
                 {count}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
-        <button
-          type="button"
-          onClick={run}
-          disabled={status === 'loading' || openItemCount === 0}
-          className="flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-        >
-          {status === 'loading' && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+        <Button size="lg" onClick={run} disabled={status === 'loading' || openItemCount === 0}>
+          {status === 'loading' && <Loader2 className="animate-spin" aria-hidden="true" />}
           {result ? 'Sestavit znovu' : 'Sestavit plán'}
-        </button>
+        </Button>
       </div>
 
       {chains.length > 1 && (
-        <div className="mt-3">
-          <p className="text-sm font-medium">Prioritní obchody</p>
+        // Every chain is a choice here (often 20+), so the chips wait behind a summary of what is picked.
+        <details className="group mt-3">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1.5 rounded-lg text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+            <span className="font-medium">Prioritní obchody</span>
+            <span className="min-w-0 truncate text-fg-muted">
+              · {priorityIds.length === 0 ? 'žádné' : chains.filter(({ id }) => priorityIds.includes(id)).map(({ chain }) => chain).join(', ')}
+            </span>
+            <ChevronDown className="size-4 shrink-0 text-accent-text transition group-open:rotate-180" aria-hidden="true" />
+          </summary>
           <div className="mt-1.5 flex flex-wrap gap-2">
             {chains.map(({ id, chain }) => {
               const on = priorityIds.includes(id)
@@ -107,7 +107,7 @@ export function ShoppingPlanPanel({
                   aria-label={`Prioritní: ${chain}`}
                   onClick={() => setPriorityIds(on ? priorityIds.filter((entry) => entry !== id) : [...priorityIds, id])}
                   className={`flex min-h-10 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                    on ? 'border-primary bg-primary/10 font-medium text-primary' : 'border-border bg-background hover:bg-muted'
+                    on ? 'border-accent-solid bg-accent-subtle font-medium text-accent-text' : 'border-border bg-background hover:bg-muted'
                   }`}
                 >
                   <Star className={`h-3.5 w-3.5 ${on ? 'fill-current' : ''}`} aria-hidden="true" />
@@ -116,11 +116,11 @@ export function ShoppingPlanPanel({
               )
             })}
           </div>
-        </div>
+        </details>
       )}
 
       <div className="mt-4" aria-live="polite">
-        {openItemCount === 0 && <p className="rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground">Na seznamu nemáte žádné nedokončené položky, není co plánovat.</p>}
+        {openItemCount === 0 && <p className="rounded-2xl bg-muted px-4 py-3 text-sm text-fg-secondary">Na seznamu nemáte žádné nedokončené položky, není co plánovat.</p>}
         {status === 'error' && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
         {outdated && (
@@ -138,7 +138,7 @@ export function ShoppingPlanPanel({
               <p className="text-xs text-muted-foreground">Nemáte zvolené obchody v okolí (Profil), plánuje se ze všech obchodů.</p>
             )}
 
-            <div className="rounded-2xl bg-primary/10 px-4 py-3 text-primary">
+            <div className="rounded-2xl bg-accent-subtle px-4 py-3 text-accent-text">
               <p className="text-sm">
                 {plan.plannedCount} z {plan.needCount} položek · {plan.stores.length} {plan.stores.length === 1 ? 'obchod' : plan.stores.length < 5 ? 'obchody' : 'obchodů'}
               </p>

@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react'
 import { CalendarClock, Check, Plus, Repeat, SkipForward } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Input } from '@/components/ui/field'
 import { money, shortDate } from '@/lib/format'
 import { INTERVAL_LABELS, recurringOverview, type DuePayment, type RecurringOccurrence, type RecurringPayment } from '@/lib/recurring-payments'
 
@@ -29,22 +32,20 @@ export function RecurringPayments({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold">Pravidelné platby</p>
-          <p className="mt-1 text-sm text-muted-foreground">Nájem, energie, pojištění… Do výdajů se započítají, až je potvrdíte.</p>
+          <p className="mt-1 text-sm text-fg-secondary">Nájem, energie, pojištění… Do výdajů se započítají, až je potvrdíte.</p>
         </div>
-        <button onClick={onAdd} className="flex min-h-10 items-center gap-1.5 rounded-xl bg-primary/10 px-3 text-sm font-medium text-primary hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <Plus className="h-4 w-4" aria-hidden="true" /> Přidat
-        </button>
+        <Button variant="secondary" onClick={onAdd}>
+          <Plus aria-hidden="true" /> Přidat
+        </Button>
       </div>
 
       {payments.length === 0 ? (
-        <p className="mt-5 rounded-2xl bg-muted px-4 py-6 text-center text-sm text-muted-foreground">
-          Zatím žádné. Přidejte platbu, která se opakuje — v den splatnosti vám ji připomeneme k potvrzení.
-        </p>
+        <EmptyState className="mt-5" icon={<Repeat />} title="Zatím žádné pravidelné platby" description="Přidejte platbu, která se opakuje — v den splatnosti vám ji připomeneme k potvrzení." />
       ) : (
         <div className="mt-5 space-y-5">
           {due.length > 0 && (
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">K potvrzení</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">K potvrzení</p>
               <ul className="mt-2 space-y-2">
                 {due.map((entry) => (
                   <DueRow key={`${entry.payment.id}|${entry.dueDate}`} entry={entry} today={today} onConfirm={onConfirm} onSkip={onSkip} />
@@ -54,7 +55,7 @@ export function RecurringPayments({
           )}
           {upcoming.length > 0 && (
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Brzy splatné</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">Brzy splatné</p>
               <ul className="mt-2 space-y-1.5">
                 {upcoming.map((entry) => (
                   <li key={entry.payment.id} className="flex items-center justify-between gap-3 rounded-2xl bg-muted px-3 py-2.5 text-sm">
@@ -72,13 +73,13 @@ export function RecurringPayments({
             </div>
           )}
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Všechny platby</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">Všechny platby</p>
             <ul className="mt-2 divide-y divide-border/60 rounded-2xl bg-muted px-2">
               {payments.map((payment) => (
                 <li key={payment.id}>
-                  <button onClick={() => onEdit(payment)} className="flex w-full items-center justify-between gap-3 rounded-xl px-2 py-2.5 text-left hover:bg-background/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <button type="button" onClick={() => onEdit(payment)} className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-2 py-2.5 text-left hover:bg-background/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     <span className="flex min-w-0 items-center gap-2">
-                      <Repeat className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                      <Repeat className="size-4 shrink-0 text-accent-text" aria-hidden="true" />
                       <span className="min-w-0">
                         <span className="block break-words text-sm font-medium">{payment.name}</span>
                         <span className="block text-xs text-muted-foreground">
@@ -148,20 +149,20 @@ function DueRow({
       </div>
       {confirming ? (
         <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-          <input value={amount} onChange={(event) => setAmount(event.target.value)} type="text" inputMode="decimal" aria-label={`Zaplacená částka ${entry.payment.name}`} className="min-h-10 rounded-xl border border-input bg-background px-3 text-sm" />
-          <input type="date" value={date} max={today} onChange={(event) => setDate(event.target.value)} aria-label={`Datum platby ${entry.payment.name}`} className="min-h-10 rounded-xl border border-input bg-background px-3 text-sm" />
-          <button onClick={confirm} disabled={busy} className="min-h-10 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-60">
+          <Input value={amount} onChange={(event) => setAmount(event.target.value)} type="text" inputMode="decimal" aria-label={`Zaplacená částka ${entry.payment.name}`} className="px-3" />
+          <Input type="date" value={date} max={today} onChange={(event) => setDate(event.target.value)} aria-label={`Datum platby ${entry.payment.name}`} className="px-3" />
+          <Button size="lg" onClick={confirm} disabled={busy}>
             {busy ? 'Ukládám…' : 'Uložit'}
-          </button>
+          </Button>
         </div>
       ) : (
         <div className="mt-3 flex flex-wrap gap-2">
-          <button onClick={() => setConfirming(true)} disabled={busy} className="flex min-h-10 items-center gap-1.5 rounded-xl bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-60">
-            <Check className="h-4 w-4" aria-hidden="true" /> Zaplaceno
-          </button>
-          <button onClick={() => void run(() => onSkip(entry.payment.id, entry.dueDate))} disabled={busy} className="flex min-h-10 items-center gap-1.5 rounded-xl bg-background px-3 text-sm font-medium disabled:opacity-60">
-            <SkipForward className="h-4 w-4" aria-hidden="true" /> Přeskočit
-          </button>
+          <Button size="lg" onClick={() => setConfirming(true)} disabled={busy}>
+            <Check aria-hidden="true" /> Zaplaceno
+          </Button>
+          <Button variant="outline" size="lg" onClick={() => void run(() => onSkip(entry.payment.id, entry.dueDate))} disabled={busy}>
+            <SkipForward aria-hidden="true" /> Přeskočit
+          </Button>
         </div>
       )}
       {error && (

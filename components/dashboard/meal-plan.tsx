@@ -1,5 +1,9 @@
 import { useState } from 'react'
-import { ArrowUpRight, CalendarDays, Check, PackageCheck, RefreshCw, ShoppingBasket, Sparkles, X } from 'lucide-react'
+import { ArrowUpRight, CalendarDays, Check, ChevronDown, PackageCheck, RefreshCw, ShoppingBasket, Sparkles } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Select } from '@/components/ui/field'
+import { Sheet } from '@/components/ui/sheet'
 import { getMealPlanRecipePoolsAction, saveMealPlanAction } from '@/app/actions/meal-plan'
 import { money } from '@/lib/format'
 import {
@@ -43,6 +47,7 @@ export function MealPlan({
   onAddIngredients,
   onMarkCooked,
   onPlanSaved,
+  initialMeal = null,
 }: {
   household: Household
   initialPlan: SavedMealPlan | null
@@ -51,6 +56,8 @@ export function MealPlan({
   onMarkCooked: (day: string, mealType: MealType) => void
   /** Lets the parent keep the saved plan, so it is still there when this card is shown again. */
   onPlanSaved: (budgetLimit: number, plan: WeeklyMealPlan) => void
+  /** A meal to open straight away (a tap on it in "Dnes vaříme" on Domů). */
+  initialMeal?: { day: string; mealType: MealType } | null
 }) {
   function savePlan(limit: number, updated: WeeklyMealPlan) {
     onPlanSaved(limit, updated)
@@ -67,7 +74,7 @@ export function MealPlan({
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [recipePools, setRecipePools] = useState<Partial<Record<MealType, MealPlanRecipe[]>>>({})
-  const [selectedRecipe, setSelectedRecipe] = useState<MealPlanRecipe | null>(null)
+  const [selectedMeal, setSelectedMeal] = useState<{ day: string; mealType: MealType } | null>(initialMeal)
 
   // The menu itself needs no budget: the budget is set afterwards, in the shopping panel below it.
   async function generate() {
@@ -175,51 +182,57 @@ export function MealPlan({
   const budgetLimit = Number(budget)
   const overBudget = plan && !plan.pricingPending && budgetLimit > 0 ? plan.estimatedTotal > budgetLimit : false
   const stockSplit = plan ? splitIngredientsByStock(plan, pantryItems) : null
+
+  // The meal opened in the detail sheet, by its place in the plan — read from `plan` on every render,
+  // so servings changed or a meal swapped inside the sheet show at once.
+  const selectedRecipe = selectedMeal && plan ? plan.days.find((entry) => entry.day === selectedMeal.day)?.[RECIPE_BY_MEAL[selectedMeal.mealType]] ?? null : null
+  const selectedCooked = selectedMeal && plan ? isMealCooked(plan, selectedMeal.day, selectedMeal.mealType) : false
   const selectedRecipeIngredients = selectedRecipe ? plannedRecipeIngredients(selectedRecipe) : []
+  const optionClass = 'flex min-h-11 items-center gap-2 rounded-xl border border-border bg-background px-3 text-sm'
 
   return (
     <section className="surface p-5 sm:p-6">
       <div>
-        <p className="text-sm font-semibold">Jídelníček a nákup</p>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h2 className="text-base font-semibold">Jídelníček a nákup</h2>
+        <p className="mt-1 text-sm text-fg-secondary">
           Zvolte období a chody. U každého jídla uvidíte, co v zásobách chybí, a můžete to přidat do nákupního seznamu.
         </p>
       </div>
-      <div className="mt-5 flex flex-wrap items-center gap-2">
-        <label className="flex items-center gap-2 rounded-2xl border border-border bg-background px-4 py-2.5 text-sm">
-          Počet dnů
-          <select aria-label="Počet dnů jídelníčku" value={dayCount} onChange={(event) => setDayCount(Number(event.target.value))} className="bg-transparent outline-none">
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <label className="block space-y-1.5 text-sm font-medium">
+          <span>Počet dnů</span>
+          <Select aria-label="Počet dnů jídelníčku" value={dayCount} onChange={(event) => setDayCount(Number(event.target.value))}>
             {DAY_COUNTS.map((count) => (
               <option key={count} value={count}>
                 {count}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
-        <label className="flex items-center gap-2 rounded-2xl border border-border bg-background px-4 py-2.5 text-sm">
-          Začít
-          <select aria-label="Začátek jídelníčku" value={startToday ? 'today' : 'monday'} onChange={(event) => setStartToday(event.target.value === 'today')} className="bg-transparent outline-none">
+        <label className="block space-y-1.5 text-sm font-medium">
+          <span>Začít</span>
+          <Select aria-label="Začátek jídelníčku" value={startToday ? 'today' : 'monday'} onChange={(event) => setStartToday(event.target.value === 'today')}>
             <option value="monday">od pondělí</option>
             <option value="today">dnes</option>
-          </select>
+          </Select>
         </label>
       </div>
-      <div role="group" aria-label="Chody" className="mt-2 flex flex-wrap items-center gap-2">
+      <div role="group" aria-label="Chody" className="mt-3 flex flex-wrap items-center gap-2">
         {MEAL_TYPES.map(({ key, label }) => (
-          <label key={key} className="flex items-center gap-2 rounded-2xl border border-border bg-background px-4 py-2.5 text-sm">
-            <input type="checkbox" checked={mealTypes.includes(key)} onChange={() => toggleMealType(key)} className="size-4 accent-primary" />
+          <label key={key} className={optionClass}>
+            <input type="checkbox" checked={mealTypes.includes(key)} onChange={() => toggleMealType(key)} className="size-5 accent-[var(--accent-solid)]" />
             {label}
           </label>
         ))}
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <label className="flex items-center gap-2 rounded-2xl border border-border bg-background px-4 py-2.5 text-sm text-muted-foreground">
-          <input type="checkbox" checked={useStock} onChange={(event) => setUseStock(event.target.checked)} className="size-4 accent-primary" />
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <label className={optionClass}>
+          <input type="checkbox" checked={useStock} onChange={(event) => setUseStock(event.target.checked)} className="size-5 accent-[var(--accent-solid)]" />
           Vytvořit ze zásob (spíž, lednice, mrazák)
         </label>
-        <button onClick={() => void generate()} disabled={loading} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-60">
+        <Button size="lg" onClick={() => void generate()} disabled={loading}>
           {loading ? 'Navrhuji…' : plan ? 'Vytvořit nový jídelníček' : 'Vytvořit jídelníček'}
-        </button>
+        </Button>
       </div>
       {error && (
         <p role="alert" className="mt-2 text-sm text-destructive">
@@ -231,91 +244,53 @@ export function MealPlan({
         <div className="mt-6 space-y-5">
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {plan.days.map((day) => (
-              <div key={day.day} className="rounded-2xl bg-muted p-4">
-                <p className="flex items-center gap-1.5 text-xs font-medium text-primary">
-                  <CalendarDays className="h-3.5 w-3.5" /> {day.day}
-                </p>
-                <dl className="mt-3 space-y-1.5 text-xs">
+              <div key={day.day} className="rounded-2xl bg-muted p-3">
+                <h3 className="flex items-center gap-1.5 px-1 text-sm font-semibold text-accent-text">
+                  <CalendarDays className="size-4" aria-hidden="true" /> {day.day}
+                </h3>
+                {/* One row per meal: name (opens the detail with servings and "Jiný návrh"), its
+                    state in words, and the one frequent action — "Uvařeno". */}
+                <ul className="mt-2 space-y-1">
                   {MEAL_TYPES.map(({ key, label }) => {
                     const recipe = day[RECIPE_BY_MEAL[key]]
                     if (!recipe) return null
                     const cooked = isMealCooked(plan, day.day, key)
                     const missing = cooked ? [] : missingIngredients(recipe, pantryItems)
                     return (
-                      <div key={key}>
-                      <div className="flex items-center justify-between gap-2">
-                        <dt className="text-muted-foreground">{label}</dt>
-                        <dd className="flex min-w-0 items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedRecipe(recipe)}
-                            className={`min-w-0 break-words text-right font-medium hover:text-primary hover:underline ${cooked ? 'text-muted-foreground line-through' : ''}`}
-                            title="Otevřít detail receptu"
-                          >
-                            {recipe.name}
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={`Jiný návrh: ${label}, ${day.day}`}
-                            onClick={() => void regenerate(day.day, key)}
-                            disabled={loading}
-                            className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-background hover:text-primary disabled:opacity-40"
-                          >
-                            <RefreshCw className="h-3 w-3" />
-                          </button>
-                          <button
-                            aria-label={cooked ? `Uvařeno: ${label}, ${day.day}` : `Označit jako uvařeno: ${label}, ${day.day}`}
-                            onClick={() => markCooked(day.day, key)}
-                            disabled={cooked}
-                            className={`shrink-0 rounded-md p-1 ${cooked ? 'text-primary' : 'text-muted-foreground hover:bg-background hover:text-primary'}`}
-                          >
-                            <Check className="h-3 w-3" />
-                          </button>
-                        </dd>
-                      </div>
-                      {missing.length > 0 && (
-                        <p className="mt-0.5 break-words text-right text-xs text-destructive">Chybí: {missing.map((ingredient) => ingredient.name).join(', ')}</p>
-                      )}
-                      {!cooked && missing.length === 0 && <p className="mt-0.5 text-right text-xs text-primary">Vše ze zásob</p>}
-                      <div className="mt-1 flex items-center justify-end gap-1 text-[11px] text-muted-foreground">
-                        <span>Porce</span>
+                      <li key={key} className="flex items-center gap-1 rounded-xl bg-card">
                         <button
                           type="button"
-                          aria-label={`Méně porcí: ${label}, ${day.day}`}
-                          onClick={() => changeServings(day.day, key, Math.max(0, (recipe.selectedServings ?? 1) - 1))}
-                          disabled={loading || (recipe.selectedServings ?? 1) <= 0}
-                          className="h-6 w-6 rounded-full bg-background font-semibold disabled:opacity-40"
-                        >−</button>
-                        <input
-                          aria-label={`Počet porcí: ${label}, ${day.day}`}
-                          type="number"
-                          min="0"
-                          step="0.5"
-                          value={recipe.selectedServings ?? 1}
-                          onChange={(event) => changeServings(day.day, key, Number(event.target.value))}
-                          className="w-12 rounded-md bg-background px-1 py-0.5 text-center text-[11px] font-medium text-foreground outline-none"
-                        />
+                          onClick={() => setSelectedMeal({ day: day.day, mealType: key })}
+                          className="min-h-12 min-w-0 flex-1 rounded-xl px-3 py-2 text-left hover:bg-background/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <span className="block text-xs text-fg-muted">{label}</span>
+                          <span className={`block break-words text-sm font-medium ${cooked ? 'text-fg-muted line-through' : ''}`}>{recipe.name}</span>
+                          <span className={`mt-0.5 block text-xs ${cooked ? 'text-success' : missing.length > 0 ? 'text-warning' : 'text-success'}`}>
+                            {cooked ? 'Uvařeno' : missing.length > 0 ? `Chybí: ${missing.map((ingredient) => ingredient.name).join(', ')}` : 'Vše ze zásob'}
+                          </span>
+                        </button>
                         <button
                           type="button"
-                          aria-label={`Více porcí: ${label}, ${day.day}`}
-                          onClick={() => changeServings(day.day, key, (recipe.selectedServings ?? 1) + 1)}
-                          disabled={loading}
-                          className="h-6 w-6 rounded-full bg-background font-semibold disabled:opacity-40"
-                        >+</button>
-                        {recipe.servings === undefined && <span>množství se nepřepočítává</span>}
-                      </div>
-                      </div>
+                          aria-label={cooked ? `Uvařeno: ${label}, ${day.day}` : `Označit jako uvařeno: ${label}, ${day.day}`}
+                          aria-pressed={cooked}
+                          onClick={() => markCooked(day.day, key)}
+                          disabled={cooked}
+                          className={`icon-button mr-1 shrink-0 ${cooked ? '!text-success' : 'hover:!bg-success-subtle hover:!text-success'}`}
+                        >
+                          <Check className="size-5" aria-hidden="true" />
+                        </button>
+                      </li>
                     )
                   })}
-                </dl>
+                </ul>
               </div>
             ))}
           </div>
 
           <div className="space-y-3 rounded-2xl bg-muted p-4">
-            <p className="text-sm font-semibold">Nákup na tento jídelníček</p>
+            <h3 className="text-sm font-semibold">Nákup na tento jídelníček</h3>
             <div className="flex flex-wrap items-center gap-2">
-              <label className="flex items-center gap-2 rounded-2xl border border-border bg-background px-4 py-2.5 text-sm">
+              <label className={optionClass}>
                 Rozpočet
                 <input
                   aria-label="Rozpočet na nákup"
@@ -323,115 +298,147 @@ export function MealPlan({
                   min="0"
                   value={budget}
                   onChange={(event) => changeBudget(event.target.value)}
-                  className="w-20 bg-transparent outline-none"
+                  className="w-20 bg-transparent text-base outline-none"
                 />
                 Kč
               </label>
               {BUDGET_SUGGESTIONS.map((suggestion) => (
                 <button
                   key={suggestion}
+                  type="button"
                   onClick={() => changeBudget(String(suggestion))}
-                  className="rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground transition hover:bg-background"
+                  className="min-h-10 rounded-full border border-border px-3 text-sm text-fg-secondary transition hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {suggestion.toLocaleString('cs-CZ')} Kč
                 </button>
               ))}
             </div>
             <div className="flex flex-wrap items-center gap-2 text-sm">
-              <Sparkles className="h-4 w-4 text-primary" />
+              <Sparkles className="size-4 text-accent-text" aria-hidden="true" />
               <span>
                 {plan.pricingPending
                   ? <>Odhad ceny receptů zatím není dostupný.</>
                   : <>Odhadovaná cena nákupu: <span className="font-semibold">{money(plan.estimatedTotal)}</span></>}
               </span>
-              {budgetLimit > 0 && !plan.pricingPending && (
-                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${overBudget ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}>
-                  {overBudget ? 'Nad rozpočtem' : 'V rozpočtu'}
-                </span>
-              )}
+              {budgetLimit > 0 && !plan.pricingPending && <Badge tone={overBudget ? 'danger' : 'success'}>{overBudget ? 'Nad rozpočtem' : 'V rozpočtu'}</Badge>}
             </div>
             {!plan.pricingPending && (
-              <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-1.5 text-sm text-fg-secondary">
                 <span>Doporučené obchody:</span>
                 {plan.recommendedStores.map((store) => (
-                  <span key={store} className="rounded-full bg-background px-2 py-1 font-medium">
+                  <Badge key={store} className="bg-background">
                     {store}
-                  </span>
+                  </Badge>
                 ))}
               </div>
             )}
             {stockSplit && (
-              <div className="text-xs text-muted-foreground">
+              <div className="text-sm text-fg-secondary">
                 <p className="flex items-center gap-1.5">
-                  <PackageCheck className="h-3.5 w-3.5 text-primary" />
+                  <PackageCheck className="size-4 text-accent-text" aria-hidden="true" />
                   Ze zásob: <span className="font-medium text-foreground">{stockSplit.fromStock.length}</span> položek · Ke koupi:{' '}
                   <span className="font-medium text-foreground">{stockSplit.toBuy.length}</span> položek
                 </p>
                 {stockSplit.toBuy.length > 0 && (
-                  <p className="mt-1 break-words">Chybí: {stockSplit.toBuy.map((ingredient) => `${ingredient.name} (${ingredient.quantity} ${ingredient.unit})`).join(', ')}</p>
+                  <details className="group mt-1">
+                    <summary className="flex min-h-11 w-fit cursor-pointer list-none items-center gap-1 rounded-lg font-medium text-accent-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+                      Zobrazit, co chybí ({stockSplit.toBuy.length}) <ChevronDown className="size-4 transition group-open:rotate-180" aria-hidden="true" />
+                    </summary>
+                    <p className="mt-1 break-words text-xs">{stockSplit.toBuy.map((ingredient) => `${ingredient.name} (${ingredient.quantity} ${ingredient.unit})`).join(', ')}</p>
+                  </details>
                 )}
               </div>
             )}
-            <button onClick={addAll} disabled={stockSplit?.toBuy.length === 0} className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-60">
-              <ShoppingBasket className="h-4 w-4" />
+            <Button size="lg" onClick={addAll} disabled={stockSplit?.toBuy.length === 0}>
+              <ShoppingBasket aria-hidden="true" />
               {added ? 'Přidáno do nákupního seznamu' : 'Přidat chybějící do nákupního seznamu'}
-              {!added && <ArrowUpRight className="h-4 w-4" />}
-            </button>
+            </Button>
           </div>
         </div>
       )}
 
-      {selectedRecipe && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
-          role="presentation"
-          onMouseDown={() => setSelectedRecipe(null)}
-        >
-          <article
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="meal-plan-recipe-title"
-            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-card p-5 shadow-xl sm:rounded-2xl"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-muted-foreground">{selectedRecipe.sourceName ?? 'Recept'}</p>
-                <h3 id="meal-plan-recipe-title" className="mt-1 text-xl font-semibold">{selectedRecipe.name}</h3>
-              </div>
-              <button type="button" aria-label="Zavřít detail receptu" onClick={() => setSelectedRecipe(null)} className="rounded-lg p-2 hover:bg-muted">
-                <X className="h-5 w-5" aria-hidden="true" />
-              </button>
+      <Sheet
+        open={selectedRecipe != null}
+        onClose={() => setSelectedMeal(null)}
+        title={selectedRecipe?.name ?? 'Recept'}
+        description={selectedMeal ? `${selectedMeal.mealType}, ${selectedMeal.day}${selectedRecipe?.sourceName ? ` · ${selectedRecipe.sourceName}` : ''}` : undefined}
+        className="sm:max-w-2xl"
+        footer={
+          selectedMeal && selectedRecipe ? (
+            <div className="flex flex-wrap gap-2">
+              <Button size="lg" className="flex-1" onClick={() => markCooked(selectedMeal.day, selectedMeal.mealType)} disabled={selectedCooked}>
+                <Check aria-hidden="true" /> {selectedCooked ? 'Uvařeno' : 'Označit jako uvařeno'}
+              </Button>
+              <Button variant="outline" size="lg" className="flex-1" onClick={() => void regenerate(selectedMeal.day, selectedMeal.mealType)} disabled={loading}>
+                <RefreshCw aria-hidden="true" /> Jiný návrh
+              </Button>
             </div>
+          ) : undefined
+        }
+      >
+        {selectedMeal && selectedRecipe && (
+          <div className="space-y-4">
             {selectedRecipe.imageUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={selectedRecipe.imageUrl} alt="" className="mt-4 max-h-72 w-full rounded-xl object-cover" referrerPolicy="no-referrer" />
+              // eslint-disable-next-line @next/next/no-img-element -- external recipe images; next/image would need every host allow-listed
+              <img src={selectedRecipe.imageUrl} alt="" className="max-h-72 w-full rounded-xl object-cover" referrerPolicy="no-referrer" />
             )}
-            <div className="mt-4 flex flex-wrap gap-2 text-xs text-muted-foreground">
-              <span>{selectedRecipe.selectedServings ?? selectedRecipe.servings ?? '—'} porcí</span>
-              {selectedRecipe.servings !== undefined && <span>základ receptu {selectedRecipe.servings} porce</span>}
+            <div className="flex flex-wrap items-center gap-2 rounded-xl bg-muted p-3">
+              <span className="text-sm font-medium">Porce</span>
+              <button
+                type="button"
+                aria-label={`Méně porcí: ${selectedMeal.mealType}, ${selectedMeal.day}`}
+                onClick={() => changeServings(selectedMeal.day, selectedMeal.mealType, Math.max(0, (selectedRecipe.selectedServings ?? 1) - 1))}
+                disabled={loading || (selectedRecipe.selectedServings ?? 1) <= 0}
+                className="flex size-11 items-center justify-center rounded-full bg-card text-lg font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"
+              >
+                −
+              </button>
+              <input
+                aria-label={`Počet porcí: ${selectedMeal.mealType}, ${selectedMeal.day}`}
+                type="number"
+                min="0"
+                step="0.5"
+                value={selectedRecipe.selectedServings ?? 1}
+                onChange={(event) => changeServings(selectedMeal.day, selectedMeal.mealType, Number(event.target.value))}
+                className="h-11 w-16 rounded-xl border border-input bg-background text-center text-base font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+              />
+              <button
+                type="button"
+                aria-label={`Více porcí: ${selectedMeal.mealType}, ${selectedMeal.day}`}
+                onClick={() => changeServings(selectedMeal.day, selectedMeal.mealType, (selectedRecipe.selectedServings ?? 1) + 1)}
+                disabled={loading}
+                className="flex size-11 items-center justify-center rounded-full bg-card text-lg font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"
+              >
+                +
+              </button>
+              <span className="text-sm text-fg-muted">
+                {selectedRecipe.servings !== undefined ? `základ receptu ${selectedRecipe.servings} porce` : 'množství se nepřepočítává'}
+              </span>
             </div>
-            <section className="mt-4">
+            <section>
               <h4 className="text-sm font-semibold">Suroviny</h4>
               <ul className="mt-2 divide-y divide-border rounded-xl border border-border">
                 {selectedRecipeIngredients.map((ingredient, index) => (
                   <li key={ingredient.name + index} className="flex items-start justify-between gap-4 px-3 py-2.5 text-sm">
                     <span>{ingredient.name}</span>
-                    <span className="shrink-0 text-right text-muted-foreground">
-                      {ingredient.sourceMeasure ?? `${ingredient.quantity} ${ingredient.unit}`}
-                    </span>
+                    <span className="shrink-0 text-right text-fg-muted">{ingredient.sourceMeasure ?? `${ingredient.quantity} ${ingredient.unit}`}</span>
                   </li>
                 ))}
               </ul>
             </section>
             {selectedRecipe.sourceUrl && (
-              <a href={selectedRecipe.sourceUrl} target="_blank" rel="noreferrer noopener" className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground">
-                Otevřít celý recept <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+              <a
+                href={selectedRecipe.sourceUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl text-sm font-semibold text-accent-text hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Otevřít celý recept <ArrowUpRight className="size-4" aria-hidden="true" />
               </a>
             )}
-          </article>
-        </div>
-      )}
+          </div>
+        )}
+      </Sheet>
     </section>
   )
 }

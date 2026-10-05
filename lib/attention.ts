@@ -1,6 +1,7 @@
 import type { ReceiptImportState } from '@/lib/db/queries'
 import { countLabel } from '@/lib/format'
 import { activeDeals, type ProductPrice } from '@/lib/prices'
+import type { FocusTarget } from '@/lib/focus-target'
 import type { Tab } from '@/lib/types'
 
 // "Dnes je důležité" on the home screen: the few things that need the household's action now,
@@ -18,6 +19,8 @@ export type AttentionItem = {
   tab: Tab
   /** For a `tab: 'Nákup'` item, which of its sub-views to land on; undefined leaves the default. */
   nakupView?: 'uctenky'
+  /** The exact thing to open there: the first waiting receipt, or the list item the deal is for. */
+  focus?: FocusTarget
 }
 
 /** Receipt imports stopped on the household: a review, a duplicate decision, a failure, or one
@@ -44,7 +47,8 @@ export function attentionItems({
 }): AttentionItem[] {
   const items: AttentionItem[] = []
 
-  const waiting = receipts.filter((receipt) => RECEIPT_NEEDS_ACTION.has(receipt.status) || receipt.stalled).length
+  const waitingReceipts = receipts.filter((receipt) => RECEIPT_NEEDS_ACTION.has(receipt.status) || receipt.stalled)
+  const waiting = waitingReceipts.length
   if (waiting > 0) {
     items.push({
       id: 'receipts',
@@ -52,6 +56,7 @@ export function attentionItems({
       text: `${countLabel(waiting, 'účtenka čeká', 'účtenky čekají', 'účtenek čeká')} na vaši kontrolu`,
       tab: 'Nákup',
       nakupView: 'uctenky',
+      focus: { kind: 'receipt', id: waitingReceipts[0].id },
     })
   }
 
@@ -73,6 +78,7 @@ export function attentionItems({
       kind: 'deal-ending',
       text: `Akce na ${deal.name} končí ${deal.until === today ? 'dnes' : 'zítra'} · ${deal.store}`,
       tab: 'Nákup',
+      focus: { kind: 'list-item', name: deal.name },
     })
   }
 

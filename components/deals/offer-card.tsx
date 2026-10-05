@@ -6,14 +6,14 @@ import { offerUnitPriceLabel, shortOfferDate, type StandaloneOffer } from '@/lib
  *  home screen and the Akce tab. */
 export function OfferCard({ offer }: { offer: StandaloneOffer }) {
   return (
-    <div className="rounded-2xl bg-muted p-4">
+    <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="break-words text-sm font-medium">{offer.productName}</p>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 text-xs text-fg-muted">
             {offer.store} · akce do {shortOfferDate(offer.validUntil)}
           </p>
-          {offerUnitPriceLabel(offer) && <p className="mt-0.5 text-xs text-muted-foreground">{offerUnitPriceLabel(offer)}</p>}
+          {offerUnitPriceLabel(offer) && <p className="mt-0.5 text-xs text-fg-muted">{offerUnitPriceLabel(offer)}</p>}
         </div>
         <span className="shrink-0 text-lg font-semibold">{money(offer.dealPrice)}</span>
       </div>

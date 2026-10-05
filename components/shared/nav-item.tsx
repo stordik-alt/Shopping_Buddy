@@ -1,5 +1,6 @@
 import { Bot, CookingPot, House, Package, ShoppingCart, Store, Tag, Users, WalletCards, type LucideIcon } from 'lucide-react'
 import type { Tab } from '@/lib/types'
+import { cn } from '@/lib/utils'
 
 /** ANITKA navigation icon system.
  * Primary product areas use the same semantic Lucide icon everywhere.
@@ -33,15 +34,16 @@ export function MobileNavButton({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
       aria-expanded={expanded}
       className="flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-0 py-1.5 text-xs font-medium leading-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <span className={`flex h-7 w-12 items-center justify-center rounded-full transition-colors ${active ? 'bg-primary/15 text-primary' : 'text-muted-foreground'}`}>
-        <Icon className="h-5 w-5" aria-hidden="true" />
+      <span className={cn('flex h-7 w-12 items-center justify-center rounded-full transition-colors', active ? 'bg-accent-subtle text-accent-text' : 'text-fg-muted')}>
+        <Icon className="size-5" aria-hidden="true" />
       </span>
-      <span className={`max-w-full truncate ${active ? 'text-foreground' : 'text-muted-foreground'}`}>{label}</span>
+      <span className={cn('max-w-full truncate', active ? 'font-semibold text-foreground' : 'text-fg-muted')}>{label}</span>
     </button>
   )
 }
@@ -65,12 +67,15 @@ export function NavItem({
     <button
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
-      className={[
-        'flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        active ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
-      ].join(' ')}
+      className={cn(
+        'relative flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        // Active = tinted row + bold label + a turquoise bar on the left, so it does not rely on colour alone.
+        active
+          ? 'bg-accent-subtle font-semibold text-accent-text before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-full before:bg-accent-solid'
+          : 'font-medium text-fg-secondary hover:bg-muted hover:text-foreground',
+      )}
     >
-      <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
+      <Icon className="size-5 shrink-0" aria-hidden="true" />
       <span className="whitespace-nowrap">{item}</span>
     </button>
   )

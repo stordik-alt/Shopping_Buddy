@@ -106,7 +106,7 @@ export function PurchaseItemSplitDialog({
         if (event.target === dialogRef.current) onClose()
       }}
       aria-labelledby="split-item-title"
-      className="m-auto w-[min(calc(100vw-1.5rem),28rem)] rounded-3xl border border-border bg-popover p-0 text-popover-foreground shadow-2xl backdrop:bg-black/50"
+      className="m-auto w-[min(calc(100vw-1.5rem),28rem)] rounded-3xl border border-border bg-surface-elevated p-0 text-foreground shadow-elevated backdrop:bg-black/40"
     >
       <div className="p-5">
         <div className="flex items-start justify-between gap-3">

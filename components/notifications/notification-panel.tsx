@@ -1,6 +1,7 @@
-import { X } from 'lucide-react'
+import { BellOff, X } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { PushToggle } from '@/components/notifications/push-toggle'
+import { EmptyState } from '@/components/ui/empty-state'
 import type { Notification } from '@/lib/types'
 
 export function NotificationPanel({
@@ -45,36 +46,47 @@ export function NotificationPanel({
       id="notifications-panel"
       role="dialog"
       aria-label="Panel upozornění"
-      className="fixed right-3 top-16 z-40 max-h-[calc(100dvh-8rem)] w-[min(calc(100vw-1.5rem),380px)] overflow-y-auto rounded-2xl border border-border bg-popover p-3 shadow-xl sm:right-6 lg:top-20 lg:right-10"
+      className="fixed right-3 top-16 z-40 max-h-[calc(100dvh-8rem)] w-[min(calc(100vw-1.5rem),380px)] overflow-y-auto rounded-2xl border border-border bg-surface-elevated p-3 text-foreground shadow-elevated sm:right-6 lg:top-20 lg:right-10"
     >
       <div className="flex items-center justify-between px-2 py-2">
         <div>
           <p className="text-sm font-semibold">Upozornění</p>
-          <p className="text-xs text-muted-foreground">{unreadCount ? `${unreadCount} nepřečtené` : 'Vše přečteno'}</p>
+          <p className="text-xs text-fg-muted">{unreadCount ? `${unreadCount} nepřečtené` : 'Vše přečteno'}</p>
         </div>
         <div className="flex items-center gap-1">
           {unreadCount > 0 && (
-            <button onClick={onReadAll} className="rounded-lg px-2 py-1 text-xs font-medium text-primary hover:bg-muted">
+            <button
+              type="button"
+              onClick={onReadAll}
+              className="min-h-9 rounded-lg px-2.5 text-sm font-medium text-accent-text hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
               Označit vše
             </button>
           )}
-          <button onClick={onClose} className="icon-button" aria-label="Zavřít upozornění">
+          <button type="button" onClick={onClose} className="icon-button" aria-label="Zavřít upozornění">
             <X />
           </button>
         </div>
       </div>
       {pushPublicKey && <PushToggle publicKey={pushPublicKey} />}
+      {notifications.length === 0 && (
+        <EmptyState className="mt-2" icon={<BellOff />} title="Žádná upozornění" description="Ozveme se, až bude něco potřeba – třeba když se blížíte limitu rozpočtu." />
+      )}
       <div className="mt-2 flex flex-col gap-1">
         {notifications.map((notification) => (
           <button
             key={notification.id}
+            type="button"
             onClick={() => onRead(notification.id)}
-            className="flex gap-3 rounded-xl p-3 text-left transition hover:bg-muted"
+            className="flex gap-3 rounded-xl p-3 text-left transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <span className={`mt-1 size-2 shrink-0 rounded-full ${notification.unread ? 'bg-primary' : 'bg-muted-foreground/30'}`} />
+            <span className={`mt-1.5 size-2 shrink-0 rounded-full ${notification.unread ? 'bg-primary' : 'bg-fg-muted/30'}`} aria-hidden="true" />
             <span className="min-w-0">
-              <span className="block text-sm font-medium">{notification.title}</span>
-              <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">{notification.detail}</span>
+              <span className={`block text-sm ${notification.unread ? 'font-semibold' : 'font-medium'}`}>
+                {notification.unread && <span className="sr-only">Nepřečteno: </span>}
+                {notification.title}
+              </span>
+              <span className="mt-0.5 block text-xs leading-relaxed text-fg-secondary">{notification.detail}</span>
             </span>
           </button>
         ))}

@@ -150,7 +150,7 @@ export function ProductSearch({
                           disabled={busyKey === `${hit.storeId}|${hit.productId}`}
                           onClick={() => togglePin(hit.storeId, hit.productId, pinning.pinned[hit.storeId] === hit.productId)}
                           className={`mt-1.5 flex min-h-10 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 ${
-                            pinning.pinned[hit.storeId] === hit.productId ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background hover:bg-muted'
+                            pinning.pinned[hit.storeId] === hit.productId ? 'border-accent-solid bg-accent-subtle text-accent-text' : 'border-border bg-background hover:bg-muted'
                           }`}
                         >
                           <Pin className={`h-3.5 w-3.5 ${pinning.pinned[hit.storeId] === hit.productId ? 'fill-current' : ''}`} aria-hidden="true" />

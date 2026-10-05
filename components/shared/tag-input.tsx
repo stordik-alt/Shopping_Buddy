@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
+import { Input } from '@/components/ui/field'
 
 export function TagInput({
   label,
@@ -29,7 +30,7 @@ export function TagInput({
     <div className="min-w-0">
       <p className="text-sm">{label}</p>
       <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-        <input
+        <Input
           aria-label={label}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
@@ -40,7 +41,7 @@ export function TagInput({
             }
           }}
           placeholder={placeholder}
-          className="min-h-10 min-w-0 flex-1 rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="w-auto min-w-0 flex-1 px-3"
         />
         <button
           onClick={addTag}

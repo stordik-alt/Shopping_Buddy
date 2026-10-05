@@ -9,6 +9,9 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: 'bg-primary text-primary-foreground [a]:hover:bg-primary/80',
+        // Turquoise fill with navy text (7.5:1); white on turquoise would fail contrast.
+        accent:
+          'bg-accent-solid text-accent-solid-foreground hover:bg-accent-solid-hover active:bg-accent-solid-pressed font-semibold',
         outline:
           'border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50',
         secondary:

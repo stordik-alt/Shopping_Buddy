@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { storeBranchesAction, storeChainTilesAction, storeProductNamesAction, type LocalityInput } from '@/app/actions/store-directory'
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Clock, Loader2, LocateFixed, MapPin, Navigation, Star, Tag, X } from 'lucide-react'
+import { Check, ChevronDown, Clock, Loader2, LocateFixed, MapPin, Navigation, Star, Store, Tag, X } from 'lucide-react'
+import { Pager } from '@/components/shared/pager'
 import { ChainLogo, chainShortName } from '@/components/stores/chain-logo'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Skeleton } from '@/components/ui/skeleton'
 import { activeDealCountLabel } from '@/lib/format'
 import type { GpsCoords } from '@/lib/geo'
 import { BRANCH_PAGE_SIZE, NEARBY_RADIUS_KM, pageCount } from '@/lib/stores/branch-search'
@@ -130,23 +134,22 @@ export function StoreDirectory({
   return (
     <div className="space-y-5">
       <div>
-        <p className="text-sm text-muted-foreground">Obchody ve vašem okolí · Česká republika</p>
-        <h2 className="mt-1 text-2xl font-semibold">Kde nakoupit</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Vyberte lokalitu a řetězce, porovnejte otevírací dobu a akce.</p>
+        <h2 className="text-2xl font-semibold tracking-tight">Kde nakoupit</h2>
+        <p className="mt-1 text-sm text-fg-secondary">Vyberte lokalitu a řetězce, porovnejte otevírací dobu a akce.</p>
       </div>
 
       <div className="flex flex-wrap gap-2">
         {usingGps ? (
-          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-primary focus-within:ring-2 focus-within:ring-ring">
-            <LocateFixed className="h-4 w-4 shrink-0" />
-            <span className="min-w-0 flex-1">Prodejny do {NEARBY_RADIUS_KM} km od vaší polohy</span>
-            <button onClick={onClearLocation} className="shrink-0 whitespace-nowrap text-xs font-medium underline hover:no-underline">
+          <div className="flex min-h-12 min-w-0 flex-1 items-center gap-2 rounded-2xl bg-accent-subtle px-4 py-1.5 text-sm text-accent-text">
+            <LocateFixed className="size-4 shrink-0" aria-hidden="true" />
+            <span className="min-w-0 flex-1 font-medium">Prodejny do {NEARBY_RADIUS_KM} km od vaší polohy</span>
+            <button type="button" onClick={onClearLocation} className="min-h-10 shrink-0 whitespace-nowrap rounded-lg px-2 text-sm font-medium underline hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               Zadat ručně
             </button>
           </div>
         ) : (
-          <label className="flex min-w-[12rem] flex-1 items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-            <MapPin className="h-4 w-4 shrink-0 text-primary" />
+          <label className="flex min-h-12 min-w-[12rem] flex-1 items-center gap-2 rounded-2xl border border-input bg-card px-4 text-base text-fg-muted focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/40">
+            <MapPin className="size-4 shrink-0 text-accent-text" aria-hidden="true" />
             <span className="sr-only">Lokalita</span>
             <input
               value={city}
@@ -159,18 +162,14 @@ export function StoreDirectory({
           </label>
         )}
         {!usingGps && (
-          <button
-            onClick={onRequestLocation}
-            disabled={locationState === 'loading'}
-            className="flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm font-medium hover:bg-muted disabled:opacity-60"
-          >
-            {locationState === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4 text-primary" />}
+          <Button variant="outline" size="lg" className="min-h-12 rounded-2xl" onClick={onRequestLocation} disabled={locationState === 'loading'}>
+            {locationState === 'loading' ? <Loader2 className="animate-spin" aria-hidden="true" /> : <LocateFixed className="text-accent-text" aria-hidden="true" />}
             Použít mou polohu
-          </button>
+          </Button>
         )}
       </div>
       {locationState === 'denied' && (
-        <p role="status" className="rounded-2xl bg-muted px-4 py-3 text-xs text-muted-foreground">
+        <p role="status" className="rounded-2xl bg-muted px-4 py-3 text-sm text-fg-secondary">
           Poloha nebyla povolena, obchody zobrazujeme podle zadané lokality. Vzdálenost se používá pouze pro hledání obchodů v okolí a její
           použití můžete kdykoliv odmítnout.
         </p>
@@ -179,30 +178,28 @@ export function StoreDirectory({
       <section aria-label="Řetězce">
         <p className="mb-2 text-sm font-medium">Řetězce{selectedChainIds.length > 0 && ` · vybráno ${selectedChainIds.length}`}</p>
         {tiles.status === 'error' && (
-          <div role="alert" className="rounded-2xl bg-muted px-4 py-3 text-sm">
-            Řetězce se nepodařilo načíst.{' '}
-            <button onClick={() => setTilesAttempt((n) => n + 1)} className="font-medium text-primary underline">
+          <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-destructive-subtle px-4 py-3 text-sm text-destructive">
+            Řetězce se nepodařilo načíst.
+            <Button variant="outline" onClick={() => setTilesAttempt((n) => n + 1)}>
               Zkusit znovu
-            </button>
+            </Button>
           </div>
         )}
         {tiles.status === 'loading' && tileList == null && (
-          <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Načítám řetězce…
-          </p>
+          <div role="status" aria-label="Načítám řetězce" className="grid grid-cols-3 gap-2">
+            <Skeleton className="aspect-square" />
+            <Skeleton className="aspect-square" />
+            <Skeleton className="aspect-square" />
+          </div>
         )}
         {locality == null && (
-          <div className="rounded-3xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-            Zadejte město nebo použijte svou polohu a ukážeme řetězce, které tam mají prodejnu.
-          </div>
+          <EmptyState icon={<MapPin />} title="Kde chcete nakupovat?" description="Zadejte město nebo použijte svou polohu a ukážeme řetězce, které tam mají prodejnu." />
         )}
         {locality != null && tileList != null && tileList.length === 0 && tiles.status !== 'loading' && (
-          <div className="rounded-3xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-            V této lokalitě nemáme žádné prodejny. Zkuste jiné město nebo použijte svou polohu.
-          </div>
+          <EmptyState icon={<Store />} title="Tady nemáme žádné prodejny" description="Zkuste jiné město nebo použijte svou polohu." />
         )}
         {locality != null && tileList != null && tileList.length > 0 && (
-          <ul className={`grid grid-cols-3 gap-2 ${tiles.status === 'loading' ? 'opacity-60' : ''}`} aria-busy={tiles.status === 'loading'}>
+          <ul className={`grid grid-cols-3 gap-2 min-[380px]:grid-cols-4 sm:grid-cols-6 ${tiles.status === 'loading' ? 'opacity-60' : ''}`} aria-busy={tiles.status === 'loading'}>
             {tileList.map((tile) => {
               const selected = selectedChainIds.includes(tile.storeId)
               return (
@@ -213,12 +210,16 @@ export function StoreDirectory({
                     onClick={() => toggleChain(tile.storeId)}
                     aria-pressed={selected}
                     aria-label={tile.chain}
-                    className={`relative flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-2xl border p-2 transition ${selected ? 'border-primary bg-primary/10 ring-1 ring-primary' : 'border-border bg-card hover:bg-muted/60'}`}
+                    className={`relative flex aspect-square w-full flex-col items-center justify-center gap-1.5 rounded-2xl border-2 p-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selected ? 'border-accent-solid bg-accent-subtle' : 'border-transparent bg-card shadow-[var(--shadow-card)] hover:bg-muted/60'}`}
                   >
-                    <ChainLogo chain={tile.chain} className="size-12" />
+                    <ChainLogo chain={tile.chain} className="size-10" />
                     <span className="w-full truncate text-center text-xs font-semibold">{chainShortName(tile.chain)}</span>
-                    {tile.isFavorite && <Star className="absolute right-1.5 top-1.5 h-3.5 w-3.5 fill-amber-400 text-amber-500" aria-label="Váš oblíbený řetězec" />}
-                    {selected && <Check className="absolute left-1.5 top-1.5 h-4 w-4 text-primary" aria-hidden="true" />}
+                    {tile.isFavorite && <Star className="absolute right-1.5 top-1.5 size-3.5 fill-current text-warning" aria-label="Váš oblíbený řetězec" />}
+                    {selected && (
+                      <span className="absolute left-1.5 top-1.5 flex size-5 items-center justify-center rounded-full bg-accent-solid text-accent-solid-foreground" aria-hidden="true">
+                        <Check className="size-3.5" strokeWidth={3} />
+                      </span>
+                    )}
                   </button>
                 </li>
               )
@@ -228,26 +229,25 @@ export function StoreDirectory({
       </section>
 
       {selectedChainIds.length === 0 && locality != null && tileList != null && tileList.length > 0 && (
-        <p className="rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground">Vyberte jeden nebo více řetězců a zobrazíme jejich prodejny.</p>
+        <p className="rounded-2xl bg-muted px-4 py-3 text-sm text-fg-secondary">Vyberte jeden nebo více řetězců a zobrazíme jejich prodejny.</p>
       )}
 
       {branches?.status === 'error' && (
-        <div role="alert" className="rounded-2xl bg-muted px-4 py-3 text-sm">
-          Prodejny se nepodařilo načíst.{' '}
-          <button onClick={() => setBranchesAttempt((n) => n + 1)} className="font-medium text-primary underline">
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-destructive-subtle px-4 py-3 text-sm text-destructive">
+          Prodejny se nepodařilo načíst.
+          <Button variant="outline" onClick={() => setBranchesAttempt((n) => n + 1)}>
             Zkusit znovu
-          </button>
+          </Button>
         </div>
       )}
       {branches?.status === 'loading' && branchPage == null && (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Načítám prodejny…
-        </p>
+        <div role="status" aria-label="Načítám prodejny" className="grid gap-3 sm:grid-cols-2">
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+        </div>
       )}
       {branchPage != null && branchPage.total === 0 && !branchesBusy && (
-        <div className="rounded-3xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          Vybrané řetězce tu nemají žádnou prodejnu. Zkuste jiné řetězce nebo lokalitu.
-        </div>
+        <EmptyState icon={<Store />} title="Vybrané řetězce tu nemají prodejnu" description="Zkuste jiné řetězce nebo lokalitu." />
       )}
       {branchPage != null && branchPage.total > 0 && (
         <section aria-label="Prodejny">
@@ -261,39 +261,39 @@ export function StoreDirectory({
                     onClick={() => setOpenBranchId(expanded ? null : branch.id)}
                     aria-expanded={expanded}
                     aria-controls={`store-detail-${branch.id}`}
-                    className="flex w-full items-center gap-3 p-4 text-left transition hover:bg-muted/60"
+                    className="flex w-full items-center gap-3 p-4 text-left transition hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                   >
                     <ChainLogo chain={branch.chain} />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-start gap-1 text-sm font-semibold">
                         <span className="min-w-0 break-words">{branch.name}</span>
-                        {branch.isFavorite && <Star className="mt-0.5 h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-500" aria-label="Vaše oblíbená prodejna" />}
+                        {branch.isFavorite && <Star className="mt-0.5 size-3.5 shrink-0 fill-current text-warning" aria-label="Vaše oblíbená prodejna" />}
                       </span>
-                      <span className="mt-0.5 block break-words text-xs text-muted-foreground">
+                      <span className="mt-0.5 block break-words text-xs text-fg-secondary">
                         {branch.distanceKm != null && <span className="font-medium text-foreground">{branch.distanceKm.toFixed(1)} km · </span>}
                         {branch.address}
                       </span>
-                      <span className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                      <span className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-fg-muted">
                         <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3 shrink-0" /> {branch.hours ?? 'Otevírací doba neznámá'}
+                          <Clock className="size-3.5 shrink-0" aria-hidden="true" /> {branch.hours ?? 'Otevírací doba neznámá'}
                         </span>
                         {deals > 0 && (
-                          <span className="flex items-center gap-1 font-medium text-primary">
-                            <Tag className="h-3 w-3 shrink-0" /> {activeDealCountLabel(deals)} v řetězci
+                          <span className="flex items-center gap-1 font-medium text-accent-text">
+                            <Tag className="size-3.5 shrink-0" aria-hidden="true" /> {activeDealCountLabel(deals)} v řetězci
                           </span>
                         )}
                       </span>
                     </span>
-                    <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition ${expanded ? 'rotate-180' : ''}`} aria-hidden="true" />
+                    <ChevronDown className={`size-4 shrink-0 text-fg-muted transition ${expanded ? 'rotate-180' : ''}`} aria-hidden="true" />
                   </button>
                   {/* The detail opens under the tapped row, not after the whole list, so a tap on a
                       phone visibly does something. */}
                   {expanded && (
-                    <div id={`store-detail-${branch.id}`} className="border-t border-border bg-primary/5 px-4 py-4">
+                    <div id={`store-detail-${branch.id}`} className="border-t border-border bg-accent-subtle/50 px-4 py-4">
                       <div className="flex items-start justify-between gap-3">
-                        <p className="text-xs font-medium uppercase tracking-wide text-primary">Detail prodejny</p>
-                        <button aria-label={`Zavřít detail obchodu ${branch.name}`} onClick={() => setOpenBranchId(null)} className="icon-button -m-2">
-                          <X className="h-4 w-4" />
+                        <p className="text-xs font-semibold uppercase tracking-wide text-accent-text">Detail prodejny</p>
+                        <button type="button" aria-label={`Zavřít detail obchodu ${branch.name}`} onClick={() => setOpenBranchId(null)} className="icon-button -m-2">
+                          <X className="size-4" aria-hidden="true" />
                         </button>
                       </div>
                       <StoreProducts storeLocationId={branch.id} />
@@ -303,17 +303,14 @@ export function StoreDirectory({
                             href={`https://www.google.com/maps/search/?api=1&query=${branch.gps.lat},${branch.gps.lng}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex min-h-10 items-center gap-2 rounded-full bg-primary px-4 text-xs font-medium text-primary-foreground"
+                            className={buttonVariants({ size: 'lg' })}
                           >
-                            <Navigation className="h-3.5 w-3.5" /> Navigovat
+                            <Navigation aria-hidden="true" /> Navigovat
                           </a>
                         )}
-                        <button
-                          onClick={() => onShowDeals(branch.chain)}
-                          className="inline-flex min-h-10 items-center gap-2 rounded-full border border-primary bg-card px-4 text-xs font-medium text-primary"
-                        >
-                          <Tag className="h-3.5 w-3.5" /> Zobrazit akce
-                        </button>
+                        <Button variant="outline" size="lg" onClick={() => onShowDeals(branch.chain)}>
+                          <Tag aria-hidden="true" /> Zobrazit akce
+                        </Button>
                       </div>
                     </div>
                   )}
@@ -322,27 +319,9 @@ export function StoreDirectory({
             })}
           </ul>
           {totalPages > 1 && (
-            <nav aria-label="Stránkování prodejen" className="mt-4 flex items-center justify-center gap-4">
-              <button
-                onClick={() => goToPage(page - 1)}
-                disabled={page <= 1 || branchesBusy}
-                aria-label="Předchozí stránka"
-                className="flex size-11 items-center justify-center rounded-full border border-border bg-card hover:bg-muted disabled:opacity-40"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-              <span className="min-w-14 text-center text-sm font-medium tabular-nums" aria-live="polite">
-                {page}/{totalPages}
-              </span>
-              <button
-                onClick={() => goToPage(page + 1)}
-                disabled={page >= totalPages || branchesBusy}
-                aria-label="Další stránka"
-                className="flex size-11 items-center justify-center rounded-full border border-border bg-card hover:bg-muted disabled:opacity-40"
-              >
-                <ChevronRight className="h-5 w-5" />
-              </button>
-            </nav>
+            <div className="mt-4">
+              <Pager page={page} totalPages={totalPages} busy={branchesBusy} onChange={goToPage} label="Stránkování prodejen" />
+            </div>
           )}
         </section>
       )}
@@ -350,7 +329,7 @@ export function StoreDirectory({
       {/* Branch locations, addresses and opening hours come from OpenStreetMap (lib/stores/osm.ts);
           its licence (ODbL) requires this attribution wherever the data is shown. Chain logos are
           trademarks of their owners (public/logos/README.md). */}
-      <p className="text-xs text-muted-foreground">
+      <p className="text-xs text-fg-muted">
         Prodejny, adresy a otevírací doby:{' '}
         <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="underline hover:no-underline">
           © přispěvatelé OpenStreetMap
@@ -383,16 +362,16 @@ function StoreProducts({ storeLocationId }: { storeLocationId: string }) {
 
   if (state.status === 'loading') {
     return (
-      <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> Načítám produkty…
+      <p role="status" className="mt-2 flex items-center gap-2 text-sm text-fg-muted">
+        <Loader2 className="size-4 animate-spin" aria-hidden="true" /> Načítám produkty…
       </p>
     )
   }
-  if (state.status === 'error') return <p className="mt-2 text-xs text-destructive">Produkty se nepodařilo načíst. Zkuste detail otevřít znovu.</p>
-  if (state.names.length === 0) return <p className="mt-2 text-xs text-muted-foreground">U této prodejny zatím neznáme žádné ceny.</p>
+  if (state.status === 'error') return <p role="alert" className="mt-2 text-sm text-destructive">Produkty se nepodařilo načíst. Zkuste detail otevřít znovu.</p>
+  if (state.names.length === 0) return <p className="mt-2 text-sm text-fg-muted">U této prodejny zatím neznáme žádné ceny.</p>
   return (
     <>
-      <p className="mt-2 text-xs text-muted-foreground">Produkty, u kterých tu známe cenu:</p>
+      <p className="mt-2 text-sm text-fg-secondary">Produkty, u kterých tu známe cenu:</p>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {state.names.map((product) => (
           <span key={product} className="rounded-full bg-card px-3 py-1.5 text-xs font-medium">

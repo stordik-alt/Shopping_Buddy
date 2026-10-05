@@ -52,11 +52,11 @@ export function PriceWatch({
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-semibold">Akce k vašim položkám</p>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-sm text-fg-secondary">
             {listDeals.length > 0 ? `${countLabel(listDeals.length, 'akce', 'akce', 'akcí')} na položky z vašeho seznamu` : 'Na vašem seznamu teď nic v akci není.'}
           </p>
         </div>
-        <Tag className="text-primary" />
+        <Tag className="size-5 shrink-0 text-accent-text" aria-hidden="true" />
       </div>
       {listDeals.length > 0 && (
         <div className="mt-5 grid gap-3 md:grid-cols-3">
@@ -74,7 +74,7 @@ export function PriceWatch({
       {listOffers.length > 0 && (
         <div className="mt-5">
           <p className="text-sm font-medium">Další nabídky obchodů</p>
-          <p className="mt-1 text-xs text-muted-foreground">U těchto produktů neznáme běžnou cenu, proto je neporovnáváme a neuvádíme slevu.</p>
+          <p className="mt-1 text-xs text-fg-muted">U těchto produktů neznáme běžnou cenu, proto je neporovnáváme a neuvádíme slevu.</p>
           <div className="mt-3 grid gap-3 md:grid-cols-3">
             {listOffers.map((offer) => (
               <OfferCard key={`${offer.productName}-${offer.store}`} offer={offer} />
@@ -83,11 +83,11 @@ export function PriceWatch({
         </div>
       )}
       <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <button onClick={onBrowseDeals} className="min-h-10 text-sm font-medium text-primary">
-          Procházet všechny akce <ArrowUpRight className="ml-1 inline h-4 w-4" />
+        <button type="button" onClick={onBrowseDeals} className="min-h-10 rounded-lg text-sm font-medium text-accent-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          Procházet všechny akce <ArrowUpRight className="ml-1 inline size-4" aria-hidden="true" />
         </button>
-        <button onClick={onStores} className="min-h-10 text-sm font-medium text-primary">
-          Porovnat všechny obchody <ArrowUpRight className="ml-1 inline h-4 w-4" />
+        <button type="button" onClick={onStores} className="min-h-10 rounded-lg text-sm font-medium text-accent-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          Porovnat všechny obchody <ArrowUpRight className="ml-1 inline size-4" aria-hidden="true" />
         </button>
       </div>
     </section>

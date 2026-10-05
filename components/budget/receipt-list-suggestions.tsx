@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Check, ListChecks } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import type { ReceiptListSuggestion } from '@/lib/db/receipt-list'
 import { money } from '@/lib/format'
 import { userFacingError } from '@/lib/errors'
@@ -47,27 +48,27 @@ export function ReceiptListSuggestions({
   return (
     <div className="surface p-5" role="region" aria-label="Odškrtnout nakoupené položky na seznamu">
       <div className="flex items-start gap-3">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground">
-          <ListChecks className="h-5 w-5" aria-hidden="true" />
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent-subtle text-accent-text">
+          <ListChecks className="size-5" aria-hidden="true" />
         </span>
         <div className="min-w-0">
           <p className="text-sm font-semibold">Odškrtnout na nákupním seznamu?</p>
-          <p className="text-xs text-muted-foreground">Tyto položky ze seznamu vypadají jako nakoupené. Doplníme jim cenu a množství z účtenky.</p>
+          <p className="text-sm text-fg-secondary">Tyto položky ze seznamu vypadají jako nakoupené. Doplníme jim cenu a množství z účtenky.</p>
         </div>
       </div>
       <ul className="mt-3 space-y-2">
         {suggestions.map((suggestion) => (
           <li key={suggestion.listItemId}>
-            <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border border-border px-3 py-2 text-sm">
+            <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border border-border px-3 py-2.5 text-sm hover:bg-muted/50 has-[:checked]:border-accent-solid has-[:checked]:bg-accent-subtle/50">
               <input
                 type="checkbox"
                 checked={selected.has(suggestion.listItemId)}
                 onChange={() => toggle(suggestion.listItemId)}
-                className="mt-1 h-4 w-4 shrink-0"
+                className="mt-0.5 size-5 shrink-0 accent-[var(--accent-solid)]"
               />
               <span className="min-w-0 flex-1">
                 <span className="block break-words font-medium">{suggestion.listItemName}</span>
-                <span className="block break-words text-xs text-muted-foreground">
+                <span className="block break-words text-xs text-fg-muted">
                   na účtence: {suggestion.receiptName} · {suggestion.quantity} {suggestion.unit} · {money(suggestion.price)} / {suggestion.unit}
                 </span>
               </span>
@@ -75,19 +76,18 @@ export function ReceiptListSuggestions({
           </li>
         ))}
       </ul>
-      {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
+      {error && (
+        <p role="alert" className="mt-2 text-sm text-destructive">
+          {error}
+        </p>
+      )}
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={confirm}
-          disabled={saving || selected.size === 0}
-          className="flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-60"
-        >
-          <Check className="h-4 w-4" aria-hidden="true" /> {saving ? 'Ukládám…' : `Odškrtnout (${selected.size})`}
-        </button>
-        <button type="button" onClick={onDismiss} disabled={saving} className="min-h-11 rounded-xl border border-border px-4 text-sm text-muted-foreground hover:bg-muted">
+        <Button size="lg" onClick={confirm} disabled={saving || selected.size === 0}>
+          <Check aria-hidden="true" /> {saving ? 'Ukládám…' : `Odškrtnout (${selected.size})`}
+        </Button>
+        <Button variant="outline" size="lg" onClick={onDismiss} disabled={saving}>
           Ponechat na seznamu
-        </button>
+        </Button>
       </div>
     </div>
   )

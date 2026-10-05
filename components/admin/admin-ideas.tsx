@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { setIdeaStatusAction } from '@/app/actions/ideas'
 import { IdeaForm } from '@/components/shared/idea-form'
 import { IdeaStatusBadge } from '@/components/shared/idea-status-badge'
+import { SegmentedControl } from '@/components/ui/segmented-control'
 import { userFacingError } from '@/lib/errors'
 import { IDEA_STATUS_LABEL, IDEA_STATUSES, ideaDayLabel, type AdminIdea, type IdeaStatus } from '@/lib/ideas'
 import { safeLocalStorage } from '@/lib/safe-storage'
@@ -64,18 +65,13 @@ export function AdminIdeas({ initialIdeas }: { initialIdeas: AdminIdea[] }) {
             <IdeaForm onSaved={(saved) => setIdeas((current) => [saved, ...current])} />
           </section>
 
-          <div className="mt-6 flex flex-wrap gap-2" role="group" aria-label="Filtr podle stavu">
-            {filters.map((entry) => (
-              <button
-                key={entry.value}
-                onClick={() => setFilter(entry.value)}
-                aria-pressed={filter === entry.value}
-                className={`min-h-9 rounded-full px-3 text-xs font-medium transition ${filter === entry.value ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground hover:bg-primary/10'}`}
-              >
-                {entry.label} ({entry.count})
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            className="mt-6"
+            label="Filtr podle stavu"
+            value={filter}
+            onChange={setFilter}
+            options={filters.map((entry) => ({ value: entry.value, label: `${entry.label} (${entry.count})` }))}
+          />
 
           {error && (
             <p role="alert" className="mt-3 text-sm text-destructive">

@@ -43,7 +43,7 @@ export function StoreComparison({
         {totals.map((entry, index) => (
           <div
             key={entry.store}
-            className={`flex items-center justify-between gap-3 rounded-2xl p-3 text-sm ${index === 0 ? 'bg-primary/10 text-primary' : 'bg-muted text-foreground'}`}
+            className={`flex items-center justify-between gap-3 rounded-2xl p-3 text-sm ${index === 0 ? 'bg-accent-subtle text-accent-text' : 'bg-muted text-foreground'}`}
           >
             <div className="min-w-0">
               <p className="flex items-center gap-1.5 font-medium">

@@ -19,23 +19,24 @@ export const CATEGORY_BAR_COLORS: Record<ExpenseCategory, string> = {
 
 /** This month's real spending per category, straight from the household's expenses (replaces the
  *  earlier decorative chart that showed made-up numbers). */
-export function SpendingBreakdown({ expenses, onDetails, periodTitle = 'Tento měsíc' }: { expenses: Expense[]; onDetails: () => void; periodTitle?: string }) {
+/** `embedded` drops the card surface, for use inside another card (the Domů "Výdaje" section). */
+export function SpendingBreakdown({ expenses, onDetails, periodTitle = 'Tento měsíc', embedded = false }: { expenses: Expense[]; onDetails: () => void; periodTitle?: string; embedded?: boolean }) {
   const breakdown = categoryBreakdown(expenses)
   const max = Math.max(...breakdown.map((entry) => entry.total), 1)
 
   return (
-    <section className="surface p-5 sm:p-6">
+    <section className={embedded ? '' : 'surface p-5 sm:p-6'}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold">Výdaje podle kategorií</p>
-          <p className="mt-1 text-xs text-muted-foreground">{periodTitle}</p>
+          <p className="mt-1 text-xs text-fg-muted">{periodTitle}</p>
         </div>
-        <button onClick={onDetails} className="min-h-10 shrink-0 rounded-lg px-2 text-xs font-medium text-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <button onClick={onDetails} type="button" className="min-h-10 shrink-0 rounded-lg px-2.5 text-sm font-medium text-accent-text hover:bg-accent-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           Podrobnosti
         </button>
       </div>
       {breakdown.length === 0 ? (
-        <p className="mt-5 rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground">Zatím nemáte žádné výdaje. Zapište první výdaj a uvidíte přehled.</p>
+        <p className="mt-5 rounded-2xl bg-muted px-4 py-3 text-sm text-fg-secondary">Zatím nemáte žádné výdaje. Zapište první výdaj a uvidíte přehled.</p>
       ) : (
         <ul className="mt-5 space-y-4">
           {breakdown.map(({ category, total }) => (

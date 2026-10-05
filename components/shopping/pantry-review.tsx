@@ -1,5 +1,6 @@
 import { Check, ClipboardCheck, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Button } from '@/components/ui/button'
 import { itemCountLabel } from '@/lib/format'
 import { needsCheck, pantryPlaceOptions, pantryReviewOrder, placeKeyOf, splitPantryReview } from '@/lib/pantry'
 import { estimateReason, type ConsumptionEstimate } from '@/lib/pantry-estimate'
@@ -101,11 +102,11 @@ export function PantryReview({
     <section ref={sectionRef} aria-label="Kontrola zásob" className="surface scroll-mt-20 overflow-clip">
       <div className="border-b border-border px-5 py-4">
         <div className="flex items-center gap-2">
-          <ClipboardCheck className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+          <ClipboardCheck className="size-4 shrink-0 text-accent-text" aria-hidden />
           <h2 className="text-sm font-semibold">Kontrola zásob</h2>
         </div>
-        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Klepněte jen na to, co už doma není. Všechno ostatní se po uložení potvrdí jako „Mám“.</p>
-        <div role="radiogroup" aria-label="Rozsah kontroly" className="mt-3 inline-flex rounded-full border border-border p-0.5 text-xs">
+        <p className="mt-1 text-sm leading-relaxed text-fg-secondary">Klepněte jen na to, co už doma není. Všechno ostatní se po uložení potvrdí jako „Mám“.</p>
+        <div role="radiogroup" aria-label="Rozsah kontroly" className="mt-3 inline-flex max-w-full flex-wrap rounded-full bg-muted p-1 text-sm">
           {(
             [
               ['uncertain', 'K ověření'],
@@ -119,7 +120,7 @@ export function PantryReview({
               role="radio"
               aria-checked={scope === value}
               onClick={() => setScope(value)}
-              className={cn('min-h-8 rounded-full px-3 font-medium transition', scope === value ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}
+              className={cn('min-h-10 rounded-full px-4 font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', scope === value ? 'bg-card text-foreground shadow-sm' : 'text-fg-secondary hover:text-foreground')}
             >
               {label}
             </button>
@@ -142,7 +143,7 @@ export function PantryReview({
                     aria-pressed={isGone}
                     aria-label={`${item.name}: ${isGone ? 'došlo' : 'mám'}`}
                     onClick={() => toggle(item.id)}
-                    className={cn('flex min-h-12 w-full items-center gap-3 px-5 py-2.5 text-left transition', isGone ? 'bg-destructive/5' : 'hover:bg-muted')}
+                    className={cn('flex min-h-12 w-full items-center gap-3 px-5 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring', isGone ? 'bg-destructive-subtle/60' : 'hover:bg-muted')}
                   >
                     <span className="min-w-0 flex-1">
                       <span className={cn('block break-words text-sm font-medium', isGone && 'text-muted-foreground line-through')}>{item.name}</span>
@@ -154,7 +155,7 @@ export function PantryReview({
                     <span
                       className={cn(
                         'flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold',
-                        isGone ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary',
+                        isGone ? 'bg-destructive-subtle text-destructive' : 'bg-success-subtle text-success',
                       )}
                     >
                       {isGone ? <X className="h-3.5 w-3.5" aria-hidden /> : <Check className="h-3.5 w-3.5" aria-hidden />}
@@ -171,34 +172,29 @@ export function PantryReview({
       {/* Stays in reach above the phone's bottom navigation while scrolling a long pantry. The section
           clips with overflow-clip, not overflow-hidden: a hidden overflow would make the section the
           sticky container and pin this bar over the last rows. */}
-      <div className="sticky bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-10 border-t border-border bg-popover/95 px-5 py-3 backdrop-blur lg:bottom-0">
+      <div className="sticky bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-10 border-t border-border bg-surface-elevated/95 px-5 py-3 backdrop-blur lg:bottom-0">
         {goneIds.length > 0 && (
-          <label className="mb-2 flex items-center gap-2 text-xs">
-            <input type="checkbox" checked={addToList} onChange={(event) => setAddToList(event.target.checked)} className="h-4 w-4 accent-[var(--primary)]" />
+          <label className="mb-2 flex min-h-10 items-center gap-2 text-sm">
+            <input type="checkbox" checked={addToList} onChange={(event) => setAddToList(event.target.checked)} className="size-5 accent-[var(--accent-solid)]" />
             Co došlo, přidat na nákupní seznam
           </label>
         )}
         {error && (
-          <p role="alert" className="mb-2 text-xs text-destructive">
+          <p role="alert" className="mb-2 text-sm text-destructive">
             {error}
           </p>
         )}
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs text-muted-foreground" aria-live="polite">
+          <p className="text-sm text-fg-muted" aria-live="polite">
             Došlo: {itemCountLabel(goneIds.length)} · Mám: {itemCountLabel(keptIds.length)}
           </p>
           <div className="flex gap-2">
-            <button type="button" onClick={() => onClose(null)} disabled={saving} className="min-h-10 rounded-xl px-3 text-sm font-medium text-muted-foreground hover:bg-muted disabled:opacity-60">
+            <Button variant="ghost" size="lg" onClick={() => onClose(null)} disabled={saving}>
               Zrušit
-            </button>
-            <button
-              type="button"
-              onClick={save}
-              disabled={saving || reviewed.length === 0}
-              className="min-h-10 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
-            >
+            </Button>
+            <Button size="lg" onClick={save} disabled={saving || reviewed.length === 0}>
               {saving ? 'Ukládám…' : 'Uložit kontrolu'}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

@@ -3,6 +3,10 @@ import { ChevronDown, Loader2, Pencil, PiggyBank, Plus, Repeat, ShoppingBag, Sta
 import { averageMonthlySpend, favoriteStores, mostBoughtProducts, repeatPurchases } from '@/lib/purchase-history'
 import { PurchaseItemSplitDialog } from '@/components/budget/purchase-item-split-dialog'
 import { Stat } from '@/components/shared/stat'
+import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Field, Input, Select } from '@/components/ui/field'
+import { Sheet } from '@/components/ui/sheet'
 import { userFacingError } from '@/lib/errors'
 import { subcategoriesOfItem } from '@/lib/product-subcategories'
 import { itemCountLabel, money, shortDate } from '@/lib/format'
@@ -120,11 +124,11 @@ export function PurchaseHistory({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold">Historie nákupů</p>
-          <p className="mt-1 text-sm text-muted-foreground">Dlouhodobé statistiky z uskutečněných nákupů domácnosti.</p>
+          <p className="mt-1 text-sm text-fg-secondary">Dlouhodobé statistiky z uskutečněných nákupů domácnosti.</p>
         </div>
-        <button onClick={() => { setManualError(''); setManualOpen(true) }} className="flex min-h-10 items-center gap-2 rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground">
-          <Plus className="h-4 w-4" aria-hidden="true" /> Zadat nákup ručně
-        </button>
+        <Button variant="secondary" size="lg" onClick={() => { setManualError(''); setManualOpen(true) }}>
+          <Plus aria-hidden="true" /> Zadat nákup ručně
+        </Button>
       </div>
       <div className="grid gap-4 sm:grid-cols-3">
         <Stat label="Běžná měsíční útrata" value={money(averageMonthlySpend(records))} icon={<TrendingUp />} />
@@ -146,22 +150,32 @@ export function PurchaseHistory({
         </div>
       )}
       {records.length === 0 && (
-        <div className="surface p-8 text-center">
-          <ShoppingBag className="mx-auto h-8 w-8 text-muted-foreground" aria-hidden="true" />
-          <p className="mt-3 font-semibold">Zatím tu není žádný nákup</p>
-          <p className="mt-1 text-sm text-muted-foreground">Nákupy se zapíšou, když dokončíte nákup ze seznamu nebo nahrajete účtenku.</p>
-          <div className="mt-4 flex flex-wrap justify-center gap-2">
-            {onUploadReceipt && <button onClick={onUploadReceipt} className="min-h-11 rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground">Nahrát účtenku</button>}
-            <button onClick={() => { setManualError(''); setManualOpen(true) }} className="min-h-11 rounded-2xl border border-border px-4 text-sm font-semibold">Zadat ručně</button>
-          </div>
-        </div>
+        <EmptyState
+          icon={<ShoppingBag />}
+          title="Zatím tu není žádný nákup"
+          description="Nákupy se zapíšou, když dokončíte nákup ze seznamu nebo nahrajete účtenku."
+          action={
+            <div className="flex flex-wrap justify-center gap-2">
+              {onUploadReceipt && (
+                <Button size="lg" onClick={onUploadReceipt}>
+                  Nahrát účtenku
+                </Button>
+              )}
+              <Button variant="outline" size="lg" onClick={() => { setManualError(''); setManualOpen(true) }}>
+                Zadat ručně
+              </Button>
+            </div>
+          }
+        />
       )}
       <div className={records.length === 0 ? 'hidden' : 'overflow-hidden surface'}>
         {shownRecords.map((record) => (
             <div key={record.id} className="border-b border-border last:border-0">
               <button
+                type="button"
+                aria-expanded={expandedId === record.id}
                 onClick={() => setExpandedId((current) => (current === record.id ? null : record.id))}
-                className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
+                className="flex min-h-14 w-full items-center justify-between gap-3 px-5 py-4 text-left hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
               >
                 <div className="min-w-0">
                   <p className="text-sm font-medium">
@@ -179,14 +193,10 @@ export function PurchaseHistory({
               {record.needsBudgetRecording && !recorded[record.id] && (
                 <div className="flex flex-wrap items-center justify-between gap-2 px-5 pb-4">
                   <p className="text-xs text-muted-foreground">Tento nákup zatím není v rozpočtu.</p>
-                  <button
-                    onClick={() => recordExpenses(record.id)}
-                    disabled={recording === record.id}
-                    className="flex min-h-9 items-center gap-1.5 rounded-full bg-primary/10 px-3 text-xs font-medium text-primary hover:bg-primary/15 disabled:opacity-60"
-                  >
-                    {recording === record.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <PiggyBank className="h-3.5 w-3.5" aria-hidden="true" />}
+                  <Button variant="secondary" onClick={() => recordExpenses(record.id)} disabled={recording === record.id}>
+                    {recording === record.id ? <Loader2 className="animate-spin" aria-hidden="true" /> : <PiggyBank aria-hidden="true" />}
                     Zařadit do výdajů
-                  </button>
+                  </Button>
                 </div>
               )}
               {recordError[record.id] && (
@@ -214,9 +224,9 @@ export function PurchaseHistory({
                             <button
                               onClick={() => setEditingItem({ ...item, expenseSplits: splits } as PurchaseItem & { id: string; category: NonNullable<PurchaseItem['category']> })}
                               aria-label={`Upravit kategorii výdaje pro ${item.name}`}
-                              className="icon-button size-7"
+                              className="icon-button"
                             >
-                              <Pencil className="h-3.5 w-3.5" />
+                              <Pencil className="size-4" aria-hidden="true" />
                             </button>
                           )}
                         </span>
@@ -230,71 +240,72 @@ export function PurchaseHistory({
       </div>
       {records.length > VISIBLE_PURCHASES && (
         <button
+          type="button"
           onClick={() => setShowAll((current) => !current)}
           aria-expanded={showAll}
-          className="flex min-h-10 items-center gap-1 rounded-full bg-muted px-4 text-sm font-medium transition hover:bg-primary/10"
+          className="flex min-h-11 items-center gap-1 rounded-full bg-muted px-4 text-sm font-medium transition hover:bg-accent-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {showAll ? 'Zobrazit méně' : `Zobrazit všechny nákupy (${records.length})`}
           <ChevronDown className={`h-4 w-4 transition ${showAll ? 'rotate-180' : ''}`} aria-hidden="true" />
         </button>
       )}
-      {manualOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="manual-purchase-title">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-background p-5 shadow-xl">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p id="manual-purchase-title" className="text-lg font-semibold">Zadat nákup ručně</p>
-                <p className="mt-1 text-sm text-muted-foreground">Po uložení se nákup započítá do rozpočtu a doplní zásoby.</p>
-              </div>
-              <button onClick={() => setManualOpen(false)} className="icon-button" aria-label="Zavřít">×</button>
-            </div>
-            <div className="mt-5 grid gap-3 sm:grid-cols-3">
-              <label className="text-sm font-medium">Datum
-                <input type="date" value={manualDate} onChange={(e) => setManualDate(e.target.value)} className="mt-1 min-h-10 w-full rounded-xl border border-border bg-background px-3" />
-              </label>
-              <label className="text-sm font-medium">Obchod
-                <select value={manualStore} onChange={(e) => setManualStore(e.target.value)} className="mt-1 min-h-10 w-full rounded-xl border border-border bg-background px-3">
-                  <option value="">Neurčený obchod</option>
-                  {(storeChains ?? []).filter((store) => !store.isOnline).map((store) => <option key={store.id} value={store.chain}>{store.chain}</option>)}
-                </select>
-              </label>
-              <label className="text-sm font-medium">Sleva celkem
-                <input type="number" min="0" step="0.01" value={manualDiscount} onChange={(e) => setManualDiscount(e.target.value)} placeholder="0" className="mt-1 min-h-10 w-full rounded-xl border border-border bg-background px-3" />
-              </label>
-            </div>
-            <div className="mt-5 space-y-2">
-              {manualItems.map((item, index) => (
-                <div key={index} className="grid gap-2 rounded-2xl border border-border p-3 sm:grid-cols-[1fr_90px_90px_110px_1.4fr_40px]">
-                  <input value={item.name} onChange={(e) => setManualItems((rows) => rows.map((row, i) => i === index ? { ...row, name: e.target.value } : row))} placeholder="Produkt" className="min-h-10 rounded-xl border border-border bg-background px-3 text-sm" />
-                  <input type="number" min="0.001" step="0.001" value={item.quantity} onChange={(e) => setManualItems((rows) => rows.map((row, i) => i === index ? { ...row, quantity: e.target.value } : row))} placeholder="Množství" className="min-h-10 rounded-xl border border-border bg-background px-3 text-sm" />
-                  <select value={item.unit} onChange={(e) => setManualItems((rows) => rows.map((row, i) => i === index ? { ...row, unit: e.target.value as ItemUnit } : row))} className="min-h-10 rounded-xl border border-border bg-background px-2 text-sm">
-                    {(['ks','kg','g','l','ml'] as ItemUnit[]).map((unit) => <option key={unit} value={unit}>{unit}</option>)}
-                  </select>
-                  <input type="number" min="0" step="0.01" value={item.price} onChange={(e) => setManualItems((rows) => rows.map((row, i) => i === index ? { ...row, price: e.target.value } : row))} placeholder="Cena/ks" className="min-h-10 rounded-xl border border-border bg-background px-3 text-sm" />
-                  <div className="grid min-w-0 gap-2 sm:grid-cols-2">
-                    <select aria-label={'Kategorie položky ' + (index + 1)} value={item.category} onChange={(e) => setManualItems((rows) => rows.map((row, i) => i === index ? { ...row, category: e.target.value as ItemCategory, subcategory: '' } : row))} className="min-h-10 rounded-xl border border-border bg-background px-2 text-sm">
-                      {(['Potraviny','Drogerie','Děti','Domácnost','Ostatní'] as ItemCategory[]).map((category) => <option key={category} value={category}>{category}</option>)}
-                    </select>
-                    <select aria-label={'Podkategorie položky ' + (index + 1)} value={item.subcategory} onChange={(e) => setManualItems((rows) => rows.map((row, i) => i === index ? { ...row, subcategory: e.target.value } : row))} className="min-h-10 rounded-xl border border-border bg-background px-2 text-sm">
-                      <option value="">Bez podkategorie</option>
-                      {subcategoriesOfItem(item.category).map((subcategory) => <option key={subcategory} value={subcategory}>{subcategory}</option>)}
-                    </select>
-                  </div>
-                  <button type="button" onClick={() => setManualItems((rows) => rows.filter((_, i) => i !== index))} disabled={manualItems.length === 1} className="icon-button size-9 disabled:opacity-40" aria-label="Odebrat položku"><Trash2 className="h-4 w-4" /></button>
-                </div>
-              ))}
-              <button type="button" onClick={() => setManualItems((rows) => [...rows, { name: '', quantity: '1', unit: 'ks', price: '', category: 'Potraviny', subcategory: '' }])} className="flex min-h-10 items-center gap-2 rounded-xl bg-muted px-3 text-sm font-medium">
-                <Plus className="h-4 w-4" /> Přidat položku
-              </button>
-            </div>
-            {manualError && <p role="alert" className="mt-3 text-sm text-destructive">{manualError}</p>}
-            <div className="mt-5 flex justify-end gap-2">
-              <button onClick={() => setManualOpen(false)} disabled={manualSaving} className="min-h-10 rounded-xl border border-border px-4 text-sm font-medium">Zrušit</button>
-              <button onClick={saveManualPurchase} disabled={manualSaving} className="min-h-10 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60">{manualSaving ? 'Ukládám…' : 'Uložit nákup'}</button>
-            </div>
-          </div>
+      <Sheet
+        open={manualOpen}
+        onClose={() => setManualOpen(false)}
+        title="Zadat nákup ručně"
+        description="Po uložení se nákup započítá do rozpočtu a doplní zásoby."
+        className="sm:max-w-2xl"
+        footer={
+          <>
+            {manualError && (
+              <p role="alert" className="text-sm text-destructive">
+                {manualError}
+              </p>
+            )}
+            <Button size="lg" className="w-full" onClick={saveManualPurchase} disabled={manualSaving}>
+              {manualSaving ? 'Ukládám…' : 'Uložit nákup'}
+            </Button>
+          </>
+        }
+      >
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Field label="Datum">{(p) => <Input {...p} type="date" value={manualDate} onChange={(e) => setManualDate(e.target.value)} className="px-3" />}</Field>
+          <Field label="Obchod">
+            {(p) => (
+              <Select {...p} value={manualStore} onChange={(e) => setManualStore(e.target.value)} className="px-3">
+                <option value="">Neurčený obchod</option>
+                {(storeChains ?? []).filter((store) => !store.isOnline).map((store) => <option key={store.id} value={store.chain}>{store.chain}</option>)}
+              </Select>
+            )}
+          </Field>
+          <Field label="Sleva celkem">{(p) => <Input {...p} type="number" min="0" step="0.01" value={manualDiscount} onChange={(e) => setManualDiscount(e.target.value)} placeholder="0" className="px-3" />}</Field>
         </div>
-      )}
+        <div className="mt-5 space-y-2">
+          {manualItems.map((item, index) => (
+            <div key={index} className="grid grid-cols-3 gap-2 rounded-2xl border border-border p-3 sm:grid-cols-[1fr_90px_90px_110px]">
+              <Input aria-label={`Produkt položky ${index + 1}`} value={item.name} onChange={(e) => setManualItems((rows) => rows.map((row, i) => i === index ? { ...row, name: e.target.value } : row))} placeholder="Produkt" className="col-span-3 px-3 sm:col-span-1" />
+              <Input aria-label={`Množství položky ${index + 1}`} type="number" min="0.001" step="0.001" value={item.quantity} onChange={(e) => setManualItems((rows) => rows.map((row, i) => i === index ? { ...row, quantity: e.target.value } : row))} placeholder="Množství" className="px-3" />
+              <Select aria-label={`Jednotka položky ${index + 1}`} value={item.unit} onChange={(e) => setManualItems((rows) => rows.map((row, i) => i === index ? { ...row, unit: e.target.value as ItemUnit } : row))} className="px-3">
+                {(['ks','kg','g','l','ml'] as ItemUnit[]).map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+              </Select>
+              <Input aria-label={`Cena za kus položky ${index + 1}`} type="number" min="0" step="0.01" value={item.price} onChange={(e) => setManualItems((rows) => rows.map((row, i) => i === index ? { ...row, price: e.target.value } : row))} placeholder="Kč/ks" className="px-3" />
+              <div className="col-span-3 grid min-w-0 grid-cols-1 gap-2 min-[380px]:grid-cols-2 sm:col-span-4 sm:grid-cols-[1fr_1fr_auto]">
+                <Select aria-label={'Kategorie položky ' + (index + 1)} value={item.category} onChange={(e) => setManualItems((rows) => rows.map((row, i) => i === index ? { ...row, category: e.target.value as ItemCategory, subcategory: '' } : row))} className="px-3">
+                  {(['Potraviny','Drogerie','Děti','Domácnost','Ostatní'] as ItemCategory[]).map((category) => <option key={category} value={category}>{category}</option>)}
+                </Select>
+                <Select aria-label={'Podkategorie položky ' + (index + 1)} value={item.subcategory} onChange={(e) => setManualItems((rows) => rows.map((row, i) => i === index ? { ...row, subcategory: e.target.value } : row))} className="px-3">
+                  <option value="">Bez podkategorie</option>
+                  {subcategoriesOfItem(item.category).map((subcategory) => <option key={subcategory} value={subcategory}>{subcategory}</option>)}
+                </Select>
+                <button type="button" onClick={() => setManualItems((rows) => rows.filter((_, i) => i !== index))} disabled={manualItems.length === 1} className="icon-button justify-self-end min-[380px]:col-span-2 disabled:opacity-40 sm:col-span-1" aria-label={`Odebrat položku ${index + 1}`}><Trash2 className="size-4" aria-hidden="true" /></button>
+              </div>
+            </div>
+          ))}
+          <Button variant="secondary" size="lg" onClick={() => setManualItems((rows) => [...rows, { name: '', quantity: '1', unit: 'ks', price: '', category: 'Potraviny', subcategory: '' }])}>
+            <Plus aria-hidden="true" /> Přidat položku
+          </Button>
+        </div>
+      </Sheet>
 
       {editingItem && (
         <PurchaseItemSplitDialog

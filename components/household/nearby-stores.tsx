@@ -5,6 +5,7 @@ import { storeCountLabel } from '@/lib/format'
 import { MAX_DISTANCE_KM, MAX_SHOP_STORES, normalizeDistanceKm, parseDistanceInput, visibleBranches, type StoreSelection } from '@/lib/nearby-stores'
 import type { Store } from '@/lib/types'
 import { userFacingError } from '@/lib/errors'
+import { Input, Select } from '@/components/ui/field'
 
 const QUICK_DISTANCES_KM = [0.5, 1, 2, 5, 10]
 
@@ -136,7 +137,7 @@ export function NearbyStores({
                   aria-pressed={selected}
                   onClick={() => toggleChain(id)}
                   className={`flex min-h-11 items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                    selected ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-foreground hover:bg-muted'
+                    selected ? 'border-accent-solid bg-accent-subtle font-medium text-accent-text' : 'border-border bg-background text-foreground hover:bg-muted'
                   }`}
                 >
                   {selected && <Check className="h-4 w-4" />}
@@ -252,7 +253,7 @@ export function NearbyStores({
                     aria-label={`Prioritní: ${chain}`}
                     onClick={() => togglePriority(id)}
                     className={`flex min-h-11 items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                      priority ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-foreground hover:bg-muted'
+                      priority ? 'border-accent-solid bg-accent-subtle font-medium text-accent-text' : 'border-border bg-background text-foreground hover:bg-muted'
                     }`}
                   >
                     <Star className={`h-4 w-4 ${priority ? 'fill-current' : ''}`} aria-hidden="true" />
@@ -267,14 +268,14 @@ export function NearbyStores({
       <div className="mt-5">
         <label htmlFor="nearby-max-stores" className="text-sm font-medium">Kolik obchodů maximálně navštívím při jednom nákupu</label>
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <select
+          <Select
             id="nearby-max-stores"
             value={maxStoresText}
             onChange={(event) => {
               touch()
               setMaxStoresText(event.target.value)
             }}
-            className="min-h-11 rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            className="px-3"
           >
             <option value="">Nezadáno</option>
             {Array.from({ length: MAX_SHOP_STORES }, (_, index) => index + 1).map((count) => (
@@ -282,7 +283,7 @@ export function NearbyStores({
                 {count}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           Plán nákupu nikdy nerozdělí nákup do víc obchodů, než tady zvolíte.
@@ -292,7 +293,7 @@ export function NearbyStores({
       <div className="mt-5">
         <label htmlFor="nearby-distance" className="text-sm font-medium">Kolik km jsem ochoten dojít nebo dojet kvůli nákupu</label>
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <input
+          <Input
             id="nearby-distance"
             inputMode="decimal"
             value={distanceText}
@@ -302,7 +303,7 @@ export function NearbyStores({
             }}
             placeholder="Např. 2"
             aria-invalid={distanceInvalid || Number.isNaN(distance)}
-            className="min-h-11 w-28 rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            className="px-3 w-28"
           />
           <span className="text-sm text-muted-foreground">km</span>
           {QUICK_DISTANCES_KM.map((km) => (
@@ -329,7 +330,7 @@ export function NearbyStores({
           type="button"
           onClick={save}
           disabled={!dirty || status === 'saving'}
-          className="flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+          className="flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
         >
           {status === 'saving' && <Loader2 className="h-4 w-4 animate-spin" />}
           Uložit obchody

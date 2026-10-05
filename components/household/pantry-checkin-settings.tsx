@@ -5,6 +5,7 @@ import { CHECKIN_DAYS_BY_CATEGORY, CHECKIN_DAYS_BY_SUBCATEGORY, checkinSubcatego
 import { subcategoriesOfItem } from '@/lib/product-subcategories'
 import { userFacingError } from '@/lib/errors'
 import type { ItemCategory } from '@/lib/types'
+import { Input } from '@/components/ui/field'
 
 const CATEGORIES = Object.keys(CHECKIN_DAYS_BY_CATEGORY) as ItemCategory[]
 
@@ -92,7 +93,7 @@ export function PantryCheckinSettings({
           {row.overrideDays != null && <span className="ml-1.5 text-xs text-muted-foreground">(vlastní)</span>}
         </span>
         <label className="flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground">
-          <input
+          <Input
             aria-label={row.ariaLabel}
             type="number"
             min={1}
@@ -102,7 +103,7 @@ export function PantryCheckinSettings({
             onChange={(event) => setDrafts((current) => ({ ...current, [row.key]: event.target.value }))}
             onBlur={(event) => commit(row, event.target.value)}
             onKeyDown={(event) => event.key === 'Enter' && commit(row, event.currentTarget.value)}
-            className="w-16 rounded-lg border border-input bg-background px-2 py-1 text-center text-sm outline-none disabled:opacity-60"
+            className="w-20 px-2 text-center"
           />
           dní
         </label>

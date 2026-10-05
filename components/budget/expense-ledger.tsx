@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Gauge, Loader2, Pencil, Plus, Receipt } from 'lucide-react'
 import { CATEGORY_BAR_COLORS } from '@/components/dashboard/spending-breakdown'
 import { PurchaseItemSplitDialog } from '@/components/budget/purchase-item-split-dialog'
+import { Button } from '@/components/ui/button'
+import { SegmentedControl } from '@/components/ui/segmented-control'
 import { categoryRows, expensePeriod, expensePeriods, periodEnd, periodSummary } from '@/lib/budget'
 import { money, periodLabel, recordCountLabel, shortDate } from '@/lib/format'
 import type { PurchaseExpenseItem } from '@/lib/db/purchase-items'
@@ -59,15 +61,15 @@ export function ExpenseLedger({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold">Výdaje</p>
-          <p className="mt-1 text-sm text-muted-foreground">Kdy a za co domácnost platila.</p>
+          <p className="mt-1 text-sm text-fg-secondary">Kdy a za co domácnost platila.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button onClick={onLimits} className="flex min-h-10 items-center gap-1.5 rounded-xl bg-muted px-3 text-sm font-medium hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <Gauge className="h-4 w-4" aria-hidden="true" /> Limity
-          </button>
-          <button onClick={onAdd} className="flex min-h-10 items-center gap-1.5 rounded-xl bg-primary/10 px-3 text-sm font-medium text-primary hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <Plus className="h-4 w-4" aria-hidden="true" /> Přidat
-          </button>
+          <Button variant="outline" onClick={onLimits}>
+            <Gauge aria-hidden="true" /> Limity
+          </Button>
+          <Button variant="secondary" onClick={onAdd}>
+            <Plus aria-hidden="true" /> Přidat
+          </Button>
         </div>
       </div>
 
@@ -80,7 +82,7 @@ export function ExpenseLedger({
           value={month}
           onChange={(event) => go(event.target.value)}
           aria-label="Období"
-          className="min-h-10 min-w-0 flex-1 rounded-xl border border-input bg-background px-3 text-center text-sm font-medium capitalize"
+          className="min-h-11 min-w-0 flex-1 rounded-xl border border-input bg-background px-3 text-center text-sm font-medium capitalize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {months.map((option) => (
             <option key={option} value={option}>
@@ -95,36 +97,28 @@ export function ExpenseLedger({
 
       <div className="mt-4 flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-2xl font-semibold tracking-tight">{money(summary.total)}</p>
-        <p className="text-xs text-muted-foreground">{recordCountLabel(byDate.length)}</p>
+        <p className="text-sm text-fg-muted">{recordCountLabel(byDate.length)}</p>
       </div>
 
       {rows.length === 0 ? (
         <div className="mt-5 rounded-2xl bg-muted px-4 py-6 text-center text-sm text-muted-foreground">
           <p>V tomto {periodStartDay === 1 ? 'měsíci' : 'období'} zatím žádné výdaje.</p>
-          <button onClick={onAdd} className="mt-3 min-h-10 rounded-xl px-3 font-medium text-primary hover:bg-primary/10">
+          <button type="button" onClick={onAdd} className="mt-3 min-h-10 rounded-xl px-3 font-medium text-accent-text hover:bg-accent-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             Zapsat první výdaj
           </button>
         </div>
       ) : (
         <>
-          <div role="tablist" aria-label="Zobrazení" className="mt-4 grid grid-cols-2 gap-1 rounded-xl bg-muted p-1 text-sm">
-            {(
-              [
-                ['categories', 'Podle kategorií'],
-                ['dates', 'Podle data'],
-              ] as const
-            ).map(([key, label]) => (
-              <button
-                key={key}
-                role="tab"
-                aria-selected={view === key}
-                onClick={() => setView(key)}
-                className={`min-h-10 rounded-lg px-2 font-medium ${view === key ? 'bg-background shadow-sm' : 'text-muted-foreground'}`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            className="mt-4"
+            label="Zobrazení výdajů"
+            value={view}
+            onChange={setView}
+            options={[
+              { value: 'categories', label: 'Podle kategorií' },
+              { value: 'dates', label: 'Podle data' },
+            ]}
+          />
 
           {view === 'categories' ? (
             <div className="mt-4 space-y-2">
@@ -248,7 +242,7 @@ function PaymentList({
                   className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-xl px-2 py-2.5 text-left hover:bg-background/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <span className="flex min-w-0 items-center gap-3">
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-background text-primary">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-background text-accent-text">
                       <Receipt className="h-4 w-4" aria-hidden="true" />
                     </span>
                     <span className="min-w-0">
@@ -257,7 +251,7 @@ function PaymentList({
                         <span>{shortDate(expense.date)}</span>
                         {showCategory && <span className="break-words">{expense.category}</span>}
                         {expense.subcategory && <span className="break-words">{expense.subcategory}</span>}
-                        {expense.purchaseId && <span className="font-medium text-primary">z účtenky</span>}
+                        {expense.purchaseId && <span className="font-medium text-accent-text">z účtenky</span>}
                       </span>
                     </span>
                   </span>

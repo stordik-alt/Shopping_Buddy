@@ -1,1 +1,52 @@
-# ANITKA Icon System\n\n## Source of truth\n\nThe visual reference is the Figma file ANITKA — Icon System.\n\nThe implementation uses lucide-react and keeps semantic meaning consistent across the application.\n\n## Primary navigation\n\n| Area | Icon |\n| --- | --- |\n| Domů | House |\n| Nákup | ShoppingCart |\n| Zásoby | Package |\n| Rozpočet | WalletCards |\n| Obchody | Store |\n| Akce | Tag |\n| AI | Bot |\n| Profil | Users |\n\n## Zásoby\n\nFixed locations already use the intended icons: Spíž—Wheat, Lednice—Refrigerator, Mrazák—Snowflake, Domácnost—House, Lékárnička—BriefcaseMedical, Drogérka—SprayCan.\n\n## Key rules\n\n- 16 px: inline/status\n- 20 px: buttons and compact controls\n- 24 px: primary navigation/main feature icons\n- 32 px: cards/empty states\n- Regular stroke: approximately 1.75 px\n- Navigation: approximately 2 px\n- Sparkles is reserved for genuine AI/automatic functionality.\n- History is used for historical price context, including the 30-day low-price indicator.\n- Active navigation keeps the existing primary-color pill so state is not communicated by colour alone.\n\n## Implementation\n\nThis change aligns the primary navigation and the 30-day price-history indicator while preserving existing interaction behaviour. Pantry location icons were already aligned and are intentionally unchanged.\n
+# ANITKA Icon System
+
+## Source of truth
+
+The visual reference is the Figma file ANITKA — Icon System. The implementation uses `lucide-react` and keeps one
+meaning per icon across the application. The navigation icons are defined once, in `tabIcons`
+(`components/shared/nav-item.tsx`). The app icon (`public/brand/`) is not part of this system and does not change.
+
+## Primary navigation
+
+| Area | Icon |
+| --- | --- |
+| Domů | House |
+| Akce | Tag |
+| Nákup | ShoppingCart |
+| Zásoby | Package |
+| Obchody | Store |
+| Recepty | CookingPot |
+| Rozpočet | WalletCards |
+| AI | Bot |
+| Profil | Users |
+
+## Zásoby
+
+Fixed locations: Spíž — Wheat, Lednice — Refrigerator, Mrazák — Snowflake, Domácnost — House, Lékárnička —
+BriefcaseMedical, Drogérka — SprayCan. A household's own place uses one icon per area (`AREA_ICON` in
+`components/shopping/pantry.tsx`).
+
+## Sizes
+
+- 16 px (`size-4`): inline and status icons, icons in badges (`size-3.5`).
+- 20 px (`size-5`): buttons, compact controls and navigation.
+- 24 px: main feature icons.
+- 32 px (`size-8`): empty states (`EmptyState`).
+
+Stroke is lucide's default (about 2 px at 24 px).
+
+## Colour and state (UI redesign, docs/13_UI_REDESIGN.md)
+
+- Icons in text are `text-fg-muted` or `text-fg-secondary`; an icon that marks a section or the active area is
+  `text-accent-text` (turquoise-family text that passes contrast in light and dark mode).
+- Active navigation is a tinted row (`bg-accent-subtle`), a bold label and a turquoise bar on the left in the sidebar,
+  and a tinted pill behind the icon in the phone's bottom bar — never colour alone.
+- State icons follow the state tokens: `text-success` (done, "Uvařeno", saving), `text-warning` (probably ran out,
+  favourites), `text-destructive` (errors). The status of a receipt is always also said in words (`Badge`).
+- Decorative icons are `aria-hidden`; an icon that carries meaning on its own has an `aria-label`.
+
+## Meaning
+
+- Sparkles is reserved for genuine AI or automatic functionality.
+- History is used for historical price context, including the 30-day low-price indicator.
+- CookingPot marks recipes and the meal plan (also "Dnes vaříme" on Domů and a recipe card without a picture).

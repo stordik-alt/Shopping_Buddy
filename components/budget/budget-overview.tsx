@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { AlertTriangle, CalendarClock, Plus, TrendingDown, TrendingUp } from 'lucide-react'
 import { BudgetHero } from '@/components/budget/budget-hero'
 import { Stat } from '@/components/shared/stat'
+import { Button } from '@/components/ui/button'
 import { dailyAverage, periodOverPeriodChange, plannedSpend, projectedPeriodEnd, weeklyAverage } from '@/lib/budget'
 import { money, thisPeriodTitle, wholeMoney } from '@/lib/format'
 import type { Expense, Item } from '@/lib/types'
@@ -45,12 +46,12 @@ export function BudgetOverview({
     <div className="space-y-5 lg:space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm text-muted-foreground">{thisPeriodTitle(today, periodStartDay)}</p>
+          <p className="text-sm text-fg-muted">{thisPeriodTitle(today, periodStartDay)}</p>
           <h2 className="mt-0.5 text-2xl font-semibold tracking-tight">Rozpočet domácnosti</h2>
         </div>
-        <button onClick={onExpense} className="flex min-h-11 items-center gap-1.5 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <Plus className="h-4 w-4" aria-hidden="true" /> Přidat výdaj
-        </button>
+        <Button size="lg" onClick={onExpense}>
+          <Plus aria-hidden="true" /> Přidat výdaj
+        </Button>
       </div>
       {primaryAction}
       <BudgetHero today={today} periodStartDay={periodStartDay} budget={budget} spent={spent} remaining={remaining} onSetBudget={onEditBudget} />
@@ -70,12 +71,12 @@ export function BudgetOverview({
           (components/budget/expense-ledger.tsx). */}
       <div className="grid gap-4 sm:grid-cols-2 lg:gap-6">
         {comparison && (
-        <div className="rounded-3xl bg-accent p-5 text-accent-foreground sm:p-6">
-          {comparison.changePercent <= 0 ? <TrendingDown className="h-5 w-5" aria-hidden="true" /> : <TrendingUp className="h-5 w-5" aria-hidden="true" />}
-          <p className="mt-4 text-xl font-semibold leading-snug">
+        <div className="rounded-2xl bg-accent-subtle p-5 sm:p-6">
+          {comparison.changePercent <= 0 ? <TrendingDown className="size-5 text-accent-text" aria-hidden="true" /> : <TrendingUp className="size-5 text-accent-text" aria-hidden="true" />}
+          <p className="mt-4 text-lg font-semibold leading-snug">
             {comparison.changePercent <= 0 ? 'Utrácíte méně' : 'Utrácíte více'} než {calendar ? 'minulý měsíc' : 'v minulém období'}.
           </p>
-          <p className="mt-2 text-sm opacity-80">
+          <p className="mt-2 text-sm text-fg-secondary">
             Od začátku {periodNoun} {money(comparison.current)} oproti {money(comparison.previous)} za stejné dny {calendar ? 'minulého měsíce' : 'minulého období'} (
             {comparison.changePercent > 0 ? '+' : ''}
             {comparison.changePercent.toFixed(0)} %).
@@ -85,11 +86,11 @@ export function BudgetOverview({
         <div className="surface p-5">
           <p className="text-sm font-semibold">Plánované vs. skutečné výdaje</p>
           <div className="mt-4 flex items-baseline justify-between gap-3 text-sm">
-            <span className="text-muted-foreground">Plánováno (nedokončený nákup)</span>
+            <span className="text-fg-secondary">Plánováno (nedokončený nákup)</span>
             <span className="shrink-0 font-medium">{money(planned)}</span>
           </div>
           <div className="mt-2 flex items-baseline justify-between gap-3 text-sm">
-            <span className="text-muted-foreground">Skutečné výdaje</span>
+            <span className="text-fg-secondary">Skutečné výdaje</span>
             <span className="shrink-0 font-medium">{money(spent)}</span>
           </div>
         </div>

@@ -1,6 +1,6 @@
 # 13 — UI/UX Redesign (ANITKA design system)
 
-Status: **Phase 1 (audit) done; plan steps 1–6 (tokens, primitives, shell, Domů, all cards, detail screens and deep links) implemented on the local branch `ui-redesign`; step 7 (cleanup, docs) done; step 8 (final verification, one deployment) remains.** All redesign work stays on a local
+Status: **Phase 1 (audit) done; plan steps 1–6 (tokens, primitives, shell, Domů, all cards, detail screens and deep links) implemented on the local branch `ui-redesign`; steps 7 (cleanup, docs) and 8 (final verification) done; the single deployment (pull request to `main`) waits for the owner.** All redesign work stays on a local
 branch and is deployed once, as a whole, after it is complete and tested (owner brief, section 16). The Picsart images
 are inspiration, not a layout specification; the current application is the source of truth for functionality.
 
@@ -261,6 +261,18 @@ Sections with nothing to say collapse or disappear (as `TodayAttention` already 
 8. **Final verification as one integrated whole**: lint, typecheck, unit tests (pure ones; DB tests only via local
    PostgreSQL, never Neon), `pnpm build`, Playwright run through every tab and every dashboard link, light/dark, 320–1280 px,
    contrast re-check of every token pair. Only then one deployment.
+   *Done (local, 2026-10-05) — final verification of the whole:* `tsc --noEmit`; the full test suite on the local
+   PostgreSQL (`.env.localdb`, 142 files / 2,200 tests incl. database tests — none on Neon); `next build` (the
+   migration step skips outside a Vercel production build); a production server (`next start`) checked in Playwright
+   for all 12 views × 320 / 390 / 768 / 1280 px × light / dark (96 combinations: no horizontal overflow, no text under
+   12 px, no page errors — the only console message is Vercel Analytics' script, which exists only on Vercel); all 12
+   entry points on Domů land on their place; 56 colour pairs pass (text ≥ 4.5:1, lowest 4.65; focus ring ≥ 3:1);
+   `e2e/smoke.spec.ts` passes against the isolated local test database. Two things found and fixed: the light-mode
+   focus ring was brand turquoise at 2.2:1 on light surfaces (now `#0a8aa3`, 3.5–4:1; dark keeps `#03bcdb`), and the
+   smoke test's `getByText('Rodinný nákup')` matched two elements (brand and phone header — both already on `main`).
+   Accepted: the turquoise progress fill is 2:1 on its grey track, but every bar is accompanied by its value in text
+   ("62 %", "2 z 6 hotovo"), so the bar alone carries no information. Lint could not run: the project has no lint
+   script and ESLint is not installed.
 
 ## 8. Out of scope / observations (documented only)
 - `app-shell.tsx` mixes state orchestration with layout; splitting it is a refactor, not part of this redesign.

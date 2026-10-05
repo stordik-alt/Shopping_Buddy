@@ -100,7 +100,9 @@
   --warning: oklch(0.48 0.11 65);
   --border: oklch(0.92 0.006 85);
   --input: oklch(0.89 0.008 85);
-  --ring: #03bcdb; /* Turquoise */
+  /* A deeper turquoise for the focus ring in light mode: brand turquoise (#03bcdb) is only 2.2:1 on the light
+     surfaces, below the 3:1 a focus indicator needs; #0a8aa3 is 3.5-4:1. Dark mode keeps #03bcdb (7.8:1). */
+  --ring: #0a8aa3;
 
   /* ANITKA design system tokens (docs/13_UI_REDESIGN.md). The shadcn names above keep working; these
      add the layers and states the redesign needs. Turquoise is a FILL with Navy text (7.5:1) — white
@@ -147,7 +149,7 @@
   --sidebar-accent: #e3f8fb;
   --sidebar-accent-foreground: #045a68;
   --sidebar-border: oklch(0.92 0.006 85);
-  --sidebar-ring: #03bcdb;
+  --sidebar-ring: #0a8aa3;
 }
 
 .dark {

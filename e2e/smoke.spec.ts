@@ -58,19 +58,20 @@ test.describe('critical smoke flow', () => {
       await page.getByRole('button', { name: 'Založit účet' }).click()
 
       await expect(page).toHaveURL(/\/$/)
-      await expect(page.getByText('Rodinný nákup')).toBeVisible()
+      // The same words are in the brand (sidebar) and in the phone header, so take the first visible one.
+      await expect(page.getByText('Rodinný nákup').first()).toBeVisible()
 
       await page.goto('/?tab=nakup')
-      await expect(page.getByText('Nákupní seznam', { exact: true })).toBeVisible()
+      await expect(page.getByText('Nákupní seznam', { exact: true }).first()).toBeVisible()
 
       await page.goto('/?tab=zasoby')
-      await expect(page.getByText('Zásoby', { exact: true })).toBeVisible()
+      await expect(page.getByText('Zásoby', { exact: true }).first()).toBeVisible()
 
       await page.goto('/?tab=rozpocet')
-      await expect(page.getByText('Aktuální stav', { exact: true })).toBeVisible()
+      await expect(page.getByText('Aktuální stav', { exact: true }).first()).toBeVisible()
 
       await page.goto('/?tab=recepty')
-      await expect(page.getByText('Recepty', { exact: true })).toBeVisible()
+      await expect(page.getByText('Recepty', { exact: true }).first()).toBeVisible()
     } finally {
       await cleanupTestAccount(email)
     }

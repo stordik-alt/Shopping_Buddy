@@ -19,13 +19,13 @@ export function CollapsibleSection({
   const panelId = useId()
 
   return (
-    <section className="surface">
+    <section className="surface min-w-0 w-full">
       <button
         type="button"
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((current) => !current)}
-        className="flex min-h-16 w-full items-center gap-3 rounded-[inherit] p-5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex min-h-16 min-w-0 w-full items-center gap-3 rounded-[inherit] p-5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {icon && <span className="shrink-0 text-accent-text" aria-hidden="true">{icon}</span>}
         <span className="min-w-0 flex-1">
@@ -35,7 +35,7 @@ export function CollapsibleSection({
         <ChevronDown className={`size-5 shrink-0 text-fg-muted transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
       </button>
       {/* Kept mounted (only hidden) so unsaved drafts in forms survive closing the section. */}
-      <div id={panelId} hidden={!open} className="px-5 pb-5">
+      <div id={panelId} hidden={!open} className="min-w-0 px-5 pb-5">
         {children}
       </div>
     </section>

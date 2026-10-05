@@ -130,9 +130,9 @@ export async function addShoppingItemAction(
         title: 'Skvělá cena na vašem seznamu',
         detail: `${name} je nyní v akci v ${bestDeal.price.store} za ${money(effectivePrice(bestDeal.price))} — nejlepší cena mezi obchody.`,
       },
-      { tab: 'Nákup', excludeUserId: userId },
+      { kind: 'deal_on_list', tab: 'Nákup', excludeUserId: userId },
     )
-    notification = { id: notificationRow.id, title: notificationRow.title, detail: notificationRow.detail, unread: notificationRow.unread }
+    notification = { id: notificationRow.id, title: notificationRow.title, detail: notificationRow.detail, unread: notificationRow.unread, kind: notificationRow.kind }
   }
 
   return {

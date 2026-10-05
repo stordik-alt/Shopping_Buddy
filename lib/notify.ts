@@ -2,6 +2,7 @@ import { after } from 'next/server'
 import type { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { pushConfigured, pushToHousehold } from '@/lib/push/deliver'
+import type { NotificationKind } from '@/lib/notification-kinds'
 import { tabHref } from '@/lib/tab-url'
 import type { Tab } from '@/lib/types'
 
@@ -17,21 +18,24 @@ export async function createHouseholdNotification(
   householdId: string,
   content: { title: string; detail: string },
   options: {
+    /** Which kind of message it is: a member who switched the kind off gets neither the push nor the row
+     *  in their bell panel (docs/14_NOTIFICATION_PREFERENCES.md). */
+    kind: NotificationKind
     /** The section a tap on the phone notification opens. */
     tab?: Tab
     /** A more specific address than the section (e.g. the pantry check); wins over `tab`. */
     href?: string
     /** The member who caused it is looking at the app already; their devices are skipped. */
     excludeUserId?: string
-  } = {},
+  },
 ) {
-  const [row] = await db.insert(schema.notifications).values({ householdId, title: content.title, detail: content.detail }).returning()
+  const [row] = await db.insert(schema.notifications).values({ householdId, title: content.title, detail: content.detail, kind: options.kind }).returning()
 
   if (pushConfigured()) {
     const message = { title: content.title, body: content.detail, url: options.href ?? tabHref(options.tab ?? 'Domů'), tag: row.id }
     after(async () => {
       try {
-        await pushToHousehold(householdId, message, { excludeUserId: options.excludeUserId })
+        await pushToHousehold(householdId, message, { excludeUserId: options.excludeUserId, kind: options.kind })
       } catch (error) {
         // Push is a copy of a notification that is already stored; log why it failed and move on.
         console.error(JSON.stringify({ event: 'push_delivery_error', householdId, notificationId: row.id, error: error instanceof Error ? error.message : String(error) }))

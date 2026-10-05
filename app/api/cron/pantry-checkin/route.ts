@@ -85,7 +85,7 @@ export async function GET(request: Request) {
   for (const [householdId, items] of pantryByHousehold) {
     const selected = selectForWeeklyCheck(items, purchasesByHousehold.get(householdId) ?? [], today, now, checkinOverridesByHousehold.get(householdId) ?? {}, subcategoryOverridesByHousehold.get(householdId) ?? {})
     if (selected.length === 0) continue
-    await createHouseholdNotification(db, householdId, weeklyCheckMessage(selected.map((item) => item.name)), { tab: 'Zásoby', href: PANTRY_CHECK_HREF })
+    await createHouseholdNotification(db, householdId, weeklyCheckMessage(selected.map((item) => item.name)), { kind: 'pantry_check', tab: 'Zásoby', href: PANTRY_CHECK_HREF })
     // Marks them "Máte ještě?" in the app and restarts the check-in interval for the asked ones.
     await db
       .update(schema.pantryItems)

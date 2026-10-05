@@ -57,7 +57,7 @@ export function pushPublicKeyForClient(): string | null {
 export async function pushToHousehold(
   householdId: string,
   message: PushMessage,
-  options: { excludeUserId?: string; onlyUserId?: string; vapid?: VapidKeys; send?: typeof sendWebPush } = {},
+  options: { excludeUserId?: string; onlyUserId?: string; kind?: string; vapid?: VapidKeys; send?: typeof sendWebPush } = {},
 ): Promise<DeliveryReport> {
   const vapid = options.vapid ?? vapidFromEnv()
   const report: DeliveryReport = { sent: 0, removed: 0, failed: 0 }
@@ -67,10 +67,16 @@ export async function pushToHousehold(
   const conditions = [eq(schema.pushSubscriptions.householdId, householdId)]
   if (options.excludeUserId) conditions.push(sql`${schema.householdMembers.userId} IS DISTINCT FROM ${options.excludeUserId}`)
   if (options.onlyUserId) conditions.push(eq(schema.householdMembers.userId, options.onlyUserId))
+  // A member who switched this kind off gets no push for it (docs/14_NOTIFICATION_PREFERENCES.md).
+  if (options.kind) conditions.push(sql`${schema.memberNotificationSettings.enabled} IS DISTINCT FROM false`)
   const subscriptions = await db
     .select({ id: schema.pushSubscriptions.id, endpoint: schema.pushSubscriptions.endpoint, p256dh: schema.pushSubscriptions.p256dh, auth: schema.pushSubscriptions.auth })
     .from(schema.pushSubscriptions)
     .innerJoin(schema.householdMembers, eq(schema.householdMembers.id, schema.pushSubscriptions.memberId))
+    .leftJoin(
+      schema.memberNotificationSettings,
+      and(eq(schema.memberNotificationSettings.memberId, schema.pushSubscriptions.memberId), eq(schema.memberNotificationSettings.kind, options.kind ?? '')),
+    )
     .where(and(...conditions))
   if (subscriptions.length === 0) return report
 

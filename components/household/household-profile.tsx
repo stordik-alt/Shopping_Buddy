@@ -3,6 +3,7 @@ import { Bell, Baby, SlidersHorizontal, Users, WalletCards } from 'lucide-react'
 import { ChildCard } from '@/components/household/child-card'
 import { MemberCard } from '@/components/household/member-card'
 import { MemberRow } from '@/components/household/member-row'
+import { NotificationSettings } from '@/components/household/notification-settings'
 import { NearbyStores } from '@/components/household/nearby-stores'
 import { PantryCheckinSettings } from '@/components/household/pantry-checkin-settings'
 import { PantryPlaces } from '@/components/household/pantry-places'
@@ -45,6 +46,9 @@ export function HouseholdProfile({
   onSetPantryCheckinDays,
   pantryCheckinSubcategoryDays,
   onSetPantrySubcategoryCheckinDays,
+  notificationsOff,
+  onSetNotificationKind,
+  pushPublicKey,
 }: {
   household: Household
   isOwner: boolean
@@ -72,11 +76,14 @@ export function HouseholdProfile({
   /** The same per subcategory, keyed by `checkinSubcategoryKey`. */
   pantryCheckinSubcategoryDays: Record<string, number>
   onSetPantrySubcategoryCheckinDays: (category: ItemCategory, subcategory: string, days: number | null) => Promise<Record<string, number>>
+  /** The kinds of notification this member switched off (docs/14_NOTIFICATION_PREFERENCES.md). */
+  notificationsOff: string[]
+  onSetNotificationKind: (kind: string, enabled: boolean) => Promise<void>
+  pushPublicKey: string | null
 }) {
   const [invite, setInvite] = useState('')
   const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [inviteError, setInviteError] = useState('')
-  const [alerts, setAlerts] = useState(true)
 
   const [memberForm, setMemberForm] = useState({ name: '', age: '', favoriteFoods: '', dislikedFoods: '', allergies: '' })
   const [childForm, setChildForm] = useState({ name: '', age: '', preferences: '', specialNeeds: '' })
@@ -425,16 +432,12 @@ export function HouseholdProfile({
         </div>
       </CollapsibleSection>
 
-      <CollapsibleSection title="Upozornění" icon={<Bell />} summary={alerts ? 'Týdenní souhrn zapnutý' : 'Týdenní souhrn vypnutý'}>
-        <div className="flex flex-col gap-3">
-          <label className="flex min-h-14 items-center justify-between rounded-2xl bg-muted p-4 text-sm">
-            <div>
-              <p className="font-medium">Týdenní souhrn</p>
-              <p className="text-xs text-muted-foreground">Rozpočet, úspory a otevřené položky</p>
-            </div>
-            <input type="checkbox" checked={alerts} onChange={(event) => setAlerts(event.target.checked)} className="size-5 accent-[var(--accent-solid)]" />
-          </label>
-        </div>
+      <CollapsibleSection
+        title="Upozornění"
+        icon={<Bell />}
+        summary={notificationsOff.length === 0 ? 'Dostáváte všechna upozornění' : 'Vypnuto: ' + notificationsOff.length}
+      >
+        <NotificationSettings off={notificationsOff} onChange={onSetNotificationKind} pushPublicKey={pushPublicKey} />
       </CollapsibleSection>
     </div>
   )

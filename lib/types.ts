@@ -30,6 +30,8 @@ export type Notification = {
   title: string
   detail: string
   unread: boolean
+  /** Which kind of message (lib/notification-kinds.ts); null for one written before kinds existed. */
+  kind?: string | null
 }
 
 export type Expense = {

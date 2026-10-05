@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, gte, ilike, inArray, isNull, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
+import { isNotificationKind, type NotificationKind } from '@/lib/notification-kinds'
 import { periodStart } from '@/lib/budget'
 import { todayInPrague } from '@/lib/today'
 import { planOfficialPrice, type OfficialPriceAction, type OfficialPriceSnapshot } from '@/lib/ingestion/official-price'
@@ -105,6 +106,9 @@ export type HouseholdData = {
   recurringPayments: RecurringPayment[]
   recurringOccurrences: RecurringOccurrence[]
   notifications: Notification[]
+  /** The kinds of notification the signed-in member switched off (docs/14_NOTIFICATION_PREFERENCES.md);
+   *  the app leaves those out of their bell panel. */
+  notificationsOff: NotificationKind[]
   purchaseHistory: PurchaseRecord[]
   mealPlan: SavedMealPlan | null
   isOwner: boolean
@@ -245,7 +249,7 @@ export async function joinHouseholdViaInvitation(userId: string, userName: strin
   await createHouseholdNotification(db, invitation.householdId, {
     title: 'Nový člen domácnosti',
     detail: `${userName} se právě připojil/a k domácnosti.`,
-  }, { tab: 'Profil', excludeUserId: userId })
+  }, { kind: 'household', tab: 'Profil', excludeUserId: userId })
   const household = await db.query.households.findFirst({ where: eq(schema.households.id, invitation.householdId) })
   if (!household) throw new Error(`Household ${invitation.householdId} referenced by invitation but missing`)
   return household
@@ -271,7 +275,7 @@ function toExpense(expense: typeof schema.expenses.$inferSelect): Expense {
 }
 
 function toNotification(notification: typeof schema.notifications.$inferSelect): Notification {
-  return { id: notification.id, title: notification.title, detail: notification.detail, unread: notification.unread }
+  return { id: notification.id, title: notification.title, detail: notification.detail, unread: notification.unread, kind: notification.kind }
 }
 
 /** The household's expenses exactly as the page loads them. Server actions that change expenses in
@@ -491,7 +495,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
   // History is scoped to the household's configured budget period. Older records remain in the database
   // but are not loaded on normal page renders, which keeps the common read path bounded.
   const historySince = currentBudgetPeriodStart(household.budgetPeriodStartDay)
-  const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows, mealPlan, invitationRows, pantryRows, pantryPlaceRows, pantryCheckinRows, pantryCheckinSubcategoryRows, pendingReceiptImports, categoryBudgetRows, recurringRows, occurrenceRows] =
+  const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows, mealPlan, invitationRows, pantryRows, pantryPlaceRows, pantryCheckinRows, pantryCheckinSubcategoryRows, pendingReceiptImports, categoryBudgetRows, recurringRows, occurrenceRows, notificationsOffRows] =
     await Promise.all([
       db.query.householdMembers.findMany({
         where: eq(schema.householdMembers.householdId, household.id),
@@ -534,6 +538,11 @@ export async function getHouseholdData(userId: string, userName: string, userEma
         .from(schema.recurringPaymentOccurrences)
         .innerJoin(schema.recurringPayments, eq(schema.recurringPayments.id, schema.recurringPaymentOccurrences.recurringPaymentId))
         .where(and(eq(schema.recurringPayments.householdId, household.id), gte(schema.recurringPaymentOccurrences.dueDate, historySince))),
+      db
+        .select({ kind: schema.memberNotificationSettings.kind })
+        .from(schema.memberNotificationSettings)
+        .innerJoin(schema.householdMembers, eq(schema.householdMembers.id, schema.memberNotificationSettings.memberId))
+        .where(and(eq(schema.householdMembers.userId, userId), eq(schema.memberNotificationSettings.enabled, false)))
     ])
 
   const myRawMember = members.find((member) => member.userId === userId)
@@ -634,6 +643,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
     pantryCheckinDays: Object.fromEntries(pantryCheckinRows.map((row) => [row.category, row.days])),
     pantryCheckinSubcategoryDays: Object.fromEntries(pantryCheckinSubcategoryRows.map((row) => [checkinSubcategoryKey(row.category, row.subcategory), row.days])),
     pendingReceiptImports,
+    notificationsOff: notificationsOffRows.map((row) => row.kind).filter(isNotificationKind),
   }
 }
 

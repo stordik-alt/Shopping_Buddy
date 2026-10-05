@@ -49,7 +49,7 @@ export async function GET(request: Request) {
         ? `Na seznamu čeká: ${names.join(', ')}.`
         : `Na seznamu čeká ${names.length} položek, mimo jiné ${names.slice(0, 5).join(', ')}.`
 
-    await createHouseholdNotification(db, householdId, { title: 'Nezapomeňte na nákup', detail }, { tab: 'Nákup' })
+    await createHouseholdNotification(db, householdId, { title: 'Nezapomeňte na nákup', detail }, { kind: 'shopping_reminder', tab: 'Nákup' })
     await db
       .update(schema.shoppingListItems)
       .set({ remindedAt: now })

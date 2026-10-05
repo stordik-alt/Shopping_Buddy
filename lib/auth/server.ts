@@ -1,6 +1,8 @@
 import { createNeonAuth } from '@neondatabase/auth/next/server'
+import { cookies } from 'next/headers'
 import type { NextRequest } from 'next/server'
 import type { AppAuth } from '@/lib/auth/types'
+import { mayHaveNeonSession } from '@/lib/auth/session-cookie'
 import { usesPgDriver } from '@/lib/db/local'
 
 // Loaded on first use only, so production (Vercel, Cloudflare) never pulls in the pg driver.
@@ -19,9 +21,19 @@ const lazyLocalAuth: AppAuth = {
 // Single server-side auth instance: getSession, .handler() for the API route and .middleware() for
 // proxy.ts route protection. Neon Auth in production; with a local DATABASE_URL (docs/10_LOCAL_DATABASE.md)
 // a self-hosted Better Auth on the same neon_auth tables.
-export const auth: AppAuth = usesPgDriver(process.env.DATABASE_URL)
-  ? lazyLocalAuth
-  : (createNeonAuth({
-      baseUrl: process.env.NEON_AUTH_BASE_URL!,
-      cookies: { secret: process.env.NEON_AUTH_COOKIE_SECRET! },
-    }) as unknown as AppAuth)
+export const auth: AppAuth = usesPgDriver(process.env.DATABASE_URL) ? lazyLocalAuth : neonAuth()
+
+function neonAuth(): AppAuth {
+  const neon = createNeonAuth({
+    baseUrl: process.env.NEON_AUTH_BASE_URL!,
+    cookies: { secret: process.env.NEON_AUTH_COOKIE_SECRET! },
+  }) as unknown as AppAuth
+  return {
+    // Neon Auth's getSession asks its service whenever the signed session cache is missing — also for a
+    // request with no session at all (an anonymous visitor, crawler or uptime check of the public home
+    // page). Without the session-token cookie there is nothing to look up, so answer "signed out" here.
+    getSession: async () => (mayHaveNeonSession((await cookies()).getAll().map((cookie) => cookie.name)) ? neon.getSession() : { data: null }),
+    handler: () => neon.handler(),
+    middleware: (options) => neon.middleware(options),
+  }
+}

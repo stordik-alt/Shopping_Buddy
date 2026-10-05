@@ -221,3 +221,78 @@ export async function prepareReceiptImageForOcr(input: Buffer): Promise<Prepared
   const { data, info } = encoded
   return { buffer: data, mimeType: 'image/jpeg', steps, width: info.width, height: info.height, bytesBefore: input.length, bytesAfter: data.length }
 }
+
+// --- Preparation for a vision model (docs/18_RECEIPT_READER_LUNA.md) -------------------------------
+
+/** The longest side sent to the model, and the target size: big enough to keep small receipt print
+ *  legible, small enough for a quick request (the 1–3 MB the owner's concept aims for). */
+const MODEL_LONG_SIDE = 3000
+const MODEL_MAX_BYTES = 3 * 1024 * 1024
+const MODEL_JPEG_QUALITIES = [85, 75, 65]
+/** A photo whose shorter side is below this is too small to read reliably. */
+const MIN_SHORT_SIDE = 500
+/** A photo whose mean brightness is below this (0–255) is too dark. */
+const MIN_MEAN_BRIGHTNESS = 60
+
+export type ModelImageVariant = 'plain' | 'ocr'
+
+export type ModelReadyImage = PreparedReceiptImage & {
+  /** Measured, never decided on here: mean brightness (0–255) and a sharpness figure (the standard
+   *  deviation of a Laplacian of a 1000 px copy — lower is blurrier). */
+  quality: { brightness: number; sharpness: number; warnings: string[] }
+}
+
+/** Prepares one receipt photo for the model. `plain` (the default) only applies the EXIF orientation,
+ *  caps the size and compresses — a vision model reads colour photos as they are; `ocr` reuses the
+ *  OCR clean-up above (grayscale, lighting, contrast, straightening). Which reads better is measured
+ *  (scripts/receipt-eval). The original is never changed; the caller keeps it. */
+export async function prepareReceiptImageForModel(input: Buffer, variant: ModelImageVariant = 'plain'): Promise<ModelReadyImage> {
+  let base: Sharp
+  let steps: string[]
+  if (variant === 'ocr') {
+    const prepared = await prepareReceiptImageForOcr(input)
+    // Stays a single-channel JPEG (smaller), as the OCR copy is.
+    base = sharp(prepared.buffer).toColourspace('b-w')
+    steps = [...prepared.steps]
+  } else {
+    base = sharp(input, { limitInputPixels: MAX_INPUT_PIXELS, failOn: 'error' }).rotate()
+    steps = ['auto-rotate']
+  }
+  base = base.resize({ width: MODEL_LONG_SIDE, height: MODEL_LONG_SIDE, fit: 'inside', withoutEnlargement: true })
+
+  let encoded = await base.clone().jpeg({ quality: MODEL_JPEG_QUALITIES[0] }).toBuffer({ resolveWithObject: true })
+  for (const quality of MODEL_JPEG_QUALITIES.slice(1)) {
+    if (encoded.data.length <= MODEL_MAX_BYTES) break
+    encoded = await base.clone().jpeg({ quality }).toBuffer({ resolveWithObject: true })
+    steps.push(`jpeg-quality:${quality}`)
+  }
+  if (encoded.data.length > MODEL_MAX_BYTES) {
+    encoded = await base.clone().resize({ width: REDUCED_LONG_SIDE, height: REDUCED_LONG_SIDE, fit: 'inside' }).jpeg({ quality: MODEL_JPEG_QUALITIES[MODEL_JPEG_QUALITIES.length - 1] }).toBuffer({ resolveWithObject: true })
+    steps.push(`downscale:${REDUCED_LONG_SIDE}`)
+  }
+
+  const { data, info } = encoded
+  return {
+    buffer: data,
+    mimeType: 'image/jpeg',
+    steps,
+    width: info.width,
+    height: info.height,
+    bytesBefore: input.length,
+    bytesAfter: data.length,
+    quality: await measureQuality(data, info.width, info.height),
+  }
+}
+
+async function measureQuality(jpeg: Buffer, width: number, height: number): Promise<ModelReadyImage['quality']> {
+  // stats() analyses its input, not the pipeline's result, so each step is rendered to a buffer first.
+  const small = await sharp(jpeg).grayscale().resize({ width: 1000, height: 1000, fit: 'inside', withoutEnlargement: true }).toBuffer()
+  const laplacian = await sharp(small).convolve({ width: 3, height: 3, kernel: [0, 1, 0, 1, -4, 1, 0, 1, 0], offset: 128 }).toBuffer()
+  const [{ channels: plain }, { channels: edges }] = await Promise.all([sharp(small).stats(), sharp(laplacian).stats()])
+  const brightness = Math.round(plain[0].mean)
+  const sharpness = Math.round(edges[0].stdev * 10) / 10
+  const warnings: string[] = []
+  if (Math.min(width, height) < MIN_SHORT_SIDE) warnings.push('too-small')
+  if (brightness < MIN_MEAN_BRIGHTNESS) warnings.push('too-dark')
+  return { brightness, sharpness, warnings }
+}

@@ -1,6 +1,6 @@
 import sharp from 'sharp'
 import { describe, expect, it } from 'vitest'
-import { detectReceiptFileType, estimateSkew, prepareReceiptImageForOcr } from '@/lib/receipt-image'
+import { detectReceiptFileType, estimateSkew, prepareReceiptImageForModel, prepareReceiptImageForOcr } from '@/lib/receipt-image'
 
 // Synthetic "receipts": horizontal dark bars stand in for lines of text. That is deliberately
 // font-independent (the machine running the tests may not have the same fonts) while still giving
@@ -196,5 +196,37 @@ describe('prepareReceiptImageForOcr', () => {
       expect(bomb.length).toBeLessThan(5 * 1024 * 1024) // fits under the app's 10 MB upload cap
       await expect(prepareReceiptImageForOcr(bomb)).rejects.toThrow(/pixel limit/i)
     }, 60_000)
+  })
+})
+
+describe('prepareReceiptImageForModel', () => {
+  it('keeps a colour photo in colour, upright and small, and leaves the original alone', async () => {
+    const original = await sharp(receiptSvg({ ink: '#a11', paper: '#fdf6e3' })).resize(4500, 3500).jpeg({ quality: 95 }).toBuffer()
+    const copy = Buffer.from(original)
+    const prepared = await prepareReceiptImageForModel(original)
+    expect(Buffer.compare(original, copy)).toBe(0)
+    expect(prepared.mimeType).toBe('image/jpeg')
+    expect(Math.max(prepared.width, prepared.height)).toBeLessThanOrEqual(3000)
+    expect(prepared.bytesAfter).toBeLessThanOrEqual(3 * 1024 * 1024)
+    expect((await sharp(prepared.buffer).metadata()).channels).toBe(3)
+    expect(prepared.steps[0]).toBe('auto-rotate')
+  })
+
+  it('can use the OCR clean-up instead (grayscale)', async () => {
+    const prepared = await prepareReceiptImageForModel(await jpeg(receiptSvg()), 'ocr')
+    expect(prepared.steps).toContain('grayscale')
+    expect((await sharp(prepared.buffer).metadata()).channels).toBe(1)
+  })
+
+  it('measures brightness and sharpness and warns about a small or dark photo, without deciding', async () => {
+    const good = await prepareReceiptImageForModel(await jpeg(receiptSvg()))
+    expect(good.quality.warnings).toEqual([])
+    expect(good.quality.brightness).toBeGreaterThan(150)
+
+    const blurred = await prepareReceiptImageForModel(await sharp(receiptSvg()).blur(6).jpeg().toBuffer())
+    expect(blurred.quality.sharpness).toBeLessThan(good.quality.sharpness)
+
+    const darkSmall = await prepareReceiptImageForModel(await sharp(receiptSvg({ paper: '#222', ink: '#000' })).resize(400, 300).jpeg().toBuffer())
+    expect(darkSmall.quality.warnings).toEqual(['too-small', 'too-dark'])
   })
 })

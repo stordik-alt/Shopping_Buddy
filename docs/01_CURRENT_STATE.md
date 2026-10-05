@@ -1,3 +1,7 @@
+## Update 2026-10-05 — Eating questionnaire per member
+
+Each member can fill in a clickable eating questionnaire (Profil ▸ Členové domácnosti): a diet (everything, vegetarian, pescetarian, vegan) and what they avoid (dairy, gluten, nuts, eggs, fish, pork). The meal plan and recipe suggestions offer only recipes that suit every member, judged by ingredient names; a diet is never relaxed to fill a slot. Stored in `member_diets` (migration 0068); concept `docs/17_DIET_PREFERENCES.md`.
+
 ## Update 2026-10-05 — Deals from shopping preferences
 
 The household's preferred products and brands (Profil ▸ Nákupní preference) now find deals: Akce ▸ "Pro mě" lists only matching deals, and Domů shows the first three in "Akce na vaše oblíbené". Excluded products are hidden from Akce. Concept `docs/16_PREFERENCE_DEALS.md`.

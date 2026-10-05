@@ -47,6 +47,7 @@ export async function saveMealPlanAction(budgetLimit: number, plan: WeeklyMealPl
 
 
 const MEAL_PLAN_RECIPE_LIMIT = 36
+const MEAL_PLAN_RECIPE_LIMIT_WITH_DIET = 60
 
 function mapRecipeToMealPlanRecipe(recipe: Recipe, mealType: MealType): MealPlanRecipe {
   return {
@@ -92,7 +93,8 @@ export async function getMealPlanRecipePoolsAction(): Promise<Partial<Record<Mea
 
   const candidateSets = await Promise.all(
     ALL_MEAL_TYPES.map(async (mealType) => {
-      const candidates = await getMealPlanRecipeCandidates(mealType, MEAL_PLAN_RECIPE_LIMIT)
+      // A diet leaves out many recipes, so it starts from the most candidates the catalog query gives.
+      const candidates = await getMealPlanRecipeCandidates(mealType, context.dietStems.length > 0 ? MEAL_PLAN_RECIPE_LIMIT_WITH_DIET : MEAL_PLAN_RECIPE_LIMIT)
       const safe = candidates.filter((recipe) => filterRecipeForHousehold(recipe, context))
       return [mealType, safe.map((recipe) => mapRecipeToMealPlanRecipe(recipe, mealType))] as const
     }),

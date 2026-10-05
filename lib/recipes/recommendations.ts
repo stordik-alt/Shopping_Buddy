@@ -1,9 +1,12 @@
+import { recipeFitsDiet } from '@/lib/diet'
 import { matchKey } from '@/lib/receipt-list-match'
 import { analyzeRecipeIngredients } from '@/lib/recipes/shopping'
 import type { Recipe, RecipeSearchResult } from '@/lib/recipes/types'
 import type { PantryItem } from '@/lib/types'
 
 export type RecipeHouseholdContext = {
+  /** Rules from the members' eating questionnaire (lib/diet.ts householdDietStems); absent = none. */
+  dietStems?: string[]
   allergies: string[]
   dislikedFoods: string[]
   favoriteFoods: string[]
@@ -64,7 +67,9 @@ export function filterRecipeForHousehold(recipe: Recipe, context: RecipeHousehol
     }
   }
 
-  return true
+  const dietStems = context.dietStems ?? []
+  if (dietStems.length > 0 && ingredients.length === 0) return false
+  return recipeFitsDiet(ingredients.map((ingredient) => ingredient.name), dietStems)
 }
 
 export function householdPreferenceScore(recipe: Recipe, context: RecipeHouseholdContext): number {

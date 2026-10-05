@@ -1,7 +1,9 @@
-import { X } from 'lucide-react'
+import { Utensils, X } from 'lucide-react'
+import { dietLabels, NO_DIET } from '@/lib/diet'
 import type { HouseholdMember } from '@/lib/types'
 
-export function MemberCard({ member, onRemove }: { member: HouseholdMember; onRemove: () => void }) {
+export function MemberCard({ member, onRemove, onEditDiet }: { member: HouseholdMember; onRemove: () => void; onEditDiet?: () => void }) {
+  const diet = dietLabels(member.diet ?? NO_DIET)
   return (
     <div className="rounded-2xl bg-muted p-4">
       <div className="flex items-start justify-between gap-3">
@@ -39,6 +41,22 @@ export function MemberCard({ member, onRemove }: { member: HouseholdMember; onRe
               Alergie: {allergy}
             </span>
           ))}
+        </div>
+      )}
+      {onEditDiet && (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          {diet.map((label) => (
+            <span key={label} className="max-w-full break-words rounded-full bg-background px-2 py-1 text-xs font-medium">
+              {label}
+            </span>
+          ))}
+          <button
+            type="button"
+            onClick={onEditDiet}
+            className="flex min-h-10 items-center gap-1.5 rounded-xl px-2 text-xs font-medium text-accent-text hover:bg-accent-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Utensils className="size-3.5" aria-hidden="true" /> {diet.length > 0 ? 'Upravit stravování' : 'Vyplnit stravování'}
+          </button>
         </div>
       )}
     </div>

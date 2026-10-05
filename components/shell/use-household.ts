@@ -7,11 +7,13 @@ import {
   inviteMemberAction,
   removeChildAction,
   removeHouseholdMemberAction,
+  setMemberDietAction,
   revokeInvitationAction,
   updateHouseholdAction,
   updateHouseholdPreferencesAction,
 } from '@/app/actions/household'
 import type { HouseholdData } from '@/lib/db/queries'
+import type { MemberDiet } from '@/lib/diet'
 
 type Household = HouseholdData['household']
 
@@ -40,6 +42,11 @@ export function useHousehold(initialData: HouseholdData) {
     removeHouseholdMemberAction(id)
   }
 
+  async function setMemberDiet(id: string, answers: MemberDiet) {
+    const saved = await setMemberDietAction(id, answers)
+    setHousehold((current) => ({ ...current, members: current.members.map((member) => (member.id === id ? { ...member, diet: saved } : member)) }))
+  }
+
   async function addChild(child: { name: string; age: number; preferences: string; specialNeeds?: string }) {
     const created = await addChildAction(child)
     setHousehold((current) => ({ ...current, children: [...current.children, created] }))
@@ -66,5 +73,5 @@ export function useHousehold(initialData: HouseholdData) {
     revokeInvitationAction(id)
   }
 
-  return { household, pendingInvitations, updateHousehold, addMember, removeMember, addChild, removeChild, updatePreferences, inviteMember, revokeInvitation }
+  return { household, pendingInvitations, updateHousehold, addMember, removeMember, setMemberDiet, addChild, removeChild, updatePreferences, inviteMember, revokeInvitation }
 }

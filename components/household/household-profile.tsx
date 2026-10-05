@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Bell, Baby, SlidersHorizontal, Users, WalletCards } from 'lucide-react'
 import { ChildCard } from '@/components/household/child-card'
 import { MemberCard } from '@/components/household/member-card'
+import { DietQuestionnaire } from '@/components/household/diet-questionnaire'
 import { MemberRow } from '@/components/household/member-row'
 import { NotificationSettings } from '@/components/household/notification-settings'
 import { NearbyStores } from '@/components/household/nearby-stores'
@@ -10,6 +11,7 @@ import { PantryPlaces } from '@/components/household/pantry-places'
 import { CollapsibleSection } from '@/components/shared/collapsible-section'
 import { TagInput } from '@/components/shared/tag-input'
 import { MAX_PERIOD_START_DAY } from '@/lib/budget'
+import type { MemberDiet } from '@/lib/diet'
 import type { PendingInvitation } from '@/lib/db/queries'
 import type { StoreSelection } from '@/lib/nearby-stores'
 import type { Household, HouseholdPreferences, ItemCategory, PantryArea, PantryPlace, PriceSensitivity, QualityPreference, Store } from '@/lib/types'
@@ -30,6 +32,7 @@ export function HouseholdProfile({
   onUpdateHousehold,
   onAddMember,
   onRemoveMember,
+  onSetMemberDiet,
   onAddChild,
   onRemoveChild,
   onUpdatePreferences,
@@ -56,6 +59,8 @@ export function HouseholdProfile({
   onUpdateHousehold: (changes: { name?: string; monthlyBudget?: number; budgetPeriodStartDay?: number }) => void
   onAddMember: (member: { name: string; age: number; favoriteFoods: string[]; dislikedFoods: string[]; allergies: string[] }) => void
   onRemoveMember: (id: string) => void
+  /** Saves a member's eating questionnaire (docs/17_DIET_PREFERENCES.md). */
+  onSetMemberDiet: (id: string, diet: MemberDiet) => Promise<void>
   onAddChild: (child: { name: string; age: number; preferences: string; specialNeeds?: string }) => void
   onRemoveChild: (id: string) => void
   onUpdatePreferences: (changes: Partial<HouseholdPreferences>) => void
@@ -85,6 +90,9 @@ export function HouseholdProfile({
   const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [inviteError, setInviteError] = useState('')
 
+  // The member whose eating questionnaire is open.
+  const [dietMemberId, setDietMemberId] = useState<string | null>(null)
+  const dietMember = household.members.find((member) => member.id === dietMemberId)
   const [memberForm, setMemberForm] = useState({ name: '', age: '', favoriteFoods: '', dislikedFoods: '', allergies: '' })
   const [childForm, setChildForm] = useState({ name: '', age: '', preferences: '', specialNeeds: '' })
   const [showMemberForm, setShowMemberForm] = useState(false)
@@ -190,9 +198,17 @@ export function HouseholdProfile({
         <p className="text-sm leading-relaxed text-muted-foreground">Profil každého člena pomáhá personalizovat nákupy i jídelníček.</p>
         <div className="mt-5 flex flex-col gap-2">
           {household.members.map((member) => (
-            <MemberCard key={member.id} member={member} onRemove={() => onRemoveMember(member.id)} />
+            <MemberCard key={member.id} member={member} onRemove={() => onRemoveMember(member.id)} onEditDiet={() => setDietMemberId(member.id)} />
           ))}
         </div>
+        {dietMember && (
+          <DietQuestionnaire
+            memberName={dietMember.name}
+            initial={dietMember.diet}
+            onClose={() => setDietMemberId(null)}
+            onSave={(answers) => onSetMemberDiet(dietMember.id, answers)}
+          />
+        )}
         <button
           type="button"
           aria-expanded={showMemberForm}

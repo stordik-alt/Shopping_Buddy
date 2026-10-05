@@ -1,3 +1,4 @@
+import type { MemberDiet } from '@/lib/diet'
 import type { ExpenseCategory } from '@/lib/expense-categories'
 
 export type Tab = 'Domů' | 'Akce' | 'Nákup' | 'Zásoby' | 'Obchody' | 'Recepty' | 'Rozpočet' | 'AI' | 'Profil'
@@ -58,6 +59,8 @@ export type HouseholdMember = {
   favoriteFoods: string[]
   dislikedFoods: string[]
   allergies: string[]
+  /** Answers to the eating questionnaire (lib/diet.ts); absent = eats everything. */
+  diet?: MemberDiet
 }
 
 export type Child = {

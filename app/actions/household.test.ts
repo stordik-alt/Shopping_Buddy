@@ -24,6 +24,7 @@ import {
   removeChildAction,
   removeHouseholdMemberAction,
   revokeInvitationAction,
+  setMemberDietAction,
   updateHouseholdAction,
 } from '@/app/actions/household'
 
@@ -148,5 +149,29 @@ describe('updateHouseholdAction: budget period start day', () => {
 
   it('the database itself refuses a start day outside 1–28', async () => {
     await expect(db.update(schema.households).set({ budgetPeriodStartDay: 31 }).where(eq(schema.households.id, householdId))).rejects.toThrow()
+  })
+})
+
+describe('setMemberDietAction (docs/17_DIET_PREFERENCES.md)', () => {
+  it("stores and replaces a member's answers in the caller's household", async () => {
+    const [member] = await db.insert(schema.householdMembers).values({ householdId, name: 'Jana', role: 'member' }).returning()
+    expect(await setMemberDietAction(member.id, { diet: 'vegetarian', avoids: ['nuts', 'gluten'] })).toEqual({ diet: 'vegetarian', avoids: ['gluten', 'nuts'] })
+    await setMemberDietAction(member.id, { diet: 'vegan', avoids: [] })
+    const row = await db.query.memberDiets.findFirst({ where: eq(schema.memberDiets.memberId, member.id) })
+    expect(row).toMatchObject({ diet: 'vegan', avoids: [] })
+  })
+
+  it('refuses a member of another household and unknown answers', async () => {
+    const [otherMember] = await db.insert(schema.householdMembers).values({ householdId: otherHouseholdId, name: 'Cizí člen', role: 'member' }).returning()
+    await expect(setMemberDietAction(otherMember.id, { diet: 'vegan', avoids: [] })).rejects.toThrow('Household member not found')
+    const [member] = await db.insert(schema.householdMembers).values({ householdId, name: 'Petr', role: 'member' }).returning()
+    await expect(setMemberDietAction(member.id, { diet: 'paleo', avoids: [] })).rejects.toThrow('Neplatné odpovědi')
+    await expect(setMemberDietAction(member.id, { diet: 'none', avoids: ['sugar'] })).rejects.toThrow('Neplatné odpovědi')
+  })
+
+  it('the database refuses a key outside the questionnaire', async () => {
+    const [member] = await db.insert(schema.householdMembers).values({ householdId, name: 'Eva', role: 'member' }).returning()
+    await expect(db.insert(schema.memberDiets).values({ memberId: member.id, diet: 'paleo' })).rejects.toThrow()
+    await expect(db.insert(schema.memberDiets).values({ memberId: member.id, avoids: ['sugar'] })).rejects.toThrow()
   })
 })

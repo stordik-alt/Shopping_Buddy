@@ -1017,6 +1017,15 @@ export const notifications = pgTable('notifications', {
 
 // Kinds of notification a member switched off (docs/14_NOTIFICATION_PREFERENCES.md). Only "off" is
 // stored; a missing row means the member gets that kind. Migration 0066 checks `kind` against the list.
+// Each member's answers to the eating questionnaire (docs/17_DIET_PREFERENCES.md); no row = eats everything.
+// The check constraints in migration 0068 list the same keys as lib/diet.ts.
+export const memberDiets = pgTable('member_diets', {
+  memberId: uuid('member_id').primaryKey().references(() => householdMembers.id, { onDelete: 'cascade' }),
+  diet: text('diet').notNull().default('none'),
+  avoids: text('avoids').array().notNull().default([]),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+})
+
 export const memberNotificationSettings = pgTable(
   'member_notification_settings',
   {

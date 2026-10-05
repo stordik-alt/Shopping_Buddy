@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { householdDietStems } from '@/lib/diet'
 import { analyzeRecipeIngredients } from '@/lib/recipes/shopping'
 import type { Recipe } from '@/lib/recipes/types'
 import {
@@ -119,5 +120,13 @@ describe('recipe household recommendations', () => {
     )
 
     expect(ranked).toEqual([])
+  })
+})
+
+describe('recipe filter and the eating questionnaire', () => {
+  it("leaves out a recipe that breaks a member's diet", () => {
+    const context: RecipeHouseholdContext = { dietStems: householdDietStems([{ diet: 'vegetarian', avoids: [] }]), allergies: [], dislikedFoods: [], favoriteFoods: [] }
+    expect(filterRecipeForHousehold(recipe('meat', [{ id: 'i1', name: 'Kuřecí prsa', quantity: 300, unit: 'g' }]), context)).toBe(false)
+    expect(filterRecipeForHousehold(recipe('veg', [{ id: 'i1', name: 'Cizrna', quantity: 300, unit: 'g' }]), context)).toBe(true)
   })
 })

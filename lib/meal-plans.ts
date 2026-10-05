@@ -1,3 +1,4 @@
+import { householdDietStems, NO_DIET, recipeFitsDiet } from '@/lib/diet'
 import type { Household, ItemCategory, ItemUnit, PantryItem } from '@/lib/types'
 
 export type MealType = 'Snídaně' | 'Oběd' | 'Večeře' | 'Svačina'
@@ -244,15 +245,25 @@ const RECIPES: Recipe[] = [
   },
 ]
 
-function recipesFor(mealType: MealType, excludedAllergens: Set<string>, recipePools?: Partial<Record<MealType, Recipe[]>>) {
-  const suppliedPool = recipePools?.[mealType]
+/** The rules of every member's eating questionnaire together (docs/17_DIET_PREFERENCES.md). */
+function dietStemsOf(household: Household): string[] {
+  return householdDietStems(household.members.map((member) => member.diet ?? NO_DIET))
+}
+
+/** The recipes a slot can use. Unlike an allergen, a diet is never relaxed when nothing fits: a
+ *  vegetarian is never served meat to fill a slot — the household is told instead. */
+function recipesFor(mealType: MealType, excludedAllergens: Set<string>, recipePools: Partial<Record<MealType, Recipe[]>> | undefined, dietStems: string[]) {
+  const fitsDiet = (recipe: Recipe) => recipeFitsDiet(recipe.ingredients.map((ingredient) => ingredient.name), dietStems)
+  const suppliedPool = recipePools?.[mealType]?.filter(fitsDiet)
   if (suppliedPool && suppliedPool.length > 0) {
     const safePool = suppliedPool.filter((recipe) => !recipe.allergens.some((allergen) => excludedAllergens.has(allergen)))
     if (safePool.length > 0) return safePool
     return suppliedPool
   }
-  const pool = RECIPES.filter((recipe) => recipe.mealType === mealType && !recipe.allergens.some((allergen) => excludedAllergens.has(allergen)))
-  return pool.length > 0 ? pool : RECIPES.filter((recipe) => recipe.mealType === mealType)
+  const ofType = RECIPES.filter((recipe) => recipe.mealType === mealType && fitsDiet(recipe))
+  if (ofType.length === 0) throw new Error(`Pro stravování členů domácnosti nemáme recept na ${mealType.toLocaleLowerCase('cs')}. Zkuste ten chod vynechat.`)
+  const pool = ofType.filter((recipe) => !recipe.allergens.some((allergen) => excludedAllergens.has(allergen)))
+  return pool.length > 0 ? pool : ofType
 }
 
 type UnitGroup = 'mass' | 'volume' | 'count'
@@ -359,13 +370,14 @@ export function generateWeeklyPlan(
     household.members.flatMap((member) => member.allergies.map((allergy) => allergy.toLowerCase())),
   )
 
+  const dietStems = dietStemsOf(household)
   const dayCount = Math.min(7, Math.max(1, Math.round(options.dayCount)))
   const mealTypes = ALL_MEAL_TYPES.filter((type) => options.mealTypes.includes(type))
   if (mealTypes.length === 0) throw new Error('Vyberte aspoň jeden chod.')
 
   const days: DayPlan[] = Array.from({ length: dayCount }, (_, index) => {
     const day: DayPlan = { day: DAYS[(options.startDayIndex + index) % DAYS.length] }
-    for (const type of mealTypes) day[MEAL_SLOT[type]] = withSelectedServings(pickRecipe(recipesFor(type, excludedAllergens, options.recipePools), index, pantryItems))
+    for (const type of mealTypes) day[MEAL_SLOT[type]] = withSelectedServings(pickRecipe(recipesFor(type, excludedAllergens, options.recipePools, dietStems), index, pantryItems))
     return day
   })
 
@@ -432,7 +444,7 @@ export function regenerateMeal(
   const currentRecipe = plan.days[dayIndex][slot]
   if (!currentRecipe) return plan
 
-  const fullPool = recipesFor(mealType, excludedAllergens, recipePools)
+  const fullPool = recipesFor(mealType, excludedAllergens, recipePools, dietStemsOf(household))
   const remaining = fullPool.filter((recipe) => recipe.id !== currentRecipe.id)
   const pool = remaining.length > 0 ? remaining : fullPool
   const nextRecipe = withSelectedServings(pickRecipe(pool, dayIndex, pantryItems), currentRecipe.selectedServings)

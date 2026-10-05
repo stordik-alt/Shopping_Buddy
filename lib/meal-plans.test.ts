@@ -17,6 +17,7 @@ import {
   splitIngredientsByStock,
   todaysMeals,
 } from '@/lib/meal-plans'
+import { householdDietStems, recipeFitsDiet } from '@/lib/diet'
 import type { Ingredient, WeeklyMealPlan } from '@/lib/meal-plans'
 import type { Household, PantryItem } from '@/lib/types'
 
@@ -494,5 +495,45 @@ describe('todaysMeals', () => {
     const weekdaysOnly = generateWeeklyPlan(3000, household(), null, { dayCount: 5, startDayIndex: 0, mealTypes: ['Oběd'] })
     expect(todaysMeals({ weekStart: '2026-09-28', plan: weekdaysOnly }, '2026-10-04')).toEqual([])
     expect(todaysMeals({ weekStart: '2026-09-28', plan: weekdaysOnly }, '2026-09-28').map((meal) => meal.mealType)).toEqual(['Oběd'])
+  })
+})
+
+describe('meal plan and the eating questionnaire', () => {
+  const member = (diet: 'vegetarian' | 'vegan', avoids: ('gluten' | 'nuts')[] = []) => ({
+    id: 'm-' + diet,
+    name: 'Jana',
+    role: 'Člen domácnosti' as const,
+    age: 30,
+    preferences: '',
+    favoriteFoods: [],
+    dislikedFoods: [],
+    allergies: [],
+    diet: { diet, avoids },
+  })
+
+  it('never puts meat or fish in a plan for a household with a vegetarian', () => {
+    const plan = generateWeeklyPlan(0, household({ members: [member('vegetarian')] }))
+    const stems = householdDietStems([{ diet: 'vegetarian', avoids: [] }])
+    for (const day of plan.days) {
+      for (const recipe of [day.breakfast, day.lunch, day.dinner, day.snack]) {
+        if (recipe) expect(recipeFitsDiet(recipe.ingredients.map((ingredient) => ingredient.name), stems), recipe.name).toBe(true)
+      }
+    }
+  })
+
+  it('uses only fitting recipes from a supplied pool, and says so when none fits', () => {
+    const meat = { id: 'r-meat', name: 'Řízek', mealType: 'Oběd' as const, price: 0, allergens: [], ingredients: [{ name: 'Vepřová kotleta', category: 'Potraviny' as const, quantity: 1, unit: 'ks' as const }] }
+    const veg = { ...meat, id: 'r-veg', name: 'Rizoto', ingredients: [{ name: 'Rýže', category: 'Potraviny' as const, quantity: 1, unit: 'kg' as const }] }
+    const options = { dayCount: 2, startDayIndex: 0, mealTypes: ['Oběd' as const] }
+    const plan = generateWeeklyPlan(0, household({ members: [member('vegetarian')] }), null, { ...options, recipePools: { Oběd: [meat, veg] } })
+    expect(plan.days.map((day) => day.lunch?.id)).toEqual(['r-veg', 'r-veg'])
+    // Nothing in the pool fits: the built-in recipes are used if one fits, otherwise the household is told — never the meat dish.
+    const vegan = householdDietStems([{ diet: 'vegan', avoids: [] }])
+    try {
+      const fallback = generateWeeklyPlan(0, household({ members: [member('vegan')] }), null, { ...options, recipePools: { Oběd: [meat] } })
+      for (const day of fallback.days) expect(recipeFitsDiet(day.lunch!.ingredients.map((ingredient) => ingredient.name), vegan), day.lunch!.name).toBe(true)
+    } catch (error) {
+      expect(String(error)).toContain('nemáme recept na oběd')
+    }
   })
 })

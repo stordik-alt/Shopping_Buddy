@@ -1,5 +1,6 @@
 'use server'
 
+import { cleanMemberDiet, type MemberDiet } from '@/lib/diet'
 import { randomBytes } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
@@ -167,4 +168,20 @@ export async function acceptInvitationAction(token: string) {
   }
 
   await joinHouseholdViaInvitation(session.user.id, session.user.name, invitation)
+}
+
+/** Saves one member's answers to the eating questionnaire (docs/17_DIET_PREFERENCES.md). Any member of
+ *  the household may fill it in for another (a parent for a partner), never for another household. */
+export async function setMemberDietAction(memberId: string, answers: { diet: string; avoids: string[] }): Promise<MemberDiet> {
+  const householdId = await requireHouseholdId()
+  const db = getDb()
+  const member = await db.query.householdMembers.findFirst({ where: eq(schema.householdMembers.id, memberId), columns: { householdId: true } })
+  if (!member || member.householdId !== householdId) throw new Error('Household member not found')
+  const diet = cleanMemberDiet(answers)
+  if (!diet) throw new Error('Neplatné odpovědi dotazníku.')
+  await db
+    .insert(schema.memberDiets)
+    .values({ memberId, diet: diet.diet, avoids: diet.avoids })
+    .onConflictDoUpdate({ target: schema.memberDiets.memberId, set: { diet: diet.diet, avoids: diet.avoids, updatedAt: new Date() } })
+  return diet
 }

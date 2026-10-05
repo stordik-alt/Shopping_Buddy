@@ -74,7 +74,7 @@ export function BudgetHero({
     <Root
       {...(onOpen ? { type: 'button' as const, onClick: onOpen } : {})}
       className={cn(
-        'flex w-full flex-col justify-between text-left',
+        'min-w-0 w-full flex flex-col justify-between text-left',
         surface,
         compact ? 'px-5 py-4' : 'gap-6 p-5 sm:p-7',
         onOpen && 'group transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',

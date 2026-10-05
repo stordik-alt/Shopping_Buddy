@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { CheckCircle2, ChevronRight, ListChecks } from 'lucide-react'
 import { BudgetHero } from '@/components/budget/budget-hero'
 import { QuickActions } from '@/components/dashboard/quick-actions'
@@ -19,6 +20,7 @@ export function DashboardOverview({
   onReceipt,
   onStores,
   onSetBudget,
+  afterBudget,
   today,
   periodStartDay = 1,
 }: {
@@ -40,19 +42,23 @@ export function DashboardOverview({
   onReceipt: () => void
   onStores: () => void
   onSetBudget: () => void
+  /** Shown right under the budget card (the spending by category, owner 2026-10-05); full width from lg. */
+  afterBudget?: ReactNode
 }) {
   const pendingCount = Math.max(0, totalItems - completed)
   const preview = pendingNames.slice(0, MAX_PREVIEW_ITEMS)
 
   return (
-    // On a phone the order is budget → quick actions → shopping list, all compact enough that the
-    // list is on the first screen; from lg up the list sits beside the budget and the actions span below.
+    // On a phone the order is budget → spending (folded) → quick actions → shopping list; from lg up the
+    // list sits beside the budget, and the spending and the actions span below.
     <section className="grid gap-3 lg:grid-cols-[1.35fr_1fr] lg:gap-4" aria-label="Přehled domácnosti">
       <BudgetHero compact today={today} periodStartDay={periodStartDay} budget={budget} spent={spent} remaining={remaining} onSetBudget={onSetBudget} onOpen={onBudget} className="order-1" />
 
-      <QuickActions className="order-2 lg:order-3 lg:col-span-2" onShopping={onShopping} onExpense={onExpense} onReceipt={onReceipt} onStores={onStores} />
+      {afterBudget && <div className="order-2 lg:order-3 lg:col-span-2">{afterBudget}</div>}
 
-      <CardButton onClick={onShopping} className="group order-3 flex flex-col lg:order-2">
+      <QuickActions className="order-3 lg:order-4 lg:col-span-2" onShopping={onShopping} onExpense={onExpense} onReceipt={onReceipt} onStores={onStores} />
+
+      <CardButton onClick={onShopping} className="group order-4 flex flex-col lg:order-2">
         <CardHeader as="span" title="Nákupní seznam" icon={<ListChecks className="size-4" />} action={<ChevronRight className="size-5 transition group-hover:translate-x-0.5" />} className="w-full" />
         {totalItems === 0 ? (
           <>

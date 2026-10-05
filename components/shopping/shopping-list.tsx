@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ItemTypePicker } from '@/components/shopping/item-type-picker'
 import { describeItemTypes, productTypeSuggestionNames } from '@/lib/product-types'
 import { Check, ChevronDown, ListChecks, Plus, Search, SlidersHorizontal, Sun, Tag, X } from 'lucide-react'
 import type { GpsCoords } from '@/lib/geo'
 import type { Item, ItemCategory, ItemPriority, ItemUnit, Store, StoreChain } from '@/lib/types'
-import { money } from '@/lib/format'
-import { comparePrices, type ProductPrice } from '@/lib/prices'
+import { money, shortDate } from '@/lib/format'
+import { assessDealQuality, bestDealByName, comparePrices, effectivePrice, type ProductPrice } from '@/lib/prices'
 import { searchProductsAction } from '@/app/actions/product-search'
 import type { PlanResult, PinRecord } from '@/lib/db/shopping-plan'
 import { hasStoreSelection, type StoreSelection } from '@/lib/nearby-stores'
@@ -167,6 +167,9 @@ export function ShoppingList({
   const visibleItems = sortItems(filteredItems, sort)
   const groupedItems = groupItems(visibleItems, group)
   const completedCount = items.filter((item) => item.done).length
+  // A running deal on an item's product shows right on its row (the same deals as Domů's "Akce k vašim
+  // položkám"); the cheapest one when several chains have it.
+  const dealByName = useMemo(() => bestDealByName(assessDealQuality(productPrices, today)), [productPrices, today])
 
   function createList() {
     const name = listName.trim()
@@ -383,24 +386,8 @@ export function ShoppingList({
                     </button>
                     <button type="button" onClick={() => setExpandedId((current) => (current === item.id ? null : item.id))} className="min-h-11 min-w-0 flex-1 py-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg">
                       <span className={`block break-words font-medium ${item.done ? 'text-fg-muted line-through' : ''}`}>{item.name}</span>
-                      <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-fg-muted">
-                        <span>
-                          {item.category} · {item.store || 'Bez obchodu'}
-                        </span>
-                        {(() => {
-                          const typeLabel = describeItemTypes(item.name, item.productTypes).label
-                          return typeLabel ? <Badge className="py-0.5">{typeLabel}</Badge> : null
-                        })()}
-                        {item.onSale && (
-                          <Badge tone="accent" className="py-0.5">
-                            <Tag className="size-3" aria-hidden="true" /> Akce
-                          </Badge>
-                        )}
-                        {item.priority === 'Vysoká' && (
-                          <Badge tone="danger" className="py-0.5">
-                            Priorita
-                          </Badge>
-                        )}
+                      <span className="mt-1 block text-xs text-fg-muted">
+                        {item.category} · {item.store || 'Bez obchodu'}
                       </span>
                     </button>
                     <span className="shrink-0 text-sm font-semibold">{money(item.price * item.quantity)}</span>
@@ -417,10 +404,39 @@ export function ShoppingList({
                       type="button"
                       aria-label={`Odstranit ${item.name}`}
                       onClick={() => removeItem(item.id)}
-                      className="icon-button hidden shrink-0 hover:!bg-destructive-subtle hover:!text-destructive sm:inline-flex"
+                      className="icon-button shrink-0 max-sm:!hidden hover:!bg-destructive-subtle hover:!text-destructive"
                     >
                       <X className="size-4" aria-hidden="true" />
                     </button>
+                  </div>
+                  {/* Kind of goods, a running deal and priority get the row's full width under the name. */}
+                  <div className="flex flex-wrap gap-1.5 pr-3 pl-[3.375rem] text-xs empty:hidden sm:pr-4 sm:pl-16 [&:not(:empty)]:pb-3">
+                    {(() => {
+                      const typeLabel = describeItemTypes(item.name, item.productTypes).label
+                      return typeLabel ? <Badge className="py-0.5">{typeLabel}</Badge> : null
+                    })()}
+                    {(() => {
+                      const deal = dealByName.get(item.name.trim().toLowerCase())
+                      if (deal) {
+                        return (
+                          <Badge tone="accent" className="py-0.5">
+                            <Tag className="size-3" aria-hidden="true" /> Akce {deal.price.store} {money(effectivePrice(deal.price))}
+                            {deal.price.dealValidUntil ? ` do ${shortDate(deal.price.dealValidUntil)}` : ''}
+                          </Badge>
+                        )
+                      }
+                      // The household's own "Aktuálně v akci" mark, when no known deal says more.
+                      return item.onSale ? (
+                        <Badge tone="accent" className="py-0.5">
+                          <Tag className="size-3" aria-hidden="true" /> Akce
+                        </Badge>
+                      ) : null
+                    })()}
+                    {item.priority === 'Vysoká' && (
+                      <Badge tone="danger" className="py-0.5">
+                        Priorita
+                      </Badge>
+                    )}
                   </div>
                   {expandedId === item.id && (
                     <div className="grid gap-3 border-t border-border bg-muted/40 px-5 py-4 sm:grid-cols-2">

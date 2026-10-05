@@ -7,6 +7,7 @@ import {
   comparePrices,
   dealDiscount,
   dealSaving,
+  bestDealByName,
   dealEffectiveUnitPrice,
   dealsForList,
   effectivePrice,
@@ -371,6 +372,17 @@ describe('dealDiscount', () => {
     expect(dealDiscount(price({ regularPrice: 40, dealPrice: 30 }))).toBeCloseTo(0.25)
     expect(dealDiscount(price({ regularPrice: 40 }))).toBe(0)
     expect(dealDiscount(price({ regularPrice: 0, dealPrice: 5 }))).toBe(0)
+  })
+})
+
+describe('bestDealByName', () => {
+  const deal = (productName: string, store: string, dealPrice: number) => ({ product: { productName, category: 'Potraviny' as const, prices: [] }, price: price({ store: store as never, regularPrice: 50, dealPrice }) })
+
+  it('keeps the cheapest running deal per product, matching names case-insensitively', () => {
+    const best = bestDealByName([deal('Mléko', 'Lidl', 22), deal('mléko ', 'Penny', 19.9), deal('Máslo', 'Albert', 39)])
+    expect(best.get('mléko')?.price.store).toBe('Penny')
+    expect(best.get('máslo')?.price.dealPrice).toBe(39)
+    expect(best.size).toBe(2)
   })
 })
 

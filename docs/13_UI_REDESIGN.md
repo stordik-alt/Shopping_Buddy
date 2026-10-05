@@ -274,6 +274,13 @@ Sections with nothing to say collapse or disappear (as `TodayAttention` already 
    ("62 %", "2 z 6 hotovo"), so the bar alone carries no information. Lint could not run: the project has no lint
    script and ESLint is not installed.
 
+### After the first deployment (owner feedback, 2026-10-05)
+- Rozpočet uses the compact budget card; Domů puts "Výdaje podle kategorií" right under the budget card; "Došlo mi…"
+  became a count with "Zkontrolovat zásoby" (no item list); running deals show on their shopping-list rows. Details in
+  `docs/07_CHANGELOG.md`. The 6a "Došlo mi… ▸ Zásoby at a place" link was removed with the list.
+- Open: the Výdaje ledger lists one row per receipt *and* subcategory, so an opened category runs to dozens of rows —
+  a regrouping was proposed to the owner (not built yet).
+
 ## 8. Out of scope / observations (documented only)
 - `app-shell.tsx` mixes state orchestration with layout; splitting it is a refactor, not part of this redesign.
 - `ui/button.tsx` uses `@base-ui/react`; keep it as the base of the new `Button`.

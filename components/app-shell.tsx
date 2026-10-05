@@ -17,6 +17,8 @@ import { MobileNav } from '@/components/shared/mobile-nav'
 import { OfflineBanner } from '@/components/shopping/offline-banner'
 import { CollapsibleSection } from '@/components/shared/collapsible-section'
 import { TodayMeals } from '@/components/dashboard/today-meals'
+import { PantryCheckCard } from '@/components/dashboard/pantry-check-card'
+import { needsCheck } from '@/lib/pantry'
 import { PieChart } from 'lucide-react'
 import { SegmentedControl } from '@/components/ui/segmented-control'
 import {
@@ -34,7 +36,6 @@ import {
   PantryPrompt,
   PriceWatch,
   PurchaseHistory,
-  QuickOutOfStock,
   ReceiptImport,
   ReceiptListSuggestions,
   ReceiptPending,
@@ -135,10 +136,6 @@ export function AppShell({
   // What a tap on Domů should open inside its tab (lib/focus-target.ts); each screen consumes it once.
   const [focus, setFocus] = useState<FocusTarget | null>(null)
   const clearFocus = useCallback(() => setFocus(null), [])
-  // Zásoby reads its place only when it mounts, so the target can go as soon as the tab is open.
-  useEffect(() => {
-    if (tab === 'Zásoby' && focus?.kind === 'pantry-place') setFocus(null)
-  }, [tab, focus])
   // Which of Rozpočet's two things is shown — the glanceable current state, or the browsable/editable
   // ledger (which already covers "historie" via its own month picker, so it is not a third view).
   const [rozpocetView, setRozpocetView] = useState<'stav' | 'vydaje'>('stav')
@@ -174,7 +171,7 @@ export function AppShell({
     skipRecurring,
   } = useBudget({ initialData, setNotifications })
 
-  const pantry = usePantry({ initialData, initialPantryCheck, items, purchaseHistory, today, setItems, setNotifications, runOrQueue })
+  const pantry = usePantry({ initialData, initialPantryCheck, items, purchaseHistory, today, setItems, setNotifications })
   const {
     pantryItems,
     pantryPlaces,
@@ -194,7 +191,7 @@ export function AppShell({
     setPantryCheckinDaysFor,
     setPantrySubcategoryCheckinDaysFor,
     reviewPantry,
-    quickOut,
+    openPantryCheck,
     consumePantryCheck,
     setPantryTracking,
     setPantryItemSubcategory,
@@ -486,6 +483,23 @@ export function AppShell({
                     }}
                     onStores={() => setTab('Obchody')}
                     onSetBudget={() => setTab('Profil')}
+                    afterBudget={
+                      // Folded by default: the budget card above already gives the key numbers.
+                                        <CollapsibleSection title="Výdaje podle kategorií" summary={`${thisPeriodTitle(today, periodStartDay)} · utraceno ${spent.toLocaleString('cs-CZ')} Kč`} icon={<PieChart className="size-5" aria-hidden="true" />}>
+                        <div className="space-y-6">
+                          <SavingsInsight embedded remaining={remaining} today={today} periodStartDay={periodStartDay} />
+                          <SpendingBreakdown
+                            embedded
+                            expenses={periodExpenses}
+                            periodTitle={thisPeriodTitle(today, periodStartDay)}
+                            onDetails={() => {
+                              setTab('Rozpočet')
+                              setRozpocetView('stav')
+                            }}
+                          />
+                        </div>
+                      </CollapsibleSection>
+                    }
                   />
                   <TodayMeals
                     meals={todaysMeals(mealPlan, today)}
@@ -498,31 +512,15 @@ export function AppShell({
                       setTab('Recepty')
                     }}
                   />
-                  <QuickOutOfStock
-                    pantryItems={pantryItems}
-                    likelyGoneIds={likelyGonePantryIds}
-                    onGone={quickOut}
-                    onOpenPantry={(placeKey) => {
-                      setFocus(placeKey ? { kind: 'pantry-place', placeKey } : null)
+                  <PantryCheckCard
+                    toCheck={pantryItems.filter((item) => needsCheck(item, likelyGonePantryIds)).length}
+                    onCheck={() => {
+                      openPantryCheck()
                       setTab('Zásoby')
                     }}
+                    onOpen={() => setTab('Zásoby')}
                   />
                   <PriceWatch today={today} onBrowseDeals={() => setTab('Akce')} onStores={() => setTab('Obchody')} onAddToList={addItemByName} listItemNames={pendingNames} productPrices={nearbyProductPrices} offers={nearbyStandaloneOffers} pantryItems={pantryItems} />
-                  {/* Secondary detail, closed by default: the budget card above already gives the key numbers. */}
-                  <CollapsibleSection title="Výdaje podle kategorií" summary={`${thisPeriodTitle(today, periodStartDay)} · utraceno ${spent.toLocaleString('cs-CZ')} Kč`} icon={<PieChart className="size-5" aria-hidden="true" />}>
-                    <div className="space-y-6">
-                      <SavingsInsight embedded remaining={remaining} today={today} periodStartDay={periodStartDay} />
-                      <SpendingBreakdown
-                        embedded
-                        expenses={periodExpenses}
-                        periodTitle={thisPeriodTitle(today, periodStartDay)}
-                        onDetails={() => {
-                          setTab('Rozpočet')
-                          setRozpocetView('stav')
-                        }}
-                      />
-                    </div>
-                  </CollapsibleSection>
                 </div>
               )}
               {tab === 'Nákup' && (
@@ -627,7 +625,6 @@ export function AppShell({
               {tab === 'Zásoby' && (
                 <div className="mx-auto max-w-3xl">
                   <Pantry
-                    initialPlace={focus?.kind === 'pantry-place' ? focus.placeKey : undefined}
                     items={pantryItems}
                     customPlaces={pantryPlaces}
                     onAddPantryItem={addPantryItem}

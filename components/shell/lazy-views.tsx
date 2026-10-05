@@ -24,7 +24,6 @@ const loading = ViewSkeleton
 // Domů
 export const TodayAttention = dynamic(() => import('@/components/dashboard/today-attention').then((m) => m.TodayAttention), { loading })
 export const DashboardOverview = dynamic(() => import('@/components/dashboard/dashboard-overview').then((m) => m.DashboardOverview), { loading })
-export const QuickOutOfStock = dynamic(() => import('@/components/dashboard/quick-out-of-stock').then((m) => m.QuickOutOfStock), { loading })
 export const PriceWatch = dynamic(() => import('@/components/dashboard/price-watch').then((m) => m.PriceWatch), { loading })
 export const SpendingBreakdown = dynamic(() => import('@/components/dashboard/spending-breakdown').then((m) => m.SpendingBreakdown), { loading })
 export const SavingsInsight = dynamic(() => import('@/components/dashboard/savings-insight').then((m) => m.SavingsInsight), { loading })

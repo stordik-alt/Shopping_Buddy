@@ -20,10 +20,8 @@ import {
 import { addShoppingItemAction } from '@/app/actions/shopping'
 import type { PantryPromptState } from '@/components/shopping/pantry-prompt'
 import type { HouseholdData } from '@/lib/db/queries'
-import { newTempId, type PendingOp } from '@/lib/offline-queue'
 import { customPlaceIdFromKey, pantryItemAtHome } from '@/lib/pantry'
 import { estimatePantry } from '@/lib/pantry-estimate'
-import { matchKey as matchKeyOf } from '@/lib/receipt-list-match'
 import { tabHref } from '@/lib/tab-url'
 import type { Item, ItemCategory, ItemUnit, PantryArea, PantryItem, PantryLocation, PantryTracking } from '@/lib/types'
 
@@ -36,7 +34,6 @@ export function usePantry({
   today,
   setItems,
   setNotifications,
-  runOrQueue,
 }: {
   initialData: HouseholdData
   initialPantryCheck: boolean
@@ -45,7 +42,6 @@ export function usePantry({
   today: string
   setItems: Dispatch<SetStateAction<Item[]>>
   setNotifications: Dispatch<SetStateAction<HouseholdData['notifications']>>
-  runOrQueue: (op: PendingOp) => Promise<void>
 }) {
   const [pantryItems, setPantryItems] = useState(initialData.pantryItems)
   const [pantryPlaces, setPantryPlaces] = useState(initialData.pantryPlaces)
@@ -153,12 +149,9 @@ export function usePantry({
   const pantryEstimates = useMemo(() => estimatePantry(pantryItems, purchaseHistory, today), [pantryItems, purchaseHistory, today])
   const likelyGonePantryIds = useMemo(() => new Set([...pantryEstimates].filter(([, estimate]) => estimate.likelyGone).map(([id]) => id)), [pantryEstimates])
 
-  // "Došlo mi…" on the home screen: out of the pantry and, if asked, onto the list — without the
-  // "Došlo?" question, since the household just said so.
-  function quickOut(item: PantryItem, addToList: boolean) {
-    removePantryItem(item.id)
-    if (addToList && !items.some((entry) => !entry.done && matchKeyOf(entry.name) === matchKeyOf(item.name))) void runOrQueue({ kind: 'add', tempId: newTempId(), name: item.name })
-  }
+  // Domů's "Zkontrolovat zásoby": the Zásoby tab opens straight into the check, the same way the
+  // weekly notification's link does.
+  const openPantryCheck = useCallback(() => setPantryCheckPending(true), [])
 
   // Consumes the check link: drops `kontrola=1` from the address so a reload does not reopen it.
   const consumePantryCheck = useCallback(() => {
@@ -218,7 +211,7 @@ export function usePantry({
     setPantryCheckinDaysFor,
     setPantrySubcategoryCheckinDaysFor,
     reviewPantry,
-    quickOut,
+    openPantryCheck,
     consumePantryCheck,
     setPantryTracking,
     setPantryItemSubcategory,

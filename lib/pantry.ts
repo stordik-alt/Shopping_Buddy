@@ -1,4 +1,3 @@
-import { normalizeSearchText } from '@/lib/product-search'
 import { matchKey } from '@/lib/receipt-list-match'
 import type { ItemCategory, PantryArea, PantryItem, PantryLocation, PantryPlace, PantryTracking } from '@/lib/types'
 
@@ -322,14 +321,3 @@ export function findDuplicatePlacements(items: PantryItem[]): DuplicatePlacement
   return duplicates.sort((a, b) => a.name.localeCompare(b.name, 'cs'))
 }
 
-/** What the home screen's "Došlo mi…" offers (components/dashboard/quick-out-of-stock.tsx): tracked
- *  items in stock. Without a query, the ones most likely gone come first (estimated as used up, then
- *  asked about), then by name; with a query, the items whose name contains it (case and accents
- *  ignored). At most `limit`. */
-export function quickOutCandidates(items: PantryItem[], likelyGoneIds: ReadonlySet<string>, query: string, limit = 6): PantryItem[] {
-  const tracked = items.filter((item) => item.tracking !== 'off' && item.quantity > 0)
-  const needle = normalizeSearchText(query.trim())
-  if (needle) return tracked.filter((item) => normalizeSearchText(item.name).includes(needle)).slice(0, limit)
-  const rank = (item: PantryItem) => (likelyGoneIds.has(item.id) ? 0 : item.askedAt ? 1 : 2)
-  return [...tracked].sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name, 'cs')).slice(0, limit)
-}

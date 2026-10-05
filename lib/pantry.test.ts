@@ -18,7 +18,6 @@ import {
   pantryItemAtHome,
   pantryReviewOrder,
   placeKeyOf,
-  quickOutCandidates,
   splitPantryReview,
   summarizeByPlace,
   type PantryCheckinCandidate,
@@ -336,25 +335,6 @@ describe('pantryItemAtHome', () => {
     expect(pantryItemAtHome(items, 'SŮL')).toBeNull() // not tracked
     expect(pantryItemAtHome(items, 'Mléko')).toBeNull() // none left
     expect(pantryItemAtHome(items, '  ')).toBeNull()
-  })
-})
-
-describe('quickOutCandidates', () => {
-  const base = { category: 'Potraviny' as const, location: 'Lednice' as const, unit: 'ks' as const, quantity: 1, addedAt: '2026-09-20T00:00:00Z' }
-  const items = [
-    { ...base, id: 'rice', name: 'Rýže' },
-    { ...base, id: 'milk', name: 'Mléko' },
-    { ...base, id: 'bread', name: 'Chléb', askedAt: '2026-09-24T00:00:00Z' },
-    { ...base, id: 'salt', name: 'Sůl', tracking: 'off' as const },
-    { ...base, id: 'gone', name: 'Máslo', quantity: 0 },
-  ]
-  it('puts the likely-gone items first, then the asked ones, then by name; untracked and empty ones never', () => {
-    expect(quickOutCandidates(items, new Set(['milk']), '').map((item) => item.id)).toEqual(['milk', 'bread', 'rice'])
-    expect(quickOutCandidates(items, new Set(), '', 1).map((item) => item.id)).toEqual(['bread'])
-  })
-  it('filters by name, case and accents ignored', () => {
-    expect(quickOutCandidates(items, new Set(), 'mle').map((item) => item.id)).toEqual(['milk'])
-    expect(quickOutCandidates(items, new Set(), 'SUL')).toEqual([])
   })
 })
 

@@ -166,7 +166,7 @@ export function AppShell({
     setItems,
     setNotifications,
   })
-  const { household, pendingInvitations, updateHousehold, addMember, removeMember, addChild, removeChild, updatePreferences, inviteMember, revokeInvitation } = useHousehold(initialData)
+  const { household, pendingInvitations, updateHousehold, addMember, removeMember, setMemberDiet, addChild, removeChild, updatePreferences, inviteMember, revokeInvitation } = useHousehold(initialData)
   const periods = useBudgetPeriods({ initialData, today, startDay: household.budgetPeriodStartDay, active: tab === 'Rozpočet' })
   const {
     expenses,
@@ -816,6 +816,7 @@ export function AppShell({
                   onUpdateHousehold={updateHousehold}
                   onAddMember={addMember}
                   onRemoveMember={removeMember}
+                  onSetMemberDiet={setMemberDiet}
                   onAddChild={addChild}
                   onRemoveChild={removeChild}
                   onUpdatePreferences={updatePreferences}

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/field'
 import { Sheet } from '@/components/ui/sheet'
 import { getMealPlanRecipePoolsAction, saveMealPlanAction } from '@/app/actions/meal-plan'
+import { dietLabels, NO_DIET } from '@/lib/diet'
 import { money } from '@/lib/format'
 import {
   ALL_MEAL_TYPES,
@@ -77,6 +78,11 @@ export function MealPlan({
   const [selectedMeal, setSelectedMeal] = useState<{ day: string; mealType: MealType } | null>(initialMeal)
 
   // The menu itself needs no budget: the budget is set afterwards, in the shopping panel below it.
+  const dietNotes = household.members.flatMap((member) => {
+    const labels = dietLabels(member.diet ?? NO_DIET)
+    return labels.length > 0 ? [`${member.name} (${labels.join(', ').toLocaleLowerCase('cs')})`] : []
+  })
+
   async function generate() {
     if (mealTypes.length === 0) {
       setError('Vyberte aspoň jeden chod.')
@@ -92,7 +98,11 @@ export function MealPlan({
           .filter(([, recipes]) => recipes.length > 0),
       ) as Partial<Record<MealType, MealPlanRecipe[]>>
       if (mealTypes.some((mealType) => (usablePools[mealType]?.length ?? 0) === 0)) {
-        throw new Error('Pro některý zvolený chod nejsou v katalogu dostupné vhodné recepty.')
+        throw new Error(
+          dietNotes.length > 0
+            ? 'Pro některý zvolený chod nejsou v katalogu recepty, které by vyhovovaly stravování všech členů. Zkuste ten chod vynechat.'
+            : 'Pro některý zvolený chod nejsou v katalogu dostupné vhodné recepty.',
+        )
       }
       setRecipePools(usablePools)
       const limit = Number.isFinite(Number(budget)) && Number(budget) > 0 ? Number(budget) : 0
@@ -234,6 +244,10 @@ export function MealPlan({
           {loading ? 'Navrhuji…' : plan ? 'Vytvořit nový jídelníček' : 'Vytvořit jídelníček'}
         </Button>
       </div>
+      {dietNotes.length > 0 && (
+        // The members' eating questionnaire (docs/17_DIET_PREFERENCES.md) — the plan leaves out what does not suit them.
+        <p className="mt-2 break-words text-xs text-fg-muted">Podle stravování: {dietNotes.join(' · ')}</p>
+      )}
       {error && (
         <p role="alert" className="mt-2 text-sm text-destructive">
           {error}

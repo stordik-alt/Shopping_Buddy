@@ -4,7 +4,7 @@
 Neon PostgreSQL 18 is the persistent database.
 
 The initial schema already contains:
-`users`, `households`, `household_members`, `profiles`, `children`, `preferences`, `product_categories`, `products`, `product_external_refs`, `member_stores`, `shopping_list_item_pins`, `stores`, `store_locations`, `prices`, `deals`, `shopping_lists`, `shopping_list_items`, `budgets` (a budget period's own amount, unique per household and period start, docs/15), `expenses`, `purchases`, `purchase_items`, `meal_plans`, `notifications` (with `kind`), `member_notification_settings` (switched-off kinds per member, docs/14), `pantry_items`, `receipt_imports`, `ingestion_cursors`, `flyer_pages`.
+`users`, `households`, `household_members`, `profiles`, `children`, `preferences`, `product_categories`, `products`, `product_external_refs`, `member_stores`, `shopping_list_item_pins`, `stores`, `store_locations`, `prices`, `deals`, `shopping_lists`, `shopping_list_items`, `budgets` (a budget period's own amount, unique per household and period start, docs/15), `expenses`, `purchases`, `purchase_items`, `meal_plans`, `notifications` (with `kind`), `member_notification_settings` (switched-off kinds per member, docs/14), `member_diets` (eating questionnaire per member, docs/17), `pantry_items`, `receipt_imports`, `ingestion_cursors`, `flyer_pages`.
 
 There is also a `neon_auth` schema.
 

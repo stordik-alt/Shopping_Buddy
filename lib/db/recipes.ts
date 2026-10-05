@@ -1,3 +1,4 @@
+import { cleanMemberDiet, householdDietStems } from '@/lib/diet'
 import { and, asc, desc, eq, sql } from 'drizzle-orm'
 import type { Recipe, RecipeSearchResult, SavedRecipe } from '@/lib/recipes/types'
 import { getDb } from '@/lib/db/client'
@@ -137,6 +138,8 @@ export async function toggleRecipeFavorite(householdId: string, recipe: Recipe):
 
 
 export type RecipeHouseholdData = {
+  /** The members' eating questionnaire rules together (lib/diet.ts). */
+  dietStems: string[]
   allergies: string[]
   dislikedFoods: string[]
   favoriteFoods: string[]
@@ -156,7 +159,15 @@ export async function getRecipeHouseholdData(householdId: string): Promise<Recip
     .innerJoin(schema.householdMembers, eq(schema.householdMembers.id, schema.profiles.memberId))
     .where(eq(schema.householdMembers.householdId, householdId))
 
+  // Every member's questionnaire answers together: the household cooks one plan (docs/17_DIET_PREFERENCES.md).
+  const dietRows = await db
+    .select({ diet: schema.memberDiets.diet, avoids: schema.memberDiets.avoids })
+    .from(schema.memberDiets)
+    .innerJoin(schema.householdMembers, eq(schema.householdMembers.id, schema.memberDiets.memberId))
+    .where(eq(schema.householdMembers.householdId, householdId))
+
   return {
+    dietStems: householdDietStems(dietRows.flatMap((row) => cleanMemberDiet(row) ?? [])),
     allergies: [...new Set(rows.flatMap((row) => row.allergies))],
     dislikedFoods: [...new Set(rows.flatMap((row) => row.dislikedFoods))],
     favoriteFoods: [...new Set(rows.flatMap((row) => row.favoriteFoods))],

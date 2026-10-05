@@ -1,3 +1,4 @@
+import { cleanMemberDiet, NO_DIET, type MemberDiet } from '@/lib/diet'
 import { and, asc, desc, eq, gte, ilike, inArray, isNull, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
@@ -255,6 +256,11 @@ export async function joinHouseholdViaInvitation(userId: string, userName: strin
   return household
 }
 
+/** A stored questionnaire row as the app uses it; a missing or unreadable row eats everything. */
+function memberDietOf(row: { diet: string; avoids: string[] } | undefined): MemberDiet {
+  return (row && cleanMemberDiet(row)) ?? NO_DIET
+}
+
 /** How many notifications the page loads (the newest). */
 const NOTIFICATIONS_SHOWN = 50
 /** The first day of the household's current budget period. */
@@ -495,7 +501,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
   // History is scoped to the household's configured budget period. Older records remain in the database
   // but are not loaded on normal page renders, which keeps the common read path bounded.
   const historySince = currentBudgetPeriodStart(household.budgetPeriodStartDay)
-  const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows, mealPlan, invitationRows, pantryRows, pantryPlaceRows, pantryCheckinRows, pantryCheckinSubcategoryRows, pendingReceiptImports, categoryBudgetRows, recurringRows, occurrenceRows, notificationsOffRows, periodBudgetRows] =
+  const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows, mealPlan, invitationRows, pantryRows, pantryPlaceRows, pantryCheckinRows, pantryCheckinSubcategoryRows, pendingReceiptImports, categoryBudgetRows, recurringRows, occurrenceRows, notificationsOffRows, periodBudgetRows, dietRows] =
     await Promise.all([
       db.query.householdMembers.findMany({
         where: eq(schema.householdMembers.householdId, household.id),
@@ -545,6 +551,11 @@ export async function getHouseholdData(userId: string, userName: string, userEma
         .where(and(eq(schema.householdMembers.userId, userId), eq(schema.memberNotificationSettings.enabled, false))),
       // A handful of rows at most: only periods the household gave their own budget.
       db.query.budgets.findMany({ where: eq(schema.budgets.householdId, household.id), columns: { month: true, amount: true } }),
+      db
+        .select({ memberId: schema.memberDiets.memberId, diet: schema.memberDiets.diet, avoids: schema.memberDiets.avoids })
+        .from(schema.memberDiets)
+        .innerJoin(schema.householdMembers, eq(schema.householdMembers.id, schema.memberDiets.memberId))
+        .where(eq(schema.householdMembers.householdId, household.id)),
     ])
 
   const myRawMember = members.find((member) => member.userId === userId)
@@ -576,6 +587,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
         favoriteFoods: member.profile?.favoriteFoods ?? [],
         dislikedFoods: member.profile?.dislikedFoods ?? [],
         allergies: member.profile?.allergies ?? [],
+        diet: memberDietOf(dietRows.find((row) => row.memberId === member.id)),
       }),
     ),
     children: children.map(

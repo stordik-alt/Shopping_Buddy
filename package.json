@@ -19,6 +19,8 @@
     "db:split-collapsed-products": "dotenv -e .env.local -- tsx scripts/split-collapsed-products.ts",
     "db:backfill-prices": "dotenv -e .env.local -- tsx scripts/backfill-prices.ts",
     "db:backup": "dotenv -e .env.local -- tsx scripts/backup-db.ts",
+    "receipt-eval:export": "dotenv -e .env.local -- tsx scripts/receipt-eval/export-dataset.ts",
+    "receipt-eval:run": "dotenv -e .env.local -- tsx scripts/receipt-eval/run.ts",
     "db:set-admin": "dotenv -e .env.local -- tsx scripts/set-admin.ts",
     "db:import-stores": "dotenv -e .env.local -- tsx scripts/import-stores.ts",
     "db:albert-flyers": "dotenv -e .env.local -- tsx scripts/albert-flyers.ts",

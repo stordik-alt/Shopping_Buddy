@@ -1,5 +1,7 @@
 # Shopping Buddy — OCR Receipt Import Pipeline
 
+> **Successor in preparation (2026-10-05):** reading the receipt in one step with GPT-6 Luna instead of OCR + Gemini — `docs/18_RECEIPT_READER_LUNA.md`. Until production switches (`RECEIPT_READER=luna`), this document describes the running pipeline. Note: Google Vision currently fails in production (the GCP project has no billing enabled), so every photo is read by the Azure fallback.
+
 **Status: implemented, 2026-09-22 — owner-approved exception to `CLAUDE.md` section 30.** The
 owner's own words when asked to confirm: *"OCR chci mít vyřešené, na konec necháme AI asistenta.
 Toto AI je pouze pro import účtenek"* (I want OCR resolved; the AI assistant stays for last; this

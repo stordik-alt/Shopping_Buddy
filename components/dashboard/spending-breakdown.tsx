@@ -25,8 +25,8 @@ export function SpendingBreakdown({ expenses, onDetails, periodTitle = 'Tento m�
   const max = Math.max(...breakdown.map((entry) => entry.total), 1)
 
   return (
-    <section className={embedded ? '' : 'surface p-5 sm:p-6'}>
-      <div className="flex items-start justify-between gap-3">
+    <section className={`min-w-0 ${embedded ? '' : 'surface p-5 sm:p-6'}`}>
+      <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold">Výdaje podle kategorií</p>
           <p className="mt-1 text-xs text-fg-muted">{periodTitle}</p>

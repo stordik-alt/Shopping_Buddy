@@ -51,10 +51,10 @@ export function DashboardOverview({
   return (
     // On a phone the order is budget → spending (folded) → quick actions → shopping list; from lg up the
     // list sits beside the budget, and the spending and the actions span below.
-    <section className="grid gap-3 lg:grid-cols-[1.35fr_1fr] lg:gap-4" aria-label="Přehled domácnosti">
-      <BudgetHero compact today={today} periodStartDay={periodStartDay} budget={budget} spent={spent} remaining={remaining} onSetBudget={onSetBudget} onOpen={onBudget} className="order-1" />
+    <section className="min-w-0 w-full grid gap-3 lg:grid-cols-[1.35fr_1fr] lg:gap-4" aria-label="Přehled domácnosti">
+      <BudgetHero compact today={today} periodStartDay={periodStartDay} budget={budget} spent={spent} remaining={remaining} onSetBudget={onSetBudget} onOpen={onBudget} className="order-1 min-w-0" />
 
-      {afterBudget && <div className="order-2 lg:order-3 lg:col-span-2">{afterBudget}</div>}
+      {afterBudget && <div className="order-2 min-w-0 w-full lg:order-3 lg:col-span-2">{afterBudget}</div>}
 
       <QuickActions className="order-3 lg:order-4 lg:col-span-2" onShopping={onShopping} onExpense={onExpense} onReceipt={onReceipt} onStores={onStores} />
 

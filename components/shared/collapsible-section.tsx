@@ -30,7 +30,7 @@ export function CollapsibleSection({
         {icon && <span className="shrink-0 text-accent-text" aria-hidden="true">{icon}</span>}
         <span className="min-w-0 flex-1">
           <span className="block font-semibold">{title}</span>
-          {summary && !open && <span className="mt-0.5 block truncate text-sm text-fg-muted">{summary}</span>}
+          {summary && !open && <span className="mt-0.5 block break-words text-sm text-fg-muted">{summary}</span>}
         </span>
         <ChevronDown className={`size-5 shrink-0 text-fg-muted transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
       </button>

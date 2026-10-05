@@ -1,3 +1,8 @@
+## 2026-10-05 (Domů: folded section summaries wrap instead of being cut off)
+- **Why:** with a budget period not starting on the 1st, the summary of "Výdaje podle kategorií" ("15. 9. – 14. 10. 2026 · utraceno 15 455,64 Kč") is long. Before #279 it widened the whole dashboard past a phone screen (owner screenshot); after #279 it was cut off with an ellipsis, hiding the amount.
+- **What:** a folded section's summary (`CollapsibleSection`) wraps onto a second line.
+- **Checked:** Domů at 320 / 360 / 390 / 412 px with a period starting on the 15th: no horizontal overflow, the whole amount visible.
+
 ## 2026-10-05 (Notification preferences: each member chooses which notifications they get)
 - **Why:** the owner: "uživatel musí mít na výběr, která upozornění chce a která ne". Concept: `docs/14_NOTIFICATION_PREFERENCES.md`.
 - **What:** seven kinds (`lib/notification-kinds.ts`): budget, category limits, deal on a list item, daily shopping reminder, weekly pantry check, recurring payments, new household member. Profil ▸ Upozornění lists them as switches (on by default) with the device's push switch; the dead "Týdenní souhrn" switch is gone. A kind switched off is not pushed to that member's devices (`pushToHousehold` skips them) and not shown in their bell panel (the app filters by the member's switched-off kinds, loaded with the household data); other members are unaffected. Every notification now records its kind; older rows have none and stay visible.

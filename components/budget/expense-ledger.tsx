@@ -4,7 +4,7 @@ import { CATEGORY_BAR_COLORS } from '@/components/dashboard/spending-breakdown'
 import { PurchaseItemSplitDialog } from '@/components/budget/purchase-item-split-dialog'
 import { Button } from '@/components/ui/button'
 import { SegmentedControl } from '@/components/ui/segmented-control'
-import { categoryRows, expensePeriod, expensePeriods, periodEnd, periodSummary } from '@/lib/budget'
+import { categoryRows, expensePeriod, expensePeriods, groupExpensesByPurchase, periodEnd, periodSummary, subcategoryGroups, type LedgerEntry, type SubcategoryGroup } from '@/lib/budget'
 import { money, periodLabel, recordCountLabel, shortDate } from '@/lib/format'
 import type { PurchaseExpenseItem } from '@/lib/db/purchase-items'
 import type { ExpenseSplitPart } from '@/lib/purchase-expenses'
@@ -152,17 +152,10 @@ export function ExpenseLedger({
                           {entry.level === 'over' ? `Limit překročen o ${money(entry.total - entry.limit)}` : 'Přes 80 % limitu'}
                         </span>
                       )}
-                      <span className="mt-2 flex flex-wrap gap-1.5 text-xs text-muted-foreground">
-                        {entry.subcategories.map((sub) => (
-                          <span key={sub.subcategory ?? '-'} className="rounded-full bg-background px-2 py-0.5 break-words">
-                            {sub.subcategory ?? 'Ostatní'} {money(sub.total)}
-                          </span>
-                        ))}
-                      </span>
                     </button>
                     {expanded &&
                       (entry.expenses.length > 0 ? (
-                        <PaymentList expenses={entry.expenses} onEdit={onEdit} onLoadItems={onLoadItems} onSaveSplits={onSaveSplits} />
+                        <SubcategoryList groups={subcategoryGroups(entry)} categoryTotal={entry.total} onEdit={onEdit} onLoadItems={onLoadItems} onSaveSplits={onSaveSplits} />
                       ) : (
                         <p className="px-4 pb-3 text-sm text-muted-foreground">V tomto {periodStartDay === 1 ? 'měsíci' : 'období'} zatím nic.</p>
                       ))}
@@ -171,9 +164,7 @@ export function ExpenseLedger({
               })}
             </div>
           ) : (
-            <div className="mt-4 rounded-2xl bg-muted">
-              <PaymentList expenses={byDate} onEdit={onEdit} onLoadItems={onLoadItems} onSaveSplits={onSaveSplits} showCategory />
-            </div>
+            <DateList entries={groupExpensesByPurchase(byDate)} onEdit={onEdit} onLoadItems={onLoadItems} onSaveSplits={onSaveSplits} />
           )}
         </>
       )}
@@ -182,6 +173,132 @@ export function ExpenseLedger({
 }
 
 type ItemsState = { status: 'loading' } | { status: 'error' } | { status: 'done'; items: PurchaseExpenseItem[] }
+
+type PaymentHandlers = {
+  onEdit: (expense: Expense) => void
+  onLoadItems: (purchaseId: string, category: Expense['category'], subcategory: string | null) => Promise<PurchaseExpenseItem[]>
+  onSaveSplits: (purchaseItemId: string, splits: ExpenseSplitPart[]) => Promise<void>
+}
+
+// How many payments an opened subcategory shows before "Zobrazit další", and how many rows the list by
+// date shows at a time — a month of receipts stays a short list (owner, 2026-10-05).
+const SUBCATEGORY_PAGE = 5
+const DATE_PAGE = 15
+
+/** "Zobrazit další (N)" under a list that shows only its first part. */
+function MoreButton({ hidden, onClick }: { hidden: number; onClick: () => void }) {
+  if (hidden <= 0) return null
+  return (
+    <button type="button" onClick={onClick} className="mx-2 mb-2 min-h-11 rounded-xl px-3 text-sm font-medium text-accent-text hover:bg-background/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      Zobrazit další ({hidden})
+    </button>
+  )
+}
+
+/** An opened category: one short row per subcategory (total, number of records, share of the category);
+ *  a row opens its own payments, newest first, a few at a time. */
+function SubcategoryList({ groups, categoryTotal, ...handlers }: { groups: SubcategoryGroup[]; categoryTotal: number } & PaymentHandlers) {
+  const [open, setOpen] = useState<string | null>(null)
+  const [shown, setShown] = useState(SUBCATEGORY_PAGE)
+  return (
+    <ul className="space-y-1 px-2 pb-2">
+      {groups.map((group) => {
+        const key = group.subcategory ?? '__none__'
+        const expanded = open === key
+        const share = categoryTotal > 0 ? (group.total / categoryTotal) * 100 : 0
+        return (
+          <li key={key} className="rounded-xl bg-background/60">
+            <button
+              type="button"
+              aria-expanded={expanded}
+              onClick={() => {
+                setOpen(expanded ? null : key)
+                setShown(SUBCATEGORY_PAGE)
+              }}
+              className="w-full rounded-xl px-3 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span className="flex items-baseline justify-between gap-3 text-sm">
+                <span className="min-w-0 break-words font-medium">{group.subcategory ?? 'Bez podkategorie'}</span>
+                <span className="flex shrink-0 items-center gap-1 font-semibold">
+                  {money(group.total)}
+                  <ChevronDown className={`size-4 text-fg-muted transition ${expanded ? 'rotate-180' : ''}`} aria-hidden="true" />
+                </span>
+              </span>
+              <span className="mt-1.5 flex items-center gap-3">
+                <span className="block h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                  <span className="block h-full rounded-full bg-accent-solid" style={{ width: `${share}%` }} />
+                </span>
+                <span className="shrink-0 text-xs text-fg-muted">{recordCountLabel(group.expenses.length)}</span>
+              </span>
+            </button>
+            {expanded && (
+              <>
+                <PaymentList expenses={group.expenses.slice(0, shown)} {...handlers} />
+                <MoreButton hidden={group.expenses.length - shown} onClick={() => setShown((current) => current + SUBCATEGORY_PAGE)} />
+              </>
+            )}
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+/** Výdaje by date: a receipt is one row again (its total, how many categories it was split into) and
+ *  opens into the split parts, each still correctable; payments entered by hand are rows of their own. */
+function DateList({ entries, ...handlers }: { entries: LedgerEntry[] } & PaymentHandlers) {
+  const [open, setOpen] = useState<string | null>(null)
+  const [shown, setShown] = useState(DATE_PAGE)
+  return (
+    <div className="mt-4 rounded-2xl bg-muted">
+      <ul className="divide-y divide-border/60">
+        {entries.slice(0, shown).map((entry) => {
+          if (entry.kind === 'single') {
+            return (
+              <li key={entry.expense.id}>
+                <PaymentList expenses={[entry.expense]} {...handlers} showCategory />
+              </li>
+            )
+          }
+          const expanded = open === entry.purchaseId
+          const categories = new Set(entry.parts.map((part) => part.category)).size
+          return (
+            <li key={entry.purchaseId}>
+              <button
+                type="button"
+                aria-expanded={expanded}
+                onClick={() => setOpen(expanded ? null : entry.purchaseId)}
+                className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-background/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+              >
+                <span className="flex min-w-0 items-center gap-3">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-background text-accent-text">
+                    <Receipt className="size-4" aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block break-words text-sm font-medium">{entry.note || 'Nákup z účtenky'}</span>
+                    <span className="mt-0.5 block text-xs text-fg-muted">
+                      {shortDate(entry.date)} · {categories === 1 ? entry.parts[0].category : `rozděleno do ${categories} kategorií`}
+                    </span>
+                  </span>
+                </span>
+                <span className="flex shrink-0 items-center gap-1 text-sm font-semibold">
+                  {money(entry.total)}
+                  <ChevronDown className={`size-4 text-fg-muted transition ${expanded ? 'rotate-180' : ''}`} aria-hidden="true" />
+                </span>
+              </button>
+              {expanded && (
+                <div className="mx-2 mb-2 rounded-xl bg-background/60">
+                  <PaymentList expenses={entry.parts} {...handlers} asParts />
+                </div>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+      <MoreButton hidden={entries.length - shown} onClick={() => setShown((current) => current + DATE_PAGE)} />
+    </div>
+  )
+}
 
 /** Payments, each one tap from its correction. A receipt-derived one also expands (a separate
  *  control from the tap-to-correct row) into the exact items behind its amount — "přesné položky,
@@ -192,12 +309,16 @@ function PaymentList({
   onLoadItems,
   onSaveSplits,
   showCategory = false,
+  asParts = false,
 }: {
   expenses: Expense[]
   onEdit: (expense: Expense) => void
   onLoadItems: (purchaseId: string, category: Expense['category'], subcategory: string | null) => Promise<PurchaseExpenseItem[]>
   onSaveSplits: (purchaseItemId: string, splits: ExpenseSplitPart[]) => Promise<void>
   showCategory?: boolean
+  /** The parts of one opened purchase: its store and date are already in the row above, so each part
+   *  is named by where its amount went (subcategory or category), without the icon. */
+  asParts?: boolean
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [itemsByExpense, setItemsByExpense] = useState<Record<string, ItemsState>>({})
@@ -241,20 +362,27 @@ function PaymentList({
                   onClick={() => onEdit(expense)}
                   className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-xl px-2 py-2.5 text-left hover:bg-background/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <span className="flex min-w-0 items-center gap-3">
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-background text-accent-text">
-                      <Receipt className="h-4 w-4" aria-hidden="true" />
-                    </span>
+                  {asParts ? (
                     <span className="min-w-0">
-                      <span className="block break-words text-sm font-medium">{expense.note || expense.subcategory || expense.category}</span>
-                      <span className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-muted-foreground">
-                        <span>{shortDate(expense.date)}</span>
-                        {showCategory && <span className="break-words">{expense.category}</span>}
-                        {expense.subcategory && <span className="break-words">{expense.subcategory}</span>}
-                        {expense.purchaseId && <span className="font-medium text-accent-text">z účtenky</span>}
+                      <span className="block break-words text-sm font-medium">{expense.subcategory ?? expense.category}</span>
+                      {expense.subcategory && <span className="mt-0.5 block text-xs text-fg-muted">{expense.category}</span>}
+                    </span>
+                  ) : (
+                    <span className="flex min-w-0 items-center gap-3">
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-background text-accent-text">
+                        <Receipt className="size-4" aria-hidden="true" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block break-words text-sm font-medium">{expense.note || expense.subcategory || expense.category}</span>
+                        <span className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-fg-muted">
+                          <span>{shortDate(expense.date)}</span>
+                          {showCategory && <span className="break-words">{expense.category}</span>}
+                          {expense.subcategory && <span className="break-words">{expense.subcategory}</span>}
+                          {expense.purchaseId && <span className="font-medium text-accent-text">z účtenky</span>}
+                        </span>
                       </span>
                     </span>
-                  </span>
+                  )}
                   <span className="shrink-0 text-sm font-semibold">{money(expense.amount)}</span>
                 </button>
                 {expense.purchaseId && (

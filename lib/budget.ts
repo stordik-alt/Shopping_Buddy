@@ -267,3 +267,46 @@ export function weeklyAllowance(remaining: number, today: string, startDay = 1):
   if (remaining <= 0) return 0
   return remaining / Math.max(1, periodDaysLeft(today, startDay) / 7)
 }
+
+/** One subcategory of a category in a period, with its payments — what an opened category in Výdaje
+ *  lists (one short row each) instead of every payment at once. Largest first, like
+ *  `CategorySummary.subcategories`; payments newest first; `null` = without a subcategory. */
+export type SubcategoryGroup = { subcategory: string | null; total: number; expenses: Expense[] }
+
+export function subcategoryGroups(entry: Pick<CategorySummary, 'subcategories' | 'expenses'>): SubcategoryGroup[] {
+  return entry.subcategories.map(({ subcategory, total }) => ({
+    subcategory,
+    total,
+    expenses: entry.expenses.filter((expense) => expense.subcategory === subcategory),
+  }))
+}
+
+/** A row of the Výdaje list by date: a payment entered by hand, or one purchase (a receipt) whose
+ *  amount the budget keeps split by category and subcategory — shown again as the one purchase it was. */
+export type LedgerEntry =
+  | { kind: 'single'; expense: Expense }
+  | { kind: 'purchase'; purchaseId: string; date: string; note: string; total: number; parts: Expense[] }
+
+/** Joins a purchase's split expenses back into one entry, keeping the order of the input (newest first
+ *  in Výdaje): the purchase takes the place of its first part. The total is the sum of its parts, so it
+ *  equals what the budget counts. */
+export function groupExpensesByPurchase(expenses: Expense[]): LedgerEntry[] {
+  const entries: LedgerEntry[] = []
+  const byPurchase = new Map<string, Extract<LedgerEntry, { kind: 'purchase' }>>()
+  for (const expense of expenses) {
+    if (!expense.purchaseId) {
+      entries.push({ kind: 'single', expense })
+      continue
+    }
+    const existing = byPurchase.get(expense.purchaseId)
+    if (existing) {
+      existing.parts.push(expense)
+      existing.total = Math.round((existing.total + expense.amount) * 100) / 100
+      continue
+    }
+    const entry = { kind: 'purchase' as const, purchaseId: expense.purchaseId, date: expense.date, note: expense.note, total: expense.amount, parts: [expense] }
+    byPurchase.set(expense.purchaseId, entry)
+    entries.push(entry)
+  }
+  return entries
+}

@@ -278,8 +278,9 @@ Sections with nothing to say collapse or disappear (as `TodayAttention` already 
 - Rozpočet uses the compact budget card; Domů puts "Výdaje podle kategorií" right under the budget card; "Došlo mi…"
   became a count with "Zkontrolovat zásoby" (no item list); running deals show on their shopping-list rows. Details in
   `docs/07_CHANGELOG.md`. The 6a "Došlo mi… ▸ Zásoby at a place" link was removed with the list.
-- Open: the Výdaje ledger lists one row per receipt *and* subcategory, so an opened category runs to dozens of rows —
-  a regrouping was proposed to the owner (not built yet).
+- Výdaje (approved 2026-10-05): an opened category lists its subcategories, a subcategory its payments five at a
+  time, and the list by date shows one row per receipt — see `docs/07_CHANGELOG.md`.
+- Pantry check: items that stay have −/+ for how much is left (owner, 2026-10-05).
 
 ## 8. Out of scope / observations (documented only)
 - `app-shell.tsx` mixes state orchestration with layout; splitting it is a refactor, not part of this redesign.

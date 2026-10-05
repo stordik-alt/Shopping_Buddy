@@ -1,6 +1,6 @@
 # Shopping Buddy — OCR Receipt Import Pipeline
 
-> **Successor in preparation (2026-10-05):** reading the receipt in one step with GPT-6 Luna instead of OCR + Gemini — `docs/18_RECEIPT_READER_LUNA.md`. Until production switches (`RECEIPT_READER=luna`), this document describes the running pipeline. Note: Google Vision currently fails in production (the GCP project has no billing enabled), so every photo is read by the Azure fallback.
+> **Successor in preparation (2026-10-05):** reading the receipt in one step with GPT-6 Luna instead of OCR + Gemini — `docs/18_RECEIPT_READER_LUNA.md`. Until production switches (`RECEIPT_READER=luna`), this document describes the running pipeline. Since 2026-10-05 Azure Document Intelligence is the OCR whenever it is configured and Google Vision is not called (it failed in production for every request — the GCP project has no billing enabled); see section 23.
 
 **Status: implemented, 2026-09-22 — owner-approved exception to `CLAUDE.md` section 30.** The
 owner's own words when asked to confirm: *"OCR chci mít vyřešené, na konec necháme AI asistenta.
@@ -577,7 +577,9 @@ The application uses `@vercel/oidc`'s `getVercelOidcToken()` helper. In Vercel F
 
 ## 23. Azure OCR fallback
 
-Azure Document Intelligence prebuilt-receipt is an optional OCR fallback. Google Vision remains the primary provider. Azure is called only after the primary OCR provider throws and these server-only Vercel environment variables are configured:
+**Changed 2026-10-05 (owner: "Přeskoč Google Vision"):** when both variables below are configured, Azure Document Intelligence prebuilt-receipt is the only OCR for photos and scanned PDFs, and Google Vision is not called — it failed in production for every request (the GCP project has no billing enabled), so trying it first only made each import wait for a refusal. Without Azure (local development, tests) Google Vision is used as described in section 3, with no fallback. The text below describes the earlier order (Vision first, Azure after a Vision failure).
+
+Azure Document Intelligence prebuilt-receipt was an optional OCR fallback. Google Vision was the primary provider. Azure was called only after the primary OCR provider threw and these server-only Vercel environment variables were configured:
 
 Every OCR import records the provider that actually produced the raw OCR text in receipt_imports.ocr_provider:
 - google_vision — Google Cloud Vision succeeded.

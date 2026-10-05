@@ -30,7 +30,7 @@ export async function remindDueRecurringPayments(db: Db, today: string): Promise
       db,
       householdId,
       { title: payments.length === 1 ? 'Dnes je splatná platba' : 'Dnes jsou splatné platby', detail: `${list}. Potvrďte je v Rozpočtu, až budou zaplacené.` },
-      { tab: 'Rozpočet' },
+      { kind: 'recurring_payment', tab: 'Rozpočet' },
     )
     await db
       .update(schema.recurringPayments)

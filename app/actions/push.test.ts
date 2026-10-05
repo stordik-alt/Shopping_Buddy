@@ -14,6 +14,7 @@ vi.mock('@/lib/auth/authorize', () => ({
 }))
 
 import { removePushSubscriptionAction, savePushSubscriptionAction } from '@/app/actions/push'
+import { setNotificationPreferenceAction } from '@/app/actions/notifications'
 
 const db = getDb()
 const createdHouseholdIds: string[] = []
@@ -149,5 +150,40 @@ describe('pushToHousehold', () => {
     expect(await rowsFor(alice.householdId)).toHaveLength(1)
     expect(error).toHaveBeenCalledWith(expect.stringContaining('"event":"push_failed"'))
     error.mockRestore()
+  })
+})
+
+describe('notification preferences (docs/14_NOTIFICATION_PREFERENCES.md)', () => {
+  it('stores a switched-off kind for the signed-in member only, and switching it on again flips the row', async () => {
+    session = bob
+    await setNotificationPreferenceAction('shopping_reminder', false)
+    const rows = await db.query.memberNotificationSettings.findMany({ where: eq(schema.memberNotificationSettings.memberId, bob.memberId) })
+    expect(rows.map((row) => [row.kind, row.enabled])).toEqual([['shopping_reminder', false]])
+    await setNotificationPreferenceAction('shopping_reminder', true)
+    expect((await db.query.memberNotificationSettings.findFirst({ where: eq(schema.memberNotificationSettings.memberId, bob.memberId) }))?.enabled).toBe(true)
+    expect(await db.query.memberNotificationSettings.findMany({ where: eq(schema.memberNotificationSettings.memberId, alice.memberId) })).toEqual([])
+  })
+
+  it('refuses a kind outside the fixed list', async () => {
+    session = bob
+    await expect(setNotificationPreferenceAction('weekly_digest', false)).rejects.toThrow('Neplatné nastavení upozornění')
+  })
+
+  it('pushes a kind only to the members who did not switch it off', async () => {
+    const alicePhone = subscription(`alice-pref-${crypto.randomUUID()}`)
+    const bobPhone = subscription(`bob-pref-${crypto.randomUUID()}`)
+    session = alice
+    await savePushSubscriptionAction(alicePhone)
+    session = bob
+    await savePushSubscriptionAction(bobPhone)
+    await setNotificationPreferenceAction('budget', false)
+
+    const send = vi.fn<typeof sendWebPush>(async () => ({ ok: true, status: 201 }))
+    await pushToHousehold(alice.householdId, { title: 'Rozpočet', body: '80 %', url: '/' }, { kind: 'budget', send })
+    expect(send.mock.calls.map(([target]) => target.endpoint)).toEqual([alicePhone.endpoint])
+
+    send.mockClear()
+    await pushToHousehold(alice.householdId, { title: 'Nákup', body: 'x', url: '/' }, { kind: 'shopping_reminder', send })
+    expect(send.mock.calls.map(([target]) => target.endpoint).sort()).toEqual([alicePhone.endpoint, bobPhone.endpoint].sort())
   })
 })

@@ -1004,10 +1004,25 @@ export const notifications = pgTable('notifications', {
   title: text('title').notNull(),
   detail: text('detail').notNull(),
   unread: boolean('unread').notNull().default(true),
+  // Which kind of message it is (lib/notification-kinds.ts); NULL for rows written before kinds existed.
+  kind: text('kind'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => [
   index('notifications_household_created_idx').on(table.householdId, table.createdAt),
 ])
+
+// Kinds of notification a member switched off (docs/14_NOTIFICATION_PREFERENCES.md). Only "off" is
+// stored; a missing row means the member gets that kind. Migration 0066 checks `kind` against the list.
+export const memberNotificationSettings = pgTable(
+  'member_notification_settings',
+  {
+    memberId: uuid('member_id').notNull().references(() => householdMembers.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    enabled: boolean('enabled').notNull().default(true),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.memberId, table.kind] })],
+)
 
 // One browser/phone that agreed to receive push notifications for a household member (Web Push,
 // lib/push/). `endpoint` is the push service URL the browser created for this app and identifies the

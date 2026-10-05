@@ -6,7 +6,8 @@ import { buildShoppingPlanAction, pinProductAction, unpinProductAction } from '@
 import { createManualPurchaseAction } from '@/app/actions/purchases'
 import { saveMyStorePreferencesAction } from '@/app/actions/store-preferences'
 import { markMealCookedAction } from '@/app/actions/meal-plan'
-import { markAllNotificationsReadAction, markNotificationReadAction } from '@/app/actions/notifications'
+import { markAllNotificationsReadAction, markNotificationReadAction, setNotificationPreferenceAction } from '@/app/actions/notifications'
+import { wantsNotification } from '@/lib/notification-kinds'
 import type { ExpenseSplitPart } from '@/lib/purchase-expenses'
 import { completePurchaseAction, getPurchaseExpenseItemsAction, recordPurchaseAsExpenseAction, setPurchaseItemExpenseSplitsAction } from '@/app/actions/purchases'
 import { addShoppingItemAction, addShoppingListAction } from '@/app/actions/shopping'
@@ -123,6 +124,12 @@ export function AppShell({
   const [items, setItems] = useState(initialData.items)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [notifications, setNotifications] = useState(initialData.notifications)
+  // The kinds this member switched off (Profil ▸ Upozornění); left out of their bell panel and count.
+  const [notificationsOff, setNotificationsOff] = useState<string[]>(initialData.notificationsOff)
+  const visibleNotifications = useMemo(() => {
+    const off = new Set(notificationsOff)
+    return notifications.filter((notification) => wantsNotification(notification.kind, off))
+  }, [notifications, notificationsOff])
   // Kept in state so a category reassignment or a recorded purchase shows on the history screen
   // without re-rendering the whole page from the server.
   const [purchaseHistory, setPurchaseHistory] = useState(initialData.purchaseHistory)
@@ -238,7 +245,7 @@ export function AppShell({
   const firstName = userName.trim().split(/\s+/)[0] || userName
   const title = tab === 'Domů' ? `Ahoj, ${firstName}` : tab
   const dateLabel = longDate(today)
-  const unreadCount = notifications.filter((notification) => notification.unread).length
+  const unreadCount = visibleNotifications.filter((notification) => notification.unread).length
   const pendingNames = items.filter((item) => !item.done).map((item) => item.name)
   // Regular purchases that are due again and not on the list or in the pantry (lib/usual-items.ts).
   const usualItems = useMemo(
@@ -433,7 +440,7 @@ export function AppShell({
             />
             {notificationsOpen && (
               <NotificationPanel
-                notifications={notifications}
+                notifications={visibleNotifications}
                 onRead={readNotification}
                 onReadAll={readAllNotifications}
                 onClose={() => setNotificationsOpen(false)}
@@ -727,6 +734,19 @@ export function AppShell({
               {tab === 'AI' && <AiAssistant onShopping={() => setTab('Nákup')} />}
               {tab === 'Profil' && (
                 <HouseholdProfile
+                  notificationsOff={notificationsOff}
+                  onSetNotificationKind={async (kind, enabled) => {
+                    // Shown at once; put back if the server refuses.
+                    const before = notificationsOff
+                    setNotificationsOff((current) => (enabled ? current.filter((entry) => entry !== kind) : [...new Set([...current, kind])]))
+                    try {
+                      await setNotificationPreferenceAction(kind, enabled)
+                    } catch (error) {
+                      setNotificationsOff(before)
+                      throw error
+                    }
+                  }}
+                  pushPublicKey={pushPublicKey}
                   household={household}
                   isOwner={initialData.isOwner}
                   pendingInvitations={pendingInvitations}

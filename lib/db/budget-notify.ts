@@ -51,9 +51,9 @@ export async function notifyBudgetThresholds(
     db.query.households.findFirst({ where: eq(schema.households.id, householdId), columns: { monthlyBudget: true } }),
     db.query.expenseCategoryBudgets.findMany({ where: eq(schema.expenseCategoryBudgets.householdId, householdId) }),
   ])
-  const notify = async (title: string, detail: string): Promise<Notification> => {
-    const row = await createHouseholdNotification(db, householdId, { title, detail }, { tab: 'Rozpočet', ...(excludeUserId ? { excludeUserId } : {}) })
-    return { id: row.id, title: row.title, detail: row.detail, unread: row.unread }
+  const notify = async (kind: 'budget' | 'category_limit', title: string, detail: string): Promise<Notification> => {
+    const row = await createHouseholdNotification(db, householdId, { title, detail }, { kind, tab: 'Rozpočet', ...(excludeUserId ? { excludeUserId } : {}) })
+    return { id: row.id, title: row.title, detail: row.detail, unread: row.unread, kind: row.kind }
   }
   const created: Notification[] = []
 
@@ -64,6 +64,7 @@ export async function notifyBudgetThresholds(
     const after = before.total + totalAdded
     created.push(
       await notify(
+        'budget',
         overall === 'exceeded' ? 'Rozpočet byl překročen' : 'Blížíte se limitu rozpočtu',
         overall === 'exceeded'
           ? `Měsíční výdaje (${money(after)}) právě překročily rozpočet ${money(budget)}.`
@@ -83,6 +84,7 @@ export async function notifyBudgetThresholds(
     if (!crossed) continue
     created.push(
       await notify(
+        'category_limit',
         crossed === 'exceeded' ? `${limit.category}: limit překročen` : `${limit.category}: 80 % limitu`,
         crossed === 'exceeded'
           ? `Výdaje za ${limit.category.toLocaleLowerCase('cs')} (${money(after)}) právě překročily měsíční limit ${money(Number(limit.amount))}.`

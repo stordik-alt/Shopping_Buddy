@@ -43,8 +43,11 @@ export const PRODUCT_SUBCATEGORIES = {
     'Dětská výživa',
     'Ostatní potraviny',
   ],
-  Drogerie: ['Praní', 'Mytí nádobí', 'Čištění domácnosti', 'Kosmetika', 'Hygiena', 'Dětská hygiena', 'Ostatní drogerie'],
-  Domácnost: ['Papír', 'Kuchyň', 'Úklid', 'Ostatní'],
+  // "Zdraví a doplňky stravy" and "Doplňky a oblečení" (owner approval 2026-10-06): vitamins, medicines
+  // and plasters, and hosiery, glasses and hair accessories, which sat unplaced or in Ostatní drogerie.
+  Drogerie: ['Praní', 'Mytí nádobí', 'Čištění domácnosti', 'Kosmetika', 'Hygiena', 'Dětská hygiena', 'Zdraví a doplňky stravy', 'Doplňky a oblečení', 'Ostatní drogerie'],
+  // "Zahrada" (2026-10-06): the same name as the budget's existing Domácnost ▸ Zahrada.
+  Domácnost: ['Papír', 'Kuchyň', 'Úklid', 'Zahrada', 'Ostatní'],
   // Food for children (owner request 2026-10-04: "Přidej do Děti i potravinové podkategorie"):
   // the chains list baby milk, purées, porridge, snacks and drinks under Děti, not under Potraviny.
   Děti: ['Pleny', 'Dětská kosmetika', 'Dětské potřeby', 'Hračky', 'Kojenecké mléko', 'Příkrmy', 'Kaše a cereálie', 'Dětské svačinky', 'Dětské nápoje', 'Ostatní'],
@@ -72,9 +75,23 @@ export const NEW_FOOD_SUBCATEGORIES = [
   'Koření a bylinky',
 ] as const satisfies readonly (typeof PRODUCT_SUBCATEGORIES.Potraviny)[number][]
 
-/** The subcategories offered for an item category, in display order. */
+/** Subcategory names in Czech alphabetical order (A–Z, "Ch" after "H") — the order every picker and
+ *  every overview by subcategory shows them in (owner request 2026-10-06). */
+export function sortSubcategoryNames(names: readonly string[]): string[] {
+  return [...names].sort((a, b) => a.localeCompare(b, 'cs'))
+}
+
+const SORTED_SUBCATEGORIES: Record<ItemCategory, readonly string[]> = {
+  Potraviny: sortSubcategoryNames(PRODUCT_SUBCATEGORIES.Potraviny),
+  Drogerie: sortSubcategoryNames(PRODUCT_SUBCATEGORIES.Drogerie),
+  Domácnost: sortSubcategoryNames(PRODUCT_SUBCATEGORIES.Domácnost),
+  Děti: sortSubcategoryNames(PRODUCT_SUBCATEGORIES.Děti),
+  Ostatní: sortSubcategoryNames(PRODUCT_SUBCATEGORIES.Ostatní),
+}
+
+/** The subcategories offered for an item category, A–Z. */
 export function subcategoriesOfItem(category: ItemCategory): readonly string[] {
-  return PRODUCT_SUBCATEGORIES[category]
+  return SORTED_SUBCATEGORIES[category]
 }
 
 /** Whether `subcategory` is one of `category`'s fixed subcategories — the same server-side
@@ -368,15 +385,31 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
 const DROGERIE_RULES: SubcategoryRule[] = [
   {
     subcategory: 'Praní',
-    keywords: ['prášek na praní', 'prasek na prani', 'aviváž', 'avivaz', 'gel na praní', 'gel na prani', 'prací', 'praci', 'persil', 'ariel', 'lenor', 'perwoll', 'odstraňovač skvrn', 'vanish'],
+    keywords: ['prášek na praní', 'prasek na prani', 'aviváž', 'avivaz', 'gel na praní', 'gel na prani', 'kapsle na praní', 'prací', 'praci', 'persil', 'ariel', 'lenor', 'perwoll', 'odstraňovač skvrn', 'vanish'],
   },
   { subcategory: 'Mytí nádobí', keywords: [' jar ', 'mytí nádobí', 'myti nadobi', 'tableta do myčky', 'tableta do mycky', 'myčk', 'somat'] },
   { subcategory: 'Čištění domácnosti', keywords: ['savo', 'čistič', 'cistic', 'úklid', 'uklid', 'wc gel', 'dezinfek', ' wc ', 'čisticí', 'odvápňov'] },
+  {
+    // Before Dětská hygiena, so a children's syrup or vitamin is health first (2026-10-06).
+    subcategory: 'Zdraví a doplňky stravy',
+    keywords: [
+      'vitamín', 'vitamin', ' tablet', 'kapsle', 'kapslí', 'doplněk stravy', 'doplňky stravy', 'probiotik', 'hořčík', 'magnesium', 'zinek', ' selen', 'omega 3', 'kolagen', 'echinacea',
+      'hlíva', 'ostropest', 'želatink', 'náplast', 'obvaz', 'obinadl', 'na kašel', 'proti kašli', 'bylinný sirup', 'pastilk', 'nosní sprej', 'sprej do nosu', 'kapky do nosu', 'oční kapky',
+      'oční sprej', 'kontaktní čočky', 'kontaktních čoček', 'roztok na čočky', 'fyziologický roztok', 'kombinovaný roztok', 'brýle na čtení', 'dioptrick', 'dioprick', 'teploměr', 'paralen',
+      'ibalgin', 'ibuprofen', 'nurofen', 'acylpyrin', 'aspirin', 'panadol', ' mast ', 'kloubní výživa', 'imunit', 'léčiv',
+    ],
+    // Cosmetics with a vitamin ("Balea sérum s vitamínem C"), lip balm and dishwasher tablets are no health products.
+    exclude: ['na rty', 'myčk', 'krém', 'sérum', 'fluid', 'kondicionér', 'šampon', ' spf', 'tonikum', 'micelár', 'zubních náhrad', 'ústní voda', 'make up', 'máslo', 'kúra', 'balzám', 'maska', 'na nehty', 'odličov', 'na praní'],
+    excludeBefore: ['krém', 'šampon', 'sérum', 'balzám', 'mléko', 'mýdlo', 'olej', 'pleťov', 'tělov', 'maska', 'sprchov', 'zubní pasta', 'kosmetick', 'pěna'],
+  },
   { subcategory: 'Dětská hygiena', keywords: ['dětsk', 'detsk'] },
   {
-    subcategory: 'Ostatní drogerie',
-    keywords: ['punčoch', 'ponožk', 'kalhotky', 'podkolenk', 'brýle', 'kontaktní čočky', 'oční kapky', 'roztok na čočky', 'pouzdro na brýle', 'gumičk', 'sponk', 'čelenk', 'hřeben', 'kartáč na vlasy'],
-    exclude: ['menstruač'],
+    subcategory: 'Doplňky a oblečení',
+    keywords: [
+      'punčoch', 'ponožk', 'kalhotky', 'podkolenk', 'legín', 'tregín', 'podprsenk', 'spodní prádlo', 'bandeletk', 'brýle', 'pouzdro na brýle', 'gumičk', 'sponk', 'čelenk', 'hřeben',
+      'kartáč na vlasy', 'žabky', 'pantofl', 'deštník',
+    ],
+    exclude: ['menstruač', 'plenkov', 'inkontin'],
   },
   {
     subcategory: 'Hygiena',
@@ -397,6 +430,13 @@ const DROGERIE_RULES: SubcategoryRule[] = [
 ]
 
 const DOMACNOST_RULES: SubcategoryRule[] = [
+  {
+    // First, so garden gloves and watering cans are garden goods (2026-10-06).
+    subcategory: 'Zahrada',
+    keywords: [
+      'substrát', 'hnojiv', 'zemina', 'rašelin', 'květináč', 'truhlík', 'osivo', 'osiva', 'travní směs', 'trávník', 'zahradní', 'postřik', 'slimák', 'mšic', 'pokojové rostliny', 'konev', 'mulč',
+    ],
+  },
   { subcategory: 'Papír', keywords: ['toaletní papír', 'toaletni papir', 'kuchyňské utěrky', 'kuchynske uterky', 'ubrousk', 'papírov', 'papirov'] },
   { subcategory: 'Kuchyň', keywords: ['alobal', 'fólie', 'folie', 'sáčky', 'sacky', 'nádobí', 'nadobi', 'hrnec', 'pánev', 'panev'] },
   {

@@ -473,3 +473,11 @@ describe('budget by period', () => {
     expect(savingsHistory(spending, '2026-10-01', () => 0).periods).toEqual([])
   })
 })
+
+describe('periodSummary — subcategories A–Z (owner request 2026-10-06)', () => {
+  it('lists a category\'s subcategories alphabetically, spending without one last', () => {
+    const at = (amount: number, subcategory: string | null): Expense => ({ ...expense(amount), subcategory })
+    const { categories } = periodSummary([at(500, 'Sladkosti'), at(20, 'Mléčné výrobky'), at(300, null), at(80, 'Káva a čaj')], '2026-09-01')
+    expect(categories[0].subcategories.map((entry) => entry.subcategory)).toEqual(['Káva a čaj', 'Mléčné výrobky', 'Sladkosti', null])
+  })
+})

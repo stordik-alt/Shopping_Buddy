@@ -16,6 +16,7 @@
     "db:migrate:test": "dotenv -e .env.local -- tsx lib/db/migrate.ts --test",
     "db:seed": "dotenv -e .env.local -- tsx lib/db/seed.ts",
     "db:seed:catalog": "dotenv -e .env.local -- tsx scripts/import-seed-catalog.ts",
+    "db:reconcile-retailer-skus": "dotenv -e .env.local -- tsx scripts/reconcile-retailer-skus.ts",
     "db:backfill-receipt-locations": "dotenv -e .env.local -- tsx scripts/backfill-receipt-store-locations.ts",
     "db:split-collapsed-products": "dotenv -e .env.local -- tsx scripts/split-collapsed-products.ts",
     "db:backfill-prices": "dotenv -e .env.local -- tsx scripts/backfill-prices.ts",

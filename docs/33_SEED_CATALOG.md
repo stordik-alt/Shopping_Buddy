@@ -67,4 +67,4 @@ The identity schema required for brand, variant and explicit multipack metadata 
 
 Idempotency is based on `product_seed_refs.seed_id`, not the product display name. Existing products are linked only on an exact or accent/case-normalized name with compatible category/subcategory/brand. Ambiguous or conflicting matches are skipped rather than guessed.
 
-The importer reads the catalog in one bounded batch and never scans the full product catalog. Seed package rows use the import date for `first_seen_at` / `last_seen_at` because the source catalog has no reliable observation date; these fields must not be interpreted as live retail price observations.
+The importer reads the catalog in one bounded batch and never scans the full product catalog. The `--apply` path is intentionally row-by-row because the production database client uses Neon HTTP; it is safe to re-run after an interrupted run because `product_seed_refs.seed_id` is the idempotency key. Seed package rows use the import date for `first_seen_at` / `last_seen_at` because the source catalog has no reliable observation date; these fields must not be interpreted as live retail price observations.

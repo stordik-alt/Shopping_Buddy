@@ -14,10 +14,10 @@ export type IngestionSource = (typeof productSourceEnum.enumValues)[number]
 /** Explicit package metadata published by a retailer. It is kept separate from the normalized price unit so a SKU can describe a multipack without guessing from its name. */
 export type NormalizedPackage = {
   quantity: number
-  unit: ItemUnit
+  unit: 'ks' | 'kg' | 'l'
   packageCount?: number
   packageUnitQuantity?: number
-  packageUnit?: ItemUnit
+  packageUnit?: 'ks' | 'kg' | 'l'
   packageType?: string
 }
 

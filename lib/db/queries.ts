@@ -8,7 +8,7 @@ import { todayInPrague } from '@/lib/today'
 import { planOfficialPrice, type OfficialPriceAction, type OfficialPriceSnapshot } from '@/lib/ingestion/official-price'
 import { activeDealKey, dealValues, planActiveDeal, type ActiveDealSnapshot, type IngestedDeal } from '@/lib/ingestion/active-deal'
 import { ingestionDate } from '@/lib/ingestion/today'
-import type { IngestionSource as ProductSource } from '@/lib/ingestion/types'
+import type { IngestionSource as ProductSource, NormalizedPackage } from '@/lib/ingestion/types'
 import { currentWeekStart, parseSavedPlan, type WeeklyMealPlan } from '@/lib/meal-plans'
 import type { StandaloneOffer } from '@/lib/offers'
 import { createHouseholdNotification } from '@/lib/notify'
@@ -1408,6 +1408,7 @@ export type NamedPackageEvidence = {
   unit: ItemUnit
   unitPrice: number
   observedAt: string
+  package?: NormalizedPackage
 }
 
 /** Promotes explicit, price-consistent weight/volume or explicit piece-count package sizes from
@@ -1424,14 +1425,22 @@ export async function persistNamedPackageEvidence(evidence: NamedPackageEvidence
     quantity: number
     unit: 'ks' | 'kg' | 'l'
     observedAt: string
+    source: 'retailer-published' | 'name-extracted'
+    confidence: number
+    packageCount: number | null
+    packageUnitQuantity: number | null
+    packageUnit: 'ks' | 'kg' | 'l' | null
+    packageType: string | null
   }>()
 
   for (const item of evidence) {
-    const packageSize = resolveNamedPackageSize(item.name, {
-      regularPrice: item.regularPrice,
-      unit: item.unit,
-      unitPrice: item.unitPrice,
-    })
+    const packageSize = item.package
+      ? item.package
+      : resolveNamedPackageSize(item.name, {
+          regularPrice: item.regularPrice,
+          unit: item.unit,
+          unitPrice: item.unitPrice,
+        })
     if (!packageSize) continue
 
     const quantity = packageSize.unit === 'ks'
@@ -1439,14 +1448,25 @@ export async function persistNamedPackageEvidence(evidence: NamedPackageEvidence
       : Math.round(packageSize.quantity * 1000) / 1000
     if (!Number.isFinite(quantity) || quantity <= 0) continue
 
+    const explicit = item.package != null
+    const packageCount = packageSize.packageCount ?? null
+    const packageUnitQuantity = packageSize.packageUnitQuantity ?? null
+    const packageUnit = packageSize.packageUnit ?? null
+    const packageType = packageSize.packageType ?? null
     const key = item.productId + ':' + packageSize.unit + ':' + quantity
     const existing = unique.get(key)
-    if (!existing || item.observedAt > existing.observedAt) {
+    if (!existing || item.observedAt > existing.observedAt || (explicit && existing.source === 'name-extracted')) {
       unique.set(key, {
         productId: item.productId,
         quantity,
         unit: packageSize.unit,
         observedAt: item.observedAt,
+        source: explicit ? 'retailer-published' : 'name-extracted',
+        confidence: explicit ? 1 : 0.98,
+        packageCount,
+        packageUnitQuantity,
+        packageUnit,
+        packageType,
       })
     }
   }
@@ -1460,27 +1480,35 @@ export async function persistNamedPackageEvidence(evidence: NamedPackageEvidence
       productId: row.productId,
       quantity: row.quantity,
       unit: row.unit,
-      source: 'name-extracted',
-      confidence: 0.98,
+      source: row.source,
+      confidence: row.confidence,
       firstSeenAt: row.observedAt,
       lastSeenAt: row.observedAt,
       observationCount: 1,
+      packageCount: row.packageCount,
+      packageUnitQuantity: row.packageUnitQuantity,
+      packageUnit: row.packageUnit,
+      packageType: row.packageType,
     })))
     .onConflictDoUpdate({
       target: [schema.productPackages.productId, schema.productPackages.quantity, schema.productPackages.unit],
       set: {
-        source: 'name-extracted',
-        confidence: sql`GREATEST(${schema.productPackages.confidence}, 0.980)`,
-        firstSeenAt: sql`LEAST(${schema.productPackages.firstSeenAt}, EXCLUDED.first_seen_at)`,
-        lastSeenAt: sql`GREATEST(${schema.productPackages.lastSeenAt}, EXCLUDED.last_seen_at)`,
-        observationCount: sql`
+        source: sql\`CASE WHEN EXCLUDED.source = 'retailer-published' THEN EXCLUDED.source ELSE ${schema.productPackages.source} END\`,
+        confidence: sql\`GREATEST(${schema.productPackages.confidence}, EXCLUDED.confidence)\`,
+        firstSeenAt: sql\`LEAST(${schema.productPackages.firstSeenAt}, EXCLUDED.first_seen_at)\`,
+        lastSeenAt: sql\`GREATEST(${schema.productPackages.lastSeenAt}, EXCLUDED.last_seen_at)\`,
+        packageCount: sql\`COALESCE(EXCLUDED.package_count, ${schema.productPackages.packageCount})\`,
+        packageUnitQuantity: sql\`COALESCE(EXCLUDED.package_unit_quantity, ${schema.productPackages.packageUnitQuantity})\`,
+        packageUnit: sql\`COALESCE(EXCLUDED.package_unit, ${schema.productPackages.packageUnit})\`,
+        packageType: sql\`COALESCE(EXCLUDED.package_type, ${schema.productPackages.packageType})\`,
+        observationCount: sql\`
           ${schema.productPackages.observationCount}
           + CASE
               WHEN EXCLUDED.unit = 'ks' AND EXCLUDED.last_seen_at > ${schema.productPackages.lastSeenAt}
               THEN 1
               ELSE 0
             END
-        `,
+        \`,
       },
     })
 

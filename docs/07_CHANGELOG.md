@@ -1,7 +1,8 @@
 ## 2026-10-06 (Seed catalog apply: production import completed)
-- **Applied:** all 583 `ready` seed rows were imported into production: 163 new canonical products and 3 links to existing products, with 227 package rows processed and 0 skipped rows.
+- **Applied:** all 583 `ready` seed rows are now imported in production with 0 skipped rows. Across the full catalog this corresponds to the 583 selected seed references and 650 planned package rows.
+- **Final retry:** the last apply run processed the remaining 166 seed rows, creating 163 products, linking 3 existing products, and processing 227 package rows.
 - **Fixes:** the importer now tolerates existing products with no metadata changes and deduplicates same-family seed rows while preserving distinct known brands through canonical-name disambiguation.
-- **Production result:** the first apply attempt had already imported 138 rows before an empty-update bug stopped it; the subsequent reruns completed the remaining 445 and then the final 166 pending rows after the fixes.
+- **Production history:** the first apply attempt reached 138 imported rows before the empty-update bug stopped it; the second reached 417 total imported rows before the duplicate-family unique-name collision stopped it; the final retry completed the remaining 166.
 
 ## 2026-10-06 (Seed catalog: resolve two existing subcategory conflicts)
 - **Why:** the production dry-run found two `ready` seed rows whose existing catalog products had a different subcategory: Efko Stříbřité cibulky and Kitchin Rajčatový protlak dvakrát zahuštěný.

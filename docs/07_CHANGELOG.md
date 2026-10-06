@@ -1,3 +1,8 @@
+## 2026-10-06 (Seed catalog apply: production import completed)
+- **Applied:** all 583 `ready` seed rows were imported into production: 163 new canonical products and 3 links to existing products, with 227 package rows processed and 0 skipped rows.
+- **Fixes:** the importer now tolerates existing products with no metadata changes and deduplicates same-family seed rows while preserving distinct known brands through canonical-name disambiguation.
+- **Production result:** the first apply attempt had already imported 138 rows before an empty-update bug stopped it; the subsequent reruns completed the remaining 445 and then the final 166 pending rows after the fixes.
+
 ## 2026-10-06 (Seed catalog: resolve two existing subcategory conflicts)
 - **Why:** the production dry-run found two `ready` seed rows whose existing catalog products had a different subcategory: Efko Stříbřité cibulky and Kitchin Rajčatový protlak dvakrát zahuštěný.
 - **What:** migration `0073_fix_seed_catalog_subcategory_conflicts.sql` corrects both exact products to `Potraviny → Konzervy`, matching the curated seed taxonomy. The migration is additive and idempotent.

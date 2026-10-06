@@ -6,7 +6,7 @@ export type SeedStatus = 'ready' | 'needs_review'
 
 export type SeedPackageOption = {
   quantity: number
-  unit: ItemUnit
+  unit: string
   canonical_quantity: number
   canonical_unit: 'ks' | 'kg' | 'l'
   raw: string
@@ -33,7 +33,6 @@ export type SeedCatalogRow = {
 }
 
 const CATEGORIES = new Set<ItemCategory>(['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní'])
-const UNITS = new Set<ItemUnit>(['ks', 'kg', 'g', 'l', 'ml'])
 const CANONICAL_UNITS = new Set<SeedPackageOption['canonical_unit']>(['ks', 'kg', 'l'])
 
 function parseCsv(text: string): string[][] {
@@ -104,7 +103,7 @@ function nullableText(value: string): string | null {
 function parsePackageOptions(value: string): SeedPackageOption[] {
   const parsed = parseJsonArray<SeedPackageOption>(value, 'package_options')
   return parsed.map((option, index) => {
-    if (!UNITS.has(option.unit) || !CANONICAL_UNITS.has(option.canonical_unit)) {
+    if (typeof option.unit !== 'string' || !option.unit.trim() || !CANONICAL_UNITS.has(option.canonical_unit)) {
       throw new Error(`Invalid package unit at option ${index}`)
     }
     for (const [key, numberValue] of [

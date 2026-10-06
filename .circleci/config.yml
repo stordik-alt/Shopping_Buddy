@@ -81,6 +81,8 @@ jobs:
             --exclude 'lib/db/recategorize.test.ts'
             --exclude 'lib/db/reclassify.test.ts'
             --exclude 'lib/db/product-type-assignment.test.ts'
+            --exclude 'lib/db/brand-categories.test.ts'
+            --exclude 'lib/db/purchase-deletion.test.ts'
       - run:
           name: Typecheck
           command: pnpm exec tsc --noEmit

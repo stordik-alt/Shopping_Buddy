@@ -147,7 +147,6 @@ async function main() {
   let created = 0
   let linked = 0
   let packages = 0
-  await db.transaction(async (tx) => {
     for (const plan of plans) {
       if (skippedPlans.has(plan.row.seedId)) continue
 
@@ -225,7 +224,6 @@ async function main() {
         packages += 1
       }
     }
-  })
 
   console.log(JSON.stringify({ applied: true, created, linked, packages, skipped: skippedPlans.size }, null, 2))
 }

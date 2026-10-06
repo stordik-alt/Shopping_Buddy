@@ -153,7 +153,8 @@ const BRAND_RULES: BrandRule[] = [
   { brand: 'Herta', keywords: ['herta'], category: 'Potraviny', subcategory: 'Maso a uzeniny' },
 
   // Coffee and tea.
-  { brand: 'Jacobs', keywords: ['jacobs'], category: 'Potraviny', subcategory: 'Káva a čaj', decides: true },
+  // Jacob's Creek is a wine.
+  { brand: 'Jacobs', keywords: ['jacobs'], category: 'Potraviny', subcategory: 'Káva a čaj', decides: true, exclude: ['creek'] },
   { brand: 'Tchibo', keywords: ['tchibo'], category: 'Potraviny', subcategory: 'Káva a čaj' },
   { brand: 'Lavazza', keywords: ['lavazza'], category: 'Potraviny', subcategory: 'Káva a čaj', decides: true },
   { brand: 'Douwe Egberts', keywords: ['douwe egberts'], category: 'Potraviny', subcategory: 'Káva a čaj', decides: true },

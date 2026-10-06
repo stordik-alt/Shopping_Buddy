@@ -1404,9 +1404,9 @@ export async function recordPriceObservation(observation: {
 export type NamedPackageEvidence = {
   productId: string
   name: string
-  regularPrice: number
+  regularPrice: number | null
   unit: ItemUnit
-  unitPrice: number
+  unitPrice: number | null
   observedAt: string
   package?: NormalizedPackage
 }
@@ -1434,13 +1434,15 @@ export async function persistNamedPackageEvidence(evidence: NamedPackageEvidence
   }>()
 
   for (const item of evidence) {
-    const packageSize = item.package
-      ? item.package
-      : resolveNamedPackageSize(item.name, {
-          regularPrice: item.regularPrice,
-          unit: item.unit,
-          unitPrice: item.unitPrice,
-        })
+    let packageSize = item.package
+    if (!packageSize) {
+      if (item.regularPrice == null || item.unitPrice == null) continue
+      packageSize = resolveNamedPackageSize(item.name, {
+        regularPrice: item.regularPrice,
+        unit: item.unit,
+        unitPrice: item.unitPrice,
+      })
+    }
     if (!packageSize) continue
 
     const quantity = packageSize.unit === 'ks'

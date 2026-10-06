@@ -9,8 +9,8 @@ The seed catalog is **reference data**, not the live retail catalog. It must not
 ## v1 contents
 
 - 633 normalized candidate records
-- 583 records currently marked `ready`
-- 50 records marked `needs_review`
+- 610 records currently marked `ready`
+- 23 records marked `needs_review`
 - 603 records contain at least one explicit package option
 - 21 records contain an explicit multipack count
 
@@ -63,7 +63,7 @@ The identity schema required for brand, variant and explicit multipack metadata 
 
 ## Importer
 
-`pnpm db:seed:catalog` is a dry-run by default. It only writes when `--apply` is supplied. The default import selects the 583 `ready` records; `needs_review` rows require the explicit `--include-review` flag.
+`pnpm db:seed:catalog` is a dry-run by default. It only writes when `--apply` is supplied. The default import selects the 610 `ready` records; 23 `needs_review` rows require the explicit `--include-review` flag. Exact discrete package choices from the source (for example `25 / 50 / 100 sáčků`) are treated as explicit package options; only true ranges/open-ended sizes remain in `needs_review`.
 
 Idempotency is based on `product_seed_refs.seed_id`, not the product display name. Existing products are linked only on an exact or accent/case-normalized name with compatible category/subcategory/brand. When a known seed brand conflicts with an existing canonical product name, the importer disambiguates the new canonical product name with the known brand instead of merging two distinct brands. Same-family rows in one import are deduplicated to one canonical product per brand. Ambiguous category/subcategory matches are still skipped rather than guessed.
 

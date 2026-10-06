@@ -20,6 +20,7 @@ type PlannedRow = {
   action: Action
   existingProductId: string | null
   reason: string | null
+  productName: string
 }
 
 const APPLY = process.argv.includes('--apply')
@@ -70,6 +71,23 @@ async function main() {
   // One bounded catalog read for all seed product-family names. No full ~50k-product scan.
   const names = [...new Set(pending.map((row) => row.productFamily).filter(Boolean))]
   const normalizedNames = [...new Set(names.map(normalizeSearchText))]
+  const pendingBrandsByFamily = new Map<string, Set<string>>()
+  for (const row of pending) {
+    if (shouldApplySeedBrand(row) && row.brand) {
+      const familyKey = normalizeSearchText(row.productFamily)
+      const brands = pendingBrandsByFamily.get(familyKey) ?? new Set<string>()
+      brands.add(normalizeSearchText(row.brand))
+      pendingBrandsByFamily.set(familyKey, brands)
+    }
+  }
+
+  const canonicalProductName = (row: SeedCatalogRow, forceBrandPrefix = false): string => {
+    const hasMultipleBrands = (pendingBrandsByFamily.get(normalizeSearchText(row.productFamily))?.size ?? 0) > 1
+    if (shouldApplySeedBrand(row) && row.brand && (forceBrandPrefix || hasMultipleBrands)) {
+      return `${row.brand} ${row.productFamily}`
+    }
+    return row.productFamily
+  }
   const candidates = await db.query.products.findMany({
     where: or(inArray(schema.products.name, names), inArray(schema.products.searchName, normalizedNames)),
     columns: {
@@ -94,7 +112,7 @@ async function main() {
   for (const row of pending) {
     const candidatesForRow = bySearchName.get(normalizeSearchText(row.productFamily)) ?? []
     if (candidatesForRow.length > 1) {
-      plans.push({ row, action: 'skip', existingProductId: null, reason: 'ambiguous_existing_product_name' })
+      plans.push({ row, action: 'skip', existingProductId: null, reason: 'ambiguous_existing_product_name', productName: row.productFamily })
       continue
     }
     if (candidatesForRow.length === 1) {
@@ -102,21 +120,27 @@ async function main() {
       const wantedCategoryId = categoryIdByName.get(row.category)!
       const wantedSubcategoryId = subcategoryIdByKey.get(`${row.category}\\0${row.subcategory}`)!
       if (existing.categoryId !== wantedCategoryId) {
-        plans.push({ row, action: 'skip', existingProductId: existing.id, reason: 'existing_product_category_conflict' })
+        plans.push({ row, action: 'skip', existingProductId: existing.id, reason: 'existing_product_category_conflict', productName: row.productFamily })
         continue
       }
       if (existing.subcategoryId != null && existing.subcategoryId !== wantedSubcategoryId) {
-        plans.push({ row, action: 'skip', existingProductId: existing.id, reason: 'existing_product_subcategory_conflict' })
+        plans.push({ row, action: 'skip', existingProductId: existing.id, reason: 'existing_product_subcategory_conflict', productName: row.productFamily })
         continue
       }
       if (shouldApplySeedBrand(row) && existing.brand && normalizeSearchText(existing.brand) !== normalizeSearchText(row.brand!)) {
-        plans.push({ row, action: 'skip', existingProductId: existing.id, reason: 'existing_product_brand_conflict' })
+        plans.push({
+          row,
+          action: 'create',
+          existingProductId: null,
+          reason: 'existing_product_brand_conflict',
+          productName: canonicalProductName(row, true),
+        })
         continue
       }
-      plans.push({ row, action: 'link_existing', existingProductId: existing.id, reason: null })
+      plans.push({ row, action: 'link_existing', existingProductId: existing.id, reason: null, productName: existing.name })
       continue
     }
-    plans.push({ row, action: 'create', existingProductId: null, reason: null })
+    plans.push({ row, action: 'create', existingProductId: null, reason: null, productName: canonicalProductName(row) })
   }
 
   const counts = {
@@ -148,6 +172,8 @@ async function main() {
   let created = 0
   let linked = 0
   let packages = 0
+  const createdProductIdsByName = new Map<string, string>()
+
     for (const plan of plans) {
       if (skippedPlans.has(plan.row.seedId)) continue
 
@@ -157,18 +183,23 @@ async function main() {
       let productId = plan.existingProductId
 
       if (plan.action === 'create') {
-        const [product] = await db.insert(schema.products).values({
-          name: row.productFamily,
-          categoryId,
-          subcategoryId,
-          brand: shouldApplySeedBrand(row) ? row.brand : null,
-          variant: shouldApplySeedVariant(row) ? row.variants : null,
-          defaultUnit: defaultUnitFor(row),
-          productTypeId: productTypeIdFor(row.category, row.productFamily, typeIds),
-          productTypeSource: productTypeIdFor(row.category, row.productFamily, typeIds) ? 'rule' : null,
-        }).returning({ id: schema.products.id })
-        productId = product.id
-        created += 1
+        productId = createdProductIdsByName.get(normalizeSearchText(plan.productName)) ?? null
+
+        if (!productId) {
+          const [product] = await db.insert(schema.products).values({
+            name: plan.productName,
+            categoryId,
+            subcategoryId,
+            brand: shouldApplySeedBrand(row) ? row.brand : null,
+            variant: shouldApplySeedVariant(row) ? row.variants : null,
+            defaultUnit: defaultUnitFor(row),
+            productTypeId: productTypeIdFor(row.category, row.productFamily, typeIds),
+            productTypeSource: productTypeIdFor(row.category, row.productFamily, typeIds) ? 'rule' : null,
+          }).returning({ id: schema.products.id })
+          productId = product.id
+          createdProductIdsByName.set(normalizeSearchText(plan.productName), product.id)
+          created += 1
+        }
       } else if (productId) {
         const existing = await db.query.products.findFirst({ where: eq(schema.products.id, productId), columns: { brand: true, variant: true, subcategoryId: true } })
         const updates: {

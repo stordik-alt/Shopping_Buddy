@@ -332,13 +332,14 @@ export const productAliases = pgTable('product_aliases', {
 // re-matching by name (which could drift) or creating a duplicate product.
 export const productSeedRefs = pgTable('product_seed_refs', {
   id: uuid('id').primaryKey().defaultRandom(),
-  seedId: text('seed_id').notNull().unique(),
+  seedId: text('seed_id').notNull(),
   productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
   sourceDocument: text('source_document').notNull(),
   sourcePage: integer('source_page').notNull(),
   normalizationStatus: text('normalization_status').notNull(),
   importedAt: timestamp('imported_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
+  uniqueIndex('product_seed_refs_seed_id_unique').on(table.seedId),
   index('product_seed_refs_product_idx').on(table.productId),
 ])
 

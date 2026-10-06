@@ -40,7 +40,8 @@ export async function planBrandCategoryMoves(scope: BrandCategoryScope = {}): Pr
   const candidates = products.flatMap((product) => {
     const normalized = normalizeProductText(product.name)
     const brand = brandOf(normalized)
-    if (!brand || brand.category === product.category.name) return []
+    // A grown-up brand never takes a product out of Děti (categoryWithBrand).
+    if (!brand || brand.category === product.category.name || (product.category.name === 'Děti' && brand.category !== 'Děti')) return []
     return [{ id: product.id, name: product.name, brand: brand.brand, from: product.category.name, to: brand.category, subcategory: classifySubcategoryByKeyword(brand.category, normalized) }]
   })
   if (candidates.length === 0) return []

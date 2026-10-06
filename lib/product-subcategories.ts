@@ -106,7 +106,7 @@ type SubcategoryRule = { subcategory: string; keywords: string[]; exclude?: stri
  *  Chef", "Česká Farma", "cherry", a colour). Any other word in front ("Mirinda Mango", "ZON Malina",
  *  "Avokádo Jalovec") means the fruit is only a flavour or a brand, and the rule does not apply. */
 const PRODUCE_PREFIXES = [
-  'bio', 'metro chef', 'bon via', 'bonvia', 'premium', 'fine life', 'čerstvě utrženo', 'čerstvé', 'čerstvá', 'česká farma', 'farma', 'aro', 'bonduelle', 'gold', 'efko', 'clever', 'billa',
+  'bio', 'alb', 'metro chef', 'bon via', 'bonvia', 'premium', 'fine life', 'čerstvě utrženo', 'čerstvé', 'čerstvá', 'česká farma', 'farma', 'aro', 'bonduelle', 'gold', 'efko', 'clever', 'billa',
   'albert', "nature's promise", 'nature s promise', 'jeden tag', 'monoprix', 'alnatura', 'dmbio', 'eat me', 'titbit', 'cherry', 'baby', 'mini', 'zralé', 'zralý', 'zlatá', 'velké', 'velký',
   'červená', 'červené', 'červený', 'žlutá', 'žluté', 'žlutý', 'bílá', 'bílé', 'bílý', 'černé', 'černý', 'zelená', 'zelené', 'zelený', 'sladká', 'sladké', 'kanadské', 'české', 'český',
 ]
@@ -161,6 +161,8 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
       'suché červené', 'suché bílé', 'polosuché', 'polosladké',
       ' igt ', ' doc ', ' docg ', ' 0 75 l', ' 0 75l',
       // Beer and spirits named only by brand or style (non-alcoholic beer is caught by "nealko" above).
+      // Beer styles named in English (2026-10-06: "Irish stout 12°", "Clock APA 12°").
+      ' stout', ' apa ', ' lager', ' porter ', ' weizen', 'pale ale',
       'výčepní', 'kozel', 'pilsner', 'gambrinus', 'radegast', 'staropramen', 'krušovic', 'budvar', 'svijan', 'božkov', 'chateau', 'château', ' brut', 'jägermeister', 'bacardi', 'captain morgan', 'meruňkovic', 'jelínek', 'žufánek', 'frisco',
     ],
     // Food flavoured with a drink: "zakysaná smetana vaječný likér", "Cheddar … sýr s whisky".
@@ -175,6 +177,8 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
       // A soup, ready or instant — "polévka" only, so "na polévku" and "polévková směs" stay out.
       'polévka',
       'pizza', 'kimchi',
+      // Deli salads named by kind (2026-10-06, checked against the catalog).
+      'pařížský salát', 'šopský salát', 'zelný salát', 'rajčatový salát', 'camping salát', 'rumcajs salát', 'salát á la krab', 'krabí salát', 'lahůdkový salát', 'coleslaw', 'wakame',
     ],
     // Toast bread called "sendvič" and tortilla wraps are bread; pizza flour, sauce or spice is no pizza.
     exclude: [' toust ', 'tortil', 'mouka', 'omáčk', 'koření', 'kořen', 'směs na', 'tyčink', 'chips', 'lupínk', 'vroubk', 'krekr'],
@@ -191,17 +195,25 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
     keywords: ['vegan'],
     exclude: ['čokolád', 'omáčk', 'sušenk', 'granol', 'bonbon', 'tyčink', 'pomazánk', 'protein', 'puding', 'pudding', 'chléb', 'croissant'],
   },
-  { subcategory: 'Slané pochutiny', keywords: ['brambůrk', 'bramburk', 'chipsy', ' chips', 'tyčink slan', 'arašíd', 'arasid', 'krekr', 'křupky', 'tyčinky pekařské', 'doritos', 'lupínk', 'popcorn', 'preclík', 'nachos', 'slané tyčinky', 'solené tyčinky'],
+  { subcategory: 'Slané pochutiny', keywords: ['brambůrk', 'bramburk', 'chipsy', ' chips', 'tyčink slan', 'arašíd', 'arasid', 'krekr', 'křupky', 'tyčinky pekařské', 'doritos', 'lupínk', 'popcorn', 'preclík', 'nachos', 'slané tyčinky', 'solené tyčinky',
+    // Salty sticks and snacks named by kind (2026-10-06); plain "tyčinky" also names crab sticks,
+    // grill sticks and fertilizer sticks, so only these.
+    'tyčinky solené', 'tyčinky pepřové', 'pepřové tyčinky', 'sýrové tyčinky', 'bramborové tyčinky', 'hradecké tyčinky', 'bramborový snack', 'kukuřičný snack', 'žitný snack'],
     // Peanuts in chocolate, peanut butter and peanut cookies are no salty snack.
     exclude: ['strouhank', 'čokolád', 'arašídové máslo', 'cookies', 'sušenk'],
   },
   {
     subcategory: 'Pečivo',
-    keywords: ['chleb', 'rohlík', 'rohliky', 'houska', 'bageta', 'croissant', 'peciv', 'bulka', 'veka', ' toust ', 'tortil', 'kaiserk', 'koláč', 'buchta', 'závin', 'vánočk', 'mazanec', 'ciabatt', 'focaccia'],
+    keywords: [
+      'chleb', 'rohlík', 'rohliky', 'houska', 'bageta', 'croissant', 'peciv', 'bulka', 'veka', ' toust ', 'tortil', 'kaiserk', 'koláč', 'buchta', 'závin', 'vánočk', 'mazanec', 'ciabatt', 'focaccia',
+      // Crispbread and sandwich bread (2026-10-06).
+      'křehké plátky', 'knäckebrot', 'knackebrot', 'finn crisp', 'sandwich', ' žemle', 'bagel',
+    ],
     // "Rohlik.cz" is a shop's name, not a roll; seasoning for tortillas is no bread. Flour named
     // after bread ("Mouka pšeničná chlebová") is flour, but bread made of flour ("Tortilly z pšeničné
     // mouky", "Chléb bez mouky") is bread: the flour word vetoes only when it comes first.
-    exclude: ['rohlik cz', ' koření ', 'kořenící'],
+    // Sandwich biscuits are sweets, wagyu "tenké křehké plátky" are meat.
+    exclude: ['rohlik cz', ' koření ', 'kořenící', 'sušenk', 'gullón', 'gullon', 'bahlsen', 'biscuit', 'wagyu', 'sukiyaki'],
     excludeBefore: ['mouka', 'mouky'],
   },
   {
@@ -214,7 +226,7 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
     subcategory: 'Ryby a mořské plody',
     keywords: [
       'losos', 'tuňák', 'tunak', 'treska', 'tresčí', ' sleď', ' sledě', 'makrel', 'krevet', 'pstruh', ' kapr', 'sardink', 'sardel', ' ryba ', ' ryby ', ' rybí ', ' rybích ', 'rybí filé',
-      'chobotnic', 'kalamár', 'surimi', 'tilapie', 'pangasius', 'candát', ' štika', ' mušle', 'ančovič', 'hering', 'šprot',
+      'chobotnic', 'kalamár', 'surimi', 'mečoun', 'tilapie', 'pangasius', 'candát', ' štika', ' mušle', 'ančovič', 'hering', 'šprot',
     ],
     // Seasoning for fish and fish sauce are not fish ("Krevety … s černým kořením" are).
     exclude: [' koření ', 'rybí omáčk', 'fish sauce'],
@@ -226,8 +238,10 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
       'šunka', 'sunka', 'salám', 'salam', 'párky', 'parky', 'klobás', 'klobas', 'maso', 'kuřecí', 'kureci', 'vepřov', 'veprov', 'hovězí', 'hovezi', 'slanina', 'uzenin', 'mortadel', 'paštik',
       ' kuře ', ' kuřete', ' krůt', 'kachn', 'telecí', 'jehněčí', 'králík', 'prosciutto', 'pancetta', 'chorizo', 'párečk', 'tlačenk', 'jitrnic', 'jelito', 'špekáč', 'vysočina', 'debrecín',
       'krkovic', 'svíčková', 'roštěn', 'žebírk', 'bratwurst', 'frankfurt', 'játr', 'stehn', 'křídl', 'kabanos',
+      ' husa', ' husí', ' koleno', ' steak', 'tomahawk',
     ],
-    exclude: ['koření', 'kořen', 'příchu', 'prichu', 'krmiv', 'kočk', ' psy', 'pamlsk', 'veggie', 'vegetarián', 'rostlinn', 'sádlo', 'omáčk', 'nudle', 'těstovin', 'tortellin', 'ravioli'],
+    // A vegetable, cheese or tofu "steak" is no meat.
+    exclude: ['květák', 'celer', 'zeleninov', 'hermelín', 'sýrov', 'tofu', 'čokolád', 'fries', 'frites', 'hranol', 'vegi', 'vitana', 'avokád', 'koření', 'kořen', 'příchu', 'prichu', 'krmiv', 'kočk', ' psy', 'pamlsk', 'veggie', 'vegetarián', 'rostlinn', 'sádlo', 'omáčk', 'nudle', 'těstovin', 'tortellin', 'ravioli'],
   },
   { subcategory: 'Luštěniny', keywords: ['čočka', 'čočky', 'čočkov', 'čočce', 'fazol', 'cizrn', ' hrách ', 'luštěnin', 'lusteniny'], exclude: ['čokolád'], excludeBefore: FOOD_HEADS },
   {
@@ -242,6 +256,7 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
     subcategory: 'Ovoce a zelenina',
     keywords: [
       'rajčat', 'mango', 'hrušk', 'broskv', 'grapefruit', 'jahod', 'malin', 'borůvk', 'ananas', 'citron', 'limetk', 'kiwi', 'meloun', 'hrozn', 'švestk', 'meruňk', 'třešn', 'višn',
+      'rukola', 'polníč', 'salát gem', 'salat l gem', 'salát římský', 'římský salát', 'salát ledový', 'salát rukola', 'salát polníček', 'hřib', 'liška obecná', 'lišky obecné',
       'žampion', 'špenát', 'brokolic', 'květák', 'cuket', 'lilek', 'dýně', 'ledový salát', 'zelí', 'kapust', 'celer', 'petržel', 'pórek', 'ředkvičk', 'řepa', 'kukuřice', 'hrášek', 'paprika', 'česnek',
     ],
     exclude: PRODUCE_EXCLUDE,
@@ -262,7 +277,7 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
     subcategory: 'Nápoje',
     keywords: [
       'voda', 'napoj', 'nápoj', 'limonada', 'limonáda', 'cola', 'sok', 'šťáva', 'stava', 'džus', 'dzus', 'sirup',
-      'drink', 'energetick', 'tonic', 'nektar', 'kombucha', 'ice tea', 'ledový čaj', 'monster', 'red bull', 'smoothie', 'isoton', 'ginger ale',
+      'drink', 'energetick', 'tonic', 'nektar', 'kombucha', ' mošt', 'ice tea', 'ledový čaj', 'monster', 'red bull', 'smoothie', 'isoton', 'ginger ale',
     ],
     exclude: ['tyčink', 'bonbon', 'bonbón', ' želé '],
   },
@@ -290,13 +305,20 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
     // "Perník s povidly", "Tyčinky ořechy a med" are sweets.
     excludeBefore: FOOD_HEADS,
   },
-  { subcategory: 'Konzervy', keywords: ['konzerv', 'kompot', 'olivy', 'olivami', 'sterilovan', 'v nálevu', 'kysané zelí'] },
+  {
+    subcategory: 'Konzervy',
+    keywords: [
+      'konzerv', 'kompot', 'olivy', 'olivami', 'sterilovan', 'v nálevu', 'kysané zelí',
+      // Pickled and tinned goods named by their brine or cut (2026-10-06).
+      'sladkém nálevu', 'slaném nálevu', 'sladkokyselém nálevu', 'slanokyselém nálevu', 'kořeněném nálevu', 'loupaná rajčata', 'krájená rajčata', 'pasírovaná rajčata', 'rajčata pasírovaná', 'rajčata loupaná', 'rajčata krájená',
+    ],
+  },
   { subcategory: 'Cereálie a snídaně', keywords: ['cereál', 'cerealie', 'müsli', 'musli', 'ovesné vločky', 'ovesne vlocky', 'kaše '], exclude: [' koření ', 'krupice'] },
   {
     subcategory: 'Těstoviny a rýže',
     keywords: [
       'těstovin', 'testovin', 'rýže', 'ryze', 'špagety', 'spagety', 'nudle', 'spaghetti', 'penne', 'fusilli', 'tagliatelle', 'pappardelle', 'lasagne', 'gnocchi', 'tortellini', 'ravioli',
-      'vřetena', 'kolínka', 'farfalle', 'kuskus', 'bulgur', 'quinoa',
+      'vřetena', 'kolínka', 'farfalle', 'kuskus', 'bulgur', 'quinoa', 'kroupy',
     ],
   },
   {
@@ -305,9 +327,13 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
   },
   {
     subcategory: 'Ořechy, semínka a sušené ovoce',
-    keywords: ['ořech', 'orech', 'oříšk', 'orisk', 'mandl', 'kešu', 'kesu', 'pistáci', 'semínk', 'semink', ' chia', 'rozink', 'datle', 'sušené ovoce', 'sušené meruňky', 'sušené švestky', 'brusinky sušené'],
-    // Porridge, granola and bars with nuts are breakfast or sweets, not nuts.
-    exclude: ['tyčink', 'granol', 'kaše ', 'müsli', 'kořen'],
+    keywords: [
+      'ořech', 'orech', 'oříšk', 'orisk', 'mandl', 'kešu', 'kesu', 'pistáci', 'semínk', 'semink', ' chia', 'rozink', 'datle', 'sušené ovoce', 'sušené meruňky', 'sušené švestky', 'brusinky sušené',
+      // Dried fruit named fruit-first (2026-10-06: "GRIZLY Švestky sušené", "Nice Bites Mango plátky").
+      'švestky sušené', 'meruňky sušené', 'fíky sušené', 'sušené fíky', 'sušené mango', 'mango plátky', 'banán plátky', 'ananas plátky', 'jablečné plátky', 'lísková jádra', 'sezam loupan', 'sezam neloupan', 'černý sezam', 'bílý sezam',
+    ],
+    // Porridge, granola and bars with nuts are breakfast or sweets, not nuts; fruit in juice is tinned.
+    exclude: ['tyčink', 'granol', 'kaše ', 'müsli', 'kořen', 'šťáv', 'nálev'],
     excludeBefore: [...FOOD_HEADS, 'krém', 'paštik'],
   },
   {
@@ -324,7 +350,7 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
     subcategory: 'Mouka a pečení',
     keywords: [
       'mouka', 'mouky', ' droždí', 'kvasnice', 'prášek do pečiva', 'kypřic', 'krupice', 'strouhank', ' cukr ', 'cukr krupice', 'cukr krystal', 'cukr moučka', 'třtinový cukr', 'vanilkový cukr', 'vanilinový cukr',
-      'kakaový prášek', 'kakao na pečení', 'holandské kakao', 'pudinkový prášek', 'želatina',
+      'kakaový prášek', 'kakao na pečení', 'holandské kakao', 'pudinkový prášek', 'želatina', 'krupičk',
     ],
     exclude: ['bez droždí'],
   },

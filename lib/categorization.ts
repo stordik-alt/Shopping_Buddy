@@ -12,6 +12,7 @@
 import { generateObject } from 'ai'
 import { z } from 'zod'
 import { normalizeProductText, similarity } from '@/lib/product-normalize'
+import { receiptTypeText } from '@/lib/receipt-product-match'
 import { brandOf } from '@/lib/product-brands'
 import { classifySubcategoryByKeyword, isChildOrientedByKeyword, isNonInventoryLine, placeByKeywordInOneCategory, subcategoriesOfItem } from '@/lib/product-subcategories'
 import type { ProductCatalogEntry } from '@/lib/products'
@@ -137,7 +138,11 @@ export type SubcategoryMatch = { subcategory: string; method: RecognitionMethod;
 export function classifySubcategory(category: ItemCategory, rawName: string, catalogSubcategory: string | null): SubcategoryMatch | null {
   if (catalogSubcategory) return { subcategory: catalogSubcategory, method: 'exact_product', confidence: CONFIDENCE_BY_METHOD.exact_product }
   const normalized = normalizeProductText(rawName)
-  const keyword = classifySubcategoryByKeyword(category, normalized)
+  // As printed first; only a name no rule places is read again the way a receipt prints it — OCR's
+  // letter confusions fixed and abbreviations spelled out ("KUŘ.PRSNÍ ŘÍZKY" → "kureci prsni rizky",
+  // "PRIBIN.KAPS.JAH." → "pribinacek kapsicka jahoda"), the same reading the product types use
+  // (lib/receipt-product-match.ts). A fallback, so a name the rules already place never changes.
+  const keyword = classifySubcategoryByKeyword(category, normalized) ?? classifySubcategoryByKeyword(category, receiptTypeText(rawName))
   if (keyword) return { subcategory: keyword, method: 'keyword', confidence: CONFIDENCE_BY_METHOD.keyword }
   return null
 }

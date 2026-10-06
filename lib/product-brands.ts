@@ -91,6 +91,22 @@ const BRAND_RULES: BrandRule[] = [
   { brand: 'Hello', keywords: ['hello'], category: 'Potraviny', subcategory: 'Nápoje', decides: true, atStart: true, exclude: ['kitty', 'svačin'] },
   { brand: 'Red Bull', keywords: ['red bull'], category: 'Potraviny', subcategory: 'Nápoje', decides: true, exclude: SOFT_DRINK_EXCLUDE },
   { brand: 'Monster', keywords: ['monster energy', 'monster'], category: 'Potraviny', subcategory: 'Nápoje', decides: true, atStart: true, exclude: SOFT_DRINK_EXCLUDE },
+  { brand: 'San Pellegrino', keywords: ['san pellegrino'], category: 'Potraviny', subcategory: 'Nápoje', decides: true },
+  { brand: 'Fritz-Kola', keywords: ['fritz kola'], category: 'Potraviny', subcategory: 'Nápoje', decides: true },
+  { brand: 'Caprio', keywords: ['caprio'], category: 'Potraviny', subcategory: 'Nápoje', decides: true },
+  { brand: 'Powerade', keywords: ['powerade'], category: 'Potraviny', subcategory: 'Nápoje', decides: true },
+  { brand: '7UP', keywords: ['7up', '7 up'], category: 'Potraviny', subcategory: 'Nápoje', decides: true, exclude: SOFT_DRINK_EXCLUDE },
+  { brand: 'FuzeTea', keywords: ['fuzetea', 'fuze tea'], category: 'Potraviny', subcategory: 'Nápoje', decides: true },
+  { brand: 'Nestea', keywords: ['nestea'], category: 'Potraviny', subcategory: 'Nápoje', decides: true },
+  { brand: 'Capri-Sun', keywords: ['capri sun'], category: 'Potraviny', subcategory: 'Nápoje', decides: true },
+  { brand: 'Fruit Shoot', keywords: ['fruit shoot'], category: 'Potraviny', subcategory: 'Nápoje', decides: true },
+  { brand: 'Granini', keywords: ['granini'], category: 'Potraviny', subcategory: 'Nápoje', decides: true },
+  { brand: 'San Benedetto', keywords: ['san benedetto'], category: 'Potraviny', subcategory: 'Nápoje', decides: true },
+  { brand: 'DrWitt', keywords: ['drwitt', 'dr witt'], category: 'Potraviny', subcategory: 'Nápoje', decides: true },
+  { brand: 'Ovocňák', keywords: ['ovocňák'], category: 'Potraviny', subcategory: 'Nápoje', decides: true },
+  { brand: 'Strongbow', keywords: ['strongbow'], category: 'Potraviny', subcategory: 'Alkoholické nápoje', decides: true },
+  // Cocoa for a drink; "ORION GRANKO" is Granko, not an Orion sweet (Orion excludes it).
+  { brand: 'Granko', keywords: ['granko'], category: 'Potraviny', subcategory: 'Nápoje', decides: true },
   { brand: 'Big Shock', keywords: ['big shock'], category: 'Potraviny', subcategory: 'Nápoje', decides: true, exclude: SOFT_DRINK_EXCLUDE },
   // Not a brand: carried over from the earlier list of drink names, so a radler stays a drink.
   { brand: 'Radler', keywords: ['radler'], category: 'Potraviny', subcategory: 'Nápoje', decides: true },
@@ -98,7 +114,7 @@ const BRAND_RULES: BrandRule[] = [
   // Sweets. Their ice creams and drinks ("Kinder Bueno zmrzlina", "Milka Chocolate Drink") are
   // frozen food and drinks, so the keyword rules place those.
   // ORION is also a kitchenware brand ("ORION Nůž na chléb", "ORION Sítko na čaj").
-  { brand: 'Orion', keywords: ['orion'], category: 'Potraviny', subcategory: 'Sladkosti', decides: true, exclude: [...SWEETS_EXCLUDE, ...KITCHENWARE_WORDS] },
+  { brand: 'Orion', keywords: ['orion'], category: 'Potraviny', subcategory: 'Sladkosti', decides: true, exclude: [...SWEETS_EXCLUDE, ...KITCHENWARE_WORDS, 'granko'] },
   { brand: 'Milka', keywords: ['milka'], category: 'Potraviny', subcategory: 'Sladkosti', decides: true, exclude: SWEETS_EXCLUDE },
   { brand: 'Lindt', keywords: ['lindt'], category: 'Potraviny', subcategory: 'Sladkosti', decides: true, exclude: SWEETS_EXCLUDE },
   { brand: 'Kinder', keywords: ['kinder'], category: 'Potraviny', subcategory: 'Sladkosti', decides: true, exclude: SWEETS_EXCLUDE },
@@ -119,6 +135,7 @@ const BRAND_RULES: BrandRule[] = [
   { brand: 'Margot', keywords: ['margot'], category: 'Potraviny', subcategory: 'Sladkosti', decides: true, exclude: SWEETS_EXCLUDE },
   { brand: 'Tic Tac', keywords: ['tic tac'], category: 'Potraviny', subcategory: 'Sladkosti', decides: true, exclude: SWEETS_EXCLUDE },
   { brand: 'Mentos', keywords: ['mentos'], category: 'Potraviny', subcategory: 'Sladkosti', decides: true, exclude: SWEETS_EXCLUDE },
+  { brand: 'JoJo', keywords: ['jojo'], category: 'Potraviny', subcategory: 'Sladkosti', decides: true, exclude: SWEETS_EXCLUDE },
   { brand: 'Lotus', keywords: ['lotus biscoff'], category: 'Potraviny', subcategory: 'Sladkosti', decides: true, exclude: SWEETS_EXCLUDE },
 
   // Salty snacks.
@@ -126,6 +143,7 @@ const BRAND_RULES: BrandRule[] = [
   { brand: 'Pringles', keywords: ['pringles'], category: 'Potraviny', subcategory: 'Slané pochutiny', decides: true },
   { brand: 'Chio', keywords: ['chio'], category: 'Potraviny', subcategory: 'Slané pochutiny', decides: true },
   { brand: 'Bake Rolls', keywords: ['bake rolls'], category: 'Potraviny', subcategory: 'Slané pochutiny', decides: true },
+  { brand: 'Pom-Bär', keywords: ['pom bar'], category: 'Potraviny', subcategory: 'Slané pochutiny', decides: true },
   { brand: 'Tuc', keywords: ['tuc'], category: 'Potraviny', subcategory: 'Slané pochutiny', decides: true, atStart: true },
 
   // Dairy: dairies make several dairy products, all of them dairy.
@@ -137,11 +155,12 @@ const BRAND_RULES: BrandRule[] = [
   { brand: 'Bohemilk', keywords: ['bohemilk'], category: 'Potraviny', subcategory: 'Mléčné výrobky' },
   { brand: 'Meggle', keywords: ['meggle'], category: 'Potraviny', subcategory: 'Mléčné výrobky' },
   { brand: 'Président', keywords: ['président'], category: 'Potraviny', subcategory: 'Mléčné výrobky' },
-  { brand: 'Kunín', keywords: ['kunín'], category: 'Potraviny', subcategory: 'Mléčné výrobky' },
+  { brand: 'Kunín', keywords: ['kunín'], category: 'Potraviny', subcategory: 'Mléčné výrobky', decides: true },
   { brand: 'Milbona', keywords: ['milbona'], category: 'Potraviny', subcategory: 'Mléčné výrobky' },
   { brand: 'Pilos', keywords: ['pilos'], category: 'Potraviny', subcategory: 'Mléčné výrobky' },
   // Not Müller-Thurgau wine, nor Dr. Müller's pharmacy goods.
   { brand: 'Müller', keywords: ['müller'], category: 'Potraviny', subcategory: 'Mléčné výrobky', exclude: ['thurgau', 'pharma', 'dr müller'] },
+  { brand: 'Gervais', keywords: ['gervais'], category: 'Potraviny', subcategory: 'Mléčné výrobky' },
   { brand: 'Danone', keywords: ['danone'], category: 'Potraviny', subcategory: 'Mléčné výrobky' },
 
   // Meat.
@@ -185,6 +204,17 @@ const BRAND_RULES: BrandRule[] = [
   { brand: 'Algida', keywords: ['algida'], category: 'Potraviny', subcategory: 'Mražené potraviny', decides: true },
   { brand: 'Giana', keywords: ['giana'], category: 'Potraviny', subcategory: 'Konzervy' },
   { brand: 'Penam', keywords: ['penam'], category: 'Potraviny', subcategory: 'Pečivo' },
+  { brand: 'Wasa', keywords: ['wasa'], category: 'Potraviny', subcategory: 'Pečivo', decides: true },
+  { brand: 'Nice Bites', keywords: ['nice bites'], category: 'Potraviny', subcategory: 'Ořechy, semínka a sušené ovoce' },
+  // Food brands of too many kinds of goods to name a subcategory: they only say "food", which a
+  // receipt line's reader may not (2026-10-06, checked against the catalog).
+  { brand: 'Vitana', keywords: ['vitana'], category: 'Potraviny' },
+  { brand: 'Dr. Oetker', keywords: ['dr oetker', 'oetker'], category: 'Potraviny' },
+  { brand: 'Hamé', keywords: ['hamé'], category: 'Potraviny' },
+  { brand: 'Knorr', keywords: ['knorr'], category: 'Potraviny' },
+  { brand: 'Maggi', keywords: ['maggi'], category: 'Potraviny' },
+  { brand: 'Podravka', keywords: ['podravka'], category: 'Potraviny' },
+  { brand: 'Lipton', keywords: ['lipton'], category: 'Potraviny' },
 
   // Drugstore.
   { brand: 'Colgate', keywords: ['colgate'], category: 'Drogerie', subcategory: 'Hygiena' },
@@ -198,6 +228,19 @@ const BRAND_RULES: BrandRule[] = [
   { brand: 'Dermacol', keywords: ['dermacol'], category: 'Drogerie', subcategory: 'Kosmetika' },
   { brand: 'Schwarzkopf', keywords: ['schwarzkopf', 'schauma', 'syoss'], category: 'Drogerie', subcategory: 'Kosmetika' },
   { brand: 'Rexona', keywords: ['rexona'], category: 'Drogerie', subcategory: 'Kosmetika' },
+  // dm's own drugstore brands, and supplements and hosiery sold in drugstores (2026-10-06).
+  { brand: 'Balea', keywords: ['balea'], category: 'Drogerie' },
+  { brand: 'ebelin', keywords: ['ebelin'], category: 'Drogerie' },
+  { brand: 'Terezia', keywords: ['terezia'], category: 'Drogerie' },
+  { brand: 'Bellinda', keywords: ['bellinda'], category: 'Drogerie', subcategory: 'Ostatní drogerie' },
+  { brand: 'Visiomax', keywords: ['visiomax'], category: 'Drogerie', subcategory: 'Ostatní drogerie' },
+
+  // Household goods.
+  { brand: 'Tento', keywords: ['tento'], category: 'Domácnost', subcategory: 'Papír', decides: true, atStart: true },
+  { brand: 'Zewa', keywords: ['zewa'], category: 'Domácnost', subcategory: 'Papír', decides: true },
+  { brand: 'Spontex', keywords: ['spontex'], category: 'Domácnost', subcategory: 'Úklid' },
+  { brand: 'Profissimo', keywords: ['profissimo'], category: 'Domácnost' },
+  { brand: 'Denkmit', keywords: ['denkmit'], category: 'Domácnost' },
 ]
 
 export type BrandMatch = {
@@ -240,9 +283,14 @@ export function brandOf(normalizedName: string): BrandMatch | null {
   return { brand: rule.brand, category: rule.category, subcategory: rule.subcategory ?? null, decides: rule.decides ?? false }
 }
 
-/** The item category a raw product name's brand gives, or `null` when it names no known brand. */
-export function categoryByBrand(rawName: string): ItemCategory | null {
-  return brandOf(normalizeProductText(rawName))?.category ?? null
+/** A brand's item category over `otherCategory` (a retailer's, a receipt reader's) — except that a
+ *  grown-up brand never takes a product out of Děti: a retailer that files "Balea sprchový gel
+ *  Surfosaurus" among children's goods knows it is the brand's children's line even when the name
+ *  says no "kids" (2026-10-06). `otherCategory` when the name names no known brand. */
+export function categoryWithBrand(rawName: string, otherCategory: ItemCategory | null): ItemCategory | null {
+  const brand = brandOf(normalizeProductText(rawName))
+  if (!brand) return otherCategory
+  return otherCategory === 'Děti' && brand.category !== 'Děti' ? otherCategory : brand.category
 }
 
 /** The subcategory a brand gives a product classified in `category`. A brand of another category says

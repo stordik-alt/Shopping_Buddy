@@ -100,8 +100,8 @@ export function receiptWords(name: string): string[] {
   return words
 }
 
-/** Further abbreviations that only matter for telling the *kind* of goods (docs/12_PRODUCT_TYPES.md
- *  phase 4): the words the product-type rules look for, as receipts print them ("KUR.PRSA",
+/** Further abbreviations that only matter for telling the *kind* of goods — its product type
+ *  (docs/12_PRODUCT_TYPES.md phase 4) and its subcategory (lib/categorization.ts classifySubcategory): the words the product-type rules look for, as receipts print them ("KUR.PRSA",
  *  "MLETE VEP.", "KRUT.STEHNA"). Same form as RECEIPT_ABBREVIATIONS; kept apart because matching a
  *  line against catalog names must not expand these (it would only lose the prefix match). */
 const TYPE_ABBREVIATIONS: Readonly<Record<string, string>> = {
@@ -114,6 +114,13 @@ const TYPE_ABBREVIATIONS: Readonly<Record<string, string>> = {
   plnotuc: 'plnotucne',
   rohl: 'rohlik',
   jogur: 'jogurt',
+  // Seen on real receipts (2026-10-06): "LINTEO BABY UBR.72KS", "SPX HOUB.MEGAMAX", "Zewa kuch. role",
+  // "ČESNEK.POMAZ.SE SÝR.", "MAT.BILE HROZNY 1,5L" (Albert's Mattoni).
+  ubr: 'ubrousky',
+  houb: 'houbicky',
+  kuch: 'kuchynske',
+  pomaz: 'pomazanka',
+  mat: 'mattoni',
 }
 
 /** A receipt line as text the product-type rules (lib/product-types.ts) can read: accents and OCR

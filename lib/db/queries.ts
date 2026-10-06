@@ -18,7 +18,7 @@ import { formatOpeningHours } from '@/lib/stores/osm'
 import type { ProductPrice } from '@/lib/prices'
 import { inferPackageSize, resolveCatalogPackageSize, resolveNamedPackageSize } from '@/lib/recipes/packaging'
 import { distinctProductName, resolveProductForSku, type ProductCatalogEntry } from '@/lib/products'
-import { categoryByBrand } from '@/lib/product-brands'
+import { categoryWithBrand } from '@/lib/product-brands'
 import { normalizeSearchText } from '@/lib/product-search'
 import { isReceiptStalled } from '@/lib/receipt-progress'
 import { invalidateProductCatalogCache } from '@/lib/db/cache-invalidation'
@@ -1794,7 +1794,7 @@ export async function resolveOrCreateProductFromExternal(
   } else {
     // A known brand's category outranks the retailer's (lib/product-brands.ts): Rohlík files Kubík
     // under groceries, the household finds it among children's goods.
-    const category = categoryByBrand(productName) ?? product.category
+    const category = categoryWithBrand(productName, product.category) ?? product.category
     const categoryId = ctx.categoryIds.get(category)
     if (!categoryId) throw new Error(`Unknown product category: ${category}`)
     // A new product gets its type (druh zboží) from the rules right away (lib/product-types.ts).

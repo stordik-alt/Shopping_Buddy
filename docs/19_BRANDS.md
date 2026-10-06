@@ -39,6 +39,13 @@ Matching is by whole words in the normalized name. When several brands appear, t
 the name** wins ("Jacobs Milka Cappuccino" is coffee); at the same position the longer spelling wins
 ("Dobrá voda YESs" is Yess). A grown-up brand's **children's line** ("NIVEA Kids", "elmex Junior",
 words baby / kids / junior / dětský / kojenecký) gets nothing from the brand — other evidence decides.
+And a grown-up brand **never takes a product out of Děti** (`categoryWithBrand`, 2026-10-06): a retailer that files
+"Balea sprchový gel Surfosaurus" among children's goods knows it is the brand's children's line even when the name
+does not say so. This holds for receipt lines, new products and the `db:brand-categories` batch alike.
+
+Some brands make too many kinds of goods to name a subcategory (Vitana, Dr. Oetker, Hamé, Knorr, Maggi, Podravka,
+Lipton, Balea, ebelin, Profissimo, Denkmit): they give only the item category, which a receipt line's reader may
+not.
 
 ## 4. Where brands are used
 
@@ -64,12 +71,20 @@ another category (186 Potraviny → Děti: Kubík 58, Jupík 26, Yess 9, HiPP, S
 Drogerie, e.g. a misfiled Colgate). Typical corrected misplacements: 80 Milka and 70 Lindt chocolates
 from Mléčné výrobky to Sladkosti; Relax, Rauch, Hello juices from Ovoce a zelenina to Nápoje.
 
-## 6. Applied to production (2026-10-06)
+## 6. Second round (2026-10-06)
+
+37 more brands (164 in all) — drinks (San Pellegrino, Caprio, Granini, FuzeTea, Nestea, Powerade, 7UP, Capri-Sun,
+DrWitt, Ovocňák, Granko), Strongbow, JoJo, Pom-Bär, Wasa, Gervais, Nice Bites, household paper (Tento, Zewa),
+Spontex, drugstore (Bellinda, Visiomax, Terezia) and the category-only food and dm brands above — each checked
+against the catalog first. Left out on purpose: Mivolis (sells sweets and protein too), Bonduelle (vegetables — the
+brand would switch the produce rule off), Monte, Saloos, Sundance (too mixed), Rio (juices and Rio Mare tuna).
+
+## 7. Applied to production (2026-10-06)
 
 `db:brand-categories --apply` moved 200 products; `db:reclassify-products --apply` then re-placed
 2,125 products, 9 purchase lines and 2 pantry rows.
 
-## 7. Not done
+## 8. Not done
 
 - No brand column on `products` — the brand is derived from the name each time (pure, cheap). Storing
   it is worth doing once something needs to filter by brand in the database.

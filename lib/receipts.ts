@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { googleSubjectToken } from '@/lib/gcp-oidc'
 import { AUTO_ACCEPT_THRESHOLD, classifySubcategory, detectNonInventory, matchProduct, type ProductAliasEntry, type ProductMatch, type RecognitionMethod } from '@/lib/categorization'
 import { inferPantryLocation } from '@/lib/pantry'
-import { categoryByBrand } from '@/lib/product-brands'
+import { categoryWithBrand } from '@/lib/product-brands'
 import { matchProductByName, type ProductCatalogEntry } from '@/lib/products'
 import type { ItemCategory, ItemUnit, PantryLocation } from '@/lib/types'
 
@@ -605,7 +605,7 @@ export function resolveItemPlacement(
     if (location == null) return null
     return { category: catalogEntry.category, location }
   }
-  const category = categoryByBrand(name) ?? aiCategory
+  const category = categoryWithBrand(name, aiCategory)
   if (!category) return null
   const location = inferPantryLocation(category, name)
   if (location == null) return null
@@ -653,7 +653,7 @@ export function toReceiptLineItems(
       const price = item.unitPrice ?? (item.totalPrice != null && quantity > 0 ? item.totalPrice / quantity : (item.totalPrice ?? 0))
       const { entry: catalogEntry, match: fuzzyMatch } = resolveCatalogProduct(item.name, catalog, aliases, storeId)
       const placement = resolveItemPlacement(catalogEntry, item.category, item.name)
-      const category = placement?.category ?? categoryByBrand(item.name) ?? item.category ?? ('Ostatní' as ItemCategory)
+      const category = placement?.category ?? categoryWithBrand(item.name, item.category) ?? ('Ostatní' as ItemCategory)
       // Subcategory: a matched catalog product's own remembered subcategory wins, otherwise the
       // deterministic keyword rules (lib/categorization.ts's classifySubcategory) — the AI fallback
       // tier is deliberately not called here, since this runs for every line of every receipt and

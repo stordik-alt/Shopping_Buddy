@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { BRAND_RULES_FOR_TESTS, brandOf, categoryByBrand } from '@/lib/product-brands'
+import { BRAND_RULES_FOR_TESTS, brandOf, categoryWithBrand } from '@/lib/product-brands'
+import { classifySubcategory } from '@/lib/categorization'
 import { inferPantryLocation } from '@/lib/pantry'
 import { normalizeProductText } from '@/lib/product-normalize'
 import { classifySubcategoryByKeyword, isValidProductSubcategory } from '@/lib/product-subcategories'
@@ -63,10 +64,16 @@ describe('brand dictionary', () => {
     expect(brand('Toma Natura jablko 1l')).toMatchObject({ brand: 'Toma' })
   })
 
-  it('gives the item category of a raw name, or null', () => {
-    expect(categoryByBrand('KUBIK JAHODA 0,5L')).toBe('Děti')
-    expect(categoryByBrand('Colgate 50 ml')).toBe('Drogerie')
-    expect(categoryByBrand('Rohlík tukový')).toBeNull()
+  it("gives the brand's item category over another, or the other without a brand", () => {
+    expect(categoryWithBrand('KUBIK JAHODA 0,5L', 'Potraviny')).toBe('Děti')
+    expect(categoryWithBrand('Colgate 50 ml', 'Potraviny')).toBe('Drogerie')
+    expect(categoryWithBrand('Rohlík tukový', 'Potraviny')).toBe('Potraviny')
+    expect(categoryWithBrand('Rohlík tukový', null)).toBeNull()
+  })
+
+  it("never takes a product out of Děti for a grown-up brand (a children's line without 'kids' in the name)", () => {
+    expect(categoryWithBrand('Balea sprchový gel Surfosaurus 2 v 1, 300 ml', 'Děti')).toBe('Děti')
+    expect(categoryWithBrand('Balea sprchový gel Surfosaurus 2 v 1, 300 ml', 'Potraviny')).toBe('Drogerie')
   })
 })
 
@@ -125,5 +132,85 @@ describe('placing a receipt line and a pantry row by brand', () => {
 
   it('still falls back to the reader category without a brand', () => {
     expect(resolveItemPlacement(null, 'Potraviny', 'Mražená zelenina')).toEqual({ category: 'Potraviny', location: 'Mrazák' })
+  })
+})
+
+// Recognition improvements of 2026-10-06, each measured against the local catalog copy; the
+// negative cases are the false positives found while measuring.
+describe('receipt lines read with their abbreviations spelled out', () => {
+  it.each([
+    ['Kuř.prsní řízky', 'Potraviny', 'Maso a uzeniny'],
+    ['PRIBIN.KAPS.JAH.70G', 'Potraviny', 'Mléčné výrobky'],
+    ['POMERÁNĀE', 'Potraviny', 'Ovoce a zelenina'],
+    ['MAT.BILE HROZNY 1,5L', 'Potraviny', 'Nápoje'],
+    ['ČESNEK.POMAZ.SE SÝR.', 'Potraviny', 'Džemy, med a pomazánky'],
+    ['SPX HOUB.MEGAMAX 5KS', 'Domácnost', 'Úklid'],
+    ['ALB SALAT L.GEM 2KS', 'Potraviny', 'Ovoce a zelenina'],
+  ] as const)('%s → %s ▸ %s', (name, category, subcategory) => {
+    expect(classifySubcategory(category, name, null)?.subcategory).toBe(subcategory)
+  })
+
+  it('never changes a name the rules already place as printed', () => {
+    expect(classifySubcategory('Potraviny', 'Mléko polotučné 1l', null)?.subcategory).toBe('Mléčné výrobky')
+  })
+})
+
+describe('keywords and brands added on 2026-10-06', () => {
+  it.each([
+    ['Nachmelená opice Irish stout 12° láhev', 'Alkoholické nápoje'],
+    ['Clock APA 12°', 'Alkoholické nápoje'],
+    ['Srdce domova Pařížský salát 400g', 'Lahůdky a hotová jídla'],
+    ['Rukola praná, vanička', 'Ovoce a zelenina'],
+    ['Česká Farma Salát římský', 'Ovoce a zelenina'],
+    ['LA TORRENTE loupaná rajčata 400g', 'Konzervy'],
+    ['BILLA Okurky ve sladkokyselém nálevu 4-7 cm 670g', 'Konzervy'],
+    ['GRIZLY Švestky sušené', 'Ořechy, semínka a sušené ovoce'],
+    ['Bonitas BIO Sezam loupaný', 'Ořechy, semínka a sušené ovoce'],
+    ['Racio Knäckebrot žitný', 'Pečivo'],
+    ['Ölz Super Soft Sandwich', 'Pečivo'],
+    ['Bohemia Hradecké tyčinky', 'Slané pochutiny'],
+    ['Pom-Bär Original 50g', 'Slané pochutiny'],
+    ['Husa s droby', 'Maso a uzeniny'],
+    ['Authentic Rib Eye steak 40 dní', 'Maso a uzeniny'],
+    ['Mečoun steak', 'Ryby a mořské plody'],
+    ['Jablečný mošt 1l', 'Nápoje'],
+    ['FuzeTea Broskev ibišek 1,5l', 'Nápoje'],
+    ['Granini Pomeranč 1l', 'Nápoje'],
+    ['ORION GRANKO 400G', 'Nápoje'],
+    ['Strongbow Gold Apple, plech multipack 4x440ml', 'Alkoholické nápoje'],
+    ['Český Mlynář Krupička pšeničná jemná', 'Mouka a pečení'],
+    ['ARAX Ječné kroupy', 'Těstoviny a rýže'],
+    ['Hřib smrkový – čerstvý, vanička', 'Ovoce a zelenina'],
+    ['GRIZLY Lísková jádra loupaná', 'Ořechy, semínka a sušené ovoce'],
+    ['JoJo Kyselé Žížalky', 'Sladkosti'],
+    ['Gervais Original', 'Mléčné výrobky'],
+  ])('%s → %s', (name, expected) => {
+    expect(place('Potraviny', name)).toBe(expected)
+  })
+
+  it.each([
+    // Bread "se sezamem" is bread, not seeds.
+    ['Penam Hamburger sypaný sezamem (4ks)', 'Pečivo'],
+    ['Wasa Delicate sezam a mořská sůl', 'Pečivo'],
+    // Fries, sandwich biscuits, spice mixes, tinned fruit and "Samostatné balení" are no meat, bread, nuts or drinks.
+    ['Aviko Steak fries', null],
+    ['Bahlsen Hit sandwich sušenky s čokoládovou náplní', 'Sladkosti'],
+    ['CLEVER SANDWICH - BISCUITS 500GR', null],
+    ['Vitana Steak 28g', null],
+    ['Vegi Steak Yakoma-so', null],
+    ['Giana Ananas plátky v ananasové šťávě 565g', 'Konzervy'],
+    ['Kitchin Mango plátky v mírně sladkém nálevu', 'Konzervy'],
+    ['Opavia Miňonky Kakaové celomáčené oplatky Samostatné balení 50 g', 'Sladkosti'],
+    ['Naše maso Wagyu Sloupnice tenké křehké plátky na sukiyaki', 'Maso a uzeniny'],
+    ['Kunín krupička GRANKO 150g', 'Mléčné výrobky'],
+  ])('%s → %s', (name, expected) => {
+    expect(place('Potraviny', name)).toBe(expected)
+  })
+
+  it('places household and drugstore brands', () => {
+    expect(place('Domácnost', 'Tento Family 150 ks')).toBe('Papír')
+    expect(place('Domácnost', 'Zewa kuch. role')).toBe('Papír')
+    expect(place('Drogerie', 'Bellinda legíny THERMO, černé, 38/40 S, 1 ks')).toBe('Ostatní drogerie')
+    expect(categoryWithBrand('TEREZIA Magnesium + Vitamín B6 a Meduňka, 30 ks', 'Potraviny')).toBe('Drogerie')
   })
 })

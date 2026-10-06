@@ -3,6 +3,7 @@ import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { todayInPrague } from '@/lib/today'
 import { normalizeSearchText } from '@/lib/product-search'
+import type { ItemUnit } from '@/lib/types'
 import { productTypeIdFor, loadProductTypeIds } from '@/lib/db/product-type-assignment'
 import {
   loadSeedCatalog,
@@ -204,7 +205,7 @@ async function main() {
             packageUnitQuantity: pkg.packageUnitQuantity,
             packageUnit: pkg.packageUnit,
             packageType: pkg.packageType,
-            confidence: pkg.confidence.toFixed(3),
+            confidence: pkg.confidence,
           }).where(eq(schema.productPackages.id, existingPackage.id))
         } else {
           await db.insert(schema.productPackages).values({

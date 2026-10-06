@@ -1,3 +1,8 @@
+## 2026-10-06 (Seed catalog: resolve two existing subcategory conflicts)
+- **Why:** the production dry-run found two `ready` seed rows whose existing catalog products had a different subcategory: Efko Stříbřité cibulky and Kitchin Rajčatový protlak dvakrát zahuštěný.
+- **What:** migration `0073_fix_seed_catalog_subcategory_conflicts.sql` corrects both exact products to `Potraviny → Konzervy`, matching the curated seed taxonomy. The migration is additive and idempotent.
+- **Checked:** target names and taxonomy match the curated seed CSV and the fixed product-subcategory rules; no catalog rows are changed beyond these two exact product names.
+
 ## 2026-10-06 (New flyer notifications)
 - **Why:** the owner: "Přidat upozornění při začátku nových akcí s odkazem na dané akce řetězce … ideálně v takový čas, kdy je databáze probuzená kvůli nějakému cronu." Decided the same day: only for the household's chosen stores, one notification per chain. Concept: `docs/21_NEW_FLYER_NOTIFICATIONS.md`.
 - **What:** the daily morning cron (`/api/cron/shopping-reminders`, 10:00 Prague time, running anyway) announces each new flyer — a chain's deals sharing a start date: not an online shop, at least 30 deals, starting from yesterday up to 3 days ahead, not announced before (`deal_announcements`, claimed before sending so overlapping runs never repeat it). Each household that chose the chain gets "Nové akce v <chain>" with the count and a push opening the chain-filtered Akce view; the `new_deals` notification kind can be switched off in Profil ▸ Upozornění. Failures are logged/reported without losing shopping reminders.

@@ -37,6 +37,8 @@ the purchase must be its own.
 4. **Pantry**: for each line, the matching pantry row (by product, else by name, the same match a restock uses) in
    the same unit loses the line's quantity; a row that reaches zero is removed. A line in another unit, a
    non-inventory line (bag, deposit) and a line with no pantry row are left alone — never a guess.
+   A product no longer in the pantry (eaten, removed) never stops the deletion (owner, 2026-10-06): the pantry is
+   adjusted after the purchase is already gone, and a line whose adjustment fails is logged and skipped.
 
 The list, purchase and receipt changes go to the database in one atomic batch; the pantry follows.
 

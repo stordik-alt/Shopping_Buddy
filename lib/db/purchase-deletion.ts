@@ -40,18 +40,25 @@ export async function deletePurchase(householdId: string, purchaseId: string): P
 
   // What the purchase put into the pantry comes out again: the same row a restock would have used
   // (by product, else by name), only in the same unit, never below zero (docs/20_DELETE_PURCHASE.md).
+  // The purchase is already deleted at this point, and the pantry must never undo or fail that
+  // (owner, 2026-10-06): a product no longer in the pantry is simply skipped, and a line whose
+  // adjustment fails is logged and skipped too.
   let pantryRowsChanged = 0
   for (const line of purchase.items) {
     if (line.product?.isNonInventory || detectNonInventory(line.name)) continue
-    const byProduct = line.productId
-      ? await db.query.pantryItems.findFirst({ where: and(eq(schema.pantryItems.householdId, householdId), eq(schema.pantryItems.productId, line.productId)) })
-      : null
-    const row = byProduct ?? (await db.query.pantryItems.findFirst({ where: and(eq(schema.pantryItems.householdId, householdId), ilike(schema.pantryItems.name, line.name.trim())) }))
-    if (!row || row.unit !== line.unit) continue
-    const left = pantryQuantityAfterRemoval(row.quantity, line.quantity)
-    if (left === null) await db.delete(schema.pantryItems).where(eq(schema.pantryItems.id, row.id))
-    else await db.update(schema.pantryItems).set({ quantity: left }).where(eq(schema.pantryItems.id, row.id))
-    pantryRowsChanged++
+    try {
+      const byProduct = line.productId
+        ? await db.query.pantryItems.findFirst({ where: and(eq(schema.pantryItems.householdId, householdId), eq(schema.pantryItems.productId, line.productId)) })
+        : null
+      const row = byProduct ?? (await db.query.pantryItems.findFirst({ where: and(eq(schema.pantryItems.householdId, householdId), ilike(schema.pantryItems.name, line.name.trim())) }))
+      if (!row || row.unit !== line.unit) continue
+      const left = pantryQuantityAfterRemoval(row.quantity, line.quantity)
+      if (left === null) await db.delete(schema.pantryItems).where(eq(schema.pantryItems.id, row.id))
+      else await db.update(schema.pantryItems).set({ quantity: left }).where(eq(schema.pantryItems.id, row.id))
+      pantryRowsChanged++
+    } catch (err) {
+      console.error(JSON.stringify({ event: 'purchase_delete_pantry_failed', purchaseId, line: line.name, error: err instanceof Error ? err.message : String(err) }))
+    }
   }
 
   // Best effort: a leftover photo is harmless, unlike a failed deletion — but it is logged.

@@ -56,4 +56,22 @@ describe('deletePurchase', () => {
       await db.delete(schema.households).where(eq(schema.households.id, other.id))
     }
   })
+
+  it('deletes a purchase whose products are no longer in the pantry at all', async () => {
+    const [household] = await db.insert(schema.households).values({ name: '__test_household_delete_purchase_empty_pantry__' }).returning()
+    try {
+      const [purchase] = await db.insert(schema.purchases).values({ householdId: household.id, date: '2026-09-20', total: '50' }).returning()
+      await db.insert(schema.purchaseItems).values([
+        { purchaseId: purchase.id, name: 'Snědený jogurt __test', quantity: 2, unit: 'ks', price: '15', category: 'Potraviny' },
+        { purchaseId: purchase.id, name: 'Igelitová taška', quantity: 1, unit: 'ks', price: '5', category: 'Ostatní' },
+      ])
+      await recomputePurchaseExpenses(db, purchase.id)
+
+      expect(await deletePurchase(household.id, purchase.id)).toEqual({ date: '2026-09-20', untickedListItems: 0, pantryRowsChanged: 0 })
+      expect(await db.query.purchases.findFirst({ where: eq(schema.purchases.id, purchase.id) })).toBeUndefined()
+      expect(await db.query.expenses.findMany({ where: eq(schema.expenses.householdId, household.id) })).toEqual([])
+    } finally {
+      await db.delete(schema.households).where(eq(schema.households.id, household.id))
+    }
+  })
 })

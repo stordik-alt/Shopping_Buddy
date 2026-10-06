@@ -1,3 +1,6 @@
+## Update 2026-10-06 — Deleting a purchase
+Any purchase in Nákup ▸ Moje nákupy can be deleted ("Odstranit nákup"): its expenses, lines and receipt (record and photo) go, the list items its receipt ticked are to buy again (no duplicates), and the pantry gives back what it added. Concept `docs/20_DELETE_PURCHASE.md`.
+
 ## Update 2026-10-06 — Products recognised by their brand
 `lib/product-brands.ts` (127 brands, concept `docs/19_BRANDS.md`) gives a product's category and subcategory from its brand: a receipt line's category (after a catalog match, before the reader's guess), a new ingested product's category, and the subcategory rules (a one-kind brand such as Kubík or Milka beats the keyword rules). Jupík, Kubík and Yess are Děti ▸ Dětské nápoje (owner decision); plain Dobrá voda stays Potraviny ▸ Nápoje. Existing catalog products move with `pnpm db:brand-categories` then `pnpm db:reclassify-products` — both applied to production on 2026-10-06 (200 products moved category, 2,125 re-placed). Children's food and drinks land in Spíž/Lednice.
 

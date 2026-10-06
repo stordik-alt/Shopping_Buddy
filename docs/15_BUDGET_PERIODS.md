@@ -23,6 +23,8 @@ předešlá období, ne jen aktuální." "Ušetřeno" was chosen as **budget min
    "zatím zbývá" for the current one; the total of finished periods is "ušetřeno celkem". Only periods with a budget
    (> 0) count. A finished period without its own budget is measured against today's default — changing the default
    in Profil also changes what such periods saved; a period's own budget keeps it fixed.
+   Test receipts of a period are removed by deleting the purchases (`docs/20_DELETE_PURCHASE.md`); a period left
+   without spending is no longer counted.
 5. **Past periods** are loaded only when looked at (Neon compute): Rozpočet loads the household's spending per day once
    (one small aggregate query — enough for the list of periods, their totals and savings), and a period's expenses
    when it is opened. The current period stays in the page load as today.

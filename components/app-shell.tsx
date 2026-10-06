@@ -1,9 +1,10 @@
 'use client'
 
 import { useCallback, useMemo, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import type { FocusTarget } from '@/lib/focus-target'
 import { buildShoppingPlanAction, pinProductAction, unpinProductAction } from '@/app/actions/shopping-plan'
-import { createManualPurchaseAction } from '@/app/actions/purchases'
+import { createManualPurchaseAction, deletePurchaseAction } from '@/app/actions/purchases'
 import { saveMyStorePreferencesAction } from '@/app/actions/store-preferences'
 import { markMealCookedAction } from '@/app/actions/meal-plan'
 import { markAllNotificationsReadAction, markNotificationReadAction, setNotificationPreferenceAction } from '@/app/actions/notifications'
@@ -141,6 +142,7 @@ export function AppShell({
   }, [notifications, notificationsOff])
   // Kept in state so a category reassignment or a recorded purchase shows on the history screen
   // without re-rendering the whole page from the server.
+  const router = useRouter()
   const [purchaseHistory, setPurchaseHistory] = useState(initialData.purchaseHistory)
   // What the household has ever bought, for the deals' "stock up" hint (lib/pantry.ts householdKeeps).
   const boughtNameKeys = useMemo(() => new Set(purchaseHistory.flatMap((purchase) => purchase.items.map((item) => keptNameKey(item.name)))), [purchaseHistory])
@@ -632,6 +634,14 @@ export function AppShell({
                       }}
                       onSaveSplits={saveItemSplits}
                       onUploadReceipt={() => setNakupView('uctenky')}
+                      onDeletePurchase={async (purchaseId) => {
+                        const { date } = await deletePurchaseAction(purchaseId)
+                        setPurchaseHistory((current) => current.filter((purchase) => purchase.id !== purchaseId))
+                        // Its expenses, pantry rows and unticked list items come back with the
+                        // household's data; a past period's totals are loaded again when next shown.
+                        periods.expenseDatesChanged([date])
+                        router.refresh()
+                      }}
                       onRecordExpenses={async (purchaseId) => {
                         const result = await recordPurchaseAsExpenseAction(purchaseId)
                         setExpenses(result.expenses)

@@ -24,6 +24,7 @@ export function PurchaseHistory({
   onSaveSplits,
   onRecordExpenses,
   onUploadReceipt,
+  onDeletePurchase,
 }: {
   records: PurchaseRecord[]
   today?: string
@@ -43,6 +44,9 @@ export function PurchaseHistory({
   /** Records a receipt-derived purchase into the budget after the fact (`record.needsBudgetRecording`
    *  — one imported before receipts started counting as expenses, or otherwise missed). */
   onRecordExpenses: (purchaseId: string) => Promise<void>
+  /** Deletes a purchase with its expenses and receipt and takes it out of the pantry
+   *  (docs/20_DELETE_PURCHASE.md). */
+  onDeletePurchase?: (purchaseId: string) => Promise<void>
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [showAll, setShowAll] = useState(false)
@@ -54,6 +58,9 @@ export function PurchaseHistory({
   const [recording, setRecording] = useState<string | null>(null)
   const [recorded, setRecorded] = useState<Record<string, boolean>>({})
   const [recordError, setRecordError] = useState<Record<string, string>>({})
+  const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<Record<string, string>>({})
   const [manualOpen, setManualOpen] = useState(false)
   const [manualSaving, setManualSaving] = useState(false)
   const [manualError, setManualError] = useState('')
@@ -76,6 +83,20 @@ export function PurchaseHistory({
       setRecordError((current) => ({ ...current, [purchaseId]: userFacingError(err, 'Nákup se nepodařilo zapsat do rozpočtu.') }))
     } finally {
       setRecording(null)
+    }
+  }
+  async function deletePurchase(purchaseId: string) {
+    if (!onDeletePurchase) return
+    setDeleting(purchaseId)
+    setDeleteError((current) => ({ ...current, [purchaseId]: '' }))
+    try {
+      await onDeletePurchase(purchaseId)
+      setConfirmingDelete(null)
+      setExpandedId(null)
+    } catch (err) {
+      setDeleteError((current) => ({ ...current, [purchaseId]: userFacingError(err, 'Nákup se nepodařilo odstranit.') }))
+    } finally {
+      setDeleting(null)
     }
   }
   const shownRecords = showAll ? newestFirst : newestFirst.slice(0, VISIBLE_PURCHASES)
@@ -233,6 +254,37 @@ export function PurchaseHistory({
                       </div>
                     )
                   })}
+                  {onDeletePurchase && (
+                    <div className="mt-3 border-t border-border pt-3">
+                      {confirmingDelete === record.id ? (
+                        <div className="space-y-2 rounded-xl bg-destructive-subtle p-3 text-xs text-destructive">
+                          <p className="font-medium">Odstranit tento nákup?</p>
+                          <p>
+                            Zmizí z historie i z výdajů (a tím z úspor), smaže se jeho účtenka a ze zásob se odečte, co přidal. Položky, které
+                            účtenka na seznamu odškrtla, budou zase k nákupu. Nejde to vrátit.
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            <Button variant="destructive" onClick={() => deletePurchase(record.id)} disabled={deleting === record.id}>
+                              {deleting === record.id ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Trash2 aria-hidden="true" />}
+                              Odstranit
+                            </Button>
+                            <Button variant="outline" onClick={() => setConfirmingDelete(null)} disabled={deleting === record.id}>
+                              Zrušit
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <Button variant="ghost" className="text-destructive" onClick={() => setConfirmingDelete(record.id)}>
+                          <Trash2 aria-hidden="true" /> Odstranit nákup
+                        </Button>
+                      )}
+                      {deleteError[record.id] && (
+                        <p role="alert" className="mt-2 text-xs text-destructive">
+                          {deleteError[record.id]}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -7,6 +7,7 @@ import { getDb } from '@/lib/db/client'
 import { getHouseholdExpenses, getHouseholdNotifications, getPurchaseAftermath, restockPantryItem, upsertProductCatalogDefaults, type PurchaseAftermath } from '@/lib/db/queries'
 import { getProductCatalogCached, getSubcategoryCatalogCached } from '@/lib/db/cached-reads'
 import { getPurchaseItemsForExpense, recordPurchaseAsExpense, recomputePurchaseExpenses, setPurchaseItemExpenseSplits, type PurchaseExpenseItem } from '@/lib/db/purchase-items'
+import { deletePurchase, PurchaseToDeleteNotFoundError } from '@/lib/db/purchase-deletion'
 import * as schema from '@/lib/db/schema'
 import { isExpenseCategory, isValidSubcategory, type ExpenseCategory } from '@/lib/expense-categories'
 import { matchProductByName } from '@/lib/products'
@@ -282,4 +283,23 @@ export async function recordPurchaseAsExpenseAction(purchaseId: string): Promise
   // No revalidatePath (see above). Recording can also raise a budget-threshold notification, so both are returned.
   const [expenses, notifications] = await Promise.all([getHouseholdExpenses(householdId, 1, purchaseId), getHouseholdNotifications(householdId)])
   return { expenses, notifications }
+}
+
+const PURCHASE_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** Deletes one of the household's purchases — a test receipt, a mistake — with its expenses and
+ *  receipt, unticks the list items its receipt ticked and takes it out of the pantry
+ *  (docs/20_DELETE_PURCHASE.md). Returns the purchase's date, so the client can reload the past
+ *  period it belonged to. */
+export async function deletePurchaseAction(purchaseId: string): Promise<{ date: string }> {
+  const householdId = await requireHouseholdId()
+  if (typeof purchaseId !== 'string' || !PURCHASE_ID_PATTERN.test(purchaseId)) throw new Error('Neplatný nákup.')
+  try {
+    const { date } = await deletePurchase(householdId, purchaseId)
+    return { date }
+  } catch (err) {
+    // Another household's purchase reads the same as a missing one.
+    if (err instanceof PurchaseToDeleteNotFoundError) throw new Error('Nákup nenalezen. Možná už byl odstraněn.')
+    throw err
+  }
 }

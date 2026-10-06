@@ -173,6 +173,7 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
           unit: normalized.unit,
           unitPrice: normalized.unitPrice,
           observedAt: normalized.recordedAt,
+          package: normalized.package,
         })
       }
 

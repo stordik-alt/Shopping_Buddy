@@ -88,6 +88,17 @@ describe('costForNeed', () => {
     }))).toEqual({ cost: 80, basis: 'per-package', packages: 2 })
   })
 
+  it('prices a count of pieces of a packed weight or volume product as whole packages', () => {
+    // "Hrozny tmavé bezsemenné 500 g": 29.90 Kč on promotion, 59.80 Kč/kg.
+    expect(costForNeed({ quantity: 1, unit: 'ks' }, hit({ regularPrice: 59.9, dealPrice: 29.9, unitPrice: 119.8, unit: 'kg' }))).toEqual({ cost: 29.9, basis: 'per-package', packages: 1 })
+    expect(costForNeed({ quantity: 2, unit: 'ks' }, hit({ regularPrice: 25, unitPrice: 25, unit: 'l', packageSize: { quantity: 1, unit: 'l', label: '1 l', source: 'name-extracted' } }))).toEqual({ cost: 50, basis: 'per-package', packages: 2 })
+  })
+
+  it('does not price a count of pieces of goods sold loose by weight', () => {
+    // "Hrozny bílé volné, střapec": 154.90 Kč per kilogram, no pack.
+    expect(costForNeed({ quantity: 1, unit: 'ks' }, hit({ regularPrice: 154.9, unitPrice: 154.9, unit: 'kg' }))).toBeNull()
+  })
+
   it('cannot compare a weight need with a volume or piece product, or the reverse', () => {
     expect(costForNeed({ quantity: 1, unit: 'kg' }, hit({ unit: 'l' }))).toBeNull()
     expect(costForNeed({ quantity: 1, unit: 'kg' }, hit({ unit: 'ks' }))).toBeNull()
@@ -153,6 +164,14 @@ describe('pickTypedHit', () => {
     const breast = hit({ productId: 'breast', name: 'Kuřecí prsní řízky 500 g', unit: 'kg', regularPrice: 75, unitPrice: 150, score: 9 })
     const thighs = hit({ productId: 'thighs', name: 'Kuřecí stehna 1 kg', unit: 'kg', regularPrice: 90, unitPrice: 90, score: 1, direct: false })
     expect(pickTypedHit({ quantity: 1, unit: 'kg' }, [breast, thighs])?.hit.productId).toBe('thighs')
+  })
+
+  it("offers a chain's packed promotion for a piece need, not only products priced per piece (regression 2026-10-06)", () => {
+    // "Hrozny bezsemenné, 1 ks": Lidl prices its grapes per piece at 79.90 Kč, Albert sells a 500 g pack
+    // priced per kilogram, on promotion at 29.90 Kč.
+    const lidl = hit({ productId: 'lidl', name: 'Bílé hrozny stolní', unit: 'ks', regularPrice: 79.9, unitPrice: 79.9 })
+    const albert = hit({ productId: 'albert', name: 'Hrozny tmavé bezsemenné 500 g', unit: 'kg', regularPrice: 59.9, dealPrice: 29.9, unitPrice: 119.8 })
+    expect(pickTypedHit({ quantity: 1, unit: 'ks' }, [lidl, albert])?.hit.productId).toBe('albert')
   })
 
   it('breaks a cost tie by unit price, then name, and offers nothing it cannot price', () => {

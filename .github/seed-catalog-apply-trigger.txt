@@ -1,0 +1,1 @@
+one-shot production seed catalog apply

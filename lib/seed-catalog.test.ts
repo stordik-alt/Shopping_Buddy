@@ -5,14 +5,14 @@ describe('seed catalog', () => {
   it('parses the checked-in catalog with the expected record counts', () => {
     const rows = loadSeedCatalog()
     expect(rows).toHaveLength(633)
-    expect(rows.filter((row) => row.normalizationStatus === 'ready')).toHaveLength(583)
+    expect(rows.filter((row) => row.normalizationStatus === 'ready')).toHaveLength(610)
     expect(new Set(rows.map((row) => row.seedId)).size).toBe(rows.length)
     expect(rows.every((row) => row.productFamily.length > 0)).toBe(true)
   })
 
   it('keeps needs_review rows out of the default import set', () => {
     const rows = loadSeedCatalog()
-    expect(rows.filter((row) => row.normalizationStatus === 'needs_review')).toHaveLength(50)
+    expect(rows.filter((row) => row.normalizationStatus === 'needs_review')).toHaveLength(23)
     expect(rows.filter((row) => row.normalizationStatus === 'needs_review').every((row) => row.reviewReasons.length > 0)).toBe(true)
   })
 
@@ -50,4 +50,19 @@ describe('seed catalog', () => {
     ].join('\n')
     expect(() => parseSeedCatalogCsv(malformed)).toThrow(/Invalid JSON/i)
   })
+
+  it('promotes explicitly documented discrete package choices to ready', () => {
+    const rows = loadSeedCatalog()
+    const tea = rows.find((row) => row.seedId === 'seed-src-0128')!
+    expect(tea.normalizationStatus).toBe('ready')
+    expect(tea.packageOptions.map((option) => option.canonical_quantity)).toEqual([25, 50, 100])
+
+    const birell = rows.find((row) => row.seedId === 'seed-src-0401')!
+    expect(birell.normalizationStatus).toBe('ready')
+    expect(birell.packageOptions).toHaveLength(1)
+
+    const stillReview = rows.find((row) => row.seedId === 'seed-src-0056')!
+    expect(stillReview.normalizationStatus).toBe('needs_review')
+  })
+
 })

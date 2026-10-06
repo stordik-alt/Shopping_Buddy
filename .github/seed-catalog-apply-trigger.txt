@@ -1,2 +1,2 @@
 one-shot production seed catalog apply
-triggered
+apply-now

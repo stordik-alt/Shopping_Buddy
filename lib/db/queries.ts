@@ -1495,7 +1495,12 @@ export async function persistNamedPackageEvidence(evidence: NamedPackageEvidence
     .onConflictDoUpdate({
       target: [schema.productPackages.productId, schema.productPackages.quantity, schema.productPackages.unit],
       set: {
-        source: sql`CASE WHEN EXCLUDED.source = 'retailer-published' THEN EXCLUDED.source ELSE ${schema.productPackages.source} END`,
+        source: sql`CASE
+          WHEN EXCLUDED.source = 'retailer-published' THEN EXCLUDED.source
+          WHEN ${schema.productPackages.source} = 'retailer-published' THEN ${schema.productPackages.source}
+          WHEN EXCLUDED.source = 'name-extracted' THEN EXCLUDED.source
+          ELSE ${schema.productPackages.source}
+        END`,
         confidence: sql`GREATEST(${schema.productPackages.confidence}, EXCLUDED.confidence)`,
         firstSeenAt: sql`LEAST(${schema.productPackages.firstSeenAt}, EXCLUDED.first_seen_at)`,
         lastSeenAt: sql`GREATEST(${schema.productPackages.lastSeenAt}, EXCLUDED.last_seen_at)`,

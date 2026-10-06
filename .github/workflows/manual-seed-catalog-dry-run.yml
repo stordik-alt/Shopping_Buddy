@@ -17,7 +17,7 @@ jobs:
     name: Seed catalog dry-run
     runs-on: ubuntu-latest
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DATABASE_URL: ${{ secrets.NEON_PROD_DATABASE_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4

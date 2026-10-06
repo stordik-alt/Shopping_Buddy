@@ -33,8 +33,45 @@ if (selected.length === 0) {
 
 type Classification = 'already_linked' | 'safe_name_match' | 'sku_collision' | 'new_product'
 
-async function auditConnector(connector: PriceConnector<any>) {
-  const raw = await connector.fetchProducts(limit, { fullCatalog: true })
+type SourceReport =
+  | {
+      source: string
+      fetched: number
+      normalized: number
+      counts: Record<Classification, number>
+      rows: Array<{
+        source: string
+        externalId: string
+        name: string
+        classification: Classification
+        candidateProductId: string | null
+        candidateProductName: string | null
+      }>
+    }
+  | {
+      source: string
+      error: string
+      fetched: 0
+      normalized: 0
+      counts: null
+      rows: []
+    }
+
+async function auditConnector(connector: PriceConnector<any>): Promise<SourceReport> {
+  let raw: Awaited<ReturnType<PriceConnector<any>['fetchProducts']>>
+  try {
+    raw = await connector.fetchProducts(limit, { fullCatalog: true })
+  } catch (error) {
+    return {
+      source: connector.source,
+      error: error instanceof Error ? error.message : String(error),
+      fetched: 0,
+      normalized: 0,
+      counts: null,
+      rows: [],
+    }
+  }
+
   const prepared = raw.flatMap((item) => {
     try {
       const normalized = connector.normalize(item, new Date().toISOString().slice(0, 10))
@@ -91,7 +128,7 @@ async function auditConnector(connector: PriceConnector<any>) {
 }
 
 async function main() {
-  const reports = []
+  const reports: SourceReport[] = []
   for (const connector of selected) {
     reports.push(await auditConnector(connector))
   }
@@ -99,7 +136,11 @@ async function main() {
   console.log(JSON.stringify({
     mode: 'dry-run',
     writes: 0,
-    reports: reports.map(({ rows, ...report }) => ({ ...report, rows: rows.filter((row) => row.classification !== 'already_linked') })),
+    reports: reports.map((report) =>
+      'rows' in report
+        ? { ...report, rows: report.rows.filter((row) => row.classification !== 'already_linked') }
+        : report,
+    ),
   }, null, 2))
 }
 

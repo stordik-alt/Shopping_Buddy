@@ -47,7 +47,7 @@ describe('seed catalog', () => {
     const malformed = [
       'seed_id,source_document,source_page,source_section,category,subcategory,brand,brand_extraction,product_family,variants,package_options,package_count,package_type,raw_item,normalization_status,confidence,review_reasons',
       'seed-src-1,file.pdf,1,Section,Potraviny,Mléčné výrobky,,,Test,,not-json,,,,,ready,0.95,',
-    ].join('\\n')
+    ].join('\n')
     expect(() => parseSeedCatalogCsv(malformed)).toThrow(/Invalid JSON/i)
   })
 })

@@ -4,6 +4,7 @@ import {
   MAX_PAGE_SIZE,
   toNormalizedUnitPrice,
   unitPriceMatchesPackage,
+  toPackageQuantity,
   type DiscoveryProduct,
 } from '@/lib/ingestion/product-discovery'
 import type { FetchOptions, NormalizedProduct, PriceConnector } from '@/lib/ingestion/types'

@@ -42,5 +42,5 @@ jobs:
           if [ "${{ inputs.include_review }}" = "true" ]; then
             pnpm exec tsx scripts/import-seed-catalog.ts --include-review
           else
-            pnpm exec tsx scripts/import-seed-catalog.ts
+            pnpm exec tsx scripts/import-seed-catalog.ts --apply
           fi

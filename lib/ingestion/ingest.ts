@@ -166,6 +166,9 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
         else result.skipped++ // stale: what is stored is newer than what was fetched
         if (written.closedPrevious) result.priceChanges++
 
+      }
+
+      if (normalized.package) {
         namedPackageEvidence.push({
           productId,
           name: normalized.name,

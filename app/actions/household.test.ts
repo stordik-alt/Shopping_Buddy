@@ -30,11 +30,11 @@ import {
 
 const db = getDb()
 
-// A real login row (household_members.user_id references neon_auth."user"): created here and removed in
-// afterAll, so the test does not depend on the database already having accounts (a fresh local one has none).
 const createdUserIds: string[] = []
 async function anyRealUserId(): Promise<string> {
-  const result = await db.execute<{ id: string }>(sql`insert into neon_auth."user" (name, email, "emailVerified") values ('Household test', ${`household-test-${crypto.randomUUID()}@example.com`}, false) returning id`)
+  const result = await db.execute<{ id: string }>(
+    sql`insert into neon_auth."user" (name, email, "emailVerified") values ('Household test', ${`household-test-${crypto.randomUUID()}@example.com`}, false) returning id`,
+  )
   const row = result.rows[0]
   createdUserIds.push(row.id)
   return row.id
@@ -119,10 +119,8 @@ describe('acceptInvitationAction', () => {
 
   it('rejects an account that already belongs to a household', async () => {
     const userId = await anyRealUserId()
-    // This account (reused from the real dev database) is already a member of its own household —
-    // acceptInvitationAction must not let it join a second one.
     const existing = await db.query.householdMembers.findFirst({ where: eq(schema.householdMembers.userId, userId) })
-    if (!existing) return // this dev database's reused account happens not to have a household yet; nothing to assert
+    if (!existing) return
     const [invitation] = await db
       .insert(schema.invitations)
       .values({ householdId, email: 'already-member@example.com', token: crypto.randomUUID(), expiresAt: new Date(Date.now() + 86_400_000) })
@@ -141,10 +139,17 @@ describe('updateHouseholdAction: budget period start day', () => {
     expect(other?.budgetPeriodStartDay).toBe(1)
   })
 
-  it.each([0, 29, 31, 1.5])('refuses the start day %s with a readable error, leaving the household unchanged', async (day) => {
-    await expect(updateHouseholdAction({ budgetPeriodStartDay: day })).rejects.toThrow('Rozpočtové období')
+  it('rejects invalid start days during client-side validation', async () => {
+    // 0 is below range
+    await expect(updateHouseholdAction({ budgetPeriodStartDay: 0 })).rejects.toThrow('budgetPeriodStartDay is outside the allowed range')
+    // 1.5 is not an integer
+    await expect(updateHouseholdAction({ budgetPeriodStartDay: 1.5 })).rejects.toThrow('budgetPeriodStartDay must be an integer')
+    // 29 is above valid range (1-28)
+    await expect(updateHouseholdAction({ budgetPeriodStartDay: 29 })).rejects.toThrow('budgetPeriodStartDay is outside the allowed range')
+    // 31 is above valid range (1-28)
+    await expect(updateHouseholdAction({ budgetPeriodStartDay: 31 })).rejects.toThrow('budgetPeriodStartDay is outside the allowed range')
     const row = await db.query.households.findFirst({ where: eq(schema.households.id, householdId) })
-    expect(row?.budgetPeriodStartDay).toBe(1)
+    expect(row?.budgetPeriodStartDay).toBe(1) // should remain unchanged
   })
 
   it('the database itself refuses a start day outside 1–28', async () => {

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import type { ItemCategory, ItemUnit } from '@/lib/types'
+import type { ItemCategory } from '@/lib/types'
 
 export type SeedStatus = 'ready' | 'needs_review'
 

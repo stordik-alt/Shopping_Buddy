@@ -14,7 +14,7 @@ import { getProductCatalogCached, getSubcategoryCatalogCached } from '@/lib/db/c
 import * as schema from '@/lib/db/schema'
 import { applyLearnedExpenseDefaults, recomputePurchaseExpenses } from '@/lib/db/purchase-items'
 import { classifySubcategoryByKeyword, isValidProductSubcategory } from '@/lib/product-subcategories'
-import { categoryByBrand } from '@/lib/product-brands'
+import { categoryWithBrand } from '@/lib/product-brands'
 import { getAliasesForNames, recordProductAlias } from '@/lib/db/product-aliases'
 import type { ProductAliasEntry } from '@/lib/categorization'
 import { suggestProductsForReceiptLines } from '@/lib/db/receipt-candidates'
@@ -344,7 +344,7 @@ export async function createPurchaseFromReceiptItems(
     // An untouched line of a product the catalog does not know yet: its brand's category beats the
     // form's starting value (lib/product-brands.ts), and the keyword rules give the subcategory the
     // form left empty.
-    const uncatalogedCategory = categoryByBrand(item.name) ?? item.category
+    const uncatalogedCategory = categoryWithBrand(item.name, item.category) ?? item.category
     const category = manuallyClassified ? item.category : (catalogEntry?.category ?? uncatalogedCategory)
     const ownSubcategory = category === item.category ? item.subcategory : undefined
     const subcategory = manuallyClassified

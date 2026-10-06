@@ -1,0 +1,46 @@
+name: Manual catalog seed dry-run
+
+on:
+  workflow_dispatch:
+    inputs:
+      include_review:
+        description: "Include seed rows marked needs_review"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  dry-run:
+    name: Seed catalog dry-run
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.6.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run seed catalog dry-run
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.include_review }}" = "true" ]; then
+            pnpm exec tsx scripts/import-seed-catalog.ts --include-review
+          else
+            pnpm exec tsx scripts/import-seed-catalog.ts
+          fi

@@ -1493,22 +1493,22 @@ export async function persistNamedPackageEvidence(evidence: NamedPackageEvidence
     .onConflictDoUpdate({
       target: [schema.productPackages.productId, schema.productPackages.quantity, schema.productPackages.unit],
       set: {
-        source: sql\`CASE WHEN EXCLUDED.source = 'retailer-published' THEN EXCLUDED.source ELSE ${schema.productPackages.source} END\`,
-        confidence: sql\`GREATEST(${schema.productPackages.confidence}, EXCLUDED.confidence)\`,
-        firstSeenAt: sql\`LEAST(${schema.productPackages.firstSeenAt}, EXCLUDED.first_seen_at)\`,
-        lastSeenAt: sql\`GREATEST(${schema.productPackages.lastSeenAt}, EXCLUDED.last_seen_at)\`,
-        packageCount: sql\`COALESCE(EXCLUDED.package_count, ${schema.productPackages.packageCount})\`,
-        packageUnitQuantity: sql\`COALESCE(EXCLUDED.package_unit_quantity, ${schema.productPackages.packageUnitQuantity})\`,
-        packageUnit: sql\`COALESCE(EXCLUDED.package_unit, ${schema.productPackages.packageUnit})\`,
-        packageType: sql\`COALESCE(EXCLUDED.package_type, ${schema.productPackages.packageType})\`,
-        observationCount: sql\`
+        source: sql`CASE WHEN EXCLUDED.source = 'retailer-published' THEN EXCLUDED.source ELSE ${schema.productPackages.source} END`,
+        confidence: sql`GREATEST(${schema.productPackages.confidence}, EXCLUDED.confidence)`,
+        firstSeenAt: sql`LEAST(${schema.productPackages.firstSeenAt}, EXCLUDED.first_seen_at)`,
+        lastSeenAt: sql`GREATEST(${schema.productPackages.lastSeenAt}, EXCLUDED.last_seen_at)`,
+        packageCount: sql`COALESCE(EXCLUDED.package_count, ${schema.productPackages.packageCount})`,
+        packageUnitQuantity: sql`COALESCE(EXCLUDED.package_unit_quantity, ${schema.productPackages.packageUnitQuantity})`,
+        packageUnit: sql`COALESCE(EXCLUDED.package_unit, ${schema.productPackages.packageUnit})`,
+        packageType: sql`COALESCE(EXCLUDED.package_type, ${schema.productPackages.packageType})`,
+        observationCount: sql`
           ${schema.productPackages.observationCount}
           + CASE
               WHEN EXCLUDED.unit = 'ks' AND EXCLUDED.last_seen_at > ${schema.productPackages.lastSeenAt}
               THEN 1
               ELSE 0
             END
-        \`,
+        `,
       },
     })
 

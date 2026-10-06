@@ -213,7 +213,7 @@ async function main() {
             quantity: pkg.quantity,
             unit: pkg.unit,
             source: 'seed',
-            confidence: pkg.confidence.toFixed(3),
+            confidence: pkg.confidence,
             firstSeenAt: importDate,
             lastSeenAt: importDate,
             packageCount: pkg.packageCount,

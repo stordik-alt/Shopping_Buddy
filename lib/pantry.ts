@@ -1,4 +1,6 @@
 import { matchKey } from '@/lib/receipt-list-match'
+import { normalizeProductText } from '@/lib/product-normalize'
+import { classifySubcategoryByKeyword } from '@/lib/product-subcategories'
 import type { ItemCategory, ItemUnit, PantryArea, PantryItem, PantryLocation, PantryPlace, PantryTracking } from '@/lib/types'
 
 /** How many days a pantry item can go unconfirmed before the household gets asked "do you still
@@ -221,6 +223,10 @@ const PANTRY_KEYWORDS = ['rýže', 'těstoviny', 'mouka', 'cukr', 'sůl', 'konze
 const FIRST_AID_KEYWORDS = ['paralen', 'ibalgin', 'ibuprofen', 'panadol', 'nurofen', 'acylpyrin', 'aspirin', 'náplast', 'obvaz', 'obinadl', 'teploměr', 'léčiv', 'léky', 'vitamín', 'kapky do nosu', 'tablety proti']
 const DRUGSTORE_KEYWORDS = ['šampon', 'kondicionér', 'mýdlo', 'sprchový', 'zubní', 'kartáček', 'deodorant', 'antiperspirant', 'holicí', 'žiletk', 'tampon', 'vložky', 'vatové', 'vatový', 'kosmetick', 'make-up', 'rtěnka', 'opalovací']
 
+// The Děti subcategories that are food (lib/product-subcategories.ts).
+const CHILDRENS_FOOD = new Set(['Kojenecké mléko', 'Příkrmy', 'Kaše a cereálie', 'Dětské svačinky', 'Dětské nápoje'])
+const isChildrensFood = (name: string): boolean => CHILDRENS_FOOD.has(classifySubcategoryByKeyword('Děti', normalizeProductText(name)) ?? '')
+
 /** Where a purchased item should land in the pantry — confidently, or `null` when it genuinely
  *  can't be determined without guessing (per the owner's explicit "NEHÁDEJ" rule for receipt
  *  import: an unrecognized storage location must go to manual review, never a silent default).
@@ -236,6 +242,9 @@ export function inferPantryLocation(category: ItemCategory, name: string): Pantr
   if (category === 'Drogerie' || category === 'Děti' || category === 'Domácnost') {
     if (FIRST_AID_KEYWORDS.some((keyword) => normalized.includes(keyword))) return 'Lékárnička'
     if (DRUGSTORE_KEYWORDS.some((keyword) => normalized.includes(keyword))) return 'Drogérka'
+    // Children's food and drinks (Jupík, HiPP příkrm) are food: the fridge when the name says so,
+    // otherwise the shelf — never the cleaning-supplies folder.
+    if (category === 'Děti' && isChildrensFood(name)) return CHILLED_KEYWORDS.some((keyword) => normalized.includes(keyword)) ? 'Lednice' : 'Spíž'
     return 'Domácnost'
   }
   if (category !== 'Potraviny') return null // 'Ostatní' — the category itself was already unclear

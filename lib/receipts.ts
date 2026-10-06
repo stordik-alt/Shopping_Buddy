@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { googleSubjectToken } from '@/lib/gcp-oidc'
 import { AUTO_ACCEPT_THRESHOLD, classifySubcategory, detectNonInventory, matchProduct, type ProductAliasEntry, type ProductMatch, type RecognitionMethod } from '@/lib/categorization'
 import { inferPantryLocation } from '@/lib/pantry'
+import { categoryByBrand } from '@/lib/product-brands'
 import { matchProductByName, type ProductCatalogEntry } from '@/lib/products'
 import type { ItemCategory, ItemUnit, PantryLocation } from '@/lib/types'
 
@@ -588,10 +589,12 @@ export function isRecognizedUnit(rawUnit: string | null): boolean {
  *     per-receipt guess. A catalog product with no remembered location yet (never corrected) still
  *     falls through to the deterministic keyword classification below, using the catalog's own
  *     category (not the AI's).
- *  2. No catalog match: the AI-provided category, if any, classified deterministically via
- *     `lib/pantry.ts`'s `inferPantryLocation()` (itself `null` when the category/name genuinely
- *     doesn't match a known keyword — see that function's own doc comment).
- *  3. No catalog match and no AI category either: unplaceable, `null`. */
+ *  2. No catalog match: the category the line's brand gives (lib/product-brands.ts — "KUBIK
+ *     JAHODA" is Děti whatever the receipt reader guessed, a known brand being firmer evidence than
+ *     a per-receipt guess), else the AI-provided category, if any; either classified
+ *     deterministically via `lib/pantry.ts`'s `inferPantryLocation()` (itself `null` when the
+ *     category/name genuinely doesn't match a known keyword — see that function's own doc comment).
+ *  3. No catalog match, no brand and no AI category either: unplaceable, `null`. */
 export function resolveItemPlacement(
   catalogEntry: Pick<ProductCatalogEntry, 'category' | 'defaultLocation'> | null,
   aiCategory: ItemCategory | null,
@@ -602,10 +605,11 @@ export function resolveItemPlacement(
     if (location == null) return null
     return { category: catalogEntry.category, location }
   }
-  if (!aiCategory) return null
-  const location = inferPantryLocation(aiCategory, name)
+  const category = categoryByBrand(name) ?? aiCategory
+  if (!category) return null
+  const location = inferPantryLocation(category, name)
   if (location == null) return null
-  return { category: aiCategory, location }
+  return { category, location }
 }
 
 /** A fractional quantity cannot be a count of pieces ("0.37 ks"), so it is a weight: a line printed
@@ -649,7 +653,7 @@ export function toReceiptLineItems(
       const price = item.unitPrice ?? (item.totalPrice != null && quantity > 0 ? item.totalPrice / quantity : (item.totalPrice ?? 0))
       const { entry: catalogEntry, match: fuzzyMatch } = resolveCatalogProduct(item.name, catalog, aliases, storeId)
       const placement = resolveItemPlacement(catalogEntry, item.category, item.name)
-      const category = placement?.category ?? item.category ?? ('Ostatní' as ItemCategory)
+      const category = placement?.category ?? categoryByBrand(item.name) ?? item.category ?? ('Ostatní' as ItemCategory)
       // Subcategory: a matched catalog product's own remembered subcategory wins, otherwise the
       // deterministic keyword rules (lib/categorization.ts's classifySubcategory) — the AI fallback
       // tier is deliberately not called here, since this runs for every line of every receipt and

@@ -163,7 +163,14 @@ const BASE_PRICE_PATTERN = /1\s*(ks|kg|g|l|ml)\s*=\s*([\d.,]+)\s*Kč/i
 function normalizedLidlPackage(text: string | undefined | null): NormalizedPackage | undefined {
   const packaging = parseLidlPackaging(text)
   if (!packaging) return undefined
-  return { quantity: packaging.quantity, unit: packaging.unit }
+  switch (packaging.unit) {
+    case 'g': return { quantity: packaging.quantity / 1000, unit: 'kg' }
+    case 'kg': return { quantity: packaging.quantity, unit: 'kg' }
+    case 'ml': return { quantity: packaging.quantity / 1000, unit: 'l' }
+    case 'l': return { quantity: packaging.quantity, unit: 'l' }
+    case 'ks': return { quantity: packaging.quantity, unit: 'ks' }
+    default: return undefined
+  }
 }
 
 export function parseLidlBasePrice(text: string | undefined | null): { unit: ItemUnit; unitPrice: number } | null {

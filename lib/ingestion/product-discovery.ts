@@ -95,7 +95,7 @@ export function toNormalizedUnitPrice(
 }
 
 /** Package size in the normalized unit (kg / l / ks), or `null` when unstated or not convertible. */
-function packageQuantity(amount: string | undefined, label: string | undefined): { quantity: number; unit: ItemUnit } | null {
+export function toPackageQuantity(amount: string | undefined, label: string | undefined): { quantity: number; unit: ItemUnit } | null {
   const value = Number((amount ?? '').replace(',', '.'))
   if (!Number.isFinite(value) || value <= 0) return null
   switch (label) {
@@ -130,7 +130,7 @@ export function scaleUnitPrice(unitPrice: number, fromPrice: number, toPrice: nu
  *  Only cross-checks when the package size is in the same unit family as the unit price; otherwise
  *  (e.g. a "ks" count on a per-kg product) there is nothing sound to compare and it passes. */
 export function unitPriceMatchesPackage(raw: DiscoveryProduct, priceKc: number, unit: ItemUnit, unitPrice: number): boolean {
-  const pack = packageQuantity(raw.amount, raw.volumeLabelShort)
+  const pack = toPackageQuantity(raw.amount, raw.volumeLabelShort)
   if (!pack || pack.unit !== unit) return true
   const expectedUnitPrice = priceKc / pack.quantity
   return Math.abs(unitPrice - expectedUnitPrice) <= expectedUnitPrice * UNIT_PRICE_TOLERANCE

@@ -25,9 +25,7 @@ const limit = limitArg ? Number(limitArg) : 50_000
 
 if (!Number.isInteger(limit) || limit <= 0) throw new Error('--limit must be a positive integer')
 
-const selected = sourceArg
-  ? CONNECTORS.filter((connector) => connector.source === sourceArg || connector.rawId({} as never) === sourceArg)
-  : CONNECTORS
+const selected = sourceArg ? CONNECTORS.filter((connector) => connector.source === sourceArg) : CONNECTORS
 
 if (selected.length === 0) {
   throw new Error(`Unknown source "${sourceArg}". Available: ${CONNECTORS.map((connector) => connector.source).join(', ')}`)

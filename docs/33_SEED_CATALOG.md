@@ -59,4 +59,12 @@ A record stays `needs_review` when the source gives an open-ended size/range, in
 
 ## Next step
 
-The next implementation phase should add an idempotent seed importer and only then reconcile the normalized identities with the existing production catalog. The identity schema required for brand, variant and explicit multipack metadata is now additive and documented in `docs/34_CATALOG_IDENTITY.md`.
+The identity schema required for brand, variant and explicit multipack metadata is additive and documented in `docs/34_CATALOG_IDENTITY.md`.
+
+## Importer
+
+`pnpm db:seed:catalog` is a dry-run by default. It only writes when `--apply` is supplied. The default import selects the 583 `ready` records; `needs_review` rows require the explicit `--include-review` flag.
+
+Idempotency is based on `product_seed_refs.seed_id`, not the product display name. Existing products are linked only on an exact or accent/case-normalized name with compatible category/subcategory/brand. Ambiguous or conflicting matches are skipped rather than guessed.
+
+The importer reads the catalog in one bounded batch and never scans the full product catalog. Seed package rows use the import date for `first_seen_at` / `last_seen_at` because the source catalog has no reliable observation date; these fields must not be interpreted as live retail price observations.

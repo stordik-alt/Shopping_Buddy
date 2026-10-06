@@ -156,7 +156,7 @@ async function main() {
       let productId = plan.existingProductId
 
       if (plan.action === 'create') {
-        const [product] = await tx.insert(schema.products).values({
+        const [product] = await db.insert(schema.products).values({
           name: row.productFamily,
           categoryId,
           subcategoryId,
@@ -169,8 +169,8 @@ async function main() {
         productId = product.id
         created += 1
       } else if (productId) {
-        const existing = await tx.query.products.findFirst({ where: eq(schema.products.id, productId), columns: { brand: true, variant: true, subcategoryId: true } })
-        await tx.update(schema.products).set({
+        const existing = await db.query.products.findFirst({ where: eq(schema.products.id, productId), columns: { brand: true, variant: true, subcategoryId: true } })
+        await db.update(schema.products).set({
           ...(existing?.subcategoryId == null && { subcategoryId }),
           ...(existing?.brand == null && shouldApplySeedBrand(row) && { brand: row.brand }),
           ...(existing?.variant == null && shouldApplySeedVariant(row) && { variant: row.variants }),
@@ -180,7 +180,7 @@ async function main() {
 
       if (!productId) throw new Error(`Could not resolve product for seed ${row.seedId}`)
 
-      await tx.insert(schema.productSeedRefs).values({
+      await db.insert(schema.productSeedRefs).values({
         seedId: row.seedId,
         productId,
         sourceDocument: row.sourceDocument,
@@ -189,7 +189,7 @@ async function main() {
       })
 
       for (const pkg of packageRowsFor(row)) {
-        const existingPackage = await tx.query.productPackages.findFirst({
+        const existingPackage = await db.query.productPackages.findFirst({
           where: and(
             eq(schema.productPackages.productId, productId),
             eq(schema.productPackages.quantity, pkg.quantity),
@@ -199,7 +199,7 @@ async function main() {
         })
 
         if (existingPackage) {
-          await tx.update(schema.productPackages).set({
+          await db.update(schema.productPackages).set({
             packageCount: pkg.packageCount,
             packageUnitQuantity: pkg.packageUnitQuantity,
             packageUnit: pkg.packageUnit,
@@ -207,7 +207,7 @@ async function main() {
             confidence: pkg.confidence.toFixed(3),
           }).where(eq(schema.productPackages.id, existingPackage.id))
         } else {
-          await tx.insert(schema.productPackages).values({
+          await db.insert(schema.productPackages).values({
             productId,
             quantity: pkg.quantity,
             unit: pkg.unit,

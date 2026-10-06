@@ -15,6 +15,8 @@ import {
   PANTRY_LOCATIONS,
   pantryPlaceOptions,
   pantryQuantityFor,
+  householdKeeps,
+  keptNameKey,
   pantryItemAtHome,
   pantryReviewOrder,
   placeKeyOf,
@@ -141,17 +143,26 @@ describe('inferPantryLocation', () => {
   })
 })
 
-describe('pantryQuantityFor', () => {
-  const pantryItem = (overrides: Partial<PantryItem> = {}): PantryItem => ({
-    id: crypto.randomUUID(),
-    name: 'Rýže',
-    category: 'Potraviny',
-    location: 'Spíž',
-    quantity: 3,
-    unit: 'ks',
-    addedAt: '2026-09-20',
-    ...overrides,
+const pantryItem = (overrides: Partial<PantryItem> = {}): PantryItem => ({
+  id: crypto.randomUUID(),
+  name: 'Rýže',
+  category: 'Potraviny',
+  location: 'Spíž',
+  quantity: 3,
+  unit: 'ks',
+  addedAt: '2026-09-20',
+  ...overrides,
+})
+
+describe('householdKeeps', () => {
+  it('counts a product in the pantry or ever bought, by the same case-insensitive name rule', () => {
+    expect(householdKeeps([pantryItem({ name: 'Rýže' })], new Set(), '  RÝŽE ')).toBe(true)
+    expect(householdKeeps([], new Set([keptNameKey('Mléko polotučné')]), 'mléko polotučné')).toBe(true)
+    expect(householdKeeps([pantryItem({ name: 'Rýže' })], new Set(['máslo']), 'Prosecco')).toBe(false)
   })
+})
+
+describe('pantryQuantityFor', () => {
 
   it('returns the matching item\'s quantity', () => {
     expect(pantryQuantityFor([pantryItem({ name: 'Rýže', quantity: 3 })], 'Rýže')).toBe(3)

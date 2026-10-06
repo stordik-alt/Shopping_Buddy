@@ -269,19 +269,23 @@ const dealAssessment = (overrides: Partial<DealAssessment> = {}): DealAssessment
 
 describe('suggestsStockingUp', () => {
   it('suggests stocking up on a best-price deal when the household has none in stock', () => {
-    expect(suggestsStockingUp(dealAssessment({ isBestPrice: true }), 0)).toBe(true)
+    expect(suggestsStockingUp(dealAssessment({ isBestPrice: true }), 0, true)).toBe(true)
   })
 
   it('still suggests it when down to the last one', () => {
-    expect(suggestsStockingUp(dealAssessment({ isBestPrice: true }), 1)).toBe(true)
+    expect(suggestsStockingUp(dealAssessment({ isBestPrice: true }), 1, true)).toBe(true)
   })
 
   it('does not suggest it once the household already has a couple on hand — not price alone', () => {
-    expect(suggestsStockingUp(dealAssessment({ isBestPrice: true }), 2)).toBe(false)
+    expect(suggestsStockingUp(dealAssessment({ isBestPrice: true }), 2, true)).toBe(false)
+  })
+
+  it('does not suggest it for a product the household does not keep at all (never in the pantry, never bought)', () => {
+    expect(suggestsStockingUp(dealAssessment({ isBestPrice: true }), 0, false)).toBe(false)
   })
 
   it('does not suggest it for a deal that is not actually the best price, no matter how low stock is', () => {
-    expect(suggestsStockingUp(dealAssessment({ isBestPrice: false }), 0)).toBe(false)
+    expect(suggestsStockingUp(dealAssessment({ isBestPrice: false }), 0, true)).toBe(false)
   })
 })
 

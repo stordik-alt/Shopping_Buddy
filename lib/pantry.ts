@@ -254,6 +254,18 @@ export function inferPantryLocation(category: ItemCategory, name: string): Pantr
   return null
 }
 
+/** The key `householdKeeps` compares names by — the same case/whitespace-insensitive rule as
+ *  `pantryQuantityFor`. */
+export const keptNameKey = (name: string): string => name.trim().toLowerCase()
+
+/** Whether the household keeps a product at all: it is in the pantry, or among `boughtNameKeys`
+ *  (`keptNameKey` of what the household has bought). A product it ran out of has no pantry row any
+ *  more but was bought, so it still counts. */
+export function householdKeeps(pantryItems: PantryItem[], boughtNameKeys: ReadonlySet<string>, productName: string): boolean {
+  const key = keptNameKey(productName)
+  return boughtNameKeys.has(key) || pantryItems.some((item) => keptNameKey(item.name) === key)
+}
+
 /** How much of a product the household currently has, per its real pantry data — case/whitespace-
  *  insensitive name match, same philosophy as `lib/products.ts`'s `matchProductByName()`. 0 when
  *  there's no matching pantry row, which is a genuine "none in stock" rather than an error. */

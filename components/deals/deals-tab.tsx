@@ -47,6 +47,7 @@ export function DealsTab({
   listItemNames,
   onAddToList,
   pantryItems,
+  boughtNameKeys,
   initialChain,
   onClearChain,
   hasPreferences = false,
@@ -58,6 +59,8 @@ export function DealsTab({
   listItemNames: string[]
   onAddToList: (name: string) => void
   pantryItems: PantryItem[]
+  /** `keptNameKey` of every product the household has bought, for the stocking-up hint. */
+  boughtNameKeys: ReadonlySet<string>
   /** A chain preset by "Zobrazit akce" in the store directory branch detail. */
   initialChain: string | null
   onClearChain: () => void
@@ -184,7 +187,7 @@ export function DealsTab({
         onChange={selectCategory}
         options={(['all', ...DEAL_CATEGORIES] as DealCategoryFilter[]).map((value) => ({ value, label: CATEGORY_LABEL[value] }))}
       />
-      <div className="grid gap-3 min-[380px]:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         <label className="block space-y-1.5 text-sm font-medium">
           <span>Řetězec</span>
           <Select value={chain ?? ''} onChange={(event) => selectChain(event.target.value === '' ? null : event.target.value)}>
@@ -270,6 +273,7 @@ export function DealsTab({
                     isOnList={isOnList(assessment.product.productName)}
                     onAddToList={onAddToList}
                     pantryItems={pantryItems}
+                    boughtNameKeys={boughtNameKeys}
                   />
                 ))}
               </div>

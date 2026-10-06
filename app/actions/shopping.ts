@@ -10,6 +10,7 @@ import * as schema from '@/lib/db/schema'
 import { money } from '@/lib/format'
 import { createHouseholdNotification } from '@/lib/notify'
 import { assessDealQuality, effectivePrice } from '@/lib/prices'
+import { guessItemCategory } from '@/lib/categorization'
 import { matchProductByName } from '@/lib/products'
 import { validProductTypeKeys } from '@/lib/product-types'
 import type { Item, Notification } from '@/lib/types'
@@ -97,7 +98,9 @@ export async function addShoppingItemAction(
       // rather than the schema default ('Ostatní') — found missing while testing pantry-location
       // inference, which needs the item actually categorized 'Potraviny' to ever route it to
       // Lednice/Mrazák instead of defaulting everything typed via quick-add to Spíž.
-      category: overrides.category ?? matchedProduct?.category,
+      // A name the catalog does not know gets its brand's or keyword rules' category
+      // (guessItemCategory), never a guess: with neither it stays Ostatní.
+      category: overrides.category ?? matchedProduct?.category ?? guessItemCategory(name) ?? undefined,
       // Same reasoning for unit: without this, every quick-added item defaults to the schema's
       // 'ks', even for a catalog product remembered in a different unit (e.g. "Mléko polotučné" in
       // 'l') — which then makes any Kč/l-style unit-price comparison for that item meaningless. An

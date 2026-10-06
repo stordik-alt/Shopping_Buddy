@@ -13,7 +13,8 @@ import { getProductCatalogByIds, recordPriceObservation, restockPantryItem, upse
 import { getProductCatalogCached, getSubcategoryCatalogCached } from '@/lib/db/cached-reads'
 import * as schema from '@/lib/db/schema'
 import { applyLearnedExpenseDefaults, recomputePurchaseExpenses } from '@/lib/db/purchase-items'
-import { isValidProductSubcategory } from '@/lib/product-subcategories'
+import { classifySubcategoryByKeyword, isValidProductSubcategory } from '@/lib/product-subcategories'
+import { categoryByBrand } from '@/lib/product-brands'
 import { getAliasesForNames, recordProductAlias } from '@/lib/db/product-aliases'
 import type { ProductAliasEntry } from '@/lib/categorization'
 import { suggestProductsForReceiptLines } from '@/lib/db/receipt-candidates'
@@ -340,8 +341,15 @@ export async function createPurchaseFromReceiptItems(
     // for at all, still prefers an explicit value (from a review form) before falling back.
     // An explicit category/subcategory change made by the household is authoritative for this purchase.
     const manuallyClassified = item.classificationSource === 'manual'
-    const category = manuallyClassified ? item.category : (catalogEntry?.category ?? item.category)
-    const subcategory = manuallyClassified ? (item.subcategory ?? null) : (catalogEntry?.subcategory ?? item.subcategory ?? null)
+    // An untouched line of a product the catalog does not know yet: its brand's category beats the
+    // form's starting value (lib/product-brands.ts), and the keyword rules give the subcategory the
+    // form left empty.
+    const uncatalogedCategory = categoryByBrand(item.name) ?? item.category
+    const category = manuallyClassified ? item.category : (catalogEntry?.category ?? uncatalogedCategory)
+    const ownSubcategory = category === item.category ? item.subcategory : undefined
+    const subcategory = manuallyClassified
+      ? (item.subcategory ?? null)
+      : (catalogEntry ? (catalogEntry.subcategory ?? ownSubcategory ?? null) : (ownSubcategory ?? classifySubcategoryByKeyword(category, normalizeProductText(item.name))))
     const location = item.location ?? catalogEntry?.defaultLocation ?? inferPantryLocation(category, item.name) ?? 'Spíž'
     return {
       ...item,

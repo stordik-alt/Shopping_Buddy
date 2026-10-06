@@ -14,7 +14,10 @@ import type { ItemCategory, ItemUnit, Store } from '@/lib/types'
 const CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
 const UNITS: ItemUnit[] = ['ks', 'kg', 'g', 'l', 'ml']
 
-const emptyRow = (): ReceiptLineItem => ({ name: '', category: 'Potraviny', quantity: 1, unit: 'ks', price: 0, classificationSource: 'manual' })
+// A new row's category is only the form's starting value: it is not the household's choice until
+// they change it (then `classificationSource` becomes 'manual', see updateRow), so a known catalog
+// product keeps its own category instead of being re-filed under Potraviny.
+const emptyRow = (): ReceiptLineItem => ({ name: '', category: 'Potraviny', quantity: 1, unit: 'ks', price: 0 })
 
 /** The five stages of a photo import (docs/08_OCR_RECEIPT_PIPELINE.md section 20), driven by the
  *  import's real status rather than a timer. Laid out as a wrapping vertical list so long labels

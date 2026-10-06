@@ -168,6 +168,10 @@ export function normalizePennyProduct(raw: PennyRawProduct, today: string): Norm
     regularPrice,
     currency: 'CZK',
     recordedAt: today,
+    package: (() => {
+      const pack = toPackageQuantity(raw.amount, raw.volumeLabelShort)
+      return pack ? { quantity: pack.quantity, unit: pack.unit } : undefined
+    })(),
     deal,
     promotionWithoutValidity: promotionWithoutValidity || undefined,
   }

@@ -198,8 +198,11 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
   {
     subcategory: 'Pečivo',
     keywords: ['chleb', 'rohlík', 'rohliky', 'houska', 'bageta', 'croissant', 'peciv', 'bulka', 'veka', ' toust ', 'tortil', 'kaiserk', 'koláč', 'buchta', 'závin', 'vánočk', 'mazanec', 'ciabatt', 'focaccia'],
-    // "Rohlik.cz" is a shop's name, not a roll; seasoning for tortillas is no bread.
-    exclude: ['rohlik cz', ' koření ', 'kořenící', 'mouka', 'mouky'],
+    // "Rohlik.cz" is a shop's name, not a roll; seasoning for tortillas is no bread. Flour named
+    // after bread ("Mouka pšeničná chlebová") is flour, but bread made of flour ("Tortilly z pšeničné
+    // mouky", "Chléb bez mouky") is bread: the flour word vetoes only when it comes first.
+    exclude: ['rohlik cz', ' koření ', 'kořenící'],
+    excludeBefore: ['mouka', 'mouky'],
   },
   {
     subcategory: 'Mléčné výrobky',

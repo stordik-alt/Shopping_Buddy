@@ -48,6 +48,7 @@ describe('brand dictionary', () => {
     expect(brand('Müller Thurgau 2023 suché bílé')).toBeNull()
     expect(brand('Dr. Müller PHARMA pastilky se šalvějí')).toBeNull()
     expect(brand('Hello kitty Gumové bonbony 175 g')).toBeNull()
+    expect(brand("Jacob's Creek Shiraz Cabernet víno 0,75l")).toBeNull()
   })
 
   it("leaves a grown-up brand's children's line to other evidence", () => {
@@ -90,6 +91,23 @@ describe('subcategory by brand', () => {
     expect(place('Potraviny', 'MADETA BALKAN 115G')).toBe('Mléčné výrobky')
     expect(place('Potraviny', 'Madeta Jihočeské máslo 82%')).toBe('Mléčné výrobky')
     expect(place('Potraviny', 'Kotányi Mleté maso')).toBe('Koření a bylinky')
+  })
+})
+
+describe('bread and flour (regression: production dry run 2026-10-06)', () => {
+  it.each([
+    ['Silisan Tortilly z pšeničné mouky 4x60g', 'Pečivo'],
+    ['Chléb zrníčkový bez mouky', 'Pečivo'],
+    ['Mlynářova mouka pšeničná chlebová', 'Mouka a pečení'],
+    ['Babiččina Volba Hladká mouka na křehké pečivo', 'Mouka a pečení'],
+  ])('%s → %s', (name, expected) => {
+    expect(place('Potraviny', name)).toBe(expected)
+  })
+
+  it('tells an old drink-brand substring from the brand itself', () => {
+    expect(place('Potraviny', 'BILLA Ready Tomatová polévka 400g')).toBe('Lahůdky a hotová jídla')
+    expect(place('Potraviny', 'Fantasia Jogurt s jahodami')).toBe('Mléčné výrobky')
+    expect(place('Potraviny', "Jacob's Creek Merlot víno 0,75l")).toBe('Alkoholické nápoje')
   })
 })
 

@@ -64,7 +64,12 @@ another category (186 Potraviny → Děti: Kubík 58, Jupík 26, Yess 9, HiPP, S
 Drogerie, e.g. a misfiled Colgate). Typical corrected misplacements: 80 Milka and 70 Lindt chocolates
 from Mléčné výrobky to Sladkosti; Relax, Rauch, Hello juices from Ovoce a zelenina to Nápoje.
 
-## 6. Not done
+## 6. Applied to production (2026-10-06)
+
+`db:brand-categories --apply` moved 200 products; `db:reclassify-products --apply` then re-placed
+2,125 products, 9 purchase lines and 2 pantry rows.
+
+## 7. Not done
 
 - No brand column on `products` — the brand is derived from the name each time (pure, cheap). Storing
   it is worth doing once something needs to filter by brand in the database.

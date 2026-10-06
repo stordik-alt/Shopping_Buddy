@@ -13,7 +13,7 @@ describe('seed catalog', () => {
   it('keeps needs_review rows out of the default import set', () => {
     const rows = loadSeedCatalog()
     expect(rows.filter((row) => row.normalizationStatus === 'needs_review')).toHaveLength(50)
-    expect(rows.some((row) => row.normalizationStatus === 'needs_review' && row.reviewReasons.length === 0)).toBe(true)
+    expect(rows.filter((row) => row.normalizationStatus === 'needs_review').every((row) => row.reviewReasons.length > 0)).toBe(true)
   })
 
   it('preserves explicit package choices and canonical units', () => {

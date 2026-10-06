@@ -1,3 +1,7 @@
+## 2026-10-06 (Seed catalog review cleanup)
+- **Resolved 27 review rows:** source PDFs explicitly documented their package sizes as discrete choices (including exact sachet counts, piece counts, weights, and volumes). Those rows are now `ready` with normalized `package_options`; malformed source-extraction fields were corrected for the affected rows.
+- **Remaining review:** 23 rows stay `needs_review` because the source gives a true size range/open-ended span (for example `10 až 80`) or combines distinct product forms where one canonical package identity cannot be established safely.
+
 ## 2026-10-06 (Seed catalog apply: production import completed)
 - **Applied:** all 583 `ready` seed rows are now imported in production with 0 skipped rows. Across the full catalog this corresponds to the 583 selected seed references and 650 planned package rows.
 - **Final retry:** the last apply run processed the remaining 166 seed rows, creating 163 products, linking 3 existing products, and processing 227 package rows.

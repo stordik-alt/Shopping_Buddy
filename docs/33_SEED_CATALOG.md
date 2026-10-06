@@ -59,4 +59,4 @@ A record stays `needs_review` when the source gives an open-ended size/range, in
 
 ## Next step
 
-The next implementation phase should add an idempotent seed importer and only then reconcile the normalized identities with the existing production catalog. Any required schema change for stable product/brand/variant identity must be audited against the live schema before migration.
+The next implementation phase should add an idempotent seed importer and only then reconcile the normalized identities with the existing production catalog. The identity schema required for brand, variant and explicit multipack metadata is now additive and documented in `docs/34_CATALOG_IDENTITY.md`.

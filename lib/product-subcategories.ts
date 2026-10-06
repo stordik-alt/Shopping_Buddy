@@ -4,11 +4,12 @@
 // shared category/subcategory across Zásoby and Rozpočet. Non-product expense targets keep their own
 // separate subcategory taxonomy in lib/expense-categories.ts.
 //
-// "Děti" is intentionally not one of the item categories a child-oriented product is forced into:
-// a children's drink (Kubík) stays classified as Potraviny ▸ Nápoje, with `isChildOriented` as a
-// separate tag (see `products.is_child_oriented` in the schema) — reporting "dětské produkty" must
-// not come at the cost of losing "this is a drink" for the main category (spec section 10).
+// A product aimed at children is not forced into "Děti": a Kinder chocolate stays Potraviny ▸
+// Sladkosti, with `isChildOriented` as a separate tag (see `products.is_child_oriented` in the
+// schema). Children's food and drinks the chains sell as such do sit under Děti (Děti ▸ Dětské
+// nápoje for Jupík, Kubík and Yess — owner decision 2026-10-06, lib/product-brands.ts).
 
+import { brandOf, brandSubcategoryIn } from '@/lib/product-brands'
 import { normalizeProductText } from '@/lib/product-normalize'
 import type { ItemCategory } from '@/lib/types'
 
@@ -395,7 +396,7 @@ const DETI_RULES: SubcategoryRule[] = [
   },
   {
     subcategory: 'Dětské svačinky',
-    keywords: ['sušenk', 'křupk', 'krupk', 'tyčink', 'krekr', 'oplat', 'preclík', 'popcorn', 'snack', 'keksík', 'piškot', 'bonbónk', 'želé', 'lyofiliz', 'rybičky', 'taštičk', 'dezert', 'prstýnk'],
+    keywords: ['sušenk', 'křupk', 'krupk', 'tyčink', 'krekr', 'oplat', 'preclík', 'popcorn', 'snack', 'keksík', 'piškot', 'bonbónk', 'želé', 'lyofiliz', 'rybičky', 'taštičk', 'dezert', 'prstýnk', 'svačink'],
     exclude: ['mycí', 'sprej', 'tělov', 'krém na'],
   },
   {
@@ -513,20 +514,6 @@ const RULES_BY_CATEGORY: Record<ItemCategory, SubcategoryRule[]> = {
   Ostatní: normalizeRules(OSTATNI_RULES),
 }
 
-// Known Czech beverage brand names, checked before the generic category rules below. A brand name
-// is an unambiguous signal ("Korunní Etera Jablko" and "YESS Pomeranč" are drinks, not produce),
-// unlike a bare fruit/vegetable word, which many flavored drinks also carry in their name — without
-// this tier, "jablk"/"pomeranč" in POTRAVINY_RULES' "Ovoce a zelenina" entry would win first and
-// misclassify these as raw produce (found via a real dry-run of scripts/recategorize-products.ts
-// against production data: KORUNNÍ ETERA JABLKO and YESS POMERANČ 0,5L both landed on "Ovoce a
-// zelenina" before this fix). Deliberately just brand names, not a broader "contains a fruit word"
-// exception — a bare "Jablko" with no brand or volume context should still resolve to produce.
-const BEVERAGE_BRAND_KEYWORDS = [
-  'jupik', 'jupík', 'kubik', 'kubík', 'mattoni', 'matton', 'dobra voda', 'dobrá voda',
-  'korunni', 'korunní', 'yess', 'rajec', 'ondrasovka', 'ondrášovka', 'podebradka', 'poděbradka',
-  'toma', 'kofola', 'birell', 'radler', 'pepsi', 'fanta', 'sprite',
-].map(normalizeProductText)
-
 // A liter-volume marker ("0,5l", "1,5l", "2l" — normalized, the comma becomes a space so the digit
 // run stays attached to "l") is a strong, unambiguous beverage signal for any *unbranded* case the
 // list above misses: raw produce is never sold "1,5l" on a Czech receipt. Used only to suppress a
@@ -539,14 +526,21 @@ const LITER_VOLUME_PATTERN = /(^|\s)\d+( \d+)? ?(l|ml)(\s|$)|\d 51(\s|$)/
  *  caller (lib/categorization.ts) treats this as one priority tier among several; a `null` here
  *  does not stop fuzzy or AI matching from being tried next. */
 export function classifySubcategoryByKeyword(category: ItemCategory, normalizedName: string): string | null {
-  if (category === 'Potraviny' && BEVERAGE_BRAND_KEYWORDS.some((keyword) => normalizedName.includes(keyword))) return 'Nápoje'
+  // A brand that makes one kind of goods decides first ("Korunní Etera Jablko", "YESS Pomeranč" are
+  // drinks — found by a production dry run of scripts/recategorize-products.ts, where the fruit word
+  // had put them among produce); any other brand only places what the keyword rules leave unplaced
+  // (lib/product-brands.ts).
+  const brand = brandOf(normalizedName)
+  const branded = brand ? brandSubcategoryIn(brand, category) : null
+  if (brand?.decides && branded) return branded
   // Padded so a boundary keyword (" med ") also matches at the start or end of the name.
   const haystack = ` ${normalizedName} `
   for (const rule of RULES_BY_CATEGORY[category]) {
-    if (rule.subcategory === 'Ovoce a zelenina' && LITER_VOLUME_PATTERN.test(normalizedName)) continue
+    // No brand in the dictionary sells raw produce, so a fruit word in a branded name is a flavour.
+    if (rule.subcategory === 'Ovoce a zelenina' && (brand || LITER_VOLUME_PATTERN.test(normalizedName))) continue
     if (rulePlaces(rule, haystack)) return rule.subcategory
   }
-  return null
+  return branded
 }
 
 /** Whether a name has one of `subcategory`'s keywords at all, vetoed or not — i.e. whether a
@@ -560,14 +554,14 @@ export function hasSubcategoryKeyword(category: ItemCategory, subcategory: strin
 // --- Child-oriented tag ----------------------------------------------------------------------
 
 /** Keywords that mark a product as aimed at children without changing its main category — e.g.
- *  "Kubík" stays Potraviny ▸ Nápoje but is also flagged child-oriented for reporting (spec section
- *  10). Deliberately small and specific to known children's brands/words; broader terms ("dětsk")
+ *  "Kinder" stays Potraviny ▸ Sladkosti but is also flagged child-oriented for reporting (spec
+ *  section 10); so is every product of a children's brand (lib/product-brands.ts). Deliberately small and specific to known children's brands/words; broader terms ("dětsk")
  *  are already handled by the Děti item category itself and would over-tag adult products that
  *  merely mention "pro děti" on packaging text picked up by OCR. */
 const CHILD_ORIENTED_KEYWORDS = ['kubík', 'jupík', 'jupi ', 'fruko', 'kinder', 'haribo'].map(normalizeProductText)
 
 export function isChildOrientedByKeyword(normalizedName: string): boolean {
-  return CHILD_ORIENTED_KEYWORDS.some((keyword) => normalizedName.includes(keyword))
+  return CHILD_ORIENTED_KEYWORDS.some((keyword) => normalizedName.includes(keyword)) || brandOf(normalizedName)?.category === 'Děti'
 }
 
 // --- Non-inventory (disposable/service) line detection ----------------------------------------

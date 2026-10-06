@@ -1434,16 +1434,20 @@ export async function persistNamedPackageEvidence(evidence: NamedPackageEvidence
   }>()
 
   for (const item of evidence) {
-    let packageSize = item.package
+    let packageSize: NormalizedPackage | undefined = item.package
     if (!packageSize) {
       if (item.regularPrice == null || item.unitPrice == null) continue
-      packageSize = resolveNamedPackageSize(item.name, {
+      const inferred = resolveNamedPackageSize(item.name, {
         regularPrice: item.regularPrice,
         unit: item.unit,
         unitPrice: item.unitPrice,
       })
+      if (!inferred) continue
+      packageSize = {
+        quantity: inferred.quantity,
+        unit: inferred.unit,
+      }
     }
-    if (!packageSize) continue
 
     const quantity = packageSize.unit === 'ks'
       ? Math.round(packageSize.quantity)

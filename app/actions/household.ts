@@ -9,6 +9,7 @@ import { isValidPeriodStartDay, MAX_PERIOD_START_DAY } from '@/lib/budget'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { joinHouseholdViaInvitation } from '@/lib/db/queries'
+import { checkInviteRateLimit } from '@/lib/rate-limit'
 import type { Child, HouseholdMember, HouseholdPreferences, PriceSensitivity, QualityPreference } from '@/lib/types'
 
 const MAX_NAME_LEN = 120
@@ -55,10 +56,6 @@ function sanitizeStringArray(values: unknown, field: string): string[] {
     })
     .filter(Boolean)
 }
-
-// No revalidatePath in this file: each of these saves is already shown by components/app-shell.tsx from its
-// own state or from the data the action returns. Re-rendering the whole page after every save re-ran
-// every household query and re-sent the result (Neon network transfer) and, at worst, reset the view.
 
 export async function updateHouseholdAction(changes: { name?: string; monthlyBudget?: number; budgetPeriodStartDay?: number }) {
   const householdId = await requireHouseholdId()
@@ -185,11 +182,10 @@ export async function updateHouseholdPreferencesAction(changes: Partial<Househol
 
 const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000
 
-/** Creates a share-link invitation for the household. Only the owner may invite new members —
- *  enforced here server-side, per docs/02_ARCHITECTURE.md ("UI hiding is not security"). */
 export async function inviteMemberAction(email: string): Promise<{ id: string; token: string; email: string; expiresAt: string }> {
   const { householdId, role, userId } = await requireHousehold()
   if (role !== 'owner') throw new Error('Jen správce domácnosti může zvát nové členy.')
+  checkInviteRateLimit(`${householdId}:${userId}`)
 
   const safeEmail = assertSafeEmail(email)
   const db = getDb()
@@ -219,9 +215,6 @@ export async function revokeInvitationAction(invitationId: string) {
   await db.update(schema.invitations).set({ status: 'revoked' }).where(eq(schema.invitations.id, safeInvitationId))
 }
 
-/** Accepts a household invitation. Requires the signed-in account's email to match the invite,
- *  and that the account doesn't already belong to a household — this app supports one household
- *  per account for now, not membership in multiple households at once. */
 export async function acceptInvitationAction(token: string) {
   const { data: session } = await auth.getSession()
   if (!session?.user) throw new Error('Nejste přihlášeni.')
@@ -243,8 +236,6 @@ export async function acceptInvitationAction(token: string) {
   await joinHouseholdViaInvitation(session.user.id, session.user.name, invitation)
 }
 
-/** Saves one member's answers to the eating questionnaire (docs/17_DIET_PREFERENCES.md). Any member of
- *  the household may fill it in for another (a parent for a partner), never for another household. */
 export async function setMemberDietAction(memberId: string, answers: { diet: string; avoids: string[] }): Promise<MemberDiet> {
   const householdId = await requireHouseholdId()
   const safeMemberId = assertSafeText(memberId, 'memberId', 128)
@@ -259,3 +250,4 @@ export async function setMemberDietAction(memberId: string, answers: { diet: str
     .onConflictDoUpdate({ target: schema.memberDiets.memberId, set: { diet: diet.diet, avoids: diet.avoids, updatedAt: new Date() } })
   return diet
 }
+

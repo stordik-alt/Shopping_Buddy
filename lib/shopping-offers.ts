@@ -44,13 +44,26 @@ const round = (value: number) => Math.round(value * 100) / 100
  *  - A need in litres or millilitres is handled the same way.
  *  - A need counted in pieces ("2 ks") buys enough whole retail packages to cover the requested pieces;
  *    an explicit "10 ks" package therefore costs one package for a 2- or 10-piece need.
+ *  - A need counted in pieces against a weight- or volume-priced product sold in packages ("Hrozny
+ *    500 g" at 59.80 Kč/kg) is that many packages: "1 ks" of grapes is one 500 g pack. Before
+ *    2026-10-06 such products were left out, so a list item "Hrozny bezsemenné, 1 ks" was offered
+ *    only the one chain that priced grapes per piece (79.90 Kč) and never Albert's 29.90 Kč pack.
+ *    Goods sold loose by weight (priced per kilogram with no pack size) stay out: a piece count does
+ *    not say how much of them to buy.
  *  A weight need against a piece-priced product (or a volume need against a weight-priced one) has no
  *  sound conversion and yields \`null\` — never a guess. */
 export function costForNeed(need: Pick<NeedSpec, 'quantity' | 'unit'>, hit: Pick<ProductSearchHit, 'regularPrice' | 'dealPrice' | 'unitPrice' | 'unit' | 'packageSize'>): NeedCost | null {
   if (!Number.isFinite(need.quantity) || need.quantity <= 0) return null
   switch (need.unit) {
     case 'ks': {
-      if (hit.unit !== 'ks') return null
+      if (hit.unit !== 'ks') {
+        const size = packageSize(hit)
+        // Priced per kilogram / litre at the price of one kilogram / litre: sold loose, no pack.
+        const loose = !hit.packageSize && hit.regularPrice === hit.unitPrice
+        if (!size || loose) return null
+        const packages = Math.max(1, Math.ceil(need.quantity - Number.EPSILON))
+        return { cost: round(packages * hitPrice(hit)), basis: 'per-package', packages }
+      }
       const size = packageSize(hit)
       const piecesPerPackage = size?.unit === 'ks' ? size.value : 1
       const packages = Math.max(1, Math.ceil((need.quantity / piecesPerPackage) - Number.EPSILON))

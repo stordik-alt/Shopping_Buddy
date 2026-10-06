@@ -1,5 +1,6 @@
 import { gunzipSync } from 'node:zlib'
 import type { ItemCategory, ItemUnit } from '@/lib/types'
+import type { NormalizedPackage } from '@/lib/ingestion/types'
 import { fetchWithTimeout } from '@/lib/ingestion/http'
 import { scaleUnitPrice } from '@/lib/ingestion/product-discovery'
 import type { FetchOptions, NormalizedDeal, PriceConnector } from '@/lib/ingestion/types'
@@ -159,6 +160,19 @@ const BASE_PRICE_PATTERN = /1\s*(ks|kg|g|l|ml)\s*=\s*([\d.,]+)\s*Kč/i
 /** Parses Lidl's own already-normalized unit-price string, e.g. "1 l = 49,86 Kč" or
  *  "10 ks, 1 ks = 6,99 Kč" — the retailer's own computed per-unit price, preferred over deriving
  *  one ourselves from price/packaging since it's authoritative and avoids a rounding mismatch. */
+function normalizedLidlPackage(text: string | undefined | null): NormalizedPackage | undefined {
+  const packaging = parseLidlPackaging(text)
+  if (!packaging) return undefined
+  switch (packaging.unit) {
+    case 'g': return { quantity: packaging.quantity / 1000, unit: 'kg' }
+    case 'kg': return { quantity: packaging.quantity, unit: 'kg' }
+    case 'ml': return { quantity: packaging.quantity / 1000, unit: 'l' }
+    case 'l': return { quantity: packaging.quantity, unit: 'l' }
+    case 'ks': return { quantity: packaging.quantity, unit: 'ks' }
+    default: return undefined
+  }
+}
+
 export function parseLidlBasePrice(text: string | undefined | null): { unit: ItemUnit; unitPrice: number } | null {
   if (!text) return null
   const match = BASE_PRICE_PATTERN.exec(text)
@@ -211,6 +225,7 @@ export type NormalizedLidlProduct = {
   regularPrice: number
   currency: string
   recordedAt: string
+  package?: NormalizedPackage
   deal?: NormalizedDeal
   /** A real oldPrice/price gap whose validity window `price.startDate`/`price.endDate` doesn't
    *  state — the common case for an in-store grocery promotion, per `LidlRawProduct.price`'s own
@@ -291,6 +306,7 @@ export function normalizeLidlProduct(raw: LidlRawProduct, today: string): Normal
     regularPrice,
     currency,
     recordedAt: today,
+    package: normalizedLidlPackage(raw.price?.packaging?.text),
     deal,
     promotionWithoutValidity,
   }

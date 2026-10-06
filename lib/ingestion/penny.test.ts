@@ -66,6 +66,8 @@ describe('normalizePennyProduct', () => {
       regularPrice: 19.9,
       currency: 'CZK',
       recordedAt: TODAY,
+      package: { quantity: 0.1, unit: 'kg' },
+      promotionWithoutValidity: undefined,
       // The offer's own unit price (169 Kč/kg), not the regular one (199 Kč/kg).
       deal: { dealPrice: 16.9, unitPrice: 169, validFrom: '2026-09-23', validUntil: '2026-09-29' },
     })

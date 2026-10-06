@@ -114,6 +114,7 @@ describe('normalizeBillaProduct', () => {
       regularPrice: 129.9,
       currency: 'CZK',
       recordedAt: TODAY,
+      package: { quantity: 0.225, unit: 'kg' },
       promotionWithoutValidity: undefined,
     })
   })

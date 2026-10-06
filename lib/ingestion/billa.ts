@@ -4,6 +4,7 @@ import {
   MAX_PAGE_SIZE,
   toNormalizedUnitPrice,
   unitPriceMatchesPackage,
+  toPackageQuantity,
   UNIT_PRICE_TOLERANCE,
   type DiscoveryProduct,
 } from '@/lib/ingestion/product-discovery'
@@ -178,6 +179,10 @@ export function normalizeBillaProduct(raw: BillaRawProduct, today: string): Norm
     regularPrice,
     currency: 'CZK',
     recordedAt: today,
+    package: (() => {
+      const pack = toPackageQuantity(raw.amount, raw.volumeLabelShort)
+      return pack ? { quantity: pack.quantity, unit: pack.unit } : undefined
+    })(),
     promotionWithoutValidity: onPromotion || undefined,
   }
 }

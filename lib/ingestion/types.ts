@@ -11,6 +11,16 @@ import type { ItemCategory, ItemUnit } from '@/lib/types'
  *  Postgres enum, so a new connector cannot be added without the migration that adds its value. */
 export type IngestionSource = (typeof productSourceEnum.enumValues)[number]
 
+/** Explicit package metadata published by a retailer. It is kept separate from the normalized price unit so a SKU can describe a multipack without guessing from its name. */
+export type NormalizedPackage = {
+  quantity: number
+  unit: 'ks' | 'kg' | 'l'
+  packageCount?: number
+  packageUnitQuantity?: number
+  packageUnit?: 'ks' | 'kg' | 'l'
+  packageType?: string
+}
+
 /** A promotion with a known validity window. */
 export type NormalizedDeal = {
   dealPrice: number
@@ -40,6 +50,8 @@ export type NormalizedProduct = {
   regularPrice: number | null
   currency: string
   recordedAt: string
+  /** Explicit package facts from the retailer when the source publishes them. */
+  package?: NormalizedPackage
   /** A promotion with a known validity window. Connectors whose source publishes no end date must
    *  leave this undefined and set `promotionWithoutValidity` instead — a validity window is never
    *  invented (CLAUDE.md section 15). */

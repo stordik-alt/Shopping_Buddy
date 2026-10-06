@@ -4,6 +4,7 @@ import {
   MAX_PAGE_SIZE,
   toNormalizedUnitPrice,
   unitPriceMatchesPackage,
+  toPackageQuantity,
   type DiscoveryProduct,
 } from '@/lib/ingestion/product-discovery'
 import type { FetchOptions, NormalizedProduct, PriceConnector } from '@/lib/ingestion/types'
@@ -168,6 +169,10 @@ export function normalizePennyProduct(raw: PennyRawProduct, today: string): Norm
     regularPrice,
     currency: 'CZK',
     recordedAt: today,
+    package: (() => {
+      const pack = toPackageQuantity(raw.amount, raw.volumeLabelShort)
+      return pack ? { quantity: pack.quantity, unit: pack.unit } : undefined
+    })(),
     deal,
     promotionWithoutValidity: promotionWithoutValidity || undefined,
   }

@@ -268,6 +268,57 @@ describe('automatic product package catalog', () => {
     expect(updated[0]?.lastSeenAt).toBe('2026-10-02')
   })
 
+  it('prefers retailer-published package facts and keeps multiple package sizes on one product', async () => {
+    const productId = await addProduct('__Test retailer packages ' + tag)
+
+    await persistNamedPackageEvidence([{
+      productId,
+      name: '__Test retailer packages 250 g ' + tag,
+      regularPrice: 40,
+      unit: 'kg',
+      unitPrice: 160,
+      observedAt: '2026-10-01',
+      package: { quantity: 0.25, unit: 'kg' },
+    }])
+    await persistNamedPackageEvidence([{
+      productId,
+      name: '__Test retailer packages 500 g ' + tag,
+      regularPrice: 70,
+      unit: 'kg',
+      unitPrice: 140,
+      observedAt: '2026-10-02',
+      package: { quantity: 0.5, unit: 'kg' },
+    }])
+    await persistNamedPackageEvidence([{
+      productId,
+      name: '__Test retailer packages 250 g ' + tag,
+      regularPrice: 42,
+      unit: 'kg',
+      unitPrice: 168,
+      observedAt: '2026-10-03',
+      package: { quantity: 0.25, unit: 'kg', packageCount: 2, packageUnitQuantity: 0.125, packageUnit: 'kg', packageType: 'multipack' },
+    }])
+
+    const packages = await db.query.productPackages.findMany({
+      where: eq(schema.productPackages.productId, productId),
+    })
+    expect(packages).toHaveLength(2)
+    expect(packages.find((row) => row.quantity === 0.25)).toMatchObject({
+      unit: 'kg',
+      source: 'retailer-published',
+      confidence: 1,
+      packageCount: 2,
+      packageUnitQuantity: 0.125,
+      packageUnit: 'kg',
+      packageType: 'multipack',
+    })
+    expect(packages.find((row) => row.quantity === 0.5)).toMatchObject({
+      unit: 'kg',
+      source: 'retailer-published',
+      confidence: 1,
+    })
+  })
+
   it('does not learn a package size from receipt prices', async () => {
     const productId = await addProduct(`__Test receipt balení ${tag}`)
     const storeId = (await db.query.stores.findFirst())!.id

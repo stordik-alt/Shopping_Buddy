@@ -137,6 +137,7 @@ describe('normalizeLidlProduct', () => {
       regularPrice: 34.9,
       currency: 'CZK',
       recordedAt: TODAY,
+      package: { quantity: 0.75, unit: 'l' },
       deal: undefined,
     })
   })

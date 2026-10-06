@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { Loader2, Pin, Search, Tag } from 'lucide-react'
+import { Check, Loader2, Pin, Plus, Search, Tag } from 'lucide-react'
 import type { ProductSearchResult } from '@/app/actions/product-search'
 import { money, shortDate } from '@/lib/format'
-import { hitPrice, hitUnitPrice, searchTokens } from '@/lib/product-search'
+import { hitPrice, hitUnitPrice, searchTokens, type ProductSearchHit } from '@/lib/product-search'
 import type { ItemCategory } from '@/lib/types'
 import { userFacingError } from '@/lib/errors'
 
@@ -17,6 +17,7 @@ export function ProductSearch({
   category,
   pinning,
   search,
+  adding,
 }: {
   initialQuery?: string
   /** Restricts the search to one category (an item's own), so "mléko" for a food item does not offer body milk. */
@@ -29,6 +30,12 @@ export function ProductSearch({
     onUnpin: (storeId: string) => Promise<void>
   }
   search: (input: { query: string; onlyNearby: boolean; category?: ItemCategory }) => Promise<ProductSearchResult>
+  /** When searching the stores on their own (not for one list item): puts a found product on the list
+   *  and chooses it there for its chain. `isAdded` says which hits already are. */
+  adding?: {
+    isAdded: (hit: ProductSearchHit) => boolean
+    onAdd: (hit: ProductSearchHit) => Promise<void>
+  }
 }) {
   const [query, setQuery] = useState(initialQuery)
   const [onlyNearby, setOnlyNearby] = useState(true)
@@ -42,6 +49,19 @@ export function ProductSearch({
   const latest = useRef(0)
 
   const hasQuery = searchTokens(query).length > 0
+
+  async function add(hit: ProductSearchHit) {
+    if (!adding) return
+    setBusyKey(`${hit.storeId}|${hit.productId}`)
+    setPinError('')
+    try {
+      await adding.onAdd(hit)
+    } catch (err) {
+      setPinError(userFacingError(err, 'Produkt se nepodařilo přidat na seznam.'))
+    } finally {
+      setBusyKey(null)
+    }
+  }
 
   async function togglePin(storeId: string, productId: string, pinnedNow: boolean) {
     if (!pinning) return
@@ -143,6 +163,23 @@ export function ProductSearch({
                         </span>
                         <span className="text-muted-foreground">cena z {shortDate(hit.observedAt)}</span>
                       </p>
+                      {adding && (
+                        <button
+                          type="button"
+                          disabled={busyKey === `${hit.storeId}|${hit.productId}` || adding.isAdded(hit)}
+                          onClick={() => add(hit)}
+                          className="mt-1.5 flex min-h-10 items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+                        >
+                          {busyKey === `${hit.storeId}|${hit.productId}` ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                          ) : adding.isAdded(hit) ? (
+                            <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                          ) : (
+                            <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                          )}
+                          {adding.isAdded(hit) ? `Na seznamu · vybráno pro ${group.chain}` : `Na seznam (vybrat v ${group.chain})`}
+                        </button>
+                      )}
                       {pinning && (
                         <button
                           type="button"

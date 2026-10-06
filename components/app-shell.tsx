@@ -59,7 +59,8 @@ import { usePantry } from '@/components/shell/use-pantry'
 import { useReceipts } from '@/components/shell/use-receipts'
 import { useServiceWorker, useTabNavigation, useTheme } from '@/components/shell/use-shell-environment'
 import { useShoppingQueue } from '@/components/shell/use-shopping-queue'
-import { applyPendingOps, newTempId } from '@/lib/offline-queue'
+import { applyPendingOps, isTempId, newTempId } from '@/lib/offline-queue'
+import type { ProductSearchHit } from '@/lib/product-search'
 import { budgetForPeriod, expensesInPeriod, periodStart, spendingByPeriod, totalSpent } from '@/lib/budget'
 import { longDate, thisPeriodTitle } from '@/lib/format'
 import type { HouseholdData, PurchaseAftermath, TickedListItem } from '@/lib/db/queries'
@@ -416,6 +417,22 @@ export function AppShell({
     setPins((current) => [...current.filter((pin) => !(pin.itemId === itemId && pin.storeId === storeId)), { itemId, storeId, productId }])
   }
 
+  // A product found in the store search (Nákup ▸ Hledat produkty v obchodech): on the list, and chosen
+  // for its chain so the plan prices exactly it. A matching item still to buy gets the product instead
+  // of a second row (no duplicates). Added straight through the server action, not the offline queue —
+  // choosing the product needs the item's real id.
+  async function addSearchHit(hit: ProductSearchHit) {
+    const key = keptNameKey(hit.name)
+    let item = items.find((entry) => !entry.done && !isTempId(entry.id) && keptNameKey(entry.name) === key)
+    if (!item) {
+      const added = await addShoppingItemAction(initialData.mainListId, hit.name, { category: hit.category })
+      item = added.item
+      setItems((current) => [...current, added.item])
+      if (added.notification) setNotifications((current) => [...current, added.notification!])
+    }
+    await pinProduct(item.id, hit.storeId, hit.productId)
+  }
+
   async function unpinProduct(itemId: string, storeId: string) {
     await unpinProductAction({ itemId, storeId })
     setPins((current) => current.filter((pin) => !(pin.itemId === itemId && pin.storeId === storeId)))
@@ -610,6 +627,7 @@ export function AppShell({
                         pins={pins}
                         onPin={pinProduct}
                         onUnpin={unpinProduct}
+                        onAddSearchHit={addSearchHit}
                         storeChains={storeChains}
                         storeSelection={storeSelection}
                         buildPlan={buildShoppingPlanAction}

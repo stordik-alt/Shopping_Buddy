@@ -1,3 +1,8 @@
+## 2026-10-06 (Store search: put a found product on the list)
+- **Why:** the owner: products found in Nákup ▸ "Hledat produkty v obchodech" could not be added to the list — that search only listed them; choosing a product existed only for an item already on the list.
+- **What:** each hit of the stand-alone store search has "Na seznam (vybrat v <řetězec>)": the product goes on the main list and is chosen for that chain at once, so the shopping plan prices exactly it. An item of the same name still to buy gets the product instead of a second row (no duplicates); the button then reads "Na seznamu · vybráno pro <řetězec>". Added through `addShoppingItemAction` (not the offline queue — choosing the product needs the item's real id), then `pinProductAction`.
+- **Checked:** `tsc --noEmit`; in Chromium on the local database at 390 px: "máslo 250" → "Na seznam" on an Albert hit → one list item with the product chosen for Albert, still so after a reload.
+
 ## 2026-10-06 (Shopping plan: a piece need buys packs of weight-priced goods)
 - **Why:** the owner: "Hrozny bezsemenné — Albert akce 29,90, ale aplikace nabídne z Lidlu za 79,90." A list item counted in pieces ("1 ks", the default) could only be priced against products sold per piece; Albert's 500 g pack is priced per kilogram, so its 29.90 Kč promotion was never considered and Lidl's per-piece 79.90 Kč was the only offer. The same hid packed meat, cheese, milk and the like from any "1 ks" item.
 - **What:** `costForNeed` (`lib/shopping-offers.ts`) prices a piece need against a weight- or volume-priced product sold in packs as that many packs at the pack price (promotion included). Goods sold loose by weight (priced per kilogram with no pack size) still cannot be priced for a piece count — never a guess.

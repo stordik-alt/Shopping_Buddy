@@ -17,6 +17,8 @@ import { Input, Select } from '@/components/ui/field'
 import { SegmentedControl } from '@/components/ui/segmented-control'
 import { PriceComparison } from '@/components/shopping/price-comparison'
 import { ProductSearch } from '@/components/shopping/product-search'
+import type { ProductSearchHit } from '@/lib/product-search'
+import { keptNameKey } from '@/lib/pantry'
 import { StoreComparison } from '@/components/shopping/store-comparison'
 import { GROUP_KEYS, readListView, saveListView, SORT_KEYS, type GroupKey, type SortKey } from '@/lib/list-view-preference'
 import { safeLocalStorage } from '@/lib/safe-storage'
@@ -75,6 +77,7 @@ export function ShoppingList({
   completePurchase,
   focusItemName = null,
   onFocusHandled,
+  onAddSearchHit,
 }: {
   /** The real date (`YYYY-MM-DD`), for which promotions are still running. */
   today: string
@@ -102,6 +105,8 @@ export function ShoppingList({
   /** A list item to open and bring into view (e.g. "Akce na Mléko končí dnes" on Domů); consumed once. */
   focusItemName?: string | null
   onFocusHandled?: () => void
+  /** Puts a product found in the store search on the list and chooses it there for its chain. */
+  onAddSearchHit?: (hit: ProductSearchHit) => Promise<void>
 }) {
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('Vše')
@@ -256,7 +261,17 @@ export function ShoppingList({
         </button>
         {searchOpen && (
           <div className="mt-2">
-            <ProductSearch search={searchProductsAction} />
+            <ProductSearch
+              search={searchProductsAction}
+              adding={
+                onAddSearchHit && {
+                  // On the list, still to buy, with this very product chosen for the hit's chain.
+                  isAdded: (hit) =>
+                    items.some((item) => !item.done && keptNameKey(item.name) === keptNameKey(hit.name) && pins.some((pin) => pin.itemId === item.id && pin.storeId === hit.storeId && pin.productId === hit.productId)),
+                  onAdd: onAddSearchHit,
+                }
+              }
+            />
           </div>
         )}
       </div>

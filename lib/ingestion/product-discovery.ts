@@ -95,7 +95,7 @@ export function toNormalizedUnitPrice(
 }
 
 /** Package size in the normalized unit (kg / l / ks), or `null` when unstated or not convertible. */
-export function toPackageQuantity(amount: string | undefined, label: string | undefined): { quantity: number; unit: ItemUnit } | null {
+export function toPackageQuantity(amount: string | null | undefined, label: string | null | undefined): { quantity: number; unit: 'kg' | 'l' | 'ks' } | null {
   const value = Number((amount ?? '').replace(',', '.'))
   if (!Number.isFinite(value) || value <= 0) return null
   switch (label) {

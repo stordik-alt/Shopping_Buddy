@@ -196,7 +196,7 @@ describe('keywords and brands added on 2026-10-06', () => {
     ['Aviko Steak fries', null],
     ['Bahlsen Hit sandwich sušenky s čokoládovou náplní', 'Sladkosti'],
     ['CLEVER SANDWICH - BISCUITS 500GR', null],
-    ['Vitana Steak 28g', null],
+    ['Vitana Steak 28g', 'Koření a bylinky'],
     ['Vegi Steak Yakoma-so', null],
     ['Giana Ananas plátky v ananasové šťávě 565g', 'Konzervy'],
     ['Kitchin Mango plátky v mírně sladkém nálevu', 'Konzervy'],
@@ -256,5 +256,37 @@ describe('subcategories A–Z', () => {
     for (const category of EXPENSE_CATEGORY_NAMES) expect(subcategoriesOf(category)).toEqual(sortSubcategoryNames(subcategoriesOf(category)))
     // Czech order: "Ch" after "H", "Č" after "C".
     expect(sortSubcategoryNames(['Hygiena', 'Chléb', 'Čištění', 'Cereálie'])).toEqual(['Cereálie', 'Čištění', 'Hygiena', 'Chléb'])
+  })
+})
+
+// Seasonings and spice blends (owner, 2026-10-06), and Activia.
+describe('seasonings, spice blends and Activia', () => {
+  it.each([
+    ['Vitana Masox 10x11g', 'Omáčky a dochucovadla'],
+    ['Vitana Masox šťáva na maso', 'Omáčky a dochucovadla'],
+    ['Vitana Šťáva vepřová', 'Omáčky a dochucovadla'],
+    ['Vitana Šťáva k masu 56g', 'Omáčky a dochucovadla'],
+    ['Knorr Bohatý Bujón Hovězí 4 ks 112g', 'Omáčky a dochucovadla'],
+    ['Knorr Bohatý bujón s chutí červeného vína 104g', 'Omáčky a dochucovadla'],
+    ['Vitana Vývar zeleninový 4 ks', 'Omáčky a dochucovadla'],
+    ['Knorr Hotová jíška světlá 250g', 'Omáčky a dochucovadla'],
+    ['Podravka Marináda BBQ', 'Omáčky a dochucovadla'],
+    ['Avokádo Kuře gril 34g', 'Koření a bylinky'],
+    ['Vitana Kuře pečené bez soli', 'Koření a bylinky'],
+    ['Vitana Americké brambory', 'Koření a bylinky'],
+    ['Vitana Ryby 28g', 'Koření a bylinky'],
+    // Meat in a marinade, soups, instant meals and a beer called "Vývar" stay what they are.
+    ['Iceland Kuřecí křídla v Barbecue marinádě', 'Maso a uzeniny'],
+    ['Vývar s játrovými knedlíčky 400 g', 'Lahůdky a hotová jídla'],
+    ['Vitana Do hrnečku Česnečka s houstičkami 17g', 'Lahůdky a hotová jídla'],
+    ['Old Cock Vývar světlý ležák 11° plech', 'Alkoholické nápoje'],
+    ['ACTIVIA Nápoj Jahoda - kiwi 280g', 'Mléčné výrobky'],
+    ['ACTIVIA Snídaně s vlákninou Jablko 170g', 'Mléčné výrobky'],
+  ])('%s → %s', (name, expected) => {
+    expect(place('Potraviny', name)).toBe(expected)
+  })
+
+  it('leaves the avocado fruit alone', () => {
+    expect(place('Potraviny', 'Avokádo Hass "ready to eat", 1 ks')).not.toBe('Koření a bylinky')
   })
 })

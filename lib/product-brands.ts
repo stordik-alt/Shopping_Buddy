@@ -161,6 +161,8 @@ const BRAND_RULES: BrandRule[] = [
   // Not Müller-Thurgau wine, nor Dr. Müller's pharmacy goods.
   { brand: 'Müller', keywords: ['müller'], category: 'Potraviny', subcategory: 'Mléčné výrobky', exclude: ['thurgau', 'pharma', 'dr müller'] },
   { brand: 'Gervais', keywords: ['gervais'], category: 'Potraviny', subcategory: 'Mléčné výrobky' },
+  // Danone's yoghurt line: always dairy, its drinks and breakfast cups too (owner, 2026-10-06).
+  { brand: 'Activia', keywords: ['activia'], category: 'Potraviny', subcategory: 'Mléčné výrobky', decides: true },
   { brand: 'Danone', keywords: ['danone'], category: 'Potraviny', subcategory: 'Mléčné výrobky' },
 
   // Meat.

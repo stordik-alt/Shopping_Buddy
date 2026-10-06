@@ -183,7 +183,8 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
       'výčepní', 'kozel', 'pilsner', 'gambrinus', 'radegast', 'staropramen', 'krušovic', 'budvar', 'svijan', 'božkov', 'chateau', 'château', ' brut', 'jägermeister', 'bacardi', 'captain morgan', 'meruňkovic', 'jelínek', 'žufánek', 'frisco',
     ],
     // Food flavoured with a drink: "zakysaná smetana vaječný likér", "Cheddar … sýr s whisky".
-    exclude: ['zakysan', 'cheddar', ' sýr ', 'sýrov', 'krekr'],
+    // ... and bouillon "s chutí červeného vína" is a seasoning.
+    exclude: ['zakysan', 'cheddar', ' sýr ', 'sýrov', 'krekr', 'bujón', 'bujon'],
     excludeBefore: [...FOOD_HEADS, 'mléko', 'paštik'],
   },
   {
@@ -192,13 +193,28 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
       'bramborový salát', 'vlašský salát', 'těstovinový salát', 'pochoutkový salát', 'vajíčkový salát', 'salát vajíčkový', 'majonézový salát', 'hotové jídlo', 'hotová jídla',
       ' aspik ', ' aspiku ', 'utopenc', 'obložen', 'sendvič', ' wrap ',
       // A soup, ready or instant — "polévka" only, so "na polévku" and "polévková směs" stay out.
-      'polévka',
+      'polévka', 'do hrnečku', 'vitana bistro', 's játrovými knedlíčky',
       'pizza', 'kimchi',
       // Deli salads named by kind (2026-10-06, checked against the catalog).
       'pařížský salát', 'šopský salát', 'zelný salát', 'rajčatový salát', 'camping salát', 'rumcajs salát', 'salát á la krab', 'krabí salát', 'lahůdkový salát', 'coleslaw', 'wakame',
     ],
     // Toast bread called "sendvič" and tortilla wraps are bread; pizza flour, sauce or spice is no pizza.
     exclude: [' toust ', 'tortil', 'mouka', 'omáčk', 'koření', 'kořen', 'směs na', 'tyčink', 'chips', 'lupínk', 'vroubk', 'krekr'],
+  },
+  {
+    // Bouillon, Masox, gravy, roux and marinades are seasonings (owner, 2026-10-06: "Vitana Masox,
+    // šťáva na maso atd., všechno to jsou dochucovadla"). Before meat and vegetables, which their
+    // names mention ("Hovězí bujón", "Zeleninový vývar"); after ready meals, so a soup ("Vývar s
+    // játrovými knedlíčky", "polévka") stays one. The thing itself, not what is cooked in it: "Kuřecí
+    // křídla v marinádě" stay meat (headOnly).
+    subcategory: 'Omáčky a dochucovadla',
+    keywords: [
+      'masox', 'bujón', 'bujon', 'vývar', 'šťáva na maso', 'šťáva k masu', 'šťáva na čínu', 'šťáva drůbeží', 'šťáva vepřová', 'šťáva hovězí', 'vepřová šťáva', 'jíška', 'jíšky', 'zápražk',
+      'marináda', 'marinády',
+    ],
+    // "Old Cock Vývar" is a beer.
+    exclude: ['knedlíč', 'nudl', 'zavářk', 'porce', 'ležák', 'pivo', 'plech', 'old cock'],
+    headOnly: true,
   },
   {
     subcategory: 'Rostlinné alternativy',
@@ -258,7 +274,7 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
       ' husa', ' husí', ' koleno', ' steak', 'tomahawk',
     ],
     // A vegetable, cheese or tofu "steak" is no meat.
-    exclude: ['květák', 'celer', 'zeleninov', 'hermelín', 'sýrov', 'tofu', 'čokolád', 'fries', 'frites', 'hranol', 'vegi', 'vitana', 'avokád', 'koření', 'kořen', 'příchu', 'prichu', 'krmiv', 'kočk', ' psy', 'pamlsk', 'veggie', 'vegetarián', 'rostlinn', 'sádlo', 'omáčk', 'nudle', 'těstovin', 'tortellin', 'ravioli'],
+    exclude: ['květák', 'celer', 'zeleninov', 'hermelín', 'sýrov', 'tofu', 'čokolád', 'fries', 'frites', 'hranol', 'vegi', 'koření', 'kořen', 'příchu', 'prichu', 'krmiv', 'kočk', ' psy', 'pamlsk', 'veggie', 'vegetarián', 'rostlinn', 'sádlo', 'omáčk', 'nudle', 'těstovin', 'tortellin', 'ravioli'],
   },
   { subcategory: 'Luštěniny', keywords: ['čočka', 'čočky', 'čočkov', 'čočce', 'fazol', 'cizrn', ' hrách ', 'luštěnin', 'lusteniny'], exclude: ['čokolád'], excludeBefore: FOOD_HEADS },
   {
@@ -604,12 +620,37 @@ export function classifySubcategoryByKeyword(category: ItemCategory, normalizedN
   if (brand?.decides && branded) return branded
   // Padded so a boundary keyword (" med ") also matches at the start or end of the name.
   const haystack = ` ${normalizedName} `
+  let ruled: string | null = null
   for (const rule of RULES_BY_CATEGORY[category]) {
     // No brand in the dictionary sells raw produce, so a fruit word in a branded name is a flavour.
     if (rule.subcategory === 'Ovoce a zelenina' && (brand || LITER_VOLUME_PATTERN.test(normalizedName))) continue
-    if (rulePlaces(rule, haystack)) return rule.subcategory
+    if (rulePlaces(rule, haystack)) {
+      ruled = rule.subcategory
+      break
+    }
   }
-  return branded
+  if (category === 'Potraviny' && isSpiceBlend(normalizedName, ruled)) return 'Koření a bylinky'
+  return ruled ?? branded
+}
+
+// Vitana and Avokádo sell seasoning blends named after a dish ("Vitana Kuře pečené 25g", "Avokádo
+// Krkovička 30g", "Vitana Americké brambory"), never raw meat, fish or vegetables: a name of theirs the
+// rules read as one of those is a blend, and so is a small packet the rules do not place at all
+// (owner, 2026-10-06: kořenicí směsi → Koření a bylinky). Their soups, dumplings, porridge and sauces
+// are not blends.
+const SPICE_BLEND_BRANDS = /^(vitana|avokado) /
+const NOT_A_BLEND = ['polevk', 'knedl', 'nudl', 'testovin', 'ryze', 'kase', 'pyre', 'omack', 'dezert', 'pudink', 'kakao', 'cukr', 'bramborov', 'bistro', 'poctiva', 'kroket', 'smes na', 'hrnecku', 'houstick', 'instantni', 'chute sveta', 'rychla vecere', 'pytlik', 'pizza']
+const BLEND_MISREAD_AS = new Set(['Maso a uzeniny', 'Ryby a mořské plody', 'Ovoce a zelenina'])
+
+function isSpiceBlend(normalizedName: string, ruled: string | null): boolean {
+  if (!SPICE_BLEND_BRANDS.test(normalizedName)) return false
+  if (NOT_A_BLEND.some((word) => normalizedName.includes(word))) return false
+  if (ruled !== null) return BLEND_MISREAD_AS.has(ruled)
+  // The produce rules are skipped for a branded name; read as produce anyway, it is a blend too.
+  const haystack = ` ${normalizedName} `
+  if (RULES_BY_CATEGORY.Potraviny.some((rule) => rule.subcategory === 'Ovoce a zelenina' && rulePlaces(rule, haystack))) return true
+  const grams = normalizedName.match(/(?:^|\s)(\d{1,3}) ?g(?:\s|$)/)
+  return grams !== null && Number(grams[1]) <= 100
 }
 
 /** The item category whose keyword rules — and only whose — place a normalized name, with that

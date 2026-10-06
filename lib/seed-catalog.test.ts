@@ -27,7 +27,7 @@ describe('seed catalog', () => {
       raw: '1 l',
     }])
 
-    const multipack = rows.find((row) => row.seedId === 'seed-src-0624')!
+    const multipack = rows.find((row) => row.seedId === 'seed-src-0629')!
     expect(multipack.packageCount).toBe(10)
     expect(multipack.packageType).toBe('multipack')
     expect(projectSeedPackageQuantity(multipack, multipack.packageOptions[0])).toBe(0.1)

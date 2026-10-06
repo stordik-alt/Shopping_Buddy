@@ -49,6 +49,15 @@ export async function applyReceiptListMatchesAction(purchaseId: string, pairs: R
   return { checked, tickedListItems: await getTickedListItems(householdId, purchaseId) }
 }
 
+/** Keeps the form's own "the household changed this category" marker and nothing else a client
+ *  might send in the field. Every row used to be marked as hand-classified here, so a manually
+ *  entered "KUBÍK W.VIŠEŇ 0,5L" took the form's default Potraviny and re-filed the shared catalog
+ *  product under it (found by a browser check, 2026-10-06). */
+function withClassificationSource(item: ReceiptLineItem): ReceiptLineItem {
+  const { classificationSource, ...rest } = item
+  return classificationSource === 'manual' ? { ...rest, classificationSource } : rest
+}
+
 /** Turns a manually-entered receipt into a real purchase, and keeps a `receipt_imports` record so
  *  a future OCR provider's output stays auditable/reprocessable, extending CLAUDE.md section 16's
  *  price/deal provenance rule to purchases too. Every manual import goes straight to `imported` —
@@ -58,9 +67,9 @@ export async function importReceiptAction(
   options: { date?: string; storeLocationId?: string; storeName?: string; currency?: string } = {},
 ): Promise<{ purchase: PurchaseRecord; aftermath: PurchaseAftermath }> {
   const householdId = await requireHouseholdId()
-  // This action is explicitly the manual import path, so its classification is authoritative.
-  const manualItems = items.map((item) => ({ ...item, classificationSource: 'manual' as const }))
-  const purchase = await createPurchaseFromReceiptItems(householdId, manualItems, { ...options, source: 'confirmed' })
+  // Only a category the household actually changed in the form is authoritative; an untouched row
+  // follows the catalog (lib/receipt-import.ts).
+  const purchase = await createPurchaseFromReceiptItems(householdId, items.map(withClassificationSource), { ...options, source: 'confirmed' })
 
   const db = getDb()
   await db.insert(schema.receiptImports).values({
@@ -238,7 +247,7 @@ export async function confirmReceiptReviewAction(
     storeId = branch.storeId
     resolvedStoreLocationId = branch.storeLocationId
   }
-  const confirmedItems = items.map((item) => ({ ...item, classificationSource: 'manual' as const }))
+  const confirmedItems = items.map(withClassificationSource)
   const purchase = await createPurchaseFromReceiptItems(householdId, confirmedItems, {
     date: options.date,
     storedDate: row.date,

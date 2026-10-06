@@ -12,7 +12,8 @@
 import { generateObject } from 'ai'
 import { z } from 'zod'
 import { normalizeProductText, similarity } from '@/lib/product-normalize'
-import { classifySubcategoryByKeyword, isChildOrientedByKeyword, isNonInventoryLine, subcategoriesOfItem } from '@/lib/product-subcategories'
+import { brandOf } from '@/lib/product-brands'
+import { classifySubcategoryByKeyword, isChildOrientedByKeyword, isNonInventoryLine, placeByKeywordInOneCategory, subcategoriesOfItem } from '@/lib/product-subcategories'
 import type { ProductCatalogEntry } from '@/lib/products'
 import type { ItemCategory } from '@/lib/types'
 
@@ -139,6 +140,14 @@ export function classifySubcategory(category: ItemCategory, rawName: string, cat
   const keyword = classifySubcategoryByKeyword(category, normalized)
   if (keyword) return { subcategory: keyword, method: 'keyword', confidence: CONFIDENCE_BY_METHOD.keyword }
   return null
+}
+
+/** The item category of a name the catalog does not know (a typed shopping-list item): its brand's
+ *  (lib/product-brands.ts), else the one category whose keyword rules place it — "Kuřecí maso" is
+ *  Potraviny. `null` when neither says (never a guess). */
+export function guessItemCategory(rawName: string): ItemCategory | null {
+  const normalized = normalizeProductText(rawName)
+  return brandOf(normalized)?.category ?? placeByKeywordInOneCategory(normalized)?.category ?? null
 }
 
 // --- AI fallback (structured, validated, last resort) -------------------------------------------

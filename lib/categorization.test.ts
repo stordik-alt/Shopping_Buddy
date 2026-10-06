@@ -5,6 +5,7 @@ import {
   classifySubcategory,
   detectChildOriented,
   detectNonInventory,
+  guessItemCategory,
   matchProduct,
   type ProductAliasEntry,
 } from '@/lib/categorization'
@@ -75,6 +76,18 @@ describe('classifySubcategory', () => {
 
   it('returns null when neither is confident — never a guess', () => {
     expect(classifySubcategory('Potraviny', 'xyz neznámá položka', null)).toBeNull()
+  })
+})
+
+describe('guessItemCategory — a name the catalog does not know', () => {
+  it('takes the brand, else the one category whose keyword rules place the name', () => {
+    expect(guessItemCategory('Kubík jahoda')).toBe('Děti')
+    expect(guessItemCategory('Kuřecí maso')).toBe('Potraviny')
+    expect(guessItemCategory('Prášek na praní')).toBe('Drogerie')
+  })
+
+  it('says nothing when no rule or more than one category fits', () => {
+    expect(guessItemCategory('Dárek pro babičku')).toBeNull()
   })
 })
 

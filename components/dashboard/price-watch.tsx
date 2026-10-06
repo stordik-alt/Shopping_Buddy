@@ -21,6 +21,7 @@ export function PriceWatch({
   productPrices,
   offers,
   pantryItems,
+  boughtNameKeys,
   today,
 }: {
   /** Opens the Akce tab, to browse every promotion by category. */
@@ -34,6 +35,8 @@ export function PriceWatch({
   /** Offers with no regular price to compare against: shown as they are, without a discount. */
   offers: StandaloneOffer[]
   pantryItems: PantryItem[]
+  /** `keptNameKey` of every product the household has bought, for the stocking-up hint. */
+  boughtNameKeys?: ReadonlySet<string>
   /** The real date (`YYYY-MM-DD`) — decides which promotions are still running. */
   today: string
 }) {
@@ -67,6 +70,7 @@ export function PriceWatch({
               isOnList={isOnList(assessment.product.productName)}
               onAddToList={onAddToList}
               pantryItems={pantryItems}
+              boughtNameKeys={boughtNameKeys}
             />
           ))}
         </div>

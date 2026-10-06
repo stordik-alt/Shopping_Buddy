@@ -271,7 +271,7 @@ describe('importReceiptAction (manual entry)', () => {
     expect(foodCategory).toBeDefined()
     await db.insert(schema.products).values({ name: productName, categoryId: foodCategory!.id, defaultUnit: 'ks' })
 
-    const result = await importReceiptAction([item({ name: productName, category: 'Děti', subcategory: 'Dětské potřeby', price: 80 })], { date: TEST_DATE })
+    const result = await importReceiptAction([item({ name: productName, category: 'Děti', subcategory: 'Dětské potřeby', price: 80, classificationSource: 'manual' })], { date: TEST_DATE })
     const purchaseItem = result.purchase.items.find((row) => row.name === productName)!
     const subcategory = await db.query.productSubcategories.findFirst({ where: eq(schema.productSubcategories.name, 'Dětské potřeby') })
     expect(purchaseItem?.category).toBe('Děti')
@@ -281,6 +281,33 @@ describe('importReceiptAction (manual entry)', () => {
       .where(eq(schema.purchaseItems.id, purchaseItem.id!))
     expect(stored.category).toBe('Děti')
     expect(stored.subcategoryId).toBe(subcategory!.id)
+  })
+
+  it("keeps a catalog product's category when the row's category was never changed, and leaves the catalog alone", async () => {
+    // Regression (browser check 2026-10-06): every manual row used to count as hand-classified, so
+    // the form's default Potraviny re-filed a Děti product in the shared catalog.
+    const productName = `__test_untouched_row_${crypto.randomUUID()}`
+    const childrens = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Děti') })
+    const drinks = (await db.query.productSubcategories.findMany({ where: eq(schema.productSubcategories.name, 'Dětské nápoje') })).find((row) => row.category === 'Děti')
+    const [product] = await db.insert(schema.products).values({ name: productName, categoryId: childrens!.id, subcategoryId: drinks!.id, defaultUnit: 'ks' }).returning()
+    try {
+      const result = await importReceiptAction([item({ name: productName, category: 'Potraviny', price: 25 })], { date: TEST_DATE })
+      const line = result.purchase.items.find((row) => row.name === productName)!
+      expect(line.category).toBe('Děti')
+      const stored = await db.query.products.findFirst({ where: eq(schema.products.id, product.id) })
+      expect(stored).toMatchObject({ categoryId: childrens!.id, subcategoryId: drinks!.id })
+    } finally {
+      await db.delete(schema.purchaseItems).where(eq(schema.purchaseItems.productId, product.id))
+      await db.delete(schema.pantryItems).where(eq(schema.pantryItems.productId, product.id))
+      await db.delete(schema.products).where(eq(schema.products.id, product.id))
+    }
+  })
+
+  it("files an untouched row of an unknown product by its brand", async () => {
+    const name = `Kubík __test ${crypto.randomUUID()}`
+    const result = await importReceiptAction([item({ name, category: 'Potraviny', price: 25 })], { date: TEST_DATE })
+    expect(result.purchase.items.find((row) => row.name === name)?.category).toBe('Děti')
+    await db.delete(schema.products).where(eq(schema.products.name, name))
   })
 
   it('rejects a subcategory outside the selected product category', async () => {
@@ -324,9 +351,10 @@ describe('importReceiptAction (manual entry)', () => {
     const [product] = await db.insert(schema.products).values({ name: productName, categoryId: category!.id, defaultUnit: 'ks' }).returning()
 
     try {
+      // The row's category is the form's starting value, not a choice: the catalog's own wins.
       await importReceiptAction([item({ name: productName, category: 'Ostatní' })], { date: TEST_DATE })
       const pantryRow = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.productId, product.id) })
-      expect(pantryRow?.category).toBe('Ostatní')
+      expect(pantryRow?.category).toBe('Potraviny')
     } finally {
       await db.delete(schema.products).where(eq(schema.products.id, product.id))
     }

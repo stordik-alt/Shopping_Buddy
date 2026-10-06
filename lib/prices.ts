@@ -196,9 +196,11 @@ export type ShoppingListItemForPricing = Pick<Item, 'name' | 'price' | 'quantity
  *  rule with what's real today instead: a deal that's actually the best price right now (not just
  *  a discount), for a product the household is currently low on per its real pantry data. Never
  *  suggests stocking up on something already well-stocked, regardless of how good the price is —
- *  the "not price alone" half of the rule. */
-export function suggestsStockingUp(assessment: DealAssessment, currentPantryQuantity: number): boolean {
-  return assessment.isBestPrice && currentPantryQuantity <= 1
+ *  the "not price alone" half of the rule. Nor on something the household does not keep at all
+ *  (never in its pantry, never bought): "you are low on it" would be said of every deal to a new
+ *  household (found by a browser check, 2026-10-06). */
+export function suggestsStockingUp(assessment: DealAssessment, currentPantryQuantity: number, householdKeepsIt: boolean): boolean {
+  return assessment.isBestPrice && householdKeepsIt && currentPantryQuantity <= 1
 }
 
 export type StoreTotal = {

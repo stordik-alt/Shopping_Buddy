@@ -2,7 +2,7 @@ import { Check, History, Info, Package, Plus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { money, shortDate } from '@/lib/format'
-import { pantryQuantityFor } from '@/lib/pantry'
+import { householdKeeps, pantryQuantityFor } from '@/lib/pantry'
 import { dealDiscount, dealEffectiveUnitPrice, dealSaving, effectivePrice, suggestsStockingUp, type DealAssessment } from '@/lib/prices'
 import { toComparableUnit } from '@/lib/product-search'
 import type { PantryItem } from '@/lib/types'
@@ -12,11 +12,14 @@ export function DealCard({
   isOnList,
   onAddToList,
   pantryItems,
+  boughtNameKeys = new Set(),
 }: {
   assessment: DealAssessment
   isOnList: boolean
   onAddToList: (name: string) => void
   pantryItems: PantryItem[]
+  /** `keptNameKey` of every product the household has bought (lib/pantry.ts). */
+  boughtNameKeys?: ReadonlySet<string>
 }) {
   const { product, price, isBestPrice, cheapestAlternative, recentLow } = assessment
   const discount = Math.round(dealDiscount(price) * 100)
@@ -63,7 +66,7 @@ export function DealCard({
           </span>
         </p>
       )}
-      {suggestsStockingUp(assessment, pantryQuantityFor(pantryItems, product.productName)) && (
+      {suggestsStockingUp(assessment, pantryQuantityFor(pantryItems, product.productName), householdKeeps(pantryItems, boughtNameKeys, product.productName)) && (
         <p className="mt-3 flex items-start gap-1 text-xs leading-relaxed text-success">
           <Package className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
           Doma toho máte málo nebo nic — dobrá chvíle doplnit zásoby.

@@ -546,6 +546,16 @@ export function classifySubcategoryByKeyword(category: ItemCategory, normalizedN
   return branded
 }
 
+/** The item category whose keyword rules — and only whose — place a normalized name, with that
+ *  subcategory; `null` when no category or more than one does (never a guess). */
+export function placeByKeywordInOneCategory(normalizedName: string): { category: ItemCategory; subcategory: string } | null {
+  const placed = (Object.keys(PRODUCT_SUBCATEGORIES) as ItemCategory[]).flatMap((category) => {
+    const subcategory = classifySubcategoryByKeyword(category, normalizedName)
+    return subcategory ? [{ category, subcategory }] : []
+  })
+  return placed.length === 1 ? placed[0] : null
+}
+
 /** Whether a name has one of `subcategory`'s keywords at all, vetoed or not — i.e. whether a
  *  keyword rule could have put it there. lib/db/new-subcategories.ts uses it to take back what an
  *  earlier, looser version of a rule placed, without touching a row a household put there itself. */

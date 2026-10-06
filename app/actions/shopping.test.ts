@@ -163,6 +163,12 @@ describe('addShoppingItemAction — product identity', () => {
     expect(item.unit).toBe(nonKsProduct.defaultUnit)
   })
 
+  it('files a name the catalog does not know by its keyword rules instead of Ostatní', async () => {
+    currentHouseholdId = householdId
+    const { item } = await addShoppingItemAction(listId, `Kuřecí maso ${crypto.randomUUID().slice(0, 8)}`)
+    expect(item.category).toBe('Potraviny')
+  })
+
   it('lets an explicit category override win over the matched product\'s category', async () => {
     const catalog = await getProductCatalog()
     const foodProduct = catalog.find((product) => product.category === 'Potraviny')

@@ -25,7 +25,7 @@ import { recomputePurchaseExpenses } from '@/lib/db/purchase-items'
 import * as schema from '@/lib/db/schema'
 import { normalizeSearchText } from '@/lib/product-search'
 import { normalizeProductText } from '@/lib/product-normalize'
-import { classifySubcategoryByKeyword, hasSubcategoryKeyword } from '@/lib/product-subcategories'
+import { classifySubcategoryByKeyword, hasSubcategoryKeyword, placeByKeywordInOneCategory } from '@/lib/product-subcategories'
 import type { ItemCategory } from '@/lib/types'
 
 const CHUNK = 1000
@@ -150,11 +150,8 @@ async function planLineCategories(scope: ReclassifyScope): Promise<CategoryGuess
       continue
     }
     if (categories.length > 1) continue
-    const placed = schema.itemCategoryEnum.enumValues.flatMap((category) => {
-      const subcategory = classifySubcategoryByKeyword(category, normalized)
-      return subcategory ? [{ category, subcategory }] : []
-    })
-    if (placed.length === 1) guesses.push({ id: row.id, name: row.name, ...placed[0], purchaseId: row.purchaseId, evidence: 'rules' })
+    const placed = placeByKeywordInOneCategory(normalized)
+    if (placed) guesses.push({ id: row.id, name: row.name, ...placed, purchaseId: row.purchaseId, evidence: 'rules' })
   }
   return guesses
 }

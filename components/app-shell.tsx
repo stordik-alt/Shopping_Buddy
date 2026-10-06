@@ -19,7 +19,7 @@ import { OfflineBanner } from '@/components/shopping/offline-banner'
 import { CollapsibleSection } from '@/components/shared/collapsible-section'
 import { TodayMeals } from '@/components/dashboard/today-meals'
 import { PantryCheckCard } from '@/components/dashboard/pantry-check-card'
-import { needsCheck } from '@/lib/pantry'
+import { keptNameKey, needsCheck } from '@/lib/pantry'
 import { PieChart } from 'lucide-react'
 import { SegmentedControl } from '@/components/ui/segmented-control'
 import {
@@ -142,6 +142,8 @@ export function AppShell({
   // Kept in state so a category reassignment or a recorded purchase shows on the history screen
   // without re-rendering the whole page from the server.
   const [purchaseHistory, setPurchaseHistory] = useState(initialData.purchaseHistory)
+  // What the household has ever bought, for the deals' "stock up" hint (lib/pantry.ts householdKeeps).
+  const boughtNameKeys = useMemo(() => new Set(purchaseHistory.flatMap((purchase) => purchase.items.map((item) => keptNameKey(item.name)))), [purchaseHistory])
   // The saved menu, kept here so it is still shown after switching tabs (saving it no longer re-renders the page).
   const [mealPlan, setMealPlan] = useState(initialData.mealPlan)
   const [newItem, setNewItem] = useState('')
@@ -560,7 +562,7 @@ export function AppShell({
                   <PriceWatch today={today} onBrowseDeals={() => {
                     setDealsForMe(false)
                     setTab('Akce')
-                  }} onStores={() => setTab('Obchody')} onAddToList={addItemByName} listItemNames={pendingNames} productPrices={nearbyProductPrices} offers={nearbyStandaloneOffers} pantryItems={pantryItems} />
+                  }} onStores={() => setTab('Obchody')} onAddToList={addItemByName} listItemNames={pendingNames} productPrices={nearbyProductPrices} offers={nearbyStandaloneOffers} pantryItems={pantryItems} boughtNameKeys={boughtNameKeys} />
                 </div>
               )}
               {tab === 'Nákup' && (
@@ -700,6 +702,7 @@ export function AppShell({
                   listItemNames={pendingNames}
                   onAddToList={addItemByName}
                   pantryItems={pantryItems}
+                  boughtNameKeys={boughtNameKeys}
                   initialChain={dealsChain}
                   onClearChain={() => setDealsChain(null)}
                 />

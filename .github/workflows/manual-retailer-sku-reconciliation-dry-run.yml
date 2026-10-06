@@ -1,0 +1,51 @@
+name: Manual retailer SKU reconciliation dry-run
+
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: "Optional retailer source (billa, penny, lidl, dm, globus, rohlik, kosik)"
+        required: false
+        default: ""
+        type: string
+      limit:
+        description: "Maximum products fetched per retailer"
+        required: true
+        default: "50000"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  dry-run:
+    name: Retailer SKU reconciliation dry-run
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.NEON_PROD_DATABASE_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.6.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run retailer SKU reconciliation dry-run
+        run: |
+          set -euo pipefail
+          args=(--limit="${{ inputs.limit }}")
+          if [ -n "${{ inputs.source }}" ]; then
+            args+=(--source="${{ inputs.source }}")
+          fi
+          pnpm db:reconcile-retailer-skus -- "${args[@]}"

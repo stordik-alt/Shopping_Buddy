@@ -330,6 +330,18 @@ export const productAliases = pgTable('product_aliases', {
 // product names as sufficient identifiers") and section 34 ("use stable external IDs... unique
 // constraints"): re-running ingestion for the same external product must find this row instead of
 // re-matching by name (which could drift) or creating a duplicate product.
+export const productSeedRefs = pgTable('product_seed_refs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  seedId: text('seed_id').notNull().unique(),
+  productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  sourceDocument: text('source_document').notNull(),
+  sourcePage: integer('source_page').notNull(),
+  normalizationStatus: text('normalization_status').notNull(),
+  importedAt: timestamp('imported_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('product_seed_refs_product_idx').on(table.productId),
+])
+
 export const productExternalRefs = pgTable(
   'product_external_refs',
   {

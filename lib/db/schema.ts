@@ -213,6 +213,12 @@ export const productTypeGroupMembers = pgTable('product_type_group_members', {
 export const products = pgTable('products', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull().unique(),
+  // Stable manufacturer/retailer brand identity when the source provides it. Nullable because many
+  // existing receipt-created products are unbranded or not yet confidently identified.
+  brand: text('brand'),
+  // Variant/specification that differentiates otherwise identical product families (e.g. flavour,
+  // fat percentage, formulation). Kept nullable under the same NEHÁDEJ rule as category fields.
+  variant: text('variant'),
   // The name without diacritics, lower-cased ("Čerstvé mléko 1,5%" -> "cerstve mleko 1,5%"), kept by
   // the database itself so text search (lib/product-search.ts) is accent-insensitive. The character
   // map is shared with `normalizeSearchText()`, and a DB test checks the two agree.
@@ -271,10 +277,20 @@ export const productPackages = pgTable('product_packages', {
   firstSeenAt: date('first_seen_at').notNull(),
   lastSeenAt: date('last_seen_at').notNull(),
   observationCount: integer('observation_count').notNull().default(1),
+  // Optional richer retail-package metadata. `quantity` + `unit` remain the total consumer-package
+  // comparison size; these fields preserve an inner unit/count such as 10 × 14 g without losing the
+  // canonical total size used by price comparison. Existing derived packages leave them null.
+  packageCount: integer('package_count'),
+  packageUnitQuantity: numeric('package_unit_quantity', { precision: 10, scale: 3, mode: 'number' }),
+  packageUnit: itemUnitEnum('package_unit'),
+  packageType: text('package_type'),
 }, (table) => [
   uniqueIndex('product_packages_product_size_unique').on(table.productId, table.quantity, table.unit),
   check('product_packages_quantity_positive', sql`${table.quantity} > 0`),
   check('product_packages_canonical_unit', sql`${table.unit} IN ('ks', 'kg', 'l')`),
+  check('product_packages_package_count_positive', sql`${table.packageCount} IS NULL OR ${table.packageCount} > 0`),
+  check('product_packages_package_unit_quantity_positive', sql`${table.packageUnitQuantity} IS NULL OR ${table.packageUnitQuantity} > 0`),
+  check('product_packages_package_unit_pair', sql`(${table.packageUnitQuantity} IS NULL AND ${table.packageUnit} IS NULL) OR (${table.packageUnitQuantity} IS NOT NULL AND ${table.packageUnit} IS NOT NULL)`),
 ])
 
 

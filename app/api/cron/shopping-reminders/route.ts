@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { createHouseholdNotification } from '@/lib/notify'
+import { announceNewFlyers } from '@/lib/db/deal-announcements'
 import { remindDueRecurringPayments } from '@/lib/db/recurring-reminders'
 import { findStaleItems } from '@/lib/reminders'
 import { todayInPrague } from '@/lib/today'
@@ -63,5 +64,17 @@ export async function GET(request: Request) {
   // they need no cron of their own.
   const recurring = await remindDueRecurringPayments(db, todayInPrague())
 
-  return NextResponse.json({ remindedHouseholds, remindedItems, recurringPaymentsReminded: recurring.payments })
+  // And it announces new flyers to the households that chose the chain (docs/21_NEW_FLYER_NOTIFICATIONS.md):
+  // the flyer imports run at night, so this is the first decent hour after one arrives. A failure here
+  // must not lose the reminders above — it is logged and reported in the response.
+  let newFlyers: { chain: string; validFrom: string; deals: number; households: number }[] = []
+  let newFlyersError: string | undefined
+  try {
+    newFlyers = (await announceNewFlyers(todayInPrague())).flyers
+  } catch (error) {
+    newFlyersError = error instanceof Error ? error.message : String(error)
+    console.error(JSON.stringify({ event: 'new_flyer_announcement_error', error: newFlyersError }))
+  }
+
+  return NextResponse.json({ remindedHouseholds, remindedItems, recurringPaymentsReminded: recurring.payments, newFlyers, ...(newFlyersError && { newFlyersError }) })
 }

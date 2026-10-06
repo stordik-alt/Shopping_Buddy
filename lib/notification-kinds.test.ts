@@ -16,8 +16,8 @@ describe('notification kinds', () => {
     expect(wantsNotification(null, off)).toBe(true)
   })
 
-  it('matches the database check constraint of migration 0066', () => {
-    const sql = readFileSync('lib/db/migrations/0066_notification_preferences.sql', 'utf8')
+  it('matches the database check constraint (last set by migration 0072)', () => {
+    const sql = readFileSync('lib/db/migrations/0072_new_deals_notifications.sql', 'utf8')
     for (const { key } of NOTIFICATION_KINDS) expect(sql).toContain(`'${key}'`)
   })
 })

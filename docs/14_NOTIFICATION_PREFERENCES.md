@@ -54,3 +54,9 @@ upozornění chce a která ne"). Feature A of the post-redesign plan (A → B �
 ## Not in scope
 - Quiet hours, digests, e-mail. A kind of notification that does not exist yet (e.g. "deals on your preferred
   products", feature C) gets its own key when it is built.
+
+## Update 2026-10-06 — kind `new_deals`
+
+A new kind, **`new_deals`** ("Nové letáky"), raised by the daily morning cron (`app/api/cron/shopping-reminders` →
+`lib/db/deal-announcements.ts`) when a chain the household chose publishes a new flyer; it links to Akce filtered to
+the chain. Migration 0072 adds it to the check constraint. Concept: `docs/21_NEW_FLYER_NOTIFICATIONS.md`.

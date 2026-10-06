@@ -34,5 +34,13 @@ export function tabHref(tab: Tab): string {
   return slug ? `/?tab=${slug}` : '/'
 }
 
+/** The query parameter that opens Akce filtered to one chain (docs/21_NEW_FLYER_NOTIFICATIONS.md). */
+export const DEALS_CHAIN_PARAM = 'retezec'
+
+/** A new flyer notification's link: Akce filtered to the chain. */
+export function dealsChainHref(chain: string): string {
+  return `${tabHref('Akce')}&${DEALS_CHAIN_PARAM}=${encodeURIComponent(chain)}`
+}
+
 /** The weekly pantry notification's link: Zásoby with the check of uncertain items open. */
 export const PANTRY_CHECK_HREF = `${tabHref('Zásoby')}&kontrola=1`

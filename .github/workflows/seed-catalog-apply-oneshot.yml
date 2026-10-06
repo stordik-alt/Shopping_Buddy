@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - .github/seed-catalog-apply-trigger.txt
+      - '.github/seed-catalog-apply-trigger.txt'
 
 permissions:
   contents: read
@@ -35,9 +35,4 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Apply seed catalog
-        if: github.event.head_commit.message == 'ops: trigger production seed catalog apply'
         run: pnpm exec tsx scripts/import-seed-catalog.ts --apply
-
-      - name: Verify trigger message
-        if: github.event.head_commit.message != 'ops: trigger production seed catalog apply'
-        run: echo "Trigger file changed without the one-shot apply commit message; no production write performed."

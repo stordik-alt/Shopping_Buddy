@@ -254,6 +254,13 @@ export function inferPantryLocation(category: ItemCategory, name: string): Pantr
   return null
 }
 
+/** What is left of a pantry row when a deleted purchase's `removed` quantity comes out again; `null`
+ *  when nothing is left and the row goes (docs/20_DELETE_PURCHASE.md). Rounded like stored quantities. */
+export function pantryQuantityAfterRemoval(current: number, removed: number): number | null {
+  const left = Math.round((current - removed) * 1000) / 1000
+  return left > 0 ? left : null
+}
+
 /** The key `householdKeeps` compares names by — the same case/whitespace-insensitive rule as
  *  `pantryQuantityFor`. */
 export const keptNameKey = (name: string): string => name.trim().toLowerCase()

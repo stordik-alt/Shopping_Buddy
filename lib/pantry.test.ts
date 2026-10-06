@@ -16,6 +16,7 @@ import {
   pantryPlaceOptions,
   pantryQuantityFor,
   householdKeeps,
+  pantryQuantityAfterRemoval,
   keptNameKey,
   pantryItemAtHome,
   pantryReviewOrder,
@@ -152,6 +153,15 @@ const pantryItem = (overrides: Partial<PantryItem> = {}): PantryItem => ({
   unit: 'ks',
   addedAt: '2026-09-20',
   ...overrides,
+})
+
+describe('pantryQuantityAfterRemoval', () => {
+  it('leaves what is left, or null when nothing is', () => {
+    expect(pantryQuantityAfterRemoval(3, 2)).toBe(1)
+    expect(pantryQuantityAfterRemoval(0.8, 0.582)).toBe(0.218)
+    expect(pantryQuantityAfterRemoval(1, 1)).toBeNull()
+    expect(pantryQuantityAfterRemoval(1, 2)).toBeNull()
+  })
 })
 
 describe('householdKeeps', () => {

@@ -210,7 +210,51 @@ describe('keywords and brands added on 2026-10-06', () => {
   it('places household and drugstore brands', () => {
     expect(place('Domácnost', 'Tento Family 150 ks')).toBe('Papír')
     expect(place('Domácnost', 'Zewa kuch. role')).toBe('Papír')
-    expect(place('Drogerie', 'Bellinda legíny THERMO, černé, 38/40 S, 1 ks')).toBe('Ostatní drogerie')
+    expect(place('Drogerie', 'Bellinda legíny THERMO, černé, 38/40 S, 1 ks')).toBe('Doplňky a oblečení')
     expect(categoryWithBrand('TEREZIA Magnesium + Vitamín B6 a Meduňka, 30 ks', 'Potraviny')).toBe('Drogerie')
+  })
+})
+
+// New subcategories (owner approval 2026-10-06), with the false positives found while measuring.
+describe('Zdraví a doplňky stravy, Doplňky a oblečení, Zahrada', () => {
+  it.each([
+    ['Drogerie', 'Doppelherz Vitamín D3 vysoká dávka 2000 I.E., 50 tablet, 18,3 g', 'Zdraví a doplňky stravy'],
+    ['Drogerie', 'Tussirex sirup na kašel, 120 ml', 'Zdraví a doplňky stravy'],
+    ['Drogerie', 'Compeed náplast na puchýře paty, 5 ks', 'Zdraví a doplňky stravy'],
+    ['Drogerie', 'Hansaplast dětské náplasti Frozen, 20 ks', 'Zdraví a doplňky stravy'],
+    ['Drogerie', 'Visiomax kontaktní čočky měsíční -1,25 DP, 1 ks', 'Zdraví a doplňky stravy'],
+    ['Drogerie', 'Visiomax dioptrické brýle na čtení +1,0 Dp, tmavě červené, 1 ks', 'Zdraví a doplňky stravy'],
+    ['Drogerie', 'Fascino samodržicí punčochy 15 DEN, černé, vel.38-40, 1 ks', 'Doplňky a oblečení'],
+    ['Drogerie', 'ebelin gumičky do vlasů transparentní, 3 ks', 'Doplňky a oblečení'],
+    ['Drogerie', 'SUNDANCE sluneční brýle šedé s modrými skly, 1 ks', 'Doplňky a oblečení'],
+    ['Domácnost', 'Profissimo rukavice zahradní, střední velikost, 1 pár, 1 ks', 'Zahrada'],
+    // Cosmetics with a vitamin, washing capsules, denture tablets and incontinence pants stay where they were.
+    ['Drogerie', 'ziaja Vitamín C.B3 Niacinamide noční krém, 50 ml', 'Kosmetika'],
+    ['Drogerie', 'NIVEA dvoufázový odličovač očí s vitamínem C, 125 ml', 'Kosmetika'],
+    ['Drogerie', 'Formil Kapsle na praní 3v1 Morning fresh / Golden flower 34 ks', 'Praní'],
+    ['Drogerie', 'Dontodent tablety na čištění zubních náhrad, 32 ks', 'Hygiena'],
+  ] as const)('%s: %s → %s', (category, name, subcategory) => {
+    expect(place(category, name)).toBe(subcategory)
+  })
+
+  it('leaves incontinence pants out of the clothing subcategory', () => {
+    expect(place('Drogerie', 'Jessa DISKRET inkontinenční kalhotky Super, velikost XL')).not.toBe('Doplňky a oblečení')
+  })
+
+  it('offers the new subcategories in the budget too', async () => {
+    const { subcategoriesOf } = await import('@/lib/expense-categories')
+    expect(subcategoriesOf('Drogerie')).toEqual(expect.arrayContaining(['Zdraví a doplňky stravy', 'Doplňky a oblečení']))
+    expect(subcategoriesOf('Domácnost')).toContain('Zahrada')
+  })
+})
+
+describe('subcategories A–Z', () => {
+  it('lists every product and expense subcategory in Czech alphabetical order', async () => {
+    const { subcategoriesOfItem, sortSubcategoryNames } = await import('@/lib/product-subcategories')
+    const { EXPENSE_CATEGORY_NAMES, subcategoriesOf } = await import('@/lib/expense-categories')
+    for (const category of ['Potraviny', 'Drogerie', 'Domácnost', 'Děti', 'Ostatní'] as const) expect(subcategoriesOfItem(category)).toEqual(sortSubcategoryNames(subcategoriesOfItem(category)))
+    for (const category of EXPENSE_CATEGORY_NAMES) expect(subcategoriesOf(category)).toEqual(sortSubcategoryNames(subcategoriesOf(category)))
+    // Czech order: "Ch" after "H", "Č" after "C".
+    expect(sortSubcategoryNames(['Hygiena', 'Chléb', 'Čištění', 'Cereálie'])).toEqual(['Cereálie', 'Čištění', 'Hygiena', 'Chléb'])
   })
 })

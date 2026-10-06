@@ -231,9 +231,9 @@ const BRAND_RULES: BrandRule[] = [
   // dm's own drugstore brands, and supplements and hosiery sold in drugstores (2026-10-06).
   { brand: 'Balea', keywords: ['balea'], category: 'Drogerie' },
   { brand: 'ebelin', keywords: ['ebelin'], category: 'Drogerie' },
-  { brand: 'Terezia', keywords: ['terezia'], category: 'Drogerie' },
-  { brand: 'Bellinda', keywords: ['bellinda'], category: 'Drogerie', subcategory: 'Ostatní drogerie' },
-  { brand: 'Visiomax', keywords: ['visiomax'], category: 'Drogerie', subcategory: 'Ostatní drogerie' },
+  { brand: 'Terezia', keywords: ['terezia'], category: 'Drogerie', subcategory: 'Zdraví a doplňky stravy', decides: true },
+  { brand: 'Bellinda', keywords: ['bellinda'], category: 'Drogerie', subcategory: 'Doplňky a oblečení' },
+  { brand: 'Visiomax', keywords: ['visiomax'], category: 'Drogerie', subcategory: 'Zdraví a doplňky stravy' },
 
   // Household goods.
   { brand: 'Tento', keywords: ['tento'], category: 'Domácnost', subcategory: 'Papír', decides: true, atStart: true },

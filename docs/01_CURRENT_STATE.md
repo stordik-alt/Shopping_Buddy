@@ -1,3 +1,6 @@
+## Update 2026-10-06 — New subcategories, A–Z
+Drogerie gained "Zdraví a doplňky stravy" and "Doplňky a oblečení", Domácnost "Zahrada" (migration 0069). Every subcategory picker and Výdaje's subcategories are sorted A–Z (Czech order).
+
 ## Update 2026-10-06 — Deleting a purchase
 Any purchase in Nákup ▸ Moje nákupy can be deleted ("Odstranit nákup"): its expenses, lines and receipt (record and photo) go, the list items its receipt ticked are to buy again (no duplicates), and the pantry gives back what it added. Concept `docs/20_DELETE_PURCHASE.md`.
 

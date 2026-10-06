@@ -118,7 +118,7 @@ export function expensePeriods(expenses: Expense[], today: string, startDay = 1)
 export type CategorySummary = {
   category: ExpenseCategory
   total: number
-  /** Per subcategory, largest first; expenses without one are summed under `null`. */
+  /** Per subcategory, A–Z; expenses without one are summed under `null`, last. */
   subcategories: { subcategory: string | null; total: number }[]
   /** The category's expenses, newest first. */
   expenses: Expense[]
@@ -138,7 +138,10 @@ export function periodSummary(expenses: Expense[], period: string, startDay = 1)
     categories.push({
       category,
       total: totalSpent(own),
-      subcategories: [...bySub.entries()].map(([subcategory, total]) => ({ subcategory, total })).sort((a, b) => b.total - a.total),
+      // A–Z like every subcategory list (owner request 2026-10-06); spending without a subcategory last.
+      subcategories: [...bySub.entries()]
+        .map(([subcategory, total]) => ({ subcategory, total }))
+        .sort((a, b) => (a.subcategory === null ? 1 : b.subcategory === null ? -1 : a.subcategory.localeCompare(b.subcategory, 'cs'))),
       expenses: own.slice().sort((a, b) => (a.date === b.date ? 0 : a.date < b.date ? 1 : -1)),
     })
   }
@@ -269,7 +272,7 @@ export function weeklyAllowance(remaining: number, today: string, startDay = 1):
 }
 
 /** One subcategory of a category in a period, with its payments — what an opened category in Výdaje
- *  lists (one short row each) instead of every payment at once. Largest first, like
+ *  lists (one short row each) instead of every payment at once. A–Z, like
  *  `CategorySummary.subcategories`; payments newest first; `null` = without a subcategory. */
 export type SubcategoryGroup = { subcategory: string | null; total: number; expenses: Expense[] }
 

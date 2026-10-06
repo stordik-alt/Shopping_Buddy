@@ -171,11 +171,19 @@ async function main() {
         created += 1
       } else if (productId) {
         const existing = await db.query.products.findFirst({ where: eq(schema.products.id, productId), columns: { brand: true, variant: true, subcategoryId: true } })
-        await db.update(schema.products).set({
-          ...(existing?.subcategoryId == null && { subcategoryId }),
-          ...(existing?.brand == null && shouldApplySeedBrand(row) && { brand: row.brand }),
-          ...(existing?.variant == null && shouldApplySeedVariant(row) && { variant: row.variants }),
-        }).where(eq(schema.products.id, productId))
+        const updates: {
+          subcategoryId?: string
+          brand?: string | null
+          variant?: string | null
+        } = {}
+
+        if (existing?.subcategoryId == null) updates.subcategoryId = subcategoryId
+        if (existing?.brand == null && shouldApplySeedBrand(row)) updates.brand = row.brand
+        if (existing?.variant == null && shouldApplySeedVariant(row)) updates.variant = row.variants
+
+        if (Object.keys(updates).length > 0) {
+          await db.update(schema.products).set(updates).where(eq(schema.products.id, productId))
+        }
         linked += 1
       }
 

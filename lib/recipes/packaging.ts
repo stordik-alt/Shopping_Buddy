@@ -1,7 +1,7 @@
 import type { PricePoint } from '@/lib/prices'
 import type { ItemUnit } from '@/lib/types'
 
-export type PackageSource = 'catalog' | 'name-extracted' | 'derived-from-price'
+export type PackageSource = 'catalog' | 'name-extracted' | 'derived-from-price' | 'seed'
 
 export type StandardPackage = {
   quantity: number

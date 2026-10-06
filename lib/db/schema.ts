@@ -1031,6 +1031,19 @@ export const mealPlans = pgTable('meal_plans', {
   uniqueIndex('meal_plans_household_week_unique_idx').on(table.householdId, table.weekStart),
 ])
 
+// One row per chain and flyer start date announced as "Nové akce v <chain>" (docs/21_NEW_FLYER_NOTIFICATIONS.md),
+// written before the notifications go out so a flyer is never announced twice.
+export const dealAnnouncements = pgTable(
+  'deal_announcements',
+  {
+    storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+    validFrom: date('valid_from').notNull(),
+    dealCount: integer('deal_count').notNull(),
+    announcedAt: timestamp('announced_at').notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.storeId, table.validFrom] }), check('deal_announcements_deal_count_check', sql`${table.dealCount} >= 0`)],
+)
+
 export const notifications = pgTable('notifications', {
   id: uuid('id').primaryKey().defaultRandom(),
   householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),

@@ -9,7 +9,7 @@ import { getMemberIdForUser, getMemberStoreSelection } from '@/lib/db/member-sto
 import { EMPTY_STORE_SELECTION } from '@/lib/nearby-stores'
 import { pushPublicKeyForClient } from '@/lib/push/deliver'
 import { AI_ASSISTANT_ENABLED } from '@/lib/features'
-import { tabFromSlug } from '@/lib/tab-url'
+import { DEALS_CHAIN_PARAM, tabFromSlug } from '@/lib/tab-url'
 import { todayInPrague } from '@/lib/today'
 
 export const dynamic = 'force-dynamic'
@@ -23,6 +23,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ [
   const initialTab = tabFromSlug(typeof tabParam === 'string' ? tabParam : null, { aiEnabled: AI_ASSISTANT_ENABLED })
   // The weekly pantry notification links to `/?tab=zasoby&kontrola=1`: open the check directly.
   const initialPantryCheck = initialTab === 'Zásoby' && params.kontrola === '1'
+  // A new flyer notification links to `/?tab=akce&retezec=<chain>`: Akce opens filtered to the chain.
+  const chainParam = params[DEALS_CHAIN_PARAM]
+  const initialDealsChain = initialTab === 'Akce' && typeof chainParam === 'string' && chainParam.trim() ? chainParam.trim() : null
 
   const [data, stores, standaloneOffers, storeChains, isAdmin] = await Promise.all([
     getHouseholdData(session.user.id, session.user.name, session.user.email),
@@ -46,5 +49,5 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ [
     getMemberIdForUser(session.user.id).then((memberId) => (memberId ? getMemberStoreSelection(memberId) : EMPTY_STORE_SELECTION)),
     listPinsForHousehold(data.household.id),
   ])
-  return <AppShell initialData={data} userName={session.user.name} isAdmin={isAdmin} stores={stores} productPrices={productPrices} standaloneOffers={standaloneOffers} storeChains={storeChains} initialStoreSelection={storeSelection} initialPins={pins} today={todayInPrague()} initialTab={initialTab} initialPantryCheck={initialPantryCheck} pushPublicKey={pushPublicKeyForClient()} />
+  return <AppShell initialData={data} userName={session.user.name} isAdmin={isAdmin} stores={stores} productPrices={productPrices} standaloneOffers={standaloneOffers} storeChains={storeChains} initialStoreSelection={storeSelection} initialPins={pins} today={todayInPrague()} initialTab={initialTab} initialPantryCheck={initialPantryCheck} initialDealsChain={initialDealsChain} pushPublicKey={pushPublicKeyForClient()} />
 }

@@ -44,6 +44,6 @@ describe('seed catalog', () => {
 
   it('rejects malformed or incomplete CSV before any DB write can be attempted', () => {
     expect(() => parseSeedCatalogCsv('seed_id,source_document\nseed-src-1,file.pdf\n')).toThrow(/missing column/i)
-    expect(() => parseSeedCatalogCsv('seed_id,source_document,source_page,source_section,category,subcategory,brand,brand_extraction,product_family,variants,package_options,package_count,package_type,raw_item,normalization_status,confidence,review_reasons\nseed-src-1,file.pdf,1,Section,Potraviny,Mléčné výrobky,,,Test,not-json,,,,,,ready,0.95,')).toThrow(/Invalid JSON/i)
+    expect(() => parseSeedCatalogCsv('seed_id,source_document,source_page,source_section,category,subcategory,brand,brand_extraction,product_family,variants,package_options,package_count,package_type,raw_item,normalization_status,confidence,review_reasons\nseed-src-1,file.pdf,1,Section,Potraviny,Mléčné výrobky,,,Test,,not-json,,,,,ready,0.95,')).toThrow(/Invalid JSON/i)
   })
 })

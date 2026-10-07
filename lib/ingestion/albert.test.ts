@@ -347,6 +347,10 @@ describe('mergeIngestResults', () => {
       newProducts: 2,
       deals: 2,
       skipped: 2,
+      priceObservations: 2,
+      priceConfirmations: 2,
+      priceWrites: 2,
+      dealCandidates: 2,
       truncated: true,
       errors: ['a', 'b'],
     })

@@ -339,7 +339,7 @@ describe('fetchAlbertOffers', () => {
 
 describe('mergeIngestResults', () => {
   it('adds up two runs', () => {
-    const base: IngestResult = { processed: 1, recorded: 1, newProducts: 1, deals: 1, promotionsWithoutValidity: 0, skipped: 1, unchanged: 0, priceChanges: 0, priceCacheChanged: true, dealsCacheChanged: true, truncated: false, errors: ['a'] }
+    const base: IngestResult = { processed: 1, recorded: 1, newProducts: 1, deals: 1, promotionsWithoutValidity: 0, skipped: 1, unchanged: 0, priceChanges: 0, priceObservations: 1, priceConfirmations: 1, priceWrites: 1, dealCandidates: 1, priceCacheChanged: true, dealsCacheChanged: true, truncated: false, errors: ['a'] }
     expect(mergeIngestResults(base, { ...base, truncated: true, errors: ['b'] })).toEqual({
       ...base,
       processed: 2,
@@ -347,6 +347,10 @@ describe('mergeIngestResults', () => {
       newProducts: 2,
       deals: 2,
       skipped: 2,
+      priceObservations: 2,
+      priceConfirmations: 2,
+      priceWrites: 2,
+      dealCandidates: 2,
       truncated: true,
       errors: ['a', 'b'],
     })

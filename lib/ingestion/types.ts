@@ -104,6 +104,14 @@ export type IngestResult = {
   unchanged: number
   /** Prices that differ from the previous observation; the previous one was kept as an old price. */
   priceChanges: number
+  /** Number of normalized products that carried a regular price observation into persistence. */
+  priceObservations: number
+  /** Number of unchanged-price confirmations queued for the batch UPDATE. */
+  priceConfirmations: number
+  /** Number of price rows actually inserted or updated in this run. */
+  priceWrites: number
+  /** Number of active-deal candidates seen by the shared writer. */
+  dealCandidates: number
   /** True when at least one regular price was inserted or updated during the run. */
   priceCacheChanged: boolean
   /** True when at least one active deal was inserted or materially changed during the run. */

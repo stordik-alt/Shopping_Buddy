@@ -32,6 +32,10 @@ export type IngestLogEntry = {
   skipped?: number
   unchanged?: number
   priceChanges?: number
+  priceObservations?: number
+  priceConfirmations?: number
+  priceWrites?: number
+  dealCandidates?: number
   errorCount?: number
   /** The first few per-product errors (or the source's own error), shortened and redacted. */
   errors?: string[]
@@ -57,6 +61,10 @@ export function buildIngestLogEntry(source: string, outcome: SourceOutcome, dura
     skipped: outcome.skipped,
     unchanged: outcome.unchanged,
     priceChanges: outcome.priceChanges,
+    priceObservations: outcome.priceObservations,
+    priceConfirmations: outcome.priceConfirmations,
+    priceWrites: outcome.priceWrites,
+    dealCandidates: outcome.dealCandidates,
     errorCount: outcome.errors.length,
     ...(outcome.errors.length > 0 ? { errors: outcome.errors.slice(0, MAX_LOGGED_ERRORS).map(shorten) } : {}),
   }

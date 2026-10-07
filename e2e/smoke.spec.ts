@@ -14,7 +14,11 @@ function testDatabaseUrl(): string {
 }
 
 async function cleanupTestAccount(email: string) {
-  const client = new Client({ connectionString: testDatabaseUrl() })
+  const client = new Client({
+    connectionString: testDatabaseUrl(),
+    connectionTimeoutMillis: 5_000,
+    query_timeout: 10_000,
+  })
   await client.connect()
   try {
     await client.query('BEGIN')

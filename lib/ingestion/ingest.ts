@@ -55,7 +55,7 @@ export type IngestOptions = {
  *  batch (per CLAUDE.md section 32, "if a retailer source stops working, the rest of the
  *  application should continue functioning") — it's recorded in `errors` and the rest still runs. */
 export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: number, options: IngestOptions = {}): Promise<IngestResult> {
-  const result: IngestResult = { processed: 0, recorded: 0, newProducts: 0, deals: 0, promotionsWithoutValidity: 0, skipped: 0, unchanged: 0, priceChanges: 0, priceCacheChanged: false, dealsCacheChanged: false, truncated: false, errors: [] }
+  const result: IngestResult = { processed: 0, recorded: 0, newProducts: 0, deals: 0, promotionsWithoutValidity: 0, skipped: 0, unchanged: 0, priceChanges: 0, priceObservations: 0, priceConfirmations: 0, priceWrites: 0, dealCandidates: 0, priceCacheChanged: false, dealsCacheChanged: false, truncated: false, errors: [] }
   if (limit <= 0) return result
   const now = options.now ?? Date.now
   const today = options.today ?? ingestionDate()
@@ -193,6 +193,9 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
 
   if (!result.truncated) options.onProgress?.(raws.length, raws.length)
 
+  result.priceObservations = priceObservations.length
+  result.dealCandidates = prepared.reduce((count, entry) => count + (entry.normalized?.deal ? 1 : 0), 0)
+
   if (priceObservations.length > 0) {
     try {
       const writtenPrices = await recordOfficialPrices(priceObservations, latestPrices)
@@ -201,6 +204,7 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
         if (written.latest) latestPrices.set(observation.sourceReference, written.latest)
         if (written.action === 'insert' || written.action === 'update-same-day') {
           result.recorded++
+          result.priceWrites++
           result.priceCacheChanged = true
         } else if (written.action === 'unchanged' || written.action === 'confirm') {
           result.unchanged++
@@ -216,6 +220,7 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
   }
 
   // Written even for a truncated run: these belong to the products that were processed.
+  result.priceConfirmations = confirmations.length
   try {
     await confirmOfficialPrices(confirmations)
   } catch (err) {
@@ -268,6 +273,10 @@ function mergeRunResults(a: IngestResult, b: IngestResult): IngestResult {
     skipped: a.skipped + b.skipped,
     unchanged: a.unchanged + b.unchanged,
     priceChanges: a.priceChanges + b.priceChanges,
+    priceObservations: a.priceObservations + b.priceObservations,
+    priceConfirmations: a.priceConfirmations + b.priceConfirmations,
+    priceWrites: a.priceWrites + b.priceWrites,
+    dealCandidates: a.dealCandidates + b.dealCandidates,
     priceCacheChanged: a.priceCacheChanged || b.priceCacheChanged,
     dealsCacheChanged: a.dealsCacheChanged || b.dealsCacheChanged,
     truncated: a.truncated || b.truncated,

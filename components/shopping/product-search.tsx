@@ -8,6 +8,11 @@ import { userFacingError } from '@/lib/errors'
 
 const DEBOUNCE_MS = 300
 
+/** What the list did with a hit the user put on it: the product is now on the list (`added`) and/or
+ *  chosen for the hit's chain (`pinned` — what the plan then buys there). Both are shown on the
+ *  button, so tapping it twice visibly does something rather than looking like it was ignored. */
+export type AddToStatus = { added: boolean; pinned: boolean }
+
 /** Finding specific products at each chain: "mleko" -> the milks Lidl, Albert, Billa … actually
  *  have, with price, unit price, promotion and when the price was seen. Grouped per chain. The
  *  search itself is injected (`search`) — the real one is the `searchProductsAction` Server Action —
@@ -31,9 +36,12 @@ export function ProductSearch({
   }
   search: (input: { query: string; onlyNearby: boolean; category?: ItemCategory }) => Promise<ProductSearchResult>
   /** When searching the stores on their own (not for one list item): puts a found product on the list
-   *  and chooses it there for its chain. `isAdded` says which hits already are. */
+   *  and chooses it there for its chain. `status` says how far that already got for a hit (the button
+   *  label follows it), `onAdd` is called for a hit that still has something left to do. */
   adding?: {
-    isAdded: (hit: ProductSearchHit) => boolean
+    status: (hit: ProductSearchHit) => AddToStatus
+    /** Puts the hit on the list. The caller's answer is not needed here: the button reads the new
+     *  state from `status`, which the list passes again after it re-renders. */
     onAdd: (hit: ProductSearchHit) => Promise<void>
   }
 }) {
@@ -144,58 +152,57 @@ export function ProductSearch({
                   <span className="text-xs font-normal text-muted-foreground">{group.totalMatches} {group.totalMatches === 1 ? 'produkt' : group.totalMatches < 5 ? 'produkty' : 'produktů'}</span>
                 </h3>
                 <ul className="mt-1.5 flex flex-col gap-1.5">
-                  {group.hits.map((hit) => (
-                    <li key={hit.productId} className="rounded-lg bg-muted px-3 py-2">
-                      <p className="break-words font-medium">
-                        {hit.name}
-                        {!category && hit.category !== 'Potraviny' && <span className="ml-2 rounded-full bg-background px-2 py-0.5 text-xs font-normal text-muted-foreground">{hit.category}</span>}
-                      </p>
-                      <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
-                        <span className="text-sm font-semibold">{money(hitPrice(hit))}</span>
-                        {hit.dealPrice != null && (
-                          <span className="flex items-center gap-1 font-semibold text-primary">
-                            <Tag className="h-3 w-3" aria-hidden="true" /> akce{hit.dealValidUntil ? ` do ${shortDate(hit.dealValidUntil)}` : ''}
-                            <span className="font-normal text-muted-foreground line-through">{money(hit.regularPrice)}</span>
-                          </span>
-                        )}
-                        <span className="text-muted-foreground">
-                          {money(hitUnitPrice(hit))}/{hit.unit}
-                        </span>
-                        <span className="text-muted-foreground">cena z {shortDate(hit.observedAt)}</span>
-                      </p>
-                      {adding && (
-                        <button
-                          type="button"
-                          disabled={busyKey === `${hit.storeId}|${hit.productId}` || adding.isAdded(hit)}
-                          onClick={() => add(hit)}
-                          className="mt-1.5 flex min-h-10 items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
-                        >
-                          {busyKey === `${hit.storeId}|${hit.productId}` ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-                          ) : adding.isAdded(hit) ? (
-                            <Check className="h-3.5 w-3.5" aria-hidden="true" />
-                          ) : (
-                            <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                  {group.hits.map((hit) => {
+                    const addState = adding?.status(hit)
+                    const addDone = addState?.added === true && addState.pinned
+                    const addBusy = busyKey === `${hit.storeId}|${hit.productId}`
+                    return (
+                      <li key={hit.productId} className="rounded-lg bg-muted px-3 py-2">
+                        <p className="break-words font-medium">
+                          {hit.name}
+                          {!category && hit.category !== 'Potraviny' && <span className="ml-2 rounded-full bg-background px-2 py-0.5 text-xs font-normal text-muted-foreground">{hit.category}</span>}
+                        </p>
+                        <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+                          <span className="text-sm font-semibold">{money(hitPrice(hit))}</span>
+                          {hit.dealPrice != null && (
+                            <span className="flex items-center gap-1 font-semibold text-primary">
+                              <Tag className="h-3 w-3" aria-hidden="true" /> akce{hit.dealValidUntil ? ` do ${shortDate(hit.dealValidUntil)}` : ''}
+                              <span className="font-normal text-muted-foreground line-through">{money(hit.regularPrice)}</span>
+                            </span>
                           )}
-                          {adding.isAdded(hit) ? `Na seznamu · vybráno pro ${group.chain}` : `Na seznam (vybrat v ${group.chain})`}
-                        </button>
-                      )}
-                      {pinning && (
-                        <button
-                          type="button"
-                          aria-pressed={pinning.pinned[hit.storeId] === hit.productId}
-                          disabled={busyKey === `${hit.storeId}|${hit.productId}`}
-                          onClick={() => togglePin(hit.storeId, hit.productId, pinning.pinned[hit.storeId] === hit.productId)}
-                          className={`mt-1.5 flex min-h-10 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 ${
-                            pinning.pinned[hit.storeId] === hit.productId ? 'border-accent-solid bg-accent-subtle text-accent-text' : 'border-border bg-background hover:bg-muted'
-                          }`}
-                        >
-                          <Pin className={`h-3.5 w-3.5 ${pinning.pinned[hit.storeId] === hit.productId ? 'fill-current' : ''}`} aria-hidden="true" />
-                          {pinning.pinned[hit.storeId] === hit.productId ? `Vybráno pro ${group.chain} · zrušit` : `Vybrat pro tuto položku v ${group.chain}`}
-                        </button>
-                      )}
-                    </li>
-                  ))}
+                          <span className="text-muted-foreground">
+                            {money(hitUnitPrice(hit))}/{hit.unit}
+                          </span>
+                          <span className="text-muted-foreground">cena z {shortDate(hit.observedAt)}</span>
+                        </p>
+                        {adding && addState && (
+                          <button
+                            type="button"
+                            disabled={addBusy || addDone}
+                            onClick={() => add(hit)}
+                            className="mt-1.5 flex min-h-10 items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+                          >
+                            {addBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : addDone ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : <Plus className="h-3.5 w-3.5" aria-hidden="true" />}
+                            {addDone ? `Na seznamu · vybráno pro ${group.chain}` : addState.added ? `Vybrat pro seznam v ${group.chain}` : `Na seznam (vybrat v ${group.chain})`}
+                          </button>
+                        )}
+                        {pinning && (
+                          <button
+                            type="button"
+                            aria-pressed={pinning.pinned[hit.storeId] === hit.productId}
+                            disabled={busyKey === `${hit.storeId}|${hit.productId}`}
+                            onClick={() => togglePin(hit.storeId, hit.productId, pinning.pinned[hit.storeId] === hit.productId)}
+                            className={`mt-1.5 flex min-h-10 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 ${
+                              pinning.pinned[hit.storeId] === hit.productId ? 'border-accent-solid bg-accent-subtle text-accent-text' : 'border-border bg-background hover:bg-muted'
+                            }`}
+                          >
+                            <Pin className={`h-3.5 w-3.5 ${pinning.pinned[hit.storeId] === hit.productId ? 'fill-current' : ''}`} aria-hidden="true" />
+                            {pinning.pinned[hit.storeId] === hit.productId ? `Vybráno pro ${group.chain} · zrušit` : `Vybrat pro tuto položku v ${group.chain}`}
+                          </button>
+                        )}
+                      </li>
+                    )
+                  })}
                 </ul>
                 {group.totalMatches > group.hits.length && (
                   <p className="mt-1.5 text-xs text-muted-foreground">

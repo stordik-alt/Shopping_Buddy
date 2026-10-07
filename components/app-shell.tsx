@@ -65,6 +65,7 @@ import { longDate, thisPeriodTitle } from '@/lib/format'
 import type { HouseholdData, PurchaseAftermath, TickedListItem } from '@/lib/db/queries'
 import { currentWeekStart, markMealCooked as markCooked, todaysMeals, type Ingredient, type MealType } from '@/lib/meal-plans'
 import type { ProductPrice } from '@/lib/prices'
+import { findOpenListItemByName, type ProductSearchHit } from '@/lib/product-search'
 import type { Item, Store, Tab } from '@/lib/types'
 import type { PinRecord } from '@/lib/db/shopping-plan'
 import { filterPricesToNearby, type StoreSelection } from '@/lib/nearby-stores'
@@ -424,6 +425,33 @@ export function AppShell({
     setPins((current) => current.filter((pin) => !(pin.itemId === itemId && pin.storeId === storeId)))
   }
 
+  /** "Na seznam (vybrat v Lidl)" in the store product search: puts the found product on the main
+   *  list and chooses it there for its chain, so the planner buys exactly that one (docs/01, shopping
+   *  planner part 1/2). Adding and pinning go through the same server actions as the rest of the app
+   *  (addShoppingItemAction resolves catalog identity, categorization and the deal notification;
+   *  pinProductAction checks household ownership), never through a second write path. Reported back
+   *  so the search button can say how far a hit already got. */
+  async function addSearchHitToShoppingList(hit: ProductSearchHit): Promise<{ added: boolean; pinned: boolean }> {
+    // The same product may already be on the list (which is not a pin — the item was typed). Reuse it
+    // rather than adding a second row for one product.
+    let item = findOpenListItemByName(items, hit.name)
+    let added = item != null
+    if (!item) {
+      const created = await addShoppingItemAction(initialData.mainListId, hit.name, { category: hit.category, unit: hit.unit })
+      item = created.item
+      setItems((current) => [...current, created.item])
+      if (created.notification) {
+        const notification = created.notification
+        setNotifications((current) => [...current, notification])
+      }
+      added = true
+    }
+    const alreadyPinned = pins.some((pin) => pin.itemId === item.id && pin.storeId === hit.storeId && pin.productId === hit.productId)
+    // An item already on the list is not a second row; only the chain's choice is added to it.
+    if (!alreadyPinned) await pinProduct(item.id, hit.storeId, hit.productId)
+    return { added, pinned: true }
+  }
+
   async function saveStorePreferences(input: { maxDistanceKm: number | null; chainIds: string[]; locationIds: string[]; priorityChainIds: string[]; maxShopStores: number | null }) {
     const saved = await saveMyStorePreferencesAction(input)
     setStoreSelection(saved)
@@ -620,6 +648,7 @@ export function AppShell({
                         stores={stores}
                         userCoords={userLocation.coords}
                         completePurchase={completePurchase}
+                        onAddSearchHit={addSearchHitToShoppingList}
                       />
                     </>
                   )}

@@ -1,3 +1,7 @@
+## Update 2026-10-07 — Adding a found product to the shopping list from the store search
+
+The product search above the shopping list ("Hledat produkty v obchodech") now puts a found product on the list: every hit has "Na seznam (vybrat v <chain>)", which adds the item and pins that product for its chain in one action (`addSearchHitToShoppingList` in `components/app-shell.tsx` → the existing `addShoppingItemAction` + `pinProductAction`, no second write path). A product already on the list is not added twice — the button says "Vybrat pro seznam v <chain>" and only pins it (`findOpenListItemByName`, `lib/product-search.ts`); a ticked item counts as a new need. Until now these buttons existed in the component but the shell never wired them, so nothing appeared.
+
 ## Update 2026-10-06 — New subcategories, A–Z
 Drogerie gained "Zdraví a doplňky stravy" and "Doplňky a oblečení", Domácnost "Zahrada" (migration 0069). Every subcategory picker and Výdaje's subcategories are sorted A–Z (Czech order).
 
@@ -708,7 +712,7 @@ The cron (`/api/cron/ingest-prices`) now runs each source in its own try/catch a
   At most 6 tokens / 80 characters, LIKE wildcards escaped and everything parameterized (tested with quote-like input).
 * **Results** are grouped per chain (up to 8 each, "…a dalších N"), each with the latest recorded price (docs/03_DATABASE.md rule 14), the chain's active promotion and its unit price scaled by the same ratio, and the date the price was observed. Unit prices per gram/millilitre are shown per kg/l (the Lidl data holds "0,10 Kč/g"). A hit at a chain with only receipt-derived prices is shown too, with its date.
 * **Scope:** limited to the user's chosen chains (previous entry) with a switch "Jen mé obchody v okolí", off by default only when they have chosen none; from a list item the search is restricted to the item's category (so "mléko" for a food item does not offer body milk), the global search tags non-food hits.
-* **UI:** "Hledat produkty v obchodech" above the shopping list and "Najít v obchodech" inside each expanded item (prefilled with its name). Debounced, only the latest request may update the screen, loading/empty/error states; verified in a real browser at 360 px (temporary preview page, removed).
+* **UI:** "Hledat produkty v obchodech" above the shopping list and "Najít v obchodech" inside each expanded item (prefilled with its name). Debounced, only the latest request may update the screen, loading/empty/error states; verified in a real browser at 360 px (temporary preview page, removed). Since 2026-10-07 every hit of the list-level search also has **"Na seznam (vybrat v <chain>)"**: it adds the item and pins that product for its chain (see the 2026-10-07 update at the top).
 * **Verified on the real catalog** (no sign-in, straight through the DB function): "mléko" → Lidl 13, Albert/Billa/Kaufland/Penny 1 each; "coca cola", "okurka", "chléb", "máslo" find the expected products; an unknown word finds nothing. Limits seen: the catalog is ~80 products per chain, so coverage is thin (widening it is the third part); names of some chains carry no size, so a "1 l" preference cannot be honoured for them; Lidl stores no pack size at all.
 * **Not done yet (parts 2–3):** pinning a specific product to a list item, the N-store planner with priorities and savings, and widening the ingestion.
 

@@ -182,7 +182,7 @@ export function HouseholdProfile({
               </option>
             ))}
           </Select>
-          <span className="mt-2 block text-xs leading-relaxed text-muted-foreground">
+          <span className="mt-2 block text-sm leading-relaxed text-muted-foreground">
             {household.budgetPeriodStartDay === 1
               ? 'Rozpočet se počítá za kalendářní měsíc. Pokud vám plat chodí jindy, začátek období posuňte.'
               : `Rozpočet se počítá od ${household.budgetPeriodStartDay}. dne v měsíci do ${household.budgetPeriodStartDay - 1}. dne následujícího měsíce.`}
@@ -255,7 +255,7 @@ export function HouseholdProfile({
             placeholder="Alergie / intolerance"
             className="px-3"
           />
-          <p className="text-xs text-fg-muted sm:col-span-2">Víc potravin nebo alergií oddělte čárkou.</p>
+          <p className="text-sm text-fg-muted sm:col-span-2">Víc potravin nebo alergií oddělte čárkou.</p>
           <Button size="lg" onClick={addMember} className="sm:col-span-2">
             Přidat člena domácnosti
           </Button>
@@ -280,7 +280,7 @@ export function HouseholdProfile({
             </div>
             {inviteError && <p className="mt-2 text-sm text-destructive">{inviteError}</p>}
             {inviteLink && (
-              <div className="mt-3 rounded-xl bg-muted p-3 text-xs">
+              <div className="mt-3 rounded-xl bg-muted p-3 text-sm">
                 <p className="text-muted-foreground">Odkaz pro pozvánku (platí 7 dní) — pošlete jej pozvanému sami:</p>
                 <div className="mt-1.5 flex items-center gap-2">
                   <code className="min-w-0 flex-1 break-words">{inviteLink}</code>

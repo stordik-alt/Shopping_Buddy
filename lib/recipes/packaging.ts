@@ -216,3 +216,29 @@ export function resolveCatalogPackageSize(
     source: 'catalog',
   }
 }
+
+
+export type RecipePackage = {
+  quantity: number
+  unit: 'ks' | 'kg' | 'l'
+  count: number
+  totalQuantity: number
+  label: string
+}
+
+/** Chooses concrete catalog packaging for a recipe amount. Range/unspecified seed references are
+ * deliberately absent from productPackages and therefore cannot create a package suggestion. */
+export function resolveRecipePackage(requiredQuantity: number, requiredUnit: ItemUnit, packages: CatalogPackage[]): RecipePackage | null {
+  if (!Number.isFinite(requiredQuantity) || requiredQuantity <= 0) return null
+  const canonical = canonicalPackageUnit(requiredUnit)
+  if (!canonical) return null
+  const required = requiredUnit === 'g' ? requiredQuantity / 1000 : requiredUnit === 'ml' ? requiredQuantity / 1000 : requiredQuantity
+  const candidates = packages.filter((pkg) => pkg.unit === canonical && Number.isFinite(pkg.quantity) && pkg.quantity > 0).map((pkg) => {
+    const count = Math.max(1, Math.ceil((required - 1e-9) / pkg.quantity))
+    const totalQuantity = count * pkg.quantity
+    return { ...pkg, count, totalQuantity, overbuy: totalQuantity - required }
+  }).sort((a, b) => a.overbuy - b.overbuy || a.count - b.count || a.quantity - b.quantity)
+  const best = candidates[0]
+  if (!best) return null
+  return { quantity: best.quantity, unit: best.unit, count: best.count, totalQuantity: best.totalQuantity, label: best.count === 1 ? formatPackageSize(best.quantity, best.unit) : String(best.count) + ' × ' + formatPackageSize(best.quantity, best.unit) }
+}

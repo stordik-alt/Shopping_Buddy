@@ -11,8 +11,9 @@ import { markAllNotificationsReadAction, markNotificationReadAction, setNotifica
 import { wantsNotification } from '@/lib/notification-kinds'
 import type { ExpenseSplitPart } from '@/lib/purchase-expenses'
 import { completePurchaseAction, getPurchaseExpenseItemsAction, recordPurchaseAsExpenseAction, setPurchaseItemExpenseSplitsAction } from '@/app/actions/purchases'
-import { addShoppingItemAction, addShoppingListAction } from '@/app/actions/shopping'
+import { addShoppingItemAction, addShoppingListAction, resolveRecipePackageHintsAction } from '@/app/actions/shopping'
 import { AppHeader } from '@/components/shared/app-header'
+import { resolveRecipePackage } from '@/lib/recipes/packaging'
 import { Recipes } from '@/components/recipes/recipes'
 import { AppSidebar } from '@/components/shared/app-sidebar'
 import { MobileNav } from '@/components/shared/mobile-nav'
@@ -319,11 +320,13 @@ export function AppShell({
   // actually succeeded. Awaiting one at a time keeps at most one revalidation in flight.
   async function addIngredients(ingredients: Ingredient[]) {
     setTab('Nákup')
+    const packageHints = await resolveRecipePackageHintsAction(ingredients.map((ingredient) => ingredient.name))
     for (const ingredient of ingredients) {
+      const packageHint = ingredient.sourceMeasure ? null : resolveRecipePackage(ingredient.quantity, ingredient.unit, packageHints[ingredient.name] ?? [])
+      const recipeDetail = ingredient.sourceMeasure ?? String(ingredient.quantity) + ' ' + ingredient.unit
+      const detail = packageHint ? recipeDetail + ' · ' + packageHint.label + ' · z jídelníčku' : recipeDetail + ' · z jídelníčku'
       const { item, notification } = await addShoppingItemAction(initialData.mainListId, ingredient.name, {
-        detail: `${ingredient.sourceMeasure ?? `${ingredient.quantity} ${ingredient.unit}`} · z jídelníčku`,
-        category: ingredient.category,
-        unit: ingredient.unit,
+        detail, category: ingredient.category, unit: ingredient.unit,
       })
       setItems((current) => [...current, item])
       if (notification) setNotifications((current) => [...current, notification])

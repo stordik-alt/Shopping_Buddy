@@ -5,6 +5,7 @@ import type { IngestionSource, IngestResult, NormalizedProduct, PriceConnector }
 // persistence calls it makes for each kind of normalized product, how it isolates failures and how
 // it keeps to its time budget — not the SQL (covered by the DB-backed lib/db/queries.test.ts).
 const dealWriter = vi.hoisted(() => ({ upsert: vi.fn(), flush: vi.fn() }))
+let latestPassedToWriter: Map<string, unknown> | undefined
 const queries = vi.hoisted(() => ({
   confirmOfficialPrices: vi.fn(),
   createActiveDealWriter: vi.fn(),
@@ -63,6 +64,7 @@ beforeEach(() => {
   queries.persistNamedPackageEvidence.mockResolvedValue(0)
   queries.recordOfficialPrice.mockResolvedValue({ action: 'insert', latest: undefined, closedPrevious: false })
   queries.recordOfficialPrices.mockImplementation(async (observations, latest) => {
+    latestPassedToWriter = new Map(latest)
     const results = []
     for (const observation of observations) {
       const result = await queries.recordOfficialPrice(observation, latest.get(observation.sourceReference), { deferConfirm: () => undefined })
@@ -269,9 +271,9 @@ describe('ingestPrices price dating and history', () => {
       10,
     )
     expect(queries.recordOfficialPrices).toHaveBeenCalledTimes(1)
-    const [observations, latest] = queries.recordOfficialPrices.mock.calls[0]
-    expect(latest.get('a')).toBe(stored) // SKU a: its own latest
-    expect(latest.get('b')).toBeUndefined() // SKU b: nothing stored yet
+    const [observations] = queries.recordOfficialPrices.mock.calls[0]
+    expect(latestPassedToWriter?.get('a')).toBe(stored) // SKU a: its own latest at write time
+    expect(latestPassedToWriter?.get('b')).toBeUndefined() // SKU b: nothing stored yet
     expect(observations).toHaveLength(2)
   })
 

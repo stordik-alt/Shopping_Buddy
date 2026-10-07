@@ -322,6 +322,36 @@ describe('adjustPantryItemQuantityAction', () => {
     expect(row?.quantity).toBe(1) // unchanged
   })
 
+  it('consumes individual eggs from an expanded 30-piece multipack', async () => {
+    const [item] = await db.insert(schema.pantryItems).values({
+      householdId,
+      name: 'Vejce z podestýlky 30ks __test',
+      quantity: 30,
+      unit: 'ks',
+      category: 'Potraviny',
+    }).returning()
+
+    await adjustPantryItemQuantityAction(item.id, 27)
+
+    const row = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, item.id) })
+    expect(row).toMatchObject({ quantity: 27, unit: 'ks' })
+  })
+
+  it('consumes individual bottles from an expanded 6x1.5l multipack', async () => {
+    const [item] = await db.insert(schema.pantryItems).values({
+      householdId,
+      name: 'Veseta perlivá voda 6x1,5l __test',
+      quantity: 48,
+      unit: 'ks',
+      category: 'Potraviny',
+    }).returning()
+
+    await adjustPantryItemQuantityAction(item.id, 46)
+
+    const row = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, item.id) })
+    expect(row).toMatchObject({ quantity: 46, unit: 'ks' })
+  })
+
   it('never touches purchase_items — a manual stock edit is not a rewrite of purchase history', async () => {
     const [purchase] = await db.insert(schema.purchases).values({ householdId, date: '2026-09-22', total: '10' }).returning()
     await db.insert(schema.purchaseItems).values({ purchaseId: purchase.id, name: 'Mléko', quantity: 4, price: '10' })

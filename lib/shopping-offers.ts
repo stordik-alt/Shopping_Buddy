@@ -1,4 +1,5 @@
 import { hitPrice, hitUnitPrice, type ProductSearchHit } from '@/lib/product-search'
+import { isPlainProductVariantSuitableForRequest } from '@/lib/product-types'
 import type { ItemCategory, ItemUnit } from '@/lib/types'
 
 // From a shopping-list item to what it costs at a store: turning "2 l of milk" plus a product found at
@@ -127,8 +128,9 @@ export function pickAutoHit(need: Pick<NeedSpec, 'quantity' | 'unit'>, hits: Pro
  *  (lib/product-types.ts): every hit is already a product of an accepted type, so text scores do not
  *  matter — the cheapest one for the need wins, then the lower unit price, then the name. `null` when
  *  none of them can be priced for the need. */
-export function pickTypedHit(need: Pick<NeedSpec, 'quantity' | 'unit'>, hits: ProductSearchHit[]): PricedHit | null {
+export function pickTypedHit(need: Pick<NeedSpec, 'quantity' | 'unit' | 'name'>, hits: ProductSearchHit[]): PricedHit | null {
   const priced = hits
+    .filter((hit) => isPlainProductVariantSuitableForRequest(need.name, hit.name))
     .map((hit) => ({ hit, cost: costForNeed(need, hit) }))
     .filter((entry): entry is PricedHit => entry.cost !== null)
   if (priced.length === 0) return null

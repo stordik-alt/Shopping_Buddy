@@ -106,27 +106,27 @@ describe('detectNonInventory / detectChildOriented', () => {
 // makes a real network/model call (and needs no credentials), per CLAUDE.md section 25's testability
 // mandate. What is under test is this module's OWN validation: an id outside the allowed list must
 // be rejected even if the (mocked) model "returns" one.
-vi.mock('ai', () => ({ generateObject: vi.fn() }))
+vi.mock('ai', () => ({ generateText: vi.fn() }))
 
 describe('aiCategorizeFallback — structured output validation (spec section 11)', () => {
   it('accepts a subcategory name that is in the allowed list', async () => {
-    const { generateObject } = await import('ai')
-    vi.mocked(generateObject).mockResolvedValueOnce({ object: { subcategoryId: 'Nápoje', confidence: 0.7, reason: 'drink brand' } } as never)
+    const { generateText } = await import('ai')
+    vi.mocked(generateText).mockResolvedValueOnce({ output: { subcategoryId: 'Nápoje', confidence: 0.7, reason: 'drink brand' } } as never)
     const { aiCategorizeFallback } = await import('@/lib/categorization')
     const result = await aiCategorizeFallback('Nějaký nápoj', 'Potraviny')
     expect(result).toMatchObject({ subcategory: 'Nápoje' })
   })
 
   it('rejects a hallucinated subcategory outside the fixed list, never passing it through', async () => {
-    const { generateObject } = await import('ai')
-    vi.mocked(generateObject).mockResolvedValueOnce({ object: { subcategoryId: 'Neexistující kategorie', confidence: 0.9, reason: 'made up' } } as never)
+    const { generateText } = await import('ai')
+    vi.mocked(generateText).mockResolvedValueOnce({ output: { subcategoryId: 'Neexistující kategorie', confidence: 0.9, reason: 'made up' } } as never)
     const { aiCategorizeFallback } = await import('@/lib/categorization')
     expect(await aiCategorizeFallback('Nějaký produkt', 'Potraviny')).toBeNull()
   })
 
   it('treats a null answer as "no answer", never a guess', async () => {
-    const { generateObject } = await import('ai')
-    vi.mocked(generateObject).mockResolvedValueOnce({ object: { subcategoryId: null, confidence: 0, reason: 'unsure' } } as never)
+    const { generateText } = await import('ai')
+    vi.mocked(generateText).mockResolvedValueOnce({ output: { subcategoryId: null, confidence: 0, reason: 'unsure' } } as never)
     const { aiCategorizeFallback } = await import('@/lib/categorization')
     expect(await aiCategorizeFallback('Nějaký produkt', 'Potraviny')).toBeNull()
   })

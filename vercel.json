@@ -57,10 +57,6 @@
       "schedule": "40 13 * * 5"
     },
     {
-      "path": "/api/cron/ingest-prices/rohlik/3",
-      "schedule": "40 21 * * 5"
-    },
-    {
       "path": "/api/cron/ingest-prices/kosik",
       "schedule": "50 5 * * 6"
     },

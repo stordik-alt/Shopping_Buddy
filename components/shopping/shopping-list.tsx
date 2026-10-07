@@ -640,7 +640,14 @@ export function ShoppingList({
         build={buildPlan}
       />
 
-      <StoreComparison items={items} productPrices={productPrices} remaining={remaining} stores={stores} userCoords={userCoords} />
+      <StoreComparison
+        items={items}
+        productPrices={productPrices}
+        remaining={remaining}
+        stores={stores}
+        candidateStores={Array.from(new Set((hasStoreSelection(storeSelection) ? storeChains.filter((chain) => storeSelection.chainIds.includes(chain.id)) : storeChains).map((chain) => chain.chain)))}
+        userCoords={userCoords}
+      />
     </div>
   )
 }

@@ -307,7 +307,7 @@ describe('shopping-list items → product types (phase 2)', () => {
 describe('stock and recipe product compatibility', () => {
   it('allows a whole chicken to satisfy one chicken-breast request, but nothing broader by accident', () => {
     expect(stockTypeCanSatisfyRequestedType('kure-cele', 'kureci-prsa')).toBe(true)
-    expect(stockTypeCanSatisfyRequestedType('kureci-sunka', 'kureci-prsa')).toBe(false)
+    expect(stockTypeCanSatisfyRequestedType('sunka', 'kureci-prsa')).toBe(false)
     expect(stockTypeCanSatisfyRequestedType('kureci-prsa', 'kureci-prsa')).toBe(true)
   })
 

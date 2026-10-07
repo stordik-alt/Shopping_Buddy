@@ -115,6 +115,10 @@ export async function r2ObjectDigest(key: string): Promise<{ size: number; sha25
 }
 
 export async function sha256Hex(bytes: Uint8Array): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  // Web Crypto requires an ArrayBuffer-backed view; TypeScript 5.9 correctly rejects
+  // Uint8Array<ArrayBufferLike> because its buffer may be a SharedArrayBuffer.
+  const copy = new ArrayBuffer(bytes.byteLength)
+  new Uint8Array(copy).set(bytes)
+  const digest = await crypto.subtle.digest('SHA-256', copy)
   return Buffer.from(digest).toString('hex')
 }

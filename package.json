@@ -84,7 +84,7 @@
     "postcss": "^8.5",
     "tailwindcss": "^4.3.3",
     "tsx": "4.23.13",
-    "typescript": "5.7.3",
+    "typescript": "5.9.3",
     "vitest": "^5.0.1",
     "wrangler": "4.138.0",
     "shadcn": "^4.11.0"

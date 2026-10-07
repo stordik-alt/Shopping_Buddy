@@ -140,7 +140,7 @@ describe('getDealsPage', () => {
     const store = await createChain()
     createdStoreIds.push(store.id)
     const count = DEALS_PAGE_SIZE + 1
-    const products = []
+    const products: Array<{ id: string; name: string }> = []
     for (let i = 0; i < count; i++) products.push(await createProduct('Potraviny'))
     createdProductIds.push(...products.map((product) => product.id))
     for (const product of products) await givePriceAndDeal(product.id, store.id, 100, 50)

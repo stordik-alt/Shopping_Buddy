@@ -1,3 +1,8 @@
+## 2026-10-08 (Current project source of truth)
+- Added `docs/00_CURRENT_SOURCE_OF_TRUTH.md` as the authoritative operational summary for ANITKA.
+- Documented the verified production architecture (Vercel + Neon PostgreSQL + Cloudflare R2), current stack versions, migration rules, R2 status, database performance rules, cron ownership, testing requirements, AI boundaries, and documentation evidence hierarchy.
+- Updated `CLAUDE.md` so agents use the new current-state document first and recognize ANITKA as the current product identity.
+
 ## 2026-10-07 (An offer without a regular price on the list row, in its comparison and as a notification)
 - **Why:** the previous change today closed the Akce tab, the store search and the plan (its own entry below), and recorded one gap: `getProductPrices()` returns only products with a **recorded** price, so an offer-only product put on the shopping list showed no "Akce …" tag on its row, nothing in the item's price comparison, and adding it raised no notification (`assessDealQuality()` sees no price for it). The owner asked for that too ("Dodělej do nového PR").
 - **What:** the offer reaches these places **beside** the recorded prices, never mixed into them — an offer has no regular price, so it states no discount and no "cheaper than" (CLAUDE.md sections 15 and 18).

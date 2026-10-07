@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { extractExplicitPackageSizes } from '@/lib/recipes/packaging'
@@ -39,19 +39,43 @@ export function inventoryQuantityFromPackage(quantity: number, pkg: InventoryPac
   }
 }
 
-export async function purchasedInventoryQuantity(item: {
+export type PurchasedInventoryItem = {
   productId: string | null
   name: string
   quantity: number
   unit: ItemUnit
-}): Promise<{ quantity: number; unit: ItemUnit; unitQuantity: number | null; unitUnit: ItemUnit | null }> {
-  if (!item.productId || item.unit !== 'ks' || !Number.isFinite(item.quantity) || item.quantity <= 0) {
-    return { quantity: item.quantity, unit: item.unit, unitQuantity: null, unitUnit: null }
-  }
+}
+
+export type PurchasedInventoryQuantity = {
+  quantity: number
+  unit: ItemUnit
+  unitQuantity: number | null
+  unitUnit: ItemUnit | null
+}
+
+/**
+ * Resolves packaging for several purchased lines with one DB read instead of one
+ * product_packages query per line. Receipt/manual-purchase flows commonly process
+ * many lines at once, so this avoids an N+1 round-trip pattern.
+ */
+export async function purchasedInventoryQuantities(items: PurchasedInventoryItem[]): Promise<PurchasedInventoryQuantity[]> {
+  const result = items.map((item) => ({
+    quantity: item.quantity,
+    unit: item.unit,
+    unitQuantity: null,
+    unitUnit: null,
+  } satisfies PurchasedInventoryQuantity))
+
+  const productIds = [...new Set(items
+    .filter((item) => item.productId && item.unit === 'ks' && Number.isFinite(item.quantity) && item.quantity > 0)
+    .map((item) => item.productId as string))]
+
+  if (productIds.length === 0) return result
 
   const packages = await getDb().query.productPackages.findMany({
-    where: eq(schema.productPackages.productId, item.productId),
+    where: inArray(schema.productPackages.productId, productIds),
     columns: {
+      productId: true,
       quantity: true,
       unit: true,
       packageCount: true,
@@ -60,8 +84,20 @@ export async function purchasedInventoryQuantity(item: {
     },
   })
 
-  const pkg = resolveInventoryPackage(item.name, packages)
-  if (!pkg) return { quantity: item.quantity, unit: item.unit, unitQuantity: null, unitUnit: null }
+  const packagesByProduct = new Map<string, typeof packages>()
+  for (const pkg of packages) {
+    const rows = packagesByProduct.get(pkg.productId) ?? []
+    rows.push(pkg)
+    packagesByProduct.set(pkg.productId, rows)
+  }
 
-  return inventoryQuantityFromPackage(item.quantity, pkg)
+  return items.map((item, index) => {
+    if (!item.productId || item.unit !== 'ks' || !Number.isFinite(item.quantity) || item.quantity <= 0) return result[index]
+    const pkg = resolveInventoryPackage(item.name, packagesByProduct.get(item.productId) ?? [])
+    return pkg ? inventoryQuantityFromPackage(item.quantity, pkg) : result[index]
+  })
+}
+
+export async function purchasedInventoryQuantity(item: PurchasedInventoryItem): Promise<PurchasedInventoryQuantity> {
+  return (await purchasedInventoryQuantities([item]))[0]
 }

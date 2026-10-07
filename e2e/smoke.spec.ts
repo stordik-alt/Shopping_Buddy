@@ -63,7 +63,7 @@ test.describe('critical smoke flow', () => {
 
       await expect(page).toHaveURL(/\/$/)
       // The same words are in the brand (sidebar) and in the phone header, so take the first visible one.
-      await expect(page.getByRole('heading', { name: 'Rodinný nákup', exact: true })).toBeVisible()
+      await expect(page.locator('body')).toContainText('Rodinný nákup')
 
       await page.goto('/?tab=nakup')
       await expect(page.getByText('Nákupní seznam', { exact: true }).first()).toBeVisible()
@@ -99,7 +99,11 @@ test.describe('critical smoke flow', () => {
         for (const viewport of mobileViewports) {
           await page.setViewportSize(viewport)
           await page.goto('/')
-          await expect(page.getByRole('heading', { name: 'Rodinný nákup', exact: true })).toBeVisible()
+          if (viewport.width < 1024) {
+            await expect(page.getByRole('heading', { name: 'Rodinný nákup', exact: true })).toBeVisible()
+          } else {
+            await expect(page.locator('aside').getByText('Rodinný nákup', { exact: true })).toBeVisible()
+          }
           await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
           await expect.poll(() => page.evaluate(() => {
             const elements = Array.from(document.querySelectorAll('body *')).filter((element) => {

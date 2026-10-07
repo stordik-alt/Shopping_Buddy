@@ -5,7 +5,6 @@ import type { Item, Store } from '@/lib/types'
 
 export function StoreComparison({
   items,
-  remaining: _remaining,
   stores,
   plan,
   planInputKey,
@@ -13,7 +12,6 @@ export function StoreComparison({
   userCoords,
 }: {
   items: Item[]
-  remaining: number
   stores: Store[]
   /** The latest shopping plan; the summary must use the exact subtotals shown above. */
   plan: import('@/lib/shopping-plan').ShoppingPlan | null

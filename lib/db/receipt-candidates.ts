@@ -15,7 +15,13 @@ import { rankReceiptCandidates, receiptSearchWords, type ReceiptCandidate, type 
  *  contain the second word come first, so the cut drops the weakest candidates. */
 const CANDIDATES_PER_LINE = 80
 
-type CandidateRow = { line: number; product_id: string; name: string; store_ids: string[] }
+type CandidateRow = {
+  line: number
+  product_id: string
+  name: string
+  store_ids: string[]
+  seed_package_references: ReceiptCandidate['seedPackageReferences']
+}
 
 /** Suggestions for each of `lineNames` (same order), from one query for the whole receipt. `storeId`
  *  is the receipt's chain: its products win a tie, but other chains' products are suggested too — the
@@ -34,7 +40,15 @@ export async function suggestProductsForReceiptLines(lineNames: string[], storeI
     FROM (VALUES ${values}) AS l(line, required, preferred)
     CROSS JOIN LATERAL (
       SELECT p.id AS product_id, p.name,
-        array(SELECT DISTINCT pr.store_id::text FROM prices pr WHERE pr.product_id = p.id AND pr.source_type <> 'RECEIPT') AS store_ids
+        array(SELECT DISTINCT pr.store_id::text FROM prices pr WHERE pr.product_id = p.id AND pr.source_type <> 'RECEIPT') AS store_ids,
+        coalesce((
+          SELECT jsonb_agg(jsonb_build_object(
+            'resolution', spr.resolution,
+            'options', spr.package_options
+          ))
+          FROM seed_package_references spr
+          WHERE spr.product_id = p.id
+        ), '[]'::jsonb) AS seed_package_references
       FROM products p
       WHERE p.search_name LIKE l.required
         AND EXISTS (SELECT 1 FROM prices pr WHERE pr.product_id = p.id AND pr.source_type <> 'RECEIPT')
@@ -46,7 +60,12 @@ export async function suggestProductsForReceiptLines(lineNames: string[], storeI
   const byLine = new Map<number, ReceiptCandidate[]>()
   for (const row of rows.rows) {
     const candidates = byLine.get(row.line) ?? []
-    candidates.push({ productId: row.product_id, name: row.name, storeIds: row.store_ids })
+    candidates.push({
+      productId: row.product_id,
+      name: row.name,
+      storeIds: row.store_ids,
+      seedPackageReferences: row.seed_package_references ?? [],
+    })
     byLine.set(row.line, candidates)
   }
   return lineNames.map((name, index) => (byLine.has(index) ? rankReceiptCandidates(name, storeId, byLine.get(index)!) : empty))

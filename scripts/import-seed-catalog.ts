@@ -10,6 +10,7 @@ import {
   projectSeedPackageQuantity,
   shouldApplySeedBrand,
   shouldApplySeedVariant,
+  seedPackageReference,
   type SeedCatalogRow,
 } from '@/lib/seed-catalog'
 
@@ -167,6 +168,38 @@ async function main() {
 
   const typeIds = await loadProductTypeIds()
   const importDate = todayInPrague()
+
+  // Persist reference data for every seed row without promoting review rows to products/packages.
+  // Review rows may remain productId=NULL; if a ready row is imported below, its reference is linked there.
+  for (const row of rows) {
+    const reference = seedPackageReference(row)
+    await db.insert(schema.seedPackageReferences).values({
+      seedId: row.seedId,
+      productId: null,
+      sourceDocument: row.sourceDocument,
+      sourcePage: row.sourcePage,
+      category: row.category,
+      subcategory: row.subcategory,
+      brand: row.brand,
+      productFamily: row.productFamily,
+      resolution: reference.resolution,
+      packageOptions: reference.options,
+      normalizationStatus: row.normalizationStatus,
+    }).onConflictDoUpdate({
+      target: schema.seedPackageReferences.seedId,
+      set: {
+        sourceDocument: row.sourceDocument,
+        sourcePage: row.sourcePage,
+        category: row.category,
+        subcategory: row.subcategory,
+        brand: row.brand,
+        productFamily: row.productFamily,
+        resolution: reference.resolution,
+        packageOptions: reference.options,
+        normalizationStatus: row.normalizationStatus,
+      },
+    })
+  }
   const skippedPlans = new Set(plans.filter((plan) => plan.action === 'skip').map((plan) => plan.row.seedId))
 
   let created = 0
@@ -227,6 +260,10 @@ async function main() {
         sourcePage: row.sourcePage,
         normalizationStatus: row.normalizationStatus,
       })
+
+      await db.update(schema.seedPackageReferences)
+        .set({ productId })
+        .where(eq(schema.seedPackageReferences.seedId, row.seedId))
 
       for (const pkg of packageRowsFor(row)) {
         const existingPackage = await db.query.productPackages.findFirst({

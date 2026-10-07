@@ -6,7 +6,7 @@ import type { ItemUnit } from '@/lib/types'
 
 export type InventoryPackageCandidate = {
   quantity: number
-  unit: 'ks' | 'kg' | 'l'
+  unit: ItemUnit
   packageCount: number | null
   packageUnitQuantity: number | null
   packageUnit: ItemUnit | null

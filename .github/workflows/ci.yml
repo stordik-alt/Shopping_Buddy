@@ -79,65 +79,77 @@ jobs:
           awk -v size="$gzip_kib" 'BEGIN { exit !(size < 9216) }' || { echo "Worker is ${gzip_kib} KiB gzip — over 9 MiB"; exit 1; }
 
   e2e:
-    # Temporarily disabled while the Playwright smoke suite is being fixed.
-    if: ${{ false }}
-    # Browser smoke tests use the isolated Neon test branch with the local Better Auth fallback.
-    # They never point at production. Serialized with the database job because both jobs write to the same test branch.
     name: Playwright smoke tests
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: shopping_buddy_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d shopping_buddy_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     env:
-      TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
-      TEST_DATABASE_URL_UNPOOLED: ${{ secrets.TEST_DATABASE_URL_UNPOOLED }}
-      DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
-      DATABASE_URL_UNPOOLED: ${{ secrets.TEST_DATABASE_URL_UNPOOLED }}
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shopping_buddy_e2e
+      TEST_DATABASE_URL_UNPOOLED: postgresql://postgres:postgres@localhost:5432/shopping_buddy_e2e
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shopping_buddy_e2e
+      DATABASE_URL_UNPOOLED: postgresql://postgres:postgres@localhost:5432/shopping_buddy_e2e
       DATABASE_DRIVER: pg
       NEXT_PUBLIC_LOCAL_DATABASE: '1'
       NEON_AUTH_COOKIE_SECRET: ci-e2e-smoke-secret-32-characters-min
       BETTER_AUTH_URL: http://127.0.0.1:3000
 
     steps:
-      - name: Check for the test database secret
-        id: secret
-        run: |
-          if [ -z "$TEST_DATABASE_URL" ]; then
-            echo "TEST_DATABASE_URL is not set: skipping Playwright smoke tests"
-            echo "available=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "available=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Checkout
-        if: steps.secret.outputs.available == 'true'
         uses: actions/checkout@v4
 
       - name: Setup pnpm
-        if: steps.secret.outputs.available == 'true'
         uses: pnpm/action-setup@v4
 
       - name: Setup Node.js
-        if: steps.secret.outputs.available == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
 
       - name: Install dependencies
-        if: steps.secret.outputs.available == 'true'
         run: pnpm install --frozen-lockfile
 
-      - name: Migrate the test branch
-        if: steps.secret.outputs.available == 'true'
+      - name: Migrate the isolated E2E database
         run: pnpm exec tsx lib/db/migrate.ts --test
 
+      - name: Seed the isolated E2E database
+        run: pnpm exec tsx lib/db/seed.ts
+
+      - name: Build production app for E2E
+        env:
+          NEON_AUTH_BASE_URL: https://ci.invalid/neon-auth
+        run: pnpm build
+
       - name: Install Playwright browser
-        if: steps.secret.outputs.available == 'true'
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Run Playwright smoke tests
-        if: steps.secret.outputs.available == 'true'
         env:
           GITHUB_RUN_ID: ${{ github.run_id }}
-        run: pnpm test:e2e
+          DEBUG: pw:webserver,pw:api
+        run: timeout --signal=TERM --kill-after=15s 180s ./node_modules/.bin/playwright test
+
+      - name: Upload Playwright diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-smoke-diagnostics-${{ github.run_id }}
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7
 
   database:
     name: Database-backed tests (local PostgreSQL)

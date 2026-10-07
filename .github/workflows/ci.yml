@@ -140,7 +140,7 @@ jobs:
         env:
           GITHUB_RUN_ID: ${{ github.run_id }}
           DEBUG: pw:webserver,pw:api
-        run: timeout --signal=TERM --kill-after=15s 180s pnpm test:e2e
+        run: timeout --signal=TERM --kill-after=15s 180s ./node_modules/.bin/playwright test
 
       - name: Upload Playwright diagnostics
         if: failure()

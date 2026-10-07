@@ -22,7 +22,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: process.env.CI ? 'pnpm start' : 'pnpm dev',
+    command: process.env.CI ? 'exec ./node_modules/.bin/next start' : 'pnpm dev',
     url: process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3000/intro',
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,

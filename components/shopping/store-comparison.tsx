@@ -33,8 +33,8 @@ export function StoreComparison({
   // split-trip result. The full-basket totals come from the same package-aware offers as the plan.
   if (pendingCount === 0 || !plan || planInputKey !== inputKey || priorityStores.length === 0) return null
 
-  const cheapest = priorityStores.reduce((best, store) => (store.total < best.subtotal ? store : best))
-  const mostExpensive = priorityStores.reduce((worst, store) => (store.total > worst.subtotal ? store : worst))
+  const cheapest = priorityStores.reduce((best, store) => (store.total < best.total ? store : best))
+  const mostExpensive = priorityStores.reduce((worst, store) => (store.total > worst.total ? store : worst))
   const potentialSavings = mostExpensive.total - cheapest.total
 
   return (

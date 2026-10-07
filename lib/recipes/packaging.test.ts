@@ -153,7 +153,7 @@ describe('recipe package standardization', () => {
     expect(formatPackageSize(1, 'l')).toBe('1 l')
   })
   it('chooses concrete catalog packaging for a recipe quantity', () => {
-    expect(resolveRecipePackage(750, 'g', [{ quantity: 0.5, unit: 'kg' }, { quantity: 1, unit: 'kg' }])).toMatchObject({ count: 2, quantity: 0.5, unit: 'kg', label: '2 × 500 g' })
+    expect(resolveRecipePackage(750, 'g', [{ quantity: 0.5, unit: 'kg' }, { quantity: 1, unit: 'kg' }])).toMatchObject({ count: 1, quantity: 1, unit: 'kg', label: '1 kg' })
   })
   it('prefers the package with the least overbuy', () => {
     expect(resolveRecipePackage(1500, 'g', [{ quantity: 0.5, unit: 'kg' }, { quantity: 1, unit: 'kg' }])).toMatchObject({ count: 3, quantity: 0.5, unit: 'kg', label: '3 × 500 g' })

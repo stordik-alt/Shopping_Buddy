@@ -569,6 +569,14 @@ export function AppShell({
                       </CollapsibleSection>
                     }
                   />
+                  <PantryCheckCard
+                    toCheck={pantryItems.filter((item) => needsCheck(item, likelyGonePantryIds)).length}
+                    onCheck={() => {
+                      openPantryCheck()
+                      setTab('Zásoby')
+                    }}
+                    onOpen={() => setTab('Zásoby')}
+                  />
                   <TodayMeals
                     meals={todaysMeals(mealPlan, today)}
                     onOpen={() => {
@@ -579,14 +587,6 @@ export function AppShell({
                       setFocus({ kind: 'meal', day, mealType })
                       setTab('Recepty')
                     }}
-                  />
-                  <PantryCheckCard
-                    toCheck={pantryItems.filter((item) => needsCheck(item, likelyGonePantryIds)).length}
-                    onCheck={() => {
-                      openPantryCheck()
-                      setTab('Zásoby')
-                    }}
-                    onOpen={() => setTab('Zásoby')}
                   />
                   <PreferredDeals
                     hasPreferences={household.preferences.preferredProducts.length + household.preferences.preferredBrands.length > 0}

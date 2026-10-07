@@ -47,7 +47,7 @@
 ## Phase F — Product hardening
 Progress 2026-09-29 (audit, `docs/01_CURRENT_STATE.md`): error pages, basic security headers, receipt upload limit and CI database-test job are done; Content-Security-Policy is in place (same-origin only, `unsafe-inline` for scripts), Playwright smoke tests are open; splitting `app-shell.tsx` (PR #156) and reduced-motion support are done. Basic observability (`/api/health`) and the backup/recovery strategy (`docs/09_BACKUP_RECOVERY.md`, `pnpm db:backup`) are in place; stored cron history and failure alerting are open.
 Phase F smoke-test scope: Playwright runs against an isolated PostgreSQL test database with the existing local Better Auth fallback, never production. The first suite covers the public intro, sign-up, authenticated home load, protected navigation to Nákup/Zásoby/Rozpočet/Recepty, and a clean teardown of the created test household/account. Recipe source websites are not called by the smoke suite; external network behaviour remains covered by unit/fixture tests.
-- security audit
+- security audit — hardening implemented (OCR retry rate limit, dependency audit, CodeQL, Dependabot); signed-in CSP/Playwright verification remains intentionally deferred
 - accessibility
 - performance
 - observability

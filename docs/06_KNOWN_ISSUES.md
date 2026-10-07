@@ -14,9 +14,8 @@ This is a living list. Remove an item only after the fix is verified.
 - Ambiguous OCR output must not be treated as certain data.
 
 ## Infrastructure / verification
-- The CI `database` job skips itself until the repository secret `TEST_DATABASE_URL` (Neon test branch) is added, so database-backed tests (server actions, receipt routes, `lib/db`) currently run only locally (`pnpm test`).
-- The Content-Security-Policy in `next.config.mjs` still allows `'unsafe-inline'` scripts (no nonces).
-- `retryReceiptImportAction` is not counted by the receipt upload limit (30 per household per 24 h).
+- Playwright smoke tests remain intentionally disabled in CI after repeated failures during earlier iterations; they are a deferred verification task, not a blocker for the current security hardening.
+- OCR processing attempts, including retries, are now protected by an atomic 30-attempt rolling 24-hour household limit; the dedicated database test must remain in the database CI suite.
 - Vercel build/deployment must be explicitly checked after relevant changes.
 - Neon migrations must be verified against the real development database before production use.
 

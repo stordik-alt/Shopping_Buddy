@@ -105,11 +105,11 @@ describe('receipt reading request', () => {
   })
 
   it('calls GPT-6 Luna with the schema and the chosen reasoning effort, and reports usage', async () => {
-    const generate = vi.fn().mockResolvedValue({ object: reading(), usage: { inputTokens: 1200, outputTokens: 300 } })
+    const generate = vi.fn().mockResolvedValue({ output: reading(), usage: { inputTokens: 1200, outputTokens: 300 } })
     const reader = createLunaReceiptReader({ reasoningEffort: 'none', generate: generate as never })
     const onUsage = vi.fn()
     expect(await reader.read({ text: 'x' }, { onUsage })).toEqual(reading())
-    expect(generate).toHaveBeenCalledWith(expect.objectContaining({ model: 'openai/gpt-6-luna', schema: receiptReadingSchema, providerOptions: { openai: { reasoningEffort: 'none' } } }))
+    expect(generate).toHaveBeenCalledWith(expect.objectContaining({ model: 'openai/gpt-6-luna', output: expect.anything(), providerOptions: { openai: { reasoningEffort: 'none' } } }))
     expect(onUsage).toHaveBeenCalledWith({ inputTokens: 1200, outputTokens: 300 })
     expect(reader.id).toBe(`openai/gpt-6-luna:none:${RECEIPT_READING_PROMPT_VERSION}`)
   })

@@ -651,7 +651,7 @@ export function ShoppingList({
 
       <StoreComparison
         items={items}
-        productPrices={productPrices}
+
         stores={stores}
         plan={planResult?.plan ?? null}
         planInputKey={planInputKey}

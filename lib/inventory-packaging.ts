@@ -15,11 +15,15 @@ export type InventoryPackageCandidate = {
 export type InventoryPackage = InventoryPackageCandidate & { packageCount: number }
 
 export function resolveInventoryPackage(name: string, packages: InventoryPackageCandidate[]): InventoryPackage | null {
-  const explicit = extractExplicitPackageSizes(name)
-  const matches = packages.filter((pkg) =>
+  const multipacks = packages.filter((pkg) =>
     pkg.packageCount != null &&
     pkg.packageCount > 1 &&
-    pkg.packageUnit != null &&
+    pkg.packageUnit != null,
+  )
+  if (multipacks.length === 1) return multipacks[0] as InventoryPackage
+
+  const explicit = extractExplicitPackageSizes(name)
+  const matches = multipacks.filter((pkg) =>
     explicit.some((candidate) => candidate.quantity === pkg.quantity && candidate.unit === pkg.unit),
   )
   if (matches.length !== 1) return null

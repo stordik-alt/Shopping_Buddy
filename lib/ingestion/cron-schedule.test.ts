@@ -15,7 +15,7 @@ const flyerSources = new Set(['penny_flyer', 'billa_flyer', 'lidl_flyer'])
 
 describe('price ingestion cron schedule', () => {
   it('runs every rotating catalog source on exactly one weekday per week', () => {
-    for (const { source } of PRICE_SOURCES) {
+    for (const { source, parts } of PRICE_SOURCES) {
       if (flyerSources.has(source) || parts <= 1) continue
       const runs = runsForSource(source)
       expect(runs.length, source).toBeGreaterThanOrEqual(1)

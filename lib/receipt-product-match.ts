@@ -160,7 +160,17 @@ function oneSubstitutionApart(a: string, b: string): boolean {
   return true
 }
 
-export type ReceiptCandidate = { productId: string; name: string; storeIds: string[] }
+export type ReceiptPackageReference = {
+  resolution: 'concrete' | 'range' | 'unspecified'
+  options: { canonical_quantity: number; canonical_unit: 'ks' | 'kg' | 'l' }[]
+}
+
+export type ReceiptCandidate = {
+  productId: string
+  name: string
+  storeIds: string[]
+  seedPackageReferences?: ReceiptPackageReference[]
+}
 export type ScoredCandidate = ReceiptCandidate & { score: number }
 
 /** How well `candidate` fits a receipt line, or null when it does not: at least two thirds of the
@@ -168,6 +178,25 @@ export type ScoredCandidate = ReceiptCandidate & { score: number }
  *  a word start, every product word the line does not mention costs a little (the plain product
  *  outranks a longer one built on it — "Máslo" before "Máslové sušenky"), an agreeing package size
  *  adds and a different one subtracts, and a product sold at the receipt's own chain wins a tie. */
+function seedPackageScore(lineSize: number | null, references: ReceiptPackageReference[] | undefined): number {
+  if (lineSize == null || !references?.length) return 0
+  let best = 0
+  for (const reference of references) {
+    if (reference.resolution === 'unspecified') continue
+    const sizes = reference.options
+      .map((option) => option.canonical_unit === 'kg' ? option.canonical_quantity * 1000 : option.canonical_unit === 'l' ? option.canonical_quantity * 1000 : option.canonical_quantity)
+      .filter((size) => Number.isFinite(size) && size > 0)
+    if (!sizes.length) continue
+    if (reference.resolution === 'range') {
+      const min = Math.min(...sizes)
+      const max = Math.max(...sizes)
+      if (lineSize >= min && lineSize <= max) best = Math.max(best, 2)
+      else best = Math.max(best, -1.5)
+    }
+  }
+  return best
+}
+
 export function scoreReceiptCandidate(line: { words: string[]; size: number | null; storeId: string | null; ownBrand?: string | null }, candidate: ReceiptCandidate): number | null {
   if (line.words.length === 0) return null
   const productWords = receiptWordsOfProduct(candidate.name)
@@ -195,6 +224,7 @@ export function scoreReceiptCandidate(line: { words: string[]; size: number | nu
   let score = (points / line.words.length) * 10 - (productWords.length - used.size) * 0.3
   const size = packageSize(candidate.name)
   if (line.size != null && size != null) score += Math.abs(line.size - size) <= Math.max(1, line.size * 0.02) ? 2 : -4
+  score += seedPackageScore(line.size, candidate.seedPackageReferences)
   if (line.storeId && candidate.storeIds.includes(line.storeId)) score += 0.5
   // The brand word is not one of the line's words, so it is neither required nor penalised as left over.
   if (line.ownBrand && productWords.includes(line.ownBrand)) score += 1.5 + 0.3

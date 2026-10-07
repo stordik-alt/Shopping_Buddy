@@ -343,6 +343,28 @@ export const productSeedRefs = pgTable('product_seed_refs', {
   index('product_seed_refs_product_idx').on(table.productId),
 ])
 
+// Seed package/reference data is deliberately separate from product_packages. A range such as
+// "1–3 l" is reference evidence for OCR matching, not a sellable package and must never become one.
+export const seedPackageReferences = pgTable('seed_package_references', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  seedId: text('seed_id').notNull(),
+  productId: uuid('product_id').references(() => products.id, { onDelete: 'cascade' }),
+  sourceDocument: text('source_document').notNull(),
+  sourcePage: integer('source_page').notNull(),
+  category: text('category').notNull(),
+  subcategory: text('subcategory').notNull(),
+  brand: text('brand'),
+  productFamily: text('product_family').notNull(),
+  resolution: text('resolution').notNull(),
+  packageOptions: jsonb('package_options').notNull().default([]),
+  normalizationStatus: text('normalization_status').notNull(),
+  importedAt: timestamp('imported_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('seed_package_references_seed_id_unique').on(table.seedId),
+  index('seed_package_references_product_idx').on(table.productId),
+  index('seed_package_references_resolution_idx').on(table.resolution),
+])
+
 export const productExternalRefs = pgTable(
   'product_external_refs',
   {

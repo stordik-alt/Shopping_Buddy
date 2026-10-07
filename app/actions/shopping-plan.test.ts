@@ -335,7 +335,38 @@ describe('buildShoppingPlanAction', () => {
     expect(linesOf(narrowed.plan).map((line) => line.productId)).toEqual([breast])
   })
 
-describe('pinning', () => {
+it('calculates the full open basket cost separately for each priority chain', async () => {
+    const bread = await addProduct(`Chléb celý košík ${tag}`)
+    const milk = await addProduct(`Mléko celý košík ${tag}`)
+    await addPrice(bread, lidlId, 10, 10, 'ks')
+    await addPrice(bread, billaId, 20, 20, 'ks')
+    await addPrice(milk, lidlId, 30, 30, 'ks')
+    await addPrice(milk, billaId, 5, 5, 'ks')
+    await addItem(`Chléb celý košík ${tag}`)
+    await addItem(`Mléko celý košík ${tag}`)
+
+    await saveMemberStoreSelection(memberId, {
+      maxDistanceKm: null,
+      chainIds: [lidlId, billaId],
+      locationIds: [],
+      priorityChainIds: [lidlId, billaId],
+      maxShopStores: 2,
+    })
+
+    const result = await buildShoppingPlanAction({ maxStores: 2, priorityChainIds: [lidlId, billaId] })
+    expect(result.singleStoreTotals.find((store) => store.storeId === lidlId)).toMatchObject({
+      total: 40,
+      itemsPriced: 2,
+      itemsEstimated: 0,
+    })
+    expect(result.singleStoreTotals.find((store) => store.storeId === billaId)).toMatchObject({
+      total: 25,
+      itemsPriced: 2,
+      itemsEstimated: 0,
+    })
+  })
+
+  describe('pinning', () => {
   it('replaces the pin for the same item and chain, and keeps one pin per item and chain', async () => {
     const a = await addProduct(`Med ${tag} a`)
     const b = await addProduct(`Med ${tag} b`)

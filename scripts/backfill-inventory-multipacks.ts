@@ -32,7 +32,7 @@ const purchased = await db
   .select({
     householdId: schema.purchases.householdId,
     productId: schema.purchaseItems.productId,
-    packageQuantity: sql<number>`coalesce(sum(${schema.purchaseItems.quantity}), 0)`,
+    packageQuantity: sql<number>`coalesce(sum(${schema.purchaseItems.quantity})::double precision, 0)`,
     latestPurchaseDate: sql<string | null>`max(${schema.purchases.date})`,
   })
   .from(schema.purchaseItems)

@@ -20,6 +20,7 @@ import type { ReceiptListPair } from '@/lib/receipt-list-match'
 import { type ExtractedReceipt, type ReceiptLineItem } from '@/lib/receipts'
 import { HEIC_UNSUPPORTED_MESSAGE } from '@/lib/receipt-upload'
 import { mayUploadReceipt, RECEIPT_UPLOAD_LIMIT_MESSAGE, RECEIPT_UPLOAD_WINDOW_MS } from '@/lib/receipt-upload-limit'
+import { reserveReceiptOcrAttempt } from '@/lib/receipt-ocr-rate-limit'
 import { deleteReceiptFile, putReceiptFile } from '@/lib/storage'
 import type { PurchaseRecord } from '@/lib/types'
 import {
@@ -197,6 +198,8 @@ async function toReceiptImportResult(householdId: string, row: typeof schema.rec
 export async function processUploadedReceiptAction(receiptImportId: string): Promise<ReceiptImportResult> {
   const householdId = await requireHouseholdId()
   await assertOwnsReceiptImport(householdId, receiptImportId)
+  const rateLimit = await reserveReceiptOcrAttempt(householdId)
+  if (!rateLimit.allowed) throw new Error(rateLimit.error)
   if (!(await claimReceiptImport(householdId, receiptImportId, ['uploaded']))) {
     throw new Error('Tento import se už zpracovává nebo je zpracovaný.')
   }
@@ -211,6 +214,8 @@ export async function processUploadedReceiptAction(receiptImportId: string): Pro
 export async function retryReceiptImportAction(receiptImportId: string): Promise<ReceiptImportResult> {
   const householdId = await requireHouseholdId()
   await assertOwnsReceiptImport(householdId, receiptImportId)
+  const rateLimit = await reserveReceiptOcrAttempt(householdId)
+  if (!rateLimit.allowed) throw new Error(rateLimit.error)
   if (!(await claimReceiptImport(householdId, receiptImportId, ['ocr_failed', 'parsing_failed', 'uploaded']))) {
     throw new Error('Tento import nelze znovu spustit — není ve stavu chyby.')
   }

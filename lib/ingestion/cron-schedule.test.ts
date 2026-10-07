@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { PRICE_SOURCES } from '@/lib/ingestion/ingest'
 
-// Catalog refreshes run once per week per source. Large catalogs batch two rotating parts per cron
+// Catalog refreshes run once per week per source. Large catalogs batch up to three rotating parts per cron
 // invocation to reduce DB wakeups; flyer OCR jobs keep their publication-cycle continuation runs.
 type Cron = { path: string; schedule: string }
 const crons: Cron[] = JSON.parse(readFileSync(join(process.cwd(), 'vercel.json'), 'utf8')).crons

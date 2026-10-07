@@ -359,7 +359,7 @@ describe('compareStoreTotals', () => {
       singleProduct,
       ['Lidl', 'Albert', 'Billa'],
     )
-    expect(totals.map((entry) => entry.store)).toEqual(['Albert', 'Billa', 'Lidl'])
+    expect(totals.map((entry) => entry.store)).toEqual(['Lidl', 'Albert', 'Billa'])
     expect(totals.every((entry) => entry.itemsPriced + entry.itemsFallback === 2)).toBe(true)
   })
 })

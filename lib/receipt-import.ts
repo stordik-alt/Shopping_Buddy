@@ -11,6 +11,7 @@ import { getDb } from '@/lib/db/client'
 import { invalidateProductPriceCache } from '@/lib/db/cache-invalidation'
 import { getProductCatalogByIds, recordPriceObservation, restockPantryItem, upsertProductCatalogDefaults } from '@/lib/db/queries'
 import { getProductCatalogCached, getSubcategoryCatalogCached } from '@/lib/db/cached-reads'
+import { purchasedInventoryQuantity } from '@/lib/inventory-packaging'
 import * as schema from '@/lib/db/schema'
 import { applyLearnedExpenseDefaults, recomputePurchaseExpenses } from '@/lib/db/purchase-items'
 import { classifySubcategoryByKeyword, isValidProductSubcategory } from '@/lib/product-subcategories'
@@ -408,12 +409,13 @@ export async function createPurchaseFromReceiptItems(
   // like any other line — but must never become a pantry row (spec sections 14/15). Skipped here
   // only, so nothing else about the line's accounting changes.
   for (const item of resolvedItems.filter((item) => !item.nonInventory)) {
+    const inventory = await purchasedInventoryQuantity({ productId: item.productId, name: item.name, quantity: item.quantity, unit: item.unit })
     await restockPantryItem(householdId, {
       productId: item.productId,
       name: item.name,
       category: item.category,
-      quantity: item.quantity,
-      unit: item.unit,
+      quantity: inventory.quantity,
+      unit: inventory.unit,
       location: item.location,
       subcategoryId: subcategoryId(item.category, item.subcategory),
     })

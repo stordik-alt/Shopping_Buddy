@@ -172,6 +172,9 @@ export type PantryItem = {
   customPlaceId?: string | null
   quantity: number
   unit: ItemUnit
+  /** For expanded multipacks, the quantity/unit of one physical piece (e.g. 1.5 l per bottle). */
+  unitQuantity?: number | null
+  unitUnit?: ItemUnit | null
   addedAt: string
   askedAt?: string
   /** How closely it is watched (lib/pantry.ts PANTRY_TRACKING); absent in old fixtures = 'normal'. */

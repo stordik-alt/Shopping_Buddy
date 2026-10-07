@@ -63,7 +63,7 @@ function round3(value: number): number {
  *  there's nothing to type. Quantity is clamped to 0 client-side too (defense in depth — the
  *  server, `adjustPantryItemQuantityAction`, is the actual authority and rejects negative values
  *  regardless). */
-function QuantityStepper({ quantity, unit, onChange }: { quantity: number; unit: ItemUnit; onChange: (quantity: number) => void }) {
+function QuantityStepper({ quantity, unit, unitQuantity, unitUnit, onChange }: { quantity: number; unit: ItemUnit; unitQuantity?: number | null; unitUnit?: ItemUnit | null; onChange: (quantity: number) => void }) {
   const [draft, setDraft] = useState<string | null>(null)
   const step = PANTRY_QUANTITY_STEP[unit]
 
@@ -96,6 +96,9 @@ function QuantityStepper({ quantity, unit, onChange }: { quantity: number; unit:
         className="h-11 w-16 rounded-xl border border-input bg-background px-1 text-center text-base outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
       />
       <span className="min-w-6 text-sm text-fg-muted">{unit}</span>
+      {unitQuantity != null && unitUnit && !(unitQuantity === 1 && unitUnit === 'ks') && (
+        <span className="whitespace-nowrap text-xs text-fg-muted">· {String(unitQuantity).replace('.', ',')} {unitUnit}</span>
+      )}
       <button
         type="button"
         aria-label={`Přidat ${unit}`}
@@ -465,7 +468,7 @@ export function Pantry({
                   {likelyGone.has(item.id) && ` · ${estimateReason(estimates.get(item.id)!)}`}
                 </span>
               </div>
-              <QuantityStepper quantity={item.quantity} unit={item.unit} onChange={(quantity) => onAdjustQuantity(item.id, quantity)} />
+              <QuantityStepper quantity={item.quantity} unit={item.unit} unitQuantity={item.unitQuantity} unitUnit={item.unitUnit} onChange={(quantity) => onAdjustQuantity(item.id, quantity)} />
               {/* Grouped so the two icon buttons wrap onto a new line together on a narrow phone, not one by one. */}
               <div className="ml-auto flex items-center">
                 <button type="button" aria-label={`Ještě mám: ${item.name}`} onClick={() => onConfirm(item.id)} className="icon-button hover:!bg-success-subtle hover:!text-success">

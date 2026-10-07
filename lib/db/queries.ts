@@ -17,6 +17,7 @@ import { restockedQuantity } from '@/lib/pantry-estimate'
 import { formatOpeningHours } from '@/lib/stores/osm'
 import type { ProductPrice } from '@/lib/prices'
 import { inferPackageSize, resolveCatalogPackageSize, resolveNamedPackageSize } from '@/lib/recipes/packaging'
+import { resolveInventoryPackage } from '@/lib/inventory-packaging'
 import { distinctProductName, resolveProductForSku, type ProductCatalogEntry } from '@/lib/products'
 import { categoryWithBrand } from '@/lib/product-brands'
 import { normalizeSearchText } from '@/lib/product-search'
@@ -380,7 +381,23 @@ function queryPantryRows(householdId: string) {
   return getDb().query.pantryItems.findMany({
     where: eq(schema.pantryItems.householdId, householdId),
     orderBy: asc(schema.pantryItems.addedAt),
-    with: { subcategory: { columns: { name: true } } },
+    with: {
+      subcategory: { columns: { name: true } },
+      product: {
+        columns: { id: true },
+        with: {
+          packages: {
+            columns: {
+              quantity: true,
+              unit: true,
+              packageCount: true,
+              packageUnitQuantity: true,
+              packageUnit: true,
+            },
+          },
+        },
+      },
+    },
   })
 }
 
@@ -394,6 +411,12 @@ function toPantryItem(item: Awaited<ReturnType<typeof queryPantryRows>>[number])
     customPlaceId: item.customPlaceId,
     quantity: item.quantity,
     unit: item.unit,
+    unitQuantity: item.unit === 'ks'
+      ? resolveInventoryPackage(item.name, item.product?.packages ?? [])?.packageUnitQuantity ?? null
+      : null,
+    unitUnit: item.unit === 'ks'
+      ? resolveInventoryPackage(item.name, item.product?.packages ?? [])?.packageUnit ?? null
+      : null,
     // ISO strings: the pantry estimate and the check's order read the date part (YYYY-MM-DD).
     // `Date.toString()` ("Thu Sep 24 2026 …") made every estimate come out empty.
     addedAt: item.addedAt.toISOString(),

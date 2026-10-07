@@ -185,6 +185,95 @@ describe('completePurchaseAction — pantry restocking', () => {
   })
 })
 
+describe('multipack inventory integration', () => {
+  it('expands a purchased multipack into physical units while preserving the purchase package quantity and price', async () => {
+    const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
+    const productName = `__test_veseta_6x15_${crypto.randomUUID()}`
+    const [product] = await db.insert(schema.products).values({
+      name: productName,
+      categoryId: category!.id,
+      defaultUnit: 'ks',
+      defaultLocation: 'Spíž',
+    }).returning()
+    try {
+      await db.insert(schema.productPackages).values({
+        productId: product.id,
+        quantity: 9,
+        unit: 'l',
+        packageCount: 6,
+        packageUnitQuantity: 1.5,
+        packageUnit: 'l',
+        firstSeenAt: '2026-10-07',
+        lastSeenAt: '2026-10-07',
+      })
+      await db.insert(schema.shoppingListItems).values({
+        listId,
+        productId: product.id,
+        name: productName,
+        done: true,
+        price: '89.90',
+        quantity: 8,
+        unit: 'ks',
+        category: 'Potraviny',
+      })
+
+      const { purchases } = await completePurchaseAction(listId)
+
+      expect(purchases).toHaveLength(1)
+      expect(purchases[0].items[0]).toMatchObject({ quantity: 8, unit: 'ks', price: 89.9 })
+
+      const pantry = await db.query.pantryItems.findFirst({
+        where: eq(schema.pantryItems.householdId, householdId),
+      })
+      expect(pantry).toMatchObject({ productId: product.id, quantity: 48, unit: 'ks' })
+    } finally {
+      await db.delete(schema.products).where(eq(schema.products.id, product.id))
+    }
+  })
+
+  it('expands a manual multipack purchase and does not create an extra expense', async () => {
+    const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
+    const productName = `__test_eggs_30_${crypto.randomUUID()}`
+    const [product] = await db.insert(schema.products).values({
+      name: productName,
+      categoryId: category!.id,
+      defaultUnit: 'ks',
+      defaultLocation: 'Spíž',
+    }).returning()
+    try {
+      await db.insert(schema.productPackages).values({
+        productId: product.id,
+        quantity: 30,
+        unit: 'ks',
+        packageCount: 30,
+        packageUnitQuantity: 1,
+        packageUnit: 'ks',
+        firstSeenAt: '2026-10-07',
+        lastSeenAt: '2026-10-07',
+      })
+
+      const before = await db.query.expenses.findMany({ where: eq(schema.expenses.householdId, householdId) })
+      const { purchase } = await createManualPurchaseAction({
+        date: '2026-10-07',
+        items: [{ name: productName, quantity: 1, unit: 'ks', price: 89.9, category: 'Potraviny' }],
+      })
+
+      const pantry = await db.query.pantryItems.findFirst({
+        where: eq(schema.pantryItems.householdId, householdId),
+      })
+      expect(pantry).toMatchObject({ productId: product.id, quantity: 30, unit: 'ks' })
+      expect(await db.query.purchaseItems.findFirst({ where: eq(schema.purchaseItems.purchaseId, purchase.id) })).toMatchObject({
+        quantity: 1,
+        unit: 'ks',
+        price: '89.90',
+      })
+      expect((await db.query.expenses.findMany({ where: eq(schema.expenses.householdId, householdId) })).length).toBe(before.length + 1)
+    } finally {
+      await db.delete(schema.products).where(eq(schema.products.id, product.id))
+    }
+  })
+})
+
 describe('setPurchaseItemExpenseSplitsAction', () => {
   it('returns the household expenses after the change, so the page needs no refresh', async () => {
     const [purchase] = await db.insert(schema.purchases).values({ householdId, date: '2026-09-27', total: '500' }).returning()

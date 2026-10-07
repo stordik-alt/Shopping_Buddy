@@ -74,4 +74,55 @@ describe('deletePurchase', () => {
       await db.delete(schema.households).where(eq(schema.households.id, household.id))
     }
   })
+  
+  it('reverses the expanded physical quantity when deleting a multipack purchase', async () => {
+    const [household] = await db.insert(schema.households).values({ name: '__test_household_delete_multipack__' }).returning()
+    const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
+    const productName = `__test_delete_multipack_${crypto.randomUUID()}`
+    const [product] = await db.insert(schema.products).values({
+      name: productName,
+      categoryId: category!.id,
+      defaultUnit: 'ks',
+      defaultLocation: 'Spíž',
+    }).returning()
+    try {
+      await db.insert(schema.productPackages).values({
+        productId: product.id,
+        quantity: 9,
+        unit: 'l',
+        packageCount: 6,
+        packageUnitQuantity: 1.5,
+        packageUnit: 'l',
+        firstSeenAt: '2026-10-07',
+        lastSeenAt: '2026-10-07',
+      })
+      const [purchase] = await db.insert(schema.purchases).values({ householdId: household.id, date: '2026-10-07', total: '89.90' }).returning()
+      await db.insert(schema.purchaseItems).values({
+        purchaseId: purchase.id,
+        productId: product.id,
+        name: productName,
+        quantity: 8,
+        unit: 'ks',
+        price: '89.90',
+        category: 'Potraviny',
+      })
+      await db.insert(schema.pantryItems).values({
+        householdId: household.id,
+        productId: product.id,
+        name: productName,
+        quantity: 48,
+        unit: 'ks',
+        category: 'Potraviny',
+      })
+
+      await expect(deletePurchase(household.id, purchase.id)).resolves.toMatchObject({ pantryRowsChanged: 1 })
+
+      expect(await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.householdId, household.id) })).toBeUndefined()
+      expect(await db.query.purchases.findFirst({ where: eq(schema.purchases.id, purchase.id) })).toBeUndefined()
+    } finally {
+      await db.delete(schema.households).where(eq(schema.households.id, household.id))
+      await db.delete(schema.products).where(eq(schema.products.id, product.id))
+    }
+  })
+
 })

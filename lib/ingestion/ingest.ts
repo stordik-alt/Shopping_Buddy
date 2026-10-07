@@ -7,7 +7,7 @@ import {
   loadExternalProductContext,
   loadLatestOfficialPrices,
   persistNamedPackageEvidence,
-  recordOfficialPrice,
+  recordOfficialPrices,
   resolveOrCreateProductFromExternal,
   setIngestionCursor,
   touchExternalRefs,
@@ -100,6 +100,7 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
   // from run to run: both are collected here and written together after the loop, instead of one
   // round trip per product (each round trip keeps the Neon compute busy).
   const confirmations: OfficialPriceConfirmation[] = []
+  const priceObservations: Parameters<typeof recordOfficialPrices>[0] = []
   const dealWriter = batch.some((product) => product.deal)
     ? await createActiveDealWriter(storeId, batch.flatMap((product) => {
         const productId = product.deal ? context.refs.get(product.externalId) : undefined
@@ -143,29 +144,16 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
       // the source states no regular price (an offers-only source): the offer then lives only in
       // `deals`.
       if (normalized.regularPrice != null && normalized.unitPrice != null) {
-        const written = await recordOfficialPrice(
-          {
-            productId,
-            storeId,
-            sourceReference: normalized.externalId,
-            regularPrice: normalized.regularPrice,
-            currency: normalized.currency,
-            unit: normalized.unit,
-            unitPrice: normalized.unitPrice,
-            observedAt: normalized.recordedAt,
-          },
-          latestPrices.get(normalized.externalId),
-          { deferConfirm: (confirmation) => confirmations.push(confirmation) },
-        )
-        if (written.latest) latestPrices.set(normalized.externalId, written.latest)
-        if (written.action === 'insert' || written.action === 'update-same-day') {
-          result.recorded++
-          result.priceCacheChanged = true
-        }
-        else if (written.action === 'unchanged' || written.action === 'confirm') result.unchanged++
-        else result.skipped++ // stale: what is stored is newer than what was fetched
-        if (written.closedPrevious) result.priceChanges++
-
+        priceObservations.push({
+          productId,
+          storeId,
+          sourceReference: normalized.externalId,
+          regularPrice: normalized.regularPrice,
+          currency: normalized.currency,
+          unit: normalized.unit,
+          unitPrice: normalized.unitPrice,
+          observedAt: normalized.recordedAt,
+        })
       }
 
       if (normalized.package) {
@@ -204,6 +192,28 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
   }
 
   if (!result.truncated) options.onProgress?.(raws.length, raws.length)
+
+  if (priceObservations.length > 0) {
+    try {
+      const writtenPrices = await recordOfficialPrices(priceObservations, latestPrices)
+      for (const [index, written] of writtenPrices.entries()) {
+        const observation = priceObservations[index]
+        if (written.latest) latestPrices.set(observation.sourceReference, written.latest)
+        if (written.action === 'insert' || written.action === 'update-same-day') {
+          result.recorded++
+          result.priceCacheChanged = true
+        } else if (written.action === 'unchanged' || written.action === 'confirm') {
+          result.unchanged++
+          if (written.action === 'confirm' && written.latest) confirmations.push({ id: written.latest.id, confirmedAt: observation.observedAt })
+        } else {
+          result.skipped++
+        }
+        if (written.closedPrevious) result.priceChanges++
+      }
+    } catch (err) {
+      result.errors.push(`official prices (${priceObservations.length}): ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
 
   // Written even for a truncated run: these belong to the products that were processed.
   try {

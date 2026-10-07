@@ -480,6 +480,10 @@ export const prices = pgTable('prices', {
   // observation (migration 0010): these serve the lookups of that latest row and a branch's history.
   index('prices_product_context_observed_idx').on(table.productId, table.storeId, table.storeLocationId, table.priceScope, table.observedAt),
   index('prices_store_location_observed_idx').on(table.storeLocationId, table.observedAt),
+  // Ingestion loads the latest official chain price by store + retailer SKU; keep the index narrow and ordered for DISTINCT ON.
+  index('prices_official_chain_ref_observed_idx')
+    .on(table.storeId, table.sourceReference, table.observedAt.desc())
+    .where(sql`${table.priceScope} = 'CHAIN' AND ${table.sourceType} = 'OFFICIAL' AND ${table.sourceReference} IS NOT NULL`),
   uniqueIndex('prices_official_daily_unique')
     .on(table.productId, table.storeId, table.priceScope, table.sourceType, table.sourceReference, table.observedAt)
     .where(sql`${table.sourceType} = 'OFFICIAL' AND ${table.sourceReference} IS NOT NULL`),

@@ -1,12 +1,12 @@
 import { cleanMemberDiet, NO_DIET, type MemberDiet } from '@/lib/diet'
-import { and, asc, desc, eq, gte, ilike, inArray, isNull, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, ilike, inArray, isNull, sql, type SQLWrapper } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { isNotificationKind, type NotificationKind } from '@/lib/notification-kinds'
 import { periodStart } from '@/lib/budget'
 import { todayInPrague } from '@/lib/today'
 import { planOfficialPrice, type OfficialPriceAction, type OfficialPriceSnapshot } from '@/lib/ingestion/official-price'
-import { activeDealKey, dealValues, planActiveDeal, type ActiveDealSnapshot, type IngestedDeal } from '@/lib/ingestion/active-deal'
+import { activeDealKey, dealValues, planActiveDeal, type ActiveDealSnapshot, type DealValues, type IngestedDeal } from '@/lib/ingestion/active-deal'
 import { ingestionDate } from '@/lib/ingestion/today'
 import type { IngestionSource as ProductSource, NormalizedPackage } from '@/lib/ingestion/types'
 import { currentWeekStart, parseSavedPlan, type WeeklyMealPlan } from '@/lib/meal-plans'
@@ -2083,7 +2083,7 @@ export async function createActiveDealWriter(storeId: string, knownProductIds: s
       for (const part of chunks(updates, 500)) {
         if (part.length === 0) continue
         const ids = part.map(({ id }) => id)
-        const caseValue = <K extends keyof DealValues>(field: K, column: typeof schema.deals.dealPrice) => sql`CASE ${schema.deals.id} ${sql.join(part.map(({ id, values }) => sql`WHEN ${id} THEN ${values[field] ?? null}`), sql` `)} ELSE ${column} END`
+        const caseValue = (field: keyof DealValues, column: SQLWrapper) => sql`CASE ${schema.deals.id} ${sql.join(part.map(({ id, values }) => sql`WHEN ${id} THEN ${values[field] ?? null}`), sql` `)} ELSE ${column} END`
         const set: Record<string, ReturnType<typeof sql>> = {
           dealPrice: caseValue('dealPrice', schema.deals.dealPrice),
           currency: caseValue('currency', schema.deals.currency),

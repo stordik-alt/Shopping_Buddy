@@ -1,9 +1,11 @@
-# Shopping Buddy — Claude Code Instructions
+# ANITKA — Claude Code Instructions
 
 ## 1. Project Identity
 
-**Project:** Shopping Buddy
+**Project:** ANITKA
 **Repository:** `stordik-alt/Shopping_Buddy`
+
+> The repository name is historical/technical. The current product identity is **ANITKA**.
 
 Shopping Buddy is a family shopping assistant focused initially on the Czech market.
 
@@ -28,20 +30,23 @@ The application should be designed so that the Czech implementation can later be
 
 Before making architectural or backend changes, inspect these documents:
 
-1. `docs/00_PROJECT_CONTEXT.md`
+1. `docs/00_CURRENT_SOURCE_OF_TRUTH.md`
+2. `docs/00_PROJECT_CONTEXT.md`
 2. `docs/01_CURRENT_STATE.md`
 3. `docs/02_ARCHITECTURE.md`
 4. `docs/03_DATABASE.md`
 5. `docs/04_ROADMAP.md`
 6. `docs/05_BUSINESS_RULES.md`
 7. `docs/06_AI_RULES.md`
-8. `docs/07_CHANGELOG.md`
+9. `docs/07_CHANGELOG.md`
+
+`docs/00_CURRENT_SOURCE_OF_TRUTH.md` is the authoritative current-state summary. It explicitly distinguishes current production from the prepared Cloudflare future path, records verified operational decisions, and defines the evidence hierarchy.
 
 Also inspect the actual implementation and database schema.
 
 ### Important
 
-Documentation can become outdated.
+Documentation can become outdated. Current product identity is ANITKA. Current production is Vercel + Neon PostgreSQL + Cloudflare R2; Cloudflare Workers/OpenNext is a prepared future path, not current production.
 
 When documentation conflicts with verified code or the live database:
 
@@ -100,7 +105,7 @@ Current stack:
 
 * Next.js 16.3.8
 * React 19
-* TypeScript 5.7.3
+* TypeScript 5.9.3
 * Tailwind CSS 4.x
 * shadcn/ui
 * lucide-react
@@ -901,12 +906,9 @@ Do not solve duplicates by simply deleting all existing records.
 
 # 35. Documentation
 
-When functionality changes significantly:
+When functionality changes significantly, update the relevant current-state/concept documentation and `docs/07_CHANGELOG.md`.
 
-Update:
-
-* `docs/01_CURRENT_STATE.md`
-* `docs/07_CHANGELOG.md`
+The primary current-state reference is `docs/00_CURRENT_SOURCE_OF_TRUTH.md`. Historical feature documents should normally be preserved rather than rewritten.
 
 When architecture changes:
 

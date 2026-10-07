@@ -1,4 +1,4 @@
-import { and, eq, inArray, or } from 'drizzle-orm'
+import { and, eq, inArray, or, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { todayInPrague } from '@/lib/today'
@@ -169,11 +169,11 @@ async function main() {
   const typeIds = await loadProductTypeIds()
   const importDate = todayInPrague()
 
-  // Persist reference data for every seed row without promoting review rows to products/packages.
-  // Review rows may remain productId=NULL; if a ready row is imported below, its reference is linked there.
-  for (const row of rows) {
+  // Persist reference data for every seed row in one bounded batch. Review rows remain reference-only;
+  // they are never promoted to products or product_packages by this importer.
+  const referenceRows = rows.map((row) => {
     const reference = seedPackageReference(row)
-    await db.insert(schema.seedPackageReferences).values({
+    return {
       seedId: row.seedId,
       productId: null,
       sourceDocument: row.sourceDocument,
@@ -185,21 +185,23 @@ async function main() {
       resolution: reference.resolution,
       packageOptions: reference.options,
       normalizationStatus: row.normalizationStatus,
-    }).onConflictDoUpdate({
-      target: schema.seedPackageReferences.seedId,
-      set: {
-        sourceDocument: row.sourceDocument,
-        sourcePage: row.sourcePage,
-        category: row.category,
-        subcategory: row.subcategory,
-        brand: row.brand,
-        productFamily: row.productFamily,
-        resolution: reference.resolution,
-        packageOptions: reference.options,
-        normalizationStatus: row.normalizationStatus,
-      },
-    })
-  }
+    }
+  })
+  await db.insert(schema.seedPackageReferences).values(referenceRows).onConflictDoUpdate({
+    target: schema.seedPackageReferences.seedId,
+    set: {
+      sourceDocument: sql.raw('excluded.source_document'),
+      sourcePage: sql.raw('excluded.source_page'),
+      category: sql.raw('excluded.category'),
+      subcategory: sql.raw('excluded.subcategory'),
+      brand: sql.raw('excluded.brand'),
+      productFamily: sql.raw('excluded.product_family'),
+      resolution: sql.raw('excluded.resolution'),
+      packageOptions: sql.raw('excluded.package_options'),
+      normalizationStatus: sql.raw('excluded.normalization_status'),
+    },
+  })
+
   const skippedPlans = new Set(plans.filter((plan) => plan.action === 'skip').map((plan) => plan.row.seedId))
 
   let created = 0

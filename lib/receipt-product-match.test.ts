@@ -92,4 +92,22 @@ describe('ranking catalog products for a receipt line', () => {
     const result = rankReceiptCandidates('ACTIVIA JAHODA 120G', null, [product('Activia Probiotický jogurt jahoda 4x120g')])
     expect(result.confident).toBe(false)
   })
+  it('uses a seed range as a candidate constraint without treating it as a concrete package', () => {
+    const inRange = rankReceiptCandidates('PERWOLL COLOR 1,5L', null, [
+      { ...product('Perwoll Color prací gel 1,5 l'), seedPackageReferences: [{ resolution: 'range', options: [
+        { canonical_quantity: 1, canonical_unit: 'l' },
+        { canonical_quantity: 3, canonical_unit: 'l' },
+      ] }] },
+      product('Perwoll Color prací gel 4 l'),
+    ])
+    expect(inRange.suggestions[0].name).toBe('Perwoll Color prací gel 1,5 l')
+  })
+
+  it('does not let an unspecified seed reference invent a package constraint', () => {
+    const result = rankReceiptCandidates('PERSIL COLOR', null, [
+      { ...product('Persil Color prací gel'), seedPackageReferences: [{ resolution: 'unspecified', options: [] }] },
+    ])
+    expect(result.suggestions).toHaveLength(1)
+  })
+
 })

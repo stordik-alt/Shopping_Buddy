@@ -45,6 +45,10 @@
       "schedule": "30 11 * * 4"
     },
     {
+      "path": "/api/cron/ingest-prices/dm/3",
+      "schedule": "30 17 * * 4"
+    },
+    {
       "path": "/api/cron/ingest-prices/rohlik",
       "schedule": "40 5 * * 5"
     },
@@ -53,12 +57,20 @@
       "schedule": "40 13 * * 5"
     },
     {
+      "path": "/api/cron/ingest-prices/rohlik/3",
+      "schedule": "40 21 * * 5"
+    },
+    {
       "path": "/api/cron/ingest-prices/kosik",
       "schedule": "50 5 * * 6"
     },
     {
       "path": "/api/cron/ingest-prices/kosik/2",
       "schedule": "50 11 * * 6"
+    },
+    {
+      "path": "/api/cron/ingest-prices/kosik/3",
+      "schedule": "50 17 * * 6"
     },
     {
       "path": "/api/cron/ingest-prices/globus",

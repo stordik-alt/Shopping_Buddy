@@ -166,7 +166,7 @@ export function ReceiptImport({
           <X className="size-5" aria-hidden="true" />
         </button>
       </div>
-      {lastOcrProvider && <p className="mt-3 rounded-xl bg-muted px-3 py-2 text-xs text-fg-muted">Poslední OCR: {ocrProviderLabel(lastOcrProvider)}</p>}
+      {lastOcrProvider && <p className="mt-3 rounded-xl bg-muted px-3 py-2 text-sm text-fg-muted">Poslední OCR: {ocrProviderLabel(lastOcrProvider)}</p>}
       {/* Two ways in, so a new photo comes out in a format the OCR reads. Taking the photo: only JPEG
           and `capture`, so the phone opens its camera directly — a camera started by another app
           returns a JPEG even when the phone saves its own photos as HEIF ("high efficiency"). With
@@ -203,7 +203,7 @@ export function ReceiptImport({
           <ImageUp className="text-accent-text" aria-hidden="true" /> Nahrát z galerie nebo PDF
         </Button>
       </div>
-      <p className="mt-2 text-xs text-fg-muted">Z galerie JPG, PNG, WebP nebo PDF</p>
+      <p className="mt-2 text-sm text-fg-muted">Z galerie JPG, PNG, WebP nebo PDF</p>
       {progress && <ReceiptProgressSteps progress={progress} />}
       {error && (
         <p role="alert" className="mt-2 text-sm text-destructive">

@@ -1,6 +1,6 @@
 'use server'
 
-import { eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
 import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
@@ -14,6 +14,8 @@ import { assessDealQuality, effectivePrice } from '@/lib/prices'
 import { guessItemCategory } from '@/lib/categorization'
 import { matchProductByName } from '@/lib/products'
 import { validProductTypeKeys } from '@/lib/product-types'
+import { canonicalPackageUnit } from '@/lib/recipes/packaging'
+import type { CatalogPackage } from '@/lib/recipes/packaging'
 import type { Item, Notification } from '@/lib/types'
 
 // No revalidatePath in this file: each of these saves is already shown by components/app-shell.tsx from its
@@ -56,6 +58,35 @@ function toItem(row: typeof schema.shoppingListItems.$inferSelect): Item {
  *  makes the add idempotent: an add whose answer never reached the phone (a reload or a dropped
  *  connection while it was in flight) is replayed from the offline queue, and the second insert finds
  *  the row already there and returns it instead of adding a duplicate. */
+export async function resolveRecipePackageHintsAction(names: string[]): Promise<Record<string, CatalogPackage[]>> {
+  await requireHouseholdId()
+  const uniqueNames = [...new Set(names.map((name) => name.trim()).filter(Boolean))].slice(0, 100)
+  if (uniqueNames.length === 0) return {}
+  const catalog = await getProductCatalogCached(uniqueNames)
+  const byName = new Map(catalog.map((product) => [product.name.trim().toLocaleLowerCase(), product]))
+  const productIds = [...new Set(catalog.map((product) => product.id))]
+  if (productIds.length === 0) return {}
+  const db = getDb()
+  const rows = await db.query.productPackages.findMany({ where: inArray(schema.productPackages.productId, productIds), columns: { productId: true, quantity: true, unit: true } })
+  const packagesByProduct = new Map<string, CatalogPackage[]>()
+  for (const row of rows) {
+    const unit = canonicalPackageUnit(row.unit)
+    if (!unit) continue
+    const quantity = row.unit === 'g' || row.unit === 'ml' ? Number(row.quantity) / 1000 : Number(row.quantity)
+    if (!Number.isFinite(quantity) || quantity <= 0) continue
+    const list = packagesByProduct.get(row.productId) ?? []
+    list.push({ quantity, unit })
+    packagesByProduct.set(row.productId, list)
+  }
+  const hints: Record<string, CatalogPackage[]> = {}
+  for (const name of uniqueNames) {
+    const product = byName.get(name.toLocaleLowerCase())
+    const packages = product ? packagesByProduct.get(product.id) ?? [] : []
+    if (packages.length > 0) hints[name] = packages
+  }
+  return hints
+}
+
 export async function addShoppingItemAction(
   listId: string,
   name: string,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { extractExplicitPackageSizes, formatPackageSize, inferPackageSize, resolveCatalogPackageSize, resolveNamedPackageSize } from '@/lib/recipes/packaging'
+import { extractExplicitPackageSizes, formatPackageSize, inferPackageSize, resolveCatalogPackageSize, resolveNamedPackageSize, resolveRecipePackage } from '@/lib/recipes/packaging'
 import type { PricePoint } from '@/lib/prices'
 
 const price = (regularPrice: number, unitPrice: number, unit: PricePoint['unit'] = 'kg'): PricePoint => ({
@@ -151,5 +151,14 @@ describe('recipe package standardization', () => {
   it('formats canonical package labels', () => {
     expect(formatPackageSize(0.25, 'kg')).toBe('250 g')
     expect(formatPackageSize(1, 'l')).toBe('1 l')
+  })
+  it('chooses concrete catalog packaging for a recipe quantity', () => {
+    expect(resolveRecipePackage(750, 'g', [{ quantity: 0.5, unit: 'kg' }, { quantity: 1, unit: 'kg' }])).toMatchObject({ count: 1, quantity: 1, unit: 'kg', label: '1 kg' })
+  })
+  it('prefers the package with the least overbuy', () => {
+    expect(resolveRecipePackage(1500, 'g', [{ quantity: 0.5, unit: 'kg' }, { quantity: 1, unit: 'kg' }])).toMatchObject({ count: 3, quantity: 0.5, unit: 'kg', label: '3 × 500 g' })
+  })
+  it('returns no package for incompatible units', () => {
+    expect(resolveRecipePackage(500, 'g', [{ quantity: 1, unit: 'l' }])).toBeNull()
   })
 })

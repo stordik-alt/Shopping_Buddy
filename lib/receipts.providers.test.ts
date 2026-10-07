@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // Vercel OIDC helper and `generateText` are all faked, so these tests pin down request
 // construction, response parsing and error reporting without credentials, network or cost.
 // (Real OCR/model output quality is a separate matter and is not covered by any test.)
-const generateObjectMock = vi.fn()
-vi.mock('ai', () => ({ generateObject: (...args: unknown[]) => generateObjectMock(...args) }))
+const generateTextMock = vi.fn()
+vi.mock('ai', () => ({ generateText: (...args: unknown[]) => generateTextMock(...args) }))
 const getVercelOidcTokenMock = vi.fn()
 vi.mock('@vercel/oidc', () => ({ getVercelOidcToken: () => getVercelOidcTokenMock() }))
 
@@ -41,7 +41,7 @@ beforeEach(() => {
     delete process.env[key]
   }
   fetchMock.mockReset()
-  generateObjectMock.mockReset()
+  generateTextMock.mockReset()
   getVercelOidcTokenMock.mockReset()
   vi.stubGlobal('fetch', fetchMock)
 })
@@ -308,12 +308,12 @@ describe('geminiStructuringProvider', () => {
   }
 
   it('sends the OCR text to the cheap structuring model with the receipt schema and returns the structured object', async () => {
-    generateObjectMock.mockResolvedValue({ object: extraction })
+    generateTextMock.mockResolvedValue({ output: extraction })
 
     const result = await geminiStructuringProvider.structure('LIDL\nMléko 24,90')
 
     expect(result).toBe(extraction)
-    const call = generateObjectMock.mock.calls[0][0]
+    const call = generateTextMock.mock.calls[0][0]
     expect(call.model).toBe('google/gemini-2.5-flash-lite')
     expect(call.prompt).toContain('LIDL\nMléko 24,90')
     // The schema is what stops a malformed response from being returned as partial data.
@@ -322,9 +322,9 @@ describe('geminiStructuringProvider', () => {
   })
 
   it('tells the model to output null rather than guess, and defines how discounts are reported', async () => {
-    generateObjectMock.mockResolvedValue({ object: extraction })
+    generateTextMock.mockResolvedValue({ output: extraction })
     await geminiStructuringProvider.structure('x')
-    const { prompt } = generateObjectMock.mock.calls[0][0]
+    const { prompt } = generateTextMock.mock.calls[0][0]
     expect(prompt).toContain('Never invent or estimate a value')
     expect(prompt).toContain('output null')
     expect(prompt).toContain('BEFORE any discount')
@@ -334,7 +334,7 @@ describe('geminiStructuringProvider', () => {
   })
 
   it('lets a model/gateway failure propagate so the caller can record parsing_failed', async () => {
-    generateObjectMock.mockRejectedValue(new Error('model overloaded'))
+    generateTextMock.mockRejectedValue(new Error('model overloaded'))
     await expect(geminiStructuringProvider.structure('x')).rejects.toThrow('model overloaded')
   })
 })

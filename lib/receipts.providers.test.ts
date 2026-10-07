@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // construction, response parsing and error reporting without credentials, network or cost.
 // (Real OCR/model output quality is a separate matter and is not covered by any test.)
 const generateTextMock = vi.fn()
-vi.mock('ai', () => ({ generateText: (...args: unknown[]) => generateTextMock(...args) }))
+vi.mock('ai', async (importOriginal) => { const actual = await importOriginal<typeof import('ai')>(); return { ...actual, generateText: (...args: unknown[]) => generateTextMock(...args) } })
 const getVercelOidcTokenMock = vi.fn()
 vi.mock('@vercel/oidc', () => ({ getVercelOidcToken: () => getVercelOidcTokenMock() }))
 

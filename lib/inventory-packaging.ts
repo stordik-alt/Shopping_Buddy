@@ -4,23 +4,26 @@ import * as schema from '@/lib/db/schema'
 import { extractExplicitPackageSizes } from '@/lib/recipes/packaging'
 import type { ItemUnit } from '@/lib/types'
 
-export type InventoryPackage = {
+export type InventoryPackageCandidate = {
   quantity: number
   unit: 'ks' | 'kg' | 'l'
-  packageCount: number
+  packageCount: number | null
   packageUnitQuantity: number | null
   packageUnit: ItemUnit | null
 }
 
-export function resolveInventoryPackage(name: string, packages: InventoryPackage[]): InventoryPackage | null {
+export type InventoryPackage = InventoryPackageCandidate & { packageCount: number }
+
+export function resolveInventoryPackage(name: string, packages: InventoryPackageCandidate[]): InventoryPackage | null {
   const explicit = extractExplicitPackageSizes(name)
   const matches = packages.filter((pkg) =>
+    pkg.packageCount != null &&
     pkg.packageCount > 1 &&
     pkg.packageUnit != null &&
     explicit.some((candidate) => candidate.quantity === pkg.quantity && candidate.unit === pkg.unit),
   )
   if (matches.length !== 1) return null
-  return matches[0]
+  return matches[0] as InventoryPackage
 }
 
 export async function purchasedInventoryQuantity(item: {
@@ -44,14 +47,7 @@ export async function purchasedInventoryQuantity(item: {
     },
   })
 
-  const pkg = resolveInventoryPackage(
-    item.name,
-    packages.filter((row): row is InventoryPackage =>
-      row.packageCount != null &&
-      row.packageCount > 1 &&
-      row.unit === 'ks' || row.unit === 'kg' || row.unit === 'l',
-    ),
-  )
+  const pkg = resolveInventoryPackage(item.name, packages)
   if (!pkg) return { quantity: item.quantity, unit: item.unit, unitQuantity: null, unitUnit: null }
 
   return {

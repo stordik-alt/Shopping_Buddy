@@ -468,6 +468,31 @@ export function resolveListItemTypes(name: string): ListItemTypes | null {
   return key ? ITEM_PHRASE_INDEX.get(key) ?? null : null
 }
 
+
+/** Whether existing stock of one catalog type can satisfy a recipe/list request for another type.
+ *  This is deliberately a small domain substitution table, not fuzzy matching: a whole chicken can
+ *  supply one requested chicken-breast piece, while unrelated chicken products (e.g. chicken ham)
+ *  never satisfy a chicken-meat request. */
+export function stockTypeCanSatisfyRequestedType(stockTypeKey: string, requestedTypeKey: string): boolean {
+  if (stockTypeKey === requestedTypeKey) return true
+  if (stockTypeKey === 'kure-cele' && ['kureci-prsa', 'kureci-stehna', 'kureci-kridla'].includes(requestedTypeKey)) return true
+  return false
+}
+
+const NON_PLAIN_MEAT_VARIANTS = ['marinov', 'koren', 's pepr', 's soli', 's bylink', 's cesnek', 'grilov', 'uzen']
+
+/** Automatic recipe/list matching must not silently substitute a seasoned or otherwise prepared meat
+ * variant for a plain specific meat cut. An explicitly pinned product remains an explicit user choice. */
+export function isPlainProductVariantSuitableForRequest(requestName: string, productName: string): boolean {
+  const requestType = resolveListItemTypes(requestName)
+  if (!requestType || requestType.kind !== 'type') return true
+  if (!requestType.key.startsWith('kureci-') && !requestType.key.startsWith('kure-') && !requestType.key.startsWith('vepro') && !requestType.key.startsWith('hovezi') && !requestType.key.startsWith('kruti')) return true
+  const requestText = normalizeProductText(requestName)
+  if (NON_PLAIN_MEAT_VARIANTS.some((variant) => requestText.includes(variant))) return true
+  const productText = normalizeProductText(productName)
+  return !NON_PLAIN_MEAT_VARIANTS.some((variant) => productText.includes(variant))
+}
+
 /** Every phrase and what it resolves to — for the tests' collision check. */
 export function listItemPhraseEntries(): { phrase: string; key: string }[] {
   return phraseEntries().map((entry) => ({ phrase: entry.phrase, key: entry.value.key }))

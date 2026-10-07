@@ -1920,7 +1920,9 @@ export async function pruneFlyerPages(source: ProductSource, before: string): Pr
   return removed.length
 }
 
-/** Marks external products as seen just now, in one statement per chunk instead of one per product. */
+/** Marks external products as seen, but only when the previous observation is at least a day old.
+ * Ingestion can read the same SKU several times in one day (multiple retailer cron parts/manual runs);
+ * rewriting `last_seen_at` on every read is pure DB write traffic and does not add information. */
 export async function touchExternalRefs(source: ProductSource, externalIds: string[]): Promise<void> {
   const db = getDb()
   const CHUNK = 500
@@ -1928,7 +1930,11 @@ export async function touchExternalRefs(source: ProductSource, externalIds: stri
     await db
       .update(schema.productExternalRefs)
       .set({ lastSeenAt: new Date() })
-      .where(and(eq(schema.productExternalRefs.source, source), inArray(schema.productExternalRefs.externalId, externalIds.slice(i, i + CHUNK))))
+      .where(and(
+        eq(schema.productExternalRefs.source, source),
+        inArray(schema.productExternalRefs.externalId, externalIds.slice(i, i + CHUNK)),
+        sql`${schema.productExternalRefs.lastSeenAt} < now() - interval '1 day'`,
+      ))
   }
 }
 

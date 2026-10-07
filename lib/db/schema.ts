@@ -796,6 +796,12 @@ export const pantryItems = pgTable('pantry_items', {
 // turns them into a real purchase immediately. Kept as its own row (not just a purchases row) so a
 // later OCR provider's raw output/confidence stays auditable and reprocessable, matching CLAUDE.md
 // section 16's price/deal provenance rule extended to purchases.
+export const receiptOcrRateLimits = pgTable('receipt_ocr_rate_limits', {
+  householdId: uuid('household_id').primaryKey().references(() => households.id, { onDelete: 'cascade' }),
+  windowStartedAt: timestamp('window_started_at').notNull().defaultNow(),
+  attempts: integer('attempts').notNull().default(0),
+})
+
 export const receiptImports = pgTable('receipt_imports', {
   id: uuid('id').primaryKey().defaultRandom(),
   householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),

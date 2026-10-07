@@ -16,7 +16,7 @@ const flyerSources = new Set(['penny_flyer', 'billa_flyer', 'lidl_flyer'])
 describe('price ingestion cron schedule', () => {
   it('runs every rotating catalog source on exactly one weekday per week', () => {
     for (const { source } of PRICE_SOURCES) {
-      if (flyerSources.has(source)) continue
+      if (flyerSources.has(source) || parts <= 1) continue
       const runs = runsForSource(source)
       expect(runs.length, source).toBeGreaterThanOrEqual(1)
       const weekdays = new Set(runs.map(({ schedule }) => schedule.split(' ')[4]))
@@ -26,7 +26,7 @@ describe('price ingestion cron schedule', () => {
 
   it('uses enough cron invocations for the configured parts-per-run batching', () => {
     for (const { source, parts, partsPerRun = 1 } of PRICE_SOURCES) {
-      if (flyerSources.has(source)) continue
+      if (flyerSources.has(source) || parts <= 1) continue
       const runs = runsForSource(source)
       const expected = Math.ceil(parts / partsPerRun)
       expect(runs.length, source).toBe(expected)

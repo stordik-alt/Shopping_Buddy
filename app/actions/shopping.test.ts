@@ -1,10 +1,9 @@
-import { eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { getDb } from '@/lib/db/client'
-import { getProductCatalog, getProductPrices } from '@/lib/db/queries'
+import { getStoreChains } from '@/lib/db/member-store-preferences'
+import { getProductCatalog } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
-import { todayInPrague } from '@/lib/today'
-import { assessDealQuality } from '@/lib/prices'
 import { addShoppingItemAction, removeShoppingItemAction, toggleShoppingItemAction, updateShoppingItemAction } from '@/app/actions/shopping'
 
 // Integration coverage for the household-scoping gap noted in docs/01_CURRENT_STATE.md ("Server
@@ -30,6 +29,16 @@ let householdId: string
 let listId: string
 let otherHouseholdId: string
 let otherListId: string
+let categoryId: string
+let lidlId: string
+let pennyId: string
+// Products of this file's own, removed in afterAll (cascades to their prices and deals). The
+// notification tests build their own product rather than reusing whatever the shared catalog happens
+// to hold: a product another test file is about to delete, or one whose name the typed text cannot
+// resolve, made the assertions depend on which (product, chain) pair a live snapshot happened to
+// return first — a real flake in CI on 2026-10-07, not a wrong result to assert around.
+const createdProductIds: string[] = []
+const productTag = crypto.randomUUID().slice(0, 8)
 
 beforeAll(async () => {
   const [household] = await db.insert(schema.households).values({ name: '__test_household_shopping__' }).returning()
@@ -42,6 +51,11 @@ beforeAll(async () => {
   const [otherList] = await db.insert(schema.shoppingLists).values({ householdId: otherHousehold.id, name: 'Other list' }).returning()
   otherHouseholdId = otherHousehold.id
   otherListId = otherList.id
+
+  const chains = await getStoreChains()
+  lidlId = chains.find((chain) => chain.chain === 'Lidl')!.id
+  pennyId = chains.find((chain) => chain.chain === 'Penny')!.id
+  categoryId = (await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') }))!.id
 })
 
 afterAll(async () => {
@@ -51,7 +65,54 @@ afterAll(async () => {
   await db.delete(schema.households).where(eq(schema.households.id, householdId))
   await db.delete(schema.shoppingLists).where(eq(schema.shoppingLists.id, otherListId))
   await db.delete(schema.households).where(eq(schema.households.id, otherHouseholdId))
+  if (createdProductIds.length > 0) await db.delete(schema.products).where(inArray(schema.products.id, createdProductIds))
 })
+
+/** A product of the app's own with the shapes the notification paths need: a recorded price at Lidl,
+ *  optionally its own running deal there, and optionally an offer at Penny (a chain the app then has no
+ *  price for). Every product is fresh, so nothing else in the catalog matches its name. */
+async function createProduct(name: string, options: { lidlPrice?: number; lidlDeal?: number; pennyOffer?: number }) {
+  const [product] = await db.insert(schema.products).values({ name, categoryId }).returning()
+  createdProductIds.push(product.id)
+  if (options.lidlPrice != null) {
+    await db.insert(schema.prices).values({
+      productId: product.id,
+      storeId: lidlId,
+      priceScope: 'CHAIN',
+      sourceType: 'OFFICIAL',
+      locationResolution: 'NOT_APPLICABLE',
+      regularPrice: options.lidlPrice.toString(),
+      unit: 'kg',
+      unitPrice: (options.lidlPrice * 4).toString(),
+      observedAt: '2026-09-24',
+      validFrom: '2026-09-24',
+      sourceReference: `__test_${productTag}_${product.id}`,
+    })
+  }
+  if (options.lidlDeal != null) {
+    await db.insert(schema.deals).values({
+      productId: product.id,
+      storeId: lidlId,
+      dealPrice: options.lidlDeal.toString(),
+      unit: 'kg',
+      unitPrice: (options.lidlDeal * 4).toString(),
+      validFrom: '2026-09-01',
+      validUntil: '2099-01-01',
+    })
+  }
+  if (options.pennyOffer != null) {
+    await db.insert(schema.deals).values({
+      productId: product.id,
+      storeId: pennyId,
+      dealPrice: options.pennyOffer.toString(),
+      unit: 'kg',
+      unitPrice: (options.pennyOffer * 4).toString(),
+      validFrom: '2026-09-01',
+      validUntil: '2099-01-01',
+    })
+  }
+  return product
+}
 
 describe('addShoppingItemAction', () => {
   it('adds an item to a list the caller\'s household actually owns', async () => {
@@ -88,18 +149,37 @@ describe('addShoppingItemAction', () => {
     await expect(addShoppingItemAction(otherListId, 'x')).rejects.toThrow('Shopping list not found')
   })
 
-  it('fires the price/deal-alert notification for a product with a genuinely best-price deal, using real seeded catalog data', async () => {
-    const products = await getProductPrices({ names: [], runningDeals: true })
-    const bestDeal = assessDealQuality(products, todayInPrague()).find((assessment) => assessment.isBestPrice)
-    if (!bestDeal) {
-      // No currently-active best-price deal in the seeded catalog right now — nothing to assert
-      // without inventing one, which docs/03_DATABASE.md forbids. Skip rather than fake it.
-      return
-    }
+  it('fires the price/deal-alert notification for a product whose running deal is the best known price', async () => {
+    // 40 Kč/kg regular and a 29,90 Kč deal at the only chain that sells it: the deal is the best price.
+    const product = await createProduct(`__test_best_deal_${productTag}`, { lidlPrice: 40, lidlDeal: 29.9 })
+
     currentHouseholdId = householdId
-    const { notification } = await addShoppingItemAction(listId, bestDeal.product.productName)
-    expect(notification).not.toBeNull()
+    const { notification } = await addShoppingItemAction(listId, product.name)
     expect(notification?.title).toBe('Skvělá cena na vašem seznamu')
+    expect(notification?.detail).toContain('29,90 Kč')
+    expect(notification?.detail).toContain('nejlepší cena mezi obchody')
+  })
+
+  // A chain the app has no regular price for (Penny) runs offers only: such a product got no
+  // notification at all before 2026-10-07, because assessDealQuality() sees no price for it.
+  it('fires the offer notification for a product the app knows only from a running offer', async () => {
+    const product = await createProduct(`__test_offer_only_${productTag}`, { pennyOffer: 39.9 })
+
+    currentHouseholdId = householdId
+    const { notification } = await addShoppingItemAction(listId, product.name)
+    expect(notification?.title).toBe('Akce na vaší položce')
+    expect(notification?.detail).toContain('Penny')
+    expect(notification?.detail).toContain('39,90 Kč')
+    expect(notification?.detail).toContain('akce do 1. 1.') // 2099-01-01, the only end date there is
+    expect(notification?.detail).not.toContain('nejlepší cena') // an offer has no regular price to judge
+  })
+
+  it('stays quiet about an offer that is dearer than a price the app already knows', async () => {
+    const product = await createProduct(`__test_offer_dearer_${productTag}`, { lidlPrice: 29.9, pennyOffer: 39.9 })
+
+    currentHouseholdId = householdId
+    const { notification } = await addShoppingItemAction(listId, product.name)
+    expect(notification).toBeNull()
   })
 })
 
@@ -179,12 +259,15 @@ describe('addShoppingItemAction — product identity', () => {
   })
 
   it('still fires the deal alert when the typed name differs in case/whitespace from the catalog', async () => {
-    const products = await getProductPrices({ names: [], runningDeals: true })
-    const bestDeal = assessDealQuality(products, todayInPrague()).find((assessment) => assessment.isBestPrice)
-    if (!bestDeal) return // no currently-active best-price deal to test against; see note above
+    const product = await createProduct(`__test_case_deal_${productTag}`, { lidlPrice: 40, lidlDeal: 29.9 })
+
     currentHouseholdId = householdId
-    const { notification } = await addShoppingItemAction(listId, `  ${bestDeal.product.productName.toUpperCase()}  `)
-    expect(notification).not.toBeNull()
+    const { item, notification } = await addShoppingItemAction(listId, `  ${product.name.toUpperCase()}  `)
+    // The typed text resolved to the real catalog product ...
+    const row = await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, item.id) })
+    expect(row?.productId).toBe(product.id)
+    // ... which is exactly what lets the alert find that product's prices.
+    expect(notification?.title).toBe('Skvělá cena na vašem seznamu')
   })
 })
 

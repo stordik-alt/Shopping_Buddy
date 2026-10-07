@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { PriceComparison } from '@/components/shopping/price-comparison'
+import type { StandaloneOffer } from '@/lib/offers'
 import type { ProductPrice } from '@/lib/prices'
 
 const product = (prices: ProductPrice['prices']): ProductPrice[] => [{ productName: 'Mléko', category: 'Potraviny', prices }]
@@ -78,6 +79,45 @@ describe('PriceComparison old prices', () => {
 
   it('renders nothing for an unknown product', () => {
     expect(renderToStaticMarkup(<PriceComparison today="2026-09-24" productName="Neznámé" productPrices={product([point()])} />)).toBe('')
+  })
+})
+
+// A chain the app has no regular price for: the offer is stated as it is, next to (never inside) the
+// comparison, with no discount and no "cheaper than" (2026-10-07).
+describe('PriceComparison offers without a regular price', () => {
+  const offer: StandaloneOffer = {
+    productName: 'Máslo',
+    category: 'Potraviny',
+    store: 'Penny',
+    storeId: 'penny',
+    dealPrice: 39.9,
+    unit: 'kg',
+    unitPrice: 159.6,
+    validUntil: '2026-10-13',
+  }
+
+  it('lists an offer of a product with no recorded price at all', () => {
+    const html = renderToStaticMarkup(<PriceComparison today="2026-10-07" productName="Máslo" productPrices={[]} offers={[offer]} />)
+    expect(html).toContain('Akce bez běžné ceny')
+    expect(html).toContain('Penny')
+    expect(html).toMatch(/39,90\s+Kč/)
+    expect(html).toContain('akce do 13. 10.')
+    expect(html).toContain('159,60 Kč/kg')
+    expect(html).not.toContain('Porovnání cen mezi obchody')
+  })
+
+  it('shows the comparison and the offer together when the product has both', () => {
+    const html = renderToStaticMarkup(
+      <PriceComparison today="2026-10-07" productName="Mléko" productPrices={product([point({ store: 'Lidl', regularPrice: 45 })])} offers={[offer]} />,
+    )
+    expect(html).toContain('Porovnání cen mezi obchody')
+    expect(html).toContain('Akce bez běžné ceny')
+    expect(html).toContain('Lidl')
+    expect(html).toContain('Penny')
+  })
+
+  it('renders nothing without prices and without offers', () => {
+    expect(renderToStaticMarkup(<PriceComparison today="2026-10-07" productName="Máslo" productPrices={[]} />)).toBe('')
   })
 })
 

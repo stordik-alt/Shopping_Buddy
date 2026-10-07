@@ -6,6 +6,7 @@ import type { GpsCoords } from '@/lib/geo'
 import type { Item, ItemCategory, ItemPriority, ItemUnit, Store, StoreChain } from '@/lib/types'
 import { money, shortDate } from '@/lib/format'
 import { assessDealQuality, bestDealByName, comparePrices, effectivePrice, type ProductPrice } from '@/lib/prices'
+import { bestOfferByName, cheaperPromotion, offersForProduct, type StandaloneOffer } from '@/lib/offers'
 import { searchProductsAction } from '@/app/actions/product-search'
 import type { PlanResult, PinRecord } from '@/lib/db/shopping-plan'
 import { hasStoreSelection, type StoreSelection } from '@/lib/nearby-stores'
@@ -78,6 +79,7 @@ export function ShoppingList({
   focusItemName = null,
   onFocusHandled,
   onAddSearchHit,
+  offers = [],
 }: {
   /** The real date (`YYYY-MM-DD`), for which promotions are still running. */
   today: string
@@ -107,7 +109,12 @@ export function ShoppingList({
   onFocusHandled?: () => void
   /** Puts a product found in the store search on the list and chooses it there for its chain. It
    *  reports which of the two the hit already has, so the search buttons can show it. */
-  onAddSearchHit?: (hit: ProductSearchHit) => Promise<{ added: boolean; pinned: boolean }>}) {
+  onAddSearchHit?: (hit: ProductSearchHit) => Promise<{ added: boolean; pinned: boolean }>
+  /** Running offers of chains the app has no regular price for (`lib/offers.ts`), for the chains the
+   *  user picked as nearby: an item's row and its detail show them next to the recorded prices, since
+   *  such a chain is a real place to buy the item today (2026-10-07). */
+  offers?: StandaloneOffer[]
+}) {
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('Vše')
   const [showCompleted, setShowCompleted] = useState(true)
@@ -173,8 +180,11 @@ export function ShoppingList({
   const groupedItems = groupItems(visibleItems, group)
   const completedCount = items.filter((item) => item.done).length
   // A running deal on an item's product shows right on its row (the same deals as Domů's "Akce k vašim
-  // položkám"); the cheapest one when several chains have it.
+  // položkám"); the cheapest one when several chains have it. A chain the app has no regular price for
+  // can still run an offer on the same product, and the row shows whichever of the two is cheaper —
+  // it states the store, the price and the end date either way (`cheaperPromotion`, lib/offers.ts).
   const dealByName = useMemo(() => bestDealByName(assessDealQuality(productPrices, today)), [productPrices, today])
+  const offerByName = useMemo(() => bestOfferByName(offers), [offers])
 
   function createList() {
     const name = listName.trim()
@@ -437,12 +447,18 @@ export function ShoppingList({
                       return typeLabel ? <Badge className="py-0.5">{typeLabel}</Badge> : null
                     })()}
                     {(() => {
-                      const deal = dealByName.get(item.name.trim().toLowerCase())
-                      if (deal) {
+                      const key = item.name.trim().toLowerCase()
+                      const deal = dealByName.get(key)
+                      const offer = offerByName.get(key)
+                      const promotion = cheaperPromotion(
+                        deal ? { store: deal.price.store, price: effectivePrice(deal.price), validUntil: deal.price.dealValidUntil ?? null } : null,
+                        offer ? { store: offer.store, price: offer.dealPrice, validUntil: offer.validUntil } : null,
+                      )
+                      if (promotion) {
                         return (
                           <Badge tone="accent" className="py-0.5">
-                            <Tag className="size-3" aria-hidden="true" /> Akce {deal.price.store} {money(effectivePrice(deal.price))}
-                            {deal.price.dealValidUntil ? ` do ${shortDate(deal.price.dealValidUntil)}` : ''}
+                            <Tag className="size-3" aria-hidden="true" /> Akce {promotion.store} {money(promotion.price)}
+                            {promotion.validUntil ? ` do ${shortDate(promotion.validUntil)}` : ''}
                           </Badge>
                         )
                       }
@@ -587,9 +603,9 @@ export function ShoppingList({
                           />
                         </div>
                       )}
-                      {comparePrices(productPrices, item.name) && (
+                      {(comparePrices(productPrices, item.name) || offersForProduct(offers, item.name).length > 0) && (
                         <div className="sm:col-span-2">
-                          <PriceComparison productName={item.name} productPrices={productPrices} today={today} />
+                          <PriceComparison productName={item.name} productPrices={productPrices} offers={offersForProduct(offers, item.name)} today={today} />
                         </div>
                       )}
                     </div>

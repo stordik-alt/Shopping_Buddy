@@ -49,6 +49,9 @@ export function PriceWatch({
   // second copy of that ordering rule (CLAUDE.md section 6).
   const { onList: listDeals } = dealsForList(assessDealQuality(productPrices, today), listItemNames)
   const listOffers = offers.filter((offer) => isOnList(offer.productName))
+  // Both count as "akce na položky seznamu": a chain the app has no regular price for still runs a
+  // price on the item today, and saying "nic v akci" above a list of such offers contradicted itself.
+  const promotionCount = listDeals.length + listOffers.length
 
   return (
     <section className="surface p-5 sm:p-6">
@@ -56,7 +59,7 @@ export function PriceWatch({
         <div>
           <p className="text-sm font-semibold">Akce k vašim položkám</p>
           <p className="mt-1 text-sm text-fg-secondary">
-            {listDeals.length > 0 ? `${countLabel(listDeals.length, 'akce', 'akce', 'akcí')} na položky z vašeho seznamu` : 'Na vašem seznamu teď nic v akci není.'}
+            {promotionCount > 0 ? `${countLabel(promotionCount, 'akce', 'akce', 'akcí')} na položky z vašeho seznamu` : 'Na vašem seznamu teď nic v akci není.'}
           </p>
         </div>
         <Tag className="size-5 shrink-0 text-accent-text" aria-hidden="true" />

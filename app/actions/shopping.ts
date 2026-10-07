@@ -4,11 +4,12 @@ import { eq } from 'drizzle-orm'
 import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
 import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
-import { getProductPrices } from '@/lib/db/queries'
+import { getProductPrices, getStandaloneOffers } from '@/lib/db/queries'
 import { getProductCatalogCached } from '@/lib/db/cached-reads'
 import * as schema from '@/lib/db/schema'
 import { money } from '@/lib/format'
 import { createHouseholdNotification } from '@/lib/notify'
+import { offerBeatsKnownPrices, shortOfferDate } from '@/lib/offers'
 import { assessDealQuality, effectivePrice } from '@/lib/prices'
 import { guessItemCategory } from '@/lib/categorization'
 import { matchProductByName } from '@/lib/products'
@@ -123,8 +124,9 @@ export async function addShoppingItemAction(
   // differences no longer silently miss a real deal.
   let notification: Notification | null = null
   // Only this product: whether its deal is the best price is decided across its own stores.
+  const today = todayInPrague()
   const productPrices = await getProductPrices({ names: [canonicalName], runningDeals: false })
-  const bestDeal = assessDealQuality(productPrices, todayInPrague()).find((assessment) => assessment.product.productName === canonicalName && assessment.isBestPrice)
+  const bestDeal = assessDealQuality(productPrices, today).find((assessment) => assessment.product.productName === canonicalName && assessment.isBestPrice)
   if (bestDeal) {
     const notificationRow = await createHouseholdNotification(
       db,
@@ -136,6 +138,25 @@ export async function addShoppingItemAction(
       { kind: 'deal_on_list', tab: 'Nákup', excludeUserId: userId },
     )
     notification = { id: notificationRow.id, title: notificationRow.title, detail: notificationRow.detail, unread: notificationRow.unread, kind: notificationRow.kind }
+  } else {
+    // No deal to announce: a chain the app has no regular price for may still run an offer on this
+    // product (Penny), and an offer-only product has no deal by definition — the household was not
+    // told about it at all before 2026-10-07. It is announced only when it is at most as dear as
+    // every price already known for the product (`offerBeatsKnownPrices`: the same "not just any
+    // promotion" bar as above), and never as the best price — an offer has no regular price to judge.
+    const [offer] = await getStandaloneOffers(today, [canonicalName])
+    if (offer && offerBeatsKnownPrices(offer, productPrices)) {
+      const notificationRow = await createHouseholdNotification(
+        db,
+        householdId,
+        {
+          title: 'Akce na vaší položce',
+          detail: `${name} je nyní v akci v ${offer.store} za ${money(offer.dealPrice)}, akce do ${shortOfferDate(offer.validUntil)}.`,
+        },
+        { kind: 'deal_on_list', tab: 'Nákup', excludeUserId: userId },
+      )
+      notification = { id: notificationRow.id, title: notificationRow.title, detail: notificationRow.detail, unread: notificationRow.unread, kind: notificationRow.kind }
+    }
   }
 
   return {

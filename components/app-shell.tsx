@@ -649,6 +649,7 @@ export function AppShell({
                         userCoords={userLocation.coords}
                         completePurchase={completePurchase}
                         onAddSearchHit={addSearchHitToShoppingList}
+                        offers={nearbyStandaloneOffers}
                       />
                     </>
                   )}

@@ -251,11 +251,29 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
 
 export type PriceSource = {
   source: IngestionSource
-  /** How many parts the store's catalog is split into for the rotating refresh: each run reads one
-   *  part and the next run continues with the next (`ingestion_cursors`). 1 = the whole catalog every
-   *  run. */
+  /** How many parts the store's catalog is split into for the rotating refresh. */
   parts: number
+  /** How many consecutive parts one cron invocation should refresh. 1 keeps one-part-per-run behavior. */
+  partsPerRun?: number
   run: (limit: number, options?: IngestOptions) => Promise<IngestResult>
+}
+
+function mergeRunResults(a: IngestResult, b: IngestResult): IngestResult {
+  return {
+    processed: a.processed + b.processed,
+    recorded: a.recorded + b.recorded,
+    newProducts: a.newProducts + b.newProducts,
+    deals: a.deals + b.deals,
+    promotionsWithoutValidity: a.promotionsWithoutValidity + b.promotionsWithoutValidity,
+    skipped: a.skipped + b.skipped,
+    unchanged: a.unchanged + b.unchanged,
+    priceChanges: a.priceChanges + b.priceChanges,
+    priceCacheChanged: a.priceCacheChanged || b.priceCacheChanged,
+    dealsCacheChanged: a.dealsCacheChanged || b.dealsCacheChanged,
+    truncated: a.truncated || b.truncated,
+    part: [a.part, b.part].filter(Boolean).join(', ') || undefined,
+    errors: [...a.errors, ...b.errors],
+  }
 }
 
 /** Every store connector run by the cron. Adding a store means adding its connector here (each entry
@@ -275,14 +293,14 @@ export type PriceSource = {
 export const PRICE_SOURCES: PriceSource[] = [
   { source: lidlConnector.source, parts: 1, run: (limit, options) => ingestPrices(lidlConnector, limit, options) },
   // ~9,400 products; each run walks the whole category listing (~1 min) and keeps one part.
-  { source: billaConnector.source, parts: 5, run: (limit, options) => ingestPrices(billaConnector, limit, options) },
+  { source: billaConnector.source, parts: 5, partsPerRun: 3, run: (limit, options) => ingestPrices(billaConnector, limit, options) },
   { source: pennyConnector.source, parts: 1, run: (limit, options) => ingestPrices(pennyConnector, limit, options) },
   // ~13,000 products, one category lookup each.
-  { source: dmConnector.source, parts: 7, run: (limit, options) => ingestPrices(dmConnector, limit, options) },
+  { source: dmConnector.source, parts: 7, partsPerRun: 3, run: (limit, options) => ingestPrices(dmConnector, limit, options) },
   // ~11,500 products; the id listing is read whole, details and prices only for the part.
-  { source: rohlikConnector.source, parts: 6, run: (limit, options) => ingestPrices(rohlikConnector, limit, options) },
+  { source: rohlikConnector.source, parts: 6, partsPerRun: 3, run: (limit, options) => ingestPrices(rohlikConnector, limit, options) },
   // ~13,100 products; a part is a set of sub-categories, each read to its end.
-  { source: kosikConnector.source, parts: 7, run: (limit, options) => ingestPrices(kosikConnector, limit, options) },
+  { source: kosikConnector.source, parts: 7, partsPerRun: 3, run: (limit, options) => ingestPrices(kosikConnector, limit, options) },
   // The current national flyers, ~1,000 offers (~170 small page files): read whole every day.
   { source: globusConnector.source, parts: 1, run: (limit, options) => ingestPrices(globusConnector, limit, options) },
   // Albert's flyers, read by a model page by page (lib/ingestion/albert.ts): the supermarket flyer
@@ -328,19 +346,30 @@ export async function runPriceSources(options: {
   const selected = options.only ? all.filter((entry) => entry.source === options.only) : all
 
   const results: Record<string, SourceOutcome> = {}
-  for (const { source, run, parts } of selected) {
+  for (const { source, run, parts, partsPerRun = 1 } of selected) {
     if (now() >= deadline) {
       results[source] = { skipped: 'time budget exhausted before this source started' }
       continue
     }
     try {
-      // Rotating refresh: this run reads the part the cursor names and moves the cursor on. Wrapped
-      // into range, since the number of parts can change between deployments.
-      const part = parts > 1 ? { index: (await getIngestionCursor(source)) % parts, count: parts } : undefined
-      results[source] = await run(options.limit ?? UNLIMITED, { deadline, now, ...(part ? { part } : {}) })
-      // Moved on also after a truncated run: repeating the same part would hit the same limit again
-      // and never reach the others. A source that threw keeps its cursor and retries the part.
-      if (part) await setIngestionCursor(source, (part.index + 1) % part.count)
+      // A single cron invocation may refresh several consecutive parts. This reduces function/DB
+      // wakeups while preserving the same rotating cursor and total catalog coverage.
+      const partCount = Math.min(Math.max(1, partsPerRun), parts)
+      const startPart = parts > 1 ? (await getIngestionCursor(source)) % parts : 0
+      let combined: IngestResult | undefined
+      for (let runIndex = 0; runIndex < partCount; runIndex++) {
+        if (now() >= deadline) break
+        const part = parts > 1
+          ? { index: (startPart + runIndex) % parts, count: parts }
+          : undefined
+        const outcome = await run(options.limit ?? UNLIMITED, { deadline, now, ...(part ? { part } : {}) })
+        combined = combined ? mergeRunResults(combined, outcome) : outcome
+        // Advance after every completed part, including a truncated one. If the connector throws,
+        // the failed part is retried next invocation.
+        if (part) await setIngestionCursor(source, (part.index + 1) % part.count)
+        if (outcome.errors.length > 0 && outcome.processed === 0) break
+      }
+      results[source] = combined ?? { skipped: 'time budget exhausted before this source started' }
     } catch (err) {
       results[source] = { error: err instanceof Error ? err.message : String(err) }
     }

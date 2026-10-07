@@ -186,4 +186,4 @@ jobs:
         run: pnpm exec tsx lib/db/seed.ts
 
       - name: Database-backed tests
-        run: pnpm exec vitest run app/actions app/api lib/db/queries.test.ts lib/db/receipt-list.test.ts lib/db/store-branch-search.test.ts lib/db/deals.test.ts lib/db/purchase-items.test.ts lib/db/category-changes.test.ts lib/db/subcategory-changes.test.ts lib/db/product-classification-sync.test.ts lib/db/product-packages.test.ts lib/db/new-subcategories.test.ts lib/db/recategorize.test.ts lib/db/reclassify.test.ts lib/db/product-type-assignment.test.ts lib/db/deal-announcements.test.ts
+        run: pnpm exec vitest run --no-file-parallelism app/actions app/api lib/db/queries.test.ts lib/db/receipt-list.test.ts lib/db/store-branch-search.test.ts lib/db/deals.test.ts lib/db/purchase-items.test.ts lib/db/category-changes.test.ts lib/db/subcategory-changes.test.ts lib/db/product-classification-sync.test.ts lib/db/product-packages.test.ts lib/db/new-subcategories.test.ts lib/db/recategorize.test.ts lib/db/reclassify.test.ts lib/db/product-type-assignment.test.ts lib/db/deal-announcements.test.ts

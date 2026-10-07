@@ -3,8 +3,8 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { PRICE_SOURCES } from '@/lib/ingestion/ingest'
 
-// Catalog refreshes run once per week per source. Sources that exceed the per-run budget keep
-// their existing number of same-day continuation runs. Flyer OCR jobs follow publication cycles.
+// Catalog refreshes run once per week per source. Large catalogs batch up to three rotating parts per cron
+// invocation to reduce DB wakeups; flyer OCR jobs keep their publication-cycle continuation runs.
 type Cron = { path: string; schedule: string }
 const crons: Cron[] = JSON.parse(readFileSync(join(process.cwd(), 'vercel.json'), 'utf8')).crons
 
@@ -15,12 +15,21 @@ const flyerSources = new Set(['penny_flyer', 'billa_flyer', 'lidl_flyer'])
 
 describe('price ingestion cron schedule', () => {
   it('runs every rotating catalog source on exactly one weekday per week', () => {
-    for (const { source } of PRICE_SOURCES) {
-      if (flyerSources.has(source)) continue
+    for (const { source, parts } of PRICE_SOURCES) {
+      if (flyerSources.has(source) || parts <= 1) continue
       const runs = runsForSource(source)
       expect(runs.length, source).toBeGreaterThanOrEqual(1)
       const weekdays = new Set(runs.map(({ schedule }) => schedule.split(' ')[4]))
       expect(weekdays.size, source).toBe(1)
+    }
+  })
+
+  it('uses enough cron invocations for the configured parts-per-run batching', () => {
+    for (const { source, parts, partsPerRun = 1 } of PRICE_SOURCES) {
+      if (flyerSources.has(source) || parts <= 1) continue
+      const runs = runsForSource(source)
+      const expected = Math.ceil(parts / partsPerRun)
+      expect(runs.length, source).toBe(expected)
     }
   })
 

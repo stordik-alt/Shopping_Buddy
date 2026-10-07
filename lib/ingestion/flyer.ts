@@ -1,4 +1,4 @@
-import { generateObject } from 'ai'
+import { generateText, Output } from 'ai'
 import { z } from 'zod'
 import { loadFlyerPages, pruneFlyerPages, saveFlyerPage, type FlyerPageRow } from '@/lib/db/queries'
 import { fetchWithTimeout } from '@/lib/ingestion/http'
@@ -9,7 +9,7 @@ import type { ItemCategory } from '@/lib/types'
 
 /** Provider-specific settings, typed as generateObject takes them (the type lives in a package the app
  *  does not depend on directly). */
-type ProviderOptions = NonNullable<Parameters<typeof generateObject>[0]['providerOptions']>
+type ProviderOptions = NonNullable<Parameters<typeof generateText>[0]['providerOptions']>
 
 // Promotional flyers read page by page by a model — the part every flyer source shares (Albert:
 // lib/ingestion/albert.ts, Penny: lib/ingestion/penny-flyer.ts). A retailer that publishes its prices
@@ -100,9 +100,9 @@ export function createGeminiFlyerExtractor(
     async extract(page) {
       const image = await fetchWithTimeout(page.imageUrl, { headers: { 'User-Agent': USER_AGENT } })
       if (!image.ok) throw new Error(`${retailer} flyer page ${page.number} image failed: HTTP ${image.status}`)
-      const { object, usage } = await generateObject({
+      const { output, usage } = await generateText({
         model,
-        schema: z.object({ offers: z.array(extractedOfferSchema) }),
+        output: Output.object({ schema: z.object({ offers: z.array(extractedOfferSchema) }) }),
         ...(providerOptions ? { providerOptions } : {}),
         messages: [
           {
@@ -114,7 +114,7 @@ export function createGeminiFlyerExtractor(
           },
         ],
       })
-      return { offers: object.offers, inputTokens: usage?.inputTokens, outputTokens: usage?.outputTokens }
+      return { offers: output.offers, inputTokens: usage?.inputTokens, outputTokens: usage?.outputTokens }
     },
   }
 }

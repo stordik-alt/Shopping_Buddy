@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The real providers in lib/receipts.ts talk to Google Cloud Vision, Google STS/IAM, Azure
 // Document Intelligence and (via the AI SDK) Gemini. None of those are called here: `fetch`, the
-// Vercel OIDC helper and `generateObject` are all faked, so these tests pin down request
+// Vercel OIDC helper and `generateText` are all faked, so these tests pin down request
 // construction, response parsing and error reporting without credentials, network or cost.
 // (Real OCR/model output quality is a separate matter and is not covered by any test.)
 const generateObjectMock = vi.fn()

@@ -57,7 +57,7 @@ export function AiAssistant({ onShopping }: { onShopping: () => void }) {
           ))}
         </div>
         {answer && (
-          <div className="mt-4 rounded-2xl bg-primary-foreground/10 p-4 text-sm leading-relaxed">
+          <div className="mt-4 rounded-2xl bg-hero-foreground/10 p-4 text-sm leading-relaxed">
             <Sparkles className="mb-2 h-4 w-4 text-hero-foreground" />
             {answer}
             <button onClick={onShopping} className="mt-3 block min-h-10 rounded-lg py-2 text-left font-semibold text-hero-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">

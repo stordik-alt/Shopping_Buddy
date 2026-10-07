@@ -465,13 +465,15 @@ export function AppShell({
   }
 
   function readNotification(id: string) {
-    setNotifications((current) => current.map((notification) => (notification.id === id ? { ...notification, unread: false } : notification)))
-    markNotificationReadAction(id)
+    // A notification disappears immediately after the tap. The server action persists the read state,
+    // and the initial query also excludes read rows so historical notifications do not return after reload.
+    setNotifications((current) => current.filter((notification) => notification.id !== id))
+    void markNotificationReadAction(id)
   }
 
   function readAllNotifications() {
-    setNotifications((current) => current.map((notification) => ({ ...notification, unread: false })))
-    markAllNotificationsReadAction()
+    setNotifications((current) => current.filter((notification) => !notification.unread))
+    void markAllNotificationsReadAction()
   }
 
   return (

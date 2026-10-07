@@ -5,6 +5,7 @@ import type { IngestionSource, IngestResult, NormalizedProduct, PriceConnector }
 // persistence calls it makes for each kind of normalized product, how it isolates failures and how
 // it keeps to its time budget — not the SQL (covered by the DB-backed lib/db/queries.test.ts).
 const dealWriter = vi.hoisted(() => ({ upsert: vi.fn(), flush: vi.fn() }))
+let latestPassedToWriter: Map<string, unknown> | undefined
 const queries = vi.hoisted(() => ({
   confirmOfficialPrices: vi.fn(),
   createActiveDealWriter: vi.fn(),
@@ -14,6 +15,7 @@ const queries = vi.hoisted(() => ({
   loadLatestOfficialPrices: vi.fn(),
   persistNamedPackageEvidence: vi.fn(),
   recordOfficialPrice: vi.fn(),
+  recordOfficialPrices: vi.fn(),
   resolveOrCreateProductFromExternal: vi.fn(),
   touchExternalRefs: vi.fn(),
   getIngestionCursor: vi.fn(),
@@ -61,6 +63,18 @@ beforeEach(() => {
   queries.loadLatestOfficialPrices.mockResolvedValue(new Map())
   queries.persistNamedPackageEvidence.mockResolvedValue(0)
   queries.recordOfficialPrice.mockResolvedValue({ action: 'insert', latest: undefined, closedPrevious: false })
+  queries.recordOfficialPrices.mockImplementation(async (observations, latest) => {
+    latestPassedToWriter = new Map(latest)
+    const results = []
+    for (const observation of observations) {
+      const result = await queries.recordOfficialPrice(observation, latest.get(observation.sourceReference), { deferConfirm: () => undefined })
+      if (result.action === 'confirm' && !result.latest) {
+        result.latest = { id: `row-${observation.sourceReference}`, observedAt: observation.observedAt }
+      }
+      results.push(result)
+    }
+    return results
+  })
   queries.resolveOrCreateProductFromExternal.mockResolvedValue('product-1')
   queries.getIngestionCursor.mockResolvedValue(0)
   queries.setIngestionCursor.mockResolvedValue(undefined)
@@ -76,10 +90,9 @@ describe('ingestPrices', () => {
     expect(result).toMatchObject({ processed: 1, recorded: 1, newProducts: 1, deals: 0, skipped: 0, truncated: false, errors: [] })
     expect(queries.getStoreByChain).toHaveBeenCalledWith('Billa')
     expect(queries.resolveOrCreateProductFromExternal).toHaveBeenCalledWith(expect.objectContaining({ externalId: 'a', source: 'billa' }), expect.anything())
-    expect(queries.recordOfficialPrice).toHaveBeenCalledWith(
-      expect.objectContaining({ productId: 'product-1', storeId: 'store-1', sourceReference: 'a', regularPrice: 50, unit: 'kg', unitPrice: 100 }),
-      undefined,
-      { deferConfirm: expect.any(Function) },
+    expect(queries.recordOfficialPrices).toHaveBeenCalledWith(
+      [expect.objectContaining({ productId: 'product-1', storeId: 'store-1', sourceReference: 'a', regularPrice: 50, unit: 'kg', unitPrice: 100 })],
+      expect.any(Map),
     )
   })
 
@@ -201,8 +214,8 @@ describe('ingestPrices', () => {
       ]),
       10,
     )
-    expect(result.recorded).toBe(1)
-    expect(result.errors).toEqual(['a: db down'])
+    expect(result.recorded).toBe(0)
+    expect(result.errors).toEqual(['official prices (2): db down'])
   })
 
   it('does nothing for a non-positive limit', async () => {
@@ -257,8 +270,11 @@ describe('ingestPrices price dating and history', () => {
       ]),
       10,
     )
-    expect(queries.recordOfficialPrice.mock.calls[0][1]).toBe(stored) // SKU a: its own latest
-    expect(queries.recordOfficialPrice.mock.calls[1][1]).toBeUndefined() // SKU b: nothing stored yet
+    expect(queries.recordOfficialPrices).toHaveBeenCalledTimes(1)
+    const [observations] = queries.recordOfficialPrices.mock.calls[0]
+    expect(latestPassedToWriter?.get('a')).toBe(stored) // SKU a: its own latest at write time (before the writer result updates the map)
+    expect(latestPassedToWriter?.get('b')).toBeUndefined() // SKU b: nothing stored yet
+    expect(observations).toHaveLength(2)
   })
 
   it('counts a price change (old price kept and closed) separately from a plain new observation', async () => {

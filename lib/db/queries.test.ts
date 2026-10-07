@@ -3,7 +3,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { splitCollapsedExternalProducts } from '@/lib/db/split-collapsed-products'
-import { confirmOfficialPrices, createActiveDealWriter, findProductIdByExternalRef, getCanonicalStoreLocationId, getProductCatalog, getHouseholdData, getProductPrices, getStandaloneOffers, getStoreByChain, getStoreIdByChain, getStores, joinHouseholdViaInvitation, loadExternalProductContext, loadLatestOfficialPrices, recordOfficialPrice, resolveOrCreateProductFromExternal, touchExternalRefs, upsertActiveDeal } from '@/lib/db/queries'
+import { confirmOfficialPrices, createActiveDealWriter, findProductIdByExternalRef, getCanonicalStoreLocationId, getProductCatalog, getHouseholdData, getProductPrices, getStandaloneOffers, getStoreByChain, getStoreIdByChain, getStores, joinHouseholdViaInvitation, loadExternalProductContext, loadLatestOfficialPrices, recordOfficialPrice, recordOfficialPrices, resolveOrCreateProductFromExternal, touchExternalRefs, upsertActiveDeal } from '@/lib/db/queries'
 
 // Regression coverage for the "household events" notification work (docs/07_CHANGELOG.md,
 // 2026-09-21) and for the join-via-invitation logic itself, which docs/01_CURRENT_STATE.md
@@ -541,6 +541,44 @@ describe('recordOfficialPrice', () => {
       await db.insert(schema.prices).values({ ...values, sourceType: 'RECEIPT', sourceReference: null, priceScope: 'STORE', locationResolution: 'UNKNOWN' })
     } finally {
       await t.cleanup()
+    }
+  })
+})
+
+describe('recordOfficialPrices', () => {
+  it('persists multiple inserts and price changes in batches while preserving history', async () => {
+    const store = await db.query.stores.findFirst({ where: eq(schema.stores.chain, 'dm') })
+    const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Drogerie') })
+    const [first, second] = await db.insert(schema.products).values([
+      { name: `__test_official_batch_a_${crypto.randomUUID()}`, categoryId: category!.id },
+      { name: `__test_official_batch_b_${crypto.randomUUID()}`, categoryId: category!.id },
+    ]).returning()
+    const observations = [
+      { productId: first.id, storeId: store!.id, sourceReference: `__batch_a_${crypto.randomUUID()}`, regularPrice: 50, currency: 'CZK', unit: 'kg' as const, unitPrice: 500, observedAt: '2026-09-20' },
+      { productId: second.id, storeId: store!.id, sourceReference: `__batch_b_${crypto.randomUUID()}`, regularPrice: 80, currency: 'CZK', unit: 'kg' as const, unitPrice: 800, observedAt: '2026-09-20' },
+    ]
+    try {
+      const firstBatch = await recordOfficialPrices(observations, new Map())
+      expect(firstBatch.map((row) => row.action)).toEqual(['insert', 'insert'])
+
+      const latest = new Map(observations.map((observation, index) => [observation.sourceReference, firstBatch[index].latest]))
+      const secondObservations = [
+        { ...observations[0], regularPrice: 45, unitPrice: 450, observedAt: '2026-09-24' },
+        { ...observations[1], observedAt: '2026-09-24' },
+      ]
+      const secondBatch = await recordOfficialPrices(secondObservations, latest)
+      expect(secondBatch.map((row) => row.action)).toEqual(['insert', 'confirm'])
+      expect(secondBatch[0].closedPrevious).toBe(true)
+      expect(secondBatch[1].latest?.lastConfirmedAt).toBe('2026-09-24')
+
+      if (secondBatch[1].latest) await confirmOfficialPrices([{ id: secondBatch[1].latest.id, confirmedAt: '2026-09-24' }])
+      const rows = await db.query.prices.findMany({ where: inArray(schema.prices.productId, [first.id, second.id]), orderBy: asc(schema.prices.observedAt) })
+      expect(rows.filter((row) => row.productId === first.id)).toHaveLength(2)
+      expect(rows.filter((row) => row.productId === second.id)).toHaveLength(1)
+      expect(rows.find((row) => row.productId === first.id && row.observedAt === '2026-09-20')?.validUntil).toBe('2026-09-24')
+      expect(rows.find((row) => row.productId === second.id)?.lastConfirmedAt).toBe('2026-09-24')
+    } finally {
+      await db.delete(schema.products).where(inArray(schema.products.id, [first.id, second.id]))
     }
   })
 })

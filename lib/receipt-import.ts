@@ -11,7 +11,7 @@ import { getDb } from '@/lib/db/client'
 import { invalidateProductPriceCache } from '@/lib/db/cache-invalidation'
 import { getProductCatalogByIds, recordPriceObservation, restockPantryItem, upsertProductCatalogDefaults } from '@/lib/db/queries'
 import { getProductCatalogCached, getSubcategoryCatalogCached } from '@/lib/db/cached-reads'
-import { purchasedInventoryQuantity } from '@/lib/inventory-packaging'
+import { purchasedInventoryQuantities } from '@/lib/inventory-packaging'
 import * as schema from '@/lib/db/schema'
 import { applyLearnedExpenseDefaults, recomputePurchaseExpenses } from '@/lib/db/purchase-items'
 import { classifySubcategoryByKeyword, isValidProductSubcategory } from '@/lib/product-subcategories'
@@ -408,8 +408,15 @@ export async function createPurchaseFromReceiptItems(
   // A non-inventory line (shopping bag, bottle deposit) is still a real expense — recorded above
   // like any other line — but must never become a pantry row (spec sections 14/15). Skipped here
   // only, so nothing else about the line's accounting changes.
-  for (const item of resolvedItems.filter((item) => !item.nonInventory)) {
-    const inventory = await purchasedInventoryQuantity({ productId: item.productId, name: item.name, quantity: item.quantity, unit: item.unit })
+  const inventoryItems = resolvedItems.filter((item) => !item.nonInventory)
+  const inventoryQuantities = await purchasedInventoryQuantities(inventoryItems.map((item) => ({
+    productId: item.productId,
+    name: item.name,
+    quantity: item.quantity,
+    unit: item.unit,
+  })))
+  for (const [index, item] of inventoryItems.entries()) {
+    const inventory = inventoryQuantities[index]
     await restockPantryItem(householdId, {
       productId: item.productId,
       name: item.name,

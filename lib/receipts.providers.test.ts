@@ -317,8 +317,8 @@ describe('geminiStructuringProvider', () => {
     expect(call.model).toBe('google/gemini-2.5-flash-lite')
     expect(call.prompt).toContain('LIDL\nMléko 24,90')
     // The schema is what stops a malformed response from being returned as partial data.
-    expect(call.schema.safeParse(extraction).success).toBe(true)
-    expect(call.schema.safeParse({ ...extraction, total: 'not a number' }).success).toBe(false)
+    expect(call.output.schema.safeParse(extraction).success).toBe(true)
+    expect(call.output.schema.safeParse({ ...extraction, total: 'not a number' }).success).toBe(false)
   })
 
   it('tells the model to output null rather than guess, and defines how discounts are reported', async () => {

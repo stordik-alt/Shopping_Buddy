@@ -190,12 +190,18 @@ export async function createManualPurchaseAction(input: {
 
   for (const item of resolved) {
     if (!item.product?.isNonInventory) {
+      const inventory = await purchasedInventoryQuantity({
+        productId: item.product?.id ?? null,
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit,
+      })
       await restockPantryItem(householdId, {
         productId: item.product?.id ?? null,
         name: item.name,
         category: item.category,
-        quantity: item.quantity,
-        unit: item.unit,
+        quantity: inventory.quantity,
+        unit: inventory.unit,
         subcategoryId: subcategoryId(item.category, item.subcategory),
       })
     }

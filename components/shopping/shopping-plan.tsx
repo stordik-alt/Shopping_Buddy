@@ -24,6 +24,7 @@ export function ShoppingPlanPanel({
   openItemCount,
   inputKey,
   build,
+  onPlanResult,
 }: {
   /** The chains a plan may use: the user's stores in their area, or every chain when they chose none. */
   chains: { id: string; chain: string }[]
@@ -32,6 +33,8 @@ export function ShoppingPlanPanel({
   openItemCount: number
   inputKey: string
   build: (input: { maxStores: number; priorityChainIds: string[] }) => Promise<PlanResult>
+  /** Reports the latest plan to the parent so other views can reuse its exact store totals. */
+  onPlanResult?: (result: PlanResult | null) => void
 }) {
   const [maxStores, setMaxStores] = useState(String(defaultMaxStores ?? DEFAULT_MAX_STORES))
   const [priorityIds, setPriorityIds] = useState<string[]>(defaultPriorityIds.filter((id) => chains.some((chain) => chain.id === id)))
@@ -43,10 +46,12 @@ export function ShoppingPlanPanel({
   async function run() {
     setStatus('loading')
     setError('')
+    onPlanResult?.(null)
     try {
       const next = await build({ maxStores: Number(maxStores), priorityChainIds: priorityIds })
       setResult(next)
       setBuiltFor(inputKey)
+      onPlanResult?.(next)
       setStatus('idle')
     } catch (err) {
       setStatus('error')

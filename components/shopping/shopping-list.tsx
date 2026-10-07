@@ -129,6 +129,8 @@ export function ShoppingList({
   // with its name). Never both at once, so the screen does not fill up with search panels.
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchItemId, setSearchItemId] = useState<string | null>(null)
+  const [planResult, setPlanResult] = useState<PlanResult | null>(null)
+  const [planInputKey, setPlanInputKey] = useState<string | null>(null)
   const wakeLock = useWakeLock()
 
   // Filters, sort and grouping are remembered on this device (lib/list-view-preference.ts). They are
@@ -638,14 +640,25 @@ export function ShoppingList({
           [...pins].map((pin) => [pin.itemId, pin.storeId, pin.productId]).sort(),
         ])}
         build={buildPlan}
+        onPlanResult={(result) => {
+          setPlanResult(result)
+          setPlanInputKey(result ? JSON.stringify([
+            items.filter((item) => !item.done).map((item) => [item.id, item.name, item.quantity, item.unit, item.category]),
+            [...pins].map((pin) => [pin.itemId, pin.storeId, pin.productId]).sort(),
+          ]) : null)
+        }}
       />
 
       <StoreComparison
         items={items}
-        productPrices={productPrices}
-        remaining={remaining}
+
         stores={stores}
-        candidateStores={Array.from(new Set((hasStoreSelection(storeSelection) ? storeChains.filter((chain) => storeSelection.chainIds.includes(chain.id)) : storeChains).map((chain) => chain.chain)))}
+        plan={planResult?.plan ?? null}
+        planInputKey={planInputKey}
+        inputKey={JSON.stringify([
+          items.filter((item) => !item.done).map((item) => [item.id, item.name, item.quantity, item.unit, item.category]),
+          [...pins].map((pin) => [pin.itemId, pin.storeId, pin.productId]).sort(),
+        ])}
         userCoords={userCoords}
       />
     </div>

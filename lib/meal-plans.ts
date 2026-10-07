@@ -1,4 +1,5 @@
 import { householdDietStems, NO_DIET, recipeFitsDiet } from '@/lib/diet'
+import { classifyProductType, resolveListItemTypes, stockTypeCanSatisfyRequestedType } from '@/lib/product-types'
 import type { Household, ItemCategory, ItemUnit, PantryItem } from '@/lib/types'
 
 export type MealType = 'Snídaně' | 'Oběd' | 'Večeře' | 'Svačina'
@@ -300,10 +301,20 @@ export function convertQuantity(quantity: number, fromUnit: ItemUnit, toUnit: It
  *  with less than the recipe actually needs (or in a unit that can't be compared) doesn't count. */
 export function matchIngredientToStock(ingredient: Ingredient, pantryItems: PantryItem[]): PantryItem | undefined {
   const normalized = ingredient.name.trim().toLowerCase()
+  const requestedType = resolveListItemTypes(ingredient.name)
   return pantryItems.find((item) => {
-    if (item.name.trim().toLowerCase() !== normalized) return false
-    const available = convertQuantity(item.quantity, item.unit, ingredient.unit)
-    return available != null && available >= ingredient.quantity
+    if (item.name.trim().toLowerCase() === normalized) {
+      const available = convertQuantity(item.quantity, item.unit, ingredient.unit)
+      return available != null && available >= ingredient.quantity
+    }
+
+    // A small number of real food substitutions are meaningful even when the names differ. In
+    // particular, one whole chicken in stock can cover a recipe asking for one chicken breast.
+    // This is type-aware rather than fuzzy text matching, and it never turns kg into ks globally.
+    if (!requestedType || requestedType.kind !== 'type' || ingredient.unit !== 'ks' || ingredient.quantity > 1) return false
+    const stockType = classifyProductType(item.category, item.name)
+    if (!stockType || !requestedType.types.some((type) => stockTypeCanSatisfyRequestedType(stockType, type))) return false
+    return stockType === 'kure-cele' && item.quantity > 0
   })
 }
 

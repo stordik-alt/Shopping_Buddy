@@ -200,6 +200,13 @@ describe('pickTypedHit', () => {
     expect(pickTypedHit({ quantity: 1, unit: 'kg' }, [breast, thighs])?.hit.productId).toBe('thighs')
   })
 
+  it('rejects a seasoned meat variant for a plain specific cut request', () => {
+    const seasoned = hit({ productId: 'seasoned', name: 'Just Meat Kuřecí prsa s pepřem a solí', unit: 'kg', regularPrice: 39.9, unitPrice: 399, score: 20 })
+    const plain = hit({ productId: 'plain', name: 'Kuřecí prsní řízky 500 g', unit: 'kg', regularPrice: 75, unitPrice: 150, score: 1 })
+    expect(pickTypedHit({ name: 'Kuřecí prsa', quantity: 0.15, unit: 'kg' }, [seasoned, plain])?.hit.productId).toBe('plain')
+    expect(pickTypedHit({ name: 'Kuřecí prsa', quantity: 0.15, unit: 'kg' }, [seasoned])).toBeNull()
+  })
+
   it("offers a chain's packed promotion for a piece need, not only products priced per piece (regression 2026-10-06)", () => {
     // "Hrozny bezsemenné, 1 ks": Lidl prices its grapes per piece at 79.90 Kč, Albert sells a 500 g pack
     // priced per kilogram, on promotion at 29.90 Kč.

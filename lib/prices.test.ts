@@ -351,6 +351,17 @@ describe('compareStoreTotals', () => {
   it('returns no candidate stores when there is no catalog price data at all', () => {
     expect(compareStoreTotals(items, [])).toEqual([])
   })
+
+  it('keeps all supplied store candidates when only one product has a catalog price', () => {
+    const singleProduct = [{ productName: 'Mléko', category: 'Potraviny' as const, prices: [price({ store: 'Lidl', regularPrice: 30 })] }]
+    const totals = compareStoreTotals(
+      [item({ name: 'Mléko', price: 30 }), item({ name: 'Chleba', price: 25 })],
+      singleProduct,
+      ['Lidl', 'Albert', 'Billa'],
+    )
+    expect(totals.map((entry) => entry.store)).toEqual(['Lidl', 'Albert', 'Billa'])
+    expect(totals.every((entry) => entry.itemsPriced + entry.itemsFallback === 2)).toBe(true)
+  })
 })
 
 describe('cheapestPossibleTotal', () => {

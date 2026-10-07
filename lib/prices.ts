@@ -235,9 +235,9 @@ function catalogCostForItem(item: ShoppingListItemForPricing, price: PricePoint)
   return null
 }
 
-export function compareStoreTotals(items: ShoppingListItemForPricing[], products: ProductPrice[]): StoreTotal[] {
+export function compareStoreTotals(items: ShoppingListItemForPricing[], products: ProductPrice[], candidateStores: StoreChain[] = []): StoreTotal[] {
   const pending = items.filter((item) => !item.done)
-  const stores = new Set<StoreChain>()
+  const stores = new Set<StoreChain>(candidateStores)
   // A store explicitly assigned to a list item is itself a valid candidate even when that item
   // has no matching catalog product. Its stored item price is the real price the user sees in the
   // list and must therefore not disappear from the whole-trip total.

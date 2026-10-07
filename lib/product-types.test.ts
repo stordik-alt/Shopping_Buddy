@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classifyProductType, classifyReceiptLineType, describeItemTypes, listItemPhraseEntries, PRODUCT_TYPE_GROUPS, PRODUCT_TYPES, resolveListItemTypes, resolveReceiptLineType, validProductTypeKeys } from '@/lib/product-types'
+import { classifyProductType, classifyReceiptLineType, describeItemTypes, isPlainProductVariantSuitableForRequest, listItemPhraseEntries, PRODUCT_TYPE_GROUPS, PRODUCT_TYPES, resolveListItemTypes, resolveReceiptLineType, stockTypeCanSatisfyRequestedType, validProductTypeKeys } from '@/lib/product-types'
 import { isValidProductSubcategory } from '@/lib/product-subcategories'
 import type { ItemCategory } from '@/lib/types'
 
@@ -301,6 +301,20 @@ describe('shopping-list items → product types (phase 2)', () => {
   it('has groups that accept every one of their types', () => {
     const chicken = resolveListItemTypes('Kuřecí maso')
     expect(chicken?.types).toEqual(PRODUCT_TYPE_GROUPS.find((group) => group.key === 'kureci-maso')!.types)
+  })
+})
+
+describe('stock and recipe product compatibility', () => {
+  it('allows a whole chicken to satisfy one chicken-breast request, but nothing broader by accident', () => {
+    expect(stockTypeCanSatisfyRequestedType('kure-cele', 'kureci-prsa')).toBe(true)
+    expect(stockTypeCanSatisfyRequestedType('sunka', 'kureci-prsa')).toBe(false)
+    expect(stockTypeCanSatisfyRequestedType('kureci-prsa', 'kureci-prsa')).toBe(true)
+  })
+
+  it('keeps seasoned chicken out of an automatic plain-breast match', () => {
+    expect(isPlainProductVariantSuitableForRequest('Kuřecí prsa', 'Just Meat Kuřecí prsa s pepřem a solí')).toBe(false)
+    expect(isPlainProductVariantSuitableForRequest('Kuřecí prsa', 'Kuřecí prsní řízky 500 g')).toBe(true)
+    expect(isPlainProductVariantSuitableForRequest('Kuřecí prsa s pepřem', 'Just Meat Kuřecí prsa s pepřem a solí')).toBe(true)
   })
 })
 

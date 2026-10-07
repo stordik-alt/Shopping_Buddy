@@ -3,23 +3,26 @@ import { budgetImpact } from '@/lib/budget'
 import { money } from '@/lib/format'
 import { nearestLocation, type GpsCoords } from '@/lib/geo'
 import { cheapestPossibleTotal, compareStoreTotals, type ProductPrice } from '@/lib/prices'
-import type { Item, Store } from '@/lib/types'
+import type { Item, Store, StoreChain } from '@/lib/types'
 
 export function StoreComparison({
   items,
   productPrices,
   remaining,
   stores,
+  candidateStores,
   userCoords,
 }: {
   items: Item[]
   productPrices: ProductPrice[]
   remaining: number
   stores: Store[]
+  /** Every store chain that may be compared, even when current price data contains only one product. */
+  candidateStores: StoreChain[]
   userCoords: GpsCoords | null
 }) {
   const pendingCount = items.filter((item) => !item.done).length
-  const totals = compareStoreTotals(items, productPrices)
+  const totals = compareStoreTotals(items, productPrices, candidateStores)
   if (pendingCount === 0 || totals.length === 0) return null
 
   const cheapest = totals[0]

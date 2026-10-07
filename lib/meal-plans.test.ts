@@ -253,6 +253,22 @@ describe('matchIngredientToStock', () => {
     )
     expect(match).toBeUndefined()
   })
+
+  it('uses one whole chicken in stock for a recipe asking for one chicken breast', () => {
+    const match = matchIngredientToStock(
+      { name: 'Kuřecí prsa', category: 'Potraviny', quantity: 1, unit: 'ks' },
+      [pantryItem({ name: 'KUŘE CHLAZENÉ', unit: 'kg', quantity: 3.535 })],
+    )
+    expect(match?.name).toBe('KUŘE CHLAZENÉ')
+  })
+
+  it('does not treat chicken ham as chicken meat stock', () => {
+    const match = matchIngredientToStock(
+      { name: 'Kuřecí prsa', category: 'Potraviny', quantity: 1, unit: 'ks' },
+      [pantryItem({ name: 'Kuřecí šunka', unit: 'kg', quantity: 0.2 })],
+    )
+    expect(match).toBeUndefined()
+  })
 })
 
 describe('convertQuantity', () => {

@@ -161,7 +161,7 @@ export function createLunaReceiptReader({
   return {
     id: `${model}:${reasoningEffort}:${RECEIPT_READING_PROMPT_VERSION}`,
     async read(input, options) {
-      const { object, usage } = await generate({
+      const { output, usage } = await generate({
         model,
         output: Output.object({ schema: receiptReadingSchema }),
         providerOptions: { openai: { reasoningEffort } },

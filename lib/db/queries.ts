@@ -517,7 +517,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
       }),
       db.query.expenses.findMany({ where: and(eq(schema.expenses.householdId, household.id), gte(schema.expenses.date, historySince)), orderBy: asc(schema.expenses.date) }),
       // The newest 50 are what the bell panel can usefully show; all of them grew with every week.
-      db.query.notifications.findMany({ where: eq(schema.notifications.householdId, household.id), orderBy: desc(schema.notifications.createdAt), limit: NOTIFICATIONS_SHOWN }),
+      db.query.notifications.findMany({ where: and(eq(schema.notifications.householdId, household.id), eq(schema.notifications.unread, true)), orderBy: desc(schema.notifications.createdAt), limit: NOTIFICATIONS_SHOWN }),
       // The last year, with only the columns the history, usual items and pantry estimate read. The
       // whole history with every related row (branch addresses, opening hours…) was sent on every render.
       queryPurchaseRows(household.id, household.budgetPeriodStartDay),

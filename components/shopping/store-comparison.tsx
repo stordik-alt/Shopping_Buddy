@@ -1,9 +1,7 @@
-import { AlertTriangle, ArrowDownRight, MapPin } from 'lucide-react'
-import { budgetImpact } from '@/lib/budget'
+import { ArrowDownRight, MapPin } from 'lucide-react'
 import { money } from '@/lib/format'
 import { nearestLocation, type GpsCoords } from '@/lib/geo'
-import { cheapestPossibleTotal, compareStoreTotals, type ProductPrice } from '@/lib/prices'
-import type { Item, Store, StoreChain } from '@/lib/types'
+import type { Item, Store } from '@/lib/types'
 
 export function StoreComparison({
   items,

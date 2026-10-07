@@ -102,7 +102,7 @@ describe('detectNonInventory / detectChildOriented', () => {
   })
 })
 
-// aiCategorizeFallback calls the Vercel AI SDK's generateObject — mocked here so this test never
+// aiCategorizeFallback calls the Vercel AI SDK's generateText — mocked here so this test never
 // makes a real network/model call (and needs no credentials), per CLAUDE.md section 25's testability
 // mandate. What is under test is this module's OWN validation: an id outside the allowed list must
 // be rejected even if the (mocked) model "returns" one.

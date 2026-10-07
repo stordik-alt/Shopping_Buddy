@@ -4,18 +4,12 @@ const cloudflareBuild = process.env.BUILD_TARGET === 'cloudflare'
 
 // Next.js 16 supports a nonce-based CSP automatically. Keep the rest of the security headers
 // explicit here, but do not rely on a static `'unsafe-inline'` script policy anymore.
-const isDev = process.env.NODE_ENV !== 'production'
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
     unoptimized: true,
   },
   experimental: {
-    // Let Next inject a per-request nonce and generate the CSP header instead of allowing a static
-    // inline-script exception. This keeps the app safe without breaking the framework's own inline
-    // bootstrap scripts.
-    csp: true,
     serverActions: {
       // Receipt photo/PDF upload (uploadReceiptAction) sends the file as a base64 string inside the
       // action request. The upload cap is 10 MB of raw bytes (MAX_IMAGE_BYTES in

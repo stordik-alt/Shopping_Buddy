@@ -1,4 +1,4 @@
-import { generateObject } from 'ai'
+import { generateText, Output } from 'ai'
 import { z } from 'zod'
 import { googleSubjectToken } from '@/lib/gcp-oidc'
 import { AUTO_ACCEPT_THRESHOLD, classifySubcategory, detectNonInventory, matchProduct, type ProductAliasEntry, type ProductMatch, type RecognitionMethod } from '@/lib/categorization'
@@ -384,9 +384,9 @@ const STRUCTURING_MODEL = 'google/gemini-2.5-flash-lite'
  *  partial/malformed data. */
 export const geminiStructuringProvider: ReceiptStructuringProvider = {
   async structure(normalizedText, options) {
-    const { object, usage } = await generateObject({
+    const { output, usage } = await generateText({
       model: STRUCTURING_MODEL,
-      schema: extractedReceiptSchema,
+      output: Output.object({ schema: extractedReceiptSchema }),
       prompt: `You are extracting structured data from the OCR text of a Czech retail receipt.
 
 Extract: the store name plus the store address and city if printed on the receipt, the date (YYYY-MM-DD), the time (HH:MM) if present, the receipt number if present, the currency, every line item (name, category, quantity, unit, unit price, total price, discount), the subtotal, the total discount, and the grand total.
@@ -406,7 +406,7 @@ OCR text:
 ${normalizedText}`,
     })
     options?.onUsage?.({ inputTokens: usage?.inputTokens, outputTokens: usage?.outputTokens })
-    return object
+    return output
   },
 }
 

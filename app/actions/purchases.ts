@@ -6,6 +6,7 @@ import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
 import { getHouseholdExpenses, getHouseholdNotifications, getPurchaseAftermath, restockPantryItem, upsertProductCatalogDefaults, type PurchaseAftermath } from '@/lib/db/queries'
 import { getProductCatalogCached, getSubcategoryCatalogCached } from '@/lib/db/cached-reads'
+import { purchasedInventoryQuantity } from '@/lib/inventory-packaging'
 import { getPurchaseItemsForExpense, recordPurchaseAsExpense, recomputePurchaseExpenses, setPurchaseItemExpenseSplits, type PurchaseExpenseItem } from '@/lib/db/purchase-items'
 import { deletePurchase, PurchaseToDeleteNotFoundError } from '@/lib/db/purchase-deletion'
 import * as schema from '@/lib/db/schema'
@@ -53,7 +54,8 @@ export async function completePurchaseAction(listId: string): Promise<{ purchase
   const itemsToRecord = doneItems.filter((item) => item.checkedByPurchaseId == null)
 
   for (const item of itemsToRecord) {
-    await restockPantryItem(householdId, { productId: item.productId, name: item.name, category: item.category, quantity: item.quantity, unit: item.unit })
+    const inventory = await purchasedInventoryQuantity({ productId: item.productId, name: item.name, quantity: item.quantity, unit: item.unit })
+    await restockPantryItem(householdId, { productId: item.productId, name: item.name, category: item.category, quantity: inventory.quantity, unit: inventory.unit })
   }
 
   const groups = new Map<string, typeof doneItems>()

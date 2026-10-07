@@ -17,7 +17,7 @@ export function NotificationPanel({
   onClose: () => void
   pushPublicKey: string | null
 }) {
-  const unreadCount = notifications.filter((notification) => notification.unread).length
+  const unreadCount = notifications.length
   const panelRef = useRef<HTMLDivElement>(null)
 
   // Closes on Escape and on a click anywhere outside, like the account menu, so the two popovers
@@ -82,8 +82,8 @@ export function NotificationPanel({
           >
             <span className={`mt-1.5 size-2 shrink-0 rounded-full ${notification.unread ? 'bg-primary' : 'bg-fg-muted/30'}`} aria-hidden="true" />
             <span className="min-w-0">
-              <span className={`block text-sm ${notification.unread ? 'font-semibold' : 'font-medium'}`}>
-                {notification.unread && <span className="sr-only">Nepřečteno: </span>}
+              <span className="block text-sm font-semibold">
+                <span className="sr-only">Nepřečteno: </span>
                 {notification.title}
               </span>
               <span className="mt-0.5 block text-xs leading-relaxed text-fg-secondary">{notification.detail}</span>

@@ -272,7 +272,7 @@ describe('ingestPrices price dating and history', () => {
     )
     expect(queries.recordOfficialPrices).toHaveBeenCalledTimes(1)
     const [observations] = queries.recordOfficialPrices.mock.calls[0]
-    expect(latestPassedToWriter?.get('a')).toBe(stored) // SKU a: its own latest at write time
+    expect(latestPassedToWriter?.get('a')).toBe(stored) // SKU a: its own latest at write time (before the writer result updates the map)
     expect(latestPassedToWriter?.get('b')).toBeUndefined() // SKU b: nothing stored yet
     expect(observations).toHaveLength(2)
   })

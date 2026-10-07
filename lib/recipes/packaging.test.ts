@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { extractExplicitPackageSizes, formatPackageSize, inferPackageSize, resolveCatalogPackageSize, resolveNamedPackageSize } from '@/lib/recipes/packaging'
+import { extractExplicitPackageSizes, formatPackageSize, inferPackageSize, resolveCatalogPackageSize, resolveNamedPackageSize, resolveRecipePackage } from '@/lib/recipes/packaging'
 import type { PricePoint } from '@/lib/prices'
 
 const price = (regularPrice: number, unitPrice: number, unit: PricePoint['unit'] = 'kg'): PricePoint => ({

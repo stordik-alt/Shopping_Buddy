@@ -117,6 +117,7 @@ export async function buildShoppingPlan(householdId: string, memberId: string | 
         unit: schema.shoppingListItems.unit,
         category: schema.shoppingListItems.category,
         productTypes: schema.shoppingListItems.productTypes,
+        price: schema.shoppingListItems.price,
       })
       .from(schema.shoppingListItems)
       .innerJoin(schema.shoppingLists, eq(schema.shoppingLists.id, schema.shoppingListItems.listId))
@@ -205,7 +206,7 @@ export async function buildShoppingPlan(householdId: string, memberId: string | 
         itemsPriced++
       } else {
         const item = items.find((entry) => entry.id === need.id)
-        total += (item?.price ?? 0) * (item?.quantity ?? 0)
+        total += Number(item?.price ?? 0) * (item?.quantity ?? 0)
         itemsEstimated++
       }
     }

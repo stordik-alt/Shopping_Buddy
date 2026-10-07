@@ -12,12 +12,12 @@ export async function reserveReceiptOcrAttempt(householdId: string): Promise<{ a
       target: schema.receiptOcrRateLimits.householdId,
       set: {
         windowStartedAt: sql`CASE WHEN ${schema.receiptOcrRateLimits.windowStartedAt} < now() - interval '24 hours' THEN now() ELSE ${schema.receiptOcrRateLimits.windowStartedAt} END`,
-        attempts: sql`CASE WHEN ${schema.receiptOcrRateLimits.windowStartedAt} < now() - interval '24 hours' THEN 1 WHEN ${schema.receiptOcrRateLimits.attempts} < ${MAX_RECEIPT_UPLOADS_PER_DAY} THEN ${schema.receiptOcrRateLimits.attempts} + 1 ELSE ${schema.receiptOcrRateLimits.attempts} END`,
+        attempts: sql`CASE WHEN ${schema.receiptOcrRateLimits.windowStartedAt} < now() - interval '24 hours' THEN 1 ${schema.receiptOcrRateLimits.attempts} + 1 END`,
       },
     })
     .returning({
       attempts: schema.receiptOcrRateLimits.attempts,
-      reserved: sql<boolean>`CASE WHEN ${schema.receiptOcrRateLimits.windowStartedAt} < now() - interval '24 hours' THEN true ELSE ${schema.receiptOcrRateLimits.attempts} <= ${MAX_RECEIPT_UPLOADS_PER_DAY} END`,
+      reserved: sql<boolean>`${schema.receiptOcrRateLimits.attempts} <= ${MAX_RECEIPT_UPLOADS_PER_DAY}`,
     })
 
   if (!row.reserved) return { allowed: false, error: RECEIPT_UPLOAD_LIMIT_MESSAGE }

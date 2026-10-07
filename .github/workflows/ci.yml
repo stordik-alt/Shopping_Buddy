@@ -128,6 +128,11 @@ jobs:
       - name: Seed the isolated E2E database
         run: pnpm exec tsx lib/db/seed.ts
 
+      - name: Build production app for E2E
+        env:
+          NEON_AUTH_BASE_URL: https://ci.invalid/neon-auth
+        run: pnpm build
+
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
 

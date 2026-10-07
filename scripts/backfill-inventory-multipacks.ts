@@ -3,6 +3,7 @@ import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { resolveInventoryPackage, inventoryQuantityFromPackage } from '@/lib/inventory-packaging'
 
+async function main() {
 const args = new Set(process.argv.slice(2))
 const apply = args.has('--apply')
 const scopeArg = process.argv.find((arg) => arg.startsWith('--scope='))?.split('=')[1] ?? 'safe'
@@ -118,3 +119,9 @@ const summary = {
 }
 console.log(JSON.stringify(summary, null, 2))
 for (const row of rows) console.log(JSON.stringify(row))
+}
+
+main().catch((error) => {
+  console.error(error)
+  process.exitCode = 1
+})

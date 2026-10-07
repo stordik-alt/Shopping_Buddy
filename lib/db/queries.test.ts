@@ -867,6 +867,33 @@ describe('createActiveDealWriter', () => {
     }
   })
 
+  it('batches changed active deal updates until flush', async () => {
+    const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
+    const products = []
+    for (let i = 0; i < 2; i++) {
+      products.push(...await db.insert(schema.products).values({ name: `__test_deal_batch_${i}_${crypto.randomUUID()}`, categoryId: category!.id }).returning())
+    }
+    const storeLocationId = await getCanonicalStoreLocationId('Lidl')
+    const storeId = await getStoreIdByChain('Lidl')
+    const deal = (productId: string, dealPrice: number) => ({ productId, storeId, storeLocationId, dealPrice, validFrom: '2026-09-01', validUntil: '2099-01-01' })
+    try {
+      await Promise.all(products.map((product) => upsertActiveDeal(deal(product.id, 10))))
+      const writer = await createActiveDealWriter(storeId, products.map((product) => product.id))
+      expect(await writer.upsert(deal(products[0].id, 8))).toBe(true)
+      expect(await writer.upsert(deal(products[1].id, 7))).toBe(true)
+
+      const before = await db.query.deals.findMany({ where: inArray(schema.deals.productId, products.map((product) => product.id)) })
+      expect(before.map((row) => Number(row.dealPrice)).sort()).toEqual([10, 10])
+
+      expect(await writer.flush()).toBe(2)
+      const after = await db.query.deals.findMany({ where: inArray(schema.deals.productId, products.map((product) => product.id)) })
+      expect(after.map((row) => Number(row.dealPrice)).sort()).toEqual([7, 8])
+    } finally {
+      await db.delete(schema.deals).where(inArray(schema.deals.productId, products.map((product) => product.id)))
+      await db.delete(schema.products).where(inArray(schema.products.id, products.map((product) => product.id)))
+    }
+  })
+
   it('refuses a deal of another store', async () => {
     const writer = await createActiveDealWriter(await getStoreIdByChain('Lidl'), [])
     await expect(writer.upsert({ productId: crypto.randomUUID(), storeId: await getStoreIdByChain('dm'), storeLocationId: null, dealPrice: 1, validFrom: '2026-09-01', validUntil: '2099-01-01' })).rejects.toThrow('given to the writer of store')

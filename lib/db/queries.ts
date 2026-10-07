@@ -1,12 +1,12 @@
 import { cleanMemberDiet, NO_DIET, type MemberDiet } from '@/lib/diet'
-import { and, asc, desc, eq, gte, ilike, inArray, isNull, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, ilike, inArray, isNull, sql, type SQLWrapper } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { isNotificationKind, type NotificationKind } from '@/lib/notification-kinds'
 import { periodStart } from '@/lib/budget'
 import { todayInPrague } from '@/lib/today'
 import { planOfficialPrice, type OfficialPriceAction, type OfficialPriceSnapshot } from '@/lib/ingestion/official-price'
-import { activeDealKey, dealValues, planActiveDeal, type ActiveDealSnapshot, type IngestedDeal } from '@/lib/ingestion/active-deal'
+import { activeDealKey, dealValues, planActiveDeal, type ActiveDealSnapshot, type DealValues, type IngestedDeal } from '@/lib/ingestion/active-deal'
 import { ingestionDate } from '@/lib/ingestion/today'
 import type { IngestionSource as ProductSource, NormalizedPackage } from '@/lib/ingestion/types'
 import { currentWeekStart, parseSavedPlan, type WeeklyMealPlan } from '@/lib/meal-plans'
@@ -2046,6 +2046,7 @@ export async function createActiveDealWriter(storeId: string, knownProductIds: s
     for (const row of rows) if (!active.has(activeDealKey(row))) active.set(activeDealKey(row), row)
   }
   const pending = new Map<string, typeof schema.deals.$inferInsert>()
+  const pendingUpdates = new Map<string, { id: string; values: DealValues }>()
 
   return {
     /** Applies one promotion. Returns whether it changed anything (a new or adjusted deal). */
@@ -2064,19 +2065,38 @@ export async function createActiveDealWriter(storeId: string, knownProductIds: s
       const plan = planActiveDeal(active.get(key), deal)
       if (plan.kind === 'unchanged') return false
       if (plan.kind === 'update') {
-        await db.update(schema.deals).set(plan.values).where(eq(schema.deals.id, plan.id))
+        // Keep the in-memory snapshot current immediately, but defer the DB write to flush().
+        // Several changed deals are therefore persisted by one UPDATE per 500 rows instead of one
+        // network round trip per product.
+        pendingUpdates.set(key, { id: plan.id, values: plan.values })
         active.set(key, { id: plan.id, unit: null, unitPrice: null, ...plan.values })
         return true
       }
       pending.set(key, { productId: deal.productId, storeId: deal.storeId, storeLocationId: deal.storeLocationId, ...plan.values })
       return true
     },
-    /** Inserts the new deals collected so far. Returns how many were written. */
+    /** Persists queued inserts and changed existing deals. Returns how many rows were written. */
     async flush(): Promise<number> {
       const rows = [...pending.values()]
+      const updates = [...pendingUpdates.values()]
       for (const part of chunks(rows, 500)) await db.insert(schema.deals).values(part)
+      for (const part of chunks(updates, 500)) {
+        if (part.length === 0) continue
+        const ids = part.map(({ id }) => id)
+        const caseValue = (field: keyof DealValues, column: SQLWrapper) => sql`CASE ${schema.deals.id} ${sql.join(part.map(({ id, values }) => sql`WHEN ${id} THEN ${values[field] ?? null}`), sql` `)} ELSE ${column} END`
+        const set: Record<string, ReturnType<typeof sql>> = {
+          dealPrice: caseValue('dealPrice', schema.deals.dealPrice),
+          currency: caseValue('currency', schema.deals.currency),
+          validFrom: caseValue('validFrom', schema.deals.validFrom),
+          validUntil: caseValue('validUntil', schema.deals.validUntil),
+        }
+        if (part.some(({ values }) => 'unit' in values)) set.unit = caseValue('unit', schema.deals.unit)
+        if (part.some(({ values }) => 'unitPrice' in values)) set.unitPrice = caseValue('unitPrice', schema.deals.unitPrice)
+        await db.update(schema.deals).set(set).where(inArray(schema.deals.id, ids))
+      }
       pending.clear()
-      return rows.length
+      pendingUpdates.clear()
+      return rows.length + updates.length
     },
   }
 }

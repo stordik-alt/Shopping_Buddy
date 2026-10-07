@@ -8,6 +8,7 @@ export function StoreComparison({
   stores,
   plan,
   singleStoreTotals,
+  priorityChainIds,
   planInputKey,
   inputKey,
   userCoords,
@@ -17,13 +18,14 @@ export function StoreComparison({
   /** The latest shopping plan; the summary must use the exact subtotals shown above. */
   plan: import('@/lib/shopping-plan').ShoppingPlan | null
   singleStoreTotals: { storeId: string; chain: string; total: number; itemsPriced: number; itemsEstimated: number }[]
+  priorityChainIds: string[]
   /** Input key for which the plan was built, used to avoid displaying stale totals. */
   planInputKey: string | null
   inputKey: string
   userCoords: GpsCoords | null
 }) {
   const pendingCount = items.filter((item) => !item.done).length
-  const priorityIds = new Set(plan?.stores.filter((store) => store.isPriority).map((store) => store.storeId) ?? [])
+  const priorityIds = new Set(priorityChainIds)
   const priorityStores = singleStoreTotals.filter((store) => priorityIds.has(store.storeId))
 
   // This card compares each priority chain as if the entire open list were bought there.

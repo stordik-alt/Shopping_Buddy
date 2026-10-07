@@ -258,6 +258,24 @@ export type PriceSource = {
   run: (limit: number, options?: IngestOptions) => Promise<IngestResult>
 }
 
+function mergeRunResults(a: IngestResult, b: IngestResult): IngestResult {
+  return {
+    processed: a.processed + b.processed,
+    recorded: a.recorded + b.recorded,
+    newProducts: a.newProducts + b.newProducts,
+    deals: a.deals + b.deals,
+    promotionsWithoutValidity: a.promotionsWithoutValidity + b.promotionsWithoutValidity,
+    skipped: a.skipped + b.skipped,
+    unchanged: a.unchanged + b.unchanged,
+    priceChanges: a.priceChanges + b.priceChanges,
+    priceCacheChanged: a.priceCacheChanged || b.priceCacheChanged,
+    dealsCacheChanged: a.dealsCacheChanged || b.dealsCacheChanged,
+    truncated: a.truncated || b.truncated,
+    part: [a.part, b.part].filter(Boolean).join(', ') || undefined,
+    errors: [...a.errors, ...b.errors],
+  }
+}
+
 /** Every store connector run by the cron. Adding a store means adding its connector here (each entry
  *  closes over its own raw type, so the list needs no shared generic).
  *
@@ -345,7 +363,7 @@ export async function runPriceSources(options: {
           ? { index: (startPart + runIndex) % parts, count: parts }
           : undefined
         const outcome = await run(options.limit ?? UNLIMITED, { deadline, now, ...(part ? { part } : {}) })
-        combined = combined ? mergeIngestResults(combined, outcome) : outcome
+        combined = combined ? mergeRunResults(combined, outcome) : outcome
         // Advance after every completed part, including a truncated one. If the connector throws,
         // the failed part is retried next invocation.
         if (part) await setIngestionCursor(source, (part.index + 1) % part.count)

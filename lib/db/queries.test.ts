@@ -364,16 +364,20 @@ describe('ingestion lookup context', () => {
     const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
     const [product] = await db.insert(schema.products).values({ name: `__test_touch_${crypto.randomUUID()}`, categoryId: category!.id }).returning()
     const old = new Date('2020-01-01T00:00:00Z')
+    const recent = new Date(Date.now() - 60 * 60 * 1000)
     const touchedId = `__test_erp_${crypto.randomUUID()}`
+    const recentId = `__test_erp_${crypto.randomUUID()}`
     const untouchedId = `__test_erp_${crypto.randomUUID()}`
     await db.insert(schema.productExternalRefs).values([
       { productId: product.id, source: 'lidl', externalId: touchedId, lastSeenAt: old },
+      { productId: product.id, source: 'lidl', externalId: recentId, lastSeenAt: recent },
       { productId: product.id, source: 'lidl', externalId: untouchedId, lastSeenAt: old },
     ])
 
     await touchExternalRefs('lidl', [touchedId])
     const refs = await db.query.productExternalRefs.findMany({ where: eq(schema.productExternalRefs.productId, product.id) })
     expect(refs.find((ref) => ref.externalId === touchedId)!.lastSeenAt.getTime()).toBeGreaterThan(old.getTime())
+    expect(refs.find((ref) => ref.externalId === recentId)!.lastSeenAt.getTime()).toBe(recent.getTime())
     expect(refs.find((ref) => ref.externalId === untouchedId)!.lastSeenAt.getTime()).toBe(old.getTime())
 
     await touchExternalRefs('lidl', []) // an empty batch is a no-op, not an error

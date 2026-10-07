@@ -76,6 +76,58 @@ test.describe('critical smoke flow', () => {
 
       await page.goto('/?tab=recepty')
       await expect(page.getByText('Recepty', { exact: true }).first()).toBeVisible()
+
+      const mobileViewports = [
+        { width: 320, height: 844 },
+        { width: 360, height: 800 },
+        { width: 390, height: 844 },
+        { width: 430, height: 932 },
+        { width: 768, height: 1024 },
+        { width: 1280, height: 900 },
+      ]
+      const themes = ['light', 'dark'] as const
+      const primaryTabs = [
+        ['/', 'Domů'],
+        ['/?tab=nakup', 'Nákupní seznam'],
+        ['/?tab=zasoby', 'Zásoby'],
+        ['/?tab=rozpocet', 'Aktuální stav'],
+        ['/?tab=recepty', 'Recepty'],
+      ] as const
+
+      for (const colorScheme of themes) {
+        await page.emulateMedia({ colorScheme })
+        for (const viewport of mobileViewports) {
+          await page.setViewportSize(viewport)
+          await page.goto('/')
+          await expect(page.getByText('Rodinný nákup').first()).toBeVisible()
+          await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+          await expect.poll(() => page.evaluate(() => {
+            const elements = Array.from(document.querySelectorAll('body *')).filter((element) => {
+              const node = element as HTMLElement
+              if (!node.innerText?.trim()) return false
+              const style = getComputedStyle(node)
+              return style.display !== 'none' && style.visibility !== 'hidden' && node.getClientRects().length > 0
+            })
+            return elements.every((element) => Number.parseFloat(getComputedStyle(element).fontSize) >= 12)
+          })).toBe(true)
+          await page.screenshot({
+            path: 'test-results/mobile-ui-v2/' + colorScheme + '-' + viewport.width + 'x' + viewport.height + '-home.png',
+            fullPage: true,
+          })
+
+          if (viewport.width === 390 && viewport.height === 844) {
+            for (const [url, label] of primaryTabs) {
+              await page.goto(url)
+              await expect(page.getByText(label, { exact: true }).first()).toBeVisible()
+              await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+              await page.screenshot({
+                path: 'test-results/mobile-ui-v2/' + colorScheme + '-390x844-' + label.replaceAll(' ', '-').toLowerCase() + '.png',
+                fullPage: true,
+              })
+            }
+          }
+        }
+      }
     } finally {
       await cleanupTestAccount(email)
     }

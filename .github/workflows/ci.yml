@@ -142,11 +142,11 @@ jobs:
           DEBUG: pw:webserver,pw:api
         run: timeout --signal=TERM --kill-after=15s 180s ./node_modules/.bin/playwright test
 
-      - name: Upload Playwright diagnostics
-        if: failure()
+      - name: Upload Playwright diagnostics and Mobile UI v2 screenshots
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-smoke-diagnostics-${{ github.run_id }}
+          name: playwright-mobile-ui-v2-${{ github.run_id }}
           path: test-results/
           if-no-files-found: ignore
           retention-days: 7

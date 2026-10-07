@@ -7,6 +7,7 @@ import { detectNonInventory } from '@/lib/categorization'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { pantryQuantityAfterRemoval } from '@/lib/pantry'
+import { purchasedInventoryQuantity } from '@/lib/inventory-packaging'
 import { deleteReceiptFile } from '@/lib/storage'
 
 export class PurchaseToDeleteNotFoundError extends Error {}
@@ -51,8 +52,9 @@ export async function deletePurchase(householdId: string, purchaseId: string): P
         ? await db.query.pantryItems.findFirst({ where: and(eq(schema.pantryItems.householdId, householdId), eq(schema.pantryItems.productId, line.productId)) })
         : null
       const row = byProduct ?? (await db.query.pantryItems.findFirst({ where: and(eq(schema.pantryItems.householdId, householdId), ilike(schema.pantryItems.name, line.name.trim())) }))
-      if (!row || row.unit !== line.unit) continue
-      const left = pantryQuantityAfterRemoval(row.quantity, line.quantity)
+      const inventory = await purchasedInventoryQuantity({ productId: line.productId, name: line.name, quantity: line.quantity, unit: line.unit })
+      if (!row || row.unit !== inventory.unit) continue
+      const left = pantryQuantityAfterRemoval(row.quantity, inventory.quantity)
       if (left === null) await db.delete(schema.pantryItems).where(eq(schema.pantryItems.id, row.id))
       else await db.update(schema.pantryItems).set({ quantity: left }).where(eq(schema.pantryItems.id, row.id))
       pantryRowsChanged++

@@ -2,7 +2,7 @@ import { eq, inArray, sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import { getStoreChains, saveMemberStoreSelection } from '@/lib/db/member-store-preferences'
-import { searchProductHits, searchProductHitsBatch } from '@/lib/db/product-search'
+import { getHitsForProducts, searchProductHits, searchProductHitsBatch } from '@/lib/db/product-search'
 import * as schema from '@/lib/db/schema'
 import { SEARCH_ACCENTED, normalizeSearchText, searchTokens } from '@/lib/product-search'
 import { searchProductsAction } from '@/app/actions/product-search'
@@ -28,6 +28,7 @@ let lidlLocationId: string
 let categoryId: string
 let milkId: string // present at Lidl and Albert
 let cheeseId: string // present at Lidl only
+let offerOnlyId: string // a running offer at Lidl, no price anywhere (an offers-only source)
 let userId: string
 let memberId: string
 
@@ -68,6 +69,19 @@ beforeAll(async () => {
   await addPrice(cheeseId, lidlId, 39.9, 199.5, '2026-09-24', 'kg')
   // An active promotion on the milk at Lidl.
   await db.insert(schema.deals).values({ productId: milkId, storeId: lidlId, storeLocationId: lidlLocationId, dealPrice: '19.9', validFrom: '2026-09-01', validUntil: '2099-01-01' })
+
+  // A product the app knows only from Penny-style offers: a running deal at Lidl, no price anywhere.
+  offerOnlyId = await addProduct(`__Test Káva zrnková ${tag}`)
+  await db.insert(schema.deals).values({
+    productId: offerOnlyId,
+    storeId: lidlId,
+    storeLocationId: lidlLocationId,
+    dealPrice: '120',
+    unit: 'kg',
+    unitPrice: '240',
+    validFrom: '2026-09-01',
+    validUntil: '2099-01-01',
+  })
 
   const result = await db.execute<{ id: string }>(sql`insert into neon_auth."user" (name, email, "emailVerified") values ('Hledání', ${`search-test-${crypto.randomUUID()}@example.com`}, false) returning id`)
   userId = result.rows[0].id
@@ -177,6 +191,51 @@ describe('searchProductHits', () => {
   it('does not fail on quote-like input (parameterized, not spliced into SQL)', async () => {
     await expect(searchProductHits(["x'); drop table products; --"])).resolves.toEqual([])
     expect((await db.query.products.findFirst({ where: eq(schema.products.id, milkId) }))?.id).toBe(milkId)
+  })
+})
+
+// A (product, chain) pair with a running offer and no price at all: without the offer arm of
+// currentPriceRows() the app could not find such a product, put it on a list or plan it, even though
+// the chain sells it this week (the owner's report, 2026-10-07).
+describe('a product known only from a running offer', () => {
+  it('is found, priced at the offer, with no regular price and no observation date', async () => {
+    const hits = await searchProductHits(searchTokens(`kava zrnkova ${tag}`))
+    expect(hits.map((hit) => hit.chain)).toEqual(['Lidl'])
+    const [lidl] = hits
+    expect(lidl.productId).toBe(offerOnlyId)
+    expect(lidl.regularPrice).toBeNull()
+    expect(lidl.dealPrice).toBe(120)
+    expect(lidl.dealValidUntil).toBe('2099-01-01')
+    expect(lidl.unit).toBe('kg')
+    expect(lidl.unitPrice).toBe(240) // the offer's own unit price, never derived from a regular one
+    expect(lidl.observedAt).toBeNull()
+  })
+
+  it('is priced for a pinned product exactly like one with a regular price', async () => {
+    const [hit] = await getHitsForProducts([offerOnlyId], [lidlId])
+    expect(hit).toMatchObject({ regularPrice: null, dealPrice: 120, unit: 'kg', unitPrice: 240 })
+    expect(await getHitsForProducts([offerOnlyId], [albertId])).toEqual([])
+  })
+
+  it('is offered by the search box too, through the Server Action', async () => {
+    const result = await searchProductsAction({ query: `kava zrnkova ${tag}`, onlyNearby: false })
+    expect(result.groups.map((group) => group.chain)).toEqual(['Lidl'])
+    expect(result.groups[0].hits[0]).toMatchObject({ name: `__Test Káva zrnková ${tag}`, regularPrice: null, dealPrice: 120 })
+  })
+
+  it('is still found by the planner batch, which splits the rows per item', async () => {
+    const [offerHits, milkHits] = await searchProductHitsBatch([
+      { tokens: searchTokens(`kava zrnkova ${tag}`), storeIds: [lidlId] },
+      { tokens: searchTokens(`mleko ${tag}`), storeIds: [lidlId] },
+    ])
+    expect(offerHits.map((hit) => hit.productId)).toEqual([offerOnlyId])
+    expect(milkHits.map((hit) => hit.productId)).toContain(milkId)
+  })
+
+  it('gives way to a recorded price once the chain states one, keeping the running offer attached', async () => {
+    await addPrice(offerOnlyId, lidlId, 150, 300, '2026-09-24', 'kg')
+    const [hit] = await searchProductHits(searchTokens(`kava zrnkova ${tag}`))
+    expect(hit).toMatchObject({ regularPrice: 150, dealPrice: 120, unitPrice: 300, observedAt: '2026-09-24' })
   })
 })
 

@@ -310,18 +310,30 @@ export type ProductSearchHit = {
   category: ItemCategory
   storeId: string
   chain: string
-  /** The latest recorded regular price of one package (or per kg for goods sold by weight). */
-  regularPrice: number
+  /** The latest recorded regular price of one package (or per kg for goods sold by weight); `null`
+   *  when the chain has no regular price for the product at all — some retailers publish only their
+   *  current offers (Penny), and no regular price is invented for those (CLAUDE.md sections 15 and
+   *  18). `dealPrice` is then the hit's only price. */
+  regularPrice: number | null
   /** An active promotional price, when the chain has one for this product. */
   dealPrice: number | null
   dealValidUntil: string | null
-  unit: ItemUnit
-  /** Price per `unit` (Kč/kg, Kč/l or Kč/ks), so hits of different pack sizes can be compared. */
-  unitPrice: number
+  /** The promotion's own unit price, when the source prints one — the heavier of the two figures,
+   *  because it describes the offer price rather than a regular price scaled down. `null` when the
+   *  promotion states none; the unit price is then derived from the regular price. */
+  dealUnitPrice: number | null
+  /** The unit `unitPrice` is per (kg, l or ks). `null` when neither a regular price nor the promotion
+   *  states one (a deal stored before unit prices were kept): such a hit can still be found and put on
+   *  a list, but a plan cannot say how much of it a need is. */
+  unit: ItemUnit | null
+  /** Price per `unit` (Kč/kg, Kč/l or Kč/ks) at the price this hit states — the regular price for a
+   *  priced product, the offer's own for an offer-only one; `null` when the hit states none. */
+  unitPrice: number | null
   /** Persistent package evidence when the current price agrees with the product package catalog. */
   packageSize?: StandardPackage | null
-  /** The date the price was observed. */
-  observedAt: string
+  /** The date the price was observed; `null` for a product the app knows only from a running offer,
+   *  which no price was ever recorded for. */
+  observedAt: string | null
   score: number
   /** The product is what was searched for, not something that merely contains or mentions it
    *  (`isDirectMatch`). Only direct matches are ever picked automatically. */
@@ -336,20 +348,31 @@ export type ProductSearchGroup = {
   totalMatches: number
 }
 
-/** The price a shopper pays now: the promotion when there is one, else the regular price. */
-export const hitPrice = (hit: Pick<ProductSearchHit, 'regularPrice' | 'dealPrice'>) => hit.dealPrice ?? hit.regularPrice
+/** The price a shopper pays now: the promotion when there is one, else the regular price. `null` only
+ *  for a hit that states no price at all, which costs nothing anywhere and is never priced with a
+ *  made-up number. */
+export const hitPrice = (hit: Pick<ProductSearchHit, 'regularPrice' | 'dealPrice'>): number | null => hit.dealPrice ?? hit.regularPrice
 
-/** The unit price at the price a shopper pays now. `unitPrice` belongs to the regular price; a
- *  promotion changes the price of the same package, so its unit price scales by the same ratio
- *  (rounded to haléře). Equal to `unitPrice` when there is no promotion. */
-export function hitUnitPrice(hit: Pick<ProductSearchHit, 'regularPrice' | 'dealPrice' | 'unitPrice'>): number {
-  if (hit.dealPrice == null || hit.regularPrice <= 0) return hit.unitPrice
+/** The unit price at the price a shopper pays now. The promotion's own stored unit price wins when the
+ *  source printed one — it describes the offer price, where scaling the regular one only approximates
+ *  it, and for an offers-only retailer there is no regular unit price to scale at all. Without one the
+ *  unit price scales with the price (the same package at a lower price, rounded to haléře). `null`
+ *  when the hit states no unit price. */
+export function hitUnitPrice(hit: Pick<ProductSearchHit, 'regularPrice' | 'dealPrice' | 'dealUnitPrice' | 'unitPrice'>): number | null {
+  if (hit.dealPrice == null) return hit.unitPrice
+  if (hit.dealUnitPrice != null) return hit.dealUnitPrice
+  if (hit.regularPrice == null || hit.regularPrice <= 0 || hit.unitPrice == null) return hit.unitPrice
   return Math.round(((hit.unitPrice * hit.dealPrice) / hit.regularPrice) * 100) / 100
 }
 
+/** A hit's unit price for ordering, with an unknown one last — "cheapest first" must never put a
+ *  product whose unit price the app does not know above one it does. */
+const unitPriceForOrder = (hit: ProductSearchHit): number => hitUnitPrice(hit) ?? Number.POSITIVE_INFINITY
+
 /** Groups hits per chain (chains alphabetically, in Czech order), best matches first within a
- *  chain, at most `limitPerChain` shown. Within the same score the cheaper unit price comes first,
- *  then the name, so the order is deterministic. Chains without a hit do not appear. */
+ *  chain, at most `limitPerChain` shown. Within the same score the cheaper unit price comes first
+ *  (what a shopper pays now, promotion included), then the name, so the order is deterministic.
+ *  Chains without a hit do not appear. */
 export function groupHitsByChain(hits: ProductSearchHit[], limitPerChain: number): ProductSearchGroup[] {
   const byChain = new Map<string, ProductSearchGroup>()
   for (const hit of hits) {
@@ -362,7 +385,7 @@ export function groupHitsByChain(hits: ProductSearchHit[], limitPerChain: number
     .map((group) => ({
       ...group,
       hits: group.hits
-        .sort((a, b) => b.score - a.score || a.unitPrice - b.unitPrice || a.name.localeCompare(b.name, 'cs'))
+        .sort((a, b) => b.score - a.score || unitPriceForOrder(a) - unitPriceForOrder(b) || a.name.localeCompare(b.name, 'cs'))
         .slice(0, Math.max(limitPerChain, 0)),
     }))
     .sort((a, b) => a.chain.localeCompare(b.chain, 'cs'))

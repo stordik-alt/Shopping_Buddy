@@ -15,14 +15,28 @@ export type NeedSpec = {
 }
 
 /** The size of one retail package of a hit. Explicit/catalogued package evidence wins; otherwise
- *  weight/volume products use regular price ÷ unit price. A piece-priced product without explicit
- *  package evidence defaults to one piece per package. */
-export function packageSize(hit: Pick<ProductSearchHit, 'regularPrice' | 'unitPrice' | 'unit' | 'packageSize'>): { value: number; unit: ItemUnit } | null {
+ *  weight/volume products use the price of one package divided by its unit price. The regular price
+ *  pair is used when the product has one (what a package size has always been derived from); a hit the
+ *  app knows only from a running offer has no regular price, so its own pair is used instead — the
+ *  offer's printed unit price describes the same package, and no regular price is invented for it
+ *  (CLAUDE.md sections 15 and 18). A piece-priced product without explicit package evidence defaults
+ *  to one piece per package. */
+export function packageSize(hit: Pick<ProductSearchHit, 'regularPrice' | 'dealPrice' | 'dealUnitPrice' | 'unitPrice' | 'unit' | 'packageSize'>): { value: number; unit: ItemUnit } | null {
   if (hit.packageSize) {
     return { value: hit.packageSize.quantity, unit: hit.packageSize.unit }
   }
-  if (hit.unit === 'ks' || hit.unitPrice <= 0) return null
-  return { value: Math.round((hit.regularPrice / hit.unitPrice) * 1000) / 1000, unit: hit.unit }
+  const priced = hit.regularPrice != null && hit.regularPrice > 0 && hit.unitPrice != null
+    ? { price: hit.regularPrice, unitPrice: hit.unitPrice }
+    : { price: hitPrice(hit), unitPrice: hitUnitPrice(hit) }
+  if (hit.unit == null || hit.unit === 'ks' || priced.price == null || priced.unitPrice == null || priced.unitPrice <= 0) return null
+  return { value: Math.round((priced.price / priced.unitPrice) * 1000) / 1000, unit: hit.unit }
+}
+
+/** Whether the hit is sold loose by weight or volume — priced per kilogram or litre with no retail
+ *  package — in which case a piece count does not say how much of it to buy. */
+function soldLoose(hit: Pick<ProductSearchHit, 'regularPrice' | 'dealPrice' | 'dealUnitPrice' | 'unitPrice' | 'packageSize'>): boolean {
+  if (hit.packageSize) return false
+  return hit.regularPrice != null ? hit.regularPrice === hit.unitPrice : hitPrice(hit) === hitUnitPrice(hit)
 }
 
 export type NeedCost = {
@@ -51,23 +65,26 @@ const round = (value: number) => Math.round(value * 100) / 100
  *    Goods sold loose by weight (priced per kilogram with no pack size) stay out: a piece count does
  *    not say how much of them to buy.
  *  A weight need against a piece-priced product (or a volume need against a weight-priced one) has no
- *  sound conversion and yields \`null\` — never a guess. */
-export function costForNeed(need: Pick<NeedSpec, 'quantity' | 'unit'>, hit: Pick<ProductSearchHit, 'regularPrice' | 'dealPrice' | 'unitPrice' | 'unit' | 'packageSize'>): NeedCost | null {
+ *  sound conversion and yields \`null\` — never a guess. The same holds for a hit that states no price
+ *  or no unit at all (an older promotion the app keeps no unit price for): it can be put on a list, but
+ *  it is left out of the plan rather than priced with an invented number. */
+export function costForNeed(need: Pick<NeedSpec, 'quantity' | 'unit'>, hit: Pick<ProductSearchHit, 'regularPrice' | 'dealPrice' | 'dealUnitPrice' | 'unitPrice' | 'unit' | 'packageSize'>): NeedCost | null {
   if (!Number.isFinite(need.quantity) || need.quantity <= 0) return null
+  const price = hitPrice(hit)
+  if (price == null) return null
   switch (need.unit) {
     case 'ks': {
       if (hit.unit !== 'ks') {
         const size = packageSize(hit)
         // Priced per kilogram / litre at the price of one kilogram / litre: sold loose, no pack.
-        const loose = !hit.packageSize && hit.regularPrice === hit.unitPrice
-        if (!size || loose) return null
+        if (!size || soldLoose(hit)) return null
         const packages = Math.max(1, Math.ceil(need.quantity - Number.EPSILON))
-        return { cost: round(packages * hitPrice(hit)), basis: 'per-package', packages }
+        return { cost: round(packages * price), basis: 'per-package', packages }
       }
       const size = packageSize(hit)
       const piecesPerPackage = size?.unit === 'ks' ? size.value : 1
       const packages = Math.max(1, Math.ceil((need.quantity / piecesPerPackage) - Number.EPSILON))
-      return { cost: round(packages * hitPrice(hit)), basis: 'per-package', packages }
+      return { cost: round(packages * price), basis: 'per-package', packages }
     }
     case 'kg':
     case 'g': {
@@ -76,7 +93,7 @@ export function costForNeed(need: Pick<NeedSpec, 'quantity' | 'unit'>, hit: Pick
       const size = packageSize(hit)
       if (!size) return null
       const packages = Math.max(1, Math.ceil((kilograms / size.value) - Number.EPSILON))
-      return { cost: round(packages * hitPrice(hit)), basis: 'per-package', packages }
+      return { cost: round(packages * price), basis: 'per-package', packages }
     }
     case 'l':
     case 'ml': {
@@ -85,7 +102,7 @@ export function costForNeed(need: Pick<NeedSpec, 'quantity' | 'unit'>, hit: Pick
       const size = packageSize(hit)
       if (!size) return null
       const packages = Math.max(1, Math.ceil((litres / size.value) - Number.EPSILON))
-      return { cost: round(packages * hitPrice(hit)), basis: 'per-package', packages }
+      return { cost: round(packages * price), basis: 'per-package', packages }
     }
   }
 }
@@ -115,5 +132,5 @@ export function pickTypedHit(need: Pick<NeedSpec, 'quantity' | 'unit'>, hits: Pr
     .map((hit) => ({ hit, cost: costForNeed(need, hit) }))
     .filter((entry): entry is PricedHit => entry.cost !== null)
   if (priced.length === 0) return null
-  return priced.sort((a, b) => a.cost.cost - b.cost.cost || a.hit.unitPrice - b.hit.unitPrice || a.hit.name.localeCompare(b.hit.name, 'cs'))[0]
+  return priced.sort((a, b) => a.cost.cost - b.cost.cost || (a.hit.unitPrice ?? Number.POSITIVE_INFINITY) - (b.hit.unitPrice ?? Number.POSITIVE_INFINITY) || a.hit.name.localeCompare(b.hit.name, 'cs'))[0]
 }

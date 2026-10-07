@@ -282,10 +282,17 @@ export function DealsTab({
           {page_.offers.length > 0 && (
             <section aria-label="Další nabídky obchodů">
               <p className="text-sm font-medium">Další nabídky obchodů</p>
-              <p className="mt-1 text-xs text-fg-muted">U těchto produktů neznáme běžnou cenu, proto je neporovnáváme a neuvádíme slevu.</p>
+              <p className="mt-1 text-xs text-fg-muted">
+                U těchto produktů neznáme běžnou cenu, proto je neporovnáváme a neuvádíme slevu. Na nákupní seznam je přidat můžete.
+              </p>
               <div className={`mt-3 grid gap-3 md:grid-cols-3 ${busy ? 'opacity-60' : ''}`} aria-busy={busy}>
                 {page_.offers.map((offer) => (
-                  <OfferCard key={`${offer.productName}-${offer.store}`} offer={offer} />
+                  <OfferCard
+                    key={`${offer.productName}-${offer.store}`}
+                    offer={offer}
+                    isOnList={isOnList(offer.productName)}
+                    onAddToList={onAddToList}
+                  />
                 ))}
               </div>
             </section>

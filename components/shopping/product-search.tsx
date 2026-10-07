@@ -156,6 +156,8 @@ export function ProductSearch({
                     const addState = adding?.status(hit)
                     const addDone = addState?.added === true && addState.pinned
                     const addBusy = busyKey === `${hit.storeId}|${hit.productId}`
+                    const price = hitPrice(hit)
+                    const unitPrice = hitUnitPrice(hit)
                     return (
                       <li key={hit.productId} className="rounded-lg bg-muted px-3 py-2">
                         <p className="break-words font-medium">
@@ -163,17 +165,21 @@ export function ProductSearch({
                           {!category && hit.category !== 'Potraviny' && <span className="ml-2 rounded-full bg-background px-2 py-0.5 text-xs font-normal text-muted-foreground">{hit.category}</span>}
                         </p>
                         <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
-                          <span className="text-sm font-semibold">{money(hitPrice(hit))}</span>
+                          {price != null && <span className="text-sm font-semibold">{money(price)}</span>}
                           {hit.dealPrice != null && (
                             <span className="flex items-center gap-1 font-semibold text-primary">
                               <Tag className="h-3 w-3" aria-hidden="true" /> akce{hit.dealValidUntil ? ` do ${shortDate(hit.dealValidUntil)}` : ''}
-                              <span className="font-normal text-muted-foreground line-through">{money(hit.regularPrice)}</span>
+                              {/* No struck-through price for a product the app knows only from an offer:
+                                  its regular price is unknown and none is invented. */}
+                              {hit.regularPrice != null && <span className="font-normal text-muted-foreground line-through">{money(hit.regularPrice)}</span>}
                             </span>
                           )}
-                          <span className="text-muted-foreground">
-                            {money(hitUnitPrice(hit))}/{hit.unit}
-                          </span>
-                          <span className="text-muted-foreground">cena z {shortDate(hit.observedAt)}</span>
+                          {unitPrice != null && hit.unit != null && (
+                            <span className="text-muted-foreground">
+                              {money(unitPrice)}/{hit.unit}
+                            </span>
+                          )}
+                          {hit.observedAt && <span className="text-muted-foreground">cena z {shortDate(hit.observedAt)}</span>}
                         </p>
                         {adding && addState && (
                           <button

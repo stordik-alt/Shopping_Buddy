@@ -437,7 +437,7 @@ export function AppShell({
     let item = findOpenListItemByName(items, hit.name)
     let added = item != null
     if (!item) {
-      const created = await addShoppingItemAction(initialData.mainListId, hit.name, { category: hit.category, unit: hit.unit })
+      const created = await addShoppingItemAction(initialData.mainListId, hit.name, { category: hit.category, ...(hit.unit ? { unit: hit.unit } : {}) })
       item = created.item
       setItems((current) => [...current, created.item])
       if (created.notification) {

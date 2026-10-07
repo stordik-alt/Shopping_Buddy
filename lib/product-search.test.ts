@@ -29,6 +29,7 @@ const hit = (overrides: Partial<ProductSearchHit> = {}): ProductSearchHit => ({
   regularPrice: 20,
   dealPrice: null,
   dealValidUntil: null,
+  dealUnitPrice: null,
   unit: 'l',
   unitPrice: 20,
   observedAt: '2026-09-24',
@@ -356,6 +357,30 @@ describe('hitUnitPrice', () => {
     expect(hitUnitPrice(hit({ regularPrice: 29.9, dealPrice: 19.9, unitPrice: 149.5 }))).toBe(99.5)
     expect(hitUnitPrice(hit({ regularPrice: 0, dealPrice: 10, unitPrice: 5 }))).toBe(5)
   })
+
+  it("prefers the promotion's own unit price over one derived from the regular price", () => {
+    // The source printed the offer's unit price, so it describes the price shown; scaling the regular
+    // one (which the app did until 2026-10-07) only approximates it.
+    expect(hitUnitPrice(hit({ regularPrice: 100, dealPrice: 80, unitPrice: 50, dealUnitPrice: 39.9 }))).toBe(39.9)
+  })
+})
+
+// A product the app knows only from a running offer (an offers-only retailer such as Penny): no
+// regular price was ever recorded and none is invented (CLAUDE.md sections 15 and 18). The offer's own
+// price and unit price are all there is; the shopper judges whether it is a good buy.
+describe('an offer-only hit', () => {
+  const offer = () => hit({ regularPrice: null, dealPrice: 39.9, dealUnitPrice: 159.6, unitPrice: 159.6, unit: 'kg', observedAt: null })
+
+  it('is priced at the offer, with the offer\'s own unit price and no price history to show', () => {
+    expect(hitPrice(offer())).toBe(39.9)
+    expect(hitUnitPrice(offer())).toBe(159.6)
+    expect(offer().observedAt).toBeNull()
+  })
+
+  it('states no price at all when it has neither a regular price nor a promotion', () => {
+    expect(hitPrice(hit({ regularPrice: null, dealPrice: null }))).toBeNull()
+    expect(hitUnitPrice(hit({ regularPrice: null, dealPrice: null, unitPrice: null, unit: null }))).toBeNull()
+  })
 })
 
 describe('groupHitsByChain', () => {
@@ -384,6 +409,13 @@ describe('groupHitsByChain', () => {
   it('returns nothing for no hits and shows nothing for a zero limit', () => {
     expect(groupHitsByChain([], 5)).toEqual([])
     expect(groupHitsByChain(hits, 0).every((group) => group.hits.length === 0)).toBe(true)
+  })
+
+  it('orders a hit whose unit price is unknown last, never above one it knows', () => {
+    const unknown = hit({ productId: 'y', name: 'Mléko Y', storeId: 'lidl', chain: 'Lidl', score: 4, regularPrice: null, dealPrice: 10, unit: null, unitPrice: null })
+    const known = hit({ productId: 'z', name: 'Mléko Z', storeId: 'lidl', chain: 'Lidl', score: 4, unitPrice: 99 })
+    const lidl = groupHitsByChain([unknown, known], 10).find((group) => group.chain === 'Lidl')!
+    expect(lidl.hits.map((entry) => entry.productId)).toEqual(['z', 'y'])
   })
 
   it('does not mutate its input', () => {

@@ -7,88 +7,75 @@ import type { Item, Store, StoreChain } from '@/lib/types'
 
 export function StoreComparison({
   items,
-  productPrices,
-  remaining,
+  remaining: _remaining,
   stores,
-  candidateStores,
+  plan,
+  planInputKey,
+  inputKey,
   userCoords,
 }: {
   items: Item[]
-  productPrices: ProductPrice[]
   remaining: number
   stores: Store[]
-  /** Every store chain that may be compared, even when current price data contains only one product. */
-  candidateStores: StoreChain[]
+  /** The latest shopping plan; the summary must use the exact subtotals shown above. */
+  plan: import('@/lib/shopping-plan').ShoppingPlan | null
+  /** Input key for which the plan was built, used to avoid displaying stale totals. */
+  planInputKey: string | null
+  inputKey: string
   userCoords: GpsCoords | null
 }) {
   const pendingCount = items.filter((item) => !item.done).length
-  const totals = compareStoreTotals(items, productPrices, candidateStores)
-  if (pendingCount === 0 || totals.length === 0) return null
+  const priorityStores = plan?.stores.filter((store) => store.isPriority) ?? []
 
-  const cheapest = totals[0]
-  const mostExpensive = totals[totals.length - 1]
-  const potentialSavings = mostExpensive.total - cheapest.total
-  const bestPossible = cheapestPossibleTotal(items, productPrices)
-  const impact = budgetImpact(cheapest.total, remaining)
+  // This card is a summary of the visible shopping plan, not a second price calculation. Until a
+  // current plan exists there is no trustworthy subtotal to show. Only stores explicitly marked
+  // as priority in that plan belong here; nearby/non-priority chains must not appear as 0 Kč rows.
+  if (pendingCount === 0 || !plan || planInputKey !== inputKey || priorityStores.length === 0) return null
+
+  const cheapest = priorityStores.reduce((best, store) => (store.subtotal < best.subtotal ? store : best))
+  const mostExpensive = priorityStores.reduce((worst, store) => (store.subtotal > worst.subtotal ? store : worst))
+  const potentialSavings = mostExpensive.subtotal - cheapest.subtotal
 
   return (
     <section className="surface p-5 sm:p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-semibold">Kde nakoupit celý seznam</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Odhad za {pendingCount} {pendingCount === 1 ? 'nevyřízenou položku' : 'nevyřízených položek'} v jednom obchodě.
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">Částky převzaté přímo z aktuálního plánu nákupu pro prioritní obchody.</p>
         </div>
         <MapPin className="shrink-0 text-primary" />
       </div>
       <div className="mt-5 flex flex-col gap-2">
-        {totals.map((entry, index) => (
+        {priorityStores.map((entry, index) => (
           <div
-            key={entry.store}
+            key={entry.storeId}
             className={`flex items-center justify-between gap-3 rounded-2xl p-3 text-sm ${index === 0 ? 'bg-accent-subtle text-accent-text' : 'bg-muted text-foreground'}`}
           >
             <div className="min-w-0">
               <p className="flex items-center gap-1.5 font-medium">
-                {entry.store}
+                {entry.chain}
+                <span aria-label="prioritní obchod" className="text-primary">★</span>
                 {userCoords &&
                   (() => {
-                    const nearest = nearestLocation(userCoords, stores.filter((store): store is Store & { gps: GpsCoords } => store.chain === entry.store && store.gps != null))
+                    const nearest = nearestLocation(userCoords, stores.filter((store): store is Store & { gps: GpsCoords } => store.chain === entry.chain && store.gps != null))
                     return nearest && <span className="text-xs font-normal text-muted-foreground">· {nearest.distanceKm.toFixed(1)} km</span>
                   })()}
               </p>
-              {entry.itemsFallback > 0 && (
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {entry.itemsPriced} z {entry.itemsPriced + entry.itemsFallback} položek podle skutečných cen, zbytek odhadem
-                </p>
-              )}
+              <p className="mt-0.5 text-xs text-muted-foreground">{entry.lines.length} položek podle plánu</p>
             </div>
-            <span className="shrink-0 font-semibold">{money(entry.total)}</span>
+            <span className="shrink-0 font-semibold">{money(entry.subtotal)}</span>
           </div>
         ))}
       </div>
       {potentialSavings > 0 && (
         <p className="mt-4 flex items-start gap-1.5 text-sm text-muted-foreground">
           <ArrowDownRight className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-          Nákup v {cheapest.store} vyjde o {money(potentialSavings)} levněji než v {mostExpensive.store}.
+          Rozdíl mezi prioritními obchody v plánu je {money(potentialSavings)}.
         </p>
       )}
-      {bestPossible < cheapest.total && (
-        <p className="mt-1 pl-5.5 text-xs text-muted-foreground">Rozdělením nákupu mezi obchody byste teoreticky ušetřili až na {money(bestPossible)}.</p>
-      )}
-      {impact.overBudget ? (
-        <p className="mt-4 flex items-start gap-1.5 text-sm text-destructive">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          Ani nejlevnější varianta se nevejde do zbývajícího rozpočtu ({money(remaining)}) — chybí {money(cheapest.total - remaining)}.
-        </p>
-      ) : (
-        impact.percentOfRemaining != null && (
-          <p className="mt-4 text-sm text-muted-foreground">
-            Nejlevnější varianta využije <span className="font-medium text-foreground">{impact.percentOfRemaining.toFixed(0)} %</span> vašeho zbývajícího
-            rozpočtu ({money(remaining)}).
-          </p>
-        )
-      )}
+      <p className="mt-4 text-sm text-muted-foreground">
+        Celkem podle plánu: <span className="font-medium text-foreground">{money(plan.total)}</span>
+      </p>
     </section>
   )
 }

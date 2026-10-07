@@ -1,4 +1,4 @@
-import { generateObject } from 'ai'
+import { generateText, Output } from 'ai'
 import { z } from 'zod'
 import { RECEIPT_READING_PROMPT, RECEIPT_READING_PROMPT_VERSION } from '@/lib/receipt-reading-prompt'
 import type { ExtractedReceipt } from '@/lib/receipts'
@@ -133,7 +133,7 @@ export interface ReceiptImageReader {
   read(input: ReceiptReadingInput, options?: { onUsage?: (usage: ReceiptReadingUsage) => void }): Promise<ReceiptReading>
 }
 
-type GenerateObject = typeof generateObject
+type GenerateStructured = typeof generateText
 
 /** The model call's message: the instructions, then every photo in order (or the receipt's text layer). */
 export function receiptReadingMessage(input: ReceiptReadingInput) {
@@ -156,19 +156,19 @@ export function receiptReadingMessage(input: ReceiptReadingInput) {
 export function createLunaReceiptReader({
   model = RECEIPT_READING_MODEL,
   reasoningEffort = 'low',
-  generate = generateObject,
-}: { model?: string; reasoningEffort?: 'none' | 'low' | 'medium'; generate?: GenerateObject } = {}): ReceiptImageReader {
+  generate = generateText,
+}: { model?: string; reasoningEffort?: 'none' | 'low' | 'medium'; generate?: GenerateStructured } = {}): ReceiptImageReader {
   return {
     id: `${model}:${reasoningEffort}:${RECEIPT_READING_PROMPT_VERSION}`,
     async read(input, options) {
-      const { object, usage } = await generate({
+      const { output, usage } = await generate({
         model,
-        schema: receiptReadingSchema,
+        output: Output.object({ schema: receiptReadingSchema }),
         providerOptions: { openai: { reasoningEffort } },
         messages: [receiptReadingMessage(input)],
       })
       options?.onUsage?.({ inputTokens: usage?.inputTokens, outputTokens: usage?.outputTokens })
-      return object
+      return output
     },
   }
 }

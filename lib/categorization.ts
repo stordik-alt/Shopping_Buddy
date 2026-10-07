@@ -9,7 +9,7 @@
 // a learned correction) lives in lib/db/product-aliases.ts and app/actions/receipts.ts; this module
 // only computes the answer from data handed to it.
 
-import { generateObject } from 'ai'
+import { generateText, Output } from 'ai'
 import { z } from 'zod'
 import { normalizeProductText, similarity } from '@/lib/product-normalize'
 import { receiptTypeText } from '@/lib/receipt-product-match'
@@ -180,9 +180,9 @@ const AI_CATEGORIZATION_MODEL = 'google/gemini-2.5-flash-lite'
 export async function aiCategorizeFallback(rawName: string, category: ItemCategory): Promise<AiCategorizationResult> {
   const allowed = subcategoriesOfItem(category)
   if (allowed.length === 0) return null
-  const { object } = await generateObject({
+  const { output } = await generateText({
     model: AI_CATEGORIZATION_MODEL,
-    schema: aiSubcategorySchema,
+    output: Output.object({ schema: aiSubcategorySchema }),
     prompt: `A Czech grocery receipt line reads: "${rawName}". Its main category is already known to be "${category}".
 
 Pick exactly one of these subcategories for it, or null if you are not confident enough to pick one:
@@ -194,8 +194,8 @@ Rules:
 - "confidence" is your own confidence in the pick, between 0 and 1.
 - "reason" is a short (max 15 words) explanation.`,
   })
-  if (!object.subcategoryId || !allowed.includes(object.subcategoryId)) return null
-  return { subcategory: object.subcategoryId, confidence: Math.min(object.confidence, CONFIDENCE_BY_METHOD.ai_fallback), reason: object.reason }
+  if (!output.subcategoryId || !allowed.includes(output.subcategoryId)) return null
+  return { subcategory: output.subcategoryId, confidence: Math.min(output.confidence, CONFIDENCE_BY_METHOD.ai_fallback), reason: output.reason }
 }
 
 // --- Non-inventory / child-oriented tagging ------------------------------------------------------

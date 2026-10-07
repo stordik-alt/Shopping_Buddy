@@ -4,6 +4,13 @@ import type { ItemCategory } from '@/lib/types'
 
 export type SeedStatus = 'ready' | 'needs_review'
 
+export type SeedPackageResolution = 'concrete' | 'range' | 'unspecified'
+
+export type SeedPackageReference = {
+  resolution: SeedPackageResolution
+  options: SeedPackageOption[]
+}
+
 export type SeedPackageOption = {
   quantity: number
   unit: string
@@ -172,6 +179,14 @@ export function parseSeedCatalogCsv(text: string): SeedCatalogRow[] {
 
 export function loadSeedCatalog(filePath = resolve(process.cwd(), 'data/seed/seed_catalog_v1.csv')): SeedCatalogRow[] {
   return parseSeedCatalogCsv(readFileSync(filePath, 'utf8'))
+}
+
+export function seedPackageReference(row: SeedCatalogRow): SeedPackageReference {
+  if (row.packageOptions.length === 0) return { resolution: 'unspecified', options: [] }
+  if (row.normalizationStatus === 'needs_review' && row.reviewReasons.includes('range_or_open_ended_size')) {
+    return { resolution: 'range', options: row.packageOptions }
+  }
+  return { resolution: 'concrete', options: row.packageOptions }
 }
 
 export function shouldApplySeedBrand(row: SeedCatalogRow): boolean {

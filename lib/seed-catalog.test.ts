@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { loadSeedCatalog, parseSeedCatalogCsv, projectSeedPackageQuantity } from '@/lib/seed-catalog'
+import { loadSeedCatalog, parseSeedCatalogCsv, projectSeedPackageQuantity, seedPackageReference } from '@/lib/seed-catalog'
 
 describe('seed catalog', () => {
   it('parses the checked-in catalog with the expected record counts', () => {
@@ -63,6 +63,18 @@ describe('seed catalog', () => {
 
     const stillReview = rows.find((row) => row.seedId === 'seed-src-0056')!
     expect(stillReview.normalizationStatus).toBe('needs_review')
+  })
+
+  it('classifies unresolved seed packaging as reference-only ranges or unspecified', () => {
+    const rows = loadSeedCatalog()
+    const range = rows.find((row) => row.seedId === 'seed-src-0056')!
+    expect(seedPackageReference(range)).toEqual({ resolution: 'range', options: range.packageOptions })
+
+    const unspecified = rows.find((row) => row.seedId === 'seed-src-0060')!
+    expect(seedPackageReference(unspecified)).toEqual({ resolution: 'unspecified', options: [] })
+
+    const concrete = rows.find((row) => row.seedId === 'seed-src-0129')!
+    expect(seedPackageReference(concrete)).toEqual({ resolution: 'concrete', options: concrete.packageOptions })
   })
 
 })

@@ -12,7 +12,7 @@ export async function reserveReceiptOcrAttempt(householdId: string): Promise<{ a
       target: schema.receiptOcrRateLimits.householdId,
       set: {
         windowStartedAt: sql`CASE WHEN ${schema.receiptOcrRateLimits.windowStartedAt} < now() - interval '24 hours' THEN now() ELSE ${schema.receiptOcrRateLimits.windowStartedAt} END`,
-        attempts: sql`CASE WHEN ${schema.receiptOcrRateLimits.windowStartedAt} < now() - interval '24 hours' THEN 1 ${schema.receiptOcrRateLimits.attempts} + 1 END`,
+        attempts: sql`CASE WHEN ${schema.receiptOcrRateLimits.windowStartedAt} < now() - interval '24 hours' THEN 1 ELSE ${schema.receiptOcrRateLimits.attempts} + 1 END`,
       },
     })
     .returning({

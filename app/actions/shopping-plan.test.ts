@@ -218,6 +218,29 @@ describe('buildShoppingPlanAction', () => {
     expect(plan.total).toBe(0)
   })
 
+  // An offers-only retailer (Penny) publishes just its current offers: a product can have a running
+  // deal and no price at all. It is a product the app has, so it is planned at the offer — the owner's
+  // report that such products were not offered anywhere (2026-10-07).
+  it('plans an item whose product the app knows only from a running offer', async () => {
+    const offer = await addProduct(`Káva ${tag} zrnová`)
+    await db.insert(schema.deals).values({ productId: offer, storeId: lidlId, dealPrice: '120', unit: 'kg', unitPrice: '240', validFrom: '2026-09-01', validUntil: '2099-01-01' })
+    await addItem(`kava ${tag} zrnova`, 0.5, 'kg')
+
+    const { plan } = await buildShoppingPlanAction({ maxStores: 1, priorityChainIds: [] })
+    expect(plan.plannedCount).toBe(1)
+    expect(linesOf(plan)[0]).toMatchObject({ productId: offer, chain: 'Lidl', cost: 120, packages: 1, source: 'auto' })
+  })
+
+  it('leaves an offer that states no unit price out of the plan rather than guessing its size', async () => {
+    const bare = await addProduct(`Káva ${tag} bez míry`)
+    await db.insert(schema.deals).values({ productId: bare, storeId: lidlId, dealPrice: '120', validFrom: '2026-09-01', validUntil: '2099-01-01' })
+    await addItem(`kava ${tag} bez miry`, 0.5, 'kg')
+
+    const { plan } = await buildShoppingPlanAction({ maxStores: 1, priorityChainIds: [] })
+    expect(plan.plannedCount).toBe(0)
+    expect(plan.unplanned.map((entry) => entry.name)).toEqual([`kava ${tag} bez miry`])
+  })
+
   it('does not restrict the search by category for an item of unknown category', async () => {
     const product = await addProduct(`Zvláštnost ${tag}`)
     await addPrice(product, lidlId, 10, 10, 'ks')
@@ -331,6 +354,17 @@ describe('pinning', () => {
     const itemId = await addItem(`nikde ${tag}`, 1, 'ks')
     await expect(pinProductAction({ itemId, storeId: billaId, productId: product })).rejects.toThrow('nemá v tomto obchodě cenu')
     expect((await getPinsForItems(session.householdId, [itemId])).size).toBe(0)
+  })
+
+  it('pins a product the chain knows only from a running offer', async () => {
+    const offer = await addProduct(`Káva ${tag} v akci`)
+    await db.insert(schema.deals).values({ productId: offer, storeId: lidlId, dealPrice: '99.9', unit: 'ks', unitPrice: '99.9', validFrom: '2026-09-01', validUntil: '2099-01-01' })
+    const itemId = await addItem(`kava ${tag} v akci`, 1, 'ks')
+    await pinProductAction({ itemId, storeId: lidlId, productId: offer })
+    expect((await getPinsForItems(session.householdId, [itemId])).get(itemId)?.get(lidlId)).toBe(offer)
+
+    const { plan } = await buildShoppingPlanAction({ maxStores: 1, priorityChainIds: [] })
+    expect(linesOf(plan)[0]).toMatchObject({ productId: offer, source: 'pinned', cost: 99.9 })
   })
 
   it('never lets one household pin or unpin another household\'s item', async () => {

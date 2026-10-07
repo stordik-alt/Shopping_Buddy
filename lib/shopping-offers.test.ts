@@ -11,6 +11,7 @@ const hit = (overrides: Partial<ProductSearchHit> = {}): ProductSearchHit => ({
   regularPrice: 30,
   dealPrice: null,
   dealValidUntil: null,
+  dealUnitPrice: null,
   unit: 'l',
   unitPrice: 30,
   observedAt: '2026-09-24',
@@ -18,6 +19,14 @@ const hit = (overrides: Partial<ProductSearchHit> = {}): ProductSearchHit => ({
   direct: true,
   ...overrides,
 })
+
+/** A hit the app knows only from a running offer: no regular price, so the offer's own price and unit
+ *  price are all it states (an offers-only retailer such as Penny). One price pair, so its unit price
+ *  is also the promotion's own unless the test says otherwise. */
+const offerHit = (overrides: Partial<ProductSearchHit> = {}): ProductSearchHit => {
+  const stated: Partial<ProductSearchHit> = { regularPrice: null, dealPrice: 39.9, unitPrice: 39.9, unit: 'ks', observedAt: null, ...overrides }
+  return hit({ ...stated, dealUnitPrice: overrides.dealUnitPrice ?? stated.unitPrice ?? null })
+}
 
 describe('packageSize', () => {
   it('is the regular price divided by the unit price, in the comparable unit', () => {
@@ -44,6 +53,15 @@ describe('packageSize', () => {
   it('is null for a piece-priced product without package evidence or a zero unit price', () => {
     expect(packageSize(hit({ unit: 'ks' }))).toBeNull()
     expect(packageSize(hit({ unitPrice: 0 }))).toBeNull()
+  })
+
+  it('uses an offer\'s own price pair when the app knows no regular price', () => {
+    // Penny's "Máslo 250 g" at 39,90 Kč, printed as 159,60 Kč/kg: the offer describes the same package.
+    expect(packageSize(offerHit({ dealPrice: 39.9, unitPrice: 159.6, unit: 'kg' }))).toEqual({ value: 0.25, unit: 'kg' })
+  })
+
+  it('is null for an offer that states no unit price — how big it is is not known', () => {
+    expect(packageSize(offerHit({ unitPrice: null, unit: null }))).toBeNull()
   })
 })
 
@@ -115,6 +133,17 @@ describe('costForNeed', () => {
   it('rounds the final package total to whole haléře', () => {
     expect(costForNeed({ quantity: 1, unit: 'l' }, hit({ regularPrice: 30, unitPrice: 19.996 }))?.cost).toBe(30)
   })
+
+  it('prices a need from the offer when there is no regular price at all', () => {
+    const butter = offerHit({ dealPrice: 39.9, dealUnitPrice: 159.6, unitPrice: 159.6, unit: 'kg' })
+    expect(costForNeed({ quantity: 250, unit: 'g' }, butter)).toEqual({ cost: 39.9, basis: 'per-package', packages: 1 })
+    expect(costForNeed({ quantity: 500, unit: 'g' }, butter)).toEqual({ cost: 79.8, basis: 'per-package', packages: 2 })
+  })
+
+  it('leaves an offer with no price stated out of the plan rather than inventing one', () => {
+    const bare = offerHit({ dealPrice: null, dealUnitPrice: null, unitPrice: null, unit: null })
+    expect(costForNeed({ quantity: 1, unit: 'ks' }, bare)).toBeNull()
+  })
 })
 
 describe('pickAutoHit', () => {
@@ -156,6 +185,11 @@ describe('pickAutoHit', () => {
     const a = hit({ productId: 'a', name: 'Mléko A', score: 5, unitPrice: 20 })
     const b = hit({ productId: 'b', name: 'Mléko B', score: 5, unitPrice: 20 })
     expect(pickAutoHit(need, [a, b])?.hit.productId).toBe(pickAutoHit(need, [b, a])?.hit.productId)
+  })
+
+  it('offers a chain\'s offer for a product the app has no regular price for', () => {
+    const offer = offerHit({ productId: 'p', name: 'Mléko polotučné', score: 6, dealPrice: 19.9, dealUnitPrice: 19.9, unitPrice: 19.9, unit: 'l' })
+    expect(pickAutoHit(need, [offer])).toMatchObject({ cost: { cost: 19.9, packages: 1 } })
   })
 })
 

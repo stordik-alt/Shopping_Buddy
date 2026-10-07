@@ -6,7 +6,7 @@ import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
 import { getHouseholdExpenses, getHouseholdNotifications, getPurchaseAftermath, restockPantryItem, upsertProductCatalogDefaults, type PurchaseAftermath } from '@/lib/db/queries'
 import { getProductCatalogCached, getSubcategoryCatalogCached } from '@/lib/db/cached-reads'
-import { purchasedInventoryQuantity } from '@/lib/inventory-packaging'
+import { purchasedInventoryQuantities } from '@/lib/inventory-packaging'
 import { getPurchaseItemsForExpense, recordPurchaseAsExpense, recomputePurchaseExpenses, setPurchaseItemExpenseSplits, type PurchaseExpenseItem } from '@/lib/db/purchase-items'
 import { deletePurchase, PurchaseToDeleteNotFoundError } from '@/lib/db/purchase-deletion'
 import * as schema from '@/lib/db/schema'
@@ -53,8 +53,14 @@ export async function completePurchaseAction(listId: string): Promise<{ purchase
   // removed from the list below, since the trip is over.
   const itemsToRecord = doneItems.filter((item) => item.checkedByPurchaseId == null)
 
-  for (const item of itemsToRecord) {
-    const inventory = await purchasedInventoryQuantity({ productId: item.productId, name: item.name, quantity: item.quantity, unit: item.unit })
+  const inventoryQuantities = await purchasedInventoryQuantities(itemsToRecord.map((item) => ({
+    productId: item.productId,
+    name: item.name,
+    quantity: item.quantity,
+    unit: item.unit,
+  })))
+  for (const [index, item] of itemsToRecord.entries()) {
+    const inventory = inventoryQuantities[index]
     await restockPantryItem(householdId, { productId: item.productId, name: item.name, category: item.category, quantity: inventory.quantity, unit: inventory.unit })
   }
 
@@ -188,14 +194,16 @@ export async function createManualPurchaseAction(input: {
     })),
   ).returning()
 
-  for (const item of resolved) {
+  const inventoryInputs = resolved.map((item) => ({
+    productId: item.product?.id ?? null,
+    name: item.name,
+    quantity: item.quantity,
+    unit: item.unit,
+  }))
+  const inventoryQuantities = await purchasedInventoryQuantities(inventoryInputs)
+  for (const [index, item] of resolved.entries()) {
     if (!item.product?.isNonInventory) {
-      const inventory = await purchasedInventoryQuantity({
-        productId: item.product?.id ?? null,
-        name: item.name,
-        quantity: item.quantity,
-        unit: item.unit,
-      })
+      const inventory = inventoryQuantities[index]
       await restockPantryItem(householdId, {
         productId: item.product?.id ?? null,
         name: item.name,

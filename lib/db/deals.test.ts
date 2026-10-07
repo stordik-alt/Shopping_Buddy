@@ -164,7 +164,8 @@ describe('getDealsPage', () => {
     const store = await createChain()
     createdStoreIds.push(store.id)
     const count = DEALS_PAGE_SIZE + 2
-    const products = await Promise.all(Array.from({ length: count }, () => createProduct('Potraviny')))
+    const products: Array<{ id: string; name: string }> = []
+    for (let i = 0; i < count; i++) products.push(await createProduct('Potraviny'))
     createdProductIds.push(...products.map((product) => product.id))
     // No price rows at all: every one of these is an offer, not a deal.
     await db.insert(schema.deals).values(products.map((product) => ({ productId: product.id, storeId: store.id, storeLocationId: null, dealPrice: '10', validFrom: today, validUntil: farFuture })))

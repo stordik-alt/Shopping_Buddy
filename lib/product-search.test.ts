@@ -8,6 +8,7 @@ import {
   likePattern,
   normalizeSearchText,
   DIRECT_BONUS,
+  findOpenListItemByName,
   isDirectMatch,
   matchText,
   scoreMatch,
@@ -308,6 +309,29 @@ describe('toComparableUnit', () => {
     expect(toComparableUnit('kg', 199.5)).toEqual({ unit: 'kg', unitPrice: 199.5 })
     expect(toComparableUnit('l', 24.9)).toEqual({ unit: 'l', unitPrice: 24.9 })
     expect(toComparableUnit('ks', 5)).toEqual({ unit: 'ks', unitPrice: 5 })
+  })
+})
+
+describe('findOpenListItemByName', () => {
+  const item = (name: string, done = false) => ({ name, done })
+
+  it('finds the open item with the same name, ignoring case and surrounding spaces', () => {
+    expect(findOpenListItemByName([item(' jiné '), item('  Mléko  ')], 'mléko')?.name).toBe('  Mléko  ')
+  })
+
+  it('returns nothing when the list does not have it, so the search adds a new row', () => {
+    expect(findOpenListItemByName([item('Máslo')], 'Mléko')).toBeNull()
+    expect(findOpenListItemByName([], 'Mléko')).toBeNull()
+  })
+
+  it('ignores a ticked item: buying it again is a new need', () => {
+    expect(findOpenListItemByName([item('Mléko', true)], 'Mléko')).toBeNull()
+    expect(findOpenListItemByName([item('Mléko', true), item('Mléko')], 'Mléko')?.done).toBe(false)
+  })
+
+  it('does not treat a different product that merely contains the name as the same item', () => {
+    // "Mléko" typed by hand and the catalog's "Čerstvé mléko 1,5%" are not one product.
+    expect(findOpenListItemByName([item('Čerstvé mléko 1,5%')], 'Mléko')).toBeNull()
   })
 })
 

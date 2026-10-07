@@ -1,3 +1,4 @@
+import { keptNameKey } from '@/lib/pantry'
 import { synonymsOf } from '@/lib/synonyms'
 import type { StandardPackage } from '@/lib/recipes/packaging'
 import type { ItemCategory, ItemUnit } from '@/lib/types'
@@ -277,6 +278,20 @@ function rawScore(name: string, tokens: string[], optionalTokens: string[]): num
   if (first === 'exact' || first === 'form') score += 2
   if (searchName === tokens.join(' ')) score += 10
   return score
+}
+
+/** A shopper's list entry, as far as matching a search hit against it goes. */
+export type ListItemName = { name: string; done: boolean }
+
+/** The open (still to buy) list item that is this searched product, if the list already has it.
+ *  Matching is by name, case- and whitespace-insensitively (`keptNameKey`, the same key the app uses
+ *  to tell "do we already have this"), because a list item is free text: "mleko" typed by hand and
+ *  the catalog's "Mléko polotučné 1,5%" are not the same product, but the identical name is — and
+ *  adding the searched product a second time would put one product on the list twice. A ticked item
+ *  is ignored: buying it again is a new need, so it is added as a new row. */
+export function findOpenListItemByName<T extends ListItemName>(items: readonly T[], productName: string): T | null {
+  const key = keptNameKey(productName)
+  return items.find((item) => !item.done && keptNameKey(item.name) === key) ?? null
 }
 
 /** A unit price in a comparable unit: per gram becomes per kilogram, per millilitre per litre, so

@@ -293,14 +293,14 @@ function mergeIngestResults(a: IngestResult, b: IngestResult): IngestResult {
 export const PRICE_SOURCES: PriceSource[] = [
   { source: lidlConnector.source, parts: 1, run: (limit, options) => ingestPrices(lidlConnector, limit, options) },
   // ~9,400 products; each run walks the whole category listing (~1 min) and keeps one part.
-  { source: billaConnector.source, parts: 5, partsPerRun: 2, run: (limit, options) => ingestPrices(billaConnector, limit, options) },
+  { source: billaConnector.source, parts: 5, partsPerRun: 3, run: (limit, options) => ingestPrices(billaConnector, limit, options) },
   { source: pennyConnector.source, parts: 1, run: (limit, options) => ingestPrices(pennyConnector, limit, options) },
   // ~13,000 products, one category lookup each.
-  { source: dmConnector.source, parts: 7, partsPerRun: 2, run: (limit, options) => ingestPrices(dmConnector, limit, options) },
+  { source: dmConnector.source, parts: 7, partsPerRun: 3, run: (limit, options) => ingestPrices(dmConnector, limit, options) },
   // ~11,500 products; the id listing is read whole, details and prices only for the part.
-  { source: rohlikConnector.source, parts: 6, partsPerRun: 2, run: (limit, options) => ingestPrices(rohlikConnector, limit, options) },
+  { source: rohlikConnector.source, parts: 6, partsPerRun: 3, run: (limit, options) => ingestPrices(rohlikConnector, limit, options) },
   // ~13,100 products; a part is a set of sub-categories, each read to its end.
-  { source: kosikConnector.source, parts: 7, partsPerRun: 2, run: (limit, options) => ingestPrices(kosikConnector, limit, options) },
+  { source: kosikConnector.source, parts: 7, partsPerRun: 3, run: (limit, options) => ingestPrices(kosikConnector, limit, options) },
   // The current national flyers, ~1,000 offers (~170 small page files): read whole every day.
   { source: globusConnector.source, parts: 1, run: (limit, options) => ingestPrices(globusConnector, limit, options) },
   // Albert's flyers, read by a model page by page (lib/ingestion/albert.ts): the supermarket flyer

@@ -1,6 +1,14 @@
 import { expect, test } from '@playwright/test'
 import { Client } from 'pg'
 
+async function expectVisibleExactText(page: import('@playwright/test').Page, text: string) {
+  await expect.poll(async () => page.getByText(text, { exact: true }).evaluateAll((elements) => elements.some((element) => {
+    const node = element as HTMLElement
+    const style = getComputedStyle(node)
+    return style.display !== 'none' && style.visibility !== 'hidden' && node.getClientRects().length > 0
+  }))).toBe(true)
+}
+
 function testDatabaseUrl(): string {
   const value = process.env.DATABASE_URL?.trim()
   const testValue = process.env.TEST_DATABASE_URL?.trim()
@@ -122,7 +130,7 @@ test.describe('critical smoke flow', () => {
           if (viewport.width === 390 && viewport.height === 844) {
             for (const [url, label] of primaryTabs) {
               await page.goto(url)
-              await expect(page.getByText(label, { exact: true }).first()).toBeVisible()
+              await expectVisibleExactText(page, label)
               await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
               await page.screenshot({
                 path: 'test-results/mobile-ui-v2/' + colorScheme + '-390x844-' + label.replaceAll(' ', '-').toLowerCase() + '.png',

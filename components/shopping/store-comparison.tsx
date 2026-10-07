@@ -33,9 +33,9 @@ export function StoreComparison({
   // split-trip result. The full-basket totals come from the same package-aware offers as the plan.
   if (pendingCount === 0 || !plan || planInputKey !== inputKey || priorityStores.length === 0) return null
 
-  const cheapest = priorityStores.reduce((best, store) => (store.subtotal < best.subtotal ? store : best))
-  const mostExpensive = priorityStores.reduce((worst, store) => (store.subtotal > worst.subtotal ? store : worst))
-  const potentialSavings = mostExpensive.subtotal - cheapest.subtotal
+  const cheapest = priorityStores.reduce((best, store) => (store.total < best.subtotal ? store : best))
+  const mostExpensive = priorityStores.reduce((worst, store) => (store.total > worst.subtotal ? store : worst))
+  const potentialSavings = mostExpensive.total - cheapest.total
 
   return (
     <section className="surface p-5 sm:p-6">
@@ -64,7 +64,7 @@ export function StoreComparison({
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">{entry.itemsPriced} z {pendingCount} položek podle skutečných cen{entry.itemsEstimated > 0 ? ' + odhad pro chybějící ceny' : ''}</p>
             </div>
-            <span className="shrink-0 font-semibold">{money(entry.subtotal)}</span>
+            <span className="shrink-0 font-semibold">{money(entry.total)}</span>
           </div>
         ))}
       </div>

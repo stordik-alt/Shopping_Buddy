@@ -29,7 +29,7 @@ export function DealCard({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="break-words text-sm font-medium">{product.productName}</p>
-          <p className="mt-1 text-xs text-fg-muted">
+          <p className="mt-1 text-sm text-fg-muted">
             {price.store} · akce do {shortDate(price.dealValidUntil ?? '')}
           </p>
         </div>
@@ -38,12 +38,12 @@ export function DealCard({
       <div className="mt-4 flex flex-wrap items-end justify-between gap-2">
         <div>
           <span className="text-lg font-semibold">{money(price.dealPrice ?? price.regularPrice)}</span>
-          <span className="ml-2 text-xs text-fg-muted line-through">{money(price.regularPrice)}</span>
-          <span className="mt-0.5 block text-xs text-fg-secondary">
+          <span className="ml-2 text-sm text-fg-muted line-through">{money(price.regularPrice)}</span>
+          <span className="mt-0.5 block text-sm text-fg-secondary">
             {money(comparableUnit.unitPrice)}/{comparableUnit.unit}
             {price.packageSize ? ` · balení ${price.packageSize.label}` : ''}
           </span>
-          {dealSaving(price) > 0 && <span className="mt-0.5 block text-xs font-medium text-success">Ušetříte {money(dealSaving(price))}</span>}
+          {dealSaving(price) > 0 && <span className="mt-0.5 block text-sm font-medium text-success">Ušetříte {money(dealSaving(price))}</span>}
         </div>
         {isOnList ? (
           <Badge tone="success" className="min-h-10">
@@ -56,7 +56,7 @@ export function DealCard({
         )}
       </div>
       {recentLow && (
-        <p className="mt-3 flex items-start gap-1 text-xs leading-relaxed text-success">
+        <p className="mt-3 flex items-start gap-1 text-sm leading-relaxed text-success">
           <History className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
           <span>
             Nejnižší cena za posledních 30 dní: <span className="font-semibold">{money(recentLow.low)}</span>
@@ -67,13 +67,13 @@ export function DealCard({
         </p>
       )}
       {suggestsStockingUp(assessment, pantryQuantityFor(pantryItems, product.productName), householdKeeps(pantryItems, boughtNameKeys, product.productName)) && (
-        <p className="mt-3 flex items-start gap-1 text-xs leading-relaxed text-success">
+        <p className="mt-3 flex items-start gap-1 text-sm leading-relaxed text-success">
           <Package className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
           Doma toho máte málo nebo nic — dobrá chvíle doplnit zásoby.
         </p>
       )}
       {!isBestPrice && cheapestAlternative && (
-        <p className="mt-3 flex items-start gap-1 text-xs leading-relaxed text-fg-secondary">
+        <p className="mt-3 flex items-start gap-1 text-sm leading-relaxed text-fg-secondary">
           <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
           Levněji je i bez akce v {cheapestAlternative.store} za {money(cheapestAlternative.price)}.
         </p>

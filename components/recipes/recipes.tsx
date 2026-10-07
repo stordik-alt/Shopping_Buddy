@@ -60,8 +60,8 @@ function RecipeCard({
         </span>
         <span className="block min-w-0 flex-1">
           <span className="block font-semibold leading-snug">{recipe.title}</span>
-          <span className="mt-1 block text-xs text-fg-muted">{recipe.sourceName}</span>
-          <span className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-fg-secondary">
+          <span className="mt-1 block text-sm text-fg-muted">{recipe.sourceName}</span>
+          <span className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-fg-secondary">
             {recipe.servings !== undefined && <span>{recipe.servings} porce</span>}
             {recipe.totalTimeMinutes !== undefined && (
               <span className="inline-flex items-center gap-1"><Clock3 className="size-3.5" aria-hidden="true" />{recipe.totalTimeMinutes} min</span>
@@ -71,7 +71,7 @@ function RecipeCard({
             )}
           </span>
           {recommendation && (
-            <span className="mt-2 block text-xs font-medium text-accent-text">
+            <span className="mt-2 block text-sm font-medium text-accent-text">
               Máte doma {recommendation.coveredIngredientCount} z {recommendation.ingredientCount} surovin
               {recommendation.missingIngredientCount > 0 ? ` · chybí ${recommendation.missingIngredientCount}` : ''}
             </span>

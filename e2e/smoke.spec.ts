@@ -1,6 +1,14 @@
 import { expect, test } from '@playwright/test'
 import { Client } from 'pg'
 
+async function expectVisibleExactText(page: import('@playwright/test').Page, text: string) {
+  await expect.poll(async () => page.getByText(text, { exact: true }).evaluateAll((elements) => elements.some((element) => {
+    const node = element as HTMLElement
+    const style = getComputedStyle(node)
+    return style.display !== 'none' && style.visibility !== 'hidden' && node.getClientRects().length > 0
+  }))).toBe(true)
+}
+
 function testDatabaseUrl(): string {
   const value = process.env.DATABASE_URL?.trim()
   const testValue = process.env.TEST_DATABASE_URL?.trim()
@@ -63,7 +71,7 @@ test.describe('critical smoke flow', () => {
 
       await expect(page).toHaveURL(/\/$/)
       // The same words are in the brand (sidebar) and in the phone header, so take the first visible one.
-      await expect(page.getByText('Rodinný nákup').first()).toBeVisible()
+      await expect(page.locator('body')).toContainText('Rodinný nákup')
 
       await page.goto('/?tab=nakup')
       await expect(page.getByText('Nákupní seznam', { exact: true }).first()).toBeVisible()
@@ -76,6 +84,62 @@ test.describe('critical smoke flow', () => {
 
       await page.goto('/?tab=recepty')
       await expect(page.getByText('Recepty', { exact: true }).first()).toBeVisible()
+
+      const mobileViewports = [
+        { width: 320, height: 844 },
+        { width: 360, height: 800 },
+        { width: 390, height: 844 },
+        { width: 430, height: 932 },
+        { width: 768, height: 1024 },
+        { width: 1280, height: 900 },
+      ]
+      const themes = ['light', 'dark'] as const
+      const primaryTabs = [
+        ['/', 'Domů'],
+        ['/?tab=nakup', 'Nákupní seznam'],
+        ['/?tab=zasoby', 'Zásoby'],
+        ['/?tab=rozpocet', 'Aktuální stav'],
+        ['/?tab=recepty', 'Recepty'],
+      ] as const
+
+      for (const colorScheme of themes) {
+        await page.emulateMedia({ colorScheme })
+        for (const viewport of mobileViewports) {
+          await page.setViewportSize(viewport)
+          await page.goto('/')
+          if (viewport.width < 1024) {
+            await expect(page.getByRole('heading', { name: 'Rodinný nákup', exact: true })).toBeVisible()
+          } else {
+            await expect(page.locator('aside').getByText('Rodinný nákup', { exact: true })).toBeVisible()
+          }
+          await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+          await expect.poll(() => page.evaluate(() => {
+            const elements = Array.from(document.querySelectorAll('body *')).filter((element) => {
+              const node = element as HTMLElement
+              if (!node.innerText?.trim()) return false
+              const style = getComputedStyle(node)
+              return style.display !== 'none' && style.visibility !== 'hidden' && node.getClientRects().length > 0
+            })
+            return elements.every((element) => Number.parseFloat(getComputedStyle(element).fontSize) >= 12)
+          })).toBe(true)
+          await page.screenshot({
+            path: 'test-results/mobile-ui-v2/' + colorScheme + '-' + viewport.width + 'x' + viewport.height + '-home.png',
+            fullPage: true,
+          })
+
+          if (viewport.width === 390 && viewport.height === 844) {
+            for (const [url, label] of primaryTabs) {
+              await page.goto(url)
+              await expectVisibleExactText(page, label)
+              await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+              await page.screenshot({
+                path: 'test-results/mobile-ui-v2/' + colorScheme + '-390x844-' + label.replaceAll(' ', '-').toLowerCase() + '.png',
+                fullPage: true,
+              })
+            }
+          }
+        }
+      }
     } finally {
       await cleanupTestAccount(email)
     }

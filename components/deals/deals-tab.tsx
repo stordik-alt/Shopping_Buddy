@@ -175,7 +175,7 @@ export function DealsTab({
           <Heart className={`size-4 shrink-0 ${forMe ? 'fill-current text-accent-text' : 'text-fg-muted'}`} aria-hidden="true" />
           <span className="min-w-0 flex-1">
             <span className="block font-medium">Pro mě</span>
-            <span className="block text-xs text-fg-muted">Jen oblíbené produkty a značky z profilu</span>
+            <span className="block text-sm text-fg-muted">Jen oblíbené produkty a značky z profilu</span>
           </span>
           <span className="shrink-0 text-xs font-medium">{forMe ? 'Zapnuto' : 'Vypnuto'}</span>
         </button>
@@ -282,7 +282,7 @@ export function DealsTab({
           {page_.offers.length > 0 && (
             <section aria-label="Další nabídky obchodů">
               <p className="text-sm font-medium">Další nabídky obchodů</p>
-              <p className="mt-1 text-xs text-fg-muted">
+              <p className="mt-1 text-sm text-fg-muted">
                 U těchto produktů neznáme běžnou cenu, proto je neporovnáváme a neuvádíme slevu. Na nákupní seznam je přidat můžete.
               </p>
               <div className={`mt-3 grid gap-3 md:grid-cols-3 ${busy ? 'opacity-60' : ''}`} aria-busy={busy}>

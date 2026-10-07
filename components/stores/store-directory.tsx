@@ -213,7 +213,7 @@ export function StoreDirectory({
                     className={`relative flex aspect-square w-full flex-col items-center justify-center gap-1.5 rounded-2xl border-2 p-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selected ? 'border-accent-solid bg-accent-subtle' : 'border-transparent bg-card shadow-[var(--shadow-card)] hover:bg-muted/60'}`}
                   >
                     <ChainLogo chain={tile.chain} className="size-10" />
-                    <span className="w-full truncate text-center text-xs font-semibold">{chainShortName(tile.chain)}</span>
+                    <span className="w-full truncate text-center text-sm font-semibold">{chainShortName(tile.chain)}</span>
                     {tile.isFavorite && <Star className="absolute right-1.5 top-1.5 size-3.5 fill-current text-warning" aria-label="Váš oblíbený řetězec" />}
                     {selected && (
                       <span className="absolute left-1.5 top-1.5 flex size-5 items-center justify-center rounded-full bg-accent-solid text-accent-solid-foreground" aria-hidden="true">
@@ -269,11 +269,11 @@ export function StoreDirectory({
                         <span className="min-w-0 break-words">{branch.name}</span>
                         {branch.isFavorite && <Star className="mt-0.5 size-3.5 shrink-0 fill-current text-warning" aria-label="Vaše oblíbená prodejna" />}
                       </span>
-                      <span className="mt-0.5 block break-words text-xs text-fg-secondary">
+                      <span className="mt-0.5 block break-words text-sm text-fg-secondary">
                         {branch.distanceKm != null && <span className="font-medium text-foreground">{branch.distanceKm.toFixed(1)} km · </span>}
                         {branch.address}
                       </span>
-                      <span className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-fg-muted">
+                      <span className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-sm text-fg-muted">
                         <span className="flex items-center gap-1">
                           <Clock className="size-3.5 shrink-0" aria-hidden="true" /> {branch.hours ?? 'Otevírací doba neznámá'}
                         </span>
@@ -291,7 +291,7 @@ export function StoreDirectory({
                   {expanded && (
                     <div id={`store-detail-${branch.id}`} className="border-t border-border bg-accent-subtle/50 px-4 py-4">
                       <div className="flex items-start justify-between gap-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-accent-text">Detail prodejny</p>
+                        <p className="text-sm font-semibold uppercase tracking-wide text-accent-text">Detail prodejny</p>
                         <button type="button" aria-label={`Zavřít detail obchodu ${branch.name}`} onClick={() => setOpenBranchId(null)} className="icon-button -m-2">
                           <X className="size-4" aria-hidden="true" />
                         </button>
@@ -329,7 +329,7 @@ export function StoreDirectory({
       {/* Branch locations, addresses and opening hours come from OpenStreetMap (lib/stores/osm.ts);
           its licence (ODbL) requires this attribution wherever the data is shown. Chain logos are
           trademarks of their owners (public/logos/README.md). */}
-      <p className="text-xs text-fg-muted">
+      <p className="text-sm text-fg-muted">
         Prodejny, adresy a otevírací doby:{' '}
         <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="underline hover:no-underline">
           © přispěvatelé OpenStreetMap

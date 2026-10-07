@@ -48,7 +48,7 @@ function ReceiptSource({ item }: { item: ReceiptImportState }) {
         </div>
       )}
       {item.rawOcrText && (
-        <details className="rounded-lg border border-border p-2 text-xs">
+        <details className="rounded-lg border border-border p-2 text-sm">
           <summary className="flex min-h-10 cursor-pointer items-center text-sm font-medium">Text přečtený z účtenky (OCR)</summary>
           <pre className="mt-2 max-h-48 overflow-y-auto whitespace-pre-wrap break-words font-sans text-fg-secondary">{item.rawOcrText}</pre>
         </details>
@@ -146,7 +146,7 @@ function ReceiptPendingCard({
       {error}
     </p>
   )
-  const ocrLine = item.ocrProvider && <p className="mt-1 text-xs text-fg-muted">OCR: {ocrProviderLabel(item.ocrProvider)}</p>
+  const ocrLine = item.ocrProvider && <p className="mt-1 text-sm text-fg-muted">OCR: {ocrProviderLabel(item.ocrProvider)}</p>
 
   if (FAILED_STATUSES.has(item.status)) {
     return (
@@ -240,7 +240,7 @@ function ReceiptPendingCard({
         <label className="mt-3 block max-w-xs space-y-1.5 text-sm font-medium">
           <span>Datum nákupu</span>
           <Input aria-label="Datum nákupu" type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} className="px-3" />
-          <span className="block text-xs font-normal text-fg-muted">Datum může být opraveno ručně před uložením.</span>
+          <span className="block text-sm font-normal text-fg-muted">Datum může být opraveno ručně před uložením.</span>
         </label>
         <ul className="mt-3 space-y-2">
           {rows.map((row, index) => (
@@ -266,7 +266,7 @@ function ReceiptPendingCard({
                     // Which catalog product this line is (lib/receipt-product-match.ts). Confirming a
                     // pick links the line to it and teaches the printed text for next time; "none"
                     // keeps the line as it was read.
-                    <label className="col-span-3 block space-y-1 text-xs text-fg-muted sm:col-span-6">
+                    <label className="col-span-3 block space-y-1 text-sm text-fg-muted sm:col-span-6">
                       <span>Produkt</span>
                       <Select aria-label={`Produkt položky ${index + 1}`} value={row.productId ?? ''} onChange={(e) => updateRow(index, { productId: e.target.value || null })} className="px-3">
                         <option value="">Žádný z nabízených</option>

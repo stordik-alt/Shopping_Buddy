@@ -49,16 +49,12 @@ export function DashboardOverview({
   const preview = pendingNames.slice(0, MAX_PREVIEW_ITEMS)
 
   return (
-    // On a phone the order is budget → spending (folded) → quick actions → shopping list; from lg up the
-    // list sits beside the budget, and the spending and the actions span below.
+    // On a phone the primary reading order is budget → today's shopping → quick actions. On larger
+    // screens the shopping card stays beside the budget, while secondary controls span below.
     <section className="min-w-0 w-full grid gap-3 lg:grid-cols-[1.35fr_1fr] lg:gap-4" aria-label="Přehled domácnosti">
       <BudgetHero compact today={today} periodStartDay={periodStartDay} budget={budget} spent={spent} remaining={remaining} onSetBudget={onSetBudget} onOpen={onBudget} className="order-1 min-w-0" />
 
-      {afterBudget && <div className="order-2 min-w-0 w-full lg:order-3 lg:col-span-2">{afterBudget}</div>}
-
-      <QuickActions className="order-3 lg:order-4 lg:col-span-2" onShopping={onShopping} onExpense={onExpense} onReceipt={onReceipt} onStores={onStores} />
-
-      <CardButton onClick={onShopping} className="group order-4 flex flex-col lg:order-2">
+      <CardButton onClick={onShopping} className="group order-2 flex flex-col lg:order-2">
         <CardHeader as="span" title="Nákupní seznam" icon={<ListChecks className="size-4" />} action={<ChevronRight className="size-5 transition group-hover:translate-x-0.5" />} className="w-full" />
         {totalItems === 0 ? (
           <>
@@ -89,6 +85,10 @@ export function DashboardOverview({
           </>
         )}
       </CardButton>
+
+      {afterBudget && <div className="order-3 min-w-0 w-full lg:order-3 lg:col-span-2">{afterBudget}</div>}
+
+      <QuickActions className="order-4 lg:order-4 lg:col-span-2" onShopping={onShopping} onExpense={onExpense} onReceipt={onReceipt} onStores={onStores} />
     </section>
   )
 }

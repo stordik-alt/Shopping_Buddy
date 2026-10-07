@@ -68,7 +68,7 @@ export function ReceiptListSuggestions({
               />
               <span className="min-w-0 flex-1">
                 <span className="block break-words font-medium">{suggestion.listItemName}</span>
-                <span className="block break-words text-xs text-fg-muted">
+                <span className="block break-words text-sm text-fg-muted">
                   na účtence: {suggestion.receiptName} · {suggestion.quantity} {suggestion.unit} · {money(suggestion.price)} / {suggestion.unit}
                 </span>
               </span>

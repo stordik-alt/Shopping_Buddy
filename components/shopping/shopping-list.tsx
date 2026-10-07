@@ -335,7 +335,7 @@ export function ShoppingList({
           <SlidersHorizontal className="size-4" aria-hidden="true" />
           Filtry a řazení
           {activeFilterCount > 0 && (
-            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-accent-solid px-1.5 text-xs font-semibold text-accent-solid-foreground">
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-accent-solid px-1.5 text-sm font-semibold text-accent-solid-foreground">
               {activeFilterCount}
               <span className="sr-only"> aktivní</span>
             </span>
@@ -419,7 +419,7 @@ export function ShoppingList({
                     </button>
                     <button type="button" onClick={() => setExpandedId((current) => (current === item.id ? null : item.id))} className="min-h-11 min-w-0 flex-1 py-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg">
                       <span className={`block break-words font-medium ${item.done ? 'text-fg-muted line-through' : ''}`}>{item.name}</span>
-                      <span className="mt-1 block text-xs text-fg-muted">
+                      <span className="mt-1 block text-sm text-fg-muted">
                         {item.category} · {item.store || 'Bez obchodu'}
                       </span>
                     </button>
@@ -443,7 +443,7 @@ export function ShoppingList({
                     </button>
                   </div>
                   {/* Kind of goods, a running deal and priority get the row's full width under the name. */}
-                  <div className="flex flex-wrap gap-1.5 pr-3 pl-[3.375rem] text-xs empty:hidden sm:pr-4 sm:pl-16 [&:not(:empty)]:pb-3">
+                  <div className="flex flex-wrap gap-1.5 pr-3 pl-[3.375rem] text-sm empty:hidden sm:pr-4 sm:pl-16 [&:not(:empty)]:pb-3">
                     {(() => {
                       const typeLabel = describeItemTypes(item.name, item.productTypes).label
                       return typeLabel ? <Badge className="py-0.5">{typeLabel}</Badge> : null

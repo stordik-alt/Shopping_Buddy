@@ -20,9 +20,9 @@ on:
           - safe
           - all
       before:
-        description: "Only rows older than this timestamp are eligible"
-        required: true
-        default: "2026-10-07T00:00:00Z"
+        description: "Optional safety cutoff; leave empty to evaluate all existing pantry rows"
+        required: false
+        default: ""
         type: string
       confirm:
         description: "Required for apply: APPLY_SAFE, or BACKFILL_ALL when scope=all"
@@ -73,7 +73,10 @@ jobs:
       - name: Run inventory multipack backfill
         run: |
           set -euo pipefail
-          args=(--scope="${{ inputs.scope }}" --before="${{ inputs.before }}")
+          args=(--scope="${{ inputs.scope }}")
+          if [ -n "${{ inputs.before }}" ]; then
+            args+=(--before="${{ inputs.before }}")
+          fi
           if [ "${{ inputs.mode }}" = "apply" ]; then
             args+=(--apply)
           fi

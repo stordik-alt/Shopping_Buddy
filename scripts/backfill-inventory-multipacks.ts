@@ -53,7 +53,20 @@ for (const item of pantryRows) {
 
   const pkg = resolveInventoryPackage(item.name, packagesByProduct.get(item.productId) ?? [])
   if (!pkg) {
-    rows.push({ id: item.id, name: item.name, status: 'SKIPPED_AMBIGUOUS_PACKAGE', before: item.quantity, after: item.quantity })
+    const productPackages = packagesByProduct.get(item.productId) ?? []
+    const multipackMetadata = productPackages.filter((candidate) =>
+      candidate.packageCount != null &&
+      candidate.packageCount > 1 &&
+      candidate.packageUnit != null,
+    )
+    rows.push({
+      id: item.id,
+      name: item.name,
+      status: multipackMetadata.length > 0 ? 'SKIPPED_AMBIGUOUS_PACKAGE' : 'SKIPPED_NO_MULTIPACK_METADATA',
+      before: item.quantity,
+      after: item.quantity,
+      packageVariants: multipackMetadata.length,
+    })
     continue
   }
 
@@ -114,6 +127,7 @@ const summary = {
   ambiguous: rows.filter((row) => row.status === 'AMBIGUOUS').length,
   noPurchaseHistory: rows.filter((row) => row.status === 'NO_PURCHASE_HISTORY').length,
   skippedPackage: rows.filter((row) => row.status === 'SKIPPED_AMBIGUOUS_PACKAGE').length,
+  skippedNoMultipackMetadata: rows.filter((row) => row.status === 'SKIPPED_NO_MULTIPACK_METADATA').length,
   skippedAfterCutoff: rows.filter((row) => row.status === 'SKIPPED_AFTER_CUTOFF').length,
   applied: apply ? eligible.length : 0,
 }

@@ -654,6 +654,8 @@ export function ShoppingList({
 
         stores={stores}
         plan={planResult?.plan ?? null}
+        singleStoreTotals={planResult?.singleStoreTotals ?? []}
+        priorityChainIds={storeSelection.priorityChainIds}
         planInputKey={planInputKey}
         inputKey={JSON.stringify([
           items.filter((item) => !item.done).map((item) => [item.id, item.name, item.quantity, item.unit, item.category]),

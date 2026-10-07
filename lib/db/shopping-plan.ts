@@ -88,7 +88,8 @@ export type PlanResult = {
   /** The package size of each offered product ("1 l"), keyed `needId|storeId`; null for piece-priced products. */
   packageSizes: Record<string, { value: number; unit: string } | null>
   /** Number of whole retail packages required for each offered item. */
-  packageCounts: Record<string, number>
+  packageCounts: Record<string, number>  /** Hypothetical cost of buying the entire open list at one chain, using the same offers as the planner. */
+  singleStoreTotals: { storeId: string; chain: string; total: number; itemsPriced: number; itemsEstimated: number }[]
 }
 
 /** Builds a shopping plan for the household's not-yet-done shopping items (all its lists — the app
@@ -116,6 +117,7 @@ export async function buildShoppingPlan(householdId: string, memberId: string | 
         unit: schema.shoppingListItems.unit,
         category: schema.shoppingListItems.category,
         productTypes: schema.shoppingListItems.productTypes,
+        price: schema.shoppingListItems.price,
       })
       .from(schema.shoppingListItems)
       .innerJoin(schema.shoppingLists, eq(schema.shoppingLists.id, schema.shoppingListItems.listId))
@@ -190,5 +192,26 @@ export async function buildShoppingPlan(householdId: string, memberId: string | 
     { maxStores: request.maxStores, priorityStoreIds: request.priorityChainIds, allowedStoreIds: allowedIds },
   )
   plan.notes.push(...notes)
-  return { plan, allowedChains, usedNearbySelection, packageSizes, packageCounts }
+
+  // Full-basket comparison per allowed chain, separate from the optimized multi-store plan.
+  // Reuses the same package-aware offers; missing prices fall back to the item's stored estimate.
+  const singleStoreTotals = allowedChains.map((chain) => {
+    let total = 0
+    let itemsPriced = 0
+    let itemsEstimated = 0
+    for (const need of needs) {
+      const offer = offers.find((entry) => entry.needId === need.id && entry.storeId === chain.id)
+      if (offer) {
+        total += offer.cost
+        itemsPriced++
+      } else {
+        const item = items.find((entry) => entry.id === need.id)
+        total += Number(item?.price ?? 0) * (item?.quantity ?? 0)
+        itemsEstimated++
+      }
+    }
+    return { storeId: chain.id, chain: chain.chain, total: Math.round(total * 100) / 100, itemsPriced, itemsEstimated }
+  })
+
+  return { plan, allowedChains, usedNearbySelection, packageSizes, packageCounts, singleStoreTotals }
 }

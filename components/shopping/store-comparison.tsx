@@ -7,6 +7,8 @@ export function StoreComparison({
   items,
   stores,
   plan,
+  singleStoreTotals,
+  priorityChainIds,
   planInputKey,
   inputKey,
   userCoords,
@@ -15,29 +17,32 @@ export function StoreComparison({
   stores: Store[]
   /** The latest shopping plan; the summary must use the exact subtotals shown above. */
   plan: import('@/lib/shopping-plan').ShoppingPlan | null
+  singleStoreTotals: { storeId: string; chain: string; total: number; itemsPriced: number; itemsEstimated: number }[]
+  priorityChainIds: string[]
   /** Input key for which the plan was built, used to avoid displaying stale totals. */
   planInputKey: string | null
   inputKey: string
   userCoords: GpsCoords | null
 }) {
   const pendingCount = items.filter((item) => !item.done).length
-  const priorityStores = plan?.stores.filter((store) => store.isPriority) ?? []
+  const priorityIds = new Set(priorityChainIds)
+  const priorityStores = singleStoreTotals.filter((store) => priorityIds.has(store.storeId))
 
-  // This card is a summary of the visible shopping plan, not a second price calculation. Until a
-  // current plan exists there is no trustworthy subtotal to show. Only stores explicitly marked
-  // as priority in that plan belong here; nearby/non-priority chains must not appear as 0 Kč rows.
+  // This card compares each priority chain as if the entire open list were bought there.
+  // It intentionally does not reuse plan store subtotals, because those represent the optimized
+  // split-trip result. The full-basket totals come from the same package-aware offers as the plan.
   if (pendingCount === 0 || !plan || planInputKey !== inputKey || priorityStores.length === 0) return null
 
-  const cheapest = priorityStores.reduce((best, store) => (store.subtotal < best.subtotal ? store : best))
-  const mostExpensive = priorityStores.reduce((worst, store) => (store.subtotal > worst.subtotal ? store : worst))
-  const potentialSavings = mostExpensive.subtotal - cheapest.subtotal
+  const cheapest = priorityStores.reduce((best, store) => (store.total < best.total ? store : best))
+  const mostExpensive = priorityStores.reduce((worst, store) => (store.total > worst.total ? store : worst))
+  const potentialSavings = mostExpensive.total - cheapest.total
 
   return (
     <section className="surface p-5 sm:p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-semibold">Kde nakoupit celý seznam</p>
-          <p className="mt-1 text-sm text-muted-foreground">Částky převzaté přímo z aktuálního plánu nákupu pro prioritní obchody.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Kolik by stál celý seznam, kdybyste vše nakoupili pouze v daném prioritním řetězci.</p>
         </div>
         <MapPin className="shrink-0 text-primary" />
       </div>
@@ -57,20 +62,20 @@ export function StoreComparison({
                     return nearest && <span className="text-xs font-normal text-muted-foreground">· {nearest.distanceKm.toFixed(1)} km</span>
                   })()}
               </p>
-              <p className="mt-0.5 text-xs text-muted-foreground">{entry.lines.length} položek podle plánu</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{entry.itemsPriced} z {pendingCount} položek podle skutečných cen{entry.itemsEstimated > 0 ? ' + odhad pro chybějící ceny' : ''}</p>
             </div>
-            <span className="shrink-0 font-semibold">{money(entry.subtotal)}</span>
+            <span className="shrink-0 font-semibold">{money(entry.total)}</span>
           </div>
         ))}
       </div>
       {potentialSavings > 0 && (
         <p className="mt-4 flex items-start gap-1.5 text-sm text-muted-foreground">
           <ArrowDownRight className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-          Rozdíl mezi prioritními obchody v plánu je {money(potentialSavings)}.
+          Rozdíl mezi prioritními obchody při nákupu celého seznamu je {money(potentialSavings)}.
         </p>
       )}
       <p className="mt-4 text-sm text-muted-foreground">
-        Celkem podle plánu: <span className="font-medium text-foreground">{money(plan.total)}</span>
+        Nejlevnější celý košík z prioritních řetězců: <span className="font-medium text-foreground">{money(cheapest.total)}</span>
       </p>
     </section>
   )

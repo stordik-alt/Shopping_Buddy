@@ -1622,6 +1622,47 @@ export async function confirmOfficialPrices(confirmations: OfficialPriceConfirma
   }
 }
 
+/** The input needed to record one retailer-published price. */
+export type OfficialPriceObservation = { productId: string; storeId: string; sourceReference: string; regularPrice: number; currency: string; unit: ItemUnit; unitPrice: number; observedAt: string }
+
+/** Batch writer for official ingestion prices. */
+export async function recordOfficialPrices(observations: OfficialPriceObservation[], latestBySourceReference: Map<string, OfficialPriceSnapshot | undefined>) {
+  if (observations.length === 0) return []
+  const db = getDb()
+  const planned = observations.map((observation) => ({ observation, action: planOfficialPrice(observation, latestBySourceReference.get(observation.sourceReference)) }))
+  const writable = planned.filter(({ action }) => action.kind === 'insert' || action.kind === 'update-same-day')
+  const rowsByKey = new Map<string, { id: string }>()
+  for (const part of chunks(writable, 500)) {
+    const rows = await db.insert(schema.prices).values(part.map(({ observation }) => ({
+      productId: observation.productId, storeId: observation.storeId, storeLocationId: null, priceScope: 'CHAIN' as const, sourceType: 'OFFICIAL' as const, locationResolution: 'NOT_APPLICABLE' as const,
+      regularPrice: observation.regularPrice.toString(), currency: observation.currency, unit: observation.unit, unitPrice: observation.unitPrice.toString(), observedAt: observation.observedAt, validFrom: observation.observedAt, validUntil: null, sourceReference: observation.sourceReference,
+    }))).onConflictDoUpdate({
+      target: [schema.prices.productId, schema.prices.storeId, schema.prices.priceScope, schema.prices.sourceType, schema.prices.sourceReference, schema.prices.observedAt],
+      targetWhere: sql`${schema.prices.sourceType} = 'OFFICIAL' AND ${schema.prices.sourceReference} IS NOT NULL`,
+      set: { regularPrice: sql`excluded.regular_price`, currency: sql`excluded.currency`, unit: sql`excluded.unit`, unitPrice: sql`excluded.unit_price` },
+    }).returning({ id: schema.prices.id, productId: schema.prices.productId, sourceReference: schema.prices.sourceReference, observedAt: schema.prices.observedAt })
+    for (const row of rows) rowsByKey.set(`${row.productId}|${row.sourceReference}|${row.observedAt}`, { id: row.id })
+  }
+  const closeById = new Map<string, string>()
+  for (const { observation, action } of planned) {
+    if (action.kind === 'insert' && action.closePrevious) {
+      const previousId = latestBySourceReference.get(observation.sourceReference)?.id
+      if (previousId) closeById.set(previousId, observation.observedAt)
+    }
+  }
+  for (const part of chunks([...closeById.keys()], 1000)) {
+    const cases = part.map((id) => sql`WHEN ${id} THEN ${closeById.get(id)}::date`)
+    await db.update(schema.prices).set({ validUntil: sql`CASE ${schema.prices.id} ${sql.join(cases, sql` `)} ELSE ${schema.prices.validUntil} END` }).where(and(inArray(schema.prices.id, part), isNull(schema.prices.validUntil)))
+  }
+  return planned.map(({ observation, action }) => {
+    const latest = latestBySourceReference.get(observation.sourceReference)
+    if (action.kind === 'stale' || action.kind === 'unchanged') return { action: action.kind, latest, closedPrevious: false }
+    if (action.kind === 'confirm') return { action: 'confirm' as const, latest: latest ? { ...latest, lastConfirmedAt: observation.observedAt } : latest, closedPrevious: false }
+    const row = rowsByKey.get(`${observation.productId}|${observation.sourceReference}|${observation.observedAt}`)
+    if (!row) throw new Error(`Missing persisted official price for ${observation.sourceReference}`)
+    return { action: action.kind, latest: { id: row.id, observedAt: observation.observedAt, regularPrice: observation.regularPrice, unit: observation.unit, unitPrice: observation.unitPrice, currency: observation.currency, validUntil: null, lastConfirmedAt: null }, closedPrevious: action.kind === 'insert' && action.closePrevious }
+  })
+}
 /** Writes a retailer-published (CHAIN scope, OFFICIAL) price under the rules in
  *  `lib/ingestion/official-price.ts`: the current price is the observation with the latest date; a
  *  repeat run the same day refreshes that day's row instead of duplicating it; an unchanged price on a

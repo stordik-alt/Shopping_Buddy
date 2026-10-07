@@ -428,7 +428,7 @@ describe('runPriceSources', () => {
     ...extra,
   })
   type Run = (limit: number, options?: { deadline?: number; part?: { index: number; count: number } }) => Promise<IngestResult>
-  const entry = (source: IngestionSource, run: Run, parts = 1) => ({ source, run, parts })
+  const entry = (source: IngestionSource, run: Run, parts = 1, partsPerRun = 1) => ({ source, run, parts, partsPerRun })
 
   it('reads the part the cursor names and moves the cursor on', async () => {
     queries.getIngestionCursor.mockResolvedValue(2)
@@ -439,6 +439,18 @@ describe('runPriceSources', () => {
     expect(results.billa).toMatchObject({ part: '3/5' })
   })
 
+  it('batches consecutive rotating parts in one invocation and advances after each part', async () => {
+    queries.getIngestionCursor.mockResolvedValue(2)
+    const run = vi.fn<Run>(async (_limit, options) => ok({ part: String((options?.part?.index ?? 0) + 1) + '/5' }))
+    const results = await runPriceSources({ budgetMs: 1000, sources: [entry('billa', run, 5, 2)] })
+
+    expect(run).toHaveBeenCalledTimes(2)
+    expect(run).toHaveBeenNthCalledWith(1, expect.any(Number), expect.objectContaining({ part: { index: 2, count: 5 } }))
+    expect(run).toHaveBeenNthCalledWith(2, expect.any(Number), expect.objectContaining({ part: { index: 3, count: 5 } }))
+    expect(queries.setIngestionCursor).toHaveBeenNthCalledWith(1, 'billa', 3)
+    expect(queries.setIngestionCursor).toHaveBeenNthCalledWith(2, 'billa', 4)
+    expect(results.billa).toMatchObject({ processed: 2, part: '3/5, 4/5' })
+  })
   it('wraps from the last part back to the first, and a stored cursor beyond a smaller part count', async () => {
     queries.getIngestionCursor.mockResolvedValue(4)
     const run = vi.fn<Run>(async () => ok())

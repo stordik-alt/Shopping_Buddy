@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveInventoryPackage } from '@/lib/inventory-packaging'
+import { inventoryQuantityFromPackage, resolveInventoryPackage } from '@/lib/inventory-packaging'
 
 describe('resolveInventoryPackage', () => {
   it('expands a count multipack such as 30 eggs to individual pieces', () => {
@@ -14,6 +14,11 @@ describe('resolveInventoryPackage', () => {
       packageUnitQuantity: 1,
       packageUnit: 'ks',
     })
+  })
+
+  it('multiplies purchased packs into physical pieces', () => {
+    const pkg = resolveInventoryPackage('Veseta perlivá voda 6x1,5l', [{ quantity: 9, unit: 'l', packageCount: 6, packageUnitQuantity: 1.5, packageUnit: 'l' }])!
+    expect(inventoryQuantityFromPackage(8, pkg)).toEqual({ quantity: 48, unit: 'ks', unitQuantity: 1.5, unitUnit: 'l' })
   })
 
   it('keeps the inner bottle size for a volume multipack', () => {

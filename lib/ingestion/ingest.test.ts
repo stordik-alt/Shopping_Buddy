@@ -62,12 +62,14 @@ beforeEach(() => {
   queries.loadLatestOfficialPrices.mockResolvedValue(new Map())
   queries.persistNamedPackageEvidence.mockResolvedValue(0)
   queries.recordOfficialPrice.mockResolvedValue({ action: 'insert', latest: undefined, closedPrevious: false })
-  queries.recordOfficialPrices.mockImplementation(async (observations) => {
-    const latestBySourceReference = queries.loadLatestOfficialPrices.mock.results[0]?.value
-    const latest = latestBySourceReference instanceof Map ? latestBySourceReference : new Map()
+  queries.recordOfficialPrices.mockImplementation(async (observations, latest) => {
     const results = []
     for (const observation of observations) {
-      results.push(await queries.recordOfficialPrice(observation, latest.get(observation.sourceReference), { deferConfirm: () => undefined }))
+      const result = await queries.recordOfficialPrice(observation, latest.get(observation.sourceReference), { deferConfirm: () => undefined })
+      if (result.action === 'confirm' && !result.latest) {
+        result.latest = { id: `row-${observation.sourceReference}`, observedAt: observation.observedAt }
+      }
+      results.push(result)
     }
     return results
   })

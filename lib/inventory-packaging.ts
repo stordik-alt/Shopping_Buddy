@@ -26,6 +26,15 @@ export function resolveInventoryPackage(name: string, packages: InventoryPackage
   return matches[0] as InventoryPackage
 }
 
+export function inventoryQuantityFromPackage(quantity: number, pkg: InventoryPackage): { quantity: number; unit: ItemUnit; unitQuantity: number | null; unitUnit: ItemUnit | null } {
+  return {
+    quantity: quantity * pkg.packageCount,
+    unit: 'ks',
+    unitQuantity: pkg.packageUnitQuantity ?? 1,
+    unitUnit: pkg.packageUnit ?? 'ks',
+  }
+}
+
 export async function purchasedInventoryQuantity(item: {
   productId: string | null
   name: string
@@ -50,10 +59,5 @@ export async function purchasedInventoryQuantity(item: {
   const pkg = resolveInventoryPackage(item.name, packages)
   if (!pkg) return { quantity: item.quantity, unit: item.unit, unitQuantity: null, unitUnit: null }
 
-  return {
-    quantity: item.quantity * pkg.packageCount,
-    unit: 'ks',
-    unitQuantity: pkg.packageUnitQuantity ?? 1,
-    unitUnit: pkg.packageUnit ?? 'ks',
-  }
+  return inventoryQuantityFromPackage(item.quantity, pkg)
 }

@@ -873,6 +873,7 @@ export const receiptImports = pgTable('receipt_imports', {
   processedAt: timestamp('processed_at'),
 }, (table) => [
   index('receipt_imports_household_status_created_idx').on(table.householdId, table.status, table.createdAt),
+  index('receipt_imports_purchase_idx').on(table.purchaseId),
 ])
 
 // A budget period's own amount, keyed by the period's start date (`month`); a period without a row uses

@@ -106,7 +106,7 @@ describe('detectNonInventory / detectChildOriented', () => {
 // makes a real network/model call (and needs no credentials), per CLAUDE.md section 25's testability
 // mandate. What is under test is this module's OWN validation: an id outside the allowed list must
 // be rejected even if the (mocked) model "returns" one.
-vi.mock('ai', () => ({ generateText: vi.fn() }))
+vi.mock('ai', async (importOriginal) => { const actual = await importOriginal<typeof import('ai')>(); return { ...actual, generateText: vi.fn() } })
 
 describe('aiCategorizeFallback — structured output validation (spec section 11)', () => {
   it('accepts a subcategory name that is in the allowed list', async () => {

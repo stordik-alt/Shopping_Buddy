@@ -1,0 +1,122 @@
+name: PKD GS1 GPC import
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_url:
+        description: "Optional direct URL to the GS1 GPC XML/JSON/ZIP download. Leave empty to discover it from the official GS1 2026-05 page."
+        required: false
+        default: ""
+        type: string
+      apply:
+        description: "Write the imported GPC taxonomy to PKD"
+        required: true
+        default: false
+        type: boolean
+
+jobs:
+  gpc:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download GS1 GPC source
+        env:
+          SOURCE_URL: ${{ inputs.source_url }}
+        run: |
+          set -euo pipefail
+          mkdir -p .tmp/gpc
+
+          if [ -n "$SOURCE_URL" ]; then
+            echo "Using supplied GS1 GPC source URL."
+            curl -fL --retry 3 --retry-all-errors "$SOURCE_URL" -o .tmp/gpc/source
+          else
+            echo "Discovering the current 2026-05 GPC download from the official GS1 page."
+            page_url="https://ref.gs1.org/standards/gpc/2026-05/"
+            curl -fL --retry 3 --retry-all-errors "$page_url" -o .tmp/gpc/page.html
+
+            url="$(python - <<'PY'
+          from html.parser import HTMLParser
+          from urllib.parse import urljoin
+          from pathlib import Path
+
+          class Links(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.urls = []
+              def handle_starttag(self, tag, attrs):
+                  if tag != "a":
+                      return
+                  for key, value in attrs:
+                      if key == "href" and value:
+                          self.urls.append(value)
+
+          p = Links()
+          p.feed(Path(".tmp/gpc/page.html").read_text(encoding="utf-8", errors="ignore"))
+
+          preferred = []
+          for href in p.urls:
+              absolute = urljoin("https://ref.gs1.org/standards/gpc/2026-05/", href)
+              low = absolute.lower().split("?", 1)[0]
+              if low.endswith((".zip", ".xml", ".json")):
+                  preferred.append(absolute)
+
+          if not preferred:
+              raise SystemExit("No downloadable GPC XML/JSON/ZIP artifact was discoverable on the official GS1 page.")
+
+          print(preferred[0])
+          PY
+            )"
+
+            echo "Discovered: $url"
+            curl -fL --retry 3 --retry-all-errors "$url" -o .tmp/gpc/source
+          fi
+
+          file .tmp/gpc/source
+
+          case "$(file -b --mime-type .tmp/gpc/source)" in
+            application/zip|application/x-zip-compressed)
+              mkdir -p .tmp/gpc/unpacked
+              unzip -q .tmp/gpc/source -d .tmp/gpc/unpacked
+              candidate="$(find .tmp/gpc/unpacked -type f \( -iname '*.xml' -o -iname '*.json' \) | head -n 1)"
+              [ -n "$candidate" ] || { echo "No XML/JSON GPC file found in downloaded archive."; exit 1; }
+              cp "$candidate" .tmp/gpc/input
+              ;;
+            application/xml|text/xml|application/json|text/plain)
+              cp .tmp/gpc/source .tmp/gpc/input
+              ;;
+            *)
+              if head -c 100 .tmp/gpc/source | grep -qi '<html'; then
+                echo "Downloaded HTML instead of a GPC data file. Supply the direct GS1 download URL in source_url."
+              else
+                echo "Unsupported downloaded file type."
+              fi
+              exit 1
+              ;;
+          esac
+
+      - name: Run GS1 GPC import
+        env:
+          DATABASE_URL: ${{ secrets.NEON_PROD_DATABASE_URL }}
+          GPC_VERSION: 2026-05
+        run: |
+          if [ "${{ inputs.apply }}" = "true" ]; then
+            pnpm exec tsx scripts/import-gs1-gpc.ts --file=.tmp/gpc/input --apply
+          else
+            pnpm exec tsx scripts/import-gs1-gpc.ts --file=.tmp/gpc/input
+          fi

@@ -51,22 +51,26 @@ function parseRows(rows: Array<Record<string, unknown>>): CzCpaNode[] {
 
   const byCode = new Map(raw.map((row) => [row.code, row]))
   const result: CzCpaNode[] = []
+  const parentByCode = new Map<string, string | null>()
+  const pathByCode = new Map<string, string[]>()
+  const stack: Array<{ level: number; code: string }> = []
 
   for (const row of raw) {
-    const parentCode = row.level === 1 ? null : row.level === 2
-      ? row.code.slice(0, 1)
-      : row.code.slice(0, row.code.length - 1)
-    const path: string[] = []
-    let current: string | null = row.code
-    while (current) {
-      path.unshift(current)
-      const currentRow = byCode.get(current)
-      if (!currentRow || currentRow.level === 1) break
-      current = currentRow.level === 2
-        ? currentRow.code.slice(0, 1)
-        : currentRow.code.slice(0, -1)
-    }
-    result.push({ ...row, parentCode: byCode.has(parentCode ?? '') ? parentCode : null, path })
+    while (stack.length && stack[stack.length - 1].level >= row.level) stack.pop()
+    const parentCode = stack.length ? stack[stack.length - 1].code : null
+    const parentPath = parentCode ? (pathByCode.get(parentCode) ?? []) : []
+    parentByCode.set(row.code, parentCode)
+    pathByCode.set(row.code, [...parentPath, row.code])
+    stack.push({ level: row.level, code: row.code })
+  }
+
+  for (const row of raw) {
+    const parentCode = parentByCode.get(row.code) ?? null
+    result.push({
+      ...row,
+      parentCode: parentCode && byCode.has(parentCode) ? parentCode : null,
+      path: pathByCode.get(row.code) ?? [row.code],
+    })
   }
 
   return [...new Map(result.map((node) => [node.code, node])).values()]

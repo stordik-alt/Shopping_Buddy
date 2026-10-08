@@ -47,7 +47,10 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p .tmp/cz-cpa
-          curl -fL --retry 3 --retry-all-errors "$SOURCE_URL" -o .tmp/cz-cpa/source
+          curl -fL --retry 3 --retry-all-errors \
+  -A "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/154 Safari/537.36" \
+  -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,text/csv;q=0.8,*/*;q=0.7" \
+  "$SOURCE_URL" -o .tmp/cz-cpa/source
           test -s .tmp/cz-cpa/source
 
           MIME_TYPE="$(file -b --mime-type .tmp/cz-cpa/source)"
@@ -59,7 +62,10 @@ jobs:
             fi
             EXPORT_URL="https://apl2.czso.cz/iSMS/cisexp.jsp?kodcis=$KODCIS&typdat=0&cisjaz=203&format=2&separator=%2C"
             echo "Trying: $EXPORT_URL"
-            curl -fL --retry 3 --retry-all-errors "$EXPORT_URL" -o .tmp/cz-cpa/source
+            curl -fL --retry 3 --retry-all-errors \
+  -A "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/154 Safari/537.36" \
+  -H "Accept: text/csv,application/xml,text/plain;q=0.9,*/*;q=0.7" \
+  "$EXPORT_URL" -o .tmp/cz-cpa/source
             MIME_TYPE="$(file -b --mime-type .tmp/cz-cpa/source)"
           fi
 

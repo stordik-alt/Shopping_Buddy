@@ -3,6 +3,7 @@ import * as schema from '@/lib/db/schema'
 import { generatePkdProductTypeCandidates, PKD_CANDIDATE_VERSION } from '@/lib/pkd-candidate-generation'
 
 const dryRun = !process.argv.includes('--apply')
+const BATCH_SIZE = 500
 
 async function main() {
   const db = getDb()
@@ -31,25 +32,11 @@ async function main() {
     return
   }
 
-  for (const candidate of candidates) {
-    await db.insert(schema.pkdProductTypeCandidates).values({
-      candidateKey: candidate.candidateKey,
-      canonicalName: candidate.canonicalName,
-      normalizedName: candidate.normalizedName,
-      language: candidate.language,
-      category: candidate.category as typeof schema.pkdProductTypeCandidates.$inferInsert.category,
-      subcategory: candidate.subcategory,
-      physicalForm: candidate.physicalForm,
-      processingState: candidate.processingState,
-      comparisonUnit: candidate.comparisonUnit as typeof schema.pkdProductTypeCandidates.$inferInsert.comparisonUnit,
-      evidence: candidate.evidence,
-      sourceEntryIds: candidate.sourceEntryIds,
-      confidence: candidate.confidence.toFixed(3),
-      candidateVersion: candidate.candidateVersion,
-      updatedAt: new Date(),
-    }).onConflictDoUpdate({
-      target: [schema.pkdProductTypeCandidates.candidateKey, schema.pkdProductTypeCandidates.candidateVersion],
-      set: {
+  for (let offset = 0; offset < candidates.length; offset += BATCH_SIZE) {
+    const batch = candidates.slice(offset, offset + BATCH_SIZE)
+    for (const candidate of batch) {
+      await db.insert(schema.pkdProductTypeCandidates).values({
+        candidateKey: candidate.candidateKey,
         canonicalName: candidate.canonicalName,
         normalizedName: candidate.normalizedName,
         language: candidate.language,
@@ -63,8 +50,26 @@ async function main() {
         confidence: candidate.confidence.toFixed(3),
         candidateVersion: candidate.candidateVersion,
         updatedAt: new Date(),
-      },
-    })
+      }).onConflictDoUpdate({
+        target: [schema.pkdProductTypeCandidates.candidateKey, schema.pkdProductTypeCandidates.candidateVersion],
+        set: {
+          canonicalName: candidate.canonicalName,
+          normalizedName: candidate.normalizedName,
+          language: candidate.language,
+          category: candidate.category as typeof schema.pkdProductTypeCandidates.$inferInsert.category,
+          subcategory: candidate.subcategory,
+          physicalForm: candidate.physicalForm,
+          processingState: candidate.processingState,
+          comparisonUnit: candidate.comparisonUnit as typeof schema.pkdProductTypeCandidates.$inferInsert.comparisonUnit,
+          evidence: candidate.evidence,
+          sourceEntryIds: candidate.sourceEntryIds,
+          confidence: candidate.confidence.toFixed(3),
+          candidateVersion: candidate.candidateVersion,
+          updatedAt: new Date(),
+        },
+      })
+    }
+    console.log(`Candidate batch ${Math.min(offset + BATCH_SIZE, candidates.length)}/${candidates.length}`)
   }
 
   console.log(JSON.stringify({

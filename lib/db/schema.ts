@@ -196,6 +196,71 @@ export const productTypes = pgTable('product_types', {
   unit: itemUnitEnum('unit').notNull(),
 })
 
+// Product Knowledge Dictionary (PKD): normalized knowledge about a product type, independent of
+// retailer SKU/package identity. External source rows are versioned and mapped explicitly; they never
+// become application Product Types automatically.
+export const pkdSourceTypeEnum = pgEnum('pkd_source_type', ['gs1_gpc', 'open_food_facts', 'cz_cpa', 'seed_catalog', 'ocr', 'manual'])
+export const pkdEntryStatusEnum = pgEnum('pkd_entry_status', ['candidate', 'approved', 'rejected', 'inactive'])
+export const pkdMappingStatusEnum = pgEnum('pkd_mapping_status', ['unmapped', 'candidate', 'mapped', 'rejected'])
+
+export const pkdSources = pgTable('pkd_sources', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  sourceType: pkdSourceTypeEnum('source_type').notNull(),
+  sourceVersion: text('source_version').notNull(),
+  acquiredAt: timestamp('acquired_at', { withTimezone: true }).notNull().defaultNow(),
+  metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
+}, (table) => [uniqueIndex('pkd_sources_type_version_unique').on(table.sourceType, table.sourceVersion)])
+
+export const pkdEntries = pgTable('pkd_entries', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  stableKey: text('stable_key').notNull().unique(),
+  canonicalName: text('canonical_name').notNull(),
+  language: text('language').notNull().default('cs'),
+  category: itemCategoryEnum('category'),
+  subcategory: text('subcategory'),
+  physicalForm: text('physical_form'),
+  processingState: text('processing_state'),
+  comparisonUnit: itemUnitEnum('comparison_unit'),
+  attributes: jsonb('attributes').$type<Record<string, unknown>>().notNull().default({}),
+  contains: text('contains').array().notNull().default([]),
+  excludes: text('excludes').array().notNull().default([]),
+  status: pkdEntryStatusEnum('status').notNull().default('candidate'),
+  confidence: numeric('confidence', { precision: 4, scale: 3, mode: 'number' }),
+  productTypeId: uuid('product_type_id').references(() => productTypes.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('pkd_entries_canonical_name_idx').on(table.canonicalName),
+  index('pkd_entries_product_type_idx').on(table.productTypeId),
+  check('pkd_entries_confidence_range', sql`${table.confidence} IS NULL OR (${table.confidence} >= 0 AND ${table.confidence} <= 1)`),
+])
+
+export const pkdSynonyms = pgTable('pkd_synonyms', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  entryId: uuid('entry_id').notNull().references(() => pkdEntries.id, { onDelete: 'cascade' }),
+  synonym: text('synonym').notNull(),
+  language: text('language').notNull().default('cs'),
+  normalized: text('normalized').notNull(),
+}, (table) => [
+  uniqueIndex('pkd_synonyms_entry_normalized_unique').on(table.entryId, table.normalized),
+  index('pkd_synonyms_normalized_idx').on(table.normalized),
+])
+
+export const pkdExternalMappings = pgTable('pkd_external_mappings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  entryId: uuid('entry_id').notNull().references(() => pkdEntries.id, { onDelete: 'cascade' }),
+  sourceId: uuid('source_id').notNull().references(() => pkdSources.id, { onDelete: 'cascade' }),
+  externalId: text('external_id').notNull(),
+  externalParentId: text('external_parent_id'),
+  mappingStatus: pkdMappingStatusEnum('mapping_status').notNull().default('candidate'),
+  confidence: numeric('confidence', { precision: 4, scale: 3, mode: 'number' }),
+  evidence: jsonb('evidence').$type<Record<string, unknown>>().notNull().default({}),
+}, (table) => [
+  uniqueIndex('pkd_external_mappings_source_external_unique').on(table.sourceId, table.externalId),
+  index('pkd_external_mappings_entry_idx').on(table.entryId),
+  check('pkd_external_mappings_confidence_range', sql`${table.confidence} IS NULL OR (${table.confidence} >= 0 AND ${table.confidence} <= 1)`),
+])
+
 // A named set of types one list item can ask for at once ("Kuřecí maso" = every raw part of the
 // chicken, owner decision 2026-10-03/04). A type may be in several groups ("Kuřecí mleté" is in
 // "Kuřecí maso" and "Mleté maso").

@@ -3,8 +3,22 @@ import { isExpenseCategory, isValidSubcategory, type ExpenseCategory } from '@/l
 // What the server accepts as an expense (CLAUDE.md sections 9 and 33: never trust the form). Pure,
 // so the rules are tested without a database; the Server Actions in app/actions/budget.ts apply it.
 
-export type ExpenseInput = { amount: number; note: string; category: string; subcategory: string | null; date: string }
-export type ValidExpense = { amount: number; note: string; category: ExpenseCategory; subcategory: string | null; date: string }
+export type ExpenseInput = {
+  amount: number
+  note: string
+  category: string
+  subcategory: string | null
+  date: string
+  selection?: { kind: 'product'; productId: string } | { kind: 'type'; productTypeKey: string }
+}
+export type ValidExpense = {
+  amount: number
+  note: string
+  category: ExpenseCategory
+  subcategory: string | null
+  date: string
+  selection?: { kind: 'product'; productId: string } | { kind: 'type'; productTypeKey: string }
+}
 
 /** The largest amount numeric(10, 2) holds. */
 const MAX_AMOUNT = 99_999_999.99
@@ -36,6 +50,7 @@ export function validateExpenseInput(input: ExpenseInput, today: string): { expe
       category: input.category,
       subcategory,
       date: input.date,
+      selection: input.selection,
     },
   }
 }

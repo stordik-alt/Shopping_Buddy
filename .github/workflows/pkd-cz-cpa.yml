@@ -58,7 +58,7 @@ jobs:
               curl -fsSL --retry 3 --retry-all-errors \
                 -A "Mozilla/5.0" \
                 -H "Accept: text/csv,text/plain;q=0.9,*/*;q=0.7" \
-                "https://apl2.czso.cz/iSMS/cisexp.jsp?kodcis=$code_list&typdat=0&cisjaz=203&format=2&separator=%2C" \
+                "https://apl.czso.cz/iSMS/cisexp.jsp?kodcis=$code_list&typdat=0&cisjaz=203&format=2&separator=%2C" \
                 -o ".tmp/cz-cpa/levels/$code_list.csv"
               test -s ".tmp/cz-cpa/levels/$code_list.csv"
               echo "Downloaded $code_list: $(file -b --mime-type ".tmp/cz-cpa/levels/$code_list.csv")"

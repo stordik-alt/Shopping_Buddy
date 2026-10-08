@@ -1,3 +1,17 @@
+## 2026-10-08 (PKD candidate generation CI fix)
+- Fixed TypeScript literal widening in candidate evidence so `evidence.reason` remains the declared `unmapped_pkd_identity` literal and production/Cloudflare builds typecheck correctly.
+
+## 2026-10-08 (PKD candidate versioning fix)
+- Made candidate uniqueness version-aware and aligned the runner upsert with `(candidateKey, candidateVersion)` so future candidate-generation versions remain independently reproducible.
+
+## 2026-10-08 (PKD candidate schema formatting fix)
+- Corrected the generated schema insertion so the new PKD candidate declarations use real line breaks and remain valid TypeScript.
+
+## 2026-10-08 (PKD candidate generation)
+- Added a versioned candidate layer for previously unmapped PKD identities.
+- Candidates are grouped deterministically by normalized name and language, retain source PKD entry IDs and evidence, and never mutate internal Product Types automatically.
+- Added `pnpm db:generate-pkd-candidates` dry-run/apply runner and regression tests.
+
 ## 2026-10-08 (PKD normalization CI fix — second path)
 - Fixed the PKD normalization runner to serialize dedup candidate confidence as a string in both insert and conflict-update paths, resolving the remaining Drizzle numeric typecheck failure.
 

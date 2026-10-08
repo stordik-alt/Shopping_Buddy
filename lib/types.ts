@@ -38,9 +38,9 @@ export type Notification = {
 export type Expense = {
   id: string
   /** Explicit concrete product selected from manual autocomplete, or null. */
-  productId: string | null
+  productId?: string | null
   /** Explicit generic product type selected from manual autocomplete, or null. */
-  productTypeId: string | null
+  productTypeId?: string | null
   amount: number
   note: string
   category: ExpenseCategory

@@ -1274,6 +1274,25 @@ export const productTypesRelations = relations(productTypes, ({ many }) => ({
   groups: many(productTypeGroupMembers),
 }))
 
+export const pkdSourcesRelations = relations(pkdSources, ({ many }) => ({
+  mappings: many(pkdExternalMappings),
+}))
+
+export const pkdEntriesRelations = relations(pkdEntries, ({ one, many }) => ({
+  productType: one(productTypes, { fields: [pkdEntries.productTypeId], references: [productTypes.id] }),
+  synonyms: many(pkdSynonyms),
+  externalMappings: many(pkdExternalMappings),
+}))
+
+export const pkdSynonymsRelations = relations(pkdSynonyms, ({ one }) => ({
+  entry: one(pkdEntries, { fields: [pkdSynonyms.entryId], references: [pkdEntries.id] }),
+}))
+
+export const pkdExternalMappingsRelations = relations(pkdExternalMappings, ({ one }) => ({
+  entry: one(pkdEntries, { fields: [pkdExternalMappings.entryId], references: [pkdEntries.id] }),
+  source: one(pkdSources, { fields: [pkdExternalMappings.sourceId], references: [pkdSources.id] }),
+}))
+
 export const productTypeGroupsRelations = relations(productTypeGroups, ({ many }) => ({
   members: many(productTypeGroupMembers),
 }))

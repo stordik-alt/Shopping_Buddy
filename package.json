@@ -49,7 +49,8 @@
     "db:recipes:backfill-images": "dotenv -e .env.local -- tsx scripts/backfill-recipe-images.ts",
     "db:import-gpc": "dotenv -e .env.local -- tsx scripts/import-gs1-gpc.ts",
     "db:import-off": "dotenv -e .env.local -- tsx scripts/import-open-food-facts.ts",
-    "db:import-cz-cpa": "dotenv -e .env.local -- tsx scripts/import-cz-cpa.ts"
+    "db:import-cz-cpa": "dotenv -e .env.local -- tsx scripts/import-cz-cpa.ts",
+    "db:normalize-pkd": "dotenv -e .env.local -- tsx scripts/normalize-pkd.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

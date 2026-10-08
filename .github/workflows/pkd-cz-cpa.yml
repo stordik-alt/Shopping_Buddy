@@ -68,10 +68,20 @@ jobs:
               --input-dir=.tmp/cz-cpa/levels \
               --output=.tmp/cz-cpa/input.csv
             test -s .tmp/cz-cpa/input.csv
+            echo ".tmp/cz-cpa/input.csv" > .tmp/cz-cpa/input.path
           else
             case "$MIME_TYPE" in
-              text/csv|text/plain|application/xml|text/xml|application/json|application/octet-stream)
-                cp .tmp/cz-cpa/source .tmp/cz-cpa/input
+              text/csv|text/plain)
+                cp .tmp/cz-cpa/source .tmp/cz-cpa/input.csv
+                echo ".tmp/cz-cpa/input.csv" > .tmp/cz-cpa/input.path
+                ;;
+              application/xml|text/xml)
+                cp .tmp/cz-cpa/source .tmp/cz-cpa/input.xml
+                echo ".tmp/cz-cpa/input.xml" > .tmp/cz-cpa/input.path
+                ;;
+              application/json|application/octet-stream)
+                cp .tmp/cz-cpa/source .tmp/cz-cpa/input.json
+                echo ".tmp/cz-cpa/input.json" > .tmp/cz-cpa/input.path
                 ;;
               *)
                 echo "Unsupported direct CZ-CPA source type: $MIME_TYPE"
@@ -87,7 +97,7 @@ jobs:
           CZ_CPA_SOURCE_URL: ${{ inputs.source_url }}
         run: |
           if [ "${{ inputs.apply }}" = "true" ]; then
-            pnpm exec tsx scripts/import-cz-cpa.ts --file=.tmp/cz-cpa/input.csv --apply
+            pnpm exec tsx scripts/import-cz-cpa.ts --file="$(cat .tmp/cz-cpa/input.path)" --apply
           else
             pnpm exec tsx scripts/import-cz-cpa.ts --file=.tmp/cz-cpa/input
           fi

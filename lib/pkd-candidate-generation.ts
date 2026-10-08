@@ -1,6 +1,6 @@
 import { normalizeProductText } from '@/lib/product-normalize'
 
-export const PKD_CANDIDATE_VERSION = '2026-10-v4'
+export const PKD_CANDIDATE_VERSION = '2026-10-v5'
 
 export type PkdCandidateInput = {
   id: string

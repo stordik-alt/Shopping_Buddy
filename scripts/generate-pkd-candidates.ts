@@ -1,9 +1,10 @@
-import { eq } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { generatePkdProductTypeCandidates, PKD_CANDIDATE_VERSION } from '@/lib/pkd-candidate-generation'
 
-const dryRun = !process.argv.includes('--apply')
+const listMode = process.argv.includes('--list')
+const dryRun = !process.argv.includes('--apply') && !listMode
 const BATCH_SIZE = 500
 const limitArg = process.argv.find((arg) => arg.startsWith('--limit='))
 const previewLimit = Math.max(1, Math.min(500, Number(limitArg?.slice('--limit='.length)) || 100))
@@ -27,6 +28,43 @@ function sourceKind(stableKey: string, attributes: Record<string, unknown>): { k
 
 async function main() {
   const db = getDb()
+  if (listMode) {
+    const stored = await db.select({
+      id: schema.pkdProductTypeCandidates.id,
+      canonicalName: schema.pkdProductTypeCandidates.canonicalName,
+      normalizedName: schema.pkdProductTypeCandidates.normalizedName,
+      language: schema.pkdProductTypeCandidates.language,
+      category: schema.pkdProductTypeCandidates.category,
+      comparisonUnit: schema.pkdProductTypeCandidates.comparisonUnit,
+      confidence: schema.pkdProductTypeCandidates.confidence,
+      status: schema.pkdProductTypeCandidates.status,
+      evidence: schema.pkdProductTypeCandidates.evidence,
+      sourceEntryIds: schema.pkdProductTypeCandidates.sourceEntryIds,
+    }).from(schema.pkdProductTypeCandidates)
+      .where(eq(schema.pkdProductTypeCandidates.candidateVersion, PKD_CANDIDATE_VERSION))
+      .orderBy(asc(schema.pkdProductTypeCandidates.canonicalName))
+      .limit(previewLimit)
+    console.log(JSON.stringify({
+      candidateVersion: PKD_CANDIDATE_VERSION,
+      candidates: stored.length,
+      limit: previewLimit,
+      rows: stored.map((row) => ({
+        id: row.id,
+        name: row.canonicalName,
+        normalizedName: row.normalizedName,
+        language: row.language,
+        category: row.category,
+        unit: row.comparisonUnit,
+        confidence: row.confidence,
+        status: row.status,
+        sourceCount: row.sourceEntryIds.length,
+        sources: (row.evidence as Record<string, unknown>).sourceKinds ?? [],
+      })),
+      mode: 'list',
+    }, null, 2))
+    return
+  }
+
   const entries = await db.select({
     id: schema.pkdEntries.id,
     stableKey: schema.pkdEntries.stableKey,
@@ -139,6 +177,8 @@ async function main() {
     entriesWithExistingMapping: entriesWithExistingMapping.size,
     candidates: candidates.length,
     sourceCounts,
+    previewLimit,
+    preview,
     mode: 'apply',
   }, null, 2))
 }

@@ -56,7 +56,7 @@ async function main() {
       rightEntryId,
       normalizationVersion: candidate.normalizationVersion,
       reason: candidate.reason,
-      confidence: candidate.confidence,
+      confidence: candidate.confidence.toFixed(3),
       evidence: candidate.evidence,
     }).onConflictDoUpdate({
       target: [

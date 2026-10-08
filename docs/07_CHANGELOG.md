@@ -1,3 +1,7 @@
+## 2026-10-08 (PKD mapping runner CI fix)
+- **Fixed:** wrapped the database-backed PKD mapping runner in an async `main()` function so it no longer relies on top-level `await`, which is incompatible with the repository TypeScript module configuration.
+- **Error addressed:** `TS1378` from `scripts/generate-pkd-mappings.ts` during `pnpm exec tsc --noEmit`.
+
 ## 2026-10-08 (PKD candidate generation CI fix)
 - Fixed TypeScript literal widening in candidate evidence so `evidence.reason` remains the declared `unmapped_pkd_identity` literal and production/Cloudflare builds typecheck correctly.
 

@@ -63,6 +63,7 @@ jobs:
           DATABASE_URL: ${{ secrets.NEON_PROD_DATABASE_URL }}
           CZ_CPA_VERSION: ${{ inputs.version }}
           CZ_CPA_LANGUAGE: ${{ inputs.language }}
+          CZ_CPA_SOURCE_URL: ${{ inputs.source_url }}
         run: |
           if [ "${{ inputs.apply }}" = "true" ]; then
             pnpm exec tsx scripts/import-cz-cpa.ts --file=.tmp/cz-cpa/input --apply

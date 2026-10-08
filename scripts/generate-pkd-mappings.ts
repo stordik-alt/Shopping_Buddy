@@ -3,10 +3,11 @@ import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { generatePkdProductTypeMappings, PKD_MAPPING_VERSION, type ProductTypeMappingTarget } from '@/lib/pkd-mapping-engine'
 
-const apply = process.argv.includes('--apply')
-const db = getDb()
+async function main() {
+  const apply = process.argv.includes('--apply')
+  const db = getDb()
 
-const entries = await db
+  const entries = await db
   .select({
     id: schema.pkdEntries.id,
     canonicalName: schema.pkdEntries.canonicalName,
@@ -18,17 +19,17 @@ const entries = await db
   .from(schema.pkdEntries)
   .where(and(isNull(schema.pkdEntries.productTypeId), eq(schema.pkdEntries.status, 'approved')))
 
-const synonymRows = await db
+  const synonymRows = await db
   .select({ entryId: schema.pkdSynonyms.entryId, synonym: schema.pkdSynonyms.synonym })
   .from(schema.pkdSynonyms)
-const synonymsByEntry = new Map<string, string[]>()
-for (const row of synonymRows) {
-  const values = synonymsByEntry.get(row.entryId) ?? []
-  values.push(row.synonym)
-  synonymsByEntry.set(row.entryId, values)
+  const synonymsByEntry = new Map<string, string[]>()
+  for (const row of synonymRows) {
+    const values = synonymsByEntry.get(row.entryId) ?? []
+    values.push(row.synonym)
+    synonymsByEntry.set(row.entryId, values)
 }
 
-const productTypes: ProductTypeMappingTarget[] = await db
+  const productTypes: ProductTypeMappingTarget[] = await db
   .select({
     id: schema.productTypes.id,
     key: schema.productTypes.key,
@@ -37,12 +38,12 @@ const productTypes: ProductTypeMappingTarget[] = await db
   })
   .from(schema.productTypes)
 
-const mappings = generatePkdProductTypeMappings(
+  const mappings = generatePkdProductTypeMappings(
   entries.map((entry) => ({ ...entry, synonyms: synonymsByEntry.get(entry.id) ?? [] })),
   productTypes,
 )
 
-console.log(JSON.stringify({
+  console.log(JSON.stringify({
   mappingVersion: PKD_MAPPING_VERSION,
   entries: entries.length,
   productTypes: productTypes.length,
@@ -50,12 +51,12 @@ console.log(JSON.stringify({
   dryRun: !apply,
 }, null, 2))
 
-if (!apply) process.exit(0)
+  if (!apply) return
 
-for (const mapping of mappings) {
-  await db
-    .insert(schema.pkdProductTypeMappings)
-    .values({
+  for (const mapping of mappings) {
+    await db
+      .insert(schema.pkdProductTypeMappings)
+      .values({
       pkdEntryId: mapping.pkdEntryId,
       productTypeId: mapping.productTypeId,
       mappingVersion: mapping.mappingVersion,
@@ -64,16 +65,16 @@ for (const mapping of mappings) {
       evidence: mapping.evidence,
       status: 'candidate',
     })
-    .onConflictDoUpdate({
-      target: [schema.pkdProductTypeMappings.pkdEntryId, schema.pkdProductTypeMappings.mappingVersion],
-      set: {
-        productTypeId: mapping.productTypeId,
-        method: mapping.method,
-        confidence: mapping.confidence.toFixed(3),
-        evidence: mapping.evidence,
-        updatedAt: new Date(),
-      },
-    })
+      .onConflictDoUpdate({
+        target: [schema.pkdProductTypeMappings.pkdEntryId, schema.pkdProductTypeMappings.mappingVersion],
+        set: {
+          productTypeId: mapping.productTypeId,
+          method: mapping.method,
+          confidence: mapping.confidence.toFixed(3),
+          evidence: mapping.evidence,
+          updatedAt: new Date(),
+        },
+      })
 }
 
-console.log(JSON.stringify({ persistedCandidates: mappings.length }, null, 2))
+  console.log(JSON.stringify({ persistedCandidates: mappings.length }, null, 2))

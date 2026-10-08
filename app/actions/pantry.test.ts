@@ -77,6 +77,7 @@ describe('manual autocomplete selection', () => {
     expect(row?.productTypeId).toBe(type.id)
     await db.delete(schema.pantryItems).where(eq(schema.pantryItems.id, row!.id))
   })
+})
 
 describe('addPantryItemAction', () => {
   it('adds stock directly to the pantry and creates no purchase or expense', async () => {

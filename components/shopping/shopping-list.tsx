@@ -86,7 +86,7 @@ export function ShoppingList({
   items: Item[]
   newItem: string
   setNewItem: (v: string) => void
-  addItem: () => void
+  addItem: (selection?: ProductAutocompleteSelection) => void
   updateItem: (id: string, changes: Partial<Item>) => void
   removeItem: (id: string) => void
   toggle: (id: string) => void
@@ -116,6 +116,7 @@ export function ShoppingList({
   offers?: StandaloneOffer[]
 }) {
   const [query, setQuery] = useState('')
+  const [newItemSelection, setNewItemSelection] = useState<ProductAutocompleteSelection | undefined>()
   const [category, setCategory] = useState('Vše')
   const [showCompleted, setShowCompleted] = useState(true)
   const [activeList, setActiveList] = useState(lists[0])
@@ -231,17 +232,19 @@ export function ShoppingList({
           <div className="min-w-0 flex-1">
             <ProductAutocomplete
               value={newItem}
-              onChange={setNewItem}
-              onSelect={(_suggestion: ProductAutocompleteSelection) => {
-                // Selection is intentionally identity-only. The existing add action resolves the
-                // canonical product name to productId; a type name remains free of productId and is
-                // interpreted by the existing product-type planner.
+              onChange={(value) => {
+                setNewItem(value)
+                setNewItemSelection(undefined)
               }}
+              onSelect={(suggestion: ProductAutocompleteSelection) => setNewItemSelection(suggestion)}
               placeholder="Co koupit?"
               ariaLabel="Nová položka"
             />
           </div>
-          <Button size="lg" onClick={addItem}>
+          <Button size="lg" onClick={() => {
+              addItem(newItemSelection)
+              setNewItemSelection(undefined)
+            }}>
             <Plus aria-hidden="true" /> Přidat
           </Button>
         </div>

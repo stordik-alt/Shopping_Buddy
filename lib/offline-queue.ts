@@ -14,7 +14,7 @@ export type PendingOp =
   | { kind: 'update'; itemId: string; changes: ItemChanges }
   | { kind: 'remove'; itemId: string }
   /** An item added offline, known by a temporary id until the server gives it a real one. */
-  | { kind: 'add'; tempId: string; name: string }
+  | { kind: 'add'; tempId: string; name: string; selection?: { kind: 'product'; productId: string } | { kind: 'type'; productTypeKey: string } }
 
 const TEMP_PREFIX = 'offline-'
 

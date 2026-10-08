@@ -1,0 +1,43 @@
+name: PKD approved mapping backfill
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Apply approved PKD mappings to currently unmapped PKD entries"
+        required: true
+        default: false
+        type: boolean
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run PKD backfill
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ "${{ inputs.apply }}" = "true" ]; then
+            pnpm db:backfill-pkd-mappings -- --apply
+          else
+            pnpm db:backfill-pkd-mappings
+          fi

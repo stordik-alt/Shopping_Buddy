@@ -626,3 +626,10 @@ Fáze normalizace a deduplikace je implementována jako nedestruktivní vrstva n
 - **Provenience:** každá kandidátní vazba obsahuje metodu, důvěru, vstupní název, normalizovaný název, kategorii a důvod rozhodnutí; verze engine je 2026-10-v1.
 - **Runner:** pnpm db:generate-pkd-mappings (dry-run), pnpm db:generate-pkd-mappings -- --apply (uloží pouze kandidátní mapování).
 - **Další krok:** samostatné schvalovací/acceptance workflow, které teprve po lidském potvrzení může propsat schválené mapování do pkd_entries.product_type_id.
+
+### 7.12k Stav PKD approved mapping backfill — 2026-10-08
+
+- **Účel:** promítnout pouze již schválené PKD → Product Type mappingy do PKD záznamů, které ještě nemají Product Type.
+- **Runner:** `pnpm db:backfill-pkd-mappings` je dry-run; zápis vyžaduje `--apply`.
+- **GitHub Actions:** workflow `PKD approved mapping backfill` je pouze manuální přes `workflow_dispatch` a obsahuje explicitní boolean `apply`.
+- **Bezpečnost:** workflow nikdy nepoužívá kandidátní ani zamítnuté mappingy a při zápisu znovu kontroluje, že `product_type_id IS NULL`.

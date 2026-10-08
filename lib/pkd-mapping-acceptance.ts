@@ -51,78 +51,73 @@ export async function acceptPkdProductTypeMapping(input: PkdMappingAcceptanceInp
   const db = getDb()
 
   if (command.decision === 'accepted') {
-    const updatedMapping = db.$with('updated_mapping').as(
-      db
-        .update(schema.pkdProductTypeMappings)
-        .set({ status: 'accepted', updatedAt: new Date() })
-        .from(schema.pkdEntries)
-        .where(
-          and(
-            eq(schema.pkdProductTypeMappings.id, command.mappingId),
-            eq(schema.pkdProductTypeMappings.status, 'candidate'),
-            isNull(schema.pkdEntries.productTypeId),
-            eq(schema.pkdEntries.id, schema.pkdProductTypeMappings.pkdEntryId),
-          ),
-        )
-        .returning({
-          id: schema.pkdProductTypeMappings.id,
-          pkdEntryId: schema.pkdProductTypeMappings.pkdEntryId,
-          productTypeId: schema.pkdProductTypeMappings.productTypeId,
-        }),
-    )
+    const result = await db.execute(sql`
+      WITH updated_mapping AS (
+        UPDATE pkd_product_type_mappings AS mapping
+        SET status = 'accepted',
+            updated_at = now()
+        FROM pkd_entries AS entry
+        WHERE mapping.id = ${command.mappingId}::uuid
+          AND mapping.status = 'candidate'
+          AND entry.id = mapping.pkd_entry_id
+          AND entry.product_type_id IS NULL
+        RETURNING mapping.id, mapping.pkd_entry_id, mapping.product_type_id
+      ),
+      updated_entry AS (
+        UPDATE pkd_entries AS entry
+        SET product_type_id = updated_mapping.product_type_id,
+            updated_at = now()
+        FROM updated_mapping
+        WHERE entry.id = updated_mapping.pkd_entry_id
+        RETURNING entry.id
+      )
+      INSERT INTO pkd_product_type_mapping_reviews (
+        mapping_id,
+        decision,
+        reviewer_id,
+        note
+      )
+      SELECT
+        updated_mapping.id,
+        'accepted'::pkd_product_type_mapping_review_decision,
+        ${command.reviewerId}::uuid,
+        ${command.note}
+      FROM updated_mapping
+      INNER JOIN updated_entry ON updated_entry.id = updated_mapping.pkd_entry_id
+      RETURNING mapping_id
+    `)
 
-    const updatedEntry = db.$with('updated_entry').as(
-      db
-        .update(schema.pkdEntries)
-        .set({ productTypeId: sql`${updatedMapping.productTypeId}`, updatedAt: new Date() })
-        .from(updatedMapping)
-        .where(eq(schema.pkdEntries.id, updatedMapping.pkdEntryId))
-        .returning({ id: schema.pkdEntries.id }),
-    )
-
-    const review = await db
-      .with(updatedMapping, updatedEntry)
-      .insert(schema.pkdProductTypeMappingReviews)
-      .select({
-        mappingId: updatedMapping.id,
-        decision: sql<'accepted'>`'accepted'::pkd_product_type_mapping_review_decision`.as('decision'),
-        reviewerId: sql<string | null>`${command.reviewerId}`.as('reviewer_id'),
-        note: sql<string | null>`${command.note}`.as('note'),
-      })
-      .from(updatedMapping)
-      .where(sql`exists (select 1 from ${updatedEntry} where ${updatedEntry.id} = ${updatedMapping.pkdEntryId})`)
-
-    if (review.length === 0) {
+    if (result.rows.length === 0) {
       throw new Error('Mapping is no longer a candidate or the PKD entry is already mapped')
     }
     return
   }
 
-  const updatedMapping = db.$with('updated_mapping').as(
-    db
-      .update(schema.pkdProductTypeMappings)
-      .set({ status: 'rejected', updatedAt: new Date() })
-      .where(
-        and(
-          eq(schema.pkdProductTypeMappings.id, command.mappingId),
-          eq(schema.pkdProductTypeMappings.status, 'candidate'),
-        ),
-      )
-      .returning({ id: schema.pkdProductTypeMappings.id }),
-  )
+  const result = await db.execute(sql`
+    WITH updated_mapping AS (
+      UPDATE pkd_product_type_mappings
+      SET status = 'rejected',
+          updated_at = now()
+      WHERE id = ${command.mappingId}::uuid
+        AND status = 'candidate'
+      RETURNING id
+    )
+    INSERT INTO pkd_product_type_mapping_reviews (
+      mapping_id,
+      decision,
+      reviewer_id,
+      note
+    )
+    SELECT
+      id,
+      'rejected'::pkd_product_type_mapping_review_decision,
+      ${command.reviewerId}::uuid,
+      ${command.note}
+    FROM updated_mapping
+    RETURNING mapping_id
+  `)
 
-  const review = await db
-    .with(updatedMapping)
-    .insert(schema.pkdProductTypeMappingReviews)
-    .select({
-      mappingId: updatedMapping.id,
-      decision: sql<'rejected'>`'rejected'::pkd_product_type_mapping_review_decision`.as('decision'),
-      reviewerId: sql`${command.reviewerId}`.as('reviewer_id'),
-      note: sql`${command.note}`.as('note'),
-    })
-    .from(updatedMapping)
-
-  if (review.length === 0) {
+  if (result.rows.length === 0) {
     throw new Error('Mapping is no longer a candidate')
   }
 }

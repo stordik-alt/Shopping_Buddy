@@ -250,6 +250,38 @@ export const pkdSynonyms = pgTable('pkd_synonyms', {
   index('pkd_synonyms_normalized_idx').on(table.normalized),
 ])
 
+export const pkdNormalizationMethodEnum = pgEnum('pkd_normalization_method', ['unicode_fold', 'whitespace_fold', 'punctuation_fold', 'alias_fold'])
+export const pkdDedupStatusEnum = pgEnum('pkd_dedup_status', ['candidate', 'accepted', 'rejected'])
+
+export const pkdEntryNormalizations = pgTable('pkd_entry_normalizations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  entryId: uuid('entry_id').notNull().references(() => pkdEntries.id, { onDelete: 'cascade' }),
+  normalizationVersion: text('normalization_version').notNull(),
+  normalizedName: text('normalized_name').notNull(),
+  identityKey: text('identity_key').notNull(),
+  methods: pkdNormalizationMethodEnum('methods').array().notNull().default([]),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('pkd_entry_normalizations_entry_version_unique').on(table.entryId, table.normalizationVersion),
+  index('pkd_entry_normalizations_identity_idx').on(table.identityKey),
+  index('pkd_entry_normalizations_name_idx').on(table.normalizedName),
+])
+
+export const pkdDedupCandidates = pgTable('pkd_dedup_candidates', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  leftEntryId: uuid('left_entry_id').notNull().references(() => pkdEntries.id, { onDelete: 'cascade' }),
+  rightEntryId: uuid('right_entry_id').notNull().references(() => pkdEntries.id, { onDelete: 'cascade' }),
+  normalizationVersion: text('normalization_version').notNull(),
+  reason: text('reason').notNull(),
+  confidence: numeric('confidence', { precision: 4, scale: 3 }).notNull(),
+  status: pkdDedupStatusEnum('status').notNull().default('candidate'),
+  evidence: jsonb('evidence').$type<Record<string, unknown>>().notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('pkd_dedup_candidates_pair_version_unique').on(table.leftEntryId, table.rightEntryId, table.normalizationVersion),
+  index('pkd_dedup_candidates_right_idx').on(table.rightEntryId),
+])
+
 export const pkdExternalMappings = pgTable('pkd_external_mappings', {
   id: uuid('id').primaryKey().defaultRandom(),
   entryId: uuid('entry_id').notNull().references(() => pkdEntries.id, { onDelete: 'cascade' }),

@@ -547,6 +547,20 @@ První ingestion vrstva:
 
 CZ-CPA je zde záměrně **validace/mapování**, nikoli retailový Product Type katalog. Název položky ani klasifikační kód proto samy o sobě nemění interní klasifikaci produktu. ČSÚ zároveň upozorňuje na probíhající legislativní opravy českých názvů, takže zdrojová verze a provenance musí zůstat součástí PKD. citeturn1view0
 
+### 7.12h Stav PKD candidate generation — 2026-10-08
+
+Fáze generování kandidátů je implementována jako bezpečná mezivrstva mezi normalizací PKD a budoucím mapping enginem.
+
+- `pkd_product_type_candidates` obsahuje návrhy nových interních Product Type identit odvozené z dosud nemapovaných PKD entries.
+- Kandidátní identita je verzovaná a deterministická: `language + normalizedName`.
+- Ekvivalentní PKD entries ze stejného jazyka se seskupují pod jednu kandidátní identitu a jejich `sourceEntryIds` zůstávají zachované.
+- Již namapované, zamítnuté nebo neaktivní PKD entries se do kandidátů nezařazují.
+- Confidence je pouze důkazní signál; kandidát automaticky nevytváří ani nemění `product_types`.
+- Metadata, provenance a zdrojové entry IDs zůstávají zachované pro pozdější ruční nebo deterministické rozhodnutí.
+- Runner: `pnpm db:generate-pkd-candidates` (dry-run), `pnpm db:generate-pkd-candidates -- --apply` (zápis).
+
+Tato fáze záměrně **neprovádí mapování PKD → existující Product Type**. To je samostatný následující krok `Mapping engine`.
+
 ### 7.13 Zdrojové reference
 
 - GS1 GPC: aktuální standard a archiv verzí — https://ref.gs1.org/standards/gpc/

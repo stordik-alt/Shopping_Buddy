@@ -6,22 +6,37 @@ function textValue(value: unknown): string | null {
   if (typeof value === 'string' || typeof value === 'number') return String(value).trim() || null
   if (value && typeof value === 'object') {
     const obj = value as Record<string, unknown>
-    for (const key of ['Description','description','Name','name','Label','label']) {
-      const found = textValue(obj[key]); if (found) return found
+    for (const key of ['Description', 'description', 'Definition', 'definition', 'Title', 'title', 'Name', 'name', 'Label', 'label', 'Text', 'text', '#text']) {
+      const found = textValue(obj[key])
+      if (found) return found
     }
-    if ('#text' in obj) return textValue(obj['#text'])
   }
   return null
 }
 
-function codeValue(value: unknown): string | null {
+function codeValue(value: unknown, keyHint = ''): string | null {
   if (typeof value === 'string' || typeof value === 'number') {
-    const raw = String(value).trim(); return /^\d{8}$/.test(raw) ? raw : null
+    const raw = String(value).trim()
+    return /^\d{8}$/.test(raw) && (
+      /code|id/i.test(keyHint) || /^\d{8}$/.test(raw)
+    ) ? raw : null
   }
   if (value && typeof value === 'object') {
     const obj = value as Record<string, unknown>
-    for (const key of ['Code','code','BrickCode','brickCode','GPCCode','gpcCode','id','ID']) {
-      const found = codeValue(obj[key]); if (found) return found
+    const preferred = [
+      'Code', 'code', 'BrickCode', 'brickCode', 'GPCCode', 'gpcCode',
+      'GpcCode', 'GPCBrickCode', 'gpcBrickCode', 'SegmentCode', 'segmentCode',
+      'FamilyCode', 'familyCode', 'ClassCode', 'classCode', 'ID', 'id'
+    ]
+    for (const key of preferred) {
+      const found = codeValue(obj[key], key)
+      if (found) return found
+    }
+    for (const [key, child] of Object.entries(obj)) {
+      if (/code|id/i.test(key)) {
+        const found = codeValue(child, key)
+        if (found) return found
+      }
     }
   }
   return null
@@ -29,9 +44,9 @@ function codeValue(value: unknown): string | null {
 
 function levelOf(key: string, node: Record<string, unknown>): GpcNode['level'] {
   const lower = key.toLowerCase()
-  for (const level of ['brick','class','family','segment'] as const) if (lower.includes(level)) return level
+  for (const level of ['brick', 'class', 'family', 'segment'] as const) if (lower.includes(level)) return level
   const raw = textValue(node['Level'] ?? node['level'] ?? node['Type'] ?? node['type'])?.toLowerCase()
-  for (const level of ['brick','class','family','segment'] as const) if (raw?.includes(level)) return level
+  for (const level of ['brick', 'class', 'family', 'segment'] as const) if (raw?.includes(level)) return level
   return 'unknown'
 }
 
@@ -46,7 +61,7 @@ function collectNodes(value: unknown, parentCode: string | null = null, path: st
     const nextPath = code && name ? [...path, code] : path
     if (code && name) result.push({ code, name, level, parentCode, path: nextPath })
     for (const [childKey, childValue] of Object.entries(node)) {
-      if (['Code','code','BrickCode','brickCode','GPCCode','gpcCode','ID','id','Description','description','Name','name','Label','label','Level','level','Type','type'].includes(childKey)) continue
+      if (['Code','code','BrickCode','brickCode','GPCCode','gpcCode','GpcCode','GPCBrickCode','gpcBrickCode','SegmentCode','segmentCode','FamilyCode','familyCode','ClassCode','classCode','ID','id','Description','description','Definition','definition','Title','title','Name','name','Label','label','Text','text','Level','level','Type','type'].includes(childKey)) continue
       result.push(...collectNodes(childValue, code ?? parentCode, nextPath, childKey))
     }
   }

@@ -1,3 +1,15 @@
+## 2026-10-08 (Universal Product Knowledge Dictionary / PKD and product-type reconciliation)
+- **Concept:** established the current main concept for product identity and quantity/packaging handling across **all goods**, not only food.
+- **PKD:** product type identity is separated from variant, form, package and retailer SKU; stable IDs, canonical names, synonyms and retailer product names are treated as distinct concepts.
+- **Universal quantity/packaging model:** introduced the target vocabulary for `quantity_value`, `quantity_unit`, `package_count`, `package_type`, `drained_quantity`, `net_quantity`, `base_unit`, `conversion_method` and `conversion_confidence`.
+- **Safe conversions:** only mathematical, declarative or verified conversions are allowed. The system must not infer unknown package contents (for example package → 1 kg or bottle → 1 l); unknown conversions remain unknown.
+- **Sources:** the concept combines GS1 GPC for taxonomy, Open Food Facts for real product names/categories/synonyms/variants, CZ-CPA 2025 / CPA Ver. 2.2 for Czech validation/mapping, plus the project's own seed catalogs and OCR data. No single source is treated as complete.
+- **AI boundary:** classification may resolve to an existing Product Type, candidate or unknown, with confidence/evidence/model/PKD-version provenance; AI cannot bypass exclusions or unsafe conversions.
+- **Implementation order documented:** PKD schema → quantity/packaging dictionary → source imports → normalization/deduplication → candidate generation → mapping engine → catalog backfill → golden/regression tests → long-tail AI classifier → recurring updates.
+- **Implementation:** expanded the application Product Type catalog to 165 actual entries, added migration `0076_refine_product_types.sql`, and documented the concept in `docs/12_PRODUCT_TYPES.md`. `lib/product-types.ts` remains an application-layer classifier, not the ultimate source of truth.
+- **Regression fixes:** refined product-type/subcategory matching for Kaiserka, cereal/seeds wording, fresh oranges vs. 100% orange juice, detergents and fabric softener, and paper tissues. These changes keep product-form matches deterministic and prevent unrelated keyword matches from making an otherwise unique Product Type ambiguous.
+- **Verification:** the corrected unit-test suite passed in CI and PR #352 was merged into `main`.
+
 ## 2026-10-08 (Current project source of truth)
 - Added `docs/00_CURRENT_SOURCE_OF_TRUTH.md` as the authoritative operational summary for ANITKA.
 - Documented the verified production architecture (Vercel + Neon PostgreSQL + Cloudflare R2), current stack versions, migration rules, R2 status, database performance rules, cron ownership, testing requirements, AI boundaries, and documentation evidence hierarchy.

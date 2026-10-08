@@ -6,7 +6,7 @@ function textValue(value: unknown): string | null {
   if (typeof value === 'string' || typeof value === 'number') return String(value).trim() || null
   if (value && typeof value === 'object') {
     const obj = value as Record<string, unknown>
-    for (const key of ['Description', 'description', 'Definition', 'definition', 'Title', 'title', 'Name', 'name', 'Label', 'label', 'Text', 'text', '#text']) {
+    for (const key of ['Description', 'description', 'Definition', 'definition', 'Title', 'title', 'Name', 'name', 'Label', 'label', 'Text', 'text', '@_Description', '@_description', '@_Definition', '@_definition', '@_Title', '@_title', '@_Name', '@_name', '@_Label', '@_label', '@_Text', '@_text', '#text']) {
       const found = textValue(obj[key])
       if (found) return found
     }

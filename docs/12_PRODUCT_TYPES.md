@@ -547,20 +547,29 @@ První ingestion vrstva:
 
 CZ-CPA je zde záměrně **validace/mapování**, nikoli retailový Product Type katalog. Název položky ani klasifikační kód proto samy o sobě nemění interní klasifikaci produktu. ČSÚ zároveň upozorňuje na probíhající legislativní opravy českých názvů, takže zdrojová verze a provenance musí zůstat součástí PKD. citeturn1view0
 
-### 7.12h Stav PKD candidate generation — 2026-10-08
+### 7.12h Stav PKD candidate generation — 2026-10-09
 
-Fáze generování kandidátů je implementována jako bezpečná mezivrstva mezi normalizací PKD a budoucím mapping enginem.
+Generování nových druhů bylo zpřesněno, protože samotný počet kandidátů bez konkrétních názvů a zdrojů nebyl použitelný.
 
-- `pkd_product_type_candidates` obsahuje návrhy nových interních Product Type identit odvozené z dosud nemapovaných PKD entries.
-- Kandidátní identita je verzovaná a deterministická: `language + normalizedName`.
-- Ekvivalentní PKD entries ze stejného jazyka se seskupují pod jednu kandidátní identitu a jejich `sourceEntryIds` zůstávají zachované.
-- Již namapované, zamítnuté nebo neaktivní PKD entries se do kandidátů nezařazují.
-- Confidence je pouze důkazní signál; kandidát automaticky nevytváří ani nemění `product_types`.
-- Metadata, provenance a zdrojové entry IDs zůstávají zachované pro pozdější ruční nebo deterministické rozhodnutí.
-- Runner: `pnpm db:generate-pkd-candidates` (dry-run), `pnpm db:generate-pkd-candidates -- --apply` (zápis).
-- GitHub Actions: workflow `PKD candidate generation` je manuální přes `workflow_dispatch` a obsahuje explicitní boolean `apply`.
+- Kandidát znamená návrh **nové interní Product Type identity**, nikoli pouze návrh vazby na existující druh.
+- Identita je deterministická: `language + normalizedName`; ekvivalentní záznamy se seskupí a zachovají se všechna zdrojová ID.
+- Přímé návrhy pro český katalog vznikají z českých koncových kategorií Open Food Facts a z českých záznamů vlastních, seed a OCR zdrojů.
+- GS1 GPC a CZ-CPA slouží v této fázi jako referenční taxonomie, nikoli jako přímé návrhy retailových druhů. Záznamy OFF s potomky se také nenavrhují jako samostatný druh.
+- Záznam, který už má kandidátní nebo schválenou vazbu na existující Product Type, se nesmí zároveň navrhovat jako nový druh. Zamítnuté a neaktivní záznamy se vynechávají.
+- Dry-run nyní vypisuje konkrétní návrhy (název, normalizovaný název, zdroj, počet zdrojových záznamů, kategorii, jednotku, confidence a candidate key), ne pouze počet. Počet zobrazených návrhů lze změnit přes `--limit=100`.
+- `confidence` je pouze důkazní signál; není automatickým schválením ani tvrzením, že typ je správně definován.
+- Runner: `pnpm db:generate-pkd-candidates` (dry-run s náhledem), `pnpm db:generate-pkd-candidates -- --apply` (zápis návrhů).
+- Workflow `PKD candidate generation` je manuální přes `workflow_dispatch`; nejprve se spouští bez `apply`, aby bylo možné zkontrolovat konkrétní výsledky.
 
-Tato fáze záměrně **neprovádí mapování PKD → existující Product Type**. To je samostatný následující krok `Mapping engine`.
+#### Schválení nového druhu
+
+- Workflow `PKD Product Type candidate approval` je manuální a ve výchozím režimu pouze ověřuje kandidáta.
+- Schválení vyžaduje explicitní interní kategorii a porovnávací jednotku; stabilní `key` se vytvoří z normalizovaného názvu nebo jej lze dodat ručně.
+- Teprve při `apply=true` vznikne záznam v `product_types`, zdrojové PKD entries se propojí přes `product_type_id` a kandidát se označí jako `accepted`.
+- Schválení se odmítne, pokud kandidát není v češtině, nemá dohledatelné zdroje, zdroj už má přiřazený druh nebo koliduje klíč.
+- Nový DB záznam sám o sobě ještě nerozšíří statický seznam druhů v `lib/product-types.ts`; dynamické načítání nových typů do UI, pravidel klasifikace a plánovače zůstává navazující implementační krok. Tím se zabrání tomu, aby se nový druh tvářil jako plně podporovaný, dokud aplikace neumí bezpečně využívat jeho definici.
+
+Tato fáze záměrně neprovádí automatické mapování na existující druhy. To je samostatný krok `Mapping engine`.
 
 ### 7.13 Zdrojové reference
 

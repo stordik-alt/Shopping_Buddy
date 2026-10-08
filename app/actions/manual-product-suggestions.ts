@@ -61,7 +61,14 @@ export async function searchManualProductSuggestionsAction(query: string): Promi
       return name === normalized || name.startsWith(normalized) || normalized.startsWith(name)
     })
     .slice(0, MAX_RESULTS)
-    .map((type) => ({ kind: 'type', label: type.name, productTypeKey: type.key }))
+    .map((type) => ({
+      kind: 'type',
+      label: type.name,
+      productTypeKey: type.key,
+      unit: type.unit,
+      category: type.categories[0] ?? null,
+      subcategory: type.subcategory,
+    }))
 
   const productSuggestions: ManualProductSuggestion[] = products.map((product) => ({
     kind: 'product',

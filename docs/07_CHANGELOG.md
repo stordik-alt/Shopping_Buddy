@@ -1927,5 +1927,9 @@ Every future architectural/schema/business-rule change should append a dated ent
 - **Modes:** dry-run by default, `--apply` for persistence, explicit `CZ_CPA_VERSION` and `CZ_CPA_LANGUAGE`.
 - **Source:** ČSÚ CZ-CPA 2025 / CZ-CPA_2025_KL.
 
+## 2026-10-08 (CZ-CPA unit-test compatibility fix)
+- **Fixed:** moved the CLI-only `fast-xml-parser` dependency out of the shared CZ-CPA parser and into the importer, matching the working GS1 GPC architecture.
+- **Result:** unit tests can import the pure parser without requiring XML runtime resolution; XML ingestion remains supported by `db:import-cz-cpa`.
+
 ## 2026-10-08 (CZ-CPA CI compatibility fix)
 - **Fixed:** mark the CLI-only `fast-xml-parser` import in the CZ-CPA parser consistently with the existing GS1 GPC parser so Next.js/Cloudflare typecheck does not treat it as an application module dependency.

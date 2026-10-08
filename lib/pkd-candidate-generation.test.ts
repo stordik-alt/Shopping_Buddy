@@ -25,6 +25,35 @@ describe('generatePkdProductTypeCandidates', () => {
     expect(result[0].evidence.approvedEntryCount).toBe(1)
   })
 
+  it('merges case and diacritic variants into one stable candidate regardless of input order', () => {
+    const first = generatePkdProductTypeCandidates([
+      { id: 'a', canonicalName: 'PAPRIKA', language: 'cs', status: 'candidate' },
+      { id: 'b', canonicalName: 'Paprika', language: 'cs', status: 'approved' },
+      { id: 'c', canonicalName: 'paprika', language: 'cs', status: 'approved' },
+    ])
+    const reversed = generatePkdProductTypeCandidates([
+      { id: 'c', canonicalName: 'paprika', language: 'cs', status: 'approved' },
+      { id: 'b', canonicalName: 'Paprika', language: 'cs', status: 'approved' },
+      { id: 'a', canonicalName: 'PAPRIKA', language: 'cs', status: 'candidate' },
+    ])
+
+    expect(first).toHaveLength(1)
+    expect(first[0].candidateKey).toBe('cs:paprika')
+    expect(first[0].sourceEntryIds).toEqual(['a', 'b', 'c'])
+    expect(first[0].canonicalName).toBe(reversed[0].canonicalName)
+    expect(first[0].sourceEntryIds).toEqual(reversed[0].sourceEntryIds)
+  })
+
+  it('does not propose a candidate when an existing Product Type differs only by case or accents', () => {
+    const result = generatePkdProductTypeCandidates([
+      { id: 'a', canonicalName: 'PAPRIKA', language: 'cs', status: 'approved' },
+      { id: 'b', canonicalName: 'KEFIR', language: 'cs', status: 'approved' },
+      { id: 'c', canonicalName: 'Máslo', language: 'cs', status: 'approved' },
+    ], ['Paprika', 'Kefír'])
+
+    expect(result.map((candidate) => candidate.candidateKey)).toEqual(['cs:maslo'])
+  })
+
   it('never generates a candidate from mapped, rejected, inactive, or ineligible taxonomy entries', () => {
     const result = generatePkdProductTypeCandidates([
       { id: 'a', canonicalName: 'Máslo', language: 'cs', productTypeId: 'type-1', status: 'approved' },

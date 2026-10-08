@@ -4,8 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       source_url:
-        description: "Direct CZSO CZ-CPA_2025_KL XML/CSV/JSON download URL"
+        description: "CZSO CZ-CPA page or direct XML/CSV/JSON download URL"
         required: true
+        default: "https://apl2.czso.cz/iSMS/klasdata.jsp?kodcis=80144"
         type: string
       language:
         description: "Classification language"

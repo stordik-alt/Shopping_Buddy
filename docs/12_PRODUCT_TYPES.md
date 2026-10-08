@@ -500,6 +500,20 @@ Nový `lib/quantity-normalization.ts` poskytuje deterministické operace:
 Stávající `product_packages.quantity` zůstává celkovým množstvím spotřebitelského balení. `packageCount × packageUnitQuantity` se používá pouze jako důkaz konzistence. Název obalu sám o sobě nikdy nevytvoří množství.
 
 Migration: `0079_product_package_quantity_normalization.sql`.
+### 7.12d Stav GS1 GPC importu — 2026-10-08
+
+GS1 GPC je používáno jako externí strukturální taxonomie PKD. Aktuální oficiální publikace je **2026-05**; GS1 publikuje GPC schema v Excel/XML formátu a GPC Browser obsahuje také překlady. citeturn0search1turn0search0
+
+První ingestion vrstva:
+- `scripts/import-gs1-gpc.ts`
+- `lib/pkd-gpc-parser.ts`
+- příkaz `pnpm db:import-gpc -- --file=/path/to/gpc.xml` je ve výchozím režimu dry-run,
+- `--apply` zapíše data do `pkd_sources`, `pkd_entries` a `pkd_external_mappings`,
+- verze je explicitně verzovaná (`GPC_VERSION`, výchozí `2026-05`),
+- GPC kódy jsou uloženy jako externí identita; import automaticky nevytváří interní `product_types`.
+
+Import je navržen jako idempotentní upsert. Hierarchie Segment → Family → Class → Brick zůstává v `attributes` a `externalParentId`, aby bylo možné později provést samostatné mapování na interní Product Types.
+
 ### 7.13 Zdrojové reference
 
 - GS1 GPC: aktuální standard a archiv verzí — https://ref.gs1.org/standards/gpc/

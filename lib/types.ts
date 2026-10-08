@@ -165,9 +165,9 @@ export type PantryPlace = {
 export type PantryItem = {
   id: string
   /** Explicit concrete product selected from manual autocomplete, or null. */
-  productId: string | null
+  productId?: string | null
   /** Explicit generic product type selected from manual autocomplete, or null. */
-  productTypeId: string | null
+  productTypeId?: string | null
   name: string
   category: ItemCategory
   /** The item's subcategory within `category` (lib/product-subcategories.ts) — null when the

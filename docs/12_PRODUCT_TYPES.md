@@ -575,3 +575,17 @@ Budoucí rozšíření musí zachovat:
 - regresní testování proti reálnému katalogu.
 
 Tento dokument musí být aktualizován současně s každou změnou datového modelu nebo klasifikační logiky, která mění význam Product Type, balení nebo převodů množství.
+
+### 7.12g Stav PKD normalizace a deduplikace — 2026-10-08
+
+Fáze normalizace a deduplikace je implementována jako nedestruktivní vrstva nad importovanými PKD záznamy.
+
+- Normalizace je verzovaná (2026-10-v1).
+- Kanonické názvy se normalizují přes existující bezpečnou textovou normalizaci: Unicode/diakritika, velikost písmen, interpunkce a whitespace; číslice se nemění ani se neodhadují.
+- Každý PKD entry může mít normalizační záznam v pkd_entry_normalizations s normalizedName, identityKey, verzí a použitými metodami.
+- Stejný normalizovaný název ve stejném jazyce vytváří kandidáta na deduplikaci, nikoli automatické sloučení.
+- Konfliktní explicitní atributy (category, subcategory, physicalForm, processingState) kandidáta zablokují.
+- Chybějící atribut není považován za konflikt a nevymýšlí se jeho hodnota.
+- Kandidáti jsou uloženi v pkd_dedup_candidates s důvodem, confidence a evidence; stav je candidate a vyžaduje další rozhodnutí.
+- Normalizace nesmí sloučit Product Type s variantou, formou, balením ani retailer SKU.
+- Runner: pnpm db:normalize-pkd (dry-run), pnpm db:normalize-pkd -- --apply (zápis).

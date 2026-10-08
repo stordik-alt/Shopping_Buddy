@@ -1,3 +1,6 @@
+## 2026-10-08 (PKD normalization CI fix)
+- Fixed PKD normalization runner to serialize dedup confidence as a string for Drizzle numeric columns, resolving production/Cloudflare TypeScript failures.
+
 ## 2026-10-08 (PKD normalization and safe deduplication)
 - Added versioned PKD normalization (2026-10-v1) reusing the existing deterministic product-text normalization without changing stored source names.
 - Added pkd_entry_normalizations for normalized names, identity keys, methods and normalization version.

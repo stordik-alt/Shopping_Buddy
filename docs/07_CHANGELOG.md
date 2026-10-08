@@ -1,3 +1,6 @@
+## 2026-10-08 (PKD candidate generation CI fix)
+- Fixed TypeScript literal widening in candidate evidence so `evidence.reason` remains the declared `unmapped_pkd_identity` literal and production/Cloudflare builds typecheck correctly.
+
 ## 2026-10-08 (PKD candidate versioning fix)
 - Made candidate uniqueness version-aware and aligned the runner upsert with `(candidateKey, candidateVersion)` so future candidate-generation versions remain independently reproducible.
 

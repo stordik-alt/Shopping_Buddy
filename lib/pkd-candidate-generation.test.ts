@@ -14,7 +14,7 @@ describe('generatePkdProductTypeCandidates', () => {
       normalizedName: 'mleko',
       canonicalName: 'Mléko',
       sourceEntryIds: ['a', 'b'],
-      confidence: 0.6,
+      confidence: 0.7,
       candidateVersion: PKD_CANDIDATE_VERSION,
       evidence: {
         sourceEntryCount: 2,
@@ -94,7 +94,7 @@ describe('generatePkdProductTypeCandidates', () => {
     ])[0]
 
     expect(singleSource.confidence).toBe(0.6)
-    expect(corroborated.confidence).toBe(0.75)
+    expect(corroborated.confidence).toBe(0.8)
     expect(corroborated.evidence.reviewFlags).not.toContain('category_unknown')
     expect(corroborated.evidence.reviewFlags).not.toContain('comparison_unit_unknown')
   })

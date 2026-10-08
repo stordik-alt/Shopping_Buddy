@@ -1,3 +1,6 @@
+## 2026-10-08 (PKD candidate versioning fix)
+- Made candidate uniqueness version-aware and aligned the runner upsert with `(candidateKey, candidateVersion)` so future candidate-generation versions remain independently reproducible.
+
 ## 2026-10-08 (PKD candidate schema formatting fix)
 - Corrected the generated schema insertion so the new PKD candidate declarations use real line breaks and remain valid TypeScript.
 

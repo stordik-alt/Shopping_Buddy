@@ -128,7 +128,6 @@ const GOLDEN: [string, string | null][] = [
   ['Tuřanské bílé kysané zelí, sáček', null],
   ['Žampiony bílé, vanička (735922)', 'zampiony'],
   ['Brokolice 1 ks', 'brokolice'],
-  ['Žampiony bílé, vanička (735922)', 'zampiony'],
   ['Čerstvé houby hlíva 250 g', 'houby'],
   ['Sušené houby směs 20 g', null],
   ['Prací gel Ariel 2 l', 'praci-gel'],

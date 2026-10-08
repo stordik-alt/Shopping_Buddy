@@ -48,7 +48,7 @@ async function main() {
       candidateVersion: candidate.candidateVersion,
       updatedAt: new Date(),
     }).onConflictDoUpdate({
-      target: schema.pkdProductTypeCandidates.candidateKey,
+      target: [schema.pkdProductTypeCandidates.candidateKey, schema.pkdProductTypeCandidates.candidateVersion],
       set: {
         canonicalName: candidate.canonicalName,
         normalizedName: candidate.normalizedName,

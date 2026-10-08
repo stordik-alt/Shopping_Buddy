@@ -1,0 +1,17 @@
+---
+globs: "src/**/*.ts,src/**/*.tsx"
+description: "Pravidla pro efektivní úpravu TypeScript kódu s minimální spotřebou tokenů"
+alwaysApply: false
+---
+
+# TypeScript & Token Optimization Rules
+
+## 1. Efektivita kontextu a úspora tokenů
+- **ZÁKAZ přepisování celých souborů:** Pro úpravy kódu používej výhradně `SEARCH/REPLACE` bloky (diffy). Nikdy nevypisuj znovu kód, který se nemění.
+- **Žádný zbytečný text:** Odpovídej stručně. Vynech zdvořilostní fráze a vysvětlení, pokud o ně uživatel výslovně nepožádá.
+- **Striktní single-file scope:** Pokud upravuješ jeden soubor, nečti automaticky okolní soubory, pokud to není nezbytné pro vyřešení chyb typu.
+
+## 2. TypeScript standardy pro AI generování
+- **Strict Typing:** Nikdy nepoužívej typ `any`. Pokud typ neznáš, použij `unknown`. Zákaz potlačování chyb pomocí `// @ts-ignore`.
+- **Explicitní návratové typy:** Každá nová exportovaná funkce musí mít jasně definovaný návratový typ, aby kompilátor nemusel typy složitě odvozovat.
+- **Konvence:** Preferuj `type` před `interface` pro definici datových struktur (pokud projekt nevyžaduje extendování tříd). Používej zásadně pojmenované exporty (Named Exports) namísto Default exportů.

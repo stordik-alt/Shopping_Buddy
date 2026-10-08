@@ -8,73 +8,55 @@ if (!inputDir || !output) {
   throw new Error('Usage: pnpm exec tsx scripts/build-cz-cpa-csv.ts --input-dir=.tmp/cz-cpa/levels --output=.tmp/cz-cpa/input.csv')
 }
 
-function parseCsv(document: string): string[][] {
-  const rows: string[][] = []
-  let row: string[] = []
-  let cell = ''
-  let quoted = false
-
-  const pushCell = () => {
-    row.push(cell)
-    cell = ''
-  }
-  const pushRow = () => {
-    pushCell()
-    if (row.some((value) => value.trim())) rows.push(row)
-    row = []
-  }
-
-  for (let i = 0; i < document.length; i++) {
-    const char = document[i]
-    const next = document[i + 1]
-    if (char === '"') {
-      if (quoted && next === '"') {
-        cell += '"'
-        i++
-      } else {
-        quoted = !quoted
-      }
-    } else if (char === ',' && !quoted) {
-      pushCell()
-    } else if ((char === '\n' || char === '\r') && !quoted) {
-      if (char === '\r' && next === '\n') i++
-      pushRow()
-    } else {
-      cell += char
-    }
-  }
-  if (cell || row.length) pushRow()
-  return rows
-}
-
 function csvEscape(value: string): string {
   return /[",\n\r]/.test(value) ? '"' + value.replace(/"/g, '""') + '"' : value
 }
 
-function normalizeHeader(value: string): string {
-  return value.replace(/^\uFEFF/, '').trim().toLowerCase()
+function decodeHtml(value: string): string {
+  return value
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)))
+}
+
+function htmlText(value: string): string {
+  return decodeHtml(value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')).trim()
 }
 
 function readLevel(level: number): Array<{ code: string; name: string }> {
-  const file = path.join(inputDir as string, `650${level}.csv`)
-  const raw = fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '')
-  const rows = parseCsv(raw)
-  if (rows.length < 2) throw new Error(`CZ-CPA level ${level} export is empty: ${file}`)
+  const file = path.join(inputDir as string, `650${level}.html`)
+  const raw = fs.readFileSync(file, 'utf8')
+  const tables = [...raw.matchAll(/<table[^>]*>[\s\S]*?<\/table>/gi)]
+  if (!tables.length) throw new Error(`CZ-CPA level ${level} export contains no table: ${file}`)
 
-  const headers = rows[0].map(normalizeHeader)
-  const codeIndex = headers.findIndex(
-    (header) => ['kód', 'kod', 'code'].includes(header) || header.includes('kód') || header.includes('kod'),
-  )
-  const nameIndex = headers.findIndex(
-    (header) => ['název', 'nazev', 'name'].includes(header) || header.includes('název') || header.includes('nazev') || header.includes('name'),
-  )
-  if (codeIndex < 0 || nameIndex < 0) {
-    throw new Error(`Cannot identify Kód/Název columns in ${file}. Headers: ${headers.join(', ')}`)
+  const result: Array<{ code: string; name: string }> = []
+  for (const table of tables) {
+    const rows = [...table[0].matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)]
+    for (const rowMatch of rows) {
+      const cells = [...rowMatch[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)]
+        .map((cell) => htmlText(cell[1]))
+        .filter(Boolean)
+      if (cells.length < 2) continue
+
+      const code = cells[0].replace(/\s+/g, '').trim()
+      const name = cells[1].trim()
+      if (!code || !name || /^kód$/i.test(code) || /^název$/i.test(name)) continue
+      if (!/^(?:[A-Z]|\d{2,6})$/i.test(code)) continue
+
+      result.push({ code: code.toUpperCase(), name })
+    }
   }
 
-  return rows.slice(1)
-    .map((row) => ({ code: (row[codeIndex] ?? '').trim(), name: (row[nameIndex] ?? '').trim() }))
-    .filter((row) => row.code && row.name)
+  if (!result.length) {
+    throw new Error(`CZ-CPA level ${level} export contains no classification rows: ${file}`)
+  }
+
+  return result
 }
 
 const all: Array<{ code: string; name: string; level: number }> = []

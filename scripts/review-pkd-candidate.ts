@@ -1,0 +1,107 @@
+import { and, eq, inArray, isNull } from 'drizzle-orm'
+import { getDb } from '@/lib/db/client'
+import * as schema from '@/lib/db/schema'
+
+const valueArg = (name: string) => process.argv.find((arg) => arg.startsWith(`--${name}=`))?.slice(name.length + 3) ?? null
+const apply = process.argv.includes('--apply')
+const categoryValues = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní'] as const
+const unitValues = ['ks', 'kg', 'g', 'l', 'ml'] as const
+
+function makeKey(normalizedName: string) {
+  const slug = normalizedName.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+  if (!slug) throw new Error('Candidate name cannot produce a stable Product Type key.')
+  return `pkd-${slug}`
+}
+
+async function main() {
+  const id = valueArg('id')
+  const category = valueArg('category')
+  const unit = valueArg('unit')
+  const explicitKey = valueArg('key')
+  if (!id) throw new Error('Required: --id=<candidate UUID>')
+  if (!apply) {
+    const db = getDb()
+    const candidate = await db.query.pkdProductTypeCandidates.findFirst({
+      where: eq(schema.pkdProductTypeCandidates.id, id),
+    })
+    if (!candidate) throw new Error(`Candidate not found: ${id}`)
+    console.log(JSON.stringify({
+      mode: 'dry-run',
+      candidate: { id: candidate.id, name: candidate.canonicalName, status: candidate.status, sourceEntryCount: candidate.sourceEntryIds.length },
+      wouldCreateProductType: true,
+      requiredForApply: ['--apply', '--category=<Potraviny|Drogerie|Děti|Domácnost|Ostatní>', '--unit=<ks|kg|g|l|ml>'],
+      suggestedKey: makeKey(candidate.normalizedName),
+    }, null, 2))
+    return
+  }
+  if (!categoryValues.includes(category as typeof categoryValues[number])) {
+    throw new Error(`Invalid --category. Use one of: ${categoryValues.join(', ')}`)
+  }
+  if (!unitValues.includes(unit as typeof unitValues[number])) {
+    throw new Error(`Invalid --unit. Use one of: ${unitValues.join(', ')}`)
+  }
+
+  const db = getDb()
+  const candidate = await db.query.pkdProductTypeCandidates.findFirst({
+    where: eq(schema.pkdProductTypeCandidates.id, id),
+  })
+  if (!candidate) throw new Error(`Candidate not found: ${id}`)
+  if (candidate.status !== 'candidate') throw new Error(`Candidate must be in candidate status; current status: ${candidate.status}`)
+  if (candidate.language !== 'cs') throw new Error('Only Czech-language candidates can become internal Product Types.')
+  if (!candidate.sourceEntryIds.length) throw new Error('Candidate has no source entries; refusing to create an untraceable Product Type.')
+
+  const sourceEntries = await db.select({
+    id: schema.pkdEntries.id,
+    productTypeId: schema.pkdEntries.productTypeId,
+  }).from(schema.pkdEntries).where(inArray(schema.pkdEntries.id, candidate.sourceEntryIds))
+  if (sourceEntries.length !== candidate.sourceEntryIds.length) {
+    throw new Error('Some source entries no longer exist; refresh candidate generation before approval.')
+  }
+  if (sourceEntries.some((entry) => entry.productTypeId !== null)) {
+    throw new Error('At least one source entry has already been mapped. Reconcile mappings before accepting this candidate.')
+  }
+
+  const key = explicitKey ?? makeKey(candidate.normalizedName)
+  const existing = await db.query.productTypes.findFirst({ where: eq(schema.productTypes.key, key) })
+  if (existing && (existing.name !== candidate.canonicalName || existing.category !== category || existing.unit !== unit)) {
+    throw new Error(`Product Type key "${key}" already exists with different attributes; choose --key=<unique-key>.`)
+  }
+
+  const productType = existing ?? (await db.insert(schema.productTypes).values({
+    key,
+    name: candidate.canonicalName,
+    category: category as typeof schema.productTypes.$inferInsert.category,
+    unit: unit as typeof schema.productTypes.$inferInsert.unit,
+  }).returning())[0]
+  if (!productType) throw new Error('Failed to create or load Product Type.')
+
+  const linked = await db.update(schema.pkdEntries)
+    .set({ productTypeId: productType.id, updatedAt: new Date() })
+    .where(and(inArray(schema.pkdEntries.id, candidate.sourceEntryIds), isNull(schema.pkdEntries.productTypeId)))
+    .returning({ id: schema.pkdEntries.id })
+  if (linked.length !== candidate.sourceEntryIds.length) {
+    throw new Error(`Only linked ${linked.length}/${candidate.sourceEntryIds.length} source entries. Inspect the Product Type and rerun after reconciliation.`)
+  }
+
+  await db.update(schema.pkdProductTypeCandidates)
+    .set({ status: 'accepted', updatedAt: new Date() })
+    .where(and(eq(schema.pkdProductTypeCandidates.id, id), eq(schema.pkdProductTypeCandidates.status, 'candidate')))
+
+  console.log(JSON.stringify({
+    mode: 'apply',
+    candidateId: id,
+    productTypeId: productType.id,
+    key: productType.key,
+    name: productType.name,
+    category: productType.category,
+    unit: productType.unit,
+    linkedEntries: linked.length,
+    status: 'accepted',
+  }, null, 2))
+}
+
+main().catch((error) => {
+  console.error(error instanceof Error ? error.message : error)
+  process.exit(1)
+})

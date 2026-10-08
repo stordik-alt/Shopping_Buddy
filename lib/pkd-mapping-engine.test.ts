@@ -19,26 +19,25 @@ describe('generatePkdProductTypeMappings', () => {
       productTypeKey: 'mleko-polotucne',
       method: 'exact_name',
       confidence: 0.99,
+      mappingVersion: '2026-10-v2',
     })
   })
 
-  it('uses a unique deterministic Product Type rule when the name is not exact', () => {
-    const [mapping] = generatePkdProductTypeMappings([
+  it('does not infer Product Types from broad keyword rules', () => {
+    const mappings = generatePkdProductTypeMappings([
       { id: 'e2', canonicalName: 'Ariel prací gel Color', language: 'cs', category: 'Drogerie' },
+      { id: 'e3', canonicalName: 'PIVOTAL RAZOR HEAD', language: 'en' },
+      { id: 'e4', canonicalName: 'PIVOT HINGE', language: 'en' },
+      { id: 'e5', canonicalName: 'Dezinfekční a deratizační služby', language: 'cs' },
+      { id: 'e6', canonicalName: 'Kontaktní čočky; brýlové čočky z jakéhokoliv materiálu', language: 'cs' },
     ], targets)
 
-    expect(mapping).toMatchObject({
-      pkdEntryId: 'e2',
-      productTypeId: 'pt-gel',
-      productTypeKey: 'praci-gel',
-      method: 'rule_match',
-      confidence: 0.90,
-    })
+    expect(mappings).toEqual([])
   })
 
-  it('does not guess when the rule engine cannot distinguish the Product Type', () => {
+  it('does not guess when a name is not an exact Product Type name or synonym', () => {
     const mappings = generatePkdProductTypeMappings([
-      { id: 'e3', canonicalName: 'Mléko', language: 'cs', category: 'Potraviny' },
+      { id: 'e7', canonicalName: 'Mléko', language: 'cs', category: 'Potraviny' },
     ], targets)
 
     expect(mappings).toEqual([])
@@ -50,6 +49,17 @@ describe('generatePkdProductTypeMappings', () => {
       { id: 'rejected', canonicalName: 'Mléko polotučné', language: 'cs', status: 'rejected' },
       { id: 'inactive', canonicalName: 'Mléko polotučné', language: 'cs', status: 'inactive' },
     ], targets)
+
+    expect(mappings).toEqual([])
+  })
+
+  it('does not map an exact name when multiple Product Types share that name', () => {
+    const mappings = generatePkdProductTypeMappings([
+      { id: 'e8', canonicalName: 'Mléko', language: 'cs' },
+    ], [
+      { id: 'a', key: 'a', name: 'Mléko', category: 'Potraviny' },
+      { id: 'b', key: 'b', name: 'Mléko', category: 'Drogerie' },
+    ])
 
     expect(mappings).toEqual([])
   })

@@ -5,7 +5,6 @@ import * as schema from '@/lib/db/schema'
 import type { GpcNode } from '@/lib/pkd-gpc-parser'
 import { parseGpcDocument } from '@/lib/pkd-gpc-parser'
 
-// @ts-expect-error CLI-only XML dependency is resolved at runtime; the app bundler does not resolve its package types.
 import { XMLParser } from 'fast-xml-parser'
 
 const VERSION = process.env.GPC_VERSION ?? '2026-05'

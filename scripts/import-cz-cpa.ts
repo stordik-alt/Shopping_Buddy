@@ -5,7 +5,6 @@ import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { parseCzCpaDocument } from '@/lib/pkd-cz-cpa-parser'
 
-// @ts-expect-error CLI-only XML dependency is resolved at runtime; the app bundler does not resolve its package types.
 import { XMLParser } from 'fast-xml-parser'
 
 const VERSION = process.env.CZ_CPA_VERSION ?? '2025'

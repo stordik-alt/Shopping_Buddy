@@ -1,4 +1,5 @@
 import { canonicalName, canonicalWord } from '@/lib/synonyms'
+import { isStrongReceiptProductMatch } from '@/lib/receipt-product-match'
 
 // Matching what a receipt says was bought against what is still open on a shopping list.
 //
@@ -21,6 +22,10 @@ export type MatchableListItem = {
   id: string
   name: string
   productId: string | null
+  /** The canonical catalog product name for a selected product. This lets a receipt line be
+   * matched to the exact product chosen on the shopping list even when the receipt import did not
+   * persist the product id (for example, a retailer abbreviation). */
+  catalogProductName?: string | null
   /** The product-type keys the item asks for (lib/product-types.ts `describeItemTypes`), or null/absent
    *  when it has none and is matched by text alone. */
   acceptedTypes?: string[] | null
@@ -101,7 +106,9 @@ export function matchReceiptToList(listItems: MatchableListItem[], purchaseItems
     const hit = purchaseItems.find(
       (purchase) =>
         !takenPurchase.has(purchase.id) &&
-        ((listItem.productId != null && listItem.productId === purchase.productId) || (listName !== '' && listName === normalizeMatchName(purchase.name))),
+        ((listItem.productId != null && listItem.productId === purchase.productId) ||
+          (listItem.productId != null && listItem.catalogProductName != null && isStrongReceiptProductMatch(purchase.name, listItem.catalogProductName)) ||
+          (listName !== '' && listName === normalizeMatchName(purchase.name))),
     )
     if (hit) {
       certain.push({ listItemId: listItem.id, purchaseItemId: hit.id })

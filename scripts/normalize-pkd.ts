@@ -1,4 +1,3 @@
-import { and, eq } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { findPkdDedupCandidates, normalizePkdEntry, PKD_NORMALIZATION_VERSION, type PkdNormalizationInput } from '@/lib/pkd-normalization'

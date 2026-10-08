@@ -47,45 +47,57 @@ jobs:
             curl -fL --retry 3 --retry-all-errors "$SOURCE_URL" -o .tmp/gpc/source
           else
             echo "Discovering the current 2026-05 GPC download from the official GS1 page."
-            page_url="https://ref.gs1.org/standards/gpc/2026-05/"
-            curl -fL --retry 3 --retry-all-errors "$page_url" -o .tmp/gpc/page.html
+            base_url="https://ref.gs1.org/standards/gpc/2026-05/"
+            artefacts_url="${base_url}artefacts"
+            curl -fL --retry 3 --retry-all-errors "$base_url" -o .tmp/gpc/page.html
+            curl -fL --retry 3 --retry-all-errors "$artefacts_url" -o .tmp/gpc/artefacts.html || true
 
             url="$(python - <<'PY'
-          from html.parser import HTMLParser
-          from urllib.parse import urljoin
+          import re
           from pathlib import Path
+          from urllib.parse import urljoin
 
-          class Links(HTMLParser):
-              def __init__(self):
-                  super().__init__()
-                  self.urls = []
-              def handle_starttag(self, tag, attrs):
-                  if tag != "a":
-                      return
-                  for key, value in attrs:
-                      if key == "href" and value:
-                          self.urls.append(value)
+          base = "https://ref.gs1.org/standards/gpc/2026-05/"
+          html = "\n".join(
+              p.read_text(encoding="utf-8", errors="ignore")
+              for p in (Path(".tmp/gpc/page.html"), Path(".tmp/gpc/artefacts.html"))
+              if p.exists()
+          )
 
-          p = Links()
-          p.feed(Path(".tmp/gpc/page.html").read_text(encoding="utf-8", errors="ignore"))
+          candidates = set()
+          for raw in re.findall(r'https?://[^\s"\\<>]+', html):
+              candidates.add(raw.rstrip("',);]"))
+          for raw in re.findall(r'(?:href|src|data-[\\w-]+)=["\\']([^"\\']+)["\\']', html, re.I):
+              candidates.add(urljoin(base, raw))
 
-          preferred = []
-          for href in p.urls:
-              absolute = urljoin("https://ref.gs1.org/standards/gpc/2026-05/", href)
-              low = absolute.lower().split("?", 1)[0]
-              if low.endswith((".zip", ".xml", ".json")):
-                  preferred.append(absolute)
+          def score(url):
+              low = url.lower()
+              points = 0
+              if "gpc" in low: points += 20
+              if "download" in low or "schema" in low or "browser" in low: points += 10
+              if any(ext in low for ext in (".zip", ".xml", ".json")): points += 30
+              if low.startswith("https://ref.gs1.org/"): points += 5
+              if low.startswith("https://www.gs1.org/"): points += 4
+              return points
 
-          if not preferred:
-              raise SystemExit("No downloadable GPC XML/JSON/ZIP artifact was discoverable on the official GS1 page.")
+          ranked = sorted(
+              (u for u in candidates if u.startswith(("https://ref.gs1.org/", "https://www.gs1.org/"))),
+              key=score,
+              reverse=True,
+          )
 
-          print(preferred[0])
+          if not ranked or score(ranked[0]) < 25:
+              raise SystemExit(
+                  "No direct GPC artifact URL was discoverable. Supply source_url with the "
+                  "direct XML/JSON/ZIP URL from the official GS1 GPC download component."
+              )
+
+          print(ranked[0])
           PY
             )"
 
             echo "Discovered: $url"
             curl -fL --retry 3 --retry-all-errors "$url" -o .tmp/gpc/source
-          fi
 
           file .tmp/gpc/source
 

@@ -48,6 +48,11 @@ async function main() {
 
   if (!apply) return
 
+  // Candidate mappings are disposable proposals. Clear stale, unreviewed proposals from prior
+  // mapping-engine versions before writing the current safe set; accepted/rejected reviews remain.
+  await db.delete(schema.pkdProductTypeMappings)
+    .where(eq(schema.pkdProductTypeMappings.status, 'candidate'))
+
   for (let offset = 0; offset < mappings.length; offset += BATCH_SIZE) {
     const batch = mappings.slice(offset, offset + BATCH_SIZE)
     for (const mapping of batch) {

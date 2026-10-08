@@ -62,8 +62,8 @@ function readLevel(level: number): Array<{ code: string; name: string }> {
   if (rows.length < 2) throw new Error(`CZ-CPA level ${level} export is empty: ${file}`)
 
   const headers = rows[0].map(normalizeHeader)
-  const codeIndex = headers.findIndex((header) => ['kód', 'kod', 'code'].includes(header))
-  const nameIndex = headers.findIndex((header) => ['název', 'nazev', 'name'].includes(header))
+  const codeIndex = headers.findIndex((header) => ['kód', 'kod', 'code'].includes(header) || header.includes('kód') || header.includes('kod'))
+  const nameIndex = headers.findIndex((header) => ['název', 'nazev', 'name'].includes(header) || header.includes('název') || header.includes('nazev') || header.includes('name'))
   if (codeIndex < 0 || nameIndex < 0) {
     throw new Error(`Cannot identify Kód/Název columns in ${file}. Headers: ${headers.join(', ')}`)
   }

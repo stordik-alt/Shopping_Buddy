@@ -55,15 +55,15 @@ export async function acceptPkdProductTypeMapping(input: PkdMappingAcceptanceInp
       db
         .update(schema.pkdProductTypeMappings)
         .set({ status: 'accepted', updatedAt: new Date() })
+        .from(schema.pkdEntries)
         .where(
           and(
             eq(schema.pkdProductTypeMappings.id, command.mappingId),
             eq(schema.pkdProductTypeMappings.status, 'candidate'),
             isNull(schema.pkdEntries.productTypeId),
+            eq(schema.pkdEntries.id, schema.pkdProductTypeMappings.pkdEntryId),
           ),
         )
-        .from(schema.pkdEntries)
-        .where(eq(schema.pkdEntries.id, schema.pkdProductTypeMappings.pkdEntryId))
         .returning({
           id: schema.pkdProductTypeMappings.id,
           pkdEntryId: schema.pkdProductTypeMappings.pkdEntryId,
@@ -85,9 +85,9 @@ export async function acceptPkdProductTypeMapping(input: PkdMappingAcceptanceInp
       .insert(schema.pkdProductTypeMappingReviews)
       .select({
         mappingId: updatedMapping.id,
-        decision: sql`'accepted'::pkd_product_type_mapping_review_decision`.as('decision'),
-        reviewerId: sql`${command.reviewerId}`.as('reviewer_id'),
-        note: sql`${command.note}`.as('note'),
+        decision: sql<'accepted'>`'accepted'::pkd_product_type_mapping_review_decision`.as('decision'),
+        reviewerId: sql<string | null>`${command.reviewerId}`.as('reviewer_id'),
+        note: sql<string | null>`${command.note}`.as('note'),
       })
       .from(updatedMapping)
       .where(sql`exists (select 1 from ${updatedEntry} where ${updatedEntry.id} = ${updatedMapping.pkdEntryId})`)
@@ -116,7 +116,7 @@ export async function acceptPkdProductTypeMapping(input: PkdMappingAcceptanceInp
     .insert(schema.pkdProductTypeMappingReviews)
     .select({
       mappingId: updatedMapping.id,
-      decision: sql`'rejected'::pkd_product_type_mapping_review_decision`.as('decision'),
+      decision: sql<'rejected'>`'rejected'::pkd_product_type_mapping_review_decision`.as('decision'),
       reviewerId: sql`${command.reviewerId}`.as('reviewer_id'),
       note: sql`${command.note}`.as('note'),
     })

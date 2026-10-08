@@ -83,8 +83,6 @@ export const ProductAutocomplete = forwardRef<HTMLInputElement, {
       )}
     </div>
   )
-}
-
 })
 
 ProductAutocomplete.displayName = 'ProductAutocomplete'

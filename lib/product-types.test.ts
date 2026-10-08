@@ -128,6 +128,12 @@ const GOLDEN: [string, string | null][] = [
   ['Tuřanské bílé kysané zelí, sáček', null],
   ['Žampiony bílé, vanička (735922)', 'zampiony'],
   ['Brokolice 1 ks', 'brokolice'],
+  ['Čerstvé houby hlíva 250 g', 'houby'],
+  ['Sušené houby směs 20 g', null],
+  ['Prací gel Ariel 2 l', 'praci-gel'],
+  ['Prací prášek Persil 2,5 kg', 'praci-prasek'],
+  ['Aviváž Lenor 1,2 l', 'avivaz'],
+  ['Kapsle na praní Ariel 20 ks', null],
   ['Mirinda Mango Tangerine', null],
   // Kuřecí maso (owner: every raw part, marinated, minced and offal included; no products)
   ['Kuřecí prsní řízky', 'kureci-prsa'],
@@ -226,7 +232,7 @@ const NON_FOOD: [ItemCategory, string, string | null][] = [
   ['Drogerie', 'Balea sprchový gel Soft Roses, 300 ml', 'sprchovy-gel'],
   ['Drogerie', 'Balea med sprchový gel & šampon 2v1 Urea, 300 ml', null],
   ['Drogerie', 'GARNIER FRUCTIS šampon na vlasy Strength & Shine, 1 000 ml', 'sampon'],
-  ['Drogerie', 'Persil prací gel Expert Sensitive XXL, 60 PD', 'praci-prostredek'],
+  ['Drogerie', 'Persil prací gel Expert Sensitive XXL, 60 PD', 'praci-gel'],
   ['Drogerie', 'Finish Ultimate Plus Tablety do myčky 51 ks', 'tablety-do-mycky'],
   ['Drogerie', 'Jar prostředek na nádobí s vůní citronu, 900 ml', 'jar'],
   ['Děti', 'Pampers Premium Care plenkové kalhotky, velikost 4, 124 ks', 'pleny'],
@@ -252,6 +258,65 @@ describe('product type definitions', () => {
   it('build groups only from defined types', () => {
     const keys = new Set(PRODUCT_TYPES.map((type) => type.key))
     for (const group of PRODUCT_TYPE_GROUPS) for (const type of group.types) expect(keys.has(type)).toBe(true)
+  })
+
+
+  it('includes the owner-approved expanded manual shopping types', () => {
+    const keys = new Set(PRODUCT_TYPES.map((type) => type.key))
+    for (const key of [
+      'pomazanky', 'mrazena-zelenina', 'cerealie', 'ovesne-vlocky', 'kecup', 'horcice', 'majoneza',
+      'dzem', 'kakao', 'orechy', 'seminka', 'klobasy', 'pastika', 'mrazene-ovoce', 'hranolky', 'pizza-mrazena',
+      'sul-do-mycky', 'lestidlo-do-mycky', 'cistic-wc', 'cistic-koupelny', 'cistic-kuchyne', 'univerzalni-cistic',
+      'cistic-oken', 'odstranovac-skvrn', 'dezinfekce', 'houbicky-na-nadobi', 'uterky', 'pytle-na-odpadky',
+      'alobal', 'potravinova-folie', 'pecici-papir', 'papir-tasky', 'vlhcene-ubrousky-detske',
+      'detsky-sampon', 'detsky-sprchovy-gel', 'detske-mydlo', 'detska-kosmetika', 'detske-prikrmy',
+      'detske-kapsicky', 'detske-napoje',
+    ]) expect(keys.has(key)).toBe(true)
+  })
+
+  it.each([
+    ['Pomazánky', 'pomazanky'],
+    ['Mražená zelenina', 'mrazena-zelenina'],
+    ['Cereálie', 'cerealie'],
+    ['Ovesné vločky', 'ovesne-vlocky'],
+    ['Kečup', 'kecup'],
+    ['Hořčice', 'horcice'],
+    ['Majonéza', 'majoneza'],
+    ['Džem', 'dzem'],
+    ['Kakao', 'kakao'],
+    ['Ořechy', 'orechy'],
+    ['Semínka', 'seminka'],
+    ['Klobásy', 'klobasy'],
+    ['Paštika', 'pastika'],
+    ['Mražené ovoce', 'mrazene-ovoce'],
+    ['Hranolky', 'hranolky'],
+    ['Pizza mražená', 'pizza-mrazena'],
+    ['Sůl do myčky', 'sul-do-mycky'],
+    ['Leštidlo do myčky', 'lestidlo-do-mycky'],
+    ['Čistič WC', 'cistic-wc'],
+    ['Čistič koupelny', 'cistic-koupelny'],
+    ['Čistič kuchyně', 'cistic-kuchyne'],
+    ['Univerzální čistič', 'univerzalni-cistic'],
+    ['Čistič oken', 'cistic-oken'],
+    ['Odstraňovač skvrn', 'odstranovac-skvrn'],
+    ['Dezinfekce', 'dezinfekce'],
+    ['Houbičky na nádobí', 'houbicky-na-nadobi'],
+    ['Utěrky', 'uterky'],
+    ['Pytle na odpadky', 'pytle-na-odpadky'],
+    ['Alobal', 'alobal'],
+    ['Potravinová fólie', 'potravinova-folie'],
+    ['Pečicí papír', 'pecici-papir'],
+    ['Papírové kapesníky', 'papir-tasky'],
+    ['Dětské vlhčené ubrousky', 'vlhcene-ubrousky-detske'],
+    ['Dětský šampon', 'detsky-sampon'],
+    ['Dětský sprchový gel', 'detsky-sprchovy-gel'],
+    ['Dětské mýdlo', 'detske-mydlo'],
+    ['Dětská kosmetika', 'detska-kosmetika'],
+    ['Dětské příkrmy', 'detske-prikrmy'],
+    ['Dětské kapsičky', 'detske-kapsicky'],
+    ['Dětské nápoje', 'detske-napoje'],
+  ] as const)('resolves %s → %s', (name, key) => {
+    expect(resolveListItemTypes(name)).toMatchObject({ kind: 'type', key })
   })
 
   it('make "Kuřecí maso" the chicken meat itself — no offal or soup parts (owner decision)', () => {

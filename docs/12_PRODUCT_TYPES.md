@@ -603,3 +603,14 @@ Fáze normalizace a deduplikace je implementována jako nedestruktivní vrstva n
 - Kandidáti jsou uloženi v pkd_dedup_candidates s důvodem, confidence a evidence; stav je candidate a vyžaduje další rozhodnutí.
 - Normalizace nesmí sloučit Product Type s variantou, formou, balením ani retailer SKU.
 - Runner: pnpm db:normalize-pkd (dry-run), pnpm db:normalize-pkd -- --apply (zápis).
+
+### 7.12i Stav PKD mapping engine — 2026-10-08
+
+- **Přidáno:** návrhová vrstva pro mapování PKD záznamů na již existující interní Product Types.
+- **Princip:** engine nemění product_types ani automaticky nezapisuje pkd_entries.product_type_id; vytváří pouze kandidátní vazbu v pkd_product_type_mappings se stavem candidate.
+- **Přesná shoda:** normalizovaný název Product Type nebo jeho PKD synonymum má důvěru 0.99.
+- **Pravidlová shoda:** použije se pouze tehdy, když stávající deterministický Product Type classifier vrátí právě jeden typ; důvěra je 0.90 s kategorií a 0.86 bez kategorie.
+- **Bezpečnost:** více možných typů, žádná shoda, zamítnutý/neaktivní záznam nebo již namapovaný záznam znamená žádnou novou vazbu. Engine nikdy nehádá mezi více typy.
+- **Provenience:** každá kandidátní vazba obsahuje metodu, důvěru, vstupní název, normalizovaný název, kategorii a důvod rozhodnutí; verze engine je 2026-10-v1.
+- **Runner:** pnpm db:generate-pkd-mappings (dry-run), pnpm db:generate-pkd-mappings -- --apply (uloží pouze kandidátní mapování).
+- **Další krok:** samostatné schvalovací/acceptance workflow, které teprve po lidském potvrzení může propsat schválené mapování do pkd_entries.product_type_id.

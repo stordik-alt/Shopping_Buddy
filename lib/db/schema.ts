@@ -255,6 +255,28 @@ export const pkdDedupStatusEnum = pgEnum('pkd_dedup_status', ['candidate', 'acce
 
 export const pkdCandidateStatusEnum = pgEnum('pkd_candidate_status', ['candidate', 'accepted', 'rejected'])
 
+export const pkdProductTypeMappingStatusEnum = pgEnum('pkd_product_type_mapping_status', ['candidate', 'accepted', 'rejected'])
+
+export const pkdProductTypeMappingMethodEnum = pgEnum('pkd_product_type_mapping_method', ['exact_name', 'rule_match'])
+
+export const pkdProductTypeMappings = pgTable('pkd_product_type_mappings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  pkdEntryId: uuid('pkd_entry_id').notNull().references(() => pkdEntries.id, { onDelete: 'cascade' }),
+  productTypeId: uuid('product_type_id').notNull().references(() => productTypes.id, { onDelete: 'cascade' }),
+  mappingVersion: text('mapping_version').notNull(),
+  method: pkdProductTypeMappingMethodEnum('method').notNull(),
+  confidence: numeric('confidence', { precision: 4, scale: 3 }).notNull(),
+  status: pkdProductTypeMappingStatusEnum('status').notNull().default('candidate'),
+  evidence: jsonb('evidence').$type<Record<string, unknown>>().notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('pkd_product_type_mappings_entry_version_unique').on(table.pkdEntryId, table.mappingVersion),
+  index('pkd_product_type_mappings_product_type_idx').on(table.productTypeId),
+  index('pkd_product_type_mappings_status_idx').on(table.status),
+  check('pkd_product_type_mappings_confidence_range', sql`${table.confidence} >= 0 AND ${table.confidence} <= 1`),
+])
+
 export const pkdProductTypeCandidates = pgTable('pkd_product_type_candidates', {
   id: uuid('id').primaryKey().defaultRandom(),
   candidateKey: text('candidate_key').notNull(),

@@ -1,3 +1,7 @@
+## 2026-10-08 (PKD mapping runner CI fix)
+- **Fixed:** wrapped the database-backed PKD mapping runner in an async `main()` function so it no longer relies on top-level `await`, which is incompatible with the repository TypeScript module configuration.
+- **Error addressed:** `TS1378` from `scripts/generate-pkd-mappings.ts` during `pnpm exec tsc --noEmit`.
+
 ## 2026-10-08 (PKD candidate generation CI fix)
 - Fixed TypeScript literal widening in candidate evidence so `evidence.reason` remains the declared `unmapped_pkd_identity` literal and production/Cloudflare builds typecheck correctly.
 
@@ -1972,3 +1976,8 @@ Every future architectural/schema/business-rule change should append a dated ent
 
 ## 2026-10-08 (CZ-CPA CI compatibility fix)
 - **Fixed:** mark the CLI-only `fast-xml-parser` import in the CZ-CPA parser consistently with the existing GS1 GPC parser so Next.js/Cloudflare typecheck does not treat it as an application module dependency.
+## 2026-10-08 (PKD mapping engine)
+- **Added:** deterministic PKD → existing Product Type mapping candidate engine, migration 0082_pkd_mapping_engine.sql, and pkd_product_type_mappings candidate table.
+- **Safety:** exact normalized names receive high-confidence candidates; rule-based mappings require exactly one classifier result; ambiguous/unmatched/rejected/inactive/already-mapped entries are left unmapped.
+- **Governance:** --apply persists only candidate mappings and never mutates product_types or pkd_entries.product_type_id; human acceptance remains a separate step.
+- **Provenance:** mapping method, confidence, evidence and engine version 2026-10-v1 are stored with each candidate.

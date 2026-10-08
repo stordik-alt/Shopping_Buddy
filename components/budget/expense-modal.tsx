@@ -31,7 +31,7 @@ export function ExpenseModal({
   const [category, setCategory] = useState<ExpenseCategory>(expense?.category ?? 'Potraviny')
   const [subcategory, setSubcategory] = useState(expense?.subcategory ?? '')
   const [date, setDate] = useState(expense?.date ?? today)
-  const [selection, setSelection] = useState<ProductAutocompleteSelection | undefined>(() => expense?.productId ? { label: expense.note, kind: 'product', productId: expense.productId } : expense?.productTypeId ? { label: expense.note, kind: 'type', productTypeId: expense.productTypeId } : undefined)
+  const [selection, setSelection] = useState<ProductAutocompleteSelection | undefined>()
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)

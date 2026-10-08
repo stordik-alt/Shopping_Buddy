@@ -12,6 +12,10 @@ export const itemCategoryEnum = pgEnum('item_category', ['Potraviny', 'Drogerie'
 // What an expense was for (lib/expense-categories.ts) — a wider list than the item categories above.
 export const expenseCategoryEnum = pgEnum('expense_category', EXPENSE_CATEGORY_NAMES)
 export const itemUnitEnum = pgEnum('item_unit', ['ks', 'kg', 'g', 'l', 'ml'])
+// Universal PKD quantity vocabulary. This is deliberately broader than the legacy item_unit enum.
+export const quantityDimensionEnum = pgEnum('quantity_dimension', ['count', 'mass', 'volume', 'length', 'area', 'unknown'])
+export const quantityUnitEnum = pgEnum('quantity_unit', ['ks', 'g', 'kg', 'mg', 'ml', 'l', 'm', 'cm', 'mm', 'm2', 'cm2'])
+export const conversionMethodEnum = pgEnum('conversion_method', ['direct_unit', 'declared_multipack', 'verified_attribute', 'package_structure', 'unknown'])
 export const itemPriorityEnum = pgEnum('item_priority', ['Nízká', 'Normální', 'Vysoká'])
 export const invitationStatusEnum = pgEnum('invitation_status', ['pending', 'accepted', 'revoked'])
 export const pantryLocationEnum = pgEnum('pantry_location', ['Spíž', 'Lednice', 'Mrazák', 'Domácnost', 'Lékárnička', 'Drogérka'])
@@ -261,6 +265,43 @@ export const pkdExternalMappings = pgTable('pkd_external_mappings', {
   check('pkd_external_mappings_confidence_range', sql`${table.confidence} IS NULL OR (${table.confidence} >= 0 AND ${table.confidence} <= 1)`),
 ])
 
+// Universal quantity/packaging dictionary. It describes the vocabulary and safe conversion rules,
+// independently from any concrete retailer product.
+export const quantityUnits = pgTable('quantity_units', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  unit: quantityUnitEnum('unit').notNull().unique(),
+  dimension: quantityDimensionEnum('dimension').notNull(),
+  canonicalUnit: quantityUnitEnum('canonical_unit').notNull(),
+  multiplierToCanonical: numeric('multiplier_to_canonical', { precision: 20, scale: 9, mode: 'number' }).notNull(),
+  allowsDecimal: boolean('allows_decimal').notNull().default(true),
+}, (table) => [
+  check('quantity_units_multiplier_positive', sql`${table.multiplierToCanonical} > 0`),
+])
+
+export const quantityConversions = pgTable('quantity_conversions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  fromUnit: quantityUnitEnum('from_unit').notNull(),
+  toUnit: quantityUnitEnum('to_unit').notNull(),
+  multiplier: numeric('multiplier', { precision: 20, scale: 9, mode: 'number' }).notNull(),
+  method: conversionMethodEnum('method').notNull(),
+  source: text('source'),
+  sourceVersion: text('source_version'),
+  confidence: numeric('confidence', { precision: 4, scale: 3, mode: 'number' }),
+  verified: boolean('verified').notNull().default(false),
+  metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
+}, (table) => [
+  uniqueIndex('quantity_conversions_from_to_unique').on(table.fromUnit, table.toUnit),
+  check('quantity_conversions_multiplier_positive', sql`${table.multiplier} > 0`),
+  check('quantity_conversions_confidence_range', sql`${table.confidence} IS NULL OR (${table.confidence} >= 0 AND ${table.confidence} <= 1)`),
+])
+
+export const packagingTypes = pgTable('packaging_types', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  key: text('key').notNull().unique(),
+  name: text('name').notNull(),
+  countable: boolean('countable').notNull().default(false),
+  requiresDeclaredContents: boolean('requires_declared_contents').notNull().default(true),
+})
 // A named set of types one list item can ask for at once ("Kuřecí maso" = every raw part of the
 // chicken, owner decision 2026-10-03/04). A type may be in several groups ("Kuřecí mleté" is in
 // "Kuřecí maso" and "Mleté maso").

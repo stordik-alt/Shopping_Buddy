@@ -128,7 +128,7 @@ export async function addShoppingItemAction(
   const catalog = await getProductCatalogCached([name])
   const matchedProduct = matchProductByName(catalog, name)
   const canonicalName = matchedProduct?.name ?? name
-  const resolvedProductId = selectedProductId ?? matchedProduct?.id
+  const resolvedProductId = selection?.kind === 'type' ? null : selectedProductId ?? matchedProduct?.id
 
   const [inserted] = await db
     .insert(schema.shoppingListItems)

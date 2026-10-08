@@ -52,7 +52,8 @@
     "db:import-cz-cpa": "dotenv -e .env.local -- tsx scripts/import-cz-cpa.ts",
     "db:normalize-pkd": "dotenv -e .env.local -- tsx scripts/normalize-pkd.ts",
     "db:generate-pkd-candidates": "dotenv -e .env.local -- tsx scripts/generate-pkd-candidates.ts",
-    "db:generate-pkd-mappings": "dotenv -e .env.local -- tsx scripts/generate-pkd-mappings.ts"
+    "db:generate-pkd-mappings": "dotenv -e .env.local -- tsx scripts/generate-pkd-mappings.ts",
+    "db:review-pkd-mapping": "dotenv -e .env.local -- tsx scripts/review-pkd-mapping.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

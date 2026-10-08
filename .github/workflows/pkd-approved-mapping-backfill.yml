@@ -32,9 +32,9 @@ jobs:
 
       - name: Run PKD backfill
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL: \${{ secrets.NEON_PROD_DATABASE_URL }}
         run: |
-          if [ "${{ inputs.apply }}" = "true" ]; then
+          if [ "\${{ inputs.apply }}" = "true" ]; then
             pnpm exec tsx scripts/backfill-pkd-mappings.ts --apply
           else
             pnpm exec tsx scripts/backfill-pkd-mappings.ts

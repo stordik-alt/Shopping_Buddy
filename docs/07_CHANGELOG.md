@@ -1,3 +1,7 @@
+## 2026-10-08 (CZ-CPA hierarchy parent fix)
+- **Fixed:** CZ-CPA parent/path derivation now follows the classification level hierarchy, so section-to-level-2 relationships such as `A → 01` are preserved instead of using an invalid numeric prefix.
+- **Safety:** numeric code prefixes remain available through the parsed source data, while hierarchy construction no longer invents parent codes that do not exist in the source.
+
 ## 2026-10-08 (CZ-CPA hierarchy fix)
 - **Fixed:** level-2 CZ-CPA nodes now correctly inherit their letter section as parent and path root instead of deriving a numeric `0` prefix.
 - **Fixed:** removed the leftover XML runtime reference from the shared parser; XML remains handled by the CLI importer before the pure parser is invoked.

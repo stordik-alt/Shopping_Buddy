@@ -1,0 +1,80 @@
+name: PKD Product Type mapping review
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "List candidates or review one mapping"
+        required: true
+        default: list
+        type: choice
+        options:
+          - list
+          - accept
+          - reject
+      mapping_id:
+        description: "Mapping UUID (required for accept/reject)"
+        required: false
+        default: ""
+        type: string
+      reviewer_id:
+        description: "Reviewer UUID (required for accept/reject)"
+        required: false
+        default: ""
+        type: string
+      note:
+        description: "Review note; required for rejection"
+        required: false
+        default: ""
+        type: string
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Review PKD mapping
+        env:
+          DATABASE_URL: ${{ secrets.NEON_PROD_DATABASE_URL }}
+          ACTION: ${{ inputs.action }}
+          MAPPING_ID: ${{ inputs.mapping_id }}
+          REVIEWER_ID: ${{ inputs.reviewer_id }}
+          NOTE: ${{ inputs.note }}
+        run: |
+          set -euo pipefail
+
+          if [ "$ACTION" = "list" ]; then
+            pnpm exec tsx scripts/review-pkd-mapping.ts --list
+            exit 0
+          fi
+
+          if [ -z "$MAPPING_ID" ] || [ -z "$REVIEWER_ID" ]; then
+            echo "mapping_id and reviewer_id are required for accept/reject"
+            exit 1
+          fi
+
+          if [ "$ACTION" = "accept" ]; then
+            pnpm exec tsx scripts/review-pkd-mapping.ts               --id="$MAPPING_ID"               --accept               --reviewer="$REVIEWER_ID"               --note="$NOTE"
+          else
+            if [ -z "$NOTE" ]; then
+              echo "note is required for reject"
+              exit 1
+            fi
+            pnpm exec tsx scripts/review-pkd-mapping.ts               --id="$MAPPING_ID"               --reject               --reviewer="$REVIEWER_ID"               --note="$NOTE"
+          fi

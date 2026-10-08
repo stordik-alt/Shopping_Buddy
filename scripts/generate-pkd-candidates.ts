@@ -1,14 +1,35 @@
+import { eq } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { generatePkdProductTypeCandidates, PKD_CANDIDATE_VERSION } from '@/lib/pkd-candidate-generation'
 
 const dryRun = !process.argv.includes('--apply')
 const BATCH_SIZE = 500
+const limitArg = process.argv.find((arg) => arg.startsWith('--limit='))
+const previewLimit = Math.max(1, Math.min(500, Number(limitArg?.slice('--limit='.length)) || 100))
+
+function sourceKind(stableKey: string, attributes: Record<string, unknown>): { kind: string; eligible: boolean } {
+  if (stableKey.startsWith('off:taxonomy:categories:')) {
+    const children = Array.isArray(attributes.children) ? attributes.children : []
+    return { kind: 'open_food_facts_leaf', eligible: children.length === 0 }
+  }
+  if (stableKey.startsWith('gpc:')) {
+    return { kind: 'gs1_gpc_reference_only', eligible: false }
+  }
+  if (stableKey.startsWith('cz-cpa:')) {
+    return { kind: 'cz_cpa_reference_only', eligible: false }
+  }
+  if (stableKey.startsWith('ocr:')) return { kind: 'ocr', eligible: true }
+  if (stableKey.startsWith('seed:') || stableKey.startsWith('seed_catalog:')) return { kind: 'seed_catalog', eligible: true }
+  if (stableKey.startsWith('manual:')) return { kind: 'manual', eligible: true }
+  return { kind: 'pkd_other', eligible: true }
+}
 
 async function main() {
   const db = getDb()
   const entries = await db.select({
     id: schema.pkdEntries.id,
+    stableKey: schema.pkdEntries.stableKey,
     canonicalName: schema.pkdEntries.canonicalName,
     language: schema.pkdEntries.language,
     category: schema.pkdEntries.category,
@@ -16,17 +37,57 @@ async function main() {
     physicalForm: schema.pkdEntries.physicalForm,
     processingState: schema.pkdEntries.processingState,
     comparisonUnit: schema.pkdEntries.comparisonUnit,
+    attributes: schema.pkdEntries.attributes,
     productTypeId: schema.pkdEntries.productTypeId,
     status: schema.pkdEntries.status,
   }).from(schema.pkdEntries)
 
-  const candidates = generatePkdProductTypeCandidates(entries)
+  // Mapping proposals already identify entries that belong to an existing type. They must not
+  // simultaneously be proposed as brand-new types while waiting for review.
+  const mappingRows = await db.select({
+    pkdEntryId: schema.pkdProductTypeMappings.pkdEntryId,
+    status: schema.pkdProductTypeMappings.status,
+  }).from(schema.pkdProductTypeMappings)
+  const entriesWithExistingMapping = new Set(mappingRows
+    .filter((row) => row.status !== 'rejected')
+    .map((row) => row.pkdEntryId))
+
+  const candidates = generatePkdProductTypeCandidates(entries.map((entry) => {
+    const attributes = entry.attributes as Record<string, unknown>
+    const source = sourceKind(entry.stableKey, attributes)
+    return {
+      ...entry,
+      candidateEligible: source.eligible && entry.language.trim().toLowerCase() === 'cs'
+        && !entriesWithExistingMapping.has(entry.id),
+      sourceKind: source.kind,
+    }
+  }))
+
+  const sourceCounts = candidates.reduce<Record<string, number>>((counts, candidate) => {
+    for (const source of candidate.evidence.sourceKinds) counts[source] = (counts[source] ?? 0) + 1
+    return counts
+  }, {})
+  const preview = candidates.slice(0, previewLimit).map((candidate) => ({
+    name: candidate.canonicalName,
+    normalizedName: candidate.normalizedName,
+    language: candidate.language,
+    sourceCount: candidate.evidence.sourceEntryCount,
+    sources: candidate.evidence.sourceKinds,
+    category: candidate.category,
+    unit: candidate.comparisonUnit,
+    confidence: candidate.confidence,
+    candidateKey: candidate.candidateKey,
+  }))
 
   if (dryRun) {
     console.log(JSON.stringify({
       candidateVersion: PKD_CANDIDATE_VERSION,
       totalEntries: entries.length,
+      entriesWithExistingMapping: entriesWithExistingMapping.size,
       candidates: candidates.length,
+      sourceCounts,
+      previewLimit,
+      preview,
       mode: 'dry-run',
     }, null, 2))
     return
@@ -75,7 +136,9 @@ async function main() {
   console.log(JSON.stringify({
     candidateVersion: PKD_CANDIDATE_VERSION,
     totalEntries: entries.length,
+    entriesWithExistingMapping: entriesWithExistingMapping.size,
     candidates: candidates.length,
+    sourceCounts,
     mode: 'apply',
   }, null, 2))
 }

@@ -779,6 +779,8 @@ export const pantryItems = pgTable('pantry_items', {
   id: uuid('id').primaryKey().defaultRandom(),
   householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
   productId: uuid('product_id').references(() => products.id, { onDelete: 'set null' }),
+  // Explicit manual selection of a generic product type; null for free text or a concrete product whose type is inferred from the product.
+  productTypeId: uuid('product_type_id').references(() => productTypes.id, { onDelete: 'set null' }),
   name: text('name').notNull(),
   category: itemCategoryEnum('category').notNull().default('Ostatní'),
   // The item's subcategory within `category` (lib/product-subcategories.ts) — powers the Zásoby
@@ -809,6 +811,7 @@ export const pantryItems = pgTable('pantry_items', {
   tracking: pantryTrackingEnum('tracking').notNull().default('normal'),
 }, (table) => [
   index('pantry_items_household_product_idx').on(table.householdId, table.productId),
+  index('pantry_items_product_type_idx').on(table.householdId, table.productTypeId),
 ])
 
 // Receipt import ("nahrávání nákupů přes účtenky"): prepares the ingestion path for a future OCR
@@ -888,6 +891,10 @@ export const budgets = pgTable('budgets', {
 export const expenses = pgTable('expenses', {
   id: uuid('id').primaryKey().defaultRandom(),
   householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  // Optional product identity selected through the shared manual autocomplete. Receipt-generated expenses remain unlinked.
+  productId: uuid('product_id').references(() => products.id, { onDelete: 'set null' }),
+  // Explicit generic product type selection; mutually exclusive with productId at the application layer.
+  productTypeId: uuid('product_type_id').references(() => productTypes.id, { onDelete: 'set null' }),
   amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
   note: text('note').notNull().default(''),
   category: expenseCategoryEnum('category').notNull().default('Ostatní'),
@@ -903,6 +910,8 @@ export const expenses = pgTable('expenses', {
 }, (table) => [
   // The overview reads a household's expenses by date.
   index('expenses_household_date_idx').on(table.householdId, table.date),
+  index('expenses_product_idx').on(table.householdId, table.productId),
+  index('expenses_product_type_idx').on(table.householdId, table.productTypeId),
   // A purchase is counted once per (category, subcategory), whatever retries or races happen — the
   // subcategory joined in (migration 0042) so a household's own override (e.g. one gift item moved
   // to Ostatní ▸ Dárky) gets its own row instead of colliding with the purchase's other, unmodified

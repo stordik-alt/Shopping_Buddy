@@ -1,0 +1,68 @@
+name: PKD Open Food Facts import
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_url:
+        description: "Optional direct Open Food Facts categories.json URL"
+        required: false
+        default: "https://static.openfoodfacts.org/data/taxonomies/categories.json"
+        type: string
+      language:
+        description: "Taxonomy language"
+        required: true
+        default: "cs"
+        type: string
+      version:
+        description: "Source version label"
+        required: true
+        default: "2026-10"
+        type: string
+      apply:
+        description: "Write the taxonomy to PKD"
+        required: true
+        default: false
+        type: boolean
+
+jobs:
+  open-food-facts:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Download taxonomy
+        env:
+          SOURCE_URL: ${{ inputs.source_url }}
+        run: |
+          set -euo pipefail
+          mkdir -p .tmp/off
+          curl -fL --retry 3 --retry-all-errors "$SOURCE_URL" -o .tmp/off/categories.json
+          test -s .tmp/off/categories.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path(".tmp/off/categories.json").read_text(encoding="utf-8"))
+          print(f"Open Food Facts taxonomy keys: {len(data)}")
+          PY
+      - name: Run Open Food Facts import
+        env:
+          DATABASE_URL: ${{ secrets.NEON_PROD_DATABASE_URL }}
+          OFF_VERSION: ${{ inputs.version }}
+          OFF_LANGUAGE: ${{ inputs.language }}
+        run: |
+          if [ "${{ inputs.apply }}" = "true" ]; then
+            pnpm exec tsx scripts/import-open-food-facts.ts --file=.tmp/off/categories.json --apply
+          else
+            pnpm exec tsx scripts/import-open-food-facts.ts --file=.tmp/off/categories.json
+          fi

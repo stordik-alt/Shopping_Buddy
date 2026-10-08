@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useRef, useState } from 'react'
 import { searchManualProductSuggestionsAction, type ManualProductSuggestion } from '@/app/actions/manual-product-suggestions'
 import { Input } from '@/components/ui/field'
 
 export type ProductAutocompleteSelection = ManualProductSuggestion
 
-export function ProductAutocomplete({
+export const ProductAutocomplete = forwardRef<HTMLInputElement, {
   value,
   onChange,
   onSelect,
@@ -18,7 +18,7 @@ export function ProductAutocomplete({
   onSelect?: (suggestion: ProductAutocompleteSelection) => void
   placeholder?: string
   ariaLabel?: string
-}) {
+}>(({ value, onChange, onSelect, placeholder, ariaLabel }, ref) => {
   const [open, setOpen] = useState(false)
   const [suggestions, setSuggestions] = useState<ManualProductSuggestion[]>([])
   const [loading, setLoading] = useState(false)
@@ -53,6 +53,7 @@ export function ProductAutocomplete({
   return (
     <div className="relative">
       <Input
+        ref={ref}
         aria-label={ariaLabel}
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -89,3 +90,6 @@ export function ProductAutocomplete({
     </div>
   )
 }
+
+
+ProductAutocomplete.displayName = 'ProductAutocomplete'

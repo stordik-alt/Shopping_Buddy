@@ -16,6 +16,11 @@ describe('resolveInventoryPackage', () => {
     })
   })
 
+  it('expands an egg M30 marker even without a catalog package row', () => {
+    const pkg = resolveInventoryPackage('Vejce z podest. M30', [])!
+    expect(inventoryQuantityFromPackage(1, pkg)).toEqual({ quantity: 30, unit: 'ks', unitQuantity: 1, unitUnit: 'ks' })
+  })
+
   it('expands an explicit piece-count name even without a catalog package row', () => {
     const pkg = resolveInventoryPackage('Vejce z podestýlky 30 ks', [])!
     expect(inventoryQuantityFromPackage(1, pkg)).toEqual({ quantity: 30, unit: 'ks', unitQuantity: 1, unitUnit: 'ks' })

@@ -23,7 +23,7 @@ describe('generatePkdProductTypeMappings', () => {
     })
   })
 
-  it('does not infer Product Types from broad keyword rules', () => {
+  it('does not infer Product Types from broad keyword rules, even when they contain a target name', () => {
     const mappings = generatePkdProductTypeMappings([
       { id: 'e2', canonicalName: 'Ariel prací gel Color', language: 'cs', category: 'Drogerie' },
       { id: 'e3', canonicalName: 'PIVOTAL RAZOR HEAD', language: 'en' },

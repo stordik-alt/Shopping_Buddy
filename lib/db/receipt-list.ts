@@ -48,21 +48,33 @@ type MatchCandidates = NonNullable<Awaited<ReturnType<typeof loadMatchCandidates
  *  list item with the product types it asks for (its chosen types, else what its name resolves to),
  *  each receipt line with its type — its catalog product's, else the rules' reading of its text. */
 async function toMatchable(candidates: MatchCandidates): Promise<{ listItems: MatchableListItem[]; purchaseItems: MatchablePurchaseItem[] }> {
-  const productIds = [...new Set(candidates.purchaseItems.flatMap((item) => (item.productId ? [item.productId] : [])))]
+  const purchaseProductIds = candidates.purchaseItems.flatMap((item) => (item.productId ? [item.productId] : []))
+  const listProductIds = candidates.openListItems.flatMap((item) => (item.productId ? [item.productId] : []))
+  const productIds = [...new Set([...purchaseProductIds, ...listProductIds])]
   const typeKeyByProduct = new Map<string, string>()
+  const productNameById = new Map<string, string>()
   if (productIds.length > 0) {
-    const rows = await getDb()
+    const db = getDb()
+    const rows = await db
       .select({ productId: schema.products.id, key: schema.productTypes.key })
       .from(schema.products)
-      .innerJoin(schema.productTypes, eq(schema.productTypes.id, schema.products.productTypeId))
+      .leftJoin(schema.productTypes, eq(schema.productTypes.id, schema.products.productTypeId))
       .where(inArray(schema.products.id, productIds))
-    for (const row of rows) typeKeyByProduct.set(row.productId, row.key)
+    for (const row of rows) {
+      if (row.key) typeKeyByProduct.set(row.productId, row.key)
+    }
+    const products = await db.query.products.findMany({
+      where: inArray(schema.products.id, productIds),
+      columns: { id: true, name: true },
+    })
+    for (const product of products) productNameById.set(product.id, product.name)
   }
   return {
     listItems: candidates.openListItems.map((item) => ({
       id: item.id,
       name: item.name,
       productId: item.productId,
+      catalogProductName: item.productId ? productNameById.get(item.productId) ?? null : null,
       acceptedTypes: describeItemTypes(item.name, item.productTypes).accepted,
     })),
     purchaseItems: candidates.purchaseItems.map((item) => ({

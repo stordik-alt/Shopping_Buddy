@@ -32,32 +32,31 @@ async function main() {
   let candidatesUpserted = 0
   for (let offset = 0; offset < candidates.length; offset += BATCH_SIZE) {
     const batch = candidates.slice(offset, offset + BATCH_SIZE)
-    await db.transaction(async (tx) => {
-      await tx.insert(schema.pkdDedupCandidates)
-        .values(batch.map((candidate) => {
-          const [leftEntryId, rightEntryId] = [candidate.leftEntryId, candidate.rightEntryId].sort()
-          return {
-            leftEntryId,
-            rightEntryId,
-            normalizationVersion: candidate.normalizationVersion,
-            reason: candidate.reason,
-            confidence: candidate.confidence.toFixed(3),
-            evidence: candidate.evidence,
-          }
-        }))
-        .onConflictDoUpdate({
-          target: [
-            schema.pkdDedupCandidates.leftEntryId,
-            schema.pkdDedupCandidates.rightEntryId,
-            schema.pkdDedupCandidates.normalizationVersion,
-          ],
-          set: {
-            reason: schema.pkdDedupCandidates.reason,
-            confidence: schema.pkdDedupCandidates.confidence,
-            evidence: schema.pkdDedupCandidates.evidence,
-          },
-        })
-    })
+    await db.insert(schema.pkdDedupCandidates)
+      .values(batch.map((candidate) => {
+        const [leftEntryId, rightEntryId] = [candidate.leftEntryId, candidate.rightEntryId].sort()
+        return {
+          leftEntryId,
+          rightEntryId,
+          normalizationVersion: candidate.normalizationVersion,
+          reason: candidate.reason,
+          confidence: candidate.confidence.toFixed(3),
+          evidence: candidate.evidence,
+        }
+      }))
+      .onConflictDoUpdate({
+        target: [
+          schema.pkdDedupCandidates.leftEntryId,
+          schema.pkdDedupCandidates.rightEntryId,
+          schema.pkdDedupCandidates.normalizationVersion,
+        ],
+        set: {
+          reason: schema.pkdDedupCandidates.reason,
+          confidence: schema.pkdDedupCandidates.confidence,
+          evidence: schema.pkdDedupCandidates.evidence,
+        },
+      })
+
     candidatesUpserted += batch.length
     console.log(`Dedup batch ${Math.min(offset + BATCH_SIZE, candidates.length)}/${candidates.length}`)
   }

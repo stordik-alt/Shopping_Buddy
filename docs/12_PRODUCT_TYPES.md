@@ -665,6 +665,8 @@ Fáze normalizace a deduplikace je implementována jako nedestruktivní vrstva n
 
 ### 7.12n Křížové ověřování kandidátů PKD — 2026-10-09
 
+- Verze generátoru: `2026-10-v5` (nový formát evidence referenčních shod).
+
 - Generátor při dry-run i při zápisu hledá přesnou shodu po normalizaci názvu proti schváleným záznamům GS1 GPC a CZ-CPA, produktovému katalogu a důvěryhodným aliasům katalogu.
 - GS1 GPC a CZ-CPA zůstávají pouze referenčními zdroji; jejich záznamy se nikdy samy nestávají návrhy Product Type.
 - Katalogové aliasy jsou podpůrným důkazem pouze při důvěře alespoň 0,9 a zdroji `user_correction` nebo `seed`. Neověřené AI aliasy se nepoužívají.

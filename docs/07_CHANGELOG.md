@@ -1,3 +1,6 @@
+## 2026-10-08 (PKD normalization CI fix — second path)
+- Fixed the PKD normalization runner to serialize dedup candidate confidence as a string in both insert and conflict-update paths, resolving the remaining Drizzle numeric typecheck failure.
+
 ## 2026-10-08 (PKD normalization CI fix)
 - Fixed PKD normalization runner to serialize dedup confidence as a string for Drizzle numeric columns, resolving production/Cloudflare TypeScript failures.
 

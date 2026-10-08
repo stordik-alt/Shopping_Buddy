@@ -621,10 +621,11 @@ Fáze normalizace a deduplikace je implementována jako nedestruktivní vrstva n
 
 - **Přidáno:** návrhová vrstva pro mapování PKD záznamů na již existující interní Product Types.
 - **Princip:** engine nemění product_types ani automaticky nezapisuje pkd_entries.product_type_id; vytváří pouze kandidátní vazbu v pkd_product_type_mappings se stavem candidate.
-- **Přesná shoda:** normalizovaný název Product Type nebo jeho PKD synonymum má důvěru 0.99.
-- **Pravidlová shoda:** použije se pouze tehdy, když stávající deterministický Product Type classifier vrátí právě jeden typ; důvěra je 0.90 s kategorií a 0.86 bez kategorie.
-- **Bezpečnost:** více možných typů, žádná shoda, zamítnutý/neaktivní záznam nebo již namapovaný záznam znamená žádnou novou vazbu. Engine nikdy nehádá mezi více typy.
-- **Provenience:** každá kandidátní vazba obsahuje metodu, důvěru, vstupní název, normalizovaný název, kategorii a důvod rozhodnutí; verze engine je 2026-10-v1.
+- **Přesná shoda:** pouze přesný normalizovaný název Product Type nebo jeho evidované synonymum vytváří kandidáta s důvěrou 0.99.
+- **Zakázaná heuristika:** obecný klasifikátor účtenkových položek se pro formální názvy externích taxonomií nepoužívá. Může chybně přiřadit např. „PIVOTAL RAZOR HEAD“ k typu „Pivo“ nebo služby k typu zboží.
+- **Bezpečnost:** neexistující přesná shoda, nejednoznačný název, zamítnutý/neaktivní záznam nebo již namapovaný záznam znamená žádnou novou vazbu. Engine nikdy nehádá podle částečné shody.
+- **Provenience:** každá kandidátní vazba obsahuje metodu, důvěru, vstupní název, normalizovaný název, kategorii a důvod rozhodnutí; bezpečná verze engine je 2026-10-v2.
+- **Údržba kandidátů:** při `--apply` se nejprve odstraní pouze dosud neschválené návrhy (`status=candidate`) a následně se vytvoří aktuální kandidáti. Schválené a zamítnuté záznamy zůstávají zachované.
 - **Runner:** pnpm db:generate-pkd-mappings (dry-run), pnpm db:generate-pkd-mappings -- --apply (uloží pouze kandidátní mapování).
 - **Další krok:** samostatné schvalovací/acceptance workflow, které teprve po lidském potvrzení může propsat schválené mapování do pkd_entries.product_type_id.
 - GitHub Actions: workflow `PKD Product Type mapping generation` je manuální přes `workflow_dispatch` a zapisuje pouze kandidátní vazby.

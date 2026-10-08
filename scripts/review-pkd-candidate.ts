@@ -2,6 +2,7 @@ import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { PKD_CANDIDATE_VERSION } from '@/lib/pkd-candidate-generation'
+import { normalizeProductText } from '@/lib/product-normalize'
 
 const valueArg = (name: string) => process.argv.find((arg) => arg.startsWith(`--${name}=`))?.slice(name.length + 3) ?? null
 const apply = process.argv.includes('--apply')
@@ -62,8 +63,14 @@ async function main() {
   if (sourceEntries.length !== candidate.sourceEntryIds.length) {
     throw new Error('Some source entries no longer exist; refresh candidate generation before approval.')
   }
+  const allProductTypes = await db.select({ id: schema.productTypes.id, key: schema.productTypes.key, name: schema.productTypes.name, category: schema.productTypes.category, unit: schema.productTypes.unit }).from(schema.productTypes)
+  const normalizedCandidateName = normalizeProductText(candidate.canonicalName)
+  const sameName = allProductTypes.find((type) => normalizeProductText(type.name) === normalizedCandidateName)
+  if (sameName) {
+    throw new Error(`A Product Type with the same normalized name already exists: "${sameName.name}" (key: ${sameName.key}). Do not create a case/diacritic duplicate; map the candidate to the existing type instead.`)
+  }
   const key = explicitKey ?? makeKey(candidate.normalizedName)
-  const existing = await db.query.productTypes.findFirst({ where: eq(schema.productTypes.key, key) })
+  const existing = allProductTypes.find((type) => type.key === key)
   if (existing && (existing.name !== candidate.canonicalName || existing.category !== category || existing.unit !== unit)) {
     throw new Error(`Product Type key "${key}" already exists with different attributes; choose --key=<unique-key>.`)
   }

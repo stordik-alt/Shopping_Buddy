@@ -45,7 +45,7 @@ export function useShoppingQueue({
   async function sendOp(op: PendingOp) {
     switch (op.kind) {
       case 'add': {
-        const { item, notification } = await addShoppingItemAction(mainListId, op.name, {}, tempIdToUuid(op.tempId))
+        const { item, notification } = await addShoppingItemAction(mainListId, op.name, {}, tempIdToUuid(op.tempId), op.selection)
         setItems((current) => (current.some((entry) => entry.id === op.tempId) ? current.map((entry) => (entry.id === op.tempId ? item : entry)) : [...current, item]))
         queueRef.current = remapItemId(queueRef.current, op.tempId, item.id)
         if (notification) setNotifications((current) => [...current, notification])

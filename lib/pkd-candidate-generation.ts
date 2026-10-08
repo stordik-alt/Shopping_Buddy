@@ -122,10 +122,14 @@ export function generatePkdProductTypeCandidates(
 
       // A single taxonomy label is weak evidence. Confidence is deliberately conservative and
       // does not represent approval; missing category/unit always stays unknown rather than guessed.
-      const confidence = Math.min(0.85, 0.55 + Math.max(0, sourceKinds.length - 1) * 0.10
+      const qualityPenalty = reviewFlags.some((flag) =>
+        flag === 'possible_region_or_named_variant' || flag === 'possible_bundle_or_pack',
+      ) ? 0.10 : 0
+      const confidence = Math.max(0.35, Math.min(0.85, 0.55 + Math.max(0, sourceKinds.length - 1) * 0.10
         + (approvedEntryCount > 0 ? 0.05 : 0)
         + (entries.some((entry) => valueOrNull(entry.category)) ? 0.05 : 0)
-        + (entries.some((entry) => valueOrNull(entry.comparisonUnit)) ? 0.05 : 0))
+        + (entries.some((entry) => valueOrNull(entry.comparisonUnit)) ? 0.05 : 0)
+        - qualityPenalty))
 
       return {
         candidateKey,

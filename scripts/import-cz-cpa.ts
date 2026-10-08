@@ -5,6 +5,9 @@ import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { parseCzCpaDocument } from '@/lib/pkd-cz-cpa-parser'
 
+// @ts-expect-error CLI-only XML dependency is resolved at runtime; the app bundler does not resolve its package types.
+import { XMLParser } from 'fast-xml-parser'
+
 const VERSION = process.env.CZ_CPA_VERSION ?? '2025'
 const LANGUAGE = process.env.CZ_CPA_LANGUAGE ?? 'cs'
 const file = process.argv.find((arg) => arg.startsWith('--file='))?.slice(7)
@@ -21,7 +24,10 @@ async function main() {
   if (!file) throw new Error('Usage: pnpm db:import-cz-cpa -- --file=/path/to/cz-cpa.csv [--apply]')
   const format = formatForFile(file)
   const raw = fs.readFileSync(file, 'utf8')
-  const nodes = parseCzCpaDocument(raw, format)
+  const parsed = format === 'xml'
+    ? new XMLParser({ ignoreAttributes: false, processEntities: false }).parse(raw)
+    : raw
+  const nodes = parseCzCpaDocument(parsed, format === 'xml' ? undefined : format)
   if (nodes.length === 0) throw new Error('No CZ-CPA classification entries were found.')
 
   const db = getDb()

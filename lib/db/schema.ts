@@ -251,7 +251,9 @@ export const pkdSynonyms = pgTable('pkd_synonyms', {
 ])
 
 export const pkdNormalizationMethodEnum = pgEnum('pkd_normalization_method', ['unicode_fold', 'whitespace_fold', 'punctuation_fold', 'alias_fold'])
-export const pkdDedupStatusEnum = pgEnum('pkd_dedup_status', ['candidate', 'accepted', 'rejected'])\n\nexport const pkdCandidateStatusEnum = pgEnum('pkd_candidate_status', ['candidate', 'accepted', 'rejected'])
+export const pkdDedupStatusEnum = pgEnum('pkd_dedup_status', ['candidate', 'accepted', 'rejected'])
+
+export const pkdCandidateStatusEnum = pgEnum('pkd_candidate_status', ['candidate', 'accepted', 'rejected'])
 
 export const pkdProductTypeCandidates = pgTable('pkd_product_type_candidates', {
   id: uuid('id').primaryKey().defaultRandom(),

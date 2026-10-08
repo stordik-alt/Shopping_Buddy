@@ -47,6 +47,23 @@ afterAll(async () => {
   }
 })
 
+describe('manual autocomplete selection', () => {
+  it('persists a selected generic product type on a manual expense', async () => {
+    const type = (await db.query.productTypes.findFirst())!
+    const { expense } = await addExpenseAction({
+      amount: 12.5,
+      note: type.name,
+      category: 'Potraviny',
+      subcategory: null,
+      date: '2026-09-05',
+      selection: { kind: 'type', productTypeKey: type.key },
+    })
+    expect(expense.productId).toBeNull()
+    expect(expense.productTypeId).toBe(type.id)
+    await db.delete(schema.expenses).where(eq(schema.expenses.id, expense.id))
+  })
+})
+
 describe('addExpenseAction', () => {
   it('persists the expense against the caller\'s own household', async () => {
     const { expense } = await addExpenseAction({ amount: 250, note: 'Nákup', category: 'Potraviny', subcategory: null, date: '2026-09-21' })

@@ -39,6 +39,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 function toItem(row: typeof schema.shoppingListItems.$inferSelect): Item {
   return {
     id: row.id,
+    productId: row.productId,
     name: row.name,
     detail: row.detail,
     price: Number(row.price),

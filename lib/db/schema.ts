@@ -257,7 +257,7 @@ export const pkdCandidateStatusEnum = pgEnum('pkd_candidate_status', ['candidate
 
 export const pkdProductTypeCandidates = pgTable('pkd_product_type_candidates', {
   id: uuid('id').primaryKey().defaultRandom(),
-  candidateKey: text('candidate_key').notNull().unique(),
+  candidateKey: text('candidate_key').notNull(),
   canonicalName: text('canonical_name').notNull(),
   normalizedName: text('normalized_name').notNull(),
   language: text('language').notNull(),
@@ -274,6 +274,7 @@ export const pkdProductTypeCandidates = pgTable('pkd_product_type_candidates', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
+  uniqueIndex('pkd_product_type_candidates_key_version_unique').on(table.candidateKey, table.candidateVersion),
   index('pkd_product_type_candidates_normalized_idx').on(table.normalizedName),
   index('pkd_product_type_candidates_status_idx').on(table.status),
   check('pkd_product_type_candidates_confidence_range', sql`${table.confidence} IS NULL OR (${table.confidence} >= 0 AND ${table.confidence} <= 1)`),

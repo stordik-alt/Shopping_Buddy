@@ -299,17 +299,22 @@ export function AppShell({
     )
   }
 
-  async function addItem() {
+  async function addItem(selection?: ProductAutocompleteSelection) {
     const name = newItem.trim()
     if (!name) return
     setNewItem('')
-    await addItemByName(name)
+    await addItemByName(name, selection)
   }
 
   // Shared by the "Co koupit?" field and the deals card's "Na seznam" button.
-  async function addItemByName(name: string) {
+  async function addItemByName(name: string, selection?: ProductAutocompleteSelection) {
     pantry.offerPantryCorrection(name)
-    await runOrQueue({ kind: 'add', tempId: newTempId(), name })
+    const persistedSelection = selection?.kind === 'product' && selection.productId
+      ? { kind: 'product' as const, productId: selection.productId }
+      : selection?.kind === 'type' && selection.productTypeKey
+        ? { kind: 'type' as const, productTypeKey: selection.productTypeKey }
+        : undefined
+    await runOrQueue({ kind: 'add', tempId: newTempId(), name, selection: persistedSelection })
   }
 
   // Sequential on purpose — was Promise.all, which fired one addShoppingItemAction per ingredient

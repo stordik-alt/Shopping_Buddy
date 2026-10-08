@@ -259,6 +259,8 @@ export const pkdProductTypeMappingStatusEnum = pgEnum('pkd_product_type_mapping_
 
 export const pkdProductTypeMappingMethodEnum = pgEnum('pkd_product_type_mapping_method', ['exact_name', 'rule_match'])
 
+export const pkdProductTypeMappingReviewDecisionEnum = pgEnum('pkd_product_type_mapping_review_decision', ['accepted', 'rejected'])
+
 export const pkdProductTypeMappings = pgTable('pkd_product_type_mappings', {
   id: uuid('id').primaryKey().defaultRandom(),
   pkdEntryId: uuid('pkd_entry_id').notNull().references(() => pkdEntries.id, { onDelete: 'cascade' }),
@@ -275,6 +277,18 @@ export const pkdProductTypeMappings = pgTable('pkd_product_type_mappings', {
   index('pkd_product_type_mappings_product_type_idx').on(table.productTypeId),
   index('pkd_product_type_mappings_status_idx').on(table.status),
   check('pkd_product_type_mappings_confidence_range', sql`${table.confidence} >= 0 AND ${table.confidence} <= 1`),
+])
+
+export const pkdProductTypeMappingReviews = pgTable('pkd_product_type_mapping_reviews', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  mappingId: uuid('mapping_id').notNull().references(() => pkdProductTypeMappings.id, { onDelete: 'cascade' }),
+  decision: pkdProductTypeMappingReviewDecisionEnum('decision').notNull(),
+  reviewerId: uuid('reviewer_id'),
+  note: text('note'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('pkd_product_type_mapping_reviews_mapping_idx').on(table.mappingId),
+  index('pkd_product_type_mapping_reviews_reviewer_idx').on(table.reviewerId),
 ])
 
 export const pkdProductTypeCandidates = pgTable('pkd_product_type_candidates', {

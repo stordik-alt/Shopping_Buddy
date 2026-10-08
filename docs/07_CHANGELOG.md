@@ -1,3 +1,11 @@
+## 2026-10-08 (Product Package Quantity Normalization Engine)
+- **What:** connected existing `product_packages` to the universal PKD quantity model without rewriting existing package quantities.
+- **Normalization:** added deterministic same-dimension conversion and canonicalization for count, mass, volume, length and area.
+- **Multipacks:** existing total package quantity is never multiplied again; inner package metadata is verified against the stored total and marked `declared_multipack` only when consistent.
+- **Safety:** incomplete, cross-dimension or inconsistent data remains `unknown`; package names never imply a content quantity.
+- **Metadata:** product packages now support base unit, conversion method/confidence, net quantity and drained quantity.
+- **Tests:** added regression coverage for metric conversion, non-food dimensions, cross-dimension rejection and multipack safety.
+- **Migration:** `0079_product_package_quantity_normalization.sql`; engine is `lib/quantity-normalization.ts`.
 ## 2026-10-08 (Universal Quantity & Packaging Dictionary)
 - **What:** added the second PKD foundation layer for quantities, units, conversions and packaging across **all goods**.
 - **Units:** introduced dimensions for count, mass, volume, length and area with canonical comparison units (`ks`, `kg`, `l`, `m`, `m2`) and metric subunits.

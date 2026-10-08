@@ -82,7 +82,7 @@ export function usePantry({
     movePantryItemAction(id, placeKey)
   }
 
-  async function addPantryItem(input: { name: string; quantity: number; unit: ItemUnit; category: ItemCategory; subcategory: string | null; placeKey: string }) {
+  async function addPantryItem(input: { name: string; quantity: number; unit: ItemUnit; category: ItemCategory; subcategory: string | null; placeKey: string; selection?: { kind: 'product'; productId: string } | { kind: 'type'; productTypeKey: string } }) {
     const updated = await addPantryItemAction(input)
     setPantryItems(updated)
     return updated

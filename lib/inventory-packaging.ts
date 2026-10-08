@@ -23,6 +23,23 @@ export function resolveInventoryPackage(name: string, packages: InventoryPackage
   if (multipacks.length === 1) return multipacks[0] as InventoryPackage
 
   const explicit = extractExplicitPackageSizes(name)
+  // A purchased line can legitimately be a retail multipack even when the product package
+  // catalog has not learned the package yet. Piece-count markers (e.g. `30 ks` or egg `M30`)
+  // are explicit package evidence, so use them rather than storing one retail pack as one
+  // physical piece. Weight/volume names are intentionally not inferred here.
+  if (multipacks.length === 0) {
+    const piecePackage = explicit.find((candidate) => candidate.unit === 'ks' && candidate.quantity > 1)
+    if (piecePackage) {
+      return {
+        quantity: piecePackage.quantity,
+        unit: 'ks',
+        packageCount: piecePackage.quantity,
+        packageUnitQuantity: 1,
+        packageUnit: 'ks',
+      }
+    }
+  }
+
   const matches = multipacks.filter((pkg) =>
     explicit.some((candidate) => candidate.quantity === pkg.quantity && candidate.unit === pkg.unit),
   )

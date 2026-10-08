@@ -1917,3 +1917,12 @@ Every future architectural/schema/business-rule change should append a dated ent
 - Updated receipt tests to exercise the production R2 storage abstraction through an in-memory S3-compatible stub.
 - `BLOB_READ_WRITE_TOKEN` and `STORAGE_PROVIDER` are no longer application requirements.
 - Blob originals were not deleted during this cleanup.
+
+
+## 2026-10-08 (CZ-CPA PKD ingestion foundation)
+- **Added:** CZ-CPA 2025 parser and versioned PKD importer for the official CZ-CPA_2025_KL classification.
+- **Scope:** imports Czech classification identities, six-level hierarchy, parent/path metadata and external mappings into PKD; it does not create internal Product Types.
+- **Formats:** JSON, CSV and XML input; XLSX can be exported from the official ČSÚ source to CSV/XML before ingestion.
+- **Safety:** CZ-CPA remains a validation/mapping source, not an authoritative retail Product Type taxonomy; source version and provenance are preserved.
+- **Modes:** dry-run by default, `--apply` for persistence, explicit `CZ_CPA_VERSION` and `CZ_CPA_LANGUAGE`.
+- **Source:** ČSÚ CZ-CPA 2025 / CZ-CPA_2025_KL.

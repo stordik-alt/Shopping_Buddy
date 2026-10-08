@@ -3,6 +3,7 @@ import * as schema from '@/lib/db/schema'
 import { normalizePkdEntry, PKD_NORMALIZATION_VERSION, type PkdNormalizationInput } from '@/lib/pkd-normalization'
 
 const dryRun = !process.argv.includes('--apply')
+const BATCH_SIZE = 500
 
 async function main() {
   const db = getDb()
@@ -18,6 +19,7 @@ async function main() {
 
   const inputs: PkdNormalizationInput[] = entries
   const normalizations = inputs.map(normalizePkdEntry)
+
   if (dryRun) {
     console.log(JSON.stringify({
       normalizationVersion: PKD_NORMALIZATION_VERSION,
@@ -28,14 +30,31 @@ async function main() {
     return
   }
 
-  const BATCH_SIZE = 500
   for (let offset = 0; offset < normalizations.length; offset += BATCH_SIZE) {
     const batch = normalizations.slice(offset, offset + BATCH_SIZE)
-    await db.transaction(async (tx) => {
-      await tx.insert(schema.pkdEntryNormalizations).values(batch.map((normalization) => ({ entryId: normalization.entryId, normalizationVersion: normalization.normalizationVersion, normalizedName: normalization.normalizedName, identityKey: normalization.identityKey, methods: normalization.methods }))).onConflictDoUpdate({ target: [schema.pkdEntryNormalizations.entryId, schema.pkdEntryNormalizations.normalizationVersion], set: { normalizedName: schema.pkdEntryNormalizations.normalizedName, identityKey: schema.pkdEntryNormalizations.identityKey, methods: schema.pkdEntryNormalizations.methods } })
-    })
+    await db.insert(schema.pkdEntryNormalizations)
+      .values(batch.map((normalization) => ({
+        entryId: normalization.entryId,
+        normalizationVersion: normalization.normalizationVersion,
+        normalizedName: normalization.normalizedName,
+        identityKey: normalization.identityKey,
+        methods: normalization.methods,
+      })))
+      .onConflictDoUpdate({
+        target: [
+          schema.pkdEntryNormalizations.entryId,
+          schema.pkdEntryNormalizations.normalizationVersion,
+        ],
+        set: {
+          normalizedName: schema.pkdEntryNormalizations.normalizedName,
+          identityKey: schema.pkdEntryNormalizations.identityKey,
+          methods: schema.pkdEntryNormalizations.methods,
+        },
+      })
+
     console.log(`Normalization batch ${Math.min(offset + BATCH_SIZE, normalizations.length)}/${normalizations.length}`)
   }
+
   console.log(JSON.stringify({
     normalizationVersion: PKD_NORMALIZATION_VERSION,
     totalEntries: inputs.length,

@@ -1,3 +1,9 @@
+## 2026-10-08 (PKD approved mapping backfill)
+- **Added:** `scripts/backfill-pkd-mappings.ts` for applying accepted PKD → Product Type mappings to currently unmapped PKD entries.
+- **Safety:** dry-run is the default; `--apply` is required for writes, and each update still requires the PKD entry to have no existing Product Type.
+- **Actions:** added manual `PKD approved mapping backfill` workflow via `workflow_dispatch` with an explicit `apply` boolean input.
+- **Governance:** only mappings already in `accepted` status are eligible; rejected/candidate mappings are never applied.
+
 ## 2026-10-08 (PKD acceptance typecheck fix)
 - **Fixed:** replaced the Drizzle update-CTE construction in the PKD mapping acceptance path with a single PostgreSQL `WITH` statement.
 - **Reason:** avoids unsupported/fragile update-builder CTE typing while preserving atomic mapping status update, PKD Product Type assignment and review audit insertion.

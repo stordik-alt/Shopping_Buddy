@@ -56,12 +56,39 @@ jobs:
             application/zip|application/x-zip-compressed)
               mkdir -p .tmp/gpc/unpacked
               unzip -q .tmp/gpc/source -d .tmp/gpc/unpacked
-              candidate="$(find .tmp/gpc/unpacked -type f \( -iname '*.xml' -o -iname '*.json' \) | head -n 1)"
-              [ -n "$candidate" ] || {
+              mapfile -t candidates < <(find .tmp/gpc/unpacked -type f \( -iname '*.xml' -o -iname '*.json' \))
+              [ "${#candidates[@]}" -gt 0 ] || {
                 echo "No XML/JSON GPC file found in downloaded archive."
                 find .tmp/gpc/unpacked -maxdepth 3 -type f | head -n 50
                 exit 1
               }
+
+              candidate="$(python - "${candidates[@]}" <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+
+          best = None
+          best_count = -1
+          for raw_path in sys.argv[1:]:
+              path = Path(raw_path)
+              try:
+                  text = path.read_text(encoding="utf-8", errors="ignore")
+              except Exception:
+                  continue
+              count = len(set(re.findall(r"(?<!\d)\d{8}(?!\d)", text)))
+              print(f"GPC candidate: {path} -> {count} unique 8-digit codes", file=sys.stderr)
+              if count > best_count:
+                  best = path
+                  best_count = count
+
+          if best is None or best_count <= 0:
+              raise SystemExit("No candidate XML/JSON file contains an 8-digit GPC code.")
+          print(best)
+          PY
+              )"
+
+              echo "Selected GPC taxonomy file: $candidate"
               cp "$candidate" .tmp/gpc/input
               ;;
             application/xml|text/xml|application/json|text/plain)

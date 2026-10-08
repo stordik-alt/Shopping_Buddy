@@ -1,6 +1,6 @@
 import { normalizeProductText } from '@/lib/product-normalize'
 
-export const PKD_CANDIDATE_VERSION = '2026-10-v2'
+export const PKD_CANDIDATE_VERSION = '2026-10-v3'
 
 export type PkdCandidateInput = {
   id: string
@@ -45,7 +45,17 @@ export type PkdProductTypeCandidate = {
 
 const valueOrNull = (value?: string | null) => value?.trim() || null
 
-export function generatePkdProductTypeCandidates(inputs: PkdCandidateInput[]): PkdProductTypeCandidate[] {
+/**
+ * Existing internal Product Type names are passed in so candidate generation cannot
+ * propose a second identity for a type that differs only by case, accents, or punctuation.
+ */
+export function generatePkdProductTypeCandidates(
+  inputs: PkdCandidateInput[],
+  existingProductTypeNames: string[] = [],
+): PkdProductTypeCandidate[] {
+  const existingNames = new Set(
+    existingProductTypeNames.map((name) => normalizeProductText(name)).filter(Boolean),
+  )
   const groups = new Map<string, PkdCandidateInput[]>()
 
   for (const input of inputs) {
@@ -55,7 +65,7 @@ export function generatePkdProductTypeCandidates(inputs: PkdCandidateInput[]): P
 
     const normalizedName = normalizeProductText(input.canonicalName)
     const language = input.language.trim().toLowerCase() || 'und'
-    if (!normalizedName) continue
+    if (!normalizedName || existingNames.has(normalizedName)) continue
 
     const key = `${language}:${normalizedName}`
     const group = groups.get(key) ?? []
@@ -65,10 +75,19 @@ export function generatePkdProductTypeCandidates(inputs: PkdCandidateInput[]): P
 
   return [...groups.entries()]
     .map(([candidateKey, entries]) => {
-      const first = entries[0]
+      // Prefer an approved source name, then a deterministic case-insensitive lexical choice.
+      // This prevents the stored display name from depending on DB row order (e.g. PAPRIKA vs Paprika).
+      const orderedEntries = [...entries].sort((a, b) => {
+        const approvedDifference = Number(b.status === 'approved') - Number(a.status === 'approved')
+        if (approvedDifference !== 0) return approvedDifference
+        return a.canonicalName.trim().localeCompare(b.canonicalName.trim(), 'cs', { sensitivity: 'base' })
+          || a.canonicalName.trim().localeCompare(b.canonicalName.trim())
+          || a.id.localeCompare(b.id)
+      })
+      const first = orderedEntries[0]
       const approvedEntryCount = entries.filter((entry) => entry.status === 'approved').length
       const normalizedName = normalizeProductText(first.canonicalName)
-      const sourceEntryIds = entries.map((entry) => entry.id)
+      const sourceEntryIds = entries.map((entry) => entry.id).sort()
       const sourceKinds = [...new Set(entries.map((entry) => entry.sourceKind ?? 'unknown'))].sort()
 
       return {
@@ -90,7 +109,7 @@ export function generatePkdProductTypeCandidates(inputs: PkdCandidateInput[]): P
           unmappedEntryCount: entries.length,
           sourceEntryIds,
           sourceKinds,
-          normalization: 'normalizeProductText + language',
+          normalization: 'normalizeProductText + language; existing Product Types checked case/accent-insensitively',
           reason: 'unmapped_retail_product_identity' as const,
         },
       }

@@ -279,6 +279,8 @@ function toExpense(expense: typeof schema.expenses.$inferSelect): Expense {
     subcategory: expense.subcategory,
     date: expense.date,
     purchaseId: expense.purchaseId,
+    productId: expense.productId,
+    productTypeId: expense.productTypeId,
   }
 }
 
@@ -404,6 +406,8 @@ function queryPantryRows(householdId: string) {
 function toPantryItem(item: Awaited<ReturnType<typeof queryPantryRows>>[number]): PantryItem {
   return {
     id: item.id,
+    productId: item.productId,
+    productTypeId: item.productTypeId,
     name: item.name,
     category: item.category,
     subcategory: item.subcategory?.name ?? null,

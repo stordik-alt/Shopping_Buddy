@@ -1,3 +1,8 @@
+## 2026-10-08 (GS1 GPC CI fixes)
+- **Fix:** refactored the GS1 GPC CLI to use the shared parser, removed top-level await and kept GPC hierarchy out of the constrained product category field.
+- **Security:** upgraded `fast-xml-parser` to patched 5.11.2 and disabled XML entity processing in the importer.
+- **Validation:** preserves dry-run/apply behavior and keeps GPC data as external PKD knowledge only.
+
 ## 2026-10-08 (GS1 GPC PKD ingestion foundation)
 - **What:** added versioned GS1 GPC ingestion for the PKD knowledge layer.
 - **Source:** official GPC publication 2026-05; schema is consumed from supplied XML/JSON export rather than copied into the repository.

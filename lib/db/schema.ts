@@ -390,6 +390,14 @@ export const productPackages = pgTable('product_packages', {
   packageUnitQuantity: numeric('package_unit_quantity', { precision: 10, scale: 3, mode: 'number' }),
   packageUnit: itemUnitEnum('package_unit'),
   packageType: text('package_type'),
+  // Universal PKD normalization metadata. Null means the package has not been safely normalized.
+  baseUnit: quantityUnitEnum('base_unit'),
+  conversionMethod: conversionMethodEnum('conversion_method'),
+  conversionConfidence: numeric('conversion_confidence', { precision: 4, scale: 3, mode: 'number' }),
+  netQuantity: numeric('net_quantity', { precision: 20, scale: 9, mode: 'number' }),
+  netUnit: quantityUnitEnum('net_unit'),
+  drainedQuantity: numeric('drained_quantity', { precision: 20, scale: 9, mode: 'number' }),
+  drainedUnit: quantityUnitEnum('drained_unit'),
 }, (table) => [
   uniqueIndex('product_packages_product_size_unique').on(table.productId, table.quantity, table.unit),
   check('product_packages_quantity_positive', sql`${table.quantity} > 0`),
@@ -397,6 +405,9 @@ export const productPackages = pgTable('product_packages', {
   check('product_packages_package_count_positive', sql`${table.packageCount} IS NULL OR ${table.packageCount} > 0`),
   check('product_packages_package_unit_quantity_positive', sql`${table.packageUnitQuantity} IS NULL OR ${table.packageUnitQuantity} > 0`),
   check('product_packages_package_unit_pair', sql`(${table.packageUnitQuantity} IS NULL AND ${table.packageUnit} IS NULL) OR (${table.packageUnitQuantity} IS NOT NULL AND ${table.packageUnit} IS NOT NULL)`),
+  check('product_packages_conversion_confidence_range', sql`${table.conversionConfidence} IS NULL OR (${table.conversionConfidence} >= 0 AND ${table.conversionConfidence} <= 1)`),
+  check('product_packages_net_quantity_positive', sql`${table.netQuantity} IS NULL OR ${table.netQuantity} > 0`),
+  check('product_packages_drained_quantity_positive', sql`${table.drainedQuantity} IS NULL OR ${table.drainedQuantity} > 0`),
 ])
 
 

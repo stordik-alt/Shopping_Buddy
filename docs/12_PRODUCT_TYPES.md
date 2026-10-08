@@ -486,6 +486,20 @@ Další práce bude probíhat v tomto pořadí:
 11. **AI long-tail classifier** — až po stabilizaci uzavřeného interního seznamu.
 12. **Pravidelné aktualizace** — automatizované importy a report změn.
 
+### 7.12c Stav Quantity Normalization Engine — 2026-10-08
+
+Existující `product_packages` jsou nyní napojeny na univerzální PKD model pomocí polí `base_unit`, `conversion_method`, `conversion_confidence`, `net_quantity`, `net_unit`, `drained_quantity` a `drained_unit`.
+
+Nový `lib/quantity-normalization.ts` poskytuje deterministické operace:
+
+- převod pouze mezi jednotkami stejné dimenze,
+- kanonizaci na `kg`, `l`, `ks`, `m` nebo `m2`,
+- ověření deklarovaného multipacku bez dvojího započtení celkového množství,
+- `unknown` místo odhadu při neúplných nebo rozporných datech.
+
+Stávající `product_packages.quantity` zůstává celkovým množstvím spotřebitelského balení. `packageCount × packageUnitQuantity` se používá pouze jako důkaz konzistence. Název obalu sám o sobě nikdy nevytvoří množství.
+
+Migration: `0079_product_package_quantity_normalization.sql`.
 ### 7.13 Zdrojové reference
 
 - GS1 GPC: aktuální standard a archiv verzí — https://ref.gs1.org/standards/gpc/

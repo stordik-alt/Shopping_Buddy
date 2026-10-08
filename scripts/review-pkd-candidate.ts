@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
+import { PKD_CANDIDATE_VERSION } from '@/lib/pkd-candidate-generation'
 
 const valueArg = (name: string) => process.argv.find((arg) => arg.startsWith(`--${name}=`))?.slice(name.length + 3) ?? null
 const apply = process.argv.includes('--apply')
@@ -48,6 +49,9 @@ async function main() {
   })
   if (!candidate) throw new Error(`Candidate not found: ${id}`)
   if (candidate.status !== 'candidate') throw new Error(`Candidate must be in candidate status; current status: ${candidate.status}`)
+  if (candidate.candidateVersion !== PKD_CANDIDATE_VERSION) {
+    throw new Error(`Candidate version ${candidate.candidateVersion} is stale; regenerate and review candidates from ${PKD_CANDIDATE_VERSION}.`)
+  }
   if (candidate.language !== 'cs') throw new Error('Only Czech-language candidates can become internal Product Types.')
   if (!candidate.sourceEntryIds.length) throw new Error('Candidate has no source entries; refusing to create an untraceable Product Type.')
 
@@ -58,10 +62,6 @@ async function main() {
   if (sourceEntries.length !== candidate.sourceEntryIds.length) {
     throw new Error('Some source entries no longer exist; refresh candidate generation before approval.')
   }
-  if (sourceEntries.some((entry) => entry.productTypeId !== null)) {
-    throw new Error('At least one source entry has already been mapped. Reconcile mappings before accepting this candidate.')
-  }
-
   const key = explicitKey ?? makeKey(candidate.normalizedName)
   const existing = await db.query.productTypes.findFirst({ where: eq(schema.productTypes.key, key) })
   if (existing && (existing.name !== candidate.canonicalName || existing.category !== category || existing.unit !== unit)) {
@@ -76,10 +76,19 @@ async function main() {
   }).returning())[0]
   if (!productType) throw new Error('Failed to create or load Product Type.')
 
-  const linked = await db.update(schema.pkdEntries)
-    .set({ productTypeId: productType.id, updatedAt: new Date() })
-    .where(and(inArray(schema.pkdEntries.id, candidate.sourceEntryIds), isNull(schema.pkdEntries.productTypeId)))
-    .returning({ id: schema.pkdEntries.id })
+  // Recovery path: if a previous run created the type and linked all entries but failed before
+  // updating candidate status, allow the same reviewed operation to finish idempotently.
+  const alreadyLinked = sourceEntries.filter((entry) => entry.productTypeId === productType.id).length
+  const conflictingLinks = sourceEntries.filter((entry) => entry.productTypeId !== null && entry.productTypeId !== productType.id)
+  if (conflictingLinks.length) {
+    throw new Error('At least one source entry has already been mapped to another Product Type. Reconcile mappings before accepting this candidate.')
+  }
+  const linked = alreadyLinked === sourceEntries.length
+    ? sourceEntries.map((entry) => ({ id: entry.id }))
+    : await db.update(schema.pkdEntries)
+      .set({ productTypeId: productType.id, updatedAt: new Date() })
+      .where(and(inArray(schema.pkdEntries.id, candidate.sourceEntryIds), isNull(schema.pkdEntries.productTypeId)))
+      .returning({ id: schema.pkdEntries.id })
   if (linked.length !== candidate.sourceEntryIds.length) {
     throw new Error(`Only linked ${linked.length}/${candidate.sourceEntryIds.length} source entries. Inspect the Product Type and rerun after reconciliation.`)
   }

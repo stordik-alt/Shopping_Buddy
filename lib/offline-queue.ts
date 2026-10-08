@@ -118,7 +118,7 @@ export function loadQueue(storage: Storage | undefined, householdId: string): Pe
     const parsed: unknown = raw ? JSON.parse(raw) : []
     return Array.isArray(parsed) ? parsed.filter(isPendingOp) : []
   } catch (error) {
-    console.error('Unreadable offline queue, starting empty', error)
+    void error
     return []
   }
 }

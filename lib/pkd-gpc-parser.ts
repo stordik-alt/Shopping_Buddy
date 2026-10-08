@@ -17,9 +17,7 @@ function textValue(value: unknown): string | null {
 function codeValue(value: unknown, keyHint = ''): string | null {
   if (typeof value === 'string' || typeof value === 'number') {
     const raw = String(value).trim()
-    return /^\d{8}$/.test(raw) && (
-      /code|id/i.test(keyHint) || /^\d{8}$/.test(raw)
-    ) ? raw : null
+    return /^\d{8}$/.test(raw) && (/code|id/i.test(keyHint) || /^\d{8}$/.test(raw)) ? raw : null
   }
   if (value && typeof value === 'object') {
     const obj = value as Record<string, unknown>
@@ -51,20 +49,32 @@ function levelOf(key: string, node: Record<string, unknown>): GpcNode['level'] {
 }
 
 function collectNodes(value: unknown, parentCode: string | null = null, path: string[] = [], key = 'root'): GpcNode[] {
+  type Frame = { value: unknown; parentCode: string | null; path: string[]; key: string }
+  const stack: Frame[] = asArray(value).map((item) => ({ value: item, parentCode, path, key })).reverse()
   const result: GpcNode[] = []
-  for (const item of asArray(value)) {
-    if (!item || typeof item !== 'object') continue
-    const node = item as Record<string, unknown>
+
+  while (stack.length > 0) {
+    const frame = stack.pop()!
+    if (!frame.value || typeof frame.value !== 'object') continue
+
+    const node = frame.value as Record<string, unknown>
     const code = codeValue(node)
     const name = textValue(node)
-    const level = levelOf(key, node)
-    const nextPath = code && name ? [...path, code] : path
-    if (code && name) result.push({ code, name, level, parentCode, path: nextPath })
+    const level = levelOf(frame.key, node)
+    const nextPath = code && name ? [...frame.path, code] : frame.path
+
+    if (code && name) result.push({ code, name, level, parentCode: frame.parentCode, path: nextPath })
+
+    const children: Frame[] = []
     for (const [childKey, childValue] of Object.entries(node)) {
       if (['Code','code','BrickCode','brickCode','GPCCode','gpcCode','GpcCode','GPCBrickCode','gpcBrickCode','SegmentCode','segmentCode','FamilyCode','familyCode','ClassCode','classCode','ID','id','Description','description','Definition','definition','Title','title','Name','name','Label','label','Text','text','Level','level','Type','type'].includes(childKey)) continue
-      result.push(...collectNodes(childValue, code ?? parentCode, nextPath, childKey))
+      for (const child of asArray(childValue)) {
+        children.push({ value: child, parentCode: code ?? frame.parentCode, path: nextPath, key: childKey })
+      }
     }
+    for (let i = children.length - 1; i >= 0; i--) stack.push(children[i])
   }
+
   return result
 }
 

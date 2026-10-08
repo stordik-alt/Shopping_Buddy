@@ -14,7 +14,6 @@ import { isExpenseCategory, isValidSubcategory, type ExpenseCategory } from '@/l
 import { matchProductByName } from '@/lib/products'
 import { isValidProductSubcategory } from '@/lib/product-subcategories'
 import { inferPantryLocation } from '@/lib/pantry'
-import { autoCheckShoppingListFromPurchase } from '@/lib/db/receipt-list'
 import type { ExpenseSplitPart } from '@/lib/purchase-expenses'
 import type { Expense, ItemCategory, ItemUnit, Notification, PurchaseRecord } from '@/lib/types'
 
@@ -227,14 +226,6 @@ export async function createManualPurchaseAction(input: {
 
   const note = input.storeChain?.trim() ? `Nákup ${input.storeChain.trim()} (ručně)` : 'Nákup (ručně)'
   await recomputePurchaseExpenses(db, purchaseRow.id, { notifyBudget: true, noteForNewPurchase: note })
-
-  // Manual purchases follow the same shopping-list completion rule as receipt imports.
-  // A manually entered purchase must also consume the matching open list item.
-  try {
-    await autoCheckShoppingListFromPurchase(householdId, purchaseRow.id)
-  } catch (error) {
-    console.error('Could not tick the shopping list from manual purchase', purchaseRow.id, error)
-  }
 
   const [expenses, notifications] = await Promise.all([
     getHouseholdExpenses(householdId),

@@ -14,7 +14,7 @@ describe('generatePkdProductTypeCandidates', () => {
       normalizedName: 'mleko',
       canonicalName: 'Mléko',
       sourceEntryIds: ['a', 'b'],
-      confidence: 0.9,
+      confidence: 0.6,
       candidateVersion: PKD_CANDIDATE_VERSION,
       evidence: {
         sourceEntryCount: 2,
@@ -65,6 +65,38 @@ describe('generatePkdProductTypeCandidates', () => {
 
     expect(result).toHaveLength(1)
     expect(result[0].candidateKey).toBe('cs:testoviny')
+  })
+
+  it('filters obvious taxonomy group labels and marks weak or region-specific evidence for review', () => {
+    const result = generatePkdProductTypeCandidates([
+      { id: 'a', canonicalName: 'Slazené nápoje', language: 'cs', status: 'approved', sourceKind: 'open_food_facts' },
+      { id: 'b', canonicalName: 'Variety packy svačin', language: 'cs', status: 'approved', sourceKind: 'open_food_facts' },
+      { id: 'c', canonicalName: 'Znojemské pivo', language: 'cs', status: 'approved', sourceKind: 'open_food_facts' },
+      { id: 'd', canonicalName: 'Ajvar', language: 'cs', status: 'approved', sourceKind: 'open_food_facts' },
+    ])
+
+    expect(result.map((candidate) => candidate.canonicalName)).toEqual(['Ajvar', 'Znojemské pivo'])
+    expect(result.find((candidate) => candidate.canonicalName === 'Znojemské pivo')?.evidence.reviewFlags)
+      .toContain('possible_region_or_named_variant')
+    expect(result.find((candidate) => candidate.canonicalName === 'Ajvar')?.evidence.reviewFlags)
+      .toContain('comparison_unit_unknown')
+    expect(result.find((candidate) => candidate.canonicalName === 'Ajvar')?.category).toBeNull()
+    expect(result.find((candidate) => candidate.canonicalName === 'Ajvar')?.comparisonUnit).toBeNull()
+  })
+
+  it('raises confidence only when independent evidence or explicit attributes are present', () => {
+    const singleSource = generatePkdProductTypeCandidates([
+      { id: 'a', canonicalName: 'Mléko', language: 'cs', status: 'approved', sourceKind: 'open_food_facts' },
+    ])[0]
+    const corroborated = generatePkdProductTypeCandidates([
+      { id: 'a', canonicalName: 'Mléko', language: 'cs', status: 'approved', sourceKind: 'open_food_facts', category: 'Potraviny', comparisonUnit: 'l' },
+      { id: 'b', canonicalName: 'mléko', language: 'cs', status: 'approved', sourceKind: 'seed_catalog', category: 'Potraviny', comparisonUnit: 'l' },
+    ])[0]
+
+    expect(singleSource.confidence).toBe(0.6)
+    expect(corroborated.confidence).toBe(0.75)
+    expect(corroborated.evidence.reviewFlags).not.toContain('category_unknown')
+    expect(corroborated.evidence.reviewFlags).not.toContain('comparison_unit_unknown')
   })
 
   it('keeps different languages separate', () => {

@@ -442,6 +442,18 @@ Platí následující pravidla:
 - změna PKD nesmí zpětně změnit ruční klasifikaci,
 - každý automatický výsledek musí být reprodukovatelný z verze pravidel a dat.
 
+### 7.12a Stav PKD schema — 2026-10-08
+
+První databázová vrstva PKD je nyní připravena jako samostatná znalostní vrstva:
+
+- `pkd_sources` — verzované zdroje a metadata importu,
+- `pkd_entries` — stabilní znalostní identity s kanonickým názvem, kategorií, formou, stavem zpracování, atributy, hranicemi a confidence,
+- `pkd_synonyms` — oddělená synonyma a normalizované tvary,
+- `pkd_external_mappings` — explicitní vazby na externí ID a jejich důkazy/confidence.
+
+Migration: `0077_product_knowledge_dictionary.sql`. Drizzle model je v `lib/db/schema.ts`.
+
+PKD zatím **neimportuje žádný externí zdroj** a nemění automaticky katalog. Tato změna pouze vytváří bezpečný datový základ pro další kroky. Mapování na interní `product_types` je volitelné a FK je nastavené tak, aby odstranění interního typu odstranilo pouze vazbu, nikoli znalostní záznam.
 ### 7.12 Implementační pořadí
 
 Další práce bude probíhat v tomto pořadí:

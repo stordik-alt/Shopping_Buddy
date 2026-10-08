@@ -48,13 +48,27 @@ jobs:
           mkdir -p .tmp/cz-cpa
           curl -fL --retry 3 --retry-all-errors "$SOURCE_URL" -o .tmp/cz-cpa/source
           test -s .tmp/cz-cpa/source
-          file .tmp/cz-cpa/source
-          case "$(file -b --mime-type .tmp/cz-cpa/source)" in
+
+          MIME_TYPE="$(file -b --mime-type .tmp/cz-cpa/source)"
+          if [ "$MIME_TYPE" = "text/html" ]; then
+            echo "The supplied URL is an HTML CZSO page; resolving the official CSV export endpoint."
+            KODCIS="$(printf '%s' "$SOURCE_URL" | sed -n 's/.*[?&]kodcis=\\([0-9][0-9]*\\).*/\\1/p')"
+            if [ -z "$KODCIS" ]; then
+              KODCIS="80144"
+            fi
+            EXPORT_URL="https://apl2.czso.cz/iSMS/cisexp.jsp?kodcis=$KODCIS&typdat=0&cisjaz=203&format=2&separator=%2C"
+            echo "Trying: $EXPORT_URL"
+            curl -fL --retry 3 --retry-all-errors "$EXPORT_URL" -o .tmp/cz-cpa/source
+            MIME_TYPE="$(file -b --mime-type .tmp/cz-cpa/source)"
+          fi
+
+          echo "Downloaded MIME type: $MIME_TYPE"
+          case "$MIME_TYPE" in
             application/xml|text/xml|text/csv|text/plain|application/json|application/octet-stream)
               cp .tmp/cz-cpa/source .tmp/cz-cpa/input
               ;;
             *)
-              echo "Unsupported downloaded file type: $(file -b --mime-type .tmp/cz-cpa/source)"
+              echo "Unsupported downloaded file type: $MIME_TYPE"
               exit 1
               ;;
           esac

@@ -59,6 +59,7 @@ async function main() {
         status: row.status,
         sourceCount: row.sourceEntryIds.length,
         sources: (row.evidence as Record<string, unknown>).sourceKinds ?? [],
+        reviewFlags: (row.evidence as Record<string, unknown>).reviewFlags ?? [],
       })),
       mode: 'list',
     }, null, 2))
@@ -116,6 +117,7 @@ async function main() {
     unit: candidate.comparisonUnit,
     confidence: candidate.confidence,
     candidateKey: candidate.candidateKey,
+    reviewFlags: candidate.evidence.reviewFlags,
   }))
 
   if (dryRun) {

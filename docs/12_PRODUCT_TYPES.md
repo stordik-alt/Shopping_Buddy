@@ -558,6 +558,7 @@ Fáze generování kandidátů je implementována jako bezpečná mezivrstva mez
 - Confidence je pouze důkazní signál; kandidát automaticky nevytváří ani nemění `product_types`.
 - Metadata, provenance a zdrojové entry IDs zůstávají zachované pro pozdější ruční nebo deterministické rozhodnutí.
 - Runner: `pnpm db:generate-pkd-candidates` (dry-run), `pnpm db:generate-pkd-candidates -- --apply` (zápis).
+- GitHub Actions: workflow `PKD candidate generation` je manuální přes `workflow_dispatch` a obsahuje explicitní boolean `apply`.
 
 Tato fáze záměrně **neprovádí mapování PKD → existující Product Type**. To je samostatný následující krok `Mapping engine`.
 
@@ -626,10 +627,17 @@ Fáze normalizace a deduplikace je implementována jako nedestruktivní vrstva n
 - **Provenience:** každá kandidátní vazba obsahuje metodu, důvěru, vstupní název, normalizovaný název, kategorii a důvod rozhodnutí; verze engine je 2026-10-v1.
 - **Runner:** pnpm db:generate-pkd-mappings (dry-run), pnpm db:generate-pkd-mappings -- --apply (uloží pouze kandidátní mapování).
 - **Další krok:** samostatné schvalovací/acceptance workflow, které teprve po lidském potvrzení může propsat schválené mapování do pkd_entries.product_type_id.
+- GitHub Actions: workflow `PKD Product Type mapping generation` je manuální přes `workflow_dispatch` a zapisuje pouze kandidátní vazby.
 
 ### 7.12k Stav PKD approved mapping backfill — 2026-10-08
 
 - **Účel:** promítnout pouze již schválené PKD → Product Type mappingy do PKD záznamů, které ještě nemají Product Type.
 - **Runner:** `pnpm db:backfill-pkd-mappings` je dry-run; zápis vyžaduje `--apply`.
 - **GitHub Actions:** workflow `PKD approved mapping backfill` je pouze manuální přes `workflow_dispatch` a obsahuje explicitní boolean `apply`.
+
+### 7.12l Stav PKD mapping review workflow — 2026-10-08
+
+- Workflow `PKD Product Type mapping review` umožňuje nejprve vypsat kandidátní mapování a následně jednotlivý kandidát přijmout nebo zamítnout.
+- Přijetí vyžaduje `mapping_id` a `reviewer_id`; zamítnutí navíc vyžaduje poznámku.
+- Workflow pouze volá existující auditovanou acceptance vrstvu; samo neobchází bezpečnostní kontrolu ani nezapisuje `product_type_id` mimo `acceptPkdProductTypeMapping`.
 - **Bezpečnost:** workflow nikdy nepoužívá kandidátní ani zamítnuté mappingy a při zápisu znovu kontroluje, že `product_type_id IS NULL`.

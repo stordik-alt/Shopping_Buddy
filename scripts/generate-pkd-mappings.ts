@@ -3,26 +3,22 @@ import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { generatePkdProductTypeMappings, PKD_MAPPING_VERSION, type ProductTypeMappingTarget } from '@/lib/pkd-mapping-engine'
 
+const BATCH_SIZE = 500
+
 async function main() {
   const apply = process.argv.includes('--apply')
   const db = getDb()
 
-  const entries = await db
-    .select({
-      id: schema.pkdEntries.id,
-      canonicalName: schema.pkdEntries.canonicalName,
-      language: schema.pkdEntries.language,
-      category: schema.pkdEntries.category,
-      productTypeId: schema.pkdEntries.productTypeId,
-      status: schema.pkdEntries.status,
-    })
-    .from(schema.pkdEntries)
-    .where(and(isNull(schema.pkdEntries.productTypeId), eq(schema.pkdEntries.status, 'approved')))
+  const entries = await db.select({
+    id: schema.pkdEntries.id,
+    canonicalName: schema.pkdEntries.canonicalName,
+    language: schema.pkdEntries.language,
+    category: schema.pkdEntries.category,
+    productTypeId: schema.pkdEntries.productTypeId,
+    status: schema.pkdEntries.status,
+  }).from(schema.pkdEntries).where(and(isNull(schema.pkdEntries.productTypeId), eq(schema.pkdEntries.status, 'approved')))
 
-  const synonymRows = await db
-    .select({ entryId: schema.pkdSynonyms.entryId, synonym: schema.pkdSynonyms.synonym })
-    .from(schema.pkdSynonyms)
-
+  const synonymRows = await db.select({ entryId: schema.pkdSynonyms.entryId, synonym: schema.pkdSynonyms.synonym }).from(schema.pkdSynonyms)
   const synonymsByEntry = new Map<string, string[]>()
   for (const row of synonymRows) {
     const values = synonymsByEntry.get(row.entryId) ?? []
@@ -30,14 +26,12 @@ async function main() {
     synonymsByEntry.set(row.entryId, values)
   }
 
-  const productTypes: ProductTypeMappingTarget[] = await db
-    .select({
-      id: schema.productTypes.id,
-      key: schema.productTypes.key,
-      name: schema.productTypes.name,
-      category: schema.productTypes.category,
-    })
-    .from(schema.productTypes)
+  const productTypes: ProductTypeMappingTarget[] = await db.select({
+    id: schema.productTypes.id,
+    key: schema.productTypes.key,
+    name: schema.productTypes.name,
+    category: schema.productTypes.category,
+  }).from(schema.productTypes)
 
   const mappings = generatePkdProductTypeMappings(
     entries.map((entry) => ({ ...entry, synonyms: synonymsByEntry.get(entry.id) ?? [] })),
@@ -54,10 +48,10 @@ async function main() {
 
   if (!apply) return
 
-  for (const mapping of mappings) {
-    await db
-      .insert(schema.pkdProductTypeMappings)
-      .values({
+  for (let offset = 0; offset < mappings.length; offset += BATCH_SIZE) {
+    const batch = mappings.slice(offset, offset + BATCH_SIZE)
+    for (const mapping of batch) {
+      await db.insert(schema.pkdProductTypeMappings).values({
         pkdEntryId: mapping.pkdEntryId,
         productTypeId: mapping.productTypeId,
         mappingVersion: mapping.mappingVersion,
@@ -65,8 +59,7 @@ async function main() {
         confidence: mapping.confidence.toFixed(3),
         evidence: mapping.evidence,
         status: 'candidate',
-      })
-      .onConflictDoUpdate({
+      }).onConflictDoUpdate({
         target: [schema.pkdProductTypeMappings.pkdEntryId, schema.pkdProductTypeMappings.mappingVersion],
         set: {
           productTypeId: mapping.productTypeId,
@@ -76,6 +69,8 @@ async function main() {
           updatedAt: new Date(),
         },
       })
+    }
+    console.log(`Mapping batch ${Math.min(offset + BATCH_SIZE, mappings.length)}/${mappings.length}`)
   }
 
   console.log(JSON.stringify({ persistedCandidates: mappings.length }, null, 2))

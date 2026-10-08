@@ -116,7 +116,7 @@ const GOLDEN: [string, string | null][] = [
   ['Kotányi Paprika lahůdková mletá', null],
   ['Premium Paprikáš 100 g', null],
   ['Brambory konzumní pozdní prané 40+, varný typ B, síť', 'brambory'],
-  ['McCain 123 hranolky vlnky 750g', null],
+  ['McCain 123 hranolky vlnky 750g', 'hranolky'],
   ['Cibule žlutá, síť', 'cibule'],
   ['Cibule Bistro Butter chicken s jasmínovou rýží 400g', null],
   ['Česnek český XXL, síť', 'cesnek'],

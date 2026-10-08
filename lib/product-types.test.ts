@@ -128,6 +128,13 @@ const GOLDEN: [string, string | null][] = [
   ['Tuřanské bílé kysané zelí, sáček', null],
   ['Žampiony bílé, vanička (735922)', 'zampiony'],
   ['Brokolice 1 ks', 'brokolice'],
+  ['Žampiony bílé, vanička (735922)', 'zampiony'],
+  ['Čerstvé houby hlíva 250 g', 'houby'],
+  ['Sušené houby směs 20 g', null],
+  ['Prací gel Ariel 2 l', 'praci-gel'],
+  ['Prací prášek Persil 2,5 kg', 'praci-prasek'],
+  ['Aviváž Lenor 1,2 l', 'avivaz'],
+  ['Kapsle na praní Ariel 20 ks', null],
   ['Mirinda Mango Tangerine', null],
   // Kuřecí maso (owner: every raw part, marinated, minced and offal included; no products)
   ['Kuřecí prsní řízky', 'kureci-prsa'],

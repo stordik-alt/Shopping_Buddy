@@ -7,12 +7,6 @@ import { Input } from '@/components/ui/field'
 export type ProductAutocompleteSelection = ManualProductSuggestion
 
 export const ProductAutocomplete = forwardRef<HTMLInputElement, {
-  value,
-  onChange,
-  onSelect,
-  placeholder,
-  ariaLabel,
-}: {
   value: string
   onChange: (value: string) => void
   onSelect?: (suggestion: ProductAutocompleteSelection) => void

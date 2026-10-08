@@ -1136,4 +1136,12 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
+# Claude Code Configuration
+
+## Constraints & Tools
+- DO NOT use Python, bash scripts, or temporary file writers to modify code.
+- Use the native `EDIT` tool exclusively for all code modifications.
+- If an `EDIT` block fails due to formatting discrepancies, re-read the file first to match the exact whitespace.
+- Never generate custom script wrappers to bypass tool restrictions.
+
 <!-- END:nextjs-agent-rules -->

@@ -18,6 +18,24 @@ describe('matchReceiptToList', () => {
     expect(result.suggested).toEqual([])
   })
 
+  it('matches a receipt abbreviation to the exact catalog product selected on the shopping list', () => {
+    const result = matchReceiptToList(
+      [{ id: 'l1', name: 'Vejce', productId: 'egg-30', catalogProductName: 'Vejce z podestýlky M 30 ks' }],
+      [{ id: 'r1', name: 'VEJCE Z PODEST. M30', productId: null }],
+    )
+    expect(result.certain).toEqual([{ listItemId: 'l1', purchaseItemId: 'r1' }])
+    expect(result.suggested).toEqual([])
+  })
+
+  it('does not use the catalog-name fallback for an unrelated receipt line', () => {
+    const result = matchReceiptToList(
+      [{ id: 'l1', name: 'Vejce', productId: 'egg-30', catalogProductName: 'Vejce z podestýlky M 30 ks' }],
+      [{ id: 'r1', name: 'MLEKO POLOTUCNE 1L', productId: null }],
+    )
+    expect(result.certain).toEqual([])
+    expect(result.suggested).toEqual([])
+  })
+
   it('matches equal names with certainty regardless of case and diacritics', () => {
     const result = matchReceiptToList([list('l1', 'Máslo')], [line('r1', 'MASLO')])
     expect(result.certain).toEqual([{ listItemId: 'l1', purchaseItemId: 'r1' }])

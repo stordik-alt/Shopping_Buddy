@@ -11,7 +11,7 @@ describe('parseCzCpaDocument', () => {
       '0111,Obiloviny,4',
       '01111,Pšenice,5',
       '011111,Pšenice tvrdá,6',
-    ].join('\\n')
+    ].join('\n')
 
     expect(parseCzCpaDocument(csv, 'csv')).toEqual([
       { code: 'A', name: 'Produkty zemědělství', level: 1, parentCode: null, path: ['A'] },

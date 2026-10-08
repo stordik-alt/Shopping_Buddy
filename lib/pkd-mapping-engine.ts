@@ -1,8 +1,6 @@
 import { normalizeProductText } from '@/lib/product-normalize'
-import { classifyReceiptLineType } from '@/lib/product-types'
-import type { ItemCategory } from '@/lib/types'
 
-export const PKD_MAPPING_VERSION = '2026-10-v1'
+export const PKD_MAPPING_VERSION = '2026-10-v2'
 
 export type PkdMappingInput = {
   id: string
@@ -18,14 +16,14 @@ export type ProductTypeMappingTarget = {
   id: string
   key: string
   name: string
-  category: ItemCategory
+  category: string
 }
 
 export type PkdProductTypeMapping = {
   pkdEntryId: string
   productTypeId: string
   productTypeKey: string
-  method: 'exact_name' | 'rule_match'
+  method: 'exact_name'
   confidence: number
   mappingVersion: string
   evidence: {
@@ -34,7 +32,7 @@ export type PkdProductTypeMapping = {
     matchedText: string
     matchedNormalizedText: string
     category: string | null
-    reason: 'exact_product_type_name' | 'unique_product_type_rule'
+    reason: 'exact_product_type_name'
   }
 }
 
@@ -46,23 +44,23 @@ function exactMatch(input: PkdMappingInput, targets: ProductTypeMappingTarget[])
     group.push(target)
     normalizedTargetNames.set(normalized, group)
   }
+
   const texts = [input.canonicalName, ...(input.synonyms ?? [])]
   for (const text of texts) {
     const normalized = normalizeProductText(text)
     const matches = normalizedTargetNames.get(normalized) ?? []
+    // A name shared by multiple Product Types is ambiguous and must never be guessed.
     if (matches.length === 1) return { target: matches[0], matchedText: text }
   }
   return null
 }
 
-function ruleMatch(input: PkdMappingInput, targets: ProductTypeMappingTarget[]): ProductTypeMappingTarget | null {
-  const category = input.category as ItemCategory | null | undefined
-  const key = classifyReceiptLineType(category ?? null, input.canonicalName)
-  if (!key) return null
-  const target = targets.find((candidate) => candidate.key === key)
-  return target ?? null
-}
-
+/**
+ * External taxonomies contain goods, parts, raw materials and services. The receipt-line
+ * classifier is intentionally not used here: its broad keyword rules are suitable for noisy
+ * receipt text, but unsafe for mapping formal taxonomy names (e.g. "PIVOTAL" -> "Pivo").
+ * Only exact normalized Product Type names or reviewed synonyms may create candidates.
+ */
 export function generatePkdProductTypeMappings(inputs: PkdMappingInput[], targets: ProductTypeMappingTarget[]): PkdProductTypeMapping[] {
   const result: PkdProductTypeMapping[] = []
 
@@ -74,43 +72,22 @@ export function generatePkdProductTypeMappings(inputs: PkdMappingInput[], target
     if (!normalizedName) continue
 
     const exact = exactMatch(input, targets)
-    if (exact) {
-      result.push({
-        pkdEntryId: input.id,
-        productTypeId: exact.target.id,
-        productTypeKey: exact.target.key,
-        method: 'exact_name',
-        confidence: 0.99,
-        mappingVersion: PKD_MAPPING_VERSION,
-        evidence: {
-          canonicalName: input.canonicalName,
-          normalizedName,
-          matchedText: exact.matchedText,
-          matchedNormalizedText: normalizeProductText(exact.matchedText),
-          category: input.category ?? null,
-          reason: 'exact_product_type_name',
-        },
-      })
-      continue
-    }
-
-    const rule = ruleMatch(input, targets)
-    if (!rule) continue
+    if (!exact) continue
 
     result.push({
       pkdEntryId: input.id,
-      productTypeId: rule.id,
-      productTypeKey: rule.key,
-      method: 'rule_match',
-      confidence: input.category ? 0.90 : 0.86,
+      productTypeId: exact.target.id,
+      productTypeKey: exact.target.key,
+      method: 'exact_name',
+      confidence: 0.99,
       mappingVersion: PKD_MAPPING_VERSION,
       evidence: {
         canonicalName: input.canonicalName,
         normalizedName,
-        matchedText: input.canonicalName,
-        matchedNormalizedText: normalizedName,
+        matchedText: exact.matchedText,
+        matchedNormalizedText: normalizeProductText(exact.matchedText),
         category: input.category ?? null,
-        reason: 'unique_product_type_rule',
+        reason: 'exact_product_type_name',
       },
     })
   }

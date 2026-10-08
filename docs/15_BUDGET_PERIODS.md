@@ -54,3 +54,99 @@ unique index on `budgets (household_id, month)` (the table is empty in productio
 
 ## Not in scope
 - Per-category goals, savings accounts, deal savings ("ušetřeno na akcích" — may come later as its own figure).
+
+
+## Rozpočtové období podle výplaty
+
+Rozpočet nemusí být veden pouze podle kalendářních měsíců. Uživatel si zvolí, jaké období pro něj představuje jeden rozpočtový cyklus:
+
+- **Kalendářní měsíc** – například 1.–31. den v měsíci.
+- **Období podle výplaty** – například od 15. dne do 14. dne následujícího měsíce.
+- **Vlastní období** – uživatel může nastavit vlastní den začátku a délku období podle svých potřeb.
+
+Výchozí možnost může být kalendářní měsíc, ale uživatel ji může změnit.
+
+### Období podle výplaty
+
+Pokud uživatel dostává výplatu například 15. den v měsíci, může nastavit:
+
+**Rozpočtové období: 15. → 14.**
+
+Například:
+
+**15. 10. – 14. 11.**
+
+V tomto období ANITKA sleduje:
+
+- skutečně přijatou výplatu,
+- plánované příjmy,
+- skutečné výdaje,
+- plánované výdaje,
+- pravidelné platby,
+- plánované a skutečně provedené úspory,
+- Kapsy,
+- skutečný zůstatek,
+- dostupný zůstatek,
+- predikovaný zůstatek,
+- případný převod z předchozího období.
+
+### Výplata jako začátek nového období
+
+Při použití období podle výplaty se nový rozpočtový cyklus může automaticky otevřít dnem očekávané výplaty.
+
+Například:
+
+**14. 10. – konec předchozího období**  
+**15. 10. – nová výplata a začátek nového období**
+
+Pokud výplata ještě nebyla skutečně přijata, zůstává pouze jako **plánovaný příjem**. Po skutečném přijetí se převede na skutečný příjem.
+
+### Převod mezi obdobími
+
+Pravidla převodu mezi obdobími jsou stejná bez ohledu na délku nebo typ období.
+
+Převod může být:
+
+- kladný `+` – přebytek z předchozího období,
+- záporný `−` – schodek z předchozího období.
+
+**Převod není příjem, výdaj ani úspora. Pouze upravuje dostupné prostředky následujícího rozpočtového období.**
+
+Pro nové období platí:
+
+**Dostupné prostředky = skutečné příjmy + převod z předchozího období**
+
+Příklad kladného převodu:
+
+Výplata: **38 000 Kč**  
+Převod z předchozího období: **+1 800 Kč**  
+→ dostupné prostředky: **39 800 Kč**
+
+Příklad záporného převodu:
+
+Výplata: **38 000 Kč**  
+Převod z předchozího období: **−2 300 Kč**  
+→ dostupné prostředky: **35 700 Kč**
+
+### Důležité pravidlo
+
+Celá logika Rozpočtu musí pracovat s **rozpočtovými obdobími**, nikoliv přímo s pojmem „měsíc“.
+
+Kalendářní měsíc je pouze jednou z možností.
+
+Všechny funkce musí respektovat zvolené období:
+
+- plánování,
+- výdaje,
+- příjmy,
+- pravidelné platby,
+- pojištění,
+- úspory,
+- Kapsy,
+- převody,
+- uzavření období,
+- statistiky,
+- predikce,
+- upozornění.
+
+**Rozpočtové období = období, podle kterého uživatel reálně hospodaří se svými penězi.**

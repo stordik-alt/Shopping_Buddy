@@ -1,5 +1,5 @@
 import { normalizeProductText } from '@/lib/product-normalize'
-import { classifyReceiptLineType, PRODUCT_TYPES } from '@/lib/product-types'
+import { classifyReceiptLineType } from '@/lib/product-types'
 import type { ItemCategory } from '@/lib/types'
 
 export const PKD_MAPPING_VERSION = '2026-10-v1'
@@ -38,22 +38,14 @@ export type PkdProductTypeMapping = {
   }
 }
 
-const targets = PRODUCT_TYPES.map((type) => ({
-  id: type.key,
-  key: type.key,
-  name: type.name,
-  category: type.categories[0],
-}))
-
-const normalizedTargetNames = new Map<string, ProductTypeMappingTarget[]>()
-for (const target of targets) {
-  const normalized = normalizeProductText(target.name)
-  const group = normalizedTargetNames.get(normalized) ?? []
-  group.push(target)
-  normalizedTargetNames.set(normalized, group)
-}
-
-function exactMatch(input: PkdMappingInput): { target: ProductTypeMappingTarget; matchedText: string } | null {
+function exactMatch(input: PkdMappingInput, targets: ProductTypeMappingTarget[]): { target: ProductTypeMappingTarget; matchedText: string } | null {
+  const normalizedTargetNames = new Map<string, ProductTypeMappingTarget[]>()
+  for (const target of targets) {
+    const normalized = normalizeProductText(target.name)
+    const group = normalizedTargetNames.get(normalized) ?? []
+    group.push(target)
+    normalizedTargetNames.set(normalized, group)
+  }
   const texts = [input.canonicalName, ...(input.synonyms ?? [])]
   for (const text of texts) {
     const normalized = normalizeProductText(text)
@@ -63,7 +55,7 @@ function exactMatch(input: PkdMappingInput): { target: ProductTypeMappingTarget;
   return null
 }
 
-function ruleMatch(input: PkdMappingInput): ProductTypeMappingTarget | null {
+function ruleMatch(input: PkdMappingInput, targets: ProductTypeMappingTarget[]): ProductTypeMappingTarget | null {
   const category = input.category as ItemCategory | null | undefined
   const key = classifyReceiptLineType(category ?? null, input.canonicalName)
   if (!key) return null
@@ -71,7 +63,7 @@ function ruleMatch(input: PkdMappingInput): ProductTypeMappingTarget | null {
   return target ?? null
 }
 
-export function generatePkdProductTypeMappings(inputs: PkdMappingInput[]): PkdProductTypeMapping[] {
+export function generatePkdProductTypeMappings(inputs: PkdMappingInput[], targets: ProductTypeMappingTarget[]): PkdProductTypeMapping[] {
   const result: PkdProductTypeMapping[] = []
 
   for (const input of inputs) {
@@ -81,7 +73,7 @@ export function generatePkdProductTypeMappings(inputs: PkdMappingInput[]): PkdPr
     const normalizedName = normalizeProductText(input.canonicalName)
     if (!normalizedName) continue
 
-    const exact = exactMatch(input)
+    const exact = exactMatch(input, targets)
     if (exact) {
       result.push({
         pkdEntryId: input.id,
@@ -102,7 +94,7 @@ export function generatePkdProductTypeMappings(inputs: PkdMappingInput[]): PkdPr
       continue
     }
 
-    const rule = ruleMatch(input)
+    const rule = ruleMatch(input, targets)
     if (!rule) continue
 
     result.push({

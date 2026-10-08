@@ -1,3 +1,6 @@
+## 2026-10-08 (PKD candidate schema formatting fix)
+- Corrected the generated schema insertion so the new PKD candidate declarations use real line breaks and remain valid TypeScript.
+
 ## 2026-10-08 (PKD candidate generation)
 - Added a versioned candidate layer for previously unmapped PKD identities.
 - Candidates are grouped deterministically by normalized name and language, retain source PKD entry IDs and evidence, and never mutate internal Product Types automatically.

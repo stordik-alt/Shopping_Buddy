@@ -2,15 +2,9 @@
 -- Knowledge is separate from product_types: external source records may map to an internal Product Type,
 -- but importing a source classification must never create one automatically.
 
-DO $$ BEGIN
-  CREATE TYPE "pkd_source_type" AS ENUM ('gs1_gpc', 'open_food_facts', 'cz_cpa', 'seed_catalog', 'ocr', 'manual');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN
-  CREATE TYPE "pkd_entry_status" AS ENUM ('candidate', 'approved', 'rejected', 'inactive');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN
-  CREATE TYPE "pkd_mapping_status" AS ENUM ('unmapped', 'candidate', 'mapped', 'rejected');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+CREATE TYPE "pkd_source_type" AS ENUM ('gs1_gpc', 'open_food_facts', 'cz_cpa', 'seed_catalog', 'ocr', 'manual');
+CREATE TYPE "pkd_entry_status" AS ENUM ('candidate', 'approved', 'rejected', 'inactive');
+CREATE TYPE "pkd_mapping_status" AS ENUM ('unmapped', 'candidate', 'mapped', 'rejected');
 
 CREATE TABLE IF NOT EXISTS "pkd_sources" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),

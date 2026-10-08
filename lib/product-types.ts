@@ -107,7 +107,6 @@ export const PRODUCT_TYPES: ProductTypeDefinition[] = [
   // --- Ovoce a zelenina -----------------------------------------------------------------------------
   { key: 'jablka', name: 'Jablka', categories: [P], subcategory: 'Ovoce a zelenina', unit: 'kg', rule: produce(['jablka', 'jablko', 'jablk'], ['granátov', 'jablečn']) },
   { key: 'banany', name: 'Banány', categories: [P], subcategory: 'Ovoce a zelenina', unit: 'kg', rule: produce(['banány', 'banán', 'banan'], ['plátky', 'chips']) },
-  { key: 'pomerance', name: 'Pomeranče', categories: [P], subcategory: 'Ovoce a zelenina', unit: 'kg', rule: produce(['pomeranče', 'pomeranč', 'pomeranc'], ['pomeranč 100', 'fine life pomeranč', 'aro pomeranč']) },
   { key: 'mandarinky', name: 'Mandarinky a klementinky', categories: [P], subcategory: 'Ovoce a zelenina', unit: 'kg', rule: produce(['mandarink', 'klementink']) },
   { key: 'citrony', name: 'Citrony', categories: [P], subcategory: 'Ovoce a zelenina', unit: 'kg', rule: produce(['citrony', 'citron '], ['tráva', 'šťáva', 'kůra']) },
   { key: 'hrusky', name: 'Hrušky', categories: [P], subcategory: 'Ovoce a zelenina', unit: 'kg', rule: produce(['hrušky', 'hruška']) },
@@ -132,13 +131,12 @@ export const PRODUCT_TYPES: ProductTypeDefinition[] = [
   { key: 'houby', name: 'Houby', categories: [P], subcategory: 'Ovoce a zelenina', unit: 'kg', rule: produce(['houby', 'houba'], ['sušen', 'nakládan', 'sterilovan', 'v nálevu', 'polévk', 'omáčk', 'krém', 'extrakt']) },
 
   // --- Owner-approved everyday additions (2026-10-08) ------------------------------------------------
-  { key: 'okurky', name: 'Okurka', categories: [P], subcategory: 'Ovoce a zelenina', unit: 'ks', rule: produce(['okurka', 'okurky'], ['sterilovan', 'kyselé', 'nakládan', 'kvašen', 'v nálevu', 'ster ', ' cm', 'delikates']) },
   { key: 'pomerance', name: 'Pomeranče', categories: [P], subcategory: 'Ovoce a zelenina', unit: 'kg', rule: produce(['pomeranče', 'pomeranč']) },
   { key: 'pomazanky', name: 'Pomazánky', categories: [P], subcategory: 'Džemy, med a pomazánky', unit: 'kg', rule: food([' pomazánk'], [], {}, ['pomazánk', 'pomazán']) },
   { key: 'mrazena-zelenina', name: 'Mražená zelenina', categories: [P], subcategory: null, unit: 'kg', rule: food([' mražená zelenina', ' mraženou zeleninu', ' mražená zelenina ']) },
   { key: 'cerealie', name: 'Cereálie', categories: [P], subcategory: null, unit: 'kg', rule: food([' cereál', ' musli', ' müsli', ' cornflakes', ' corn flakes']) },
   { key: 'ovesne-vlocky', name: 'Ovesné vločky', categories: [P], subcategory: null, unit: 'kg', rule: food([' ovesné vločk', ' ovesn vločk']) },
-  { key: 'korenene-omacky', name: 'Kečup', categories: [P], subcategory: 'Omáčky a dochucovadla', unit: 'l', rule: food([' kečup', ' kecup']) },
+  { key: 'kecup', name: 'Kečup', categories: [P], subcategory: 'Omáčky a dochucovadla', unit: 'l', rule: food([' kečup', ' kecup']) },
   { key: 'horcice', name: 'Hořčice', categories: [P], subcategory: 'Omáčky a dochucovadla', unit: 'kg', rule: food([' hořčic', ' horcic']) },
   { key: 'majoneza', name: 'Majonéza', categories: [P], subcategory: 'Omáčky a dochucovadla', unit: 'kg', rule: food([' majonéz', ' majonez']) },
   { key: 'dzem', name: 'Džem a marmeláda', categories: [P], subcategory: 'Džemy, med a pomazánky', unit: 'kg', rule: food([' džem', ' marmelád', ' marmelada', ' džemový']) },
@@ -475,7 +473,7 @@ const ITEM_PHRASES: Record<string, string[]> = {
   'mrazena-zelenina': ['mražená zelenina'],
   'cerealie': ['cereálie', 'cereál', 'müsli', 'musli', 'cornflakes'],
   'ovesne-vlocky': ['ovesné vločky'],
-  'korenene-omacky': ['kečup', 'kecup'],
+  kecup: ['kečup', 'kecup'],
   'horcice': ['hořčice', 'hořčici'],
   'majoneza': ['majonéza', 'majoneza'],
   'dzem': ['džem', 'marmeláda'],

@@ -1,7 +1,7 @@
 'use client'
 
 import { forwardRef, useEffect, useRef, useState } from 'react'
-import { searchManualProductSuggestionsAction, type ManualProductSuggestion } from '@/app/actions/manual-product-suggestions'
+import type { ManualProductSuggestion } from '@/lib/manual-product-suggestions'
 import { Input } from '@/components/ui/field'
 
 export type ProductAutocompleteSelection = ManualProductSuggestion
@@ -28,7 +28,8 @@ export const ProductAutocomplete = forwardRef<HTMLInputElement, {
     const id = ++requestId.current
     const timer = window.setTimeout(() => {
       setLoading(true)
-      void searchManualProductSuggestionsAction(query)
+      void fetch('/api/manual-product-suggestions?q=' + encodeURIComponent(query), { cache: 'no-store' })
+        .then((response) => response.ok ? response.json() as Promise<ManualProductSuggestion[]> : Promise.reject(new Error('Suggestions unavailable')))
         .then((result) => {
           if (id !== requestId.current) return
           setSuggestions(result)

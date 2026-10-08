@@ -90,6 +90,7 @@ async function main() {
     .filter((row) => row.status !== 'rejected')
     .map((row) => row.pkdEntryId))
 
+  const existingProductTypes = await db.select({ name: schema.productTypes.name }).from(schema.productTypes)
   const candidates = generatePkdProductTypeCandidates(entries.map((entry) => {
     const attributes = entry.attributes as Record<string, unknown>
     const source = sourceKind(entry.stableKey, attributes)
@@ -99,7 +100,7 @@ async function main() {
         && !entriesWithExistingMapping.has(entry.id),
       sourceKind: source.kind,
     }
-  }))
+  }), existingProductTypes.map((productType) => productType.name))
 
   const sourceCounts = candidates.reduce<Record<string, number>>((counts, candidate) => {
     for (const source of candidate.evidence.sourceKinds) counts[source] = (counts[source] ?? 0) + 1

@@ -1,3 +1,10 @@
+## 2026-10-08 (PKD mapping acceptance workflow)
+- **Added:** migration 0083 and audit table `pkd_product_type_mapping_reviews` for explicit PKD → Product Type decisions.
+- **Safety:** acceptance only applies to a still-candidate mapping whose PKD entry remains unmapped; it cannot overwrite a newer/manual Product Type assignment.
+- **Governance:** rejection requires a reason; accepted/rejected candidates cannot be decided again.
+- **Audit:** reviewer UUID, decision, note and timestamp are persisted while the original mapping evidence/version remains intact.
+- **Tooling:** added `pnpm db:review-pkd-mapping` with `--list`, `--accept` and `--reject` modes.
+
 ## 2026-10-08 (PKD mapping runner CI fix)
 - **Fixed:** wrapped the database-backed PKD mapping runner in an async `main()` function so it no longer relies on top-level `await`, which is incompatible with the repository TypeScript module configuration.
 - **Error addressed:** `TS1378` from `scripts/generate-pkd-mappings.ts` during `pnpm exec tsc --noEmit`.

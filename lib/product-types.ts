@@ -131,7 +131,7 @@ export const PRODUCT_TYPES: ProductTypeDefinition[] = [
   { key: 'houby', name: 'Houby', categories: [P], subcategory: 'Ovoce a zelenina', unit: 'kg', rule: produce(['houby', 'houba'], ['sušen', 'nakládan', 'sterilovan', 'v nálevu', 'polévk', 'omáčk', 'krém', 'extrakt']) },
 
   // --- Owner-approved everyday additions (2026-10-08) ------------------------------------------------
-  { key: 'pomerance', name: 'Pomeranče', categories: [P], subcategory: 'Ovoce a zelenina', unit: 'kg', rule: produce(['pomeranče', 'pomeranč']) },
+  { key: 'pomerance', name: 'Pomeranče', categories: [P], subcategory: 'Ovoce a zelenina', unit: 'kg', rule: produce(['pomeranče', 'pomeranč'], [' 100%']) },
   { key: 'pomazanky', name: 'Pomazánky', categories: [P], subcategory: 'Džemy, med a pomazánky', unit: 'kg', rule: food([' pomazánk'], [], {}, ['pomazánk', 'pomazán']) },
   { key: 'mrazena-zelenina', name: 'Mražená zelenina', categories: [P], subcategory: null, unit: 'kg', rule: food([' mražená zelenina', ' mraženou zeleninu', ' mražená zelenina ']) },
   { key: 'cerealie', name: 'Cereálie', categories: [P], subcategory: null, unit: 'kg', rule: food([' cereál', ' musli', ' müsli', ' cornflakes', ' corn flakes']) },

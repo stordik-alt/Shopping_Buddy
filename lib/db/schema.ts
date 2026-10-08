@@ -251,7 +251,33 @@ export const pkdSynonyms = pgTable('pkd_synonyms', {
 ])
 
 export const pkdNormalizationMethodEnum = pgEnum('pkd_normalization_method', ['unicode_fold', 'whitespace_fold', 'punctuation_fold', 'alias_fold'])
-export const pkdDedupStatusEnum = pgEnum('pkd_dedup_status', ['candidate', 'accepted', 'rejected'])
+export const pkdDedupStatusEnum = pgEnum('pkd_dedup_status', ['candidate', 'accepted', 'rejected'])\n\nexport const pkdCandidateStatusEnum = pgEnum('pkd_candidate_status', ['candidate', 'accepted', 'rejected'])
+
+export const pkdProductTypeCandidates = pgTable('pkd_product_type_candidates', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  candidateKey: text('candidate_key').notNull().unique(),
+  canonicalName: text('canonical_name').notNull(),
+  normalizedName: text('normalized_name').notNull(),
+  language: text('language').notNull(),
+  category: itemCategoryEnum('category'),
+  subcategory: text('subcategory'),
+  physicalForm: text('physical_form'),
+  processingState: text('processing_state'),
+  comparisonUnit: itemUnitEnum('comparison_unit'),
+  evidence: jsonb('evidence').$type<Record<string, unknown>>().notNull().default({}),
+  sourceEntryIds: uuid('source_entry_ids').array().notNull().default([]),
+  confidence: numeric('confidence', { precision: 4, scale: 3 }),
+  status: pkdCandidateStatusEnum('status').notNull().default('candidate'),
+  candidateVersion: text('candidate_version').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('pkd_product_type_candidates_normalized_idx').on(table.normalizedName),
+  index('pkd_product_type_candidates_status_idx').on(table.status),
+  check('pkd_product_type_candidates_confidence_range', sql`${table.confidence} IS NULL OR (${table.confidence} >= 0 AND ${table.confidence} <= 1)`),
+])
+
+
 
 export const pkdEntryNormalizations = pgTable('pkd_entry_normalizations', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -1361,6 +1387,8 @@ export const productTypesRelations = relations(productTypes, ({ many }) => ({
 export const pkdSourcesRelations = relations(pkdSources, ({ many }) => ({
   mappings: many(pkdExternalMappings),
 }))
+
+export const pkdProductTypeCandidatesRelations = relations(pkdProductTypeCandidates, () => ({}))
 
 export const pkdEntriesRelations = relations(pkdEntries, ({ one, many }) => ({
   productType: one(productTypes, { fields: [pkdEntries.productTypeId], references: [productTypes.id] }),

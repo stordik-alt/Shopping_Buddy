@@ -552,7 +552,7 @@ CZ-CPA je zde záměrně **validace/mapování**, nikoli retailový Product Type
 Generování nových druhů bylo zpřesněno, protože samotný počet kandidátů bez konkrétních názvů a zdrojů nebyl použitelný.
 
 - Kandidát znamená návrh **nové interní Product Type identity**, nikoli pouze návrh vazby na existující druh.
-- Identita je deterministická: `language + normalizedName`; ekvivalentní záznamy se seskupí a zachovají se všechna zdrojová ID.
+- Identita je deterministická: `language + normalizedName`; ekvivalentní záznamy se seskupí a zachovají se všechna zdrojová ID. Velikost písmen, diakritika a interpunkce nevytvářejí novou identitu (např. `PAPRIKA`, `Paprika`, `paprika`).
 - Přímé návrhy pro český katalog vznikají z českých koncových kategorií Open Food Facts a z českých záznamů vlastních, seed a OCR zdrojů.
 - GS1 GPC a CZ-CPA slouží v této fázi jako referenční taxonomie, nikoli jako přímé návrhy retailových druhů. Záznamy OFF s potomky se také nenavrhují jako samostatný druh.
 - Záznam, který už má kandidátní nebo schválenou vazbu na existující Product Type, se nesmí zároveň navrhovat jako nový druh. Zamítnuté a neaktivní záznamy se vynechávají.
@@ -566,7 +566,7 @@ Generování nových druhů bylo zpřesněno, protože samotný počet kandidát
 - Workflow `PKD Product Type candidate approval` je manuální a ve výchozím režimu pouze ověřuje kandidáta.
 - Schválení vyžaduje explicitní interní kategorii a porovnávací jednotku; stabilní `key` se vytvoří z normalizovaného názvu nebo jej lze dodat ručně.
 - Teprve při `apply=true` vznikne záznam v `product_types`, zdrojové PKD entries se propojí přes `product_type_id` a kandidát se označí jako `accepted`.
-- Schválení se odmítne, pokud kandidát není v češtině, nemá dohledatelné zdroje, zdroj už má přiřazený druh nebo koliduje klíč.
+- Schválení se odmítne, pokud kandidát není v češtině, nemá dohledatelné zdroje, zdroj už má přiřazený druh, koliduje klíč nebo již existuje Product Type se stejným normalizovaným názvem (bez ohledu na velikost písmen a diakritiku).
 - Nový DB záznam sám o sobě ještě nerozšíří statický seznam druhů v `lib/product-types.ts`; dynamické načítání nových typů do UI, pravidel klasifikace a plánovače zůstává navazující implementační krok. Tím se zabrání tomu, aby se nový druh tvářil jako plně podporovaný, dokud aplikace neumí bezpečně využívat jeho definici.
 
 Tato fáze záměrně neprovádí automatické mapování na existující druhy. To je samostatný krok `Mapping engine`.

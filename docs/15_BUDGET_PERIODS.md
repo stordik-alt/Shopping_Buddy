@@ -1,148 +1,72 @@
-# 15 — Budget by period: next period's budget, savings goal, past periods
+# 15 — Rozpočet: kompletní koncept
 
-Status: implemented 2026-10-05 (feature B of the post-redesign plan; concept owner-approved the same day). The owner's words: "Nikde nevidím, kde
-se zadává rozpočet na další měsíc, kolik chci ušetřit a kolik už bylo ušetřeno. Dále v rozpočtu chci zkontrolovat i
-předešlá období, ne jen aktuální." "Ušetřeno" was chosen as **budget minus spending** of a period (not deal savings).
+**Status:** koncept / zdroj pravdy pro plánovanou rozšířenou logiku Rozpočtu  
+**Scope:** plánování rozpočtu, příjmy, výdaje, pravidelné platby, úspory, Kapsy, zůstatky, rozpočtová období a převody mezi obdobími.
 
-## Before (verified in code, 2026-10-05)
-- One budget for every period: `households.monthly_budget` (set in Profil). The `budgets` table (household, month,
-  amount) exists from the baseline but nothing reads or writes it; production has no rows (checked 2026-10-05).
-- Since #214 the page loads only the **current period's** expenses (`getHouseholdData`, `historySince`). So Výdaje
-  cannot show an older month although it has a month switcher, and "Utrácíte méně/více než minulý měsíc"
-  (`periodOverPeriodChange`) has no previous period to compare and is never shown.
-- No savings goal anywhere.
+## 1. Cíl
 
-## Rules
-1. **Budget of a period** = that period's own amount if the household set one (`budgets`, keyed by the period's start
-   date), else the default from Profil (`households.monthly_budget`). One function decides it (`budgetForPeriod`,
-   `lib/budget.ts`) and everything uses it — the budget card, the 80 % / 100 % notifications, the category snapshot.
-2. The household can set the budget of the **current** and the **next** period (Rozpočet ▸ Upravit). Setting it back to
-   the default removes the period's own amount.
-3. **Savings goal**: one monthly amount for the household (`households.savings_goal`, 0 = none).
-4. **Saved in a period** = its budget − its spending (negative = overspent). Shown for every finished period, and as
-   "zatím zbývá" for the current one; the total of finished periods is "ušetřeno celkem". Only periods with a budget
-   (> 0) count. A finished period without its own budget is measured against today's default — changing the default
-   in Profil also changes what such periods saved; a period's own budget keeps it fixed.
-   Test receipts of a period are removed by deleting the purchases (`docs/20_DELETE_PURCHASE.md`); a period left
-   without spending is no longer counted.
-5. **Past periods** are loaded only when looked at (Neon compute): Rozpočet loads the household's spending per day once
-   (one small aggregate query — enough for the list of periods, their totals and savings), and a period's expenses
-   when it is opened. The current period stays in the page load as today.
+Rozpočet není pouze přehled historických výdajů. Je to plánovací a řídicí centrum, které uživateli umožňuje:
 
-## Data
-Migration `0067_budget_periods.sql`, additive: `households.savings_goal numeric(10,2) NOT NULL DEFAULT 0` (≥ 0), and a
-unique index on `budgets (household_id, month)` (the table is empty in production), `budgets.amount ≥ 0`.
+1. plánovat každé rozpočtové období,
+2. sledovat skutečné a plánované peníze odděleně,
+3. evidovat pravidelné platby a pojištění,
+4. plánovat úspory,
+5. vytvářet účelové úspory („Kapsy“),
+6. sledovat skutečný i očekávaný stav peněz,
+7. rozhodovat o využití přebytku na konci období,
+8. řešit schodek,
+9. přenášet přebytek nebo schodek do následujícího období,
+10. propojit rozpočet s nákupy, zásobami, akcemi a plánováním jídel.
 
-## Code
-- `lib/budget.ts`: `budgetForPeriod`, `spendingByPeriod` (daily totals → per period), `periodSavings`, `savingsHistory`
-  (finished periods with a budget, oldest first, and their total).
-- Actions (`app/actions/budget.ts`): `getBudgetHistoryAction()` (daily totals), `getPeriodExpensesAction(period)`,
-  `setPeriodBudgetAction(period, amount | null)` (current or next period only), `setSavingsGoalAction(amount)`.
-- `getHouseholdData` returns the period budgets (`household.periodBudgets`) and the savings goal; the budget-threshold
-  notifications use the period's budget (`periodSpending` returns the period, `notifyBudgetThresholds` reads its row).
-- Client state: `components/shell/use-budget-periods.ts` — loads the per-day totals while Rozpočet is open and a past
-  period's expenses when Výdaje shows it; an expense added, corrected or removed in a past period drops that period's
-  copy and the totals, so they load again.
-- UI, Rozpočet ▸ Aktuální stav: the budget card shows the current period's budget; under it the card **Plán a úspory**
-  (`components/budget/budget-plan.tsx`): this and the next period's budget, the savings goal, what is left in this
-  period and how much is missing to the goal, and the finished periods (newest first, six then "Zobrazit všechna")
-  with budget, spending and saved / overspent, plus "Ušetřeno celkem". A finished period opens in Výdaje. "Upravit"
-  (and "Nastavit rozpočet" on the budget card) opens the sheet **Upravit rozpočet** for this and the next period and
-  the goal. Výdaje's period switcher lists every period with spending and loads an older one when shown.
-  (The concept's first draft put a period switcher on Aktuální stav itself; the list in the card plus Výdaje gives
-  the same look back without a second switcher.)
+## 2. Základní struktura Rozpočtu
 
-## Not in scope
-- Per-category goals, savings accounts, deal savings ("ušetřeno na akcích" — may come later as its own figure).
+Hlavní části:
 
+- **Přehled**
+- **Výdaje**
+- **Plánování**
 
-## Rozpočtové období podle výplaty
+Nastavení rozpočtu a rozpočtových období patří do:
 
-Rozpočet nemusí být veden pouze podle kalendářních měsíců. Uživatel si zvolí, jaké období pro něj představuje jeden rozpočtový cyklus:
+**Rozpočet → Plánování**
 
-- **Kalendářní měsíc** – například 1.–31. den v měsíci.
-- **Období podle výplaty** – například od 15. dne do 14. dne následujícího měsíce.
-- **Vlastní období** – uživatel může nastavit vlastní den začátku a délku období podle svých potřeb.
+Nemají být samostatnou položkou v Profilu.
 
-Výchozí možnost může být kalendářní měsíc, ale uživatel ji může změnit.
+## 3. Rozpočtové období
 
-### Období podle výplaty
+Rozpočet není pevně navázán na kalendářní měsíc.
 
-Pokud uživatel dostává výplatu například 15. den v měsíci, může nastavit:
+Uživatel si zvolí, jaké období pro něj představuje jeden rozpočtový cyklus:
 
-**Rozpočtové období: 15. → 14.**
+- **Kalendářní měsíc** — například 1.–31.
+- **Období podle výplaty** — například 15.–14. následujícího měsíce.
+- **Vlastní období** — uživatel může nastavit vlastní začátek a délku období.
 
-Například:
+Kalendářní měsíc je pouze výchozí možnost.
+
+### 3.1 Období podle výplaty
+
+Pokud uživatel dostává výplatu 15. den v měsíci, může nastavit:
 
 **15. 10. – 14. 11.**
 
-V tomto období ANITKA sleduje:
+Nové období začíná dnem výplaty.
 
-- skutečně přijatou výplatu,
-- plánované příjmy,
-- skutečné výdaje,
-- plánované výdaje,
-- pravidelné platby,
-- plánované a skutečně provedené úspory,
-- Kapsy,
-- skutečný zůstatek,
-- dostupný zůstatek,
-- predikovaný zůstatek,
-- případný převod z předchozího období.
+Pokud očekávaná výplata ještě nebyla skutečně přijata, je pouze **plánovaným příjmem**. Po skutečném přijetí se převede na skutečný příjem.
 
-### Výplata jako začátek nového období
+### 3.2 Jednotná logika období
 
-Při použití období podle výplaty se nový rozpočtový cyklus může automaticky otevřít dnem očekávané výplaty.
+Celá logika Rozpočtu musí pracovat s pojmem **rozpočtové období**, nikoliv přímo s pojmem „měsíc“.
 
-Například:
+Zvolené období musí respektovat:
 
-**14. 10. – konec předchozího období**  
-**15. 10. – nová výplata a začátek nového období**
-
-Pokud výplata ještě nebyla skutečně přijata, zůstává pouze jako **plánovaný příjem**. Po skutečném přijetí se převede na skutečný příjem.
-
-### Převod mezi obdobími
-
-Pravidla převodu mezi obdobími jsou stejná bez ohledu na délku nebo typ období.
-
-Převod může být:
-
-- kladný `+` – přebytek z předchozího období,
-- záporný `−` – schodek z předchozího období.
-
-**Převod není příjem, výdaj ani úspora. Pouze upravuje dostupné prostředky následujícího rozpočtového období.**
-
-Pro nové období platí:
-
-**Dostupné prostředky = skutečné příjmy + převod z předchozího období**
-
-Příklad kladného převodu:
-
-Výplata: **38 000 Kč**  
-Převod z předchozího období: **+1 800 Kč**  
-→ dostupné prostředky: **39 800 Kč**
-
-Příklad záporného převodu:
-
-Výplata: **38 000 Kč**  
-Převod z předchozího období: **−2 300 Kč**  
-→ dostupné prostředky: **35 700 Kč**
-
-### Důležité pravidlo
-
-Celá logika Rozpočtu musí pracovat s **rozpočtovými obdobími**, nikoliv přímo s pojmem „měsíc“.
-
-Kalendářní měsíc je pouze jednou z možností.
-
-Všechny funkce musí respektovat zvolené období:
-
-- plánování,
-- výdaje,
 - příjmy,
+- výdaje,
 - pravidelné platby,
 - pojištění,
 - úspory,
 - Kapsy,
+- rozpočty,
 - převody,
 - uzavření období,
 - statistiky,
@@ -150,3 +74,554 @@ Všechny funkce musí respektovat zvolené období:
 - upozornění.
 
 **Rozpočtové období = období, podle kterého uživatel reálně hospodaří se svými penězi.**
+
+## 4. Přehled
+
+Přehled zobrazuje aktuální rozpočtové období.
+
+Má obsahovat zejména:
+
+- skutečné příjmy,
+- plánované příjmy,
+- plánovaný rozpočet,
+- skutečné výdaje,
+- plánované výdaje,
+- skutečný zůstatek,
+- dostupný zůstatek,
+- predikovaný zůstatek,
+- volné peníze,
+- pravidelné platby,
+- plánované úspory,
+- skutečně provedené úspory,
+- Kapsy a jejich stav,
+- případný převod z předchozího období,
+- upozornění na očekávaný schodek nebo nedostatek prostředků.
+
+## 5. Výdaje
+
+Výdaje jsou skutečné nebo plánované finanční operace.
+
+Typické kategorie:
+
+- potraviny,
+- bydlení,
+- energie,
+- doprava,
+- děti,
+- zdraví,
+- pojištění,
+- předplatné,
+- telefon,
+- ostatní.
+
+Výdaj může být:
+
+- jednorázový,
+- opakovaný / pravidelný,
+- plánovaný,
+- skutečně uskutečněný.
+
+Výdaj se při skutečném uskutečnění převede z plánovaného na skutečný a nesmí být započítán dvakrát.
+
+## 6. Pravidelné platby a pojištění
+
+Rozpočet podporuje pravidelné finanční závazky:
+
+- nájem,
+- energie,
+- telefon,
+- předplatné,
+- životní pojištění,
+- úrazové pojištění,
+- penzijní pojištění,
+- pojištění domácnosti,
+- pojištění vozidla,
+- jiné pojištění.
+
+Interval může být:
+
+- měsíční,
+- čtvrtletní,
+- pololetní,
+- roční,
+- vlastní.
+
+Velké nepravidelné platby musí být zahrnuty do budoucího plánování, aby ANITKA dokázala upozornit na budoucí nedostatek prostředků.
+
+## 7. Plánování
+
+V části **Plánování** uživatel nastavuje a kontroluje jednotlivá rozpočtová období.
+
+Pro každé období lze plánovat:
+
+- příjmy,
+- rozpočet,
+- výdaje,
+- pravidelné platby,
+- úspory,
+- cíle,
+- převod z předchozího období,
+- očekávaný výsledek.
+
+Lze plánovat aktuální i budoucí období.
+
+## 8. Skutečné vs. plánované peníze
+
+Toto je základní pravidlo celé logiky.
+
+### Skutečné peníze
+
+Jsou peníze, které:
+
+- byly skutečně přijaty,
+- byly skutečně utraceny,
+- byly skutečně převedeny do Kapsy nebo jiného účelu.
+
+### Plánované peníze
+
+Jsou očekávané budoucí:
+
+- příjmy,
+- výdaje,
+- pravidelné platby,
+- úspory,
+- převody.
+
+Plánované peníze nesmí měnit skutečný zůstatek.
+
+### Predikce
+
+Predikce kombinuje skutečný současný stav s očekávanými budoucími operacemi.
+
+Každá plánovaná operace může přejít:
+
+**Plánováno → Skutečné**
+
+Po přechodu musí být původní plánovaná operace označena jako splněná / nahrazená skutečnou operací, aby nedošlo k dvojímu započítání.
+
+## 9. Definice zůstatků
+
+### 9.1 Skutečný zůstatek
+
+**Skutečný zůstatek = skutečně přijaté peníze − skutečně uskutečněné výdaje − skutečně provedené převody.**
+
+Plánované příjmy a výdaje se do něj nezapočítávají.
+
+Příklad:
+
+- skutečné příjmy: 38 000 Kč
+- skutečné výdaje: 31 200 Kč
+- skutečný převod do Kapsy: 2 000 Kč
+
+→ skutečný zůstatek: **4 800 Kč**
+
+### 9.2 Dostupný zůstatek
+
+**Dostupný zůstatek = skutečný zůstatek − částky již vyhrazené na budoucí závazky.**
+
+Je to částka, kterou může uživatel bezpečně použít.
+
+Příklad:
+
+- skutečný zůstatek: 6 800 Kč
+- vyhrazené budoucí závazky: 3 800 Kč
+
+→ dostupný zůstatek: **3 000 Kč**
+
+### 9.3 Plánovaný zůstatek
+
+**Plánovaný zůstatek = plánované příjmy − plánované výdaje − plánované převody do úspor.**
+
+Slouží pouze pro plánování.
+
+### 9.4 Predikovaný zůstatek
+
+**Predikovaný zůstatek = skutečný zůstatek + očekávané příjmy − očekávané výdaje − plánované budoucí převody.**
+
+Ukazuje očekávaný stav na konci období.
+
+### 9.5 Volné peníze
+
+**Volné peníze = skutečný zůstatek − částky vyhrazené na závazky − částky již určené k jinému účelu.**
+
+Pouze volné peníze lze na konci období rozdělovat mezi:
+
+- Kapsy,
+- finanční rezervu,
+- následující období.
+
+**Plánovaný zůstatek není skutečný zůstatek. Predikovaný zůstatek není skutečný zůstatek. Skutečný zůstatek není automaticky totéž co volné peníze.**
+
+## 10. Úspory
+
+Úspory nejsou běžný výdaj.
+
+Rozdíl:
+
+- **výdaj** = peníze jsou spotřebovány,
+- **úspora** = peníze jsou odloženy pro budoucí použití.
+
+Plánovaná úspora nesnižuje skutečný stav, dokud není převod skutečně proveden.
+
+Rozpočet musí rozlišovat:
+
+- plánovanou úsporu,
+- skutečně uloženou částku,
+- zůstatek úspor.
+
+## 11. Úsporné Kapsy
+
+„Kapsa“ je účelově určená část peněz.
+
+Příklady:
+
+- Auto,
+- Finanční rezerva,
+- Vánoce,
+- Dovolená.
+
+Kapsa může obsahovat:
+
+- název,
+- ikonu,
+- cílovou částku,
+- termín,
+- počáteční částku,
+- plánovaný měsíční / periodický příspěvek,
+- skutečně uloženou částku,
+- aktuální zůstatek.
+
+ANITKA může vypočítat doporučený příspěvek.
+
+Příklad:
+
+**Cíl: 150 000 Kč do prosince 2027**
+
+→ ANITKA doporučí přibližnou pravidelnou částku potřebnou k dosažení cíle.
+
+### 11.1 Plánovaná vs. skutečná úspora
+
+Plánovaný příspěvek do Kapsy nezvyšuje její skutečný zůstatek.
+
+Teprve skutečně provedený převod:
+
+**Rozpočet → Kapsa**
+
+zvýší zůstatek Kapsy.
+
+## 12. Konec rozpočtového období
+
+Na konci období ANITKA vyhodnotí skutečný výsledek.
+
+### Kladný výsledek
+
+Příklad:
+
+- příjmy: 38 000 Kč
+- výdaje: 33 200 Kč
+- volné peníze: 4 800 Kč
+
+ANITKA zobrazí:
+
+**„Skutečně vám zůstalo 4 800 Kč. Co s nimi chcete udělat?“**
+
+Uživatel může například zvolit:
+
+- Auto: +2 000 Kč
+- Finanční rezerva: +1 500 Kč
+- následující období: +1 300 Kč
+
+Uživatel může doporučení ANITKY změnit.
+
+### Záporný výsledek
+
+Příklad:
+
+- příjmy: 38 000 Kč
+- výdaje: 40 300 Kč
+- schodek: −2 300 Kč
+
+ANITKA zobrazí:
+
+**„Toto období máte schodek 2 300 Kč. Jak ho chcete pokrýt?“**
+
+Možnosti:
+
+- finanční rezerva,
+- jiná Kapsa,
+- následující období,
+- kombinace možností.
+
+## 13. Pravidla záporného zůstatku
+
+Záporný výsledek znamená, že skutečné výdaje převýšily dostupné prostředky.
+
+Schodek:
+
+- není volná částka,
+- nesmí být převeden do Kapsy jako úspora,
+- nesmí být prezentován jako disponibilní peníze,
+- musí být pokryt nebo převeden jako deficit do následujícího období.
+
+Pokud existují plánované úspory a současně schodek, ANITKA může nabídnout odložení těchto úspor.
+
+### Priorita při schodku
+
+1. pokrýt schodek,
+2. zajistit nutné a plánované závazky,
+3. teprve potom vytvářet nové úspory.
+
+## 14. Převod mezi obdobími
+
+Kladný i záporný převod používají **jeden společný mechanismus**.
+
+**Převod mezi obdobími je samostatná finanční operace, která přenáší část výsledku jednoho období do bezprostředně následujícího období.**
+
+Může být:
+
+- **kladný (+)** — přebytek,
+- **záporný (−)** — schodek.
+
+### Základní pravidlo
+
+**Převod není příjem, výdaj ani úspora. Pouze upravuje dostupné prostředky následujícího období.**
+
+### Výpočet nového období
+
+**Dostupné prostředky = skutečné příjmy + převod z předchozího období**
+
+Příklad:
+
+Výplata: **38 000 Kč**  
+Převod: **+1 800 Kč**
+
+→ dostupné prostředky: **39 800 Kč**
+
+Nebo:
+
+Výplata: **38 000 Kč**  
+Převod: **−2 300 Kč**
+
+→ dostupné prostředky: **35 700 Kč**
+
+### Původ převodu
+
+Převod vzniká při uzavření období z jeho skutečného výsledku.
+
+Kladný výsledek se rozdělí například mezi:
+
+- Kapsy,
+- rezervu,
+- následující období.
+
+Pouze část explicitně určená pro následující období se zapíše jako kladný převod.
+
+Stejně tak při schodku se pouze část skutečně ponechaná k úhradě v následujícím období zapíše jako záporný převod.
+
+### Limity převodu
+
+- Kladný převod nesmí být vyšší než skutečný přebytek dostupný k převodu.
+- Záporný převod nesmí být vyšší než skutečný nepokrytý schodek.
+- Převod nesmí vytvořit peníze, které neexistují.
+
+### Plánovaný převod
+
+Převod lze plánovat dopředu.
+
+Dokud není předchozí období uzavřeno, jde pouze o očekávaný / plánovaný převod.
+
+Po uzavření období se nahradí skutečným převodem podle skutečného výsledku.
+
+Příklad:
+
+Plánovaný převod: **+2 000 Kč**  
+Skutečný přebytek při uzavření: **+1 500 Kč**
+
+→ skutečný převod: **+1 500 Kč**
+
+### Změna uzavřeného období
+
+Pokud se po uzavření období změní skutečné údaje, musí se přepočítat:
+
+1. skutečný výsledek období,
+2. převod do následujícího období,
+3. dostupné prostředky následujícího období,
+4. všechny navazující predikce.
+
+Příklad:
+
+Původní převod: **+1 800 Kč**  
+Dodatečný výdaj: **500 Kč**
+
+→ nový převod: **+1 300 Kč**
+
+### Návaznost období
+
+Standardní převod jde pouze do bezprostředně následujícího období:
+
+**říjen → listopad → prosinec**
+
+Převod nemá sloužit k přesunu peněz z října přímo do března.
+
+Pro dlouhodobé odkládání peněz se používají Kapsy a cíle.
+
+### Zákaz dvojího započítání
+
+Převod se nikdy nesmí znovu započítat jako:
+
+- příjem,
+- výdaj,
+- úspora.
+
+Je to samostatný typ finanční operace.
+
+## 15. Uzavření období
+
+Při uzavření období ANITKA:
+
+1. vyhodnotí skutečné příjmy,
+2. vyhodnotí skutečné výdaje,
+3. vypočítá skutečný výsledek,
+4. odečte již provedené účelové převody,
+5. určí skutečné volné peníze,
+6. nabídne jejich rozdělení,
+7. vytvoří případné převody do následujícího období,
+8. aktualizuje Kapsy a rezervy,
+9. přepočítá navazující období.
+
+Uzavřené období zůstává dostupné pro historii.
+
+## 16. Predikce schodku
+
+ANITKA nesmí čekat až na vznik skutečného schodku.
+
+Pokud:
+
+**predikovaný zůstatek < 0**
+
+má uživatele upozornit předem.
+
+Příklad:
+
+**„Podle vašeho plánu vám na konci období bude chybět přibližně 2 300 Kč.“**
+
+ANITKA může nabídnout:
+
+- snížení plánovaných výdajů,
+- odložení plánované úspory,
+- využití Kapsy,
+- využití rezervy,
+- změnu plánovaných plateb,
+- očekávaný záporný převod do dalšího období.
+
+## 17. Automatická doporučení ANITKY
+
+ANITKA může podle dat navrhovat:
+
+- kolik odložit do jednotlivých Kapes,
+- kolik ponechat na další období,
+- zda je vhodné posílit rezervu,
+- zda plánovaná úspora není příliš vysoká,
+- zda hrozí schodek,
+- zda bude problém s budoucí pravidelnou platbou,
+- zda je vhodné upravit plánované výdaje.
+
+Doporučení nesmí automaticky přesouvat skutečné peníze bez potvrzení uživatelem.
+
+## 18. Historie období
+
+Uživatel musí mít možnost zobrazit předchozí rozpočtová období, nejen aktuální.
+
+Historie může zobrazovat:
+
+- rozpočet,
+- příjmy,
+- výdaje,
+- skutečný výsledek,
+- úspory,
+- převod do dalšího období,
+- případný schodek.
+
+Výsledky musí odpovídat skutečně zvoleným rozpočtovým obdobím, včetně období podle výplaty.
+
+## 19. Propojení s ostatními funkcemi
+
+Rozpočet musí být propojen s:
+
+- **Nákupy** — plánované nákupy ovlivňují plánované výdaje.
+- **Zásoby** — dostupné zásoby mohou ovlivnit potřebu nákupu.
+- **Akce** — výhodnější nákup může ovlivnit predikované výdaje.
+- **Jídelníček** — plánované recepty mohou generovat očekávané nákupní potřeby.
+- **Kapsy** — skutečné převody mění stav účelových úspor.
+- **Upozornění** — rozpočet generuje upozornění na překročení, nedostatek nebo blížící se závazky.
+
+## 20. Datová a výpočetní pravidla
+
+### Rozpočet období
+
+Rozpočet období je vlastní hodnota daného období, pokud ji uživatel nastavil. Jinak se použije výchozí rozpočet domácnosti.
+
+Jedna centrální funkce musí určovat rozpočet pro konkrétní období, aby stejnou hodnotu používaly:
+
+- rozpočtová karta,
+- upozornění 80 % / 100 %,
+- přehled,
+- statistiky,
+- plánování.
+
+### Úspora období
+
+Pro účely historického přehledu:
+
+**Ušetřeno = rozpočet období − skutečné výdaje období**
+
+Pokud je výsledek záporný, jde o překročení rozpočtu.
+
+Toto číslo není totéž jako dlouhodobé finanční úspory nebo úspory na akcích.
+
+### Historické výpočty
+
+Historická období mají být načítána efektivně.
+
+Nemá se při otevření Rozpočtu načítat kompletní historie všech jednotlivých výdajů.
+
+Preferovaný princip:
+
+1. agregovat souhrny podle období,
+2. detailní výdaje načíst až po otevření konkrétního období.
+
+Tím se omezuje zatížení databáze a compute.
+
+## 21. UX principy
+
+Rozhraní musí vždy jasně rozlišovat:
+
+- **Skutečně**,
+- **Plánováno**,
+- **Predikce**.
+
+Uživatel nesmí mít dojem, že plánovaný příjem již má k dispozici.
+
+Příklady:
+
+**Skutečný zůstatek: 6 800 Kč**
+
+**Po vyhrazení budoucích závazků vám zbývá: 3 000 Kč**
+
+**Očekávaný konečný stav: 800 Kč**
+
+**Převod z předchozího období: +1 800 Kč**
+
+**Převod z předchozího období: −1 800 Kč**
+
+## 22. Kompletní princip
+
+Rozpočet funguje jako uzavřený cyklus:
+
+**Příjmy → plán → skutečné výdaje → skutečný výsledek → rozdělení výsledku → převod / Kapsy / rezerva → následující období → nový plán**
+
+Základní pravidlo:
+
+> **Při uzavření období se skutečný výsledek rozdělí mezi Kapsy, rezervu a následující období. Část určená pro následující období se zapíše jako převod. Kladný převod zvyšuje jeho dostupné prostředky, záporný převod je snižuje.**
+
+Rozpočet tedy není pouze historie utrácení. Je to systém pro plánování, průběžné řízení a predikci finančního stavu domácnosti podle období, ve kterém uživatel skutečně hospodaří.

@@ -1,19 +1,25 @@
 name: Regenerate pnpm lockfile
 
 on:
-  push:
+  pull_request:
+    types: [opened, synchronize, reopened]
     branches:
-      - chore/regenerate-pnpm-lockfile-20261008
+      - main
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   regenerate:
+    if: github.head_ref == 'chore/regenerate-pnpm-lockfile-20261008'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: chore/regenerate-pnpm-lockfile-20261008
+          fetch-depth: 0
 
       - name: Setup pnpm 12.6.0
         uses: pnpm/action-setup@v4
@@ -42,7 +48,7 @@ jobs:
           else
             git add pnpm-lock.yaml
             git commit -m "chore: regenerate pnpm lockfile"
-            git push
+            git push origin HEAD:chore/regenerate-pnpm-lockfile-20261008
           fi
 
       - name: Remove temporary workflow
@@ -51,4 +57,4 @@ jobs:
           git rm .github/workflows/regenerate-pnpm-lockfile.yml || true
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git diff --cached --quiet || (git commit -m "chore: remove temporary lockfile workflow" && git push)
+          git diff --cached --quiet || (git commit -m "chore: remove temporary lockfile workflow" && git push origin HEAD:chore/regenerate-pnpm-lockfile-20261008)

@@ -60,9 +60,11 @@ function parseRows(rows: Array<Record<string, unknown>>): CzCpaNode[] {
     let current: string | null = row.code
     while (current) {
       path.unshift(current)
-      const parent = byCode.get(current)
-      if (!parent || parent.level === 1) break
-      current = current.length > 1 ? current.slice(0, -1) : null
+      const currentRow = byCode.get(current)
+      if (!currentRow || currentRow.level === 1) break
+      current = currentRow.level === 2
+        ? currentRow.code.slice(0, 1)
+        : currentRow.code.slice(0, -1)
     }
     result.push({ ...row, parentCode: byCode.has(parentCode ?? '') ? parentCode : null, path })
   }
@@ -146,13 +148,8 @@ export function parseCzCpaDocument(document: unknown, format?: 'json' | 'csv' | 
   }
 
   if (typeof document === 'string') {
-    try {
-      const parsed = JSON.parse(document)
-      return parseRows(objectRows(parsed))
-    } catch {
-      const parsed = new XMLParser({ ignoreAttributes: false, processEntities: false }).parse(document)
-      return parseRows(objectRows(parsed))
-    }
+    const parsed = JSON.parse(document)
+    return parseRows(objectRows(parsed))
   }
 
   return parseRows(objectRows(document))

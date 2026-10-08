@@ -31,46 +31,22 @@ async function main() {
     return
   }
 
-  for (const normalization of normalizations) {
-    await db.insert(schema.pkdEntryNormalizations).values({
-      entryId: normalization.entryId,
-      normalizationVersion: normalization.normalizationVersion,
-      normalizedName: normalization.normalizedName,
-      identityKey: normalization.identityKey,
-      methods: normalization.methods,
-    }).onConflictDoUpdate({
-      target: [schema.pkdEntryNormalizations.entryId, schema.pkdEntryNormalizations.normalizationVersion],
-      set: {
-        normalizedName: normalization.normalizedName,
-        identityKey: normalization.identityKey,
-        methods: normalization.methods,
-      },
+  const BATCH_SIZE = 500
+  for (let offset = 0; offset < normalizations.length; offset += BATCH_SIZE) {
+    const batch = normalizations.slice(offset, offset + BATCH_SIZE)
+    await db.transaction(async (tx) => {
+      await tx.insert(schema.pkdEntryNormalizations).values(batch.map((normalization) => ({ entryId: normalization.entryId, normalizationVersion: normalization.normalizationVersion, normalizedName: normalization.normalizedName, identityKey: normalization.identityKey, methods: normalization.methods }))).onConflictDoUpdate({ target: [schema.pkdEntryNormalizations.entryId, schema.pkdEntryNormalizations.normalizationVersion], set: { normalizedName: schema.pkdEntryNormalizations.normalizedName, identityKey: schema.pkdEntryNormalizations.identityKey, methods: schema.pkdEntryNormalizations.methods } })
     })
+    console.log(`Normalization batch ${Math.min(offset + BATCH_SIZE, normalizations.length)}/${normalizations.length}`)
   }
-
   let candidatesUpserted = 0
-  for (const candidate of candidates) {
-    const [leftEntryId, rightEntryId] = [candidate.leftEntryId, candidate.rightEntryId].sort()
-    await db.insert(schema.pkdDedupCandidates).values({
-      leftEntryId,
-      rightEntryId,
-      normalizationVersion: candidate.normalizationVersion,
-      reason: candidate.reason,
-      confidence: candidate.confidence.toFixed(3),
-      evidence: candidate.evidence,
-    }).onConflictDoUpdate({
-      target: [
-        schema.pkdDedupCandidates.leftEntryId,
-        schema.pkdDedupCandidates.rightEntryId,
-        schema.pkdDedupCandidates.normalizationVersion,
-      ],
-      set: {
-        reason: candidate.reason,
-        confidence: candidate.confidence.toFixed(3),
-        evidence: candidate.evidence,
-      },
+  for (let offset = 0; offset < candidates.length; offset += BATCH_SIZE) {
+    const batch = candidates.slice(offset, offset + BATCH_SIZE)
+    await db.transaction(async (tx) => {
+      await tx.insert(schema.pkdDedupCandidates).values(batch.map((candidate) => { const [leftEntryId, rightEntryId] = [candidate.leftEntryId, candidate.rightEntryId].sort(); return { leftEntryId, rightEntryId, normalizationVersion: candidate.normalizationVersion, reason: candidate.reason, confidence: candidate.confidence.toFixed(3), evidence: candidate.evidence } })).onConflictDoUpdate({ target: [schema.pkdDedupCandidates.leftEntryId, schema.pkdDedupCandidates.rightEntryId, schema.pkdDedupCandidates.normalizationVersion], set: { reason: schema.pkdDedupCandidates.reason, confidence: schema.pkdDedupCandidates.confidence, evidence: schema.pkdDedupCandidates.evidence } })
+      candidatesUpserted += batch.length
     })
-    candidatesUpserted++
+    console.log(`Dedup batch ${Math.min(offset + BATCH_SIZE, candidates.length)}/${candidates.length}`)
   }
 
   console.log(JSON.stringify({

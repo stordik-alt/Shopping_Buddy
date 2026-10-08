@@ -37,26 +37,23 @@ async function main() {
     sourceType: 'gs1_gpc', sourceVersion: VERSION, metadata: { format: file.toLowerCase().endsWith('.json') ? 'json' : 'xml', importedBy: 'db:import-gpc' },
   }).returning())[0]
   if (!source) throw new Error('Failed to create or load the GS1 GPC source record.')
+  const BATCH_SIZE = 500
   let entriesUpserted = 0, mappingsUpserted = 0
-  for (const node of unique as GpcNode[]) {
-    const stableKey = 'gpc:' + VERSION + ':' + node.level + ':' + node.code
-    const [entry] = await db.insert(schema.pkdEntries).values({
-      stableKey, canonicalName: node.name, language: 'en', category: null,
-      attributes: { gpcCode: node.code, level: node.level, parentCode: node.parentCode, path: node.path }, confidence: 1, status: 'approved',
-    }).onConflictDoUpdate({
-      target: schema.pkdEntries.stableKey,
-      set: { canonicalName: node.name, category: null, attributes: { gpcCode: node.code, level: node.level, parentCode: node.parentCode, path: node.path }, updatedAt: new Date() },
-    }).returning()
-    if (!entry) continue
-    entriesUpserted++
-    await db.insert(schema.pkdExternalMappings).values({
-      entryId: entry.id, sourceId: source.id, externalId: node.code, externalParentId: node.parentCode, mappingStatus: 'mapped', confidence: 1, evidence: { importer: 'db:import-gpc', level: node.level, path: node.path },
-    }).onConflictDoUpdate({
-      target: [schema.pkdExternalMappings.sourceId, schema.pkdExternalMappings.externalId],
-      set: { entryId: entry.id, externalParentId: node.parentCode, mappingStatus: 'mapped', confidence: 1, evidence: { importer: 'db:import-gpc', level: node.level, path: node.path } },
+  for (let offset = 0; offset < unique.length; offset += BATCH_SIZE) {
+    const batch = (unique as GpcNode[]).slice(offset, offset + BATCH_SIZE)
+    await db.transaction(async (tx) => {
+      const entries = await tx.insert(schema.pkdEntries).values(batch.map((node) => ({
+        stableKey: 'gpc:' + VERSION + ':' + node.level + ':' + node.code, canonicalName: node.name, language: 'en', category: null,
+        attributes: { gpcCode: node.code, level: node.level, parentCode: node.parentCode, path: node.path }, confidence: 1, status: 'approved',
+      }))).onConflictDoUpdate({ target: schema.pkdEntries.stableKey, set: { canonicalName: schema.pkdEntries.canonicalName, category: null, updatedAt: new Date() } }).returning({ id: schema.pkdEntries.id, stableKey: schema.pkdEntries.stableKey })
+      entriesUpserted += entries.length
+      const byKey = new Map(entries.map((entry) => [entry.stableKey, entry.id]))
+      const mappings = batch.flatMap((node) => { const entryId = byKey.get('gpc:' + VERSION + ':' + node.level + ':' + node.code); return entryId ? [{ entryId, sourceId: source.id, externalId: node.code, externalParentId: node.parentCode, mappingStatus: 'mapped' as const, confidence: 1, evidence: { importer: 'db:import-gpc', level: node.level, path: node.path } }] : [] })
+      if (mappings.length) { await tx.insert(schema.pkdExternalMappings).values(mappings).onConflictDoUpdate({ target: [schema.pkdExternalMappings.sourceId, schema.pkdExternalMappings.externalId], set: { externalParentId: schema.pkdExternalMappings.externalParentId, mappingStatus: 'mapped', confidence: 1 } }); mappingsUpserted += mappings.length }
     })
-    mappingsUpserted++
+    console.log(`GPC batch ${Math.min(offset + BATCH_SIZE, unique.length)}/${unique.length}`)
   }
+
   console.log(JSON.stringify({ source: 'gs1_gpc', version: VERSION, totalNodes: unique.length, entriesUpserted, mappingsUpserted, mode: 'apply' }, null, 2))
 }
 

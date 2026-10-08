@@ -75,75 +75,18 @@ async function main() {
   }).returning())[0]
   if (!source) throw new Error('Failed to create or load the CZ-CPA source record.')
 
-  let entriesUpserted = 0
-  let mappingsUpserted = 0
-
-  for (const node of nodes) {
-    const stableKey = 'cz-cpa:' + VERSION + ':' + node.code
-    const [entry] = await db.insert(schema.pkdEntries).values({
-      stableKey,
-      canonicalName: node.name,
-      language: LANGUAGE,
-      category: null,
-      attributes: {
-        sourceCode: node.code,
-        classification: 'CZ-CPA_2025_KL',
-        level: node.level,
-        parentCode: node.parentCode,
-        path: node.path,
-      },
-      confidence: 1,
-      status: 'approved',
-    }).onConflictDoUpdate({
-      target: schema.pkdEntries.stableKey,
-      set: {
-        canonicalName: node.name,
-        language: LANGUAGE,
-        category: null,
-        attributes: {
-          sourceCode: node.code,
-          classification: 'CZ-CPA_2025_KL',
-          level: node.level,
-          parentCode: node.parentCode,
-          path: node.path,
-        },
-        updatedAt: new Date(),
-      },
-    }).returning()
-    if (!entry) continue
-    entriesUpserted++
-
-    await db.insert(schema.pkdExternalMappings).values({
-      entryId: entry.id,
-      sourceId: source.id,
-      externalId: node.code,
-      externalParentId: node.parentCode,
-      mappingStatus: 'mapped',
-      confidence: 1,
-      evidence: {
-        importer: 'db:import-cz-cpa',
-        classification: 'CZ-CPA_2025_KL',
-        level: node.level,
-        parentCode: node.parentCode,
-        path: node.path,
-      },
-    }).onConflictDoUpdate({
-      target: [schema.pkdExternalMappings.sourceId, schema.pkdExternalMappings.externalId],
-      set: {
-        entryId: entry.id,
-        externalParentId: node.parentCode,
-        mappingStatus: 'mapped',
-        confidence: 1,
-        evidence: {
-          importer: 'db:import-cz-cpa',
-          classification: 'CZ-CPA_2025_KL',
-          level: node.level,
-          parentCode: node.parentCode,
-          path: node.path,
-        },
-      },
+  const BATCH_SIZE = 500
+  let entriesUpserted = 0, mappingsUpserted = 0
+  for (let offset = 0; offset < nodes.length; offset += BATCH_SIZE) {
+    const batch = nodes.slice(offset, offset + BATCH_SIZE)
+    await db.transaction(async (tx) => {
+      const entries = await tx.insert(schema.pkdEntries).values(batch.map((node) => ({ stableKey: 'cz-cpa:' + VERSION + ':' + node.code, canonicalName: node.name, language: LANGUAGE, category: null, attributes: { sourceCode: node.code, classification: 'CZ-CPA_2025_KL', level: node.level, parentCode: node.parentCode, path: node.path }, confidence: 1, status: 'approved' }))).onConflictDoUpdate({ target: schema.pkdEntries.stableKey, set: { canonicalName: schema.pkdEntries.canonicalName, language: LANGUAGE, category: null, updatedAt: new Date() } }).returning({ id: schema.pkdEntries.id, stableKey: schema.pkdEntries.stableKey })
+      entriesUpserted += entries.length
+      const byKey = new Map(entries.map((entry) => [entry.stableKey, entry.id]))
+      const mappings = batch.flatMap((node) => { const entryId = byKey.get('cz-cpa:' + VERSION + ':' + node.code); return entryId ? [{ entryId, sourceId: source.id, externalId: node.code, externalParentId: node.parentCode, mappingStatus: 'mapped' as const, confidence: 1, evidence: { importer: 'db:import-cz-cpa', classification: 'CZ-CPA_2025_KL', level: node.level, parentCode: node.parentCode, path: node.path } }] : [] })
+      if (mappings.length) { await tx.insert(schema.pkdExternalMappings).values(mappings).onConflictDoUpdate({ target: [schema.pkdExternalMappings.sourceId, schema.pkdExternalMappings.externalId], set: { externalParentId: schema.pkdExternalMappings.externalParentId, mappingStatus: 'mapped', confidence: 1 } }); mappingsUpserted += mappings.length }
     })
-    mappingsUpserted++
+    console.log(`CZ-CPA batch ${Math.min(offset + BATCH_SIZE, nodes.length)}/${nodes.length}`)
   }
 
   console.log(JSON.stringify({

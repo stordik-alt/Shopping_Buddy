@@ -50,67 +50,20 @@ async function main() {
   }).returning())[0]
   if (!source) throw new Error('Failed to create or load the Open Food Facts source record.')
 
-  let entriesUpserted = 0
-  let synonymsUpserted = 0
-  let mappingsUpserted = 0
-
-  for (const node of nodes) {
-    const stableKey = 'off:taxonomy:categories:' + VERSION + ':' + node.tagId
-    const [entry] = await db.insert(schema.pkdEntries).values({
-      stableKey,
-      canonicalName: node.canonicalName,
-      language: node.language,
-      category: null,
-      attributes: { sourceTag: node.tagId, taxonomy: 'categories', parents: node.parents, children: node.children },
-      confidence: 1,
-      status: 'approved',
-    }).onConflictDoUpdate({
-      target: schema.pkdEntries.stableKey,
-      set: {
-        canonicalName: node.canonicalName,
-        language: node.language,
-        category: null,
-        attributes: { sourceTag: node.tagId, taxonomy: 'categories', parents: node.parents, children: node.children },
-        updatedAt: new Date(),
-      },
-    }).returning()
-    if (!entry) continue
-    entriesUpserted++
-
-    for (const synonym of node.synonyms) {
-      const normalized = synonym.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
-      if (!normalized) continue
-      await db.insert(schema.pkdSynonyms).values({
-        entryId: entry.id,
-        synonym,
-        language: node.language,
-        normalized,
-      }).onConflictDoUpdate({
-        target: [schema.pkdSynonyms.entryId, schema.pkdSynonyms.normalized],
-        set: { synonym, language: node.language },
-      })
-      synonymsUpserted++
-    }
-
-    await db.insert(schema.pkdExternalMappings).values({
-      entryId: entry.id,
-      sourceId: source.id,
-      externalId: node.tagId,
-      externalParentId: node.parents[0] ?? null,
-      mappingStatus: 'mapped',
-      confidence: 1,
-      evidence: { importer: 'db:import-off', taxonomy: 'categories', parents: node.parents, children: node.children },
-    }).onConflictDoUpdate({
-      target: [schema.pkdExternalMappings.sourceId, schema.pkdExternalMappings.externalId],
-      set: {
-        entryId: entry.id,
-        externalParentId: node.parents[0] ?? null,
-        mappingStatus: 'mapped',
-        confidence: 1,
-        evidence: { importer: 'db:import-off', taxonomy: 'categories', parents: node.parents, children: node.children },
-      },
+  const BATCH_SIZE = 500
+  let entriesUpserted = 0, synonymsUpserted = 0, mappingsUpserted = 0
+  for (let offset = 0; offset < nodes.length; offset += BATCH_SIZE) {
+    const batch = nodes.slice(offset, offset + BATCH_SIZE)
+    await db.transaction(async (tx) => {
+      const entries = await tx.insert(schema.pkdEntries).values(batch.map((node) => ({ stableKey: 'off:taxonomy:categories:' + VERSION + ':' + node.tagId, canonicalName: node.canonicalName, language: node.language, category: null, attributes: { sourceTag: node.tagId, taxonomy: 'categories', parents: node.parents, children: node.children }, confidence: 1, status: 'approved' }))).onConflictDoUpdate({ target: schema.pkdEntries.stableKey, set: { canonicalName: schema.pkdEntries.canonicalName, language: schema.pkdEntries.language, category: null, updatedAt: new Date() } }).returning({ id: schema.pkdEntries.id, stableKey: schema.pkdEntries.stableKey })
+      entriesUpserted += entries.length
+      const byKey = new Map(entries.map((entry) => [entry.stableKey, entry.id]))
+      const synonyms = batch.flatMap((node) => { const entryId = byKey.get('off:taxonomy:categories:' + VERSION + ':' + node.tagId); return entryId ? node.synonyms.flatMap((synonym) => { const normalized = synonym.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); return normalized ? [{ entryId, synonym, language: node.language, normalized }] : [] }) : [] })
+      if (synonyms.length) { await tx.insert(schema.pkdSynonyms).values(synonyms).onConflictDoUpdate({ target: [schema.pkdSynonyms.entryId, schema.pkdSynonyms.normalized], set: { synonym: schema.pkdSynonyms.synonym, language: schema.pkdSynonyms.language } }); synonymsUpserted += synonyms.length }
+      const mappings = batch.flatMap((node) => { const entryId = byKey.get('off:taxonomy:categories:' + VERSION + ':' + node.tagId); return entryId ? [{ entryId, sourceId: source.id, externalId: node.tagId, externalParentId: node.parents[0] ?? null, mappingStatus: 'mapped' as const, confidence: 1, evidence: { importer: 'db:import-off', taxonomy: 'categories', parents: node.parents, children: node.children } }] : [] })
+      if (mappings.length) { await tx.insert(schema.pkdExternalMappings).values(mappings).onConflictDoUpdate({ target: [schema.pkdExternalMappings.sourceId, schema.pkdExternalMappings.externalId], set: { externalParentId: schema.pkdExternalMappings.externalParentId, mappingStatus: 'mapped', confidence: 1 } }); mappingsUpserted += mappings.length }
     })
-    mappingsUpserted++
+    console.log(`OFF batch ${Math.min(offset + BATCH_SIZE, nodes.length)}/${nodes.length}`)
   }
 
   console.log(JSON.stringify({

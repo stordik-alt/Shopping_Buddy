@@ -56,14 +56,18 @@ function normalizeHeader(value: string): string {
 }
 
 function readLevel(level: number): Array<{ code: string; name: string }> {
-  const file = path.join(inputDir, `650${level}.csv`)
+  const file = path.join(inputDir as string, `650${level}.csv`)
   const raw = fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '')
   const rows = parseCsv(raw)
   if (rows.length < 2) throw new Error(`CZ-CPA level ${level} export is empty: ${file}`)
 
   const headers = rows[0].map(normalizeHeader)
-  const codeIndex = headers.findIndex((header) => ['kód', 'kod', 'code'].includes(header) || header.includes('kód') || header.includes('kod'))
-  const nameIndex = headers.findIndex((header) => ['název', 'nazev', 'name'].includes(header) || header.includes('název') || header.includes('nazev') || header.includes('name'))
+  const codeIndex = headers.findIndex(
+    (header) => ['kód', 'kod', 'code'].includes(header) || header.includes('kód') || header.includes('kod'),
+  )
+  const nameIndex = headers.findIndex(
+    (header) => ['název', 'nazev', 'name'].includes(header) || header.includes('název') || header.includes('nazev') || header.includes('name'),
+  )
   if (codeIndex < 0 || nameIndex < 0) {
     throw new Error(`Cannot identify Kód/Název columns in ${file}. Headers: ${headers.join(', ')}`)
   }
@@ -83,7 +87,7 @@ const unique = new Map<string, { code: string; name: string; level: number }>()
 for (const row of all) unique.set(row.code, row)
 
 fs.writeFileSync(
-  output,
+  output as string,
   ['code,name,level', ...[...unique.values()].map((row) => [row.code, row.name, String(row.level)].map(csvEscape).join(','))].join('\n') + '\n',
   'utf8',
 )

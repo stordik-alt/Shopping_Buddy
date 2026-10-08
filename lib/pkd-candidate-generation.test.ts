@@ -99,6 +99,45 @@ describe('generatePkdProductTypeCandidates', () => {
     expect(corroborated.evidence.reviewFlags).not.toContain('comparison_unit_unknown')
   })
 
+  it('records exact corroboration from independent reference sources without making them candidate identities', () => {
+    const result = generatePkdProductTypeCandidates([
+      {
+        id: 'off-1',
+        canonicalName: 'Ajvar',
+        language: 'cs',
+        status: 'approved',
+        sourceKind: 'open_food_facts',
+        referenceEvidence: [
+          { sourceKind: 'gs1_gpc', matchedName: 'Ajvar', stableKey: 'gpc:test:ajvar' },
+          { sourceKind: 'cz_cpa', matchedName: 'Ajvar', stableKey: 'cz-cpa:test:ajvar' },
+        ],
+      },
+    ])
+
+    expect(result).toHaveLength(1)
+    expect(result[0].evidence.referenceSourceKinds).toEqual(['cz_cpa', 'gs1_gpc'])
+    expect(result[0].evidence.referenceEvidence).toHaveLength(2)
+    expect(result[0].evidence.reviewFlags).not.toContain('reference_corroboration_missing')
+    expect(result[0].confidence).toBe(0.65)
+  })
+
+  it('flags a single catalog match as limited corroboration rather than independent confirmation', () => {
+    const result = generatePkdProductTypeCandidates([
+      {
+        id: 'off-1',
+        canonicalName: 'Ajvar',
+        language: 'cs',
+        status: 'approved',
+        sourceKind: 'open_food_facts',
+        referenceEvidence: [{ sourceKind: 'product_catalog', matchedName: 'Ajvar' }],
+      },
+    ])
+
+    expect(result[0].evidence.referenceSourceKinds).toEqual(['product_catalog'])
+    expect(result[0].evidence.reviewFlags).toContain('reference_corroboration_single_source')
+    expect(result[0].confidence).toBe(0.6)
+  })
+
   it('keeps different languages separate', () => {
     const result = generatePkdProductTypeCandidates([
       { id: 'cs', canonicalName: 'Mléko', language: 'cs' },

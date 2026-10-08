@@ -1,3 +1,9 @@
+## 2026-10-08 (PKD schema — first knowledge-layer foundation)
+- **What:** added the first database layer for the approved Product Knowledge Dictionary concept, separate from the application `product_types` list.
+- **Schema:** `pkd_sources` stores versioned source/provenance metadata; `pkd_entries` stores stable knowledge identities, canonical names, categories, forms, processing states, attributes, boundaries and confidence; `pkd_synonyms` stores normalized synonyms; `pkd_external_mappings` stores explicit external IDs, mapping status, confidence and evidence.
+- **Safety:** importing or updating an external classification does not automatically create an internal Product Type. Mapping to `product_types` is explicit; deleting an internal type only removes the mapping.
+- **Migration:** `0077_product_knowledge_dictionary.sql`; Drizzle definitions and relations are in `lib/db/schema.ts`.
+- **Scope:** no external source is imported and no catalog rows are changed by this step. It establishes the safe foundation for the next quantity/packaging dictionary and source-import work.
 ## 2026-10-08 (Universal Product Knowledge Dictionary / PKD and product-type reconciliation)
 - **Concept:** established the current main concept for product identity and quantity/packaging handling across **all goods**, not only food.
 - **PKD:** product type identity is separated from variant, form, package and retailer SKU; stable IDs, canonical names, synonyms and retailer product names are treated as distinct concepts.

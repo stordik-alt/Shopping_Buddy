@@ -1,3 +1,6 @@
+## 2026-10-08 (CZ-CPA CSV parser fix)
+- **Fixed:** corrected escaped line-ending handling in the pure CZ-CPA CSV parser and its regression fixture; real CSV rows are now split on `\\n`/`\\r` characters correctly.
+
 ## 2026-10-08 (Open Food Facts PKD ingestion foundation)
 - **Added:** Open Food Facts categories taxonomy parser and versioned PKD importer.
 - **Scope:** imports category identities, multilingual names, parent/child hierarchy and synonyms into the PKD knowledge layer; it does not create internal Product Types or import the full OFF product catalog.

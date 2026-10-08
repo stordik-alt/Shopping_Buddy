@@ -182,3 +182,65 @@ vejce, …), which types will sit under.
 - Six more types (kefír, cuketa, celer, čočka, med, ocet; 109 in all), migration `0065_more_product_types.sql`,
   checked against the local catalog copy and the golden set. The model for the long tail is **not built**: it
   needs the owner's explicit approval (CLAUDE.md section 30).
+
+## 7. Hlavní koncept: Product Knowledge Dictionary a externí taxonomie
+
+**Schváleno vlastníkem 2026-10-08.** Rozšiřování znalosti o druzích zboží nebude dlouhodobě založeno pouze na ručním přidávání pravidel do `lib/product-types.ts`. Aplikace získá centrální znalostní vrstvu, která bude popisovat nejen názvy druhů, ale také jejich význam, varianty a hranice.
+
+### Zdrojová strategie
+
+Použijeme kombinaci tří zdrojů:
+
+1. **GS1 GPC** — hlavní strukturální základ klasifikace produktů (Segment → Family → Class → Brick → Attributes).
+2. **Open Food Facts** — praktický zdroj potravinových názvů, kategorií, synonym a variant.
+3. **CZ-CPA** — český referenční zdroj pro kontrolu a doplnění klasifikace; není hlavní nákupní taxonomií.
+
+Externí zdroje se nepromítnou nekontrolovaně přímo do aplikačních `product_types`. Zůstanou oddělenou znalostní vrstvou a budou se mapovat na stabilní interní identity aplikace.
+
+### Product Knowledge Dictionary
+
+Pro každý známý druh nebo kandidáta budeme postupně uchovávat zejména:
+
+- název a české názvy,
+- synonyma a alternativní názvy,
+- varianty a atributy,
+- co do druhu patří (`contains`),
+- co do něj nepatří (`excludes`),
+- nadřazenou kategorii a podkategorii,
+- jednotku a typické balení,
+- externí klasifikační identifikátory,
+- pravidla rozpoznání,
+- příklady skutečných produktů,
+- zdroj a verzi zdroje,
+- confidence a případnou ruční korekci.
+
+Příklad: znalostní vrstva musí umět rozlišit čerstvé houby od sušených, nakládaných nebo sterilovaných hub, houbového koření, houbové omáčky a houbové polévky. Stejně přesná pravidla budou postupně vytvořena pro všechny ostatní druhy.
+
+### Vztah k interním Product Types
+
+Interní `product_types` zůstávají stabilní aplikační vrstvou. Externí taxonomie může obsahovat výrazně více druhů a poddruhů, než aplikace potřebuje jako samostatné obchodní identity.
+
+```text
+GS1 GPC
+   + Open Food Facts
+   + CZ-CPA
+          ↓
+Product Knowledge Dictionary
+          ↓
+mapování / klasifikační pravidla
+          ↓
+stabilní interní Product Types
+          ↓
+produkty, OCR, autocomplete, nákupní seznam,
+zásoby, plánování a AI klasifikace
+```
+
+AI klasifikace musí vybírat z uzavřeného seznamu platných interních typů nebo vrátit žádný typ. Nesmí vytvářet nové aplikační identity pouze na základě textu produktu.
+
+### Automatizace a aktualizace
+
+Knowledge Dictionary bude navržen jako importovatelná a verzovaná datová vrstva. Cílem je získat co nejširší dostupnou množinu druhů z uvedených zdrojů, sjednotit názvy a synonyma, odstranit duplicity, vytvořit mapování a označit kandidáty, které zatím nemají odpovídající interní typ.
+
+Zdrojové aktualizace mají být v budoucnu zpracovatelné automaticky, aby znalostní základna nezůstala jednorázovým importem.
+
+Tento koncept je novým hlavním směrem pro další rozvoj produktových druhů a nahrazuje přístup, ve kterém se pokrytí rozšiřuje pouze ručním přidáváním jednotlivých pravidel.

@@ -346,7 +346,7 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
       'sladkém nálevu', 'slaném nálevu', 'sladkokyselém nálevu', 'slanokyselém nálevu', 'kořeněném nálevu', 'loupaná rajčata', 'krájená rajčata', 'pasírovaná rajčata', 'rajčata pasírovaná', 'rajčata loupaná', 'rajčata krájená',
     ],
   },
-  { subcategory: 'Cereálie a snídaně', keywords: ['cereál', 'cerealie', 'müsli', 'musli', 'ovesné vločky', 'ovesne vlocky', 'kaše '], exclude: [' koření ', 'krupice'] },
+  { subcategory: 'Cereálie a snídaně', keywords: ['cereál', 'cerealie', 'müsli', 'musli', 'ovesné vločky', 'ovesne vlocky', 'kaše '], exclude: [' koření ', 'krupice', 'cereální'] },
   {
     subcategory: 'Těstoviny a rýže',
     keywords: [
@@ -620,6 +620,11 @@ export function classifySubcategoryByKeyword(category: ItemCategory, normalizedN
   if (brand?.decides && branded) return branded
   // Padded so a boundary keyword (" med ") also matches at the start or end of the name.
   const haystack = ` ${normalizedName} `
+  // Product form has priority over ingredient/flavour words. A bread item such as
+  // "Kaiserka cereální sypaná lněným semínkem" must remain Pečivo even though
+  // "cereální" and "semínkem" also occur in lower-priority food rules.
+  const breadRule = RULES_BY_CATEGORY[category].find((rule) => rule.subcategory === 'Pečivo')
+  if (breadRule && rulePlaces(breadRule, haystack)) return 'Pečivo'
   let ruled: string | null = null
   for (const rule of RULES_BY_CATEGORY[category]) {
     // No brand in the dictionary sells raw produce, so a fruit word in a branded name is a flavour.

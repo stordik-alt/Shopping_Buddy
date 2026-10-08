@@ -14,7 +14,7 @@ export type PantryAddInput = {
   category: ItemCategory
   subcategory: string | null
   placeKey: string
-  selection?: ProductAutocompleteSelection
+  selection?: { kind: 'product'; productId: string } | { kind: 'type'; productTypeKey: string }
 }
 
 const CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
@@ -59,7 +59,12 @@ export function PantryAddModal({
     setSaving(true)
     setError(null)
     try {
-      await onSubmit({ name: trimmed, quantity: parsedQuantity, unit, category, subcategory, placeKey, selection })
+      const persistedSelection = selection?.kind === 'product' && selection.productId
+        ? { kind: 'product' as const, productId: selection.productId }
+        : selection?.kind === 'type' && selection.productTypeKey
+          ? { kind: 'type' as const, productTypeKey: selection.productTypeKey }
+          : undefined
+      await onSubmit({ name: trimmed, quantity: parsedQuantity, unit, category, subcategory, placeKey, selection: persistedSelection })
       onClose()
     } catch (err) {
       console.error('Adding pantry stock failed', err)

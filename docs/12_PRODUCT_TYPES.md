@@ -114,13 +114,7 @@ every rule change is measured on it, so fixing one type cannot silently break an
 | 2 | Planner uses types for items that have one | **done 2026-10-04** (see below) |
 | 3 | Type/group picker on the shopping list | **done 2026-10-04** (see below) |
 | 4 | Receipts and list ticking by type; receipt abbreviation dictionary; learning from corrections | **done 2026-10-04** (see below) |
-| 5 | Wider coverage (169 types); optionally a model choosing from the closed list of types for the long tail, once per product, validated — **only after an explicit owner approval** (CLAUDE.md section 30) | coverage **done 2026-10-04**; model **not built** |
-
-### Owner additions (2026-10-08)
-
-- Laundry products are split into **Prací gel**, **Prací prášek** and **Aviváž** instead of the generic Prací prostředek type.
-- **Houby** is a Potraviny type for fresh mushrooms; dried, pickled and prepared mushroom products remain outside the type.
-- The owner-approved autocomplete coverage is expanded with common food, household, cleaning and children’s categories; existing types are reused where already covered, so no duplicate type identities are introduced.
+| 5 | Wider coverage (109 types); optionally a model choosing from the closed list of types for the long tail, once per product, validated — **only after an explicit owner approval** (CLAUDE.md section 30) | coverage **done 2026-10-04**; model **not built** |
 
 ### Phase 1 as implemented (2026-10-04)
 
@@ -188,3 +182,308 @@ vejce, …), which types will sit under.
 - Six more types (kefír, cuketa, celer, čočka, med, ocet; 109 in all), migration `0065_more_product_types.sql`,
   checked against the local catalog copy and the golden set. The model for the long tail is **not built**: it
   needs the owner's explicit approval (CLAUDE.md section 30).
+
+## 7. Hlavní koncept: Product Knowledge Dictionary a externí taxonomie
+
+**Schváleno vlastníkem 2026-10-08.** Toto je hlavní dlouhodobý koncept pro rozšiřování znalosti o druzích zboží. Aplikace nesmí být závislá pouze na ručně udržovaných pravidlech v `lib/product-types.ts`. Ruční pravidla zůstávají aplikační bezpečnostní a korekční vrstvou, ale vlastní znalost o produktech bude postupně soustředěna do verzované znalostní vrstvy **Product Knowledge Dictionary (PKD)**.
+
+Cíl není vytvořit pouze větší seznam názvů. PKD musí popsat **co produkt je, co není, jaké má varianty, v jakých formách a baleních se prodává a jak se jeho množství převádí na společnou jednotku**.
+
+### 7.1 Zdrojová strategie
+
+Použijeme kombinaci zdrojů s odlišnými úlohami:
+
+1. **GS1 GPC** — hlavní strukturální referenční taxonomie. GPC používá hierarchii Segment → Family → Class → Brick a atributy; aktuální veřejně publikovaná verze k 2026-10 je **2026-05**. GPC je vhodná jako globální klasifikační kostra, nikoli jako seznam českých nákupních názvů.
+2. **Open Food Facts** — praktický zdroj skutečných potravinových názvů, kategorií, synonym, značek, variant a dalších vlastností. Je důležitý hlavně pro potraviny a pro tvorbu slovníku reálných označení.
+3. **CZ-CPA 2025 / CPA Ver. 2.2** — český referenční klasifikační zdroj pro kontrolu významu a pokrytí produkce. Není hlavní nákupní taxonomií aplikace; její účel je validační a mapovací.
+
+Zdrojové taxonomie se **nesmějí nekontrolovaně propsat přímo do `product_types`**. Externí klasifikace je znalostní vrstva, interní Product Type je stabilní aplikační identita.
+
+> Poznámka: žádný jednotlivý veřejný zdroj negarantuje kompletní seznam všech maloobchodních druhů zboží. „Všechny druhy“ proto v tomto konceptu znamená maximální dosažitelné pokrytí pomocí kombinace zdrojů, normalizace, synonym, atributů, nových kandidátů a průběžné aktualizace — ne tvrzení, že jeden katalog obsahuje absolutně všechny produkty na trhu.
+
+### 7.2 Product Knowledge Dictionary
+
+PKD bude obsahovat normalizované znalostní záznamy oddělené od konkrétních SKU.
+
+Minimální znalostní záznam:
+
+- stabilní interní ID,
+- český kanonický název,
+- alternativní názvy a synonyma,
+- jazykové varianty a morfologické tvary,
+- nadřazený typ / skupina,
+- kategorie a podkategorie,
+- externí ID a mapování (GPC, OFF, CZ-CPA podle dostupnosti),
+- definice hranic druhu,
+- `contains` — co do druhu patří,
+- `excludes` — co do druhu nepatří,
+- varianty a významné atributy,
+- fyzická forma produktu,
+- stav zpracování (raw, cooked, dried, frozen, pickled, canned, prepared atd.),
+- typickou prodejní jednotku,
+- typické velikosti balení,
+- pravidla převodu množství,
+- rozpoznávací pravidla,
+- příklady skutečných názvů produktů,
+- zdroj, verzi zdroje a datum importu,
+- confidence,
+- stav mapování na interní Product Type,
+- případnou ruční korekci.
+
+### 7.3 Druh zboží není totéž co varianta, forma ani balení
+
+Tyto pojmy musí zůstat oddělené:
+
+```text
+Product Type
+  └── Variant / attributes
+        └── Form / processing state
+              └── Package / selling unit
+                    └── Concrete retailer product / SKU
+```
+
+Příklad:
+
+```text
+Kuřecí prsa
+  → bez kosti
+  → s kůží
+  → chlazená
+  → 500 g
+  → "Vodňanské kuře prsní řízky 500 g"
+```
+
+Balení **nesmí vytvářet nový Product Type** jen proto, že se stejný druh prodává jako 250 g, 500 g, 1 kg, 2 × 500 g, multipack nebo kusové balení.
+
+Naopak skutečně významná změna produktu (např. syrové kuřecí maso vs. vařený výrobek, čerstvé houby vs. nakládané houby) může znamenat jiný Product Type nebo jinou hranici skupiny.
+
+### 7.4 Univerzální model množství a balení
+
+Pravidla převodu musí platit **pro všechny druhy zboží**, nikoli pouze pro potraviny.
+
+Každý produkt má mít podle dostupných dat:
+
+- `quantity_value`,
+- `quantity_unit`,
+- `package_count`,
+- `package_type`,
+- `drained_quantity` (pokud je relevantní),
+- `net_quantity`,
+- `base_unit`,
+- `conversion_method`,
+- `conversion_confidence`.
+
+Příklady:
+
+| Prodejní forma | Normalizace |
+|---|---|
+| 500 g | 0,5 kg |
+| 2 × 500 g | 1 kg |
+| 6 × 330 ml | 1,98 l |
+| 1,5 l | 1,5 l |
+| 10 ks | 10 ks |
+| 3 balení po 250 g | 0,75 kg |
+| 4 role | 4 ks |
+
+Základní pravidlo:
+
+**Převádíme pouze to, co je skutečně matematicky nebo deklaratorně převoditelné.**
+
+Nesmí se například předpokládat, že 1 balení = 1 kg, 1 láhev = 1 l nebo 1 krabička = 1 ks obsahu. Pokud chybí bezpečný převod, systém zachová původní jednotku a označí množství jako neporovnatelné.
+
+Převody budou rozděleny na:
+
+1. **přímé převody jednotek** — g ↔ kg, ml ↔ l, ks,
+2. **deklarované multipacky** — počet × množství,
+3. **obalové převody** — např. „3 role“, pouze pokud je role pro daný typ skutečně základní prodejní jednotkou,
+4. **odvozené převody** — pouze z ověřeného atributu nebo zdroje,
+5. **neznámé převody** — nikdy se neodhadují bez evidence.
+
+Převodní pravidla budou verzovaná a auditovatelná. Každý výsledek musí být možné vysvětlit zdrojem a metodou.
+
+### 7.5 Kanonická jednotka pro porovnávání
+
+Product Type může definovat `comparison_unit`:
+
+- hmotnost → kg,
+- objem → l,
+- počet → ks,
+- délka → m,
+- plocha → m²,
+- jiné veličiny pouze tehdy, pokud dávají pro daný typ obchodní smysl.
+
+Cena za jednotku se počítá až z normalizovaného množství. Pokud normalizace není bezpečná, produkt se nesmí označit jako levnější pouze na základě odhadu.
+
+Tím se sjednotí:
+
+- nákupní plán,
+- akce,
+- sklad,
+- rozpočty,
+- receptové množství,
+- převody balení,
+- porovnávání cen mezi řetězci.
+
+### 7.6 Mapování externích taxonomií na interní Product Types
+
+Tok dat:
+
+```text
+GS1 GPC
+   + Open Food Facts
+   + CZ-CPA
+   + vlastní katalog produktů
+   + OCR / účtenky
+          ↓
+normalizace názvů a atributů
+          ↓
+Product Knowledge Dictionary
+          ↓
+hranice / synonymum / forma / balení / jednotka
+          ↓
+mapování na interní Product Type
+          ↓
+products
+          ↓
+nákupní seznam / plánování / zásoby / účtenky / AI
+```
+
+Externí klasifikace může být mnohem podrobnější než aplikační model. Více externích položek proto může mapovat na jeden interní Product Type.
+
+Opačně není dovoleno vytvořit interní Product Type pouze proto, že externí zdroj obsahuje nový klasifikační kód. Nový interní typ vzniká až po splnění interní definice a pravidel.
+
+### 7.7 Dlouhý ocas a kandidátní druhy
+
+Dosavadní model má 109 interních typů. To není konečný seznam.
+
+Importy budou vytvářet také **candidate product types** pro případy, které:
+
+- jsou opakovaně přítomné v katalozích,
+- nelze bezpečně namapovat na existující typ,
+- mají dostatečně jednoznačnou definici,
+- nebo jsou významné pro český maloobchod.
+
+Kandidát není automaticky platným interním typem.
+
+Každý kandidát musí projít:
+
+1. normalizací,
+2. deduplikací,
+3. kontrolou hranic,
+4. kontrolou proti externím taxonomiím,
+5. kontrolou konfliktů s existujícími typy,
+6. určením základní jednotky a balení,
+7. testem na skutečných produktech,
+8. schválením nebo zamítnutím.
+
+### 7.8 AI klasifikace
+
+AI může pomáhat s klasifikací dlouhého ocasu, ale nesmí vytvářet nekontrolované aplikační identity.
+
+AI dostane uzavřený seznam platných interních Product Types a může vrátit:
+
+- existující Product Type,
+- kandidátní Product Type,
+- nebo `none / unknown`.
+
+Každá AI klasifikace musí mít:
+
+- vstupní text,
+- vybraný typ,
+- confidence,
+- vysvětlení / evidence,
+- verzi modelu,
+- verzi PKD,
+- možnost zpětné korekce.
+
+AI nesmí obejít pravidla `excludes`, kategorii, formu, stav zpracování ani bezpečnost převodů balení.
+
+### 7.9 Aktualizace znalostní vrstvy
+
+PKD bude importovatelná a verzovaná datová vrstva.
+
+Každý import musí evidovat:
+
+- zdroj,
+- verzi zdroje,
+- datum získání,
+- počet nových záznamů,
+- počet změněných záznamů,
+- počet odstraněných / neaktivních záznamů,
+- počet kandidátů,
+- počet úspěšných mapování,
+- počet konfliktů,
+- počet duplicit,
+- chyby validace.
+
+Aktualizace zdrojů nesmí přímo měnit ruční korekce ani přepsat ručně schválené mapování.
+
+### 7.10 Deduplikace a identita
+
+Synonyma, pravopisné varianty, různé názvy stejného druhu a stejné produkty z více zdrojů se nesmějí stát samostatnými Product Types.
+
+Identita musí být oddělena od názvu:
+
+```text
+stable_id ≠ canonical_name ≠ synonym ≠ retailer_product_name
+```
+
+Změna názvu v externím zdroji tedy nesmí rozbít interní vazby.
+
+### 7.11 Bezpečnostní pravidla
+
+Platí následující pravidla:
+
+- nejasný produkt = `unknown`, nikoli náhodný typ,
+- více možných typů = `unknown` nebo kandidát, nikoli libovolný výběr,
+- ruční korekce má přednost před automatickým pravidlem,
+- bezpečný převod má přednost před odhadem,
+- externí klasifikace je důkaz / pomocný signál, nikoli automatické rozhodnutí,
+- změna PKD nesmí zpětně změnit ruční klasifikaci,
+- každý automatický výsledek musí být reprodukovatelný z verze pravidel a dat.
+
+### 7.12 Implementační pořadí
+
+Další práce bude probíhat v tomto pořadí:
+
+1. **PKD schema** — databázový model pro druhy, synonyma, atributy, externí mapování a zdroje.
+2. **Quantity & Packaging Dictionary** — jednotky, balení, multipacky a bezpečné převody.
+3. **Import GS1 GPC** — strukturální základ a verzování.
+4. **Import Open Food Facts** — názvy, kategorie, synonyma a potravinové atributy.
+5. **Import CZ-CPA** — česká kontrolní a mapovací vrstva.
+6. **Normalization + deduplication** — sjednocení zdrojů.
+7. **Candidate generation** — hledání dosud nepokrytých druhů.
+8. **Mapping engine** — mapování PKD → interní Product Types.
+9. **Backfill katalogu** — opětovné vyhodnocení existujících produktů.
+10. **Golden set / regression tests** — měření přesnosti a ochrana proti regresím.
+11. **AI long-tail classifier** — až po stabilizaci uzavřeného interního seznamu.
+12. **Pravidelné aktualizace** — automatizované importy a report změn.
+
+### 7.13 Zdrojové reference
+
+- GS1 GPC: aktuální standard a archiv verzí — https://ref.gs1.org/standards/gpc/
+- GS1 GPC schema/principles — https://support.gs1.org/support/solutions/articles/43000734164-what-is-the-gpc-schema-
+- Open Food Facts — https://world.openfoodfacts.org/
+- Open Food Facts API / data — https://world.openfoodfacts.org/data
+- CZ-CPA 2025 / CPA Ver. 2.2 — https://csu.gov.cz/klasifikace-produkce-cz-cpa-platna-od-1-1-2025
+
+## 8. Aktuální hlavní koncept
+
+Od **2026-10-08** je tento dokument autoritativním konceptem pro produktové druhy a jejich klasifikaci v Shopping_Buddy.
+
+Ruční seznam v `lib/product-types.ts` je považován za aktuální aplikační vrstvu, nikoli za konečný zdroj pravdy o všech druzích zboží.
+
+Budoucí rozšíření musí zachovat:
+
+- stabilní interní Product Type identity,
+- oddělení druhu, varianty, formy a balení,
+- univerzální model množství pro všechny druhy zboží,
+- bezpečné a vysvětlitelné převody jednotek a balení,
+- kombinaci GS1 GPC + Open Food Facts + CZ-CPA + vlastních katalogových dat,
+- kandidátní vrstvu pro dosud nepokryté druhy,
+- pravidlo `unknown` místo hádání,
+- ochranu ručních korekcí,
+- verzování zdrojů, pravidel a mapování,
+- regresní testování proti reálnému katalogu.
+
+Tento dokument musí být aktualizován současně s každou změnou datového modelu nebo klasifikační logiky, která mění význam Product Type, balení nebo převodů množství.

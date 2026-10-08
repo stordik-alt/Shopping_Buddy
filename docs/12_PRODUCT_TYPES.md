@@ -444,6 +444,21 @@ Platí následující pravidla:
 
 ### 7.12a Stav PKD schema — 2026-10-08
 
+### 7.12b Stav Quantity & Packaging Dictionary — 2026-10-08
+
+Navazující databázová vrstva nyní obsahuje univerzální slovník množství a balení pro **všechny druhy zboží**:
+
+- `quantity_units` — rozměrové jednotky a jejich kanonická jednotka,
+- `quantity_conversions` — pouze explicitně evidované bezpečné převody s metodou, zdrojem, verzí a confidence,
+- `packaging_types` — slovník typů prodejních obalů/jednotek.
+
+Základní jednotky jsou `ks`, `kg`, `l`, `m` a `m2`; podporovány jsou také jejich relevantní menší metrické jednotky. Převod hmotnosti, objemu, délky nebo plochy je možný pouze mezi jednotkami stejné dimenze.
+
+Datový model záměrně **neobsahuje automatický převod obal → obsah**. Například `láhev`, `krabička`, `balení` nebo `role` samy o sobě neříkají, kolik produktu obsahují. Obsah musí být deklarovaný nebo ověřený.
+
+Migration: `0078_quantity_packaging_dictionary.sql`. Tato fáze nemění existující `product_packages` ani katalogové produkty.
+
+
 První databázová vrstva PKD je nyní připravena jako samostatná znalostní vrstva:
 
 - `pkd_sources` — verzované zdroje a metadata importu,

@@ -1,3 +1,10 @@
+## 2026-10-08 (Universal Quantity & Packaging Dictionary)
+- **What:** added the second PKD foundation layer for quantities, units, conversions and packaging across **all goods**.
+- **Units:** introduced dimensions for count, mass, volume, length and area with canonical comparison units (`ks`, `kg`, `l`, `m`, `m2`) and metric subunits.
+- **Conversions:** stored explicit conversion rules with method, source, source version, confidence and verification status. Only same-dimension mathematical conversions are seeded automatically.
+- **Packaging safety:** added `packaging_types` with an explicit `requires_declared_contents` boundary. Package names do not imply their contents; no rule such as package = 1 kg or bottle = 1 l is created.
+- **Migration:** `0078_quantity_packaging_dictionary.sql`; Drizzle definitions are in `lib/db/schema.ts`.
+- **Scope:** existing `product_packages` and catalog products are unchanged. This is the vocabulary and safety foundation for later package normalization and source imports.
 ## 2026-10-08 (PKD schema — first knowledge-layer foundation)
 - **What:** added the first database layer for the approved Product Knowledge Dictionary concept, separate from the application `product_types` list.
 - **Schema:** `pkd_sources` stores versioned source/provenance metadata; `pkd_entries` stores stable knowledge identities, canonical names, categories, forms, processing states, attributes, boundaries and confidence; `pkd_synonyms` stores normalized synonyms; `pkd_external_mappings` stores explicit external IDs, mapping status, confidence and evidence.

@@ -61,6 +61,8 @@ async function main() {
         sourceCount: row.sourceEntryIds.length,
         sources: (row.evidence as Record<string, unknown>).sourceKinds ?? [],
         reviewFlags: (row.evidence as Record<string, unknown>).reviewFlags ?? [],
+        referenceSourceKinds: (row.evidence as Record<string, unknown>).referenceSourceKinds ?? [],
+        referenceEvidence: (row.evidence as Record<string, unknown>).referenceEvidence ?? [],
       })),
       mode: 'list',
     }, null, 2))
@@ -160,6 +162,8 @@ async function main() {
     confidence: candidate.confidence,
     candidateKey: candidate.candidateKey,
     reviewFlags: candidate.evidence.reviewFlags,
+    referenceSourceKinds: candidate.evidence.referenceSourceKinds,
+    referenceEvidence: candidate.evidence.referenceEvidence,
   }))
 
   if (dryRun) {

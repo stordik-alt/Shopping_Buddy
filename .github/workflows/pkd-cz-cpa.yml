@@ -99,5 +99,5 @@ jobs:
           if [ "${{ inputs.apply }}" = "true" ]; then
             pnpm exec tsx scripts/import-cz-cpa.ts --file="$(cat .tmp/cz-cpa/input.path)" --apply
           else
-            pnpm exec tsx scripts/import-cz-cpa.ts --file=.tmp/cz-cpa/input
+            pnpm exec tsx scripts/import-cz-cpa.ts --file="$(cat .tmp/cz-cpa/input.path)"
           fi

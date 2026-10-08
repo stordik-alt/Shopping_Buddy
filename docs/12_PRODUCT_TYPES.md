@@ -530,6 +530,23 @@ První ingestion vrstva importuje **categories taxonomy** z JSON exportu:
 
 Záměrně se v této fázi **neimportuje celý produktový katalog Open Food Facts**. OFF uvádí, že data jsou dobrovolně dodávaná a nemusí být přesná, úplná nebo spolehlivá; proto jsou zde použita jako znalostní evidence a kandidátní signál, nikoli jako autoritativní klasifikace.
 
+### 7.12f Stav CZ-CPA importu — 2026-10-08
+
+CZ-CPA 2025 je použito jako česká kontrolní a mapovací vrstva PKD. ČSÚ aktuálně zveřejňuje opravenou systematickou část a klasifikaci **CZ-CPA_2025_KL** ve formátech XML, CSV a XLSX; klasifikace má šest úrovní (číselníky 6501–6506). citeturn1view0turn2search0
+
+První ingestion vrstva:
+- `scripts/import-cz-cpa.ts`
+- `lib/pkd-cz-cpa-parser.ts`
+- `pnpm db:import-cz-cpa -- --file=/path/to/cz-cpa.csv` je ve výchozím režimu dry-run,
+- `--apply` zapisuje do `pkd_sources`, `pkd_entries` a `pkd_external_mappings`,
+- `CZ_CPA_VERSION` a `CZ_CPA_LANGUAGE` jsou explicitně nastavitelné,
+- podporovány jsou JSON, CSV a XML exporty; XLSX se předává přes CSV/XML export z oficiálního zdroje,
+- kódy úrovní 1–6 jsou zachovány jako externí identita,
+- rodič, cesta a úroveň jsou uloženy v `attributes` a rodič také v `externalParentId`,
+- import automaticky nevytváří interní `product_types`.
+
+CZ-CPA je zde záměrně **validace/mapování**, nikoli retailový Product Type katalog. Název položky ani klasifikační kód proto samy o sobě nemění interní klasifikaci produktu. ČSÚ zároveň upozorňuje na probíhající legislativní opravy českých názvů, takže zdrojová verze a provenance musí zůstat součástí PKD. citeturn1view0
+
 ### 7.13 Zdrojové reference
 
 - GS1 GPC: aktuální standard a archiv verzí — https://ref.gs1.org/standards/gpc/

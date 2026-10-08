@@ -2011,3 +2011,9 @@ Every future architectural/schema/business-rule change should append a dated ent
 - **Fixed:** the manual PKD backfill workflow now invokes the script directly with `tsx` instead of the `dotenv -e .env.local` package wrapper.
 - **Reason:** GitHub Actions provides `DATABASE_URL` from the repository secret; the local `.env.local` wrapper is not present in the runner and can prevent the injected connection string from reaching the script.
 - **Safety:** dry-run remains the default and `--apply` is still required for writes.
+
+
+## 2026-10-08 (PKD backfill Actions Neon secret fix)
+- **Fixed:** the manual PKD approved mapping backfill workflow now maps the existing `NEON_PROD_DATABASE_URL` repository secret to the runtime `DATABASE_URL` environment variable.
+- **Reason:** the repository does not expose a `DATABASE_URL` Actions secret; the production Neon connection is stored as `NEON_PROD_DATABASE_URL`.
+- **Safety:** the secret name is changed only at the workflow boundary; the application continues to consume `DATABASE_URL` and dry-run remains the default.

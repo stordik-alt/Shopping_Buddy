@@ -17,6 +17,7 @@ export type PkdCandidateInput = {
   confidence?: number | null
   candidateEligible?: boolean
   sourceKind?: string
+  referenceEvidence?: { sourceKind: string; matchedName: string; stableKey?: string }[]
 }
 
 export type PkdProductTypeCandidate = {
@@ -41,6 +42,8 @@ export type PkdProductTypeCandidate = {
     normalization: string
     reason: 'unmapped_retail_product_identity'
     reviewFlags: string[]
+    referenceEvidence: { sourceKind: string; matchedName: string; stableKey?: string }[]
+    referenceSourceKinds: string[]
   }
 }
 
@@ -75,6 +78,9 @@ function reviewFlagsFor(entries: PkdCandidateInput[], canonicalName: string): st
     flags.push('possible_region_or_named_variant')
   }
   if (entries.every((entry) => entry.status !== 'approved')) flags.push('no_approved_source_entry')
+  const referenceKinds = new Set(entries.flatMap((entry) => entry.referenceEvidence ?? []).map((item) => item.sourceKind))
+  if (referenceKinds.size === 0) flags.push('reference_corroboration_missing')
+  else if (referenceKinds.size === 1) flags.push('reference_corroboration_single_source')
   return flags.sort()
 }
 
@@ -119,6 +125,10 @@ export function generatePkdProductTypeCandidates(
       const sourceEntryIds = entries.map((entry) => entry.id).sort()
       const sourceKinds = [...new Set(entries.map((entry) => entry.sourceKind ?? 'unknown'))].sort()
       const reviewFlags = reviewFlagsFor(entries, first.canonicalName)
+      const referenceEvidence = [...new Map(entries.flatMap((entry) => entry.referenceEvidence ?? [])
+        .map((item) => [`${item.sourceKind}:${normalizeName(item.matchedName)}:${item.stableKey ?? ''}`, item])).values()]
+        .sort((a, b) => a.sourceKind.localeCompare(b.sourceKind) || a.matchedName.localeCompare(b.matchedName, 'cs'))
+      const referenceSourceKinds = [...new Set(referenceEvidence.map((item) => item.sourceKind))].sort()
 
       // A single taxonomy label is weak evidence. Confidence is deliberately conservative and
       // does not represent approval; missing category/unit always stays unknown rather than guessed.
@@ -129,6 +139,7 @@ export function generatePkdProductTypeCandidates(
         + (approvedEntryCount > 0 ? 0.05 : 0)
         + (entries.some((entry) => valueOrNull(entry.category)) ? 0.05 : 0)
         + (entries.some((entry) => valueOrNull(entry.comparisonUnit)) ? 0.05 : 0)
+        + (referenceSourceKinds.length >= 2 ? 0.05 : 0)
         - qualityPenalty))
 
       return {
@@ -153,6 +164,8 @@ export function generatePkdProductTypeCandidates(
           normalization: 'normalizeProductText + language; existing Product Types checked case/accent-insensitively',
           reason: 'unmapped_retail_product_identity' as const,
           reviewFlags,
+          referenceEvidence,
+          referenceSourceKinds,
         },
       }
     })

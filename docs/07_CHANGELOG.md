@@ -1,3 +1,11 @@
+## 2026-10-08 (PKD normalization and safe deduplication)
+- Added versioned PKD normalization (2026-10-v1) reusing the existing deterministic product-text normalization without changing stored source names.
+- Added pkd_entry_normalizations for normalized names, identity keys, methods and normalization version.
+- Added pkd_dedup_candidates for non-destructive duplicate candidates with confidence, evidence and review status.
+- Safety: equal normalized names never trigger an automatic merge; explicit category/subcategory/form/processing conflicts block a candidate, and missing metadata is never invented.
+- Runner: pnpm db:normalize-pkd supports dry-run by default and --apply for persistence.
+- Migration: added 0080_pkd_normalization_dedup.sql.
+
 ## 2026-10-08 (CZ-CPA hierarchy parent fix)
 - **Fixed:** CZ-CPA parent/path derivation now follows the classification level hierarchy, so section-to-level-2 relationships such as `A → 01` are preserved instead of using an invalid numeric prefix.
 - **Safety:** numeric code prefixes remain available through the parsed source data, while hierarchy construction no longer invents parent codes that do not exist in the source.

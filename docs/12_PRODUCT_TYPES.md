@@ -114,12 +114,13 @@ every rule change is measured on it, so fixing one type cannot silently break an
 | 2 | Planner uses types for items that have one | **done 2026-10-04** (see below) |
 | 3 | Type/group picker on the shopping list | **done 2026-10-04** (see below) |
 | 4 | Receipts and list ticking by type; receipt abbreviation dictionary; learning from corrections | **done 2026-10-04** (see below) |
-| 5 | Wider coverage (112 types); optionally a model choosing from the closed list of types for the long tail, once per product, validated — **only after an explicit owner approval** (CLAUDE.md section 30) | coverage **done 2026-10-04**; model **not built** |
+| 5 | Wider coverage (169 types); optionally a model choosing from the closed list of types for the long tail, once per product, validated — **only after an explicit owner approval** (CLAUDE.md section 30) | coverage **done 2026-10-04**; model **not built** |
 
 ### Owner additions (2026-10-08)
 
 - Laundry products are split into **Prací gel**, **Prací prášek** and **Aviváž** instead of the generic Prací prostředek type.
 - **Houby** is a Potraviny type for fresh mushrooms; dried, pickled and prepared mushroom products remain outside the type.
+- The owner-approved autocomplete coverage is expanded with common food, household, cleaning and children’s categories; existing types are reused where already covered, so no duplicate type identities are introduced.
 
 ### Phase 1 as implemented (2026-10-04)
 

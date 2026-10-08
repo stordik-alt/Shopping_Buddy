@@ -2005,3 +2005,9 @@ Every future architectural/schema/business-rule change should append a dated ent
 - **Fixed:** removed the hardcoded pnpm 10.17.1 pin from the manual PKD backfill workflow.
 - **Reason:** the repository declares pnpm@12.6.0 in package.json; pnpm/action-setup@v4 now reads the repository's packageManager field as the single source of truth.
 - **Result:** the manual PKD backfill dry-run no longer blocks on a conflicting pnpm setup version.
+
+
+## 2026-10-08 (PKD backfill Actions DATABASE_URL fix)
+- **Fixed:** the manual PKD backfill workflow now invokes the script directly with `tsx` instead of the `dotenv -e .env.local` package wrapper.
+- **Reason:** GitHub Actions provides `DATABASE_URL` from the repository secret; the local `.env.local` wrapper can mask that runtime environment when the file is absent in the runner.
+- **Safety:** dry-run remains the default and `--apply` is still required for writes.

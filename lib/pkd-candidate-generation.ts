@@ -86,7 +86,7 @@ export function generatePkdProductTypeCandidates(inputs: PkdCandidateInput[]): P
           unmappedEntryCount: entries.length,
           sourceEntryIds,
           normalization: 'normalizeProductText + language',
-          reason: 'unmapped_pkd_identity',
+          reason: 'unmapped_pkd_identity' as const,
         },
       }
     })

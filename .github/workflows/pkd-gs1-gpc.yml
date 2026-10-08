@@ -46,58 +46,8 @@ jobs:
             echo "Using supplied GS1 GPC source URL."
             curl -fL --retry 3 --retry-all-errors "$SOURCE_URL" -o .tmp/gpc/source
           else
-            echo "Discovering the current 2026-05 GPC download from the official GS1 page."
-            base_url="https://ref.gs1.org/standards/gpc/2026-05/"
-            artefacts_url="${base_url}artefacts"
-            curl -fL --retry 3 --retry-all-errors "$base_url" -o .tmp/gpc/page.html
-            curl -fL --retry 3 --retry-all-errors "$artefacts_url" -o .tmp/gpc/artefacts.html || true
-
-            url="$(python - <<'PY'
-          import re
-          from pathlib import Path
-          from urllib.parse import urljoin
-
-          base = "https://ref.gs1.org/standards/gpc/2026-05/"
-          html = "\n".join(
-              p.read_text(encoding="utf-8", errors="ignore")
-              for p in (Path(".tmp/gpc/page.html"), Path(".tmp/gpc/artefacts.html"))
-              if p.exists()
-          )
-
-          candidates = set()
-          for raw in re.findall(r'https?://[^\s"\\<>]+', html):
-              candidates.add(raw.rstrip("',);]"))
-          for raw in re.findall(r'(?:href|src|data-[\\w-]+)=["\\']([^"\\']+)["\\']', html, re.I):
-              candidates.add(urljoin(base, raw))
-
-          def score(url):
-              low = url.lower()
-              points = 0
-              if "gpc" in low: points += 20
-              if "download" in low or "schema" in low or "browser" in low: points += 10
-              if any(ext in low for ext in (".zip", ".xml", ".json")): points += 30
-              if low.startswith("https://ref.gs1.org/"): points += 5
-              if low.startswith("https://www.gs1.org/"): points += 4
-              return points
-
-          ranked = sorted(
-              (u for u in candidates if u.startswith(("https://ref.gs1.org/", "https://www.gs1.org/"))),
-              key=score,
-              reverse=True,
-          )
-
-          if not ranked or score(ranked[0]) < 25:
-              raise SystemExit(
-                  "No direct GPC artifact URL was discoverable. Supply source_url with the "
-                  "direct XML/JSON/ZIP URL from the official GS1 GPC download component."
-              )
-
-          print(ranked[0])
-          PY
-            )"
-
-            echo "Discovered: $url"
-            curl -fL --retry 3 --retry-all-errors "$url" -o .tmp/gpc/source
+            echo "Downloading the official GS1 GPC 2026-05 publication."
+            curl -fL --retry 3 --retry-all-errors               "https://ref.gs1.org/standards/gpc/2026-05/"               -o .tmp/gpc/source
           fi
 
           file .tmp/gpc/source
@@ -107,18 +57,18 @@ jobs:
               mkdir -p .tmp/gpc/unpacked
               unzip -q .tmp/gpc/source -d .tmp/gpc/unpacked
               candidate="$(find .tmp/gpc/unpacked -type f \( -iname '*.xml' -o -iname '*.json' \) | head -n 1)"
-              [ -n "$candidate" ] || { echo "No XML/JSON GPC file found in downloaded archive."; exit 1; }
+              [ -n "$candidate" ] || {
+                echo "No XML/JSON GPC file found in downloaded archive."
+                find .tmp/gpc/unpacked -maxdepth 3 -type f | head -n 50
+                exit 1
+              }
               cp "$candidate" .tmp/gpc/input
               ;;
             application/xml|text/xml|application/json|text/plain)
               cp .tmp/gpc/source .tmp/gpc/input
               ;;
             *)
-              if head -c 100 .tmp/gpc/source | grep -qi '<html'; then
-                echo "Downloaded HTML instead of a GPC data file. Supply the direct GS1 download URL in source_url."
-              else
-                echo "Unsupported downloaded file type."
-              fi
+              echo "Unsupported downloaded file type: $(file -b --mime-type .tmp/gpc/source)"
               exit 1
               ;;
           esac

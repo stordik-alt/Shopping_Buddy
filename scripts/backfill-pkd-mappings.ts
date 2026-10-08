@@ -1,4 +1,4 @@
-import { eq, isNull } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 
@@ -11,24 +11,14 @@ async function main() {
       mappingId: schema.pkdProductTypeMappings.id,
       pkdEntryId: schema.pkdProductTypeMappings.pkdEntryId,
       productTypeId: schema.pkdProductTypeMappings.productTypeId,
+      existingProductTypeId: schema.pkdEntries.productTypeId,
     })
     .from(schema.pkdProductTypeMappings)
     .innerJoin(schema.pkdEntries, eq(schema.pkdEntries.id, schema.pkdProductTypeMappings.pkdEntryId))
     .where(eq(schema.pkdProductTypeMappings.status, 'accepted'))
 
-  const eligible = []
-  const skipped = []
-
-  for (const row of rows) {
-    const entry = await db
-      .select({ productTypeId: schema.pkdEntries.productTypeId })
-      .from(schema.pkdEntries)
-      .where(eq(schema.pkdEntries.id, row.pkdEntryId))
-      .limit(1)
-
-    if (entry[0]?.productTypeId === null) eligible.push(row)
-    else skipped.push(row)
-  }
+  const eligible = rows.filter((row) => row.existingProductTypeId === null)
+  const skipped = rows.filter((row) => row.existingProductTypeId !== null)
 
   console.log(JSON.stringify({
     acceptedMappings: rows.length,
@@ -39,14 +29,21 @@ async function main() {
 
   if (!apply) return
 
+  let backfilled = 0
   for (const row of eligible) {
-    await db
+    const result = await db
       .update(schema.pkdEntries)
       .set({ productTypeId: row.productTypeId, updatedAt: new Date() })
-      .where(isNull(schema.pkdEntries.productTypeId) && eq(schema.pkdEntries.id, row.pkdEntryId))
+      .where(and(
+        eq(schema.pkdEntries.id, row.pkdEntryId),
+        isNull(schema.pkdEntries.productTypeId),
+      ))
+      .returning({ id: schema.pkdEntries.id })
+
+    backfilled += result.length
   }
 
-  console.log(JSON.stringify({ backfilled: eligible.length }, null, 2))
+  console.log(JSON.stringify({ backfilled }, null, 2))
 }
 
 void main().catch((error) => {

@@ -1,3 +1,14 @@
+## 2026-10-08 (CZ-CPA hierarchy parent fix)
+- **Fixed:** CZ-CPA parent/path derivation now follows the classification level hierarchy, so section-to-level-2 relationships such as `A → 01` are preserved instead of using an invalid numeric prefix.
+- **Safety:** numeric code prefixes remain available through the parsed source data, while hierarchy construction no longer invents parent codes that do not exist in the source.
+
+## 2026-10-08 (CZ-CPA hierarchy fix)
+- **Fixed:** level-2 CZ-CPA nodes now correctly inherit their letter section as parent and path root instead of deriving a numeric `0` prefix.
+- **Fixed:** removed the leftover XML runtime reference from the shared parser; XML remains handled by the CLI importer before the pure parser is invoked.
+
+## 2026-10-08 (CZ-CPA CSV parser fix)
+- **Fixed:** corrected escaped line-ending handling in the pure CZ-CPA CSV parser and its regression fixture; real CSV rows are now split on `\\n`/`\\r` characters correctly.
+
 ## 2026-10-08 (Open Food Facts PKD ingestion foundation)
 - **Added:** Open Food Facts categories taxonomy parser and versioned PKD importer.
 - **Scope:** imports category identities, multilingual names, parent/child hierarchy and synonyms into the PKD knowledge layer; it does not create internal Product Types or import the full OFF product catalog.
@@ -1917,3 +1928,19 @@ Every future architectural/schema/business-rule change should append a dated ent
 - Updated receipt tests to exercise the production R2 storage abstraction through an in-memory S3-compatible stub.
 - `BLOB_READ_WRITE_TOKEN` and `STORAGE_PROVIDER` are no longer application requirements.
 - Blob originals were not deleted during this cleanup.
+
+
+## 2026-10-08 (CZ-CPA PKD ingestion foundation)
+- **Added:** CZ-CPA 2025 parser and versioned PKD importer for the official CZ-CPA_2025_KL classification.
+- **Scope:** imports Czech classification identities, six-level hierarchy, parent/path metadata and external mappings into PKD; it does not create internal Product Types.
+- **Formats:** JSON, CSV and XML input; XLSX can be exported from the official ČSÚ source to CSV/XML before ingestion.
+- **Safety:** CZ-CPA remains a validation/mapping source, not an authoritative retail Product Type taxonomy; source version and provenance are preserved.
+- **Modes:** dry-run by default, `--apply` for persistence, explicit `CZ_CPA_VERSION` and `CZ_CPA_LANGUAGE`.
+- **Source:** ČSÚ CZ-CPA 2025 / CZ-CPA_2025_KL.
+
+## 2026-10-08 (CZ-CPA unit-test compatibility fix)
+- **Fixed:** moved the CLI-only `fast-xml-parser` dependency out of the shared CZ-CPA parser and into the importer, matching the working GS1 GPC architecture.
+- **Result:** unit tests can import the pure parser without requiring XML runtime resolution; XML ingestion remains supported by `db:import-cz-cpa`.
+
+## 2026-10-08 (CZ-CPA CI compatibility fix)
+- **Fixed:** mark the CLI-only `fast-xml-parser` import in the CZ-CPA parser consistently with the existing GS1 GPC parser so Next.js/Cloudflare typecheck does not treat it as an application module dependency.

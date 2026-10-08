@@ -1,3 +1,9 @@
+## 2026-10-08 (Open Food Facts PKD ingestion foundation)
+- **Added:** Open Food Facts categories taxonomy parser and versioned PKD importer.
+- **Scope:** imports category identities, multilingual names, parent/child hierarchy and synonyms into the PKD knowledge layer; it does not create internal Product Types or import the full OFF product catalog.
+- **Safety:** external taxonomy remains evidence/candidate data because OFF documents that its user-contributed data may be incomplete or inaccurate.
+- **Modes:** dry-run by default, `--apply` for persistence, explicit `OFF_VERSION` and `OFF_LANGUAGE` provenance.
+
 ## 2026-10-08 (GS1 GPC CI fixes)
 - **Fix:** refactored the GS1 GPC CLI to use the shared parser, removed top-level await and kept GPC hierarchy out of the constrained product category field.
 - **Security:** upgraded `fast-xml-parser` to patched 5.11.2 and disabled XML entity processing in the importer.

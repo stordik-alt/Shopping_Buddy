@@ -604,6 +604,18 @@ Fáze normalizace a deduplikace je implementována jako nedestruktivní vrstva n
 - Normalizace nesmí sloučit Product Type s variantou, formou, balením ani retailer SKU.
 - Runner: pnpm db:normalize-pkd (dry-run), pnpm db:normalize-pkd -- --apply (zápis).
 
+### 7.12j Stav PKD mapping acceptance workflow — 2026-10-08
+
+- **Přidáno:** auditovaná acceptance vrstva pro kandidátní vazby v `pkd_product_type_mappings`.
+- **Schválení:** pouze kandidát ve stavu `candidate` může být přijat; současně se v jedné databázové operaci zapíše `pkd_entries.product_type_id` a auditní záznam do `pkd_product_type_mapping_reviews`.
+- **Ochrana proti přepsání:** schválení selže, pokud už má PKD záznam přiřazený jiný Product Type. Ruční oprava provedená mezitím tedy nemůže být přepsána starším kandidátem.
+- **Zamítnutí:** mění pouze stav kandidáta na `rejected` a vyžaduje poznámku s důvodem.
+- **Audit:** ukládá rozhodnutí, reviewer UUID, poznámku a čas; původní evidence kandidáta zůstává zachována v mapping řádku.
+- **Idempotence:** již schválené nebo zamítnuté kandidáty nelze znovu rozhodnout.
+- **CLI:** `pnpm db:review-pkd-mapping -- --list` zobrazí čekající kandidáty; rozhodnutí používá `--id=<UUID> --accept|--reject --reviewer=<UUID> [--note=<text>]`.
+- **Bezpečnost:** workflow samo o sobě není automatické AI schvalování; explicitní lidské rozhodnutí je oddělené od generování kandidátů.
+- **Migration:** `0083_pkd_mapping_acceptance.sql`.
+
 ### 7.12i Stav PKD mapping engine — 2026-10-08
 
 - **Přidáno:** návrhová vrstva pro mapování PKD záznamů na již existující interní Product Types.

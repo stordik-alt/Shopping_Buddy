@@ -40,6 +40,7 @@ export async function addPantryItemAction(input: {
   category?: ItemCategory
   subcategory?: string | null
   placeKey?: string | null
+  selection?: { kind: 'product'; productId: string } | { kind: 'type'; productTypeKey: string }
 }): Promise<PantryItem[]> {
   const householdId = await requireHouseholdId()
   const name = typeof input?.name === 'string' ? input.name.trim() : ''
@@ -54,6 +55,26 @@ export async function addPantryItemAction(input: {
   const catalog = await getProductCatalogCached([name])
   const product = matchProductByName(catalog, name)
   if (product?.isNonInventory) throw new Error('Tento produkt nelze přidat do zásob.')
+
+  let selectedProductId: string | null = null
+  let selectedProductTypeId: string | null = null
+  if (input.selection?.kind === 'product') {
+    const selected = await getDb().query.products.findFirst({
+      where: eq(schema.products.id, input.selection.productId),
+      columns: { id: true, isNonInventory: true, categoryId: true, subcategoryId: true, productTypeId: true, name: true, defaultLocation: true },
+    })
+    if (!selected) throw new Error('Neplatný produkt.')
+    if (selected.isNonInventory) throw new Error('Tento produkt nelze přidat do zásob.')
+    selectedProductId = selected.id
+    selectedProductTypeId = selected.productTypeId ?? null
+  } else if (input.selection?.kind === 'type') {
+    const type = await getDb().query.productTypes.findFirst({
+      where: eq(schema.productTypes.key, input.selection.productTypeKey),
+      columns: { id: true, category: true, unit: true, name: true },
+    })
+    if (!type) throw new Error('Neplatný druh zboží.')
+    selectedProductTypeId = type.id
+  }
 
   // A category selected during manual pantry entry is authoritative for this entry.
   // Catalog classification is only the fallback when the caller did not provide one.
@@ -89,7 +110,8 @@ export async function addPantryItemAction(input: {
   }
 
   await restockPantryItem(householdId, {
-    productId: product?.id ?? null,
+    productId: selectedProductId ?? (input.selection ? null : product?.id ?? null),
+    productTypeId: selectedProductTypeId,
     name,
     category,
     quantity,

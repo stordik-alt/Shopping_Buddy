@@ -39,6 +39,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 function toItem(row: typeof schema.shoppingListItems.$inferSelect): Item {
   return {
     id: row.id,
+    productId: row.productId,
     name: row.name,
     detail: row.detail,
     price: Number(row.price),
@@ -92,6 +93,7 @@ export async function addShoppingItemAction(
   name: string,
   overrides: Partial<Pick<Item, 'detail' | 'category' | 'unit' | 'quantity'>> = {},
   clientId?: string,
+  selection?: { kind: 'product'; productId: string } | { kind: 'type'; productTypeKey: string },
 ): Promise<{ item: Item; notification: Notification | null }> {
   const { householdId, userId } = await requireHousehold()
   await assertOwnsList(householdId, listId)
@@ -99,6 +101,17 @@ export async function addShoppingItemAction(
   const quantity = overrides.quantity ?? 1
   if (!(Number.isFinite(quantity) && quantity > 0 && quantity < 10_000_000)) throw new Error('Množství musí být kladné číslo.')
   const db = getDb()
+
+  let selectedProductId: string | null = null
+  let selectedProductTypeKey: string | null = null
+  if (selection?.kind === 'product') {
+    const selected = await db.query.products.findFirst({ where: eq(schema.products.id, selection.productId), columns: { id: true, name: true } })
+    if (!selected) throw new Error('Neplatný produkt.')
+    selectedProductId = selected.id
+  } else if (selection?.kind === 'type') {
+    if (!validProductTypeKeys([selection.productTypeKey])) throw new Error('Neplatný druh zboží.')
+    selectedProductTypeKey = selection.productTypeKey
+  }
 
   if (clientId) {
     const existing = await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, clientId) })
@@ -116,6 +129,7 @@ export async function addShoppingItemAction(
   const catalog = await getProductCatalogCached([name])
   const matchedProduct = matchProductByName(catalog, name)
   const canonicalName = matchedProduct?.name ?? name
+  const resolvedProductId = selection?.kind === 'type' ? null : selectedProductId ?? matchedProduct?.id
 
   const [inserted] = await db
     .insert(schema.shoppingListItems)
@@ -123,7 +137,8 @@ export async function addShoppingItemAction(
       ...(clientId && { id: clientId }),
       listId,
       name,
-      productId: matchedProduct?.id,
+      productId: resolvedProductId ?? undefined,
+      productTypes: selectedProductTypeKey ? [selectedProductTypeKey] : undefined,
       detail: overrides.detail ?? '1 ks · bez detailu',
       quantity: Math.round(quantity * 1000) / 1000,
       // An explicit override wins; otherwise fall back to the matched product's real category

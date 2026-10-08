@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { ProductAutocomplete, type ProductAutocompleteSelection } from '@/components/shared/product-autocomplete'
 import { Receipt, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Field, Input, Select } from '@/components/ui/field'
@@ -30,6 +31,7 @@ export function ExpenseModal({
   const [category, setCategory] = useState<ExpenseCategory>(expense?.category ?? 'Potraviny')
   const [subcategory, setSubcategory] = useState(expense?.subcategory ?? '')
   const [date, setDate] = useState(expense?.date ?? today)
+  const [selection, setSelection] = useState<ProductAutocompleteSelection | undefined>()
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -58,7 +60,7 @@ export function ExpenseModal({
       setError('Datum výdaje nemůže být v budoucnosti.')
       return
     }
-    void run(() => onSave({ amount: value, note: note.trim() || subcategory || category, category, subcategory: subcategory || null, date }))
+    void run(() => onSave({ amount: value, note: note.trim() || subcategory || category, category, subcategory: subcategory || null, date, selection: selection?.kind === 'product' ? { kind: 'product', productId: selection.productId! } : selection?.kind === 'type' && selection.productTypeKey ? { kind: 'type', productTypeKey: selection.productTypeKey } : undefined }))
   }
 
   // A receipt's expense is what the receipt says was paid (lib/purchase-expenses.ts); the server
@@ -136,7 +138,20 @@ export function ExpenseModal({
           </Field>
         </div>
         <Field label="Datum platby">{(p) => <Input {...p} type="date" value={date} max={today} onChange={(event) => setDate(event.target.value)} />}</Field>
-        <Field label="Poznámka">{(p) => <Input {...p} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Např. záloha na elektřinu" />}</Field>
+        <Field label="Položka / poznámka">
+          {(p) => (
+            <ProductAutocomplete
+              {...p}
+              value={note}
+              onChange={(value) => {
+                setNote(value)
+                setSelection(undefined)
+              }}
+              onSelect={(value) => setSelection(value)}
+              placeholder="Např. vejce, elektřina, drogerie…"
+            />
+          )}
+        </Field>
       </div>
     </Sheet>
   )

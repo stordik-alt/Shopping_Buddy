@@ -50,6 +50,35 @@ afterAll(async () => {
   }
 })
 
+describe('manual autocomplete selection', () => {
+  it('persists a selected concrete product on pantry stock', async () => {
+    const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
+    const [product] = await db.insert(schema.products).values({ name: '__test_autocomplete_pantry_product__', categoryId: category!.id }).returning()
+    try {
+      const result = await addPantryItemAction({
+        name: product.name, quantity: 1, unit: 'ks', category: 'Potraviny', placeKey: 'Spíž',
+        selection: { kind: 'product', productId: product.id },
+      })
+      expect(result.find((item) => item.name === product.name)?.productId).toBe(product.id)
+    } finally {
+      await db.delete(schema.pantryItems).where(eq(schema.pantryItems.productId, product.id))
+      await db.delete(schema.products).where(eq(schema.products.id, product.id))
+    }
+  })
+
+  it('persists a selected generic product type without creating a product', async () => {
+    const type = (await db.query.productTypes.findFirst())!
+    const result = await addPantryItemAction({
+      name: type.name, quantity: 1, unit: type.unit, category: type.category, placeKey: 'Spíž',
+      selection: { kind: 'type', productTypeKey: type.key },
+    })
+    const row = result.find((item) => item.name === type.name)
+    expect(row?.productId).toBeNull()
+    expect(row?.productTypeId).toBe(type.id)
+    await db.delete(schema.pantryItems).where(eq(schema.pantryItems.id, row!.id))
+  })
+})
+
 describe('addPantryItemAction', () => {
   it('adds stock directly to the pantry and creates no purchase or expense', async () => {
     const result = await addPantryItemAction({

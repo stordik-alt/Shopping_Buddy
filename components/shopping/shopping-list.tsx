@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ItemTypePicker } from '@/components/shopping/item-type-picker'
-import { describeItemTypes, productTypeSuggestionNames } from '@/lib/product-types'
+import { ProductAutocomplete, type ProductAutocompleteSelection } from '@/components/shared/product-autocomplete'
+import { describeItemTypes } from '@/lib/product-types'
 import { Check, ChevronDown, ListChecks, Plus, Search, SlidersHorizontal, Sun, Tag, X } from 'lucide-react'
 import type { GpsCoords } from '@/lib/geo'
 import type { Item, ItemCategory, ItemPriority, ItemUnit, Store, StoreChain } from '@/lib/types'
@@ -33,7 +34,6 @@ const STORES: StoreChain[] = ['Lidl', 'Albert', 'Kaufland', 'Billa', 'Penny', 'J
 const PRIORITY_WEIGHT: Record<ItemPriority, number> = { Vysoká: 0, Normální: 1, Nízká: 2 }
 
 
-const TYPE_SUGGESTIONS = productTypeSuggestionNames()
 
 function sortItems(items: Item[], sort: SortKey) {
   const sorted = [...items]
@@ -86,7 +86,7 @@ export function ShoppingList({
   items: Item[]
   newItem: string
   setNewItem: (v: string) => void
-  addItem: () => void
+  addItem: (selection?: ProductAutocompleteSelection) => void
   updateItem: (id: string, changes: Partial<Item>) => void
   removeItem: (id: string) => void
   toggle: (id: string) => void
@@ -116,6 +116,7 @@ export function ShoppingList({
   offers?: StandaloneOffer[]
 }) {
   const [query, setQuery] = useState('')
+  const [newItemSelection, setNewItemSelection] = useState<ProductAutocompleteSelection | undefined>()
   const [category, setCategory] = useState('Vše')
   const [showCompleted, setShowCompleted] = useState(true)
   const [activeList, setActiveList] = useState(lists[0])
@@ -228,32 +229,22 @@ export function ShoppingList({
       {/* Adding an item is the most frequent action, so it comes first — before filters and comparisons. */}
       <div className="surface p-2">
         <div className="flex gap-2">
-          <input
-            aria-label="Nová položka"
-            value={newItem}
-            onChange={(e) => setNewItem(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) addItem()
-            }}
-            placeholder="Co koupit?"
-            list="product-catalog-suggestions"
-            className="min-h-11 min-w-0 flex-1 bg-transparent px-3 text-base outline-none placeholder:text-fg-muted"
-          />
-          {/* Native autocomplete against the real catalog (docs/07_CHANGELOG.md, "product
-              normalization phase 1") — picking a suggestion means addShoppingItemAction's
-              case/whitespace match resolves to a real productId on the first try, not just when
-              luckily typed exactly right. Still plain free text otherwise: no picker is enforced. */}
-          <datalist id="product-catalog-suggestions">
-            {/* Product types and groups first ("Kuřecí maso", "Máslo"): picking one gives the planner
-                an exact kind of goods to look for (docs/12_PRODUCT_TYPES.md, phase 3). */}
-            {TYPE_SUGGESTIONS.map((name) => (
-              <option key={`type:${name}`} value={name} />
-            ))}
-            {productPrices.map((product) => (
-              <option key={product.productName} value={product.productName} />
-            ))}
-          </datalist>
-          <Button size="lg" onClick={addItem}>
+          <div className="min-w-0 flex-1">
+            <ProductAutocomplete
+              value={newItem}
+              onChange={(value) => {
+                setNewItem(value)
+                setNewItemSelection(undefined)
+              }}
+              onSelect={(suggestion: ProductAutocompleteSelection) => setNewItemSelection(suggestion)}
+              placeholder="Co koupit?"
+              ariaLabel="Nová položka"
+            />
+          </div>
+          <Button size="lg" onClick={() => {
+              addItem(newItemSelection)
+              setNewItemSelection(undefined)
+            }}>
             <Plus aria-hidden="true" /> Přidat
           </Button>
         </div>

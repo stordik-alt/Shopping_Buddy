@@ -114,6 +114,23 @@ async function createProduct(name: string, options: { lidlPrice?: number; lidlDe
   return product
 }
 
+describe('manual autocomplete selection', () => {
+  it('persists a concrete productId when a product is explicitly selected', async () => {
+    currentHouseholdId = householdId
+    const product = await createProduct(`Autocomplete product ${productTag}`, {})
+    const { item } = await addShoppingItemAction(listId, product.name, {}, undefined, { kind: 'product', productId: product.id })
+    expect(item.productId).toBe(product.id)
+  })
+
+  it('persists a product type without creating a product link', async () => {
+    currentHouseholdId = householdId
+    const type = (await db.query.productTypes.findFirst())!
+    const { item } = await addShoppingItemAction(listId, type.name, {}, undefined, { kind: 'type', productTypeKey: type.key })
+    expect(item.productId).toBeNull()
+    expect(item.productTypes).toEqual([type.key])
+  })
+})
+
 describe('addShoppingItemAction', () => {
   it('adds an item to a list the caller\'s household actually owns', async () => {
     currentHouseholdId = householdId

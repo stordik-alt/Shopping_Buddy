@@ -46,33 +46,39 @@ jobs:
           SOURCE_URL: ${{ inputs.source_url }}
         run: |
           set -euo pipefail
-          mkdir -p .tmp/cz-cpa
-          curl -fL --retry 3 --retry-all-errors -A "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/154 Safari/537.36" -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,text/csv;q=0.8,*/*;q=0.7" "$SOURCE_URL" -o .tmp/cz-cpa/source
-          test -s .tmp/cz-cpa/source
+          mkdir -p .tmp/cz-cpa/levels
 
-          MIME_TYPE="$(file -b --mime-type .tmp/cz-cpa/source)"
-          if [ "$MIME_TYPE" = "text/html" ]; then
-            echo "The supplied URL is an HTML CZSO page; resolving the official CSV export endpoint."
-            KODCIS="$(printf '%s' "$SOURCE_URL" | sed -n 's/.*[?&]kodcis=\\([0-9][0-9]*\\).*/\\1/p')"
-            if [ -z "$KODCIS" ]; then
-              KODCIS="80144"
-            fi
-            EXPORT_URL="https://apl2.czso.cz/iSMS/cisexp.jsp?kodcis=$KODCIS&typdat=0&cisjaz=203&format=2&separator=%2C"
-            echo "Trying: $EXPORT_URL"
-            curl -fL --retry 3 --retry-all-errors -A "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/154 Safari/537.36" -H "Accept: text/csv,application/xml,text/plain;q=0.9,*/*;q=0.7" "$EXPORT_URL" -o .tmp/cz-cpa/source
-            MIME_TYPE="$(file -b --mime-type .tmp/cz-cpa/source)"
+          MIME_TYPE="$(curl -fsSL --retry 3 --retry-all-errors -A "Mozilla/5.0" -o .tmp/cz-cpa/source "$SOURCE_URL" -w '%{content_type}')"
+          echo "Initial content type: $MIME_TYPE"
+
+          if [[ "$SOURCE_URL" == *"kodcis=80144"* ]]; then
+            echo "Resolving official CZ-CPA 2025 level code lists 6501-6506."
+            for level in 1 2 3 4 5 6; do
+              code_list="650$level"
+              curl -fsSL --retry 3 --retry-all-errors \
+                -A "Mozilla/5.0" \
+                -H "Accept: text/csv,text/plain;q=0.9,*/*;q=0.7" \
+                "https://apl2.czso.cz/iSMS/cisexp.jsp?kodcis=$code_list&typdat=0&cisjaz=203&format=2&separator=%2C" \
+                -o ".tmp/cz-cpa/levels/$code_list.csv"
+              test -s ".tmp/cz-cpa/levels/$code_list.csv"
+              echo "Downloaded $code_list: $(file -b --mime-type ".tmp/cz-cpa/levels/$code_list.csv")"
+            done
+
+            pnpm exec tsx scripts/build-cz-cpa-csv.ts \
+              --input-dir=.tmp/cz-cpa/levels \
+              --output=.tmp/cz-cpa/input.csv
+            test -s .tmp/cz-cpa/input.csv
+          else
+            case "$MIME_TYPE" in
+              text/csv|text/plain|application/xml|text/xml|application/json|application/octet-stream)
+                cp .tmp/cz-cpa/source .tmp/cz-cpa/input
+                ;;
+              *)
+                echo "Unsupported direct CZ-CPA source type: $MIME_TYPE"
+                exit 1
+                ;;
+            esac
           fi
-
-          echo "Downloaded MIME type: $MIME_TYPE"
-          case "$MIME_TYPE" in
-            application/xml|text/xml|text/csv|text/plain|application/json|application/octet-stream)
-              cp .tmp/cz-cpa/source .tmp/cz-cpa/input
-              ;;
-            *)
-              echo "Unsupported downloaded file type: $MIME_TYPE"
-              exit 1
-              ;;
-          esac
       - name: Run CZ-CPA import
         env:
           DATABASE_URL: ${{ secrets.NEON_PROD_DATABASE_URL }}
@@ -81,7 +87,7 @@ jobs:
           CZ_CPA_SOURCE_URL: ${{ inputs.source_url }}
         run: |
           if [ "${{ inputs.apply }}" = "true" ]; then
-            pnpm exec tsx scripts/import-cz-cpa.ts --file=.tmp/cz-cpa/input --apply
+            pnpm exec tsx scripts/import-cz-cpa.ts --file=.tmp/cz-cpa/input.csv --apply
           else
             pnpm exec tsx scripts/import-cz-cpa.ts --file=.tmp/cz-cpa/input
           fi

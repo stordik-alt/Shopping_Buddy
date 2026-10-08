@@ -1,0 +1,66 @@
+name: PKD Product Type candidate approval
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_id:
+        description: "UUID from PKD candidate review output"
+        required: true
+        type: string
+      category:
+        description: "Internal Product Type category"
+        required: true
+        type: choice
+        options:
+          - Potraviny
+          - Drogerie
+          - Děti
+          - Domácnost
+          - Ostatní
+      unit:
+        description: "Comparable unit"
+        required: true
+        type: choice
+        options:
+          - ks
+          - kg
+          - g
+          - l
+          - ml
+      key:
+        description: "Optional stable unique key (default: pkd-<normalized-name>)"
+        required: false
+        type: string
+      apply:
+        description: "Create Product Type and link its PKD source entries"
+        required: true
+        default: false
+        type: boolean
+
+jobs:
+  approve:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Review or create Product Type
+        env:
+          DATABASE_URL: ${{ secrets.NEON_PROD_DATABASE_URL }}
+        run: |
+          args=(--id="${{ inputs.candidate_id }}")
+          if [ -n "${{ inputs.key }}" ]; then args+=(--key="${{ inputs.key }}"); fi
+          if [ "${{ inputs.apply }}" = "true" ]; then
+            args+=(--apply --category="${{ inputs.category }}" --unit="${{ inputs.unit }}")
+          fi
+          pnpm exec tsx scripts/review-pkd-candidate.ts "${args[@]}"

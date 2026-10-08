@@ -261,6 +261,65 @@ describe('product type definitions', () => {
     for (const group of PRODUCT_TYPE_GROUPS) for (const type of group.types) expect(keys.has(type)).toBe(true)
   })
 
+
+  it('includes the owner-approved expanded manual shopping types', () => {
+    const keys = new Set(PRODUCT_TYPES.map((type) => type.key))
+    for (const key of [
+      'pomazanky', 'mrazena-zelenina', 'cerealie', 'ovesne-vlocky', 'kecup', 'horcice', 'majoneza',
+      'dzem', 'kakao', 'orechy', 'seminka', 'klobasy', 'pastika', 'mrazene-ovoce', 'hranolky', 'pizza-mrazena',
+      'sul-do-mycky', 'lestidlo-do-mycky', 'cistic-wc', 'cistic-koupelny', 'cistic-kuchyne', 'univerzalni-cistic',
+      'cistic-oken', 'odstranovac-skvrn', 'dezinfekce', 'houbicky-na-nadobi', 'uterky', 'pytle-na-odpadky',
+      'alobal', 'potravinova-folie', 'pecici-papir', 'papir-tasky', 'vlhcene-ubrousky-detske',
+      'detsky-sampon', 'detsky-sprchovy-gel', 'detske-mydlo', 'detska-kosmetika', 'detske-prikrmy',
+      'detske-kapsicky', 'detske-napoje',
+    ]) expect(keys.has(key)).toBe(true)
+  })
+
+  it.each([
+    ['Pomazánky', 'pomazanky'],
+    ['Mražená zelenina', 'mrazena-zelenina'],
+    ['Cereálie', 'cerealie'],
+    ['Ovesné vločky', 'ovesne-vlocky'],
+    ['Kečup', 'kecup'],
+    ['Hořčice', 'horcice'],
+    ['Majonéza', 'majoneza'],
+    ['Džem', 'dzem'],
+    ['Kakao', 'kakao'],
+    ['Ořechy', 'orechy'],
+    ['Semínka', 'seminka'],
+    ['Klobásy', 'klobasy'],
+    ['Paštika', 'pastika'],
+    ['Mražené ovoce', 'mrazene-ovoce'],
+    ['Hranolky', 'hranolky'],
+    ['Pizza mražená', 'pizza-mrazena'],
+    ['Sůl do myčky', 'sul-do-mycky'],
+    ['Leštidlo do myčky', 'lestidlo-do-mycky'],
+    ['Čistič WC', 'cistic-wc'],
+    ['Čistič koupelny', 'cistic-koupelny'],
+    ['Čistič kuchyně', 'cistic-kuchyne'],
+    ['Univerzální čistič', 'univerzalni-cistic'],
+    ['Čistič oken', 'cistic-oken'],
+    ['Odstraňovač skvrn', 'odstranovac-skvrn'],
+    ['Dezinfekce', 'dezinfekce'],
+    ['Houbičky na nádobí', 'houbicky-na-nadobi'],
+    ['Utěrky', 'uterky'],
+    ['Pytle na odpadky', 'pytle-na-odpadky'],
+    ['Alobal', 'alobal'],
+    ['Potravinová fólie', 'potravinova-folie'],
+    ['Pečicí papír', 'pecici-papir'],
+    ['Papírové kapesníky', 'papir-tasky'],
+    ['Dětské vlhčené ubrousky', 'vlhcene-ubrousky-detske'],
+    ['Dětský šampon', 'detsky-sampon'],
+    ['Dětský sprchový gel', 'detsky-sprchovy-gel'],
+    ['Dětské mýdlo', 'detske-mydlo'],
+    ['Dětská kosmetika', 'detska-kosmetika'],
+    ['Dětské příkrmy', 'detske-prikrmy'],
+    ['Dětské kapsičky', 'detske-kapsicky'],
+    ['Dětské nápoje', 'detske-napoje'],
+  ] as const)('resolves %s → %s', (name, key) => {
+    expect(resolveListItemTypes(name)).toMatchObject({ kind: 'type', key })
+  })
+
   it('make "Kuřecí maso" the chicken meat itself — no offal or soup parts (owner decision)', () => {
     const chicken = PRODUCT_TYPE_GROUPS.find((group) => group.key === 'kureci-maso')
     expect(chicken?.types).toEqual(['kureci-prsa', 'kureci-stehna', 'kureci-kridla', 'kure-cele', 'kureci-mlete'])

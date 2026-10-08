@@ -233,7 +233,7 @@ const NON_FOOD: [ItemCategory, string, string | null][] = [
   ['Drogerie', 'Balea sprchový gel Soft Roses, 300 ml', 'sprchovy-gel'],
   ['Drogerie', 'Balea med sprchový gel & šampon 2v1 Urea, 300 ml', null],
   ['Drogerie', 'GARNIER FRUCTIS šampon na vlasy Strength & Shine, 1 000 ml', 'sampon'],
-  ['Drogerie', 'Persil prací gel Expert Sensitive XXL, 60 PD', 'praci-prostredek'],
+  ['Drogerie', 'Persil prací gel Expert Sensitive XXL, 60 PD', 'praci-gel'],
   ['Drogerie', 'Finish Ultimate Plus Tablety do myčky 51 ks', 'tablety-do-mycky'],
   ['Drogerie', 'Jar prostředek na nádobí s vůní citronu, 900 ml', 'jar'],
   ['Děti', 'Pampers Premium Care plenkové kalhotky, velikost 4, 124 ks', 'pleny'],

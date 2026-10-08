@@ -44,7 +44,7 @@ async function main() {
     await db.transaction(async (tx) => {
       const entries = await tx.insert(schema.pkdEntries).values(batch.map((node) => ({
         stableKey: 'gpc:' + VERSION + ':' + node.level + ':' + node.code, canonicalName: node.name, language: 'en', category: null,
-        attributes: { gpcCode: node.code, level: node.level, parentCode: node.parentCode, path: node.path }, confidence: 1, status: 'approved',
+        attributes: { gpcCode: node.code, level: node.level, parentCode: node.parentCode, path: node.path }, confidence: 1, status: 'approved' as const,
       }))).onConflictDoUpdate({ target: schema.pkdEntries.stableKey, set: { canonicalName: schema.pkdEntries.canonicalName, category: null, updatedAt: new Date() } }).returning({ id: schema.pkdEntries.id, stableKey: schema.pkdEntries.stableKey })
       entriesUpserted += entries.length
       const byKey = new Map(entries.map((entry) => [entry.stableKey, entry.id]))

@@ -1,3 +1,8 @@
+## 2026-10-08 (PKD candidate generation)
+- Added a versioned candidate layer for previously unmapped PKD identities.
+- Candidates are grouped deterministically by normalized name and language, retain source PKD entry IDs and evidence, and never mutate internal Product Types automatically.
+- Added `pnpm db:generate-pkd-candidates` dry-run/apply runner and regression tests.
+
 ## 2026-10-08 (PKD normalization CI fix — second path)
 - Fixed the PKD normalization runner to serialize dedup candidate confidence as a string in both insert and conflict-update paths, resolving the remaining Drizzle numeric typecheck failure.
 

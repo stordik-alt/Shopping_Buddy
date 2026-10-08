@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { ProductAutocomplete, type ProductAutocompleteSelection } from '@/components/shared/product-autocomplete'
 import { Button } from '@/components/ui/button'
 import { Field, Input, Select } from '@/components/ui/field'
 import { Sheet } from '@/components/ui/sheet'
@@ -13,6 +14,7 @@ export type PantryAddInput = {
   category: ItemCategory
   subcategory: string | null
   placeKey: string
+  selection?: ProductAutocompleteSelection
 }
 
 const CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
@@ -33,6 +35,7 @@ export function PantryAddModal({
   const [category, setCategory] = useState<ItemCategory>('Potraviny')
   const [subcategory, setSubcategory] = useState<string | null>(null)
   const [placeKey, setPlaceKey] = useState('Spíž')
+  const [selection, setSelection] = useState<ProductAutocompleteSelection | undefined>()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const nameRef = useRef<HTMLInputElement>(null)
@@ -56,7 +59,7 @@ export function PantryAddModal({
     setSaving(true)
     setError(null)
     try {
-      await onSubmit({ name: trimmed, quantity: parsedQuantity, unit, category, subcategory, placeKey })
+      await onSubmit({ name: trimmed, quantity: parsedQuantity, unit, category, subcategory, placeKey, selection })
       onClose()
     } catch (err) {
       console.error('Adding pantry stock failed', err)
@@ -88,7 +91,25 @@ export function PantryAddModal({
       }
     >
       <form id="pantry-add-form" onSubmit={submit} className="space-y-4">
-        <Field label="Produkt">{(p) => <Input {...p} ref={nameRef} value={name} onChange={(event) => setName(event.target.value)} placeholder="Např. vejce nebo kuřecí maso" />}</Field>
+        <Field label="Produkt">
+          {(p) => (
+            <ProductAutocomplete
+              {...p}
+              ref={nameRef}
+              value={name}
+              onChange={(value) => {
+                setName(value)
+                setSelection(undefined)
+              }}
+              onSelect={(value) => {
+                setSelection(value)
+                if (value.category) setCategory(value.category as ItemCategory)
+                if (value.unit) setUnit(value.unit as ItemUnit)
+              }}
+              placeholder="Např. vejce nebo kuřecí maso"
+            />
+          )}
+        </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Množství">{(p) => <Input {...p} type="number" min="0" step="any" value={quantity} onChange={(event) => setQuantity(event.target.value)} />}</Field>
           <Field label="Jednotka">

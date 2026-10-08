@@ -346,7 +346,7 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
       'sladkém nálevu', 'slaném nálevu', 'sladkokyselém nálevu', 'slanokyselém nálevu', 'kořeněném nálevu', 'loupaná rajčata', 'krájená rajčata', 'pasírovaná rajčata', 'rajčata pasírovaná', 'rajčata loupaná', 'rajčata krájená',
     ],
   },
-  { subcategory: 'Cereálie a snídaně', keywords: ['cereál', 'cerealie', 'müsli', 'musli', 'ovesné vločky', 'ovesne vlocky', 'kaše '], exclude: [' koření ', 'krupice'] },
+  { subcategory: 'Cereálie a snídaně', keywords: ['cereál', 'cerealie', 'müsli', 'musli', 'ovesné vločky', 'ovesne vlocky', 'kaše '], exclude: [' koření ', 'krupice', 'cereální'] },
   {
     subcategory: 'Těstoviny a rýže',
     keywords: [

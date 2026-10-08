@@ -18,7 +18,17 @@ import type { CategoryBudgets, Expense, Notification } from '@/lib/types'
 type ExpenseRow = typeof schema.expenses.$inferSelect
 
 function toExpense(row: ExpenseRow): Expense {
-  return { id: row.id, amount: Number(row.amount), note: row.note, category: row.category, subcategory: row.subcategory, date: row.date, purchaseId: row.purchaseId }
+  return {
+    id: row.id,
+    amount: Number(row.amount),
+    note: row.note,
+    category: row.category,
+    subcategory: row.subcategory,
+    date: row.date,
+    purchaseId: row.purchaseId,
+    productId: row.productId,
+    productTypeId: row.productTypeId,
+  }
 }
 
 /** The input checked by lib/expense-input.ts; its message is shown to the user as it is. */
@@ -38,17 +48,39 @@ async function ownEditableExpense(householdId: string, expenseId: string): Promi
   return row
 }
 
+async function resolveManualProductTypeId(key: string): Promise<string> {
+  const row = await getDb().query.productTypes.findFirst({ where: eq(schema.productTypes.key, key), columns: { id: true } })
+  if (!row) throw new Error('Neplatný druh zboží.')
+  return row.id
+}
+
+async function resolveManualProductId(productId: string): Promise<string> {
+  const row = await getDb().query.products.findFirst({ where: eq(schema.products.id, productId), columns: { id: true } })
+  if (!row) throw new Error('Neplatný produkt.')
+  return row.id
+}
+
 export async function addExpenseAction(input: ExpenseInput): Promise<{ expense: Expense; notifications: Notification[] }> {
   const { householdId, userId } = await requireHousehold()
   const expense = validOrThrow(input)
   const db = getDb()
+  if (expense.selection?.kind === 'product') await resolveManualProductId(expense.selection.productId)
   // The budget and the category limits are monthly, so the 80 % / 100 % thresholds are checked
   // against the spending of the month the new expense falls in — not every expense ever recorded.
   const before = await periodSpending(db, householdId, expense.date)
 
   const [row] = await db
     .insert(schema.expenses)
-    .values({ householdId, amount: expense.amount.toString(), note: expense.note, category: expense.category, subcategory: expense.subcategory, date: expense.date })
+    .values({
+      householdId,
+      amount: expense.amount.toString(),
+      note: expense.note,
+      category: expense.category,
+      subcategory: expense.subcategory,
+      date: expense.date,
+      productId: expense.selection?.kind === 'product' ? expense.selection.productId : null,
+      productTypeId: expense.selection?.kind === 'type' ? await resolveManualProductTypeId(expense.selection.productTypeKey) : null,
+    })
     .returning()
 
   const notifications = await notifyBudgetThresholds(db, householdId, before, [{ category: expense.category, amount: expense.amount }], userId)
@@ -61,9 +93,18 @@ export async function updateExpenseAction(expenseId: string, input: ExpenseInput
   const householdId = await requireHouseholdId()
   await ownEditableExpense(householdId, expenseId)
   const expense = validOrThrow(input)
+  if (expense.selection?.kind === 'product') await resolveManualProductId(expense.selection.productId)
   const [row] = await getDb()
     .update(schema.expenses)
-    .set({ amount: expense.amount.toString(), note: expense.note, category: expense.category, subcategory: expense.subcategory, date: expense.date })
+    .set({
+      amount: expense.amount.toString(),
+      note: expense.note,
+      category: expense.category,
+      subcategory: expense.subcategory,
+      date: expense.date,
+      productId: expense.selection?.kind === 'product' ? expense.selection.productId : null,
+      productTypeId: expense.selection?.kind === 'type' ? await resolveManualProductTypeId(expense.selection.productTypeKey) : null,
+    })
     .where(and(eq(schema.expenses.id, expenseId), eq(schema.expenses.householdId, householdId)))
     .returning()
   return { expense: toExpense(row) }

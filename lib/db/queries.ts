@@ -707,7 +707,7 @@ export async function getHouseholdData(userId: string, userName: string, userEma
  *  the same item. */
 export async function restockPantryItem(
   householdId: string,
-  item: { productId: string | null; name: string; category: ItemCategory; quantity: number; unit: ItemUnit; location?: PantryLocation; customPlaceId?: string | null; subcategoryId?: string | null },
+  item: { productId: string | null; productTypeId?: string | null; name: string; category: ItemCategory; quantity: number; unit: ItemUnit; location?: PantryLocation; customPlaceId?: string | null; subcategoryId?: string | null },
 ) {
   const db = getDb()
   const byProductId = item.productId
@@ -733,6 +733,7 @@ export async function restockPantryItem(
         addedAt: new Date(),
         askedAt: null,
         productId: existing.productId ?? item.productId,
+        productTypeId: existing.productTypeId ?? item.productTypeId ?? null,
         // A newly-resolved subcategory fills in a row that never had one; an existing row's own
         // subcategory is never overwritten by a later, possibly less certain restock (same
         // "don't undo a settled value" rule `location` already follows on restock).
@@ -743,6 +744,7 @@ export async function restockPantryItem(
     await db.insert(schema.pantryItems).values({
       householdId,
       productId: item.productId,
+      productTypeId: item.productTypeId ?? null,
       name: item.name,
       category: item.category,
       subcategoryId: item.subcategoryId ?? null,

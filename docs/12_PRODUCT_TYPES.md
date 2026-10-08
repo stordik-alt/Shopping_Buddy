@@ -662,3 +662,14 @@ Fáze normalizace a deduplikace je implementována jako nedestruktivní vrstva n
 - Přijetí vyžaduje `mapping_id` a `reviewer_id`; zamítnutí navíc vyžaduje poznámku.
 - Workflow pouze volá existující auditovanou acceptance vrstvu; samo neobchází bezpečnostní kontrolu ani nezapisuje `product_type_id` mimo `acceptPkdProductTypeMapping`.
 - **Bezpečnost:** workflow nikdy nepoužívá kandidátní ani zamítnuté mappingy a při zápisu znovu kontroluje, že `product_type_id IS NULL`.
+
+### 7.12n Křížové ověřování kandidátů PKD — 2026-10-09
+
+- Generátor při dry-run i při zápisu hledá přesnou shodu po normalizaci názvu proti schváleným záznamům GS1 GPC a CZ-CPA, produktovému katalogu a důvěryhodným aliasům katalogu.
+- GS1 GPC a CZ-CPA zůstávají pouze referenčními zdroji; jejich záznamy se nikdy samy nestávají návrhy Product Type.
+- Katalogové aliasy jsou podpůrným důkazem pouze při důvěře alespoň 0,9 a zdroji `user_correction` nebo `seed`. Neověřené AI aliasy se nepoužívají.
+- Evidence kandidáta obsahuje `referenceEvidence` a `referenceSourceKinds`; výpis dry-run i `--list` ukazuje nalezené shody a upozornění na chybějící nebo pouze jednostranné potvrzení.
+- Používá se výhradně přesná normalizovaná shoda. Fuzzy ani volná sémantická podobnost nezvyšuje důvěru, protože by mohla potvrdit nesouvisející taxonomické třídy.
+- Skóre důvěry se zvýší o 0,05 pouze při shodě nejméně dvou nezávislých druhů referenčních zdrojů. Jedna shoda je pouze kontext, nikoliv potvrzení správnosti.
+- Křížové ověřování nemění kategorii ani jednotku a automaticky kandidáta neschvaluje. Neznámé hodnoty zůstávají `null`; konečné rozhodnutí je stále lidské.
+- Runner: `pnpm db:generate-pkd-candidates` (dry-run), `pnpm db:generate-pkd-candidates -- --apply` (uloží kandidáty dané verze).

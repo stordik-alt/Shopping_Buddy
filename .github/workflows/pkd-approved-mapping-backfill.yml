@@ -35,7 +35,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           if [ "${{ inputs.apply }}" = "true" ]; then
-            pnpm db:backfill-pkd-mappings -- --apply
+            pnpm exec tsx scripts/backfill-pkd-mappings.ts --apply
           else
-            pnpm db:backfill-pkd-mappings
+            pnpm exec tsx scripts/backfill-pkd-mappings.ts
           fi

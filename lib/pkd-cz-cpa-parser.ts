@@ -1,6 +1,3 @@
-// @ts-expect-error CLI-only XML dependency is resolved at runtime; the app bundler does not resolve its package types.
-import { XMLParser } from 'fast-xml-parser'
-
 export type CzCpaNode = {
   code: string
   name: string

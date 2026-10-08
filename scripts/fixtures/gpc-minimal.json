@@ -1,0 +1,20 @@
+{
+  "GPCSchema": {
+    "Segment": [{
+      "Code": "10000000",
+      "Description": "Food Beverage and Tobacco",
+      "Family": [{
+        "Code": "10000100",
+        "Description": "Food",
+        "Class": [{
+          "Code": "10000101",
+          "Description": "Dairy",
+          "Brick": [{
+            "Code": "10000102",
+            "Description": "Butter"
+          }]
+        }]
+      }]
+    }]
+  }
+}

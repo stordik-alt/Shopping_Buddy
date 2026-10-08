@@ -1,3 +1,16 @@
+## 2026-10-08 (GS1 GPC CI fixes)
+- **Fix:** refactored the GS1 GPC CLI to use the shared parser, removed top-level await and kept GPC hierarchy out of the constrained product category field.
+- **Security:** upgraded `fast-xml-parser` to patched 5.11.2 and disabled XML entity processing in the importer.
+- **Validation:** preserves dry-run/apply behavior and keeps GPC data as external PKD knowledge only.
+
+## 2026-10-08 (GS1 GPC PKD ingestion foundation)
+- **What:** added versioned GS1 GPC ingestion for the PKD knowledge layer.
+- **Source:** official GPC publication 2026-05; schema is consumed from supplied XML/JSON export rather than copied into the repository.
+- **Storage:** imports create/update `pkd_sources`, `pkd_entries` and `pkd_external_mappings`; hierarchy and parent relationships remain auditable.
+- **Safety:** GPC entries are external knowledge only and do not automatically create internal Product Types.
+- **Execution:** `pnpm db:import-gpc -- --file=/path/to/gpc.xml` performs a dry-run; `--apply` persists the import.
+- **Parser:** added `lib/pkd-gpc-parser.ts` with regression coverage and the XML parser dependency.
+
 ## 2026-10-08 (Product Package Quantity Normalization Engine)
 - **What:** connected existing `product_packages` to the universal PKD quantity model without rewriting existing package quantities.
 - **Normalization:** added deterministic same-dimension conversion and canonicalization for count, mass, volume, length and area.

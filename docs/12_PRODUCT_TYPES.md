@@ -547,6 +547,17 @@ První ingestion vrstva:
 
 CZ-CPA je zde záměrně **validace/mapování**, nikoli retailový Product Type katalog. Název položky ani klasifikační kód proto samy o sobě nemění interní klasifikaci produktu. ČSÚ zároveň upozorňuje na probíhající legislativní opravy českých názvů, takže zdrojová verze a provenance musí zůstat součástí PKD. citeturn1view0
 
+### 7.12m Kvalita kandidátů PKD — 2026-10-09
+
+Generátor kandidátů je verzován jako `2026-10-v4`. Cílem je předložit k ručnímu posouzení použitelné identity, ne maximalizovat počet návrhů.
+
+- Zjevné názvy skupin/taxonomických kategorií a balíčků (např. „Slazené nápoje“ nebo „Variety packy svačin“) se nenavrhují jako jednotlivý Product Type.
+- Název se nikdy automaticky nepřevádí na kategorii ani porovnávací jednotku jen podle domněnky. Chybějící hodnoty zůstávají `null` a objeví se ve `reviewFlags`.
+- Každý kandidát nese `reviewFlags`, např. `single_source`, `category_unknown`, `comparison_unit_unknown`, `possible_region_or_named_variant` a `no_approved_source_entry`. Jsou to upozornění pro review, nikoli automatické zamítnutí.
+- Confidence je konzervativní důkazní skóre: jediný zdroj bez explicitní kategorie/jednotky nedostane vysoké skóre. Není to pravděpodobnost správnosti ani schválení.
+- Náhled i výpis uložených kandidátů zobrazují `reviewFlags`, aby šlo slabé a regionálně/variantně specifické návrhy odhalit před schválením.
+- Filtr je záměrně úzký; nejednoznačné názvy zůstávají k lidskému posouzení. Nedochází k automatickému vytváření kategorií, jednotek ani Product Types.
+
 ### 7.12h Stav PKD candidate generation — 2026-10-09
 
 Generování nových druhů bylo zpřesněno, protože samotný počet kandidátů bez konkrétních názvů a zdrojů nebyl použitelný.

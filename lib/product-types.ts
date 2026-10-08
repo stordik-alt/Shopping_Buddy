@@ -468,7 +468,6 @@ const ITEM_PHRASES: Record<string, string[]> = {
   'tablety-do-mycky': ['tablety do myčky', 'kapsle do myčky'],
   jar: ['jar', 'prostředek na nádobí', 'saponát'],
   pleny: ['pleny', 'plenky'],
-  'okurky': ['okurka', 'okurky', 'salátová okurka', 'hadovka'],
   'pomazanky': ['pomazánky', 'pomazánka'],
   'mrazena-zelenina': ['mražená zelenina'],
   'cerealie': ['cereálie', 'cereál', 'müsli', 'musli', 'cornflakes'],

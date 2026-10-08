@@ -514,6 +514,22 @@ První ingestion vrstva:
 
 Import je navržen jako idempotentní upsert. Hierarchie Segment → Family → Class → Brick zůstává v `attributes` a `externalParentId`, aby bylo možné později provést samostatné mapování na interní Product Types.
 
+### 7.12e Stav Open Food Facts importu — 2026-10
+
+Open Food Facts je použito jako externí znalostní a kandidátní vrstva, nikoli jako automatický zdroj interních Product Types. Aktuální API dokumentace uvádí v3 jako doporučené API; pro rozsáhlé dávky Open Food Facts doporučuje použít datový export místo masivního dotazování API. Taxonomie je vícejazyčná a podporuje kanonické tagy, překlady a hierarchii.
+
+První ingestion vrstva importuje **categories taxonomy** z JSON exportu:
+- `scripts/import-open-food-facts.ts`
+- `lib/pkd-off-parser.ts`
+- `pnpm db:import-off -- --file=/path/to/categories.json` je ve výchozím režimu dry-run,
+- `--apply` zapisuje do `pkd_sources`, `pkd_entries`, `pkd_synonyms` a `pkd_external_mappings`,
+- `OFF_VERSION` a `OFF_LANGUAGE` jsou explicitně verzované/nastavitelné,
+- OFF category/tag identity zůstává externí; import automaticky nevytváří interní `product_types`,
+- synonyma se ukládají odděleně a normalizovaně,
+- rodiče a děti zůstávají v `attributes` a první rodič také v `externalParentId`.
+
+Záměrně se v této fázi **neimportuje celý produktový katalog Open Food Facts**. OFF uvádí, že data jsou dobrovolně dodávaná a nemusí být přesná, úplná nebo spolehlivá; proto jsou zde použita jako znalostní evidence a kandidátní signál, nikoli jako autoritativní klasifikace.
+
 ### 7.13 Zdrojové reference
 
 - GS1 GPC: aktuální standard a archiv verzí — https://ref.gs1.org/standards/gpc/

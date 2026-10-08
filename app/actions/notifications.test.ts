@@ -43,7 +43,7 @@ describe('markNotificationReadAction', () => {
     const [notification] = await db.insert(schema.notifications).values({ householdId, title: 'x', detail: 'x' }).returning()
     await markNotificationReadAction(notification.id)
     const row = await db.query.notifications.findFirst({ where: eq(schema.notifications.id, notification.id) })
-    expect(row?.unread).toBe(false)
+    expect(row).toBeUndefined()
   })
 })
 
@@ -56,7 +56,7 @@ describe('markAllNotificationsReadAction', () => {
 
     const ownRow = await db.query.notifications.findFirst({ where: eq(schema.notifications.id, own.id) })
     const otherRow = await db.query.notifications.findFirst({ where: eq(schema.notifications.id, other.id) })
-    expect(ownRow?.unread).toBe(false)
+    expect(ownRow).toBeUndefined()
     expect(otherRow?.unread).toBe(true)
   })
 })

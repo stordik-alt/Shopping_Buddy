@@ -309,7 +309,7 @@ export async function getHouseholdExpenses(householdId: string, startDay = 1, in
 /** The newest notifications, oldest first, exactly as the page loads them (see getHouseholdExpenses). */
 export async function getHouseholdNotifications(householdId: string): Promise<Notification[]> {
   const rows = await getDb().query.notifications.findMany({
-    where: eq(schema.notifications.householdId, householdId),
+    where: and(eq(schema.notifications.householdId, householdId), eq(schema.notifications.unread, true)),
     orderBy: desc(schema.notifications.createdAt),
     limit: NOTIFICATIONS_SHOWN,
   })

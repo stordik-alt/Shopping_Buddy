@@ -1,3 +1,8 @@
+## 2026-10-08 (PKD acceptance typecheck fix)
+- **Fixed:** replaced the Drizzle update-CTE construction in the PKD mapping acceptance path with a single PostgreSQL `WITH` statement.
+- **Reason:** avoids unsupported/fragile update-builder CTE typing while preserving atomic mapping status update, PKD Product Type assignment and review audit insertion.
+- **Safety:** acceptance still requires the mapping to be `candidate` and the PKD entry to remain unmapped; the whole decision remains one database statement.
+
 ## 2026-10-08 (PKD mapping acceptance workflow)
 - **Added:** migration 0083 and audit table `pkd_product_type_mapping_reviews` for explicit PKD → Product Type decisions.
 - **Safety:** acceptance only applies to a still-candidate mapping whose PKD entry remains unmapped; it cannot overwrite a newer/manual Product Type assignment.

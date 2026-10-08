@@ -223,7 +223,7 @@ const GOLDEN: [string, string | null][] = [
 
 const NON_FOOD: [ItemCategory, string, string | null][] = [
   ['Drogerie', 'Sanft&Sicher toaletní papír 4vrstvý Premium, 10x200, 10 ks', 'toaletni-papir'],
-  ['Drogerie', 'Soft&Sicher papírové kapesníky 4vrstvé 30x10 ks, 30 ks', null],
+  ['Drogerie', 'Soft&Sicher papírové kapesníky 4vrstvé 30x10 ks, 30 ks', 'papir-tasky'],
   ['Domácnost', 'TENTO KU FAM 2VR 1R', 'kuchynske-uterky'],
   ['Drogerie', 'meridol zubní pasta Fast Action, 75 ml', 'zubni-pasta'],
   ['Drogerie', 'Balea sprchový gel Soft Roses, 300 ml', 'sprchovy-gel'],

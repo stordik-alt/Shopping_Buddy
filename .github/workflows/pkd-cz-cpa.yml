@@ -1,0 +1,71 @@
+name: PKD CZ-CPA import
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_url:
+        description: "Direct CZSO CZ-CPA_2025_KL XML/CSV/JSON download URL"
+        required: true
+        type: string
+      language:
+        description: "Classification language"
+        required: true
+        default: "cs"
+        type: string
+      version:
+        description: "Classification version"
+        required: true
+        default: "2025"
+        type: string
+      apply:
+        description: "Write the classification to PKD"
+        required: true
+        default: false
+        type: boolean
+
+jobs:
+  cz-cpa:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Download CZ-CPA source
+        env:
+          SOURCE_URL: ${{ inputs.source_url }}
+        run: |
+          set -euo pipefail
+          mkdir -p .tmp/cz-cpa
+          curl -fL --retry 3 --retry-all-errors "$SOURCE_URL" -o .tmp/cz-cpa/source
+          test -s .tmp/cz-cpa/source
+          file .tmp/cz-cpa/source
+          case "$(file -b --mime-type .tmp/cz-cpa/source)" in
+            application/xml|text/xml|text/csv|text/plain|application/json|application/octet-stream)
+              cp .tmp/cz-cpa/source .tmp/cz-cpa/input
+              ;;
+            *)
+              echo "Unsupported downloaded file type: $(file -b --mime-type .tmp/cz-cpa/source)"
+              exit 1
+              ;;
+          esac
+      - name: Run CZ-CPA import
+        env:
+          DATABASE_URL: ${{ secrets.NEON_PROD_DATABASE_URL }}
+          CZ_CPA_VERSION: ${{ inputs.version }}
+          CZ_CPA_LANGUAGE: ${{ inputs.language }}
+        run: |
+          if [ "${{ inputs.apply }}" = "true" ]; then
+            pnpm exec tsx scripts/import-cz-cpa.ts --file=.tmp/cz-cpa/input --apply
+          else
+            pnpm exec tsx scripts/import-cz-cpa.ts --file=.tmp/cz-cpa/input
+          fi

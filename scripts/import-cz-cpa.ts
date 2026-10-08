@@ -8,6 +8,7 @@ import { XMLParser } from 'fast-xml-parser'
 
 const VERSION = process.env.CZ_CPA_VERSION ?? '2025'
 const LANGUAGE = process.env.CZ_CPA_LANGUAGE ?? 'cs'
+const SOURCE_URL = process.env.CZ_CPA_SOURCE_URL ?? ''
 const file = process.argv.find((arg) => arg.startsWith('--file='))?.slice(7)
 const dryRun = !process.argv.includes('--apply')
 const BATCH_SIZE = 500
@@ -46,6 +47,7 @@ async function main() {
     const newNodes = nodes.filter((node) => !existing.has(node.code))
     console.log(JSON.stringify({
       source: 'cz_cpa', version: VERSION, language: LANGUAGE, file,
+      sourceUrl: SOURCE_URL || null,
       totalEntries: nodes.length, existingEntries: nodes.length - newNodes.length,
       newEntries: newNodes.length,
       levels: Object.fromEntries([...new Set(nodes.map((node) => node.level))].sort().map((level) => [
@@ -58,7 +60,7 @@ async function main() {
 
   const source = existingSource ?? (await db.insert(schema.pkdSources).values({
     sourceType: 'cz_cpa', sourceVersion: VERSION,
-    metadata: { format, classification: 'CZ-CPA_2025_KL', language: LANGUAGE, validFrom: '2025-01-01', importer: 'db:import-cz-cpa', authority: 'CZSO' },
+    metadata: { format, classification: 'CZ-CPA_2025_KL', language: LANGUAGE, validFrom: '2025-01-01', importer: 'db:import-cz-cpa', authority: 'CZSO', sourceUrl: SOURCE_URL || null },
   }).returning())[0]
   if (!source) throw new Error('Failed to create or load the CZ-CPA source record.')
 
@@ -93,7 +95,7 @@ async function main() {
     console.log(`CZ-CPA batch ${Math.min(offset + BATCH_SIZE, nodes.length)}/${nodes.length}`)
   }
 
-  console.log(JSON.stringify({ source: 'cz_cpa', version: VERSION, language: LANGUAGE, classification: 'CZ-CPA_2025_KL', totalEntries: nodes.length, entriesUpserted, mappingsUpserted, mode: 'apply' }, null, 2))
+  console.log(JSON.stringify({ source: 'cz_cpa', version: VERSION, language: LANGUAGE, classification: 'CZ-CPA_2025_KL', sourceUrl: SOURCE_URL || null, totalEntries: nodes.length, entriesUpserted, mappingsUpserted, mode: 'apply' }, null, 2))
 }
 
 main().catch((error) => { console.error(error instanceof Error ? error.message : error); process.exit(1) })

@@ -50,7 +50,8 @@
     "db:import-gpc": "dotenv -e .env.local -- tsx scripts/import-gs1-gpc.ts",
     "db:import-off": "dotenv -e .env.local -- tsx scripts/import-open-food-facts.ts",
     "db:import-cz-cpa": "dotenv -e .env.local -- tsx scripts/import-cz-cpa.ts",
-    "db:normalize-pkd": "dotenv -e .env.local -- tsx scripts/normalize-pkd.ts"
+    "db:normalize-pkd": "dotenv -e .env.local -- tsx scripts/normalize-pkd.ts",
+    "db:generate-pkd-candidates": "dotenv -e .env.local -- tsx scripts/generate-pkd-candidates.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

@@ -66,7 +66,7 @@ async function main() {
       ],
       set: {
         reason: candidate.reason,
-        confidence: candidate.confidence,
+        confidence: candidate.confidence.toFixed(3),
         evidence: candidate.evidence,
       },
     })

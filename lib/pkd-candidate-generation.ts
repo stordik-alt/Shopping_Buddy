@@ -1,9 +1,10 @@
 import { normalizeProductText } from '@/lib/product-normalize'
 
-export const PKD_CANDIDATE_VERSION = '2026-10-v1'
+export const PKD_CANDIDATE_VERSION = '2026-10-v2'
 
 export type PkdCandidateInput = {
   id: string
+  stableKey?: string
   canonicalName: string
   language: string
   category?: string | null
@@ -14,6 +15,8 @@ export type PkdCandidateInput = {
   productTypeId?: string | null
   status?: string | null
   confidence?: number | null
+  candidateEligible?: boolean
+  sourceKind?: string
 }
 
 export type PkdProductTypeCandidate = {
@@ -34,8 +37,9 @@ export type PkdProductTypeCandidate = {
     approvedEntryCount: number
     unmappedEntryCount: number
     sourceEntryIds: string[]
+    sourceKinds: string[]
     normalization: string
-    reason: 'unmapped_pkd_identity'
+    reason: 'unmapped_retail_product_identity'
   }
 }
 
@@ -47,6 +51,7 @@ export function generatePkdProductTypeCandidates(inputs: PkdCandidateInput[]): P
   for (const input of inputs) {
     if (input.productTypeId) continue
     if (input.status === 'rejected' || input.status === 'inactive') continue
+    if (input.candidateEligible === false) continue
 
     const normalizedName = normalizeProductText(input.canonicalName)
     const language = input.language.trim().toLowerCase() || 'und'
@@ -62,10 +67,9 @@ export function generatePkdProductTypeCandidates(inputs: PkdCandidateInput[]): P
     .map(([candidateKey, entries]) => {
       const first = entries[0]
       const approvedEntryCount = entries.filter((entry) => entry.status === 'approved').length
-      const sourceEntryCount = entries.length
-      const confidence = approvedEntryCount > 0 ? 0.90 : 0.75
       const normalizedName = normalizeProductText(first.canonicalName)
       const sourceEntryIds = entries.map((entry) => entry.id)
+      const sourceKinds = [...new Set(entries.map((entry) => entry.sourceKind ?? 'unknown'))].sort()
 
       return {
         candidateKey,
@@ -78,15 +82,16 @@ export function generatePkdProductTypeCandidates(inputs: PkdCandidateInput[]): P
         processingState: valueOrNull(first.processingState),
         comparisonUnit: valueOrNull(first.comparisonUnit),
         sourceEntryIds,
-        confidence,
+        confidence: approvedEntryCount > 0 ? 0.90 : 0.75,
         candidateVersion: PKD_CANDIDATE_VERSION,
         evidence: {
-          sourceEntryCount,
+          sourceEntryCount: entries.length,
           approvedEntryCount,
           unmappedEntryCount: entries.length,
           sourceEntryIds,
+          sourceKinds,
           normalization: 'normalizeProductText + language',
-          reason: 'unmapped_pkd_identity' as const,
+          reason: 'unmapped_retail_product_identity' as const,
         },
       }
     })

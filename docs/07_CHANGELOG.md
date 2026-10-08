@@ -1999,3 +1999,9 @@ Every future architectural/schema/business-rule change should append a dated ent
 - **Safety:** exact normalized names receive high-confidence candidates; rule-based mappings require exactly one classifier result; ambiguous/unmatched/rejected/inactive/already-mapped entries are left unmapped.
 - **Governance:** --apply persists only candidate mappings and never mutates product_types or pkd_entries.product_type_id; human acceptance remains a separate step.
 - **Provenance:** mapping method, confidence, evidence and engine version 2026-10-v1 are stored with each candidate.
+
+
+## 2026-10-08 (PKD backfill Actions pnpm setup fix)
+- **Fixed:** removed the hardcoded pnpm 10.17.1 pin from the manual PKD backfill workflow.
+- **Reason:** the repository declares pnpm@12.6.0 in package.json; pnpm/action-setup@v4 now reads the repository's packageManager field as the single source of truth.
+- **Result:** the manual PKD backfill dry-run no longer blocks on a conflicting pnpm setup version.

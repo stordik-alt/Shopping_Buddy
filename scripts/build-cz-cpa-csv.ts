@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-const inputDir = process.argv.find((arg) => arg.startsWith('--input-dir='))?.slice(13)
+const inputDir = process.argv.find((arg) => arg.startsWith('--input-dir='))?.slice(12)
 const output = process.argv.find((arg) => arg.startsWith('--output='))?.slice(9)
 
 if (!inputDir || !output) {

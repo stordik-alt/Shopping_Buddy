@@ -8,6 +8,11 @@ on:
         required: true
         default: false
         type: boolean
+      list:
+        description: "List persisted candidates with IDs for review/approval"
+        required: true
+        default: false
+        type: boolean
 
 jobs:
   candidates:
@@ -34,7 +39,9 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.NEON_PROD_DATABASE_URL }}
         run: |
-          if [ "${{ inputs.apply }}" = "true" ]; then
+          if [ "${{ inputs.list }}" = "true" ]; then
+            pnpm exec tsx scripts/generate-pkd-candidates.ts --list
+          elif [ "${{ inputs.apply }}" = "true" ]; then
             pnpm exec tsx scripts/generate-pkd-candidates.ts --apply
           else
             pnpm exec tsx scripts/generate-pkd-candidates.ts

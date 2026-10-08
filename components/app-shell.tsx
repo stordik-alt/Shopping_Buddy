@@ -51,6 +51,7 @@ import {
   TodayAttention,
   UsualItems,
 } from '@/components/shell/lazy-views'
+import type { ProductAutocompleteSelection } from '@/components/shared/product-autocomplete'
 import { useBudget } from '@/components/shell/use-budget'
 import { useBudgetPeriods } from '@/components/shell/use-budget-periods'
 import { PreferredDeals } from '@/components/dashboard/preferred-deals'

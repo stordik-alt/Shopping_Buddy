@@ -243,6 +243,18 @@ function receiptWordsOfProduct(name: string): string[] {
  *  words, with little left over — and clearly ahead of the runner-up (CONFIDENT_MARGIN). */
 export const CONFIDENT_SCORE = 9
 export const CONFIDENT_MARGIN = 1.5
+/** A receipt line strongly names a specific catalog product. Used only when the household already
+ * selected that exact product on the shopping list, so the catalog name is authoritative and a
+ * strong receipt-to-product match can safely complete the list even if the purchase row has no
+ * productId yet. */
+export function isStrongReceiptProductMatch(receiptName: string, catalogName: string): boolean {
+  const score = scoreReceiptCandidate(
+    { words: receiptWords(receiptName), size: packageSize(receiptName), storeId: null },
+    { productId: 'catalog', name: catalogName, storeIds: [] },
+  )
+  return score != null && score >= CONFIDENT_SCORE
+}
+
 export const MAX_SUGGESTIONS = 3
 
 export type ReceiptSuggestions = { suggestions: { productId: string; name: string }[]; confident: boolean }

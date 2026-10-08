@@ -16,6 +16,16 @@ describe('resolveInventoryPackage', () => {
     })
   })
 
+  it('expands an egg M30 marker even without a catalog package row', () => {
+    const pkg = resolveInventoryPackage('Vejce z podest. M30', [])!
+    expect(inventoryQuantityFromPackage(1, pkg)).toEqual({ quantity: 30, unit: 'ks', unitQuantity: 1, unitUnit: 'ks' })
+  })
+
+  it('expands an explicit piece-count name even without a catalog package row', () => {
+    const pkg = resolveInventoryPackage('Vejce z podestýlky 30 ks', [])!
+    expect(inventoryQuantityFromPackage(1, pkg)).toEqual({ quantity: 30, unit: 'ks', unitQuantity: 1, unitUnit: 'ks' })
+  })
+
   it('multiplies purchased packs into physical pieces', () => {
     const pkg = resolveInventoryPackage('Veseta perlivá voda 6x1,5l', [{ quantity: 9, unit: 'l', packageCount: 6, packageUnitQuantity: 1.5, packageUnit: 'l' }])!
     expect(inventoryQuantityFromPackage(8, pkg)).toEqual({ quantity: 48, unit: 'ks', unitQuantity: 1.5, unitUnit: 'l' })

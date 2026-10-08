@@ -122,6 +122,21 @@ export function extractExplicitPackageSizes(name: string): StandardPackage[] {
     })
   }
 
+  // Egg cartons are commonly labelled M6/M10/M15/M30 rather than `30 ks`.
+  // In an inventory context this is an explicit piece-count package marker, not a weight/volume guess.
+  const eggGrade = /\bM\s*(\d+)\b/gi
+  for (const match of text.matchAll(eggGrade)) {
+    const start = match.index ?? -1
+    if (start < 0) continue
+    const quantity = Number(match[1])
+    if (!Number.isFinite(quantity) || quantity <= 0) continue
+    candidates.push({
+      start,
+      end: start + match[0].length,
+      package: { quantity, unit: 'ks', label: formatPackageSize(quantity, 'ks'), source: 'name-extracted' },
+    })
+  }
+
   const pieces = /(\d+)\s*ks(?![a-z])/gi
   for (const match of text.matchAll(pieces)) {
     const start = match.index ?? -1

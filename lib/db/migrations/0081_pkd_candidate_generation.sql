@@ -5,7 +5,7 @@ CREATE TYPE "pkd_candidate_status" AS ENUM ('candidate', 'accepted', 'rejected')
 
 CREATE TABLE IF NOT EXISTS "pkd_product_type_candidates" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  "candidate_key" text NOT NULL UNIQUE,
+  "candidate_key" text NOT NULL,
   "canonical_name" text NOT NULL,
   "normalized_name" text NOT NULL,
   "language" text NOT NULL,
@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS "pkd_product_type_candidates" (
   "candidate_version" text NOT NULL,
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT "pkd_product_type_candidates_key_version_unique" UNIQUE ("candidate_key", "candidate_version"),
   CONSTRAINT "pkd_product_type_candidates_confidence_range"
     CHECK ("confidence" IS NULL OR ("confidence" >= 0 AND "confidence" <= 1))
 );

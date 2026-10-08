@@ -55,18 +55,12 @@ jobs:
             echo "Resolving official CZ-CPA 2025 level code lists 6501-6506."
             for level in 1 2 3 4 5 6; do
               code_list="650$level"
-              curl -fsSL --retry 3 --retry-all-errors \
-                -A "Mozilla/5.0" \
-                -H "Accept: text/csv,text/plain;q=0.9,*/*;q=0.7" \
-                "https://apl.czso.cz/iSMS/cisexp.jsp?kodcis=$code_list&typdat=0&cisjaz=203&format=2&separator=%2C" \
-                -o ".tmp/cz-cpa/levels/$code_list.csv"
-              test -s ".tmp/cz-cpa/levels/$code_list.csv"
-              echo "Downloaded $code_list: $(file -b --mime-type ".tmp/cz-cpa/levels/$code_list.csv")"
+              curl -fsSL --retry 3 --retry-all-errors                 -A "Mozilla/5.0"                 "https://apl2.czso.cz/iSMS/cisdet_prn.jsp?kodcis=$code_list"                 -o ".tmp/cz-cpa/levels/$code_list.html"
+              test -s ".tmp/cz-cpa/levels/$code_list.html"
+              echo "Downloaded $code_list: $(file -b --mime-type ".tmp/cz-cpa/levels/$code_list.html")"
             done
 
-            pnpm exec tsx scripts/build-cz-cpa-csv.ts \
-              --input-dir=.tmp/cz-cpa/levels \
-              --output=.tmp/cz-cpa/input.csv
+            pnpm exec tsx scripts/build-cz-cpa-csv.ts               --input-dir=.tmp/cz-cpa/levels               --output=.tmp/cz-cpa/input.csv
             test -s .tmp/cz-cpa/input.csv
             echo ".tmp/cz-cpa/input.csv" > .tmp/cz-cpa/input.path
           else

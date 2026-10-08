@@ -1,6 +1,7 @@
 import { asc, eq } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
+import { normalizeProductText } from '@/lib/product-normalize'
 import { generatePkdProductTypeCandidates, PKD_CANDIDATE_VERSION } from '@/lib/pkd-candidate-generation'
 
 const listMode = process.argv.includes('--list')
@@ -92,6 +93,46 @@ async function main() {
     .map((row) => row.pkdEntryId))
 
   const existingProductTypes = await db.select({ name: schema.productTypes.name }).from(schema.productTypes)
+
+  // Reference taxonomies are evidence only: they are never eligible as candidate identities.
+  // Exact normalized-name matches are intentionally used here; broad/fuzzy matches would inflate
+  // confidence for unrelated classes and are not safe enough for automatic classification.
+  type ReferenceEvidence = { sourceKind: string; matchedName: string; stableKey?: string }
+  const referenceIndex = new Map<string, ReferenceEvidence[]>()
+  const addReference = (name: string, evidence: ReferenceEvidence) => {
+    const normalized = normalizeProductText(name)
+    if (!normalized) return
+    const current = referenceIndex.get(normalized) ?? []
+    current.push(evidence)
+    referenceIndex.set(normalized, current)
+  }
+
+  for (const entry of entries) {
+    if (entry.status !== 'approved') continue
+    if (entry.stableKey.startsWith('gpc:')) {
+      addReference(entry.canonicalName, { sourceKind: 'gs1_gpc', matchedName: entry.canonicalName, stableKey: entry.stableKey })
+    } else if (entry.stableKey.startsWith('cz-cpa:')) {
+      addReference(entry.canonicalName, { sourceKind: 'cz_cpa', matchedName: entry.canonicalName, stableKey: entry.stableKey })
+    }
+  }
+
+  const catalogProducts = await db.select({ name: schema.products.name }).from(schema.products)
+  for (const product of catalogProducts) {
+    addReference(product.name, { sourceKind: 'product_catalog', matchedName: product.name })
+  }
+
+  // Only reliable, curated/confirmed aliases count as catalog evidence; low-confidence AI aliases
+  // must not reinforce their own guesses.
+  const catalogAliases = await db.select({
+    alias: schema.productAliases.alias,
+    confidence: schema.productAliases.confidence,
+    source: schema.productAliases.source,
+  }).from(schema.productAliases)
+  for (const alias of catalogAliases) {
+    if (Number(alias.confidence) < 0.9 || !['user_correction', 'seed'].includes(alias.source)) continue
+    addReference(alias.alias, { sourceKind: 'product_catalog_alias', matchedName: alias.alias })
+  }
+
   const candidates = generatePkdProductTypeCandidates(entries.map((entry) => {
     const attributes = entry.attributes as Record<string, unknown>
     const source = sourceKind(entry.stableKey, attributes)
@@ -100,6 +141,7 @@ async function main() {
       candidateEligible: source.eligible && entry.language.trim().toLowerCase() === 'cs'
         && !entriesWithExistingMapping.has(entry.id),
       sourceKind: source.kind,
+      referenceEvidence: referenceIndex.get(normalizeProductText(entry.canonicalName)) ?? [],
     }
   }), existingProductTypes.map((productType) => productType.name))
 

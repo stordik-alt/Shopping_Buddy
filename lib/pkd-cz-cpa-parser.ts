@@ -125,8 +125,8 @@ function parseCsv(document: string): Array<Record<string, unknown>> {
       }
     } else if (char === ',' && !quoted) {
       pushCell()
-    } else if ((char === '\\n' || char === '\\r') && !quoted) {
-      if (char === '\\r' && next === '\\n') i++
+    } else if ((char === '\n' || char === '\r') && !quoted) {
+      if (char === '\r' && next === '\\n') i++
       pushRow()
     } else {
       cell += char
@@ -141,7 +141,7 @@ function parseCsv(document: string): Array<Record<string, unknown>> {
 
 export function parseCzCpaDocument(document: unknown, format?: 'json' | 'csv' | 'xml'): CzCpaNode[] {
   if (typeof document === 'string' && (format === 'csv' || document.includes('\n'))) {
-    const rows = parseCsv(document.replace(/^\\uFEFF/, ''))
+    const rows = parseCsv(document.replace(/^\uFEFF/, ''))
     return parseRows(rows)
   }
 

@@ -1,0 +1,21 @@
+# Zabraňte čtení těžkých závislostí a buildů
+node_modules/
+.next/
+dist/
+build/
+out/
+.turbo/
+
+# Ignorujte vygenerované TypeScript deklarace a mapy (pokud je neupravujete)
+*.js.map
+*.d.ts.map
+
+# Testy a logy (čtěte je jen na vyžádání)
+coverage/
+*.log
+npm-debug.log*
+
+# Bezpečnost (a úspora tokenů za enviromentální proměnné)
+.env*
+*.pem
+*.key

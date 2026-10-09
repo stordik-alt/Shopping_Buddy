@@ -169,6 +169,9 @@ export function validateProductTaxonomyClassification(
   }
   if (!allowedCategory) issues.push('Kategorie není součástí povoleného číselníku.')
   if (raw.druh && !allowedKind) issues.push('Druh není povolenou podkategorií zvolené kategorie.')
+  if (existingType?.categories?.length && category && !existingType.categories.includes(category)) {
+    issues.push('Existující typ zboží není evidován ve zvolené kategorii.')
+  }
   if (!type) issues.push('Typ zboží nebyl spolehlivě určen.')
   if (!raw.druh) issues.push('Druh nebyl spolehlivě určen.')
   if (confidence < 0.8) issues.push('Jistota je pod hranicí automatického přijetí návrhu.')

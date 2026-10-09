@@ -48,12 +48,14 @@ describe('Product Subtype database model', () => {
         categoryId: category!.id,
         productTypeId: otherType!.id,
         productSubtypeId: subtype.id,
+        productSubtypeSource: 'manual',
       })).rejects.toThrow()
 
       await expect(db.insert(schema.products).values({
         name: `Missing Parent Product Subtype ${suffix}`,
         categoryId: category!.id,
         productSubtypeId: subtype.id,
+        productSubtypeSource: 'manual',
       })).rejects.toThrow()
     } finally {
       if (validProductId) await db.delete(schema.products).where(eq(schema.products.id, validProductId))

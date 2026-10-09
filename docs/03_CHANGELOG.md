@@ -1,3 +1,22 @@
+## 2026-10-09 — Product Type / Product Subtype hierarchy clarified
+- Established the canonical hierarchy **Typ zboží → Poddruh → konkrétní Produkt → balení/množství → EAN/SKU/obchod/cena**.
+- Typ zboží is the general, reusable identity (for example `Mléko`); Poddruh is an optional finer classification (for example `Trvanlivé mléko` or `Čerstvé mléko`). Neither may encode brand, package size, EAN or retailer SKU.
+- A Product Type can contain many subtypes and each subtype can contain many concrete products. Product packaging and quantity remain separate from classification.
+- The existing Group concept remains separate: a group can contain several Product Types that the planner may treat as alternatives.
+- GS1 GPC, Open Food Facts, CZ-CPA, own catalog and OCR are documented as discovery/knowledge evidence for the registry, not as a direct Product Type/SKU list.
+- The previous 2026-10-v5 cross-reference candidate direction is explicitly superseded by this model; further candidate generation must follow the registry-first concept.
+- Documentation: `docs/12_PRODUCT_TYPES.md`.
+- Verification: documentation-only change; no database data was changed.
+- Commit: `300fb142146714d7d18342463010088fec455135`.
+
+## 2026-10-09 — PKD implementation milestones recorded
+- PKD source ingestion and normalization/deduplication are now documented as separate knowledge-layer steps before mapping to the application's Product Types.
+- GS1 GPC, Open Food Facts and CZ-CPA imports remain external taxonomy evidence and do not directly create Product Types.
+- The PKD mapping engine is constrained to exact normalized Product Type names/synonyms; broad receipt-line classification is not used for formal taxonomy mapping.
+- Candidate generation and mapping/acceptance are separated: discovery produces candidates, while Product Type creation/mapping requires explicit review and must not overwrite existing manual assignments.
+- Quantity normalization is universal across goods and remains separate from Product Type identity; unknown conversions are not guessed.
+- Verification: these milestones are already recorded in `docs/12_PRODUCT_TYPES.md`; this changelog entry consolidates the previously undocumented architectural milestones without claiming a new production run.
+
 ## 2026-09-23 — Historical UNKNOWN branch backfill
 - Added `scripts/backfill-receipt-store-locations.ts` for a controlled one-time backfill of historical receipt imports without a resolved branch.
 - Default execution is DRY RUN; `--apply` is required to change data.

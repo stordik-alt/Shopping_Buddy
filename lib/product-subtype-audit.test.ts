@@ -23,17 +23,18 @@ describe('Product Subtype provenance audit', () => {
       row({ id: '1', productTypeSource: 'rule' }),
       row({ id: '2', productTypeSource: 'manual' }),
       row({ id: '3', productTypeKey: 'gouda', productTypeName: 'Gouda', productTypeSource: 'alias' }),
-      row({ id: '4', productTypeKey: null, productTypeName: null, productTypeSource: null }),
-      row({ id: '5', productTypeKey: 'smetana-na-vareni', productTypeName: 'Smetana na vaření', productTypeSource: 'rule' }),
+      row({ id: '4', productTypeKey: 'mleko-polotucne', productTypeName: 'Polotučné mléko', productTypeSource: null }),
+      row({ id: '5', productTypeKey: null, productTypeName: null, productTypeSource: null }),
+      row({ id: '6', productTypeKey: 'smetana-na-vareni', productTypeName: 'Smetana na vaření', productTypeSource: 'rule' }),
     ])
 
-    expect(result.products).toBe(5)
-    expect(result.provenance).toEqual({ alias: 1, manual: 1, rule: 2, unknown: 1 })
+    expect(result.products).toBe(6)
+    expect(result.provenance).toEqual({ alias: 1, manual: 1, rule: 2, unknown: 2 })
     expect(result.proposedParents.find((p) => p.parentTypeKey === 'mleko')).toMatchObject({
-      products: 2,
+      products: 3,
       candidateProducts: 1,
-      manualReviewProducts: 1,
-      source: { manual: 1, rule: 1 },
+      manualReviewProducts: 2,
+      source: { manual: 1, rule: 1, unknown: 1 },
     })
     expect(result.proposedParents.find((p) => p.parentTypeKey === 'syr')?.products).toBe(1)
     expect(result.outsideRegistry).toEqual([
@@ -57,7 +58,7 @@ describe('Product Subtype provenance audit', () => {
     expect(result.existingSubtypeAssignments).toBe(1)
     expect(result.existingSubtypeSourceBreakdown).toEqual({ manual: 1 })
     expect(result.categoryMismatches).toBe(1)
-    expect(result.defaultUnitDivergences).toBe(1)
+    expect(result.defaultUnitDivergences).toBe(1)\n    expect(result.eligibleCandidateProducts).toBe(0)\n    expect(result.manualReviewProducts).toBe(0)
     expect(JSON.stringify(input)).toBe(before)
   })
 })

@@ -2032,3 +2032,7 @@ Every future architectural/schema/business-rule change should append a dated ent
 - Added unit validation for key uniqueness, complete and exact legacy-group coverage, existing legacy type references, and category/comparison-unit consistency. `Smetana` is deferred because its current child types use mixed `kg`/`l` comparison units.
 - Safety: every entry remains `candidate` and the registry is not used by runtime classification or seed code. No database rows, production data or current product assignments were changed. Planner/picker/receipt/report compatibility and a provenance-aware dry-run are required before a separate reviewed migration.
 - Verification: registry unit tests added; execution of CI remains pending for this follow-up branch.
+
+## 2026-10-09 (Product Subtype registry — rebased onto main)
+- After Product Subtype foundation PR #384 was merged, PR #385 was retargeted from the feature branch to `main`.
+- No Product Type registry logic or product data was changed by this retargeting; the registry remains review-only and all entries remain `candidate`.

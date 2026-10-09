@@ -697,6 +697,12 @@ Konkrétní v5 implementace zůstává historickou informací v Git historii, al
 - Křížové ověřování nemění kategorii ani jednotku a automaticky kandidáta neschvaluje. Neznámé hodnoty zůstávají `null`; konečné rozhodnutí je stále lidské.
 - Runner: `pnpm db:generate-pkd-candidates` (dry-run), `pnpm db:generate-pkd-candidates -- --apply` (uloží kandidáty dané verze).
 
+### 7.12p CI regression fixes — 2026-10-09
+
+- The DB-backed subtype test is run in the isolated PostgreSQL CI job, not the unit-only job where the database URL is intentionally absent.
+- PKD candidate confidence output is rounded to its documented two decimal places so independent-source adjustments remain deterministic across runtimes.
+- Both issues were found by this PR's CI run; they are recorded in `docs/07_CHANGELOG.md` and the summary `docs/03_CHANGELOG.md`.
+
 ### 7.12o Product Subtype database foundation — 2026-10-09
 
 - Added `product_subtypes` as a reusable classification layer under exactly one existing `product_types` row. Each subtype has a stable key, display name, optional description, ordering and an active flag; the same subtype name cannot be duplicated under the same parent.

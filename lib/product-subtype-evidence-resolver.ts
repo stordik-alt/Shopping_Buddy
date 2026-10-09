@@ -212,8 +212,8 @@ function collectSignals(rules: TypeRules, texts: EvidenceText[]): Signal[] {
   // Read percentages from original evidence because normalization strips punctuation.
   if (rules === TYPE_RULES.pivo) {
     for (const text of texts) {
-      if (/\\b0(?:[,.]0+)?\\s*%/.test(text.value)) {
-        signals.push({ rule: rules.subtypes[0], evidence: { source: text.source, field: text.field, value: text.value, matchedRule: rules.subtypes[0].ruleId + ': explicit zero alcohol percentage', polarity: 'supports' })
+      if (/\b0(?:[,.]0+)?\s*%/.test(text.value)) {
+        signals.push({ rule: rules.subtypes[0], evidence: { source: text.source, field: text.field, value: text.value, matchedRule: rules.subtypes[0].ruleId + ': explicit zero alcohol percentage', polarity: 'supports' } })
       }
     }
   }

@@ -899,3 +899,13 @@ Každá položka obsahuje stabilní klíč a název Product Type, počet produkt
 
 Tento výstup slouží k prioritizaci lidské revize a návrhu rozšíření registru. Samotná podobnost názvů ani vysoký počet produktů nesmí automaticky založit rodičovský typ nebo poddruh. Každý nový návrh musí respektovat hierarchii `Product Type → Product Subtype`, definici zahrnutí/vyloučení, kategorii, jednotku a existující skupiny. Žádné produktové přiřazení se tímto auditem nemění.
 
+
+
+### 7.27 Návrhy rozšíření registru podle inventáře — 2026-10-09
+
+Na základě read-only inventáře z běhu [37910630603](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37910630603) vznikl návrhový přehled `docs/product-subtype-registry-expansion-review.md` a JSON vstup `docs/examples/product-subtype-registry-expansion-candidates.json`.
+
+- Přehled prioritizuje největší nemapované Product Types a výslovně odkládá skupiny, kde se možné osy poddruhů překrývají nebo kde je třeba nejprve ověřit čistotu rodičovského Product Type.
+- JSON obsahuje 24 návrhů pro rodiče `pivo`, `testoviny`, `ryze`, `tvaroh`, `taveny-syr` a `tunak-konzerva`. Každý návrh má definici, hranici zahrnutí/vyloučení a auditní kontext.
+- Návrhy jsou pouze kandidáti k lidské revizi. Soubor nebyl importován do databáze; neproběhlo schválení poddruhů, přiřazení produktů ani produkční zápis.
+- Před vložením do fronty je nutné zkontrolovat hranice, zejména prioritu odrůdy/úpravy u rýže a vzájemnou výlučnost poddruhů. CLI ingest zůstává DRY RUN, pokud není výslovně použito `--apply`.

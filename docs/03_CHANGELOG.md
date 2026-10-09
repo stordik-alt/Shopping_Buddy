@@ -1,9 +1,15 @@
+## 2026-10-09 — Product Subtype registry expansion proposals
+- Added a review document covering the largest unmapped Product Types from read-only audit run `37910630603`, including explicit hold/review notes for overlapping classification axes and questionable parent types.
+- Added 24 draft candidate proposals for Pivo, Těstoviny, Rýže, Tvaroh, Tavený sýr and Tuňák v konzervě in a CLI-compatible JSON input file.
+- Proposals remain unapproved and have not been ingested into the database candidate queue. No active subtype, product assignment, migration or production write was performed.
+- Verification: JSON structure and proposal count checked in the authoring workflow; CI/CLI dry-run has not yet been run.
+
 ## 2026-10-09 — Product Type inventory for subtype registry expansion
 - Extended the read-only Product Subtype mapping audit to group every product with an existing Product Type but no reviewed starter-registry mapping by stable Product Type key.
 - Each group includes product count, category and Product Type provenance breakdowns, plus up to three deterministic example products; groups sort by descending product count then stable key.
 - This inventory is evidence for the next registry-review phase only. It does not infer new subtype identities, seed the registry, or change product assignments.
 - Added regression coverage for group counts, category/provenance breakdowns, deterministic sample ordering and exclusion of products without Product Type.
-- Verification: automated CI is pending on PR; no production writes or migrations performed.
+- Verification: merged in PR #393 (`2a5442eeedd5130d958f6157ae28f9c3ced5b4f8`); read-only production audit completed successfully in run [37910630603](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37910630603). No production writes or migrations performed.
 
 ## 2026-10-09 — Product Subtype registry conflict resolution
 - Recreated the review-only Product Subtype registry on a fresh branch based directly on merged `main` after PR #385 became non-mergeable due to the foundation-merge ancestry.

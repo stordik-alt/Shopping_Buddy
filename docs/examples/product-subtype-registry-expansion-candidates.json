@@ -1,0 +1,652 @@
+{
+  "candidates": [
+    {
+      "parentTypeKey": "pivo",
+      "name": "Světlé pivo",
+      "definition": "Pivo, jehož deklarovaná barva je světlá.",
+      "includes": [
+        "výrobek je výrobcem nebo etiketou označen jako světlé pivo"
+      ],
+      "excludes": [
+        "výslovně označené tmavé nebo polotmavé pivo"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Pivo",
+        "productCount": 609,
+        "sampleProducts": [
+          "Bakalář Rakovnický ležák za studena chmelený 0,5l",
+          "Velkopopovický Kozel Černý pivo výčepní tmavé 0,5l",
+          "Stella Artois světlý ležák, sklo"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "pivo",
+      "name": "Polotmavé pivo",
+      "definition": "Pivo výslovně označené jako polotmavé.",
+      "includes": [
+        "výrobek je výrobcem nebo etiketou označen jako polotmavé pivo"
+      ],
+      "excludes": [
+        "výslovně označené světlé nebo tmavé pivo"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Pivo",
+        "productCount": 609,
+        "sampleProducts": [
+          "Bakalář Rakovnický ležák za studena chmelený 0,5l",
+          "Velkopopovický Kozel Černý pivo výčepní tmavé 0,5l",
+          "Stella Artois světlý ležák, sklo"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "pivo",
+      "name": "Tmavé pivo",
+      "definition": "Pivo výslovně označené jako tmavé.",
+      "includes": [
+        "výrobek je výrobcem nebo etiketou označen jako tmavé pivo"
+      ],
+      "excludes": [
+        "výslovně označené světlé nebo polotmavé pivo"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Pivo",
+        "productCount": 609,
+        "sampleProducts": [
+          "Bakalář Rakovnický ležák za studena chmelený 0,5l",
+          "Velkopopovický Kozel Černý pivo výčepní tmavé 0,5l",
+          "Stella Artois světlý ležák, sklo"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "testoviny",
+      "name": "Dlouhé těstoviny",
+      "definition": "Těstoviny prodávané v dlouhých pramenech nebo tyčích.",
+      "includes": [
+        "špagety, linguine a obdobné dlouhé tvary"
+      ],
+      "excludes": [
+        "pláty na lasagne, plněné těstoviny a drobné polévkové tvary"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Těstoviny",
+        "productCount": 419,
+        "sampleProducts": [
+          "Sam Mills Kukuřično-rýžové těstoviny - Vřetena bez lepku",
+          "Kitchin Fusilli N. 260 Bronze",
+          "Cornito Bezlepkové těstoviny fleky"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "testoviny",
+      "name": "Krátké tvarované těstoviny",
+      "definition": "Neplněné krátké těstovinové tvary určené jako hlavní příloha nebo do salátů.",
+      "includes": [
+        "penne, fusilli, farfalle a podobné krátké tvary"
+      ],
+      "excludes": [
+        "dlouhé těstoviny, plněné těstoviny, pláty na lasagne a drobné polévkové těstoviny"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Těstoviny",
+        "productCount": 419,
+        "sampleProducts": [
+          "Sam Mills Kukuřično-rýžové těstoviny - Vřetena bez lepku",
+          "Kitchin Fusilli N. 260 Bronze",
+          "Cornito Bezlepkové těstoviny fleky"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "testoviny",
+      "name": "Polévkové těstoviny",
+      "definition": "Drobné těstovinové tvary primárně určené do polévek.",
+      "includes": [
+        "písmenka, drobné nudle a drobné polévkové tvary"
+      ],
+      "excludes": [
+        "dlouhé těstoviny, krátké přílohové tvary, plněné těstoviny a pláty na lasagne"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Těstoviny",
+        "productCount": 419,
+        "sampleProducts": [
+          "Sam Mills Kukuřično-rýžové těstoviny - Vřetena bez lepku",
+          "Kitchin Fusilli N. 260 Bronze",
+          "Cornito Bezlepkové těstoviny fleky"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "testoviny",
+      "name": "Plněné těstoviny",
+      "definition": "Těstoviny, jejichž součástí je náplň.",
+      "includes": [
+        "ravioli, tortellini a podobné plněné tvary"
+      ],
+      "excludes": [
+        "neplněné těstoviny a pláty na lasagne bez náplně"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Těstoviny",
+        "productCount": 419,
+        "sampleProducts": [
+          "Sam Mills Kukuřično-rýžové těstoviny - Vřetena bez lepku",
+          "Kitchin Fusilli N. 260 Bronze",
+          "Cornito Bezlepkové těstoviny fleky"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "testoviny",
+      "name": "Pláty na lasagne",
+      "definition": "Těstovinové pláty určené pro vrstvené pokrmy typu lasagne.",
+      "includes": [
+        "pláty prodávané jako lasagne"
+      ],
+      "excludes": [
+        "nudle a jiné dlouhé/krátké tvary; hotové lasagne jako připravené jídlo"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Těstoviny",
+        "productCount": 419,
+        "sampleProducts": [
+          "Sam Mills Kukuřično-rýžové těstoviny - Vřetena bez lepku",
+          "Kitchin Fusilli N. 260 Bronze",
+          "Cornito Bezlepkové těstoviny fleky"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "ryze",
+      "name": "Rýže basmati",
+      "definition": "Rýže výslovně deklarovaná jako odrůda basmati.",
+      "includes": [
+        "balení označené basmati"
+      ],
+      "excludes": [
+        "jasmínová, arborio a jiné výslovně pojmenované odrůdy"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Rýže",
+        "productCount": 246,
+        "sampleProducts": [
+          "Lagris Rýže Parboiled ve varných sáčcích",
+          "Riso Scotti Vener Parboiled rýže",
+          "Lagris Rýže kulatozrnná loupaná 1kg"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "ryze",
+      "name": "Rýže jasmínová",
+      "definition": "Rýže výslovně deklarovaná jako jasmínová.",
+      "includes": [
+        "balení označené jasmínová nebo jasmine rice"
+      ],
+      "excludes": [
+        "basmati, arborio a jiné výslovně pojmenované odrůdy"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Rýže",
+        "productCount": 246,
+        "sampleProducts": [
+          "Lagris Rýže Parboiled ve varných sáčcích",
+          "Riso Scotti Vener Parboiled rýže",
+          "Lagris Rýže kulatozrnná loupaná 1kg"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "ryze",
+      "name": "Rýže arborio a na rizoto",
+      "definition": "Rýže odrůdy arborio nebo výslovně určená na rizoto.",
+      "includes": [
+        "arborio a výrobky označené jako rýže na rizoto"
+      ],
+      "excludes": [
+        "basmati, jasmínová a běžná rýže bez určení na rizoto"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Rýže",
+        "productCount": 246,
+        "sampleProducts": [
+          "Lagris Rýže Parboiled ve varných sáčcích",
+          "Riso Scotti Vener Parboiled rýže",
+          "Lagris Rýže kulatozrnná loupaná 1kg"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "ryze",
+      "name": "Rýže parboiled",
+      "definition": "Rýže, u níž je na obalu deklarována úprava parboiled.",
+      "includes": [
+        "výrobky výslovně označené parboiled"
+      ],
+      "excludes": [
+        "rýže bez deklarace parboiled; odrůda basmati/jasmínová má přednost, pokud je potřeba zachovat jediný subtype"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Rýže",
+        "productCount": 246,
+        "sampleProducts": [
+          "Lagris Rýže Parboiled ve varných sáčcích",
+          "Riso Scotti Vener Parboiled rýže",
+          "Lagris Rýže kulatozrnná loupaná 1kg"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "ryze",
+      "name": "Rýže natural / celozrnná",
+      "definition": "Rýže prodávaná jako natural, celozrnná nebo hnědá rýže.",
+      "includes": [
+        "výrobky výslovně označené natural, celozrnná nebo brown rice"
+      ],
+      "excludes": [
+        "bílá/loupaná rýže a výrobky s jinou dominantní výslovnou odrůdou"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Rýže",
+        "productCount": 246,
+        "sampleProducts": [
+          "Lagris Rýže Parboiled ve varných sáčcích",
+          "Riso Scotti Vener Parboiled rýže",
+          "Lagris Rýže kulatozrnná loupaná 1kg"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "ryze",
+      "name": "Ostatní dlouhozrnná rýže",
+      "definition": "Dlouhozrnná rýže bez konkrétního názvu odrůdy a bez jiné zvláštní úpravy.",
+      "includes": [
+        "výslovně dlouhozrnná bílá rýže, která není basmati, jasmínová ani parboiled"
+      ],
+      "excludes": [
+        "basmati, jasmínová, parboiled, natural/celozrnná a kulatozrnná rýže"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Rýže",
+        "productCount": 246,
+        "sampleProducts": [
+          "Lagris Rýže Parboiled ve varných sáčcích",
+          "Riso Scotti Vener Parboiled rýže",
+          "Lagris Rýže kulatozrnná loupaná 1kg"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "ryze",
+      "name": "Ostatní kulatozrnná rýže",
+      "definition": "Kulatozrnná rýže bez konkrétní odrůdy a bez jiné zvláštní úpravy.",
+      "includes": [
+        "výslovně kulatozrnná bílá rýže, která není arborio ani parboiled"
+      ],
+      "excludes": [
+        "arborio/rýže na rizoto, parboiled, natural/celozrnná a dlouhozrnná rýže"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Rýže",
+        "productCount": 246,
+        "sampleProducts": [
+          "Lagris Rýže Parboiled ve varných sáčcích",
+          "Riso Scotti Vener Parboiled rýže",
+          "Lagris Rýže kulatozrnná loupaná 1kg"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "tvaroh",
+      "name": "Tučný tvaroh",
+      "definition": "Tvaroh deklarovaný výrobcem jako tučný nebo odpovídající explicitnímu údaji o tuku.",
+      "includes": [
+        "etiketa nebo důvěryhodná produktová specifikace označuje tvaroh jako tučný"
+      ],
+      "excludes": [
+        "výslovně polotučný nebo odtučněný tvaroh"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Tvaroh",
+        "productCount": 114,
+        "sampleProducts": [
+          "Tatra Tvaroh odtučněný",
+          "Tatra Tvaroh tučný suš.22%",
+          "Olma Olomoucký tvaroh odtučněný 250 g"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "tvaroh",
+      "name": "Polotučný tvaroh",
+      "definition": "Tvaroh deklarovaný výrobcem jako polotučný.",
+      "includes": [
+        "etiketa nebo důvěryhodná produktová specifikace označuje tvaroh jako polotučný"
+      ],
+      "excludes": [
+        "výslovně tučný nebo odtučněný tvaroh"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Tvaroh",
+        "productCount": 114,
+        "sampleProducts": [
+          "Tatra Tvaroh odtučněný",
+          "Tatra Tvaroh tučný suš.22%",
+          "Olma Olomoucký tvaroh odtučněný 250 g"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "tvaroh",
+      "name": "Odtučněný tvaroh",
+      "definition": "Tvaroh deklarovaný výrobcem jako odtučněný nebo nízkotučný podle ověřeného označení.",
+      "includes": [
+        "etiketa nebo důvěryhodná produktová specifikace označuje tvaroh jako odtučněný"
+      ],
+      "excludes": [
+        "výslovně tučný nebo polotučný tvaroh"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Tvaroh",
+        "productCount": 114,
+        "sampleProducts": [
+          "Tatra Tvaroh odtučněný",
+          "Tatra Tvaroh tučný suš.22%",
+          "Olma Olomoucký tvaroh odtučněný 250 g"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "taveny-syr",
+      "name": "Plátkový tavený sýr",
+      "definition": "Tavený sýr vyráběný a prodávaný jako jednotlivé plátky.",
+      "includes": [
+        "etiketa uvádí plátky nebo produkt tvoří oddělené plátky taveného sýra"
+      ],
+      "excludes": [
+        "roztíratelný sýr v kelímku nebo tavený sýr v bloku/porcích"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Tavený sýr",
+        "productCount": 102,
+        "sampleProducts": [
+          "ARO Sýr tavený light 26%",
+          "Metro Chef Sýr tavený 64%",
+          "Moravia Jemný tavený máslový sýr"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "taveny-syr",
+      "name": "Roztíratelný tavený sýr",
+      "definition": "Tavený sýr určený k roztírání, typicky v kelímku nebo vaničce.",
+      "includes": [
+        "produkt je deklarován jako roztíratelný a prodává se ve společném kelímku/vaničce"
+      ],
+      "excludes": [
+        "plátkový tavený sýr a pevné jednotlivé porce"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Tavený sýr",
+        "productCount": 102,
+        "sampleProducts": [
+          "ARO Sýr tavený light 26%",
+          "Metro Chef Sýr tavený 64%",
+          "Moravia Jemný tavený máslový sýr"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "taveny-syr",
+      "name": "Porcovaný tavený sýr",
+      "definition": "Tavený sýr prodávaný v samostatně zabalených porcích nebo trojúhelníčcích.",
+      "includes": [
+        "samostatné porce nebo trojúhelníčky taveného sýra"
+      ],
+      "excludes": [
+        "roztíratelný sýr ve vaničce a volné plátky"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Tavený sýr",
+        "productCount": 102,
+        "sampleProducts": [
+          "ARO Sýr tavený light 26%",
+          "Metro Chef Sýr tavený 64%",
+          "Moravia Jemný tavený máslový sýr"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "tunak-konzerva",
+      "name": "Tuňák ve vlastní šťávě",
+      "definition": "Konzervovaný tuňák, jehož nálev je označen jako vlastní šťáva.",
+      "includes": [
+        "výslovně označený tuňák ve vlastní šťávě"
+      ],
+      "excludes": [
+        "tuňák v oleji nebo v jiném nálevu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Tuňák v konzervě",
+        "productCount": 82,
+        "sampleProducts": [
+          "Rio Mare Tuňák ve vlastní šťávě",
+          "Tuňák v olivovém oleji",
+          "BILLA Tuňák ve vlastní šťávě 3 x 80g (240g)"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "tunak-konzerva",
+      "name": "Tuňák v oleji",
+      "definition": "Konzervovaný tuňák naložený v oleji.",
+      "includes": [
+        "etiketa uvádí olej jako konzervační nálev"
+      ],
+      "excludes": [
+        "tuňák ve vlastní šťávě nebo ve vodním/jiném nálevu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Tuňák v konzervě",
+        "productCount": 82,
+        "sampleProducts": [
+          "Rio Mare Tuňák ve vlastní šťávě",
+          "Tuňák v olivovém oleji",
+          "BILLA Tuňák ve vlastní šťávě 3 x 80g (240g)"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "tunak-konzerva",
+      "name": "Tuňák ve vodním nálevu",
+      "definition": "Konzervovaný tuňák v nálevu na bázi vody, který není označen jako vlastní šťáva.",
+      "includes": [
+        "etiketa uvádí vodu nebo vodní nálev"
+      ],
+      "excludes": [
+        "tuňák v oleji a tuňák ve vlastní šťávě"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Tuňák v konzervě",
+        "productCount": 82,
+        "sampleProducts": [
+          "Rio Mare Tuňák ve vlastní šťávě",
+          "Tuňák v olivovém oleji",
+          "BILLA Tuňák ve vlastní šťávě 3 x 80g (240g)"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    }
+  ]
+}

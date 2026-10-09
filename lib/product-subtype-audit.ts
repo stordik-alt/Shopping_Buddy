@@ -1,4 +1,10 @@
-import { PRODUCT_SUBTYPE_PROPOSALS, PRODUCT_SUBTYPE_REGISTRY_VERSION, PRODUCT_TYPE_PARENT_PROPOSALS } from '@/lib/product-subtype-registry'
+import { PRODUCT_TYPES } from '@/lib/product-types'
+import type { ItemCategory } from '@/lib/types'
+import {
+  PRODUCT_SUBTYPE_PROPOSALS,
+  PRODUCT_SUBTYPE_REGISTRY_VERSION,
+  PRODUCT_TYPE_PARENT_PROPOSALS,
+} from '@/lib/product-subtype-registry'
 
 export type ProductSubtypeAuditRow = {
   id: string
@@ -15,6 +21,20 @@ export type ProductSubtypeAuditRow = {
   productSubtypeSource: string | null
 }
 
+type ProductTypeAuditSummary = {
+  productTypeKey: string
+  productTypeName: string
+  proposedParentTypeKey: string | null
+  proposedParentTypeName: string | null
+  inSubtypeRegistry: boolean
+  products: number
+  source: Record<string, number>
+  candidateProducts: number
+  manualReviewProducts: number
+  categoryMismatchProducts: number
+  defaultUnitComparisonUnitDifferences: number
+}
+
 export type ProductSubtypeAuditResult = {
   registryVersion: string
   products: number
@@ -23,6 +43,7 @@ export type ProductSubtypeAuditResult = {
   existingSubtypeAssignments: number
   existingSubtypeSourceBreakdown: Record<string, number>
   provenance: Record<string, number>
+  productTypes: ProductTypeAuditSummary[]
   proposedParents: Array<{
     parentTypeKey: string
     parentTypeName: string
@@ -34,26 +55,36 @@ export type ProductSubtypeAuditResult = {
   outsideRegistry: Array<{ productTypeKey: string; productTypeName: string; products: number }>
   unmappedProducts: number
   categoryMismatches: number
-  defaultUnitDivergences: number
+  defaultUnitComparisonUnitDifferences: number
   eligibleCandidateProducts: number
   manualReviewProducts: number
 }
 
+const TRUSTED_PROVENANCE = new Set(['rule', 'alias', 'pkd'])
+const productTypeDefinitions = new Map(PRODUCT_TYPES.map((type) => [type.key, type]))
 const legacyToProposal = new Map(
   PRODUCT_SUBTYPE_PROPOSALS.map((entry) => [entry.legacyProductTypeKey, entry]),
 )
-
 const parentByKey = new Map(PRODUCT_TYPE_PARENT_PROPOSALS.map((entry) => [entry.key, entry]))
+
+function categoryMismatch(row: ProductSubtypeAuditRow): boolean {
+  if (!row.productTypeKey) return false
+  const definition = productTypeDefinitions.get(row.productTypeKey)
+  if (definition) return !definition.categories.includes(row.category as ItemCategory)
+  // Defensive fallback for DB rows whose key no longer exists in code.
+  return Boolean(row.productTypeCategory && row.category !== row.productTypeCategory)
+}
 
 export function auditProductSubtypeMigration(rows: readonly ProductSubtypeAuditRow[]): ProductSubtypeAuditResult {
   const provenance: Record<string, number> = {}
   const subtypeSources: Record<string, number> = {}
   const parentStats = new Map<string, { products: number; source: Record<string, number>; candidateProducts: number; manualReviewProducts: number }>()
+  const typeStats = new Map<string, ProductTypeAuditSummary>()
   const outside = new Map<string, { productTypeName: string; products: number }>()
   let unassignedProductType = 0
   let existingSubtypeAssignments = 0
   let categoryMismatches = 0
-  let defaultUnitDivergences = 0
+  let defaultUnitComparisonUnitDifferences = 0
   let eligibleCandidateProducts = 0
   let manualReviewProducts = 0
 
@@ -69,39 +100,85 @@ export function auditProductSubtypeMigration(rows: readonly ProductSubtypeAuditR
 
     if (!row.productTypeKey) {
       unassignedProductType += 1
-    } else {
-      const proposal = legacyToProposal.get(row.productTypeKey)
-      if (proposal) {
-        const parent = parentByKey.get(proposal.parentTypeKey)!
-        const stats = parentStats.get(parent.key) ?? {
-          products: 0,
-          source: {},
-          candidateProducts: 0,
-          manualReviewProducts: 0,
-        }
-        stats.products += 1
-        stats.source[source] = (stats.source[source] ?? 0) + 1
-        if (source === 'manual') {
-          stats.manualReviewProducts += 1
-          manualReviewProducts += 1
-        } else {
-          stats.candidateProducts += 1
-          eligibleCandidateProducts += 1
-        }
-        parentStats.set(parent.key, stats)
-      } else {
-        const existing = outside.get(row.productTypeKey) ?? { productTypeName: row.productTypeName ?? row.productTypeKey, products: 0 }
-        existing.products += 1
-        outside.set(row.productTypeKey, existing)
-      }
+      continue
     }
 
-    if (row.productTypeKey && row.productTypeCategory && row.category !== row.productTypeCategory) categoryMismatches += 1
-    if (row.productTypeKey && row.productTypeUnit && row.defaultUnit !== row.productTypeUnit) defaultUnitDivergences += 1
+    const proposal = legacyToProposal.get(row.productTypeKey)
+    const parent = proposal ? parentByKey.get(proposal.parentTypeKey) ?? null : null
+    let type = typeStats.get(row.productTypeKey)
+    if (!type) {
+      type = {
+        productTypeKey: row.productTypeKey,
+        productTypeName: row.productTypeName ?? row.productTypeKey,
+        proposedParentTypeKey: parent?.key ?? null,
+        proposedParentTypeName: parent?.name ?? null,
+        inSubtypeRegistry: Boolean(proposal && parent),
+        products: 0,
+        source: {},
+        candidateProducts: 0,
+        manualReviewProducts: 0,
+        categoryMismatchProducts: 0,
+        defaultUnitComparisonUnitDifferences: 0,
+      }
+      typeStats.set(row.productTypeKey, type)
+    }
+
+    type.products += 1
+    type.source[source] = (type.source[source] ?? 0) + 1
+
+    if (categoryMismatch(row)) {
+      type.categoryMismatchProducts += 1
+      categoryMismatches += 1
+    }
+
+    // A shopper's default product unit (e.g. one bottle) and a type's comparison unit
+    // (e.g. litres) serve different purposes. Report the difference as information, not an error.
+    if (row.productTypeUnit && row.defaultUnit !== row.productTypeUnit) {
+      type.defaultUnitComparisonUnitDifferences += 1
+      defaultUnitComparisonUnitDifferences += 1
+    }
+
+    if (proposal && parent) {
+      const stats = parentStats.get(parent.key) ?? {
+        products: 0,
+        source: {},
+        candidateProducts: 0,
+        manualReviewProducts: 0,
+      }
+      stats.products += 1
+      stats.source[source] = (stats.source[source] ?? 0) + 1
+
+      // A row with an existing subtype is already classified and is not proposed again.
+      if (!row.productSubtypeKey) {
+        if (TRUSTED_PROVENANCE.has(source)) {
+          stats.candidateProducts += 1
+          type.candidateProducts += 1
+          eligibleCandidateProducts += 1
+        } else {
+          // Manual and unknown provenance require explicit review; they must not be inferred.
+          stats.manualReviewProducts += 1
+          type.manualReviewProducts += 1
+          manualReviewProducts += 1
+        }
+      }
+      parentStats.set(parent.key, stats)
+    } else {
+      const existing = outside.get(row.productTypeKey) ?? {
+        productTypeName: row.productTypeName ?? row.productTypeKey,
+        products: 0,
+      }
+      existing.products += 1
+      outside.set(row.productTypeKey, existing)
+    }
   }
 
   const proposedParents = PRODUCT_TYPE_PARENT_PROPOSALS.map((parent) => {
-    const stats = parentStats.get(parent.key) ?? { products: 0, source: {}, candidateProducts: 0, manualReviewProducts: 0 }
+    const stats = parentStats.get(parent.key) ?? {
+      products: 0,
+      source: {},
+      candidateProducts: 0,
+      manualReviewProducts: 0,
+    }
     return {
       parentTypeKey: parent.key,
       parentTypeName: parent.name,
@@ -119,14 +196,15 @@ export function auditProductSubtypeMigration(rows: readonly ProductSubtypeAuditR
     unassignedProductType,
     existingSubtypeAssignments,
     existingSubtypeSourceBreakdown: subtypeSources,
-    provenance,
+    provenance: Object.fromEntries(Object.entries(provenance).sort(([a], [b]) => a.localeCompare(b))),
+    productTypes: [...typeStats.values()].sort((a, b) => b.products - a.products || a.productTypeKey.localeCompare(b.productTypeKey)),
     proposedParents,
     outsideRegistry: [...outside.entries()]
       .map(([productTypeKey, value]) => ({ productTypeKey, ...value }))
       .sort((a, b) => b.products - a.products || a.productTypeKey.localeCompare(b.productTypeKey)),
     unmappedProducts: unassignedProductType,
     categoryMismatches,
-    defaultUnitDivergences,
+    defaultUnitComparisonUnitDifferences,
     eligibleCandidateProducts,
     manualReviewProducts,
   }

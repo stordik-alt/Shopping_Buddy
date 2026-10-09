@@ -108,4 +108,10 @@ Every future significant change should add a dated entry containing:
 - The audit respects all allowed Product Type categories instead of treating the primary DB category as the only allowed value, and treats product default-unit vs price-comparison-unit differences as informational.
 - Production baseline: 55,842 products; 7,656 with Product Type; 48,186 without; 1,364 candidates across seven starter parents; three `voda-neperliva` records in category `Děti` need review.
 - No production data or product assignments were changed.
-\n\n## 2026-10-09 — Product Subtype deterministic mapping audit\n- Added a read-only mapping layer that converts each reviewed legacy Product Type into exactly one registered Product Subtype candidate while preserving the proposed parent Product Type.\n- Trusted provenance remains limited to `rule`, `alias` and `pkd`; manual/unknown provenance and category exceptions remain explicit review items. Existing subtype assignments and Product Types outside the starter registry are never overwritten or inferred.\n- Added `lib/product-subtype-mapping.ts`, regression tests and `db:audit-product-subtype-mapping` runner.\n- No database writes or subtype assignments were performed.\n
+
+
+## 2026-10-09 — Product Subtype deterministic mapping audit
+- Added a read-only mapping layer from reviewed legacy Product Type keys to a proposed parent Product Type and exact registered Product Subtype.
+- Automatic candidates require trusted `rule`, `alias` or `pkd` provenance; manual/unknown provenance, category exceptions, existing subtype assignments and types outside the starter registry remain excluded from automatic mapping.
+- Added `lib/product-subtype-mapping.ts`, regression tests and `pnpm db:audit-product-subtype-mapping`.
+- No database writes or subtype assignments were performed.

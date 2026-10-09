@@ -1,3 +1,10 @@
+## 2026-10-09 — Rozšíření explicitních důkazů podle read-only simulace Product Subtype
+- Read-only simulace [37943771832](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37943771832) na resolveru `2026-10-v2` zpracovala 1 572 produktů ze šesti cílových Product Types; navrhla 901 poddruhů a ponechala 6 konfliktních případů k ruční kontrole.
+- Na základě konkrétních názvů z katalogu se doplňují pouze explicitní varianty: zkratka „ve vl. šťávě“, jasné označení extra panenského olivového oleje, obrácené pořadí slov u taveného sýra a název Fusilloni.
+- Nové regresní testy chrání před chybným rozpoznáním slov jako „Fusion“ jako těstovin a před odhadováním konzervačního média tuňáka ze samotného „olivového oleje“ bez jasné formulace.
+- Resolver zůstává deterministický a pouze návrhový; simulace ani úpravy nespouštějí databázové zápisy, přiřazování ani schvalování poddruhů.
+- Ověření CI pro tuto větev je před sloučením povinné.
+
 ## 2026-10-09 — Oprava neúspěšných unit testů PR #402
 - Obnovena explicitní shoda zkratek „v ol.oleji“ a „v ol. oleji“ po normalizaci interpunkce.
 - Test odmítnutí nesprávného typu těstovin používá název tuňáka, aby nový poddruh „Ostatní těstoviny“ správně zůstal omezen na skutečné názvy těstovin.

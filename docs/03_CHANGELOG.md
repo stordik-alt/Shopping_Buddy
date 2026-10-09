@@ -1,3 +1,11 @@
+## 2026-10-09 — Povolení návrhů nových podkategorií a přímý OpenAI JSON
+
+- Klasifikátor může navrhnout novou podkategorii, pokud žádná existující sémanticky neodpovídá. Výsledek používá stav `new_subcategory_proposal`; návrh se automaticky nevytváří ani neschvaluje.
+- Nová podkategorie musí být obecná, znovupoužitelná, odlišná od existujících názvů a nesmí vznikat pouze kvůli značce, balení, variantě nebo SKU.
+- Nízká jistota nebo jiné validační problémy zůstávají `review_required`. Hlavní kategorie jsou nadále omezeny na existující hodnoty.
+- Připraven samostatný JSON request template pro přímé volání OpenAI Responses API se Structured Outputs a strict JSON Schema: `shopping_buddy_openai_taxonomy_request_template.json` (před použitím je nutné vložit aktuální kandidáty a taxonomii a ověřit dostupný model ID).
+- Návrhový režim zůstává bez databázových zápisů a bez automatického přiřazování produktů.
+
 ## 2026-10-09 — GPT-6 Luna Product Taxonomy klasifikátor (návrhový režim)
 
 - Přidáno verzované rozhraní klasifikátoru po jednom kandidátovi: `lib/product-taxonomy-classifier.ts`, prompt `2026-10-v1`, model `openai/gpt-6-luna`.

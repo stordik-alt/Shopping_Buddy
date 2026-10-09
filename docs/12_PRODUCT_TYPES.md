@@ -795,3 +795,31 @@ The mapping summary reports only subtypes encountered in mapping rows; it does n
 
 ### 7.20 Deterministic mapping summary ordering — 2026-10-09
 The audit summary sorts parent and subtype keys using explicit lexical comparisons rather than locale-sensitive collation, ensuring consistent order across CI environments. Regression coverage updated; no production data changed.
+
+
+### 7.21 Mapping audit result and review gate — 2026-10-09
+
+The successful production run of `Product Subtype Mapping Audit` completed `pnpm exec tsx scripts/audit-product-subtype-mapping.ts` in read-only mode. Reported baseline:
+
+| Measure | Count |
+|---|---:|
+| Products in catalog | 55,842 |
+| Automatic mapping candidates | 1,361 |
+| Concrete products requiring manual review | 3 |
+| Existing Product Subtype assignments | 0 |
+| Products outside the current starter registry | 54,478 |
+| Subtypes represented in the report | 19 |
+
+Automatic candidates by parent/type family: Káva 414 (mletá 127, zrnková 287); Sýr 341 (balkánský 45, Eidam 97, Gouda 114, mozzarella 85); Voda 290 automatic candidates (neperlivá 133 plus 3 manual-review records, perlivá 157); Olej 163; Mléko 79; Mouka 45; Cukr 29. The 1,361 figure excludes the three manual-review exceptions; the water family therefore has 293 total proposed records when those exceptions are included.
+
+Manual-review exceptions, all currently suggested as `voda-neperliva` despite category `Děti`:
+
+1. `HiPP Baby přírodní minerální voda neperlivá 6×1 l`
+2. `HiPP Baby přírodní minerální voda neperlivá multipack (6×1 l)`
+3. `YESs Meloun neperlivá`
+
+These records must not be automatically assigned. Review the source category, product identity and whether the Product Type definition permits this category. Do not silently widen a category rule just to make the records pass; if needed, record an explicit exception or revise the taxonomy through a reviewed change.
+
+The audit made no database writes and has no `--apply` mode. The 54,478 products outside the current registry are a coverage measure, not automatically data errors. This report is a candidate-review input only; it is not approval for registry seeding, subtype assignment or backfill.
+
+Before approval, confirm that each candidate report row includes stable product ID, product name, current Product Type key/name, proposed parent and exact subtype, category/subcategory, assignment provenance, and a clear exclusion/review reason. Any missing field should be added to the report and covered by regression tests before a migration plan is prepared. Keep review decisions and their provenance auditable.

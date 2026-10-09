@@ -1,3 +1,5 @@
+import { PRODUCT_TYPES } from '@/lib/product-types'
+import type { ItemCategory } from '@/lib/types'
 import {
   PRODUCT_SUBTYPE_PROPOSALS,
   PRODUCT_SUBTYPE_REGISTRY_VERSION,
@@ -58,13 +60,20 @@ export type ProductSubtypeAuditResult = {
   manualReviewProducts: number
 }
 
-const TRUSTED_PROVENANCE = new Set(['rule', 'alias', 'pkd'])\nconst productTypeDefinitions = new Map(PRODUCT_TYPES.map((type) => [type.key, type]))\n\nfunction categoryMismatch(row: ProductSubtypeAuditRow): boolean {\n  if (!row.productTypeKey) return false\n  const definition = productTypeDefinitions.get(row.productTypeKey)\n  if (definition) return !definition.categories.includes(row.category as ItemCategory)\n  // Defensive fallback for DB rows whose key no longer exists in code.\n  return Boolean(row.productTypeCategory && row.category !== row.productTypeCategory)\n}
-
+const TRUSTED_PROVENANCE = new Set(['rule', 'alias', 'pkd'])
+const productTypeDefinitions = new Map(PRODUCT_TYPES.map((type) => [type.key, type]))
 const legacyToProposal = new Map(
   PRODUCT_SUBTYPE_PROPOSALS.map((entry) => [entry.legacyProductTypeKey, entry]),
 )
-
 const parentByKey = new Map(PRODUCT_TYPE_PARENT_PROPOSALS.map((entry) => [entry.key, entry]))
+
+function categoryMismatch(row: ProductSubtypeAuditRow): boolean {
+  if (!row.productTypeKey) return false
+  const definition = productTypeDefinitions.get(row.productTypeKey)
+  if (definition) return !definition.categories.includes(row.category as ItemCategory)
+  // Defensive fallback for DB rows whose key no longer exists in code.
+  return Boolean(row.productTypeCategory && row.category !== row.productTypeCategory)
+}
 
 export function auditProductSubtypeMigration(rows: readonly ProductSubtypeAuditRow[]): ProductSubtypeAuditResult {
   const provenance: Record<string, number> = {}
@@ -91,70 +100,75 @@ export function auditProductSubtypeMigration(rows: readonly ProductSubtypeAuditR
 
     if (!row.productTypeKey) {
       unassignedProductType += 1
+      continue
+    }
+
+    const proposal = legacyToProposal.get(row.productTypeKey)
+    const parent = proposal ? parentByKey.get(proposal.parentTypeKey) ?? null : null
+    let type = typeStats.get(row.productTypeKey)
+    if (!type) {
+      type = {
+        productTypeKey: row.productTypeKey,
+        productTypeName: row.productTypeName ?? row.productTypeKey,
+        proposedParentTypeKey: parent?.key ?? null,
+        proposedParentTypeName: parent?.name ?? null,
+        inSubtypeRegistry: Boolean(proposal && parent),
+        products: 0,
+        source: {},
+        candidateProducts: 0,
+        manualReviewProducts: 0,
+        categoryMismatchProducts: 0,
+        defaultUnitComparisonUnitDifferences: 0,
+      }
+      typeStats.set(row.productTypeKey, type)
+    }
+
+    type.products += 1
+    type.source[source] = (type.source[source] ?? 0) + 1
+
+    if (categoryMismatch(row)) {
+      type.categoryMismatchProducts += 1
+      categoryMismatches += 1
+    }
+
+    // A shopper's default product unit (e.g. one bottle) and a type's comparison unit
+    // (e.g. litres) serve different purposes. Report the difference as information, not an error.
+    if (row.productTypeUnit && row.defaultUnit !== row.productTypeUnit) {
+      type.defaultUnitComparisonUnitDifferences += 1
+      defaultUnitComparisonUnitDifferences += 1
+    }
+
+    if (proposal && parent) {
+      const stats = parentStats.get(parent.key) ?? {
+        products: 0,
+        source: {},
+        candidateProducts: 0,
+        manualReviewProducts: 0,
+      }
+      stats.products += 1
+      stats.source[source] = (stats.source[source] ?? 0) + 1
+
+      // A row with an existing subtype is already classified and is not proposed again.
+      if (!row.productSubtypeKey) {
+        if (TRUSTED_PROVENANCE.has(source)) {
+          stats.candidateProducts += 1
+          type.candidateProducts += 1
+          eligibleCandidateProducts += 1
+        } else {
+          // Manual and unknown provenance require explicit review; they must not be inferred.
+          stats.manualReviewProducts += 1
+          type.manualReviewProducts += 1
+          manualReviewProducts += 1
+        }
+      }
+      parentStats.set(parent.key, stats)
     } else {
-      const proposal = legacyToProposal.get(row.productTypeKey)
-      const parent = proposal ? parentByKey.get(proposal.parentTypeKey) ?? null : null
-      let type = typeStats.get(row.productTypeKey)
-      if (!type) {
-        type = {
-          productTypeKey: row.productTypeKey,
-          productTypeName: row.productTypeName ?? row.productTypeKey,
-          proposedParentTypeKey: parent?.key ?? null,
-          proposedParentTypeName: parent?.name ?? null,
-          inSubtypeRegistry: Boolean(proposal && parent),
-          products: 0,
-          source: {},
-          candidateProducts: 0,
-          manualReviewProducts: 0,
-          categoryMismatchProducts: 0,
-          defaultUnitComparisonUnitDifferences: 0,
-        }
-        typeStats.set(row.productTypeKey, type)
+      const existing = outside.get(row.productTypeKey) ?? {
+        productTypeName: row.productTypeName ?? row.productTypeKey,
+        products: 0,
       }
-
-      type.products += 1
-      type.source[source] = (type.source[source] ?? 0) + 1
-      if (row.productTypeCategory && row.category !== row.productTypeCategory) {
-        type.categoryMismatchProducts += 1
-        categoryMismatches += 1
-      }
-      if (row.productTypeUnit && row.defaultUnit !== row.productTypeUnit) {
-        type.defaultUnitDivergenceProducts += 1
-        defaultUnitDivergences += 1
-      }
-
-      if (proposal && parent) {
-        const stats = parentStats.get(parent.key) ?? {
-          products: 0,
-          source: {},
-          candidateProducts: 0,
-          manualReviewProducts: 0,
-        }
-        stats.products += 1
-        stats.source[source] = (stats.source[source] ?? 0) + 1
-
-        // A row with an existing subtype is already classified and is not proposed again.
-        if (!row.productSubtypeKey) {
-          if (TRUSTED_PROVENANCE.has(source)) {
-            stats.candidateProducts += 1
-            type.candidateProducts += 1
-            eligibleCandidateProducts += 1
-          } else {
-            // Manual and unknown provenance require explicit review; they must not be inferred.
-            stats.manualReviewProducts += 1
-            type.manualReviewProducts += 1
-            manualReviewProducts += 1
-          }
-        }
-        parentStats.set(parent.key, stats)
-      } else {
-        const existing = outside.get(row.productTypeKey) ?? {
-          productTypeName: row.productTypeName ?? row.productTypeKey,
-          products: 0,
-        }
-        existing.products += 1
-        outside.set(row.productTypeKey, existing)
-      }
+      existing.products += 1
+      outside.set(row.productTypeKey, existing)
     }
   }
 

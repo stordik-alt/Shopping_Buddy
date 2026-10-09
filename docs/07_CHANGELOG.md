@@ -1,3 +1,13 @@
+## 2026-10-09 — GPT-6 Luna Product Taxonomy klasifikátor (návrhový režim)
+
+- Přidáno verzované rozhraní klasifikátoru po jednom kandidátovi: `lib/product-taxonomy-classifier.ts`, prompt `2026-10-v1`, model `openai/gpt-6-luna`.
+- Výstup má pevnou strukturu JSON: `kategorie`, `druh`, `typ`, `status`, `duvod`, `confidence`. Kategorie je omezena na existující hodnoty aplikace `Potraviny`, `Drogerie`, `Děti`, `Domácnost`, `Ostatní`; druh musí být existující podkategorií vybrané kategorie.
+- „Typ“ znamená obecnou identitu zboží, nikoli SKU/variantu/balení. Stávající typy se předávají pro sjednocení názvů a prevenci duplicit; nový typ je pouze návrh a nevytváří se ani neschvaluje.
+- Výsledek prochází deterministickou validací. Neplatná kategorie, podkategorie, chybějící úroveň nebo jistota pod 0,80 znamená `review_required`; neznámé kategorie se nepřepisují na „Ostatní“.
+- Přidán ruční workflow `.github/workflows/product-taxonomy-luna-pilot.yml` a skript `scripts/pilot-product-taxonomy-luna.ts`. Pilot vybírá deterministický vzorek (výchozí 300, rozsah 30–500), provádí pouze SELECT a volání modelu, zaznamenává výstupy, stav, tokeny a chyby do artefaktu JSON.
+- Report neodhaduje cenu bez ověřené aktuální sazby GPT-6 Luna. Workflow nebyl v rámci implementace spuštěn; živá kvalita modelu a náklady tedy nejsou zatím ověřeny.
+- Bez databázových zápisů, vytváření typů, schvalování kandidátů a přiřazování produktů. Regresní testy pokrývají omezení kategorií/podkategorií, kanonizaci existujících typů, nízkou jistotu a návrhový režim.
+
 ## 2026-10-09 — Oprava syntaxe suitability filtru Product Taxonomy
 - Odstraněno dvojité escapování regulárních výrazů, které blokovalo unit testy a TypeScript kontrolu v PR #408.
 - Filtr nadále pouze označuje kandidáty pro audit; nemění produkční katalog ani přiřazení.

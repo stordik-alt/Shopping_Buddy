@@ -1,6 +1,7 @@
 ## 2026-10-09 — Product Subtype database foundation
 - Added the `product_subtypes` table with stable subtype identity, explicit parent Product Type, ordering and active/inactive status.
 - Added the nullable `products.product_subtype_id` relation and database constraints that prevent assigning a subtype under a different parent or without a Product Type.
+- Added `product_subtype_source` to retain `rule`/`manual`/`alias`/`pkd` provenance and enforce a valid, paired source for every subtype assignment.
 - Added migration `0084_product_subtypes.sql` and regression coverage in `lib/db/product-subtypes.test.ts`.
 - This is schema groundwork only: no subtype registry was seeded, no catalog products were reclassified, and no production migration was applied.
 - Detailed entry and next steps: `docs/07_CHANGELOG.md`; canonical model: `docs/12_PRODUCT_TYPES.md`.

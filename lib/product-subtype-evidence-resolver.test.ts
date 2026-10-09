@@ -77,6 +77,34 @@ describe('resolveProductSubtypeEvidence', () => {
     expect(resolve({ productTypeKey: 'taveny-syr', productName: 'Apetito Smetanové 3 ks 150g' }).decision).toBe('no_match')
   })
 
+  it.each([
+    'Rio Mare Tuňák v ol.oleji',
+    'Rio Mare Tuňák v ol. oleji',
+  ])('recognizes explicit abbreviated oil wording without guessing: %s', (productName) => {
+    const result = resolve({ productTypeKey: 'tunak-konzerva', productName })
+    expect(result.decision).toBe('match')
+    expect(result.proposedSubtypeKey).toBe('tunak-konzerva-v-oleji')
+    expect(result.evidence.some((item) => item.matchedRule.includes('v ol oleji'))).toBe(true)
+  })
+
+  it('does not broaden abbreviated oil matching into unrelated or ambiguous wording', () => {
+    const ownJuice = resolve({ productTypeKey: 'tunak-konzerva', productName: 'Rio Mare Tuňák ve vlastní šťávě' })
+    expect(ownJuice.proposedSubtypeKey).toBe('tunak-konzerva-ve-vlastni-stave')
+
+    for (const productName of [
+      'Tuňák v ol. balení',
+      'Tuňák s olivovým olejem',
+    ]) {
+      const result = resolve({ productTypeKey: 'tunak-konzerva', productName })
+      expect(result.decision).toBe('no_match')
+      expect(result.proposedSubtypeKey).toBeNull()
+    }
+
+    const wrongType = resolve({ productTypeKey: 'testoviny', productName: 'Těstoviny v ol.oleji' })
+    expect(wrongType.proposedSubtypeKey).toBeNull()
+    expect(wrongType.decision).toBe('no_match')
+  })
+
   it('distinguishes own juice from generic water and reviews conflicting preservation media', () => {
     expect(resolve({ productTypeKey: 'tunak-konzerva', productName: 'Tuňák ve vlastní šťávě a ve vodním nálevu' }).proposedSubtypeKey).toBe('tunak-konzerva-ve-vlastni-stave')
     expect(resolve({ productTypeKey: 'tunak-konzerva', productName: 'Tuňák v oleji a ve vlastní šťávě' }).reason).toBe('conflicting_evidence')

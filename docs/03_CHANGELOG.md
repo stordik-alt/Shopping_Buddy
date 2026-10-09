@@ -1,3 +1,17 @@
+## 2026-10-09 — Oprava priority nealkoholického piva po unit testech
+- Unit testy odhalily, že obecné slovo „pivo“ současně přidávalo alkoholický signál i k explicitně nealkoholickým názvům. Resolver nyní při explicitním nealkoholickém důkazu odstraní obecný alkoholický signál, takže rozhodne nealkoholický poddruh.
+- Regresní testy pokrývají nulová procenta i texty „nealko“/„bez alkoholu“. Bez databázových zápisů.
+
+## 2026-10-09 — Oprava syntaxe resolveru piva po CI
+- Opravena chybějící uzavírací složená závorka v signálu nulového alkoholu a escapování regulárního výrazu pro „0 %“; předchozí chyba blokovala unit testy, typecheck i sestavení.
+- Ověření pokračuje novým CI během PR #405; bez databázových zápisů.
+
+## 2026-10-09 — Oprava klasifikace piva po CI a rebase
+- Výchozí návrh pro pivo je „Alkoholické pivo“, pokud důkazy neobsahují explicitní nealkoholické označení nebo nulový obsah alkoholu.
+- Nulové procento se detekuje z původního textu před normalizací; podporováno „0 %“, „0,0 %“ a „0.0 %“.
+- Doplněny regresní testy běžných názvů, objemu 0,5 l, nulového procenta a pravidla, že barva nerozhoduje. Verze resolveru `2026-10-v3`.
+- Změna je návrhová, deterministická a bez databázových zápisů či hromadných přiřazení.
+
 ## 2026-10-09 — Rozšíření explicitních důkazů podle read-only simulace Product Subtype
 - Read-only simulace [37943771832](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37943771832) na resolveru `2026-10-v2` zpracovala 1 572 produktů ze šesti cílových Product Types; navrhla 901 poddruhů a ponechala 6 konfliktních případů k ruční kontrole.
 - Na základě konkrétních názvů z katalogu se doplňují pouze explicitní varianty: zkratka „ve vl. šťávě“, jasné označení extra panenského olivového oleje, obrácené pořadí slov u taveného sýra a název Fusilloni.

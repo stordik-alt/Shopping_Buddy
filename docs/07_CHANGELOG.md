@@ -1,3 +1,8 @@
+## 2026-10-09 (Product Subtype registry conflict resolution)
+- PR #385 became non-mergeable after the Product Subtype foundation was merged into `main`; a fresh main-based branch was created so the registry changes no longer carry the conflicting foundation ancestry.
+- Restored only the review-controlled registry, its regression test and documentation changes; no database or product data changes are included.
+- Verification: CI is pending on the replacement PR.
+
 ## 2026-10-09 (Product Subtype CI routing and PKD confidence precision)
 - Fixed the CI test split after the new DB-backed Product Subtype integration test was incorrectly collected by the unit-only job, where no database URL is intentionally available; the test now runs only in the isolated local-PostgreSQL job.
 - Fixed PKD candidate confidence arithmetic to round the clamped result to two decimal places. CI exposed IEEE-754 residues such as `0.7000000000000001` breaking exact regression expectations for documented two-decimal confidence values.

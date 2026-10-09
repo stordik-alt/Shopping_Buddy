@@ -102,8 +102,9 @@ Every future significant change should add a dated entry containing:
 - Restricted automatic audit candidates to trusted provenance (`rule`, `alias`, `pkd`); unknown/manual assignments remain review-only and existing subtype assignments are not proposed again.
 
 
-## 2026-10-09 — Product Subtype audit schema-readiness fix
-- Fixed the production audit failure caused by querying subtype tables/columns before migration `0084_product_subtypes.sql` was deployed.
-- The audit now detects ready / partial / not-migrated schema states and falls back to a read-only legacy Product Type query when subtype fields are unavailable.
-- Subtype metrics are marked unavailable rather than zero until the schema exists; the report also includes counts and provenance per current Product Type.
-- Expanded tests; no production database changes were made.
+## 2026-10-09 — Product Subtype audit hardening and production baseline
+- First production audit attempt failed without a surfaced PostgreSQL cause; a retry succeeded with the same code, so the original failure cause remains unconfirmed.
+- Added schema-readiness detection and a safe legacy-schema fallback; direct read-only inspection confirmed production has the subtype table/columns and currently 0 assigned subtypes.
+- The audit respects all allowed Product Type categories instead of treating the primary DB category as the only allowed value, and treats product default-unit vs price-comparison-unit differences as informational.
+- Production baseline: 55,842 products; 7,656 with Product Type; 48,186 without; 1,364 candidates across seven starter parents; three `voda-neperliva` records in category `Děti` need review.
+- No production data or product assignments were changed.

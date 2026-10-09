@@ -150,7 +150,7 @@ const TYPE_RULES: Record<string, TypeRules> = {
   'tunak-konzerva': {
     priority: [['tunak-konzerva-ve-vlastni-stave'], ['tunak-konzerva-v-oleji'], ['tunak-konzerva-ve-vodnim-nalevu']],
     subtypes: [
-      subtype('tunak-konzerva-ve-vlastni-stave', 'Tuňák ve vlastní šťávě', 'tunak.vlastni-stava.explicit', ['ve vlastní šťávě', 've vlastni stave', 'vlastní šťáva', 'vlastni stava', 'own juice', 'in its own juice'], 0, 'tuna-medium'),
+      subtype('tunak-konzerva-ve-vlastni-stave', 'Tuňák ve vlastní šťávě', 'tunak.vlastni-stava.explicit', ['ve vlastní šťávě', 've vlastni stave', 'vlastní šťáva', 'vlastni stava', 'vlastni stava konzerva', 'own juice', 'in its own juice'], 0, 'tuna-medium'),
       subtype('tunak-konzerva-v-oleji', 'Tuňák v oleji', 'tunak.olej.explicit', ['v oleji', 'v olivovém oleji', 'v olivovem oleji', 'v rostlinném oleji', 'v rostlinnem oleji', 'v slunečnicovém oleji', 'v slunecnicovem oleji', 'olejový nálev', 'olejovy nalev', 'olivový olej', 'olivovy olej', 'slunečnicový olej', 'slunecnicovy olej', 'in oil', 'olive oil', 'sunflower oil'], 1, 'tuna-medium'),
       subtype('tunak-konzerva-ve-vodnim-nalevu', 'Tuňák ve vodním nálevu', 'tunak.vodni-nalev.explicit', ['ve vodním nálevu', 've vodnim nalevu', 'vodní nálev', 'vodni nalev', 've vodě', 've vode', 'in water', 'water brine'], 2, 'tuna-medium'),
     ],

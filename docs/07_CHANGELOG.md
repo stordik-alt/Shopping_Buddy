@@ -2024,3 +2024,11 @@ Every future architectural/schema/business-rule change should append a dated ent
 - **Fixed:** the manual PKD backfill workflow now invokes the script directly with `tsx` instead of the `dotenv -e .env.local` package wrapper.
 - **Reason:** GitHub Actions provides `DATABASE_URL` from the repository secret; the local `.env.local` wrapper is not present in the runner and can prevent the injected connection string from reaching the script.
 - **Safety:** dry-run remains the default and `--apply` is still required for writes.
+
+
+## 2026-10-09 (Product Subtype registry — controlled candidate set)
+- Added `lib/product-subtype-registry.ts` with version `2026-10-v1`: seven proposed general parents and 19 proposed child subtypes cross-referenced to existing group members.
+- Explicitly mapped current `Mléko` group members to proposed child names while retaining the old type keys for auditability; also drafted `Sýr`, `Mouka`, `Cukr`, `Olej`, `Voda` and `Káva`.
+- Added unit validation for key uniqueness, complete and exact legacy-group coverage, existing legacy type references, and category/comparison-unit consistency. `Smetana` is deferred because its current child types use mixed `kg`/`l` comparison units.
+- Safety: every entry remains `candidate` and the registry is not used by runtime classification or seed code. No database rows, production data or current product assignments were changed. Planner/picker/receipt/report compatibility and a provenance-aware dry-run are required before a separate reviewed migration.
+- Verification: registry unit tests added; execution of CI remains pending for this follow-up branch.

@@ -29,18 +29,35 @@ describe('resolveProductSubtypeEvidence', () => {
     expect(result.evidence.some((item) => item.polarity === 'supports')).toBe(true)
   })
 
-  it('returns no_match with insufficient_evidence when no explicit subtype evidence exists', () => {
-    const result = resolve({ productName: 'Bakalář Rakovnický ležák za studena chmelený 0,5 l' })
-    expect(result.decision).toBe('no_match')
-    expect(result.proposedSubtypeKey).toBeNull()
-    expect(result.reason).toBe('insufficient_evidence')
-    expect(result.candidates).toEqual([])
+  it('defaults beer to alcoholic unless non-alcoholic wording or zero alcohol is explicit', () => {
+    for (const productName of [
+      'Bakalář Rakovnický ležák za studena chmelený 0,5 l',
+      'Pivo světlé',
+      'Pivo tmavé 12°',
+      'Pilsner Urquell 0,5 l',
+      'Pivo alkoholické',
+    ]) {
+      expect(resolve({ productName }).proposedSubtypeKey).toBe('pivo-alkoholicke')
+    }
+
+    for (const productName of [
+      'Pivo nealkoholické',
+      'Nealko pivo',
+      'Pivo bez alkoholu',
+      'Pivo 0%',
+      'Pivo 0 % alkoholu',
+      'Pivo 0,0%',
+      'Pivo 0.0 %',
+      'Nealkoholické pivo 0,5 l',
+    ]) {
+      expect(resolve({ productName }).proposedSubtypeKey).toBe('pivo-nealkoholicke')
+    }
   })
 
-  it('uses only alcoholic versus non-alcoholic beer classification', () => {
-    expect(resolve({ productName: 'Pivo nealkoholické 0,0' }).proposedSubtypeKey).toBe('pivo-nealkoholicke')
-    expect(resolve({ productName: 'Pivo alkoholické' }).proposedSubtypeKey).toBe('pivo-alkoholicke')
-    expect(resolve({ productName: 'Pivo světlé' }).decision).toBe('no_match')
+  it('gives non-alcoholic evidence precedence and does not classify beer by colour', () => {
+    expect(resolve({ productName: 'Světlé pivo 0%' }).proposedSubtypeKey).toBe('pivo-nealkoholicke')
+    expect(resolve({ productName: 'Tmavé nealkoholické pivo' }).proposedSubtypeKey).toBe('pivo-nealkoholicke')
+    expect(resolve({ productName: 'Pivo světlé' }).proposedSubtypeKey).toBe('pivo-alkoholicke')
   })
 
   it('applies pasta priority only after evidence is present', () => {

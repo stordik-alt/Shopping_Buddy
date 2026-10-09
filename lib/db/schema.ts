@@ -477,6 +477,8 @@ export const products = pgTable('products', {
   productTypeSource: text('product_type_source'),
   // Nullable during the staged rollout: existing type assignments remain valid until subtypes are reviewed.
   productSubtypeId: uuid('product_subtype_id'),
+  // Preserve classification provenance so later rules/PKD backfills can never overwrite a manual subtype choice.
+  productSubtypeSource: text('product_subtype_source'),
 }, (table) => [
   index('products_product_type_idx').on(table.productTypeId),
   foreignKey({
@@ -485,6 +487,8 @@ export const products = pgTable('products', {
     foreignColumns: [productSubtypes.productTypeId, productSubtypes.id],
   }).onDelete('restrict'),
   check('products_product_subtype_requires_type', sql`${table.productSubtypeId} IS NULL OR ${table.productTypeId} IS NOT NULL`),
+  check('products_product_subtype_source_valid', sql`${table.productSubtypeSource} IS NULL OR ${table.productSubtypeSource} IN ('rule', 'manual', 'alias', 'pkd')`),
+  check('products_product_subtype_source_matches_id', sql`(${table.productSubtypeId} IS NULL AND ${table.productSubtypeSource} IS NULL) OR (${table.productSubtypeId} IS NOT NULL AND ${table.productSubtypeSource} IS NOT NULL)`),
   check('products_product_type_source_valid', sql`${table.productTypeSource} IS NULL OR ${table.productTypeSource} IN ('rule', 'manual', 'alias')`),
   // Text search looks for a word anywhere in the name (`search_name LIKE '%mlek%'`,
   // lib/db/product-search.ts), which a plain index cannot serve: every search read all ~50,000

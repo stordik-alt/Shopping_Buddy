@@ -75,13 +75,6 @@ describe('Product Subtype deterministic mapping', () => {
     ]))
     expect(summary).toEqual([
       {
-        subtypeKey: 'mleko-bez-laktozy',
-        parentTypeKey: 'mleko',
-        subtypeName: 'Bezlaktózové mléko',
-        candidate: 0,
-        review: 0,
-      },
-      {
         subtypeKey: 'mleko-polotucne',
         parentTypeKey: 'mleko',
         subtypeName: 'Polotučné mléko',

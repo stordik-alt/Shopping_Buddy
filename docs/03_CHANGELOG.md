@@ -761,3 +761,11 @@
 - Úplný JSON report se ukládá jako artefakt běhu GitHub Actions. Cílem je připravit hromadný registr obecných druhů/poddruhů, nikoli schvalovat desítky tisíc kandidátů ručně.
 - Režim je pouze pro čtení; žádné produkční záznamy ani přiřazení se nemění. Počet kandidátů se nezaměňuje za počet pokrytých produktů.
 - Změny jsou na větvi `feat/product-taxonomy-bootstrap-inventory`; běh workflow a CI zatím čekají na ověření.
+
+
+## 2026-10-09 — Oprava suitability auditu taxonomie
+
+- Úspěšný read-only běh [37950754405](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37950754405) ukázal, že 40 853 kandidátů v historické kandidátní vrstvě postrádá kategorii, podkategorii i metadata zdroje. Z nich je 40 728 normalizovaných názvů a 125 duplicitních řádků; pouze 27 názvů se přesně překrývá se stávajícím registrem.
+- Původní náhled řadil anglické definice, služby a další nevhodné taxonomické řetězce, protože skóre generátoru měří sílu zdrojových důkazů, nikoli vhodnost pro český retailový druh zboží.
+- Audit nyní rozlišuje jazyk, konzervativně odhaduje zdroj z evidovaných metadat/verze, vylučuje z návrhového náhledu zjevné definice/služby a přesné shody se stávajícími druhy; reportuje také procento pokrytí katalogu a skupiny duplicit.
+- Jde pouze o read-only report. Žádná produkční data ani přiřazení se nezměnila.

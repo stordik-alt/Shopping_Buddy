@@ -2055,3 +2055,18 @@ Every future architectural/schema/business-rule change should append a dated ent
 - **Production baseline:** 55,842 products total, 7,656 assigned a Product Type, 48,186 unassigned, 0 subtype assignments, and 1,364 candidate products across the seven reviewed starter parents. All current assigned Product Types have `rule` provenance; unassigned rows have no source.
 - **Review:** three `voda-neperliva` records have category `Děti` and need explicit review; no data was changed.
 - **Tests:** regression coverage added for schema-compatible audit reporting, allowed secondary categories, trusted candidate provenance and informational unit differences. CI verification is pending on this PR.
+
+
+## 2026-10-09 — Product Subtype deterministic mapping audit
+- **Added:** deterministic mapping candidates from reviewed legacy Product Type keys to a parent Product Type and registered Product Subtype.
+- **Safety:** only `rule`, `alias` and `pkd` provenance can be automatic candidates; manual/unknown provenance, category exceptions and existing assignments remain review-only.
+- **Tooling:** added `lib/product-subtype-mapping.ts`, regression tests and `pnpm db:audit-product-subtype-mapping`.
+- **Workflow:** added manual `.github/workflows/product-subtype-mapping-audit.yml` to run the mapping audit with `NEON_PROD_DATABASE_URL`.
+- **Scope:** read-only; no subtype rows were seeded and no products were changed.
+
+## 2026-10-09 — Product Subtype mapping test correction
+- Fixed the summary test to assert only subtypes present in the supplied mapping rows; the implementation intentionally omits zero-count subtypes.
+- No database changes.
+
+## 2026-10-09 — Deterministic mapping summary ordering
+- The subtype summary now uses explicit lexical key comparison rather than environment-dependent locale ordering; the test expects the stable order.

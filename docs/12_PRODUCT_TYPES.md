@@ -772,3 +772,26 @@ Původní report ukázal 270 rozdílů vůči primární kategorii Product Type.
 Rozdíl výchozí jednotky produktu a porovnávací jednotky Product Type byl původně 808 záznamů; není sám o sobě chybou a nesmí spouštět automatickou opravu. Například produkt prodávaný jako láhev může mít výchozí jednotku `ks`, zatímco cena se porovnává za litr.
 
 Nebyl proveden žádný backfill ani změna produktových přiřazení.
+
+
+### 7.18 Deterministic Product Subtype mapping audit — 2026-10-09
+
+The next migration gate is explicit: **legacy Product Type → proposed parent Product Type + exact Product Subtype** is generated deterministically from the controlled registry.
+
+- A registered legacy Product Type maps to exactly one proposed subtype; brand, package size, EAN and retailer do not define the identity.
+- Automatic candidates require trusted Product Type provenance: `rule`, `alias` or `pkd`.
+- `manual`, `unknown`, category exceptions and existing subtype assignments remain outside the automatic candidate set and require review.
+- Product Types outside the starter registry remain unchanged.
+- Runner: `pnpm db:audit-product-subtype-mapping`; it is read-only and has no `--apply` mode.
+- Manual GitHub Actions entry point: `.github/workflows/product-subtype-mapping-audit.yml`; it runs `scripts/audit-product-subtype-mapping.ts` with `NEON_PROD_DATABASE_URL`.
+- The runner reports totals, counts by subtype and concrete review items.
+
+This step does **not** seed the registry or modify `products.product_subtype_id`.
+
+
+### 7.19 Mapping audit summary test correction — 2026-10-09
+The mapping summary reports only subtypes encountered in mapping rows; it does not synthesize zero-count rows for every registered subtype. Regression expectation updated accordingly. No production data changed.
+
+
+### 7.20 Deterministic mapping summary ordering — 2026-10-09
+The audit summary sorts parent and subtype keys using explicit lexical comparisons rather than locale-sensitive collation, ensuring consistent order across CI environments. Regression coverage updated; no production data changed.

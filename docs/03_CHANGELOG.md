@@ -108,3 +108,19 @@ Every future significant change should add a dated entry containing:
 - The audit respects all allowed Product Type categories instead of treating the primary DB category as the only allowed value, and treats product default-unit vs price-comparison-unit differences as informational.
 - Production baseline: 55,842 products; 7,656 with Product Type; 48,186 without; 1,364 candidates across seven starter parents; three `voda-neperliva` records in category `Děti` need review.
 - No production data or product assignments were changed.
+
+
+## 2026-10-09 — Product Subtype deterministic mapping audit
+- Added a read-only mapping layer from reviewed legacy Product Type keys to a proposed parent Product Type and exact registered Product Subtype.
+- Automatic candidates require trusted `rule`, `alias` or `pkd` provenance; manual/unknown provenance, category exceptions, existing subtype assignments and types outside the starter registry remain excluded from automatic mapping.
+- Added `lib/product-subtype-mapping.ts`, regression tests and `pnpm db:audit-product-subtype-mapping`.
+- Added manual GitHub Actions workflow `.github/workflows/product-subtype-mapping-audit.yml`, using `NEON_PROD_DATABASE_URL` and the read-only mapping runner.
+- No database writes or subtype assignments were performed.
+
+## 2026-10-09 — Fix mapping audit unit test
+- Corrected the summary regression expectation: the summarizer includes only subtypes represented by mapping rows, so an unrepresented lactose-free subtype must not appear with zero counts.
+- CI failure reproduced from PR #389; no production data was changed.
+
+## 2026-10-09 — Stabilize Product Subtype mapping summary order
+- Replaced locale-dependent sorting with explicit key ordering and aligned the regression expectation to that deterministic order after CI exposed a localeCompare ordering mismatch.
+- No production data changed.

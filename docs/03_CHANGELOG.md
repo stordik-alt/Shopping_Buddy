@@ -1,3 +1,9 @@
+## 2026-10-09 — Manual GitHub Actions dry-run for Product Subtype candidates
+- Added `.github/workflows/product-subtype-candidate-ingest-dry-run.yml`, triggered manually through `workflow_dispatch`.
+- The workflow previews the 24 draft registry-expansion candidates using the candidate ingest CLI without `--apply`; it cannot insert/merge candidates or assign products.
+- Uses the GitHub Actions secret `NEON_PROD_DATABASE_URL` only to satisfy the CLI's configuration guard; the dry-run branch does not execute database queries.
+- Verification: workflow syntax and CI are pending review; this workflow has not yet been run. No production writes or product assignments were performed.
+
 ## 2026-10-09 — Product Subtype registry expansion proposals
 - Added a review document covering the largest unmapped Product Types from read-only audit run `37910630603`, including explicit hold/review notes for overlapping classification axes and questionable parent types.
 - Added 24 draft candidate proposals for Pivo, Těstoviny, Rýže, Tvaroh, Tavený sýr and Tuňák v konzervě in a CLI-compatible JSON input file.

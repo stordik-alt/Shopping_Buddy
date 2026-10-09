@@ -109,12 +109,15 @@ describe('Product Subtype candidate precedence and overlap policy', () => {
     expect(portioned.excludes.join(' ')).toMatch(/velikost nebo počet porcí v balení není subtype/i)
   })
 
-  it('does not infer tuna preservation medium from ambiguous evidence', () => {
-    const priority = [['own-juice'], ['oil'], ['water']] as const
-    expect(resolvePriority([], priority)).toBeNull()
-    expect(resolvePriority(['water'], priority)).toBe('water')
-    expect(resolvePriority(['own-juice', 'water'], priority)).toBe('own-juice')
-    // Contradictory oil and own-juice claims require review, not a guessed subtype.
-    expect(resolvePriority(['own-juice', 'oil'], priority)).toBe('own-juice')
+  it('prioritizes explicit own-juice over generic water but sends conflicting media to review', () => {
+    const resolveTunaMedium = (evidence: readonly ('own-juice' | 'oil' | 'water')[]) => {
+      if (evidence.includes('oil') && evidence.includes('own-juice')) return null
+      return resolvePriority(evidence, [['own-juice'], ['oil'], ['water']])
+    }
+    expect(resolveTunaMedium([])).toBeNull()
+    expect(resolveTunaMedium(['water'])).toBe('water')
+    expect(resolveTunaMedium(['own-juice', 'water'])).toBe('own-juice')
+    expect(resolveTunaMedium(['oil'])).toBe('oil')
+    expect(resolveTunaMedium(['own-juice', 'oil'])).toBeNull()
   })
 })

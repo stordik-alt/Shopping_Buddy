@@ -180,7 +180,7 @@ function getEvidenceTexts(input: ProductSubtypeResolverInput): EvidenceText[] {
   for (const field of Object.keys(input.verifiedAttributes ?? {}).sort()) {
     const value = input.verifiedAttributes?.[field]
     if (value === null || value === undefined || String(value).trim() === '') continue
-    const manufacturerSpecPrefix = /^(?:manufacturer_spec(?::|$)|manufacturerSpec\\.|manufacturer_spec\\.)/i
+    const manufacturerSpecPrefix = /^(?:manufacturer_spec(?::|$)|manufacturerSpec\.|manufacturer_spec\.)/i
     const isManufacturerSpec = manufacturerSpecPrefix.test(field)
     const canonicalField = field.replace(manufacturerSpecPrefix, '') || field
     add(isManufacturerSpec ? 'manufacturer_spec' : 'verified_attribute', canonicalField, String(value))

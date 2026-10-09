@@ -204,3 +204,11 @@ Nové návrhy poddruhů musí určit jednu rozhodovací osu nebo explicitní pri
 - The report revealed that generic word `plátky` is not adequate evidence for *plátkový tavený sýr* because it can describe ordinary Gouda slices. The rule now requires explicit processed-cheese wording together with the sliced form. Package counts (e.g. `8 ks`) remain insufficient to classify portioned cheese.
 - Added explicit phrase variants for tuna packed in olive oil (e.g. `v olivovém oleji`). Abbreviated/unclear labels are still not guessed.
 - The report is a proposal-only text simulation, not an approved assignment plan. Results require review; no catalog records were updated.
+
+## 2026-10-09 — Post-fix Product Subtype simulation
+
+- Read-only run [37930358171](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37930358171) ran on `main` commit `73f9e314c381c96ee089a7511f9d32760fc9d501` and returned full details for all 1,572 items in the six target families.
+- Results vs. run `37928914569`: 919 matches (+9), 7 conflicts/reviews (+1), and 646 items with insufficient explicit evidence (-10). Catalog size and target-family size stayed at 55,842 and 1,572; no subtype assignments existed for the target families.
+- Regression checks confirmed `Apetito Gouda plátky 90g` is now `no_match`, and `Rio Mare Tuňák v olivovém oleji 160g` maps to the oil subtype proposal.
+- Seven mixed-option/conflicting labels remain for human review. The abbreviated `Rio Mare Tuňák v ol.oleji` is still unmatched; do not infer its meaning without an explicit, tested rule.
+- Output is still proposal-only. No data or assignments changed; all 24 candidates remain unapproved.

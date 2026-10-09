@@ -108,7 +108,7 @@ const TYPE_RULES: Record<string, TypeRules> = {
     subtypes: [
       subtype('testoviny-plnene', 'Plněné těstoviny', 'testoviny.plnene.explicit', ['plněné', 'plnené', 'ravioli', 'tortellini', 'tortelloni', 'agnolotti', 'plnena pasta', 'filled pasta'], 0),
       subtype('testoviny-platy-na-lasagne', 'Pláty na lasagne', 'testoviny.lasagne-sheets.explicit', ['pláty na lasagne', 'platy na lasagne', 'lasagne pláty', 'lasagne platy', 'lasagne sheets', 'těstoviny lasagne pláty', 'testoviny lasagne platy'], 1),
-      subtype('testoviny-polevkove', 'Polévkové těstoviny', 'testoviny.polevkove.explicit', ['polévkové', 'polevkove', 'do polévky', 'do polevky', 'těstoviny do polévky', 'testoviny do polevky', 'polévkové těstoviny', 'polevkove testoviny', 'drobení', 'drobeni', 'písmenka', 'pis­menka', 'abeceda', 'soup pasta'], 2),
+      subtype('testoviny-polevkove', 'Polévkové těstoviny', 'testoviny.polevkove.explicit', ['polévkové', 'polevkove', 'do polévky', 'do polevky', 'těstoviny do polévky', 'testoviny do polevky', 'polévkové těstoviny', 'polevkove testoviny', 'drobení', 'drobeni', 'písmenka', 'abeceda', 'soup pasta'], 2),
       subtype('testoviny-dlouhe', 'Dlouhé těstoviny', 'testoviny.dlouhe.explicit', ['dlouhé těstoviny', 'dlouhe testoviny', 'spaghetti', 'špagety', 'spagety', 'linguine', 'tagliatelle', 'fettuccine', 'pappardelle', 'bucatini', 'vermicelli', 'makaróny', 'makarony', 'long pasta'], 3),
       subtype('testoviny-kratke-tvarovane', 'Krátké tvarované těstoviny', 'testoviny.kratke-tvarovane.explicit', ['krátké tvarované', 'kratke tvarovane', 'penne', 'fusilli', 'vřetena', 'vretena', 'kolínka', 'kolinka', 'farfalle', 'rigatoni', 'mušličky', 'muslicky', 'mašličky', 'maslicky', 'šroubky', 'sroubky', 'conchiglie', 'short shaped pasta'], 4),
     ],
@@ -180,7 +180,7 @@ function getEvidenceTexts(input: ProductSubtypeResolverInput): EvidenceText[] {
   for (const field of Object.keys(input.verifiedAttributes ?? {}).sort()) {
     const value = input.verifiedAttributes?.[field]
     if (value === null || value === undefined || String(value).trim() === '') continue
-    const manufacturerSpecPrefix = /^(?:manufacturer_spec:|manufacturerSpec\.|manufacturer_spec\.)/i
+    const manufacturerSpecPrefix = /^(?:manufacturer_spec(?::|$)|manufacturerSpec\\.|manufacturer_spec\\.)/i
     const isManufacturerSpec = manufacturerSpecPrefix.test(field)
     const canonicalField = field.replace(manufacturerSpecPrefix, '') || field
     add(isManufacturerSpec ? 'manufacturer_spec' : 'verified_attribute', canonicalField, String(value))

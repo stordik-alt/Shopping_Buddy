@@ -1,3 +1,10 @@
+## 2026-10-09 — Controlled Product Subtype registry proposal
+- Added a versioned candidate registry for seven general parent types and 19 proposed subtypes, mapped one-to-one from current Product Type group members.
+- Explicitly mapped the current `Mléko` group members to proposed milk subtypes without changing active classification or database records.
+- Deferred `Smetana` because its members use mixed comparison units; added unit tests to prevent incomplete mappings or unsafe parent assumptions.
+- All entries remain candidates. Active seeding, product reclassification, and changes to planner/picker/receipt/report behavior remain gated on a separate provenance-aware dry-run and review.
+- Details: `docs/12_PRODUCT_TYPES.md` section 7.13; change history: `docs/07_CHANGELOG.md`.
+
 ## 2026-10-09 — Product Subtype CI and PKD confidence fixes
 - Routed `lib/db/product-subtypes.test.ts` out of the database-free unit job and into the isolated PostgreSQL test job.
 - Rounded PKD candidate confidence scores to two decimal places so deterministic scoring no longer emits floating-point artifacts.

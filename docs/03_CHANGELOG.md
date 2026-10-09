@@ -114,4 +114,5 @@ Every future significant change should add a dated entry containing:
 - Added a read-only mapping layer from reviewed legacy Product Type keys to a proposed parent Product Type and exact registered Product Subtype.
 - Automatic candidates require trusted `rule`, `alias` or `pkd` provenance; manual/unknown provenance, category exceptions, existing subtype assignments and types outside the starter registry remain excluded from automatic mapping.
 - Added `lib/product-subtype-mapping.ts`, regression tests and `pnpm db:audit-product-subtype-mapping`.
+- Added manual GitHub Actions workflow `.github/workflows/product-subtype-mapping-audit.yml`, using `NEON_PROD_DATABASE_URL` and the read-only mapping runner.
 - No database writes or subtype assignments were performed.

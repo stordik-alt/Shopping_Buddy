@@ -159,5 +159,9 @@ export function summarizeProductSubtypeMappings(mappings: readonly ProductSubtyp
 
   return [...bySubtype.entries()]
     .map(([subtypeKey, value]) => ({ subtypeKey, ...value }))
-    .sort((a, b) => a.parentTypeKey.localeCompare(b.parentTypeKey) || a.subtypeKey.localeCompare(b.subtypeKey))
+    .sort((a, b) => {
+      if (a.parentTypeKey !== b.parentTypeKey) return a.parentTypeKey < b.parentTypeKey ? -1 : 1
+      if (a.subtypeKey === b.subtypeKey) return 0
+      return a.subtypeKey < b.subtypeKey ? -1 : 1
+    })
 }

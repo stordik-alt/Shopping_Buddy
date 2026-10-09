@@ -45,11 +45,12 @@ async function main() {
   try {
     if (action === 'list') {
       const rows = await sql`
-        SELECT c.candidate_key AS "candidateKey", pt.key AS "parentTypeKey", pt.name AS "parentTypeName",
+        SELECT c.candidate_key AS "candidateKey", c.parent_product_type_key AS "parentTypeKey",
+               COALESCE(pt.name, c.parent_product_type_key) AS "parentTypeName",
                c.name, c.status, c.source_type AS "sourceType", c.source_name AS "sourceName",
                c.source_record_ids AS "sourceRecordIds", c.review_note AS "reviewNote", c.created_at AS "createdAt"
         FROM product_subtype_candidates c
-        JOIN product_types pt ON pt.id = c.parent_product_type_id
+        LEFT JOIN product_types pt ON pt.id = c.parent_product_type_id
         WHERE c.status = 'candidate'
         ORDER BY pt.name, c.normalized_name
       `
@@ -70,11 +71,6 @@ async function main() {
       const results: Array<Record<string, unknown>> = []
 
       for (const candidate of candidates) {
-        const parent = await sql`SELECT id FROM product_types WHERE key = ${candidate.parentTypeKey} LIMIT 1`
-        if (!parent.length) {
-          results.push({ candidateKey: candidate.candidateKey, status: 'error', reason: `Unknown parent Product Type: ${candidate.parentTypeKey}` })
-          continue
-        }
         if (!apply) {
           results.push({
             candidateKey: candidate.candidateKey,
@@ -91,16 +87,16 @@ async function main() {
         const evidence = { records: [{ sourceType: candidate.sourceType, sourceName: candidate.sourceName, sourceVersion: candidate.sourceVersion ?? null, evidence: candidate.evidence }] }
         const rows = await sql`
           INSERT INTO product_subtype_candidates (
-            parent_product_type_id, candidate_key, name, normalized_name, definition, includes, excludes,
+            parent_product_type_key, parent_product_type_id, candidate_key, name, normalized_name, definition, includes, excludes,
             source_type, source_name, source_version, source_record_ids, evidence, status
           )
-          SELECT
-            pt.id, ${candidate.candidateKey}, ${candidate.name}, ${candidate.normalizedName}, ${candidate.definition},
+          VALUES (
+            ${candidate.parentTypeKey}, (SELECT id FROM product_types WHERE key = ${candidate.parentTypeKey} LIMIT 1),
+            ${candidate.candidateKey}, ${candidate.name}, ${candidate.normalizedName}, ${candidate.definition},
             ${JSON.stringify(candidate.includes)}::jsonb, ${JSON.stringify(candidate.excludes)}::jsonb,
             ${candidate.sourceType}, ${candidate.sourceName}, ${candidate.sourceVersion ?? null},
             ${JSON.stringify(candidate.sourceRecordIds)}::jsonb, ${JSON.stringify(evidence)}::jsonb, 'candidate'
-          FROM product_types pt
-          WHERE pt.key = ${candidate.parentTypeKey}
+          )
           ON CONFLICT (candidate_key) DO UPDATE SET
             definition = CASE WHEN product_subtype_candidates.definition = '' THEN EXCLUDED.definition ELSE product_subtype_candidates.definition END,
             includes = product_subtype_candidates.includes || EXCLUDED.includes,
@@ -159,10 +155,9 @@ async function main() {
 
     const candidates = await sql`
       SELECT c.id, c.candidate_key AS "candidateKey", c.parent_product_type_id AS "parentProductTypeId",
-             pt.key AS "parentTypeKey", c.name, c.normalized_name AS "normalizedName",
+             c.parent_product_type_key AS "parentTypeKey", c.name, c.normalized_name AS "normalizedName",
              c.definition, c.includes, c.excludes, c.status
       FROM product_subtype_candidates c
-      JOIN product_types pt ON pt.id = c.parent_product_type_id
       WHERE c.candidate_key = ${key}
       LIMIT 1
     `
@@ -172,6 +167,12 @@ async function main() {
     } | undefined
     if (!candidate || candidate.status !== 'candidate') throw new Error('Candidate not found or it already has a final review decision.')
 
+    const parents = await sql`SELECT id FROM product_types WHERE key = ${candidate.parentTypeKey} LIMIT 1`
+    if (!parents.length) {
+      throw new Error(`Parent Product Type "${candidate.parentTypeKey}" does not exist in the active database yet. The proposal remains queued; create/review the parent type before approving this subtype.`)
+    }
+    const parentProductTypeId = String(parents[0].id)
+
     const readiness = canApproveProductSubtypeCandidate({
       definition: candidate.definition,
       includes: candidate.includes ?? [],
@@ -180,7 +181,7 @@ async function main() {
     if (!readiness.approved) throw new Error(`Candidate is not ready for approval. Missing: ${readiness.missing.join(', ')}`)
 
     const existing = await sql`
-      SELECT id, key, name FROM product_subtypes WHERE product_type_id = ${candidate.parentProductTypeId}
+      SELECT id, key, name FROM product_subtypes WHERE product_type_id = ${parentProductTypeId}
     `
     const duplicate = existing.find((item) => normalizeSubtypeLabel(String(item.name)) === candidate.normalizedName)
     if (duplicate) {
@@ -199,11 +200,12 @@ async function main() {
     const rows = await sql`
       WITH inserted AS (
         INSERT INTO product_subtypes (product_type_id, key, name, description, sort_order, is_active)
-        VALUES (${candidate.parentProductTypeId}, ${candidate.candidateKey}, ${candidate.name}, ${candidate.definition}, 1000, true)
+        VALUES (${parentProductTypeId}, ${candidate.candidateKey}, ${candidate.name}, ${candidate.definition}, 1000, true)
         RETURNING id, key
       ), updated AS (
         UPDATE product_subtype_candidates
-        SET status = 'approved', approved_subtype_id = (SELECT id FROM inserted),
+        SET status = 'approved', parent_product_type_id = ${parentProductTypeId},
+            approved_subtype_id = (SELECT id FROM inserted),
             review_note = 'Explicitly approved; no existing products were reassigned.', updated_at = now()
         WHERE id = ${candidate.id} AND status = 'candidate'
           AND EXISTS (SELECT 1 FROM inserted)

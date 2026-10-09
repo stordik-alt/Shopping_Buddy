@@ -50,7 +50,7 @@ async function main() {
                c.name, c.status, c.source_type AS "sourceType", c.source_name AS "sourceName",
                c.source_record_ids AS "sourceRecordIds", c.review_note AS "reviewNote", c.created_at AS "createdAt"
         FROM product_subtype_candidates c
-        LEFT JOIN product_types pt ON pt.id = c.parent_product_type_id
+        LEFT JOIN product_types pt ON pt.key = c.parent_product_type_key
         WHERE c.status = 'candidate'
         ORDER BY pt.name, c.normalized_name
       `
@@ -99,8 +99,14 @@ async function main() {
           )
           ON CONFLICT (candidate_key) DO UPDATE SET
             definition = CASE WHEN product_subtype_candidates.definition = '' THEN EXCLUDED.definition ELSE product_subtype_candidates.definition END,
-            includes = product_subtype_candidates.includes || EXCLUDED.includes,
-            excludes = product_subtype_candidates.excludes || EXCLUDED.excludes,
+            includes = (
+              SELECT COALESCE(jsonb_agg(value ORDER BY value), '[]'::jsonb)
+              FROM (SELECT DISTINCT value FROM jsonb_array_elements(product_subtype_candidates.includes || EXCLUDED.includes) AS item(value)) AS unique_values
+            ),
+            excludes = (
+              SELECT COALESCE(jsonb_agg(value ORDER BY value), '[]'::jsonb)
+              FROM (SELECT DISTINCT value FROM jsonb_array_elements(product_subtype_candidates.excludes || EXCLUDED.excludes) AS item(value)) AS unique_values
+            ),
             source_record_ids = (
               SELECT COALESCE(jsonb_agg(DISTINCT value), '[]'::jsonb)
               FROM jsonb_array_elements(product_subtype_candidates.source_record_ids || EXCLUDED.source_record_ids) AS item(value)

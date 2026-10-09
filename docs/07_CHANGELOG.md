@@ -2044,3 +2044,12 @@ Every future architectural/schema/business-rule change should append a dated ent
 - **Fixed:** provenance audit candidates are now limited to `rule`, `alias` and future `pkd` assignments.
 - **Safety:** `unknown` provenance and `manual` assignments remain review-only; existing subtype assignments are excluded from migration candidates.
 - **Verification:** regression test confirms the unknown-provenance row is not counted as an eligible candidate.
+
+
+## 2026-10-09 — Product Subtype audit: schema readiness and provenance safety
+- **Root cause:** production workflow run `37890539117` failed because the audit queried `product_subtypes` and `products.product_subtype_*` before migration `0084_product_subtypes.sql` was present in production.
+- **Fixed:** added read-only schema introspection and fallback query against the existing Product Type schema; no migration or writes are triggered by the audit.
+- **Honesty of output:** when subtype schema is missing or partial, subtype assignment metrics are `null` rather than misleading zero counts, and the exact schema state is printed.
+- **Improved report:** every current Product Type is listed with counts, provenance, proposed registry parent, and unit/category divergence; only `rule`, `alias`, and `pkd` sources without an existing subtype are counted as trusted candidates. `manual` and `unknown` remain review-only.
+- **Tests:** expanded regression coverage for unknown provenance, trusted candidate eligibility, existing subtype assignments, per-Product-Type counts, and category/unit divergence.
+- **No production schema or product data changed.** CI verification is pending on the fix PR.

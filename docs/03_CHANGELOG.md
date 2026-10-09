@@ -1,3 +1,7 @@
+## 2026-10-09 — Product Subtype CI and PKD confidence fixes
+- Routed `lib/db/product-subtypes.test.ts` out of the database-free unit job and into the isolated PostgreSQL test job.
+- Rounded PKD candidate confidence scores to two decimal places so deterministic scoring no longer emits floating-point artifacts.
+
 ## 2026-10-09 — Product Subtype database foundation
 - Added the `product_subtypes` table with stable subtype identity, explicit parent Product Type, ordering and active/inactive status.
 - Added the nullable `products.product_subtype_id` relation and database constraints that prevent assigning a subtype under a different parent or without a Product Type.

@@ -4,9 +4,10 @@ import {
   deduplicateProductSubtypeCandidates,
   normalizeProductSubtypeCandidate,
   normalizeSubtypeLabel,
+  type ProductSubtypeCandidateInput,
 } from '@/lib/product-subtype-candidates'
 
-const candidate = (overrides: Record<string, unknown> = {}) => ({
+const candidate = (overrides: Partial<ProductSubtypeCandidateInput> = {}): ProductSubtypeCandidateInput => ({
   parentTypeKey: 'voda',
   name: 'Voda s příchutí melounu',
   sourceType: 'retailer' as const,

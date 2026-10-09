@@ -1,4 +1,4 @@
-import { PRODUCT_SUBTYPE_PROPOSALS, PRODUCT_TYPE_PARENT_PROPOSALS } from '@/lib/product-subtype-registry'
+import { PRODUCT_SUBTYPE_PROPOSALS, PRODUCT_SUBTYPE_REGISTRY_VERSION, PRODUCT_TYPE_PARENT_PROPOSALS } from '@/lib/product-subtype-registry'
 
 export type ProductSubtypeAuditRow = {
   id: string
@@ -113,7 +113,7 @@ export function auditProductSubtypeMigration(rows: readonly ProductSubtypeAuditR
   })
 
   return {
-    registryVersion: '2026-10-v1',
+    registryVersion: PRODUCT_SUBTYPE_REGISTRY_VERSION,
     products: rows.length,
     assignedProductType: rows.length - unassignedProductType,
     unassignedProductType,

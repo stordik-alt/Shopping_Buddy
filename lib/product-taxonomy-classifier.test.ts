@@ -60,7 +60,7 @@ describe('Product Taxonomy GPT-6 Luna classifier', () => {
     const result = validateProductTaxonomyClassification(classified({ druh: 'Praní' }))
     expect(result.status).toBe('review_required')
     expect(result.druh).toBeNull()
-    expect(result.duvod).toContain('Druh není povolenou podkategorií zvolené kategorie.')
+    expect(result.duvod).toContain('Druh není povolenou podkategorií zvolené kategorie ani platným návrhem nové podkategorie.')
   })
 
   it('requires review when an existing type is returned under a different category', () => {

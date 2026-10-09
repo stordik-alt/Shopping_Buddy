@@ -116,3 +116,7 @@ Every future significant change should add a dated entry containing:
 - Added `lib/product-subtype-mapping.ts`, regression tests and `pnpm db:audit-product-subtype-mapping`.
 - Added manual GitHub Actions workflow `.github/workflows/product-subtype-mapping-audit.yml`, using `NEON_PROD_DATABASE_URL` and the read-only mapping runner.
 - No database writes or subtype assignments were performed.
+
+## 2026-10-09 — Fix mapping audit unit test
+- Corrected the summary regression expectation: the summarizer includes only subtypes represented by mapping rows, so an unrepresented lactose-free subtype must not appear with zero counts.
+- CI failure reproduced from PR #389; no production data was changed.

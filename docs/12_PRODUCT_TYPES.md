@@ -196,3 +196,11 @@ Nové návrhy poddruhů musí určit jednu rozhodovací osu nebo explicitní pri
 - Priority policy follows the reviewed candidate boundaries: beer requires explicit colour; pasta uses filled → lasagne sheets → soup/small → long → short-shaped; rice uses basmati/jasmine → arborio/risotto → natural/wholegrain → parboiled → other long/round grain; quark fat class must be explicit and is never inferred from a percentage; processed cheese uses portioned → sliced → spreadable product form, not package count; tuna distinguishes own juice, oil and generic water, with own-juice wording taking precedence over generic water only.
 - Added unit tests and the read-only `pnpm db:simulate-product-subtype-expansion` command. A manual GitHub Actions workflow runs the simulation against the catalog using `NEON_PROD_DATABASE_URL`. The query currently supplies product name, brand and variant only; it does not join a standalone description, manufacturer specification or verified-attribute source, so the catalog simulation cannot claim evidence from those unavailable fields.
 - No subtype candidates were approved, no production registry entries were activated, and no database assignments or data were written. The 24 expansion proposals remain proposal-only.
+
+
+## 2026-10-09 — Review of production subtype simulation
+
+- Successful read-only run 37928914569 processed all 1,572 products belonging to the six expansion families from 55,842 catalog products. It returned 910 proposed matches, 6 conflicting cases for review and 656 products without sufficient explicit evidence; there were 0 existing subtype assignments in the catalog at the time of the run.
+- The report revealed that generic word `plátky` is not adequate evidence for *plátkový tavený sýr* because it can describe ordinary Gouda slices. The rule now requires explicit processed-cheese wording together with the sliced form. Package counts (e.g. `8 ks`) remain insufficient to classify portioned cheese.
+- Added explicit phrase variants for tuna packed in olive oil (e.g. `v olivovém oleji`). Abbreviated/unclear labels are still not guessed.
+- The report is a proposal-only text simulation, not an approved assignment plan. Results require review; no catalog records were updated.

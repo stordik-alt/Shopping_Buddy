@@ -143,15 +143,15 @@ const TYPE_RULES: Record<string, TypeRules> = {
     priority: [['taveny-syr-porcovany'], ['taveny-syr-platkovy'], ['taveny-syr-roztiratelny']],
     subtypes: [
       subtype('taveny-syr-porcovany', 'Porcovaný tavený sýr', 'taveny-syr.porcovany.explicit', ['porcovaný', 'porcovany', 'porcovaný tavený sýr', 'porcovany taveny syr', 'jednotlivě balené porce', 'jednotlive balene porce', 'trojúhelníčky', 'trojuhelnicky', 'individually wrapped portions'], 0),
-      subtype('taveny-syr-platkovy', 'Plátkový tavený sýr', 'taveny-syr.platkovy.explicit', ['plátkový', 'platkovy', 'plátky', 'platky', 'plátkový tavený sýr', 'platkovy taveny syr', 'tavený sýr plátky', 'taveny syr platky', 'plátky taveného sýra', 'platky taveného syra', 'sliced processed cheese'], 1),
-      subtype('taveny-syr-roztiratelny', 'Roztíratelný tavený sýr', 'taveny-syr.roztiratelny.explicit', ['roztíratelný tavený sýr', 'roztiratelny taveny syr', 'roztíratelný', 'roztiratelny', 'spreadable processed cheese'], 2),
+      subtype('taveny-syr-platkovy', 'Plátkový tavený sýr', 'taveny-syr.platkovy.explicit', ['plátkový tavený sýr', 'platkovy taveny syr', 'tavený sýr plátkový', 'taveny syr platkovy', 'tavený sýr plátky', 'taveny syr platky', 'plátky taveného sýra', 'platky taveného syra', 'tavený sýrový výrobek plátky', 'taveny syrovy vyrobek platky', 'sliced processed cheese'], 1),
+      subtype('taveny-syr-roztiratelny', 'Roztíratelný tavený sýr', 'taveny-syr.roztiratelny.explicit', ['roztíratelný tavený sýr', 'roztiratelny taveny syr', 'spreadable processed cheese'], 2),
     ],
   },
   'tunak-konzerva': {
     priority: [['tunak-konzerva-ve-vlastni-stave'], ['tunak-konzerva-v-oleji'], ['tunak-konzerva-ve-vodnim-nalevu']],
     subtypes: [
-      subtype('tunak-konzerva-ve-vlastni-stave', 'Tuňák ve vlastní šťávě', 'tunak.vlastni-stava.explicit', ['ve vlastní šťávě', 've vlastni stave', 'vlastní šťáva', 'vlastni stava', 'own juice', 'in its own juice'], 0, 'tuna-medium'),
-      subtype('tunak-konzerva-v-oleji', 'Tuňák v oleji', 'tunak.olej.explicit', ['v oleji', 'olejový nálev', 'olejovy nalev', 'olivový olej', 'olivovy olej', 'slunečnicový olej', 'slunecnicovy olej', 'in oil', 'olive oil', 'sunflower oil'], 1, 'tuna-medium'),
+      subtype('tunak-konzerva-ve-vlastni-stave', 'Tuňák ve vlastní šťávě', 'tunak.vlastni-stava.explicit', ['ve vlastní šťávě', 've vlastni stave', 'vlastní šťáva', 'vlastni stava', 'vlastni stava konzerva', 'own juice', 'in its own juice'], 0, 'tuna-medium'),
+      subtype('tunak-konzerva-v-oleji', 'Tuňák v oleji', 'tunak.olej.explicit', ['v oleji', 'v olivovém oleji', 'v olivovem oleji', 'v rostlinném oleji', 'v rostlinnem oleji', 'v slunečnicovém oleji', 'v slunecnicovem oleji', 'olejový nálev', 'olejovy nalev', 'olivový olej', 'olivovy olej', 'slunečnicový olej', 'slunecnicovy olej', 'in oil', 'olive oil', 'sunflower oil'], 1, 'tuna-medium'),
       subtype('tunak-konzerva-ve-vodnim-nalevu', 'Tuňák ve vodním nálevu', 'tunak.vodni-nalev.explicit', ['ve vodním nálevu', 've vodnim nalevu', 'vodní nálev', 'vodni nalev', 've vodě', 've vode', 'in water', 'water brine'], 2, 'tuna-medium'),
     ],
   },

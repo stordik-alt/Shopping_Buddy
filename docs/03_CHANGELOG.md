@@ -154,5 +154,6 @@ Every future significant change should add a dated entry containing:
 - Extended the read-only mapping audit with mutually exclusive reason codes for automatic candidates, existing assignments, missing Product Type, Product Types outside the starter registry, category mismatch, and untrusted provenance.
 - Each reason group reports its count and up to 20 concrete product samples with IDs, names, category, current Product Type and provenance.
 - Added a reconciliation guard: the sum of all reason groups must equal the catalog row count or the audit fails.
+- Reason-group samples are ordered by stable product ID so repeated read-only runs show reproducible examples.
 - Added regression tests for reason exclusivity/reconciliation and for keeping Product Type provenance distinct from subtype assignment provenance.
 - No production writes, backfill or subtype assignments were performed.

@@ -745,10 +745,30 @@ Pro CI/produkční databázi je k dispozici ruční workflow `.github/workflows/
 Výsledek auditu je vstupem pro další krok: explicitní review mapování a teprve následně řízený seed subtype registry a bezpečný backfill. Audit sám nemění `products.product_type_id`, `products.product_type_source`, `products.product_subtype_id` ani `products.product_subtype_source`.
 
 
-### 7.16 Audit compatibility before migration 0084 — 2026-10-09
+### 7.16 Audit robustness and production baseline — 2026-10-09
 
-- Audit nejprve kontroluje existenci `public.product_subtypes` a sloupců `products.product_subtype_id` / `products.product_subtype_source`.
-- Pokud subtype schéma ještě není nasazeno, provede bezpečný audit současných Product Types bez subtype joinů. Výstup výslovně označí subtype metriky jako nedostupné (`null`), nikoli jako nulu.
-- Částečně nasazené subtype schéma se označí jako `partial`; audit stále čte pouze existující základní Product Type sloupce a nic neopravuje automaticky.
-- Report nově uvádí každý současný Product Type samostatně, s počtem produktů, proveniencí, návrhovým rodičem a počty kandidátů / položek vyžadujících review.
-- Produkční běh `37890539117` selhal proto, že původní runner bez ověření předpokládal existenci subtype tabulky a sloupců; migrace `0084_product_subtypes.sql` přitom podle současného stavu ještě není v produkci nasazena. Oprava tuto závislost odstraňuje a neaplikuje migraci ani nemění data.
+- Audit před sestavením dotazu kontroluje, zda existuje `public.product_subtypes` a sloupce `products.product_subtype_id` / `products.product_subtype_source`. Při chybějícím nebo částečném schématu přejde na read-only dotaz nad existujícími Product Types a metriky subtype označí jako nedostupné (`null`), ne jako nulu.
+- První produkční běh `37890539117` selhal bez zobrazení konkrétní PostgreSQL chyby. Opakovaný běh `37890974599` se stejným kódem uspěl. Proto není prokázána konkrétní příčina prvního selhání; kontrola schématu je obranné opatření, nikoli tvrzení o chybějící migraci.
+- Read-only kontrola produkčního schématu potvrdila existenci tabulky `product_subtypes` i obou sloupců Product Subtype; aktuálně je přiřazeno 0 poddruhů.
+- Kategorie Product Type se porovnává proti všem povoleným kategoriím z `lib/product-types.ts`, nikoli jen proti primární kategorii uložené v DB. Rozdíl mezi výchozí jednotkou produktu a porovnávací jednotkou typu je pouze informativní, protože obě jednotky mají odlišný účel.
+- Auditní report uvádí souhrny po jednotlivých existujících Product Types, vazbu na navrženého rodiče, provenienci, kandidáty, položky pro ruční kontrolu a odchylky kategorií/jednotek. Nic nezapisuje a nemá `--apply` režim.
+
+### 7.17 Produkční auditní baseline — 2026-10-09
+
+Výsledek úspěšného read-only běhu [`37890974599`](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37890974599):
+
+| Ukazatel | Počet |
+|---|---:|
+| Produkty v katalogu | 55 842 |
+| Produkty s Product Type | 7 656 |
+| Produkty bez Product Type | 48 186 |
+| Existující Product Subtype assignments | 0 |
+| Kandidáti v aktuálním starter registru | 1 364 |
+
+Provenience: všech 7 656 přiřazených Product Types má `rule`; 48 186 nezařazených produktů má zdroj bez hodnoty (`unknown`). V sedmi navržených rodičích jsou: Mléko 79, Sýr 341, Mouka 45, Cukr 29, Olej 163, Voda 293 a Káva 414. Jde o kandidáty, nikoli o provedenou migraci.
+
+Původní report ukázal 270 rozdílů vůči primární kategorii Product Type. Revize proti úplnému seznamu povolených kategorií vysvětluje 267 z nich jako platné sekundární kategorie u pracích prostředků, mytí nádobí a osobní hygieny. Zbývající tři záznamy pod typem `voda-neperliva` v kategorii `Děti` potřebují review: dva produkty HiPP Baby neperlivá voda a jeden YESs Meloun neperlivá. Nelze je bez kontroly automaticky přepsat.
+
+Rozdíl výchozí jednotky produktu a porovnávací jednotky Product Type byl původně 808 záznamů; není sám o sobě chybou a nesmí spouštět automatickou opravu. Například produkt prodávaný jako láhev může mít výchozí jednotku `ks`, zatímco cena se porovnává za litr.
+
+Nebyl proveden žádný backfill ani změna produktových přiřazení.

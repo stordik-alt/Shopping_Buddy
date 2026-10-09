@@ -146,5 +146,6 @@ Every future significant change should add a dated entry containing:
 - Added CLI actions to list, dry-run/ingest, explicitly approve, or reject candidates. Approval requires a written definition plus include/exclude boundaries; duplicate names are routed to duplicate status.
 - Approval creates only the reusable subtype. It does not assign or rewrite existing catalog products. Ingest writes require explicit `--apply`; no production command or migration was run.
 - Candidate proposals can be queued before a parent Product Type has a database row; approval waits until the parent is active. Added a synthetic JSON example for normalized feed input.
+- Final hardening: migration constraint names now match the Drizzle schema; repeated ingest merges unique source IDs and include/exclude boundaries, and the queue resolves parent names by stable key even before the parent row is linked.
 - Added unit tests for normalization, deduplication, parent scoping and approval gates. Runtime tests/CI remain to be verified.
 - Implementation branch: `feat/product-subtype-candidate-workflow`.

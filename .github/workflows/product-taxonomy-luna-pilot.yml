@@ -1,0 +1,64 @@
+name: Product Taxonomy GPT-6 Luna Pilot (Read Only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Number of candidate rows (30–500; default 300)"
+        required: false
+        default: "300"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  pilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DATABASE_URL: ${{ secrets.NEON_PROD_DATABASE_URL }}
+      AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate pilot size
+        shell: bash
+        run: |
+          if ! [[ "${{ inputs.limit || '300' }}" =~ ^[0-9]+$ ]]; then
+            echo "limit must be an integer between 30 and 500"
+            exit 1
+          fi
+          if (( ${{ inputs.limit || '300' }} < 30 || ${{ inputs.limit || '300' }} > 500 )); then
+            echo "limit must be between 30 and 500"
+            exit 1
+          fi
+          if [ -z "$DATABASE_URL" ] || [ -z "$AI_GATEWAY_API_KEY" ]; then
+            echo "NEON_PROD_DATABASE_URL and AI_GATEWAY_API_KEY secrets are required"
+            exit 1
+          fi
+
+      - name: Run read-only GPT-6 Luna pilot
+        run: pnpm exec tsx scripts/pilot-product-taxonomy-luna.ts --limit "${{ inputs.limit || '300' }}"
+
+      - name: Upload pilot report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: product-taxonomy-luna-pilot
+          path: .tmp/product-taxonomy-luna-pilot.json
+          if-no-files-found: warn
+          retention-days: 14

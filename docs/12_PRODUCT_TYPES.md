@@ -1,3 +1,21 @@
+## 2026-10-09 — Povolení návrhů nových podkategorií a přímý OpenAI JSON
+
+- Klasifikátor může navrhnout novou podkategorii, pokud žádná existující sémanticky neodpovídá. Výsledek používá stav `new_subcategory_proposal`; návrh se automaticky nevytváří ani neschvaluje.
+- Nová podkategorie musí být obecná, znovupoužitelná, odlišná od existujících názvů a nesmí vznikat pouze kvůli značce, balení, variantě nebo SKU.
+- Nízká jistota nebo jiné validační problémy zůstávají `review_required`. Hlavní kategorie jsou nadále omezeny na existující hodnoty.
+- Připraven samostatný JSON request template pro přímé volání OpenAI Responses API se Structured Outputs a strict JSON Schema: `shopping_buddy_openai_taxonomy_request_template.json` (před použitím je nutné vložit aktuální kandidáty a taxonomii a ověřit dostupný model ID).
+- Návrhový režim zůstává bez databázových zápisů a bez automatického přiřazování produktů.
+
+## 2026-10-09 — GPT-6 Luna Product Taxonomy klasifikátor (návrhový režim)
+
+- Přidáno verzované rozhraní klasifikátoru po jednom kandidátovi: `lib/product-taxonomy-classifier.ts`, prompt `2026-10-v1`, model `openai/gpt-6-luna`.
+- Výstup má pevnou strukturu JSON: `kategorie`, `druh`, `typ`, `status`, `duvod`, `confidence`. Kategorie je omezena na existující hodnoty aplikace `Potraviny`, `Drogerie`, `Děti`, `Domácnost`, `Ostatní`; druh musí být existující podkategorií vybrané kategorie.
+- „Typ“ znamená obecnou identitu zboží, nikoli SKU/variantu/balení. Stávající typy se předávají pro sjednocení názvů a prevenci duplicit; nový typ je pouze návrh a nevytváří se ani neschvaluje.
+- Výsledek prochází deterministickou validací. Neplatná kategorie, podkategorie, rozpor mezi existujícím typem a jeho kategorií, chybějící úroveň nebo jistota pod 0,80 znamená `review_required`; neznámé kategorie se nepřepisují na „Ostatní“.
+- Přidán ruční workflow `.github/workflows/product-taxonomy-luna-pilot.yml` a skript `scripts/pilot-product-taxonomy-luna.ts`. Pilot vybírá deterministický vzorek (výchozí 300, rozsah 30–500), provádí pouze SELECT a volání modelu, zaznamenává výstupy, stav, tokeny a chyby do artefaktu JSON.
+- Report neodhaduje cenu bez ověřené aktuální sazby GPT-6 Luna. Workflow nebyl v rámci implementace spuštěn; živá kvalita modelu a náklady tedy nejsou zatím ověřeny.
+- Bez databázových zápisů, vytváření typů, schvalování kandidátů a přiřazování produktů. Regresní testy pokrývají omezení kategorií/podkategorií, kanonizaci existujících typů, nízkou jistotu a návrhový režim.
+
 
 
 ### Oprava syntaxe suitability filtru (2026-10-09)

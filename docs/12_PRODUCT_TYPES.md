@@ -791,3 +791,7 @@ This step does **not** seed the registry or modify `products.product_subtype_id`
 
 ### 7.19 Mapping audit summary test correction — 2026-10-09
 The mapping summary reports only subtypes encountered in mapping rows; it does not synthesize zero-count rows for every registered subtype. Regression expectation updated accordingly. No production data changed.
+
+
+### 7.20 Deterministic mapping summary ordering — 2026-10-09
+The audit summary sorts parent and subtype keys using explicit lexical comparisons rather than locale-sensitive collation, ensuring consistent order across CI environments. Regression coverage updated; no production data changed.

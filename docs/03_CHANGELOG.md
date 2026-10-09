@@ -1,3 +1,8 @@
+## 2026-10-09 — Product Subtype Mapping Audit workflow
+- Named the existing manual, read-only subtype registry audit explicitly as **Product Subtype Mapping Audit** so it is distinguishable from PKD → Product Type mapping generation.
+- The workflow runs `pnpm exec tsx scripts/audit-product-subtypes.ts` with `DATABASE_URL` sourced from `NEON_PROD_DATABASE_URL`; it has no apply input and performs no database writes.
+- Confirmed the audit reports proposed Product Type → Product Subtype mappings, provenance, category mismatches and registry coverage. No subtype assignments were applied.
+
 ## 2026-10-09 — Product Subtype registry conflict resolution
 - Recreated the review-only Product Subtype registry on a fresh branch based directly on merged `main` after PR #385 became non-mergeable due to the foundation-merge ancestry.
 - No database schema, production data or active classification was changed; the registry remains candidate-only.

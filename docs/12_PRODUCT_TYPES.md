@@ -597,7 +597,18 @@ Generování nových druhů bylo zpřesněno, protože samotný počet kandidát
 
 Tato fáze záměrně neprovádí automatické mapování na existující druhy. To je samostatný krok `Mapping engine`.
 
-### 7.13 Zdrojové reference
+### 7.13 Controlled starter registry proposal — 2026-10-09
+
+- Added `lib/product-subtype-registry.ts` as a versioned, review-controlled candidate registry (`2026-10-v1`). It links seven current umbrella groups to proposed general Product Type parents and maps every current group member to one proposed child subtype.
+- **Mléko mapping:** the existing group key `mleko` is proposed as the general parent. The current types `mleko-polotucne`, `mleko-plnotucne` and `mleko-bez-laktozy` are proposed as `Polotučné mléko`, `Plnotučné mléko` and `Bezlaktózové mléko`. The subtype keys intentionally reuse the legacy type keys so a later transition can be audited and matched exactly.
+- **Other initial candidates:** `Sýr` → Eidam/Gouda/Mozzarella/Balkánský sýr; `Mouka` → hladká/polohrubá/hrubá; `Cukr` → krupice a krystal/moučkový cukr; `Olej` → slunečnicový/řepkový/olivový; `Voda` → neperlivá/perlivá; `Káva` → mletá/zrnková.
+- Every parent and subtype is currently marked `candidate`. The registry is not imported by runtime classification or database seed code. No new Product Type or subtype rows have been seeded, and no existing product assignments or groups have been changed.
+- `Smetana` is deliberately excluded because its current child types use both `kg` and `l`; a single parent comparison unit would be misleading.
+- The single subtype field represents one primary classification, not several overlapping facets. Orthogonal attributes should remain separate until explicitly modeled.
+- Validation covers unique keys, exact legacy-group coverage, existing legacy types, category/unit consistency and parent-key collisions. Regression coverage is in `lib/product-subtype-registry.test.ts`.
+- **Next gated step:** implement a provenance-aware dry-run showing affected product counts and `rule/manual/alias/pkd` provenance before any active migration. Manual assignments and current groups must not be rewritten implicitly.
+
+### 7.14 Zdrojové reference
 
 - GS1 GPC: aktuální standard a archiv verzí — https://ref.gs1.org/standards/gpc/
 - GS1 GPC schema/principles — https://support.gs1.org/support/solutions/articles/43000734164-what-is-the-gpc-schema-

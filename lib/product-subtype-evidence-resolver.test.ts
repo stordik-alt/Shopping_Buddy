@@ -63,7 +63,7 @@ describe('resolveProductSubtypeEvidence', () => {
 
   it('never infers quark fat class from percentages alone', () => {
     expect(resolve({ productTypeKey: 'tvaroh', productName: 'Tvaroh 22 % tuku' }).decision).toBe('no_match')
-    expect(resolve({ productTypeKey: 'tvaroh', productName: 'Tučný polotučný tvaroh' }).reason).toBe('conflicting_evidence')
+    expect(resolve({ productTypeKey: 'tvaroh', productName: 'Tučný tvaroh polotučný' }).reason).toBe('conflicting_evidence')
     expect(resolve({ productTypeKey: 'tvaroh', productName: 'Tvaroh', verifiedAttributes: { manufacturer_spec: 'odtučněný' } }).proposedSubtypeKey).toBe('tvaroh-odtucneny')
   })
 

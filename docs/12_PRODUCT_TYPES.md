@@ -234,3 +234,13 @@ The next phase changes from reviewing individual PKD candidates to building a br
 - First implementation step: manual GitHub Actions workflow `.github/workflows/product-taxonomy-bootstrap-inventory.yml` runs `scripts/audit-product-taxonomy-bootstrap.ts` in READ-ONLY mode and uploads a JSON report artifact. It reports the current catalog/type/subtype baseline and ranked candidate evidence; it does not write to production.
 - Next step after reviewing the report: create a versioned, broad Product Type/Subtype seed proposal by domain, validate definitions and include/exclude boundaries, then bulk dry-run candidate mapping and measure coverage. Only the explicitly approved seed/backfill stage may write registry rows or product assignments.
 - Acceptance criteria: deterministic/idempotent proposal generation; no brand/package/SKU-derived types; duplicate normalized identities are consolidated; candidate and catalog coverage are reported separately; unresolved/ambiguous cases remain review-only; no existing manual assignments are overwritten.
+
+
+## 2026-10-09 — Bootstrap audit: candidate suitability/source correction
+
+The first production dry-run confirmed that the candidate table mixes genuine product identities with source taxonomy labels/definitions, service activities, non-Czech terms and incomplete legacy evidence. The stored confidence score is an evidence-generation score, not a suitability score for a Czech retail Product Type.
+
+- Audit preview now excludes non-Czech labels, very short normalized names, obvious definition/service/activity labels and exact matches to existing Product Types.
+- Report distinguishes source-engine confidence from suitability filtering, reports language and inferred source/version, and includes duplicate groups for review.
+- Missing category/subcategory remains missing; the audit does not guess either one. Legacy candidates lacking source metadata stay unknown/mixed and cannot be auto-approved.
+- This changes only the READ-ONLY audit/report; candidate rows and production taxonomy remain unchanged.

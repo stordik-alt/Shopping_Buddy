@@ -772,3 +772,9 @@ Původní report ukázal 270 rozdílů vůči primární kategorii Product Type.
 Rozdíl výchozí jednotky produktu a porovnávací jednotky Product Type byl původně 808 záznamů; není sám o sobě chybou a nesmí spouštět automatickou opravu. Například produkt prodávaný jako láhev může mít výchozí jednotku `ks`, zatímco cena se porovnává za litr.
 
 Nebyl proveden žádný backfill ani změna produktových přiřazení.
+
+## Product Subtype Mapping Audit workflow (2026-10-09)
+- GitHub Actions workflow: `.github/workflows/product-subtype-audit.yml` (display name: **Product Subtype Mapping Audit**).
+- Trigger: manual `workflow_dispatch`; database secret: `NEON_PROD_DATABASE_URL`.
+- Runner: `pnpm exec tsx scripts/audit-product-subtypes.ts`. This is a read-only audit of registry proposals, legacy Product Type coverage, provenance and category/unit review signals. It is distinct from PKD → Product Type mapping generation.
+- No `--apply` mode, subtype assignment, seed or production write is performed by this workflow.

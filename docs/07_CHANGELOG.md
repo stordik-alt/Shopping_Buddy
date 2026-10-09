@@ -2046,10 +2046,12 @@ Every future architectural/schema/business-rule change should append a dated ent
 - **Verification:** regression test confirms the unknown-provenance row is not counted as an eligible candidate.
 
 
-## 2026-10-09 — Product Subtype audit: schema readiness and provenance safety
-- **Root cause:** production workflow run `37890539117` failed because the audit queried `product_subtypes` and `products.product_subtype_*` before migration `0084_product_subtypes.sql` was present in production.
-- **Fixed:** added read-only schema introspection and fallback query against the existing Product Type schema; no migration or writes are triggered by the audit.
-- **Honesty of output:** when subtype schema is missing or partial, subtype assignment metrics are `null` rather than misleading zero counts, and the exact schema state is printed.
-- **Improved report:** every current Product Type is listed with counts, provenance, proposed registry parent, and unit/category divergence; only `rule`, `alias`, and `pkd` sources without an existing subtype are counted as trusted candidates. `manual` and `unknown` remain review-only.
-- **Tests:** expanded regression coverage for unknown provenance, trusted candidate eligibility, existing subtype assignments, per-Product-Type counts, and category/unit divergence.
-- **No production schema or product data changed.** CI verification is pending on the fix PR.
+## 2026-10-09 — Product Subtype audit hardening and production baseline
+- **Audit failure/retry:** first production run `37890539117` failed without a surfaced PostgreSQL root-cause message; retry `37890974599` succeeded using the same code. The precise cause remains unconfirmed.
+- **Schema safety:** audit now checks whether the subtype table and columns exist and falls back to the existing Product Type schema if not; unavailable subtype metrics are `null`, not zero. A direct read-only schema probe confirmed the subtype table/columns exist in production and there are 0 subtype assignments.
+- **Report:** includes counts and provenance for each Product Type, proposed registry parent and review/candidate counts.
+- **Category correctness:** category mismatch checks now use the full allowed-category list in `lib/product-types.ts`, not only the database's primary category. This avoids false flags for types allowed in `Domácnost` or `Děti`.
+- **Unit semantics:** the difference between `products.default_unit` and Product Type comparison unit is reported as informational; the two fields have different meanings and are not automatically repaired.
+- **Production baseline:** 55,842 products total, 7,656 assigned a Product Type, 48,186 unassigned, 0 subtype assignments, and 1,364 candidate products across the seven reviewed starter parents. All current assigned Product Types have `rule` provenance; unassigned rows have no source.
+- **Review:** three `voda-neperliva` records have category `Děti` and need explicit review; no data was changed.
+- **Tests:** regression coverage added for schema-compatible audit reporting, allowed secondary categories, trusted candidate provenance and informational unit differences. CI verification is pending on this PR.

@@ -872,3 +872,20 @@ První bezpečná implementace je připravena v branchi `feat/product-subtype-ca
 - Dostupné zdroje kandidátů: retailer, GS1 GPC, Open Food Facts, CZ-CPA, OCR a ruční návrh. Feed adapter konkrétního řetězce zatím není součástí této změny; normalizovaný JSON lze použít jako vstup.
 - CLI: `pnpm db:product-subtype-candidates -- list`, `... -- ingest --input ./subtype-candidates.json`, `... -- ingest --input ./subtype-candidates.json --apply`, `... -- approve --key <candidate-key>`, `... -- reject --key <candidate-key> --reason "..."`. Ukázkový vstup: `docs/examples/product-subtype-candidates.example.json` (syntetická data, neimportovat jako skutečný feed).
 - Ověření: přidány unit testy pro normalizaci, deduplikaci, oddělení podle rodičovského typu a schvalovací bránu. CI/testy ani migrace proti produkční databázi z tohoto kroku nebyly spuštěny; žádné produkční záznamy nebyly vloženy.
+
+### 7.25 Rozpad důvodů pro každý produkt mimo automatické kandidáty — 2026-10-09
+
+Read-only audit `pnpm db:audit-product-subtype-mapping` nyní vypisuje `byReason`: vzájemně výlučné skupiny, které pokrývají všechny produkty v katalogu. Každá skupina obsahuje počet a až 20 ukázkových záznamů se stabilním ID produktu, názvem, kategorií, aktuálním Product Type, původem klasifikace a případným návrhem poddruhu.
+
+Kódy důvodů:
+
+- `candidate`: produkt splňuje pravidla pro deterministický návrh; tato skupina je součástí kontroly součtu, nikoli důvodem vyloučení.
+- `existing_subtype_assignment`: produkt už má poddruh, takže jej audit znovu nenavrhuje a nikdy nepřepisuje.
+- `no_product_type`: produkt nemá přiřazený Product Type.
+- `product_type_outside_registry`: Product Type nemá schválenou mapu do aktuálního startovacího registru.
+- `category_mismatch`: kategorie produktu není povolena definicí Product Type; vyžaduje kontrolu.
+- `untrusted_provenance`: původ Product Type je `manual` nebo `unknown`, proto se automatickému mapování nevěří.
+
+Pravidlo precedence zajišťuje, že každý řádek patří právě do jedné skupiny: existující poddruh → chybějící Product Type → chybějící mapa registru → nesoulad kategorie → nedůvěryhodný původ → automatický kandidát. Audit navíc skončí chybou, pokud se součet skupin nerovná počtu načtených produktů. To rozloží původní agregát `outsideRegistry` na vysvětlitelné důvody a zároveň zachová původní souhrn statusů.
+
+Report zůstává výhradně pro čtení; nezapisuje kandidáty, neschvaluje poddruhy a nemění produktová přiřazení. Ukázky jsou diagnostické vzorky, nikoli úplný export všech ID v dané skupině.

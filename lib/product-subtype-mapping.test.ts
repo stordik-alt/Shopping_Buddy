@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildProductSubtypeMappings, summarizeProductSubtypeMappings, summarizeProductSubtypeMappingReasons } from '@/lib/product-subtype-mapping'
+import { buildProductSubtypeMappings, summarizeProductSubtypeMappings, summarizeProductSubtypeMappingReasons, summarizeUnmappedProductTypes } from '@/lib/product-subtype-mapping'
 import type { ProductSubtypeAuditRow } from '@/lib/product-subtype-audit'
 
 const row = (overrides: Partial<ProductSubtypeAuditRow> = {}): ProductSubtypeAuditRow => ({
@@ -16,6 +16,35 @@ const row = (overrides: Partial<ProductSubtypeAuditRow> = {}): ProductSubtypeAud
   productSubtypeName: null,
   productSubtypeSource: null,
   ...overrides,
+
+  it('inventories unmapped Product Types by frequency with deterministic samples and category/provenance counts', () => {
+    const mappings = buildProductSubtypeMappings([
+      row({ id: 'b', productTypeKey: 'smetana-na-vareni', productTypeName: 'Smetana na vaření', productName: undefined as never }),
+      row({ id: 'a', productTypeKey: 'smetana-na-vareni', productTypeName: 'Smetana na vaření', name: 'Smetana 12 %' }),
+      row({ id: 'c', productTypeKey: 'praci-gel', productTypeName: 'Prací gel', name: 'Prací gel 1 l', productTypeSource: 'pkd' }),
+      row({ id: 'ignored', productTypeKey: null, productTypeName: null }),
+    ])
+    const inventory = summarizeUnmappedProductTypes(mappings, 1)
+    expect(inventory).toEqual([
+      {
+        productTypeKey: 'smetana-na-vareni',
+        productTypeName: 'Smetana na vaření',
+        products: 2,
+        categories: { Potraviny: 2 },
+        provenance: { rule: 2 },
+        samples: [{ productId: 'a', productName: 'Smetana 12 %', category: 'Potraviny', productTypeProvenance: 'rule' }],
+      },
+      {
+        productTypeKey: 'praci-gel',
+        productTypeName: 'Prací gel',
+        products: 1,
+        categories: { Potraviny: 1 },
+        provenance: { pkd: 1 },
+        samples: [{ productId: 'c', productName: 'Prací gel 1 l', category: 'Potraviny', productTypeProvenance: 'pkd' }],
+      },
+    ])
+  })
+
 })
 
 describe('Product Subtype deterministic mapping', () => {

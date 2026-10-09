@@ -1,3 +1,8 @@
+## 2026-10-09 — Product Subtype registry conflict resolution
+- Recreated the review-only Product Subtype registry on a fresh branch based directly on merged `main` after PR #385 became non-mergeable due to the foundation-merge ancestry.
+- No database schema, production data or active classification was changed; the registry remains candidate-only.
+- Verification: registry tests and CI are pending on the replacement PR.
+
 ## 2026-10-09 — Product Subtype CI and PKD confidence fixes
 - Routed `lib/db/product-subtypes.test.ts` out of the database-free unit job and into the isolated PostgreSQL test job.
 - Rounded PKD candidate confidence scores to two decimal places so deterministic scoring no longer emits floating-point artifacts.

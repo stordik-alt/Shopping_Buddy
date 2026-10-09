@@ -129,6 +129,7 @@ every rule change is measured on it, so fixing one type cannot silently break an
 | 3 | Type/group picker on the shopping list | **done 2026-10-04** (see below) |
 | 4 | Receipts and list ticking by type; receipt abbreviation dictionary; learning from corrections | **done 2026-10-04** (see below) |
 | 5 | Wider coverage (109 types); optionally a model choosing from the closed list of types for the long tail, once per product, validated — **only after an explicit owner approval** (CLAUDE.md section 30) | coverage **done 2026-10-04**; model **not built** |
+| 6 | Registry-first Product Subtype hierarchy: optional parented subtypes and constrained product assignments | **schema foundation done 2026-10-09**; reviewed registry and assignments not yet built |
 
 ### Phase 1 as implemented (2026-10-04)
 
@@ -695,3 +696,13 @@ Konkrétní v5 implementace zůstává historickou informací v Git historii, al
 - Skóre důvěry se zvýší o 0,05 pouze při shodě nejméně dvou nezávislých druhů referenčních zdrojů. Jedna shoda je pouze kontext, nikoliv potvrzení správnosti.
 - Křížové ověřování nemění kategorii ani jednotku a automaticky kandidáta neschvaluje. Neznámé hodnoty zůstávají `null`; konečné rozhodnutí je stále lidské.
 - Runner: `pnpm db:generate-pkd-candidates` (dry-run), `pnpm db:generate-pkd-candidates -- --apply` (uloží kandidáty dané verze).
+
+### 7.12o Product Subtype database foundation — 2026-10-09
+
+- Added `product_subtypes` as a reusable classification layer under exactly one existing `product_types` row. Each subtype has a stable key, display name, optional description, ordering and an active flag; the same subtype name cannot be duplicated under the same parent.
+- Added nullable `products.product_subtype_id`. Existing products retain their current `product_type_id`; the migration performs no backfill and creates no subtype rows.
+- A composite foreign key validates `(products.product_type_id, products.product_subtype_id)` against the subtype's actual parent. A separate check rejects a subtype without a Product Type. This prevents accidental cross-parent assignment and preserves `unknown` / unclassified states.
+- Migration: `0084_product_subtypes.sql`. The migration is additive and written to tolerate a partial retry. Existing catalog rows and manual/rule/alias Product Type assignments are not rewritten.
+- Regression test: `lib/db/product-subtypes.test.ts` checks a valid parent/subtype pair, a mismatched parent and a missing parent.
+- **Not included yet:** no subtype seed registry, no product backfill, and no UI/API assignment flow. The next step is to create a reviewed starter registry and audit how specific existing Product Types (for example fat-percentage milk types) map under a general `Mléko` identity. The existing `Mléko` group must be reconciled deliberately so the UI does not expose duplicate or contradictory meanings.
+- Verification boundary: source changes and regression coverage are prepared in a PR; the migration has not been applied to production and no production data has been changed.

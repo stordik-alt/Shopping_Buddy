@@ -1,3 +1,10 @@
+## 2026-10-09 — Zpřesnění výchozí klasifikace piva
+- Pivo se nyní navrhuje jako „Alkoholické pivo“, pokud důkazní texty neuvádějí nealkoholické/nealko/bez alkoholu nebo nulový obsah alkoholu.
+- Výrazy „0 %“, „0,0 %“ a „0.0 %“ jsou rozpoznány jako explicitní nulový alkohol; samotné „0,0“ zůstává podporováno.
+- Výslovný důkaz nealkoholického piva má přednost před výchozím alkoholickým zařazením; barva piva klasifikaci neovlivňuje.
+- Doplněny regresní testy pro běžné názvy, barvu, nulové procento a prioritu nealkoholického označení. Verze resolveru zvýšena na `2026-10-v3`.
+- Změna se týká čistého návrhového resolveru, dokumentace a testů. Bez databázových zápisů či hromadných přiřazení.
+
 ## 2026-10-09 — Oprava neúspěšných unit testů PR #402
 - Obnovena explicitní shoda zkratek „v ol.oleji“ a „v ol. oleji“ po normalizaci interpunkce.
 - Test odmítnutí nesprávného typu těstovin používá název tuňáka, aby nový poddruh „Ostatní těstoviny“ správně zůstal omezen na skutečné názvy těstovin.

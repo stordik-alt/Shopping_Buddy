@@ -10,7 +10,7 @@
 - Added migration `0084_product_subtypes.sql` and database regression test `lib/db/product-subtypes.test.ts` for valid assignments, cross-parent rejection, missing-parent rejection and invalid provenance.
 - Existing product classifications and manual corrections are untouched; no subtype rows are seeded and no existing catalog products are backfilled in this stage.
 - Documentation updated: `docs/12_PRODUCT_TYPES.md`. The next step is a reviewed starter registry and a controlled mapping of existing specific types to general parent types.
-- Verification boundary: changes are on the feature branch; CI/test-database verification is pending. No production migration was run and no production data was modified.
+- Verification: CI passed on application-code commit `3a1849bc6cf6cec7bfeaad80f8559f24a4124b4c` ([CI run](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37888366436)); the [security audit](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37888366434) also passed. This includes unit tests, typecheck, production build, isolated local-PostgreSQL tests, Playwright smoke tests and the Cloudflare Worker build. Migration `0084` was applied only to CI's isolated local PostgreSQL database; no production migration was run and no production data was modified.
 ## 2026-10-08 (PKD approved mapping backfill)
 - **Added:** `scripts/backfill-pkd-mappings.ts` for applying accepted PKD → Product Type mappings to currently unmapped PKD entries.
 - **Safety:** dry-run is the default; `--apply` is required for writes, and each update still requires the PKD entry to have no existing Product Type.

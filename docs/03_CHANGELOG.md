@@ -1,3 +1,7 @@
+## 2026-10-09 — Oprava priority nealkoholického piva po unit testech
+- Unit testy odhalily, že obecné slovo „pivo“ současně přidávalo alkoholický signál i k explicitně nealkoholickým názvům. Resolver nyní při explicitním nealkoholickém důkazu odstraní obecný alkoholický signál, takže rozhodne nealkoholický poddruh.
+- Regresní testy pokrývají nulová procenta i texty „nealko“/„bez alkoholu“. Bez databázových zápisů.
+
 ## 2026-10-09 — Oprava syntaxe resolveru piva po CI
 - Opravena chybějící uzavírací složená závorka v signálu nulového alkoholu a escapování regulárního výrazu pro „0 %“; předchozí chyba blokovala unit testy, typecheck i sestavení.
 - Ověření pokračuje novým CI během PR #405; bez databázových zápisů.

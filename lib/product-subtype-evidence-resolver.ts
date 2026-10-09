@@ -213,7 +213,7 @@ function collectSignals(rules: TypeRules, texts: EvidenceText[]): Signal[] {
   // Recognize an explicit zero alcohol percentage without matching unrelated volumes like 0.5 l.
   if (rules === TYPE_RULES.pivo) {
     for (const text of texts) {
-      if (/(?:^| )0(?:[,.]0+)?\\s*%(?: |$)/.test(text.normalized)) {
+      if (/(?:^| )0(?:[,.]0+)?\s*%(?: |$)/.test(text.normalized)) {
         signals.push({
           rule: rules.subtypes[0],
           evidence: {

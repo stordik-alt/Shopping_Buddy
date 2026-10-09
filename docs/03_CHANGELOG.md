@@ -149,3 +149,10 @@ Every future significant change should add a dated entry containing:
 - Final hardening: migration constraint names now match the Drizzle schema; repeated ingest merges unique source IDs and include/exclude boundaries, and the queue resolves parent names by stable key even before the parent row is linked.
 - Added unit tests for normalization, deduplication, parent scoping and approval gates. Runtime tests/CI remain to be verified.
 - Implementation branch: `feat/product-subtype-candidate-workflow`.
+
+## 2026-10-09 — Product Subtype exclusion reason audit
+- Extended the read-only mapping audit with mutually exclusive reason codes for automatic candidates, existing assignments, missing Product Type, Product Types outside the starter registry, category mismatch, and untrusted provenance.
+- Each reason group reports its count and up to 20 concrete product samples with IDs, names, category, current Product Type and provenance.
+- Added a reconciliation guard: the sum of all reason groups must equal the catalog row count or the audit fails.
+- Added regression tests for reason exclusivity/reconciliation and for keeping Product Type provenance distinct from subtype assignment provenance.
+- No production writes, backfill or subtype assignments were performed.

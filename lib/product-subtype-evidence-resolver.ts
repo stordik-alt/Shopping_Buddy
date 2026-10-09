@@ -99,7 +99,7 @@ const TYPE_RULES: Record<string, TypeRules> = {
     priority: [['pivo-nealkoholicke', 'pivo-alkoholicke']],
     subtypes: [
       subtype('pivo-nealkoholicke', 'Nealkoholické pivo', 'pivo.nealkoholicke.explicit', ['nealkoholické', 'nealkoholicke', 'nealko', 'bez alkoholu', 'alcohol-free', 'non-alcoholic', '0,0', '0.0'], 0, 'beer-alcohol'),
-      subtype('pivo-alkoholicke', 'Alkoholické pivo', 'pivo.alkoholicke.explicit', ['alkoholické', 'alkoholicke', 'alcoholic beer', 'obsah alkoholu'], 1, 'beer-alcohol'),
+      subtype('pivo-alkoholicke', 'Alkoholické pivo', 'pivo.alkoholicke.default', ['alkoholické', 'alkoholicke', 'alcoholic beer', 'obsah alkoholu', 'pivo', 'beer'], 1),
     ],
   },
   testoviny: {
@@ -208,6 +208,16 @@ function isExcludedProduct(input: ProductSubtypeResolverInput, texts: EvidenceTe
 
 function collectSignals(rules: TypeRules, texts: EvidenceText[]): Signal[] {
   const signals: Signal[] = []
+
+  // Read percentages from original evidence because normalization strips punctuation.
+  if (rules === TYPE_RULES.pivo) {
+    for (const text of texts) {
+      if (/\\b0(?:[,.]0+)?\\s*%/.test(text.value)) {
+        signals.push({ rule: rules.subtypes[0], evidence: { source: text.source, field: text.field, value: text.value, matchedRule: rules.subtypes[0].ruleId + ': explicit zero alcohol percentage', polarity: 'supports' })
+      }
+    }
+  }
+
   for (const rule of rules.subtypes) {
     for (const text of texts) {
       for (const phrase of rule.patterns) {
@@ -225,6 +235,14 @@ function collectSignals(rules: TypeRules, texts: EvidenceText[]): Signal[] {
       }
     }
   }
+
+  // Default beer to alcoholic unless explicit non-alcoholic evidence exists.
+  if (rules === TYPE_RULES.pivo && !signals.some((signal) => signal.rule.subtypeKey === 'pivo-nealkoholicke')) {
+    const text = texts[0]
+    const alcoholicRule = rules.subtypes.find((rule) => rule.subtypeKey === 'pivo-alkoholicke')
+    if (text && alcoholicRule) signals.push({ rule: alcoholicRule, evidence: { source: text.source, field: text.field, value: text.value, matchedRule: alcoholicRule.ruleId + ': default alcoholic beer', polarity: 'supports' } })
+  }
+
   return signals
 }
 

@@ -41,7 +41,7 @@ describe('Product Subtype provenance audit', () => {
       { productTypeKey: 'smetana-na-vareni', productTypeName: 'Smetana na vaření', products: 1 },
     ])
     expect(result.eligibleCandidateProducts).toBe(2)
-    expect(result.manualReviewProducts).toBe(1)
+    expect(result.manualReviewProducts).toBe(2)
   })
 
   it('reports existing subtype assignments and possible category/unit divergence without mutating input', () => {

@@ -1,3 +1,7 @@
+## 2026-10-09 — Oprava syntaxe resolveru piva po CI
+- Opravena chybějící uzavírací složená závorka v signálu nulového alkoholu a escapování regulárního výrazu pro „0 %“; předchozí chyba blokovala unit testy, typecheck i sestavení.
+- Ověření pokračuje novým CI během PR #405; bez databázových zápisů.
+
 ## 2026-10-09 — Oprava klasifikace piva po CI a rebase
 - Výchozí návrh pro pivo je „Alkoholické pivo“, pokud důkazy neobsahují explicitní nealkoholické označení nebo nulový obsah alkoholu.
 - Nulové procento se detekuje z původního textu před normalizací; podporováno „0 %“, „0,0 %“ a „0.0 %“.

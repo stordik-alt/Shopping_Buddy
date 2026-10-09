@@ -1,7 +1,7 @@
 import { eq, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
-import { buildProductSubtypeMappings, summarizeProductSubtypeMappings } from '@/lib/product-subtype-mapping'
+import { buildProductSubtypeMappings, summarizeProductSubtypeMappings, summarizeProductSubtypeMappingReasons } from '@/lib/product-subtype-mapping'
 import type { ProductSubtypeAuditRow } from '@/lib/product-subtype-audit'
 
 async function main() {
@@ -53,6 +53,11 @@ async function main() {
   const review = mappings.filter((mapping) => mapping.status === 'review')
   const existing = mappings.filter((mapping) => mapping.status === 'existing')
   const outsideRegistry = mappings.filter((mapping) => mapping.status === 'outside_registry')
+  const reasonGroups = summarizeProductSubtypeMappingReasons(mappings, 20)
+  const reasonGroupTotal = reasonGroups.reduce((total, group) => total + group.count, 0)
+  if (reasonGroupTotal !== mappings.length) {
+    throw new Error(`Reason breakdown does not reconcile: ${reasonGroupTotal} grouped rows vs ${mappings.length} catalog rows.`)
+  }
 
   console.log('Product Subtype deterministic mapping audit — READ ONLY')
   console.log(JSON.stringify({
@@ -62,7 +67,9 @@ async function main() {
       review: review.length,
       existingSubtypeAssignments: existing.length,
       outsideRegistry: outsideRegistry.length,
+      reasonGroupsReconcile: reasonGroupTotal === mappings.length,
     },
+    byReason: reasonGroups,
     bySubtype: summary,
     reviewItems: review.map((mapping) => ({
       productId: mapping.productId,
@@ -71,6 +78,7 @@ async function main() {
       parentTypeKey: mapping.parentTypeKey,
       subtypeKey: mapping.subtypeKey,
       provenance: mapping.provenance,
+      reasonCode: mapping.reasonCode,
       reason: mapping.reason,
     })),
   }, null, 2))

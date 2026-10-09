@@ -1,3 +1,8 @@
+## 2026-10-09 (Product Subtype CI routing and PKD confidence precision)
+- Fixed the CI test split after the new DB-backed Product Subtype integration test was incorrectly collected by the unit-only job, where no database URL is intentionally available; the test now runs only in the isolated local-PostgreSQL job.
+- Fixed PKD candidate confidence arithmetic to round the clamped result to two decimal places. CI exposed IEEE-754 residues such as `0.7000000000000001` breaking exact regression expectations for documented two-decimal confidence values.
+- Added the subtype test to the explicit database-test file list; the database remains isolated and no production database is used by CI.
+
 ## 2026-10-09 (Product Subtype hierarchy — additive database foundation)
 - Added `product_subtypes`, a stable subtype registry owned by one `product_types` parent, with display ordering and soft deactivation.
 - Added nullable `products.product_subtype_id` and a composite foreign key so the selected subtype must belong to the exact Product Type assigned to that product; a subtype cannot exist on a product without its parent type.

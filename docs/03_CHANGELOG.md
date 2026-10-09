@@ -120,3 +120,7 @@ Every future significant change should add a dated entry containing:
 ## 2026-10-09 — Fix mapping audit unit test
 - Corrected the summary regression expectation: the summarizer includes only subtypes represented by mapping rows, so an unrepresented lactose-free subtype must not appear with zero counts.
 - CI failure reproduced from PR #389; no production data was changed.
+
+## 2026-10-09 — Stabilize Product Subtype mapping summary order
+- Replaced locale-dependent sorting with explicit key ordering and aligned the regression expectation to that deterministic order after CI exposed a localeCompare ordering mismatch.
+- No production data changed.

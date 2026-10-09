@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildProductSubtypeMappings, summarizeProductSubtypeMappings } from '@/lib/product-subtype-mapping'
+import { buildProductSubtypeMappings, summarizeProductSubtypeMappings, summarizeProductSubtypeMappingReasons } from '@/lib/product-subtype-mapping'
 import type { ProductSubtypeAuditRow } from '@/lib/product-subtype-audit'
 
 const row = (overrides: Partial<ProductSubtypeAuditRow> = {}): ProductSubtypeAuditRow => ({
@@ -90,4 +90,44 @@ describe('Product Subtype deterministic mapping', () => {
       },
     ])
   })
+
+  it('classifies every non-candidate into a mutually exclusive reason group', () => {
+    const mappings = buildProductSubtypeMappings([
+      row({ id: 'candidate', productTypeSource: 'rule' }),
+      row({ id: 'existing', productSubtypeKey: 'mleko-polotucne', productSubtypeName: 'Polotučné mléko' }),
+      row({ id: 'no-type', productTypeKey: null, productTypeName: null }),
+      row({ id: 'outside', productTypeKey: 'smetana-na-vareni', productTypeName: 'Smetana na vaření' }),
+      row({ id: 'category', category: 'Děti' }),
+      row({ id: 'provenance', productTypeSource: 'manual' }),
+    ])
+    const groups = summarizeProductSubtypeMappingReasons(mappings, 2)
+    const counts = Object.fromEntries(groups.map((group) => [group.reasonCode, group.count]))
+
+    expect(counts).toEqual({
+      candidate: 1,
+      existing_subtype_assignment: 1,
+      no_product_type: 1,
+      product_type_outside_registry: 1,
+      category_mismatch: 1,
+      untrusted_provenance: 1,
+    })
+    expect(groups.reduce((sum, group) => sum + group.count, 0)).toBe(mappings.length)
+    expect(groups.every((group) => group.samples.length <= 2)).toBe(true)
+    expect(groups.find((group) => group.reasonCode === 'no_product_type')?.samples[0].productId).toBe('no-type')
+  })
+
+  it('reports the actual Product Type provenance separately from subtype provenance', () => {
+    const [mapping] = buildProductSubtypeMappings([
+      row({
+        productTypeSource: 'rule',
+        productSubtypeKey: 'mleko-polotucne',
+        productSubtypeName: 'Polotučné mléko',
+        productSubtypeSource: 'manual',
+      }),
+    ])
+    expect(mapping.reasonCode).toBe('existing_subtype_assignment')
+    expect(mapping.productTypeProvenance).toBe('rule')
+    expect(mapping.provenance).toBe('manual')
+  })
+
 })

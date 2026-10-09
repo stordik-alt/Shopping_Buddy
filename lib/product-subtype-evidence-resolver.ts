@@ -53,7 +53,7 @@ export interface ProductSubtypeResolverResult {
   resolverVersion: string
 }
 
-export const PRODUCT_SUBTYPE_EVIDENCE_RESOLVER_VERSION = '2026-10-v2'
+export const PRODUCT_SUBTYPE_EVIDENCE_RESOLVER_VERSION = '2026-10-v3'
 
 type EvidenceText = {
   source: ProductSubtypeEvidenceSource
@@ -96,10 +96,11 @@ const subtype = (
 
 const TYPE_RULES: Record<string, TypeRules> = {
   pivo: {
-    priority: [['pivo-nealkoholicke', 'pivo-alkoholicke']],
+    // Explicit non-alcoholic evidence always wins; otherwise beer defaults to alcoholic.
+    priority: [['pivo-nealkoholicke'], ['pivo-alkoholicke']],
     subtypes: [
       subtype('pivo-nealkoholicke', 'Nealkoholické pivo', 'pivo.nealkoholicke.explicit', ['nealkoholické', 'nealkoholicke', 'nealko', 'bez alkoholu', 'alcohol-free', 'non-alcoholic', '0,0', '0.0'], 0, 'beer-alcohol'),
-      subtype('pivo-alkoholicke', 'Alkoholické pivo', 'pivo.alkoholicke.explicit', ['alkoholické', 'alkoholicke', 'alcoholic beer', 'obsah alkoholu'], 1, 'beer-alcohol'),
+      subtype('pivo-alkoholicke', 'Alkoholické pivo', 'pivo.alkoholicke.default', ['pivo', 'beer'], 1),
     ],
   },
   testoviny: {
@@ -208,6 +209,24 @@ function isExcludedProduct(input: ProductSubtypeResolverInput, texts: EvidenceTe
 
 function collectSignals(rules: TypeRules, texts: EvidenceText[]): Signal[] {
   const signals: Signal[] = []
+
+  // Recognize an explicit zero alcohol percentage without matching unrelated volumes like 0.5 l.
+  if (rules === TYPE_RULES.pivo) {
+    for (const text of texts) {
+      if (/(?:^| )0(?:[,.]0+)?\\s*%(?: |$)/.test(text.normalized)) {
+        signals.push({
+          rule: rules.subtypes[0],
+          evidence: {
+            source: text.source,
+            field: text.field,
+            value: text.value,
+            matchedRule: `${rules.subtypes[0].ruleId}: explicit zero alcohol percentage`,
+            polarity: 'supports',
+          },
+        })
+      }
+    }
+  }
   for (const rule of rules.subtypes) {
     for (const text of texts) {
       for (const phrase of rule.patterns) {

@@ -134,7 +134,7 @@ const TYPE_RULES: Record<string, TypeRules> = {
   tvaroh: {
     priority: [['tvaroh-tucny', 'tvaroh-polotucny', 'tvaroh-odtucneny']],
     subtypes: [
-      subtype('tvaroh-tucny', 'Tučný tvaroh', 'tvaroh.tucny.explicit', ['tučný tvaroh', 'tucny tvaroh', 'tvaroh tučný', 'tvaroh tucny', 'full-fat quark'], 0, 'quark-fat'),
+      subtype('tvaroh-tucny', 'Tučný tvaroh', 'tvaroh.tucny.explicit', ['tučný', 'tucny', 'tučný tvaroh', 'tucny tvaroh', 'tvaroh tučný', 'tvaroh tucny', 'full-fat quark'], 0, 'quark-fat'),
       subtype('tvaroh-polotucny', 'Polotučný tvaroh', 'tvaroh.polotucny.explicit', ['polotučný', 'polotucny', 'polotučný tvaroh', 'polotucny tvaroh', 'semi-fat quark'], 0, 'quark-fat'),
       subtype('tvaroh-odtucneny', 'Odtučněný tvaroh', 'tvaroh.odtucneny.explicit', ['odtučněný', 'odtucneny', 'nízkotučný', 'nizkotucny', 'odtučněný tvaroh', 'odtucneny tvaroh', 'low-fat quark'], 0, 'quark-fat'),
     ],

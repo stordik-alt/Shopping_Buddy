@@ -707,4 +707,4 @@
 - Navazuje na simulaci [37930358171](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37930358171), která potvrdila, že plný zápis `v olivovém oleji` funguje, ale katalogový název `Rio Mare Tuňák v ol.oleji` zůstává bez shody.
 - Přidáváme pouze explicitní normalizovanou variantu `v ol oleji` odpovídající zkrácení `v ol.oleji`; žádné fuzzy domýšlení z pouhého slova „olivový“ nebo „olej“.
 - Regresní testy pokryjí varianty interpunkce, očekávanou klasifikaci tuňáka v oleji a negativní případy pro nejednoznačné zmínky o oleji a jiné druhy zboží.
-- Změna se nejprve ověřuje testy a CI v samostatné větvi/PR. Neprovádí databázové zápisy, neschvaluje kandidáty ani nepřiřazuje poddruhy.
+- Ověření PR #401: unit testy, typecheck, production build, databázové testy nad lokálním PostgreSQL, Playwright smoke testy, Cloudflare Worker build bez deploye, CodeQL a audit produkčních závislostí prošly. CI run [37936190944](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37936190944), security run [37936190917](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37936190917).

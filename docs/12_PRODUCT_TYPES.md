@@ -724,3 +724,22 @@ Konkrétní v5 implementace zůstává historickou informací v Git historii, al
 - Regression test: `lib/db/product-subtypes.test.ts` checks a valid parent/subtype pair, a mismatched parent and a missing parent.
 - **Not included yet:** no subtype seed registry, no product backfill, and no UI/API assignment flow. The next step is to create a reviewed starter registry and audit how specific existing Product Types (for example fat-percentage milk types) map under a general `Mléko` identity. The existing `Mléko` group must be reconciled deliberately so the UI does not expose duplicate or contradictory meanings.
 - Verification: GitHub Actions CI passed on application-code commit `3a1849bc6cf6cec7bfeaad80f8559f24a4124b4c`, including the new database regression test against isolated local PostgreSQL; typecheck, production build, Playwright smoke tests, Cloudflare build and security audit also passed. The migration has not been applied to production and no production data has been changed.
+
+
+### 7.15 Provenance-aware Product Subtype audit — 2026-10-09
+
+Před aktivní migrací produktů je zaveden samostatný **read-only audit** nad aktuálním katalogem.
+
+Audit:
+- načítá současný Product Type, jeho kategorii/jednotku a `product_type_source`;
+- propojuje současný Product Type s kandidátním registrem Product Subtype pouze přes explicitní `legacyProductTypeKey`;
+- rozděluje produkty podle provenience (`rule`, `manual`, `alias`, případně `unknown`);
+- odděluje produkty vhodné pro další automatizovatelný návrh od ručních přiřazení, která vyžadují lidskou kontrolu;
+- vypisuje Product Types mimo registr, dosud nezařazené produkty, již existující subtype assignments a možné nesoulady kategorie/jednotky;
+- nic nezapisuje a nemá `--apply` režim.
+
+Runner: `pnpm db:audit-product-subtypes`
+
+Pro CI/produkční databázi je k dispozici ruční workflow `.github/workflows/product-subtype-audit.yml`, které používá pouze `NEON_PROD_DATABASE_URL` a spouští stejný read-only skript.
+
+Výsledek auditu je vstupem pro další krok: explicitní review mapování a teprve následně řízený seed subtype registry a bezpečný backfill. Audit sám nemění `products.product_type_id`, `products.product_type_source`, `products.product_subtype_id` ani `products.product_subtype_source`.

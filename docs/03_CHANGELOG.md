@@ -90,3 +90,13 @@ Every future significant change should add a dated entry containing:
 - verification performed
 - known limitations
 - commit SHA when available
+
+
+## 2026-10-09 — Product Subtype provenance-aware audit
+- Added a deterministic, read-only audit before any Product Subtype backfill.
+- The audit reports current Product Type coverage, classification provenance, registry coverage, unassigned/outside-registry products, existing subtype assignments and possible category/unit divergence.
+- Added a local runner, a manual production workflow using `NEON_PROD_DATABASE_URL`, and regression tests.
+- No database writes or product reclassification were performed.
+
+## 2026-10-09 — Product Subtype audit candidate safety fix
+- Restricted automatic audit candidates to trusted provenance (`rule`, `alias`, `pkd`); unknown/manual assignments remain review-only and existing subtype assignments are not proposed again.

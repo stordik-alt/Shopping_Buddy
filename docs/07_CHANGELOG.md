@@ -1,3 +1,10 @@
+## 2026-10-09 (Product Subtype hierarchy — additive database foundation)
+- Added `product_subtypes`, a stable subtype registry owned by one `product_types` parent, with display ordering and soft deactivation.
+- Added nullable `products.product_subtype_id` and a composite foreign key so the selected subtype must belong to the exact Product Type assigned to that product; a subtype cannot exist on a product without its parent type.
+- Added migration `0084_product_subtypes.sql` and database regression test `lib/db/product-subtypes.test.ts` for valid assignments, cross-parent rejection and missing-parent rejection.
+- Existing product classifications and manual corrections are untouched; no subtype rows are seeded and no existing catalog products are backfilled in this stage.
+- Documentation updated: `docs/12_PRODUCT_TYPES.md`. The next step is a reviewed starter registry and a controlled mapping of existing specific types to general parent types.
+- Verification boundary: changes are on the feature branch; CI/test-database verification is pending. No production migration was run and no production data was modified.
 ## 2026-10-08 (PKD approved mapping backfill)
 - **Added:** `scripts/backfill-pkd-mappings.ts` for applying accepted PKD → Product Type mappings to currently unmapped PKD entries.
 - **Safety:** dry-run is the default; `--apply` is required for writes, and each update still requires the PKD entry to have no existing Product Type.

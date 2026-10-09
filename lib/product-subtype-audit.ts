@@ -30,7 +30,7 @@ type ProductTypeAuditSummary = {
   candidateProducts: number
   manualReviewProducts: number
   categoryMismatchProducts: number
-  defaultUnitDivergenceProducts: number
+  defaultUnitComparisonUnitDifferences: number
 }
 
 export type ProductSubtypeAuditResult = {
@@ -53,12 +53,12 @@ export type ProductSubtypeAuditResult = {
   outsideRegistry: Array<{ productTypeKey: string; productTypeName: string; products: number }>
   unmappedProducts: number
   categoryMismatches: number
-  defaultUnitDivergences: number
+  defaultUnitComparisonUnitDifferences: number
   eligibleCandidateProducts: number
   manualReviewProducts: number
 }
 
-const TRUSTED_PROVENANCE = new Set(['rule', 'alias', 'pkd'])
+const TRUSTED_PROVENANCE = new Set(['rule', 'alias', 'pkd'])\nconst productTypeDefinitions = new Map(PRODUCT_TYPES.map((type) => [type.key, type]))\n\nfunction categoryMismatch(row: ProductSubtypeAuditRow): boolean {\n  if (!row.productTypeKey) return false\n  const definition = productTypeDefinitions.get(row.productTypeKey)\n  if (definition) return !definition.categories.includes(row.category as ItemCategory)\n  // Defensive fallback for DB rows whose key no longer exists in code.\n  return Boolean(row.productTypeCategory && row.category !== row.productTypeCategory)\n}
 
 const legacyToProposal = new Map(
   PRODUCT_SUBTYPE_PROPOSALS.map((entry) => [entry.legacyProductTypeKey, entry]),
@@ -75,7 +75,7 @@ export function auditProductSubtypeMigration(rows: readonly ProductSubtypeAuditR
   let unassignedProductType = 0
   let existingSubtypeAssignments = 0
   let categoryMismatches = 0
-  let defaultUnitDivergences = 0
+  let defaultUnitComparisonUnitDifferences = 0
   let eligibleCandidateProducts = 0
   let manualReviewProducts = 0
 
@@ -107,7 +107,7 @@ export function auditProductSubtypeMigration(rows: readonly ProductSubtypeAuditR
           candidateProducts: 0,
           manualReviewProducts: 0,
           categoryMismatchProducts: 0,
-          defaultUnitDivergenceProducts: 0,
+          defaultUnitComparisonUnitDifferences: 0,
         }
         typeStats.set(row.productTypeKey, type)
       }
@@ -190,7 +190,7 @@ export function auditProductSubtypeMigration(rows: readonly ProductSubtypeAuditR
       .sort((a, b) => b.products - a.products || a.productTypeKey.localeCompare(b.productTypeKey)),
     unmappedProducts: unassignedProductType,
     categoryMismatches,
-    defaultUnitDivergences,
+    defaultUnitComparisonUnitDifferences,
     eligibleCandidateProducts,
     manualReviewProducts,
   }

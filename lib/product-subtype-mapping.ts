@@ -168,7 +168,7 @@ export function summarizeProductSubtypeMappingReasons(
     'untrusted_provenance',
   ]
   return order.map((reasonCode) => {
-    const rows = groups.get(reasonCode) ?? []
+    const rows = [...(groups.get(reasonCode) ?? [])].sort((a, b) => a.productId.localeCompare(b.productId))
     return {
       reasonCode,
       reason: REASON_TEXT[reasonCode],

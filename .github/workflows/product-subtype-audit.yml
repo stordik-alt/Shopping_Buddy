@@ -1,4 +1,4 @@
-name: Product Subtype provenance audit
+name: Product Subtype Mapping Audit
 
 on:
   workflow_dispatch:

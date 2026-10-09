@@ -2070,3 +2070,13 @@ Every future architectural/schema/business-rule change should append a dated ent
 
 ## 2026-10-09 — Deterministic mapping summary ordering
 - The subtype summary now uses explicit lexical key comparison rather than environment-dependent locale ordering; the test expects the stable order.
+
+
+## 2026-10-09 — Product Taxonomy bootstrap inventory (dry-run)
+
+- Added `scripts/audit-product-taxonomy-bootstrap.ts` to aggregate the Product Type/Subtype registry, catalog assignment coverage and the PKD Product Type candidate pool.
+- Report includes candidate status/category/source/review-flag distributions, normalized-name duplication, exact-name overlap with active Product Types, top subcategories and a deterministic high-confidence preview.
+- Added manual workflow `.github/workflows/product-taxonomy-bootstrap-inventory.yml`, which uses `NEON_PROD_DATABASE_URL` and uploads the full JSON report as a 14-day artifact.
+- This is the first registry-first bulk step: use aggregate evidence to build a broad reusable taxonomy rather than approving candidate rows one by one.
+- Safety: read-only; no registry writes, approvals, migrations or product assignments. Candidate counts are not reported as product coverage.
+- Verification: implementation committed to branch for CI/review; production workflow has not yet been run.

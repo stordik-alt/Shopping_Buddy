@@ -54,7 +54,8 @@
     "db:generate-pkd-candidates": "dotenv -e .env.local -- tsx scripts/generate-pkd-candidates.ts",
     "db:generate-pkd-mappings": "dotenv -e .env.local -- tsx scripts/generate-pkd-mappings.ts",
     "db:review-pkd-mapping": "dotenv -e .env.local -- tsx scripts/review-pkd-mapping.ts",
-    "db:backfill-pkd-mappings": "dotenv -e .env.local -- tsx scripts/backfill-pkd-mappings.ts"
+    "db:backfill-pkd-mappings": "dotenv -e .env.local -- tsx scripts/backfill-pkd-mappings.ts",
+    "db:audit-product-subtypes": "dotenv -e .env.local -- tsx scripts/audit-product-subtypes.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

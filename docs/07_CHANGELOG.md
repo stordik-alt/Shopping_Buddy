@@ -2061,4 +2061,5 @@ Every future architectural/schema/business-rule change should append a dated ent
 - **Added:** deterministic mapping candidates from reviewed legacy Product Type keys to a parent Product Type and registered Product Subtype.
 - **Safety:** only `rule`, `alias` and `pkd` provenance can be automatic candidates; manual/unknown provenance, category exceptions and existing assignments remain review-only.
 - **Tooling:** added `lib/product-subtype-mapping.ts`, regression tests and `pnpm db:audit-product-subtype-mapping`.
+- **Workflow:** added manual `.github/workflows/product-subtype-mapping-audit.yml` to run the mapping audit with `NEON_PROD_DATABASE_URL`.
 - **Scope:** read-only; no subtype rows were seeded and no products were changed.

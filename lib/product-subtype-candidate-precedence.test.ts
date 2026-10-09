@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { buildProductSubtypeMappings } from '@/lib/product-subtype-mapping'
+import type { ProductSubtypeAuditRow } from '@/lib/product-subtype-audit'
 
 type Candidate = {
   parentTypeKey: string
@@ -36,7 +38,30 @@ function resolvePriority<T extends string>(
   return null
 }
 
+const auditRow = (overrides: Partial<ProductSubtypeAuditRow> = {}): ProductSubtypeAuditRow => ({
+  id: 'draft-subtype-product',
+  name: 'Pivo světlé 500 ml',
+  category: 'Potraviny',
+  defaultUnit: 'ks',
+  productTypeKey: 'pivo-svetle-pivo',
+  productTypeName: 'Světlé pivo',
+  productTypeCategory: 'Potraviny',
+  productTypeUnit: 'l',
+  productTypeSource: 'rule',
+  productSubtypeKey: null,
+  productSubtypeName: null,
+  productSubtypeSource: null,
+  ...overrides,
+})
+
 describe('Product Subtype candidate precedence and overlap policy', () => {
+  it('keeps expansion proposals outside the production mapping registry until explicitly integrated', () => {
+    const [mapping] = buildProductSubtypeMappings([auditRow()])
+    expect(mapping.status).toBe('outside_registry')
+    expect(mapping.reasonCode).toBe('product_type_outside_registry')
+    expect(mapping.subtypeKey).toBeNull()
+    expect(mapping.parentTypeKey).toBeNull()
+  })
   it('keeps the 24 reviewed proposals present and uniquely identified by parent and name', () => {
     expect(candidates).toHaveLength(24)
     const keys = candidates.map((item) => `${item.parentTypeKey}:${item.name.normalize('NFKC').toLocaleLowerCase('cs-CZ')}`)

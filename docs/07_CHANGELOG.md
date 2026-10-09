@@ -2067,3 +2067,6 @@ Every future architectural/schema/business-rule change should append a dated ent
 ## 2026-10-09 — Product Subtype mapping test correction
 - Fixed the summary test to assert only subtypes present in the supplied mapping rows; the implementation intentionally omits zero-count subtypes.
 - No database changes.
+
+## 2026-10-09 — Deterministic mapping summary ordering
+- The subtype summary now uses explicit lexical key comparison rather than environment-dependent locale ordering; the test expects the stable order.

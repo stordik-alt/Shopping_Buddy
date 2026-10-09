@@ -708,3 +708,10 @@
 - Přidáváme pouze explicitní normalizovanou variantu `v ol oleji` odpovídající zkrácení `v ol.oleji`; žádné fuzzy domýšlení z pouhého slova „olivový“ nebo „olej“.
 - Regresní testy pokryjí varianty interpunkce, očekávanou klasifikaci tuňáka v oleji a negativní případy pro nejednoznačné zmínky o oleji a jiné druhy zboží.
 - Ověření PR #401: unit testy, typecheck, production build, databázové testy nad lokálním PostgreSQL, Playwright smoke testy, Cloudflare Worker build bez deploye, CodeQL a audit produkčních závislostí prošly. CI run [37936190944](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37936190944), security run [37936190917](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37936190917).
+
+
+## 2026-10-09 — Read-only simulace po zkráceném označení tuňáka
+
+- Simulace [37936816105](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37936816105) na `main` commitu `72e7db6e85f5e32dbb32a23e73337e88fd8434fc` prošla: 55 842 produktů v katalogu, 1 572 produktů v šesti cílových typech, 921 shod, 7 konfliktů/kontrol a 644 případů bez dostatečných důkazů.
+- Oproti běhu [37930358171](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37930358171) přibyly 2 shody a 2 případy přešly z nedostatečných důkazů do shody; počet konfliktů zůstal 7. Změna odpovídá explicitní normalizované frázi `v ol oleji` pro varianty `v ol.oleji` a `v ol. oleji`.
+- Job `simulate` byl úspěšný. Log potvrzuje režim `READ ONLY`, bez `INSERT/UPDATE/DELETE` a bez změn přiřazení. Nejsou schváleny žádné kandidátní poddruhy a nic nebylo zapsáno do katalogu.

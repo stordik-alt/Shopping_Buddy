@@ -114,7 +114,11 @@ describe('Product Taxonomy GPT-6 Luna classifier', () => {
 
     expect(classifier.id).toContain(PRODUCT_TAXONOMY_CLASSIFIER_MODEL)
     expect(generate).toHaveBeenCalledTimes(1)
-    expect(generate.mock.calls[0][0]).toMatchObject({ model: PRODUCT_TAXONOMY_CLASSIFIER_MODEL })
+    expect(generate).toHaveBeenCalledWith(expect.objectContaining({
+      model: PRODUCT_TAXONOMY_CLASSIFIER_MODEL,
+      output: expect.anything(),
+      providerOptions: { openai: { reasoningEffort: 'low' } },
+    }))
     expect(onUsage).toHaveBeenCalledWith({ inputTokens: 850, outputTokens: 140 })
     expect(result.status).toBe('classified')
   })

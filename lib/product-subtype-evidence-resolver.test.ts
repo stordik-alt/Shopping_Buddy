@@ -81,7 +81,7 @@ describe('resolveProductSubtypeEvidence', () => {
     expect(resolve({ productTypeKey: 'taveny-syr', productName: 'clever Toast tavený sýrový výrobek plátky 200g' }).proposedSubtypeKey).toBe('taveny-syr-platkovy')
     expect(resolve({ productTypeKey: 'taveny-syr', productName: 'Porcovaný plátkový tavený sýr' }).proposedSubtypeKey).toBe('taveny-syr-porcovany')
     expect(resolve({ productTypeKey: 'taveny-syr', productName: 'Roztíratelný tavený sýr' }).proposedSubtypeKey).toBe('taveny-syr-roztiratelny')
-    expect(resolve({ productTypeKey: 'taveny-syr', productName: 'Tavený sýr v porcích, 8 ks' }).decision).toBe('no_match')
+    expect(resolve({ productTypeKey: 'taveny-syr', productName: 'Tavený sýr v porcích, 8 ks' }).proposedSubtypeKey).toBe('taveny-syr-ostatni')
     expect(resolve({ productTypeKey: 'taveny-syr', productName: 'Apetito Smetanové 3 ks 150g' }).proposedSubtypeKey).toBe('taveny-syr-ostatni')
   })
 

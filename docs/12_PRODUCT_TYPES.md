@@ -129,7 +129,7 @@ every rule change is measured on it, so fixing one type cannot silently break an
 | 3 | Type/group picker on the shopping list | **done 2026-10-04** (see below) |
 | 4 | Receipts and list ticking by type; receipt abbreviation dictionary; learning from corrections | **done 2026-10-04** (see below) |
 | 5 | Wider coverage (109 types); optionally a model choosing from the closed list of types for the long tail, once per product, validated — **only after an explicit owner approval** (CLAUDE.md section 30) | coverage **done 2026-10-04**; model **not built** |
-| 6 | Registry-first Product Subtype hierarchy: optional parented subtypes and constrained product assignments | **schema foundation done 2026-10-09**; reviewed registry and assignments not yet built |
+| 6 | Registry-first Product Subtype hierarchy: optional parented subtypes and constrained product assignments | **schema foundation + candidate registry done 2026-10-09**; active seed and assignments not yet built |
 
 ### Phase 1 as implemented (2026-10-04)
 
@@ -713,3 +713,15 @@ Konkrétní v5 implementace zůstává historickou informací v Git historii, al
 - Regression test: `lib/db/product-subtypes.test.ts` checks a valid parent/subtype pair, a mismatched parent and a missing parent.
 - **Not included yet:** no subtype seed registry, no product backfill, and no UI/API assignment flow. The next step is to create a reviewed starter registry and audit how specific existing Product Types (for example fat-percentage milk types) map under a general `Mléko` identity. The existing `Mléko` group must be reconciled deliberately so the UI does not expose duplicate or contradictory meanings.
 - Verification: GitHub Actions CI passed on application-code commit `3a1849bc6cf6cec7bfeaad80f8559f24a4124b4c`, including the new database regression test against isolated local PostgreSQL; typecheck, production build, Playwright smoke tests, Cloudflare build and security audit also passed. The migration has not been applied to production and no production data has been changed.
+
+
+### 7.13 Controlled starter registry proposal — 2026-10-09
+
+- Added `lib/product-subtype-registry.ts` as a versioned, review-controlled candidate registry (`2026-10-v1`). It links seven current umbrella groups to proposed general Product Type parents and maps every current group member to one proposed child subtype.
+- **Mléko mapping:** the existing group key `mleko` is proposed as the general parent. The current types `mleko-polotucne`, `mleko-plnotucne` and `mleko-bez-laktozy` are proposed as `Polotučné mléko`, `Plnotučné mléko` and `Bezlaktózové mléko`. The subtype keys intentionally reuse the legacy type keys so a later transition can be audited and matched exactly.
+- **Other initial candidates:** `Sýr` → Eidam/Gouda/Mozzarella/Balkánský sýr; `Mouka` → hladká/polohrubá/hrubá; `Cukr` → krupice a krystal/moučkový cukr; `Olej` → slunečnicový/řepkový/olivový; `Voda` → neperlivá/perlivá; `Káva` → mletá/zrnková.
+- Every parent and subtype is currently marked `candidate`. The registry is not imported by runtime classification or database seed code. No new Product Type or subtype rows have been seeded, and no existing product assignments or groups have been changed.
+- `Smetana` is deliberately excluded from this initial parent set because its current child types use both `kg` and `l`, while the legacy Product Type model requires one comparison unit per parent. It must wait for a unit-safe model; the same principle applies to any future parent with mixed quantity dimensions.
+- The single subtype field represents one primary classification, not several overlapping facets. Milk freshness (fresh/UHT), fat content and lactose status can overlap; this first candidate mapping preserves the existing type distinctions one-to-one and does not pretend to encode every facet at once. Additional orthogonal attributes should remain in the knowledge/attribute layer until explicitly modeled.
+- The registry's validation checks unique keys, every parent-to-legacy-group reference, exact coverage of group members, existing legacy types, category/unit consistency, and that proposed parents do not accidentally collide with active Product Type keys. Unit tests are in `lib/product-subtype-registry.test.ts`.
+- **Next gated step:** implement a dry-run that reports affected product counts and manual/rule/alias provenance, then adapt planner, picker, receipt matching and reports to resolve a general parent through its children. Only after these checks and explicit review may a separate migration create active parent/subtype rows and reassign eligible rule-made products. Manual assignments and the current groups must not be rewritten implicitly.

@@ -714,4 +714,5 @@
 
 - Simulace [37936816105](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37936816105) na `main` commitu `72e7db6e85f5e32dbb32a23e73337e88fd8434fc` prošla: 55 842 produktů v katalogu, 1 572 produktů v šesti cílových typech, 921 shod, 7 konfliktů/kontrol a 644 případů bez dostatečných důkazů.
 - Oproti běhu [37930358171](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37930358171) přibyly 2 shody a 2 případy přešly z nedostatečných důkazů do shody; počet konfliktů zůstal 7. Změna odpovídá explicitní normalizované frázi `v ol oleji` pro varianty `v ol.oleji` a `v ol. oleji`.
+- Kontrola detailních záznamů: obě nové shody jsou očekávané konzervy tuňáka — `Rio Mare Tuňák v ol.oleji` a `X_BILLA TUNAK V OL.OLEJI 3X80 G`. Oba záznamy jsou v typu `tunak-konzerva` a pravidlo se opírá o explicitní normalizovanou frázi `v ol oleji`; kontrolní případ těstovin s touto frází zůstává bez shody.
 - Job `simulate` byl úspěšný. Log potvrzuje režim `READ ONLY`, bez `INSERT/UPDATE/DELETE` a bez změn přiřazení. Nejsou schváleny žádné kandidátní poddruhy a nic nebylo zapsáno do katalogu.

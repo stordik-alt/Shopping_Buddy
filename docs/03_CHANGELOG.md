@@ -1,3 +1,12 @@
+## 2026-10-09 — Aktualizace pravidel Product Subtype podle rozhodnutí uživatele
+- Pivo se klasifikuje pouze na alkoholické a nealkoholické; barva se už jako poddruh nepoužívá.
+- Těstoviny: doplněn poddruh Ostatní, názvy tvarů a vyloučení hotových jídel a směsí. Fleky a orzo patří mezi krátké tvarované, hnízda mezi dlouhé těstoviny.
+- Tvaroh má jediný poddruh Tvaroh bez rozlišení konzistence, tuku a ochucení. Tvarohové jogurty a pomazánky včetně Mlsni.si tvaroh Pikao jsou vyloučeny.
+- Rýže: doplněna Rýže na sushi a Ostatní; obecná loupaná rýže bez dalších důkazů spadá do Ostatní. Ryzec smrkový/borový je vyloučen jako houba.
+- Tavený sýr: doplněn poddruh Ostatní a obecné zařazení značek Apetito a Veselá kráva bez domýšlení formy.
+- Tuňák: sjednoceny tvary „v/ve … oleji“ a vyloučeny pomazánky, saláty a hotová jídla.
+- Doplněny regresní testy. Bez databázových zápisů, schvalování registru nebo přiřazování produktů.
+
 ## 2026-10-09 — Ověření CI a bezpečnostní hranice Product Subtype
 - CI pro PR #397 úspěšně dokončilo unit testy/typecheck/production build, databázové testy nad lokálním PostgreSQL, Playwright smoke testy a Cloudflare Worker build bez deploye; bezpečnostní audit závislostí a CodeQL také prošly.
 - Ingest DRY RUN [37914167628](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37914167628) na commitu `fae9f2f` úspěšně zpracoval 24 vstupů, 24 deduplikovaných kandidátů a 0 chyb. Všech 24 mělo stav `would_insert_or_merge`; nebyl proveden databázový zápis.

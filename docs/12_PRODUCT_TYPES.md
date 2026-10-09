@@ -1,5 +1,5 @@
 ## 2026-10-09 — Aktuální pravidla resolveru Product Subtype
-- **Pivo:** pouze „Alkoholické pivo“ a „Nealkoholické pivo“; barva není poddruh. Resolver vyžaduje explicitní označení alkoholu.
+- **Pivo:** pouze „Alkoholické pivo“ a „Nealkoholické pivo“; barva není poddruh. Výchozí je „Alkoholické pivo“, pokud důkazy výslovně neuvádějí nealkoholické/nealko/bez alkoholu nebo obsah alkoholu 0 %.
 - **Těstoviny:** známé tvary plus „Ostatní“ pro obecně označené skutečné těstoviny. Fleky a orzo jsou krátké tvarované, hnízda dlouhé. Hotová jídla a směsi se vylučují.
 - **Rýže:** přidána „Rýže na sushi“ a „Ostatní“. „Rýže loupaná“ bez dalších důkazů spadá do Ostatní. Ryzec smrkový/borový je houba, nikoli rýže.
 - **Tvaroh:** jediný poddruh „Tvaroh“ bez rozlišení konzistence, tuku či ochucení. Tvarohové jogurty, pomazánky a výrobky typu Mlsni.si tvaroh Pikao jsou vyloučeny.

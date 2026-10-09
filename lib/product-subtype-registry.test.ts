@@ -21,7 +21,7 @@ describe('controlled Product Subtype proposal registry', () => {
       expect(proposals.map((entry) => entry.legacyProductTypeKey).sort()).toEqual([...group.types].sort())
     }
 
-    expect(PRODUCT_SUBTYPE_PROPOSALS).toHaveLength(22)
+    expect(PRODUCT_SUBTYPE_PROPOSALS).toHaveLength(19)
   })
 
   it('keeps every proposal in review-only state and outside active Product Type rules', () => {

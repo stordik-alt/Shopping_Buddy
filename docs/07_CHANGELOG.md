@@ -2039,3 +2039,8 @@ Every future architectural/schema/business-rule change should append a dated ent
 - **Output:** current Product Type coverage, `rule/manual/alias/unknown` provenance, registry-outside types, unassigned products, existing subtype assignments and possible category/unit divergence; candidate and manual-review counts are separated.
 - **Tests:** pure audit regression coverage added in `lib/product-subtype-audit.test.ts`.
 - **Known limitation:** the audit has not been run against production in this change; the next step is to execute the manual workflow and review the resulting counts before any backfill.
+
+## 2026-10-09 — Product Subtype audit candidate safety fix
+- **Fixed:** provenance audit candidates are now limited to `rule`, `alias` and future `pkd` assignments.
+- **Safety:** `unknown` provenance and `manual` assignments remain review-only; existing subtype assignments are excluded from migration candidates.
+- **Verification:** regression test confirms the unknown-provenance row is not counted as an eligible candidate.

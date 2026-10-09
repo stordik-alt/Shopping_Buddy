@@ -6,18 +6,53 @@ import { normalizeProductText } from '@/lib/product-normalize'
 
 const OUTPUT_PATH = '.tmp/product-taxonomy-bootstrap-report.json'
 const PREVIEW_LIMIT = 200
+const NAME_MIN_LENGTH = 3
 
 type CandidateEvidence = Record<string, unknown>
+
+function cmp(a: string, b: string): number { return a < b ? -1 : a > b ? 1 : 0 }
 
 function countValues(values: string[]): Record<string, number> {
   const counts: Record<string, number> = {}
   for (const value of values) counts[value] = (counts[value] ?? 0) + 1
-  return Object.fromEntries(Object.entries(counts).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0))
+  return Object.fromEntries(Object.entries(counts).sort(([a], [b]) => cmp(a, b)))
+}
+
+function strings(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
+}
+
+function candidateSource(row: { candidateVersion: string; evidence: CandidateEvidence; sourceEntryIds: string[] }): string {
+  const recordedKinds = strings(row.evidence.sourceKinds)
+  if (recordedKinds.length) return recordedKinds.sort(cmp).join('+')
+  const refKinds = strings(row.evidence.referenceSourceKinds)
+  if (refKinds.length) return refKinds.sort(cmp).join('+')
+  const versions = row.candidateVersion.toLowerCase()
+  if (versions.includes('off')) return 'open_food_facts_legacy_candidate'
+  if (versions.includes('gpc') || versions.includes('gs1')) return 'gs1_gpc_legacy_candidate'
+  if (versions.includes('cpa')) return 'cz_cpa_legacy_candidate'
+  if (versions.includes('seed')) return 'seed_or_manual_legacy_candidate'
+  if (row.sourceEntryIds.length > 0) return 'mixed_or_legacy_pkd_candidate'
+  return 'unknown_source'
+}
+
+function nameRisk(name: string, language: string): string[] {
+  const flags: string[] = []
+  const normalized = normalizeProductText(name)
+  if (language !== 'cs') flags.push('not_czech')
+  if (normalized.length < NAME_MIN_LENGTH) flags.push('too_short_after_normalization')
+  if (/https?:\/\/|www\./i.test(name)) flags.push('contains_url')
+  if (/[.!?;:]$/.test(name.trim()) || /\b(defined as|indicates|any products that|characteristics of|service[s]? for)\b/i.test(name)) flags.push('looks_like_definition_or_service')
+  if (/\b(sluzb|služb|vyzkum|výzkum|organizac|instituc|podporne sluzby|lov a odchyt)\w*/i.test(normalized)) flags.push('possible_service_or_activity')
+  if (/\b(ostatni|ostatni vyrobky|products?)\b/i.test(normalized)) flags.push('generic_or_noncanonical_label')
+  if (/\b(pack|packy|sada|set|multipack)\b/i.test(normalized)) flags.push('possible_bundle_or_package')
+  if (/\b(thc|cbd|cannabis)\b/i.test(normalized)) flags.push('regulated_or_specialty_term_review')
+  return [...new Set(flags)].sort(cmp)
 }
 
 async function main() {
   const db = getDb()
-  const [candidateRows, typeRows, subtypeRows, productTotals] = await Promise.all([
+  const [candidateRows, typeRows, subtypeRows, productTotals, candidateSourceRows] = await Promise.all([
     db.select({
       id: schema.pkdProductTypeCandidates.id,
       candidateKey: schema.pkdProductTypeCandidates.candidateKey,
@@ -50,62 +85,100 @@ async function main() {
       withType: sql<number>`count(*) filter (where ${schema.products.productTypeId} is not null)::int`,
       withoutType: sql<number>`count(*) filter (where ${schema.products.productTypeId} is null)::int`,
     }).from(schema.products),
+    db.select({
+      id: schema.pkdProductTypeCandidates.id,
+      candidateVersion: schema.pkdProductTypeCandidates.candidateVersion,
+      language: schema.pkdProductTypeCandidates.language,
+      evidence: schema.pkdProductTypeCandidates.evidence,
+      sourceEntryIds: schema.pkdProductTypeCandidates.sourceEntryIds,
+    }).from(schema.pkdProductTypeCandidates),
   ])
 
-  const activeTypes = new Set(typeRows.map((row) => normalizeProductText(row.name)).filter(Boolean))
+  const existingTypeNames = new Set(typeRows.map((row) => normalizeProductText(row.name)).filter(Boolean))
   const statusCounts = countValues(candidateRows.map((row) => row.status))
   const categoryCounts = countValues(candidateRows.map((row) => row.category ?? '(bez kategorie)'))
-  const sourceKinds: string[] = []
-  const reviewFlags: string[] = []
+  const languageCounts = countValues(candidateRows.map((row) => row.language || '(jazyk neuveden)'))
+  const sourceCounts = countValues(candidateRows.map((row) => candidateSource(row)))
+  const reviewFlagCounts: string[] = []
   const subcategoryCounts: Record<string, number> = {}
-  const normalizedNameCounts = new Map<string, number>()
+  const candidateKeyCounts = new Map<string, number>()
+  const duplicateNormalizedRows = new Map<string, number>()
   const exactTypeMatches: string[] = []
-
-  for (const row of candidateRows) {
+  const scored = candidateRows.map((row) => {
     const evidence = (row.evidence ?? {}) as CandidateEvidence
-    const sources = Array.isArray(evidence.sourceKinds) ? evidence.sourceKinds.filter((v): v is string => typeof v === 'string') : []
-    const flags = Array.isArray(evidence.reviewFlags) ? evidence.reviewFlags.filter((v): v is string => typeof v === 'string') : []
-    sourceKinds.push(...(sources.length ? sources : ['(zdroj neuveden)']))
-    reviewFlags.push(...flags)
+    const source = candidateSource({ candidateVersion: row.candidateVersion, evidence, sourceEntryIds: row.sourceEntryIds })
+    const flags = nameRisk(row.canonicalName, row.language)
+    for (const flag of flags) reviewFlagCounts.push(flag)
     const subcategory = row.subcategory?.trim() || '(bez podkategorie)'
     subcategoryCounts[subcategory] = (subcategoryCounts[subcategory] ?? 0) + 1
     const normalized = normalizeProductText(row.normalizedName || row.canonicalName)
-    if (normalized) normalizedNameCounts.set(normalized, (normalizedNameCounts.get(normalized) ?? 0) + 1)
-    if (normalized && activeTypes.has(normalized)) exactTypeMatches.push(row.id)
-  }
+    if (normalized) duplicateNormalizedRows.set(normalized, (duplicateNormalizedRows.get(normalized) ?? 0) + 1)
+    candidateKeyCounts.set(row.candidateKey, (candidateKeyCounts.get(row.candidateKey) ?? 0) + 1)
+    const match = Boolean(normalized && existingTypeNames.has(normalized))
+    if (match) exactTypeMatches.push(row.id)
+    const flagsForMapping = [...flags]
+    if (row.language !== 'cs') flagsForMapping.push('not_eligible_for_czech_registry')
+    if (!row.category) flagsForMapping.push('missing_category')
+    if (!row.subcategory) flagsForMapping.push('missing_subcategory')
+    const confidence = row.confidence === null ? null : Number(row.confidence)
+    // The stored confidence is a source-engine score, not a product-type suitability score.
+    // Never let it rank English definitions or service/attribute labels above actual Czech goods.
+    const suitableForReview = row.language === 'cs'
+      && Boolean(normalized && normalized.length >= NAME_MIN_LENGTH)
+      && !flags.some((flag) => [
+        'not_czech',
+        'too_short_after_normalization',
+        'contains_url',
+        'looks_like_definition_or_service',
+        'possible_service_or_activity',
+      ].includes(flag))
+    return { row, source, flags: flagsForMapping, normalized, match, confidence, suitableForReview }
+  })
 
-  const preview = [...candidateRows]
-    .sort((a, b) => Number(b.confidence ?? 0) - Number(a.confidence ?? 0)
-      || b.sourceEntryIds.length - a.sourceEntryIds.length
-      || (a.candidateKey < b.candidateKey ? -1 : a.candidateKey > b.candidateKey ? 1 : 0))
-    .slice(0, PREVIEW_LIMIT)
-    .map((row) => {
-      const evidence = (row.evidence ?? {}) as CandidateEvidence
-      return {
-        id: row.id,
-        candidateKey: row.candidateKey,
-        name: row.canonicalName,
-        normalizedName: row.normalizedName,
-        language: row.language,
-        category: row.category,
-        subcategory: row.subcategory,
-        confidence: row.confidence === null ? null : Number(row.confidence),
-        status: row.status,
-        candidateVersion: row.candidateVersion,
-        sourceEntryCount: row.sourceEntryIds.length,
-        sourceKinds: Array.isArray(evidence.sourceKinds) ? evidence.sourceKinds : [],
-        reviewFlags: Array.isArray(evidence.reviewFlags) ? evidence.reviewFlags : [],
-      }
+  const preview = scored
+    .filter((item) => item.suitableForReview && !item.match && item.row.status === 'candidate')
+    .sort((a, b) => {
+      const confidenceDelta = (b.confidence ?? 0) - (a.confidence ?? 0)
+      if (confidenceDelta) return confidenceDelta
+      if (b.row.sourceEntryIds.length !== a.row.sourceEntryIds.length) return b.row.sourceEntryIds.length - a.row.sourceEntryIds.length
+      return cmp(a.row.candidateKey, b.row.candidateKey)
     })
+    .slice(0, PREVIEW_LIMIT)
+    .map(({ row, source, flags, normalized, match, confidence, suitableForReview }) => ({
+      id: row.id,
+      candidateKey: row.candidateKey,
+      name: row.canonicalName,
+      normalizedName: normalized,
+      language: row.language,
+      category: row.category,
+      subcategory: row.subcategory,
+      confidence,
+      status: row.status,
+      candidateVersion: row.candidateVersion,
+      sourceEntryCount: row.sourceEntryIds.length,
+      source,
+      reviewFlags: flags,
+      exactMatchToExistingType: match,
+      suitableForReview,
+    }))
+
+  const duplicateGroups = [...duplicateNormalizedRows.entries()]
+    .filter(([, count]) => count > 1)
+    .sort((a, b) => b[1] - a[1] || cmp(a[0], b[0]))
+    .slice(0, 200)
+    .map(([normalizedName, rows]) => ({ normalizedName, rows }))
 
   const summary = {
     generatedAt: new Date().toISOString(),
     mode: 'read-only-dry-run',
-    policy: 'No database writes. Candidate rows are evidence, not approved Product Types or Subtypes.',
+    policy: 'No database writes. Candidate rows are evidence, not approved Product Types or Subtypes. Source confidence is not suitability confidence.',
     catalog: {
       products: Number(productTotals[0]?.total ?? 0),
       productsWithProductType: Number(productTotals[0]?.withType ?? 0),
       productsWithoutProductType: Number(productTotals[0]?.withoutType ?? 0),
+      productTypeCoveragePercent: Number(productTotals[0]?.total ?? 0)
+        ? Number(((Number(productTotals[0]?.withType ?? 0) / Number(productTotals[0]?.total ?? 1)) * 100).toFixed(2))
+        : 0,
     },
     registry: {
       productTypes: typeRows.length,
@@ -115,26 +188,39 @@ async function main() {
     },
     candidatePool: {
       rows: candidateRows.length,
-      distinctNormalizedNames: normalizedNameCounts.size,
-      duplicateNormalizedNameRows: candidateRows.length - normalizedNameCounts.size,
+      distinctNormalizedNames: duplicateNormalizedRows.size,
+      duplicateNormalizedNameRows: candidateRows.length - duplicateNormalizedRows.size,
+      duplicateNormalizedNameGroups: [...duplicateNormalizedRows.values()].filter((count) => count > 1).length,
+      topDuplicateGroups: duplicateGroups,
       exactNameMatchesToExistingProductTypes: exactTypeMatches.length,
       byStatus: statusCounts,
       byCategory: categoryCounts,
-      bySourceKind: countValues(sourceKinds),
-      byReviewFlag: countValues(reviewFlags),
+      byLanguage: languageCounts,
+      bySource: sourceCounts,
+      byReviewFlag: countValues(reviewFlagCounts),
       topSubcategories: Object.entries(subcategoryCounts)
-        .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
+        .sort((a, b) => b[1] - a[1] || cmp(a[0], b[0]))
         .slice(0, 100)
         .map(([subcategory, count]) => ({ subcategory, count })),
+      suitableCzechCandidatePreviewCount: preview.length,
+      previewCriteria: 'Czech label, at least 3 normalized characters, no obvious definition/service/activity label, not an exact existing Product Type name; human registry review is still required.',
     },
-    highestConfidencePreview: preview,
+    suitableCzechCandidatePreview: preview,
+    rawCandidateSourceMetadata: {
+      note: 'The candidate table does not retain a dedicated source-kind column. Source is inferred conservatively from evidence and candidateVersion; legacy rows with missing evidence remain unknown/mixed and must not be auto-approved.',
+      sourceKindsAvailableInEvidence: countValues(candidateSourceRows.flatMap((row) => strings((row.evidence as CandidateEvidence | null)?.sourceKinds))),
+    },
   }
 
   fs.mkdirSync('.tmp', { recursive: true })
   fs.writeFileSync(OUTPUT_PATH, JSON.stringify(summary, null, 2) + '\n', 'utf8')
   console.log(JSON.stringify({
     ...summary,
-    highestConfidencePreview: preview.slice(0, 30),
+    candidatePool: {
+      ...summary.candidatePool,
+      topDuplicateGroups: duplicateGroups.slice(0, 30),
+    },
+    suitableCzechCandidatePreview: preview.slice(0, 30),
     fullReport: OUTPUT_PATH,
   }, null, 2))
   console.log('\nREAD ONLY: no database writes, approvals, subtype creation, or product assignments.')

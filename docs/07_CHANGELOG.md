@@ -2080,3 +2080,11 @@ Every future architectural/schema/business-rule change should append a dated ent
 - This is the first registry-first bulk step: use aggregate evidence to build a broad reusable taxonomy rather than approving candidate rows one by one.
 - Safety: read-only; no registry writes, approvals, migrations or product assignments. Candidate counts are not reported as product coverage.
 - Verification: implementation committed to branch for CI/review; production workflow has not yet been run.
+
+
+## 2026-10-09 — Correct taxonomy bootstrap suitability audit
+
+- Production dry-run [37950754405](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37950754405) succeeded technically but showed the candidate table contains 40,853 rows with no category, subcategory or embedded source-kind metadata in the legacy candidate pool; only 27 exact normalized names overlap existing Product Types. There are 40,728 distinct normalized names (125 duplicate rows).
+- The first confidence preview ranked English definitions, services and other non-retail taxonomy strings because candidate-engine confidence measures source evidence, not Product Type suitability.
+- Fixed the audit to split by language, infer candidate source conservatively from persisted evidence/version, flag obviously unsuitable definitions/services, and preview only Czech candidates not exactly represented by current Product Types. Added coverage percentage and duplicate groups.
+- No production data writes or taxonomy assignments; this is a read-only report correction.

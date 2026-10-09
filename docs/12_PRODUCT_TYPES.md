@@ -783,6 +783,7 @@ The next migration gate is explicit: **legacy Product Type → proposed parent P
 - `manual`, `unknown`, category exceptions and existing subtype assignments remain outside the automatic candidate set and require review.
 - Product Types outside the starter registry remain unchanged.
 - Runner: `pnpm db:audit-product-subtype-mapping`; it is read-only and has no `--apply` mode.
+- Manual GitHub Actions entry point: `.github/workflows/product-subtype-mapping-audit.yml`; it runs `scripts/audit-product-subtype-mapping.ts` with `NEON_PROD_DATABASE_URL`.
 - The runner reports totals, counts by subtype and concrete review items.
 
 This step does **not** seed the registry or modify `products.product_subtype_id`.

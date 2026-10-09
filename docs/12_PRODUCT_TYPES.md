@@ -701,6 +701,7 @@ Konkrétní v5 implementace zůstává historickou informací v Git historii, al
 
 - Added `product_subtypes` as a reusable classification layer under exactly one existing `product_types` row. Each subtype has a stable key, display name, optional description, ordering and an active flag; the same subtype name cannot be duplicated under the same parent.
 - Added nullable `products.product_subtype_id`. Existing products retain their current `product_type_id`; the migration performs no backfill and creates no subtype rows.
+- Added `products.product_subtype_source` with explicit `rule`, `manual`, `alias` or `pkd` provenance. Database constraints require the source and subtype ID to be present or absent together and reject unknown sources; this preserves the ability to protect manual choices during future reclassification.
 - A composite foreign key validates `(products.product_type_id, products.product_subtype_id)` against the subtype's actual parent. A separate check rejects a subtype without a Product Type. This prevents accidental cross-parent assignment and preserves `unknown` / unclassified states.
 - Migration: `0084_product_subtypes.sql`. The migration is additive and written to tolerate a partial retry. Existing catalog rows and manual/rule/alias Product Type assignments are not rewritten.
 - Regression test: `lib/db/product-subtypes.test.ts` checks a valid parent/subtype pair, a mismatched parent and a missing parent.

@@ -10,18 +10,20 @@ CREATE TABLE IF NOT EXISTS "product_subtype_candidates" (
   "definition" text NOT NULL DEFAULT '',
   "includes" jsonb NOT NULL DEFAULT '[]'::jsonb,
   "excludes" jsonb NOT NULL DEFAULT '[]'::jsonb,
-  "source_type" text NOT NULL CHECK ("source_type" IN ('retailer', 'gs1_gpc', 'open_food_facts', 'cz_cpa', 'ocr', 'manual')),
+  "source_type" text NOT NULL,
   "source_name" text NOT NULL,
   "source_version" text,
   "source_record_ids" jsonb NOT NULL DEFAULT '[]'::jsonb,
   "evidence" jsonb NOT NULL DEFAULT '{}'::jsonb,
-  "status" text NOT NULL DEFAULT 'candidate' CHECK ("status" IN ('candidate', 'approved', 'rejected', 'duplicate')),
+  "status" text NOT NULL DEFAULT 'candidate',
   "review_note" text,
   "duplicate_of_subtype_id" uuid REFERENCES "product_subtypes"("id") ON DELETE RESTRICT,
   "approved_subtype_id" uuid REFERENCES "product_subtypes"("id") ON DELETE RESTRICT,
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT "product_subtype_candidates_parent_normalized_name_unique" UNIQUE ("parent_product_type_key", "normalized_name")
+  CONSTRAINT "product_subtype_candidates_parent_normalized_name_unique" UNIQUE ("parent_product_type_key", "normalized_name"),
+  CONSTRAINT "product_subtype_candidates_source_type_valid" CHECK ("source_type" IN ('retailer', 'gs1_gpc', 'open_food_facts', 'cz_cpa', 'ocr', 'manual')),
+  CONSTRAINT "product_subtype_candidates_status_valid" CHECK ("status" IN ('candidate', 'approved', 'rejected', 'duplicate'))
 );
 --> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "product_subtype_candidates_status_created_idx" ON "product_subtype_candidates" ("status", "created_at");

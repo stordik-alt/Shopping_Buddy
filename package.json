@@ -58,7 +58,8 @@
     "db:audit-product-subtypes": "dotenv -e .env.local -- tsx scripts/audit-product-subtypes.ts",
     "db:audit-product-subtype-mapping": "dotenv -e .env.local -- tsx scripts/audit-product-subtype-mapping.ts",
     "db:simulate-product-subtype-expansion": "dotenv -e .env.local -- tsx scripts/simulate-product-subtype-expansion.ts",
-    "db:product-subtype-candidates": "dotenv -e .env.local -- tsx scripts/manage-product-subtype-candidates.ts"
+    "db:product-subtype-candidates": "dotenv -e .env.local -- tsx scripts/manage-product-subtype-candidates.ts",
+    "db:pilot-product-taxonomy-luna": "dotenv -e .env.local -- tsx scripts/pilot-product-taxonomy-luna.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

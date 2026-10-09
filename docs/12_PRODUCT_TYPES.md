@@ -858,3 +858,17 @@ Doporučený tok:
 `data řetězce → normalizace produktu → identifikace Product Type → párování na existující poddruh → pokud chybí, kandidát nového poddruhu → kontrola hranic a deduplikace → schválení → opakované mapování produktů`.
 
 Tato změna stanovuje požadované chování registru; sama o sobě nepřidává nové produkční poddruhy, nemění katalogové produkty a nespouští import dat řetězců.
+
+### 7.24 Implementovaná fronta návrhů poddruhů — 2026-10-09
+
+První bezpečná implementace je připravena v branchi `feat/product-subtype-candidate-workflow`:
+
+- Migration `0085_product_subtype_candidates.sql` a Drizzle model `product_subtype_candidates` ukládají návrhy odděleně od aktivního registru. Návrh obsahuje stabilní kandidátní klíč, nadřazený Product Type, normalizovaný název, definici, hranice `includes/excludes`, zdroj/verzi, zdrojové identifikátory a důkazy.
+- `lib/product-subtype-candidates.ts` normalizuje české názvy, vytváří deterministický klíč a slučuje ekvivalentní návrhy jen v rámci stejného nadřazeného typu. Důkazy a ID zdrojových záznamů se zachovávají.
+- Návrh lze uložit i tehdy, když nadřazený Product Type ještě nemá databázový řádek; jeho stabilní klíč se uchová jako text. Schválení je blokováno, dokud nadřazený typ neexistuje v aktivním registru. Tím lze sbírat návrhy paralelně s revizí nadřazených typů.
+- `scripts/manage-product-subtype-candidates.ts` poskytuje `list`, `ingest`, `approve` a `reject`. Ingest je standardně DRY RUN; zápis vyžaduje explicitní `--apply`. Schválení vyžaduje definici (min. 20 znaků), alespoň jednu hranici/příklad pro zahrnutí a jednu pro vyloučení.
+- Při schválení se vytvoří aktivní poddruh pod existujícím Product Type. Pokud pod stejným typem již existuje ekvivalentní název, kandidát se označí jako duplicita. Konflikty klíče se nezakrývají automatickým přejmenováním.
+- Schválení poddruhu **nepřiřazuje ani nepřepisuje existující produkty**. Zamítnuté a již rozhodnuté návrhy se opakovaným importem znovu neotevřou.
+- Dostupné zdroje kandidátů: retailer, GS1 GPC, Open Food Facts, CZ-CPA, OCR a ruční návrh. Feed adapter konkrétního řetězce zatím není součástí této změny; normalizovaný JSON lze použít jako vstup.
+- CLI: `pnpm db:product-subtype-candidates -- list`, `... -- ingest --input ./subtype-candidates.json`, `... -- ingest --input ./subtype-candidates.json --apply`, `... -- approve --key <candidate-key>`, `... -- reject --key <candidate-key> --reason "..."`. Ukázkový vstup: `docs/examples/product-subtype-candidates.example.json` (syntetická data, neimportovat jako skutečný feed).
+- Ověření: přidány unit testy pro normalizaci, deduplikaci, oddělení podle rodičovského typu a schvalovací bránu. CI/testy ani migrace proti produkční databázi z tohoto kroku nebyly spuštěny; žádné produkční záznamy nebyly vloženy.

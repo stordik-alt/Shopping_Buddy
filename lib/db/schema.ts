@@ -219,6 +219,37 @@ export const productSubtypes = pgTable('product_subtypes', {
   index('product_subtypes_product_type_active_sort_idx').on(table.productTypeId, table.isActive, table.sortOrder, table.name),
 ])
 
+// Unapproved proposals discovered from retailer feeds and external taxonomies. Candidates do not
+// participate in product classification until reviewed and explicitly approved.
+export const productSubtypeCandidates = pgTable('product_subtype_candidates', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  parentProductTypeKey: text('parent_product_type_key').notNull(),
+  parentProductTypeId: uuid('parent_product_type_id').references(() => productTypes.id, { onDelete: 'restrict' }),
+  candidateKey: text('candidate_key').notNull().unique(),
+  name: text('name').notNull(),
+  normalizedName: text('normalized_name').notNull(),
+  definition: text('definition').notNull().default(''),
+  includes: jsonb('includes').$type<string[]>().notNull().default([]),
+  excludes: jsonb('excludes').$type<string[]>().notNull().default([]),
+  sourceType: text('source_type').notNull(),
+  sourceName: text('source_name').notNull(),
+  sourceVersion: text('source_version'),
+  sourceRecordIds: jsonb('source_record_ids').$type<string[]>().notNull().default([]),
+  evidence: jsonb('evidence').$type<Record<string, unknown>>().notNull().default({}),
+  status: text('status').notNull().default('candidate'),
+  reviewNote: text('review_note'),
+  duplicateOfSubtypeId: uuid('duplicate_of_subtype_id').references(() => productSubtypes.id, { onDelete: 'restrict' }),
+  approvedSubtypeId: uuid('approved_subtype_id').references(() => productSubtypes.id, { onDelete: 'restrict' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('product_subtype_candidates_parent_normalized_name_unique').on(table.parentProductTypeKey, table.normalizedName),
+  index('product_subtype_candidates_status_created_idx').on(table.status, table.createdAt),
+  index('product_subtype_candidates_parent_status_idx').on(table.parentProductTypeKey, table.status),
+  check('product_subtype_candidates_source_type_valid', sql`${table.sourceType} IN ('retailer', 'gs1_gpc', 'open_food_facts', 'cz_cpa', 'ocr', 'manual')`),
+  check('product_subtype_candidates_status_valid', sql`${table.status} IN ('candidate', 'approved', 'rejected', 'duplicate')`),
+])
+
 // Product Knowledge Dictionary (PKD): normalized knowledge about a product type, independent of
 // retailer SKU/package identity. External source rows are versioned and mapped explicitly; they never
 // become application Product Types automatically.

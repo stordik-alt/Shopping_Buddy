@@ -1,0 +1,25 @@
+[
+  {
+    "parentTypeKey": "voda",
+    "name": "Voda s příchutí melounu",
+    "definition": "Pitná voda s přidanou melounovou příchutí, prodávaná jako hotový nápoj.",
+    "includes": [
+      "voda s melounovou příchutí připravená k přímému pití"
+    ],
+    "excludes": [
+      "sirup určený k ředění",
+      "nealkoholický nápoj, jehož základem není voda"
+    ],
+    "sourceType": "retailer",
+    "sourceName": "Ukázkový feed — nepoužívat jako skutečná data",
+    "sourceVersion": "example-v1",
+    "sourceRecordIds": [
+      "example-sku-001"
+    ],
+    "evidence": {
+      "retailerProductName": "Ukázková voda s příchutí melounu",
+      "ean": null,
+      "retailerCategory": "Vody"
+    }
+  }
+]

@@ -839,3 +839,22 @@ Interpretation of products not listed as automatic candidates:
 - Manual/unknown provenance and category mismatches require review rather than automatic mapping.
 - Products whose Product Types are outside the seven starter families (Káva, Sýr, Voda, Olej, Mléko, Mouka, Cukr) remain outside this phase by design. They need a later registry expansion, not a guessed mapping.
 - The aggregate report alone does not establish the reason for every individual product outside the registry. To answer that question product-by-product, produce a read-only exclusion report with counts and sample product IDs/names grouped by reason: no Product Type, Product Type has no registry mapping, untrusted provenance, category mismatch, or existing subtype assignment. Keep these reason groups mutually exclusive and reconcile them to the catalog total.
+
+### 7.23 Rozšiřitelný registr poddruhů a budoucí data řetězců — 2026-10-09
+
+Registr Product Subtypes je otevřený pro řízené rozšiřování. Nový poddruh lze založit **ještě předtím, než existuje konkrétní produkt v katalogu**; jeho existence nesmí být podmíněna aktuálními SKU ani okamžitým napojením produktů.
+
+Pravidla:
+- Každý poddruh má stabilní interní klíč a kanonický název; přejmenování nesmí změnit jeho identitu.
+- Každý poddruh náleží k jednomu nadřazenému internímu Product Type. Názvy značek, EAN, SKU, velikost balení, prodejce ani řetězcová kategorie nejsou samy o sobě poddruhem.
+- Založení poddruhu musí obsahovat definici rozsahu, co do něj patří a nepatří, případná synonyma/atributy, očekávané jednotky a příklady nebo zdroj odůvodnění. Pokud hranice nejsou jasné, záznam zůstane kandidátem k revizi a nesmí být použit pro automatické přiřazování.
+- Nové poddruhy mohou být objeveny z GS1 GPC, Open Food Facts, CZ-CPA, interního katalogu, OCR/účtenek nebo budoucích dat obchodních řetězců. Externí klasifikace a řetězcové kategorie jsou důkazní vstupy, nikoli automatické schválení interní identity.
+- Při importu dat řetězce se nejprve normalizuje identita produktu a zachová se původní zdrojová kategorie/název. Párování zkouší existující Product Type a poddruhy podle schválených pravidel, synonym, atributů, EAN a důvěryhodné externí klasifikace. EAN/SKU pomáhá identifikovat konkrétní produkt, ale neurčuje sám o sobě poddruh.
+- Pokud vhodný poddruh neexistuje, import vytvoří návrh nového poddruhu nebo jej zařadí do fronty kandidátů; nesmí tiše vytvořit a aktivovat klasifikaci s neověřenými hranicemi. Po schválení lze stejný poddruh použít pro produkty z dalších řetězců.
+- Nejednoznačné nebo konfliktní mapování zůstává ve stavu review/unknown. Nová pravidla nesmí přepsat ruční klasifikace a import nesmí přiřazovat poddruhy jen kvůli podobnosti názvu.
+- Založení, úprava, schválení i zamítnutí poddruhu musí být zaznamenány v dokumentaci/changelogu s důvodem, zdrojem, datem a dopadem na mapování.
+
+Doporučený tok:
+`data řetězce → normalizace produktu → identifikace Product Type → párování na existující poddruh → pokud chybí, kandidát nového poddruhu → kontrola hranic a deduplikace → schválení → opakované mapování produktů`.
+
+Tato změna stanovuje požadované chování registru; sama o sobě nepřidává nové produkční poddruhy, nemění katalogové produkty a nespouští import dat řetězců.

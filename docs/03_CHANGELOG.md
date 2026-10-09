@@ -1,3 +1,6 @@
+## 2026-10-09 — Product Subtype registry retargeted after foundation merge
+- PR #385 was retargeted from the now-merged Product Subtype foundation branch to `main`.
+- Registry remains candidate-only; no active classification or product data was changed.
 ## 2026-10-09 — Controlled Product Subtype registry proposal
 - Added a versioned candidate registry for seven general parent types and 19 proposed subtypes, mapped one-to-one from current Product Type group members.
 - Explicitly mapped the current `Mléko` group members to proposed milk subtypes without changing active classification or database records.

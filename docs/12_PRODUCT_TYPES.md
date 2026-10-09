@@ -823,3 +823,19 @@ These records must not be automatically assigned. Review the source category, pr
 The audit made no database writes and has no `--apply` mode. The 54,478 products outside the current registry are a coverage measure, not automatically data errors. This report is a candidate-review input only; it is not approval for registry seeding, subtype assignment or backfill.
 
 Before approval, confirm that each candidate report row includes stable product ID, product name, current Product Type key/name, proposed parent and exact subtype, category/subcategory, assignment provenance, and a clear exclusion/review reason. Any missing field should be added to the report and covered by regression tests before a migration plan is prepared. Keep review decisions and their provenance auditable.
+
+
+### 7.22 Owner clarification and candidate coverage follow-up — 2026-10-09
+
+Owner clarification for the three category-`Děti` water records:
+- The two HiPP Baby records represent water intended for children/babies.
+- `YESs Meloun neperlivá` is still water with watermelon flavour.
+
+This context means the records are not automatically invalid products. It does not by itself prove that their current subtype mapping is correct: the reviewed registry must explicitly decide whether child/baby water is a subtype/attribute of non-carbonated water and whether flavoured water belongs under the same subtype or needs a distinct subtype/type. Preserve the original category and product identity; do not rewrite production data or broaden category validation merely to force acceptance.
+
+Interpretation of products not listed as automatic candidates:
+- `outside_registry` means the current Product Type has no reviewed mapping in the starter registry, or the product has no Product Type. It does **not** mean the product is bad or unsuitable in general.
+- A product is an automatic candidate only when its existing Product Type has an explicit mapping to a registered parent/subtype, its category is permitted by the Product Type definition, it has no existing subtype assignment, and Product Type provenance is trusted (`rule`, `alias` or `pkd`).
+- Manual/unknown provenance and category mismatches require review rather than automatic mapping.
+- Products whose Product Types are outside the seven starter families (Káva, Sýr, Voda, Olej, Mléko, Mouka, Cukr) remain outside this phase by design. They need a later registry expansion, not a guessed mapping.
+- The aggregate report alone does not establish the reason for every individual product outside the registry. To answer that question product-by-product, produce a read-only exclusion report with counts and sample product IDs/names grouped by reason: no Product Type, Product Type has no registry mapping, untrusted provenance, category mismatch, or existing subtype assignment. Keep these reason groups mutually exclusive and reconcile them to the catalog total.

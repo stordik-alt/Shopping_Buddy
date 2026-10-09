@@ -63,6 +63,18 @@ describe('Product Taxonomy GPT-6 Luna classifier', () => {
     expect(result.duvod).toContain('Druh není povolenou podkategorií zvolené kategorie.')
   })
 
+  it('requires review when an existing type is returned under a different category', () => {
+    const result = validateProductTaxonomyClassification(classified({
+      kategorie: 'Drogerie',
+      druh: 'Hygiena',
+      typ: 'Mléko',
+    }), {
+      existingTypes: [{ key: 'mleko', name: 'Mléko', categories: ['Potraviny'] }],
+    })
+    expect(result.status).toBe('review_required')
+    expect(result.duvod).toContain('Existující typ zboží není evidován ve zvolené kategorii.')
+  })
+
   it('sends missing levels and low-confidence results to review', () => {
     const result = validateProductTaxonomyClassification(classified({
       druh: null,

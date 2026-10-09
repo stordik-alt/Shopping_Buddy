@@ -1,3 +1,16 @@
+## 2026-10-09 — Product Subtype CI and PKD confidence fixes
+- Routed `lib/db/product-subtypes.test.ts` out of the database-free unit job and into the isolated PostgreSQL test job.
+- Rounded PKD candidate confidence scores to two decimal places so deterministic scoring no longer emits floating-point artifacts.
+
+## 2026-10-09 — Product Subtype database foundation
+- Added the `product_subtypes` table with stable subtype identity, explicit parent Product Type, ordering and active/inactive status.
+- Added the nullable `products.product_subtype_id` relation and database constraints that prevent assigning a subtype under a different parent or without a Product Type.
+- Added `product_subtype_source` to retain `rule`/`manual`/`alias`/`pkd` provenance and enforce a valid, paired source for every subtype assignment.
+- Added migration `0084_product_subtypes.sql` and regression coverage in `lib/db/product-subtypes.test.ts`.
+- This is schema groundwork only: no subtype registry was seeded, no catalog products were reclassified, and no production migration was applied.
+- Verification: CI passed on application-code commit `3a1849bc6cf6cec7bfeaad80f8559f24a4124b4c` (unit tests, typecheck/build, isolated PostgreSQL integration tests, Playwright and Cloudflare build); security audit passed. No production database was changed.
+- Detailed entry and next steps: `docs/07_CHANGELOG.md`; canonical model: `docs/12_PRODUCT_TYPES.md`.
+
 ## 2026-10-09 — Product Type / Product Subtype hierarchy clarified
 - Established the canonical hierarchy **Typ zboží → Poddruh → konkrétní Produkt → balení/množství → EAN/SKU/obchod/cena**.
 - Typ zboží is the general, reusable identity (for example `Mléko`); Poddruh is an optional finer classification (for example `Trvanlivé mléko` or `Čerstvé mléko`). Neither may encode brand, package size, EAN or retailer SKU.

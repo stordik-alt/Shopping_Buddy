@@ -1,3 +1,16 @@
+## 2026-10-09 (Product Subtype CI routing and PKD confidence precision)
+- Fixed the CI test split after the new DB-backed Product Subtype integration test was incorrectly collected by the unit-only job, where no database URL is intentionally available; the test now runs only in the isolated local-PostgreSQL job.
+- Fixed PKD candidate confidence arithmetic to round the clamped result to two decimal places. CI exposed IEEE-754 residues such as `0.7000000000000001` breaking exact regression expectations for documented two-decimal confidence values.
+- Added the subtype test to the explicit database-test file list; the database remains isolated and no production database is used by CI.
+
+## 2026-10-09 (Product Subtype hierarchy — additive database foundation)
+- Added `product_subtypes`, a stable subtype registry owned by one `product_types` parent, with display ordering and soft deactivation.
+- Added nullable `products.product_subtype_id` and a composite foreign key so the selected subtype must belong to the exact Product Type assigned to that product; a subtype cannot exist on a product without its parent type.
+- Added `products.product_subtype_source` (`rule`, `manual`, `alias`, `pkd`) with constraints that require provenance and subtype ID to be present/absent together and reject unknown sources, preserving manual decisions against future automatic reclassification.
+- Added migration `0084_product_subtypes.sql` and database regression test `lib/db/product-subtypes.test.ts` for valid assignments, cross-parent rejection, missing-parent rejection and invalid provenance.
+- Existing product classifications and manual corrections are untouched; no subtype rows are seeded and no existing catalog products are backfilled in this stage.
+- Documentation updated: `docs/12_PRODUCT_TYPES.md`. The next step is a reviewed starter registry and a controlled mapping of existing specific types to general parent types.
+- Verification: CI passed on application-code commit `3a1849bc6cf6cec7bfeaad80f8559f24a4124b4c` ([CI run](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37888366436)); the [security audit](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37888366434) also passed. This includes unit tests, typecheck, production build, isolated local-PostgreSQL tests, Playwright smoke tests and the Cloudflare Worker build. Migration `0084` was applied only to CI's isolated local PostgreSQL database; no production migration was run and no production data was modified.
 ## 2026-10-08 (PKD approved mapping backfill)
 - **Added:** `scripts/backfill-pkd-mappings.ts` for applying accepted PKD → Product Type mappings to currently unmapped PKD entries.
 - **Safety:** dry-run is the default; `--apply` is required for writes, and each update still requires the PKD entry to have no existing Product Type.

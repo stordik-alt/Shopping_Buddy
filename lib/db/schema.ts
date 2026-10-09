@@ -200,6 +200,25 @@ export const productTypes = pgTable('product_types', {
   unit: itemUnitEnum('unit').notNull(),
 })
 
+// A Product Subtype is a reusable, reviewed classification within exactly one Product Type.
+// It is not a concrete retailer product and must not encode a brand, package size or SKU.
+export const productSubtypes = pgTable('product_subtypes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  productTypeId: uuid('product_type_id').notNull().references(() => productTypes.id, { onDelete: 'restrict' }),
+  key: text('key').notNull().unique(),
+  name: text('name').notNull(),
+  description: text('description'),
+  sortOrder: integer('sort_order').notNull().default(0),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('product_subtypes_type_name_unique').on(table.productTypeId, table.name),
+  // Required for the composite product FK: a subtype can only be selected under its own parent type.
+  uniqueIndex('product_subtypes_type_id_unique').on(table.productTypeId, table.id),
+  index('product_subtypes_product_type_active_sort_idx').on(table.productTypeId, table.isActive, table.sortOrder, table.name),
+])
+
 // Product Knowledge Dictionary (PKD): normalized knowledge about a product type, independent of
 // retailer SKU/package identity. External source rows are versioned and mapped explicitly; they never
 // become application Product Types automatically.
@@ -456,8 +475,20 @@ export const products = pgTable('products', {
   // overwritten by a rule) or 'alias' (taken over from a confirmed receipt match).
   productTypeId: uuid('product_type_id').references(() => productTypes.id, { onDelete: 'set null' }),
   productTypeSource: text('product_type_source'),
+  // Nullable during the staged rollout: existing type assignments remain valid until subtypes are reviewed.
+  productSubtypeId: uuid('product_subtype_id'),
+  // Preserve classification provenance so later rules/PKD backfills can never overwrite a manual subtype choice.
+  productSubtypeSource: text('product_subtype_source'),
 }, (table) => [
   index('products_product_type_idx').on(table.productTypeId),
+  foreignKey({
+    name: 'products_product_subtype_same_type_fk',
+    columns: [table.productTypeId, table.productSubtypeId],
+    foreignColumns: [productSubtypes.productTypeId, productSubtypes.id],
+  }).onDelete('restrict'),
+  check('products_product_subtype_requires_type', sql`${table.productSubtypeId} IS NULL OR ${table.productTypeId} IS NOT NULL`),
+  check('products_product_subtype_source_valid', sql`${table.productSubtypeSource} IS NULL OR ${table.productSubtypeSource} IN ('rule', 'manual', 'alias', 'pkd')`),
+  check('products_product_subtype_source_matches_id', sql`(${table.productSubtypeId} IS NULL AND ${table.productSubtypeSource} IS NULL) OR (${table.productSubtypeId} IS NOT NULL AND ${table.productSubtypeSource} IS NOT NULL)`),
   check('products_product_type_source_valid', sql`${table.productTypeSource} IS NULL OR ${table.productTypeSource} IN ('rule', 'manual', 'alias')`),
   // Text search looks for a word anywhere in the name (`search_name LIKE '%mlek%'`,
   // lib/db/product-search.ts), which a plain index cannot serve: every search read all ~50,000
@@ -1407,6 +1438,7 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   category: one(productCategories, { fields: [products.categoryId], references: [productCategories.id] }),
   subcategory: one(productSubcategories, { fields: [products.subcategoryId], references: [productSubcategories.id] }),
   productType: one(productTypes, { fields: [products.productTypeId], references: [productTypes.id] }),
+  productSubtype: one(productSubtypes, { fields: [products.productSubtypeId], references: [productSubtypes.id] }),
   prices: many(prices),
   deals: many(deals),
   externalRefs: many(productExternalRefs),
@@ -1418,8 +1450,14 @@ export const productSubcategoriesRelations = relations(productSubcategories, ({ 
   products: many(products),
 }))
 
+export const productSubtypesRelations = relations(productSubtypes, ({ one, many }) => ({
+  productType: one(productTypes, { fields: [productSubtypes.productTypeId], references: [productTypes.id] }),
+  products: many(products),
+}))
+
 export const productTypesRelations = relations(productTypes, ({ many }) => ({
   products: many(products),
+  subtypes: many(productSubtypes),
   groups: many(productTypeGroupMembers),
 }))
 

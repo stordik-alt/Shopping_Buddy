@@ -236,11 +236,18 @@ function collectSignals(rules: TypeRules, texts: EvidenceText[]): Signal[] {
     }
   }
 
+  // Explicit non-alcoholic evidence overrides generic beer wording such as "pivo".
+  if (rules === TYPE_RULES.pivo && signals.some((signal) => signal.rule.subtypeKey === 'pivo-nealkoholicke')) {
+    return signals.filter((signal) => signal.rule.subtypeKey !== 'pivo-alkoholicke')
+  }
+
   // Default beer to alcoholic unless explicit non-alcoholic evidence exists.
-  if (rules === TYPE_RULES.pivo && !signals.some((signal) => signal.rule.subtypeKey === 'pivo-nealkoholicke')) {
+  if (rules === TYPE_RULES.pivo) {
     const text = texts[0]
     const alcoholicRule = rules.subtypes.find((rule) => rule.subtypeKey === 'pivo-alkoholicke')
-    if (text && alcoholicRule) signals.push({ rule: alcoholicRule, evidence: { source: text.source, field: text.field, value: text.value, matchedRule: alcoholicRule.ruleId + ': default alcoholic beer', polarity: 'supports' } })
+    if (text && alcoholicRule && !signals.some((signal) => signal.rule.subtypeKey === 'pivo-alkoholicke')) {
+      signals.push({ rule: alcoholicRule, evidence: { source: text.source, field: text.field, value: text.value, matchedRule: alcoholicRule.ruleId + ': default alcoholic beer', polarity: 'supports' } })
+    }
   }
 
   return signals

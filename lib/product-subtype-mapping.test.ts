@@ -19,7 +19,7 @@ const row = (overrides: Partial<ProductSubtypeAuditRow> = {}): ProductSubtypeAud
 
   it('inventories unmapped Product Types by frequency with deterministic samples and category/provenance counts', () => {
     const mappings = buildProductSubtypeMappings([
-      row({ id: 'b', productTypeKey: 'smetana-na-vareni', productTypeName: 'Smetana na vaření', productName: undefined as never }),
+      row({ id: 'b', productTypeKey: 'smetana-na-vareni', productTypeName: 'Smetana na vaření', name: 'Smetana 10 %' }),
       row({ id: 'a', productTypeKey: 'smetana-na-vareni', productTypeName: 'Smetana na vaření', name: 'Smetana 12 %' }),
       row({ id: 'c', productTypeKey: 'praci-gel', productTypeName: 'Prací gel', name: 'Prací gel 1 l', productTypeSource: 'pkd' }),
       row({ id: 'ignored', productTypeKey: null, productTypeName: null }),

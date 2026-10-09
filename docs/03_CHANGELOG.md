@@ -700,3 +700,11 @@
 - The new review/conflict is appropriate for a mixed-option product label; the seven conflicts include mixed quark fat classes, tuna labels listing alternatives such as oil/own juice, a mixed beer assortment and rice listing both basmati/jasmine. These remain review-only; no subtype is proposed for conflicting products.
 - The output still misses the abbreviated tuna label `Rio Mare Tuňák v ol.oleji`; this is an evidence-coverage gap and should only be addressed with a specific regression test if we decide that this abbreviation is reliable enough.
 - Simulation mode explicitly reports read-only behavior (no INSERT/UPDATE/DELETE or assignment changes). No product assignments were written, no candidate was approved, and all 24 proposed subtype candidates remain unapproved.
+
+
+## 2026-10-09 — Regresní testy zkráceného označení tuňáka v oleji
+
+- Navazuje na simulaci [37930358171](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37930358171), která potvrdila, že plný zápis `v olivovém oleji` funguje, ale katalogový název `Rio Mare Tuňák v ol.oleji` zůstává bez shody.
+- Přidáváme pouze explicitní normalizovanou variantu `v ol oleji` odpovídající zkrácení `v ol.oleji`; žádné fuzzy domýšlení z pouhého slova „olivový“ nebo „olej“.
+- Regresní testy pokryjí varianty interpunkce, očekávanou klasifikaci tuňáka v oleji a negativní případy pro nejednoznačné zmínky o oleji a jiné druhy zboží.
+- Změna se nejprve ověřuje testy a CI v samostatné větvi/PR. Neprovádí databázové zápisy, neschvaluje kandidáty ani nepřiřazuje poddruhy.

@@ -28,43 +28,57 @@ uzeniny" holds chicken breast and ham alike) and only 42 % of products have one.
 
 ## 2. Model
 
-A product type sits between what the household wants and what a retailer sells:
+The canonical hierarchy is:
 
 ```text
-Group      Kuřecí maso (syrové)            — what a list item may ask for
-  Type       Kuřecí prsa | Kuřecí stehna | Kuře celé | …   — a stable identity
-    Product    "Vodňanské kuře prsní řízky 500 g" (Billa)  — existing `products` row
+Category
+  ↓
+Subcategory
+  ↓
+Product Type (Typ zboží)
+  ↓
+Product Subtype (Poddruh)
+  ↓
+Concrete Product
+  ↓
+Package / quantity
+  ↓
+EAN / SKU / retailer / price
 ```
 
-- **Type**: one kind of goods a shopper treats as interchangeable apart from brand, size and price
-  ("Máslo", "Kuřecí prsa", "Mléko polotučné"). Each type has a category and subcategory, and a
-  comparable unit (kg, l or ks) for unit-price comparison (CLAUDE.md section 17).
-- **Group**: a named set of types a list item can ask for at once ("Kuřecí maso"). A type may belong
-  to several groups.
-- **Product**: an existing catalog row; it gets at most one type.
+- **Product Type (Typ zboží)** is the stable, general name of a kind of goods, for example `Mléko`, `Máslo`, `Rýže`, `Těstoviny` or `Kuřecí prsa`.
+- **Product Subtype (Poddruh)** is an optional finer classification below a Product Type, for example `Mléko → Trvanlivé mléko`, `Mléko → Čerstvé mléko`, or `Rýže → Basmati`. A subtype is still a general classification, not a concrete retail product.
+- **Concrete Product** is the actual item sold by a retailer, with its brand, exact name, variant and other identifying attributes.
+- **Package / quantity** describes how that concrete product is sold (for example 500 g, 1 l, 2 × 500 g) and never creates a new Product Type or Subtype by itself.
+- **EAN / SKU / retailer / price** identify the concrete retail observation and its commercial context.
 
-### Owner decision: "Kuřecí maso"
+Example:
 
-"Kuřecí maso" means **every part of the chicken, and never a product made from chicken meat**
-(owner, 2026-10-03). Included: whole chicken and halves, breast (with or without bone/skin), breast
-fillets/schnitzels, thighs, upper and lower thighs (drumsticks), quarters, wings, and other raw parts.
-Excluded: ham, salami, sausages, nuggets, smoked or cooked products, ready meals, baby food.
+```text
+Mléko                              ← Product Type
+├── Trvanlivé mléko                ← Product Subtype
+│   ├── Madeta Jihočeské 1,5 % 1 l ← Product
+│   ├── Olma Trvanlivé 1,5 % 1 l    ← Product
+│   └── Kunín Trvanlivé 3,5 % 1 l   ← Product
+├── Čerstvé mléko                  ← Product Subtype
+│   ├── Madeta Čerstvé 1,5 % 1 l    ← Product
+│   └── Olma Čerstvé 1,5 % 1 l      ← Product
+└── Bezlaktózové mléko              ← Product Subtype
+    └── …
+```
 
-Confirmed by the owner (2026-10-04): raw parts sold **marinated or seasoned** and **minced chicken**
-belong to "Kuřecí maso"; parts sold **cooked** (sous-vide, roast) do not — they are ready meals.
-**Offal** (liver, hearts, gizzards) and **soup parts** (backs, necks) are chicken types of their own
-but not part of the group (owner, 2026-10-04, after the planner offered chicken backs as the cheapest
-"Kuřecí maso"): they are offered only when a list item names them ("kuřecí játra").
+A Product Type can therefore contain many subtypes, and each subtype can contain many concrete products. A product must never become a new Product Type merely because its brand, package size, EAN, retailer or ordinary variant differs.
 
-### Owner decision: "Sýr"
+### Owner decision: Product Type vs Product Subtype
 
-"Sýr" on a list means everyday cheese — eidam, gouda, mozzarella, balkánský (owner, 2026-10-04).
-Camembert, parmesan, processed cheese, cottage and niva are types of their own, offered when named.
+The primary registry must be built from **general kinds of goods first**. Subtypes are added where they represent a meaningful and reusable distinction within that kind. The registry must not explode into package sizes, brands, EANs or retailer SKUs.
 
-### Owner decision: other meat
+Sources such as GS1 GPC, Open Food Facts, CZ-CPA, the own catalog and OCR are evidence for discovering and describing Product Types and Subtypes. They are not themselves the application's Product Type list and must not be treated as a direct list of concrete products or SKUs.
 
-"Vepřové maso", "Hovězí maso" and "Krůtí maso" work the same way (owner, 2026-10-04): every raw cut
-(and minced meat), never ham, salami, sausages or smoked meat.
+### Existing group concept
+
+A **Group** remains a separate concept from Product Type/Subtype. A group can contain several Product Types when the shopping planner intentionally treats them as alternatives, for example `Kuřecí maso` can group `Kuřecí prsa`, `Kuřecí stehna`, `Kuře celé`, etc. A group is not a product and does not replace the Product Type hierarchy.
+
 
 ## 3. Assigning a type to a product
 
@@ -662,6 +676,12 @@ Fáze normalizace a deduplikace je implementována jako nedestruktivní vrstva n
 - Přijetí vyžaduje `mapping_id` a `reviewer_id`; zamítnutí navíc vyžaduje poznámku.
 - Workflow pouze volá existující auditovanou acceptance vrstvu; samo neobchází bezpečnostní kontrolu ani nezapisuje `product_type_id` mimo `acceptPkdProductTypeMapping`.
 - **Bezpečnost:** workflow nikdy nepoužívá kandidátní ani zamítnuté mappingy a při zápisu znovu kontroluje, že `product_type_id IS NULL`.
+
+### 7.12n Křížové ověřování kandidátů PKD — 2026-10-09 — SUPERSEDED
+
+Tato implementační větev byla nahrazena hlavním konceptem Product Type → Product Subtype → Product. Křížové ověřování GPC/CZ-CPA/katalogu nesmí být používáno jako hlavní mechanismus pro rozhodování, zda z jednotlivého externího záznamu vznikne nový Product Type. Externí zdroje slouží především k **objevování, popisu, synonymům, hranicím a pokrytí registru**, nikoli k vytváření kandidátů podle skóre důkazů.
+
+Konkrétní v5 implementace zůstává historickou informací v Git historii, ale není autoritativním směrem dalšího vývoje.
 
 ### 7.12n Křížové ověřování kandidátů PKD — 2026-10-09
 

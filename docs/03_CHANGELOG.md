@@ -688,3 +688,6 @@
 - The report exposed overly broad processed-cheese wording that could classify ordinary Gouda slices as sliced processed cheese, and incomplete phrase coverage for tuna explicitly labelled as packed in olive oil. Tightened cheese patterns to require explicit processed-cheese wording with the product form, retained package counts as non-evidence, and added explicit oil wording variants.
 - Added regression coverage for generic cheese-slice/pack-count false positives and common tuna-oil wording. This is a follow-up correction only; resolver output remains proposal-only.
 - No production product assignments or subtype registry changes were made. The simulation itself performed no writes.
+
+
+- CI for the simulation-driven correction exposed two regressions in tests: the word order `Tavený sýr plátkový` was not represented in the explicit sliced-cheese phrases, and removing standalone `porcovaný` broke the intended precedence when a product explicitly described both forms. Added the exact phrase and restored `porcovaný` as explicit form evidence; package count alone remains insufficient.

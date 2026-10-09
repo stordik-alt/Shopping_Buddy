@@ -1,5 +1,5 @@
 import fs from 'node:fs'
-import { desc, eq, isNull, sql } from 'drizzle-orm'
+import { sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { normalizeProductText } from '@/lib/product-normalize'
@@ -12,7 +12,7 @@ type CandidateEvidence = Record<string, unknown>
 function countValues(values: string[]): Record<string, number> {
   const counts: Record<string, number> = {}
   for (const value of values) counts[value] = (counts[value] ?? 0) + 1
-  return Object.fromEntries(Object.entries(counts).sort(([a], [b]) => a.localeCompare(b)))
+  return Object.fromEntries(Object.entries(counts).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0))
 }
 
 async function main() {
@@ -77,7 +77,7 @@ async function main() {
   const preview = [...candidateRows]
     .sort((a, b) => Number(b.confidence ?? 0) - Number(a.confidence ?? 0)
       || b.sourceEntryIds.length - a.sourceEntryIds.length
-      || a.candidateKey.localeCompare(b.candidateKey))
+      || (a.candidateKey < b.candidateKey ? -1 : a.candidateKey > b.candidateKey ? 1 : 0))
     .slice(0, PREVIEW_LIMIT)
     .map((row) => {
       const evidence = (row.evidence ?? {}) as CandidateEvidence
@@ -123,7 +123,7 @@ async function main() {
       bySourceKind: countValues(sourceKinds),
       byReviewFlag: countValues(reviewFlags),
       topSubcategories: Object.entries(subcategoryCounts)
-        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
         .slice(0, 100)
         .map(([subcategory, count]) => ({ subcategory, count })),
     },

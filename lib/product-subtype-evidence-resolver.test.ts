@@ -52,6 +52,8 @@ describe('resolveProductSubtypeEvidence', () => {
     expect(resolve({ productTypeKey: 'testoviny', productName: 'Fleky bezvaječné' }).proposedSubtypeKey).toBe('testoviny-kratke-tvarovane')
     expect(resolve({ productTypeKey: 'testoviny', productName: 'Tagliatelle hnízda' }).proposedSubtypeKey).toBe('testoviny-dlouhe')
     expect(resolve({ productTypeKey: 'testoviny', productName: 'Orzo 500 g' }).proposedSubtypeKey).toBe('testoviny-kratke-tvarovane')
+    expect(resolve({ productTypeKey: 'testoviny', productName: 'Marks & Spencer Fusilloni celozrnné' }).proposedSubtypeKey).toBe('testoviny-kratke-tvarovane')
+    expect(resolve({ productTypeKey: 'testoviny', productName: 'Big Shock! Pear Fusion 500ml' }).decision).toBe('no_match')
     expect(resolve({ productTypeKey: 'testoviny', productName: 'Těstoviny' }).proposedSubtypeKey).toBe('testoviny-ostatni')
     expect(resolve({ productTypeKey: 'testoviny', productName: 'Směs na těstovinový salát' }).decision).toBe('no_match')
   })
@@ -83,6 +85,10 @@ describe('resolveProductSubtypeEvidence', () => {
     expect(resolve({ productTypeKey: 'taveny-syr', productName: 'Roztíratelný tavený sýr' }).proposedSubtypeKey).toBe('taveny-syr-roztiratelny')
     expect(resolve({ productTypeKey: 'taveny-syr', productName: 'Tavený sýr v porcích, 8 ks' }).proposedSubtypeKey).toBe('taveny-syr-ostatni')
     expect(resolve({ productTypeKey: 'taveny-syr', productName: 'Apetito Smetanové 3 ks 150g' }).proposedSubtypeKey).toBe('taveny-syr-ostatni')
+    expect(resolve({ productTypeKey: 'taveny-syr', productName: 'Madeta Madetka tavený smetanový sýr 2 ks 100g' }).proposedSubtypeKey).toBe('taveny-syr-ostatni')
+    expect(resolve({ productTypeKey: 'taveny-syr', productName: 'Moravia Jemný tavený máslový sýr' }).proposedSubtypeKey).toBe('taveny-syr-ostatni')
+    expect(resolve({ productTypeKey: 'taveny-syr', productName: 'Zott Toasty Chester tavený plátkový sýr' }).proposedSubtypeKey).toBe('taveny-syr-platkovy')
+    expect(resolve({ productTypeKey: 'taveny-syr', productName: 'Metro Chef Sýr tavený 64%' }).proposedSubtypeKey).toBe('taveny-syr-ostatni')
   })
 
   it.each([
@@ -119,7 +125,11 @@ describe('resolveProductSubtypeEvidence', () => {
     expect(resolve({ productTypeKey: 'tunak-konzerva', productName: 'Tuňák ve vodě' }).proposedSubtypeKey).toBe('tunak-konzerva-ve-vodnim-nalevu')
     expect(resolve({ productTypeKey: 'tunak-konzerva', productName: 'Rio Mare Tuňák v olivovém oleji 160g' }).proposedSubtypeKey).toBe('tunak-konzerva-v-oleji')
     expect(resolve({ productTypeKey: 'tunak-konzerva', productName: 'Calvo Tuňák ve slunečnicovém oleji 3x65g' }).proposedSubtypeKey).toBe('tunak-konzerva-v-oleji')
+    expect(resolve({ productTypeKey: 'tunak-konzerva', productName: 'X_BILLA TUNAK VE VL. STAVE 3X80 G' }).proposedSubtypeKey).toBe('tunak-konzerva-ve-vlastni-stave')
+    expect(resolve({ productTypeKey: 'tunak-konzerva', productName: 'Rio Mare Tuňák v extra panenském olivovém oleji 3×52 g' }).proposedSubtypeKey).toBe('tunak-konzerva-v-oleji')
+    expect(resolve({ productTypeKey: 'tunak-konzerva', productName: 'Rio Mare Tuňák v BIO extra panenském olivovém oleji' }).proposedSubtypeKey).toBe('tunak-konzerva-v-oleji')
     expect(resolve({ productTypeKey: 'tunak-konzerva', productName: 'Tuňáková pomazánka s olivovým olejem' }).decision).toBe('no_match')
+    expect(resolve({ productTypeKey: 'tunak-konzerva', productName: 'Tuňák s olivovým olejem' }).decision).toBe('no_match')
     expect(resolve({ productTypeKey: 'tunak-konzerva', productName: 'Tuňákový salát ve vlastní šťávě' }).decision).toBe('no_match')
   })
 

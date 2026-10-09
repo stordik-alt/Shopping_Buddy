@@ -307,6 +307,19 @@ export function resolveProductSubtypeEvidence(input: ProductSubtypeResolverInput
   }
 
   const matchedKeys = new Set(candidates.map((candidate) => candidate.subtypeKey))
+
+  // Preservation media are mutually exclusive, except that the explicit phrase "ve vlastní šťávě"
+  // takes precedence over generic water wording. Oil cannot be reconciled with either label.
+  if (input.productTypeKey === 'tunak-konzerva') {
+    const matchedRules = rules.subtypes.filter((rule) => matchedKeys.has(rule.subtypeKey))
+    const hasMediumConflict = matchedRules.some((rule, index) =>
+      matchedRules.slice(index + 1).some((other) => conflicts(rule, other)),
+    )
+    if (hasMediumConflict) {
+      return result(input, 'review', 'conflicting_evidence', candidates, evidence)
+    }
+  }
+
   for (const priorityGroup of rules.priority) {
     const matches = priorityGroup.filter((key) => matchedKeys.has(key))
     if (matches.length > 1) {

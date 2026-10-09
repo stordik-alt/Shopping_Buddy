@@ -1,3 +1,7 @@
+## 2026-10-09 — Oprava syntaxe suitability filtru Product Taxonomy
+- Odstraněno dvojité escapování regulárních výrazů, které blokovalo unit testy a TypeScript kontrolu v PR #408.
+- Filtr nadále pouze označuje kandidáty pro audit; nemění produkční katalog ani přiřazení.
+
 ## 2026-10-09 (Product Subtype registry conflict resolution)
 - PR #385 became non-mergeable after the Product Subtype foundation was merged into `main`; a fresh main-based branch was created so the registry changes no longer carry the conflicting foundation ancestry.
 - Restored only the review-controlled registry, its regression test and documentation changes; no database or product data changes are included.

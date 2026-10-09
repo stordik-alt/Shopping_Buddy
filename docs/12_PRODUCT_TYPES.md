@@ -1,3 +1,12 @@
+## 2026-10-09 — Aktuální pravidla resolveru Product Subtype
+- **Pivo:** pouze „Alkoholické pivo“ a „Nealkoholické pivo“; barva není poddruh. Resolver vyžaduje explicitní označení alkoholu.
+- **Těstoviny:** známé tvary plus „Ostatní“ pro obecně označené skutečné těstoviny. Fleky a orzo jsou krátké tvarované, hnízda dlouhé. Hotová jídla a směsi se vylučují.
+- **Rýže:** přidána „Rýže na sushi“ a „Ostatní“. „Rýže loupaná“ bez dalších důkazů spadá do Ostatní. Ryzec smrkový/borový je houba, nikoli rýže.
+- **Tvaroh:** jediný poddruh „Tvaroh“ bez rozlišení konzistence, tuku či ochucení. Tvarohové jogurty, pomazánky a výrobky typu Mlsni.si tvaroh Pikao jsou vyloučeny.
+- **Tavený sýr:** přidán poddruh „Ostatní“. Apetito a Veselá kráva slouží jako vodítko pro obecné zařazení, pokud není doložena forma.
+- **Tuňák v konzervě:** české varianty „v/ve … oleji“ se sjednocují. Pomazánky, saláty a hotová jídla se vylučují.
+- Resolver zůstává čistý, deterministický a pouze návrhový. Nemění existující přiřazení a nezapisuje do databáze.
+
 ## 2026-10-09 — Manual GitHub Actions dry-run for Product Subtype candidates
 - Added `.github/workflows/product-subtype-candidate-ingest-dry-run.yml`, triggered manually through `workflow_dispatch`.
 - The workflow previews the 24 draft registry-expansion candidates using the candidate ingest CLI without `--apply`; it cannot insert/merge candidates or assign products.

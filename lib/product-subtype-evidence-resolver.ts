@@ -53,7 +53,7 @@ export interface ProductSubtypeResolverResult {
   resolverVersion: string
 }
 
-export const PRODUCT_SUBTYPE_EVIDENCE_RESOLVER_VERSION = '2026-10-v1'
+export const PRODUCT_SUBTYPE_EVIDENCE_RESOLVER_VERSION = '2026-10-v2'
 
 type EvidenceText = {
   source: ProductSubtypeEvidenceSource
@@ -96,62 +96,65 @@ const subtype = (
 
 const TYPE_RULES: Record<string, TypeRules> = {
   pivo: {
-    priority: [['pivo-svetle', 'pivo-polotmave', 'pivo-tmave']],
+    priority: [['pivo-nealkoholicke', 'pivo-alkoholicke']],
     subtypes: [
-      subtype('pivo-svetle', 'Světlé pivo', 'pivo.svetle.explicit', ['světlé', 'světlý', 'světlá', 'svetle pivo', 'light beer'], 0, 'beer-colour'),
-      subtype('pivo-polotmave', 'Polotmavé pivo', 'pivo.polotmave.explicit', ['polotmavé', 'polotmavý', 'polotmavá', 'polotmave pivo', 'amber beer'], 0, 'beer-colour'),
-      subtype('pivo-tmave', 'Tmavé pivo', 'pivo.tmave.explicit', ['tmavé', 'tmavý', 'tmavá', 'tmave pivo', 'dark beer', 'černé pivo', 'cerne pivo'], 0, 'beer-colour'),
+      subtype('pivo-nealkoholicke', 'Nealkoholické pivo', 'pivo.nealkoholicke.explicit', ['nealkoholické', 'nealkoholicke', 'nealko', 'bez alkoholu', 'alcohol-free', 'non-alcoholic', '0,0', '0.0'], 0, 'beer-alcohol'),
+      subtype('pivo-alkoholicke', 'Alkoholické pivo', 'pivo.alkoholicke.explicit', ['alkoholické', 'alkoholicke', 'alcoholic beer', 'obsah alkoholu'], 1, 'beer-alcohol'),
     ],
   },
   testoviny: {
-    priority: [['testoviny-plnene'], ['testoviny-platy-na-lasagne'], ['testoviny-polevkove'], ['testoviny-dlouhe'], ['testoviny-kratke-tvarovane']],
+    priority: [['testoviny-plnene'], ['testoviny-platy-na-lasagne'], ['testoviny-polevkove'], ['testoviny-dlouhe'], ['testoviny-kratke-tvarovane'], ['testoviny-ostatni']],
     subtypes: [
-      subtype('testoviny-plnene', 'Plněné těstoviny', 'testoviny.plnene.explicit', ['plněné', 'plnené', 'ravioli', 'tortellini', 'tortelloni', 'agnolotti', 'plnena pasta', 'filled pasta'], 0),
+      subtype('testoviny-plnene', 'Plněné těstoviny', 'testoviny.plnene.explicit', ['plněné', 'plnene', 'ravioli', 'tortellini', 'tortelloni', 'agnolotti', 'plnena pasta', 'filled pasta'], 0),
       subtype('testoviny-platy-na-lasagne', 'Pláty na lasagne', 'testoviny.lasagne-sheets.explicit', ['pláty na lasagne', 'platy na lasagne', 'lasagne pláty', 'lasagne platy', 'lasagne sheets', 'těstoviny lasagne pláty', 'testoviny lasagne platy'], 1),
       subtype('testoviny-polevkove', 'Polévkové těstoviny', 'testoviny.polevkove.explicit', ['polévkové', 'polevkove', 'do polévky', 'do polevky', 'těstoviny do polévky', 'testoviny do polevky', 'polévkové těstoviny', 'polevkove testoviny', 'drobení', 'drobeni', 'písmenka', 'abeceda', 'soup pasta'], 2),
-      subtype('testoviny-dlouhe', 'Dlouhé těstoviny', 'testoviny.dlouhe.explicit', ['dlouhé těstoviny', 'dlouhe testoviny', 'spaghetti', 'špagety', 'spagety', 'linguine', 'tagliatelle', 'fettuccine', 'pappardelle', 'bucatini', 'vermicelli', 'makaróny', 'makarony', 'long pasta'], 3),
-      subtype('testoviny-kratke-tvarovane', 'Krátké tvarované těstoviny', 'testoviny.kratke-tvarovane.explicit', ['krátké tvarované', 'kratke tvarovane', 'penne', 'fusilli', 'vřetena', 'vretena', 'kolínka', 'kolinka', 'farfalle', 'rigatoni', 'mušličky', 'muslicky', 'mašličky', 'maslicky', 'šroubky', 'sroubky', 'conchiglie', 'short shaped pasta'], 4),
+      subtype('testoviny-dlouhe', 'Dlouhé těstoviny', 'testoviny.dlouhe.explicit', ['dlouhé těstoviny', 'dlouhe testoviny', 'spaghetti', 'špagety', 'spagety', 'linguine', 'tagliatelle', 'fettuccine', 'pappardelle', 'bucatini', 'vermicelli', 'makaróny', 'makarony', 'hnízda', 'hnizda', 'long pasta'], 3),
+      subtype('testoviny-kratke-tvarovane', 'Krátké tvarované těstoviny', 'testoviny.kratke-tvarovane.explicit', ['krátké tvarované', 'kratke tvarovane', 'penne', 'fusilli', 'vřetena', 'vretena', 'kolínka', 'kolinka', 'farfalle', 'rigatoni', 'mušličky', 'muslicky', 'mašličky', 'maslicky', 'šroubky', 'sroubky', 'conchiglie', 'fleky', 'orzo', 'risoni', 'cornetti', 'rotini', 'maccheroni', 'orecchiette', 'gemelli', 'cavatappi', 'ruote', 'radiatori', 'casarecce', 'trofie', 'lumache', 'gigli', 'pipe rigate', 'elbows', 'macaroni', 'short shaped pasta'], 4),
+      subtype('testoviny-ostatni', 'Ostatní těstoviny', 'testoviny.ostatni.explicit', ['těstoviny', 'testoviny', 'pasta'], 5),
     ],
   },
   ryze: {
     priority: [
+      ['ryze-sushi'],
       ['ryze-basmati', 'ryze-jasminova'],
       ['ryze-arborio-na-rizoto'],
       ['ryze-natural-celozrnna'],
       ['ryze-parboiled'],
       ['ryze-ostatni-dlouhozrnna', 'ryze-ostatni-kulatozrnna'],
+      ['ryze-ostatni'],
     ],
     subtypes: [
-      subtype('ryze-basmati', 'Rýže basmati', 'ryze.basmati.explicit', ['basmati'], 0, 'rice-variety'),
-      subtype('ryze-jasminova', 'Jasmínová rýže', 'ryze.jasmin.explicit', ['jasmínová', 'jasminova', 'jasmínová rýže', 'jasminova ryze', 'jasmine rice'], 0, 'rice-variety'),
-      subtype('ryze-arborio-na-rizoto', 'Arborio / rýže na rizoto', 'ryze.arborio-risotto.explicit', ['arborio', 'rýže na rizoto', 'ryze na rizoto', 'risotto rice'], 1),
-      subtype('ryze-natural-celozrnna', 'Natural / celozrnná rýže', 'ryze.natural-wholegrain.explicit', ['natural', 'celozrnná', 'celozrnna', 'hnědá rýže', 'hneda ryze', 'brown rice', 'wholegrain rice', 'whole grain rice'], 2, 'rice-processing'),
-      subtype('ryze-parboiled', 'Parboiled rýže', 'ryze.parboiled.explicit', ['parboiled', 'parboil', 'předvařená rýže', 'predvarena ryze'], 3, 'rice-processing'),
-      subtype('ryze-ostatni-dlouhozrnna', 'Ostatní dlouhozrnná rýže', 'ryze.long-grain.explicit', ['dlouhozrnná', 'dlouhozrnna', 'dlouhé zrno', 'dlouhe zrno', 'long grain'], 4, 'rice-grain-shape'),
-      subtype('ryze-ostatni-kulatozrnna', 'Ostatní kulatozrnná rýže', 'ryze.round-grain.explicit', ['kulatozrnná', 'kulatozrnna', 'kulaté zrno', 'kulate zrno', 'round grain', 'short grain rice'], 4, 'rice-grain-shape'),
+      subtype('ryze-sushi', 'Rýže na sushi', 'ryze.sushi.explicit', ['rýže na sushi', 'ryze na sushi', 'sushi rýže', 'sushi ryze', 'sushi rice'], 0),
+      subtype('ryze-basmati', 'Rýže basmati', 'ryze.basmati.explicit', ['basmati'], 1, 'rice-variety'),
+      subtype('ryze-jasminova', 'Jasmínová rýže', 'ryze.jasmin.explicit', ['jasmínová', 'jasminova', 'jasmínová rýže', 'jasminova ryze', 'jasmine rice'], 1, 'rice-variety'),
+      subtype('ryze-arborio-na-rizoto', 'Arborio / rýže na rizoto', 'ryze.arborio-risotto.explicit', ['arborio', 'rýže na rizoto', 'ryze na rizoto', 'risotto rice'], 2),
+      subtype('ryze-natural-celozrnna', 'Natural / celozrnná rýže', 'ryze.natural-wholegrain.explicit', ['natural', 'celozrnná', 'celozrnna', 'hnědá rýže', 'hneda ryze', 'brown rice', 'wholegrain rice', 'whole grain rice'], 3, 'rice-processing'),
+      subtype('ryze-parboiled', 'Parboiled rýže', 'ryze.parboiled.explicit', ['parboiled', 'parboil', 'předvařená rýže', 'predvarena ryze'], 4, 'rice-processing'),
+      subtype('ryze-ostatni-dlouhozrnna', 'Ostatní dlouhozrnná rýže', 'ryze.long-grain.explicit', ['dlouhozrnná', 'dlouhozrnna', 'dlouhé zrno', 'dlouhe zrno', 'long grain'], 5, 'rice-grain-shape'),
+      subtype('ryze-ostatni-kulatozrnna', 'Ostatní kulatozrnná rýže', 'ryze.round-grain.explicit', ['kulatozrnná', 'kulatozrnna', 'kulaté zrno', 'kulate zrno', 'round grain', 'short grain rice'], 5, 'rice-grain-shape'),
+      subtype('ryze-ostatni', 'Ostatní rýže', 'ryze.ostatni.explicit', ['rýže', 'ryze'], 6),
     ],
   },
   tvaroh: {
-    priority: [['tvaroh-tucny', 'tvaroh-polotucny', 'tvaroh-odtucneny']],
+    priority: [['tvaroh']],
     subtypes: [
-      subtype('tvaroh-tucny', 'Tučný tvaroh', 'tvaroh.tucny.explicit', ['tučný', 'tucny', 'tučný tvaroh', 'tucny tvaroh', 'tvaroh tučný', 'tvaroh tucny', 'full-fat quark'], 0, 'quark-fat'),
-      subtype('tvaroh-polotucny', 'Polotučný tvaroh', 'tvaroh.polotucny.explicit', ['polotučný', 'polotucny', 'polotučný tvaroh', 'polotucny tvaroh', 'semi-fat quark'], 0, 'quark-fat'),
-      subtype('tvaroh-odtucneny', 'Odtučněný tvaroh', 'tvaroh.odtucneny.explicit', ['odtučněný', 'odtucneny', 'nízkotučný', 'nizkotucny', 'odtučněný tvaroh', 'odtucneny tvaroh', 'low-fat quark'], 0, 'quark-fat'),
+      subtype('tvaroh', 'Tvaroh', 'tvaroh.family.explicit', ['tvaroh', 'quark', 'curd cheese'], 0),
     ],
   },
   'taveny-syr': {
-    priority: [['taveny-syr-porcovany'], ['taveny-syr-platkovy'], ['taveny-syr-roztiratelny']],
+    priority: [['taveny-syr-porcovany'], ['taveny-syr-platkovy'], ['taveny-syr-roztiratelny'], ['taveny-syr-ostatni']],
     subtypes: [
       subtype('taveny-syr-porcovany', 'Porcovaný tavený sýr', 'taveny-syr.porcovany.explicit', ['porcovaný', 'porcovany', 'porcovaný tavený sýr', 'porcovany taveny syr', 'jednotlivě balené porce', 'jednotlive balene porce', 'trojúhelníčky', 'trojuhelnicky', 'individually wrapped portions'], 0),
       subtype('taveny-syr-platkovy', 'Plátkový tavený sýr', 'taveny-syr.platkovy.explicit', ['plátkový tavený sýr', 'platkovy taveny syr', 'tavený sýr plátkový', 'taveny syr platkovy', 'tavený sýr plátky', 'taveny syr platky', 'plátky taveného sýra', 'platky taveného syra', 'tavený sýrový výrobek plátky', 'taveny syrovy vyrobek platky', 'sliced processed cheese'], 1),
       subtype('taveny-syr-roztiratelny', 'Roztíratelný tavený sýr', 'taveny-syr.roztiratelny.explicit', ['roztíratelný tavený sýr', 'roztiratelny taveny syr', 'spreadable processed cheese'], 2),
+      subtype('taveny-syr-ostatni', 'Ostatní tavený sýr', 'taveny-syr.ostatni.explicit', ['tavený sýr', 'taveny syr', 'tavený sýrový výrobek', 'taveny syrovy vyrobek', 'apetito', 'veselá kráva', 'vesela krava'], 3),
     ],
   },
   'tunak-konzerva': {
     priority: [['tunak-konzerva-ve-vlastni-stave'], ['tunak-konzerva-v-oleji'], ['tunak-konzerva-ve-vodnim-nalevu']],
     subtypes: [
       subtype('tunak-konzerva-ve-vlastni-stave', 'Tuňák ve vlastní šťávě', 'tunak.vlastni-stava.explicit', ['ve vlastní šťávě', 've vlastni stave', 'vlastní šťáva', 'vlastni stava', 'vlastni stava konzerva', 'own juice', 'in its own juice'], 0, 'tuna-medium'),
-      subtype('tunak-konzerva-v-oleji', 'Tuňák v oleji', 'tunak.olej.explicit', ['v oleji', 'v ol oleji', 'v olivovém oleji', 'v olivovem oleji', 'v rostlinném oleji', 'v rostlinnem oleji', 'v slunečnicovém oleji', 'v slunecnicovem oleji', 'olejový nálev', 'olejovy nalev', 'olivový olej', 'olivovy olej', 'slunečnicový olej', 'slunecnicovy olej', 'in oil', 'olive oil', 'sunflower oil'], 1, 'tuna-medium'),
+      subtype('tunak-konzerva-v-oleji', 'Tuňák v oleji', 'tunak.olej.explicit', ['v ol oleji', 'v oleji', 'v olivovém oleji', 've olivovém oleji', 'v olivovem oleji', 've olivovem oleji', 'v rostlinném oleji', 've rostlinném oleji', 'v rostlinnem oleji', 've rostlinnem oleji', 'v slunečnicovém oleji', 've slunečnicovém oleji', 'v slunecnicovem oleji', 've slunecnicovem oleji', 'olejový nálev', 'olejovy nalev', 'olivový olej', 'olivovy olej', 'slunečnicový olej', 'slunecnicovy olej', 'in oil', 'olive oil', 'sunflower oil'], 1, 'tuna-medium'),
       subtype('tunak-konzerva-ve-vodnim-nalevu', 'Tuňák ve vodním nálevu', 'tunak.vodni-nalev.explicit', ['ve vodním nálevu', 've vodnim nalevu', 'vodní nálev', 'vodni nalev', 've vodě', 've vode', 'in water', 'water brine'], 2, 'tuna-medium'),
     ],
   },
@@ -192,6 +195,15 @@ function getEvidenceTexts(input: ProductSubtypeResolverInput): EvidenceText[] {
 type Signal = {
   rule: SubtypeRule
   evidence: ProductSubtypeEvidence
+}
+
+function isExcludedProduct(input: ProductSubtypeResolverInput, texts: EvidenceText[]): boolean {
+  const text = normalizeProductText(texts.map((item) => item.value).join(' '))
+  if (input.productTypeKey === 'ryze' && /(?:^| )(?:ryzec smrkovy|ryzec borovy)(?: |$)/.test(text)) return true
+  if (input.productTypeKey === 'tvaroh' && ['tvarohovy jogurt', 'tvarohova pomazanka', 'mlsni si tvaroh pikao', 'mlsni si tvaroh', 'tvarohovy dezert'].some((p) => hasPhrase(text, normalizeProductText(p)))) return true
+  if (input.productTypeKey === 'testoviny' && ['hotove jidlo', 'pripravene jidlo', 'smes na', 'instantni pokrm', 'ready meal'].some((p) => hasPhrase(text, normalizeProductText(p)))) return true
+  if (input.productTypeKey === 'tunak-konzerva' && ['tunakova pomazanka', 'tunakovy salat', 'salat s tunakem', 'hotove jidlo', 'pripravene jidlo', 'ready meal', 'tuna salad', 'tuna spread', 'tuna sandwich'].some((p) => hasPhrase(text, normalizeProductText(p)))) return true
+  return false
 }
 
 function collectSignals(rules: TypeRules, texts: EvidenceText[]): Signal[] {
@@ -281,6 +293,9 @@ function result(
 export function resolveProductSubtypeEvidence(input: ProductSubtypeResolverInput): ProductSubtypeResolverResult {
   const rules = TYPE_RULES[input.productTypeKey]
   const texts = getEvidenceTexts(input)
+  if (rules && isExcludedProduct(input, texts)) {
+    return result(input, 'no_match', 'insufficient_evidence', [], [])
+  }
   const signals = rules ? collectSignals(rules, texts) : []
   const candidates: ProductSubtypeCandidate[] = rules
     ? rules.subtypes

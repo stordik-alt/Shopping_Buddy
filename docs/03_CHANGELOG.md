@@ -133,3 +133,9 @@ Every future significant change should add a dated entry containing:
 - Held out from automatic assignment: `HiPP Baby přírodní minerální voda neperlivá 6×1 l`, `HiPP Baby přírodní minerální voda neperlivá multipack (6×1 l)`, and `YESs Meloun neperlivá`. All are proposed as `voda-neperliva` but have category `Děti`; category and taxonomy fit must be reviewed explicitly.
 - Clarified that 54,478 products outside the starter registry are not automatically errors. The audit is read-only, has no `--apply` mode, and did not seed or backfill data.
 - Next gate: validate report completeness, review candidates and exceptions, then prepare a separate reviewed seed/backfill plan with preconditions, dry-run diff, idempotency checks, manual-assignment protection, post-run audit and rollback strategy. No production write is authorized by this audit.
+
+## 2026-10-09 — Extensible Product Subtype registry for retailer feeds
+- Documented that new Product Subtypes may be proposed and reviewed before any concrete catalog product exists.
+- Defined stable subtype identity, required scope/boundary evidence, parent Product Type, and the distinction between subtype identity and retailer SKU/EAN/package data.
+- Defined the future retailer-feed flow: normalize source data, match approved types/subtypes, queue missing subtypes as candidates, review/deduplicate, approve, then map products; ambiguous matches remain review/unknown.
+- This is a documentation-only decision. No production subtypes, product assignments, or retailer imports were created or changed.

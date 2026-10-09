@@ -691,3 +691,12 @@
 
 
 - CI for the simulation-driven correction exposed two regressions in tests: the word order `Tavený sýr plátkový` was not represented in the explicit sliced-cheese phrases, and removing standalone `porcovaný` broke the intended precedence when a product explicitly described both forms. Added the exact phrase and restored `porcovaný` as explicit form evidence; package count alone remains insufficient.
+
+## 2026-10-09 — Post-fix Product Subtype simulation (run 37930358171)
+
+- Re-ran the read-only simulation on `main` at commit `73f9e314c381c96ee089a7511f9d32760fc9d501` after merging the resolver evidence-boundary fixes. Run [37930358171](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37930358171) completed successfully and returned details for all 1,572 products in the six target families.
+- Compared with run `37928914569`: matches increased from 910 to 919 (+9), conflicts/reviews increased from 6 to 7 (+1), and insufficient-evidence outcomes decreased from 656 to 646 (-10). Catalog totals remained 55,842 products, with 1,572 target-family products and zero existing subtype assignments in the target families (zero catalog-wide as reported).
+- Validated intended changes in output: `Apetito Gouda plátky 90g` now returns `no_match / insufficient_evidence`, while `Rio Mare Tuňák v olivovém oleji 160g` now matches `tunak-konzerva-v-oleji`. This confirms the two main regression goals: generic cheese slices are not treated as sliced processed cheese, and explicit olive-oil wording is recognized.
+- The new review/conflict is appropriate for a mixed-option product label; the seven conflicts include mixed quark fat classes, tuna labels listing alternatives such as oil/own juice, a mixed beer assortment and rice listing both basmati/jasmine. These remain review-only; no subtype is proposed for conflicting products.
+- The output still misses the abbreviated tuna label `Rio Mare Tuňák v ol.oleji`; this is an evidence-coverage gap and should only be addressed with a specific regression test if we decide that this abbreviation is reliable enough.
+- Simulation mode explicitly reports read-only behavior (no INSERT/UPDATE/DELETE or assignment changes). No product assignments were written, no candidate was approved, and all 24 proposed subtype candidates remain unapproved.

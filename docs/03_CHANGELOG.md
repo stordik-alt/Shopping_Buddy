@@ -752,3 +752,12 @@
 - Oproti běhu [37930358171](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37930358171) přibyly 2 shody a 2 případy přešly z nedostatečných důkazů do shody; počet konfliktů zůstal 7. Změna odpovídá explicitní normalizované frázi `v ol oleji` pro varianty `v ol.oleji` a `v ol. oleji`.
 - Kontrola detailních záznamů: obě nové shody jsou očekávané konzervy tuňáka — `Rio Mare Tuňák v ol.oleji` a `X_BILLA TUNAK V OL.OLEJI 3X80 G`. Oba záznamy jsou v typu `tunak-konzerva` a pravidlo se opírá o explicitní normalizovanou frázi `v ol oleji`; kontrolní případ těstovin s touto frází zůstává bez shody.
 - Job `simulate` byl úspěšný. Log potvrzuje režim `READ ONLY`, bez `INSERT/UPDATE/DELETE` a bez změn přiřazení. Nejsou schváleny žádné kandidátní poddruhy a nic nebylo zapsáno do katalogu.
+
+
+## 2026-10-09 — Product Taxonomy bootstrap inventory (dry-run)
+
+- Přidán read-only auditní skript `scripts/audit-product-taxonomy-bootstrap.ts` a ruční workflow `.github/workflows/product-taxonomy-bootstrap-inventory.yml`.
+- Audit seskupuje kandidáty podle stavu, kategorie, zdrojových důkazů a příznaků kontroly; měří duplicitní normalizované názvy, překryv s aktivními druhy zboží a skutečné pokrytí produktů v katalogu.
+- Úplný JSON report se ukládá jako artefakt běhu GitHub Actions. Cílem je připravit hromadný registr obecných druhů/poddruhů, nikoli schvalovat desítky tisíc kandidátů ručně.
+- Režim je pouze pro čtení; žádné produkční záznamy ani přiřazení se nemění. Počet kandidátů se nezaměňuje za počet pokrytých produktů.
+- Změny jsou na větvi `feat/product-taxonomy-bootstrap-inventory`; běh workflow a CI zatím čekají na ověření.

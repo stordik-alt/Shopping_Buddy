@@ -221,3 +221,16 @@ Nové návrhy poddruhů musí určit jednu rozhodovací osu nebo explicitní pri
 - Regression checks confirmed `Apetito Gouda plátky 90g` is now `no_match`, and `Rio Mare Tuňák v olivovém oleji 160g` maps to the oil subtype proposal.
 - Seven mixed-option/conflicting labels remain for human review. The abbreviation was addressed in PR #401 and revalidated by read-only run [37936816105](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37936816105) on commit `72e7db6e85f5e32dbb32a23e73337e88fd8434fc`: matches increased from 919 to 921, conflicts/reviews stayed at 7, and insufficient-evidence cases fell from 646 to 644. The two added matches were checked in the detailed report: `Rio Mare Tuňák v ol.oleji` and `X_BILLA TUNAK V OL.OLEJI 3X80 G`; both are tuna products and both match the explicit normalized phrase `v ol oleji`. The unrelated pasta control remains unmatched, so no false positive was found in the tested controls; no fuzzy oil inference was introduced.
 - The run processed all 1,572 target-family products from 55,842 catalog products and reported zero existing subtype assignments. It explicitly ran READ ONLY with no INSERT/UPDATE/DELETE and no assignment changes. Output is still proposal-only; no data or assignments changed and all 24 candidates remain unapproved.
+
+
+## 2026-10-09 — Registry-first bulk taxonomy bootstrap (first step)
+
+The next phase changes from reviewing individual PKD candidates to building a broad reusable registry and then mapping candidates in bulk.
+
+- The registry must cover general kinds of goods beyond the current catalog. Existing catalog names and PKD candidates are evidence, not the complete universe of Product Types.
+- GS1 GPC, Open Food Facts and CZ-CPA are reference taxonomies. Their labels/codes must not be copied blindly as Czech Product Types or concrete products.
+- Product Type is the general identity; Product Subtype is an optional child classification. Brand, package size, multipack count, EAN and retailer SKU remain product/package attributes.
+- The 40k candidate pool must be analyzed in aggregate: status, category/subcategory, source evidence, duplicate normalized names, confidence and exact matches to the active registry. Do not review all rows manually.
+- First implementation step: manual GitHub Actions workflow `.github/workflows/product-taxonomy-bootstrap-inventory.yml` runs `scripts/audit-product-taxonomy-bootstrap.ts` in READ-ONLY mode and uploads a JSON report artifact. It reports the current catalog/type/subtype baseline and ranked candidate evidence; it does not write to production.
+- Next step after reviewing the report: create a versioned, broad Product Type/Subtype seed proposal by domain, validate definitions and include/exclude boundaries, then bulk dry-run candidate mapping and measure coverage. Only the explicitly approved seed/backfill stage may write registry rows or product assignments.
+- Acceptance criteria: deterministic/idempotent proposal generation; no brand/package/SKU-derived types; duplicate normalized identities are consolidated; candidate and catalog coverage are reported separately; unresolved/ambiguous cases remain review-only; no existing manual assignments are overwritten.

@@ -36,7 +36,7 @@ jobs:
       - name: Run read-only Product Subtype expansion simulation
         run: |
           if [ "${{ inputs.include_details }}" = "true" ]; then
-            pnpm db:simulate-product-subtype-expansion --details
+            pnpm exec tsx scripts/simulate-product-subtype-expansion.ts --details
           else
-            pnpm db:simulate-product-subtype-expansion
+            pnpm exec tsx scripts/simulate-product-subtype-expansion.ts
           fi

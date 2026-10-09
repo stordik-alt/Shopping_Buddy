@@ -1,3 +1,10 @@
+## 2026-10-09 — Product Subtype database foundation
+- Added the `product_subtypes` table with stable subtype identity, explicit parent Product Type, ordering and active/inactive status.
+- Added the nullable `products.product_subtype_id` relation and database constraints that prevent assigning a subtype under a different parent or without a Product Type.
+- Added migration `0084_product_subtypes.sql` and regression coverage in `lib/db/product-subtypes.test.ts`.
+- This is schema groundwork only: no subtype registry was seeded, no catalog products were reclassified, and no production migration was applied.
+- Detailed entry and next steps: `docs/07_CHANGELOG.md`; canonical model: `docs/12_PRODUCT_TYPES.md`.
+
 ## 2026-10-09 — Product Type / Product Subtype hierarchy clarified
 - Established the canonical hierarchy **Typ zboží → Poddruh → konkrétní Produkt → balení/množství → EAN/SKU/obchod/cena**.
 - Typ zboží is the general, reusable identity (for example `Mléko`); Poddruh is an optional finer classification (for example `Trvanlivé mléko` or `Čerstvé mléko`). Neither may encode brand, package size, EAN or retailer SKU.

@@ -44,6 +44,22 @@ describe('Product Subtype provenance audit', () => {
     expect(result.manualReviewProducts).toBe(2)
   })
 
+  it('respects additional allowed categories and treats unit differences as informational', () => {
+    const result = auditProductSubtypeMigration([
+      row({
+        productTypeKey: 'praci-gel',
+        productTypeName: 'Prací gel',
+        productTypeCategory: 'Drogerie',
+        productTypeUnit: 'l',
+        category: 'Domácnost',
+        defaultUnit: 'ks',
+      }),
+    ])
+
+    expect(result.categoryMismatches).toBe(0)
+    expect(result.defaultUnitComparisonUnitDifferences).toBe(1)
+  })
+
   it('reports existing subtype assignments and possible category/unit divergence without mutating input', () => {
     const input = row({
       productSubtypeKey: 'mleko-polotucne',
@@ -58,7 +74,7 @@ describe('Product Subtype provenance audit', () => {
     expect(result.existingSubtypeAssignments).toBe(1)
     expect(result.existingSubtypeSourceBreakdown).toEqual({ manual: 1 })
     expect(result.categoryMismatches).toBe(1)
-    expect(result.defaultUnitDivergences).toBe(1)
+    expect(result.defaultUnitComparisonUnitDifferences).toBe(1)
     expect(result.eligibleCandidateProducts).toBe(0)
     expect(result.manualReviewProducts).toBe(0)
     expect(JSON.stringify(input)).toBe(before)

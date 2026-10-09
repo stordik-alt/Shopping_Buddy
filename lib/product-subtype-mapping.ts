@@ -7,19 +7,47 @@ import {
 import type { ProductSubtypeAuditRow } from '@/lib/product-subtype-audit'
 
 export type ProductSubtypeMappingStatus = 'candidate' | 'review' | 'existing' | 'outside_registry'
+export type ProductSubtypeMappingReasonCode =
+  | 'candidate'
+  | 'existing_subtype_assignment'
+  | 'no_product_type'
+  | 'product_type_outside_registry'
+  | 'category_mismatch'
+  | 'untrusted_provenance'
 
 export type ProductSubtypeMapping = {
   productId: string
   productName: string
+  category: string
+  defaultUnit: string
   productTypeKey: string | null
   productTypeName: string | null
+  productTypeProvenance: string
   parentTypeKey: string | null
   parentTypeName: string | null
   subtypeKey: string | null
   subtypeName: string | null
   provenance: string
   status: ProductSubtypeMappingStatus
+  reasonCode: ProductSubtypeMappingReasonCode
   reason: string
+}
+
+export type ProductSubtypeMappingReasonGroup = {
+  reasonCode: ProductSubtypeMappingReasonCode
+  reason: string
+  count: number
+  samples: Array<{
+    productId: string
+    productName: string
+    category: string
+    productTypeKey: string | null
+    productTypeName: string | null
+    productTypeProvenance: string
+    parentTypeKey: string | null
+    subtypeKey: string | null
+    provenance: string
+  }>
 }
 
 const TRUSTED_PROVENANCE = new Set(['rule', 'alias', 'pkd'])
@@ -29,6 +57,15 @@ const proposalByLegacyType = new Map(
 )
 const parentByKey = new Map(PRODUCT_TYPE_PARENT_PROPOSALS.map((parent) => [parent.key, parent]))
 
+const REASON_TEXT: Record<ProductSubtypeMappingReasonCode, string> = {
+  candidate: 'Deterministic mapping from the reviewed legacy Product Type to its registered Product Subtype.',
+  existing_subtype_assignment: 'Product already has a Product Subtype; existing classification is never overwritten.',
+  no_product_type: 'Product has no Product Type and cannot be mapped by the current registry.',
+  product_type_outside_registry: 'Current Product Type has no mapping in the reviewed starter registry.',
+  category_mismatch: 'Product category is outside the Product Type definition; explicit review is required before mapping.',
+  untrusted_provenance: 'Product Type provenance is manual/unknown and is not trusted for automatic subtype mapping.',
+}
+
 function hasCategoryMismatch(row: ProductSubtypeAuditRow): boolean {
   if (!row.productTypeKey) return false
   const definition = productTypeDefinitions.get(row.productTypeKey)
@@ -36,108 +73,117 @@ function hasCategoryMismatch(row: ProductSubtypeAuditRow): boolean {
   return Boolean(row.productTypeCategory && row.category !== row.productTypeCategory)
 }
 
+function mappingBase(row: ProductSubtypeAuditRow) {
+  return {
+    productId: row.id,
+    productName: row.name,
+    category: row.category,
+    defaultUnit: row.defaultUnit,
+    productTypeKey: row.productTypeKey,
+    productTypeName: row.productTypeName,
+    productTypeProvenance: row.productTypeSource ?? 'unknown',
+  }
+}
+
+function makeMapping(
+  row: ProductSubtypeAuditRow,
+  status: ProductSubtypeMappingStatus,
+  reasonCode: ProductSubtypeMappingReasonCode,
+  extra: Partial<Pick<ProductSubtypeMapping, 'parentTypeKey' | 'parentTypeName' | 'subtypeKey' | 'subtypeName' | 'provenance'>> = {},
+): ProductSubtypeMapping {
+  return {
+    ...mappingBase(row),
+    parentTypeKey: null,
+    parentTypeName: null,
+    subtypeKey: null,
+    subtypeName: null,
+    provenance: row.productTypeSource ?? 'unknown',
+    status,
+    reasonCode,
+    reason: REASON_TEXT[reasonCode],
+    ...extra,
+  }
+}
+
 export function buildProductSubtypeMappings(
   rows: readonly ProductSubtypeAuditRow[],
 ): ProductSubtypeMapping[] {
   return rows.map((row) => {
-    const provenance = row.productTypeSource ?? 'unknown'
-
-    if (!row.productTypeKey) {
-      return {
-        productId: row.id,
-        productName: row.name,
-        productTypeKey: null,
-        productTypeName: null,
-        parentTypeKey: null,
-        parentTypeName: null,
-        subtypeKey: null,
-        subtypeName: null,
-        provenance,
-        status: 'outside_registry',
-        reason: 'Product has no Product Type and cannot be mapped by the current registry.',
-      }
-    }
-
     if (row.productSubtypeKey) {
-      return {
-        productId: row.id,
-        productName: row.name,
-        productTypeKey: row.productTypeKey,
-        productTypeName: row.productTypeName,
-        parentTypeKey: null,
-        parentTypeName: null,
+      return makeMapping(row, 'existing', 'existing_subtype_assignment', {
         subtypeKey: row.productSubtypeKey,
         subtypeName: row.productSubtypeName,
         provenance: row.productSubtypeSource ?? 'unknown',
-        status: 'existing',
-        reason: 'Product already has a Product Subtype; existing classification is never overwritten.',
-      }
+      })
+    }
+
+    if (!row.productTypeKey) {
+      return makeMapping(row, 'outside_registry', 'no_product_type')
     }
 
     const proposal = proposalByLegacyType.get(row.productTypeKey)
     const parent = proposal ? parentByKey.get(proposal.parentTypeKey) : undefined
-
     if (!proposal || !parent) {
-      return {
-        productId: row.id,
-        productName: row.name,
-        productTypeKey: row.productTypeKey,
-        productTypeName: row.productTypeName,
-        parentTypeKey: null,
-        parentTypeName: null,
-        subtypeKey: null,
-        subtypeName: null,
-        provenance,
-        status: 'outside_registry',
-        reason: 'Current Product Type is outside the reviewed starter registry.',
-      }
+      return makeMapping(row, 'outside_registry', 'product_type_outside_registry')
     }
 
-    const categoryMismatch = hasCategoryMismatch(row)
-    if (categoryMismatch) {
-      return {
-        productId: row.id,
-        productName: row.name,
-        productTypeKey: row.productTypeKey,
-        productTypeName: row.productTypeName,
-        parentTypeKey: parent.key,
-        parentTypeName: parent.name,
-        subtypeKey: proposal.key,
-        subtypeName: proposal.name,
-        provenance,
-        status: 'review',
-        reason: 'Product category is outside the Product Type definition; explicit review is required before mapping.',
-      }
-    }
-
-    if (!TRUSTED_PROVENANCE.has(provenance)) {
-      return {
-        productId: row.id,
-        productName: row.name,
-        productTypeKey: row.productTypeKey,
-        productTypeName: row.productTypeName,
-        parentTypeKey: parent.key,
-        parentTypeName: parent.name,
-        subtypeKey: proposal.key,
-        subtypeName: proposal.name,
-        provenance,
-        status: 'review',
-        reason: 'Product Type provenance is manual/unknown and is not trusted for automatic subtype mapping.',
-      }
-    }
-
-    return {
-      productId: row.id,
-      productName: row.name,
-      productTypeKey: row.productTypeKey,
-      productTypeName: row.productTypeName,
+    const proposed = {
       parentTypeKey: parent.key,
       parentTypeName: parent.name,
       subtypeKey: proposal.key,
       subtypeName: proposal.name,
-      provenance,
-      status: 'candidate',
-      reason: 'Deterministic mapping from the reviewed legacy Product Type to its registered Product Subtype.',
+    }
+
+    if (hasCategoryMismatch(row)) {
+      return makeMapping(row, 'review', 'category_mismatch', proposed)
+    }
+
+    const provenance = row.productTypeSource ?? 'unknown'
+    if (!TRUSTED_PROVENANCE.has(provenance)) {
+      return makeMapping(row, 'review', 'untrusted_provenance', { ...proposed, provenance })
+    }
+
+    return makeMapping(row, 'candidate', 'candidate', { ...proposed, provenance })
+  })
+}
+
+/** Produces mutually exclusive reason groups that reconcile exactly to the supplied mapping rows. */
+export function summarizeProductSubtypeMappingReasons(
+  mappings: readonly ProductSubtypeMapping[],
+  sampleLimit = 20,
+): ProductSubtypeMappingReasonGroup[] {
+  const groups = new Map<ProductSubtypeMappingReasonCode, ProductSubtypeMapping[]>()
+  for (const mapping of mappings) {
+    const current = groups.get(mapping.reasonCode) ?? []
+    current.push(mapping)
+    groups.set(mapping.reasonCode, current)
+  }
+
+  const order: ProductSubtypeMappingReasonCode[] = [
+    'candidate',
+    'existing_subtype_assignment',
+    'no_product_type',
+    'product_type_outside_registry',
+    'category_mismatch',
+    'untrusted_provenance',
+  ]
+  return order.map((reasonCode) => {
+    const rows = groups.get(reasonCode) ?? []
+    return {
+      reasonCode,
+      reason: REASON_TEXT[reasonCode],
+      count: rows.length,
+      samples: rows.slice(0, Math.max(0, sampleLimit)).map((mapping) => ({
+        productId: mapping.productId,
+        productName: mapping.productName,
+        category: mapping.category,
+        productTypeKey: mapping.productTypeKey,
+        productTypeName: mapping.productTypeName,
+        productTypeProvenance: mapping.productTypeProvenance,
+        parentTypeKey: mapping.parentTypeKey,
+        subtypeKey: mapping.subtypeKey,
+        provenance: mapping.provenance,
+      })),
     }
   })
 }

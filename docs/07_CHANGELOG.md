@@ -2063,3 +2063,7 @@ Every future architectural/schema/business-rule change should append a dated ent
 - **Tooling:** added `lib/product-subtype-mapping.ts`, regression tests and `pnpm db:audit-product-subtype-mapping`.
 - **Workflow:** added manual `.github/workflows/product-subtype-mapping-audit.yml` to run the mapping audit with `NEON_PROD_DATABASE_URL`.
 - **Scope:** read-only; no subtype rows were seeded and no products were changed.
+
+## 2026-10-09 — Product Subtype mapping test correction
+- Fixed the summary test to assert only subtypes present in the supplied mapping rows; the implementation intentionally omits zero-count subtypes.
+- No database changes.

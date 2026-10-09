@@ -30,9 +30,18 @@ describe('Product Subtype database model', () => {
         categoryId: category!.id,
         productTypeId: parentType!.id,
         productSubtypeId: subtype.id,
+        productSubtypeSource: 'manual',
       }).returning()
       validProductId = validProduct.id
-      expect(validProduct.productSubtypeId).toBe(subtype.id)
+      expect(validProduct).toMatchObject({ productSubtypeId: subtype.id, productSubtypeSource: 'manual' })
+
+      await expect(db.insert(schema.products).values({
+        name: `Invalid Subtype Source ${suffix}`,
+        categoryId: category!.id,
+        productTypeId: parentType!.id,
+        productSubtypeId: subtype.id,
+        productSubtypeSource: 'unknown',
+      })).rejects.toThrow()
 
       await expect(db.insert(schema.products).values({
         name: `Wrong Parent Product Subtype ${suffix}`,

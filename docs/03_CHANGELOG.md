@@ -1,178 +1,660 @@
-## 2026-10-09 — Manual GitHub Actions dry-run for Product Subtype candidates
-- Added `.github/workflows/product-subtype-candidate-ingest-dry-run.yml`, triggered manually through `workflow_dispatch`.
-- The workflow previews the 24 draft registry-expansion candidates using the candidate ingest CLI without `--apply`; it cannot insert/merge candidates or assign products.
-- Uses the GitHub Actions secret `NEON_PROD_DATABASE_URL` only to satisfy the CLI's configuration guard; the dry-run branch does not execute database queries.
-- Verification: workflow syntax and CI are pending review; this workflow has not yet been run. No production writes or product assignments were performed.
+## 2026-10-09 — Zpřesnění hranic kandidátů Product Subtype
+- Upraveno všech 24 návrhů v `docs/examples/product-subtype-registry-expansion-candidates.json`: explicitní důkaz, vzájemné výluky a zacházení s nejednoznačnými produkty.
+- Doplněna rozhodovací priorita pro těstoviny, rýži a tavený sýr; u tvarohu se zakazuje odvozovat tučnost bez ověřené specifikace; u piva a tuňáka rozhoduje výslovné označení.
+- Doplněn revizní dokument a obecná pravidla hranic/preference do `docs/12_PRODUCT_TYPES.md`.
+- Ověření: původní ingest DRY RUN [37912495113](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37912495113) prošel pro 24 návrhů bez chyb. Po úpravách je nutné spustit nový DRY RUN a ověřit testy precedence.
+- Stav: návrhy stále nejsou věcně schváleny; žádný kandidát nebyl zapsán do databáze a žádný produkt nebyl přiřazen.
+- PR: změna připravena k revizi; neprovádět `--apply` bez samostatného rozhodnutí.
 
-## 2026-10-09 — Product Subtype registry expansion proposals
-- Added a review document covering the largest unmapped Product Types from read-only audit run `37910630603`, including explicit hold/review notes for overlapping classification axes and questionable parent types.
-- Added 24 draft candidate proposals for Pivo, Těstoviny, Rýže, Tvaroh, Tavený sýr and Tuňák v konzervě in a CLI-compatible JSON input file.
-- Proposals remain unapproved and have not been ingested into the database candidate queue. No active subtype, product assignment, migration or production write was performed.
-- Verification: JSON structure and proposal count checked in the authoring workflow; CI/CLI dry-run has not yet been run.
-
-## 2026-10-09 — Product Type inventory for subtype registry expansion
-- Extended the read-only Product Subtype mapping audit to group every product with an existing Product Type but no reviewed starter-registry mapping by stable Product Type key.
-- Each group includes product count, category and Product Type provenance breakdowns, plus up to three deterministic example products; groups sort by descending product count then stable key.
-- This inventory is evidence for the next registry-review phase only. It does not infer new subtype identities, seed the registry, or change product assignments.
-- Added regression coverage for group counts, category/provenance breakdowns, deterministic sample ordering and exclusion of products without Product Type.
-- Verification: merged in PR #393 (`2a5442eeedd5130d958f6157ae28f9c3ced5b4f8`); read-only production audit completed successfully in run [37910630603](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37910630603). No production writes or migrations performed.
-
-## 2026-10-09 — Product Subtype registry conflict resolution
-- Recreated the review-only Product Subtype registry on a fresh branch based directly on merged `main` after PR #385 became non-mergeable due to the foundation-merge ancestry.
-- No database schema, production data or active classification was changed; the registry remains candidate-only.
-- Verification: registry tests and CI are pending on the replacement PR.
-
-## 2026-10-09 — Product Subtype CI and PKD confidence fixes
-- Routed `lib/db/product-subtypes.test.ts` out of the database-free unit job and into the isolated PostgreSQL test job.
-- Rounded PKD candidate confidence scores to two decimal places so deterministic scoring no longer emits floating-point artifacts.
-
-## 2026-10-09 — Product Subtype database foundation
-- Added the `product_subtypes` table with stable subtype identity, explicit parent Product Type, ordering and active/inactive status.
-- Added the nullable `products.product_subtype_id` relation and database constraints that prevent assigning a subtype under a different parent or without a Product Type.
-- Added `product_subtype_source` to retain `rule`/`manual`/`alias`/`pkd` provenance and enforce a valid, paired source for every subtype assignment.
-- Added migration `0084_product_subtypes.sql` and regression coverage in `lib/db/product-subtypes.test.ts`.
-- This is schema groundwork only: no subtype registry was seeded, no catalog products were reclassified, and no production migration was applied.
-- Verification: CI passed on application-code commit `3a1849bc6cf6cec7bfeaad80f8559f24a4124b4c` (unit tests, typecheck/build, isolated PostgreSQL integration tests, Playwright and Cloudflare build); security audit passed. No production database was changed.
-- Detailed entry and next steps: `docs/07_CHANGELOG.md`; canonical model: `docs/12_PRODUCT_TYPES.md`.
-
-## 2026-10-09 — Product Type / Product Subtype hierarchy clarified
-- Established the canonical hierarchy **Typ zboží → Poddruh → konkrétní Produkt → balení/množství → EAN/SKU/obchod/cena**.
-- Typ zboží is the general, reusable identity (for example `Mléko`); Poddruh is an optional finer classification (for example `Trvanlivé mléko` or `Čerstvé mléko`). Neither may encode brand, package size, EAN or retailer SKU.
-- A Product Type can contain many subtypes and each subtype can contain many concrete products. Product packaging and quantity remain separate from classification.
-- The existing Group concept remains separate: a group can contain several Product Types that the planner may treat as alternatives.
-- GS1 GPC, Open Food Facts, CZ-CPA, own catalog and OCR are documented as discovery/knowledge evidence for the registry, not as a direct Product Type/SKU list.
-- The previous 2026-10-v5 cross-reference candidate direction is explicitly superseded by this model; further candidate generation must follow the registry-first concept.
-- Documentation: `docs/12_PRODUCT_TYPES.md`.
-- Verification: documentation-only change; no database data was changed.
-- Commit: `300fb142146714d7d18342463010088fec455135`.
-
-## 2026-10-09 — PKD implementation milestones recorded
-- PKD source ingestion and normalization/deduplication are now documented as separate knowledge-layer steps before mapping to the application's Product Types.
-- GS1 GPC, Open Food Facts and CZ-CPA imports remain external taxonomy evidence and do not directly create Product Types.
-- The PKD mapping engine is constrained to exact normalized Product Type names/synonyms; broad receipt-line classification is not used for formal taxonomy mapping.
-- Candidate generation and mapping/acceptance are separated: discovery produces candidates, while Product Type creation/mapping requires explicit review and must not overwrite existing manual assignments.
-- Quantity normalization is universal across goods and remains separate from Product Type identity; unknown conversions are not guessed.
-- Verification: these milestones are already recorded in `docs/12_PRODUCT_TYPES.md`; this changelog entry consolidates the previously undocumented architectural milestones without claiming a new production run.
-
-## 2026-09-23 — Historical UNKNOWN branch backfill
-- Added `scripts/backfill-receipt-store-locations.ts` for a controlled one-time backfill of historical receipt imports without a resolved branch.
-- Default execution is DRY RUN; `--apply` is required to change data.
-- Existing branches are matched by normalized address/city; missing OCR-discovered branches are created.
-- Linked purchases receive the resolved `store_location_id`.
-- Historical RECEIPT price observations are updated only when the matching receipt/product/date relationship is unambiguous. Ambiguous prices remain UNKNOWN.
-- The backfill has not been executed against production from this session because direct Neon SQL execution is not available through the connected runtime.
-
-## 2026-09-23 — OCR auto-creation of store branches
-- Purpose: when OCR reads a physical branch address that is not yet in the store directory, create the missing branch instead of leaving the receipt permanently UNKNOWN.
-- Schema: migration `0011_receipt_auto_create_store_locations.sql` makes coordinates/opening hours nullable for newly discovered branches and adds a normalized chain/address/city uniqueness guard.
-- Backend: `app/actions/receipts.ts` now resolves an existing branch or creates one from OCR address/city data; the same resolver is used for automatic completion and human-confirmed review.
-- Data integrity: coordinates and opening hours are never invented from receipt OCR; they remain NULL until enriched by a trusted source.
-- Verification: regression coverage added for branch creation, assignment and repeat-import deduplication. Runtime migration/build verification is still pending.
-
-## 2026-09-23 — Price observation model
-- Purpose: make current prices and price history provenance-safe before connecting real retailer feeds.
-- Schema: migration `0010_price_observation_model.sql` adds explicit retailer chain, nullable branch, scope, source type, location-resolution state, validity window, source reference and confidence; existing branch-linked rows are backfilled without deleting history.
-- Backend: `recordPriceObservation()` now appends contextual observations and validates STORE/UNKNOWN vs STORE/RESOLVED semantics; `getProductPrices()` derives the latest value from the observation ledger while preserving history and provenance.
-- Receipt flow: receipt prices are stored as STORE + RECEIPT, with RESOLVED when the branch is known and UNKNOWN when it is not.
-- Verification: migration `0010_price_observation_model.sql` was applied successfully to the production Neon database; the application recovered from the previous React Server Component #441 error after the schema was brought in sync with the deployed code.
-- CI: GitHub Actions run `35844035366` for commit `8e77d634fcd50a5ea2928ec5b9868d7e6b247295` completed successfully (unit checks, typecheck and build).
-- Commit sequence: `298e03b3cdd37b817bac48cdf1748f7d30355bee` through `8e77d634fcd50a5ea2928ec5b9868d7e6b247295`.
-
-# Shopping Buddy — Change Log
-
-This file records significant architectural and data-model changes.
-
-## 2026-09-23 — Context and change-safety framework
-- Established persistent project-context documentation.
-- Separated long-term context from current project state.
-- Established CURRENT_STATE / PROJECT_CONTEXT / CHANGELOG / DATABASE_MODEL / TEST_PLAN / KNOWN_ISSUES roles.
-- Established that UNKNOWN store locations remain STORE observations and are never treated as CHAIN prices.
-- Established automatic branch backfill only for UNKNOWN records and only on unambiguous matches.
-
-## 2026-09-22 — Receipt/OCR foundation
-- Receipt import and OCR pipeline implemented and browser-verified through failure/manual paths.
-- Receipt data supports products, quantities, units, dates, currency, store information and location resolution.
-- Decimal quantities migrated to numeric(10,3).
-- Catalog-confirmed corrections can persist product defaults.
-- Pantry location handling avoids guessing when classification is ambiguous.
-
-## 2026-09-22 — Mobile receipt upload
-- Receipt upload was made reliable on mobile.
-
-## 2026-09-22 — Purchase/store handling
-- Purchase history uses the stored purchase store and displays an unknown-store fallback instead of inventing a store.
-
-## Rule
-Every future significant change should add a dated entry containing:
-- purpose
-- files/schema affected
-- verification performed
-- known limitations
-- commit SHA when available
-
-
-## 2026-10-09 — Product Subtype provenance-aware audit
-- Added a deterministic, read-only audit before any Product Subtype backfill.
-- The audit reports current Product Type coverage, classification provenance, registry coverage, unassigned/outside-registry products, existing subtype assignments and possible category/unit divergence.
-- Added a local runner, a manual production workflow using `NEON_PROD_DATABASE_URL`, and regression tests.
-- No database writes or product reclassification were performed.
-
-## 2026-10-09 — Product Subtype audit candidate safety fix
-- Restricted automatic audit candidates to trusted provenance (`rule`, `alias`, `pkd`); unknown/manual assignments remain review-only and existing subtype assignments are not proposed again.
-
-
-## 2026-10-09 — Product Subtype audit hardening and production baseline
-- First production audit attempt failed without a surfaced PostgreSQL cause; a retry succeeded with the same code, so the original failure cause remains unconfirmed.
-- Added schema-readiness detection and a safe legacy-schema fallback; direct read-only inspection confirmed production has the subtype table/columns and currently 0 assigned subtypes.
-- The audit respects all allowed Product Type categories instead of treating the primary DB category as the only allowed value, and treats product default-unit vs price-comparison-unit differences as informational.
-- Production baseline: 55,842 products; 7,656 with Product Type; 48,186 without; 1,364 candidates across seven starter parents; three `voda-neperliva` records in category `Děti` need review.
-- No production data or product assignments were changed.
-
-
-## 2026-10-09 — Product Subtype deterministic mapping audit
-- Added a read-only mapping layer from reviewed legacy Product Type keys to a proposed parent Product Type and exact registered Product Subtype.
-- Automatic candidates require trusted `rule`, `alias` or `pkd` provenance; manual/unknown provenance, category exceptions, existing subtype assignments and types outside the starter registry remain excluded from automatic mapping.
-- Added `lib/product-subtype-mapping.ts`, regression tests and `pnpm db:audit-product-subtype-mapping`.
-- Added manual GitHub Actions workflow `.github/workflows/product-subtype-mapping-audit.yml`, using `NEON_PROD_DATABASE_URL` and the read-only mapping runner.
-- No database writes or subtype assignments were performed.
-
-## 2026-10-09 — Fix mapping audit unit test
-- Corrected the summary regression expectation: the summarizer includes only subtypes represented by mapping rows, so an unrepresented lactose-free subtype must not appear with zero counts.
-- CI failure reproduced from PR #389; no production data was changed.
-
-## 2026-10-09 — Stabilize Product Subtype mapping summary order
-- Replaced locale-dependent sorting with explicit key ordering and aligned the regression expectation to that deterministic order after CI exposed a localeCompare ordering mismatch.
-- No production data changed.
-
-
-## 2026-10-09 — Production Product Subtype mapping audit results
-- Recorded the successful read-only production run of `scripts/audit-product-subtype-mapping.ts`.
-- Baseline: 55,842 catalog products; 1,361 automatic mapping candidates; 3 concrete records held for manual review; 0 existing subtype assignments; 54,478 products outside the current starter registry; 19 subtypes represented in the report.
-- Candidate breakdown: Káva 414, Sýr 341, Voda 290 automatic candidates (plus 3 manual-review records), Olej 163, Mléko 79, Mouka 45 and Cukr 29. Water subtype counts: neperlivá 133 automatic + 3 manual review, perlivá 157.
-- Held out from automatic assignment: `HiPP Baby přírodní minerální voda neperlivá 6×1 l`, `HiPP Baby přírodní minerální voda neperlivá multipack (6×1 l)`, and `YESs Meloun neperlivá`. All are proposed as `voda-neperliva` but have category `Děti`; category and taxonomy fit must be reviewed explicitly.
-- Clarified that 54,478 products outside the starter registry are not automatically errors. The audit is read-only, has no `--apply` mode, and did not seed or backfill data.
-- Next gate: validate report completeness, review candidates and exceptions, then prepare a separate reviewed seed/backfill plan with preconditions, dry-run diff, idempotency checks, manual-assignment protection, post-run audit and rollback strategy. No production write is authorized by this audit.
-
-## 2026-10-09 — Extensible Product Subtype registry for retailer feeds
-- Documented that new Product Subtypes may be proposed and reviewed before any concrete catalog product exists.
-- Defined stable subtype identity, required scope/boundary evidence, parent Product Type, and the distinction between subtype identity and retailer SKU/EAN/package data.
-- Defined the future retailer-feed flow: normalize source data, match approved types/subtypes, queue missing subtypes as candidates, review/deduplicate, approve, then map products; ambiguous matches remain review/unknown.
-- This is a documentation-only decision. No production subtypes, product assignments, or retailer imports were created or changed.
-
-## 2026-10-09 — Product Subtype candidate review workflow
-- Added migration `0085_product_subtype_candidates.sql` and the Drizzle model for a review queue separate from active subtypes.
-- Added deterministic Czech-label normalization, stable candidate keys, deduplication within a parent Product Type, and source/evidence preservation.
-- Added CLI actions to list, dry-run/ingest, explicitly approve, or reject candidates. Approval requires a written definition plus include/exclude boundaries; duplicate names are routed to duplicate status.
-- Approval creates only the reusable subtype. It does not assign or rewrite existing catalog products. Ingest writes require explicit `--apply`; no production command or migration was run.
-- Candidate proposals can be queued before a parent Product Type has a database row; approval waits until the parent is active. Added a synthetic JSON example for normalized feed input.
-- Final hardening: migration constraint names now match the Drizzle schema; repeated ingest merges unique source IDs and include/exclude boundaries, and the queue resolves parent names by stable key even before the parent row is linked.
-- Added unit tests for normalization, deduplication, parent scoping and approval gates. Runtime tests/CI remain to be verified.
-- Implementation branch: `feat/product-subtype-candidate-workflow`.
-
-## 2026-10-09 — Product Subtype exclusion reason audit
-- Extended the read-only mapping audit with mutually exclusive reason codes for automatic candidates, existing assignments, missing Product Type, Product Types outside the starter registry, category mismatch, and untrusted provenance.
-- Each reason group reports its count and up to 20 concrete product samples with IDs, names, category, current Product Type and provenance.
-- Added a reconciliation guard: the sum of all reason groups must equal the catalog row count or the audit fails.
-- Reason-group samples are ordered by stable product ID so repeated read-only runs show reproducible examples.
-- Added regression tests for reason exclusivity/reconciliation and for keeping Product Type provenance distinct from subtype assignment provenance.
-- No production writes, backfill or subtype assignments were performed.
+{
+  "candidates": [
+    {
+      "parentTypeKey": "pivo",
+      "name": "Světlé pivo",
+      "definition": "Pivo, jehož deklarovaná barva je světlá.",
+      "includes": [
+        "výrobek je výrobcem nebo etiketou označen jako světlé pivo"
+      ],
+      "excludes": [
+        "výslovně označené tmavé nebo polotmavé pivo"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Pivo",
+        "productCount": 609,
+        "sampleProducts": [
+          "Bakalář Rakovnický ležák za studena chmelený 0,5l",
+          "Velkopopovický Kozel Černý pivo výčepní tmavé 0,5l",
+          "Stella Artois světlý ležák, sklo"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "pivo",
+      "name": "Polotmavé pivo",
+      "definition": "Pivo výslovně označené jako polotmavé.",
+      "includes": [
+        "výrobek je výrobcem nebo etiketou označen jako polotmavé pivo"
+      ],
+      "excludes": [
+        "výslovně označené světlé nebo tmavé pivo"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Pivo",
+        "productCount": 609,
+        "sampleProducts": [
+          "Bakalář Rakovnický ležák za studena chmelený 0,5l",
+          "Velkopopovický Kozel Černý pivo výčepní tmavé 0,5l",
+          "Stella Artois světlý ležák, sklo"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "pivo",
+      "name": "Tmavé pivo",
+      "definition": "Pivo výslovně označené jako tmavé.",
+      "includes": [
+        "výrobek je výrobcem nebo etiketou označen jako tmavé pivo"
+      ],
+      "excludes": [
+        "výslovně označené světlé nebo polotmavé pivo"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Pivo",
+        "productCount": 609,
+        "sampleProducts": [
+          "Bakalář Rakovnický ležák za studena chmelený 0,5l",
+          "Velkopopovický Kozel Černý pivo výčepní tmavé 0,5l",
+          "Stella Artois světlý ležák, sklo"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "testoviny",
+      "name": "Dlouhé těstoviny",
+      "definition": "Těstoviny prodávané v dlouhých pramenech nebo tyčích.",
+      "includes": [
+        "špagety, linguine a obdobné dlouhé tvary"
+      ],
+      "excludes": [
+        "pláty na lasagne, plněné těstoviny a drobné polévkové tvary"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Těstoviny",
+        "productCount": 419,
+        "sampleProducts": [
+          "Sam Mills Kukuřično-rýžové těstoviny - Vřetena bez lepku",
+          "Kitchin Fusilli N. 260 Bronze",
+          "Cornito Bezlepkové těstoviny fleky"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "testoviny",
+      "name": "Krátké tvarované těstoviny",
+      "definition": "Neplněné krátké těstovinové tvary určené jako hlavní příloha nebo do salátů.",
+      "includes": [
+        "penne, fusilli, farfalle a podobné krátké tvary"
+      ],
+      "excludes": [
+        "dlouhé těstoviny, plněné těstoviny, pláty na lasagne a drobné polévkové těstoviny"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Těstoviny",
+        "productCount": 419,
+        "sampleProducts": [
+          "Sam Mills Kukuřično-rýžové těstoviny - Vřetena bez lepku",
+          "Kitchin Fusilli N. 260 Bronze",
+          "Cornito Bezlepkové těstoviny fleky"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "testoviny",
+      "name": "Polévkové těstoviny",
+      "definition": "Drobné těstovinové tvary primárně určené do polévek.",
+      "includes": [
+        "písmenka, drobné nudle a drobné polévkové tvary"
+      ],
+      "excludes": [
+        "dlouhé těstoviny, krátké přílohové tvary, plněné těstoviny a pláty na lasagne"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Těstoviny",
+        "productCount": 419,
+        "sampleProducts": [
+          "Sam Mills Kukuřično-rýžové těstoviny - Vřetena bez lepku",
+          "Kitchin Fusilli N. 260 Bronze",
+          "Cornito Bezlepkové těstoviny fleky"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "testoviny",
+      "name": "Plněné těstoviny",
+      "definition": "Těstoviny, jejichž součástí je náplň.",
+      "includes": [
+        "ravioli, tortellini a podobné plněné tvary"
+      ],
+      "excludes": [
+        "neplněné těstoviny a pláty na lasagne bez náplně"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Těstoviny",
+        "productCount": 419,
+        "sampleProducts": [
+          "Sam Mills Kukuřično-rýžové těstoviny - Vřetena bez lepku",
+          "Kitchin Fusilli N. 260 Bronze",
+          "Cornito Bezlepkové těstoviny fleky"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "testoviny",
+      "name": "Pláty na lasagne",
+      "definition": "Těstovinové pláty určené pro vrstvené pokrmy typu lasagne.",
+      "includes": [
+        "pláty prodávané jako lasagne"
+      ],
+      "excludes": [
+        "nudle a jiné dlouhé/krátké tvary; hotové lasagne jako připravené jídlo"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Těstoviny",
+        "productCount": 419,
+        "sampleProducts": [
+          "Sam Mills Kukuřično-rýžové těstoviny - Vřetena bez lepku",
+          "Kitchin Fusilli N. 260 Bronze",
+          "Cornito Bezlepkové těstoviny fleky"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "ryze",
+      "name": "Rýže basmati",
+      "definition": "Rýže výslovně deklarovaná jako odrůda basmati.",
+      "includes": [
+        "balení označené basmati"
+      ],
+      "excludes": [
+        "jasmínová, arborio a jiné výslovně pojmenované odrůdy"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Rýže",
+        "productCount": 246,
+        "sampleProducts": [
+          "Lagris Rýže Parboiled ve varných sáčcích",
+          "Riso Scotti Vener Parboiled rýže",
+          "Lagris Rýže kulatozrnná loupaná 1kg"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "ryze",
+      "name": "Rýže jasmínová",
+      "definition": "Rýže výslovně deklarovaná jako jasmínová.",
+      "includes": [
+        "balení označené jasmínová nebo jasmine rice"
+      ],
+      "excludes": [
+        "basmati, arborio a jiné výslovně pojmenované odrůdy"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Rýže",
+        "productCount": 246,
+        "sampleProducts": [
+          "Lagris Rýže Parboiled ve varných sáčcích",
+          "Riso Scotti Vener Parboiled rýže",
+          "Lagris Rýže kulatozrnná loupaná 1kg"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "ryze",
+      "name": "Rýže arborio a na rizoto",
+      "definition": "Rýže odrůdy arborio nebo výslovně určená na rizoto.",
+      "includes": [
+        "arborio a výrobky označené jako rýže na rizoto"
+      ],
+      "excludes": [
+        "basmati, jasmínová a běžná rýže bez určení na rizoto"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Rýže",
+        "productCount": 246,
+        "sampleProducts": [
+          "Lagris Rýže Parboiled ve varných sáčcích",
+          "Riso Scotti Vener Parboiled rýže",
+          "Lagris Rýže kulatozrnná loupaná 1kg"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "ryze",
+      "name": "Rýže parboiled",
+      "definition": "Rýže, u níž je na obalu deklarována úprava parboiled.",
+      "includes": [
+        "výrobky výslovně označené parboiled"
+      ],
+      "excludes": [
+        "rýže bez deklarace parboiled; odrůda basmati/jasmínová má přednost, pokud je potřeba zachovat jediný subtype"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Rýže",
+        "productCount": 246,
+        "sampleProducts": [
+          "Lagris Rýže Parboiled ve varných sáčcích",
+          "Riso Scotti Vener Parboiled rýže",
+          "Lagris Rýže kulatozrnná loupaná 1kg"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "ryze",
+      "name": "Rýže natural / celozrnná",
+      "definition": "Rýže prodávaná jako natural, celozrnná nebo hnědá rýže.",
+      "includes": [
+        "výrobky výslovně označené natural, celozrnná nebo brown rice"
+      ],
+      "excludes": [
+        "bílá/loupaná rýže a výrobky s jinou dominantní výslovnou odrůdou"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Rýže",
+        "productCount": 246,
+        "sampleProducts": [
+          "Lagris Rýže Parboiled ve varných sáčcích",
+          "Riso Scotti Vener Parboiled rýže",
+          "Lagris Rýže kulatozrnná loupaná 1kg"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "ryze",
+      "name": "Ostatní dlouhozrnná rýže",
+      "definition": "Dlouhozrnná rýže bez konkrétního názvu odrůdy a bez jiné zvláštní úpravy.",
+      "includes": [
+        "výslovně dlouhozrnná bílá rýže, která není basmati, jasmínová ani parboiled"
+      ],
+      "excludes": [
+        "basmati, jasmínová, parboiled, natural/celozrnná a kulatozrnná rýže"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Rýže",
+        "productCount": 246,
+        "sampleProducts": [
+          "Lagris Rýže Parboiled ve varných sáčcích",
+          "Riso Scotti Vener Parboiled rýže",
+          "Lagris Rýže kulatozrnná loupaná 1kg"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "ryze",
+      "name": "Ostatní kulatozrnná rýže",
+      "definition": "Kulatozrnná rýže bez konkrétní odrůdy a bez jiné zvláštní úpravy.",
+      "includes": [
+        "výslovně kulatozrnná bílá rýže, která není arborio ani parboiled"
+      ],
+      "excludes": [
+        "arborio/rýže na rizoto, parboiled, natural/celozrnná a dlouhozrnná rýže"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Rýže",
+        "productCount": 246,
+        "sampleProducts": [
+          "Lagris Rýže Parboiled ve varných sáčcích",
+          "Riso Scotti Vener Parboiled rýže",
+          "Lagris Rýže kulatozrnná loupaná 1kg"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "tvaroh",
+      "name": "Tučný tvaroh",
+      "definition": "Tvaroh deklarovaný výrobcem jako tučný nebo odpovídající explicitnímu údaji o tuku.",
+      "includes": [
+        "etiketa nebo důvěryhodná produktová specifikace označuje tvaroh jako tučný"
+      ],
+      "excludes": [
+        "výslovně polotučný nebo odtučněný tvaroh"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Tvaroh",
+        "productCount": 114,
+        "sampleProducts": [
+          "Tatra Tvaroh odtučněný",
+          "Tatra Tvaroh tučný suš.22%",
+          "Olma Olomoucký tvaroh odtučněný 250 g"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "tvaroh",
+      "name": "Polotučný tvaroh",
+      "definition": "Tvaroh deklarovaný výrobcem jako polotučný.",
+      "includes": [
+        "etiketa nebo důvěryhodná produktová specifikace označuje tvaroh jako polotučný"
+      ],
+      "excludes": [
+        "výslovně tučný nebo odtučněný tvaroh"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Tvaroh",
+        "productCount": 114,
+        "sampleProducts": [
+          "Tatra Tvaroh odtučněný",
+          "Tatra Tvaroh tučný suš.22%",
+          "Olma Olomoucký tvaroh odtučněný 250 g"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "tvaroh",
+      "name": "Odtučněný tvaroh",
+      "definition": "Tvaroh deklarovaný výrobcem jako odtučněný nebo nízkotučný podle ověřeného označení.",
+      "includes": [
+        "etiketa nebo důvěryhodná produktová specifikace označuje tvaroh jako odtučněný"
+      ],
+      "excludes": [
+        "výslovně tučný nebo polotučný tvaroh"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Tvaroh",
+        "productCount": 114,
+        "sampleProducts": [
+          "Tatra Tvaroh odtučněný",
+          "Tatra Tvaroh tučný suš.22%",
+          "Olma Olomoucký tvaroh odtučněný 250 g"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "taveny-syr",
+      "name": "Plátkový tavený sýr",
+      "definition": "Tavený sýr vyráběný a prodávaný jako jednotlivé plátky.",
+      "includes": [
+        "etiketa uvádí plátky nebo produkt tvoří oddělené plátky taveného sýra"
+      ],
+      "excludes": [
+        "roztíratelný sýr v kelímku nebo tavený sýr v bloku/porcích"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Tavený sýr",
+        "productCount": 102,
+        "sampleProducts": [
+          "ARO Sýr tavený light 26%",
+          "Metro Chef Sýr tavený 64%",
+          "Moravia Jemný tavený máslový sýr"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "taveny-syr",
+      "name": "Roztíratelný tavený sýr",
+      "definition": "Tavený sýr určený k roztírání, typicky v kelímku nebo vaničce.",
+      "includes": [
+        "produkt je deklarován jako roztíratelný a prodává se ve společném kelímku/vaničce"
+      ],
+      "excludes": [
+        "plátkový tavený sýr a pevné jednotlivé porce"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Tavený sýr",
+        "productCount": 102,
+        "sampleProducts": [
+          "ARO Sýr tavený light 26%",
+          "Metro Chef Sýr tavený 64%",
+          "Moravia Jemný tavený máslový sýr"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "taveny-syr",
+      "name": "Porcovaný tavený sýr",
+      "definition": "Tavený sýr prodávaný v samostatně zabalených porcích nebo trojúhelníčcích.",
+      "includes": [
+        "samostatné porce nebo trojúhelníčky taveného sýra"
+      ],
+      "excludes": [
+        "roztíratelný sýr ve vaničce a volné plátky"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Tavený sýr",
+        "productCount": 102,
+        "sampleProducts": [
+          "ARO Sýr tavený light 26%",
+          "Metro Chef Sýr tavený 64%",
+          "Moravia Jemný tavený máslový sýr"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "tunak-konzerva",
+      "name": "Tuňák ve vlastní šťávě",
+      "definition": "Konzervovaný tuňák, jehož nálev je označen jako vlastní šťáva.",
+      "includes": [
+        "výslovně označený tuňák ve vlastní šťávě"
+      ],
+      "excludes": [
+        "tuňák v oleji nebo v jiném nálevu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Tuňák v konzervě",
+        "productCount": 82,
+        "sampleProducts": [
+          "Rio Mare Tuňák ve vlastní šťávě",
+          "Tuňák v olivovém oleji",
+          "BILLA Tuňák ve vlastní šťávě 3 x 80g (240g)"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "tunak-konzerva",
+      "name": "Tuňák v oleji",
+      "definition": "Konzervovaný tuňák naložený v oleji.",
+      "includes": [
+        "etiketa uvádí olej jako konzervační nálev"
+      ],
+      "excludes": [
+        "tuňák ve vlastní šťávě nebo ve vodním/jiném nálevu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Tuňák v konzervě",
+        "productCount": 82,
+        "sampleProducts": [
+          "Rio Mare Tuňák ve vlastní šťávě",
+          "Tuňák v olivovém oleji",
+          "BILLA Tuňák ve vlastní šťávě 3 x 80g (240g)"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    },
+    {
+      "parentTypeKey": "tunak-konzerva",
+      "name": "Tuňák ve vodním nálevu",
+      "definition": "Konzervovaný tuňák v nálevu na bázi vody, který není označen jako vlastní šťáva.",
+      "includes": [
+        "etiketa uvádí vodu nebo vodní nálev"
+      ],
+      "excludes": [
+        "tuňák v oleji a tuňák ve vlastní šťávě"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
+      "sourceVersion": "github-actions-run-37910630603",
+      "sourceRecordIds": [],
+      "evidence": {
+        "auditRunId": 37910630603,
+        "productTypeName": "Tuňák v konzervě",
+        "productCount": 82,
+        "sampleProducts": [
+          "Rio Mare Tuňák ve vlastní šťávě",
+          "Tuňák v olivovém oleji",
+          "BILLA Tuňák ve vlastní šťávě 3 x 80g (240g)"
+        ],
+        "reviewStatus": "proposal_only_not_approved",
+        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+      }
+    }
+  ]
+}

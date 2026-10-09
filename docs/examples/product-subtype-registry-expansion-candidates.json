@@ -3,12 +3,12 @@
     {
       "parentTypeKey": "pivo",
       "name": "Světlé pivo",
-      "definition": "Pivo, jehož deklarovaná barva je světlá.",
+      "definition": "Pivo, které je na obalu nebo v důvěryhodné specifikaci výslovně označeno jako světlé.",
       "includes": [
-        "výrobek je výrobcem nebo etiketou označen jako světlé pivo"
+        "etiketa nebo ověřená specifikace výslovně uvádí světlé pivo; u ležáku samotné slovo „ležák“ nestačí"
       ],
       "excludes": [
-        "výslovně označené tmavé nebo polotmavé pivo"
+        "polotmavé nebo tmavé pivo; pivo bez doložené barvy zůstává bez poddruhu"
       ],
       "sourceType": "manual",
       "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
@@ -24,18 +24,18 @@
           "Stella Artois světlý ležák, sklo"
         ],
         "reviewStatus": "proposal_only_not_approved",
-        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+        "notes": "Návrh odvozen z agregovaného read-only inventáře; vzorky a počty jsou kontext, nikoli důkaz vhodnosti konkrétního produktu. Použít pouze při splnění výslovných hranic v definici."
       }
     },
     {
       "parentTypeKey": "pivo",
       "name": "Polotmavé pivo",
-      "definition": "Pivo výslovně označené jako polotmavé.",
+      "definition": "Pivo, které je na obalu nebo v důvěryhodné specifikaci výslovně označeno jako polotmavé.",
       "includes": [
-        "výrobek je výrobcem nebo etiketou označen jako polotmavé pivo"
+        "etiketa nebo ověřená specifikace výslovně uvádí polotmavé pivo"
       ],
       "excludes": [
-        "výslovně označené světlé nebo tmavé pivo"
+        "světlé nebo tmavé pivo; pivo bez doložené barvy zůstává bez poddruhu"
       ],
       "sourceType": "manual",
       "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
@@ -51,18 +51,18 @@
           "Stella Artois světlý ležák, sklo"
         ],
         "reviewStatus": "proposal_only_not_approved",
-        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+        "notes": "Návrh odvozen z agregovaného read-only inventáře; vzorky a počty jsou kontext, nikoli důkaz vhodnosti konkrétního produktu. Použít pouze při splnění výslovných hranic v definici."
       }
     },
     {
       "parentTypeKey": "pivo",
       "name": "Tmavé pivo",
-      "definition": "Pivo výslovně označené jako tmavé.",
+      "definition": "Pivo, které je na obalu nebo v důvěryhodné specifikaci výslovně označeno jako tmavé.",
       "includes": [
-        "výrobek je výrobcem nebo etiketou označen jako tmavé pivo"
+        "etiketa nebo ověřená specifikace výslovně uvádí tmavé pivo"
       ],
       "excludes": [
-        "výslovně označené světlé nebo polotmavé pivo"
+        "světlé nebo polotmavé pivo; pivo bez doložené barvy zůstává bez poddruhu"
       ],
       "sourceType": "manual",
       "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
@@ -78,18 +78,18 @@
           "Stella Artois světlý ležák, sklo"
         ],
         "reviewStatus": "proposal_only_not_approved",
-        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+        "notes": "Návrh odvozen z agregovaného read-only inventáře; vzorky a počty jsou kontext, nikoli důkaz vhodnosti konkrétního produktu. Použít pouze při splnění výslovných hranic v definici."
       }
     },
     {
       "parentTypeKey": "testoviny",
       "name": "Dlouhé těstoviny",
-      "definition": "Těstoviny prodávané v dlouhých pramenech nebo tyčích.",
+      "definition": "Neplněné těstoviny ve formě dlouhých pramenů nebo tyčí; klasifikuje se podle dominantního tvaru.",
       "includes": [
-        "špagety, linguine a obdobné dlouhé tvary"
+        "špagety, linguine a obdobné dlouhé neplněné tvary, pokud nejsou určeny jako drobné polévkové těstoviny"
       ],
       "excludes": [
-        "pláty na lasagne, plněné těstoviny a drobné polévkové tvary"
+        "plněné těstoviny, pláty na lasagne a drobné polévkové tvary"
       ],
       "sourceType": "manual",
       "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
@@ -105,18 +105,18 @@
           "Cornito Bezlepkové těstoviny fleky"
         ],
         "reviewStatus": "proposal_only_not_approved",
-        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+        "notes": "Návrh odvozen z agregovaného read-only inventáře; vzorky a počty jsou kontext, nikoli důkaz vhodnosti konkrétního produktu. Použít pouze při splnění výslovných hranic v definici."
       }
     },
     {
       "parentTypeKey": "testoviny",
       "name": "Krátké tvarované těstoviny",
-      "definition": "Neplněné krátké těstovinové tvary určené jako hlavní příloha nebo do salátů.",
+      "definition": "Neplněné krátké tvarované těstoviny, které nejsou výslovně určené jako polévkové.",
       "includes": [
-        "penne, fusilli, farfalle a podobné krátké tvary"
+        "penne, fusilli, farfalle a obdobné krátké přílohové tvary"
       ],
       "excludes": [
-        "dlouhé těstoviny, plněné těstoviny, pláty na lasagne a drobné polévkové těstoviny"
+        "dlouhé těstoviny, plněné těstoviny, pláty na lasagne a drobné polévkové tvary"
       ],
       "sourceType": "manual",
       "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
@@ -132,18 +132,18 @@
           "Cornito Bezlepkové těstoviny fleky"
         ],
         "reviewStatus": "proposal_only_not_approved",
-        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+        "notes": "Návrh odvozen z agregovaného read-only inventáře; vzorky a počty jsou kontext, nikoli důkaz vhodnosti konkrétního produktu. Použít pouze při splnění výslovných hranic v definici."
       }
     },
     {
       "parentTypeKey": "testoviny",
       "name": "Polévkové těstoviny",
-      "definition": "Drobné těstovinové tvary primárně určené do polévek.",
+      "definition": "Drobné těstovinové tvary výslovně určené nebo běžně prodávané primárně do polévky.",
       "includes": [
-        "písmenka, drobné nudle a drobné polévkové tvary"
+        "písmenka, drobné nudle a jiné malé tvary, pokud jsou označeny nebo jasně prodávány jako polévkové"
       ],
       "excludes": [
-        "dlouhé těstoviny, krátké přílohové tvary, plněné těstoviny a pláty na lasagne"
+        "dlouhé a běžné krátké přílohové tvary, plněné těstoviny a pláty na lasagne"
       ],
       "sourceType": "manual",
       "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
@@ -159,18 +159,18 @@
           "Cornito Bezlepkové těstoviny fleky"
         ],
         "reviewStatus": "proposal_only_not_approved",
-        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+        "notes": "Návrh odvozen z agregovaného read-only inventáře; vzorky a počty jsou kontext, nikoli důkaz vhodnosti konkrétního produktu. Použít pouze při splnění výslovných hranic v definici."
       }
     },
     {
       "parentTypeKey": "testoviny",
       "name": "Plněné těstoviny",
-      "definition": "Těstoviny, jejichž součástí je náplň.",
+      "definition": "Těstoviny, jejichž součástí je náplň; náplň má přednost před tvarem těstoviny.",
       "includes": [
-        "ravioli, tortellini a podobné plněné tvary"
+        "ravioli, tortellini a obdobné výrobky s náplní"
       ],
       "excludes": [
-        "neplněné těstoviny a pláty na lasagne bez náplně"
+        "neplněné těstoviny včetně plátů na lasagne"
       ],
       "sourceType": "manual",
       "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
@@ -186,18 +186,18 @@
           "Cornito Bezlepkové těstoviny fleky"
         ],
         "reviewStatus": "proposal_only_not_approved",
-        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+        "notes": "Návrh odvozen z agregovaného read-only inventáře; vzorky a počty jsou kontext, nikoli důkaz vhodnosti konkrétního produktu. Použít pouze při splnění výslovných hranic v definici."
       }
     },
     {
       "parentTypeKey": "testoviny",
       "name": "Pláty na lasagne",
-      "definition": "Těstovinové pláty určené pro vrstvené pokrmy typu lasagne.",
+      "definition": "Neplněné těstovinové pláty výslovně určené jako pláty na lasagne.",
       "includes": [
-        "pláty prodávané jako lasagne"
+        "suché nebo chlazené neplněné pláty označené jako lasagne"
       ],
       "excludes": [
-        "nudle a jiné dlouhé/krátké tvary; hotové lasagne jako připravené jídlo"
+        "hotové lasagne jako připravené jídlo a plněné těstoviny"
       ],
       "sourceType": "manual",
       "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
@@ -213,18 +213,18 @@
           "Cornito Bezlepkové těstoviny fleky"
         ],
         "reviewStatus": "proposal_only_not_approved",
-        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+        "notes": "Návrh odvozen z agregovaného read-only inventáře; vzorky a počty jsou kontext, nikoli důkaz vhodnosti konkrétního produktu. Použít pouze při splnění výslovných hranic v definici."
       }
     },
     {
       "parentTypeKey": "ryze",
       "name": "Rýže basmati",
-      "definition": "Rýže výslovně deklarovaná jako odrůda basmati.",
+      "definition": "Rýže výslovně označená jako basmati; při výběru jediného poddruhu má název odrůdy přednost před úpravou zrna.",
       "includes": [
-        "balení označené basmati"
+        "balení označené basmati, i když je současně označeno jako parboiled nebo celozrnné"
       ],
       "excludes": [
-        "jasmínová, arborio a jiné výslovně pojmenované odrůdy"
+        "rýže bez výslovného označení basmati"
       ],
       "sourceType": "manual",
       "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
@@ -240,18 +240,18 @@
           "Lagris Rýže kulatozrnná loupaná 1kg"
         ],
         "reviewStatus": "proposal_only_not_approved",
-        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+        "notes": "Návrh odvozen z agregovaného read-only inventáře; vzorky a počty jsou kontext, nikoli důkaz vhodnosti konkrétního produktu. Použít pouze při splnění výslovných hranic v definici."
       }
     },
     {
       "parentTypeKey": "ryze",
       "name": "Rýže jasmínová",
-      "definition": "Rýže výslovně deklarovaná jako jasmínová.",
+      "definition": "Rýže výslovně označená jako jasmínová/jasmine; název odrůdy má přednost před úpravou zrna.",
       "includes": [
-        "balení označené jasmínová nebo jasmine rice"
+        "balení označené jasmínová nebo jasmine rice, i když je současně uvedena další úprava"
       ],
       "excludes": [
-        "basmati, arborio a jiné výslovně pojmenované odrůdy"
+        "rýže bez výslovného označení jasmínová/jasmine"
       ],
       "sourceType": "manual",
       "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
@@ -267,18 +267,18 @@
           "Lagris Rýže kulatozrnná loupaná 1kg"
         ],
         "reviewStatus": "proposal_only_not_approved",
-        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+        "notes": "Návrh odvozen z agregovaného read-only inventáře; vzorky a počty jsou kontext, nikoli důkaz vhodnosti konkrétního produktu. Použít pouze při splnění výslovných hranic v definici."
       }
     },
     {
       "parentTypeKey": "ryze",
       "name": "Rýže arborio a na rizoto",
-      "definition": "Rýže odrůdy arborio nebo výslovně určená na rizoto.",
+      "definition": "Rýže výslovně označená jako arborio nebo jiná konkrétní odrůda pro rizoto. Samotné doporučení k rizotu bez odrůdy se musí posoudit podle etikety; nejde automaticky o arborio.",
       "includes": [
-        "arborio a výrobky označené jako rýže na rizoto"
+        "výslovně uvedená odrůda arborio; případně samostatně doložené označení „rýže na rizoto“ bez známé odrůdy"
       ],
       "excludes": [
-        "basmati, jasmínová a běžná rýže bez určení na rizoto"
+        "basmati nebo jasmínová rýže; pokud je uvedena pouze obecná inspirace k receptu, nepoužít toto mapování"
       ],
       "sourceType": "manual",
       "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
@@ -294,18 +294,18 @@
           "Lagris Rýže kulatozrnná loupaná 1kg"
         ],
         "reviewStatus": "proposal_only_not_approved",
-        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+        "notes": "Návrh odvozen z agregovaného read-only inventáře; vzorky a počty jsou kontext, nikoli důkaz vhodnosti konkrétního produktu. Použít pouze při splnění výslovných hranic v definici."
       }
     },
     {
       "parentTypeKey": "ryze",
       "name": "Rýže parboiled",
-      "definition": "Rýže, u níž je na obalu deklarována úprava parboiled.",
+      "definition": "Rýže výslovně označená jako parboiled, pokud není zároveň identifikována konkrétní odrůdou, která má podle pravidel precedence přednost.",
       "includes": [
-        "výrobky výslovně označené parboiled"
+        "výrobek označený parboiled bez dominantního označení basmati, jasmínová nebo arborio"
       ],
       "excludes": [
-        "rýže bez deklarace parboiled; odrůda basmati/jasmínová má přednost, pokud je potřeba zachovat jediný subtype"
+        "rýže s konkrétní odrůdou basmati, jasmínová nebo arborio; neoznačená rýže"
       ],
       "sourceType": "manual",
       "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
@@ -321,18 +321,18 @@
           "Lagris Rýže kulatozrnná loupaná 1kg"
         ],
         "reviewStatus": "proposal_only_not_approved",
-        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+        "notes": "Návrh odvozen z agregovaného read-only inventáře; vzorky a počty jsou kontext, nikoli důkaz vhodnosti konkrétního produktu. Použít pouze při splnění výslovných hranic v definici."
       }
     },
     {
       "parentTypeKey": "ryze",
       "name": "Rýže natural / celozrnná",
-      "definition": "Rýže prodávaná jako natural, celozrnná nebo hnědá rýže.",
+      "definition": "Rýže výslovně označená jako natural, celozrnná nebo hnědá, pokud nemá konkrétní odrůdu s vyšší prioritou.",
       "includes": [
-        "výrobky výslovně označené natural, celozrnná nebo brown rice"
+        "výrobky označené natural, celozrnná nebo brown rice bez prioritní konkrétní odrůdy"
       ],
       "excludes": [
-        "bílá/loupaná rýže a výrobky s jinou dominantní výslovnou odrůdou"
+        "konkrétní odrůdy basmati, jasmínová nebo arborio; běžná bílá rýže"
       ],
       "sourceType": "manual",
       "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
@@ -348,18 +348,18 @@
           "Lagris Rýže kulatozrnná loupaná 1kg"
         ],
         "reviewStatus": "proposal_only_not_approved",
-        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+        "notes": "Návrh odvozen z agregovaného read-only inventáře; vzorky a počty jsou kontext, nikoli důkaz vhodnosti konkrétního produktu. Použít pouze při splnění výslovných hranic v definici."
       }
     },
     {
       "parentTypeKey": "ryze",
       "name": "Ostatní dlouhozrnná rýže",
-      "definition": "Dlouhozrnná rýže bez konkrétního názvu odrůdy a bez jiné zvláštní úpravy.",
+      "definition": "Bílá dlouhozrnná rýže, u které není doložena konkrétní odrůda ani úprava s vyšší prioritou.",
       "includes": [
-        "výslovně dlouhozrnná bílá rýže, která není basmati, jasmínová ani parboiled"
+        "výslovně dlouhozrnná bílá rýže, která není basmati, jasmínová, arborio, parboiled ani celozrnná"
       ],
       "excludes": [
-        "basmati, jasmínová, parboiled, natural/celozrnná a kulatozrnná rýže"
+        "konkrétní odrůdy, parboiled, natural/celozrnná a kulatozrnná rýže; bez údaje o tvaru zrna nepřiřazovat"
       ],
       "sourceType": "manual",
       "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
@@ -375,18 +375,18 @@
           "Lagris Rýže kulatozrnná loupaná 1kg"
         ],
         "reviewStatus": "proposal_only_not_approved",
-        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+        "notes": "Návrh odvozen z agregovaného read-only inventáře; vzorky a počty jsou kontext, nikoli důkaz vhodnosti konkrétního produktu. Použít pouze při splnění výslovných hranic v definici."
       }
     },
     {
       "parentTypeKey": "ryze",
       "name": "Ostatní kulatozrnná rýže",
-      "definition": "Kulatozrnná rýže bez konkrétní odrůdy a bez jiné zvláštní úpravy.",
+      "definition": "Bílá kulatozrnná rýže bez konkrétní odrůdy a bez úpravy s vyšší prioritou.",
       "includes": [
-        "výslovně kulatozrnná bílá rýže, která není arborio ani parboiled"
+        "výslovně kulatozrnná bílá rýže, která není arborio, parboiled ani celozrnná"
       ],
       "excludes": [
-        "arborio/rýže na rizoto, parboiled, natural/celozrnná a dlouhozrnná rýže"
+        "arborio/rýže na rizoto, parboiled, natural/celozrnná a dlouhozrnná rýže; bez údaje o tvaru zrna nepřiřazovat"
       ],
       "sourceType": "manual",
       "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
@@ -402,18 +402,18 @@
           "Lagris Rýže kulatozrnná loupaná 1kg"
         ],
         "reviewStatus": "proposal_only_not_approved",
-        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+        "notes": "Návrh odvozen z agregovaného read-only inventáře; vzorky a počty jsou kontext, nikoli důkaz vhodnosti konkrétního produktu. Použít pouze při splnění výslovných hranic v definici."
       }
     },
     {
       "parentTypeKey": "tvaroh",
       "name": "Tučný tvaroh",
-      "definition": "Tvaroh deklarovaný výrobcem jako tučný nebo odpovídající explicitnímu údaji o tuku.",
+      "definition": "Tvaroh výslovně označený výrobcem jako tučný nebo zařazený do tučné varianty podle ověřené specifikace výrobce.",
       "includes": [
-        "etiketa nebo důvěryhodná produktová specifikace označuje tvaroh jako tučný"
+        "výslovné označení „tučný“ nebo ověřená produktová specifikace potvrzující tuto variantu"
       ],
       "excludes": [
-        "výslovně polotučný nebo odtučněný tvaroh"
+        "polotučný, odtučněný či nízkotučný tvaroh; obsah tuku se nesmí odhadovat jen z názvu nebo z neověřeného univerzálního prahu"
       ],
       "sourceType": "manual",
       "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
@@ -429,18 +429,18 @@
           "Olma Olomoucký tvaroh odtučněný 250 g"
         ],
         "reviewStatus": "proposal_only_not_approved",
-        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+        "notes": "Návrh odvozen z agregovaného read-only inventáře; vzorky a počty jsou kontext, nikoli důkaz vhodnosti konkrétního produktu. Použít pouze při splnění výslovných hranic v definici."
       }
     },
     {
       "parentTypeKey": "tvaroh",
       "name": "Polotučný tvaroh",
-      "definition": "Tvaroh deklarovaný výrobcem jako polotučný.",
+      "definition": "Tvaroh výslovně označený výrobcem jako polotučný nebo takto klasifikovaný v ověřené specifikaci výrobce.",
       "includes": [
-        "etiketa nebo důvěryhodná produktová specifikace označuje tvaroh jako polotučný"
+        "výslovné označení „polotučný“ nebo ověřená produktová specifikace"
       ],
       "excludes": [
-        "výslovně tučný nebo odtučněný tvaroh"
+        "tučný, odtučněný či nízkotučný tvaroh; nejednoznačný obsah tuku zůstává bez poddruhu"
       ],
       "sourceType": "manual",
       "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
@@ -456,18 +456,18 @@
           "Olma Olomoucký tvaroh odtučněný 250 g"
         ],
         "reviewStatus": "proposal_only_not_approved",
-        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+        "notes": "Návrh odvozen z agregovaného read-only inventáře; vzorky a počty jsou kontext, nikoli důkaz vhodnosti konkrétního produktu. Použít pouze při splnění výslovných hranic v definici."
       }
     },
     {
       "parentTypeKey": "tvaroh",
       "name": "Odtučněný tvaroh",
-      "definition": "Tvaroh deklarovaný výrobcem jako odtučněný nebo nízkotučný podle ověřeného označení.",
+      "definition": "Tvaroh výslovně označený výrobcem jako odtučněný nebo nízkotučný; ekvivalenci označení lze použít jen podle ověřené specifikace.",
       "includes": [
-        "etiketa nebo důvěryhodná produktová specifikace označuje tvaroh jako odtučněný"
+        "výslovné označení „odtučněný“ nebo „nízkotučný“ potvrzené výrobcem"
       ],
       "excludes": [
-        "výslovně tučný nebo polotučný tvaroh"
+        "tučný a polotučný tvaroh; neodvozovat klasifikaci pouze z číselného obsahu tuku bez schválené hranice"
       ],
       "sourceType": "manual",
       "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
@@ -483,18 +483,18 @@
           "Olma Olomoucký tvaroh odtučněný 250 g"
         ],
         "reviewStatus": "proposal_only_not_approved",
-        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+        "notes": "Návrh odvozen z agregovaného read-only inventáře; vzorky a počty jsou kontext, nikoli důkaz vhodnosti konkrétního produktu. Použít pouze při splnění výslovných hranic v definici."
       }
     },
     {
       "parentTypeKey": "taveny-syr",
       "name": "Plátkový tavený sýr",
-      "definition": "Tavený sýr vyráběný a prodávaný jako jednotlivé plátky.",
+      "definition": "Tavený sýr prodávaný jako souvislé jednotlivé plátky; rozhoduje forma samotného sýra, ne počet kusů v balení.",
       "includes": [
-        "etiketa uvádí plátky nebo produkt tvoří oddělené plátky taveného sýra"
+        "etiketa nebo produktová specifikace potvrzuje plátkový tavený sýr"
       ],
       "excludes": [
-        "roztíratelný sýr v kelímku nebo tavený sýr v bloku/porcích"
+        "porcované jednotlivě zabalené trojúhelníčky/porce a roztíratelný sýr ve vaničce; běžný počet plátků je balení, nikoli subtype"
       ],
       "sourceType": "manual",
       "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
@@ -510,18 +510,18 @@
           "Moravia Jemný tavený máslový sýr"
         ],
         "reviewStatus": "proposal_only_not_approved",
-        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+        "notes": "Návrh odvozen z agregovaného read-only inventáře; vzorky a počty jsou kontext, nikoli důkaz vhodnosti konkrétního produktu. Použít pouze při splnění výslovných hranic v definici."
       }
     },
     {
       "parentTypeKey": "taveny-syr",
       "name": "Roztíratelný tavený sýr",
-      "definition": "Tavený sýr určený k roztírání, typicky v kelímku nebo vaničce.",
+      "definition": "Tavený sýr výslovně určený k roztírání a prodávaný jako společná hmota, typicky v kelímku nebo vaničce.",
       "includes": [
-        "produkt je deklarován jako roztíratelný a prodává se ve společném kelímku/vaničce"
+        "výslovné označení roztíratelný nebo ověřená specifikace potvrzující tuto formu"
       ],
       "excludes": [
-        "plátkový tavený sýr a pevné jednotlivé porce"
+        "jednotlivě zabalené porce a plátky; samotný kelímek jako obal nestačí bez potvrzení formy produktu"
       ],
       "sourceType": "manual",
       "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
@@ -537,18 +537,18 @@
           "Moravia Jemný tavený máslový sýr"
         ],
         "reviewStatus": "proposal_only_not_approved",
-        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+        "notes": "Návrh odvozen z agregovaného read-only inventáře; vzorky a počty jsou kontext, nikoli důkaz vhodnosti konkrétního produktu. Použít pouze při splnění výslovných hranic v definici."
       }
     },
     {
       "parentTypeKey": "taveny-syr",
       "name": "Porcovaný tavený sýr",
-      "definition": "Tavený sýr prodávaný v samostatně zabalených porcích nebo trojúhelníčcích.",
+      "definition": "Tavený sýr rozdělený na samostatné porce, typicky jednotlivě zabalené trojúhelníčky nebo díly.",
       "includes": [
-        "samostatné porce nebo trojúhelníčky taveného sýra"
+        "samostatné porce/trojúhelníčky, jejichž jednotlivé kusy tvoří definovanou formu výrobku"
       ],
       "excludes": [
-        "roztíratelný sýr ve vaničce a volné plátky"
+        "společná roztíratelná hmota a volné plátky; velikost nebo počet porcí v balení není subtype"
       ],
       "sourceType": "manual",
       "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
@@ -564,18 +564,18 @@
           "Moravia Jemný tavený máslový sýr"
         ],
         "reviewStatus": "proposal_only_not_approved",
-        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+        "notes": "Návrh odvozen z agregovaného read-only inventáře; vzorky a počty jsou kontext, nikoli důkaz vhodnosti konkrétního produktu. Použít pouze při splnění výslovných hranic v definici."
       }
     },
     {
       "parentTypeKey": "tunak-konzerva",
       "name": "Tuňák ve vlastní šťávě",
-      "definition": "Konzervovaný tuňák, jehož nálev je označen jako vlastní šťáva.",
+      "definition": "Konzervovaný tuňák výslovně označený jako ve vlastní šťávě; toto konkrétní označení má přednost před obecným vodním nálevem.",
       "includes": [
-        "výslovně označený tuňák ve vlastní šťávě"
+        "etiketa výslovně uvádí „ve vlastní šťávě“"
       ],
       "excludes": [
-        "tuňák v oleji nebo v jiném nálevu"
+        "výslovně v oleji nebo ve vodním nálevu bez označení vlastní šťáva; obecné „ve vodě“ nepřekládat na vlastní šťávu"
       ],
       "sourceType": "manual",
       "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
@@ -591,18 +591,18 @@
           "BILLA Tuňák ve vlastní šťávě 3 x 80g (240g)"
         ],
         "reviewStatus": "proposal_only_not_approved",
-        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+        "notes": "Návrh odvozen z agregovaného read-only inventáře; vzorky a počty jsou kontext, nikoli důkaz vhodnosti konkrétního produktu. Použít pouze při splnění výslovných hranic v definici."
       }
     },
     {
       "parentTypeKey": "tunak-konzerva",
       "name": "Tuňák v oleji",
-      "definition": "Konzervovaný tuňák naložený v oleji.",
+      "definition": "Konzervovaný tuňák, u kterého je olej výslovně uveden jako nálev nebo konzervační médium.",
       "includes": [
-        "etiketa uvádí olej jako konzervační nálev"
+        "etiketa uvádí tuňáka v oleji nebo konkrétní druh oleje jako nálev"
       ],
       "excludes": [
-        "tuňák ve vlastní šťávě nebo ve vodním/jiném nálevu"
+        "tuňák ve vlastní šťávě a tuňák výslovně ve vodním nálevu"
       ],
       "sourceType": "manual",
       "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
@@ -618,18 +618,18 @@
           "BILLA Tuňák ve vlastní šťávě 3 x 80g (240g)"
         ],
         "reviewStatus": "proposal_only_not_approved",
-        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+        "notes": "Návrh odvozen z agregovaného read-only inventáře; vzorky a počty jsou kontext, nikoli důkaz vhodnosti konkrétního produktu. Použít pouze při splnění výslovných hranic v definici."
       }
     },
     {
       "parentTypeKey": "tunak-konzerva",
       "name": "Tuňák ve vodním nálevu",
-      "definition": "Konzervovaný tuňák v nálevu na bázi vody, který není označen jako vlastní šťáva.",
+      "definition": "Konzervovaný tuňák výslovně označený jako ve vodě/vodním nálevu, bez označení vlastní šťáva.",
       "includes": [
-        "etiketa uvádí vodu nebo vodní nálev"
+        "etiketa uvádí vodu nebo vodní nálev jako médium a neuvádí vlastní šťávu"
       ],
       "excludes": [
-        "tuňák v oleji a tuňák ve vlastní šťávě"
+        "tuňák v oleji a tuňák výslovně označený jako ve vlastní šťávě"
       ],
       "sourceType": "manual",
       "sourceName": "Product Subtype registry expansion review — read-only audit 37910630603",
@@ -645,7 +645,7 @@
           "BILLA Tuňák ve vlastní šťávě 3 x 80g (240g)"
         ],
         "reviewStatus": "proposal_only_not_approved",
-        "notes": "Derived from aggregate read-only inventory; sample products are context only, not evidence that all products fit this subtype."
+        "notes": "Návrh odvozen z agregovaného read-only inventáře; vzorky a počty jsou kontext, nikoli důkaz vhodnosti konkrétního produktu. Použít pouze při splnění výslovných hranic v definici."
       }
     }
   ]

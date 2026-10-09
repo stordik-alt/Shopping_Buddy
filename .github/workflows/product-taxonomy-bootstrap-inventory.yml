@@ -1,0 +1,40 @@
+name: Product Taxonomy Bootstrap Inventory (Dry Run)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: ${{ secrets.NEON_PROD_DATABASE_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate read-only taxonomy bootstrap inventory
+        run: pnpm exec tsx scripts/audit-product-taxonomy-bootstrap.ts
+
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: product-taxonomy-bootstrap-inventory
+          path: .tmp/product-taxonomy-bootstrap-report.json
+          if-no-files-found: error
+          retention-days: 14

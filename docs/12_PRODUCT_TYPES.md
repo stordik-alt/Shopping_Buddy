@@ -1,3 +1,8 @@
+
+
+### Oprava syntaxe suitability filtru (2026-10-09)
+- Regulární výrazy v helperu nyní používají správné escapování pro TypeScript/JavaScript. Předchozí dvojité escapování vyvolalo `TS1127: Invalid character` a chybu parseru v unit testech.
+- Oprava je omezena na auditní filtr; žádná databázová data ani produktová přiřazení se nemění.
 ## 2026-10-09 — Aktuální pravidla resolveru Product Subtype
 - **Pivo:** pouze „Alkoholické pivo“ a „Nealkoholické pivo“; barva není poddruh. Výchozí je „Alkoholické pivo“, pokud důkazy výslovně neuvádějí nealkoholické/nealko/bez alkoholu nebo obsah alkoholu 0 %.
 - **Těstoviny:** známé tvary plus „Ostatní“ pro obecně označené skutečné těstoviny. Fleky a orzo jsou krátké tvarované, hnízda dlouhé. Hotová jídla a směsi se vylučují.
@@ -244,3 +249,13 @@ The first production dry-run confirmed that the candidate table mixes genuine pr
 - Report distinguishes source-engine confidence from suitability filtering, reports language and inferred source/version, and includes duplicate groups for review.
 - Missing category/subcategory remains missing; the audit does not guess either one. Legacy candidates lacking source metadata stay unknown/mixed and cannot be auto-approved.
 - This changes only the READ-ONLY audit/report; candidate rows and production taxonomy remain unchanged.
+
+
+## 2026-10-09 — Bootstrap preview: exclude commercial activities
+
+A read-only aggregate query against the candidate table showed that the first suitability filter still admitted commercial/service labels such as retail/wholesale activity, distribution, transport, construction, accommodation, catering and repair work. These are not retail Product Types.
+
+- Extracted candidate review rules into `lib/product-type-candidate-suitability.ts` so they can be unit-tested.
+- Added an explicit `possible_commercial_activity` flag and excluded these labels from the Czech retail Product Type preview.
+- Added positive controls for goods labels (e.g. coal, diapers, milk) and negative controls for service/commercial activity labels.
+- This remains a proposal filter only. It does not delete source evidence, approve candidates, create registry entries, or assign products.

@@ -1,3 +1,8 @@
+## 2026-10-09 — Oprava CI suitability filtru taxonomie
+- CI odhalilo dvojité escapování regulárních výrazů v `lib/product-type-candidate-suitability.ts`, které způsobovalo syntaktickou chybu při unit testech i TypeScript kontrole.
+- Opraveno escapování hranic slov a URL vzorů; filtr zůstává deterministický a pouze read-only.
+- Následuje opakované CI na aktualizovaném commitu. Bez databázových zápisů a přiřazení.
+
 ## 2026-10-09 — Oprava priority nealkoholického piva po unit testech
 - Unit testy odhalily, že obecné slovo „pivo“ současně přidávalo alkoholický signál i k explicitně nealkoholickým názvům. Resolver nyní při explicitním nealkoholickém důkazu odstraní obecný alkoholický signál, takže rozhodne nealkoholický poddruh.
 - Regresní testy pokrývají nulová procenta i texty „nealko“/„bez alkoholu“. Bez databázových zápisů.
@@ -769,3 +774,10 @@
 - Původní náhled řadil anglické definice, služby a další nevhodné taxonomické řetězce, protože skóre generátoru měří sílu zdrojových důkazů, nikoli vhodnost pro český retailový druh zboží.
 - Audit nyní rozlišuje jazyk, konzervativně odhaduje zdroj z evidovaných metadat/verze, vylučuje z návrhového náhledu zjevné definice/služby a přesné shody se stávajícími druhy; reportuje také procento pokrytí katalogu a skupiny duplicit.
 - Jde pouze o read-only report. Žádná produkční data ani přiřazení se nezměnila.
+
+
+## 2026-10-09 — Vyloučení obchodních činností z návrhového auditu
+
+- Read-only SQL kontrola ukázala, že počáteční filtr stále propouštěl mnoho názvů činností: z 4 798 českých kandidátů odpovídalo 1 662 výrazům pro maloobchod/velkoobchod, distribuci, dopravu, stavební práce, ubytování, stravování, bankovnictví, opravy nebo výrobu.
+- Pravidla vhodnosti jsou nyní v testovatelném helperu; nová značka `possible_commercial_activity` tyto názvy vylučuje z návrhového náhledu druhů zboží.
+- Přidány pozitivní i negativní regresní testy. Produkční kandidáti ani přiřazení se nemění; před opakováním dry-run musí projít CI.

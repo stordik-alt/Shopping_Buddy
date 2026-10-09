@@ -1,3 +1,7 @@
+## 2026-10-09 — Oprava syntaxe suitability filtru Product Taxonomy
+- Odstraněno dvojité escapování regulárních výrazů, které blokovalo unit testy a TypeScript kontrolu v PR #408.
+- Filtr nadále pouze označuje kandidáty pro audit; nemění produkční katalog ani přiřazení.
+
 ## 2026-10-09 (Product Subtype registry conflict resolution)
 - PR #385 became non-mergeable after the Product Subtype foundation was merged into `main`; a fresh main-based branch was created so the registry changes no longer carry the conflicting foundation ancestry.
 - Restored only the review-controlled registry, its regression test and documentation changes; no database or product data changes are included.
@@ -2088,3 +2092,10 @@ Every future architectural/schema/business-rule change should append a dated ent
 - The first confidence preview ranked English definitions, services and other non-retail taxonomy strings because candidate-engine confidence measures source evidence, not Product Type suitability.
 - Fixed the audit to split by language, infer candidate source conservatively from persisted evidence/version, flag obviously unsuitable definitions/services, and preview only Czech candidates not exactly represented by current Product Types. Added coverage percentage and duplicate groups.
 - No production data writes or taxonomy assignments; this is a read-only report correction.
+
+
+## 2026-10-09 — Filter commercial activity labels from taxonomy bootstrap
+
+- A direct read-only query found 4,798 Czech candidates passed the initial filter, but 1,662 of them matched likely activity labels such as retail/wholesale, distribution, construction, transport, accommodation, catering, banking, repair and production activity.
+- Extracted suitability rules into a unit-testable helper, added `possible_commercial_activity`, and excluded these labels from the suggested retail Product Type preview.
+- Added positive and negative regression tests. Candidate data and product assignments remain untouched; CI must pass before re-running the production dry-run.

@@ -22,6 +22,8 @@ CREATE INDEX IF NOT EXISTS "product_subtypes_product_type_active_sort_idx" ON "p
 --> statement-breakpoint
 ALTER TABLE "products" ADD COLUMN IF NOT EXISTS "product_subtype_id" uuid;
 --> statement-breakpoint
+ALTER TABLE "products" ADD COLUMN IF NOT EXISTS "product_subtype_source" text;
+--> statement-breakpoint
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -48,6 +50,37 @@ BEGIN
     ALTER TABLE "products"
       ADD CONSTRAINT "products_product_subtype_requires_type"
       CHECK ("product_subtype_id" IS NULL OR "product_type_id" IS NOT NULL);
+  END IF;
+END
+$$;
+--> statement-breakpoint
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'products_product_subtype_source_valid'
+      AND conrelid = 'public.products'::regclass
+  ) THEN
+    ALTER TABLE "products"
+      ADD CONSTRAINT "products_product_subtype_source_valid"
+      CHECK ("product_subtype_source" IS NULL OR "product_subtype_source" IN ('rule', 'manual', 'alias', 'pkd'));
+  END IF;
+END
+$$;
+--> statement-breakpoint
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'products_product_subtype_source_matches_id'
+      AND conrelid = 'public.products'::regclass
+  ) THEN
+    ALTER TABLE "products"
+      ADD CONSTRAINT "products_product_subtype_source_matches_id"
+      CHECK (
+        ("product_subtype_id" IS NULL AND "product_subtype_source" IS NULL)
+        OR ("product_subtype_id" IS NOT NULL AND "product_subtype_source" IS NOT NULL)
+      );
   END IF;
 END
 $$;

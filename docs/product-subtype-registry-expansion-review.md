@@ -43,7 +43,7 @@
 
 ## 2. Kandidáti připravení k prvnímu kolu revize
 
-JSON obsahuje 22 návrhů pro šest rodičovských typů:
+JSON obsahuje 24 návrhů pro šest rodičovských typů:
 
 - **Pivo:** světlé, polotmavé, tmavé pivo. Barva musí být výslovně doložena; nealkoholické pivo není v této ose subtype.
 - **Těstoviny:** dlouhé, krátké tvarované, polévkové, plněné, pláty na lasagne.

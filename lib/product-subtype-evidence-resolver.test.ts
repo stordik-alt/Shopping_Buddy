@@ -15,10 +15,10 @@ const resolve = (overrides: Partial<ProductSubtypeResolverInput> = {}) =>
 
 describe('resolveProductSubtypeEvidence', () => {
   it.each([
-    ['pivo', 'Stella Artois světlý ležák', 'pivo-svetle'],
+    ['pivo', 'Pivo alkoholické', 'pivo-alkoholicke'],
     ['testoviny', 'Barilla Spaghetti n. 5', 'testoviny-dlouhe'],
     ['ryze', 'Rýže basmati 1 kg', 'ryze-basmati'],
-    ['tvaroh', 'Tatra Tvaroh odtučněný', 'tvaroh-odtucneny'],
+    ['tvaroh', 'Tatra Tvaroh odtučněný', 'tvaroh'],
     ['taveny-syr', 'Tavený sýr plátkový', 'taveny-syr-platkovy'],
     ['tunak-konzerva', 'Tuňák ve vlastní šťávě', 'tunak-konzerva-ve-vlastni-stave'],
   ])('matches explicit evidence for %s: %s', (productTypeKey, productName, subtypeKey) => {
@@ -37,13 +37,10 @@ describe('resolveProductSubtypeEvidence', () => {
     expect(result.candidates).toEqual([])
   })
 
-  it('requires explicit beer colour and reviews conflicting colour evidence', () => {
-    expect(resolve({ productName: 'Bakalář ležák' }).decision).toBe('no_match')
-    const result = resolve({ productName: 'Pivo světlé a tmavé' })
-    expect(result.decision).toBe('review')
-    expect(result.reason).toBe('conflicting_evidence')
-    expect(result.proposedSubtypeKey).toBeNull()
-    expect(result.evidence.some((item) => item.polarity === 'contradicts')).toBe(true)
+  it('uses only alcoholic versus non-alcoholic beer classification', () => {
+    expect(resolve({ productName: 'Pivo nealkoholické 0,0' }).proposedSubtypeKey).toBe('pivo-nealkoholicke')
+    expect(resolve({ productName: 'Pivo alkoholické' }).proposedSubtypeKey).toBe('pivo-alkoholicke')
+    expect(resolve({ productName: 'Pivo světlé' }).decision).toBe('no_match')
   })
 
   it('applies pasta priority only after evidence is present', () => {
@@ -52,29 +49,40 @@ describe('resolveProductSubtypeEvidence', () => {
     expect(result.proposedSubtypeKey).toBe('testoviny-plnene')
     expect(resolve({ productTypeKey: 'testoviny', productName: 'Lasagne hotové jídlo' }).decision).toBe('no_match')
     expect(resolve({ productTypeKey: 'testoviny', productName: 'Penne polévkové' }).proposedSubtypeKey).toBe('testoviny-polevkove')
+    expect(resolve({ productTypeKey: 'testoviny', productName: 'Fleky bezvaječné' }).proposedSubtypeKey).toBe('testoviny-kratke-tvarovane')
+    expect(resolve({ productTypeKey: 'testoviny', productName: 'Tagliatelle hnízda' }).proposedSubtypeKey).toBe('testoviny-dlouhe')
+    expect(resolve({ productTypeKey: 'testoviny', productName: 'Orzo 500 g' }).proposedSubtypeKey).toBe('testoviny-kratke-tvarovane')
+    expect(resolve({ productTypeKey: 'testoviny', productName: 'Těstoviny' }).proposedSubtypeKey).toBe('testoviny-ostatni')
+    expect(resolve({ productTypeKey: 'testoviny', productName: 'Směs na těstovinový salát' }).decision).toBe('no_match')
   })
 
   it('uses rice priorities and reviews equal-priority variety/shape conflicts', () => {
     expect(resolve({ productTypeKey: 'ryze', productName: 'Basmati natural parboiled rýže' }).proposedSubtypeKey).toBe('ryze-basmati')
     expect(resolve({ productTypeKey: 'ryze', productName: 'Basmati jasmínová rýže' }).reason).toBe('conflicting_evidence')
     expect(resolve({ productTypeKey: 'ryze', productName: 'Dlouhozrnná kulatozrnná rýže' }).reason).toBe('conflicting_evidence')
-    expect(resolve({ productTypeKey: 'ryze', productName: 'Rýže 22 % tuku' }).decision).toBe('no_match')
+    expect(resolve({ productTypeKey: 'ryze', productName: 'Rýže 22 % tuku' }).proposedSubtypeKey).toBe('ryze-ostatni')
+    expect(resolve({ productTypeKey: 'ryze', productName: 'Lagris Sushi rýže 500g' }).proposedSubtypeKey).toBe('ryze-sushi')
+    expect(resolve({ productTypeKey: 'ryze', productName: 'Rýže loupaná' }).proposedSubtypeKey).toBe('ryze-ostatni')
+    expect(resolve({ productTypeKey: 'ryze', productName: 'Ryzec smrkový – čerstvý' }).decision).toBe('no_match')
   })
 
-  it('never infers quark fat class from percentages alone', () => {
-    expect(resolve({ productTypeKey: 'tvaroh', productName: 'Tvaroh 22 % tuku' }).decision).toBe('no_match')
-    expect(resolve({ productTypeKey: 'tvaroh', productName: 'Tučný tvaroh polotučný' }).reason).toBe('conflicting_evidence')
-    expect(resolve({ productTypeKey: 'tvaroh', productName: 'Tvaroh', verifiedAttributes: { manufacturer_spec: 'odtučněný' } }).proposedSubtypeKey).toBe('tvaroh-odtucneny')
+  it('classifies genuine quark as one subtype regardless of fat, texture or flavour and excludes quark yoghurt', () => {
+    for (const productName of ['Tvaroh 22 % tuku', 'Tučný tvaroh polotučný', 'Jemný měkký tvaroh', 'Tvaroh s příchutí vanilky']) {
+      expect(resolve({ productTypeKey: 'tvaroh', productName }).proposedSubtypeKey).toBe('tvaroh')
+    }
+    expect(resolve({ productTypeKey: 'tvaroh', productName: 'Mlsni.si tvaroh Pikao' }).decision).toBe('no_match')
+    expect(resolve({ productTypeKey: 'tvaroh', productName: 'Tvarohový jogurt borůvka' }).decision).toBe('no_match')
+    expect(resolve({ productTypeKey: 'tvaroh', productName: 'Tvarohová pomazánka' }).decision).toBe('no_match')
   })
 
   it('uses processed-cheese form priority, not pack count or generic slice wording', () => {
-    expect(resolve({ productTypeKey: 'taveny-syr', productName: 'Tavený sýr 8 ks' }).decision).toBe('no_match')
-    expect(resolve({ productTypeKey: 'taveny-syr', productName: 'Apetito Gouda plátky 90g' }).decision).toBe('no_match')
+    expect(resolve({ productTypeKey: 'taveny-syr', productName: 'Tavený sýr 8 ks' }).proposedSubtypeKey).toBe('taveny-syr-ostatni')
+    expect(resolve({ productTypeKey: 'taveny-syr', productName: 'Apetito Gouda plátky 90g' }).proposedSubtypeKey).toBe('taveny-syr-ostatni')
     expect(resolve({ productTypeKey: 'taveny-syr', productName: 'clever Toast tavený sýrový výrobek plátky 200g' }).proposedSubtypeKey).toBe('taveny-syr-platkovy')
     expect(resolve({ productTypeKey: 'taveny-syr', productName: 'Porcovaný plátkový tavený sýr' }).proposedSubtypeKey).toBe('taveny-syr-porcovany')
     expect(resolve({ productTypeKey: 'taveny-syr', productName: 'Roztíratelný tavený sýr' }).proposedSubtypeKey).toBe('taveny-syr-roztiratelny')
     expect(resolve({ productTypeKey: 'taveny-syr', productName: 'Tavený sýr v porcích, 8 ks' }).decision).toBe('no_match')
-    expect(resolve({ productTypeKey: 'taveny-syr', productName: 'Apetito Smetanové 3 ks 150g' }).decision).toBe('no_match')
+    expect(resolve({ productTypeKey: 'taveny-syr', productName: 'Apetito Smetanové 3 ks 150g' }).proposedSubtypeKey).toBe('taveny-syr-ostatni')
   })
 
   it.each([
@@ -110,6 +118,9 @@ describe('resolveProductSubtypeEvidence', () => {
     expect(resolve({ productTypeKey: 'tunak-konzerva', productName: 'Tuňák v oleji a ve vlastní šťávě' }).reason).toBe('conflicting_evidence')
     expect(resolve({ productTypeKey: 'tunak-konzerva', productName: 'Tuňák ve vodě' }).proposedSubtypeKey).toBe('tunak-konzerva-ve-vodnim-nalevu')
     expect(resolve({ productTypeKey: 'tunak-konzerva', productName: 'Rio Mare Tuňák v olivovém oleji 160g' }).proposedSubtypeKey).toBe('tunak-konzerva-v-oleji')
+    expect(resolve({ productTypeKey: 'tunak-konzerva', productName: 'Calvo Tuňák ve slunečnicovém oleji 3x65g' }).proposedSubtypeKey).toBe('tunak-konzerva-v-oleji')
+    expect(resolve({ productTypeKey: 'tunak-konzerva', productName: 'Tuňáková pomazánka s olivovým olejem' }).decision).toBe('no_match')
+    expect(resolve({ productTypeKey: 'tunak-konzerva', productName: 'Tuňákový salát ve vlastní šťávě' }).decision).toBe('no_match')
   })
 
   it('returns review for unsupported Product Types and protects existing assignments', () => {

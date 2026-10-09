@@ -67,8 +67,10 @@ describe('resolveProductSubtypeEvidence', () => {
     expect(resolve({ productTypeKey: 'tvaroh', productName: 'Tvaroh', verifiedAttributes: { manufacturer_spec: 'odtučněný' } }).proposedSubtypeKey).toBe('tvaroh-odtucneny')
   })
 
-  it('uses processed-cheese form priority, not pack count', () => {
+  it('uses processed-cheese form priority, not pack count or generic slice wording', () => {
     expect(resolve({ productTypeKey: 'taveny-syr', productName: 'Tavený sýr 8 ks' }).decision).toBe('no_match')
+    expect(resolve({ productTypeKey: 'taveny-syr', productName: 'Apetito Gouda plátky 90g' }).decision).toBe('no_match')
+    expect(resolve({ productTypeKey: 'taveny-syr', productName: 'clever Toast tavený sýrový výrobek plátky 200g' }).proposedSubtypeKey).toBe('taveny-syr-platkovy')
     expect(resolve({ productTypeKey: 'taveny-syr', productName: 'Porcovaný plátkový tavený sýr' }).proposedSubtypeKey).toBe('taveny-syr-porcovany')
     expect(resolve({ productTypeKey: 'taveny-syr', productName: 'Roztíratelný tavený sýr' }).proposedSubtypeKey).toBe('taveny-syr-roztiratelny')
     expect(resolve({ productTypeKey: 'taveny-syr', productName: 'Tavený sýr v porcích, 8 ks' }).decision).toBe('no_match')
@@ -79,6 +81,7 @@ describe('resolveProductSubtypeEvidence', () => {
     expect(resolve({ productTypeKey: 'tunak-konzerva', productName: 'Tuňák ve vlastní šťávě a ve vodním nálevu' }).proposedSubtypeKey).toBe('tunak-konzerva-ve-vlastni-stave')
     expect(resolve({ productTypeKey: 'tunak-konzerva', productName: 'Tuňák v oleji a ve vlastní šťávě' }).reason).toBe('conflicting_evidence')
     expect(resolve({ productTypeKey: 'tunak-konzerva', productName: 'Tuňák ve vodě' }).proposedSubtypeKey).toBe('tunak-konzerva-ve-vodnim-nalevu')
+    expect(resolve({ productTypeKey: 'tunak-konzerva', productName: 'Rio Mare Tuňák v olivovém oleji 160g' }).proposedSubtypeKey).toBe('tunak-konzerva-v-oleji')
   })
 
   it('returns review for unsupported Product Types and protects existing assignments', () => {

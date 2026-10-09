@@ -743,3 +743,12 @@ Runner: `pnpm db:audit-product-subtypes`
 Pro CI/produkční databázi je k dispozici ruční workflow `.github/workflows/product-subtype-audit.yml`, které používá pouze `NEON_PROD_DATABASE_URL` a spouští stejný read-only skript.
 
 Výsledek auditu je vstupem pro další krok: explicitní review mapování a teprve následně řízený seed subtype registry a bezpečný backfill. Audit sám nemění `products.product_type_id`, `products.product_type_source`, `products.product_subtype_id` ani `products.product_subtype_source`.
+
+
+### 7.16 Audit compatibility before migration 0084 — 2026-10-09
+
+- Audit nejprve kontroluje existenci `public.product_subtypes` a sloupců `products.product_subtype_id` / `products.product_subtype_source`.
+- Pokud subtype schéma ještě není nasazeno, provede bezpečný audit současných Product Types bez subtype joinů. Výstup výslovně označí subtype metriky jako nedostupné (`null`), nikoli jako nulu.
+- Částečně nasazené subtype schéma se označí jako `partial`; audit stále čte pouze existující základní Product Type sloupce a nic neopravuje automaticky.
+- Report nově uvádí každý současný Product Type samostatně, s počtem produktů, proveniencí, návrhovým rodičem a počty kandidátů / položek vyžadujících review.
+- Produkční běh `37890539117` selhal proto, že původní runner bez ověření předpokládal existenci subtype tabulky a sloupců; migrace `0084_product_subtypes.sql` přitom podle současného stavu ještě není v produkci nasazena. Oprava tuto závislost odstraňuje a neaplikuje migraci ani nemění data.

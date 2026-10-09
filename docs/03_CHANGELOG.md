@@ -1,3 +1,9 @@
+## 2026-10-09 — Automatické testy priorit a překryvů Product Subtype
+- Přidán `lib/product-subtype-candidate-precedence.test.ts` s deterministickými regresními testy priorit těstovin a rýže, konfliktních signálů, explicitních důkazů a hranic piva, tvarohu, tavených sýrů a tuňáka.
+- Testy ověřují i 24 návrhů a jejich jedinečnost v kandidátním JSON. Testovací oracle používá syntetické signály; nejde o automatické přiřazování produktů ani produkční klasifikátor.
+- Ověření ingestu: DRY RUN [37913251670](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37913251670) na sloučeném commitu PR #396 proběhl úspěšně: 24 vstupů, 24 deduplikovaných kandidátů, 0 chyb. Spuštění nových Vitest testů čeká na CI této změny.
+- Bez databázových zápisů, schvalování poddruhů nebo přiřazování produktů.
+
 ## 2026-10-09 — Zpřesnění hranic kandidátů Product Subtype
 - Upraveno všech 24 návrhů v `docs/examples/product-subtype-registry-expansion-candidates.json`: explicitní důkaz, vzájemné výluky a zacházení s nejednoznačnými produkty.
 - Doplněna rozhodovací priorita pro těstoviny, rýži a tavený sýr; u tvarohu se zakazuje odvozovat tučnost bez ověřené specifikace; u piva a tuňáka rozhoduje výslovné označení.

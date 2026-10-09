@@ -154,6 +154,11 @@ export function validateProductSubtypeRegistry(): string[] {
 
   if (new Set(parentKeys).size !== parentKeys.length) errors.push('Duplicate proposed parent key')
   if (new Set(subtypeKeys).size !== subtypeKeys.length) errors.push('Duplicate proposed subtype key')
+  for (const subtype of PRODUCT_SUBTYPE_PROPOSALS) {
+    if (!parentKeys.includes(subtype.parentTypeKey)) {
+      errors.push(`Subtype ${subtype.key} references an unknown proposed parent: ${subtype.parentTypeKey}`)
+    }
+  }
 
   for (const parent of PRODUCT_TYPE_PARENT_PROPOSALS) {
     if (PRODUCT_TYPES.some((type) => type.key === parent.key)) {

@@ -889,3 +889,13 @@ Kódy důvodů:
 Pravidlo precedence zajišťuje, že každý řádek patří právě do jedné skupiny: existující poddruh → chybějící Product Type → chybějící mapa registru → nesoulad kategorie → nedůvěryhodný původ → automatický kandidát. Audit navíc skončí chybou, pokud se součet skupin nerovná počtu načtených produktů. To rozloží původní agregát `outsideRegistry` na vysvětlitelné důvody a zároveň zachová původní souhrn statusů.
 
 Report zůstává výhradně pro čtení; nezapisuje kandidáty, neschvaluje poddruhy a nemění produktová přiřazení. Ukázky jsou diagnostické vzorky, nikoli úplný export všech ID v dané skupině.
+
+
+### 7.26 Inventář existujících Product Types bez mapy do registru — 2026-10-09
+
+Další fáze rozšiřování registru začíná inventářem, nikoli automatickým zakládáním poddruhů. Read-only mapping audit nyní navíc vypisuje `unmappedProductTypes`: všechny Product Types, které už jsou přiřazené konkrétním produktům, ale nemají schválenou mapu do současného startovacího registru.
+
+Každá položka obsahuje stabilní klíč a název Product Type, počet produktů, rozpad podle katalogové kategorie a původu klasifikace (`rule`, `alias`, `pkd`, `manual` nebo `unknown`) a až tři příklady produktů. Příklady se řadí podle ID; typy podle počtu produktů sestupně a následně podle klíče. Souhrn uvádí počet různých nemapovaných Product Types a počet produktů, které pokrývají.
+
+Tento výstup slouží k prioritizaci lidské revize a návrhu rozšíření registru. Samotná podobnost názvů ani vysoký počet produktů nesmí automaticky založit rodičovský typ nebo poddruh. Každý nový návrh musí respektovat hierarchii `Product Type → Product Subtype`, definici zahrnutí/vyloučení, kategorii, jednotku a existující skupiny. Žádné produktové přiřazení se tímto auditem nemění.
+

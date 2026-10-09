@@ -188,6 +188,58 @@ export function summarizeProductSubtypeMappingReasons(
   })
 }
 
+
+export type UnmappedProductTypeInventoryEntry = {
+  productTypeKey: string
+  productTypeName: string
+  products: number
+  categories: Record<string, number>
+  provenance: Record<string, number>
+  samples: Array<{ productId: string; productName: string; category: string; productTypeProvenance: string }>
+}
+
+/**
+ * Inventories Product Types that have no reviewed mapping into the starter subtype registry.
+ * This is evidence for registry expansion only; it never proposes or writes product assignments.
+ */
+export function summarizeUnmappedProductTypes(
+  mappings: readonly ProductSubtypeMapping[],
+  sampleLimit = 3,
+): UnmappedProductTypeInventoryEntry[] {
+  const byType = new Map<string, ProductSubtypeMapping[]>()
+  for (const mapping of mappings) {
+    if (mapping.reasonCode !== 'product_type_outside_registry' || !mapping.productTypeKey) continue
+    const current = byType.get(mapping.productTypeKey) ?? []
+    current.push(mapping)
+    byType.set(mapping.productTypeKey, current)
+  }
+
+  return [...byType.entries()]
+    .map(([productTypeKey, rows]) => {
+      const ordered = [...rows].sort((a, b) => a.productId < b.productId ? -1 : a.productId > b.productId ? 1 : 0)
+      const categories: Record<string, number> = {}
+      const provenance: Record<string, number> = {}
+      for (const row of ordered) {
+        categories[row.category] = (categories[row.category] ?? 0) + 1
+        provenance[row.productTypeProvenance] = (provenance[row.productTypeProvenance] ?? 0) + 1
+      }
+      return {
+        productTypeKey,
+        productTypeName: ordered[0]?.productTypeName ?? productTypeKey,
+        products: ordered.length,
+        categories: Object.fromEntries(Object.entries(categories).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)),
+        provenance: Object.fromEntries(Object.entries(provenance).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)),
+        samples: ordered.slice(0, Math.max(0, sampleLimit)).map((row) => ({
+          productId: row.productId,
+          productName: row.productName,
+          category: row.category,
+          productTypeProvenance: row.productTypeProvenance,
+        })),
+      }
+    })
+    .sort((a, b) => b.products - a.products || (a.productTypeKey < b.productTypeKey ? -1 : a.productTypeKey > b.productTypeKey ? 1 : 0))
+}
+
 export function summarizeProductSubtypeMappings(mappings: readonly ProductSubtypeMapping[]) {
   const bySubtype = new Map<string, { parentTypeKey: string; subtypeName: string; candidate: number; review: number }>()
   for (const mapping of mappings) {

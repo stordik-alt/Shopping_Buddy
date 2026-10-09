@@ -1,3 +1,10 @@
+## 2026-10-09 — Product Type inventory for subtype registry expansion
+- Extended the read-only Product Subtype mapping audit to group every product with an existing Product Type but no reviewed starter-registry mapping by stable Product Type key.
+- Each group includes product count, category and Product Type provenance breakdowns, plus up to three deterministic example products; groups sort by descending product count then stable key.
+- This inventory is evidence for the next registry-review phase only. It does not infer new subtype identities, seed the registry, or change product assignments.
+- Added regression coverage for group counts, category/provenance breakdowns, deterministic sample ordering and exclusion of products without Product Type.
+- Verification: automated CI is pending on PR; no production writes or migrations performed.
+
 ## 2026-10-09 — Product Subtype registry conflict resolution
 - Recreated the review-only Product Subtype registry on a fresh branch based directly on merged `main` after PR #385 became non-mergeable due to the foundation-merge ancestry.
 - No database schema, production data or active classification was changed; the registry remains candidate-only.

@@ -223,7 +223,8 @@ export const productSubtypes = pgTable('product_subtypes', {
 // participate in product classification until reviewed and explicitly approved.
 export const productSubtypeCandidates = pgTable('product_subtype_candidates', {
   id: uuid('id').primaryKey().defaultRandom(),
-  parentProductTypeId: uuid('parent_product_type_id').notNull().references(() => productTypes.id, { onDelete: 'restrict' }),
+  parentProductTypeKey: text('parent_product_type_key').notNull(),
+  parentProductTypeId: uuid('parent_product_type_id').references(() => productTypes.id, { onDelete: 'restrict' }),
   candidateKey: text('candidate_key').notNull().unique(),
   name: text('name').notNull(),
   normalizedName: text('normalized_name').notNull(),
@@ -242,9 +243,9 @@ export const productSubtypeCandidates = pgTable('product_subtype_candidates', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
-  uniqueIndex('product_subtype_candidates_parent_normalized_name_unique').on(table.parentProductTypeId, table.normalizedName),
+  uniqueIndex('product_subtype_candidates_parent_normalized_name_unique').on(table.parentProductTypeKey, table.normalizedName),
   index('product_subtype_candidates_status_created_idx').on(table.status, table.createdAt),
-  index('product_subtype_candidates_parent_status_idx').on(table.parentProductTypeId, table.status),
+  index('product_subtype_candidates_parent_status_idx').on(table.parentProductTypeKey, table.status),
   check('product_subtype_candidates_source_type_valid', sql`${table.sourceType} IN ('retailer', 'gs1_gpc', 'open_food_facts', 'cz_cpa', 'ocr', 'manual')`),
   check('product_subtype_candidates_status_valid', sql`${table.status} IN ('candidate', 'approved', 'rejected', 'duplicate')`),
 ])

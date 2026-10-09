@@ -680,3 +680,11 @@
 - Added the read-only catalog simulation command `pnpm db:simulate-product-subtype-expansion` and a manual GitHub Actions workflow using `NEON_PROD_DATABASE_URL`. The report counts all catalog rows and assignments, evaluates only the six target Product Types, includes decision/reason/subtype counts and evidence-backed product details, and documents source-data limits. Use `--details` to include all products in the six target families.
 - Current product query has no standalone description, manufacturer-spec or verified-attribute join; the simulation therefore uses catalog name, brand and variant only. This limitation is reported rather than filled with guessed evidence.
 - This implementation is not connected to runtime classification or import/seed flows. No database writes, product assignments, candidate approvals, active subtype creation, or production changes were performed. The 24 expansion candidates and embedded JSON catalog above remain unchanged and unapproved.
+
+
+## 2026-10-09 — Product Subtype production simulation review
+
+- Inspected successful read-only workflow run [37928914569](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/37928914569), which processed all 1,572 products in the six expansion families from a production catalog of 55,842 products; it reported 910 matches, 6 conflicts requiring review and 656 products with insufficient explicit evidence.
+- The report exposed overly broad processed-cheese wording that could classify ordinary Gouda slices as sliced processed cheese, and incomplete phrase coverage for tuna explicitly labelled as packed in olive oil. Tightened cheese patterns to require explicit processed-cheese wording with the product form, retained package counts as non-evidence, and added explicit oil wording variants.
+- Added regression coverage for generic cheese-slice/pack-count false positives and common tuna-oil wording. This is a follow-up correction only; resolver output remains proposal-only.
+- No production product assignments or subtype registry changes were made. The simulation itself performed no writes.

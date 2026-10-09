@@ -670,3 +670,13 @@
     }
   ]
 }
+
+
+## 2026-10-09 — Product Subtype evidence resolver implementation (PR review pending)
+
+- Added the pure, deterministic `resolveProductSubtypeEvidence` interface and version `2026-10-v1` for the six reviewed expansion families. Evidence retains source, field, original value, matched rule and support/contradiction polarity.
+- Implemented explicit evidence rules, deterministic family priorities, equal-priority conflict review, unsupported-type handling, and protection for existing subtype assignments. Missing evidence never creates a subtype proposal.
+- Added regression tests for positive matches across all six families, insufficient evidence, conflict handling, priority overlaps, category boundaries, manufacturer-spec evidence, evidence provenance and determinism.
+- Added the read-only catalog simulation command `pnpm db:simulate-product-subtype-expansion` and a manual GitHub Actions workflow using `NEON_PROD_DATABASE_URL`. The report counts all catalog rows and assignments, evaluates only the six target Product Types, includes decision/reason/subtype counts and evidence-backed product details, and documents source-data limits. Use `--details` to include all products in the six target families.
+- Current product query has no standalone description, manufacturer-spec or verified-attribute join; the simulation therefore uses catalog name, brand and variant only. This limitation is reported rather than filled with guessed evidence.
+- This implementation is not connected to runtime classification or import/seed flows. No database writes, product assignments, candidate approvals, active subtype creation, or production changes were performed. The 24 expansion candidates and embedded JSON catalog above remain unchanged and unapproved.

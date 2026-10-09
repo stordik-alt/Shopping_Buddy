@@ -124,3 +124,12 @@ Every future significant change should add a dated entry containing:
 ## 2026-10-09 — Stabilize Product Subtype mapping summary order
 - Replaced locale-dependent sorting with explicit key ordering and aligned the regression expectation to that deterministic order after CI exposed a localeCompare ordering mismatch.
 - No production data changed.
+
+
+## 2026-10-09 — Production Product Subtype mapping audit results
+- Recorded the successful read-only production run of `scripts/audit-product-subtype-mapping.ts`.
+- Baseline: 55,842 catalog products; 1,361 automatic mapping candidates; 3 concrete records held for manual review; 0 existing subtype assignments; 54,478 products outside the current starter registry; 19 subtypes represented in the report.
+- Candidate breakdown: Káva 414, Sýr 341, Voda 290 automatic candidates (plus 3 manual-review records), Olej 163, Mléko 79, Mouka 45 and Cukr 29. Water subtype counts: neperlivá 133 automatic + 3 manual review, perlivá 157.
+- Held out from automatic assignment: `HiPP Baby přírodní minerální voda neperlivá 6×1 l`, `HiPP Baby přírodní minerální voda neperlivá multipack (6×1 l)`, and `YESs Meloun neperlivá`. All are proposed as `voda-neperliva` but have category `Děti`; category and taxonomy fit must be reviewed explicitly.
+- Clarified that 54,478 products outside the starter registry are not automatically errors. The audit is read-only, has no `--apply` mode, and did not seed or backfill data.
+- Next gate: validate report completeness, review candidates and exceptions, then prepare a separate reviewed seed/backfill plan with preconditions, dry-run diff, idempotency checks, manual-assignment protection, post-run audit and rollback strategy. No production write is authorized by this audit.

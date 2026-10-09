@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { normalizeProductText } from '@/lib/product-normalize'
+import { getProductTypeCandidateReviewFlags, isSuitableCzechRetailProductTypeCandidate } from '@/lib/product-type-candidate-suitability'
 
 const OUTPUT_PATH = '.tmp/product-taxonomy-bootstrap-report.json'
 const PREVIEW_LIMIT = 200
@@ -34,20 +35,6 @@ function candidateSource(row: { candidateVersion: string; evidence: CandidateEvi
   if (versions.includes('seed')) return 'seed_or_manual_legacy_candidate'
   if (row.sourceEntryIds.length > 0) return 'mixed_or_legacy_pkd_candidate'
   return 'unknown_source'
-}
-
-function nameRisk(name: string, language: string): string[] {
-  const flags: string[] = []
-  const normalized = normalizeProductText(name)
-  if (language !== 'cs') flags.push('not_czech')
-  if (normalized.length < NAME_MIN_LENGTH) flags.push('too_short_after_normalization')
-  if (/https?:\/\/|www\./i.test(name)) flags.push('contains_url')
-  if (/[.!?;:]$/.test(name.trim()) || /\b(defined as|indicates|any products that|characteristics of|service[s]? for)\b/i.test(name)) flags.push('looks_like_definition_or_service')
-  if (/\b(sluzb|služb|vyzkum|výzkum|organizac|instituc|podporne sluzby|lov a odchyt)\w*/i.test(normalized)) flags.push('possible_service_or_activity')
-  if (/\b(ostatni|ostatni vyrobky|products?)\b/i.test(normalized)) flags.push('generic_or_noncanonical_label')
-  if (/\b(pack|packy|sada|set|multipack)\b/i.test(normalized)) flags.push('possible_bundle_or_package')
-  if (/\b(thc|cbd|cannabis)\b/i.test(normalized)) flags.push('regulated_or_specialty_term_review')
-  return [...new Set(flags)].sort(cmp)
 }
 
 async function main() {
@@ -107,7 +94,7 @@ async function main() {
   const scored = candidateRows.map((row) => {
     const evidence = (row.evidence ?? {}) as CandidateEvidence
     const source = candidateSource({ candidateVersion: row.candidateVersion, evidence, sourceEntryIds: row.sourceEntryIds })
-    const flags = nameRisk(row.canonicalName, row.language)
+    const flags = getProductTypeCandidateReviewFlags(row.canonicalName, row.language)
     for (const flag of flags) reviewFlagCounts.push(flag)
     const subcategory = row.subcategory?.trim() || '(bez podkategorie)'
     subcategoryCounts[subcategory] = (subcategoryCounts[subcategory] ?? 0) + 1
@@ -123,15 +110,8 @@ async function main() {
     const confidence = row.confidence === null ? null : Number(row.confidence)
     // The stored confidence is a source-engine score, not a product-type suitability score.
     // Never let it rank English definitions or service/attribute labels above actual Czech goods.
-    const suitableForReview = row.language === 'cs'
+    const suitableForReview = isSuitableCzechRetailProductTypeCandidate(row.canonicalName, row.language)
       && Boolean(normalized && normalized.length >= NAME_MIN_LENGTH)
-      && !flags.some((flag) => [
-        'not_czech',
-        'too_short_after_normalization',
-        'contains_url',
-        'looks_like_definition_or_service',
-        'possible_service_or_activity',
-      ].includes(flag))
     return { row, source, flags: flagsForMapping, normalized, match, confidence, suitableForReview }
   })
 
@@ -203,7 +183,7 @@ async function main() {
         .slice(0, 100)
         .map(([subcategory, count]) => ({ subcategory, count })),
       suitableCzechCandidatePreviewCount: preview.length,
-      previewCriteria: 'Czech label, at least 3 normalized characters, no obvious definition/service/activity label, not an exact existing Product Type name; human registry review is still required.',
+      previewCriteria: 'Czech label, at least 3 normalized characters, no obvious definition/service/commercial-activity label, not an exact existing Product Type name; human registry review is still required.',
     },
     suitableCzechCandidatePreview: preview,
     rawCandidateSourceMetadata: {

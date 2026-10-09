@@ -1,3 +1,8 @@
+
+
+### Oprava syntaxe suitability filtru (2026-10-09)
+- Regulární výrazy v helperu nyní používají správné escapování pro TypeScript/JavaScript. Předchozí dvojité escapování vyvolalo `TS1127: Invalid character` a chybu parseru v unit testech.
+- Oprava je omezena na auditní filtr; žádná databázová data ani produktová přiřazení se nemění.
 ## 2026-10-09 — Aktuální pravidla resolveru Product Subtype
 - **Pivo:** pouze „Alkoholické pivo“ a „Nealkoholické pivo“; barva není poddruh. Výchozí je „Alkoholické pivo“, pokud důkazy výslovně neuvádějí nealkoholické/nealko/bez alkoholu nebo obsah alkoholu 0 %.
 - **Těstoviny:** známé tvary plus „Ostatní“ pro obecně označené skutečné těstoviny. Fleky a orzo jsou krátké tvarované, hnízda dlouhé. Hotová jídla a směsi se vylučují.

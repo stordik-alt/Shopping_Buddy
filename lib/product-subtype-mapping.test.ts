@@ -75,16 +75,16 @@ describe('Product Subtype deterministic mapping', () => {
     ]))
     expect(summary).toEqual([
       {
-        subtypeKey: 'mleko-polotucne',
+        subtypeKey: 'mleko-plnotucne',
         parentTypeKey: 'mleko',
-        subtypeName: 'Polotučné mléko',
+        subtypeName: 'Plnotučné mléko',
         candidate: 1,
         review: 0,
       },
       {
-        subtypeKey: 'mleko-plnotucne',
+        subtypeKey: 'mleko-polotucne',
         parentTypeKey: 'mleko',
-        subtypeName: 'Plnotučné mléko',
+        subtypeName: 'Polotučné mléko',
         candidate: 1,
         review: 0,
       },

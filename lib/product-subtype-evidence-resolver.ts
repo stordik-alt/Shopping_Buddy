@@ -142,8 +142,8 @@ const TYPE_RULES: Record<string, TypeRules> = {
   'taveny-syr': {
     priority: [['taveny-syr-porcovany'], ['taveny-syr-platkovy'], ['taveny-syr-roztiratelny']],
     subtypes: [
-      subtype('taveny-syr-porcovany', 'Porcovaný tavený sýr', 'taveny-syr.porcovany.explicit', ['porcovaný tavený sýr', 'porcovany taveny syr', 'jednotlivě balené porce', 'jednotlive balene porce', 'trojúhelníčky', 'trojuhelnicky', 'individually wrapped portions'], 0),
-      subtype('taveny-syr-platkovy', 'Plátkový tavený sýr', 'taveny-syr.platkovy.explicit', ['plátkový tavený sýr', 'platkovy taveny syr', 'tavený sýr plátky', 'taveny syr platky', 'plátky taveného sýra', 'platky taveného syra', 'sliced processed cheese'], 1),
+      subtype('taveny-syr-porcovany', 'Porcovaný tavený sýr', 'taveny-syr.porcovany.explicit', ['porcovaný', 'porcovany', 'porcovaný tavený sýr', 'porcovany taveny syr', 'jednotlivě balené porce', 'jednotlive balene porce', 'trojúhelníčky', 'trojuhelnicky', 'individually wrapped portions'], 0),
+      subtype('taveny-syr-platkovy', 'Plátkový tavený sýr', 'taveny-syr.platkovy.explicit', ['plátkový', 'platkovy', 'plátky', 'platky', 'plátkový tavený sýr', 'platkovy taveny syr', 'tavený sýr plátky', 'taveny syr platky', 'plátky taveného sýra', 'platky taveného syra', 'sliced processed cheese'], 1),
       subtype('taveny-syr-roztiratelny', 'Roztíratelný tavený sýr', 'taveny-syr.roztiratelny.explicit', ['roztíratelný tavený sýr', 'roztiratelny taveny syr', 'roztíratelný', 'roztiratelny', 'spreadable processed cheese'], 2),
     ],
   },

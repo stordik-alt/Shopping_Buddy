@@ -108,7 +108,7 @@ describe('resolveProductSubtypeEvidence', () => {
       expect(result.proposedSubtypeKey).toBeNull()
     }
 
-    const wrongType = resolve({ productTypeKey: 'testoviny', productName: 'Těstoviny v ol.oleji' })
+    const wrongType = resolve({ productTypeKey: 'testoviny', productName: 'Tuňák v ol.oleji' })
     expect(wrongType.proposedSubtypeKey).toBeNull()
     expect(wrongType.decision).toBe('no_match')
   })
@@ -144,8 +144,8 @@ describe('resolveProductSubtypeEvidence', () => {
     const result = resolve({
       productTypeKey: 'pivo',
       productName: 'Pivo',
-      productDescription: 'Světlý ležák',
-      verifiedAttributes: { manufacturer_spec: 'barva světlá' },
+      productDescription: 'Nealkoholické pivo',
+      verifiedAttributes: { manufacturer_spec: 'Nealkoholické pivo' },
     })
     expect(result.evidence.some((item) => item.source === 'product_description' && item.field === 'description')).toBe(true)
     expect(result.evidence.some((item) => item.source === 'manufacturer_spec' && item.field === 'manufacturer_spec')).toBe(true)

@@ -1,7 +1,7 @@
 import { eq, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
-import { buildProductSubtypeMappings, summarizeProductSubtypeMappings, summarizeProductSubtypeMappingReasons } from '@/lib/product-subtype-mapping'
+import { buildProductSubtypeMappings, summarizeProductSubtypeMappings, summarizeProductSubtypeMappingReasons, summarizeUnmappedProductTypes } from '@/lib/product-subtype-mapping'
 import type { ProductSubtypeAuditRow } from '@/lib/product-subtype-audit'
 
 async function main() {
@@ -54,6 +54,8 @@ async function main() {
   const existing = mappings.filter((mapping) => mapping.status === 'existing')
   const outsideRegistry = mappings.filter((mapping) => mapping.status === 'outside_registry')
   const reasonGroups = summarizeProductSubtypeMappingReasons(mappings, 20)
+  const unmappedProductTypes = summarizeUnmappedProductTypes(mappings, 3)
+  const unmappedProductTypeProducts = unmappedProductTypes.reduce((total, type) => total + type.products, 0)
   const reasonGroupTotal = reasonGroups.reduce((total, group) => total + group.count, 0)
   if (reasonGroupTotal !== mappings.length) {
     throw new Error(`Reason breakdown does not reconcile: ${reasonGroupTotal} grouped rows vs ${mappings.length} catalog rows.`)
@@ -68,8 +70,11 @@ async function main() {
       existingSubtypeAssignments: existing.length,
       outsideRegistry: outsideRegistry.length,
       reasonGroupsReconcile: reasonGroupTotal === mappings.length,
+      unmappedProductTypeCount: unmappedProductTypes.length,
+      unmappedProductTypeProducts,
     },
     byReason: reasonGroups,
+    unmappedProductTypes,
     bySubtype: summary,
     reviewItems: review.map((mapping) => ({
       productId: mapping.productId,

@@ -2029,3 +2029,13 @@ Every future architectural/schema/business-rule change should append a dated ent
 - **Fixed:** the manual PKD backfill workflow now invokes the script directly with `tsx` instead of the `dotenv -e .env.local` package wrapper.
 - **Reason:** GitHub Actions provides `DATABASE_URL` from the repository secret; the local `.env.local` wrapper is not present in the runner and can prevent the injected connection string from reaching the script.
 - **Safety:** dry-run remains the default and `--apply` is still required for writes.
+
+
+## 2026-10-09 — Product Subtype provenance-aware audit
+- **Added:** read-only audit layer `lib/product-subtype-audit.ts` with deterministic registry/provenance aggregation.
+- **Added:** `scripts/audit-product-subtypes.ts` and `pnpm db:audit-product-subtypes`.
+- **Added:** manual GitHub Actions workflow `.github/workflows/product-subtype-audit.yml` using `NEON_PROD_DATABASE_URL`.
+- **Safety:** the audit has no write path and no `--apply` option. It never changes Product Type or Product Subtype assignments.
+- **Output:** current Product Type coverage, `rule/manual/alias/unknown` provenance, registry-outside types, unassigned products, existing subtype assignments and possible category/unit divergence; candidate and manual-review counts are separated.
+- **Tests:** pure audit regression coverage added in `lib/product-subtype-audit.test.ts`.
+- **Known limitation:** the audit has not been run against production in this change; the next step is to execute the manual workflow and review the resulting counts before any backfill.

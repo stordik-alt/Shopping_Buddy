@@ -1,5 +1,25 @@
 import { describe, expect, it } from 'vitest'
-import { activeDealCountLabel, countLabel, itemCountLabel, longDate, recordCountLabel, shortDate, storeCountLabel } from '@/lib/format'
+import { activeDealCountLabel, countLabel, itemCountLabel, longDate, periodLabel, recordCountLabel, shortDate, storeCountLabel, thisPeriodTitle } from '@/lib/format'
+
+describe('periodLabel / thisPeriodTitle', () => {
+  it('names a whole calendar month by its month', () => {
+    expect(periodLabel('2026-10-01', '2026-10-31')).toBe('říjen 2026')
+    expect(periodLabel('2026-02-01', '2026-02-28')).toBe('únor 2026')
+  })
+
+  it('shows a range for any other period, even one starting on the 1st', () => {
+    expect(periodLabel('2026-10-15', '2026-11-14')).toBe('15. 10. – 14. 11. 2026')
+    expect(periodLabel('2026-10-01', '2026-10-14')).toBe('1. 10. – 14. 10. 2026')
+    expect(periodLabel('2026-12-28', '2027-01-27')).toBe('28. 12. 2026 – 27. 1. 2027')
+  })
+
+  it('titles the current period by its kind', () => {
+    expect(thisPeriodTitle('2026-10-20', { type: 'calendar' })).toBe('Tento měsíc')
+    expect(thisPeriodTitle('2026-10-20', 1)).toBe('Tento měsíc')
+    expect(thisPeriodTitle('2026-10-20', 15)).toBe('15. 10. – 14. 11. 2026')
+    expect(thisPeriodTitle('2026-01-25', { type: 'custom', anchor: '2026-01-05', lengthDays: 14 })).toBe('19. 1. – 1. 2. 2026')
+  })
+})
 
 describe('longDate', () => {
   it('formats an ISO date in Czech with the correct weekday', () => {

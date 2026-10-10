@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { CalendarClock, Check, Plus, Repeat, SkipForward } from 'lucide-react'
+import { Panel } from '@/components/budget/panel'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/field'
@@ -28,21 +29,21 @@ export function RecurringPayments({
   const { due, upcoming } = useMemo(() => recurringOverview(payments, occurrences, today), [payments, occurrences, today])
 
   return (
-    <section className="surface p-5 sm:p-6" aria-label="Pravidelné platby">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold">Pravidelné platby</p>
-          <p className="mt-1 text-sm text-fg-secondary">Nájem, energie, pojištění… Do výdajů se započítají, až je potvrdíte.</p>
-        </div>
+    <Panel
+      title="Pravidelné platby"
+      summary={payments.length === 0 ? 'Zatím žádné' : due.length > 0 ? `${due.length}× k potvrzení · ${payments.length} plateb` : `${payments.length} plateb`}
+      description="Nájem, energie, pojištění… Do výdajů se započítají, až je potvrdíte."
+      defaultOpen={due.length > 0}
+      action={
         <Button variant="secondary" onClick={onAdd}>
-          <Plus aria-hidden="true" /> Přidat
+          <Plus aria-hidden="true" /> Přidat platbu
         </Button>
-      </div>
-
+      }
+    >
       {payments.length === 0 ? (
-        <EmptyState className="mt-5" icon={<Repeat />} title="Zatím žádné pravidelné platby" description="Přidejte platbu, která se opakuje — v den splatnosti vám ji připomeneme k potvrzení." />
+        <EmptyState icon={<Repeat />} title="Zatím žádné pravidelné platby" description="Přidejte platbu, která se opakuje — v den splatnosti vám ji připomeneme k potvrzení." />
       ) : (
-        <div className="mt-5 space-y-5">
+        <div className="space-y-5">
           {due.length > 0 && (
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">K potvrzení</p>
@@ -95,7 +96,7 @@ export function RecurringPayments({
           </div>
         </div>
       )}
-    </section>
+    </Panel>
   )
 }
 

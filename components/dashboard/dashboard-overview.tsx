@@ -4,6 +4,7 @@ import { BudgetHero } from '@/components/budget/budget-hero'
 import { QuickActions } from '@/components/dashboard/quick-actions'
 import { CardButton, CardHeader } from '@/components/ui/card'
 import { ProgressBar } from '@/components/ui/progress-bar'
+import type { PeriodInput } from '@/lib/budget-period'
 
 const MAX_PREVIEW_ITEMS = 3
 
@@ -22,12 +23,12 @@ export function DashboardOverview({
   onSetBudget,
   afterBudget,
   today,
-  periodStartDay = 1,
+  period = 1,
 }: {
   /** The real date (`YYYY-MM-DD`), for the budget card's per-day allowance and pace. */
   today: string
-  /** Day of the month the budget period starts on (1 = calendar month). */
-  periodStartDay?: number
+  /** The household's budget period (1 or the calendar kind = calendar month). */
+  period?: PeriodInput
   budget: number
   spent: number
   remaining: number
@@ -52,7 +53,7 @@ export function DashboardOverview({
     // On a phone the primary reading order is budget → today's shopping → quick actions. On larger
     // screens the shopping card stays beside the budget, while secondary controls span below.
     <section className="min-w-0 w-full grid gap-3 lg:grid-cols-[1.35fr_1fr] lg:gap-4" aria-label="Přehled domácnosti">
-      <BudgetHero compact today={today} periodStartDay={periodStartDay} budget={budget} spent={spent} remaining={remaining} onSetBudget={onSetBudget} onOpen={onBudget} className="order-1 min-w-0" />
+      <BudgetHero compact today={today} period={period} budget={budget} spent={spent} remaining={remaining} onSetBudget={onSetBudget} onOpen={onBudget} className="order-1 min-w-0" />
 
       <CardButton onClick={onShopping} className="group order-2 flex flex-col lg:order-2">
         <CardHeader as="span" title="Nákupní seznam" icon={<ListChecks className="size-4" />} action={<ChevronRight className="size-5 transition group-hover:translate-x-0.5" />} className="w-full" />

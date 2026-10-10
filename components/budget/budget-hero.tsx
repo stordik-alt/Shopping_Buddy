@@ -1,6 +1,7 @@
 import { AlertTriangle, CalendarDays, ChevronRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { BUDGET_WARNING_RATIO, budgetLevel, budgetPace } from '@/lib/budget'
+import { isCalendarMonth, type PeriodInput } from '@/lib/budget-period'
 import { countLabel, wholeMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -18,7 +19,7 @@ export function BudgetHero({
   compact = false,
   className = '',
   today,
-  periodStartDay = 1,
+  period = 1,
 }: {
   budget: number
   spent: number
@@ -34,14 +35,14 @@ export function BudgetHero({
   /** The real date (`YYYY-MM-DD`). When given, the card also says how much is left per day and,
    *  once the month has enough history, whether the current pace would break the limit. */
   today?: string
-  /** Day of the month the budget period starts on (1 = calendar month). */
-  periodStartDay?: number
+  /** The household's budget period (1 or the calendar kind = calendar month). */
+  period?: PeriodInput
 }) {
   // Display-only: clamped so an overspent month does not draw outside its track.
   const spentPercent = budget > 0 ? Math.min(100, Math.round((spent / budget) * 100)) : 0
   const level = budgetLevel(spent, budget)
-  const pace = today ? budgetPace(spent, budget, today, periodStartDay) : null
-  const periodNoun = periodStartDay === 1 ? 'měsíce' : 'období'
+  const pace = today ? budgetPace(spent, budget, today, period) : null
+  const periodNoun = isCalendarMonth(period) ? 'měsíce' : 'období'
   const surface = 'rounded-3xl bg-hero text-hero-foreground shadow-[var(--shadow-card)]'
 
   // A brand-new household has no limit yet. "0 Kč left, 0 %" would read as a real (and alarming)

@@ -1,81 +1,77 @@
+import {
+  dayNumber,
+  isoFromDayNumber,
+  nextPeriodStartFor,
+  periodDayFor,
+  periodDaysLeftFor,
+  periodEndFor,
+  periodLengthFor,
+  periodStartFor,
+  previousPeriodStartFor,
+  toPeriodConfig,
+  type PeriodInput,
+} from '@/lib/budget-period'
 import { EXPENSE_CATEGORY_NAMES, type ExpenseCategory } from '@/lib/expense-categories'
 import type { Expense, Item } from '@/lib/types'
 
-// The budget runs over a period that starts on the household's chosen day of the month (1–28): with
-// day 1 that is the calendar month, with 28 it is "28th to 27th of the next month". Every function
-// below takes `today` (`YYYY-MM-DD`, from lib/today.ts) and the household's `startDay`, and works on
-// the period `today` falls in, so the numbers move with the real date. A period is identified by its
-// start date (`YYYY-MM-DD`). Dates are handled as strings and UTC day numbers, never local `Date`s,
-// so no time zone can shift a day. `startDay` defaults to 1, which is exactly the calendar month.
+// The budget runs over the household's budget period (lib/budget-period.ts): the calendar month, a
+// period starting on a chosen day of the month (1–28, "28th to 27th of the next month"), or a custom
+// one of N days from an anchor date. Every function below takes `today` (`YYYY-MM-DD`, from
+// lib/today.ts) and the household's `period`, and works on the period `today` falls in, so the numbers
+// move with the real date. A period is identified by its start date (`YYYY-MM-DD`). `period` is a
+// PeriodConfig, or a bare number meaning "payday N"; it defaults to 1, exactly the calendar month.
 
-/** The latest day of the month a period may start on: every month has one, so the period always
- *  begins on a real date (a start on the 31st would have no February). */
-export const MAX_PERIOD_START_DAY = 28
+// The period arithmetic lives in lib/budget-period.ts; these are the names the budget code and its
+// callers have always used.
+export { dayNumber, isoFromDayNumber, isValidPeriodStartDay, MAX_PERIOD_START_DAY } from '@/lib/budget-period'
 
-const DAY_MS = 86_400_000
-
-const pad2 = (n: number) => String(n).padStart(2, '0')
-
-/** Whole days since the Unix epoch of an ISO date. */
-const dayNumber = (isoDate: string) => {
-  const [year, month, day] = isoDate.split('-').map(Number)
-  return Date.UTC(year, month - 1, day) / DAY_MS
+/** The first day of the period `date` falls in. */
+export function periodStart(date: string, period: PeriodInput = 1): string {
+  return periodStartFor(toPeriodConfig(period), date)
 }
 
-const isoFromDayNumber = (days: number) => new Date(days * DAY_MS).toISOString().slice(0, 10)
-
-/** Whether `value` is a usable period start day: a whole number from 1 to 28. */
-export const isValidPeriodStartDay = (value: number) => Number.isInteger(value) && value >= 1 && value <= MAX_PERIOD_START_DAY
-
-/** The first day of the period `date` falls in: the latest `startDay` on or before it. */
-export function periodStart(date: string, startDay = 1): string {
-  const [year, month, day] = date.split('-').map(Number)
-  if (day >= startDay) return `${year}-${pad2(month)}-${pad2(startDay)}`
-  return month === 1 ? `${year - 1}-12-${pad2(startDay)}` : `${year}-${pad2(month - 1)}-${pad2(startDay)}`
-}
-
-/** The first day of the period after the one that starts on `start` (a value from periodStart). */
-export function nextPeriodStart(start: string): string {
-  const [year, month, day] = start.split('-').map(Number)
-  return month === 12 ? `${year + 1}-01-${pad2(day)}` : `${year}-${pad2(month + 1)}-${pad2(day)}`
+/** The first day of the period after the one that starts on `start` (a value from periodStart).
+ *  `period` matters only for a custom period, whose length is not implied by the date. */
+export function nextPeriodStart(start: string, period: PeriodInput = 1): string {
+  return nextPeriodStartFor(toPeriodConfig(period), start)
 }
 
 /** The last day (inclusive) of the period that starts on `start`. */
-export function periodEnd(start: string): string {
-  return isoFromDayNumber(dayNumber(nextPeriodStart(start)) - 1)
+export function periodEnd(start: string, period: PeriodInput = 1): string {
+  return periodEndFor(toPeriodConfig(period), start)
 }
 
-/** Number of days in the period that starts on `start` (28–31). */
-function periodLengthFrom(start: string): number {
-  return dayNumber(nextPeriodStart(start)) - dayNumber(start)
+/** Number of days in the period that starts on `start`. */
+function periodLengthFrom(start: string, period: PeriodInput): number {
+  return periodLengthFor(toPeriodConfig(period), start)
 }
 
 /** The start of the period before the one `today` falls in. */
-export function previousPeriodStart(today: string, startDay = 1): string {
-  return periodStart(isoFromDayNumber(dayNumber(periodStart(today, startDay)) - 1), startDay)
+export function previousPeriodStart(today: string, period: PeriodInput = 1): string {
+  return previousPeriodStartFor(toPeriodConfig(period), today)
 }
 
-/** Number of days in the period `today` falls in (28–31). */
-export function periodLength(today: string, startDay = 1): number {
-  return periodLengthFrom(periodStart(today, startDay))
+/** Number of days in the period `today` falls in. */
+export function periodLength(today: string, period: PeriodInput = 1): number {
+  return periodLengthFrom(periodStart(today, period), period)
 }
 
 /** Which day of its period `today` is, counting the first day as 1 — so the first day of a period
  *  divides by 1, never by 0. */
-export function periodDay(today: string, startDay = 1): number {
-  return dayNumber(today) - dayNumber(periodStart(today, startDay)) + 1
+export function periodDay(today: string, period: PeriodInput = 1): number {
+  return periodDayFor(toPeriodConfig(period), today)
 }
 
 /** Days left in the period, today included (1 on its last day). */
-export function periodDaysLeft(today: string, startDay = 1): number {
-  return periodLength(today, startDay) - periodDay(today, startDay) + 1
+export function periodDaysLeft(today: string, period: PeriodInput = 1): number {
+  return periodDaysLeftFor(toPeriodConfig(period), today)
 }
 
 /** The expenses dated in the period `today` falls in — what "this month" means everywhere the
  *  monthly budget is shown or checked. */
-export function expensesInPeriod(expenses: Expense[], today: string, startDay = 1): Expense[] {
-  const key = periodStart(today, startDay)
-  return expenses.filter((expense) => periodStart(expense.date, startDay) === key)
+export function expensesInPeriod(expenses: Expense[], today: string, period: PeriodInput = 1): Expense[] {
+  const key = periodStart(today, period)
+  return expenses.filter((expense) => periodStart(expense.date, period) === key)
 }
 
 export function totalSpent(expenses: Expense[]) {
@@ -84,17 +80,17 @@ export function totalSpent(expenses: Expense[]) {
 
 /** This period's spending per day so far: days elapsed count its first day through `today`
  *  inclusive, so the first day divides by 1, never by 0. */
-export function dailyAverage(expenses: Expense[], today: string, startDay = 1) {
-  return totalSpent(expensesInPeriod(expenses, today, startDay)) / periodDay(today, startDay)
+export function dailyAverage(expenses: Expense[], today: string, period: PeriodInput = 1) {
+  return totalSpent(expensesInPeriod(expenses, today, period)) / periodDay(today, period)
 }
 
-export function weeklyAverage(expenses: Expense[], today: string, startDay = 1) {
-  return dailyAverage(expenses, today, startDay) * 7
+export function weeklyAverage(expenses: Expense[], today: string, period: PeriodInput = 1) {
+  return dailyAverage(expenses, today, period) * 7
 }
 
 /** This period's spending extrapolated to the whole period at the current daily rate. */
-export function projectedPeriodEnd(expenses: Expense[], today: string, startDay = 1) {
-  return dailyAverage(expenses, today, startDay) * periodLength(today, startDay)
+export function projectedPeriodEnd(expenses: Expense[], today: string, period: PeriodInput = 1) {
+  return dailyAverage(expenses, today, period) * periodLength(today, period)
 }
 
 export function categoryBreakdown(expenses: Expense[]): { category: ExpenseCategory; total: number }[] {
@@ -110,8 +106,8 @@ export const expensePeriod = periodStart
 
 /** The periods the overview can show, newest first: the current one (even with nothing in it yet)
  *  and every period with an expense. Keys are period start dates. */
-export function expensePeriods(expenses: Expense[], today: string, startDay = 1): string[] {
-  const periods = new Set([periodStart(today, startDay), ...expenses.map((expense) => periodStart(expense.date, startDay))])
+export function expensePeriods(expenses: Expense[], today: string, period: PeriodInput = 1): string[] {
+  const periods = new Set([periodStart(today, period), ...expenses.map((expense) => periodStart(expense.date, period))])
   return [...periods].sort().reverse()
 }
 
@@ -126,9 +122,9 @@ export type CategorySummary = {
 
 /** One period's expenses by category and subcategory — what was paid, on what, and when. Categories
  *  with the most spent first (ties in the fixed category order); only categories with an expense.
- *  `period` is the period's start date; `startDay` must be the one it was made with. */
-export function periodSummary(expenses: Expense[], period: string, startDay = 1): { total: number; categories: CategorySummary[] } {
-  const inPeriod = expenses.filter((expense) => periodStart(expense.date, startDay) === period)
+ *  `period` is the period's start date; `config` must be the one it was made with. */
+export function periodSummary(expenses: Expense[], period: string, config: PeriodInput = 1): { total: number; categories: CategorySummary[] } {
+  const inPeriod = expenses.filter((expense) => periodStart(expense.date, config) === period)
   const categories: CategorySummary[] = []
   for (const category of EXPENSE_CATEGORY_NAMES) {
     const own = inPeriod.filter((expense) => expense.category === category)
@@ -184,11 +180,11 @@ export function plannedSpend(items: Item[]) {
 export function periodOverPeriodChange(
   expenses: Expense[],
   today: string,
-  startDay = 1,
+  period: PeriodInput = 1,
 ): { current: number; previous: number; changePercent: number } | null {
-  const current = totalSpent(expensesInPeriod(expenses, today, startDay))
-  const previousStart = previousPeriodStart(today, startDay)
-  const comparableDays = Math.min(periodDay(today, startDay), periodLengthFrom(previousStart))
+  const current = totalSpent(expensesInPeriod(expenses, today, period))
+  const previousStart = previousPeriodStart(today, period)
+  const comparableDays = Math.min(periodDay(today, period), periodLengthFrom(previousStart, period))
   // Exclusive upper bound: the day after the last comparable one.
   const until = isoFromDayNumber(dayNumber(previousStart) + comparableDays)
   const previous = totalSpent(expenses.filter((expense) => expense.date >= previousStart && expense.date < until))
@@ -251,11 +247,11 @@ export function budgetPace(
   periodSpent: number,
   budget: number,
   today: string,
-  startDay = 1,
+  period: PeriodInput = 1,
 ): { daysLeft: number; perDayLeft: number; projected: number | null; projectedOver: number | null } | null {
   if (budget <= 0) return null
-  const day = periodDay(today, startDay)
-  const length = periodLength(today, startDay)
+  const day = periodDay(today, period)
+  const length = periodLength(today, period)
   const daysLeft = length - day + 1
   const perDayLeft = Math.max(0, budget - periodSpent) / daysLeft
   const projected = day >= PACE_MIN_DAYS ? (periodSpent / day) * length : null
@@ -266,9 +262,9 @@ export function budgetPace(
 /** How much of what is left can go on one week, so the rest of the period is still covered: the
  *  remaining budget spread over the weeks left in the period, counting today. In the last week the
  *  whole remainder is available. Nothing when the budget is used up. */
-export function weeklyAllowance(remaining: number, today: string, startDay = 1): number {
+export function weeklyAllowance(remaining: number, today: string, period: PeriodInput = 1): number {
   if (remaining <= 0) return 0
-  return remaining / Math.max(1, periodDaysLeft(today, startDay) / 7)
+  return remaining / Math.max(1, periodDaysLeft(today, period) / 7)
 }
 
 /** One subcategory of a category in a period, with its payments — what an opened category in Výdaje
@@ -323,10 +319,10 @@ export function budgetForPeriod(period: string, periodBudgets: Readonly<Record<s
 
 /** Spending per budget period from per-day totals (what Rozpočet loads for past periods instead of every
  *  expense). Keyed by the period's start date; rounded to haléře. */
-export function spendingByPeriod(daily: ReadonlyArray<{ date: string; total: number }>, startDay = 1): Map<string, number> {
+export function spendingByPeriod(daily: ReadonlyArray<{ date: string; total: number }>, config: PeriodInput = 1): Map<string, number> {
   const totals = new Map<string, number>()
   for (const { date, total } of daily) {
-    const period = periodStart(date, startDay)
+    const period = periodStart(date, config)
     totals.set(period, Math.round(((totals.get(period) ?? 0) + total) * 100) / 100)
   }
   return totals

@@ -1,15 +1,17 @@
 import type { ReactNode } from 'react'
 import { AlertTriangle, CalendarClock, Plus, TrendingDown, TrendingUp } from 'lucide-react'
 import { BudgetHero } from '@/components/budget/budget-hero'
+import { Panel } from '@/components/budget/panel'
 import { Stat } from '@/components/shared/stat'
 import { Button } from '@/components/ui/button'
 import { dailyAverage, periodOverPeriodChange, plannedSpend, projectedPeriodEnd, weeklyAverage } from '@/lib/budget'
+import { isCalendarMonth, type PeriodInput } from '@/lib/budget-period'
 import { money, thisPeriodTitle, wholeMoney } from '@/lib/format'
 import type { Expense, Item } from '@/lib/types'
 
 export function BudgetOverview({
   today,
-  periodStartDay = 1,
+  period = 1,
   budget,
   onEditBudget,
   spent,
@@ -20,8 +22,8 @@ export function BudgetOverview({
 }: {
   /** The real date (`YYYY-MM-DD`); "this month" is the calendar month it falls in. */
   today: string
-  /** Day of the month the budget period starts on (1 = calendar month). */
-  periodStartDay?: number
+  /** The household's budget period (1 or the calendar kind = calendar month). */
+  period?: PeriodInput
   budget: number
   /** Opens the profile, where the monthly limit is actually edited. */
   onEditBudget: () => void
@@ -35,9 +37,9 @@ export function BudgetOverview({
    *  frequent action, which used to sit far below the charts. */
   primaryAction?: ReactNode
 }) {
-  const comparison = periodOverPeriodChange(expenses, today, periodStartDay)
+  const comparison = periodOverPeriodChange(expenses, today, period)
   const planned = plannedSpend(items)
-  const calendar = periodStartDay === 1
+  const calendar = isCalendarMonth(period)
   const periodNoun = calendar ? 'měsíce' : 'období'
 
   const remaining = budget - spent
@@ -46,7 +48,7 @@ export function BudgetOverview({
     <div className="space-y-5 lg:space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm text-fg-muted">{thisPeriodTitle(today, periodStartDay)}</p>
+          <p className="text-sm text-fg-muted">{thisPeriodTitle(today, period)}</p>
           <h2 className="mt-0.5 text-2xl font-semibold tracking-tight">Rozpočet domácnosti</h2>
         </div>
         <Button size="lg" onClick={onExpense}>
@@ -55,16 +57,20 @@ export function BudgetOverview({
       </div>
       {primaryAction}
       {/* The compact card, as on Domů: the full-size one filled most of a phone screen (owner, 2026-10-05). */}
-      <BudgetHero compact today={today} periodStartDay={periodStartDay} budget={budget} spent={spent} remaining={remaining} onSetBudget={onEditBudget} />
+      <BudgetHero compact today={today} period={period} budget={budget} spent={spent} remaining={remaining} onSetBudget={onEditBudget} />
+      {/* The hero already says where the period is heading; the averages, the comparison and planned vs.
+          actual are detail, so on a phone they sit in one collapsed block instead of three more cards. */}
+      <Panel title="Průměry a srovnání" summary={`Denně ${wholeMoney(dailyAverage(expenses, today, period))} · týdně ${wholeMoney(weeklyAverage(expenses, today, period))}`}>
+      <div className="space-y-5 lg:space-y-6">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
-        <Stat label="Denní průměr" value={wholeMoney(dailyAverage(expenses, today, periodStartDay))} icon={<CalendarClock />} />
-        <Stat label="Týdenní průměr" value={wholeMoney(weeklyAverage(expenses, today, periodStartDay))} icon={<CalendarClock />} />
+        <Stat label="Denní průměr" value={wholeMoney(dailyAverage(expenses, today, period))} icon={<CalendarClock />} />
+        <Stat label="Týdenní průměr" value={wholeMoney(weeklyAverage(expenses, today, period))} icon={<CalendarClock />} />
         <div className="col-span-2 sm:col-span-1">
           <Stat
             label={`Očekáváno do konce ${periodNoun}`}
-            value={wholeMoney(projectedPeriodEnd(expenses, today, periodStartDay))}
+            value={wholeMoney(projectedPeriodEnd(expenses, today, period))}
             icon={<TrendingUp />}
-            hint={projectionHint(projectedPeriodEnd(expenses, today, periodStartDay), budget)}
+            hint={projectionHint(projectedPeriodEnd(expenses, today, period), budget)}
           />
         </div>
       </div>
@@ -96,6 +102,8 @@ export function BudgetOverview({
           </div>
         </div>
       </div>
+      </div>
+      </Panel>
     </div>
   )
 }

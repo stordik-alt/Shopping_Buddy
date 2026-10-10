@@ -1,20 +1,22 @@
 import { useMemo, useState } from 'react'
 import { AlertTriangle, ChevronRight, Loader2, Pencil, PiggyBank } from 'lucide-react'
+import { Panel } from '@/components/budget/panel'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/field'
 import { Sheet } from '@/components/ui/sheet'
 import { budgetForPeriod, nextPeriodStart, periodEnd, periodStart, savingsHistory, spendingByPeriod } from '@/lib/budget'
+import type { PeriodConfig } from '@/lib/budget-period'
 import { periodLabel, wholeMoney } from '@/lib/format'
 
 /** How many finished periods the card lists before "Zobrazit všechna". */
 const SHOWN_PERIODS = 6
 
-/** Rozpočet ▸ Aktuální stav: the budget of this and the next period, the savings goal and what the
+/** Rozpočet ▸ Přehled: the budget of this and the next period, the savings goal and what the
  *  finished periods saved (budget − spending, docs/15_BUDGET_PERIODS.md). Every number comes from
  *  lib/budget.ts. A finished period opens in Výdaje. */
 export function BudgetPlanCard({
   today,
-  periodStartDay,
+  period,
   defaultBudget,
   periodBudgets,
   savingsGoal,
@@ -26,7 +28,7 @@ export function BudgetPlanCard({
   onOpenPeriod,
 }: {
   today: string
-  periodStartDay: number
+  period: PeriodConfig
   /** The budget from Profil, used by every period without its own. */
   defaultBudget: number
   periodBudgets: Record<string, number>
@@ -41,33 +43,32 @@ export function BudgetPlanCard({
   onOpenPeriod: (period: string) => void
 }) {
   const [showAll, setShowAll] = useState(false)
-  const current = periodStart(today, periodStartDay)
-  const next = nextPeriodStart(current)
+  const current = periodStart(today, period)
+  const next = nextPeriodStart(current, period)
   const currentBudget = budgetForPeriod(current, periodBudgets, defaultBudget)
   const nextBudget = budgetForPeriod(next, periodBudgets, defaultBudget)
   const left = currentBudget - spent
   const past = useMemo(
-    () => (history ? savingsHistory(spendingByPeriod(history, periodStartDay), current, (period) => budgetForPeriod(period, periodBudgets, defaultBudget)) : null),
-    [history, periodStartDay, current, periodBudgets, defaultBudget],
+    () => (history ? savingsHistory(spendingByPeriod(history, period), current, (start) => budgetForPeriod(start, periodBudgets, defaultBudget)) : null),
+    [history, period, current, periodBudgets, defaultBudget],
   )
   const newestFirst = past ? past.periods.slice().reverse() : []
   const shown = showAll ? newestFirst : newestFirst.slice(0, SHOWN_PERIODS)
 
   return (
-    <section className="surface p-5 sm:p-6" aria-label="Plán rozpočtu a úspory">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold">Plán a úspory</p>
-          <p className="mt-1 text-sm text-fg-secondary">Rozpočet na období, cíl úspor a co zbylo v minulých obdobích.</p>
-        </div>
+    <Panel
+      title="Plán a úspory"
+      summary={`Toto období ${currentBudget > 0 ? wholeMoney(currentBudget) : 'bez rozpočtu'}${savingsGoal > 0 ? ` · cíl úspor ${wholeMoney(savingsGoal)}` : ''}`}
+      description="Rozpočet na období, cíl úspor a co zbylo v minulých obdobích."
+      action={
         <Button variant="outline" onClick={onEdit}>
           <Pencil aria-hidden="true" /> Upravit
         </Button>
-      </div>
-
-      <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+      }
+    >
+      <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <PlanFigure label="Toto období" value={currentBudget > 0 ? wholeMoney(currentBudget) : 'nenastaven'} hint={periodBudgets[current] != null ? 'vlastní rozpočet' : 'výchozí z profilu'} />
-        <PlanFigure label="Příští období" value={nextBudget > 0 ? wholeMoney(nextBudget) : 'nenastaven'} hint={periodLabel(next, periodEnd(next))} />
+        <PlanFigure label="Příští období" value={nextBudget > 0 ? wholeMoney(nextBudget) : 'nenastaven'} hint={periodLabel(next, periodEnd(next, period))} />
         <div className="col-span-2 sm:col-span-1">
           <PlanFigure label="Měsíční cíl úspor" value={savingsGoal > 0 ? wholeMoney(savingsGoal) : 'nenastaven'} />
         </div>
@@ -127,7 +128,7 @@ export function BudgetPlanCard({
                   className="flex w-full items-center gap-3 rounded-2xl bg-muted px-4 py-3 text-left text-sm hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="block break-words font-medium capitalize">{periodLabel(entry.period, periodEnd(entry.period))}</span>
+                    <span className="block break-words font-medium capitalize">{periodLabel(entry.period, periodEnd(entry.period, period))}</span>
                     <span className="block break-words text-xs text-fg-muted">
                       utraceno {wholeMoney(entry.spent)} z {wholeMoney(entry.budget)}
                     </span>
@@ -150,7 +151,7 @@ export function BudgetPlanCard({
           </ul>
         )}
       </div>
-    </section>
+    </Panel>
   )
 }
 
@@ -173,7 +174,7 @@ function signedMoney(value: number): string {
  *  monthly savings goal (empty = none). Only changed values are sent; the server checks them again. */
 export function BudgetPlanSheet({
   today,
-  periodStartDay,
+  period,
   defaultBudget,
   periodBudgets,
   savingsGoal,
@@ -181,15 +182,15 @@ export function BudgetPlanSheet({
   onSave,
 }: {
   today: string
-  periodStartDay: number
+  period: PeriodConfig
   defaultBudget: number
   periodBudgets: Record<string, number>
   savingsGoal: number
   onClose: () => void
   onSave: (changes: { periodBudgets: { period: string; amount: number | null }[]; savingsGoal?: number }) => Promise<void>
 }) {
-  const current = periodStart(today, periodStartDay)
-  const next = nextPeriodStart(current)
+  const current = periodStart(today, period)
+  const next = nextPeriodStart(current, period)
   const asText = (value: number | undefined) => (value != null && value > 0 ? String(value).replace('.', ',') : '')
   const [drafts, setDrafts] = useState({
     current: periodBudgets[current] != null ? String(periodBudgets[current]).replace('.', ',') : '',
@@ -236,8 +237,8 @@ export function BudgetPlanSheet({
 
   const defaultHint = defaultBudget > 0 ? ` · výchozí ${wholeMoney(defaultBudget)}` : ''
   const fields = [
-    { key: 'current' as const, label: 'Toto období', hint: periodLabel(current, periodEnd(current)) + defaultHint, placeholder: 'výchozí' },
-    { key: 'next' as const, label: 'Příští období', hint: periodLabel(next, periodEnd(next)) + defaultHint, placeholder: 'výchozí' },
+    { key: 'current' as const, label: 'Toto období', hint: periodLabel(current, periodEnd(current, period)) + defaultHint, placeholder: 'výchozí' },
+    { key: 'next' as const, label: 'Příští období', hint: periodLabel(next, periodEnd(next, period)) + defaultHint, placeholder: 'výchozí' },
     { key: 'goal' as const, label: 'Měsíční cíl úspor', hint: 'Kolik z rozpočtu ušetřit za období.', placeholder: 'bez cíle' },
   ]
 

@@ -79,8 +79,18 @@ export const households = pgTable('households', {
   budgetPeriodStartDay: integer('budget_period_start_day').notNull().default(1),
   // Monthly savings goal (docs/15_BUDGET_PERIODS.md); 0 = none.
   savingsGoal: numeric('savings_goal', { precision: 10, scale: 2 }).notNull().default('0'),
+  // Kind of budget period (lib/budget-period.ts): 'calendar', 'payday' (uses budgetPeriodStartDay; day 1
+  // is the calendar month) or 'custom' (an anchor date repeating every N days). Only custom uses the
+  // anchor and length below.
+  budgetPeriodType: text('budget_period_type').notNull().default('payday'),
+  budgetPeriodAnchor: date('budget_period_anchor'),
+  budgetPeriodLengthDays: integer('budget_period_length_days'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
-}, (table) => [check('households_budget_period_start_day_range', sql`${table.budgetPeriodStartDay} >= 1 AND ${table.budgetPeriodStartDay} <= 28`)])
+}, (table) => [
+  check('households_budget_period_start_day_range', sql`${table.budgetPeriodStartDay} >= 1 AND ${table.budgetPeriodStartDay} <= 28`),
+  check('households_budget_period_type_valid', sql`${table.budgetPeriodType} IN ('calendar', 'payday', 'custom')`),
+  check('households_budget_period_custom_valid', sql`(${table.budgetPeriodType} = 'custom' AND ${table.budgetPeriodAnchor} IS NOT NULL AND ${table.budgetPeriodLengthDays} BETWEEN 7 AND 366) OR (${table.budgetPeriodType} <> 'custom' AND ${table.budgetPeriodAnchor} IS NULL AND ${table.budgetPeriodLengthDays} IS NULL)`),
+])
 
 // Membership: links a user account to a household with a permission role.
 export const householdMembers = pgTable(
@@ -1164,6 +1174,113 @@ export const budgets = pgTable('budgets', {
   amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
 }, (table) => [uniqueIndex('budgets_household_month_unique').on(table.householdId, table.month)])
 
+// Household income (docs/15_BUDGET_PERIODS.md §8). 'planned' is only expected and never counts towards
+// the actual balance; receiving it flips this same row to 'actual', so it is never counted twice.
+// Amounts are in the household's currency, like expenses.
+export const incomes = pgTable('incomes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
+  description: text('description').notNull().default(''),
+  date: date('date').notNull(),
+  status: text('status').notNull().default('planned'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [
+  index('incomes_household_date_idx').on(table.householdId, table.date),
+  check('incomes_amount_positive', sql`${table.amount} > 0`),
+  check('incomes_status_valid', sql`${table.status} IN ('planned', 'actual')`),
+])
+
+// A planned expense (docs/15_BUDGET_PERIODS.md §7–8): expected money going out, never part of the actual
+// balance. Paying it creates the real expense and links it, so the money is never counted twice.
+export const plannedExpenses = pgTable('planned_expenses', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
+  note: text('note').notNull().default(''),
+  category: expenseCategoryEnum('category').notNull().default('Ostatní'),
+  date: date('date').notNull(),
+  status: text('status').notNull().default('planned'),
+  expenseId: uuid('expense_id').references(() => expenses.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [
+  index('planned_expenses_household_date_idx').on(table.householdId, table.date),
+  check('planned_expenses_amount_positive', sql`${table.amount} > 0`),
+  check('planned_expenses_status_valid', sql`${table.status} IN ('planned', 'paid')`),
+])
+
+// Kapsy (docs/15_BUDGET_PERIODS.md §11). The balance is never stored: opening_amount plus the sum of
+// the pocket's transfers, so a planned contribution cannot move it.
+export const pockets = pgTable('pockets', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  icon: text('icon').notNull().default('piggy-bank'),
+  targetAmount: numeric('target_amount', { precision: 10, scale: 2 }),
+  targetDate: date('target_date'),
+  openingAmount: numeric('opening_amount', { precision: 10, scale: 2 }).notNull().default('0'),
+  plannedContribution: numeric('planned_contribution', { precision: 10, scale: 2 }),
+  // The financial reserve (§11): at most one active Kapsa per household. Advice uses it first.
+  isReserve: boolean('is_reserve').notNull().default(false),
+  // A put-away Kapsa keeps its history: its transfers belong to past periods' results.
+  archivedAt: timestamp('archived_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [
+  index('pockets_household_idx').on(table.householdId),
+  uniqueIndex('pockets_one_reserve_unique').on(table.householdId).where(sql`${table.isReserve} AND ${table.archivedAt} IS NULL`),
+  check('pockets_name_not_blank', sql`length(btrim(${table.name})) > 0`),
+  check('pockets_target_positive', sql`${table.targetAmount} IS NULL OR ${table.targetAmount} > 0`),
+  check('pockets_opening_not_negative', sql`${table.openingAmount} >= 0`),
+  check('pockets_contribution_not_negative', sql`${table.plannedContribution} IS NULL OR ${table.plannedContribution} >= 0`),
+])
+
+// A closed budget period (§15). The result is not stored (it is recomputed, so a later change to a
+// closed period moves the carry, §14); only the user's decision is: how much of a surplus was left
+// unassigned. period_end is exclusive, so a later change of the period setting cannot detach the carry.
+export const periodClosings = pgTable('period_closings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  periodStart: date('period_start').notNull(),
+  periodEnd: date('period_end').notNull(),
+  keptAmount: numeric('kept_amount', { precision: 10, scale: 2 }).notNull().default('0'),
+  closedAt: timestamp('closed_at').notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('period_closings_household_start_unique').on(table.householdId, table.periodStart),
+  check('period_closings_range_valid', sql`${table.periodEnd} > ${table.periodStart}`),
+  check('period_closings_kept_not_negative', sql`${table.keptAmount} >= 0`),
+])
+
+// What the household plans to leave for the next period when the period starting at period_start ends
+// (§14 "Plánovaný převod"). Only a plan: closing the period replaces it with the real transfer.
+export const plannedCarries = pgTable('planned_carries', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  periodStart: date('period_start').notNull(),
+  amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('planned_carries_household_period_unique').on(table.householdId, table.periodStart),
+  check('planned_carries_amount_positive', sql`${table.amount} > 0`),
+])
+
+// Money really moved between the budget and a Kapsa: positive = budget → Kapsa, negative = Kapsa →
+// budget. Not income, expense or saving (§14). period_start is the budget period it belongs to;
+// closing_id marks the moves made while closing that period.
+export const pocketTransfers = pgTable('pocket_transfers', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  pocketId: uuid('pocket_id').notNull().references(() => pockets.id, { onDelete: 'cascade' }),
+  periodStart: date('period_start').notNull(),
+  closingId: uuid('closing_id').references(() => periodClosings.id, { onDelete: 'cascade' }),
+  amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
+  date: date('date').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [
+  index('pocket_transfers_household_period_idx').on(table.householdId, table.periodStart),
+  index('pocket_transfers_pocket_idx').on(table.pocketId),
+  check('pocket_transfers_amount_not_zero', sql`${table.amount} <> 0`),
+])
+
 export const expenses = pgTable('expenses', {
   id: uuid('id').primaryKey().defaultRandom(),
   householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
@@ -1432,6 +1549,7 @@ export const householdsRelations = relations(households, ({ many, one }) => ({
   shoppingLists: many(shoppingLists),
   purchases: many(purchases),
   budgets: many(budgets),
+  incomes: many(incomes),
   expenses: many(expenses),
   mealPlans: many(mealPlans),
   notifications: many(notifications),

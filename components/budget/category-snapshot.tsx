@@ -1,21 +1,27 @@
+import { Panel } from '@/components/budget/panel'
 import { CATEGORY_BAR_COLORS } from '@/components/dashboard/spending-breakdown'
 import { categoryRows, expensePeriod, periodSummary } from '@/lib/budget'
+import type { PeriodInput } from '@/lib/budget-period'
 import { money, thisPeriodTitle } from '@/lib/format'
 import type { CategoryBudgets, Expense } from '@/lib/types'
 
 /** This month's spending by category, at a glance — budgeted vs. spent vs. remaining, no drill-down
- *  or editing (that lives in Výdaje/ExpenseLedger). Belongs on "Aktuální stav": the household should
+ *  or editing (that lives in Výdaje/ExpenseLedger). Belongs on "Přehled": the household should
  *  see where it stands without opening anything. Nothing calculated here; lib/budget.ts owns the
  *  numbers, same as ExpenseLedger. */
-export function CategorySnapshot({ expenses, today, limits, periodStartDay = 1 }: { expenses: Expense[]; today: string; limits: CategoryBudgets; periodStartDay?: number }) {
-  const rows = categoryRows(periodSummary(expenses, expensePeriod(today, periodStartDay), periodStartDay), limits)
+export function CategorySnapshot({ expenses, today, limits, period = 1 }: { expenses: Expense[]; today: string; limits: CategoryBudgets; period?: PeriodInput }) {
+  const rows = categoryRows(periodSummary(expenses, expensePeriod(today, period), period), limits)
   if (rows.length === 0) return null
+  const overLimit = rows.filter((row) => row.level === 'over').length
 
   return (
-    <section className="surface p-5 sm:p-6" aria-label="Výdaje podle kategorií v aktuálním období">
-      <p className="text-sm font-semibold">Podle kategorií</p>
-      <p className="mt-1 text-sm text-muted-foreground">{thisPeriodTitle(today, periodStartDay)}, na první pohled.</p>
-      <div className="mt-4 space-y-2">
+    <Panel
+      title="Podle kategorií"
+      summary={overLimit > 0 ? `${overLimit}× nad limitem · ${rows.length} kategorií` : `${rows.length} ${rows.length === 1 ? 'kategorie' : rows.length < 5 ? 'kategorie' : 'kategorií'}`}
+      description={`${thisPeriodTitle(today, period)}, na první pohled.`}
+      defaultOpen={overLimit > 0}
+    >
+      <div className="space-y-2">
         {rows.map((row) => {
           const remaining = row.limit != null ? row.limit - row.total : null
           const share = row.limit != null ? Math.min(100, (row.total / row.limit) * 100) : 0
@@ -42,6 +48,6 @@ export function CategorySnapshot({ expenses, today, limits, periodStartDay = 1 }
           )
         })}
       </div>
-    </section>
+    </Panel>
   )
 }

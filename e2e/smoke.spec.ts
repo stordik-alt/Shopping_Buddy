@@ -80,7 +80,7 @@ test.describe('critical smoke flow', () => {
       await expect(page.getByText('Zásoby', { exact: true }).first()).toBeVisible()
 
       await page.goto('/?tab=rozpocet')
-      await expect(page.getByText('Aktuální stav', { exact: true }).first()).toBeVisible()
+      await expect(page.getByText('Přehled', { exact: true }).first()).toBeVisible()
 
       await page.goto('/?tab=recepty')
       await expect(page.getByText('Recepty', { exact: true }).first()).toBeVisible()
@@ -98,7 +98,7 @@ test.describe('critical smoke flow', () => {
         ['/', 'Domů'],
         ['/?tab=nakup', 'Nákupní seznam'],
         ['/?tab=zasoby', 'Zásoby'],
-        ['/?tab=rozpocet', 'Aktuální stav'],
+        ['/?tab=rozpocet', 'Přehled'],
         ['/?tab=recepty', 'Recepty'],
       ] as const
 

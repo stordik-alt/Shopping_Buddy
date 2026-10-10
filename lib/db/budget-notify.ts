@@ -1,6 +1,8 @@
 import { and, eq, gte, lt } from 'drizzle-orm'
-import { crossedBudgetThreshold, nextPeriodStart, periodStart } from '@/lib/budget'
+import { crossedBudgetThreshold } from '@/lib/budget'
+import { nextPeriodStartFor, periodStartFor } from '@/lib/budget-period'
 import type { getDb } from '@/lib/db/client'
+import { loadPeriodConfig } from '@/lib/db/period-config'
 import * as schema from '@/lib/db/schema'
 import type { ExpenseCategory } from '@/lib/expense-categories'
 import { money } from '@/lib/format'
@@ -21,9 +23,9 @@ export type PeriodSpending = { period: string; total: number; byCategory: Map<Ex
 /** What the household had spent in the budget period `date` falls in (it starts on the household's
  *  chosen day of the month, lib/budget.ts), overall and per category. */
 export async function periodSpending(db: Db, householdId: string, date: string): Promise<PeriodSpending> {
-  const household = await db.query.households.findFirst({ where: eq(schema.households.id, householdId), columns: { budgetPeriodStartDay: true } })
-  const from = periodStart(date, household?.budgetPeriodStartDay ?? 1)
-  const until = nextPeriodStart(from)
+  const config = await loadPeriodConfig(db, householdId)
+  const from = periodStartFor(config, date)
+  const until = nextPeriodStartFor(config, from)
   const rows = await db.query.expenses.findMany({
     where: and(eq(schema.expenses.householdId, householdId), gte(schema.expenses.date, from), lt(schema.expenses.date, until)),
     columns: { amount: true, category: true },
@@ -71,8 +73,8 @@ export async function notifyBudgetThresholds(
         'budget',
         overall === 'exceeded' ? 'Rozpočet byl překročen' : 'Blížíte se limitu rozpočtu',
         overall === 'exceeded'
-          ? `Měsíční výdaje (${money(after)}) právě překročily rozpočet ${money(budget)}.`
-          : `Měsíční výdaje dosáhly 80 % rozpočtu — ${money(after)} z ${money(budget)}.`,
+          ? `Výdaje v tomto období (${money(after)}) právě překročily rozpočet ${money(budget)}.`
+          : `Výdaje v tomto období dosáhly 80 % rozpočtu — ${money(after)} z ${money(budget)}.`,
       ),
     )
   }
@@ -91,8 +93,8 @@ export async function notifyBudgetThresholds(
         'category_limit',
         crossed === 'exceeded' ? `${limit.category}: limit překročen` : `${limit.category}: 80 % limitu`,
         crossed === 'exceeded'
-          ? `Výdaje za ${limit.category.toLocaleLowerCase('cs')} (${money(after)}) právě překročily měsíční limit ${money(Number(limit.amount))}.`
-          : `Výdaje za ${limit.category.toLocaleLowerCase('cs')} dosáhly 80 % měsíčního limitu — ${money(after)} z ${money(Number(limit.amount))}.`,
+          ? `Výdaje za ${limit.category.toLocaleLowerCase('cs')} (${money(after)}) právě překročily limit na období ${money(Number(limit.amount))}.`
+          : `Výdaje za ${limit.category.toLocaleLowerCase('cs')} dosáhly 80 % limitu na období — ${money(after)} z ${money(Number(limit.amount))}.`,
       ),
     )
   }

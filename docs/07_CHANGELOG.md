@@ -1,3 +1,17 @@
+## 2026-10-10 — Pravidla pro sedm nových typů a oprava poddruhů v seedu
+
+- `lib/product-types.ts`: nové typy `caj`, `vino`, `lihoviny`, `cokolada-tabulkova`, `chipsy-snacky` („Chipsy“), `mydlo`, `deodoranty` s konzervativními pravidly (víno jen podle slova „víno/sekt/prosecco“, bez svařeného, nealko a hroznů; čaj bez ledového, kombuchy a čajového příslušenství; čokoláda bez pitné, na vaření, pomazánek; chipsy bez čočkových a tortilla). Změna ovlivňuje klasifikaci produktů a účtenek těchto názvů.
+- Seed: sedm typů přepnuto na stávající (`existing`), poddruhy se smíšenou osou nebo duplicitou opraveny nebo přesunuty (nové typy `slane-snacky`, `sladidla-sirupy`, `likery`; káva v kapslích a instantní pod `kava`). Nyní 156 typů (96 nových) a 846 poddruhů; JSON v `docs/examples/` přegenerován.
+- Nový test `lib/product-types-seed-rules.test.ts` (43 případů) a stávající zlatá sada; `product-types`, seed a subtype testy (395) i `tsc` prošly.
+- Omezení: pravidla nejsou změřena na reálném katalogu (DB nebyla dostupná); před `assign-product-types` je nutný dry-run. Při ladění se ukázalo, že normalizace skládá diakritiku (`želé` blokovalo `zelený`), proto jsou riziková vyloučení psána s mezerami.
+
+## 2026-10-10 — Široký seed návrh registru typů a poddruhů (bez Luny)
+
+- Přidán `lib/product-taxonomy-seed/` (verze `2026-10-seed-v1`): 153 typů (100 nových, 53 stávajících s novými poddruhy) a 854 poddruhů pro Potraviny, Drogerie, Domácnost, Děti a Ostatní, napsaných přímo (export pro GPT-6 Lunu se nepoužil). Každý typ má rozhodovací osu, každý poddruh definici a hranice zahrnutí/vyloučení.
+- `scripts/export-product-taxonomy-seed.ts` vygeneruje `docs/examples/product-taxonomy-seed-subtype-candidates.json` (vstup pro stávající frontu kandidátů) a `product-taxonomy-seed-new-types.json`.
+- Pouze návrh: žádný zápis do DB, žádná migrace, žádné přiřazení produktů, runtime klasifikace beze změny. Nové typy potřebují pravidla v `lib/product-types.ts`, než se poddruhy schválí.
+- Ověřeno: `lib/product-taxonomy-seed/seed.test.ts` (6 testů) prošel, `tsc` bez chyb v nových souborech. Dry-run ingestu proti DB neproveden. Koncept: `docs/12_PRODUCT_TYPES.md`.
+
 ## 2026-10-10 — Rozpočet: zjednodušení pro mobil a ověření ručních převodů do Kapes
 
 - Nový `components/budget/panel.tsx` (nad `CollapsibleSection`): sbalitelný blok s názvem, jednořádkovým shrnutím, popisem a hlavním tlačítkem; obsah zůstává připojený. Plánování: karty Plánováno a Predikce sloučené do jedné „Odhad konce období“; Příjmy, Plánované výdaje, Kapsy, Převod do dalšího období, Výhled, Historie období a Nastavení období jsou sbalené bloky (otevřené jen při plánování budoucího období). Přehled: Plán a úspory, Podle kategorií (otevřené při překročeném limitu) a Pravidelné platby (otevřené, když něco čeká na potvrzení) jsou sbalené bloky. Na 390 px je Plánování zhruba třetinové délky, bez horizontálního přetečení při 320 / 390 / 1280 px ve světlém i tmavém režimu (statický render ve Chromiu).

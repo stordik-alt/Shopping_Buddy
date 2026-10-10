@@ -4,6 +4,7 @@
 - `uterky` (čisticí utěrky) už nekoliduje s `kuchynske-uterky`; obě skupiny jsou ve zlatém testu.
 - Dopad na dry-run: nově přiřazeno 11 559 (dříve 11 708), odebrání 29 (dříve 45). Zbylá odebrání jsou správné úklidy starších zařazení (Wasa crackers „sůl“, Pringles „slanina“, mražené jahody, dětské šampony „jahoda“, vývar „hovězí“ aj.). Dva případy zůstávají k ručnímu posouzení: „HiPP Baby minerální voda neperlivá“ (kategorie Děti) a „BIO Pomeranče (kód)“.
 - Rozhodnutí vlastníka: HiPP Baby (voda i šťávy) a YESs jsou dětské nápoje – typ `detske-napoje` (Děti ▸ Dětské nápoje) nově zahrnuje minerální a pramenitou vodu, neperlivé, šťávy a nektary dětských značek (bez „HiPP Mama“ a sirupů); 27 produktů nově, 3 HiPP vody přecházejí z `voda-neperliva`. „BIO Pomeranče (1000764180)“: kód produktu v závorce (5+ číslic) se před klasifikací typu odstraňuje, protože vyloučení „100 %“ se normalizovalo na „100“ a trefilo číslo kódu.
+- Druhé kolo vzorků (18 náhodných ke každému typu): vyloučeno víno „s kapkou vína“, topping a čokoládové kousky, džusové pomeranče, dřeň na smoothie, jogurtová zmrzka, čekankový sirup, slané sušenky, grilovací tyčinky se sýrem, krevetové závitky a sushi, odličovací tampony; každé je test.
 - Dry-run po úpravách: nově 11 585, odebrání 20 (z původních 45). Zápis do databáze nebyl proveden.
 
 ## 2026-10-10 — Dávky 2–7: dalších 22 typů, migrace 0091 a skript pro roll-out

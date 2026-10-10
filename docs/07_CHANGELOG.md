@@ -2,6 +2,7 @@
 
 - Dry-run po nasazení (PR #415) ukázal 37 odebraných typů; většinu způsobila nová pravidla: vyloučení „merci“ odebíralo typ tabulkové čokoládě Merci (14×), `grissini` kolidovaly s kořením (rozmarýn), „Ice Tea“ sirup s ledovým čajem, Birell Energy s limonádou, perníčková směs se sušenkami, pivo „Vývar“ s vývary, polévkový chléb s polévkami, kuřecí skelet na vývar, Magnesia Go/Plus a ochucená pramenitá voda s ochucenou vodou, odlakovač s dekorativní kosmetikou, pleťová séra a krémy „po opalování“ s péčí o pleť a make-up s vitamíny.
 - Pravidla upravena, každý případ je test v `lib/product-types-seed-rules.test.ts` (595 testů v dotčených souborech prochází, `tsc` čistý). Dry-run po opravě: nově 8 833, změna typu 83, odebrání jen 6 (Ferrero Rocher tabulka, micelární tampony, tři ochucené perlivé vody, sirup s příchutí ledového čaje). Zápis do databáze nebyl proveden.
+- Rozbor posledních 6 odebrání: Ferrero Rocher tabulky jsou čokoláda (bonboniéra jen „Original“), micelární tampony patří k odličování, „Sirup Ice Tea“ je sirup (ne ledový čaj), ochucené perlivé vody (DASH limetka, Korunní Eterea marakuja a zázvor) jsou ochucená voda; aloe/grep/kokos/ananas/meloun/višeň ve vodě už není voda perlivá/neperlivá. Zůstávají 4 správná odebrání (Alvera aloe vera nealko nápoj ×2, Hanácká Kyselka grep, víceúčelová položka K-Classic).
 
 ## 2026-10-10 — Dávky 8–15: dalších 63 typů, rozšíření pravidel a migrace 0092
 

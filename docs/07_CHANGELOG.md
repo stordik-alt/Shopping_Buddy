@@ -6,6 +6,12 @@
 - Migrace `0093_seed_product_types_batch4.sql` (insert-only, ověřena na lokální testovací databázi, DB test shody `product_types` s kódem prochází). Regresní testy v `lib/product-types-seed-rules.test.ts` (`batches 16–20`, 172 případů) a upravená očekávání ve zlatém seznamu; 770 testů v dotčených souborech prochází, `tsc` čistý.
 - Měření na produkčním katalogu (56 103 produktů) podle pravidel, bez zápisu: typ by mělo 32 461 produktů (dnes 27 934; 57,9 %): 4 559 nových, 378 změn typu, 32 odebrání (všechna správná). Zápis do produkce proběhne až po nasazení migrace dry-runem a `pnpm db:apply-product-types-batch`.
 
+## 2026-10-10 — Plán nákupu: prioritní řetězce jsou přísné
+
+- Chyba: „Sestavit plán" (nákupní seznam → prioritní obchody) ignoroval zvolené prioritní řetězce, protože priorita byla jen měkký tie-break (do `max(5 Kč, 3 %)` nad nejlevnějším plánem) a navíc každá položka šla nejlevnějšímu z vybraných obchodů.
+- `lib/shopping-plan.ts`: mezi plány, které pokryjí nejvíc položek, vyhrává ten s nejvíce prioritními obchody bez ohledu na cenu; vybraný prioritní obchod bere každou položku, kterou prodává (nejlevnější produkt v něm), ostatní obchody doplní jen to, co prioritní nemají, v rámci limitu obchodů. Tolerance zůstává už jen pro volbu méně obchodů v rámci stejné priority. `costOfPriority` se počítá proti nejlevnějšímu plánu bez priority. Prioritní obchod bez jediné nabídky se hlásí v poznámkách.
+- Testy v `lib/shopping-plan.test.ts` (44 prochází spolu s formátováním) a v `app/actions/shopping-plan.test.ts` upraveny na přísné chování; DB test jsem lokálně nemohl spustit (nenaseedované řetězce v lokální DB). Plán se dál sestavuje ze všech otevřených položek.
+
 ## 2026-10-10 — Opravy pravidel po dry-runu nasazených dávek 8–15
 
 - Dry-run po nasazení (PR #415) ukázal 37 odebraných typů; většinu způsobila nová pravidla: vyloučení „merci“ odebíralo typ tabulkové čokoládě Merci (14×), `grissini` kolidovaly s kořením (rozmarýn), „Ice Tea“ sirup s ledovým čajem, Birell Energy s limonádou, perníčková směs se sušenkami, pivo „Vývar“ s vývary, polévkový chléb s polévkami, kuřecí skelet na vývar, Magnesia Go/Plus a ochucená pramenitá voda s ochucenou vodou, odlakovač s dekorativní kosmetikou, pleťová séra a krémy „po opalování“ s péčí o pleť a make-up s vitamíny.

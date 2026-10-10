@@ -1,3 +1,10 @@
+## 2026-10-10 — Opravy starších typů po kontrole vzorků dry-runu
+
+- Před prvním `--apply` jsem prošel vzorky všech typů, které dry-run proti katalogu přiřazuje (11 708 produktů). Starší typy měly falešné zásahy: `orechy` (muškátový ořech, ořechové sýry, ořechový chléb, hovězí ořech – prefix `ořech` chytal i `ořechový`), `pomazanky` (Nutella a ovocné pomazánky), `horcice` (topinky, dresingy, pickles), `kakao` (Pribináček a proteinové výrobky), `seminka` (pečivo „semínko“, semínka na klíčení), `mozzarella` (Knorr těstoviny) a `houby` (pasta křenová). Pravidla zpřísněna, každý případ je test v `lib/product-types-seed-rules.test.ts`.
+- `uterky` (čisticí utěrky) už nekoliduje s `kuchynske-uterky`; obě skupiny jsou ve zlatém testu.
+- Dopad na dry-run: nově přiřazeno 11 559 (dříve 11 708), odebrání 29 (dříve 45). Zbylá odebrání jsou správné úklidy starších zařazení (Wasa crackers „sůl“, Pringles „slanina“, mražené jahody, dětské šampony „jahoda“, vývar „hovězí“ aj.). Dva případy zůstávají k ručnímu posouzení: „HiPP Baby minerální voda neperlivá“ (kategorie Děti) a „BIO Pomeranče (kód)“.
+- Zápis do databáze nebyl proveden.
+
 ## 2026-10-10 — Dávky 2–7: dalších 22 typů, migrace 0091 a skript pro roll-out
 
 - `lib/product-types.ts`: nápoje (limonády, džusy, sirupy, rostlinné nápoje), jogurt ochucený/pitný, skyr, sušenky, tyčinky, bonbóny, zmrzliny, sladké pečivo, hotové omáčky, koření, salám, mořské plody a drogerie (dámská a ústní hygiena, vlhčené ubrousky, holení, dekorativní kosmetika, péče o pleť). Migrace `0091_seed_product_types_batch2.sql` (insert-only) zakládá jejich řádky; DB test sladění `product_types` s kódem prochází na lokální testovací databázi.

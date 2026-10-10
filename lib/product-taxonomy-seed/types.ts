@@ -2,7 +2,7 @@
 // "Registry-first bulk taxonomy bootstrap"). It is DATA ONLY: nothing here is imported by runtime
 // classification, and nothing writes to the database. Subtypes enter the app through the existing
 // review queue (`pnpm db:product-subtype-candidates`), types through lib/product-types.ts rules.
-import type { ProductTypeUnit } from '@/lib/product-types'
+import { PRODUCT_TYPE_GROUPS, PRODUCT_TYPES, type ProductTypeUnit } from '@/lib/product-types'
 import type { ItemCategory } from '@/lib/types'
 
 export const PRODUCT_TAXONOMY_SEED_VERSION = '2026-10-seed-v1'
@@ -28,11 +28,14 @@ export type SeedType = {
 export const DEFAULT_SUBTYPE_EXCLUDES =
   'jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu'
 
-/** Compact constructors so the data tables stay readable. */
+const CODE_KEYS = new Set([...PRODUCT_TYPES.map((type) => type.key), ...PRODUCT_TYPE_GROUPS.map((group) => group.key)])
+
+/** Compact constructors so the data tables stay readable. A type proposed as new is `existing` as soon
+ *  as lib/product-types.ts defines its key, so promoting a type to code never leaves a stale flag. */
 export const newType = (
   key: string, name: string, category: ItemCategory, subcategory: string, unit: ProductTypeUnit,
   axis: string, subtypes: readonly SeedSubtype[],
-): SeedType => ({ key, name, category, subcategory, unit, existing: false, axis, subtypes })
+): SeedType => ({ key, name, category, subcategory, unit, existing: CODE_KEYS.has(key), axis, subtypes })
 
 export const existingType = (
   key: string, name: string, category: ItemCategory, subcategory: string, unit: ProductTypeUnit,

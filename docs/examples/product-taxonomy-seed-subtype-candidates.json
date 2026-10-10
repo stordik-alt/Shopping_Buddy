@@ -546,7 +546,7 @@
         "category": "Potraviny",
         "subcategory": "Mléčné výrobky",
         "parentTypeName": "Mléčné dezerty",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -568,7 +568,7 @@
         "category": "Potraviny",
         "subcategory": "Mléčné výrobky",
         "parentTypeName": "Mléčné dezerty",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -590,7 +590,7 @@
         "category": "Potraviny",
         "subcategory": "Mléčné výrobky",
         "parentTypeName": "Mléčné dezerty",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -612,7 +612,7 @@
         "category": "Potraviny",
         "subcategory": "Mléčné výrobky",
         "parentTypeName": "Mléčné dezerty",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -634,7 +634,7 @@
         "category": "Potraviny",
         "subcategory": "Mléčné výrobky",
         "parentTypeName": "Mléčné dezerty",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -1338,7 +1338,7 @@
         "category": "Potraviny",
         "subcategory": "Mléčné výrobky",
         "parentTypeName": "Kozí a ovčí mléko",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -1360,7 +1360,7 @@
         "category": "Potraviny",
         "subcategory": "Mléčné výrobky",
         "parentTypeName": "Kozí a ovčí mléko",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -3714,7 +3714,7 @@
         "category": "Potraviny",
         "subcategory": "Ovoce a zelenina",
         "parentTypeName": "Exotické ovoce",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -3736,7 +3736,7 @@
         "category": "Potraviny",
         "subcategory": "Ovoce a zelenina",
         "parentTypeName": "Exotické ovoce",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -3758,7 +3758,7 @@
         "category": "Potraviny",
         "subcategory": "Ovoce a zelenina",
         "parentTypeName": "Exotické ovoce",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -3780,7 +3780,7 @@
         "category": "Potraviny",
         "subcategory": "Ovoce a zelenina",
         "parentTypeName": "Exotické ovoce",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -3802,7 +3802,7 @@
         "category": "Potraviny",
         "subcategory": "Ovoce a zelenina",
         "parentTypeName": "Exotické ovoce",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -3824,7 +3824,7 @@
         "category": "Potraviny",
         "subcategory": "Ovoce a zelenina",
         "parentTypeName": "Exotické ovoce",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -3846,7 +3846,7 @@
         "category": "Potraviny",
         "subcategory": "Ovoce a zelenina",
         "parentTypeName": "Exotické ovoce",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -3868,7 +3868,7 @@
         "category": "Potraviny",
         "subcategory": "Ovoce a zelenina",
         "parentTypeName": "Exotické ovoce",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -6354,7 +6354,7 @@
         "category": "Potraviny",
         "subcategory": "Mouka a pečení",
         "parentTypeName": "Směsi a polotovary na pečení",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -6376,7 +6376,7 @@
         "category": "Potraviny",
         "subcategory": "Mouka a pečení",
         "parentTypeName": "Směsi a polotovary na pečení",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -6398,7 +6398,7 @@
         "category": "Potraviny",
         "subcategory": "Mouka a pečení",
         "parentTypeName": "Směsi a polotovary na pečení",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -6420,7 +6420,7 @@
         "category": "Potraviny",
         "subcategory": "Mouka a pečení",
         "parentTypeName": "Směsi a polotovary na pečení",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -6442,7 +6442,7 @@
         "category": "Potraviny",
         "subcategory": "Mouka a pečení",
         "parentTypeName": "Směsi a polotovary na pečení",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -6464,7 +6464,7 @@
         "category": "Potraviny",
         "subcategory": "Mouka a pečení",
         "parentTypeName": "Směsi a polotovary na pečení",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -6706,7 +6706,7 @@
         "category": "Potraviny",
         "subcategory": "Alkoholické nápoje",
         "parentTypeName": "Likéry",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -6728,7 +6728,7 @@
         "category": "Potraviny",
         "subcategory": "Alkoholické nápoje",
         "parentTypeName": "Likéry",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -6750,7 +6750,7 @@
         "category": "Potraviny",
         "subcategory": "Alkoholické nápoje",
         "parentTypeName": "Likéry",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -6772,7 +6772,7 @@
         "category": "Potraviny",
         "subcategory": "Alkoholické nápoje",
         "parentTypeName": "Likéry",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -7718,7 +7718,7 @@
         "category": "Potraviny",
         "subcategory": "Omáčky a dochucovadla",
         "parentTypeName": "Vývary a bujóny",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -7740,7 +7740,7 @@
         "category": "Potraviny",
         "subcategory": "Omáčky a dochucovadla",
         "parentTypeName": "Vývary a bujóny",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -7762,7 +7762,7 @@
         "category": "Potraviny",
         "subcategory": "Omáčky a dochucovadla",
         "parentTypeName": "Vývary a bujóny",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -7784,7 +7784,7 @@
         "category": "Potraviny",
         "subcategory": "Omáčky a dochucovadla",
         "parentTypeName": "Vývary a bujóny",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -10314,7 +10314,7 @@
         "category": "Potraviny",
         "subcategory": "Nápoje",
         "parentTypeName": "Ochucená voda",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -10336,7 +10336,7 @@
         "category": "Potraviny",
         "subcategory": "Nápoje",
         "parentTypeName": "Ochucená voda",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -12492,7 +12492,7 @@
         "category": "Drogerie",
         "subcategory": "Praní",
         "parentTypeName": "Prací kapsle",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -12514,7 +12514,7 @@
         "category": "Drogerie",
         "subcategory": "Praní",
         "parentTypeName": "Prací kapsle",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -12536,7 +12536,7 @@
         "category": "Drogerie",
         "subcategory": "Praní",
         "parentTypeName": "Prací kapsle",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -12558,7 +12558,7 @@
         "category": "Drogerie",
         "subcategory": "Praní",
         "parentTypeName": "Prací kapsle",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -15132,7 +15132,7 @@
         "category": "Drogerie",
         "subcategory": "Kosmetika",
         "parentTypeName": "Parfémy a vůně",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -15154,7 +15154,7 @@
         "category": "Drogerie",
         "subcategory": "Kosmetika",
         "parentTypeName": "Parfémy a vůně",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -15176,7 +15176,7 @@
         "category": "Drogerie",
         "subcategory": "Kosmetika",
         "parentTypeName": "Parfémy a vůně",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -15198,7 +15198,7 @@
         "category": "Drogerie",
         "subcategory": "Zdraví a doplňky stravy",
         "parentTypeName": "Vitamíny a doplňky stravy",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -15220,7 +15220,7 @@
         "category": "Drogerie",
         "subcategory": "Zdraví a doplňky stravy",
         "parentTypeName": "Vitamíny a doplňky stravy",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -15242,7 +15242,7 @@
         "category": "Drogerie",
         "subcategory": "Zdraví a doplňky stravy",
         "parentTypeName": "Vitamíny a doplňky stravy",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -15264,7 +15264,7 @@
         "category": "Drogerie",
         "subcategory": "Zdraví a doplňky stravy",
         "parentTypeName": "Vitamíny a doplňky stravy",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -15286,7 +15286,7 @@
         "category": "Drogerie",
         "subcategory": "Zdraví a doplňky stravy",
         "parentTypeName": "Vitamíny a doplňky stravy",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -15308,7 +15308,7 @@
         "category": "Drogerie",
         "subcategory": "Zdraví a doplňky stravy",
         "parentTypeName": "Vitamíny a doplňky stravy",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -15330,7 +15330,7 @@
         "category": "Drogerie",
         "subcategory": "Zdraví a doplňky stravy",
         "parentTypeName": "Vitamíny a doplňky stravy",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -15352,7 +15352,7 @@
         "category": "Drogerie",
         "subcategory": "Zdraví a doplňky stravy",
         "parentTypeName": "Vitamíny a doplňky stravy",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -15374,7 +15374,7 @@
         "category": "Drogerie",
         "subcategory": "Zdraví a doplňky stravy",
         "parentTypeName": "Vitamíny a doplňky stravy",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -17508,7 +17508,7 @@
         "category": "Děti",
         "subcategory": "Kaše a cereálie",
         "parentTypeName": "Dětské kaše a cereálie",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -17530,7 +17530,7 @@
         "category": "Děti",
         "subcategory": "Kaše a cereálie",
         "parentTypeName": "Dětské kaše a cereálie",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -17552,7 +17552,7 @@
         "category": "Děti",
         "subcategory": "Kaše a cereálie",
         "parentTypeName": "Dětské kaše a cereálie",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -17574,7 +17574,7 @@
         "category": "Děti",
         "subcategory": "Kaše a cereálie",
         "parentTypeName": "Dětské kaše a cereálie",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -17596,7 +17596,7 @@
         "category": "Děti",
         "subcategory": "Kaše a cereálie",
         "parentTypeName": "Dětské kaše a cereálie",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -18807,6 +18807,2822 @@
         "subcategory": "Ostatní zboží",
         "parentTypeName": "Sezónní zboží",
         "parentTypeExistsInCode": false,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "kombucha",
+      "name": "Kombucha natur",
+      "definition": "Poddruh typu „Kombucha“ rozlišený podle osy: příchuť kombuchy. Poddruh „Kombucha natur“.",
+      "includes": [
+        "kombucha bez příchuti nebo originální"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Nápoje",
+        "parentTypeName": "Kombucha",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "kombucha",
+      "name": "Kombucha ovocná",
+      "definition": "Poddruh typu „Kombucha“ rozlišený podle osy: příchuť kombuchy. Poddruh „Kombucha ovocná“.",
+      "includes": [
+        "kombucha s ovocnou příchutí"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Nápoje",
+        "parentTypeName": "Kombucha",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "kombucha",
+      "name": "Kombucha zázvorová a bylinná",
+      "definition": "Poddruh typu „Kombucha“ rozlišený podle osy: příchuť kombuchy. Poddruh „Kombucha zázvorová a bylinná“.",
+      "includes": [
+        "kombucha se zázvorem, mátou nebo bylinami"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Nápoje",
+        "parentTypeName": "Kombucha",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "nealko-pivo",
+      "name": "Nealkoholické světlé pivo",
+      "definition": "Poddruh typu „Nealkoholické pivo“ rozlišený podle osy: styl nealkoholického piva. Poddruh „Nealkoholické světlé pivo“.",
+      "includes": [
+        "světlý ležák bez alkoholu"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Alkoholické nápoje",
+        "parentTypeName": "Nealkoholické pivo",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "nealko-pivo",
+      "name": "Nealkoholické tmavé a řezané pivo",
+      "definition": "Poddruh typu „Nealkoholické pivo“ rozlišený podle osy: styl nealkoholického piva. Poddruh „Nealkoholické tmavé a řezané pivo“.",
+      "includes": [
+        "tmavé nebo řezané pivo bez alkoholu"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Alkoholické nápoje",
+        "parentTypeName": "Nealkoholické pivo",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "nealko-pivo",
+      "name": "Nealkoholické pivo s příchutí",
+      "definition": "Poddruh typu „Nealkoholické pivo“ rozlišený podle osy: styl nealkoholického piva. Poddruh „Nealkoholické pivo s příchutí“.",
+      "includes": [
+        "radler a pivo s ovocnou příchutí bez alkoholu"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Alkoholické nápoje",
+        "parentTypeName": "Nealkoholické pivo",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "ledove-caje",
+      "name": "Ledový čaj zelený",
+      "definition": "Poddruh typu „Ledové čaje“ rozlišený podle osy: základ ledového čaje. Poddruh „Ledový čaj zelený“.",
+      "includes": [
+        "ledový čaj ze zeleného čaje"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Nápoje",
+        "parentTypeName": "Ledové čaje",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "ledove-caje",
+      "name": "Ledový čaj černý a ovocný",
+      "definition": "Poddruh typu „Ledové čaje“ rozlišený podle osy: základ ledového čaje. Poddruh „Ledový čaj černý a ovocný“.",
+      "includes": [
+        "ledový čaj z černého čaje nebo ovocný"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Nápoje",
+        "parentTypeName": "Ledové čaje",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "mlecne-napoje",
+      "name": "Čokoládový mléčný nápoj",
+      "definition": "Poddruh typu „Mléčné nápoje“ rozlišený podle osy: příchuť mléčného nápoje. Poddruh „Čokoládový mléčný nápoj“.",
+      "includes": [
+        "mléčný nápoj s kakaem nebo čokoládou"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Mléčné výrobky",
+        "parentTypeName": "Mléčné nápoje",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "mlecne-napoje",
+      "name": "Ovocný mléčný nápoj",
+      "definition": "Poddruh typu „Mléčné nápoje“ rozlišený podle osy: příchuť mléčného nápoje. Poddruh „Ovocný mléčný nápoj“.",
+      "includes": [
+        "mléčný nápoj s ovocnou příchutí"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Mléčné výrobky",
+        "parentTypeName": "Mléčné nápoje",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "mlecne-napoje",
+      "name": "Proteinový mléčný nápoj",
+      "definition": "Poddruh typu „Mléčné nápoje“ rozlišený podle osy: příchuť mléčného nápoje. Poddruh „Proteinový mléčný nápoj“.",
+      "includes": [
+        "mléčný nápoj se zvýšeným obsahem bílkovin"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Mléčné výrobky",
+        "parentTypeName": "Mléčné nápoje",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "kysane-napoje",
+      "name": "Probiotický nápoj",
+      "definition": "Poddruh typu „Kysané mléčné nápoje“ rozlišený podle osy: druh kysaného nápoje. Poddruh „Probiotický nápoj“.",
+      "includes": [
+        "jogurtový nebo mléčný nápoj s probiotickou kulturou, např. Actimel"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Mléčné výrobky",
+        "parentTypeName": "Kysané mléčné nápoje",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "kysane-napoje",
+      "name": "Acidofilní mléko",
+      "definition": "Poddruh typu „Kysané mléčné nápoje“ rozlišený podle osy: druh kysaného nápoje. Poddruh „Acidofilní mléko“.",
+      "includes": [
+        "kysané mléko s acidofilní kulturou"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Mléčné výrobky",
+        "parentTypeName": "Kysané mléčné nápoje",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "kysane-napoje",
+      "name": "Zakysaný jogurtový nápoj",
+      "definition": "Poddruh typu „Kysané mléčné nápoje“ rozlišený podle osy: druh kysaného nápoje. Poddruh „Zakysaný jogurtový nápoj“.",
+      "includes": [
+        "tekutý zakysaný nápoj s příchutí"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Mléčné výrobky",
+        "parentTypeName": "Kysané mléčné nápoje",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "cidery",
+      "name": "Cider jablečný",
+      "definition": "Poddruh typu „Cidery“ rozlišený podle osy: příchuť cideru. Poddruh „Cider jablečný“.",
+      "includes": [
+        "klasický jablečný cider"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Alkoholické nápoje",
+        "parentTypeName": "Cidery",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "cidery",
+      "name": "Cider ovocný",
+      "definition": "Poddruh typu „Cidery“ rozlišený podle osy: příchuť cideru. Poddruh „Cider ovocný“.",
+      "includes": [
+        "cider s hruškou, jahodou nebo jinou příchutí"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Alkoholické nápoje",
+        "parentTypeName": "Cidery",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "cerstvy-syr",
+      "name": "Smetanový sýr s bylinkami",
+      "definition": "Poddruh typu „Čerstvý a smetanový sýr“ rozlišený podle osy: druh čerstvého sýra. Poddruh „Smetanový sýr s bylinkami“.",
+      "includes": [
+        "smetanový sýr ochucený bylinkami nebo pažitkou"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Mléčné výrobky",
+        "parentTypeName": "Čerstvý a smetanový sýr",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "cerstvy-syr",
+      "name": "Žervé",
+      "definition": "Poddruh typu „Čerstvý a smetanový sýr“ rozlišený podle osy: druh čerstvého sýra. Poddruh „Žervé“.",
+      "includes": [
+        "žervé přírodní i ochucené"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Mléčné výrobky",
+        "parentTypeName": "Čerstvý a smetanový sýr",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "cerstvy-syr",
+      "name": "Mascarpone a ricotta",
+      "definition": "Poddruh typu „Čerstvý a smetanový sýr“ rozlišený podle osy: druh čerstvého sýra. Poddruh „Mascarpone a ricotta“.",
+      "includes": [
+        "italské čerstvé sýry"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Mléčné výrobky",
+        "parentTypeName": "Čerstvý a smetanový sýr",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "syr-tvrdy",
+      "name": "Čedar",
+      "definition": "Poddruh typu „Sýr tvrdý a polotvrdý“ rozlišený podle osy: druh sýra. Poddruh „Čedar“.",
+      "includes": [
+        "cheddar a čedarový sýr"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Mléčné výrobky",
+        "parentTypeName": "Sýr tvrdý a polotvrdý",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "syr-tvrdy",
+      "name": "Ementál",
+      "definition": "Poddruh typu „Sýr tvrdý a polotvrdý“ rozlišený podle osy: druh sýra. Poddruh „Ementál“.",
+      "includes": [
+        "ementál a sýr ementálského typu"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Mléčné výrobky",
+        "parentTypeName": "Sýr tvrdý a polotvrdý",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "syr-tvrdy",
+      "name": "Uzený sýr",
+      "definition": "Poddruh typu „Sýr tvrdý a polotvrdý“ rozlišený podle osy: druh sýra. Poddruh „Uzený sýr“.",
+      "includes": [
+        "přírodní uzený sýr"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Mléčné výrobky",
+        "parentTypeName": "Sýr tvrdý a polotvrdý",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "syr-tvrdy",
+      "name": "Kozí a ovčí sýr",
+      "definition": "Poddruh typu „Sýr tvrdý a polotvrdý“ rozlišený podle osy: druh sýra. Poddruh „Kozí a ovčí sýr“.",
+      "includes": [
+        "sýr z kozího nebo ovčího mléka"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Mléčné výrobky",
+        "parentTypeName": "Sýr tvrdý a polotvrdý",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "bonboniery",
+      "name": "Bonboniéra v krabici",
+      "definition": "Poddruh typu „Bonboniéry a pralinky“ rozlišený podle osy: forma pralinek. Poddruh „Bonboniéra v krabici“.",
+      "includes": [
+        "dárkové balení pralinek"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Sladkosti",
+        "parentTypeName": "Bonboniéry a pralinky",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "bonboniery",
+      "name": "Pralinky jednotlivě",
+      "definition": "Poddruh typu „Bonboniéry a pralinky“ rozlišený podle osy: forma pralinek. Poddruh „Pralinky jednotlivě“.",
+      "includes": [
+        "pralinky a kuličky v sáčku nebo kostce, např. Lindor, Raffaello"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Sladkosti",
+        "parentTypeName": "Bonboniéry a pralinky",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "dorty-zakusky",
+      "name": "Dort",
+      "definition": "Poddruh typu „Dorty a zákusky“ rozlišený podle osy: forma dezertu. Poddruh „Dort“.",
+      "includes": [
+        "celý dort nebo dortík"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Sladkosti",
+        "parentTypeName": "Dorty a zákusky",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "dorty-zakusky",
+      "name": "Zákusek",
+      "definition": "Poddruh typu „Dorty a zákusky“ rozlišený podle osy: forma dezertu. Poddruh „Zákusek“.",
+      "includes": [
+        "jednotlivý zákusek nebo mini zákusky"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Sladkosti",
+        "parentTypeName": "Dorty a zákusky",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "dorty-zakusky",
+      "name": "Roláda a cheesecake",
+      "definition": "Poddruh typu „Dorty a zákusky“ rozlišený podle osy: forma dezertu. Poddruh „Roláda a cheesecake“.",
+      "includes": [
+        "roláda, cheesecake a podobné krájené dezerty"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Sladkosti",
+        "parentTypeName": "Dorty a zákusky",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "kachna",
+      "name": "Kachna celá",
+      "definition": "Poddruh typu „Kachní maso“ rozlišený podle osy: část kachny. Poddruh „Kachna celá“.",
+      "includes": [
+        "celá kachna nebo mini kachna"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Maso a uzeniny",
+        "parentTypeName": "Kachní maso",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "kachna",
+      "name": "Kachní prsa",
+      "definition": "Poddruh typu „Kachní maso“ rozlišený podle osy: část kachny. Poddruh „Kachní prsa“.",
+      "includes": [
+        "kachní prsa s kůží i bez"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Maso a uzeniny",
+        "parentTypeName": "Kachní maso",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "kachna",
+      "name": "Kachní stehna a čtvrtky",
+      "definition": "Poddruh typu „Kachní maso“ rozlišený podle osy: část kachny. Poddruh „Kachní stehna a čtvrtky“.",
+      "includes": [
+        "stehna a čtvrtky"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Maso a uzeniny",
+        "parentTypeName": "Kachní maso",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "susene-maso",
+      "name": "Hovězí jerky",
+      "definition": "Poddruh typu „Sušené maso“ rozlišený podle osy: druh sušeného masa. Poddruh „Hovězí jerky“.",
+      "includes": [
+        "sušené hovězí maso, biltong"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Maso a uzeniny",
+        "parentTypeName": "Sušené maso",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "susene-maso",
+      "name": "Sušené vepřové a drůbeží maso",
+      "definition": "Poddruh typu „Sušené maso“ rozlišený podle osy: druh sušeného masa. Poddruh „Sušené vepřové a drůbeží maso“.",
+      "includes": [
+        "sušená krkovice, panenka, krůtí maso"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Maso a uzeniny",
+        "parentTypeName": "Sušené maso",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "tlacenky-jitrnice",
+      "name": "Tlačenka",
+      "definition": "Poddruh typu „Tlačenka, jitrnice a jelito“ rozlišený podle osy: druh výrobku. Poddruh „Tlačenka“.",
+      "includes": [
+        "tlačenka světlá i tmavá"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Maso a uzeniny",
+        "parentTypeName": "Tlačenka, jitrnice a jelito",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "tlacenky-jitrnice",
+      "name": "Jitrnice a jelito",
+      "definition": "Poddruh typu „Tlačenka, jitrnice a jelito“ rozlišený podle osy: druh výrobku. Poddruh „Jitrnice a jelito“.",
+      "includes": [
+        "jitrnice, jelito, játrovka"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Maso a uzeniny",
+        "parentTypeName": "Tlačenka, jitrnice a jelito",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "arasidy",
+      "name": "Arašídy pražené solené",
+      "definition": "Poddruh typu „Arašídy“ rozlišený podle osy: úprava arašídů. Poddruh „Arašídy pražené solené“.",
+      "includes": [
+        "pražené solené arašídy"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Ořechy, semínka a sušené ovoce",
+        "parentTypeName": "Arašídy",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "arasidy",
+      "name": "Arašídy pražené nesolené",
+      "definition": "Poddruh typu „Arašídy“ rozlišený podle osy: úprava arašídů. Poddruh „Arašídy pražené nesolené“.",
+      "includes": [
+        "pražené bez soli"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Ořechy, semínka a sušené ovoce",
+        "parentTypeName": "Arašídy",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "arasidy",
+      "name": "Ochucené arašídy",
+      "definition": "Poddruh typu „Arašídy“ rozlišený podle osy: úprava arašídů. Poddruh „Ochucené arašídy“.",
+      "includes": [
+        "medové, teriyaki, obalované"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Ořechy, semínka a sušené ovoce",
+        "parentTypeName": "Arašídy",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "popcorn",
+      "name": "Popcorn mikrovlnný",
+      "definition": "Poddruh typu „Popcorn“ rozlišený podle osy: forma popcornu. Poddruh „Popcorn mikrovlnný“.",
+      "includes": [
+        "popcorn k přípravě v mikrovlnné troubě"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Slané pochutiny",
+        "parentTypeName": "Popcorn",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "popcorn",
+      "name": "Popcorn hotový",
+      "definition": "Poddruh typu „Popcorn“ rozlišený podle osy: forma popcornu. Poddruh „Popcorn hotový“.",
+      "includes": [
+        "hotový solený, sladký nebo máslový popcorn"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Slané pochutiny",
+        "parentTypeName": "Popcorn",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "krekry",
+      "name": "Sýrové krekry",
+      "definition": "Poddruh typu „Krekry“ rozlišený podle osy: druh krekrů. Poddruh „Sýrové krekry“.",
+      "includes": [
+        "krekry s příchutí sýra"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Slané pochutiny",
+        "parentTypeName": "Krekry",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "krekry",
+      "name": "Bramborové a obilné krekry",
+      "definition": "Poddruh typu „Krekry“ rozlišený podle osy: druh krekrů. Poddruh „Bramborové a obilné krekry“.",
+      "includes": [
+        "krekry z brambor, žita nebo celozrnné"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Slané pochutiny",
+        "parentTypeName": "Krekry",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "slane-tycinky-preclik",
+      "name": "Preclíky",
+      "definition": "Poddruh typu „Preclíky a slané tyčinky“ rozlišený podle osy: tvar slaného pečiva. Poddruh „Preclíky“.",
+      "includes": [
+        "preclíky a preclíčky"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Slané pochutiny",
+        "parentTypeName": "Preclíky a slané tyčinky",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "slane-tycinky-preclik",
+      "name": "Slané tyčinky a grissini",
+      "definition": "Poddruh typu „Preclíky a slané tyčinky“ rozlišený podle osy: tvar slaného pečiva. Poddruh „Slané tyčinky a grissini“.",
+      "includes": [
+        "slané tyčinky, grissini, salinis"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Slané pochutiny",
+        "parentTypeName": "Preclíky a slané tyčinky",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "tortilla-chipsy",
+      "name": "Tortilla chipsy solené",
+      "definition": "Poddruh typu „Tortilla chipsy a nachos“ rozlišený podle osy: příchuť. Poddruh „Tortilla chipsy solené“.",
+      "includes": [
+        "solené tortilla chipsy a nachos"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Slané pochutiny",
+        "parentTypeName": "Tortilla chipsy a nachos",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "tortilla-chipsy",
+      "name": "Tortilla chipsy ochucené",
+      "definition": "Poddruh typu „Tortilla chipsy a nachos“ rozlišený podle osy: příchuť. Poddruh „Tortilla chipsy ochucené“.",
+      "includes": [
+        "sýrové, BBQ a jiné příchutě"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Slané pochutiny",
+        "parentTypeName": "Tortilla chipsy a nachos",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "krupky-snacky",
+      "name": "Křupky sýrové a slané",
+      "definition": "Poddruh typu „Křupky“ rozlišený podle osy: příchuť křupek. Poddruh „Křupky sýrové a slané“.",
+      "includes": [
+        "sýrové a solené křupky"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Slané pochutiny",
+        "parentTypeName": "Křupky",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "krupky-snacky",
+      "name": "Křupky sladké a dětské",
+      "definition": "Poddruh typu „Křupky“ rozlišený podle osy: příchuť křupek. Poddruh „Křupky sladké a dětské“.",
+      "includes": [
+        "křupky s ovocnou příchutí, dětské křupky"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Slané pochutiny",
+        "parentTypeName": "Křupky",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "polevky",
+      "name": "Instantní polévka",
+      "definition": "Poddruh typu „Polévky“ rozlišený podle osy: forma polévky. Poddruh „Instantní polévka“.",
+      "includes": [
+        "polévka v pytlíku nebo kelímku k zalití"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Lahůdky a hotová jídla",
+        "parentTypeName": "Polévky",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "polevky",
+      "name": "Hotová polévka",
+      "definition": "Poddruh typu „Polévky“ rozlišený podle osy: forma polévky. Poddruh „Hotová polévka“.",
+      "includes": [
+        "hotová chlazená nebo sterilovaná polévka"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Lahůdky a hotová jídla",
+        "parentTypeName": "Polévky",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "polevky",
+      "name": "Polévka v prášku k vaření",
+      "definition": "Poddruh typu „Polévky“ rozlišený podle osy: forma polévky. Poddruh „Polévka v prášku k vaření“.",
+      "includes": [
+        "prášková polévka k uvaření"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Lahůdky a hotová jídla",
+        "parentTypeName": "Polévky",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "pizza-hotova",
+      "name": "Pizza sýrová",
+      "definition": "Poddruh typu „Pizza hotová“ rozlišený podle osy: druh pizzy. Poddruh „Pizza sýrová“.",
+      "includes": [
+        "quattro formaggi, margherita"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Lahůdky a hotová jídla",
+        "parentTypeName": "Pizza hotová",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "pizza-hotova",
+      "name": "Pizza s uzeninou",
+      "definition": "Poddruh typu „Pizza hotová“ rozlišený podle osy: druh pizzy. Poddruh „Pizza s uzeninou“.",
+      "includes": [
+        "salámová, šunková, slaninová"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Lahůdky a hotová jídla",
+        "parentTypeName": "Pizza hotová",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "pizza-hotova",
+      "name": "Pizza zeleninová",
+      "definition": "Poddruh typu „Pizza hotová“ rozlišený podle osy: druh pizzy. Poddruh „Pizza zeleninová“.",
+      "includes": [
+        "zeleninová nebo vegetariánská"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Lahůdky a hotová jídla",
+        "parentTypeName": "Pizza hotová",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "salaty-hotove",
+      "name": "Bramborový salát",
+      "definition": "Poddruh typu „Hotové saláty“ rozlišený podle osy: druh salátu. Poddruh „Bramborový salát“.",
+      "includes": [
+        "bramborový salát"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Lahůdky a hotová jídla",
+        "parentTypeName": "Hotové saláty",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "salaty-hotove",
+      "name": "Salát s majonézou",
+      "definition": "Poddruh typu „Hotové saláty“ rozlišený podle osy: druh salátu. Poddruh „Salát s majonézou“.",
+      "includes": [
+        "vajíčkový, á la krab, coleslaw"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Lahůdky a hotová jídla",
+        "parentTypeName": "Hotové saláty",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "salaty-hotove",
+      "name": "Těstovinový a luštěninový salát",
+      "definition": "Poddruh typu „Hotové saláty“ rozlišený podle osy: druh salátu. Poddruh „Těstovinový a luštěninový salát“.",
+      "includes": [
+        "těstovinový, čočkový, cizrnový"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Lahůdky a hotová jídla",
+        "parentTypeName": "Hotové saláty",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "sendvice-wrapy",
+      "name": "Sendvič",
+      "definition": "Poddruh typu „Sendviče a wrapy“ rozlišený podle osy: forma pokrmu s náplní. Poddruh „Sendvič“.",
+      "includes": [
+        "chlazený sendvič"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Lahůdky a hotová jídla",
+        "parentTypeName": "Sendviče a wrapy",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "sendvice-wrapy",
+      "name": "Wrap",
+      "definition": "Poddruh typu „Sendviče a wrapy“ rozlišený podle osy: forma pokrmu s náplní. Poddruh „Wrap“.",
+      "includes": [
+        "wrap nebo tortilla s náplní"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Lahůdky a hotová jídla",
+        "parentTypeName": "Sendviče a wrapy",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "sendvice-wrapy",
+      "name": "Panini",
+      "definition": "Poddruh typu „Sendviče a wrapy“ rozlišený podle osy: forma pokrmu s náplní. Poddruh „Panini“.",
+      "includes": [
+        "panini"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Lahůdky a hotová jídla",
+        "parentTypeName": "Sendviče a wrapy",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "kvasena-zelenina",
+      "name": "Kimchi",
+      "definition": "Poddruh typu „Kvašená zelenina“ rozlišený podle osy: druh kvašené zeleniny. Poddruh „Kimchi“.",
+      "includes": [
+        "kimchi"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Lahůdky a hotová jídla",
+        "parentTypeName": "Kvašená zelenina",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "kvasena-zelenina",
+      "name": "Kysané zelí",
+      "definition": "Poddruh typu „Kvašená zelenina“ rozlišený podle osy: druh kvašené zeleniny. Poddruh „Kysané zelí“.",
+      "includes": [
+        "kysané zelí, sauerkraut"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Lahůdky a hotová jídla",
+        "parentTypeName": "Kvašená zelenina",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "kvasena-zelenina",
+      "name": "Kvašené okurky",
+      "definition": "Poddruh typu „Kvašená zelenina“ rozlišený podle osy: druh kvašené zeleniny. Poddruh „Kvašené okurky“.",
+      "includes": [
+        "kvašené okurky a další kvašená zelenina"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Lahůdky a hotová jídla",
+        "parentTypeName": "Kvašená zelenina",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "instantni-nudle",
+      "name": "Instantní nudlová polévka",
+      "definition": "Poddruh typu „Instantní nudle“ rozlišený podle osy: forma. Poddruh „Instantní nudlová polévka“.",
+      "includes": [
+        "nudle k zalití v kelímku nebo sáčku"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Těstoviny a rýže",
+        "parentTypeName": "Instantní nudle",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "instantni-nudle",
+      "name": "Smažené instantní nudle",
+      "definition": "Poddruh typu „Instantní nudle“ rozlišený podle osy: forma. Poddruh „Smažené instantní nudle“.",
+      "includes": [
+        "nudle k restování, Maggi z pánve"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Těstoviny a rýže",
+        "parentTypeName": "Instantní nudle",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "kukurice",
+      "name": "Kukuřice cukrová čerstvá",
+      "definition": "Poddruh typu „Kukuřice“ rozlišený podle osy: forma. Poddruh „Kukuřice cukrová čerstvá“.",
+      "includes": [
+        "čerstvé kukuřičné klasy"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Ovoce a zelenina",
+        "parentTypeName": "Kukuřice",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "kukurice",
+      "name": "Kukuřice sterilovaná",
+      "definition": "Poddruh typu „Kukuřice“ rozlišený podle osy: forma. Poddruh „Kukuřice sterilovaná“.",
+      "includes": [
+        "zrnková kukuřice v nálevu"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Ovoce a zelenina",
+        "parentTypeName": "Kukuřice",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "dyne",
+      "name": "Dýně hokkaido",
+      "definition": "Poddruh typu „Dýně“ rozlišený podle osy: odrůda dýně. Poddruh „Dýně hokkaido“.",
+      "includes": [
+        "hokkaido"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Ovoce a zelenina",
+        "parentTypeName": "Dýně",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "dyne",
+      "name": "Dýně máslová a muškátová",
+      "definition": "Poddruh typu „Dýně“ rozlišený podle osy: odrůda dýně. Poddruh „Dýně máslová a muškátová“.",
+      "includes": [
+        "máslová a muškátová dýně"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Ovoce a zelenina",
+        "parentTypeName": "Dýně",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "dyne",
+      "name": "Dýně špagetová",
+      "definition": "Poddruh typu „Dýně“ rozlišený podle osy: odrůda dýně. Poddruh „Dýně špagetová“.",
+      "includes": [
+        "špagetová dýně"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Ovoce a zelenina",
+        "parentTypeName": "Dýně",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "spenat",
+      "name": "Špenát baby",
+      "definition": "Poddruh typu „Špenát“ rozlišený podle osy: forma špenátu. Poddruh „Špenát baby“.",
+      "includes": [
+        "baby špenát k salátu"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Ovoce a zelenina",
+        "parentTypeName": "Špenát",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "spenat",
+      "name": "Špenát čerstvý svazkový",
+      "definition": "Poddruh typu „Špenát“ rozlišený podle osy: forma špenátu. Poddruh „Špenát čerstvý svazkový“.",
+      "includes": [
+        "zralý špenát ve svazku"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Ovoce a zelenina",
+        "parentTypeName": "Špenát",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "cervena-repa",
+      "name": "Červená řepa syrová",
+      "definition": "Poddruh typu „Červená řepa“ rozlišený podle osy: úprava řepy. Poddruh „Červená řepa syrová“.",
+      "includes": [
+        "čerstvá červená řepa"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Ovoce a zelenina",
+        "parentTypeName": "Červená řepa",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "cervena-repa",
+      "name": "Červená řepa předvařená",
+      "definition": "Poddruh typu „Červená řepa“ rozlišený podle osy: úprava řepy. Poddruh „Červená řepa předvařená“.",
+      "includes": [
+        "předvařená vakuovaná červená řepa"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Ovoce a zelenina",
+        "parentTypeName": "Červená řepa",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "kvetak",
+      "name": "Květák bílý",
+      "definition": "Poddruh typu „Květák“ rozlišený podle osy: barva květáku. Poddruh „Květák bílý“.",
+      "includes": [
+        "bílý květák"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Ovoce a zelenina",
+        "parentTypeName": "Květák",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "kvetak",
+      "name": "Květák barevný",
+      "definition": "Poddruh typu „Květák“ rozlišený podle osy: barva květáku. Poddruh „Květák barevný“.",
+      "includes": [
+        "fialový, oranžový a zelený květák"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Ovoce a zelenina",
+        "parentTypeName": "Květák",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "knedliky",
+      "name": "Houskové a bramborové knedlíky",
+      "definition": "Poddruh typu „Knedlíky a noky“ rozlišený podle osy: druh. Poddruh „Houskové a bramborové knedlíky“.",
+      "includes": [
+        "hotové knedlíky k přílohám"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Těstoviny a rýže",
+        "parentTypeName": "Knedlíky a noky",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "knedliky",
+      "name": "Ovocné knedlíky",
+      "definition": "Poddruh typu „Knedlíky a noky“ rozlišený podle osy: druh. Poddruh „Ovocné knedlíky“.",
+      "includes": [
+        "jahodové, meruňkové, švestkové"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Těstoviny a rýže",
+        "parentTypeName": "Knedlíky a noky",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "knedliky",
+      "name": "Gnocchi a bramborové noky",
+      "definition": "Poddruh typu „Knedlíky a noky“ rozlišený podle osy: druh. Poddruh „Gnocchi a bramborové noky“.",
+      "includes": [
+        "gnocchi, noky, halušky"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Těstoviny a rýže",
+        "parentTypeName": "Knedlíky a noky",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "testo",
+      "name": "Listové těsto",
+      "definition": "Poddruh typu „Těsto“ rozlišený podle osy: druh těsta. Poddruh „Listové těsto“.",
+      "includes": [
+        "chlazené nebo mražené listové těsto"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Mouka a pečení",
+        "parentTypeName": "Těsto",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "testo",
+      "name": "Těsto na pizzu",
+      "definition": "Poddruh typu „Těsto“ rozlišený podle osy: druh těsta. Poddruh „Těsto na pizzu“.",
+      "includes": [
+        "hotové těsto na pizzu"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Mouka a pečení",
+        "parentTypeName": "Těsto",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "testo",
+      "name": "Křehké a kynuté těsto",
+      "definition": "Poddruh typu „Těsto“ rozlišený podle osy: druh těsta. Poddruh „Křehké a kynuté těsto“.",
+      "includes": [
+        "křehké těsto, kynuté těsto"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Mouka a pečení",
+        "parentTypeName": "Těsto",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "barvy-na-vlasy",
+      "name": "Permanentní barva na vlasy",
+      "definition": "Poddruh typu „Barvy na vlasy“ rozlišený podle osy: typ barvy. Poddruh „Permanentní barva na vlasy“.",
+      "includes": [
+        "trvalá krémová barva"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Kosmetika",
+        "parentTypeName": "Barvy na vlasy",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "barvy-na-vlasy",
+      "name": "Tónovací barva a pěna",
+      "definition": "Poddruh typu „Barvy na vlasy“ rozlišený podle osy: typ barvy. Poddruh „Tónovací barva a pěna“.",
+      "includes": [
+        "tónovací barva, pěnová barva"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Kosmetika",
+        "parentTypeName": "Barvy na vlasy",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "vlasova-pece",
+      "name": "Kondicionér",
+      "definition": "Poddruh typu „Vlasová péče“ rozlišený podle osy: forma vlasové péče. Poddruh „Kondicionér“.",
+      "includes": [
+        "kondicionér po mytí"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Kosmetika",
+        "parentTypeName": "Vlasová péče",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "vlasova-pece",
+      "name": "Maska na vlasy",
+      "definition": "Poddruh typu „Vlasová péče“ rozlišený podle osy: forma vlasové péče. Poddruh „Maska na vlasy“.",
+      "includes": [
+        "intenzivní maska"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Kosmetika",
+        "parentTypeName": "Vlasová péče",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "vlasova-pece",
+      "name": "Olej a sérum na vlasy",
+      "definition": "Poddruh typu „Vlasová péče“ rozlišený podle osy: forma vlasové péče. Poddruh „Olej a sérum na vlasy“.",
+      "includes": [
+        "vlasový olej, sérum, elixír"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Kosmetika",
+        "parentTypeName": "Vlasová péče",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "styling-vlasy",
+      "name": "Lak na vlasy",
+      "definition": "Poddruh typu „Stylingové přípravky na vlasy“ rozlišený podle osy: druh stylingu. Poddruh „Lak na vlasy“.",
+      "includes": [
+        "fixační lak"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Kosmetika",
+        "parentTypeName": "Stylingové přípravky na vlasy",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "styling-vlasy",
+      "name": "Gel, vosk a pěna",
+      "definition": "Poddruh typu „Stylingové přípravky na vlasy“ rozlišený podle osy: druh stylingu. Poddruh „Gel, vosk a pěna“.",
+      "includes": [
+        "gel, vosk, pěnové tužidlo"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Kosmetika",
+        "parentTypeName": "Stylingové přípravky na vlasy",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "styling-vlasy",
+      "name": "Sprej na vlasy",
+      "definition": "Poddruh typu „Stylingové přípravky na vlasy“ rozlišený podle osy: druh stylingu. Poddruh „Sprej na vlasy“.",
+      "includes": [
+        "stylingový nebo ochranný sprej"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Kosmetika",
+        "parentTypeName": "Stylingové přípravky na vlasy",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "telova-pece",
+      "name": "Tělové mléko",
+      "definition": "Poddruh typu „Tělová péče“ rozlišený podle osy: forma tělové péče. Poddruh „Tělové mléko“.",
+      "includes": [
+        "tělové mléko a lotion"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Kosmetika",
+        "parentTypeName": "Tělová péče",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "telova-pece",
+      "name": "Tělový krém a máslo",
+      "definition": "Poddruh typu „Tělová péče“ rozlišený podle osy: forma tělové péče. Poddruh „Tělový krém a máslo“.",
+      "includes": [
+        "krém, máslo, balzám"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Kosmetika",
+        "parentTypeName": "Tělová péče",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "telova-pece",
+      "name": "Tělový olej a sérum",
+      "definition": "Poddruh typu „Tělová péče“ rozlišený podle osy: forma tělové péče. Poddruh „Tělový olej a sérum“.",
+      "includes": [
+        "olej, sérum, peeling"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Kosmetika",
+        "parentTypeName": "Tělová péče",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "krem-na-ruce",
+      "name": "Hydratační krém na ruce",
+      "definition": "Poddruh typu „Krém na ruce“ rozlišený podle osy: účel. Poddruh „Hydratační krém na ruce“.",
+      "includes": [
+        "běžný krém na ruce"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Kosmetika",
+        "parentTypeName": "Krém na ruce",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "krem-na-ruce",
+      "name": "Regenerační krém na ruce",
+      "definition": "Poddruh typu „Krém na ruce“ rozlišený podle osy: účel. Poddruh „Regenerační krém na ruce“.",
+      "includes": [
+        "výživný krém pro suchou pokožku"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Kosmetika",
+        "parentTypeName": "Krém na ruce",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "balzam-na-rty",
+      "name": "Balzám na rty v tyčince",
+      "definition": "Poddruh typu „Balzám na rty“ rozlišený podle osy: forma. Poddruh „Balzám na rty v tyčince“.",
+      "includes": [
+        "klasický balzám v tyčince"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Kosmetika",
+        "parentTypeName": "Balzám na rty",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "balzam-na-rty",
+      "name": "Barevný a olejový balzám na rty",
+      "definition": "Poddruh typu „Balzám na rty“ rozlišený podle osy: forma. Poddruh „Barevný a olejový balzám na rty“.",
+      "includes": [
+        "tónovaný nebo olejový balzám"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Kosmetika",
+        "parentTypeName": "Balzám na rty",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "opalovaci-pripravky",
+      "name": "Opalovací krém a mléko",
+      "definition": "Poddruh typu „Opalovací přípravky“ rozlišený podle osy: použití. Poddruh „Opalovací krém a mléko“.",
+      "includes": [
+        "ochranný krém nebo mléko s UV filtrem"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Kosmetika",
+        "parentTypeName": "Opalovací přípravky",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "opalovaci-pripravky",
+      "name": "Přípravek po opalování",
+      "definition": "Poddruh typu „Opalovací přípravky“ rozlišený podle osy: použití. Poddruh „Přípravek po opalování“.",
+      "includes": [
+        "mléko, gel, sérum po opalování"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Kosmetika",
+        "parentTypeName": "Opalovací přípravky",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "opalovaci-pripravky",
+      "name": "Samoopalovací přípravek",
+      "definition": "Poddruh typu „Opalovací přípravky“ rozlišený podle osy: použití. Poddruh „Samoopalovací přípravek“.",
+      "includes": [
+        "samoopalovací mléko, ubrousek"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Kosmetika",
+        "parentTypeName": "Opalovací přípravky",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "odlicovaci-pripravky",
+      "name": "Micelární voda",
+      "definition": "Poddruh typu „Odličovací přípravky“ rozlišený podle osy: forma. Poddruh „Micelární voda“.",
+      "includes": [
+        "micelární voda"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Kosmetika",
+        "parentTypeName": "Odličovací přípravky",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "odlicovaci-pripravky",
+      "name": "Odličovací mléko a balzám",
+      "definition": "Poddruh typu „Odličovací přípravky“ rozlišený podle osy: forma. Poddruh „Odličovací mléko a balzám“.",
+      "includes": [
+        "mléko, balzám, olej"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Kosmetika",
+        "parentTypeName": "Odličovací přípravky",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "odlicovaci-pripravky",
+      "name": "Odličovací tampony",
+      "definition": "Poddruh typu „Odličovací přípravky“ rozlišený podle osy: forma. Poddruh „Odličovací tampony“.",
+      "includes": [
+        "odličovací tampony a ubrousky"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Kosmetika",
+        "parentTypeName": "Odličovací přípravky",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "pece-o-nehty",
+      "name": "Pilníky a kleštičky",
+      "definition": "Poddruh typu „Péče o nehty“ rozlišený podle osy: druh. Poddruh „Pilníky a kleštičky“.",
+      "includes": [
+        "pilníky, kleštičky, nůžky"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Kosmetika",
+        "parentTypeName": "Péče o nehty",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "pece-o-nehty",
+      "name": "Odlakovač a olej na nehty",
+      "definition": "Poddruh typu „Péče o nehty“ rozlišený podle osy: druh. Poddruh „Odlakovač a olej na nehty“.",
+      "includes": [
+        "odlakovač, odlakovací tampony, olej"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Kosmetika",
+        "parentTypeName": "Péče o nehty",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "kondomy",
+      "name": "Klasické kondomy",
+      "definition": "Poddruh typu „Kondomy“ rozlišený podle osy: druh. Poddruh „Klasické kondomy“.",
+      "includes": [
+        "běžné kondomy"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Hygiena",
+        "parentTypeName": "Kondomy",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "kondomy",
+      "name": "Kondomy bez latexu",
+      "definition": "Poddruh typu „Kondomy“ rozlišený podle osy: druh. Poddruh „Kondomy bez latexu“.",
+      "includes": [
+        "kondomy bez latexu"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Hygiena",
+        "parentTypeName": "Kondomy",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "puncochy",
+      "name": "Punčochové kalhoty tenké",
+      "definition": "Poddruh typu „Punčochové kalhoty“ rozlišený podle osy: hustota. Poddruh „Punčochové kalhoty tenké“.",
+      "includes": [
+        "do 40 den"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Doplňky a oblečení",
+        "parentTypeName": "Punčochové kalhoty",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "puncochy",
+      "name": "Punčochové kalhoty silné",
+      "definition": "Poddruh typu „Punčochové kalhoty“ rozlišený podle osy: hustota. Poddruh „Punčochové kalhoty silné“.",
+      "includes": [
+        "od 50 den"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Doplňky a oblečení",
+        "parentTypeName": "Punčochové kalhoty",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "ponozky",
+      "name": "Dámské ponožky",
+      "definition": "Poddruh typu „Ponožky“ rozlišený podle osy: určení. Poddruh „Dámské ponožky“.",
+      "includes": [
+        "dámské ponožky"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Doplňky a oblečení",
+        "parentTypeName": "Ponožky",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "ponozky",
+      "name": "Pánské a unisex ponožky",
+      "definition": "Poddruh typu „Ponožky“ rozlišený podle osy: určení. Poddruh „Pánské a unisex ponožky“.",
+      "includes": [
+        "pánské a unisex ponožky"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Doplňky a oblečení",
+        "parentTypeName": "Ponožky",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "bryle",
+      "name": "Dioptrické brýle na čtení",
+      "definition": "Poddruh typu „Brýle“ rozlišený podle osy: účel. Poddruh „Dioptrické brýle na čtení“.",
+      "includes": [
+        "brýle na čtení"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Doplňky a oblečení",
+        "parentTypeName": "Brýle",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "bryle",
+      "name": "Sluneční brýle",
+      "definition": "Poddruh typu „Brýle“ rozlišený podle osy: účel. Poddruh „Sluneční brýle“.",
+      "includes": [
+        "sluneční brýle"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Doplňky a oblečení",
+        "parentTypeName": "Brýle",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "kontaktni-cocky",
+      "name": "Denní kontaktní čočky",
+      "definition": "Poddruh typu „Kontaktní čočky“ rozlišený podle osy: výměna. Poddruh „Denní kontaktní čočky“.",
+      "includes": [
+        "jednodenní čočky"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Zdraví a doplňky stravy",
+        "parentTypeName": "Kontaktní čočky",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "kontaktni-cocky",
+      "name": "Měsíční kontaktní čočky",
+      "definition": "Poddruh typu „Kontaktní čočky“ rozlišený podle osy: výměna. Poddruh „Měsíční kontaktní čočky“.",
+      "includes": [
+        "měsíční čočky"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Zdraví a doplňky stravy",
+        "parentTypeName": "Kontaktní čočky",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "wc-bloky",
+      "name": "WC blok do nádržky",
+      "definition": "Poddruh typu „WC bloky a závěsy“ rozlišený podle osy: forma. Poddruh „WC blok do nádržky“.",
+      "includes": [
+        "blok do nádržky"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Čištění domácnosti",
+        "parentTypeName": "WC bloky a závěsy",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "wc-bloky",
+      "name": "WC závěs",
+      "definition": "Poddruh typu „WC bloky a závěsy“ rozlišený podle osy: forma. Poddruh „WC závěs“.",
+      "includes": [
+        "závěs do mísy"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Čištění domácnosti",
+        "parentTypeName": "WC bloky a závěsy",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "rukavice-uklid",
+      "name": "Rukavice na mytí",
+      "definition": "Poddruh typu „Rukavice na úklid“ rozlišený podle osy: druh. Poddruh „Rukavice na mytí“.",
+      "includes": [
+        "gumové a neoprenové rukavice"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Domácnost",
+        "subcategory": "Úklid",
+        "parentTypeName": "Rukavice na úklid",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "rukavice-uklid",
+      "name": "Jednorázové rukavice",
+      "definition": "Poddruh typu „Rukavice na úklid“ rozlišený podle osy: druh. Poddruh „Jednorázové rukavice“.",
+      "includes": [
+        "jednorázové rukavice"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Domácnost",
+        "subcategory": "Úklid",
+        "parentTypeName": "Rukavice na úklid",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "osvezovace",
+      "name": "Osvěžovač vzduchu ve spreji",
+      "definition": "Poddruh typu „Osvěžovače“ rozlišený podle osy: forma. Poddruh „Osvěžovač vzduchu ve spreji“.",
+      "includes": [
+        "sprej na vzduch"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Čištění domácnosti",
+        "parentTypeName": "Osvěžovače",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "osvezovace",
+      "name": "Osvěžovač s náplní",
+      "definition": "Poddruh typu „Osvěžovače“ rozlišený podle osy: forma. Poddruh „Osvěžovač s náplní“.",
+      "includes": [
+        "elektrický osvěžovač a náplň"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Drogerie",
+        "subcategory": "Čištění domácnosti",
+        "parentTypeName": "Osvěžovače",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "dudliky",
+      "name": "Silikonový dudlík",
+      "definition": "Poddruh typu „Dudlíky“ rozlišený podle osy: materiál. Poddruh „Silikonový dudlík“.",
+      "includes": [
+        "dudlík ze silikonu"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Děti",
+        "subcategory": "Dětské potřeby",
+        "parentTypeName": "Dudlíky",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "dudliky",
+      "name": "Latexový a kaučukový dudlík",
+      "definition": "Poddruh typu „Dudlíky“ rozlišený podle osy: materiál. Poddruh „Latexový a kaučukový dudlík“.",
+      "includes": [
+        "dudlík z kaučuku"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Děti",
+        "subcategory": "Dětské potřeby",
+        "parentTypeName": "Dudlíky",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "detske-lahve",
+      "name": "Kojenecká lahev",
+      "definition": "Poddruh typu „Kojenecké lahve“ rozlišený podle osy: věk dítěte. Poddruh „Kojenecká lahev“.",
+      "includes": [
+        "lahev pro nejmenší"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Děti",
+        "subcategory": "Dětské potřeby",
+        "parentTypeName": "Kojenecké lahve",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "detske-lahve",
+      "name": "Lahev pro batolata",
+      "definition": "Poddruh typu „Kojenecké lahve“ rozlišený podle osy: věk dítěte. Poddruh „Lahev pro batolata“.",
+      "includes": [
+        "lahev junior"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Děti",
+        "subcategory": "Dětské potřeby",
+        "parentTypeName": "Kojenecké lahve",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "kojenecke-mleko",
+      "name": "Počáteční kojenecká výživa",
+      "definition": "Poddruh typu „Kojenecké mléko“ rozlišený podle osy: věk dítěte. Poddruh „Počáteční kojenecká výživa“.",
+      "includes": [
+        "od narození"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Děti",
+        "subcategory": "Kojenecké mléko",
+        "parentTypeName": "Kojenecké mléko",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "kojenecke-mleko",
+      "name": "Pokračovací kojenecká výživa",
+      "definition": "Poddruh typu „Kojenecké mléko“ rozlišený podle osy: věk dítěte. Poddruh „Pokračovací kojenecká výživa“.",
+      "includes": [
+        "od 6. měsíce"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Děti",
+        "subcategory": "Kojenecké mléko",
+        "parentTypeName": "Kojenecké mléko",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "kojenecke-mleko",
+      "name": "Batolecí mléko",
+      "definition": "Poddruh typu „Kojenecké mléko“ rozlišený podle osy: věk dítěte. Poddruh „Batolecí mléko“.",
+      "includes": [
+        "od 12. měsíce"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Děti",
+        "subcategory": "Kojenecké mléko",
+        "parentTypeName": "Kojenecké mléko",
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     }

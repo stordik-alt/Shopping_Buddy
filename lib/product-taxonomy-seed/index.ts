@@ -1,4 +1,5 @@
 import type { ProductSubtypeCandidateInput } from '@/lib/product-subtype-candidates'
+import { DAVKY_8_15 } from './davky-8-15'
 import { NEPOTRAVINOVE } from './nepotravinove'
 import { POTRAVINY_CERSTVE } from './potraviny-cerstve'
 import { POTRAVINY_TRVANLIVE } from './potraviny-trvanlive'
@@ -7,7 +8,7 @@ import { DEFAULT_SUBTYPE_EXCLUDES, PRODUCT_TAXONOMY_SEED_VERSION, type SeedType 
 export { PRODUCT_TAXONOMY_SEED_VERSION } from './types'
 export type { SeedType, SeedSubtype } from './types'
 
-export const PRODUCT_TAXONOMY_SEED: readonly SeedType[] = [...POTRAVINY_CERSTVE, ...POTRAVINY_TRVANLIVE, ...NEPOTRAVINOVE]
+export const PRODUCT_TAXONOMY_SEED: readonly SeedType[] = [...POTRAVINY_CERSTVE, ...POTRAVINY_TRVANLIVE, ...NEPOTRAVINOVE, ...DAVKY_8_15]
 
 /**
  * The seed as review-queue input (`pnpm db:product-subtype-candidates ingest --input ...`). Every

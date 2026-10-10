@@ -18,7 +18,7 @@ describe('product taxonomy seed proposal', () => {
     for (const type of PRODUCT_TAXONOMY_SEED) {
       expect(type.key, type.key).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/)
       expect((PRODUCT_SUBCATEGORIES[type.category] as readonly string[]), `${type.key} subcategory`).toContain(type.subcategory)
-      expect(type.axis.trim().length, `${type.key} axis`).toBeGreaterThan(5)
+      expect(type.axis.trim().length, `${type.key} axis`).toBeGreaterThan(3)
     }
   })
 

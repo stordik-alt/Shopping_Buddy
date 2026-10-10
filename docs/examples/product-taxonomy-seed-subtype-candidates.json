@@ -216,7 +216,7 @@
         "category": "Potraviny",
         "subcategory": "Mléčné výrobky",
         "parentTypeName": "Ochucený jogurt",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -238,7 +238,7 @@
         "category": "Potraviny",
         "subcategory": "Mléčné výrobky",
         "parentTypeName": "Ochucený jogurt",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -260,7 +260,7 @@
         "category": "Potraviny",
         "subcategory": "Mléčné výrobky",
         "parentTypeName": "Ochucený jogurt",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -282,7 +282,7 @@
         "category": "Potraviny",
         "subcategory": "Mléčné výrobky",
         "parentTypeName": "Ochucený jogurt",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -304,7 +304,7 @@
         "category": "Potraviny",
         "subcategory": "Mléčné výrobky",
         "parentTypeName": "Ochucený jogurt",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -326,7 +326,7 @@
         "category": "Potraviny",
         "subcategory": "Mléčné výrobky",
         "parentTypeName": "Pitný jogurt a kysané nápoje",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -348,7 +348,7 @@
         "category": "Potraviny",
         "subcategory": "Mléčné výrobky",
         "parentTypeName": "Pitný jogurt a kysané nápoje",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -370,7 +370,7 @@
         "category": "Potraviny",
         "subcategory": "Mléčné výrobky",
         "parentTypeName": "Pitný jogurt a kysané nápoje",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -392,7 +392,7 @@
         "category": "Potraviny",
         "subcategory": "Mléčné výrobky",
         "parentTypeName": "Pitný jogurt a kysané nápoje",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -414,19 +414,63 @@
         "category": "Potraviny",
         "subcategory": "Mléčné výrobky",
         "parentTypeName": "Pitný jogurt a kysané nápoje",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "skyr",
+      "name": "Skyr bílý",
+      "definition": "Poddruh typu „Skyr“ rozlišený podle osy: příchuť skyru. Poddruh „Skyr bílý“.",
+      "includes": [
+        "skyr bez příchuti"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Mléčné výrobky",
+        "parentTypeName": "Skyr",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "skyr",
+      "name": "Skyr ochucený",
+      "definition": "Poddruh typu „Skyr“ rozlišený podle osy: příchuť skyru. Poddruh „Skyr ochucený“.",
+      "includes": [
+        "skyr s ovocem nebo příchutí"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Mléčné výrobky",
+        "parentTypeName": "Skyr",
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
     {
       "parentTypeKey": "skyr-proteinove-mlecne",
-      "name": "Skyr",
-      "definition": "Poddruh typu „Skyr a proteinové mléčné výrobky“ rozlišený podle osy: typ výrobku. Poddruh „Skyr“.",
+      "name": "Skyr jako samostatný výrobek",
+      "definition": "Poddruh typu „Skyr a proteinové mléčné výrobky“ rozlišený podle osy: typ výrobku. Poddruh „Skyr jako samostatný výrobek“.",
       "includes": [
         "islandský typ kysaného mléčného výrobku s vysokým obsahem bílkovin"
       ],
       "excludes": [
-        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+        "ochucený skyr patří pod typ Skyr"
       ],
       "sourceType": "manual",
       "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
@@ -1734,7 +1778,7 @@
         "category": "Potraviny",
         "subcategory": "Pečivo",
         "parentTypeName": "Sladké pečivo",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -1756,7 +1800,7 @@
         "category": "Potraviny",
         "subcategory": "Pečivo",
         "parentTypeName": "Sladké pečivo",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -1778,7 +1822,7 @@
         "category": "Potraviny",
         "subcategory": "Pečivo",
         "parentTypeName": "Sladké pečivo",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -1800,7 +1844,7 @@
         "category": "Potraviny",
         "subcategory": "Pečivo",
         "parentTypeName": "Sladké pečivo",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -1822,7 +1866,7 @@
         "category": "Potraviny",
         "subcategory": "Pečivo",
         "parentTypeName": "Sladké pečivo",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -1844,7 +1888,7 @@
         "category": "Potraviny",
         "subcategory": "Pečivo",
         "parentTypeName": "Sladké pečivo",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -1866,7 +1910,7 @@
         "category": "Potraviny",
         "subcategory": "Pečivo",
         "parentTypeName": "Sladké pečivo",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -1888,7 +1932,7 @@
         "category": "Potraviny",
         "subcategory": "Pečivo",
         "parentTypeName": "Sladké pečivo",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -2483,6 +2527,94 @@
         "subcategory": "Maso a uzeniny",
         "parentTypeName": "Králík, kachna, husa a zvěřina",
         "parentTypeExistsInCode": false,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "salam",
+      "name": "Trvanlivý salám",
+      "definition": "Poddruh typu „Salám“ rozlišený podle osy: druh salámu. Poddruh „Trvanlivý salám“.",
+      "includes": [
+        "suchý trvanlivý salám, uherský, vysočina, herkules"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Maso a uzeniny",
+        "parentTypeName": "Salám",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "salam",
+      "name": "Měkký salám",
+      "definition": "Poddruh typu „Salám“ rozlišený podle osy: druh salámu. Poddruh „Měkký salám“.",
+      "includes": [
+        "měkký salám, lovecký, selský"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Maso a uzeniny",
+        "parentTypeName": "Salám",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "salam",
+      "name": "Šunkový salám",
+      "definition": "Poddruh typu „Salám“ rozlišený podle osy: druh salámu. Poddruh „Šunkový salám“.",
+      "includes": [
+        "šunkový salám a salám z drůbeže"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Maso a uzeniny",
+        "parentTypeName": "Salám",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "salam",
+      "name": "Plísňový salám",
+      "definition": "Poddruh typu „Salám“ rozlišený podle osy: druh salámu. Poddruh „Plísňový salám“.",
+      "includes": [
+        "zrající salám s plísní na povrchu, uherák"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Maso a uzeniny",
+        "parentTypeName": "Salám",
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -3186,7 +3318,7 @@
         "category": "Potraviny",
         "subcategory": "Ryby a mořské plody",
         "parentTypeName": "Mořské plody",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -3208,7 +3340,7 @@
         "category": "Potraviny",
         "subcategory": "Ryby a mořské plody",
         "parentTypeName": "Mořské plody",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -3230,7 +3362,7 @@
         "category": "Potraviny",
         "subcategory": "Ryby a mořské plody",
         "parentTypeName": "Mořské plody",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -3252,7 +3384,7 @@
         "category": "Potraviny",
         "subcategory": "Ryby a mořské plody",
         "parentTypeName": "Mořské plody",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -3274,7 +3406,7 @@
         "category": "Potraviny",
         "subcategory": "Ryby a mořské plody",
         "parentTypeName": "Mořské plody",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -7388,7 +7520,7 @@
         "category": "Potraviny",
         "subcategory": "Omáčky a dochucovadla",
         "parentTypeName": "Hotové omáčky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -7410,7 +7542,7 @@
         "category": "Potraviny",
         "subcategory": "Omáčky a dochucovadla",
         "parentTypeName": "Hotové omáčky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -7432,7 +7564,7 @@
         "category": "Potraviny",
         "subcategory": "Omáčky a dochucovadla",
         "parentTypeName": "Hotové omáčky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -7454,7 +7586,7 @@
         "category": "Potraviny",
         "subcategory": "Omáčky a dochucovadla",
         "parentTypeName": "Hotové omáčky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -7476,7 +7608,7 @@
         "category": "Potraviny",
         "subcategory": "Omáčky a dochucovadla",
         "parentTypeName": "Hotové omáčky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -7498,7 +7630,7 @@
         "category": "Potraviny",
         "subcategory": "Omáčky a dochucovadla",
         "parentTypeName": "Hotové omáčky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -7520,7 +7652,7 @@
         "category": "Potraviny",
         "subcategory": "Omáčky a dochucovadla",
         "parentTypeName": "Hotové omáčky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -7542,7 +7674,7 @@
         "category": "Potraviny",
         "subcategory": "Omáčky a dochucovadla",
         "parentTypeName": "Hotové omáčky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -7564,7 +7696,7 @@
         "category": "Potraviny",
         "subcategory": "Omáčky a dochucovadla",
         "parentTypeName": "Hotové omáčky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -7784,7 +7916,7 @@
         "category": "Potraviny",
         "subcategory": "Koření a bylinky",
         "parentTypeName": "Koření a koření směsi",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -7806,7 +7938,7 @@
         "category": "Potraviny",
         "subcategory": "Koření a bylinky",
         "parentTypeName": "Koření a koření směsi",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -7828,7 +7960,7 @@
         "category": "Potraviny",
         "subcategory": "Koření a bylinky",
         "parentTypeName": "Koření a koření směsi",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -7850,7 +7982,7 @@
         "category": "Potraviny",
         "subcategory": "Koření a bylinky",
         "parentTypeName": "Koření a koření směsi",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -7872,7 +8004,7 @@
         "category": "Potraviny",
         "subcategory": "Koření a bylinky",
         "parentTypeName": "Koření a koření směsi",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -7894,7 +8026,7 @@
         "category": "Potraviny",
         "subcategory": "Koření a bylinky",
         "parentTypeName": "Koření a koření směsi",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -7916,7 +8048,7 @@
         "category": "Potraviny",
         "subcategory": "Koření a bylinky",
         "parentTypeName": "Koření a koření směsi",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -7938,7 +8070,7 @@
         "category": "Potraviny",
         "subcategory": "Koření a bylinky",
         "parentTypeName": "Koření a koření směsi",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -8884,7 +9016,7 @@
         "category": "Potraviny",
         "subcategory": "Sladkosti",
         "parentTypeName": "Bonbóny, žvýkačky a cukrovinky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -8906,7 +9038,7 @@
         "category": "Potraviny",
         "subcategory": "Sladkosti",
         "parentTypeName": "Bonbóny, žvýkačky a cukrovinky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -8928,7 +9060,7 @@
         "category": "Potraviny",
         "subcategory": "Sladkosti",
         "parentTypeName": "Bonbóny, žvýkačky a cukrovinky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -8950,7 +9082,7 @@
         "category": "Potraviny",
         "subcategory": "Sladkosti",
         "parentTypeName": "Bonbóny, žvýkačky a cukrovinky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -8972,7 +9104,7 @@
         "category": "Potraviny",
         "subcategory": "Sladkosti",
         "parentTypeName": "Bonbóny, žvýkačky a cukrovinky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -8994,7 +9126,7 @@
         "category": "Potraviny",
         "subcategory": "Sladkosti",
         "parentTypeName": "Bonbóny, žvýkačky a cukrovinky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -9016,7 +9148,7 @@
         "category": "Potraviny",
         "subcategory": "Sladkosti",
         "parentTypeName": "Bonbóny, žvýkačky a cukrovinky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -9038,7 +9170,7 @@
         "category": "Potraviny",
         "subcategory": "Sladkosti",
         "parentTypeName": "Bonbóny, žvýkačky a cukrovinky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -9060,7 +9192,7 @@
         "category": "Potraviny",
         "subcategory": "Sladkosti",
         "parentTypeName": "Sušenky a oplatky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -9082,7 +9214,7 @@
         "category": "Potraviny",
         "subcategory": "Sladkosti",
         "parentTypeName": "Sušenky a oplatky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -9104,7 +9236,7 @@
         "category": "Potraviny",
         "subcategory": "Sladkosti",
         "parentTypeName": "Sušenky a oplatky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -9126,7 +9258,7 @@
         "category": "Potraviny",
         "subcategory": "Sladkosti",
         "parentTypeName": "Sušenky a oplatky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -9148,7 +9280,7 @@
         "category": "Potraviny",
         "subcategory": "Sladkosti",
         "parentTypeName": "Sušenky a oplatky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -9170,7 +9302,7 @@
         "category": "Potraviny",
         "subcategory": "Sladkosti",
         "parentTypeName": "Sušenky a oplatky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -9192,7 +9324,7 @@
         "category": "Potraviny",
         "subcategory": "Sladkosti",
         "parentTypeName": "Sušenky a oplatky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -9214,7 +9346,7 @@
         "category": "Potraviny",
         "subcategory": "Sladkosti",
         "parentTypeName": "Sušenky a oplatky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -9236,7 +9368,7 @@
         "category": "Potraviny",
         "subcategory": "Sladkosti",
         "parentTypeName": "Tyčinky a zdravé sladkosti",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -9258,7 +9390,7 @@
         "category": "Potraviny",
         "subcategory": "Sladkosti",
         "parentTypeName": "Tyčinky a zdravé sladkosti",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -9280,7 +9412,7 @@
         "category": "Potraviny",
         "subcategory": "Sladkosti",
         "parentTypeName": "Tyčinky a zdravé sladkosti",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -9302,7 +9434,7 @@
         "category": "Potraviny",
         "subcategory": "Sladkosti",
         "parentTypeName": "Tyčinky a zdravé sladkosti",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -9324,7 +9456,7 @@
         "category": "Potraviny",
         "subcategory": "Sladkosti",
         "parentTypeName": "Tyčinky a zdravé sladkosti",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -9346,7 +9478,7 @@
         "category": "Potraviny",
         "subcategory": "Mražené potraviny",
         "parentTypeName": "Zmrzliny a mražené dezerty",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -9368,7 +9500,7 @@
         "category": "Potraviny",
         "subcategory": "Mražené potraviny",
         "parentTypeName": "Zmrzliny a mražené dezerty",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -9390,7 +9522,7 @@
         "category": "Potraviny",
         "subcategory": "Mražené potraviny",
         "parentTypeName": "Zmrzliny a mražené dezerty",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -9412,7 +9544,7 @@
         "category": "Potraviny",
         "subcategory": "Mražené potraviny",
         "parentTypeName": "Zmrzliny a mražené dezerty",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -9434,7 +9566,7 @@
         "category": "Potraviny",
         "subcategory": "Mražené potraviny",
         "parentTypeName": "Zmrzliny a mražené dezerty",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -9456,7 +9588,7 @@
         "category": "Potraviny",
         "subcategory": "Mražené potraviny",
         "parentTypeName": "Zmrzliny a mražené dezerty",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -10226,7 +10358,7 @@
         "category": "Potraviny",
         "subcategory": "Nápoje",
         "parentTypeName": "Limonády a nealkoholické nápoje",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -10248,7 +10380,7 @@
         "category": "Potraviny",
         "subcategory": "Nápoje",
         "parentTypeName": "Limonády a nealkoholické nápoje",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -10270,7 +10402,7 @@
         "category": "Potraviny",
         "subcategory": "Nápoje",
         "parentTypeName": "Limonády a nealkoholické nápoje",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -10292,7 +10424,7 @@
         "category": "Potraviny",
         "subcategory": "Nápoje",
         "parentTypeName": "Limonády a nealkoholické nápoje",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -10314,7 +10446,7 @@
         "category": "Potraviny",
         "subcategory": "Nápoje",
         "parentTypeName": "Limonády a nealkoholické nápoje",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -10336,7 +10468,7 @@
         "category": "Potraviny",
         "subcategory": "Nápoje",
         "parentTypeName": "Limonády a nealkoholické nápoje",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -10358,7 +10490,7 @@
         "category": "Potraviny",
         "subcategory": "Nápoje",
         "parentTypeName": "Limonády a nealkoholické nápoje",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -10380,7 +10512,73 @@
         "category": "Potraviny",
         "subcategory": "Nápoje",
         "parentTypeName": "Limonády a nealkoholické nápoje",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "sirupy",
+      "name": "Ovocný sirup",
+      "definition": "Poddruh typu „Sirupy“ rozlišený podle osy: určení sirupu. Poddruh „Ovocný sirup“.",
+      "includes": [
+        "koncentrovaný ovocný sirup k ředění"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Nápoje",
+        "parentTypeName": "Sirupy",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "sirupy",
+      "name": "Bylinný a květový sirup",
+      "definition": "Poddruh typu „Sirupy“ rozlišený podle osy: určení sirupu. Poddruh „Bylinný a květový sirup“.",
+      "includes": [
+        "bezový, mátový, levandulový sirup"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Nápoje",
+        "parentTypeName": "Sirupy",
+        "parentTypeExistsInCode": true,
+        "reviewStatus": "proposal_only_not_approved"
+      }
+    },
+    {
+      "parentTypeKey": "sirupy",
+      "name": "Sirup bez cukru",
+      "definition": "Poddruh typu „Sirupy“ rozlišený podle osy: určení sirupu. Poddruh „Sirup bez cukru“.",
+      "includes": [
+        "sirup se sladidly bez cukru"
+      ],
+      "excludes": [
+        "jiný poddruh téhož typu; výrobek bez výslovného důkazu na obalu nebo ve specifikaci zůstává bez poddruhu"
+      ],
+      "sourceType": "manual",
+      "sourceName": "Product Taxonomy seed proposal (retail assortment knowledge)",
+      "sourceVersion": "2026-10-seed-v1",
+      "sourceRecordIds": [],
+      "evidence": {
+        "category": "Potraviny",
+        "subcategory": "Nápoje",
+        "parentTypeName": "Sirupy",
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -10402,7 +10600,7 @@
         "category": "Potraviny",
         "subcategory": "Nápoje",
         "parentTypeName": "Džusy a ovocné šťávy",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -10424,7 +10622,7 @@
         "category": "Potraviny",
         "subcategory": "Nápoje",
         "parentTypeName": "Džusy a ovocné šťávy",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -10446,7 +10644,7 @@
         "category": "Potraviny",
         "subcategory": "Nápoje",
         "parentTypeName": "Džusy a ovocné šťávy",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -10468,7 +10666,7 @@
         "category": "Potraviny",
         "subcategory": "Nápoje",
         "parentTypeName": "Džusy a ovocné šťávy",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -10490,7 +10688,7 @@
         "category": "Potraviny",
         "subcategory": "Nápoje",
         "parentTypeName": "Džusy a ovocné šťávy",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -10512,7 +10710,7 @@
         "category": "Potraviny",
         "subcategory": "Rostlinné alternativy",
         "parentTypeName": "Rostlinné nápoje",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -10534,7 +10732,7 @@
         "category": "Potraviny",
         "subcategory": "Rostlinné alternativy",
         "parentTypeName": "Rostlinné nápoje",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -10556,7 +10754,7 @@
         "category": "Potraviny",
         "subcategory": "Rostlinné alternativy",
         "parentTypeName": "Rostlinné nápoje",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -10578,7 +10776,7 @@
         "category": "Potraviny",
         "subcategory": "Rostlinné alternativy",
         "parentTypeName": "Rostlinné nápoje",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -10600,7 +10798,7 @@
         "category": "Potraviny",
         "subcategory": "Rostlinné alternativy",
         "parentTypeName": "Rostlinné nápoje",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -10622,7 +10820,7 @@
         "category": "Potraviny",
         "subcategory": "Rostlinné alternativy",
         "parentTypeName": "Rostlinné nápoje",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -10644,7 +10842,7 @@
         "category": "Potraviny",
         "subcategory": "Rostlinné alternativy",
         "parentTypeName": "Rostlinné nápoje",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14010,7 +14208,7 @@
         "category": "Drogerie",
         "subcategory": "Hygiena",
         "parentTypeName": "Ústní hygiena",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14032,7 +14230,7 @@
         "category": "Drogerie",
         "subcategory": "Hygiena",
         "parentTypeName": "Ústní hygiena",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14054,7 +14252,7 @@
         "category": "Drogerie",
         "subcategory": "Hygiena",
         "parentTypeName": "Ústní hygiena",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14076,7 +14274,7 @@
         "category": "Drogerie",
         "subcategory": "Hygiena",
         "parentTypeName": "Ústní hygiena",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14098,7 +14296,7 @@
         "category": "Drogerie",
         "subcategory": "Hygiena",
         "parentTypeName": "Ústní hygiena",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14208,7 +14406,7 @@
         "category": "Drogerie",
         "subcategory": "Hygiena",
         "parentTypeName": "Holení",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14230,7 +14428,7 @@
         "category": "Drogerie",
         "subcategory": "Hygiena",
         "parentTypeName": "Holení",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14252,7 +14450,7 @@
         "category": "Drogerie",
         "subcategory": "Hygiena",
         "parentTypeName": "Holení",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14274,7 +14472,7 @@
         "category": "Drogerie",
         "subcategory": "Hygiena",
         "parentTypeName": "Holení",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14296,7 +14494,7 @@
         "category": "Drogerie",
         "subcategory": "Hygiena",
         "parentTypeName": "Holení",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14318,7 +14516,7 @@
         "category": "Drogerie",
         "subcategory": "Hygiena",
         "parentTypeName": "Dámská hygiena",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14340,7 +14538,7 @@
         "category": "Drogerie",
         "subcategory": "Hygiena",
         "parentTypeName": "Dámská hygiena",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14362,7 +14560,7 @@
         "category": "Drogerie",
         "subcategory": "Hygiena",
         "parentTypeName": "Dámská hygiena",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14384,7 +14582,7 @@
         "category": "Drogerie",
         "subcategory": "Hygiena",
         "parentTypeName": "Dámská hygiena",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14406,7 +14604,7 @@
         "category": "Drogerie",
         "subcategory": "Hygiena",
         "parentTypeName": "Dámská hygiena",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14428,7 +14626,7 @@
         "category": "Drogerie",
         "subcategory": "Hygiena",
         "parentTypeName": "Vlhčené ubrousky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14450,7 +14648,7 @@
         "category": "Drogerie",
         "subcategory": "Hygiena",
         "parentTypeName": "Vlhčené ubrousky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14472,7 +14670,7 @@
         "category": "Drogerie",
         "subcategory": "Hygiena",
         "parentTypeName": "Vlhčené ubrousky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14494,7 +14692,7 @@
         "category": "Drogerie",
         "subcategory": "Hygiena",
         "parentTypeName": "Vlhčené ubrousky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14516,7 +14714,7 @@
         "category": "Drogerie",
         "subcategory": "Hygiena",
         "parentTypeName": "Vlhčené ubrousky",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14670,7 +14868,7 @@
         "category": "Drogerie",
         "subcategory": "Kosmetika",
         "parentTypeName": "Péče o pleť",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14692,7 +14890,7 @@
         "category": "Drogerie",
         "subcategory": "Kosmetika",
         "parentTypeName": "Péče o pleť",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14714,7 +14912,7 @@
         "category": "Drogerie",
         "subcategory": "Kosmetika",
         "parentTypeName": "Péče o pleť",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14736,7 +14934,7 @@
         "category": "Drogerie",
         "subcategory": "Kosmetika",
         "parentTypeName": "Péče o pleť",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14758,7 +14956,7 @@
         "category": "Drogerie",
         "subcategory": "Kosmetika",
         "parentTypeName": "Péče o pleť",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14780,7 +14978,7 @@
         "category": "Drogerie",
         "subcategory": "Kosmetika",
         "parentTypeName": "Péče o pleť",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14802,7 +15000,7 @@
         "category": "Drogerie",
         "subcategory": "Kosmetika",
         "parentTypeName": "Dekorativní kosmetika",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14824,7 +15022,7 @@
         "category": "Drogerie",
         "subcategory": "Kosmetika",
         "parentTypeName": "Dekorativní kosmetika",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14846,7 +15044,7 @@
         "category": "Drogerie",
         "subcategory": "Kosmetika",
         "parentTypeName": "Dekorativní kosmetika",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14868,7 +15066,7 @@
         "category": "Drogerie",
         "subcategory": "Kosmetika",
         "parentTypeName": "Dekorativní kosmetika",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14890,7 +15088,7 @@
         "category": "Drogerie",
         "subcategory": "Kosmetika",
         "parentTypeName": "Dekorativní kosmetika",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },
@@ -14912,7 +15110,7 @@
         "category": "Drogerie",
         "subcategory": "Kosmetika",
         "parentTypeName": "Dekorativní kosmetika",
-        "parentTypeExistsInCode": false,
+        "parentTypeExistsInCode": true,
         "reviewStatus": "proposal_only_not_approved"
       }
     },

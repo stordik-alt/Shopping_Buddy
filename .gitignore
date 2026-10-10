@@ -37,3 +37,6 @@ backups/
 
 # Throwaway exploration files (retailer/API investigations), never committed
 scratch-*
+
+# Local reports (scripts/apply-product-types-batch.ts and others)
+.tmp/

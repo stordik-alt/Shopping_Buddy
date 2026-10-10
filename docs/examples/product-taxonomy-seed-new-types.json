@@ -2,36 +2,6 @@
   "version": "2026-10-seed-v1",
   "types": [
     {
-      "key": "jogurt-ochuceny",
-      "name": "Ochucený jogurt",
-      "category": "Potraviny",
-      "subcategory": "Mléčné výrobky",
-      "unit": "kg",
-      "axis": "druh příchuti nebo příměsi",
-      "subtypes": [
-        "Ovocný jogurt",
-        "Jogurt s kousky ovoce",
-        "Jogurt s čokoládou nebo karamelem",
-        "Jogurt s cereáliemi",
-        "Dvoukomorový jogurt"
-      ]
-    },
-    {
-      "key": "jogurt-pitny",
-      "name": "Pitný jogurt a kysané nápoje",
-      "category": "Potraviny",
-      "subcategory": "Mléčné výrobky",
-      "unit": "l",
-      "axis": "druh kysaného mléčného nápoje",
-      "subtypes": [
-        "Pitný jogurt",
-        "Acidofilní mléko",
-        "Podmáslí",
-        "Ayran a lassi",
-        "Probiotický nápoj"
-      ]
-    },
-    {
       "key": "skyr-proteinove-mlecne",
       "name": "Skyr a proteinové mléčné výrobky",
       "category": "Potraviny",
@@ -39,7 +9,7 @@
       "unit": "kg",
       "axis": "typ výrobku",
       "subtypes": [
-        "Skyr",
+        "Skyr jako samostatný výrobek",
         "Proteinový jogurt",
         "Proteinový pudink"
       ]
@@ -130,24 +100,6 @@
         "Sušené plnotučné mléko",
         "Sušené odtučněné mléko",
         "Kávová smetanka"
-      ]
-    },
-    {
-      "key": "pecivo-sladke",
-      "name": "Sladké pečivo",
-      "category": "Potraviny",
-      "subcategory": "Pečivo",
-      "unit": "ks",
-      "axis": "druh těsta a náplně",
-      "subtypes": [
-        "Croissant",
-        "Koláč",
-        "Buchta",
-        "Šneček a hotový závin",
-        "Donut a kobliha",
-        "Muffin a cupcake",
-        "Vánočka a mazanec",
-        "Chlazený dort a zákusek"
       ]
     },
     {
@@ -271,21 +223,6 @@
         "Platýs a mořský jazyk",
         "Pangas a tilápie",
         "Candát a štika"
-      ]
-    },
-    {
-      "key": "morske-plody",
-      "name": "Mořské plody",
-      "category": "Potraviny",
-      "subcategory": "Ryby a mořské plody",
-      "unit": "kg",
-      "axis": "druh mořského plodu",
-      "subtypes": [
-        "Krevety",
-        "Chobotnice a kalamáry",
-        "Mušle a hřebenatky",
-        "Krabí tyčinky a surimi",
-        "Humr a krab"
       ]
     },
     {
@@ -649,25 +586,6 @@
       ]
     },
     {
-      "key": "omacky-hotove",
-      "name": "Hotové omáčky",
-      "category": "Potraviny",
-      "subcategory": "Omáčky a dochucovadla",
-      "unit": "kg",
-      "axis": "druh omáčky",
-      "subtypes": [
-        "Rajčatová omáčka",
-        "Smetanová omáčka",
-        "Pesto",
-        "Asijská omáčka",
-        "Grilovací omáčka",
-        "Pálivá omáčka",
-        "Zálivka na salát",
-        "Omáčka k masu",
-        "Pomazánková základna"
-      ]
-    },
-    {
       "key": "vyvary-bujony",
       "name": "Vývary a bujóny",
       "category": "Potraviny",
@@ -679,24 +597,6 @@
         "Tekutý vývar",
         "Vegeta a dochucovadlo",
         "Instantní polévka"
-      ]
-    },
-    {
-      "key": "koreni",
-      "name": "Koření a koření směsi",
-      "category": "Potraviny",
-      "subcategory": "Koření a bylinky",
-      "unit": "kg",
-      "axis": "forma koření",
-      "subtypes": [
-        "Pepř",
-        "Paprika mletá",
-        "Bylinky sušené",
-        "Směs koření",
-        "Kari a orientální koření",
-        "Skořice a sladké koření",
-        "Česnek a cibule sušené",
-        "Kmín a bobkový list"
       ]
     },
     {
@@ -712,73 +612,6 @@
         "Čokoládová pomazánka",
         "Mandlové a jiné ořechové máslo",
         "Tahini"
-      ]
-    },
-    {
-      "key": "bonbony-zvykaci",
-      "name": "Bonbóny, žvýkačky a cukrovinky",
-      "category": "Potraviny",
-      "subcategory": "Sladkosti",
-      "unit": "kg",
-      "axis": "druh cukrovinky",
-      "subtypes": [
-        "Gumové bonbóny",
-        "Tvrdé bonbóny",
-        "Žvýkačky",
-        "Lízátka",
-        "Karamely",
-        "Bonboniéry",
-        "Pastilky a dražé",
-        "Marshmallow a želé"
-      ]
-    },
-    {
-      "key": "susenky-oplatky",
-      "name": "Sušenky a oplatky",
-      "category": "Potraviny",
-      "subcategory": "Sladkosti",
-      "unit": "kg",
-      "axis": "druh sušenky",
-      "subtypes": [
-        "Máslové sušenky",
-        "Čokoládové sušenky",
-        "Plněné sušenky",
-        "Perník",
-        "Piškotové sušenky",
-        "Celozrnné sušenky",
-        "Trvanlivé řezy",
-        "Dortíky a koláčky balené"
-      ]
-    },
-    {
-      "key": "tycinky-sladke",
-      "name": "Tyčinky a zdravé sladkosti",
-      "category": "Potraviny",
-      "subcategory": "Sladkosti",
-      "unit": "kg",
-      "axis": "druh tyčinky",
-      "subtypes": [
-        "Čokoládová tyčinka",
-        "Müsli tyčinka",
-        "Proteinová tyčinka",
-        "Ovocná tyčinka",
-        "Rýžový a kukuřičný chlebíček"
-      ]
-    },
-    {
-      "key": "zmrzliny",
-      "name": "Zmrzliny a mražené dezerty",
-      "category": "Potraviny",
-      "subcategory": "Mražené potraviny",
-      "unit": "l",
-      "axis": "forma zmrzliny",
-      "subtypes": [
-        "Zmrzlina v kelímku",
-        "Nanuk",
-        "Zmrzlinový kornout",
-        "Ledová tříšť",
-        "Mražený jogurt",
-        "Zmrzlinový dort"
       ]
     },
     {
@@ -825,56 +658,6 @@
       "subtypes": [
         "Ochucená voda neperlivá",
         "Ochucená voda perlivá"
-      ]
-    },
-    {
-      "key": "limonady",
-      "name": "Limonády a nealkoholické nápoje",
-      "category": "Potraviny",
-      "subcategory": "Nápoje",
-      "unit": "l",
-      "axis": "druh sladkého nápoje",
-      "subtypes": [
-        "Kolový nápoj",
-        "Ovocná limonáda",
-        "Tonic a ginger ale",
-        "Ledový čaj",
-        "Energetický nápoj",
-        "Iontový nápoj",
-        "Sirup",
-        "Nápoj bez cukru"
-      ]
-    },
-    {
-      "key": "dzusy",
-      "name": "Džusy a ovocné šťávy",
-      "category": "Potraviny",
-      "subcategory": "Nápoje",
-      "unit": "l",
-      "axis": "podíl ovoce a druh",
-      "subtypes": [
-        "Džus 100 %",
-        "Nektar",
-        "Zeleninová šťáva",
-        "Ovocný nápoj",
-        "Smoothie"
-      ]
-    },
-    {
-      "key": "nahrazky-mleka-rostlinne",
-      "name": "Rostlinné nápoje",
-      "category": "Potraviny",
-      "subcategory": "Rostlinné alternativy",
-      "unit": "l",
-      "axis": "základní surovina",
-      "subtypes": [
-        "Ovesný nápoj",
-        "Sójový nápoj",
-        "Mandlový nápoj",
-        "Kokosový nápoj",
-        "Rýžový nápoj",
-        "Hrachový nápoj",
-        "Nápoj z lískových ořechů"
       ]
     },
     {
@@ -1049,66 +832,6 @@
       ]
     },
     {
-      "key": "ustni-hygiena",
-      "name": "Ústní hygiena",
-      "category": "Drogerie",
-      "subcategory": "Hygiena",
-      "unit": "ks",
-      "axis": "druh pomůcky",
-      "subtypes": [
-        "Zubní kartáček manuální",
-        "Elektrický zubní kartáček a hlavice",
-        "Ústní voda",
-        "Zubní nit a mezizubní kartáček",
-        "Zubní pásky a ošetření"
-      ]
-    },
-    {
-      "key": "holeni",
-      "name": "Holení",
-      "category": "Drogerie",
-      "subcategory": "Hygiena",
-      "unit": "ks",
-      "axis": "druh pomůcky nebo přípravku",
-      "subtypes": [
-        "Holicí strojek a břity",
-        "Jednorázový holicí strojek",
-        "Pěna a gel na holení",
-        "Voda po holení",
-        "Depilace"
-      ]
-    },
-    {
-      "key": "damska-hygiena",
-      "name": "Dámská hygiena",
-      "category": "Drogerie",
-      "subcategory": "Hygiena",
-      "unit": "ks",
-      "axis": "druh hygienické pomůcky",
-      "subtypes": [
-        "Menstruační vložky",
-        "Tampony",
-        "Slipové vložky",
-        "Menstruační kalíšek a kalhotky",
-        "Intimní hygiena"
-      ]
-    },
-    {
-      "key": "vlhcene-ubrousky",
-      "name": "Vlhčené ubrousky",
-      "category": "Drogerie",
-      "subcategory": "Hygiena",
-      "unit": "ks",
-      "axis": "určení ubrousků",
-      "subtypes": [
-        "Vlhčené ubrousky univerzální",
-        "Vlhčené ubrousky na obličej",
-        "Vlhčené ubrousky toaletní",
-        "Vlhčené ubrousky na ruce",
-        "Vlhčené ubrousky intimní"
-      ]
-    },
-    {
       "key": "pece-o-telo",
       "name": "Péče o tělo",
       "category": "Drogerie",
@@ -1122,38 +845,6 @@
         "Olej na tělo",
         "Peeling",
         "Sprej proti slunci"
-      ]
-    },
-    {
-      "key": "pece-o-plet",
-      "name": "Péče o pleť",
-      "category": "Drogerie",
-      "subcategory": "Kosmetika",
-      "unit": "ks",
-      "axis": "druh pleťové péče",
-      "subtypes": [
-        "Pleťový krém",
-        "Pleťová maska",
-        "Odličovací přípravek",
-        "Čisticí gel na obličej",
-        "Oční krém a sérum",
-        "Krém s UV filtrem"
-      ]
-    },
-    {
-      "key": "dekorativni-kosmetika",
-      "name": "Dekorativní kosmetika",
-      "category": "Drogerie",
-      "subcategory": "Kosmetika",
-      "unit": "ks",
-      "axis": "část obličeje",
-      "subtypes": [
-        "Řasenka a oční linky",
-        "Rtěnka a lesk",
-        "Make-up a pudr",
-        "Tvářenka a bronzer",
-        "Lak na nehty",
-        "Stíny a paletky"
       ]
     },
     {

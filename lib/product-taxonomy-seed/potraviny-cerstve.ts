@@ -18,22 +18,26 @@ export const POTRAVINY_CERSTVE: SeedType[] = [
     ['Bílý jogurt bez laktózy', 'bílý jogurt s deklarovaným obsahem laktózy pod limitem'],
     ['Probiotický bílý jogurt', 'bílý jogurt s deklarovanou probiotickou kulturou', 'ochucené jogurty'],
   ]),
-  nw('jogurt-ochuceny', 'Ochucený jogurt', P, 'Mléčné výrobky', 'kg', 'druh příchuti nebo příměsi', [
+  ex('jogurt-ochuceny', 'Ochucený jogurt', P, 'Mléčné výrobky', 'kg', 'druh příchuti nebo příměsi', [
     ['Ovocný jogurt', 'jogurt s ovocnou složkou nebo příchutí ovoce'],
     ['Jogurt s kousky ovoce', 'jogurt s viditelnými kousky ovoce'],
     ['Jogurt s čokoládou nebo karamelem', 'sladké příchutě čokoláda, karamel, vanilka, oříšek'],
     ['Jogurt s cereáliemi', 'jogurt s oddělenou nebo smíchanou cereální složkou'],
     ['Dvoukomorový jogurt', 'jogurt s oddělenou přísadou v druhé komoře kelímku', 'jogurt s ovocem zamíchaným dovnitř'],
   ]),
-  nw('jogurt-pitny', 'Pitný jogurt a kysané nápoje', P, 'Mléčné výrobky', 'l', 'druh kysaného mléčného nápoje', [
+  ex('jogurt-pitny', 'Pitný jogurt a kysané nápoje', P, 'Mléčné výrobky', 'l', 'druh kysaného mléčného nápoje', [
     ['Pitný jogurt', 'tekutý jogurt k pití, bílý i ochucený'],
     ['Acidofilní mléko', 'kysané mléko s acidofilní kulturou'],
     ['Podmáslí', 'podmáslí přírodní nebo ochucené'],
     ['Ayran a lassi', 'solený ayran, lassi'],
     ['Probiotický nápoj', 'mléčný nápoj s kulturami typu Lactobacillus casei', 'kefír, který je vlastním typem'],
   ]),
+  ex('skyr', 'Skyr', P, 'Mléčné výrobky', 'kg', 'příchuť skyru', [
+    ['Skyr bílý', 'skyr bez příchuti'],
+    ['Skyr ochucený', 'skyr s ovocem nebo příchutí'],
+  ]),
   nw('skyr-proteinove-mlecne', 'Skyr a proteinové mléčné výrobky', P, 'Mléčné výrobky', 'kg', 'typ výrobku', [
-    ['Skyr', 'islandský typ kysaného mléčného výrobku s vysokým obsahem bílkovin'],
+    ['Skyr jako samostatný výrobek', 'islandský typ kysaného mléčného výrobku s vysokým obsahem bílkovin', 'ochucený skyr patří pod typ Skyr'],
     ['Proteinový jogurt', 'jogurt s deklarovaným zvýšeným obsahem bílkovin'],
     ['Proteinový pudink', 'chlazený pudink s deklarovaným zvýšeným obsahem bílkovin'],
   ]),
@@ -119,7 +123,7 @@ export const POTRAVINY_CERSTVE: SeedType[] = [
     ['Bezlepkový chléb', 'chléb s označením bez lepku'],
     ['Chléb s vlákninou nebo proteinem', 'chléb s přidanou vlákninou nebo bílkovinou'],
   ]),
-  nw('pecivo-sladke', 'Sladké pečivo', P, 'Pečivo', 'ks', 'druh těsta a náplně', [
+  ex('pecivo-sladke', 'Sladké pečivo', P, 'Pečivo', 'ks', 'druh těsta a náplně', [
     ['Croissant', 'croissant, máslový, čokoládový'],
     ['Koláč', 'koláč, koláč s tvarohem, mákem, povidly'],
     ['Buchta', 'buchta, buchta s náplní, bublanina'],
@@ -170,6 +174,12 @@ export const POTRAVINY_CERSTVE: SeedType[] = [
     ['Jehněčí maso', 'jehněčí kýta, hřbet, kotlety'],
     ['Zvěřina', 'srnčí, jelení, divočák a jiná lovná zvěř'],
   ]),
+  ex('salam', 'Salám', P, 'Maso a uzeniny', 'kg', 'druh salámu', [
+    ['Trvanlivý salám', 'suchý trvanlivý salám, uherský, vysočina, herkules'],
+    ['Měkký salám', 'měkký salám, lovecký, selský'],
+    ['Šunkový salám', 'šunkový salám a salám z drůbeže'],
+    ['Plísňový salám', 'zrající salám s plísní na povrchu, uherák'],
+  ]),
   nw('uzeniny-trvanlive', 'Trvanlivé uzeniny', P, 'Maso a uzeniny', 'kg', 'druh uzeniny', [
     ['Salám', 'salám vysočina, herkules, uherský, ementálský'],
     ['Klobása a špekáček', 'špekáčky, klobásy, opékací uzeniny'],
@@ -215,7 +225,7 @@ export const POTRAVINY_CERSTVE: SeedType[] = [
     ['Pangas a tilápie', 'pangas, tilápie, filé z chovu'],
     ['Candát a štika', 'candát, štika, sumec, kapr'],
   ]),
-  nw('morske-plody', 'Mořské plody', P, 'Ryby a mořské plody', 'kg', 'druh mořského plodu', [
+  ex('morske-plody', 'Mořské plody', P, 'Ryby a mořské plody', 'kg', 'druh mořského plodu', [
     ['Krevety', 'krevety loupané i neloupané, vařené i syrové'],
     ['Chobotnice a kalamáry', 'chobotnice, sépie, kalamáry'],
     ['Mušle a hřebenatky', 'mušle, slávky, hřebenatky'],

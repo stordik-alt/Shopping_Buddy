@@ -1,3 +1,10 @@
+## 2026-10-10 — Dávky 2–7: dalších 22 typů, migrace 0091 a skript pro roll-out
+
+- `lib/product-types.ts`: nápoje (limonády, džusy, sirupy, rostlinné nápoje), jogurt ochucený/pitný, skyr, sušenky, tyčinky, bonbóny, zmrzliny, sladké pečivo, hotové omáčky, koření, salám, mořské plody a drogerie (dámská a ústní hygiena, vlhčené ubrousky, holení, dekorativní kosmetika, péče o pleť). Migrace `0091_seed_product_types_batch2.sql` (insert-only) zakládá jejich řádky; DB test sladění `product_types` s kódem prochází na lokální testovací databázi.
+- Měření read-only na katalogu (56 088 produktů): typ má 19 445 produktů (dříve 12 456). Dry-run odhalil falešné zásahy (Cajthaml jako čaj, Makovec/Koláčkova jako sladké pečivo, Salame pizza, skořicové kroužky a kurkuma shot jako koření, odlakovací tampony, pouzdra na kartáček, Skittles smoothie), opraveno a pokryto testy v `lib/product-types-seed-rules.test.ts` (414 testů v dotčených souborech prochází). Zlaté případy „Avokádo Kmín celý“ a „Mirinda Mango Tangerine“ nově správně dostávají `koreni` a `limonady`.
+- Nový `scripts/apply-product-types-batch.ts` (`pnpm db:apply-product-types-batch`): dry-run ve výchozím stavu, `--apply` jen s `--confirm-host`, kontrola existence typů, limit odebrání, záloha a `--rollback`. Ověřeno: kontroly (chybějící typy, chybějící potvrzení hostitele) a dry-run na lokální DB; zápis ani rollback nebyl proti žádné databázi spuštěn.
+- Seed: 159 typů (77 dosud bez pravidel), 855 poddruhů; `.tmp/` přidán do `.gitignore`.
+
 ## 2026-10-10 — Pravidla pro sedm nových typů a oprava poddruhů v seedu
 
 - `lib/product-types.ts`: nové typy `caj`, `vino`, `lihoviny`, `cokolada-tabulkova`, `chipsy-snacky` („Chipsy“), `mydlo`, `deodoranty` s konzervativními pravidly (víno jen podle slova „víno/sekt/prosecco“, bez svařeného, nealko a hroznů; čaj bez ledového, kombuchy a čajového příslušenství; čokoláda bez pitné, na vaření, pomazánek; chipsy bez čočkových a tortilla). Změna ovlivňuje klasifikaci produktů a účtenek těchto názvů.

@@ -249,3 +249,33 @@ describe('second review round', () => {
     expect(classifyProductType(category, name)).toBe(type)
   })
 })
+
+// Third review round (2026-10-10): prefixes of brands and words that only look like the type.
+const ROUND_3: [ItemCategory, string, string | null][] = [
+  ['Potraviny', 'Fantasia Čokovločky 102g', null],
+  ['Potraviny', 'FANTA STRAWBERRY KIWI ZERO 1.75L', 'limonady'],
+  ['Potraviny', 'Monster Energy Ultra Zero Sugar plech', 'limonady'],
+  ['Domácnost', 'Monstera Ø květináče 12 cm', null],
+  ['Potraviny', 'Orient Gourmet Červená kari pasta', null],
+  ['Potraviny', 'Tymián citrónový čerstvý', null],
+  ['Potraviny', 'Kotányi Pepř bílý mletý 20g', 'koreni'],
+  ['Potraviny', 'Warburtons Toastové muffiny, 4 ks', null],
+  ['Potraviny', 'Balconi Muffin s borůvkovou náplní 6x43 g', 'pecivo-sladke'],
+  ['Potraviny', 'Sanium stick Tyčinkové hnojivo proti mšicím a molicím', null],
+  ['Potraviny', 'Grissin Bon Grissini Torinesi tyčinky', null],
+  ['Potraviny', 'dmBio bio tyčinky se seitanem, 130 g', null],
+  ['Potraviny', 'Dubajská pomazánka 300g', null],
+  ['Potraviny', 'Pan Křupka Kukuřičné křupky banán a čokoláda', null],
+  ['Potraviny', 'Ritter Sport Mléčná čokoláda 100g', 'cokolada-tabulkova'],
+  ['Potraviny', 'Emco Flapjack pekanový ořech', null],
+  ['Potraviny', 'Benlian Rice cakes - lněné semínko a slunečnice', null],
+  ['Potraviny', 'Emco Super srdíčka kakao 140g', null],
+  ['Potraviny', 'Sedita Mini club kakao-malina', null],
+  ['Potraviny', 'Dr.Oetker Přírodní kakao', 'kakao'],
+]
+
+describe('third review round', () => {
+  it.each(ROUND_3)('%s: %s → %s', (category, name, type) => {
+    expect(classifyProductType(category, name)).toBe(type)
+  })
+})

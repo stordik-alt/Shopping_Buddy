@@ -64,3 +64,60 @@ describe('seed-proposal types promoted to code', () => {
     expect(classifyProductType(category, name)).toBe(type)
   })
 })
+
+// Misses found by the dry run on the production catalog (2026-10-10, `pnpm db:assign-product-types`).
+const CATALOG_MISSES: [ItemCategory, string, string | null][] = [
+  ['Potraviny', 'Cajthaml Větrníky 3ks', null],
+  ['Potraviny', 'Lahůdky Cajthaml Mini zákusky Mix', null],
+  ['Potraviny', 'R38FUZETEA ZEL.CAJ GRAN.JABLKO&ACAI 1.5L', null],
+  ['Potraviny', 'Beefeater Gin & Tonic 4,9%', null],
+  ['Potraviny', 'MIX Vodka & Wild Berry Cocktail 4% obj.', null],
+  ['Potraviny', 'Nutrend Excelent Protein Bar čokoláda kokos', null],
+  ['Potraviny', 'Ehrmann High Protein Mousse Čokoláda', null],
+  ['Potraviny', 'GymBeam Mini protein cookies arašídové máslo a čokoláda', null],
+  ['Potraviny', 'Bombus Rice bar mléčná čokoláda', null],
+  ['Potraviny', 'McCain Rustic Chips', null],
+  ['Potraviny', 'Šnek Bob Bar jablko, jahoda, kešu, quinoa chips', null],
+  ['Potraviny', 'An Mořské řasy NORI CHIPSY Original', null],
+  ['Potraviny', 'Nutrend Protein Chips, sea salt', null],
+  ['Potraviny', 'Milka Bubbly Coconut mléčná čokoláda z alpského mléka s porézní kokosovou náplní 97 g', 'cokolada-tabulkova'],
+  ['Potraviny', 'Lindt Mléčná čokoláda s kousky karamelu a špetkou mořské soli 100g', 'cokolada-tabulkova'],
+  ['Potraviny', 'Teekanne bio čaj Oriental Chai, 36 g', 'caj'],
+  ['Potraviny', 'Slivovice r. jelínek 45 % alk. 0,5 l', 'lihoviny'],
+]
+
+describe('misses found on the real catalog', () => {
+  it.each(CATALOG_MISSES)('%s: %s → %s', (category, name, type) => {
+    expect(classifyProductType(category, name)).toBe(type)
+  })
+})
+
+const CATALOG_MISSES_2: [ItemCategory, string, string | null][] = [
+  ['Potraviny', 'UNI CORNETTO COKOLADA 120ML NEW', null],
+  ['Potraviny', 'AL X KIT KAT KORNOUT COKOLADA 110ML', null],
+  ['Potraviny', 'X_CORNY ZERO MLECNA COKOLADA 20G', null],
+  ['Drogerie', 'ebelin držák na mýdlo, 1 ks', null],
+  ['Drogerie', 'ebelin sáček na mýdlo, 1 ks', null],
+  ['Drogerie', 'trend !t up mýdlo na obočí 24h Brow Control, 8 ml', null],
+  ['Drogerie', 'Balea deo ubrousky Sensitive s aloe vera, 10 ks', null],
+  ['Drogerie', 'nike deo natural sprej Ultra Blue, 75 ml', 'deodoranty'],
+  ['Drogerie', 'Jelen Jádrové Mýdlo 200 g', 'mydlo'],
+]
+
+describe('more misses found on the real catalog', () => {
+  it.each(CATALOG_MISSES_2)('%s: %s → %s', (category, name, type) => {
+    expect(classifyProductType(category, name)).toBe(type)
+  })
+})
+
+describe('collisions found on the real catalog', () => {
+  it('keeps a brewery named "Vinohradský" a beer, not wine', () => {
+    expect(classifyProductType('Potraviny', 'Vinohradský pivovar Jantarová 13 plech')).toBe('pivo')
+  })
+  it('keeps stain soap out of soap', () => {
+    expect(classifyProductType('Drogerie', 'Tekuté mýdlo na skvrny')).toBeNull()
+  })
+  it('still finds wine', () => {
+    expect(classifyProductType('Potraviny', 'Frankovka víno červené suché 0,75l')).toBe('vino')
+  })
+})

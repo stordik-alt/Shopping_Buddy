@@ -12,6 +12,7 @@ import {
   updateHouseholdAction,
   updateHouseholdPreferencesAction,
 } from '@/app/actions/household'
+import type { PeriodConfig } from '@/lib/budget-period'
 import type { HouseholdData } from '@/lib/db/queries'
 import type { MemberDiet } from '@/lib/diet'
 
@@ -27,9 +28,22 @@ export function useHousehold(initialData: HouseholdData) {
     setPendingInvitations(initialData.pendingInvitations)
   }, [initialData])
 
-  function updateHousehold(changes: { name?: string; monthlyBudget?: number; budgetPeriodStartDay?: number }) {
+  function updateHousehold(changes: { name?: string; monthlyBudget?: number }) {
     setHousehold((current) => ({ ...current, ...changes }))
     updateHouseholdAction(changes)
+  }
+
+  /** Switches the budget period (docs/15 §3). Unlike the other settings it is saved first and shown
+   *  after, because it re-slices every number on the budget screens: a refused change must not leave
+   *  the page showing a period the server does not have. Rejects with the server's message. */
+  async function updateBudgetPeriod(period: PeriodConfig) {
+    await updateHouseholdAction({ budgetPeriod: period })
+    setHousehold((current) => ({
+      ...current,
+      budgetPeriod: period,
+      // A custom period does not use the start day, so it keeps its last value (as on the server).
+      budgetPeriodStartDay: period.type === 'calendar' ? 1 : period.type === 'payday' ? period.startDay : current.budgetPeriodStartDay,
+    }))
   }
 
   async function addMember(member: { name: string; age: number; favoriteFoods: string[]; dislikedFoods: string[]; allergies: string[] }) {
@@ -73,5 +87,5 @@ export function useHousehold(initialData: HouseholdData) {
     revokeInvitationAction(id)
   }
 
-  return { household, pendingInvitations, updateHousehold, addMember, removeMember, setMemberDiet, addChild, removeChild, updatePreferences, inviteMember, revokeInvitation }
+  return { household, pendingInvitations, updateHousehold, updateBudgetPeriod, addMember, removeMember, setMemberDiet, addChild, removeChild, updatePreferences, inviteMember, revokeInvitation }
 }

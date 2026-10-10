@@ -10,7 +10,7 @@ import { PantryCheckinSettings } from '@/components/household/pantry-checkin-set
 import { PantryPlaces } from '@/components/household/pantry-places'
 import { CollapsibleSection } from '@/components/shared/collapsible-section'
 import { TagInput } from '@/components/shared/tag-input'
-import { MAX_PERIOD_START_DAY } from '@/lib/budget'
+import { isCalendarMonth } from '@/lib/budget-period'
 import type { MemberDiet } from '@/lib/diet'
 import type { PendingInvitation } from '@/lib/db/queries'
 import type { StoreSelection } from '@/lib/nearby-stores'
@@ -56,7 +56,7 @@ export function HouseholdProfile({
   household: Household
   isOwner: boolean
   pendingInvitations: PendingInvitation[]
-  onUpdateHousehold: (changes: { name?: string; monthlyBudget?: number; budgetPeriodStartDay?: number }) => void
+  onUpdateHousehold: (changes: { name?: string; monthlyBudget?: number }) => void
   onAddMember: (member: { name: string; age: number; favoriteFoods: string[]; dislikedFoods: string[]; allergies: string[] }) => void
   onRemoveMember: (id: string) => void
   /** Saves a member's eating questionnaire (docs/17_DIET_PREFERENCES.md). */
@@ -167,27 +167,9 @@ export function HouseholdProfile({
             onChange={(event) => onUpdateHousehold({ monthlyBudget: Math.max(0, Number(event.target.value) || 0) })}
             className="w-40 px-3"
           />
-          <span className="text-sm text-muted-foreground">{household.budgetPeriodStartDay === 1 ? 'Kč / měsíc' : 'Kč / období'}</span>
+          <span className="text-sm text-muted-foreground">{isCalendarMonth(household.budgetPeriod) ? 'Kč / měsíc' : 'Kč / období'}</span>
         </div>
-        <label className="mt-4 block text-sm">
-          <span className="font-medium">Rozpočtové období začíná</span>
-          <Select
-            value={household.budgetPeriodStartDay}
-            onChange={(event) => onUpdateHousehold({ budgetPeriodStartDay: Number(event.target.value) })}
-            className="px-3 mt-2 sm:w-56"
-          >
-            {Array.from({ length: MAX_PERIOD_START_DAY }, (_, index) => index + 1).map((day) => (
-              <option key={day} value={day}>
-                {day === 1 ? '1. dne v měsíci (kalendářní měsíc)' : `${day}. dne v měsíci`}
-              </option>
-            ))}
-          </Select>
-          <span className="mt-2 block text-sm leading-relaxed text-muted-foreground">
-            {household.budgetPeriodStartDay === 1
-              ? 'Rozpočet se počítá za kalendářní měsíc. Pokud vám plat chodí jindy, začátek období posuňte.'
-              : `Rozpočet se počítá od ${household.budgetPeriodStartDay}. dne v měsíci do ${household.budgetPeriodStartDay - 1}. dne následujícího měsíce.`}
-          </span>
-        </label>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">Rozpočtové období (kalendářní měsíc, od výplaty nebo vlastní) nastavíte v Rozpočet → Plánování.</p>
       </div>
 
       <CollapsibleSection

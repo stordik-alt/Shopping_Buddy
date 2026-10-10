@@ -5,8 +5,9 @@ import { randomBytes } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
 import { auth } from '@/lib/auth/server'
-import { isValidPeriodStartDay, MAX_PERIOD_START_DAY } from '@/lib/budget'
+import { isValidPeriodStartDay, MAX_PERIOD_START_DAY, parsePeriodConfig, type PeriodConfig } from '@/lib/budget-period'
 import { getDb } from '@/lib/db/client'
+import { periodColumnsOf } from '@/lib/db/period-config'
 import * as schema from '@/lib/db/schema'
 import { joinHouseholdViaInvitation } from '@/lib/db/queries'
 import { checkInviteRateLimit } from '@/lib/rate-limit'
@@ -57,7 +58,10 @@ function sanitizeStringArray(values: unknown, field: string): string[] {
     .filter(Boolean)
 }
 
-export async function updateHouseholdAction(changes: { name?: string; monthlyBudget?: number; budgetPeriodStartDay?: number }) {
+/** Changes the household's name, default budget or budget period. The period is given either as a
+ *  full `budgetPeriod` (calendar / payday / custom) or, for older callers, as `budgetPeriodStartDay`
+ *  (= payday N); either way all the period columns are written together (lib/db/period-config.ts). */
+export async function updateHouseholdAction(changes: { name?: string; monthlyBudget?: number; budgetPeriodStartDay?: number; budgetPeriod?: PeriodConfig }) {
   const householdId = await requireHouseholdId()
 
   const safeName = changes.name !== undefined ? assertSafeText(changes.name, 'name', MAX_NAME_LEN) : undefined
@@ -73,13 +77,23 @@ export async function updateHouseholdAction(changes: { name?: string; monthlyBud
     throw new Error(`Rozpočtové období může začínat nejvýše ${MAX_PERIOD_START_DAY}. dnem v měsíci.`)
   }
 
+  // The client sends this object, so its shape and values are checked here (CLAUDE.md section 9).
+  let periodColumns: ReturnType<typeof periodColumnsOf> = {}
+  if (changes.budgetPeriod != null) {
+    const parsed = parsePeriodConfig(changes.budgetPeriod)
+    if ('error' in parsed) throw new Error(parsed.error)
+    periodColumns = periodColumnsOf(parsed.config)
+  } else if (safeBudgetPeriodStartDay != null) {
+    periodColumns = periodColumnsOf({ type: 'payday', startDay: safeBudgetPeriodStartDay })
+  }
+
   const db = getDb()
   await db
     .update(schema.households)
     .set({
       ...(safeName != null && { name: safeName }),
       ...(safeMonthlyBudget != null && { monthlyBudget: safeMonthlyBudget.toString() }),
-      ...(safeBudgetPeriodStartDay != null && { budgetPeriodStartDay: safeBudgetPeriodStartDay }),
+      ...periodColumns,
     })
     .where(eq(schema.households.id, householdId))
 }

@@ -5,6 +5,7 @@ import { PurchaseItemSplitDialog } from '@/components/budget/purchase-item-split
 import { Button } from '@/components/ui/button'
 import { SegmentedControl } from '@/components/ui/segmented-control'
 import { categoryRows, expensePeriod, expensePeriods, groupExpensesByPurchase, periodEnd, periodSummary, subcategoryGroups, type LedgerEntry, type SubcategoryGroup } from '@/lib/budget'
+import { isCalendarMonth, type PeriodInput } from '@/lib/budget-period'
 import { money, periodLabel, recordCountLabel, shortDate } from '@/lib/format'
 import type { PurchaseExpenseItem } from '@/lib/db/purchase-items'
 import type { ExpenseSplitPart } from '@/lib/purchase-expenses'
@@ -18,7 +19,7 @@ type View = 'categories' | 'dates'
 export function ExpenseLedger({
   expenses,
   today,
-  periodStartDay = 1,
+  period = 1,
   limits,
   onAdd,
   onEdit,
@@ -35,8 +36,8 @@ export function ExpenseLedger({
   expenses: Expense[]
   /** The real date (`YYYY-MM-DD`); the overview opens on its month. */
   today: string
-  /** Day of the month the household's budget period starts on (1 = calendar month). */
-  periodStartDay?: number
+  /** The household's budget period (1 or the calendar kind = calendar month). */
+  period?: PeriodInput
   /** Limits per category (each period is measured against them). */
   limits: CategoryBudgets
   onAdd: () => void
@@ -56,8 +57,8 @@ export function ExpenseLedger({
   periodError?: { period: string; message: string } | null
   onRetryPeriod?: () => void
 }) {
-  const months = useMemo(() => [...new Set([...expensePeriods(expenses, today, periodStartDay), ...extraPeriods])].sort().reverse(), [expenses, today, periodStartDay, extraPeriods])
-  const [month, setMonth] = useState(initialPeriod ?? expensePeriod(today, periodStartDay))
+  const months = useMemo(() => [...new Set([...expensePeriods(expenses, today, period), ...extraPeriods])].sort().reverse(), [expenses, today, period, extraPeriods])
+  const [month, setMonth] = useState(initialPeriod ?? expensePeriod(today, period))
   useEffect(() => {
     onShowPeriod?.(month)
   }, [month, onShowPeriod])
@@ -65,7 +66,7 @@ export function ExpenseLedger({
   const failed = periodError?.period === month ? periodError.message : null
   const [view, setView] = useState<View>('categories')
   const [open, setOpen] = useState<string | null>(null)
-  const summary = useMemo(() => periodSummary(expenses, month, periodStartDay), [expenses, month, periodStartDay])
+  const summary = useMemo(() => periodSummary(expenses, month, period), [expenses, month, period])
   const rows = useMemo(() => categoryRows(summary, limits), [summary, limits])
   const index = months.indexOf(month)
   const byDate = useMemo(() => summary.categories.flatMap((entry) => entry.expenses).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)), [summary])
@@ -106,7 +107,7 @@ export function ExpenseLedger({
         >
           {months.map((option) => (
             <option key={option} value={option}>
-              {periodLabel(option, periodEnd(option))}
+              {periodLabel(option, periodEnd(option, period))}
             </option>
           ))}
         </select>
@@ -135,7 +136,7 @@ export function ExpenseLedger({
 
       {rows.length === 0 ? (
         <div className="mt-5 rounded-2xl bg-muted px-4 py-6 text-center text-sm text-muted-foreground">
-          <p>V tomto {periodStartDay === 1 ? 'měsíci' : 'období'} zatím žádné výdaje.</p>
+          <p>V tomto {isCalendarMonth(period) ? 'měsíci' : 'období'} zatím žádné výdaje.</p>
           <button type="button" onClick={onAdd} className="mt-3 min-h-10 rounded-xl px-3 font-medium text-accent-text hover:bg-accent-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             Zapsat první výdaj
           </button>
@@ -190,7 +191,7 @@ export function ExpenseLedger({
                       (entry.expenses.length > 0 ? (
                         <SubcategoryList groups={subcategoryGroups(entry)} categoryTotal={entry.total} onEdit={onEdit} onLoadItems={onLoadItems} onSaveSplits={onSaveSplits} />
                       ) : (
-                        <p className="px-4 pb-3 text-sm text-muted-foreground">V tomto {periodStartDay === 1 ? 'měsíci' : 'období'} zatím nic.</p>
+                        <p className="px-4 pb-3 text-sm text-muted-foreground">V tomto {isCalendarMonth(period) ? 'měsíci' : 'období'} zatím nic.</p>
                       ))}
                   </div>
                 )

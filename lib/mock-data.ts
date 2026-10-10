@@ -32,6 +32,7 @@ export const initialHousehold: Household = {
   name: 'Rodina Králových',
   monthlyBudget: 12000,
   budgetPeriodStartDay: 1,
+  budgetPeriod: { type: 'calendar' },
   periodBudgets: {},
   savingsGoal: 0,
   members: [

@@ -1,3 +1,4 @@
+import type { PeriodConfig } from '@/lib/budget-period'
 import type { MemberDiet } from '@/lib/diet'
 import type { ExpenseCategory } from '@/lib/expense-categories'
 
@@ -53,6 +54,91 @@ export type Expense = {
   date: string
   /** The receipt purchase this expense counts (lib/purchase-expenses.ts); null for one typed in. */
   purchaseId: string | null
+}
+
+/** Income of a household (docs/15_BUDGET_PERIODS.md §8): 'planned' is only expected, 'actual' was received. */
+export type IncomeStatus = 'planned' | 'actual'
+export type Income = {
+  id: string
+  amount: number
+  description: string
+  date: string
+  status: IncomeStatus
+}
+
+/** A planned expense (docs/15_BUDGET_PERIODS.md §7–8): expected money going out. 'paid' means it became
+ *  a real expense (and is no longer counted as planned). */
+export type PlannedExpense = {
+  id: string
+  amount: number
+  note: string
+  category: ExpenseCategory
+  date: string
+  status: 'planned' | 'paid'
+}
+
+/** A Kapsa (docs/15_BUDGET_PERIODS.md §11): a purpose-bound pot of savings. `balance` is what really is
+ *  in it; `plannedContribution` is only a plan and never changes it. */
+export type Pocket = {
+  id: string
+  name: string
+  icon: string
+  targetAmount: number | null
+  targetDate: string | null
+  openingAmount: number
+  plannedContribution: number | null
+  /** The financial reserve (docs/15 §11): advice reaches for it first. */
+  isReserve: boolean
+  balance: number
+  /** The contribution per period that reaches the goal in time (null without a goal). */
+  recommended: number | null
+}
+
+/** The result of a period that has ended and can be closed (docs/15 §12, §15). */
+export type ClosingPreview = {
+  periodStart: string
+  periodEnd: string
+  received: number
+  carryIn: number
+  expenses: number
+  transfers: number
+  result: number
+  /** What the household planned to leave for the next period (docs/15 §14), if anything. */
+  plannedCarry: number | null
+}
+
+/** What Plánování shows besides incomes: the carry from the previous period, real Kapsa transfers
+ *  of the period, the Kapsy, and a period waiting to be closed. */
+export type BudgetLedger = {
+  carryIn: number
+  /** Net money moved from the budget into Kapsy in this period (negative = taken out). */
+  transfers: number
+  pockets: Pocket[]
+  /** Planned Kapsa contributions of the period not yet made (planned − already deposited, per Kapsa). */
+  plannedTransfersLeft: number
+  toClose: ClosingPreview | null
+  /** Whether the viewed period is already closed. */
+  closed: boolean
+  /** Start of the closed period whose carry arrives here (so it can be reopened), if any. */
+  previousClosedStart: string | null
+}
+
+/** One period of the outlook as the server knows it (docs/15 §14, §16); lib/budget-outlook.ts turns the
+ *  list into expected balances. The first period is the running one. */
+export type OutlookPeriodData = {
+  periodStart: string
+  plannedIncome: number
+  receivedIncome: number
+  plannedExpenses: number
+  plannedTransfers: number
+  plannedCarry: number | null
+  budget: number
+}
+export type BudgetOutlook = {
+  /** Actual balance of the running period now (§9.1). Excludes the carry of a period still to be closed. */
+  actualNow: number
+  spentNow: number
+  periods: OutlookPeriodData[]
 }
 
 /** A household's monthly limit per expense category; a category without one has no limit. */
@@ -199,8 +285,11 @@ export type Household = {
   id: string
   name: string
   monthlyBudget: number
-  /** Day of the month (1–28) the budget period starts on; 1 is the calendar month. */
+  /** Day of the month (1–28) a payday-kind budget period starts on; 1 is the calendar month. */
   budgetPeriodStartDay: number
+  /** The household's budget period (lib/budget-period.ts): calendar month, payday or custom. What the
+   *  budget code slices time by; `budgetPeriodStartDay` alone cannot describe a custom period. */
+  budgetPeriod: PeriodConfig
   /** Budgets the household set for single periods, keyed by the period's start date; any other period
    *  uses monthlyBudget (lib/budget.ts budgetForPeriod). */
   periodBudgets: Record<string, number>

@@ -11,6 +11,18 @@ Budget calculations are deterministic. The app must clearly distinguish:
 - committed/planned shopping
 - historical spending
 
+Money is actual or planned, never both: a planned income does not change the actual balance until it is marked received, and it is then the same record, so it is never counted twice. Actual balance = received income − paid expenses − executed transfers (`lib/budget-balances.ts`, docs/15 §9). Free money is never negative; a shortfall is reported as a shortfall, not as spendable money.
+
+Period transfers and Kapsy (docs/15 §11–15, `lib/budget-closing.ts`): a transfer between periods is its own operation — not income, expense or saving — and goes only to the period right after. A surplus may be distributed only up to its real amount; a deficit is never saved, it is covered from Kapsy and the uncovered rest is carried on as a negative transfer. The result and the carry of a closed period are recomputed from real data, so changing a closed period changes the carry. A planned Kapsa contribution never changes its balance; ANITKA moves money between the budget and a Kapsa only on the user's confirmation.
+
+Forecast (docs/15 §16–17, `lib/budget-forecast.ts`): predicted balance = actual balance + planned income still to come − unpaid recurring payments of the period − planned Kapsa contributions not yet made; ordinary spending is not guessed. A negative prediction warns in advance and suggests postponing planned savings, using Kapsy, or carrying the rest as a negative transfer — suggestions only, never an automatic move of money.
+
+Planned expenses are expected money only: they enter the forecast but never the actual balance, and paying one creates the real expense exactly once. At the end of a period ANITKA only pre-fills the closing form (keep what the next period needs, top up the reserve, planned Kapsa contributions, the rest to the next period; a deficit from the reserve first); the user decides and the same closing rules validate it.
+
+Periods ahead (docs/15 §14, §16, `lib/budget-outlook.ts`) are planned, never actual: a period that has not begun shows no actual balance and cannot have its incomes received or its planned expenses paid. Its expected balance = what it starts with (the actual balance now for the running period, otherwise the previous period's expected carry) + planned and already-received income − expected spending − planned Kapsa contributions; expected spending is the period's budget, raised to the known payments and planned expenses when those are higher. Only the part explicitly planned for the next period is carried (and never more than the period is expected to end with); a shortfall is carried whole as a negative transfer. When the period is closed the real transfer replaces the plan.
+
+At closing, the money the next period still needs for its known payments and planned expenses (beyond its own income and balance) is shown as reserved for obligations and the user is warned when the split leaves less — a warning, not a lock.
+
 Do not let an AI model calculate authoritative totals.
 
 ## Prices

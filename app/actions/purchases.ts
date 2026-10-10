@@ -274,7 +274,7 @@ export async function setPurchaseItemExpenseSplitsAction(purchaseItemId: string,
   // No revalidatePath: it would re-render the whole page. The recomputed expenses are all that changed.
   // Include the affected purchase even when its date is outside the current budget period; this is an
   // immediate mutation response, not the normal history read.
-  return { expenses: await getHouseholdExpenses(householdId, 1, purchaseItem?.purchaseId) }
+  return { expenses: await getHouseholdExpenses(householdId, purchaseItem?.purchaseId) }
 }
 
 /** The purchase-items behind one category's (or subcategory's) amount for one purchase, for the
@@ -297,7 +297,7 @@ export async function recordPurchaseAsExpenseAction(purchaseId: string): Promise
   if (typeof purchaseId !== 'string' || purchaseId.length === 0) throw new Error('Neplatný nákup.')
   await recordPurchaseAsExpense(householdId, purchaseId)
   // No revalidatePath (see above). Recording can also raise a budget-threshold notification, so both are returned.
-  const [expenses, notifications] = await Promise.all([getHouseholdExpenses(householdId, 1, purchaseId), getHouseholdNotifications(householdId)])
+  const [expenses, notifications] = await Promise.all([getHouseholdExpenses(householdId, purchaseId), getHouseholdNotifications(householdId)])
   return { expenses, notifications }
 }
 

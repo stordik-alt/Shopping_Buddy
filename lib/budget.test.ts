@@ -85,6 +85,51 @@ describe('month helpers', () => {
   })
 })
 
+describe('budget maths over a custom period', () => {
+  // 14-day periods from 2026-01-05: 01-05…01-18, 01-19…02-01, 02-02…02-15.
+  const every14 = { type: 'custom', anchor: '2026-01-05', lengthDays: 14 } as const
+
+  it('resolves the period, its end and its length from the config', () => {
+    expect(periodStart('2026-01-25', every14)).toBe('2026-01-19')
+    expect(nextPeriodStart('2026-01-19', every14)).toBe('2026-02-02')
+    expect(periodEnd('2026-01-19', every14)).toBe('2026-02-01')
+    expect(periodLength('2026-01-25', every14)).toBe(14)
+    expect(periodDay('2026-01-25', every14)).toBe(7)
+    expect(previousPeriodStart('2026-01-25', every14)).toBe('2026-01-05')
+  })
+
+  it('keeps only the expenses of the period today falls in', () => {
+    const expenses = [expense(1, 'Potraviny', '2026-01-18'), expense(2, 'Potraviny', '2026-01-19'), expense(3, 'Potraviny', '2026-02-01'), expense(4, 'Potraviny', '2026-02-02')]
+    expect(expensesInPeriod(expenses, '2026-01-25', every14).map((e) => e.amount)).toEqual([2, 3])
+  })
+
+  it('averages and projects over the custom length', () => {
+    // 700 Kč on day 7 of 14: 100 Kč a day, 1 400 Kč for the whole period.
+    const expenses = [expense(700, 'Potraviny', '2026-01-22')]
+    expect(dailyAverage(expenses, '2026-01-25', every14)).toBe(100)
+    expect(projectedPeriodEnd(expenses, '2026-01-25', every14)).toBe(1400)
+    expect(budgetPace(700, 2000, '2026-01-25', every14)).toMatchObject({ daysLeft: 8, projected: 1400, projectedOver: null })
+  })
+
+  it('compares with the previous custom period over the same number of days', () => {
+    const expenses = [expense(100, 'Potraviny', '2026-01-06'), expense(300, 'Potraviny', '2026-01-20')]
+    expect(periodOverPeriodChange(expenses, '2026-01-25', every14)).toMatchObject({ current: 300, previous: 100 })
+  })
+
+  it('groups per-day totals into custom periods', () => {
+    const daily = [{ date: '2026-01-18', total: 10 }, { date: '2026-01-19', total: 20 }, { date: '2026-02-01', total: 5 }]
+    expect([...spendingByPeriod(daily, every14)]).toEqual([
+      ['2026-01-05', 10],
+      ['2026-01-19', 25],
+    ])
+  })
+
+  it('summarises one custom period by category', () => {
+    const expenses = [expense(10, 'Potraviny', '2026-01-18'), expense(20, 'Potraviny', '2026-01-19')]
+    expect(periodSummary(expenses, '2026-01-19', every14).total).toBe(20)
+  })
+})
+
 describe('dailyAverage / weeklyAverage / projectedPeriodEnd', () => {
   it("divides this month's spend by the days elapsed since the 1st, inclusive", () => {
     // On the 10th, 10 days have elapsed (1st through 10th).

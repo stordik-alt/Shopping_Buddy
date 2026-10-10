@@ -1,4 +1,5 @@
 import { periodEnd, periodStart } from '@/lib/budget'
+import { isCalendarMonth, type PeriodInput } from '@/lib/budget-period'
 export const money = (value: number) =>
   `${value.toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč`
 
@@ -51,15 +52,18 @@ export const monthLabel = (month: string) => {
  *  calendar month (a period starting on the 1st), otherwise the range, "28. 8. – 27. 9. 2026" (the
  *  year on both ends when it changes, "28. 12. 2026 – 27. 1. 2027"). Read from the strings, like shortDate. */
 export const periodLabel = (start: string, end: string) => {
-  if (Number(start.slice(8, 10)) === 1) return monthLabel(start.slice(0, 7))
+  // Only a whole calendar month is named by its month; a custom period that merely starts on the 1st is a range.
+  const [endYear, endMonth, endDay] = end.split('-').map(Number)
+  const wholeMonth = Number(start.slice(8, 10)) === 1 && start.slice(0, 7) === end.slice(0, 7) && endDay === new Date(Date.UTC(endYear, endMonth, 0)).getUTCDate()
+  if (wholeMonth) return monthLabel(start.slice(0, 7))
   const sameYear = start.slice(0, 4) === end.slice(0, 4)
   return `${shortDate(start)}${sameYear ? '' : ` ${start.slice(0, 4)}`} – ${shortDate(end)} ${end.slice(0, 4)}`
 }
 
 /** The heading for the budget period `today` falls in: "Tento měsíc" for a calendar-month budget,
  *  otherwise the period's date range. */
-export const thisPeriodTitle = (today: string, startDay: number) => {
-  if (startDay === 1) return 'Tento měsíc'
-  const start = periodStart(today, startDay)
-  return periodLabel(start, periodEnd(start))
+export const thisPeriodTitle = (today: string, period: PeriodInput) => {
+  if (isCalendarMonth(period)) return 'Tento měsíc'
+  const start = periodStart(today, period)
+  return periodLabel(start, periodEnd(start, period))
 }

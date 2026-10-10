@@ -157,6 +157,42 @@ describe('updateHouseholdAction: budget period start day', () => {
   })
 })
 
+describe('updateHouseholdAction: budget period kind (docs/15_BUDGET_PERIODS.md §3)', () => {
+  const periodOf = async (id: string) => {
+    const row = await db.query.households.findFirst({ where: eq(schema.households.id, id) })
+    return { type: row?.budgetPeriodType, startDay: row?.budgetPeriodStartDay, anchor: row?.budgetPeriodAnchor, length: row?.budgetPeriodLengthDays }
+  }
+
+  it('saves a custom period for the caller\'s own household only', async () => {
+    await updateHouseholdAction({ budgetPeriod: { type: 'custom', anchor: '2026-01-05', lengthDays: 14 } })
+    expect(await periodOf(householdId)).toEqual({ type: 'custom', startDay: 1, anchor: '2026-01-05', length: 14 })
+    expect(await periodOf(otherHouseholdId)).toMatchObject({ type: 'payday', anchor: null, length: null })
+  })
+
+  it('clears the custom anchor and length when switching to another kind', async () => {
+    await updateHouseholdAction({ budgetPeriod: { type: 'custom', anchor: '2026-01-05', lengthDays: 14 } })
+    await updateHouseholdAction({ budgetPeriod: { type: 'payday', startDay: 15 } })
+    expect(await periodOf(householdId)).toEqual({ type: 'payday', startDay: 15, anchor: null, length: null })
+    await updateHouseholdAction({ budgetPeriod: { type: 'custom', anchor: '2026-01-05', lengthDays: 30 } })
+    await updateHouseholdAction({ budgetPeriod: { type: 'calendar' } })
+    expect(await periodOf(householdId)).toEqual({ type: 'calendar', startDay: 1, anchor: null, length: null })
+  })
+
+  it('the legacy start day also leaves a custom period', async () => {
+    await updateHouseholdAction({ budgetPeriod: { type: 'custom', anchor: '2026-01-05', lengthDays: 14 } })
+    await updateHouseholdAction({ budgetPeriodStartDay: 10 })
+    expect(await periodOf(householdId)).toEqual({ type: 'payday', startDay: 10, anchor: null, length: null })
+  })
+
+  it('rejects malformed or invalid periods and leaves the household unchanged', async () => {
+    const before = await periodOf(householdId)
+    for (const bad of [{ type: 'weekly' }, { type: 'payday', startDay: 31 }, { type: 'custom', anchor: '2026-02-31', lengthDays: 14 }, { type: 'custom', anchor: '2026-01-05', lengthDays: 2 }, 'custom']) {
+      await expect(updateHouseholdAction({ budgetPeriod: bad as never })).rejects.toThrow()
+    }
+    expect(await periodOf(householdId)).toEqual(before)
+  })
+})
+
 describe('setMemberDietAction (docs/17_DIET_PREFERENCES.md)', () => {
   it("stores and replaces a member's answers in the caller's household", async () => {
     const [member] = await db.insert(schema.householdMembers).values({ householdId, name: 'Jana', role: 'member' }).returning()

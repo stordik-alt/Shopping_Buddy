@@ -10,6 +10,7 @@ import { markMealCookedAction } from '@/app/actions/meal-plan'
 import { markAllNotificationsReadAction, markNotificationReadAction, setNotificationPreferenceAction } from '@/app/actions/notifications'
 import { wantsNotification } from '@/lib/notification-kinds'
 import type { ExpenseSplitPart } from '@/lib/purchase-expenses'
+import { getPeriodExpensesAction } from '@/app/actions/budget'
 import { completePurchaseAction, getPurchaseExpenseItemsAction, recordPurchaseAsExpenseAction, setPurchaseItemExpenseSplitsAction } from '@/app/actions/purchases'
 import { addShoppingItemAction, addShoppingListAction, resolveRecipePackageHintsAction } from '@/app/actions/shopping'
 import { AppHeader } from '@/components/shared/app-header'
@@ -56,13 +57,21 @@ import { useBudget } from '@/components/shell/use-budget'
 import { useBudgetPeriods } from '@/components/shell/use-budget-periods'
 import { PreferredDeals } from '@/components/dashboard/preferred-deals'
 import { BudgetPlanCard, BudgetPlanSheet } from '@/components/budget/budget-plan'
+import { BudgetPlanning } from '@/components/budget/budget-planning'
 import { useHousehold } from '@/components/shell/use-household'
+import { useBudgetLedger } from '@/components/shell/use-budget-ledger'
+import { useBudgetOutlook } from '@/components/shell/use-budget-outlook'
+import { usePeriodHistory } from '@/components/shell/use-period-history'
+import { usePlannedExpenses } from '@/components/shell/use-planned-expenses'
+import { useIncomes } from '@/components/shell/use-incomes'
 import { usePantry } from '@/components/shell/use-pantry'
 import { useReceipts } from '@/components/shell/use-receipts'
 import { useServiceWorker, useTabNavigation, useTheme } from '@/components/shell/use-shell-environment'
 import { useShoppingQueue } from '@/components/shell/use-shopping-queue'
 import { applyPendingOps, newTempId } from '@/lib/offline-queue'
-import { budgetForPeriod, expensesInPeriod, periodStart, spendingByPeriod, totalSpent } from '@/lib/budget'
+import { budgetForPeriod, expensesInPeriod, nextPeriodStart, periodEnd, periodStart, spendingByPeriod, totalSpent } from '@/lib/budget'
+import { pendingCommitments } from '@/lib/budget-forecast'
+import { periodConfigKey, type PeriodConfig } from '@/lib/budget-period'
 import { longDate, thisPeriodTitle } from '@/lib/format'
 import type { HouseholdData, PurchaseAftermath, TickedListItem } from '@/lib/db/queries'
 import { currentWeekStart, markMealCooked as markCooked, todaysMeals, type Ingredient, type MealType } from '@/lib/meal-plans'
@@ -162,11 +171,14 @@ export function AppShell({
   // What a tap on Domů should open inside its tab (lib/focus-target.ts); each screen consumes it once.
   const [focus, setFocus] = useState<FocusTarget | null>(null)
   const clearFocus = useCallback(() => setFocus(null), [])
-  // Which of Rozpočet's two things is shown — the glanceable current state, or the browsable/editable
-  // ledger (which already covers "historie" via its own month picker, so it is not a third view).
-  const [rozpocetView, setRozpocetView] = useState<'stav' | 'vydaje'>('stav')
+  // Which part of Rozpočet is shown (docs/15_BUDGET_PERIODS.md §2): Přehled (the glanceable current
+  // state), Výdaje (the browsable/editable ledger, which also covers history via its period picker) or
+  // Plánování (income and, later, the plan of each period).
+  const [rozpocetView, setRozpocetView] = useState<'stav' | 'vydaje' | 'planovani'>('stav')
   // A finished period chosen in Plán a úspory, opened in Výdaje.
   const [ledgerPeriod, setLedgerPeriod] = useState<string | undefined>(undefined)
+  // Which period Plánování shows: 0 is the running one, n the n-th period ahead (docs/15 §14, §16).
+  const [planningOffset, setPlanningOffset] = useState(0)
   const [planOpen, setPlanOpen] = useState(false)
   const userLocation = useUserLocation()
 
@@ -176,8 +188,8 @@ export function AppShell({
     setItems,
     setNotifications,
   })
-  const { household, pendingInvitations, updateHousehold, addMember, removeMember, setMemberDiet, addChild, removeChild, updatePreferences, inviteMember, revokeInvitation } = useHousehold(initialData)
-  const periods = useBudgetPeriods({ initialData, today, startDay: household.budgetPeriodStartDay, active: tab === 'Rozpočet' })
+  const { household, pendingInvitations, updateHousehold, updateBudgetPeriod, addMember, removeMember, setMemberDiet, addChild, removeChild, updatePreferences, inviteMember, revokeInvitation } = useHousehold(initialData)
+  const periods = useBudgetPeriods({ initialData, today, period: household.budgetPeriod, active: tab === 'Rozpočet' })
   const {
     expenses,
     setExpenses,
@@ -259,17 +271,78 @@ export function AppShell({
   // Only the expenses of the household's current budget period count against it (the calendar month
   // unless the household starts its period on another day), and against that period's own budget when
   // the household set one (docs/15_BUDGET_PERIODS.md).
-  const periodStartDay = household.budgetPeriodStartDay
-  const budget = budgetForPeriod(periodStart(today, periodStartDay), periods.periodBudgets, household.monthlyBudget)
+  const budgetPeriod = household.budgetPeriod
+  const currentPeriodStart = periodStart(today, budgetPeriod)
+  const budget = budgetForPeriod(currentPeriodStart, periods.periodBudgets, household.monthlyBudget)
+  // The period Plánování shows: the running one, or one ahead that is only being planned.
+  let planningStart = currentPeriodStart
+  for (let ahead = 0; ahead < planningOffset; ahead++) planningStart = nextPeriodStart(planningStart, budgetPeriod)
+  const planningActive = tab === 'Rozpočet' && rozpocetView === 'planovani'
+  const incomes = useIncomes({ period: planningStart, until: nextPeriodStart(planningStart, budgetPeriod), active: planningActive })
+  // Kapsy, the carry and the period to close belong to the running period; a period ahead has none yet.
+  const pockets = useBudgetLedger({ period: planningStart, active: planningActive && planningOffset === 0 })
+  const plannedExpenses = usePlannedExpenses({
+    period: planningStart,
+    until: nextPeriodStart(planningStart, budgetPeriod),
+    active: tab === 'Rozpočet' && rozpocetView === 'planovani',
+    // A paid plan is a real expense: Výdaje and the balance see it at once.
+    onPaid: (expense, created) => {
+      setExpenses((current) => [...current, expense].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)))
+      if (created.length > 0) setNotifications((current) => [...current, ...created])
+      periods.expenseDatesChanged([expense.date])
+    },
+  })
+  // History is read again whenever a closing or the period setting changes what it shows.
+  const periodHistory = usePeriodHistory({
+    active: tab === 'Rozpočet' && rozpocetView === 'planovani',
+    reloadKey: `${periodConfigKey(budgetPeriod)}|${currentPeriodStart}|${pockets.ledger?.toClose?.periodStart ?? ''}|${pockets.ledger?.previousClosedStart ?? ''}`,
+  })
+  /** Saves a new budget period, then loads the expenses of the new current period: the page only
+   *  loaded them from the start of the old one, and the new one can begin earlier. */
+  async function changeBudgetPeriod(period: PeriodConfig) {
+    await updateBudgetPeriod(period)
+    // Periods ahead are cut by the old setting; start again from the running one.
+    setPlanningOffset(0)
+    let rows: Awaited<ReturnType<typeof getPeriodExpensesAction>>
+    try {
+      rows = await getPeriodExpensesAction(periodStart(today, period))
+    } catch {
+      throw new Error('Období je uložené, ale výdaje za něj se nepodařilo načíst. Obnovte stránku.')
+    }
+    setExpenses((current) => {
+      const byId = new Map(current.map((expense) => [expense.id, expense]))
+      for (const row of rows) byId.set(row.id, row)
+      return [...byId.values()].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+    })
+  }
   // Výdaje shows past periods from their own copies; an expense on the page wins over a stale copy.
   const ledgerExpenses = useMemo(() => {
     const byId = new Map<string, (typeof expenses)[number]>()
     for (const expense of [...Object.values(periods.pastExpenses).flat(), ...expenses]) byId.set(expense.id, expense)
     return [...byId.values()].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
   }, [periods.pastExpenses, expenses])
-  const historyPeriods = useMemo(() => (periods.history ? [...spendingByPeriod(periods.history, periodStartDay).keys()] : []), [periods.history, periodStartDay])
-  const periodExpenses = useMemo(() => expensesInPeriod(expenses, today, periodStartDay), [expenses, today, periodStartDay])
+  // A period opened from the history may have no expense yet, and the picker should still offer it.
+  const historyPeriods = useMemo(() => {
+    const known = periods.history ? [...spendingByPeriod(periods.history, budgetPeriod).keys()] : []
+    return ledgerPeriod && !known.includes(ledgerPeriod) ? [...known, ledgerPeriod] : known
+  }, [periods.history, budgetPeriod, ledgerPeriod])
+  const periodExpenses = useMemo(() => expensesInPeriod(expenses, today, budgetPeriod), [expenses, today, budgetPeriod])
   const spent = totalSpent(periodExpenses)
+  // The outlook is read again whenever something it is made of changes: the period setting, a budget,
+  // an income, a planned expense, a Kapsa's planned contribution or what was spent.
+  const budgetOutlook = useBudgetOutlook({
+    active: planningActive,
+    reloadKey: [
+      periodConfigKey(budgetPeriod),
+      currentPeriodStart,
+      household.monthlyBudget,
+      JSON.stringify(periods.periodBudgets),
+      spent,
+      (incomes.incomes ?? []).map((row) => `${row.id}:${row.amount}:${row.date}:${row.status}`).join(','),
+      (plannedExpenses.plannedExpenses ?? []).map((row) => `${row.id}:${row.amount}:${row.date}:${row.status}`).join(','),
+      (pockets.ledger?.pockets ?? []).map((pocket) => `${pocket.id}:${pocket.plannedContribution}:${pocket.balance}`).join(','),
+    ].join('|'),
+  })
   const remaining = budget - spent
   const completed = items.filter((item) => item.done).length
 
@@ -535,7 +608,7 @@ export function AppShell({
                   />
                   <DashboardOverview
                     today={today}
-                    periodStartDay={periodStartDay}
+                    period={budgetPeriod}
                     budget={budget}
                     spent={spent}
                     remaining={remaining}
@@ -559,13 +632,13 @@ export function AppShell({
                     onSetBudget={() => setTab('Profil')}
                     afterBudget={
                       // Folded by default: the budget card above already gives the key numbers.
-                                        <CollapsibleSection title="Výdaje podle kategorií" summary={`${thisPeriodTitle(today, periodStartDay)} · utraceno ${spent.toLocaleString('cs-CZ')} Kč`} icon={<PieChart className="size-5" aria-hidden="true" />}>
+                                        <CollapsibleSection title="Výdaje podle kategorií" summary={`${thisPeriodTitle(today, budgetPeriod)} · utraceno ${spent.toLocaleString('cs-CZ')} Kč`} icon={<PieChart className="size-5" aria-hidden="true" />}>
                         <div className="space-y-6">
-                          <SavingsInsight embedded remaining={remaining} today={today} periodStartDay={periodStartDay} />
+                          <SavingsInsight embedded remaining={remaining} today={today} period={budgetPeriod} />
                           <SpendingBreakdown
                             embedded
                             expenses={periodExpenses}
-                            periodTitle={thisPeriodTitle(today, periodStartDay)}
+                            periodTitle={thisPeriodTitle(today, budgetPeriod)}
                             onDetails={() => {
                               setTab('Rozpočet')
                               setRozpocetView('stav')
@@ -782,18 +855,20 @@ export function AppShell({
                     onChange={(view) => {
                       // Výdaje opened by hand starts at the current period again.
                       setLedgerPeriod(undefined)
+                      setPlanningOffset(0)
                       setRozpocetView(view)
                     }}
                     options={[
-                      { value: 'stav', label: 'Aktuální stav' },
+                      { value: 'stav', label: 'Přehled' },
                       { value: 'vydaje', label: 'Výdaje' },
+                      { value: 'planovani', label: 'Plánování' },
                     ]}
                   />
                   {rozpocetView === 'stav' && (
                     <>
                       <BudgetOverview
                         today={today}
-                        periodStartDay={periodStartDay}
+                        period={budgetPeriod}
                         budget={budget}
                         onEditBudget={() => setPlanOpen(true)}
                         spent={spent}
@@ -803,7 +878,7 @@ export function AppShell({
                       />
                       <BudgetPlanCard
                         today={today}
-                        periodStartDay={periodStartDay}
+                        period={budgetPeriod}
                         defaultBudget={household.monthlyBudget}
                         periodBudgets={periods.periodBudgets}
                         savingsGoal={periods.savingsGoal}
@@ -817,7 +892,7 @@ export function AppShell({
                           setRozpocetView('vydaje')
                         }}
                       />
-                      <CategorySnapshot expenses={expenses} today={today} periodStartDay={periodStartDay} limits={categoryBudgets} />
+                      <CategorySnapshot expenses={expenses} today={today} period={budgetPeriod} limits={categoryBudgets} />
                       <RecurringPayments
                         payments={recurringPayments}
                         occurrences={recurringOccurrences}
@@ -840,13 +915,36 @@ export function AppShell({
                       periodError={periods.periodError}
                       onRetryPeriod={periods.retryPeriod}
                       today={today}
-                      periodStartDay={periodStartDay}
+                      period={budgetPeriod}
                       limits={categoryBudgets}
                       onAdd={() => openExpense(null)}
                       onEdit={openExpense}
                       onLimits={() => setLimitsOpen(true)}
                       onLoadItems={(purchaseId, category, subcategory) => getPurchaseExpenseItemsAction(purchaseId, category, subcategory)}
                       onSaveSplits={saveItemSplits}
+                    />
+                  )}
+                  {rozpocetView === 'planovani' && (
+                    <BudgetPlanning
+                      period={planningStart}
+                      periodEnd={periodEnd(planningStart, budgetPeriod)}
+                      today={today}
+                      spent={spent}
+                      incomes={incomes}
+                      pockets={pockets}
+                      history={periodHistory}
+                      plannedExpenses={plannedExpenses}
+                      commitments={pendingCommitments(recurringPayments, recurringOccurrences, planningStart, periodEnd(planningStart, budgetPeriod))}
+                      commitmentsFor={(start) => pendingCommitments(recurringPayments, recurringOccurrences, start, periodEnd(start, budgetPeriod)).reduce((sum, item) => sum + item.amount, 0)}
+                      outlook={budgetOutlook}
+                      offset={planningOffset}
+                      onOffsetChange={setPlanningOffset}
+                      onOpenExpenses={(start) => {
+                        setLedgerPeriod(start)
+                        setRozpocetView('vydaje')
+                      }}
+                      budgetPeriod={budgetPeriod}
+                      onChangePeriod={changeBudgetPeriod}
                     />
                   )}
                 </div>
@@ -911,7 +1009,7 @@ export function AppShell({
         {planOpen && (
           <BudgetPlanSheet
             today={today}
-            periodStartDay={periodStartDay}
+            period={budgetPeriod}
             defaultBudget={household.monthlyBudget}
             periodBudgets={periods.periodBudgets}
             savingsGoal={periods.savingsGoal}

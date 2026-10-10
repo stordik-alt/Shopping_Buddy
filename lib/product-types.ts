@@ -293,7 +293,7 @@ export const PRODUCT_TYPES: ProductTypeDefinition[] = [
   { key: 'detska-kosmetika', name: 'Dětská kosmetika', categories: ['Děti'], subcategory: null, unit: 'ks', rule: { keywords: [' dětská kosmetika', ' detska kosmetika'], headOnly: false } },
   { key: 'detske-prikrmy', name: 'Dětské příkrmy', categories: ['Děti'], subcategory: null, unit: 'ks', rule: { keywords: [' dětské příkrmy', ' detske prikrmy'], headOnly: false } },
   { key: 'detske-kapsicky', name: 'Dětské kapsičky', categories: ['Děti'], subcategory: null, unit: 'ks', rule: { keywords: [' dětské kapsičky', ' detske kapsicky'], headOnly: false } },
-  { key: 'detske-napoje', name: 'Dětské nápoje', categories: ['Děti'], subcategory: null, unit: 'l', rule: { keywords: [' dětské nápoje', ' detske napoje'], headOnly: false } },
+  { key: 'detske-napoje', name: 'Dětské nápoje', categories: ['Děti'], subcategory: 'Dětské nápoje', unit: 'l', rule: { keywords: [' dětské nápoje', ' detske napoje', ' minerální voda', ' pramenitá voda', ' neperliv', ' perliv', ' džus', ' šťáva', ' nektar'], exclude: ['mama', 'sirup', 'pro maminky', 'sušen', 'prášek', 'kašička', 'příkrm'], headOnly: false } },
 ]
 
 export const PRODUCT_TYPE_GROUPS: ProductTypeGroup[] = [
@@ -327,7 +327,9 @@ const COMPILED: CompiledType[] = PRODUCT_TYPES.map((type) => ({
 /** The types a product named `name` in `category` matches — usually none or one; more than one
  *  means the rules cannot tell, and the product gets none (`classifyProductType`). */
 export function matchingProductTypes(category: ItemCategory, name: string): string[] {
-  const normalized = normalizeProductText(name)
+  // A retailer's product code in brackets ("BIO Pomeranče (1000764180)") is no text of the name: its
+  // digits would otherwise match number-like words such as the "100" of a "100 %" juice exclusion.
+  const normalized = normalizeProductText(name.replace(/\(\s*\d{5,}\s*\)/g, ' '))
   const haystack = ` ${normalized} `
   const keys: string[] = []
   for (const type of COMPILED) {

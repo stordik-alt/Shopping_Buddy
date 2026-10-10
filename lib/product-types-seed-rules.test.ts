@@ -207,3 +207,17 @@ describe('kitchen towels vs cleaning cloths', () => {
     expect(classifyProductType('Domácnost', 'Spontex houbové utěrky Natura, 3 ks')).toBe('uterky')
   })
 })
+
+describe('owner decisions 2026-10-10', () => {
+  it('treats HiPP Baby water as a children\'s drink, not as plain water', () => {
+    expect(classifyProductType('Děti', 'HiPP Baby přírodní minerální voda neperlivá 6x1l')).toBe('detske-napoje')
+    expect(classifyProductType('Děti', 'HiPP Baby přírodní minerální voda neperlivá multipack (6×1 l)')).toBe('detske-napoje')
+    expect(classifyProductType('Děti', 'YESs Meloun neperlivá')).toBe('detske-napoje')
+    expect(classifyProductType('Děti', 'HiPP Mama čaj pro kojící maminky')).toBeNull()
+  })
+  it('finds oranges also when the name carries a product code', () => {
+    expect(classifyProductType('Potraviny', 'BIO Pomeranče (1000764180)')).toBe('pomerance')
+    expect(classifyProductType('Potraviny', 'Pomeranče 1kg')).toBe('pomerance')
+    expect(classifyProductType('Potraviny', 'Relax Džus 100% pomeranč 1l')).toBe('dzusy')
+  })
+})

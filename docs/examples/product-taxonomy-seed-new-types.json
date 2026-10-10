@@ -15,21 +15,6 @@
       ]
     },
     {
-      "key": "mlecne-dezerty",
-      "name": "Mléčné dezerty",
-      "category": "Potraviny",
-      "subcategory": "Mléčné výrobky",
-      "unit": "kg",
-      "axis": "druh dezertu",
-      "subtypes": [
-        "Chlazený pudink",
-        "Mléčná rýže",
-        "Tvarohový dezert",
-        "Krémový dezert",
-        "Mléčný řez"
-      ]
-    },
-    {
       "key": "smetanovy-syr",
       "name": "Čerstvý sýr a smetanový sýr",
       "category": "Potraviny",
@@ -73,18 +58,6 @@
         "Strouhaný sýr",
         "Plátkový sýr",
         "Sýr v kostičkách"
-      ]
-    },
-    {
-      "key": "mleko-kozi-ovci",
-      "name": "Kozí a ovčí mléko",
-      "category": "Potraviny",
-      "subcategory": "Mléčné výrobky",
-      "unit": "l",
-      "axis": "druh zvířete",
-      "subtypes": [
-        "Kozí mléko",
-        "Ovčí mléko"
       ]
     },
     {
@@ -266,24 +239,6 @@
         "Třešně a višně",
         "Meruňky",
         "Kdoule a mišpule"
-      ]
-    },
-    {
-      "key": "ovoce-exoticke",
-      "name": "Exotické ovoce",
-      "category": "Potraviny",
-      "subcategory": "Ovoce a zelenina",
-      "unit": "kg",
-      "axis": "druh ovoce",
-      "subtypes": [
-        "Ananas",
-        "Mango",
-        "Kiwi",
-        "Papája a liči",
-        "Datle a fíky",
-        "Granátové jablko",
-        "Meloun",
-        "Maracuja a dračí ovoce"
       ]
     },
     {
@@ -509,22 +464,6 @@
       ]
     },
     {
-      "key": "smesi-na-peceni",
-      "name": "Směsi a polotovary na pečení",
-      "category": "Potraviny",
-      "subcategory": "Mouka a pečení",
-      "unit": "kg",
-      "axis": "hotový výrobek ze směsi",
-      "subtypes": [
-        "Směs na bábovku a koláč",
-        "Směs na palačinky",
-        "Pudinkový prášek",
-        "Těsto listové a křehké",
-        "Knedlíky v prášku",
-        "Strouhanka"
-      ]
-    },
-    {
       "key": "sladidla-sirupy",
       "name": "Sladidla a sirupy",
       "category": "Potraviny",
@@ -538,20 +477,6 @@
         "Erythritol a xylitol",
         "Stévie",
         "Umělá sladidla"
-      ]
-    },
-    {
-      "key": "likery",
-      "name": "Likéry",
-      "category": "Potraviny",
-      "subcategory": "Alkoholické nápoje",
-      "unit": "l",
-      "axis": "základní příchuť likéru",
-      "subtypes": [
-        "Krémový likér",
-        "Ovocný likér",
-        "Bylinný likér",
-        "Ořechový a kávový likér"
       ]
     },
     {
@@ -583,20 +508,6 @@
         "Balsamico",
         "Rýžový ocet",
         "Citronová šťáva"
-      ]
-    },
-    {
-      "key": "vyvary-bujony",
-      "name": "Vývary a bujóny",
-      "category": "Potraviny",
-      "subcategory": "Omáčky a dochucovadla",
-      "unit": "kg",
-      "axis": "forma vývaru",
-      "subtypes": [
-        "Bujón kostky",
-        "Tekutý vývar",
-        "Vegeta a dochucovadlo",
-        "Instantní polévka"
       ]
     },
     {
@@ -646,18 +557,6 @@
         "Brusinky sušené",
         "Kokos sušený",
         "Sušená jablka a banány"
-      ]
-    },
-    {
-      "key": "voda-ochucena",
-      "name": "Ochucená voda",
-      "category": "Potraviny",
-      "subcategory": "Nápoje",
-      "unit": "l",
-      "axis": "sycení a příchuť",
-      "subtypes": [
-        "Ochucená voda neperlivá",
-        "Ochucená voda perlivá"
       ]
     },
     {
@@ -725,20 +624,6 @@
         "Bramborová kaše v prášku",
         "Rizoto a těstoviny v sáčku",
         "Hotová jídla v pouzdře"
-      ]
-    },
-    {
-      "key": "praci-kapsle",
-      "name": "Prací kapsle",
-      "category": "Drogerie",
-      "subcategory": "Praní",
-      "unit": "ks",
-      "axis": "určení kapslí",
-      "subtypes": [
-        "Prací kapsle univerzální",
-        "Prací kapsle na barevné",
-        "Prací kapsle na černé",
-        "Prací kapsle hypoalergenní"
       ]
     },
     {
@@ -845,38 +730,6 @@
         "Olej na tělo",
         "Peeling",
         "Sprej proti slunci"
-      ]
-    },
-    {
-      "key": "parfemy",
-      "name": "Parfémy a vůně",
-      "category": "Drogerie",
-      "subcategory": "Kosmetika",
-      "unit": "ks",
-      "axis": "forma vůně",
-      "subtypes": [
-        "Parfémová voda",
-        "Toaletní voda",
-        "Tělový sprej"
-      ]
-    },
-    {
-      "key": "vitaminy-doplnky",
-      "name": "Vitamíny a doplňky stravy",
-      "category": "Drogerie",
-      "subcategory": "Zdraví a doplňky stravy",
-      "unit": "ks",
-      "axis": "účel doplňku",
-      "subtypes": [
-        "Multivitamín",
-        "Vitamín C",
-        "Vitamín D",
-        "Hořčík a minerály",
-        "Probiotika",
-        "Omega-3",
-        "Kloubní výživa",
-        "Proteiny a sportovní výživa",
-        "Bylinné doplňky"
       ]
     },
     {
@@ -1057,21 +910,6 @@
         "Příkrm s obilovinou",
         "Mléčný příkrm",
         "Večerní příkrm"
-      ]
-    },
-    {
-      "key": "detske-kase",
-      "name": "Dětské kaše a cereálie",
-      "category": "Děti",
-      "subcategory": "Kaše a cereálie",
-      "unit": "kg",
-      "axis": "typ kaše",
-      "subtypes": [
-        "Mléčná kaše",
-        "Nemléčná kaše",
-        "Obilná kaše",
-        "Ovocná kaše",
-        "Dětské cereálie"
       ]
     },
     {

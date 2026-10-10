@@ -302,3 +302,10 @@ Další krok „registry-first“ bootstrapu: místo exportu dat pro GPT-6 Lunu 
 - Pravidla byla změřena read-only na reálném katalogu (56 088 produktů) a laděna podle nalezených chyb (značky s prefixem názvu typu – Cajthaml, Makovec; `Salame` pizza; kroužky/shoty s kořením; příslušenství k mýdlu a kartáčku). Po úpravě mají typ 19 445 produktů (z 12 456 před seed dávkami), tj. ~35 %.
 - Pozor na skládání diakritiky v pravidlech: prefix `čaj` chytá `Cajthaml`, `koláč` chytá `Koláčkova`, `vino` chytá `Vinohradský`. Klíčová slova se píší jako celá slova (s mezerou) a značky se vylučují.
 - Roll-out: `pnpm db:apply-product-types-batch` (`scripts/apply-product-types-batch.ts`). Ve výchozím stavu dry-run se souhrnem a reportem v `.tmp/`; zápis vyžaduje `--apply --confirm-host=<host z DATABASE_URL>`, kontrolu, že všechny typy z kódu existují v `product_types`, limit odebrání (`--max-removals`, výchozí 150), zálohu změn a `--rollback=<záloha>`. Typy nastavené člověkem ani potvrzenou účtenkou se nikdy nemění.
+
+### Dávky 8–15 (2026-10-10)
+
+- Navazuje na dávky 2–7: dalších 63 typů v `lib/product-types.ts` a migrace `0092` (insert-only). Seznam, důvody a měření jsou v `docs/07_CHANGELOG.md`; poddruhy jsou v `lib/product-taxonomy-seed/davky-8-15.ts`.
+- Postup, který se osvědčil a platí i pro další dávky: (1) read-only analýza zbytku bez typu, (2) pravidla v kódu, (3) měření na katalogu podle pravidel (nepotřebuje řádky v `product_types`), (4) alespoň dvě kola vzorků a oprava falešných zásahů s regresním testem, (5) migrace typů, (6) PR, (7) po nasazení dry-run a `pnpm db:apply-product-types-batch --apply --confirm-host=<host>`.
+- Nejčastější zdroje falešných zásahů: značky s prefixem názvu typu (Cajthaml, Makovec, Pršutérie, Monstera, Fantasia), vlastnost místo produktu (ochucení, náplň), příslušenství (držák, box, pouzdro) a polotovary (směs, těsto, prášek). Normalizace skládá diakritiku (`želé`→`zele`, `hořká`→`horka`), proto se rizikové výrazy píší s mezerou.
+- Pravidlo ,,název vyhovující dvěma typům nedostane žádný" platí dál: po dávkách 8–15 zbývá 18 takových kolizí z 56 103 produktů.

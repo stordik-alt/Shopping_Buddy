@@ -168,3 +168,56 @@ describe('batches 2–7', () => {
     expect(classifyProductType(category, name)).toBe(type)
   })
 })
+
+// Older types whose rules let false positives through; found reviewing the dry run before the first apply.
+const OLDER_TYPES: [ItemCategory, string, string | null][] = [
+  ['Potraviny', 'Kotányi Muškátový ořech celý', null],
+  ['Potraviny', 'Ořechový sýr', null],
+  ['Potraviny', 'Farma Těšany Těšanský sýr ořechový', null],
+  ['Potraviny', 'Pekárna Kabát Ořechový chléb', 'chleb'],
+  ['Potraviny', 'Koláčkova pekárna BIO Ořechový chléb střední', 'chleb'],
+  ['Potraviny', 'Hovězí ořech', 'hovezi-zadni'],
+  ['Potraviny', 'Pršutérie Chovaneček Hovězí ořech', 'hovezi-zadni'],
+  ['Potraviny', 'Président Brie ořechový', 'hermelin'],
+  ['Potraviny', 'VÁŠ VÝBĚR Pekanové ořechy 200 g', 'orechy'],
+  ['Potraviny', 'dmBio bio lískové ořechy, 200 g', 'orechy'],
+  ['Potraviny', 'Nutella Pomazánka s lískovými ořechy a kakaem 1000g', null],
+  ['Potraviny', 'Helios Pomazánka jahodová', null],
+  ['Potraviny', 'Gurmán Klub Topinková pomazánka', 'pomazanky'],
+  ['Potraviny', 'Nowaco Pomazánka à la krab', 'pomazanky'],
+  ['Potraviny', 'Bonavita Mini topinky hořčice', null],
+  ['Potraviny', 'Hellmann\'s Dressing med/hořčice', null],
+  ['Potraviny', 'Haas Hořčice plnotučná', 'horcice'],
+  ['Potraviny', 'Pribináček Kakao', null],
+  ['Potraviny', 'Nesquik instantní kakao', 'kakao'],
+  ['Potraviny', 'Odkolek Slovanské semínko krájený', null],
+  ['Potraviny', 'clever Sezamová semínka 70g', 'seminka'],
+  ['Potraviny', 'Knorr těstoviny Tomato Mozzarella 72g', null],
+]
+
+describe('older types, false positives from the dry run', () => {
+  it.each(OLDER_TYPES)('%s: %s → %s', (category, name, type) => {
+    expect(classifyProductType(category, name)).toBe(type)
+  })
+})
+
+describe('kitchen towels vs cleaning cloths', () => {
+  it('keeps "kuchyňské utěrky" in its own type in both categories', () => {
+    expect(classifyProductType('Domácnost', 'Profissimo kuchyňské utěrky 2 v 1, 5 ks')).toBe('kuchynske-uterky')
+    expect(classifyProductType('Domácnost', 'Spontex houbové utěrky Natura, 3 ks')).toBe('uterky')
+  })
+})
+
+describe('owner decisions 2026-10-10', () => {
+  it('treats HiPP Baby water as a children\'s drink, not as plain water', () => {
+    expect(classifyProductType('Děti', 'HiPP Baby přírodní minerální voda neperlivá 6x1l')).toBe('detske-napoje')
+    expect(classifyProductType('Děti', 'HiPP Baby přírodní minerální voda neperlivá multipack (6×1 l)')).toBe('detske-napoje')
+    expect(classifyProductType('Děti', 'YESs Meloun neperlivá')).toBe('detske-napoje')
+    expect(classifyProductType('Děti', 'HiPP Mama čaj pro kojící maminky')).toBeNull()
+  })
+  it('finds oranges also when the name carries a product code', () => {
+    expect(classifyProductType('Potraviny', 'BIO Pomeranče (1000764180)')).toBe('pomerance')
+    expect(classifyProductType('Potraviny', 'Pomeranče 1kg')).toBe('pomerance')
+    expect(classifyProductType('Potraviny', 'Relax Džus 100% pomeranč 1l')).toBe('dzusy')
+  })
+})

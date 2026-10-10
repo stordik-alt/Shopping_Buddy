@@ -8,9 +8,11 @@
 //  - At most `maxStores` stores. A basket split over many stores is not wanted, so the limit is real.
 //  - The plan is the cheapest way to buy the items in at most that many stores. An item that no
 //    chosen store offers is reported, never priced with a made-up number.
-//  - Priority stores are preferred until the price difference is large: among plans within a small
-//    tolerance of the cheapest, the one using the most priority stores wins, then the one with fewer
-//    stores (no trip for a few crowns), then the cheaper. Beyond the tolerance price decides.
+//  - Priority stores are strict (owner decision 2026-10-10, replacing the earlier soft tolerance):
+//    among plans covering the most items, the one using the most priority stores wins whatever it
+//    costs, and a chosen priority store takes every item it sells. Other stores only fill what the
+//    priority stores lack. Within that, a plan with fewer stores wins if it costs only a little more
+//    (the tolerance below), then the cheaper.
 //  - For every item the plan says what it would cost at the other stores, so the saving of buying it
 //    here rather than there is visible.
 
@@ -148,6 +150,9 @@ export function planShopping(needs: PlanNeed[], offers: PlanOffer[], settings: P
   }
 
   const priority = new Set(settings.priorityStoreIds.filter((id) => chainOf.has(id)))
+  // A priority store that offers none of the items cannot be used; say so instead of dropping it silently.
+  const unusablePriority = settings.priorityStoreIds.filter((id) => allowed.has(id) && !chainOf.has(id))
+  if (unusablePriority.length > 0) notes.push('Některý prioritní obchod nenabízí žádnou z položek, proto nebyl v plánu použit.')
   // Candidate stores: those that offer anything; over the cap, priority stores first, then the ones
   // that cover the most needs, then by id for a stable order.
   const coverageOf = (storeId: string) => needs.filter((need) => best.get(need.id)?.has(storeId)).length
@@ -164,12 +169,17 @@ export function planShopping(needs: PlanNeed[], offers: PlanOffer[], settings: P
   if (!Number.isFinite(requested) || requested < 1) notes.push('Počet obchodů musí být alespoň 1, použit byl 1 obchod.')
   const maxStores = Math.min(Math.max(Number.isFinite(requested) ? requested : 1, 1), Math.max(candidates.length, 1))
 
-  const evaluate = (storeIds: string[]): Evaluation => {
+  const evaluate = (storeIds: string[], priorityFirst = true): Evaluation => {
     const picks = new Map<string, PlanOffer>()
     let cost = 0
+    // A chosen priority store has first claim on every item it sells; only items none of them
+    // sells go to the cheapest of the other chosen stores. `priorityFirst = false` gives the plain
+    // cheapest split, used only as the baseline for `costOfPriority`.
+    const chosenPriority = priorityFirst ? storeIds.filter((id) => priority.has(id)) : []
     for (const need of needs) {
       let pick: PlanOffer | undefined
-      for (const storeId of storeIds) {
+      const sellers = chosenPriority.filter((id) => best.get(need.id)?.has(id))
+      for (const storeId of sellers.length > 0 ? sellers : storeIds) {
         const offer = best.get(need.id)?.get(storeId)
         if (offer && (!pick || offer.cost < pick.cost || (offer.cost === pick.cost && offer.storeId < pick.storeId))) pick = offer
       }
@@ -205,19 +215,18 @@ export function planShopping(needs: PlanNeed[], offers: PlanOffer[], settings: P
     b.covered - a.covered || a.cost - b.cost || a.storeIds.length - b.storeIds.length || a.storeIds.join('|').localeCompare(b.storeIds.join('|'))
   const cheapest = [...evaluations].sort(compareCheapest)[0]
 
-  // Among plans that cover as much and cost at most a little more, prefer priority stores, then
-  // fewer stores, then the cheaper one.
-  const window = Math.max(tolerance.absolute, tolerance.relative * cheapest.cost)
+  // Priority is strict: among plans that cover as much, those using the most priority stores win
+  // regardless of price (the user chose these stores). Within that group the cheapest plan is the
+  // baseline, and a plan with fewer stores wins when it costs only a little more (no extra trip
+  // for a few crowns); then the cheaper one.
   const priorityCount = (evaluation: Evaluation) => evaluation.storeIds.filter((id) => priority.has(id)).length
-  const chosen = [...evaluations]
-    .filter((evaluation) => evaluation.covered === cheapest.covered && evaluation.cost <= cheapest.cost + window + 1e-9)
-    .sort(
-      (a, b) =>
-        priorityCount(b) - priorityCount(a) ||
-        a.storeIds.length - b.storeIds.length ||
-        a.cost - b.cost ||
-        a.storeIds.join('|').localeCompare(b.storeIds.join('|')),
-    )[0]
+  const covering = evaluations.filter((evaluation) => evaluation.covered === cheapest.covered)
+  const mostPriority = Math.max(...covering.map(priorityCount))
+  const group = covering.filter((evaluation) => priorityCount(evaluation) === mostPriority).sort(compareCheapest)
+  const window = Math.max(tolerance.absolute, tolerance.relative * group[0].cost)
+  const chosen = group
+    .filter((evaluation) => evaluation.cost <= group[0].cost + window + 1e-9)
+    .sort((a, b) => a.storeIds.length - b.storeIds.length || a.cost - b.cost || a.storeIds.join('|').localeCompare(b.storeIds.join('|')))[0]
 
   // Stores actually used (a chosen store that ends up with no items is not a trip).
   const usedStoreIds = [...new Set([...chosen.picks.values()].map((offer) => offer.storeId))]
@@ -297,7 +306,8 @@ export function planShopping(needs: PlanNeed[], offers: PlanOffer[], settings: P
     savingVsSingleStore: bestSingleStore && bestSingleStore.coveredCount === chosen.covered ? cents(bestSingleStore.total - total) : null,
     cheapestPossible: { total: cents(floorTotal), storeCount: floorStores.size },
     costOfStoreLimit: Math.max(0, cents(total - floorTotal)),
-    costOfPriority: Math.max(0, cents(total - cheapest.cost)),
+    // Against the cheapest plan that ignores priority (same item coverage).
+    costOfPriority: Math.max(0, cents(total - [...evaluations].map((evaluation) => evaluate(evaluation.storeIds, false)).sort(compareCheapest)[0].cost)),
     notes,
   }
 }

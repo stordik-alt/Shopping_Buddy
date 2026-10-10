@@ -191,11 +191,11 @@ describe('buildShoppingPlanAction', () => {
     expect(result.plan.total).toBe(60)
   })
 
-  it('prefers a priority store when it costs only a little more', async () => {
+  it('uses a priority store even when it costs much more (strict priority)', async () => {
     const lidl = await addProduct(`Čaj ${tag} l`)
     const albert = await addProduct(`Čaj ${tag} a`)
     await addPrice(lidl, lidlId, 100, 100, 'ks')
-    await addPrice(albert, albertId, 103, 103, 'ks')
+    await addPrice(albert, albertId, 130, 130, 'ks')
     await addItem(`caj ${tag}`, 1, 'ks')
 
     const plain = (await buildShoppingPlanAction({ maxStores: 1, priorityChainIds: [] })).plan
@@ -203,7 +203,7 @@ describe('buildShoppingPlanAction', () => {
     const preferred = (await buildShoppingPlanAction({ maxStores: 1, priorityChainIds: [albertId] })).plan
     expect(preferred.stores[0].chain).toBe('Albert')
     expect(preferred.stores[0].isPriority).toBe(true)
-    expect(preferred.costOfPriority).toBe(3)
+    expect(preferred.costOfPriority).toBe(30)
   })
 
   it('reports an item that cannot be priced anywhere instead of inventing a price', async () => {

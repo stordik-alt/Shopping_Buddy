@@ -133,20 +133,34 @@ describe('priority stores', () => {
   ]
   const three = [need('x'), need('y'), need('z')]
 
-  it('prefers a priority store when it costs only a little more', () => {
-    // Cheapest: lidl(x=10) + albert(y=10) + z at albert 90 = 110 ... billa is needed for z=13:
-    // the cheapest 2-store plan is lidl+billa: x 10, y 90, z 13 = 113? compute below through the API instead.
-    const cheapest = planShopping(three, close, settings({ maxStores: 2 }))
-    const withPriority = planShopping(three, close, settings({ maxStores: 2, priorityStoreIds: ['albert'] }))
-    expect(withPriority.total - cheapest.total).toBeLessThanOrEqual(5 + 1e-9)
-    expect(withPriority.costOfPriority).toBe(Math.max(0, withPriority.total - cheapest.total))
+  it('a priority store takes every item it sells, even where another chosen store is cheaper', () => {
+    const plan = planShopping(three, close, settings({ maxStores: 2, priorityStoreIds: ['albert'] }))
+    expect(storeIds(plan)).toContain('albert')
+    const albert = plan.stores.find((store) => store.storeId === 'albert')!
+    expect(albert.lines.map((line) => line.needId).sort()).toEqual(['x', 'y', 'z'])
+    expect(plan.total).toBe(190)
+    expect(plan.costOfPriority).toBe(plan.total - planShopping(three, close, settings({ maxStores: 2 })).total)
   })
 
-  it('does not prefer a priority store once it costs more than the tolerance', () => {
+  it('wins whatever the price difference (the user chose this store)', () => {
     const dear: PlanOffer[] = [offer('x', 'lidl', 10), offer('x', 'albert', 40), offer('y', 'lidl', 10), offer('y', 'albert', 40)]
     const plan = planShopping([need('x'), need('y')], dear, settings({ maxStores: 1, priorityStoreIds: ['albert'] }))
-    expect(storeIds(plan)).toEqual(['lidl'])
-    expect(plan.costOfPriority).toBe(0)
+    expect(storeIds(plan)).toEqual(['albert'])
+    expect(plan.total).toBe(80)
+    expect(plan.costOfPriority).toBe(60)
+  })
+
+  it('other stores only fill what the priority store does not sell, at their cheapest', () => {
+    const mixed: PlanOffer[] = [offer('x', 'albert', 40), offer('x', 'lidl', 10), offer('y', 'lidl', 20), offer('y', 'billa', 15)]
+    const plan = planShopping([need('x'), need('y')], mixed, settings({ maxStores: 2, priorityStoreIds: ['albert'] }))
+    const lineOf = (needId: string) => plan.stores.flatMap((store) => store.lines).find((line) => line.needId === needId)!
+    expect(lineOf('x').storeId).toBe('albert')
+    expect(lineOf('y').storeId).toBe('billa')
+  })
+
+  it('does not exceed the store limit because of priority stores', () => {
+    const plan = planShopping(needs, offers, settings({ maxStores: 1, priorityStoreIds: ['lidl', 'albert'] }))
+    expect(plan.stores).toHaveLength(1)
   })
 
   it('takes a priority store within the tolerance, and says what that costs', () => {
@@ -158,24 +172,11 @@ describe('priority stores', () => {
     expect(plan.stores[0].isPriority).toBe(true)
   })
 
-  it('the tolerance is the larger of 5 Kč and 3 % of the cheapest total', () => {
-    // 3 % of 1 000 Kč is 30 Kč: 25 Kč dearer is still within the tolerance ...
-    const big: PlanOffer[] = [offer('x', 'lidl', 1000), offer('x', 'albert', 1025)]
-    expect(storeIds(planShopping([need('x')], big, settings({ maxStores: 1, priorityStoreIds: ['albert'] })))).toEqual(['albert'])
-    // ... 35 Kč dearer is not.
-    const over: PlanOffer[] = [offer('x', 'lidl', 1000), offer('x', 'albert', 1035)]
-    expect(storeIds(planShopping([need('x')], over, settings({ maxStores: 1, priorityStoreIds: ['albert'] })))).toEqual(['lidl'])
-  })
-
-  it('accepts a custom tolerance', () => {
-    const near: PlanOffer[] = [offer('x', 'lidl', 100), offer('x', 'albert', 103)]
-    const strict = planShopping([need('x')], near, settings({ maxStores: 1, priorityStoreIds: ['albert'], tolerance: { absolute: 0, relative: 0 } }))
-    expect(storeIds(strict)).toEqual(['lidl'])
-  })
-
-  it('ignores a priority store that is not allowed or offers nothing', () => {
-    const plan = planShopping(needs, offers, settings({ maxStores: 1, priorityStoreIds: ['dm', 'nowhere'] }))
+  it('ignores a priority store that is not allowed or offers nothing, and says so when it is allowed', () => {
+    const plan = planShopping(needs, offers, settings({ maxStores: 1, priorityStoreIds: ['dm', 'nowhere'], allowedStoreIds: ['lidl', 'albert', 'billa', 'dm'] }))
     expect(plan.stores.every((store) => !store.isPriority)).toBe(true)
+    expect(plan.notes.join(' ')).toContain('prioritní obchod')
+    expect(planShopping(needs, offers, settings({ maxStores: 1, priorityStoreIds: ['nowhere'] })).notes).toEqual([])
   })
 
   it('with several priority stores, uses as many of them as fit in the limit', () => {
@@ -184,7 +185,7 @@ describe('priority stores', () => {
       offer('y', 'lidl', 10), offer('y', 'albert', 11), offer('y', 'billa', 11),
     ]
     const plan = planShopping([need('x'), need('y')], two, settings({ maxStores: 2, priorityStoreIds: ['albert', 'billa'] }))
-    // Within the tolerance of the cheapest (Lidl only, 20 Kč), the plan that uses the most priority stores wins.
+    // The plan that uses the most priority stores wins, although Lidl alone is cheaper.
     expect(storeIds(plan).every((id) => ['albert', 'billa'].includes(id))).toBe(true)
   })
 })

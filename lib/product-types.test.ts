@@ -107,7 +107,7 @@ const GOLDEN: [string, string | null][] = [
   ['BORŮVKY 250G', 'boruvky'],
   ['Maliny 200 g', 'maliny'],
   ['Avokádo Hass "ready to eat", 1 ks', 'avokado'],
-  ['Avokádo Kmín celý 30g', null],
+  ['Avokádo Kmín celý 30g', 'koreni'],
   ['Cherry rajčata Sweetele, vanička', 'rajcata'],
   ['Mutti Rajčatový protlak v tubě zahuštěný', null],
   ['Okurka hadovka 1 ks', 'okurky'],
@@ -131,7 +131,7 @@ const GOLDEN: [string, string | null][] = [
   ['Čerstvé houby hlíva 250 g', 'houby'],
   ['Sušené houby směs 20 g', null],
   ['Kapsle na praní Ariel 20 ks', null],
-  ['Mirinda Mango Tangerine', null],
+  ['Mirinda Mango Tangerine', 'limonady'],
   // Kuřecí maso (owner: every raw part, marinated, minced and offal included; no products)
   ['Kuřecí prsní řízky', 'kureci-prsa'],
   ['Kuř.prsní řízky', 'kureci-prsa'],

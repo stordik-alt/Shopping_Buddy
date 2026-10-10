@@ -157,7 +157,7 @@ export const POTRAVINY_TRVANLIVE: SeedType[] = [
     ['Dresink', 'dresingy na salát, caesar, vinaigrette'],
     ['Veganská majonéza', 'majonéza bez vajec'],
   ]),
-  nw('omacky-hotove', 'Hotové omáčky', P, 'Omáčky a dochucovadla', 'kg', 'druh omáčky', [
+  ex('omacky-hotove', 'Hotové omáčky', P, 'Omáčky a dochucovadla', 'kg', 'druh omáčky', [
     ['Rajčatová omáčka', 'omáčka na těstoviny, arrabbiata, bolognese hotová'],
     ['Smetanová omáčka', 'omáčka carbonara, alfredo, bílé omáčky'],
     ['Pesto', 'pesto bazalkové, rajčatové, rukolové'],
@@ -181,7 +181,7 @@ export const POTRAVINY_TRVANLIVE: SeedType[] = [
     ['Sůl s příchutí', 'česneková, bylinková, uzená sůl'],
     ['Sůl na ubrousky', 'solící směsi, solnička'],
   ]),
-  nw('koreni', 'Koření a koření směsi', P, 'Koření a bylinky', 'kg', 'forma koření', [
+  ex('koreni', 'Koření a koření směsi', P, 'Koření a bylinky', 'kg', 'forma koření', [
     ['Pepř', 'pepř černý, bílý, růžový, celý i mletý'],
     ['Paprika mletá', 'sladká, pálivá, uzená mletá paprika'],
     ['Bylinky sušené', 'majoránka, oregano, bazalka, tymián, petržel sušená'],
@@ -251,7 +251,7 @@ export const POTRAVINY_TRVANLIVE: SeedType[] = [
     ['Bílá čokoláda', 'bílá čokoláda'],
     ['Čokoláda s přísadami nebo náplní', 'tabulka s ořechy, rozinkami, karamelem nebo krémovou náplní', 'čokoládová tyčinka v samostatném obalu'],
   ]),
-  nw('bonbony-zvykaci', 'Bonbóny, žvýkačky a cukrovinky', P, 'Sladkosti', 'kg', 'druh cukrovinky', [
+  ex('bonbony-zvykaci', 'Bonbóny, žvýkačky a cukrovinky', P, 'Sladkosti', 'kg', 'druh cukrovinky', [
     ['Gumové bonbóny', 'gumoví medvídci, ovocné gumy'],
     ['Tvrdé bonbóny', 'drops, tvrdé bonbóny, mentolové'],
     ['Žvýkačky', 'žvýkačky bez cukru i s cukrem'],
@@ -261,7 +261,7 @@ export const POTRAVINY_TRVANLIVE: SeedType[] = [
     ['Pastilky a dražé', 'dražé, drážované, pastilky'],
     ['Marshmallow a želé', 'marshmallow, žvýkací želé, turecký med'],
   ]),
-  nw('susenky-oplatky', 'Sušenky a oplatky', P, 'Sladkosti', 'kg', 'druh sušenky', [
+  ex('susenky-oplatky', 'Sušenky a oplatky', P, 'Sladkosti', 'kg', 'druh sušenky', [
     ['Máslové sušenky', 'máslové a jednoduché sušenky'],
     ['Čokoládové sušenky', 'sušenky s čokoládou nebo polevou'],
     ['Plněné sušenky', 'sušenky plněné krémem'],
@@ -271,14 +271,14 @@ export const POTRAVINY_TRVANLIVE: SeedType[] = [
     ['Trvanlivé řezy', 'oplatky plněné, trvanlivé řezy a dortíky v balení'],
     ['Dortíky a koláčky balené', 'dortíky, mini koláčky, trvanlivé pečivo balené'],
   ]),
-  nw('tycinky-sladke', 'Tyčinky a zdravé sladkosti', P, 'Sladkosti', 'kg', 'druh tyčinky', [
+  ex('tycinky-sladke', 'Tyčinky a zdravé sladkosti', P, 'Sladkosti', 'kg', 'druh tyčinky', [
     ['Čokoládová tyčinka', 'mléčná čokoládová tyčinka s plnou náplní'],
     ['Müsli tyčinka', 'tyčinka z ovesných vloček'],
     ['Proteinová tyčinka', 'tyčinka s přidanými bílkovinami'],
     ['Ovocná tyčinka', 'tyčinka z ovoce a ořechů'],
     ['Rýžový a kukuřičný chlebíček', 'plochý křupavý chlebíček z pufované rýže nebo kukuřice'],
   ]),
-  nw('zmrzliny', 'Zmrzliny a mražené dezerty', P, 'Mražené potraviny', 'l', 'forma zmrzliny', [
+  ex('zmrzliny', 'Zmrzliny a mražené dezerty', P, 'Mražené potraviny', 'l', 'forma zmrzliny', [
     ['Zmrzlina v kelímku', 'zmrzlina v kelímku nebo vaničce'],
     ['Nanuk', 'nanuky, zmrzlina na špejli'],
     ['Zmrzlinový kornout', 'zmrzlina v kornoutu nebo oplatce'],
@@ -336,7 +336,7 @@ export const POTRAVINY_TRVANLIVE: SeedType[] = [
     ['Ochucená voda neperlivá', 'neperlivá voda s příchutí'],
     ['Ochucená voda perlivá', 'perlivá voda s příchutí'],
   ]),
-  nw('limonady', 'Limonády a nealkoholické nápoje', P, 'Nápoje', 'l', 'druh sladkého nápoje', [
+  ex('limonady', 'Limonády a nealkoholické nápoje', P, 'Nápoje', 'l', 'druh sladkého nápoje', [
     ['Kolový nápoj', 'cola, zero cola'],
     ['Ovocná limonáda', 'pomerančová, citronová limonáda'],
     ['Tonic a ginger ale', 'tonic, bitter lemon, ginger ale'],
@@ -346,14 +346,19 @@ export const POTRAVINY_TRVANLIVE: SeedType[] = [
     ['Sirup', 'koncentrovaný ovocný sirup'],
     ['Nápoj bez cukru', 'light, zero, sladidla'],
   ]),
-  nw('dzusy', 'Džusy a ovocné šťávy', P, 'Nápoje', 'l', 'podíl ovoce a druh', [
+  ex('sirupy', 'Sirupy', P, 'Nápoje', 'l', 'určení sirupu', [
+    ['Ovocný sirup', 'koncentrovaný ovocný sirup k ředění'],
+    ['Bylinný a květový sirup', 'bezový, mátový, levandulový sirup'],
+    ['Sirup bez cukru', 'sirup se sladidly bez cukru'],
+  ]),
+  ex('dzusy', 'Džusy a ovocné šťávy', P, 'Nápoje', 'l', 'podíl ovoce a druh', [
     ['Džus 100 %', 'přímo lisovaná šťáva, 100 % ovoce'],
     ['Nektar', 'ovocný nektar s nižším obsahem ovoce'],
     ['Zeleninová šťáva', 'rajčatový, mrkvový džus'],
     ['Ovocný nápoj', 'ovocný nápoj se sníženým podílem ovoce'],
     ['Smoothie', 'smoothie, ovocné pyré k pití'],
   ]),
-  nw('nahrazky-mleka-rostlinne', 'Rostlinné nápoje', P, 'Rostlinné alternativy', 'l', 'základní surovina', [
+  ex('nahrazky-mleka-rostlinne', 'Rostlinné nápoje', P, 'Rostlinné alternativy', 'l', 'základní surovina', [
     ['Ovesný nápoj', 'ovesné mléko'],
     ['Sójový nápoj', 'sójové mléko'],
     ['Mandlový nápoj', 'mandlové mléko'],

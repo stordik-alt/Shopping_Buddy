@@ -55,7 +55,8 @@ describe('product taxonomy seed proposal', () => {
 
   it('is broad: covers every item category and many new types', () => {
     expect(new Set(PRODUCT_TAXONOMY_SEED.map((type) => type.category))).toEqual(new Set(['Potraviny', 'Drogerie', 'Domácnost', 'Děti', 'Ostatní']))
-    expect(newSeedTypes().length).toBeGreaterThan(80)
+    expect(newSeedTypes().length).toBeGreaterThan(60)
+    expect(PRODUCT_TAXONOMY_SEED.length).toBeGreaterThan(150)
     expect(buildSeedSubtypeCandidates().length).toBeGreaterThan(450)
   })
 })

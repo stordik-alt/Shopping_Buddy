@@ -1,3 +1,8 @@
+## 2026-10-10 — Opravy pravidel po dry-runu nasazených dávek 8–15
+
+- Dry-run po nasazení (PR #415) ukázal 37 odebraných typů; většinu způsobila nová pravidla: vyloučení „merci“ odebíralo typ tabulkové čokoládě Merci (14×), `grissini` kolidovaly s kořením (rozmarýn), „Ice Tea“ sirup s ledovým čajem, Birell Energy s limonádou, perníčková směs se sušenkami, pivo „Vývar“ s vývary, polévkový chléb s polévkami, kuřecí skelet na vývar, Magnesia Go/Plus a ochucená pramenitá voda s ochucenou vodou, odlakovač s dekorativní kosmetikou, pleťová séra a krémy „po opalování“ s péčí o pleť a make-up s vitamíny.
+- Pravidla upravena, každý případ je test v `lib/product-types-seed-rules.test.ts` (595 testů v dotčených souborech prochází, `tsc` čistý). Dry-run po opravě: nově 8 833, změna typu 83, odebrání jen 6 (Ferrero Rocher tabulka, micelární tampony, tři ochucené perlivé vody, sirup s příchutí ledového čaje). Zápis do databáze nebyl proveden.
+
 ## 2026-10-10 — Dávky 8–15: dalších 63 typů, rozšíření pravidel a migrace 0092
 
 - Analýza zbytku (36 998 produktů bez typu, read-only) určila další dávky: nápoje a alkohol (kombucha, nealkoholické pivo, ledové čaje, ochucená voda, mléčné a kysané nápoje, likéry, cidery), sýry a mléčné dezerty, sladkosti (bonboniéry, dorty a zákusky), maso (kachna, sušené maso, tlačenky, vývary a bujóny), slané snacky (arašídy, popcorn, krekry, preclíky, tortilla chipsy, křupky), hotová jídla (polévky, pizza, saláty, sendviče, kvašená zelenina, instantní nudle), zelenina a ovoce, knedlíky, těsto a směsi na pečení, vlasová a tělová kosmetika, opalování, odličování, parfémy, nehty, punčochy, ponožky, brýle a čočky, vitamíny, prací kapsle, WC bloky, osvěžovače a dětské zboží (dudlíky, lahve, kaše, kojenecké mléko).

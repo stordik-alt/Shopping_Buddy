@@ -277,3 +277,21 @@ A read-only aggregate query against the candidate table showed that the first su
 - Added an explicit `possible_commercial_activity` flag and excluded these labels from the Czech retail Product Type preview.
 - Added positive controls for goods labels (e.g. coal, diapers, milk) and negative controls for service/commercial activity labels.
 - This remains a proposal filter only. It does not delete source evidence, approve candidates, create registry entries, or assign products.
+
+
+## 2026-10-10 — Široký seed návrh registru (bez Luny)
+
+Další krok „registry-first“ bootstrapu: místo exportu dat pro GPT-6 Lunu je široký návrh typů a poddruhů napsán přímo jako verzovaná data v `lib/product-taxonomy-seed/` (verze `2026-10-seed-v1`). Podklady z balíčku (640 seed záznamů z `seed_catalog_v1`) sloužily jako důkaz sortimentu, ne jako hranice; návrh pokrývá i oblasti, které v katalogu ještě nejsou (např. víno, lihoviny, ryby, mořské plody, bylinky, zdravotní drogerie, domácí mazlíčci, hračky).
+
+- Rozsah: 156 typů (60 existujících v kódu, k nim jen poddruhy; 96 nových typů) a 846 poddruhů napříč Potraviny, Drogerie, Domácnost, Děti a Ostatní. Každý typ má jednu rozhodovací osu (`axis`); poddruh má definici a hranice zahrnutí/vyloučení.
+- Je to **pouze návrh**: runtime klasifikace to neimportuje, nic nezapisuje do DB a nepřiřazuje produkty. Poddruhy se do aplikace dostávají frontou kandidátů (`pnpm db:product-subtype-candidates ingest --input docs/examples/product-taxonomy-seed-subtype-candidates.json`, bez `--apply` jen dry-run); každý kandidát zůstává `candidate`, dokud ho někdo výslovně neschválí. Rodič (typ) musí před schválením existovat v `product_types`.
+- Nové typy (`docs/examples/product-taxonomy-seed-new-types.json`) potřebují před použitím pravidla v `lib/product-types.ts` (klíčová slova a vyloučení ověřená proti katalogu); do té doby jejich poddruhy čekají ve frontě.
+- Nezahrnuje šest rodin, které už mají vlastní návrhy (pivo, těstoviny, rýže, tvaroh, tavený sýr, tuňák v konzervě), ani poddruhy startovního registru. Test `lib/product-taxonomy-seed/seed.test.ts` hlídá unikátní klíče, platnou kategorii/podkategorii, shodu příznaku `existing` s kódem, absenci balení/ceny v názvech, kolize se startovním registrem a připravenost kandidátů ke schválení.
+- Regenerace JSON: `pnpm exec tsx scripts/export-product-taxonomy-seed.ts`.
+
+### Pravidla pro nejčastější nové typy a oprava poddruhů (2026-10-10)
+
+- Do `lib/product-types.ts` přibylo sedm typů ze seedu: `caj`, `vino`, `lihoviny`, `cokolada-tabulkova`, `chipsy-snacky` (název „Chipsy“), `mydlo`, `deodoranty`. Platí pro ně poctivostní pravidlo kódu: název, který nesedí na právě jeden typ, typ nedostane. Víno pojmenované jen odrůdou („Frankovka 0,75 l“), likéry, ledový čaj, kombucha, pitná čokoláda a tortilla chips typ nedostanou záměrně.
+- Pozor na skládání diakritiky: normalizace mění `ř→r`, `é→e`, takže vyloučení „horká“ blokovalo i „hořká čokoláda“ a „želé“ blokovalo „zelený čaj“. Vyloučení s rizikem kolize se píše s mezerami (`' želé '`).
+- Pravidla jsou ověřena jen na syntetických názvech v `lib/product-types-seed-rules.test.ts` a na stávající zlaté sadě; **na reálném katalogu změřena nebyla** (databáze nebyla dostupná). Před spuštěním `scripts/assign-product-types.ts` je nutné je změřit dry-runem a nalezené chyby doplnit do testu.
+- Opraveny poddruhy se smíšenou osou nebo duplicitou: pod jedním typem jen jedna osa (víno: barva a šumivost; čaj: druh listu; mýdlo a deodorant: forma; čokoláda: druh hmoty), přesun kapslí/instantní kávy pod `kava`, nové typy `slane-snacky`, `sladidla-sirupy` a `likery`, odstraněny duplicity mezi typy (pizza, dětské oblečení, slanina).

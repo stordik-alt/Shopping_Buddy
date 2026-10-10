@@ -1,0 +1,1512 @@
+{
+  "version": "2026-10-seed-v1",
+  "types": [
+    {
+      "key": "jogurt-ochuceny",
+      "name": "Ochucený jogurt",
+      "category": "Potraviny",
+      "subcategory": "Mléčné výrobky",
+      "unit": "kg",
+      "axis": "druh příchuti nebo příměsi",
+      "subtypes": [
+        "Ovocný jogurt",
+        "Jogurt s kousky ovoce",
+        "Jogurt s čokoládou nebo karamelem",
+        "Jogurt s cereáliemi",
+        "Dvoukomorový jogurt"
+      ]
+    },
+    {
+      "key": "jogurt-pitny",
+      "name": "Pitný jogurt a kysané nápoje",
+      "category": "Potraviny",
+      "subcategory": "Mléčné výrobky",
+      "unit": "l",
+      "axis": "druh kysaného mléčného nápoje",
+      "subtypes": [
+        "Pitný jogurt",
+        "Acidofilní mléko",
+        "Podmáslí",
+        "Ayran a lassi",
+        "Probiotický nápoj"
+      ]
+    },
+    {
+      "key": "skyr-proteinove-mlecne",
+      "name": "Skyr a proteinové mléčné výrobky",
+      "category": "Potraviny",
+      "subcategory": "Mléčné výrobky",
+      "unit": "kg",
+      "axis": "typ výrobku",
+      "subtypes": [
+        "Skyr",
+        "Proteinový jogurt",
+        "Proteinový pudink"
+      ]
+    },
+    {
+      "key": "mlecne-dezerty",
+      "name": "Mléčné dezerty",
+      "category": "Potraviny",
+      "subcategory": "Mléčné výrobky",
+      "unit": "kg",
+      "axis": "druh dezertu",
+      "subtypes": [
+        "Chlazený pudink",
+        "Mléčná rýže",
+        "Tvarohový dezert",
+        "Krémový dezert",
+        "Mléčný řez"
+      ]
+    },
+    {
+      "key": "smetanovy-syr",
+      "name": "Čerstvý sýr a smetanový sýr",
+      "category": "Potraviny",
+      "subcategory": "Mléčné výrobky",
+      "unit": "kg",
+      "axis": "druh čerstvého sýra",
+      "subtypes": [
+        "Smetanový sýr",
+        "Ricotta",
+        "Mascarpone",
+        "Žervé",
+        "Čerstvý sýr zrnitý nebo pomazánkový"
+      ]
+    },
+    {
+      "key": "syr-tvrdy-poloztvrdy",
+      "name": "Sýr tvrdý a polotvrdý (ostatní druhy)",
+      "category": "Potraviny",
+      "subcategory": "Mléčné výrobky",
+      "unit": "kg",
+      "axis": "jméno druhu sýra",
+      "subtypes": [
+        "Ementál",
+        "Čedar",
+        "Maasdam",
+        "Gruyère a Comté",
+        "Trapistický sýr",
+        "Uzený sýr",
+        "Sýr na gril",
+        "Tvarůžky"
+      ]
+    },
+    {
+      "key": "syr-strouhany-platkovany",
+      "name": "Sýr strouhaný a plátkový",
+      "category": "Potraviny",
+      "subcategory": "Mléčné výrobky",
+      "unit": "kg",
+      "axis": "forma úpravy sýra",
+      "subtypes": [
+        "Strouhaný sýr",
+        "Plátkový sýr",
+        "Sýr v kostičkách"
+      ]
+    },
+    {
+      "key": "mleko-kozi-ovci",
+      "name": "Kozí a ovčí mléko",
+      "category": "Potraviny",
+      "subcategory": "Mléčné výrobky",
+      "unit": "l",
+      "axis": "druh zvířete",
+      "subtypes": [
+        "Kozí mléko",
+        "Ovčí mléko"
+      ]
+    },
+    {
+      "key": "mleko-zahustene-susene",
+      "name": "Zahuštěné a sušené mléko",
+      "category": "Potraviny",
+      "subcategory": "Mléčné výrobky",
+      "unit": "kg",
+      "axis": "forma mléčného koncentrátu",
+      "subtypes": [
+        "Slazené kondenzované mléko",
+        "Neslazené zahuštěné mléko",
+        "Sušené plnotučné mléko",
+        "Sušené odtučněné mléko",
+        "Kávová smetanka"
+      ]
+    },
+    {
+      "key": "pecivo-sladke",
+      "name": "Sladké pečivo",
+      "category": "Potraviny",
+      "subcategory": "Pečivo",
+      "unit": "ks",
+      "axis": "druh těsta a náplně",
+      "subtypes": [
+        "Croissant",
+        "Koláč",
+        "Buchta",
+        "Šneček a hotový závin",
+        "Donut a kobliha",
+        "Muffin a cupcake",
+        "Vánočka a mazanec",
+        "Chlazený dort a zákusek"
+      ]
+    },
+    {
+      "key": "pecivo-slane",
+      "name": "Slané pečivo",
+      "category": "Potraviny",
+      "subcategory": "Pečivo",
+      "unit": "ks",
+      "axis": "druh slaného pečiva",
+      "subtypes": [
+        "Pletýnka a slaná tyčinka",
+        "Slané plněné pečivo",
+        "Slaný rohlík",
+        "Plněná bageta",
+        "Tortilla a placka",
+        "Bramborák a lívanec"
+      ]
+    },
+    {
+      "key": "pecivo-trvanlive",
+      "name": "Trvanlivé pečivo",
+      "category": "Potraviny",
+      "subcategory": "Pečivo",
+      "unit": "kg",
+      "axis": "druh trvanlivého pečiva",
+      "subtypes": [
+        "Strouhanka",
+        "Suchary a krutony",
+        "Křehký chléb",
+        "Piškoty a dortové korpusy",
+        "Oplatky",
+        "Trvanlivé toustové pečivo"
+      ]
+    },
+    {
+      "key": "burgerove-bulky",
+      "name": "Bulky na hamburger a hot dog",
+      "category": "Potraviny",
+      "subcategory": "Pečivo",
+      "unit": "ks",
+      "axis": "účel bulky",
+      "subtypes": [
+        "Hamburgerová bulka",
+        "Párkovka",
+        "Toustová žemle"
+      ]
+    },
+    {
+      "key": "hovezi-maso-druhy",
+      "name": "Hovězí maso čerstvé (ostatní části)",
+      "category": "Potraviny",
+      "subcategory": "Maso a uzeniny",
+      "unit": "kg",
+      "axis": "anatomická část",
+      "subtypes": [
+        "Hovězí roštěná",
+        "Hovězí líčka",
+        "Hovězí žebra",
+        "Hovězí maso na vývar"
+      ]
+    },
+    {
+      "key": "kralik-kachna-husa",
+      "name": "Králík, kachna, husa a zvěřina",
+      "category": "Potraviny",
+      "subcategory": "Maso a uzeniny",
+      "unit": "kg",
+      "axis": "druh zvířete",
+      "subtypes": [
+        "Králičí maso",
+        "Kachní maso",
+        "Husí maso",
+        "Jehněčí maso",
+        "Zvěřina"
+      ]
+    },
+    {
+      "key": "uzeniny-trvanlive",
+      "name": "Trvanlivé uzeniny",
+      "category": "Potraviny",
+      "subcategory": "Maso a uzeniny",
+      "unit": "kg",
+      "axis": "druh uzeniny",
+      "subtypes": [
+        "Salám",
+        "Klobása a špekáček",
+        "Šunkový salám",
+        "Paštika",
+        "Tlačenka a jelito",
+        "Uzený bok a špek",
+        "Sušené maso a jerky"
+      ]
+    },
+    {
+      "key": "maso-polotovary",
+      "name": "Maso a drůbež, hotové polotovary",
+      "category": "Potraviny",
+      "subcategory": "Maso a uzeniny",
+      "unit": "kg",
+      "axis": "forma úpravy",
+      "subtypes": [
+        "Marinované maso",
+        "Řízek a plněný řízek",
+        "Špíz",
+        "Sekaná a karbanátek",
+        "Burger maso"
+      ]
+    },
+    {
+      "key": "ryby-cerstve",
+      "name": "Ryby čerstvé a chlazené",
+      "category": "Potraviny",
+      "subcategory": "Ryby a mořské plody",
+      "unit": "kg",
+      "axis": "druh ryby",
+      "subtypes": [
+        "Pstruh",
+        "Kapr",
+        "Treska a mintaj",
+        "Sleď a makrela",
+        "Platýs a mořský jazyk",
+        "Pangas a tilápie",
+        "Candát a štika"
+      ]
+    },
+    {
+      "key": "morske-plody",
+      "name": "Mořské plody",
+      "category": "Potraviny",
+      "subcategory": "Ryby a mořské plody",
+      "unit": "kg",
+      "axis": "druh mořského plodu",
+      "subtypes": [
+        "Krevety",
+        "Chobotnice a kalamáry",
+        "Mušle a hřebenatky",
+        "Krabí tyčinky a surimi",
+        "Humr a krab"
+      ]
+    },
+    {
+      "key": "ryby-konzervovane-solene",
+      "name": "Ryby uzené, solené a marinované",
+      "category": "Potraviny",
+      "subcategory": "Ryby a mořské plody",
+      "unit": "kg",
+      "axis": "způsob konzervace",
+      "subtypes": [
+        "Uzená ryba",
+        "Marinovaný sleď",
+        "Solená ryba",
+        "Rybí lahůdka"
+      ]
+    },
+    {
+      "key": "ovoce-citrusove",
+      "name": "Citrusové plody (ostatní)",
+      "category": "Potraviny",
+      "subcategory": "Ovoce a zelenina",
+      "unit": "kg",
+      "axis": "druh citrusu",
+      "subtypes": [
+        "Pomeranče",
+        "Grapefruity",
+        "Limetky",
+        "Pomelo"
+      ]
+    },
+    {
+      "key": "ovoce-peckove-jadernate",
+      "name": "Peckoviny a jádroviny (sezónní)",
+      "category": "Potraviny",
+      "subcategory": "Ovoce a zelenina",
+      "unit": "kg",
+      "axis": "druh ovoce",
+      "subtypes": [
+        "Broskve a nektarinky",
+        "Švestky a slívy",
+        "Třešně a višně",
+        "Meruňky",
+        "Kdoule a mišpule"
+      ]
+    },
+    {
+      "key": "ovoce-exoticke",
+      "name": "Exotické ovoce",
+      "category": "Potraviny",
+      "subcategory": "Ovoce a zelenina",
+      "unit": "kg",
+      "axis": "druh ovoce",
+      "subtypes": [
+        "Ananas",
+        "Mango",
+        "Kiwi",
+        "Papája a liči",
+        "Datle a fíky",
+        "Granátové jablko",
+        "Meloun",
+        "Maracuja a dračí ovoce"
+      ]
+    },
+    {
+      "key": "ovoce-lesni-drobne",
+      "name": "Drobné ovoce (ostatní)",
+      "category": "Potraviny",
+      "subcategory": "Ovoce a zelenina",
+      "unit": "kg",
+      "axis": "druh drobného ovoce",
+      "subtypes": [
+        "Ostružiny",
+        "Rybíz a angrešt",
+        "Brusinky",
+        "Lesní směs čerstvá"
+      ]
+    },
+    {
+      "key": "zelenina-listova",
+      "name": "Listová zelenina a salát",
+      "category": "Potraviny",
+      "subcategory": "Ovoce a zelenina",
+      "unit": "kg",
+      "axis": "druh listové zeleniny",
+      "subtypes": [
+        "Hlávkový salát",
+        "Rukola a polníček",
+        "Špenát",
+        "Směs salátů",
+        "Čínské zelí a pak choi",
+        "Mangold a kadeřávek"
+      ]
+    },
+    {
+      "key": "zelenina-korenova",
+      "name": "Kořenová zelenina (ostatní)",
+      "category": "Potraviny",
+      "subcategory": "Ovoce a zelenina",
+      "unit": "kg",
+      "axis": "druh kořenové zeleniny",
+      "subtypes": [
+        "Petržel a pastinák",
+        "Červená řepa",
+        "Ředkvičky a ředkev",
+        "Křen a zázvor",
+        "Batáty",
+        "Kedlubna a tuřín"
+      ]
+    },
+    {
+      "key": "zelenina-ostatni-cerstva",
+      "name": "Zelenina čerstvá (ostatní druhy)",
+      "category": "Potraviny",
+      "subcategory": "Ovoce a zelenina",
+      "unit": "kg",
+      "axis": "druh zeleniny",
+      "subtypes": [
+        "Lilek",
+        "Dýně",
+        "Květák",
+        "Zelí hlávkové",
+        "Kukuřice",
+        "Hrášek a fazolové lusky",
+        "Chřest",
+        "Fenykl a celer řapíkatý",
+        "Klíčky a mikrozelenina"
+      ]
+    },
+    {
+      "key": "bylinky-cerstve",
+      "name": "Čerstvé bylinky",
+      "category": "Potraviny",
+      "subcategory": "Ovoce a zelenina",
+      "unit": "ks",
+      "axis": "druh bylinky",
+      "subtypes": [
+        "Bazalka",
+        "Petržel natě",
+        "Pažitka a kopr",
+        "Máta a meduňka",
+        "Tymián a rozmarýn"
+      ]
+    },
+    {
+      "key": "ovoce-susene-cerstve-baleni",
+      "name": "Hotová zelenina a ovoce k okamžité konzumaci",
+      "category": "Potraviny",
+      "subcategory": "Ovoce a zelenina",
+      "unit": "kg",
+      "axis": "forma úpravy",
+      "subtypes": [
+        "Krájené ovoce",
+        "Zeleninová mísa",
+        "Zeleninový snack",
+        "Smoothie a čerstvě lisovaná šťáva"
+      ]
+    },
+    {
+      "key": "nudle-asijske",
+      "name": "Nudle a těstoviny asijské",
+      "category": "Potraviny",
+      "subcategory": "Těstoviny a rýže",
+      "unit": "kg",
+      "axis": "druh nudlí",
+      "subtypes": [
+        "Rýžové nudle",
+        "Vaječné nudle",
+        "Udon",
+        "Soba",
+        "Skleněné nudle"
+      ]
+    },
+    {
+      "key": "kuskus-bulgur",
+      "name": "Kuskus, bulgur a další obiloviny",
+      "category": "Potraviny",
+      "subcategory": "Těstoviny a rýže",
+      "unit": "kg",
+      "axis": "druh obiloviny",
+      "subtypes": [
+        "Kuskus",
+        "Bulgur",
+        "Quinoa",
+        "Pohanka",
+        "Jáhly",
+        "Ječné kroupy",
+        "Polenta a krupice",
+        "Amarant a špalda"
+      ]
+    },
+    {
+      "key": "lusteniny",
+      "name": "Luštěniny",
+      "category": "Potraviny",
+      "subcategory": "Luštěniny",
+      "unit": "kg",
+      "axis": "druh luštěniny",
+      "subtypes": [
+        "Čočka",
+        "Cizrna",
+        "Fazole",
+        "Hrách",
+        "Sójové boby",
+        "Lupina"
+      ]
+    },
+    {
+      "key": "lusteniny-konzervovane",
+      "name": "Luštěniny konzervované",
+      "category": "Potraviny",
+      "subcategory": "Konzervy",
+      "unit": "kg",
+      "axis": "druh luštěniny",
+      "subtypes": [
+        "Fazole v konzervě",
+        "Cizrna v konzervě",
+        "Čočka v konzervě",
+        "Hrášek a kukuřice v konzervě"
+      ]
+    },
+    {
+      "key": "zelenina-konzervovana",
+      "name": "Zelenina konzervovaná a sterilovaná",
+      "category": "Potraviny",
+      "subcategory": "Konzervy",
+      "unit": "kg",
+      "axis": "druh zeleniny",
+      "subtypes": [
+        "Rajčata v konzervě",
+        "Sterilované okurky",
+        "Zelí a červená řepa",
+        "Kukuřice sterilovaná",
+        "Houby sterilované",
+        "Paprika a ostatní"
+      ]
+    },
+    {
+      "key": "ovoce-konzervovane",
+      "name": "Ovoce konzervované a kompoty",
+      "category": "Potraviny",
+      "subcategory": "Konzervy",
+      "unit": "kg",
+      "axis": "druh ovoce",
+      "subtypes": [
+        "Kompot broskvový",
+        "Kompot ananasový",
+        "Kompot ze smíšeného ovoce",
+        "Švestkový kompot",
+        "Mandarinky v konzervě"
+      ]
+    },
+    {
+      "key": "masa-konzervovana",
+      "name": "Masové a rybí konzervy",
+      "category": "Potraviny",
+      "subcategory": "Konzervy",
+      "unit": "kg",
+      "axis": "druh konzervy",
+      "subtypes": [
+        "Sardinky v oleji",
+        "Makrela v konzervě",
+        "Pomazánka z ryb",
+        "Masová konzerva",
+        "Hotové jídlo v konzervě",
+        "Polévka v konzervě"
+      ]
+    },
+    {
+      "key": "peceni-ingredience",
+      "name": "Pečení — kypřidla a příchutě",
+      "category": "Potraviny",
+      "subcategory": "Mouka a pečení",
+      "unit": "kg",
+      "axis": "funkce přísady",
+      "subtypes": [
+        "Prášek do pečiva",
+        "Jedlá soda",
+        "Vanilkový cukr",
+        "Želatina a zahušťovadla",
+        "Kvasnice",
+        "Aroma na pečení",
+        "Čokoláda na vaření",
+        "Posypy a zdobení"
+      ]
+    },
+    {
+      "key": "smesi-na-peceni",
+      "name": "Směsi a polotovary na pečení",
+      "category": "Potraviny",
+      "subcategory": "Mouka a pečení",
+      "unit": "kg",
+      "axis": "hotový výrobek ze směsi",
+      "subtypes": [
+        "Směs na bábovku a koláč",
+        "Směs na palačinky",
+        "Pudinkový prášek",
+        "Těsto listové a křehké",
+        "Knedlíky v prášku",
+        "Strouhanka"
+      ]
+    },
+    {
+      "key": "sladidla-sirupy",
+      "name": "Sladidla a sirupy",
+      "category": "Potraviny",
+      "subcategory": "Mouka a pečení",
+      "unit": "kg",
+      "axis": "druh sladidla",
+      "subtypes": [
+        "Javorový sirup",
+        "Agávový sirup",
+        "Datlový a rýžový sirup",
+        "Erythritol a xylitol",
+        "Stévie",
+        "Umělá sladidla"
+      ]
+    },
+    {
+      "key": "likery",
+      "name": "Likéry",
+      "category": "Potraviny",
+      "subcategory": "Alkoholické nápoje",
+      "unit": "l",
+      "axis": "základní příchuť likéru",
+      "subtypes": [
+        "Krémový likér",
+        "Ovocný likér",
+        "Bylinný likér",
+        "Ořechový a kávový likér"
+      ]
+    },
+    {
+      "key": "margarin-tuky",
+      "name": "Margaríny a rostlinné tuky",
+      "category": "Potraviny",
+      "subcategory": "Oleje a tuky",
+      "unit": "kg",
+      "axis": "určení tuku",
+      "subtypes": [
+        "Margarín na mazání",
+        "Margarín na pečení",
+        "Sádlo",
+        "Rostlinné máslo",
+        "Smažicí tuk"
+      ]
+    },
+    {
+      "key": "ocet-dochucovani",
+      "name": "Ocet a kyselé dochucovadlo",
+      "category": "Potraviny",
+      "subcategory": "Omáčky a dochucovadla",
+      "unit": "l",
+      "axis": "druh octa",
+      "subtypes": [
+        "Ocet kvasný",
+        "Jablečný ocet",
+        "Vinný ocet",
+        "Balsamico",
+        "Rýžový ocet",
+        "Citronová šťáva"
+      ]
+    },
+    {
+      "key": "omacky-hotove",
+      "name": "Hotové omáčky",
+      "category": "Potraviny",
+      "subcategory": "Omáčky a dochucovadla",
+      "unit": "kg",
+      "axis": "druh omáčky",
+      "subtypes": [
+        "Rajčatová omáčka",
+        "Smetanová omáčka",
+        "Pesto",
+        "Asijská omáčka",
+        "Grilovací omáčka",
+        "Pálivá omáčka",
+        "Zálivka na salát",
+        "Omáčka k masu",
+        "Pomazánková základna"
+      ]
+    },
+    {
+      "key": "vyvary-bujony",
+      "name": "Vývary a bujóny",
+      "category": "Potraviny",
+      "subcategory": "Omáčky a dochucovadla",
+      "unit": "kg",
+      "axis": "forma vývaru",
+      "subtypes": [
+        "Bujón kostky",
+        "Tekutý vývar",
+        "Vegeta a dochucovadlo",
+        "Instantní polévka"
+      ]
+    },
+    {
+      "key": "koreni",
+      "name": "Koření a koření směsi",
+      "category": "Potraviny",
+      "subcategory": "Koření a bylinky",
+      "unit": "kg",
+      "axis": "forma koření",
+      "subtypes": [
+        "Pepř",
+        "Paprika mletá",
+        "Bylinky sušené",
+        "Směs koření",
+        "Kari a orientální koření",
+        "Skořice a sladké koření",
+        "Česnek a cibule sušené",
+        "Kmín a bobkový list"
+      ]
+    },
+    {
+      "key": "pomazanky-sladke",
+      "name": "Sladké pomazánky",
+      "category": "Potraviny",
+      "subcategory": "Džemy, med a pomazánky",
+      "unit": "kg",
+      "axis": "základ pomazánky",
+      "subtypes": [
+        "Oříšková pomazánka",
+        "Arašídové máslo",
+        "Čokoládová pomazánka",
+        "Mandlové a jiné ořechové máslo",
+        "Tahini"
+      ]
+    },
+    {
+      "key": "bonbony-zvykaci",
+      "name": "Bonbóny, žvýkačky a cukrovinky",
+      "category": "Potraviny",
+      "subcategory": "Sladkosti",
+      "unit": "kg",
+      "axis": "druh cukrovinky",
+      "subtypes": [
+        "Gumové bonbóny",
+        "Tvrdé bonbóny",
+        "Žvýkačky",
+        "Lízátka",
+        "Karamely",
+        "Bonboniéry",
+        "Pastilky a dražé",
+        "Marshmallow a želé"
+      ]
+    },
+    {
+      "key": "susenky-oplatky",
+      "name": "Sušenky a oplatky",
+      "category": "Potraviny",
+      "subcategory": "Sladkosti",
+      "unit": "kg",
+      "axis": "druh sušenky",
+      "subtypes": [
+        "Máslové sušenky",
+        "Čokoládové sušenky",
+        "Plněné sušenky",
+        "Perník",
+        "Piškotové sušenky",
+        "Celozrnné sušenky",
+        "Trvanlivé řezy",
+        "Dortíky a koláčky balené"
+      ]
+    },
+    {
+      "key": "tycinky-sladke",
+      "name": "Tyčinky a zdravé sladkosti",
+      "category": "Potraviny",
+      "subcategory": "Sladkosti",
+      "unit": "kg",
+      "axis": "druh tyčinky",
+      "subtypes": [
+        "Čokoládová tyčinka",
+        "Müsli tyčinka",
+        "Proteinová tyčinka",
+        "Ovocná tyčinka",
+        "Rýžový a kukuřičný chlebíček"
+      ]
+    },
+    {
+      "key": "zmrzliny",
+      "name": "Zmrzliny a mražené dezerty",
+      "category": "Potraviny",
+      "subcategory": "Mražené potraviny",
+      "unit": "l",
+      "axis": "forma zmrzliny",
+      "subtypes": [
+        "Zmrzlina v kelímku",
+        "Nanuk",
+        "Zmrzlinový kornout",
+        "Ledová tříšť",
+        "Mražený jogurt",
+        "Zmrzlinový dort"
+      ]
+    },
+    {
+      "key": "slane-snacky",
+      "name": "Slané snacky",
+      "category": "Potraviny",
+      "subcategory": "Slané pochutiny",
+      "unit": "kg",
+      "axis": "druh snacku",
+      "subtypes": [
+        "Extrudované snacky",
+        "Tortilla chipsy a nachos",
+        "Slané tyčinky a preclíky",
+        "Slané krekry",
+        "Popcorn",
+        "Snackové směsi"
+      ]
+    },
+    {
+      "key": "susene-ovoce",
+      "name": "Sušené ovoce",
+      "category": "Potraviny",
+      "subcategory": "Ořechy, semínka a sušené ovoce",
+      "unit": "kg",
+      "axis": "druh sušeného ovoce",
+      "subtypes": [
+        "Rozinky",
+        "Sušené švestky",
+        "Sušené meruňky",
+        "Datle",
+        "Sušené fíky",
+        "Brusinky sušené",
+        "Kokos sušený",
+        "Sušená jablka a banány"
+      ]
+    },
+    {
+      "key": "voda-ochucena",
+      "name": "Ochucená voda",
+      "category": "Potraviny",
+      "subcategory": "Nápoje",
+      "unit": "l",
+      "axis": "sycení a příchuť",
+      "subtypes": [
+        "Ochucená voda neperlivá",
+        "Ochucená voda perlivá"
+      ]
+    },
+    {
+      "key": "limonady",
+      "name": "Limonády a nealkoholické nápoje",
+      "category": "Potraviny",
+      "subcategory": "Nápoje",
+      "unit": "l",
+      "axis": "druh sladkého nápoje",
+      "subtypes": [
+        "Kolový nápoj",
+        "Ovocná limonáda",
+        "Tonic a ginger ale",
+        "Ledový čaj",
+        "Energetický nápoj",
+        "Iontový nápoj",
+        "Sirup",
+        "Nápoj bez cukru"
+      ]
+    },
+    {
+      "key": "dzusy",
+      "name": "Džusy a ovocné šťávy",
+      "category": "Potraviny",
+      "subcategory": "Nápoje",
+      "unit": "l",
+      "axis": "podíl ovoce a druh",
+      "subtypes": [
+        "Džus 100 %",
+        "Nektar",
+        "Zeleninová šťáva",
+        "Ovocný nápoj",
+        "Smoothie"
+      ]
+    },
+    {
+      "key": "nahrazky-mleka-rostlinne",
+      "name": "Rostlinné nápoje",
+      "category": "Potraviny",
+      "subcategory": "Rostlinné alternativy",
+      "unit": "l",
+      "axis": "základní surovina",
+      "subtypes": [
+        "Ovesný nápoj",
+        "Sójový nápoj",
+        "Mandlový nápoj",
+        "Kokosový nápoj",
+        "Rýžový nápoj",
+        "Hrachový nápoj",
+        "Nápoj z lískových ořechů"
+      ]
+    },
+    {
+      "key": "rostlinne-alternativy-potravin",
+      "name": "Rostlinné alternativy masa a mléčných výrobků",
+      "category": "Potraviny",
+      "subcategory": "Rostlinné alternativy",
+      "unit": "kg",
+      "axis": "nahrazovaný výrobek",
+      "subtypes": [
+        "Rostlinný jogurt",
+        "Rostlinný sýr",
+        "Tofu",
+        "Tempeh",
+        "Rostlinné maso",
+        "Seitan",
+        "Rostlinná smetana"
+      ]
+    },
+    {
+      "key": "mrazena-hotova-jidla",
+      "name": "Mražená hotová jídla",
+      "category": "Potraviny",
+      "subcategory": "Mražené potraviny",
+      "unit": "kg",
+      "axis": "druh jídla",
+      "subtypes": [
+        "Mražené těstoviny a rizoto",
+        "Mražené maso s přílohou",
+        "Mražené knedlíky a noky",
+        "Mražené smažené pokrmy",
+        "Mražené pirohy a taštičky",
+        "Mražené bagety a croissanty",
+        "Mražené hranolky a bramborové výrobky",
+        "Mražené ryby obalované"
+      ]
+    },
+    {
+      "key": "hotova-jidla-chlazena",
+      "name": "Hotová jídla chlazená",
+      "category": "Potraviny",
+      "subcategory": "Lahůdky a hotová jídla",
+      "unit": "kg",
+      "axis": "druh jídla",
+      "subtypes": [
+        "Salát hotový",
+        "Sendvič",
+        "Sushi",
+        "Polévka chlazená",
+        "Hotové jídlo s masem",
+        "Sladké hotové jídlo"
+      ]
+    },
+    {
+      "key": "instantni-jidla",
+      "name": "Instantní a zálivkové pokrmy",
+      "category": "Potraviny",
+      "subcategory": "Trvanlivé potraviny",
+      "unit": "kg",
+      "axis": "druh pokrmu",
+      "subtypes": [
+        "Instantní polévka",
+        "Instantní nudle",
+        "Kaše instantní",
+        "Bramborová kaše v prášku",
+        "Rizoto a těstoviny v sáčku",
+        "Hotová jídla v pouzdře"
+      ]
+    },
+    {
+      "key": "praci-kapsle",
+      "name": "Prací kapsle",
+      "category": "Drogerie",
+      "subcategory": "Praní",
+      "unit": "ks",
+      "axis": "určení kapslí",
+      "subtypes": [
+        "Prací kapsle univerzální",
+        "Prací kapsle na barevné",
+        "Prací kapsle na černé",
+        "Prací kapsle hypoalergenní"
+      ]
+    },
+    {
+      "key": "praci-prisady",
+      "name": "Přísady do praní",
+      "category": "Drogerie",
+      "subcategory": "Praní",
+      "unit": "kg",
+      "axis": "funkce přísady",
+      "subtypes": [
+        "Odvápňovač a změkčovač",
+        "Bělidlo",
+        "Odstraňovač skvrn",
+        "Čistič pračky",
+        "Zachytávač barev",
+        "Škrob a apretura"
+      ]
+    },
+    {
+      "key": "myci-prisady-mycka",
+      "name": "Doplňky do myčky",
+      "category": "Drogerie",
+      "subcategory": "Mytí nádobí",
+      "unit": "kg",
+      "axis": "funkce přípravku",
+      "subtypes": [
+        "Leštidlo do myčky",
+        "Sůl do myčky",
+        "Čistič myčky",
+        "Osvěžovač myčky"
+      ]
+    },
+    {
+      "key": "osvezovace-vzduchu",
+      "name": "Osvěžovače vzduchu",
+      "category": "Drogerie",
+      "subcategory": "Čištění domácnosti",
+      "unit": "ks",
+      "axis": "forma osvěžovače",
+      "subtypes": [
+        "Osvěžovač ve spreji",
+        "Elektrický osvěžovač",
+        "Gelový osvěžovač",
+        "Auto osvěžovač",
+        "Vonná svíčka a vonný difuzér"
+      ]
+    },
+    {
+      "key": "desinfekce-hygiena",
+      "name": "Dezinfekce",
+      "category": "Drogerie",
+      "subcategory": "Čištění domácnosti",
+      "unit": "l",
+      "axis": "určení dezinfekce",
+      "subtypes": [
+        "Dezinfekce na ruce",
+        "Dezinfekce na povrchy",
+        "Dezinfekce na prádlo",
+        "Dezinfekční ubrousky"
+      ]
+    },
+    {
+      "key": "ochrana-proti-skudcum",
+      "name": "Ochrana proti škůdcům",
+      "category": "Drogerie",
+      "subcategory": "Čištění domácnosti",
+      "unit": "ks",
+      "axis": "cílový škůdce",
+      "subtypes": [
+        "Repelent proti komárům",
+        "Přípravek proti molům",
+        "Přípravek proti mravencům a šváby",
+        "Past na myši",
+        "Odpuzovač hmyzu"
+      ]
+    },
+    {
+      "key": "kondicioner-vlasy",
+      "name": "Kondicionéry a vlasová péče",
+      "category": "Drogerie",
+      "subcategory": "Kosmetika",
+      "unit": "l",
+      "axis": "druh vlasové péče",
+      "subtypes": [
+        "Kondicionér",
+        "Maska na vlasy",
+        "Olej a sérum na vlasy",
+        "Stylingový přípravek",
+        "Barva na vlasy",
+        "Suchý šampon"
+      ]
+    },
+    {
+      "key": "ustni-hygiena",
+      "name": "Ústní hygiena",
+      "category": "Drogerie",
+      "subcategory": "Hygiena",
+      "unit": "ks",
+      "axis": "druh pomůcky",
+      "subtypes": [
+        "Zubní kartáček manuální",
+        "Elektrický zubní kartáček a hlavice",
+        "Ústní voda",
+        "Zubní nit a mezizubní kartáček",
+        "Zubní pásky a ošetření"
+      ]
+    },
+    {
+      "key": "holeni",
+      "name": "Holení",
+      "category": "Drogerie",
+      "subcategory": "Hygiena",
+      "unit": "ks",
+      "axis": "druh pomůcky nebo přípravku",
+      "subtypes": [
+        "Holicí strojek a břity",
+        "Jednorázový holicí strojek",
+        "Pěna a gel na holení",
+        "Voda po holení",
+        "Depilace"
+      ]
+    },
+    {
+      "key": "damska-hygiena",
+      "name": "Dámská hygiena",
+      "category": "Drogerie",
+      "subcategory": "Hygiena",
+      "unit": "ks",
+      "axis": "druh hygienické pomůcky",
+      "subtypes": [
+        "Menstruační vložky",
+        "Tampony",
+        "Slipové vložky",
+        "Menstruační kalíšek a kalhotky",
+        "Intimní hygiena"
+      ]
+    },
+    {
+      "key": "vlhcene-ubrousky",
+      "name": "Vlhčené ubrousky",
+      "category": "Drogerie",
+      "subcategory": "Hygiena",
+      "unit": "ks",
+      "axis": "určení ubrousků",
+      "subtypes": [
+        "Vlhčené ubrousky univerzální",
+        "Vlhčené ubrousky na obličej",
+        "Vlhčené ubrousky toaletní",
+        "Vlhčené ubrousky na ruce",
+        "Vlhčené ubrousky intimní"
+      ]
+    },
+    {
+      "key": "pece-o-telo",
+      "name": "Péče o tělo",
+      "category": "Drogerie",
+      "subcategory": "Kosmetika",
+      "unit": "ks",
+      "axis": "druh tělové péče",
+      "subtypes": [
+        "Tělové mléko a krém",
+        "Krém na ruce",
+        "Opalovací krém",
+        "Olej na tělo",
+        "Peeling",
+        "Sprej proti slunci"
+      ]
+    },
+    {
+      "key": "pece-o-plet",
+      "name": "Péče o pleť",
+      "category": "Drogerie",
+      "subcategory": "Kosmetika",
+      "unit": "ks",
+      "axis": "druh pleťové péče",
+      "subtypes": [
+        "Pleťový krém",
+        "Pleťová maska",
+        "Odličovací přípravek",
+        "Čisticí gel na obličej",
+        "Oční krém a sérum",
+        "Krém s UV filtrem"
+      ]
+    },
+    {
+      "key": "dekorativni-kosmetika",
+      "name": "Dekorativní kosmetika",
+      "category": "Drogerie",
+      "subcategory": "Kosmetika",
+      "unit": "ks",
+      "axis": "část obličeje",
+      "subtypes": [
+        "Řasenka a oční linky",
+        "Rtěnka a lesk",
+        "Make-up a pudr",
+        "Tvářenka a bronzer",
+        "Lak na nehty",
+        "Stíny a paletky"
+      ]
+    },
+    {
+      "key": "parfemy",
+      "name": "Parfémy a vůně",
+      "category": "Drogerie",
+      "subcategory": "Kosmetika",
+      "unit": "ks",
+      "axis": "forma vůně",
+      "subtypes": [
+        "Parfémová voda",
+        "Toaletní voda",
+        "Tělový sprej"
+      ]
+    },
+    {
+      "key": "vitaminy-doplnky",
+      "name": "Vitamíny a doplňky stravy",
+      "category": "Drogerie",
+      "subcategory": "Zdraví a doplňky stravy",
+      "unit": "ks",
+      "axis": "účel doplňku",
+      "subtypes": [
+        "Multivitamín",
+        "Vitamín C",
+        "Vitamín D",
+        "Hořčík a minerály",
+        "Probiotika",
+        "Omega-3",
+        "Kloubní výživa",
+        "Proteiny a sportovní výživa",
+        "Bylinné doplňky"
+      ]
+    },
+    {
+      "key": "lekarnicka-volne-prodejne",
+      "name": "Volně prodejné léky a lékárnička",
+      "category": "Drogerie",
+      "subcategory": "Zdraví a doplňky stravy",
+      "unit": "ks",
+      "axis": "účel přípravku",
+      "subtypes": [
+        "Léky proti bolesti",
+        "Léky na nachlazení",
+        "Léky na trávení",
+        "Náplasti a obvazy",
+        "Teploměr a zdravotnické pomůcky",
+        "Alergie a repelent",
+        "Pomůcky na rány"
+      ]
+    },
+    {
+      "key": "brejle-doplnky",
+      "name": "Doplňky a oblečení z drogerie",
+      "category": "Drogerie",
+      "subcategory": "Doplňky a oblečení",
+      "unit": "ks",
+      "axis": "druh doplňku",
+      "subtypes": [
+        "Ponožky a punčochy",
+        "Brýle",
+        "Gumičky a sponky do vlasů",
+        "Peněženky a tašky"
+      ]
+    },
+    {
+      "key": "uterky-hadry",
+      "name": "Hadry, utěrky a houbičky",
+      "category": "Domácnost",
+      "subcategory": "Kuchyň",
+      "unit": "ks",
+      "axis": "materiál a použití",
+      "subtypes": [
+        "Mikrovláknová utěrka",
+        "Houbička na nádobí",
+        "Drátěnka",
+        "Utěrka na nádobí",
+        "Hadr na podlahu",
+        "Kartáč a kartáčky",
+        "Rukavice na úklid"
+      ]
+    },
+    {
+      "key": "kuchynske-potreby",
+      "name": "Kuchyňské potřeby",
+      "category": "Domácnost",
+      "subcategory": "Kuchyň",
+      "unit": "ks",
+      "axis": "druh potřeby",
+      "subtypes": [
+        "Hrnce a pánve",
+        "Kuchyňské nože",
+        "Příbory a nádobí",
+        "Pečicí formy",
+        "Dózy a skladování",
+        "Kuchyňské pomůcky",
+        "Termosky a láhve"
+      ]
+    },
+    {
+      "key": "uklid-pomucky",
+      "name": "Úklidové pomůcky",
+      "category": "Domácnost",
+      "subcategory": "Úklid",
+      "unit": "ks",
+      "axis": "druh pomůcky",
+      "subtypes": [
+        "Mop a kbelík",
+        "Smeták a lopatka",
+        "Prachovka",
+        "Stěrka na okna",
+        "Vysavače a sáčky"
+      ]
+    },
+    {
+      "key": "svetlo-baterie",
+      "name": "Světlo a baterie",
+      "category": "Domácnost",
+      "subcategory": "Ostatní",
+      "unit": "ks",
+      "axis": "druh zboží",
+      "subtypes": [
+        "Žárovky",
+        "Baterie jednorázové",
+        "Baterie nabíjecí",
+        "Svíčky",
+        "Zapalovače a sirky",
+        "Svítilny a čelovky",
+        "Prodlužovací kabely"
+      ]
+    },
+    {
+      "key": "zahrada-rostliny",
+      "name": "Zahrada — rostliny a substráty",
+      "category": "Domácnost",
+      "subcategory": "Zahrada",
+      "unit": "ks",
+      "axis": "druh zahradního zboží",
+      "subtypes": [
+        "Hnojiva",
+        "Substráty a zemina",
+        "Osivo a cibuloviny",
+        "Květináče a truhlíky",
+        "Zahradní nářadí",
+        "Rostliny v květináči",
+        "Ochranné prostředky rostlin"
+      ]
+    },
+    {
+      "key": "domaci-textil",
+      "name": "Domácí textil",
+      "category": "Domácnost",
+      "subcategory": "Ostatní",
+      "unit": "ks",
+      "axis": "druh textilu",
+      "subtypes": [
+        "Ložní prádlo",
+        "Ručníky a osušky",
+        "Utěrky a zástěry",
+        "Přikrývky a polštáře",
+        "Záclony a závěsy"
+      ]
+    },
+    {
+      "key": "domaci-mazlicci",
+      "name": "Krmivo a potřeby pro domácí mazlíčky",
+      "category": "Ostatní",
+      "subcategory": "Ostatní zboží",
+      "unit": "kg",
+      "axis": "druh zvířete a typ zboží",
+      "subtypes": [
+        "Krmivo pro psy suché",
+        "Krmivo pro psy mokré",
+        "Krmivo pro kočky suché",
+        "Krmivo pro kočky mokré",
+        "Pamlsky pro psy",
+        "Pamlsky pro kočky",
+        "Stelivo pro kočky",
+        "Krmivo pro hlodavce a ptáky",
+        "Krmivo pro ryby",
+        "Pomůcky pro mazlíčky"
+      ]
+    },
+    {
+      "key": "detska-vyziva-mleko",
+      "name": "Kojenecká výživa",
+      "category": "Děti",
+      "subcategory": "Kojenecké mléko",
+      "unit": "kg",
+      "axis": "věk dítěte",
+      "subtypes": [
+        "Počáteční mléko",
+        "Pokračovací mléko",
+        "Batolecí mléko",
+        "Speciální kojenecké mléko",
+        "Mléko pro děti předškolního věku"
+      ]
+    },
+    {
+      "key": "detske-prikrmy-druhy",
+      "name": "Příkrmy",
+      "category": "Děti",
+      "subcategory": "Příkrmy",
+      "unit": "kg",
+      "axis": "forma příkrmu",
+      "subtypes": [
+        "Zeleninový příkrm",
+        "Ovocný příkrm",
+        "Masový příkrm",
+        "Příkrm s obilovinou",
+        "Mléčný příkrm",
+        "Večerní příkrm"
+      ]
+    },
+    {
+      "key": "detske-kase",
+      "name": "Dětské kaše a cereálie",
+      "category": "Děti",
+      "subcategory": "Kaše a cereálie",
+      "unit": "kg",
+      "axis": "typ kaše",
+      "subtypes": [
+        "Mléčná kaše",
+        "Nemléčná kaše",
+        "Obilná kaše",
+        "Ovocná kaše",
+        "Dětské cereálie"
+      ]
+    },
+    {
+      "key": "detske-svacinky",
+      "name": "Dětské svačinky",
+      "category": "Děti",
+      "subcategory": "Dětské svačinky",
+      "unit": "ks",
+      "axis": "druh svačinky",
+      "subtypes": [
+        "Dětský piškot a sušenka",
+        "Dětský křupek",
+        "Ovocná tyčinka pro děti",
+        "Dětský jogurt",
+        "Dětský pudink a dezert"
+      ]
+    },
+    {
+      "key": "detske-potreby",
+      "name": "Dětské potřeby",
+      "category": "Děti",
+      "subcategory": "Dětské potřeby",
+      "unit": "ks",
+      "axis": "druh potřeby",
+      "subtypes": [
+        "Dětské lahve a dudlíky",
+        "Kojicí pomůcky",
+        "Dětské příbory a nádobí",
+        "Dětské kočárky a autosedačky",
+        "Hygienické pomůcky pro děti"
+      ]
+    },
+    {
+      "key": "hracky",
+      "name": "Hračky",
+      "category": "Děti",
+      "subcategory": "Hračky",
+      "unit": "ks",
+      "axis": "druh hračky",
+      "subtypes": [
+        "Stavebnice",
+        "Panenky a plyšové hračky",
+        "Autíčka a modely",
+        "Společenské hry a puzzle",
+        "Výtvarné potřeby",
+        "Venkovní hračky",
+        "Hračky pro nejmenší",
+        "Školní potřeby"
+      ]
+    },
+    {
+      "key": "tabak-vyrobky",
+      "name": "Tabák a související výrobky",
+      "category": "Ostatní",
+      "subcategory": "Tabák a e-cigarety",
+      "unit": "ks",
+      "axis": "druh výrobku",
+      "subtypes": [
+        "Cigarety",
+        "Tabák na vlastní výrobu",
+        "Doutníky",
+        "Papírky a filtry",
+        "E-cigarety a náplně",
+        "Nikotinové sáčky"
+      ]
+    },
+    {
+      "key": "elektronika-doplnky",
+      "name": "Elektronika a příslušenství",
+      "category": "Ostatní",
+      "subcategory": "Elektronika",
+      "unit": "ks",
+      "axis": "druh elektroniky",
+      "subtypes": [
+        "Kabely a nabíječky",
+        "Sluchátka a reproduktory",
+        "Paměťové karty a USB flash",
+        "Mobilní příslušenství",
+        "Drobná elektronika"
+      ]
+    },
+    {
+      "key": "obleceni-obuv-zbozi",
+      "name": "Oblečení a obuv",
+      "category": "Ostatní",
+      "subcategory": "Oblečení a obuv",
+      "unit": "ks",
+      "axis": "druh oblečení",
+      "subtypes": [
+        "Pánské oblečení",
+        "Dámské oblečení",
+        "Dětské oblečení",
+        "Obuv",
+        "Spodní prádlo",
+        "Sportovní oblečení"
+      ]
+    },
+    {
+      "key": "auto-doplnky",
+      "name": "Auto — doplňky a chemie",
+      "category": "Ostatní",
+      "subcategory": "Ostatní zboží",
+      "unit": "ks",
+      "axis": "druh zboží",
+      "subtypes": [
+        "Autokosmetika",
+        "Motorové oleje a kapaliny",
+        "Stěrače a žárovky",
+        "Autodoplňky"
+      ]
+    },
+    {
+      "key": "sezonni-zbozi",
+      "name": "Sezónní zboží",
+      "category": "Ostatní",
+      "subcategory": "Ostatní zboží",
+      "unit": "ks",
+      "axis": "druh sezóny",
+      "subtypes": [
+        "Vánoční dekorace",
+        "Velikonoční dekorace",
+        "Zimní doplňky",
+        "Letní doplňky",
+        "Dárkové zboží",
+        "Kancelářské potřeby"
+      ]
+    }
+  ]
+}

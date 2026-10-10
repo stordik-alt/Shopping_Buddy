@@ -34,6 +34,7 @@
     "db:reclassify-products": "dotenv -e .env.local -- tsx scripts/reclassify-products.ts",
     "db:brand-categories": "dotenv -e .env.local -- tsx scripts/apply-brand-categories.ts",
     "db:assign-product-types": "dotenv -e .env.local -- tsx scripts/assign-product-types.ts",
+    "db:apply-product-types-batch": "dotenv -e .env.local -- tsx scripts/apply-product-types-batch.ts",
     "db:move-new-subcategories": "dotenv -e .env.local -- tsx scripts/move-to-new-subcategories.ts",
     "gcp:oidc-key": "tsx scripts/generate-gcp-oidc-key.ts",
     "push:vapid-keys": "tsx scripts/generate-vapid-keys.ts",

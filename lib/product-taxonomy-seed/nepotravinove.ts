@@ -141,7 +141,7 @@ export const NEPOTRAVINOVE: SeedType[] = [
     ['Zubní pasta pro citlivé zuby', 'pasta pro citlivé zuby'],
     ['Zubní pasta na dásně', 'ochrana dásní, parodontóza'],
   ]),
-  nw('ustni-hygiena', 'Ústní hygiena', D, 'Hygiena', 'ks', 'druh pomůcky', [
+  ex('ustni-hygiena', 'Ústní hygiena', D, 'Hygiena', 'ks', 'druh pomůcky', [
     ['Zubní kartáček manuální', 'manuální zubní kartáček'],
     ['Elektrický zubní kartáček a hlavice', 'elektrický kartáček, náhradní hlavice'],
     ['Ústní voda', 'ústní voda, ústní sprej'],
@@ -154,21 +154,21 @@ export const NEPOTRAVINOVE: SeedType[] = [
     ['Deodorant tuhý', 'tuhá tyčinka, stick'],
     ['Deodorant krémový', 'krémový deodorant v tubě nebo kelímku'],
   ]),
-  nw('holeni', 'Holení', D, 'Hygiena', 'ks', 'druh pomůcky nebo přípravku', [
+  ex('holeni', 'Holení', D, 'Hygiena', 'ks', 'druh pomůcky nebo přípravku', [
     ['Holicí strojek a břity', 'holicí strojek, náhradní hlavice'],
     ['Jednorázový holicí strojek', 'jednorázové'],
     ['Pěna a gel na holení', 'pěna na holení, gel, krém'],
     ['Voda po holení', 'voda po holení, balzám'],
     ['Depilace', 'depilační pásky, krém, vosk'],
   ]),
-  nw('damska-hygiena', 'Dámská hygiena', D, 'Hygiena', 'ks', 'druh hygienické pomůcky', [
+  ex('damska-hygiena', 'Dámská hygiena', D, 'Hygiena', 'ks', 'druh hygienické pomůcky', [
     ['Menstruační vložky', 'vložky, noční i denní'],
     ['Tampony', 'tampony'],
     ['Slipové vložky', 'slipové, intimní vložky'],
     ['Menstruační kalíšek a kalhotky', 'kalíšky, savé kalhotky'],
     ['Intimní hygiena', 'intimní gel, ubrousky, mýdlo'],
   ]),
-  nw('vlhcene-ubrousky', 'Vlhčené ubrousky', D, 'Hygiena', 'ks', 'určení ubrousků', [
+  ex('vlhcene-ubrousky', 'Vlhčené ubrousky', D, 'Hygiena', 'ks', 'určení ubrousků', [
     ['Vlhčené ubrousky univerzální', 'všestranné ubrousky'],
     ['Vlhčené ubrousky na obličej', 'odličovací a čisticí'],
     ['Vlhčené ubrousky toaletní', 'vlhčený toaletní papír'],
@@ -183,7 +183,7 @@ export const NEPOTRAVINOVE: SeedType[] = [
     ['Peeling', 'tělový peeling, scrub'],
     ['Sprej proti slunci', 'ochrana před sluncem ve spreji'],
   ]),
-  nw('pece-o-plet', 'Péče o pleť', D, 'Kosmetika', 'ks', 'druh pleťové péče', [
+  ex('pece-o-plet', 'Péče o pleť', D, 'Kosmetika', 'ks', 'druh pleťové péče', [
     ['Pleťový krém', 'denní a noční krém'],
     ['Pleťová maska', 'pleťová maska, textilní maska'],
     ['Odličovací přípravek', 'micelární voda, odličovací mléko'],
@@ -191,7 +191,7 @@ export const NEPOTRAVINOVE: SeedType[] = [
     ['Oční krém a sérum', 'oční krém, sérum'],
     ['Krém s UV filtrem', 'pleťový krém s SPF'],
   ]),
-  nw('dekorativni-kosmetika', 'Dekorativní kosmetika', D, 'Kosmetika', 'ks', 'část obličeje', [
+  ex('dekorativni-kosmetika', 'Dekorativní kosmetika', D, 'Kosmetika', 'ks', 'část obličeje', [
     ['Řasenka a oční linky', 'řasenka, oční tužka'],
     ['Rtěnka a lesk', 'rtěnka, lesk na rty, balzám'],
     ['Make-up a pudr', 'make-up, pudr, korektor'],

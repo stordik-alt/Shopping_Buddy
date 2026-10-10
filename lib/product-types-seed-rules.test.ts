@@ -410,3 +410,40 @@ describe('batches 8–15, second round', () => {
     expect(classifyProductType(category, name)).toBe(type)
   })
 })
+
+// Regressions found by the production dry run after batches 8–15 were deployed (2026-10-10).
+const AFTER_BATCH_8: [ItemCategory, string, string | null][] = [
+  ['Potraviny', 'Merci tabulková čokoláda mléčná', 'cokolada-tabulkova'],
+  ['Potraviny', 'Merci Čokoláda extra hořká', 'cokolada-tabulkova'],
+  ['Potraviny', 'Amor di Pane Grissini Rozmarýn', 'slane-tycinky-preclik'],
+  ['Potraviny', 'Jupí Sirup Ice Tea černý čaj s citronem 0,7l', 'sirupy'],
+  ['Potraviny', 'Sportness sirup s příchutí broskvového ledového čaje, 65 ml', 'sirupy'],
+  ['Potraviny', 'Ferrero Rocher Tabulková mléčná čokoláda', 'cokolada-tabulkova'],
+  ['Potraviny', 'Ferrero Rocher Mléčná čokoláda s náplní s lískovými ořechy a makadamie', 'cokolada-tabulkova'],
+  ['Potraviny', 'Ferrero Rocher Original mléčná čokoláda plněná s lískooříškovou náplní', 'bonboniery'],
+  ['Drogerie', 'Balea micelární tampony bez oleje, 50 ks', 'odlicovaci-pripravky'],
+  ['Potraviny', 'DASH Perlivá voda limetka', 'voda-ochucena'],
+  ['Potraviny', 'Korunní Eterea marakuja a zázvor jemně perlivá 1,5l', 'voda-ochucena'],
+  ['Potraviny', 'Mattoni Minerální voda perlivá', 'voda-perliva'],
+  ['Potraviny', 'K-Classic Minerální voda (Kaufland - přírodní i ochucené druhy)', null],
+  ['Potraviny', 'Birell Active Energy s příchutí pomelo & grep 0,5l', 'nealko-pivo'],
+  ['Potraviny', 'Natural Jihlava EAT-fit Perníček směs na pečení bez lepku', 'smesi-na-peceni'],
+  ['Potraviny', 'Old Cock Vývar světlý ležák 11° plech', 'pivo'],
+  ['Potraviny', 'PZP Merlin chléb polévkový dlabaný', 'chleb'],
+  ['Potraviny', 'Authentic Farmářský kuřecí skelet na silný vývar', 'kureci-na-polevku'],
+  ['Potraviny', 'Magnesia Go přírodní minerální voda neperlivá 0,75l', 'voda-neperliva'],
+  ['Potraviny', 'Natura Pramenitá voda ochucená 1,5 l (vybrané druhy)', 'voda-ochucena'],
+  ['Potraviny', 'Magnesia Plus Antistress mango a meduňka', 'voda-ochucena'],
+  ['Drogerie', 'ebelin odlakovač na UV lak na nehty, 125 ml', 'pece-o-nehty'],
+  ['Drogerie', 'SUNDANCE pleťové sérum po opalování Moisture Lift+, 50 ml', 'opalovaci-pripravky'],
+  ['Drogerie', 'NIVEA SUN pleťový krém na opalování Luminous 630 SPF50+, 40 ml', 'opalovaci-pripravky'],
+  ['Drogerie', 'trend !t up sprej na opalování Protect&Set Over Make-up SPF50, 50 ml', 'opalovaci-pripravky'],
+  ['Drogerie', 'alverde NATURKOSMETIK make -up 3 v 1 Glow 1 % Vitamín C, 30 ml', 'dekorativni-kosmetika'],
+  ['Potraviny', 'Dupetky (Pečené preclíkové chipsy: Solené, Se sezamem, Rajče a bylinky)', 'slane-tycinky-preclik'],
+]
+
+describe('regressions found after batches 8–15', () => {
+  it.each(AFTER_BATCH_8)('%s: %s → %s', (category, name, type) => {
+    expect(classifyProductType(category, name)).toBe(type)
+  })
+})

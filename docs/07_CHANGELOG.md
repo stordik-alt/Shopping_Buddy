@@ -1,3 +1,9 @@
+## 2026-10-11 — Oprava: měření ze zařízení se zapnulo jen při přihlášení
+
+- **Problém:** po nasazení měření (`?perf=1`) se v produkčním logu neobjevil žádný řádek `[rum]`. Volba se ukládala až ve chvíli, kdy se poprvé spustilo měření (po přihlášení formulářem nebo v aplikaci); kdo jen otevřel přihlašovací stránku s `?perf=1` a pak šel na `/` s platným přihlášením, měření nikdy nezapnul.
+- **Oprava:** nová komponenta `components/shared/rum-flag.tsx` v kořenovém layoutu zachytí `?perf=1` na jakékoli stránce a uloží volbu. Zařízení, které hlásí, pošle navíc událost `start` při každém plném otevření stránky (důkaz, že volba platí; doručí se jen z přihlášených stránek). `lib/rum.ts` přijímá nový typ `start`.
+- Ověřeno: `tsc --noEmit` bez chyb, 7 testů `lib/rum.test.ts`; lokálně v Chromiu se volba uložila na přihlašovací stránce bez přihlášení a pozdější přihlášení bez `?perf=1` v adrese poslalo události `tab` a `load`. **Neověřeno:** reálný telefon a produkce.
+
 ## 2026-10-11 — Měření: časování z konkrétního zařízení (`?perf=1`)
 
 - Produkční log domovské stránky ukázal serverový render ~300 ms (12 z 13 měření mezi 268 a 438 ms), takže pomalé přepínání záložek a první spuštění na telefonu vysvětlit nedokáže. Telefon nemá DevTools, proto aplikace umí na požádání měřit sama sebe.

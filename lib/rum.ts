@@ -15,11 +15,12 @@ export function resolveRumFlag(search: string, stored: string | null): { enabled
   return { enabled: stored === '1', remember: null }
 }
 
-export type RumEvent = { type: 'load' | 'tab'; [field: string]: string | number | boolean }
+/** `start`: a page opened on a device that reports (proof that the opt-in took effect). */
+export type RumEvent = { type: 'load' | 'tab' | 'start'; [field: string]: string | number | boolean }
 
 const MAX_MS = 10 * 60 * 1000
 const MAX_FIELDS = 24
-const TYPES = new Set(['load', 'tab'])
+const TYPES = new Set(['load', 'tab', 'start'])
 
 /** Keeps only what the log should hold: a known type, short strings, finite bounded numbers, booleans.
  *  The route is reachable by any signed-in user, so nothing from the body is trusted as-is. */

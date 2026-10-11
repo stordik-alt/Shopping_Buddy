@@ -2,6 +2,7 @@ import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import { InstallPromptCapture } from '@/components/shared/install-prompt-capture'
+import { RumFlag } from '@/components/shared/rum-flag'
 import './globals.css'
 
 // latin-ext is required for Czech diacritics (ě, š, č, ř, ž, ý, á, í, é, ů, ú).
@@ -40,6 +41,7 @@ export default function RootLayout({
       <body className="antialiased">
         {children}
         <InstallPromptCapture />
+        <RumFlag />
         {/* Vercel Analytics reports to /_vercel/insights, which exists only on Vercel; the Cloudflare
             build sets ANALYTICS_PROVIDER=none (next.config.mjs) and uses Cloudflare Web Analytics. */}
         {process.env.NODE_ENV === 'production' && process.env.ANALYTICS_PROVIDER !== 'none' && <Analytics />}

@@ -22,6 +22,10 @@ describe('sanitizeRumEvent', () => {
     expect(sanitizeRumEvent({ type: 'tab', tab: 'Zásoby', ms: 412.6, first: true })).toEqual({ type: 'tab', tab: 'Zásoby', ms: 413, first: true })
   })
 
+  it('accepts the start event that proves a device opted in', () => {
+    expect(sanitizeRumEvent({ type: 'start', path: '/auth/sign-in' })).toEqual({ type: 'start', path: '/auth/sign-in' })
+  })
+
   it('rejects an unknown type, a non-object and an oversized event', () => {
     expect(sanitizeRumEvent({ type: 'other', ms: 1 })).toBeNull()
     expect(sanitizeRumEvent('load')).toBeNull()

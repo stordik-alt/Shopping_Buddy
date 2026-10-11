@@ -54,7 +54,7 @@ async function cleanupTestAccount(email: string) {
 test.describe('critical smoke flow', () => {
   test('public intro is reachable', async ({ page }) => {
     await page.goto('/intro')
-    await expect(page.getByText('ANITKA')).toBeVisible()
+    await expect(page.getByRole('img', { name: 'ANITKA', exact: true })).toBeVisible()
   })
 
   test('new account reaches the protected app and main navigation remains usable', async ({ page }) => {
@@ -72,6 +72,12 @@ test.describe('critical smoke flow', () => {
       await expect(page).toHaveURL(/\/$/)
       // The same words are in the brand (sidebar) and in the phone header, so take the first visible one.
       await expect(page.locator('body')).toContainText('Rodinný nákup')
+      // First-time accounts automatically get Anitka's guide. Dismiss it so this test can exercise
+      // navigation underneath it; the guide itself is covered by its component tests.
+      const guide = page.getByRole('dialog', { name: 'Průvodce aplikací' })
+      await expect(guide).toBeVisible()
+      await guide.getByRole('button', { name: 'Přeskočit' }).click()
+      await expect(guide).toHaveCount(0)
 
       await page.goto('/?tab=nakup')
       await expect(page.getByText('Nákupní seznam', { exact: true }).first()).toBeVisible()

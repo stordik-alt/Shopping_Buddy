@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Bell, Baby, SlidersHorizontal, Users, WalletCards } from 'lucide-react'
+import { Bell, Baby, SlidersHorizontal, Users } from 'lucide-react'
 import { ChildCard } from '@/components/household/child-card'
 import { MemberCard } from '@/components/household/member-card'
 import { DietQuestionnaire } from '@/components/household/diet-questionnaire'
@@ -10,7 +10,6 @@ import { PantryCheckinSettings } from '@/components/household/pantry-checkin-set
 import { PantryPlaces } from '@/components/household/pantry-places'
 import { CollapsibleSection } from '@/components/shared/collapsible-section'
 import { TagInput } from '@/components/shared/tag-input'
-import { isCalendarMonth } from '@/lib/budget-period'
 import type { MemberDiet } from '@/lib/diet'
 import type { PendingInvitation } from '@/lib/db/queries'
 import type { StoreSelection } from '@/lib/nearby-stores'
@@ -148,28 +147,11 @@ export function HouseholdProfile({
           <input
             value={household.name}
             onChange={(event) => onUpdateHousehold({ name: event.target.value })}
+            // Where Anitka's guide points first (components/guide).
+            data-guide="household-name"
             className="min-h-11 w-full rounded-xl border border-transparent bg-transparent px-1 text-2xl font-semibold outline-none hover:border-border focus:border-ring focus:bg-background focus:px-2 focus:py-1 focus-visible:ring-2 focus-visible:ring-ring/40"
           />
         </label>
-      </div>
-
-      <div className="surface p-5">
-        <div className="flex items-center gap-3">
-          <WalletCards className="size-5 shrink-0 text-accent-text" aria-hidden />
-          <p className="text-sm font-semibold">Měsíční rozpočet domácnosti</p>
-        </div>
-        <div className="mt-3 flex items-center gap-2">
-          <Input
-            type="number"
-            min="0"
-            aria-label="Měsíční rozpočet"
-            value={household.monthlyBudget}
-            onChange={(event) => onUpdateHousehold({ monthlyBudget: Math.max(0, Number(event.target.value) || 0) })}
-            className="w-40 px-3"
-          />
-          <span className="text-sm text-muted-foreground">{isCalendarMonth(household.budgetPeriod) ? 'Kč / měsíc' : 'Kč / období'}</span>
-        </div>
-        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">Rozpočtové období (kalendářní měsíc, od výplaty nebo vlastní) nastavíte v Rozpočet → Plánování.</p>
       </div>
 
       <CollapsibleSection

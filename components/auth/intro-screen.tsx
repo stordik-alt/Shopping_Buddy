@@ -18,10 +18,20 @@ const SKIP_INTRO_KEY = 'shopping-buddy:skip-intro:v2'
 const ANITKA_NAVY = '#0a1a3f'
 const ANITKA_TURQUOISE = '#03bcdb'
 
+// What Anitka says before sign-in: three short pages, plain words, no feature jargon.
+const INTRO_PAGES = [
+  { title: 'Ahoj, já jsem Anitka!', text: 'Budu vám pomáhat s nákupy, penězi i vařením. Slibuju, že to bude snadné.' },
+  { title: 'Všechno máte na jednom místě', text: 'Co koupit, co je doma, kde jsou slevy, kolik jste utratili a co dnes uvařit.' },
+  { title: 'A já jsem pořád u vás', text: 'Založíte si účet a já vám v aplikaci ukážu, co kde je. Krok za krokem, bez stresu.' },
+] as const
+
 export function IntroScreen() {
   const router = useRouter()
   const [ready, setReady] = useState(false)
   const [dark, setDark] = useState(false)
+  const [pageIndex, setPageIndex] = useState(0)
+  const page = INTRO_PAGES[pageIndex]
+  const lastPage = pageIndex === INTRO_PAGES.length - 1
 
   useEffect(() => {
     const storage = safeLocalStorage()
@@ -48,7 +58,7 @@ export function IntroScreen() {
       className={dark ? 'dark' : ''}
       style={{ '--anitka-navy': ANITKA_NAVY, '--anitka-turquoise': ANITKA_TURQUOISE } as CSSProperties}
     >
-      <div className="relative flex min-h-[100svh] flex-col overflow-hidden bg-white dark:bg-[var(--anitka-navy)]">
+      <div className="relative flex min-h-[100svh] flex-col overflow-x-hidden bg-white dark:bg-[var(--anitka-navy)]">
         {/* A very small decorative touch, per the brief — not a shape competing with the logo. */}
         <div
           aria-hidden="true"
@@ -58,36 +68,53 @@ export function IntroScreen() {
         </div>
 
         <div
-          className="relative mx-auto flex w-full max-w-sm flex-1 flex-col items-center px-6 pt-[max(3rem,env(safe-area-inset-top)+2rem)] pb-[max(1.5rem,env(safe-area-inset-bottom)+0.5rem)] text-center"
+          className="relative mx-auto flex w-full max-w-sm flex-1 flex-col items-center px-6 pt-[max(3rem,env(safe-area-inset-top)+2rem)] [@media(max-height:680px)]:pt-6 pb-[max(1.5rem,env(safe-area-inset-bottom)+0.5rem)] text-center"
         >
-          <div className="flex flex-1 flex-col items-center justify-center gap-8">
+          <div className="flex flex-1 flex-col items-center justify-center gap-5">
             <div className="flex flex-col items-center gap-2">
               {/* The logo is a finished asset with an opaque white background — this plate keeps it
                   crisp against the dark background too, without recolouring the image itself. */}
-              <div className="w-full max-w-[17rem] rounded-[1.75rem] bg-white p-5 shadow-[0_16px_40px_-16px_rgba(10,26,63,0.35)] dark:shadow-[0_16px_40px_-12px_rgba(0,0,0,0.55)]">
+              <div className="w-full max-w-[13rem] rounded-[1.5rem] bg-white p-4 [@media(max-height:680px)]:max-w-[9.5rem] [@media(max-height:680px)]:p-3 shadow-[0_16px_40px_-16px_rgba(10,26,63,0.35)] dark:shadow-[0_16px_40px_-12px_rgba(0,0,0,0.55)]">
                 {/* eslint-disable-next-line @next/next/no-img-element -- images are unoptimized in next.config; the approved logo is a plain static asset */}
                 <img src="/brand/anitka/anitka-logo.png" alt="ANITKA" width={2172} height={724} className="h-auto w-full" fetchPriority="high" />
               </div>
               <p className="text-xs font-medium uppercase tracking-[0.15em] text-[var(--anitka-navy)]/70 dark:text-white/50">Powered by ANITKA AI</p>
             </div>
 
-            <div className="space-y-3">
-              <h1 className="text-balance text-2xl font-bold leading-snug text-[var(--anitka-navy)] dark:text-white sm:text-[1.75rem]">
-                Vaše chytrá pomocnice pro domácnost.
-              </h1>
-              <p className="text-balance text-sm text-[var(--anitka-navy)]/70 dark:text-white/75 sm:text-base">
-                Nákupy, zásoby, rozpočet a jídelníček na jednom místě.
-              </p>
+            {/* The mascot introduces the app in a few short pages the visitor clicks through. */}
+            <div className="flex w-full flex-col items-center">
+              {/* eslint-disable-next-line @next/next/no-img-element -- approved static brand asset */}
+              <img src="/brand/anitka/anitka-mascot-bust.webp" alt="Anitka, maskot aplikace" width={480} height={665} className="relative z-10 -mb-5 h-36 w-auto select-none sm:h-44 [@media(max-height:680px)]:h-28" fetchPriority="high" />
+              <div className="relative w-full rounded-3xl bg-white px-5 pb-4 pt-7 text-left shadow-[0_12px_30px_-14px_rgba(10,26,63,0.35)] ring-1 ring-[var(--anitka-navy)]/10 dark:bg-white/10 dark:ring-white/15">
+                <h1 className="text-balance text-lg font-bold leading-snug text-[var(--anitka-navy)] dark:text-white">{page.title}</h1>
+                <p aria-live="polite" className="mt-1.5 min-h-[5.5rem] text-balance text-sm leading-relaxed text-[var(--anitka-navy)]/75 dark:text-white/80 sm:text-base">
+                  {page.text}
+                </p>
+                <div className="mt-2 flex justify-center gap-1.5" role="group" aria-label="Stránka představení">
+                  {INTRO_PAGES.map((item, dot) => (
+                    <button
+                      key={item.title}
+                      type="button"
+                      onClick={() => setPageIndex(dot)}
+                      aria-label={`Stránka ${dot + 1} z ${INTRO_PAGES.length}`}
+                      aria-current={dot === pageIndex ? 'step' : undefined}
+                      className="flex size-6 items-center justify-center"
+                    >
+                      <span className={`h-1.5 rounded-full transition-all ${dot === pageIndex ? 'w-5 bg-[var(--anitka-navy)] dark:bg-[var(--anitka-turquoise)]' : 'w-1.5 bg-[var(--anitka-navy)]/25 dark:bg-white/30'}`} />
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="w-full space-y-3">
+          <div className="mt-5 w-full space-y-3">
             <button
               type="button"
-              onClick={proceed}
+              onClick={lastPage ? proceed : () => setPageIndex((current) => current + 1)}
               className="flex min-h-14 w-full items-center justify-center rounded-2xl bg-[var(--anitka-navy)] px-6 text-base font-semibold text-white shadow-[0_10px_24px_-8px_rgba(10,26,63,0.45)] transition active:scale-[0.99] dark:bg-[var(--anitka-turquoise)] dark:text-[var(--anitka-navy)]"
             >
-              Začít
+              {lastPage ? 'Začít' : 'Další'}
             </button>
             <button
               type="button"

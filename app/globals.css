@@ -262,6 +262,29 @@
   }
 }
 
+/* Anitka's guide (components/guide): a ring that pulses outwards around the element being pointed at,
+   and the mascot swaying slightly from her feet. Both stop under "reduce motion" (rule below). */
+@keyframes guide-ring {
+  0% { box-shadow: 0 0 0 0 rgb(3 188 219 / 0.55); }
+  70%, 100% { box-shadow: 0 0 0 12px rgb(3 188 219 / 0); }
+}
+/* Idle: she breathes (a slight stretch from her feet) and sways. */
+@keyframes guide-idle {
+  0%, 100% { transform: rotate(-1.5deg) scaleY(1); }
+  50% { transform: rotate(1.5deg) scaleY(1.025); }
+}
+/* A little hop with a tilt toward the card each time a new card appears; she enters from the side. */
+@keyframes guide-hop {
+  0% { transform: translateX(28px) translateY(0); opacity: 0; }
+  35% { transform: translateX(0) translateY(-14px) rotate(-4deg); opacity: 1; }
+  60% { transform: translateY(0) rotate(0); }
+  78% { transform: translateY(-5px) rotate(-2deg); }
+  100% { transform: translateY(0) rotate(0); opacity: 1; }
+}
+.guide-ring { animation: guide-ring 1.8s ease-out infinite; }
+.guide-idle { transform-origin: 50% 100%; animation: guide-idle 3.4s ease-in-out infinite; }
+.guide-hop { animation: guide-hop 0.8s cubic-bezier(0.34, 1.3, 0.64, 1) both; }
+
 /* Respect the system "reduce motion" setting: no decorative transitions, hover lifts, pulses or
    enter animations. Spinners keep turning because they are the only sign that work is in progress
    (essential motion under WCAG 2.3.3), and durations are near-zero rather than none so

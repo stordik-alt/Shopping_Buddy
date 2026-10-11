@@ -9,6 +9,9 @@ import { saveMyStorePreferencesAction } from '@/app/actions/store-preferences'
 import { markMealCookedAction } from '@/app/actions/meal-plan'
 import { markAllNotificationsReadAction, markNotificationReadAction, setNotificationPreferenceAction } from '@/app/actions/notifications'
 import { wantsNotification } from '@/lib/notification-kinds'
+import { GuideTour } from '@/components/guide/guide-tour'
+import { GUIDE_DONE_KEY, shouldAutoStartGuide } from '@/lib/guide'
+import { safeLocalStorage } from '@/lib/safe-storage'
 import type { ExpenseSplitPart } from '@/lib/purchase-expenses'
 import { getPeriodExpensesAction } from '@/app/actions/budget'
 import { completePurchaseAction, getPurchaseExpenseItemsAction, recordPurchaseAsExpenseAction, setPurchaseItemExpenseSplitsAction } from '@/app/actions/purchases'
@@ -129,6 +132,17 @@ export function AppShell({
 }) {
   const { tab, setTab } = useTabNavigation(initialTab)
 
+  // Anitka's guided tour (docs/22_GUIDE.md): opens by itself once per device, then from the account menu.
+  const [guideOpen, setGuideOpen] = useState(false)
+  useEffect(() => {
+    if (shouldAutoStartGuide(safeLocalStorage()?.getItem(GUIDE_DONE_KEY))) setGuideOpen(true)
+  }, [])
+  const closeGuide = useCallback(() => {
+    // Finished or skipped: do not open it by itself again on this device.
+    safeLocalStorage()?.setItem(GUIDE_DONE_KEY, 'done')
+    setGuideOpen(false)
+  }, [])
+
   const { dark, toggleDark } = useTheme()
   useServiceWorker()
   // Chain whose promotions the home screen lists after "Zobrazit akce" in the store directory.
@@ -188,7 +202,7 @@ export function AppShell({
     setItems,
     setNotifications,
   })
-  const { household, pendingInvitations, updateHousehold, updateBudgetPeriod, addMember, removeMember, setMemberDiet, addChild, removeChild, updatePreferences, inviteMember, revokeInvitation } = useHousehold(initialData)
+  const { household, pendingInvitations, updateHousehold, setMonthlyBudget, updateBudgetPeriod, addMember, removeMember, setMemberDiet, addChild, removeChild, updatePreferences, inviteMember, revokeInvitation } = useHousehold(initialData)
   const periods = useBudgetPeriods({ initialData, today, period: household.budgetPeriod, active: tab === 'Rozpočet' })
   const {
     expenses,
@@ -564,7 +578,9 @@ export function AppShell({
         <div className="mx-auto flex min-h-screen max-w-[1440px]">
           <AppSidebar tab={tab} onTabChange={setTab} />
 
-          <main className="min-w-0 flex-1 overflow-x-clip pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-10">
+          {/* While the guide is open the page gets room at the bottom, so that even the last element
+              of a short section can be scrolled up above the guide card. */}
+          <main className={`min-w-0 flex-1 overflow-x-clip ${guideOpen ? 'pb-[60dvh]' : 'pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-10'}`}>
             <AppHeader
               title={title}
               mobileTitle={tab === 'Domů' ? 'Rodinný nákup' : tab}
@@ -575,6 +591,7 @@ export function AppShell({
               onToggleNotifications={() => setNotificationsOpen((open) => !open)}
               unreadCount={unreadCount}
               onSelectTab={setTab}
+              onStartGuide={() => setGuideOpen(true)}
               userName={userName}
               isAdmin={isAdmin}
             />
@@ -588,7 +605,8 @@ export function AppShell({
               />
             )}
 
-            <div className="px-4 pt-4 sm:px-8 lg:px-12 lg:pt-0">
+            {/* While the guide is open, each section fades in as the guide moves on to it. */}
+            <div key={guideOpen ? tab : 'static'} className={`px-4 pt-4 sm:px-8 lg:px-12 lg:pt-0${guideOpen ? ' motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-300' : ''}`}>
               {tab === 'Domů' && (
                 <div className="mb-4 lg:hidden">
                   <p className="text-sm text-muted-foreground first-letter:uppercase">{dateLabel}</p>
@@ -629,7 +647,11 @@ export function AppShell({
                       setNakupView('uctenky')
                     }}
                     onStores={() => setTab('Obchody')}
-                    onSetBudget={() => setTab('Profil')}
+                    onSetBudget={() => {
+                      // The budget is set in the plan sheet (Rozpočet → Plánování), no longer in Profil.
+                      setTab('Rozpočet')
+                      setPlanOpen(true)
+                    }}
                     afterBudget={
                       // Folded by default: the budget card above already gives the key numbers.
                                         <CollapsibleSection title="Výdaje podle kategorií" summary={`${thisPeriodTitle(today, budgetPeriod)} · utraceno ${spent.toLocaleString('cs-CZ')} Kč`} icon={<PieChart className="size-5" aria-hidden="true" />}>
@@ -995,6 +1017,7 @@ export function AppShell({
         </div>
 
         <MobileNav tab={tab} onTabChange={setTab} />
+        {guideOpen && <GuideTour onNavigate={setTab} onClose={closeGuide} />}
 
         {recurringEdit && (
           <RecurringPaymentModal
@@ -1014,7 +1037,10 @@ export function AppShell({
             periodBudgets={periods.periodBudgets}
             savingsGoal={periods.savingsGoal}
             onClose={() => setPlanOpen(false)}
-            onSave={periods.savePlan}
+            onSave={async ({ defaultBudget, ...planChanges }) => {
+              if (defaultBudget !== undefined) await setMonthlyBudget(defaultBudget)
+              await periods.savePlan(planChanges)
+            }}
           />
         )}
         {limitsOpen && <CategoryLimitsModal limits={categoryBudgets} onClose={() => setLimitsOpen(false)} onSave={saveLimits} />}

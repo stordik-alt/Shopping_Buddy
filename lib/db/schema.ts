@@ -1716,6 +1716,7 @@ export const householdProductExpenseDefaultsRelations = relations(householdProdu
 export const pantryItemsRelations = relations(pantryItems, ({ one }) => ({
   household: one(households, { fields: [pantryItems.householdId], references: [households.id] }),
   product: one(products, { fields: [pantryItems.productId], references: [products.id] }),
+  productType: one(productTypes, { fields: [pantryItems.productTypeId], references: [productTypes.id] }),
   subcategory: one(productSubcategories, { fields: [pantryItems.subcategoryId], references: [productSubcategories.id] }),
   customPlace: one(pantryPlaces, { fields: [pantryItems.customPlaceId], references: [pantryPlaces.id] }),
 }))

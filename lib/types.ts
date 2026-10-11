@@ -258,6 +258,9 @@ export type PantryItem = {
   productId?: string | null
   /** Explicit generic product type selected from manual autocomplete, or null. */
   productTypeId?: string | null
+  /** The stable key (lib/product-types.ts) of the row's type — its own, else its concrete product's —
+   *  so recipes can match stock by type instead of by name. Null when the row has none. */
+  productTypeKey?: string | null
   name: string
   category: ItemCategory
   /** The item's subcategory within `category` (lib/product-subcategories.ts) — null when the

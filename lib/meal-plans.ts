@@ -303,6 +303,15 @@ export function matchIngredientToStock(ingredient: Ingredient, pantryItems: Pant
   const normalized = ingredient.name.trim().toLowerCase()
   const requestedType = resolveListItemTypes(ingredient.name)
   return pantryItems.find((item) => {
+    // By type first: stock is saved under its product type ("Máslo"), which a recipe's wording
+    // ("máslo", "Máslo 82 %") is resolved to as well, whatever the row or receipt happened to call
+    // it. A group ("Kuřecí maso") accepts any of its types. Quantity rules are the same as for a
+    // name match: a unit that cannot be compared (pieces vs grams) does not count.
+    if (requestedType && item.productTypeKey && requestedType.types.some((type) => stockTypeCanSatisfyRequestedType(item.productTypeKey as string, type))) {
+      const available = convertQuantity(item.quantity, item.unit, ingredient.unit)
+      if (available != null && available >= ingredient.quantity) return true
+    }
+
     if (item.name.trim().toLowerCase() === normalized) {
       const available = convertQuantity(item.quantity, item.unit, ingredient.unit)
       return available != null && available >= ingredient.quantity
@@ -312,7 +321,7 @@ export function matchIngredientToStock(ingredient: Ingredient, pantryItems: Pant
     // particular, one whole chicken in stock can cover a recipe asking for one chicken breast.
     // This is type-aware rather than fuzzy text matching, and it never turns kg into ks globally.
     if (!requestedType || requestedType.kind !== 'type' || ingredient.unit !== 'ks' || ingredient.quantity > 1) return false
-    const stockType = classifyProductType(item.category, item.name)
+    const stockType = item.productTypeKey ?? classifyProductType(item.category, item.name)
     if (!stockType || !requestedType.types.some((type) => stockTypeCanSatisfyRequestedType(stockType, type))) return false
     return stockType === 'kure-cele' && item.quantity > 0
   })

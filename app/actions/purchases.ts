@@ -1,10 +1,10 @@
 'use server'
 
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { requireHouseholdId } from '@/lib/auth/authorize'
-import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
-import { getHouseholdExpenses, getHouseholdNotifications, getPurchaseAftermath, restockPantryItem, upsertProductCatalogDefaults, type PurchaseAftermath } from '@/lib/db/queries'
+import { getHouseholdExpenses, getHouseholdNotifications, restockPantryItem, restockPantryTypeItem, upsertProductCatalogDefaults } from '@/lib/db/queries'
+import { stockTypesForLines } from '@/lib/db/stock-types'
 import { getProductCatalogCached, getSubcategoryCatalogCached } from '@/lib/db/cached-reads'
 import { purchasedInventoryQuantities } from '@/lib/inventory-packaging'
 import { getPurchaseItemsForExpense, recordPurchaseAsExpense, recomputePurchaseExpenses, setPurchaseItemExpenseSplits, type PurchaseExpenseItem } from '@/lib/db/purchase-items'
@@ -28,97 +28,23 @@ async function assertOwnsList(householdId: string, listId: string) {
   if (!list || list.householdId !== householdId) throw new Error('Shopping list not found')
 }
 
-/** Turns a finished shopping trip into real purchase history — until now `purchases`/
- *  `purchase_items` were seeded once and never written to again (docs/01_CURRENT_STATE.md,
- *  "Purchase analytics"). Takes every done item on the list, groups it by preferred store (items
- *  with none share one purchase with no store — a real, valid case, not an error), and records one
- *  `purchases` row + its `purchase_items` per group. Also restocks the household's pantry
- *  (`lib/pantry.ts`) with each purchased item — per the product owner, every purchased item should
- *  land in the pantry. Removes the completed items from the active list, since the trip is over.
- *  Per docs/05_BUSINESS_RULES.md ("past purchases are historical facts... must not be rewritten"),
- *  this only ever creates new purchases, never edits one. */
-export async function completePurchaseAction(listId: string): Promise<{ purchases: PurchaseRecord[]; aftermath: PurchaseAftermath | null }> {
+/** "Dokončit nákup" on the shopping list: removes the ticked items. A list is only a reminder and
+ *  tick-off tool (owner request, 2026-10-11) — it creates no purchase, expense or pantry stock.
+ *  Purchases come from receipt imports and manual purchases, which know what was really bought and
+ *  paid. */
+export async function clearDoneItemsAction(listId: string): Promise<{ removed: number }> {
   const householdId = await requireHouseholdId()
   await assertOwnsList(householdId, listId)
   const db = getDb()
 
-  const doneItems = await db.query.shoppingListItems.findMany({
-    where: and(eq(schema.shoppingListItems.listId, listId), eq(schema.shoppingListItems.done, true)),
-    with: { preferredStoreLocation: { with: { store: true } } },
-  })
-  if (doneItems.length === 0) return { purchases: [], aftermath: null }
+  // Only ticked items of this (already authorized) list are removed.
+  const removed = await db
+    .delete(schema.shoppingListItems)
+    .where(and(eq(schema.shoppingListItems.listId, listId), eq(schema.shoppingListItems.done, true)))
+    .returning({ id: schema.shoppingListItems.id })
 
-  // Items an imported receipt already ticked off were recorded as a purchase (and restocked into the
-  // pantry) by that import; recording them again would count the same trip twice. They are still
-  // removed from the list below, since the trip is over.
-  const itemsToRecord = doneItems.filter((item) => item.checkedByPurchaseId == null)
-
-  const inventoryQuantities = await purchasedInventoryQuantities(itemsToRecord.map((item) => ({
-    productId: item.productId,
-    name: item.name,
-    quantity: item.quantity,
-    unit: item.unit,
-  })))
-  for (const [index, item] of itemsToRecord.entries()) {
-    const inventory = inventoryQuantities[index]
-    await restockPantryItem(householdId, { productId: item.productId, name: item.name, category: item.category, quantity: inventory.quantity, unit: inventory.unit })
-  }
-
-  const groups = new Map<string, typeof doneItems>()
-  for (const item of itemsToRecord) {
-    const key = item.preferredStoreLocationId ?? 'none'
-    groups.set(key, [...(groups.get(key) ?? []), item])
-  }
-
-  const created: PurchaseRecord[] = []
-  for (const items of groups.values()) {
-    const total = items.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0)
-    const [purchaseRow] = await db
-      .insert(schema.purchases)
-      .values({ householdId, storeLocationId: items[0].preferredStoreLocationId, date: todayInPrague(), total: total.toString() })
-      .returning()
-    const itemRows = await db
-      .insert(schema.purchaseItems)
-      .values(
-        items.map((item) => ({
-          purchaseId: purchaseRow.id,
-          productId: item.productId,
-          name: item.name,
-          quantity: item.quantity,
-          unit: item.unit,
-          price: item.price,
-          category: item.category,
-        })),
-      )
-      .returning()
-
-    created.push({
-      id: purchaseRow.id,
-      date: purchaseRow.date,
-      store: items[0].preferredStoreLocation?.store.chain,
-      total: Number(purchaseRow.total),
-      discount: purchaseRow.discount != null ? Number(purchaseRow.discount) : undefined,
-      items: itemRows.map((row) => ({
-        id: row.id,
-        name: row.name,
-        quantity: row.quantity,
-        unit: row.unit,
-        price: Number(row.price),
-        category: row.category,
-        expenseSplits: [],
-      })),
-    })
-  }
-
-  await db.delete(schema.shoppingListItems).where(
-    inArray(
-      schema.shoppingListItems.id,
-      doneItems.map((item) => item.id),
-    ),
-  )
-
-  // No revalidatePath: it would re-render the whole page. The new history and the restocked pantry are returned instead.
-  return { purchases: created, aftermath: await getPurchaseAftermath(householdId) }
+  // No revalidatePath: it would re-render the whole page; the client drops the items itself.
+  return { removed: removed.length }
 }
 
 /** Creates a real purchase directly from user-entered lines. It counts immediately towards
@@ -201,17 +127,32 @@ export async function createManualPurchaseAction(input: {
     unit: item.unit,
   }))
   const inventoryQuantities = await purchasedInventoryQuantities(inventoryInputs)
+  // Stock is kept by product type, like a receipt import (see lib/db/stock-types.ts); a line whose
+  // type cannot be told is stocked under its own name.
+  const lineTypes = await stockTypesForLines(resolved.map((item) => ({ productId: item.product?.id ?? null, name: item.name, category: item.category })))
   for (const [index, item] of resolved.entries()) {
     if (!item.product?.isNonInventory) {
       const inventory = inventoryQuantities[index]
-      await restockPantryItem(householdId, {
-        productId: item.product?.id ?? null,
-        name: item.name,
-        category: item.category,
-        quantity: inventory.quantity,
-        unit: inventory.unit,
-        subcategoryId: subcategoryId(item.category, item.subcategory),
-      })
+      const type = lineTypes[index]
+      if (type) {
+        await restockPantryTypeItem(householdId, {
+          productTypeId: type.id,
+          typeName: type.name,
+          category: item.category,
+          quantity: inventory.quantity,
+          unit: inventory.unit,
+          subcategoryId: subcategoryId(item.category, item.subcategory),
+        })
+      } else {
+        await restockPantryItem(householdId, {
+          productId: item.product?.id ?? null,
+          name: item.name,
+          category: item.category,
+          quantity: inventory.quantity,
+          unit: inventory.unit,
+          subcategoryId: subcategoryId(item.category, item.subcategory),
+        })
+      }
     }
     // A manual import is a human-confirmed classification, so remember it for future imports too.
     await upsertProductCatalogDefaults({

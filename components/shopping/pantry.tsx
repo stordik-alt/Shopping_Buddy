@@ -112,7 +112,7 @@ function QuantityStepper({ quantity, unit, unitQuantity, unitUnit, onChange }: {
 }
 
 /** Household stock ("zásoby") — what the household believes it currently has at home, restocked
- *  automatically by completePurchaseAction/importReceiptAction and periodically re-checked by the
+ *  automatically by importReceiptAction/createManualPurchaseAction and periodically re-checked by the
  *  pantry-checkin cron (lib/pantry.ts). Deliberately not one long list: the storage locations are
  *  the primary navigation (a folder tile each, with icon, name, item count and warnings), and only
  *  the opened location's items are shown below — like a file manager for the home.
@@ -419,7 +419,7 @@ export function Pantry({
             title={items.length === 0 ? 'Zásoby jsou prázdné' : `V umístění „${selectedOption.name}“ zatím nic není`}
             description={
               items.length === 0
-                ? 'Zásoby se plní samy, když dokončíte nákup nebo nahrajete účtenku.'
+                ? 'Zásoby se plní samy, když nahrajete účtenku.'
                 : 'Položky se sem přidají po dokončení nákupu nebo je sem přesunete z jiného umístění.'
             }
             action={

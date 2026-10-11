@@ -2,11 +2,12 @@
 // past periods' savings (docs/20_DELETE_PURCHASE.md, owner request 2026-10-06). Authorization is the
 // caller's job: app/actions/purchases.ts resolves the household from the session.
 
-import { and, eq, ilike } from 'drizzle-orm'
+import { and, eq, ilike, isNull } from 'drizzle-orm'
 import { detectNonInventory } from '@/lib/categorization'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { pantryQuantityAfterRemoval } from '@/lib/pantry'
+import { stockTypesForLines } from '@/lib/db/stock-types'
 import { purchasedInventoryQuantity } from '@/lib/inventory-packaging'
 import { deleteReceiptFile } from '@/lib/storage'
 
@@ -21,7 +22,7 @@ export async function deletePurchase(householdId: string, purchaseId: string): P
   const purchase = await db.query.purchases.findFirst({
     where: and(eq(schema.purchases.id, purchaseId), eq(schema.purchases.householdId, householdId)),
     columns: { id: true, date: true },
-    with: { items: { columns: { productId: true, name: true, quantity: true, unit: true }, with: { product: { columns: { isNonInventory: true } } } } },
+    with: { items: { columns: { productId: true, name: true, quantity: true, unit: true, category: true }, with: { product: { columns: { isNonInventory: true } } } } },
   })
   if (!purchase) throw new PurchaseToDeleteNotFoundError('Nákup nenalezen.')
   const receipts = await db.query.receiptImports.findMany({
@@ -45,14 +46,28 @@ export async function deletePurchase(householdId: string, purchaseId: string): P
   // (owner, 2026-10-06): a product no longer in the pantry is simply skipped, and a line whose
   // adjustment fails is logged and skipped too.
   let pantryRowsChanged = 0
-  for (const line of purchase.items) {
-    if (line.product?.isNonInventory || detectNonInventory(line.name)) continue
+  const stockLines = purchase.items.filter((line) => !line.product?.isNonInventory && !detectNonInventory(line.name))
+  // Receipts and manual purchases stock by product type (lib/db/stock-types.ts), so the row to take
+  // from is the type's row; the product/name lookup stays for stock saved before that.
+  let lineTypes: Awaited<ReturnType<typeof stockTypesForLines>> = stockLines.map(() => null)
+  try {
+    lineTypes = await stockTypesForLines(stockLines.map((line) => ({ productId: line.productId, name: line.name, category: line.category })))
+  } catch (err) {
+    console.error(JSON.stringify({ event: 'purchase_delete_pantry_types_failed', purchaseId, error: err instanceof Error ? err.message : String(err) }))
+  }
+  for (const [index, line] of stockLines.entries()) {
     try {
-      const byProduct = line.productId
+      const inventory = await purchasedInventoryQuantity({ productId: line.productId, name: line.name, quantity: line.quantity, unit: line.unit })
+      const type = lineTypes[index]
+      const typeRow = type
+        ? (await db.query.pantryItems.findMany({
+            where: and(eq(schema.pantryItems.householdId, householdId), eq(schema.pantryItems.productTypeId, type.id), isNull(schema.pantryItems.productId)),
+          })).find((candidate) => candidate.unit === inventory.unit)
+        : undefined
+      const byProduct = !typeRow && line.productId
         ? await db.query.pantryItems.findFirst({ where: and(eq(schema.pantryItems.householdId, householdId), eq(schema.pantryItems.productId, line.productId)) })
         : null
-      const row = byProduct ?? (await db.query.pantryItems.findFirst({ where: and(eq(schema.pantryItems.householdId, householdId), ilike(schema.pantryItems.name, line.name.trim())) }))
-      const inventory = await purchasedInventoryQuantity({ productId: line.productId, name: line.name, quantity: line.quantity, unit: line.unit })
+      const row = typeRow ?? byProduct ?? (await db.query.pantryItems.findFirst({ where: and(eq(schema.pantryItems.householdId, householdId), ilike(schema.pantryItems.name, line.name.trim())) }))
       if (!row || row.unit !== inventory.unit) continue
       const left = pantryQuantityAfterRemoval(row.quantity, inventory.quantity)
       if (left === null) await db.delete(schema.pantryItems).where(eq(schema.pantryItems.id, row.id))

@@ -1,3 +1,18 @@
+## 2026-10-11 — Recepty párují zásoby podle typu zboží, doplnění typů ve starých zásobách
+
+- `matchIngredientToStock` (`lib/meal-plans.ts`) nejdřív hledá v zásobách řádek stejného typu zboží jako ingredience (`resolveListItemTypes`; skupina typů, např. „Kuřecí maso“, přijme kterýkoli svůj typ) a teprve potom podle názvu. „máslo“ v receptu tak najde zásobu „Máslo“ uloženou z „MASLO PRAG.250G“. Pravidla množství se nezměnila: nesrovnatelné jednotky (kusy × gramy) se dál nepárují — to je samostatný krok.
+- `PantryItem.productTypeKey` se plní z řádku zásob, jinak z typu jeho konkrétního produktu (nová relace `pantryItems.productType`).
+- Mazání nákupu (`lib/db/purchase-deletion.ts`) odebírá zásobu i z řádku uloženého pod typem, ať se řádek účtenky jmenoval jakkoli; dřívější hledání podle produktu/názvu zůstává pro starší zásoby.
+- Skript `pnpm db:backfill-pantry-types` (`lib/db/pantry-type-backfill.ts`) doplní typ starším řádkům zásob bez typu (z jejich produktu, jinak z pravidel typů čtených z názvu). Ve výchozím stavu jen vypíše plán, zapisuje s `--apply`; zapisuje výhradně `product_type_id`, nic nepřejmenuje ani neslučuje a řádek s typem nikdy nemění. Skript zatím nebyl spuštěn proti produkci.
+- Testy: typové párování v `lib/meal-plans.test.ts`, `lib/db/pantry-type-backfill.test.ts`, mazání nákupu přes typ v `lib/db/purchase-deletion.test.ts`; `tsc` čistý.
+
+## 2026-10-11 — Zásoby: seznam je jen odškrtávací, účtenka plní zásoby podle typu zboží
+
+- `completePurchaseAction` nahrazen `clearDoneItemsAction`: „Dokončit nákup“ na nákupním seznamu jen odstraní odškrtnuté položky. Nevytváří nákup, výdaj ani zásobu — seznam je pouze připomínka a kontrola, aby uživatel nezapomněl, co chtěl koupit. Nákupy a zásoby vznikají jen z účtenky, ručního nákupu a ručního přidání.
+- Import účtenky ukládá zásobu pod **typ zboží** (např. „Máslo“, „Kuřecí prsa a prsní řízky“), ne pod zkrácený text z účtenky. Typ bere z katalogového produktu řádku, jinak z pravidel `resolveReceiptLineType` (`lib/product-types.ts`), která čtou i zkratky (`KUR.PRSA 500G`). Nový `restockPantryTypeItem` (`lib/db/queries.ts`) sčítá kusy u kusových položek a váhu/objem u vážených; kusy a váha téhož typu mají samostatné řádky, váhy se převádějí do jednotky existujícího řádku. Řádek, jehož typ nelze určit, se ukládá jako dřív pod vlastním názvem (zásoba se tiše neztratí).
+- Ruční nákup (`createManualPurchaseAction`) ukládá do zásob stejně, přes sdílený `stockTypesForLines` (`lib/db/stock-types.ts`); ověřeno testem na reálné databázi (`MASLO PRAG. 250G` 2 ks → „Máslo“ 2 ks, `KUR.PRSA 500G` 0,6 kg → „Kuřecí prsa a prsní řízky“ 0,6 kg).
+- Testy: `app/actions/purchases.test.ts` (seznam nemění zásoby, `restockPantryItem`, `restockPantryTypeItem`); `tsc` čistý. `app/actions/receipts.test.ts` v tomto prostředí padá 37× i bez změny (OCR `ocr_failed`), proto nový import účtenky není integračním testem ověřen.
+
 ## 2026-10-11 — Dávky 21–40: kávy a čaje, pečivo, ryby, ovoce a zelenina, ořechy, spíž, rostlinné, drogerie
 
 - Analýza zbytku (23 641 produktů bez typu) určila další oblasti: kávy (instantní, kapsle), čaje, matcha, tortilly a speciální pečivo, ryby (bílé, uzené, konzervy, surimi, obalované, pomazánky), méně běžné ovoce a zelenina (ostružiny, meruňky, broskve, švestky, třešně, kedlubny, kapusty, hrášek, bylinky, bramborové výrobky), ořechy a sušené ovoce, ořechové krémy, speciální mouky, cukry, oleje, margaríny, asijské omáčky, rajčatové výrobky, olivy, kompoty, nakládaná zelenina, luštěniny, kaše, granola, tofu, rostlinné sýry, shoty, přírodní sirupy a v drogerii holítka, náhradní hlavice, náplasti, repelenty, esenciální oleje, vůně na prádlo, hadry a mopy, odvápňovače, inkontinenční vložky, dětské svačinky, dětská koupel a poporodní pomůcky.

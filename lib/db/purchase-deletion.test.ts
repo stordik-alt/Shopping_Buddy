@@ -57,6 +57,23 @@ describe('deletePurchase', () => {
     }
   })
 
+  it('takes stock saved under a product type out of the pantry, whatever the receipt line was called', async () => {
+    const [household] = await db.insert(schema.households).values({ name: '__test_household_delete_purchase_type__' }).returning()
+    try {
+      const type = await db.query.productTypes.findFirst({ where: eq(schema.productTypes.key, 'maslo') })
+      const [purchase] = await db.insert(schema.purchases).values({ householdId: household.id, date: '2026-09-15', total: '70' }).returning()
+      await db.insert(schema.purchaseItems).values({ purchaseId: purchase.id, name: 'MASLO PRAG. 250G', quantity: 2, unit: 'ks', price: '35', category: 'Potraviny' })
+      await db.insert(schema.pantryItems).values({ householdId: household.id, name: 'Máslo', productTypeId: type!.id, category: 'Potraviny', quantity: 5, unit: 'ks' })
+
+      await deletePurchase(household.id, purchase.id)
+
+      const pantry = await db.query.pantryItems.findMany({ where: eq(schema.pantryItems.householdId, household.id) })
+      expect(pantry.map((row) => [row.name, row.quantity])).toEqual([['Máslo', 3]])
+    } finally {
+      await db.delete(schema.households).where(eq(schema.households.id, household.id))
+    }
+  })
+
   it('deletes a purchase whose products are no longer in the pantry at all', async () => {
     const [household] = await db.insert(schema.households).values({ name: '__test_household_delete_purchase_empty_pantry__' }).returning()
     try {

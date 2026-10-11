@@ -1,3 +1,9 @@
+## 2026-10-11 — Měření: časování fází načtení domovské stránky (`PERF_TIMING=1`)
+
+- Nový `lib/perf-timing.ts` (`createPerfTimer`): při `PERF_TIMING=1` zapíše do logu serveru jeden řádek `[perf] {...}` s každou fází (začátek a trvání v ms). Bez proměnné se nic neměří a časovač jen spustí předanou práci. Serverová komponenta nemůže nastavit hlavičku `Server-Timing`, proto se výsledek píše do logu (na Vercelu do logů funkce).
+- Změřeno je `app/page.tsx` (session, `householdData`, obchody, nabídky, `isAdmin`, ceny produktů, výběr obchodů, piny) a uvnitř `getHouseholdData` každý z 20 paralelních dotazů zvlášť (`hh.*`) plus `hh.member`, `hh.household` a `hh.items`. Překrývající se fáze jsou vidět podle `startMs`. Signatura `getHouseholdData` má nepovinný čtvrtý parametr `timer`; ostatní volající se nemění.
+- Ověřeno: `tsc --noEmit` bez chyb, 3 nové testy časovače, lokální běh s `PERF_TIMING=1` vypsal očekávaný řádek (testovací účet i domácnost z lokální databáze smazány). Testy `lib/db/queries.test.ts` s `.env.local` selhaly ve 3 případech `joinHouseholdViaInvitation` (`after` volaný mimo požadavek v `lib/notify.ts`, kód, kterého se tato změna netýká; ostatních 44 prošlo). **Neověřeno:** časy na produkci; ty vzniknou až po nastavení `PERF_TIMING=1` na Vercelu.
+
 ## 2026-10-11 — Výkon: nákupní seznam se nepřekresluje kvůli nesouvisejícím změnám shellu
 
 - `ShoppingList` je obalený v `React.memo` a `AppShell` mu předává handlery (`addItem`, `updateItem`, `removeItem`, `toggle`, `onAddList`, `onPin`, `onUnpin`, `completePurchase`, `onAddSearchHit`) přes nový hook `components/shell/use-stable-callback.ts`. Hook vrací funkci se stálou identitou, která vždy volá nejnovější verzi handleru, takže vidí aktuální stav a memo funguje bez ručních seznamů závislostí.

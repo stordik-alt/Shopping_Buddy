@@ -64,6 +64,14 @@ export type ReceiptLineItem = {
   /** Catalog products this line could be, best first (lib/receipt-product-match.ts) — offered in the
    *  review form for a line no catalog name or alias recognized. Shown only, never applied unasked. */
   productSuggestions?: { productId: string; name: string }[]
+  /** The product type (druh zboží, lib/product-types.ts key) the household said this line is, picked in
+   *  the review form from `typeSuggestions`. It is what the line is stocked under in Zásoby and what
+   *  the catalog remembers for the printed text. Checked against the known types on the server; never
+   *  trusted as anything more than a key. */
+  productTypeKey?: string | null
+  /** Types this line could be, best first (lib/db/type-suggestions.ts) — offered in the review form for
+   *  a line neither the catalog nor the type rules could place. Shown only, never applied unasked. */
+  typeSuggestions?: { key: string; name: string }[]
 }
 
 // --- OCR pipeline (docs/08_OCR_RECEIPT_PIPELINE.md) -------------------------------------------

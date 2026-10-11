@@ -462,6 +462,19 @@ catalog keeps the household's category, unit and storage place under the printed
 what lets the same line complete without review next time. A line recognized by a learned alias
 is placed by its product, so it does not send the receipt to review either.
 
+**Product type suggestion ("Co to je?", 2026-10-11).** Stock is kept by product type (druh zboží,
+`docs/12_PRODUCT_TYPES.md`), not by the printed text. A line in review that no catalog name, alias or type
+rule could place — and that the household has not linked to a product — also offers up to three **types**
+(`lib/db/type-suggestions.ts`): the typed catalog products whose names are closest to the line (trigram
+similarity on `products.search_name`, five nearest) vote for their types with their similarity
+(`lib/type-suggestions.ts`; a type needs ≥ 15 % of the evidence). Never pre-selected and never applied
+without a pick: on the production catalog the neighbours are right almost every time on clean names, but
+too weak to decide alone for abbreviated lines. A pick (`productTypeKey`, validated against the code's
+type list) stocks the line under that type in Zásoby and is stored on the catalog product named by the
+printed text with `product_type_source = 'manual'`, so the next receipt with the same text is stocked
+under it automatically; picking a product instead drops a chosen type, since a product carries its own.
+No table was added for this: the product under the printed text is what remembers the choice.
+
 ---
 
 ## 16. Price precision

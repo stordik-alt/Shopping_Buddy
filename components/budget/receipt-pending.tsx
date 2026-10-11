@@ -268,10 +268,33 @@ function ReceiptPendingCard({
                     // keeps the line as it was read.
                     <label className="col-span-3 block space-y-1 text-sm text-fg-muted sm:col-span-6">
                       <span>Produkt</span>
-                      <Select aria-label={`Produkt položky ${index + 1}`} value={row.productId ?? ''} onChange={(e) => updateRow(index, { productId: e.target.value || null })} className="px-3">
+                      <Select
+                        aria-label={`Produkt položky ${index + 1}`}
+                        value={row.productId ?? ''}
+                        // A product carries its own type, so picking one drops a type chosen below.
+                        onChange={(e) => updateRow(index, { productId: e.target.value || null, ...(e.target.value && { productTypeKey: null }) })}
+                        className="px-3"
+                      >
                         <option value="">Žádný z nabízených</option>
                         {row.productSuggestions.map((suggestion) => (
                           <option key={suggestion.productId} value={suggestion.productId}>
+                            {suggestion.name}
+                          </option>
+                        ))}
+                      </Select>
+                    </label>
+                  )}
+                  {row.typeSuggestions && row.typeSuggestions.length > 0 && !row.productId && (
+                    // "Co to je?" — the line matched no catalog product and no type rule, so the typed
+                    // products closest to it offer their types (lib/db/type-suggestions.ts). Picking one
+                    // stocks the line under that type in Zásoby and is remembered for the printed text;
+                    // "Neurčeno" keeps the line as it was read.
+                    <label className="col-span-3 block space-y-1 text-sm text-fg-muted sm:col-span-6">
+                      <span>Co to je?</span>
+                      <Select aria-label={`Druh zboží položky ${index + 1}`} value={row.productTypeKey ?? ''} onChange={(e) => updateRow(index, { productTypeKey: e.target.value || null })} className="px-3">
+                        <option value="">Neurčeno</option>
+                        {row.typeSuggestions.map((suggestion) => (
+                          <option key={suggestion.key} value={suggestion.key}>
                             {suggestion.name}
                           </option>
                         ))}

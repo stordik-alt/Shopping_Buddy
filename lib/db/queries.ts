@@ -1048,6 +1048,9 @@ export async function upsertProductCatalogDefaults(entry: {
   subcategory?: string | null
   isChildOriented?: boolean
   isNonInventory?: boolean
+  // A product type (lib/product-types.ts key) the household picked for this product — a human
+  // decision, stored with source 'manual' so a later rule run never overwrites it.
+  productTypeKey?: string | null
 }) {
   const db = getDb()
   const name = entry.name.trim()
@@ -1066,15 +1069,29 @@ export async function upsertProductCatalogDefaults(entry: {
     ...(entry.isChildOriented != null && { isChildOriented: entry.isChildOriented }),
     ...(entry.isNonInventory != null && { isNonInventory: entry.isNonInventory }),
   }
+  const typeIds = await loadProductTypeIds()
+  const pickedTypeId = entry.productTypeKey ? typeIds.get(entry.productTypeKey) ?? null : null
   const existing = await db.query.products.findFirst({ where: ilike(schema.products.name, name) })
   if (existing) {
     await db
       .update(schema.products)
       // A category an administrator has decided is final: a receipt correction must not undo it.
-      .set({ ...(!existing.categoryLocked && { categoryId: categoryRow.id }), defaultLocation: entry.location, ...(subcategoryId && { subcategoryId }), ...flags })
+      .set({
+        ...(!existing.categoryLocked && { categoryId: categoryRow.id }),
+        defaultLocation: entry.location,
+        ...(subcategoryId && { subcategoryId }),
+        ...flags,
+        // A product subtype belongs to exactly one type (products_product_subtype_same_type_fk), so a
+        // different pick drops it; the same type keeps it.
+        ...(pickedTypeId && {
+          productTypeId: pickedTypeId,
+          productTypeSource: 'manual',
+          ...(existing.productTypeId !== pickedTypeId && { productSubtypeId: null, productSubtypeSource: null }),
+        }),
+      })
       .where(eq(schema.products.id, existing.id))
   } else {
-    const productTypeId = productTypeIdFor(entry.category, name, await loadProductTypeIds())
+    const productTypeId = pickedTypeId ?? productTypeIdFor(entry.category, name, typeIds)
     await db.insert(schema.products).values({
       name,
       categoryId: categoryRow.id,
@@ -1083,7 +1100,7 @@ export async function upsertProductCatalogDefaults(entry: {
       subcategoryId,
       ...flags,
       productTypeId,
-      productTypeSource: productTypeId ? 'rule' : null,
+      productTypeSource: productTypeId ? (pickedTypeId ? 'manual' : 'rule') : null,
     })
   }
   invalidateProductCatalogCache()

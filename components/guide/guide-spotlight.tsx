@@ -40,21 +40,29 @@ export function GuideSpotlight({ step, cardRef }: { step: GuideStep; cardRef: Re
 
   useEffect(() => {
     let frame = 0
+    let active = true
     let prepared = !step.prepare
     let scrollAttempts = 0
     let lastScroll = 0
+    let retryTimer: number | undefined
     const started = performance.now()
+
     setAction(null)
     setNav(null)
 
-    const tick = () => {
+    const update = () => {
+      frame = 0
+      if (!active) return
+
       // Open the right part of the section first (e.g. the "Jídelníček" switch inside Recepty).
       if (!prepared && step.prepare) {
         const trigger = findVisible([step.prepare])
         if (trigger) {
           trigger.click()
           prepared = true
-        } else if (performance.now() - started > 4000) prepared = true
+        } else if (performance.now() - started > 4000) {
+          prepared = true
+        }
       }
 
       const actionElement = prepared && step.target ? findVisible(step.target) : null
@@ -65,9 +73,8 @@ export function GuideSpotlight({ step, cardRef }: { step: GuideStep; cardRef: Re
       setAction((current) => (sameBox(current, nextAction) ? current : nextAction))
       setNav((current) => (sameBox(current, nextNav) ? current : nextNav))
 
-      // Bring the target into the free part of the screen: below the header and not under the guide
-      // card. A section can still be growing when the target first appears (the page is too short
-      // to scroll yet), so this is retried a few times, not done once.
+      // Bring the target into the free part of the screen. Scroll/resize events schedule a fresh
+      // measurement, so smooth scrolling does not need a permanent animation-frame loop.
       const now = performance.now()
       if (actionElement && nextAction && scrollAttempts < 5 && now - lastScroll > 700) {
         const card = cardRef.current?.getBoundingClientRect()
@@ -76,15 +83,46 @@ export function GuideSpotlight({ step, cardRef }: { step: GuideStep; cardRef: Re
         if (nextAction.top < 72 || (overlapsCardHorizontally && nextAction.top + nextAction.height > cardTop - 16)) {
           scrollAttempts += 1
           lastScroll = now
-          // Just above the card (room left for the label), but never under the sticky header.
           const wantedTop = Math.max(84, Math.min(110, cardTop - nextAction.height - 56))
           window.scrollBy({ top: nextAction.top - wantedTop, behavior: 'smooth' })
         }
       }
-      frame = requestAnimationFrame(tick)
+
+      // Poll briefly while a lazy-loaded section/segment is mounting. Once it appears, rely on
+      // DOM, scroll and resize events instead of repeatedly scanning the entire document.
+      const needsRetry = (!prepared && Boolean(step.prepare)) || (Boolean(step.target) && !actionElement)
+      if (needsRetry && now - started < 4000) {
+        if (retryTimer === undefined) retryTimer = window.setInterval(schedule, 250)
+      } else if (retryTimer !== undefined) {
+        window.clearInterval(retryTimer)
+        retryTimer = undefined
+      }
     }
-    frame = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(frame)
+
+    const schedule = () => {
+      if (!active || frame) return
+      frame = window.requestAnimationFrame(update)
+    }
+
+    const observer = new MutationObserver(schedule)
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'style', 'hidden', 'aria-hidden', 'data-state'],
+    })
+    window.addEventListener('scroll', schedule, { passive: true })
+    window.addEventListener('resize', schedule, { passive: true })
+    schedule()
+
+    return () => {
+      active = false
+      observer.disconnect()
+      window.removeEventListener('scroll', schedule)
+      window.removeEventListener('resize', schedule)
+      if (frame) window.cancelAnimationFrame(frame)
+      if (retryTimer !== undefined) window.clearInterval(retryTimer)
+    }
   }, [step, cardRef])
 
   // The label goes below the highlight, or above it when the guide card is right underneath. (The

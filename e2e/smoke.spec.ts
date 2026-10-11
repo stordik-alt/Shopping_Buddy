@@ -54,7 +54,7 @@ async function cleanupTestAccount(email: string) {
 test.describe('critical smoke flow', () => {
   test('public intro is reachable', async ({ page }) => {
     await page.goto('/intro')
-    await expect(page.getByText('ANITKA')).toBeVisible()
+    await expect(page.getByRole('img', { name: 'ANITKA', exact: true })).toBeVisible()
   })
 
   test('new account reaches the protected app and main navigation remains usable', async ({ page }) => {

@@ -1095,7 +1095,12 @@ export const pantryItems = pgTable('pantry_items', {
   // confirmation, so the next check-in interval starts counting from a fresh addedAt.
   askedAt: timestamp('asked_at'),
   tracking: pantryTrackingEnum('tracking').notNull().default('normal'),
+  // Size of one piece of a row counted in ks (a 250 g pack of butter = 0.25 kg), read from the
+  // purchased line's name. Lets a recipe asking for grams use stock kept in pieces; null = unknown.
+  pieceQuantity: numeric('piece_quantity', { precision: 10, scale: 3, mode: 'number' }),
+  pieceUnit: itemUnitEnum('piece_unit'),
 }, (table) => [
+  check('pantry_items_piece_size_check', sql`(${table.pieceQuantity} IS NULL AND ${table.pieceUnit} IS NULL) OR (${table.pieceQuantity} > 0 AND ${table.pieceUnit} IS NOT NULL)`),
   index('pantry_items_household_product_idx').on(table.householdId, table.productId),
   index('pantry_items_product_type_idx').on(table.householdId, table.productTypeId),
 ])

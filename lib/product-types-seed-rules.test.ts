@@ -1137,6 +1137,8 @@ const RECEIPT_LINES: [ItemCategory, string, string | null][] = [
   ['Potraviny', 'PAPRIKA ČERVENÁ', 'paprika'],
   ['Potraviny', 'KNORR JÍŠKA SVĚ.250G', 'jiska'],
   ['Potraviny', 'Knorr Jíška hotová světlá 250g', 'jiska'],
+  ['Děti', 'JUPÍK MALINA 0,5L', 'detske-napoje'],
+  ['Děti', 'KUBÍK JABLKO 0,5L', 'detske-napoje'],
   ['Potraviny', 'GUS STER.OKURKY 670G', 'zelenina-konzervovana'],
   ['Potraviny', 'OKURKA HADOVKA KS', 'okurky'],
   ['Drogerie', 'PALOMA PK 10X10KS/3V', 'papir-tasky'],

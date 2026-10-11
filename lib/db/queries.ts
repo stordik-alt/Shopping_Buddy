@@ -12,6 +12,7 @@ import { activeDealKey, dealValues, planActiveDeal, type ActiveDealSnapshot, typ
 import { ingestionDate } from '@/lib/ingestion/today'
 import type { IngestionSource as ProductSource, NormalizedPackage } from '@/lib/ingestion/types'
 import { convertQuantity, currentWeekStart, parseSavedPlan, type WeeklyMealPlan } from '@/lib/meal-plans'
+import { samePieceSize, type PieceSize } from '@/lib/piece-size'
 import type { StandaloneOffer } from '@/lib/offers'
 import { createHouseholdNotification } from '@/lib/notify'
 import { checkinSubcategoryKey, inferPantryLocation } from '@/lib/pantry'
@@ -422,10 +423,10 @@ function toPantryItem(item: Awaited<ReturnType<typeof queryPantryRows>>[number])
     quantity: item.quantity,
     unit: item.unit,
     unitQuantity: item.unit === 'ks'
-      ? resolveInventoryPackage(item.name, item.product?.packages ?? [])?.packageUnitQuantity ?? null
+      ? resolveInventoryPackage(item.name, item.product?.packages ?? [])?.packageUnitQuantity ?? item.pieceQuantity ?? null
       : null,
     unitUnit: item.unit === 'ks'
-      ? resolveInventoryPackage(item.name, item.product?.packages ?? [])?.packageUnit ?? null
+      ? resolveInventoryPackage(item.name, item.product?.packages ?? [])?.packageUnit ?? item.pieceUnit ?? null
       : null,
     // ISO strings: the pantry estimate and the check's order read the date part (YYYY-MM-DD).
     // `Date.toString()` ("Thu Sep 24 2026 …") made every estimate come out empty.
@@ -782,7 +783,7 @@ export async function restockPantryItem(
  *  (restarts the check-in interval, never moves an existing row). */
 export async function restockPantryTypeItem(
   householdId: string,
-  item: { productTypeId: string; typeName: string; category: ItemCategory; quantity: number; unit: ItemUnit; location?: PantryLocation; subcategoryId?: string | null },
+  item: { productTypeId: string; typeName: string; category: ItemCategory; quantity: number; unit: ItemUnit; location?: PantryLocation; subcategoryId?: string | null; piece?: PieceSize | null },
 ) {
   const db = getDb()
   const candidates = await db.query.pantryItems.findMany({
@@ -792,10 +793,15 @@ export async function restockPantryTypeItem(
       isNull(schema.pantryItems.productId),
     ),
   })
+  // Pieces of a different pack size (a 250 g and a 1 kg butter) are separate rows: adding them up
+  // would make the count meaningless for a recipe that asks for grams.
+  const piece = item.unit === 'ks' ? item.piece ?? null : null
+  const rowPiece = (row: (typeof candidates)[number]): PieceSize | null =>
+    row.pieceQuantity != null && row.pieceUnit ? { quantity: row.pieceQuantity, unit: row.pieceUnit } : null
   // The bought amount in the candidate's own unit, or null when the two cannot be compared.
   const compatible = candidates
     .map((row) => ({ row, bought: convertQuantity(item.quantity, item.unit, row.unit) }))
-    .find((candidate) => candidate.bought != null)
+    .find((candidate) => candidate.bought != null && (candidate.row.unit !== 'ks' || samePieceSize(rowPiece(candidate.row), piece)))
 
   if (compatible) {
     const { row, bought } = compatible
@@ -817,6 +823,8 @@ export async function restockPantryTypeItem(
     location: item.location ?? inferPantryLocation(item.category, item.typeName) ?? 'Spíž',
     quantity: item.quantity,
     unit: item.unit,
+    pieceQuantity: piece?.quantity ?? null,
+    pieceUnit: piece?.unit ?? null,
   })
 }
 

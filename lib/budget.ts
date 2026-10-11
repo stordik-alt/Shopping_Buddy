@@ -312,7 +312,7 @@ export function groupExpensesByPurchase(expenses: Expense[]): LedgerEntry[] {
 
 // --- Budget by period (docs/15_BUDGET_PERIODS.md) ---------------------------------------------------
 
-/** A period's budget: its own amount when the household set one, else the default from Profil. */
+/** A period's budget: its own amount when the household set one, else the household default (set in the budget plan sheet). */
 export function budgetForPeriod(period: string, periodBudgets: Readonly<Record<string, number>>, defaultBudget: number): number {
   return periodBudgets[period] ?? defaultBudget
 }

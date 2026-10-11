@@ -38,6 +38,8 @@ export function MobileNavButton({
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
       aria-expanded={expanded}
+      // Lets Anitka's guide point at this entry (components/guide).
+      data-guide-nav={label}
       className="flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-0 py-1.5 text-xs font-medium leading-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <span className={cn('flex h-7 w-12 items-center justify-center rounded-full transition-colors', active ? 'bg-accent-subtle text-accent-text' : 'text-fg-muted')}>
@@ -67,6 +69,7 @@ export function NavItem({
     <button
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
+      data-guide-nav={item}
       className={cn(
         'relative flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         // Active = tinted row + bold label + a turquoise bar on the left, so it does not rely on colour alone.

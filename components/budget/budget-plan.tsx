@@ -29,7 +29,7 @@ export function BudgetPlanCard({
 }: {
   today: string
   period: PeriodConfig
-  /** The budget from Profil, used by every period without its own. */
+  /** The default monthly budget (set here, in the plan sheet), used by every period without its own. */
   defaultBudget: number
   periodBudgets: Record<string, number>
   savingsGoal: number
@@ -67,7 +67,7 @@ export function BudgetPlanCard({
       }
     >
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <PlanFigure label="Toto období" value={currentBudget > 0 ? wholeMoney(currentBudget) : 'nenastaven'} hint={periodBudgets[current] != null ? 'vlastní rozpočet' : 'výchozí z profilu'} />
+        <PlanFigure label="Toto období" value={currentBudget > 0 ? wholeMoney(currentBudget) : 'nenastaven'} hint={periodBudgets[current] != null ? 'vlastní rozpočet' : 'výchozí rozpočet'} />
         <PlanFigure label="Příští období" value={nextBudget > 0 ? wholeMoney(nextBudget) : 'nenastaven'} hint={periodLabel(next, periodEnd(next, period))} />
         <div className="col-span-2 sm:col-span-1">
           <PlanFigure label="Měsíční cíl úspor" value={savingsGoal > 0 ? wholeMoney(savingsGoal) : 'nenastaven'} />
@@ -170,7 +170,7 @@ function signedMoney(value: number): string {
   return `${value > 0 ? '+' : value < 0 ? '−' : ''}${wholeMoney(Math.abs(value))}`
 }
 
-/** "Upravit rozpočet": this and the next period's own budget (empty = the default from Profil) and the
+/** "Upravit rozpočet": this and the next period's own budget (empty = the default budget) and the
  *  monthly savings goal (empty = none). Only changed values are sent; the server checks them again. */
 export function BudgetPlanSheet({
   today,
@@ -187,12 +187,13 @@ export function BudgetPlanSheet({
   periodBudgets: Record<string, number>
   savingsGoal: number
   onClose: () => void
-  onSave: (changes: { periodBudgets: { period: string; amount: number | null }[]; savingsGoal?: number }) => Promise<void>
+  onSave: (changes: { periodBudgets: { period: string; amount: number | null }[]; savingsGoal?: number; defaultBudget?: number }) => Promise<void>
 }) {
   const current = periodStart(today, period)
   const next = nextPeriodStart(current, period)
   const asText = (value: number | undefined) => (value != null && value > 0 ? String(value).replace('.', ',') : '')
   const [drafts, setDrafts] = useState({
+    default: asText(defaultBudget),
     current: periodBudgets[current] != null ? String(periodBudgets[current]).replace('.', ',') : '',
     next: periodBudgets[next] != null ? String(periodBudgets[next]).replace('.', ',') : '',
     goal: asText(savingsGoal),
@@ -223,10 +224,16 @@ export function BudgetPlanSheet({
       setError('Cíl úspor musí být částka 0 Kč nebo vyšší, nebo prázdný.')
       return
     }
+    // The household's monthly budget: the amount every period without its own uses.
+    const monthly = parse(drafts.default) ?? 0
+    if (!Number.isFinite(monthly) || monthly < 0) {
+      setError('Měsíční rozpočet musí být částka 0 Kč nebo vyšší, nebo prázdný.')
+      return
+    }
     setBusy(true)
     setError('')
     try {
-      await onSave({ periodBudgets: periodChanges, ...(goal !== savingsGoal ? { savingsGoal: goal } : {}) })
+      await onSave({ periodBudgets: periodChanges, ...(goal !== savingsGoal ? { savingsGoal: goal } : {}), ...(monthly !== defaultBudget ? { defaultBudget: monthly } : {}) })
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Rozpočet se nepodařilo uložit.')
@@ -237,6 +244,7 @@ export function BudgetPlanSheet({
 
   const defaultHint = defaultBudget > 0 ? ` · výchozí ${wholeMoney(defaultBudget)}` : ''
   const fields = [
+    { key: 'default' as const, label: 'Měsíční rozpočet', hint: 'Platí pro každé období, které nemá vlastní částku.', placeholder: 'nenastaven' },
     { key: 'current' as const, label: 'Toto období', hint: periodLabel(current, periodEnd(current, period)) + defaultHint, placeholder: 'výchozí' },
     { key: 'next' as const, label: 'Příští období', hint: periodLabel(next, periodEnd(next, period)) + defaultHint, placeholder: 'výchozí' },
     { key: 'goal' as const, label: 'Měsíční cíl úspor', hint: 'Kolik z rozpočtu ušetřit za období.', placeholder: 'bez cíle' },
@@ -247,7 +255,7 @@ export function BudgetPlanSheet({
       open
       onClose={onClose}
       title="Upravit rozpočet"
-      description="Prázdný rozpočet období znamená výchozí rozpočet z profilu. Upozornění při 80 % a 100 % se řídí rozpočtem daného období."
+      description="Prázdný rozpočet období znamená měsíční rozpočet domácnosti. Upozornění při 80 % a 100 % se řídí rozpočtem daného období."
       footer={
         <>
           {error && (

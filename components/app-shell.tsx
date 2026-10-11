@@ -73,6 +73,7 @@ import { useReceipts } from '@/components/shell/use-receipts'
 import { useServiceWorker, useTabNavigation, useTheme } from '@/components/shell/use-shell-environment'
 import { useShoppingQueue } from '@/components/shell/use-shopping-queue'
 import { useStableCallback } from '@/components/shell/use-stable-callback'
+import { RumReporter } from '@/components/shared/rum-reporter'
 import { applyPendingOps, newTempId } from '@/lib/offline-queue'
 import { budgetForPeriod, expensesInPeriod, nextPeriodStart, periodEnd, periodStart, spendingByPeriod, totalSpent } from '@/lib/budget'
 import { pendingCommitments } from '@/lib/budget-forecast'
@@ -584,6 +585,7 @@ export function AppShell({
 
   return (
     <div className={dark ? 'dark min-h-screen' : 'min-h-screen'}>
+      <RumReporter />
       <div className="min-h-screen bg-background text-foreground transition-colors">
         <div className="mx-auto flex min-h-screen max-w-[1440px]">
           <AppSidebar tab={tab} onTabChange={setTab} />

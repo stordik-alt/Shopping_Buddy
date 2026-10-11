@@ -21,7 +21,7 @@ INSERT INTO "product_types" ("key", "name", "category", "unit") VALUES
   ('vnitrnosti', 'Vnitřnosti', 'Potraviny', 'kg'),
   ('veprovy-bok', 'Vepřový bok a bůček', 'Potraviny', 'kg'),
   ('hovezi-zebra', 'Hovězí žebra', 'Potraviny', 'kg'),
-  ('zverina-kralik', 'Zvěřina a králík', 'Potraviny', 'kg'),
+  ('zverina-kralik', 'Zvěřina, králík a jehněčí', 'Potraviny', 'kg'),
   ('pecene-maso-hotove', 'Pečené maso hotové', 'Potraviny', 'kg'),
   ('hotova-masova-jidla', 'Hotová masová jídla', 'Potraviny', 'kg'),
   ('kureci-nugety-stripsy', 'Nugety a stripsy', 'Potraviny', 'kg'),

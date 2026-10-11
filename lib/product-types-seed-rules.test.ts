@@ -635,3 +635,25 @@ describe('batches 16–20', () => {
     expect(classifyProductType(category, name)).toBe(type)
   })
 })
+
+// Second sample review of batches 16–20 (fresh random samples of every new type).
+const BATCHES_16_20_REVIEW: [ItemCategory, string, string | null][] = [
+  ['Potraviny', 'Zaječická hořká Zaječická hořká', null],
+  ['Potraviny', 'Monstera Ø květináče 12 cm', null],
+  ['Potraviny', 'Cinzano Asti', null],
+  ['Potraviny', 'Metro Chef Vlašská jádra sekaná', null],
+  ['Drogerie', 'Dontodent koupelnový háček na zeď, více druhů, 1 ks', null],
+  ['Potraviny', 'Mrož jahodový tvarohový v polevě multipack 6×45 ml', null],
+  ['Potraviny', 'Vánoční kytice', null],
+  ['Potraviny', 'Pořádně ve sklenici Rajská s masovými koulemi', null],
+  ['Potraviny', 'Avokádo Kuře pečené 30g', null],
+  ['Potraviny', 'Dr.Oetker Prášek do perníku', null],
+  ['Potraviny', 'Šumavská Zvěřina Srnčí hřbet bez kosti', 'zverina-kralik'],
+  ['Potraviny', 'Red Bull 355 ml', 'energeticke-napoje'],
+]
+
+describe('batches 16–20, second review', () => {
+  it.each(BATCHES_16_20_REVIEW)('%s: %s → %s', (category, name, type) => {
+    expect(classifyProductType(category, name)).toBe(type)
+  })
+})

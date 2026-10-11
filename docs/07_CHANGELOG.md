@@ -1,3 +1,9 @@
+## 2026-10-11 — Oprava E2E testů po automatickém spuštění průvodce Anitka
+
+- První přihlášení nyní automaticky zobrazuje průvodce, který záměrně leží nad ovládáním aplikace. E2E testy registrace a rozpočtu ho po ověření zobrazení explicitně přeskočí, aby následně testovaly skutečnou navigaci a rozpočtové ovládací prvky, nikoli překrytý obsah.
+- Diagnostika CI #38139061298 potvrdila, že běh končil timeoutem 180 s při kliknutí na „Kapsy“; Playwright hlásil `Target page, context or browser has been closed`. Doplněno čekání na dialog průvodce, jeho přeskočení a kontrola, že byl zavřen.
+- Ověření po opravě: čeká se na nové CI běhy PR #421.
+
 ## 2026-10-11 — Průvodce: ukazuje na živé prvky, maskot v kartě, závěr o Anitce, rozpočet mimo profil
 
 - **Proč (vlastník):** postava nesmí být oříznutá ani nad oknem, ale uvnitř karty a ukazovat, kde co najít a spustit; přechody mají být plynulé a maskot má mít pohyb; kroky vždy na správné sekci; rozpočet z profilu pryč (patří do plánování rozpočtu); na konci odkaz, kde Anitku najdete.

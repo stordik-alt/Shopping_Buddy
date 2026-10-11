@@ -27,7 +27,7 @@ const GOLDEN: [string, string | null][] = [
   ['Čočka Beluga 400 g', 'cocka'],
   ['Čočkýna BIO smažená čočka - česnek', null],
   ['Vitana Poctivá Čočková polévka v pytlíku', 'polevky'],
-  ['Bohemia Chipsy čočkové mořská sůl 65g', null],
+  ['Bohemia Chipsy čočkové mořská sůl 65g', 'chipsy-snacky'],
   ['Bzenecký ocet kvasný jablečný 5% 0,5L PET', 'ocet'],
   ['Hels Ocet 8% 1l', 'ocet'],
   ['Pringles Sůl a ocet 165g', 'chipsy-snacky'],
@@ -42,7 +42,7 @@ const GOLDEN: [string, string | null][] = [
   ['Tatra Piknik zahuštené slazené plnotučné mléko', null],
   ['Bohemilk Zahuštěné neslazené plnotučné mléko', 'mleko-kondenzovane'],
   ['Pragolaktos Trvanlivé plnotučné mléko bez laktózy 3,5%', 'mleko-bez-laktozy'],
-  ['Alpro Sójový nápoj s čokoládovou příchutí', null],
+  ['Alpro Sójový nápoj s čokoládovou příchutí', 'nahrazky-mleka-rostlinne'],
   ['Kunín Smetana na vaření 12% 200 g', 'smetana-na-vareni'],
   ['Olma Smetana ke šlehání 33% 200 g', 'smetana-ke-slehani'],
   ['Mlékárna Kunín Šlehačka de luxe (40%)', 'smetana-ke-slehani'],
@@ -113,7 +113,7 @@ const GOLDEN: [string, string | null][] = [
   ['Okurka hadovka 1 ks', 'okurky'],
   ['ARO Okurky 6 - 9 cm', null],
   ['BIO Paprika červená, balení', 'paprika'],
-  ['Kotányi Paprika lahůdková mletá', null],
+  ['Kotányi Paprika lahůdková mletá', 'koreni'],
   ['Premium Paprikáš 100 g', null],
   ['Brambory konzumní pozdní prané 40+, varný typ B, síť', 'brambory'],
   ['McCain 123 hranolky vlnky 750g', 'hranolky'],
@@ -153,7 +153,7 @@ const GOLDEN: [string, string | null][] = [
   ['Kuřecí hřbety na polévku', 'kureci-na-polevku'],
   ['Kuřecí nugetky', 'kureci-nugety-stripsy'],
   ['Vodňanské Kuře Kuřecí párky se sýrem 290g', 'parky'],
-  ['Friskies Granule pro kočky s kuřecím 4 kg (vybrané druhy)', null],
+  ['Friskies Granule pro kočky s kuřecím 4 kg (vybrané druhy)', 'krmivo-pro-kocky'],
   // Vepřové, hovězí, krůtí
   ['Vepřová krkovice bez kosti plátky 375g', 'veprova-krkovice'],
   ['MASO! Vepřová kotleta v celku', 'veprova-pecene'],
@@ -413,7 +413,7 @@ describe('receipt lines → product types (phase 4)', () => {
     ['ZAK.SMETANA 180G', 'Potraviny', 'zakysana-smetana'],
     // Not a type, or not one the rules can name: never a guess.
     ['KURECI SUNKA 100G', 'Potraviny', 'sunka'],
-    ['MASLOVE SUSENKY', 'Potraviny', null],
+    ['MASLOVE SUSENKY', 'Potraviny', 'susenky-oplatky'],
     ['SACEK 1KS', 'Potraviny', null],
   ]
   it.each(lines)('%s (%s) → %s', (name, category, expected) => {

@@ -44,7 +44,8 @@ describe('product types in the database', () => {
       expect(plan).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ id: butter.id, from: null, to: 'maslo' }),
-          expect.objectContaining({ id: cookies.id, from: 'maslo', to: null }),
+          // Butter cookies are no butter: the rules move them to cookies.
+          expect.objectContaining({ id: cookies.id, from: 'maslo', to: 'susenky-oplatky' }),
         ]),
       )
       expect(plan.map((move) => move.id)).not.toContain(manual.id)
@@ -53,7 +54,7 @@ describe('product types in the database', () => {
       const rows = await db.query.products.findMany({ where: inArray(schema.products.id, ids) })
       const row = (id: string) => rows.find((entry) => entry.id === id)!
       expect(row(butter.id)).toMatchObject({ productTypeId: typeIds.get('maslo'), productTypeSource: 'rule' })
-      expect(row(cookies.id)).toMatchObject({ productTypeId: null, productTypeSource: null })
+      expect(row(cookies.id)).toMatchObject({ productTypeId: typeIds.get('susenky-oplatky'), productTypeSource: 'rule' })
       expect(row(manual.id)).toMatchObject({ productTypeId: typeIds.get('maslo'), productTypeSource: 'manual' })
       expect(await planProductTypeAssignment({ productIds: ids })).toEqual([])
 

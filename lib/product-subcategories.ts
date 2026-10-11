@@ -123,7 +123,7 @@ type SubcategoryRule = { subcategory: string; keywords: string[]; exclude?: stri
  *  Chef", "Česká Farma", "cherry", a colour). Any other word in front ("Mirinda Mango", "ZON Malina",
  *  "Avokádo Jalovec") means the fruit is only a flavour or a brand, and the rule does not apply. */
 const PRODUCE_PREFIXES = [
-  'bio', 'alb', 'agro jesenice', 'farma hrdlička', 'metro chef', 'bon via', 'bonvia', 'premium', 'fine life', 'čerstvě utrženo', 'čerstvé', 'čerstvá', 'česká farma', 'farma', 'aro', 'bonduelle', 'gold', 'efko', 'clever', 'billa',
+  'bio', 'alb', 'agro jesenice', 'farma hrdlička', 'farma hana součková', 'frupper', 'chiquita', 'metro chef', 'bon via', 'bonvia', 'premium', 'fine life', 'čerstvě utrženo', 'čerstvé', 'čerstvá', 'česká farma', 'farma', 'aro', 'bonduelle', 'gold', 'efko', 'clever', 'billa',
   'albert', "nature's promise", 'nature s promise', 'jeden tag', 'monoprix', 'alnatura', 'dmbio', 'eat me', 'titbit', 'cherry', 'baby', 'mini', 'zralé', 'zralý', 'zlatá', 'velké', 'velký',
   'červená', 'červené', 'červený', 'žlutá', 'žluté', 'žlutý', 'bílá', 'bílé', 'bílý', 'černé', 'černý', 'zelená', 'zelené', 'zelený', 'sladká', 'sladké', 'kanadské', 'české', 'český',
 ]

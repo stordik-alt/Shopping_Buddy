@@ -1,3 +1,10 @@
+## 2026-10-11 — Výkon: nákupní seznam se nepřekresluje kvůli nesouvisejícím změnám shellu
+
+- `ShoppingList` je obalený v `React.memo` a `AppShell` mu předává handlery (`addItem`, `updateItem`, `removeItem`, `toggle`, `onAddList`, `onPin`, `onUnpin`, `completePurchase`, `onAddSearchHit`) přes nový hook `components/shell/use-stable-callback.ts`. Hook vrací funkci se stálou identitou, která vždy volá nejnovější verzi handleru, takže vidí aktuální stav a memo funguje bez ručních seznamů závislostí.
+- Chování pro uživatele se nemění. Seznam se teď nepřekreslí, když se v shellu změní něco, co s ním nesouvisí (např. otevření panelu notifikací).
+- Záměrně nezměněno: hooky rozpočtu (příjmy, kapsy, plánované výdaje, výhled) zůstávají v shellu. Jejich data se drží mezi přepnutími pohledů; přesun do komponenty, která se odmontuje, by je načítal znovu při každém otevření Plánování.
+- Ověřeno: `tsc --noEmit` bez chyb, testy komponent (94) projdou. **Neověřeno:** skutečné zrychlení (měření je až poslední krok) a ruční průchod seznamem v prohlížeči; Vitest zde nemá DOM prostředí, takže hook nemá vlastní test.
+
 ## 2026-10-11 — Výkon: lehčí první JS a psaní do „Co koupit?" bez překreslení shellu
 
 - `Recipes`, `BudgetPlanning`, `BudgetPlanCard`, `BudgetPlanSheet`, `PreferredDeals` a `GuideTour` se načítají přes `dynamic()` v `components/shell/lazy-views.tsx` místo statického importu v `components/app-shell.tsx`; do prvního JS už nepatří, dokud je uživatel neotevře.

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { ItemTypePicker } from '@/components/shopping/item-type-picker'
 import { ProductAutocomplete, type ProductAutocompleteSelection } from '@/components/shared/product-autocomplete'
 import { describeItemTypes } from '@/lib/product-types'
@@ -54,7 +54,9 @@ function groupItems(items: Item[], group: GroupKey) {
   return Array.from(groups.entries()).map(([label, groupedItems]) => ({ label, items: groupedItems }))
 }
 
-export function ShoppingList({
+// Memoized: the app shell re-renders for reasons that have nothing to do with the list (a budget view
+// finishing its load, the bell panel opening); with stable handler props the list then stays as it is.
+export const ShoppingList = memo(function ShoppingList({
   today,
   items,
   addItem,
@@ -657,7 +659,7 @@ export function ShoppingList({
       />
     </div>
   )
-}
+})
 
 /** A number field that lets the user type freely — clear it, type "0,5" — and saves each value that
  *  is a valid number (lib/decimal-input.ts). On leaving the field an unfinished or invalid text goes

@@ -72,6 +72,7 @@ import { usePantry } from '@/components/shell/use-pantry'
 import { useReceipts } from '@/components/shell/use-receipts'
 import { useServiceWorker, useTabNavigation, useTheme } from '@/components/shell/use-shell-environment'
 import { useShoppingQueue } from '@/components/shell/use-shopping-queue'
+import { useStableCallback } from '@/components/shell/use-stable-callback'
 import { applyPendingOps, newTempId } from '@/lib/offline-queue'
 import { budgetForPeriod, expensesInPeriod, nextPeriodStart, periodEnd, periodStart, spendingByPeriod, totalSpent } from '@/lib/budget'
 import { pendingCommitments } from '@/lib/budget-forecast'
@@ -569,6 +570,18 @@ export function AppShell({
     void markAllNotificationsReadAction()
   }
 
+  // The handlers above close over the shell's state, so each render makes new ones; ShoppingList is
+  // memoized, and these keep its props the same until its own data changes.
+  const listAddItem = useStableCallback(addItem)
+  const listUpdateItem = useStableCallback(updateItem)
+  const listRemoveItem = useStableCallback(removeItem)
+  const listToggleItem = useStableCallback(toggleItem)
+  const listAddList = useStableCallback(addShoppingListName)
+  const listPin = useStableCallback(pinProduct)
+  const listUnpin = useStableCallback(unpinProduct)
+  const listCompletePurchase = useStableCallback(completePurchase)
+  const listAddSearchHit = useStableCallback(addSearchHitToShoppingList)
+
   return (
     <div className={dark ? 'dark min-h-screen' : 'min-h-screen'}>
       <div className="min-h-screen bg-background text-foreground transition-colors">
@@ -732,24 +745,24 @@ export function AppShell({
                         onFocusHandled={clearFocus}
                         today={today}
                         items={items}
-                        addItem={addItem}
-                        updateItem={updateItem}
-                        removeItem={removeItem}
-                        toggle={toggleItem}
+                        addItem={listAddItem}
+                        updateItem={listUpdateItem}
+                        removeItem={listRemoveItem}
+                        toggle={listToggleItem}
                         lists={shoppingLists}
-                        onAddList={addShoppingListName}
+                        onAddList={listAddList}
                         productPrices={nearbyProductPrices}
                         pins={pins}
-                        onPin={pinProduct}
-                        onUnpin={unpinProduct}
+                        onPin={listPin}
+                        onUnpin={listUnpin}
                         storeChains={storeChains}
                         storeSelection={storeSelection}
                         buildPlan={buildShoppingPlanAction}
                         remaining={remaining}
                         stores={stores}
                         userCoords={userLocation.coords}
-                        completePurchase={completePurchase}
-                        onAddSearchHit={addSearchHitToShoppingList}
+                        completePurchase={listCompletePurchase}
+                        onAddSearchHit={listAddSearchHit}
                         offers={nearbyStandaloneOffers}
                       />
                     </>

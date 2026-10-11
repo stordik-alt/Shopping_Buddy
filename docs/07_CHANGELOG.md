@@ -1,3 +1,10 @@
+## 2026-10-11 — Průvodce: celá aplikace od začátku do konce a živá Anitka
+
+- Koncept: `docs/22_GUIDE.md`. Průvodce má 33 karet místo 12: pohyb po aplikaci, Domů, zvonek, Nákup (detail položky, seznamy a filtry, hledání produktů, plán nákupu, dokončení nákupu, Moje nákupy, Účtenky), Zásoby (místa, úpravy, kontrola, minimum a maximum), Rozpočet (Přehled, Výdaje, Plánování, pravidelné platby, Kapsy, uzavření období), Akce, Obchody, Recepty, Jídelníček a čtyři karty Profilu. Texty jsou psané lidsky a odpovídají skutečným funkcím.
+- Poslední karta otevře nabídku účtu a zvýrazní v ní „Průvodce aplikací“, tedy přesně ukáže, kde ho najít; odkaz se zvýrazní i nad otevřenou nabídkou. Nové značky kroku: `contains`, `skipIf`, `navHint`.
+- Anitka se hýbe jako člověk: mrká, usmívá se, mrkne jedním okem, kývá a naklání hlavu, při nové kartě hýbe rty; každá karta má náladu (`mood`). Je to dokreslené přes jeden malovaný obrázek (hlava zvlášť od těla, víčka a ústa v SVG); bez nového obrázku a bez nové závislosti. Pod „omezit pohyb“ se zastaví.
+- Testy: `lib/guide.test.ts` (pokrytí sekcí, nálady, poslední karta), `components/guide/guide-tour.test.tsx`; ověřeno Playwrightem průchodem všech 33 karet na 390 px a 1280 px (zvýraznění míst, nabídka účtu se po „Hotovo“ zavře, bez vodorovného posunu).
+
 ## 2026-10-11 — Minimální a maximální zásoba: návrh „Dokoupit do zásoby“
 
 - Koncept: `docs/36_PANTRY_STOCK_LEVELS.md`. U řádku zásob jde nastavit minimum a maximum (tužka ▸ „Hlídat zásobu“); migrace `0098_pantry_stock_levels.sql` přidává `min_quantity`/`max_quantity` s kontrolou `0 <= min < max` (aplikována na testovací DB).

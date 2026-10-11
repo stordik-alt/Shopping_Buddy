@@ -281,6 +281,84 @@
   78% { transform: translateY(-5px) rotate(-2deg); }
   100% { transform: translateY(0) rotate(0); opacity: 1; }
 }
+/* Anitka's face and head (components/guide/anitka-mascot.tsx). Idle: she blinks now and then, the head drifts
+   a little and she smiles from time to time. Each mood adds what she does when a card appears. The rules
+   under "reduce motion" jump every animation to its last frame, which here is always the calm one. */
+.anitka-head { transform-origin: 34% 49%; animation: anitka-head-idle 7s ease-in-out infinite; }
+.anitka-react { transform-origin: 34% 49%; }
+.anitka-lid { transform-box: fill-box; transform-origin: 50% 0; transform: scaleY(0); animation: anitka-blink 6.2s ease-in-out infinite; }
+.anitka-lid-r { animation-delay: 0.02s; }
+.anitka-smile { opacity: 0; animation: anitka-smile-idle 11s ease-in-out infinite; transition: opacity 0.3s; }
+.anitka-talk { opacity: 0; animation: anitka-talk-visible 1.9s ease-in-out 0.45s both; }
+.anitka-talk-open { transform-box: fill-box; transform-origin: 50% 0; animation: anitka-talk-open 1.9s ease-in-out 0.45s both; }
+
+@keyframes anitka-head-idle {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  22% { transform: rotate(-1.8deg) translateY(0.6px); }
+  50% { transform: rotate(1.4deg) translateY(0); }
+  76% { transform: rotate(-0.8deg) translateY(0.8px); }
+}
+@keyframes anitka-blink {
+  0%, 90%, 100% { transform: scaleY(0); }
+  93% { transform: scaleY(1); }
+  96% { transform: scaleY(0); }
+}
+@keyframes anitka-smile-idle {
+  0%, 28%, 100% { opacity: 0; }
+  36%, 60% { opacity: 1; }
+  68% { opacity: 0; }
+}
+@keyframes anitka-talk-visible {
+  0%, 100% { opacity: 0; }
+  8%, 90% { opacity: 1; }
+}
+@keyframes anitka-talk-open {
+  0%, 100% { transform: scaleY(0); }
+  10% { transform: scaleY(0.9); }
+  22% { transform: scaleY(0.2); }
+  34% { transform: scaleY(0.8); }
+  46% { transform: scaleY(0.1); }
+  58% { transform: scaleY(1); }
+  70% { transform: scaleY(0.25); }
+  82% { transform: scaleY(0.7); }
+}
+/* Moods: what she does as a new card appears. */
+@keyframes anitka-nod {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  18% { transform: rotate(1deg) translateY(4px); }
+  36% { transform: rotate(0deg) translateY(0); }
+  54% { transform: rotate(1deg) translateY(4px); }
+  72% { transform: rotate(0deg) translateY(0); }
+}
+@keyframes anitka-tilt {
+  0% { transform: rotate(0deg); }
+  35%, 100% { transform: rotate(-5deg) translateX(-1px); }
+}
+@keyframes anitka-tilt-back {
+  0%, 100% { transform: rotate(0deg); }
+  25%, 75% { transform: rotate(-4deg); }
+}
+@keyframes anitka-cheer {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-5px) rotate(-3deg); }
+  50% { transform: translateY(0) rotate(0deg); }
+  75% { transform: translateY(-3px) rotate(2deg); }
+}
+@keyframes anitka-wink {
+  0%, 100% { transform: scaleY(0); }
+  18%, 72% { transform: scaleY(1); }
+}
+[data-mood='smile'] .anitka-smile, [data-mood='wink'] .anitka-smile, [data-mood='cheer'] .anitka-smile { opacity: 1; animation: none; }
+[data-mood='nod'] .anitka-react { animation: anitka-nod 1.3s ease-in-out 0.1s both; }
+[data-mood='nod'] .anitka-smile { animation-delay: 1.6s; }
+[data-mood='think'] .anitka-react { animation: anitka-tilt 0.9s ease-out both; }
+[data-mood='think'] .anitka-lid { animation-duration: 4.2s; }
+[data-mood='cheer'] .anitka-react { animation: anitka-cheer 1.1s ease-in-out 0.1s both; }
+[data-mood='wink'] .anitka-lid-r { animation: anitka-wink 1.7s ease-in-out 0.6s both; }
+[data-mood='wink'] .anitka-react { animation: anitka-tilt-back 1.9s ease-in-out both; }
+/* The mouth patch is only needed while she smiles or talks; with the smile on, the talking is the smile. */
+[data-mood='smile'] .anitka-talk, [data-mood='wink'] .anitka-talk, [data-mood='cheer'] .anitka-talk { animation-delay: 0.45s; }
+
 .guide-ring { animation: guide-ring 1.8s ease-out infinite; }
 .guide-idle { transform-origin: 50% 100%; animation: guide-idle 3.4s ease-in-out infinite; }
 .guide-hop { animation: guide-hop 0.8s cubic-bezier(0.34, 1.3, 0.64, 1) both; }

@@ -14,10 +14,11 @@ function sameBox(a: Box | null, b: Box | null) {
 /** The first element on screen that matches one of the candidates (the app renders both a phone and a
  *  desktop navigation, so "on screen" is what tells them apart). */
 function findVisible(candidates: GuideTarget[]): HTMLElement | null {
-  for (const { selector, text } of candidates) {
+  for (const { selector, text, contains } of candidates) {
     for (const element of document.querySelectorAll<HTMLElement>(selector)) {
       if (element.getClientRects().length === 0 || getComputedStyle(element).visibility === 'hidden') continue
       if (text !== undefined && element.textContent?.trim() !== text) continue
+      if (contains !== undefined && !element.textContent?.includes(contains)) continue
       return element
     }
   }
@@ -56,8 +57,10 @@ export function GuideSpotlight({ step, cardRef }: { step: GuideStep; cardRef: Re
 
       // Open the right part of the section first (e.g. the "Jídelníček" switch inside Recepty).
       if (!prepared && step.prepare) {
-        const trigger = findVisible([step.prepare])
-        if (trigger) {
+        const trigger = step.prepare.skipIf && document.querySelector(step.prepare.skipIf) ? null : findVisible([step.prepare])
+        if (step.prepare.skipIf && document.querySelector(step.prepare.skipIf)) {
+          prepared = true
+        } else if (trigger) {
           trigger.click()
           prepared = true
         } else if (performance.now() - started > 4000) {
@@ -67,7 +70,7 @@ export function GuideSpotlight({ step, cardRef }: { step: GuideStep; cardRef: Re
 
       const actionElement = prepared && step.target ? findVisible(step.target) : null
       // "Více" is the way in on a phone for the sections that are not in the bottom bar.
-      const navElement = step.where ? findVisible([{ selector: `[data-guide-nav="${step.tab}"]` }, { selector: '[data-guide-nav="Více"]' }]) : null
+      const navElement = step.where && step.navHint !== false ? findVisible([{ selector: `[data-guide-nav="${step.tab}"]` }, { selector: '[data-guide-nav="Více"]' }]) : null
       const nextAction = boxOf(actionElement)
       const nextNav = boxOf(navElement)
       setAction((current) => (sameBox(current, nextAction) ? current : nextAction))
@@ -131,7 +134,7 @@ export function GuideSpotlight({ step, cardRef }: { step: GuideStep; cardRef: Re
   const labelRight = action ? action.left > window.innerWidth / 2 : false
 
   return (
-    <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[34]">
+    <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[45]">
       {nav && <Ring box={nav} dashed />}
       {action && (
         <Ring box={action}>

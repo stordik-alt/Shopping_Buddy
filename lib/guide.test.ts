@@ -23,40 +23,66 @@ describe('guide steps', () => {
     expect(profile?.why?.length).toBeGreaterThan(0)
     // The budget is set in Rozpočet → Plánování, not in the profile.
     expect(JSON.stringify(profile)).not.toMatch(/rozpočet/i)
-    expect(GUIDE_STEPS.find((step) => step.id === 'budget')?.where).toContain('Plánování')
+    expect(GUIDE_STEPS.find((step) => step.id === 'planning')?.where).toContain('Plánování')
   })
 
   it('tells people how to reach sections that are not in the phone bottom bar', () => {
-    for (const step of GUIDE_STEPS.filter((s) => ['Akce', 'Obchody', 'Recepty', 'Profil'].includes(s.tab))) {
-      expect(step.where).toContain('Více')
+    for (const id of ['deals', 'stores', 'recipes', 'profile']) {
+      expect(GUIDE_STEPS.find((step) => step.id === id)?.where).toContain('Více')
     }
   })
 
-  it('ends with Anitka herself and a way back to the profile', () => {
+  it('ends by showing exactly where to find the guide again, with a way back to the profile', () => {
     for (const aiEnabled of [false, true]) {
       const steps = getGuideSteps(aiEnabled)
       const last = steps[steps.length - 1]
-      expect(last.id).toBe('anitka')
+      expect(last.id).toBe('findme')
+      expect(last.where).toContain('Průvodce aplikací')
+      // The account menu is opened, and its guide item is the highlighted place.
+      expect(last.prepare?.selector).toContain('Účet a nastavení')
+      expect(last.target?.[0]).toMatchObject({ selector: '[role="menuitem"]', contains: 'Průvodce aplikací' })
       expect(last.cta).toBeTruthy()
       expect(last.secondaryCta?.tab).toBe('Profil')
     }
   })
 
-  it('points at the assistant only when it is switched on, and promises nothing before', () => {
-    const on = getGuideSteps(true).at(-1)!
-    const off = getGuideSteps(false).at(-1)!
+  it('has the assistant card just before the end, pointing at it only when it is switched on', () => {
+    const on = getGuideSteps(true).at(-2)!
+    const off = getGuideSteps(false).at(-2)!
+    expect(on.id).toBe('anitka')
     expect(on.tab).toBe('AI')
-    expect(on.cta?.tab).toBe('AI')
     expect(off.tab).not.toBe('AI')
-    expect(off.cta?.tab).toBeUndefined()
     expect(off.target).toBeUndefined()
     expect(off.text).toContain('Ještě se učím')
+    // Only the last card ends the tour.
+    for (const step of getGuideSteps(true).slice(0, -1)) expect(step.cta).toBeUndefined()
+  })
+
+  it('explains every part of the app: each section and the main features have a card', () => {
+    const ids = GUIDE_STEPS.map((step) => step.id)
+    for (const id of ['navigation', 'home', 'bell', 'shopping', 'shopping-detail', 'shopping-plan', 'shopping-finish', 'purchases', 'receipts', 'pantry', 'pantry-check', 'pantry-levels', 'budget', 'expenses', 'planning', 'recurring', 'pockets', 'period-close', 'deals', 'stores', 'recipes', 'mealplan', 'profile', 'profile-members', 'profile-stores', 'profile-preferences', 'profile-notifications']) {
+      expect(ids).toContain(id)
+    }
+    for (const tab of ['Domů', 'Nákup', 'Zásoby', 'Rozpočet', 'Akce', 'Obchody', 'Recepty', 'Profil'] as const) {
+      expect(GUIDE_STEPS.some((step) => step.tab === tab)).toBe(true)
+    }
+  })
+
+  it('gives every card a mood Anitka can act out, and every card a plain-language title and text', () => {
+    const moods = ['nod', 'smile', 'wink', 'think', 'cheer']
+    for (const step of getGuideSteps(true)) {
+      if (step.mood) expect(moods).toContain(step.mood)
+      expect(step.text.length).toBeGreaterThan(40)
+    }
+    expect(new Set(getGuideSteps(true).map((step) => step.mood ?? 'nod')).size).toBeGreaterThan(3)
   })
 })
 
 describe('guide pointers', () => {
   it('only asks to click first when there is something to point at afterwards', () => {
-    for (const step of GUIDE_STEPS.filter((s) => s.prepare)) expect(step.target?.length).toBeGreaterThan(0)
+    // Switching to another part of a section (e.g. "Moje nákupy") is the point of its card; every other
+    // click-first card needs a place to point at afterwards.
+    for (const step of GUIDE_STEPS.filter((s) => s.prepare && s.id !== 'purchases')) expect(step.target?.length).toBeGreaterThan(0)
   })
 
   it('labels every highlighted place, and each target names a selector', () => {

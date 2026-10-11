@@ -265,7 +265,7 @@ export async function adjustPantryItemQuantityAction(pantryItemId: string, quant
 
 /** "Došlo" — the household no longer has this item, so it's removed from the pantry entirely
  *  (not marked "out" — there's nothing useful to keep once it's gone; buying it again creates a
- *  fresh pantry row via completePurchaseAction). */
+ *  fresh pantry row via a receipt or manual purchase). */
 export async function removePantryItemAction(pantryItemId: string) {
   const householdId = await requireHouseholdId()
   await assertOwnsPantryItem(householdId, pantryItemId)

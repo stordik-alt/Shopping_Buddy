@@ -9,7 +9,8 @@ import { and, eq, gte, ilike, inArray } from 'drizzle-orm'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { getDb } from '@/lib/db/client'
 import { invalidateProductPriceCache } from '@/lib/db/cache-invalidation'
-import { getProductCatalogByIds, recordPriceObservation, restockPantryItem, upsertProductCatalogDefaults } from '@/lib/db/queries'
+import { getProductCatalogByIds, recordPriceObservation, restockPantryItem, restockPantryTypeItem, upsertProductCatalogDefaults } from '@/lib/db/queries'
+import { stockTypesForLines } from '@/lib/db/stock-types'
 import { getProductCatalogCached, getSubcategoryCatalogCached } from '@/lib/db/cached-reads'
 import { purchasedInventoryQuantities } from '@/lib/inventory-packaging'
 import * as schema from '@/lib/db/schema'
@@ -415,8 +416,26 @@ export async function createPurchaseFromReceiptItems(
     quantity: item.quantity,
     unit: item.unit,
   })))
+  // Stock is kept by product type ("Máslo"), not by the receipt's abbreviated text ("MASLO PRAG.250G"),
+  // so recipes and the shopping plan — which ask for types — recognise it. A line whose type cannot
+  // be told (the rules find none, or more than one) keeps the old behaviour of a row under its own
+  // name rather than silently dropping the stock.
+  const lineTypes = await stockTypesForLines(inventoryItems)
   for (const [index, item] of inventoryItems.entries()) {
     const inventory = inventoryQuantities[index]
+    const type = lineTypes[index]
+    if (type) {
+      await restockPantryTypeItem(householdId, {
+        productTypeId: type.id,
+        typeName: type.name,
+        category: item.category,
+        quantity: inventory.quantity,
+        unit: inventory.unit,
+        location: item.location,
+        subcategoryId: subcategoryId(item.category, item.subcategory),
+      })
+      continue
+    }
     await restockPantryItem(householdId, {
       productId: item.productId,
       name: item.name,

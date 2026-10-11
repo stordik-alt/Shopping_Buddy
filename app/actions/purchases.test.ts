@@ -10,8 +10,9 @@ let currentHouseholdId = ''
 vi.mock('@/lib/auth/authorize', () => ({ requireHouseholdId: () => Promise.resolve(currentHouseholdId) }))
 vi.mock('next/cache', () => ({ revalidatePath: () => {}, revalidateTag: () => {}, unstable_cache: (fn: (...args: any[]) => any) => fn }))
 
-import { completePurchaseAction, createManualPurchaseAction, recordPurchaseAsExpenseAction, setPurchaseItemExpenseSplitsAction } from '@/app/actions/purchases'
+import { clearDoneItemsAction, createManualPurchaseAction, recordPurchaseAsExpenseAction, setPurchaseItemExpenseSplitsAction } from '@/app/actions/purchases'
 import { recomputePurchaseExpenses } from '@/lib/db/purchase-items'
+import { restockPantryItem, restockPantryTypeItem } from '@/lib/db/queries'
 
 const db = getDb()
 const createdHouseholdIds: string[] = []
@@ -43,117 +44,46 @@ afterAll(async () => {
   }
 })
 
-describe('completePurchaseAction', () => {
-  it('does nothing when there are no done items', async () => {
-    await db.insert(schema.shoppingListItems).values({ listId, name: 'Nehotovo', done: false, price: '10' })
-    const { purchases } = await completePurchaseAction(listId)
-    expect(purchases).toEqual([])
-  })
-
-  it('returns the new history and the restocked pantry, so the page needs no refresh', async () => {
-    await db.insert(schema.shoppingListItems).values({ listId, name: 'Jogurt', done: true, price: '20', quantity: 3, category: 'Potraviny' })
-    await db.insert(schema.purchases).values({ householdId: otherHouseholdId, date: '2026-01-01', total: '99' })
-
-    const { aftermath } = await completePurchaseAction(listId)
-
-    expect(aftermath?.purchaseHistory).toHaveLength(1)
-    expect(aftermath?.purchaseHistory[0].items.map((entry) => entry.name)).toEqual(['Jogurt'])
-    expect(aftermath?.pantryItems.map((entry) => entry.name)).toContain('Jogurt')
-  })
-
-  it('rejects a list belonging to a different household', async () => {
-    await expect(completePurchaseAction(otherListId)).rejects.toThrow('Shopping list not found')
-  })
-
-  it('turns done items with no preferred store into one purchase with no store, and removes them from the list', async () => {
-    const [item1] = await db.insert(schema.shoppingListItems).values({ listId, name: 'Mléko', done: true, price: '30', quantity: 2 }).returning()
-    const [item2] = await db.insert(schema.shoppingListItems).values({ listId, name: 'Chleba', done: true, price: '25', quantity: 1 }).returning()
+describe('clearDoneItemsAction', () => {
+  it('removes only the ticked items of the list', async () => {
+    const [done] = await db.insert(schema.shoppingListItems).values({ listId, name: 'Mléko', done: true, price: '30', quantity: 2 }).returning()
     const [notDone] = await db.insert(schema.shoppingListItems).values({ listId, name: 'Ještě nekoupeno', done: false, price: '5' }).returning()
 
-    const { purchases } = await completePurchaseAction(listId)
+    expect(await clearDoneItemsAction(listId)).toEqual({ removed: 1 })
 
-    expect(purchases).toHaveLength(1)
-    expect(purchases[0].store).toBeUndefined()
-    expect(purchases[0].total).toBe(30 * 2 + 25 * 1)
-    expect(purchases[0].items.map((i) => i.name).sort()).toEqual(['Chleba', 'Mléko'])
-
-    expect(await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, item1.id) })).toBeUndefined()
-    expect(await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, item2.id) })).toBeUndefined()
+    expect(await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, done.id) })).toBeUndefined()
     expect(await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, notDone.id) })).toBeDefined()
   })
 
-  it('does not record an item a receipt already ticked off as a second purchase, but still removes it from the list', async () => {
-    const [receiptPurchase] = await db.insert(schema.purchases).values({ householdId, date: '2026-09-20', total: '30' }).returning()
-    const [settled] = await db
-      .insert(schema.shoppingListItems)
-      .values({ listId, name: 'Z účtenky', done: true, price: '30', quantity: 1, checkedByPurchaseId: receiptPurchase.id })
-      .returning()
-    const [manual] = await db.insert(schema.shoppingListItems).values({ listId, name: 'Ručně', done: true, price: '10', quantity: 1 }).returning()
-
-    const { purchases } = await completePurchaseAction(listId)
-
-    expect(purchases).toHaveLength(1)
-    expect(purchases[0].items.map((i) => i.name)).toEqual(['Ručně'])
-    expect(purchases[0].total).toBe(10)
-    expect(await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, settled.id) })).toBeUndefined()
-    expect(await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, manual.id) })).toBeUndefined()
+  it('rejects a list belonging to a different household', async () => {
+    await expect(clearDoneItemsAction(otherListId)).rejects.toThrow('Shopping list not found')
   })
 
-  it('records nothing when every done item was already settled by a receipt', async () => {
-    const [receiptPurchase] = await db.insert(schema.purchases).values({ householdId, date: '2026-09-20', total: '30' }).returning()
-    await db.insert(schema.shoppingListItems).values({ listId, name: 'Z účtenky', done: true, price: '30', checkedByPurchaseId: receiptPurchase.id })
+  it('creates no purchase, expense or pantry stock: a list is only a reminder', async () => {
+    await db.insert(schema.pantryItems).values({ householdId, name: 'Rýže', category: 'Potraviny', location: 'Spíž', quantity: 1 })
+    await db.insert(schema.shoppingListItems).values({ listId, name: 'Rýže', done: true, price: '40', quantity: 2, category: 'Potraviny' })
+    await db.insert(schema.shoppingListItems).values({ listId, name: 'Jogurt', done: true, price: '20', quantity: 3, category: 'Potraviny' })
 
-    const { purchases } = await completePurchaseAction(listId)
+    await clearDoneItemsAction(listId)
 
-    expect(purchases).toEqual([])
-  })
-
-  it('groups done items into separate purchases per preferred store', async () => {
-    const storeLocation = await db.query.storeLocations.findFirst({ with: { store: true } })
-    if (!storeLocation) return // no seeded store locations in this database; nothing to assert without inventing one
-
-    await db.insert(schema.shoppingListItems).values({ listId, name: 'S obchodem', done: true, price: '10', preferredStoreLocationId: storeLocation.id })
-    await db.insert(schema.shoppingListItems).values({ listId, name: 'Bez obchodu', done: true, price: '20' })
-
-    const { purchases } = await completePurchaseAction(listId)
-
-    expect(purchases).toHaveLength(2)
-    const withStore = purchases.find((p) => p.store === storeLocation.store.chain)
-    const withoutStore = purchases.find((p) => p.store === undefined)
-    expect(withStore?.items.map((i) => i.name)).toEqual(['S obchodem'])
-    expect(withoutStore?.items.map((i) => i.name)).toEqual(['Bez obchodu'])
+    const rows = await db.query.pantryItems.findMany({ where: eq(schema.pantryItems.householdId, householdId) })
+    expect(rows.map((row) => [row.name, row.quantity])).toEqual([['Rýže', 1]])
+    expect(await db.query.purchases.findMany({ where: eq(schema.purchases.householdId, householdId) })).toEqual([])
+    expect(await db.query.expenses.findMany({ where: eq(schema.expenses.householdId, householdId) })).toEqual([])
   })
 })
 
-describe('completePurchaseAction — pantry restocking', () => {
-  it('creates a new pantry row for a product not seen before', async () => {
-    await db.insert(schema.shoppingListItems).values({ listId, name: 'Rýže', done: true, price: '40', quantity: 1, category: 'Potraviny' })
-    await completePurchaseAction(listId)
-
-    const pantryRow = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.householdId, householdId) })
-    expect(pantryRow?.name).toBe('Rýže')
-    expect(pantryRow?.quantity).toBe(1)
-    expect(pantryRow?.category).toBe('Potraviny')
-    expect(pantryRow?.location).toBe('Spíž') // shelf-stable, no fridge/freezer keyword match
-    expect(pantryRow?.askedAt).toBeNull()
-  })
-
-  it('infers the fridge/freezer/household location for a new row from category and name', async () => {
-    await db.insert(schema.shoppingListItems).values({ listId, name: 'Kuřecí prsa', done: true, price: '90', quantity: 1, category: 'Potraviny' })
-    await db.insert(schema.shoppingListItems).values({ listId, name: 'Mražený hrášek', done: true, price: '25', quantity: 1, category: 'Potraviny' })
-    await db.insert(schema.shoppingListItems).values({ listId, name: 'Prací prostředek', done: true, price: '150', quantity: 1, category: 'Drogerie' })
-    await completePurchaseAction(listId)
-
-    const rows = await db.query.pantryItems.findMany({ where: eq(schema.pantryItems.householdId, householdId) })
-    expect(rows.find((r) => r.name === 'Kuřecí prsa')?.location).toBe('Lednice')
-    expect(rows.find((r) => r.name === 'Mražený hrášek')?.location).toBe('Mrazák')
-    expect(rows.find((r) => r.name === 'Prací prostředek')?.location).toBe('Domácnost')
+describe('restockPantryItem', () => {
+  it('creates a new pantry row for a product not seen before, with an inferred location', async () => {
+    await restockPantryItem(householdId, { productId: null, name: 'Kuřecí prsa', category: 'Potraviny', quantity: 1, unit: 'ks' })
+    const row = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.householdId, householdId) })
+    expect(row?.location).toBe('Lednice')
+    expect(row?.askedAt).toBeNull()
   })
 
   it('does not re-infer location on restock, so a manual move (e.g. into the freezer) survives a later purchase', async () => {
     await db.insert(schema.pantryItems).values({ householdId, name: 'Kuřecí prsa', category: 'Potraviny', location: 'Mrazák', quantity: 1 })
-    await db.insert(schema.shoppingListItems).values({ listId, name: 'Kuřecí prsa', done: true, price: '90', quantity: 1, category: 'Potraviny' })
-    await completePurchaseAction(listId)
+    await restockPantryItem(householdId, { productId: null, name: 'Kuřecí prsa', category: 'Potraviny', quantity: 1, unit: 'ks' })
 
     const row = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.householdId, householdId) })
     expect(row?.location).toBe('Mrazák') // stayed put — restock never overwrites an existing row's location
@@ -163,8 +93,7 @@ describe('completePurchaseAction — pantry restocking', () => {
   it('replaces stock that is past its shelf life instead of adding to it', async () => {
     const fiveDaysAgo = new Date(Date.now() - 5 * 86_400_000)
     await db.insert(schema.pantryItems).values({ householdId, name: 'Rohlík', category: 'Potraviny', location: 'Spíž', quantity: 4, addedAt: fiveDaysAgo })
-    await db.insert(schema.shoppingListItems).values({ listId, name: 'Rohlík', done: true, price: '3', quantity: 6, category: 'Potraviny' })
-    await completePurchaseAction(listId)
+    await restockPantryItem(householdId, { productId: null, name: 'Rohlík', category: 'Potraviny', quantity: 6, unit: 'ks' })
 
     const row = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.householdId, householdId) })
     expect(row?.quantity).toBe(6) // the rolls from five days ago are gone (3-day shelf life), not 10
@@ -173,9 +102,7 @@ describe('completePurchaseAction — pantry restocking', () => {
   it('sums quantity into an existing pantry row on restock, case-insensitively by name, and resets askedAt', async () => {
     const twoDaysAgo = new Date(Date.now() - 2 * 86_400_000)
     await db.insert(schema.pantryItems).values({ householdId, name: 'Vejce', category: 'Potraviny', quantity: 6, addedAt: twoDaysAgo, askedAt: twoDaysAgo })
-
-    await db.insert(schema.shoppingListItems).values({ listId, name: 'VEJCE', done: true, price: '5', quantity: 10, category: 'Potraviny' })
-    await completePurchaseAction(listId)
+    await restockPantryItem(householdId, { productId: null, name: 'VEJCE', category: 'Potraviny', quantity: 10, unit: 'ks' })
 
     const pantryRows = await db.query.pantryItems.findMany({ where: eq(schema.pantryItems.householdId, householdId) })
     expect(pantryRows).toHaveLength(1) // restocked, not duplicated
@@ -185,52 +112,34 @@ describe('completePurchaseAction — pantry restocking', () => {
   })
 })
 
-describe('multipack inventory integration', () => {
-  it('expands a purchased multipack into physical units while preserving the purchase package quantity and price', async () => {
-    const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
-    const productName = `__test_veseta_6x15_${crypto.randomUUID()}`
-    const [product] = await db.insert(schema.products).values({
-      name: productName,
-      categoryId: category!.id,
-      defaultUnit: 'ks',
-      defaultLocation: 'Spíž',
-    }).returning()
-    try {
-      await db.insert(schema.productPackages).values({
-        productId: product.id,
-        quantity: 9,
-        unit: 'l',
-        packageCount: 6,
-        packageUnitQuantity: 1.5,
-        packageUnit: 'l',
-        firstSeenAt: '2026-10-07',
-        lastSeenAt: '2026-10-07',
-      })
-      await db.insert(schema.shoppingListItems).values({
-        listId,
-        productId: product.id,
-        name: productName,
-        done: true,
-        price: '89.90',
-        quantity: 8,
-        unit: 'ks',
-        category: 'Potraviny',
-      })
+describe('restockPantryTypeItem', () => {
+  async function typeId(key: string) {
+    const row = await db.query.productTypes.findFirst({ where: eq(schema.productTypes.key, key) })
+    return row!.id
+  }
 
-      const { purchases } = await completePurchaseAction(listId)
+  it('stores stock under the type name and sums pieces into one row', async () => {
+    const productTypeId = await typeId('maslo')
+    await restockPantryTypeItem(householdId, { productTypeId, typeName: 'Máslo', category: 'Potraviny', quantity: 2, unit: 'ks' })
+    await restockPantryTypeItem(householdId, { productTypeId, typeName: 'Máslo', category: 'Potraviny', quantity: 1, unit: 'ks' })
 
-      expect(purchases).toHaveLength(1)
-      expect(purchases[0].items[0]).toMatchObject({ quantity: 8, unit: 'ks', price: 89.9 })
-
-      const pantry = await db.query.pantryItems.findFirst({
-        where: eq(schema.pantryItems.householdId, householdId),
-      })
-      expect(pantry).toMatchObject({ productId: product.id, quantity: 48, unit: 'ks' })
-    } finally {
-      await db.delete(schema.products).where(eq(schema.products.id, product.id))
-    }
+    const rows = await db.query.pantryItems.findMany({ where: eq(schema.pantryItems.householdId, householdId) })
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ name: 'Máslo', productTypeId, quantity: 3, unit: 'ks', productId: null })
   })
 
+  it('converts weights into the existing row unit and keeps pieces and weight apart', async () => {
+    const productTypeId = await typeId('kureci-prsa')
+    await restockPantryTypeItem(householdId, { productTypeId, typeName: 'Kuřecí prsa a prsní řízky', category: 'Potraviny', quantity: 0.5, unit: 'kg' })
+    await restockPantryTypeItem(householdId, { productTypeId, typeName: 'Kuřecí prsa a prsní řízky', category: 'Potraviny', quantity: 300, unit: 'g' })
+    await restockPantryTypeItem(householdId, { productTypeId, typeName: 'Kuřecí prsa a prsní řízky', category: 'Potraviny', quantity: 2, unit: 'ks' })
+
+    const rows = await db.query.pantryItems.findMany({ where: eq(schema.pantryItems.householdId, householdId) })
+    expect(rows.map((row) => [row.unit, row.quantity]).sort()).toEqual([['kg', 0.8], ['ks', 2]])
+  })
+})
+
+describe('multipack inventory integration', () => {
   it('expands a manual multipack purchase and does not create an extra expense', async () => {
     const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
     const productName = `__test_eggs_30_${crypto.randomUUID()}`
@@ -325,6 +234,25 @@ describe('createManualPurchaseAction — classification', () => {
     } finally {
       await db.delete(schema.products).where(eq(schema.products.name, name))
     }
+  })
+})
+
+describe('createManualPurchaseAction — stock by product type', () => {
+  it('stocks an abbreviated line under its product type, pieces and weights apart', async () => {
+    await createManualPurchaseAction({
+      date: '2026-09-27',
+      items: [
+        { name: 'MASLO PRAG. 250G', quantity: 2, unit: 'ks', price: 60, category: 'Potraviny' },
+        { name: 'KUR.PRSA 500G', quantity: 0.6, unit: 'kg', price: 120, category: 'Potraviny' },
+      ],
+    })
+
+    const rows = await db.query.pantryItems.findMany({ where: eq(schema.pantryItems.householdId, householdId) })
+    expect(rows.map((row) => [row.name, row.quantity, row.unit]).sort()).toEqual([
+      ['Kuřecí prsa a prsní řízky', 0.6, 'kg'],
+      ['Máslo', 2, 'ks'],
+    ])
+    expect(rows.every((row) => row.productTypeId != null)).toBe(true)
   })
 })
 

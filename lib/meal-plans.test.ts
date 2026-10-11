@@ -263,6 +263,29 @@ describe('matchIngredientToStock', () => {
     expect(match?.name).toBe('KUŘE CHLAZENÉ')
   })
 
+  it('matches stock saved under a product type to a recipe naming that type differently', () => {
+    const match = matchIngredientToStock(
+      { name: 'máslo', category: 'Potraviny', quantity: 100, unit: 'g' },
+      [pantryItem({ name: 'MASLO PRAG.250G', productTypeKey: 'maslo', unit: 'kg', quantity: 0.25 })],
+    )
+    expect(match).toBeDefined()
+  })
+
+  it('does not match a different type, nor a typed row with too little stock or an incomparable unit', () => {
+    const request = { name: 'máslo', category: 'Potraviny' as const, quantity: 100, unit: 'g' as const }
+    expect(matchIngredientToStock(request, [pantryItem({ name: 'Mléko', productTypeKey: 'mleko-polotucne', unit: 'kg', quantity: 5 })])).toBeUndefined()
+    expect(matchIngredientToStock(request, [pantryItem({ name: 'Máslo', productTypeKey: 'maslo', unit: 'g', quantity: 50 })])).toBeUndefined()
+    expect(matchIngredientToStock(request, [pantryItem({ name: 'Máslo', productTypeKey: 'maslo', unit: 'ks', quantity: 2 })])).toBeUndefined()
+  })
+
+  it('lets a group request ("Kuřecí maso") be met by any type of the group', () => {
+    const match = matchIngredientToStock(
+      { name: 'Kuřecí maso', category: 'Potraviny', quantity: 300, unit: 'g' },
+      [pantryItem({ name: 'Kuřecí stehna a čtvrtky', productTypeKey: 'kureci-stehna', unit: 'kg', quantity: 1 })],
+    )
+    expect(match).toBeDefined()
+  })
+
   it('does not treat chicken ham as chicken meat stock', () => {
     const match = matchIngredientToStock(
       { name: 'Kuřecí prsa', category: 'Potraviny', quantity: 1, unit: 'ks' },

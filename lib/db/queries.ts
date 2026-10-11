@@ -11,7 +11,7 @@ import { planOfficialPrice, type OfficialPriceAction, type OfficialPriceSnapshot
 import { activeDealKey, dealValues, planActiveDeal, type ActiveDealSnapshot, type DealValues, type IngestedDeal } from '@/lib/ingestion/active-deal'
 import { ingestionDate } from '@/lib/ingestion/today'
 import type { IngestionSource as ProductSource, NormalizedPackage } from '@/lib/ingestion/types'
-import { currentWeekStart, parseSavedPlan, type WeeklyMealPlan } from '@/lib/meal-plans'
+import { convertQuantity, currentWeekStart, parseSavedPlan, type WeeklyMealPlan } from '@/lib/meal-plans'
 import type { StandaloneOffer } from '@/lib/offers'
 import { createHouseholdNotification } from '@/lib/notify'
 import { checkinSubcategoryKey, inferPantryLocation } from '@/lib/pantry'
@@ -387,9 +387,12 @@ function queryPantryRows(householdId: string) {
     orderBy: asc(schema.pantryItems.addedAt),
     with: {
       subcategory: { columns: { name: true } },
+      productType: { columns: { key: true } },
       product: {
         columns: { id: true },
         with: {
+          // A concrete product's own type, for stock rows that name the product but no type.
+          productType: { columns: { key: true } },
           packages: {
             columns: {
               quantity: true,
@@ -410,6 +413,7 @@ function toPantryItem(item: Awaited<ReturnType<typeof queryPantryRows>>[number])
     id: item.id,
     productId: item.productId,
     productTypeId: item.productTypeId,
+    productTypeKey: item.productType?.key ?? item.product?.productType?.key ?? null,
     name: item.name,
     category: item.category,
     subcategory: item.subcategory?.name ?? null,
@@ -766,6 +770,54 @@ export async function restockPantryItem(
       customPlaceId: item.customPlaceId ?? null,
     })
   }
+}
+
+/** Restocks the pantry by *product type* ("Máslo", "Kuřecí prsa a prsní řízky") instead of by the
+ *  receipt's abbreviated line text — the way a receipt import stores stock (owner request,
+ *  2026-10-11), so recipes and the shopping plan, which ask for types and never for "MASLO PRAGA 250G",
+ *  find it. Pieces stay pieces and weighed goods keep their weight. The row is matched on the type
+ *  alone (a concrete product row from a manual add keeps its own row), and only when its unit can be
+ *  summed with the bought one: 2 ks and 0.3 kg of the same type are different counts and get separate
+ *  rows rather than a meaningless total. Same restock semantics as `restockPantryItem` otherwise
+ *  (restarts the check-in interval, never moves an existing row). */
+export async function restockPantryTypeItem(
+  householdId: string,
+  item: { productTypeId: string; typeName: string; category: ItemCategory; quantity: number; unit: ItemUnit; location?: PantryLocation; subcategoryId?: string | null },
+) {
+  const db = getDb()
+  const candidates = await db.query.pantryItems.findMany({
+    where: and(
+      eq(schema.pantryItems.householdId, householdId),
+      eq(schema.pantryItems.productTypeId, item.productTypeId),
+      isNull(schema.pantryItems.productId),
+    ),
+  })
+  // The bought amount in the candidate's own unit, or null when the two cannot be compared.
+  const compatible = candidates
+    .map((row) => ({ row, bought: convertQuantity(item.quantity, item.unit, row.unit) }))
+    .find((candidate) => candidate.bought != null)
+
+  if (compatible) {
+    const { row, bought } = compatible
+    const quantity = restockedQuantity({ ...row, addedAt: row.addedAt.toISOString() }, bought as number, todayInPrague())
+    await db
+      .update(schema.pantryItems)
+      .set({ quantity, addedAt: new Date(), askedAt: null, subcategoryId: row.subcategoryId ?? item.subcategoryId ?? null })
+      .where(eq(schema.pantryItems.id, row.id))
+    return
+  }
+
+  await db.insert(schema.pantryItems).values({
+    householdId,
+    productId: null,
+    productTypeId: item.productTypeId,
+    name: item.typeName,
+    category: item.category,
+    subcategoryId: item.subcategoryId ?? null,
+    location: item.location ?? inferPantryLocation(item.category, item.typeName) ?? 'Spíž',
+    quantity: item.quantity,
+    unit: item.unit,
+  })
 }
 
 export type InvitationInfo = {

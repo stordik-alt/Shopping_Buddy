@@ -13,7 +13,7 @@ import { GUIDE_DONE_KEY, shouldAutoStartGuide } from '@/lib/guide'
 import { safeLocalStorage } from '@/lib/safe-storage'
 import type { ExpenseSplitPart } from '@/lib/purchase-expenses'
 import { getPeriodExpensesAction } from '@/app/actions/budget'
-import { completePurchaseAction, getPurchaseExpenseItemsAction, recordPurchaseAsExpenseAction, setPurchaseItemExpenseSplitsAction } from '@/app/actions/purchases'
+import { clearDoneItemsAction,getPurchaseExpenseItemsAction, recordPurchaseAsExpenseAction, setPurchaseItemExpenseSplitsAction } from '@/app/actions/purchases'
 import { addShoppingItemAction, addShoppingListAction, resolveRecipePackageHintsAction } from '@/app/actions/shopping'
 import { AppHeader } from '@/components/shared/app-header'
 import { resolveRecipePackage } from '@/lib/recipes/packaging'
@@ -497,12 +497,10 @@ export function AppShell({
     if (!navigator.onLine) return
     await flushQueue()
     if (queueRef.current.length > 0) return
-    const { aftermath } = await completePurchaseAction(initialData.mainListId)
-    // No aftermath means the server found nothing ticked; otherwise it removed every ticked item
-    // (also ones an imported receipt had already recorded, which create no purchase here).
-    if (!aftermath) return
+    // The list only reminds what to buy: the server just removes the ticked items — no purchase,
+    // expense or stock (those come from a receipt or a manual purchase).
+    await clearDoneItemsAction(initialData.mainListId)
     setItems((current) => current.filter((item) => !doneIds.has(item.id)))
-    applyPurchaseAftermath(aftermath)
   }
 
   function addShoppingListName(name: string) {

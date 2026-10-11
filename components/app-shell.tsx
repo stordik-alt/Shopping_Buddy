@@ -9,7 +9,6 @@ import { saveMyStorePreferencesAction } from '@/app/actions/store-preferences'
 import { markMealCookedAction } from '@/app/actions/meal-plan'
 import { markAllNotificationsReadAction, markNotificationReadAction, setNotificationPreferenceAction } from '@/app/actions/notifications'
 import { wantsNotification } from '@/lib/notification-kinds'
-import { GuideTour } from '@/components/guide/guide-tour'
 import { GUIDE_DONE_KEY, shouldAutoStartGuide } from '@/lib/guide'
 import { safeLocalStorage } from '@/lib/safe-storage'
 import type { ExpenseSplitPart } from '@/lib/purchase-expenses'
@@ -18,7 +17,6 @@ import { completePurchaseAction, getPurchaseExpenseItemsAction, recordPurchaseAs
 import { addShoppingItemAction, addShoppingListAction, resolveRecipePackageHintsAction } from '@/app/actions/shopping'
 import { AppHeader } from '@/components/shared/app-header'
 import { resolveRecipePackage } from '@/lib/recipes/packaging'
-import { Recipes } from '@/components/recipes/recipes'
 import { AppSidebar } from '@/components/shared/app-sidebar'
 import { MobileNav } from '@/components/shared/mobile-nav'
 import { OfflineBanner } from '@/components/shopping/offline-banner'
@@ -31,18 +29,24 @@ import { SegmentedControl } from '@/components/ui/segmented-control'
 import {
   AiAssistant,
   BudgetOverview,
+  BudgetPlanCard,
+  BudgetPlanSheet,
+  BudgetPlanning,
   CategoryLimitsModal,
   CategorySnapshot,
   DashboardOverview,
   DealsTab,
   ExpenseLedger,
   ExpenseModal,
+  GuideTour,
   HouseholdProfile,
   NotificationPanel,
   Pantry,
   PantryPrompt,
+  PreferredDeals,
   PriceWatch,
   PurchaseHistory,
+  Recipes,
   ReceiptImport,
   ReceiptListSuggestions,
   ReceiptPending,
@@ -58,9 +62,6 @@ import {
 import type { ProductAutocompleteSelection } from '@/components/shared/product-autocomplete'
 import { useBudget } from '@/components/shell/use-budget'
 import { useBudgetPeriods } from '@/components/shell/use-budget-periods'
-import { PreferredDeals } from '@/components/dashboard/preferred-deals'
-import { BudgetPlanCard, BudgetPlanSheet } from '@/components/budget/budget-plan'
-import { BudgetPlanning } from '@/components/budget/budget-planning'
 import { useHousehold } from '@/components/shell/use-household'
 import { useBudgetLedger } from '@/components/shell/use-budget-ledger'
 import { useBudgetOutlook } from '@/components/shell/use-budget-outlook'
@@ -177,7 +178,6 @@ export function AppShell({
   const boughtNameKeys = useMemo(() => new Set(purchaseHistory.flatMap((purchase) => purchase.items.map((item) => keptNameKey(item.name)))), [purchaseHistory])
   // The saved menu, kept here so it is still shown after switching tabs (saving it no longer re-renders the page).
   const [mealPlan, setMealPlan] = useState(initialData.mealPlan)
-  const [newItem, setNewItem] = useState('')
   const [shoppingLists, setShoppingLists] = useState(initialData.shoppingLists)
   // Which of the three things the Nákup tab can show right now — the list itself is what people open
   // it for, so it stays the default even when a receipt is waiting on review.
@@ -387,10 +387,7 @@ export function AppShell({
     )
   }
 
-  async function addItem(selection?: ProductAutocompleteSelection) {
-    const name = newItem.trim()
-    if (!name) return
-    setNewItem('')
+  async function addItem(name: string, selection?: ProductAutocompleteSelection) {
     await addItemByName(name, selection)
   }
 
@@ -735,8 +732,6 @@ export function AppShell({
                         onFocusHandled={clearFocus}
                         today={today}
                         items={items}
-                        newItem={newItem}
-                        setNewItem={setNewItem}
                         addItem={addItem}
                         updateItem={updateItem}
                         removeItem={removeItem}

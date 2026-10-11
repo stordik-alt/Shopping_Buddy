@@ -1,3 +1,9 @@
+## 2026-10-11 — Výkon: lehčí první JS a psaní do „Co koupit?" bez překreslení shellu
+
+- `Recipes`, `BudgetPlanning`, `BudgetPlanCard`, `BudgetPlanSheet`, `PreferredDeals` a `GuideTour` se načítají přes `dynamic()` v `components/shell/lazy-views.tsx` místo statického importu v `components/app-shell.tsx`; do prvního JS už nepatří, dokud je uživatel neotevře.
+- Text pole „Co koupit?" (`newItem`) žije v `ShoppingList`, ne v `AppShell`. Stisk klávesy tak překresluje jen seznam, ne celý shell. `addItem` v shellu nyní přijímá `(name, selection)`; trim a vyprázdnění pole dělá seznam, chování pro uživatele je stejné.
+- Ověřeno: `tsc --noEmit` bez chyb, testy komponent (94) projdou. **Neověřeno:** skutečný dopad na rychlost; měření (bundle, překreslení, TTFB) je záměrně až poslední krok.
+
 ## 2026-10-11 — Oprava: maskot v průvodci a čisté pozadí maskota
 
 - **Problém (vlastník):** po nasazení se maskot v průvodci nezobrazoval a na tmavém pozadí byl kolem postavy vidět kostrbatý bílý rámeček.

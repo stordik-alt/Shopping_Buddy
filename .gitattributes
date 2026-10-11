@@ -1,2 +1,13 @@
 # Vynutí LF konce řádků pro všechny textové a zdrojové soubory
 * text eol=lf
+# Binary files must never go through line-ending conversion: it rewrote bytes of
+# anitka-mascot-full.webp and the mascot vanished from the guide.
+*.webp binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary

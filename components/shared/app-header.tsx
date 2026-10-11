@@ -15,6 +15,7 @@ export function AppHeader({
   onToggleNotifications,
   unreadCount,
   onSelectTab,
+  onStartGuide,
   userName,
   isAdmin,
 }: {
@@ -27,6 +28,7 @@ export function AppHeader({
   onToggleNotifications: () => void
   unreadCount: number
   onSelectTab: (tab: Tab) => void
+  onStartGuide: () => void
   userName: string
   isAdmin: boolean
 }) {
@@ -72,7 +74,7 @@ export function AppHeader({
             </span>
           )}
         </button>
-        <AccountMenu userName={userName} isAdmin={isAdmin} dark={dark} onToggleDark={onToggleDark} onSelectTab={onSelectTab} onSignOut={signOut} />
+        <AccountMenu userName={userName} isAdmin={isAdmin} dark={dark} onToggleDark={onToggleDark} onSelectTab={onSelectTab} onStartGuide={onStartGuide} onSignOut={signOut} />
       </div>
     </header>
   )

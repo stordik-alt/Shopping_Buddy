@@ -28,6 +28,7 @@ import { invalidateProductCatalogCache } from '@/lib/db/cache-invalidation'
 import { loadProductTypeIds, productTypeIdFor } from '@/lib/db/product-type-assignment'
 import type { RecurringInterval, RecurringOccurrence, RecurringPayment } from '@/lib/recurring-payments'
 import type { ReceiptLineItem } from '@/lib/receipts'
+import { createPerfTimer, type PerfTimer } from '@/lib/perf-timing'
 import type {
   CategoryBudgets,
   Child,
@@ -512,13 +513,21 @@ export async function getPurchaseAftermath(householdId: string, purchaseId?: str
 }
 
 /** Loads (or, on first login, creates or joins-via-invitation) the signed-in user's household with every domain area the app needs on first render. */
-export async function getHouseholdData(userId: string, userName: string, userEmail: string): Promise<HouseholdData> {
+export async function getHouseholdData(
+  userId: string,
+  userName: string,
+  userEmail: string,
+  // Records where the render spends its time (lib/perf-timing.ts); the default measures nothing.
+  timer: PerfTimer = createPerfTimer('getHouseholdData', { enabled: false }),
+): Promise<HouseholdData> {
   const db = getDb()
+  // Names one query of the parallel batch below, so the log shows which of them is slow.
+  const timed = <T>(name: string, query: PromiseLike<T>) => timer.measure(`hh.${name}`, () => query)
 
-  const ownMember = await db.query.householdMembers.findFirst({ where: eq(schema.householdMembers.userId, userId) })
+  const ownMember = await timer.measure('hh.member', () => db.query.householdMembers.findFirst({ where: eq(schema.householdMembers.userId, userId) }))
   let household: typeof schema.households.$inferSelect | undefined
   if (ownMember) {
-    household = await db.query.households.findFirst({ where: eq(schema.households.id, ownMember.householdId) })
+    household = await timer.measure('hh.household', () => db.query.households.findFirst({ where: eq(schema.households.id, ownMember.householdId) }))
   } else {
     const pendingInvitation = await db.query.invitations.findFirst({
       where: and(eq(schema.invitations.email, userEmail.toLowerCase()), eq(schema.invitations.status, 'pending')),
@@ -537,39 +546,39 @@ export async function getHouseholdData(userId: string, userName: string, userEma
   const historySince = currentBudgetPeriodStart(budgetPeriod)
   const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows, mealPlan, invitationRows, pantryRows, pantryPlaceRows, pantryCheckinRows, pantryCheckinSubcategoryRows, pendingReceiptImports, categoryBudgetRows, recurringRows, occurrenceRows, notificationsOffRows, periodBudgetRows, dietRows] =
     await Promise.all([
-      db.query.householdMembers.findMany({
+      timed('members', db.query.householdMembers.findMany({
         where: eq(schema.householdMembers.householdId, household.id),
         with: { profile: true },
         orderBy: asc(schema.householdMembers.joinedAt),
-      }),
-      db.query.children.findMany({ where: eq(schema.children.householdId, household.id) }),
-      db.query.preferences.findFirst({ where: eq(schema.preferences.householdId, household.id) }),
-      db.query.shoppingLists.findMany({
+      })),
+      timed('children', db.query.children.findMany({ where: eq(schema.children.householdId, household.id) })),
+      timed('preferences', db.query.preferences.findFirst({ where: eq(schema.preferences.householdId, household.id) })),
+      timed('lists', db.query.shoppingLists.findMany({
         where: eq(schema.shoppingLists.householdId, household.id),
         orderBy: asc(schema.shoppingLists.createdAt),
-      }),
-      db.query.expenses.findMany({ where: and(eq(schema.expenses.householdId, household.id), gte(schema.expenses.date, historySince)), orderBy: asc(schema.expenses.date) }),
+      })),
+      timed('expenses', db.query.expenses.findMany({ where: and(eq(schema.expenses.householdId, household.id), gte(schema.expenses.date, historySince)), orderBy: asc(schema.expenses.date) })),
       // The newest 50 are what the bell panel can usefully show; all of them grew with every week.
-      db.query.notifications.findMany({ where: and(eq(schema.notifications.householdId, household.id), eq(schema.notifications.unread, true)), orderBy: desc(schema.notifications.createdAt), limit: NOTIFICATIONS_SHOWN }),
+      timed('notifications', db.query.notifications.findMany({ where: and(eq(schema.notifications.householdId, household.id), eq(schema.notifications.unread, true)), orderBy: desc(schema.notifications.createdAt), limit: NOTIFICATIONS_SHOWN })),
       // The last year, with only the columns the history, usual items and pantry estimate read. The
       // whole history with every related row (branch addresses, opening hours…) was sent on every render.
-      queryPurchaseRows(household.id, budgetPeriod),
-      getCurrentMealPlan(household.id),
-      db.query.invitations.findMany({
+      timed('purchases', queryPurchaseRows(household.id, budgetPeriod)),
+      timed('mealPlan', getCurrentMealPlan(household.id)),
+      timed('invitations', db.query.invitations.findMany({
         where: and(eq(schema.invitations.householdId, household.id), eq(schema.invitations.status, 'pending')),
         orderBy: desc(schema.invitations.createdAt),
-      }),
-      queryPantryRows(household.id),
-      db.query.pantryPlaces.findMany({ where: eq(schema.pantryPlaces.householdId, household.id), orderBy: asc(schema.pantryPlaces.createdAt) }),
-      db.query.pantryCheckinIntervals.findMany({ where: eq(schema.pantryCheckinIntervals.householdId, household.id) }),
-      db.query.pantryCheckinSubcategoryIntervals.findMany({ where: eq(schema.pantryCheckinSubcategoryIntervals.householdId, household.id) }),
-      getPendingReceiptImports(household.id),
-      db.query.expenseCategoryBudgets.findMany({ where: eq(schema.expenseCategoryBudgets.householdId, household.id), columns: { category: true, amount: true } }),
-      db.query.recurringPayments.findMany({
+      })),
+      timed('pantry', queryPantryRows(household.id)),
+      timed('pantryPlaces', db.query.pantryPlaces.findMany({ where: eq(schema.pantryPlaces.householdId, household.id), orderBy: asc(schema.pantryPlaces.createdAt) })),
+      timed('pantryCheckin', db.query.pantryCheckinIntervals.findMany({ where: eq(schema.pantryCheckinIntervals.householdId, household.id) })),
+      timed('pantryCheckinSub', db.query.pantryCheckinSubcategoryIntervals.findMany({ where: eq(schema.pantryCheckinSubcategoryIntervals.householdId, household.id) })),
+      timed('pendingReceipts', getPendingReceiptImports(household.id)),
+      timed('categoryBudgets', db.query.expenseCategoryBudgets.findMany({ where: eq(schema.expenseCategoryBudgets.householdId, household.id), columns: { category: true, amount: true } })),
+      timed('recurring', db.query.recurringPayments.findMany({
         where: and(eq(schema.recurringPayments.householdId, household.id), eq(schema.recurringPayments.active, true)),
         orderBy: asc(schema.recurringPayments.name),
-      }),
-      db
+      })),
+      timed('occurrences', db
         .select({
           recurringPaymentId: schema.recurringPaymentOccurrences.recurringPaymentId,
           dueDate: schema.recurringPaymentOccurrences.dueDate,
@@ -577,19 +586,19 @@ export async function getHouseholdData(userId: string, userName: string, userEma
         })
         .from(schema.recurringPaymentOccurrences)
         .innerJoin(schema.recurringPayments, eq(schema.recurringPayments.id, schema.recurringPaymentOccurrences.recurringPaymentId))
-        .where(and(eq(schema.recurringPayments.householdId, household.id), gte(schema.recurringPaymentOccurrences.dueDate, historySince))),
-      db
+        .where(and(eq(schema.recurringPayments.householdId, household.id), gte(schema.recurringPaymentOccurrences.dueDate, historySince)))),
+      timed('notificationsOff', db
         .select({ kind: schema.memberNotificationSettings.kind })
         .from(schema.memberNotificationSettings)
         .innerJoin(schema.householdMembers, eq(schema.householdMembers.id, schema.memberNotificationSettings.memberId))
-        .where(and(eq(schema.householdMembers.userId, userId), eq(schema.memberNotificationSettings.enabled, false))),
+        .where(and(eq(schema.householdMembers.userId, userId), eq(schema.memberNotificationSettings.enabled, false)))),
       // A handful of rows at most: only periods the household gave their own budget.
-      db.query.budgets.findMany({ where: eq(schema.budgets.householdId, household.id), columns: { month: true, amount: true } }),
-      db
+      timed('periodBudgets', db.query.budgets.findMany({ where: eq(schema.budgets.householdId, household.id), columns: { month: true, amount: true } })),
+      timed('diets', db
         .select({ memberId: schema.memberDiets.memberId, diet: schema.memberDiets.diet, avoids: schema.memberDiets.avoids })
         .from(schema.memberDiets)
         .innerJoin(schema.householdMembers, eq(schema.householdMembers.id, schema.memberDiets.memberId))
-        .where(eq(schema.householdMembers.householdId, household.id)),
+        .where(eq(schema.householdMembers.householdId, household.id))),
     ])
 
   const myRawMember = members.find((member) => member.userId === userId)
@@ -598,11 +607,11 @@ export async function getHouseholdData(userId: string, userName: string, userEma
   const mainListId = lists[0]?.id
   if (!mainListId) throw new Error('Household has no shopping list — run the seed script.')
 
-  const items = await db.query.shoppingListItems.findMany({
+  const items = await timed('items', db.query.shoppingListItems.findMany({
     where: eq(schema.shoppingListItems.listId, mainListId),
     with: { preferredStoreLocation: { columns: { id: true }, with: { store: { columns: { chain: true } } } } },
     orderBy: asc(schema.shoppingListItems.createdAt),
-  })
+  }))
 
   const mappedHousehold: Household = {
     id: household.id,

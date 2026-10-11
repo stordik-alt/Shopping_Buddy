@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Bot, Lightbulb, ListChecks, LogOut, Moon, Smartphone, Sun, Tags, Users } from 'lucide-react'
+import { Bot, GraduationCap, Lightbulb, ListChecks, LogOut, Moon, Smartphone, Sun, Tags, Users } from 'lucide-react'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { IdeasDialog } from '@/components/shared/ideas-dialog'
 import { InstallAppDialog } from '@/components/shared/install-app-dialog'
@@ -23,6 +23,7 @@ export function AccountMenu({
   dark,
   onToggleDark,
   onSelectTab,
+  onStartGuide,
   onSignOut,
 }: {
   userName: string
@@ -30,6 +31,7 @@ export function AccountMenu({
   dark: boolean
   onToggleDark: () => void
   onSelectTab: (tab: Tab) => void
+  onStartGuide: () => void
   onSignOut: () => void
 }) {
   const [open, setOpen] = useState(false)
@@ -98,6 +100,9 @@ export function AccountMenu({
           <p className="truncate px-3 py-2 text-xs text-fg-muted">{userName}</p>
           <button role="menuitem" className={itemClass} onClick={run(() => onSelectTab('Profil'))}>
             <Users className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> Profil domácnosti
+          </button>
+          <button role="menuitem" className={itemClass} onClick={run(onStartGuide)}>
+            <GraduationCap className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> Průvodce aplikací
           </button>
           {AI_ASSISTANT_ENABLED && (
             <button role="menuitem" className={itemClass} onClick={run(() => onSelectTab('AI'))}>

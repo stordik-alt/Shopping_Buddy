@@ -43,6 +43,12 @@ test.describe('Rozpočet → Plánování', () => {
       await page.getByRole('button', { name: 'Založit účet' }).click()
       await expect(page).toHaveURL(/\/$/)
       await expect(page.getByRole('heading', { name: 'Rodinný nákup', exact: true })).toBeVisible()
+      // A new account automatically opens Anitka's guide, which intentionally sits above the app.
+      // Close it before testing the budget controls underneath; the guide has separate UI tests.
+      const guide = page.getByRole('dialog', { name: 'Průvodce aplikací' })
+      await expect(guide).toBeVisible()
+      await guide.getByRole('button', { name: 'Přeskočit' }).click()
+      await expect(guide).toHaveCount(0)
 
       userId = (await one('SELECT id FROM neon_auth."user" WHERE lower(email) = lower($1)', [email])).id
       const householdId = (await one('SELECT household_id FROM household_members WHERE user_id = $1 LIMIT 1', [userId])).household_id as string

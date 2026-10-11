@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { ItemTypePicker } from '@/components/shopping/item-type-picker'
 import { ProductAutocomplete, type ProductAutocompleteSelection } from '@/components/shared/product-autocomplete'
 import { describeItemTypes } from '@/lib/product-types'
@@ -54,11 +54,11 @@ function groupItems(items: Item[], group: GroupKey) {
   return Array.from(groups.entries()).map(([label, groupedItems]) => ({ label, items: groupedItems }))
 }
 
-export function ShoppingList({
+// Memoized: the app shell re-renders for reasons that have nothing to do with the list (a budget view
+// finishing its load, the bell panel opening); with stable handler props the list then stays as it is.
+export const ShoppingList = memo(function ShoppingList({
   today,
   items,
-  newItem,
-  setNewItem,
   addItem,
   updateItem,
   removeItem,
@@ -84,9 +84,7 @@ export function ShoppingList({
   /** The real date (`YYYY-MM-DD`), for which promotions are still running. */
   today: string
   items: Item[]
-  newItem: string
-  setNewItem: (v: string) => void
-  addItem: (selection?: ProductAutocompleteSelection) => void
+  addItem: (name: string, selection?: ProductAutocompleteSelection) => void
   updateItem: (id: string, changes: Partial<Item>) => void
   removeItem: (id: string) => void
   toggle: (id: string) => void
@@ -116,6 +114,8 @@ export function ShoppingList({
   offers?: StandaloneOffer[]
 }) {
   const [query, setQuery] = useState('')
+  // The text of the "Co koupit?" field lives here, not in the app shell: typing re-renders only this list instead of the whole shell.
+  const [newItem, setNewItem] = useState('')
   const [newItemSelection, setNewItemSelection] = useState<ProductAutocompleteSelection | undefined>()
   const [category, setCategory] = useState('Vše')
   const [showCompleted, setShowCompleted] = useState(true)
@@ -242,7 +242,10 @@ export function ShoppingList({
             />
           </div>
           <Button size="lg" onClick={() => {
-              addItem(newItemSelection)
+              const name = newItem.trim()
+              if (!name) return
+              setNewItem('')
+              addItem(name, newItemSelection)
               setNewItemSelection(undefined)
             }}>
             <Plus aria-hidden="true" /> Přidat
@@ -656,7 +659,7 @@ export function ShoppingList({
       />
     </div>
   )
-}
+})
 
 /** A number field that lets the user type freely — clear it, type "0,5" — and saves each value that
  *  is a valid number (lib/decimal-input.ts). On leaving the field an unfinished or invalid text goes

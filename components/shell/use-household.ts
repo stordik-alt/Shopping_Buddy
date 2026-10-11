@@ -87,5 +87,13 @@ export function useHousehold(initialData: HouseholdData) {
     revokeInvitationAction(id)
   }
 
-  return { household, pendingInvitations, updateHousehold, updateBudgetPeriod, addMember, removeMember, setMemberDiet, addChild, removeChild, updatePreferences, inviteMember, revokeInvitation }
+  /** The household's monthly budget, set in the budget plan sheet. Saved first and shown after (like
+   *  the period), so the sheet can report a refusal instead of showing an amount the server lacks.
+   *  Rejects with the server's message. */
+  async function setMonthlyBudget(monthlyBudget: number) {
+    await updateHouseholdAction({ monthlyBudget })
+    setHousehold((current) => ({ ...current, monthlyBudget }))
+  }
+
+  return { household, pendingInvitations, updateHousehold, setMonthlyBudget, updateBudgetPeriod, addMember, removeMember, setMemberDiet, addChild, removeChild, updatePreferences, inviteMember, revokeInvitation }
 }

@@ -13,6 +13,81 @@
 - Ruční nákup (`createManualPurchaseAction`) ukládá do zásob stejně, přes sdílený `stockTypesForLines` (`lib/db/stock-types.ts`); ověřeno testem na reálné databázi (`MASLO PRAG. 250G` 2 ks → „Máslo“ 2 ks, `KUR.PRSA 500G` 0,6 kg → „Kuřecí prsa a prsní řízky“ 0,6 kg).
 - Testy: `app/actions/purchases.test.ts` (seznam nemění zásoby, `restockPantryItem`, `restockPantryTypeItem`); `tsc` čistý. `app/actions/receipts.test.ts` v tomto prostředí padá 37× i bez změny (OCR `ocr_failed`), proto nový import účtenky není integračním testem ověřen.
 
+## 2026-10-11 — Měření: časování z konkrétního zařízení (`?perf=1`)
+
+- Produkční log domovské stránky ukázal serverový render ~300 ms (12 z 13 měření mezi 268 a 438 ms), takže pomalé přepínání záložek a první spuštění na telefonu vysvětlit nedokáže. Telefon nemá DevTools, proto aplikace umí na požádání měřit sama sebe.
+- Zařízení, které aplikaci jednou otevře s `?perf=1` (třeba `/auth/sign-in?perf=1`), si volbu pamatuje (`?perf=0` ji vypne) a posílá změřené časy na nový `POST /api/perf`, který zapíše řádky `[rum]` do logu serveru: událost `load` (TTFB, DOMContentLoaded, FCP, LCP, blokování hlavního vlákna, přenesené KB, typ sítě, počet jader, doba předchozího přihlášení) a událost `tab` pro každé přepnutí sekce (čas, než zmizí placeholder „Načítám…“ a prohlížeč dvakrát vykreslí; `first` značí první návštěvu). Kód: `lib/rum.ts` (čistá logika a validace), `lib/rum-client.ts` (prohlížeč), `components/shared/rum-reporter.tsx`, `app/api/perf/route.ts`.
+- Bezpečnost: route odpovídá 404 bez `PERF_TIMING=1`, vyžaduje přihlášeného uživatele, tělo je omezené na 2 KB a z něj se ponechají jen známá, omezená pole. Ze zařízení, která si měření nezapnula, se nic neposílá.
+- Ověřeno: `tsc --noEmit` bez chyb, 6 nových testů (`lib/rum.test.ts`), lokální běh v Chromiu: události `load` (včetně `signInMs`) a `tab` dorazily do logu. Emulace mobilu (CPU 4× pomalejší, ~Slow 4G, lokální domácnost s ročními daty): domovská stránka 1,0 s, 33 požadavků, 569 KB, přepnutí záložky 145–560 ms (první návštěva) a 145–260 ms (opakovaná). **Neověřeno:** čísla z reálného telefonu a produkce; ta teprve vzniknou.
+
+## 2026-10-11 — Měření: časování fází načtení domovské stránky (`PERF_TIMING=1`)
+
+- Nový `lib/perf-timing.ts` (`createPerfTimer`): při `PERF_TIMING=1` zapíše do logu serveru jeden řádek `[perf] {...}` s každou fází (začátek a trvání v ms). Bez proměnné se nic neměří a časovač jen spustí předanou práci. Serverová komponenta nemůže nastavit hlavičku `Server-Timing`, proto se výsledek píše do logu (na Vercelu do logů funkce).
+- Změřeno je `app/page.tsx` (session, `householdData`, obchody, nabídky, `isAdmin`, ceny produktů, výběr obchodů, piny) a uvnitř `getHouseholdData` každý z 20 paralelních dotazů zvlášť (`hh.*`) plus `hh.member`, `hh.household` a `hh.items`. Překrývající se fáze jsou vidět podle `startMs`. Signatura `getHouseholdData` má nepovinný čtvrtý parametr `timer`; ostatní volající se nemění.
+- Ověřeno: `tsc --noEmit` bez chyb, 3 nové testy časovače, lokální běh s `PERF_TIMING=1` vypsal očekávaný řádek (testovací účet i domácnost z lokální databáze smazány). Testy `lib/db/queries.test.ts` s `.env.local` selhaly ve 3 případech `joinHouseholdViaInvitation` (`after` volaný mimo požadavek v `lib/notify.ts`, kód, kterého se tato změna netýká; ostatních 44 prošlo). **Neověřeno:** časy na produkci; ty vzniknou až po nastavení `PERF_TIMING=1` na Vercelu.
+
+## 2026-10-11 — Výkon: nákupní seznam se nepřekresluje kvůli nesouvisejícím změnám shellu
+
+- `ShoppingList` je obalený v `React.memo` a `AppShell` mu předává handlery (`addItem`, `updateItem`, `removeItem`, `toggle`, `onAddList`, `onPin`, `onUnpin`, `completePurchase`, `onAddSearchHit`) přes nový hook `components/shell/use-stable-callback.ts`. Hook vrací funkci se stálou identitou, která vždy volá nejnovější verzi handleru, takže vidí aktuální stav a memo funguje bez ručních seznamů závislostí.
+- Chování pro uživatele se nemění. Seznam se teď nepřekreslí, když se v shellu změní něco, co s ním nesouvisí (např. otevření panelu notifikací).
+- Záměrně nezměněno: hooky rozpočtu (příjmy, kapsy, plánované výdaje, výhled) zůstávají v shellu. Jejich data se drží mezi přepnutími pohledů; přesun do komponenty, která se odmontuje, by je načítal znovu při každém otevření Plánování.
+- Ověřeno: `tsc --noEmit` bez chyb, testy komponent (94) projdou. **Neověřeno:** skutečné zrychlení (měření je až poslední krok) a ruční průchod seznamem v prohlížeči; Vitest zde nemá DOM prostředí, takže hook nemá vlastní test.
+
+## 2026-10-11 — Výkon: lehčí první JS a psaní do „Co koupit?" bez překreslení shellu
+
+- `Recipes`, `BudgetPlanning`, `BudgetPlanCard`, `BudgetPlanSheet`, `PreferredDeals` a `GuideTour` se načítají přes `dynamic()` v `components/shell/lazy-views.tsx` místo statického importu v `components/app-shell.tsx`; do prvního JS už nepatří, dokud je uživatel neotevře.
+- Text pole „Co koupit?" (`newItem`) žije v `ShoppingList`, ne v `AppShell`. Stisk klávesy tak překresluje jen seznam, ne celý shell. `addItem` v shellu nyní přijímá `(name, selection)`; trim a vyprázdnění pole dělá seznam, chování pro uživatele je stejné.
+- Ověřeno: `tsc --noEmit` bez chyb, testy komponent (94) projdou. **Neověřeno:** skutečný dopad na rychlost; měření (bundle, překreslení, TTFB) je záměrně až poslední krok.
+
+## 2026-10-11 — Oprava: maskot v průvodci a čisté pozadí maskota
+
+- **Problém (vlastník):** po nasazení se maskot v průvodci nezobrazoval a na tmavém pozadí byl kolem postavy vidět kostrbatý bílý rámeček.
+- **Příčina chybějícího maskota:** `.gitattributes` (`* text eol=lf`) bral i binární soubory jako text; při commitu se `anitka-mascot-full.webp` přepsal (33 942 → 33 941 B) a v repozitáři měl poškozenou hlavičku (sharp: *corrupt header*), takže ho prohlížeč nezobrazil. Intro používá druhý soubor, kterého se to nedotklo.
+- **Oprava:** `.gitattributes` označuje `*.webp/png/jpg/jpeg/gif/ico/woff/woff2/pdf` jako `binary`. Oba obrázky maskota vyříznuty znovu z reference: pozadí se odstraní plavením od okraje (oči a nápis na tričku zůstávají), bělavé kapsy mezi prameny vlasů u obrysu se odstraní, okraj se o pixel zúží, změkčí a jeho barvy se dopočítají z vnitřku postavy, takže nezůstává bílý lem. Zkontrolováno na navy i bílém pozadí; soubory v repozitáři se dekódují.
+- **Ověřeno:** v Chromiu (lokální databáze, testovací účty smazány) intro v tmavém režimu bez rámečku a průvodce s maskotem ve všech 11 krocích. **Neověřeno:** nasazená verze a fyzický telefon.
+
+
+## 2026-10-11 — Výkon průvodce: odstranění nekonečného skenování DOM
+
+- Příčina: `GuideSpotlight` používal nekonečný `requestAnimationFrame` a v každém snímku znovu prohledával DOM, kontroloval viditelnost a měřil pozice prvků, i když se obrazovka neměnila. To zbytečně zatěžovalo mobilní CPU po celou dobu otevřeného průvodce.
+- Měření zvýraznění je nyní událostní: spouští se při změně DOM, scrollu nebo změně velikosti okna. Krátké opakované kontroly (250 ms, nejvýše 4 s) zůstávají jen pro čekání na líně načtenou sekci nebo segment; po nalezení prvku se vypnou. Pozdější změny DOM se dál zachytí přes `MutationObserver`.
+- Cílem je zachovat živé zvýraznění, přípravu segmentu a automatické posouvání bez trvalé smyčky. Je nutné ověřit všechny kroky průvodce na mobilním viewportu a zkontrolovat konzoli i plynulost přepínání.
+ 
+## 2026-10-11 — Oprava selektoru E2E testu úvodní obrazovky
+
+- CI #1361 selhalo v testu `public intro is reachable`, protože `getByText('ANITKA')` odpovídalo dvěma prvkům: textu „Powered by ANITKA AI“ i nadpisu „Ahoj, já jsem Anitka!“. Nešlo o chybu zobrazení stránky, ale o nejednoznačný Playwright selektor.
+- Test nyní ověřuje obrázek oficiálního loga přes přístupný název `ANITKA`, což odpovídá `alt="ANITKA"` v komponentě `IntroScreen`.
+- Ověření: čeká se na nový běh Playwright CI po této opravě.
+
+## 2026-10-11 — Oprava E2E testů po automatickém spuštění průvodce Anitka
+
+- První přihlášení nyní automaticky zobrazuje průvodce, který záměrně leží nad ovládáním aplikace. E2E testy registrace a rozpočtu ho po ověření zobrazení explicitně přeskočí, aby následně testovaly skutečnou navigaci a rozpočtové ovládací prvky, nikoli překrytý obsah.
+- Diagnostika CI #38139061298 potvrdila, že běh končil timeoutem 180 s při kliknutí na „Kapsy“; Playwright hlásil `Target page, context or browser has been closed`. Doplněno čekání na dialog průvodce, jeho přeskočení a kontrola, že byl zavřen.
+- Ověření po opravě: čeká se na nové CI běhy PR #421.
+
+## 2026-10-11 — Průvodce: ukazuje na živé prvky, maskot v kartě, závěr o Anitce, rozpočet mimo profil
+
+- **Proč (vlastník):** postava nesmí být oříznutá ani nad oknem, ale uvnitř karty a ukazovat, kde co najít a spustit; přechody mají být plynulé a maskot má mít pohyb; kroky vždy na správné sekci; rozpočet z profilu pryč (patří do plánování rozpočtu); na konci odkaz, kde Anitku najdete.
+- **Průvodce:** `components/guide/guide-spotlight.tsx` zvýrazňuje v živé aplikaci položku v navigaci a místo, kde se zadává/spouští (`GuideTarget` v `lib/guide.ts`, značky `data-guide-nav`/`data-guide`); u Jídelníčku se předem přepne záložka; stránka se posune a má při průvodci dolní rezervu. Nový krok Jídelníček. Maskot celý v pravém sloupci karty, dívá se do textu, idle animace a skok při každé nové kartě; přechody karet a sekcí. Poslední karta o Anitce podle `AI_ASSISTANT_ENABLED` (vypnuto: poctivé „ještě se učím“, zapnuto: odkaz na AI asistenta).
+- **Rozpočet:** pole měsíčního rozpočtu odebráno z `household-profile.tsx`; okno „Upravit rozpočet“ má pole „Měsíční rozpočet“ (`households.monthly_budget`, bez změny databáze), ukládá se `setMonthlyBudget` v `use-household.ts` (nejdřív server, pak zobrazení; chyba se ukáže v okně). „Nastavit rozpočet“ na Domů teď otevře Rozpočet s tímto oknem, ne Profil. Texty „výchozí z profilu“ upraveny.
+- **Ověřeno:** `tsc` čistý; testy průvodce, rozpočtu, domácnosti a přehledu (52) procházejí. V Chromiu (Playwright, lokální databáze, testovací účty smazány): všech 11 karet při 390 a 320 px – správná sekce a zvýrazněný prvek v každém kroku; tlačítko na Domů otevře okno rozpočtu, částka se uloží a po obnovení platí, profil pole nemá; v konzoli žádné chyby. Opraveny chyby nalezené při kontrole (shodné `key` sourozenců, karta zakrývající prvek na malém displeji). **Neověřeno:** fyzický telefon; AI asistent zůstává vypnutý a není zapojený žádný model.
+
+## 2026-10-11 — Průvodce Anitka a nové intro s maskotem
+
+- **Proč (vlastník):** vytvořit z referenční postavy maskota (malá holčička) průvodce, který klikatelně provede aplikací kartu po kartě, stručně vysvětlí funkce a co kde zadat, vyzve k vyplnění profilu domácnosti a vysvětlí, proč na něm záleží; plus intro před přihlášením s maskotem.
+- `lib/guide.ts` (kroky, klíč úložiště, pomocné funkce), `components/guide/guide-tour.tsx` (karta průvodce), napojení v `components/app-shell.tsx`, položka „Průvodce aplikací“ v `components/shared/account-menu.tsx` (přes `app-header.tsx`). Otevře se samo jednou na zařízení (`localStorage`), jinak z menu účtu.
+- `components/auth/intro-screen.tsx`: maskot a bublina se třemi stránkami; logo zmenšeno; routing a příznak přeskočení beze změny.
+- Nové obrázky `public/brand/anitka/anitka-mascot-bust.webp` a `-full.webp` (oříznuto z reference, průhledné pozadí). Koncept: `docs/22_GUIDE.md`.
+- **Ověřeno:** `tsc` čistý; nové testy a test spodní navigace procházejí. Vizuálně v Chromiu (Playwright) na lokální databázi s testovacím účtem (po testu smazán): všech 9 karet při 320, 390 a 1280 px, světlý i tmavý režim, bez horizontálního přetečení; intro při 320×568 se vejde. Po kontrole opraveno: oříznuté tlačítko v intru na malém displeji, maskot (nyní vykukuje přes horní okraj karty) a dlouhá karta profilu (kratší texty, jemné zeslabení dole značí posuvný obsah). Texty přepsány do lidštější, hravější podoby. ESLint nespuštěn (v projektu není). Nezkoušeno na fyzickém telefonu.
+
+## 2026-10-11 — Dávky 41–50: značkové sladkosti, mléčné svačiny, lihoviny a vína, mražené potraviny, pečení, těstoviny, pomazánky, drogerie, domácnost, děti, krmivo
+
+- Analýza zbytku (~14 000 produktů bez typu, read-only) ukázala, že dál je to hlavně značka + příchuť bez druhu zboží; proto polovina nových typů vychází ze značek, které druh určují (KitKat/Twix, Termix/Pribináček, Activia/Jogobella, Granko, Profissimo, Bellinda, Paradies), druhá ze slovních shluků bez pokrytí (zavináče, závin, veka, plněné těstoviny, krmivo pro kočky a psy, mražené maso/ryby/zelenina/ovoce, ovoce sušené mrazem, pomazánky, saláty z ryb).
+- `lib/product-types.ts`: 82 nových typů a širší pravidla starších (víno, lihoviny, palenky, likery, RTD koktejly, pivo, nealko pivo, zmrzliny, bonbóny, cereálie, granola, koření, chipsy, čističe, osvěžovače, vlhčené ubrousky, deodoranty, vitamíny, dekorativní kosmetika a dalších). Tvrdá podmínka podkategorie povolena u typů se specifickými slovy (sušenky, kaše, granola, zmrzliny a dalších); u ostatních zůstala, protože zkouška přinesla víc kolizí než zisku.
+- Společné opravy: `MADE_FROM` `párk` → ` párk` („Sparkling“ blokoval víno), „Rohlik.cz“ na začátku názvu se před klasifikací odstraní (jeho „rohlik“ blokoval šunku, párky a další), `želé` × „zeleninový“ v džusech, `psy` × „stripsy“, vynechání vyloučení `čokolád`/`krém `/`oplat`/`jogurt`/`paté` u typů, které jsou samy tím druhem; `PRODUCE_PREFIXES` o „Farma Hana Součková“, „Frupper“, „Chiquita“.
+- Migrace `0095_seed_product_types_batch6.sql` (insert-only), nasazena na lokální i Neon testovací databázi. Regresní testy `batches 41–50` (214 případů) a upravená očekávání (např. „Máslové sušenky“ jsou nově sušenky, ne máslo; DB test přiřazení typů). Testy typů, kategorizace a nákupu prochází, `tsc` čistý; čtyři dalších lokálních selhání (`after()` mimo request, síť) jsou stejná jako dřív.
+- Měření na produkčním katalogu (56 103 produktů) podle pravidel, bez zápisu: typ by mělo 42 428 produktů (dnes 38 106; 75,6 %): 4 381 nových, 39 změn typu, 59 odebrání (dvojznačnosti). Zápis do produkce proběhne až po nasazení migrace, dry-runem a `pnpm db:apply-product-types-batch`.
+
 ## 2026-10-11 — Dávky 21–40: kávy a čaje, pečivo, ryby, ovoce a zelenina, ořechy, spíž, rostlinné, drogerie
 
 - Analýza zbytku (23 641 produktů bez typu) určila další oblasti: kávy (instantní, kapsle), čaje, matcha, tortilly a speciální pečivo, ryby (bílé, uzené, konzervy, surimi, obalované, pomazánky), méně běžné ovoce a zelenina (ostružiny, meruňky, broskve, švestky, třešně, kedlubny, kapusty, hrášek, bylinky, bramborové výrobky), ořechy a sušené ovoce, ořechové krémy, speciální mouky, cukry, oleje, margaríny, asijské omáčky, rajčatové výrobky, olivy, kompoty, nakládaná zelenina, luštěniny, kaše, granola, tofu, rostlinné sýry, shoty, přírodní sirupy a v drogerii holítka, náhradní hlavice, náplasti, repelenty, esenciální oleje, vůně na prádlo, hadry a mopy, odvápňovače, inkontinenční vložky, dětské svačinky, dětská koupel a poporodní pomůcky.

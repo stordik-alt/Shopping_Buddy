@@ -26,7 +26,8 @@ export const TodayAttention = dynamic(() => import('@/components/dashboard/today
 export const DashboardOverview = dynamic(() => import('@/components/dashboard/dashboard-overview').then((m) => m.DashboardOverview), { loading })
 export const PriceWatch = dynamic(() => import('@/components/dashboard/price-watch').then((m) => m.PriceWatch), { loading })
 export const SpendingBreakdown = dynamic(() => import('@/components/dashboard/spending-breakdown').then((m) => m.SpendingBreakdown), { loading })
-export const SavingsInsight = dynamic(() => import('@/components/dashboard/savings-insight').then((m) => m.SavingsInsight), { loading })
+export const PreferredDeals = dynamic(() => import('@/components/dashboard/preferred-deals').then((m) => m.PreferredDeals), { loading })
+export const SavingsInsight =dynamic(() => import('@/components/dashboard/savings-insight').then((m) => m.SavingsInsight), { loading })
 
 // Nákup
 export const PantryPrompt = dynamic(() => import('@/components/shopping/pantry-prompt').then((m) => m.PantryPrompt), { loading })
@@ -40,7 +41,8 @@ export const ReceiptPending = dynamic(() => import('@/components/budget/receipt-
 // Zásoby, Akce, Obchody, Recepty, AI, Profil
 export const Pantry = dynamic(() => import('@/components/shopping/pantry').then((m) => m.Pantry), { loading })
 export const DealsTab = dynamic(() => import('@/components/deals/deals-tab').then((m) => m.DealsTab), { loading })
-export const StoreDirectory = dynamic(() => import('@/components/stores/store-directory').then((m) => m.StoreDirectory), { loading })
+export const Recipes = dynamic(() => import('@/components/recipes/recipes').then((m) => m.Recipes), { loading })
+export const StoreDirectory =dynamic(() => import('@/components/stores/store-directory').then((m) => m.StoreDirectory), { loading })
 export const AiAssistant = dynamic(() => import('@/components/ai/ai-assistant').then((m) => m.AiAssistant), { loading })
 export const HouseholdProfile = dynamic(() => import('@/components/household/household-profile').then((m) => m.HouseholdProfile), { loading })
 
@@ -49,9 +51,13 @@ export const BudgetOverview = dynamic(() => import('@/components/budget/budget-o
 export const CategorySnapshot = dynamic(() => import('@/components/budget/category-snapshot').then((m) => m.CategorySnapshot), { loading })
 export const RecurringPayments = dynamic(() => import('@/components/budget/recurring-payments').then((m) => m.RecurringPayments), { loading })
 export const ExpenseLedger = dynamic(() => import('@/components/budget/expense-ledger').then((m) => m.ExpenseLedger), { loading })
+export const BudgetPlanCard = dynamic(() => import('@/components/budget/budget-plan').then((m) => m.BudgetPlanCard), { loading })
+export const BudgetPlanning = dynamic(() => import('@/components/budget/budget-planning').then((m) => m.BudgetPlanning), { loading })
 
 // Panels and dialogs opened on demand
 export const NotificationPanel = dynamic(() => import('@/components/notifications/notification-panel').then((m) => m.NotificationPanel), { loading: noFallback })
 export const CategoryLimitsModal = dynamic(() => import('@/components/budget/category-limits-modal').then((m) => m.CategoryLimitsModal), { loading: noFallback })
 export const RecurringPaymentModal = dynamic(() => import('@/components/budget/recurring-payment-modal').then((m) => m.RecurringPaymentModal), { loading: noFallback })
-export const ExpenseModal = dynamic(() => import('@/components/budget/expense-modal').then((m) => m.ExpenseModal), { loading: noFallback })
+export const BudgetPlanSheet = dynamic(() => import('@/components/budget/budget-plan').then((m) => m.BudgetPlanSheet), { loading: noFallback })
+export const GuideTour = dynamic(() => import('@/components/guide/guide-tour').then((m) => m.GuideTour), { loading: noFallback })
+export const ExpenseModal =dynamic(() => import('@/components/budget/expense-modal').then((m) => m.ExpenseModal), { loading: noFallback })

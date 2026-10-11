@@ -767,23 +767,27 @@ describe('upsertActiveDeal', () => {
       const product = await createProduct()
       try {
         const storeId = await getStoreIdByChain('Lidl')
+        // The 30-day window is counted from today, so the dates are relative: fixed dates stop
+        // fitting the window as time passes.
+        const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10)
+        const price = (value: string, days: number) => ({ productId: product.id, storeId, storeLocationId: null, priceScope: 'CHAIN' as const, sourceType: 'OFFICIAL' as const, locationResolution: 'NOT_APPLICABLE' as const, regularPrice: value, unit: 'ks' as const, unitPrice: value, observedAt: daysAgo(days), validFrom: daysAgo(days) })
         await db.insert(schema.prices).values([
-          { productId: product.id, storeId, storeLocationId: null, priceScope: 'CHAIN', sourceType: 'OFFICIAL', locationResolution: 'NOT_APPLICABLE', regularPrice: '20.00', unit: 'ks', unitPrice: '20.00', observedAt: '2026-08-10', validFrom: '2026-08-10' },
-          { productId: product.id, storeId, storeLocationId: null, priceScope: 'CHAIN', sourceType: 'OFFICIAL', locationResolution: 'NOT_APPLICABLE', regularPrice: '25.00', unit: 'ks', unitPrice: '25.00', observedAt: '2026-08-20', validFrom: '2026-08-20' },
-          { productId: product.id, storeId, storeLocationId: null, priceScope: 'CHAIN', sourceType: 'OFFICIAL', locationResolution: 'NOT_APPLICABLE', regularPrice: '30.00', unit: 'ks', unitPrice: '30.00', observedAt: '2026-08-01', validFrom: '2026-08-01' },
-          { productId: product.id, storeId, storeLocationId: null, priceScope: 'CHAIN', sourceType: 'OFFICIAL', locationResolution: 'NOT_APPLICABLE', regularPrice: '25.00', unit: 'ks', unitPrice: '25.00', observedAt: '2026-09-10', validFrom: '2026-09-10' },
-          { productId: product.id, storeId, storeLocationId: null, priceScope: 'CHAIN', sourceType: 'OFFICIAL', locationResolution: 'NOT_APPLICABLE', regularPrice: '27.00', unit: 'ks', unitPrice: '27.00', observedAt: '2026-09-20', validFrom: '2026-09-20' },
-          { productId: product.id, storeId, storeLocationId: null, priceScope: 'CHAIN', sourceType: 'OFFICIAL', locationResolution: 'NOT_APPLICABLE', regularPrice: '30.00', unit: 'ks', unitPrice: '30.00', observedAt: '2026-09-30', validFrom: '2026-09-30' },
+          price('20.00', 60), // outside the window and not the previous price: dropped
+          price('25.00', 50), // outside the window, but the price just before it: kept
+          price('30.00', 70), // outside the window, older: dropped
+          price('25.00', 20),
+          price('27.00', 15),
+          price('30.00', 5),
         ])
 
         const found = (await getProductPrices({ names: [product.name], runningDeals: false })).find((entry) => entry.productName === product.name)
         expect(found?.prices).toHaveLength(1)
         expect(found?.prices[0].regularPrice).toBe(30)
         expect(found?.prices[0].priceHistory).toEqual([
-          expect.objectContaining({ price: 25, recordedAt: '2026-08-20' }),
-          expect.objectContaining({ price: 25, recordedAt: '2026-09-10' }),
-          expect.objectContaining({ price: 27, recordedAt: '2026-09-20' }),
-          expect.objectContaining({ price: 30, recordedAt: '2026-09-30' }),
+          expect.objectContaining({ price: 25, recordedAt: daysAgo(50) }),
+          expect.objectContaining({ price: 25, recordedAt: daysAgo(20) }),
+          expect.objectContaining({ price: 27, recordedAt: daysAgo(15) }),
+          expect.objectContaining({ price: 30, recordedAt: daysAgo(5) }),
         ])
       } finally {
         await db.delete(schema.products).where(eq(schema.products.id, product.id))

@@ -1,3 +1,10 @@
+## 2026-10-11 — Oprava: maskot v průvodci a čisté pozadí maskota
+
+- **Problém (vlastník):** po nasazení se maskot v průvodci nezobrazoval a na tmavém pozadí byl kolem postavy vidět kostrbatý bílý rámeček.
+- **Příčina chybějícího maskota:** `.gitattributes` (`* text eol=lf`) bral i binární soubory jako text; při commitu se `anitka-mascot-full.webp` přepsal (33 942 → 33 941 B) a v repozitáři měl poškozenou hlavičku (sharp: *corrupt header*), takže ho prohlížeč nezobrazil. Intro používá druhý soubor, kterého se to nedotklo.
+- **Oprava:** `.gitattributes` označuje `*.webp/png/jpg/jpeg/gif/ico/woff/woff2/pdf` jako `binary`. Oba obrázky maskota vyříznuty znovu z reference: pozadí se odstraní plavením od okraje (oči a nápis na tričku zůstávají), bělavé kapsy mezi prameny vlasů u obrysu se odstraní, okraj se o pixel zúží, změkčí a jeho barvy se dopočítají z vnitřku postavy, takže nezůstává bílý lem. Zkontrolováno na navy i bílém pozadí; soubory v repozitáři se dekódují.
+- **Ověřeno:** v Chromiu (lokální databáze, testovací účty smazány) intro v tmavém režimu bez rámečku a průvodce s maskotem ve všech 11 krocích. **Neověřeno:** nasazená verze a fyzický telefon.
+
 ## 2026-10-11 — Oprava selektoru E2E testu úvodní obrazovky
 
 - CI #1361 selhalo v testu `public intro is reachable`, protože `getByText('ANITKA')` odpovídalo dvěma prvkům: textu „Powered by ANITKA AI“ i nadpisu „Ahoj, já jsem Anitka!“. Nešlo o chybu zobrazení stránky, ale o nejednoznačný Playwright selektor.

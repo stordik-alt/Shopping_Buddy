@@ -32,8 +32,8 @@ function boxOf(element: HTMLElement | null): Box | null {
 
 /** Highlights where, in the real app, the current guide card says to look: the section's entry in the
  *  navigation (dashed) and the place to act inside the section (solid, with a short label). The
- *  elements are looked up again every frame, because a section loads in a moment after it is opened
- *  and the page scrolls and resizes under the guide. */
+ *  elements are looked up when the DOM, scroll position or viewport changes. A short retry window
+ *  covers lazy-loaded sections without keeping a permanent animation-frame loop running. */
 export function GuideSpotlight({ step, cardRef }: { step: GuideStep; cardRef: RefObject<HTMLElement | null> }) {
   const [action, setAction] = useState<Box | null>(null)
   const [nav, setNav] = useState<Box | null>(null)

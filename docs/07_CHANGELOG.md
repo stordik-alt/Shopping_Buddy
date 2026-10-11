@@ -1,3 +1,9 @@
+## 2026-10-11 — Nákupní seznam bez odhadu ceny, kompaktní řádky zásob
+
+- Nákupní seznam: řádek ukazuje název a množství s jednotkou (`2 l`) na jednom řádku; odhadovaná cena z řádku, ze součtu skupiny, z rozbaleného detailu i z řazení (`Cena`) zmizela. Cena se u položky ukazuje jen v odznaku „Akce <obchod> <cena>“, když na ni běží akce. Uložená hodnota `price` zůstává v datech beze změny; dříve uložené řazení `Cena` se vrátí na výchozí.
+- Zásoby: řádek je kompaktní (menší −/+ a ikony, bez samostatného řádku „Upravit“); úpravy (kategorie, podkategorie, umístění, sledování) se otevírají tužkou přímo v řádku. Na telefonu je řádek zhruba poloviční, na šířce jeden řádek.
+- Ověřeno Playwrightem na 390 px a 1280 px (lokální testovací DB), bez vodorovného posunu; testy komponent upraveny.
+
 ## 2026-10-11 — Recepty počítají zásoby v kusech podle velikosti balení
 
 - Zásoby vedené podle druhu zboží v kusech (`2 ks` másla) ztrácely velikost balení z řádku účtenky, takže recept na `100 g` másla je neuměl použít (kg/g a ks se nedají srovnat). `pantry_items` má nová nepovinná pole `piece_quantity` + `piece_unit` (kg/l, migrace `0097_pantry_piece_size.sql`, aditivní, s CHECK); ukládají se z množství multipacku, jinak z jediné velikosti v názvu řádku (`MASLO PRAG. 250G` → 0,25 kg; `lib/piece-size.ts`).

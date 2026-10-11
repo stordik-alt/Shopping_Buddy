@@ -5,7 +5,7 @@
 
 export const LIST_VIEW_STORAGE_KEY = 'shopping-buddy:list-view'
 
-export const SORT_KEYS = ['Výchozí', 'Název', 'Cena', 'Priorita'] as const
+export const SORT_KEYS = ['Výchozí', 'Název', 'Priorita'] as const
 export const GROUP_KEYS = ['Bez seskupení', 'Podle kategorie', 'Podle obchodu'] as const
 export type SortKey = (typeof SORT_KEYS)[number]
 export type GroupKey = (typeof GROUP_KEYS)[number]

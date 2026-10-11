@@ -38,7 +38,6 @@ const PRIORITY_WEIGHT: Record<ItemPriority, number> = { Vysoká: 0, Normální: 
 function sortItems(items: Item[], sort: SortKey) {
   const sorted = [...items]
   if (sort === 'Název') sorted.sort((a, b) => a.name.localeCompare(b.name, 'cs'))
-  if (sort === 'Cena') sorted.sort((a, b) => b.price * b.quantity - a.price * a.quantity)
   if (sort === 'Priorita') sorted.sort((a, b) => PRIORITY_WEIGHT[a.priority] - PRIORITY_WEIGHT[b.priority])
   return sorted
 }
@@ -392,9 +391,6 @@ export const ShoppingList = memo(function ShoppingList({
                   <ListChecks className="size-4 text-accent-text" aria-hidden="true" />
                   <span className="text-sm font-semibold">{label ?? `${filteredItems.filter((i) => !i.done).length} zbývá`}</span>
                 </div>
-                <span className="text-sm text-fg-muted">
-                  Odhad {money(groupItemsList.reduce((sum, i) => sum + i.price * i.quantity, 0))}
-                </span>
               </div>
               {groupItemsList.map((item) => (
                 <div key={item.id} id={`list-item-${item.id}`} tabIndex={-1} className="scroll-mt-24 border-b border-border outline-none last:border-0 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
@@ -417,7 +413,11 @@ export const ShoppingList = memo(function ShoppingList({
                         {item.category} · {item.store || 'Bez obchodu'}
                       </span>
                     </button>
-                    <span className="shrink-0 text-sm font-semibold">{money(item.price * item.quantity)}</span>
+                    {/* What to buy and how much, on the one line: the amount is what the shopper needs
+                        in the shop. No price here — a deal's price is shown by its "Akce" badge below. */}
+                    <span className={`shrink-0 whitespace-nowrap text-sm font-semibold ${item.done ? 'text-fg-muted' : ''}`}>
+                      {formatDecimalInput(item.quantity)} {item.unit}
+                    </span>
                     <button
                       type="button"
                       aria-label={`Detail položky ${item.name}`}
@@ -494,16 +494,6 @@ export const ShoppingList = memo(function ShoppingList({
                             <option key={unit}>{unit}</option>
                           ))}
                         </select>
-                      </label>
-                      <label className="text-sm font-medium">
-                        Odhadovaná cena
-                        <DecimalField
-                          ariaLabel={`Cena ${item.name}`}
-                          value={item.price}
-                          maxDecimals={2}
-                          isValid={(value) => value >= 0}
-                          onValue={(price) => updateItem(item.id, { price })}
-                        />
                       </label>
                       <label className="text-sm font-medium">
                         Kategorie

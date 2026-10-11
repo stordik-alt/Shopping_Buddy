@@ -82,17 +82,18 @@ describe('Pantry duplicate-placement banner', () => {
 })
 
 describe('Pantry subcategory assignment', () => {
-  it('offers a subcategory select on every row and the auto-categorize button when items are uncategorized', () => {
+  it('offers an edit button on every row and the auto-categorize button when items are uncategorized', () => {
     const html = renderPantry([item(1), { ...item(2), subcategory: 'Pečivo' }])
-    expect(html).toContain('Podkategorie Položka 1')
+    expect(html).toContain('aria-label="Upravit: Položka 1"')
     expect(html).toContain('Zařadit automaticky')
     expect(html).toContain('Bez podkategorie')
   })
 
-  it('offers a category select on every row so a wrongly filed item can be corrected', () => {
+  // The corrections (category, subcategory, place, tracking) open per row so a row stays one compact line.
+  it('keeps the corrections closed until a row\'s edit button is pressed', () => {
     const html = renderPantry([{ ...item(1), category: 'Ostatní' }])
-    expect(html).toContain('Kategorie Položka 1')
-    expect(html).toContain('Podkategorie Položka 1')
+    expect(html).toContain('aria-expanded="false"')
+    expect(html).not.toContain('Kategorie Položka 1')
   })
 
   it('hides the auto-categorize banner once everything has a subcategory', () => {

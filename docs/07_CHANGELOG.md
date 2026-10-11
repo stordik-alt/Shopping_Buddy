@@ -1,3 +1,9 @@
+## 2026-10-11 — Backfill typů v zásobách a pravidla pro zkrácené řádky účtenek
+
+- `pnpm db:backfill-pantry-types --apply` proběhl na produkci (po schválení výpisu z dry-runu): 56 řádků zásob dostalo `product_type_id` (34 z jejich produktu, 22 z pravidel); 43 řádků pravidla nepoznala a zůstala beze změny. Opakovaný dry-run po zápisu hlásí 0 řádků k doplnění.
+- Pravidla typů (`lib/product-types.ts`) rozšířena o zkrácené názvy z těchto řádků: `mouka-polohruba` (`MOUKA POL.`), `hranolky` (`HRAN.NA SMAŽ.`, `FRIES`), `koreni` (`PAPRIKA LAH`, `PAPRIKA UZEN`), `kuchynske-uterky` (`LINTEO KU`), `cukr-specialni` (`TROPIC. TRTIN.`). Čerstvá paprika zůstává zeleninou. Žádný nový typ ani migrace; řádky mimo potraviny (oblečení, knihy) a nejisté zkratky (Jupík, Imuno, Knorr Jíška bez existujícího typu) se nezařazují.
+- Test: `abbreviated receipt lines` v `lib/product-types-seed-rules.test.ts`; testy typů, kategorizace a receptů prochází, `tsc` čistý.
+
 ## 2026-10-11 — Recepty párují zásoby podle typu zboží, doplnění typů ve starých zásobách
 
 - `matchIngredientToStock` (`lib/meal-plans.ts`) nejdřív hledá v zásobách řádek stejného typu zboží jako ingredience (`resolveListItemTypes`; skupina typů, např. „Kuřecí maso“, přijme kterýkoli svůj typ) a teprve potom podle názvu. „máslo“ v receptu tak najde zásobu „Máslo“ uloženou z „MASLO PRAG.250G“. Pravidla množství se nezměnila: nesrovnatelné jednotky (kusy × gramy) se dál nepárují — to je samostatný krok.

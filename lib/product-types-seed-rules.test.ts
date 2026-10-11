@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classifyProductType } from '@/lib/product-types'
+import { classifyProductType, classifyReceiptLineType } from '@/lib/product-types'
 import type { ItemCategory } from '@/lib/types'
 
 // Rules for the seed-proposal types promoted to code (docs/12, 2026-10-seed-v1): caj, vino, lihoviny,
@@ -1118,5 +1118,27 @@ const BATCHES_41_50: [ItemCategory, string, string | null][] = [
 describe('batches 41–50', () => {
   it.each(BATCHES_41_50)('%s: %s → %s', (category, name, type) => {
     expect(classifyProductType(category, name)).toBe(type)
+  })
+})
+
+// Receipt lines as printed (abbreviated) that the household's pantry held without a type
+// (production dry run of db:backfill-pantry-types, 2026-10-11).
+const RECEIPT_LINES: [ItemCategory, string, string | null][] = [
+  ['Potraviny', 'RAMILL MOUKA POL.1KG', 'mouka-polohruba'],
+  ['Potraviny', 'ALB MOUKA HLADK.1KG', 'mouka-hladka'],
+  ['Potraviny', 'GUS HRAN.NA SMAŽ.1KG', 'hranolky'],
+  ['Potraviny', 'FARM F.L&C FRIES600G', 'hranolky'],
+  ['Potraviny', 'KOTAN.PAPRIKA LAH25G', 'koreni'],
+  ['Potraviny', 'VIT.PAPRIKA LAHů.23G', 'koreni'],
+  ['Potraviny', 'VIT.PAPRIKA UZENÁ20G', 'koreni'],
+  ['Domácnost', 'LINTEO KU CLA 2VR 1R', 'kuchynske-uterky'],
+  ['Potraviny', 'TROPIC. TRTIN.C.500G', 'cukr-specialni'],
+  // Fresh paprika is still a vegetable, not a spice.
+  ['Potraviny', 'PAPRIKA ČERVENÁ', 'paprika'],
+]
+
+describe('abbreviated receipt lines', () => {
+  it.each(RECEIPT_LINES)('%s: %s → %s', (category, name, type) => {
+    expect(classifyReceiptLineType(category, name)).toBe(type)
   })
 })

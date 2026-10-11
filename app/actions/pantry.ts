@@ -12,6 +12,7 @@ import { classifySubcategory } from '@/lib/categorization'
 import type { CatalogChangeOutcome, CategoryChangeOutcome } from '@/lib/product-subcategory-changes'
 import { PRODUCT_SUBCATEGORIES, subcategoriesOfItem } from '@/lib/product-subcategories'
 import type { PantryQuantityChange } from '@/lib/pantry'
+import { validateStockLevels } from '@/lib/pantry-restock'
 import { CHECKIN_DAYS_BY_CATEGORY, checkinSubcategoryKey, customPlaceIdFromKey, inferPantryLocation, MAX_PANTRY_REVIEW_ITEMS, PANTRY_AREAS, PANTRY_LOCATIONS, PANTRY_TRACKING, reviewQuantityChanges, splitPantryReview } from '@/lib/pantry'
 import { matchProductByName } from '@/lib/products'
 import type { ItemCategory, ItemUnit, PantryArea, PantryItem, PantryTracking } from '@/lib/types'
@@ -400,4 +401,16 @@ export async function setPantryTrackingAction(pantryItemId: string, tracking: Pa
   // No revalidatePath: the app has already shown this change (components/app-shell.tsx updates its own
   // state first), and re-rendering the whole page for every tap re-ran every household query —
   // compute on the database for nothing. Other members see it on their next reload.
+}
+
+/** Sets (or, with both null, clears) the wanted stock of a pantry row: the minimum at which the app
+ *  suggests stocking up when a preferred chain runs a promotion, and the maximum to stock up to
+ *  (lib/pantry-restock.ts). The household is taken from the session, never from the client. */
+export async function setPantryStockLevelsAction(pantryItemId: string, minQuantity: number | null, maxQuantity: number | null) {
+  const householdId = await requireHouseholdId()
+  await assertOwnsPantryItem(householdId, pantryItemId)
+  const problem = validateStockLevels(minQuantity, maxQuantity)
+  if (problem) throw new Error(problem)
+  await getDb().update(schema.pantryItems).set({ minQuantity, maxQuantity }).where(and(eq(schema.pantryItems.id, pantryItemId), eq(schema.pantryItems.householdId, householdId)))
+  // No revalidatePath, like the other pantry saves: the app has already shown the change.
 }

@@ -280,6 +280,9 @@ export type PantryItem = {
   askedAt?: string
   /** How closely it is watched (lib/pantry.ts PANTRY_TRACKING); absent in old fixtures = 'normal'. */
   tracking?: PantryTracking
+  /** Wanted stock in `unit` (lib/pantry-restock.ts); both set or both absent. */
+  minQuantity?: number | null
+  maxQuantity?: number | null
 }
 
 export type PantryTracking = 'normal' | 'rare' | 'off'

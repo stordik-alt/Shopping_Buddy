@@ -23,6 +23,7 @@ import {
   reviewPantryAction,
   setPantryCheckinDaysAction,
   setPantrySubcategoryCheckinDaysAction,
+  setPantryStockLevelsAction,
   setPantryTrackingAction,
 } from '@/app/actions/pantry'
 
@@ -494,6 +495,20 @@ describe('setPantryTrackingAction', () => {
     expect(row).toMatchObject({ tracking: 'rare', askedAt: null })
     await expect(setPantryTrackingAction(theirs.id, 'off')).rejects.toThrow('Pantry item not found')
     await expect(setPantryTrackingAction(mine.id, 'sometimes' as never)).rejects.toThrow('Neplatná volba')
+  })
+})
+
+describe('setPantryStockLevelsAction', () => {
+  it("saves and clears the caller's own item's levels; refuses another household's item and invalid levels", async () => {
+    const [mine] = await db.insert(schema.pantryItems).values({ householdId, name: 'Máslo', category: 'Potraviny' }).returning()
+    const [theirs] = await db.insert(schema.pantryItems).values({ householdId: otherHouseholdId, name: 'Rýže', category: 'Potraviny' }).returning()
+    await setPantryStockLevelsAction(mine.id, 2, 6)
+    expect(await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, mine.id) })).toMatchObject({ minQuantity: 2, maxQuantity: 6 })
+    await expect(setPantryStockLevelsAction(mine.id, 5, 5)).rejects.toThrow('Maximum musí být větší')
+    await expect(setPantryStockLevelsAction(mine.id, 3, null)).rejects.toThrow('Vyplňte')
+    await expect(setPantryStockLevelsAction(theirs.id, 1, 2)).rejects.toThrow('Pantry item not found')
+    await setPantryStockLevelsAction(mine.id, null, null)
+    expect(await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, mine.id) })).toMatchObject({ minQuantity: null, maxQuantity: null })
   })
 })
 

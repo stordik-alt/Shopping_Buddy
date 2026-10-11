@@ -15,6 +15,7 @@ import {
   setPantryItemCategoryAction,
   setPantryItemSubcategoryAction,
   setPantrySubcategoryCheckinDaysAction,
+  setPantryStockLevelsAction,
   setPantryTrackingAction,
 } from '@/app/actions/pantry'
 import { addShoppingItemAction } from '@/app/actions/shopping'
@@ -169,6 +170,13 @@ export function usePantry({
     setPantryTrackingAction(id, tracking)
   }
 
+  // The server validates and may refuse, so the state follows only once it has saved; a refusal
+  // rejects so the form can show why.
+  async function setPantryStockLevels(id: string, minQuantity: number | null, maxQuantity: number | null) {
+    await setPantryStockLevelsAction(id, minQuantity, maxQuantity)
+    setPantryItems((current) => current.map((item) => (item.id === id ? { ...item, minQuantity, maxQuantity } : item)))
+  }
+
   // Resolves to whether the shared catalog took the choice or it waits for an administrator.
   function setPantryItemSubcategory(id: string, subcategory: string | null) {
     setPantryItems((current) => current.map((item) => (item.id === id ? { ...item, subcategory } : item)))
@@ -219,6 +227,7 @@ export function usePantry({
     openPantryCheck,
     consumePantryCheck,
     setPantryTracking,
+    setPantryStockLevels,
     setPantryItemSubcategory,
     setPantryItemCategory,
     autoCategorizePantry,

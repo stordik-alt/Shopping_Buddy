@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { AI_ASSISTANT_ENABLED } from '@/lib/features'
+import { trackTabSwitch } from '@/lib/rum-client'
 import { safeLocalStorage } from '@/lib/safe-storage'
 import { tabFromSlug, tabHref } from '@/lib/tab-url'
 import { readThemeChoice, resolveDark, saveThemeChoice } from '@/lib/theme-preference'
@@ -42,6 +43,7 @@ export function useTheme() {
 export function useTabNavigation(initialTab: Tab) {
   const [tab, setTabState] = useState<Tab>(initialTab)
   const setTab = useCallback((next: Tab) => {
+    trackTabSwitch(next)
     setTabState(next)
     const href = tabHref(next)
     if (`${window.location.pathname}${window.location.search}` !== href) window.history.pushState(null, '', href)

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { type FormEvent, Suspense, useState } from 'react'
 import { authClient } from '@/lib/auth/client'
+import { rememberLoginTiming } from '@/lib/rum-client'
 
 export default function SignInPage() {
   return (
@@ -30,7 +31,10 @@ function SignInForm() {
       return
     }
     setLoading(true)
+    const signInStarted = performance.now()
     const { error: signInError } = await authClient.signIn.email({ email: email.trim(), password })
+    // Opt-in timing (lib/rum.ts): the next app load reports how long signing in took on this device.
+    rememberLoginTiming(performance.now() - signInStarted)
     setLoading(false)
     if (signInError) {
       setError(signInError.message || 'Přihlášení se nezdařilo.')

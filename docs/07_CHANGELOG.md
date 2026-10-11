@@ -1,3 +1,10 @@
+## 2026-10-11 — Měření: časování z konkrétního zařízení (`?perf=1`)
+
+- Produkční log domovské stránky ukázal serverový render ~300 ms (12 z 13 měření mezi 268 a 438 ms), takže pomalé přepínání záložek a první spuštění na telefonu vysvětlit nedokáže. Telefon nemá DevTools, proto aplikace umí na požádání měřit sama sebe.
+- Zařízení, které aplikaci jednou otevře s `?perf=1` (třeba `/auth/sign-in?perf=1`), si volbu pamatuje (`?perf=0` ji vypne) a posílá změřené časy na nový `POST /api/perf`, který zapíše řádky `[rum]` do logu serveru: událost `load` (TTFB, DOMContentLoaded, FCP, LCP, blokování hlavního vlákna, přenesené KB, typ sítě, počet jader, doba předchozího přihlášení) a událost `tab` pro každé přepnutí sekce (čas, než zmizí placeholder „Načítám…“ a prohlížeč dvakrát vykreslí; `first` značí první návštěvu). Kód: `lib/rum.ts` (čistá logika a validace), `lib/rum-client.ts` (prohlížeč), `components/shared/rum-reporter.tsx`, `app/api/perf/route.ts`.
+- Bezpečnost: route odpovídá 404 bez `PERF_TIMING=1`, vyžaduje přihlášeného uživatele, tělo je omezené na 2 KB a z něj se ponechají jen známá, omezená pole. Ze zařízení, která si měření nezapnula, se nic neposílá.
+- Ověřeno: `tsc --noEmit` bez chyb, 6 nových testů (`lib/rum.test.ts`), lokální běh v Chromiu: události `load` (včetně `signInMs`) a `tab` dorazily do logu. Emulace mobilu (CPU 4× pomalejší, ~Slow 4G, lokální domácnost s ročními daty): domovská stránka 1,0 s, 33 požadavků, 569 KB, přepnutí záložky 145–560 ms (první návštěva) a 145–260 ms (opakovaná). **Neověřeno:** čísla z reálného telefonu a produkce; ta teprve vzniknou.
+
 ## 2026-10-11 — Měření: časování fází načtení domovské stránky (`PERF_TIMING=1`)
 
 - Nový `lib/perf-timing.ts` (`createPerfTimer`): při `PERF_TIMING=1` zapíše do logu serveru jeden řádek `[perf] {...}` s každou fází (začátek a trvání v ms). Bez proměnné se nic neměří a časovač jen spustí předanou práci. Serverová komponenta nemůže nastavit hlavičku `Server-Timing`, proto se výsledek píše do logu (na Vercelu do logů funkce).

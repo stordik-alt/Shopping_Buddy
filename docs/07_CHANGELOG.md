@@ -1,3 +1,9 @@
+## 2026-10-11 — Oprava selektoru E2E testu úvodní obrazovky
+
+- CI #1361 selhalo v testu `public intro is reachable`, protože `getByText('ANITKA')` odpovídalo dvěma prvkům: textu „Powered by ANITKA AI“ i nadpisu „Ahoj, já jsem Anitka!“. Nešlo o chybu zobrazení stránky, ale o nejednoznačný Playwright selektor.
+- Test nyní ověřuje obrázek oficiálního loga přes přístupný název `ANITKA`, což odpovídá `alt="ANITKA"` v komponentě `IntroScreen`.
+- Ověření: čeká se na nový běh Playwright CI po této opravě.
+
 ## 2026-10-11 — Oprava E2E testů po automatickém spuštění průvodce Anitka
 
 - První přihlášení nyní automaticky zobrazuje průvodce, který záměrně leží nad ovládáním aplikace. E2E testy registrace a rozpočtu ho po ověření zobrazení explicitně přeskočí, aby následně testovaly skutečnou navigaci a rozpočtové ovládací prvky, nikoli překrytý obsah.

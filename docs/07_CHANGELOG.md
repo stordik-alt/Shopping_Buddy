@@ -5,6 +5,13 @@
 - **Oprava:** `.gitattributes` označuje `*.webp/png/jpg/jpeg/gif/ico/woff/woff2/pdf` jako `binary`. Oba obrázky maskota vyříznuty znovu z reference: pozadí se odstraní plavením od okraje (oči a nápis na tričku zůstávají), bělavé kapsy mezi prameny vlasů u obrysu se odstraní, okraj se o pixel zúží, změkčí a jeho barvy se dopočítají z vnitřku postavy, takže nezůstává bílý lem. Zkontrolováno na navy i bílém pozadí; soubory v repozitáři se dekódují.
 - **Ověřeno:** v Chromiu (lokální databáze, testovací účty smazány) intro v tmavém režimu bez rámečku a průvodce s maskotem ve všech 11 krocích. **Neověřeno:** nasazená verze a fyzický telefon.
 
+
+## 2026-10-11 — Výkon průvodce: odstranění nekonečného skenování DOM
+
+- Příčina: `GuideSpotlight` používal nekonečný `requestAnimationFrame` a v každém snímku znovu prohledával DOM, kontroloval viditelnost a měřil pozice prvků, i když se obrazovka neměnila. To zbytečně zatěžovalo mobilní CPU po celou dobu otevřeného průvodce.
+- Měření zvýraznění je nyní událostní: spouští se při změně DOM, scrollu nebo změně velikosti okna. Krátké opakované kontroly (250 ms, nejvýše 4 s) zůstávají jen pro čekání na líně načtenou sekci nebo segment; po nalezení prvku se vypnou. Pozdější změny DOM se dál zachytí přes `MutationObserver`.
+- Cílem je zachovat živé zvýraznění, přípravu segmentu a automatické posouvání bez trvalé smyčky. Je nutné ověřit všechny kroky průvodce na mobilním viewportu a zkontrolovat konzoli i plynulost přepínání.
+ 
 ## 2026-10-11 — Oprava selektoru E2E testu úvodní obrazovky
 
 - CI #1361 selhalo v testu `public intro is reachable`, protože `getByText('ANITKA')` odpovídalo dvěma prvkům: textu „Powered by ANITKA AI“ i nadpisu „Ahoj, já jsem Anitka!“. Nešlo o chybu zobrazení stránky, ale o nejednoznačný Playwright selektor.

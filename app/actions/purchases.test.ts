@@ -254,6 +254,23 @@ describe('createManualPurchaseAction — stock by product type', () => {
     ])
     expect(rows.every((row) => row.productTypeId != null)).toBe(true)
   })
+
+  it('remembers the pack size and keeps different pack sizes of one type apart', async () => {
+    await createManualPurchaseAction({
+      date: '2026-09-27',
+      items: [
+        { name: 'MASLO PRAG. 250G', quantity: 2, unit: 'ks', price: 60, category: 'Potraviny' },
+        { name: 'MASLO PRAG. 250G', quantity: 1, unit: 'ks', price: 30, category: 'Potraviny' },
+        { name: 'MASLO ROLNICKE 1KG', quantity: 1, unit: 'ks', price: 160, category: 'Potraviny' },
+      ],
+    })
+
+    const rows = await db.query.pantryItems.findMany({ where: eq(schema.pantryItems.householdId, householdId) })
+    expect(rows.map((row) => [row.quantity, row.unit, row.pieceQuantity, row.pieceUnit]).sort()).toEqual([
+      [1, 'ks', 1, 'kg'],
+      [3, 'ks', 0.25, 'kg'],
+    ])
+  })
 })
 
 describe('recordPurchaseAsExpenseAction', () => {

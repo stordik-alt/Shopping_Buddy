@@ -5,6 +5,7 @@ import { requireHouseholdId } from '@/lib/auth/authorize'
 import { getDb } from '@/lib/db/client'
 import { getHouseholdExpenses, getHouseholdNotifications, restockPantryItem, restockPantryTypeItem, upsertProductCatalogDefaults } from '@/lib/db/queries'
 import { stockTypesForLines } from '@/lib/db/stock-types'
+import { pieceSizeOf } from '@/lib/piece-size'
 import { getProductCatalogCached, getSubcategoryCatalogCached } from '@/lib/db/cached-reads'
 import { purchasedInventoryQuantities } from '@/lib/inventory-packaging'
 import { getPurchaseItemsForExpense, recordPurchaseAsExpense, recomputePurchaseExpenses, setPurchaseItemExpenseSplits, type PurchaseExpenseItem } from '@/lib/db/purchase-items'
@@ -142,6 +143,7 @@ export async function createManualPurchaseAction(input: {
           quantity: inventory.quantity,
           unit: inventory.unit,
           subcategoryId: subcategoryId(item.category, item.subcategory),
+          piece: pieceSizeOf(inventory, item.name),
         })
       } else {
         await restockPantryItem(householdId, {

@@ -294,6 +294,15 @@ export function convertQuantity(quantity: number, fromUnit: ItemUnit, toUnit: It
   return (quantity * from.toBase) / to.toBase
 }
 
+/** How much of `target` unit a stock row holds: its own quantity when comparable, else, for a row in
+ *  pieces with a known piece size (a 250 g pack), pieces × size. Null when it cannot be compared. */
+export function stockQuantityIn(item: Pick<PantryItem, 'quantity' | 'unit' | 'unitQuantity' | 'unitUnit'>, target: ItemUnit): number | null {
+  const direct = convertQuantity(item.quantity, item.unit, target)
+  if (direct != null) return direct
+  if (item.unit !== 'ks' || !item.unitQuantity || !item.unitUnit || item.unitUnit === 'ks') return null
+  return convertQuantity(item.quantity * item.unitQuantity, item.unitUnit, target)
+}
+
 /** Whether the household currently has *enough* of this ingredient in stock (spíž/lednice/mrazák/
  *  domácnost, wherever it's tracked) — case/whitespace-insensitive exact name match, same
  *  no-fuzzy-matching philosophy as `lib/products.ts`'s `matchProductByName`, but now genuinely
@@ -308,12 +317,12 @@ export function matchIngredientToStock(ingredient: Ingredient, pantryItems: Pant
     // it. A group ("Kuřecí maso") accepts any of its types. Quantity rules are the same as for a
     // name match: a unit that cannot be compared (pieces vs grams) does not count.
     if (requestedType && item.productTypeKey && requestedType.types.some((type) => stockTypeCanSatisfyRequestedType(item.productTypeKey as string, type))) {
-      const available = convertQuantity(item.quantity, item.unit, ingredient.unit)
+      const available = stockQuantityIn(item, ingredient.unit)
       if (available != null && available >= ingredient.quantity) return true
     }
 
     if (item.name.trim().toLowerCase() === normalized) {
-      const available = convertQuantity(item.quantity, item.unit, ingredient.unit)
+      const available = stockQuantityIn(item, ingredient.unit)
       return available != null && available >= ingredient.quantity
     }
 

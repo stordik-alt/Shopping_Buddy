@@ -1,3 +1,10 @@
+## 2026-10-11 — Recepty počítají zásoby v kusech podle velikosti balení
+
+- Zásoby vedené podle druhu zboží v kusech (`2 ks` másla) ztrácely velikost balení z řádku účtenky, takže recept na `100 g` másla je neuměl použít (kg/g a ks se nedají srovnat). `pantry_items` má nová nepovinná pole `piece_quantity` + `piece_unit` (kg/l, migrace `0097_pantry_piece_size.sql`, aditivní, s CHECK); ukládají se z množství multipacku, jinak z jediné velikosti v názvu řádku (`MASLO PRAG. 250G` → 0,25 kg; `lib/piece-size.ts`).
+- `restockPantryTypeItem` sčítá kusy jen při stejné velikosti balení (250 g a 1 kg máslo jsou dva řádky); `matchIngredientToStock` počítá přes `stockQuantityIn` (ks × velikost kusu) a řádek bez známé velikosti se dál s gramy neporovnává.
+- Starší řádky velikost nemají (původní text řádku se při ukládání podle druhu nezachoval); doplní se u dalších nákupů.
+- Testy: `lib/piece-size.test.ts`, případ „remembers the pack size…“ v `app/actions/purchases.test.ts`; migrace aplikována na testovací větev.
+
 ## 2026-10-11 — Kontrola účtenky: „Co to je?“ (návrh druhu zboží) a typ Jíška
 
 - Měření (read-only, produkční katalog): nejbližší typované produkty podle trigramové podobnosti `products.search_name` trefí správný typ u čistých názvů s přesností 99,7 % při pokrytí 72 % (podobnost ≥ 0,4, shoda sousedů ≥ 80 %); na zkratkách z účtenek je ověřený vzorek příliš malý (21 řádků) a z 35 řádků zásob bez typu by sousedé spolehlivě poznali jen asi 3–4. Proto se sousedé jen **nabízejí**, nic se neukládá samo.

@@ -11,6 +11,7 @@ import { getDb } from '@/lib/db/client'
 import { invalidateProductPriceCache } from '@/lib/db/cache-invalidation'
 import { getProductCatalogByIds, recordPriceObservation, restockPantryItem, restockPantryTypeItem, upsertProductCatalogDefaults } from '@/lib/db/queries'
 import { stockTypesForLines } from '@/lib/db/stock-types'
+import { pieceSizeOf } from '@/lib/piece-size'
 import { productTypeByKey, resolveReceiptLineType } from '@/lib/product-types'
 import { suggestTypesForReceiptLines } from '@/lib/db/type-suggestions'
 import { getProductCatalogCached, getSubcategoryCatalogCached } from '@/lib/db/cached-reads'
@@ -475,6 +476,7 @@ export async function createPurchaseFromReceiptItems(
         unit: inventory.unit,
         location: item.location,
         subcategoryId: subcategoryId(item.category, item.subcategory),
+        piece: pieceSizeOf(inventory, item.name),
       })
       continue
     }

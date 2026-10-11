@@ -12,9 +12,10 @@ import type { ItemCategory } from '@/lib/types'
  *  matched to a catalog product takes that product's own type (a person or an earlier import settled
  *  it); otherwise the type rules read it off the printed text with its abbreviations spelled out
  *  ("KUR.PRSA 500G" → Kuřecí prsa). One query for the matched products, one for the type rows; a type
- *  missing from the database (code ahead of the migration) gives null. */
+ *  missing from the database (code ahead of the migration) gives null. A type the household picked in
+ *  the receipt review (`productTypeKey`) beats every other source. */
 export async function stockTypesForLines(
-  lines: Array<{ productId: string | null; name: string; category: ItemCategory | null }>,
+  lines: Array<{ productId: string | null; name: string; category: ItemCategory | null; productTypeKey?: string | null }>,
 ): Promise<Array<{ id: string; name: string } | null>> {
   const db = getDb()
   const productIds = [...new Set(lines.flatMap((line) => (line.productId ? [line.productId] : [])))]
@@ -28,7 +29,7 @@ export async function stockTypesForLines(
     for (const row of rows) productTypeKeys.set(row.id, row.key)
   }
 
-  const keys = lines.map((line) => resolveReceiptLineType({
+  const keys = lines.map((line) => line.productTypeKey ?? resolveReceiptLineType({
     productTypeKey: line.productId ? productTypeKeys.get(line.productId) ?? null : null,
     category: line.category,
     name: line.name,

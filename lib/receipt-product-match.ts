@@ -120,6 +120,7 @@ const TYPE_ABBREVIATIONS: Readonly<Record<string, string>> = {
   houb: 'houbicky',
   kuch: 'kuchynske',
   pomaz: 'pomazanka',
+  pomazan: 'pomazanka',
   mat: 'mattoni',
 }
 

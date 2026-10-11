@@ -11,6 +11,8 @@ import { getDb } from '@/lib/db/client'
 import { invalidateProductPriceCache } from '@/lib/db/cache-invalidation'
 import { getProductCatalogByIds, recordPriceObservation, restockPantryItem, restockPantryTypeItem, upsertProductCatalogDefaults } from '@/lib/db/queries'
 import { stockTypesForLines } from '@/lib/db/stock-types'
+import { productTypeByKey, resolveReceiptLineType } from '@/lib/product-types'
+import { suggestTypesForReceiptLines } from '@/lib/db/type-suggestions'
 import { getProductCatalogCached, getSubcategoryCatalogCached } from '@/lib/db/cached-reads'
 import { purchasedInventoryQuantities } from '@/lib/inventory-packaging'
 import * as schema from '@/lib/db/schema'
@@ -171,6 +173,39 @@ export async function withProductSuggestions(
   return result
 }
 
+/** Adds the review form's product-type suggestions (lib/db/type-suggestions.ts) to the lines that
+ *  neither the catalog nor the type rules could place, and that the household has not already linked
+ *  to a product. Never pre-selected: a type is only stored once the household picks it. Like the
+ *  product suggestions, a convenience on top of a review that works without it — a failed lookup is
+ *  logged and the lines are returned as they were. */
+export async function withTypeSuggestions(
+  items: ReceiptLineItem[],
+  catalog: ProductCatalogEntry[],
+  aliases: ProductAliasEntry[],
+  storeId: string | null,
+): Promise<ReceiptLineItem[]> {
+  const open = items
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) =>
+      !item.nonInventory &&
+      !item.productId &&
+      resolveCatalogProduct(item.name, catalog, aliases, storeId).entry == null &&
+      resolveReceiptLineType({ productTypeKey: null, category: item.category ?? null, name: item.name }) == null)
+  if (open.length === 0) return items
+  let found: Awaited<ReturnType<typeof suggestTypesForReceiptLines>>
+  try {
+    found = await suggestTypesForReceiptLines(open.map(({ item }) => item.name))
+  } catch (error) {
+    console.error('Could not look up product type suggestions for receipt review', error)
+    return items
+  }
+  const result = [...items]
+  open.forEach(({ item, index }, position) => {
+    if (found[position].length > 0) result[index] = { ...item, typeSuggestions: found[position] }
+  })
+  return result
+}
+
 /** Resolves an OCR address to an existing branch, or creates the branch when OCR has enough
  *  physical-location data. Missing coordinates/opening hours stay NULL until a trusted store
  *  directory source enriches the branch; receipt OCR must never invent geographic data.
@@ -290,6 +325,13 @@ export async function createPurchaseFromReceiptItems(
     }
     if (item.subcategory != null && !isValidProductSubcategory(item.category, item.subcategory)) {
       throw new Error('Neplatná podkategorie u položky „' + item.name + '“.')
+    }
+  }
+  // A type picked in review is a key from the code's list (lib/product-types.ts); anything else is a
+  // crafted request, not a household choice.
+  for (const item of activeItems) {
+    if (item.productTypeKey != null && !productTypeByKey(item.productTypeKey)) {
+      throw new Error('Neplatný druh zboží u položky „' + item.name + '“.')
     }
   }
   // Reject impossible discounts explicitly (a reviewer can type anything) instead of storing a
@@ -420,7 +462,7 @@ export async function createPurchaseFromReceiptItems(
   // so recipes and the shopping plan — which ask for types — recognise it. A line whose type cannot
   // be told (the rules find none, or more than one) keeps the old behaviour of a row under its own
   // name rather than silently dropping the stock.
-  const lineTypes = await stockTypesForLines(inventoryItems)
+  const lineTypes = await stockTypesForLines(inventoryItems.map((item) => ({ productId: item.productId, name: item.name, category: item.category, productTypeKey: item.productTypeKey })))
   for (const [index, item] of inventoryItems.entries()) {
     const inventory = inventoryQuantities[index]
     const type = lineTypes[index]
@@ -476,6 +518,9 @@ export async function createPurchaseFromReceiptItems(
         location: item.location ?? 'Spíž',
         subcategory: item.subcategory,
         isNonInventory: item.nonInventory,
+        // A type the household chose is remembered for the printed text, so the next receipt with it
+        // is stocked under that type without asking.
+        productTypeKey: item.productTypeKey,
       })
     }
     // A brand-new product has no catalog id yet at the time purchase_items was inserted above (it is
@@ -757,7 +802,8 @@ async function runReceiptPipeline(
   // product suggestions for the lines nothing recognized.
   const toReview = async () => {
     trace.validation = 'review_required'
-    const items = await withProductSuggestions(toReceiptLineItems(extracted, catalog, aliases, storeId), catalog, aliases, storeId)
+    const withProducts = await withProductSuggestions(toReceiptLineItems(extracted, catalog, aliases, storeId), catalog, aliases, storeId)
+    const items = await withTypeSuggestions(withProducts, catalog, aliases, storeId)
     return update({ status: 'review_required', items: JSON.stringify(items) })
   }
 

@@ -1135,6 +1135,11 @@ const RECEIPT_LINES: [ItemCategory, string, string | null][] = [
   ['Potraviny', 'TROPIC. TRTIN.C.500G', 'cukr-specialni'],
   // Fresh paprika is still a vegetable, not a spice.
   ['Potraviny', 'PAPRIKA ČERVENÁ', 'paprika'],
+  ['Potraviny', 'KNORR JÍŠKA SVĚ.250G', 'jiska'],
+  ['Potraviny', 'Knorr Jíška hotová světlá 250g', 'jiska'],
+  ['Potraviny', 'GUS STER.OKURKY 670G', 'zelenina-konzervovana'],
+  ['Potraviny', 'OKURKA HADOVKA KS', 'okurky'],
+  ['Drogerie', 'PALOMA PK 10X10KS/3V', 'papir-tasky'],
 ]
 
 describe('abbreviated receipt lines', () => {

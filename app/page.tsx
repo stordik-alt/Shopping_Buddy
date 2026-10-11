@@ -10,12 +10,16 @@ import { EMPTY_STORE_SELECTION } from '@/lib/nearby-stores'
 import { pushPublicKeyForClient } from '@/lib/push/deliver'
 import { AI_ASSISTANT_ENABLED } from '@/lib/features'
 import { DEALS_CHAIN_PARAM, tabFromSlug } from '@/lib/tab-url'
+import { createPerfTimer } from '@/lib/perf-timing'
 import { todayInPrague } from '@/lib/today'
 
 export const dynamic = 'force-dynamic'
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
-  const { data: session } = await auth.getSession()
+  // With PERF_TIMING=1 the server log gets one `[perf]` line per render: each phase's start and
+  // duration, so the slow step shows (lib/perf-timing.ts). Without it nothing is measured.
+  const timer = createPerfTimer('page /')
+  const { data: session } = await timer.measure('session', () => auth.getSession())
   if (!session?.user) redirect('/intro')
   // The section to open (`/?tab=nakup`, lib/tab-url.ts); unknown values open Domů.
   const params = await searchParams
@@ -28,13 +32,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ [
   const initialDealsChain = initialTab === 'Akce' && typeof chainParam === 'string' && chainParam.trim() ? chainParam.trim() : null
 
   const [data, stores, standaloneOffers, storeChains, isAdmin] = await Promise.all([
-    getHouseholdData(session.user.id, session.user.name, session.user.email),
+    timer.measure('householdData', () => getHouseholdData(session.user.id, session.user.name, session.user.email, timer)),
     // Global data (the same for every household) comes from a 15-minute cache (lib/db/cached-reads.ts).
-    getStoresCached(),
-    getStandaloneOffersCached(),
-    getStoreChainsCached(),
+    timer.measure('stores', () => getStoresCached()),
+    timer.measure('standaloneOffers', () => getStandaloneOffersCached()),
+    timer.measure('storeChains', () => getStoreChainsCached()),
     // Only decides whether the account menu offers the administrator screen; the screen and its actions check again on the server.
-    isAppAdmin(session.user.id),
+    timer.measure('isAdmin', () => isAppAdmin(session.user.id)),
   ])
   // The rest needs the household data but not each other, so they go to the database together
   // instead of one after another (each wait is a round trip to the database).
@@ -44,10 +48,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ [
     // refresh, most of the database's compute (docs/07_CHANGELOG.md, 2026-09-26/27). Browsing every
     // promotion now lives in the Akce tab, which loads only the page being looked at
     // (app/actions/deals.ts).
-    getProductPricesCached({ names: data.items.map((item) => item.name), runningDeals: false }),
+    timer.measure('productPrices', () => getProductPricesCached({ names: data.items.map((item) => item.name), runningDeals: false })),
     // After getHouseholdData: on a first login that call is what creates the member row.
-    getMemberIdForUser(session.user.id).then((memberId) => (memberId ? getMemberStoreSelection(memberId) : EMPTY_STORE_SELECTION)),
-    listPinsForHousehold(data.household.id),
+    timer.measure('storeSelection', () => getMemberIdForUser(session.user.id).then((memberId) => (memberId ? getMemberStoreSelection(memberId) : EMPTY_STORE_SELECTION))),
+    timer.measure('pins', () => listPinsForHousehold(data.household.id)),
   ])
+  timer.flush()
   return <AppShell initialData={data} userName={session.user.name} isAdmin={isAdmin} stores={stores} productPrices={productPrices} standaloneOffers={standaloneOffers} storeChains={storeChains} initialStoreSelection={storeSelection} initialPins={pins} today={todayInPrague()} initialTab={initialTab} initialPantryCheck={initialPantryCheck} initialDealsChain={initialDealsChain} pushPublicKey={pushPublicKeyForClient()} />
 }

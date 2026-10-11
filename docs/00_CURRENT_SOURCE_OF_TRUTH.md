@@ -69,6 +69,8 @@ Database optimization must be evidence-driven. Before adding an index, inspect t
 
 Do not add indexes merely because a foreign key exists. Tiny tables with sequential scans are not automatically problems. Do not make blind index additions when application workload evidence is insufficient.
 
+Render timing: with the environment variable `PERF_TIMING=1`, the home page (`app/page.tsx`) and `getHouseholdData` write one `[perf]` JSON line per render to the server log (on Vercel: function logs). It lists every phase with its start offset and duration in ms (`session`, `householdData`, each `hh.*` query, `productPrices`, …), so overlapping phases are visible as parallel. Implemented in `lib/perf-timing.ts`; without the variable nothing is measured. A Server Component cannot set a `Server-Timing` header, which is why it goes to the log. Use it to see where a slow load really spends its time before optimizing.
+
 Current audit findings include strong targeted coverage on products, prices and deals, trigram search for product names, and high index use on product_subcategories. pg_stat_statements currently does not provide enough application workload history for blind query/index conclusions.
 
 ## 7. Neon cost and transfer investigation

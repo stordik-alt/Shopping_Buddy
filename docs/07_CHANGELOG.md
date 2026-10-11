@@ -4,6 +4,7 @@
 - `restockPantryTypeItem` sčítá kusy jen při stejné velikosti balení (250 g a 1 kg máslo jsou dva řádky); `matchIngredientToStock` počítá přes `stockQuantityIn` (ks × velikost kusu) a řádek bez známé velikosti se dál s gramy neporovnává.
 - Starší řádky velikost nemají (původní text řádku se při ukládání podle druhu nezachoval); doplní se u dalších nákupů.
 - Testy: `lib/piece-size.test.ts`, případ „remembers the pack size…“ v `app/actions/purchases.test.ts`; migrace aplikována na testovací větev.
+- Pravidlo typu `detske-napoje` zná značky Jupík a Kubík (`JUPÍK MALINA 0,5L`), takže je příští backfill zásob zařadí mezi dětské nápoje (rozhodnutí majitele); test v `lib/product-types-seed-rules.test.ts`.
 
 ## 2026-10-11 — Kontrola účtenky: „Co to je?“ (návrh druhu zboží) a typ Jíška
 

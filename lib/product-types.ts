@@ -365,7 +365,7 @@ export const PRODUCT_TYPES: ProductTypeDefinition[] = [
   { key: 'detska-kosmetika', name: 'Dětská kosmetika', categories: ['Děti'], subcategory: null, unit: 'ks', rule: { keywords: [' dětská kosmetika', ' detska kosmetika'], headOnly: false } },
   { key: 'detske-prikrmy', name: 'Dětské příkrmy', categories: ['Děti'], subcategory: null, unit: 'ks', rule: { keywords: [' dětské příkrmy', ' detske prikrmy', ' příkrm', ' prikrm', ' ovocná kašička', ' ovocný příkrm'], headOnly: false } },
   { key: 'detske-kapsicky', name: 'Dětské kapsičky', categories: ['Děti'], subcategory: null, unit: 'ks', rule: { keywords: [' dětské kapsičky', ' detske kapsicky'], headOnly: false } },
-  { key: 'detske-napoje', name: 'Dětské nápoje', categories: ['Děti'], subcategory: 'Dětské nápoje', unit: 'l', rule: { keywords: [' dětské nápoje', ' detske napoje', ' minerální voda', ' pramenitá voda', ' neperliv', ' perliv', ' džus', ' šťáva', ' nektar'], exclude: ['mama', 'sirup', 'pro maminky', 'sušen', 'prášek', 'kašička', 'příkrm'], headOnly: false } },
+  { key: 'detske-napoje', name: 'Dětské nápoje', categories: ['Děti'], subcategory: 'Dětské nápoje', unit: 'l', rule: { keywords: [' dětské nápoje', ' detske napoje', ' minerální voda', ' pramenitá voda', ' neperliv', ' perliv', ' džus', ' šťáva', ' nektar', ' jupík', ' jupik', ' kubík', ' kubik'], exclude: ['mama', 'sirup', 'pro maminky', 'sušen', 'prášek', 'kašička', 'příkrm'], headOnly: false } },
 
   // --- Batches 16–20: dairy, meat, sweets, drinks, cosmetics (docs/12) --------------------------------
   // Dairy

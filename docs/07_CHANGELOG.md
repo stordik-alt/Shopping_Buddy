@@ -16,6 +16,11 @@
   - „Plán nákupu“ při prázdném seznamu ukáže jen vysvětlení a poznámku „není co plánovat“, bez zakázaného tlačítka a výběrů. Karta průvodce „Plán nákupu“ proto při prázdném seznamu zvýrazní nadpis panelu (druhý cíl v `lib/guide.ts`).
 - Ověřeno: `tsc --noEmit`, testy (nový `shopping-plan.test.tsx`) a Chromium na lokální DB (nový účet: Domů bez tří prázdných karet, Enter přidá položku a vyprázdní pole, „Sestavit plán“ se objeví po první položce). Zvýraznění nadpisu v průvodci a mobilní zařízení nezkoušeno.
 
+## 2026-10-12 — Průvodce: pravdivý popis „Dokončit nákup“
+
+- Koncept: `docs/22_GUIDE.md`. Karty „Hotovo? Dokončete nákup“, „Moje nákupy“ a „Zásoby“ tvrdily, že dokončení nákupu uloží nákup do historie a koupené věci do zásob. To přestalo platit v #429 (2026-10-11): „Dokončit nákup“ jen odstraní odškrtnuté položky ze seznamu (`clearDoneItemsAction`), nákup, výdaj v rozpočtu a zásoby vznikají z účtenky nebo z „Zadat nákup ručně“ v Moje nákupy. Karty to teď říkají a ukazují, jak nákup do rozpočtu a zásob dostat; test v `lib/guide.test.ts` hlídá, že karta nepřipisuje seznamu uložení do historie a zásob.
+- Ověřeno: typová kontrola a testy průvodce; text porovnán se `components/app-shell.tsx` a `components/budget/purchase-history.tsx`.
+
 ## 2026-10-12 — Intro: bílé špičky bot
 
 - Koncept: `docs/22_GUIDE.md`. Po kontrole zdroje se ukázalo, že špičky bot byly oříznuté: gumová čepička je bílá jako podlaha, takže ji ořez bral za pozadí. Špička a okraj podrážky se teď berou jako část boty podle konvexního obalu růžové části a tenkých tmavých linií boty; původní pixely z videa zůstávají, šedý stín a tmavé skvrny pod botou ne. Nový `anitka-intro-walk.webp`.

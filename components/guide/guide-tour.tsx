@@ -2,6 +2,7 @@
 
 import { ArrowLeft, ArrowRight, Check, MapPin, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { AnitkaMascot } from '@/components/guide/anitka-mascot'
 import { GuideSpotlight } from '@/components/guide/guide-spotlight'
 import { tabIcons } from '@/components/shared/nav-item'
 import { GUIDE_STEPS, clampStep } from '@/lib/guide'
@@ -69,15 +70,14 @@ export function GuideTour({ onNavigate, onClose }: { onNavigate: (tab: Tab) => v
         <div className="flex flex-row-reverse overflow-hidden rounded-3xl border border-border bg-surface-elevated text-foreground shadow-elevated motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-300">
           {/* The mascot stands inside the card, whole, with her feet on its lower edge. Above her
               the icon of the section being explained, the same one the navigation uses. */}
-          <div className="flex w-[4.75rem] shrink-0 flex-col items-center justify-between bg-accent-subtle pt-3 sm:w-24">
+          <div className="flex w-[6rem] shrink-0 flex-col items-center justify-between bg-accent-subtle pt-3 sm:w-28">
             <span key={`icon-${step.id}`} className="flex size-9 items-center justify-center rounded-full bg-surface-elevated text-accent-text shadow-sm motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:duration-300">
               <SectionIcon className="size-5" aria-hidden="true" />
             </span>
-            {/* She hops each time a new card appears (the key restarts the animation), and otherwise
-                breathes and sways a little, so she feels alive without distracting from the text. */}
-            <div key={`mascot-${step.id}`} className="guide-hop mt-3 w-full px-1">
-              {/* eslint-disable-next-line @next/next/no-img-element -- approved static brand asset */}
-              <img src="/brand/anitka/anitka-mascot-full.webp" alt="" width={380} height={678} className="guide-idle w-full select-none" />
+            {/* She hops in each time a new card appears (the key restarts it), breathes and sways, and her
+                face and head are alive: blinking, smiling, nodding, a wink (components/guide/anitka-mascot.tsx). */}
+            <div key={`mascot-${step.id}`} className="guide-hop mt-3 w-full px-0.5">
+              <AnitkaMascot mood={step.mood} className="guide-idle" />
             </div>
           </div>
 

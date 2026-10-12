@@ -14,7 +14,7 @@ Za 6 dní od prvního auditu byl opraven **jediný** nález (V4 závislosti). Ob
 
 | ID | Nález | Stav | Důkaz |
 |---|---|---|---|
-| K1 | Žádná Content-Security-Policy | **Otevřeno** (klíč `experimental.csp` zmizel, CSP ale stále nikdo nenastavuje) | `proxy.ts` a `next.config.mjs` neobsahují `Content-Security-Policy`; komentář v `next.config.mjs:5,33` stále tvrdí opak |
+| K1 | Žádná Content-Security-Policy | **Opraveno v kódu 2026-10-12**: politika s nonce se posílá v režimu Report-Only; **vynucování zapne `CSP_ENFORCE=1` ve Vercelu** | `proxy.ts` a `next.config.mjs` neobsahují `Content-Security-Policy`; komentář v `next.config.mjs:5,33` stále tvrdí opak |
 | K2 | Auto-join do cizí domácnosti jen podle e-mailu, bez tokenu a bez ověření e-mailu | **Opraveno v kódu 2026-10-12** (auto-join jen s `emailVerified`; zbývá zapnout ověření e-mailu v Neon Auth) | `lib/db/queries.ts` (`getHouseholdData`) nezná `emailVerified`; `acceptInvitationAction` také jen porovná řetězec |
 | V1 | Změna kategorie produktu přepisuje výdaje cizích domácností | **Otevřeno** | `lib/db/purchase-items.ts:~266` volá `syncProductClassificationToPurchases` bez scopu domácnosti |
 | V2 | Kterýkoli člen smaže vlastníka | **Opraveno v kódu 2026-10-12** (`canRemoveMember`) | `app/actions/household.ts:136` bez kontroly role a „posledního vlastníka“ |

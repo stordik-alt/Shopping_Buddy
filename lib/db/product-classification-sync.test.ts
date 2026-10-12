@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import { getHouseholdProductExpenseDefaults, recomputePurchaseExpenses, setPurchaseItemExpenseSplits, syncProductClassificationToPurchases } from '@/lib/db/purchase-items'
@@ -81,6 +81,44 @@ describe('syncProductClassificationToPurchases', () => {
       expect(expenses.map((row) => [row.category, row.subcategory, Number(row.amount)])).toEqual([['Ostatní', 'Oblečení a obuv', 100]])
     } finally {
       await db.delete(schema.households).where(eq(schema.households.id, household.id))
+      await db.delete(schema.products).where(eq(schema.products.id, product.id))
+    }
+  })
+  // Security regression (docs/37_SECURITY_REMEDIATION_PLAN.md, V1): one household's reassignment of a shared
+  // product used to rewrite the purchase history and budget rows of every household that bought it.
+  it("changes only the acting household's purchase history, not another household's", async () => {
+    const foodCategory = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
+    const [mine, other] = await db.insert(schema.households).values([{ name: '__test_sync_scope_mine__' }, { name: '__test_sync_scope_other__' }]).returning()
+    const [product] = await db.insert(schema.products).values({ name: `__test_sync_scope_${crypto.randomUUID()}`, categoryId: foodCategory!.id }).returning()
+    const bought = async (householdId: string) => {
+      const [purchase] = await db.insert(schema.purchases).values({ householdId, date: '2026-09-27', total: '100' }).returning()
+      const [item] = await db.insert(schema.purchaseItems).values({ purchaseId: purchase.id, name: product.name, price: '100', category: 'Potraviny', productId: product.id }).returning()
+      await recomputePurchaseExpenses(db, purchase.id)
+      return { purchase, item }
+    }
+    const mineBought = await bought(mine.id)
+    const mineEarlier = await bought(mine.id)
+    const otherBought = await bought(other.id)
+    const expensesOf = async (purchaseId: string) => (await db.query.expenses.findMany({ where: eq(schema.expenses.purchaseId, purchaseId) })).map((row) => [row.category, Number(row.amount)])
+
+    try {
+      // My household files the product under Drogerie ▸ Kosmetika.
+      await setPurchaseItemExpenseSplits(mine.id, mineBought.item.id, [{ category: 'Drogerie', subcategory: 'Kosmetika', amount: 100 }])
+
+      expect((await db.query.products.findFirst({ where: eq(schema.products.id, product.id), with: { category: true } }))?.category.name).toBe('Drogerie')
+      expect(await expensesOf(mineBought.purchase.id)).toEqual([['Drogerie', 100]])
+      // ...and so does my household's other purchase of the same product.
+      expect((await db.query.purchaseItems.findFirst({ where: eq(schema.purchaseItems.id, mineEarlier.item.id) }))?.category).toBe('Drogerie')
+      // The other household's receipt and budget row are exactly what they were.
+      expect((await db.query.purchaseItems.findFirst({ where: eq(schema.purchaseItems.id, otherBought.item.id) }))?.category).toBe('Potraviny')
+      expect(await expensesOf(otherBought.purchase.id)).toEqual([['Potraviny', 100]])
+
+      // A catalog-wide correction (no household given) still syncs everyone.
+      await syncProductClassificationToPurchases(product.id)
+      expect((await db.query.purchaseItems.findFirst({ where: eq(schema.purchaseItems.id, otherBought.item.id) }))?.category).toBe('Drogerie')
+      expect(await expensesOf(otherBought.purchase.id)).toEqual([['Drogerie', 100]])
+    } finally {
+      await db.delete(schema.households).where(inArray(schema.households.id, [mine.id, other.id]))
       await db.delete(schema.products).where(eq(schema.products.id, product.id))
     }
   })

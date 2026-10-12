@@ -164,7 +164,7 @@ describe('setPurchaseItemExpenseSplits', () => {
   })
 
   describe('learning a product\'s reassignment (owner request, 2026-09-27)', () => {
-  it('propagates a product-compatible budget category back to the product and its purchase history', async () => {
+  it('propagates a product-compatible budget category back to the product and the acting household\'s own purchase history only', async () => {
     const product = await createProduct()
     const first = await createPurchase([{ name: product.name, category: 'Potraviny', price: 100, productId: product.id }])
     const second = await createPurchase([{ name: product.name, category: 'Potraviny', price: 50, productId: product.id }])
@@ -176,9 +176,11 @@ describe('setPurchaseItemExpenseSplits', () => {
       const firstItem = await db.query.purchaseItems.findFirst({ where: eq(schema.purchaseItems.id, first.items[0].id) })
       const secondItem = await db.query.purchaseItems.findFirst({ where: eq(schema.purchaseItems.id, second.items[0].id) })
       expect(firstItem).toMatchObject({ category: 'Ostatní' })
-      expect(secondItem).toMatchObject({ category: 'Ostatní' })
+      // `second` belongs to another household (createPurchase makes one per purchase): its history is its own
+      // and is not rewritten by this household's change (docs/37_SECURITY_REMEDIATION_PLAN.md, V1).
+      expect(secondItem).toMatchObject({ category: 'Potraviny' })
       const secondExpenses = await db.query.expenses.findMany({ where: eq(schema.expenses.purchaseId, second.purchaseId) })
-      expect(secondExpenses.map((row) => [row.category, row.subcategory, Number(row.amount)])).toEqual([['Ostatní', 'Oblečení a obuv', 50]])
+      expect(secondExpenses.map((row) => [row.category, row.subcategory, Number(row.amount)])).toEqual([['Potraviny', null, 50]])
     } finally {
       await db.delete(schema.households).where(eq(schema.households.id, first.householdId))
       await db.delete(schema.households).where(eq(schema.households.id, second.householdId))

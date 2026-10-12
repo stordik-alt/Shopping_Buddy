@@ -1,3 +1,7 @@
+## 2026-10-12 — Přihlášení: kódy chyb Neon Auth a srozumitelná hláška o neověřeném e-mailu
+
+- Klient Neon Auth převádí chyby na vlastní kódy (`invalid_credentials`, `email_not_confirmed`, `user_already_exists`, …), které `lib/auth/auth-errors.ts` neznal, takže po zapnutí ověřování e-mailu v Neon Auth se přihlášení účtu s neověřeným e-mailem ukázalo jen jako „Přihlášení se nezdařilo“. Mapování zná oba zápisy kódů (a omezení počtu pokusů); u neznámé chyby se ke zprávě přidá její kód („(kód: …)“), aby šla nahlásit. Pozor: zapnutí ověřování e-mailu v Neon Auth odmítne přihlášení všech stávajících účtů, jejichž e-mail ověřený není (`neon_auth."user"."emailVerified"`). Testy: `lib/auth/auth-errors.test.ts`.
+
 ## 2026-10-12 — Přihlášení a registrace: odmítnutí už nezůstane viset
 
 - Klient Neon Auth při odmítnutém požadavku (chybné heslo, účet už existuje) **vyhazuje** `AuthApiError` místo vrácení `{ error }`. Formuláře `app/auth/sign-in` a `app/auth/sign-up` kontrolovaly jen vrácenou hodnotu, takže se výjimka nezachytila, tlačítko zůstalo na „Přihlašuji…“ a uživatel nedostal žádnou zprávu. Nový `lib/auth/auth-errors.ts` (`refusalOf`, `authErrorMessage`) zachytí vrácenou i vyhozenou chybu, překládá známé důvody do češtiny („Nesprávný e-mail nebo heslo.“, „Účet s tímto e-mailem už existuje.“) a vrátí tlačítko do výchozího stavu. Ověřeno v Chromiu proti skutečnému Neon Auth. Testy: `lib/auth/auth-errors.test.ts`.

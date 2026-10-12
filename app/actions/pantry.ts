@@ -12,6 +12,7 @@ import { classifySubcategory } from '@/lib/categorization'
 import type { CatalogChangeOutcome, CategoryChangeOutcome } from '@/lib/product-subcategory-changes'
 import { PRODUCT_SUBCATEGORIES, subcategoriesOfItem } from '@/lib/product-subcategories'
 import type { PantryQuantityChange } from '@/lib/pantry'
+import { ITEM_UNITS } from '@/lib/units'
 import { getStockLevels } from '@/lib/db/restock'
 import { productTypeByKey } from '@/lib/product-types'
 import { validateStockLevels, type StockLevel } from '@/lib/pantry-restock'
@@ -128,7 +129,7 @@ export async function addPantryItemAction(input: {
 }
 
 const PANTRY_ITEM_CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
-const PANTRY_UNITS: ItemUnit[] = ['ks', 'kg', 'g', 'l', 'ml']
+const PANTRY_UNITS: ItemUnit[] = ITEM_UNITS
 
 /** "Ještě mám" — confirms the household still has this pantry item. Resets addedAt to now and
  *  clears askedAt, so the check-in interval (lib/pantry.ts) restarts from a fresh confirmation
@@ -413,7 +414,7 @@ export async function setStockLevelAction(productTypeKey: string, minQuantity: n
   const householdId = await requireHouseholdId()
   const definition = productTypeByKey(productTypeKey)
   if (!definition) throw new Error('Neplatný druh zboží.')
-  if (!(['ks', 'kg', 'g', 'l', 'ml'] as const).includes(unit)) throw new Error('Neplatná jednotka.')
+  if (!ITEM_UNITS.includes(unit)) throw new Error('Neplatná jednotka.')
   const problem = validateStockLevels(minQuantity, maxQuantity)
   if (problem) throw new Error(problem)
   const db = getDb()

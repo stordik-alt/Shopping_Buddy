@@ -314,7 +314,7 @@ export function splitPantryReview(reviewedIds: string[], goneIds: Iterable<strin
 
 /** −/+ step size: whole units for "ks" (you don't buy 0.3 of a countable item), a tenth for
  *  weight/volume units — matches how the household would actually type a correction. */
-export const PANTRY_QUANTITY_STEP: Record<ItemUnit, number> = { ks: 1, kg: 0.1, g: 10, l: 0.1, ml: 10 }
+export const PANTRY_QUANTITY_STEP: Record<ItemUnit, number> = { ks: 1, kg: 0.1, g: 10, l: 0.1, ml: 10, dávka: 1 }
 
 /** A remaining quantity the household set during the check ("had 4, 1 left"). */
 export type PantryQuantityChange = { id: string; quantity: number }

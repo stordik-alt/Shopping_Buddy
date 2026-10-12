@@ -1,5 +1,6 @@
 'use server'
 
+import { ITEM_UNITS } from '@/lib/units'
 import { and, eq } from 'drizzle-orm'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { getDb } from '@/lib/db/client'
@@ -68,7 +69,7 @@ export async function createManualPurchaseAction(input: {
     if (!name) throw new Error(`Položka ${index + 1} nemá název.`)
     if (!Number.isFinite(quantity) || quantity <= 0) throw new Error(`Neplatné množství u položky „${name}“.`)
     if (!Number.isFinite(price) || price < 0) throw new Error(`Neplatná cena u položky „${name}“.`)
-    if (!['ks', 'kg', 'g', 'l', 'ml'].includes(item.unit)) throw new Error(`Neplatná jednotka u položky „${name}“.`)
+    if (!(ITEM_UNITS as string[]).includes(item.unit)) throw new Error(`Neplatná jednotka u položky „${name}“.`)
     if (!(PRODUCT_ITEM_CATEGORIES as readonly string[]).includes(item.category)) throw new Error(`Neplatná kategorie u položky „${name}“.`)
     if (item.subcategory != null && !isValidProductSubcategory(item.category, item.subcategory)) throw new Error(`Neplatná podkategorie u položky „${name}“.`)
     return { name, quantity, price, unit: item.unit, category: item.category, subcategory: item.subcategory ?? null }

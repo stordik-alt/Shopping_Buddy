@@ -40,9 +40,11 @@ export function validateStockLevels(min: number | null, max: number | null): str
  *  of unknown size against a level in kg). Pieces of known size count by their size (3 × 250 g butter). */
 function quantityInUnit(item: PantryItem, unit: ItemUnit): number | null {
   if (item.unit === unit) return item.quantity
+  // Doses count only against doses (a gel of 45 doses has no weight the app knows).
+  if (item.unit === 'dávka' || unit === 'dávka') return item.quantity === 0 ? 0 : null
   const direct = convertQuantity(item.quantity, item.unit, unit)
   if (direct != null) return direct
-  if (item.unit === 'ks' && item.unitQuantity != null && item.unitUnit != null) return convertQuantity(item.quantity * item.unitQuantity, item.unitUnit, unit)
+  if (item.unit === 'ks' && item.unitQuantity != null && item.unitUnit != null && item.unitUnit !== 'dávka') return convertQuantity(item.quantity * item.unitQuantity, item.unitUnit, unit)
   return item.quantity === 0 ? 0 : null
 }
 

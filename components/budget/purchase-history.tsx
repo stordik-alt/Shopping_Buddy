@@ -1,3 +1,4 @@
+import { ITEM_UNITS } from '@/lib/units'
 import { useState } from 'react'
 import { ChevronDown, Loader2, Pencil, PiggyBank, Plus, Repeat, ShoppingBag, Star, Trash2, TrendingUp } from 'lucide-react'
 import { averageMonthlySpend, favoriteStores, mostBoughtProducts, repeatPurchases } from '@/lib/purchase-history'
@@ -338,7 +339,7 @@ export function PurchaseHistory({
               <Input aria-label={`Produkt položky ${index + 1}`} value={item.name} onChange={(e) => setManualItems((rows) => rows.map((row, i) => i === index ? { ...row, name: e.target.value } : row))} placeholder="Produkt" className="col-span-3 px-3 sm:col-span-1" />
               <Input aria-label={`Množství položky ${index + 1}`} type="number" min="0.001" step="0.001" value={item.quantity} onChange={(e) => setManualItems((rows) => rows.map((row, i) => i === index ? { ...row, quantity: e.target.value } : row))} placeholder="Množství" className="px-3" />
               <Select aria-label={`Jednotka položky ${index + 1}`} value={item.unit} onChange={(e) => setManualItems((rows) => rows.map((row, i) => i === index ? { ...row, unit: e.target.value as ItemUnit } : row))} className="px-3">
-                {(['ks','kg','g','l','ml'] as ItemUnit[]).map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+                {ITEM_UNITS.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
               </Select>
               <Input aria-label={`Cena za kus položky ${index + 1}`} type="number" min="0" step="0.01" value={item.price} onChange={(e) => setManualItems((rows) => rows.map((row, i) => i === index ? { ...row, price: e.target.value } : row))} placeholder="Kč/ks" className="px-3" />
               <div className="col-span-3 grid min-w-0 grid-cols-1 gap-2 min-[380px]:grid-cols-2 sm:col-span-4 sm:grid-cols-[1fr_1fr_auto]">

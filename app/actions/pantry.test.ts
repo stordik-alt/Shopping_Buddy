@@ -510,6 +510,8 @@ describe('stock levels per product type', () => {
     levels = await setStockLevelAction(key, 1, 4, 'kg')
     expect(levels).toHaveLength(1)
     expect(levels[0]).toMatchObject({ minQuantity: 1, maxQuantity: 4, unit: 'kg' })
+    // A washing gel is watched in doses.
+    expect((await setStockLevelAction(key, 20, 90, 'dávka'))[0]).toMatchObject({ minQuantity: 20, maxQuantity: 90, unit: 'dávka' })
     await expect(setStockLevelAction(key, 5, 5, 'ks')).rejects.toThrow('Maximum musí být větší')
     await expect(setStockLevelAction('nesmysl', 1, 2, 'ks')).rejects.toThrow('Neplatný druh zboží')
     await expect(setStockLevelAction(key, 1, 2, 'pytel' as never)).rejects.toThrow('Neplatná jednotka')

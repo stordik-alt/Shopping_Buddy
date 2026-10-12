@@ -1,3 +1,4 @@
+import { ITEM_UNITS } from '@/lib/units'
 import { useRef, useState } from 'react'
 import { AlertTriangle, Camera, Check, ChevronDown, ImageUp, Loader2, Plus, Receipt, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -12,7 +13,7 @@ import type { ReceiptLineItem } from '@/lib/receipts'
 import type { ItemCategory, ItemUnit, Store } from '@/lib/types'
 
 const CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
-const UNITS: ItemUnit[] = ['ks', 'kg', 'g', 'l', 'ml']
+const UNITS = ITEM_UNITS
 
 // A new row's category is only the form's starting value: it is not the household's choice until
 // they change it (then `classificationSource` becomes 'manual', see updateRow), so a known catalog

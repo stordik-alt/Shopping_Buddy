@@ -1,3 +1,4 @@
+import { ITEM_UNITS } from '@/lib/units'
 import { useRef, useState } from 'react'
 import { ProductAutocomplete, type ProductAutocompleteSelection } from '@/components/shared/product-autocomplete'
 import { Button } from '@/components/ui/button'
@@ -18,7 +19,7 @@ export type PantryAddInput = {
 }
 
 const CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
-const UNITS: ItemUnit[] = ['ks', 'kg', 'g', 'l', 'ml']
+const UNITS = ITEM_UNITS
 
 export function PantryAddModal({
   customPlaces,

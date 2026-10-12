@@ -1,3 +1,4 @@
+import { unitLabel } from '@/lib/units'
 import { Plus, Tag } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -31,7 +32,7 @@ export function RestockCard({ suggestions, listItemNames, onAddToList }: { sugge
               <div className="min-w-0 flex-1 basis-56">
                 <p className="break-words font-medium">{suggestion.typeName}</p>
                 <p className="text-sm text-fg-muted">
-                  Zbývá {amount(suggestion.quantity)} {suggestion.unit} (minimum {amount(suggestion.minQuantity)}) · doplnit asi {amount(suggestion.buyQuantity)} {suggestion.unit}
+                  Zbývá {amount(suggestion.quantity)} {unitLabel(suggestion.quantity, suggestion.unit)} (minimum {amount(suggestion.minQuantity)}) · doplnit asi {amount(suggestion.buyQuantity)} {unitLabel(suggestion.buyQuantity, suggestion.unit)}
                 </p>
                 <p className="mt-1 flex flex-wrap items-center gap-1.5 text-sm">
                   <Badge tone="accent" className="py-0.5">
@@ -43,7 +44,7 @@ export function RestockCard({ suggestions, listItemNames, onAddToList }: { sugge
                 <p className="break-words text-xs text-fg-muted">Nejlevnější: {offer.productName}</p>
               </div>
               <Button variant="outline" disabled={added} onClick={() => onAddToList(suggestion)}>
-                <Plus aria-hidden /> {added ? 'Na seznamu' : `Na seznam · ${amount(suggestion.buyQuantity)} ${suggestion.unit}`}
+                <Plus aria-hidden /> {added ? 'Na seznamu' : `Na seznam · ${amount(suggestion.buyQuantity)} ${unitLabel(suggestion.buyQuantity, suggestion.unit)}`}
               </Button>
             </li>
           )

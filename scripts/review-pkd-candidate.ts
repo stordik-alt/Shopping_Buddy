@@ -7,7 +7,7 @@ import { normalizeProductText } from '@/lib/product-normalize'
 const valueArg = (name: string) => process.argv.find((arg) => arg.startsWith(`--${name}=`))?.slice(name.length + 3) ?? null
 const apply = process.argv.includes('--apply')
 const categoryValues = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní'] as const
-const unitValues = ['ks', 'kg', 'g', 'l', 'ml'] as const
+const unitValues = ['ks', 'kg', 'g', 'l', 'ml', 'dávka'] as const
 
 function makeKey(normalizedName: string) {
   const slug = normalizedName.normalize('NFD').replace(/[\u0300-\u036f]/g, '')

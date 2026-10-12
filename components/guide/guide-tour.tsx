@@ -132,7 +132,7 @@ export function GuideTour({ onNavigate, onClose }: { onNavigate: (tab: Tab) => v
                     <span>{step.where}</span>
                   </p>
                 )}
-                {step.why && (
+                {step.why && !(!detailed && step.also) && (
                   <div className="mt-3">
                     <p className="text-sm font-semibold">Proč na tom záleží</p>
                     <ul className="mt-1 list-disc space-y-1 pl-5 text-sm leading-relaxed text-fg-secondary">
@@ -153,7 +153,9 @@ export function GuideTour({ onNavigate, onClose }: { onNavigate: (tab: Tab) => v
                     </ul>
                   </div>
                 )}
-                {step.todo && (
+                {/* A card with an "also" list is a summary: "Co udělat" is left to the detailed tour, so the
+                    card fits the screen. The highlighted place in the app still says where to act. */}
+                {step.todo && !(!detailed && step.also) && (
                   <div className="mt-3">
                     <p className="text-sm font-semibold">Co udělat</p>
                     <ul className="mt-1 list-disc space-y-1 pl-5 text-sm leading-relaxed text-fg-secondary">

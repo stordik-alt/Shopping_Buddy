@@ -35,6 +35,8 @@ export function IntroScreen() {
   const [dark, setDark] = useState(false)
   const [pageIndex, setPageIndex] = useState(0)
   const [dontShowAgain, setDontShowAgain] = useState(false)
+  // Her speech bubble appears once she has walked in, turned and started to wave.
+  const [waved, setWaved] = useState(false)
   const page = INTRO_PAGES[pageIndex]
   const lastPage = pageIndex === INTRO_PAGES.length - 1
 
@@ -91,7 +93,7 @@ export function IntroScreen() {
             {/* The mascot introduces the app in a few short pages the visitor clicks through: she walks in from
                 beyond the edge of the screen, and her speech bubble appears once she stands there. */}
             <div className="flex w-full flex-col items-center">
-              <div className="anitka-intro-bubble relative w-full rounded-3xl bg-white px-5 pb-4 pt-4 text-left shadow-[0_12px_30px_-14px_rgba(10,26,63,0.35)] ring-1 ring-[var(--anitka-navy)]/10 dark:bg-white/10 dark:ring-white/15">
+              <div data-hidden={!waved} className="anitka-intro-bubble relative w-full rounded-3xl bg-white px-5 pb-4 pt-4 text-left shadow-[0_12px_30px_-14px_rgba(10,26,63,0.35)] ring-1 ring-[var(--anitka-navy)]/10 dark:bg-white/10 dark:ring-white/15">
                 <h1 className="text-balance text-lg font-bold leading-snug text-[var(--anitka-navy)] dark:text-white">{page.title}</h1>
                 <p aria-live="polite" className="mt-1.5 min-h-[5.5rem] text-balance text-sm leading-relaxed text-[var(--anitka-navy)]/75 dark:text-white/80 sm:text-base">
                   {page.text}
@@ -114,7 +116,7 @@ export function IntroScreen() {
                 <span aria-hidden="true" className="absolute left-1/2 top-full h-3 w-5 -translate-x-1/2 bg-white [clip-path:polygon(0_0,100%_0,50%_100%)] dark:bg-[#1d2b52]" />
               </div>
               <div role="img" aria-label="Anitka, maskot aplikace" className="mt-4">
-                <AnitkaIntroFigure className="h-[clamp(9.5rem,33svh,19rem)] aspect-[468/809]" />
+                <AnitkaIntroFigure onWave={() => setWaved(true)} className="h-[clamp(9.5rem,33svh,19rem)] aspect-[300/509]" />
               </div>
             </div>
           </div>

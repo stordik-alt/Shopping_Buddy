@@ -70,7 +70,7 @@ export function GuideTour({ onNavigate, onClose }: { onNavigate: (tab: Tab) => v
         <div className="flex flex-row-reverse overflow-hidden rounded-3xl border border-border bg-surface-elevated text-foreground shadow-elevated motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-300">
           {/* The mascot stands inside the card, whole, with her feet on its lower edge. Above her
               the icon of the section being explained, the same one the navigation uses. */}
-          <div className="flex w-[6rem] shrink-0 flex-col items-center justify-between bg-accent-subtle pt-3 sm:w-28">
+          <div className="flex w-[8.25rem] shrink-0 flex-col items-center justify-between bg-accent-subtle pt-3 sm:w-36">
             <span key={`icon-${step.id}`} className="flex size-9 items-center justify-center rounded-full bg-surface-elevated text-accent-text shadow-sm motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:duration-300">
               <SectionIcon className="size-5" aria-hidden="true" />
             </span>

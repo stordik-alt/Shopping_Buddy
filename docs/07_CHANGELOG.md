@@ -1,3 +1,13 @@
+## 2026-10-12 — Průvodce: nová podoba Anitky (čelní pohled, mimika, mávání zepředu)
+
+- Koncept: `docs/22_GUIDE.md`. Průvodce přešel na novou, realističtější podobu postavy z animací od vlastníka: klidný čelní obrázek (`anitka-guide-front.webp`) s dokreslenou mimikou (víčka, úsměv, rty) přes nový obličej a na první kartě mávnutí z videa „Mávání zepředu“ jako spritový list (`anitka-guide-wave.webp`, 35 dlaždic, 0,5 MB) s plynulým návratem do klidné polohy. Starší vrstvená postava (tělo, svěšená paže, zvednutá paže, dlaň) a její obrázky jsou pryč, sloupec s postavou je širší kvůli zvednuté ruce.
+- Ověřeno: typová kontrola, testy průvodce, snímky z Chromia na 390×844 (mávání, návrat do klidu, další karta, zavřené oko a otevřená ústa vynucené stylem). Na skutečném telefonu v celé aplikaci zatím ne.
+
+## 2026-10-12 — Intro: přirozená chůze z profilu, otočení a mávání
+
+- Koncept: `docs/22_GUIDE.md`. Dřívější příchod (čelní postava s rovnými nohami složenými z džínoviny, nohy zvedané střídavě) působil nepřirozeně, nahrazuje ho animace od vlastníka: Anitka jde v profilu zleva doprostřed, zpomalí, otočí se k uživateli a zamává, bublina se objeví až potom. Snímky videa (chůze, otočení, mávání) jsou vyříznuté ze studiového pozadí (model pozadí + práh odchylky, bílé podrážky bot dopočítané u růžových tenisek, stín na podlaze odstraněný) a složené do jednoho spritového listu (63 dlaždic, 1 MB); `components/auth/anitka-intro-figure.tsx` ho přehrává z uplynulého času, krok chůze opakuje podle šířky obrazovky a rychlost přizpůsobuje posunu chodidla. Soubory `anitka-intro-body/leg-*.webp` smazány, přibyl `anitka-intro-walk.webp`.
+- Ověřeno: typová kontrola, testy; snímky z Chromia na 390×844, 360×640, 1280×800 (světlý i tmavý režim) a s „omezit pohyb“, bez vodorovného posunu. Podrážky jsou z videa dopočítané, takže jsou u bot o něco hrubší než u zbytku postavy. Průvodce v aplikaci pořád používá starší postavu (nové obrázky ze 4 směrů a video mávání zepředu zatím nejsou nasazené).
+
 ## 2026-10-12 — Intro: „Příště už nezobrazovat“
 
 - Koncept: `docs/22_GUIDE.md`. Intro dostalo zaškrtávátko „Příště už nezobrazovat“. Bez zaškrtnutí se intro ukáže při každé návštěvě (dřív ho vypnulo jakékoli tlačítko), se zaškrtnutím se příště přeskočí rovnou na přihlášení. Příznak v `localStorage` je teď `shopping-buddy:skip-intro:v3`; staré `v2` se zahazuje, aby i ti, kdo intro už jednou viděli, ho uviděli znovu a rozhodli se sami.

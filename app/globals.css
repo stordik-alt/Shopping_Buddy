@@ -284,35 +284,15 @@
 /* Layers, outside in: .anitka-head (idle drift) > .anitka-speak (the small head movements of someone who is
    talking) > .anitka-react (the card's mood). Every motion is small and slow, and none repeats on a beat. The
    length of the talking, `--talk`, is set per card from the length of its text. */
-.anitka-head { transform-origin: 36% 37%; animation: anitka-head-idle 13s ease-in-out infinite; }
-.anitka-speak { transform-origin: 36% 37%; animation: anitka-speak var(--talk, 2.4s) ease-in-out 0.3s both; }
-.anitka-react { transform-origin: 36% 37%; }
-/* The arms: normally the right arm hangs. In the greeting (`wave`) it is replaced for a few seconds by the raised
-   arm, whose hand waves from the elbow, and then lowers again. Under "reduce motion" the last frame is shown. */
-.anitka-wave-arm, .anitka-wave-hand { opacity: 0; }
-.anitka-wave-hand { transform-origin: 74.9% 41.2%; }
-[data-mood='wave'] .anitka-arm-rest { animation: anitka-arm-down 4.4s linear both; }
-[data-mood='wave'] .anitka-wave-arm, [data-mood='wave'] .anitka-wave-hand { animation: anitka-arm-up 4.4s linear both; }
-[data-mood='wave'] .anitka-wave-hand { animation: anitka-arm-up 4.4s linear both, anitka-wave 3s ease-in-out 0.45s both; }
-@keyframes anitka-arm-down {
-  0% { opacity: 1; }
-  7%, 80% { opacity: 0; }
-  92%, 100% { opacity: 1; }
-}
-@keyframes anitka-arm-up {
-  0% { opacity: 0; }
-  7%, 80% { opacity: 1; }
-  92%, 100% { opacity: 0; }
-}
-/* A wave as people do it: a few swings from the elbow that are not equal, slowing down at the end. */
-@keyframes anitka-wave {
-  0%, 100% { transform: rotate(0deg); }
-  14% { transform: rotate(-8deg); }
-  32% { transform: rotate(7deg); }
-  50% { transform: rotate(-7deg); }
-  68% { transform: rotate(5deg); }
-  84% { transform: rotate(-3deg); }
-}
+.anitka-head { transform-origin: 63.8% 37%; animation: anitka-head-idle 13s ease-in-out infinite; }
+.anitka-speak { transform-origin: 63.8% 37%; animation: anitka-speak var(--talk, 2.4s) ease-in-out 0.3s both; }
+.anitka-react { transform-origin: 63.8% 37%; }
+/* The greeting (`wave`): for a few seconds the sprite sheet of the owner's wave animation is shown in place of the
+   still picture (see anitka-mascot.tsx) and the picture fades back in at the end. */
+.anitka-front, .anitka-head { transition: opacity 0.3s ease-out; }
+.anitka-wave-sprite { opacity: 0; transition: opacity 0.3s ease-out; will-change: background-position; }
+.anitka[data-waving='true'] .anitka-wave-sprite { opacity: 1; }
+.anitka[data-waving='true'] .anitka-front, .anitka[data-waving='true'] .anitka-head { opacity: 0; }
 .anitka-lid { transform-box: fill-box; transform-origin: 50% 0; transform: scaleY(0); animation: anitka-blink 8.7s ease-in-out infinite; }
 .anitka-lid-r { animation-delay: 0.02s; }
 .anitka-smile { opacity: 0; animation: anitka-smile-idle 17s ease-in-out infinite; transition: opacity 0.4s; }
@@ -406,33 +386,13 @@
 [data-mood='cheer'] .anitka-react { animation: anitka-lift 1.6s ease-in-out 0.2s both; }
 [data-mood='wink'] .anitka-lid-r { animation: anitka-wink 1.2s ease-in-out calc(var(--talk, 2.4s) + 0.3s) both; }
 
-/* Anitka's entrance on the intro screen (components/auth/anitka-intro-figure.tsx): she walks in from beyond the
-   left edge of the screen, bobbing with each step while the legs are lifted one after the other, and then
-   stands with her arms up. The wrapper is as wide as she is, so the percentage in `translateX` is her own width
-   and she starts fully outside the screen. Every animation ends in the resting pose. */
-.anitka-intro { position: relative; }
-.anitka-intro-walk { position: relative; animation: anitka-intro-walk 2.8s cubic-bezier(0.3, 0.55, 0.4, 1) 0.25s both; }
-.anitka-intro-bob { animation: anitka-intro-bob 0.56s ease-in-out 0.25s 5 both; }
-.anitka-intro-leg-l { transform-origin: 41.9% 73.4%; animation: anitka-intro-step 1.12s ease-in-out 0.25s 2.5 both; }
-.anitka-intro-leg-r { transform-origin: 54.8% 73.4%; animation: anitka-intro-step 1.12s ease-in-out 0.81s 2 both; }
-.anitka-intro-shadow { position: absolute; left: 25%; right: 25%; bottom: -1.5%; height: 3.5%; border-radius: 50%; background: radial-gradient(closest-side, rgb(10 26 63 / 0.28), transparent); }
-@keyframes anitka-intro-walk {
-  from { transform: translateX(calc(-50vw - 100%)); }
-  to { transform: translateX(0); }
-}
-@keyframes anitka-intro-bob {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-1.1%); }
-}
-@keyframes anitka-intro-step {
-  0%, 50%, 100% { transform: translateY(0) rotate(0deg); }
-  25% { transform: translateY(-3%) rotate(-6deg); }
-}
-.anitka-intro-bubble { animation: anitka-intro-bubble 0.5s ease-out 2.3s both; }
-@keyframes anitka-intro-bubble {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+/* Anitka's entrance on the intro screen (components/auth/anitka-intro-figure.tsx): the walk itself is a sprite
+   sheet played from script; here only what surrounds it. The shadow is a soft ellipse on the ground that
+   walks with her, and the bubble fades in once she waves. */
+.anitka-intro-walker { will-change: transform, background-position; }
+.anitka-intro-shadow { position: absolute; left: 22%; width: 56%; bottom: -1.2%; height: 3.2%; border-radius: 50%; background: radial-gradient(closest-side, rgb(10 26 63 / 0.28), transparent); }
+.anitka-intro-bubble { transition: opacity 0.5s ease-out, transform 0.5s ease-out; }
+.anitka-intro-bubble[data-hidden='true'] { opacity: 0; transform: translateY(6px); }
 .dark .anitka-intro-shadow { background: radial-gradient(closest-side, rgb(0 0 0 / 0.5), transparent); }
 
 .guide-ring { animation: guide-ring 1.8s ease-out infinite; }

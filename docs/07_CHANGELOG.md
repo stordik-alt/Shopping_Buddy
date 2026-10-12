@@ -1,3 +1,8 @@
+## 2026-10-12 — Intro: Anitka přijde v celé postavě
+
+- Koncept: `docs/22_GUIDE.md`. Úvodní obrazovka před přihlášením má místo poprsí celou postavu (nová kresba od vlastníka, pozadí odstraněno bez zbytků). Postava stojí rovně na zemi (kresba ji má ve skoku s pokrčenýma nohama, proto jsou nohy sestavené z džínoviny z obrázku průvodce a bot z kresby) a při otevření vejde zpoza levého okraje obrazovky: tělo se při krocích nadzvedává, nohy se zvedají střídavě, na místě se zastaví a objeví se bublina. Soubory `anitka-intro-*.webp`, nová komponenta `components/auth/anitka-intro-figure.tsx`, pohyb v `app/globals.css`; starý `anitka-mascot-bust.webp` smazán.
+- Ověřeno: typová kontrola, testy, snímky z Chromia na 360×640, 390×844 (světlý i tmavý režim) a 1280×800, bez vodorovného posunu; vstup postupně od okraje po zastavení. Ruce zůstávají zvednuté (kresba), gestikulace rukama zde není.
+
 ## 2026-10-12 — Nová Anitka v průvodci: zdraví mávnutím
 
 - Koncept: `docs/22_GUIDE.md`. Průvodce používá novou postavu od vlastníka, oříznutou od pozadí (bez zbytků: světlé šmouhy na okrajích vlasů pryč, odlesky v očích a bílé písmo na tričku zachované) a rozdělenou na vrstvy (tělo, svěšená paže, zvednutá paže, dlaň). První karta zamává (dlaň se otáčí kolem lokte, pak se paže svěsí), jinde ruce visí. Obličej (víčka, úsměv, rty) je dokreslený znovu na novou kresbu. Nový stav `wave` v `GuideMood`.

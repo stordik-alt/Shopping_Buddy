@@ -669,6 +669,8 @@ export function AppShell({
 
               {tab === 'Domů' && (
                 <div className="space-y-4 lg:space-y-6">
+                  {/* "Na seznam" on Domů adds to the list from here, so a refused add must be visible here too, not only under Nákup. */}
+                  <OfflineBanner online={online} pending={pendingCount} dropped={droppedCount} onDismissDropped={() => dismissDropped()} />
                   <TodayAttention
                     items={attentionItems({ today, receipts: pendingReceiptImports, productPrices: nearbyProductPrices, listNames: pendingNames })}
                     onOpen={(item) => {

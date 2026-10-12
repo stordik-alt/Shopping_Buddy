@@ -1,3 +1,8 @@
+## 2026-10-12 — Anitka se pohybuje přirozeněji
+
+- Koncept: `docs/22_GUIDE.md`. Pryč je houpání a poskočení při změně karty. Anitka se jen jemně nadechuje, mluví po dobu úměrnou délce textu s nepravidelným pohybem rtů a lehkými pohyby hlavy, mrká nepravidelně (občas dvakrát) a nálady (kývnutí, naklonění, mrknutí, úsměv) přicházejí po domluvení a vracejí se do klidu. Změny v `app/globals.css`, `components/guide/anitka-mascot.tsx` (`talkDurationMs`) a `guide-tour.tsx`.
+- Gestikulace rukama není: na podkladu jsou ruce ořezané a visí podél těla; chce nový obrázek. Ověřeno typovou kontrolou a testy; pohyb samotný jsem zatím neviděl v prohlížeči.
+
 ## 2026-10-12 — Průvodce: zvýrazněné místo už nezůstává schované pod kartou
 
 - Koncept: `docs/22_GUIDE.md`. Na telefonu zůstávalo místo, na které karta odkazuje (např. „Nahrát účtenku“, „Pravidelné platby“, „Navrhnout recepty“), schované pod kartou a kroužek se kreslil přes ni. Karta je teď nad zvýrazněním (`z-[46]`), text na kartě má nižší maximální výšku (34 % výšky obrazovky), takže zbývá víc volného místa, a posouvání k cíli se nevzdává po pěti pokusech, ale zkouší to až 12× a skončí, když se stránka už nehýbe (pevné prvky jako nabídka účtu).

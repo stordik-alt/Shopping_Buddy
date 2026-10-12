@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import type { GuideMood } from '@/lib/guide'
 
 /** Anitka as a living character. The artwork is one painted picture, so her expressions are drawn over it:
@@ -57,18 +58,26 @@ function Face() {
   )
 }
 
-export function AnitkaMascot({ mood = 'smile', className = '' }: { mood?: GuideMood; className?: string }) {
+/** How long she "talks" for a card: about as long as it takes to say its text, kept between 1.6 and 4.5 s so
+ *  a long card does not make her chatter on and a short one still gets a sentence. */
+export function talkDurationMs(text: string): number {
+  return Math.min(4500, Math.max(1600, Math.round(text.length * 38)))
+}
+
+export function AnitkaMascot({ mood = 'smile', talkMs = 2400, className = '' }: { mood?: GuideMood; talkMs?: number; className?: string }) {
   return (
-    <div className={`anitka ${className}`} data-mood={mood} aria-hidden="true">
+    <div className={`anitka ${className}`} data-mood={mood} style={{ '--talk': `${talkMs}ms` } as CSSProperties} aria-hidden="true">
       <div className="anitka-body relative">
         {/* eslint-disable-next-line @next/next/no-img-element -- approved static brand asset */}
         <img src={SRC} alt="" width={380} height={678} className="block w-full select-none" draggable={false} />
         {/* The head: the same picture cut off at the neck, tilting around the neck. */}
         <div className="anitka-head absolute inset-0">
-          <div className="anitka-react absolute inset-0" style={{ clipPath: 'inset(0 0 49.5% 0)' }}>
-            {/* eslint-disable-next-line @next/next/no-img-element -- approved static brand asset */}
-            <img src={SRC} alt="" width={380} height={678} className="block w-full select-none" draggable={false} />
-            <Face />
+          <div className="anitka-speak absolute inset-0">
+            <div className="anitka-react absolute inset-0" style={{ clipPath: 'inset(0 0 49.5% 0)' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element -- approved static brand asset */}
+              <img src={SRC} alt="" width={380} height={678} className="block w-full select-none" draggable={false} />
+              <Face />
+            </div>
           </div>
         </div>
       </div>

@@ -2,7 +2,7 @@
 
 import { ArrowLeft, ArrowRight, Check, MapPin, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { AnitkaMascot } from '@/components/guide/anitka-mascot'
+import { AnitkaMascot, talkDurationMs } from '@/components/guide/anitka-mascot'
 import { GuideSpotlight } from '@/components/guide/guide-spotlight'
 import { tabIcons } from '@/components/shared/nav-item'
 import { GUIDE_STEPS, clampStep } from '@/lib/guide'
@@ -77,7 +77,7 @@ export function GuideTour({ onNavigate, onClose }: { onNavigate: (tab: Tab) => v
             {/* She hops in each time a new card appears (the key restarts it), breathes and sways, and her
                 face and head are alive: blinking, smiling, nodding, a wink (components/guide/anitka-mascot.tsx). */}
             <div key={`mascot-${step.id}`} className="guide-hop mt-3 w-full px-0.5">
-              <AnitkaMascot mood={step.mood} className="guide-idle" />
+              <AnitkaMascot mood={step.mood} talkMs={talkDurationMs(step.text)} className="guide-idle" />
             </div>
           </div>
 

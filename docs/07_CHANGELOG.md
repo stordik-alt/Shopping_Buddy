@@ -1,3 +1,9 @@
+## 2026-10-12 — Průvodce: kratší karty
+
+- Koncept: `docs/22_GUIDE.md` (oddíl „Stručný a podrobný průvodce“). Měření na 390×844 ukázalo, že přetékala skoro každá karta a ty nejdelší o stovky pixelů (Profil o 549 px, Rozpočet o 321, Zásoby o 247, Účtenky o 215). Texty karet jsou kratší a ve stručné cestě mají karty s přehledem (`also`: Nákup, Účtenky, Zásoby, Rozpočet, Profil) skrytou „Co udělat“ a „Proč na tom záleží“ (zůstávají v podrobné cestě; podstata „proč“ u Profilu je teď v jeho textu). Kapsy a konec období mají v Rozpočtu jednu společnou odrážku, obchody a preference v Profilu také. Přetékání po úpravě na 390×844: Profil asi o 100 px, Rozpočet o 75, Zásoby o 28, ostatní karty do ~70 px; Nákup a Účtenky se vejdou.
+- Test `lib/guide.test.ts` ke shrnutím už nežádá jednu odrážku na každou podrobnou kartu (sloučil jsem příbuzné), jen aby shrnutí něco říkalo a každá podrobná karta byla pokrytá.
+- Ověřeno: `tsc --noEmit`, testy průvodce a Chromium na lokální DB (stručná i podrobná cesta, 390×844 i 360×640). Nejdelší karty se na 360×640 pořád rolují a ukážou „Posuňte dolů“; karty pro nejmenší telefony zůstávají kompromis. Skutečný telefon nezkoušen.
+
 ## 2026-10-12 — Průvodce: stručná a podrobná cesta; Zásoby bez prázdných dlaždic
 
 - Koncept: `docs/22_GUIDE.md` (nový oddíl „Stručný a podrobný průvodce“), `docs/36_PANTRY_STOCK_LEVELS.md` se netýká. Průvodce měl 33 karet. Teď začíná **stručnou cestou o 18 kartách**, v hlavičce karty je přepínač „Podrobně“ (všech 33 karet) a zpět „Stručně“. Podrobné karty mají `detail: true`; jejich obsah zůstal a ve stručné cestě je shrnutý v seznamu „Co ještě tu najdete“ (`also` + `covers`) u karty sekce (Nákup, Účtenky, Zásoby, Rozpočet, Profil), takže se z vysvětlení nic neztratilo. Karta se seznamem má víc výšky a když se rolují, ukáže „Posuňte dolů“. Při přepnutí se čtenář vrátí na stejné téma. Karta Zásoby už neslibuje složky, dokud v zásobách nic není.

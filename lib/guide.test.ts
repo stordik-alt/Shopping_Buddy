@@ -118,7 +118,8 @@ describe('quick and full tour', () => {
     // "covers" only names deep-dive cards, and only cards that really say something in the quick tour.
     for (const step of QUICK_GUIDE_STEPS.filter((s) => s.covers)) {
       for (const id of step.covers ?? []) expect(detailIds).toContain(id)
-      expect(step.also?.length).toBeGreaterThanOrEqual(step.covers?.length ?? 0)
+      // A summary says something (related cards may share a line, a rich one may need two).
+      expect(step.also?.length).toBeGreaterThan(0)
     }
     // Deep-dive cards carry no summary lines of their own.
     for (const step of GUIDE_STEPS.filter((s) => s.detail)) expect(step.also).toBeUndefined()

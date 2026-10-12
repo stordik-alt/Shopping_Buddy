@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { importOsmStores } from '@/lib/db/store-directory'
 import { invalidateStoreCaches } from '@/lib/db/cache-invalidation'
 import { rejectUnauthorizedCron } from '@/lib/cron-auth'
+import { safeErrorMessage } from '@/lib/errors'
 
 // Weekly refresh of the store chains' branches from OpenStreetMap (lib/db/store-directory.ts):
 // new branches appear, moved or re-timed ones follow the map; nothing is deleted. Same auth model as
@@ -23,8 +24,8 @@ export async function GET(request: Request) {
   } catch (err) {
     // The source was unreachable or answered with incomplete data: nothing was written, the existing
     // branches stay as they are, and the next run tries again.
-    const message = err instanceof Error ? err.message : String(err)
-    console.error(JSON.stringify({ event: 'store_import', error: message.slice(0, 500) }))
+    const message = safeErrorMessage(err)
+    console.error(JSON.stringify({ event: 'store_import', error: message }))
     return NextResponse.json({ error: message }, { status: 502 })
   }
 }

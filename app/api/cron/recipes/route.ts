@@ -3,6 +3,7 @@ import { importRecipeBatch } from '@/lib/recipes/importer'
 import { RECIPE_SOURCE_ADAPTERS } from '@/lib/recipes/sources'
 import { invalidateRecipeCaches } from '@/lib/db/cache-invalidation'
 import { rejectUnauthorizedCron } from '@/lib/cron-auth'
+import { safeErrorMessage } from '@/lib/errors'
 
 export const maxDuration = 300
 
@@ -73,7 +74,7 @@ export async function GET(request: Request) {
     } catch (error) {
       results[adapter.id] = {
         query,
-        error: error instanceof Error ? error.message : String(error),
+        error: safeErrorMessage(error),
       }
     }
   }

@@ -1,3 +1,5 @@
+import { redactSecrets } from '@/lib/redact'
+
 /** The message to show for a failed call to the server. In production Next.js replaces the message
  *  of an error thrown inside a Server Action with a generic one ("Minified React error #441", or "An
  *  error occurred in the Server Components render…"), which means nothing to a user; show `fallback`
@@ -26,4 +28,10 @@ export function describeError(err: unknown): string {
     }
   }
   return parts.join(' ← ')
+}
+
+/** `describeError` made safe for logs and for response bodies: the SQL and its parameters are withheld and
+ *  secrets are removed (lib/redact.ts), which a raw Drizzle or storage-client message is not. */
+export function safeErrorMessage(err: unknown): string {
+  return redactSecrets(describeError(err))
 }

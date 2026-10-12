@@ -98,7 +98,8 @@ export const householdMembers = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
-    // References neon_auth.user(id); no Drizzle-level FK because that schema is managed by Neon Auth.
+    // References neon_auth.user(id) ON DELETE SET NULL. No Drizzle-level FK because that schema is managed by Neon Auth;
+  // the key is created by migration 0103 (production already had it from an earlier hand-written one).
     userId: uuid('user_id'),
     name: text('name').notNull(),
     role: memberRoleEnum('role').notNull().default('member'),

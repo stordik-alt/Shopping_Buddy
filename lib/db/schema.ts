@@ -1070,6 +1070,20 @@ export const householdStockLevels = pgTable('household_stock_levels', {
   uniqueIndex('household_stock_levels_household_type_unique').on(table.householdId, table.productTypeId),
 ])
 
+// A household's refused restock suggestions (docs/36_PANTRY_STOCK_LEVELS.md): one row per refused offer
+// (type, product, end of the promotion), shared by every member. Another or a better promotion is
+// another product or end date, so it is offered again.
+export const restockDismissals = pgTable('restock_dismissals', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  productTypeId: uuid('product_type_id').notNull().references(() => productTypes.id, { onDelete: 'cascade' }),
+  productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  validUntil: date('valid_until').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('restock_dismissals_unique').on(table.householdId, table.productTypeId, table.productId, table.validUntil),
+])
+
 // Household pantry ("spíž"): what the household believes it currently has at home. Populated by
 // completePurchaseAction (a purchased item restocks or creates its pantry row) and periodically
 // re-checked by the pantry-checkin cron, which asks "do you still have this?" per

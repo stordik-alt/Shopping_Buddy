@@ -23,9 +23,9 @@ import { OfflineBanner } from '@/components/shopping/offline-banner'
 import { CollapsibleSection } from '@/components/shared/collapsible-section'
 import { TodayMeals } from '@/components/dashboard/today-meals'
 import { PantryCheckCard } from '@/components/dashboard/pantry-check-card'
-import { removeStockLevelAction, setStockLevelAction } from '@/app/actions/pantry'
+import { dismissRestockSuggestionAction, removeStockLevelAction, setStockLevelAction } from '@/app/actions/pantry'
 import { RestockCard } from '@/components/dashboard/restock-card'
-import { lowStockLevels, type RestockSuggestion, type StockLevel } from '@/lib/pantry-restock'
+import { dismissalKey, lowStockLevels, type RestockSuggestion, type StockLevel } from '@/lib/pantry-restock'
 import { keptNameKey, needsCheck } from '@/lib/pantry'
 import { PieChart } from 'lucide-react'
 import { SegmentedControl } from '@/components/ui/segmented-control'
@@ -112,6 +112,7 @@ export function AppShell({
   initialPins,
   restockSuggestions = [],
   initialStockLevels = [],
+  initialRestockDismissals = [],
   today,
   initialTab,
   initialPantryCheck = false,
@@ -133,6 +134,8 @@ export function AppShell({
   restockSuggestions?: RestockSuggestion[]
   /** The household's wanted stock per product type (Profil ▸ Hlídané zásoby). */
   initialStockLevels?: StockLevel[]
+  /** Refused restock offers still running, shared by the household (`dismissalKey`). */
+  initialRestockDismissals?: string[]
   /** The real date (`YYYY-MM-DD`, Czech time) computed on the server, so server and client agree. */
   today: string
   /** The section named in the address (`/?tab=…`, lib/tab-url.ts), resolved on the server. */
@@ -274,6 +277,7 @@ export function AppShell({
     adjustPantryItemQuantity,
   } = pantry
   const [stockLevels, setStockLevels] = useState<StockLevel[]>(initialStockLevels)
+  const [restockDismissed, setRestockDismissed] = useState<string[]>(initialRestockDismissals)
   // A suggestion stays only while its type still nears the same minimum: the household may have
   // restocked or changed the levels since the page loaded (the page does not refresh itself).
   const lowTypes = useMemo(() => lowStockLevels(stockLevels, pantryItems), [stockLevels, pantryItems])
@@ -743,7 +747,21 @@ export function AppShell({
                       onOpen={() => setTab('Zásoby')}
                     />
                   )}
-                  <RestockCard suggestions={restockNow} listItemNames={pendingNames} onAddToList={(suggestion) =>
+                  <RestockCard
+                    suggestions={restockNow}
+                    dismissed={restockDismissed}
+                    onDismiss={async (suggestion) => {
+                      // Hidden at once; the server's answer (every member's refusals) replaces the guess.
+                      const key = dismissalKey(suggestion.productTypeKey, suggestion.offer.productId, suggestion.offer.validUntil)
+                      setRestockDismissed((current) => [...current, key])
+                      try {
+                        setRestockDismissed(await dismissRestockSuggestionAction(suggestion.productTypeKey, suggestion.offer.productId, suggestion.offer.validUntil, today))
+                      } catch (error) {
+                        console.error('Refusing the suggestion failed', error)
+                        setRestockDismissed((current) => current.filter((entry) => entry !== key))
+                      }
+                    }}
+                    listItemNames={pendingNames} onAddToList={(suggestion) =>
                     // The cheapest variant of the type, as the concrete product, with the amount missing up to the maximum.
                     addItemByName(suggestion.offer.productName, { kind: 'product', label: suggestion.offer.productName, productId: suggestion.offer.productId }, { quantity: suggestion.buyQuantity, unit: suggestion.unit })
                   } />

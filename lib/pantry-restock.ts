@@ -75,6 +75,9 @@ export function restockQuantity(level: Pick<StockLevel, 'maxQuantity' | 'unit'>,
   return level.unit === 'ks' ? Math.ceil(round3(missing)) : round3(missing)
 }
 
+/** The identity of a refused offer: the type, the product and the day the promotion ends. */
+export const dismissalKey = (productTypeKey: string, productId: string, validUntil: string) => `${productTypeKey}:${productId}:${validUntil}`
+
 /** One running promotion on a product, as lib/db/restock.ts reads it. */
 export type RestockCandidate = {
   productId: string

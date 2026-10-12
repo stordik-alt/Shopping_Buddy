@@ -11,20 +11,27 @@ const suggestion: RestockSuggestion = {
 
 describe('RestockCard', () => {
   it('names the type, the cheapest variant and the amount to buy', () => {
-    const html = renderToStaticMarkup(<RestockCard suggestions={[suggestion]} listItemNames={[]} onAddToList={() => {}} />)
+    const html = renderToStaticMarkup(<RestockCard suggestions={[suggestion]} dismissed={[]} onDismiss={() => {}} listItemNames={[]} onAddToList={() => {}} />)
     expect(html).toContain('Máslo')
     expect(html).toContain('Nejlevnější: Tatra máslo 250 g')
     expect(html).toContain('Na seznam · 5 ks')
   })
 
   it('offers to hide the list and to refuse a suggestion', () => {
-    const html = renderToStaticMarkup(<RestockCard suggestions={[suggestion]} listItemNames={[]} onAddToList={() => {}} />)
+    const html = renderToStaticMarkup(<RestockCard suggestions={[suggestion]} dismissed={[]} onDismiss={() => {}} listItemNames={[]} onAddToList={() => {}} />)
     expect(html).toContain('Skrýt návrhy na doplnění zásob')
     expect(html).toContain('Odmítnout návrh: Máslo')
   })
 
+  it("hides an offer the household refused, but not another one of the same type", () => {
+    const refused = ['maslo:p1:2026-10-20']
+    expect(renderToStaticMarkup(<RestockCard suggestions={[suggestion]} dismissed={refused} onDismiss={() => {}} listItemNames={[]} onAddToList={() => {}} />)).toBe('')
+    const other = { ...suggestion, offer: { ...suggestion.offer, validUntil: '2026-10-27' } }
+    expect(renderToStaticMarkup(<RestockCard suggestions={[other]} dismissed={refused} onDismiss={() => {}} listItemNames={[]} onAddToList={() => {}} />)).toContain('Máslo')
+  })
+
   it('marks a variant already on the list', () => {
-    const html = renderToStaticMarkup(<RestockCard suggestions={[suggestion]} listItemNames={['tatra máslo 250 g']} onAddToList={() => {}} />)
+    const html = renderToStaticMarkup(<RestockCard suggestions={[suggestion]} dismissed={[]} onDismiss={() => {}} listItemNames={['tatra máslo 250 g']} onAddToList={() => {}} />)
     expect(html).toContain('Na seznamu')
   })
 })

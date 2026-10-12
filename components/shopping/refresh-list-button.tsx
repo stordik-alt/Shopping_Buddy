@@ -14,7 +14,18 @@ const DONE_MS = 3000
  * happened: that it is working, that the list is up to date, or why it could not be refreshed.
  * `onRefresh` rejects with a message that is shown as is.
  */
-export function RefreshListButton({ onRefresh }: { onRefresh: () => Promise<void> }) {
+export function RefreshListButton({
+  onRefresh,
+  offlineText = 'Bez signálu se seznam obnovit nedá.',
+  failText = 'Seznam se nepodařilo obnovit.',
+  doneText = 'Seznam je aktuální.',
+}: {
+  onRefresh: () => Promise<void>
+  /** What is said without a signal, when it fails, and (for screen readers) when it is up to date. */
+  offlineText?: string
+  failText?: string
+  doneText?: string
+}) {
   const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
   const [error, setError] = useState('')
   const timer = useRef<number | undefined>(undefined)
@@ -32,7 +43,7 @@ export function RefreshListButton({ onRefresh }: { onRefresh: () => Promise<void
       timer.current = window.setTimeout(() => setStatus('idle'), DONE_MS)
     } catch (err) {
       setStatus('error')
-      setError(isNetworkError(err, navigator.onLine) ? 'Bez signálu se seznam obnovit nedá.' : userFacingError(err, 'Seznam se nepodařilo obnovit.'))
+      setError(isNetworkError(err, navigator.onLine) ? offlineText : userFacingError(err, failText))
     }
   }
 
@@ -53,7 +64,7 @@ export function RefreshListButton({ onRefresh }: { onRefresh: () => Promise<void
       </button>
       {/* Read out for screen readers; an error also stays visible until the next try. */}
       <span role="status" aria-live="polite" className="sr-only">
-        {status === 'done' ? 'Seznam je aktuální.' : ''}
+        {status === 'done' ? doneText : ''}
       </span>
       {status === 'error' && (
         <p role="alert" className="basis-full text-right text-sm text-destructive">

@@ -23,7 +23,9 @@ import { OfflineBanner } from '@/components/shopping/offline-banner'
 import { CollapsibleSection } from '@/components/shared/collapsible-section'
 import { TodayMeals } from '@/components/dashboard/today-meals'
 import { PantryCheckCard } from '@/components/dashboard/pantry-check-card'
+import { refreshExpensesAction, refreshPantryAction, refreshPurchasesAction } from '@/app/actions/refresh'
 import { removeStockLevelAction, setStockLevelAction } from '@/app/actions/pantry'
+import { RefreshListButton } from '@/components/shopping/refresh-list-button'
 import { RestockCard } from '@/components/dashboard/restock-card'
 import { lowStockLevels, type RestockSuggestion, type StockLevel } from '@/lib/pantry-restock'
 import { keptNameKey, needsCheck } from '@/lib/pantry'
@@ -622,6 +624,15 @@ export function AppShell({
   const listUpdateItem = useStableCallback(updateItem)
   const listRemoveItems = useStableCallback(removeItems)
   const listRefresh = useStableCallback(refreshShoppingList)
+  // The other sections' "Obnovit": each re-reads only what the section shows. Their changes are saved at
+  // once (no queue), so the fresh copy can replace the screen's.
+  const pantryRefresh = useStableCallback(async () => {
+    const fresh = await refreshPantryAction()
+    pantry.setPantryItems(fresh.pantryItems)
+    setStockLevels(fresh.stockLevels)
+  })
+  const purchasesRefresh = useStableCallback(async () => setPurchaseHistory(await refreshPurchasesAction()))
+  const expensesRefresh = useStableCallback(async () => setExpenses(await refreshExpensesAction()))
   const listToggleItem = useStableCallback(toggleItem)
   const listAddList = useStableCallback(addShoppingListName)
   const listPin = useStableCallback(pinProduct)
@@ -832,6 +843,10 @@ export function AppShell({
                     </>
                   )}
                   {nakupView === 'nakupy' && (
+                    <div className="space-y-5">
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <RefreshListButton onRefresh={purchasesRefresh} offlineText="Bez signálu se nákupy obnovit nedají." failText="Nákupy se nepodařilo obnovit." doneText="Nákupy jsou aktuální." />
+                      </div>
                     <PurchaseHistory
                       records={purchaseHistory}
                       today={today}
@@ -860,6 +875,7 @@ export function AppShell({
                         setPurchaseHistory((current) => current.map((record) => (record.id === purchaseId ? { ...record, needsBudgetRecording: false } : record)))
                       }}
                     />
+                    </div>
                   )}
                   {nakupView === 'uctenky' && (
                     <div className="space-y-5">
@@ -887,6 +903,9 @@ export function AppShell({
               )}
               {tab === 'Zásoby' && (
                 <div className="mx-auto max-w-3xl">
+                  <div className="mb-3 flex flex-wrap justify-end gap-2">
+                    <RefreshListButton onRefresh={pantryRefresh} offlineText="Bez signálu se zásoby obnovit nedají." failText="Zásoby se nepodařilo obnovit." doneText="Zásoby jsou aktuální." />
+                  </div>
                   <Pantry
                     items={pantryItems}
                     customPlaces={pantryPlaces}
@@ -959,6 +978,9 @@ export function AppShell({
                       { value: 'planovani', label: 'Plánování' },
                     ]}
                   />
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <RefreshListButton onRefresh={expensesRefresh} offlineText="Bez signálu se rozpočet obnovit nedá." failText="Rozpočet se nepodařilo obnovit." doneText="Rozpočet je aktuální." />
+                  </div>
                   {rozpocetView === 'stav' && (
                     <>
                       <BudgetOverview

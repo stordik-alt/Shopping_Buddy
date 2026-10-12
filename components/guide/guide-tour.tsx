@@ -1,11 +1,11 @@
 'use client'
 
-import { ArrowLeft, ArrowRight, Check, MapPin, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, ChevronDown, MapPin, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { AnitkaMascot, talkDurationMs } from '@/components/guide/anitka-mascot'
 import { GuideSpotlight } from '@/components/guide/guide-spotlight'
 import { tabIcons } from '@/components/shared/nav-item'
-import { GUIDE_STEPS, clampStep } from '@/lib/guide'
+import { GUIDE_STEPS, QUICK_GUIDE_STEPS, clampStep, indexAfterModeSwitch } from '@/lib/guide'
 import type { Tab } from '@/lib/types'
 
 /** Anitka's clickable tour: one card per step. The mascot stands inside the card and the guide
@@ -15,13 +15,16 @@ import type { Tab } from '@/lib/types'
  *  start; it starts at the first card each time. `onClose` is called once, however the tour ends. */
 export function GuideTour({ onNavigate, onClose }: { onNavigate: (tab: Tab) => void; onClose: () => void }) {
   const [index, setIndex] = useState(0)
+  // The quick tour is the default; "Podrobně" adds the deep-dive cards (lib/guide.ts `detail`).
+  const [detailed, setDetailed] = useState(false)
+  const steps = detailed ? GUIDE_STEPS : QUICK_GUIDE_STEPS
   // Which way the last move went, so the next card slides in from the matching side.
   const [direction, setDirection] = useState<1 | -1>(1)
   const cardRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [moreBelow, setMoreBelow] = useState(false)
-  const step = GUIDE_STEPS[index]
-  const last = index === GUIDE_STEPS.length - 1
+  const step = steps[index]
+  const last = index === steps.length - 1
   const first = index === 0
   const SectionIcon = tabIcons[step.tab]
 
@@ -48,7 +51,13 @@ export function GuideTour({ onNavigate, onClose }: { onNavigate: (tab: Tab) => v
 
   const go = (delta: 1 | -1) => {
     setDirection(delta)
-    setIndex((current) => clampStep(current, delta))
+    setIndex((current) => clampStep(current, delta, steps.length))
+  }
+  // Switching keeps the reader on the same topic: the same card, or the section's main card.
+  const switchMode = () => {
+    const next = detailed ? QUICK_GUIDE_STEPS : GUIDE_STEPS
+    setIndex(indexAfterModeSwitch(step.id, steps, next))
+    setDetailed(!detailed)
   }
   const slide = direction === 1 ? 'motion-safe:slide-in-from-right-4' : 'motion-safe:slide-in-from-left-4'
 
@@ -87,19 +96,32 @@ export function GuideTour({ onNavigate, onClose }: { onNavigate: (tab: Tab) => v
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-2 pl-3 pr-2 pt-2.5">
               <p className="text-xs font-medium text-fg-muted">
-                Krok {index + 1} z {GUIDE_STEPS.length}
+                Krok {index + 1} z {steps.length}
               </p>
-              <button type="button" onClick={onClose} aria-label="Zavřít průvodce" className="icon-button shrink-0">
-                <X className="size-5" aria-hidden="true" />
-              </button>
+              <div className="flex items-center">
+                <button
+                  type="button"
+                  onClick={switchMode}
+                  aria-label={detailed ? `Přepnout na stručný průvodce (${QUICK_GUIDE_STEPS.length} karet)` : `Přepnout na podrobný průvodce (${GUIDE_STEPS.length} karet)`}
+                  className="inline-flex min-h-10 items-center rounded-lg px-2 text-xs font-semibold text-accent-text hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {detailed ? 'Stručně' : 'Podrobně'}
+                </button>
+                <button type="button" onClick={onClose} aria-label="Zavřít průvodce" className="icon-button shrink-0">
+                  <X className="size-5" aria-hidden="true" />
+                </button>
+              </div>
             </div>
 
+            <div className="relative">
             <div
               ref={scrollRef}
               aria-live="polite"
               onScroll={updateMore}
               // A soft fade at the bottom shows there is more to read when a long card scrolls.
-              className={`max-h-[min(34dvh,20rem)] [@media(max-height:640px)]:max-h-[26dvh] overflow-y-auto overscroll-contain px-3 pb-1 ${moreBelow ? '[mask-image:linear-gradient(to_bottom,black_calc(100%-1.5rem),transparent)]' : ''}`}
+              // A card with a "Co ještě tu najdete" list is the section's summary, so it gets more room
+              // before it has to scroll.
+              className={`${!detailed && step.also ? 'max-h-[min(46dvh,26rem)] [@media(max-height:640px)]:max-h-[38dvh]' : 'max-h-[min(34dvh,20rem)] [@media(max-height:640px)]:max-h-[26dvh]'} overflow-y-auto overscroll-contain px-3 pb-1 ${moreBelow ?'[mask-image:linear-gradient(to_bottom,black_calc(100%-1.5rem),transparent)]' : ''}`}
             >
               <div key={step.id} className={`motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300 ${slide}`}>
                 <h2 className="text-balance text-base font-semibold leading-snug">{step.title}</h2>
@@ -120,6 +142,17 @@ export function GuideTour({ onNavigate, onClose }: { onNavigate: (tab: Tab) => v
                     </ul>
                   </div>
                 )}
+                {/* Quick tour only: the full tour has a card of its own for each of these. */}
+                {!detailed && step.also && (
+                  <div className="mt-3">
+                    <p className="text-sm font-semibold">Co ještě tu najdete</p>
+                    <ul className="mt-1 list-disc space-y-1 pl-5 text-sm leading-relaxed text-fg-secondary">
+                      {step.also.map((line) => (
+                        <li key={line}>{line}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 {step.todo && (
                   <div className="mt-3">
                     <p className="text-sm font-semibold">Co udělat</p>
@@ -132,10 +165,19 @@ export function GuideTour({ onNavigate, onClose }: { onNavigate: (tab: Tab) => v
                 )}
               </div>
             </div>
+            {/* Says out loud that the card goes on below (the fade alone is easy to miss); gone at the end. */}
+            {moreBelow && (
+              <span className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center" aria-hidden="true">
+                <span className="inline-flex items-center gap-1 rounded-full bg-accent-subtle px-2.5 py-0.5 text-xs font-semibold text-accent-text shadow-sm">
+                  <ChevronDown className="size-3.5" /> Posuňte dolů
+                </span>
+              </span>
+            )}
+            </div>
 
             <div className="px-3 pb-3 pt-2.5">
               <div className="mb-2.5 flex justify-center gap-1.5" aria-hidden="true">
-                {GUIDE_STEPS.map((item, dot) => (
+                {steps.map((item, dot) => (
                   <span key={item.id} className={`h-1.5 rounded-full transition-all duration-300 ${dot === index ? 'w-5 bg-primary' : 'w-1.5 bg-border'}`} />
                 ))}
               </div>

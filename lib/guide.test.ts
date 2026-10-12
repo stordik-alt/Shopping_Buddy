@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { GUIDE_STEPS, clampStep, getGuideSteps, shouldAutoStartGuide } from '@/lib/guide'
+import { GUIDE_STEPS, QUICK_GUIDE_STEPS, clampStep, getGuideSteps, getQuickGuideSteps, indexAfterModeSwitch, shouldAutoStartGuide } from '@/lib/guide'
 import { tabHref } from '@/lib/tab-url'
 
 describe('guide steps', () => {
@@ -21,8 +21,9 @@ describe('guide steps', () => {
     const profile = GUIDE_STEPS.find((step) => step.id === 'profile')
     expect(profile?.tab).toBe('Profil')
     expect(profile?.why?.length).toBeGreaterThan(0)
-    // The budget is set in Rozpočet → Plánování, not in the profile.
-    expect(JSON.stringify(profile)).not.toMatch(/rozpočet/i)
+    // The budget is set in Rozpočet → Plánování, not in the profile: the card may say the budget is shared
+    // or has notifications, but never tells people to set it here.
+    expect(JSON.stringify(profile)).not.toMatch(/nastav\w*\s+(si\s+)?(měsíční\s+)?(rozpočet|limit)/i)
     expect(GUIDE_STEPS.find((step) => step.id === 'planning')?.where).toContain('Plánování')
   })
 
@@ -86,6 +87,50 @@ describe('guide steps', () => {
       expect(step.text.length).toBeGreaterThan(40)
     }
     expect(new Set(getGuideSteps(true).map((step) => step.mood ?? 'nod')).size).toBeGreaterThan(3)
+  })
+})
+
+describe('quick and full tour', () => {
+  it('the quick tour is the full tour without its deep-dive cards, and is clearly shorter', () => {
+    for (const aiEnabled of [false, true]) {
+      const full = getGuideSteps(aiEnabled)
+      const quick = getQuickGuideSteps(aiEnabled)
+      expect(quick.every((step) => !step.detail)).toBe(true)
+      expect(quick.length).toBe(full.filter((step) => !step.detail).length)
+      expect(quick.length).toBeLessThan(full.length * 0.65)
+      // The tour still opens with the welcome and ends with where to find it again.
+      expect(quick[0].id).toBe('welcome')
+      expect(quick.at(-1)?.id).toBe('findme')
+    }
+  })
+
+  it('still touches every section in the quick tour', () => {
+    for (const tab of ['Domů', 'Nákup', 'Zásoby', 'Rozpočet', 'Akce', 'Obchody', 'Recepty', 'Profil'] as const) {
+      expect(QUICK_GUIDE_STEPS.some((step) => step.tab === tab)).toBe(true)
+    }
+  })
+
+  it('loses nothing: every deep-dive card is summarized by "also" lines of a card in the quick tour', () => {
+    const detailIds = GUIDE_STEPS.filter((step) => step.detail).map((step) => step.id)
+    expect(detailIds.length).toBeGreaterThan(0)
+    const covered = new Set(QUICK_GUIDE_STEPS.flatMap((step) => step.covers ?? []))
+    for (const id of detailIds) expect(covered).toContain(id)
+    // "covers" only names deep-dive cards, and only cards that really say something in the quick tour.
+    for (const step of QUICK_GUIDE_STEPS.filter((s) => s.covers)) {
+      for (const id of step.covers ?? []) expect(detailIds).toContain(id)
+      expect(step.also?.length).toBeGreaterThanOrEqual(step.covers?.length ?? 0)
+    }
+    // Deep-dive cards carry no summary lines of their own.
+    for (const step of GUIDE_STEPS.filter((s) => s.detail)) expect(step.also).toBeUndefined()
+  })
+
+  it('keeps the reader on the same topic when switching between the tours', () => {
+    // A card both tours have stays itself.
+    expect(QUICK_GUIDE_STEPS[indexAfterModeSwitch('budget', GUIDE_STEPS, QUICK_GUIDE_STEPS)].id).toBe('budget')
+    expect(GUIDE_STEPS[indexAfterModeSwitch('budget', QUICK_GUIDE_STEPS, GUIDE_STEPS)].id).toBe('budget')
+    // A deep-dive card becomes the section's main card in the quick tour.
+    expect(QUICK_GUIDE_STEPS[indexAfterModeSwitch('recurring', GUIDE_STEPS, QUICK_GUIDE_STEPS)].id).toBe('budget')
+    expect(QUICK_GUIDE_STEPS[indexAfterModeSwitch('profile-stores', GUIDE_STEPS, QUICK_GUIDE_STEPS)].id).toBe('profile')
   })
 })
 

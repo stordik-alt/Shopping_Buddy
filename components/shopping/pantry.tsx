@@ -356,6 +356,9 @@ export function Pantry({
           </p>
         </div>
       )}
+      {/* With no stock at all the places are six identical "0 položek" tiles that only push the empty
+          state down; the places (and the choice of one when adding) appear as soon as there is stock. */}
+      {items.length > 0 && (
       <nav aria-label="Umístění zásob" className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
         {options.map((option) => {
           const Icon = iconFor(option)
@@ -404,6 +407,7 @@ export function Pantry({
           )
         })}
       </nav>
+      )}
 
       {!reviewing && totalUncategorized > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-muted px-4 py-3">
@@ -442,8 +446,8 @@ export function Pantry({
         <div className="flex flex-col gap-3 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-2">
             <SelectedIcon className="size-4 shrink-0 text-accent-text" aria-hidden />
-            <h2 className="min-w-0 text-sm font-semibold">{selectedOption.name}</h2>
-            <span className="shrink-0 text-sm text-fg-muted">{itemCountLabel(selectedItems.length)}</span>
+            <h2 className="min-w-0 text-sm font-semibold">{items.length === 0 ? 'Zásoby' : selectedOption.name}</h2>
+            {items.length > 0 && <span className="shrink-0 text-sm text-fg-muted">{itemCountLabel(selectedItems.length)}</span>}
           </div>
           <div className="flex shrink-0 items-center justify-end gap-2">
             <Button
@@ -479,8 +483,8 @@ export function Pantry({
             title={items.length === 0 ? 'Zásoby jsou prázdné' : `V umístění „${selectedOption.name}“ zatím nic není`}
             description={
               items.length === 0
-                ? 'Zásoby se plní samy, když nahrajete účtenku.'
-                : 'Položky se sem přidají po dokončení nákupu nebo je sem přesunete z jiného umístění.'
+                ? 'Zásoby se plní samy, když nahrajete účtenku, nebo je přidáte ručně tlačítkem „Přidat“.'
+                : 'Položky se sem přidají z účtenky nebo ručně, případně je sem přesunete z jiného umístění.'
             }
             action={
               items.length === 0 && (onReceipts || onShopping) ? (

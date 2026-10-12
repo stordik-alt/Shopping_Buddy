@@ -68,6 +68,17 @@ describe('guide steps', () => {
     }
   })
 
+  it('says truthfully what "Dokončit nákup" does: it only clears the ticked items (stock and budget come from receipts and manual purchases)', () => {
+    const finish = GUIDE_STEPS.find((step) => step.id === 'shopping-finish')
+    expect(finish).toBeDefined()
+    // The shopping list creates no purchase, expense or stock (components/app-shell.tsx completePurchase).
+    expect(finish?.text).toMatch(/nevzniknou/)
+    expect(finish?.text).not.toMatch(/samy přidají do zásob|uloží do historie/)
+    expect(finish?.text).toMatch(/účtenky/)
+    const pantry = GUIDE_STEPS.find((step) => step.id === 'pantry')
+    expect(pantry?.text).not.toMatch(/dokončených nákupů/)
+  })
+
   it('gives every card a mood Anitka can act out, and every card a plain-language title and text', () => {
     const moods = ['nod', 'smile', 'wink', 'think', 'cheer', 'wave']
     for (const step of getGuideSteps(true)) {

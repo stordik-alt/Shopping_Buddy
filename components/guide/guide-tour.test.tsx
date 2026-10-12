@@ -8,7 +8,10 @@ describe('GuideTour', () => {
     const html = renderToStaticMarkup(<GuideTour onNavigate={() => {}} onClose={() => {}} />)
     expect(html).toContain(GUIDE_STEPS[0].title)
     expect(html).toContain(`Krok 1 z ${GUIDE_STEPS.length}`)
-    expect(html).toContain('anitka-mascot-full.webp')
+    expect(html).toContain('anitka-guide-body.webp')
+    // The greeting: the raised arm is part of the first card, hanging arm otherwise.
+    expect(html).toContain('anitka-guide-wave-hand.webp')
+    expect(html).toContain('anitka-guide-arm.webp')
     // The face is drawn over the picture: eyelids for blinking and a wink, a smile and moving lips.
     expect(html).toContain('anitka-lid-l')
     expect(html).toContain('anitka-lid-r')

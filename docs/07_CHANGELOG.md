@@ -1,3 +1,9 @@
+## 2026-10-12 — Nová Anitka v průvodci: zdraví mávnutím
+
+- Koncept: `docs/22_GUIDE.md`. Průvodce používá novou postavu od vlastníka, oříznutou od pozadí (bez zbytků: světlé šmouhy na okrajích vlasů pryč, odlesky v očích a bílé písmo na tričku zachované) a rozdělenou na vrstvy (tělo, svěšená paže, zvednutá paže, dlaň). První karta zamává (dlaň se otáčí kolem lokte, pak se paže svěsí), jinde ruce visí. Obličej (víčka, úsměv, rty) je dokreslený znovu na novou kresbu. Nový stav `wave` v `GuideMood`.
+- Svěšená paže je zrcadlená levá (kresba má pravou zvednutou); rameno je dorovnané. Soubory `anitka-guide-*.webp`, starý `anitka-mascot-full.webp` smazán. Úvodní obrazovka před přihlášením zatím ukazuje starou postavu.
+- Ověřeno: typová kontrola, testy průvodce, snímky z Chromia (mávání, svěšená paže, zavřené oko, otevřená ústa); v celé aplikaci na telefonu zatím ne.
+
 ## 2026-10-12 — Anitka se pohybuje přirozeněji
 
 - Koncept: `docs/22_GUIDE.md`. Pryč je houpání a poskočení při změně karty. Anitka se jen jemně nadechuje, mluví po dobu úměrnou délce textu s nepravidelným pohybem rtů a lehkými pohyby hlavy, mrká nepravidelně (občas dvakrát) a nálady (kývnutí, naklonění, mrknutí, úsměv) přicházejí po domluvení a vracejí se do klidu. Změny v `app/globals.css`, `components/guide/anitka-mascot.tsx` (`talkDurationMs`) a `guide-tour.tsx`.

@@ -20,8 +20,9 @@ export type GuideTarget = {
 }
 
 /** What Anitka does as a card appears (components/guide/anitka-mascot.tsx): `nod` nods along, `smile` keeps a
- *  smile, `wink` winks, `think` tilts her head, `cheer` hops with joy. All of them blink and "talk". */
-export type GuideMood = 'nod' | 'smile' | 'wink' | 'think' | 'cheer'
+ *  smile, `wink` winks, `think` tilts her head, `cheer` lifts her head with joy, `wave` greets with a wave of the
+ *  hand (the first card only). All of them blink and "talk". */
+export type GuideMood = 'nod' | 'smile' | 'wink' | 'think' | 'cheer' | 'wave'
 
 export type GuideStep = {
   id: string
@@ -60,7 +61,7 @@ const BASE_STEPS: readonly GuideStep[] = [
   {
     id: 'welcome',
     tab: 'Domů',
-    mood: 'wink',
+    mood: 'wave',
     title: 'Ahoj, já jsem Anitka!',
     text: 'Ráda vás poznám. Provedu vás celou aplikací od začátku do konce, tak jako bych stála vedle vás a ukazovala prstem. Je to na pár minut. A kdykoli řeknete stop, hned přestanu.',
   },

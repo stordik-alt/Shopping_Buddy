@@ -4,6 +4,7 @@ import { getDb } from '@/lib/db/client'
 import { getStoreChains } from '@/lib/db/member-store-preferences'
 import { getProductCatalog } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
+import type { ProductCatalogEntry } from '@/lib/products'
 import { addShoppingItemAction, refreshShoppingListAction, removeShoppingItemAction, toggleShoppingItemAction, updateShoppingItemAction } from '@/app/actions/shopping'
 
 // Integration coverage for the household-scoping gap noted in docs/01_CURRENT_STATE.md ("Server
@@ -22,6 +23,12 @@ vi.mock('@/lib/auth/authorize', () => ({
   requireHousehold: () => Promise.resolve({ userId: '00000000-0000-4000-8000-000000000001', userEmail: 'test@example.com', householdId: currentHouseholdId, role: 'owner' }),
 }))
 vi.mock('next/cache', () => ({ revalidatePath: () => {}, revalidateTag: () => {}, unstable_cache: (fn: (...args: any[]) => any) => fn }))
+// A test can make the cached catalog read return a given (stale) catalog; otherwise the real read runs.
+let staleCatalog: ProductCatalogEntry[] | null = null
+vi.mock('@/lib/db/cached-reads', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/db/cached-reads')>()
+  return { ...actual, getProductCatalogCached: (names: string[]) => (staleCatalog ? Promise.resolve(staleCatalog) : actual.getProductCatalogCached(names)) }
+})
 
 const db = getDb()
 
@@ -240,6 +247,24 @@ describe('addShoppingItemAction — product identity', () => {
     const { item } = await addShoppingItemAction(listId, 'Zcela neznámá položka xyz123')
     const row = await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, item.id) })
     expect(row?.productId).toBeNull()
+  })
+
+  it('adds the item by its typed name when the cached catalog names a product that no longer exists', async () => {
+    // The catalog read is cached for a day and the maintenance scripts that delete or merge products cannot
+    // clear it, so it can name a product id that is gone. That used to break the foreign key and the item
+    // was not added at all (a "Na seznam" tap from Domů silently did nothing).
+    currentHouseholdId = householdId
+    staleCatalog = [{ id: crypto.randomUUID(), name: 'Zaniklý produkt', category: 'Potraviny', defaultUnit: 'kg', defaultLocation: null }]
+    try {
+      const { item } = await addShoppingItemAction(listId, 'Zaniklý produkt')
+      expect(item.name).toBe('Zaniklý produkt')
+      const row = await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, item.id) })
+      expect(row?.productId).toBeNull()
+      // Nothing of the vanished product is carried over: not its unit either.
+      expect(row?.unit).not.toBe('kg')
+    } finally {
+      staleCatalog = null
+    }
   })
 
   it('uses the matched product\'s real category instead of the schema default, when no override is given', async () => {

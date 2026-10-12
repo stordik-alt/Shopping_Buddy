@@ -23,6 +23,8 @@ import { OfflineBanner } from '@/components/shopping/offline-banner'
 import { CollapsibleSection } from '@/components/shared/collapsible-section'
 import { TodayMeals } from '@/components/dashboard/today-meals'
 import { PantryCheckCard } from '@/components/dashboard/pantry-check-card'
+import { RestockCard } from '@/components/dashboard/restock-card'
+import { isNearMinimum, type RestockSuggestion } from '@/lib/pantry-restock'
 import { keptNameKey, needsCheck } from '@/lib/pantry'
 import { PieChart } from 'lucide-react'
 import { SegmentedControl } from '@/components/ui/segmented-control'
@@ -105,6 +107,7 @@ export function AppShell({
   storeChains,
   initialStoreSelection,
   initialPins,
+  restockSuggestions = [],
   today,
   initialTab,
   initialPantryCheck = false,
@@ -122,6 +125,8 @@ export function AppShell({
   storeChains: { id: string; chain: string; isOnline?: boolean }[]
   initialStoreSelection: StoreSelection
   initialPins: PinRecord[]
+  /** Stock-up suggestions computed on the server when the page loaded (lib/pantry-restock.ts). */
+  restockSuggestions?: RestockSuggestion[]
   /** The real date (`YYYY-MM-DD`, Czech time) computed on the server, so server and client agree. */
   today: string
   /** The section named in the address (`/?tab=…`, lib/tab-url.ts), resolved on the server. */
@@ -252,11 +257,19 @@ export function AppShell({
     openPantryCheck,
     consumePantryCheck,
     setPantryTracking,
+    setPantryStockLevels,
     setPantryItemSubcategory,
     setPantryItemCategory,
     autoCategorizePantry,
     adjustPantryItemQuantity,
   } = pantry
+  // A suggestion stays only while its row still nears its minimum with the same levels: the household may
+  // have restocked or changed the levels since the page loaded (the list does not refresh itself).
+  const restockNow = useMemo(
+    () => restockSuggestions.filter((suggestion) => pantryItems.some((item) => item.id === suggestion.itemId && isNearMinimum(item) && item.minQuantity === suggestion.minQuantity && item.maxQuantity === suggestion.maxQuantity)),
+    [restockSuggestions, pantryItems],
+  )
+  const restockItemIds = useMemo(() => new Set(pantryItems.filter(isNearMinimum).map((item) => item.id)), [pantryItems])
   const {
     pendingReceiptImports,
     listSuggestions,
@@ -688,6 +701,7 @@ export function AppShell({
                     }}
                     onOpen={() => setTab('Zásoby')}
                   />
+                  <RestockCard suggestions={restockNow} listItemNames={pendingNames} onAddToList={addItemByName} />
                   <TodayMeals
                     meals={todaysMeals(mealPlan, today)}
                     onOpen={() => {
@@ -833,6 +847,8 @@ export function AppShell({
                     onAdjustQuantity={adjustPantryItemQuantity}
                     onReview={reviewPantry}
                     onSetTracking={setPantryTracking}
+                    onSetStockLevels={setPantryStockLevels}
+                    restockItemIds={restockItemIds}
                     onSetSubcategory={setPantryItemSubcategory}
                     onSetCategory={setPantryItemCategory}
                     onAutoCategorize={autoCategorizePantry}

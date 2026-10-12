@@ -1099,7 +1099,12 @@ export const pantryItems = pgTable('pantry_items', {
   // purchased line's name. Lets a recipe asking for grams use stock kept in pieces; null = unknown.
   pieceQuantity: numeric('piece_quantity', { precision: 10, scale: 3, mode: 'number' }),
   pieceUnit: itemUnitEnum('piece_unit'),
+  // Wanted stock in `unit`: restock when the stock nears `minQuantity`, up to `maxQuantity`
+  // (lib/pantry-restock.ts). Both set or both null.
+  minQuantity: numeric('min_quantity', { precision: 10, scale: 3, mode: 'number' }),
+  maxQuantity: numeric('max_quantity', { precision: 10, scale: 3, mode: 'number' }),
 }, (table) => [
+  check('pantry_items_stock_levels_check', sql`(${table.minQuantity} IS NULL AND ${table.maxQuantity} IS NULL) OR (${table.minQuantity} >= 0 AND ${table.maxQuantity} > ${table.minQuantity})`),
   check('pantry_items_piece_size_check', sql`(${table.pieceQuantity} IS NULL AND ${table.pieceUnit} IS NULL) OR (${table.pieceQuantity} > 0 AND ${table.pieceUnit} IS NOT NULL)`),
   index('pantry_items_household_product_idx').on(table.householdId, table.productId),
   index('pantry_items_product_type_idx').on(table.householdId, table.productTypeId),

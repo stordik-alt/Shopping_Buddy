@@ -1,3 +1,10 @@
+## 2026-10-11 — Minimální a maximální zásoba: návrh „Dokoupit do zásoby“
+
+- Koncept: `docs/36_PANTRY_STOCK_LEVELS.md`. U řádku zásob jde nastavit minimum a maximum (tužka ▸ „Hlídat zásobu“); migrace `0098_pantry_stock_levels.sql` přidává `min_quantity`/`max_quantity` s kontrolou `0 <= min < max` (aplikována na testovací DB).
+- Když zásoba klesne k minimu (do 125 % minima) a prioritní řetězec (jinak vybrané, jinak libovolný) má akci na stejný produkt nebo typ zboží s alespoň 10% slevou z jeho běžné ceny (nabídka bez běžné ceny se ukáže bez vymyšlené slevy), Domů ukáže kartu „Je dobrá doba doplnit zásobu“: nejlevnější akce podle ceny za jednotku, obchod, platnost a kolik chybí do maxima, s tlačítkem „Na seznam“. Řádek v zásobách dostane štítek „Dokoupit“.
+- Server: `getRestockCandidates` čte akce jen když nějaký řádek je u minima; `setPantryStockLevelsAction` bere domácnost ze session a hodnoty znovu ověřuje.
+- Testy: `lib/pantry-restock.test.ts`, `lib/db/restock.test.ts`, případ `setPantryStockLevelsAction`; ověřeno Playwrightem na 390 px (karta, formulář, chybová hláška, bez vodorovného posunu).
+
 ## 2026-10-11 — Nákupní seznam bez odhadu ceny, kompaktní řádky zásob
 
 - Nákupní seznam: řádek ukazuje název a množství s jednotkou (`2 l`) na jednom řádku; odhadovaná cena z řádku, ze součtu skupiny, z rozbaleného detailu i z řazení (`Cena`) zmizela. Cena se u položky ukazuje jen v odznaku „Akce <obchod> <cena>“, když na ni běží akce. Uložená hodnota `price` zůstává v datech beze změny; dříve uložené řazení `Cena` se vrátí na výchozí.

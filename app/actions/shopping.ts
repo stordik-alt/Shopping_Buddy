@@ -127,7 +127,14 @@ export async function addShoppingItemAction(
   // when nothing matches, same as before.
   // Only the candidates for this one name, not the whole ~47,000-product catalog.
   const catalog = await getProductCatalogCached([name])
-  const matchedProduct = matchProductByName(catalog, name)
+  const cachedMatch = matchProductByName(catalog, name)
+  // The catalog read is cached for a day, and the maintenance scripts that merge, split or delete
+  // products run outside the app and cannot clear that cache, so a cached match can name a product that
+  // no longer exists. Inserting its id breaks the foreign key and the item is not added at all (a
+  // "Na seznam" tap then did nothing), so a match is used only if the product is still there; otherwise
+  // the item is added by its typed name, as for a name the catalog never knew.
+  const matchedProduct =
+    cachedMatch && (await db.query.products.findFirst({ where: eq(schema.products.id, cachedMatch.id), columns: { id: true } })) ? cachedMatch : null
   const canonicalName = matchedProduct?.name ?? name
   const resolvedProductId = selection?.kind === 'type' ? null : selectedProductId ?? matchedProduct?.id
 

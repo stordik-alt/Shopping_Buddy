@@ -22,8 +22,8 @@ Za 6 dní od prvního auditu byl opraven **jediný** nález (V4 závislosti). Ob
 | V4 | Zranitelné závislosti | **Opraveno** | `sharp` 0.35.5, `shadcn` v devDependencies; `pnpm audit --prod` = 3 moderate (zbytek přes `@neondatabase/auth`: `esbuild`, `baseline-browser-mapping`, `fast-uri`) |
 | V5 | `npx vercel@latest` s produkčním tokenem | **Opraveno v kódu 2026-10-12** (připnuté CLI z lockfile, jen ruční spuštění z `main`) | `.github/workflows/vercel-deploy.yml:30` |
 | V6 | Únik SQL parametrů/podpisů do logů a odpovědí | **Otevřeno** | `lib/receipt-log.ts` nemaskuje `params:` |
-| V7 | `retryReceiptImportAction` bez stropu (placené OCR/LLM) | **Otevřeno** | žádný čítač pokusů |
-| V8 | Registrace/přihlášení bez CAPTCHA a rate limitu | **Otevřeno** | v `app`/`components` žádná CAPTCHA |
+| V7 | `retryReceiptImportAction` bez stropu (placené OCR/LLM) | **Opraveno dřív** (`reserveReceiptOcrAttempt` počítá i opakování); 2026-10-12 přidán navíc strop pro celou aplikaci | žádný čítač pokusů |
+| V8 | Registrace/přihlášení bez CAPTCHA a rate limitu | **Částečně opraveno 2026-10-12** (limit na adresu v DB, globální strop OCR); **zbývá CAPTCHA** a nastavení Neon Auth | v `app`/`components` žádná CAPTCHA |
 | S6 | Chybí kontrola role u `updateHouseholdAction`, `updateHouseholdPreferencesAction`, `addHouseholdMemberAction`, `removeChildAction` | **Otevřeno** (je třeba rozhodnout záměr, viz fáze 2) | `app/actions/household.ts` |
 | S13 | `minimumReleaseAge` není nastaveno | **Otevřeno** | `pnpm-workspace.yaml` |
 | S14 | `poweredByHeader`, COOP/CORP, `Content-Disposition` u PDF | **Otevřeno** | `next.config.mjs` |
@@ -32,7 +32,7 @@ Ostatní S/L položky z auditu 35 nebyly znovu rozebírány a platí tak, jak js
 
 ## 3. Nové / upřesněné poznatky
 
-* **N1 — `checkInviteRateLimit` je jen paměť procesu** (`lib/rate-limit.ts`, `Map`). Na Vercelu každá instance funkce počítá zvlášť a po studeném startu se čítač vynuluje, takže limit 5/min je prakticky nevynutitelný. Dopad je malý (zvát smí jen vlastník), ale ochrana je zdánlivá. Řešit spolu s V7/V8 jedním databázovým čítačem.
+* **N1 (opraveno 2026-10-12, limit pozvánek je teď v databázi) — `checkInviteRateLimit` byl jen paměť procesu** (`lib/rate-limit.ts`, `Map`). Na Vercelu každá instance funkce počítá zvlášť a po studeném startu se čítač vynuluje, takže limit 5/min je prakticky nevynutitelný. Dopad je malý (zvát smí jen vlastník), ale ochrana je zdánlivá. Řešit spolu s V7/V8 jedním databázovým čítačem.
 * **N2 — Pozvánka vs. K2:** kromě auto-joinu v `getHouseholdData` kontroluje i `acceptInvitationAction` jen shodu e-mailu. Oprava K2 musí pokrýt obě cesty (token + ověřený e-mail).
 * **N3 — V2 a osiřelé účty:** po smazání člena (řádek `household_members`) přihlášený uživatel při dalším načtení dostane novou prázdnou domácnost (`createHouseholdForUser`), takže odebraný člen přichází o přístup, ale vlastník domácnosti nikoli o data; naopak odebraný **vlastník** domácnost ztrácí natrvalo (unikátní `user_id`). Potvrzuje závažnost V2.
 

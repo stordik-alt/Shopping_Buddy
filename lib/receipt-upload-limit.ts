@@ -5,6 +5,19 @@
 
 export const MAX_RECEIPT_UPLOADS_PER_DAY = 30
 
+/** How many receipts all households together may have read (OCR and model) per rolling 24 hours. Every
+ *  household has its own cap above, but accounts are cheap to create, so the per-household caps alone do not
+ *  bound the monthly spend; this is the ceiling for the whole app. Far above real use; `RECEIPT_OCR_GLOBAL_PER_DAY`
+ *  in the environment overrides it. */
+export const DEFAULT_RECEIPT_OCR_GLOBAL_PER_DAY = 400
+
+export function receiptOcrGlobalPerDay(env: Record<string, string | undefined> = process.env): number {
+  const configured = Number(env.RECEIPT_OCR_GLOBAL_PER_DAY)
+  return Number.isInteger(configured) && configured > 0 ? configured : DEFAULT_RECEIPT_OCR_GLOBAL_PER_DAY
+}
+
+export const RECEIPT_GLOBAL_LIMIT_MESSAGE = 'Čtení účtenek je dnes dočasně pozastavené, protože služba dosáhla denního limitu. Zkuste to zítra, nebo účtenku zadejte ručně.'
+
 /** The window the count covers, in milliseconds (a rolling day, not the calendar day, so the limit
  *  cannot be doubled by uploading either side of midnight). */
 export const RECEIPT_UPLOAD_WINDOW_MS = 24 * 60 * 60 * 1000

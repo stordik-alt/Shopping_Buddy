@@ -11,7 +11,7 @@ import { getDb } from '@/lib/db/client'
 import { periodColumnsOf } from '@/lib/db/period-config'
 import * as schema from '@/lib/db/schema'
 import { joinHouseholdViaInvitation } from '@/lib/db/queries'
-import { checkInviteRateLimit } from '@/lib/rate-limit'
+import { hitRateLimit } from '@/lib/db/rate-limit'
 import type { Child, HouseholdMember, HouseholdPreferences, PriceSensitivity, QualityPreference } from '@/lib/types'
 
 const MAX_NAME_LEN = 120
@@ -202,7 +202,9 @@ const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000
 export async function inviteMemberAction(email: string): Promise<{ id: string; token: string; email: string; expiresAt: string }> {
   const { householdId, role, userId } = await requireHousehold()
   if (role !== 'owner') throw new Error('Jen správce domácnosti může zvát nové členy.')
-  checkInviteRateLimit(`${householdId}:${userId}`)
+  // Counted in the database: an in-memory counter is per serverless instance and resets on a cold start.
+  const invites = await hitRateLimit(`invite:${householdId}:${userId}`, { max: 5, windowMs: 60_000 })
+  if (!invites.allowed) throw new Error('Příliš mnoho pozvánek za krátkou dobu. Zkuste to prosím později.')
 
   const safeEmail = assertSafeEmail(email)
   const db = getDb()

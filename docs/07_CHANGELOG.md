@@ -1,3 +1,8 @@
+## 2026-10-12 — Průvodce: zvýrazněné místo už nezůstává schované pod kartou
+
+- Koncept: `docs/22_GUIDE.md`. Na telefonu zůstávalo místo, na které karta odkazuje (např. „Nahrát účtenku“, „Pravidelné platby“, „Navrhnout recepty“), schované pod kartou a kroužek se kreslil přes ni. Karta je teď nad zvýrazněním (`z-[46]`), text na kartě má nižší maximální výšku (34 % výšky obrazovky), takže zbývá víc volného místa, a posouvání k cíli se nevzdává po pěti pokusech, ale zkouší to až 12× a skončí, když se stránka už nehýbe (pevné prvky jako nabídka účtu).
+- Ověřeno: typová kontrola a testy průvodce; vizuálně na zařízení zatím ne.
+
 ## 2026-10-12 — Recepty: suroviny, které máte v zásobách, už se nehlásí jako „koupit“
 
 - Koncept: `docs/10_RECIPES.md`. Detail receptu (`lib/recipes/shopping.ts`) porovnával zásoby jen podle přesného názvu a surovinu s kuchyňskou mírou („špetka soli“, „sůl podle chuti“) vždy hlásil jako chybějící. Teď: zásoba se hledá podle názvu i typu zboží (stejně jako v jídelníčku), balení se čtou přes `stockQuantityIn` (2 ks × 300 g) a surovina bez porovnatelného množství se bere za pokrytou, pokud ji domácnost má (řádek „Máte doma.“).

@@ -60,9 +60,9 @@ export function GuideTour({ onNavigate, onClose }: { onNavigate: (tab: Tab) => v
         role="dialog"
         aria-modal="false"
         aria-label="Průvodce aplikací"
-        // Above the bottom bar (z-30) and the highlight (z-34), below the dialogs (z-40/50) the app
-        // opens itself.
-        className="fixed inset-x-2 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-[35] mx-auto max-w-md lg:inset-x-auto lg:bottom-6 lg:right-6 lg:mx-0 lg:w-[27rem]"
+        // Above the highlight (z-45), so a target that sits behind the card is never drawn over it, and
+        // below the app's own dialogs (z-50).
+        className="fixed inset-x-2 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-[46] mx-auto max-w-md lg:inset-x-auto lg:bottom-6 lg:right-6 lg:mx-0 lg:w-[27rem]"
       >
         {/* flex-row-reverse: the mascot stands on the right, so she looks (to her left, as the artwork
             has her) into the card, not out of the phone. The picture itself is not mirrored: her
@@ -96,7 +96,7 @@ export function GuideTour({ onNavigate, onClose }: { onNavigate: (tab: Tab) => v
               aria-live="polite"
               onScroll={updateMore}
               // A soft fade at the bottom shows there is more to read when a long card scrolls.
-              className={`max-h-[min(44dvh,22rem)] [@media(max-height:640px)]:max-h-[26dvh] overflow-y-auto overscroll-contain px-3 pb-1 ${moreBelow ? '[mask-image:linear-gradient(to_bottom,black_calc(100%-1.5rem),transparent)]' : ''}`}
+              className={`max-h-[min(34dvh,20rem)] [@media(max-height:640px)]:max-h-[26dvh] overflow-y-auto overscroll-contain px-3 pb-1 ${moreBelow ? '[mask-image:linear-gradient(to_bottom,black_calc(100%-1.5rem),transparent)]' : ''}`}
             >
               <div key={step.id} className={`motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300 ${slide}`}>
                 <h2 className="text-balance text-base font-semibold leading-snug">{step.title}</h2>

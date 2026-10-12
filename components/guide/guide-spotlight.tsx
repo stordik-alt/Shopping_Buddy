@@ -45,6 +45,7 @@ export function GuideSpotlight({ step, cardRef }: { step: GuideStep; cardRef: Re
     let prepared = !step.prepare
     let scrollAttempts = 0
     let lastScroll = 0
+    let lastScrollY = -1
     let retryTimer: number | undefined
     const started = performance.now()
 
@@ -79,13 +80,20 @@ export function GuideSpotlight({ step, cardRef }: { step: GuideStep; cardRef: Re
       // Bring the target into the free part of the screen. Scroll/resize events schedule a fresh
       // measurement, so smooth scrolling does not need a permanent animation-frame loop.
       const now = performance.now()
-      if (actionElement && nextAction && scrollAttempts < 5 && now - lastScroll > 700) {
+      // Sections load and re-flow while the card opens, so a few attempts are not enough; stop when
+      // the last scroll moved nothing (a fixed target such as the account menu, or the page's end).
+      if (actionElement && nextAction && scrollAttempts < 12 && now - lastScroll > 700) {
         const card = cardRef.current?.getBoundingClientRect()
         const cardTop = card?.top ?? window.innerHeight
         const overlapsCardHorizontally = !card || (nextAction.left + nextAction.width > card.left && nextAction.left < card.right)
         if (nextAction.top < 72 || (overlapsCardHorizontally && nextAction.top + nextAction.height > cardTop - 16)) {
+          if (scrollAttempts > 0 && window.scrollY === lastScrollY) {
+            scrollAttempts = 12
+            return
+          }
           scrollAttempts += 1
           lastScroll = now
+          lastScrollY = window.scrollY
           const wantedTop = Math.max(84, Math.min(110, cardTop - nextAction.height - 56))
           window.scrollBy({ top: nextAction.top - wantedTop, behavior: 'smooth' })
         }

@@ -124,6 +124,30 @@ describe('one account, one household under concurrency', () => {
     }
   }, 60_000)
 
+  // Security regression (docs/37_SECURITY_REMEDIATION_PLAN.md, K2): a first login joins an invited
+  // household by e-mail match only when the auth provider has verified that e-mail.
+  it('does not auto-join a pending invitation for an unverified e-mail, and does for a verified one', async () => {
+    const unverified = await createTempAuthUser()
+    const verified = await createTempAuthUser()
+    const createdHouseholds: string[] = []
+    try {
+      for (const [user, emailVerified] of [[unverified, false], [verified, true]] as const) {
+        const [target] = await db.insert(schema.households).values({ name: `__test_autojoin_${emailVerified}__` }).returning()
+        createdHouseholdIds.push(target.id)
+        // getHouseholdData needs a main list in the household it loads.
+        await db.insert(schema.shoppingLists).values({ householdId: target.id, name: 'Hlavní seznam' })
+        await db.insert(schema.invitations).values({ householdId: target.id, email: user.email, token: crypto.randomUUID(), expiresAt: new Date(Date.now() + 86_400_000) })
+        const data = await getHouseholdData(user.userId, user.name, user.email, emailVerified)
+        createdHouseholds.push(data.household.id)
+        if (emailVerified) expect(data.household.id).toBe(target.id)
+        else expect(data.household.id).not.toBe(target.id)
+      }
+    } finally {
+      await deleteTempAuthUser(unverified.userId, createdHouseholds)
+      await deleteTempAuthUser(verified.userId, [])
+    }
+  }, 60_000)
+
   it('the database itself refuses a second household membership for the same account', async () => {
     const { userId, name } = await createTempAuthUser()
     const created: string[] = []

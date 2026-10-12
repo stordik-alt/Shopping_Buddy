@@ -17,9 +17,11 @@ export function MemberCard({ member, onRemove, onEditDiet }: { member: Household
             <p className="break-words text-xs text-muted-foreground">{member.role} · {member.age} let</p>
           </div>
         </div>
-        <ConfirmRemoveButton label={member.name} onConfirm={onRemove}>
-          <X className="h-4 w-4" aria-hidden="true" />
-        </ConfirmRemoveButton>
+        {member.removable !== false && (
+          <ConfirmRemoveButton label={member.name} onConfirm={onRemove}>
+            <X className="h-4 w-4" aria-hidden="true" />
+          </ConfirmRemoveButton>
+        )}
       </div>
       {(member.favoriteFoods.length > 0 || member.dislikedFoods.length > 0 || member.allergies.length > 0) && (
         <div className="mt-3 flex flex-wrap gap-1.5">

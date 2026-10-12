@@ -29,8 +29,8 @@ const nextConfig = {
     return [
       {
         // Conservative security headers for every page. The app is never embedded, location is used by the store directory and the
-        // camera by the receipt photo, and nothing needs the microphone. The CSP is handled by Next.js
-        // via its per-request nonce support (`experimental.csp: true`), so we no longer allow static inline scripts.
+        // camera by the receipt photo, and nothing needs the microphone. The Content-Security-Policy is
+        // not set here: it needs a fresh nonce per request, so proxy.ts builds it (lib/csp.ts).
         source: '/:path*',
         headers: [
           { key: 'X-Content-Type-Options', value: 'nosniff' },

@@ -1,5 +1,7 @@
 name: Vercel production deploy
 
+# Manual only: nothing starts this workflow automatically, and it never runs for a pull request.
+# Pushes and pull requests are built and tested by ci.yml; a production deploy is a deliberate click.
 on:
   workflow_dispatch:
 
@@ -13,7 +15,8 @@ concurrency:
 jobs:
   deploy:
     name: Deploy production to Vercel
-    if: ${{ github.event_name == 'workflow_dispatch' }}
+    # A manual run started from any other branch (e.g. a pull request's) is refused instead of deploying.
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -24,7 +27,21 @@ jobs:
       - name: Checkout main
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && 'main' || github.event.workflow_run.head_sha }}
+          ref: main
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # The CLI comes from the lockfile (devDependency `vercel`, exact version), not from
+      # `npx vercel@latest`, which would run whatever was published last with the production token.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Deploy to Vercel
-        run: npx vercel@latest deploy --prod --yes --token "$VERCEL_TOKEN"
+        run: pnpm exec vercel deploy --prod --yes --token "$VERCEL_TOKEN"

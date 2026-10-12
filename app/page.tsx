@@ -34,7 +34,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ [
   const initialDealsChain = initialTab === 'Akce' && typeof chainParam === 'string' && chainParam.trim() ? chainParam.trim() : null
 
   const [data, stores, standaloneOffers, storeChains, isAdmin] = await Promise.all([
-    timer.measure('householdData', () => getHouseholdData(session.user.id, session.user.name, session.user.email, timer)),
+    timer.measure('householdData', () => getHouseholdData(session.user.id, session.user.name, session.user.email, session.user.emailVerified === true, timer)),
     // Global data (the same for every household) comes from a 15-minute cache (lib/db/cached-reads.ts).
     timer.measure('stores', () => getStoresCached()),
     timer.measure('standaloneOffers', () => getStandaloneOffersCached()),

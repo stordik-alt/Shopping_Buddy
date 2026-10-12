@@ -70,13 +70,16 @@ export function GuideTour({ onNavigate, onClose }: { onNavigate: (tab: Tab) => v
         <div className="flex flex-row-reverse overflow-hidden rounded-3xl border border-border bg-surface-elevated text-foreground shadow-elevated motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-300">
           {/* The mascot stands inside the card, whole, with her feet on its lower edge. Above her
               the icon of the section being explained, the same one the navigation uses. */}
-          <div className="flex w-[8.25rem] shrink-0 flex-col items-center justify-between bg-accent-subtle pt-3 sm:w-36">
+          <div className="flex w-[6rem] shrink-0 flex-col items-center justify-between bg-accent-subtle pt-3 sm:w-28">
             <span key={`icon-${step.id}`} className="flex size-9 items-center justify-center rounded-full bg-surface-elevated text-accent-text shadow-sm motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:duration-300">
               <SectionIcon className="size-5" aria-hidden="true" />
             </span>
             {/* She hops in each time a new card appears (the key restarts it), breathes and sways, and her
                 face and head are alive: blinking, smiling, nodding, a wink (components/guide/anitka-mascot.tsx). */}
-            <div key={`mascot-${step.id}`} className="guide-hop mt-3 w-full px-0.5">
+            {/* The picture is wider than the column on purpose (its left side is where her raised hand goes
+                while she greets): it overhangs the text for those few seconds, and she herself stands in the
+                middle of the column. */}
+            <div key={`mascot-${step.id}`} className="guide-hop pointer-events-none relative z-10 mt-3 w-[8.25rem] shrink-0 -ml-[2.25rem] self-start sm:w-36">
               <AnitkaMascot mood={step.mood} talkMs={talkDurationMs(step.text)} className="guide-idle" />
             </div>
           </div>

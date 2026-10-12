@@ -1,3 +1,18 @@
+## 2026-10-12 — Intro: bílé špičky bot
+
+- Koncept: `docs/22_GUIDE.md`. Po kontrole zdroje se ukázalo, že špičky bot byly oříznuté: gumová čepička je bílá jako podlaha, takže ji ořez bral za pozadí. Špička a okraj podrážky se teď berou jako část boty podle konvexního obalu růžové části a tenkých tmavých linií boty; původní pixely z videa zůstávají, šedý stín a tmavé skvrny pod botou ne. Nový `anitka-intro-walk.webp`.
+- Ověřeno prohlídkou snímků chůze a stání na bílém podkladu. U rozmazaných snímků zůstávají na okraji drobné světlé zbytky.
+
+## 2026-10-12 — Intro: celé boty a čistá mezera mezi nohama
+
+- Koncept: `docs/22_GUIDE.md`. Kontrola spritového listu chůze ukázala, že bílé podrážky a špičky bot byly neúplné a v několika snímcích zůstával šedý stín podlahy. Ořez boty teď skládá z růžové části a dopočítané podrážky (tenký lem pod ní), stín a odraz na podlaze odstraňuje a zvednutou rozmazanou botu drží i tehdy, když visí mimo tělo. Mezera mezi zkříženýma nohama zůstává průhledná. Nový `anitka-intro-walk.webp`.
+- Ověřeno prohlídkou snímků chůze z profilu i čelního stání na tmavém a bílém podkladu a v intru v Chromiu. Podrážka je z části dokreslená, ne přesně z videa; rozmazaný snímek zkřížených nohou má v mezeře drobný zbytek.
+
+## 2026-10-12 — Anitka: užší sloupec v průvodci a čistší ořez pozadí
+
+- Koncept: `docs/22_GUIDE.md`. Sloupec s postavou v průvodci je zase úzký (6–7 rem); obrázek je širší a při mávání ruka na chvíli přejede přes text, potom se postava do sloupce vejde. Ořez pozadí intra i průvodce je přepracovaný: jasné skoro bezbarvé pixely se berou za pozadí, takže zmizely zbytky mezi rukama a tělem a světlý lem kolem hlavy a vlasů; nápis ANITKA na tričku, oči, zuby a drobné díry v džínách zůstávají. Boty se skládají z růžové části a lemu podrážky. Nové `anitka-intro-walk.webp`, `anitka-guide-wave.webp` a `anitka-guide-front.webp`.
+- Ověřeno: typová kontrola, testy, snímky z Chromia (intro v pohybu i ve stoje, karta průvodce na 390 a 360 px při mávání i po něm). U botek zůstávají drobné nedokonalosti (tmavý stín pod pravou botou v některých snímcích). Na telefonu zatím neověřeno.
+
 ## 2026-10-12 — Průvodce: nová podoba Anitky (čelní pohled, mimika, mávání zepředu)
 
 - Koncept: `docs/22_GUIDE.md`. Průvodce přešel na novou, realističtější podobu postavy z animací od vlastníka: klidný čelní obrázek (`anitka-guide-front.webp`) s dokreslenou mimikou (víčka, úsměv, rty) přes nový obličej a na první kartě mávnutí z videa „Mávání zepředu“ jako spritový list (`anitka-guide-wave.webp`, 35 dlaždic, 0,5 MB) s plynulým návratem do klidné polohy. Starší vrstvená postava (tělo, svěšená paže, zvednutá paže, dlaň) a její obrázky jsou pryč, sloupec s postavou je širší kvůli zvednuté ruce.

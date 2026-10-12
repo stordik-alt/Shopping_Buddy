@@ -347,6 +347,50 @@ describe('toReceiptLineItems', () => {
 
 const line = (overrides: Partial<Parameters<typeof receiptTotal>[0][number]> = {}) => ({ name: 'A', category: 'Potraviny' as const, quantity: 1, unit: 'ks' as const, price: 10, ...overrides })
 
+describe('toReceiptLineItems — a package size read as the quantity (dm drogerie)', () => {
+  // dm prints "PAMPERS pants 48ks 299,00 1": the size is part of the name and the count is the trailing 1.
+  // The reader put 48 into "quantity" and kept the line's own 299 as the "unit price", so the app stored
+  // 48 × 299 Kč (21 982 Kč for a 494 Kč receipt). The printed line total is what was paid.
+  const dmReceipt = () =>
+    extractedReceipt({
+      items: [
+        extractedItem({ name: 'Aquila čaj b.', quantity: 1, unit: null, unitPrice: 25.5, totalPrice: 25.5 }),
+        extractedItem({ name: 'PAMPERS pants', quantity: 48, unit: 'ks', unitPrice: 299, totalPrice: 299 }),
+        extractedItem({ name: 'WOOLITE pr.gel', quantity: 45, unit: 'PD', unitPrice: 169, totalPrice: 169 }),
+      ],
+      total: 493.5,
+    })
+
+  it('keeps the 48 pieces and 45 doses but charges the line what the receipt printed', () => {
+    const [tea, pampers, woolite] = toReceiptLineItems(dmReceipt())
+    expect(tea).toMatchObject({ quantity: 1, price: 25.5 })
+    expect(pampers.quantity).toBe(48)
+    expect(pampers.price * pampers.quantity).toBeCloseTo(299, 1)
+    expect(woolite.quantity).toBe(45)
+    expect(woolite.price * woolite.quantity).toBeCloseTo(169, 1)
+  })
+
+  it('adds up to the receipt, not to tens of thousands of crowns', () => {
+    const items = toReceiptLineItems(dmReceipt())
+    expect(receiptTotal(items)).toBeCloseTo(493.5, 0)
+    expect(resolvePurchaseAmounts(items, null, 493.5).total).toBe(493.5)
+  })
+
+  it('still sends such a line to review, now with the right amounts pre-filled', () => {
+    expect(needsReview(dmReceipt())).toBe(true)
+  })
+
+  it('leaves a consistent line alone (quantity × unit price = line total)', () => {
+    const [item] = toReceiptLineItems(extractedReceipt({ items: [extractedItem({ quantity: 3, unitPrice: 10, totalPrice: 30 })] }))
+    expect(item).toMatchObject({ quantity: 3, price: 10 })
+  })
+
+  it('does not touch a weighed line whose total differs from weight × price by rounding only', () => {
+    const [item] = toReceiptLineItems(extractedReceipt({ items: [extractedItem({ name: 'Paprika', quantity: 0.37, unit: 'kg', unitPrice: 69.9, totalPrice: 25.9 })] }))
+    expect(item.price).toBe(69.9)
+  })
+})
+
 describe('receiptTotal', () => {
   it('sums price × quantity across items', () => {
     expect(receiptTotal([line({ quantity: 2 }), line({ name: 'B', price: 5 })])).toBe(25)

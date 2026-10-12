@@ -658,7 +658,17 @@ export function toReceiptLineItems(
       // multiply it by quantity) — the receipt's own totalPrice is the *line's* total, so it must
       // be divided back down to a unit price, not assigned directly (that would double-count
       // quantity > 1 once multiplied again downstream).
-      const price = item.unitPrice ?? (item.totalPrice != null && quantity > 0 ? item.totalPrice / quantity : (item.totalPrice ?? 0))
+      // When quantity × unit price contradicts the line's own printed amount, the amount wins: it is
+      // what was paid. A reader can take a package size out of the name ("PAMPERS pants 48ks",
+      // "WOOLITE pr.gel 45PD") for the quantity while keeping the line's 299 Kč as the "unit price", and
+      // 48 × 299 Kč then lands in the purchase (a 494 Kč dm receipt became 21 982 Kč). The quantity stays
+      // (48 pieces, 45 doses are what the household has at home) and the unit price is derived from the
+      // line amount, so the line costs exactly what the receipt says. Such a line still goes to review.
+      const unitPriceFromTotal = item.totalPrice != null && quantity > 0 ? item.totalPrice / quantity : null
+      const price =
+        item.unitPrice != null && item.totalPrice != null && !isLineItemConsistent(item) && unitPriceFromTotal != null
+          ? Math.round(unitPriceFromTotal * 10_000) / 10_000
+          : (item.unitPrice ?? unitPriceFromTotal ?? item.totalPrice ?? 0)
       const { entry: catalogEntry, match: fuzzyMatch } = resolveCatalogProduct(item.name, catalog, aliases, storeId)
       const placement = resolveItemPlacement(catalogEntry, item.category, item.name)
       const category = placement?.category ?? categoryWithBrand(item.name, item.category) ?? ('Ostatní' as ItemCategory)

@@ -1,5 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { ItemTypePicker } from '@/components/shopping/item-type-picker'
+import { RefreshListButton } from '@/components/shopping/refresh-list-button'
 import { ProductAutocomplete, type ProductAutocompleteSelection } from '@/components/shared/product-autocomplete'
 import { describeItemTypes } from '@/lib/product-types'
 import { Check, ChevronDown, ListChecks, Plus, Search, SlidersHorizontal, Sun, Tag, X } from 'lucide-react'
@@ -61,6 +62,7 @@ export const ShoppingList = memo(function ShoppingList({
   addItem,
   updateItem,
   removeItems,
+  onRefresh,
   toggle,
   lists,
   onAddList,
@@ -87,6 +89,8 @@ export const ShoppingList = memo(function ShoppingList({
   updateItem: (id: string, changes: Partial<Item>) => void
   /** Removes items with a way back (the shell shows "Vrátit zpět"); one call per action so a bulk clear is one undo. */
   removeItems: (ids: string[]) => void
+  /** Re-reads the list from the server (another member's changes); rejects with a message to show. */
+  onRefresh: () => Promise<void>
   toggle: (id: string) => void
   lists: string[]
   onAddList: (name: string) => void
@@ -222,6 +226,7 @@ export const ShoppingList = memo(function ShoppingList({
           <Badge>
             {remainingCount} k nákupu · {completedCount} hotovo
           </Badge>
+          <RefreshListButton onRefresh={onRefresh} />
           {wakeLock.supported && (
             <button
               type="button"

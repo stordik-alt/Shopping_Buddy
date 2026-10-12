@@ -61,6 +61,8 @@ export function ShoppingPlanPanel({
 
   const plan = result?.plan
   const outdated = result != null && builtFor !== inputKey
+  // An empty list with no earlier plan: there is nothing to choose or build yet.
+  const nothingToPlan = openItemCount === 0 && !result
 
   return (
     <section className="surface p-4 sm:p-5" aria-labelledby="shopping-plan-title">
@@ -74,6 +76,8 @@ export function ShoppingPlanPanel({
         </div>
       </div>
 
+      {/* With nothing to plan (an empty list) the controls would only be disabled noise, so only the note below shows. */}
+      {!nothingToPlan && (
       <div className="mt-4 flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-sm font-medium">
           Kolik obchodů projdu
@@ -90,8 +94,9 @@ export function ShoppingPlanPanel({
           {result ? 'Sestavit znovu' : 'Sestavit plán'}
         </Button>
       </div>
+      )}
 
-      {chains.length > 1 && (
+      {!nothingToPlan && chains.length > 1 && (
         // Every chain is a choice here (often 20+), so the chips wait behind a summary of what is picked.
         <details className="group mt-3">
           <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1.5 rounded-lg text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">

@@ -693,26 +693,33 @@ export function AppShell({
                       </CollapsibleSection>
                     }
                   />
-                  <PantryCheckCard
-                    toCheck={pantryItems.filter((item) => needsCheck(item, likelyGonePantryIds)).length}
-                    onCheck={() => {
-                      openPantryCheck()
-                      setTab('Zásoby')
-                    }}
-                    onOpen={() => setTab('Zásoby')}
-                  />
+                  {/* A brand-new household has nothing to report in Zásoby, Jídelníček or Akce, so those
+                      "nic tu není" lines stay out of the way until there is something behind them
+                      (docs/14_MOBILE_UI_V2_SPEC.md §4: no empty cards). The sections stay in the navigation. */}
+                  {pantryItems.length > 0 && (
+                    <PantryCheckCard
+                      toCheck={pantryItems.filter((item) => needsCheck(item, likelyGonePantryIds)).length}
+                      onCheck={() => {
+                        openPantryCheck()
+                        setTab('Zásoby')
+                      }}
+                      onOpen={() => setTab('Zásoby')}
+                    />
+                  )}
                   <RestockCard suggestions={restockNow} listItemNames={pendingNames} onAddToList={addItemByName} />
-                  <TodayMeals
-                    meals={todaysMeals(mealPlan, today)}
-                    onOpen={() => {
-                      setFocus(null)
-                      setTab('Recepty')
-                    }}
-                    onOpenMeal={(day, mealType) => {
-                      setFocus({ kind: 'meal', day, mealType })
-                      setTab('Recepty')
-                    }}
-                  />
+                  {mealPlan && (
+                    <TodayMeals
+                      meals={todaysMeals(mealPlan, today)}
+                      onOpen={() => {
+                        setFocus(null)
+                        setTab('Recepty')
+                      }}
+                      onOpenMeal={(day, mealType) => {
+                        setFocus({ kind: 'meal', day, mealType })
+                        setTab('Recepty')
+                      }}
+                    />
+                  )}
                   <PreferredDeals
                     hasPreferences={household.preferences.preferredProducts.length + household.preferences.preferredBrands.length > 0}
                     listItemNames={pendingNames}
@@ -722,10 +729,12 @@ export function AppShell({
                       setTab('Akce')
                     }}
                   />
-                  <PriceWatch today={today} onBrowseDeals={() => {
-                    setDealsForMe(false)
-                    setTab('Akce')
-                  }} onStores={() => setTab('Obchody')} onAddToList={addItemByName} listItemNames={pendingNames} productPrices={nearbyProductPrices} offers={nearbyStandaloneOffers} pantryItems={pantryItems} boughtNameKeys={boughtNameKeys} />
+                  {pendingNames.length > 0 && (
+                    <PriceWatch today={today} onBrowseDeals={() => {
+                      setDealsForMe(false)
+                      setTab('Akce')
+                    }} onStores={() => setTab('Obchody')} onAddToList={addItemByName} listItemNames={pendingNames} productPrices={nearbyProductPrices} offers={nearbyStandaloneOffers} pantryItems={pantryItems} boughtNameKeys={boughtNameKeys} />
+                  )}
                 </div>
               )}
               {tab === 'Nákup' && (

@@ -149,7 +149,8 @@ const BASE_STEPS: readonly GuideStep[] = [
     text: 'Když máte na seznamu hodně věcí, spočítám, kde se vyplatí nakoupit. Řeknete mi, kolik obchodů jste ochotní projít a které preferujete, a já poskládám, co koupit kde, aby to vyšlo nejlevněji. A ukážu i to, kolik byste platili, kdybyste šli jen do jednoho obchodu.',
     where: 'Úplně dole pod seznamem, panel „Plán nákupu“.',
     todo: ['Zvolte počet obchodů a klepněte na „Sestavit plán“.', 'Po změně seznamu plán sestavte znovu. Poznáte to podle upozornění, že je neaktuální.'],
-    target: [{ selector: 'button', text: 'Sestavit plán' }],
+    // On an empty list the panel has no button yet, so the guide points at its heading instead.
+    target: [{ selector: 'button', text: 'Sestavit plán' }, { selector: 'h3', text: 'Plán nákupu' }],
     targetLabel: 'Sem klepněte',
   },
   {

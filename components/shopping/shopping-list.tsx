@@ -188,6 +188,15 @@ export const ShoppingList = memo(function ShoppingList({
   const dealByName = useMemo(() => bestDealByName(assessDealQuality(productPrices, today)), [productPrices, today])
   const offerByName = useMemo(() => bestOfferByName(offers), [offers])
 
+  // Shared by the "Přidat" button and Enter in the field, so both add exactly the same thing.
+  function submitNewItem() {
+    const name = newItem.trim()
+    if (!name) return
+    setNewItem('')
+    addItem(name, newItemSelection)
+    setNewItemSelection(undefined)
+  }
+
   function createList() {
     const name = listName.trim()
     if (!name || lists.includes(name)) return
@@ -236,17 +245,12 @@ export const ShoppingList = memo(function ShoppingList({
                 setNewItemSelection(undefined)
               }}
               onSelect={(suggestion: ProductAutocompleteSelection) => setNewItemSelection(suggestion)}
+              onSubmit={submitNewItem}
               placeholder="Co koupit?"
               ariaLabel="Nová položka"
             />
           </div>
-          <Button size="lg" onClick={() => {
-              const name = newItem.trim()
-              if (!name) return
-              setNewItem('')
-              addItem(name, newItemSelection)
-              setNewItemSelection(undefined)
-            }}>
+          <Button size="lg" onClick={submitNewItem}>
             <Plus aria-hidden="true" /> Přidat
           </Button>
         </div>

@@ -1,3 +1,11 @@
+## 2026-10-12 — UX: Enter přidá položku, méně prázdných karet u nové domácnosti
+
+- Koncept: `docs/14_MOBILE_UI_V2_SPEC.md` (§4: žádné prázdné karty), `docs/22_GUIDE.md`. Z UX průchodu aplikace na šířce 390 px:
+  - Enter v poli „Co koupit?“ (Nákup) položku nepřidával, fungovalo jen tlačítko „Přidat“. `ProductAutocomplete` má nový volitelný `onSubmit` (Enter, ne při psaní přes IME) a seznam ho používá stejnou funkcí `submitNewItem` jako tlačítko.
+  - Domů už neukazuje „Zásoby · nic ke kontrole“ (dokud nejsou žádné zásoby), „Jídelníček · na dnešek nic naplánováno“ (dokud není uložený jídelníček) a „Akce k vašim položkám“ (dokud je seznam prázdný). Komponenty se nezměnily, rozhoduje shell; sekce zůstávají v navigaci.
+  - „Plán nákupu“ při prázdném seznamu ukáže jen vysvětlení a poznámku „není co plánovat“, bez zakázaného tlačítka a výběrů. Karta průvodce „Plán nákupu“ proto při prázdném seznamu zvýrazní nadpis panelu (druhý cíl v `lib/guide.ts`).
+- Ověřeno: `tsc --noEmit`, testy (nový `shopping-plan.test.tsx`) a Chromium na lokální DB (nový účet: Domů bez tří prázdných karet, Enter přidá položku a vyprázdní pole, „Sestavit plán“ se objeví po první položce). Zvýraznění nadpisu v průvodci a mobilní zařízení nezkoušeno.
+
 ## 2026-10-12 — Intro: bílé špičky bot
 
 - Koncept: `docs/22_GUIDE.md`. Po kontrole zdroje se ukázalo, že špičky bot byly oříznuté: gumová čepička je bílá jako podlaha, takže ji ořez bral za pozadí. Špička a okraj podrážky se teď berou jako část boty podle konvexního obalu růžové části a tenkých tmavých linií boty; původní pixely z videa zůstávají, šedý stín a tmavé skvrny pod botou ne. Nový `anitka-intro-walk.webp`.

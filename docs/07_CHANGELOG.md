@@ -1,3 +1,7 @@
+## 2026-10-12 — „Obnovit“ i v Zásobách, Moje nákupy a Rozpočtu
+
+- Koncept: `docs/01_CURRENT_STATE.md` (aplikace se sama neobnovuje). Tlačítko **Obnovit** z nákupního seznamu je teď i v **Zásobách**, v **Nákup ▸ Moje nákupy** a v **Rozpočtu**. Každé přečte jen to, co sekce ukazuje (`app/actions/refresh.ts`: zásoby a hlídané úrovně, historie nákupů, výdaje aktuálního období; domácnost podle přihlášení, jen čtení), takže stránka se nepřeloží zpět na začátek. Tlačítko (`refresh-list-button.tsx`) má vlastní texty pro každou sekci. Zásoby se při obnovení nepřepočítávají na návrhy doplnění na Domů (ty se počítají při načtení stránky). Test: `app/actions/refresh.test.ts`.
+
 ## 2026-10-12 — Odmítnuté návrhy doplnění zásob platí pro celou domácnost
 
 - Koncept: `docs/36_PANTRY_STOCK_LEVELS.md`. Odmítnutí návrhu na Domů se už neukládá jen v zařízení, ale v nové tabulce `restock_dismissals` (migrace `0101`; druh, produkt a den konce akce): odmítne-li ho jeden člen, přestane se zobrazovat všem, jiná nebo lepší akce se nabídne znovu. `dismissRestockSuggestionAction` (domácnost podle přihlášení, vstup ověřen), odmítnutí skončených akcí se při dalším uložení smažou. Skrytí celé karty zůstává jen v zařízení. Testy: `app/actions/pantry.test.ts`, `components/dashboard/restock-card.test.tsx`.

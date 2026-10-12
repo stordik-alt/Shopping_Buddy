@@ -1152,6 +1152,14 @@ export const receiptOcrRateLimits = pgTable('receipt_ocr_rate_limits', {
   attempts: integer('attempts').notNull().default(0),
 })
 
+// A fixed-window counter shared by every server instance (lib/db/rate-limit.ts). The key says what is
+// limited, e.g. `signup:<address>` or `ocr:global`.
+export const rateLimits = pgTable('rate_limits', {
+  key: text('key').primaryKey(),
+  windowStartedAt: timestamp('window_started_at', { withTimezone: true }).notNull().defaultNow(),
+  hits: integer('hits').notNull().default(0),
+})
+
 export const receiptImports = pgTable('receipt_imports', {
   id: uuid('id').primaryKey().defaultRandom(),
   householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),

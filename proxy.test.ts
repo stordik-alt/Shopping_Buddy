@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest'
-import { checkInviteRateLimit } from '@/lib/rate-limit'
 
 vi.mock('@/lib/auth/server', () => ({
   auth: { middleware: () => () => null },
@@ -26,16 +25,3 @@ describe('isPublicRoute', () => {
     expect(isPublicRoute(pathname)).toBe(expected)
   })
 })
-
-describe('checkInviteRateLimit', () => {
-  it('blocks too many invite attempts in a short window', () => {
-    const key = 'rate-limit:test-user'
-
-    for (let i = 0; i < 5; i++) {
-      expect(() => checkInviteRateLimit(key, 5, 60_000)).not.toThrow()
-    }
-
-    expect(() => checkInviteRateLimit(key, 5, 60_000)).toThrow('Příliš mnoho pozvánek')
-  })
-})
-

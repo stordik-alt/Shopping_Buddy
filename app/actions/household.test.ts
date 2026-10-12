@@ -115,6 +115,11 @@ describe('inviteMemberAction / revokeInvitationAction', () => {
     await expect(inviteMemberAction('someone@example.com')).rejects.toThrow('Jen správce domácnosti')
   })
 
+  it('limits how many invitations one owner can send per minute', async () => {
+    for (let i = 0; i < 5; i += 1) await inviteMemberAction(`limit-${i}@example.com`)
+    await expect(inviteMemberAction('limit-6@example.com')).rejects.toThrow('Příliš mnoho pozvánek')
+  })
+
   it('lets the owner invite, and rejects revoking an invitation from a different household even as an owner there', async () => {
     currentHousehold = { householdId, role: 'owner', userId: crypto.randomUUID(), memberId: crypto.randomUUID() }
     const invitation = await inviteMemberAction('someone@example.com')

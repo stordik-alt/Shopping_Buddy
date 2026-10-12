@@ -25,8 +25,15 @@ export class NothingToRecordError extends Error {}
 /** Syncs the shared product classification into historical receipt items and ordinary budget rows.
  * Genuine multi-way expense splits remain explicit per-purchase exceptions. One-target overrides/defaults
  * that use the product taxonomy are superseded by the canonical product classification, while explicit
- * non-product exceptions such as Ostatní ▸ Dárky remain purchase/household-specific. */
-export async function syncProductClassificationToPurchases(productId: string): Promise<void> {
+ * non-product exceptions such as Ostatní ▸ Dárky remain purchase/household-specific.
+ *
+ * `options.householdId` limits the rewrite to that household's own purchases and remembered defaults.
+ * A purchase history belongs to the household that made it, so a change one household makes to the
+ * shared catalog must not rewrite the budget rows of every other household (docs/37_SECURITY_REMEDIATION_PLAN.md, V1).
+ * Only a deliberate catalog-wide correction (an administrator's decision, the maintenance scripts) syncs
+ * everyone, by leaving it out. */
+export async function syncProductClassificationToPurchases(productId: string, options: { householdId?: string } = {}): Promise<void> {
+  const { householdId } = options
   const db = getDb()
   const product = await db.query.products.findFirst({
     where: eq(schema.products.id, productId),
@@ -34,11 +41,12 @@ export async function syncProductClassificationToPurchases(productId: string): P
     with: { category: { columns: { name: true } } },
   })
   if (!product) return
-  const items = await db.query.purchaseItems.findMany({
+  const allItems = await db.query.purchaseItems.findMany({
     where: eq(schema.purchaseItems.productId, productId),
     columns: { id: true, purchaseId: true },
-    with: { expenseSplits: { columns: { id: true, category: true, subcategory: true } } },
+    with: { expenseSplits: { columns: { id: true, category: true, subcategory: true } }, purchase: { columns: { householdId: true } } },
   })
+  const items = householdId ? allItems.filter((item) => item.purchase.householdId === householdId) : allItems
   const purchaseIds = [...new Set(items.map((item) => item.purchaseId))]
 
   // A one-target override that uses the same product taxonomy is superseded by the shared product
@@ -52,7 +60,12 @@ export async function syncProductClassificationToPurchases(productId: string): P
     })
     .flatMap((item) => item.expenseSplits.map((split) => split.id))
 
-  await db.update(schema.purchaseItems).set({ category: product.category.name, subcategoryId: product.subcategoryId }).where(eq(schema.purchaseItems.productId, productId))
+  if (items.length > 0) {
+    await db
+      .update(schema.purchaseItems)
+      .set({ category: product.category.name, subcategoryId: product.subcategoryId })
+      .where(inArray(schema.purchaseItems.id, items.map((item) => item.id)))
+  }
   if (canonicalOverrideIds.length > 0) {
     await db.delete(schema.purchaseItemExpenseSplits).where(inArray(schema.purchaseItemExpenseSplits.id, canonicalOverrideIds))
   }
@@ -60,7 +73,9 @@ export async function syncProductClassificationToPurchases(productId: string): P
   // The same rule applies to remembered household defaults: a product-taxonomy default is now
   // redundant, but an explicit exception such as Dárky is still meaningful for that household.
   const defaults = await db.query.householdProductExpenseDefaults.findMany({
-    where: eq(schema.householdProductExpenseDefaults.productId, productId),
+    where: householdId
+      ? and(eq(schema.householdProductExpenseDefaults.productId, productId), eq(schema.householdProductExpenseDefaults.householdId, householdId))
+      : eq(schema.householdProductExpenseDefaults.productId, productId),
     columns: { householdId: true, productId: true, category: true, subcategory: true },
   })
   const canonicalDefaults = defaults.filter((row) => isProductExpenseTarget(row.category, row.subcategory))
@@ -264,7 +279,8 @@ export async function setPurchaseItemExpenseSplits(householdId: string, purchase
       if (categoryRow && target.subcategory && !targetSubcategory) throw new InvalidExpenseCategoryError('Neplatná podkategorie výdaje.')
       if (categoryRow && product && !product.categoryLocked && (product.categoryId !== categoryRow.id || product.subcategoryId !== (targetSubcategory?.id ?? null))) {
         await db.update(schema.products).set({ categoryId: categoryRow.id, subcategoryId: targetSubcategory?.id ?? null }).where(eq(schema.products.id, item.productId))
-        await syncProductClassificationToPurchases(item.productId)
+        // Only this household's own history follows its change; other households' purchases stay as they were.
+        await syncProductClassificationToPurchases(item.productId, { householdId })
         return
       }
     }

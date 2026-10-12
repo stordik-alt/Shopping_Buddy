@@ -34,7 +34,8 @@ export async function proposeProductCategory(householdId: string, productId: str
     return 'pending'
   }
   await db.update(schema.products).set({ categoryId: target.id, subcategoryId: null }).where(eq(schema.products.id, productId))
-  await syncProductClassificationToPurchases(productId)
+  // A household's own change: only its own purchase history follows (the administrator's decision below is catalog-wide).
+  await syncProductClassificationToPurchases(productId, { householdId })
   invalidateProductCatalogCache()
   await db.insert(schema.productCategoryChanges).values({ productId, householdId, fromCategoryId: product.categoryId, toCategoryId: target.id, status: 'applied' })
   return 'applied'

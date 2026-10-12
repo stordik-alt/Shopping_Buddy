@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ProductCatalogEntry } from '@/lib/products'
 import {
+  doseCountInName,
   hasInvalidAmounts,
   hasRequiredReceiptFields,
   isLineItemConsistent,
@@ -592,5 +593,39 @@ describe('unitForQuantity', () => {
     expect(unitForQuantity('g', 0.5)).toBe('g')
     expect(unitForQuantity('l', 1.5)).toBe('l')
     expect(unitForQuantity('kg', 0.37)).toBe('kg')
+  })
+})
+
+describe('doses (dávky) in a washing gel line', () => {
+  const line = (over: Partial<ExtractedReceipt['items'][number]>): ExtractedReceipt['items'][number] => ({ name: 'WOOLITE pr.gel 45PD', category: 'Drogerie', quantity: 1, unit: null, unitPrice: 169, totalPrice: 169, discount: null, confidence: 1, ...over }) as ExtractedReceipt['items'][number]
+  const receipt = (items: ExtractedReceipt['items']): ExtractedReceipt => ({ items, total: null }) as unknown as ExtractedReceipt
+
+  it('reads the dose count from the name', () => {
+    expect(doseCountInName('WOOLITE pr.gel 45PD')).toBe(45)
+    expect(doseCountInName('Persil gel 33 dávek')).toBe(33)
+    expect(doseCountInName('Jar 1 dávka')).toBeNull()
+    expect(doseCountInName('Mléko 1l')).toBeNull()
+    expect(doseCountInName('PAMPERS pants 48ks')).toBeNull()
+  })
+
+  it('stores 45 doses for the printed amount, whichever way the reader gave the quantity', () => {
+    for (const quantity of [1, 45, null]) {
+      const [result] = toReceiptLineItems(receipt([line({ quantity, unitPrice: quantity === 1 ? 169 : 169 })]))
+      expect(result).toMatchObject({ quantity: 45, unit: 'dávka' })
+      expect(result.quantity * result.price).toBeCloseTo(169, 2)
+    }
+  })
+
+  it('counts several packs and leaves an explicit other unit alone', () => {
+    const [two] = toReceiptLineItems(receipt([line({ quantity: 2, unitPrice: 169, totalPrice: 338 })]))
+    expect(two).toMatchObject({ quantity: 90, unit: 'dávka' })
+    expect(two.quantity * two.price).toBeCloseTo(338, 2)
+    const [kg] = toReceiptLineItems(receipt([line({ unit: 'kg', quantity: 1 })]))
+    expect(kg.unit).toBe('kg')
+  })
+
+  it('recognizes the unit written out', () => {
+    expect(normalizeReceiptUnit('dávek')).toBe('dávka')
+    expect(isRecognizedUnit('PD')).toBe(true)
   })
 })

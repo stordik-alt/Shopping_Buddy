@@ -105,6 +105,9 @@ export function costForNeed(need: Pick<NeedSpec, 'quantity' | 'unit'>, hit: Pick
       const packages = Math.max(1, Math.ceil((litres / size.value) - Number.EPSILON))
       return { cost: round(packages * price), basis: 'per-package', packages }
     }
+    // Doses are not a unit a product's price is stated in, so there is nothing sound to price them with.
+    case 'dávka':
+      return null
   }
 }
 

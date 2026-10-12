@@ -11,7 +11,7 @@ export const qualityPreferenceEnum = pgEnum('quality_preference', ['standard', '
 export const itemCategoryEnum = pgEnum('item_category', ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní'])
 // What an expense was for (lib/expense-categories.ts) — a wider list than the item categories above.
 export const expenseCategoryEnum = pgEnum('expense_category', EXPENSE_CATEGORY_NAMES)
-export const itemUnitEnum = pgEnum('item_unit', ['ks', 'kg', 'g', 'l', 'ml'])
+export const itemUnitEnum = pgEnum('item_unit', ['ks', 'kg', 'g', 'l', 'ml', 'dávka'])
 // Universal PKD quantity vocabulary. This is deliberately broader than the legacy item_unit enum.
 export const quantityDimensionEnum = pgEnum('quantity_dimension', ['count', 'mass', 'volume', 'length', 'area', 'unknown'])
 export const quantityUnitEnum = pgEnum('quantity_unit', ['ks', 'g', 'kg', 'mg', 'ml', 'l', 'm', 'cm', 'mm', 'm2', 'cm2'])

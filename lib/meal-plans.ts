@@ -274,6 +274,8 @@ const UNIT_INFO: Record<ItemUnit, { group: UnitGroup; toBase: number }> = {
   l: { group: 'volume', toBase: 1000 },
   ml: { group: 'volume', toBase: 1 },
   ks: { group: 'count', toBase: 1 },
+  // A dose counts only against doses: it is its own kind of count, never convertible to pieces.
+  dávka: { group: 'count', toBase: 1 },
 }
 
 /** Converts a quantity between units that measure the same thing — mass (kg<->g) or volume

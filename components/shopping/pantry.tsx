@@ -1,3 +1,4 @@
+import { unitLabel } from '@/lib/units'
 import { AlertTriangle, BriefcaseMedical, Car, Cat, Check, ClipboardCheck, House, Minus, Package, PackageSearch, Pencil, Plus, Refrigerator, Snowflake, SprayCan, Warehouse, Wheat, X, type LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Pager } from '@/components/shared/pager'
@@ -95,7 +96,7 @@ function QuantityStepper({ quantity, unit, unitQuantity, unitUnit, onChange }: {
         onKeyDown={(e) => e.key === 'Enter' && commit(e.currentTarget.value)}
         className="h-9 w-14 rounded-lg border border-input bg-background px-1 text-center text-base outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
       />
-      <span className="min-w-6 text-sm text-fg-muted">{unit}</span>
+      <span className="min-w-6 text-sm text-fg-muted">{unitLabel(quantity, unit)}</span>
       {unitQuantity != null && unitUnit && !(unitQuantity === 1 && unitUnit === 'ks') && (
         <span className="whitespace-nowrap text-xs text-fg-muted">· {String(unitQuantity).replace('.', ',')} {unitUnit}</span>
       )}

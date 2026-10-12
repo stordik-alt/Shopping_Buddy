@@ -1,5 +1,6 @@
 'use client'
 
+import { DOSE_TYPE_KEYS, ITEM_UNITS, unitLabel } from '@/lib/units'
 import { useState } from 'react'
 import { PackageCheck, Trash2 } from 'lucide-react'
 import { CollapsibleSection } from '@/components/shared/collapsible-section'
@@ -11,7 +12,7 @@ import { validateStockLevels, type StockLevel } from '@/lib/pantry-restock'
 import { PRODUCT_TYPES } from '@/lib/product-types'
 import type { ItemUnit } from '@/lib/types'
 
-const UNITS: ItemUnit[] = ['ks', 'kg', 'g', 'l', 'ml']
+const UNITS = ITEM_UNITS
 const TYPES_BY_NAME = [...PRODUCT_TYPES].sort((a, b) => a.name.localeCompare(b.name, 'cs'))
 const amount = (value: number) => String(Math.round(value * 1000) / 1000).replace('.', ',')
 const parse = (text: string) => (text.trim() === '' ? null : Number(text.trim().replace(',', '.')))
@@ -41,7 +42,7 @@ export function StockLevelsSettings({
     setTypeName(name)
     const type = TYPES_BY_NAME.find((entry) => entry.name.toLowerCase() === name.trim().toLowerCase())
     if (type) {
-      setUnit(type.unit)
+      setUnit(DOSE_TYPE_KEYS.has(type.key) ? 'dávka' : type.unit)
       // Editing a type that is already watched starts from its current levels.
       const existing = levels.find((level) => level.productTypeKey === type.key)
       if (existing) {
@@ -101,7 +102,7 @@ export function StockLevelsSettings({
               <button type="button" className="min-w-0 flex-1 text-left" onClick={() => pickType(level.typeName)} aria-label={`Upravit ${level.typeName}`}>
                 <span className="block break-words text-sm font-medium">{level.typeName}</span>
                 <span className="block text-xs text-muted-foreground">
-                  minimum {amount(level.minQuantity)} · maximum {amount(level.maxQuantity)} {level.unit}
+                  minimum {amount(level.minQuantity)} · maximum {amount(level.maxQuantity)} {unitLabel(level.maxQuantity, level.unit)}
                 </span>
               </button>
               <ConfirmRemoveButton label={`hlídání ${level.typeName}`} onConfirm={() => void remove(level.id)} disabled={busy}>
@@ -133,7 +134,7 @@ export function StockLevelsSettings({
               <Select {...props} value={unit} onChange={(event) => setUnit(event.target.value as ItemUnit)}>
                 {UNITS.map((option) => (
                   <option key={option} value={option}>
-                    {option}
+                    {option === 'dávka' ? 'dávky' : option}
                   </option>
                 ))}
               </Select>

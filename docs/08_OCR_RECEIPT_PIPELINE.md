@@ -616,3 +616,6 @@ This is audit metadata only. The same Gemini structuring, validation, duplicate 
 - AZURE_DOCUMENT_INTELLIGENCE_KEY
 
 The fallback uses the Azure Document Intelligence REST API 2024-11-30 and sends the uploaded file bytes as base64, so no storage address is exposed to Azure. Azure's analyzeResult.content is fed into the same Gemini structuring and validation pipeline; Azure never bypasses the application's validation rules.
+## Doses (dávky)
+
+A line whose name states a dose count ("WOOLITE pr.gel 45PD", "Persil 33 dávek", `doseCountInName` in `lib/receipts.ts`) and carries no explicit unit other than pieces is stored in the unit `dávka`: quantity = doses per pack × packs (a reader quantity equal to the dose count means one pack), price per dose = the line's printed amount over the doses. So the pantry gets 45 doses and the line costs exactly what the receipt says.

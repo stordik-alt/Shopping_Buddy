@@ -1,3 +1,4 @@
+import { ITEM_UNITS } from '@/lib/units'
 import { useEffect, useState } from 'react'
 import { AlertTriangle, Check, Copy, RefreshCw, RotateCcw, Trash2, X } from 'lucide-react'
 import { subcategoriesOfItem } from '@/lib/product-subcategories'
@@ -13,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/field'
 
 const CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
-const UNITS: ItemUnit[] = ['ks', 'kg', 'g', 'l', 'ml']
+const UNITS = ITEM_UNITS
 
 const FAILED_STATUSES = new Set(['ocr_failed', 'parsing_failed'])
 const TRANSIENT_STATUSES = new Set(['uploaded', 'ocr_processing', 'ocr_completed', 'parsing', 'parsed', 'validating'])

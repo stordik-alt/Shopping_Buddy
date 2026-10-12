@@ -1,3 +1,4 @@
+import { ITEM_UNITS, unitLabel } from '@/lib/units'
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { ItemTypePicker } from '@/components/shopping/item-type-picker'
 import { RefreshListButton } from '@/components/shopping/refresh-list-button'
@@ -29,7 +30,7 @@ import { useWakeLock } from '@/lib/use-wake-lock'
 import { formatDecimalInput, parseDecimalInput } from '@/lib/decimal-input'
 
 const CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
-const UNITS: ItemUnit[] = ['ks', 'kg', 'g', 'l', 'ml']
+const UNITS = ITEM_UNITS
 const PRIORITIES: ItemPriority[] = ['Nízká', 'Normální', 'Vysoká']
 const STORES: StoreChain[] = ['Lidl', 'Albert', 'Kaufland', 'Billa', 'Penny', 'JIP']
 const PRIORITY_WEIGHT: Record<ItemPriority, number> = { Vysoká: 0, Normální: 1, Nízká: 2 }
@@ -426,7 +427,7 @@ export const ShoppingList = memo(function ShoppingList({
                     {/* What to buy and how much, on the one line: the amount is what the shopper needs
                         in the shop. No price here — a deal's price is shown by its "Akce" badge below. */}
                     <span className={`shrink-0 whitespace-nowrap text-sm font-semibold ${item.done ? 'text-fg-muted' : ''}`}>
-                      {formatDecimalInput(item.quantity)} {item.unit}
+                      {formatDecimalInput(item.quantity)} {unitLabel(item.quantity, item.unit)}
                     </span>
                     <button
                       type="button"

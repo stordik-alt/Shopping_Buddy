@@ -547,6 +547,21 @@ const UNIT_ALIASES: Record<string, ItemUnit> = {
   l: 'l',
   litr: 'l',
   ml: 'ml',
+  dávka: 'dávka',
+  dávky: 'dávka',
+  dávek: 'dávka',
+  davka: 'dávka',
+  davky: 'dávka',
+  davek: 'dávka',
+  pd: 'dávka',
+}
+
+/** The number of doses a product's name states ("WOOLITE pr.gel 45PD", "Persil gel 33 dávek"); null when
+ *  it states none. "PD" is how dm and others abbreviate "praních dávek". */
+export function doseCountInName(name: string): number | null {
+  const match = /(?<![\d.,])(\d{1,3})\s*(?:pd|dávek|dávky|dávka|davek|davky|davka)(?![\p{L}\d])/iu.exec(name)
+  const doses = match ? Number(match[1]) : NaN
+  return Number.isInteger(doses) && doses > 1 ? doses : null
 }
 
 /** Normalizes retailer names so OCR variants of known chains map to one canonical name.
@@ -653,7 +668,14 @@ export function toReceiptLineItems(
   return receipt.items
     .filter((item) => item.name.trim().length > 0 && !isRoundingLine(item.name))
     .map((item) => {
-      const quantity = item.quantity ?? 1
+      // A washing gel is counted in doses: "WOOLITE pr.gel 45PD" bought once is 45 doses at home, for
+      // the line's amount. The reader may give 1 (one pack) or 45 (the package size taken for the
+      // quantity — both mean one pack); another whole number is that many packs.
+      const dosesPerPack = doseCountInName(item.name)
+      const countedInDoses = dosesPerPack != null && normalizeReceiptUnit(item.unit) === 'ks' && (item.totalPrice != null || item.unitPrice != null)
+      const packs = Math.max(1, Math.round(item.quantity ?? 1))
+      const doseQuantity = countedInDoses ? (item.quantity === dosesPerPack ? 1 : packs) * (dosesPerPack as number) : null
+      const quantity = doseQuantity ?? item.quantity ?? 1
       // ReceiptLineItem.price is a *per-unit* price (receiptTotal/createPurchaseFromReceiptItems
       // multiply it by quantity) — the receipt's own totalPrice is the *line's* total, so it must
       // be divided back down to a unit price, not assigned directly (that would double-count
@@ -666,7 +688,10 @@ export function toReceiptLineItems(
       // line amount, so the line costs exactly what the receipt says. Such a line still goes to review.
       const unitPriceFromTotal = item.totalPrice != null && quantity > 0 ? item.totalPrice / quantity : null
       const price =
-        item.unitPrice != null && item.totalPrice != null && !isLineItemConsistent(item) && unitPriceFromTotal != null
+        doseQuantity != null
+          ? // The line's amount over its doses (or, with no amount, the pack price over the doses).
+            Math.round(((item.totalPrice ?? (item.unitPrice as number) * (doseQuantity / (dosesPerPack as number))) / doseQuantity) * 10_000) / 10_000
+          : item.unitPrice != null && item.totalPrice != null && !isLineItemConsistent(item) && unitPriceFromTotal != null
           ? Math.round(unitPriceFromTotal * 10_000) / 10_000
           : (item.unitPrice ?? unitPriceFromTotal ?? item.totalPrice ?? 0)
       const { entry: catalogEntry, match: fuzzyMatch } = resolveCatalogProduct(item.name, catalog, aliases, storeId)
@@ -689,7 +714,7 @@ export function toReceiptLineItems(
         rawName: item.name.trim(),
         category,
         quantity,
-        unit: unitForQuantity(normalizeReceiptUnit(item.unit), quantity),
+        unit: doseQuantity != null ? 'dávka' : unitForQuantity(normalizeReceiptUnit(item.unit), quantity),
         price,
         ...(item.unitPrice == null && item.quantity == null && item.totalPrice != null && { unitPriceUnknown: true }),
         // `price` above stays the pre-discount unit price; the line's discount travels separately

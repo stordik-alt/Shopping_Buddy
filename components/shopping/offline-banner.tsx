@@ -19,7 +19,7 @@ export function OfflineBanner({ online, pending, dropped, onDismissDropped }: { 
       )}
       {dropped > 0 && (
         <div className="flex items-start justify-between gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm">
-          <p className="min-w-0">Některé změny už nešlo uložit, protože položku mezitím upravil nebo smazal někdo jiný ({dropped}). Seznam ukazuje aktuální stav.</p>
+          <p className="min-w-0">Některé změny seznamu se nepodařilo uložit ({dropped}), třeba protože položku mezitím upravil nebo smazal někdo jiný. Zkontrolujte seznam a zkuste to znovu.</p>
           <button type="button" onClick={onDismissDropped} className="icon-button -m-1 shrink-0" aria-label="Zavřít upozornění">
             <X className="h-4 w-4" />
           </button>

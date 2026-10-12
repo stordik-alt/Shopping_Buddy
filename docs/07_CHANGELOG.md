@@ -1,3 +1,8 @@
+## 2026-10-12 — Intro: „Příště už nezobrazovat“
+
+- Koncept: `docs/22_GUIDE.md`. Intro dostalo zaškrtávátko „Příště už nezobrazovat“. Bez zaškrtnutí se intro ukáže při každé návštěvě (dřív ho vypnulo jakékoli tlačítko), se zaškrtnutím se příště přeskočí rovnou na přihlášení. Příznak v `localStorage` je teď `shopping-buddy:skip-intro:v3`; staré `v2` se zahazuje, aby i ti, kdo intro už jednou viděli, ho uviděli znovu a rozhodli se sami.
+- Ověřeno Playwrightem na lokálním serveru: první návštěva ukáže intro, „Přeskočit“ bez zaškrtnutí nic neuloží a intro se ukáže znovu, se zaškrtnutím se uloží příznak a další návštěva jde rovnou na přihlášení; typová kontrola.
+
 ## 2026-10-12 — Intro: Anitka přijde v celé postavě
 
 - Koncept: `docs/22_GUIDE.md`. Úvodní obrazovka před přihlášením má místo poprsí celou postavu (nová kresba od vlastníka, pozadí odstraněno bez zbytků). Postava stojí rovně na zemi (kresba ji má ve skoku s pokrčenýma nohama, proto jsou nohy sestavené z džínoviny z obrázku průvodce a bot z kresby) a při otevření vejde zpoza levého okraje obrazovky: tělo se při krocích nadzvedává, nohy se zvedají střídavě, na místě se zastaví a objeví se bublina. Soubory `anitka-intro-*.webp`, nová komponenta `components/auth/anitka-intro-figure.tsx`, pohyb v `app/globals.css`; starý `anitka-mascot-bust.webp` smazán.

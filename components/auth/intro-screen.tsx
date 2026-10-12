@@ -11,7 +11,10 @@ import { readThemeChoice, resolveDark } from '@/lib/theme-preference'
 // redraw the logo"; served to signed-out visitors by proxy.ts, same as the rest of public/brand). Its
 // job is unchanged from before — mark the intro seen, then hand off to the existing sign-in screen —
 // only the screen itself is new.
-const SKIP_INTRO_KEY = 'shopping-buddy:skip-intro:v2'
+// v3 (2026-10-12): the flag used to be set by any button, so every browser that had ever seen the intro carried
+// it. It now means "the visitor asked not to see it again" (checkbox), so the old value is deliberately dropped
+// and everyone sees the intro once more and decides for themselves.
+const SKIP_INTRO_KEY = 'shopping-buddy:skip-intro:v3'
 
 // Sampled directly from the approved logo asset (not invented): the wordmark's navy and the symbol's
 // turquoise wedge. Scoped to this one screen — the rest of the app keeps its own theme tokens
@@ -31,6 +34,7 @@ export function IntroScreen() {
   const [ready, setReady] = useState(false)
   const [dark, setDark] = useState(false)
   const [pageIndex, setPageIndex] = useState(0)
+  const [dontShowAgain, setDontShowAgain] = useState(false)
   const page = INTRO_PAGES[pageIndex]
   const lastPage = pageIndex === INTRO_PAGES.length - 1
 
@@ -45,10 +49,12 @@ export function IntroScreen() {
     setReady(true)
   }, [router])
 
-  // Either action dismisses the intro for good and continues to the existing sign-in flow — there is
-  // no reason to show it again once someone has gone through it, whichever button they used.
+  // Either button continues to the sign-in flow; the intro is only skipped on later visits when the
+  // visitor ticked "Příště už nezobrazovat" (without it the intro comes back each time).
   function proceed() {
-    safeLocalStorage()?.setItem(SKIP_INTRO_KEY, 'true')
+    const storage = safeLocalStorage()
+    if (dontShowAgain) storage?.setItem(SKIP_INTRO_KEY, 'true')
+    else storage?.removeItem(SKIP_INTRO_KEY)
     router.push('/auth/sign-in')
   }
 
@@ -114,6 +120,16 @@ export function IntroScreen() {
           </div>
 
           <div className="mt-5 w-full space-y-3">
+            {/* The whole row is the label, so the tap target is the row and not the small box. */}
+            <label className="flex min-h-11 cursor-pointer items-center justify-center gap-2.5 text-sm font-medium text-[var(--anitka-navy)]/80 dark:text-white/80">
+              <input
+                type="checkbox"
+                checked={dontShowAgain}
+                onChange={(event) => setDontShowAgain(event.target.checked)}
+                className="size-5 shrink-0 accent-[var(--anitka-navy)] dark:accent-[var(--anitka-turquoise)]"
+              />
+              Příště už nezobrazovat
+            </label>
             <button
               type="button"
               onClick={lastPage ? proceed : () => setPageIndex((current) => current + 1)}

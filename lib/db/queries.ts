@@ -563,6 +563,9 @@ export async function getHouseholdData(
   userId: string,
   userName: string,
   userEmail: string,
+  // Whether the auth provider has confirmed that this account owns `userEmail`. Defaults to false so
+  // a caller that forgets it never gets the automatic join below.
+  emailVerified = false,
   // Records where the render spends its time (lib/perf-timing.ts); the default measures nothing.
   timer: PerfTimer = createPerfTimer('getHouseholdData', { enabled: false }),
 ): Promise<HouseholdData> {
@@ -575,10 +578,16 @@ export async function getHouseholdData(
   if (ownMember) {
     household = await timer.measure('hh.household', () => db.query.households.findFirst({ where: eq(schema.households.id, ownMember.householdId) }))
   } else {
-    const pendingInvitation = await db.query.invitations.findFirst({
-      where: and(eq(schema.invitations.email, userEmail.toLowerCase()), eq(schema.invitations.status, 'pending')),
-      orderBy: desc(schema.invitations.createdAt),
-    })
+    // Joining by e-mail match alone, without the invitation token, is allowed only for an e-mail the
+    // auth provider has verified. Otherwise anyone who knows an invited address could register with it
+    // and walk into that household. An unverified account gets its own household here and joins
+    // through the invitation link (`acceptInvitationAction`), which proves possession of the token.
+    const pendingInvitation = emailVerified
+      ? await db.query.invitations.findFirst({
+          where: and(eq(schema.invitations.email, userEmail.toLowerCase()), eq(schema.invitations.status, 'pending')),
+          orderBy: desc(schema.invitations.createdAt),
+        })
+      : undefined
     household =
       pendingInvitation && new Date(pendingInvitation.expiresAt) > new Date()
         ? await joinHouseholdViaInvitation(userId, userName, pendingInvitation)

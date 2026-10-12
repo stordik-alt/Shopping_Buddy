@@ -1,4 +1,5 @@
 import { X } from 'lucide-react'
+import { ConfirmRemoveButton } from '@/components/shared/confirm-remove-button'
 import type { Child } from '@/lib/types'
 
 export function ChildCard({ child, onRemove }: { child: Child; onRemove: () => void }) {
@@ -9,13 +10,9 @@ export function ChildCard({ child, onRemove }: { child: Child; onRemove: () => v
           <p className="break-words text-sm font-medium">{child.name}</p>
           <p className="text-xs text-muted-foreground">{child.age} let</p>
         </div>
-        <button
-          aria-label={`Odebrat ${child.name}`}
-          onClick={onRemove}
-          className="flex size-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
+        <ConfirmRemoveButton label={child.name} onConfirm={onRemove}>
           <X className="h-4 w-4" aria-hidden="true" />
-        </button>
+        </ConfirmRemoveButton>
       </div>
       {child.preferences && <p className="mt-2 break-words text-xs text-muted-foreground">Preference: {child.preferences}</p>}
       {child.specialNeeds && <p className="mt-1 break-words text-xs text-destructive">Specifické potřeby: {child.specialNeeds}</p>}

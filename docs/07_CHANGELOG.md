@@ -1,3 +1,8 @@
+## 2026-10-12 — UX: odebrání člena, dítěte a vlastního místa vyžaduje potvrzení
+
+- Koncept: `docs/14_MOBILE_UI_V2_SPEC.md` (§2: tlačítka min. 44 px). Odebrání člena domácnosti, dítěte (smaže i alergie a preference) a vlastního místa v zásobách proběhlo jedním klepnutím na malé ✕. Nová sdílená komponenta `components/shared/confirm-remove-button.tsx`: první klepnutí jen nahradí ikonu dvojicí „Odebrat“ / „Zrušit“ (Esc a 6 s bez reakce otázku zavřou), odebere až druhé. Použitá v `member-card`, `child-card` a `pantry-places` (tlačítko u místa je kvůli tomu 40 px místo 32 px). Server i data se nemění.
+- Ověřeno: `tsc --noEmit`, nový `confirm-remove-button.test.tsx` a Chromium na lokální DB (člen zůstane po prvním klepnutí i po „Zrušit“, zmizí po „Odebrat“). Odebrání dítěte a místa v zásobách se v prohlížeči nezkoušelo, jen v testu a přes stejnou komponentu.
+
 ## 2026-10-12 — UX: Enter přidá položku, méně prázdných karet u nové domácnosti
 
 - Koncept: `docs/14_MOBILE_UI_V2_SPEC.md` (§4: žádné prázdné karty), `docs/22_GUIDE.md`. Z UX průchodu aplikace na šířce 390 px:

@@ -14,7 +14,7 @@ import { safeLocalStorage } from '@/lib/safe-storage'
 import type { ExpenseSplitPart } from '@/lib/purchase-expenses'
 import { getPeriodExpensesAction } from '@/app/actions/budget'
 import { clearDoneItemsAction,getPurchaseExpenseItemsAction, recordPurchaseAsExpenseAction, setPurchaseItemExpenseSplitsAction } from '@/app/actions/purchases'
-import { addShoppingItemAction, addShoppingListAction, resolveRecipePackageHintsAction } from '@/app/actions/shopping'
+import { addShoppingItemAction, addShoppingListAction, refreshShoppingListAction, resolveRecipePackageHintsAction } from '@/app/actions/shopping'
 import { AppHeader } from '@/components/shared/app-header'
 import { resolveRecipePackage } from '@/lib/recipes/packaging'
 import { AppSidebar } from '@/components/shared/app-sidebar'
@@ -205,7 +205,7 @@ export function AppShell({
   const [planOpen, setPlanOpen] = useState(false)
   const userLocation = useUserLocation()
 
-  const { queueRef, pendingCount, online, droppedCount, dismissDropped, runOrQueue, flushQueue } = useShoppingQueue({
+  const { queueRef, activityRef, pendingCount, online, droppedCount, dismissDropped, runOrQueue, flushQueue } = useShoppingQueue({
     householdId: initialData.household.id,
     mainListId: initialData.mainListId,
     setItems,
@@ -488,6 +488,27 @@ export function AppShell({
     void runOrQueue({ kind: 'toggle', itemId: id, done: next })
   }
 
+  // "Obnovit" on the shopping list: reads the list again and replaces only the list on screen. It does
+  // not re-render the page (router.refresh), so the view keeps its place and nothing else reloads.
+  // What this device still owes the server (queued offline changes, an item removed a moment ago) stays
+  // applied on top of the fresh copy, the same way as when the page is loaded.
+  async function refreshShoppingList() {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const before = { ...activityRef.current }
+      const state = await refreshShoppingListAction()
+      const after = activityRef.current
+      // A change started or was being saved while the list was read, so the copy may lack it and
+      // would put the screen back to an older state: read again once it has settled.
+      if (before.inflight === 0 && after.inflight === 0 && after.started === before.started) {
+        setItems(applyPendingOps(state.items, queueRef.current).filter((item) => !isPendingRemoval(item.id)))
+        setShoppingLists(state.shoppingLists)
+        return
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 400))
+    }
+    throw new Error('Seznam se právě ukládá. Zkuste to za chvíli.')
+  }
+
   // The items leave the list now; the server hears about it after the undo window (useUndoableRemoval).
   function removeItems(ids: string[]) {
     removeWithUndo(ids)
@@ -595,6 +616,7 @@ export function AppShell({
   const listAddItem = useStableCallback(addItem)
   const listUpdateItem = useStableCallback(updateItem)
   const listRemoveItems = useStableCallback(removeItems)
+  const listRefresh = useStableCallback(refreshShoppingList)
   const listToggleItem = useStableCallback(toggleItem)
   const listAddList = useStableCallback(addShoppingListName)
   const listPin = useStableCallback(pinProduct)
@@ -779,6 +801,7 @@ export function AppShell({
                         addItem={listAddItem}
                         updateItem={listUpdateItem}
                         removeItems={listRemoveItems}
+                        onRefresh={listRefresh}
                         toggle={listToggleItem}
                         lists={shoppingLists}
                         onAddList={listAddList}

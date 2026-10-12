@@ -4,7 +4,7 @@ import { eq, inArray } from 'drizzle-orm'
 import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
 import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
-import { getProductPrices, getStandaloneOffers } from '@/lib/db/queries'
+import { getProductPrices, getShoppingListState, getStandaloneOffers } from '@/lib/db/queries'
 import { getProductCatalogCached } from '@/lib/db/cached-reads'
 import * as schema from '@/lib/db/schema'
 import { money } from '@/lib/format'
@@ -281,6 +281,13 @@ export async function removeShoppingItemAction(itemId: string) {
   // No revalidatePath: the app has already shown this change (components/app-shell.tsx updates its own
   // state first), and re-rendering the whole page for every tap re-ran every household query —
   // compute on the database for nothing. Other members see it on their next reload.
+}
+
+/** The list's "Obnovit": the household's current list items and list names, read fresh. Read-only; the
+ *  household comes from the session, so a client cannot ask for another household's list. */
+export async function refreshShoppingListAction(): Promise<{ items: Item[]; shoppingLists: string[] }> {
+  const householdId = await requireHouseholdId()
+  return getShoppingListState(householdId)
 }
 
 export async function addShoppingListAction(name: string) {

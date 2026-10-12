@@ -74,6 +74,51 @@ const QUALITY_PREFERENCE_LABEL: Record<string, QualityPreference> = {
 const ITEM_COLORS = ['bg-sky-100 text-sky-700', 'bg-amber-100 text-amber-700', 'bg-rose-100 text-rose-700', 'bg-violet-100 text-violet-700', 'bg-emerald-100 text-emerald-700']
 const colorForIndex = (index: number) => ITEM_COLORS[index % ITEM_COLORS.length]
 
+/** The items of one shopping list in the order they were added. Shared by the page load
+ *  (`getHouseholdData`) and the list's own refresh (`getShoppingListState`), so both read and map the
+ *  same columns. */
+const shoppingItemsQuery = (db: ReturnType<typeof getDb>, listId: string) =>
+  db.query.shoppingListItems.findMany({
+    where: eq(schema.shoppingListItems.listId, listId),
+    with: { preferredStoreLocation: { columns: { id: true }, with: { store: { columns: { chain: true } } } } },
+    orderBy: asc(schema.shoppingListItems.createdAt),
+  })
+
+function toShoppingItem(item: Awaited<ReturnType<typeof shoppingItemsQuery>>[number], index: number): Item {
+  return {
+    id: item.id,
+    name: item.name,
+    detail: item.detail,
+    price: Number(item.price),
+    quantity: item.quantity,
+    unit: item.unit,
+    category: item.category,
+    done: item.done,
+    color: colorForIndex(index),
+    priority: item.priority,
+    note: item.note ?? undefined,
+    store: item.preferredStoreLocation?.store.chain,
+    onSale: item.onSale,
+    productTypes: item.productTypes ?? null,
+  }
+}
+
+/** What the shopping list screen shows, read fresh for one household: the main list's items and the
+ *  names of the household's lists. Used by the list's "Obnovit" so it can update just the list, without
+ *  re-reading the whole page. The household comes from the session, never from the client. */
+export async function getShoppingListState(householdId: string): Promise<{ items: Item[]; shoppingLists: string[] }> {
+  const db = getDb()
+  const lists = await db.query.shoppingLists.findMany({
+    where: eq(schema.shoppingLists.householdId, householdId),
+    orderBy: asc(schema.shoppingLists.createdAt),
+  })
+  // Same rule as the page load: the first (oldest) list is the one whose items the app shows.
+  const mainListId = lists[0]?.id
+  if (!mainListId) throw new Error('Household has no shopping list — run the seed script.')
+  const items = await shoppingItemsQuery(db, mainListId)
+  return { items: items.map(toShoppingItem), shoppingLists: lists.map((list) => list.name) }
+}
+
 export type SavedMealPlan = { weekStart: string; budgetLimit: number; plan: WeeklyMealPlan }
 export type PendingInvitation = { id: string; email: string; expiresAt: string }
 
@@ -610,11 +655,7 @@ export async function getHouseholdData(
   const mainListId = lists[0]?.id
   if (!mainListId) throw new Error('Household has no shopping list — run the seed script.')
 
-  const items = await timed('items', db.query.shoppingListItems.findMany({
-    where: eq(schema.shoppingListItems.listId, mainListId),
-    with: { preferredStoreLocation: { columns: { id: true }, with: { store: { columns: { chain: true } } } } },
-    orderBy: asc(schema.shoppingListItems.createdAt),
-  }))
+  const items = await timed('items', shoppingItemsQuery(db, mainListId))
 
   const mappedHousehold: Household = {
     id: household.id,
@@ -662,24 +703,7 @@ export async function getHouseholdData(
     household: mappedHousehold,
     mainListId,
     shoppingLists: lists.map((list) => list.name),
-    items: items.map(
-      (item, index): Item => ({
-        id: item.id,
-        name: item.name,
-        detail: item.detail,
-        price: Number(item.price),
-        quantity: item.quantity,
-        unit: item.unit,
-        category: item.category,
-        done: item.done,
-        color: colorForIndex(index),
-        priority: item.priority,
-        note: item.note ?? undefined,
-        store: item.preferredStoreLocation?.store.chain,
-        onSale: item.onSale,
-        productTypes: item.productTypes ?? null,
-      }),
-    ),
+    items: items.map(toShoppingItem),
     categoryBudgets: Object.fromEntries(categoryBudgetRows.map((row) => [row.category, Number(row.amount)])),
     recurringPayments: recurringRows.map((row) => ({
       id: row.id,

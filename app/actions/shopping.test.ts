@@ -4,7 +4,7 @@ import { getDb } from '@/lib/db/client'
 import { getStoreChains } from '@/lib/db/member-store-preferences'
 import { getProductCatalog } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
-import { addShoppingItemAction, removeShoppingItemAction, toggleShoppingItemAction, updateShoppingItemAction } from '@/app/actions/shopping'
+import { addShoppingItemAction, refreshShoppingListAction, removeShoppingItemAction, toggleShoppingItemAction, updateShoppingItemAction } from '@/app/actions/shopping'
 
 // Integration coverage for the household-scoping gap noted in docs/01_CURRENT_STATE.md ("Server
 // Actions and the auto-provision/auto-join logic ... still have no automated tests"). Runs
@@ -310,6 +310,42 @@ describe('toggleShoppingItemAction / removeShoppingItemAction', () => {
     await removeShoppingItemAction(item.id)
     const removed = await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, item.id) })
     expect(removed).toBeUndefined()
+  })
+})
+
+describe('refreshShoppingListAction', () => {
+  it('returns the caller\'s current items and list names, with changes made elsewhere since the page loaded', async () => {
+    currentHouseholdId = householdId
+    const { item: kept } = await addShoppingItemAction(listId, 'Obnovit: zůstane')
+    const { item: gone } = await addShoppingItemAction(listId, 'Obnovit: smazáno jinde')
+    // Another member's changes, made straight in the database as if from another device.
+    await db.update(schema.shoppingListItems).set({ done: true, quantity: 3 }).where(eq(schema.shoppingListItems.id, kept.id))
+    await db.delete(schema.shoppingListItems).where(eq(schema.shoppingListItems.id, gone.id))
+
+    const state = await refreshShoppingListAction()
+    const names = state.items.map((item) => item.name)
+    expect(names).toContain('Obnovit: zůstane')
+    expect(names).not.toContain('Obnovit: smazáno jinde')
+    const refreshed = state.items.find((item) => item.id === kept.id)
+    expect(refreshed).toMatchObject({ done: true, quantity: 3 })
+    expect(state.shoppingLists).toContain('Test list')
+  })
+
+  it('never returns another household\'s items, whatever the caller does', async () => {
+    const [foreign] = await db.insert(schema.shoppingListItems).values({ listId: otherListId, name: 'Obnovit: cizí' }).returning()
+    try {
+      currentHouseholdId = householdId
+      const mine = await refreshShoppingListAction()
+      expect(mine.items.map((item) => item.name)).not.toContain('Obnovit: cizí')
+      expect(mine.shoppingLists).not.toContain('Other list')
+
+      currentHouseholdId = otherHouseholdId
+      const theirs = await refreshShoppingListAction()
+      expect(theirs.items.map((item) => item.name)).toContain('Obnovit: cizí')
+    } finally {
+      currentHouseholdId = householdId
+      await db.delete(schema.shoppingListItems).where(eq(schema.shoppingListItems.id, foreign.id))
+    }
   })
 })
 

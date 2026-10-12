@@ -27,6 +27,10 @@ export function useShoppingQueue({
 }) {
   const router = useRouter()
   const queueRef = useRef<PendingOp[]>([])
+  // Changes started and changes being sent right now. A refresh reads the list from the server; if any
+  // change started or was still being sent meanwhile, what it read may not include it, so the refresh
+  // must not overwrite the screen with it (components/app-shell.tsx refreshShoppingList).
+  const activityRef = useRef({ started: 0, inflight: 0 })
   const flushingRef = useRef(false)
   const [pendingCount, setPendingCount] = useState(0)
   const [online, setOnline] = useState(true)
@@ -61,24 +65,29 @@ export function useShoppingQueue({
   }
 
   async function runOrQueue(op: PendingOp) {
+    activityRef.current.started += 1
     const queueIt = () => {
       if (op.kind === 'add') setItems((current) => [...current, placeholderItem(op.tempId, op.name)])
       setQueue(enqueue(queueRef.current, op))
     }
     // Behind earlier waiting changes, a new one waits too, so the server sees them in order.
     if (queueRef.current.length > 0 || !navigator.onLine) return queueIt()
+    activityRef.current.inflight += 1
     try {
       await sendOp(op)
     } catch (error) {
       if (isNetworkError(error, navigator.onLine)) return queueIt()
       console.error('Shopping list change refused', error)
       setDroppedCount((count) => count + 1)
+    } finally {
+      activityRef.current.inflight -= 1
     }
   }
 
   const flushQueue = useCallback(async () => {
     if (flushingRef.current || queueRef.current.length === 0 || !navigator.onLine) return
     flushingRef.current = true
+    activityRef.current.inflight += 1
     let refused = false
     try {
       while (queueRef.current.length > 0) {
@@ -98,6 +107,7 @@ export function useShoppingQueue({
       if (refused) router.refresh()
     } finally {
       flushingRef.current = false
+      activityRef.current.inflight -= 1
     }
     // sendOp only uses stable values and state setters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -126,5 +136,5 @@ export function useShoppingQueue({
     }
   }, [householdId, flushQueue, setItems])
 
-  return { queueRef, pendingCount, online, droppedCount, dismissDropped: () => setDroppedCount(0), runOrQueue, flushQueue }
+  return { queueRef, activityRef, pendingCount, online, droppedCount, dismissDropped: () => setDroppedCount(0), runOrQueue, flushQueue }
 }

@@ -347,7 +347,7 @@ Current functionality includes:
 * joining an existing household
 * owner/member roles
 
-There is no realtime infrastructure and, since 2026-09-29, no automatic refresh either: the app no longer re-renders itself on a timer, on regaining focus or on a push message (it threw people back to the top of the page mid-task). Another member's changes appear after a reload or after the user's own next action that refreshes.
+There is no realtime infrastructure and, since 2026-09-29, no automatic refresh either: the app no longer re-renders itself on a timer, on regaining focus or on a push message (it threw people back to the top of the page mid-task). Another member's changes appear after a reload or after the user's own next action that refreshes. The shopping list has one deliberate exception (2026-10-12): the **Obnovit** button above the list (`components/shopping/refresh-list-button.tsx`, `refreshShoppingListAction`) re-reads only the household's list items and list names and replaces just the list on screen, with no page re-render, so the view stays where it is. It applies this device's queued offline changes and an item removed a moment ago on top of the fresh copy, and it will not overwrite the screen with a copy read while a change was being saved (it reads again; after three tries it asks the user to retry). The other sections (pantry, budget, …) still refresh only on reload.
 
 The application currently uses:
 

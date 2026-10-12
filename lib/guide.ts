@@ -115,6 +115,7 @@ const BASE_STEPS: readonly GuideStep[] = [
     also: [
       'Klepnutím na řádek nastavíte množství, kategorii, obchod, prioritu a poznámku.',
       'Další seznamy (třeba „Vánoce“) a „Filtry a řazení“ pro dlouhé seznamy.',
+      '„Obnovit“ nahoře načte změny, které udělal někdo z domácnosti, a stránka se neposune.',
     ],
     covers: ['shopping-detail', 'shopping-lists'],
     prepare: { selector: '[role="group"][aria-label="Zobrazení nákupu"] button', text: 'Nákupní seznam' },
@@ -403,7 +404,7 @@ const BASE_STEPS: readonly GuideStep[] = [
     ],
     todo: ['Zkontrolujte název domácnosti, přidejte členy a děti (věk, alergie, co nejí) a vyberte oblíbené značky a obchody.'],
     also: [
-      'Členové a děti: stravování, alergie, věk. Pozvaní sdílejí seznam, zásoby i rozpočet (změny druhých po obnovení stránky).',
+      'Členové a děti: stravování, alergie, věk. Pozvaní sdílejí seznam, zásoby i rozpočet (změny druhých po „Obnovit“ či obnovení stránky).',
       'Obchody v okolí a nákupní preference: kam chodíte, prioritní obchody, oblíbené značky, co nekupovat.',
       'Upozornění (vyberte, která chcete) a vlastní místa pro zásoby.',
     ],
@@ -417,7 +418,7 @@ const BASE_STEPS: readonly GuideStep[] = [
     tab: 'Profil',
     mood: 'smile',
     title: 'Členové, děti a pozvánky',
-    text: 'U každého člena nastavíte způsob stravování, alergie a co nejí. U dětí věk a zvláštní potřeby. Další dospělé pozvete e-mailem a ti pak uvidí a upravují stejný nákupní seznam, zásoby i rozpočet. Změny druhých se ale ukážou až po obnovení stránky.',
+    text: 'U každého člena nastavíte způsob stravování, alergie a co nejí. U dětí věk a zvláštní potřeby. Další dospělé pozvete e-mailem a ti pak uvidí a upravují stejný nákupní seznam, zásoby i rozpočet. Změny druhých se ale ukážou až po tlačítku „Obnovit“ nad nákupním seznamem, jinde po obnovení stránky.',
     where: 'V Profilu nahoře je „Členové domácnosti“ a pod ním „Děti“.',
     todo: ['Přidejte e-mail dalšího člena a pošlete pozvánku.', 'U dětí vyplňte věk a alergie.'],
     target: [{ selector: 'section button', contains: 'Děti' }],

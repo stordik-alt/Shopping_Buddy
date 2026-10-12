@@ -1055,6 +1055,21 @@ export const pantryPlaces = pgTable('pantry_places', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => [uniqueIndex('pantry_places_household_area_name_unique').on(table.householdId, table.area, table.name)])
 
+// The household's wanted stock per product TYPE (docs/36_PANTRY_STOCK_LEVELS.md): restock when the stock of
+// the whole type (every pantry row of it) nears `minQuantity`, up to `maxQuantity`, in `unit`. Set in the
+// Profil, never per concrete product, so the cheapest variant of the type can be suggested.
+export const householdStockLevels = pgTable('household_stock_levels', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  productTypeId: uuid('product_type_id').notNull().references(() => productTypes.id, { onDelete: 'cascade' }),
+  minQuantity: numeric('min_quantity', { precision: 10, scale: 3, mode: 'number' }).notNull(),
+  maxQuantity: numeric('max_quantity', { precision: 10, scale: 3, mode: 'number' }).notNull(),
+  unit: itemUnitEnum('unit').notNull(),
+}, (table) => [
+  check('household_stock_levels_check', sql`${table.minQuantity} >= 0 AND ${table.maxQuantity} > ${table.minQuantity}`),
+  uniqueIndex('household_stock_levels_household_type_unique').on(table.householdId, table.productTypeId),
+])
+
 // Household pantry ("spíž"): what the household believes it currently has at home. Populated by
 // completePurchaseAction (a purchased item restocks or creates its pantry row) and periodically
 // re-checked by the pantry-checkin cron, which asks "do you still have this?" per
@@ -1099,8 +1114,8 @@ export const pantryItems = pgTable('pantry_items', {
   // purchased line's name. Lets a recipe asking for grams use stock kept in pieces; null = unknown.
   pieceQuantity: numeric('piece_quantity', { precision: 10, scale: 3, mode: 'number' }),
   pieceUnit: itemUnitEnum('piece_unit'),
-  // Wanted stock in `unit`: restock when the stock nears `minQuantity`, up to `maxQuantity`
-  // (lib/pantry-restock.ts). Both set or both null.
+  // Superseded 2026-10-12 by `household_stock_levels` (levels are per product type, set in the Profil).
+  // No longer read or written; drop in a later migration once no running code uses them.
   minQuantity: numeric('min_quantity', { precision: 10, scale: 3, mode: 'number' }),
   maxQuantity: numeric('max_quantity', { precision: 10, scale: 3, mode: 'number' }),
 }, (table) => [

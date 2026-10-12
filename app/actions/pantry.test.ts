@@ -2,6 +2,7 @@ import { and, eq, inArray } from 'drizzle-orm'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
+import { PRODUCT_TYPES } from '@/lib/product-types'
 import { CHECKIN_DAYS_BY_CATEGORY, customPlaceKey, PANTRY_LOCATIONS } from '@/lib/pantry'
 
 // Continues the Server Action test coverage started in app/actions/shopping.test.ts.
@@ -23,7 +24,8 @@ import {
   reviewPantryAction,
   setPantryCheckinDaysAction,
   setPantrySubcategoryCheckinDaysAction,
-  setPantryStockLevelsAction,
+  setStockLevelAction,
+  removeStockLevelAction,
   setPantryTrackingAction,
 } from '@/app/actions/pantry'
 
@@ -43,6 +45,7 @@ beforeEach(async () => {
 
 afterAll(async () => {
   for (const id of createdHouseholdIds) {
+    await db.delete(schema.householdStockLevels).where(eq(schema.householdStockLevels.householdId, id))
     await db.delete(schema.pantryItems).where(eq(schema.pantryItems.householdId, id))
     await db.delete(schema.pantryPlaces).where(eq(schema.pantryPlaces.householdId, id))
     await db.delete(schema.pantryCheckinIntervals).where(eq(schema.pantryCheckinIntervals.householdId, id))
@@ -498,17 +501,25 @@ describe('setPantryTrackingAction', () => {
   })
 })
 
-describe('setPantryStockLevelsAction', () => {
-  it("saves and clears the caller's own item's levels; refuses another household's item and invalid levels", async () => {
-    const [mine] = await db.insert(schema.pantryItems).values({ householdId, name: 'Máslo', category: 'Potraviny' }).returning()
-    const [theirs] = await db.insert(schema.pantryItems).values({ householdId: otherHouseholdId, name: 'Rýže', category: 'Potraviny' }).returning()
-    await setPantryStockLevelsAction(mine.id, 2, 6)
-    expect(await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, mine.id) })).toMatchObject({ minQuantity: 2, maxQuantity: 6 })
-    await expect(setPantryStockLevelsAction(mine.id, 5, 5)).rejects.toThrow('Maximum musí být větší')
-    await expect(setPantryStockLevelsAction(mine.id, 3, null)).rejects.toThrow('Vyplňte')
-    await expect(setPantryStockLevelsAction(theirs.id, 1, 2)).rejects.toThrow('Pantry item not found')
-    await setPantryStockLevelsAction(mine.id, null, null)
-    expect(await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, mine.id) })).toMatchObject({ minQuantity: null, maxQuantity: null })
+describe('stock levels per product type', () => {
+  it("saves, replaces and removes the caller's own level; refuses an unknown type, invalid levels and another household's level", async () => {
+    const key = PRODUCT_TYPES[0].key
+    let levels = await setStockLevelAction(key, 2, 6, 'ks')
+    expect(levels).toMatchObject([{ productTypeKey: key, minQuantity: 2, maxQuantity: 6, unit: 'ks' }])
+    // One level per type: saving again replaces it.
+    levels = await setStockLevelAction(key, 1, 4, 'kg')
+    expect(levels).toHaveLength(1)
+    expect(levels[0]).toMatchObject({ minQuantity: 1, maxQuantity: 4, unit: 'kg' })
+    await expect(setStockLevelAction(key, 5, 5, 'ks')).rejects.toThrow('Maximum musí být větší')
+    await expect(setStockLevelAction('nesmysl', 1, 2, 'ks')).rejects.toThrow('Neplatný druh zboží')
+    await expect(setStockLevelAction(key, 1, 2, 'pytel' as never)).rejects.toThrow('Neplatná jednotka')
+
+    // Another household cannot remove it.
+    currentHouseholdId = otherHouseholdId
+    expect(await removeStockLevelAction(levels[0].id)).toEqual([])
+    currentHouseholdId = householdId
+    expect(await setStockLevelAction(key, 1, 4, 'kg')).toHaveLength(1)
+    expect(await removeStockLevelAction(levels[0].id)).toEqual([])
   })
 })
 

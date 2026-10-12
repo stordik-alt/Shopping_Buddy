@@ -9,7 +9,6 @@ import { SegmentedControl } from '@/components/ui/segmented-control'
 import { PantryAddModal, type PantryAddInput } from '@/components/shopping/pantry-add-modal'
 import { PantryReview, type PantryReviewResult } from '@/components/shopping/pantry-review'
 import { itemCountLabel } from '@/lib/format'
-import { validateStockLevels } from '@/lib/pantry-restock'
 import { type PantryQuantityChange, findDuplicatePlacements, PANTRY_QUANTITY_STEP, needsCheck, PANTRY_PAGE_SIZE, PANTRY_TRACKING, pantryPlaceOptions, placeKeyOf, summarizeByPlace, type PantryPlaceOption } from '@/lib/pantry'
 import { estimateReason, type ConsumptionEstimate } from '@/lib/pantry-estimate'
 import { clampPage, pageCount } from '@/lib/paging'
@@ -112,57 +111,6 @@ function QuantityStepper({ quantity, unit, unitQuantity, unitUnit, onChange }: {
   )
 }
 
-/** The household's wanted stock for one row: a minimum (the app suggests stocking up when a preferred
- *  chain runs a promotion and the stock nears it) and a maximum (how much to stock up to). Both empty
- *  switches it off. The server validates again and may refuse, so a refusal is shown here. */
-function StockLevelsEditor({ item, onSave }: { item: PantryItem; onSave: (min: number | null, max: number | null) => Promise<void> }) {
-  const [min, setMin] = useState(item.minQuantity != null ? String(item.minQuantity) : '')
-  const [max, setMax] = useState(item.maxQuantity != null ? String(item.maxQuantity) : '')
-  const [message, setMessage] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-
-  const parse = (text: string) => (text.trim() === '' ? null : Number(text.trim().replace(',', '.')))
-
-  async function save() {
-    const minValue = parse(min)
-    const maxValue = parse(max)
-    const problem = validateStockLevels(minValue, maxValue)
-    if (problem) return setMessage(problem)
-    setSaving(true)
-    try {
-      await onSave(minValue, maxValue)
-      setMessage(minValue == null ? 'Sledování zásoby vypnuto.' : 'Uloženo.')
-    } catch (error) {
-      console.error('Saving the stock levels failed', error)
-      setMessage('Nepodařilo se uložit. Zkuste to prosím znovu.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="space-y-2 sm:col-span-2">
-      <p className="text-sm font-medium">Hlídat zásobu ({item.unit})</p>
-      <div className="flex flex-wrap items-end gap-2">
-        <label className="block space-y-1 text-sm">
-          <span>Minimum</span>
-          <input aria-label={`Minimum ${item.name}`} inputMode="decimal" value={min} onChange={(event) => setMin(event.target.value)} className="h-10 w-24 rounded-xl border border-input bg-background px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40" />
-        </label>
-        <label className="block space-y-1 text-sm">
-          <span>Maximum</span>
-          <input aria-label={`Maximum ${item.name}`} inputMode="decimal" value={max} onChange={(event) => setMax(event.target.value)} className="h-10 w-24 rounded-xl border border-input bg-background px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40" />
-        </label>
-        <Button variant="outline" onClick={save} disabled={saving}>
-          {saving ? 'Ukládám…' : 'Uložit'}
-        </Button>
-      </div>
-      <p role="status" className="text-sm text-fg-muted">
-        {message ?? 'Když se zásoba blíží minimu a je akce v prioritním obchodě, nabídneme doplnění do maxima. Obojí prázdné = nehlídat.'}
-      </p>
-    </div>
-  )
-}
-
 /** Household stock ("zásoby") — what the household believes it currently has at home, restocked
  *  automatically by importReceiptAction/createManualPurchaseAction and periodically re-checked by the
  *  pantry-checkin cron (lib/pantry.ts). Deliberately not one long list: the storage locations are
@@ -187,8 +135,7 @@ export function Pantry({
   onAdjustQuantity,
   onReview,
   onSetTracking,
-  onSetStockLevels,
-  restockItemIds,
+  restockTypeKeys,
   onSetSubcategory,
   onSetCategory,
   onAutoCategorize,
@@ -211,10 +158,8 @@ export function Pantry({
   onReview: (reviewedIds: string[], goneIds: string[], addGoneToList: boolean, quantities: PantryQuantityChange[]) => Promise<PantryReviewResult>
   /** How closely an item is watched: normal, rarely (salt, spices), not at all. */
   onSetTracking: (id: string, tracking: PantryTracking) => void
-  /** Saves an item's wanted stock (minimum and maximum, or both null to stop watching); rejects when refused. */
-  onSetStockLevels?: (id: string, min: number | null, max: number | null) => Promise<void>
-  /** Ids of the items that near their minimum, marked "Dokoupit". */
-  restockItemIds?: ReadonlySet<string>
+  /** Keys of the product types whose stock nears the minimum set in the Profil; their rows are marked "Dokoupit". */
+  restockTypeKeys?: ReadonlySet<string>
   /** Sets an item's subcategory by hand; null clears it. */
   onSetSubcategory: (id: string, subcategory: string | null) => Promise<CatalogChangeOutcome | 'none'> | void
   onSetCategory: (id: string, category: ItemCategory) => Promise<CategoryChangeOutcome | void> | void
@@ -514,7 +459,7 @@ export function Pantry({
               <div className="min-w-0 flex-1 basis-full sm:basis-0">
                 <span className="flex flex-wrap items-center gap-2">
                   <span className="min-w-0 break-words font-medium">{item.name}</span>
-                  {restockItemIds?.has(item.id) && (
+                  {item.productTypeKey != null && restockTypeKeys?.has(item.productTypeKey) && (
                     <Badge tone="accent" className="py-0.5">
                       Dokoupit
                     </Badge>
@@ -605,7 +550,6 @@ export function Pantry({
                     ))}
                   </Select>
                 </label>
-                {onSetStockLevels && <StockLevelsEditor item={item} onSave={(min, max) => onSetStockLevels(item.id, min, max)} />}
               </div>
             )}
           </div>

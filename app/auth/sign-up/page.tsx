@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { type FormEvent, Suspense, useState } from 'react'
 import { Brand } from '@/components/shared/brand'
 import { authClient } from '@/lib/auth/client'
+import { refusalOf } from '@/lib/auth/auth-errors'
 
 export default function SignUpPage() {
   return (
@@ -32,10 +33,10 @@ function SignUpForm() {
       return
     }
     setLoading(true)
-    const { error: signUpError } = await authClient.signUp.email({ name: name.trim(), email: email.trim(), password })
+    const refusal = await refusalOf(() => authClient.signUp.email({ name: name.trim(), email: email.trim(), password }), 'Registraci se nepodařilo dokončit.')
     setLoading(false)
-    if (signUpError) {
-      setError(signUpError.message || 'Registraci se nepodařilo dokončit.')
+    if (refusal) {
+      setError(refusal)
       return
     }
     router.push(invite ? `/invite/${invite}` : '/')

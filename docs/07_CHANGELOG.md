@@ -1,3 +1,7 @@
+## 2026-10-12 — Přihlášení a registrace: odmítnutí už nezůstane viset
+
+- Klient Neon Auth při odmítnutém požadavku (chybné heslo, účet už existuje) **vyhazuje** `AuthApiError` místo vrácení `{ error }`. Formuláře `app/auth/sign-in` a `app/auth/sign-up` kontrolovaly jen vrácenou hodnotu, takže se výjimka nezachytila, tlačítko zůstalo na „Přihlašuji…“ a uživatel nedostal žádnou zprávu. Nový `lib/auth/auth-errors.ts` (`refusalOf`, `authErrorMessage`) zachytí vrácenou i vyhozenou chybu, překládá známé důvody do češtiny („Nesprávný e-mail nebo heslo.“, „Účet s tímto e-mailem už existuje.“) a vrátí tlačítko do výchozího stavu. Ověřeno v Chromiu proti skutečnému Neon Auth. Testy: `lib/auth/auth-errors.test.ts`.
+
 ## 2026-10-12 — Bezpečnost V5: nasazení do Vercelu bez `npx vercel@latest`
 
 - Koncept: `docs/37_SECURITY_REMEDIATION_PLAN.md` (V5). Workflow `.github/workflows/vercel-deploy.yml` stahoval při každém běhu nejnovější Vercel CLI (`npx vercel@latest`) a spouštěl ho s produkčním tokenem; kompromitovaný release by ten token získal. CLI je teď devDependency s pevnou verzí (`vercel` 59.24.0, vydaná před třemi týdny), instaluje se z lockfile (`pnpm install --frozen-lockfile`) a spouští přes `pnpm exec vercel`. Workflow zůstává **jen ruční** (`workflow_dispatch`): nespouští ho žádný push ani pull request, a navíc se odmítne, pokud je spuštěn z jiné větve než `main`. Odstraněna mrtvá větev pro `workflow_run`. Produkční závislosti se nemění (`pnpm audit --prod` beze změny).

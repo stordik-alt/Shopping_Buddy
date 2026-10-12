@@ -401,14 +401,20 @@ export function Recipes({ household, initialPlan, pantryItems, onAddIngredients,
                           {entry.problem && (
                             <span className="mt-1 block text-xs text-destructive">{entry.problem} {entry.ingredient.originalText}</span>
                           )}
-                          {!entry.problem && entry.stockQuantity > 0 && (
+                          {!entry.problem && entry.stockUnmeasured && (
+                            <span className="mt-1 block text-xs text-fg-muted">Máte doma.</span>
+                          )}
+                          {!entry.problem && entry.stockUnitMismatch && (
+                            <span className="mt-1 block text-xs text-fg-muted">Máte doma, ale v jiné jednotce — množství zkontrolujte.</span>
+                          )}
+                          {!entry.problem && !entry.stockUnmeasured && entry.stockQuantity > 0 && (
                             <span className="mt-1 block text-xs text-fg-muted">
                               {missing > 0
                                 ? `Máte doma ${formatIngredientQuantity(entry.stockQuantity)} ${entry.unit}; do nákupu ${formatIngredientQuantity(missing)} ${entry.unit}.`
                                 : `Máte doma dostatečné množství: ${formatIngredientQuantity(entry.stockQuantity)} ${entry.unit}.`}
                             </span>
                           )}
-                          {!entry.problem && entry.stockQuantity === 0 && (
+                          {!entry.problem && entry.stockQuantity === 0 && !entry.stockUnitMismatch && (
                             <span className="mt-1 block text-xs text-fg-muted">Nemáte evidovanou zásobu.</span>
                           )}
                         </span>

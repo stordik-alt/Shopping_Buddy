@@ -1,3 +1,9 @@
+## 2026-10-12 — Recepty: suroviny, které máte v zásobách, už se nehlásí jako „koupit“
+
+- Koncept: `docs/10_RECIPES.md`. Detail receptu (`lib/recipes/shopping.ts`) porovnával zásoby jen podle přesného názvu a surovinu s kuchyňskou mírou („špetka soli“, „sůl podle chuti“) vždy hlásil jako chybějící. Teď: zásoba se hledá podle názvu i typu zboží (stejně jako v jídelníčku), balení se čtou přes `stockQuantityIn` (2 ks × 300 g) a surovina bez porovnatelného množství se bere za pokrytou, pokud ji domácnost má (řádek „Máte doma.“).
+- Zásoba v nesrovnatelné jednotce (1 ks kuřete vs. 500 g) zůstává v nákupu, ale s hláškou „Máte doma, ale v jiné jednotce — množství zkontrolujte.“. Řádky „Nesledovat“ se dál nepočítají.
+- Testy: `lib/recipes/shopping.test.ts` (sůl na skladě, typ zboží a balení, nesrovnatelná jednotka).
+
 ## 2026-10-11 — Průvodce: celá aplikace od začátku do konce a živá Anitka
 
 - Koncept: `docs/22_GUIDE.md`. Průvodce má 33 karet místo 12: pohyb po aplikaci, Domů, zvonek, Nákup (detail položky, seznamy a filtry, hledání produktů, plán nákupu, dokončení nákupu, Moje nákupy, Účtenky), Zásoby (místa, úpravy, kontrola, minimum a maximum), Rozpočet (Přehled, Výdaje, Plánování, pravidelné platby, Kapsy, uzavření období), Akce, Obchody, Recepty, Jídelníček a čtyři karty Profilu. Texty jsou psané lidsky a odpovídají skutečným funkcím.

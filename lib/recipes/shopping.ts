@@ -1,4 +1,5 @@
-import { convertQuantity } from '@/lib/meal-plans'
+import { stockQuantityIn } from '@/lib/meal-plans'
+import { resolveListItemTypes, stockTypeCanSatisfyRequestedType } from '@/lib/product-types'
 import { matchKey } from '@/lib/receipt-list-match'
 import type { RecipeIngredient } from '@/lib/recipes/types'
 import type { ItemUnit, PantryItem } from '@/lib/types'
@@ -19,6 +20,10 @@ export type RecipeShoppingAnalysis = {
   missingQuantity: number | null
   /** Original recipe measure for a culinary unit represented as one shopping item. */
   sourceMeasure?: string
+  /** A culinary-measure ingredient the household has in stock (amount not comparable, so not missing). */
+  stockUnmeasured?: boolean
+  /** The household has this in stock, but in a unit that cannot be compared with the recipe's. */
+  stockUnitMismatch?: boolean
   problem: string | null
 }
 
@@ -151,15 +156,37 @@ export function toRecipeShoppingItem(ingredient: RecipeIngredient, quantity = in
   return { name: ingredient.name, quantity: normalizedQuantity, unit: mapped.unit }
 }
 
-export function pantryStockQuantity(pantryItems: PantryItem[], ingredient: RecipeShoppingItem): number {
-  const key = matchKey(ingredient.name)
-  if (!key) return 0
+/** Stock rows that are the same product as the recipe ingredient. Matches by synonym-folded name
+ *  and, like the meal plan (`matchIngredientToStock`), by product type — stock is saved under its
+ *  type ("Kuře"), which a recipe's wording ("kuřecí maso") resolves to as well. */
+function matchingStockRows(pantryItems: PantryItem[], ingredientName: string): PantryItem[] {
+  const key = matchKey(ingredientName)
+  if (!key) return []
+  const requestedType = resolveListItemTypes(ingredientName)
 
-  return pantryItems.reduce((total, item) => {
-    if (item.tracking === 'off' || item.quantity <= 0 || matchKey(item.name) !== key) return total
-    const converted = convertQuantity(item.quantity, item.unit, ingredient.unit)
+  return pantryItems.filter((item) => {
+    if (item.tracking === 'off' || item.quantity <= 0) return false
+    if (matchKey(item.name) === key) return true
+    return Boolean(
+      requestedType &&
+        item.productTypeKey &&
+        requestedType.types.some((type) => stockTypeCanSatisfyRequestedType(item.productTypeKey as string, type)),
+    )
+  })
+}
+
+export function pantryStockQuantity(pantryItems: PantryItem[], ingredient: RecipeShoppingItem): number {
+  return matchingStockRows(pantryItems, ingredient.name).reduce((total, item) => {
+    // stockQuantityIn also reads a pack row (3 ks × 250 g) in the recipe's weight/volume unit.
+    const converted = stockQuantityIn(item, ingredient.unit)
     return converted == null ? total : total + converted
   }, 0)
+}
+
+/** Whether the household has the ingredient at all, whatever its unit — used where the recipe
+ *  gives no measurable amount (a pinch of salt) or one that cannot be compared with the stock row. */
+export function hasPantryStock(pantryItems: PantryItem[], ingredientName: string): boolean {
+  return matchingStockRows(pantryItems, ingredientName).length > 0
 }
 
 export function analyzeRecipeIngredient(ingredient: RecipeIngredient, pantryItems: PantryItem[], quantity = ingredient.quantity): RecipeShoppingAnalysis {
@@ -176,10 +203,28 @@ export function analyzeRecipeIngredient(ingredient: RecipeIngredient, pantryItem
     return { ingredient, quantity: null, unit: null, stockQuantity: 0, missingQuantity: null, problem: reason }
   }
 
-  // A culinary measure is deliberately treated as one "buy this product" placeholder.
-  // Without package-size data we must not claim that an existing pantry quantity satisfies it.
-  const stockQuantity = shoppingItem.sourceMeasure ? 0 : pantryStockQuantity(pantryItems, shoppingItem)
-  const missingQuantity = shoppingItem.sourceMeasure ? 1 : Math.max(0, shoppingItem.quantity - stockQuantity)
+  // A culinary measure ("špetka soli", "podle chuti") has no amount that could be compared with a
+  // stock row, so the ingredient counts as covered whenever the household has it at all — a
+  // pinch of salt never justifies a trip to the shop for someone with a salt shaker at home.
+  if (shoppingItem.sourceMeasure) {
+    const covered = hasPantryStock(pantryItems, shoppingItem.name)
+    return {
+      ingredient,
+      quantity: shoppingItem.quantity,
+      unit: shoppingItem.unit,
+      stockQuantity: covered ? shoppingItem.quantity : 0,
+      missingQuantity: covered ? 0 : 1,
+      sourceMeasure: shoppingItem.sourceMeasure,
+      stockUnmeasured: covered,
+      problem: null,
+    }
+  }
+
+  const stockQuantity = pantryStockQuantity(pantryItems, shoppingItem)
+  const missingQuantity = Math.max(0, shoppingItem.quantity - stockQuantity)
+  // In stock but in a unit that cannot be compared (1 ks of chicken vs 500 g): we cannot say it is
+  // enough, so it stays on the shopping side, but the UI tells the user they have some.
+  const stockUnitMismatch = stockQuantity === 0 && hasPantryStock(pantryItems, shoppingItem.name)
 
   return {
     ingredient,
@@ -187,7 +232,7 @@ export function analyzeRecipeIngredient(ingredient: RecipeIngredient, pantryItem
     unit: shoppingItem.unit,
     stockQuantity,
     missingQuantity,
-    sourceMeasure: shoppingItem.sourceMeasure,
+    stockUnitMismatch,
     problem: null,
   }
 }

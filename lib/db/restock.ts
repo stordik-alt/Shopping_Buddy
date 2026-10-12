@@ -1,8 +1,8 @@
-import { asc, eq, sql } from 'drizzle-orm'
+import { and, asc, eq, gte, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { productTypeByKey } from '@/lib/product-types'
-import { lowStockLevels, type RestockCandidate, type StockLevel } from '@/lib/pantry-restock'
+import { dismissalKey, lowStockLevels, type RestockCandidate, type StockLevel } from '@/lib/pantry-restock'
 import type { ItemUnit, PantryItem } from '@/lib/types'
 
 /** The household's wanted stock per product type (Profil ▸ Hlídané zásoby), by type name. */
@@ -72,4 +72,14 @@ export async function getRestockCandidates(levels: StockLevel[], items: PantryIt
     regularPrice: row.regular_price == null ? null : Number(row.regular_price),
     validUntil: String(row.valid_until).slice(0, 10),
   }))
+}
+
+/** The household's refused offers that are still running (`dismissalKey` of each). */
+export async function getRestockDismissals(householdId: string, today: string): Promise<string[]> {
+  const rows = await getDb()
+    .select({ typeKey: schema.productTypes.key, productId: schema.restockDismissals.productId, validUntil: schema.restockDismissals.validUntil })
+    .from(schema.restockDismissals)
+    .innerJoin(schema.productTypes, eq(schema.productTypes.id, schema.restockDismissals.productTypeId))
+    .where(and(eq(schema.restockDismissals.householdId, householdId), gte(schema.restockDismissals.validUntil, today)))
+  return rows.map((row) => dismissalKey(row.typeKey, row.productId, String(row.validUntil).slice(0, 10)))
 }

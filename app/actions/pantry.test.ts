@@ -26,6 +26,7 @@ import {
   setPantrySubcategoryCheckinDaysAction,
   setStockLevelAction,
   removeStockLevelAction,
+  dismissRestockSuggestionAction,
   setPantryTrackingAction,
 } from '@/app/actions/pantry'
 
@@ -522,6 +523,31 @@ describe('stock levels per product type', () => {
     currentHouseholdId = householdId
     expect(await setStockLevelAction(key, 1, 4, 'kg')).toHaveLength(1)
     expect(await removeStockLevelAction(levels[0].id)).toEqual([])
+  })
+})
+
+describe('dismissRestockSuggestionAction', () => {
+  it("saves a refusal for the household, replaces nothing twice, drops ended offers and refuses invalid input", async () => {
+    const category = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
+    const [product] = await db.insert(schema.products).values({ name: `__test_dismiss_${crypto.randomUUID()}`, categoryId: category!.id }).returning()
+    try {
+      const key = PRODUCT_TYPES[0].key
+      const first = await dismissRestockSuggestionAction(key, product.id, '2026-10-20', '2026-10-12')
+      expect(first).toEqual([`${key}:${product.id}:2026-10-20`])
+      expect(await dismissRestockSuggestionAction(key, product.id, '2026-10-20', '2026-10-12')).toEqual(first)
+      // An ended offer is dropped once a later day is reported.
+      expect(await dismissRestockSuggestionAction(key, product.id, '2026-11-30', '2026-10-25')).toEqual([`${key}:${product.id}:2026-11-30`])
+      // Another household sees nothing of it.
+      currentHouseholdId = otherHouseholdId
+      expect(await dismissRestockSuggestionAction(key, product.id, '2026-11-30', '2026-10-25')).toHaveLength(1)
+      currentHouseholdId = householdId
+      await expect(dismissRestockSuggestionAction('nesmysl', product.id, '2026-10-20', '2026-10-12')).rejects.toThrow('Neplatný druh zboží')
+      await expect(dismissRestockSuggestionAction(key, 'x', '2026-10-20', '2026-10-12')).rejects.toThrow('Neplatný produkt')
+      await expect(dismissRestockSuggestionAction(key, product.id, 'zítra', '2026-10-12')).rejects.toThrow('Neplatné datum')
+    } finally {
+      await db.delete(schema.restockDismissals).where(eq(schema.restockDismissals.productId, product.id))
+      await db.delete(schema.products).where(eq(schema.products.id, product.id))
+    }
   })
 })
 

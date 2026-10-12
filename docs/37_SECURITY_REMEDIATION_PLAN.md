@@ -20,7 +20,7 @@ Za 6 dní od prvního auditu byl opraven **jediný** nález (V4 závislosti). Ob
 | V2 | Kterýkoli člen smaže vlastníka | **Opraveno v kódu 2026-10-12** (`canRemoveMember`) | `app/actions/household.ts:136` bez kontroly role a „posledního vlastníka“ |
 | V3 | Chybí FK `household_members.user_id` → `neon_auth."user"` | **Otevřeno** (migrace bez FK; jediný odkaz je v `0041`). Nutno ověřit živé schéma | `lib/db/migrations` |
 | V4 | Zranitelné závislosti | **Opraveno** | `sharp` 0.35.5, `shadcn` v devDependencies; `pnpm audit --prod` = 3 moderate (zbytek přes `@neondatabase/auth`: `esbuild`, `baseline-browser-mapping`, `fast-uri`) |
-| V5 | `npx vercel@latest` s produkčním tokenem | **Otevřeno** | `.github/workflows/vercel-deploy.yml:30` |
+| V5 | `npx vercel@latest` s produkčním tokenem | **Opraveno v kódu 2026-10-12** (připnuté CLI z lockfile, jen ruční spuštění z `main`) | `.github/workflows/vercel-deploy.yml:30` |
 | V6 | Únik SQL parametrů/podpisů do logů a odpovědí | **Otevřeno** | `lib/receipt-log.ts` nemaskuje `params:` |
 | V7 | `retryReceiptImportAction` bez stropu (placené OCR/LLM) | **Otevřeno** | žádný čítač pokusů |
 | V8 | Registrace/přihlášení bez CAPTCHA a rate limitu | **Otevřeno** | v `app`/`components` žádná CAPTCHA |

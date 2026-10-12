@@ -1,3 +1,7 @@
+## 2026-10-12 — CSP: hlášení `unsafe-eval` je neškodné, `'unsafe-eval'` se nepřidává
+
+- Koncept: `docs/37_SECURITY_REMEDIATION_PLAN.md` (K1). Report-Only politika hlásila v konzoli „Evaluating a string as JavaScript violates … 'unsafe-eval'“. Zdroj v produkčním balíčku: zod ověřuje, jestli smí používat eval (`try { Function('') } catch`, při zákazu přejde na variantu bez evalu), a `core-js` má `Function('return this')` jako záložní cestu, která se v prohlížeči nespustí. Ověřeno produkčním buildem s **vynucenou** politikou a skutečným klientem Neon Auth: přihlašovací formulář funguje (i zobrazení „Nesprávný e-mail nebo heslo.“), žádné porušení se nehlásí. Politika zůstává bez `'unsafe-eval'`, `CSP_ENFORCE=1` lze zapnout. Změna je jen v dokumentaci.
+
 ## 2026-10-12 — Přihlášení: kódy chyb Neon Auth a srozumitelná hláška o neověřeném e-mailu
 
 - Klient Neon Auth převádí chyby na vlastní kódy (`invalid_credentials`, `email_not_confirmed`, `user_already_exists`, …), které `lib/auth/auth-errors.ts` neznal, takže po zapnutí ověřování e-mailu v Neon Auth se přihlášení účtu s neověřeným e-mailem ukázalo jen jako „Přihlášení se nezdařilo“. Mapování zná oba zápisy kódů (a omezení počtu pokusů); u neznámé chyby se ke zprávě přidá její kód („(kód: …)“), aby šla nahlásit. Pozor: zapnutí ověřování e-mailu v Neon Auth odmítne přihlášení všech stávajících účtů, jejichž e-mail ověřený není (`neon_auth."user"."emailVerified"`). Testy: `lib/auth/auth-errors.test.ts`.

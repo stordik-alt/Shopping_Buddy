@@ -23,8 +23,9 @@ import { OfflineBanner } from '@/components/shopping/offline-banner'
 import { CollapsibleSection } from '@/components/shared/collapsible-section'
 import { TodayMeals } from '@/components/dashboard/today-meals'
 import { PantryCheckCard } from '@/components/dashboard/pantry-check-card'
+import { removeStockLevelAction, setStockLevelAction } from '@/app/actions/pantry'
 import { RestockCard } from '@/components/dashboard/restock-card'
-import { isNearMinimum, type RestockSuggestion } from '@/lib/pantry-restock'
+import { lowStockLevels, type RestockSuggestion, type StockLevel } from '@/lib/pantry-restock'
 import { keptNameKey, needsCheck } from '@/lib/pantry'
 import { PieChart } from 'lucide-react'
 import { SegmentedControl } from '@/components/ui/segmented-control'
@@ -87,7 +88,7 @@ import type { HouseholdData, PurchaseAftermath, TickedListItem } from '@/lib/db/
 import { currentWeekStart, markMealCooked as markCooked, todaysMeals, type Ingredient, type MealType } from '@/lib/meal-plans'
 import type { ProductPrice } from '@/lib/prices'
 import { findOpenListItemByName, type ProductSearchHit } from '@/lib/product-search'
-import type { Item, Store, Tab } from '@/lib/types'
+import type { Item, ItemUnit, Store, Tab } from '@/lib/types'
 import type { PinRecord } from '@/lib/db/shopping-plan'
 import { filterPricesToNearby, type StoreSelection } from '@/lib/nearby-stores'
 import { nearbyOffers, type StandaloneOffer } from '@/lib/offers'
@@ -110,6 +111,7 @@ export function AppShell({
   initialStoreSelection,
   initialPins,
   restockSuggestions = [],
+  initialStockLevels = [],
   today,
   initialTab,
   initialPantryCheck = false,
@@ -129,6 +131,8 @@ export function AppShell({
   initialPins: PinRecord[]
   /** Stock-up suggestions computed on the server when the page loaded (lib/pantry-restock.ts). */
   restockSuggestions?: RestockSuggestion[]
+  /** The household's wanted stock per product type (Profil ▸ Hlídané zásoby). */
+  initialStockLevels?: StockLevel[]
   /** The real date (`YYYY-MM-DD`, Czech time) computed on the server, so server and client agree. */
   today: string
   /** The section named in the address (`/?tab=…`, lib/tab-url.ts), resolved on the server. */
@@ -264,19 +268,20 @@ export function AppShell({
     openPantryCheck,
     consumePantryCheck,
     setPantryTracking,
-    setPantryStockLevels,
     setPantryItemSubcategory,
     setPantryItemCategory,
     autoCategorizePantry,
     adjustPantryItemQuantity,
   } = pantry
-  // A suggestion stays only while its row still nears its minimum with the same levels: the household may
-  // have restocked or changed the levels since the page loaded (the list does not refresh itself).
+  const [stockLevels, setStockLevels] = useState<StockLevel[]>(initialStockLevels)
+  // A suggestion stays only while its type still nears the same minimum: the household may have
+  // restocked or changed the levels since the page loaded (the page does not refresh itself).
+  const lowTypes = useMemo(() => lowStockLevels(stockLevels, pantryItems), [stockLevels, pantryItems])
   const restockNow = useMemo(
-    () => restockSuggestions.filter((suggestion) => pantryItems.some((item) => item.id === suggestion.itemId && isNearMinimum(item) && item.minQuantity === suggestion.minQuantity && item.maxQuantity === suggestion.maxQuantity)),
-    [restockSuggestions, pantryItems],
+    () => restockSuggestions.filter((suggestion) => lowTypes.some(({ level }) => level.id === suggestion.levelId && level.minQuantity === suggestion.minQuantity && level.maxQuantity === suggestion.maxQuantity)),
+    [restockSuggestions, lowTypes],
   )
-  const restockItemIds = useMemo(() => new Set(pantryItems.filter(isNearMinimum).map((item) => item.id)), [pantryItems])
+  const restockTypeKeys = useMemo(() => new Set(lowTypes.map(({ level }) => level.productTypeKey)), [lowTypes])
   const {
     pendingReceiptImports,
     listSuggestions,
@@ -415,14 +420,14 @@ export function AppShell({
   }
 
   // Shared by the "Co koupit?" field and the deals card's "Na seznam" button.
-  async function addItemByName(name: string, selection?: ProductAutocompleteSelection) {
+  async function addItemByName(name: string, selection?: ProductAutocompleteSelection, amount?: { quantity: number; unit: ItemUnit }) {
     pantry.offerPantryCorrection(name)
     const persistedSelection = selection?.kind === 'product' && selection.productId
       ? { kind: 'product' as const, productId: selection.productId }
       : selection?.kind === 'type' && selection.productTypeKey
         ? { kind: 'type' as const, productTypeKey: selection.productTypeKey }
         : undefined
-    await runOrQueue({ kind: 'add', tempId: newTempId(), name, selection: persistedSelection })
+    await runOrQueue({ kind: 'add', tempId: newTempId(), name, selection: persistedSelection, ...(amount && { quantity: amount.quantity, unit: amount.unit }) })
   }
 
   // Sequential on purpose — was Promise.all, which fired one addShoppingItemAction per ingredient
@@ -736,7 +741,10 @@ export function AppShell({
                       onOpen={() => setTab('Zásoby')}
                     />
                   )}
-                  <RestockCard suggestions={restockNow} listItemNames={pendingNames} onAddToList={addItemByName} />
+                  <RestockCard suggestions={restockNow} listItemNames={pendingNames} onAddToList={(suggestion) =>
+                    // The cheapest variant of the type, as the concrete product, with the amount missing up to the maximum.
+                    addItemByName(suggestion.offer.productName, { kind: 'product', label: suggestion.offer.productName, productId: suggestion.offer.productId }, { quantity: suggestion.buyQuantity, unit: suggestion.unit })
+                  } />
                   {mealPlan && (
                     <TodayMeals
                       meals={todaysMeals(mealPlan, today)}
@@ -887,8 +895,7 @@ export function AppShell({
                     onAdjustQuantity={adjustPantryItemQuantity}
                     onReview={reviewPantry}
                     onSetTracking={setPantryTracking}
-                    onSetStockLevels={setPantryStockLevels}
-                    restockItemIds={restockItemIds}
+                    restockTypeKeys={restockTypeKeys}
                     onSetSubcategory={setPantryItemSubcategory}
                     onSetCategory={setPantryItemCategory}
                     onAutoCategorize={autoCategorizePantry}
@@ -1074,6 +1081,9 @@ export function AppShell({
                   onSetPantryCheckinDays={setPantryCheckinDaysFor}
                   pantryCheckinSubcategoryDays={pantryCheckinSubcategoryDays}
                   onSetPantrySubcategoryCheckinDays={setPantrySubcategoryCheckinDaysFor}
+                  stockLevels={stockLevels}
+                  onSaveStockLevel={async (key, min, max, unit) => setStockLevels(await setStockLevelAction(key, min, max, unit))}
+                  onRemoveStockLevel={async (levelId) => setStockLevels(await removeStockLevelAction(levelId))}
                 />
               )}
             </div>

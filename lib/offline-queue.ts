@@ -1,4 +1,4 @@
-import type { Item } from '@/lib/types'
+import type { Item, ItemUnit } from '@/lib/types'
 
 // The shopping list without a signal. In a shop the phone often has none, and a change the server
 // never received used to vanish: the tick stayed on screen until the next refresh replaced the list
@@ -14,7 +14,7 @@ export type PendingOp =
   | { kind: 'update'; itemId: string; changes: ItemChanges }
   | { kind: 'remove'; itemId: string }
   /** An item added offline, known by a temporary id until the server gives it a real one. */
-  | { kind: 'add'; tempId: string; name: string; selection?: { kind: 'product'; productId: string } | { kind: 'type'; productTypeKey: string } }
+  | { kind: 'add'; tempId: string; name: string; selection?: { kind: 'product'; productId: string } | { kind: 'type'; productTypeKey: string }; /** An amount to buy (restock suggestion), else one piece. */ quantity?: number; unit?: ItemUnit }
 
 const TEMP_PREFIX = 'offline-'
 
@@ -32,8 +32,8 @@ export function isTempId(id: string): boolean {
 }
 
 /** How an item added offline looks until the server has it: the typed name, the usual defaults. */
-export function placeholderItem(tempId: string, name: string): Item {
-  return { id: tempId, name, detail: 'čeká na signál', price: 0, quantity: 1, unit: 'ks', category: 'Ostatní', done: false, color: 'bg-muted', priority: 'Normální' }
+export function placeholderItem(tempId: string, name: string, quantity = 1, unit: ItemUnit = 'ks'): Item {
+  return { id: tempId, name, detail: 'čeká na signál', price: 0, quantity, unit, category: 'Ostatní', done: false, color: 'bg-muted', priority: 'Normální' }
 }
 
 /** The list as the household should see it: the server's latest copy with the waiting changes applied
@@ -43,7 +43,7 @@ export function applyPendingOps(items: Item[], ops: PendingOp[]): Item[] {
   for (const op of ops) {
     switch (op.kind) {
       case 'add':
-        if (!result.some((item) => item.id === op.tempId)) result.push(placeholderItem(op.tempId, op.name))
+        if (!result.some((item) => item.id === op.tempId)) result.push(placeholderItem(op.tempId, op.name, op.quantity, op.unit))
         break
       case 'toggle':
         result = result.map((item) => (item.id === op.itemId ? { ...item, done: op.done } : item))
@@ -98,7 +98,7 @@ function isPendingOp(value: unknown): value is PendingOp {
   const op = value as Record<string, unknown>
   switch (op.kind) {
     case 'add':
-      return typeof op.tempId === 'string' && isTempId(op.tempId) && typeof op.name === 'string'
+      return typeof op.tempId === 'string' && isTempId(op.tempId) && typeof op.name === 'string' && (op.quantity === undefined || (typeof op.quantity === 'number' && op.quantity > 0)) && (op.unit === undefined || typeof op.unit === 'string')
     case 'toggle':
       return typeof op.itemId === 'string' && typeof op.done === 'boolean'
     case 'update':

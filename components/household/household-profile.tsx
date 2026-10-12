@@ -6,6 +6,7 @@ import { DietQuestionnaire } from '@/components/household/diet-questionnaire'
 import { MemberRow } from '@/components/household/member-row'
 import { NotificationSettings } from '@/components/household/notification-settings'
 import { NearbyStores } from '@/components/household/nearby-stores'
+import { StockLevelsSettings } from '@/components/household/stock-levels-settings'
 import { PantryCheckinSettings } from '@/components/household/pantry-checkin-settings'
 import { PantryPlaces } from '@/components/household/pantry-places'
 import { CollapsibleSection } from '@/components/shared/collapsible-section'
@@ -13,7 +14,8 @@ import { TagInput } from '@/components/shared/tag-input'
 import type { MemberDiet } from '@/lib/diet'
 import type { PendingInvitation } from '@/lib/db/queries'
 import type { StoreSelection } from '@/lib/nearby-stores'
-import type { Household, HouseholdPreferences, ItemCategory, PantryArea, PantryPlace, PriceSensitivity, QualityPreference, Store } from '@/lib/types'
+import type { StockLevel } from '@/lib/pantry-restock'
+import type { Household, HouseholdPreferences, ItemCategory, ItemUnit, PantryArea, PantryPlace, PriceSensitivity, QualityPreference, Store } from '@/lib/types'
 import { userFacingError } from '@/lib/errors'
 import { Button } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/field'
@@ -48,6 +50,9 @@ export function HouseholdProfile({
   onSetPantryCheckinDays,
   pantryCheckinSubcategoryDays,
   onSetPantrySubcategoryCheckinDays,
+  stockLevels,
+  onSaveStockLevel,
+  onRemoveStockLevel,
   notificationsOff,
   onSetNotificationKind,
   pushPublicKey,
@@ -80,6 +85,10 @@ export function HouseholdProfile({
   /** The same per subcategory, keyed by `checkinSubcategoryKey`. */
   pantryCheckinSubcategoryDays: Record<string, number>
   onSetPantrySubcategoryCheckinDays: (category: ItemCategory, subcategory: string, days: number | null) => Promise<Record<string, number>>
+  /** The wanted stock per product type (Hlídané zásoby). */
+  stockLevels: StockLevel[]
+  onSaveStockLevel: (productTypeKey: string, min: number, max: number, unit: ItemUnit) => Promise<void>
+  onRemoveStockLevel: (levelId: string) => Promise<void>
   /** The kinds of notification this member switched off (docs/14_NOTIFICATION_PREFERENCES.md). */
   notificationsOff: string[]
   onSetNotificationKind: (kind: string, enabled: boolean) => Promise<void>
@@ -340,6 +349,8 @@ export function HouseholdProfile({
       <NearbyStores chains={storeChains} stores={stores} selection={storeSelection} onSave={onSaveStorePreferences} />
 
       <PantryPlaces places={pantryPlaces} onAdd={onAddPantryPlace} onRemove={onRemovePantryPlace} />
+
+      <StockLevelsSettings levels={stockLevels} onSave={onSaveStockLevel} onRemove={onRemoveStockLevel} />
 
       <PantryCheckinSettings
         overrides={pantryCheckinDays}

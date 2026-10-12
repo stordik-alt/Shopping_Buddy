@@ -49,7 +49,7 @@ export function useShoppingQueue({
   async function sendOp(op: PendingOp) {
     switch (op.kind) {
       case 'add': {
-        const { item, notification } = await addShoppingItemAction(mainListId, op.name, {}, tempIdToUuid(op.tempId), op.selection)
+        const { item, notification } = await addShoppingItemAction(mainListId, op.name, op.quantity != null && op.unit ? { quantity: op.quantity, unit: op.unit, detail: `${op.quantity} ${op.unit} · doplnění zásoby` } : {}, tempIdToUuid(op.tempId), op.selection)
         setItems((current) => (current.some((entry) => entry.id === op.tempId) ? current.map((entry) => (entry.id === op.tempId ? item : entry)) : [...current, item]))
         queueRef.current = remapItemId(queueRef.current, op.tempId, item.id)
         if (notification) setNotifications((current) => [...current, notification])
@@ -67,7 +67,7 @@ export function useShoppingQueue({
   async function runOrQueue(op: PendingOp) {
     activityRef.current.started += 1
     const queueIt = () => {
-      if (op.kind === 'add') setItems((current) => [...current, placeholderItem(op.tempId, op.name)])
+      if (op.kind === 'add') setItems((current) => [...current, placeholderItem(op.tempId, op.name, op.quantity, op.unit)])
       setQueue(enqueue(queueRef.current, op))
     }
     // Behind earlier waiting changes, a new one waits too, so the server sees them in order.

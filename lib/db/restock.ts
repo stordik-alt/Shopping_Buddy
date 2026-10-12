@@ -1,22 +1,38 @@
-import { sql } from 'drizzle-orm'
+import { asc, eq, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
-import { isNearMinimum, type RestockCandidate } from '@/lib/pantry-restock'
+import * as schema from '@/lib/db/schema'
+import { productTypeByKey } from '@/lib/product-types'
+import { lowStockLevels, type RestockCandidate, type StockLevel } from '@/lib/pantry-restock'
 import type { ItemUnit, PantryItem } from '@/lib/types'
 
-/** Running promotions on the products behind the household's pantry rows that are near their minimum
- *  (the row's own product, or any product of the row's type), optionally only at the given chains.
- *  Reads only when some row is near its minimum, so a household without stock levels costs nothing.
- *  Deciding which of them is worth suggesting is `restockSuggestions` (lib/pantry-restock.ts). */
-export async function getRestockCandidates(items: PantryItem[], today: string, storeIds: string[] | null): Promise<RestockCandidate[]> {
-  const low = items.filter(isNearMinimum)
-  if (low.length === 0) return []
-  const productIds = [...new Set(low.flatMap((item) => (item.productId ? [item.productId] : [])))]
-  const typeKeys = [...new Set(low.flatMap((item) => (item.productTypeKey ? [item.productTypeKey] : [])))]
-  if (productIds.length === 0 && typeKeys.length === 0) return []
+/** The household's wanted stock per product type (Profil ▸ Hlídané zásoby), by type name. */
+export async function getStockLevels(householdId: string): Promise<StockLevel[]> {
+  const rows = await getDb()
+    .select({
+      id: schema.householdStockLevels.id,
+      key: schema.productTypes.key,
+      name: schema.productTypes.name,
+      minQuantity: schema.householdStockLevels.minQuantity,
+      maxQuantity: schema.householdStockLevels.maxQuantity,
+      unit: schema.householdStockLevels.unit,
+    })
+    .from(schema.householdStockLevels)
+    .innerJoin(schema.productTypes, eq(schema.productTypes.id, schema.householdStockLevels.productTypeId))
+    .where(eq(schema.householdStockLevels.householdId, householdId))
+    .orderBy(asc(schema.productTypes.name))
+  return rows.map((row) => ({ id: row.id, productTypeKey: row.key, typeName: productTypeByKey(row.key)?.name ?? row.name, minQuantity: row.minQuantity, maxQuantity: row.maxQuantity, unit: row.unit }))
+}
+
+/** Running promotions on any product of the product types that are near their minimum, optionally only
+ *  at the given chains. Reads only when some type is near its minimum, so a household without stock
+ *  levels costs nothing. Deciding which of them is worth suggesting is `restockSuggestions`
+ *  (lib/pantry-restock.ts). */
+export async function getRestockCandidates(levels: StockLevel[], items: PantryItem[], today: string, storeIds: string[] | null): Promise<RestockCandidate[]> {
+  const typeKeys = [...new Set(lowStockLevels(levels, items).map(({ level }) => level.productTypeKey))]
+  if (typeKeys.length === 0) return []
   if (storeIds != null && storeIds.length === 0) return []
 
   const list = (values: string[]) => sql.join(values.map((value) => sql`${value}`), sql`, `)
-  const matches = [productIds.length > 0 ? sql`p.id IN (${sql.join(productIds.map((id) => sql`${id}::uuid`), sql`, `)})` : null, typeKeys.length > 0 ? sql`pt.key IN (${list(typeKeys)})` : null].filter((part) => part != null)
   const rows = await getDb().execute<{
     product_id: string
     name: string
@@ -41,7 +57,7 @@ export async function getRestockCandidates(items: PantryItem[], today: string, s
       ORDER BY pr.observed_at DESC LIMIT 1
     ) rp ON true
     WHERE d.valid_from <= ${today}::date AND d.valid_until >= ${today}::date
-      AND (${sql.join(matches, sql` OR `)})
+      AND pt.key IN (${list(typeKeys)})
       ${storeIds != null ? sql`AND d.store_id IN (${sql.join(storeIds.map((id) => sql`${id}::uuid`), sql`, `)})` : sql``}
   `)
   return rows.rows.map((row) => ({

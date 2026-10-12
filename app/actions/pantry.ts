@@ -12,7 +12,9 @@ import { classifySubcategory } from '@/lib/categorization'
 import type { CatalogChangeOutcome, CategoryChangeOutcome } from '@/lib/product-subcategory-changes'
 import { PRODUCT_SUBCATEGORIES, subcategoriesOfItem } from '@/lib/product-subcategories'
 import type { PantryQuantityChange } from '@/lib/pantry'
-import { validateStockLevels } from '@/lib/pantry-restock'
+import { getStockLevels } from '@/lib/db/restock'
+import { productTypeByKey } from '@/lib/product-types'
+import { validateStockLevels, type StockLevel } from '@/lib/pantry-restock'
 import { CHECKIN_DAYS_BY_CATEGORY, checkinSubcategoryKey, customPlaceIdFromKey, inferPantryLocation, MAX_PANTRY_REVIEW_ITEMS, PANTRY_AREAS, PANTRY_LOCATIONS, PANTRY_TRACKING, reviewQuantityChanges, splitPantryReview } from '@/lib/pantry'
 import { matchProductByName } from '@/lib/products'
 import type { ItemCategory, ItemUnit, PantryArea, PantryItem, PantryTracking } from '@/lib/types'
@@ -403,14 +405,30 @@ export async function setPantryTrackingAction(pantryItemId: string, tracking: Pa
   // compute on the database for nothing. Other members see it on their next reload.
 }
 
-/** Sets (or, with both null, clears) the wanted stock of a pantry row: the minimum at which the app
- *  suggests stocking up when a preferred chain runs a promotion, and the maximum to stock up to
- *  (lib/pantry-restock.ts). The household is taken from the session, never from the client. */
-export async function setPantryStockLevelsAction(pantryItemId: string, minQuantity: number | null, maxQuantity: number | null) {
+/** Sets the wanted stock of a product TYPE (Profil ▸ Hlídané zásoby): the minimum at which the app suggests
+ *  stocking up when a preferred chain runs a promotion on any product of the type, and the maximum to
+ *  stock up to (lib/pantry-restock.ts). One level per type; saving again replaces it. The household is
+ *  taken from the session, never from the client. Returns the household's levels. */
+export async function setStockLevelAction(productTypeKey: string, minQuantity: number, maxQuantity: number, unit: ItemUnit): Promise<StockLevel[]> {
   const householdId = await requireHouseholdId()
-  await assertOwnsPantryItem(householdId, pantryItemId)
+  const definition = productTypeByKey(productTypeKey)
+  if (!definition) throw new Error('Neplatný druh zboží.')
+  if (!(['ks', 'kg', 'g', 'l', 'ml'] as const).includes(unit)) throw new Error('Neplatná jednotka.')
   const problem = validateStockLevels(minQuantity, maxQuantity)
   if (problem) throw new Error(problem)
-  await getDb().update(schema.pantryItems).set({ minQuantity, maxQuantity }).where(and(eq(schema.pantryItems.id, pantryItemId), eq(schema.pantryItems.householdId, householdId)))
-  // No revalidatePath, like the other pantry saves: the app has already shown the change.
+  const db = getDb()
+  const type = await db.query.productTypes.findFirst({ where: eq(schema.productTypes.key, productTypeKey), columns: { id: true } })
+  if (!type) throw new Error('Neplatný druh zboží.')
+  await db
+    .insert(schema.householdStockLevels)
+    .values({ householdId, productTypeId: type.id, minQuantity, maxQuantity, unit })
+    .onConflictDoUpdate({ target: [schema.householdStockLevels.householdId, schema.householdStockLevels.productTypeId], set: { minQuantity, maxQuantity, unit } })
+  return getStockLevels(householdId)
+}
+
+/** Stops watching a product type's stock. Only the household's own level can be removed. */
+export async function removeStockLevelAction(levelId: string): Promise<StockLevel[]> {
+  const householdId = await requireHouseholdId()
+  await getDb().delete(schema.householdStockLevels).where(and(eq(schema.householdStockLevels.id, levelId), eq(schema.householdStockLevels.householdId, householdId)))
+  return getStockLevels(householdId)
 }

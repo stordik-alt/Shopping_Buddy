@@ -1,11 +1,13 @@
-// "Dokoupit do zásoby": the household sets a minimum and a maximum stock on a pantry row; when the
-// stock nears the minimum and a chain it prefers runs an interesting promotion on that kind of goods,
-// the app suggests stocking up now (docs/36_PANTRY_STOCK_LEVELS.md). Pure — the candidate deals come
-// from lib/db/restock.ts — so the rule is deterministic and testable (CLAUDE.md sections 5 and 25).
+// "Dokoupit do zásoby": the household sets a minimum and a maximum stock per PRODUCT TYPE in the Profil
+// ("Máslo": 2–6 ks); when the stock of the whole type nears the minimum and a chain it prefers runs an
+// interesting promotion on any product of that type, the app suggests the cheapest one and how much to
+// buy (docs/36_PANTRY_STOCK_LEVELS.md). Pure — the candidate deals come from lib/db/restock.ts — so the
+// rule is deterministic and testable (CLAUDE.md sections 5 and 25).
+import { convertQuantity } from '@/lib/quantity-normalization'
 import type { ItemUnit, PantryItem } from '@/lib/types'
 
 /** The stock "nears" its minimum from 25 % above it: far enough ahead to catch a running promotion
- *  before the shelf is empty, not so far that every row nags. */
+ *  before the shelf is empty, not so far that every type nags. */
 export const NEAR_MINIMUM_FACTOR = 1.25
 
 /** A promotion with a known regular price must take at least this much off it to count as
@@ -14,28 +16,61 @@ export const MIN_INTERESTING_DISCOUNT = 0.1
 
 const round3 = (value: number) => Math.round(value * 1000) / 1000
 
-/** Why the pair is not a valid stock level, or null when it is (both set with 0 <= min < max, or both
- *  empty to switch the watching off). Used by the form and, again, by the server action. */
+/** The household's wanted stock of one product type, in `unit` (table household_stock_levels). */
+export type StockLevel = {
+  id: string
+  /** lib/product-types.ts key of the type. */
+  productTypeKey: string
+  typeName: string
+  minQuantity: number
+  maxQuantity: number
+  unit: ItemUnit
+}
+
+/** Why the pair is not a valid stock level, or null when it is (0 <= min < max). Used by the form and,
+ *  again, by the server action. */
 export function validateStockLevels(min: number | null, max: number | null): string | null {
-  if (min == null && max == null) return null
-  if (min == null || max == null) return 'Vyplňte minimum i maximum, nebo obojí nechte prázdné.'
+  if (min == null || max == null) return 'Vyplňte minimum i maximum.'
   if (!Number.isFinite(min) || !Number.isFinite(max) || min < 0) return 'Minimum nesmí být záporné.'
   if (max <= min) return 'Maximum musí být větší než minimum.'
   return null
 }
 
-/** Whether the row has stock levels and its stock is at or below `NEAR_MINIMUM_FACTOR` × minimum. */
-export function isNearMinimum(item: Pick<PantryItem, 'quantity' | 'minQuantity' | 'maxQuantity' | 'tracking'>): boolean {
-  if (item.minQuantity == null || item.maxQuantity == null) return false
-  // "Nesledovat" means the household wants no questions about the row, a suggestion included.
-  if (item.tracking === 'off') return false
-  return item.quantity <= item.minQuantity * NEAR_MINIMUM_FACTOR
+/** One pantry row's quantity in the level's unit; null when it cannot be told (a row counted in pieces
+ *  of unknown size against a level in kg). Pieces of known size count by their size (3 × 250 g butter). */
+function quantityInUnit(item: PantryItem, unit: ItemUnit): number | null {
+  if (item.unit === unit) return item.quantity
+  const direct = convertQuantity(item.quantity, item.unit, unit)
+  if (direct != null) return direct
+  if (item.unit === 'ks' && item.unitQuantity != null && item.unitUnit != null) return convertQuantity(item.quantity * item.unitQuantity, item.unitUnit, unit)
+  return item.quantity === 0 ? 0 : null
 }
 
-/** How much to buy to get back up to the maximum, in the row's unit — whole pieces for ks. */
-export function restockQuantity(item: Pick<PantryItem, 'quantity' | 'maxQuantity' | 'unit'>): number {
-  const missing = Math.max(0, (item.maxQuantity ?? 0) - item.quantity)
-  return item.unit === 'ks' ? Math.ceil(round3(missing)) : round3(missing)
+/** The household's stock of the level's type: every pantry row of that type, summed in the level's
+ *  unit. A row whose quantity cannot be expressed in that unit is left out rather than guessed. */
+export function stockOfType(level: StockLevel, items: PantryItem[]): number {
+  let total = 0
+  for (const item of items) {
+    if (item.productTypeKey !== level.productTypeKey) continue
+    total += quantityInUnit(item, level.unit) ?? 0
+  }
+  return round3(total)
+}
+
+/** Whether the stock is at or below `NEAR_MINIMUM_FACTOR` × the minimum. */
+export function isNearMinimum(level: Pick<StockLevel, 'minQuantity'>, stock: number): boolean {
+  return stock <= level.minQuantity * NEAR_MINIMUM_FACTOR
+}
+
+/** The levels whose type is near its minimum, with the current stock. */
+export function lowStockLevels(levels: StockLevel[], items: PantryItem[]): { level: StockLevel; stock: number }[] {
+  return levels.map((level) => ({ level, stock: stockOfType(level, items) })).filter(({ level, stock }) => isNearMinimum(level, stock))
+}
+
+/** How much to buy to get back up to the maximum, in the level's unit — whole pieces for ks. */
+export function restockQuantity(level: Pick<StockLevel, 'maxQuantity' | 'unit'>, stock: number): number {
+  const missing = Math.max(0, level.maxQuantity - stock)
+  return level.unit === 'ks' ? Math.ceil(round3(missing)) : round3(missing)
 }
 
 /** One running promotion on a product, as lib/db/restock.ts reads it. */
@@ -57,8 +92,10 @@ export type RestockCandidate = {
 }
 
 export type RestockSuggestion = {
-  itemId: string
-  itemName: string
+  levelId: string
+  productTypeKey: string
+  typeName: string
+  /** The household's stock of the whole type when the page loaded. */
   quantity: number
   unit: ItemUnit
   minQuantity: number
@@ -76,11 +113,6 @@ function discountOf(candidate: RestockCandidate): number | null {
   return 1 - candidate.dealPrice / candidate.regularPrice
 }
 
-function matchesItem(item: PantryItem, candidate: RestockCandidate): boolean {
-  if (item.productId && candidate.productId === item.productId) return true
-  return item.productTypeKey != null && candidate.productTypeKey === item.productTypeKey
-}
-
 /** Cheapest first: by price per unit when both state one in the same unit (packs of different sizes
  *  stay comparable, CLAUDE.md section 17), otherwise by package price. Ties: chain, then product, so
  *  the order never depends on the database's row order. */
@@ -91,15 +123,15 @@ function compareCandidates(a: RestockCandidate, b: RestockCandidate): number {
   return a.dealPrice - b.dealPrice || a.chain.localeCompare(b.chain, 'cs') || a.productName.localeCompare(b.productName, 'cs')
 }
 
-/** The rows near their minimum that have an interesting running promotion at a chain in
- *  `storeIds` (null = any chain), each with its single cheapest such promotion. Most depleted first. */
-export function restockSuggestions(items: PantryItem[], candidates: RestockCandidate[], storeIds: ReadonlySet<string> | null): RestockSuggestion[] {
+/** The types near their minimum that have an interesting running promotion on any of their products at a
+ *  chain in `storeIds` (null = any chain), each with its single cheapest such promotion — the cheapest
+ *  variant of the type, not the household's usual one. Most depleted first. */
+export function restockSuggestions(levels: StockLevel[], items: PantryItem[], candidates: RestockCandidate[], storeIds: ReadonlySet<string> | null): RestockSuggestion[] {
   const allowed = storeIds == null ? candidates : candidates.filter((candidate) => storeIds.has(candidate.storeId))
   const suggestions: RestockSuggestion[] = []
-  for (const item of items) {
-    if (!isNearMinimum(item)) continue
+  for (const { level, stock } of lowStockLevels(levels, items)) {
     const interesting = allowed
-      .filter((candidate) => matchesItem(item, candidate))
+      .filter((candidate) => candidate.productTypeKey === level.productTypeKey)
       .filter((candidate) => {
         const discount = discountOf(candidate)
         // No regular price to compare with: shown as the offer it is, without an invented discount.
@@ -109,15 +141,16 @@ export function restockSuggestions(items: PantryItem[], candidates: RestockCandi
     const best = interesting[0]
     if (!best) continue
     suggestions.push({
-      itemId: item.id,
-      itemName: item.name,
-      quantity: item.quantity,
-      unit: item.unit,
-      minQuantity: item.minQuantity as number,
-      maxQuantity: item.maxQuantity as number,
-      buyQuantity: restockQuantity(item),
+      levelId: level.id,
+      productTypeKey: level.productTypeKey,
+      typeName: level.typeName,
+      quantity: stock,
+      unit: level.unit,
+      minQuantity: level.minQuantity,
+      maxQuantity: level.maxQuantity,
+      buyQuantity: restockQuantity(level, stock),
       offer: { ...best, discount: discountOf(best) },
     })
   }
-  return suggestions.sort((a, b) => a.quantity / (a.minQuantity || 1) - b.quantity / (b.minQuantity || 1) || a.itemName.localeCompare(b.itemName, 'cs'))
+  return suggestions.sort((a, b) => a.quantity / (a.minQuantity || 1) - b.quantity / (b.minQuantity || 1) || a.typeName.localeCompare(b.typeName, 'cs'))
 }

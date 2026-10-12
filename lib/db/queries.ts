@@ -478,8 +478,6 @@ function toPantryItem(item: Awaited<ReturnType<typeof queryPantryRows>>[number])
     addedAt: item.addedAt.toISOString(),
     askedAt: item.askedAt?.toISOString(),
     tracking: item.tracking,
-    minQuantity: item.minQuantity,
-    maxQuantity: item.maxQuantity,
   }
 }
 

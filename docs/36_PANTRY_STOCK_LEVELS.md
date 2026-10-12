@@ -5,31 +5,41 @@ minimální a maximální zásobu. Pokud se bude zásoba blížit k minimu a obj
 navrhnout, že je teď ten správný čas, aby si dokoupil do zásoby. Z řetězců, které má uložené jako prioritní, za co
 nejnižší cenu."
 
-## Data
-`pantry_items.min_quantity` / `max_quantity` (numeric(10,3), nullable, in the row's own `unit`). Constraint
-`pantry_items_stock_levels_check`: both null, or `0 <= min < max`. Migration `0098_pantry_stock_levels.sql` is additive;
-a row without levels behaves exactly as before. A row kept by product type (Zásoby by type) is the "favourite type":
-the levels sit on that row.
+## Data (changed 2026-10-12: per product type, set in the Profil)
+Levels are no longer set on a single pantry row. The owner: "minimální a maximální množství se bude nastavovat v profilu,
+ne v zásobách. Nechceme nastavovat minimální a maximální množství konkrétního produktu, ale typu produktu. Aby aplikace
+mohla nabízet nejlevnější varianty."
+
+Table `household_stock_levels` (migration `0099_household_stock_levels.sql`): `household_id`, `product_type_id`,
+`min_quantity`, `max_quantity`, `unit`; unique per (household, type); check `0 <= min < max`. The migration copies the
+levels set on pantry rows during the first day (by the row's or its product's type). `pantry_items.min_quantity` /
+`max_quantity` stay in the schema but are no longer read or written (drop later, CLAUDE.md section 7).
 
 ## Rules (`lib/pantry-restock.ts`, pure)
-1. A row is **near its minimum** when it has levels, is not tracked as "Nesledovat" and `quantity <= min × 1.25`.
-2. The amount to buy is `max − quantity` (whole pieces for `ks`).
-3. A promotion belongs to a row when it is on the row's own product, or on any product of the row's type
-   (`products.product_type_id`, matched by the type key).
-4. Chains: the member's **priority chains**; when none are set, the chosen nearby chains; when none are chosen, any chain.
-5. A promotion counts as interesting when its chain's regular price is known and it takes at least **10 %** off it
+1. The **stock of a type** is the sum of every pantry row of that type, in the level's unit (g/kg and ml/l convert;
+   pieces of known size count by their size, 2 × 250 g = 0.5 kg; a row that cannot be expressed in the unit is left out,
+   not guessed).
+2. A type is **near its minimum** when `stock <= min × 1.25`.
+3. The amount to buy is `max − stock` (whole pieces for `ks`).
+4. A promotion belongs to a type when it is on **any product of that type** (`products.product_type_id`), not only the
+   product the household usually buys.
+5. Chains: the member's **priority chains**; when none are set, the chosen nearby chains; when none are chosen, any chain.
+6. A promotion counts as interesting when its chain's regular price is known and it takes at least **10 %** off it
    (docs/05: a retailer's own percentage is not a good deal by itself). An offers-only chain (no regular price) is shown as
    an offer, with no invented discount.
-6. The suggestion is the cheapest such promotion: by price per unit when both state one in the same unit, otherwise by
-   package price; ties by chain and product name. Rows are listed most depleted first.
+7. The suggestion is the **cheapest** such promotion of the type: by price per unit when both state one in the same unit,
+   otherwise by package price; ties by chain and product name. Types are listed most depleted first.
 
 ## Code
-- `lib/db/restock.ts` `getRestockCandidates()` reads running deals (with the latest regular price) only when some row is
-  near its minimum; `app/page.tsx` computes the suggestions on the server and passes them to the shell.
-- `app/actions/pantry.ts` `setPantryStockLevelsAction()`: household from the session, ownership checked, levels validated
-  again on the server.
-- UI: Zásoby ▸ row ▸ pencil ▸ "Hlídat zásobu" (minimum/maximum), a "Dokoupit" badge on rows near the minimum;
-  `components/dashboard/restock-card.tsx` on Domů with "Na seznam".
+- `lib/db/restock.ts` `getStockLevels()` reads the household's levels; `getRestockCandidates()` reads running deals (with
+  the latest regular price) only for the types near their minimum; `app/page.tsx` computes the suggestions on the server and
+  passes them, with the levels, to the shell.
+- `app/actions/pantry.ts` `setStockLevelAction()` / `removeStockLevelAction()`: household from the session, the type key and
+  unit checked, levels validated again on the server; both return the household's levels.
+- UI: Profil ▸ "Hlídané zásoby" (`components/household/stock-levels-settings.tsx`: type, minimum, maximum, unit);
+  a "Dokoupit" badge on pantry rows of a type near the minimum; `components/dashboard/restock-card.tsx` on Domů names the
+  type, the cheapest variant and the amount, and "Na seznam · 5 ks" adds **that product** to the list with that quantity
+  (the shopping queue's `add` operation carries an optional `quantity` and `unit`).
 
 ## Not in scope
 - A push/bell notification for a suggestion (could follow with docs/14 and docs/21).

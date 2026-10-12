@@ -1,4 +1,4 @@
-import { AlertTriangle, BriefcaseMedical, Car, Cat, Check, ChevronDown, ClipboardCheck, House, Minus, Package, PackageSearch, Plus, Refrigerator, Snowflake, SprayCan, Warehouse, Wheat, X, type LucideIcon } from 'lucide-react'
+import { AlertTriangle, BriefcaseMedical, Car, Cat, Check, ClipboardCheck, House, Minus, Package, PackageSearch, Pencil, Plus, Refrigerator, Snowflake, SprayCan, Warehouse, Wheat, X, type LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Pager } from '@/components/shared/pager'
 import { Badge } from '@/components/ui/badge'
@@ -79,7 +79,7 @@ function QuantityStepper({ quantity, unit, unitQuantity, unitUnit, onChange }: {
         type="button"
         aria-label={`Ubrat ${unit}`}
         onClick={() => onChange(Math.max(0, round3(quantity - step)))}
-        className="flex size-11 items-center justify-center rounded-xl border border-input text-fg-secondary hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"
+        className="flex size-9 items-center justify-center rounded-lg border border-input text-fg-secondary hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"
         disabled={quantity <= 0}
       >
         <Minus className="size-4" aria-hidden="true" />
@@ -93,7 +93,7 @@ function QuantityStepper({ quantity, unit, unitQuantity, unitUnit, onChange }: {
         onChange={(e) => setDraft(e.target.value)}
         onBlur={(e) => commit(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && commit(e.currentTarget.value)}
-        className="h-11 w-16 rounded-xl border border-input bg-background px-1 text-center text-base outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
+        className="h-9 w-14 rounded-lg border border-input bg-background px-1 text-center text-base outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
       />
       <span className="min-w-6 text-sm text-fg-muted">{unit}</span>
       {unitQuantity != null && unitUnit && !(unitQuantity === 1 && unitUnit === 'ks') && (
@@ -103,7 +103,7 @@ function QuantityStepper({ quantity, unit, unitQuantity, unitUnit, onChange }: {
         type="button"
         aria-label={`Přidat ${unit}`}
         onClick={() => onChange(round3(quantity + step))}
-        className="flex size-11 items-center justify-center rounded-xl border border-input text-fg-secondary hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex size-9 items-center justify-center rounded-lg border border-input text-fg-secondary hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Plus className="size-4" aria-hidden="true" />
       </button>
@@ -179,6 +179,8 @@ export function Pantry({
   // Announces a move: the moved row leaves the open folder, so without this it would just vanish.
   const [notice, setNotice] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
+  // The one row whose corrections (category, place, tracking) are open; others stay a single compact line.
+  const [editingId, setEditingId] = useState<string | null>(null)
   // The check opened from the "K ověření" banner covers every place (the asked items can be
   // anywhere); opened from a folder, it starts with that folder.
   const toCheck = items.filter((item) => needsCheck(item, likelyGone)).length
@@ -445,9 +447,9 @@ export function Pantry({
           // At a glance only what the household acts on: name, state, amount, "Ještě mám" / "Došlo".
           // Corrections (category, subcategory, place, tracking) sit behind "Upravit" — still in the
           // page (a native <details>), just not competing for attention on every row.
-          <div key={item.id} className="border-b border-border px-4 py-3 last:border-0 sm:px-5">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-              <div className="min-w-0 flex-1 basis-full sm:basis-auto">
+          <div key={item.id} className="border-b border-border px-3 py-2 last:border-0 sm:px-5">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <div className="min-w-0 flex-1 basis-full sm:basis-0">
                 <span className="flex flex-wrap items-center gap-2">
                   <span className="min-w-0 break-words font-medium">{item.name}</span>
                   {likelyGone.has(item.id) ? (
@@ -462,7 +464,7 @@ export function Pantry({
                     )
                   )}
                 </span>
-                <span className="mt-1 block text-xs text-fg-muted">
+                <span className="block text-xs text-fg-muted">
                   {item.category}
                   {item.subcategory ? ` ▸ ${item.subcategory}` : ''}
                   {likelyGone.has(item.id) && ` · ${estimateReason(estimates.get(item.id)!)}`}
@@ -471,18 +473,24 @@ export function Pantry({
               <QuantityStepper quantity={item.quantity} unit={item.unit} unitQuantity={item.unitQuantity} unitUnit={item.unitUnit} onChange={(quantity) => onAdjustQuantity(item.id, quantity)} />
               {/* Grouped so the two icon buttons wrap onto a new line together on a narrow phone, not one by one. */}
               <div className="ml-auto flex items-center">
-                <button type="button" aria-label={`Ještě mám: ${item.name}`} onClick={() => onConfirm(item.id)} className="icon-button hover:!bg-success-subtle hover:!text-success">
+                <button type="button" aria-label={`Ještě mám: ${item.name}`} onClick={() => onConfirm(item.id)} className="icon-button !min-h-9 !min-w-9 hover:!bg-success-subtle hover:!text-success">
                   <Check className="size-5" aria-hidden="true" />
                 </button>
-                <button type="button" aria-label={`Došlo: ${item.name}`} onClick={() => onRemove(item.id)} className="icon-button hover:!bg-destructive-subtle hover:!text-destructive">
+                <button type="button" aria-label={`Došlo: ${item.name}`} onClick={() => onRemove(item.id)} className="icon-button !min-h-9 !min-w-9 hover:!bg-destructive-subtle hover:!text-destructive">
                   <X className="size-5" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Upravit: ${item.name}`}
+                  aria-expanded={editingId === item.id}
+                  onClick={() => setEditingId((current) => (current === item.id ? null : item.id))}
+                  className={cn('icon-button !min-h-9 !min-w-9', editingId === item.id && '!bg-accent-subtle !text-accent-text')}
+                >
+                  <Pencil className="size-4" aria-hidden="true" />
                 </button>
               </div>
             </div>
-            <details className="group mt-1">
-              <summary className="flex min-h-11 w-fit cursor-pointer list-none items-center gap-1 rounded-lg text-sm font-medium text-accent-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
-                Upravit <ChevronDown className="size-4 transition group-open:rotate-180" aria-hidden="true" />
-              </summary>
+            {editingId === item.id && (
               <div className="mt-2 grid gap-3 rounded-xl bg-muted/50 p-3 sm:grid-cols-2">
                 <label className="block space-y-1.5 text-sm font-medium">
                   <span>Kategorie</span>
@@ -531,7 +539,7 @@ export function Pantry({
                   </Select>
                 </label>
               </div>
-            </details>
+            )}
           </div>
         ))}
         {totalPages > 1 && (

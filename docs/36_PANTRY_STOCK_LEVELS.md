@@ -41,8 +41,10 @@ levels set on pantry rows during the first day (by the row's or its product's ty
   type, the cheapest variant and the amount, and "Na seznam · 5 ks" adds **that product** to the list with that quantity
   (the shopping queue's `add` operation carries an optional `quantity` and `unit`).
 
-- The card on Domů can be hidden (chevron) and each suggestion refused (cross). A refusal is remembered per offer (level,
-  product, end date) on this device only (`localStorage`), so a different or better promotion is offered again.
+- The card on Domů can be hidden (chevron; remembered on this device only) and each suggestion refused (cross). A refusal
+  belongs to the **household** (table `restock_dismissals`, migration 0101, `dismissRestockSuggestionAction`): one row per
+  refused offer (type, product, end date of the promotion), so every member stops seeing it and a different or better
+  promotion is offered again. Refusals of ended promotions are dropped whenever a new one is saved.
 
 ## Not in scope
 - A push/bell notification for a suggestion (could follow with docs/14 and docs/21).

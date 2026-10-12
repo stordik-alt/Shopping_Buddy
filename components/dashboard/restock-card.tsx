@@ -7,49 +7,23 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { money, shortDate } from '@/lib/format'
-import type { RestockSuggestion } from '@/lib/pantry-restock'
+import { dismissalKey, type RestockSuggestion } from '@/lib/pantry-restock'
 import { safeLocalStorage } from '@/lib/safe-storage'
 
-const DISMISSED_KEY = 'anitka.restock.dismissed'
 const COLLAPSED_KEY = 'anitka.restock.collapsed'
-
-/** A refused suggestion is remembered for exactly this offer (type, product and the day it ends), so a
- *  different or better promotion later is offered again. Kept on this device only. */
-const suggestionKey = (suggestion: RestockSuggestion) => `${suggestion.levelId}:${suggestion.offer.productId}:${suggestion.offer.validUntil}`
-
-function readDismissed(): string[] {
-  try {
-    const parsed: unknown = JSON.parse(safeLocalStorage()?.getItem(DISMISSED_KEY) ?? '[]')
-    return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === 'string') : []
-  } catch {
-    return []
-  }
-}
 
 const amount = (value: number) => String(Math.round(value * 1000) / 1000).replace('.', ',')
 
 /** Domů: stock that nears the minimum the household set while a preferred chain runs a promotion on it
  *  (lib/pantry-restock.ts). Shown only when there is something to say; each line names the chain, the
  *  price, how long it lasts and how much is missing up to the maximum. */
-export function RestockCard({ suggestions, listItemNames, onAddToList }: { suggestions: RestockSuggestion[]; listItemNames: string[]; onAddToList: (suggestion: RestockSuggestion) => void }) {
-  const [dismissed, setDismissed] = useState<string[]>([])
+export function RestockCard({ suggestions, dismissed, onDismiss, listItemNames, onAddToList }: { suggestions: RestockSuggestion[]; /** Refused offers (`dismissalKey`), the household's. */ dismissed: string[]; onDismiss: (suggestion: RestockSuggestion) => void; listItemNames: string[]; onAddToList: (suggestion: RestockSuggestion) => void }) {
   const [collapsed, setCollapsed] = useState(false)
-  // Read after mount, so the server and the first client render agree.
+  // Read after mount, so the server and the first client render agree. The collapse is this device's
+  // own convenience; a refusal belongs to the household (the shell saves it).
   useEffect(() => {
-    setDismissed(readDismissed())
     setCollapsed(safeLocalStorage()?.getItem(COLLAPSED_KEY) === '1')
   }, [])
-
-  function dismiss(suggestion: RestockSuggestion) {
-    // Only offers that have not ended matter; drop the rest so the list cannot grow forever.
-    const next = [...new Set([...dismissed, suggestionKey(suggestion)])].slice(-100)
-    setDismissed(next)
-    try {
-      safeLocalStorage()?.setItem(DISMISSED_KEY, JSON.stringify(next))
-    } catch {
-      // Storage full or blocked: the refusal still holds until the page reloads.
-    }
-  }
 
   function toggle() {
     setCollapsed((current) => {
@@ -62,7 +36,7 @@ export function RestockCard({ suggestions, listItemNames, onAddToList }: { sugge
     })
   }
 
-  const visible = suggestions.filter((suggestion) => !dismissed.includes(suggestionKey(suggestion)))
+  const visible = suggestions.filter((suggestion) => !dismissed.includes(dismissalKey(suggestion.productTypeKey, suggestion.offer.productId, suggestion.offer.validUntil)))
   if (visible.length === 0) return null
   const onList = new Set(listItemNames.map((name) => name.trim().toLowerCase()))
   return (
@@ -106,7 +80,7 @@ export function RestockCard({ suggestions, listItemNames, onAddToList }: { sugge
               <div className="flex shrink-0 items-center gap-1">
               <button
                 type="button"
-                onClick={() => dismiss(suggestion)}
+                onClick={() => onDismiss(suggestion)}
                 aria-label={`Odmítnout návrh: ${suggestion.typeName}`}
                 className="flex size-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >

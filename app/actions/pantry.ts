@@ -1,6 +1,6 @@
 'use server'
 
-import { and, eq, inArray, isNull } from 'drizzle-orm'
+import { and, eq, inArray, isNull, lt } from 'drizzle-orm'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { getDb } from '@/lib/db/client'
 import { getPantryItems, restockPantryItem } from '@/lib/db/queries'
@@ -13,7 +13,7 @@ import type { CatalogChangeOutcome, CategoryChangeOutcome } from '@/lib/product-
 import { PRODUCT_SUBCATEGORIES, subcategoriesOfItem } from '@/lib/product-subcategories'
 import type { PantryQuantityChange } from '@/lib/pantry'
 import { ITEM_UNITS } from '@/lib/units'
-import { getStockLevels } from '@/lib/db/restock'
+import { getRestockDismissals, getStockLevels } from '@/lib/db/restock'
 import { productTypeByKey } from '@/lib/product-types'
 import { validateStockLevels, type StockLevel } from '@/lib/pantry-restock'
 import { CHECKIN_DAYS_BY_CATEGORY, checkinSubcategoryKey, customPlaceIdFromKey, inferPantryLocation, MAX_PANTRY_REVIEW_ITEMS, PANTRY_AREAS, PANTRY_LOCATIONS, PANTRY_TRACKING, reviewQuantityChanges, splitPantryReview } from '@/lib/pantry'
@@ -432,4 +432,23 @@ export async function removeStockLevelAction(levelId: string): Promise<StockLeve
   const householdId = await requireHouseholdId()
   await getDb().delete(schema.householdStockLevels).where(and(eq(schema.householdStockLevels.id, levelId), eq(schema.householdStockLevels.householdId, householdId)))
   return getStockLevels(householdId)
+}
+
+/** Refuses a restock suggestion for the whole household: the offer is identified by the type, the product
+ *  and the day the promotion ends, so a different or better promotion is offered again. Returns the
+ *  household's refused offers still running. */
+export async function dismissRestockSuggestionAction(productTypeKey: string, productId: string, validUntil: string, today: string): Promise<string[]> {
+  const householdId = await requireHouseholdId()
+  if (!productTypeByKey(productTypeKey)) throw new Error('Neplatný druh zboží.')
+  if (typeof productId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(productId)) throw new Error('Neplatný produkt.')
+  const isDay = (value: unknown): value is string => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value))
+  if (!isDay(validUntil) || !isDay(today)) throw new Error('Neplatné datum.')
+  const db = getDb()
+  const type = await db.query.productTypes.findFirst({ where: eq(schema.productTypes.key, productTypeKey), columns: { id: true } })
+  const product = await db.query.products.findFirst({ where: eq(schema.products.id, productId), columns: { id: true } })
+  if (!type || !product) throw new Error('Neplatný návrh.')
+  await db.insert(schema.restockDismissals).values({ householdId, productTypeId: type.id, productId, validUntil }).onConflictDoNothing()
+  // Offers that have ended can never come back, so their refusals are dropped along the way.
+  await db.delete(schema.restockDismissals).where(and(eq(schema.restockDismissals.householdId, householdId), lt(schema.restockDismissals.validUntil, today)))
+  return getRestockDismissals(householdId, today)
 }

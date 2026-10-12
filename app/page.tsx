@@ -4,7 +4,7 @@ import { auth } from '@/lib/auth/server'
 import { isAppAdmin } from '@/lib/db/admin'
 import { getHouseholdData } from '@/lib/db/queries'
 import { getProductPricesCached, getStandaloneOffersCached, getStoreChainsCached, getStoresCached } from '@/lib/db/cached-reads'
-import { getRestockCandidates, getStockLevels } from '@/lib/db/restock'
+import { getRestockCandidates, getRestockDismissals, getStockLevels } from '@/lib/db/restock'
 import { restockSuggestions } from '@/lib/pantry-restock'
 import { listPinsForHousehold } from '@/lib/db/shopping-plan'
 import { getMemberIdForUser, getMemberStoreSelection } from '@/lib/db/member-store-preferences'
@@ -59,8 +59,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ [
   // chains are the preferred ones, else the chosen nearby ones, else any — nobody who has set no stores
   // should be told nothing.
   const restockChainIds = storeSelection.priorityChainIds.length > 0 ? storeSelection.priorityChainIds : storeSelection.chainIds.length > 0 ? storeSelection.chainIds : null
-  const stockLevels = await timer.measure('stockLevels', () => getStockLevels(data.household.id))
+  const [stockLevels, restockDismissals] = await timer.measure('stockLevels', () => Promise.all([getStockLevels(data.household.id), getRestockDismissals(data.household.id, todayInPrague())]))
   const restock = await timer.measure('restock', async () => restockSuggestions(stockLevels, data.pantryItems, await getRestockCandidates(stockLevels, data.pantryItems, todayInPrague(), restockChainIds), restockChainIds ? new Set(restockChainIds) : null))
   timer.flush()
-  return <AppShell initialData={data} userName={session.user.name} isAdmin={isAdmin} stores={stores} productPrices={productPrices} standaloneOffers={standaloneOffers} storeChains={storeChains} initialStoreSelection={storeSelection} initialPins={pins} restockSuggestions={restock} initialStockLevels={stockLevels} today={todayInPrague()} initialTab={initialTab} initialPantryCheck={initialPantryCheck} initialDealsChain={initialDealsChain} pushPublicKey={pushPublicKeyForClient()} />
+  return <AppShell initialData={data} userName={session.user.name} isAdmin={isAdmin} stores={stores} productPrices={productPrices} standaloneOffers={standaloneOffers} storeChains={storeChains} initialStoreSelection={storeSelection} initialPins={pins} restockSuggestions={restock} initialStockLevels={stockLevels} initialRestockDismissals={restockDismissals} today={todayInPrague()} initialTab={initialTab} initialPantryCheck={initialPantryCheck} initialDealsChain={initialDealsChain} pushPublicKey={pushPublicKeyForClient()} />
 }

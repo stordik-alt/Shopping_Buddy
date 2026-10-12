@@ -1,3 +1,7 @@
+## 2026-10-12 — Doporučení doplnit zásobu: skrýt seznam nebo odmítnout návrh
+
+- Koncept: `docs/36_PANTRY_STOCK_LEVELS.md`. Karta „Je dobrá doba doplnit zásobu“ na Domů jde **skrýt** (šipka v záhlaví; zůstane řádek s počtem návrhů) a každý návrh jde **odmítnout** (křížek). Odmítnutí platí pro konkrétní nabídku (druh, produkt a den konce akce), takže jiná nebo lepší akce se nabídne znovu. Obojí se pamatuje jen v tomto zařízení (`localStorage`, `components/dashboard/restock-card.tsx`), ne v domácnosti.
+
 ## 2026-10-12 — Jednotka „dávka“ (prací gely)
 
 - Koncept: `docs/36_PANTRY_STOCK_LEVELS.md`, `docs/08_OCR_RECEIPT_PIPELINE.md`. Nová jednotka **dávka** (dávky, dávek; `lib/units.ts`) v seznamu, zásobách, nákupech, účtenkách a hlídaných zásobách; v DB nová hodnota enumu `item_unit` (migrace `0100`, aditivní). Dávky se převádějí jen na dávky (gel nemá známou váhu). Účtenka: řádek s počtem dávek v názvu („WOOLITE pr.gel 45PD“, „33 dávek“) se uloží jako **45 dávek** za částku z účtenky (čtečka může dát množství 1 i 45, obojí je jedno balení; jiné celé číslo je tolik balení), takže se do zásob přidá 45 dávek a lze hlídat minimum a maximum v dávkách (Profil ▸ Hlídané zásoby, pro Prací gel a Prací prášek je výchozí jednotka dávka). Testy: `lib/units.test.ts`, `lib/receipts.test.ts`, `app/actions/pantry.test.ts`.

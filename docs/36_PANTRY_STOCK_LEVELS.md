@@ -41,6 +41,9 @@ levels set on pantry rows during the first day (by the row's or its product's ty
   type, the cheapest variant and the amount, and "Na seznam · 5 ks" adds **that product** to the list with that quantity
   (the shopping queue's `add` operation carries an optional `quantity` and `unit`).
 
+- The card on Domů can be hidden (chevron) and each suggestion refused (cross). A refusal is remembered per offer (level,
+  product, end date) on this device only (`localStorage`), so a different or better promotion is offered again.
+
 ## Not in scope
 - A push/bell notification for a suggestion (could follow with docs/14 and docs/21).
 - The suggestions are computed when the page loads; like the rest of the app they refresh on reload.

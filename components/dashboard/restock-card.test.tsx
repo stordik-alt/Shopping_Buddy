@@ -17,6 +17,12 @@ describe('RestockCard', () => {
     expect(html).toContain('Na seznam · 5 ks')
   })
 
+  it('offers to hide the list and to refuse a suggestion', () => {
+    const html = renderToStaticMarkup(<RestockCard suggestions={[suggestion]} listItemNames={[]} onAddToList={() => {}} />)
+    expect(html).toContain('Skrýt návrhy na doplnění zásob')
+    expect(html).toContain('Odmítnout návrh: Máslo')
+  })
+
   it('marks a variant already on the list', () => {
     const html = renderToStaticMarkup(<RestockCard suggestions={[suggestion]} listItemNames={['tatra máslo 250 g']} onAddToList={() => {}} />)
     expect(html).toContain('Na seznamu')

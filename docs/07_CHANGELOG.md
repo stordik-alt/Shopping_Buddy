@@ -1,3 +1,8 @@
+## 2026-10-12 — Intro: bílé špičky bot
+
+- Koncept: `docs/22_GUIDE.md`. Po kontrole zdroje se ukázalo, že špičky bot byly oříznuté: gumová čepička je bílá jako podlaha, takže ji ořez bral za pozadí. Špička a okraj podrážky se teď berou jako část boty podle konvexního obalu růžové části a tenkých tmavých linií boty; původní pixely z videa zůstávají, šedý stín a tmavé skvrny pod botou ne. Nový `anitka-intro-walk.webp`.
+- Ověřeno prohlídkou snímků chůze a stání na bílém podkladu. U rozmazaných snímků zůstávají na okraji drobné světlé zbytky.
+
 ## 2026-10-12 — Intro: celé boty a čistá mezera mezi nohama
 
 - Koncept: `docs/22_GUIDE.md`. Kontrola spritového listu chůze ukázala, že bílé podrážky a špičky bot byly neúplné a v několika snímcích zůstával šedý stín podlahy. Ořez boty teď skládá z růžové části a dopočítané podrážky (tenký lem pod ní), stín a odraz na podlaze odstraňuje a zvednutou rozmazanou botu drží i tehdy, když visí mimo tělo. Mezera mezi zkříženýma nohama zůstává průhledná. Nový `anitka-intro-walk.webp`.

@@ -6,6 +6,7 @@ import { eq } from 'drizzle-orm'
 import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
 import { auth } from '@/lib/auth/server'
 import { isValidPeriodStartDay, MAX_PERIOD_START_DAY, parsePeriodConfig, type PeriodConfig } from '@/lib/budget-period'
+import { canRemoveMember } from '@/lib/household-members'
 import { getDb } from '@/lib/db/client'
 import { periodColumnsOf } from '@/lib/db/period-config'
 import * as schema from '@/lib/db/schema'
@@ -134,11 +135,13 @@ export async function addHouseholdMemberAction(member: {
 }
 
 export async function removeHouseholdMemberAction(memberId: string) {
-  const householdId = await requireHouseholdId()
+  const { householdId, role, memberId: actorMemberId } = await requireHousehold()
   const safeMemberId = assertSafeText(memberId, 'memberId', 128)
   const db = getDb()
   const member = await db.query.householdMembers.findFirst({ where: eq(schema.householdMembers.id, safeMemberId) })
   if (!member || member.householdId !== householdId) throw new Error('Household member not found')
+  // The caller's role comes from the session, never from the request (CLAUDE.md section 9).
+  if (!canRemoveMember({ role, memberId: actorMemberId }, member)) throw new Error('Tohoto člena nemůžete odebrat. Členy odebírá správce domácnosti.')
   await db.delete(schema.householdMembers).where(eq(schema.householdMembers.id, safeMemberId))
 }
 

@@ -155,6 +155,8 @@ export type HouseholdMember = {
   allergies: string[]
   /** Answers to the eating questionnaire (lib/diet.ts); absent = eats everything. */
   diet?: MemberDiet
+  /** Whether the signed-in user may remove this member (lib/household-members.ts); the server checks again. */
+  removable?: boolean
 }
 
 export type Child = {

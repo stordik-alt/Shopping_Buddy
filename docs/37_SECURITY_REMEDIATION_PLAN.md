@@ -17,7 +17,7 @@ Za 6 dní od prvního auditu byl opraven **jediný** nález (V4 závislosti). Ob
 | K1 | Žádná Content-Security-Policy | **Otevřeno** (klíč `experimental.csp` zmizel, CSP ale stále nikdo nenastavuje) | `proxy.ts` a `next.config.mjs` neobsahují `Content-Security-Policy`; komentář v `next.config.mjs:5,33` stále tvrdí opak |
 | K2 | Auto-join do cizí domácnosti jen podle e-mailu, bez tokenu a bez ověření e-mailu | **Opraveno v kódu 2026-10-12** (auto-join jen s `emailVerified`; zbývá zapnout ověření e-mailu v Neon Auth) | `lib/db/queries.ts` (`getHouseholdData`) nezná `emailVerified`; `acceptInvitationAction` také jen porovná řetězec |
 | V1 | Změna kategorie produktu přepisuje výdaje cizích domácností | **Otevřeno** | `lib/db/purchase-items.ts:~266` volá `syncProductClassificationToPurchases` bez scopu domácnosti |
-| V2 | Kterýkoli člen smaže vlastníka | **Otevřeno** | `app/actions/household.ts:136` bez kontroly role a „posledního vlastníka“ |
+| V2 | Kterýkoli člen smaže vlastníka | **Opraveno v kódu 2026-10-12** (`canRemoveMember`) | `app/actions/household.ts:136` bez kontroly role a „posledního vlastníka“ |
 | V3 | Chybí FK `household_members.user_id` → `neon_auth."user"` | **Otevřeno** (migrace bez FK; jediný odkaz je v `0041`). Nutno ověřit živé schéma | `lib/db/migrations` |
 | V4 | Zranitelné závislosti | **Opraveno** | `sharp` 0.35.5, `shadcn` v devDependencies; `pnpm audit --prod` = 3 moderate (zbytek přes `@neondatabase/auth`: `esbuild`, `baseline-browser-mapping`, `fast-uri`) |
 | V5 | `npx vercel@latest` s produkčním tokenem | **Otevřeno** | `.github/workflows/vercel-deploy.yml:30` |

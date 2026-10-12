@@ -1,5 +1,6 @@
 import { cleanMemberDiet, NO_DIET, type MemberDiet } from '@/lib/diet'
 import { and, asc, desc, eq, gte, ilike, inArray, isNull, sql, type SQLWrapper } from 'drizzle-orm'
+import { canRemoveMember } from '@/lib/household-members'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { isNotificationKind, type NotificationKind } from '@/lib/notification-kinds'
@@ -658,6 +659,7 @@ export async function getHouseholdData(
 
   const myRawMember = members.find((member) => member.userId === userId)
   const isOwner = myRawMember?.role === 'owner'
+  const actor = myRawMember ? { role: myRawMember.role, memberId: myRawMember.id } : null
 
   const mainListId = lists[0]?.id
   if (!mainListId) throw new Error('Household has no shopping list — run the seed script.')
@@ -683,6 +685,7 @@ export async function getHouseholdData(
         dislikedFoods: member.profile?.dislikedFoods ?? [],
         allergies: member.profile?.allergies ?? [],
         diet: memberDietOf(dietRows.find((row) => row.memberId === member.id)),
+        removable: actor != null && canRemoveMember(actor, member),
       }),
     ),
     children: children.map(

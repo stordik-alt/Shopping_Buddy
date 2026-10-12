@@ -8,7 +8,7 @@ import * as schema from '@/lib/db/schema'
 // a real Next.js request). This file additionally exercises the owner-only role check
 // (inviteMemberAction/revokeInvitationAction) and acceptInvitationAction, which authorizes off a
 // real session (auth.getSession()) rather than requireHousehold — so that gets mocked too.
-let currentHousehold = { householdId: '', role: 'owner' as 'owner' | 'member', userId: '' }
+let currentHousehold = { householdId: '', role: 'owner' as 'owner' | 'member', userId: '', memberId: '' }
 let currentSession: { user: { id: string; email: string; name: string } } | null = null
 
 vi.mock('@/lib/auth/authorize', () => ({
@@ -50,7 +50,7 @@ beforeEach(async () => {
   householdId = household.id
   otherHouseholdId = otherHousehold.id
   createdHouseholdIds.push(householdId, otherHouseholdId)
-  currentHousehold = { householdId, role: 'owner', userId: crypto.randomUUID() }
+  currentHousehold = { householdId, role: 'owner', userId: crypto.randomUUID(), memberId: crypto.randomUUID() }
 })
 
 afterAll(async () => {
@@ -67,6 +67,30 @@ describe('removeHouseholdMemberAction / removeChildAction', () => {
   it('rejects a member id belonging to a different household', async () => {
     const [otherMember] = await db.insert(schema.householdMembers).values({ householdId: otherHouseholdId, name: 'Cizí člen', role: 'member' }).returning()
     await expect(removeHouseholdMemberAction(otherMember.id)).rejects.toThrow('Household member not found')
+  })
+
+  // Security regression (docs/37_SECURITY_REMEDIATION_PLAN.md, V2): a member used to be able to delete the owner.
+  it('never removes the owner, even when the owner asks', async () => {
+    const [ownerRow] = await db.insert(schema.householdMembers).values({ householdId, name: 'Správce', role: 'owner' }).returning()
+    currentHousehold = { ...currentHousehold, role: 'member', memberId: crypto.randomUUID() }
+    await expect(removeHouseholdMemberAction(ownerRow.id)).rejects.toThrow('nemůžete odebrat')
+    currentHousehold = { ...currentHousehold, role: 'owner', memberId: ownerRow.id }
+    await expect(removeHouseholdMemberAction(ownerRow.id)).rejects.toThrow('nemůžete odebrat')
+    expect(await db.query.householdMembers.findFirst({ where: eq(schema.householdMembers.id, ownerRow.id) })).toBeDefined()
+  })
+
+  it('lets a plain member remove only themselves or an account-less profile, not another account', async () => {
+    const userA = await anyRealUserId()
+    const userB = await anyRealUserId()
+    const [self] = await db.insert(schema.householdMembers).values({ householdId, userId: userA, name: 'Já', role: 'member' }).returning()
+    const [other] = await db.insert(schema.householdMembers).values({ householdId, userId: userB, name: 'Jiný člen', role: 'member' }).returning()
+    const [profile] = await db.insert(schema.householdMembers).values({ householdId, name: 'Profil bez účtu', role: 'member' }).returning()
+    currentHousehold = { ...currentHousehold, role: 'member', userId: userA, memberId: self.id }
+    await expect(removeHouseholdMemberAction(other.id)).rejects.toThrow('nemůžete odebrat')
+    await removeHouseholdMemberAction(profile.id)
+    await removeHouseholdMemberAction(self.id)
+    expect(await db.query.householdMembers.findFirst({ where: eq(schema.householdMembers.id, other.id) })).toBeDefined()
+    expect(await db.query.householdMembers.findFirst({ where: eq(schema.householdMembers.id, self.id) })).toBeUndefined()
   })
 
   it('rejects a child id belonging to a different household', async () => {
@@ -87,19 +111,19 @@ describe('removeHouseholdMemberAction / removeChildAction', () => {
 
 describe('inviteMemberAction / revokeInvitationAction', () => {
   it('rejects inviting when the caller is not the owner', async () => {
-    currentHousehold = { householdId, role: 'member', userId: crypto.randomUUID() }
+    currentHousehold = { householdId, role: 'member', userId: crypto.randomUUID(), memberId: crypto.randomUUID() }
     await expect(inviteMemberAction('someone@example.com')).rejects.toThrow('Jen správce domácnosti')
   })
 
   it('lets the owner invite, and rejects revoking an invitation from a different household even as an owner there', async () => {
-    currentHousehold = { householdId, role: 'owner', userId: crypto.randomUUID() }
+    currentHousehold = { householdId, role: 'owner', userId: crypto.randomUUID(), memberId: crypto.randomUUID() }
     const invitation = await inviteMemberAction('someone@example.com')
     expect(invitation.email).toBe('someone@example.com')
 
-    currentHousehold = { householdId: otherHouseholdId, role: 'owner', userId: crypto.randomUUID() }
+    currentHousehold = { householdId: otherHouseholdId, role: 'owner', userId: crypto.randomUUID(), memberId: crypto.randomUUID() }
     await expect(revokeInvitationAction(invitation.id)).rejects.toThrow('Pozvánka nenalezena')
 
-    currentHousehold = { householdId, role: 'owner', userId: crypto.randomUUID() }
+    currentHousehold = { householdId, role: 'owner', userId: crypto.randomUUID(), memberId: crypto.randomUUID() }
     await revokeInvitationAction(invitation.id)
     const row = await db.query.invitations.findFirst({ where: eq(schema.invitations.id, invitation.id) })
     expect(row?.status).toBe('revoked')
@@ -219,12 +243,12 @@ describe('setMemberDietAction (docs/17_DIET_PREFERENCES.md)', () => {
 
 describe('input hardening', () => {
   it('rejects malformed email invitations', async () => {
-    currentHousehold = { householdId, role: 'owner', userId: crypto.randomUUID() }
+    currentHousehold = { householdId, role: 'owner', userId: crypto.randomUUID(), memberId: crypto.randomUUID() }
     await expect(inviteMemberAction('not-an-email')).rejects.toThrow('Invalid email address')
   })
 
   it('rejects empty or oversized names before writing', async () => {
-    currentHousehold = { householdId, role: 'owner', userId: crypto.randomUUID() }
+    currentHousehold = { householdId, role: 'owner', userId: crypto.randomUUID(), memberId: crypto.randomUUID() }
     await expect(updateHouseholdAction({ name: '' })).rejects.toThrow('name is required')
     await expect(updateHouseholdAction({ name: 'x'.repeat(5000) })).rejects.toThrow('name is too long')
   })

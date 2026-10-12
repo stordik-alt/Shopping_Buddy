@@ -50,6 +50,24 @@ describe('Pantry header', () => {
   })
 })
 
+describe('Pantry with no stock', () => {
+  it('shows only the empty state and the add button, not six identical "0 položek" tiles', () => {
+    const html = renderPantry([])
+    expect(html).toContain('Zásoby jsou prázdné')
+    expect(html).toContain('Přidat')
+    expect(html).not.toContain('Umístění zásob')
+    expect(html).not.toContain('0 položek')
+    // The truthful way stock appears: from a receipt or by hand (finishing a shopping trip adds none).
+    expect(html).not.toContain('po dokončení nákupu')
+  })
+
+  it('shows the places as soon as there is any stock', () => {
+    const html = renderPantry([item(1)])
+    expect(html).toContain('Umístění zásob')
+    expect(html).toContain('Lednice')
+  })
+})
+
 describe('Pantry pagination', () => {
   it('shows every item and no pager when a folder has one page or fewer', () => {
     const items = Array.from({ length: PANTRY_PAGE_SIZE }, (_, i) => item(i + 1))

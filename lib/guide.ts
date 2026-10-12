@@ -39,6 +39,14 @@ export type GuideStep = {
   todo?: string[]
   /** "Proč na tom záleží": reasons shown as a short list (the profile step). */
   why?: string[]
+  /** Quick tour only: one short line for each other thing the section offers. They summarize the
+   *  `detail` cards named in `covers`, which the full tour ("Podrobně") shows as cards of their own,
+   *  so the short tour still tells people everything important. */
+  also?: string[]
+  /** Ids of the `detail` cards that this card's `also` lines summarize. */
+  covers?: string[]
+  /** A deep-dive card: only the full tour shows it. */
+  detail?: true
   /** Something to click first so the card is about the right part of the section (e.g. the
    *  "Jídelníček" switch inside Recepty). */
   prepare?: GuideTarget
@@ -63,7 +71,7 @@ const BASE_STEPS: readonly GuideStep[] = [
     tab: 'Domů',
     mood: 'wave',
     title: 'Ahoj, já jsem Anitka!',
-    text: 'Ráda vás poznám. Provedu vás celou aplikací od začátku do konce, tak jako bych stála vedle vás a ukazovala prstem. Je to na pár minut. A kdykoli řeknete stop, hned přestanu.',
+    text: 'Ráda vás poznám. Provedu vás celou aplikací od začátku do konce, tak jako bych stála vedle vás a ukazovala prstem. Projdu to stručně, ale nic důležitého nevynechám. Kdo chce o každé funkci vědět víc, klepne nahoře na „Podrobně“. A kdykoli řeknete stop, hned přestanu.',
   },
   {
     id: 'navigation',
@@ -104,12 +112,18 @@ const BASE_STEPS: readonly GuideStep[] = [
     text: 'Napište, co chybí, a já ke slovu nabídnu konkrétní produkty a druhy zboží, ať se to pak dobře hledá ve slevách. V obchodě pak odškrtáváte, jak věci házíte do košíku.',
     where: 'Najdete to pod tlačítkem „Nákup“, záložka „Nákupní seznam“.',
     todo: ['Napište třeba mléko a klepněte na „Přidat“.', 'V obchodě klepněte na kolečko vlevo u věci, kterou už máte.'],
+    also: [
+      'Klepnutím na řádek nastavíte množství, kategorii, obchod, prioritu a poznámku.',
+      'Další seznamy (třeba „Vánoce“) a „Filtry a řazení“ pro dlouhé seznamy.',
+    ],
+    covers: ['shopping-detail', 'shopping-lists'],
     prepare: { selector: '[role="group"][aria-label="Zobrazení nákupu"] button', text: 'Nákupní seznam' },
     target: [{ selector: 'input[aria-label="Nová položka"]' }],
     targetLabel: 'Sem napište, co chybí',
   },
   {
     id: 'shopping-detail',
+    detail: true,
     tab: 'Nákup',
     mood: 'nod',
     title: 'Co všechno jde u položky nastavit',
@@ -121,6 +135,7 @@ const BASE_STEPS: readonly GuideStep[] = [
   },
   {
     id: 'shopping-lists',
+    detail: true,
     tab: 'Nákup',
     mood: 'smile',
     title: 'Víc seznamů, filtry a řazení',
@@ -164,6 +179,7 @@ const BASE_STEPS: readonly GuideStep[] = [
   },
   {
     id: 'purchases',
+    detail: true,
     tab: 'Nákup',
     mood: 'smile',
     title: 'Moje nákupy: co jste kupovali',
@@ -180,6 +196,11 @@ const BASE_STEPS: readonly GuideStep[] = [
     text: 'Nechce se vám nic psát? Vyfoťte účtenku nebo nahrajte fotku či PDF. Přečtu z ní obchod, datum i položky a vy jen zkontrolujete, jestli to sedí. Vznikne z toho nákup, výdaj v rozpočtu a doplní se zásoby. Když si u něčeho nejsem jistá, zeptám se.',
     where: 'V sekci „Nákup“ klepněte nahoře na „Účtenky“. Kolečko s číslem znamená, že na vás něco čeká.',
     todo: ['Klepněte na „Nahrát účtenku“ a vyfoťte ji celou, rovně a na světle.', 'Zkontrolujte rozpoznané položky a potvrďte.'],
+    also: [
+      '„Moje nákupy“: historie, ruční zápis nákupu bez účtenky, smazání omylu.',
+      'Nákup se započítá do rozpočtu a zásob; z historie nabídnu „Obvyklé nákupy“.',
+    ],
+    covers: ['purchases'],
     prepare: { selector: '[role="group"][aria-label="Zobrazení nákupu"] button', contains: 'Účtenky' },
     target: [{ selector: 'button', contains: 'Nahrát účtenku' }],
     targetLabel: 'Sem klepněte',
@@ -189,14 +210,21 @@ const BASE_STEPS: readonly GuideStep[] = [
     tab: 'Zásoby',
     mood: 'smile',
     title: 'Zásoby: co je doma',
-    text: 'Tady vidíte, co máte ve spíži, lednici, mrazáku, v drogérce i jinde. Místa jsou nahoře jako složky, a když si vlastní místo přejete (třeba „Kufr auta“), přidáte si ho v Profilu. Zásoby se plní samy z účtenek a z ručně zapsaných nákupů.',
+    text: 'Tady vidíte, co máte ve spíži, lednici, mrazáku, v drogérce i jinde. Jakmile tu něco bude, uvidíte nahoře místa jako složky, a když si vlastní místo přejete (třeba „Kufr auta“), přidáte si ho v Profilu. Zásoby se plní samy z účtenek a z ručně zapsaných nákupů.',
     where: 'Najdete to pod tlačítkem „Zásoby“.',
-    todo: ['Klepněte na místo nahoře, třeba Lednice, a uvidíte, co v ní je.', 'Chybí tam něco, co doma máte? Klepněte na „Přidat“.'],
+    todo: ['Chybí tam něco, co doma máte? Klepněte na „Přidat“.', 'Až tu něco bude, klepněte na místo nahoře, třeba Lednice, a uvidíte, co v ní je.'],
+    also: [
+      'Fajfka = „ještě mám“, křížek = „došlo“, tužka změní množství a místo.',
+      '„Zkontrolovat“: odhadnu, co došlo, a vy to potvrdíte.',
+      'Minimum a maximum: až zásoba klesne a běží akce, poradím, co dokoupit.',
+    ],
+    covers: ['pantry-rows', 'pantry-check', 'pantry-levels'],
     target: [{ selector: 'section[aria-label^="Zásoby:"] button', text: 'Přidat' }],
     targetLabel: 'Tady přidáte zásobu',
   },
   {
     id: 'pantry-rows',
+    detail: true,
     tab: 'Zásoby',
     mood: 'nod',
     title: 'Co udělat s položkou',
@@ -208,6 +236,7 @@ const BASE_STEPS: readonly GuideStep[] = [
   },
   {
     id: 'pantry-check',
+    detail: true,
     tab: 'Zásoby',
     mood: 'think',
     title: 'Kontrola zásob a odhad, co došlo',
@@ -219,6 +248,7 @@ const BASE_STEPS: readonly GuideStep[] = [
   },
   {
     id: 'pantry-levels',
+    detail: true,
     tab: 'Zásoby',
     mood: 'wink',
     title: 'Hlídání minima a maxima',
@@ -237,12 +267,21 @@ const BASE_STEPS: readonly GuideStep[] = [
     text: 'Nastavíte si, kolik chcete za období utratit, a já vám dám vědět na 80 % i 100 %, než se dostanete na konec. V Přehledu uvidíte, kolik už je utraceno, kolik zbývá a kam peníze šly.',
     where: 'Najdete to pod tlačítkem „Rozpočet“, záložka „Přehled“.',
     todo: ['Klepněte na „Nastavit rozpočet“ a napište částku.', 'Podívejte se, jak vám vychází konec období.'],
+    also: [
+      'Výdaje: ručně nebo z účtenky, opravit či smazat jde kdykoli.',
+      'Plánování: příjmy a plánované výdaje, spočítám, kolik opravdu zbude.',
+      'Pravidelné platby: nájem, předplatné, v den splatnosti připomenu.',
+      'Kapsy: spoření na cíle, třeba dovolenou.',
+      'Konec období: uzavřete ho a rozhodnete, co s přebytkem či schodkem.',
+    ],
+    covers: ['expenses', 'planning', 'recurring', 'pockets', 'period-close'],
     prepare: { selector: '[role="group"][aria-label="Zobrazení rozpočtu"] button', text: 'Přehled' },
     target: [{ selector: 'button', text: 'Nastavit rozpočet' }, { selector: 'button', contains: 'Upravit rozpočet' }],
     targetLabel: 'Sem klepněte',
   },
   {
     id: 'expenses',
+    detail: true,
     tab: 'Rozpočet',
     mood: 'nod',
     title: 'Výdaje: zapište, co jste utratili',
@@ -255,6 +294,7 @@ const BASE_STEPS: readonly GuideStep[] = [
   },
   {
     id: 'planning',
+    detail: true,
     tab: 'Rozpočet',
     mood: 'think',
     title: 'Plánování: příjmy a plánované výdaje',
@@ -267,6 +307,7 @@ const BASE_STEPS: readonly GuideStep[] = [
   },
   {
     id: 'recurring',
+    detail: true,
     tab: 'Rozpočet',
     mood: 'nod',
     title: 'Pravidelné platby',
@@ -279,6 +320,7 @@ const BASE_STEPS: readonly GuideStep[] = [
   },
   {
     id: 'pockets',
+    detail: true,
     tab: 'Rozpočet',
     mood: 'cheer',
     title: 'Kapsy: spoření na cíle',
@@ -291,6 +333,7 @@ const BASE_STEPS: readonly GuideStep[] = [
   },
   {
     id: 'period-close',
+    detail: true,
     tab: 'Rozpočet',
     mood: 'smile',
     title: 'Konec období a převod peněz',
@@ -360,11 +403,19 @@ const BASE_STEPS: readonly GuideStep[] = [
       'Oblíbené značky a obchody: ukážu jen slevy, které se vás týkají.',
     ],
     todo: ['Zkontrolujte název domácnosti.', 'Přidejte členy domácnosti a děti (věk, alergie, co nejí).', 'Vyberte oblíbené značky a obchody.'],
+    also: [
+      'Členové a děti: stravování, alergie, věk. Pozvaní dospělí sdílejí seznam, zásoby i rozpočet (změny druhých vidíte po obnovení stránky).',
+      'Moje obchody v okolí: kam chodíte, prioritní obchody a kolik jich projít.',
+      'Nákupní preference: oblíbené značky a produkty, i co nekupovat.',
+      'Upozornění: vyberete, která chcete; tady jsou i vlastní místa pro zásoby.',
+    ],
+    covers: ['profile-members', 'profile-stores', 'profile-preferences', 'profile-notifications'],
     target: [{ selector: '[data-guide="household-name"]' }],
     targetLabel: 'Začněte jménem domácnosti',
   },
   {
     id: 'profile-members',
+    detail: true,
     tab: 'Profil',
     mood: 'smile',
     title: 'Členové, děti a pozvánky',
@@ -376,6 +427,7 @@ const BASE_STEPS: readonly GuideStep[] = [
   },
   {
     id: 'profile-stores',
+    detail: true,
     tab: 'Profil',
     mood: 'wink',
     title: 'Moje obchody v okolí',
@@ -387,6 +439,7 @@ const BASE_STEPS: readonly GuideStep[] = [
   },
   {
     id: 'profile-preferences',
+    detail: true,
     tab: 'Profil',
     mood: 'nod',
     title: 'Nákupní preference',
@@ -398,6 +451,7 @@ const BASE_STEPS: readonly GuideStep[] = [
   },
   {
     id: 'profile-notifications',
+    detail: true,
     tab: 'Profil',
     mood: 'think',
     title: 'Upozornění a nastavení zásob',
@@ -460,7 +514,28 @@ export function getGuideSteps(aiEnabled: boolean): readonly GuideStep[] {
   return [...BASE_STEPS, anitkaStep(aiEnabled), FIND_ME_STEP]
 }
 
+/** The full tour: every card. */
 export const GUIDE_STEPS = getGuideSteps(AI_ASSISTANT_ENABLED)
+
+/** The quick tour people start with: the full tour without its deep-dive (`detail`) cards, whose
+ *  content the section cards summarize in their `also` lines. */
+export function getQuickGuideSteps(aiEnabled: boolean): readonly GuideStep[] {
+  return getGuideSteps(aiEnabled).filter((step) => !step.detail)
+}
+
+export const QUICK_GUIDE_STEPS = getQuickGuideSteps(AI_ASSISTANT_ENABLED)
+
+/** Where to land after switching between the quick and the full tour: the same card when the other
+ *  tour has it, otherwise the nearest earlier card it does have (a deep-dive card turns into the
+ *  section's main card). */
+export function indexAfterModeSwitch(currentId: string, from: readonly GuideStep[], to: readonly GuideStep[]): number {
+  const position = from.findIndex((step) => step.id === currentId)
+  for (let i = Math.max(position, 0); i >= 0; i--) {
+    const found = to.findIndex((step) => step.id === from[i].id)
+    if (found >= 0) return found
+  }
+  return 0
+}
 
 /** Remembered per device: once the guide was finished or skipped it does not open by itself again;
  *  it stays one tap away in the account menu. */

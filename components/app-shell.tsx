@@ -75,6 +75,8 @@ import { useReceipts } from '@/components/shell/use-receipts'
 import { useServiceWorker, useTabNavigation, useTheme } from '@/components/shell/use-shell-environment'
 import { useShoppingQueue } from '@/components/shell/use-shopping-queue'
 import { useStableCallback } from '@/components/shell/use-stable-callback'
+import { useUndoableRemoval } from '@/components/shell/use-undoable-removal'
+import { UndoToast } from '@/components/ui/undo-toast'
 import { RumReporter } from '@/components/shared/rum-reporter'
 import { applyPendingOps, newTempId } from '@/lib/offline-queue'
 import { budgetForPeriod, expensesInPeriod, nextPeriodStart, periodEnd, periodStart, spendingByPeriod, totalSpent } from '@/lib/budget'
@@ -209,6 +211,11 @@ export function AppShell({
     setItems,
     setNotifications,
   })
+  const { notice: undoNotice, removeWithUndo, undo: undoRemoval, isPendingRemoval } = useUndoableRemoval({
+    items,
+    setItems,
+    commit: (id) => void runOrQueue({ kind: 'remove', itemId: id }),
+  })
   const { household, pendingInvitations, updateHousehold, setMonthlyBudget, updateBudgetPeriod, addMember, removeMember, setMemberDiet, addChild, removeChild, updatePreferences, inviteMember, revokeInvitation } = useHousehold(initialData)
   const periods = useBudgetPeriods({ initialData, today, period: household.budgetPeriod, active: tab === 'Rozpočet' })
   const {
@@ -290,12 +297,13 @@ export function AppShell({
   // resync their own state the same way.
   useEffect(() => {
     // Changes still waiting for a connection stay visible on top of the server's copy.
-    setItems(applyPendingOps(initialData.items, queueRef.current))
+    // An item removed a moment ago (undo still possible) is not on the server's copy's way out yet, so keep it hidden.
+    setItems(applyPendingOps(initialData.items, queueRef.current).filter((item) => !isPendingRemoval(item.id)))
     setNotifications(initialData.notifications)
     setPurchaseHistory(initialData.purchaseHistory)
     setMealPlan(initialData.mealPlan)
     setShoppingLists(initialData.shoppingLists)
-  }, [initialData, queueRef])
+  }, [initialData, queueRef, isPendingRemoval])
 
   // Only the expenses of the household's current budget period count against it (the calendar month
   // unless the household starts its period on another day), and against that period's own budget when
@@ -480,9 +488,9 @@ export function AppShell({
     void runOrQueue({ kind: 'toggle', itemId: id, done: next })
   }
 
-  function removeItem(id: string) {
-    setItems((current) => current.filter((item) => item.id !== id))
-    void runOrQueue({ kind: 'remove', itemId: id })
+  // The items leave the list now; the server hears about it after the undo window (useUndoableRemoval).
+  function removeItems(ids: string[]) {
+    removeWithUndo(ids)
   }
 
   // What a purchase-creating action changed, in the shape the page holds it — replaces a full
@@ -586,7 +594,7 @@ export function AppShell({
   // memoized, and these keep its props the same until its own data changes.
   const listAddItem = useStableCallback(addItem)
   const listUpdateItem = useStableCallback(updateItem)
-  const listRemoveItem = useStableCallback(removeItem)
+  const listRemoveItems = useStableCallback(removeItems)
   const listToggleItem = useStableCallback(toggleItem)
   const listAddList = useStableCallback(addShoppingListName)
   const listPin = useStableCallback(pinProduct)
@@ -770,7 +778,7 @@ export function AppShell({
                         items={items}
                         addItem={listAddItem}
                         updateItem={listUpdateItem}
-                        removeItem={listRemoveItem}
+                        removeItems={listRemoveItems}
                         toggle={listToggleItem}
                         lists={shoppingLists}
                         onAddList={listAddList}
@@ -1050,6 +1058,7 @@ export function AppShell({
         </div>
 
         <MobileNav tab={tab} onTabChange={setTab} />
+        {undoNotice && <UndoToast message={undoNotice.message} onUndo={undoRemoval} raised={tab === 'Nákup' && completed > 0} />}
         {guideOpen && <GuideTour onNavigate={setTab} onClose={closeGuide} />}
 
         {recurringEdit && (

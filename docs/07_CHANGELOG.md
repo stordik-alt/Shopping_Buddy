@@ -1,3 +1,8 @@
+## 2026-10-12 — Intro: celé boty a čistá mezera mezi nohama
+
+- Koncept: `docs/22_GUIDE.md`. Kontrola spritového listu chůze ukázala, že bílé podrážky a špičky bot byly neúplné a v několika snímcích zůstával šedý stín podlahy. Ořez boty teď skládá z růžové části a dopočítané podrážky (tenký lem pod ní), stín a odraz na podlaze odstraňuje a zvednutou rozmazanou botu drží i tehdy, když visí mimo tělo. Mezera mezi zkříženýma nohama zůstává průhledná. Nový `anitka-intro-walk.webp`.
+- Ověřeno prohlídkou snímků chůze z profilu i čelního stání na tmavém a bílém podkladu a v intru v Chromiu. Podrážka je z části dokreslená, ne přesně z videa; rozmazaný snímek zkřížených nohou má v mezeře drobný zbytek.
+
 ## 2026-10-12 — Anitka: užší sloupec v průvodci a čistší ořez pozadí
 
 - Koncept: `docs/22_GUIDE.md`. Sloupec s postavou v průvodci je zase úzký (6–7 rem); obrázek je širší a při mávání ruka na chvíli přejede přes text, potom se postava do sloupce vejde. Ořez pozadí intra i průvodce je přepracovaný: jasné skoro bezbarvé pixely se berou za pozadí, takže zmizely zbytky mezi rukama a tělem a světlý lem kolem hlavy a vlasů; nápis ANITKA na tričku, oči, zuby a drobné díry v džínách zůstávají. Boty se skládají z růžové části a lemu podrážky. Nové `anitka-intro-walk.webp`, `anitka-guide-wave.webp` a `anitka-guide-front.webp`.

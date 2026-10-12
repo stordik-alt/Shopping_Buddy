@@ -26,6 +26,7 @@ import { PantryCheckCard } from '@/components/dashboard/pantry-check-card'
 import { refreshExpensesAction, refreshPantryAction, refreshPurchasesAction } from '@/app/actions/refresh'
 import { dismissRestockSuggestionAction, removeStockLevelAction, setStockLevelAction } from '@/app/actions/pantry'
 import { RefreshListButton } from '@/components/shopping/refresh-list-button'
+import { Recommendations } from '@/components/dashboard/recommendations'
 import { RestockCard } from '@/components/dashboard/restock-card'
 import { dismissalKey, lowStockLevels, type RestockSuggestion, type StockLevel } from '@/lib/pantry-restock'
 import { keptNameKey, needsCheck } from '@/lib/pantry'
@@ -286,6 +287,10 @@ export function AppShell({
   const restockNow = useMemo(
     () => restockSuggestions.filter((suggestion) => lowTypes.some(({ level }) => level.id === suggestion.levelId && level.minQuantity === suggestion.minQuantity && level.maxQuantity === suggestion.maxQuantity)),
     [restockSuggestions, lowTypes],
+  )
+  const restockCount = useMemo(
+    () => restockNow.filter((suggestion) => !restockDismissed.includes(dismissalKey(suggestion.productTypeKey, suggestion.offer.productId, suggestion.offer.validUntil))).length,
+    [restockNow, restockDismissed],
   )
   const restockTypeKeys = useMemo(() => new Set(lowTypes.map(({ level }) => level.productTypeKey)), [lowTypes])
   const {
@@ -758,24 +763,6 @@ export function AppShell({
                       onOpen={() => setTab('Zásoby')}
                     />
                   )}
-                  <RestockCard
-                    suggestions={restockNow}
-                    dismissed={restockDismissed}
-                    onDismiss={async (suggestion) => {
-                      // Hidden at once; the server's answer (every member's refusals) replaces the guess.
-                      const key = dismissalKey(suggestion.productTypeKey, suggestion.offer.productId, suggestion.offer.validUntil)
-                      setRestockDismissed((current) => [...current, key])
-                      try {
-                        setRestockDismissed(await dismissRestockSuggestionAction(suggestion.productTypeKey, suggestion.offer.productId, suggestion.offer.validUntil, today))
-                      } catch (error) {
-                        console.error('Refusing the suggestion failed', error)
-                        setRestockDismissed((current) => current.filter((entry) => entry !== key))
-                      }
-                    }}
-                    listItemNames={pendingNames} onAddToList={(suggestion) =>
-                    // The cheapest variant of the type, as the concrete product, with the amount missing up to the maximum.
-                    addItemByName(suggestion.offer.productName, { kind: 'product', label: suggestion.offer.productName, productId: suggestion.offer.productId }, { quantity: suggestion.buyQuantity, unit: suggestion.unit })
-                  } />
                   {mealPlan && (
                     <TodayMeals
                       meals={todaysMeals(mealPlan, today)}
@@ -789,20 +776,43 @@ export function AppShell({
                       }}
                     />
                   )}
-                  <PreferredDeals
-                    hasPreferences={household.preferences.preferredProducts.length + household.preferences.preferredBrands.length > 0}
-                    listItemNames={pendingNames}
-                    onAddToList={addItemByName}
-                    onShowAll={() => {
-                      setDealsForMe(true)
-                      setTab('Akce')
-                    }}
-                  />
-                  {pendingNames.length > 0 && (
-                    <PriceWatch today={today} onBrowseDeals={() => {
-                      setDealsForMe(false)
-                      setTab('Akce')
-                    }} onStores={() => setTab('Obchody')} onAddToList={addItemByName} listItemNames={pendingNames} productPrices={nearbyProductPrices} offers={nearbyStandaloneOffers} pantryItems={pantryItems} boughtNameKeys={boughtNameKeys} />
+                  {/* Nothing to recommend (no stock to refill, no favourites, an empty list) = no heading either. */}
+                  {(restockCount > 0 || pendingNames.length > 0 || household.preferences.preferredProducts.length + household.preferences.preferredBrands.length > 0) && (
+                  <Recommendations restockCount={restockCount}>
+                    <RestockCard
+                      suggestions={restockNow}
+                      dismissed={restockDismissed}
+                      onDismiss={async (suggestion) => {
+                        // Hidden at once; the server's answer (every member's refusals) replaces the guess.
+                        const key = dismissalKey(suggestion.productTypeKey, suggestion.offer.productId, suggestion.offer.validUntil)
+                        setRestockDismissed((current) => [...current, key])
+                        try {
+                          setRestockDismissed(await dismissRestockSuggestionAction(suggestion.productTypeKey, suggestion.offer.productId, suggestion.offer.validUntil, today))
+                        } catch (error) {
+                          console.error('Refusing the suggestion failed', error)
+                          setRestockDismissed((current) => current.filter((entry) => entry !== key))
+                        }
+                      }}
+                      listItemNames={pendingNames} onAddToList={(suggestion) =>
+                      // The cheapest variant of the type, as the concrete product, with the amount missing up to the maximum.
+                      addItemByName(suggestion.offer.productName, { kind: 'product', label: suggestion.offer.productName, productId: suggestion.offer.productId }, { quantity: suggestion.buyQuantity, unit: suggestion.unit })
+                    } />
+                    <PreferredDeals
+                      hasPreferences={household.preferences.preferredProducts.length + household.preferences.preferredBrands.length > 0}
+                      listItemNames={pendingNames}
+                      onAddToList={addItemByName}
+                      onShowAll={() => {
+                        setDealsForMe(true)
+                        setTab('Akce')
+                      }}
+                    />
+                    {pendingNames.length > 0 && (
+                      <PriceWatch today={today} onBrowseDeals={() => {
+                        setDealsForMe(false)
+                        setTab('Akce')
+                      }} onStores={() => setTab('Obchody')} onAddToList={addItemByName} listItemNames={pendingNames} productPrices={nearbyProductPrices} offers={nearbyStandaloneOffers} pantryItems={pantryItems} boughtNameKeys={boughtNameKeys} />
+                    )}
+                  </Recommendations>
                   )}
                 </div>
               )}

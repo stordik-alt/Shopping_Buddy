@@ -9,6 +9,7 @@ import { NearbyStores } from '@/components/household/nearby-stores'
 import { StockLevelsSettings } from '@/components/household/stock-levels-settings'
 import { PantryCheckinSettings } from '@/components/household/pantry-checkin-settings'
 import { PantryPlaces } from '@/components/household/pantry-places'
+import { SegmentedControl } from '@/components/ui/segmented-control'
 import { CollapsibleSection } from '@/components/shared/collapsible-section'
 import { TagInput } from '@/components/shared/tag-input'
 import type { MemberDiet } from '@/lib/diet'
@@ -25,6 +26,8 @@ const splitList = (value: string) =>
     .split(',')
     .map((part) => part.trim())
     .filter(Boolean)
+
+type ProfileSection = 'domacnost' | 'nakup' | 'zasoby' | 'upozorneni'
 
 export function HouseholdProfile({
   household,
@@ -99,6 +102,8 @@ export function HouseholdProfile({
   const [inviteError, setInviteError] = useState('')
 
   // The member whose eating questionnaire is open.
+  // Which part of the profile is open (one screen was too long to scroll through on a phone).
+  const [section, setSection] = useState<ProfileSection>('domacnost')
   const [dietMemberId, setDietMemberId] = useState<string | null>(null)
   const dietMember = household.members.find((member) => member.id === dietMemberId)
   const [memberForm, setMemberForm] = useState({ name: '', age: '', favoriteFoods: '', dislikedFoods: '', allergies: '' })
@@ -163,6 +168,20 @@ export function HouseholdProfile({
         </label>
       </div>
 
+      <SegmentedControl
+        label="Část profilu"
+        value={section}
+        onChange={setSection}
+        options={[
+          { value: 'domacnost', label: 'Domácnost' },
+          { value: 'nakup', label: 'Nákup a obchody' },
+          { value: 'zasoby', label: 'Zásoby' },
+          { value: 'upozorneni', label: 'Upozornění' },
+        ]}
+      />
+
+      {section === 'domacnost' && (
+        <>
       <CollapsibleSection
         title="Členové domácnosti"
         icon={<Users />}
@@ -346,8 +365,18 @@ export function HouseholdProfile({
         </div>
       </CollapsibleSection>
 
+        </>
+      )}
+
+      {section === 'nakup' && (
+        <>
       <NearbyStores chains={storeChains} stores={stores} selection={storeSelection} onSave={onSaveStorePreferences} />
 
+        </>
+      )}
+
+      {section === 'zasoby' && (
+        <>
       <PantryPlaces places={pantryPlaces} onAdd={onAddPantryPlace} onRemove={onRemovePantryPlace} />
 
       <StockLevelsSettings levels={stockLevels} onSave={onSaveStockLevel} onRemove={onRemoveStockLevel} />
@@ -359,6 +388,11 @@ export function HouseholdProfile({
         onSaveSubcategory={onSetPantrySubcategoryCheckinDays}
       />
 
+        </>
+      )}
+
+      {section === 'nakup' && (
+        <>
       <CollapsibleSection title="Nákupní preference domácnosti" icon={<SlidersHorizontal />} summary={`Počet uložených preferencí: ${preferenceCount}`}>
         <p className="text-sm leading-relaxed text-muted-foreground">Kontext pro budoucí nákupní engine a AI asistenta.</p>
         <div className="mt-5 flex flex-col gap-5">
@@ -423,6 +457,10 @@ export function HouseholdProfile({
         </div>
       </CollapsibleSection>
 
+        </>
+      )}
+
+      {section === 'upozorneni' && (
       <CollapsibleSection
         title="Upozornění"
         icon={<Bell />}
@@ -430,6 +468,7 @@ export function HouseholdProfile({
       >
         <NotificationSettings off={notificationsOff} onChange={onSetNotificationKind} pushPublicKey={pushPublicKey} />
       </CollapsibleSection>
+      )}
     </div>
   )
 }

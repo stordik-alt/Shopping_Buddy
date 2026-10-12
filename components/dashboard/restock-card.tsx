@@ -10,6 +10,8 @@ import { money, shortDate } from '@/lib/format'
 import { dismissalKey, type RestockSuggestion } from '@/lib/pantry-restock'
 import { safeLocalStorage } from '@/lib/safe-storage'
 
+/** How many suggestions the card shows before "Zobrazit další". */
+const SHOWN = 3
 const COLLAPSED_KEY = 'anitka.restock.collapsed'
 
 const amount = (value: number) => String(Math.round(value * 1000) / 1000).replace('.', ',')
@@ -19,6 +21,7 @@ const amount = (value: number) => String(Math.round(value * 1000) / 1000).replac
  *  price, how long it lasts and how much is missing up to the maximum. */
 export function RestockCard({ suggestions, dismissed, onDismiss, listItemNames, onAddToList }: { suggestions: RestockSuggestion[]; /** Refused offers (`dismissalKey`), the household's. */ dismissed: string[]; onDismiss: (suggestion: RestockSuggestion) => void; listItemNames: string[]; onAddToList: (suggestion: RestockSuggestion) => void }) {
   const [collapsed, setCollapsed] = useState(false)
+  const [showAll, setShowAll] = useState(false)
   // Read after mount, so the server and the first client render agree. The collapse is this device's
   // own convenience; a refusal belongs to the household (the shell saves it).
   useEffect(() => {
@@ -38,6 +41,8 @@ export function RestockCard({ suggestions, dismissed, onDismiss, listItemNames, 
 
   const visible = suggestions.filter((suggestion) => !dismissed.includes(dismissalKey(suggestion.productTypeKey, suggestion.offer.productId, suggestion.offer.validUntil)))
   if (visible.length === 0) return null
+  // Ten suggestions at once is a wall: the first few, the rest one tap away.
+  const shown = showAll ? visible : visible.slice(0, SHOWN)
   const onList = new Set(listItemNames.map((name) => name.trim().toLowerCase()))
   return (
     <Card aria-label="Doplnit zásoby" className="space-y-3">
@@ -58,7 +63,7 @@ export function RestockCard({ suggestions, dismissed, onDismiss, listItemNames, 
       </div>
       {collapsed && <p className="text-sm text-fg-muted">Skryto: {visible.length} {visible.length === 1 ? 'návrh' : visible.length < 5 ? 'návrhy' : 'návrhů'}. Klepněte na šipku pro zobrazení.</p>}
       {!collapsed && <ul className="divide-y divide-border">
-        {visible.map((suggestion) => {
+        {shown.map((suggestion) => {
           const { offer } = suggestion
           const added = onList.has(offer.productName.trim().toLowerCase())
           return (
@@ -94,6 +99,11 @@ export function RestockCard({ suggestions, dismissed, onDismiss, listItemNames, 
           )
         })}
       </ul>}
+      {!collapsed && visible.length > SHOWN && (
+        <Button variant="ghost" onClick={() => setShowAll((current) => !current)}>
+          {showAll ? 'Zobrazit méně' : `Zobrazit další (${visible.length - SHOWN})`}
+        </Button>
+      )}
     </Card>
   )
 }

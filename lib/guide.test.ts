@@ -69,6 +69,18 @@ describe('guide steps', () => {
     }
   })
 
+  it('explains the newer features too: refresh, recommendations, undo and offline, doses, stock levels in the profile', () => {
+    const ids = GUIDE_STEPS.map((step) => step.id)
+    for (const id of ['refresh', 'home-recommendations', 'shopping-undo', 'pantry-doses', 'pantry-levels', 'profile-stock']) expect(ids).toContain(id)
+    // The profile is split into parts; the cards that point into a part open it first.
+    for (const id of ['profile-stores', 'profile-preferences', 'profile-stock', 'profile-notifications']) {
+      expect(GUIDE_STEPS.find((step) => step.id === id)?.prepare?.selector).toContain('Část profilu')
+    }
+    // Stock levels are set per product type in the profile, no longer on a pantry row.
+    expect(GUIDE_STEPS.find((step) => step.id === 'pantry-levels')?.text).toMatch(/druhu zboží/)
+    expect(GUIDE_STEPS.find((step) => step.id === 'pantry-levels')?.where).toContain('Profil')
+  })
+
   it('says truthfully what "Dokončit nákup" does: it only clears the ticked items (stock and budget come from receipts and manual purchases)', () => {
     const finish = GUIDE_STEPS.find((step) => step.id === 'shopping-finish')
     expect(finish).toBeDefined()

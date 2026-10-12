@@ -5,6 +5,9 @@
 ## 2026-10-12 — Bezpečnost V1: změna kategorie produktu přepisuje jen historii vlastní domácnosti
 
 - Koncept: `docs/37_SECURITY_REMEDIATION_PLAN.md` (V1), rozhodnutí vlastníka: varianta „jen vlastní domácnost“. Když domácnost přeřadila produkt ze sdíleného katalogu do jiné kategorie (rozpočtem ▸ přeřazení položky nákupu, nebo opravou v Zásobách v rámci volných změn), `syncProductClassificationToPurchases` přepsala položky nákupů, rozpočtové řádky a zapamatované výchozí hodnoty **všech** domácností, které produkt kdy koupily. Nově má volitelný `{ householdId }` a z domácích změn (`setPurchaseItemExpenseSplits`, `proposeProductCategory`, `proposeProductSubcategory`) se volá jen pro tu domácnost; cizí účtenky a rozpočty zůstanou, jak byly. Rozhodnutí správce a údržbové skripty ho volají bez domácnosti a synchronizují všechny (záměrná oprava katalogu). Sám katalogový produkt se mění jako dřív. Test, který očekával přepsání historie jiné domácnosti, byl změněn, nové testy: `lib/db/product-classification-sync.test.ts`, `lib/db/purchase-items.test.ts`.
+## 2026-10-12 — CSP: hlášení `unsafe-eval` je neškodné, `'unsafe-eval'` se nepřidává
+
+- Koncept: `docs/37_SECURITY_REMEDIATION_PLAN.md` (K1). Report-Only politika hlásila v konzoli „Evaluating a string as JavaScript violates … 'unsafe-eval'“. Zdroj v produkčním balíčku: zod ověřuje, jestli smí používat eval (`try { Function('') } catch`, při zákazu přejde na variantu bez evalu), a `core-js` má `Function('return this')` jako záložní cestu, která se v prohlížeči nespustí. Ověřeno produkčním buildem s **vynucenou** politikou a skutečným klientem Neon Auth: přihlašovací formulář funguje (i zobrazení „Nesprávný e-mail nebo heslo.“), žádné porušení se nehlásí. Politika zůstává bez `'unsafe-eval'`, `CSP_ENFORCE=1` lze zapnout. Změna je jen v dokumentaci.
 
 ## 2026-10-12 — Přihlášení: kódy chyb Neon Auth a srozumitelná hláška o neověřeném e-mailu
 

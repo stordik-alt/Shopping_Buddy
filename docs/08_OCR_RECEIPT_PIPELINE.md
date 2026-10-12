@@ -212,6 +212,17 @@ the amount saved. A cash-rounding line ("ZAOKROUHLENÍ PŘÍJEM") is part of the
 product: `isRoundingLine()` drops it deterministically in `toReceiptLineItems()`, because the model
 emits it as an item despite the prompt forbidding that.
 
+**A package size read as the quantity (2026-10-12, dm drogerie).** dm prints `PAMPERS pants 48ks 299,00 1`:
+the size is part of the name and the count is the trailing `1`. The reader returned `quantity 48`,
+`unit price 299` and `line total 299`, so the purchase held 48 × 299 Kč — 21 982 Kč for a 494 Kč
+receipt (the line was inconsistent, went to review, and the reviewed values were saved). Now
+`toReceiptLineItems()` trusts the printed line amount when quantity × unit price contradicts it
+(`isLineItemConsistent`, tolerance 0.5 Kč): the quantity stays (48 pieces, 45 doses are what is at home)
+and the unit price is derived from the line total (`299 / 48`, kept to four decimals), so the line costs
+what the receipt says. The line is still sent to review, now with the right amounts pre-filled.
+Stored prices have two decimals, so a derived unit price can differ from the line amount by up to
+half a haléř per unit; the purchase total is the receipt's stated total (`resolvePurchaseAmounts`).
+
 **Weighed items (2026-09-24).** A weighed line prints "0.37 x 69.90 Kč" (weight × price per kg) and the
 line total. On the same Albert receipt the OCR text lacked that line for two of three weighed items
 ("JABLKA GALA", "BRAMBORY KONZ POZDNÍ" — only "15.00 Kč" / "18.60 Kč" survived), so the model

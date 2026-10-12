@@ -1,3 +1,21 @@
+## 2026-10-12 — UX: „Vrátit zpět“ po odstranění položek z nákupního seznamu
+
+- Koncept: `docs/14_MOBILE_UI_V2_SPEC.md` (Nákup), `docs/20_DELETE_PURCHASE.md` se netýká (smazání nákupu se nemění). Odstranění položky (✕, „Odstranit z nákupu“) i „Vymazat hotové“ bylo nevratné. Položky teď z seznamu zmizí hned, ale server se o odstranění dozví až po 6 s (`components/shell/use-undoable-removal.ts`). Toast „Vrátit zpět“ (`components/ui/undo-toast.tsx`, nad dolní lištou, nad „Dokončit nákup“ když je vidět) položky vrátí na původní místa, nic se nevytváří znovu, takže se neztratí množství, poznámka ani obchod. Další odstranění dokončí předchozí hned; zavření stránky v okně odstranění neodešle (položky zůstanou na seznamu, bezpečná chyba). Čerstvá kopie ze serveru v okně odstraněnou položku nevrátí (`isPendingRemoval`). „Vymazat hotové“ je jedno odstranění s jedním vrácením. Offline se odstranění po uplynutí okna zařadí do fronty jako dřív.
+- Ověřeno: `tsc --noEmit` a Chromium na lokální DB (odstranit → zpět → po reloadu položka zůstala; odstranit → po 6 s zmizí toast → po reloadu položka pryč; „Vymazat hotové“ → zpět vrátí obě). Odškrtnutí položky se záměrně nemění (zpět je opětovné klepnutí). Hook nemá jednotkový test, protože v projektu není DOM testovací nástroj. Offline cesta a telefon nezkoušeny.
+
+## 2026-10-12 — UX: odebrání člena, dítěte a vlastního místa vyžaduje potvrzení
+
+- Koncept: `docs/14_MOBILE_UI_V2_SPEC.md` (§2: tlačítka min. 44 px). Odebrání člena domácnosti, dítěte (smaže i alergie a preference) a vlastního místa v zásobách proběhlo jedním klepnutím na malé ✕. Nová sdílená komponenta `components/shared/confirm-remove-button.tsx`: první klepnutí jen nahradí ikonu dvojicí „Odebrat“ / „Zrušit“ (Esc a 6 s bez reakce otázku zavřou), odebere až druhé. Použitá v `member-card`, `child-card` a `pantry-places` (tlačítko u místa je kvůli tomu 40 px místo 32 px). Server i data se nemění.
+- Ověřeno: `tsc --noEmit`, nový `confirm-remove-button.test.tsx` a Chromium na lokální DB (člen zůstane po prvním klepnutí i po „Zrušit“, zmizí po „Odebrat“). Odebrání dítěte a místa v zásobách se v prohlížeči nezkoušelo, jen v testu a přes stejnou komponentu.
+
+## 2026-10-12 — UX: Enter přidá položku, méně prázdných karet u nové domácnosti
+
+- Koncept: `docs/14_MOBILE_UI_V2_SPEC.md` (§4: žádné prázdné karty), `docs/22_GUIDE.md`. Z UX průchodu aplikace na šířce 390 px:
+  - Enter v poli „Co koupit?“ (Nákup) položku nepřidával, fungovalo jen tlačítko „Přidat“. `ProductAutocomplete` má nový volitelný `onSubmit` (Enter, ne při psaní přes IME) a seznam ho používá stejnou funkcí `submitNewItem` jako tlačítko.
+  - Domů už neukazuje „Zásoby · nic ke kontrole“ (dokud nejsou žádné zásoby), „Jídelníček · na dnešek nic naplánováno“ (dokud není uložený jídelníček) a „Akce k vašim položkám“ (dokud je seznam prázdný). Komponenty se nezměnily, rozhoduje shell; sekce zůstávají v navigaci.
+  - „Plán nákupu“ při prázdném seznamu ukáže jen vysvětlení a poznámku „není co plánovat“, bez zakázaného tlačítka a výběrů. Karta průvodce „Plán nákupu“ proto při prázdném seznamu zvýrazní nadpis panelu (druhý cíl v `lib/guide.ts`).
+- Ověřeno: `tsc --noEmit`, testy (nový `shopping-plan.test.tsx`) a Chromium na lokální DB (nový účet: Domů bez tří prázdných karet, Enter přidá položku a vyprázdní pole, „Sestavit plán“ se objeví po první položce). Zvýraznění nadpisu v průvodci a mobilní zařízení nezkoušeno.
+
 ## 2026-10-12 — Průvodce: pravdivý popis „Dokončit nákup“
 
 - Koncept: `docs/22_GUIDE.md`. Karty „Hotovo? Dokončete nákup“, „Moje nákupy“ a „Zásoby“ tvrdily, že dokončení nákupu uloží nákup do historie a koupené věci do zásob. To přestalo platit v #429 (2026-10-11): „Dokončit nákup“ jen odstraní odškrtnuté položky ze seznamu (`clearDoneItemsAction`), nákup, výdaj v rozpočtu a zásoby vznikají z účtenky nebo z „Zadat nákup ručně“ v Moje nákupy. Karty to teď říkají a ukazují, jak nákup do rozpočtu a zásob dostat; test v `lib/guide.test.ts` hlídá, že karta nepřipisuje seznamu uložení do historie a zásob.

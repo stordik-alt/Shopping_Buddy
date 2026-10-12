@@ -10,9 +10,11 @@ export const ProductAutocomplete = forwardRef<HTMLInputElement, {
   value: string
   onChange: (value: string) => void
   onSelect?: (suggestion: ProductAutocompleteSelection) => void
+  /** Called when the user presses Enter in the field (the same as tapping the form's submit button). */
+  onSubmit?: () => void
   placeholder?: string
   ariaLabel?: string
-}>(({ value, onChange, onSelect, placeholder, ariaLabel }, ref) => {
+}>(({ value, onChange, onSelect, onSubmit, placeholder, ariaLabel }, ref) => {
   const [open, setOpen] = useState(false)
   const [suggestions, setSuggestions] = useState<ManualProductSuggestion[]>([])
   const [loading, setLoading] = useState(false)
@@ -54,6 +56,13 @@ export const ProductAutocomplete = forwardRef<HTMLInputElement, {
         onChange={(event) => onChange(event.target.value)}
         onFocus={() => suggestions.length > 0 && setOpen(true)}
         onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+        onKeyDown={(event) => {
+          // Enter must not fire while an IME (e.g. phone keyboard prediction) is still composing a word.
+          if (event.key !== 'Enter' || event.nativeEvent.isComposing || !onSubmit) return
+          event.preventDefault()
+          setOpen(false)
+          onSubmit()
+        }}
         placeholder={placeholder}
         autoComplete="off"
       />

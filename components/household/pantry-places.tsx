@@ -1,6 +1,7 @@
 import { PackagePlus, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { CollapsibleSection } from '@/components/shared/collapsible-section'
+import { ConfirmRemoveButton } from '@/components/shared/confirm-remove-button'
 import { PANTRY_AREAS } from '@/lib/pantry'
 import { userFacingError } from '@/lib/errors'
 import type { PantryArea, PantryPlace } from '@/lib/types'
@@ -108,15 +109,9 @@ export function PantryPlaces({
                 {group.places.map((place) => (
                   <li key={place.id} className="flex items-center justify-between gap-3 rounded-xl bg-muted px-3 py-2 text-sm">
                     <span className="min-w-0 break-words">{place.name}</span>
-                    <button
-                      type="button"
-                      aria-label={`Odebrat místo ${place.name}`}
-                      onClick={() => remove(place.id)}
-                      disabled={removingId === place.id}
-                      className="icon-button size-8 shrink-0 disabled:opacity-60"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                    </button>
+                    <ConfirmRemoveButton label={`místo ${place.name}`} onConfirm={() => void remove(place.id)} disabled={removingId === place.id}>
+                      <Trash2 className="h-4 w-4" aria-hidden />
+                    </ConfirmRemoveButton>
                   </li>
                 ))}
               </ul>

@@ -1,4 +1,5 @@
 import { Utensils, X } from 'lucide-react'
+import { ConfirmRemoveButton } from '@/components/shared/confirm-remove-button'
 import { dietLabels, NO_DIET } from '@/lib/diet'
 import type { HouseholdMember } from '@/lib/types'
 
@@ -16,13 +17,9 @@ export function MemberCard({ member, onRemove, onEditDiet }: { member: Household
             <p className="break-words text-xs text-muted-foreground">{member.role} · {member.age} let</p>
           </div>
         </div>
-        <button
-          aria-label={`Odebrat ${member.name}`}
-          onClick={onRemove}
-          className="flex size-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
+        <ConfirmRemoveButton label={member.name} onConfirm={onRemove}>
           <X className="h-4 w-4" aria-hidden="true" />
-        </button>
+        </ConfirmRemoveButton>
       </div>
       {(member.favoriteFoods.length > 0 || member.dislikedFoods.length > 0 || member.allergies.length > 0) && (
         <div className="mt-3 flex flex-wrap gap-1.5">

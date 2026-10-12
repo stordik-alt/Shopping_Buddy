@@ -60,7 +60,7 @@ export const ShoppingList = memo(function ShoppingList({
   items,
   addItem,
   updateItem,
-  removeItem,
+  removeItems,
   toggle,
   lists,
   onAddList,
@@ -85,7 +85,8 @@ export const ShoppingList = memo(function ShoppingList({
   items: Item[]
   addItem: (name: string, selection?: ProductAutocompleteSelection) => void
   updateItem: (id: string, changes: Partial<Item>) => void
-  removeItem: (id: string) => void
+  /** Removes items with a way back (the shell shows "Vrátit zpět"); one call per action so a bulk clear is one undo. */
+  removeItems: (ids: string[]) => void
   toggle: (id: string) => void
   lists: string[]
   onAddList: (name: string) => void
@@ -188,6 +189,15 @@ export const ShoppingList = memo(function ShoppingList({
   const dealByName = useMemo(() => bestDealByName(assessDealQuality(productPrices, today)), [productPrices, today])
   const offerByName = useMemo(() => bestOfferByName(offers), [offers])
 
+  // Shared by the "Přidat" button and Enter in the field, so both add exactly the same thing.
+  function submitNewItem() {
+    const name = newItem.trim()
+    if (!name) return
+    setNewItem('')
+    addItem(name, newItemSelection)
+    setNewItemSelection(undefined)
+  }
+
   function createList() {
     const name = listName.trim()
     if (!name || lists.includes(name)) return
@@ -236,17 +246,12 @@ export const ShoppingList = memo(function ShoppingList({
                 setNewItemSelection(undefined)
               }}
               onSelect={(suggestion: ProductAutocompleteSelection) => setNewItemSelection(suggestion)}
+              onSubmit={submitNewItem}
               placeholder="Co koupit?"
               ariaLabel="Nová položka"
             />
           </div>
-          <Button size="lg" onClick={() => {
-              const name = newItem.trim()
-              if (!name) return
-              setNewItem('')
-              addItem(name, newItemSelection)
-              setNewItemSelection(undefined)
-            }}>
+          <Button size="lg" onClick={submitNewItem}>
             <Plus aria-hidden="true" /> Přidat
           </Button>
         </div>
@@ -371,7 +376,7 @@ export const ShoppingList = memo(function ShoppingList({
                 {showCompleted ? 'Skrýt hotové' : 'Zobrazit hotové'}
               </Button>
               {items.some((item) => item.done) && (
-                <Button variant="outline" size="lg" onClick={() => items.filter((item) => item.done).forEach((item) => removeItem(item.id))}>
+                <Button variant="outline" size="lg" onClick={() => removeItems(items.filter((item) => item.done).map((item) => item.id))}>
                   Vymazat hotové
                 </Button>
               )}
@@ -430,7 +435,7 @@ export const ShoppingList = memo(function ShoppingList({
                     <button
                       type="button"
                       aria-label={`Odstranit ${item.name}`}
-                      onClick={() => removeItem(item.id)}
+                      onClick={() => removeItems([item.id])}
                       className="icon-button shrink-0 max-sm:!hidden hover:!bg-destructive-subtle hover:!text-destructive"
                     >
                       <X className="size-4" aria-hidden="true" />
@@ -558,7 +563,7 @@ export const ShoppingList = memo(function ShoppingList({
                         Aktuálně v akci
                       </label>
                       <button
-                        onClick={() => removeItem(item.id)}
+                        onClick={() => removeItems([item.id])}
                         type="button"
                         className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border px-3 text-sm font-medium text-destructive hover:bg-destructive-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:hidden"
                       >

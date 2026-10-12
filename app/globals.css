@@ -406,33 +406,13 @@
 [data-mood='cheer'] .anitka-react { animation: anitka-lift 1.6s ease-in-out 0.2s both; }
 [data-mood='wink'] .anitka-lid-r { animation: anitka-wink 1.2s ease-in-out calc(var(--talk, 2.4s) + 0.3s) both; }
 
-/* Anitka's entrance on the intro screen (components/auth/anitka-intro-figure.tsx): she walks in from beyond the
-   left edge of the screen, bobbing with each step while the legs are lifted one after the other, and then
-   stands with her arms up. The wrapper is as wide as she is, so the percentage in `translateX` is her own width
-   and she starts fully outside the screen. Every animation ends in the resting pose. */
-.anitka-intro { position: relative; }
-.anitka-intro-walk { position: relative; animation: anitka-intro-walk 2.8s cubic-bezier(0.3, 0.55, 0.4, 1) 0.25s both; }
-.anitka-intro-bob { animation: anitka-intro-bob 0.56s ease-in-out 0.25s 5 both; }
-.anitka-intro-leg-l { transform-origin: 41.9% 73.4%; animation: anitka-intro-step 1.12s ease-in-out 0.25s 2.5 both; }
-.anitka-intro-leg-r { transform-origin: 54.8% 73.4%; animation: anitka-intro-step 1.12s ease-in-out 0.81s 2 both; }
-.anitka-intro-shadow { position: absolute; left: 25%; right: 25%; bottom: -1.5%; height: 3.5%; border-radius: 50%; background: radial-gradient(closest-side, rgb(10 26 63 / 0.28), transparent); }
-@keyframes anitka-intro-walk {
-  from { transform: translateX(calc(-50vw - 100%)); }
-  to { transform: translateX(0); }
-}
-@keyframes anitka-intro-bob {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-1.1%); }
-}
-@keyframes anitka-intro-step {
-  0%, 50%, 100% { transform: translateY(0) rotate(0deg); }
-  25% { transform: translateY(-3%) rotate(-6deg); }
-}
-.anitka-intro-bubble { animation: anitka-intro-bubble 0.5s ease-out 2.3s both; }
-@keyframes anitka-intro-bubble {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+/* Anitka's entrance on the intro screen (components/auth/anitka-intro-figure.tsx): the walk itself is a sprite
+   sheet played from script; here only what surrounds it. The shadow is a soft ellipse on the ground that
+   walks with her, and the bubble fades in once she waves. */
+.anitka-intro-walker { will-change: transform, background-position; }
+.anitka-intro-shadow { position: absolute; left: 22%; width: 56%; bottom: -1.2%; height: 3.2%; border-radius: 50%; background: radial-gradient(closest-side, rgb(10 26 63 / 0.28), transparent); }
+.anitka-intro-bubble { transition: opacity 0.5s ease-out, transform 0.5s ease-out; }
+.anitka-intro-bubble[data-hidden='true'] { opacity: 0; transform: translateY(6px); }
 .dark .anitka-intro-shadow { background: radial-gradient(closest-side, rgb(0 0 0 / 0.5), transparent); }
 
 .guide-ring { animation: guide-ring 1.8s ease-out infinite; }

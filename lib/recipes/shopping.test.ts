@@ -111,6 +111,46 @@ describe('recipe shopping helpers', () => {
     ).toBe('Množství není platné.')
   })
 
+  it('does not ask to buy a culinary-measure ingredient the household has in stock', () => {
+    const pantry = [
+      { id: 's1', name: 'Sůl', category: 'Potraviny', location: 'Spíž', quantity: 1, unit: 'ks', addedAt: '2026-09-30', tracking: 'rare' },
+    ] as never
+
+    expect(
+      analyzeRecipeIngredient({ id: 'i1', originalText: 'sůl podle chuti', name: 'sůl', scalable: false }, pantry),
+    ).toMatchObject({ missingQuantity: 0, stockUnmeasured: true })
+
+    expect(
+      analyzeRecipeIngredient({ id: 'i2', originalText: 'špetka soli', quantity: 1, unit: 'špetka', name: 'soli', scalable: true }, pantry),
+    ).toMatchObject({ missingQuantity: 0, stockUnmeasured: true })
+
+    // Stock the household does not track (or has used up) never covers anything.
+    const untracked = [{ id: 's1', name: 'Sůl', category: 'Potraviny', location: 'Spíž', quantity: 1, unit: 'ks', addedAt: '2026-09-30', tracking: 'off' }] as never
+    expect(
+      analyzeRecipeIngredient({ id: 'i3', originalText: 'sůl podle chuti', name: 'sůl', scalable: false }, untracked).missingQuantity,
+    ).toBe(1)
+  })
+
+  it('matches stock saved under its product type and reads pack sizes', () => {
+    const pantry = [
+      { id: 'c1', name: 'Kuřecí prsa', productTypeKey: 'kureci-prsa', category: 'Potraviny', location: 'Lednice', quantity: 2, unit: 'ks', unitQuantity: 300, unitUnit: 'g', addedAt: '2026-09-30' },
+    ] as never
+
+    expect(
+      analyzeRecipeIngredient({ id: 'i1', originalText: '500 g kuřecích prsou', quantity: 500, unit: 'g', name: 'kuřecí prsa', scalable: true }, pantry),
+    ).toMatchObject({ stockQuantity: 600, missingQuantity: 0 })
+  })
+
+  it('flags stock held in a unit that cannot be compared instead of claiming none', () => {
+    const pantry = [
+      { id: 'c1', name: 'Kuře', category: 'Potraviny', location: 'Lednice', quantity: 1, unit: 'ks', addedAt: '2026-09-30' },
+    ] as never
+
+    expect(
+      analyzeRecipeIngredient({ id: 'i1', originalText: '500 g kuře', quantity: 500, unit: 'g', name: 'Kuře', scalable: true }, pantry),
+    ).toMatchObject({ stockQuantity: 0, missingQuantity: 500, stockUnitMismatch: true })
+  })
+
   it('subtracts all compatible pantry placements from the recipe quantity', () => {
     const pantry = [
       { id: 'p1', name: 'Mléko', category: 'Potraviny', location: 'Lednice', quantity: 0.5, unit: 'l', addedAt: '2026-09-30' },

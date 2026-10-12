@@ -69,7 +69,7 @@ describe('guide steps', () => {
   })
 
   it('gives every card a mood Anitka can act out, and every card a plain-language title and text', () => {
-    const moods = ['nod', 'smile', 'wink', 'think', 'cheer']
+    const moods = ['nod', 'smile', 'wink', 'think', 'cheer', 'wave']
     for (const step of getGuideSteps(true)) {
       if (step.mood) expect(moods).toContain(step.mood)
       expect(step.text.length).toBeGreaterThan(40)

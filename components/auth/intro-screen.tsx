@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type CSSProperties } from 'react'
 import { useRouter } from 'next/navigation'
+import { AnitkaIntroFigure } from '@/components/auth/anitka-intro-figure'
 import { safeLocalStorage } from '@/lib/safe-storage'
 import { readThemeChoice, resolveDark } from '@/lib/theme-preference'
 
@@ -81,11 +82,10 @@ export function IntroScreen() {
               <p className="text-xs font-medium uppercase tracking-[0.15em] text-[var(--anitka-navy)]/70 dark:text-white/50">Powered by ANITKA AI</p>
             </div>
 
-            {/* The mascot introduces the app in a few short pages the visitor clicks through. */}
+            {/* The mascot introduces the app in a few short pages the visitor clicks through: she walks in from
+                beyond the edge of the screen, and her speech bubble appears once she stands there. */}
             <div className="flex w-full flex-col items-center">
-              {/* eslint-disable-next-line @next/next/no-img-element -- approved static brand asset */}
-              <img src="/brand/anitka/anitka-mascot-bust.webp" alt="Anitka, maskot aplikace" width={480} height={665} className="relative z-10 -mb-5 h-36 w-auto select-none sm:h-44 [@media(max-height:680px)]:h-28" fetchPriority="high" />
-              <div className="relative w-full rounded-3xl bg-white px-5 pb-4 pt-7 text-left shadow-[0_12px_30px_-14px_rgba(10,26,63,0.35)] ring-1 ring-[var(--anitka-navy)]/10 dark:bg-white/10 dark:ring-white/15">
+              <div className="anitka-intro-bubble relative w-full rounded-3xl bg-white px-5 pb-4 pt-4 text-left shadow-[0_12px_30px_-14px_rgba(10,26,63,0.35)] ring-1 ring-[var(--anitka-navy)]/10 dark:bg-white/10 dark:ring-white/15">
                 <h1 className="text-balance text-lg font-bold leading-snug text-[var(--anitka-navy)] dark:text-white">{page.title}</h1>
                 <p aria-live="polite" className="mt-1.5 min-h-[5.5rem] text-balance text-sm leading-relaxed text-[var(--anitka-navy)]/75 dark:text-white/80 sm:text-base">
                   {page.text}
@@ -104,6 +104,11 @@ export function IntroScreen() {
                     </button>
                   ))}
                 </div>
+                {/* The tail of the bubble points down to her. */}
+                <span aria-hidden="true" className="absolute left-1/2 top-full h-3 w-5 -translate-x-1/2 bg-white [clip-path:polygon(0_0,100%_0,50%_100%)] dark:bg-[#1d2b52]" />
+              </div>
+              <div role="img" aria-label="Anitka, maskot aplikace" className="mt-4">
+                <AnitkaIntroFigure className="h-[clamp(9.5rem,33svh,19rem)] aspect-[468/809]" />
               </div>
             </div>
           </div>

@@ -1,3 +1,30 @@
+## 2026-10-12 — Intro: Anitka přijde v celé postavě
+
+- Koncept: `docs/22_GUIDE.md`. Úvodní obrazovka před přihlášením má místo poprsí celou postavu (nová kresba od vlastníka, pozadí odstraněno bez zbytků). Postava stojí rovně na zemi (kresba ji má ve skoku s pokrčenýma nohama, proto jsou nohy sestavené z džínoviny z obrázku průvodce a bot z kresby) a při otevření vejde zpoza levého okraje obrazovky: tělo se při krocích nadzvedává, nohy se zvedají střídavě, na místě se zastaví a objeví se bublina. Soubory `anitka-intro-*.webp`, nová komponenta `components/auth/anitka-intro-figure.tsx`, pohyb v `app/globals.css`; starý `anitka-mascot-bust.webp` smazán.
+- Ověřeno: typová kontrola, testy, snímky z Chromia na 360×640, 390×844 (světlý i tmavý režim) a 1280×800, bez vodorovného posunu; vstup postupně od okraje po zastavení. Ruce zůstávají zvednuté (kresba), gestikulace rukama zde není.
+
+## 2026-10-12 — Nová Anitka v průvodci: zdraví mávnutím
+
+- Koncept: `docs/22_GUIDE.md`. Průvodce používá novou postavu od vlastníka, oříznutou od pozadí (bez zbytků: světlé šmouhy na okrajích vlasů pryč, odlesky v očích a bílé písmo na tričku zachované) a rozdělenou na vrstvy (tělo, svěšená paže, zvednutá paže, dlaň). První karta zamává (dlaň se otáčí kolem lokte, pak se paže svěsí), jinde ruce visí. Obličej (víčka, úsměv, rty) je dokreslený znovu na novou kresbu. Nový stav `wave` v `GuideMood`.
+- Svěšená paže je zrcadlená levá (kresba má pravou zvednutou); rameno je dorovnané. Soubory `anitka-guide-*.webp`, starý `anitka-mascot-full.webp` smazán. Úvodní obrazovka před přihlášením zatím ukazuje starou postavu.
+- Ověřeno: typová kontrola, testy průvodce, snímky z Chromia (mávání, svěšená paže, zavřené oko, otevřená ústa); v celé aplikaci na telefonu zatím ne.
+
+## 2026-10-12 — Anitka se pohybuje přirozeněji
+
+- Koncept: `docs/22_GUIDE.md`. Pryč je houpání a poskočení při změně karty. Anitka se jen jemně nadechuje, mluví po dobu úměrnou délce textu s nepravidelným pohybem rtů a lehkými pohyby hlavy, mrká nepravidelně (občas dvakrát) a nálady (kývnutí, naklonění, mrknutí, úsměv) přicházejí po domluvení a vracejí se do klidu. Změny v `app/globals.css`, `components/guide/anitka-mascot.tsx` (`talkDurationMs`) a `guide-tour.tsx`.
+- Gestikulace rukama není: na podkladu jsou ruce ořezané a visí podél těla; chce nový obrázek. Ověřeno typovou kontrolou a testy; pohyb samotný jsem zatím neviděl v prohlížeči.
+
+## 2026-10-12 — Průvodce: zvýrazněné místo už nezůstává schované pod kartou
+
+- Koncept: `docs/22_GUIDE.md`. Na telefonu zůstávalo místo, na které karta odkazuje (např. „Nahrát účtenku“, „Pravidelné platby“, „Navrhnout recepty“), schované pod kartou a kroužek se kreslil přes ni. Karta je teď nad zvýrazněním (`z-[46]`), text na kartě má nižší maximální výšku (34 % výšky obrazovky), takže zbývá víc volného místa, a posouvání k cíli se nevzdává po pěti pokusech, ale zkouší to až 12× a skončí, když se stránka už nehýbe (pevné prvky jako nabídka účtu).
+- Ověřeno: typová kontrola a testy průvodce; vizuálně na zařízení zatím ne.
+
+## 2026-10-12 — Recepty: suroviny, které máte v zásobách, už se nehlásí jako „koupit“
+
+- Koncept: `docs/10_RECIPES.md`. Detail receptu (`lib/recipes/shopping.ts`) porovnával zásoby jen podle přesného názvu a surovinu s kuchyňskou mírou („špetka soli“, „sůl podle chuti“) vždy hlásil jako chybějící. Teď: zásoba se hledá podle názvu i typu zboží (stejně jako v jídelníčku), balení se čtou přes `stockQuantityIn` (2 ks × 300 g) a surovina bez porovnatelného množství se bere za pokrytou, pokud ji domácnost má (řádek „Máte doma.“).
+- Zásoba v nesrovnatelné jednotce (1 ks kuřete vs. 500 g) zůstává v nákupu, ale s hláškou „Máte doma, ale v jiné jednotce — množství zkontrolujte.“. Řádky „Nesledovat“ se dál nepočítají.
+- Testy: `lib/recipes/shopping.test.ts` (sůl na skladě, typ zboží a balení, nesrovnatelná jednotka).
+
 ## 2026-10-11 — Průvodce: celá aplikace od začátku do konce a živá Anitka
 
 - Koncept: `docs/22_GUIDE.md`. Průvodce má 33 karet místo 12: pohyb po aplikaci, Domů, zvonek, Nákup (detail položky, seznamy a filtry, hledání produktů, plán nákupu, dokončení nákupu, Moje nákupy, Účtenky), Zásoby (místa, úpravy, kontrola, minimum a maximum), Rozpočet (Přehled, Výdaje, Plánování, pravidelné platby, Kapsy, uzavření období), Akce, Obchody, Recepty, Jídelníček a čtyři karty Profilu. Texty jsou psané lidsky a odpovídají skutečným funkcím.

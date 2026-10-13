@@ -6,7 +6,8 @@ export function parseStoredJson<T>(text: string, context: string): T | null {
   try {
     return JSON.parse(text) as T
   } catch (error) {
-    console.error(`[stored-json] unreadable JSON in ${context}`, error)
+    // A constant format string: `context` carries ids, so it is passed as an argument, never as the format.
+    console.error('[stored-json] unreadable JSON in %s', context, error)
     return null
   }
 }

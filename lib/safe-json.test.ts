@@ -12,6 +12,7 @@ describe('parseStoredJson', () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {})
     expect(parseStoredJson('{"a":', 'receipt_imports.items abc')).toBeNull()
     expect(log).toHaveBeenCalledOnce()
-    expect(String(log.mock.calls[0][0])).toContain('receipt_imports.items abc')
+    expect(log.mock.calls[0][0]).toBe('[stored-json] unreadable JSON in %s')
+    expect(log.mock.calls[0][1]).toBe('receipt_imports.items abc')
   })
 })

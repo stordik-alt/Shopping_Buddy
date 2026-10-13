@@ -6,6 +6,10 @@ import { isExpenseCategory, isValidSubcategory, type ExpenseCategory } from '@/l
 import { sameExpenseTarget, splitPurchaseByCategory, targetsOf, type ExpenseSplitPart, type ExpenseTarget, type PurchaseExpenseLine } from '@/lib/purchase-expenses'
 import type { ItemCategory, ItemUnit } from '@/lib/types'
 import { isValidProductSubcategory } from '@/lib/product-subcategories'
+// category-changes and subcategory-changes import `syncProductClassificationToPurchases` from here; the cycle is
+// harmless because each side only calls the other from inside a function.
+import { proposeProductCategory } from '@/lib/db/category-changes'
+import { proposeProductSubcategory } from '@/lib/db/subcategory-changes'
 
 // Lets a household split one purchase-item's expense-category assignment by hand — a plain
 // reassignment (e.g. a gift bought during an otherwise ordinary grocery trip, counted under Ostatní ▸
@@ -92,6 +96,20 @@ export async function syncProductClassificationToPurchases(productId: string, op
 function isProductExpenseTarget(category: string, subcategory: string | null): boolean {
   const itemCategories: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
   return itemCategories.includes(category as ItemCategory) && isValidProductSubcategory(category as ItemCategory, subcategory)
+}
+
+/** Offers a household's budget classification of a product to the shared catalog through the governed
+ *  paths (lib/db/category-changes.ts, lib/db/subcategory-changes.ts). A subcategory is only offered when the
+ *  product is (now) in that category: a pending or locked category change must not leave a subcategory of the
+ *  wrong category on it. A category-only choice does not clear a subcategory the product already has. */
+async function proposeToCatalog(householdId: string, productId: string, category: ItemCategory, subcategory: string | null): Promise<void> {
+  const db = getDb()
+  const product = await db.query.products.findFirst({ where: eq(schema.products.id, productId), columns: { id: true } })
+  if (!product) return
+  await proposeProductCategory(householdId, productId, category)
+  if (!subcategory) return
+  const current = await db.query.products.findFirst({ where: eq(schema.products.id, productId), with: { category: { columns: { name: true } } }, columns: { id: true } })
+  if (current?.category.name === category) await proposeProductSubcategory(householdId, productId, category, subcategory)
 }
 
 // A crafted request could otherwise ask for an unbounded number of rows; real receipts never need
@@ -263,26 +281,18 @@ export async function setPurchaseItemExpenseSplits(householdId: string, purchase
   }
   await learnProductExpenseDefault(db, householdId, item.productId, splits)
 
-  // A plain budget assignment can also be the product's canonical classification. When it is,
-  // propagate it back to the shared product so Zásoby, future receipts and historical ordinary
-  // expenses all show the same category/subcategory. A non-product expense target (e.g. Dárky)
-  // remains a one-purchase override, and a multi-way split remains purchase-specific.
+  // A plain budget assignment can also be the product's canonical classification. When it is, the
+  // household proposes it for the shared catalog the same way a correction in Zásoby does: it applies at
+  // once while the product has had few moves, then waits for an administrator, and a category an
+  // administrator decided is locked (docs/37_SECURITY_REMEDIATION_PLAN.md, N4 — this used to write the shared
+  // product directly, so any household could re-file a product for everyone without limit). Either way the
+  // household's own budget follows its choice: the split saved above is its own record, and when the catalog
+  // does follow, only this household's history is rewritten (`syncProductClassificationToPurchases`).
+  // A non-product expense target (e.g. Dárky) and a multi-way split stay purchase-specific.
   if (item.productId && splits.length === 1) {
     const target = splits[0]
-    const itemCategories: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
-    if (itemCategories.includes(target.category as ItemCategory) && isValidProductSubcategory(target.category as ItemCategory, target.subcategory)) {
-      const product = await db.query.products.findFirst({ where: eq(schema.products.id, item.productId), columns: { categoryId: true, subcategoryId: true, categoryLocked: true } })
-      const categoryRow = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, target.category as ItemCategory), columns: { id: true } })
-      const targetSubcategory = target.subcategory
-        ? await db.query.productSubcategories.findFirst({ where: and(eq(schema.productSubcategories.category, target.category as ItemCategory), eq(schema.productSubcategories.name, target.subcategory)), columns: { id: true } })
-        : null
-      if (categoryRow && target.subcategory && !targetSubcategory) throw new InvalidExpenseCategoryError('Neplatná podkategorie výdaje.')
-      if (categoryRow && product && !product.categoryLocked && (product.categoryId !== categoryRow.id || product.subcategoryId !== (targetSubcategory?.id ?? null))) {
-        await db.update(schema.products).set({ categoryId: categoryRow.id, subcategoryId: targetSubcategory?.id ?? null }).where(eq(schema.products.id, item.productId))
-        // Only this household's own history follows its change; other households' purchases stay as they were.
-        await syncProductClassificationToPurchases(item.productId, { householdId })
-        return
-      }
+    if (isProductExpenseTarget(target.category, target.subcategory)) {
+      await proposeToCatalog(householdId, item.productId, target.category as ItemCategory, target.subcategory)
     }
   }
   await recomputePurchaseExpenses(db, item.purchaseId)

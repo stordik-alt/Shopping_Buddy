@@ -1,8 +1,11 @@
 import { and, eq, inArray } from 'drizzle-orm'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import { getHouseholdProductExpenseDefaults, recomputePurchaseExpenses, setPurchaseItemExpenseSplits, syncProductClassificationToPurchases } from '@/lib/db/purchase-items'
 import * as schema from '@/lib/db/schema'
+
+// A budget reassignment can change the shared catalog (lib/db/category-changes.ts), which refreshes a Next.js cache tag; there is no request here.
+vi.mock('@/lib/db/cache-invalidation', () => ({ invalidateProductCatalogCache: vi.fn() }))
 
 const db = getDb()
 

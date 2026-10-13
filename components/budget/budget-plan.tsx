@@ -178,6 +178,7 @@ export function BudgetPlanSheet({
   defaultBudget,
   periodBudgets,
   savingsGoal,
+  canSetDefault = true,
   onClose,
   onSave,
 }: {
@@ -186,6 +187,8 @@ export function BudgetPlanSheet({
   defaultBudget: number
   periodBudgets: Record<string, number>
   savingsGoal: number
+  /** Only the household's owner may change the monthly budget (the default for every period); a member sees it but not edit it. */
+  canSetDefault?: boolean
   onClose: () => void
   onSave: (changes: { periodBudgets: { period: string; amount: number | null }[]; savingsGoal?: number; defaultBudget?: number }) => Promise<void>
 }) {
@@ -233,7 +236,7 @@ export function BudgetPlanSheet({
     setBusy(true)
     setError('')
     try {
-      await onSave({ periodBudgets: periodChanges, ...(goal !== savingsGoal ? { savingsGoal: goal } : {}), ...(monthly !== defaultBudget ? { defaultBudget: monthly } : {}) })
+      await onSave({ periodBudgets: periodChanges, ...(goal !== savingsGoal ? { savingsGoal: goal } : {}), ...(canSetDefault && monthly !== defaultBudget ? { defaultBudget: monthly } : {}) })
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Rozpočet se nepodařilo uložit.')
@@ -244,7 +247,7 @@ export function BudgetPlanSheet({
 
   const defaultHint = defaultBudget > 0 ? ` · výchozí ${wholeMoney(defaultBudget)}` : ''
   const fields = [
-    { key: 'default' as const, label: 'Měsíční rozpočet', hint: 'Platí pro každé období, které nemá vlastní částku.', placeholder: 'nenastaven' },
+    { key: 'default' as const, label: 'Měsíční rozpočet', hint: canSetDefault ? 'Platí pro každé období, které nemá vlastní částku.' : 'Platí pro každé období, které nemá vlastní částku. Mění ho správce domácnosti.', placeholder: 'nenastaven' },
     { key: 'current' as const, label: 'Toto období', hint: periodLabel(current, periodEnd(current, period)) + defaultHint, placeholder: 'výchozí' },
     { key: 'next' as const, label: 'Příští období', hint: periodLabel(next, periodEnd(next, period)) + defaultHint, placeholder: 'výchozí' },
     { key: 'goal' as const, label: 'Měsíční cíl úspor', hint: 'Kolik z rozpočtu ušetřit za období.', placeholder: 'bez cíle' },
@@ -284,6 +287,7 @@ export function BudgetPlanSheet({
                 inputMode="decimal"
                 placeholder={field.placeholder}
                 aria-label={field.label}
+                readOnly={field.key === 'default' && !canSetDefault}
                 className="w-32 px-3 text-right"
               />
               <span className="text-fg-muted">Kč</span>

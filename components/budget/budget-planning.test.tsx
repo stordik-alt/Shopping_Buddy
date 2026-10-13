@@ -51,7 +51,7 @@ const render = (
   commitments: Commitment[] = [],
   plannedExpenses: PlannedState = plannedState([]),
   history: { rows: PeriodHistoryRow[] | null; error: string; retry: () => void } = { rows: [], error: '', retry: () => {} },
-  view: { offset?: number; outlook?: OutlookState; period?: string; periodEnd?: string } = {},
+  view: { offset?: number; outlook?: OutlookState; period?: string; periodEnd?: string; isOwner?: boolean } = {},
 ) =>
   renderToStaticMarkup(
     <BudgetPlanning
@@ -71,6 +71,7 @@ const render = (
       onOpenExpenses={() => {}}
       budgetPeriod={{ type: 'payday', startDay: 15 }}
       onChangePeriod={noop}
+      isOwner={view.isOwner}
     />,
   )
 
@@ -131,6 +132,17 @@ describe('BudgetPlanning — carry, Kapsy and closing', () => {
     expect(html).toContain('role="progressbar"')
     // The planned contribution is shown under "Plánováno" and not in the actual balance.
     expect(html).toMatch(/plánované úspory do Kapes 2[\s ]000/)
+  })
+
+  // S6: closing a period and the period setting are for the household's owner.
+  it('does not offer a member to close or reopen a period or to change the budget period', () => {
+    const toClose = { periodStart: '2026-09-15', periodEnd: '2026-10-15', received: 38_000, carryIn: 0, expenses: 33_200, transfers: 0, result: 4_800, plannedCarry: null }
+    const asMember = render(state({}), 0, ledgerState({ ...emptyLedger, toClose, previousClosedStart: '2026-08-15' }), undefined, undefined, undefined, { isOwner: false })
+    expect(asMember).not.toContain('Uzavřít období</button>')
+    expect(asMember).toContain('Období uzavře správce domácnosti.')
+    expect(asMember).not.toContain('Znovu otevřít předchozí období')
+    const asOwner = render(state({}), 0, ledgerState({ ...emptyLedger, toClose, previousClosedStart: '2026-08-15' }))
+    expect(asOwner).toContain('Znovu otevřít předchozí období')
   })
 
   it('offers to close a period that has ended, saying what is left or missing', () => {

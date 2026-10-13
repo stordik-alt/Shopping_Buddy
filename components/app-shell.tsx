@@ -1090,6 +1090,7 @@ export function AppShell({
                       }}
                       budgetPeriod={budgetPeriod}
                       onChangePeriod={changeBudgetPeriod}
+                      isOwner={initialData.isOwner}
                     />
                   )}
                 </div>
@@ -1163,6 +1164,7 @@ export function AppShell({
             defaultBudget={household.monthlyBudget}
             periodBudgets={periods.periodBudgets}
             savingsGoal={periods.savingsGoal}
+            canSetDefault={initialData.isOwner}
             onClose={() => setPlanOpen(false)}
             onSave={async ({ defaultBudget, ...planChanges }) => {
               if (defaultBudget !== undefined) await setMonthlyBudget(defaultBudget)

@@ -90,6 +90,7 @@ export const households = pgTable('households', {
   check('households_budget_period_start_day_range', sql`${table.budgetPeriodStartDay} >= 1 AND ${table.budgetPeriodStartDay} <= 28`),
   check('households_budget_period_type_valid', sql`${table.budgetPeriodType} IN ('calendar', 'payday', 'custom')`),
   check('households_budget_period_custom_valid', sql`(${table.budgetPeriodType} = 'custom' AND ${table.budgetPeriodAnchor} IS NOT NULL AND ${table.budgetPeriodLengthDays} BETWEEN 7 AND 366) OR (${table.budgetPeriodType} <> 'custom' AND ${table.budgetPeriodAnchor} IS NULL AND ${table.budgetPeriodLengthDays} IS NULL)`),
+  check('households_currency_iso_check', sql`${table.currency} ~ '^[A-Z]{3}$'`),
 ])
 
 // Membership: links a user account to a household with a permission role.
@@ -801,6 +802,7 @@ export const prices = pgTable('prices', {
     .where(sql`${table.sourceType} = 'OFFICIAL' AND ${table.sourceReference} IS NOT NULL`),
   check('prices_regular_price_positive', sql`${table.regularPrice} > 0`),
   check('prices_unit_price_positive', sql`${table.unitPrice} > 0`),
+  check('prices_currency_iso_check', sql`${table.currency} ~ '^[A-Z]{3}$'`),
 ])
 
 // Where each store's rotating price refresh continues. A store's catalog is split into parts that
@@ -872,6 +874,7 @@ export const deals = pgTable('deals', {
   foreignKey({ columns: [table.storeLocationId, table.storeId], foreignColumns: [storeLocations.id, storeLocations.storeId] }).onDelete('cascade').onUpdate('cascade'),
   check('deals_deal_price_positive', sql`${table.dealPrice} > 0`),
   check('deals_valid_range_check', sql`${table.validUntil} >= ${table.validFrom}`),
+  check('deals_currency_iso_check', sql`${table.currency} ~ '^[A-Z]{3}$'`),
 ])
 
 // --- Shopping lists ----------------------------------------------------------
@@ -1224,6 +1227,7 @@ export const receiptImports = pgTable('receipt_imports', {
 }, (table) => [
   index('receipt_imports_household_status_created_idx').on(table.householdId, table.status, table.createdAt),
   index('receipt_imports_purchase_idx').on(table.purchaseId),
+  check('receipt_imports_currency_iso_check', sql`${table.currency} ~ '^[A-Z]{3}$'`),
 ])
 
 // A budget period's own amount, keyed by the period's start date (`month`); a period without a row uses

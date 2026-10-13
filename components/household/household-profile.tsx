@@ -161,6 +161,8 @@ export function HouseholdProfile({
           <input
             value={household.name}
             onChange={(event) => onUpdateHousehold({ name: event.target.value })}
+            // Only the owner may rename the household (the server refuses anyone else).
+            readOnly={!isOwner}
             // Where Anitka's guide points first (components/guide).
             data-guide="household-name"
             className="min-h-11 w-full rounded-xl border border-transparent bg-transparent px-1 text-2xl font-semibold outline-none hover:border-border focus:border-ring focus:bg-background focus:px-2 focus:py-1 focus-visible:ring-2 focus-visible:ring-ring/40"

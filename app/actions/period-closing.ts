@@ -2,13 +2,14 @@
 
 import { randomUUID } from 'node:crypto'
 import { and, eq, gte } from 'drizzle-orm'
-import { requireHouseholdId } from '@/lib/auth/authorize'
+import { requireHousehold } from '@/lib/auth/authorize'
 import { canClosePeriod, carryIntoPeriod, periodResult, planClosing, type PocketAmount } from '@/lib/budget-closing'
 import { nextPeriodStartFor, periodStartFor } from '@/lib/budget-period'
 import { getDb } from '@/lib/db/client'
 import { loadClosedPeriods, loadPeriodMoney, loadPockets } from '@/lib/db/period-ledger'
 import { loadPeriodConfig } from '@/lib/db/period-config'
 import * as schema from '@/lib/db/schema'
+import { assertOwner } from '@/lib/household-members'
 import { isIsoDate } from '@/lib/income-input'
 import { todayInPrague } from '@/lib/today'
 
@@ -31,7 +32,8 @@ export type CloseInput = {
 /** Closes a period that has ended: records the user's split of its result as Kapsa moves plus the
  *  amount kept unassigned, after which the carry to the next period follows from the real data. */
 export async function closePeriodAction(input: CloseInput): Promise<void> {
-  const householdId = await requireHouseholdId()
+  const { householdId, role } = await requireHousehold()
+  assertOwner(role, 'Období může uzavřít jen správce domácnosti.')
   if (!isIsoDate(input.periodStart)) throw new Error('Neplatné období.')
   const db = getDb()
   const config = await loadPeriodConfig(db, householdId)
@@ -78,7 +80,8 @@ export async function closePeriodAction(input: CloseInput): Promise<void> {
  *  period is closed (its carry depends on this one) or when taking the moves back would leave a Kapsa
  *  below zero because the money has been used since. */
 export async function reopenPeriodAction(periodStart: string): Promise<void> {
-  const householdId = await requireHouseholdId()
+  const { householdId, role } = await requireHousehold()
+  assertOwner(role, 'Období může znovu otevřít jen správce domácnosti.')
   if (!isIsoDate(periodStart)) throw new Error('Neplatné období.')
   const db = getDb()
   const closing = await db.query.periodClosings.findFirst({

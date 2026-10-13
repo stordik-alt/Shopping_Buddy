@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canRemoveMember } from '@/lib/household-members'
+import { assertOwner, canRemoveMember } from '@/lib/household-members'
 
 const owner = { role: 'owner' as const, memberId: 'owner-1' }
 const member = { role: 'member' as const, memberId: 'member-1' }
@@ -17,5 +17,12 @@ describe('canRemoveMember', () => {
     expect(canRemoveMember(member, { id: 'member-1', role: 'member', userId: 'u-1' })).toBe(true)
     expect(canRemoveMember(member, { id: 'profile-1', role: 'member', userId: null })).toBe(true)
     expect(canRemoveMember(member, { id: 'member-2', role: 'member', userId: 'u-2' })).toBe(false)
+  })
+})
+
+describe('assertOwner', () => {
+  it('lets the owner through and refuses a member with the given message', () => {
+    expect(() => assertOwner('owner', 'x')).not.toThrow()
+    expect(() => assertOwner('member', 'Jen správce.')).toThrow('Jen správce.')
   })
 })

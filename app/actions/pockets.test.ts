@@ -7,9 +7,10 @@ import * as schema from '@/lib/db/schema'
 // into the next one (docs/15_BUDGET_PERIODS.md §10–15). Every household uses calendar months, so the
 // previous period is simply last month.
 let currentHouseholdId = ''
+let currentRole: 'owner' | 'member' = 'owner'
 vi.mock('@/lib/auth/authorize', () => ({
   requireHouseholdId: () => Promise.resolve(currentHouseholdId),
-  requireHousehold: () => Promise.resolve({ userId: '00000000-0000-4000-8000-000000000001', userEmail: 'test@example.com', householdId: currentHouseholdId, role: 'owner' }),
+  requireHousehold: () => Promise.resolve({ userId: '00000000-0000-4000-8000-000000000001', userEmail: 'test@example.com', householdId: currentHouseholdId, role: currentRole }),
 }))
 vi.mock('next/cache', () => ({ revalidatePath: () => {} }))
 
@@ -61,6 +62,7 @@ const income = (amount: number, date: string) => db.insert(schema.incomes).value
 const expense = (amount: number, date: string) => db.insert(schema.expenses).values({ householdId, amount: amount.toString(), date, category: 'Ostatní' })
 
 beforeEach(async () => {
+  currentRole = 'owner'
   householdId = await createHousehold()
   currentHouseholdId = householdId
 })
@@ -236,6 +238,20 @@ describe('closing a period (§12–15)', () => {
     await expect(closePeriodAction({ periodStart: previousStart, deposits: [{ pocketId: pocket.id, amount: 10 }], withdrawals: [], carryOn: 0 })).rejects.toThrow('schodku')
     await expect(closePeriodAction({ periodStart: previousStart, deposits: [], withdrawals: [{ pocketId: pocket.id, amount: 600 }], carryOn: 0 })).rejects.toThrow()
     expect((await getBudgetLedgerAction(currentStart)).toClose).not.toBeNull()
+  })
+
+  // Security / S6 (docs/37_SECURITY_REMEDIATION_PLAN.md): closing and reopening a period are for the household's owner.
+  it('refuses a plain member closing or reopening a period, and lets the owner do both', async () => {
+    await income(100, previousStart)
+    currentRole = 'member'
+    await expect(closePeriodAction({ periodStart: previousStart, deposits: [], withdrawals: [], carryOn: 0 })).rejects.toThrow('jen správce domácnosti')
+    expect((await getBudgetLedgerAction(currentStart)).toClose).not.toBeNull() // nothing was closed
+    currentRole = 'owner'
+    await closePeriodAction({ periodStart: previousStart, deposits: [], withdrawals: [], carryOn: 0 })
+    currentRole = 'member'
+    await expect(reopenPeriodAction(previousStart)).rejects.toThrow('jen správce domácnosti')
+    currentRole = 'owner'
+    await reopenPeriodAction(previousStart)
   })
 
   it('refuses a period that has not ended and a period closed twice', async () => {

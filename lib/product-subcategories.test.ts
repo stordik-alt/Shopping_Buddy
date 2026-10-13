@@ -19,6 +19,19 @@ describe('PRODUCT_SUBCATEGORIES', () => {
   })
 })
 
+describe('classifySubcategoryByKeyword — cibulka is no bulka', () => {
+  // "cibulka" (spring onion) contains the bread-roll keyword "bulka"; it was filed under Pečivo.
+  it.each([
+    ['Jarní cibulka svazek', 'Ovoce a zelenina'],
+    ['Cibulka', 'Ovoce a zelenina'],
+    ['Cibule lahůdková, svazek', 'Ovoce a zelenina'],
+    ['Bulka kaiserka', 'Pečivo'],
+    ['Žemle', 'Pečivo'],
+  ])('%s → %s', (name, expected) => {
+    expect(classifySubcategoryByKeyword('Potraviny', normalizeProductText(name))).toBe(expected)
+  })
+})
+
 describe('classifySubcategoryByKeyword — spec section 2/21 examples', () => {
   const cases: Array<[string, string]> = [
     ['Máslo', 'Mléčné výrobky'],

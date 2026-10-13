@@ -397,7 +397,7 @@ export const geminiStructuringProvider: ReceiptStructuringProvider = {
       output: Output.object({ schema: extractedReceiptSchema }),
       prompt: `You are extracting structured data from the OCR text of a Czech retail receipt.
 
-Extract: the store name plus the store address and city if printed on the receipt, the date (YYYY-MM-DD), the time (HH:MM) if present, the receipt number if present, the currency, every line item (name, category, quantity, unit, unit price, total price, discount), the subtotal, the total discount, and the grand total.
+Extract: the store name plus the store address and city if printed on the receipt, the date (YYYY-MM-DD), the time (HH:MM) if present, the receipt number if present, the currency as an ISO code ("CZK" for Kč), every line item (name, category, quantity, unit, unit price, total price, discount), the subtotal, the total discount, and the grand total.
 
 Each item's category must be exactly one of: "Potraviny" (food), "Drogerie" (drugstore/hygiene/cleaning), "Děti" (children's/baby products), "Domácnost" (other household goods), "Ostatní" (anything else, or genuinely unclear — use it only when the item genuinely does not fit the other four). If you are not confident which of these five fits, output null — never guess.
 

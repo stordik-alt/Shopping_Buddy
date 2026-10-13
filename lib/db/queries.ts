@@ -31,6 +31,7 @@ import { loadProductTypeIds, productTypeIdFor } from '@/lib/db/product-type-assi
 import type { RecurringInterval, RecurringOccurrence, RecurringPayment } from '@/lib/recurring-payments'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import { createPerfTimer, type PerfTimer } from '@/lib/perf-timing'
+import { normalizeCurrency } from '@/lib/currency'
 import type {
   CategoryBudgets,
   Child,
@@ -1542,7 +1543,8 @@ export async function recordPriceObservation(observation: {
       sourceType: observation.sourceType ?? 'OTHER',
       locationResolution,
       regularPrice: observation.regularPrice.toString(),
-      currency: observation.currency ?? 'CZK',
+      // Normalised here, in the one place every caller's price goes through (a receipt's printed "Kč" must become CZK).
+      currency: normalizeCurrency(observation.currency) ?? 'CZK',
       unit: observation.unit,
       unitPrice: observation.unitPrice.toString(),
       observedAt: observation.observedAt,

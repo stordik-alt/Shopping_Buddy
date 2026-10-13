@@ -20,10 +20,14 @@ This covers "something went wrong a moment ago" (a bad migration, a wrong script
 ## Logical backup
 
 ```bash
-pnpm db:backup        # writes backups/shopping-buddy-<timestamp>.dump
+pnpm db:backup        # writes backups/shopping-buddy-<timestamp>.dump.enc
 ```
 
-The script (`scripts/backup-db.ts`) runs `pg_dump --format=custom` against `DATABASE_URL_UNPOOLED` (or `DATABASE_URL`) from `.env.local`. It needs the PostgreSQL 18 client tools on the PATH. `backups/` is git-ignored. The repository is public and the dump holds personal data, so never commit it or attach it to a GitHub Actions artifact; keep it on the owner's own encrypted disk or private cloud storage.
+The script (`scripts/backup-db.ts`) runs `pg_dump --format=custom` against `DATABASE_URL_UNPOOLED` (or `DATABASE_URL`) from `.env.local`, **encrypts the dump** with AES-256-GCM (`lib/backup-crypto.ts`) and deletes the unencrypted file, also when a step fails. The dump holds password hashes and session tokens, so an unencrypted copy must not exist on a disk. It needs the PostgreSQL 18 client tools on the PATH.
+
+**Key:** `BACKUP_ENCRYPTION_KEY` in `.env.local` (not in Vercel, the app never needs it): 32 random bytes in base64, generated once with `openssl rand -base64 32`. **Keep a copy in the owner's password manager, separate from the backups. Without the key a backup cannot be opened, with no way around it.** A wrong key, a modified file and a file cut short all fail to decrypt rather than restore partially.
+
+`backups/` is git-ignored. The repository is public, so never commit a backup or attach it to a GitHub Actions artifact; with encryption, private cloud storage is acceptable too.
 
 Suggested rhythm: before every risky change (a data migration, a bulk script) and at least weekly. The dump is small while the database stays inside the free plan's 0.5 GB.
 
@@ -32,7 +36,7 @@ Suggested rhythm: before every risky change (a data migration, a bulk script) an
 Do this once now and after any large schema change, so the first real restore is not also the first attempt:
 
 1. In the Neon console create a throwaway branch (or project) and copy its connection string.
-2. `pg_restore --no-owner --dbname "<that connection string>" backups/<file>.dump`
+2. `pnpm db:restore backups/<file>.dump.enc "<that connection string>"` (decrypts into a private temp directory, runs `pg_restore --no-owner`, removes the temp file). The target is always passed explicitly, never taken from `.env.local`.
 3. Point a local `.env.local` copy at it and check that the app starts and a known household, list and purchase are there.
 4. Delete the throwaway branch.
 

@@ -25,8 +25,9 @@ Za 6 dní od prvního auditu byl opraven **jediný** nález (V4 závislosti). Ob
 | V7 | `retryReceiptImportAction` bez stropu (placené OCR/LLM) | **Opraveno dřív** (`reserveReceiptOcrAttempt` počítá i opakování); 2026-10-12 přidán navíc strop pro celou aplikaci | žádný čítač pokusů |
 | V8 | Registrace/přihlášení bez CAPTCHA a rate limitu | **Částečně opraveno 2026-10-12** (limit na adresu v DB, globální strop OCR); **zbývá CAPTCHA** a nastavení Neon Auth | v `app`/`components` žádná CAPTCHA |
 | S6 | Chybí kontrola role u akcí nastavení domácnosti | **Opraveno v kódu 2026-10-13** (rozsah podle rozhodnutí vlastníka: nastavení domácnosti a uzávěrka období jen správce; preference, děti a profily i peníze zůstávají všem členům) | `app/actions/household.ts` |
-| S13 | `minimumReleaseAge` není nastaveno | **Otevřeno** | `pnpm-workspace.yaml` |
-| S14 | `poweredByHeader`, COOP/CORP, `Content-Disposition` u PDF | **Otevřeno** | `next.config.mjs` |
+| S3 | Nešifrovaný `pg_dump` celé DB do `backups/` | **Opraveno v kódu 2026-10-13** (zbývá vygenerovat `BACKUP_ENCRYPTION_KEY` a vyzkoušet obnovu) | `scripts/backup-db.ts`, `lib/backup-crypto.ts` |
+| S13 | `minimumReleaseAge` není nastaveno | **Opraveno 2026-10-13** | `pnpm-workspace.yaml` |
+| S14 | `poweredByHeader`, COOP/CORP, `Content-Disposition` u PDF | **Opraveno 2026-10-13** (COOP záměrně ne) | `next.config.mjs` |
 
 Ostatní S/L položky z auditu 35 nebyly znovu rozebírány a platí tak, jak jsou popsány tam.
 
@@ -60,7 +61,7 @@ Každá fáze je samostatná, malá PR. Pořadí je dané závažností a nízk�
 ### Fáze 3 — zpevnění (průběžně)
 
 10. **S13/S14** — `minimumReleaseAge` v `pnpm-workspace.yaml`, `poweredByHeader: false`, `Content-Disposition` a COOP/CORP u souborů účtenek, `Cache-Control` beze změny.
-11. CHECK constraints na peníze/množství/věk (oddíl 4 auditu 35; **hotovo 2026-10-13, migrace `0104`**; kód měny ve dvou krocích: **krok 1 (normalizace v kódu + oprava dat) 2026-10-13, migrace `0105`**; krok 2 (CHECK na tři velká písmena, migrace `0106`) připraven v samostatném PR, smí se nasadit až po kroku 1), šifrované zálohy, smazání účtu a retence PII, RLS s oddělenou aplikační rolí (S1–S5, S18). Největší práce, nejvyšší hodnota do hloubky; plánovat jako samostatné epiky.
+11. CHECK constraints na peníze/množství/věk (oddíl 4 auditu 35; **hotovo 2026-10-13, migrace `0104`**; kód měny ve dvou krocích: **krok 1 (normalizace v kódu + oprava dat) 2026-10-13, migrace `0105`**; krok 2 (CHECK na tři velká písmena, migrace `0106`) připraven v samostatném PR, smí se nasadit až po kroku 1), šifrované zálohy (**hotovo 2026-10-13**), smazání účtu a retence PII, RLS s oddělenou aplikační rolí (S1–S5, S18). Největší práce, nejvyšší hodnota do hloubky; plánovat jako samostatné epiky.
 12. Zbylé S/L položky z auditu 35 podle priority.
 13. Zbývající 3 moderate závislosti sledovat; řeší se aktualizací `@neondatabase/auth`, ne vlastním zásahem.
 

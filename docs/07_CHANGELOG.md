@@ -1,3 +1,11 @@
+## 2026-10-13 — Bezpečnost S3: šifrované zálohy databáze
+
+- Koncept: `docs/37_SECURITY_REMEDIATION_PLAN.md` (S3), `docs/09_BACKUP_RECOVERY.md`. `pnpm db:backup` dřív ukládal nešifrovaný `pg_dump` celé databáze včetně `neon_auth` (hashe hesel, tokeny relací). Teď dump hned zašifruje (AES-256-GCM po blocích 1 MiB, klíč z `BACKUP_ENCRYPTION_KEY`, `lib/backup-crypto.ts`, jen vestavěný `node:crypto`), výstup je `backups/*.dump.enc`, nešifrovaný soubor se maže i při chybě. Změněný, zkrácený nebo prodloužený soubor i špatný klíč dešifrování odmítnou. Nový `pnpm db:restore <soubor> <URL prázdné databáze>` dešifruje do privátního dočasného adresáře a spustí `pg_restore`; cíl se zadává vždy ručně, takže obnova nezasáhne produkci omylem. Testy: `lib/backup-crypto.test.ts`. Reálný `pg_dump`/`pg_restore` se v tomto prostředí nespouštěl (chybí klientské nástroje PostgreSQL), ověřeno bylo šifrování a typy.
+
+## 2026-10-13 — Bezpečnost S13 + S14: zpevnění hlaviček a instalace závislostí
+
+- Koncept: `docs/37_SECURITY_REMEDIATION_PLAN.md` (S13, S14). `pnpm-workspace.yaml` má `minimumReleaseAge: 1440` výslovně (verze balíčku musí být aspoň den stará, takže zneužité vydání stihne registr stáhnout; změna výchozí hodnoty ji nezmírní). `next.config.mjs`: `poweredByHeader: false`. Soubor účtenky (`/api/receipts/[id]/image`) dostal `Content-Disposition: inline` a `Cross-Origin-Resource-Policy: same-origin`. **Záměrně vynecháno:** globální `Cross-Origin-Opener-Policy`, které by mohlo rozbít přihlášení přes okno třetí strany; `Cache-Control` beze změny.
+
 ## 2026-10-13 — CHECK na formát měny (krok 2 ze 2)
 
 - Koncept: `docs/37_SECURITY_REMEDIATION_PLAN.md` (S5), navazuje na krok 1 (migrace `0105`, `lib/currency.ts`). Migrace `0106` nejprve ještě jednou opraví staré pravopisy „Kč“ (řádek mohl vzniknout mezi migrací kroku 1 a jeho nasazením) a pak přidá `currency ~ '^[A-Z]{3}$'` na `prices`, `deals`, `households` a `receipt_imports` (`NOT VALID` a pak validace; kdyby starý řádek porušoval, validace se přeskočí s upozorněním a omezení dál hlídá nové zápisy). **Smí se nasadit až po kroku 1**, jinak by starý kód mohl zapsat „Kč“ a import účtenky by selhal. Ověřeno na čisté databázi a na testovací větvi Neon nad skutečnými daty (49 537 cen, 3 888 akcí, 104 účtenek, 120 domácností). Test: `lib/db/schema-integrity.test.ts`.

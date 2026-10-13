@@ -6,6 +6,8 @@
 // credential. Error messages from upstream services are passed through `redactSecrets()` first,
 // because a failing HTTP client can echo the request URL (which carries the Vision API key).
 
+import { redactSecrets } from '@/lib/redact'
+
 export type ReceiptStageStatus = 'ok' | 'failed' | 'not_run'
 
 export type ReceiptTrace = {
@@ -50,17 +52,8 @@ export function newReceiptTrace(importId: string): ReceiptTrace {
   }
 }
 
-const MAX_ERROR_LENGTH = 500
-
-/** Removes credential-looking substrings (`key=…` query parameters, bearer tokens, subscription
- *  keys) and truncates, so an error message is safe to write to shared logs. */
-export function redactSecrets(text: string): string {
-  return text
-    .replace(/([?&]key=)[^&\s"']+/gi, '$1[redacted]')
-    .replace(/(Bearer\s+)[A-Za-z0-9._~+/=-]+/gi, '$1[redacted]')
-    .replace(/(Subscription-Key["':=\s]+)[A-Za-z0-9]+/gi, '$1[redacted]')
-    .slice(0, MAX_ERROR_LENGTH)
-}
+// Re-exported: the implementation lives in lib/redact.ts so the cron routes and actions use the same one.
+export { redactSecrets } from '@/lib/redact'
 
 export function buildReceiptLogEntry(trace: ReceiptTrace, now: Date = new Date()) {
   return {

@@ -8,6 +8,7 @@ import { remindDueRecurringPayments } from '@/lib/db/recurring-reminders'
 import { findStaleItems } from '@/lib/reminders'
 import { todayInPrague } from '@/lib/today'
 import { rejectUnauthorizedCron } from '@/lib/cron-auth'
+import { safeErrorMessage } from '@/lib/errors'
 
 // Phase D "shopping reminders" (docs/04_ROADMAP.md): a daily Vercel Cron job (see vercel.json)
 // that notifies each household about undone list items that have sat around long enough to be
@@ -72,7 +73,7 @@ export async function GET(request: Request) {
   try {
     newFlyers = (await announceNewFlyers(todayInPrague())).flyers
   } catch (error) {
-    newFlyersError = error instanceof Error ? error.message : String(error)
+    newFlyersError = safeErrorMessage(error)
     console.error(JSON.stringify({ event: 'new_flyer_announcement_error', error: newFlyersError }))
   }
 

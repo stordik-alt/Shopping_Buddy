@@ -2,6 +2,7 @@
 
 import { and, count, eq, gte, inArray, lt, or } from 'drizzle-orm'
 import { requireHouseholdId } from '@/lib/auth/authorize'
+import { safeErrorMessage } from '@/lib/errors'
 import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
 import {
@@ -148,7 +149,7 @@ export async function uploadReceiptAction(formData: FormData): Promise<UploadRec
     // Storage or database failure: the details go to the server log (with the household, never the
     // photo), the user gets a message they can act on.
     console.error(
-      JSON.stringify({ event: 'receipt_upload_failed', householdId, bytes: buffer.byteLength, type: fileType.mimeType, error: err instanceof Error ? err.message : String(err) }),
+      JSON.stringify({ event: 'receipt_upload_failed', householdId, bytes: buffer.byteLength, type: fileType.mimeType, error: safeErrorMessage(err) }),
     )
     return { ok: false, error: 'Fotografii se nepodařilo uložit. Zkuste to prosím za chvíli znovu.' }
   }
@@ -310,7 +311,7 @@ export async function cancelReceiptImportAction(receiptImportId: string): Promis
   // Best-effort: a leftover file is harmless, unlike losing the cancellation — but it is logged.
   if (row.imageUrl) {
     await deleteReceiptFile(row.imageUrl).catch((err) =>
-      console.error(JSON.stringify({ event: 'receipt_file_delete_failed', receiptImportId, error: err instanceof Error ? err.message : String(err) })),
+      console.error(JSON.stringify({ event: 'receipt_file_delete_failed', receiptImportId, error: safeErrorMessage(err) })),
     )
   }
 }

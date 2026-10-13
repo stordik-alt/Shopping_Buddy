@@ -18,10 +18,10 @@ Za 6 dní od prvního auditu byl opraven **jediný** nález (V4 závislosti). Ob
 | K2 | Auto-join do cizí domácnosti jen podle e-mailu, bez tokenu a bez ověření e-mailu | **Opraveno v kódu 2026-10-12** (auto-join jen s `emailVerified`; zbývá zapnout ověření e-mailu v Neon Auth) | `lib/db/queries.ts` (`getHouseholdData`) nezná `emailVerified`; `acceptInvitationAction` také jen porovná řetězec |
 | V1 | Změna kategorie produktu přepisuje výdaje cizích domácností | **Opraveno v kódu 2026-10-12** (varianta „jen vlastní domácnost“) | `lib/db/purchase-items.ts:~266` volá `syncProductClassificationToPurchases` bez scopu domácnosti |
 | V2 | Kterýkoli člen smaže vlastníka | **Opraveno v kódu 2026-10-12** (`canRemoveMember`) | `app/actions/household.ts:136` bez kontroly role a „posledního vlastníka“ |
-| V3 | Chybí FK `household_members.user_id` → `neon_auth."user"` | **Otevřeno** (migrace bez FK; jediný odkaz je v `0041`). Nutno ověřit živé schéma | `lib/db/migrations` |
+| V3 | Chybí FK `household_members.user_id` → `neon_auth."user"` | **Opraveno v kódu 2026-10-12** (migrace `0103`; na Neon větvi z produkce klíč už byl, chyběl na databázích z migrací) (migrace bez FK; jediný odkaz je v `0041`). Nutno ověřit živé schéma | `lib/db/migrations` |
 | V4 | Zranitelné závislosti | **Opraveno** | `sharp` 0.35.5, `shadcn` v devDependencies; `pnpm audit --prod` = 3 moderate (zbytek přes `@neondatabase/auth`: `esbuild`, `baseline-browser-mapping`, `fast-uri`) |
 | V5 | `npx vercel@latest` s produkčním tokenem | **Opraveno v kódu 2026-10-12** (připnuté CLI z lockfile, jen ruční spuštění z `main`) | `.github/workflows/vercel-deploy.yml:30` |
-| V6 | Únik SQL parametrů/podpisů do logů a odpovědí | **Otevřeno** | `lib/receipt-log.ts` nemaskuje `params:` |
+| V6 | Únik SQL parametrů/podpisů do logů a odpovědí | **Opraveno v kódu 2026-10-12** (`lib/redact.ts`, `safeErrorMessage`) | `lib/receipt-log.ts` nemaskuje `params:` |
 | V7 | `retryReceiptImportAction` bez stropu (placené OCR/LLM) | **Opraveno dřív** (`reserveReceiptOcrAttempt` počítá i opakování); 2026-10-12 přidán navíc strop pro celou aplikaci | žádný čítač pokusů |
 | V8 | Registrace/přihlášení bez CAPTCHA a rate limitu | **Částečně opraveno 2026-10-12** (limit na adresu v DB, globální strop OCR); **zbývá CAPTCHA** a nastavení Neon Auth | v `app`/`components` žádná CAPTCHA |
 | S6 | Chybí kontrola role u `updateHouseholdAction`, `updateHouseholdPreferencesAction`, `addHouseholdMemberAction`, `removeChildAction` | **Otevřeno** (je třeba rozhodnout záměr, viz fáze 2) | `app/actions/household.ts` |

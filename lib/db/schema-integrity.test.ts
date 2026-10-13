@@ -55,4 +55,18 @@ describe('schema integrity', () => {
       })
     })
   })
+
+  // Step 2 of the currency work (migration 0106, after lib/currency.ts normalises what receipts print).
+  it('stores only three-letter upper-case currency codes', async () => {
+    const db = getDb()
+    for (const bad of ['Kč', 'czk', 'CZ', 'CZKK', '']) {
+      await expect(db.insert(schema.households).values({ name: '__test_currency_check__', currency: bad }), bad).rejects.toThrow()
+    }
+    const [household] = await db.insert(schema.households).values({ name: '__test_currency_check__', currency: 'EUR' }).returning()
+    try {
+      expect(household.currency).toBe('EUR')
+    } finally {
+      await db.delete(schema.households).where(eq(schema.households.id, household.id))
+    }
+  })
 })

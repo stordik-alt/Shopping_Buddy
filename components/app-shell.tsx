@@ -106,6 +106,7 @@ import type { RecipeShoppingItem } from '@/lib/recipes/shopping'
 export function AppShell({
   initialData,
   userName,
+  userEmail,
   isAdmin,
   stores,
   productPrices,
@@ -124,6 +125,8 @@ export function AppShell({
 }: {
   initialData: HouseholdData
   userName: string
+  /** The signed-in account's e-mail: what the account-deletion dialog asks to be typed. */
+  userEmail: string
   /** The account administers the app (offers the ideas management screen in the account menu). */
   isAdmin: boolean
   stores: Store[]
@@ -671,6 +674,8 @@ export function AppShell({
               onSelectTab={setTab}
               onStartGuide={() => setGuideOpen(true)}
               userName={userName}
+              userEmail={userEmail}
+              isOwner={initialData.isOwner}
               isAdmin={isAdmin}
             />
             {notificationsOpen && (

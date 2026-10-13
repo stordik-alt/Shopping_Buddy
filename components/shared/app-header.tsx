@@ -17,6 +17,8 @@ export function AppHeader({
   onSelectTab,
   onStartGuide,
   userName,
+  userEmail,
+  isOwner,
   isAdmin,
 }: {
   title: string
@@ -30,6 +32,8 @@ export function AppHeader({
   onSelectTab: (tab: Tab) => void
   onStartGuide: () => void
   userName: string
+  userEmail: string
+  isOwner: boolean
   isAdmin: boolean
 }) {
   const router = useRouter()
@@ -74,7 +78,7 @@ export function AppHeader({
             </span>
           )}
         </button>
-        <AccountMenu userName={userName} isAdmin={isAdmin} dark={dark} onToggleDark={onToggleDark} onSelectTab={onSelectTab} onStartGuide={onStartGuide} onSignOut={signOut} />
+        <AccountMenu userName={userName} userEmail={userEmail} isOwner={isOwner} isAdmin={isAdmin} dark={dark} onToggleDark={onToggleDark} onSelectTab={onSelectTab} onStartGuide={onStartGuide} onSignOut={signOut} />
       </div>
     </header>
   )

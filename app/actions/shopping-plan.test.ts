@@ -143,6 +143,19 @@ describe('buildShoppingPlanAction', () => {
     expect(two.savingVsSingleStore).toBe(one.total - two.total)
   })
 
+  it('plans an item added from a concrete product even when its full name finds nothing by text', async () => {
+    // A suggestion adds the catalog product with its whole name (brand, strength, size). The item keeps the
+    // product id, and the plan must price that product rather than search the long name again.
+    const product = await addProduct(`Zlatý ${tag} Bažant 10% svijanské pivo ležák světlý 0,5 l`)
+    await addPrice(product, lidlId, 17.9, 35.8, 'l')
+    // A name whose words are not all in the product, so a text search cannot find it.
+    const itemId = await addItem(`Nesouvisející ${tag} název položky`, 2, 'ks', { productId: product })
+
+    const { plan } = await buildShoppingPlanAction({ maxStores: 3, priorityChainIds: [] })
+    expect(plan.unplanned).toEqual([])
+    expect(linesOf(plan)[0]).toMatchObject({ needId: itemId, productId: product, chain: 'Lidl' })
+  })
+
   it('uses a pinned product instead of the automatic pick', async () => {
     const cheap = await addProduct(`Máslo ${tag} levné`)
     const chosen = await addProduct(`Máslo ${tag} vybrané`)

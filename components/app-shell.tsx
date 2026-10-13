@@ -23,7 +23,7 @@ import { OfflineBanner } from '@/components/shopping/offline-banner'
 import { CollapsibleSection } from '@/components/shared/collapsible-section'
 import { TodayMeals } from '@/components/dashboard/today-meals'
 import { PantryCheckCard } from '@/components/dashboard/pantry-check-card'
-import { refreshExpensesAction, refreshPantryAction, refreshPurchasesAction } from '@/app/actions/refresh'
+import { refreshExpensesAction, refreshPantryAction, refreshPurchasesAction, refreshRestockSuggestionsAction } from '@/app/actions/refresh'
 import { dismissRestockSuggestionAction, removeStockLevelAction, setStockLevelAction } from '@/app/actions/pantry'
 import { RefreshListButton } from '@/components/shopping/refresh-list-button'
 import { Recommendations } from '@/components/dashboard/recommendations'
@@ -114,7 +114,7 @@ export function AppShell({
   storeChains,
   initialStoreSelection,
   initialPins,
-  restockSuggestions = [],
+  restockSuggestions: initialRestockSuggestions = [],
   initialStockLevels = [],
   initialRestockDismissals = [],
   today,
@@ -283,6 +283,9 @@ export function AppShell({
     adjustPantryItemQuantity,
   } = pantry
   const [stockLevels, setStockLevels] = useState<StockLevel[]>(initialStockLevels)
+  // Computed on the server for the member's stores when the page loaded; recomputed after they change
+  // their stores (saveStorePreferences), since the page does not refresh itself.
+  const [restockSuggestions, setRestockSuggestions] = useState<RestockSuggestion[]>(initialRestockSuggestions)
   const [restockDismissed, setRestockDismissed] = useState<string[]>(initialRestockDismissals)
   // A suggestion stays only while its type still nears the same minimum: the household may have
   // restocked or changed the levels since the page loaded (the page does not refresh itself).
@@ -609,6 +612,9 @@ export function AppShell({
   async function saveStorePreferences(input: { maxDistanceKm: number | null; chainIds: string[]; locationIds: string[]; priorityChainIds: string[]; maxShopStores: number | null }) {
     const saved = await saveMyStorePreferencesAction(input)
     setStoreSelection(saved)
+    // The stock-up offers depend on the priority/nearby stores, so they are asked for again; a failure
+    // here must not undo the saved stores, the old offers just stay until the next reload.
+    void refreshRestockSuggestionsAction().then(setRestockSuggestions).catch((error: unknown) => console.error('Restock suggestions refresh failed', error))
     return saved
   }
 

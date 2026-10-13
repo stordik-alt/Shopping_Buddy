@@ -1,9 +1,12 @@
 'use server'
 
-import { requireHouseholdId } from '@/lib/auth/authorize'
+import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
 import { getHouseholdExpenses, getHouseholdPurchaseHistory, getPantryItems } from '@/lib/db/queries'
-import { getStockLevels } from '@/lib/db/restock'
-import type { StockLevel } from '@/lib/pantry-restock'
+import { getMemberIdForUser, getMemberStoreSelection } from '@/lib/db/member-store-preferences'
+import { getRestockSuggestionsFor, getStockLevels } from '@/lib/db/restock'
+import { EMPTY_STORE_SELECTION } from '@/lib/nearby-stores'
+import type { RestockSuggestion, StockLevel } from '@/lib/pantry-restock'
+import { todayInPrague } from '@/lib/today'
 import type { Expense, PantryItem, PurchaseRecord } from '@/lib/types'
 
 // The "Obnovit" buttons of the sections (the shopping list has its own in app/actions/shopping.ts): each
@@ -25,4 +28,18 @@ export async function refreshPurchasesAction(): Promise<PurchaseRecord[]> {
 /** Rozpočet: the expenses of the current budget period, read fresh. */
 export async function refreshExpensesAction(): Promise<Expense[]> {
   return getHouseholdExpenses(await requireHouseholdId())
+}
+
+/** "Dokoupit do zásoby", recomputed for the signed-in member's current stores. The page computes it once when
+ *  it loads, so after the member changes their (priority) stores it has to be asked for again. The
+ *  household and the member come from the session. */
+export async function refreshRestockSuggestionsAction(): Promise<RestockSuggestion[]> {
+  const { householdId, userId } = await requireHousehold()
+  const memberId = await getMemberIdForUser(userId)
+  const [levels, pantryItems, selection] = await Promise.all([
+    getStockLevels(householdId),
+    getPantryItems(householdId),
+    memberId ? getMemberStoreSelection(memberId) : Promise.resolve(EMPTY_STORE_SELECTION),
+  ])
+  return getRestockSuggestionsFor(levels, pantryItems, todayInPrague(), selection)
 }

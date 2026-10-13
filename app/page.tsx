@@ -4,8 +4,7 @@ import { auth } from '@/lib/auth/server'
 import { isAppAdmin } from '@/lib/db/admin'
 import { getHouseholdData } from '@/lib/db/queries'
 import { getProductPricesCached, getStandaloneOffersCached, getStoreChainsCached, getStoresCached } from '@/lib/db/cached-reads'
-import { getRestockCandidates, getRestockDismissals, getStockLevels } from '@/lib/db/restock'
-import { restockSuggestions } from '@/lib/pantry-restock'
+import { getRestockDismissals, getRestockSuggestionsFor, getStockLevels } from '@/lib/db/restock'
 import { listPinsForHousehold } from '@/lib/db/shopping-plan'
 import { getMemberIdForUser, getMemberStoreSelection } from '@/lib/db/member-store-preferences'
 import { EMPTY_STORE_SELECTION } from '@/lib/nearby-stores'
@@ -55,12 +54,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ [
     timer.measure('storeSelection', () => getMemberIdForUser(session.user.id).then((memberId) => (memberId ? getMemberStoreSelection(memberId) : EMPTY_STORE_SELECTION))),
     timer.measure('pins', () => listPinsForHousehold(data.household.id)),
   ])
-  // "Dokoupit do zásoby": only rows near their household-set minimum cost a query (lib/db/restock.ts). The
-  // chains are the preferred ones, else the chosen nearby ones, else any — nobody who has set no stores
-  // should be told nothing.
-  const restockChainIds = storeSelection.priorityChainIds.length > 0 ? storeSelection.priorityChainIds : storeSelection.chainIds.length > 0 ? storeSelection.chainIds : null
   const [stockLevels, restockDismissals] = await timer.measure('stockLevels', () => Promise.all([getStockLevels(data.household.id), getRestockDismissals(data.household.id, todayInPrague())]))
-  const restock = await timer.measure('restock', async () => restockSuggestions(stockLevels, data.pantryItems, await getRestockCandidates(stockLevels, data.pantryItems, todayInPrague(), restockChainIds), restockChainIds ? new Set(restockChainIds) : null))
+  const restock = await timer.measure('restock', () => getRestockSuggestionsFor(stockLevels, data.pantryItems, todayInPrague(), storeSelection))
   timer.flush()
   return <AppShell initialData={data} userName={session.user.name} userEmail={session.user.email} isAdmin={isAdmin} stores={stores} productPrices={productPrices} standaloneOffers={standaloneOffers} storeChains={storeChains} initialStoreSelection={storeSelection} initialPins={pins} restockSuggestions={restock} initialStockLevels={stockLevels} initialRestockDismissals={restockDismissals} today={todayInPrague()} initialTab={initialTab} initialPantryCheck={initialPantryCheck} initialDealsChain={initialDealsChain} pushPublicKey={pushPublicKeyForClient()} />
 }

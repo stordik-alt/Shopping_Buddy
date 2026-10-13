@@ -6,7 +6,7 @@ import { eq } from 'drizzle-orm'
 import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
 import { auth } from '@/lib/auth/server'
 import { isValidPeriodStartDay, MAX_PERIOD_START_DAY, parsePeriodConfig, type PeriodConfig } from '@/lib/budget-period'
-import { canRemoveMember } from '@/lib/household-members'
+import { assertOwner, canRemoveMember } from '@/lib/household-members'
 import { getDb } from '@/lib/db/client'
 import { periodColumnsOf } from '@/lib/db/period-config'
 import * as schema from '@/lib/db/schema'
@@ -63,7 +63,8 @@ function sanitizeStringArray(values: unknown, field: string): string[] {
  *  full `budgetPeriod` (calendar / payday / custom) or, for older callers, as `budgetPeriodStartDay`
  *  (= payday N); either way all the period columns are written together (lib/db/period-config.ts). */
 export async function updateHouseholdAction(changes: { name?: string; monthlyBudget?: number; budgetPeriodStartDay?: number; budgetPeriod?: PeriodConfig }) {
-  const householdId = await requireHouseholdId()
+  const { householdId, role } = await requireHousehold()
+  assertOwner(role, 'Nastavení domácnosti může měnit jen správce domácnosti.')
 
   const safeName = changes.name !== undefined ? assertSafeText(changes.name, 'name', MAX_NAME_LEN) : undefined
   const safeMonthlyBudget = changes.monthlyBudget !== undefined

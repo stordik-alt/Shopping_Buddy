@@ -159,6 +159,19 @@ describe('acceptInvitationAction', () => {
   })
 })
 
+describe('updateHouseholdAction: owner only (S6)', () => {
+  it('refuses a plain member and leaves the household unchanged', async () => {
+    currentHousehold = { ...currentHousehold, role: 'member' }
+    await expect(updateHouseholdAction({ name: 'Přejmenováno členem', monthlyBudget: 1 })).rejects.toThrow('jen správce domácnosti')
+    const row = await db.query.households.findFirst({ where: eq(schema.households.id, householdId) })
+    expect(row?.name).toBe('__test_household_household__')
+  })
+  it('lets the owner change the name', async () => {
+    await updateHouseholdAction({ name: 'Přejmenováno správcem' })
+    expect((await db.query.households.findFirst({ where: eq(schema.households.id, householdId) }))?.name).toBe('Přejmenováno správcem')
+  })
+})
+
 describe('updateHouseholdAction: budget period start day', () => {
   it('saves the chosen start day for the caller\'s own household only', async () => {
     await updateHouseholdAction({ budgetPeriodStartDay: 28 })

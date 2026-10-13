@@ -78,6 +78,7 @@ export function BudgetPlanning({
   onOpenExpenses,
   budgetPeriod,
   onChangePeriod,
+  isOwner = true,
 }: {
   /** First and last day of the period shown (the running one, or one ahead — see `offset`). */
   period: string
@@ -106,6 +107,8 @@ export function BudgetPlanning({
   /** The household's period setting, and how to change it. */
   budgetPeriod: PeriodConfig
   onChangePeriod: (period: PeriodConfig) => Promise<void>
+  /** Closing and reopening a period and the period setting are for the household's owner (the server refuses anyone else). */
+  isOwner?: boolean
 }) {
   const [editing, setEditing] = useState<'new' | Income | null>(null)
   const [receiving, setReceiving] = useState<string | null>(null)
@@ -222,7 +225,7 @@ export function BudgetPlanning({
                 ? `schodek ${money(-ledger.toClose.result)}. Rozhodněte, jak ho pokrýt.`
                 : 'vyrovnané.'}
           </p>
-          <Button onClick={() => setClosing(true)}>Uzavřít období</Button>
+          {isOwner ? <Button onClick={() => setClosing(true)}>Uzavřít období</Button> : <p className="text-sm text-fg-secondary">Období uzavře správce domácnosti.</p>}
         </section>
       )}
 
@@ -237,7 +240,7 @@ export function BudgetPlanning({
           {ledger && ledger.transfers !== 0 && <Figure label="Uloženo do Kapes" value={money(ledger.transfers)} />}
           <Figure label="Skutečný zůstatek" value={money(balance)} strong className="col-span-2 sm:col-span-1" />
         </dl>
-        {ledger?.previousClosedStart && (
+        {isOwner && ledger?.previousClosedStart && (
           <div className="mt-3 space-y-2">
             <Button
               variant="ghost"
@@ -369,7 +372,7 @@ export function BudgetPlanning({
 
       {!future && <PeriodHistory history={history} onOpenExpenses={onOpenExpenses} />}
 
-      {!future && <BudgetPeriodSettings key={periodConfigKey(budgetPeriod)} period={budgetPeriod} today={today} onSave={onChangePeriod} />}
+      {!future && isOwner && <BudgetPeriodSettings key={periodConfigKey(budgetPeriod)} period={budgetPeriod} today={today} onSave={onChangePeriod} />}
 
       {closing && !future && ledger?.toClose && (
         <PeriodClosingSheet preview={ledger.toClose} pockets={ledger.pockets} recommendation={recommendation} reservedForNext={reservedForNext} onClose={() => setClosing(false)} onConfirm={pockets.closePeriod} />

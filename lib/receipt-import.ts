@@ -57,6 +57,7 @@ import {
 import { HEIC_UNSUPPORTED_MESSAGE } from '@/lib/receipt-upload'
 import { getReceiptFile } from '@/lib/storage'
 import type { ItemCategory, PurchaseRecord } from '@/lib/types'
+import { normalizeCurrency } from '@/lib/currency'
 
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024 // 10 MB
 const ITEM_CATEGORIES = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní'] as const
@@ -284,7 +285,8 @@ async function recordReceiptPriceObservations(
           storeId,
           storeLocationId,
           regularPrice: unitPrice,
-          currency: currency ?? 'CZK',
+          // The currency of a receipt is printed text read by OCR, so it is normalised to the ISO code first.
+          currency: normalizeCurrency(currency) ?? 'CZK',
           unit: item.unit,
           unitPrice,
           observedAt: date,
@@ -773,7 +775,7 @@ async function runReceiptPipeline(
     date: extracted.date,
     receiptTime: extracted.time,
     receiptNumber: extracted.receiptNumber,
-    currency: extracted.currency ?? 'CZK',
+    currency: normalizeCurrency(extracted.currency) ?? 'CZK',
     subtotal: extracted.subtotal?.toString(),
     discountTotal: extracted.discountTotal?.toString(),
     total: extracted.total?.toString(),
@@ -858,7 +860,7 @@ async function runReceiptPipeline(
     date: extracted.date ?? undefined,
     storeLocationId: resolvedStoreLocationId,
     storeId,
-    currency: extracted.currency,
+    currency: normalizeCurrency(extracted.currency),
     receiptDiscountTotal: extracted.discountTotal,
     receiptStatedTotal: extracted.total,
     source: 'auto',

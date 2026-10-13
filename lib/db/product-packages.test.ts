@@ -28,6 +28,30 @@ describe('automatic product package catalog', () => {
     }
   })
 
+  // docs/37_SECURITY_REMEDIATION_PLAN.md, S5: a receipt's printed "Kč" must be stored as the ISO code.
+  it("stores a price observation's printed currency as its ISO code", async () => {
+    const productId = await addProduct(`__Test měna ${tag}`)
+    const storeId = (await db.query.stores.findFirst())!.id
+    for (const [printed, reference] of [['Kč', 'a'], ['kc', 'b'], [undefined, 'c']] as const) {
+      await recordPriceObservation({
+        productId,
+        storeId,
+        regularPrice: 10,
+        currency: printed,
+        unit: 'ks',
+        unitPrice: 10,
+        observedAt: '2026-10-01',
+        sourceType: 'RECEIPT',
+        sourceReference: `__test_currency_${tag}_${reference}`,
+        priceScope: 'CHAIN',
+        locationResolution: 'NOT_APPLICABLE',
+      })
+    }
+    const rows = await db.query.prices.findMany({ where: eq(schema.prices.productId, productId) })
+    expect(rows.length).toBeGreaterThan(0)
+    expect(new Set(rows.map((row) => row.currency))).toEqual(new Set(['CZK']))
+  })
+
   it('creates and accumulates a canonical package from official price observations', async () => {
     const productId = await addProduct(`__Test balení máslo ${tag}`)
     const storeId = (await db.query.stores.findFirst())!.id

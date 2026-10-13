@@ -60,7 +60,7 @@ Každá fáze je samostatná, malá PR. Pořadí je dané závažností a nízk�
 ### Fáze 3 — zpevnění (průběžně)
 
 10. **S13/S14** — `minimumReleaseAge` v `pnpm-workspace.yaml`, `poweredByHeader: false`, `Content-Disposition` a COOP/CORP u souborů účtenek, `Cache-Control` beze změny.
-11. CHECK constraints na peníze/množství/věk (oddíl 4 auditu 35; **hotovo 2026-10-13, migrace `0104`**; zbývá kód měny: účtenky z OCR ukládají i „Kč“, nejdřív normalizace v kódu a oprava starých řádků, pak omezení v dalším nasazení), šifrované zálohy, smazání účtu a retence PII, RLS s oddělenou aplikační rolí (S1–S5, S18). Největší práce, nejvyšší hodnota do hloubky; plánovat jako samostatné epiky.
+11. CHECK constraints na peníze/množství/věk (oddíl 4 auditu 35; **hotovo 2026-10-13, migrace `0104`**; kód měny ve dvou krocích: **krok 1 (normalizace v kódu + oprava dat) 2026-10-13, migrace `0105`**; krok 2 (CHECK na tři velká písmena) až po jeho nasazení), šifrované zálohy, smazání účtu a retence PII, RLS s oddělenou aplikační rolí (S1–S5, S18). Největší práce, nejvyšší hodnota do hloubky; plánovat jako samostatné epiky.
 12. Zbylé S/L položky z auditu 35 podle priority.
 13. Zbývající 3 moderate závislosti sledovat; řeší se aktualizací `@neondatabase/auth`, ne vlastním zásahem.
 

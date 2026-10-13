@@ -1,6 +1,7 @@
 import Link from 'next/link'
-import { Bot, GraduationCap, Lightbulb, ListChecks, LogOut, Moon, Smartphone, Sun, Tags, Users } from 'lucide-react'
+import { Bot, GraduationCap, Lightbulb, ListChecks, LogOut, Moon, Trash2, Smartphone, Sun, Tags, Users } from 'lucide-react'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { DeleteAccountDialog } from '@/components/shared/delete-account-dialog'
 import { IdeasDialog } from '@/components/shared/ideas-dialog'
 import { InstallAppDialog } from '@/components/shared/install-app-dialog'
 import { AI_ASSISTANT_ENABLED } from '@/lib/features'
@@ -19,6 +20,8 @@ function initialsFor(name: string) {
  *  click outside, and hands focus back to the button on Escape. */
 export function AccountMenu({
   userName,
+  userEmail,
+  isOwner,
   isAdmin,
   dark,
   onToggleDark,
@@ -27,6 +30,8 @@ export function AccountMenu({
   onSignOut,
 }: {
   userName: string
+  userEmail: string
+  isOwner: boolean
   isAdmin: boolean
   dark: boolean
   onToggleDark: () => void
@@ -37,6 +42,7 @@ export function AccountMenu({
   const [open, setOpen] = useState(false)
   const [installHelpOpen, setInstallHelpOpen] = useState(false)
   const [ideasOpen, setIdeasOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const install = useSyncExternalStore(subscribeInstallState, getInstallState, getServerInstallState)
   const rootRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -135,10 +141,14 @@ export function AccountMenu({
           <button role="menuitem" className={`${itemClass} text-destructive`} onClick={run(onSignOut)}>
             <LogOut className="h-4 w-4" aria-hidden="true" /> Odhlásit se
           </button>
+          <button role="menuitem" className={`${itemClass} text-destructive`} onClick={run(() => setDeleteOpen(true))}>
+            <Trash2 className="h-4 w-4" aria-hidden="true" /> Smazat účet
+          </button>
         </div>
       )}
       <InstallAppDialog open={installHelpOpen} onClose={() => setInstallHelpOpen(false)} />
       <IdeasDialog open={ideasOpen} onClose={() => setIdeasOpen(false)} />
+      <DeleteAccountDialog open={deleteOpen} onClose={() => setDeleteOpen(false)} email={userEmail} isOwner={isOwner} />
     </div>
   )
 }

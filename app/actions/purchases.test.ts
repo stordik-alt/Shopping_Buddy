@@ -241,7 +241,7 @@ describe('createManualPurchaseAction — classification', () => {
 })
 
 describe('createManualPurchaseAction — stock by product type', () => {
-  it('stocks an abbreviated line under its product type, pieces and weights apart', async () => {
+  it('stocks an abbreviated line under its product type as an exact amount', async () => {
     await createManualPurchaseAction({
       date: '2026-09-27',
       items: [
@@ -253,12 +253,12 @@ describe('createManualPurchaseAction — stock by product type', () => {
     const rows = await db.query.pantryItems.findMany({ where: eq(schema.pantryItems.householdId, householdId) })
     expect(rows.map((row) => [row.name, row.quantity, row.unit]).sort()).toEqual([
       ['Kuřecí prsa a prsní řízky', 0.6, 'kg'],
-      ['Máslo', 2, 'ks'],
+      ['Máslo', 0.5, 'kg'],
     ])
     expect(rows.every((row) => row.productTypeId != null)).toBe(true)
   })
 
-  it('remembers the pack size and keeps different pack sizes of one type apart', async () => {
+  it('adds up different pack sizes of one type as an exact amount', async () => {
     await createManualPurchaseAction({
       date: '2026-09-27',
       items: [
@@ -269,10 +269,8 @@ describe('createManualPurchaseAction — stock by product type', () => {
     })
 
     const rows = await db.query.pantryItems.findMany({ where: eq(schema.pantryItems.householdId, householdId) })
-    expect(rows.map((row) => [row.quantity, row.unit, row.pieceQuantity, row.pieceUnit]).sort()).toEqual([
-      [1, 'ks', 1, 'kg'],
-      [3, 'ks', 0.25, 'kg'],
-    ])
+    // 3 x 250 g + 1 x 1 kg of butter: one row in kg, no pack counts.
+    expect(rows.map((row) => [row.quantity, row.unit, row.pieceQuantity, row.pieceUnit])).toEqual([[1.75, 'kg', null, null]])
   })
 })
 

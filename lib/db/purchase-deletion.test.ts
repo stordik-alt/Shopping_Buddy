@@ -63,12 +63,30 @@ describe('deletePurchase', () => {
       const type = await db.query.productTypes.findFirst({ where: eq(schema.productTypes.key, 'maslo') })
       const [purchase] = await db.insert(schema.purchases).values({ householdId: household.id, date: '2026-09-15', total: '70' }).returning()
       await db.insert(schema.purchaseItems).values({ purchaseId: purchase.id, name: 'MASLO PRAG. 250G', quantity: 2, unit: 'ks', price: '35', category: 'Potraviny' })
-      await db.insert(schema.pantryItems).values({ householdId: household.id, name: 'Máslo', productTypeId: type!.id, category: 'Potraviny', quantity: 5, unit: 'ks' })
+      await db.insert(schema.pantryItems).values({ householdId: household.id, name: 'Máslo', productTypeId: type!.id, category: 'Potraviny', quantity: 5, unit: 'ks', pieceQuantity: 0.25, pieceUnit: 'kg' })
+
+      await deletePurchase(household.id, purchase.id)
+
+      // Stocked before the exact-amount rule, as pieces of 250 g: 2 x 250 g comes out as 2 pieces.
+      const pantry = await db.query.pantryItems.findMany({ where: eq(schema.pantryItems.householdId, household.id) })
+      expect(pantry.map((row) => [row.name, row.quantity])).toEqual([['Máslo', 3]])
+    } finally {
+      await db.delete(schema.households).where(eq(schema.households.id, household.id))
+    }
+  })
+
+  it('takes an exact amount out of a pantry row of the same type kept in kg', async () => {
+    const [household] = await db.insert(schema.households).values({ name: '__test_household_delete_purchase_type_kg__' }).returning()
+    try {
+      const type = await db.query.productTypes.findFirst({ where: eq(schema.productTypes.key, 'maslo') })
+      const [purchase] = await db.insert(schema.purchases).values({ householdId: household.id, date: '2026-09-15', total: '70' }).returning()
+      await db.insert(schema.purchaseItems).values({ purchaseId: purchase.id, name: 'MASLO PRAG. 250G', quantity: 2, unit: 'ks', price: '35', category: 'Potraviny' })
+      await db.insert(schema.pantryItems).values({ householdId: household.id, name: 'Máslo', productTypeId: type!.id, category: 'Potraviny', quantity: 1.25, unit: 'kg' })
 
       await deletePurchase(household.id, purchase.id)
 
       const pantry = await db.query.pantryItems.findMany({ where: eq(schema.pantryItems.householdId, household.id) })
-      expect(pantry.map((row) => [row.name, row.quantity])).toEqual([['Máslo', 3]])
+      expect(pantry.map((row) => [row.name, row.quantity])).toEqual([['Máslo', 0.75]])
     } finally {
       await db.delete(schema.households).where(eq(schema.households.id, household.id))
     }

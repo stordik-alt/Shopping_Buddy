@@ -1,6 +1,7 @@
 'use server'
 
 import { and, count, eq, gte, inArray, lt, or } from 'drizzle-orm'
+import { parseStoredJson } from '@/lib/safe-json'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { safeErrorMessage } from '@/lib/errors'
 import { todayInPrague } from '@/lib/today'
@@ -244,7 +245,7 @@ export async function confirmReceiptReviewAction(
   // actually enforces this — `options.date` (explicitly supplied here) falls back to `row.date`
   // (the OCR-read date, for a review triggered by something other than a missing date, e.g. an
   // inconsistent total) and throws rather than defaulting to today if neither is present.
-  const extractedReview = row.parserResult ? (JSON.parse(row.parserResult) as ExtractedReceipt) : null
+  const extractedReview = row.parserResult ? parseStoredJson<ExtractedReceipt>(row.parserResult, `receipt_imports.parser_result ${receiptImportId}`) : null
   let storeId = row.storeId ?? (extractedReview ? await findOrCreateStore(extractedReview.store.name) : null)
   let resolvedStoreLocationId = options.storeLocationId ?? row.storeLocationId ?? null
   if (resolvedStoreLocationId == null && extractedReview) {
@@ -294,7 +295,10 @@ export async function resolveDuplicateReceiptAction(
     return { purchase: null, aftermath: null }
   }
 
-  const finalItems = items ?? (row.items ? (JSON.parse(row.items) as ReceiptLineItem[]) : [])
+  const storedItems = row.items ? parseStoredJson<ReceiptLineItem[]>(row.items, `receipt_imports.items ${receiptImportId}`) : []
+  // Damaged stored lines must not be saved as an empty receipt; the household re-checks the receipt instead.
+  if (!items && storedItems === null) throw new Error('Uložené položky účtenky se nepodařilo přečíst. Zkontrolujte účtenku znovu.')
+  const finalItems = items ?? storedItems ?? []
   return confirmReceiptReviewAction(receiptImportId, finalItems, options)
 }
 

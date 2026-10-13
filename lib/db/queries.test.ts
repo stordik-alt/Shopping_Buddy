@@ -3,7 +3,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { splitCollapsedExternalProducts } from '@/lib/db/split-collapsed-products'
-import { confirmOfficialPrices, createActiveDealWriter, findProductIdByExternalRef, getCanonicalStoreLocationId, getProductCatalog, getHouseholdData, getProductPrices, getStandaloneOffers, getStoreByChain, getStoreIdByChain, getStores, joinHouseholdViaInvitation, loadExternalProductContext, loadLatestOfficialPrices, recordOfficialPrice, recordOfficialPrices, resolveOrCreateProductFromExternal, touchExternalRefs, upsertActiveDeal } from '@/lib/db/queries'
+import { confirmOfficialPrices, createActiveDealWriter, findProductIdByExternalRef, getCanonicalStoreLocationId, getProductCatalog, getHouseholdData, getInvitationByToken, getProductPrices, getStandaloneOffers, getStoreByChain, getStoreIdByChain, getStores, InvitationUnavailableError, joinHouseholdViaInvitation, loadExternalProductContext, loadLatestOfficialPrices, recordOfficialPrice, recordOfficialPrices, resolveOrCreateProductFromExternal, touchExternalRefs, upsertActiveDeal } from '@/lib/db/queries'
 
 // Regression coverage for the "household events" notification work (docs/07_CHANGELOG.md,
 // 2026-09-21) and for the join-via-invitation logic itself, which docs/01_CURRENT_STATE.md
@@ -121,6 +121,55 @@ describe('one account, one household under concurrency', () => {
       expect(members).toHaveLength(1)
     } finally {
       await deleteTempAuthUser(userId, [])
+    }
+  }, 60_000)
+
+  // Security regression (docs/35_SECURITY_AUDIT.md, S7): an invitation is used exactly once.
+  it('lets only one of two accounts join with the same invitation', async () => {
+    const { household, invitation } = await makeInvitation()
+    const first = await createTempAuthUser()
+    const second = await createTempAuthUser()
+    try {
+      const results = await Promise.allSettled([
+        joinHouseholdViaInvitation(first.userId, first.name, invitation),
+        joinHouseholdViaInvitation(second.userId, second.name, invitation),
+      ])
+      expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
+      const rejected = results.find((result) => result.status === 'rejected') as PromiseRejectedResult
+      expect(rejected.reason).toBeInstanceOf(InvitationUnavailableError)
+      const members = await db.query.householdMembers.findMany({ where: eq(schema.householdMembers.householdId, household.id) })
+      expect(members).toHaveLength(1)
+    } finally {
+      await deleteTempAuthUser(first.userId, [])
+      await deleteTempAuthUser(second.userId, [])
+    }
+  }, 60_000)
+
+  it('does not spend an invitation on an account that already belongs to a household', async () => {
+    const { invitation } = await makeInvitation()
+    const { household: own } = await makeInvitation()
+    const user = await createTempAuthUser()
+    try {
+      await db.insert(schema.householdMembers).values({ householdId: own.id, userId: user.userId, name: user.name, role: 'owner' })
+      const joined = await joinHouseholdViaInvitation(user.userId, user.name, invitation)
+      expect(joined.id).toBe(own.id)
+      const stored = await db.query.invitations.findFirst({ where: eq(schema.invitations.id, invitation.id) })
+      expect(stored?.status).toBe('pending')
+    } finally {
+      await deleteTempAuthUser(user.userId, [])
+    }
+  }, 60_000)
+
+  // S9: a used, revoked or expired share link reveals neither the invited e-mail nor the household.
+  it('shows the e-mail and household of a valid invitation link only', async () => {
+    const { household, invitation } = await makeInvitation()
+    const valid = await getInvitationByToken(invitation.token)
+    expect(valid).toMatchObject({ email: 'join-test@example.com', householdName: household.name, status: 'pending' })
+
+    for (const change of [{ status: 'revoked' as const }, { status: 'pending' as const, expiresAt: new Date(Date.now() - 1000) }]) {
+      await db.update(schema.invitations).set(change).where(eq(schema.invitations.id, invitation.id))
+      const hidden = await getInvitationByToken(invitation.token)
+      expect(hidden).toMatchObject({ email: '', householdName: '', invitedByName: null })
     }
   }, 60_000)
 

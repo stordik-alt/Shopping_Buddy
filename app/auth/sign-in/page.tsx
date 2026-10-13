@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { type FormEvent, Suspense, useState } from 'react'
+import { safeInviteToken } from '@/lib/invite-token'
 import { authClient } from '@/lib/auth/client'
 import { refusalOf } from '@/lib/auth/auth-errors'
 import { rememberLoginTiming } from '@/lib/rum-client'
@@ -18,7 +19,7 @@ export default function SignInPage() {
 function SignInForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const invite = searchParams.get('invite')
+  const invite = safeInviteToken(searchParams.get('invite'))
   const [email, setEmail] = useState(searchParams.get('email') ?? '')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')

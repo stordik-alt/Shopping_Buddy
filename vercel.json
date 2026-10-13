@@ -9,6 +9,10 @@
       "schedule": "0 8 * * *"
     },
     {
+      "path": "/api/cron/retention",
+      "schedule": "0 3 * * 1"
+    },
+    {
       "path": "/api/cron/pantry-checkin",
       "schedule": "0 15 * * 0"
     },

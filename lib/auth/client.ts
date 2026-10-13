@@ -1,5 +1,6 @@
 'use client'
 
+import '@/lib/zod-jitless'
 import { createAuthClient as createNeonAuthClient } from '@neondatabase/auth/next'
 import { createAuthClient as createLocalAuthClient } from 'better-auth/react'
 

@@ -2,7 +2,8 @@ import { and, asc, eq, gte, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { productTypeByKey } from '@/lib/product-types'
-import { dismissalKey, lowStockLevels, type RestockCandidate, type StockLevel } from '@/lib/pantry-restock'
+import { dismissalKey, lowStockLevels, restockSuggestions, type RestockCandidate, type RestockSuggestion, type StockLevel } from '@/lib/pantry-restock'
+import type { StoreSelection } from '@/lib/nearby-stores'
 import type { ItemUnit, PantryItem } from '@/lib/types'
 
 /** The household's wanted stock per product type (Profil ▸ Hlídané zásoby), by type name. */
@@ -82,4 +83,13 @@ export async function getRestockDismissals(householdId: string, today: string): 
     .innerJoin(schema.productTypes, eq(schema.productTypes.id, schema.restockDismissals.productTypeId))
     .where(and(eq(schema.restockDismissals.householdId, householdId), gte(schema.restockDismissals.validUntil, today)))
   return rows.map((row) => dismissalKey(row.typeKey, row.productId, String(row.validUntil).slice(0, 10)))
+}
+
+/** "Dokoupit do zásoby" for a household: only rows near their minimum cost a query. The chains are the
+ *  member's priority ones, else their chosen nearby ones, else any — nobody who has set no stores should be
+ *  told nothing. Used by the page load and by the refresh after the member changes their stores, so both
+ *  apply the same rule. */
+export async function getRestockSuggestionsFor(levels: StockLevel[], items: PantryItem[], today: string, selection: StoreSelection): Promise<RestockSuggestion[]> {
+  const chainIds = selection.priorityChainIds.length > 0 ? selection.priorityChainIds : selection.chainIds.length > 0 ? selection.chainIds : null
+  return restockSuggestions(levels, items, await getRestockCandidates(levels, items, today, chainIds), chainIds ? new Set(chainIds) : null)
 }

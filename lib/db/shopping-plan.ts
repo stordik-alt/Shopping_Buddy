@@ -117,6 +117,7 @@ export async function buildShoppingPlan(householdId: string, memberId: string | 
         unit: schema.shoppingListItems.unit,
         category: schema.shoppingListItems.category,
         productTypes: schema.shoppingListItems.productTypes,
+        productId: schema.shoppingListItems.productId,
         price: schema.shoppingListItems.price,
       })
       .from(schema.shoppingListItems)
@@ -138,6 +139,15 @@ export async function buildShoppingPlan(householdId: string, memberId: string | 
   const pinnedProductIds = [...new Set([...pins.values()].flatMap((byStore) => [...byStore.values()]))]
   const pinnedHits = await getHitsForProducts(pinnedProductIds, allowedIds)
   const pinnedByKey = new Map(pinnedHits.map((hit) => [`${hit.productId}|${hit.storeId}`, hit]))
+
+  // An item added from a concrete product (a suggestion, a deal, the product search) is that product: it
+  // keeps the catalog `productId`. Searching its long catalog name again by text (brand, size, strength)
+  // can find nothing, and the plan then dropped an item the list had just priced exactly. So where the
+  // item's own product is sold at an allowed chain, that product is the offer there; the name search
+  // and the type pick only serve the chains that do not sell it.
+  const ownProductIds = [...new Set(items.flatMap((item) => (item.productId ? [item.productId] : [])))]
+  const ownHits = await getHitsForProducts(ownProductIds, allowedIds)
+  const ownByKey = new Map(ownHits.map((hit) => [`${hit.productId}|${hit.storeId}`, hit]))
 
   // Items that name a product type or group (docs/12_PRODUCT_TYPES.md, phase 2): their candidates are
   // the products of those types, all fetched in one go.
@@ -173,6 +183,12 @@ export async function buildShoppingPlan(householdId: string, memberId: string | 
         const priced = hit ? costForNeed(need, hit) : null
         if (hit && priced) chosen = { hit, cost: priced.cost, source: 'pinned' }
         else notes.push(`U položky „${need.name}“ už připnutý produkt v obchodě ${chainName.get(storeId) ?? ''} nelze ocenit, použit byl automatický výběr.`)
+      }
+      if (!chosen) {
+        const itemProductId = items[index].productId
+        const own = itemProductId ? ownByKey.get(`${itemProductId}|${storeId}`) : undefined
+        const priced = own ? costForNeed(need, own) : null
+        if (own && priced) chosen = { hit: own, cost: priced.cost, source: 'auto' }
       }
       if (!chosen) {
         const auto = accepted ? pickTypedHit(need, byChain.get(storeId) ?? []) : pickAutoHit(need, byChain.get(storeId) ?? [])

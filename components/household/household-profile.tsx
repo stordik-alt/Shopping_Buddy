@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Bell, Baby, SlidersHorizontal, Users } from 'lucide-react'
+import { AuditLogSection } from '@/components/household/audit-log-section'
 import { ChildCard } from '@/components/household/child-card'
 import { MemberCard } from '@/components/household/member-card'
 import { DietQuestionnaire } from '@/components/household/diet-questionnaire'
@@ -471,6 +472,7 @@ export function HouseholdProfile({
         <NotificationSettings off={notificationsOff} onChange={onSetNotificationKind} pushPublicKey={pushPublicKey} />
       </CollapsibleSection>
       )}
+      {isOwner && section === 'domacnost' && <AuditLogSection />}
     </div>
   )
 }

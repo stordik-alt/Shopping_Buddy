@@ -2,7 +2,8 @@
 
 import { ITEM_UNITS } from '@/lib/units'
 import { and, eq } from 'drizzle-orm'
-import { requireHouseholdId } from '@/lib/auth/authorize'
+import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
+import { recordAudit } from '@/lib/db/audit'
 import { getDb } from '@/lib/db/client'
 import { getHouseholdExpenses, getHouseholdNotifications, restockPantryItem, restockPantryTypeItem, upsertProductCatalogDefaults } from '@/lib/db/queries'
 import { stockTypesForLines } from '@/lib/db/stock-types'
@@ -252,10 +253,11 @@ const PURCHASE_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0
  *  (docs/20_DELETE_PURCHASE.md). Returns the purchase's date, so the client can reload the past
  *  period it belonged to. */
 export async function deletePurchaseAction(purchaseId: string): Promise<{ date: string }> {
-  const householdId = await requireHouseholdId()
+  const { householdId, memberId } = await requireHousehold()
   if (typeof purchaseId !== 'string' || !PURCHASE_ID_PATTERN.test(purchaseId)) throw new Error('Neplatný nákup.')
   try {
     const { date } = await deletePurchase(householdId, purchaseId)
+    await recordAudit({ householdId, memberId }, 'purchase.deleted', { date }, purchaseId)
     return { date }
   } catch (err) {
     // Another household's purchase reads the same as a missing one.

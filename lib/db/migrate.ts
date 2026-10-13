@@ -3,12 +3,17 @@ import { join } from 'node:path'
 import { usesPgDriver } from './local'
 import { createRawSql, type RawSql } from './raw-sql'
 import { deployMigrationDecision } from './migrate-guard'
+import { checksumOf, needsBreakpointMarker, planIntegrity, runsInTransaction } from './migration-integrity'
 
 // Minimal migration runner: applies any *.sql file in this directory that
-// isn't recorded in `_migrations` yet, in filename order. Statements within a
-// file run sequentially (the neon-http driver has no multi-statement
-// transaction support), so each migration file should be written so partial
-// application is safe to re-run or reason about.
+// isn't recorded in `_migrations` yet, in filename order. A file runs in ONE
+// transaction together with its `_migrations` row, so a failure leaves nothing
+// half-applied (docs/35_SECURITY_AUDIT.md, S4). The few statements PostgreSQL
+// refuses inside a transaction (CREATE INDEX CONCURRENTLY) need
+// `-- migrate: no-transaction` in the file; such a file runs statement by
+// statement and must be written so partial application is safe to re-run.
+// Every applied file's SHA-256 is stored; a later edit of an applied file stops
+// the run (lib/db/migration-integrity.ts) — fix forward with a new migration.
 //
 // Author new migrations with `pnpm db:generate` (drizzle-kit) after editing
 // lib/db/schema.ts, then apply with `pnpm db:migrate`. drizzle-kit's default
@@ -89,25 +94,43 @@ async function main() {
 
 async function applyMigrations(sql: Sql) {
   await sql`CREATE TABLE IF NOT EXISTS _migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())`
+  // Additive, so a runner older than this column keeps working against the same table.
+  await sql`ALTER TABLE _migrations ADD COLUMN IF NOT EXISTS checksum text`
   // Read under the lock: a run that waited sees what the other one applied.
-  const applied = new Set((await sql`SELECT name FROM _migrations`).map((row) => row.name as string))
+  const appliedRows = await sql`SELECT name, checksum FROM _migrations`
+  const applied = new Map(appliedRows.map((row) => [row.name as string, (row.checksum as string | null) ?? null]))
 
-  const files = readdirSync(MIGRATIONS_DIR)
+  const names = readdirSync(MIGRATIONS_DIR)
     .filter((name) => name.endsWith('.sql'))
     .sort()
+  const files = new Map(names.map((name) => [name, readFileSync(join(MIGRATIONS_DIR, name), 'utf8')]))
 
-  for (const file of files) {
+  const integrity = planIntegrity(applied, files)
+  if (integrity.changed.length > 0) {
+    throw new Error(`Applied migration(s) were edited after they ran: ${integrity.changed.join(', ')}. Restore the file and put the change in a new migration.`)
+  }
+  for (const name of integrity.missing) console.warn(`warning: ${name} is recorded as applied but is no longer in the migrations folder`)
+  // Rows from before checksums existed: what the file says now becomes the baseline.
+  for (const name of integrity.toRecord) await sql`UPDATE _migrations SET checksum = ${checksumOf(files.get(name)!)} WHERE name = ${name}`
+
+  for (const file of names) {
     if (applied.has(file)) {
       console.log(`skip (already applied): ${file}`)
       continue
     }
     console.log(`applying: ${file}`)
-    const text = readFileSync(join(MIGRATIONS_DIR, file), 'utf8')
-    const statements = splitStatements(text)
-    for (const statement of statements) {
-      await sql.query(statement)
+    const text = files.get(file)!
+    if (needsBreakpointMarker(text)) {
+      throw new Error(`${file} has a $$ block but no "--> statement-breakpoint" line, so it would be cut in the wrong places. Put the marker between its statements.`)
     }
-    await sql`INSERT INTO _migrations (name) VALUES (${file})`
+    const statements = splitStatements(text)
+    const record = `INSERT INTO _migrations (name, checksum) VALUES ('${file.replace(/'/g, "''")}', '${checksumOf(text)}')`
+    if (runsInTransaction(text)) {
+      await sql.transaction([...statements, record])
+    } else {
+      for (const statement of statements) await sql.query(statement)
+      await sql.query(record)
+    }
   }
 
   console.log('Migrations up to date.')

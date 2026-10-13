@@ -1177,6 +1177,21 @@ export const rateLimits = pgTable('rate_limits', {
   hits: integer('hits').notNull().default(0),
 })
 
+// Who changed what in a household (lib/db/audit.ts, migration 0107). Append-only; detail is amounts and
+// field names, never free text. actor_member_id is cleared when the member's profile is deleted.
+export const auditLog = pgTable('audit_log', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  actorMemberId: uuid('actor_member_id').references(() => householdMembers.id, { onDelete: 'set null' }),
+  action: text('action').notNull(),
+  entityId: uuid('entity_id'),
+  detail: jsonb('detail').$type<Record<string, string | number | boolean | null>>().notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('audit_log_household_created_idx').on(table.householdId, table.createdAt.desc()),
+  check('audit_log_action_length', sql`char_length(${table.action}) BETWEEN 1 AND 64`),
+])
+
 export const receiptImports = pgTable('receipt_imports', {
   id: uuid('id').primaryKey().defaultRandom(),
   householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
@@ -1644,6 +1659,10 @@ export const pantryPlacesRelations = relations(pantryPlaces, ({ one }) => ({
 export const invitationsRelations = relations(invitations, ({ one }) => ({
   household: one(households, { fields: [invitations.householdId], references: [households.id] }),
   invitedByMember: one(householdMembers, { fields: [invitations.invitedByMemberId], references: [householdMembers.id] }),
+}))
+
+export const auditLogRelations = relations(auditLog, ({ one }) => ({
+  actor: one(householdMembers, { fields: [auditLog.actorMemberId], references: [householdMembers.id] }),
 }))
 
 export const householdMembersRelations = relations(householdMembers, ({ one }) => ({

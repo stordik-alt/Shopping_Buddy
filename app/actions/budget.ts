@@ -4,6 +4,7 @@ import { and, asc, eq, gte, lt, sql } from 'drizzle-orm'
 import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
 import { nextPeriodStartFor, periodStartFor } from '@/lib/budget-period'
 import { periodSpending, notifyBudgetThresholds } from '@/lib/db/budget-notify'
+import { recordAudit } from '@/lib/db/audit'
 import { getDb } from '@/lib/db/client'
 import { loadPeriodConfig } from '@/lib/db/period-config'
 import * as schema from '@/lib/db/schema'
@@ -62,7 +63,7 @@ async function resolveManualProductId(productId: string): Promise<string> {
 }
 
 export async function addExpenseAction(input: ExpenseInput): Promise<{ expense: Expense; notifications: Notification[] }> {
-  const { householdId, userId } = await requireHousehold()
+  const { householdId, userId, memberId } = await requireHousehold()
   const expense = validOrThrow(input)
   const db = getDb()
   if (expense.selection?.kind === 'product') await resolveManualProductId(expense.selection.productId)
@@ -85,13 +86,14 @@ export async function addExpenseAction(input: ExpenseInput): Promise<{ expense: 
     .returning()
 
   const notifications = await notifyBudgetThresholds(db, householdId, before, [{ category: expense.category, amount: expense.amount }], userId)
+  await recordAudit({ householdId, memberId }, 'expense.added', { amount: expense.amount, category: expense.category, date: expense.date }, row.id)
   return { expense: toExpense(row), notifications }
 }
 
 /** Corrects an expense: amount, category, subcategory, note or date. The budget notifications are
  *  not re-sent — they mark the moment spending crossed a threshold, which a correction does not. */
 export async function updateExpenseAction(expenseId: string, input: ExpenseInput): Promise<{ expense: Expense }> {
-  const householdId = await requireHouseholdId()
+  const { householdId, memberId } = await requireHousehold()
   await ownEditableExpense(householdId, expenseId)
   const expense = validOrThrow(input)
   if (expense.selection?.kind === 'product') await resolveManualProductId(expense.selection.productId)
@@ -108,19 +110,21 @@ export async function updateExpenseAction(expenseId: string, input: ExpenseInput
     })
     .where(and(eq(schema.expenses.id, expenseId), eq(schema.expenses.householdId, householdId)))
     .returning()
+  await recordAudit({ householdId, memberId }, 'expense.updated', { amount: expense.amount, category: expense.category, date: expense.date }, expenseId)
   return { expense: toExpense(row) }
 }
 
 export async function deleteExpenseAction(expenseId: string): Promise<void> {
-  const householdId = await requireHouseholdId()
-  await ownEditableExpense(householdId, expenseId)
+  const { householdId, memberId } = await requireHousehold()
+  const existing = await ownEditableExpense(householdId, expenseId)
   await getDb().delete(schema.expenses).where(and(eq(schema.expenses.id, expenseId), eq(schema.expenses.householdId, householdId)))
+  await recordAudit({ householdId, memberId }, 'expense.deleted', { amount: Number(existing.amount), category: existing.category, date: existing.date }, expenseId)
 }
 
 /** Sets a category's monthly limit, or removes it (`amount` null). Any member may, as with the overall
  *  monthly budget. Returns every limit of the household. */
 export async function setCategoryBudgetAction(category: string, amount: number | null): Promise<CategoryBudgets> {
-  const householdId = await requireHouseholdId()
+  const { householdId, memberId } = await requireHousehold()
   if (!isExpenseCategory(category)) throw new Error('Neznámá kategorie výdaje.')
   const db = getDb()
   if (amount === null) {
@@ -133,6 +137,7 @@ export async function setCategoryBudgetAction(category: string, amount: number |
       .values({ householdId, category, amount: value })
       .onConflictDoUpdate({ target: [schema.expenseCategoryBudgets.householdId, schema.expenseCategoryBudgets.category], set: { amount: value, updatedAt: new Date() } })
   }
+  await recordAudit({ householdId, memberId }, 'budget.category_set', { category, amount })
   const rows = await db.query.expenseCategoryBudgets.findMany({ where: eq(schema.expenseCategoryBudgets.householdId, householdId) })
   return Object.fromEntries(rows.map((row) => [row.category, Number(row.amount)]))
 }
@@ -177,7 +182,7 @@ export async function getPeriodExpensesAction(period: string): Promise<Expense[]
  *  Profil (`null`). A finished period's budget stays as it was — its savings must not change after the
  *  fact. Returns every period budget of the household. */
 export async function setPeriodBudgetAction(period: string, amount: number | null): Promise<Record<string, number>> {
-  const householdId = await requireHouseholdId()
+  const { householdId, memberId } = await requireHousehold()
   const config = await loadPeriodConfig(getDb(), householdId)
   const current = periodStartFor(config, todayInPrague())
   if (period !== current && period !== nextPeriodStartFor(config, current)) throw new Error('Rozpočet lze nastavit jen pro aktuální a příští období.')
@@ -191,14 +196,16 @@ export async function setPeriodBudgetAction(period: string, amount: number | nul
       .values({ householdId, month: period, amount: value })
       .onConflictDoUpdate({ target: [schema.budgets.householdId, schema.budgets.month], set: { amount: value } })
   }
+  await recordAudit({ householdId, memberId }, 'budget.period_set', { period, amount })
   return getPeriodBudgets(householdId)
 }
 
 /** The household's monthly savings goal; 0 removes it. */
 export async function setSavingsGoalAction(amount: number): Promise<number> {
-  const householdId = await requireHouseholdId()
+  const { householdId, memberId } = await requireHousehold()
   const value = validAmount(amount, 'Cíl úspor musí být částka 0 Kč nebo vyšší.')
   await getDb().update(schema.households).set({ savingsGoal: value }).where(eq(schema.households.id, householdId))
+  await recordAudit({ householdId, memberId }, 'budget.savings_goal_set', { amount: Number(value) })
   return Number(value)
 }
 

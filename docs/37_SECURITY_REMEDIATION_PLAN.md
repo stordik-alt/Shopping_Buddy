@@ -27,6 +27,7 @@ Za 6 dní od prvního auditu byl opraven **jediný** nález (V4 závislosti). Ob
 | S6 | Chybí kontrola role u akcí nastavení domácnosti | **Opraveno v kódu 2026-10-13** (rozsah podle rozhodnutí vlastníka: nastavení domácnosti a uzávěrka období jen správce; preference, děti a profily i peníze zůstávají všem členům) | `app/actions/household.ts` |
 | S2 | Chybí smazání účtu a domácnosti; neomezená retence PII | **Opraveno v kódu 2026-10-13**: smazání účtu a týdenní retence (OCR text 90 dní, pozvánky 30 dní po vypršení); zbývá ověřit `delete-user` v Neon Auth | `app/actions/account.ts`, `lib/db/account-deletion.ts` |
 | S3 | Nešifrovaný `pg_dump` celé DB do `backups/` | **Opraveno v kódu 2026-10-13** (zbývá vygenerovat `BACKUP_ENCRYPTION_KEY` a vyzkoušet obnovu) | `scripts/backup-db.ts`, `lib/backup-crypto.ts` |
+| S1 | Aplikace se připojuje jako vlastník DB, bez RLS | **Záměrně odloženo 2026-10-13** (rozhodnutí vlastníka; návrh zůstává v `docs/38_DB_ROLE_AND_RLS_DESIGN.md`, nejlevnější krok A je samostatně použitelný, kdyby se k tomu vrátilo) | `lib/db/client.ts` |
 | S13 | `minimumReleaseAge` není nastaveno | **Opraveno 2026-10-13** | `pnpm-workspace.yaml` |
 | S14 | `poweredByHeader`, COOP/CORP, `Content-Disposition` u PDF | **Opraveno 2026-10-13** (COOP záměrně ne) | `next.config.mjs` |
 

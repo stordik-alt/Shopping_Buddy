@@ -1,3 +1,6 @@
+## 2026-10-13 — Návrh: oddělená databázová role a RLS (S1)
+
+- Jen dokumentace, žádná změna kódu: `docs/38_DB_ROLE_AND_RLS_DESIGN.md`. Tři kroky (role s nejnižšími právy bez RLS; politiky RLS; kontext domácnosti na každém dotazu), rizika Neon HTTP ovladače (bez interaktivních transakcí) a otázky k rozhodnutí. Vlastník rozhodl S1 neimplementovat; v plánu je vedené jako záměrně odložené.
 ## 2026-10-13 — Bezpečnost S2: časově omezená retence osobních údajů
 
 - Koncept: `docs/37_SECURITY_REMEDIATION_PLAN.md` (S2). Nový týdenní cron `/api/cron/retention` (pondělí 03:00 UTC, sdílí plán s další úlohou, aby Cloudflare nepotřeboval nový spouštěč, `vercel.json`; stejná autorizace jako ostatní crony) volá `applyRetention` (`lib/db/retention.ts`; doby jsou v `lib/retention.ts`): (1) u **dokončených** účtenek (`imported`, `discarded`, `completed`, `cancelled`, `ocr_failed`, `parsing_failed`), které se 90 dní nezměnily, vymaže surový OCR text a surový výstup parseru; potvrzené položky, řádek účtenky i fotka zůstávají; účtenky čekající na člověka ani rozpracované se nemažou, review je zobrazuje; (2) smaže pozvánky (obsahují e-mail pozvaného) 30 dní po vypršení; (3) uklidí staré čítače limitů. Kroky jsou idempotentní. Fotky účtenek se záměrně nemažou (uživatel k nim sahá při opravě). Testy: `lib/db/retention.test.ts`, `app/api/cron/retention/route.test.ts`.

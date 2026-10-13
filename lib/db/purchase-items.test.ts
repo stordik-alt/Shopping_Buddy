@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import {
   AlreadyRecordedError,
@@ -16,6 +16,9 @@ import {
   setPurchaseItemExpenseSplits,
 } from '@/lib/db/purchase-items'
 import * as schema from '@/lib/db/schema'
+
+// A budget reassignment can change the shared catalog (lib/db/category-changes.ts), which refreshes a Next.js cache tag; there is no request here.
+vi.mock('@/lib/db/cache-invalidation', () => ({ invalidateProductCatalogCache: vi.fn() }))
 
 // Integration coverage of the household's manual expense-category split/reassignment
 // (setPurchaseItemExpenseSplits) and the resulting "the app learns" behaviour, against the real test
@@ -187,6 +190,35 @@ describe('setPurchaseItemExpenseSplits', () => {
       await db.delete(schema.products).where(eq(schema.products.id, product.id))
     }
   })
+
+    // Security regression (docs/37_SECURITY_REMEDIATION_PLAN.md, N4): the budget used to write the shared product
+    // directly, so any household could re-file a product for everyone without the move limit or approval.
+    it('proposes the catalog change through the move limit: a disputed product waits for an administrator, the household budget still follows its choice', async () => {
+      const product = await createProduct()
+      const { householdId, purchaseId, items } = await createPurchase([{ name: product.name, category: 'Potraviny', price: 100, productId: product.id }])
+      const food = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') })
+      const drugstore = await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Drogerie') })
+      try {
+        // Three category moves already applied (the free allowance, lib/product-subcategory-changes.ts).
+        await db.insert(schema.productCategoryChanges).values(
+          [food!.id, drugstore!.id, food!.id].map((from, i) => ({ productId: product.id, householdId, fromCategoryId: from, toCategoryId: i % 2 === 0 ? drugstore!.id : food!.id, status: 'applied' })),
+        )
+        await setPurchaseItemExpenseSplits(householdId, items[0].id, [{ category: 'Drogerie', subcategory: 'Kosmetika', amount: 100 }])
+
+        // The shared product is untouched and the change waits for an administrator...
+        const unchanged = await db.query.products.findFirst({ where: eq(schema.products.id, product.id), with: { category: true, subcategory: true } })
+        expect(unchanged?.category.name).toBe('Potraviny')
+        expect(unchanged?.subcategory).toBeNull() // no subcategory of another category is left on it
+        const pending = await db.query.productCategoryChanges.findMany({ where: eq(schema.productCategoryChanges.status, 'pending') })
+        expect(pending.filter((row) => row.productId === product.id)).toHaveLength(1)
+        // ...while this household's own budget row follows its choice.
+        const expenses = await db.query.expenses.findMany({ where: eq(schema.expenses.purchaseId, purchaseId) })
+        expect(expenses.map((row) => [row.category, row.subcategory, Number(row.amount)])).toEqual([['Drogerie', 'Kosmetika', 100]])
+      } finally {
+        await db.delete(schema.households).where(eq(schema.households.id, householdId))
+        await db.delete(schema.products).where(eq(schema.products.id, product.id))
+      }
+    })
 
     it('remembers a plain (one-target) reassignment for the product', async () => {
       const product = await createProduct()

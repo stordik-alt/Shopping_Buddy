@@ -36,7 +36,7 @@ Ostatní S/L položky z auditu 35 nebyly znovu rozebírány a platí tak, jak js
 * **N2 — Pozvánka vs. K2:** kromě auto-joinu v `getHouseholdData` kontroluje i `acceptInvitationAction` jen shodu e-mailu. Oprava K2 musí pokrýt obě cesty (token + ověřený e-mail).
 * **N3 — V2 a osiřelé účty:** po smazání člena (řádek `household_members`) přihlášený uživatel při dalším načtení dostane novou prázdnou domácnost (`createHouseholdForUser`), takže odebraný člen přichází o přístup, ale vlastník domácnosti nikoli o data; naopak odebraný **vlastník** domácnost ztrácí natrvalo (unikátní `user_id`). Potvrzuje závažnost V2.
 
-* **N4 — Přeřazení z rozpočtu obchází schvalování katalogu:** `setPurchaseItemExpenseSplits` mění sdílený `products` přímo (kontroluje jen `categoryLocked`), bez počítání volných změn a bez schvalování správcem, které používají `proposeProductCategory` a `proposeProductSubcategory`. Kterákoli domácnost tak může opakovaně přeřadit produkt pro všechny budoucí účtenky. V1 omezila jen přepis cizí historie; tohle zůstává otevřené a vyžaduje rozhodnutí (vést tuto cestu přes stejné návrhy).
+* **N4 (opraveno 2026-10-13, přeřazení z rozpočtu teď jde přes `proposeProductCategory`/`proposeProductSubcategory`) — Přeřazení z rozpočtu obchází schvalování katalogu:** `setPurchaseItemExpenseSplits` mění sdílený `products` přímo (kontroluje jen `categoryLocked`), bez počítání volných změn a bez schvalování správcem, které používají `proposeProductCategory` a `proposeProductSubcategory`. Kterákoli domácnost tak může opakovaně přeřadit produkt pro všechny budoucí účtenky. V1 omezila jen přepis cizí historie; tohle zůstává otevřené a vyžaduje rozhodnutí (vést tuto cestu přes stejné návrhy).
 
 ## 4. Plán oprav
 

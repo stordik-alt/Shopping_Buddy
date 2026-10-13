@@ -56,6 +56,19 @@ describe('schema integrity', () => {
     })
   })
 
+  // docs/35_SECURITY_AUDIT.md, S10 (migration 0109): an invitation e-mail in mixed case would never match the first-login join.
+  it('refuses an invitation e-mail that is not lower case', async () => {
+    const db = getDb()
+    const [household] = await db.insert(schema.households).values({ name: '__test_invitation_email__' }).returning()
+    try {
+      const values = { householdId: household.id, token: crypto.randomUUID(), expiresAt: new Date(Date.now() + 86_400_000) }
+      await expect(db.insert(schema.invitations).values({ ...values, email: 'Jan.Novak@Example.cz' })).rejects.toThrow()
+      await db.insert(schema.invitations).values({ ...values, email: 'jan.novak@example.cz' })
+    } finally {
+      await db.delete(schema.households).where(eq(schema.households.id, household.id))
+    }
+  })
+
   // Step 2 of the currency work (migration 0106, after lib/currency.ts normalises what receipts print).
   it('stores only three-letter upper-case currency codes', async () => {
     const db = getDb()

@@ -141,7 +141,7 @@ export const invitations = pgTable(
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   // Looked up by email on every first login (lib/db/queries.ts's getHouseholdData()) to check for a pending invite.
-  (table) => [index('invitations_email_idx').on(table.email)],
+  (table) => [index('invitations_email_idx').on(table.email), check('invitations_email_lowercase', sql`${table.email} = lower(${table.email})`)],
 )
 
 // Extended profile data for a household member (food preferences, allergies).

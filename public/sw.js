@@ -43,6 +43,10 @@ self.addEventListener('fetch', (event) => {
           if (response.ok && !response.redirected && (response.headers.get('content-type') || '').includes('text/html')) {
             const copy = response.clone()
             event.waitUntil(caches.open(PAGE_CACHE).then((cache) => cache.put('/', copy)))
+          } else if (response.redirected) {
+            // Redirected away from the app page (to sign-in): the session ended, here or on another device.
+            // The stored page belongs to that session, so it goes too, even if signing out never ran here.
+            event.waitUntil(caches.delete(PAGE_CACHE))
           }
           return response
         })

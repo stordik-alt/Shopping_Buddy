@@ -91,7 +91,7 @@ export function isNetworkError(error: unknown, online: boolean): boolean {
 
 // --- Storage on the device -------------------------------------------------------------------
 
-const STORAGE_PREFIX = 'shopping-buddy:offline-queue:v1:'
+export const STORAGE_PREFIX = 'shopping-buddy:offline-queue:v1:'
 
 function isPendingOp(value: unknown): value is PendingOp {
   if (!value || typeof value !== 'object') return false

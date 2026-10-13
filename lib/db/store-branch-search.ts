@@ -81,40 +81,44 @@ function localityKey(locality: Locality): string {
   return JSON.stringify(locality)
 }
 
-const getChainTilesGlobal = unstable_cache(
-  async (serializedLocality: string, today: string): Promise<GlobalChainTile[]> => {
-    const db = getDb()
-    const locality = JSON.parse(serializedLocality) as Locality
-    const [chains, deals] = await Promise.all([
-      db
-        .select({ storeId: schema.stores.id, chain: schema.stores.chain, branchCount: sql<number>`count(*)::int` })
-        .from(schema.storeLocations)
-        .innerJoin(schema.stores, eq(schema.stores.id, schema.storeLocations.storeId))
-        .where(and(...localityConditions(locality)))
-        .groupBy(schema.stores.id, schema.stores.chain),
-      db
-        .select({ storeId: schema.deals.storeId, count: sql<number>`count(DISTINCT ${schema.deals.productId})::int` })
-        .from(schema.deals)
-        .where(and(sql`${schema.deals.validFrom} <= ${today}`, sql`${schema.deals.validUntil} >= ${today}`))
-        .groupBy(schema.deals.storeId),
-    ])
-    const dealsByChain = new Map(deals.map((row) => [row.storeId, Number(row.count)]))
-    return chains.map((row) => ({
-      storeId: row.storeId,
-      chain: row.chain,
-      branchCount: Number(row.branchCount),
-      dealsCount: dealsByChain.get(row.storeId) ?? 0,
-    }))
-  },
-  ['store-chain-tiles-v1'],
-  { revalidate: ONE_DAY, tags: [GLOBAL_CACHE_TAGS.stores, GLOBAL_CACHE_TAGS.deals] },
-)
+async function loadChainTiles(serializedLocality: string, today: string): Promise<GlobalChainTile[]> {
+  const db = getDb()
+  const locality = JSON.parse(serializedLocality) as Locality
+  const [chains, deals] = await Promise.all([
+    db
+      .select({ storeId: schema.stores.id, chain: schema.stores.chain, branchCount: sql<number>`count(*)::int` })
+      .from(schema.storeLocations)
+      .innerJoin(schema.stores, eq(schema.stores.id, schema.storeLocations.storeId))
+      .where(and(...localityConditions(locality)))
+      .groupBy(schema.stores.id, schema.stores.chain),
+    db
+      .select({ storeId: schema.deals.storeId, count: sql<number>`count(DISTINCT ${schema.deals.productId})::int` })
+      .from(schema.deals)
+      .where(and(sql`${schema.deals.validFrom} <= ${today}`, sql`${schema.deals.validUntil} >= ${today}`))
+      .groupBy(schema.deals.storeId),
+  ])
+  const dealsByChain = new Map(deals.map((row) => [row.storeId, Number(row.count)]))
+  return chains.map((row) => ({
+    storeId: row.storeId,
+    chain: row.chain,
+    branchCount: Number(row.branchCount),
+    dealsCount: dealsByChain.get(row.storeId) ?? 0,
+  }))
+}
+
+const getChainTilesCached = unstable_cache(loadChainTiles, ['store-chain-tiles-v1'], { revalidate: ONE_DAY, tags: [GLOBAL_CACHE_TAGS.stores, GLOBAL_CACHE_TAGS.deals] })
+
+// A search around the user's position is not cached (docs/35_SECURITY_AUDIT.md, S16): the cache key would
+// hold their exact coordinates for a day, and such a search rarely repeats anyway. The town and "all" searches
+// have few distinct keys and stay cached.
+const getChainTilesGlobal = (locality: Locality, today: string) =>
+  locality.kind === 'gps' ? loadChainTiles(localityKey(locality), today) : getChainTilesCached(localityKey(locality), today)
 
 /** Chains with branch counts and today's promotions are global; only member favourites stay outside the shared cache. */
 export async function getChainTiles(locality: Locality, memberId: string): Promise<ChainTile[]> {
   const db = getDb()
   const [chains, favouriteChains] = await Promise.all([
-    getChainTilesGlobal(localityKey(locality), todayInPrague()),
+    getChainTilesGlobal(locality, todayInPrague()),
     db
       .select({ storeId: schema.memberStores.storeId })
       .from(schema.memberStores)
@@ -126,52 +130,54 @@ export async function getChainTiles(locality: Locality, memberId: string): Promi
     .sort((a, b) => Number(b.isFavorite) - Number(a.isFavorite) || a.chain.localeCompare(b.chain, 'cs'))
 }
 
-const searchBranchesGlobal = unstable_cache(
-  async (serializedChainIds: string, serializedLocality: string): Promise<GlobalBranchPage> => {
-    const db = getDb()
-    const chainIds = JSON.parse(serializedChainIds) as string[]
-    const locality = JSON.parse(serializedLocality) as Locality
-    const distance = locality.kind === 'gps' ? distanceSql(locality.center) : null
-    const where = and(sql`${schema.storeLocations.storeId} IN (${sql.join(chainIds.map((id) => sql`${id}::uuid`), sql`, `)})`, ...localityConditions(locality))
+async function loadBranchRows(serializedChainIds: string, serializedLocality: string): Promise<GlobalBranchPage> {
+  const db = getDb()
+  const chainIds = JSON.parse(serializedChainIds) as string[]
+  const locality = JSON.parse(serializedLocality) as Locality
+  const distance = locality.kind === 'gps' ? distanceSql(locality.center) : null
+  const where = and(sql`${schema.storeLocations.storeId} IN (${sql.join(chainIds.map((id) => sql`${id}::uuid`), sql`, `)})`, ...localityConditions(locality))
 
-    const rows = await db
-      .select({
-        id: schema.storeLocations.id,
-        storeId: schema.storeLocations.storeId,
-        chain: schema.stores.chain,
-        name: schema.storeLocations.name,
-        address: schema.storeLocations.address,
-        city: schema.storeLocations.city,
-        lat: schema.storeLocations.lat,
-        lng: schema.storeLocations.lng,
-        hours: schema.storeLocations.hours,
-        openingHours: schema.storeLocations.openingHours,
-        distanceKm: distance ?? sql<null>`NULL`,
-      })
-      .from(schema.storeLocations)
-      .innerJoin(schema.stores, eq(schema.stores.id, schema.storeLocations.storeId))
-      .where(where)
-      .orderBy(...(distance ? [asc(distance)] : [asc(schema.storeLocations.city)]), asc(schema.storeLocations.name), asc(schema.storeLocations.id))
+  const rows = await db
+    .select({
+      id: schema.storeLocations.id,
+      storeId: schema.storeLocations.storeId,
+      chain: schema.stores.chain,
+      name: schema.storeLocations.name,
+      address: schema.storeLocations.address,
+      city: schema.storeLocations.city,
+      lat: schema.storeLocations.lat,
+      lng: schema.storeLocations.lng,
+      hours: schema.storeLocations.hours,
+      openingHours: schema.storeLocations.openingHours,
+      distanceKm: distance ?? sql<null>`NULL`,
+    })
+    .from(schema.storeLocations)
+    .innerJoin(schema.stores, eq(schema.stores.id, schema.storeLocations.storeId))
+    .where(where)
+    .orderBy(...(distance ? [asc(distance)] : [asc(schema.storeLocations.city)]), asc(schema.storeLocations.name), asc(schema.storeLocations.id))
 
-    return {
-      page: 1,
-      total: rows.length,
-      rows: rows.map((row) => ({
-        id: row.id,
-        storeId: row.storeId,
-        chain: row.chain,
-        name: row.name,
-        address: row.address,
-        city: row.city,
-        gps: row.lat != null && row.lng != null ? { lat: Number(row.lat), lng: Number(row.lng) } : null,
-        hours: row.openingHours ? formatOpeningHours(row.openingHours) : row.hours,
-        distanceKm: row.distanceKm != null ? Number(row.distanceKm) : null,
-      })),
-    }
-  },
-  ['store-branch-search-v2'],
-  { revalidate: ONE_DAY, tags: [GLOBAL_CACHE_TAGS.stores] },
-)
+  return {
+    page: 1,
+    total: rows.length,
+    rows: rows.map((row) => ({
+      id: row.id,
+      storeId: row.storeId,
+      chain: row.chain,
+      name: row.name,
+      address: row.address,
+      city: row.city,
+      gps: row.lat != null && row.lng != null ? { lat: Number(row.lat), lng: Number(row.lng) } : null,
+      hours: row.openingHours ? formatOpeningHours(row.openingHours) : row.hours,
+      distanceKm: row.distanceKm != null ? Number(row.distanceKm) : null,
+    })),
+  }
+}
+
+const searchBranchesCached = unstable_cache(loadBranchRows, ['store-branch-search-v2'], { revalidate: ONE_DAY, tags: [GLOBAL_CACHE_TAGS.stores] })
+
+/** Not cached for a position search, for the same reason as `getChainTilesGlobal`. */
+const searchBranchesGlobal = (serializedChainIds: string, locality: Locality) =>
+  locality.kind === 'gps' ? loadBranchRows(serializedChainIds, localityKey(locality)) : searchBranchesCached(serializedChainIds, localityKey(locality))
 
 /** Branch rows are global and cached; favourite-branch flags are member-specific and queried separately. */
 export async function searchBranches(input: { chainIds: string[]; locality: Locality; memberId: string; page: number; pageSize: number }): Promise<BranchPage> {
@@ -179,7 +185,7 @@ export async function searchBranches(input: { chainIds: string[]; locality: Loca
   if (chainIds.length === 0) return { rows: [], total: 0, page: 1 }
   const db = getDb()
   const canonicalChainIds = [...new Set(chainIds)].sort()
-  const global = await searchBranchesGlobal(JSON.stringify(canonicalChainIds), localityKey(locality))
+  const global = await searchBranchesGlobal(JSON.stringify(canonicalChainIds), locality)
   const locationIds = global.rows.map((row) => row.id)
   const favouriteRows = locationIds.length
     ? await db

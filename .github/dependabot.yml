@@ -5,3 +5,10 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+  # The workflows pin each action to a commit (docs/35_SECURITY_AUDIT.md, L2); Dependabot proposes the new commit
+  # when the action's version moves, so the pins do not go stale.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

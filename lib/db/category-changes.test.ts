@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm'
-import { afterAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { createTempAuthUser, deleteTempAuthUser } from '@/test/temp-auth-user'
 import { decideCategoryChange, proposeProductCategory } from '@/lib/db/category-changes'
 import { getDb } from '@/lib/db/client'
 
@@ -10,11 +11,16 @@ import * as schema from '@/lib/db/schema'
 const db = getDb()
 const householdIds: string[] = []
 const productIds: string[] = []
-const ADMIN = '00000000-0000-0000-0000-000000000001'
+let ADMIN = ''
+
+beforeAll(async () => {
+  ADMIN = await createTempAuthUser('Admin kategorií')
+})
 
 afterAll(async () => {
   for (const id of productIds) await db.delete(schema.products).where(eq(schema.products.id, id))
   for (const id of householdIds) await db.delete(schema.households).where(eq(schema.households.id, id))
+  await deleteTempAuthUser(ADMIN)
 })
 
 async function setup() {

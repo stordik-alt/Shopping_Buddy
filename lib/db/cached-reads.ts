@@ -29,7 +29,10 @@ const dealsPageFor = unstable_cache(
 
 /** Today's paged promotions. The date is part of the cache key so a new day cannot reuse yesterday's page. */
 export const getDealsPageCached = (options: DealsPageOptions) =>
-  dealsPageFor(options, ingestionDate())
+  // A household's own preferred and excluded products make the page personal (docs/35_SECURITY_AUDIT.md, S23):
+  // they would sit in the shared cache's keys for a day, and a key per household is hardly ever hit again.
+  // Only the pages every household sees the same are cached.
+  options.preferred != null || (options.excluded?.length ?? 0) > 0 ? getDealsPage(options) : dealsPageFor(options, ingestionDate())
 
 export const getStoresCached = unstable_cache(getStores, ['stores-v2'], {
   revalidate: ONE_DAY,

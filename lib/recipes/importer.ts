@@ -8,6 +8,7 @@ import * as schema from '@/lib/db/schema'
 import { getRecipeSourceAdapter } from '@/lib/recipes/sources'
 import type { Recipe, RecipeSourceAdapter } from '@/lib/recipes/types'
 import { RECIPE_PARSER_VERSION } from '@/lib/recipes/parser'
+import { isBlockedIp } from '@/lib/ssrf'
 import { r2PutObject } from '@/lib/storage/r2'
 
 const DEFAULT_DELAY_MS = 250
@@ -54,24 +55,6 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, Math.max(0, ms)))
 }
 
-function privateIpv4(ip: string): boolean {
-  const parts = ip.split('.').map(Number)
-  if (parts.length !== 4 || parts.some((value) => !Number.isInteger(value) || value < 0 || value > 255)) return true
-  const a = parts[0]
-  const b = parts[1]
-  return a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || a === 0 || (a === 192 && b === 168)
-}
-
-function privateIpv6(ip: string): boolean {
-  const value = ip.toLowerCase()
-  return value === '::' || value === '::1' || value.startsWith('fc') || value.startsWith('fd') || value.startsWith('fe80:')
-}
-
-function blockedIp(ip: string): boolean {
-  const version = isIP(ip)
-  return version === 4 ? privateIpv4(ip) : version === 6 ? privateIpv6(ip) : true
-}
-
 async function assertSafeImageUrl(value: string, allowedHosts: string[]): Promise<URL> {
   const parsed = new URL(value)
   if (parsed.protocol !== 'https:') throw new Error('Image URL must use HTTPS')
@@ -85,11 +68,11 @@ async function assertSafeImageUrl(value: string, allowedHosts: string[]): Promis
   })
   if (!hostAllowed) throw new Error('Image host is not allowlisted')
   if (isIP(hostname)) {
-    if (blockedIp(hostname)) throw new Error('Image IP is not allowed')
+    if (isBlockedIp(hostname)) throw new Error('Image IP is not allowed')
     return parsed
   }
   const addresses = await lookup(hostname, { all: true })
-  if (addresses.length === 0 || addresses.some(({ address }) => blockedIp(address))) {
+  if (addresses.length === 0 || addresses.some(({ address }) => isBlockedIp(address))) {
     throw new Error('Image host resolves to a blocked IP')
   }
   return parsed

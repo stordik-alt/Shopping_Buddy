@@ -71,6 +71,8 @@ Každá fáze je samostatná, malá PR. Pořadí je dané závažností a nízk�
 12. Zbylé S/L položky z auditu 35 podle priority.
 13. Zbývající 3 moderate závislosti sledovat; řeší se aktualizací `@neondatabase/auth`, ne vlastním zásahem.
 
+14. **Drobné opravy 3 (hotovo 2026-10-13):** S15 + S22 (lokální auth: politika hesla, rate limit, pevný původ), S16 + S23 (GPS a preference mimo sdílenou cache), S17 (migrace `0110`, `RESTRICT` místo `CASCADE` u historie cen), S20 + S21 (SSRF: `lib/ssrf.ts`, `fetchPublicImage`), L2 (akce připnuté na SHA), L4, L5, L8 (migrace `0111`). Zůstává L6, L9 (kryje S3) a L10 (ruční úklid mimo repo).
+
 ## 5. Co z repozitáře nelze ověřit (nutná ruční kontrola)
 
 1. Konfigurace Neon Auth: ověření e-mailu, rate limit, CAPTCHA, politika hesel (rozhoduje o skutečné závažnosti K2 a V8).

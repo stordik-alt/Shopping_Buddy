@@ -82,4 +82,28 @@ describe('schema integrity', () => {
       await db.delete(schema.households).where(eq(schema.households.id, household.id))
     }
   })
+
+  // docs/35_SECURITY_AUDIT.md, S17 (migration 0110): a branch with price history cannot be deleted.
+  it('refuses to delete a branch that has prices or deals, and deletes one that has none', async () => {
+    const db = getDb()
+    const [store] = await db.insert(schema.stores).values({ chain: `__test_chain_${crypto.randomUUID().slice(0, 8)}` }).returning()
+    try {
+      const [withPrice] = await db.insert(schema.storeLocations).values({ storeId: store.id, name: 'Pobočka s cenou', address: 'Testovací 1', city: 'Praha' }).returning()
+      const [empty] = await db.insert(schema.storeLocations).values({ storeId: store.id, name: 'Prázdná pobočka', address: 'Testovací 2', city: 'Praha' }).returning()
+      const [category] = await db.select({ id: schema.productCategories.id }).from(schema.productCategories).limit(1)
+      const [product] = await db.insert(schema.products).values({ name: `__test_price_history_${store.id}`, categoryId: category.id }).returning()
+      try {
+        await db.insert(schema.prices).values({
+          productId: product.id, storeId: store.id, storeLocationId: withPrice.id, priceScope: 'STORE', sourceType: 'OFFICIAL', locationResolution: 'RESOLVED',
+          regularPrice: '10', unit: 'ks', unitPrice: '10', observedAt: '2026-10-13', validFrom: '2026-10-13', sourceReference: `__test_s17_${store.id}`,
+        })
+        await expect(db.delete(schema.storeLocations).where(eq(schema.storeLocations.id, withPrice.id))).rejects.toThrow()
+        await db.delete(schema.storeLocations).where(eq(schema.storeLocations.id, empty.id))
+      } finally {
+        await db.delete(schema.products).where(eq(schema.products.id, product.id))
+      }
+    } finally {
+      await db.delete(schema.stores).where(eq(schema.stores.id, store.id))
+    }
+  })
 })

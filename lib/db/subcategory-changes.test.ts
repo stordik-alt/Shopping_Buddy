@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm'
-import { afterAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { createTempAuthUser, deleteTempAuthUser } from '@/test/temp-auth-user'
 import { getDb } from '@/lib/db/client'
 
 vi.mock('@/lib/db/cache-invalidation', () => ({ invalidateProductCatalogCache: vi.fn() }))
@@ -9,10 +10,16 @@ import { decideSubcategoryChange, listPendingSubcategoryChanges, proposeProductS
 const db = getDb()
 const householdIds: string[] = []
 const productIds: string[] = []
+let ADMIN = ''
+
+beforeAll(async () => {
+  ADMIN = await createTempAuthUser('Admin podkategorií')
+})
 
 afterAll(async () => {
   for (const id of productIds) await db.delete(schema.products).where(eq(schema.products.id, id))
   for (const id of householdIds) await db.delete(schema.households).where(eq(schema.households.id, id))
+  await deleteTempAuthUser(ADMIN)
 })
 
 async function setup() {
@@ -51,9 +58,9 @@ describe('proposeProductSubcategory', () => {
     const waiting = mine.filter((row) => row.status === 'pending')
     expect(waiting).toHaveLength(1)
     expect(await subcategoryOf(productId)).toBe('Nápoje')
-    expect(await decideSubcategoryChange(waiting[0].id, true, '00000000-0000-0000-0000-000000000000')).toBe(true)
+    expect(await decideSubcategoryChange(waiting[0].id, true, ADMIN)).toBe(true)
     expect(await subcategoryOf(productId)).toBe('Maso a uzeniny')
-    expect(await decideSubcategoryChange(waiting[0].id, true, '00000000-0000-0000-0000-000000000000')).toBe(false)
+    expect(await decideSubcategoryChange(waiting[0].id, true, ADMIN)).toBe(false)
   })
 
   it('rejects a name outside the category list', async () => {

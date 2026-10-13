@@ -5,6 +5,7 @@ import { getSessionCookie } from 'better-auth/cookies'
 import { nextCookies } from 'better-auth/next-js'
 import { Pool } from 'pg'
 import { poolMax } from '@/lib/db/local'
+import { localAuthSettings } from '@/lib/auth/local-config'
 import type { AppAuth } from '@/lib/auth/types'
 
 // Self-hosted Better Auth — the engine Neon Auth runs managed — for a local PostgreSQL where Neon
@@ -22,10 +23,9 @@ function createLocalBetterAuth() {
   return betterAuth({
     database: globalPool.__shoppingBuddyAuthPool,
     secret: process.env.NEON_AUTH_COOKIE_SECRET,
-    // Unset locally: Better Auth then takes the origin from the request, so any dev port works. Set
-    // BETTER_AUTH_URL when the app is served from a fixed public address (hosted fallback).
-    baseURL: process.env.BETTER_AUTH_URL,
-    emailAndPassword: { enabled: true, autoSignIn: true },
+    // Origin, password policy and rate limit: lib/auth/local-config.ts. BETTER_AUTH_URL is required unless the
+    // database is on this machine, so the origin is never taken from a caller's Host header on a server.
+    ...localAuthSettings(),
     // household_members.user_id and app_admins.user_id are uuid columns that reference neon_auth."user"(id).
     advanced: { database: { generateId: 'uuid' } },
     plugins: [nextCookies()],

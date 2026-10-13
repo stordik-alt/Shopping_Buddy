@@ -1,3 +1,19 @@
+## 2026-10-13 — Průvodce: dotaz „Došlo?“, upozornění na duplicity a přepsaná věta o jídelníčku
+
+- Koncept: `docs/22_GUIDE.md`. Doplněno do karet: dotaz „Došlo?“ po přidání domácí položky na seznam (Co všechno jde u položky nastavit) a upozornění „Na více místech“ v Zásobách (Co udělat s položkou). Věta o jídelníčku přepsána na tři krátké věty (kdo co jí a co ne, zásoby, chybějící suroviny na seznam).
+
+## 2026-10-13 — Průvodce: revize karet Zásob podle skutečné obrazovky
+
+- Koncept: `docs/22_GUIDE.md`. Texty karet Zásob porovnány s `components/shopping/pantry.tsx`, `pantry-review.tsx` a `lib/db/restock.ts`. Opraveno: tužka nemění množství (to dělají − a +), ale kategorii, podkategorii, umístění a sledování („Sledovat / Jen zřídka / Nesledovat“); popsané štítky „Asi došlo“ a „Dokoupit“; kontrola popsána tak, jak funguje (odhadnuté položky jsou předvyplněné jako „Došlo“, ostatní „Mám“, opravuje se jen to, co nesedí, a došlé jde přidat na seznam); místo „týdenní upozornění“ (v obrazovce není) uvedeno, kde kontrolu najít; minimum a maximum hledá akce v prioritních obchodech, jinak v nastavených (dřív psáno jen „prioritní“); srozumitelnější věta o dávkách.
+
+## 2026-10-13 — Průvodce: jazyková a věcná revize textů
+
+- Koncept: `docs/22_GUIDE.md`. Projity všechny texty karet. Opraveno: nesrozumitelná věta u zvonku, čárky a členění vět (Doporučení, Dokončit nákup, Plánování), „80 %“ s pevnou mezerou, „čímkoli“, „mohou upravovat“, oslovení „manžel“ nahrazeno neutrálním „někdo z domácnosti“, „řeknete stop“ → „zavřete“, neexistující výběr „který produkt kde koupit“ u hledání. Věcná chyba v kartě Nabídka účtu: smazání účtu zakladatelem smaže celou domácnost, člen jen odejde (dřív bylo napsáno naopak). Význam ani počet karet se nezměnil.
+
+## 2026-10-13 — Průvodce: nabídka účtu a historie změn
+
+- Koncept: `docs/22_GUIDE.md`. Průvodce byl porovnán s aplikací; chyběly dvě části. Nová podrobná karta `account-menu` (stažení aplikace do mobilu, Nápady pro zlepšení, tmavý motiv, odhlášení, Smazat účet) a `profile-history` (Historie změn pro zakladatele); stručná cesta je shrnuje řádky `also` (poslední karta a karta Profil). Test pokrytí karet rozšířen. Stručná cesta 18 karet, podrobná 40 (dokument uváděl zastaralých 33).
+
 ## 2026-10-13 — Bezpečnost: drobné opravy 1 (S7, S9, S19, L1, L3)
 
 - Koncept: `docs/35_SECURITY_AUDIT.md` (S7, S9, S19, L1, L3), `docs/37_SECURITY_REMEDIATION_PLAN.md`. **S7:** pozvánka je jednorázová atomicky: `joinHouseholdViaInvitation` jedním SQL příkazem (CTE) přepne pozvánku z `pending` na `accepted` a vloží člena, takže dva účty se stejným e-mailem (nebo dvojí render téhož účtu) neprojdou oba; účet, který už je členem domácnosti, pozvánku nespotřebuje. Prohraný pokus vyhodí `InvitationUnavailableError` (akce ukáže „Pozvánka je neplatná, už byla použita…“, automatické připojení při prvním přihlášení vytvoří vlastní domácnost). **S9:** veřejný odkaz na použitou, zrušenou nebo prošlou pozvánku už neprozradí e-mail ani domácnost (`getInvitationByToken`). **S19:** `JSON.parse` uložených dat účtenek jde přes `parseStoredJson` (`lib/safe-json.ts`): poškozený řádek se zaloguje a jen ta účtenka se zobrazí jako „nic nevyčteno“; potvrzení účtenky s poškozenými uloženými položkami skončí srozumitelnou chybou místo uložení prázdné účtenky. **L1:** `?invite=` na přihlášení a registraci projde jen ve tvaru tokenu (`lib/invite-token.ts`). **L3:** `manual-recipe-import.yml` pošle `CRON_SECRET` jen na `https://s-anitkou.vercel.app`, bez fallbacku bez hlavičky. Testy: `lib/safe-json.test.ts`, `lib/invite-token.test.ts`, v `lib/db/queries.test.ts` souběh dvou účtů, člen jiné domácnosti a skrytí údajů; `tsc` prošel. Pozn.: testy vyžadují prázdné `VAPID_*` v prostředí (jinak `after()` v notifikacích padá mimo request) a část DB testů v tomto prostředí padá na výpadcích sítě k Neonu i bez těchto změn.

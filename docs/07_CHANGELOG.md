@@ -1,3 +1,7 @@
+## 2026-10-13 — Zásoby: místa ve třech sloupcích
+
+- Dlaždice míst (Spíž, Lednice, Mrazák, …) v `components/shopping/pantry.tsx` jsou teď vždy tři vedle sebe (dřív dva sloupce na telefonu, tři od `sm`). Na úzkém telefonu je ikona nad názvem a počtem, vycentrovaná; od `sm` zůstává vedle textu jako dřív. Funkce se nemění. Vizuálně neověřeno v prohlížeči, testy komponenty (14) procházejí.
+
 ## 2026-10-13 — Průvodce: dotaz „Došlo?“, upozornění na duplicity a přepsaná věta o jídelníčku
 
 - Koncept: `docs/22_GUIDE.md`. Doplněno do karet: dotaz „Došlo?“ po přidání domácí položky na seznam (Co všechno jde u položky nastavit) a upozornění „Na více místech“ v Zásobách (Co udělat s položkou). Věta o jídelníčku přepsána na tři krátké věty (kdo co jí a co ne, zásoby, chybějící suroviny na seznam).

@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/cron/retention",
-      "schedule": "30 3 * * 1"
+      "schedule": "0 3 * * 1"
     },
     {
       "path": "/api/cron/pantry-checkin",

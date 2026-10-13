@@ -22,7 +22,7 @@ export async function deletePurchase(householdId: string, purchaseId: string): P
   const purchase = await db.query.purchases.findFirst({
     where: and(eq(schema.purchases.id, purchaseId), eq(schema.purchases.householdId, householdId)),
     columns: { id: true, date: true },
-    with: { items: { columns: { productId: true, name: true, quantity: true, unit: true, category: true }, with: { product: { columns: { isNonInventory: true } } } } },
+    with: { items: { columns: { productId: true, name: true, quantity: true, unit: true, category: true }, with: { subcategory: { columns: { name: true } }, product: { columns: { isNonInventory: true } } } } },
   })
   if (!purchase) throw new PurchaseToDeleteNotFoundError('Nákup nenalezen.')
   const receipts = await db.query.receiptImports.findMany({
@@ -57,19 +57,29 @@ export async function deletePurchase(householdId: string, purchaseId: string): P
   }
   for (const [index, line] of stockLines.entries()) {
     try {
-      const inventory = await purchasedInventoryQuantity({ productId: line.productId, name: line.name, quantity: line.quantity, unit: line.unit })
+      const inventory = await purchasedInventoryQuantity({ productId: line.productId, name: line.name, subcategory: line.subcategory?.name ?? null, quantity: line.quantity, unit: line.unit })
       const type = lineTypes[index]
-      const typeRow = type
-        ? (await db.query.pantryItems.findMany({
+      // The amount to take out, in the row's own unit. Rows stocked before 2026-10-13 hold goods in
+      // pieces of a known size ("5 ks á 250 g") while the purchase is now read as an exact amount
+      // (0,5 kg), so a piece row of the same unit family is reduced by amount / piece size.
+      const removalFrom = (candidate: { unit: string; pieceQuantity: number | null; pieceUnit: string | null }): number | null => {
+        if (candidate.unit === inventory.unit) return inventory.quantity
+        if (candidate.unit === 'ks' && candidate.pieceUnit === inventory.unit && candidate.pieceQuantity) return inventory.quantity / candidate.pieceQuantity
+        return null
+      }
+      const typeRows = type
+        ? await db.query.pantryItems.findMany({
             where: and(eq(schema.pantryItems.householdId, householdId), eq(schema.pantryItems.productTypeId, type.id), isNull(schema.pantryItems.productId)),
-          })).find((candidate) => candidate.unit === inventory.unit)
-        : undefined
+          })
+        : []
+      const typeRow = typeRows.find((candidate) => candidate.unit === inventory.unit) ?? typeRows.find((candidate) => removalFrom(candidate) != null)
       const byProduct = !typeRow && line.productId
         ? await db.query.pantryItems.findFirst({ where: and(eq(schema.pantryItems.householdId, householdId), eq(schema.pantryItems.productId, line.productId)) })
         : null
       const row = typeRow ?? byProduct ?? (await db.query.pantryItems.findFirst({ where: and(eq(schema.pantryItems.householdId, householdId), ilike(schema.pantryItems.name, line.name.trim())) }))
-      if (!row || row.unit !== inventory.unit) continue
-      const left = pantryQuantityAfterRemoval(row.quantity, inventory.quantity)
+      const removal = row ? removalFrom(row) : null
+      if (!row || removal == null) continue
+      const left = pantryQuantityAfterRemoval(row.quantity, removal)
       if (left === null) await db.delete(schema.pantryItems).where(eq(schema.pantryItems.id, row.id))
       else await db.update(schema.pantryItems).set({ quantity: left }).where(eq(schema.pantryItems.id, row.id))
       pantryRowsChanged++

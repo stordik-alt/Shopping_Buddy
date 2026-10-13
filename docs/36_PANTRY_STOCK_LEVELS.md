@@ -46,6 +46,14 @@ levels set on pantry rows during the first day (by the row's or its product's ty
   refused offer (type, product, end date of the promotion), so every member stops seeing it and a different or better
   promotion is offered again. Refusals of ended promotions are dropped whenever a new one is saved.
 
+## How a purchase enters the stock (changed 2026-10-13)
+The owner: stock shows the exact amount (1 kg of flour, not "flour 1 kg - 1 piece"). `purchasedInventoryQuantities`
+(`lib/inventory-packaging.ts`) turns a purchased line counted in `ks` into: a piece-count pack expanded to pieces
+("Vejce vel.L 30ks" x 1 = 30 ks); a known multipack (unchanged); otherwise, when the name states exactly one weight or
+volume, the total amount (Mattoni 1,5 l x 2 = 3 l, Šunka 250 g x 1 = 0,25 kg). Drinks (subcategory Nápoje, Alkoholické nápoje) are the exception and stay a count of bottles with the bottle size
+(Mattoni 1,5 l x 2 = "2 ks · 1,5 l"); an exact amount pays off for cooking and baking ingredients. Lines without such a
+size (rolls, apples) and weighed lines stay as they are. Existing rows are not migrated; `piece_quantity` stays for them.
+
 ## Not in scope
 - A push/bell notification for a suggestion (could follow with docs/14 and docs/21).
 - The suggestions are computed when the page loads; like the rest of the app they refresh on reload.

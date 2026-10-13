@@ -2,6 +2,7 @@ import { eq, inArray } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { extractExplicitPackageSizes } from '@/lib/recipes/packaging'
+import { pieceSizeFromName } from '@/lib/piece-size'
 import type { ItemUnit } from '@/lib/types'
 
 export type InventoryPackageCandidate = {
@@ -59,9 +60,15 @@ export function inventoryQuantityFromPackage(quantity: number, pkg: InventoryPac
 export type PurchasedInventoryItem = {
   productId: string | null
   name: string
+  /** The line's subcategory name; drinks are counted in bottles, not in litres (see below). */
+  subcategory?: string | null
   quantity: number
   unit: ItemUnit
 }
+
+// Drinks stay a count of bottles/packs ("2 ks · 1,5 l"); an exact weight pays off for cooking and
+// baking ingredients (owner, 2026-10-13). Coffee and tea are not drinks here: they are bought by weight.
+const COUNTED_SUBCATEGORIES = new Set(['Nápoje', 'Alkoholické nápoje'])
 
 export type PurchasedInventoryQuantity = {
   quantity: number
@@ -83,35 +90,44 @@ export async function purchasedInventoryQuantities(items: PurchasedInventoryItem
     unitUnit: null,
   } satisfies PurchasedInventoryQuantity))
 
+  const isPieceLine = (item: PurchasedInventoryItem) => item.unit === 'ks' && Number.isFinite(item.quantity) && item.quantity > 0
   const productIds = [...new Set(items
-    .filter((item) => item.productId && item.unit === 'ks' && Number.isFinite(item.quantity) && item.quantity > 0)
+    .filter((item) => item.productId && isPieceLine(item))
     .map((item) => item.productId as string))]
 
-  if (productIds.length === 0) return result
-
-  const packages = await getDb().query.productPackages.findMany({
-    where: inArray(schema.productPackages.productId, productIds),
-    columns: {
-      productId: true,
-      quantity: true,
-      unit: true,
-      packageCount: true,
-      packageUnitQuantity: true,
-      packageUnit: true,
-    },
-  })
-
-  const packagesByProduct = new Map<string, typeof packages>()
-  for (const pkg of packages) {
-    const rows = packagesByProduct.get(pkg.productId) ?? []
-    rows.push(pkg)
-    packagesByProduct.set(pkg.productId, rows)
+  const packagesByProduct = new Map<string, InventoryPackageCandidate[]>()
+  if (productIds.length > 0) {
+    const packages = await getDb().query.productPackages.findMany({
+      where: inArray(schema.productPackages.productId, productIds),
+      columns: {
+        productId: true,
+        quantity: true,
+        unit: true,
+        packageCount: true,
+        packageUnitQuantity: true,
+        packageUnit: true,
+      },
+    })
+    for (const pkg of packages) {
+      const rows = packagesByProduct.get(pkg.productId) ?? []
+      rows.push(pkg)
+      packagesByProduct.set(pkg.productId, rows)
+    }
   }
 
   return items.map((item, index) => {
-    if (!item.productId || item.unit !== 'ks' || !Number.isFinite(item.quantity) || item.quantity <= 0) return result[index]
-    const pkg = resolveInventoryPackage(item.name, packagesByProduct.get(item.productId) ?? [])
-    return pkg ? inventoryQuantityFromPackage(item.quantity, pkg) : result[index]
+    if (!isPieceLine(item)) return result[index]
+    // Piece-count packs ("Vejce 30 ks") and known multipacks are expanded to physical pieces.
+    const pkg = resolveInventoryPackage(item.name, item.productId ? packagesByProduct.get(item.productId) ?? [] : [])
+    if (pkg) return inventoryQuantityFromPackage(item.quantity, pkg)
+    // Stock is kept as the exact amount, not as a count of packs (owner, 2026-10-13): "Mouka 1 kg"
+    // bought twice is 2 kg, "Šunka 250 g" is 0,25 kg. Only an unambiguous size in the name counts.
+    const size = pieceSizeFromName(item.name)
+    if (size && !(item.subcategory && COUNTED_SUBCATEGORIES.has(item.subcategory))) {
+      // Rounded so that float noise (3 x 0.1) never reaches the stored amount.
+      return { quantity: Math.round(item.quantity * size.quantity * 1000) / 1000, unit: size.unit, unitQuantity: null, unitUnit: null }
+    }
+    return result[index]
   })
 }
 

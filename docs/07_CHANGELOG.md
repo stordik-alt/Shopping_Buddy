@@ -1,3 +1,7 @@
+## 2026-10-13 — Návrh: oddělená databázová role a RLS (S1)
+
+- Jen dokumentace, žádná změna kódu: `docs/38_DB_ROLE_AND_RLS_DESIGN.md`. Tři kroky (role s nejnižšími právy bez RLS; politiky RLS; kontext domácnosti na každém dotazu), rizika Neon HTTP ovladače (bez interaktivních transakcí) a otázky k rozhodnutí.
+
 ## 2026-10-13 — Bezpečnost S3: šifrované zálohy databáze
 
 - Koncept: `docs/37_SECURITY_REMEDIATION_PLAN.md` (S3), `docs/09_BACKUP_RECOVERY.md`. `pnpm db:backup` dřív ukládal nešifrovaný `pg_dump` celé databáze včetně `neon_auth` (hashe hesel, tokeny relací). Teď dump hned zašifruje (AES-256-GCM po blocích 1 MiB, klíč z `BACKUP_ENCRYPTION_KEY`, `lib/backup-crypto.ts`, jen vestavěný `node:crypto`), výstup je `backups/*.dump.enc`, nešifrovaný soubor se maže i při chybě. Změněný, zkrácený nebo prodloužený soubor i špatný klíč dešifrování odmítnou. Nový `pnpm db:restore <soubor> <URL prázdné databáze>` dešifruje do privátního dočasného adresáře a spustí `pg_restore`; cíl se zadává vždy ručně, takže obnova nezasáhne produkci omylem. Testy: `lib/backup-crypto.test.ts`. Reálný `pg_dump`/`pg_restore` se v tomto prostředí nespouštěl (chybí klientské nástroje PostgreSQL), ověřeno bylo šifrování a typy.

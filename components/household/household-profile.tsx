@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Bell, Baby, SlidersHorizontal, Users } from 'lucide-react'
 import { AuditLogSection } from '@/components/household/audit-log-section'
+import { ResetDataSection } from '@/components/household/reset-data-section'
 import { ChildCard } from '@/components/household/child-card'
 import { MemberCard } from '@/components/household/member-card'
 import { DietQuestionnaire } from '@/components/household/diet-questionnaire'
@@ -473,6 +474,7 @@ export function HouseholdProfile({
       </CollapsibleSection>
       )}
       {isOwner && section === 'domacnost' && <AuditLogSection />}
+      {isOwner && section === 'domacnost' && <ResetDataSection householdName={household.name} />}
     </div>
   )
 }

@@ -23,6 +23,7 @@ const LABELS = {
   'period.closed': 'Uzavřel(a) období',
   'period.reopened': 'Znovu otevřel(a) období',
   'purchase.deleted': 'Smazal(a) nákup',
+  'data.reset': 'Smazal(a) data domácnosti',
 } as const
 
 export type AuditAction = keyof typeof LABELS
@@ -32,7 +33,7 @@ export function auditLabel(action: string): string {
 }
 
 /** The detail as a short line ("částka 250, kategorie Potraviny"); empty when there is none. */
-const DETAIL_KEYS: Record<string, string> = { amount: 'částka', category: 'kategorie', period: 'období', fields: 'změněno', date: 'datum', status: 'stav' }
+const DETAIL_KEYS: Record<string, string> = { amount: 'částka', category: 'kategorie', period: 'období', fields: 'změněno', date: 'datum', status: 'stav', groups: 'smazáno' }
 export function auditDetailText(detail: AuditDetail): string {
   return Object.entries(detail)
     .filter(([, value]) => value !== null && value !== '')

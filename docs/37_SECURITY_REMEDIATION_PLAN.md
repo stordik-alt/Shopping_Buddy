@@ -33,7 +33,7 @@ Za 6 dní od prvního auditu byl opraven **jediný** nález (V4 závislosti). Ob
 | S13 | `minimumReleaseAge` není nastaveno | **Opraveno 2026-10-13** | `pnpm-workspace.yaml` |
 | S14 | `poweredByHeader`, COOP/CORP, `Content-Disposition` u PDF | **Opraveno 2026-10-13** (COOP záměrně ne) | `next.config.mjs` |
 
-Ostatní S/L položky z auditu 35 nebyly znovu rozebírány a platí tak, jak jsou popsány tam.
+Ostatní S/L položky z auditu 35 nebyly znovu rozebírány a platí tak, jak jsou popsány tam. **Opraveno v kódu 2026-10-13 (drobné opravy 1):** S7 (atomicky jednorázová pozvánka), S9 (odkaz na neplatnou pozvánku neukazuje e-mail ani domácnost), S19 (poškozené uložené JSON), L1 (validace `?invite=`), L3 (`CRON_SECRET` jen na produkční adresu).
 
 ## 3. Nové / upřesněné poznatky
 

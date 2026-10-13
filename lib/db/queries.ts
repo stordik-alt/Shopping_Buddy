@@ -26,6 +26,7 @@ import { distinctProductName, resolveProductForSku, type ProductCatalogEntry } f
 import { categoryWithBrand } from '@/lib/product-brands'
 import { normalizeSearchText } from '@/lib/product-search'
 import { isReceiptStalled } from '@/lib/receipt-progress'
+import { parseStoredJson } from '@/lib/safe-json'
 import { invalidateProductCatalogCache } from '@/lib/db/cache-invalidation'
 import { loadProductTypeIds, productTypeIdFor } from '@/lib/db/product-type-assignment'
 import type { RecurringInterval, RecurringOccurrence, RecurringPayment } from '@/lib/recurring-payments'
@@ -219,9 +220,11 @@ export function toReceiptImportState(row: ReceiptStateRow): ReceiptImportState {
     rawOcrText: row.rawOcrText,
     ocrProvider: row.ocrProvider,
     errorMessage: row.errorMessage,
-    extracted: row.items
-      ? { date: row.date, total: row.total != null ? Number(row.total) : null, items: JSON.parse(row.items) as ReceiptLineItem[] }
-      : null,
+    // Damaged stored lines show as "nothing extracted" for this one receipt (logged), not a failed page.
+    extracted: (() => {
+      const items = row.items ? parseStoredJson<ReceiptLineItem[]>(row.items, `receipt_imports.items ${row.id}`) : null
+      return items ? { date: row.date, total: row.total != null ? Number(row.total) : null, items } : null
+    })(),
     purchaseId: row.purchaseId,
     stalled: isReceiptStalled(row.status, row.updatedAt),
   }
@@ -284,22 +287,37 @@ async function createHouseholdForUser(userId: string, userName: string) {
  *  `getHouseholdData` below (first login with a pending invite) and the explicit
  *  `acceptInvitationAction` (the public `/invite/[token]` landing page) — each has its own
  *  invitation-validity checks upstream, but the join itself must not be implemented twice. */
+export class InvitationUnavailableError extends Error {
+  constructor() {
+    super('Pozvánka už byla použita.')
+  }
+}
+
 export async function joinHouseholdViaInvitation(userId: string, userName: string, invitation: typeof schema.invitations.$inferSelect) {
   const db = getDb()
-  // A concurrent join for the same account (two renders, a double click) hits the unique index on
-  // `household_members.user_id`; the loser must not raise a second "new member" notification, so
-  // it stops here and returns the household the account is already in.
-  const claimed = await db
-    .insert(schema.householdMembers)
-    .values({ householdId: invitation.householdId, userId, name: userName, role: 'member' })
-    .onConflictDoNothing({ target: schema.householdMembers.userId })
-    .returning({ id: schema.householdMembers.id })
-  if (claimed.length === 0) {
+  // One statement claims the invitation and adds the member, so an invitation is used exactly once:
+  // two accounts with the same e-mail (or one account's two renders) cannot both pass. The second
+  // statement to run waits for the first's row lock, sees the invitation no longer pending, and adds
+  // nobody. An account that is already a member never consumes the invitation.
+  const claimed = await db.execute<{ id: string }>(sql`
+    WITH claimed AS (
+      UPDATE invitations SET status = 'accepted'
+      WHERE id = ${invitation.id}::uuid AND status = 'pending'
+        AND NOT EXISTS (SELECT 1 FROM household_members WHERE user_id = ${userId}::uuid)
+      RETURNING household_id
+    )
+    INSERT INTO household_members (household_id, user_id, name, role)
+    SELECT household_id, ${userId}::uuid, ${userName}, 'member' FROM claimed
+    ON CONFLICT (user_id) DO NOTHING
+    RETURNING id`)
+  if (claimed.rows.length === 0) {
+    // Nothing was added: this account is already in a household (a concurrent join for it, a double
+    // click — the loser must not raise a second "new member" notification), or somebody else used the
+    // invitation first.
     const existing = await findHouseholdForUser(userId)
-    if (!existing) throw new Error(`Join for user ${userId} conflicted but found no household`)
+    if (!existing) throw new InvitationUnavailableError()
     return existing
   }
-  await db.update(schema.invitations).set({ status: 'accepted' }).where(eq(schema.invitations.id, invitation.id))
   await createHouseholdNotification(db, invitation.householdId, {
     title: 'Nový člen domácnosti',
     detail: `${userName} se právě připojil/a k domácnosti.`,
@@ -590,10 +608,15 @@ export async function getHouseholdData(
           orderBy: desc(schema.invitations.createdAt),
         })
       : undefined
-    household =
+    // An invitation somebody else uses in the meantime is no reason to fail the page: the account gets its own household.
+    const joined =
       pendingInvitation && new Date(pendingInvitation.expiresAt) > new Date()
-        ? await joinHouseholdViaInvitation(userId, userName, pendingInvitation)
-        : await createHouseholdForUser(userId, userName)
+        ? await joinHouseholdViaInvitation(userId, userName, pendingInvitation).catch((error: unknown) => {
+            if (error instanceof InvitationUnavailableError) return null
+            throw error
+          })
+        : null
+    household = joined ?? (await createHouseholdForUser(userId, userName))
   }
   if (!household) throw new Error(`Household ${ownMember!.householdId} referenced by household_members but missing`)
 
@@ -882,13 +905,16 @@ export async function getInvitationByToken(token: string): Promise<InvitationInf
     with: { household: true, invitedByMember: true },
   })
   if (!invitation) return null
+  // The link is public: whoever holds a used, revoked or expired one learns only that it is no longer
+  // valid, not whom it was for or which household it was.
+  const usable = invitation.status === 'pending' && new Date(invitation.expiresAt) > new Date()
   return {
     id: invitation.id,
-    email: invitation.email,
+    email: usable ? invitation.email : '',
     status: invitation.status,
     expiresAt: invitation.expiresAt.toString(),
-    householdName: invitation.household.name,
-    invitedByName: invitation.invitedByMember?.name ?? null,
+    householdName: usable ? invitation.household.name : '',
+    invitedByName: usable ? invitation.invitedByMember?.name ?? null : null,
   }
 }
 

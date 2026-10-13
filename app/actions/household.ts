@@ -11,7 +11,7 @@ import { recordAudit } from '@/lib/db/audit'
 import { getDb } from '@/lib/db/client'
 import { periodColumnsOf } from '@/lib/db/period-config'
 import * as schema from '@/lib/db/schema'
-import { joinHouseholdViaInvitation } from '@/lib/db/queries'
+import { InvitationUnavailableError, joinHouseholdViaInvitation } from '@/lib/db/queries'
 import { hitRateLimit } from '@/lib/db/rate-limit'
 import type { Child, HouseholdMember, HouseholdPreferences, PriceSensitivity, QualityPreference } from '@/lib/types'
 
@@ -261,7 +261,13 @@ export async function acceptInvitationAction(token: string) {
     throw new Error('Už jste členem jiné domácnosti. Členství ve více domácnostech zatím není podporováno.')
   }
 
-  await joinHouseholdViaInvitation(session.user.id, session.user.name, invitation)
+  try {
+    await joinHouseholdViaInvitation(session.user.id, session.user.name, invitation)
+  } catch (error) {
+    // Another account used the invitation between the check above and the join.
+    if (error instanceof InvitationUnavailableError) throw new Error('Pozvánka je neplatná, už byla použita nebo jí vypršela platnost.')
+    throw error
+  }
   // The actor is the person who just joined; the new member row is not returned here, so only the household is recorded.
   await recordAudit({ householdId: invitation.householdId }, 'invitation.accepted', {}, invitation.id)
 }

@@ -23,19 +23,24 @@ jobs:
         run: |
           set -euo pipefail
 
+          # The secret goes only to the production app: a typo or another host in the input must not
+          # receive it. The cron route refuses calls without it, so there is no unauthenticated fallback.
+          case "${PRODUCTION_URL%/}" in
+            https://s-anitkou.vercel.app) ;;
+            *) echo "::error::production_url must be https://s-anitkou.vercel.app"; exit 1 ;;
+          esac
+          if [ -z "${CRON_SECRET}" ]; then
+            echo "::error::CRON_SECRET is not set"
+            exit 1
+          fi
+
           url="${PRODUCTION_URL%/}/api/cron/recipes"
           echo "Starting recipe import: $url"
 
-          if [ -n "${CRON_SECRET}" ]; then
-            curl --fail-with-body --show-error --silent \
-              --max-time 330 \
-              -H "Authorization: Bearer ${CRON_SECRET}" \
-              "${url}"
-          else
-            curl --fail-with-body --show-error --silent \
-              --max-time 330 \
-              "${url}"
-          fi
+          curl --fail-with-body --show-error --silent \
+            --max-time 330 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${url}"
 
           echo
           echo "Recipe import completed."

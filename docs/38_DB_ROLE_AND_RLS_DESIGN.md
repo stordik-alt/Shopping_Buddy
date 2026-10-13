@@ -1,7 +1,7 @@
 # Návrh: oddělená databázová role a RLS (S1)
 
 **Datum:** 2026-10-13
-**Stav:** návrh k rozhodnutí, žádný kód. Navazuje na `docs/35_SECURITY_AUDIT.md` (S1) a `docs/37_SECURITY_REMEDIATION_PLAN.md` (Fáze 3).
+**Stav:** návrh; vlastník 2026-10-13 rozhodl krok **přeskočit** (S1 je odložené), nic se neimplementuje. Dokument zůstává pro případný návrat. Žádný kód. Navazuje na `docs/35_SECURITY_AUDIT.md` (S1) a `docs/37_SECURITY_REMEDIATION_PLAN.md` (Fáze 3).
 
 ## 1. Proč a co by to mělo zajistit
 

@@ -1,6 +1,6 @@
 ## 2026-10-13 — Návrh: oddělená databázová role a RLS (S1)
 
-- Jen dokumentace, žádná změna kódu: `docs/38_DB_ROLE_AND_RLS_DESIGN.md`. Tři kroky (role s nejnižšími právy bez RLS; politiky RLS; kontext domácnosti na každém dotazu), rizika Neon HTTP ovladače (bez interaktivních transakcí) a otázky k rozhodnutí.
+- Jen dokumentace, žádná změna kódu: `docs/38_DB_ROLE_AND_RLS_DESIGN.md`. Tři kroky (role s nejnižšími právy bez RLS; politiky RLS; kontext domácnosti na každém dotazu), rizika Neon HTTP ovladače (bez interaktivních transakcí) a otázky k rozhodnutí. Vlastník rozhodl S1 neimplementovat; v plánu je vedené jako záměrně odložené.
 
 ## 2026-10-13 — Bezpečnost S3: šifrované zálohy databáze
 

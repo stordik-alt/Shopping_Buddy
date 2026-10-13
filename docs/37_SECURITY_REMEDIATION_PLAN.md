@@ -26,7 +26,7 @@ Za 6 dní od prvního auditu byl opraven **jediný** nález (V4 závislosti). Ob
 | V8 | Registrace/přihlášení bez CAPTCHA a rate limitu | **Částečně opraveno 2026-10-12** (limit na adresu v DB, globální strop OCR); **zbývá CAPTCHA** a nastavení Neon Auth | v `app`/`components` žádná CAPTCHA |
 | S6 | Chybí kontrola role u akcí nastavení domácnosti | **Opraveno v kódu 2026-10-13** (rozsah podle rozhodnutí vlastníka: nastavení domácnosti a uzávěrka období jen správce; preference, děti a profily i peníze zůstávají všem členům) | `app/actions/household.ts` |
 | S3 | Nešifrovaný `pg_dump` celé DB do `backups/` | **Opraveno v kódu 2026-10-13** (zbývá vygenerovat `BACKUP_ENCRYPTION_KEY` a vyzkoušet obnovu) | `scripts/backup-db.ts`, `lib/backup-crypto.ts` |
-| S1 | Aplikace se připojuje jako vlastník DB, bez RLS | **Návrh 2026-10-13**, rozhodnutí čeká: `docs/38_DB_ROLE_AND_RLS_DESIGN.md` | `lib/db/client.ts` |
+| S1 | Aplikace se připojuje jako vlastník DB, bez RLS | **Záměrně odloženo 2026-10-13** (rozhodnutí vlastníka; návrh zůstává v `docs/38_DB_ROLE_AND_RLS_DESIGN.md`, nejlevnější krok A je samostatně použitelný, kdyby se k tomu vrátilo) | `lib/db/client.ts` |
 | S13 | `minimumReleaseAge` není nastaveno | **Opraveno 2026-10-13** | `pnpm-workspace.yaml` |
 | S14 | `poweredByHeader`, COOP/CORP, `Content-Disposition` u PDF | **Opraveno 2026-10-13** (COOP záměrně ne) | `next.config.mjs` |
 

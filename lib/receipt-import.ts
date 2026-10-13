@@ -271,7 +271,8 @@ async function recordReceiptPriceObservations(
   await Promise.all(
     items
       // A line whose unit price the receipt never stated (only its total) is no price observation.
-      .filter((item) => item.productId && item.quantity > 0 && item.price >= 0 && !item.unitPriceUnknown)
+      // A free line (price 0) is no price observation either: `prices` only holds positive prices.
+      .filter((item) => item.productId && item.quantity > 0 && item.price > 0 && !item.unitPriceUnknown)
       .map((item) => {
         // Deliberately the pre-discount shelf price, not what the household paid: a receipt
         // discount may be a personal coupon or loyalty rebate, not a shelf promotion, and

@@ -151,7 +151,9 @@ export const profiles = pgTable('profiles', {
   favoriteFoods: text('favorite_foods').array().notNull().default([]),
   dislikedFoods: text('disliked_foods').array().notNull().default([]),
   allergies: text('allergies').array().notNull().default([]),
-})
+}, (table) => [
+  check('profiles_age_range', sql`${table.age} >= 0 AND ${table.age} <= 120`),
+])
 
 export const children = pgTable('children', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -162,6 +164,7 @@ export const children = pgTable('children', {
   specialNeeds: text('special_needs'),
 }, (table) => [
   index('children_household_idx').on(table.householdId),
+  check('children_age_range', sql`${table.age} >= 0 AND ${table.age} <= 120`),
 ])
 
 // Household-level shopping preferences (one row per household).
@@ -796,6 +799,8 @@ export const prices = pgTable('prices', {
   uniqueIndex('prices_official_daily_unique')
     .on(table.productId, table.storeId, table.priceScope, table.sourceType, table.sourceReference, table.observedAt)
     .where(sql`${table.sourceType} = 'OFFICIAL' AND ${table.sourceReference} IS NOT NULL`),
+  check('prices_regular_price_positive', sql`${table.regularPrice} > 0`),
+  check('prices_unit_price_positive', sql`${table.unitPrice} > 0`),
 ])
 
 // Where each store's rotating price refresh continues. A store's catalog is split into parts that
@@ -865,6 +870,8 @@ export const deals = pgTable('deals', {
   // SIMPLE — a NULL `store_location_id` (an online chain's deal) skips the check. Cascades on update like
   // member_stores', so a branch moved to another chain keeps its deals consistent.
   foreignKey({ columns: [table.storeLocationId, table.storeId], foreignColumns: [storeLocations.id, storeLocations.storeId] }).onDelete('cascade').onUpdate('cascade'),
+  check('deals_deal_price_positive', sql`${table.dealPrice} > 0`),
+  check('deals_valid_range_check', sql`${table.validUntil} >= ${table.validFrom}`),
 ])
 
 // --- Shopping lists ----------------------------------------------------------
@@ -913,6 +920,8 @@ export const shoppingListItems = pgTable('shopping_list_items', {
 }, (table) => [
   index('shopping_list_items_list_created_idx').on(table.listId, table.createdAt),
   index('shopping_list_items_checked_purchase_idx').on(table.checkedByPurchaseId),
+  check('shopping_list_items_price_non_negative', sql`${table.price} >= 0`),
+  check('shopping_list_items_quantity_positive', sql`${table.quantity} > 0`),
 ])
 
 // The specific product a user chose for a shopping list item at one chain — "for this milk, buy THIS
@@ -942,6 +951,8 @@ export const purchases = pgTable('purchases', {
   discount: numeric('discount', { precision: 10, scale: 2 }),
 }, (table) => [
   index('purchases_household_date_idx').on(table.householdId, table.date),
+  check('purchases_total_non_negative', sql`${table.total} >= 0`),
+  check('purchases_discount_non_negative', sql`${table.discount} >= 0`),
 ])
 
 export const purchaseItems = pgTable('purchase_items', {
@@ -977,6 +988,8 @@ export const purchaseItems = pgTable('purchase_items', {
   index('purchase_items_purchase_idx').on(table.purchaseId),
   index('purchase_items_product_idx').on(table.productId),
   check('purchase_items_expense_subcategory_needs_category', sql`${table.expenseSubcategory} IS NULL OR ${table.expenseCategory} IS NOT NULL`),
+  check('purchase_items_price_non_negative', sql`${table.price} >= 0`),
+  check('purchase_items_quantity_positive', sql`${table.quantity} > 0`),
 ])
 
 // A purchase-item's paid amount split across one or more expense targets — the household's own
@@ -1361,6 +1374,7 @@ export const expenses = pgTable('expenses', {
   uniqueIndex('expenses_purchase_category_subcategory_unique')
     .on(table.purchaseId, table.category, sql`coalesce(${table.subcategory}, '')`)
     .where(sql`${table.purchaseId} IS NOT NULL`),
+  check('expenses_amount_positive', sql`${table.amount} > 0`),
 ])
 
 // A household's monthly limit for one expense category ("Potraviny: 8 000 Kč"), next to the overall
@@ -1512,6 +1526,8 @@ export const mealPlans = pgTable('meal_plans', {
   generatedAt: timestamp('generated_at').notNull().defaultNow(),
 }, (table) => [
   uniqueIndex('meal_plans_household_week_unique_idx').on(table.householdId, table.weekStart),
+  check('meal_plans_budget_limit_non_negative', sql`${table.budgetLimit} >= 0`),
+  check('meal_plans_estimated_total_non_negative', sql`${table.estimatedTotal} >= 0`),
 ])
 
 // One row per chain and flyer start date announced as "Nové akce v <chain>" (docs/21_NEW_FLYER_NOTIFICATIONS.md),

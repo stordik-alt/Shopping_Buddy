@@ -32,7 +32,13 @@ describe('applyRetention', () => {
       { householdId: household.id, email: 'open@example.cz', token: 'ret-open', expiresAt: new Date(Date.now() + 86_400_000) },
     ])
 
+    await db.insert(schema.auditLog).values([
+      { householdId: household.id, action: 'expense.added', createdAt: daysAgo(366) },
+      { householdId: household.id, action: 'expense.added', createdAt: daysAgo(10) },
+    ])
+
     const first = await applyRetention()
+    expect(first.auditEntriesDeleted).toBeGreaterThanOrEqual(1)
     expect(first.receiptsCleared).toBeGreaterThanOrEqual(1)
     expect(first.invitationsDeleted).toBeGreaterThanOrEqual(1)
 
@@ -43,6 +49,9 @@ describe('applyRetention', () => {
 
     const invites = await db.select({ email: schema.invitations.email }).from(schema.invitations).where(eq(schema.invitations.householdId, household.id))
     expect(invites.map((i) => i.email).sort()).toEqual(['fresh@example.cz', 'open@example.cz'])
+
+    const audit = await db.select({ createdAt: schema.auditLog.createdAt }).from(schema.auditLog).where(eq(schema.auditLog.householdId, household.id))
+    expect(audit).toHaveLength(1)
 
     // A second run finds nothing more of ours to do.
     await applyRetention()

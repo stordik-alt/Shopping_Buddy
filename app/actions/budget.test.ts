@@ -217,6 +217,10 @@ describe('budget by period', () => {
     const row = await db.query.households.findFirst({ where: eq(schema.households.id, householdId) })
     expect(Number(row?.savingsGoal)).toBe(2500.56)
     await expect(setSavingsGoalAction(-5)).rejects.toThrow()
+    // The change is on the household's history (S18); the refused one is not.
+    const trail = await db.query.auditLog.findMany({ where: eq(schema.auditLog.householdId, householdId) })
+    expect(trail.map((entry) => entry.action)).toEqual(['budget.savings_goal_set'])
+    expect(trail[0].detail).toEqual({ amount: 2500.56 })
   })
 
   it("returns daily totals and a past period's expenses, only the household's own", async () => {

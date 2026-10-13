@@ -16,7 +16,10 @@ import type { ExtractedReceipt, ReceiptLineItem, ReceiptStructuringProvider, Rec
 vi.setConfig({ testTimeout: 20_000 })
 
 let currentHouseholdId = ''
-vi.mock('@/lib/auth/authorize', () => ({ requireHouseholdId: () => Promise.resolve(currentHouseholdId) }))
+vi.mock('@/lib/auth/authorize', () => ({
+  requireHouseholdId: () => Promise.resolve(currentHouseholdId),
+  requireHousehold: () => Promise.resolve({ userId: '00000000-0000-4000-8000-000000000001', userEmail: 'test@example.com', householdId: currentHouseholdId, role: 'owner' }),
+}))
 vi.mock('@/lib/storage', () => {
   const objects = new Map<string, { body: Buffer; contentType: string }>()
   return {

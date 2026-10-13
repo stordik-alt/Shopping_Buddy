@@ -1,8 +1,9 @@
 'use server'
 
 import { and, asc, eq, gte, lt } from 'drizzle-orm'
-import { requireHouseholdId } from '@/lib/auth/authorize'
+import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
 import { nextPeriodStartFor, periodStartFor } from '@/lib/budget-period'
+import { recordAudit } from '@/lib/db/audit'
 import { getDb } from '@/lib/db/client'
 import { loadPeriodConfig } from '@/lib/db/period-config'
 import * as schema from '@/lib/db/schema'
@@ -56,12 +57,13 @@ export async function getPeriodIncomesAction(period: string): Promise<Income[]> 
 }
 
 export async function addIncomeAction(input: IncomeInput): Promise<Income> {
-  const householdId = await requireHouseholdId()
+  const { householdId, memberId } = await requireHousehold()
   const income = validOrThrow(input)
   const [row] = await getDb()
     .insert(schema.incomes)
     .values({ householdId, amount: income.amount.toString(), description: income.description, date: income.date, status: income.status })
     .returning()
+  await recordAudit({ householdId, memberId }, 'income.added', { amount: income.amount, date: income.date, status: income.status }, row.id)
   return toIncome(row)
 }
 
@@ -69,7 +71,7 @@ export async function addIncomeAction(input: IncomeInput): Promise<Income> {
  *  (markIncomeReceivedAction), never by an edit, so a received income cannot silently turn back
  *  into a plan. */
 export async function updateIncomeAction(incomeId: string, input: Omit<IncomeInput, 'status'>): Promise<Income> {
-  const householdId = await requireHouseholdId()
+  const { householdId, memberId } = await requireHousehold()
   const existing = await ownIncome(householdId, incomeId)
   const income = validOrThrow({ ...input, status: existing.status })
   const [row] = await getDb()
@@ -77,20 +79,22 @@ export async function updateIncomeAction(incomeId: string, input: Omit<IncomeInp
     .set({ amount: income.amount.toString(), description: income.description, date: income.date })
     .where(and(eq(schema.incomes.id, incomeId), eq(schema.incomes.householdId, householdId)))
     .returning()
+  await recordAudit({ householdId, memberId }, 'income.updated', { amount: income.amount, date: income.date }, incomeId)
   return toIncome(row)
 }
 
 export async function deleteIncomeAction(incomeId: string): Promise<void> {
-  const householdId = await requireHouseholdId()
-  await ownIncome(householdId, incomeId)
+  const { householdId, memberId } = await requireHousehold()
+  const existing = await ownIncome(householdId, incomeId)
   await getDb().delete(schema.incomes).where(and(eq(schema.incomes.id, incomeId), eq(schema.incomes.householdId, householdId)))
+  await recordAudit({ householdId, memberId }, 'income.deleted', { amount: Number(existing.amount), date: existing.date }, incomeId)
 }
 
 /** Marks a planned income as received on `receivedDate` (today by default), keeping the same row.
  *  Only a still-planned income can be received: the status check is in the UPDATE itself, so two
  *  taps or two members at once cannot turn one plan into two received incomes. */
 export async function markIncomeReceivedAction(incomeId: string, receivedDate?: string): Promise<Income> {
-  const householdId = await requireHouseholdId()
+  const { householdId, memberId } = await requireHousehold()
   await ownIncome(householdId, incomeId)
   const today = todayInPrague()
   const date = receivedDate ?? today
@@ -102,5 +106,6 @@ export async function markIncomeReceivedAction(incomeId: string, receivedDate?: 
     .where(and(eq(schema.incomes.id, incomeId), eq(schema.incomes.householdId, householdId), eq(schema.incomes.status, 'planned')))
     .returning()
   if (!row) throw new Error('Tento příjem už byl přijat.')
+  await recordAudit({ householdId, memberId }, 'income.received', { amount: Number(row.amount), date }, incomeId)
   return toIncome(row)
 }

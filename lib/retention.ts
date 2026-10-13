@@ -15,3 +15,7 @@ export const INVITATION_AFTER_EXPIRY_DAYS = 30
  *  ('pending_review', 'review_required', 'duplicate_review') or in the middle of the pipeline keeps it:
  *  the review screen shows it. */
 export const FINISHED_RECEIPT_STATUSES = ['imported', 'discarded', 'completed', 'cancelled', 'ocr_failed', 'parsing_failed'] as const
+
+/** The audit trail (lib/db/audit.ts) of a household: a year of history is enough to find who changed a
+ *  budget, and it must not grow without end. Days since the entry was written. */
+export const AUDIT_LOG_DAYS = 365

@@ -7,6 +7,7 @@ import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
 import { auth } from '@/lib/auth/server'
 import { isValidPeriodStartDay, MAX_PERIOD_START_DAY, parsePeriodConfig, type PeriodConfig } from '@/lib/budget-period'
 import { assertOwner, canRemoveMember } from '@/lib/household-members'
+import { recordAudit } from '@/lib/db/audit'
 import { getDb } from '@/lib/db/client'
 import { periodColumnsOf } from '@/lib/db/period-config'
 import * as schema from '@/lib/db/schema'
@@ -63,7 +64,7 @@ function sanitizeStringArray(values: unknown, field: string): string[] {
  *  full `budgetPeriod` (calendar / payday / custom) or, for older callers, as `budgetPeriodStartDay`
  *  (= payday N); either way all the period columns are written together (lib/db/period-config.ts). */
 export async function updateHouseholdAction(changes: { name?: string; monthlyBudget?: number; budgetPeriodStartDay?: number; budgetPeriod?: PeriodConfig }) {
-  const { householdId, role } = await requireHousehold()
+  const { householdId, role, memberId } = await requireHousehold()
   assertOwner(role, 'Nastavení domácnosti může měnit jen správce domácnosti.')
 
   const safeName = changes.name !== undefined ? assertSafeText(changes.name, 'name', MAX_NAME_LEN) : undefined
@@ -98,6 +99,9 @@ export async function updateHouseholdAction(changes: { name?: string; monthlyBud
       ...periodColumns,
     })
     .where(eq(schema.households.id, householdId))
+  // Field names and the budget amount only: the name is free text and stays out of the trail.
+  const fields = [safeName != null && 'name', safeMonthlyBudget != null && 'monthlyBudget', Object.keys(periodColumns).length > 0 && 'period'].filter(Boolean).join(',')
+  await recordAudit({ householdId, memberId }, 'household.updated', { fields, ...(safeMonthlyBudget != null && { amount: safeMonthlyBudget }) })
 }
 
 export async function addHouseholdMemberAction(member: {
@@ -107,7 +111,7 @@ export async function addHouseholdMemberAction(member: {
   dislikedFoods: string[]
   allergies: string[]
 }): Promise<HouseholdMember> {
-  const householdId = await requireHouseholdId()
+  const { householdId, memberId: actorId } = await requireHousehold()
   const safeName = assertSafeText(member.name, 'member.name', MAX_NAME_LEN)
   const safeAge = assertSafeNumber(member.age, 'member.age', 0, 120, true)
   const safeFavoriteFoods = sanitizeStringArray(member.favoriteFoods, 'favoriteFoods')
@@ -123,6 +127,7 @@ export async function addHouseholdMemberAction(member: {
     dislikedFoods: safeDislikedFoods,
     allergies: safeAllergies,
   })
+  await recordAudit({ householdId, memberId: actorId }, 'member.added', {}, memberRow.id)
   return {
     id: memberRow.id,
     name: memberRow.name,
@@ -144,6 +149,7 @@ export async function removeHouseholdMemberAction(memberId: string) {
   // The caller's role comes from the session, never from the request (CLAUDE.md section 9).
   if (!canRemoveMember({ role, memberId: actorMemberId }, member)) throw new Error('Tohoto člena nemůžete odebrat. Členy odebírá správce domácnosti.')
   await db.delete(schema.householdMembers).where(eq(schema.householdMembers.id, safeMemberId))
+  await recordAudit({ householdId, memberId: actorMemberId }, 'member.removed', {}, safeMemberId)
 }
 
 export async function addChildAction(child: { name: string; age: number; preferences: string; specialNeeds?: string }): Promise<Child> {
@@ -222,17 +228,19 @@ export async function inviteMemberAction(email: string): Promise<{ id: string; t
       expiresAt: new Date(Date.now() + INVITATION_TTL_MS),
     })
     .returning()
+  await recordAudit({ householdId, memberId: inviterMember?.id }, 'invitation.created', {}, invitation.id)
   return { id: invitation.id, token, email: invitation.email, expiresAt: invitation.expiresAt.toString() }
 }
 
 export async function revokeInvitationAction(invitationId: string) {
-  const { householdId, role } = await requireHousehold()
+  const { householdId, role, memberId } = await requireHousehold()
   if (role !== 'owner') throw new Error('Jen správce domácnosti může rušit pozvánky.')
   const safeInvitationId = assertSafeText(invitationId, 'invitationId', 128)
   const db = getDb()
   const invitation = await db.query.invitations.findFirst({ where: eq(schema.invitations.id, safeInvitationId) })
   if (!invitation || invitation.householdId !== householdId) throw new Error('Pozvánka nenalezena')
   await db.update(schema.invitations).set({ status: 'revoked' }).where(eq(schema.invitations.id, safeInvitationId))
+  await recordAudit({ householdId, memberId }, 'invitation.revoked', {}, safeInvitationId)
 }
 
 export async function acceptInvitationAction(token: string) {
@@ -254,6 +262,8 @@ export async function acceptInvitationAction(token: string) {
   }
 
   await joinHouseholdViaInvitation(session.user.id, session.user.name, invitation)
+  // The actor is the person who just joined; the new member row is not returned here, so only the household is recorded.
+  await recordAudit({ householdId: invitation.householdId }, 'invitation.accepted', {}, invitation.id)
 }
 
 export async function setMemberDietAction(memberId: string, answers: { diet: string; avoids: string[] }): Promise<MemberDiet> {

@@ -5,6 +5,7 @@ import { and, eq, gte } from 'drizzle-orm'
 import { requireHousehold } from '@/lib/auth/authorize'
 import { canClosePeriod, carryIntoPeriod, periodResult, planClosing, type PocketAmount } from '@/lib/budget-closing'
 import { nextPeriodStartFor, periodStartFor } from '@/lib/budget-period'
+import { recordAudit } from '@/lib/db/audit'
 import { getDb } from '@/lib/db/client'
 import { loadClosedPeriods, loadPeriodMoney, loadPockets } from '@/lib/db/period-ledger'
 import { loadPeriodConfig } from '@/lib/db/period-config'
@@ -32,7 +33,7 @@ export type CloseInput = {
 /** Closes a period that has ended: records the user's split of its result as Kapsa moves plus the
  *  amount kept unassigned, after which the carry to the next period follows from the real data. */
 export async function closePeriodAction(input: CloseInput): Promise<void> {
-  const { householdId, role } = await requireHousehold()
+  const { householdId, role, memberId } = await requireHousehold()
   assertOwner(role, 'Období může uzavřít jen správce domácnosti.')
   if (!isIsoDate(input.periodStart)) throw new Error('Neplatné období.')
   const db = getDb()
@@ -74,13 +75,14 @@ export async function closePeriodAction(input: CloseInput): Promise<void> {
     if (nowClosed.some((period) => period.periodStart === periodStart)) throw new Error('Toto období už je uzavřené.')
     throw error
   }
+  await recordAudit({ householdId, memberId }, 'period.closed', { period: periodStart })
 }
 
 /** Opens a closed period again, undoing the Kapsa moves made when it was closed. Refused when a later
  *  period is closed (its carry depends on this one) or when taking the moves back would leave a Kapsa
  *  below zero because the money has been used since. */
 export async function reopenPeriodAction(periodStart: string): Promise<void> {
-  const { householdId, role } = await requireHousehold()
+  const { householdId, role, memberId } = await requireHousehold()
   assertOwner(role, 'Období může znovu otevřít jen správce domácnosti.')
   if (!isIsoDate(periodStart)) throw new Error('Neplatné období.')
   const db = getDb()
@@ -109,4 +111,5 @@ export async function reopenPeriodAction(periodStart: string): Promise<void> {
 
   // The Kapsa moves of this closing go with it (ON DELETE CASCADE).
   await db.delete(schema.periodClosings).where(and(eq(schema.periodClosings.id, closing.id), eq(schema.periodClosings.householdId, householdId)))
+  await recordAudit({ householdId, memberId }, 'period.reopened', { period: periodStart })
 }

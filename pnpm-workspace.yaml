@@ -1,5 +1,9 @@
 pmOnFail: ignore
 
+# A package version must be at least a day old before it can be installed, which gives the registry
+# time to pull a hijacked release (supply-chain defence). Explicit so a default change cannot loosen it.
+minimumReleaseAge: 1440
+
 minimumReleaseAgeExclude:
   - '@next/*'
   - next

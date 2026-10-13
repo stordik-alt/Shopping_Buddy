@@ -23,6 +23,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       // Content type was restricted to an allowlist (JPEG/PNG/WebP/HEIC/PDF) at upload time.
       'Content-Type': file.contentType,
       'X-Content-Type-Options': 'nosniff',
+      // Shown inside the review UI, never as a download; an explicit disposition plus a same-origin
+      // resource policy stop another site from embedding the household's receipt.
+      'Content-Disposition': 'inline',
+      'Cross-Origin-Resource-Policy': 'same-origin',
       // Personal financial data: never let a shared cache keep it.
       'Cache-Control': 'private, no-store',
     },

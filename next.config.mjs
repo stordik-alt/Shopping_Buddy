@@ -6,6 +6,8 @@ const cloudflareBuild = process.env.BUILD_TARGET === 'cloudflare'
 // explicit here, but do not rely on a static `'unsafe-inline'` script policy anymore.
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Do not advertise the framework in every response.
+  poweredByHeader: false,
   images: {
     unoptimized: true,
   },

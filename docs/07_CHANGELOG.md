@@ -1,3 +1,7 @@
+## 2026-10-13 — Bezpečnost S13 + S14: zpevnění hlaviček a instalace závislostí
+
+- Koncept: `docs/37_SECURITY_REMEDIATION_PLAN.md` (S13, S14). `pnpm-workspace.yaml` má `minimumReleaseAge: 1440` výslovně (verze balíčku musí být aspoň den stará, takže zneužité vydání stihne registr stáhnout; změna výchozí hodnoty ji nezmírní). `next.config.mjs`: `poweredByHeader: false`. Soubor účtenky (`/api/receipts/[id]/image`) dostal `Content-Disposition: inline` a `Cross-Origin-Resource-Policy: same-origin`. **Záměrně vynecháno:** globální `Cross-Origin-Opener-Policy`, které by mohlo rozbít přihlášení přes okno třetí strany; `Cache-Control` beze změny.
+
 ## 2026-10-13 — CHECK na formát měny (krok 2 ze 2)
 
 - Koncept: `docs/37_SECURITY_REMEDIATION_PLAN.md` (S5), navazuje na krok 1 (migrace `0105`, `lib/currency.ts`). Migrace `0106` nejprve ještě jednou opraví staré pravopisy „Kč“ (řádek mohl vzniknout mezi migrací kroku 1 a jeho nasazením) a pak přidá `currency ~ '^[A-Z]{3}$'` na `prices`, `deals`, `households` a `receipt_imports` (`NOT VALID` a pak validace; kdyby starý řádek porušoval, validace se přeskočí s upozorněním a omezení dál hlídá nové zápisy). **Smí se nasadit až po kroku 1**, jinak by starý kód mohl zapsat „Kč“ a import účtenky by selhal. Ověřeno na čisté databázi a na testovací větvi Neon nad skutečnými daty (49 537 cen, 3 888 akcí, 104 účtenek, 120 domácností). Test: `lib/db/schema-integrity.test.ts`.

@@ -305,7 +305,7 @@ export function Pantry({
       {/* With no stock at all the places are six identical "0 položek" tiles that only push the empty
           state down; the places (and the choice of one when adding) appear as soon as there is stock. */}
       {items.length > 0 && (
-      <nav aria-label="Umístění zásob" className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+      <nav aria-label="Umístění zásob" className="grid grid-cols-3 gap-2 sm:gap-3">
         {options.map((option) => {
           const Icon = iconFor(option)
           const { count, needsCheck, outOfStock } = summary[option.key]
@@ -322,8 +322,9 @@ export function Pantry({
                 setNotice(null)
               }}
               className={cn(
-                // Compact row tiles (icon beside name and count) so the six places do not fill a phone's first screen.
-                'grid min-w-0 grid-cols-[auto_1fr] items-center gap-x-2.5 gap-y-1.5 rounded-2xl border-2 p-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:p-3',
+                // Three places per row at every width. On a phone a tile is only ~110 px wide, so the icon sits
+                // above the name and count (centred); from `sm` up the icon goes beside them again.
+                'grid min-w-0 grid-cols-1 content-start justify-items-center gap-y-1.5 rounded-2xl border-2 p-2 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:grid-cols-[auto_1fr] sm:items-center sm:justify-items-stretch sm:gap-x-2.5 sm:p-3 sm:text-left',
                 // Active = turquoise outline + tinted tile, not a solid slab (it would dominate the screen in dark mode).
                 active ? 'border-accent-solid bg-accent-subtle' : 'border-transparent bg-card shadow-[var(--shadow-card)] hover:bg-muted',
               )}
@@ -331,12 +332,12 @@ export function Pantry({
               <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-xl', active ? 'bg-accent-solid text-accent-solid-foreground' : 'bg-muted text-accent-text')}>
                 <Icon className="size-5" aria-hidden />
               </span>
-              <span className="min-w-0">
+              <span className="min-w-0 max-w-full">
                 <span className="block break-words text-sm font-semibold leading-tight">{option.name}</span>
                 <span className="block text-xs text-fg-muted">{itemCountLabel(count)}</span>
               </span>
               {(needsCheck > 0 || outOfStock > 0) && (
-                <span className="col-span-2 flex flex-wrap gap-1">
+                <span className="flex flex-wrap justify-center gap-1 sm:col-span-2 sm:justify-start">
                   {needsCheck > 0 && (
                     <Badge tone="accent" className="py-0.5">
                       Ověřit: {needsCheck}

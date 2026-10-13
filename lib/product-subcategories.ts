@@ -242,11 +242,11 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
       // Crispbread and sandwich bread (2026-10-06).
       'křehké plátky', 'knäckebrot', 'knackebrot', 'finn crisp', 'sandwich', ' žemle', 'bagel',
     ],
-    // "Rohlik.cz" is a shop's name, not a roll; seasoning for tortillas is no bread. Flour named
+    // "Rohlik.cz" is a shop's name, not a roll; "cibulka" (spring onion) only contains the word "bulka"; seasoning for tortillas is no bread. Flour named
     // after bread ("Mouka pšeničná chlebová") is flour, but bread made of flour ("Tortilly z pšeničné
     // mouky", "Chléb bez mouky") is bread: the flour word vetoes only when it comes first.
     // Sandwich biscuits are sweets, wagyu "tenké křehké plátky" are meat.
-    exclude: ['rohlik cz', ' koření ', 'kořenící', 'sušenk', 'gullón', 'gullon', 'bahlsen', 'biscuit', 'wagyu', 'sukiyaki'],
+    exclude: ['rohlik cz', 'cibulk', ' koření ', 'kořenící', 'sušenk', 'gullón', 'gullon', 'bahlsen', 'biscuit', 'wagyu', 'sukiyaki'],
     excludeBefore: ['mouka', 'mouky'],
   },
   {
@@ -277,6 +277,14 @@ const POTRAVINY_RULES: SubcategoryRule[] = [
     exclude: ['květák', 'celer', 'zeleninov', 'hermelín', 'sýrov', 'tofu', 'čokolád', 'fries', 'frites', 'hranol', 'vegi', 'koření', 'kořen', 'příchu', 'prichu', 'krmiv', 'kočk', ' psy', 'pamlsk', 'veggie', 'vegetarián', 'rostlinn', 'sádlo', 'omáčk', 'nudle', 'těstovin', 'tortellin', 'ravioli'],
   },
   { subcategory: 'Luštěniny', keywords: ['čočka', 'čočky', 'čočkov', 'čočce', 'fazol', 'cizrn', ' hrách ', 'luštěnin', 'lusteniny'], exclude: ['čokolád'], excludeBefore: FOOD_HEADS },
+  {
+    // Albert's "Cibule lahůdková" is the spring onion. "lahůdkov" is excluded from produce in general ("Paprika
+    // lahůdková mletá" is a spice), so this narrow rule names the one lahůdková that is fresh produce.
+    subcategory: 'Ovoce a zelenina',
+    keywords: ['cibule lahůdk', 'cibulka lahůdk'],
+    exclude: PRODUCE_EXCLUDE.filter((word) => word !== 'lahůdkov'),
+    startOnly: true,
+  },
   {
     subcategory: 'Ovoce a zelenina',
     keywords: ['jablk', 'banán', 'banan', 'pomeranč', 'pomeranc', 'zelenina', 'ovoce', 'rajče', 'rajce', 'okurk', 'brambor', 'cibul', 'mrkev'],

@@ -340,3 +340,4 @@ Další krok „registry-first“ bootstrapu: místo exportu dat pro GPT-6 Lunu 
 
 ## 2026-10-13 — Cibule
 - Druh `cibule` je jen běžná suchá cibule (cibule, kuchyňská, žlutá, červená, bílá, sladká, konzumní). Vylučuje `NOT_DRY_ONION` (lahůdková = jarní cibulka z Albertu, jarní, šalotka, perlová, sazečka/sadba, zimní, mražená, sekaná, nakládaná). Jde o výčet vyloučených slov, ne povolený seznam. U existujících produktů se druh přepočte až `pnpm db:assign-product-types`.
+- Nový druh `jarni-cibulka` (Jarní cibulka, ks; Albertova „Cibule lahůdková“ a „jarní cibulka“), migrace `0108`. Pečivo už nezachytává „cibulku“ (`bulka` je podřetězec), a „Cibule lahůdková“ má vlastní úzké pravidlo podkategorie (obecné vyloučení `lahůdkov` zůstává kvůli kořenicím paprikám). Přiřazení u produktů se přepočte `pnpm db:assign-product-types`.

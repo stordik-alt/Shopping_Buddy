@@ -126,6 +126,8 @@ export const PRODUCT_TYPES: ProductTypeDefinition[] = [
   { key: 'paprika', name: 'Paprika', categories: [P], subcategory: 'Ovoce a zelenina', unit: 'kg', rule: produce(['paprika', 'papriky'], ['mlet', 'sladká 2', 'lahůdkov', 'uzen', 'pálivá mletá', 'koření', 'pasta', 'paprikáš', 'náplní', 'sýr']) },
   { key: 'brambory', name: 'Brambory', categories: [P], subcategory: 'Ovoce a zelenina', unit: 'kg', rule: produce(['brambory'], ['hranolk', 'kaše', 'krokety', 'knedl', 'plack', 'chips', 'lupínk', 'salát', 'šťouchan', 'americké', 'pečené', 'opékan']) },
   { key: 'cibule', name: 'Cibule', categories: [P], subcategory: 'Ovoce a zelenina', unit: 'kg', rule: produce(['cibule'], ['sušen', 'smažen', 'granul', 'chutney', 'marmeláda', 'cibulka', ...NOT_DRY_ONION]) },
+  // Owner, 2026-10-13: Albert sells the spring onion as "Cibule lahůdková"; it is its own type, never the dry onion.
+  { key: 'jarni-cibulka', name: 'Jarní cibulka', categories: [P], subcategory: 'Ovoce a zelenina', unit: 'ks', rule: produce(['jarní cibulka', 'cibulka jarní', 'jarní cibule', 'cibule jarní', 'cibule lahůdková', 'cibulka lahůdková', 'cibulka'], ['sušen', 'smažen', 'křupav', 'granul', 'chutney', 'marmeláda', 'perlov', 'nakládan', 'na cibulce', 'na cibulc']) },
   { key: 'cesnek', name: 'Česnek', categories: [P], subcategory: 'Ovoce a zelenina', unit: 'kg', rule: produce(['česnek'], ['sušen', 'granul', 'mlet', 'pasta', 'medvědí', 'černý', 'opečen', 'krém', 'sekan', 'prášk', 'chilli', 'marinov', 'pomaz', 'efko']) },
   { key: 'mrkev', name: 'Mrkev', categories: [P], subcategory: 'Ovoce a zelenina', unit: 'kg', rule: produce(['mrkev'], ['sterilovan', 'v nálevu']) },
   { key: 'salat', name: 'Salát hlávkový a ledový', categories: [P], subcategory: 'Ovoce a zelenina', unit: 'ks', rule: produce(['ledový salát', 'salát ledový', 'salát hlávkový', 'hlávkový salát', 'salát římský', 'římský salát', 'salát little gem', 'salát l gem', 'salat l gem', 'salát lollo', 'salat ledovy'], [], [' salát']) },
@@ -774,6 +776,7 @@ const ITEM_PHRASES: Record<string, string[]> = {
   okurky: ['okurka', 'okurky', 'salátová okurka', 'hadovka'],
   paprika: ['paprika', 'papriky'],
   brambory: ['brambory', 'brambor'],
+  'jarni-cibulka': ['jarní cibulka', 'cibulka', 'jarní cibule', 'cibule jarní', 'cibule lahůdková', 'cibulka jarní'],
   cibule: ['cibule', 'cibule kuchyňská', 'cibule žlutá', 'cibule červená', 'červená cibule', 'cibule bílá', 'bílá cibule', 'cibule sladká', 'cibule konzumní'],
   cesnek: ['česnek'],
   mrkev: ['mrkev'],

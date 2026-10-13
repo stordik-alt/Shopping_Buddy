@@ -1,6 +1,7 @@
 'use server'
 
 import { eq, inArray } from 'drizzle-orm'
+import { checkItemChoices, checkOptionalText, checkRequiredText, ITEM_DETAIL_MAX, ITEM_NAME_MAX, ITEM_NOTE_MAX, LIST_NAME_MAX } from '@/lib/shopping-input'
 import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
 import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
@@ -98,6 +99,10 @@ export async function addShoppingItemAction(
   const { householdId, userId } = await requireHousehold()
   await assertOwnsList(householdId, listId)
   if (clientId !== undefined && (typeof clientId !== 'string' || !UUID_PATTERN.test(clientId))) throw new Error('Neplatný identifikátor položky.')
+  // Text and choices come from the browser: limited here, never trusted (docs/35_SECURITY_AUDIT.md, S8 and L7).
+  checkRequiredText(name, 'Název položky', ITEM_NAME_MAX)
+  checkOptionalText(overrides.detail, 'Detail položky', ITEM_DETAIL_MAX)
+  checkItemChoices({ unit: overrides.unit, category: overrides.category })
   const quantity = overrides.quantity ?? 1
   if (!(Number.isFinite(quantity) && quantity > 0 && quantity < 10_000_000)) throw new Error('Množství musí být kladné číslo.')
   const db = getDb()
@@ -224,6 +229,8 @@ export async function updateShoppingItemAction(
 ) {
   const householdId = await requireHouseholdId()
   await assertOwnsItem(householdId, itemId)
+  checkOptionalText(changes.note, 'Poznámka', ITEM_NOTE_MAX)
+  checkItemChoices(changes)
   // Product types come from the browser: only known type keys, at least one, no duplicates; null
   // returns the item to "derived from its name".
   let productTypes: string[] | null | undefined
@@ -299,6 +306,7 @@ export async function refreshShoppingListAction(): Promise<{ items: Item[]; shop
 
 export async function addShoppingListAction(name: string) {
   const householdId = await requireHouseholdId()
+  checkRequiredText(name, 'Název seznamu', LIST_NAME_MAX)
   const db = getDb()
   await db.insert(schema.shoppingLists).values({ householdId, name })
 }

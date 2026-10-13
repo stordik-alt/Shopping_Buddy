@@ -139,6 +139,25 @@ describe('manual autocomplete selection', () => {
 })
 
 describe('addShoppingItemAction', () => {
+  // docs/35_SECURITY_AUDIT.md, S8 and L7: free text is limited and the choices are checked on the server.
+  it('refuses a too long name, detail or note, an unknown unit, category or priority, and stores nothing', async () => {
+    const before = (await db.query.shoppingListItems.findMany({ where: eq(schema.shoppingListItems.listId, listId) })).length
+    await expect(addShoppingItemAction(listId, 'x'.repeat(301))).rejects.toThrow('příliš dlouhý')
+    await expect(addShoppingItemAction(listId, '   ')).rejects.toThrow('povinný')
+    await expect(addShoppingItemAction(listId, 'Mléko', { detail: 'x'.repeat(501) })).rejects.toThrow('příliš dlouhý')
+    await expect(addShoppingItemAction(listId, 'Mléko', { unit: 'tuna' as never })).rejects.toThrow('jednotka')
+    await expect(addShoppingItemAction(listId, 'Mléko', { category: 'Zbraně' as never })).rejects.toThrow('kategorie')
+    expect((await db.query.shoppingListItems.findMany({ where: eq(schema.shoppingListItems.listId, listId) })).length).toBe(before)
+
+    const { item } = await addShoppingItemAction(listId, 'Limit test položka')
+    await expect(updateShoppingItemAction(item.id, { note: 'x'.repeat(1001) })).rejects.toThrow('příliš dlouhý')
+    await expect(updateShoppingItemAction(item.id, { priority: 'Kritická' as never })).rejects.toThrow('priorita')
+    await expect(updateShoppingItemAction(item.id, { onSale: 'ano' as never })).rejects.toThrow('akce')
+    await updateShoppingItemAction(item.id, { note: 'v pořádku', priority: 'Vysoká' })
+    const stored = await db.query.shoppingListItems.findFirst({ where: eq(schema.shoppingListItems.id, item.id) })
+    expect(stored).toMatchObject({ note: 'v pořádku', priority: 'Vysoká' })
+  })
+
   it('adds an item to a list the caller\'s household actually owns', async () => {
     currentHouseholdId = householdId
     const { item } = await addShoppingItemAction(listId, 'Testovací položka')

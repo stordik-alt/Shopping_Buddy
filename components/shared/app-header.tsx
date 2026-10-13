@@ -3,6 +3,8 @@ import { useRouter } from 'next/navigation'
 import { AccountMenu } from '@/components/shared/account-menu'
 import { Brand } from '@/components/shared/brand'
 import { authClient } from '@/lib/auth/client'
+import { clearDeviceDataOnSignOut } from '@/lib/device-cleanup'
+import { safeLocalStorage } from '@/lib/safe-storage'
 import type { Tab } from '@/lib/types'
 
 export function AppHeader({
@@ -39,13 +41,10 @@ export function AppHeader({
   const router = useRouter()
 
   async function signOut() {
-    // The offline copy of the app page (public/sw.js) belongs to this account; drop it so the next
-    // person on this phone cannot open it without a signal.
-    try {
-      await caches.delete('shopping-buddy-page-v1')
-    } catch (error) {
-      console.error('Could not clear the offline page cache', error)
-    }
+    // The offline copy of the app page (public/sw.js) and the waiting offline changes belong to this
+    // account; drop them so the next person on this phone cannot open or see them (lib/device-cleanup.ts).
+    // A failure is logged there and must not keep the user signed in.
+    await clearDeviceDataOnSignOut(safeLocalStorage(), typeof caches === 'undefined' ? undefined : caches)
     await authClient.signOut()
     router.push('/auth/sign-in')
     router.refresh()

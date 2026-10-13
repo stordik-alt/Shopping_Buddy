@@ -43,6 +43,8 @@ Ostatní S/L položky z auditu 35 nebyly znovu rozebírány a platí tak, jak js
 
 * **N4 (opraveno 2026-10-13, přeřazení z rozpočtu teď jde přes `proposeProductCategory`/`proposeProductSubcategory`) — Přeřazení z rozpočtu obchází schvalování katalogu:** `setPurchaseItemExpenseSplits` mění sdílený `products` přímo (kontroluje jen `categoryLocked`), bez počítání volných změn a bez schvalování správcem, které používají `proposeProductCategory` a `proposeProductSubcategory`. Kterákoli domácnost tak může opakovaně přeřadit produkt pro všechny budoucí účtenky. V1 omezila jen přepis cizí historie; tohle zůstává otevřené a vyžaduje rozhodnutí (vést tuto cestu přes stejné návrhy).
 
+* **N5 (opraveno 2026-10-13, drobné opravy 2) — drobné položky auditu 35:** S8 (limity volného textu v akcích nákupního seznamu), S10 (CHECK na malá písmena u e-mailu pozvánky, migrace `0109`), S11 + S12 (úklid offline kopie stránky a fronty při odhlášení), L7 (kontrola výčtových hodnot).
+
 ## 4. Plán oprav
 
 Každá fáze je samostatná, malá PR. Pořadí je dané závažností a nízkým rizikem regrese. U každé opravy platí z `CLAUDE.md`: test, aktualizace příslušného dokumentu a záznam v `docs/07_CHANGELOG.md` až po dokončení.

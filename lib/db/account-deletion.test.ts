@@ -63,14 +63,15 @@ describe('account deletion', () => {
     const h = await household('__test_account_leave__')
     const [owner] = await db.insert(schema.householdMembers).values({ householdId: h.id, name: 'Majitel', role: 'owner' }).returning()
     const [member] = await db.insert(schema.householdMembers).values({ householdId: h.id, name: 'Člen', role: 'member' }).returning()
-    await db.insert(schema.invitations).values({ householdId: h.id, email: 'Clen@Example.cz', token: 'tok-2', expiresAt: new Date('2099-01-01') })
+    await db.insert(schema.invitations).values({ householdId: h.id, email: 'clen@example.cz', token: 'tok-2', expiresAt: new Date('2099-01-01') })
     await db.insert(schema.invitations).values({ householdId: h.id, email: 'jiny@example.cz', token: 'tok-3', expiresAt: new Date('2099-01-01') })
     await db.insert(schema.purchases).values({ householdId: h.id, date: '2026-10-13', total: '10' })
 
     // Profiles without an account do not count; neither does the member asking.
     expect(await countOtherAccounts(h.id, owner.id)).toBe(0)
 
-    await removeMemberAccountData(h.id, member.id, 'clen@example.cz')
+    // Invitations are stored in lower case (migration 0109); the account's own address may not be.
+    await removeMemberAccountData(h.id, member.id, 'Clen@Example.cz')
 
     const members = await db.select().from(schema.householdMembers).where(eq(schema.householdMembers.householdId, h.id))
     expect(members.map((m) => m.id)).toEqual([owner.id])

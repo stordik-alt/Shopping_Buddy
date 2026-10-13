@@ -459,6 +459,7 @@ export async function createPurchaseFromReceiptItems(
   const inventoryQuantities = await purchasedInventoryQuantities(inventoryItems.map((item) => ({
     productId: item.productId,
     name: item.name,
+    subcategory: item.subcategory,
     quantity: item.quantity,
     unit: item.unit,
   })))

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { inventoryQuantityFromPackage, resolveInventoryPackage } from '@/lib/inventory-packaging'
+import { inventoryQuantityFromPackage, purchasedInventoryQuantities, resolveInventoryPackage } from '@/lib/inventory-packaging'
 
 describe('resolveInventoryPackage', () => {
   it('expands a count multipack such as 30 eggs to individual pieces', () => {
@@ -68,5 +68,35 @@ describe('resolveInventoryPackage', () => {
       { quantity: 6, unit: 'ks', packageCount: 6, packageUnitQuantity: 1, packageUnit: 'ks' },
       { quantity: 6, unit: 'ks', packageCount: 12, packageUnitQuantity: 1, packageUnit: 'ks' },
     ])).toBeNull()
+  })
+})
+
+describe('purchasedInventoryQuantities', () => {
+  const line = (name: string, quantity: number, unit: 'ks' | 'kg' = 'ks') => ({ productId: null, name, quantity, unit })
+
+  it('stores the exact amount instead of a pack count', async () => {
+    const [flour, water, ham] = await purchasedInventoryQuantities([
+      line('Mouka hladká 1kg', 1),
+      line('Mattoni citron 1,5l', 2),
+      line('Šunka 250g', 1),
+    ])
+    expect(flour).toEqual({ quantity: 1, unit: 'kg', unitQuantity: null, unitUnit: null })
+    expect(water).toEqual({ quantity: 3, unit: 'l', unitQuantity: null, unitUnit: null })
+    expect(ham).toEqual({ quantity: 0.25, unit: 'kg', unitQuantity: null, unitUnit: null })
+  })
+
+  it('keeps drinks as a count of bottles, with the bottle size', async () => {
+    const [water] = await purchasedInventoryQuantities([{ ...line('Mattoni citron 1,5l', 2), subcategory: 'Nápoje' }])
+    expect(water).toEqual({ quantity: 2, unit: 'ks', unitQuantity: null, unitUnit: null })
+  })
+
+  it('keeps eggs as pieces: 1 pack of 30 is 30 ks', async () => {
+    const [eggs] = await purchasedInventoryQuantities([line('Vejce vel.L 30ks', 1)])
+    expect(eggs).toEqual({ quantity: 30, unit: 'ks', unitQuantity: 1, unitUnit: 'ks' })
+  })
+
+  it('leaves weighed goods and lines without a size untouched', async () => {
+    const result = await purchasedInventoryQuantities([line('Jablka', 0.37, 'kg'), line('Rohlík', 4), line('Mix 250g a 500g', 2)])
+    expect(result.map((r) => [r.quantity, r.unit])).toEqual([[0.37, 'kg'], [4, 'ks'], [2, 'ks']])
   })
 })

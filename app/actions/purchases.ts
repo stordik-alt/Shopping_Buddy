@@ -126,6 +126,7 @@ export async function createManualPurchaseAction(input: {
   const inventoryInputs = resolved.map((item) => ({
     productId: item.product?.id ?? null,
     name: item.name,
+    subcategory: item.subcategory,
     quantity: item.quantity,
     unit: item.unit,
   }))

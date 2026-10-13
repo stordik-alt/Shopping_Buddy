@@ -22,7 +22,7 @@ export async function deletePurchase(householdId: string, purchaseId: string): P
   const purchase = await db.query.purchases.findFirst({
     where: and(eq(schema.purchases.id, purchaseId), eq(schema.purchases.householdId, householdId)),
     columns: { id: true, date: true },
-    with: { items: { columns: { productId: true, name: true, quantity: true, unit: true, category: true }, with: { product: { columns: { isNonInventory: true } } } } },
+    with: { items: { columns: { productId: true, name: true, quantity: true, unit: true, category: true }, with: { subcategory: { columns: { name: true } }, product: { columns: { isNonInventory: true } } } } },
   })
   if (!purchase) throw new PurchaseToDeleteNotFoundError('Nákup nenalezen.')
   const receipts = await db.query.receiptImports.findMany({
@@ -57,7 +57,7 @@ export async function deletePurchase(householdId: string, purchaseId: string): P
   }
   for (const [index, line] of stockLines.entries()) {
     try {
-      const inventory = await purchasedInventoryQuantity({ productId: line.productId, name: line.name, quantity: line.quantity, unit: line.unit })
+      const inventory = await purchasedInventoryQuantity({ productId: line.productId, name: line.name, subcategory: line.subcategory?.name ?? null, quantity: line.quantity, unit: line.unit })
       const type = lineTypes[index]
       const typeRow = type
         ? (await db.query.pantryItems.findMany({

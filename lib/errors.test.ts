@@ -15,6 +15,29 @@ describe('userFacingError', () => {
   })
 })
 
+describe('userFacingError — internal messages', () => {
+  // docs/35_SECURITY_AUDIT.md, L5: the allow-list is "anything that does not look internal".
+  it.each([
+    'Failed query: select "id" from "households" where "id" = $1\nparams: 6c396ab1',
+    'NeonDbError: Error connecting to database: TypeError: fetch failed',
+    'insert or update on table "x" violates foreign key constraint "x_fk"',
+    'connect ETIMEDOUT 3.215.191.145:443',
+    'Cannot find module /home/app/node_modules/foo/index.js',
+    'TypeError: x is not a function\n    at run (/srv/app/server.js:10:5)',
+    'getaddrinfo ENOTFOUND db.example.com',
+    'https://bucket.r2.example.com/file?X-Amz-Signature=abc',
+    'could not use postgresql://user:secret@host/db',
+  ])('falls back for %j', (message) => {
+    expect(userFacingError(new Error(message), 'Zkuste to znovu.')).toBe('Zkuste to znovu.')
+  })
+
+  it('still shows our own messages, including ones that mention words like "pozvánka" or "účtenka"', () => {
+    for (const message of ['Pozvánka je neplatná, už byla použita nebo jí vypršela platnost.', 'Množství musí být kladné číslo.', 'Uložené položky účtenky se nepodařilo přečíst. Zkontrolujte účtenku znovu.']) {
+      expect(userFacingError(new Error(message), 'X')).toBe(message)
+    }
+  })
+})
+
 describe('describeError', () => {
   it('follows the causes a wrapper hides, with the Postgres code', () => {
     const db = Object.assign(new Error('relation "flyer_pages" does not exist'), { code: '42P01' })

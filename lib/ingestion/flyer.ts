@@ -2,6 +2,7 @@ import { generateText, Output } from 'ai'
 import { z } from 'zod'
 import { loadFlyerPages, pruneFlyerPages, saveFlyerPage, type FlyerPageRow } from '@/lib/db/queries'
 import { fetchWithTimeout } from '@/lib/ingestion/http'
+import { fetchPublicImage } from '@/lib/ingestion/public-image'
 import { scaleUnitPrice, UNIT_PRICE_TOLERANCE } from '@/lib/ingestion/product-discovery'
 import { ingestionDate } from '@/lib/ingestion/today'
 import type { FetchOptions, IngestionSource, NormalizedProduct, PriceConnector } from '@/lib/ingestion/types'
@@ -98,8 +99,10 @@ export function createGeminiFlyerExtractor(
   return {
     model,
     async extract(page) {
-      const image = await fetchWithTimeout(page.imageUrl, { headers: { 'User-Agent': USER_AGENT } })
-      if (!image.ok) throw new Error(`${retailer} flyer page ${page.number} image failed: HTTP ${image.status}`)
+      // The image URL comes from the retailer's data: checked, redirects included, and size-limited.
+      const image = await fetchPublicImage(page.imageUrl, { 'User-Agent': USER_AGENT }).catch((error: unknown) => {
+        throw new Error(`${retailer} flyer page ${page.number} image failed: ${error instanceof Error ? error.message : String(error)}`)
+      })
       const { output, usage } = await generateText({
         model,
         output: Output.object({ schema: z.object({ offers: z.array(extractedOfferSchema) }) }),
@@ -109,7 +112,7 @@ export function createGeminiFlyerExtractor(
             role: 'user',
             content: [
               { type: 'text', text: prompt + page.text },
-              { type: 'file', data: new Uint8Array(await image.arrayBuffer()), mediaType: 'image/jpeg' },
+              { type: 'file', data: image.bytes, mediaType: 'image/jpeg' },
             ],
           },
         ],

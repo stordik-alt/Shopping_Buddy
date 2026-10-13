@@ -177,6 +177,9 @@ afterAll(async () => {
   const storeLocations = await db.query.storeLocations.findMany({ columns: { id: true } })
   const newStoreLocationIds = storeLocations.filter((row) => !existingStoreLocationIds.has(row.id)).map((row) => row.id)
   if (newStoreLocationIds.length > 0) {
+    // A branch with price history cannot be deleted (migration 0110, S17); this test's own rows go first.
+    await db.delete(schema.prices).where(inArray(schema.prices.storeLocationId, newStoreLocationIds))
+    await db.delete(schema.deals).where(inArray(schema.deals.storeLocationId, newStoreLocationIds))
     await db.delete(schema.storeLocations).where(inArray(schema.storeLocations.id, newStoreLocationIds))
   }
   for (const ref of uploadedReceiptRefs) await deleteReceiptFile(ref).catch(() => {})

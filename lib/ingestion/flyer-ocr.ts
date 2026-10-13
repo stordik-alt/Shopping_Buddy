@@ -1,5 +1,6 @@
 import { createAzureTextExtractor, googleVisionTextExtractor, isAzureReceiptFallbackConfigured, type ReceiptTextExtractor } from '@/lib/receipts'
 import { fetchWithTimeout } from '@/lib/ingestion/http'
+import { fetchPublicImage } from '@/lib/ingestion/public-image'
 import type { FlyerPage } from '@/lib/ingestion/flyer'
 
 // OCR of a flyer page's image, for a retailer whose own page data has no usable text layer (Lidl: a
@@ -32,10 +33,9 @@ export async function extractTextWithFallback(
 
 /** Reads a flyer page's image by OCR. */
 export async function readFlyerPageText(page: FlyerPage, get: typeof fetchWithTimeout = fetchWithTimeout): Promise<string> {
-  const response = await get(page.imageUrl)
-  if (!response.ok) throw new Error(`flyer page image failed: HTTP ${response.status}`)
-  const mimeType = response.headers.get('content-type')?.split(';')[0] || 'image/jpeg'
-  const base64 = Buffer.from(await response.arrayBuffer()).toString('base64')
+  // The image URL comes from the retailer's data: checked, redirects included, and size-limited.
+  const { bytes, contentType: mimeType } = await fetchPublicImage(page.imageUrl, {}, { get })
+  const base64 = Buffer.from(bytes).toString('base64')
   return extractTextWithFallback(
     { base64, mimeType },
     { primary: googleVisionTextExtractor, fallback: isAzureReceiptFallbackConfigured() ? azureReadExtractor : undefined },

@@ -6,9 +6,14 @@ import { redactSecrets } from '@/lib/redact'
  *  then. Any other message (one of ours, from the browser) is shown as is. Pure/testable. */
 export function userFacingError(err: unknown, fallback: string): string {
   const message = err instanceof Error ? err.message : ''
-  if (!message || /Minified React error|Server Components render|digest/i.test(message)) return fallback
+  if (!message || /Minified React error|Server Components render|digest/i.test(message) || LOOKS_INTERNAL.test(message)) return fallback
   return message
 }
+
+/** What an internal error message looks like: a database error with its SQL and parameters, a network failure,
+ *  a file path or a stack frame. Our own messages are written for people and contain none of this; a message that
+ *  does is shown as the fallback instead (docs/35_SECURITY_AUDIT.md, L5), never as is. */
+const LOOKS_INTERNAL = /Failed query|\bparams:|NeonDbError|DrizzleQueryError|relation "[^"]+" does not exist|violates (?:foreign key|unique|check|not-null)|\b(?:ECONNREFUSED|ECONNRESET|ETIMEDOUT|ENOTFOUND)\b|node_modules|\/home\/|\bat \S+ \([^)]*:\d+:\d+\)|X-Amz-|postgres(?:ql)?:\/\//i
 
 /** An error with the causes it wraps, for logs and command-line scripts: "Failed query: … ← relation
  *  "flyer_pages" does not exist (42P01)". Drizzle wraps a database error in a generic "Failed query"

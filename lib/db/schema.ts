@@ -761,7 +761,8 @@ export const prices = pgTable('prices', {
   // Store chain remains explicit even when the physical branch is unknown. This prevents a real
   // STORE observation from being misrepresented as a CHAIN price.
   storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
-  storeLocationId: uuid('store_location_id').references(() => storeLocations.id, { onDelete: 'cascade' }),
+  // RESTRICT, not CASCADE (docs/35_SECURITY_AUDIT.md, S17): deleting a branch must not erase its price history.
+  storeLocationId: uuid('store_location_id').references(() => storeLocations.id, { onDelete: 'restrict' }),
   priceScope: priceScopeEnum('price_scope').notNull().default('STORE'),
   sourceType: priceSourceTypeEnum('source_type').notNull().default('OTHER'),
   locationResolution: priceLocationResolutionEnum('location_resolution').notNull().default('RESOLVED'),
@@ -849,7 +850,7 @@ export const deals = pgTable('deals', {
   // The chain the promotion belongs to. Always set; `storeLocationId` narrows it to a branch and is
   // null for an online-only chain, which has none.
   storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
-  storeLocationId: uuid('store_location_id').references(() => storeLocations.id, { onDelete: 'cascade' }),
+  storeLocationId: uuid('store_location_id').references(() => storeLocations.id, { onDelete: 'restrict' }),
   dealPrice: numeric('deal_price', { precision: 10, scale: 2 }).notNull(),
   currency: text('currency').notNull().default('CZK'),
   // The promotion's price per `unit` (Kč/kg, Kč/l, Kč/ks…) — what makes an offer comparable when the
@@ -871,7 +872,7 @@ export const deals = pgTable('deals', {
   // Same guard as member_stores: when a branch is named it must be a branch of `store_id`. MATCH
   // SIMPLE — a NULL `store_location_id` (an online chain's deal) skips the check. Cascades on update like
   // member_stores', so a branch moved to another chain keeps its deals consistent.
-  foreignKey({ columns: [table.storeLocationId, table.storeId], foreignColumns: [storeLocations.id, storeLocations.storeId] }).onDelete('cascade').onUpdate('cascade'),
+  foreignKey({ columns: [table.storeLocationId, table.storeId], foreignColumns: [storeLocations.id, storeLocations.storeId] }).onDelete('restrict').onUpdate('cascade'),
   check('deals_deal_price_positive', sql`${table.dealPrice} > 0`),
   check('deals_valid_range_check', sql`${table.validUntil} >= ${table.validFrom}`),
   check('deals_currency_iso_check', sql`${table.currency} ~ '^[A-Z]{3}$'`),
@@ -1867,6 +1868,8 @@ export const productSubcategoryChanges = pgTable(
     status: text('status').notNull().default('applied'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     decidedAt: timestamp('decided_at', { withTimezone: true }),
+    // The administrator's neon_auth.user id. References neon_auth.user(id) ON DELETE SET NULL (migration 0111); no
+    // Drizzle-level FK because that schema is managed by Neon Auth.
     decidedBy: uuid('decided_by'),
   },
   (table) => [
@@ -1894,6 +1897,8 @@ export const productCategoryChanges = pgTable(
     status: text('status').notNull().default('applied'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     decidedAt: timestamp('decided_at', { withTimezone: true }),
+    // The administrator's neon_auth.user id. References neon_auth.user(id) ON DELETE SET NULL (migration 0111); no
+    // Drizzle-level FK because that schema is managed by Neon Auth.
     decidedBy: uuid('decided_by'),
   },
   (table) => [

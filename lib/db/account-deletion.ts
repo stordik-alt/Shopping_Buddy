@@ -20,10 +20,13 @@ export async function countOtherAccounts(householdId: string, memberId: string):
  *  subscriptions, notification settings), plus the invitations addressed to their e-mail. Shared
  *  household data (lists, purchases, receipts) stays with the household. */
 export async function removeMemberAccountData(householdId: string, memberId: string, email: string): Promise<void> {
-  await getDb().transaction(async (tx) => {
-    await tx.delete(schema.invitations).where(and(eq(schema.invitations.householdId, householdId), sql`lower(${schema.invitations.email}) = lower(${email})`))
-    await tx.delete(schema.householdMembers).where(and(eq(schema.householdMembers.id, memberId), eq(schema.householdMembers.householdId, householdId)))
-  })
+  // db.batch, not a transaction: production talks to Neon over HTTP, which has no interactive
+  // transactions but applies a batch atomically (lib/db/client.ts gives the local driver the same method).
+  const db = getDb()
+  await db.batch([
+    db.delete(schema.invitations).where(and(eq(schema.invitations.householdId, householdId), sql`lower(${schema.invitations.email}) = lower(${email})`)),
+    db.delete(schema.householdMembers).where(and(eq(schema.householdMembers.id, memberId), eq(schema.householdMembers.householdId, householdId))),
+  ])
 }
 
 /** The last account of a household goes: the household row and, through the foreign keys, everything

@@ -1,3 +1,7 @@
+## 2026-10-13 — Smazání dat domácnosti (reset dat)
+
+- Koncept: nový `docs/39_DATA_RESET.md`. Správce domácnosti (owner) má v Profilu, záložka Domácnost, blok „Smazání dat“ s červeným tlačítkem „Smazat data…“. Dialog je červený s varováním o nevratnosti, nabízí zaškrtávací skupiny (Nákupní seznamy, Nákupy a účtenky, Výdaje, Příjmy, Rozpočet a plánování, Zásoby, Recepty a jídelníčky, Oznámení; nic není předvybrané, je „Vybrat vše“) a tlačítko „Smazat navždy“ se odemkne až po opsání názvu domácnosti. Server (`app/actions/data-reset.ts`) bere domácnost a roli ze session, odmítne člena, ověří skupiny proti pevnému seznamu i opsaný název, omezí pokusy (5 za 10 minut) a zapíše do historie změn „Smazal(a) data domácnosti“. `lib/db/data-reset.ts` smaže vybrané skupiny v jednom `db.batch`, fotky účtenek z R2 až po databázi. Zůstává celý profil (domácnost, členové, děti, stravování, preference, obchody, nastavení upozornění, místa a hlídání zásob, nastavení období); smazání nákupů smaže i z nich vzniklé výdaje; jeden prázdný nákupní seznam zůstane. Průvodce má novou podrobnou kartu `profile-reset`. Testy: `lib/data-reset.test.ts`, databázový `lib/db/data-reset.test.ts`.
+
 ## 2026-10-13 — Zásoby: místa ve třech sloupcích
 
 - Dlaždice míst (Spíž, Lednice, Mrazák, …) v `components/shopping/pantry.tsx` jsou teď vždy tři vedle sebe (dřív dva sloupce na telefonu, tři od `sm`). Na úzkém telefonu je ikona nad názvem a počtem, vycentrovaná; od `sm` zůstává vedle textu jako dřív. Funkce se nemění. Vizuálně neověřeno v prohlížeči, testy komponenty (14) procházejí.

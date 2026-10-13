@@ -61,7 +61,7 @@ describe('guide steps', () => {
 
   it('explains every part of the app: each section and the main features have a card', () => {
     const ids = GUIDE_STEPS.map((step) => step.id)
-    for (const id of ['navigation', 'home', 'bell', 'shopping', 'shopping-detail', 'shopping-plan', 'shopping-finish', 'purchases', 'receipts', 'pantry', 'pantry-check', 'pantry-levels', 'budget', 'expenses', 'planning', 'recurring', 'pockets', 'period-close', 'deals', 'stores', 'recipes', 'mealplan', 'profile', 'profile-members', 'profile-stores', 'profile-preferences', 'profile-notifications', 'profile-history', 'account-menu']) {
+    for (const id of ['navigation', 'home', 'bell', 'shopping', 'shopping-detail', 'shopping-plan', 'shopping-finish', 'purchases', 'receipts', 'pantry', 'pantry-check', 'pantry-levels', 'budget', 'expenses', 'planning', 'recurring', 'pockets', 'period-close', 'deals', 'stores', 'recipes', 'mealplan', 'profile', 'profile-members', 'profile-stores', 'profile-preferences', 'profile-notifications', 'profile-history', 'profile-reset', 'account-menu']) {
       expect(ids).toContain(id)
     }
     for (const tab of ['Domů', 'Nákup', 'Zásoby', 'Rozpočet', 'Akce', 'Obchody', 'Recepty', 'Profil'] as const) {

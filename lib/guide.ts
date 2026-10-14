@@ -81,7 +81,7 @@ const BASE_STEPS: readonly GuideStep[] = [
     text: 'Nejčastější věci jsou dole v liště: Domů, Nákup, Zásoby a Rozpočet. Všechno ostatní schovává tlačítko „Více“. Na počítači je celé menu vlevo, nic se neskrývá.',
     where: 'Na telefonu je lišta úplně dole. Pod „Více“ najdete Akce, Obchody, Recepty a Profil.',
     todo: ['Zkuste si klepnout na jakoukoli záložku. Nic se tím nepokazí, vždycky se můžete vrátit.'],
-    also: ['Změny od druhých z domácnosti se samy neukážou. Tlačítko „Obnovit“ v seznamu, zásobách, nákupech a rozpočtu načte jen tu část a nic vás nehodí na začátek.'],
+    also: ['Změny od ostatních členů domácnosti se samy neukážou. Tlačítko „Obnovit“ v seznamu, zásobách, nákupech a rozpočtu načte jen tu část a nic vás nehodí na začátek.'],
     covers: ['refresh'],
     target: [{ selector: '[data-guide-nav="Více"]' }],
     targetLabel: 'Tady je zbytek',

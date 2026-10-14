@@ -1,3 +1,7 @@
+## 2026-10-14 — Průvodce: věta o změnách od ostatních členů
+
+- Koncept: `docs/22_GUIDE.md`. V kartě o menu (krok „Domů, Nákup, Zásoby, Rozpočet“) se věta „Změny od druhých z domácnosti se samy neukážou“ změnila na „Změny od ostatních členů domácnosti se samy neukážou“ (`lib/guide.ts`). Jen text.
+
 ## 2026-10-14 — Název aplikace: Asistent pro domácnost
 
 - Nadpis „Rodinný nákup“ (dashboard na telefonu, značka v postranním panelu) budil dojem, že jde jen o nákupy; nově je „Asistent pro domácnost“. Stejně se změnil název v manifestu aplikace (`ANITKA – asistent pro domácnost`) a titulek stránky v prohlížeči (`ANITKA | Asistent pro domácnost`). Upraveny i e2e testy (`e2e/smoke.spec.ts`, `e2e/budget.spec.ts`), které hledají původní text. Jen texty, funkce se nemění; e2e testy v tomto prostředí neběžely.

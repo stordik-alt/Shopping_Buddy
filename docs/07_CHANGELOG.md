@@ -1,3 +1,7 @@
+## 2026-10-14 — Cloudflare cron: dny v týdnu názvem
+
+- Koncept: `docs/cloudflare-deployment.md`. První nasazení Cloudflare odmítlo `0 15 * * 0` („invalid cron string“): Cloudflare čísluje dny 1–7 od neděle a nulu nezná, Vercel 0–6. Číslice by navíc posunula každou týdenní úlohu o den. `wrangler.jsonc` proto zapisuje dny názvem (SUN, MON, …); `cloudflare/cron.ts` má `toCloudflareSchedule`, který převede rozvrh z `vercel.json` (ten zůstává beze změny), a spuštěný výraz se k cestě přiřadí přes něj. Testy `cloudflare/cron.test.ts` (8) procházejí; nasazení znovu neproběhlo.
+
 ## 2026-10-14 — Cloudflare Workers: doména a Smart Placement
 
 - Koncept: `docs/cloudflare-deployment.md` (sekce 8c). `wrangler.jsonc`: produkční Worker má custom doménu `mojeanitka.cz` a `placement: smart` (Worker běží blízko Neonu). Hyperdrive se nepoužívá, protože aplikace jde do Neonu přes HTTP driver. Nasazení zatím neproběhlo (účet na plánu Free odmítl `limits.cpu_ms`).

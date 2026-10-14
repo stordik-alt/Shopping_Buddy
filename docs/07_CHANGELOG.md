@@ -1,3 +1,7 @@
+## 2026-10-14 — Cloudflare Workers: doména a Smart Placement
+
+- Koncept: `docs/cloudflare-deployment.md` (sekce 8c). `wrangler.jsonc`: produkční Worker má custom doménu `mojeanitka.cz` a `placement: smart` (Worker běží blízko Neonu). Hyperdrive se nepoužívá, protože aplikace jde do Neonu přes HTTP driver. Nasazení zatím neproběhlo (účet na plánu Free odmítl `limits.cpu_ms`).
+
 ## 2026-10-14 — Cloudflare Workers: ruční deploy workflow
 
 - Koncept: `docs/cloudflare-deployment.md` (sekce 8b). Přidán `.github/workflows/cloudflare-deploy.yml`: ruční spuštění s volbou staging / production; production jen z `main` a před nasazením spustí čekající migrace, staging z libovolné větve bez migrací. Z `.dev.vars.example` odstraněn nepoužívaný `BLOB_READ_WRITE_TOKEN`. Ověřeno: `pnpm cf:build` prochází. Workflow samo běžet nemohlo (chybí Cloudflare účet a secrets); produkce zůstává na Vercelu.

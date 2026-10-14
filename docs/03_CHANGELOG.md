@@ -3,6 +3,7 @@
 - Formulář „Upravit rozpočet“ synchronizuje rozepsané hodnoty s aktuálně uloženým rozpočtem, obdobím a cílem úspor; opakované otevření nebo změna období tak nezobrazí zastaralé hodnoty.
 - Do výdajových kategorií přidána „Doprava“ pro náklady na MHD a veřejnou dopravu, vlak/autobus, taxi a další dopravu.
 - Přidána databázová migrace pro novou hodnotu enumu expense_category; stávající kategorie a data zůstávají beze změny.
+- Doplněna také barva pro kategorii Doprava v přehledu výdajů; CI odhalilo chybějící položku v úplném mapování barev kategorií.
 - Ověření testy/CI je nutné provést před sloučením PR.
 
 ## 2026-10-09 — Povolení návrhů nových podkategorií a přímý OpenAI JSON

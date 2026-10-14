@@ -12,6 +12,7 @@ export const CATEGORY_BAR_COLORS: Record<ExpenseCategory, string> = {
   Ostatní: 'bg-chart-5',
   Bydlení: 'bg-chart-6',
   Auto: 'bg-chart-7',
+  Doprava: 'bg-chart-11',
   'Oblečení a obuv': 'bg-chart-8',
   Zdraví: 'bg-chart-9',
   'Volný čas': 'bg-chart-10',

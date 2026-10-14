@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, ChevronRight, Loader2, Pencil, PiggyBank } from 'lucide-react'
 import { Panel } from '@/components/budget/panel'
 import { Button } from '@/components/ui/button'
@@ -201,6 +201,19 @@ export function BudgetPlanSheet({
     next: periodBudgets[next] != null ? String(periodBudgets[next]).replace('.', ',') : '',
     goal: asText(savingsGoal),
   })
+
+  // Keep the edit form aligned with the latest saved values when the sheet is reused
+  // or the selected budget period changes. Otherwise a reopened form can show stale drafts.
+  useEffect(() => {
+    setDrafts({
+      default: asText(defaultBudget),
+      current: periodBudgets[current] != null ? String(periodBudgets[current]).replace('.', ',') : '',
+      next: periodBudgets[next] != null ? String(periodBudgets[next]).replace('.', ',') : '',
+      goal: asText(savingsGoal),
+    })
+    setError('')
+  }, [defaultBudget, current, next, periodBudgets[current], periodBudgets[next], savingsGoal])
+
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 

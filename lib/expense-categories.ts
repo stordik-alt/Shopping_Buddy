@@ -23,6 +23,10 @@ export const EXPENSE_CATEGORIES = [
     name: 'Auto',
     subcategories: ['Palivo', 'Nabíjení', 'Servis a opravy', 'Pneumatiky', 'Povinné ručení', 'Havarijní pojištění', 'Dálniční známka', 'Parkování', 'STK a emise', 'Mytí'],
   },
+  {
+    name: 'Doprava',
+    subcategories: ['MHD a veřejná doprava', 'Vlak a autobus', 'Taxi a sdílená doprava', 'Jízdné do práce', 'Ostatní doprava'],
+  },
   { name: 'Oblečení a obuv', subcategories: ['Oblečení', 'Obuv', 'Doplňky'] },
   {
     name: 'Děti',

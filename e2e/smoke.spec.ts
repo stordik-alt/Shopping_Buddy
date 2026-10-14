@@ -71,7 +71,7 @@ test.describe('critical smoke flow', () => {
 
       await expect(page).toHaveURL(/\/$/)
       // The same words are in the brand (sidebar) and in the phone header, so take the first visible one.
-      await expect(page.locator('body')).toContainText('Rodinný nákup')
+      await expect(page.locator('body')).toContainText('Asistent pro domácnost')
       // First-time accounts automatically get Anitka's guide. Dismiss it so this test can exercise
       // navigation underneath it; the guide itself is covered by its component tests.
       const guide = page.getByRole('dialog', { name: 'Průvodce aplikací' })
@@ -114,9 +114,9 @@ test.describe('critical smoke flow', () => {
           await page.setViewportSize(viewport)
           await page.goto('/')
           if (viewport.width < 1024) {
-            await expect(page.getByRole('heading', { name: 'Rodinný nákup', exact: true })).toBeVisible()
+            await expect(page.getByRole('heading', { name: 'Asistent pro domácnost', exact: true })).toBeVisible()
           } else {
-            await expect(page.locator('aside').getByText('Rodinný nákup', { exact: true })).toBeVisible()
+            await expect(page.locator('aside').getByText('Asistent pro domácnost', { exact: true })).toBeVisible()
           }
           await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
           await expect.poll(() => page.evaluate(() => {

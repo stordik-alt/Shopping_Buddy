@@ -42,7 +42,7 @@ test.describe('Rozpočet → Plánování', () => {
       await page.getByLabel('Heslo').fill('SmokeTest-2026!')
       await page.getByRole('button', { name: 'Založit účet' }).click()
       await expect(page).toHaveURL(/\/$/)
-      await expect(page.getByRole('heading', { name: 'Rodinný nákup', exact: true })).toBeVisible()
+      await expect(page.getByRole('heading', { name: 'Asistent pro domácnost', exact: true })).toBeVisible()
       // A new account automatically opens Anitka's guide, which intentionally sits above the app.
       // Close it before testing the budget controls underneath; the guide has separate UI tests.
       const guide = page.getByRole('dialog', { name: 'Průvodce aplikací' })

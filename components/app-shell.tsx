@@ -670,7 +670,7 @@ export function AppShell({
           <main className={`min-w-0 flex-1 overflow-x-clip ${guideOpen ? 'pb-[60dvh]' : 'pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-10'}`}>
             <AppHeader
               title={title}
-              mobileTitle={tab === 'Domů' ? 'Rodinný nákup' : tab}
+              mobileTitle={tab === 'Domů' ? 'Asistent pro domácnost' : tab}
               date={dateLabel}
               dark={dark}
               onToggleDark={toggleDark}

@@ -8,7 +8,7 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin', 'latin-ext'], variable: '--font-inter', display: 'swap' })
 
 export const metadata: Metadata = {
-  title: 'ANITKA | Chytré nákupy a rozpočet',
+  title: 'ANITKA | Asistent pro domácnost',
   description: 'ANITKA — vaše chytrá pomocnice pro domácnost: nákupy, zásoby, rozpočet a jídelníček na jednom místě.',
   generator: 'v0.app',
   // The ANITKA symbol, like the installed app's icon (app/manifest.ts). Under /brand/ so they load before sign-in.

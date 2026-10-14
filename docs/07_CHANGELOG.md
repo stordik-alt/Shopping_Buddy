@@ -1,3 +1,7 @@
+## 2026-10-14 — Cloudflare Worker přejmenován na moje-anitka
+
+- Koncept: `docs/cloudflare-deployment.md`. Produkční Worker se jmenuje `moje-anitka` (dřív `shopping-buddy`), stejně se změnila vazba `WORKER_SELF_REFERENCE`. Je to nový Worker, takže jeho secrets se nahrávají znovu; staging zůstává `shopping-buddy-staging`.
+
 ## 2026-10-14 — Cloudflare cron: dny v týdnu názvem
 
 - Koncept: `docs/cloudflare-deployment.md`. První nasazení Cloudflare odmítlo `0 15 * * 0` („invalid cron string“): Cloudflare čísluje dny 1–7 od neděle a nulu nezná, Vercel 0–6. Číslice by navíc posunula každou týdenní úlohu o den. `wrangler.jsonc` proto zapisuje dny názvem (SUN, MON, …); `cloudflare/cron.ts` má `toCloudflareSchedule`, který převede rozvrh z `vercel.json` (ten zůstává beze změny), a spuštěný výraz se k cestě přiřadí přes něj. Testy `cloudflare/cron.test.ts` (8) procházejí; nasazení znovu neproběhlo.

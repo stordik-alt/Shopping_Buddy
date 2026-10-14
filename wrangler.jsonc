@@ -2,12 +2,12 @@
 // Runbook: docs/cloudflare-deployment.md. Secrets are never written here (see .dev.vars.example).
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "shopping-buddy",
+  "name": "moje-anitka",
   "main": "cloudflare/worker.ts",
   "compatibility_date": "2026-09-21",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
-  "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "shopping-buddy" }],
+  "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "moje-anitka" }],
   "r2_buckets": [{ "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "shopping-buddy-next-cache" }],
   // Custom domain: Cloudflare creates the DNS record and certificate itself. The zone mojeanitka.cz
   // must be on this Cloudflare account, and the Worker must exist (first deploy) before this applies.

@@ -51,12 +51,14 @@ describe('Pantry header', () => {
 })
 
 describe('Pantry with no stock', () => {
-  it('shows only the empty state and the add button, not six identical "0 položek" tiles', () => {
+  it('shows the empty state and all fixed locations even when there is no stock', () => {
     const html = renderPantry([])
     expect(html).toContain('Zásoby jsou prázdné')
     expect(html).toContain('Přidat')
-    expect(html).not.toContain('Umístění zásob')
-    expect(html).not.toContain('0 položek')
+    expect(html).toContain('Umístění zásob')
+    expect(html).toContain('0 položek')
+    expect(html).toContain('Spíž')
+    expect(html).toContain('Lednice')
     // The truthful way stock appears: from a receipt or by hand (finishing a shopping trip adds none).
     expect(html).not.toContain('po dokončení nákupu')
   })
@@ -121,6 +123,14 @@ describe('Pantry subcategory assignment', () => {
 })
 
 describe('Pantry custom places', () => {
+  it('shows a newly added custom place even when the household has no stock', () => {
+    const place: PantryPlace = { id: 'place-1', area: 'Auto', name: 'Kufr auta' }
+    const html = renderPantry([], [place])
+    expect(html).toContain('Umístění zásob')
+    expect(html).toContain('Kufr auta')
+    expect(html).toContain('0 položek')
+  })
+
   it('shows a household custom place as its own folder tile, named and counted', () => {
     const place: PantryPlace = { id: 'place-1', area: 'Auto', name: 'Kufr auta' }
     const inCustomPlace: PantryItem = { ...item(1), customPlaceId: 'place-1' }

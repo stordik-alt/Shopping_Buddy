@@ -302,9 +302,8 @@ export function Pantry({
           </p>
         </div>
       )}
-      {/* With no stock at all the places are six identical "0 položek" tiles that only push the empty
-          state down; the places (and the choice of one when adding) appear as soon as there is stock. */}
-      {items.length > 0 && (
+      {/* Keep locations visible even when the household has no stock, so users can open empty
+          folders and see newly added custom places immediately after clearing their data. */}
       <nav aria-label="Umístění zásob" className="grid grid-cols-3 gap-2 sm:gap-3">
         {options.map((option) => {
           const Icon = iconFor(option)
@@ -354,7 +353,6 @@ export function Pantry({
           )
         })}
       </nav>
-      )}
 
       {!reviewing && totalUncategorized > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-muted px-4 py-3">

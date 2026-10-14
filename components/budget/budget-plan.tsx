@@ -212,7 +212,7 @@ export function BudgetPlanSheet({
       goal: asText(savingsGoal),
     })
     setError('')
-  }, [defaultBudget, current, next, periodBudgets, savingsGoal])
+  }, [defaultBudget, current, next, periodBudgets[current], periodBudgets[next], savingsGoal])
 
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)

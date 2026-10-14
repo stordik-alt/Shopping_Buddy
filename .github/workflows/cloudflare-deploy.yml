@@ -1,0 +1,73 @@
+name: Cloudflare Workers deploy
+
+# Manual only: nothing starts this workflow automatically, and it never runs for a pull request.
+# ci.yml builds the Worker on every push; a deploy is a deliberate click (docs/cloudflare-deployment.md).
+# Worker secrets (DATABASE_URL, CRON_SECRET, ...) live on the Worker (`wrangler secret put`), not here.
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Where to deploy (production also applies pending database migrations first)
+        type: choice
+        options:
+          - staging
+          - production
+        default: staging
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-deploy-${{ inputs.target }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.target }} to Cloudflare Workers
+    # Production ships only what is on main; staging may be deployed from a branch to test it.
+    if: ${{ inputs.target == 'staging' || github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The Cloudflare build skips migrations (lib/db/migrate-guard.ts), so production applies them here,
+      # before the new code goes live. A migration must work with the code already running (CLAUDE.md §7).
+      - name: Apply database migrations (production only)
+        if: ${{ inputs.target == 'production' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
+        run: pnpm exec tsx lib/db/migrate.ts
+
+      # Only build-time variables are needed; runtime secrets are read from the Worker.
+      - name: OpenNext build
+        env:
+          NEON_AUTH_BASE_URL: ${{ secrets.NEON_AUTH_BASE_URL }}
+          NEON_AUTH_COOKIE_SECRET: ${{ secrets.NEON_AUTH_COOKIE_SECRET }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: pnpm cf:build
+
+      - name: Deploy staging
+        if: ${{ inputs.target == 'staging' }}
+        run: pnpm cf:deploy:staging
+
+      - name: Deploy production
+        if: ${{ inputs.target == 'production' }}
+        run: pnpm cf:deploy

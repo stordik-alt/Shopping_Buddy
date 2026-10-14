@@ -185,6 +185,10 @@ Options to restore preparation, to be decided after measuring accuracy on real r
 
 On Vercel, `pnpm build` applies pending migrations for production deployments only (`lib/db/migrate-guard.ts` checks `VERCEL`/`VERCEL_ENV`). The Cloudflare build runs the same `build` script but skips them, because it is not a Vercel build. Before production moves to Cloudflare, add a migration step to its deploy: `pnpm db:migrate` with the production `DATABASE_URL`, run before `pnpm cf:deploy`. Otherwise new code would go live before its migrations.
 
+## 8b. Deploy workflow
+
+`.github/workflows/cloudflare-deploy.yml` is a manual (`workflow_dispatch`) workflow with a `staging` / `production` choice. Production runs only from `main` and applies pending migrations (`tsx lib/db/migrate.ts`) before `pnpm cf:deploy`; staging may be deployed from any branch and never touches migrations. Repository secrets it needs: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `DATABASE_URL` (+ optional `DATABASE_URL_UNPOOLED`), `NEON_AUTH_BASE_URL`, `NEON_AUTH_COOKIE_SECRET`. Runtime secrets stay on the Worker (`wrangler secret put`). Note: the staging build is made with the same `DATABASE_URL` secret, which is only used at build time. Not run yet: it needs the owner prerequisites in section 4.
+
 ## 9. Local preview
 
 `cp .dev.vars.example .dev.vars`, fill in test values, then `pnpm cf:build && pnpm cf:preview`

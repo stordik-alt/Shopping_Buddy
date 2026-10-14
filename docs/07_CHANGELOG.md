@@ -1,3 +1,19 @@
+## 2026-10-14 — Cloudflare Worker přejmenován na moje-anitka
+
+- Koncept: `docs/cloudflare-deployment.md`. Produkční Worker se jmenuje `moje-anitka` (dřív `shopping-buddy`), stejně se změnila vazba `WORKER_SELF_REFERENCE`. Je to nový Worker, takže jeho secrets se nahrávají znovu; staging zůstává `shopping-buddy-staging`.
+
+## 2026-10-14 — Cloudflare cron: dny v týdnu názvem
+
+- Koncept: `docs/cloudflare-deployment.md`. První nasazení Cloudflare odmítlo `0 15 * * 0` („invalid cron string“): Cloudflare čísluje dny 1–7 od neděle a nulu nezná, Vercel 0–6. Číslice by navíc posunula každou týdenní úlohu o den. `wrangler.jsonc` proto zapisuje dny názvem (SUN, MON, …); `cloudflare/cron.ts` má `toCloudflareSchedule`, který převede rozvrh z `vercel.json` (ten zůstává beze změny), a spuštěný výraz se k cestě přiřadí přes něj. Testy `cloudflare/cron.test.ts` (8) procházejí; nasazení znovu neproběhlo.
+
+## 2026-10-14 — Cloudflare Workers: doména a Smart Placement
+
+- Koncept: `docs/cloudflare-deployment.md` (sekce 8c). `wrangler.jsonc`: produkční Worker má custom doménu `mojeanitka.cz` a `placement: smart` (Worker běží blízko Neonu). Hyperdrive se nepoužívá, protože aplikace jde do Neonu přes HTTP driver. Nasazení zatím neproběhlo (účet na plánu Free odmítl `limits.cpu_ms`).
+
+## 2026-10-14 — Cloudflare Workers: ruční deploy workflow
+
+- Koncept: `docs/cloudflare-deployment.md` (sekce 8b). Přidán `.github/workflows/cloudflare-deploy.yml`: ruční spuštění s volbou staging / production; production jen z `main` a před nasazením spustí čekající migrace, staging z libovolné větve bez migrací. Z `.dev.vars.example` odstraněn nepoužívaný `BLOB_READ_WRITE_TOKEN`. Ověřeno: `pnpm cf:build` prochází. Workflow samo běžet nemohlo (chybí Cloudflare účet a secrets); produkce zůstává na Vercelu.
+
 ## 2026-10-13 — Zásoby: přesné množství místo počtu balení
 
 - Koncept: `docs/36_PANTRY_STOCK_LEVELS.md`. Nákup v kusech s jednou jasnou velikostí v názvu se do zásob ukládá jako celkové množství: Mouka 1 kg × 1 → 1 kg, Šunka 250 g × 1 → 250 g (`lib/inventory-packaging.ts`). Nápoje (podkategorie Nápoje a Alkoholické nápoje) výjimka: zůstávají počtem kusů s velikostí láhve (Mattoni 1,5 l × 2 → 2 ks · 1,5 l); podkategorie se předává z účtenky, ručního nákupu i při smazání nákupu. Kusová balení se rozbalují dál na kusy (Vejce 30 ks × 1 → 30 ks), řádky bez velikosti a vážené zůstávají. Pravidlo platí i pro řádky bez produktu v katalogu. Stávající řádky zásob se nemění. Testy v `lib/inventory-packaging.test.ts` procházejí; databázové testy v tomto prostředí nelze spustit.

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { CRON_JOBS, cronPaths, cronRequest, cronSchedules } from './cron'
+import { CRON_JOBS, cronPaths, cronRequest, cronSchedules, toCloudflareSchedule } from './cron'
 
 // wrangler.jsonc is JSON with comments. Strip `//` comments outside strings, then parse.
 function readJsonc(file: string): unknown {
@@ -35,9 +35,17 @@ describe('Cloudflare cron triggers', () => {
   })
 
   it('maps every fired schedule back to its vercel.json path(s)', () => {
-    for (const job of CRON_JOBS) expect(cronPaths(job.schedule)).toContain(job.path)
+    for (const job of CRON_JOBS) expect(cronPaths(toCloudflareSchedule(job.schedule))).toContain(job.path)
     const called = wrangler.triggers.crons.flatMap((cron) => cronPaths(cron))
     expect(called.sort()).toEqual(CRON_JOBS.map((job) => job.path).sort())
+  })
+
+  it('writes weekdays as names, which both platforms read the same way', () => {
+    expect(toCloudflareSchedule('0 15 * * 0')).toBe('0 15 * * SUN')
+    expect(toCloudflareSchedule('0 3 * * 1')).toBe('0 3 * * MON')
+    expect(toCloudflareSchedule('30 5 * * 4')).toBe('30 5 * * THU')
+    expect(toCloudflareSchedule('0 13 * * *')).toBe('0 13 * * *')
+    for (const cron of wrangler.triggers.crons) expect(cron).not.toMatch(/ \d$/)
   })
 
   it('calls nothing for an unknown schedule', () => {

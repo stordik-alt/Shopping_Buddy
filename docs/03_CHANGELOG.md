@@ -1,3 +1,9 @@
+## 2026-10-14 — Oprava zobrazení míst zásob po vymazání dat
+
+- Umístění zásob (Spíž, Lednice, Mrazák a další) zůstávají viditelná i při nulovém počtu položek.
+- Vlastní místa nově přidaná v Profilu domácnosti se zobrazí v Zásobách ihned, i když je inventář prázdný.
+- Doplněny regresní testy pro prázdné zásoby a vlastní místa bez položek.
+
 ## 2026-10-14 — Oprava úpravy rozpočtu a kategorie Doprava
 
 - Formulář „Upravit rozpočet“ synchronizuje rozepsané hodnoty s aktuálně uloženým rozpočtem, obdobím a cílem úspor; opakované otevření nebo změna období tak nezobrazí zastaralé hodnoty.

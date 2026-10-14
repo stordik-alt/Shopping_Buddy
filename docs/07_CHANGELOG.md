@@ -1,3 +1,7 @@
+## 2026-10-14 — Název aplikace: Asistent pro domácnost
+
+- Nadpis „Rodinný nákup“ (dashboard na telefonu, značka v postranním panelu) budil dojem, že jde jen o nákupy; nově je „Asistent pro domácnost“. Stejně se změnil název v manifestu aplikace (`ANITKA – asistent pro domácnost`) a titulek stránky v prohlížeči (`ANITKA | Asistent pro domácnost`). Upraveny i e2e testy (`e2e/smoke.spec.ts`, `e2e/budget.spec.ts`), které hledají původní text. Jen texty, funkce se nemění; e2e testy v tomto prostředí neběžely.
+
 ## 2026-10-14 — Cloudflare Worker přejmenován na moje-anitka
 
 - Koncept: `docs/cloudflare-deployment.md`. Produkční Worker se jmenuje `moje-anitka` (dřív `shopping-buddy`), stejně se změnila vazba `WORKER_SELF_REFERENCE`. Je to nový Worker, takže jeho secrets se nahrávají znovu; staging zůstává `shopping-buddy-staging`.

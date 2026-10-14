@@ -9,7 +9,7 @@ import type { MetadataRoute } from 'next'
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: '/',
-    name: 'ANITKA – rodinný nákup',
+    name: 'ANITKA – asistent pro domácnost',
     short_name: 'ANITKA',
     description: 'Vaše chytrá pomocnice pro domácnost: nákupy, zásoby, rozpočet a jídelníček na jednom místě.',
     lang: 'cs',

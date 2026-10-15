@@ -298,7 +298,7 @@ describe('Azure Document Intelligence fallback', () => {
 
 describe('extracted receipt JSON schema', () => {
   it('requires store address and city as nullable fields for strict structured output', async () => {
-    const jsonSchema = z.toJSONSchema(modelReceiptSchema) as {
+    const jsonSchema = z.toJSONSchema(modelReceiptSchema) as unknown as {
       properties: { store: { required: string[]; properties: Record<string, unknown> } }
     }
     expect(jsonSchema.properties.store.required).toEqual(['name', 'address', 'city', 'confidence'])

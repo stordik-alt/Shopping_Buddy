@@ -15,10 +15,12 @@ vi.mock('ai', async (importOriginal) => {
 import { assertAIGatewayConfigured, DEFAULT_AI_MODEL, generateAIText } from '@/lib/ai/client'
 
 const savedAccountId = process.env.CLOUDFLARE_ACCOUNT_ID
+const savedGatewayId = process.env.CLOUDFLARE_AI_GATEWAY_ID
 const savedToken = process.env.CLOUDFLARE_AI_GATEWAY_TOKEN
 
 beforeEach(() => {
   delete process.env.CLOUDFLARE_ACCOUNT_ID
+  delete process.env.CLOUDFLARE_AI_GATEWAY_ID
   delete process.env.CLOUDFLARE_AI_GATEWAY_TOKEN
   createOpenAIMock.mockReset()
   generateTextMock.mockReset()
@@ -30,6 +32,8 @@ beforeEach(() => {
 afterEach(() => {
   if (savedAccountId === undefined) delete process.env.CLOUDFLARE_ACCOUNT_ID
   else process.env.CLOUDFLARE_ACCOUNT_ID = savedAccountId
+  if (savedGatewayId === undefined) delete process.env.CLOUDFLARE_AI_GATEWAY_ID
+  else process.env.CLOUDFLARE_AI_GATEWAY_ID = savedGatewayId
   if (savedToken === undefined) delete process.env.CLOUDFLARE_AI_GATEWAY_TOKEN
   else process.env.CLOUDFLARE_AI_GATEWAY_TOKEN = savedToken
   vi.restoreAllMocks()
@@ -38,7 +42,7 @@ afterEach(() => {
 describe('Cloudflare AI Gateway client', () => {
   it('requires both server-side configuration values before making a request', async () => {
     expect(() => assertAIGatewayConfigured()).toThrow(
-      'Cloudflare AI Gateway is not configured. Missing: CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_AI_GATEWAY_TOKEN',
+      'Cloudflare AI Gateway is not configured. Missing: CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_AI_GATEWAY_ID, CLOUDFLARE_AI_GATEWAY_TOKEN',
     )
     await expect(generateAIText({ prompt: 'test' } as never)).rejects.toThrow('CLOUDFLARE_ACCOUNT_ID')
     expect(createOpenAIMock).not.toHaveBeenCalled()
@@ -47,15 +51,19 @@ describe('Cloudflare AI Gateway client', () => {
 
   it('uses the Cloudflare REST endpoint and the fixed GPT-6 Luna model', async () => {
     process.env.CLOUDFLARE_ACCOUNT_ID = 'account-123'
+    process.env.CLOUDFLARE_AI_GATEWAY_ID = 'anitka-gateway'
     process.env.CLOUDFLARE_AI_GATEWAY_TOKEN = 'gateway-token'
     generateTextMock.mockResolvedValue({ text: 'ok' })
 
     await generateAIText({ prompt: 'hello' } as never)
+    await generateAIText({ prompt: 'hello again' } as never)
 
     expect(createOpenAIMock).toHaveBeenCalledWith({
       baseURL: 'https://api.cloudflare.com/client/v4/accounts/account-123/ai/v1',
       apiKey: 'gateway-token',
+      headers: { 'cf-aig-gateway-id': 'anitka-gateway' },
     })
+    expect(createOpenAIMock).toHaveBeenCalledTimes(1)
     expect(responsesMock).toHaveBeenCalledWith('openai/gpt-6-luna')
     expect(generateTextMock).toHaveBeenCalledWith(
       expect.objectContaining({ prompt: 'hello', model: { modelId: DEFAULT_AI_MODEL } }),
@@ -64,6 +72,7 @@ describe('Cloudflare AI Gateway client', () => {
 
   it('logs only safe error metadata and returns a sanitized failure', async () => {
     process.env.CLOUDFLARE_ACCOUNT_ID = 'account-123'
+    process.env.CLOUDFLARE_AI_GATEWAY_ID = 'anitka-gateway'
     process.env.CLOUDFLARE_AI_GATEWAY_TOKEN = 'do-not-log-this-token'
     const providerError = Object.assign(new Error('request echoed do-not-log-this-token'), { statusCode: 401 })
     generateTextMock.mockRejectedValue(providerError)

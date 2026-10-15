@@ -16,10 +16,11 @@ type ProviderOptions = NonNullable<GenerateAITextOptions['providerOptions']>
 // Promotional flyers read page by page by a model — the part every flyer source shares (Albert:
 // lib/ingestion/albert.ts, Penny: lib/ingestion/penny-flyer.ts). A retailer that publishes its prices
 // only as flyer pages, whose text layer does not say which price belongs to which product, gets each
-// page read once by the cheapest model (the owner's explicit decisions, CLAUDE.md section 30's
-// exceptions). The result is cached per page (`flyer_pages`), and nothing the model says is trusted on
-// its own: a deterministic validator (validateFlyerOffer) accepts an offer only when the page itself
-// confirms it. A source supplies only how to list its current flyers and their pages.
+// page read once by the fixed model (`lib/ai/client.ts`). The result is cached per page
+// (`flyer_pages`), so existing pages are not automatically re-read when the model changes; cache
+// entries may reflect an earlier model. Nothing the model says is trusted on its own: a deterministic
+// validator (validateFlyerOffer) accepts an offer only when the page itself confirms it. A source
+// supplies only how to list its current flyers and their pages.
 
 export const USER_AGENT = 'ShoppingBuddy-connector/0.1 (+https://github.com/stordik-alt/Shopping_Buddy)'
 /** Pages sent to the model at the same time. */
@@ -61,7 +62,7 @@ export type ExtractedOffer = z.infer<typeof extractedOfferSchema>
 
 export type PageExtraction = { offers: ExtractedOffer[]; inputTokens?: number; outputTokens?: number }
 
-/** The model step, behind an interface so tests (and a future cheaper model) plug in. */
+/** The model step, behind an interface so tests can inject a fake extractor. */
 export type FlyerPageExtractor = {
   model: string
   extract(page: FlyerPage): Promise<PageExtraction>

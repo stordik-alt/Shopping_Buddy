@@ -1,4 +1,4 @@
-import { generateText, Output } from 'ai'
+import { Output } from 'ai'
 import { z } from 'zod'
 import { DEFAULT_AI_MODEL, generateAIText } from '@/lib/ai/client'
 import { RECEIPT_READING_PROMPT, RECEIPT_READING_PROMPT_VERSION } from '@/lib/receipt-reading-prompt'

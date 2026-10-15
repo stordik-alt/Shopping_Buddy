@@ -7,14 +7,17 @@ export type GenerateAITextOptions = Omit<Parameters<typeof sdkGenerateText>[0], 
 
 type GatewayConfig = {
   accountId: string
+  gatewayId: string
   token: string
 }
 
 function gatewayConfig(): GatewayConfig {
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID?.trim()
+  const gatewayId = process.env.CLOUDFLARE_AI_GATEWAY_ID?.trim()
   const token = process.env.CLOUDFLARE_AI_GATEWAY_TOKEN?.trim()
   const missing = [
     !accountId && 'CLOUDFLARE_ACCOUNT_ID',
+    !gatewayId && 'CLOUDFLARE_AI_GATEWAY_ID',
     !token && 'CLOUDFLARE_AI_GATEWAY_TOKEN',
   ].filter(Boolean)
 
@@ -24,12 +27,42 @@ function gatewayConfig(): GatewayConfig {
   if (!/^[a-zA-Z0-9-]+$/.test(accountId!)) {
     throw new Error('CLOUDFLARE_ACCOUNT_ID has an invalid format')
   }
+  if (!/^[a-zA-Z0-9_-]+$/.test(gatewayId!)) {
+    throw new Error('CLOUDFLARE_AI_GATEWAY_ID has an invalid format')
+  }
 
-  return { accountId: accountId!, token: token! }
+  return { accountId: accountId!, gatewayId: gatewayId!, token: token! }
 }
 
 export function assertAIGatewayConfigured(): void {
   gatewayConfig()
+}
+
+type ResponseModel = ReturnType<ReturnType<typeof createOpenAI>['responses']>
+
+let cachedConfig: GatewayConfig | undefined
+let cachedModel: ResponseModel | undefined
+
+function gatewayModel(config: GatewayConfig): ResponseModel {
+  if (
+    cachedModel &&
+    cachedConfig?.accountId === config.accountId &&
+    cachedConfig.gatewayId === config.gatewayId &&
+    cachedConfig.token === config.token
+  ) {
+    return cachedModel
+  }
+
+  // Cloudflare's account-scoped AI REST API supports the Responses API and third-party models;
+  // cf-aig-gateway-id selects the Gateway whose stored provider credentials and policies apply.
+  const provider = createOpenAI({
+    baseURL: `https://api.cloudflare.com/client/v4/accounts/${config.accountId}/ai/v1`,
+    apiKey: config.token,
+    headers: { 'cf-aig-gateway-id': config.gatewayId },
+  })
+  cachedConfig = config
+  cachedModel = provider.responses(DEFAULT_AI_MODEL)
+  return cachedModel
 }
 
 function safeStatusCode(error: unknown): number | undefined {
@@ -43,9 +76,8 @@ export async function generateAIText<T extends GenerateAITextOptions>(options: T
     throw new Error('Cloudflare AI Gateway requests are only available on the server')
   }
 
-  const { accountId, token } = gatewayConfig()
-  const baseURL = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/v1`
-  const model = createOpenAI({ baseURL, apiKey: token }).responses(DEFAULT_AI_MODEL)
+  const config = gatewayConfig()
+  const model = gatewayModel(config)
 
   try {
     return await sdkGenerateText({ ...options, model } as Parameters<typeof sdkGenerateText>[0])

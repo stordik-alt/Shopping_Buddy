@@ -114,7 +114,7 @@ MIME is re-detected from bytes today; decide during Phase 3.
 |---|---|
 | `sharp` | **Prepared** (branch `cloudflare-migration-prep`): the Cloudflare build aliases `sharp` to a throwing shim; the pipeline sends the original photo. Replacement measured on real receipts before adoption |
 | OIDC → GCP | **Prepared**: `lib/gcp-oidc.ts` — `GCP_OIDC_TOKEN_SOURCE=vercel` (default) or `self-signed` |
-| AI Gateway | **Implemented**: `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_AI_GATEWAY_TOKEN`; shared client uses GPT-6 Luna |
+| AI Gateway | **Implemented**: `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_AI_GATEWAY_ID`, and `CLOUDFLARE_AI_GATEWAY_TOKEN`; shared client uses GPT-6 Luna through the account-scoped AI REST Responses API and selects the Gateway with `cf-aig-gateway-id` |
 | Crons | **Prepared**: `wrangler.jsonc` triggers + `cloudflare/worker.ts` `scheduled()`; `vercel.json` stays the job list, `cloudflare/cron.test.ts` keeps both in step |
 
 ## Environments

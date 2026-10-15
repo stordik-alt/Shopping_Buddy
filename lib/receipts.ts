@@ -113,8 +113,8 @@ export const extractedReceiptItemSchema = z.object({
 export const extractedReceiptSchema = z.object({
   store: z.object({
     name: z.string().nullable(),
-    address: z.string().nullable(),
-    city: z.string().nullable(),
+    address: z.string().nullable().optional(),
+    city: z.string().nullable().optional(),
     confidence: z.number().nullable(),
   }),
   date: z.string().nullable(),
@@ -133,7 +133,12 @@ export type ExtractedReceipt = z.infer<typeof extractedReceiptSchema>
 
 // OpenAI strict structured output requires every property to be listed as required.
 // Store address/city are nullable when not printed, but are always present in the JSON.
-const modelReceiptSchema = extractedReceiptSchema
+export const modelReceiptSchema = extractedReceiptSchema.extend({
+  store: extractedReceiptSchema.shape.store.extend({
+    address: z.string().nullable(),
+    city: z.string().nullable(),
+  }),
+})
 
 /** Stage 2: normalized OCR text → structured data through the shared Cloudflare AI Gateway client. */
 export interface ReceiptStructuringProvider {

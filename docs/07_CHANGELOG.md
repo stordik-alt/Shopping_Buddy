@@ -1,6 +1,6 @@
 ## 2026-10-15 — Oprava striktního JSON schématu účtenky
 
-- Pole `store.address` a `store.city` jsou nyní povinná a nullable přímo ve schématu `extractedReceiptSchema`. OpenAI strict structured output tak vygeneruje `required: ["name", "address", "city", "confidence"]` pro objekt obchodu; nevytištěná adresa nebo město se vrací jako `null` místo chybějícího klíče. Přidána regresní kontrola JSON schématu.
+- Modelové schéma `modelReceiptSchema` vyžaduje `store.address` a `store.city` jako nullable; obecné `extractedReceiptSchema` si zachovává dosavadní volitelnost těchto polí pro zpětnou kompatibilitu. OpenAI strict structured output tak vygeneruje `required: ["name", "address", "city", "confidence"]` pro objekt obchodu; nevytištěná adresa nebo město se vrací jako `null` místo chybějícího klíče. Přidána regresní kontrola JSON schématu.
 
 ## 2026-10-15 — Central Cloudflare AI Gateway and GPT-6 Luna
 

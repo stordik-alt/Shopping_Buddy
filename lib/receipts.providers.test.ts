@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 // The real providers in lib/receipts.ts talk to Google Cloud Vision, Google STS/IAM, Azure
 // Document Intelligence and the shared AI client. None of those are called here: `fetch`, the
@@ -14,6 +15,7 @@ import {
   azureReceiptTextExtractor,
   aiReceiptStructuringProvider,
   extractedReceiptSchema,
+  modelReceiptSchema,
   googleVisionPdfTextExtractor,
   googleVisionTextExtractor,
   isAzureReceiptFallbackConfigured,
@@ -296,8 +298,7 @@ describe('Azure Document Intelligence fallback', () => {
 
 describe('extracted receipt JSON schema', () => {
   it('requires store address and city as nullable fields for strict structured output', async () => {
-    const { extractedReceiptSchema } = await import('@/lib/receipts')
-    const jsonSchema = z.toJSONSchema(extractedReceiptSchema) as {
+    const jsonSchema = z.toJSONSchema(modelReceiptSchema) as {
       properties: { store: { required: string[]; properties: Record<string, unknown> } }
     }
     expect(jsonSchema.properties.store.required).toEqual(['name', 'address', 'city', 'confidence'])
@@ -306,7 +307,7 @@ describe('extracted receipt JSON schema', () => {
 
 describe('aiReceiptStructuringProvider', () => {
   const extraction: ExtractedReceipt = {
-    store: { name: 'Lidl', confidence: 0.9 },
+    store: { name: 'Lidl', address: null, city: null, confidence: 0.9 },
     date: '2026-09-22',
     time: null,
     receiptNumber: null,

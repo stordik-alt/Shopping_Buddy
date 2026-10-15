@@ -21,6 +21,22 @@ function testDatabaseUrl(): string {
   return value
 }
 
+async function markTestAccountEmailVerified(email: string) {
+  const client = new Client({
+    connectionString: testDatabaseUrl(),
+    connectionTimeoutMillis: 5_000,
+    query_timeout: 10_000,
+  })
+  await client.connect()
+  try {
+    // E2E uses an isolated test database and has no configured mail inbox. This test fixture
+    // simulates the state reached only after a real OTP has been accepted in production.
+    await client.query('UPDATE neon_auth."user" SET "emailVerified" = true WHERE lower(email) = lower($1)', [email])
+  } finally {
+    await client.end()
+  }
+}
+
 async function cleanupTestAccount(email: string) {
   const client = new Client({
     connectionString: testDatabaseUrl(),
@@ -69,6 +85,17 @@ test.describe('critical smoke flow', () => {
       await page.getByLabel('Heslo').fill(password)
       await page.getByRole('button', { name: 'Založit účet' }).click()
 
+      await expect(page).toHaveURL(/\/auth\/verify-email/)
+      await expect(page.getByRole('heading', { name: 'Ověření e-mailu' })).toBeVisible()
+      await expect(page.getByLabel('Ověřovací kód')).toBeVisible()
+
+      // The isolated E2E database has no inbox for OTP delivery. Mark this disposable test
+      // account verified as a fixture, then continue testing the authenticated application.
+      await markTestAccountEmailVerified(email)
+      await page.goto(`/auth/sign-in?verified=1&email=${encodeURIComponent(email)}`)
+      await page.getByLabel('E-mail').fill(email)
+      await page.getByLabel('Heslo').fill(password)
+      await page.getByRole('button', { name: 'Přihlásit se' }).click()
       await expect(page).toHaveURL(/\/$/)
       // The same words are in the brand (sidebar) and in the phone header, so take the first visible one.
       await expect(page.locator('body')).toContainText('Asistent pro domácnost')

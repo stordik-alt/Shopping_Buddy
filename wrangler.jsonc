@@ -16,7 +16,10 @@
   // makes several sequential DB round trips over HTTP, so distance to Neon matters more than to the user.
   "placement": { "mode": "smart" },
   "keep_vars": true,
-  "vars": {},
+  "vars": {
+    "CLOUDFLARE_ACCOUNT_ID": "afe2659d16305c3366cdc9726034af1c",
+    "CLOUDFLARE_AI_GATEWAY_ID": "moje-anitka"
+  },
   "limits": { "cpu_ms": 300000 },
   "observability": { "enabled": true },
   // Weekdays are written as names: Cloudflare numbers them 1-7 from Sunday (Vercel: 0-6 from Sunday),

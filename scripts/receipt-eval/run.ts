@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import sharp from 'sharp'
 import { describeError } from '@/lib/errors'
 import { DEFAULT_AI_MODEL } from '@/lib/ai/client'
-import { compareReading, modelCostUsd, PRICES, summarizeEval, type EvalOutcome, type EvalSummary, type ReceiptComparison, type ReceiptTruth } from '@/lib/receipt-eval'
+import { compareReading, modelCostUsd, PRICES, summarizeEval, type EvalOutcome, type EvalSummary, type ReceiptComparison, type ReceiptEvaluationModel, type ReceiptTruth } from '@/lib/receipt-eval'
 import { prepareReceiptImageForModel, prepareReceiptImageForOcr, type ModelImageVariant } from '@/lib/receipt-image'
 import { readPdfTextLayer } from '@/lib/receipt-pdf'
 import { RECEIPT_READING_PROMPT_VERSION } from '@/lib/receipt-reading-prompt'
@@ -29,7 +29,7 @@ type CachedResult = {
   variant: Variant
   readerId: string
   // Optional for backward compatibility with results cached before model metadata was explicit.
-  model?: typeof DEFAULT_AI_MODEL | 'google/gemini-2.5-flash-lite'
+  model?: ReceiptEvaluationModel
   extracted: ExtractedReceipt | null
   reading: ReceiptReading | null
   usage: { inputTokens?: number; outputTokens?: number }

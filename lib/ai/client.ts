@@ -84,13 +84,16 @@ export async function generateAIText<T extends GenerateAITextOptions>(options: T
   } catch (error) {
     const statusCode = safeStatusCode(error)
     const errorType = error instanceof Error ? error.name : 'UnknownError'
-    console.error('[ai] Cloudflare AI Gateway request failed', {
+    console.error('[ai] Cloudflare AI Gateway generation failed', {
       model: DEFAULT_AI_MODEL,
       ...(statusCode ? { statusCode } : {}),
       errorType,
     })
-    throw new Error(
-      `Cloudflare AI Gateway request failed${statusCode ? ` (HTTP ${statusCode})` : ''}. Check gateway access and model availability.`,
-    )
+    const message = statusCode
+      ? `Cloudflare AI Gateway request failed (HTTP ${statusCode}). Check gateway access and model availability.`
+      : errorType === 'NoObjectGeneratedError' || errorType === 'NoOutputGeneratedError'
+        ? 'Cloudflare AI Gateway returned no valid structured output.'
+        : 'Cloudflare AI Gateway request failed before a response was received. Check network connectivity and gateway configuration.'
+    throw new Error(message, { cause: error })
   }
 }

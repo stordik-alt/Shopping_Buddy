@@ -177,7 +177,7 @@ export const pennyFlyerSource: FlyerSource<PennyFlyer> = {
  *  190 g" at 9,90 Kč — 52 Kč/kg, where the page prints 21 Kč per 100 g for it. */
 export const PENNY_VALIDATION: FlyerValidationOptions = { unitPriceOnPage: true }
 
-/** Luna's low-reasoning setting has not been measured on Penny's pages; recheck extraction quality. */
+/** Luna runs with reasoning disabled here; its Penny-page accuracy is unmeasured and must be rechecked. */
 export const PENNY_FLYER_MODEL = FLYER_MODEL
 
 export const pennyFlyerExtractor = createFlyerPageExtractor('PENNY discount store', {

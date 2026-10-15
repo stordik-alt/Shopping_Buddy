@@ -78,17 +78,35 @@ describe('Cloudflare AI Gateway client', () => {
     generateTextMock.mockRejectedValue(providerError)
     const log = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    await expect(generateAIText({ prompt: 'private receipt text' } as never)).rejects.toThrow(
-      'Cloudflare AI Gateway request failed (HTTP 401). Check gateway access and model availability.',
-    )
+    await expect(generateAIText({ prompt: 'private receipt text' } as never)).rejects.toMatchObject({
+      message: 'Cloudflare AI Gateway request failed (HTTP 401). Check gateway access and model availability.',
+      cause: providerError,
+    })
 
     const logOutput = JSON.stringify(log.mock.calls)
     expect(logOutput).not.toContain('do-not-log-this-token')
     expect(logOutput).not.toContain('private receipt text')
-    expect(log).toHaveBeenCalledWith('[ai] Cloudflare AI Gateway request failed', {
+    expect(log).toHaveBeenCalledWith('[ai] Cloudflare AI Gateway generation failed', {
       model: DEFAULT_AI_MODEL,
       statusCode: 401,
       errorType: 'Error',
     })
+  })
+
+  it('distinguishes structured-output failures from transport errors without logging provider details', async () => {
+    process.env.CLOUDFLARE_ACCOUNT_ID = 'account-123'
+    process.env.CLOUDFLARE_AI_GATEWAY_ID = 'anitka-gateway'
+    process.env.CLOUDFLARE_AI_GATEWAY_TOKEN = 'gateway-token'
+    const providerError = Object.assign(new Error('private model output details'), { name: 'NoObjectGeneratedError' })
+    generateTextMock.mockRejectedValue(providerError)
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await expect(generateAIText({ prompt: 'private receipt text' } as never)).rejects.toMatchObject({
+      message: 'Cloudflare AI Gateway returned no valid structured output.',
+      cause: providerError,
+    })
+
+    expect(JSON.stringify(log.mock.calls)).not.toContain('private model output details')
+    expect(JSON.stringify(log.mock.calls)).not.toContain('private receipt text')
   })
 })

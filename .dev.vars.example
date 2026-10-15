@@ -43,6 +43,7 @@ GCP_OIDC_PRIVATE_KEY=
 # Optional, e.g. shopping-buddy-staging, to tell environments apart in Google's audit logs.
 GCP_OIDC_SUBJECT=
 
-# --- LLM requests use Cloudflare AI Gateway (docs/cloudflare-deployment.md). ---
+# --- LLM requests use Cloudflare AI Gateway (docs/cloudflare-deployment.md).
+# The OpenAI provider key is configured in the Gateway, not stored in this file. ---
 CLOUDFLARE_ACCOUNT_ID=
 CLOUDFLARE_AI_GATEWAY_TOKEN=

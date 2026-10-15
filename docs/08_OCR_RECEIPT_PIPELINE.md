@@ -1,6 +1,6 @@
 # Shopping Buddy — OCR Receipt Import Pipeline
 
-> **Successor in preparation (2026-10-05):** reading the receipt in one step with GPT-6 Luna instead of OCR + Gemini — `docs/18_RECEIPT_READER_LUNA.md`. Until production switches (`RECEIPT_READER=luna`), this document describes the running pipeline. Since 2026-10-05 Azure Document Intelligence is the OCR whenever it is configured and Google Vision is not called (it failed in production for every request — the GCP project has no billing enabled); see section 23.
+> **Current routing (2026-10-15):** this two-stage receipt path still runs, but its structuring request now uses GPT-6 Luna through the shared Cloudflare AI Gateway client (`lib/ai/client.ts`); the old Gemini/Vercel Gateway choice is historical. The separate one-step receipt-image reader remains a preparation/measurement path, not production — see `docs/18_RECEIPT_READER_LUNA.md`. Azure Document Intelligence remains the configured OCR provider; Google Vision is not called when Azure is configured.
 
 **Status: implemented, 2026-09-22 — owner-approved exception to `CLAUDE.md` section 30.** The
 owner's own words when asked to confirm: *"OCR chci mít vyřešené, na konec necháme AI asistenta.
@@ -8,14 +8,15 @@ Toto AI je pouze pro import účtenek"* (I want OCR resolved; the AI assistant s
 AI is only for receipt import). This document originally captured the target design as
 planning-only, before that approval — see `CLAUDE.md` section 30 and `docs/01_CURRENT_STATE.md`
 section 33 for the full story of what changed and why. The design below is what actually got
-built: `lib/receipts.ts` (`googleVisionTextExtractor`, `geminiStructuringProvider`), `app/actions/
+built: `lib/receipts.ts` (`googleVisionTextExtractor`, `aiReceiptStructuringProvider`), `app/actions/
 receipts.ts` (`uploadReceiptAction` and the rest of the state-machine actions), and
 `components/budget/receipt-pending.tsx` (the review/duplicate/failure UI). Manual entry
 (`importReceiptAction`, `components/budget/receipt-import.tsx`'s form) remains available
 alongside it — a photo upload that fails still falls back to it.
 
 Target capacity: ~1,500 receipts/month. Primary database: Neon PostgreSQL. OCR: Google Cloud
-Vision. Structuring the OCR text into data: a cheap AI model, preferably Gemini Flash-Lite.
+Vision or configured Azure Document Intelligence. Structuring the OCR text into data: GPT-6 Luna
+through the shared Cloudflare AI Gateway client.
 The application must never persist unverified or obviously-incorrect data as a valid receipt.
 
 ---
@@ -90,9 +91,11 @@ Then start OCR.
 
 ---
 
-## 3. OCR — Google Cloud Vision
+## 3. OCR providers
 
-Use Google Cloud Vision for OCR. Preferred mode: `DOCUMENT_TEXT_DETECTION`.
+When Azure Document Intelligence is configured, it reads photos and scanned PDFs through
+`prebuilt-receipt`; otherwise, Google Cloud Vision handles OCR with `DOCUMENT_TEXT_DETECTION`.
+This priority avoids the known production Google Vision billing failure.
 
 For images, the existing `images:annotate` API-key path is used. For PDFs, the application uses the online `files:annotate` endpoint with Google OAuth and processes up to 5 selected pages per request. Google does not support API keys for `files:annotate`. The application uses Vercel OIDC + Google Workload Identity Federation, so no service-account JSON key is stored in Vercel. The runtime obtains the short-lived Vercel token through `@vercel/oidc`'s `getVercelOidcToken()` helper. This avoids a second storage system because the PDF can be sent directly from the uploaded file bytes.
 
@@ -101,7 +104,8 @@ OCR must return:
 - individual lines
 - bounding boxes/text positions, if available
 
-On success: `OCR_COMPLETED`. If Google Vision fails and Azure fallback is configured, the same OCR request is retried with Azure Document Intelligence `prebuilt-receipt`. If both providers fail: `OCR_FAILED`. The error includes both provider failures and is stored so the import can be retried without re-uploading the receipt.
+On success: `OCR_COMPLETED`. An OCR failure is stored so the import can be retried without
+re-uploading the receipt.
 
 ---
 
@@ -125,8 +129,8 @@ original OCR text must remain available for debugging.
 
 Feed the normalized OCR text to an AI model.
 
-Preferred model: Gemini Flash-Lite or an equivalent cheap model that supports structured JSON
-output.
+The application uses the fixed `openai/gpt-6-luna` model through `lib/ai/client.ts`; callers cannot
+select another model. The shared client sends requests to Cloudflare AI Gateway's Responses API.
 
 The model must extract:
 - store
@@ -339,10 +343,10 @@ How each open question below was resolved when this was implemented (2026-09-22)
 - The single-call `ReceiptOcrProvider` seam this section originally proposed was replaced with the
   two-stage split this design called for in section 1: `lib/receipts.ts`'s `ReceiptTextExtractor`
   (`googleVisionTextExtractor`, real Google Cloud Vision `DOCUMENT_TEXT_DETECTION` call) and
-  `ReceiptStructuringProvider` (`geminiStructuringProvider`, `generateObject` from the `ai` SDK
-  against `google/gemini-2.5-flash-lite` via the AI Gateway). Both are injectable interfaces, so
+  `ReceiptStructuringProvider` (`aiReceiptStructuringProvider`, structured output through
+  `lib/ai/client.ts` using `openai/gpt-6-luna` via Cloudflare AI Gateway). Both are injectable interfaces, so
   `app/actions/receipts.ts`'s tests exercise the real orchestration logic (state transitions,
-  validation gate, duplicate check) against fake providers, without needing real Vision/Gemini
+  validation gate, duplicate check) against fake providers, without needing real OCR/Gateway
   credentials to run.
 - `app/actions/receipts.ts`'s `createPurchaseFromReceiptItems()` (shared by `importReceiptAction`,
   a completed OCR pass, and a confirmed review) is exactly the reuse this section anticipated — one
@@ -359,7 +363,7 @@ How each open question below was resolved when this was implemented (2026-09-22)
 - **Known gap, not yet closed:** `GOOGLE_VISION_API_KEY` is set in the Vercel project for
   Production only, not Development — so the OCR stage cannot be exercised against real credentials
   in local dev (`vercel env pull` won't fetch it). Tests and local verification use fake providers
-  instead, which cover the orchestration logic but not real Vision/Gemini output quality. Add the
+  instead, which cover the orchestration logic but not real OCR/model output quality. Add the
   key to Development in Vercel when someone needs to test against real receipts locally.
 
 ---
@@ -610,12 +614,12 @@ Every OCR import records the provider that actually produced the raw OCR text in
 - azure_document_intelligence — Google failed and Azure fallback succeeded.
 - null — no OCR provider completed successfully (or the import was manual).
 
-This is audit metadata only. The same Gemini structuring, validation, duplicate detection, and Neon persistence path is used regardless of provider.
+This is audit metadata only. The same GPT-6 Luna structuring, validation, duplicate detection, and Neon persistence path is used regardless of OCR provider.
 
 - AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT
 - AZURE_DOCUMENT_INTELLIGENCE_KEY
 
-The fallback uses the Azure Document Intelligence REST API 2024-11-30 and sends the uploaded file bytes as base64, so no storage address is exposed to Azure. Azure's analyzeResult.content is fed into the same Gemini structuring and validation pipeline; Azure never bypasses the application's validation rules.
+The fallback uses the Azure Document Intelligence REST API 2024-11-30 and sends the uploaded file bytes as base64, so no storage address is exposed to Azure. Azure's analyzeResult.content is fed into the same GPT-6 Luna structuring and validation pipeline; Azure never bypasses the application's validation rules.
 ## Doses (dávky)
 
 A line whose name states a dose count ("WOOLITE pr.gel 45PD", "Persil 33 dávek", `doseCountInName` in `lib/receipts.ts`) and carries no explicit unit other than pieces is stored in the unit `dávka`: quantity = doses per pack × packs (a reader quantity equal to the dose count means one pack), price per dose = the line's printed amount over the doses. So the pantry gets 45 doses and the line costs exactly what the receipt says.

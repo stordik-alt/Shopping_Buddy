@@ -67,7 +67,7 @@ Checked in the cloud session, with placeholder secrets and no Cloudflare account
    on staging. `limits.cpu_ms` is set to the Paid maximum of 5 min.
 4. **Origin change.** Users and the installed PWA are on `shopping-with-buddy.vercel.app`, which
    cannot move. Put a custom domain in front of Vercel first; the cutover is then only a DNS change.
-5. **Vercel still needed for the AI Gateway** unless it is replaced (§7).
+5. LLM calls use Cloudflare AI Gateway from either Vercel or Workers; the Vercel AI Gateway is no longer part of the application path (§7).
 
 ## 4. Owner prerequisites
 
@@ -80,6 +80,14 @@ Checked in the cloud session, with placeholder secrets and no Cloudflare account
 4. **Custom domain** on a Cloudflare zone (see risk 4).
 5. **Neon Auth trusted origins:** add the staging and later the production Worker hostnames in the
    Neon Console (Auth → Configuration → Domains), as was done for Vercel.
+6. **Cloudflare AI Gateway:** configure the OpenAI provider key in the Gateway, then create an
+   authenticated Gateway token with the `AI Gateway Run` permission. Set `CLOUDFLARE_ACCOUNT_ID`
+   and `CLOUDFLARE_AI_GATEWAY_TOKEN` in Vercel's server environment variables, local `.env.local`,
+   and the Worker's secrets (or local `.dev.vars`). The application uses the Cloudflare account
+   Responses API and fixed `openai/gpt-6-luna` model; do not set `OPENAI_API_KEY` in the app.
+   For the taxonomy pilot workflow, add the account ID as the GitHub Actions variable
+   `CLOUDFLARE_ACCOUNT_ID` and the run token as the secret `CLOUDFLARE_AI_GATEWAY_TOKEN`.
+   The old Vercel `AI_GATEWAY_API_KEY` is no longer read by application code and can be removed.
 
 ## 5. PDF OCR without Vercel OIDC (one-time Google setup)
 
@@ -148,7 +156,7 @@ Options to restore preparation, to be decided after measuring accuracy on real r
 
 | Service | On Cloudflare |
 |---|---|
-| **Receipt structuring and Albert flyers (AI Gateway)** | Set `AI_GATEWAY_API_KEY`: Vercel dashboard → AI Gateway → API Keys. Both model uses (receipts, `lib/ingestion/albert.ts`) go through the same gateway. The AI SDK uses it before Vercel OIDC, so no code change is needed (checked in `@ai-sdk/gateway`). Billing stays with Vercel's gateway. Replacing it (Cloudflare AI Gateway or a direct provider) is a separate decision under CLAUDE.md §30 |
+| **LLM requests (Cloudflare AI Gateway)** | `lib/ai/client.ts` routes all approved LLM requests through Cloudflare's account-scoped Responses API using `openai/gpt-6-luna`. Set `CLOUDFLARE_ACCOUNT_ID` and an authenticated Gateway Run token (`CLOUDFLARE_AI_GATEWAY_TOKEN`) on Vercel and Workers. Store the upstream OpenAI key in Cloudflare AI Gateway, not the app. Google Vision and Azure Document Intelligence remain separate OCR integrations. |
 | **Analytics** | Vercel Analytics is off in the Cloudflare build. Turn on **Cloudflare Web Analytics** for the zone (automatic setup, no code) |
 | **Cron** | 26 Cron Triggers from `wrangler.jsonc` (UTC, same times as `vercel.json`). Adding a job means adding it to `vercel.json` and to `wrangler.jsonc`; `cloudflare/cron.test.ts` fails until both match. Watch for double runs during a period when both Vercel and Cloudflare production are live |
 | **Receipt files** | Already R2 over the S3 API (`lib/storage/r2.ts`). An R2 Worker binding would be an optimization, not a requirement |

@@ -178,8 +178,8 @@ export function summarizeEval(outcomes: EvalOutcome[]): EvalSummary {
   }
 }
 
-/** USD per token, from the AI Gateway price list (https://ai-gateway.vercel.sh/v1/models, checked
- *  2026-10-05), and Google Vision's price per image. Re-check before relying on the figures. */
+/** Historical model token rates from the Vercel AI Gateway list (checked 2026-10-05), plus Google
+ *  Vision's per-image rate. These are estimates, not verified Cloudflare billing rates. */
 export const PRICES = {
   'openai/gpt-6-luna': { input: 0.1e-6, output: 0.5e-6 },
   'google/gemini-2.5-flash-lite': { input: 0.1e-6, output: 0.4e-6 },

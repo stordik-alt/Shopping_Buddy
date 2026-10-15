@@ -151,9 +151,9 @@ export function receiptReadingMessage(input: ReceiptReadingInput) {
   }
 }
 
-/** GPT-6 Luna through the AI Gateway (a plain "provider/model" string, as for the other model calls).
- *  `reasoningEffort` is chosen by measurement; `generate` is injectable for tests. A response that does
- *  not fit the schema throws, so the import fails with a reason instead of storing partial data. */
+/** GPT-6 Luna through the shared Cloudflare AI Gateway client. `reasoningEffort` is chosen by
+ *  measurement; `generate` is injectable for tests. A response that does not fit the schema throws,
+ *  so the import fails with a reason instead of storing partial data. */
 export function createLunaReceiptReader({
   reasoningEffort = 'low',
   generate = generateAIText,

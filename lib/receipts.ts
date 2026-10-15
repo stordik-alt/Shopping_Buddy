@@ -77,11 +77,8 @@ export type ReceiptLineItem = {
 
 // --- OCR pipeline (docs/08_OCR_RECEIPT_PIPELINE.md) -------------------------------------------
 //
-// Deliberately two separate stages, not one call, per the owner's explicit cost-reduction
-// rationale: OCR (Google Cloud Vision) is cheap and mechanical; only the *structuring* step needs
-// an LLM, and using the cheapest capable model there (Gemini Flash-Lite) keeps that the only part
-// of the pipeline with real per-call model cost. Conflating them into one call would either force
-// every OCR request through an LLM, or force the OCR step to also do the LLM's job.
+// Keep OCR and LLM structuring separate: OCR is mechanical, and only the structuring step needs a
+// model request. Conflating them would send every OCR request through the LLM.
 
 /** Raw text extraction result from an OCR provider (stage 1). */
 export type OcrResult = { fullText: string; lines: string[] }

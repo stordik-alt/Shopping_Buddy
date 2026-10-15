@@ -35,7 +35,7 @@ Vercel ── Next.js 16 (Node.js functions, proxy.ts)
         ├── Vercel Blob (private)         receipts/{householdId}/{uuid}.{ext}
         ├── Vercel Cron (20 entries)      → /api/cron/*  (CRON_SECRET)
         ├── Vercel OIDC ──► Google WIF ──► Vision files:annotate (PDF OCR)
-        ├── Vercel AI Gateway (OIDC auth) ──► gemini-2.5-flash-lite (receipt structuring)
+        ├── Cloudflare AI Gateway ──► openai/gpt-6-luna (all approved LLM requests; lib/ai/client.ts)
         └── Vercel Analytics
         │
 Neon PostgreSQL + Neon Auth        Google Vision (API key) · Azure DI (fallback)
@@ -52,7 +52,7 @@ Worker ── OpenNext for Cloudflare (Next.js 16, nodejs_compat)
         ├── R2 binding (private bucket)   receipts/{householdId}/{receiptImportId}/original.{ext}
         ├── Cron Triggers → scheduled() → same cron logic (CRON_SECRET)
         ├── self-signed JWT ──► Google WIF (uploaded JWKS) ──► Vision files:annotate   [pending decision]
-        ├── AI Gateway with API key (Vercel's or Cloudflare's)                        [pending decision]
+        ├── Cloudflare AI Gateway ──► openai/gpt-6-luna (same shared server client)
         ├── OCR image prep: Cloudflare Images binding or none                          [pending measurement]
         └── Cloudflare Web Analytics
         │
@@ -114,7 +114,7 @@ MIME is re-detected from bytes today; decide during Phase 3.
 |---|---|
 | `sharp` | **Prepared** (branch `cloudflare-migration-prep`): the Cloudflare build aliases `sharp` to a throwing shim; the pipeline sends the original photo. Replacement measured on real receipts before adoption |
 | OIDC → GCP | **Prepared**: `lib/gcp-oidc.ts` — `GCP_OIDC_TOKEN_SOURCE=vercel` (default) or `self-signed` |
-| AI Gateway | **Prepared**: `AI_GATEWAY_API_KEY` (no code change) |
+| AI Gateway | **Implemented**: `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_AI_GATEWAY_TOKEN`; shared client uses GPT-6 Luna |
 | Crons | **Prepared**: `wrangler.jsonc` triggers + `cloudflare/worker.ts` `scheduled()`; `vercel.json` stays the job list, `cloudflare/cron.test.ts` keeps both in step |
 
 ## Environments

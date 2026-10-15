@@ -48,7 +48,7 @@ export async function generateAIText<T extends GenerateAITextOptions>(options: T
   const model = createOpenAI({ baseURL, apiKey: token }).responses(DEFAULT_AI_MODEL)
 
   try {
-    return await sdkGenerateText({ ...options, model })
+    return await sdkGenerateText({ ...options, model } as Parameters<typeof sdkGenerateText>[0])
   } catch (error) {
     const statusCode = safeStatusCode(error)
     const errorType = error instanceof Error ? error.name : 'UnknownError'

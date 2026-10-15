@@ -131,6 +131,15 @@ export const extractedReceiptSchema = z.object({
 export type ExtractedReceiptItem = z.infer<typeof extractedReceiptItemSchema>
 export type ExtractedReceipt = z.infer<typeof extractedReceiptSchema>
 
+// The model-facing schema: OpenAI strict structured output requires every property to be listed as
+// required, so the store's optional address/city are required-but-nullable here (null = not printed).
+const modelReceiptSchema = extractedReceiptSchema.extend({
+  store: extractedReceiptSchema.shape.store.extend({
+    address: z.string().nullable(),
+    city: z.string().nullable(),
+  }),
+})
+
 /** Stage 2: normalized OCR text → structured data through the shared Cloudflare AI Gateway client. */
 export interface ReceiptStructuringProvider {
   /** `onUsage`, when given, receives the model's token usage (if the provider knows it) so the
@@ -382,7 +391,7 @@ export const googleVisionTextExtractor: ReceiptTextExtractor = {
 export const aiReceiptStructuringProvider: ReceiptStructuringProvider = {
   async structure(normalizedText, options) {
     const { output, usage } = await generateAIText({
-      output: Output.object({ schema: extractedReceiptSchema }),
+      output: Output.object({ schema: modelReceiptSchema }),
       prompt: `You are extracting structured data from the OCR text of a Czech retail receipt.
 
 Extract: the store name plus the store address and city if printed on the receipt, the date (YYYY-MM-DD), the time (HH:MM) if present, the receipt number if present, the currency as an ISO code ("CZK" for Kč), every line item (name, category, quantity, unit, unit price, total price, discount), the subtotal, the total discount, and the grand total.

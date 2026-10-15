@@ -7,7 +7,7 @@ import { prepareReceiptImageForModel, prepareReceiptImageForOcr, type ModelImage
 import { readPdfTextLayer } from '@/lib/receipt-pdf'
 import { RECEIPT_READING_PROMPT_VERSION } from '@/lib/receipt-reading-prompt'
 import { createLunaReceiptReader, receiptDecision, toExtractedReceipt, type ReceiptReading, type ReceiptReadingInput } from '@/lib/receipt-reading'
-import { azureReceiptTextExtractor, geminiStructuringProvider, googleVisionPdfTextExtractor, googleVisionTextExtractor, isAzureReceiptFallbackConfigured, needsReview, normalizeOcrText, type ExtractedReceipt } from '@/lib/receipts'
+import { aiReceiptStructuringProvider, azureReceiptTextExtractor, googleVisionPdfTextExtractor, googleVisionTextExtractor, isAzureReceiptFallbackConfigured, needsReview, normalizeOcrText, type ExtractedReceipt } from '@/lib/receipts'
 
 // Measures receipt readers on the local dataset (scripts/receipt-eval/export-dataset.ts,
 // docs/18_RECEIPT_READER_LUNA.md). Every model answer is cached next to the receipt
@@ -110,8 +110,8 @@ async function readWith(receipt: Receipt, variant: Variant): Promise<CachedResul
         provider = `azure (vision failed: ${describeError(visionError).slice(0, 120)})`
       }
     }
-    const extracted = await geminiStructuringProvider.structure(normalizeOcrText(text), { onUsage: (value) => (usage = value) })
-    return { variant, readerId: `${provider}+google/gemini-2.5-flash-lite`, extracted, reading: null, usage, visionImages, ms: Date.now() - started, error: null }
+    const extracted = await aiReceiptStructuringProvider.structure(normalizeOcrText(text), { onUsage: (value) => (usage = value) })
+    return { variant, readerId: `${provider}+openai/gpt-6-luna`, extracted, reading: null, usage, visionImages, ms: Date.now() - started, error: null }
   }
   const effort = variant === 'luna-none' ? 'none' : 'low'
   const input = await lunaInput(receipt, variant === 'luna-low-ocr' ? 'ocr' : 'plain', variant === 'luna-low-split')
@@ -122,7 +122,10 @@ async function readWith(receipt: Receipt, variant: Variant): Promise<CachedResul
 }
 
 function costOf(result: CachedResult): number {
-  if (result.variant === 'legacy') return modelCostUsd('google/gemini-2.5-flash-lite', result.usage) + result.visionImages * PRICES.googleVisionPerImage
+  if (result.variant === 'legacy') {
+    const model = result.readerId.includes('google/gemini-2.5-flash-lite') ? 'google/gemini-2.5-flash-lite' : 'openai/gpt-6-luna'
+    return modelCostUsd(model, result.usage) + result.visionImages * PRICES.googleVisionPerImage
+  }
   return modelCostUsd('openai/gpt-6-luna', result.usage)
 }
 

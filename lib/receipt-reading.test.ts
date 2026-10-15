@@ -4,6 +4,7 @@ import { RECEIPT_READING_PROMPT_VERSION } from '@/lib/receipt-reading-prompt'
 import {
   clampConfidence,
   createLunaReceiptReader,
+  RECEIPT_READING_MODEL,
   receiptDecision,
   receiptReadingMessage,
   receiptReadingSchema,
@@ -109,9 +110,9 @@ describe('receipt reading request', () => {
     const reader = createLunaReceiptReader({ reasoningEffort: 'none', generate: generate as never })
     const onUsage = vi.fn()
     expect(await reader.read({ text: 'x' }, { onUsage })).toEqual(reading())
-    expect(generate).toHaveBeenCalledWith(expect.objectContaining({ model: 'openai/gpt-6-luna', output: expect.anything(), providerOptions: { openai: { reasoningEffort: 'none' } } }))
+    expect(generate).toHaveBeenCalledWith(expect.objectContaining({ output: expect.anything(), providerOptions: { openai: { reasoningEffort: 'none' } } }))
     expect(onUsage).toHaveBeenCalledWith({ inputTokens: 1200, outputTokens: 300 })
-    expect(reader.id).toBe(`openai/gpt-6-luna:none:${RECEIPT_READING_PROMPT_VERSION}`)
+    expect(reader.id).toBe(`${RECEIPT_READING_MODEL}:none:${RECEIPT_READING_PROMPT_VERSION}`)
   })
 
   it('has a strict schema: every key required, unknowns as null', () => {

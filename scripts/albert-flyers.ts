@@ -3,7 +3,7 @@ import {
   createAlbertConnector,
   dbFlyerPageCache,
   fetchAlbertOffers,
-  geminiFlyerExtractor,
+  flyerExtractor,
   validateAlbertOffer,
   type AlbertLocationType,
   type FlyerPageCache,
@@ -42,9 +42,9 @@ function parseArgs(argv: string[]) {
 /** Counts the model's tokens across the run (the only paid step). */
 function countingExtractor(totals: { pages: number; input: number; output: number }): FlyerPageExtractor {
   return {
-    model: geminiFlyerExtractor.model,
+    model: flyerExtractor.model,
     async extract(page) {
-      const result = await geminiFlyerExtractor.extract(page)
+      const result = await flyerExtractor.extract(page)
       totals.pages++
       totals.input += result.inputTokens ?? 0
       totals.output += result.outputTokens ?? 0

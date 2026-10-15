@@ -1,5 +1,6 @@
-import { generateText, Output } from 'ai'
+import { Output } from 'ai'
 import { z } from 'zod'
+import { generateAIText } from '@/lib/ai/client'
 import { googleSubjectToken } from '@/lib/gcp-oidc'
 import { AUTO_ACCEPT_THRESHOLD, classifySubcategory, detectNonInventory, matchProduct, type ProductAliasEntry, type ProductMatch, type RecognitionMethod } from '@/lib/categorization'
 import { inferPantryLocation } from '@/lib/pantry'
@@ -133,8 +134,7 @@ export const extractedReceiptSchema = z.object({
 export type ExtractedReceiptItem = z.infer<typeof extractedReceiptItemSchema>
 export type ExtractedReceipt = z.infer<typeof extractedReceiptSchema>
 
-/** Stage 2: normalized OCR text → structured data. The seam a real structuring model plugs into —
- *  Gemini Flash-Lite via the Vercel AI Gateway by default (see `geminiStructuringProvider`). */
+/** Stage 2: normalized OCR text → structured data through the shared Cloudflare AI Gateway client. */
 export interface ReceiptStructuringProvider {
   /** `onUsage`, when given, receives the model's token usage (if the provider knows it) so the
    *  pipeline can log per-import cost (docs/08_OCR_RECEIPT_PIPELINE.md section 19). Optional so a
@@ -377,23 +377,14 @@ export const googleVisionTextExtractor: ReceiptTextExtractor = {
   },
 }
 
-/** The cheapest Gemini Flash-Lite variant available on the Gateway as of 2026-09-22 — re-check
- *  `https://ai-gateway.vercel.sh/v1/models` before assuming this is still current; AI Gateway
- *  model IDs/pricing change over time. A plain `provider/model` string routes through the Gateway
- *  directly (no `@ai-sdk/google` dependency needed) — auth is Vercel OIDC for a linked local
- *  project or a Vercel deployment, per CLAUDE.md section 31's cost-control mandate to use the
- *  cheapest model that does the job. */
-const STRUCTURING_MODEL = 'google/gemini-2.5-flash-lite'
-
-/** Structures normalized OCR text into `ExtractedReceipt` via the cheap model above. The prompt
+/** Structures normalized OCR text into `ExtractedReceipt` via the configured GPT-6 Luna model. The prompt
  *  encodes docs/08_OCR_RECEIPT_PIPELINE.md's most important rule (section 21): a `null` is always
  *  correct when uncertain, a guessed value is never acceptable. `generateObject`'s schema
  *  validation means a response that doesn't fit the shape throws rather than returning
  *  partial/malformed data. */
-export const geminiStructuringProvider: ReceiptStructuringProvider = {
+export const aiReceiptStructuringProvider: ReceiptStructuringProvider = {
   async structure(normalizedText, options) {
-    const { output, usage } = await generateText({
-      model: STRUCTURING_MODEL,
+    const { output, usage } = await generateAIText({
       output: Output.object({ schema: extractedReceiptSchema }),
       prompt: `You are extracting structured data from the OCR text of a Czech retail receipt.
 

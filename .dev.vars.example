@@ -43,5 +43,6 @@ GCP_OIDC_PRIVATE_KEY=
 # Optional, e.g. shopping-buddy-staging, to tell environments apart in Google's audit logs.
 GCP_OIDC_SUBJECT=
 
-# --- Receipt structuring (Vercel AI Gateway, CLAUDE.md §30 OCR exception): off Vercel it needs a key ---
-AI_GATEWAY_API_KEY=
+# --- LLM requests use Cloudflare AI Gateway (docs/cloudflare-deployment.md). ---
+CLOUDFLARE_ACCOUNT_ID=
+CLOUDFLARE_AI_GATEWAY_TOKEN=

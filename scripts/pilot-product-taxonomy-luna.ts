@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import { assertAIGatewayConfigured } from '@/lib/ai/client'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { normalizeProductText } from '@/lib/product-normalize'
@@ -67,9 +68,7 @@ export function selectProductTaxonomyPilotRows<T extends {
 
 async function main() {
   const limit = parseLimit()
-  if (!process.env.AI_GATEWAY_API_KEY) {
-    throw new Error('AI_GATEWAY_API_KEY is required for the GPT-6 Luna pilot.')
-  }
+  assertAIGatewayConfigured()
   const db = getDb()
   const [candidateRows, typeRows] = await Promise.all([
     db.select({

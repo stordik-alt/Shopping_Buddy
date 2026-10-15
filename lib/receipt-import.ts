@@ -34,7 +34,7 @@ import type { ProductCatalogEntry } from '@/lib/products'
 import { chainFamily } from '@/lib/stores/chain-family'
 import {
   azureReceiptTextExtractor,
-  geminiStructuringProvider,
+  aiReceiptStructuringProvider,
   googleVisionPdfTextExtractor,
   googleVisionTextExtractor,
   isAzureReceiptFallbackConfigured,
@@ -603,7 +603,7 @@ export async function processReceiptImport(
     azureTextExtractor?: ReceiptTextExtractor
   } = {
     textExtractor: googleVisionTextExtractor,
-    structuringProvider: geminiStructuringProvider,
+    structuringProvider: aiReceiptStructuringProvider,
     azureTextExtractor: azureReceiptTextExtractor,
   },
 ): Promise<typeof schema.receiptImports.$inferSelect> {

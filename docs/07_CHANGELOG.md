@@ -1,4 +1,4 @@
-## 2026-10-14 — Průvodce: věta o změnách od ostatních členů
+## 2026-10-15 — Registrace: ověření e-mailu jednorázovým kódem\n\n- Po registraci aplikace už nepřesměrovává uživatele na veřejné intro. Otevře `/auth/verify-email`, kde zadá šestimístný kód; obrazovka umožňuje také vyžádat nový kód. Ověření používá Neon Auth Email OTP API. Ověřovací tok zachovává token pozvánky a po úspěchu vede na přihlášení. Produkční a testovací nastavení Neon Auth je nutné zkontrolovat samostatně, protože jde o konfiguraci mimo repozitář.\n\n## 2026-10-14 — Průvodce: věta o změnách od ostatních členů
 
 - Koncept: `docs/22_GUIDE.md`. V kartě o menu (krok „Domů, Nákup, Zásoby, Rozpočet“) se věta „Změny od druhých z domácnosti se samy neukážou“ změnila na „Změny od ostatních členů domácnosti se samy neukážou“ (`lib/guide.ts`). Jen text.
 

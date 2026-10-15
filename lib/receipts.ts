@@ -113,8 +113,8 @@ export const extractedReceiptItemSchema = z.object({
 export const extractedReceiptSchema = z.object({
   store: z.object({
     name: z.string().nullable(),
-    address: z.string().nullable().optional(),
-    city: z.string().nullable().optional(),
+    address: z.string().nullable(),
+    city: z.string().nullable(),
     confidence: z.number().nullable(),
   }),
   date: z.string().nullable(),
@@ -131,14 +131,9 @@ export const extractedReceiptSchema = z.object({
 export type ExtractedReceiptItem = z.infer<typeof extractedReceiptItemSchema>
 export type ExtractedReceipt = z.infer<typeof extractedReceiptSchema>
 
-// The model-facing schema: OpenAI strict structured output requires every property to be listed as
-// required, so the store's optional address/city are required-but-nullable here (null = not printed).
-const modelReceiptSchema = extractedReceiptSchema.extend({
-  store: extractedReceiptSchema.shape.store.extend({
-    address: z.string().nullable(),
-    city: z.string().nullable(),
-  }),
-})
+// OpenAI strict structured output requires every property to be listed as required.
+// Store address/city are nullable when not printed, but are always present in the JSON.
+const modelReceiptSchema = extractedReceiptSchema
 
 /** Stage 2: normalized OCR text → structured data through the shared Cloudflare AI Gateway client. */
 export interface ReceiptStructuringProvider {

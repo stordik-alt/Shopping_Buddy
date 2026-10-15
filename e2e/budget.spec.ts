@@ -13,6 +13,22 @@ function testDatabaseUrl(): string {
   return value
 }
 
+async function markTestAccountEmailVerified(email: string) {
+  const client = new Client({
+    connectionString: testDatabaseUrl(),
+    connectionTimeoutMillis: 5_000,
+    query_timeout: 10_000,
+  })
+  await client.connect()
+  try {
+    // The isolated E2E database has no mailbox for OTP delivery. This fixture simulates
+    // the verified state reached after successful OTP confirmation in production.
+    await client.query('UPDATE neon_auth."user" SET "emailVerified" = true WHERE lower(email) = lower($1)', [email])
+  } finally {
+    await client.end()
+  }
+}
+
 const iso = (date: Date) => date.toISOString().slice(0, 10)
 const now = new Date()
 /** Day `d` of the month `offset` months from now, as an ISO date. */
@@ -41,6 +57,17 @@ test.describe('Rozpočet → Plánování', () => {
       await page.getByLabel('E-mail').fill(email)
       await page.getByLabel('Heslo').fill('SmokeTest-2026!')
       await page.getByRole('button', { name: 'Založit účet' }).click()
+      await expect(page).toHaveURL(/\/auth\/verify-email/)
+      await expect(page.getByRole('heading', { name: 'Ověření e-mailu' })).toBeVisible()
+      await expect(page.getByLabel('Ověřovací kód')).toBeVisible()
+
+      // CI has no email inbox for disposable OTPs; set the isolated test account to the
+      // verified state, then exercise the real sign-in and authenticated budget flow.
+      await markTestAccountEmailVerified(email)
+      await page.goto(`/auth/sign-in?verified=1&email=${encodeURIComponent(email)}`)
+      await page.getByLabel('E-mail').fill(email)
+      await page.getByLabel('Heslo').fill('SmokeTest-2026!')
+      await page.getByRole('button', { name: 'Přihlásit se' }).click()
       await expect(page).toHaveURL(/\/$/)
       await expect(page.getByRole('heading', { name: 'Asistent pro domácnost', exact: true })).toBeVisible()
       // A new account automatically opens Anitka's guide, which intentionally sits above the app.

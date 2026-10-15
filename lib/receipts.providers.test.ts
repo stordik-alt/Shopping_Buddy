@@ -294,6 +294,16 @@ describe('Azure Document Intelligence fallback', () => {
   })
 })
 
+describe('extracted receipt JSON schema', () => {
+  it('requires store address and city as nullable fields for strict structured output', async () => {
+    const { extractedReceiptSchema } = await import('@/lib/receipts')
+    const jsonSchema = z.toJSONSchema(extractedReceiptSchema) as {
+      properties: { store: { required: string[]; properties: Record<string, unknown> } }
+    }
+    expect(jsonSchema.properties.store.required).toEqual(['name', 'address', 'city', 'confidence'])
+  })
+})
+
 describe('aiReceiptStructuringProvider', () => {
   const extraction: ExtractedReceipt = {
     store: { name: 'Lidl', confidence: 0.9 },

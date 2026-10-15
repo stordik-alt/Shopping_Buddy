@@ -131,9 +131,9 @@ export const extractedReceiptSchema = z.object({
 export type ExtractedReceiptItem = z.infer<typeof extractedReceiptItemSchema>
 export type ExtractedReceipt = z.infer<typeof extractedReceiptSchema>
 
-// The model-facing schema: OpenAI strict structured output requires every property to be listed as
-// required, so the store's optional address/city are required-but-nullable here (null = not printed).
-const modelReceiptSchema = extractedReceiptSchema.extend({
+// OpenAI strict structured output requires every property to be listed as required.
+// Store address/city are nullable when not printed, but are always present in the JSON.
+export const modelReceiptSchema = extractedReceiptSchema.extend({
   store: extractedReceiptSchema.shape.store.extend({
     address: z.string().nullable(),
     city: z.string().nullable(),

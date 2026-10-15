@@ -1,3 +1,7 @@
+## 2026-10-15 — Oprava striktního JSON schématu účtenky
+
+- Pole `store.address` a `store.city` jsou nyní povinná a nullable přímo ve schématu `extractedReceiptSchema`. OpenAI strict structured output tak vygeneruje `required: ["name", "address", "city", "confidence"]` pro objekt obchodu; nevytištěná adresa nebo město se vrací jako `null` místo chybějícího klíče. Přidána regresní kontrola JSON schématu.
+
 ## 2026-10-15 — Central Cloudflare AI Gateway and GPT-6 Luna
 
 - All existing LLM requests now use `lib/ai/client.ts`, Cloudflare's account-scoped AI REST Responses API with `cf-aig-gateway-id` selecting the configured Gateway, and the fixed `openai/gpt-6-luna` model: receipt text structuring, receipt-image measurement, flyer extraction, receipt categorization fallback and the product-taxonomy pilot. Configure `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_AI_GATEWAY_ID`, and `CLOUDFLARE_AI_GATEWAY_TOKEN` on the server; keep the OpenAI provider key in Cloudflare. The taxonomy pilot workflow now consumes those Cloudflare variables. Existing flyer page-cache entries are retained, not re-read; extraction quality with Luna has not yet been measured.

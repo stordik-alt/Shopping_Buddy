@@ -23,6 +23,7 @@ function SignInForm() {
   const [email, setEmail] = useState(searchParams.get('email') ?? '')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const verified = searchParams.get('verified') === '1'
   const [loading, setLoading] = useState(false)
 
   async function submit(event: FormEvent) {
@@ -57,6 +58,7 @@ function SignInForm() {
         <div className="rounded-3xl border border-border bg-card p-6">
           <h1 className="text-xl font-semibold tracking-tight">Přihlásit se</h1>
           <p className="mt-1 text-sm text-muted-foreground">Vítejte zpátky. Pojďme uhlídat rozpočet.</p>
+          {verified && <p role="status" className="mt-3 text-sm text-emerald-700">E-mail byl ověřen. Nyní se přihlaste.</p>}
           <form onSubmit={submit} className="mt-6 flex flex-col gap-3">
             <label className="text-sm">
               E-mail

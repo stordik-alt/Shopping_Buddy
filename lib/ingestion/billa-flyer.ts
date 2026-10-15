@@ -1,7 +1,7 @@
 import {
   createDbFlyerPageCache,
   createFlyerConnector,
-  createGeminiFlyerExtractor,
+  createFlyerPageExtractor,
   parsePublitasSpreads,
   USER_AGENT,
   type Flyer,
@@ -110,11 +110,7 @@ export const billaFlyerSource: FlyerSource<BillaFlyer> = {
   },
 }
 
-// Flash-Lite (the default, same as Albert) rather than Penny's stronger/costlier Flash: Billa's cards
-// are spread out with a photo each, closer to Albert's layout than Penny's dense list — but this is a
-// judgement call, not a measured trial like Penny's (docs/01_CURRENT_STATE.md); worth re-checking
-// against real accept/reject counts once this connector has run for real.
-export const billaFlyerExtractor = createGeminiFlyerExtractor('Billa')
+export const billaFlyerExtractor = createFlyerPageExtractor('Billa')
 export const billaFlyerCache = createDbFlyerPageCache('billa_flyer')
 
 /** Billa's flyer offers, as deals of the "Billa" chain — its own source (`billa_flyer`), apart from

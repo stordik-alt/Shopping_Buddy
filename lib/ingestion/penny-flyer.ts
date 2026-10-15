@@ -2,7 +2,8 @@ import type { fetchWithTimeout } from '@/lib/ingestion/http'
 import {
   createDbFlyerPageCache,
   createFlyerConnector,
-  createGeminiFlyerExtractor,
+  createFlyerPageExtractor,
+  FLYER_MODEL,
   USER_AGENT,
   type Flyer,
   type FlyerFetchDeps,
@@ -176,17 +177,11 @@ export const pennyFlyerSource: FlyerSource<PennyFlyer> = {
  *  190 g" at 9,90 Kč — 52 Kč/kg, where the page prints 21 Kč per 100 g for it. */
 export const PENNY_VALIDATION: FlyerValidationOptions = { unitPriceOnPage: true }
 
-/** Gemini 2.5 Flash without thinking, not Flash-Lite as at Albert: Penny's pages are dense (~25 offers
- *  each) and Flash-Lite paired most prices with the wrong product — on the same three trial pages
- *  (2026-09-26) 3 of 78 offers passed the validator, against 45 of 73 with this model; Mistral Large 3
- *  (32), Mistral Small (24), GPT-4.1 mini (15), Qwen3.7 Flash (14) and Llama 4 (0) did worse. About
- *  $0.03 per three pages, ~$0.30 per weekly flyer, inside the gateway's monthly free credit. Thinking
- *  is off: it cost four times the output tokens and accepted fewer offers (31). */
-export const PENNY_FLYER_MODEL = 'google/gemini-2.5-flash'
+/** Luna runs with reasoning disabled here; its Penny-page accuracy is unmeasured and must be rechecked. */
+export const PENNY_FLYER_MODEL = FLYER_MODEL
 
-export const pennyFlyerExtractor = createGeminiFlyerExtractor('PENNY discount store', {
-  model: PENNY_FLYER_MODEL,
-  providerOptions: { google: { thinkingConfig: { thinkingBudget: 0 } } },
+export const pennyFlyerExtractor = createFlyerPageExtractor('PENNY discount store', {
+  providerOptions: { openai: { reasoningEffort: 'none' } },
 })
 export const pennyFlyerCache = createDbFlyerPageCache('penny_flyer')
 

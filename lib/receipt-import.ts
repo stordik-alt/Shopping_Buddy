@@ -34,7 +34,7 @@ import type { ProductCatalogEntry } from '@/lib/products'
 import { chainFamily } from '@/lib/stores/chain-family'
 import {
   azureReceiptTextExtractor,
-  geminiStructuringProvider,
+  aiReceiptStructuringProvider,
   googleVisionPdfTextExtractor,
   googleVisionTextExtractor,
   isAzureReceiptFallbackConfigured,
@@ -591,7 +591,7 @@ export async function createPurchaseFromReceiptItems(
  *  an already-uploaded receipt image, updating the same `receipt_imports` row throughout rather
  *  than creating a new one per stage. The extractors and `structuringProvider` are injectable so the
  *  orchestration logic itself — the state transitions, validation gate, and duplicate check — can
- *  be integration-tested with fakes, independently of whether real Google Vision/Gemini
+ *  be integration-tested with fakes, independently of whether the OCR and Cloudflare Gateway
  *  credentials are configured. Never throws: every failure is recorded on the row as
  *  `ocr_failed`/`parsing_failed` with an `errorMessage`, so the caller always gets back a row to
  *  show the household, per section 19 ("show the specific reason, not a bare error"). */
@@ -603,7 +603,7 @@ export async function processReceiptImport(
     azureTextExtractor?: ReceiptTextExtractor
   } = {
     textExtractor: googleVisionTextExtractor,
-    structuringProvider: geminiStructuringProvider,
+    structuringProvider: aiReceiptStructuringProvider,
     azureTextExtractor: azureReceiptTextExtractor,
   },
 ): Promise<typeof schema.receiptImports.$inferSelect> {

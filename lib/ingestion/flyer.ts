@@ -1,5 +1,6 @@
-import { generateText, Output } from 'ai'
+import { Output } from 'ai'
 import { z } from 'zod'
+import { DEFAULT_AI_MODEL, generateAIText, type GenerateAITextOptions } from '@/lib/ai/client'
 import { loadFlyerPages, pruneFlyerPages, saveFlyerPage, type FlyerPageRow } from '@/lib/db/queries'
 import { fetchWithTimeout } from '@/lib/ingestion/http'
 import { fetchPublicImage } from '@/lib/ingestion/public-image'
@@ -10,15 +11,16 @@ import type { ItemCategory } from '@/lib/types'
 
 /** Provider-specific settings, typed as generateObject takes them (the type lives in a package the app
  *  does not depend on directly). */
-type ProviderOptions = NonNullable<Parameters<typeof generateText>[0]['providerOptions']>
+type ProviderOptions = NonNullable<GenerateAITextOptions['providerOptions']>
 
 // Promotional flyers read page by page by a model — the part every flyer source shares (Albert:
 // lib/ingestion/albert.ts, Penny: lib/ingestion/penny-flyer.ts). A retailer that publishes its prices
 // only as flyer pages, whose text layer does not say which price belongs to which product, gets each
-// page read once by the cheapest model (the owner's explicit decisions, CLAUDE.md section 30's
-// exceptions). The result is cached per page (`flyer_pages`), and nothing the model says is trusted on
-// its own: a deterministic validator (validateFlyerOffer) accepts an offer only when the page itself
-// confirms it. A source supplies only how to list its current flyers and their pages.
+// page read once by the fixed model (`lib/ai/client.ts`). The result is cached per page
+// (`flyer_pages`), so existing pages are not automatically re-read when the model changes; cache
+// entries may reflect an earlier model. Nothing the model says is trusted on its own: a deterministic
+// validator (validateFlyerOffer) accepts an offer only when the page itself confirms it. A source
+// supplies only how to list its current flyers and their pages.
 
 export const USER_AGENT = 'ShoppingBuddy-connector/0.1 (+https://github.com/stordik-alt/Shopping_Buddy)'
 /** Pages sent to the model at the same time. */
@@ -60,16 +62,13 @@ export type ExtractedOffer = z.infer<typeof extractedOfferSchema>
 
 export type PageExtraction = { offers: ExtractedOffer[]; inputTokens?: number; outputTokens?: number }
 
-/** The model step, behind an interface so tests (and a future cheaper model) plug in. */
+/** The model step, behind an interface so tests can inject a fake extractor. */
 export type FlyerPageExtractor = {
   model: string
   extract(page: FlyerPage): Promise<PageExtraction>
 }
 
-/** The cheapest Gemini Flash-Lite on the Vercel AI Gateway (as for receipts, lib/receipts.ts) —
- *  CLAUDE.md section 31: the cheapest model that does the job. Re-check
- *  https://ai-gateway.vercel.sh/v1/models before assuming it is still current. */
-export const FLYER_MODEL = 'google/gemini-2.5-flash-lite'
+export const FLYER_MODEL = DEFAULT_AI_MODEL
 
 /** The instructions for one page. `retailer` is the store as the flyer names it ("Albert supermarket"). */
 export function flyerExtractionPrompt(retailer: string): string {
@@ -88,23 +87,22 @@ The page's text layer follows (the same page in reading order; use it for exact 
 `
 }
 
-/** Reads one page with `model` (FLYER_MODEL unless a source needs another): the page image plus its text layer, returning structured offers.
+/** Reads one page with GPT-6 Luna: the page image plus its text layer, returning structured offers.
  *  `generateObject`'s schema validation makes a response of the wrong shape throw instead of
  *  returning partial data. */
-export function createGeminiFlyerExtractor(
+export function createFlyerPageExtractor(
   retailer: string,
-  { model = FLYER_MODEL, providerOptions }: { model?: string; providerOptions?: ProviderOptions } = {},
+  { providerOptions }: { providerOptions?: ProviderOptions } = {},
 ): FlyerPageExtractor {
   const prompt = flyerExtractionPrompt(retailer)
   return {
-    model,
+    model: FLYER_MODEL,
     async extract(page) {
       // The image URL comes from the retailer's data: checked, redirects included, and size-limited.
       const image = await fetchPublicImage(page.imageUrl, { 'User-Agent': USER_AGENT }).catch((error: unknown) => {
         throw new Error(`${retailer} flyer page ${page.number} image failed: ${error instanceof Error ? error.message : String(error)}`)
       })
-      const { output, usage } = await generateText({
-        model,
+      const { output, usage } = await generateAIText({
         output: Output.object({ schema: z.object({ offers: z.array(extractedOfferSchema) }) }),
         ...(providerOptions ? { providerOptions } : {}),
         messages: [

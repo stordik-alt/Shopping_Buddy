@@ -1,7 +1,7 @@
 import {
   createDbFlyerPageCache,
   createFlyerConnector,
-  createGeminiFlyerExtractor,
+  createFlyerPageExtractor,
   dedupeFlyerOffers,
   fetchFlyerOffers,
   flyerNameProblem,
@@ -122,7 +122,7 @@ export const albertFlyerSource: FlyerSource<AlbertLeaflet> = {
 
 // The names below predate lib/ingestion/flyer.ts and are kept for the Albert script and tests.
 export const ALBERT_FLYER_MODEL = FLYER_MODEL
-export const geminiFlyerExtractor = createGeminiFlyerExtractor('Albert supermarket')
+export const flyerExtractor = createFlyerPageExtractor('Albert supermarket')
 export const dbFlyerPageCache = createDbFlyerPageCache('albert')
 export type AlbertRawOffer = FlyerRawOffer
 export type AlbertFetchDeps = FlyerFetchDeps
@@ -152,7 +152,7 @@ export function createAlbertConnector(chain: string, locationType: AlbertLocatio
   return createFlyerConnector('albert', chain, albertFlyerSource, (leaflet) => leaflet.locationType === locationType, deps)
 }
 
-const defaultDeps: AlbertFetchDeps = { extractor: geminiFlyerExtractor, cache: dbFlyerPageCache }
+const defaultDeps: AlbertFetchDeps = { extractor: flyerExtractor, cache: dbFlyerPageCache }
 export const albertSupermarketConnector = createAlbertConnector('Albert', 'SUPERMARKET', defaultDeps)
 export const albertHypermarketConnector = createAlbertConnector('Albert Hypermarket', 'HYPERMARKET', defaultDeps)
 

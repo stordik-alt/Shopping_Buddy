@@ -1,7 +1,7 @@
 import {
   createDbFlyerPageCache,
   createFlyerConnector,
-  createGeminiFlyerExtractor,
+  createFlyerPageExtractor,
   USER_AGENT,
   type Flyer,
   type FlyerFetchDeps,
@@ -104,7 +104,7 @@ export const lidlFlyerSource: FlyerSource<LidlFlyer> = {
   readPageText: (page) => readFlyerPageText(page),
 }
 
-export const lidlFlyerExtractor = createGeminiFlyerExtractor('Lidl')
+export const lidlFlyerExtractor = createFlyerPageExtractor('Lidl')
 export const lidlFlyerCache = createDbFlyerPageCache('lidl_flyer')
 
 /** Lidl's flyer offers, as deals of the "Lidl" chain — its own source (`lidl_flyer`), apart from the

@@ -1,18 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The real providers in lib/receipts.ts talk to Google Cloud Vision, Google STS/IAM, Azure
-// Document Intelligence and (via the AI SDK) Gemini. None of those are called here: `fetch`, the
-// Vercel OIDC helper and `generateText` are all faked, so these tests pin down request
+// Document Intelligence and the shared AI client. None of those are called here: `fetch`, the
+// Vercel OIDC helper and `generateAIText` are all faked, so these tests pin down request
 // construction, response parsing and error reporting without credentials, network or cost.
 // (Real OCR/model output quality is a separate matter and is not covered by any test.)
-const generateTextMock = vi.fn()
-vi.mock('ai', async (importOriginal) => { const actual = await importOriginal<typeof import('ai')>(); return { ...actual, generateText: (...args: unknown[]) => generateTextMock(...args) } })
+const generateAITextMock = vi.fn()
+vi.mock('@/lib/ai/client', () => ({ generateAIText: (...args: unknown[]) => generateAITextMock(...args) }))
 const getVercelOidcTokenMock = vi.fn()
 vi.mock('@vercel/oidc', () => ({ getVercelOidcToken: () => getVercelOidcTokenMock() }))
 
 import {
   azureReceiptTextExtractor,
-  geminiStructuringProvider,
+  aiReceiptStructuringProvider,
   extractedReceiptSchema,
   googleVisionPdfTextExtractor,
   googleVisionTextExtractor,
@@ -42,7 +42,7 @@ beforeEach(() => {
     delete process.env[key]
   }
   fetchMock.mockReset()
-  generateTextMock.mockReset()
+  generateAITextMock.mockReset()
   getVercelOidcTokenMock.mockReset()
   vi.stubGlobal('fetch', fetchMock)
 })
@@ -294,7 +294,7 @@ describe('Azure Document Intelligence fallback', () => {
   })
 })
 
-describe('geminiStructuringProvider', () => {
+describe('aiReceiptStructuringProvider', () => {
   const extraction: ExtractedReceipt = {
     store: { name: 'Lidl', confidence: 0.9 },
     date: '2026-09-22',
@@ -309,13 +309,12 @@ describe('geminiStructuringProvider', () => {
   }
 
   it('sends the OCR text to the cheap structuring model with the receipt schema and returns the structured object', async () => {
-    generateTextMock.mockResolvedValue({ output: extraction })
+    generateAITextMock.mockResolvedValue({ output: extraction })
 
-    const result = await geminiStructuringProvider.structure('LIDL\nMléko 24,90')
+    const result = await aiReceiptStructuringProvider.structure('LIDL\nMléko 24,90')
 
     expect(result).toBe(extraction)
-    const call = generateTextMock.mock.calls[0][0]
-    expect(call.model).toBe('google/gemini-2.5-flash-lite')
+    const call = generateAITextMock.mock.calls[0][0]
     expect(call.prompt).toContain('LIDL\nMléko 24,90')
     // The schema is what stops a malformed response from being returned as partial data.
     expect(extractedReceiptSchema.safeParse(extraction).success).toBe(true)
@@ -323,9 +322,9 @@ describe('geminiStructuringProvider', () => {
   })
 
   it('tells the model to output null rather than guess, and defines how discounts are reported', async () => {
-    generateTextMock.mockResolvedValue({ output: extraction })
-    await geminiStructuringProvider.structure('x')
-    const { prompt } = generateTextMock.mock.calls[0][0]
+    generateAITextMock.mockResolvedValue({ output: extraction })
+    await aiReceiptStructuringProvider.structure('x')
+    const { prompt } = generateAITextMock.mock.calls[0][0]
     expect(prompt).toContain('Never invent or estimate a value')
     expect(prompt).toContain('output null')
     expect(prompt).toContain('BEFORE any discount')
@@ -335,7 +334,7 @@ describe('geminiStructuringProvider', () => {
   })
 
   it('lets a model/gateway failure propagate so the caller can record parsing_failed', async () => {
-    generateTextMock.mockRejectedValue(new Error('model overloaded'))
-    await expect(geminiStructuringProvider.structure('x')).rejects.toThrow('model overloaded')
+    generateAITextMock.mockRejectedValue(new Error('model overloaded'))
+    await expect(aiReceiptStructuringProvider.structure('x')).rejects.toThrow('model overloaded')
   })
 })

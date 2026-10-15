@@ -3,6 +3,8 @@
 Status: **phase 1 (preparation and measurement) implemented 2026-10-05; production unchanged.** Phase 2 (switching
 production) waits for the measurement and the owner's go-ahead.
 
+**Routing update (2026-10-15):** every LLM request now goes through Cloudflare AI Gateway using GPT-6 Luna. Production still uses the two-stage OCR → structured-data flow; its structuring model has changed to Luna. The one-step reader in this document is still not wired into production. Cached `legacy` evaluation results created before this update retain their original Gemini model metadata and costs.
+
 The owner's concept (2026-10-05): drop the OCR step (Google Vision / Azure Document Intelligence) and the separate
 structuring model (Gemini Flash-Lite); GPT-6 Luna reads the receipt image and returns the app's structure directly.
 *"AI tedy nerozhoduje o databázových/business pravidlech. AI interpretuje dokument, backend je autoritou pro data a
@@ -12,10 +14,10 @@ production receipts only (kept locally, never in the repository); processing sta
 Cloudflare Worker); production switches with `RECEIPT_READER=luna|legacy`, the old path stays a few weeks for a manual
 switch back only (no automatic fallback) and is then removed.
 
-## Today (verified 2026-10-05)
+## Production flow before the routing update (verified 2026-10-05)
 `lib/receipt-import.ts` `processReceiptImport`: photo from R2 → `prepareReceiptImageForOcr` → Google Vision
-(Azure `prebuilt-receipt` after a Vision failure; a digital PDF's text layer skips OCR) → `normalizeOcrText` → Gemini
-2.5 Flash-Lite (`geminiStructuringProvider`) → `needsReview` / placement gate / duplicate check → purchase.
+(Azure `prebuilt-receipt` after a Vision failure; a digital PDF's text layer skips OCR) → `normalizeOcrText` → GPT-6 Luna
+through Cloudflare AI Gateway (`aiReceiptStructuringProvider`) → `needsReview` / placement gate / duplicate check → purchase.
 **Google Vision currently fails in production for every photo** ("This API method requires billing to be enabled" on
 the GCP project, reproduced by the measurement run); every photo in the dataset was read by the Azure fallback.
 
@@ -68,8 +70,9 @@ parts (`luna-low-split`).
   `original.*`, `truth.json` (the confirmed purchase) and `meta.json` (`truthSource`: `corrected` = the household
   changed the reading, a checked answer; `as-read` = the old reading was kept unchanged, possibly equally wrong) to
   `RECEIPT_EVAL_DIR` (default `C:/tmp/receipt-eval/dataset`), outside the repository.
-- `pnpm receipt-eval:run [variant…] [--limit N]` — variants `legacy` (Vision → Azure on failure → Gemini, as
-  production), `luna-none`, `luna-low`, `luna-low-ocr`, `luna-low-split`; every answer cached next to the receipt;
+- `pnpm receipt-eval:run [variant…] [--limit N]` — variants `legacy` (the two-stage OCR → structured-data
+  path; new requests use Luna, while pre-routing cached results retain their Gemini metadata),
+  `luna-none`, `luna-low`, `luna-low-ocr`, `luna-low-split`; every answer cached next to the receipt;
   writes `report.md` and `results.csv`. Metrics (`lib/receipt-eval.ts`): store/date/total, line recall, line paid
   amounts, decision vs. correctness — **false automatic import** (imported on its own but wrong; target 0) — review
   and retake share, cost per receipt from token usage and the gateway price list, latency p50/p95. "As-read" receipts a
@@ -83,10 +86,10 @@ parts (`luna-low-split`).
 The dataset is small (20 photo imports with a purchase in production, 6 photos no longer in storage, one receipt
 imported twice); the truth of a few receipts needs a look at the photo. Luna variants not yet measured — see below.
 
-### Blocker
-The AI Gateway refuses `openai/gpt-6-luna` for this account: *"Free tier users do not have access to this model.
-Upgrade to paid credits"* (403). Measuring Luna, and later production, needs paid AI Gateway credits — the owner's
-decision. Expected cost: about $0.10 per 1M input and $0.50 per 1M output tokens (gateway price list, 2026-10-05).
+### Previous blocker (Vercel AI Gateway, 2026-10-05)
+The Vercel AI Gateway refused `openai/gpt-6-luna` for the then-current account's free tier (403). This is
+historical: requests now use Cloudflare AI Gateway with an OpenAI provider key configured there. Live
+Cloudflare inference and current pricing still need verification after the environment is configured.
 
 ## Phase 2 (after the measurement and the owner's go-ahead)
 1. `RECEIPT_READER=luna|legacy` in `processReceiptImport` (default `legacy`): photos → `prepareReceiptImageForModel` →
@@ -95,5 +98,5 @@ decision. Expected cost: about $0.10 per 1M input and $0.50 per 1M output tokens
 2. Several photos: additive `receipt_import_files (import_id, position, storage key)`, "Přidat další část účtenky",
    a per-import photo limit.
 3. Upload the original (≤ 10 MB) and shrink only on the server for the model.
-4. After a few calm weeks: remove Vision, Azure, Gemini structuring, the GCP OIDC PDF path and their variables; update
+4. After a few calm weeks: remove the two-stage OCR and model-structuring path, the GCP OIDC PDF path and their variables; update
    docs 08/18, 01, 07 and CLAUDE.md.

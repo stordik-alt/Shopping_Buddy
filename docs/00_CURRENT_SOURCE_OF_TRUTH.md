@@ -1,7 +1,7 @@
 # ANITKA — Current Project Source of Truth
 
 Status: current operational reference
-Last verified: 2026-10-08
+Last verified: 2026-10-15
 Repository: stordik-alt/Shopping_Buddy
 Stable branch: main
 
@@ -100,6 +100,8 @@ Production authentication uses Neon Auth. Every household-scoped operation must 
 The conversational AI Shopping Assistant remains a later phase. Do not add general agents, embeddings, recommendations, or conversational model calls without an explicit owner decision.
 
 There are narrow approved exceptions for deterministic utility pipelines such as selected receipt/flyer extraction. Inspect the current implementation and AI/OCR documentation before changing any model, provider, or pipeline. Never assume that a historically documented model is enabled in production.
+
+All approved LLM calls use `lib/ai/client.ts`, which sends OpenAI Responses API requests through Cloudflare's account-scoped AI REST API with `cf-aig-gateway-id` selecting the configured AI Gateway and the fixed model `openai/gpt-6-luna`. `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_AI_GATEWAY_ID`, and `CLOUDFLARE_AI_GATEWAY_TOKEN` are server-side configuration; the upstream OpenAI key is stored in Cloudflare AI Gateway and is not supplied to the application. The receipt pipeline still uses its existing Google Vision/Azure OCR providers before structuring OCR text with Luna; the separate one-step receipt-image reader remains a measurement path, not production. Vision and Azure OCR are non-LLM services and remain direct provider integrations. Existing cached flyer page results are preserved and are not automatically re-read after the model switch. The previous per-pipeline Gemini/Vercel Gateway model choices are historical.
 
 ## 11. Data ingestion and catalog
 

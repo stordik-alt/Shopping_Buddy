@@ -9,8 +9,9 @@
 // a learned correction) lives in lib/db/product-aliases.ts and app/actions/receipts.ts; this module
 // only computes the answer from data handed to it.
 
-import { generateText, Output } from 'ai'
+import { Output } from 'ai'
 import { z } from 'zod'
+import { generateAIText } from '@/lib/ai/client'
 import { normalizeProductText, similarity } from '@/lib/product-normalize'
 import { receiptTypeText } from '@/lib/receipt-product-match'
 import { brandOf } from '@/lib/product-brands'
@@ -170,8 +171,6 @@ const aiSubcategorySchema = z.object({
 
 export type AiCategorizationResult = { subcategory: string; confidence: number; reason: string } | null
 
-const AI_CATEGORIZATION_MODEL = 'google/gemini-2.5-flash-lite'
-
 /** Asks the model to pick one of the category's fixed subcategory names for a receipt line — the
  *  allowed set is given explicitly in the prompt and the schema only accepts a value from it (via
  *  post-validation below), so the model cannot invent a new category name (spec section 11).
@@ -180,8 +179,7 @@ const AI_CATEGORIZATION_MODEL = 'google/gemini-2.5-flash-lite'
 export async function aiCategorizeFallback(rawName: string, category: ItemCategory): Promise<AiCategorizationResult> {
   const allowed = subcategoriesOfItem(category)
   if (allowed.length === 0) return null
-  const { output } = await generateText({
-    model: AI_CATEGORIZATION_MODEL,
+  const { output } = await generateAIText({
     output: Output.object({ schema: aiSubcategorySchema }),
     prompt: `A Czech grocery receipt line reads: "${rawName}". Its main category is already known to be "${category}".
 

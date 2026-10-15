@@ -1,7 +1,7 @@
 // The instructions GPT-6 Luna reads a receipt with (docs/18_RECEIPT_READER_LUNA.md). Versioned: the
 // version goes into the import log and into every measured result, so a change to the wording is never
 // compared against results of another wording. Carries over the Czech-receipt rules proven with the
-// Gemini structuring step (lib/receipts.ts geminiStructuringProvider, docs/08 section 7).
+// former receipt-structuring step (docs/08 section 7).
 
 export const RECEIPT_READING_PROMPT_VERSION = 'luna-receipt-v1'
 

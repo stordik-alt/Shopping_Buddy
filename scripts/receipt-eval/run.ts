@@ -2,12 +2,13 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { join } from 'node:path'
 import sharp from 'sharp'
 import { describeError } from '@/lib/errors'
-import { compareReading, modelCostUsd, PRICES, summarizeEval, type EvalOutcome, type EvalSummary, type ReceiptComparison, type ReceiptTruth } from '@/lib/receipt-eval'
+import { DEFAULT_AI_MODEL } from '@/lib/ai/client'
+import { compareReading, modelCostUsd, PRICES, summarizeEval, type EvalOutcome, type EvalSummary, type ReceiptComparison, type ReceiptEvaluationModel, type ReceiptTruth } from '@/lib/receipt-eval'
 import { prepareReceiptImageForModel, prepareReceiptImageForOcr, type ModelImageVariant } from '@/lib/receipt-image'
 import { readPdfTextLayer } from '@/lib/receipt-pdf'
 import { RECEIPT_READING_PROMPT_VERSION } from '@/lib/receipt-reading-prompt'
 import { createLunaReceiptReader, receiptDecision, toExtractedReceipt, type ReceiptReading, type ReceiptReadingInput } from '@/lib/receipt-reading'
-import { azureReceiptTextExtractor, geminiStructuringProvider, googleVisionPdfTextExtractor, googleVisionTextExtractor, isAzureReceiptFallbackConfigured, needsReview, normalizeOcrText, type ExtractedReceipt } from '@/lib/receipts'
+import { aiReceiptStructuringProvider, azureReceiptTextExtractor, googleVisionPdfTextExtractor, googleVisionTextExtractor, isAzureReceiptFallbackConfigured, needsReview, normalizeOcrText, type ExtractedReceipt } from '@/lib/receipts'
 
 // Measures receipt readers on the local dataset (scripts/receipt-eval/export-dataset.ts,
 // docs/18_RECEIPT_READER_LUNA.md). Every model answer is cached next to the receipt
@@ -27,6 +28,8 @@ const ALL_VARIANTS: Variant[] = ['legacy', 'luna-none', 'luna-low', 'luna-low-oc
 type CachedResult = {
   variant: Variant
   readerId: string
+  // Optional for backward compatibility with results cached before model metadata was explicit.
+  model?: ReceiptEvaluationModel
   extracted: ExtractedReceipt | null
   reading: ReceiptReading | null
   usage: { inputTokens?: number; outputTokens?: number }
@@ -110,20 +113,24 @@ async function readWith(receipt: Receipt, variant: Variant): Promise<CachedResul
         provider = `azure (vision failed: ${describeError(visionError).slice(0, 120)})`
       }
     }
-    const extracted = await geminiStructuringProvider.structure(normalizeOcrText(text), { onUsage: (value) => (usage = value) })
-    return { variant, readerId: `${provider}+google/gemini-2.5-flash-lite`, extracted, reading: null, usage, visionImages, ms: Date.now() - started, error: null }
+    const extracted = await aiReceiptStructuringProvider.structure(normalizeOcrText(text), { onUsage: (value) => (usage = value) })
+    return { variant, readerId: `${provider}+${DEFAULT_AI_MODEL}`, model: DEFAULT_AI_MODEL, extracted, reading: null, usage, visionImages, ms: Date.now() - started, error: null }
   }
   const effort = variant === 'luna-none' ? 'none' : 'low'
   const input = await lunaInput(receipt, variant === 'luna-low-ocr' ? 'ocr' : 'plain', variant === 'luna-low-split')
   if (!input) return null // not applicable (a short photo or a PDF for the split test)
   const reader = createLunaReceiptReader({ reasoningEffort: effort })
   const reading = await reader.read(input, { onUsage: (value) => (usage = value) })
-  return { variant, readerId: reader.id, extracted: toExtractedReceipt(reading), reading, usage, visionImages: 0, ms: Date.now() - started, error: null }
+  return { variant, readerId: reader.id, model: DEFAULT_AI_MODEL, extracted: toExtractedReceipt(reading), reading, usage, visionImages: 0, ms: Date.now() - started, error: null }
 }
 
 function costOf(result: CachedResult): number {
-  if (result.variant === 'legacy') return modelCostUsd('google/gemini-2.5-flash-lite', result.usage) + result.visionImages * PRICES.googleVisionPerImage
-  return modelCostUsd('openai/gpt-6-luna', result.usage)
+  if (result.variant === 'legacy') {
+    // Cached Gemini records predate `model`; preserve their original price attribution.
+    const model = result.model ?? (result.readerId.includes('google/gemini-2.5-flash-lite') ? 'google/gemini-2.5-flash-lite' : DEFAULT_AI_MODEL)
+    return modelCostUsd(model, result.usage) + result.visionImages * PRICES.googleVisionPerImage
+  }
+  return modelCostUsd(result.model ?? DEFAULT_AI_MODEL, result.usage)
 }
 
 /** What the pipeline would do with the result. The placement gate (needs the product catalog) is left

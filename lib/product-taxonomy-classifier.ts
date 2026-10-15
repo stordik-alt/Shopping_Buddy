@@ -1,10 +1,11 @@
-import { generateText, Output } from 'ai'
+import { Output } from 'ai'
 import { z } from 'zod'
+import { DEFAULT_AI_MODEL, generateAIText } from '@/lib/ai/client'
 import { normalizeProductText } from '@/lib/product-normalize'
 import { PRODUCT_SUBCATEGORIES } from '@/lib/product-subcategories'
 import type { ItemCategory } from '@/lib/types'
 
-export const PRODUCT_TAXONOMY_CLASSIFIER_MODEL = 'openai/gpt-6-luna'
+export const PRODUCT_TAXONOMY_CLASSIFIER_MODEL = DEFAULT_AI_MODEL
 export const PRODUCT_TAXONOMY_CLASSIFIER_PROMPT_VERSION = '2026-10-v1'
 
 export const PRODUCT_TAXONOMY_CATEGORIES = [
@@ -63,7 +64,7 @@ export interface ProductTaxonomyClassifier {
   ): Promise<ProductTaxonomyClassification>
 }
 
-type GenerateStructured = typeof generateText
+type GenerateStructured = typeof generateAIText
 
 function defaultContext(context: ProductTaxonomyContext = {}): Required<ProductTaxonomyContext> {
   return {
@@ -191,19 +192,16 @@ export function validateProductTaxonomyClassification(
 
 /** GPT-6 Luna proposal-only classifier. It has no database dependency and never approves or writes a classification. */
 export function createLunaProductTaxonomyClassifier({
-  model = PRODUCT_TAXONOMY_CLASSIFIER_MODEL,
   reasoningEffort = 'low',
-  generate = generateText,
+  generate = generateAIText,
 }: {
-  model?: string
   reasoningEffort?: 'none' | 'low' | 'medium'
   generate?: GenerateStructured
 } = {}): ProductTaxonomyClassifier {
   return {
-    id: `${model}:${reasoningEffort}:${PRODUCT_TAXONOMY_CLASSIFIER_PROMPT_VERSION}`,
+    id: `${PRODUCT_TAXONOMY_CLASSIFIER_MODEL}:${reasoningEffort}:${PRODUCT_TAXONOMY_CLASSIFIER_PROMPT_VERSION}`,
     async classify(candidate, suppliedContext = {}, options) {
       const { output, usage } = await generate({
-        model,
         output: Output.object({ schema: productTaxonomyClassificationSchema }),
         providerOptions: { openai: { reasoningEffort } },
         messages: [{ role: 'user', content: buildProductTaxonomyPrompt(candidate, suppliedContext) }],

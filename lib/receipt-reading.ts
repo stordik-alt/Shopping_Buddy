@@ -1,5 +1,6 @@
-import { generateText, Output } from 'ai'
+import { Output } from 'ai'
 import { z } from 'zod'
+import { DEFAULT_AI_MODEL, generateAIText } from '@/lib/ai/client'
 import { RECEIPT_READING_PROMPT, RECEIPT_READING_PROMPT_VERSION } from '@/lib/receipt-reading-prompt'
 import type { ExtractedReceipt } from '@/lib/receipts'
 import type { ItemCategory } from '@/lib/types'
@@ -121,7 +122,7 @@ export function receiptDecision(reading: ReceiptReading, { checksPassed }: { che
 
 // --- Reader -------------------------------------------------------------------------------------------
 
-export const RECEIPT_READING_MODEL = 'openai/gpt-6-luna'
+export const RECEIPT_READING_MODEL = DEFAULT_AI_MODEL
 
 export type ReceiptReadingInput = { images: { base64: string; mimeType: string }[] } | { text: string }
 
@@ -133,7 +134,7 @@ export interface ReceiptImageReader {
   read(input: ReceiptReadingInput, options?: { onUsage?: (usage: ReceiptReadingUsage) => void }): Promise<ReceiptReading>
 }
 
-type GenerateStructured = typeof generateText
+type GenerateStructured = typeof generateAIText
 
 /** The model call's message: the instructions, then every photo in order (or the receipt's text layer). */
 export function receiptReadingMessage(input: ReceiptReadingInput) {
@@ -150,19 +151,17 @@ export function receiptReadingMessage(input: ReceiptReadingInput) {
   }
 }
 
-/** GPT-6 Luna through the AI Gateway (a plain "provider/model" string, as for the other model calls).
- *  `reasoningEffort` is chosen by measurement; `generate` is injectable for tests. A response that does
- *  not fit the schema throws, so the import fails with a reason instead of storing partial data. */
+/** GPT-6 Luna through the shared Cloudflare AI Gateway client. `reasoningEffort` is chosen by
+ *  measurement; `generate` is injectable for tests. A response that does not fit the schema throws,
+ *  so the import fails with a reason instead of storing partial data. */
 export function createLunaReceiptReader({
-  model = RECEIPT_READING_MODEL,
   reasoningEffort = 'low',
-  generate = generateText,
-}: { model?: string; reasoningEffort?: 'none' | 'low' | 'medium'; generate?: GenerateStructured } = {}): ReceiptImageReader {
+  generate = generateAIText,
+}: { reasoningEffort?: 'none' | 'low' | 'medium'; generate?: GenerateStructured } = {}): ReceiptImageReader {
   return {
-    id: `${model}:${reasoningEffort}:${RECEIPT_READING_PROMPT_VERSION}`,
+    id: `${RECEIPT_READING_MODEL}:${reasoningEffort}:${RECEIPT_READING_PROMPT_VERSION}`,
     async read(input, options) {
       const { output, usage } = await generate({
-        model,
         output: Output.object({ schema: receiptReadingSchema }),
         providerOptions: { openai: { reasoningEffort } },
         messages: [receiptReadingMessage(input)],

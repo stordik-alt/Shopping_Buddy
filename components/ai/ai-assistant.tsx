@@ -39,10 +39,10 @@ export function AiAssistant({ onShopping }: { onShopping: () => void }) {
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain pr-1" aria-live="polite">
         {messages.map((message, index) => (
-          <div key={`${message.role}-${index}`} className={`flex items-center gap-2 ${message.role === 'user' ? 'justify-end' : ''}`}>
-            {message.role === 'assistant' && <AnitkaAvatar className="size-8 shrink-0" />}
+          <div key={`${message.role}-${index}`} className={`flex items-start gap-2 ${message.role === 'user' ? 'justify-end' : ''}`}>
+            {message.role === 'assistant' && <AnitkaAvatar className="size-8 shrink-0 self-center" />}
             <div
-              className={`max-w-[85%] rounded-2xl px-4 py-3 text-base leading-relaxed ${
+              className={`max-w-[85%] self-center rounded-2xl px-4 py-3 text-base leading-relaxed ${
                 message.role === 'user'
                   ? 'rounded-br-md bg-primary text-primary-foreground'
                   : 'rounded-bl-md border border-border bg-background text-foreground'

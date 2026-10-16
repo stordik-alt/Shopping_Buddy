@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { pantryAreaEnum, pantryLocationEnum } from '@/lib/db/schema'
 import {
   CHECKIN_DAYS_BY_CATEGORY,
+  checkLocationRemoval,
   CHECKIN_DAYS_BY_SUBCATEGORY,
   checkinDaysFor,
   checkinSubcategoryKey,
@@ -201,6 +202,39 @@ describe('PANTRY_LOCATIONS', () => {
 describe('PANTRY_AREAS', () => {
   it('offers exactly the areas the database enum accepts, in the same order', () => {
     expect(PANTRY_AREAS).toEqual([...pantryAreaEnum.enumValues])
+  })
+})
+
+describe('removing default locations', () => {
+  const place: PantryPlace = { id: 'p1', area: 'Auto', name: 'Kufr' }
+
+  it('leaves a removed fixed location out of the options unless an item is still kept there', () => {
+    expect(pantryPlaceOptions([], ['Spíž']).map((option) => option.key)).not.toContain('Spíž')
+    expect(pantryPlaceOptions([], ['Spíž'], [{ location: 'Spíž', customPlaceId: null }]).map((option) => option.key)).toContain('Spíž')
+    // An item in a custom place does not keep its (stale) fixed location visible.
+    expect(pantryPlaceOptions([place], ['Spíž'], [{ location: 'Spíž', customPlaceId: 'p1' }]).map((option) => option.key)).not.toContain('Spíž')
+  })
+
+  it('allows removing an empty location, and refuses an unknown or already removed one', () => {
+    expect(checkLocationRemoval({ location: 'Mrazák', hiddenLocations: [], customPlaces: [], items: [] })).toEqual({ itemCount: 0 })
+    expect(checkLocationRemoval({ location: 'Nic', hiddenLocations: [], customPlaces: [], items: [] })).toHaveProperty('error')
+    expect(checkLocationRemoval({ location: 'Mrazák', hiddenLocations: ['Mrazák'], customPlaces: [], items: [] })).toHaveProperty('error')
+  })
+
+  it('refuses to remove the last remaining place', () => {
+    const hidden = PANTRY_LOCATIONS.filter((location) => location !== 'Spíž')
+    expect(checkLocationRemoval({ location: 'Spíž', hiddenLocations: hidden, customPlaces: [], items: [] })).toHaveProperty('error')
+    expect(checkLocationRemoval({ location: 'Spíž', hiddenLocations: hidden, customPlaces: [place], items: [] })).toEqual({ itemCount: 0 })
+  })
+
+  it('requires a target for the items still kept there, and only one that stays', () => {
+    const items = [{ location: 'Spíž' as const, customPlaceId: null }, { location: 'Spíž' as const, customPlaceId: 'p1' }]
+    expect(checkLocationRemoval({ location: 'Spíž', hiddenLocations: [], customPlaces: [place], items })).toHaveProperty('error')
+    expect(checkLocationRemoval({ location: 'Spíž', hiddenLocations: [], customPlaces: [place], items, targetKey: 'Spíž' })).toHaveProperty('error')
+    expect(checkLocationRemoval({ location: 'Spíž', hiddenLocations: ['Lednice'], customPlaces: [place], items, targetKey: 'Lednice' })).toHaveProperty('error')
+    expect(checkLocationRemoval({ location: 'Spíž', hiddenLocations: [], customPlaces: [place], items, targetKey: customPlaceKey('other') })).toHaveProperty('error')
+    expect(checkLocationRemoval({ location: 'Spíž', hiddenLocations: [], customPlaces: [place], items, targetKey: customPlaceKey('p1') })).toEqual({ itemCount: 1 })
+    expect(checkLocationRemoval({ location: 'Spíž', hiddenLocations: [], customPlaces: [], items, targetKey: 'Lednice' })).toEqual({ itemCount: 1 })
   })
 })
 

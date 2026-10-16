@@ -1073,6 +1073,16 @@ export const pantryPlaces = pgTable('pantry_places', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => [uniqueIndex('pantry_places_household_area_name_unique').on(table.householdId, table.area, table.name)])
 
+// A fixed `pantry_location` the household removed from its Zásoby (it replaced the defaults with its own
+// places). Only a flag per household: `pantry_items.location` keeps its enum value, so no existing row or
+// reference is touched; the items that were there are moved to another place first
+// (app/actions/pantry.ts removePantryLocationAction).
+export const pantryHiddenLocations = pgTable('pantry_hidden_locations', {
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  location: pantryLocationEnum('location').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [primaryKey({ name: 'pantry_hidden_locations_pk', columns: [table.householdId, table.location] })])
+
 // The household's wanted stock per product TYPE (docs/36_PANTRY_STOCK_LEVELS.md): restock when the stock of
 // the whole type (every pantry row of it) nears `minQuantity`, up to `maxQuantity`, in `unit`. Set in the
 // Profil, never per concrete product, so the cheapest variant of the type can be suggested.

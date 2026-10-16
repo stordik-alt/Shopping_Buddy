@@ -94,14 +94,47 @@ export function customPlaceIdFromKey(key: string): string | null {
   return key.startsWith(CUSTOM_PLACE_KEY_PREFIX) ? key.slice(CUSTOM_PLACE_KEY_PREFIX.length) : null
 }
 
-/** Every place the household can keep stock in right now: the fixed locations, then its own custom
- *  places grouped by area and named alphabetically within it. */
-export function pantryPlaceOptions(customPlaces: PantryPlace[]): PantryPlaceOption[] {
-  const fixed: PantryPlaceOption[] = PANTRY_LOCATIONS.map((location) => ({ key: location, name: location, area: FIXED_LOCATION_AREA[location], custom: false }))
+/** Every place the household can keep stock in right now: the fixed locations it has not removed,
+ *  then its own custom places grouped by area and named alphabetically within it. A removed fixed
+ *  location still shows while an item is kept there (`items`), so stock can never become invisible. */
+export function pantryPlaceOptions(customPlaces: PantryPlace[], hiddenLocations: readonly PantryLocation[] = [], items: Pick<PantryItem, 'location' | 'customPlaceId'>[] = []): PantryPlaceOption[] {
+  const occupied = new Set(items.filter((item) => !item.customPlaceId).map((item) => item.location))
+  const fixed: PantryPlaceOption[] = PANTRY_LOCATIONS
+    .filter((location) => !hiddenLocations.includes(location) || occupied.has(location))
+    .map((location) => ({ key: location, name: location, area: FIXED_LOCATION_AREA[location], custom: false }))
   const customs: PantryPlaceOption[] = [...customPlaces]
     .sort((a, b) => PANTRY_AREAS.indexOf(a.area) - PANTRY_AREAS.indexOf(b.area) || a.name.localeCompare(b.name, 'cs'))
     .map((place) => ({ key: customPlaceKey(place.id), name: place.name, area: place.area, custom: true, id: place.id }))
   return [...fixed, ...customs]
+}
+
+/** Decides whether a fixed location may be removed from a household's Zásoby (the household replaces
+ *  the defaults with its own places). Pure, so the server action and its tests share one rule:
+ *  - at least one place must remain, or there would be nowhere to keep anything;
+ *  - items still kept there are never dropped or guessed into another place: the household names the
+ *    place they move to (`targetKey`), which must be a place that stays.
+ *  Returns the error message, or `null` when removal can go ahead (after moving `itemCount` items). */
+export function checkLocationRemoval(input: {
+  location: string
+  hiddenLocations: readonly PantryLocation[]
+  customPlaces: PantryPlace[]
+  items: Pick<PantryItem, 'location' | 'customPlaceId'>[]
+  targetKey?: string | null
+}): { error: string } | { itemCount: number } {
+  const location = PANTRY_LOCATIONS.find((candidate) => candidate === input.location)
+  if (!location) return { error: 'Neplatné umístění.' }
+  if (input.hiddenLocations.includes(location)) return { error: 'Toto místo už je odebrané.' }
+  const remainingFixed = PANTRY_LOCATIONS.filter((candidate) => candidate !== location && !input.hiddenLocations.includes(candidate))
+  if (remainingFixed.length + input.customPlaces.length === 0) return { error: 'Musí zůstat alespoň jedno místo. Nejdřív si přidejte vlastní.' }
+  const itemCount = input.items.filter((item) => !item.customPlaceId && item.location === location).length
+  if (itemCount === 0) return { itemCount }
+  if (!input.targetKey) return { error: `V tomto místě je ${itemCount} položek. Vyberte, kam je přesunout.` }
+  const customId = customPlaceIdFromKey(input.targetKey)
+  const targetStays = customId
+    ? input.customPlaces.some((place) => place.id === customId)
+    : remainingFixed.some((candidate) => candidate === input.targetKey)
+  if (!targetStays) return { error: 'Vybrané místo pro přesun neexistuje.' }
+  return { itemCount }
 }
 
 /** The place key a pantry item is currently kept at — its custom place when it has one, otherwise

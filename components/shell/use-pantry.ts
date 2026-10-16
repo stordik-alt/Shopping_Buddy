@@ -9,7 +9,9 @@ import {
   confirmPantryItemAction,
   movePantryItemAction,
   removePantryItemAction,
+  removePantryLocationAction,
   removePantryPlaceAction,
+  restorePantryLocationAction,
   reviewPantryAction,
   setPantryCheckinDaysAction,
   setPantryItemCategoryAction,
@@ -45,6 +47,7 @@ export function usePantry({
 }) {
   const [pantryItems, setPantryItems] = useState(initialData.pantryItems)
   const [pantryPlaces, setPantryPlaces] = useState(initialData.pantryPlaces)
+  const [hiddenPantryLocations, setHiddenPantryLocations] = useState(initialData.hiddenPantryLocations)
   const [pantryCheckinDays, setPantryCheckinDays] = useState(initialData.pantryCheckinDays)
   const [pantryCheckinSubcategoryDays, setPantryCheckinSubcategoryDays] = useState(initialData.pantryCheckinSubcategoryDays)
   const [pantryCheckPending, setPantryCheckPending] = useState(initialPantryCheck)
@@ -56,6 +59,7 @@ export function usePantry({
   useEffect(() => {
     setPantryItems(initialData.pantryItems)
     setPantryPlaces(initialData.pantryPlaces)
+    setHiddenPantryLocations(initialData.hiddenPantryLocations)
     setPantryCheckinDays(initialData.pantryCheckinDays)
     setPantryCheckinSubcategoryDays(initialData.pantryCheckinSubcategoryDays)
   }, [initialData])
@@ -91,6 +95,24 @@ export function usePantry({
     const place = await addPantryPlaceAction(area, name)
     setPantryPlaces((current) => [...current, place])
     return place
+  }
+
+  async function removePantryLocation(location: PantryLocation, targetKey?: string | null) {
+    await removePantryLocationAction(location, targetKey)
+    setHiddenPantryLocations((current) => [...current, location])
+    // Items that were kept there now live at the place the household picked.
+    setPantryItems((current) =>
+      current.map((item) => {
+        if (item.location !== location || item.customPlaceId || !targetKey) return item
+        const customPlaceId = customPlaceIdFromKey(targetKey)
+        return customPlaceId ? { ...item, customPlaceId } : { ...item, location: targetKey as PantryLocation }
+      }),
+    )
+  }
+
+  async function restorePantryLocation(location: PantryLocation) {
+    await restorePantryLocationAction(location)
+    setHiddenPantryLocations((current) => current.filter((candidate) => candidate !== location))
   }
 
   async function removePantryPlace(placeId: string) {
@@ -201,6 +223,7 @@ export function usePantry({
     pantryItems,
     setPantryItems,
     pantryPlaces,
+    hiddenPantryLocations,
     pantryCheckinDays,
     pantryCheckinSubcategoryDays,
     pantryCheckPending,
@@ -215,6 +238,8 @@ export function usePantry({
     movePantryItem,
     addPantryPlace,
     removePantryPlace,
+    removePantryLocation,
+    restorePantryLocation,
     setPantryCheckinDaysFor,
     setPantrySubcategoryCheckinDaysFor,
     reviewPantry,

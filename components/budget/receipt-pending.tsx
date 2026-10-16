@@ -6,8 +6,8 @@ import type { ReceiptImportState } from '@/lib/db/queries'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import { money } from '@/lib/format'
 import { ocrProviderLabel } from '@/lib/receipt-ocr-provider'
-import { PANTRY_LOCATIONS } from '@/lib/pantry'
-import type { ItemCategory, ItemUnit } from '@/lib/types'
+import { customPlaceIdFromKey, customPlaceKey, pantryPlaceOptions } from '@/lib/pantry'
+import type { ItemCategory, ItemUnit, PantryLocation, PantryPlace } from '@/lib/types'
 import { userFacingError } from '@/lib/errors'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -70,6 +70,8 @@ export function ReceiptPending({
   onCancel,
   focusId = null,
   onFocusHandled,
+  customPlaces = [],
+  hiddenLocations = [],
 }: {
   items: ReceiptImportState[]
   onRetry: (id: string) => Promise<ReceiptImportState>
@@ -79,6 +81,9 @@ export function ReceiptPending({
   /** A receipt to bring into view and focus ("Dnes je důležité" on Domů); consumed once. */
   focusId?: string | null
   onFocusHandled?: () => void
+  /** The household's own pantry places, offered next to the fixed locations for each line's storage. */
+  customPlaces?: PantryPlace[]
+  hiddenLocations?: PantryLocation[]
 }) {
   useEffect(() => {
     if (!focusId) return
@@ -96,7 +101,7 @@ export function ReceiptPending({
       {items.map((item) => (
         // Focusable (tabIndex -1) so a link from Domů can land on this receipt; scroll-mt keeps it clear of the sticky header.
         <div key={item.id} id={`receipt-${item.id}`} tabIndex={-1} className="scroll-mt-20 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <ReceiptPendingCard item={item} onRetry={onRetry} onConfirmReview={onConfirmReview} onResolveDuplicate={onResolveDuplicate} onCancel={onCancel} />
+          <ReceiptPendingCard item={item} onRetry={onRetry} onConfirmReview={onConfirmReview} onResolveDuplicate={onResolveDuplicate} onCancel={onCancel} customPlaces={customPlaces} hiddenLocations={hiddenLocations} />
         </div>
       ))}
     </section>
@@ -109,14 +114,20 @@ function ReceiptPendingCard({
   onConfirmReview,
   onResolveDuplicate,
   onCancel,
+  customPlaces,
+  hiddenLocations,
 }: {
   item: ReceiptImportState
   onRetry: (id: string) => Promise<ReceiptImportState>
   onConfirmReview: (id: string, items: ReceiptLineItem[], date: string) => Promise<void>
   onResolveDuplicate: (id: string, resolution: 'save_new' | 'use_existing' | 'cancel', items?: ReceiptLineItem[], date?: string) => Promise<void>
   onCancel: (id: string) => void
+  customPlaces: PantryPlace[]
+  hiddenLocations: PantryLocation[]
 }) {
   const [rows, setRows] = useState<ReceiptLineItem[]>(item.extracted?.items ?? [])
+  // A removed default stays selectable when the pipeline already placed a line there (from the extracted lines, so the list does not change while editing), so the select never shows blank.
+  const placeOptions = pantryPlaceOptions(customPlaces, hiddenLocations, (item.extracted?.items ?? []).flatMap((row) => (row.location ? [{ location: row.location, customPlaceId: null }] : [])))
   const [purchaseDate, setPurchaseDate] = useState(item.extracted?.date ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -228,8 +239,8 @@ function ReceiptPendingCard({
     // Blocks saving until every real row has a storage location — the whole reason this receipt
     // needs review might be exactly that the pipeline couldn't place one confidently, and the
     // point of review is to actually ask, not to let a blank silently turn into a default later.
-    const canConfirm = !busy && activeRows.length > 0 && purchaseDate.trim().length > 0 && activeRows.every((row) => row.location)
-    const missingLocations = activeRows.filter((row) => !row.location).length
+    const canConfirm = !busy && activeRows.length > 0 && purchaseDate.trim().length > 0 && activeRows.every((row) => row.location || row.customPlaceId)
+    const missingLocations = activeRows.filter((row) => !row.location && !row.customPlaceId).length
 
     return (
       <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
@@ -323,16 +334,22 @@ function ReceiptPendingCard({
                   {/* The one field review can block on — marked invalid (red border, in words below) until chosen. */}
                   <Select
                     aria-label={`Uložení položky ${index + 1}`}
-                    aria-invalid={row.location ? undefined : true}
-                    value={row.location ?? ''}
-                    onChange={(e) => updateRow(index, { location: (e.target.value || undefined) as ReceiptLineItem['location'] })}
+                    aria-invalid={row.location || row.customPlaceId ? undefined : true}
+                    value={row.customPlaceId ? customPlaceKey(row.customPlaceId) : row.location ?? ''}
+                    onChange={(e) => {
+                      // A custom place replaces the fixed location (and vice versa) — never both.
+                      const customPlaceId = customPlaceIdFromKey(e.target.value) ?? undefined
+                      updateRow(index, { location: customPlaceId || !e.target.value ? undefined : (e.target.value as PantryLocation), customPlaceId })
+                    }}
                     className="col-span-3 px-3 sm:col-span-1"
                   >
                     <option value="" disabled>
                       Vyberte uložení
                     </option>
-                    {PANTRY_LOCATIONS.map((location) => (
-                      <option key={location}>{location}</option>
+                    {placeOptions.map((option) => (
+                      <option key={option.key} value={option.key}>
+                        {option.name}
+                      </option>
                     ))}
                   </Select>
                   {row.discount != null && (

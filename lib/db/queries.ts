@@ -171,6 +171,8 @@ export type HouseholdData = {
   pantryItems: PantryItem[]
   /** The household's own storage places, beyond the fixed `PantryLocation` list (lib/pantry.ts). */
   pantryPlaces: PantryPlace[]
+  /** Fixed locations the household removed from its Zásoby (replaced by its own places). */
+  hiddenPantryLocations: PantryLocation[]
   /** The household's own per-category pantry check-in interval overrides (lib/pantry.ts's
    *  CHECKIN_DAYS_BY_CATEGORY is the fixed default a category without one falls back to). */
   pantryCheckinDays: Partial<Record<ItemCategory, number>>
@@ -624,7 +626,7 @@ export async function getHouseholdData(
   // but are not loaded on normal page renders, which keeps the common read path bounded.
   const budgetPeriod = periodConfigOfHousehold(household)
   const historySince = currentBudgetPeriodStart(budgetPeriod)
-  const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows, mealPlan, invitationRows, pantryRows, pantryPlaceRows, pantryCheckinRows, pantryCheckinSubcategoryRows, pendingReceiptImports, categoryBudgetRows, recurringRows, occurrenceRows, notificationsOffRows, periodBudgetRows, dietRows] =
+  const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows, mealPlan, invitationRows, pantryRows, pantryPlaceRows, hiddenLocationRows, pantryCheckinRows, pantryCheckinSubcategoryRows, pendingReceiptImports, categoryBudgetRows, recurringRows, occurrenceRows, notificationsOffRows, periodBudgetRows, dietRows] =
     await Promise.all([
       timed('members', db.query.householdMembers.findMany({
         where: eq(schema.householdMembers.householdId, household.id),
@@ -650,6 +652,7 @@ export async function getHouseholdData(
       })),
       timed('pantry', queryPantryRows(household.id)),
       timed('pantryPlaces', db.query.pantryPlaces.findMany({ where: eq(schema.pantryPlaces.householdId, household.id), orderBy: asc(schema.pantryPlaces.createdAt) })),
+      timed('pantryHiddenLocations', db.select({ location: schema.pantryHiddenLocations.location }).from(schema.pantryHiddenLocations).where(eq(schema.pantryHiddenLocations.householdId, household.id))),
       timed('pantryCheckin', db.query.pantryCheckinIntervals.findMany({ where: eq(schema.pantryCheckinIntervals.householdId, household.id) })),
       timed('pantryCheckinSub', db.query.pantryCheckinSubcategoryIntervals.findMany({ where: eq(schema.pantryCheckinSubcategoryIntervals.householdId, household.id) })),
       timed('pendingReceipts', getPendingReceiptImports(household.id)),
@@ -761,6 +764,7 @@ export async function getHouseholdData(
     ),
     pantryItems: pantryRows.map(toPantryItem),
     pantryPlaces: pantryPlaceRows.map((place): PantryPlace => ({ id: place.id, area: place.area, name: place.name })),
+    hiddenPantryLocations: hiddenLocationRows.map((row) => row.location),
     pantryCheckinDays: Object.fromEntries(pantryCheckinRows.map((row) => [row.category, row.days])),
     pantryCheckinSubcategoryDays: Object.fromEntries(pantryCheckinSubcategoryRows.map((row) => [checkinSubcategoryKey(row.category, row.subcategory), row.days])),
     pendingReceiptImports,
@@ -843,7 +847,7 @@ export async function restockPantryItem(
  *  (restarts the check-in interval, never moves an existing row). */
 export async function restockPantryTypeItem(
   householdId: string,
-  item: { productTypeId: string; typeName: string; category: ItemCategory; quantity: number; unit: ItemUnit; location?: PantryLocation; subcategoryId?: string | null; piece?: PieceSize | null },
+  item: { productTypeId: string; typeName: string; category: ItemCategory; quantity: number; unit: ItemUnit; location?: PantryLocation; customPlaceId?: string | null; subcategoryId?: string | null; piece?: PieceSize | null },
 ) {
   const db = getDb()
   const candidates = await db.query.pantryItems.findMany({
@@ -881,6 +885,7 @@ export async function restockPantryTypeItem(
     category: item.category,
     subcategoryId: item.subcategoryId ?? null,
     location: item.location ?? inferPantryLocation(item.category, item.typeName) ?? 'Spíž',
+    customPlaceId: item.customPlaceId ?? null,
     quantity: item.quantity,
     unit: item.unit,
     pieceQuantity: piece?.quantity ?? null,

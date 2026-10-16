@@ -34,6 +34,9 @@ export type ReceiptLineItem = {
    *  the product's unit price — 15,00 Kč for "1 ks" of apples is not a price per kilo. */
   unitPriceUnknown?: boolean
   location?: PantryLocation
+  /** One of the household's own pantry places (`pantry_places.id`) chosen during review instead of a
+   *  fixed `location`; checked against the household server-side before it is stored. */
+  customPlaceId?: string
   confidence?: number
   // --- Categorization pipeline observability/control (lib/categorization.ts) -------------------
   // The item's subcategory within `category` (lib/product-subcategories.ts's fixed list per item

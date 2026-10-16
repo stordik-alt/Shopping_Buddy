@@ -56,7 +56,7 @@ export function Brand({
       {!compact && (
         <div className="min-w-0">
           <span className="block text-[1.05rem] font-bold tracking-[-0.02em] text-primary">ANITKA</span>
-          <span className="block text-xs font-medium text-fg-muted">Chat s Anitkou</span>
+          <span className="block text-xs font-medium text-fg-muted">Asistent pro domácnost</span>
         </div>
       )}
     </button>

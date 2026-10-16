@@ -1,3 +1,7 @@
+## 2026-10-16 — Import účtenek: reasoning GPT-6 Luna na Medium
+
+- `aiReceiptStructuringProvider` (`lib/receipts.ts`) posílá `providerOptions.openai.reasoningEffort: 'medium'`; dosud se effort nenastavoval a model u účtenky o 21 položkách vygeneroval přes 6 000 reasoning tokenů. Čtečka `createLunaReceiptReader` (`lib/receipt-reading.ts`) zůstává na `low` a do produkce zapojená není.
+
 ## 2026-10-16 — Průvodce ukazuje chat s Anitkou
 
 - Karta v průvodci zvýrazní obrázek Anitky vlevo nahoře, kterým se otevírá chat. Stručně popíše plánování nákupu podle rozpočtu, porovnání cen a akcí a tipy na večeři; zároveň říká, že AI zatím není připojená a zprávy nezpracovává. Koncept `docs/22_GUIDE.md`; průvodce testy (20) a TypeScript kontrola prošly.

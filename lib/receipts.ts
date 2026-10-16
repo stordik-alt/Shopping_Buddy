@@ -395,6 +395,8 @@ export const aiReceiptStructuringProvider: ReceiptStructuringProvider = {
   async structure(normalizedText, options) {
     const { output, usage } = await generateAIText({
       output: Output.object({ schema: modelReceiptSchema }),
+      // Medium reasoning: the default effort spent thousands of reasoning tokens on a 21-item receipt.
+      providerOptions: { openai: { reasoningEffort: 'medium' } },
       prompt: `You are extracting structured data from the OCR text of a Czech retail receipt.
 
 Extract: the store name plus the store address and city if printed on the receipt, the date (YYYY-MM-DD), the time (HH:MM) if present, the receipt number if present, the currency as an ISO code ("CZK" for Kč), every line item (name, category, quantity, unit, unit price, total price, discount), the subtotal, the total discount, and the grand total.

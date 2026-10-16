@@ -11,14 +11,14 @@ import * as schema from '@/lib/db/schema'
 import { classifySubcategory } from '@/lib/categorization'
 import type { CatalogChangeOutcome, CategoryChangeOutcome } from '@/lib/product-subcategory-changes'
 import { PRODUCT_SUBCATEGORIES, subcategoriesOfItem } from '@/lib/product-subcategories'
-import type { PantryQuantityChange } from '@/lib/pantry'
+import { checkLocationRemoval, type PantryQuantityChange } from '@/lib/pantry'
 import { ITEM_UNITS } from '@/lib/units'
 import { getRestockDismissals, getStockLevels } from '@/lib/db/restock'
 import { productTypeByKey } from '@/lib/product-types'
 import { validateStockLevels, type StockLevel } from '@/lib/pantry-restock'
 import { CHECKIN_DAYS_BY_CATEGORY, checkinSubcategoryKey, customPlaceIdFromKey, inferPantryLocation, MAX_PANTRY_REVIEW_ITEMS, PANTRY_AREAS, PANTRY_LOCATIONS, PANTRY_TRACKING, reviewQuantityChanges, splitPantryReview } from '@/lib/pantry'
 import { matchProductByName } from '@/lib/products'
-import type { ItemCategory, ItemUnit, PantryArea, PantryItem, PantryTracking } from '@/lib/types'
+import type { ItemCategory, ItemUnit, PantryArea, PantryItem, PantryLocation, PantryTracking } from '@/lib/types'
 
 // No revalidatePath in this file: each of these saves is already shown by components/app-shell.tsx from its
 // own state or from the data the action returns. Re-rendering the whole page after every save re-ran
@@ -247,6 +247,41 @@ export async function removePantryPlaceAction(placeId: string) {
   const [itemHere] = await db.select({ id: schema.pantryItems.id }).from(schema.pantryItems).where(eq(schema.pantryItems.customPlaceId, placeId)).limit(1)
   if (itemHere) throw new Error('Nejdřív přesuňte položky z tohoto místa jinam.')
   await db.delete(schema.pantryPlaces).where(eq(schema.pantryPlaces.id, placeId))
+}
+
+/** Removes a fixed location (Spíž, Lednice, ...) from the household's Zásoby so it can replace the
+ *  defaults with its own places. Items still kept there are moved to `targetKey` first (a remaining
+ *  fixed location or one of the household's own places), never dropped or guessed, so nothing that
+ *  references the location is left dangling; `pantry_items.location` keeps its value for rows that
+ *  moved to a custom place. Refused when it would leave no place at all (lib/pantry.ts
+ *  `checkLocationRemoval`). */
+export async function removePantryLocationAction(location: PantryLocation, targetKey?: string | null) {
+  const householdId = await requireHouseholdId()
+  const db = getDb()
+  const [hiddenRows, placeRows, itemRows] = await Promise.all([
+    db.select({ location: schema.pantryHiddenLocations.location }).from(schema.pantryHiddenLocations).where(eq(schema.pantryHiddenLocations.householdId, householdId)),
+    db.select({ id: schema.pantryPlaces.id, area: schema.pantryPlaces.area, name: schema.pantryPlaces.name }).from(schema.pantryPlaces).where(eq(schema.pantryPlaces.householdId, householdId)),
+    db.select({ location: schema.pantryItems.location, customPlaceId: schema.pantryItems.customPlaceId }).from(schema.pantryItems).where(and(eq(schema.pantryItems.householdId, householdId), eq(schema.pantryItems.location, location))),
+  ])
+  const check = checkLocationRemoval({ location, hiddenLocations: hiddenRows.map((row) => row.location), customPlaces: placeRows, items: itemRows, targetKey })
+  if ('error' in check) throw new Error(check.error)
+  if (check.itemCount > 0 && targetKey) {
+    const customPlaceId = customPlaceIdFromKey(targetKey)
+    const here = and(eq(schema.pantryItems.householdId, householdId), eq(schema.pantryItems.location, location), isNull(schema.pantryItems.customPlaceId))
+    await db
+      .update(schema.pantryItems)
+      .set(customPlaceId ? { customPlaceId } : { location: targetKey as PantryLocation })
+      .where(here)
+  }
+  await db.insert(schema.pantryHiddenLocations).values({ householdId, location }).onConflictDoNothing()
+}
+
+/** Brings a removed fixed location back. */
+export async function restorePantryLocationAction(location: PantryLocation) {
+  const householdId = await requireHouseholdId()
+  if (!(PANTRY_LOCATIONS as string[]).includes(location)) throw new Error('Neplatné umístění.')
+  const db = getDb()
+  await db.delete(schema.pantryHiddenLocations).where(and(eq(schema.pantryHiddenLocations.householdId, householdId), eq(schema.pantryHiddenLocations.location, location)))
 }
 
 /** Sets a pantry item's quantity to an exact value — covers both the "−/+" stepper and typing an

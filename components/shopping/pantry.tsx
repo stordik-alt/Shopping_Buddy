@@ -130,6 +130,7 @@ export function Pantry({
   items,
   onAddPantryItem,
   customPlaces,
+  hiddenLocations = [],
   onConfirm,
   onRemove,
   onMove,
@@ -150,6 +151,8 @@ export function Pantry({
   onAddPantryItem: (input: PantryAddInput) => Promise<PantryItem[]>
   /** The household's own places, beyond the fixed locations (Profil domácnosti → Zásoby). */
   customPlaces: PantryPlace[]
+  /** Fixed locations the household removed (Profil domácnosti → Zásoby); shown again only while an item is still kept there. */
+  hiddenLocations?: PantryLocation[]
   onConfirm: (id: string) => void
   onRemove: (id: string) => void
   /** `place` is a `PantryPlaceOption.key` — a fixed location name, or `custom:<id>`. */
@@ -175,11 +178,13 @@ export function Pantry({
   onShopping?: () => void
   onReceipts?: () => void
 }) {
-  const options = useMemo(() => pantryPlaceOptions(customPlaces), [customPlaces])
+  const options = useMemo(() => pantryPlaceOptions(customPlaces, hiddenLocations, items), [customPlaces, hiddenLocations, items])
   const likelyGone = useMemo(() => new Set([...estimates].filter(([, estimate]) => estimate.likelyGone).map(([id]) => id)), [estimates])
   const summary = summarizeByPlace(items, options, likelyGone)
   // Open on the first place that has something in it rather than on an empty folder.
-  const [selected, setSelected] = useState<string>(() => options.find((option) => summary[option.key].count > 0)?.key ?? options[0].key)
+  const [selectedKey, setSelected] = useState<string>(() => options.find((option) => summary[option.key].count > 0)?.key ?? options[0].key)
+  // The open folder can disappear (a default location was removed); fall back to the first one left.
+  const selected = options.some((option) => option.key === selectedKey) ? selectedKey : options[0].key
   // Announces a move: the moved row leaves the open folder, so without this it would just vanish.
   const [notice, setNotice] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
@@ -385,7 +390,7 @@ export function Pantry({
       )}
 
       {reviewing ? (
-        <PantryReview items={items} customPlaces={customPlaces} placeKey={selected} placeLabel={selectedOption.name} initialScope={reviewing} estimates={estimates} onSave={onReview} onClose={closeReview} />
+        <PantryReview items={items} customPlaces={customPlaces} hiddenLocations={hiddenLocations} placeKey={selected} placeLabel={selectedOption.name} initialScope={reviewing} estimates={estimates} onSave={onReview} onClose={closeReview} />
       ) : (
       <section aria-label={`Zásoby: ${selectedOption.name}`} className="overflow-hidden surface">
         <div className="flex flex-col gap-3 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
@@ -564,6 +569,7 @@ export function Pantry({
       {adding && (
         <PantryAddModal
           customPlaces={customPlaces}
+          hiddenLocations={hiddenLocations}
           onClose={() => setAdding(false)}
           onSubmit={async (input) => {
             await onAddPantryItem(input)

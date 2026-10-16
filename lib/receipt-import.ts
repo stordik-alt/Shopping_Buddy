@@ -347,6 +347,12 @@ export async function createPurchaseFromReceiptItems(
   }
   const db = getDb()
   const date = resolveReceiptPurchaseDate(options.date, options.storedDate ?? null)
+  // A custom place picked in review comes from the browser: it must be one of this household's own.
+  const pickedPlaceIds = [...new Set(activeItems.flatMap((item) => (item.customPlaceId ? [item.customPlaceId] : [])))]
+  if (pickedPlaceIds.length > 0) {
+    const ownPlaces = await db.select({ id: schema.pantryPlaces.id }).from(schema.pantryPlaces).where(and(eq(schema.pantryPlaces.householdId, householdId), inArray(schema.pantryPlaces.id, pickedPlaceIds)))
+    if (ownPlaces.length !== pickedPlaceIds.length) throw new Error('Vlastní místo nenalezeno.')
+  }
 
   const candidateAliases = await getAliasesForNames(activeItems.map((item) => normalizeProductText(item.name)))
   // The products a household picked in review are authoritative for their lines — but only ids of
@@ -479,6 +485,7 @@ export async function createPurchaseFromReceiptItems(
         quantity: inventory.quantity,
         unit: inventory.unit,
         location: item.location,
+        customPlaceId: item.customPlaceId,
         subcategoryId: subcategoryId(item.category, item.subcategory),
         piece: pieceSizeOf(inventory, item.name),
       })
@@ -491,6 +498,7 @@ export async function createPurchaseFromReceiptItems(
       quantity: inventory.quantity,
       unit: inventory.unit,
       location: item.location,
+      customPlaceId: item.customPlaceId,
       subcategoryId: subcategoryId(item.category, item.subcategory),
     })
   }

@@ -5,7 +5,7 @@ import { itemCountLabel } from '@/lib/format'
 import { needsCheck, PANTRY_QUANTITY_STEP, pantryPlaceOptions, pantryReviewOrder, placeKeyOf, splitPantryReview, type PantryQuantityChange } from '@/lib/pantry'
 import { estimateReason, type ConsumptionEstimate } from '@/lib/pantry-estimate'
 import { cn } from '@/lib/utils'
-import type { PantryItem, PantryPlace } from '@/lib/types'
+import type { PantryItem, PantryLocation, PantryPlace } from '@/lib/types'
 
 // "Zkontrolovat zásoby": the whole check in one pass instead of confirming or removing row by row.
 // Every item starts as "Mám" — except those estimated as used up (lib/pantry-estimate.ts), which
@@ -22,6 +22,7 @@ export type PantryReviewResult = { removed: number; confirmed: number; adjusted:
 export function PantryReview({
   items,
   customPlaces,
+  hiddenLocations = [],
   placeKey,
   placeLabel,
   initialScope = 'location',
@@ -32,6 +33,7 @@ export function PantryReview({
   items: PantryItem[]
   /** The household's own places, beyond the fixed locations. */
   customPlaces: PantryPlace[]
+  hiddenLocations?: PantryLocation[]
   /** The folder the check was opened from (a `PantryPlaceOption.key`); the check can be widened to
    *  the whole pantry. */
   placeKey: string
@@ -43,7 +45,7 @@ export function PantryReview({
   onSave: (reviewedIds: string[], goneIds: string[], addGoneToList: boolean, quantities: PantryQuantityChange[]) => Promise<PantryReviewResult>
   onClose: (result: PantryReviewResult | null) => void
 }) {
-  const options = useMemo(() => pantryPlaceOptions(customPlaces), [customPlaces])
+  const options = useMemo(() => pantryPlaceOptions(customPlaces, hiddenLocations, items), [customPlaces, hiddenLocations, items])
   const [scope, setScope] = useState<Scope>(initialScope)
   const likelyGone = useMemo(() => new Set([...estimates].filter(([, estimate]) => estimate.likelyGone).map(([id]) => id)), [estimates])
   // Pre-marked once, when the check opens; the household's taps are never overwritten afterwards.

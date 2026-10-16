@@ -18,7 +18,7 @@ import type { MemberDiet } from '@/lib/diet'
 import type { PendingInvitation } from '@/lib/db/queries'
 import type { StoreSelection } from '@/lib/nearby-stores'
 import type { StockLevel } from '@/lib/pantry-restock'
-import type { Household, HouseholdPreferences, ItemCategory, ItemUnit, PantryArea, PantryPlace, PriceSensitivity, QualityPreference, Store } from '@/lib/types'
+import type { Household, HouseholdPreferences, ItemCategory, ItemUnit, PantryArea, PantryItem, PantryLocation, PantryPlace, PriceSensitivity, QualityPreference, Store } from '@/lib/types'
 import { userFacingError } from '@/lib/errors'
 import { Button } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/field'
@@ -51,6 +51,10 @@ export function HouseholdProfile({
   pantryPlaces,
   onAddPantryPlace,
   onRemovePantryPlace,
+  hiddenPantryLocations,
+  pantryItems,
+  onRemovePantryLocation,
+  onRestorePantryLocation,
   pantryCheckinDays,
   onSetPantryCheckinDays,
   pantryCheckinSubcategoryDays,
@@ -84,6 +88,10 @@ export function HouseholdProfile({
   pantryPlaces: PantryPlace[]
   onAddPantryPlace: (area: PantryArea, name: string) => Promise<PantryPlace>
   onRemovePantryPlace: (placeId: string) => Promise<void>
+  hiddenPantryLocations?: PantryLocation[]
+  pantryItems?: PantryItem[]
+  onRemovePantryLocation?: (location: PantryLocation, targetKey?: string | null) => Promise<void>
+  onRestorePantryLocation?: (location: PantryLocation) => Promise<void>
   /** The household's own per-category pantry check-in interval overrides. */
   pantryCheckinDays: Partial<Record<ItemCategory, number>>
   onSetPantryCheckinDays: (category: ItemCategory, days: number | null) => Promise<Partial<Record<ItemCategory, number>>>
@@ -381,7 +389,7 @@ export function HouseholdProfile({
 
       {section === 'zasoby' && (
         <>
-      <PantryPlaces places={pantryPlaces} onAdd={onAddPantryPlace} onRemove={onRemovePantryPlace} />
+      <PantryPlaces places={pantryPlaces} hiddenLocations={hiddenPantryLocations} items={pantryItems} onAdd={onAddPantryPlace} onRemove={onRemovePantryPlace} onRemoveLocation={onRemovePantryLocation} onRestoreLocation={onRestorePantryLocation} />
 
       <StockLevelsSettings levels={stockLevels} onSave={onSaveStockLevel} onRemove={onRemoveStockLevel} />
 

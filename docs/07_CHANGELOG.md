@@ -1,3 +1,10 @@
+## 2026-10-16 — Vlastní místa při importu, odebrání výchozích míst, motiv v oknech
+
+- **Motiv v oknech:** třída `dark` se nově nastavuje i na `<html>` (`useTheme` v `components/shell/use-shell-environment.ts`). Chat s Anitkou a okno „Více“ se vykreslují v portálu mimo obal aplikace s třídou `dark`, takže dosud dostávaly světlé tokeny i v tmavém režimu.
+- **Import účtenky:** u řádku ke kontrole jde vybrat rovnou i vlastní místo (`components/budget/receipt-pending.tsx`). `ReceiptLineItem.customPlaceId` server ověří proti místům domácnosti (`createPurchaseFromReceiptItems`) a uloží do `pantry_items.custom_place_id` u nových řádků zásob (`restockPantryItem`, `restockPantryTypeItem`). Řádek zásob, který už existuje, se nepřesouvá (jako dosud).
+- **Odebrání výchozích míst:** Profil domácnosti → Zásoby umí odebrat i obnovit Spíž, Lednici, Mrazák atd. Migrace `0112_pantry_hidden_locations.sql` je čistě aditivní (tabulka příznaků; `pantry_items.location` se nemění). Položky odebraného místa se nejdřív přesunou na místo, které domácnost vybere (`removePantryLocationAction`, pravidla v `checkLocationRemoval`); bez cíle se odebrání zamítne a nesmí zůstat žádné místo. Odebrané místo se v Zásobách ukáže jen dokud v něm leží nějaká položka, aby nic nezmizelo.
+- Testy: `lib/pantry.test.ts` (odebrání míst, zobrazení). Migraci je třeba spustit `pnpm db:migrate:test` pro testovací větev; produkce ji aplikuje při nasazení.
+
 ## 2026-10-16 — Chat a menu „Více“ podle světlého/tmavého režimu
 
 - Okno chatu s Anitkou (`components/ai/ai-assistant.tsx`) používá barevné tokeny motivu, takže se přizpůsobí světlému i tmavému režimu (bubliny Anitky mají ohraničení a vlastní pozadí). Písmo je větší pro čitelnost na mobilu: zprávy a pole pro psaní 16 px, ostatní texty 14 px, poznámka 12 px; tlačítka mají vyšší dotykovou plochu.

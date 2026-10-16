@@ -260,6 +260,7 @@ export function AppShell({
   const {
     pantryItems,
     pantryPlaces,
+    hiddenPantryLocations,
     addPantryItem,
     pantryCheckinDays,
     pantryCheckinSubcategoryDays,
@@ -273,6 +274,8 @@ export function AppShell({
     movePantryItem,
     addPantryPlace,
     removePantryPlace,
+    removePantryLocation,
+    restorePantryLocation,
     setPantryCheckinDaysFor,
     setPantrySubcategoryCheckinDaysFor,
     reviewPantry,
@@ -942,6 +945,8 @@ export function AppShell({
                         onConfirmReview={confirmReceiptReview}
                         onResolveDuplicate={resolveDuplicateReceipt}
                         onCancel={cancelReceiptImport}
+                        customPlaces={pantryPlaces}
+                        hiddenLocations={hiddenPantryLocations}
                         focusId={focus?.kind === 'receipt' ? focus.id : null}
                         onFocusHandled={clearFocus}
                       />
@@ -957,6 +962,7 @@ export function AppShell({
                   <Pantry
                     items={pantryItems}
                     customPlaces={pantryPlaces}
+                    hiddenLocations={hiddenPantryLocations}
                     onAddPantryItem={addPantryItem}
                     onConfirm={confirmPantryItem}
                     onRemove={removePantryItem}
@@ -1150,6 +1156,10 @@ export function AppShell({
                   pantryPlaces={pantryPlaces}
                   onAddPantryPlace={addPantryPlace}
                   onRemovePantryPlace={removePantryPlace}
+                  hiddenPantryLocations={hiddenPantryLocations}
+                  pantryItems={pantryItems}
+                  onRemovePantryLocation={removePantryLocation}
+                  onRestorePantryLocation={restorePantryLocation}
                   pantryCheckinDays={pantryCheckinDays}
                   onSetPantryCheckinDays={setPantryCheckinDaysFor}
                   pantryCheckinSubcategoryDays={pantryCheckinSubcategoryDays}

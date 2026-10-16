@@ -6,7 +6,7 @@ import { Field, Input, Select } from '@/components/ui/field'
 import { Sheet } from '@/components/ui/sheet'
 import { pantryPlaceOptions } from '@/lib/pantry'
 import { subcategoriesOfItem } from '@/lib/product-subcategories'
-import type { ItemCategory, ItemUnit, PantryPlace } from '@/lib/types'
+import type { ItemCategory, ItemUnit, PantryLocation, PantryPlace } from '@/lib/types'
 
 export type PantryAddInput = {
   name: string
@@ -23,10 +23,12 @@ const UNITS = ITEM_UNITS
 
 export function PantryAddModal({
   customPlaces,
+  hiddenLocations = [],
   onClose,
   onSubmit,
 }: {
   customPlaces: PantryPlace[]
+  hiddenLocations?: PantryLocation[]
   onClose: () => void
   onSubmit: (input: PantryAddInput) => Promise<void>
 }) {
@@ -35,13 +37,15 @@ export function PantryAddModal({
   const [unit, setUnit] = useState<ItemUnit>('ks')
   const [category, setCategory] = useState<ItemCategory>('Potraviny')
   const [subcategory, setSubcategory] = useState<string | null>(null)
-  const [placeKey, setPlaceKey] = useState('Spíž')
   const [selection, setSelection] = useState<ProductAutocompleteSelection | undefined>()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const nameRef = useRef<HTMLInputElement>(null)
 
-  const options = pantryPlaceOptions(customPlaces)
+  const options = pantryPlaceOptions(customPlaces, hiddenLocations)
+  // Spíž unless the household removed it; an empty choice falls back to the first place left.
+  const [chosenPlaceKey, setPlaceKey] = useState('Spíž')
+  const placeKey = options.some((option) => option.key === chosenPlaceKey) ? chosenPlaceKey : options[0].key
   const subcategories = subcategoriesOfItem(category)
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {

@@ -26,6 +26,15 @@ export function useTheme() {
     return () => media.removeEventListener('change', onSystemChange)
   }, [])
 
+  // Sheets (the chat, the "Více" menu) render in a portal under <body>, outside the app's own
+  // `.dark` wrapper, so the class must also be on <html> for their theme tokens (and native
+  // controls' colour-scheme) to follow the active mode.
+  useEffect(() => {
+    const root = document.documentElement
+    root.classList.toggle('dark', dark)
+    return () => root.classList.remove('dark')
+  }, [dark])
+
   function toggleDark() {
     const next = !dark
     setDark(next)

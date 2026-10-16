@@ -97,7 +97,7 @@ Production authentication uses Neon Auth. Every household-scoped operation must 
 
 ## 10. AI policy
 
-The conversational AI Shopping Assistant remains a later phase. Do not add general agents, embeddings, recommendations, or conversational model calls without an explicit owner decision.
+The model-backed conversational AI Shopping Assistant remains a later phase. The signed-in app exposes a UI-only chat through the mascot button at the top left; it explicitly tells users that messages are not processed because no assistant model is connected. Do not add general agents, embeddings, recommendations, or conversational model calls without an explicit owner decision.
 
 There are narrow approved exceptions for deterministic utility pipelines such as selected receipt/flyer extraction. Inspect the current implementation and AI/OCR documentation before changing any model, provider, or pipeline. Never assume that a historically documented model is enabled in production.
 
@@ -111,7 +111,7 @@ Products are not identified by display name alone. Preserve brand, variant, pack
 
 ## 12. UI and ANITKA visual identity
 
-ANITKA is mobile-first. Important data-driven screens must handle loading, success, empty and error states.
+ANITKA is mobile-first. Important data-driven screens must handle loading, success, empty and error states. The top-left mascot button opens the UI-only assistant chat on mobile and desktop; it does not send user messages to an LLM, and the chat states that limitation.
 
 For significant UI changes: use realistic local DB data, run locally, verify with Playwright, capture screenshots, inspect them visually, and keep coherent visual changes together. Do not redesign unrelated screens during backend work.
 

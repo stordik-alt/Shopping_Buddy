@@ -8,11 +8,21 @@ const TABS: Tab[] = (['Domů', 'Akce', 'Nákup', 'Zásoby', 'Obchody', 'Recepty'
   (tab) => tab !== 'AI' || AI_ASSISTANT_ENABLED,
 )
 
-export function AppSidebar({ tab, onTabChange }: { tab: Tab; onTabChange: (tab: Tab) => void }) {
+export function AppSidebar({
+  tab,
+  onTabChange,
+  assistantOpen,
+  onOpenAssistant,
+}: {
+  tab: Tab
+  onTabChange: (tab: Tab) => void
+  assistantOpen: boolean
+  onOpenAssistant: () => void
+}) {
   return (
     <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar px-4 py-7 lg:flex">
       <div className="px-2">
-        <Brand />
+        <Brand assistantOpen={assistantOpen} onOpenAssistant={onOpenAssistant} />
       </div>
       <nav className="mt-8 space-y-1" aria-label="Hlavní navigace">
         {TABS.map((item) => (

@@ -1,3 +1,7 @@
+## 2026-10-16 — Chat s Anitkou z maskota
+
+- Tlačítko s obličejem Anitky v levém horním rohu aplikace otevírá chatovací okno na mobilu i desktopu. Dotazy se zobrazují v konverzaci, ale neposílají se modelu; chat jasně uvádí, že AI asistent zatím není připojený. Nejde o zapnutí konverzační AI ani dalších AI funkcí.
+
 ## 2026-10-15 — Oprava striktního JSON schématu účtenky
 
 - Modelové schéma `modelReceiptSchema` vyžaduje `store.address` a `store.city` jako nullable; obecné `extractedReceiptSchema` si zachovává dosavadní volitelnost těchto polí pro zpětnou kompatibilitu. OpenAI strict structured output tak vygeneruje `required: ["name", "address", "city", "confidence"]` pro objekt obchodu; nevytištěná adresa nebo město se vrací jako `null` místo chybějícího klíče. Přidána regresní kontrola JSON schématu.

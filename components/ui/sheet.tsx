@@ -13,6 +13,7 @@ function Sheet({
   open,
   onClose,
   title,
+  id,
   description,
   children,
   footer,
@@ -22,6 +23,7 @@ function Sheet({
   open: boolean
   onClose: () => void
   title: string
+  id?: string
   description?: string
   children: ReactNode
   /** Stays visible under a scrolling body — the place for the primary action of a long form. */
@@ -35,7 +37,7 @@ function Sheet({
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/40 transition-opacity data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
         <Dialog.Viewport className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
-          <Dialog.Popup initialFocus={initialFocus ?? true} className={cn('flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-3xl bg-surface-elevated text-foreground shadow-elevated outline-none sm:rounded-3xl', className)}>
+          <Dialog.Popup id={id} initialFocus={initialFocus ?? true} className={cn('flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-3xl bg-surface-elevated text-foreground shadow-elevated outline-none sm:rounded-3xl', className)}>
             <div className="flex items-start justify-between gap-3 px-5 pt-5 sm:px-6 sm:pt-6">
               <div className="min-w-0">
                 <Dialog.Title className="break-words text-lg font-semibold">{title}</Dialog.Title>

@@ -17,6 +17,8 @@ export function AppHeader({
   onToggleNotifications,
   unreadCount,
   onSelectTab,
+  assistantOpen,
+  onOpenAssistant,
   onStartGuide,
   userName,
   userEmail,
@@ -32,6 +34,8 @@ export function AppHeader({
   onToggleNotifications: () => void
   unreadCount: number
   onSelectTab: (tab: Tab) => void
+  assistantOpen: boolean
+  onOpenAssistant: () => void
   onStartGuide: () => void
   userName: string
   userEmail: string
@@ -55,7 +59,7 @@ export function AppHeader({
     // in reach while scrolling a long list; on desktop it is a plain page heading.
     <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-border/60 bg-background/85 px-4 py-2.5 backdrop-blur-xl sm:px-8 lg:static lg:border-0 lg:bg-transparent lg:px-12 lg:py-8 lg:backdrop-blur-none">
       <div className="flex min-w-0 items-center gap-3 lg:hidden">
-        <Brand compact />
+        <Brand compact assistantOpen={assistantOpen} onOpenAssistant={onOpenAssistant} />
         <h1 className="truncate text-base font-semibold tracking-tight">{mobileTitle}</h1>
       </div>
       <div className="hidden lg:block">

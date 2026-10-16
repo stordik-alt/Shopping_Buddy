@@ -56,7 +56,7 @@ Phase F smoke-test scope: Playwright runs against an isolated PostgreSQL test da
 - release process
 
 ## Phase G — AI Shopping Assistant
-**Deliberately last, not after Phase B as originally ordered** — explicit product decision (2026-09-21): real AI integration needs a provider/model chosen through the Vercel AI Gateway, which carries an ongoing per-call cost. The owner wants every other phase's foundations (including hardening) solid first, with no LLM spend until then. Until this phase starts: no AI SDK/Gateway dependency, no LLM calls, `components/ai/ai-assistant.tsx` stays a UI-only placeholder. "Preparing the environment" for this phase means keeping the data layer well-structured and documented (`lib/db/queries.ts`, `docs/06_AI_RULES.md`) — not pre-scaffolding a provider integration.
+**Deliberately last, not after Phase B as originally ordered** — explicit product decision (2026-09-21): real AI integration needs a provider/model chosen through the AI Gateway, which carries an ongoing per-call cost. The owner wants every other phase's foundations (including hardening) solid first, with no LLM spend until then. Until this phase starts: no conversational LLM calls; `components/ai/ai-assistant.tsx` is a UI-only chat opened from the top-left mascot and clearly says that messages are not processed. "Preparing the environment" for this phase means keeping the data layer well-structured and documented (`lib/db/queries.ts`, `docs/06_AI_RULES.md`) — not pre-scaffolding a provider integration.
 - grounded context retrieval
 - natural-language shopping commands
 - meal-plan assistance

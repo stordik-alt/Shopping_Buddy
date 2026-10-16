@@ -81,6 +81,7 @@ import { useShoppingQueue } from '@/components/shell/use-shopping-queue'
 import { useStableCallback } from '@/components/shell/use-stable-callback'
 import { useUndoableRemoval } from '@/components/shell/use-undoable-removal'
 import { UndoToast } from '@/components/ui/undo-toast'
+import { Sheet } from '@/components/ui/sheet'
 import { RumReporter } from '@/components/shared/rum-reporter'
 import { applyPendingOps, newTempId } from '@/lib/offline-queue'
 import { budgetForPeriod, expensesInPeriod, nextPeriodStart, periodEnd, periodStart, spendingByPeriod, totalSpent } from '@/lib/budget'
@@ -157,6 +158,7 @@ export function AppShell({
 
   // Anitka's guided tour (docs/22_GUIDE.md): opens by itself once per device, then from the account menu.
   const [guideOpen, setGuideOpen] = useState(false)
+  const [assistantOpen, setAssistantOpen] = useState(false)
   useEffect(() => {
     if (shouldAutoStartGuide(safeLocalStorage()?.getItem(GUIDE_DONE_KEY))) setGuideOpen(true)
   }, [])
@@ -663,7 +665,12 @@ export function AppShell({
       <RumReporter />
       <div className="min-h-screen bg-background text-foreground transition-colors">
         <div className="mx-auto flex min-h-screen max-w-[1440px]">
-          <AppSidebar tab={tab} onTabChange={setTab} />
+          <AppSidebar
+            tab={tab}
+            onTabChange={setTab}
+            assistantOpen={assistantOpen}
+            onOpenAssistant={() => setAssistantOpen(true)}
+          />
 
           {/* While the guide is open the page gets room at the bottom, so that even the last element
               of a short section can be scrolled up above the guide card. */}
@@ -678,6 +685,8 @@ export function AppShell({
               onToggleNotifications={() => setNotificationsOpen((open) => !open)}
               unreadCount={unreadCount}
               onSelectTab={setTab}
+              assistantOpen={assistantOpen}
+              onOpenAssistant={() => setAssistantOpen(true)}
               onStartGuide={() => setGuideOpen(true)}
               userName={userName}
               userEmail={userEmail}
@@ -1157,6 +1166,21 @@ export function AppShell({
         <MobileNav tab={tab} onTabChange={setTab} />
         {undoNotice && <UndoToast message={undoNotice.message} onUndo={undoRemoval} raised={tab === 'Nákup' && completed > 0} />}
         {guideOpen && <GuideTour onNavigate={setTab} onClose={closeGuide} />}
+        <Sheet
+          id="assistant-chat"
+          open={assistantOpen}
+          onClose={() => setAssistantOpen(false)}
+          title="Chat s Anitkou"
+          description="Asistent pro domácnost"
+          className="h-[min(42rem,88dvh)] sm:h-[min(44rem,88dvh)]"
+        >
+          <AiAssistant
+            onShopping={() => {
+              setAssistantOpen(false)
+              setTab('Nákup')
+            }}
+          />
+        </Sheet>
 
         {recurringEdit && (
           <RecurringPaymentModal

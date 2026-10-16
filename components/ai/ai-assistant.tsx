@@ -1,87 +1,107 @@
-import { useState } from 'react'
-import { Bot, Sparkles } from 'lucide-react'
+'use client'
+
+import { ArrowUp, Sparkles } from 'lucide-react'
+import { useState, type FormEvent } from 'react'
+import { AnitkaAvatar } from '@/components/shared/brand'
 
 const SUGGESTIONS = ['Nákup na týden do 2 500 Kč', 'Kde ušetřím na seznamu?', 'Rozděl nákup mezi obchody']
 
-// No model is connected yet (CLAUDE.md section 30: the assistant is the last roadmap phase). The
-// answer used to be a canned text quoting invented items and savings ("3 položky v akci… ušetřit
-// přibližně 85 Kč"), which would present made-up prices as the household's own data the moment the
-// feature flag is switched on (CLAUDE.md section 15). It now says plainly that the assistant is not
-// available and points to the features that do answer these questions from real data.
+const FIRST_MESSAGE =
+  'Ahoj, jsem Anitka. Chat je připravený, ale AI asistent zatím není připojený, takže teď dotazy neumím zpracovat.'
+
 const NOT_AVAILABLE_ANSWER =
   'AI asistent zatím není zapojený, takže na dotazy neodpovídá. Porovnání cen, akce a plán nákupu podle rozpočtu najdete v nákupním seznamu.'
 
+type Message = { role: 'assistant' | 'user'; text: string }
+
 export function AiAssistant({ onShopping }: { onShopping: () => void }) {
   const [prompt, setPrompt] = useState('')
-  const [answer, setAnswer] = useState('')
+  const [messages, setMessages] = useState<Message[]>([{ role: 'assistant', text: FIRST_MESSAGE }])
 
-  function suggest(value = prompt) {
-    if (!value.trim()) return
-    setPrompt(value)
-    setAnswer(NOT_AVAILABLE_ANSWER)
+  function send(value: string) {
+    const text = value.trim()
+    if (!text) return
+    setMessages((current) => [...current, { role: 'user', text }, { role: 'assistant', text: NOT_AVAILABLE_ANSWER }])
+    setPrompt('')
+  }
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    send(prompt)
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div className="rounded-3xl bg-hero p-6 shadow-[var(--shadow-card)] text-hero-foreground sm:p-8">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-solid text-accent-solid-foreground">
-          <Bot />
-        </div>
-        <h2 className="mt-6 text-3xl font-semibold tracking-tight">Váš nákupní parťák.</h2>
-        <p className="mt-3 max-w-lg text-sm leading-relaxed text-hero-foreground/75">
-          Řekněte mi, co potřebujete. Pomůžu vám sestavit nákup, najít akce a uhlídat rozpočet.
-        </p>
-        <div className="mt-7 flex flex-col gap-2 rounded-2xl bg-hero-foreground/10 p-2 ring-1 ring-hero-foreground/10 sm:flex-row">
-          <input
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) suggest()
-            }}
-            placeholder="Např. nákup na týden do 2 500 Kč"
-            className="min-h-10 min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-hero-foreground outline-none placeholder:text-hero-foreground/50 focus-visible:ring-2 focus-visible:ring-ring"
-          />
-          <button onClick={() => suggest()} className="min-h-10 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            Navrhnout
-          </button>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {SUGGESTIONS.map((suggestion) => (
-            <button
-              key={suggestion}
-              onClick={() => suggest(suggestion)}
-              className="min-h-9 rounded-full border border-hero-foreground/20 px-3 py-1.5 text-xs text-hero-foreground/80 transition hover:bg-hero-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      <div className="flex items-center gap-2 rounded-xl bg-accent-subtle px-3 py-2 text-xs font-medium text-accent-text">
+        <span className="size-2 shrink-0 rounded-full bg-fg-muted" aria-hidden="true" />
+        AI asistent zatím není připojený
+      </div>
+
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain pr-1" aria-live="polite">
+        {messages.map((message, index) => (
+          <div key={`${message.role}-${index}`} className={`flex items-end gap-2 ${message.role === 'user' ? 'justify-end' : ''}`}>
+            {message.role === 'assistant' && <AnitkaAvatar className="size-8 shrink-0" />}
+            <div
+              className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                message.role === 'user'
+                  ? 'rounded-br-md bg-primary text-primary-foreground'
+                  : 'rounded-bl-md bg-muted text-foreground'
+              }`}
             >
-              {suggestion}
-            </button>
-          ))}
-        </div>
-        {answer && (
-          <div className="mt-4 rounded-2xl bg-hero-foreground/10 p-4 text-sm leading-relaxed">
-            <Sparkles className="mb-2 h-4 w-4 text-hero-foreground" />
-            {answer}
-            <button onClick={onShopping} className="mt-3 block min-h-10 rounded-lg py-2 text-left font-semibold text-hero-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              Otevřít nákupní seznam →
-            </button>
+              {message.role === 'assistant' && <Sparkles className="mb-2 size-4 text-primary" aria-hidden="true" />}
+              <p>{message.text}</p>
+              {message.role === 'assistant' && index > 0 && (
+                <button
+                  type="button"
+                  onClick={onShopping}
+                  className="mt-3 min-h-9 rounded-lg text-left font-semibold text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  Otevřít nákupní seznam →
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+
+        {messages.length === 1 && (
+          <div className="pl-10">
+            <p className="mb-2 text-xs font-medium text-muted-foreground">Příklady dotazů</p>
+            <div className="flex flex-wrap gap-2">
+              {SUGGESTIONS.map((suggestion) => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  onClick={() => send(suggestion)}
+                  className="min-h-9 rounded-full border border-border bg-card px-3 py-1.5 text-left text-xs text-fg-secondary transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
-      <div className="surface p-6">
-        <p className="text-sm font-semibold">Co umí váš asistent?</p>
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          {[
-            ['Najde akce', 'Porovná ceny v obchodech'],
-            ['Pohlídá rozpočet', 'Udrží nákup pod limitem'],
-            ['Naplánuje nákup', 'Rozdělí položky chytře'],
-          ].map(([a, b]) => (
-            <div key={a} className="rounded-2xl bg-muted p-4">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <p className="mt-4 text-sm font-medium">{a}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{b}</p>
-            </div>
-          ))}
-        </div>
-      </div>
+
+      <form onSubmit={submit} className="flex items-center gap-2 rounded-2xl border border-border bg-background p-2 focus-within:ring-2 focus-within:ring-ring">
+        <input
+          value={prompt}
+          onChange={(event) => setPrompt(event.target.value)}
+          placeholder="Napište Anitce…"
+          aria-label="Zpráva pro Anitku"
+          className="min-h-10 min-w-0 flex-1 bg-transparent px-2 text-sm outline-none placeholder:text-muted-foreground"
+        />
+        <button
+          type="submit"
+          disabled={!prompt.trim()}
+          aria-label="Odeslat zprávu"
+          className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <ArrowUp className="size-5" aria-hidden="true" />
+        </button>
+      </form>
+      <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
+        Zprávy se zatím nezpracovávají umělou inteligencí.
+      </p>
     </div>
   )
 }

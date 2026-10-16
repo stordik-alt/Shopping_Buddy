@@ -1,3 +1,7 @@
+## 2026-10-16 — Logo ANITKA v postranním panelu
+
+- V desktopové navigaci se místo samostatného avataru a textového názvu zobrazuje schválené logo ANITKA; kompaktní značka v mobilní hlavičce zůstává beze změny.
+
 ## 2026-10-15 — Oprava striktního JSON schématu účtenky
 
 - Modelové schéma `modelReceiptSchema` vyžaduje `store.address` a `store.city` jako nullable; obecné `extractedReceiptSchema` si zachovává dosavadní volitelnost těchto polí pro zpětnou kompatibilitu. OpenAI strict structured output tak vygeneruje `required: ["name", "address", "city", "confidence"]` pro objekt obchodu; nevytištěná adresa nebo město se vrací jako `null` místo chybějícího klíče. Přidána regresní kontrola JSON schématu.

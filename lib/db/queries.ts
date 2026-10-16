@@ -652,7 +652,19 @@ export async function getHouseholdData(
       })),
       timed('pantry', queryPantryRows(household.id)),
       timed('pantryPlaces', db.query.pantryPlaces.findMany({ where: eq(schema.pantryPlaces.householdId, household.id), orderBy: asc(schema.pantryPlaces.createdAt) })),
-      timed('pantryHiddenLocations', db.select({ location: schema.pantryHiddenLocations.location }).from(schema.pantryHiddenLocations).where(eq(schema.pantryHiddenLocations.householdId, household.id))),
+      timed(
+        'pantryHiddenLocations',
+        // An optional preference: if the table is not there yet (migration 0112 not applied to this
+        // database), show all default places instead of failing the whole app render.
+        db
+          .select({ location: schema.pantryHiddenLocations.location })
+          .from(schema.pantryHiddenLocations)
+          .where(eq(schema.pantryHiddenLocations.householdId, household.id))
+          .catch((error: unknown) => {
+            console.error('Could not read pantry_hidden_locations', error)
+            return [] as { location: PantryLocation }[]
+          }),
+      ),
       timed('pantryCheckin', db.query.pantryCheckinIntervals.findMany({ where: eq(schema.pantryCheckinIntervals.householdId, household.id) })),
       timed('pantryCheckinSub', db.query.pantryCheckinSubcategoryIntervals.findMany({ where: eq(schema.pantryCheckinSubcategoryIntervals.householdId, household.id) })),
       timed('pendingReceipts', getPendingReceiptImports(household.id)),

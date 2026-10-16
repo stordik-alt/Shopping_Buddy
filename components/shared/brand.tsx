@@ -1,6 +1,6 @@
 export function AnitkaAvatar({ className = '' }: { className?: string }) {
   return (
-    <span className={`relative block aspect-square overflow-hidden rounded-full bg-background ring-2 ring-background ${className}`} aria-hidden="true">
+    <span className={`relative block aspect-square overflow-hidden rounded-full bg-transparent ${className}`} aria-hidden="true">
       {/* eslint-disable-next-line @next/next/no-img-element -- approved static mascot asset */}
       <img
         src="/brand/anitka/anitka-guide-front.webp"

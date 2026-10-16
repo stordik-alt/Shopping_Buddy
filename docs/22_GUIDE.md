@@ -39,14 +39,9 @@ Pohyb po aplikaci (lišta, „Více“), Domů, zvonek a upozornění; Nákup (s
 
 Poslední karta („A kdybyste na něco zapomněli“) otevře nabídku účtu a zvýrazní v ní položku **Průvodce aplikací**; nabídku nechá otevřenou, jen pokud už otevřená je (`skipIf`). Odkaz „Nejdřív vyplnit profil“ a „Hotovo“ ukončí průvodce (nabídka se zavře). Předposlední karta je o Anitce jako asistentce:
 
-## Karta Anitka a AI asistent
+## Karta Anitka a chat
 
-Podle `AI_ASSISTANT_ENABLED` (`lib/features.ts`):
-
-- **Vypnuto (dnes):** karta říká poctivě, že se Anitka ještě učí a jednou bude umět poradit s čímkoliv kolem nákupů a vaření; nic neslibuje a nemá co otevřít. Tlačítka „Hotovo“ a „Nejdřív vyplnit profil“.
-- **Zapnuto:** karta ukáže, kde Anitku najít („AI asistent“, na telefonu pod „Více“), zvýrazní pole pro dotaz a nabídne „Otevřít Anitku“.
-
-Zapnutí asistenta je samostatné rozhodnutí (CLAUDE.md oddíl 30): dnes není zapojený žádný model.
+Předposlední karta ukáže chat s Anitkou: zvýrazní její obrázek v levém horním rohu, který chat otevře na telefonu i počítači. Stručně představí zamýšlenou pomoc s plánováním nákupu podle rozpočtu, porovnáním cen a akcí a tipy na večeři. Zároveň pravdivě říká, že AI zatím není připojená a zprávy se nezpracovávají. Karta nezávisí na `AI_ASSISTANT_ENABLED`, který řídí oddělenou záložku AI.
 
 ## Rozpočet a profil
 

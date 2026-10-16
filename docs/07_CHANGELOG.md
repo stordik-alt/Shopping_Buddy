@@ -1,3 +1,7 @@
+## 2026-10-16 — Průvodce ukazuje chat s Anitkou
+
+- Karta v průvodci zvýrazní obrázek Anitky vlevo nahoře, kterým se otevírá chat. Stručně popíše plánování nákupu podle rozpočtu, porovnání cen a akcí a tipy na večeři; zároveň říká, že AI zatím není připojená a zprávy nezpracovává. Koncept `docs/22_GUIDE.md`; průvodce testy (20) a TypeScript kontrola prošly.
+
 ## 2026-10-16 — Vlastní místa při importu, odebrání výchozích míst, motiv v oknech
 
 - **Motiv v oknech:** třída `dark` se nově nastavuje i na `<html>` (`useTheme` v `components/shell/use-shell-environment.ts`). Chat s Anitkou a okno „Více“ se vykreslují v portálu mimo obal aplikace s třídou `dark`, takže dosud dostávaly světlé tokeny i v tmavém režimu.

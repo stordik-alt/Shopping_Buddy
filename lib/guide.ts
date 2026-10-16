@@ -1,4 +1,3 @@
-import { AI_ASSISTANT_ENABLED } from '@/lib/features'
 import type { Tab } from '@/lib/types'
 
 // Content and rules of Anitka's guided tour (docs/22_GUIDE.md). Kept apart from the component so the
@@ -552,29 +551,18 @@ const BASE_STEPS: readonly GuideStep[] = [
   },
 ]
 
-// The card about Anitka herself, the assistant. While the assistant is not switched on (lib/features.ts)
-// there is nothing to open, so the card says honestly that she is still learning instead of promising
-// answers; switched on, it points at her screen.
-function anitkaStep(aiEnabled: boolean): GuideStep {
-  if (aiEnabled) {
-    return {
-      id: 'anitka',
-      tab: 'AI',
-      mood: 'cheer',
-      title: 'Poradím s čímkoli',
-      text: 'Kdykoli si se mnou můžete popovídat. Zeptejte se na nákup, slevy nebo večeři a já poradím.',
-      where: 'Najdete mě v nabídce „AI asistent“. Na telefonu klepněte dole na „Více“.',
-      todo: ['Napište mi, co potřebujete, třeba „nákup na týden do 2 500 Kč“.'],
-      target: [{ selector: 'input[placeholder^="Např. nákup na týden"]' }],
-      targetLabel: 'Sem se mě zeptejte',
-    }
-  }
+// The chat is available from the mascot button, but does not yet process messages with AI.
+function anitkaStep(): GuideStep {
   return {
     id: 'anitka',
     tab: 'Domů',
     mood: 'smile',
-    title: 'Brzy si budeme povídat',
-    text: 'Ještě se učím. Jednou vám budu umět poradit s čímkoliv kolem nákupů a vaření a najdete mě tady v aplikaci. Zatím mi nejvíc pomůže váš vyplněný profil.',
+    title: 'Chat s Anitkou',
+    text: 'Až bude AI připojená, pomůžu vám naplánovat nákup podle rozpočtu, porovnat ceny a akce nebo vymyslet večeři. AI zatím není připojená, takže zprávy nezpracovávám.',
+    where: 'Klepněte na můj obrázek v levém horním rohu.',
+    target: [{ selector: 'button[aria-label="Otevřít chat s Anitkou"]' }],
+    targetLabel: 'Tady otevřete chat',
+    navHint: false,
   }
 }
 
@@ -616,22 +604,21 @@ const FIND_ME_STEP: GuideStep = {
   secondaryCta: { label: 'Nejdřív vyplnit profil', tab: 'Profil' },
 }
 
-/** The tour's cards. The card about the assistant depends on whether it is switched on; the last one always
- *  shows where to find the guide again. */
-export function getGuideSteps(aiEnabled: boolean): readonly GuideStep[] {
-  return [...BASE_STEPS, ACCOUNT_MENU_STEP, anitkaStep(aiEnabled), FIND_ME_STEP]
+/** The tour's cards; the last one always shows where to find the guide again. */
+export function getGuideSteps(): readonly GuideStep[] {
+  return [...BASE_STEPS, ACCOUNT_MENU_STEP, anitkaStep(), FIND_ME_STEP]
 }
 
 /** The full tour: every card. */
-export const GUIDE_STEPS = getGuideSteps(AI_ASSISTANT_ENABLED)
+export const GUIDE_STEPS = getGuideSteps()
 
 /** The quick tour people start with: the full tour without its deep-dive (`detail`) cards, whose
  *  content the section cards summarize in their `also` lines. */
-export function getQuickGuideSteps(aiEnabled: boolean): readonly GuideStep[] {
-  return getGuideSteps(aiEnabled).filter((step) => !step.detail)
+export function getQuickGuideSteps(): readonly GuideStep[] {
+  return getGuideSteps().filter((step) => !step.detail)
 }
 
-export const QUICK_GUIDE_STEPS = getQuickGuideSteps(AI_ASSISTANT_ENABLED)
+export const QUICK_GUIDE_STEPS = getQuickGuideSteps()
 
 /** Where to land after switching between the quick and the full tour: the same card when the other
  *  tour has it, otherwise the nearest earlier card it does have (a deep-dive card turns into the

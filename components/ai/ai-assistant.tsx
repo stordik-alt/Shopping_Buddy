@@ -32,7 +32,7 @@ export function AiAssistant({ onShopping }: { onShopping: () => void }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
-      <div className="flex items-center gap-2 rounded-xl bg-accent-subtle px-3 py-2 text-xs font-medium text-accent-text">
+      <div className="flex items-center gap-2 rounded-xl bg-accent-subtle px-3 py-2 text-sm font-medium text-accent-text">
         <span className="size-2 shrink-0 rounded-full bg-fg-muted" aria-hidden="true" />
         AI asistent zatím není připojený
       </div>
@@ -42,19 +42,19 @@ export function AiAssistant({ onShopping }: { onShopping: () => void }) {
           <div key={`${message.role}-${index}`} className={`flex items-end gap-2 ${message.role === 'user' ? 'justify-end' : ''}`}>
             {message.role === 'assistant' && <AnitkaAvatar className="size-8 shrink-0" />}
             <div
-              className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+              className={`max-w-[85%] rounded-2xl px-4 py-3 text-base leading-relaxed ${
                 message.role === 'user'
                   ? 'rounded-br-md bg-primary text-primary-foreground'
-                  : 'rounded-bl-md bg-muted text-foreground'
+                  : 'rounded-bl-md border border-border bg-background text-foreground'
               }`}
             >
-              {message.role === 'assistant' && <Sparkles className="mb-2 size-4 text-primary" aria-hidden="true" />}
+              {message.role === 'assistant' && <Sparkles className="mb-2 size-4 text-accent-text" aria-hidden="true" />}
               <p>{message.text}</p>
               {message.role === 'assistant' && index > 0 && (
                 <button
                   type="button"
                   onClick={onShopping}
-                  className="mt-3 min-h-9 rounded-lg text-left font-semibold text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="mt-3 min-h-10 rounded-lg text-left font-semibold text-accent-text underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   Otevřít nákupní seznam →
                 </button>
@@ -65,14 +65,14 @@ export function AiAssistant({ onShopping }: { onShopping: () => void }) {
 
         {messages.length === 1 && (
           <div className="pl-10">
-            <p className="mb-2 text-xs font-medium text-muted-foreground">Příklady dotazů</p>
+            <p className="mb-2 text-sm font-medium text-fg-secondary">Příklady dotazů</p>
             <div className="flex flex-wrap gap-2">
               {SUGGESTIONS.map((suggestion) => (
                 <button
                   key={suggestion}
                   type="button"
                   onClick={() => send(suggestion)}
-                  className="min-h-9 rounded-full border border-border bg-card px-3 py-1.5 text-left text-xs text-fg-secondary transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="min-h-9 rounded-full border border-border bg-background px-3 py-2 text-left text-sm text-foreground transition hover:bg-accent-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {suggestion}
                 </button>
@@ -88,7 +88,7 @@ export function AiAssistant({ onShopping }: { onShopping: () => void }) {
           onChange={(event) => setPrompt(event.target.value)}
           placeholder="Napište Anitce…"
           aria-label="Zpráva pro Anitku"
-          className="min-h-10 min-w-0 flex-1 bg-transparent px-2 text-sm outline-none placeholder:text-muted-foreground"
+          className="min-h-11 min-w-0 flex-1 bg-transparent px-2 text-base text-foreground outline-none placeholder:text-fg-muted"
         />
         <button
           type="submit"
@@ -99,7 +99,7 @@ export function AiAssistant({ onShopping }: { onShopping: () => void }) {
           <ArrowUp className="size-5" aria-hidden="true" />
         </button>
       </form>
-      <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
+      <p className="text-center text-xs leading-relaxed text-fg-secondary">
         Zprávy se zatím nezpracovávají umělou inteligencí.
       </p>
     </div>

@@ -51,7 +51,7 @@ describe('guide steps', () => {
     expect(step?.text).toMatch(/naplánovat nákup podle rozpočtu/)
     expect(step?.text).toMatch(/porovnat ceny a akce/)
     expect(step?.text).toMatch(/vymyslet večeři/)
-    expect(step?.text).toContain('Zatím zprávy nezpracovávám')
+    expect(step?.text).toContain('AI zatím není připojená, takže zprávy nezpracovávám')
     // Only the last card ends the tour.
     for (const card of getGuideSteps().slice(0, -1)) expect(card.cta).toBeUndefined()
   })

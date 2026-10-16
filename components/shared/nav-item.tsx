@@ -75,7 +75,7 @@ export function NavItem({
         // Active = tinted row + bold label + a turquoise bar on the left, so it does not rely on colour alone.
         active
           ? 'bg-accent-subtle font-semibold text-accent-text before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-full before:bg-accent-solid'
-          : 'font-medium text-fg-secondary hover:bg-muted hover:text-foreground',
+          : 'font-medium text-foreground hover:bg-accent-subtle hover:text-accent-text',
       )}
     >
       <Icon className="size-5 shrink-0" aria-hidden="true" />

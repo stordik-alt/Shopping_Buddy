@@ -1,3 +1,8 @@
+## 2026-10-16 — Chat a menu „Více“ podle světlého/tmavého režimu
+
+- Okno chatu s Anitkou (`components/ai/ai-assistant.tsx`) používá barevné tokeny motivu, takže se přizpůsobí světlému i tmavému režimu (bubliny Anitky mají ohraničení a vlastní pozadí). Písmo je větší pro čitelnost na mobilu: zprávy a pole pro psaní 16 px, ostatní texty 14 px, poznámka 12 px; tlačítka mají vyšší dotykovou plochu.
+- Položky v okně „Více“ (`components/shared/nav-item.tsx`) mají text `foreground` a zvýraznění `accent-subtle`; změna platí i pro postranní navigaci na desktopu. Jen vzhled; testy ani build v tomto prostředí neběžely.
+
 ## 2026-10-16 — Chat s Anitkou z maskota
 
 - Tlačítko s obličejem Anitky v levém horním rohu aplikace otevírá chatovací okno na mobilu i desktopu. Dotazy se zobrazují v konverzaci, ale neposílají se modelu; chat jasně uvádí, že AI asistent zatím není připojený. Nejde o zapnutí konverzační AI ani dalších AI funkcí.

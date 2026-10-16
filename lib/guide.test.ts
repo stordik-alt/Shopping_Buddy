@@ -4,17 +4,16 @@ import { tabHref } from '@/lib/tab-url'
 
 describe('guide steps', () => {
   it('has unique ids and every step names something to read', () => {
-    for (const steps of [getGuideSteps(false), getGuideSteps(true)]) {
-      expect(new Set(steps.map((step) => step.id)).size).toBe(steps.length)
-      for (const step of steps) {
-        expect(step.title.length).toBeGreaterThan(0)
-        expect(step.text.length).toBeGreaterThan(0)
-      }
+    const steps = getGuideSteps()
+    expect(new Set(steps.map((step) => step.id)).size).toBe(steps.length)
+    for (const step of steps) {
+      expect(step.title.length).toBeGreaterThan(0)
+      expect(step.text.length).toBeGreaterThan(0)
     }
   })
 
   it('only points at sections that have an address in the app', () => {
-    for (const step of getGuideSteps(true)) expect(tabHref(step.tab)).toBeTruthy()
+    for (const step of getGuideSteps()) expect(tabHref(step.tab)).toBeTruthy()
   })
 
   it('explains why the profile matters, without sending people there for the budget', () => {
@@ -34,29 +33,27 @@ describe('guide steps', () => {
   })
 
   it('ends by showing exactly where to find the guide again, with a way back to the profile', () => {
-    for (const aiEnabled of [false, true]) {
-      const steps = getGuideSteps(aiEnabled)
-      const last = steps[steps.length - 1]
-      expect(last.id).toBe('findme')
-      expect(last.where).toContain('Průvodce aplikací')
-      // The account menu is opened, and its guide item is the highlighted place.
-      expect(last.prepare?.selector).toContain('Účet a nastavení')
-      expect(last.target?.[0]).toMatchObject({ selector: '[role="menuitem"]', contains: 'Průvodce aplikací' })
-      expect(last.cta).toBeTruthy()
-      expect(last.secondaryCta?.tab).toBe('Profil')
-    }
+    const steps = getGuideSteps()
+    const last = steps[steps.length - 1]
+    expect(last.id).toBe('findme')
+    expect(last.where).toContain('Průvodce aplikací')
+    // The account menu is opened, and its guide item is the highlighted place.
+    expect(last.prepare?.selector).toContain('Účet a nastavení')
+    expect(last.target?.[0]).toMatchObject({ selector: '[role="menuitem"]', contains: 'Průvodce aplikací' })
+    expect(last.cta).toBeTruthy()
+    expect(last.secondaryCta?.tab).toBe('Profil')
   })
 
-  it('has the assistant card just before the end, pointing at it only when it is switched on', () => {
-    const on = getGuideSteps(true).at(-2)!
-    const off = getGuideSteps(false).at(-2)!
-    expect(on.id).toBe('anitka')
-    expect(on.tab).toBe('AI')
-    expect(off.tab).not.toBe('AI')
-    expect(off.target).toBeUndefined()
-    expect(off.text).toContain('Ještě se učím')
+  it('explains where the chat is and what it can help with without claiming AI is connected', () => {
+    const step = getGuideSteps().find(({ id }) => id === 'anitka')
+    expect(step?.where).toContain('levém horním rohu')
+    expect(step?.target?.[0]).toEqual({ selector: 'button[aria-label="Otevřít chat s Anitkou"]' })
+    expect(step?.text).toMatch(/naplánovat nákup podle rozpočtu/)
+    expect(step?.text).toMatch(/porovnat ceny a akce/)
+    expect(step?.text).toMatch(/vymyslet večeři/)
+    expect(step?.text).toContain('Zatím zprávy nezpracovávám')
     // Only the last card ends the tour.
-    for (const step of getGuideSteps(true).slice(0, -1)) expect(step.cta).toBeUndefined()
+    for (const card of getGuideSteps().slice(0, -1)) expect(card.cta).toBeUndefined()
   })
 
   it('explains every part of the app: each section and the main features have a card', () => {
@@ -94,26 +91,24 @@ describe('guide steps', () => {
 
   it('gives every card a mood Anitka can act out, and every card a plain-language title and text', () => {
     const moods = ['nod', 'smile', 'wink', 'think', 'cheer', 'wave']
-    for (const step of getGuideSteps(true)) {
+    for (const step of getGuideSteps()) {
       if (step.mood) expect(moods).toContain(step.mood)
       expect(step.text.length).toBeGreaterThan(40)
     }
-    expect(new Set(getGuideSteps(true).map((step) => step.mood ?? 'nod')).size).toBeGreaterThan(3)
+    expect(new Set(getGuideSteps().map((step) => step.mood ?? 'nod')).size).toBeGreaterThan(3)
   })
 })
 
 describe('quick and full tour', () => {
   it('the quick tour is the full tour without its deep-dive cards, and is clearly shorter', () => {
-    for (const aiEnabled of [false, true]) {
-      const full = getGuideSteps(aiEnabled)
-      const quick = getQuickGuideSteps(aiEnabled)
-      expect(quick.every((step) => !step.detail)).toBe(true)
-      expect(quick.length).toBe(full.filter((step) => !step.detail).length)
-      expect(quick.length).toBeLessThan(full.length * 0.65)
-      // The tour still opens with the welcome and ends with where to find it again.
-      expect(quick[0].id).toBe('welcome')
-      expect(quick.at(-1)?.id).toBe('findme')
-    }
+    const full = getGuideSteps()
+    const quick = getQuickGuideSteps()
+    expect(quick.every((step) => !step.detail)).toBe(true)
+    expect(quick.length).toBe(full.filter((step) => !step.detail).length)
+    expect(quick.length).toBeLessThan(full.length * 0.65)
+    // The tour still opens with the welcome and ends with where to find it again.
+    expect(quick[0].id).toBe('welcome')
+    expect(quick.at(-1)?.id).toBe('findme')
   })
 
   it('still touches every section in the quick tour', () => {
@@ -155,7 +150,7 @@ describe('guide pointers', () => {
   })
 
   it('labels every highlighted place, and each target names a selector', () => {
-    for (const step of getGuideSteps(true).filter((s) => s.target)) {
+    for (const step of getGuideSteps().filter((s) => s.target)) {
       expect(step.targetLabel).toBeTruthy()
       for (const target of step.target ?? []) expect(target.selector.length).toBeGreaterThan(0)
     }

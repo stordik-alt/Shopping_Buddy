@@ -185,3 +185,5 @@ Do not change React, React DOM, Next.js, or pnpm versions as part of shared-pack
 ## 21. Mobile internal-release readiness — 2026-10-17
 
 The detailed audit is in `docs/40_MOBILE_INTERNAL_RELEASE_AUDIT.md`. Current-checkout unit tests, web and Expo typechecks, web and Cloudflare builds, and the Android Expo bundle export passed. Production reachability, live email verification/authentication, native installation and camera/OCR flows, and real-device offline/retry behavior were not verified; the recommendation is **not ready to declare or distribute as an internal release** until those blockers are closed. No production configuration or deployment was changed during the audit.
+
+`apps/mobile/eas.json` now defines an EAS internal profile for Android APK and iOS Ad Hoc IPA builds, embedding the existing public API URL. This is build configuration only; no installable artifacts have been generated. EAS authentication and, for iOS, Apple signing credentials plus registered tester devices are required. See `docs/41_MOBILE_INSTALLERS.md`; the profile does not deploy the web application.

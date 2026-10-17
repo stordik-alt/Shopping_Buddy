@@ -1,3 +1,9 @@
+## 2026-10-17 — Konfigurace interních instalačních balíčků Expo
+
+- Přidán EAS profil `internal`: sestaví Android APK a iOS Ad Hoc IPA s veřejnou adresou API `https://mojeanitka.cz`.
+- Popsán postup sestavení a požadavky na Expo účet, Apple podpis a registrovaná iOS zařízení v `docs/41_MOBILE_INSTALLERS.md`. Konfigurace nic nenasazuje do produkce.
+- V tomto prostředí APK ani IPA nevznikly: nebyl dostupný EAS účet/token, Apple podpisové údaje ani registrované iOS zařízení; instalace a zařízení zůstávají neověřené.
+
 ## 2026-10-17 — Audit připravenosti mobilní aplikace na interní vydání
 
 - Přidán audit `docs/40_MOBILE_INTERNAL_RELEASE_AUDIT.md` s rozlišením ověřených testů, CI důkazů, neotestovaných produkčních a zařízení závislých toků, blokátorů a doporučení.

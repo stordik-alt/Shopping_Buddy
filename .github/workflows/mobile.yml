@@ -54,11 +54,8 @@ jobs:
       - name: Typecheck
         run: pnpm --filter @shopping-buddy/mobile typecheck
 
-      # Reports packages that differ from the Expo SDK's expected versions (read-only). Informational only:
-      # it currently flags typescript (Expo expects ~6.0.3, the repo deliberately pins 5.9.3 for the PWA too),
-      # and typecheck plus the Android export below are the blocking validation.
-      - name: Expo dependency compatibility (informational)
-        continue-on-error: true
+      # Validates that the installed packages match the Expo SDK (read-only check, changes nothing).
+      - name: Expo dependency compatibility
         env:
           CI: '1'
         run: pnpm --filter @shopping-buddy/mobile exec expo install --check

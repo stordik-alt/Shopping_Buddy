@@ -23,7 +23,7 @@ Cloudflare R2 stores receipt files; R2 storage and Cloudflare Workers hosting ar
 
 - Next.js 16.3.8
 - React 19
-- TypeScript 5.9.3
+- TypeScript 6.0.3
 - Tailwind CSS 4.x
 - shadcn/ui
 - lucide-react

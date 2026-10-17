@@ -7,6 +7,7 @@ import { isNotificationKind, type NotificationKind } from '@/lib/notification-ki
 import { periodStart } from '@/lib/budget'
 import type { PeriodConfig } from '@/lib/budget-period'
 import { loadPeriodConfig, periodConfigOfHousehold } from '@/lib/db/period-config'
+import { mobileBudgetSummary } from '@/lib/mobile-budget'
 import { todayInPrague } from '@/lib/today'
 import { planOfficialPrice, type OfficialPriceAction, type OfficialPriceSnapshot } from '@/lib/ingestion/official-price'
 import { activeDealKey, dealValues, planActiveDeal, type ActiveDealSnapshot, type DealValues, type IngestedDeal } from '@/lib/ingestion/active-deal'
@@ -16,7 +17,7 @@ import { convertQuantity, currentWeekStart, parseSavedPlan, type WeeklyMealPlan 
 import { samePieceSize, type PieceSize } from '@/lib/piece-size'
 import type { StandaloneOffer } from '@/lib/offers'
 import { createHouseholdNotification } from '@/lib/notify'
-import { checkinSubcategoryKey, inferPantryLocation } from '@/lib/pantry'
+import { checkinSubcategoryKey, inferPantryLocation, pantryPlaceOptions } from '@/lib/pantry'
 import { restockedQuantity } from '@/lib/pantry-estimate'
 import { formatOpeningHours } from '@/lib/stores/osm'
 import type { ProductPrice } from '@/lib/prices'
@@ -388,6 +389,47 @@ export async function getHouseholdExpenses(householdId: string, includePurchaseI
   return rows.map(toExpense)
 }
 
+/** The signed-in mobile app's budget view, scoped to the existing household and budget period. */
+export async function getMobileBudgetState(householdId: string, today = todayInPrague()) {
+  const db = getDb()
+  const household = await db.query.households.findFirst({
+    where: eq(schema.households.id, householdId),
+    columns: {
+      monthlyBudget: true,
+      currency: true,
+      budgetPeriodType: true,
+      budgetPeriodStartDay: true,
+      budgetPeriodAnchor: true,
+      budgetPeriodLengthDays: true,
+    },
+  })
+  if (!household) throw new Error('Domácnost nebyla nalezena.')
+
+  const period = periodConfigOfHousehold(household)
+  const start = periodStart(today, period)
+  const [periodBudget, categoryBudgetRows, expenses] = await Promise.all([
+    db.query.budgets.findFirst({
+      where: and(eq(schema.budgets.householdId, householdId), eq(schema.budgets.month, start)),
+      columns: { month: true, amount: true },
+    }),
+    db.query.expenseCategoryBudgets.findMany({
+      where: eq(schema.expenseCategoryBudgets.householdId, householdId),
+      columns: { category: true, amount: true },
+    }),
+    getHouseholdExpenses(householdId, undefined, period),
+  ])
+
+  return mobileBudgetSummary({
+    today,
+    period,
+    currency: household.currency,
+    defaultBudget: Number(household.monthlyBudget),
+    periodBudgets: periodBudget ? { [periodBudget.month]: Number(periodBudget.amount) } : {},
+    categoryBudgets: Object.fromEntries(categoryBudgetRows.map((row) => [row.category, Number(row.amount)])),
+    expenses,
+  })
+}
+
 /** The newest notifications, oldest first, exactly as the page loads them (see getHouseholdExpenses). */
 export async function getHouseholdNotifications(householdId: string): Promise<Notification[]> {
   const rows = await getDb().query.notifications.findMany({
@@ -516,6 +558,45 @@ function toPantryItem(item: Awaited<ReturnType<typeof queryPantryRows>>[number])
 /** The household's pantry exactly as the page loads it (see getHouseholdExpenses). */
 export async function getPantryItems(householdId: string): Promise<PantryItem[]> {
   return (await queryPantryRows(householdId)).map(toPantryItem)
+}
+
+/** The household's existing stock, grouped with the same fixed/custom place rules as the PWA. */
+export async function getMobilePantryState(householdId: string) {
+  const db = getDb()
+  const [items, customPlaces, hiddenRows] = await Promise.all([
+    getPantryItems(householdId),
+    db.query.pantryPlaces.findMany({
+      where: eq(schema.pantryPlaces.householdId, householdId),
+      orderBy: asc(schema.pantryPlaces.createdAt),
+    }),
+    db
+      .select({ location: schema.pantryHiddenLocations.location })
+      .from(schema.pantryHiddenLocations)
+      .where(eq(schema.pantryHiddenLocations.householdId, householdId))
+      .catch((error: unknown) => {
+        console.error('Could not read pantry_hidden_locations', error)
+        return [] as { location: PantryLocation }[]
+      }),
+  ])
+  const places = pantryPlaceOptions(
+    customPlaces.map((place): PantryPlace => ({ id: place.id, area: place.area, name: place.name })),
+    hiddenRows.map((row) => row.location),
+    items,
+  )
+
+  return {
+    places,
+    items: items.map(({ id, name, quantity, unit, location, customPlaceId, unitQuantity, unitUnit }) => ({
+      id,
+      name,
+      quantity,
+      unit,
+      location,
+      customPlaceId,
+      unitQuantity,
+      unitUnit,
+    })),
+  }
 }
 
 /** What a purchase-creating action changed, in the shape the page holds it: the purchase history,

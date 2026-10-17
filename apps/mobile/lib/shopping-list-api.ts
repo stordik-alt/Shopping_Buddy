@@ -16,6 +16,29 @@ export type MobileShoppingList = {
   shoppingLists: string[]
 }
 
+export type MobileBudgetSummary = {
+  currency: string
+  period: { start: string; end: string }
+  budget: number
+  spent: number
+  remaining: number
+  categories: { category: string; total: number; limit: number | null; level: 'ok' | 'warning' | 'over' }[]
+}
+
+export type MobilePantryItem = {
+  id: string
+  name: string
+  quantity: number
+  unit: ItemUnit
+  location: string
+  customPlaceId: string | null
+  unitQuantity: number | null
+  unitUnit: ItemUnit | null
+}
+
+export type MobilePantryPlace = { key: string; name: string; area: string; custom: boolean; id?: string }
+export type MobilePantryState = { places: MobilePantryPlace[]; items: MobilePantryItem[] }
+
 export type MobileUser = {
   id: string
   email: string
@@ -75,6 +98,21 @@ export function getCurrentUser() {
 
 export function getShoppingList() {
   return request<MobileShoppingList>('/api/mobile/shopping-list')
+}
+
+export function getBudgetSummary() {
+  return request<MobileBudgetSummary>('/api/mobile/budget')
+}
+
+export function getPantry() {
+  return request<MobilePantryState>('/api/mobile/pantry')
+}
+
+export function updatePantryItem(itemId: string, change: { quantity: number } | { placeKey: string }) {
+  return request<{ ok: true }>(`/api/mobile/pantry/${encodeURIComponent(itemId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(change),
+  })
 }
 
 export function addShoppingItem(name: string, clientId: string) {

@@ -16,6 +16,7 @@ import { ITEM_UNITS } from '@/lib/units'
 import { getRestockDismissals, getStockLevels } from '@/lib/db/restock'
 import { productTypeByKey } from '@/lib/product-types'
 import { validateStockLevels, type StockLevel } from '@/lib/pantry-restock'
+import { updatePantryItemForHousehold } from '@/lib/pantry-mobile-mutations'
 import { CHECKIN_DAYS_BY_CATEGORY, checkinSubcategoryKey, customPlaceIdFromKey, inferPantryLocation, MAX_PANTRY_REVIEW_ITEMS, PANTRY_AREAS, PANTRY_LOCATIONS, PANTRY_TRACKING, reviewQuantityChanges, splitPantryReview } from '@/lib/pantry'
 import { matchProductByName } from '@/lib/products'
 import type { ItemCategory, ItemUnit, PantryArea, PantryItem, PantryLocation, PantryTracking } from '@/lib/types'
@@ -151,20 +152,7 @@ export async function confirmPantryItemAction(pantryItemId: string) {
  *  without a separate action for it. */
 export async function movePantryItemAction(pantryItemId: string, placeKey: string) {
   const householdId = await requireHouseholdId()
-  await assertOwnsPantryItem(householdId, pantryItemId)
-  const db = getDb()
-  const customPlaceId = customPlaceIdFromKey(placeKey)
-  if (customPlaceId) {
-    const place = await db.query.pantryPlaces.findFirst({ where: eq(schema.pantryPlaces.id, customPlaceId) })
-    if (!place || place.householdId !== householdId) throw new Error('Vlastní místo nenalezeno.')
-    await db.update(schema.pantryItems).set({ customPlaceId }).where(eq(schema.pantryItems.id, pantryItemId))
-  } else {
-    if (!(PANTRY_LOCATIONS as string[]).includes(placeKey)) throw new Error('Neplatné umístění.')
-    await db
-      .update(schema.pantryItems)
-      .set({ location: placeKey as (typeof PANTRY_LOCATIONS)[number], customPlaceId: null })
-      .where(eq(schema.pantryItems.id, pantryItemId))
-  }
+  await updatePantryItemForHousehold(householdId, pantryItemId, { placeKey })
   // No revalidatePath: the app has already shown this change (components/app-shell.tsx updates its own
   // state first), and re-rendering the whole page for every tap re-ran every household query —
   // compute on the database for nothing. Other members see it on their next reload.
@@ -293,10 +281,7 @@ export async function restorePantryLocationAction(location: PantryLocation) {
  *  what was bought, not of what's currently on hand, and must never be rewritten by a stock edit. */
 export async function adjustPantryItemQuantityAction(pantryItemId: string, quantity: number) {
   const householdId = await requireHouseholdId()
-  await assertOwnsPantryItem(householdId, pantryItemId)
-  if (!Number.isFinite(quantity) || quantity < 0) throw new Error('Množství nesmí být záporné.')
-  const db = getDb()
-  await db.update(schema.pantryItems).set({ quantity }).where(eq(schema.pantryItems.id, pantryItemId))
+  await updatePantryItemForHousehold(householdId, pantryItemId, { quantity })
   // No revalidatePath: the app has already shown this change (components/app-shell.tsx updates its own
   // state first), and re-rendering the whole page for every tap re-ran every household query —
   // compute on the database for nothing. Other members see it on their next reload.

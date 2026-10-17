@@ -162,7 +162,9 @@ The objective is one reliable current-state reference for future agents, while r
 
 ## 20. Gradual React Native + Expo path
 
-The current Next.js PWA stays at the repository root and remains functional. The Expo app is under `apps/mobile`; its first end-to-end feature is the household shopping list, rendered natively and backed by the existing Neon data model. It signs in through the existing Neon Auth route, stores mobile auth material in Expo SecureStore, and calls the household-scoped `/api/mobile/shopping-list` endpoints. Server-side membership checks determine the household; these endpoints reuse the same shopping-list service and validation as the PWA, with no second database or parallel list rules.
+The current Next.js PWA stays at the repository root and remains functional. The Expo app is under `apps/mobile`; its native screens cover the household shopping list, budget overview and place-based pantry. It signs in through the existing Neon Auth route, stores mobile auth material in Expo SecureStore, and calls household-scoped `/api/mobile/*` endpoints. Server-side membership checks determine the household; list operations use the same shopping-list service as the PWA, and pantry quantity/place edits share a mutation service with PWA actions. The budget view uses existing period/category calculation rules. No second database, parallel budget rules, or schema changes are introduced.
+
+The mobile budget view shows the current household period, its configured budget, actual expenses, remaining amount and category totals/limits. The pantry view uses the existing stock and fixed/custom storage-place records; quantity and place corrections do not rewrite purchase history or create expenses.
 
 `packages/shared` remains a pnpm workspace package for browser/native-safe, platform-neutral code. Its extraction is limited to `ItemUnit`, `ITEM_UNITS`, and `unitLabel`; the PWA preserves its `lib/units` and `lib/types` APIs through re-exports. No server-side business logic has been moved into the shared package.
 

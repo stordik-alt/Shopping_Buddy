@@ -5,6 +5,13 @@
 - Testy (`lib/auth/bearer.test.ts`, `app/api/mobile/me/route.test.ts`): platný token, prošlý, cizí issuer, cizí podpis, chybějící sub/exp, poškozený token, neznámý uživatel, neověřený e-mail, žádný fallback na cookie.
 - Neověřeno (vyžaduje živý Neon Auth a zařízení): přesný tvar `iss` a umístění JWKS konkrétní instance, `getJWTToken()` v Expo, obnova tokenu, odhlášení a restart aplikace. Nativní auth vrstva v `apps/mobile` zatím neexistuje.
 
+## 2026-10-17 — Rozpočet a zásoby v nativní aplikaci
+
+- Expo aplikace přidává záložky Rozpočet a Zásoby. Rozpočet zobrazuje aktuální období domácnosti, rozpočet, skutečné výdaje, zbývající částku a útratu podle kategorií včetně nastavených limitů.
+- Nové household-scoped endpointy `/api/mobile/budget` a `/api/mobile/pantry` čtou existující data; `PATCH /api/mobile/pantry/[itemId]` upravuje množství nebo místo zásoby. Oprávnění domácnosti se ověřuje na serveru a změny zásob sdílejí jednu službu s PWA akcemi; nemění nákupní historii ani rozpočet.
+- Bez migrace a bez změny PWA; výpočty období a kategorií používají stávající logiku aplikace. Přidány testy výpočtů, API autorizace a mobilního API klienta.
+- Ověřeno: 19 cílených testů, TypeScript webu i mobilu, Android Expo export, Next.js build a lokální odpovědi PWA `/intro` a `/manifest.webmanifest` (HTTP 200). Databázové integrační testy vyžadující `TEST_DATABASE_URL` a živé přihlášení nebyly v sandboxu dostupné.
+
 ## 2026-10-17 — Nákupní seznam v Expo
 
 - `apps/mobile` má nativní přihlášení Neon Auth a nákupní seznam napojený na `GET/POST /api/mobile/shopping-list` a `PATCH /api/mobile/shopping-list/[itemId]`. Server určuje domácnost z ověřeného uživatele; klient neposílá ID domácnosti ani seznamu. Načítání, prázdný stav, síťové/serverové chyby, přidávání, úpravy množství a jednotky, označení nákupu, obnovení a odhlášení jsou součástí nativního rozhraní.

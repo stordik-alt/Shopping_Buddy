@@ -28,6 +28,10 @@ No React, HTML, CSS, DOM, Next.js server function, database access, or AI integr
 
 The native app owns only presentation and transport state. The only business primitive shared across PWA and native code remains the platform-neutral item-unit vocabulary and label helper in `packages/shared`.
 
+### Native budget and pantry screens — 2026-10-17
+
+The Expo app adds household-scoped budget reporting and place-based pantry browsing with quantity/place corrections. Its bearer-authenticated Route Handlers resolve membership server-side and query the same Neon records as the PWA. Budget periods and category totals come from `lib/budget.ts`; pantry writes use `lib/pantry-mobile-mutations.ts`, shared with existing PWA Server Actions. The API does not accept a household ID, create purchase/expense records for stock corrections, or introduce tables/migrations. Budget and pantry domain logic remain in the application because the existing audit found their contracts unsuitable for bulk extraction to `packages/shared`.
+
 High-level flow:
 
 UI

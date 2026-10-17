@@ -4,7 +4,7 @@ const getAccessToken = vi.fn()
 vi.mock('./auth', () => ({ getAccessToken: (...args: unknown[]) => getAccessToken(...args) }))
 vi.mock('./config', () => ({ getApiUrl: () => 'https://anitka.example' }))
 
-import { addShoppingItem, getShoppingList, MobileApiError, toggleShoppingItem } from './shopping-list-api'
+import { addShoppingItem, getBudgetSummary, getPantry, getShoppingList, MobileApiError, toggleShoppingItem, updatePantryItem } from './shopping-list-api'
 
 describe('mobile shopping-list API client', () => {
   beforeEach(() => {
@@ -51,5 +51,26 @@ describe('mobile shopping-list API client', () => {
   it('turns transport failures into a retryable network error', async () => {
     vi.mocked(fetch).mockRejectedValue(new TypeError('Network unavailable'))
     await expect(getShoppingList()).rejects.toMatchObject({ status: 0, code: 'network_error' })
+  })
+
+  it('reads the authenticated budget and pantry endpoints', async () => {
+    const fetchMock = vi.mocked(fetch)
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({ currency: 'CZK', budget: 4000, spent: 1200, remaining: 2800, categories: [] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ places: [], items: [] }), { status: 200 }))
+
+    await expect(getBudgetSummary()).resolves.toMatchObject({ remaining: 2800 })
+    await expect(getPantry()).resolves.toEqual({ places: [], items: [] })
+    expect(fetchMock).toHaveBeenNthCalledWith(1, 'https://anitka.example/api/mobile/budget', expect.any(Object))
+    expect(fetchMock).toHaveBeenNthCalledWith(2, 'https://anitka.example/api/mobile/pantry', expect.any(Object))
+  })
+
+  it('sends stock corrections to the pantry API', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }))
+    await expect(updatePantryItem('item/1', { placeKey: 'Lednice' })).resolves.toEqual({ ok: true })
+    expect(fetch).toHaveBeenCalledWith(
+      'https://anitka.example/api/mobile/pantry/item%2F1',
+      expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ placeKey: 'Lednice' }) }),
+    )
   })
 })

@@ -6,6 +6,7 @@ import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
 import { getPantryItems } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
+import { saveMealPlanForHousehold } from '@/lib/db/meal-plans'
 import type { PantryItem } from '@/lib/types'
 import {
   ALL_MEAL_TYPES,
@@ -20,87 +21,20 @@ import {
   type Recipe as MealPlanRecipe,
   type WeeklyMealPlan,
 } from '@/lib/meal-plans'
-import { getMealPlanRecipeCandidates } from '@/lib/recipes/service'
-import { toRecipeShoppingItem } from '@/lib/recipes/shopping'
-import { filterRecipeForHousehold } from '@/lib/recipes/recommendations'
-import { getRecipeHouseholdData } from '@/lib/db/recipes'
-import type { Recipe } from '@/lib/recipes/types'
+import { getMealPlanRecipePools } from '@/lib/meal-plan-recipes'
 
 /** Saves (or overwrites) the household's plan for the current week — one row per household per week. */
 export async function saveMealPlanAction(budgetLimit: number, plan: WeeklyMealPlan) {
   const householdId = await requireHouseholdId()
   const weekStart = currentWeekStart(todayInPrague())
-  const db = getDb()
-
-  const existing = await db.query.mealPlans.findFirst({
-    where: and(eq(schema.mealPlans.householdId, householdId), eq(schema.mealPlans.weekStart, weekStart)),
-  })
-  const values = { budgetLimit: budgetLimit.toString(), estimatedTotal: plan.estimatedTotal.toString(), plan: JSON.stringify(plan) }
-
-  if (existing) {
-    await db.update(schema.mealPlans).set(values).where(eq(schema.mealPlans.id, existing.id))
-  } else {
-    await db.insert(schema.mealPlans).values({ householdId, weekStart, ...values })
-  }
+  await saveMealPlanForHousehold(householdId, weekStart, budgetLimit, plan)
   // No revalidatePath: the menu is already on screen (components/app-shell.tsx keeps it in its own state).
 }
 
 
-const MEAL_PLAN_RECIPE_LIMIT = 36
-const MEAL_PLAN_RECIPE_LIMIT_WITH_DIET = 60
-
-function mapRecipeToMealPlanRecipe(recipe: Recipe, mealType: MealType): MealPlanRecipe {
-  return {
-    id: recipe.id,
-    name: recipe.title,
-    mealType,
-    // The recipe catalog has no recipe-level price; zero means "not priced" here rather than an invented estimate.
-    price: 0,
-    allergens: [],
-    servings: recipe.servings,
-    sourceId: recipe.sourceId,
-    sourceName: recipe.sourceName,
-    sourceUrl: recipe.sourceUrl,
-    canonicalUrl: recipe.canonicalUrl,
-    imageUrl: recipe.imageUrl,
-    ingredients: recipe.ingredients.map((ingredient) => {
-      const shoppingItem = toRecipeShoppingItem(ingredient)
-      if (shoppingItem) {
-        return {
-          name: shoppingItem.name,
-          category: 'Potraviny',
-          quantity: shoppingItem.quantity,
-          unit: shoppingItem.unit,
-          sourceMeasure: shoppingItem.sourceMeasure,
-        }
-      }
-      // Keep malformed source data visible in the recipe snapshot, but do not turn it into a
-      // purchasable quantity. The normal recipe-shopping validator will continue to reject it.
-      return {
-        name: ingredient.name,
-        category: 'Potraviny',
-        quantity: 0,
-        unit: 'ks',
-        sourceMeasure: ingredient.originalText || 'množství není platné',
-      }
-    }),
-  }
-}
-
 export async function getMealPlanRecipePoolsAction(): Promise<Partial<Record<MealType, MealPlanRecipe[]>>> {
   const householdId = await requireHouseholdId()
-  const context = await getRecipeHouseholdData(householdId)
-
-  const candidateSets = await Promise.all(
-    ALL_MEAL_TYPES.map(async (mealType) => {
-      // A diet leaves out many recipes, so it starts from the most candidates the catalog query gives.
-      const candidates = await getMealPlanRecipeCandidates(mealType, context.dietStems.length > 0 ? MEAL_PLAN_RECIPE_LIMIT_WITH_DIET : MEAL_PLAN_RECIPE_LIMIT)
-      const safe = candidates.filter((recipe) => filterRecipeForHousehold(recipe, context))
-      return [mealType, safe.map((recipe) => mapRecipeToMealPlanRecipe(recipe, mealType))] as const
-    }),
-  )
-
-  return Object.fromEntries(candidateSets) as Partial<Record<MealType, MealPlanRecipe[]>>
+  return getMealPlanRecipePools(householdId)
 }
 
 /** Marks a meal from the current week's saved plan as actually cooked and deducts its recipe's

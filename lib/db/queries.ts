@@ -109,7 +109,17 @@ function toShoppingItem(item: Awaited<ReturnType<typeof shoppingItemsQuery>>[num
 /** What the shopping list screen shows, read fresh for one household: the main list's items and the
  *  names of the household's lists. Used by the list's "Obnovit" so it can update just the list, without
  *  re-reading the whole page. The household comes from the session, never from the client. */
-export async function getShoppingListState(householdId: string): Promise<{ items: Item[]; shoppingLists: string[] }> {
+export async function getPrimaryShoppingListId(householdId: string): Promise<string> {
+  const list = await getDb().query.shoppingLists.findFirst({
+    where: eq(schema.shoppingLists.householdId, householdId),
+    orderBy: asc(schema.shoppingLists.createdAt),
+    columns: { id: true },
+  })
+  if (!list) throw new Error('Household has no shopping list — run the seed script.')
+  return list.id
+}
+
+export async function getShoppingListState(householdId: string): Promise<{ listId: string; items: Item[]; shoppingLists: string[] }> {
   const db = getDb()
   const lists = await db.query.shoppingLists.findMany({
     where: eq(schema.shoppingLists.householdId, householdId),
@@ -119,7 +129,7 @@ export async function getShoppingListState(householdId: string): Promise<{ items
   const mainListId = lists[0]?.id
   if (!mainListId) throw new Error('Household has no shopping list — run the seed script.')
   const items = await shoppingItemsQuery(db, mainListId)
-  return { items: items.map(toShoppingItem), shoppingLists: lists.map((list) => list.name) }
+  return { listId: mainListId, items: items.map(toShoppingItem), shoppingLists: lists.map((list) => list.name) }
 }
 
 export type SavedMealPlan = { weekStart: string; budgetLimit: number; plan: WeeklyMealPlan }

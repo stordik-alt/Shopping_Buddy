@@ -5,6 +5,12 @@
 - Testy (`lib/auth/bearer.test.ts`, `app/api/mobile/me/route.test.ts`): platný token, prošlý, cizí issuer, cizí podpis, chybějící sub/exp, poškozený token, neznámý uživatel, neověřený e-mail, žádný fallback na cookie.
 - Neověřeno (vyžaduje živý Neon Auth a zařízení): přesný tvar `iss` a umístění JWKS konkrétní instance, `getJWTToken()` v Expo, obnova tokenu, odhlášení a restart aplikace. Nativní auth vrstva v `apps/mobile` zatím neexistuje.
 
+## 2026-10-17 — Nákupní seznam v Expo
+
+- `apps/mobile` má nativní přihlášení Neon Auth a nákupní seznam napojený na `GET/POST /api/mobile/shopping-list` a `PATCH /api/mobile/shopping-list/[itemId]`. Server určuje domácnost z ověřeného uživatele; klient neposílá ID domácnosti ani seznamu. Načítání, prázdný stav, síťové/serverové chyby, přidávání, úpravy množství a jednotky, označení nákupu, obnovení a odhlášení jsou součástí nativního rozhraní.
+- PWA i mobil používají stejnou serverovou službu pro přidání, úpravu a dokončení položky, tedy stávající validaci a pravidla produktů; opakovaný požadavek na přidání používá stabilní ID. Bez nové databáze, tabulek nebo migrace. Dokumentace: `docs/00_CURRENT_SOURCE_OF_TRUTH.md`, `docs/02_ARCHITECTURE.md`.
+- Ověřeno: 36 testů mobilního API a klienta, TypeScript kontrola webu i mobilu, Android Expo export a Cloudflare OpenNext build (s dočasnou neprodukční konfigurací Neon Auth; migrace byly přeskočeny). Živou autentizaci na zařízení je třeba ověřit samostatně.
+
 ## 2026-10-17 — Audit autentizace a první rozhraní pro Expo (`GET /api/mobile/me`)
 
 - Audit: registrace, ověření e-mailu, přihlášení, obnova relace a odhlášení běží přes Neon Auth (Better Auth) handler `/api/auth/*` (`app/api/auth/[...path]/route.ts`, s limitem na adresu); je to HTTP API použitelné i z mobilu, relace je ale cookie (`__Secure-neon-auth.session_token`). Webové stránky a Server Actions čtou relaci přes `auth.getSession()` z `next/headers` (cookies) a autorizaci (`requireHousehold`/`requireAdmin`) odvozují vždy na serveru z členství v domácnosti. Server Actions mobil volat nemůže (vázané na Next.js klienta); obchodní data budou potřebovat vlastní Route Handlery nad stejnou autorizací. Ověření e-mailu zůstává zapnuté a beze změny.

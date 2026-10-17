@@ -160,8 +160,10 @@ Architectural or operational changes must update this document or the relevant a
 
 The objective is one reliable current-state reference for future agents, while retaining historical feature documents as history.
 
-## 20. Gradual React Native + Expo preparation
+## 20. Gradual React Native + Expo path
 
-The current Next.js PWA stays at the repository root and remains functional. The minimal Expo app is under `apps/mobile`; `packages/shared` is a pnpm workspace package for browser/native-safe, platform-neutral code. Its first extraction is limited to `ItemUnit`, `ITEM_UNITS`, and `unitLabel`; the PWA preserves its old `lib/units` and `lib/types` APIs through re-exports. No other business logic has been moved.
+The current Next.js PWA stays at the repository root and remains functional. The Expo app is under `apps/mobile`; its first end-to-end feature is the household shopping list, rendered natively and backed by the existing Neon data model. It signs in through the existing Neon Auth route, stores mobile auth material in Expo SecureStore, and calls the household-scoped `/api/mobile/shopping-list` endpoints. Server-side membership checks determine the household; these endpoints reuse the same shopping-list service and validation as the PWA, with no second database or parallel list rules.
+
+`packages/shared` remains a pnpm workspace package for browser/native-safe, platform-neutral code. Its extraction is limited to `ItemUnit`, `ITEM_UNITS`, and `unitLabel`; the PWA preserves its `lib/units` and `lib/types` APIs through re-exports. No server-side business logic has been moved into the shared package.
 
 Do not change React, React DOM, Next.js, or pnpm versions as part of shared-package work. Keep native UI separate, and exclude server-only code, authorization, secrets, database access, and Next.js/DOM-specific modules from shared code. See `docs/02_ARCHITECTURE.md` for the audit boundary and remaining extraction candidates.

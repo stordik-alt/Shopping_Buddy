@@ -14,25 +14,27 @@ export const LIST_NAME_MAX = 100
 export const ITEM_CATEGORY_VALUES = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní'] as const
 export const ITEM_PRIORITY_VALUES = ['Nízká', 'Normální', 'Vysoká'] as const
 
+export class ShoppingInputError extends Error {}
+
 /** A required text of at most `max` characters; returns the value untouched (only checked). */
 export function checkRequiredText(value: unknown, label: string, max: number): string {
-  if (typeof value !== 'string' || !value.trim()) throw new Error(`${label} je povinný údaj.`)
-  if (value.length > max) throw new Error(`${label} je příliš dlouhý (nejvýše ${max} znaků).`)
+  if (typeof value !== 'string' || !value.trim()) throw new ShoppingInputError(`${label} je povinný údaj.`)
+  if (value.length > max) throw new ShoppingInputError(`${label} je příliš dlouhý (nejvýše ${max} znaků).`)
   return value
 }
 
 /** An optional text: empty, null and undefined pass; anything else must be a string within the limit. */
 export function checkOptionalText(value: unknown, label: string, max: number): void {
   if (value === undefined || value === null || value === '') return
-  if (typeof value !== 'string') throw new Error(`${label} musí být text.`)
-  if (value.length > max) throw new Error(`${label} je příliš dlouhý (nejvýše ${max} znaků).`)
+  if (typeof value !== 'string') throw new ShoppingInputError(`${label} musí být text.`)
+  if (value.length > max) throw new ShoppingInputError(`${label} je příliš dlouhý (nejvýše ${max} znaků).`)
 }
 
 /** Unit, category, priority and the on-sale flag, when present; a value the database would refuse is
  *  refused here first. */
 export function checkItemChoices(changes: { unit?: unknown; category?: unknown; priority?: unknown; onSale?: unknown }): void {
-  if (changes.unit != null && !(ITEM_UNITS as readonly unknown[]).includes(changes.unit)) throw new Error('Neplatná jednotka.')
-  if (changes.category != null && !(ITEM_CATEGORY_VALUES as readonly unknown[]).includes(changes.category)) throw new Error('Neplatná kategorie.')
-  if (changes.priority != null && !(ITEM_PRIORITY_VALUES as readonly unknown[]).includes(changes.priority)) throw new Error('Neplatná priorita.')
-  if (changes.onSale != null && typeof changes.onSale !== 'boolean') throw new Error('Neplatná hodnota akce.')
+  if (changes.unit != null && !(ITEM_UNITS as readonly unknown[]).includes(changes.unit)) throw new ShoppingInputError('Neplatná jednotka.')
+  if (changes.category != null && !(ITEM_CATEGORY_VALUES as readonly unknown[]).includes(changes.category)) throw new ShoppingInputError('Neplatná kategorie.')
+  if (changes.priority != null && !(ITEM_PRIORITY_VALUES as readonly unknown[]).includes(changes.priority)) throw new ShoppingInputError('Neplatná priorita.')
+  if (changes.onSale != null && typeof changes.onSale !== 'boolean') throw new ShoppingInputError('Neplatná hodnota akce.')
 }

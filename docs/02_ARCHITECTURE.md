@@ -22,6 +22,12 @@ The other requested areas are not part of this first move:
 
 No React, HTML, CSS, DOM, Next.js server function, database access, or AI integration is included in `packages/shared`.
 
+### Native shopping-list vertical slice — 2026-10-17
+
+`apps/mobile` now provides a native shopping-list screen over the existing application backend. The app uses the existing Neon Auth route, then calls `/api/mobile/shopping-list` with a bearer token. The route resolves the user and household on the server; list reads and writes use the same database and `lib/shopping-list-service.ts` operations as the PWA Server Actions. Quantity, unit and completion changes therefore keep the existing validation and household ownership checks. The mobile client does not connect to Neon directly, accept household identifiers, or keep a parallel list store.
+
+The native app owns only presentation and transport state. The only business primitive shared across PWA and native code remains the platform-neutral item-unit vocabulary and label helper in `packages/shared`.
+
 High-level flow:
 
 UI

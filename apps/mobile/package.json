@@ -28,6 +28,7 @@
     "typescript": "5.9.3"
   },
   "dependencies": {
-    "expo-camera": "~57.0.6"
+    "expo-camera": "~57.0.6",
+    "expo-file-system": "57.0.7"
   }
 }

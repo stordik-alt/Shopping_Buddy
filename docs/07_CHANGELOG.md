@@ -1,3 +1,9 @@
+## 2026-10-17 — Audit připravenosti mobilní aplikace na interní vydání
+
+- Přidán audit `docs/40_MOBILE_INTERNAL_RELEASE_AUDIT.md` s rozlišením ověřených testů, CI důkazů, neotestovaných produkčních a zařízení závislých toků, blokátorů a doporučení.
+- Aktuální checkout: 3 605 unit testů, webový a Expo typecheck, webový a Cloudflare build a Android bundle export prošly. Živá produkce, OTP a fyzické zařízení dostupné nebyly; doporučení je interní vydání zatím neprohlašovat.
+- Opraven aktuální popis PWA: service worker a omezený offline režim existují; předchozí historické tvrzení o jejich absenci bylo zastaralé. Produkce ani konfigurace nebyly změněny.
+
 ## 2026-10-17 — Sjednocení TypeScriptu na 6.0.3
 
 - Web i `apps/mobile` používají TypeScript 6.0.3 (verzi očekává Expo SDK 57), takže `expo install --check` v `mobile.yml` projde; zároveň je nastaven jako informativní (`continue-on-error`) a neblokuje PR, blokující jsou typecheck a export Androidu. TS 6 vyžaduje dvě drobné úpravy: odstraněn zbytečný import `dotenv/config` ve `scripts/backfill-receipt-store-locations.ts` (balíček není nainstalován, skript se spouští přes `dotenv-cli`) a typový cast `customFetchImpl` v `apps/mobile/lib/auth.ts`.

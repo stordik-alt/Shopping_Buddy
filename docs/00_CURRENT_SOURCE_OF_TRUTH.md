@@ -181,3 +181,7 @@ The Expo shopping list supports offline viewing and queued add, completion, quan
 `packages/shared` remains a pnpm workspace package for browser/native-safe, platform-neutral code. Its extraction is limited to `ItemUnit`, `ITEM_UNITS`, and `unitLabel`; the PWA preserves its `lib/units` and `lib/types` APIs through re-exports. No server-side business logic has been moved into the shared package.
 
 Do not change React, React DOM, Next.js, or pnpm versions as part of shared-package work. Keep native UI separate, and exclude server-only code, authorization, secrets, database access, and Next.js/DOM-specific modules from shared code. See `docs/02_ARCHITECTURE.md` for the audit boundary and remaining extraction candidates.
+
+## 21. Mobile internal-release readiness — 2026-10-17
+
+The detailed audit is in `docs/40_MOBILE_INTERNAL_RELEASE_AUDIT.md`. Current-checkout unit tests, web and Expo typechecks, web and Cloudflare builds, and the Android Expo bundle export passed. Production reachability, live email verification/authentication, native installation and camera/OCR flows, and real-device offline/retry behavior were not verified; the recommendation is **not ready to declare or distribute as an internal release** until those blockers are closed. No production configuration or deployment was changed during the audit.

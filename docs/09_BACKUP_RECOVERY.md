@@ -40,7 +40,7 @@ Do this once now and after any large schema change, so the first real restore is
 3. Point a local `.env.local` copy at it and check that the app starts and a known household, list and purchase are there.
 4. Delete the throwaway branch.
 
-To restore for real, restore into a fresh Neon branch first, verify it, then switch `DATABASE_URL` (and `DATABASE_URL_UNPOOLED`) in Vercel to it, or restore over the production branch when the damage is total.
+To restore for real, restore into a fresh Neon branch first, verify it, then update `DATABASE_URL` (and `DATABASE_URL_UNPOOLED`) in the Cloudflare production runtime/deployment configuration to use it, or restore over the production branch when the damage is total. Vercel is historical as an application hosting platform.
 
 ## Monitoring
 

@@ -1,3 +1,7 @@
+## 2026-10-17 — Aktuální produkční hosting: Cloudflare
+
+- Podle potvrzení vlastníka běží produkce na Cloudflare Workers/OpenNext. Vercel je historický jako hosting a deploy aplikace; vlastníkem uváděná jediná zbývající vazba na Vercel je správa Neon účtu. Aktuální stav je propsán do zdroje pravdy, přehledu migrace Cloudflare, deployment/R2 a záložních dokumentů. Starší záznamy přípravy a auditu zůstávají jako historie, nově jsou výslovně označené jako překonané. Živé nasazení, DNS a konfigurace účtu nebyly při této dokumentační změně nezávisle ověřeny.
+
 ## 2026-10-16 — Import účtenek: reasoning GPT-6 Luna na Medium
 
 - `aiReceiptStructuringProvider` (`lib/receipts.ts`) posílá `providerOptions.openai.reasoningEffort: 'medium'`; dosud se effort nenastavoval a model u účtenky o 21 položkách vygeneroval přes 6 000 reasoning tokenů. Čtečka `createLunaReceiptReader` (`lib/receipt-reading.ts`) zůstává na `low` a do produkce zapojená není.

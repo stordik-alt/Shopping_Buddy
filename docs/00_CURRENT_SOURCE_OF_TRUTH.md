@@ -1,7 +1,7 @@
 # ANITKA — Current Project Source of Truth
 
 Status: current operational reference
-Last verified: 2026-10-15
+Last owner update: 2026-10-17
 Repository: stordik-alt/Shopping_Buddy
 Stable branch: main
 
@@ -13,11 +13,11 @@ ANITKA is a Czech-market family shopping assistant covering household profiles, 
 
 ## 2. Production architecture — authoritative
 
-Current production is Vercel + Next.js 16.3.8 + React 19 + Neon PostgreSQL 18 + Cloudflare R2 + Neon Auth.
+Current production runs on Cloudflare Workers/OpenNext + Next.js 16.3.8 + React 19 + Neon PostgreSQL 18 + Cloudflare R2 + Neon Auth. This hosting state is based on the owner's 2026-10-17 confirmation; this documentation update did not independently inspect the live deployment.
 
-Cloudflare Workers/OpenNext is NOT the current production host. It is a prepared future/staging path. Do not describe ANITKA as a Cloudflare production application.
+Vercel is historical as an application hosting/deployment platform and is being removed from the project. The owner reports that the only remaining Vercel association is management of the Neon account. Do not describe Vercel as hosting production.
 
-The full hosting migration to Cloudflare is a separate future project. The completed R2 migration is independent of that hosting migration.
+Cloudflare R2 stores receipt files; R2 storage and Cloudflare Workers hosting are separate responsibilities.
 
 ## 3. Current stack
 
@@ -34,7 +34,7 @@ The full hosting migration to Cloudflare is a separate future project. The compl
 - Cloudflare R2
 - Vitest 5
 - Playwright 1.63
-- OpenNext Cloudflare 1.20.6 for the prepared future path
+- OpenNext Cloudflare 1.20.6 for production hosting
 
 Use the versions in package.json as authoritative when this document differs.
 
@@ -57,7 +57,7 @@ Reference: docs/cloudflare-r2.md.
 
 Production uses Neon PostgreSQL 18 with Drizzle ORM. Schema changes require repository migrations in lib/db/migrations/.
 
-The production Vercel build runs lib/db/migrate.ts --vercel-production before next build. A migration therefore can apply before the new application build becomes live. New migrations must remain compatible with the currently serving code.
+The Cloudflare production deploy workflow (`.github/workflows/cloudflare-deploy.yml`) applies pending migrations before deploying the Worker. A migration therefore can apply before the new application build becomes live. New migrations must remain compatible with the currently serving code.
 
 Required process: inspect schema/relations/indexes/constraints, create migration, test it on the test branch, merge, deploy, then verify production directly.
 
@@ -69,7 +69,7 @@ Database optimization must be evidence-driven. Before adding an index, inspect t
 
 Do not add indexes merely because a foreign key exists. Tiny tables with sequential scans are not automatically problems. Do not make blind index additions when application workload evidence is insufficient.
 
-Render timing: with the environment variable `PERF_TIMING=1`, the home page (`app/page.tsx`) and `getHouseholdData` write one `[perf]` JSON line per render to the server log (on Vercel: function logs). It lists every phase with its start offset and duration in ms (`session`, `householdData`, each `hh.*` query, `productPrices`, …), so overlapping phases are visible as parallel. Implemented in `lib/perf-timing.ts`; without the variable nothing is measured. A Server Component cannot set a `Server-Timing` header, which is why it goes to the log. Use it to see where a slow load really spends its time before optimizing.
+Render timing: with the environment variable `PERF_TIMING=1`, the home page (`app/page.tsx`) and `getHouseholdData` write one `[perf]` JSON line per render to the server log (on Cloudflare: Worker logs). It lists every phase with its start offset and duration in ms (`session`, `householdData`, each `hh.*` query, `productPrices`, …), so overlapping phases are visible as parallel. Implemented in `lib/perf-timing.ts`; without the variable nothing is measured. A Server Component cannot set a `Server-Timing` header, which is why it goes to the log. Use it to see where a slow load really spends its time before optimizing.
 
 Device timing (opt-in, for phones without DevTools): while `PERF_TIMING=1` is set on the server, a device that opened the app once with `?perf=1` (for example `/auth/sign-in?perf=1`; `?perf=0` turns it off) reports its own timings to `POST /api/perf` (`lib/rum-client.ts`, `lib/rum.ts`), which writes `[rum]` lines to the server log: a `load` event about 6 s after each page load (TTFB, DOMContentLoaded, FCP, LCP, main-thread blocking, transferred KB, network type, CPU cores, and the previous sign-in duration) and a `tab` event per section switch (time until its loading placeholder is gone and two frames are painted; `first` marks a first visit). The route answers 404 without `PERF_TIMING=1`, requires a signed-in user and keeps only known, bounded fields. Nothing is collected from devices that did not opt in.
 
@@ -125,19 +125,17 @@ For production-impacting changes, verify the actual production layer being claim
 
 Stable branch: main.
 
-Preferred flow: main → feature/fix branch → tests → pull request → merge → Vercel production deployment → post-deploy verification.
+Preferred flow: main → feature/fix branch → tests → pull request → merge → deliberate Cloudflare production deployment → post-deploy verification.
 
-Do not make backend development changes directly on main. Vercel Git auto-deployment is intentionally disabled in vercel.json via git.deploymentEnabled=false. Deployments are controlled explicitly.
+Do not make backend development changes directly on main. Cloudflare production deployments are controlled explicitly by `.github/workflows/cloudflare-deploy.yml`. The repository still contains legacy Vercel deployment configuration/workflow files; their presence is historical and does not designate them as active production deployment paths.
 
-## 15. Vercel cron
+## 15. Production cron
 
-Vercel owns the current production cron schedule. The authoritative list is vercel.json. Do not arbitrarily reduce, duplicate, or move jobs without measuring Neon compute, data transfer, import correctness and downstream effects.
+Cloudflare Workers owns the current production cron execution. `vercel.json` remains the repository's schedule list used to keep the Worker triggers and routes aligned; it does not mean Vercel runs production crons. Do not arbitrarily reduce, duplicate, or move jobs without measuring Neon compute, data transfer, import correctness and downstream effects.
 
-The prepared Cloudflare cron configuration is not active production ownership.
+## 16. Cloudflare production
 
-## 16. Cloudflare future path
-
-R2 storage is production and complete. Cloudflare hosting/OpenNext is prepared but not production. Staging and future migration procedures remain documented separately. Never change Cloudflare Worker deployment settings while assuming they control current production.
+Cloudflare Workers/OpenNext is the current production host; Cloudflare R2 is the private receipt/object store. Staging and deployment details are documented in `docs/cloudflare-deployment.md`. Vercel references in older audit and migration documents describe historical states and are not current operating instructions. The owner reports that Vercel remains associated only with Neon account management.
 
 ## 17. Documentation hierarchy
 

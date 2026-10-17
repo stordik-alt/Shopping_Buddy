@@ -4,7 +4,7 @@
 
 ## Architecture
 
-- The app remains hosted on Vercel.
+- The app runs on Cloudflare Workers/OpenNext (per owner confirmation, 2026-10-17); R2 receipt storage is a separate service.
 - Receipt files are stored in a private Cloudflare R2 bucket.
 - All receipt storage calls go through `lib/storage/`.
 - `receipt_imports.image_url` stores an R2 reference in the form:

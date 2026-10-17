@@ -73,9 +73,17 @@ const nativeFetch: typeof fetch = async (input, init) => {
   return response
 }
 
+type CustomFetchImpl = NonNullable<
+  NonNullable<NonNullable<Parameters<typeof BetterAuthVanillaAdapter>[0]>['fetchOptions']>['customFetchImpl']
+>
+
 function getAuthClient() {
   return createAuthClient(`${getApiUrl()}/api/auth`, {
-    adapter: BetterAuthVanillaAdapter({ fetchOptions: { customFetchImpl: nativeFetch } }),
+    // TypeScript 6 types the auth client's fetch with DOM `RequestInfo`, which lacks `URL`; React Native's
+    // fetch accepts it, so the cast only reconciles the two declarations.
+    adapter: BetterAuthVanillaAdapter({
+      fetchOptions: { customFetchImpl: nativeFetch as unknown as CustomFetchImpl },
+    }),
   })
 }
 

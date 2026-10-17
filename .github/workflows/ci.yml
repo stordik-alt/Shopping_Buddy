@@ -10,9 +10,42 @@ on:
 permissions:
   contents: read
 
+# Web (PWA) checks. A change that only touches the Expo app (apps/mobile) skips every job below: a skipped
+# job counts as passed for required checks, so the check names stay stable for main's protection rules.
+# The mobile app has its own workflow (mobile.yml). Nothing here deploys: production is the manual
+# cloudflare-deploy.yml, which builds the web app only and never reads mobile results.
 jobs:
+  changes:
+    name: Detect web changes
+    runs-on: ubuntu-latest
+    outputs:
+      web: ${{ steps.diff.outputs.web }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # Web checks run unless every changed file is inside apps/mobile. Anything shared (root, packages/shared,
+      # lockfile, workflows, docs) still runs them, as does a push to main or a manual run.
+      - name: Compare changed files
+        id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          web=true
+          if [ "$EVENT" = "pull_request" ]; then
+            others=$(git diff --name-only "$BASE_SHA...$HEAD_SHA" | grep -v '^apps/mobile/' || true)
+            if [ -z "$others" ]; then web=false; fi
+          fi
+          echo "web=$web" >> "$GITHUB_OUTPUT"
+
   unit:
     name: Unit tests, typecheck and production build
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -45,6 +78,8 @@ jobs:
 
   cloudflare:
     name: Cloudflare Worker build (not deployed)
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -80,6 +115,8 @@ jobs:
 
   e2e:
     name: Playwright smoke tests
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     services:
@@ -161,6 +198,8 @@ jobs:
 
   database:
     name: Database-backed tests (local PostgreSQL)
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     services:
       postgres:

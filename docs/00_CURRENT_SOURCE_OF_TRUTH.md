@@ -23,7 +23,7 @@ Cloudflare R2 stores receipt files; R2 storage and Cloudflare Workers hosting ar
 
 - Next.js 16.3.8
 - React 19
-- TypeScript 5.9.3
+- TypeScript 6.0.3
 - Tailwind CSS 4.x
 - shadcn/ui
 - lucide-react
@@ -159,6 +159,8 @@ For meaningful changes verify the applicable layers: repository implementation; 
 Architectural or operational changes must update this document or the relevant authoritative document in the same PR when they alter production architecture, database behavior, storage, deployment, cron ownership, authentication, AI/OCR policy, testing requirements, operations, or product identity.
 
 The objective is one reliable current-state reference for future agents, while retaining historical feature documents as history.
+
+CI is split per app. `.github/workflows/ci.yml` runs the PWA checks (unit tests, typecheck, build, Cloudflare Worker build, Playwright, database tests); a pull request that changes only `apps/mobile/**` skips them (a skipped job counts as passed for required checks). `.github/workflows/mobile.yml` runs the Expo checks (typecheck, `expo install --check`, Android export) only when `apps/mobile`, `packages/shared` or the lockfile change. Neither workflow deploys or uses secrets. Production deployment is only the manual `cloudflare-deploy.yml`, which builds the web app and does not depend on mobile results; a failing mobile check therefore cannot publish or block the PWA, and a failing web build cannot publish a mobile app (there is no automatic mobile publishing).
 
 ## 20. Gradual React Native + Expo path
 

@@ -1,4 +1,3 @@
-import 'dotenv/config'
 import { eq, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'

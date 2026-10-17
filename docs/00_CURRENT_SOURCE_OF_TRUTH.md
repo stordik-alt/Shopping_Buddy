@@ -162,6 +162,6 @@ The objective is one reliable current-state reference for future agents, while r
 
 ## 20. Gradual React Native + Expo preparation
 
-The current Next.js PWA stays at the repository root and remains functional. The target layout can be introduced without moving it: keep the root pnpm project as the web app, add the future Expo app under `apps/mobile`, and place only browser/native-safe, platform-neutral code in `packages/shared`. `pnpm-workspace.yaml` includes `apps/*` and `packages/*`; absent child packages do not change the root app or its lockfile importer.
+The current Next.js PWA stays at the repository root and remains functional. The minimal Expo app is under `apps/mobile`; `packages/shared` is a pnpm workspace package for browser/native-safe, platform-neutral code. Its first extraction is limited to `ItemUnit`, `ITEM_UNITS`, and `unitLabel`; the PWA preserves its old `lib/units` and `lib/types` APIs through re-exports. No other business logic has been moved.
 
-Do not change React, React DOM, Next.js, or pnpm versions as part of this preparation. Choose Expo/React Native versions only when implementing the mobile app and after verifying compatibility with the existing React version. Keep native UI separate, and exclude server-only code, authorization, secrets, database access, and Next.js/DOM-specific modules from shared code. No Expo app or shared package is introduced by the workspace bootstrap alone.
+Do not change React, React DOM, Next.js, or pnpm versions as part of shared-package work. Keep native UI separate, and exclude server-only code, authorization, secrets, database access, and Next.js/DOM-specific modules from shared code. See `docs/02_ARCHITECTURE.md` for the audit boundary and remaining extraction candidates.

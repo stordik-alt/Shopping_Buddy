@@ -1,5 +1,4 @@
 import { eq } from 'drizzle-orm'
-import { auth } from '@/lib/auth/server'
 import { BearerAuthError, bearerTokenFrom, requireBearerUser, type BearerUser } from '@/lib/auth/bearer'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
@@ -25,6 +24,7 @@ export async function mobileUserFromRequest(request: Request): Promise<BearerUse
     }
   }
 
+  const { auth } = await import('@/lib/auth/server')
   const { data: session } = await auth.getSession()
   if (!session?.user) throw new MobileRequestAuthError('not_signed_in', 401)
   const { id, email, name, emailVerified } = session.user

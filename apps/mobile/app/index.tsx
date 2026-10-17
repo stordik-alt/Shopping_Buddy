@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   FlatList,
@@ -132,6 +132,7 @@ export default function HomeScreen() {
   const [editItem, setEditItem] = useState<MobileShoppingItem | null>(null)
   const [editQuantity, setEditQuantity] = useState('')
   const [editUnit, setEditUnit] = useState<ItemUnit>('ks')
+  const pendingAdds = useRef(new Map<string, string>())
 
   const load = useCallback(async () => {
     setBusy(true)
@@ -205,8 +206,11 @@ export default function HomeScreen() {
     setBusyItemId('new')
     setError(null)
     try {
-      const result = await addShoppingItem(name, newItemId())
+      const clientId = pendingAdds.current.get(name) ?? newItemId()
+      pendingAdds.current.set(name, clientId)
+      const result = await addShoppingItem(name, clientId)
       setItems((current) => [...current, result.item])
+      pendingAdds.current.delete(name)
       setNewName('')
     } catch (caught) {
       setError(errorMessage(caught))

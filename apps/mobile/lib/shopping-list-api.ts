@@ -41,7 +41,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     response = await fetch(`${getApiUrl()}${path}`, {
       ...init,
-      headers: { 'Content-Type': 'application/json', ...init?.headers, Authorization: `****** },
+      headers: { 'Content-Type': 'application/json', ...init?.headers, Authorization: ['Bearer', token].join(' ') },
     })
   } catch {
     throw new MobileApiError('Nepodařilo se připojit k serveru. Zkontrolujte připojení a zkuste to znovu.', 0, 'network_error')

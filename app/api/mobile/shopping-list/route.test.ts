@@ -11,6 +11,8 @@ vi.mock('@/lib/auth/mobile-request', async (original) => ({
   mobileUserFromRequest: (...args: unknown[]) => mobileUserFromRequest(...args),
   mobileHouseholdForUser: (...args: unknown[]) => mobileHouseholdForUser(...args),
 }))
+vi.mock('@/lib/auth/server', () => ({ auth: { getSession: vi.fn() } }))
+vi.mock('@/lib/db/client', () => ({ getDb: vi.fn() }))
 vi.mock('@/lib/db/queries', async (original) => ({
   ...(await original<typeof import('@/lib/db/queries')>()),
   getPrimaryShoppingListId: (...args: unknown[]) => getPrimaryShoppingListId(...args),

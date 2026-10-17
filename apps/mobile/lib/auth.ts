@@ -41,10 +41,11 @@ function setCookieHeaders(headers: Headers): string[] {
 }
 
 function mergeCookies(existing: string, updates: string[]): string {
-  const cookies = new Map(existing.split(';').map((entry) => {
+  const cookies = new Map<string, string>()
+  for (const entry of existing.split(';')) {
     const separator = entry.indexOf('=')
-    return separator > 0 ? [entry.slice(0, separator).trim(), entry.slice(separator + 1).trim()] : ['', '']
-  }).filter(([name]) => name))
+    if (separator > 0) cookies.set(entry.slice(0, separator).trim(), entry.slice(separator + 1).trim())
+  }
 
   for (const update of updates) {
     const [pair, ...attributes] = update.split(';')
@@ -61,6 +62,7 @@ function mergeCookies(existing: string, updates: string[]): string {
 
 const nativeFetch: typeof fetch = async (input, init) => {
   const headers = new Headers(init?.headers)
+  headers.set('origin', getApiUrl())
   const cookie = await readCookie()
   if (cookie) headers.set('cookie', cookie)
   const response = await fetch(input, { ...init, headers, credentials: 'omit' })

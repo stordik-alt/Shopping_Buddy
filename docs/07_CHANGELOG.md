@@ -5,6 +5,35 @@
 - Testy (`lib/auth/bearer.test.ts`, `app/api/mobile/me/route.test.ts`): platný token, prošlý, cizí issuer, cizí podpis, chybějící sub/exp, poškozený token, neznámý uživatel, neověřený e-mail, žádný fallback na cookie.
 - Neověřeno (vyžaduje živý Neon Auth a zařízení): přesný tvar `iss` a umístění JWKS konkrétní instance, `getJWTToken()` v Expo, obnova tokenu, odhlášení a restart aplikace. Nativní auth vrstva v `apps/mobile` zatím neexistuje.
 
+## 2026-10-17 — Oprava produkčního dependency auditu
+
+- Expo Camera a FileSystem jsou v `devDependencies` stejně jako ostatní závislosti Expo workspace; jeho native bundle je nadále sestavuje z importů. Produkční serverový audit tak správně nepočítá Expo/Metro build toolchain jako serverové runtime závislosti.
+- Security workflow používá nezměněný workspace-wide `pnpm audit --prod --audit-level=high`; audit nyní prochází, zatímco CI dál ověřuje mobilní typecheck a Android export.
+
+## 2026-10-17 — Fotografování a import účtenek v Expo
+
+- Expo přidává nativní vyfocení účtenky, bezpečný multipart upload, seznam rozpracovaných importů, spuštění/opakování zpracování a zobrazení výsledků či nutné kontroly.
+- `GET/POST /api/mobile/receipts` a `POST /api/mobile/receipts/[id]` vyžadují bearer autentizaci a domácnost odvozují serverově. PWA i mobil používají stejnou byte-based validaci, limit 10 MB, domácí a globální limity, soukromé R2 a existující atomicky claimovanou OCR/validaci; nejisté nebo duplicitní účtenky zůstávají nepotvrzené a ručně se dokončují v existujícím webovém rozhraní. Bez migrace a druhé pipeline.
+- Ověřeno: 52 cílených testů, webový a Expo typecheck, Android Expo export, Next.js build i Cloudflare OpenNext build. Databázový test suite akcí účtenek nemohl běžet bez platného `DATABASE_URL`; živá R2/OCR autentizace a fyzické zařízení nebyly ověřeny.
+
+## 2026-10-17 — Skenování čárových kódů v Expo
+
+- Nákupní seznam v Expo umí otevřít kameru po výslovném zahájení skenování a potvrzení oprávnění. Expo Camera snímá EAN-8, EAN-13 a UPC-A; oprávnění k mikrofonu a nahrávání zvuku jsou vypnutá.
+- Nový `POST /api/mobile/barcode` vyžaduje ověřeného uživatele a členství v domácnosti, kontroluje GTIN včetně kontrolní číslice a používá pevně dané Open Food Facts API s timeoutem, limitem velikosti odpovědi a `no-store`. Vrací pouze ověřený název produktu. Mobil ho přidá přes existující shopping-list API a službu; GTIN se neukládá, protože databázový model zatím nemá čárový kód. Nenalezený produkt lze zadat ručně.
+- Ověřeno: 43 cílených testů, TypeScript webu i Expo, Android Expo export a `pnpm build` s dočasnými neprodukčními hodnotami Neon Auth (migrace přeskočeny). Živý Open Food Facts endpoint, fyzické zařízení a oprávnění kamery nebyly v sandboxu ověřeny.
+
+## 2026-10-17 — Jídelníček a porce v Expo
+
+- Expo přidává nativní obrazovku jídelníčku: načtení uloženého plánu, serverové vytvoření nového plánu z receptových poolů domácnosti a volitelného stavu zásob, přehled škálovaných surovin a úpravu porcí.
+- `GET/POST /api/mobile/meal-plan` a `PATCH /api/mobile/meal-plan/servings` odvozují domácnost z ověřeného uživatele. Používají stávající plán v `meal_plans`, serverové filtry domácnosti a stejný `setMealServings` helper jako PWA; klient neposílá recepty ani ingredience k uložení. Porce jsou sdíleně validovány v rozsahu 0–1000 a zaokrouhleny na desetiny. Bez migrace a druhého úložiště.
+- Ověřeno: 95 cílených testů mobilního API a jídelníčku, typecheck webu i Expo, Android Expo export a Next.js build s dočasnou neprodukční konfigurací Neon Auth. Celý repozitářový test run nebylo možné dokončit: databázové testy vyžadovaly chybějící `.env.local`/platný `DATABASE_URL`; testy této funkce prošly. Živá Neon databáze ani přihlášení na zařízení nebyly ověřeny.
+
+## 2026-10-17 — Recepty a obrázky z R2 v Expo
+
+- Mobilní aplikace přidává vyhledávání v existujícím katalogu receptů, detail surovin a odkaz na původní zdroj. Katalog i historie otevření používají stávající databázi a služby PWA; jídelníček a změna porcí nejsou součástí této samostatné fáze.
+- Nové household-scoped endpointy `/api/mobile/recipes` a `/api/mobile/recipes/[id]` používají ověřený bearer token a serverem zjištěné členství domácnosti. Obrázky pocházejí pouze z již uložených privátních objektů R2 a načítají se přes stávající obrazovou route, která nyní přijímá také mobilní bearer autentizaci a ověřuje formát klíče obrázku. Bez nové tabulky, úložiště ani importní pipeline.
+- Ověřeno: 28 cílených testů, TypeScript webu i Expo, Android Expo export a `pnpm build` s dočasnou neprodukční konfigurací Neon Auth (bez živé autentizace či databáze).
+
 ## 2026-10-17 — Rozpočet a zásoby v nativní aplikaci
 
 - Expo aplikace přidává záložky Rozpočet a Zásoby. Rozpočet zobrazuje aktuální období domácnosti, rozpočet, skutečné výdaje, zbývající částku a útratu podle kategorií včetně nastavených limitů.
@@ -17,6 +46,13 @@
 - `apps/mobile` má nativní přihlášení Neon Auth a nákupní seznam napojený na `GET/POST /api/mobile/shopping-list` a `PATCH /api/mobile/shopping-list/[itemId]`. Server určuje domácnost z ověřeného uživatele; klient neposílá ID domácnosti ani seznamu. Načítání, prázdný stav, síťové/serverové chyby, přidávání, úpravy množství a jednotky, označení nákupu, obnovení a odhlášení jsou součástí nativního rozhraní.
 - PWA i mobil používají stejnou serverovou službu pro přidání, úpravu a dokončení položky, tedy stávající validaci a pravidla produktů; opakovaný požadavek na přidání používá stabilní ID. Bez nové databáze, tabulek nebo migrace. Dokumentace: `docs/00_CURRENT_SOURCE_OF_TRUTH.md`, `docs/02_ARCHITECTURE.md`.
 - Ověřeno: 36 testů mobilního API a klienta, TypeScript kontrola webu i mobilu, Android Expo export a Cloudflare OpenNext build (s dočasnou neprodukční konfigurací Neon Auth; migrace byly přeskočeny). Živou autentizaci na zařízení je třeba ověřit samostatně.
+
+## 2026-10-17 — Offline nákupní seznam a synchronizace v Expo
+
+- Mobilní aplikace ukládá poslední serverový seznam domácnosti a změny přidané bez připojení do app-private úložiště Expo. Cache i fronta jsou oddělené podle ověřeného uživatele a domácnosti; přidání používá stabilní UUID, úpravy množství/jednotky a dokončení se po připojení přehrávají postupně přes stávající API.
+- Offline seznam se zobrazí při nedostupném serveru po předchozím přihlášení. Fronta se synchronizuje při načtení, po změně nebo tlačítkem; síťové, autorizační a serverové chyby změny zachovají, trvalé odmítnutí 400/404 oznámí a odstraní z fronty. Odhlášení smaže pouze poslední kontext, aby se fronta nepoužila pro jiný účet; stejné domácnosti se znovu zpřístupní až po ověření identity.
+- Změna se týká offline nákupního seznamu; ostatní mobilní obrazovky zůstávají online-only. Bez změny PWA, API, databáze či produktového úložiště.
+- Ověřeno: 33 cílených testů včetně existujících mobilních shopping-list endpointů, TypeScript webu i Expo, Android Expo export, Next.js web build a Cloudflare OpenNext build. Buildy použily dočasné neprodukční hodnoty Neon Auth; migrace se přeskočily. Živé přihlášení a synchronizace na fyzickém zařízení nebyly v sandboxu ověřeny.
 
 ## 2026-10-17 — Audit autentizace a první rozhraní pro Expo (`GET /api/mobile/me`)
 

@@ -399,3 +399,7 @@ Culinary measures are resolved before pricing:
 Retail package size is standardized independently from recipe consumption. The persistent `product_packages` catalog is now read by price queries when the current package price/unit-price ratio matches a known canonical size; otherwise the domain layer safely falls back to deriving the size from package price divided by comparable unit price. The resolved value is canonicalized to `kg`, `l` or `ks` for display/comparison.
 
 The UI marks recipe costs that depend on an estimated culinary measure and can show the resolved retail package size. Recipe cost itself still uses the amount actually consumed and must not be replaced by the whole package price.
+
+## Native meal planning — 2026-10-17
+
+The Expo app has a separate native meal-planning screen. It reads and updates the same household's current-week plan as the PWA; the server generates a plan from the approved recipe pool and optional household stock, and never accepts recipe or ingredient snapshots from the client. Portion edits use the shared `setMealServings` rule (0–1000, rounded to tenths); displayed quantities come from `plannedRecipeIngredients`. Recipe images continue to use the existing authenticated R2 image route, and full instructions remain at the source URL.

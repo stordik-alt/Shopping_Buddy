@@ -1,13 +1,13 @@
 // Receipt import internals: the OCR pipeline and the helpers that turn receipt lines into a purchase.
 // Deliberately NOT a 'use server' module: every export of such a module becomes an action the browser
-// can call with any arguments. processReceiptImport used to live in app/actions/receipts.ts, where a
-// direct call skipped claimReceiptImport and re-ran the pipeline on an already completed import,
-// creating a second purchase. Only the actions in app/actions/receipts.ts call into this module, after
-// they have authorized the household and claimed the import.
+// can call with any arguments. The PWA actions and bearer-authenticated mobile routes authorize the
+// household first, then use processReceiptImportForHousehold to claim imports before running OCR.
 
-import { and, eq, gte, ilike, inArray } from 'drizzle-orm'
+import { and, eq, gte, ilike, inArray, lt, or } from 'drizzle-orm'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { getDb } from '@/lib/db/client'
+import { reserveReceiptOcrAttempt } from '@/lib/receipt-ocr-rate-limit'
+import { RECEIPT_STALE_MS } from '@/lib/receipt-progress'
 import { invalidateProductPriceCache } from '@/lib/db/cache-invalidation'
 import { getProductCatalogByIds, recordPriceObservation, restockPantryItem, restockPantryTypeItem, upsertProductCatalogDefaults } from '@/lib/db/queries'
 import { stockTypesForLines } from '@/lib/db/stock-types'
@@ -59,7 +59,6 @@ import { getReceiptFile } from '@/lib/storage'
 import type { ItemCategory, PurchaseRecord } from '@/lib/types'
 import { normalizeCurrency } from '@/lib/currency'
 
-export const MAX_IMAGE_BYTES = 10 * 1024 * 1024 // 10 MB
 const ITEM_CATEGORIES = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní'] as const
 
 
@@ -78,6 +77,54 @@ export async function assertOwnsReceiptImport(householdId: string, receiptImport
   const row = await db.query.receiptImports.findFirst({ where: eq(schema.receiptImports.id, receiptImportId) })
   if (!row || row.householdId !== householdId) throw new Error('Receipt import not found')
   return row
+}
+
+const IN_FLIGHT_STATUSES: (typeof schema.receiptStatusEnum.enumValues)[number][] = ['ocr_processing', 'ocr_completed', 'parsing', 'parsed', 'validating']
+
+async function claimReceiptImport(
+  householdId: string,
+  receiptImportId: string,
+  claimableStatuses: (typeof schema.receiptStatusEnum.enumValues)[number][],
+): Promise<boolean> {
+  const staleBefore = new Date(Date.now() - RECEIPT_STALE_MS)
+  const claimed = await getDb()
+    .update(schema.receiptImports)
+    .set({ status: 'ocr_processing', errorMessage: null, updatedAt: new Date() })
+    .where(
+      and(
+        eq(schema.receiptImports.id, receiptImportId),
+        eq(schema.receiptImports.householdId, householdId),
+        or(
+          inArray(schema.receiptImports.status, claimableStatuses),
+          and(inArray(schema.receiptImports.status, IN_FLIGHT_STATUSES), lt(schema.receiptImports.updatedAt, staleBefore)),
+        ),
+      ),
+    )
+    .returning({ id: schema.receiptImports.id })
+  return claimed.length > 0
+}
+
+export type ReceiptImportAttempt =
+  | { kind: 'processed'; row: typeof schema.receiptImports.$inferSelect }
+  | { kind: 'not_claimed' }
+  | { kind: 'rate_limited'; error: string }
+
+/** Both the PWA actions and mobile API use the same ownership check, spend limit and atomic claim. */
+export async function processReceiptImportForHousehold(
+  householdId: string,
+  receiptImportId: string,
+  retry = false,
+): Promise<ReceiptImportAttempt> {
+  await assertOwnsReceiptImport(householdId, receiptImportId)
+  const rateLimit = await reserveReceiptOcrAttempt(householdId)
+  if (!rateLimit.allowed) return { kind: 'rate_limited', error: rateLimit.error }
+
+  const claimableStatuses: (typeof schema.receiptStatusEnum.enumValues)[number][] = retry
+    ? ['ocr_failed', 'parsing_failed', 'uploaded']
+    : ['uploaded']
+  if (!(await claimReceiptImport(householdId, receiptImportId, claimableStatuses))) return { kind: 'not_claimed' }
+
+  return { kind: 'processed', row: await processReceiptImport(receiptImportId) }
 }
 
 /** The one place a `ReceiptLineItem[]` actually becomes a real purchase — shared by manual entry

@@ -32,6 +32,28 @@ The native app owns only presentation and transport state. The only business pri
 
 The Expo app adds household-scoped budget reporting and place-based pantry browsing with quantity/place corrections. Its bearer-authenticated Route Handlers resolve membership server-side and query the same Neon records as the PWA. Budget periods and category totals come from `lib/budget.ts`; pantry writes use `lib/pantry-mobile-mutations.ts`, shared with existing PWA Server Actions. The API does not accept a household ID, create purchase/expense records for stock corrections, or introduce tables/migrations. Budget and pantry domain logic remain in the application because the existing audit found their contracts unsuitable for bulk extraction to `packages/shared`.
 
+### Native recipe catalog slice — 2026-10-17
+
+The Expo app searches and opens recipes through bearer-authenticated `/api/mobile/recipes` endpoints. They query the existing `recipe_catalog` and recipe services, and opening a recipe updates the existing household recipe history. Thumbnails use the authenticated `/api/recipes/images/[id]` route to read the existing private `recipe-images/` objects in R2; source-site images are never loaded by the native client. The image route accepts either its existing PWA session or a verified mobile bearer token and restricts reads to the recipe-image key format. No second recipe catalog, image store, or import pipeline is introduced.
+
+### Native meal planning and portions — 2026-10-17
+
+The Expo meal-planning screen uses household-scoped `/api/mobile/meal-plan` and `/api/mobile/meal-plan/servings` Route Handlers. They derive the household from the verified user, reuse existing household-filtered recipe pools and pantry records, and read/write the same weekly `meal_plans` snapshot as the PWA. Plan generation accepts only validated options; the server owns recipe selection and persistence. Both clients update portions through `setMealServings` in `lib/meal-plans.ts`, which preserves the snapshot format and bounds portions to 0–1000; ingredient scaling remains `plannedRecipeIngredients`. No schema migration or native-specific domain copy is added.
+
+### Native barcode lookup — 2026-10-17
+
+The Expo shopping screen opens `expo-camera` only after the user explicitly starts scanning and grants camera permission. `/api/mobile/barcode` verifies the mobile bearer and household, validates the GTIN check digit, and requests only a product name from the fixed Open Food Facts API with a timeout and bounded response. The returned name is added through the existing mobile shopping-list endpoint and service, preserving product matching and list persistence. The scanned code is not stored: `products` currently has no barcode column, and scanning does not create a parallel product catalog. Camera audio permissions are disabled.
+
+### Native receipt import — 2026-10-17
+
+The Expo receipt screen captures a photo only after the user opens the camera and grants permission. Bearer-authenticated `/api/mobile/receipts` routes resolve household membership server-side and use the same upload validation, 24-hour limits, private R2 storage, `receipt_imports` state, atomic processing claim, OCR rate limits, and deterministic receipt pipeline as the PWA. The mobile screen can retry failed or abandoned processing and displays review/duplicate states, but never confirms uncertain OCR or creates a purchase from an unreviewed receipt; final correction and confirmation remain in the existing web review UI. No migration, second receipt store, or parallel OCR pipeline is added.
+
+### Native offline shopping-list sync — 2026-10-17
+
+The native app stores its last server-provided shopping-list snapshot and queued add/toggle/quantity/unit operations in the app-private Expo document directory. Cache files and the offline session pointer are scoped to the verified user and household. Optimistic changes are persisted before display; replay is sequential and uses the existing bearer endpoints, with stable UUID client IDs for idempotent adds. Successful writes are removed from the queue, temporary add IDs are remapped to server IDs, and the server list replaces the cache after a successful refresh. Transient network, authorization and server failures remain queued; definitive 400/404 refusals are dropped with a visible message so they cannot block subsequent operations.
+
+The queue syncs at app load, after local list changes and on explicit refresh/synchronize actions; there is no background sync, polling or refresh-on-focus. Logout clears the last-session pointer but retains user/household-scoped queued files, which can only be reopened after the same identity is authenticated again. This phase covers the shopping list only; recipe, meal-plan, budget, pantry and receipt screens remain online-only. The PWA offline queue and its storage are unchanged. No new API, product store, database table or migration is added.
+
 High-level flow:
 
 UI

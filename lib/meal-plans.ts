@@ -47,6 +47,7 @@ export type MealPlanOptions = { dayCount: number; startDayIndex: number; mealTyp
 
 export const ALL_MEAL_TYPES: MealType[] = ['Snídaně', 'Oběd', 'Večeře', 'Svačina']
 export const DEFAULT_MEAL_PLAN_OPTIONS: MealPlanOptions = { dayCount: 7, startDayIndex: 0, mealTypes: ALL_MEAL_TYPES }
+export const MAX_MEAL_SERVINGS = 1000
 
 export type WeeklyMealPlan = {
   days: DayPlan[]
@@ -353,7 +354,7 @@ function defaultSelectedServings(recipe: Recipe): number {
 
 function withSelectedServings(recipe: Recipe, selectedServings?: number): Recipe {
   const value = selectedServings ?? recipe.selectedServings ?? defaultSelectedServings(recipe)
-  return { ...recipe, selectedServings: Number.isFinite(value) ? Math.max(0, value) : defaultSelectedServings(recipe) }
+  return { ...recipe, selectedServings: Number.isFinite(value) ? Math.min(MAX_MEAL_SERVINGS, Math.max(0, value)) : defaultSelectedServings(recipe) }
 }
 
 /** Ingredient quantities actually used by this meal-plan item. A missing source serving count means
@@ -493,6 +494,19 @@ export function regenerateMeal(
 
 export function recipeFor(plan: WeeklyMealPlan, day: string, mealType: MealType): Recipe | undefined {
   return plan.days.find((dayPlan) => dayPlan.day === day)?.[MEAL_SLOT[mealType]]
+}
+
+/** Updates the selected portions for one saved meal without changing the recipe's authored ingredients. */
+export function setMealServings(plan: WeeklyMealPlan, day: string, mealType: MealType, servings: number): WeeklyMealPlan | null {
+  if (!Number.isFinite(servings) || servings < 0 || servings > MAX_MEAL_SERVINGS) return null
+  const slot = MEAL_SLOT[mealType]
+  let found = false
+  const days = plan.days.map((entry) => {
+    if (entry.day !== day || !entry[slot]) return entry
+    found = true
+    return { ...entry, [slot]: { ...entry[slot]!, selectedServings: Math.round(servings * 10) / 10 } }
+  })
+  return found ? { ...plan, days } : null
 }
 
 export function mealKey(day: string, mealType: MealType): string {

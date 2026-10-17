@@ -5,6 +5,11 @@
 - Testy (`lib/auth/bearer.test.ts`, `app/api/mobile/me/route.test.ts`): platný token, prošlý, cizí issuer, cizí podpis, chybějící sub/exp, poškozený token, neznámý uživatel, neověřený e-mail, žádný fallback na cookie.
 - Neověřeno (vyžaduje živý Neon Auth a zařízení): přesný tvar `iss` a umístění JWKS konkrétní instance, `getJWTToken()` v Expo, obnova tokenu, odhlášení a restart aplikace. Nativní auth vrstva v `apps/mobile` zatím neexistuje.
 
+## 2026-10-17 — Oprava produkčního dependency auditu
+
+- Expo Camera a FileSystem jsou v `devDependencies` stejně jako ostatní závislosti Expo workspace; jeho native bundle je nadále sestavuje z importů. Produkční serverový audit tak správně nepočítá Expo/Metro build toolchain jako serverové runtime závislosti.
+- Security workflow používá nezměněný workspace-wide `pnpm audit --prod --audit-level=high`; audit nyní prochází, zatímco CI dál ověřuje mobilní typecheck a Android export.
+
 ## 2026-10-17 — Fotografování a import účtenek v Expo
 
 - Expo přidává nativní vyfocení účtenky, bezpečný multipart upload, seznam rozpracovaných importů, spuštění/opakování zpracování a zobrazení výsledků či nutné kontroly.

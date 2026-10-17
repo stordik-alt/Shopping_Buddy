@@ -14,7 +14,7 @@ export function isPublicRoute(pathname: string): boolean {
   if (pathname.startsWith('/brand/')) return true
   if (pathname.startsWith('/api/health')) return true
   if (pathname.startsWith('/api/auth')) return true
-  if (pathname === '/api/mobile/me') return true
+  if (pathname.startsWith('/api/mobile/')) return true
   if (pathname.startsWith('/invite')) return true
   if (pathname.startsWith('/auth/')) return true
   return false

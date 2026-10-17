@@ -1,6 +1,5 @@
 import type { ItemUnit } from '@anitka/shared/units'
 import type { Recipe, RecipeSearchPage } from '../../../lib/recipes/types'
-import type { ReceiptImportState } from '../../../lib/db/queries'
 import { clearAccessToken, getAccessToken } from './auth'
 import { getApiUrl } from './config'
 
@@ -98,9 +97,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   let response: Response
   try {
-    const headers = new Headers(init?.headers)
-    if (!(init?.body instanceof FormData)) headers.set('Content-Type', 'application/json')
-    headers.set('Authorization', ['Bearer', token].join(' '))
+    const headers: Record<string, string> = Object.fromEntries(new Headers(init?.headers).entries())
+    if (!(init?.body instanceof FormData)) headers['Content-Type'] = 'application/json'
+    headers.Authorization = ['Bearer', token].join(' ')
     response = await fetch(`${getApiUrl()}${path}`, {
       ...init,
       headers,
@@ -203,7 +202,16 @@ export function lookupBarcode(barcode: string) {
   })
 }
 
-export type MobileReceiptImport = ReceiptImportState
+export type MobileReceiptImport = {
+  id: string
+  status:
+    | 'pending_review' | 'imported' | 'discarded' | 'uploaded' | 'ocr_processing' | 'ocr_completed' | 'ocr_failed'
+    | 'parsing' | 'parsed' | 'parsing_failed' | 'validating' | 'review_required' | 'duplicate_review' | 'completed' | 'cancelled'
+  hasImage: boolean
+  errorMessage: string | null
+  extracted: { date: string | null; total: number | null; items: { name: string; quantity: number; unit: ItemUnit }[] } | null
+  stalled: boolean
+}
 
 export function getPendingReceiptImports() {
   return request<{ receipts: MobileReceiptImport[] }>('/api/mobile/receipts')

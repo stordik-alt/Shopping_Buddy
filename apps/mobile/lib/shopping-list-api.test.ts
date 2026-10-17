@@ -94,9 +94,10 @@ describe('mobile shopping-list API client', () => {
       code: 'product_not_found',
       message: 'K tomuto kódu jsme produkt nenašli. Zkuste položku zadat ručně.',
     })
+  })
 
-    it('uploads a camera photo as multipart data without overriding its boundary header', async () => {
-      const OriginalFormData = globalThis.FormData
+  it('uploads a camera photo as multipart data without overriding its boundary header', async () => {
+      const OriginalFormData = FormData
       class NativeFormData {
         fields: Array<[string, unknown]> = []
         append(name: string, value: unknown) {
@@ -109,19 +110,19 @@ describe('mobile shopping-list API client', () => {
       try {
         await expect(uploadReceiptPhoto('file:///receipt.jpg')).resolves.toMatchObject({ receipt: { id: 'receipt-1' } })
         const [, init] = vi.mocked(fetch).mock.calls[0]
-        const headers = new Headers(init?.headers)
-        expect(headers.get('Authorization')).toBe(['Bearer', 'unit-test-access'].join(' '))
-        expect(headers.has('Content-Type')).toBe(false)
+        const headers = init?.headers as Record<string, string>
+        expect(headers.Authorization).toBe(['Bearer', 'unit-test-access'].join(' '))
+        expect(headers['Content-Type']).toBeUndefined()
         expect(init?.body).toBeInstanceOf(NativeFormData)
-        expect((init?.body as NativeFormData).fields).toEqual([
+        expect((init?.body as unknown as NativeFormData).fields).toEqual([
           ['file', { uri: 'file:///receipt.jpg', name: 'receipt.jpg', type: 'image/jpeg' }],
         ])
       } finally {
         vi.stubGlobal('FormData', OriginalFormData)
       }
-    })
+  })
 
-    it('loads and processes household receipts through the bearer API', async () => {
+  it('loads and processes household receipts through the bearer API', async () => {
       const fetchMock = vi.mocked(fetch)
       fetchMock
         .mockResolvedValueOnce(new Response(JSON.stringify({ receipts: [{ id: 'receipt-1', status: 'uploaded' }] }), { status: 200 }))
@@ -139,9 +140,9 @@ describe('mobile shopping-list API client', () => {
         'https://anitka.example/api/mobile/receipts/receipt-1',
         expect.objectContaining({ method: 'POST', body: JSON.stringify({ retry: true }) }),
       )
-    })
+  })
 
-    it('shows server validation text for a rejected receipt photo', async () => {
+  it('shows server validation text for a rejected receipt photo', async () => {
       vi.mocked(fetch).mockResolvedValue(
         new Response(JSON.stringify({ error: 'unsupported_format', message: 'Použijte JPEG.' }), { status: 415 }),
       )
@@ -149,7 +150,6 @@ describe('mobile shopping-list API client', () => {
         status: 415,
         code: 'unsupported_format',
         message: 'Použijte JPEG.',
-      })
     })
   })
 

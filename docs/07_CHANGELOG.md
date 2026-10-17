@@ -9,7 +9,7 @@
 
 - `apps/mobile` má nativní přihlášení Neon Auth a nákupní seznam napojený na `GET/POST /api/mobile/shopping-list` a `PATCH /api/mobile/shopping-list/[itemId]`. Server určuje domácnost z ověřeného uživatele; klient neposílá ID domácnosti ani seznamu. Načítání, prázdný stav, síťové/serverové chyby, přidávání, úpravy množství a jednotky, označení nákupu, obnovení a odhlášení jsou součástí nativního rozhraní.
 - PWA i mobil používají stejnou serverovou službu pro přidání, úpravu a dokončení položky, tedy stávající validaci a pravidla produktů; opakovaný požadavek na přidání používá stabilní ID. Bez nové databáze, tabulek nebo migrace. Dokumentace: `docs/00_CURRENT_SOURCE_OF_TRUTH.md`, `docs/02_ARCHITECTURE.md`.
-- Testy mobilního API a klienta: 36 úspěšných.
+- Ověřeno: 36 testů mobilního API a klienta, TypeScript kontrola webu i mobilu, Android Expo export a Cloudflare OpenNext build (s dočasnou neprodukční konfigurací Neon Auth; migrace byly přeskočeny). Živou autentizaci na zařízení je třeba ověřit samostatně.
 
 ## 2026-10-17 — Audit autentizace a první rozhraní pro Expo (`GET /api/mobile/me`)
 

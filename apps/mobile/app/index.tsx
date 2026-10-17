@@ -12,6 +12,8 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { ITEM_UNITS, unitLabel, type ItemUnit } from '@anitka/shared/units'
+import { BudgetScreen } from '../components/budget-screen'
+import { PantryScreen } from '../components/pantry-screen'
 import { getAccessToken, signIn, signOut } from '../lib/auth'
 import {
   addShoppingItem,
@@ -118,6 +120,7 @@ function ShoppingRow({
 }
 
 export default function HomeScreen() {
+  const [activeTab, setActiveTab] = useState<'shopping' | 'budget' | 'pantry'>('shopping')
   const [signedIn, setSignedIn] = useState(false)
   const [busy, setBusy] = useState(true)
   const [signingIn, setSigningIn] = useState(false)
@@ -133,6 +136,10 @@ export default function HomeScreen() {
   const [editQuantity, setEditQuantity] = useState('')
   const [editUnit, setEditUnit] = useState<ItemUnit>('ks')
   const pendingAdds = useRef(new Map<string, string>())
+  const handleAuthExpired = useCallback(() => {
+    setSignedIn(false)
+    setError('Přihlášení vypršelo. Přihlaste se znovu.')
+  }, [])
 
   const load = useCallback(async () => {
     setBusy(true)
@@ -284,7 +291,11 @@ export default function HomeScreen() {
         <View style={styles.header}>
           <View>
             <Text style={styles.brand}>ANITKA</Text>
-            <Text style={styles.title}>{householdAvailable ? listName : 'Nákupní seznam'}</Text>
+            <Text style={styles.title}>
+              {householdAvailable
+                ? activeTab === 'budget' ? 'Rozpočet' : activeTab === 'pantry' ? 'Zásoby' : listName
+                : 'Nákupní seznam'}
+            </Text>
             {userName ? <Text style={styles.supporting}>Přihlášeno: {userName}</Text> : null}
           </View>
           <Pressable accessibilityRole="button" onPress={handleSignOut} style={styles.secondaryButton}>
@@ -306,82 +317,101 @@ export default function HomeScreen() {
           </View>
         ) : (
           <>
-            <View style={styles.summary}>
-              <Text style={styles.summaryText}>{remaining} k nákupu · {completed} hotovo</Text>
-              <Pressable accessibilityRole="button" disabled={busy} onPress={() => void load()} style={styles.refreshButton}>
-                <Text style={styles.secondaryButtonText}>{busy ? 'Načítání…' : 'Obnovit'}</Text>
+            {activeTab === 'shopping' ? (
+              <>
+                <View style={styles.summary}>
+                  <Text style={styles.summaryText}>{remaining} k nákupu · {completed} hotovo</Text>
+                  <Pressable accessibilityRole="button" disabled={busy} onPress={() => void load()} style={styles.refreshButton}>
+                    <Text style={styles.secondaryButtonText}>{busy ? 'Načítání…' : 'Obnovit'}</Text>
+                  </Pressable>
+                </View>
+
+                <View style={styles.addRow}>
+                  <TextInput
+                    accessibilityLabel="Nová položka"
+                    editable={!busyItemId}
+                    maxLength={300}
+                    onChangeText={setNewName}
+                    onSubmitEditing={() => void handleAdd()}
+                    placeholder="Co koupit?"
+                    placeholderTextColor="#64748b"
+                    returnKeyType="done"
+                    style={[styles.input, styles.addInput]}
+                    value={newName}
+                  />
+                  <PrimaryButton label={busyItemId === 'new' ? 'Ukládám…' : 'Přidat'} onPress={() => void handleAdd()} disabled={!newName.trim() || busyItemId !== null} />
+                </View>
+
+                {editItem ? (
+                  <View style={styles.card}>
+                    <Text style={styles.sectionTitle}>Upravit: {editItem.name}</Text>
+                    <TextInput
+                      accessibilityLabel="Množství"
+                      keyboardType="decimal-pad"
+                      onChangeText={setEditQuantity}
+                      style={styles.input}
+                      value={editQuantity}
+                    />
+                    <View style={styles.units}>
+                      {ITEM_UNITS.map((unit) => (
+                        <Pressable
+                          accessibilityRole="radio"
+                          accessibilityState={{ checked: editUnit === unit }}
+                          key={unit}
+                          onPress={() => setEditUnit(unit)}
+                          style={[styles.unitButton, editUnit === unit && styles.unitSelected]}
+                        >
+                          <Text style={[styles.unitText, editUnit === unit && styles.unitTextSelected]}>{unit}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                    <View style={styles.actions}>
+                      <Pressable accessibilityRole="button" onPress={() => setEditItem(null)} style={styles.secondaryButton}>
+                        <Text style={styles.secondaryButtonText}>Zrušit</Text>
+                      </Pressable>
+                      <PrimaryButton label={busyItemId === editItem.id ? 'Ukládám…' : 'Uložit'} onPress={() => void saveEdit()} disabled={busyItemId !== null} />
+                    </View>
+                  </View>
+                ) : null}
+
+                {busy && items.length === 0 ? (
+                  <View style={styles.centered}>
+                    <ActivityIndicator color="#087e8b" size="large" />
+                    <Text style={styles.supporting}>Načítání seznamu…</Text>
+                  </View>
+                ) : items.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <Text style={styles.sectionTitle}>Seznam je zatím prázdný</Text>
+                    <Text style={styles.supporting}>Přidejte první položku, kterou potřebujete nakoupit.</Text>
+                  </View>
+                ) : (
+                  <FlatList
+                    contentContainerStyle={styles.list}
+                    data={items}
+                    keyExtractor={(item) => item.id}
+                    keyboardShouldPersistTaps="handled"
+                    renderItem={({ item }) => (
+                      <ShoppingRow item={item} busy={busyItemId === item.id} onEdit={() => openEdit(item)} onToggle={() => void handleToggle(item)} />
+                    )}
+                  />
+                )}
+              </>
+            ) : activeTab === 'budget' ? (
+              <BudgetScreen onAuthExpired={handleAuthExpired} />
+            ) : (
+              <PantryScreen onAuthExpired={handleAuthExpired} />
+            )}
+            <View accessibilityRole="tablist" style={styles.tabBar}>
+              <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'shopping' }} onPress={() => setActiveTab('shopping')} style={[styles.tab, activeTab === 'shopping' && styles.tabActive]}>
+                <Text style={[styles.tabText, activeTab === 'shopping' && styles.tabTextActive]}>Seznam</Text>
+              </Pressable>
+              <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'budget' }} onPress={() => setActiveTab('budget')} style={[styles.tab, activeTab === 'budget' && styles.tabActive]}>
+                <Text style={[styles.tabText, activeTab === 'budget' && styles.tabTextActive]}>Rozpočet</Text>
+              </Pressable>
+              <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'pantry' }} onPress={() => setActiveTab('pantry')} style={[styles.tab, activeTab === 'pantry' && styles.tabActive]}>
+                <Text style={[styles.tabText, activeTab === 'pantry' && styles.tabTextActive]}>Zásoby</Text>
               </Pressable>
             </View>
-
-            <View style={styles.addRow}>
-              <TextInput
-                accessibilityLabel="Nová položka"
-                editable={!busyItemId}
-                maxLength={300}
-                onChangeText={setNewName}
-                onSubmitEditing={() => void handleAdd()}
-                placeholder="Co koupit?"
-                placeholderTextColor="#64748b"
-                returnKeyType="done"
-                style={[styles.input, styles.addInput]}
-                value={newName}
-              />
-              <PrimaryButton label={busyItemId === 'new' ? 'Ukládám…' : 'Přidat'} onPress={() => void handleAdd()} disabled={!newName.trim() || busyItemId !== null} />
-            </View>
-
-            {editItem ? (
-              <View style={styles.card}>
-                <Text style={styles.sectionTitle}>Upravit: {editItem.name}</Text>
-                <TextInput
-                  accessibilityLabel="Množství"
-                  keyboardType="decimal-pad"
-                  onChangeText={setEditQuantity}
-                  style={styles.input}
-                  value={editQuantity}
-                />
-                <View style={styles.units}>
-                  {ITEM_UNITS.map((unit) => (
-                    <Pressable
-                      accessibilityRole="radio"
-                      accessibilityState={{ checked: editUnit === unit }}
-                      key={unit}
-                      onPress={() => setEditUnit(unit)}
-                      style={[styles.unitButton, editUnit === unit && styles.unitSelected]}
-                    >
-                      <Text style={[styles.unitText, editUnit === unit && styles.unitTextSelected]}>{unit}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-                <View style={styles.actions}>
-                  <Pressable accessibilityRole="button" onPress={() => setEditItem(null)} style={styles.secondaryButton}>
-                    <Text style={styles.secondaryButtonText}>Zrušit</Text>
-                  </Pressable>
-                  <PrimaryButton label={busyItemId === editItem.id ? 'Ukládám…' : 'Uložit'} onPress={() => void saveEdit()} disabled={busyItemId !== null} />
-                </View>
-              </View>
-            ) : null}
-
-            {busy && items.length === 0 ? (
-              <View style={styles.centered}>
-                <ActivityIndicator color="#087e8b" size="large" />
-                <Text style={styles.supporting}>Načítání seznamu…</Text>
-              </View>
-            ) : items.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.sectionTitle}>Seznam je zatím prázdný</Text>
-                <Text style={styles.supporting}>Přidejte první položku, kterou potřebujete nakoupit.</Text>
-              </View>
-            ) : (
-              <FlatList
-                contentContainerStyle={styles.list}
-                data={items}
-                keyExtractor={(item) => item.id}
-                keyboardShouldPersistTaps="handled"
-                renderItem={({ item }) => (
-                  <ShoppingRow item={item} busy={busyItemId === item.id} onEdit={() => openEdit(item)} onToggle={() => void handleToggle(item)} />
-                )}
-              />
-            )}
           </>
         )}
       </KeyboardAvoidingView>
@@ -427,4 +457,9 @@ const styles = StyleSheet.create({
   unitText: { color: '#526674', fontSize: 14, fontWeight: '600' },
   unitTextSelected: { color: '#075e68' },
   actions: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 10 },
+  tabBar: { flexDirection: 'row', borderTopColor: '#dce6e9', borderTopWidth: 1, backgroundColor: '#ffffff', paddingHorizontal: 8, paddingTop: 8, paddingBottom: 4, gap: 6 },
+  tab: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
+  tabActive: { backgroundColor: '#dff4f5' },
+  tabText: { color: '#526674', fontSize: 13, fontWeight: '600' },
+  tabTextActive: { color: '#075e68' },
 })

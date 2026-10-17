@@ -9,7 +9,6 @@ import * as schema from '@/lib/db/schema'
 import { saveMealPlanForHousehold } from '@/lib/db/meal-plans'
 import type { PantryItem } from '@/lib/types'
 import {
-  ALL_MEAL_TYPES,
   convertQuantity,
   currentWeekStart,
   isMealCooked,

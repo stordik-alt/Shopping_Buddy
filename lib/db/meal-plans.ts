@@ -1,7 +1,9 @@
 import { and, eq } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
-import { setMealServings, parseSavedPlan, type MealType, type WeeklyMealPlan } from '@/lib/meal-plans'
+import { currentWeekStart, parseSavedPlan } from '@/lib/meal-plans'
+import { todayInPrague } from '@/lib/today'
+import { setMealServings, type MealType, type WeeklyMealPlan } from '@/lib/meal-plans'
 
 export async function saveMealPlanForHousehold(
   householdId: string,
@@ -19,6 +21,18 @@ export async function saveMealPlanForHousehold(
   } else {
     await db.insert(schema.mealPlans).values({ householdId, weekStart, ...values })
   }
+}
+
+export async function getCurrentSavedMealPlan(householdId: string): Promise<{ weekStart: string; budgetLimit: number; plan: WeeklyMealPlan } | null> {
+  const db = getDb()
+  const weekStart = currentWeekStart(todayInPrague())
+  const row = await db.query.mealPlans.findFirst({
+    where: and(eq(schema.mealPlans.householdId, householdId), eq(schema.mealPlans.weekStart, weekStart)),
+  })
+  if (!row) return null
+  const plan = parseSavedPlan(row.plan)
+  if (!plan) return null
+  return { weekStart: row.weekStart, budgetLimit: Number(row.budgetLimit), plan }
 }
 
 export async function updateCurrentMealServings(

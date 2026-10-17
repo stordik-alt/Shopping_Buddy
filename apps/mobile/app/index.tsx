@@ -15,6 +15,7 @@ import { ITEM_UNITS, unitLabel, type ItemUnit } from '@anitka/shared/units'
 import { BudgetScreen } from '../components/budget-screen'
 import { PantryScreen } from '../components/pantry-screen'
 import { RecipesScreen } from '../components/recipes-screen'
+import { MealPlanScreen } from '../components/meal-plan-screen'
 import { getAccessToken, signIn, signOut } from '../lib/auth'
 import {
   addShoppingItem,
@@ -121,7 +122,7 @@ function ShoppingRow({
 }
 
 export default function HomeScreen() {
-  const [activeTab, setActiveTab] = useState<'shopping' | 'budget' | 'pantry' | 'recipes'>('shopping')
+  const [activeTab, setActiveTab] = useState<'shopping' | 'budget' | 'pantry' | 'recipes' | 'meals'>('shopping')
   const [signedIn, setSignedIn] = useState(false)
   const [busy, setBusy] = useState(true)
   const [signingIn, setSigningIn] = useState(false)
@@ -402,6 +403,8 @@ export default function HomeScreen() {
               <BudgetScreen onAuthExpired={handleAuthExpired} />
             ) : activeTab === 'pantry' ? (
               <PantryScreen onAuthExpired={handleAuthExpired} />
+            ) : activeTab === 'meals' ? (
+              <MealPlanScreen onAuthExpired={handleAuthExpired} />
             ) : (
               <RecipesScreen onAuthExpired={handleAuthExpired} />
             )}
@@ -417,6 +420,9 @@ export default function HomeScreen() {
               </Pressable>
               <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'recipes' }} onPress={() => setActiveTab('recipes')} style={[styles.tab, activeTab === 'recipes' && styles.tabActive]}>
                 <Text style={[styles.tabText, activeTab === 'recipes' && styles.tabTextActive]}>Recepty</Text>
+              </Pressable>
+              <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'meals' }} onPress={() => setActiveTab('meals')} style={[styles.tab, activeTab === 'meals' && styles.tabActive]}>
+                <Text style={[styles.tabText, activeTab === 'meals' && styles.tabTextActive]}>Jídla</Text>
               </Pressable>
             </View>
           </>

@@ -9,6 +9,7 @@ import { dietLabels, NO_DIET } from '@/lib/diet'
 import { money } from '@/lib/format'
 import {
   ALL_MEAL_TYPES,
+  MAX_MEAL_SERVINGS,
   generateWeeklyPlan,
   isMealCooked,
   markMealCooked,
@@ -18,6 +19,7 @@ import {
   regenerateMeal,
   splitIngredientsByStock,
   plannedRecipeIngredients,
+  setMealServings,
   type Ingredient,
   type Recipe as MealPlanRecipe,
   type MealType,
@@ -149,17 +151,9 @@ export function MealPlan({
   }
 
   function changeServings(day: string, mealType: MealType, nextValue: number) {
-    if (!plan || !Number.isFinite(nextValue) || nextValue < 0) return
-    const updated: WeeklyMealPlan = {
-      ...plan,
-      days: plan.days.map((entry) => {
-        if (entry.day !== day) return entry
-        const slot = RECIPE_BY_MEAL[mealType]
-        const recipe = entry[slot]
-        if (!recipe) return entry
-        return { ...entry, [slot]: { ...recipe, selectedServings: Math.round(nextValue * 10) / 10 } }
-      }),
-    }
+    if (!plan) return
+    const updated = setMealServings(plan, day, mealType, nextValue)
+    if (!updated) return
     setPlan(updated)
     setAdded(false)
     savePlan(Number(budget) || 0, updated)
@@ -310,6 +304,7 @@ export function MealPlan({
                   aria-label="Rozpočet na nákup"
                   type="number"
                   min="0"
+                  max={MAX_MEAL_SERVINGS}
                   value={budget}
                   onChange={(event) => changeBudget(event.target.value)}
                   className="w-20 bg-transparent text-base outline-none"
@@ -420,7 +415,7 @@ export function MealPlan({
                 type="button"
                 aria-label={`Více porcí: ${selectedMeal.mealType}, ${selectedMeal.day}`}
                 onClick={() => changeServings(selectedMeal.day, selectedMeal.mealType, (selectedRecipe.selectedServings ?? 1) + 1)}
-                disabled={loading}
+                disabled={loading || (selectedRecipe.selectedServings ?? 1) >= MAX_MEAL_SERVINGS}
                 className="flex size-11 items-center justify-center rounded-full bg-card text-lg font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"
               >
                 +

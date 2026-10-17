@@ -41,6 +41,38 @@ export type MobilePantryPlace = { key: string; name: string; area: string; custo
 export type MobilePantryState = { places: MobilePantryPlace[]; items: MobilePantryItem[] }
 export type MobileRecipe = Recipe
 export type MobileRecipeSearchPage = RecipeSearchPage
+export type MobileMealType = 'Snídaně' | 'Oběd' | 'Večeře' | 'Svačina'
+export type MobileMealPlan = {
+  weekStart: string
+  budgetLimit: number
+  estimatedTotal: number
+  pricingPending: boolean
+  recommendedStores: string[]
+  days: {
+    day: string
+    meals: {
+      mealType: MobileMealType
+      cooked: boolean
+      recipe: {
+        id: string
+        name: string
+        sourceName: string | null
+        imageUrl: string | null
+        sourceUrl: string | null
+        servings: number | null
+        selectedServings: number
+        ingredients: { name: string; quantity: number; unit: ItemUnit; sourceMeasure: string | null }[]
+      }
+    }[]
+  }[]
+}
+export type MobileMealPlanOptions = {
+  budgetLimit: number
+  dayCount: number
+  startDayIndex?: number
+  mealTypes: MobileMealType[]
+  useStock: boolean
+}
 
 export type MobileUser = {
   id: string
@@ -117,6 +149,24 @@ export function searchRecipes(query: string, page = 1) {
 
 export function getRecipe(recipeId: string) {
   return request<MobileRecipe>(`/api/mobile/recipes/${encodeURIComponent(recipeId)}`)
+}
+
+export function getMealPlan() {
+  return request<{ plan: MobileMealPlan | null }>('/api/mobile/meal-plan')
+}
+
+export function generateMealPlan(options: MobileMealPlanOptions) {
+  return request<{ plan: MobileMealPlan }>('/api/mobile/meal-plan', {
+    method: 'POST',
+    body: JSON.stringify(options),
+  })
+}
+
+export function setMealServings(day: string, mealType: MobileMealType, servings: number) {
+  return request<{ plan: MobileMealPlan }>('/api/mobile/meal-plan/servings', {
+    method: 'PATCH',
+    body: JSON.stringify({ day, mealType, servings }),
+  })
 }
 
 export function updatePantryItem(itemId: string, change: { quantity: number } | { placeKey: string }) {

@@ -1,11 +1,15 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
-import { Inter } from 'next/font/google'
+import localFont from 'next/font/local'
 import { InstallPromptCapture } from '@/components/shared/install-prompt-capture'
 import './globals.css'
 
-// latin-ext is required for Czech diacritics (ě, š, č, ř, ž, ý, á, í, é, ů, ú).
-const inter = Inter({ subsets: ['latin', 'latin-ext'], variable: '--font-inter', display: 'swap' })
+const inter = localFont({
+  src: './fonts/InterVariable.woff2',
+  weight: '100 900',
+  variable: '--font-inter',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: 'ANITKA | Asistent pro domácnost',

@@ -1,3 +1,7 @@
+## 2026-10-17 — Lokální Inter bez síťového buildu
+
+- `app/layout.tsx` načítá Inter z `app/fonts/InterVariable.woff2` přes `next/font/local`, s proměnnou `--font-inter`, vahami 100–900 a `display: swap`. Soubor z oficiálního repozitáře `rsms/inter` obsahuje češtinu včetně diakritiky; vedle je přiložena licence SIL Open Font License 1.1 (`app/fonts/Inter-OFL.txt`). Build už nepotřebuje `fonts.googleapis.com`.
+
 ## 2026-10-17 — První čistá logika v `packages/shared`
 
 - Audit čisté logiky vybral malý bezpečný první krok: typ `ItemUnit`, seznam `ITEM_UNITS` a české `unitLabel`. PWA dál používá původní API přes adaptéry `lib/units.ts` a `lib/types.ts`; výchozí dávkové typy zůstávají aplikaci. Přidané testy ověřují původní seznam jednotek i stejné tvary množného čísla.

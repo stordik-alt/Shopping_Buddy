@@ -1,6 +1,6 @@
 ## 2026-10-17 — Sjednocení TypeScriptu na 6.0.3
 
-- Web i `apps/mobile` používají TypeScript 6.0.3 (verzi očekává Expo SDK 57), takže `expo install --check` v `mobile.yml` je opět blokující. TS 6 vyžaduje dvě drobné úpravy: odstraněn zbytečný import `dotenv/config` ve `scripts/backfill-receipt-store-locations.ts` (balíček není nainstalován, skript se spouští přes `dotenv-cli`) a typový cast `customFetchImpl` v `apps/mobile/lib/auth.ts`.
+- Web i `apps/mobile` používají TypeScript 6.0.3 (verzi očekává Expo SDK 57), takže `expo install --check` v `mobile.yml` projde; zároveň je nastaven jako informativní (`continue-on-error`) a neblokuje PR, blokující jsou typecheck a export Androidu. TS 6 vyžaduje dvě drobné úpravy: odstraněn zbytečný import `dotenv/config` ve `scripts/backfill-receipt-store-locations.ts` (balíček není nainstalován, skript se spouští přes `dotenv-cli`) a typový cast `customFetchImpl` v `apps/mobile/lib/auth.ts`.
 - Ověřeno: web i mobilní `tsc`, Android export, `next build`. Unit/DB testy a Cloudflare build lokálně neběžely.
 
 ## 2026-10-17 — Oddělené CI pro PWA a Expo

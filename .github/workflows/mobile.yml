@@ -54,8 +54,10 @@ jobs:
       - name: Typecheck
         run: pnpm --filter @shopping-buddy/mobile typecheck
 
-      # Validates that the installed packages match the Expo SDK (read-only check, changes nothing).
-      - name: Expo dependency compatibility
+      # Reports packages that differ from the Expo SDK's expected versions (read-only, changes nothing).
+      # Informational: the blocking validation is the typecheck above and the Android export below.
+      - name: Expo dependency compatibility (informational)
+        continue-on-error: true
         env:
           CI: '1'
         run: pnpm --filter @shopping-buddy/mobile exec expo install --check

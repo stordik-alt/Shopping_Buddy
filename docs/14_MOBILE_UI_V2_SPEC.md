@@ -13,7 +13,7 @@ Goals:
 - make important cards actionable and deep-link to the exact item where possible;
 - verify the UI against the local PostgreSQL/test dataset with Playwright before deployment.
 
-Do not introduce React Native or a second UI stack.
+This specification governs the existing Next.js/PWA interface only. A separately scoped Expo app may be added at `apps/mobile` without moving or replacing the PWA. Keep native UI separate; only platform-neutral code safe for both environments belongs in `packages/shared`. Expo and React Native versions must be checked for compatibility with the existing React version before they are added.
 
 ## 2. Global mobile contract
 

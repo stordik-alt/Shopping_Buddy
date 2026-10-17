@@ -3,6 +3,12 @@
 ## Target architecture
 Shopping Buddy remains a Next.js + React + TypeScript application with Neon PostgreSQL as the persistent relational data store.
 
+## Gradual native-app path
+
+The existing Next.js PWA remains at the repository root and stays independently buildable. A future Expo application can live at `apps/mobile`, with narrowly selected platform-neutral code in `packages/shared`; moving the PWA is not a prerequisite. The root pnpm project remains the existing web application, and the workspace globs include future packages without changing current framework or pnpm versions.
+
+`packages/shared` is limited to code safe in both browser and native environments, such as pure deterministic utilities and platform-neutral types. It must not contain server-only code, secrets, authorization decisions, database access, Next.js APIs, or UI components tied to either React DOM or React Native. Keep platform-specific UI in each app. Before adding Expo, select an Expo/React Native combination explicitly compatible with the existing React version rather than upgrading the web stack implicitly.
+
 High-level flow:
 
 UI

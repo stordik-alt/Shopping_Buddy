@@ -159,3 +159,9 @@ For meaningful changes verify the applicable layers: repository implementation; 
 Architectural or operational changes must update this document or the relevant authoritative document in the same PR when they alter production architecture, database behavior, storage, deployment, cron ownership, authentication, AI/OCR policy, testing requirements, operations, or product identity.
 
 The objective is one reliable current-state reference for future agents, while retaining historical feature documents as history.
+
+## 20. Gradual React Native + Expo preparation
+
+The current Next.js PWA stays at the repository root and remains functional. The target layout can be introduced without moving it: keep the root pnpm project as the web app, add the future Expo app under `apps/mobile`, and place only browser/native-safe, platform-neutral code in `packages/shared`. `pnpm-workspace.yaml` includes `apps/*` and `packages/*`; absent child packages do not change the root app or its lockfile importer.
+
+Do not change React, React DOM, Next.js, or pnpm versions as part of this preparation. Choose Expo/React Native versions only when implementing the mobile app and after verifying compatibility with the existing React version. Keep native UI separate, and exclude server-only code, authorization, secrets, database access, and Next.js/DOM-specific modules from shared code. No Expo app or shared package is introduced by the workspace bootstrap alone.

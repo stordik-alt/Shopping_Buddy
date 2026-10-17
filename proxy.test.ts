@@ -18,6 +18,8 @@ describe('isPublicRoute', () => {
     ['/sw.js', true],
     ['/api/health', true],
     ['/api/auth/callback', true],
+    ['/api/mobile/me', true],
+    ['/api/mobile/other', false],
     ['/household', false],
     ['/api/cron/ingest-prices', false],
     ['/api/receipts/upload', false],

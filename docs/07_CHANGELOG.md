@@ -1,3 +1,16 @@
+## 2026-10-17 — Bearer JWT pro nativního klienta (`/api/mobile/me`)
+
+- Nový `lib/auth/bearer.ts`: požadavek s `Authorization: Bearer <jwt>` se ověřuje na serveru — podpis proti JWKS Neon Auth (`NEON_AUTH_BASE_URL/.well-known/jwks.json`, jose `createRemoteJWKSet` s cache a obnovou při rotaci klíčů), issuer (origin Neon Auth, lze přepsat `NEON_AUTH_JWT_ISSUER`), expirace a povinné `sub`; povoleny jen EdDSA/ES256/RS256. Uživatel se pak znovu načte z `neon_auth."user"`: smazaný účet je odmítnut a neověřený e-mail dostane 403 (ověření e-mailu se nikdy nebere z tokenu). Bez Neon Auth (lokální PostgreSQL, ne-https) je bearer vypnutý (401 `bearer_unavailable`).
+- `GET /api/mobile/me` použije bearer, je-li hlavička Authorization přítomná (neplatný token se nikdy nezachrání cookie); jinak dál cookie relaci jako web. Domácnost se určuje ze serveru podle členství. Cookie autentizace PWA, `/api/auth/*`, `proxy.ts`, databáze ani ostatní API se nezměnily. Přidána přímá závislost `jose@6.2.5` (už byla tranzitivní; lockfile sjednotil verzi).
+- Testy (`lib/auth/bearer.test.ts`, `app/api/mobile/me/route.test.ts`): platný token, prošlý, cizí issuer, cizí podpis, chybějící sub/exp, poškozený token, neznámý uživatel, neověřený e-mail, žádný fallback na cookie.
+- Neověřeno (vyžaduje živý Neon Auth a zařízení): přesný tvar `iss` a umístění JWKS konkrétní instance, `getJWTToken()` v Expo, obnova tokenu, odhlášení a restart aplikace. Nativní auth vrstva v `apps/mobile` zatím neexistuje.
+
+## 2026-10-17 — Audit autentizace a první rozhraní pro Expo (`GET /api/mobile/me`)
+
+- Audit: registrace, ověření e-mailu, přihlášení, obnova relace a odhlášení běží přes Neon Auth (Better Auth) handler `/api/auth/*` (`app/api/auth/[...path]/route.ts`, s limitem na adresu); je to HTTP API použitelné i z mobilu, relace je ale cookie (`__Secure-neon-auth.session_token`). Webové stránky a Server Actions čtou relaci přes `auth.getSession()` z `next/headers` (cookies) a autorizaci (`requireHousehold`/`requireAdmin`) odvozují vždy na serveru z členství v domácnosti. Server Actions mobil volat nemůže (vázané na Next.js klienta); obchodní data budou potřebovat vlastní Route Handlery nad stejnou autorizací. Ověření e-mailu zůstává zapnuté a beze změny.
+- Nový read-only endpoint `GET /api/mobile/me`: vrací uživatele (včetně `emailVerified`) a roli v domácnosti ze serverové relace, jinak JSON 401 (`Cache-Control: no-store`). V `proxy.ts` je veřejný jen přesně tento path, aby nepřihlášený dostal 401 místo přesměrování; autorizace je v handleru. Žádná změna API webu ani databáze, žádná tajemství pro klienta. Test: `proxy.test.ts`.
+- Zbývá (nejde ověřit bez živého Neon Auth): způsob uložení cookie relace v Expo (SecureStore) a případný bearer token.
+
 ## 2026-10-17 — Lokální Inter bez síťového buildu
 
 - `app/layout.tsx` načítá Inter z `app/fonts/InterVariable.woff2` přes `next/font/local`, s proměnnou `--font-inter`, vahami 100–900 a `display: swap`. Soubor z oficiálního repozitáře `rsms/inter` obsahuje češtinu včetně diakritiky; vedle je přiložena licence SIL Open Font License 1.1 (`app/fonts/Inter-OFL.txt`). Build už nepotřebuje `fonts.googleapis.com`.

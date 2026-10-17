@@ -2,6 +2,10 @@
 
 The owner confirms that production runs on Cloudflare. Vercel is historical as the application's hosting/deployment platform; the only remaining Vercel association is the Neon management account. This supersedes older dated entries below that say production is hosted on Vercel. The Cloudflare production state was owner-reported and was not independently live-verified as part of this documentation update. See `docs/00_CURRENT_SOURCE_OF_TRUTH.md` and `docs/cloudflare-migration-status.md`.
 
+## Update 2026-10-17 — PWA offline behavior and release audit
+
+The 2026-09-25 PWA entry in section 28 says that no service worker or offline mode exists; that statement is outdated. The current implementation registers `public/sw.js`: it fetches the app root from the network first and retains the last successful signed-in app page for an offline fallback. The shopping-list offline queue is separate (`lib/offline-queue.ts`); this does not make every application section available offline. Production reachability and actual device behavior were not verified in the 2026-10-17 audit; see `docs/40_MOBILE_INTERNAL_RELEASE_AUDIT.md`.
+
 ## Update 2026-10-17 — Native barcode scanning
 
 The Expo shopping list can scan EAN/UPC barcodes with `expo-camera`. Camera permission is requested only after the user opens the scanner and confirms access; microphone and recording permissions are disabled. A bearer-authenticated `/api/mobile/barcode` endpoint validates the GTIN and asks Open Food Facts for a bounded product name. The result is added through the existing shopping-list route and service. Since product barcodes are not modeled in the database, the code is not persisted and an unknown code remains a manual-entry case.

@@ -24,6 +24,20 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
+## Mobile app (Expo)
+
+The React Native + Expo (SDK 57, Expo Router, TypeScript) app lives in `apps/mobile` and is independent of the PWA. It currently shows only a start screen titled Shopping_Buddy and the configured backend URL.
+
+```bash
+pnpm install                              # from the repository root (pnpm workspace)
+cp apps/mobile/.env.example apps/mobile/.env
+pnpm --filter @shopping-buddy/mobile start    # Expo dev server (a, i = emulator, or scan QR in Expo Go)
+pnpm --filter @shopping-buddy/mobile typecheck
+pnpm --filter @shopping-buddy/mobile export   # verifies the Android bundle builds
+```
+
+The backend URL is set with `EXPO_PUBLIC_API_URL` (default `http://localhost:3000`; use the computer's LAN address on a physical device and `http://10.0.2.2:3000` in the Android emulator). It is public configuration: never put secrets in the mobile app.
+
 ## Learn More
 
 To learn more, take a look at the following resources:

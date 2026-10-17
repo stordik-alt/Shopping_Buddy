@@ -5,6 +5,12 @@
 - Testy (`lib/auth/bearer.test.ts`, `app/api/mobile/me/route.test.ts`): platný token, prošlý, cizí issuer, cizí podpis, chybějící sub/exp, poškozený token, neznámý uživatel, neověřený e-mail, žádný fallback na cookie.
 - Neověřeno (vyžaduje živý Neon Auth a zařízení): přesný tvar `iss` a umístění JWKS konkrétní instance, `getJWTToken()` v Expo, obnova tokenu, odhlášení a restart aplikace. Nativní auth vrstva v `apps/mobile` zatím neexistuje.
 
+## 2026-10-17 — Recepty a obrázky z R2 v Expo
+
+- Mobilní aplikace přidává vyhledávání v existujícím katalogu receptů, detail surovin a odkaz na původní zdroj. Katalog i historie otevření používají stávající databázi a služby PWA; jídelníček a změna porcí nejsou součástí této samostatné fáze.
+- Nové household-scoped endpointy `/api/mobile/recipes` a `/api/mobile/recipes/[id]` používají ověřený bearer token a serverem zjištěné členství domácnosti. Obrázky pocházejí pouze z již uložených privátních objektů R2 a načítají se přes stávající obrazovou route, která nyní přijímá také mobilní bearer autentizaci a ověřuje formát klíče obrázku. Bez nové tabulky, úložiště ani importní pipeline.
+- Ověřeno: 28 cílených testů, TypeScript webu i Expo, Android Expo export a `pnpm build` s dočasnou neprodukční konfigurací Neon Auth (bez živé autentizace či databáze).
+
 ## 2026-10-17 — Rozpočet a zásoby v nativní aplikaci
 
 - Expo aplikace přidává záložky Rozpočet a Zásoby. Rozpočet zobrazuje aktuální období domácnosti, rozpočet, skutečné výdaje, zbývající částku a útratu podle kategorií včetně nastavených limitů.

@@ -4,7 +4,7 @@ const getAccessToken = vi.fn()
 vi.mock('./auth', () => ({ getAccessToken: (...args: unknown[]) => getAccessToken(...args) }))
 vi.mock('./config', () => ({ getApiUrl: () => 'https://anitka.example' }))
 
-import { addShoppingItem, getBudgetSummary, getPantry, getShoppingList, MobileApiError, toggleShoppingItem, updatePantryItem } from './shopping-list-api'
+import { addShoppingItem, getBudgetSummary, getPantry, getRecipe, getShoppingList, MobileApiError, searchRecipes, toggleShoppingItem, updatePantryItem } from './shopping-list-api'
 
 describe('mobile shopping-list API client', () => {
   beforeEach(() => {
@@ -71,6 +71,28 @@ describe('mobile shopping-list API client', () => {
     expect(fetch).toHaveBeenCalledWith(
       'https://anitka.example/api/mobile/pantry/item%2F1',
       expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ placeKey: 'Lednice' }) }),
+    )
+  })
+
+  it('searches the authenticated recipe catalog and loads a recipe by catalog id', async () => {
+    const fetchMock = vi.mocked(fetch)
+    const page = { results: [], total: 0, page: 1, pageSize: 6 }
+    const recipe = { id: 'recipe-1', title: 'Polévka', ingredients: [] }
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify(page), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(recipe), { status: 200 }))
+
+    await expect(searchRecipes('kuřecí maso', 2)).resolves.toEqual(page)
+    await expect(getRecipe('recipe/1')).resolves.toEqual(recipe)
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'https://anitka.example/api/mobile/recipes?q=ku%C5%99ec%C3%AD%20maso&page=2',
+      expect.objectContaining({ headers: expect.objectContaining({ Authorization: ['Bearer', 'unit-test-access'].join(' ') }) }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'https://anitka.example/api/mobile/recipes/recipe%2F1',
+      expect.objectContaining({ headers: expect.objectContaining({ Authorization: ['Bearer', 'unit-test-access'].join(' ') }) }),
     )
   })
 })

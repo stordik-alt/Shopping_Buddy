@@ -1,4 +1,5 @@
 import type { ItemUnit } from '@anitka/shared/units'
+import type { Recipe, RecipeSearchPage } from '../../../lib/recipes/types'
 import { clearAccessToken, getAccessToken } from './auth'
 import { getApiUrl } from './config'
 
@@ -38,6 +39,8 @@ export type MobilePantryItem = {
 
 export type MobilePantryPlace = { key: string; name: string; area: string; custom: boolean; id?: string }
 export type MobilePantryState = { places: MobilePantryPlace[]; items: MobilePantryItem[] }
+export type MobileRecipe = Recipe
+export type MobileRecipeSearchPage = RecipeSearchPage
 
 export type MobileUser = {
   id: string
@@ -106,6 +109,14 @@ export function getBudgetSummary() {
 
 export function getPantry() {
   return request<MobilePantryState>('/api/mobile/pantry')
+}
+
+export function searchRecipes(query: string, page = 1) {
+  return request<MobileRecipeSearchPage>(`/api/mobile/recipes?q=${encodeURIComponent(query)}&page=${page}`)
+}
+
+export function getRecipe(recipeId: string) {
+  return request<MobileRecipe>(`/api/mobile/recipes/${encodeURIComponent(recipeId)}`)
 }
 
 export function updatePantryItem(itemId: string, change: { quantity: number } | { placeKey: string }) {

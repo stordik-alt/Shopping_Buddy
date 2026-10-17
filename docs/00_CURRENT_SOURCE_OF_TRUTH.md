@@ -166,6 +166,8 @@ The current Next.js PWA stays at the repository root and remains functional. The
 
 The mobile budget view shows the current household period, its configured budget, actual expenses, remaining amount and category totals/limits. The pantry view uses the existing stock and fixed/custom storage-place records; quantity and place corrections do not rewrite purchase history or create expenses.
 
+The Expo app also provides authenticated recipe search and detail from the existing `recipe_catalog`. Its `/api/mobile/recipes` routes use the existing recipe search/detail services and household-scoped view history. Recipe thumbnails are served from the private R2 objects through the existing authenticated image route; the mobile client does not fetch source-site images or create another recipe/image store. Mobile meal planning and portion adjustment are not part of this slice.
+
 `packages/shared` remains a pnpm workspace package for browser/native-safe, platform-neutral code. Its extraction is limited to `ItemUnit`, `ITEM_UNITS`, and `unitLabel`; the PWA preserves its `lib/units` and `lib/types` APIs through re-exports. No server-side business logic has been moved into the shared package.
 
 Do not change React, React DOM, Next.js, or pnpm versions as part of shared-package work. Keep native UI separate, and exclude server-only code, authorization, secrets, database access, and Next.js/DOM-specific modules from shared code. See `docs/02_ARCHITECTURE.md` for the audit boundary and remaining extraction candidates.

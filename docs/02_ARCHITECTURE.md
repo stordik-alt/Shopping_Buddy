@@ -32,6 +32,10 @@ The native app owns only presentation and transport state. The only business pri
 
 The Expo app adds household-scoped budget reporting and place-based pantry browsing with quantity/place corrections. Its bearer-authenticated Route Handlers resolve membership server-side and query the same Neon records as the PWA. Budget periods and category totals come from `lib/budget.ts`; pantry writes use `lib/pantry-mobile-mutations.ts`, shared with existing PWA Server Actions. The API does not accept a household ID, create purchase/expense records for stock corrections, or introduce tables/migrations. Budget and pantry domain logic remain in the application because the existing audit found their contracts unsuitable for bulk extraction to `packages/shared`.
 
+### Native recipe catalog slice — 2026-10-17
+
+The Expo app searches and opens recipes through bearer-authenticated `/api/mobile/recipes` endpoints. They query the existing `recipe_catalog` and recipe services, and opening a recipe updates the existing household recipe history. Thumbnails use the authenticated `/api/recipes/images/[id]` route to read the existing private `recipe-images/` objects in R2; source-site images are never loaded by the native client. The image route accepts either its existing PWA session or a verified mobile bearer token and restricts reads to the recipe-image key format. No second recipe catalog, image store, or import pipeline is introduced. Native meal planning and portion controls remain separate follow-up slices.
+
 High-level flow:
 
 UI

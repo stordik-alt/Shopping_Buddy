@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { ITEM_UNITS, unitLabel, type ItemUnit } from '@anitka/shared/units'
 import { BudgetScreen } from '../components/budget-screen'
 import { PantryScreen } from '../components/pantry-screen'
+import { RecipesScreen } from '../components/recipes-screen'
 import { getAccessToken, signIn, signOut } from '../lib/auth'
 import {
   addShoppingItem,
@@ -120,7 +121,7 @@ function ShoppingRow({
 }
 
 export default function HomeScreen() {
-  const [activeTab, setActiveTab] = useState<'shopping' | 'budget' | 'pantry'>('shopping')
+  const [activeTab, setActiveTab] = useState<'shopping' | 'budget' | 'pantry' | 'recipes'>('shopping')
   const [signedIn, setSignedIn] = useState(false)
   const [busy, setBusy] = useState(true)
   const [signingIn, setSigningIn] = useState(false)
@@ -294,7 +295,7 @@ export default function HomeScreen() {
             <Text style={styles.brand}>ANITKA</Text>
             <Text style={styles.title}>
               {householdAvailable
-                ? activeTab === 'budget' ? 'Rozpočet' : activeTab === 'pantry' ? 'Zásoby' : listName
+                ? activeTab === 'budget' ? 'Rozpočet' : activeTab === 'pantry' ? 'Zásoby' : activeTab === 'recipes' ? 'Recepty' : listName
                 : 'Nákupní seznam'}
             </Text>
             {userName ? <Text style={styles.supporting}>Přihlášeno: {userName}</Text> : null}
@@ -399,8 +400,10 @@ export default function HomeScreen() {
               </>
             ) : activeTab === 'budget' ? (
               <BudgetScreen onAuthExpired={handleAuthExpired} />
-            ) : (
+            ) : activeTab === 'pantry' ? (
               <PantryScreen onAuthExpired={handleAuthExpired} />
+            ) : (
+              <RecipesScreen onAuthExpired={handleAuthExpired} />
             )}
             <View accessibilityRole="tablist" style={styles.tabBar}>
               <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'shopping' }} onPress={() => setActiveTab('shopping')} style={[styles.tab, activeTab === 'shopping' && styles.tabActive]}>
@@ -411,6 +414,9 @@ export default function HomeScreen() {
               </Pressable>
               <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'pantry' }} onPress={() => setActiveTab('pantry')} style={[styles.tab, activeTab === 'pantry' && styles.tabActive]}>
                 <Text style={[styles.tabText, activeTab === 'pantry' && styles.tabTextActive]}>Zásoby</Text>
+              </Pressable>
+              <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'recipes' }} onPress={() => setActiveTab('recipes')} style={[styles.tab, activeTab === 'recipes' && styles.tabActive]}>
+                <Text style={[styles.tabText, activeTab === 'recipes' && styles.tabTextActive]}>Recepty</Text>
               </Pressable>
             </View>
           </>

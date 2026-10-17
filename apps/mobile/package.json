@@ -5,8 +5,8 @@
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
     "typecheck": "tsc --noEmit",
     "export": "expo export --platform android --output-dir dist"
   },
@@ -28,10 +28,5 @@
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
     "typescript": "6.0.3"
-  },
-  "dependencies": {
-    "expo": "~57.0.30",
-    "react": "19.2.3",
-    "react-native": "0.86.3"
   }
 }

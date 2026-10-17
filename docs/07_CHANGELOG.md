@@ -1,7 +1,7 @@
 ## 2026-10-17 — Oddělené CI pro PWA a Expo
 
 - `ci.yml` (web) nově začíná jobem `changes`; PR měnící jen `apps/mobile/**` přeskočí webové joby (přeskočený job se u povinných kontrol počítá jako úspěšný). Žádný test ani kontrola nebyly odstraněny, názvy jobů zůstaly.
-- Nový `mobile.yml`: typecheck, `expo install --check` a export Androidu, spouští se jen při změně `apps/mobile`, `packages/shared`, lockfile nebo workflow. Bez secretů a bez publikace.
+- Nový `mobile.yml`: typecheck a export Androidu (plus informativní `expo install --check`), spouští se jen při změně `apps/mobile`, `packages/shared`, lockfile nebo workflow. Bez secretů a bez publikace.
 - Produkční nasazení zůstává ruční `cloudflare-deploy.yml` (jen web, pouze z `main`); na mobilních kontrolách nezávisí a mobilní aplikace se automaticky nikam nepublikuje. Nasazení se při testování neprovádí. Workflow nebyla spuštěna lokálně (chybí pnpm), ověřeno jen čtením.
 
 ## 2026-10-17 — Bearer JWT pro nativního klienta (`/api/mobile/me`)

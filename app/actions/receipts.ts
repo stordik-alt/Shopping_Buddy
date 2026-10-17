@@ -1,6 +1,6 @@
 'use server'
 
-import { and, count, eq, gte, inArray, lt, or } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { parseStoredJson } from '@/lib/safe-json'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { safeErrorMessage } from '@/lib/errors'
@@ -16,24 +16,19 @@ import {
 } from '@/lib/db/queries'
 import * as schema from '@/lib/db/schema'
 import { applyConfirmedReceiptListPairs, getReceiptListSuggestions, type ReceiptListSuggestion } from '@/lib/db/receipt-list'
-import { detectReceiptFileType } from '@/lib/receipt-image'
-import { RECEIPT_STALE_MS } from '@/lib/receipt-progress'
 import type { ReceiptListPair } from '@/lib/receipt-list-match'
 import { type ExtractedReceipt, type ReceiptLineItem } from '@/lib/receipts'
-import { HEIC_UNSUPPORTED_MESSAGE } from '@/lib/receipt-upload'
-import { mayUploadReceipt, RECEIPT_UPLOAD_LIMIT_MESSAGE, RECEIPT_UPLOAD_WINDOW_MS } from '@/lib/receipt-upload-limit'
-import { reserveReceiptOcrAttempt } from '@/lib/receipt-ocr-rate-limit'
-import { deleteReceiptFile, putReceiptFile } from '@/lib/storage'
+import { deleteReceiptFile } from '@/lib/storage'
 import type { PurchaseRecord } from '@/lib/types'
 import {
   assertOwnsReceiptImport,
   createPurchaseFromReceiptItems,
   findOrCreateStore,
   findOrCreateStoreLocation,
-  MAX_IMAGE_BYTES,
-  processReceiptImport,
+  processReceiptImportForHousehold,
   resolveReceiptPurchaseDate,
 } from '@/lib/receipt-import'
+import { uploadReceiptForHousehold, type UploadReceiptResult } from '@/lib/receipt-upload-server'
 
 
 /** Suggested (not certain) matches between a just-imported receipt and the open shopping list, for
@@ -100,91 +95,9 @@ export async function importReceiptAction(
  *  can show its real progress via `/api/receipts/[id]/status` (section 20). The pipeline still runs
  *  synchronously inside that one request — at the target volume (~1,500/month per section 18) a
  *  background job queue would be over-engineering for a few-second round trip. */
-/** What the upload returns. A problem the user can act on (too large, wrong format, HEIC) comes back
- *  as `ok: false` with a Czech message instead of being thrown: in production Next.js replaces the
- *  message of an error thrown inside a Server Action with a generic one, so the phone showed only
- *  "Minified React error #441" and the user never learned why (CLAUDE.md section 26). */
-export type UploadReceiptResult = { ok: true; receipt: ReceiptImportState } | { ok: false; error: string }
-
 export async function uploadReceiptAction(formData: FormData): Promise<UploadReceiptResult> {
   const householdId = await requireHouseholdId()
-
-  // The photo is sent as a binary `File` in FormData rather than a base64 string argument. React's
-  // Server Action decoder adds the length of every string it resolves to the size of the action's
-  // argument array and throws "Maximum array nesting exceeded" past 1,000,000 characters (fixed,
-  // not configurable) — so a base64 photo over ~750 KB failed in production. A File is not counted,
-  // and it also avoids base64's 33 % overhead.
-  const file = formData.get('file')
-  if (!(file instanceof File)) return { ok: false, error: 'Nahraný soubor je neplatný.' }
-  if (file.size > MAX_IMAGE_BYTES) return { ok: false, error: 'Fotografie je příliš velká (max. 10 MB).' }
-  const buffer = Buffer.from(await file.arrayBuffer())
-  if (buffer.byteLength === 0) return { ok: false, error: 'Nahraný soubor je prázdný.' }
-
-  // The type is decided from the file's own bytes; the client-declared MIME type (`file.type`) is
-  // ignored because it is attacker-controlled and phones sometimes mislabel files. The stored
-  // extension and content type come from the detection.
-  const fileType = detectReceiptFileType(buffer)
-  if (fileType.kind === 'heic') return { ok: false, error: HEIC_UNSUPPORTED_MESSAGE }
-  if (fileType.kind !== 'supported') return { ok: false, error: 'Nepodporovaný formát. Použijte fotku JPEG, PNG, WEBP nebo PDF.' }
-
-  try {
-    // Checked after the cheap file checks and before anything is stored or sent to OCR, so a refused
-    // upload costs nothing. Counted from the household's own OCR imports of the last 24 hours.
-    const db = getDb()
-    const [{ recent }] = await db
-      .select({ recent: count() })
-      .from(schema.receiptImports)
-      .where(and(eq(schema.receiptImports.householdId, householdId), eq(schema.receiptImports.source, 'ocr'), gte(schema.receiptImports.createdAt, new Date(Date.now() - RECEIPT_UPLOAD_WINDOW_MS))))
-    if (!mayUploadReceipt(recent)) return { ok: false, error: RECEIPT_UPLOAD_LIMIT_MESSAGE }
-
-    // Receipt files are stored in R2 through lib/storage.
-    const imageUrl = await putReceiptFile(householdId, buffer, fileType)
-
-    const [row] = await db
-      .insert(schema.receiptImports)
-      .values({ householdId, status: 'uploaded', source: 'ocr', imageUrl })
-      .returning()
-
-    return { ok: true, receipt: toReceiptImportState(row) }
-  } catch (err) {
-    // Storage or database failure: the details go to the server log (with the household, never the
-    // photo), the user gets a message they can act on.
-    console.error(
-      JSON.stringify({ event: 'receipt_upload_failed', householdId, bytes: buffer.byteLength, type: fileType.mimeType, error: safeErrorMessage(err) }),
-    )
-    return { ok: false, error: 'Fotografii se nepodařilo uložit. Zkuste to prosím za chvíli znovu.' }
-  }
-}
-
-const IN_FLIGHT_STATUSES: (typeof schema.receiptStatusEnum.enumValues)[number][] = ['ocr_processing', 'ocr_completed', 'parsing', 'parsed', 'validating']
-
-/** Atomically takes ownership of an import for processing. The single conditional UPDATE is what
- *  prevents two concurrent requests (a double-click, two household members, a retry racing the
- *  original run) from both running the pipeline and both creating a purchase — whichever UPDATE
- *  matches wins, the other gets no row. An import stuck mid-run (the function was killed) becomes
- *  claimable again once it has not changed for `RECEIPT_STALE_MS`. Clears the previous error so a
- *  successful retry does not keep showing the earlier failure. */
-async function claimReceiptImport(
-  householdId: string,
-  receiptImportId: string,
-  claimableStatuses: (typeof schema.receiptStatusEnum.enumValues)[number][],
-): Promise<boolean> {
-  const staleBefore = new Date(Date.now() - RECEIPT_STALE_MS)
-  const claimed = await getDb()
-    .update(schema.receiptImports)
-    .set({ status: 'ocr_processing', errorMessage: null, updatedAt: new Date() })
-    .where(
-      and(
-        eq(schema.receiptImports.id, receiptImportId),
-        eq(schema.receiptImports.householdId, householdId),
-        or(
-          inArray(schema.receiptImports.status, claimableStatuses),
-          and(inArray(schema.receiptImports.status, IN_FLIGHT_STATUSES), lt(schema.receiptImports.updatedAt, staleBefore)),
-        ),
-      ),
-    )
-    .returning({ id: schema.receiptImports.id })
-  return claimed.length > 0
+  return uploadReceiptForHousehold(householdId, formData.get('file'))
 }
 
 /** An import's state, plus — when the run completed outright and created a purchase — what that
@@ -199,14 +112,12 @@ async function toReceiptImportResult(householdId: string, row: typeof schema.rec
  *  `uploadReceiptAction`, which is what lets it poll the status route meanwhile). */
 export async function processUploadedReceiptAction(receiptImportId: string): Promise<ReceiptImportResult> {
   const householdId = await requireHouseholdId()
-  await assertOwnsReceiptImport(householdId, receiptImportId)
-  const rateLimit = await reserveReceiptOcrAttempt(householdId)
-  if (!rateLimit.allowed) throw new Error(rateLimit.error)
-  if (!(await claimReceiptImport(householdId, receiptImportId, ['uploaded']))) {
+  const attempt = await processReceiptImportForHousehold(householdId, receiptImportId)
+  if (attempt.kind === 'rate_limited') throw new Error(attempt.error)
+  if (attempt.kind === 'not_claimed') {
     throw new Error('Tento import se už zpracovává nebo je zpracovaný.')
   }
-  const finalRow = await processReceiptImport(receiptImportId)
-  return toReceiptImportResult(householdId, finalRow)
+  return toReceiptImportResult(householdId, attempt.row)
 }
 
 /** Retry (docs/08_OCR_RECEIPT_PIPELINE.md section 13): reprocesses the same stored image without
@@ -215,14 +126,12 @@ export async function processUploadedReceiptAction(receiptImportId: string): Pro
  *  import that was uploaded but never started (the browser closed before processing began). */
 export async function retryReceiptImportAction(receiptImportId: string): Promise<ReceiptImportResult> {
   const householdId = await requireHouseholdId()
-  await assertOwnsReceiptImport(householdId, receiptImportId)
-  const rateLimit = await reserveReceiptOcrAttempt(householdId)
-  if (!rateLimit.allowed) throw new Error(rateLimit.error)
-  if (!(await claimReceiptImport(householdId, receiptImportId, ['ocr_failed', 'parsing_failed', 'uploaded']))) {
+  const attempt = await processReceiptImportForHousehold(householdId, receiptImportId, true)
+  if (attempt.kind === 'rate_limited') throw new Error(attempt.error)
+  if (attempt.kind === 'not_claimed') {
     throw new Error('Tento import nelze znovu spustit — není ve stavu chyby.')
   }
-  const finalRow = await processReceiptImport(receiptImportId)
-  return toReceiptImportResult(householdId, finalRow)
+  return toReceiptImportResult(householdId, attempt.row)
 }
 
 /** Manual review (docs/08_OCR_RECEIPT_PIPELINE.md section 14): the household corrects/confirms the

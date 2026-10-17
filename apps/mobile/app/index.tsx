@@ -17,6 +17,7 @@ import { PantryScreen } from '../components/pantry-screen'
 import { RecipesScreen } from '../components/recipes-screen'
 import { MealPlanScreen } from '../components/meal-plan-screen'
 import { BarcodeScannerModal } from '../components/barcode-scanner-modal'
+import { ReceiptsScreen } from '../components/receipts-screen'
 import { getAccessToken, signIn, signOut } from '../lib/auth'
 import {
   addShoppingItem,
@@ -124,7 +125,7 @@ function ShoppingRow({
 }
 
 export default function HomeScreen() {
-  const [activeTab, setActiveTab] = useState<'shopping' | 'budget' | 'pantry' | 'recipes' | 'meals'>('shopping')
+  const [activeTab, setActiveTab] = useState<'shopping' | 'budget' | 'pantry' | 'recipes' | 'meals' | 'receipts'>('shopping')
   const [signedIn, setSignedIn] = useState(false)
   const [busy, setBusy] = useState(true)
   const [signingIn, setSigningIn] = useState(false)
@@ -320,7 +321,7 @@ export default function HomeScreen() {
             <Text style={styles.brand}>ANITKA</Text>
             <Text style={styles.title}>
               {householdAvailable
-                ? activeTab === 'budget' ? 'Rozpočet' : activeTab === 'pantry' ? 'Zásoby' : activeTab === 'recipes' ? 'Recepty' : listName
+                ? activeTab === 'budget' ? 'Rozpočet' : activeTab === 'pantry' ? 'Zásoby' : activeTab === 'recipes' ? 'Recepty' : activeTab === 'receipts' ? 'Účtenky' : listName
                 : 'Nákupní seznam'}
             </Text>
             {userName ? <Text style={styles.supporting}>Přihlášeno: {userName}</Text> : null}
@@ -440,6 +441,8 @@ export default function HomeScreen() {
               <PantryScreen onAuthExpired={handleAuthExpired} />
             ) : activeTab === 'meals' ? (
               <MealPlanScreen onAuthExpired={handleAuthExpired} />
+            ) : activeTab === 'receipts' ? (
+              <ReceiptsScreen onAuthExpired={handleAuthExpired} />
             ) : (
               <RecipesScreen onAuthExpired={handleAuthExpired} />
             )}
@@ -458,6 +461,9 @@ export default function HomeScreen() {
               </Pressable>
               <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'meals' }} onPress={() => setActiveTab('meals')} style={[styles.tab, activeTab === 'meals' && styles.tabActive]}>
                 <Text style={[styles.tabText, activeTab === 'meals' && styles.tabTextActive]}>Plán</Text>
+              </Pressable>
+              <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'receipts' }} onPress={() => setActiveTab('receipts')} style={[styles.tab, activeTab === 'receipts' && styles.tabActive]}>
+                <Text style={[styles.tabText, activeTab === 'receipts' && styles.tabTextActive]}>Účtenky</Text>
               </Pressable>
             </View>
           </>

@@ -4,7 +4,7 @@ const getAccessToken = vi.fn()
 vi.mock('./auth', () => ({ getAccessToken: (...args: unknown[]) => getAccessToken(...args) }))
 vi.mock('./config', () => ({ getApiUrl: () => 'https://anitka.example' }))
 
-import { addShoppingItem, getBudgetSummary, getPantry, getRecipe, getShoppingList, lookupBarcode, MobileApiError, searchRecipes, toggleShoppingItem, updatePantryItem } from './shopping-list-api'
+import { addShoppingItem, getBudgetSummary, getPantry, getPendingReceiptImports, getRecipe, getShoppingList, lookupBarcode, MobileApiError, processReceiptImport, searchRecipes, toggleShoppingItem, updatePantryItem, uploadReceiptPhoto } from './shopping-list-api'
 
 describe('mobile shopping-list API client', () => {
   beforeEach(() => {
@@ -93,6 +93,63 @@ describe('mobile shopping-list API client', () => {
       status: 404,
       code: 'product_not_found',
       message: 'K tomuto kódu jsme produkt nenašli. Zkuste položku zadat ručně.',
+    })
+
+    it('uploads a camera photo as multipart data without overriding its boundary header', async () => {
+      const OriginalFormData = globalThis.FormData
+      class NativeFormData {
+        fields: Array<[string, unknown]> = []
+        append(name: string, value: unknown) {
+          this.fields.push([name, value])
+        }
+      }
+      vi.stubGlobal('FormData', NativeFormData)
+      vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ receipt: { id: 'receipt-1', status: 'uploaded' } }), { status: 201 }))
+
+      try {
+        await expect(uploadReceiptPhoto('file:///receipt.jpg')).resolves.toMatchObject({ receipt: { id: 'receipt-1' } })
+        const [, init] = vi.mocked(fetch).mock.calls[0]
+        const headers = new Headers(init?.headers)
+        expect(headers.get('Authorization')).toBe(['Bearer', 'unit-test-access'].join(' '))
+        expect(headers.has('Content-Type')).toBe(false)
+        expect(init?.body).toBeInstanceOf(NativeFormData)
+        expect((init?.body as NativeFormData).fields).toEqual([
+          ['file', { uri: 'file:///receipt.jpg', name: 'receipt.jpg', type: 'image/jpeg' }],
+        ])
+      } finally {
+        vi.stubGlobal('FormData', OriginalFormData)
+      }
+    })
+
+    it('loads and processes household receipts through the bearer API', async () => {
+      const fetchMock = vi.mocked(fetch)
+      fetchMock
+        .mockResolvedValueOnce(new Response(JSON.stringify({ receipts: [{ id: 'receipt-1', status: 'uploaded' }] }), { status: 200 }))
+        .mockResolvedValueOnce(new Response(JSON.stringify({ receipt: { id: 'receipt-1', status: 'completed' } }), { status: 200 }))
+
+      await expect(getPendingReceiptImports()).resolves.toMatchObject({ receipts: [{ id: 'receipt-1' }] })
+      await expect(processReceiptImport('receipt-1', true)).resolves.toMatchObject({ receipt: { status: 'completed' } })
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        1,
+        'https://anitka.example/api/mobile/receipts',
+        expect.objectContaining({ headers: expect.objectContaining({ Authorization: ['Bearer', 'unit-test-access'].join(' ') }) }),
+      )
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        2,
+        'https://anitka.example/api/mobile/receipts/receipt-1',
+        expect.objectContaining({ method: 'POST', body: JSON.stringify({ retry: true }) }),
+      )
+    })
+
+    it('shows server validation text for a rejected receipt photo', async () => {
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(JSON.stringify({ error: 'unsupported_format', message: 'Použijte JPEG.' }), { status: 415 }),
+      )
+      await expect(uploadReceiptPhoto('file:///receipt.jpg')).rejects.toMatchObject<Partial<MobileApiError>>({
+        status: 415,
+        code: 'unsupported_format',
+        message: 'Použijte JPEG.',
+      })
     })
   })
 

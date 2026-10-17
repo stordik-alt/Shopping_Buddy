@@ -1,5 +1,6 @@
 import type { ItemUnit } from '@anitka/shared/units'
 import type { Recipe, RecipeSearchPage } from '../../../lib/recipes/types'
+import type { ReceiptImportState } from '../../../lib/db/queries'
 import { clearAccessToken, getAccessToken } from './auth'
 import { getApiUrl } from './config'
 
@@ -97,9 +98,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   let response: Response
   try {
+    const headers = new Headers(init?.headers)
+    if (!(init?.body instanceof FormData)) headers.set('Content-Type', 'application/json')
+    headers.set('Authorization', ['Bearer', token].join(' '))
     response = await fetch(`${getApiUrl()}${path}`, {
       ...init,
-      headers: { 'Content-Type': 'application/json', ...init?.headers, Authorization: ['Bearer', token].join(' ') },
+      headers,
     })
   } catch {
     throw new MobileApiError('Nepodařilo se připojit k serveru. Zkontrolujte připojení a zkuste to znovu.', 0, 'network_error')
@@ -113,10 +117,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (!response.ok) {
     const code = body !== null && typeof body === 'object' && 'error' in body && typeof body.error === 'string' ? body.error : undefined
+    const serverMessage = body !== null && typeof body === 'object' && 'message' in body && typeof body.message === 'string' ? body.message : undefined
     if (response.status === 401) await clearAccessToken()
     const message =
       response.status === 401
         ? 'Přihlášení vypršelo. Přihlaste se znovu.'
+        : serverMessage
+          ? serverMessage
         : response.status === 403
           ? 'Účet nemá ověřenou e-mailovou adresu.'
           : response.status === 409 && code === 'household_required'
@@ -193,6 +200,25 @@ export function lookupBarcode(barcode: string) {
   return request<{ name: string }>('/api/mobile/barcode', {
     method: 'POST',
     body: JSON.stringify({ barcode }),
+  })
+}
+
+export type MobileReceiptImport = ReceiptImportState
+
+export function getPendingReceiptImports() {
+  return request<{ receipts: MobileReceiptImport[] }>('/api/mobile/receipts')
+}
+
+export function uploadReceiptPhoto(uri: string) {
+  const body = new FormData()
+  body.append('file', { uri, name: 'receipt.jpg', type: 'image/jpeg' } as unknown as Blob)
+  return request<{ receipt: MobileReceiptImport }>('/api/mobile/receipts', { method: 'POST', body })
+}
+
+export function processReceiptImport(receiptId: string, retry: boolean) {
+  return request<{ receipt: MobileReceiptImport }>(`/api/mobile/receipts/${encodeURIComponent(receiptId)}`, {
+    method: 'POST',
+    body: JSON.stringify({ retry }),
   })
 }
 

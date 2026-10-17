@@ -5,6 +5,12 @@
 - Testy (`lib/auth/bearer.test.ts`, `app/api/mobile/me/route.test.ts`): platný token, prošlý, cizí issuer, cizí podpis, chybějící sub/exp, poškozený token, neznámý uživatel, neověřený e-mail, žádný fallback na cookie.
 - Neověřeno (vyžaduje živý Neon Auth a zařízení): přesný tvar `iss` a umístění JWKS konkrétní instance, `getJWTToken()` v Expo, obnova tokenu, odhlášení a restart aplikace. Nativní auth vrstva v `apps/mobile` zatím neexistuje.
 
+## 2026-10-17 — Skenování čárových kódů v Expo
+
+- Nákupní seznam v Expo umí otevřít kameru po výslovném zahájení skenování a potvrzení oprávnění. Expo Camera snímá EAN-8, EAN-13 a UPC-A; oprávnění k mikrofonu a nahrávání zvuku jsou vypnutá.
+- Nový `POST /api/mobile/barcode` vyžaduje ověřeného uživatele a členství v domácnosti, kontroluje GTIN včetně kontrolní číslice a používá pevně dané Open Food Facts API s timeoutem, limitem velikosti odpovědi a `no-store`. Vrací pouze ověřený název produktu. Mobil ho přidá přes existující shopping-list API a službu; GTIN se neukládá, protože databázový model zatím nemá čárový kód. Nenalezený produkt lze zadat ručně.
+- Ověřeno: 43 cílených testů, TypeScript webu i Expo, Android Expo export a `pnpm build` s dočasnými neprodukčními hodnotami Neon Auth (migrace přeskočeny). Živý Open Food Facts endpoint, fyzické zařízení a oprávnění kamery nebyly v sandboxu ověřeny.
+
 ## 2026-10-17 — Jídelníček a porce v Expo
 
 - Expo přidává nativní obrazovku jídelníčku: načtení uloženého plánu, serverové vytvoření nového plánu z receptových poolů domácnosti a volitelného stavu zásob, přehled škálovaných surovin a úpravu porcí.

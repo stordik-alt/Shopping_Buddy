@@ -2,6 +2,10 @@
 
 The owner confirms that production runs on Cloudflare. Vercel is historical as the application's hosting/deployment platform; the only remaining Vercel association is the Neon management account. This supersedes older dated entries below that say production is hosted on Vercel. The Cloudflare production state was owner-reported and was not independently live-verified as part of this documentation update. See `docs/00_CURRENT_SOURCE_OF_TRUTH.md` and `docs/cloudflare-migration-status.md`.
 
+## Update 2026-10-17 — Native barcode scanning
+
+The Expo shopping list can scan EAN/UPC barcodes with `expo-camera`. Camera permission is requested only after the user opens the scanner and confirms access; microphone and recording permissions are disabled. A bearer-authenticated `/api/mobile/barcode` endpoint validates the GTIN and asks Open Food Facts for a bounded product name. The result is added through the existing shopping-list route and service. Since product barcodes are not modeled in the database, the code is not persisted and an unknown code remains a manual-entry case.
+
 ## Update 2026-10-15 — LLM requests use Cloudflare AI Gateway
 
 All approved LLM requests now go through `lib/ai/client.ts` to Cloudflare's account-scoped AI REST API, with `cf-aig-gateway-id` selecting the AI Gateway and `openai/gpt-6-luna` fixed as the application model. This replaces the former per-feature Gemini/Vercel Gateway choices; deterministic pipeline scopes, validation and cached flyer results are unchanged. The production receipt flow still runs OCR first and structures the text with Luna; the separate one-step Luna image reader remains a measurement path. Google Vision and Azure Document Intelligence are non-LLM OCR providers and are not routed through the model gateway. Required server configuration: `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_AI_GATEWAY_ID`, and `CLOUDFLARE_AI_GATEWAY_TOKEN`; the OpenAI provider key remains in Cloudflare. Existing flyer page-cache entries are preserved and not automatically re-read with Luna; extraction quality on Luna remains to be measured.

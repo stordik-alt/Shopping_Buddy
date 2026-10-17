@@ -121,7 +121,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
           ? 'Účet nemá ověřenou e-mailovou adresu.'
           : response.status === 409 && code === 'household_required'
             ? 'Účet zatím není připojený k domácnosti.'
-            : 'Změnu se nepodařilo uložit. Zkuste to znovu.'
+            : response.status === 404 && code === 'product_not_found'
+              ? 'K tomuto kódu jsme produkt nenašli. Zkuste položku zadat ručně.'
+              : response.status === 400 && code === 'invalid_barcode'
+                ? 'Čárový kód se nepodařilo ověřit. Zkuste ho naskenovat znovu.'
+              : code === 'lookup_timeout' || code === 'lookup_unavailable'
+                ? 'Produkt se nepodařilo vyhledat. Zkuste to znovu.'
+                : 'Změnu se nepodařilo uložit. Zkuste to znovu.'
     throw new MobileApiError(message, response.status, code)
   }
   return body as T
@@ -180,6 +186,13 @@ export function addShoppingItem(name: string, clientId: string) {
   return request<{ item: MobileShoppingItem }>('/api/mobile/shopping-list', {
     method: 'POST',
     body: JSON.stringify({ name, clientId }),
+  })
+}
+
+export function lookupBarcode(barcode: string) {
+  return request<{ name: string }>('/api/mobile/barcode', {
+    method: 'POST',
+    body: JSON.stringify({ barcode }),
   })
 }
 

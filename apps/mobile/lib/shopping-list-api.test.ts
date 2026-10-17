@@ -4,7 +4,7 @@ const getAccessToken = vi.fn()
 vi.mock('./auth', () => ({ getAccessToken: (...args: unknown[]) => getAccessToken(...args) }))
 vi.mock('./config', () => ({ getApiUrl: () => 'https://anitka.example' }))
 
-import { addShoppingItem, getBudgetSummary, getPantry, getRecipe, getShoppingList, MobileApiError, searchRecipes, toggleShoppingItem, updatePantryItem } from './shopping-list-api'
+import { addShoppingItem, getBudgetSummary, getPantry, getRecipe, getShoppingList, lookupBarcode, MobileApiError, searchRecipes, toggleShoppingItem, updatePantryItem } from './shopping-list-api'
 
 describe('mobile shopping-list API client', () => {
   beforeEach(() => {
@@ -72,6 +72,28 @@ describe('mobile shopping-list API client', () => {
       'https://anitka.example/api/mobile/pantry/item%2F1',
       expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ placeKey: 'Lednice' }) }),
     )
+  })
+
+  it('looks up a scanned barcode through the authenticated backend', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ name: 'Český produkt' }), { status: 200 }))
+    await expect(lookupBarcode('4006381333931')).resolves.toEqual({ name: 'Český produkt' })
+    expect(fetch).toHaveBeenCalledWith(
+      'https://anitka.example/api/mobile/barcode',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ Authorization: ['Bearer', 'unit-test-access'].join(' ') }),
+        body: JSON.stringify({ barcode: '4006381333931' }),
+      }),
+    )
+  })
+
+  it('shows an actionable message for a barcode missing from the lookup source', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ error: 'product_not_found' }), { status: 404 }))
+    await expect(lookupBarcode('4006381333931')).rejects.toMatchObject<Partial<MobileApiError>>({
+      status: 404,
+      code: 'product_not_found',
+      message: 'K tomuto kódu jsme produkt nenašli. Zkuste položku zadat ručně.',
+    })
   })
 
   it('searches the authenticated recipe catalog and loads a recipe by catalog id', async () => {

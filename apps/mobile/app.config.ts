@@ -9,7 +9,17 @@ const config: ExpoConfig = {
   scheme: 'shoppingbuddy',
   orientation: 'portrait',
   userInterfaceStyle: 'automatic',
-  plugins: ['expo-router'],
+  plugins: [
+    'expo-router',
+    [
+      'expo-camera',
+      {
+        cameraPermission: 'ANITKA potřebuje přístup k fotoaparátu pro skenování čárových kódů.',
+        microphonePermission: false,
+        recordAudioAndroid: false,
+      },
+    ],
+  ],
   ios: { bundleIdentifier: 'cz.shoppingbuddy.mobile' },
   android: { package: 'cz.shoppingbuddy.mobile' },
   extra: {

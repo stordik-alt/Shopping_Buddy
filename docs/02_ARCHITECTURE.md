@@ -40,6 +40,10 @@ The Expo app searches and opens recipes through bearer-authenticated `/api/mobil
 
 The Expo meal-planning screen uses household-scoped `/api/mobile/meal-plan` and `/api/mobile/meal-plan/servings` Route Handlers. They derive the household from the verified user, reuse existing household-filtered recipe pools and pantry records, and read/write the same weekly `meal_plans` snapshot as the PWA. Plan generation accepts only validated options; the server owns recipe selection and persistence. Both clients update portions through `setMealServings` in `lib/meal-plans.ts`, which preserves the snapshot format and bounds portions to 0–1000; ingredient scaling remains `plannedRecipeIngredients`. No schema migration or native-specific domain copy is added.
 
+### Native barcode lookup — 2026-10-17
+
+The Expo shopping screen opens `expo-camera` only after the user explicitly starts scanning and grants camera permission. `/api/mobile/barcode` verifies the mobile bearer and household, validates the GTIN check digit, and requests only a product name from the fixed Open Food Facts API with a timeout and bounded response. The returned name is added through the existing mobile shopping-list endpoint and service, preserving product matching and list persistence. The scanned code is not stored: `products` currently has no barcode column, and scanning does not create a parallel product catalog. Camera audio permissions are disabled.
+
 High-level flow:
 
 UI

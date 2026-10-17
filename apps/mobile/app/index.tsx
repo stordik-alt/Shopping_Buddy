@@ -16,11 +16,13 @@ import { BudgetScreen } from '../components/budget-screen'
 import { PantryScreen } from '../components/pantry-screen'
 import { RecipesScreen } from '../components/recipes-screen'
 import { MealPlanScreen } from '../components/meal-plan-screen'
+import { BarcodeScannerModal } from '../components/barcode-scanner-modal'
 import { getAccessToken, signIn, signOut } from '../lib/auth'
 import {
   addShoppingItem,
   getCurrentUser,
   getShoppingList,
+  lookupBarcode,
   MobileApiError,
   toggleShoppingItem,
   updateShoppingItem,
@@ -137,6 +139,9 @@ export default function HomeScreen() {
   const [editItem, setEditItem] = useState<MobileShoppingItem | null>(null)
   const [editQuantity, setEditQuantity] = useState('')
   const [editUnit, setEditUnit] = useState<ItemUnit>('ks')
+  const [barcodeScannerOpen, setBarcodeScannerOpen] = useState(false)
+  const [barcodeBusy, setBarcodeBusy] = useState(false)
+  const barcodeHandled = useRef(false)
   const pendingAdds = useRef(new Map<string, string>())
   const handleAuthExpired = useCallback(() => {
     setSignedIn(false)
@@ -226,6 +231,25 @@ export default function HomeScreen() {
       setError(errorMessage(caught))
     } finally {
       setBusyItemId(null)
+    }
+  }
+
+  async function handleBarcodeScanned(barcode: string) {
+    if (barcodeHandled.current) return
+    barcodeHandled.current = true
+    setBarcodeBusy(true)
+    setError(null)
+    try {
+      const product = await lookupBarcode(barcode)
+      const result = await addShoppingItem(product.name, newItemId())
+      setItems((current) => [...current, result.item])
+      setBarcodeScannerOpen(false)
+    } catch (caught) {
+      setError(errorMessage(caught))
+      setBarcodeScannerOpen(false)
+    } finally {
+      barcodeHandled.current = false
+      setBarcodeBusy(false)
     }
   }
 
@@ -344,6 +368,17 @@ export default function HomeScreen() {
                   />
                   <PrimaryButton label={busyItemId === 'new' ? 'Ukládám…' : 'Přidat'} onPress={() => void handleAdd()} disabled={!newName.trim() || busyItemId !== null} />
                 </View>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={busyItemId !== null}
+                  onPress={() => {
+                    setError(null)
+                    setBarcodeScannerOpen(true)
+                  }}
+                  style={[styles.scanButton, busyItemId !== null && styles.disabledButton]}
+                >
+                  <Text style={styles.scanButtonText}>Skenovat čárový kód</Text>
+                </Pressable>
 
                 {editItem ? (
                   <View style={styles.card}>
@@ -428,6 +463,12 @@ export default function HomeScreen() {
           </>
         )}
       </KeyboardAvoidingView>
+      <BarcodeScannerModal
+        busy={barcodeBusy}
+        onBarcodeScanned={(barcode) => void handleBarcodeScanned(barcode)}
+        onClose={() => setBarcodeScannerOpen(false)}
+        visible={barcodeScannerOpen}
+      />
     </SafeAreaView>
   )
 }
@@ -453,6 +494,8 @@ const styles = StyleSheet.create({
   summaryText: { color: '#526674', fontSize: 14, fontWeight: '600' },
   refreshButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 10 },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginBottom: 12 },
+  scanButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginHorizontal: 16, marginBottom: 12, borderColor: '#cbd8dd', borderRadius: 12, borderWidth: 1, backgroundColor: '#ffffff' },
+  scanButtonText: { color: '#23515d', fontSize: 14, fontWeight: '600' },
   addInput: { flex: 1 },
   list: { paddingHorizontal: 16, paddingBottom: 24, gap: 8 },
   itemRow: { minHeight: 72, flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff', borderColor: '#dce6e9', borderRadius: 16, borderWidth: 1, padding: 12, gap: 12 },

@@ -1,3 +1,8 @@
+## 2026-10-17 — Příprava workspace pro budoucí Expo aplikaci
+
+- Ověřeno, že současnou Next.js PWA není třeba přesouvat: zůstává root projektem pnpm a v budoucnu mohou vedle ní vzniknout `apps/mobile` a `packages/shared`. `pnpm-workspace.yaml` nyní zahrnuje oba budoucí adresářové vzory, bez přidání aplikace, balíčků či změny verzí Reactu, React DOM, Next.js nebo pnpm.
+- Architektura a mobilní specifikace vymezují sdílený kód jako platformně neutrální a bezpečný pro web i nativní aplikaci; opraven zákaz React Native v dokumentu specifikace PWA.
+
 ## 2026-10-17 — Aktuální produkční hosting: Cloudflare
 
 - Podle potvrzení vlastníka běží produkce na Cloudflare Workers/OpenNext. Vercel je historický jako hosting a deploy aplikace; vlastníkem uváděná jediná zbývající vazba na Vercel je správa Neon účtu. Aktuální stav je propsán do zdroje pravdy, přehledu migrace Cloudflare, deployment/R2 a záložních dokumentů. Starší záznamy přípravy a auditu zůstávají jako historie, nově jsou výslovně označené jako překonané. Živé nasazení, DNS a konfigurace účtu nebyly při této dokumentační změně nezávisle ověřeny.

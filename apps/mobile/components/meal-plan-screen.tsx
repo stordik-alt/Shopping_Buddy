@@ -56,13 +56,17 @@ export function MealPlanScreen({ onAuthExpired }: { onAuthExpired: () => void })
 
   async function createPlan() {
     const parsedDays = Number(dayCount)
-    const parsedBudget = Number(budgetLimit)
+    const parsedBudget = Number(budgetLimit.replace(',', '.'))
     if (!Number.isInteger(parsedDays) || parsedDays < 1 || parsedDays > 7) {
       setError('Vyberte 1 až 7 dní.')
       return
     }
     if (!Number.isFinite(parsedBudget) || parsedBudget < 0) {
       setError('Rozpočet musí být nezáporné číslo.')
+      return
+    }
+    if (mealTypes.length === 0) {
+      setError('Vyberte alespoň jeden chod.')
       return
     }
     setSaving(true)

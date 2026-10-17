@@ -5,6 +5,12 @@
 - Testy (`lib/auth/bearer.test.ts`, `app/api/mobile/me/route.test.ts`): platný token, prošlý, cizí issuer, cizí podpis, chybějící sub/exp, poškozený token, neznámý uživatel, neověřený e-mail, žádný fallback na cookie.
 - Neověřeno (vyžaduje živý Neon Auth a zařízení): přesný tvar `iss` a umístění JWKS konkrétní instance, `getJWTToken()` v Expo, obnova tokenu, odhlášení a restart aplikace. Nativní auth vrstva v `apps/mobile` zatím neexistuje.
 
+## 2026-10-17 — Jídelníček a porce v Expo
+
+- Expo přidává nativní obrazovku jídelníčku: načtení uloženého plánu, serverové vytvoření nového plánu z receptových poolů domácnosti a volitelného stavu zásob, přehled škálovaných surovin a úpravu porcí.
+- `GET/POST /api/mobile/meal-plan` a `PATCH /api/mobile/meal-plan/servings` odvozují domácnost z ověřeného uživatele. Používají stávající plán v `meal_plans`, serverové filtry domácnosti a stejný `setMealServings` helper jako PWA; klient neposílá recepty ani ingredience k uložení. Porce jsou sdíleně validovány v rozsahu 0–1000 a zaokrouhleny na desetiny. Bez migrace a druhého úložiště.
+- Ověřeno: 95 cílených testů mobilního API a jídelníčku, typecheck webu i Expo, Android Expo export a Next.js build s dočasnou neprodukční konfigurací Neon Auth. Celý repozitářový test run nebylo možné dokončit: databázové testy vyžadovaly chybějící `.env.local`/platný `DATABASE_URL`; testy této funkce prošly. Živá Neon databáze ani přihlášení na zařízení nebyly ověřeny.
+
 ## 2026-10-17 — Recepty a obrázky z R2 v Expo
 
 - Mobilní aplikace přidává vyhledávání v existujícím katalogu receptů, detail surovin a odkaz na původní zdroj. Katalog i historie otevření používají stávající databázi a služby PWA; jídelníček a změna porcí nejsou součástí této samostatné fáze.

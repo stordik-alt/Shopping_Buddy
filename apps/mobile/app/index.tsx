@@ -422,7 +422,7 @@ export default function HomeScreen() {
                 <Text style={[styles.tabText, activeTab === 'recipes' && styles.tabTextActive]}>Recepty</Text>
               </Pressable>
               <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'meals' }} onPress={() => setActiveTab('meals')} style={[styles.tab, activeTab === 'meals' && styles.tabActive]}>
-                <Text style={[styles.tabText, activeTab === 'meals' && styles.tabTextActive]}>Jídla</Text>
+                <Text style={[styles.tabText, activeTab === 'meals' && styles.tabTextActive]}>Plán</Text>
               </Pressable>
             </View>
           </>

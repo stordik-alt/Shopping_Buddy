@@ -9,12 +9,14 @@ import {
   mealKey,
   mealTypesOf,
   missingIngredients,
+  MAX_MEAL_SERVINGS,
   parseSavedPlan,
   planIngredients,
   plannedRecipeIngredients,
   recipeFor,
   regenerateMeal,
   splitIngredientsByStock,
+  setMealServings,
   todaysMeals,
 } from '@/lib/meal-plans'
 import { householdDietStems, recipeFitsDiet } from '@/lib/diet'
@@ -68,6 +70,26 @@ describe('planned recipe servings', () => {
     const ingredients = plannedRecipeIngredients({ ...base, selectedServings: 2 })
     expect(ingredients[0].quantity).toBe(200)
     expect(ingredients[0].unit).toBe('g')
+  })
+
+  it('updates one saved meal using the shared serving limit and preserves its recipe data', () => {
+    const plan: WeeklyMealPlan = {
+      days: [{ day: 'Pondělí', lunch: { ...base, sourceName: 'Zdroj' } }],
+      staples: [],
+      estimatedTotal: 0,
+      recommendedStores: [],
+      cookedMeals: [],
+    }
+    expect(setMealServings(plan, 'Pondělí', 'Oběd', 2.25)?.days[0].lunch).toMatchObject({
+      id: 'real-1',
+      sourceName: 'Zdroj',
+      selectedServings: 2.3,
+      ingredients: base.ingredients,
+    })
+    expect(setMealServings(plan, 'Pondělí', 'Oběd', MAX_MEAL_SERVINGS)).not.toBeNull()
+    expect(setMealServings(plan, 'Pondělí', 'Oběd', MAX_MEAL_SERVINGS + 1)).toBeNull()
+    expect(setMealServings(plan, 'Pondělí', 'Oběd', Number.NaN)).toBeNull()
+    expect(setMealServings(plan, 'Úterý', 'Oběd', 2)).toBeNull()
   })
 
   it('accepts zero selected servings without reporting an ingredient quantity error', () => {

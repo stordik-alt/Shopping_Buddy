@@ -34,7 +34,11 @@ The Expo app adds household-scoped budget reporting and place-based pantry brows
 
 ### Native recipe catalog slice — 2026-10-17
 
-The Expo app searches and opens recipes through bearer-authenticated `/api/mobile/recipes` endpoints. They query the existing `recipe_catalog` and recipe services, and opening a recipe updates the existing household recipe history. Thumbnails use the authenticated `/api/recipes/images/[id]` route to read the existing private `recipe-images/` objects in R2; source-site images are never loaded by the native client. The image route accepts either its existing PWA session or a verified mobile bearer token and restricts reads to the recipe-image key format. No second recipe catalog, image store, or import pipeline is introduced. Native meal planning and portion controls remain separate follow-up slices.
+The Expo app searches and opens recipes through bearer-authenticated `/api/mobile/recipes` endpoints. They query the existing `recipe_catalog` and recipe services, and opening a recipe updates the existing household recipe history. Thumbnails use the authenticated `/api/recipes/images/[id]` route to read the existing private `recipe-images/` objects in R2; source-site images are never loaded by the native client. The image route accepts either its existing PWA session or a verified mobile bearer token and restricts reads to the recipe-image key format. No second recipe catalog, image store, or import pipeline is introduced.
+
+### Native meal planning and portions — 2026-10-17
+
+The Expo meal-planning screen uses household-scoped `/api/mobile/meal-plan` and `/api/mobile/meal-plan/servings` Route Handlers. They derive the household from the verified user, reuse existing household-filtered recipe pools and pantry records, and read/write the same weekly `meal_plans` snapshot as the PWA. Plan generation accepts only validated options; the server owns recipe selection and persistence. Both clients update portions through `setMealServings` in `lib/meal-plans.ts`, which preserves the snapshot format and bounds portions to 0–1000; ingredient scaling remains `plannedRecipeIngredients`. No schema migration or native-specific domain copy is added.
 
 High-level flow:
 

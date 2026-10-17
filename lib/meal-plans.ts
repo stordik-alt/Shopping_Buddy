@@ -354,7 +354,7 @@ function defaultSelectedServings(recipe: Recipe): number {
 
 function withSelectedServings(recipe: Recipe, selectedServings?: number): Recipe {
   const value = selectedServings ?? recipe.selectedServings ?? defaultSelectedServings(recipe)
-  return { ...recipe, selectedServings: Number.isFinite(value) ? Math.max(0, value) : defaultSelectedServings(recipe) }
+  return { ...recipe, selectedServings: Number.isFinite(value) ? Math.min(MAX_MEAL_SERVINGS, Math.max(0, value)) : defaultSelectedServings(recipe) }
 }
 
 /** Ingredient quantities actually used by this meal-plan item. A missing source serving count means

@@ -20,6 +20,21 @@ import { BarcodeScannerModal } from '../components/barcode-scanner-modal'
 import { ReceiptsScreen } from '../components/receipts-screen'
 import { getAccessToken, signIn, signOut } from '../lib/auth'
 import {
+  applyOfflineOperations,
+  createOfflineItemId,
+  enqueueOfflineOperation,
+  syncOfflineOperations,
+  type OfflineContext,
+  type OfflineShoppingSnapshot,
+} from '../lib/offline-shopping-list'
+import {
+  clearLastOfflineContext,
+  readLastOfflineContext,
+  readOfflineSnapshot,
+  saveLastOfflineContext,
+  saveOfflineSnapshot,
+} from '../lib/offline-shopping-storage'
+import {
   addShoppingItem,
   getCurrentUser,
   getShoppingList,
@@ -29,13 +44,6 @@ import {
   updateShoppingItem,
   type MobileShoppingItem,
 } from '../lib/shopping-list-api'
-
-function newItemId(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (character) => {
-    const random = Math.floor(Math.random() * 16)
-    return (character === 'x' ? random : (random & 3) | 8).toString(16)
-  })
-}
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Operaci se nepodařilo dokončit. Zkuste to znovu.'
@@ -91,11 +99,13 @@ function PrimaryButton({ label, onPress, disabled = false }: { label: string; on
 function ShoppingRow({
   item,
   busy,
+  disabled,
   onToggle,
   onEdit,
 }: {
   item: MobileShoppingItem
   busy: boolean
+  disabled: boolean
   onToggle: () => void
   onEdit: () => void
 }) {
@@ -104,8 +114,8 @@ function ShoppingRow({
       <Pressable
         accessibilityLabel={item.done ? `Označit ${item.name} jako nenakoupené` : `Označit ${item.name} jako nakoupené`}
         accessibilityRole="checkbox"
-        accessibilityState={{ checked: item.done, disabled: busy }}
-        disabled={busy}
+        accessibilityState={{ checked: item.done, disabled: disabled || busy }}
+        disabled={disabled || busy}
         onPress={onToggle}
         style={[styles.checkbox, item.done && styles.checkboxDone]}
       >
@@ -116,8 +126,9 @@ function ShoppingRow({
         <Text style={styles.itemQuantity}>
           {item.quantity} {unitLabel(item.quantity, item.unit)}
         </Text>
+        {item.pending ? <Text style={styles.pendingLabel}>Čeká na synchronizaci</Text> : null}
       </View>
-      <Pressable accessibilityLabel={`Upravit množství položky ${item.name}`} accessibilityRole="button" onPress={onEdit} style={styles.secondaryButton}>
+      <Pressable accessibilityLabel={`Upravit množství položky ${item.name}`} accessibilityRole="button" disabled={disabled} onPress={onEdit} style={styles.secondaryButton}>
         <Text style={styles.secondaryButtonText}>Upravit</Text>
       </Pressable>
     </View>
@@ -142,17 +153,68 @@ export default function HomeScreen() {
   const [editUnit, setEditUnit] = useState<ItemUnit>('ks')
   const [barcodeScannerOpen, setBarcodeScannerOpen] = useState(false)
   const [barcodeBusy, setBarcodeBusy] = useState(false)
+  const [pendingChanges, setPendingChanges] = useState(0)
+  const [offline, setOffline] = useState(false)
   const barcodeHandled = useRef(false)
-  const pendingAdds = useRef(new Map<string, string>())
+  const offlineSnapshot = useRef<OfflineShoppingSnapshot | null>(null)
+
+  function showSnapshot(snapshot: OfflineShoppingSnapshot) {
+    offlineSnapshot.current = snapshot
+    setPendingChanges(snapshot.pending.length)
+    setItems(applyOfflineOperations(snapshot.list.items, snapshot.pending))
+    setListName(snapshot.list.shoppingLists[0] ?? 'Nákupní seznam')
+  }
+
+  async function syncPendingChanges(refreshAfterSync = false) {
+    const current = offlineSnapshot.current
+    if (!current || current.pending.length === 0) return
+
+    const result = await syncOfflineOperations(
+      current,
+      { add: addShoppingItem, toggle: toggleShoppingItem, update: updateShoppingItem },
+      saveOfflineSnapshot,
+    )
+    showSnapshot(result.snapshot)
+    setOffline(result.retryRequired)
+    if (result.error instanceof MobileApiError && result.error.status === 401) {
+      setSignedIn(false)
+      setHouseholdAvailable(false)
+      await clearLastOfflineContext()
+      setError('Přihlášení vypršelo. Přihlaste se znovu; změny čekají na synchronizaci.')
+      return
+    }
+    if (result.rejected > 0) {
+      setError(result.rejected === result.rejectedNotFound
+        ? result.rejected === 1
+          ? 'Změnu se nepodařilo uložit, protože položka už není dostupná. Seznam byl obnoven.'
+          : `${result.rejected} změny se nepodařilo uložit, protože položky už nejsou dostupné. Seznam byl obnoven.`
+        : 'Server některé změny odmítl. Zkontrolujte seznam a zadejte je znovu.')
+    }
+
+    if (refreshAfterSync && !result.retryRequired && result.snapshot.pending.length === 0) {
+      try {
+        const list = await getShoppingList()
+        const updated = { ...result.snapshot, list }
+        await saveOfflineSnapshot(updated)
+        showSnapshot(updated)
+      } catch (caught) {
+        if (caught instanceof MobileApiError && caught.status !== 0 && caught.status < 500) throw caught
+        setOffline(true)
+      }
+    }
+  }
+
   const handleAuthExpired = useCallback(() => {
     setSignedIn(false)
     setError('Přihlášení vypršelo. Přihlaste se znovu.')
+    void clearLastOfflineContext()
   }, [])
 
   const load = useCallback(async () => {
     setBusy(true)
     setError(null)
     setHouseholdMissing(false)
+    setOffline(false)
     try {
       const token = await getAccessToken()
       if (!token) {
@@ -161,18 +223,80 @@ export default function HomeScreen() {
         return
       }
       setSignedIn(true)
-      const profile = await getCurrentUser()
+      let profile
+      try {
+        profile = await getCurrentUser()
+      } catch (caught) {
+        if (!(caught instanceof MobileApiError) || (caught.status !== 0 && caught.status < 500)) throw caught
+        const context = await readLastOfflineContext()
+        const cached = context ? await readOfflineSnapshot(context.userId, context.householdId) : null
+        if (!context || !cached) throw caught
+        showSnapshot(cached)
+        setUserName(context.userName)
+        setHouseholdMissing(false)
+        setHouseholdAvailable(true)
+        setOffline(true)
+        return
+      }
       setUserName(profile.user.name)
       if (!profile.household) {
         setHouseholdMissing(true)
         setHouseholdAvailable(false)
+        await clearLastOfflineContext()
         return
       }
-      const list = await getShoppingList()
+      const context: OfflineContext = {
+        userId: profile.user.id,
+        householdId: profile.household.id,
+        userName: profile.user.name,
+      }
+      if (
+        offlineSnapshot.current &&
+        (offlineSnapshot.current.userId !== context.userId ||
+          offlineSnapshot.current.householdId !== context.householdId)
+      ) {
+        offlineSnapshot.current = null
+        setItems([])
+        setPendingChanges(0)
+      }
+      await saveLastOfflineContext(context)
+      let cached = await readOfflineSnapshot(context.userId, context.householdId)
+      if (cached) showSnapshot(cached)
+      if (cached?.pending.length) await syncPendingChanges()
+      cached = offlineSnapshot.current ?? cached
+
+      try {
+        const list = await getShoppingList()
+        cached = cached
+          ? { ...cached, list }
+          : {
+              version: 1,
+              userId: context.userId,
+              householdId: context.householdId,
+              list,
+              pending: [],
+            }
+        await saveOfflineSnapshot(cached)
+        showSnapshot(cached)
+        setOffline(cached.pending.length > 0)
+      } catch (caught) {
+        if (caught instanceof MobileApiError && caught.status !== 0 && caught.status < 500) throw caught
+        if (!cached) {
+          cached = {
+            version: 1,
+            userId: context.userId,
+            householdId: context.householdId,
+            list: { listId: '', shoppingLists: [], items: [] },
+            pending: [],
+          }
+          await saveOfflineSnapshot(cached)
+          showSnapshot(cached)
+          setError('Seznam zatím nemá uloženou kopii. Můžete přidávat položky; po připojení se synchronizují.')
+        }
+        setOffline(true)
+      }
       setHouseholdMissing(false)
       setHouseholdAvailable(true)
-      setItems(list.items)
-      setListName(list.shoppingLists[0] ?? 'Nákupní seznam')
     } catch (caught) {
       setError(errorMessage(caught))
       if (caught instanceof MobileApiError && caught.status === 401) setSignedIn(false)
@@ -189,6 +313,7 @@ export default function HomeScreen() {
     setSigningIn(true)
     setError(null)
     try {
+      await clearLastOfflineContext()
       await signIn(email, password)
       await load()
     } catch (caught) {
@@ -202,32 +327,53 @@ export default function HomeScreen() {
     setBusy(true)
     try {
       await signOut()
+      await clearLastOfflineContext()
       setSignedIn(false)
       setHouseholdAvailable(false)
       setHouseholdMissing(false)
       setItems([])
+      setPendingChanges(0)
+      setOffline(false)
+      offlineSnapshot.current = null
       setUserName('')
       setActiveTab('shopping')
       setError(null)
     } catch (caught) {
       setError(errorMessage(caught))
     } finally {
+      await clearLastOfflineContext()
+      setSignedIn(false)
+      setHouseholdAvailable(false)
+      setHouseholdMissing(false)
+      setItems([])
+      setPendingChanges(0)
+      setOffline(false)
+      offlineSnapshot.current = null
+      setUserName('')
       setBusy(false)
     }
   }
 
   async function handleAdd() {
     const name = newName.trim()
-    if (!name || busyItemId) return
+    if (!name || busy || busyItemId) return
     setBusyItemId('new')
     setError(null)
     try {
-      const clientId = pendingAdds.current.get(name) ?? newItemId()
-      pendingAdds.current.set(name, clientId)
-      const result = await addShoppingItem(name, clientId)
-      setItems((current) => [...current, result.item])
-      pendingAdds.current.delete(name)
+      const current = offlineSnapshot.current
+      if (!current) throw new Error('Seznam není připravený. Zkuste ho obnovit.')
+      const itemId = createOfflineItemId()
+      const updated = {
+        ...current,
+        pending: enqueueOfflineOperation(current.pending, {
+          kind: 'add',
+          item: { id: itemId, name, quantity: 1, unit: 'ks', done: false },
+        }),
+      }
+      await saveOfflineSnapshot(updated)
+      showSnapshot(updated)
       setNewName('')
+      await syncPendingChanges(true)
     } catch (caught) {
       setError(errorMessage(caught))
     } finally {
@@ -236,15 +382,25 @@ export default function HomeScreen() {
   }
 
   async function handleBarcodeScanned(barcode: string) {
-    if (barcodeHandled.current) return
+    if (barcodeHandled.current || busy || busyItemId) return
     barcodeHandled.current = true
     setBarcodeBusy(true)
     setError(null)
     try {
       const product = await lookupBarcode(barcode)
-      const result = await addShoppingItem(product.name, newItemId())
-      setItems((current) => [...current, result.item])
       setBarcodeScannerOpen(false)
+      const current = offlineSnapshot.current
+      if (!current) throw new Error('Seznam není připravený. Zkuste ho obnovit.')
+      const updated = {
+        ...current,
+        pending: enqueueOfflineOperation(current.pending, {
+          kind: 'add',
+          item: { id: createOfflineItemId(), name: product.name, quantity: 1, unit: 'ks', done: false },
+        }),
+      }
+      await saveOfflineSnapshot(updated)
+      showSnapshot(updated)
+      await syncPendingChanges(true)
     } catch (caught) {
       setError(errorMessage(caught))
       setBarcodeScannerOpen(false)
@@ -255,11 +411,23 @@ export default function HomeScreen() {
   }
 
   async function handleToggle(item: MobileShoppingItem) {
+    if (busy || busyItemId) return
     setBusyItemId(item.id)
     setError(null)
     try {
-      await toggleShoppingItem(item.id, !item.done)
-      setItems((current) => current.map((entry) => (entry.id === item.id ? { ...entry, done: !entry.done } : entry)))
+      const current = offlineSnapshot.current
+      if (!current) throw new Error('Seznam není připravený. Zkuste ho obnovit.')
+      const updated = {
+        ...current,
+        pending: enqueueOfflineOperation(current.pending, {
+          kind: 'toggle',
+          itemId: item.id,
+          done: !item.done,
+        }),
+      }
+      await saveOfflineSnapshot(updated)
+      showSnapshot(updated)
+      await syncPendingChanges(true)
     } catch (caught) {
       setError(errorMessage(caught))
     } finally {
@@ -274,14 +442,29 @@ export default function HomeScreen() {
   }
 
   async function saveEdit() {
-    if (!editItem || busyItemId) return
+    if (!editItem || busy || busyItemId) return
     const quantity = Number(editQuantity.trim().replace(',', '.'))
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      setError('Množství musí být kladné číslo.')
+      return
+    }
     setBusyItemId(editItem.id)
     setError(null)
     try {
-      await updateShoppingItem(editItem.id, { quantity, unit: editUnit })
-      setItems((current) => current.map((entry) => (entry.id === editItem.id ? { ...entry, quantity, unit: editUnit } : entry)))
+      const current = offlineSnapshot.current
+      if (!current) throw new Error('Seznam není připravený. Zkuste ho obnovit.')
+      const updated = {
+        ...current,
+        pending: enqueueOfflineOperation(current.pending, {
+          kind: 'update',
+          itemId: editItem.id,
+          changes: { quantity, unit: editUnit },
+        }),
+      }
+      await saveOfflineSnapshot(updated)
+      showSnapshot(updated)
       setEditItem(null)
+      await syncPendingChanges(true)
     } catch (caught) {
       setError(errorMessage(caught))
     } finally {
@@ -326,12 +509,24 @@ export default function HomeScreen() {
             </Text>
             {userName ? <Text style={styles.supporting}>Přihlášeno: {userName}</Text> : null}
           </View>
-          <Pressable accessibilityRole="button" onPress={handleSignOut} style={styles.secondaryButton}>
+          <Pressable accessibilityRole="button" disabled={busy || busyItemId !== null} onPress={handleSignOut} style={styles.secondaryButton}>
             <Text style={styles.secondaryButtonText}>Odhlásit</Text>
           </Pressable>
         </View>
 
         {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+        {offline || pendingChanges > 0 ? (
+          <View style={styles.offlineNotice}>
+            <Text style={styles.offlineNoticeText}>
+              {pendingChanges > 0
+                ? `${pendingChanges} změn čeká na synchronizaci.`
+                : 'Zobrazuje se uložená kopie seznamu.'}
+            </Text>
+            <Pressable accessibilityRole="button" disabled={busy || busyItemId !== null} onPress={() => void load()} style={styles.secondaryButton}>
+              <Text style={styles.secondaryButtonText}>{busy ? 'Synchronizuji…' : 'Synchronizovat / obnovit'}</Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         {!householdAvailable ? (
           <View style={styles.card}>
@@ -349,7 +544,7 @@ export default function HomeScreen() {
               <>
                 <View style={styles.summary}>
                   <Text style={styles.summaryText}>{remaining} k nákupu · {completed} hotovo</Text>
-                  <Pressable accessibilityRole="button" disabled={busy} onPress={() => void load()} style={styles.refreshButton}>
+                  <Pressable accessibilityRole="button" disabled={busy || busyItemId !== null} onPress={() => void load()} style={styles.refreshButton}>
                     <Text style={styles.secondaryButtonText}>{busy ? 'Načítání…' : 'Obnovit'}</Text>
                   </Pressable>
                 </View>
@@ -357,7 +552,7 @@ export default function HomeScreen() {
                 <View style={styles.addRow}>
                   <TextInput
                     accessibilityLabel="Nová položka"
-                    editable={!busyItemId}
+                    editable={!busy && !busyItemId}
                     maxLength={300}
                     onChangeText={setNewName}
                     onSubmitEditing={() => void handleAdd()}
@@ -367,11 +562,11 @@ export default function HomeScreen() {
                     style={[styles.input, styles.addInput]}
                     value={newName}
                   />
-                  <PrimaryButton label={busyItemId === 'new' ? 'Ukládám…' : 'Přidat'} onPress={() => void handleAdd()} disabled={!newName.trim() || busyItemId !== null} />
+                  <PrimaryButton label={busyItemId === 'new' ? 'Ukládám…' : 'Přidat'} onPress={() => void handleAdd()} disabled={!newName.trim() || busy || busyItemId !== null} />
                 </View>
                 <Pressable
                   accessibilityRole="button"
-                  disabled={busyItemId !== null}
+                  disabled={busy || busyItemId !== null}
                   onPress={() => {
                     setError(null)
                     setBarcodeScannerOpen(true)
@@ -430,7 +625,7 @@ export default function HomeScreen() {
                     keyExtractor={(item) => item.id}
                     keyboardShouldPersistTaps="handled"
                     renderItem={({ item }) => (
-                      <ShoppingRow item={item} busy={busyItemId === item.id} onEdit={() => openEdit(item)} onToggle={() => void handleToggle(item)} />
+                      <ShoppingRow item={item} busy={busyItemId === item.id} disabled={busy} onEdit={() => openEdit(item)} onToggle={() => void handleToggle(item)} />
                     )}
                   />
                 )}
@@ -496,6 +691,9 @@ const styles = StyleSheet.create({
   secondaryButton: { minHeight: 44, borderColor: '#cbd8dd', borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   secondaryButtonText: { color: '#23515d', fontSize: 14, fontWeight: '600' },
   error: { color: '#a72d2d', backgroundColor: '#fff0f0', borderRadius: 12, marginHorizontal: 16, marginBottom: 8, padding: 12, fontSize: 14, lineHeight: 20 },
+  offlineNotice: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, backgroundColor: '#fff7e6', borderColor: '#f0d9a8', borderRadius: 12, borderWidth: 1, marginHorizontal: 16, marginBottom: 8, padding: 10 },
+  offlineNoticeText: { flex: 1, color: '#684b17', fontSize: 13, lineHeight: 18 },
+  pendingLabel: { color: '#8a631c', fontSize: 12, marginTop: 4 },
   summary: { minHeight: 52, marginHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   summaryText: { color: '#526674', fontSize: 14, fontWeight: '600' },
   refreshButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 10 },

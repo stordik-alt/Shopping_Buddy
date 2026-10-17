@@ -85,12 +85,22 @@ type SessionResponse = {
 }
 
 export async function getAccessToken(): Promise<string | null> {
-  const result = (await getAuthClient().getSession()) as SessionResponse
-  if (result.error) throw new Error(result.error.message || 'Nepodařilo se ověřit přihlášení.')
-  const sessionToken = result.data?.session?.token
-  if (sessionToken) {
-    await writeToken(sessionToken)
-    return sessionToken
+  try {
+    const result = (await getAuthClient().getSession()) as SessionResponse
+    if (result.error) {
+      const savedToken = await readToken()
+      if (savedToken) return savedToken
+      throw new Error(result.error.message || 'Nepodařilo se ověřit přihlášení.')
+    }
+    const sessionToken = result.data?.session?.token
+    if (sessionToken) {
+      await writeToken(sessionToken)
+      return sessionToken
+    }
+  } catch (error) {
+    const savedToken = await readToken()
+    if (savedToken) return savedToken
+    throw error
   }
   return (await readToken()) || null
 }

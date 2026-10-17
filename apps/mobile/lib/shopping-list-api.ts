@@ -9,6 +9,7 @@ export type MobileShoppingItem = {
   quantity: number
   unit: ItemUnit
   done: boolean
+  pending?: boolean
 }
 
 export type MobileShoppingList = {

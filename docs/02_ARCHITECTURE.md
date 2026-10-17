@@ -44,6 +44,10 @@ The Expo meal-planning screen uses household-scoped `/api/mobile/meal-plan` and 
 
 The Expo shopping screen opens `expo-camera` only after the user explicitly starts scanning and grants camera permission. `/api/mobile/barcode` verifies the mobile bearer and household, validates the GTIN check digit, and requests only a product name from the fixed Open Food Facts API with a timeout and bounded response. The returned name is added through the existing mobile shopping-list endpoint and service, preserving product matching and list persistence. The scanned code is not stored: `products` currently has no barcode column, and scanning does not create a parallel product catalog. Camera audio permissions are disabled.
 
+### Native receipt import — 2026-10-17
+
+The Expo receipt screen captures a photo only after the user opens the camera and grants permission. Bearer-authenticated `/api/mobile/receipts` routes resolve household membership server-side and use the same upload validation, 24-hour limits, private R2 storage, `receipt_imports` state, atomic processing claim, OCR rate limits, and deterministic receipt pipeline as the PWA. The mobile screen can retry failed or abandoned processing and displays review/duplicate states, but never confirms uncertain OCR or creates a purchase from an unreviewed receipt; final correction and confirmation remain in the existing web review UI. No migration, second receipt store, or parallel OCR pipeline is added.
+
 High-level flow:
 
 UI

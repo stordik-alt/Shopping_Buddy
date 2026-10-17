@@ -103,6 +103,7 @@ function ReceiptCameraModal({
               style={StyleSheet.absoluteFill}
             />
             <View pointerEvents="none" style={styles.receiptFrame} />
+            {permissionError ? <Text accessibilityRole="alert" style={styles.cameraError}>{permissionError}</Text> : null}
             {busy || capturing ? (
               <View style={styles.busyOverlay}>
                 <ActivityIndicator color="#ffffff" size="large" />
@@ -161,6 +162,10 @@ export function ReceiptsScreen({ onAuthExpired }: Props) {
   }, [])
 
   function replaceReceipt(receipt: MobileReceiptImport) {
+    if (['imported', 'discarded', 'completed', 'cancelled'].includes(receipt.status)) {
+      setReceipts((current) => current.filter((item) => item.id !== receipt.id))
+      return
+    }
     setReceipts((current) => [receipt, ...current.filter((item) => item.id !== receipt.id)])
   }
 
@@ -202,7 +207,7 @@ export function ReceiptsScreen({ onAuthExpired }: Props) {
         <Text style={styles.sectionTitle}>Import účtenky</Text>
         <Text style={styles.supporting}>Fotografie se bezpečně uloží a zpracuje stejným OCR postupem jako v aplikaci ANITKA.</Text>
         <Pressable accessibilityRole="button" disabled={workingId !== null} onPress={() => setCameraOpen(true)} style={[styles.primaryButton, workingId !== null && styles.disabledButton]}>
-          <Text style={styles.primaryButtonText}>{workingId === 'upload' ? 'Nahrávám…' : 'Vyfotit účtenku'}</Text>
+          <Text style={styles.primaryButtonText}>{workingId === 'upload' ? 'Nahrávám…' : workingId ? 'Zpracovávám…' : 'Vyfotit účtenku'}</Text>
         </Pressable>
       </View>
 
@@ -294,6 +299,7 @@ const styles = StyleSheet.create({
   disabledButton: { opacity: 0.55 },
   cameraPreview: { flex: 1, overflow: 'hidden', backgroundColor: '#122c3a', margin: 16, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   receiptFrame: { width: '78%', height: '72%', borderColor: '#ffffff', borderWidth: 2, borderRadius: 12 },
+  cameraError: { position: 'absolute', top: 16, left: 16, right: 16, color: '#ffffff', backgroundColor: '#a72d2dcc', borderRadius: 10, padding: 10, textAlign: 'center' },
   captureButton: { position: 'absolute', bottom: 28, minHeight: 52, minWidth: 160, justifyContent: 'center', alignItems: 'center', borderRadius: 26, backgroundColor: '#ffffff', paddingHorizontal: 24 },
   captureButtonText: { color: '#075e68', fontSize: 16, fontWeight: '700' },
   busyOverlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: '#122c3acc' },

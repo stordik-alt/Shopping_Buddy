@@ -160,6 +160,8 @@ Architectural or operational changes must update this document or the relevant a
 
 The objective is one reliable current-state reference for future agents, while retaining historical feature documents as history.
 
+CI is split per app. `.github/workflows/ci.yml` runs the PWA checks (unit tests, typecheck, build, Cloudflare Worker build, Playwright, database tests); a pull request that changes only `apps/mobile/**` skips them (a skipped job counts as passed for required checks). `.github/workflows/mobile.yml` runs the Expo checks (typecheck, `expo install --check`, Android export) only when `apps/mobile`, `packages/shared` or the lockfile change. Neither workflow deploys or uses secrets. Production deployment is only the manual `cloudflare-deploy.yml`, which builds the web app and does not depend on mobile results; a failing mobile check therefore cannot publish or block the PWA, and a failing web build cannot publish a mobile app (there is no automatic mobile publishing).
+
 ## 20. Gradual React Native + Expo path
 
 The current Next.js PWA stays at the repository root and remains functional. The Expo app is under `apps/mobile`; its native screens cover the household shopping list, budget overview, place-based pantry, recipes, and meal planning. It signs in through the existing Neon Auth route, stores mobile auth material in Expo SecureStore, and calls household-scoped `/api/mobile/*` endpoints. Server-side membership checks determine the household; list operations use the same shopping-list service as the PWA, and pantry quantity/place edits share a mutation service with PWA actions. The budget view uses existing period/category calculation rules. No second database, parallel budget rules, or schema changes are introduced.

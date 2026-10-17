@@ -1,3 +1,9 @@
+## 2026-10-17 — Oddělené CI pro PWA a Expo
+
+- `ci.yml` (web) nově začíná jobem `changes`; PR měnící jen `apps/mobile/**` přeskočí webové joby (přeskočený job se u povinných kontrol počítá jako úspěšný). Žádný test ani kontrola nebyly odstraněny, názvy jobů zůstaly.
+- Nový `mobile.yml`: typecheck, `expo install --check` a export Androidu, spouští se jen při změně `apps/mobile`, `packages/shared`, lockfile nebo workflow. Bez secretů a bez publikace.
+- Produkční nasazení zůstává ruční `cloudflare-deploy.yml` (jen web, pouze z `main`); na mobilních kontrolách nezávisí a mobilní aplikace se automaticky nikam nepublikuje. Nasazení se při testování neprovádí. Workflow nebyla spuštěna lokálně (chybí pnpm), ověřeno jen čtením.
+
 ## 2026-10-17 — Bearer JWT pro nativního klienta (`/api/mobile/me`)
 
 - Nový `lib/auth/bearer.ts`: požadavek s `Authorization: Bearer <jwt>` se ověřuje na serveru — podpis proti JWKS Neon Auth (`NEON_AUTH_BASE_URL/.well-known/jwks.json`, jose `createRemoteJWKSet` s cache a obnovou při rotaci klíčů), issuer (origin Neon Auth, lze přepsat `NEON_AUTH_JWT_ISSUER`), expirace a povinné `sub`; povoleny jen EdDSA/ES256/RS256. Uživatel se pak znovu načte z `neon_auth."user"`: smazaný účet je odmítnut a neověřený e-mail dostane 403 (ověření e-mailu se nikdy nebere z tokenu). Bez Neon Auth (lokální PostgreSQL, ne-https) je bearer vypnutý (401 `bearer_unavailable`).

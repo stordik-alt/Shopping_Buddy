@@ -1,11 +1,13 @@
 import type { PeriodConfig } from '@/lib/budget-period'
 import type { MemberDiet } from '@/lib/diet'
 import type { ExpenseCategory } from '@/lib/expense-categories'
+import type { ItemUnit } from '@anitka/shared/units'
+
+export type { ItemUnit } from '@anitka/shared/units'
 
 export type Tab = 'Domů' | 'Akce' | 'Nákup' | 'Zásoby' | 'Obchody' | 'Recepty' | 'Rozpočet' | 'AI' | 'Profil'
 
 export type ItemCategory = 'Potraviny' | 'Drogerie' | 'Děti' | 'Domácnost' | 'Ostatní'
-export type ItemUnit = 'ks' | 'kg' | 'g' | 'l' | 'ml' | 'dávka'
 export type ItemPriority = 'Nízká' | 'Normální' | 'Vysoká'
 
 export type Item = {

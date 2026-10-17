@@ -5,9 +5,22 @@ Shopping Buddy remains a Next.js + React + TypeScript application with Neon Post
 
 ## Gradual native-app path
 
-The existing Next.js PWA remains at the repository root and stays independently buildable. A future Expo application can live at `apps/mobile`, with narrowly selected platform-neutral code in `packages/shared`; moving the PWA is not a prerequisite. The root pnpm project remains the existing web application, and the workspace globs include future packages without changing current framework or pnpm versions.
+The existing Next.js PWA remains at the repository root and stays independently buildable. The minimal Expo application lives at `apps/mobile`; narrowly selected platform-neutral code lives in `packages/shared`. Moving the PWA is not a prerequisite. The root pnpm project remains the web application, and the workspace globs include both apps and packages without changing current framework or pnpm versions.
 
-`packages/shared` is limited to code safe in both browser and native environments, such as pure deterministic utilities and platform-neutral types. It must not contain server-only code, secrets, authorization decisions, database access, Next.js APIs, or UI components tied to either React DOM or React Native. Keep platform-specific UI in each app. Before adding Expo, select an Expo/React Native combination explicitly compatible with the existing React version rather than upgrading the web stack implicitly.
+`packages/shared` is limited to code safe in both browser and native environments, such as pure deterministic utilities and platform-neutral types. It must not contain server-only code, secrets, authorization decisions, database access, Next.js APIs, or UI components tied to either React DOM or React Native. Keep platform-specific UI in each app. Before adding native business functionality, verify the Expo/React Native combination against the existing React version rather than upgrading the web stack implicitly.
+
+### Pure business-logic audit — 2026-10-17
+
+The first extraction is intentionally limited to `ItemUnit`, `ITEM_UNITS`, and `unitLabel` from `lib/types.ts` / `lib/units.ts`. These have no runtime dependencies and can be imported by either app. The PWA keeps its existing `lib/units` entry point as an adapter, while `lib/types` re-exports the type; current call sites and database-enum checks therefore keep their existing contract. Dose-based product defaults remain in the PWA adapter because they depend on the PWA's product-type keys.
+
+The other requested areas are not part of this first move:
+
+- Input checks such as `lib/shopping-input.ts` are pure, but mix reusable constraints with PWA-specific Czech errors and database-enum parity; split those concerns behind an adapter before moving them.
+- Quantity conversions and package-size resolution (`lib/meal-plans.ts`, `lib/quantity-normalization.ts`, `lib/inventory-packaging.ts`, and recipe packaging/measurement modules) encode distinct product and recipe rules and have broader callers. Extract only after defining platform-neutral inputs and parity fixtures.
+- Budget arithmetic is deterministic (`lib/budget-balances.ts`), but budget-period/date rules and adjacent functions carry established domain contracts. Keep them in place until a focused extraction can preserve those contracts with direct parity tests.
+- Product category/subcategory classification (`lib/product-subcategories.ts` and `lib/categorization.ts`) depends on product normalization, brand rules, catalog data, and—in one narrow fallback—AI. It is not a safe bulk move.
+
+No React, HTML, CSS, DOM, Next.js server function, database access, or AI integration is included in `packages/shared`.
 
 High-level flow:
 

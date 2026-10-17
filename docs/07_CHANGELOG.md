@@ -1,3 +1,8 @@
+## 2026-10-17 — První čistá logika v `packages/shared`
+
+- Audit čisté logiky vybral malý bezpečný první krok: typ `ItemUnit`, seznam `ITEM_UNITS` a české `unitLabel`. PWA dál používá původní API přes adaptéry `lib/units.ts` a `lib/types.ts`; výchozí dávkové typy zůstávají aplikaci. Přidané testy ověřují původní seznam jednotek i stejné tvary množného čísla.
+- Ostatní validace, převody balení/množství, rozpočty a klasifikace zůstávají zatím v aplikaci; architektura popisuje jejich hranice a důvody pro postupné adaptéry místo hromadného přesunu. Bez UI, serverových funkcí, DOM ani databáze ve sdíleném balíčku.
+
 ## 2026-10-17 — První minimální mobilní aplikace (Expo)
 
 - Nově `apps/mobile`: React Native + Expo SDK 57 s Expo Routerem a TypeScriptem, vlastní entry point (`expo-router/entry`), kořenová navigace a úvodní obrazovka „Shopping_Buddy“. URL backendu se konfiguruje přes `EXPO_PUBLIC_API_URL` (`app.config.ts`, `lib/config.ts`, `.env.example`); v aplikaci nejsou žádné tajné klíče. Žádné nákupní seznamy ani obchodní funkce.

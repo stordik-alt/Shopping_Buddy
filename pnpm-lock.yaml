@@ -19,6 +19,9 @@ importers:
       '@ai-sdk/openai':
         specifier: 4.0.71
         version: 4.0.71(zod@4.6.5)
+      '@anitka/shared':
+        specifier: workspace:*
+        version: link:packages/shared
       '@base-ui/react':
         specifier: ^1.9.0
         version: 1.9.0(@date-fns/tz@1.4.1)(@types/react@19.3.0)(date-fns@4.1.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -176,6 +179,8 @@ importers:
       typescript:
         specifier: 5.9.3
         version: 5.9.3
+
+  packages/shared: {}
 
 packages:
 

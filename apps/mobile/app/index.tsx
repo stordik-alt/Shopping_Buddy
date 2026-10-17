@@ -199,6 +199,7 @@ export default function HomeScreen() {
       setHouseholdMissing(false)
       setItems([])
       setUserName('')
+      setActiveTab('shopping')
       setError(null)
     } catch (caught) {
       setError(errorMessage(caught))

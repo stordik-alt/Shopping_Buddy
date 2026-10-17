@@ -53,7 +53,15 @@ export function PantryScreen({ onAuthExpired }: { onAuthExpired: () => void }) {
     try {
       await updatePantryItem(item.id, change)
       setPantry((current) => current
-        ? { ...current, items: current.items.map((entry) => entry.id === item.id ? { ...entry, ...change } : entry) }
+        ? {
+            ...current,
+            items: current.items.map((entry) => {
+              if (entry.id !== item.id) return entry
+              if ('quantity' in change) return { ...entry, quantity: change.quantity }
+              const customPlaceId = change.placeKey.startsWith('custom:') ? change.placeKey.slice('custom:'.length) : null
+              return { ...entry, location: customPlaceId ? entry.location : change.placeKey, customPlaceId }
+            }),
+          }
         : current)
       setEditingPlaceId(null)
     } catch (caught) {
@@ -65,7 +73,7 @@ export function PantryScreen({ onAuthExpired }: { onAuthExpired: () => void }) {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" style={styles.scroll}>
       <View style={styles.heading}>
         <View>
           <Text style={styles.title}>Zásoby</Text>
@@ -88,6 +96,7 @@ export function PantryScreen({ onAuthExpired }: { onAuthExpired: () => void }) {
             {pantry.places.map((place) => {
               const count = pantry.items.filter((item) => (item.customPlaceId ? `custom:${item.customPlaceId}` : item.location) === place.key).length
               const active = selectedPlace === place.key
+              const countLabel = count === 1 ? 'položka' : count >= 2 && count <= 4 ? 'položky' : 'položek'
               return (
                 <Pressable
                   accessibilityRole="tab"
@@ -97,7 +106,7 @@ export function PantryScreen({ onAuthExpired }: { onAuthExpired: () => void }) {
                   style={[styles.place, active && styles.placeActive]}
                 >
                   <Text style={[styles.placeName, active && styles.placeNameActive]}>{place.name}</Text>
-                  <Text style={[styles.placeCount, active && styles.placeNameActive]}>{count} položek</Text>
+                  <Text style={[styles.placeCount, active && styles.placeNameActive]}>{count} {countLabel}</Text>
                 </Pressable>
               )
             })}
@@ -175,6 +184,7 @@ export function PantryScreen({ onAuthExpired }: { onAuthExpired: () => void }) {
 }
 
 const styles = StyleSheet.create({
+  scroll: { flex: 1 },
   content: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
   heading: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   title: { color: '#122c3a', fontSize: 20, fontWeight: '700' },

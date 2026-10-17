@@ -4,6 +4,8 @@ import * as schema from '@/lib/db/schema'
 import { customPlaceIdFromKey, PANTRY_LOCATIONS } from '@/lib/pantry'
 import type { PantryLocation } from '@/lib/types'
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export class PantryInputError extends Error {}
 export class PantryResourceNotFoundError extends Error {}
 
@@ -12,6 +14,7 @@ export async function updatePantryItemForHousehold(
   pantryItemId: string,
   change: { quantity: number } | { placeKey: string },
 ): Promise<void> {
+  if (!UUID_PATTERN.test(pantryItemId)) throw new PantryResourceNotFoundError('Pantry item not found')
   const db = getDb()
   const item = await db.query.pantryItems.findFirst({
     where: and(eq(schema.pantryItems.id, pantryItemId), eq(schema.pantryItems.householdId, householdId)),
@@ -30,6 +33,7 @@ export async function updatePantryItemForHousehold(
 
   const customPlaceId = customPlaceIdFromKey(change.placeKey)
   if (customPlaceId) {
+    if (!UUID_PATTERN.test(customPlaceId)) throw new PantryInputError('Vlastní místo nenalezeno.')
     const place = await db.query.pantryPlaces.findFirst({
       where: and(eq(schema.pantryPlaces.id, customPlaceId), eq(schema.pantryPlaces.householdId, householdId)),
       columns: { id: true },

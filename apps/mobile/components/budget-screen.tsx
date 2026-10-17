@@ -37,7 +37,7 @@ export function BudgetScreen({ onAuthExpired }: { onAuthExpired: () => void }) {
   }, [load])
 
   return (
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" style={styles.scroll}>
       <View style={styles.heading}>
         <View>
           <Text style={styles.title}>Rozpočet domácnosti</Text>
@@ -120,6 +120,7 @@ export function BudgetScreen({ onAuthExpired }: { onAuthExpired: () => void }) {
 }
 
 const styles = StyleSheet.create({
+  scroll: { flex: 1 },
   content: { paddingHorizontal: 16, paddingBottom: 24, gap: 14 },
   heading: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   title: { color: '#122c3a', fontSize: 20, fontWeight: '700' },

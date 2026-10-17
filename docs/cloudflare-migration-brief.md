@@ -1,4 +1,7 @@
-> **Scope decision (owner, 2026-09-25): for now only Vercel Blob → Cloudflare R2 is migrated.**
+> **Historical brief (2026-09-25):** the production status and owner decision recorded below predate the Cloudflare hosting cutover.
+> The owner confirmed on 2026-10-17 that production runs on Cloudflare; Vercel is historical as application hosting/deployment, with only Neon account management still associated with Vercel. Do not use this brief as current production guidance; see `docs/00_CURRENT_SOURCE_OF_TRUTH.md` and `docs/cloudflare-migration-status.md`.
+>
+> **Scope decision at the time (owner, 2026-09-25): for now only Vercel Blob → Cloudflare R2 is migrated.**
 > Hosting, crons, OCR authentication, AI Gateway, analytics and DNS stay on Vercel for the time
 > being; the sections of this brief about those are kept as the long-term plan, not current work.
 > Current scope and status: `docs/cloudflare-migration-status.md`.

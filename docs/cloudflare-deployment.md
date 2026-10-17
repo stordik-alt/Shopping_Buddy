@@ -1,11 +1,8 @@
-# Cloudflare Deployment — Prepared, Not Deployed
+# Cloudflare Production — Deployment and Historical Preparation Notes
 
-**Where:** on `main` since PR #83 (owner, 2026-09-25: prepare only, migrate nothing). Refreshed 2026-09-26: writable data cache on R2, `cf:build` runs on Windows too.
-**Production:** Vercel, unchanged. Receipt files are already on R2 (`docs/cloudflare-r2.md`).
+**Current production:** Cloudflare Workers/OpenNext, per owner confirmation on 2026-10-17. Vercel is historical as the application's hosting/deployment platform; the owner reports that only Neon account management remains associated with Vercel. This document contains a historical preparation snapshot as well as current configuration references; its old test results are not a fresh verification of production.
 
-The prepared setup makes the app **buildable and runnable as a Cloudflare Worker** (OpenNext for Cloudflare).
-It also removes the known blockers behind switches whose defaults keep Vercel behavior. What is left
-is account setup, staging tests and the cutover.
+The Worker is the production application host. Receipt files use Cloudflare R2 (`docs/cloudflare-r2.md`); this is separate from the OpenNext application runtime.
 
 ## 1. What is prepared
 
@@ -25,12 +22,7 @@ is account setup, staging tests and the cutover.
 | `pnpm-workspace.yaml` | Allows workerd's postinstall (binary check) |
 | `.gitignore`, `tsconfig.json`, `vitest.config.mts` | Ignore `.open-next/`, `.wrangler/`, `.dev.vars`, the GCP key files |
 
-**Vercel impact:**
-- None functional. Every Cloudflare path is behind `BUILD_TARGET=cloudflare` or an env switch whose
-  default is today's behavior.
-- One cost: installing the new devDependencies pulls the workerd binary (~127 MB unpacked), so a
-  cold `pnpm install` on Vercel/CI takes longer. If that matters before the migration, move
-  `wrangler` and `@opennextjs/cloudflare` out of `package.json` and run them with `pnpm dlx`.
+**Vercel references:** the following notes describe the historical transition from Vercel and should not be used as current production deployment instructions.
 
 ## 2. Verified on 2026-09-25
 
@@ -45,7 +37,7 @@ Checked in the cloud session, with placeholder secrets and no Cloudflare account
 | Vercel build (`pnpm build`) | ✅ unchanged: real `sharp` external, no shim |
 | Unit tests (CI command) | 52 files, 817 tests passed (+ `cloudflare/cron.test.ts`, `cloudflare/shims/sharp.test.ts`, `lib/gcp-oidc.test.ts`) |
 
-**Not verified yet (needs an account and real secrets):**
+**Not covered by the recorded 2026-09-25 preparation checks:** these items needed real account/secrets and are not evidence of current production failures or current verification status.
 - Neon Auth sign-in on the Worker's hostname.
 - Real DB pages and actions.
 - Receipt upload/OCR on workerd, including `unpdf` for PDF text layers.
@@ -57,49 +49,47 @@ Checked in the cloud session, with placeholder secrets and no Cloudflare account
 
 ## 3. Known risks
 
-1. **Next 16 `proxy.ts` runs as Node.js middleware.** OpenNext warns: "Node.js middleware support is
+1. **Historical staging risk:** Next 16 `proxy.ts` runs as Node.js middleware. OpenNext warned: "Node.js middleware support is
    experimental in cloudflare". It worked in the local test (redirects, public paths). Test sign-in,
    sign-out and protected pages thoroughly on staging.
-2. **OCR without image preparation** (§6). Photos go to OCR unprocessed until a replacement is
-   chosen. Measure accuracy on real receipts before production.
-3. **CPU limits.** Price-ingestion parts took 16–49 s wall time from outside the DB region, mostly
+2. **Historical preparation note — OCR image processing** (§6). The notes below described photos going to OCR unprocessed while a replacement was being considered. Confirm current receipt-image processing behavior before changing it.
+3. **Historical staging measurement needed:** CPU limits. Price-ingestion parts took 16–49 s wall time from outside the DB region, mostly
    I/O. Workers bill CPU, not wall time, but the parsing (Lidl gunzip, large JSON) must be measured
    on staging. `limits.cpu_ms` is set to the Paid maximum of 5 min.
-4. **Origin change.** Users and the installed PWA are on `shopping-with-buddy.vercel.app`, which
-   cannot move. Put a custom domain in front of Vercel first; the cutover is then only a DNS change.
-5. LLM calls use Cloudflare AI Gateway from either Vercel or Workers; the Vercel AI Gateway is no longer part of the application path (§7).
+4. **Historical origin-change risk:** old notes referred to `shopping-with-buddy.vercel.app`; production now runs on Cloudflare per owner confirmation. Keep the production origin and installed PWA working when changing DNS or Worker routes.
+5. LLM calls use Cloudflare AI Gateway; the Vercel AI Gateway is not part of the application path (§7).
 
 ## 4. Owner prerequisites
 
-1. **Workers Paid** on the Cloudflare account ($5/month): 26 cron triggers, CPU time, bundle size.
-2. **Data-cache buckets** (once): `pnpm exec wrangler r2 bucket create shopping-buddy-next-cache` and
+The following were prerequisites in the original preparation runbook; current account configuration should be checked before acting:
+1. **Workers Paid** on the Cloudflare account: cron triggers, CPU time, bundle size.
+2. **Data-cache buckets**: `pnpm exec wrangler r2 bucket create shopping-buddy-next-cache` and
    `… shopping-buddy-next-cache-staging`. They hold only rebuildable cache entries, so no backup is
    needed; a deploy fails while a bound bucket does not exist.
 3. **Wrangler login** on your computer (`pnpm exec wrangler login`), or a `CLOUDFLARE_API_TOKEN` with
    *Workers Scripts: Edit* (+ *Workers Routes/DNS: Edit* for the custom domain).
-4. **Custom domain** on a Cloudflare zone (see risk 4).
+4. **Custom domain** on a Cloudflare zone (historical setup prerequisite).
 5. **Neon Auth trusted origins:** add the staging and later the production Worker hostnames in the
    Neon Console (Auth → Configuration → Domains), as was done for Vercel.
 6. **Cloudflare AI Gateway:** configure the OpenAI provider key in the Gateway, then create a
    Cloudflare API token with **Account → Workers AI → Read** permission, as required by the AI REST
    API. Set `CLOUDFLARE_ACCOUNT_ID`,
    `CLOUDFLARE_AI_GATEWAY_ID` (the configured Gateway's ID), and `CLOUDFLARE_AI_GATEWAY_TOKEN` in
-   Vercel's server environment variables, local `.env.local`, and the Worker's secrets (or local
+   Cloudflare Worker secrets (or local
    `.dev.vars`). The application uses the account-scoped AI REST `/ai/v1/responses` endpoint and
    selects the configured Gateway with the `cf-aig-gateway-id` header; the fixed model is
    `openai/gpt-6-luna`. Do not set `OPENAI_API_KEY` in the app.
    For the taxonomy pilot workflow, add the account ID and Gateway ID as GitHub Actions variables
    `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_AI_GATEWAY_ID`, and the run token as the secret
    `CLOUDFLARE_AI_GATEWAY_TOKEN`.
-   The old Vercel `AI_GATEWAY_API_KEY` is no longer read by application code and can be removed.
+   The old Vercel `AI_GATEWAY_API_KEY` is no longer read by application code.
 
 ## 5. PDF OCR without Vercel OIDC (one-time Google setup)
 
-**The problem:** on Workers there is no Vercel OIDC token.
+**Historical migration context:** Cloudflare Workers do not provide a Vercel OIDC token.
 
 **The fix:** the app signs its own short-lived JWT (RS256, 10 min), and Google trusts the public key
-through a **separate** Workload Identity OIDC provider. The existing Vercel provider stays as it is,
-so Vercel keeps working. No service-account key is created, which the organization policy forbids
+through a **separate** Workload Identity OIDC provider. No service-account key is created, which the organization policy forbids
 anyway.
 
 1. **Generate the key pair:** `pnpm gcp:oidc-key` writes `gcp-oidc-private-key.pem` (secret) and
@@ -160,15 +150,15 @@ Options to restore preparation, to be decided after measuring accuracy on real r
 
 | Service | On Cloudflare |
 |---|---|
-| **LLM requests (Cloudflare AI Gateway)** | `lib/ai/client.ts` routes all approved LLM requests through the account-scoped AI REST `/ai/v1/responses` endpoint using `openai/gpt-6-luna`; `cf-aig-gateway-id` selects the configured Gateway. Set `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_AI_GATEWAY_ID`, and a Cloudflare API token with Account → Workers AI → Read permission (`CLOUDFLARE_AI_GATEWAY_TOKEN`) on Vercel and Workers. Store the upstream OpenAI key in Cloudflare AI Gateway, not the app. Google Vision and Azure Document Intelligence remain separate OCR integrations. |
+| **LLM requests (Cloudflare AI Gateway)** | `lib/ai/client.ts` routes all approved LLM requests through the account-scoped AI REST `/ai/v1/responses` endpoint using `openai/gpt-6-luna`; `cf-aig-gateway-id` selects the configured Gateway. Configure `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_AI_GATEWAY_ID`, and a Cloudflare API token with Account → Workers AI → Read permission (`CLOUDFLARE_AI_GATEWAY_TOKEN`) in the Cloudflare Worker secrets and local development environment. Store the upstream OpenAI key in Cloudflare AI Gateway, not the app. Google Vision and Azure Document Intelligence remain separate OCR integrations. |
 | **Analytics** | Vercel Analytics is off in the Cloudflare build. Turn on **Cloudflare Web Analytics** for the zone (automatic setup, no code) |
-| **Cron** | 26 Cron Triggers from `wrangler.jsonc` (UTC, same times as `vercel.json`). Adding a job means adding it to `vercel.json` and to `wrangler.jsonc`; `cloudflare/cron.test.ts` fails until both match. Watch for double runs during a period when both Vercel and Cloudflare production are live |
+| **Cron** | Cron Triggers from `wrangler.jsonc` (UTC, aligned with the schedule list in `vercel.json`). Adding a job means updating both files; `cloudflare/cron.test.ts` checks that they match. Vercel is not a current production cron runner. |
 | **Receipt files** | Already R2 over the S3 API (`lib/storage/r2.ts`). An R2 Worker binding would be an optimization, not a requirement |
 | **Database** | Neon HTTP driver, works on workerd (verified up to the network call) |
 
-## 8. Step by step (later)
+## 8. Staging and historical cutover notes
 
-**Staging, next to Vercel production:**
+**Staging:**
 1. `pnpm install`, then `pnpm cf:build`.
 2. For each variable in `.dev.vars.example`, run
    `pnpm exec wrangler secret put <NAME> --env staging`. Use the Neon **test** branch, the test R2
@@ -184,22 +174,15 @@ Options to restore preparation, to be decided after measuring accuracy on real r
    staging `CRON_SECRET` (`Authorization: Bearer …`), and read the CPU time in the Worker logs.
 6. Record the results in `docs/cloudflare-migration-status.md`.
 
-**Production:**
-1. Custom domain on Vercel first (risk 4).
-2. `pnpm cf:deploy` with the production secrets. Cron triggers become active, so **disable Vercel
-   Cron at the same moment**: remove the `crons` from `vercel.json` or pause them in the Vercel
-   dashboard. Otherwise every job runs twice.
-3. Point the custom domain's DNS to the Worker (Workers → Settings → Domains & Routes).
-4. **Rollback:** point the DNS back to Vercel and re-enable Vercel Cron. Keep Vercel deployable
-   for the whole rollback window.
+**Historical cutover checklist — superseded:** The steps below were written before the owner confirmed Cloudflare production. Do not follow the old Vercel-domain/DNS/cron rollback sequence as a current runbook. Use the explicit production deployment workflow and verify current Cloudflare configuration before operational changes.
 
 ## Database migrations on deploy
 
-On Vercel, `pnpm build` applies pending migrations for production deployments only (`lib/db/migrate-guard.ts` checks `VERCEL`/`VERCEL_ENV`). The Cloudflare build runs the same `build` script but skips them, because it is not a Vercel build. Before production moves to Cloudflare, add a migration step to its deploy: `pnpm db:migrate` with the production `DATABASE_URL`, run before `pnpm cf:deploy`. Otherwise new code would go live before its migrations.
+The Cloudflare production workflow `.github/workflows/cloudflare-deploy.yml` applies pending production migrations before `pnpm cf:deploy`; the OpenNext build itself skips the Vercel-specific migration guard. Migrations therefore apply before the new code goes live and must remain compatible with the currently serving version. The Vercel-specific behavior of `pnpm build` is historical and is not the production migration path.
 
 ## 8b. Deploy workflow
 
-`.github/workflows/cloudflare-deploy.yml` is a manual (`workflow_dispatch`) workflow with a `staging` / `production` choice. Production runs only from `main` and applies pending migrations (`tsx lib/db/migrate.ts`) before `pnpm cf:deploy`; staging may be deployed from any branch and never touches migrations. Repository secrets it needs: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `DATABASE_URL` (+ optional `DATABASE_URL_UNPOOLED`), `NEON_AUTH_BASE_URL`, `NEON_AUTH_COOKIE_SECRET`. Runtime secrets stay on the Worker (`wrangler secret put`). Note: the staging build is made with the same `DATABASE_URL` secret, which is only used at build time. Not run yet: it needs the owner prerequisites in section 4.
+`.github/workflows/cloudflare-deploy.yml` is a manual (`workflow_dispatch`) workflow with a `staging` / `production` choice. Production runs only from `main` and applies pending migrations (`tsx lib/db/migrate.ts`) before `pnpm cf:deploy`; staging may be deployed from any branch and never touches migrations. Repository secrets it needs: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `DATABASE_URL` (+ optional `DATABASE_URL_UNPOOLED`), `NEON_AUTH_BASE_URL`, `NEON_AUTH_COOKIE_SECRET`. Runtime secrets stay on the Worker (`wrangler secret put`). Note: the staging build is made with the same `DATABASE_URL` secret, which is only used at build time. Production hosting is owner-confirmed; this document update did not run the workflow or independently verify the live deployment.
 
 ## 8c. Database latency (no Hyperdrive)
 
@@ -214,7 +197,7 @@ The Worker talks to Neon over HTTP (`@neondatabase/serverless`, `lib/db/client.t
 
 ## Data cache
 
-`lib/db/cached-reads.ts` uses `unstable_cache` for global catalog reads. Entries have a one-day safety `revalidate`, but the catalog is primarily refreshed by explicit cache-tag invalidation after successful ingestion or catalog mutations. Product, price/offer, deal, store and recipe caches have separate tags, so a CRON only invalidates the global data it can change. User/household-specific data is not placed in these shared caches. On Vercel this uses the platform data cache; on Cloudflare it uses OpenNext's R2 incremental cache (`open-next.config.ts`, binding `NEXT_INC_CACHE_R2_BUCKET`). Not yet verified against a real bucket: staging should confirm both cache reuse and tag-driven refresh after an ingestion run.
+`lib/db/cached-reads.ts` uses `unstable_cache` for global catalog reads. Entries have a one-day safety `revalidate`, but the catalog is primarily refreshed by explicit cache-tag invalidation after successful ingestion or catalog mutations. Product, price/offer, deal, store and recipe caches have separate tags, so a CRON only invalidates the global data it can change. User/household-specific data is not placed in these shared caches. Production uses OpenNext's R2 incremental cache (`open-next.config.ts`, binding `NEXT_INC_CACHE_R2_BUCKET`). Historical Vercel cache references describe the old hosting setup; verify cache reuse and tag-driven refresh against the active production bucket when operationally needed.
 
 ## Building on Windows
 

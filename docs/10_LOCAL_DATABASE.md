@@ -59,7 +59,7 @@ Accounts come along (`neon_auth`) and the password hashes are Better Auth's, so 
 
 ## Fallback: a hosted PostgreSQL instead of Neon
 
-If Neon is unavailable (free limits, suspended project), the same code can run production on any hosted PostgreSQL (Supabase, Railway, a VPS, …) without code changes. Set these on the Vercel project (Production) and redeploy:
+If Neon is unavailable (free limits, suspended project), the same code can run production on any hosted PostgreSQL (Supabase, Railway, a VPS, …) without code changes. Configure these in the Cloudflare production runtime/deployment settings and deploy:
 
 ```env
 DATABASE_DRIVER=pg

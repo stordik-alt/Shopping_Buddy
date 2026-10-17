@@ -1,5 +1,7 @@
 # Cloudflare Migration — Phase 1 Audit
 
+> **Historical snapshot (2026-09-25):** this audit predates the production hosting cutover. The owner confirmed on 2026-10-17 that production runs on Cloudflare and Vercel is historical as application hosting/deployment (with only Neon account management still associated with Vercel). Sections describing Vercel as production or proposing a future cutover are historical, not current operating instructions. See `docs/00_CURRENT_SOURCE_OF_TRUTH.md`.
+
 **Date:** 2026-09-25
 **Scope:** `main` at `68b7760` (read-only audit — no application code, dependency, database or infrastructure change was made)
 **Goal:** move production hosting from Vercel to Cloudflare with no planned downtime; Neon PostgreSQL stays.

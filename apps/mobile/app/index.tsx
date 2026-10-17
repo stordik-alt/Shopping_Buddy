@@ -184,11 +184,13 @@ export default function HomeScreen() {
       return
     }
     if (result.rejected > 0) {
-      setError(result.rejected === result.rejectedNotFound
-        ? result.rejected === 1
-          ? 'Změnu se nepodařilo uložit, protože položka už není dostupná. Seznam byl obnoven.'
-          : `${result.rejected} změny se nepodařilo uložit, protože položky už nejsou dostupné. Seznam byl obnoven.`
-        : 'Server některé změny odmítl. Zkontrolujte seznam a zadejte je znovu.')
+      const count = result.rejected
+      const countLabel = count === 1 ? '1 změnu' : `${count} ${count <= 4 ? 'změny' : 'změn'}`
+      setError(
+        result.rejected === result.rejectedNotFound
+          ? `${countLabel} se nepodařilo uložit, protože polož${count === 1 ? 'ka už není dostupná' : 'ky už nejsou dostupné'}. Seznam můžete znovu načíst.`
+          : 'Server některé změny odmítl. Zkontrolujte seznam a zadejte je znovu.',
+      )
     }
 
     if (refreshAfterSync && !result.retryRequired && result.snapshot.pending.length === 0) {
@@ -220,6 +222,11 @@ export default function HomeScreen() {
       if (!token) {
         setSignedIn(false)
         setHouseholdAvailable(false)
+        setItems([])
+        setPendingChanges(0)
+        setOffline(false)
+        offlineSnapshot.current = null
+        await clearLastOfflineContext()
         return
       }
       setSignedIn(true)
@@ -242,6 +249,10 @@ export default function HomeScreen() {
       if (!profile.household) {
         setHouseholdMissing(true)
         setHouseholdAvailable(false)
+        setItems([])
+        setPendingChanges(0)
+        setOffline(false)
+        offlineSnapshot.current = null
         await clearLastOfflineContext()
         return
       }
@@ -282,16 +293,10 @@ export default function HomeScreen() {
       } catch (caught) {
         if (caught instanceof MobileApiError && caught.status !== 0 && caught.status < 500) throw caught
         if (!cached) {
-          cached = {
-            version: 1,
-            userId: context.userId,
-            householdId: context.householdId,
-            list: { listId: '', shoppingLists: [], items: [] },
-            pending: [],
-          }
-          await saveOfflineSnapshot(cached)
-          showSnapshot(cached)
-          setError('Seznam zatím nemá uloženou kopii. Můžete přidávat položky; po připojení se synchronizují.')
+          setHouseholdAvailable(false)
+          setOffline(false)
+          setError('Seznam se nepodařilo načíst a offline kopie ještě není k dispozici. Připojte se a zkuste to znovu.')
+          return
         }
         setOffline(true)
       }
@@ -444,7 +449,7 @@ export default function HomeScreen() {
   async function saveEdit() {
     if (!editItem || busy || busyItemId) return
     const quantity = Number(editQuantity.trim().replace(',', '.'))
-    if (!Number.isFinite(quantity) || quantity <= 0) {
+    if (!Number.isFinite(quantity) || quantity <= 0 || quantity >= 10_000_000) {
       setError('Množství musí být kladné číslo.')
       return
     }
@@ -625,7 +630,7 @@ export default function HomeScreen() {
                     keyExtractor={(item) => item.id}
                     keyboardShouldPersistTaps="handled"
                     renderItem={({ item }) => (
-                      <ShoppingRow item={item} busy={busyItemId === item.id} disabled={busy} onEdit={() => openEdit(item)} onToggle={() => void handleToggle(item)} />
+                      <ShoppingRow item={item} busy={busyItemId === item.id} disabled={busy || busyItemId !== null} onEdit={() => openEdit(item)} onToggle={() => void handleToggle(item)} />
                     )}
                   />
                 )}
@@ -691,7 +696,7 @@ const styles = StyleSheet.create({
   secondaryButton: { minHeight: 44, borderColor: '#cbd8dd', borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   secondaryButtonText: { color: '#23515d', fontSize: 14, fontWeight: '600' },
   error: { color: '#a72d2d', backgroundColor: '#fff0f0', borderRadius: 12, marginHorizontal: 16, marginBottom: 8, padding: 12, fontSize: 14, lineHeight: 20 },
-  offlineNotice: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, backgroundColor: '#fff7e6', borderColor: '#f0d9a8', borderRadius: 12, borderWidth: 1, marginHorizontal: 16, marginBottom: 8, padding: 10 },
+  offlineNotice: { flexDirection: 'column', alignItems: 'stretch', gap: 8, backgroundColor: '#fff7e6', borderColor: '#f0d9a8', borderRadius: 12, borderWidth: 1, marginHorizontal: 16, marginBottom: 8, padding: 10 },
   offlineNoticeText: { flex: 1, color: '#684b17', fontSize: 13, lineHeight: 18 },
   pendingLabel: { color: '#8a631c', fontSize: 12, marginTop: 4 },
   summary: { minHeight: 52, marginHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

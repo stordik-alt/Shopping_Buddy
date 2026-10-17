@@ -48,6 +48,12 @@ The Expo shopping screen opens `expo-camera` only after the user explicitly star
 
 The Expo receipt screen captures a photo only after the user opens the camera and grants permission. Bearer-authenticated `/api/mobile/receipts` routes resolve household membership server-side and use the same upload validation, 24-hour limits, private R2 storage, `receipt_imports` state, atomic processing claim, OCR rate limits, and deterministic receipt pipeline as the PWA. The mobile screen can retry failed or abandoned processing and displays review/duplicate states, but never confirms uncertain OCR or creates a purchase from an unreviewed receipt; final correction and confirmation remain in the existing web review UI. No migration, second receipt store, or parallel OCR pipeline is added.
 
+### Native offline shopping-list sync — 2026-10-17
+
+The native app stores its last server-provided shopping-list snapshot and queued add/toggle/quantity/unit operations in the app-private Expo document directory. Cache files and the offline session pointer are scoped to the verified user and household. Optimistic changes are persisted before display; replay is sequential and uses the existing bearer endpoints, with stable UUID client IDs for idempotent adds. Successful writes are removed from the queue, temporary add IDs are remapped to server IDs, and the server list replaces the cache after a successful refresh. Transient network, authorization and server failures remain queued; definitive 400/404 refusals are dropped with a visible message so they cannot block subsequent operations.
+
+The queue syncs at app load, after local list changes and on explicit refresh/synchronize actions; there is no background sync, polling or refresh-on-focus. Logout clears the last-session pointer but retains user/household-scoped queued files, which can only be reopened after the same identity is authenticated again. This phase covers the shopping list only; recipe, meal-plan, budget, pantry and receipt screens remain online-only. The PWA offline queue and its storage are unchanged. No new API, product store, database table or migration is added.
+
 High-level flow:
 
 UI

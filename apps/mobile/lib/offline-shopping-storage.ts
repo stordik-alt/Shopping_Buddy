@@ -19,6 +19,14 @@ function ensureDirectory() {
   offlineDirectory.create({ idempotent: true, intermediates: true })
 }
 
+function writeAtomically(file: File, value: string) {
+  const temporaryFile = new File(offlineDirectory, `${file.name}.tmp`)
+  if (temporaryFile.exists) temporaryFile.delete()
+  temporaryFile.create({ intermediates: true })
+  temporaryFile.write(value)
+  temporaryFile.moveSync(file, { overwrite: true })
+}
+
 export async function readOfflineSnapshot(
   userId: string,
   householdId: string,
@@ -32,12 +40,12 @@ export async function readOfflineSnapshot(
 
 export async function saveOfflineSnapshot(snapshot: OfflineShoppingSnapshot): Promise<void> {
   ensureDirectory()
-  snapshotFile(snapshot.userId, snapshot.householdId).write(JSON.stringify(snapshot))
+  writeAtomically(snapshotFile(snapshot.userId, snapshot.householdId), JSON.stringify(snapshot))
 }
 
 export async function saveLastOfflineContext(context: OfflineContext): Promise<void> {
   ensureDirectory()
-  lastContextFile.write(JSON.stringify(context))
+  writeAtomically(lastContextFile, JSON.stringify(context))
 }
 
 export async function readLastOfflineContext(): Promise<OfflineContext | null> {

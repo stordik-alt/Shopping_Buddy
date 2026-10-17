@@ -193,6 +193,7 @@ function isMobileShoppingItem(value: unknown): value is MobileShoppingItem {
     typeof item.quantity === 'number' &&
     Number.isFinite(item.quantity) &&
     item.quantity > 0 &&
+    item.quantity < 10_000_000 &&
     typeof item.unit === 'string' &&
     ITEM_UNITS.includes(item.unit as ItemUnit) &&
     typeof item.done === 'boolean'
@@ -214,7 +215,7 @@ function isOfflineShoppingOperation(value: unknown): value is OfflineShoppingOpe
   if (operation.kind === 'update' && typeof operation.itemId === 'string' && operation.changes && typeof operation.changes === 'object') {
     const changes = operation.changes as Record<string, unknown>
     return (
-      (changes.quantity === undefined || (typeof changes.quantity === 'number' && Number.isFinite(changes.quantity) && changes.quantity > 0)) &&
+      (changes.quantity === undefined || (typeof changes.quantity === 'number' && Number.isFinite(changes.quantity) && changes.quantity > 0 && changes.quantity < 10_000_000)) &&
       (changes.unit === undefined || (typeof changes.unit === 'string' && ITEM_UNITS.includes(changes.unit as ItemUnit))) &&
       Object.keys(changes).length > 0 &&
       Object.keys(changes).every((key) => key === 'quantity' || key === 'unit')

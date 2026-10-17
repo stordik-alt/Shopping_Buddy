@@ -42,6 +42,13 @@
 - PWA i mobil používají stejnou serverovou službu pro přidání, úpravu a dokončení položky, tedy stávající validaci a pravidla produktů; opakovaný požadavek na přidání používá stabilní ID. Bez nové databáze, tabulek nebo migrace. Dokumentace: `docs/00_CURRENT_SOURCE_OF_TRUTH.md`, `docs/02_ARCHITECTURE.md`.
 - Ověřeno: 36 testů mobilního API a klienta, TypeScript kontrola webu i mobilu, Android Expo export a Cloudflare OpenNext build (s dočasnou neprodukční konfigurací Neon Auth; migrace byly přeskočeny). Živou autentizaci na zařízení je třeba ověřit samostatně.
 
+## 2026-10-17 — Offline nákupní seznam a synchronizace v Expo
+
+- Mobilní aplikace ukládá poslední serverový seznam domácnosti a změny přidané bez připojení do app-private úložiště Expo. Cache i fronta jsou oddělené podle ověřeného uživatele a domácnosti; přidání používá stabilní UUID, úpravy množství/jednotky a dokončení se po připojení přehrávají postupně přes stávající API.
+- Offline seznam se zobrazí při nedostupném serveru po předchozím přihlášení. Fronta se synchronizuje při načtení, po změně nebo tlačítkem; síťové, autorizační a serverové chyby změny zachovají, trvalé odmítnutí 400/404 oznámí a odstraní z fronty. Odhlášení smaže pouze poslední kontext, aby se fronta nepoužila pro jiný účet; stejné domácnosti se znovu zpřístupní až po ověření identity.
+- Změna se týká offline nákupního seznamu; ostatní mobilní obrazovky zůstávají online-only. Bez změny PWA, API, databáze či produktového úložiště.
+- Ověřeno: 33 cílených testů včetně existujících mobilních shopping-list endpointů, TypeScript webu i Expo, Android Expo export, Next.js web build a Cloudflare OpenNext build. Buildy použily dočasné neprodukční hodnoty Neon Auth; migrace se přeskočily. Živé přihlášení a synchronizace na fyzickém zařízení nebyly v sandboxu ověřeny.
+
 ## 2026-10-17 — Audit autentizace a první rozhraní pro Expo (`GET /api/mobile/me`)
 
 - Audit: registrace, ověření e-mailu, přihlášení, obnova relace a odhlášení běží přes Neon Auth (Better Auth) handler `/api/auth/*` (`app/api/auth/[...path]/route.ts`, s limitem na adresu); je to HTTP API použitelné i z mobilu, relace je ale cookie (`__Secure-neon-auth.session_token`). Webové stránky a Server Actions čtou relaci přes `auth.getSession()` z `next/headers` (cookies) a autorizaci (`requireHousehold`/`requireAdmin`) odvozují vždy na serveru z členství v domácnosti. Server Actions mobil volat nemůže (vázané na Next.js klienta); obchodní data budou potřebovat vlastní Route Handlery nad stejnou autorizací. Ověření e-mailu zůstává zapnuté a beze změny.

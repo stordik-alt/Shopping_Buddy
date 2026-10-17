@@ -34,6 +34,18 @@ vi.mock('expo-file-system', () => {
       files.set(this.uri, value)
     }
 
+    create() {
+      files.set(this.uri, '')
+    }
+
+    moveSync(destination: { uri: string }, options?: { overwrite?: boolean }) {
+      const value = files.get(this.uri)
+      if (value === undefined) throw new Error('missing source file')
+      if (files.has(destination.uri) && !options?.overwrite) throw new Error('destination exists')
+      files.set(destination.uri, value)
+      files.delete(this.uri)
+    }
+
     delete() {
       files.delete(this.uri)
     }

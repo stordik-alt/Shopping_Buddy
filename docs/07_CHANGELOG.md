@@ -1,3 +1,11 @@
+## 2026-10-17 — První minimální mobilní aplikace (Expo)
+
+- Nově `apps/mobile`: React Native + Expo SDK 57 s Expo Routerem a TypeScriptem, vlastní entry point (`expo-router/entry`), kořenová navigace a úvodní obrazovka „Shopping_Buddy“. URL backendu se konfiguruje přes `EXPO_PUBLIC_API_URL` (`app.config.ts`, `lib/config.ts`, `.env.example`); v aplikaci nejsou žádné tajné klíče. Žádné nákupní seznamy ani obchodní funkce.
+- Verze závislostí odpovídají `bundledNativeModules.json` Expo SDK 57 (React 19.2.3, React Native 0.86.3). Novější SDK 58 (React 19.3.0, shodný s webem) nešlo nainstalovat kvůli `minimumReleaseAge`; přechod je možný, až balíčky dozrají. Mobilní aplikace má vlastní React, web (React 19.3.0) beze změny.
+- Závislosti mobilní aplikace jsou v `devDependencies`: Expo/Metro jsou nástroje sestavení (běží jen na vývojářském stroji či v EAS, na server se nenasazují), ale jejich tranzitivní balíčky (`braces`, `brace-expansion`, `js-yaml`, `node-forge`) mají neopravená upozornění vysoké závažnosti a shodily by `pnpm audit --prod --audit-level=high` v workflow Security audit. Webový audit je beze změny.
+- Kořenový `tsconfig.json` vylučuje `apps` a `packages`, aby web nekontroloval mobilní kód. PWA se nezměnila.
+- Ověřeno: `tsc` mobilu, `expo export --platform android` a `tsc` webu prošly. `next build` v sandboxu selhal na stažení Google Fontů (síť), nikoli kvůli změně.
+
 ## 2026-10-17 — Příprava workspace pro budoucí Expo aplikaci
 
 - Ověřeno, že současnou Next.js PWA není třeba přesouvat: zůstává root projektem pnpm a v budoucnu mohou vedle ní vzniknout `apps/mobile` a `packages/shared`. `pnpm-workspace.yaml` nyní zahrnuje oba budoucí adresářové vzory, bez přidání aplikace, balíčků či změny verzí Reactu, React DOM, Next.js nebo pnpm.

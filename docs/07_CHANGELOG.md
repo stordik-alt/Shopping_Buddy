@@ -1,3 +1,7 @@
+## 2026-10-18 — Runbook pro chybu Neon Auth get-session
+
+- Přidán `docs/42_NEON_AUTH_MIGRATION_RUNBOOK.md` s hypotézami a postupem opravy HTTP 500 na `get-session` po přesunu projektu. Pouze dokumentace; příčina ani postup nebyly ověřeny proti živé databázi či logům Neonu.
+
 ## 2026-10-17 — Konfigurace interních instalačních balíčků Expo
 
 - Přidán EAS profil `internal`: sestaví Android APK a iOS Ad Hoc IPA s veřejnou adresou API `https://mojeanitka.cz`.

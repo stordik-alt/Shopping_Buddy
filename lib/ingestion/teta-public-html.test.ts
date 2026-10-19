@@ -26,7 +26,7 @@ describe('Teta public HTML parser', () => {
     expect(decodeTetaHtml('Tip Line&nbsp;&amp; Zewa &#268;')).toBe('Tip Line & Zewa Č')
     expect(decodeTetaHtml('&amp;lt; &amp;amp; &#xA0; &#160;')).toBe('&lt; &amp;    ')
 
-    expect(htmlToTetaText('<h1>Krém</h1><script>ignore this</script><script type="text/javascript" >ignore this too</script ><style>ignore</style><style >ignore this too</style > 50&nbsp;ml')).toBe('Krém 50 ml')
+    expect(htmlToTetaText('<h1>Krém</h1><script>ignore this</script><script type="text/javascript" >ignore this too</script ><script>ignore tabbed close</script\t\n bar><style>ignore</style><style >ignore this too</style > 50&nbsp;ml')).toBe('Krém 50 ml')
   })
 
   it('extracts observable product detail fields without guessing price roles', () => {

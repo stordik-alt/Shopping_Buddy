@@ -2986,3 +2986,10 @@ Every future architectural/schema/business-rule change should append a dated ent
 - Do `wrangler.jsonc` byl doplněn produkční binding `HYPERDRIVE` s ID předaným vlastníkem; platnost a cílovou databázi ID je nutné potvrdit v Cloudflare. Staging binding zůstává nepřidaný do získání samostatného neprodukčního ID.
 - Implementace zatím není nasazená ani produkčně ověřená. Před deployem je třeba potvrdit cíl bindingu, provést neprodukční Worker smoke test a ověřit, že staging nebude používat produkční databázi.
 - `git diff --check` prošel. `NODE_OPTIONS="--max-old-space-size=4096" pnpm exec tsc --noEmit` spuštěný vlastníkem v WSL skončil s návratovým kódem 0. `pnpm cf:build` nebyl spuštěn: automatické bezpečnostní posouzení jej zablokovalo, protože build může spustit migrační skript a prostředí nebylo doloženo jako izolované od produkce.
+
+
+## 2026-10-19 — Oprava OpenNext bundling `pg-cloudflare`
+
+- CI log z `pnpm cf:build` potvrdil, že Next.js kompilace a TypeScript fáze prošly, ale finální bundling OpenNext selhal: zkopírovanému balíčku `pg-cloudflare` chyběl exportovaný `dist/index.js`.
+- Cloudflare konfigurace v `next.config.mjs` nyní označuje `pg-cloudflare` jako `serverExternalPackages`; tím OpenNext může zachovat balíček s podmíněným `workerd` exportem. Nastavení je omezené na Cloudflare build.
+- Dokumentace popisuje důvod. Oprava zatím čeká na nový výsledek CI; Hyperdrive nebyl nasazen ani ověřen proti databázi.

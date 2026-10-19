@@ -1,3 +1,9 @@
+## 2026-10-19 — Rozšíření výzkumného vzorku Teta pro audit EAN
+
+- Veřejný sběr Teta lze nyní bezpečně omezit až na 300 detailů produktů (dřívější limit byl 100); manuální workflow vyžádá 10 katalogových stránek, nejvýše 300 produktů a sériové stahování s minimální prodlevou 1,2 s.
+- Cílem je ověřit, zda se EAN/GTIN objevuje u části sortimentu, a zpřesnit statistiku podle kategorií a dostupných polí. Sběr zůstává pouze nad veřejným HTML, po kontrole robots.txt, bez API, databázových zápisů a produkčního importu.
+- Po změně je nutné ručně spustit workflow „Teta public catalog sample“ na větvi `main` a vyhodnotit nový artefakt. Změna sama žádný sběr nespouští.
+
 ## 2026-10-19 — Zpřesnění rozpoznání podmíněných cen Teta
 
 - Reálný vzorek 100 produktů odhalil osm produktů, u kterých byla stejná cena chybně vypsána dvakrát: jednou jako běžná zobrazená cena a podruhé jako `conditional_promotion`, protože text akce „2+1 zdarma“ obsahoval pozdější frázi „při koupi“.

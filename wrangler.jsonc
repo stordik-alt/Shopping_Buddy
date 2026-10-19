@@ -6,6 +6,12 @@
   "main": "cloudflare/worker.ts",
   "compatibility_date": "2026-09-21",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "f707d733ceb84b1f8211e10baed777e5"
+    }
+  ],
   "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
   "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "moje-anitka" }],
   "r2_buckets": [{ "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "shopping-buddy-next-cache" }],
@@ -67,3 +73,4 @@
     }
   }
 }
+

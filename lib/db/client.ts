@@ -1,12 +1,14 @@
 import { neon } from '@neondatabase/serverless'
+import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { drizzle as drizzleNeon } from 'drizzle-orm/neon-http'
 import { drizzle as drizzlePg } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
+import { cache } from 'react'
 import * as schema from '@/lib/db/schema'
 import { poolMax, usesPgDriver } from '@/lib/db/local'
 
-// Neon (HTTP) in production; a loopback DATABASE_URL selects a local PostgreSQL over TCP. Both
-// drivers expose the same Drizzle query API, so nothing above this file cares which one it is.
+// Cloudflare Workers use Hyperdrive over `pg`; Node.js keeps Neon HTTP by default, while a loopback
+// DATABASE_URL selects local PostgreSQL over TCP. Both drivers expose the same Drizzle query API.
 type BatchQuery = { toSQL?: () => { sql: string; params: unknown[] }; getQuery?: () => { sql: string; params: unknown[] } }
 
 // db.batch() is a Neon-HTTP feature: several statements applied atomically in one round trip. On a
@@ -31,21 +33,95 @@ async function runBatch(pool: Pool, queries: BatchQuery[]) {
   }
 }
 
-function createDb() {
-  const url = process.env.DATABASE_URL!
-  if (usesPgDriver(url)) {
-    // One pool per process: Next.js dev hot reloads would otherwise leak a pool per reload.
-    const globalPool = globalThis as unknown as { __shoppingBuddyPool?: Pool }
-    const pool = (globalPool.__shoppingBuddyPool ??= new Pool({ connectionString: url, max: poolMax() }))
-    const db = drizzlePg(pool, { schema })
-    return Object.assign(db, { batch: (queries: BatchQuery[]) => runBatch(pool, queries) }) as unknown as ReturnType<typeof drizzleNeon<typeof schema>>
+type HyperdriveBinding = { connectionString?: unknown }
+
+function isCloudflareWorkerRuntime(): boolean {
+  // `navigator.userAgent` is set by workerd and is unavailable in Node.js test/build processes.
+  // WebSocketPair is a Workers-only global and covers runtimes where navigator is not exposed.
+  const workerGlobal = globalThis as typeof globalThis & {
+    WebSocketPair?: unknown
+    navigator?: { userAgent?: string }
   }
+  return workerGlobal.navigator?.userAgent === 'Cloudflare-Workers' || typeof workerGlobal.WebSocketPair !== 'undefined'
+}
+
+function isMissingCloudflareContextError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  // @opennextjs/cloudflare 1.20.6 uses these two explicit errors when no per-request
+  // context has been installed (ordinary Node.js, tests, or static generation).
+  return error.message.includes('`getCloudflareContext` has been called without having called') ||
+    error.message.includes('`getCloudflareContext` has been called in sync mode')
+}
+
+function isPostgresConnectionString(value: unknown): value is string {
+  if (typeof value !== 'string' || value.length === 0) return false
+  try {
+    const url = new URL(value)
+    return (url.protocol === 'postgres:' || url.protocol === 'postgresql:') && url.hostname.length > 0
+  } catch {
+    return false
+  }
+}
+
+function getHyperdriveConnectionString(): string | undefined {
+  let env: { HYPERDRIVE?: HyperdriveBinding }
+  try {
+    env = getCloudflareContext().env as unknown as { HYPERDRIVE?: HyperdriveBinding }
+  } catch (error) {
+    // Do not hide actual OpenNext/configuration failures. Node.js tests and builds do not have
+    // a Worker context, whereas a Worker without one is an application configuration error.
+    if (isMissingCloudflareContextError(error) && !isCloudflareWorkerRuntime()) return undefined
+    if (isMissingCloudflareContextError(error)) {
+      throw new Error('Cloudflare Worker database configuration is unavailable: OpenNext did not provide a request context.')
+    }
+    throw error
+  }
+
+  const connectionString = env.HYPERDRIVE?.connectionString
+  if (!isPostgresConnectionString(connectionString)) {
+    throw new Error('Cloudflare Worker requires a valid HYPERDRIVE binding with a PostgreSQL connection string.')
+  }
+  return connectionString
+}
+
+function createPgDb(url: string, hyperdrive: boolean) {
+  if (hyperdrive) {
+    // OpenNext's React cache is scoped to the current request. Hyperdrive owns the origin pool,
+    // so do not retain a node-postgres pool globally across Worker requests.
+    const pool = new Pool({ connectionString: url, max: poolMax(), maxUses: 1 })
+    const db = drizzlePg(pool, { schema })
+    return Object.assign(db, {
+      batch: (queries: BatchQuery[]) => runBatch(pool, queries),
+    }) as unknown as ReturnType<typeof drizzleNeon<typeof schema>>
+  }
+
+  if (usesPgDriver(url)) {
+    // Preserve the existing process-wide pool for local PostgreSQL in Node.js.
+    const globalPool = globalThis as unknown as {
+      __shoppingBuddyPool?: Pool
+    }
+    const pool = (globalPool.__shoppingBuddyPool ??= new Pool({
+      connectionString: url,
+      max: poolMax(),
+    }))
+
+    const db = drizzlePg(pool, { schema })
+    return Object.assign(db, {
+      batch: (queries: BatchQuery[]) => runBatch(pool, queries),
+    }) as unknown as ReturnType<typeof drizzleNeon<typeof schema>>
+  }
+
   return drizzleNeon(neon(url), { schema })
 }
 
-let _db: ReturnType<typeof createDb> | null = null
+const getRequestHyperdriveDb = cache((connectionString: string) => createPgDb(connectionString, true))
+
+let _db: ReturnType<typeof createPgDb> | null = null
 
 export function getDb() {
-  if (!_db) _db = createDb()
+  const hyperdriveUrl = getHyperdriveConnectionString()
+  if (hyperdriveUrl) return getRequestHyperdriveDb(hyperdriveUrl)
+  if (!_db) _db = createPgDb(process.env.DATABASE_URL!, false)
   return _db
 }
+

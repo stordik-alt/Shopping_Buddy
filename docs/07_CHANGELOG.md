@@ -2894,3 +2894,13 @@ Every future architectural/schema/business-rule change should append a dated ent
 - The workflow collects one catalog page and up to 20 product details, keeps the collector's minimum 1.2-second delay, and uploads `data/external/teta-public-catalog-sample.json` as a 14-day artifact.
 - The collector only writes a research JSON file in the runner; it does not connect to or modify the production database.
 - The workflow is manual-only (`workflow_dispatch`) and is proposed on a feature branch pending review/merge.
+
+
+## 2026-10-19 — Teta sample quality and remote collection expansion
+
+- **Expanded sample workflow:** manual GitHub Actions run now requests up to 100 product details across three public catalog pages, retaining the 1.2-second minimum delay between requests.
+- **Price roles:** sample schema v2 preserves numeric price compatibility and adds evidence-backed `priceCandidates` with roles `displayed_price`, `conditional_promotion` or `unclassified`; conditional offers retain the visible purchase condition. Prices are not automatically promoted to production price records.
+- **EAN discovery:** added extraction from explicit public HTML meta attributes (`itemprop`/`property`/`name` identifying EAN/GTIN) in addition to visible text and Product JSON-LD.
+- **Quality reporting:** fields that are not exposed are recorded in `missingFields` rather than inflating parser-warning totals. Run summary now reports EAN gaps and unclassified price candidates separately.
+- **Tests:** added regression coverage for a multi-buy price condition and EAN metadata extraction.
+- **Safety:** public HTML only; no database credentials, database writes, or production deployment. Changes are on a feature branch and await CI/review.

@@ -176,29 +176,47 @@ export function parseTetaPublicProductPage(html: string, url: string): TetaPubli
     .map((match, index) => {
       const amount = Number(match[1].replace(/\s/g, '').replace(',', '.'))
       const start = match.index ?? 0
-      const after = text.slice(start + match[0].length, start + match[0].length + 180)
-      const before = text.slice(Math.max(0, start - 50), start)
-      const conditionMatch = /^\s*(?:\*\s*){0,2}(?:za\s+[^*]{0,120}?při koupi[^*]{0,80}|(?:při koupi|s klubovou kartou|s kartou|v akci|po slevě)[^*]{0,100})/i.exec(after)
-      const isConditional = Boolean(conditionMatch)
-      const conditionText = conditionMatch?.[0].replace(/\s+/g, ' ').trim()
-        .replace(/\s+(?:-?\d{1,3}%|Do košíku|\d+[,.]\d{2}\s*Kč).*/i, '')
+      const after = text.slice(start + match[0].length, start + match[0].length + 220)
+      const before = text.slice(Math.max(0, start - 70), start)
+      const localEvidence = `${before} ${match[0]} ${after}`.replace(/\\s+/g, ' ').trim()
+      const explicitCondition = /^\\s*(?:\\*\\s*){0,2}(?:za\\s+[^*]{0,120}?při koupi[^*]{0,80}|(?:při koupi|s klubovou kartou|s kartou|v akci|po slevě)[^*]{0,100})/i.exec(after)
+      const discountEvidence = /(?:-\\s*\\d{1,3}\\s*%|\\b(?:sleva|akce|ušetříte)\\b)/i.test(after)
+      const isConditional = Boolean(explicitCondition)
+      const conditionText = explicitCondition?.[0].replace(/\\s+/g, ' ').trim()
+        .replace(/\\s+(?:-?\\s*\\d{1,3}\\s*%|Do košíku|\\d+[,.]\\d{2}\\s*Kč).*/i, '')
         .slice(0, 160)
-      const evidenceText = text.slice(Math.max(0, start - 30), Math.min(text.length, start + match[0].length + 90)).replace(/\s+/g, ' ').trim()
+      const evidenceText = text.slice(Math.max(0, start - 30), Math.min(text.length, start + match[0].length + 90)).replace(/\\s+/g, ' ').trim()
       return {
         amount,
         role: isConditional ? 'conditional_promotion' as const : index === 0 && priceMatches.length === 1 ? 'displayed_price' as const : 'unclassified' as const,
         ...(conditionText ? { conditionText } : {}),
-        evidenceText,
-        before,
+        evidenceText: discountEvidence ? `${evidenceText} [discount context]` : evidenceText,
+        start,
       }
     })
     .filter((candidate) => Number.isFinite(candidate.amount) && candidate.amount > 0)
-    .map(({ before: _before, ...candidate }) => candidate)
   const hasConditionalPrice = priceCandidates.some((candidate) => candidate.role === 'conditional_promotion')
-  const normalizedPriceCandidates = priceCandidates.map((candidate, index) =>
-    index === 0 && candidate.role === 'unclassified' && hasConditionalPrice
-      ? { ...candidate, role: 'displayed_price' as const }
-      : candidate)
+  const hasDiscountMarker = priceCandidates.some((candidate) => /discount context/.test(candidate.evidenceText))
+  const normalizedPriceCandidates = priceCandidates.map((candidate, index, all) => {
+    if (candidate.role !== 'unclassified') return candidate
+    // A common public product-card pattern is old price, reduced price, then "-NN %".
+    // Classify only when one nearby discount marker and exactly two price candidates make
+    // the lower value unambiguous; otherwise retain the conservative unclassified role.
+    if (all.length === 2 && hasDiscountMarker) {
+      const lower = all.reduce((best, current) => current.amount < best.amount ? current : best)
+      if (candidate.amount === lower.amount) {
+        return {
+          ...candidate,
+          role: 'conditional_promotion' as const,
+          conditionText: 'Displayed discount indicated by percentage marker',
+        }
+      }
+      if (hasConditionalPrice) return { ...candidate, role: 'displayed_price' as const }
+      return { ...candidate, role: 'displayed_price' as const }
+    }
+    if (index === 0 && hasConditionalPrice) return { ...candidate, role: 'displayed_price' as const }
+    return candidate
+  }).map(({ start: _start, ...candidate }) => candidate)
   const uniquePriceCandidates = normalizedPriceCandidates.filter((candidate, index, all) =>
     all.findIndex((other) => other.amount === candidate.amount && other.role === candidate.role && other.conditionText === candidate.conditionText) === index)
   const uniquePrices = [...new Set(uniquePriceCandidates.map((candidate) => candidate.amount))]

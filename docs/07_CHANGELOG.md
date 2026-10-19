@@ -1,3 +1,9 @@
+## 2026-10-19 — Opravy CI pro Teta public HTML collector
+
+- Opraven parser cen: odstraněna nefunkční `\\b` hranice za `Kč` (písmeno `č` není v JavaScriptu součástí `\\w`), takže se nyní mohou zachytit ceny balení a jednotkové ceny zůstanou vyloučené.
+- Collector `scripts/teta-fetch-public-catalog.ts` přesunut do `async main()` s obsluhou chyb; odstraněny nepodporované top-level `await` v konfiguraci TypeScriptu používané buildem Next.js/OpenNext.
+- Opravy reagují na CI run 39292136397: dva selhávající testy cen a selhání typechecku při Cloudflare/Playwright produkčním buildu. Po změnách je nutné potvrdit nové CI.
+
 ## 2026-10-19 — Teta public HTML collector (pilot, no persistence)
 
 - Added `lib/ingestion/teta-public-html.ts` to parse product links from public Teta catalog HTML and conservatively extract product-detail text/JSON-LD fields.

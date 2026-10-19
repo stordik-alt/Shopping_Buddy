@@ -152,24 +152,48 @@ export function parseTetaPublicProductPage(html: string, url: string): TetaPubli
       : undefined
   const name = titleMatch ? htmlToTetaText(titleMatch[1]) : typeof jsonProduct?.name === 'string' ? jsonProduct.name : undefined
   const codeMatch = /\bKód:\s*([\w-]+)/i.exec(text)
-  const jsonEan = [jsonProduct?.gtin13, jsonProduct?.gtin14, jsonProduct?.gtin12, jsonProduct?.gtin8, jsonProduct?.gtin]
-    .find((value) => typeof value === 'string' && /^(?:\d{8}|\d{12,14})$/.test(value))
-  const attributeEan = [...html.matchAll(/<meta\b[^>]*>/gi)]
-    .map((match) => {
+  const normalizeEan = (value: unknown): string | undefined => {
+    if (typeof value !== 'string' && typeof value !== 'number') return undefined
+    const normalized = String(value).replace(/[\s-]/g, '')
+    return /^(?:\d{8}|\d{12,14})$/.test(normalized) ? normalized : undefined
+  }
+  const jsonEan = jsonLdProducts
+    .flatMap((product) => [
+      product.gtin13, product.gtin14, product.gtin12, product.gtin8, product.gtin,
+      ...(Array.isArray(product.additionalProperty)
+        ? product.additionalProperty.flatMap((property) => {
+            if (!property || typeof property !== 'object') return []
+            const entry = property as Record<string, unknown>
+            return /(?:ean|gtin)/i.test(String(entry.name ?? entry.propertyID ?? '')) ? [entry.value] : []
+          })
+        : []),
+    ])
+    .map(normalizeEan)
+    .find((value): value is string => Boolean(value))
+  const attributeEan = [...html.matchAll(/<[a-z][^>]*>/gi)]
+    .map((tagMatch) => {
       const attributes = new Map<string, string>()
-      for (const attribute of match[0].matchAll(/([\w:-]+)\s*=\s*["']([^"']*)["']/g)) {
+      for (const attribute of tagMatch[0].matchAll(/([\\w:-]+)\\s*=\\s*["']([^"']*)["']/g)) {
         attributes.set(attribute[1].toLowerCase(), decodeTetaHtml(attribute[2]).trim())
       }
-      const identity = [attributes.get('itemprop'), attributes.get('property'), attributes.get('name'), attributes.get('data-field')]
+      // Prefer explicit EAN/GTIN attributes, then schema.org-style property/name + content.
+      for (const [key, value] of attributes) {
+        if (/(?:^|[-_:])(?:ean|gtin)(?:\\d{1,2})?$/i.test(key) || /^(?:data-)?(?:ean|gtin)(?:\\d{1,2})?$/i.test(key)) {
+          const normalized = normalizeEan(value)
+          if (normalized) return normalized
+        }
+      }
+      const identity = [attributes.get('itemprop'), attributes.get('property'), attributes.get('name'), attributes.get('data-field'), attributes.get('id')]
         .filter(Boolean).join(' ').toLowerCase()
-      const value = attributes.get('content') ?? attributes.get('value')
-      return /(?:^|[\s:_-])(?:ean|gtin(?:8|12|13|14)?)(?:$|[\s:_-])/.test(identity)
-        && value && /^(?:\d{8}|\d{12,14})$/.test(value) ? value : undefined
+      const value = attributes.get('content') ?? attributes.get('value') ?? attributes.get('data-value')
+      return /(?:^|[\\s:_-])(?:ean|gtin(?:8|12|13|14)?)(?:$|[\\s:_-])/.test(identity)
+        ? normalizeEan(value)
+        : undefined
     })
     .find((value): value is string => Boolean(value))
-  const eanMatch = /\b(?:EAN|GTIN)\s*:?\s*(\d{8}|\d{12,14})\b/i.exec(text)
+  const eanMatch = /\\b(?:EAN|GTIN)\\s*:?\\s*(\\d{8}|\\d{12,14})\\b/i.exec(text)
   const sourceCode = codeMatch?.[1] ?? (typeof jsonProduct?.sku === 'string' ? jsonProduct.sku : undefined)
-  const ean = eanMatch?.[1] ?? (typeof jsonEan === 'string' ? jsonEan : attributeEan)
+  const ean = eanMatch?.[1] ?? jsonEan ?? attributeEan
   const unitMatch = /([\d\s.,]+\s*Kč\s*\/\s*(?:KG|KGM|LIT|L|ML|G|KS|M))\b/i.exec(text)
   // Ignore unit-price values (for example, Kč/KS) and parse only package-price candidates.
   const priceMatches = [...text.matchAll(/(\d[\d\s]*[,.]\d{2})\s*Kč(?!\s*\/)/gi)]
@@ -181,8 +205,10 @@ export function parseTetaPublicProductPage(html: string, url: string): TetaPubli
       const before = text.slice(Math.max(0, start - 150), start)
       const after = text.slice(end, Math.min(text.length, end + 180))
       const context = (before + ' ' + after).replace(/\s+/g, ' ').trim()
-      const conditionMatch = /(?:\*\s*)?(?:za\s+1\s+ks\s+)?při\s+koupi\b[^.!?]{0,140}|(?:jen\s+)?při\s+nákupu\b[^.!?]{0,140}/i.exec(context)
-      const loyaltyMatch = /(?:s\s+(?:klubovou|věrnostní)\s+kartou|s\s+kartou|pro\s+členy|cena\s+pro\s+členy|s\s+aplikací)/i.exec(context)
+      const conditionAfter = /^\s*\*?\s*(?:za\s+1\s+ks\s+)?při\s+koupi\b[^.!?]{0,140}/i.exec(after)
+      const conditionBefore = /(?:při\s+koupi\b[^.!?]{0,100})\s*$/i.exec(before)
+      const conditionMatch = conditionAfter ?? conditionBefore
+      const loyaltyMatch = /(?:s\s+(?:klubovou|věrnostní)\s+kartou|s\s+kartou|pro\s+členy|cena\s+pro\s+členy|s\s+aplikací)/i.exec(before.slice(-100) + ' ' + after.slice(0, 100))
       const evidenceText = text.slice(Math.max(0, start - 55), Math.min(text.length, end + 100)).replace(/\s+/g, ' ').trim()
       return {
         amount,

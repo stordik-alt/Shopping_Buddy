@@ -53,6 +53,26 @@ describe('Teta public HTML parser', () => {
     expect(product.prices).toEqual([])
     expect(product.extractionWarnings).toContain('source product code not found')
     expect(product.extractionWarnings).toContain('no displayed price found')
-    expect(product.extractionWarnings).toContain('EAN not exposed in visible product text')
+    expect(product.extractionWarnings).toContain('EAN not exposed in visible text or JSON-LD')
+  })
+})
+
+
+describe('Teta public JSON-LD fallback', () => {
+  it('reads stable product identity fields from a public Product JSON-LD block', () => {
+    const html = `
+      <script type="application/ld+json">
+        {"@context":"https://schema.org","@type":"Product","name":"Testovací produkt","sku":"SKU-42","gtin13":"8591234567890","brand":{"@type":"Brand","name":"TestBrand"},"category":"Domácnost > Úklid"}
+      </script>
+      <div>19,90 Kč</div>
+    `
+    expect(parseTetaPublicProductPage(html, 'https://www.tetadrogerie.cz/eshop/katalog/test')).toMatchObject({
+      name: 'Testovací produkt',
+      sourceCode: 'SKU-42',
+      ean: '8591234567890',
+      brand: 'TestBrand',
+      categoryPath: ['Domácnost', 'Úklid'],
+      prices: [19.9],
+    })
   })
 })

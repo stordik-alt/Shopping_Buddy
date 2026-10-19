@@ -64,6 +64,29 @@ describe('Teta public HTML parser', () => {
     expect(product.extractionWarnings).not.toContain('one or more price candidates need role verification')
   })
 
+  it('classifies discount prices when Teta repeats the price block in public HTML', () => {
+    const html = `
+      <h1>Tip Line kosmetické kapesníky 2vrstvé 100 ks</h1>
+      <section><div>17,90 Kč</div><div>9,90 Kč</div><div>-44 %</div></section>
+      <div>0,10 Kč / KS</div><div>Dostupné online</div><div>Kód: 196442</div>
+      <section><div>17,90 Kč</div><div>9,90 Kč</div><div>-44 %</div></section>
+    `
+    const product = parseTetaPublicProductPage(html, 'https://www.tetadrogerie.cz/eshop/katalog/repeated-discount')
+    expect(product.priceCandidates).toMatchObject([
+      { amount: 17.9, role: 'regular_price' },
+      { amount: 9.9, role: 'displayed_price' },
+    ])
+    expect(product.extractionWarnings).not.toContain('one or more price candidates need role verification')
+  })
+
+  it('treats a repeated single package price as displayed price', () => {
+    const product = parseTetaPublicProductPage(
+      '<h1>Testovací produkt</h1><section>269,90 Kč</section><p>Kód: 278336</p><section>269,90 Kč</section>',
+      'https://www.tetadrogerie.cz/eshop/katalog/repeated-single-price',
+    )
+    expect(product.priceCandidates).toMatchObject([{ amount: 269.9, role: 'displayed_price' }])
+  })
+
   it('does not treat a percentage discount as a conditional purchase', () => {
     const product = parseTetaPublicProductPage(
       '<h1>Testovací produkt</h1><div>17,90 Kč</div><div>9,90 Kč</div><div>-44 %</div>',
@@ -137,6 +160,7 @@ describe('Teta public HTML parser', () => {
     expect(product.extractionWarnings).toContain('source product code not found')
     expect(product.extractionWarnings).toContain('no displayed price found')
     expect(product.missingFields).toContain('ean')
+    expect(product.extractionWarnings).toContain('EAN/GTIN not found in supported public HTML or JSON-LD fields')
   })
 })
 

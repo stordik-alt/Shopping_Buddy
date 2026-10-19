@@ -179,7 +179,7 @@ export function parseTetaPublicProductPage(html: string, url: string): TetaPubli
       const after = text.slice(start + match[0].length, start + match[0].length + 220)
 
       const explicitCondition = /^\s*(?:\*\s*){0,2}(?:za\s+[^*]{0,120}?při koupi[^*]{0,80}|(?:při koupi|s klubovou kartou|s kartou|v akci|po slevě)[^*]{0,100})/i.exec(after)
-      const discountEvidence = /(?:-\\s*\\d{1,3}\\s*%|\\b(?:sleva|akce|ušetříte)\\b)/i.test(after)
+      const discountEvidence = /(?:-\s*\d{1,3}\s*%|\b(?:sleva|akce|ušetříte)\b)/i.test(after)
       const isConditional = Boolean(explicitCondition)
       const conditionText = explicitCondition?.[0].replace(/\s+/g, ' ').trim()
         .replace(/\s+(?:-?\s*\d{1,3}\s*%|Do košíku|\d+[,.]\d{2}\s*Kč).*/i, '')

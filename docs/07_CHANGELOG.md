@@ -1,3 +1,9 @@
+## 2026-10-19 — Oprava přiřazení podmíněné ceny Teta
+
+- CI odhalilo, že text „při koupi“ u druhé ceny mohl být chybně přiřazen i první ceně, protože hledání překračovalo další cenovou položku.
+- Parser nyní podmínku za cenou přiřadí pouze tehdy, pokud před ní není další kandidát ceny balení. Regresní test očekává běžnou zobrazenou cenu 29,90 Kč a podmíněnou cenu 14,95 Kč.
+- Změna se týká pouze veřejného HTML parseru; bez produkčních databázových zápisů a bez sloučení PR.
+
 ## 2026-10-19 — Oprava CI parseru cen Teta a klasifikace slev
 
 - CI odhalilo, že při úpravě cenového parseru byly regulární výrazy omylem escapovány navíc; opraveny jsou whitespace, procentní marker i text podmíněné akce.

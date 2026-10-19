@@ -91,7 +91,7 @@ export function parseTetaPublicProductPage(html: string, url: string): TetaPubli
   const sourceCode = codeMatch?.[1] ?? (typeof jsonProduct?.sku === 'string' ? jsonProduct.sku : undefined)
   const ean = eanMatch?.[1] ?? (typeof jsonEan === 'string' ? jsonEan : undefined)
   const unitMatch = /([\d\s.,]+\s*Kč\s*\/\s*(?:KG|KGM|LIT|L|ML|G|KS|M))\b/i.exec(text)
-  const prices = [...text.matchAll(/(\d[\d\s]*[,.]\d{2})\s*Kč\b/gi)]
+  const prices = [...text.matchAll(/(\d[\d\s]*[,.]\d{2})\s*Kč\b(?!\s*\/)/gi)]
     .map((match) => Number(match[1].replace(/\s/g, '').replace(',', '.')))
     .filter((price) => Number.isFinite(price) && price > 0)
   const uniquePrices = [...new Set(prices)]

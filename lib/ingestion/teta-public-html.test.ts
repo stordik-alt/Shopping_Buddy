@@ -58,10 +58,54 @@ describe('Teta public HTML parser', () => {
     `
     const product = parseTetaPublicProductPage(html, 'https://www.tetadrogerie.cz/eshop/katalog/tip-line')
     expect(product.priceCandidates).toMatchObject([
-      { amount: 17.9, role: 'displayed_price' },
-      { amount: 9.9, role: 'conditional_promotion' },
+      { amount: 17.9, role: 'regular_price' },
+      { amount: 9.9, role: 'displayed_price' },
     ])
     expect(product.extractionWarnings).not.toContain('one or more price candidates need role verification')
+  })
+
+  it('does not treat a percentage discount as a conditional purchase', () => {
+    const product = parseTetaPublicProductPage(
+      '<h1>Testovací produkt</h1><div>17,90 Kč</div><div>9,90 Kč</div><div>-44 %</div>',
+      'https://www.tetadrogerie.cz/eshop/katalog/discount',
+    )
+    expect(product.priceCandidates).toMatchObject([
+      { amount: 17.9, role: 'regular_price' },
+      { amount: 9.9, role: 'displayed_price' },
+    ])
+    expect(product.priceCandidates.some((candidate) => candidate.role === 'conditional_promotion')).toBe(false)
+  })
+
+  it('keeps two unexplained prices unclassified and separates a loyalty price', () => {
+    const ambiguous = parseTetaPublicProductPage(
+      '<h1>Nejednoznačný produkt</h1><div>17,90 Kč</div><div>9,90 Kč</div>',
+      'https://www.tetadrogerie.cz/eshop/katalog/ambiguous',
+    )
+    expect(ambiguous.priceCandidates.map((candidate) => candidate.role)).toEqual(['unclassified', 'unclassified'])
+
+    const loyalty = parseTetaPublicProductPage(
+      '<h1>Testovací produkt</h1><div>Běžná cena 29,90 Kč</div><div>Cena s klubovou kartou 19,90 Kč</div>',
+      'https://www.tetadrogerie.cz/eshop/katalog/loyalty',
+    )
+    expect(loyalty.priceCandidates).toMatchObject([
+      { amount: 29.9, role: 'unclassified' },
+      { amount: 19.9, role: 'loyalty_price' },
+    ])
+  })
+
+  it('extracts EAN from explicit data attributes and JSON-LD graph product nodes', () => {
+    const dataAttributeProduct = parseTetaPublicProductPage(
+      '<h1>Produkt s EAN</h1><div data-gtin13="8591234567890"></div><div>19,90 Kč</div>',
+      'https://www.tetadrogerie.cz/eshop/katalog/data-gtin',
+    )
+    expect(dataAttributeProduct.ean).toBe('8591234567890')
+
+    const graphProduct = parseTetaPublicProductPage(
+      '<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"https://schema.org/Product","name":"Produkt v grafu","gtin13":8591234567890}]}</script><div>19,90 Kč</div>',
+      'https://www.tetadrogerie.cz/eshop/katalog/jsonld-graph',
+    )
+    expect(graphProduct.name).toBe('Produkt v grafu')
+    expect(graphProduct.ean).toBe('8591234567890')
   })
 
   it('classifies an explicitly conditional multi-buy price and reads EAN from meta attributes', () => {

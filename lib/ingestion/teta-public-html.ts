@@ -6,7 +6,7 @@ const PRODUCT_PATH = /href=["']([^"']*\/eshop\/katalog\/[^"'?#]+)(?:\?[^"']*)?["
 export type TetaPublicCatalogLink = { url: string; slug: string }
 export type TetaPriceCandidate = {
   amount: number
-  role: 'displayed_price' | 'conditional_promotion' | 'unclassified'
+  role: 'displayed_price' | 'regular_price' | 'conditional_promotion' | 'loyalty_price' | 'unclassified'
   conditionText?: string
   evidenceText: string
 }
@@ -135,7 +135,7 @@ export function parseTetaPublicProductPage(html: string, url: string): TetaPubli
         if (!value || typeof value !== 'object') return
         const item = value as Record<string, unknown>
         const types = Array.isArray(item['@type']) ? item['@type'] : [item['@type']]
-        if (types.includes('Product')) jsonLdProducts.push(item)
+        if (types.some((type) => typeof type === 'string' && type.split(/[\/#]/).pop() === 'Product')) jsonLdProducts.push(item)
         if (Array.isArray(item['@graph'])) visit(item['@graph'])
       }
       visit(parsed)
@@ -152,70 +152,107 @@ export function parseTetaPublicProductPage(html: string, url: string): TetaPubli
       : undefined
   const name = titleMatch ? htmlToTetaText(titleMatch[1]) : typeof jsonProduct?.name === 'string' ? jsonProduct.name : undefined
   const codeMatch = /\bKód:\s*([\w-]+)/i.exec(text)
-  const jsonEan = [jsonProduct?.gtin13, jsonProduct?.gtin14, jsonProduct?.gtin12, jsonProduct?.gtin8, jsonProduct?.gtin]
-    .find((value) => typeof value === 'string' && /^(?:\d{8}|\d{12,14})$/.test(value))
-  const attributeEan = [...html.matchAll(/<meta\b[^>]*>/gi)]
-    .map((match) => {
+  const normalizeEan = (value: unknown): string | undefined => {
+    if (typeof value !== 'string' && typeof value !== 'number') return undefined
+    const normalized = String(value).replace(/[\s-]/g, '')
+    return /^(?:\d{8}|\d{12,14})$/.test(normalized) ? normalized : undefined
+  }
+  const jsonEan = jsonLdProducts
+    .flatMap((product) => [
+      product.gtin13, product.gtin14, product.gtin12, product.gtin8, product.gtin,
+      ...(Array.isArray(product.additionalProperty)
+        ? product.additionalProperty.flatMap((property) => {
+            if (!property || typeof property !== 'object') return []
+            const entry = property as Record<string, unknown>
+            return /(?:ean|gtin)/i.test(String(entry.name ?? entry.propertyID ?? '')) ? [entry.value] : []
+          })
+        : []),
+    ])
+    .map(normalizeEan)
+    .find((value): value is string => Boolean(value))
+  const attributeEan = [...html.matchAll(/<[a-z][^>]*>/gi)]
+    .map((tagMatch) => {
       const attributes = new Map<string, string>()
-      for (const attribute of match[0].matchAll(/([\w:-]+)\s*=\s*["']([^"']*)["']/g)) {
+      for (const attribute of tagMatch[0].matchAll(/([\w:-]+)\s*=\s*["']([^"']*)["']/g)) {
         attributes.set(attribute[1].toLowerCase(), decodeTetaHtml(attribute[2]).trim())
       }
-      const identity = [attributes.get('itemprop'), attributes.get('property'), attributes.get('name'), attributes.get('data-field')]
+      // Prefer explicit EAN/GTIN attributes, then schema.org-style property/name + content.
+      for (const [key, value] of attributes) {
+        if (/(?:^|[-_:])(?:ean|gtin)(?:\d{1,2})?$/i.test(key) || /^(?:data-)?(?:ean|gtin)(?:\d{1,2})?$/i.test(key)) {
+          const normalized = normalizeEan(value)
+          if (normalized) return normalized
+        }
+      }
+      const identity = [attributes.get('itemprop'), attributes.get('property'), attributes.get('name'), attributes.get('data-field'), attributes.get('id')]
         .filter(Boolean).join(' ').toLowerCase()
-      const value = attributes.get('content') ?? attributes.get('value')
+      const value = attributes.get('content') ?? attributes.get('value') ?? attributes.get('data-value')
       return /(?:^|[\s:_-])(?:ean|gtin(?:8|12|13|14)?)(?:$|[\s:_-])/.test(identity)
-        && value && /^(?:\d{8}|\d{12,14})$/.test(value) ? value : undefined
+        ? normalizeEan(value)
+        : undefined
     })
     .find((value): value is string => Boolean(value))
   const eanMatch = /\b(?:EAN|GTIN)\s*:?\s*(\d{8}|\d{12,14})\b/i.exec(text)
   const sourceCode = codeMatch?.[1] ?? (typeof jsonProduct?.sku === 'string' ? jsonProduct.sku : undefined)
-  const ean = eanMatch?.[1] ?? (typeof jsonEan === 'string' ? jsonEan : attributeEan)
+  const ean = eanMatch?.[1] ?? jsonEan ?? attributeEan
   const unitMatch = /([\d\s.,]+\s*Kč\s*\/\s*(?:KG|KGM|LIT|L|ML|G|KS|M))\b/i.exec(text)
+  // Ignore unit-price values (for example, Kč/KS) and parse only package-price candidates.
   const priceMatches = [...text.matchAll(/(\d[\d\s]*[,.]\d{2})\s*Kč(?!\s*\/)/gi)]
-  const priceCandidates: TetaPriceCandidate[] = priceMatches
-    .map((match, index) => {
+  const rawPriceCandidates = priceMatches
+    .map((match) => {
       const amount = Number(match[1].replace(/\s/g, '').replace(',', '.'))
       const start = match.index ?? 0
-      const after = text.slice(start + match[0].length, start + match[0].length + 220)
-
-      const explicitCondition = /^\s*(?:\*\s*){0,2}(?:za\s+[^*]{0,120}?při koupi[^*]{0,80}|(?:při koupi|s klubovou kartou|s kartou|v akci|po slevě)[^*]{0,100})/i.exec(after)
-      const discountEvidence = /(?:-\s*\d{1,3}\s*%|\b(?:sleva|akce|ušetříte)\b)/i.test(after)
-      const isConditional = Boolean(explicitCondition)
-      const conditionText = explicitCondition?.[0].replace(/\s+/g, ' ').trim()
-        .replace(/\s+(?:-?\s*\d{1,3}\s*%|Do košíku|\d+[,.]\d{2}\s*Kč).*/i, '')
-        .slice(0, 160)
-      const evidenceText = text.slice(Math.max(0, start - 30), Math.min(text.length, start + match[0].length + 90)).replace(/\s+/g, ' ').trim()
+      const end = start + match[0].length
+      const before = text.slice(Math.max(0, start - 150), start)
+      const after = text.slice(end, Math.min(text.length, end + 180))
+      const conditionAfter = /^\s*\*?\s*(?:za\s+1\s+ks\s+)?při\s+koupi\b[^.!?]{0,140}/i.exec(after)
+      const conditionBefore = /(?:při\s+koupi\b[^.!?]{0,100})\s*$/i.exec(before)
+      const conditionMatch = conditionAfter ?? conditionBefore
+      const loyaltyBefore = /(?:s\s+(?:klubovou|věrnostní)\s+kartou|s\s+kartou|pro\s+členy|cena\s+pro\s+členy|s\s+aplikací)\s*[:\-]?\s*$/i.exec(before)
+      const loyaltyAfter = /^\s*(?:s\s+(?:klubovou|věrnostní)\s+kartou|s\s+kartou|pro\s+členy|cena\s+pro\s+členy|s\s+aplikací)\b/i.exec(after)
+      const loyaltyMatch = loyaltyBefore ?? loyaltyAfter
+      const evidenceText = text.slice(Math.max(0, start - 55), Math.min(text.length, end + 100)).replace(/\s+/g, ' ').trim()
       return {
         amount,
-        role: isConditional ? 'conditional_promotion' as const : index === 0 && priceMatches.length === 1 ? 'displayed_price' as const : 'unclassified' as const,
-        ...(conditionText ? { conditionText } : {}),
-        evidenceText: discountEvidence ? `${evidenceText} [discount context]` : evidenceText,
-
+        start,
+        end,
+        role: conditionMatch
+          ? 'conditional_promotion' as const
+          : loyaltyMatch
+            ? 'loyalty_price' as const
+            : 'unclassified' as const,
+        ...(conditionMatch ? { conditionText: conditionMatch[0].replace(/\s+/g, ' ').trim().slice(0, 160) } : {}),
+        evidenceText,
       }
     })
     .filter((candidate) => Number.isFinite(candidate.amount) && candidate.amount > 0)
-  const hasConditionalPrice = priceCandidates.some((candidate) => candidate.role === 'conditional_promotion')
-  const hasDiscountMarker = priceCandidates.some((candidate) => /discount context/.test(candidate.evidenceText))
-  const normalizedPriceCandidates = priceCandidates.map((candidate, index, all) => {
+
+  // A percentage marker can prove a regular/discount pair, but it does not make the
+  // discounted price conditional. A conditional price requires an explicit purchase rule.
+  const discountMarkers = [...text.matchAll(/(?:-\s*\d{1,3}\s*%|\b(?:sleva|zlevněno|ušetříte)\b)/gi)]
+    .map((match) => match.index ?? 0)
+  const normalizedPriceCandidates = rawPriceCandidates.map((candidate, _index, all) => {
     if (candidate.role !== 'unclassified') return candidate
-    // A common public product-card pattern is old price, reduced price, then "-NN %".
-    // Classify only when one nearby discount marker and exactly two price candidates make
-    // the lower value unambiguous; otherwise retain the conservative unclassified role.
-    if (all.length === 2 && hasDiscountMarker) {
-      const lower = all.reduce((best, current) => current.amount < best.amount ? current : best)
-      if (candidate.amount === lower.amount) {
-        return {
-          ...candidate,
-          role: 'conditional_promotion' as const,
-          conditionText: 'Displayed discount indicated by percentage marker',
-        }
+    const hasNearbyDiscountMarker = discountMarkers.some((position) =>
+      position >= candidate.start - 100 && position <= candidate.end + 180)
+    if (all.length === 2 && hasNearbyDiscountMarker) {
+      const [first, second] = all
+      if (first.amount !== second.amount) {
+        const higher = first.amount > second.amount ? first : second
+        const lower = first.amount < second.amount ? first : second
+        if (candidate.amount === higher.amount) return { ...candidate, role: 'regular_price' as const }
+        if (candidate.amount === lower.amount) return { ...candidate, role: 'displayed_price' as const }
       }
-      if (hasConditionalPrice) return { ...candidate, role: 'displayed_price' as const }
+    }
+    // An unconditional package price can be identified only when the other candidate
+    // is explicitly conditional/loyalty-based and this candidate has no such marker.
+    if (all.length === 2 && all.some((other) => other.role === 'conditional_promotion' || other.role === 'loyalty_price')) {
       return { ...candidate, role: 'displayed_price' as const }
     }
-    if (index === 0 && hasConditionalPrice) return { ...candidate, role: 'displayed_price' as const }
+    // A lone package price is the displayed price unless evidence says otherwise.
+    if (all.length === 1) return { ...candidate, role: 'displayed_price' as const }
     return candidate
   })
+  const priceCandidates: TetaPriceCandidate[] = normalizedPriceCandidates.map(({ start: _start, end: _end, ...candidate }) => candidate)
   const uniquePriceCandidates = normalizedPriceCandidates.filter((candidate, index, all) =>
     all.findIndex((other) => other.amount === candidate.amount && other.role === candidate.role && other.conditionText === candidate.conditionText) === index)
   const uniquePrices = [...new Set(uniquePriceCandidates.map((candidate) => candidate.amount))]

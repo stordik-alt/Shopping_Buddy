@@ -50,7 +50,7 @@ Přidáno:
 - `lib/ingestion/teta-public-html.ts`: parser veřejných katalogových odkazů a detailních HTML stránek, konzervativní extrakce názvu, interního kódu, případného EAN/GTIN, značky/kategorie z JSON-LD, kandidátů cen, jednotkové ceny a online dostupnosti.
 - `scripts/teta-fetch-public-catalog.ts` a příkaz `pnpm teta:fetch-public`: načte veřejné HTML stránky katalogu, deduplikuje odkazy na `/eshop/katalog/`, následně čte omezený vzorek detailů a uloží výzkumný JSON do `data/external/teta-public-catalog-sample.json`.
 - `lib/ingestion/teta-public-html.test.ts`: testy parseru odkazů, dekódování HTML, detailních polí a fallbacku JSON-LD.
-- Collector povoluje pouze HTTPS host `www.tetadrogerie.cz`, explicitně blokuje `/api/`, `/price` a `/inventory`, používá identifikující User-Agent a sériové požadavky s prodlevou nejméně 1 s. Výchozí běh je 1 katalogová stránka a 20 detailů; jeden běh je omezen nejvýše na 10 katalogových stránek a 100 detailů.
+- Collector povoluje pouze HTTPS host `www.tetadrogerie.cz`, před načtením každé stránky načte a vyhodnotí aktuální `robots.txt` (při chybě ověření se zastaví), navíc explicitně blokuje `/api/`, `/price` a `/inventory`, používá identifikující User-Agent a sériové požadavky s prodlevou nejméně 1 s. Mapování kategorií v `teta.ts` bylo rozšířeno o aktuální názvy viditelné na katalogu (např. Pleť, Vlasy, Tělo, Potraviny, Mazlíčci). Výchozí běh je 1 katalogová stránka a 20 detailů; jeden běh je omezen nejvýše na 10 katalogových stránek a 100 detailů.
 
 Příklad:
 ```bash

@@ -39,15 +39,29 @@ export type TetaRawProduct = {
 }
 
 const TOP_LEVEL_CATEGORY: Record<string, ItemCategory> = {
+  // Current public catalog top-level labels observed on Teta's /eshop/produkty/vse page.
+  pleť: 'Drogerie',
+  vlasy: 'Drogerie',
+  tělo: 'Drogerie',
+  hygiena: 'Drogerie',
+  'krása a parfémy': 'Drogerie',
+  muži: 'Drogerie',
+  'péče o zdraví': 'Drogerie',
+  domácnost: 'Domácnost',
+  děti: 'Děti',
+  potraviny: 'Potraviny',
+  mazlíčci: 'Ostatní',
+  papírnictví: 'Ostatní',
+  sezona: 'Ostatní',
+  textil: 'Ostatní',
+  // Legacy/leaf labels retained for snapshots that already use the earlier contract.
   'péče o tělo': 'Drogerie',
   'vlasová kosmetika': 'Drogerie',
   kosmetika: 'Drogerie',
   'dentální hygiena': 'Drogerie',
   'čištění a praní': 'Domácnost',
   'úklid a praní': 'Domácnost',
-  domácnost: 'Domácnost',
   'péče o dítě': 'Děti',
-  děti: 'Děti',
 }
 
 /** A real calendar date in YYYY-MM-DD form (rejects e.g. 2026-13-45). */

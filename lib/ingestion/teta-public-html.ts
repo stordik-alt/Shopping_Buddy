@@ -53,8 +53,8 @@ export function htmlToTetaText(html: string): string {
   // This remains a conservative text extractor, not a general-purpose HTML parser.
   return decodeTetaHtml(
     html
-      .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, ' ')
-      .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi, ' ')
+      .replace(/<script\b[^>]*>[\s\S]*?<\\/script\\b[^>]*>/gi, ' ')
+      .replace(/<style\b[^>]*>[\s\S]*?<\\/style\\b[^>]*>/gi, ' ')
       .replace(/<!--[\s\S]*?-->/g, ' ')
       .replace(/<[^>]+>/g, ' '),
   ).replace(/[\t\r\n ]+/g, ' ').trim()

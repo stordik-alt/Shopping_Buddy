@@ -21,14 +21,15 @@ function stringArg(name: string, fallback: string): string {
   return process.argv.find((arg) => arg.startsWith(`--${name}=`))?.slice(name.length + 3) ?? fallback
 }
 
-const pages = positiveIntegerArg('pages', 1)
-const maxProducts = positiveIntegerArg('products', 20)
-const delayMs = positiveIntegerArg('delay-ms', 1200)
+const pages = Math.min(positiveIntegerArg('pages', 1), 10)
+const maxProducts = Math.min(positiveIntegerArg('products', 20), 100)
+const delayMs = Math.max(1000, positiveIntegerArg('delay-ms', 1200))
 const outputPath = resolve(stringArg('out', 'data/external/teta-public-catalog-sample.json'))
 const startedAt = new Date().toISOString()
 const links = new Map<string, { url: string; slug: string }>()
 
 for (let page = 1; page <= pages; page++) {
+  if (page > 1) await new Promise((resolveDelay) => setTimeout(resolveDelay, delayMs))
   const url = page === 1 ? TETA_PUBLIC_CATALOG_URL : `${TETA_PUBLIC_CATALOG_URL}?strana=${page}`
   console.log(`[Teta] catalog page ${page}/${pages}: ${url}`)
   const html = await fetchTetaPublicHtml(url)

@@ -61,12 +61,12 @@ export function mapTetaCategory(raw: TetaRawProduct): ItemCategory | null {
   return TOP_LEVEL_CATEGORY[(raw.categoryPath?.[0] ?? '').trim().toLowerCase()] ?? null
 }
 
-/** Validates + normalizes one record, or `null` when unusable (CLAUDE.md section 33): missing id or
- *  name, non-positive price, non-CZK currency, unknown category, or a unit price contradicting
- *  price ÷ package size. Unknown unit => one package = "1 ks" at the package price (the DM/Lidl
- *  convention). A promotion (`originalPrice` > `price`) is stored as a deal only when it states a
- *  valid end date; otherwise it is flagged `promotionWithoutValidity` — a window is never invented.
- *  Club prices are ignored here. */
+/** Validates + normalizes one record, or null when unusable: missing identity, non-positive price,
+ *  non-CZK currency, unknown category, malformed/unsupported stated unit price, or a unit price
+ *  contradicting package size. A missing unit price may use the existing package-price fallback;
+ *  an explicitly stated but unsupported unit is rejected rather than guessed as 1 ks. A promotion
+ *  is stored as a deal only when it states a valid end date; otherwise it is flagged without
+ *  inventing a validity window. Club prices are not persisted as regular prices. */
 export function normalizeTetaProduct(raw: TetaRawProduct, today: string): NormalizedProduct | null {
   if (raw == null || typeof raw !== 'object') return null
   const id = (raw.id ?? '').trim()
@@ -93,6 +93,9 @@ export function normalizeTetaProduct(raw: TetaRawProduct, today: string): Normal
       }
       unit = converted.unit
       currentUnitPrice = converted.unitPrice
+    } else {
+      // A source-declared unit we cannot normalize is not equivalent to one piece/package.
+      return null
     }
   }
 

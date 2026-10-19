@@ -59,9 +59,37 @@ export function parseTetaPublicProductPage(html: string, url: string): TetaPubli
   const text = htmlToTetaText(html)
   const warnings: string[] = []
   const titleMatch = /<h1\b[^>]*>([\s\S]*?)<\/h1>/i.exec(html)
-  const name = titleMatch ? htmlToTetaText(titleMatch[1]) : undefined
+  const jsonLdProducts: Record<string, unknown>[] = []
+  for (const script of html.matchAll(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+    try {
+      const parsed: unknown = JSON.parse(script[1].trim())
+      const visit = (value: unknown): void => {
+        if (Array.isArray(value)) return value.forEach(visit)
+        if (!value || typeof value !== 'object') return
+        const item = value as Record<string, unknown>
+        const types = Array.isArray(item['@type']) ? item['@type'] : [item['@type']]
+        if (types.includes('Product')) jsonLdProducts.push(item)
+        if (Array.isArray(item['@graph'])) visit(item['@graph'])
+      }
+      visit(parsed)
+    } catch {
+      warnings.push('malformed JSON-LD block ignored')
+    }
+  }
+  const jsonProduct = jsonLdProducts[0]
+  const jsonBrand = jsonProduct?.brand
+  const brand = typeof jsonBrand === 'string'
+    ? jsonBrand
+    : jsonBrand && typeof jsonBrand === 'object' && typeof (jsonBrand as Record<string, unknown>).name === 'string'
+      ? (jsonBrand as Record<string, unknown>).name as string
+      : undefined
+  const name = titleMatch ? htmlToTetaText(titleMatch[1]) : typeof jsonProduct?.name === 'string' ? jsonProduct.name : undefined
   const codeMatch = /\bKód:\s*([\w-]+)/i.exec(text)
+  const jsonEan = [jsonProduct?.gtin13, jsonProduct?.gtin14, jsonProduct?.gtin12, jsonProduct?.gtin8, jsonProduct?.gtin]
+    .find((value) => typeof value === 'string' && /^(?:\d{8}|\d{12,14})$/.test(value))
   const eanMatch = /\b(?:EAN|GTIN)\s*:?\s*(\d{8}|\d{12,14})\b/i.exec(text)
+  const sourceCode = codeMatch?.[1] ?? (typeof jsonProduct?.sku === 'string' ? jsonProduct.sku : undefined)
+  const ean = eanMatch?.[1] ?? (typeof jsonEan === 'string' ? jsonEan : undefined)
   const unitMatch = /([\d\s.,]+\s*Kč\s*\/\s*(?:KG|KGM|LIT|L|ML|G|KS|M))\b/i.exec(text)
   const prices = [...text.matchAll(/(\d[\d\s]*[,.]\d{2})\s*Kč\b/gi)]
     .map((match) => Number(match[1].replace(/\s/g, '').replace(',', '.')))
@@ -75,13 +103,15 @@ export function parseTetaPublicProductPage(html: string, url: string): TetaPubli
   const breadcrumbRegion = /<nav\b[^>]*aria-label=["']breadcrumb["'][^>]*>([\s\S]*?)<\/nav>/i.exec(html)
   const categoryPath = breadcrumbRegion
     ? [...breadcrumbRegion[1].matchAll(/<a\b[^>]*>([\s\S]*?)<\/a>/gi)].map((m) => htmlToTetaText(m[1])).filter(Boolean)
-    : []
+    : typeof jsonProduct?.category === 'string'
+      ? jsonProduct.category.split(/[>/]/).map((part) => part.trim()).filter(Boolean)
+      : []
 
-  if (!name) warnings.push('product name not found in h1')
-  if (!codeMatch) warnings.push('source product code not found')
+  if (!name) warnings.push('product name not found in h1 or JSON-LD')
+  if (!sourceCode) warnings.push('source product code not found')
   if (uniquePrices.length === 0) warnings.push('no displayed price found')
   if (uniquePrices.length > 1) warnings.push('multiple prices found; price roles need source-specific verification')
-  if (!eanMatch) warnings.push('EAN not exposed in visible product text')
+  if (!ean) warnings.push('EAN not exposed in visible text or JSON-LD')
   if (categoryPath.length === 0) warnings.push('breadcrumb category path not found')
 
   return {

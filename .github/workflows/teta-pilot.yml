@@ -1,0 +1,1 @@
+pnpm teta:fetch-public --pages=2 --products=40 --out=data/external/teta-pilot.json

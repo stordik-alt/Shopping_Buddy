@@ -131,6 +131,17 @@ describe('Teta public HTML parser', () => {
     expect(graphProduct.ean).toBe('8591234567890')
   })
 
+  it('does not turn a same-price 2+1 promotion into a separate conditional price', () => {
+    const product = parseTetaPublicProductPage(
+      '<h1>Tip Line kosmetické tampony 100 ks</h1><div>24,90 Kč</div><div>24,90 Kč</div><p>*2+1 zdarma na pleťovou kosmetiku, při koupi 3 ks pleťové kosmetiky v libovolné kombinaci nejlevnější</p>',
+      'https://www.tetadrogerie.cz/eshop/katalog/two-plus-one',
+    )
+    expect(product.priceCandidates).toMatchObject([
+      { amount: 24.9, role: 'displayed_price' },
+    ])
+    expect(product.priceCandidates.some((candidate) => candidate.role === 'conditional_promotion')).toBe(false)
+  })
+
   it('classifies an explicitly conditional multi-buy price and reads EAN from meta attributes', () => {
     const html = `
       <meta content="8591234567890" itemprop="gtin13">

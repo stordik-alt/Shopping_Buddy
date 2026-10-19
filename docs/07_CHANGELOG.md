@@ -1,3 +1,8 @@
+## 2026-10-19 — Další oprava CodeQL filtrování Teta HTML
+
+- Filtry `script` a `style` nyní rozpoznávají uzavírací tagy s libovolným obsahem před `>` po názvu tagu, včetně neobvyklých tabulátorů, nových řádků a textu upozorněného CodeQL.
+- Přidán regresní test pro uzavírací tag `</script\t\n bar>`. Změna se týká pouze parseru a testů; PR #523 není sloučen a databáze nebyla změněna.
+
 ## 2026-10-19 — Oprava CodeQL filtrace HTML tagů v Teta parseru
 
 - Regulární výrazy pro odstranění obsahu `script` a `style` nyní přijímají mezery před `>` v uzavíracích tazích (např. `</script >`), což opravuje upozornění CodeQL na neúplné filtrování HTML.

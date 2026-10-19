@@ -1,3 +1,9 @@
+## 2026-10-19 — Oprava regexu cen Teta: oddělení ceny od interního kódu
+
+- CI odhalilo, že parser ceny dovoloval libovolné číslice a mezery před desetinnou částí, takže mohl spojit interní kód produktu (např. `Kód: 196442`) s následující cenou a vytvořit falešnou částku.
+- Regex nyní přijímá cenu s nejvýše třemi úvodními číslicemi a případnými trojčíselnými skupinami oddělenými mezerou. Interní kódy už nejsou součástí cenové shody; testy ověří klasifikaci na opakovaných blocích.
+- Oprava je pouze v parseru veřejného HTML. Bez produkčních databázových zápisů, importu a nasazení.
+
 ## 2026-10-19 — Oprava klasifikace opakovaných cen Teta a audit EAN
 
 - Reálný vzorek z veřejného HTML obsahoval opakované cenové bloky stejného produktu. Parser klasifikoval podle počtu surových shod, takže duplicity bránily rozpoznání dvojice běžná/zlevněná cena.

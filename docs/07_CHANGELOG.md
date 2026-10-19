@@ -1,3 +1,9 @@
+## 2026-10-19 — Oprava přiřazení podmíněné ceny Teta
+
+- CI odhalilo, že text „při koupi“ u druhé ceny mohl být chybně přiřazen i první ceně, protože hledání překračovalo další cenovou položku.
+- Parser nyní podmínku za cenou přiřadí pouze tehdy, pokud před ní není další kandidát ceny balení. Regresní test očekává běžnou zobrazenou cenu 29,90 Kč a podmíněnou cenu 14,95 Kč.
+- Změna se týká pouze veřejného HTML parseru; bez produkčních databázových zápisů a bez sloučení PR.
+
 ## 2026-10-19 — Oprava CI parseru cen Teta a klasifikace slev
 
 - CI odhalilo, že při úpravě cenového parseru byly regulární výrazy omylem escapovány navíc; opraveny jsou whitespace, procentní marker i text podmíněné akce.
@@ -2916,3 +2922,19 @@ Every future architectural/schema/business-rule change should append a dated ent
 - **Quality reporting:** fields that are not exposed are recorded in `missingFields` rather than inflating parser-warning totals. Run summary now reports EAN gaps and unclassified price candidates separately.
 - **Tests:** added regression coverage for a multi-buy price condition and EAN metadata extraction.
 - **Safety:** public HTML only; no database credentials, database writes, or production deployment. Changes are on a feature branch and await CI/review.
+
+
+## 2026-10-19 — Teta cenová klasifikace a doplnění EAN
+
+- **Ceny:** procentní sleva u dvojice cen nyní označí vyšší částku jako `regular_price` a nižší jako `displayed_price`; samotná sleva se již chybně neoznačuje jako podmíněný nákup.
+- **Podmínky:** `conditional_promotion` vyžaduje výslovný text podmínky bezprostředně u dané ceny; klubová/věrnostní cena se označuje odděleně jako `loyalty_price`. Dvojice bez důkazu zůstává `unclassified`.
+- **EAN:** rozšířeno čtení GTIN/EAN z atributů HTML, numerických hodnot i `additionalProperty` v JSON-LD; rozpoznávají se také plné URL typu schema.org/Product a uzly `@graph`.
+- **Testy:** přidány regresní případy pro běžnou slevu bez podmínky, nejednoznačné ceny, klubovou cenu, atribut `data-gtin13` a JSON-LD graf.
+- **Bezpečnost:** zůstává pouze veřejné HTML, bez zápisu do produkční databáze. Změna čeká na CI a nové vyhodnocení vzorku.
+
+
+## 2026-10-19 — Oprava CI: text multi-buy podmínky Teta
+
+- CI našlo regresi v podmínce multi-buy: text „* za 1 ks při koupi…“ nemusí začínat bezprostředně za cenou po normalizaci HTML.
+- Detekce nyní hledá explicitní frázi „při koupi“ v blízkém textu za cenou, stále s omezeným rozsahem a bez odhadování z pouhé procentní slevy.
+- Oprava míří na jediný neúspěšný test parseru; Worker build, databázové testy a bezpečnostní audit v tomto běhu prošly. CI se musí znovu vyhodnotit.

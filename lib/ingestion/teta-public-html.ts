@@ -39,7 +39,7 @@ export function htmlToTetaText(html: string): string {
   ).replace(/[\t\r\n ]+/g, ' ').trim()
 }
 
-/** Matches robots.txt Disallow path prefixes. This collector has no wildcard-path rules to interpret because it only targets fixed public HTML routes. */
+/** Matches robots.txt Disallow path prefixes. */
 export function isTetaPathDisallowed(pathname: string, disallowRules: string[]): boolean {
   return disallowRules.some((rule) => rule !== '' && pathname.startsWith(rule))
 }
@@ -50,13 +50,15 @@ async function getTetaRobotsDisallowRules(): Promise<string[]> {
   const response = await fetchWithTimeout('https://www.tetadrogerie.cz/robots.txt', {
     headers: { Accept: 'text/plain', 'User-Agent': 'ANITKA-public-catalog-research/1.0 (+https://mojeanitka.cz)' },
   })
-  if (!response.ok) throw new Error(\`Cannot verify Teta robots.txt: HTTP \${response.status}; collector stops\`)
+  if (!response.ok) throw new Error('Cannot verify Teta robots.txt; collector stops')
   const text = await response.text()
   const rules: string[] = []
-  for (const block of text.split(/\\n\\s*\\n/)) {
-    const lines = block.split(/\\r?\\n/).map((line) => line.trim())
-    const agents = lines.filter((line) => /^User-agent:/i.test(line)).map((line) => line.split(':').slice(1).join(':').trim())
-    if (!agents.some((agent) => agent === '*')) continue
+  for (const group of text.split(/\n\s*\n/)) {
+    const lines = group.split(/\r?\n/).map((line) => line.trim())
+    const agents = lines
+      .filter((line) => /^User-agent:/i.test(line))
+      .map((line) => line.split(':').slice(1).join(':').trim())
+    if (!agents.includes('*')) continue
     for (const line of lines) {
       if (!/^Disallow:/i.test(line)) continue
       const rule = line.split(':').slice(1).join(':').trim()
@@ -70,7 +72,7 @@ async function assertTetaPathAllowed(pathname: string): Promise<void> {
   tetaRobotsRulesPromise ??= getTetaRobotsDisallowRules()
   const rules = await tetaRobotsRulesPromise
   if (isTetaPathDisallowed(pathname, rules)) {
-    throw new Error(\`Teta robots.txt disallows \${pathname}; collector stopped\`)
+    throw new Error('Teta robots.txt disallows this path; collector stopped')
   }
 }
 

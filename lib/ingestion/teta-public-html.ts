@@ -196,7 +196,7 @@ export function parseTetaPublicProductPage(html: string, url: string): TetaPubli
   const ean = eanMatch?.[1] ?? jsonEan ?? attributeEan
   const unitMatch = /([\d\s.,]+\s*Kč\s*\/\s*(?:KG|KGM|LIT|L|ML|G|KS|M))\b/i.exec(text)
   // Ignore unit-price values (for example, Kč/KS) and parse only package-price candidates.
-  const priceMatches = [...text.matchAll(/(\d{1,3}(?:\s\d{3})*[,.]\d{2})\s*Kč(?!\s*\/)/gi)]
+  const priceMatches = [...text.matchAll(/(?<!\d)(\d{1,3}(?:\s\d{3})*[,.]\d{2})\s*Kč(?!\s*\/)/gi)]
   const rawPriceCandidates = priceMatches
     .map((match) => {
       const amount = Number(match[1].replace(/\s/g, '').replace(',', '.'))

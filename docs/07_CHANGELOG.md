@@ -2916,3 +2916,12 @@ Every future architectural/schema/business-rule change should append a dated ent
 - **Quality reporting:** fields that are not exposed are recorded in `missingFields` rather than inflating parser-warning totals. Run summary now reports EAN gaps and unclassified price candidates separately.
 - **Tests:** added regression coverage for a multi-buy price condition and EAN metadata extraction.
 - **Safety:** public HTML only; no database credentials, database writes, or production deployment. Changes are on a feature branch and await CI/review.
+
+
+## 2026-10-19 — Teta cenová klasifikace a doplnění EAN
+
+- **Ceny:** procentní sleva u dvojice cen nyní označí vyšší částku jako `regular_price` a nižší jako `displayed_price`; samotná sleva se již chybně neoznačuje jako podmíněný nákup.
+- **Podmínky:** `conditional_promotion` vyžaduje výslovný text podmínky bezprostředně u dané ceny; klubová/věrnostní cena se označuje odděleně jako `loyalty_price`. Dvojice bez důkazu zůstává `unclassified`.
+- **EAN:** rozšířeno čtení GTIN/EAN z atributů HTML, numerických hodnot i `additionalProperty` v JSON-LD; rozpoznávají se také plné URL typu schema.org/Product a uzly `@graph`.
+- **Testy:** přidány regresní případy pro běžnou slevu bez podmínky, nejednoznačné ceny, klubovou cenu, atribut `data-gtin13` a JSON-LD graf.
+- **Bezpečnost:** zůstává pouze veřejné HTML, bez zápisu do produkční databáze. Změna čeká na CI a nové vyhodnocení vzorku.

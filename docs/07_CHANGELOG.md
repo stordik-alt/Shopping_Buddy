@@ -1,3 +1,9 @@
+## 2026-10-19 — Oprava bezpečnosti HTML entity decoderu pro Teta
+
+- Nahrazeno řetězení náhrad jedním průchodem nad HTML entitami; `&amp;lt;` se nyní změní pouze na `&lt;` a nedochází k opakovanému dekódování.
+- Odstraněno redundantní druhé dekódování `&amp;` při zpracování odkazů katalogu; přidány regresní testy pro dvojitě zakódované entity a nedělitelné mezery.
+- Změna se týká pouze parseru a testů; žádné databázové zápisy ani merge do `main`.
+ 
 ## 2026-10-19 — Opravy CI pro Teta public HTML collector
 
 - Opraven parser cen: odstraněna nefunkční `\\b` hranice za `Kč` (písmeno `č` není v JavaScriptu součástí `\\w`), takže se nyní mohou zachytit ceny balení a jednotkové ceny zůstanou vyloučené.

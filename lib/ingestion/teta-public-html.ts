@@ -173,12 +173,12 @@ export function parseTetaPublicProductPage(html: string, url: string): TetaPubli
   const attributeEan = [...html.matchAll(/<[a-z][^>]*>/gi)]
     .map((tagMatch) => {
       const attributes = new Map<string, string>()
-      for (const attribute of tagMatch[0].matchAll(/([\\w:-]+)\\s*=\\s*["']([^"']*)["']/g)) {
+      for (const attribute of tagMatch[0].matchAll(/([\w:-]+)\s*=\s*["']([^"']*)["']/g)) {
         attributes.set(attribute[1].toLowerCase(), decodeTetaHtml(attribute[2]).trim())
       }
       // Prefer explicit EAN/GTIN attributes, then schema.org-style property/name + content.
       for (const [key, value] of attributes) {
-        if (/(?:^|[-_:])(?:ean|gtin)(?:\\d{1,2})?$/i.test(key) || /^(?:data-)?(?:ean|gtin)(?:\\d{1,2})?$/i.test(key)) {
+        if (/(?:^|[-_:])(?:ean|gtin)(?:\d{1,2})?$/i.test(key) || /^(?:data-)?(?:ean|gtin)(?:\d{1,2})?$/i.test(key)) {
           const normalized = normalizeEan(value)
           if (normalized) return normalized
         }
@@ -186,12 +186,12 @@ export function parseTetaPublicProductPage(html: string, url: string): TetaPubli
       const identity = [attributes.get('itemprop'), attributes.get('property'), attributes.get('name'), attributes.get('data-field'), attributes.get('id')]
         .filter(Boolean).join(' ').toLowerCase()
       const value = attributes.get('content') ?? attributes.get('value') ?? attributes.get('data-value')
-      return /(?:^|[\\s:_-])(?:ean|gtin(?:8|12|13|14)?)(?:$|[\\s:_-])/.test(identity)
+      return /(?:^|[\s:_-])(?:ean|gtin(?:8|12|13|14)?)(?:$|[\s:_-])/.test(identity)
         ? normalizeEan(value)
         : undefined
     })
     .find((value): value is string => Boolean(value))
-  const eanMatch = /\\b(?:EAN|GTIN)\\s*:?\\s*(\\d{8}|\\d{12,14})\\b/i.exec(text)
+  const eanMatch = /\b(?:EAN|GTIN)\s*:?\s*(\d{8}|\d{12,14})\b/i.exec(text)
   const sourceCode = codeMatch?.[1] ?? (typeof jsonProduct?.sku === 'string' ? jsonProduct.sku : undefined)
   const ean = eanMatch?.[1] ?? jsonEan ?? attributeEan
   const unitMatch = /([\d\s.,]+\s*Kč\s*\/\s*(?:KG|KGM|LIT|L|ML|G|KS|M))\b/i.exec(text)
@@ -231,7 +231,7 @@ export function parseTetaPublicProductPage(html: string, url: string): TetaPubli
   // discounted price conditional. A conditional price requires an explicit purchase rule.
   const discountMarkers = [...text.matchAll(/(?:-\s*\d{1,3}\s*%|\b(?:sleva|zlevněno|ušetříte)\b)/gi)]
     .map((match) => match.index ?? 0)
-  const normalizedPriceCandidates = rawPriceCandidates.map((candidate, index, all) => {
+  const normalizedPriceCandidates = rawPriceCandidates.map((candidate, _index, all) => {
     if (candidate.role !== 'unclassified') return candidate
     const hasNearbyDiscountMarker = discountMarkers.some((position) =>
       position >= candidate.start - 100 && position <= candidate.end + 180)

@@ -1,3 +1,8 @@
+## 2026-10-19 — Teta drogerie: audit of available product data
+
+- Added `docs/42_TETA_DATA_SOURCE_AUDIT.md` to separate the 2026-09-23 historical feasibility notes from current verification, including the endpoint inventory, field-coverage table, assortment sampling result, store-price distinction, and conditional importer design.
+- The live re-check could not resolve the retailer domain; the required 20-product sample was not completed. No importer, migration, production database write, or scheduled job was added.
+
 ## 2026-10-17 — Konfigurace interních instalačních balíčků Expo
 
 - Přidán EAS profil `internal`: sestaví Android APK a iOS Ad Hoc IPA s veřejnou adresou API `https://mojeanitka.cz`.

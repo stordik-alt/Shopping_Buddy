@@ -135,7 +135,7 @@ export function parseTetaPublicProductPage(html: string, url: string): TetaPubli
         if (!value || typeof value !== 'object') return
         const item = value as Record<string, unknown>
         const types = Array.isArray(item['@type']) ? item['@type'] : [item['@type']]
-        if (types.includes('Product')) jsonLdProducts.push(item)
+        if (types.some((type) => typeof type === 'string' && type.split(/[\/#]/).pop() === 'Product')) jsonLdProducts.push(item)
         if (Array.isArray(item['@graph'])) visit(item['@graph'])
       }
       visit(parsed)

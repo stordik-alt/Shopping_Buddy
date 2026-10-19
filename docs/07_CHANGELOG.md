@@ -1,3 +1,9 @@
+## 2026-10-19 — Oprava regresního testu cen Teta: hranice před částkou
+
+- První oprava omezila délku číselné části, ale test odhalil, že regex stále mohl začít u posledních číslic interního kódu (`278336 269,90 Kč`) a vytvořit falešnou cenu `336 269,90 Kč`.
+- Přidána negativní kontrola před začátkem ceny, která zakazuje začátek shody uvnitř delšího číselného kódu. Skutečná cena následující po kódu zůstává rozpoznatelná.
+- Ověření CI se opakuje; bez produkčních zápisů a nasazení.
+
 ## 2026-10-19 — Oprava regexu cen Teta: oddělení ceny od interního kódu
 
 - CI odhalilo, že parser ceny dovoloval libovolné číslice a mezery před desetinnou částí, takže mohl spojit interní kód produktu (např. `Kód: 196442`) s následující cenou a vytvořit falešnou částku.

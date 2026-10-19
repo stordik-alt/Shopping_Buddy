@@ -204,7 +204,7 @@ export function parseTetaPublicProductPage(html: string, url: string): TetaPubli
       const end = start + match[0].length
       const before = text.slice(Math.max(0, start - 150), start)
       const after = text.slice(end, Math.min(text.length, end + 180))
-      const conditionAfter = /^\s*\*?\s*(?:za\s+1\s+ks\s+)?při\s+koupi\b[^.!?]{0,140}/i.exec(after)
+      const conditionAfter = /\*?\s*(?:za\s+1\s+ks\s+)?při\s+koupi\b[^.!?]{0,140}/i.exec(after)
       const conditionBefore = /(?:při\s+koupi\b[^.!?]{0,100})\s*$/i.exec(before)
       const conditionMatch = conditionAfter ?? conditionBefore
       const loyaltyBefore = /(?:s\s+(?:klubovou|věrnostní)\s+kartou|s\s+kartou|pro\s+členy|cena\s+pro\s+členy|s\s+aplikací)\s*[:\-]?\s*$/i.exec(before)

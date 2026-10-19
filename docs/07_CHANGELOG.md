@@ -1,3 +1,9 @@
+## 2026-10-19 — Audit zdroje Teta drogerie (návrh importeru)
+
+- Nový `docs/42_TETA_DATA_SOURCE_AUDIT.md`: audit architektury, co je doloženo a co ne.
+- Přidáno `lib/ingestion/teta.ts` (normalizace, validace, dry-run), syntetická fixture, testy `teta.test.ts` a `pnpm teta:dry-run`. Žádný fetcher, migrace, konektor ani cron; stávající importéry beze změny.
+- Neověřeno: skutečné odpovědi tetadrogerie.cz (DNS nedostupné), EAN, ceny prodejen, podmínky přístupu.
+
 ## 2026-10-17 — Konfigurace interních instalačních balíčků Expo
 
 - Přidán EAS profil `internal`: sestaví Android APK a iOS Ad Hoc IPA s veřejnou adresou API `https://mojeanitka.cz`.

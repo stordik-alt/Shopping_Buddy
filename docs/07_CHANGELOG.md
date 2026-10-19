@@ -1,3 +1,8 @@
+## 2026-10-19 — Oprava CodeQL filtrace HTML tagů v Teta parseru
+
+- Regulární výrazy pro odstranění obsahu `script` a `style` nyní přijímají mezery před `>` v uzavíracích tazích (např. `</script >`), což opravuje upozornění CodeQL na neúplné filtrování HTML.
+- Rozšířen regresní test o varianty `</script >` a `</style >`. Bez změn databáze; PR zůstává nesloučený.
+
 ## 2026-10-19 — Oprava bezpečnosti HTML entity decoderu pro Teta
 
 - Nahrazeno řetězení náhrad jedním průchodem nad HTML entitami; `&amp;lt;` se nyní změní pouze na `&lt;` a nedochází k opakovanému dekódování.

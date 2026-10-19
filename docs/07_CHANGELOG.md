@@ -1,3 +1,12 @@
+## 2026-10-19 — Teta public HTML collector (pilot, no persistence)
+
+- Added `lib/ingestion/teta-public-html.ts` to parse product links from public Teta catalog HTML and conservatively extract product-detail text/JSON-LD fields.
+- Added `scripts/teta-fetch-public-catalog.ts` and `pnpm teta:fetch-public`; the default run samples one catalog page and 20 product details into a local JSON dataset.
+- Added parser tests for catalog link deduplication, HTML entity decoding, product details and JSON-LD identity fallback.
+- Safety: HTTPS only on `www.tetadrogerie.cz`; collector blocks `/api/`, `/price`, `/inventory`, identifies itself, fetches serially with at least a 1-second delay, and caps a run at 10 listing pages/100 details.
+- Prices remain unclassified candidates (regular vs promotion vs club/multi-buy). No production database writes, schema migration, connector registration, cron or live import.
+- CI/tests and a real local pilot have not been executed from this chat environment; inspect the generated sample before treating the parser as validated.
+
 ## 2026-10-19 — Teta catalog/detail snapshot model
 
 - Added `lib/ingestion/teta-source-model.ts` with separate internal contracts for catalog cards, product details, price offers and online/branch availability.

@@ -16,6 +16,12 @@ describe('normalizeTetaProduct', () => {
   it('falls back to 1 ks without unit price', () => {
     expect(normalizeTetaProduct(base, TODAY)).toMatchObject({ unit: 'ks', unitPrice: 60 })
   })
+  it('maps the current public catalog category labels', () => {
+    expect(mapTetaCategory({ ...base, categoryPath: ['Tělo'] })).toBe('Drogerie')
+    expect(mapTetaCategory({ ...base, categoryPath: ['Pleť'] })).toBe('Drogerie')
+    expect(mapTetaCategory({ ...base, categoryPath: ['Potraviny'] })).toBe('Potraviny')
+    expect(mapTetaCategory({ ...base, categoryPath: ['Mazlíčci'] })).toBe('Ostatní')
+  })
   it('rejects invalid records', () => {
     expect(normalizeTetaProduct({ ...base, id: ' ' }, TODAY)).toBeNull()
     expect(normalizeTetaProduct({ ...base, price: 0 }, TODAY)).toBeNull()

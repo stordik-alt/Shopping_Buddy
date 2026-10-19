@@ -5,6 +5,7 @@ import {
   parseTetaCatalogLinks,
   parseTetaPublicProductPage,
   TETA_PUBLIC_CATALOG_URL,
+  type TetaPublicPageProduct,
 } from '@/lib/ingestion/teta-public-html'
 
 function positiveIntegerArg(name: string, fallback: number): number {
@@ -40,7 +41,7 @@ for (let page = 1; page <= pages; page++) {
 }
 
 const selected = [...links.values()].slice(0, maxProducts)
-const products = []
+const products: TetaPublicPageProduct[] = []
 for (const [index, link] of selected.entries()) {
   if (index > 0) await new Promise((resolveDelay) => setTimeout(resolveDelay, delayMs))
   console.log(`[Teta] detail ${index + 1}/${selected.length}: ${link.url}`)

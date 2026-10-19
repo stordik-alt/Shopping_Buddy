@@ -41,3 +41,21 @@ Přidán `lib/ingestion/teta-source-model.ts` jako interní kontrakt ANITKY pro 
 Dále byla zpřísněna normalizace: explicitně uvedená jednotková cena s nepodporovanou jednotkou se odmítne místo tichého odhadu `1 ks`. Chybějící jednotková cena může dál použít dosavadní fallback podle pravidel importeru.
 
 **Omezení:** jde o interní kontrakty ANITKY, nikoli o potvrzené schéma HTML/API Tety. Neexistuje fetcher, nebyla provedena síťová validace, databázový zápis ani produkční import. Reálná struktura kategorií, pokrytí EAN, pravidla cen a dostupnost poboček zůstávají neověřené.
+
+
+## Veřejný HTML collector — první pilot (2026-10-19)
+
+Přidáno:
+
+- `lib/ingestion/teta-public-html.ts`: parser veřejných katalogových odkazů a detailních HTML stránek, konzervativní extrakce názvu, interního kódu, případného EAN/GTIN, značky/kategorie z JSON-LD, kandidátů cen, jednotkové ceny a online dostupnosti.
+- `scripts/teta-fetch-public-catalog.ts` a příkaz `pnpm teta:fetch-public`: načte veřejné HTML stránky katalogu, deduplikuje odkazy na `/eshop/katalog/`, následně čte omezený vzorek detailů a uloží výzkumný JSON do `data/external/teta-public-catalog-sample.json`.
+- `lib/ingestion/teta-public-html.test.ts`: testy parseru odkazů, dekódování HTML, detailních polí a fallbacku JSON-LD.
+- Collector povoluje pouze HTTPS host `www.tetadrogerie.cz`, explicitně blokuje `/api/`, `/price` a `/inventory`, používá identifikující User-Agent a sériové požadavky s prodlevou nejméně 1 s. Výchozí běh je 1 katalogová stránka a 20 detailů; jeden běh je omezen nejvýše na 10 katalogových stránek a 100 detailů.
+
+Příklad:
+```bash
+pnpm teta:fetch-public
+pnpm teta:fetch-public --pages=2 --products=40 --out=data/external/teta-pilot.json
+```
+
+Výstup je **výzkumný dataset**, ne importní feed. Ceny jsou záměrně vedeny jako kandidáti bez automatického rozlišení běžné/akční/klubové ceny; pokud stránka uvádí více cen, parser přidá varování. Sběr nevolá interní API, nezapisuje do databáze, neregistruje konektor a nezavádí cron. První pilot musí být spuštěn lokálně, zkontrolován na skutečných HTML odpovědích a teprve potom lze zpřesnit parser nebo připravit import.

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { dryRunTeta, mapTetaCategory, normalizeTetaProduct, parseTetaFixture, type TetaRawProduct } from '@/lib/ingestion/teta'
+import { toTetaRawProduct, validateTetaSnapshotIdentity, type TetaProductSnapshot } from '@/lib/ingestion/teta-source-model'
 
 const TODAY = '2026-10-19'
 const base: TetaRawProduct = { id: 'X1', name: 'Gel', price: 60, currency: 'CZK', categoryPath: ['Péče o tělo'] }
@@ -39,9 +40,10 @@ describe('normalizeTetaProduct', () => {
     expect(normalizeTetaProduct(null as unknown as TetaRawProduct, TODAY)).toBeNull()
     expect(normalizeTetaProduct({ ...base, originalPrice: 90, promotionValidUntil: '2026-13-45' }, TODAY)?.deal).toBeUndefined()
   })
-  it('converts kg and l unit prices and an unknown unit to 1 ks', () => {
+  it('normalizes known mass units and rejects an explicitly stated unsupported unit', () => {
     expect(normalizeTetaProduct({ ...base, price: 30, package: { amount: '500', unit: 'g' }, unitPrice: { price: 6, per: 100, unit: 'g' } }, TODAY)).toMatchObject({ unit: 'kg', unitPrice: 60 })
-    expect(normalizeTetaProduct({ ...base, unitPrice: { price: 2, per: 1, unit: 'PD' } }, TODAY)).toMatchObject({ unit: 'ks', unitPrice: 60 })
+    expect(normalizeTetaProduct({ ...base, unitPrice: { price: 2, per: 1, unit: 'PD' } }, TODAY)).toBeNull()
+    expect(normalizeTetaProduct(base, TODAY)).toMatchObject({ unit: 'ks', unitPrice: 60 })
   })
   it('scales the unit price of a promotion with the price ratio', () => {
     const p = normalizeTetaProduct({ ...base, price: 50, originalPrice: 100, unitPrice: { price: 20, per: 100, unit: 'ml' }, package: { amount: '250', unit: 'ml' }, promotionValidUntil: '2026-12-01' }, TODAY)
@@ -72,5 +74,75 @@ describe('dryRunTeta with the fixture', () => {
   })
   it('rejects a malformed fixture', () => {
     expect(() => parseTetaFixture('{}')).toThrow()
+  })
+})
+
+
+describe('Teta source snapshot model', () => {
+  const snapshot: TetaProductSnapshot = {
+    catalog: {
+      sourceId: '292414',
+      productUrl: 'https://www.tetadrogerie.cz/eshop/katalog/sample',
+      name: 'Mléčná výživa',
+      brand: 'Happy Mimi',
+      categoryPath: ['Péče o dítě', 'Výživa'],
+      package: { amount: '400', unit: 'g' },
+      displayedPrice: { amount: 149.9, currency: 'CZK' },
+      regularPrice: { amount: 169.9, currency: 'CZK' },
+      unitPrice: { amount: 374.75, per: 1, unit: 'kg' },
+      onlineAvailability: 'unavailable',
+    },
+    detail: {
+      sourceId: '292414',
+      productUrl: 'https://www.tetadrogerie.cz/eshop/katalog/sample',
+      ean: '8590273645524',
+      attributes: { age: '0m+' },
+      discontinued: true,
+    },
+    offers: [
+      { kind: 'club', price: { amount: 139.9, currency: 'CZK' } },
+      { kind: 'multi_buy', price: { amount: 129.9, currency: 'CZK' }, minimumQuantity: 2, terms: 'při nákupu 2 ks' },
+      { kind: 'promotion', price: { amount: 149.9, currency: 'CZK' }, validUntil: '2026-12-31' },
+    ],
+    availability: [{ scope: 'online', status: 'unavailable', checkedAt: '2026-10-19T12:00:00Z' }],
+  }
+
+  it('merges catalog and detail without flattening club or multi-buy prices', () => {
+    expect(toTetaRawProduct(snapshot)).toMatchObject({
+      id: '292414',
+      name: 'Mléčná výživa',
+      brand: 'Happy Mimi',
+      price: 149.9,
+      originalPrice: 169.9,
+      currency: 'CZK',
+      ean: '8590273645524',
+      package: { amount: '400', unit: 'g' },
+      promotionValidUntil: '2026-12-31',
+      clubPrice: undefined,
+    })
+  })
+
+  it('flags cross-page identity mismatches and invalid EANs', () => {
+    expect(validateTetaSnapshotIdentity(snapshot)).toEqual([])
+    expect(validateTetaSnapshotIdentity({
+      ...snapshot,
+      detail: { ...snapshot.detail!, sourceId: 'different-id', ean: 'not-an-ean' },
+    })).toEqual(['catalog/detail source id mismatch', 'invalid EAN format'])
+  })
+
+  it('requires store id for branch availability and quantity for multi-buy offers', () => {
+    expect(validateTetaSnapshotIdentity({
+      ...snapshot,
+      availability: [{ scope: 'store', status: 'available', checkedAt: '2026-10-19T12:00:00Z' }],
+      offers: [{ kind: 'multi_buy', price: { amount: 10, currency: 'CZK' } }],
+    })).toEqual(['store availability missing store id', 'multi-buy offer requires minimum quantity of at least 2'])
+  })
+
+  it('does not treat a conditional promotion as a normal promotion', () => {
+    const conditional: TetaProductSnapshot = {
+      ...snapshot,
+      offers: [{ kind: 'promotion', price: { amount: 149.9, currency: 'CZK' }, validUntil: '2026-12-31', minimumQuantity: 2 }],
+    }
+    expect(toTetaRawProduct(conditional).promotionValidUntil).toBeUndefined()
   })
 })

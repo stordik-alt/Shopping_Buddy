@@ -1,3 +1,9 @@
+## 2026-10-19 — Oprava třídění zlevněných cen Teta podle procentní slevy
+
+- Reálný vzorek 100 veřejných produktových stránek obsahoval u všech produktů cenové kandidáty, ale žádnou klasifikovanou dvojici; typický text uvádí původní cenu, nižší cenu a marker „-NN %“.
+- Parser nyní v tomto konkrétním vzoru označí nižší cenu jako zlevněnou nabídku a vyšší jako zobrazenou cenu. Když je cena nejednoznačná nebo kandidátů není přesně dva, ponechá klasifikaci konzervativně nerozhodnutou.
+- Přidán regresní test pro vzor 17,90 Kč / 9,90 Kč / -44 %. EAN zůstává nevyplněný, pokud není skutečně nalezen ve veřejném HTML/JSON-LD. Bez produkčního importu a zápisů do databáze.
+
 ## 2026-10-19 — Další oprava CodeQL filtrování Teta HTML
 
 - Filtry `script` a `style` nyní rozpoznávají uzavírací tagy s libovolným obsahem před `>` po názvu tagu, včetně neobvyklých tabulátorů, nových řádků a textu upozorněného CodeQL.

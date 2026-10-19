@@ -50,6 +50,20 @@ describe('Teta public HTML parser', () => {
     })
   })
 
+  it('classifies a displayed discount pair using a nearby percentage marker', () => {
+    const html = `
+      <h1>Tip Line kosmetické kapesníky 2vrstvé 100 ks</h1>
+      <div>17,90 Kč</div><div>9,90 Kč</div><div>-44 %</div>
+      <div>0,10 Kč / KS</div><div>Dostupné online</div><div>Kód: 196442</div>
+    `
+    const product = parseTetaPublicProductPage(html, 'https://www.tetadrogerie.cz/eshop/katalog/tip-line')
+    expect(product.priceCandidates).toMatchObject([
+      { amount: 17.9, role: 'displayed_price' },
+      { amount: 9.9, role: 'conditional_promotion' },
+    ])
+    expect(product.extractionWarnings).not.toContain('one or more price candidates need role verification')
+  })
+
   it('classifies an explicitly conditional multi-buy price and reads EAN from meta attributes', () => {
     const html = `
       <meta content="8591234567890" itemprop="gtin13">

@@ -204,7 +204,13 @@ export function parseTetaPublicProductPage(html: string, url: string): TetaPubli
       const end = start + match[0].length
       const before = text.slice(Math.max(0, start - 150), start)
       const after = text.slice(end, Math.min(text.length, end + 180))
-      const conditionAfter = /\*?\s*(?:za\s+1\s+ks\s+)?při\s+koupi\b[^.!?]{0,140}/i.exec(after)
+      const conditionAfterMatch = /\*?\s*(?:za\s+1\s+ks\s+)?při\s+koupi\b[^.!?]{0,140}/i.exec(after)
+      // Do not attach a later product's condition to an earlier price. If another
+      // package-price candidate appears before the condition, it belongs to that later candidate.
+      const hasInterveningPrice = conditionAfterMatch
+        ? /\d[\d\s]*[,.]\d{2}\s*Kč(?!\s*\/)/i.test(after.slice(0, conditionAfterMatch.index))
+        : false
+      const conditionAfter = conditionAfterMatch && !hasInterveningPrice ? conditionAfterMatch : null
       const conditionBefore = /(?:při\s+koupi\b[^.!?]{0,100})\s*$/i.exec(before)
       const conditionMatch = conditionAfter ?? conditionBefore
       const loyaltyBefore = /(?:s\s+(?:klubovou|věrnostní)\s+kartou|s\s+kartou|pro\s+členy|cena\s+pro\s+členy|s\s+aplikací)\s*[:\-]?\s*$/i.exec(before)

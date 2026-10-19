@@ -194,7 +194,12 @@ export function parseTetaPublicProductPage(html: string, url: string): TetaPubli
     })
     .filter((candidate) => Number.isFinite(candidate.amount) && candidate.amount > 0)
     .map(({ before: _before, ...candidate }) => candidate)
-  const uniquePriceCandidates = priceCandidates.filter((candidate, index, all) =>
+  const hasConditionalPrice = priceCandidates.some((candidate) => candidate.role === 'conditional_promotion')
+  const normalizedPriceCandidates = priceCandidates.map((candidate, index) =>
+    index === 0 && candidate.role === 'unclassified' && hasConditionalPrice
+      ? { ...candidate, role: 'displayed_price' as const }
+      : candidate)
+  const uniquePriceCandidates = normalizedPriceCandidates.filter((candidate, index, all) =>
     all.findIndex((other) => other.amount === candidate.amount && other.role === candidate.role && other.conditionText === candidate.conditionText) === index)
   const uniquePrices = [...new Set(uniquePriceCandidates.map((candidate) => candidate.amount))]
   const onlineAvailability = /Nedostupné online/i.test(text)

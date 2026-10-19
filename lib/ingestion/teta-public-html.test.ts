@@ -88,7 +88,7 @@ describe('Teta public HTML parser', () => {
       'https://www.tetadrogerie.cz/eshop/katalog/loyalty',
     )
     expect(loyalty.priceCandidates).toMatchObject([
-      { amount: 29.9, role: 'unclassified' },
+      { amount: 29.9, role: 'displayed_price' },
       { amount: 19.9, role: 'loyalty_price' },
     ])
   })

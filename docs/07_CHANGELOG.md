@@ -2886,3 +2886,11 @@ Every future architectural/schema/business-rule change should append a dated ent
 - A direct read-only query found 4,798 Czech candidates passed the initial filter, but 1,662 of them matched likely activity labels such as retail/wholesale, distribution, construction, transport, accommodation, catering, banking, repair and production activity.
 - Extracted suitability rules into a unit-testable helper, added `possible_commercial_activity`, and excluded these labels from the suggested retail Product Type preview.
 - Added positive and negative regression tests. Candidate data and product assignments remain untouched; CI must pass before re-running the production dry-run.
+
+
+## 2026-10-19 — Remote Teta public sample workflow
+
+- Added manual GitHub Actions workflow `.github/workflows/teta-public-catalog-sample.yml` so the bounded Teta public-HTML collector can run without a local checkout or terminal.
+- The workflow collects one catalog page and up to 20 product details, keeps the collector's minimum 1.2-second delay, and uploads `data/external/teta-public-catalog-sample.json` as a 14-day artifact.
+- The collector only writes a research JSON file in the runner; it does not connect to or modify the production database.
+- The workflow is manual-only (`workflow_dispatch`) and is proposed on a feature branch pending review/merge.

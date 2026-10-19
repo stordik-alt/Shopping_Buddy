@@ -116,6 +116,19 @@ describe('Teta public HTML parser', () => {
     ])
   })
 
+  it('classifies Teta Klub pricing as a loyalty price, not a conditional purchase', () => {
+    const product = parseTetaPublicProductPage(
+      '<h1>Chilly Delicate intimní gel 200 ml</h1><div>79,90 Kč</div><div>Teta klub 69,90 Kč* *při splnění podmínek -10 Kč</div>',
+      'https://www.tetadrogerie.cz/eshop/katalog/chilly-delicate',
+    )
+    expect(product.priceCandidates).toMatchObject([
+      { amount: 79.9, role: 'displayed_price' },
+      { amount: 69.9, role: 'loyalty_price' },
+    ])
+    expect(product.priceCandidates.some((candidate) => candidate.role === 'conditional_promotion')).toBe(false)
+    expect(product.extractionWarnings).not.toContain('one or more price candidates need role verification')
+  })
+
   it('extracts EAN from explicit data attributes and JSON-LD graph product nodes', () => {
     const dataAttributeProduct = parseTetaPublicProductPage(
       '<h1>Produkt s EAN</h1><div data-gtin13="8591234567890"></div><div>19,90 Kč</div>',

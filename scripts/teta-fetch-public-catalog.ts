@@ -23,7 +23,7 @@ function stringArg(name: string, fallback: string): string {
 
 async function main(): Promise<void> {
   const pages = Math.min(positiveIntegerArg('pages', 1), 10)
-  const maxProducts = Math.min(positiveIntegerArg('products', 20), 100)
+  const maxProducts = Math.min(positiveIntegerArg('products', 20), 300)
   const delayMs = Math.max(1000, positiveIntegerArg('delay-ms', 1200))
   const outputPath = resolve(stringArg('out', 'data/external/teta-public-catalog-sample.json'))
   const startedAt = new Date().toISOString()

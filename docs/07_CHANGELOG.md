@@ -1,3 +1,12 @@
+## 2026-10-19 — Teta catalog/detail snapshot model
+
+- Added `lib/ingestion/teta-source-model.ts` with separate internal contracts for catalog cards, product details, price offers and online/branch availability.
+- Added identity/shape validation for catalog/detail IDs and URLs, EAN format, store availability observations and multi-buy offer minimum quantities.
+- Added a safe adapter into the existing Teta normalizer input. Club and multi-buy offers remain separate; only an unconditioned promotion matching the displayed price and carrying an explicit end date is projected as a promotion.
+- Tightened unit-price handling: an explicitly stated but unsupported unit is rejected rather than silently treated as one piece. Missing unit price keeps the existing fallback.
+- Added tests for snapshot mapping, identity mismatches, EAN format, branch availability, multi-buy constraints and conditional promotions.
+- These are ANITKA-owned contracts, not a verified representation of Teta's live HTML/API. No fetcher, migration, connector, cron, network request or database write was added. Tests were authored but could not be executed from this chat environment.
+
 ## 2026-10-19 — Nezávislá kontrola importéru Teta (oprava nalezených chyb)
 
 - Opraveno v `lib/ingestion/teta.ts`: `null`/neobjektový záznam shodil dry-run; nesmyslná jednotková cena (cena nebo množství ≤ 0) tiše spadla na cenu balení, nyní se odmítne; datum konce akce se kontrolovalo jen regulárním výrazem (`2026-13-45` prošlo), nyní skutečné kalendářní datum; duplicity se nehledaly po ořezání mezer v ID; důvody odmítnutí jsou konkrétní; report počítá ignorované klubové ceny. `pnpm teta:dry-run` přijímá druhý argument s datem, takže běh je opakovatelný (dvě spuštění dala identický výstup).

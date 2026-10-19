@@ -18,15 +18,34 @@ export type TetaPublicPageProduct = {
 }
 
 export function decodeTetaHtml(value: string): string {
-  return value
-    .replace(/&nbsp;|&#160;|&#xA0;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;|&apos;/gi, "'")
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&#(\d+);/g, (_, n: string) => String.fromCodePoint(Number(n)))
-    .replace(/&#x([\da-f]+);/gi, (_, n: string) => String.fromCodePoint(parseInt(n, 16)))
+  return value.replace(/&(#x[\da-f]+|#\d+|nbsp|amp|quot|apos|lt|gt);/gi, (entity, code: string) => {
+    switch (code.toLowerCase()) {
+      case 'nbsp':
+      case '#160':
+      case '#xa0':
+        return ' '
+      case 'amp':
+        return '&'
+      case 'quot':
+        return '"'
+      case '#39':
+      case 'apos':
+        return "'"
+      case 'lt':
+        return '<'
+      case 'gt':
+        return '>'
+      default: {
+        const codePoint = code.toLowerCase().startsWith('#x')
+          ? parseInt(code.slice(2), 16)
+          : code.startsWith('#')
+            ? Number(code.slice(1))
+            : NaN
+        if (!Number.isInteger(codePoint) || codePoint < 0 || codePoint > 0x10ffff) return entity
+        return String.fromCodePoint(codePoint)
+      }
+    }
+  })
 }
 
 export function htmlToTetaText(html: string): string {
@@ -80,7 +99,7 @@ async function assertTetaPathAllowed(pathname: string): Promise<void> {
 export function parseTetaCatalogLinks(html: string, baseUrl = 'https://www.tetadrogerie.cz'): TetaPublicCatalogLink[] {
   const links = new Map<string, TetaPublicCatalogLink>()
   for (const match of html.matchAll(PRODUCT_PATH)) {
-    const raw = decodeTetaHtml(match[1]).replace(/&amp;/g, '&')
+    const raw = decodeTetaHtml(match[1])
     const url = new URL(raw, baseUrl)
     if (url.origin !== 'https://www.tetadrogerie.cz' || !url.pathname.startsWith('/eshop/katalog/')) continue
     url.search = ''

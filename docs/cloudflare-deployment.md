@@ -15,7 +15,7 @@ The Worker is the production application host. Receipt files use Cloudflare R2 (
 | `cloudflare/shims/sharp.js` | Throwing stand-in for `sharp` in the Cloudflare build only (see §6) |
 | `lib/gcp-oidc.ts` | Subject token for Google WIF (PDF OCR): `GCP_OIDC_TOKEN_SOURCE=vercel` (default, as before) or `self-signed` (see §5) |
 | `scripts/generate-gcp-oidc-key.ts` | `pnpm gcp:oidc-key`: key pair for the self-signed token |
-| `next.config.mjs` | With `BUILD_TARGET=cloudflare` only: aliases `sharp` to the shim and sets `ANALYTICS_PROVIDER=none`; `pg` remains the real driver for Hyperdrive |
+| `next.config.mjs` | With `BUILD_TARGET=cloudflare` only: aliases `sharp` to the shim, keeps `pg-cloudflare` in `serverExternalPackages` so OpenNext includes its `workerd` export, and sets `ANALYTICS_PROVIDER=none`; `pg` remains the real driver for Hyperdrive |
 | `app/layout.tsx` | Vercel Analytics is not rendered when `ANALYTICS_PROVIDER=none` |
 | `.dev.vars.example` | Every variable the Worker needs (names only) |
 | `package.json` | `cf:build`, `cf:preview`, `cf:deploy:staging`, `cf:deploy`, `gcp:oidc-key`; devDependencies `@opennextjs/cloudflare` 1.20.6, `wrangler` 4.138.0 |

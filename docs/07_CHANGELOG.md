@@ -2925,3 +2925,10 @@ Every future architectural/schema/business-rule change should append a dated ent
 - **EAN:** rozšířeno čtení GTIN/EAN z atributů HTML, numerických hodnot i `additionalProperty` v JSON-LD; rozpoznávají se také plné URL typu schema.org/Product a uzly `@graph`.
 - **Testy:** přidány regresní případy pro běžnou slevu bez podmínky, nejednoznačné ceny, klubovou cenu, atribut `data-gtin13` a JSON-LD graf.
 - **Bezpečnost:** zůstává pouze veřejné HTML, bez zápisu do produkční databáze. Změna čeká na CI a nové vyhodnocení vzorku.
+
+
+## 2026-10-19 — Oprava CI: text multi-buy podmínky Teta
+
+- CI našlo regresi v podmínce multi-buy: text „* za 1 ks při koupi…“ nemusí začínat bezprostředně za cenou po normalizaci HTML.
+- Detekce nyní hledá explicitní frázi „při koupi“ v blízkém textu za cenou, stále s omezeným rozsahem a bez odhadování z pouhé procentní slevy.
+- Oprava míří na jediný neúspěšný test parseru; Worker build, databázové testy a bezpečnostní audit v tomto běhu prošly. CI se musí znovu vyhodnotit.

@@ -1,3 +1,10 @@
+## 2026-10-19 — Zpřesnění rozpoznání podmíněných cen Teta
+
+- Reálný vzorek 100 produktů odhalil osm produktů, u kterých byla stejná cena chybně vypsána dvakrát: jednou jako běžná zobrazená cena a podruhé jako `conditional_promotion`, protože text akce „2+1 zdarma“ obsahoval pozdější frázi „při koupi“.
+- Podmíněná cena se nyní rozpoznává pouze tehdy, když pravidlo nákupu bezprostředně následuje za cenou (včetně hvězdičkových poznámek). Obecný text akce dále ve stránce již cenu zpětně nepřeklasifikuje.
+- Přidán regresní test pro opakovanou cenu při akci „2+1 zdarma“. Explicitní cena označená hvězdičkou a bezprostředně následovaná pravidlem „za 1 ks při koupi…“ zůstává pokrytá existujícím testem.
+- Změna se týká pouze parseru a testů veřejného HTML; bez produkčního importu a databázových zápisů.
+
 ## 2026-10-19 — Oprava regresního testu cen Teta: hranice před částkou
 
 - První oprava omezila délku číselné části, ale test odhalil, že regex stále mohl začít u posledních číslic interního kódu (`278336 269,90 Kč`) a vytvořit falešnou cenu `336 269,90 Kč`.

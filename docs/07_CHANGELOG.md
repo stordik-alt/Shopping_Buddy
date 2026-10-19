@@ -1,3 +1,9 @@
+## 2026-10-19 — Oprava CI parseru cen Teta a klasifikace slev
+
+- CI odhalilo, že při úpravě cenového parseru byly regulární výrazy omylem escapovány navíc; opraveny jsou whitespace, procentní marker i text podmíněné akce.
+- Odstraněn typový problém pomocné vlastnosti `start`; pozice kandidáta není součástí veřejného datového modelu.
+- Regresní testy pokrývají procentní slevu i multi-buy cenu. CI se musí znovu vyhodnotit po této opravě.
+
 ## 2026-10-19 — Oprava třídění zlevněných cen Teta podle procentní slevy
 
 - Reálný vzorek 100 veřejných produktových stránek obsahoval u všech produktů cenové kandidáty, ale žádnou klasifikovanou dvojici; typický text uvádí původní cenu, nižší cenu a marker „-NN %“.

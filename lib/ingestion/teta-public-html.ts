@@ -87,8 +87,9 @@ export function parseTetaPublicProductPage(html: string, url: string): TetaPubli
   return {
     url,
     name,
-    sourceCode: codeMatch?.[1],
-    ean: eanMatch?.[1],
+    sourceCode,
+    brand,
+    ean,
     prices: uniquePrices,
     unitPriceText: unitMatch?.[1]?.replace(/\s+/g, ' ').trim(),
     onlineAvailability,

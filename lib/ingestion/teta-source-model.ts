@@ -88,7 +88,7 @@ export function validateTetaSnapshotIdentity(snapshot: TetaProductSnapshot): str
     if (snapshot.detail.productUrl.trim() && snapshot.detail.productUrl.trim() !== url) {
       errors.push('catalog/detail product URL mismatch')
     }
-    if (snapshot.detail.ean && !/^(?:\\d{8}|\\d{12,14})$/.test(snapshot.detail.ean.trim())) {
+    if (snapshot.detail.ean && !/^(?:\d{8}|\d{12,14})$/.test(snapshot.detail.ean.trim())) {
       errors.push('invalid EAN format')
     }
   }
@@ -96,7 +96,7 @@ export function validateTetaSnapshotIdentity(snapshot: TetaProductSnapshot): str
     if (observation.scope === 'store' && !observation.storeId?.trim()) {
       errors.push('store availability missing store id')
     }
-    if (!/^\\d{4}-\\d{2}-\\d{2}(?:T.*)?$/.test(observation.checkedAt)) {
+    if (!/^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(observation.checkedAt)) {
       errors.push('availability observation missing ISO date/time')
     }
   }

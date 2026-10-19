@@ -49,10 +49,12 @@ export function decodeTetaHtml(value: string): string {
 }
 
 export function htmlToTetaText(html: string): string {
+  // Allow whitespace before the closing angle bracket in end tags (for example, </script >).
+  // This remains a conservative text extractor, not a general-purpose HTML parser.
   return decodeTetaHtml(
     html
-      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
-      .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, ' ')
+      .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi, ' ')
       .replace(/<!--[\s\S]*?-->/g, ' ')
       .replace(/<[^>]+>/g, ' '),
   ).replace(/[\t\r\n ]+/g, ' ').trim()

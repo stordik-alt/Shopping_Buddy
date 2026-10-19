@@ -24,7 +24,7 @@ describe('Teta public HTML parser', () => {
 
   it('decodes Czech HTML entities and strips script/style content', () => {
     expect(decodeTetaHtml('Tip Line&nbsp;&amp; Zewa &#268;')).toBe('Tip Line & Zewa Č')
-    expect(decodeTetaHtml('&amp;lt; &amp;amp; &#xA0; &#160;')).toBe('&lt; &amp;   ')
+    expect(decodeTetaHtml('&amp;lt; &amp;amp; &#xA0; &#160;')).toBe('&lt; &amp;    ')
 
     expect(htmlToTetaText('<h1>Krém</h1><script>ignore this</script><style>ignore</style> 50&nbsp;ml')).toBe('Krém 50 ml')
   })

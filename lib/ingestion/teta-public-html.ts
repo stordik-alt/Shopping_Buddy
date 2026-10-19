@@ -39,6 +39,41 @@ export function htmlToTetaText(html: string): string {
   ).replace(/[\t\r\n ]+/g, ' ').trim()
 }
 
+/** Matches robots.txt Disallow path prefixes. This collector has no wildcard-path rules to interpret because it only targets fixed public HTML routes. */
+export function isTetaPathDisallowed(pathname: string, disallowRules: string[]): boolean {
+  return disallowRules.some((rule) => rule !== '' && pathname.startsWith(rule))
+}
+
+let tetaRobotsRulesPromise: Promise<string[]> | undefined
+
+async function getTetaRobotsDisallowRules(): Promise<string[]> {
+  const response = await fetchWithTimeout('https://www.tetadrogerie.cz/robots.txt', {
+    headers: { Accept: 'text/plain', 'User-Agent': 'ANITKA-public-catalog-research/1.0 (+https://mojeanitka.cz)' },
+  })
+  if (!response.ok) throw new Error(\`Cannot verify Teta robots.txt: HTTP \${response.status}; collector stops\`)
+  const text = await response.text()
+  const rules: string[] = []
+  for (const block of text.split(/\\n\\s*\\n/)) {
+    const lines = block.split(/\\r?\\n/).map((line) => line.trim())
+    const agents = lines.filter((line) => /^User-agent:/i.test(line)).map((line) => line.split(':').slice(1).join(':').trim())
+    if (!agents.some((agent) => agent === '*')) continue
+    for (const line of lines) {
+      if (!/^Disallow:/i.test(line)) continue
+      const rule = line.split(':').slice(1).join(':').trim()
+      if (rule) rules.push(rule)
+    }
+  }
+  return [...new Set(rules)]
+}
+
+async function assertTetaPathAllowed(pathname: string): Promise<void> {
+  tetaRobotsRulesPromise ??= getTetaRobotsDisallowRules()
+  const rules = await tetaRobotsRulesPromise
+  if (isTetaPathDisallowed(pathname, rules)) {
+    throw new Error(\`Teta robots.txt disallows \${pathname}; collector stopped\`)
+  }
+}
+
 /** Reads only public catalog/product HTML URLs. It intentionally never calls /api/, /price or /inventory. */
 export function parseTetaCatalogLinks(html: string, baseUrl = 'https://www.tetadrogerie.cz'): TetaPublicCatalogLink[] {
   const links = new Map<string, TetaPublicCatalogLink>()
@@ -133,6 +168,7 @@ export async function fetchTetaPublicHtml(url: string): Promise<string> {
   if (parsed.protocol !== 'https:' || parsed.hostname !== 'www.tetadrogerie.cz') {
     throw new Error('Teta collector only permits HTTPS pages on www.tetadrogerie.cz')
   }
+  await assertTetaPathAllowed(parsed.pathname)
   if (/^\/(?:api|inventory|price)(?:\/|$)/i.test(parsed.pathname)) {
     throw new Error('Blocked by collector policy: Teta robots.txt disallows this path')
   }

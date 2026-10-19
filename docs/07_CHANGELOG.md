@@ -1,3 +1,11 @@
+## 2026-10-19 — Oprava klasifikace opakovaných cen Teta a audit EAN
+
+- Reálný vzorek z veřejného HTML obsahoval opakované cenové bloky stejného produktu. Parser klasifikoval podle počtu surových shod, takže duplicity bránily rozpoznání dvojice běžná/zlevněná cena.
+- Klasifikace nyní vychází z různých částek balení: u dvojice podpořené viditelným procentním markerem označí vyšší částku jako `regular_price` a nižší jako `displayed_price`; opakovanou jedinou částku jako `displayed_price`. Nejednoznačné dvojice bez důkazu zůstávají neklasifikované.
+- Přidány regresní testy pro opakovanou zlevněnou dvojici, opakovanou jedinou cenu a diagnostiku chybějícího EAN/GTIN.
+- Audit veřejné produktové stránky Felix (kód Teta 278336) přes vykreslený obsah našel cenu, jednotkovou cenu a interní kód Teta, ale žádné pole EAN/GTIN; vyhledání „EAN“ a „GTIN“ v obsahu stránky nic nenašlo. To potvrzuje pouze nedostupnost v tomto veřejně zobrazeném obsahu, nikoli absenci EAN v interních systémech Teta.
+- Sběr zůstává omezen na veřejné HTML; žádné API, produkční DB zápisy ani nasazení.
+
 ## 2026-10-19 — Oprava přiřazení podmíněné ceny Teta
 
 - CI odhalilo, že text „při koupi“ u druhé ceny mohl být chybně přiřazen i první ceně, protože hledání překračovalo další cenovou položku.

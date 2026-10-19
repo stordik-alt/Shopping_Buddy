@@ -2,6 +2,7 @@
 
 - Nahrazeno řetězení náhrad jedním průchodem nad HTML entitami; `&amp;lt;` se nyní změní pouze na `&lt;` a nedochází k opakovanému dekódování.
 - Odstraněno redundantní druhé dekódování `&amp;` při zpracování odkazů katalogu; přidány regresní testy pro dvojitě zakódované entity a nedělitelné mezery.
+- Po prvním CI běhu opravena očekávaná hodnota testu: obě různé entity nedělitelné mezery se samostatně dekódují na mezeru; kontrolní běh původně odhalil pouze chybný počet mezer v aserci.
 - Změna se týká pouze parseru a testů; žádné databázové zápisy ani merge do `main`.
  
 ## 2026-10-19 — Opravy CI pro Teta public HTML collector

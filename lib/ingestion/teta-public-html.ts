@@ -204,7 +204,7 @@ export function parseTetaPublicProductPage(html: string, url: string): TetaPubli
       const end = start + match[0].length
       const before = text.slice(Math.max(0, start - 150), start)
       const after = text.slice(end, Math.min(text.length, end + 180))
-      const conditionAfterMatch = /\*?\s*(?:za\s+1\s+ks\s+)?při\s+koupi\b[^.!?]{0,140}/i.exec(after)
+      const conditionAfterMatch = /^\s*(?:\*\s*){0,2}(?:za\s+1\s+ks\s+)?při\s+koupi\b[^.!?]{0,140}/i.exec(after)
       // Do not attach a later product's condition to an earlier price. If another
       // package-price candidate appears before the condition, it belongs to that later candidate.
       const hasInterveningPrice = conditionAfterMatch

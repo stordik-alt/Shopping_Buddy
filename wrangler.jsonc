@@ -10,7 +10,7 @@
     {
       "binding": "HYPERDRIVE",
       "id": "f707d733ceb84b1f8211e10baed777e5"
-      "localConnectionString" : "postgresql://neondb_owner:npg_Pu85fNybHSih@ep-twilight-dust-aumq42xg.c-10.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+      "localConnectionString": "postgresql://neondb_owner:npg_Pu85fNybHSih@ep-twilight-dust-aumq42xg.c-10.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
     }
   ],
   "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },

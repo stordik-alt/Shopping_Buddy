@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   decodeTetaHtml,
   htmlToTetaText,
+  isTetaPathDisallowed,
   parseTetaCatalogLinks,
   parseTetaPublicProductPage,
 } from '@/lib/ingestion/teta-public-html'
@@ -74,5 +75,17 @@ describe('Teta public JSON-LD fallback', () => {
       categoryPath: ['Domácnost', 'Úklid'],
       prices: [19.9],
     })
+  })
+})
+
+
+describe('Teta robots.txt path policy', () => {
+  it('blocks disallowed path prefixes and allows public catalog paths', () => {
+    const rules = ['/api/', '/inventory', '/price', '/_nuxt/']
+    expect(isTetaPathDisallowed('/api/products', rules)).toBe(true)
+    expect(isTetaPathDisallowed('/inventory/123', rules)).toBe(true)
+    expect(isTetaPathDisallowed('/price', rules)).toBe(true)
+    expect(isTetaPathDisallowed('/eshop/produkty/vse', rules)).toBe(false)
+    expect(isTetaPathDisallowed('/eshop/katalog/product', rules)).toBe(false)
   })
 })

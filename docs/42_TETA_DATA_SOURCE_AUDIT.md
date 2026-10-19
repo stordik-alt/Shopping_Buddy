@@ -25,3 +25,19 @@ Veřejný katalog `https://www.tetadrogerie.cz/eshop/produkty` a `.../produkty/v
 4. Podoba akcí: zda je uvedena platnost; význam klubové ceny; měna.
 5. Ceny online vs. kamenné prodejny (ukládat jako online/řetězcové, ne jako cenu pobočky).
 6. Po ověření: migrace (`product_source` += `teta`, řádek `stores.chain='Teta'`), fetcher mapující do `TetaRawProduct`, `PriceConnector`, a teprve pak plánování.
+
+
+## Rozšíření snapshotového modelu (2026-10-19)
+
+Přidán `lib/ingestion/teta-source-model.ts` jako interní kontrakt ANITKY pro dvě úrovně zdroje:
+
+- `TetaCatalogCardSnapshot`: identita, URL, název, značka, kategorie, balení, zobrazená/reference/jednotková cena a online dostupnost.
+- `TetaProductDetailSnapshot`: EAN, doplňující balení a atributy, stav ukončení prodeje a případné oznámení o stažení.
+- `TetaPriceOfferSnapshot`: oddělené běžné, akční, klubové a množstevní nabídky včetně podmínek a platnosti.
+- `TetaAvailabilitySnapshot`: samostatná pozorování online dostupnosti nebo dostupnosti konkrétní prodejny.
+
+`validateTetaSnapshotIdentity` kontroluje konzistenci identity katalogu/detailu, základní formát EAN, identifikaci pobočky, čas pozorování a minimální podmínky množstevní nabídky. `toTetaRawProduct` převádí snapshot do již existujícího vstupního kontraktu importeru; klubové a množstevní nabídky se nepřevádějí na běžnou cenu. Jednoduchá akce se připojí pouze při shodě s aktuálně zobrazenou cenou a explicitním koncem platnosti.
+
+Dále byla zpřísněna normalizace: explicitně uvedená jednotková cena s nepodporovanou jednotkou se odmítne místo tichého odhadu `1 ks`. Chybějící jednotková cena může dál použít dosavadní fallback podle pravidel importeru.
+
+**Omezení:** jde o interní kontrakty ANITKY, nikoli o potvrzené schéma HTML/API Tety. Neexistuje fetcher, nebyla provedena síťová validace, databázový zápis ani produkční import. Reálná struktura kategorií, pokrytí EAN, pravidla cen a dostupnost poboček zůstávají neověřené.

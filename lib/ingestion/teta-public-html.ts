@@ -177,20 +177,20 @@ export function parseTetaPublicProductPage(html: string, url: string): TetaPubli
       const amount = Number(match[1].replace(/\s/g, '').replace(',', '.'))
       const start = match.index ?? 0
       const after = text.slice(start + match[0].length, start + match[0].length + 220)
-      const before = text.slice(Math.max(0, start - 70), start)
-      const explicitCondition = /^\\s*(?:\\*\\s*){0,2}(?:za\\s+[^*]{0,120}?při koupi[^*]{0,80}|(?:při koupi|s klubovou kartou|s kartou|v akci|po slevě)[^*]{0,100})/i.exec(after)
+
+      const explicitCondition = /^\s*(?:\*\s*){0,2}(?:za\s+[^*]{0,120}?při koupi[^*]{0,80}|(?:při koupi|s klubovou kartou|s kartou|v akci|po slevě)[^*]{0,100})/i.exec(after)
       const discountEvidence = /(?:-\\s*\\d{1,3}\\s*%|\\b(?:sleva|akce|ušetříte)\\b)/i.test(after)
       const isConditional = Boolean(explicitCondition)
-      const conditionText = explicitCondition?.[0].replace(/\\s+/g, ' ').trim()
-        .replace(/\\s+(?:-?\\s*\\d{1,3}\\s*%|Do košíku|\\d+[,.]\\d{2}\\s*Kč).*/i, '')
+      const conditionText = explicitCondition?.[0].replace(/\s+/g, ' ').trim()
+        .replace(/\s+(?:-?\s*\d{1,3}\s*%|Do košíku|\d+[,.]\d{2}\s*Kč).*/i, '')
         .slice(0, 160)
-      const evidenceText = text.slice(Math.max(0, start - 30), Math.min(text.length, start + match[0].length + 90)).replace(/\\s+/g, ' ').trim()
+      const evidenceText = text.slice(Math.max(0, start - 30), Math.min(text.length, start + match[0].length + 90)).replace(/\s+/g, ' ').trim()
       return {
         amount,
         role: isConditional ? 'conditional_promotion' as const : index === 0 && priceMatches.length === 1 ? 'displayed_price' as const : 'unclassified' as const,
         ...(conditionText ? { conditionText } : {}),
         evidenceText: discountEvidence ? `${evidenceText} [discount context]` : evidenceText,
-        start,
+
       }
     })
     .filter((candidate) => Number.isFinite(candidate.amount) && candidate.amount > 0)
@@ -215,7 +215,7 @@ export function parseTetaPublicProductPage(html: string, url: string): TetaPubli
     }
     if (index === 0 && hasConditionalPrice) return { ...candidate, role: 'displayed_price' as const }
     return candidate
-  }).map(({ start: _start, ...candidate }) => candidate)
+  })
   const uniquePriceCandidates = normalizedPriceCandidates.filter((candidate, index, all) =>
     all.findIndex((other) => other.amount === candidate.amount && other.role === candidate.role && other.conditionText === candidate.conditionText) === index)
   const uniquePrices = [...new Set(uniquePriceCandidates.map((candidate) => candidate.amount))]

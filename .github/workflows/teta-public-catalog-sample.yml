@@ -32,7 +32,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Collect bounded public HTML sample
-        run: pnpm teta:fetch-public -- --pages=1 --products=20 --delay-ms=1200
+        run: pnpm teta:fetch-public -- --pages=3 --products=100 --delay-ms=1200
 
       - name: Upload research dataset
         if: always() && hashFiles('data/external/teta-public-catalog-sample.json') != ''

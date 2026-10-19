@@ -4,6 +4,13 @@ export const TETA_PUBLIC_CATALOG_URL = 'https://www.tetadrogerie.cz/eshop/produk
 const PRODUCT_PATH = /href=["']([^"']*\/eshop\/katalog\/[^"'?#]+)(?:\?[^"']*)?["']/gi
 
 export type TetaPublicCatalogLink = { url: string; slug: string }
+export type TetaPriceCandidate = {
+  amount: number
+  role: 'displayed_price' | 'conditional_promotion' | 'unclassified'
+  conditionText?: string
+  evidenceText: string
+}
+
 export type TetaPublicPageProduct = {
   url: string
   name?: string
@@ -11,9 +18,11 @@ export type TetaPublicPageProduct = {
   brand?: string
   ean?: string
   prices: number[]
+  priceCandidates: TetaPriceCandidate[]
   unitPriceText?: string
   onlineAvailability?: 'available' | 'unavailable' | 'unknown'
   categoryPath: string[]
+  missingFields: string[]
   extractionWarnings: string[]
 }
 
@@ -145,14 +154,54 @@ export function parseTetaPublicProductPage(html: string, url: string): TetaPubli
   const codeMatch = /\bKód:\s*([\w-]+)/i.exec(text)
   const jsonEan = [jsonProduct?.gtin13, jsonProduct?.gtin14, jsonProduct?.gtin12, jsonProduct?.gtin8, jsonProduct?.gtin]
     .find((value) => typeof value === 'string' && /^(?:\d{8}|\d{12,14})$/.test(value))
+  const attributeEan = [...html.matchAll(/<meta\b[^>]*>/gi)]
+    .map((match) => {
+      const attributes = new Map<string, string>()
+      for (const attribute of match[0].matchAll(/([\w:-]+)\s*=\s*["']([^"']*)["']/g)) {
+        attributes.set(attribute[1].toLowerCase(), decodeTetaHtml(attribute[2]).trim())
+      }
+      const identity = [attributes.get('itemprop'), attributes.get('property'), attributes.get('name'), attributes.get('data-field')]
+        .filter(Boolean).join(' ').toLowerCase()
+      const value = attributes.get('content') ?? attributes.get('value')
+      return /(?:^|[\s:_-])(?:ean|gtin(?:8|12|13|14)?)(?:$|[\s:_-])/.test(identity)
+        && value && /^(?:\d{8}|\d{12,14})$/.test(value) ? value : undefined
+    })
+    .find((value): value is string => Boolean(value))
   const eanMatch = /\b(?:EAN|GTIN)\s*:?\s*(\d{8}|\d{12,14})\b/i.exec(text)
   const sourceCode = codeMatch?.[1] ?? (typeof jsonProduct?.sku === 'string' ? jsonProduct.sku : undefined)
-  const ean = eanMatch?.[1] ?? (typeof jsonEan === 'string' ? jsonEan : undefined)
+  const ean = eanMatch?.[1] ?? (typeof jsonEan === 'string' ? jsonEan : attributeEan)
   const unitMatch = /([\d\s.,]+\s*Kč\s*\/\s*(?:KG|KGM|LIT|L|ML|G|KS|M))\b/i.exec(text)
-  const prices = [...text.matchAll(/(\d[\d\s]*[,.]\d{2})\s*Kč(?!\s*\/)/gi)]
-    .map((match) => Number(match[1].replace(/\s/g, '').replace(',', '.')))
-    .filter((price) => Number.isFinite(price) && price > 0)
-  const uniquePrices = [...new Set(prices)]
+  const priceMatches = [...text.matchAll(/(\d[\d\s]*[,.]\d{2})\s*Kč(?!\s*\/)/gi)]
+  const priceCandidates: TetaPriceCandidate[] = priceMatches
+    .map((match, index) => {
+      const amount = Number(match[1].replace(/\s/g, '').replace(',', '.'))
+      const start = match.index ?? 0
+      const after = text.slice(start + match[0].length, start + match[0].length + 180)
+      const before = text.slice(Math.max(0, start - 50), start)
+      const conditionMatch = /^\s*(?:\*\s*){0,2}(?:za\s+[^*]{0,120}?při koupi[^*]{0,80}|(?:při koupi|s klubovou kartou|s kartou|v akci|po slevě)[^*]{0,100})/i.exec(after)
+      const isConditional = Boolean(conditionMatch)
+      const conditionText = conditionMatch?.[0].replace(/\s+/g, ' ').trim()
+        .replace(/\s+(?:-?\d{1,3}%|Do košíku|\d+[,.]\d{2}\s*Kč).*/i, '')
+        .slice(0, 160)
+      const evidenceText = text.slice(Math.max(0, start - 30), Math.min(text.length, start + match[0].length + 90)).replace(/\s+/g, ' ').trim()
+      return {
+        amount,
+        role: isConditional ? 'conditional_promotion' as const : index === 0 && priceMatches.length === 1 ? 'displayed_price' as const : 'unclassified' as const,
+        ...(conditionText ? { conditionText } : {}),
+        evidenceText,
+        before,
+      }
+    })
+    .filter((candidate) => Number.isFinite(candidate.amount) && candidate.amount > 0)
+    .map(({ before: _before, ...candidate }) => candidate)
+  const hasConditionalPrice = priceCandidates.some((candidate) => candidate.role === 'conditional_promotion')
+  const normalizedPriceCandidates = priceCandidates.map((candidate, index) =>
+    index === 0 && candidate.role === 'unclassified' && hasConditionalPrice
+      ? { ...candidate, role: 'displayed_price' as const }
+      : candidate)
+  const uniquePriceCandidates = normalizedPriceCandidates.filter((candidate, index, all) =>
+    all.findIndex((other) => other.amount === candidate.amount && other.role === candidate.role && other.conditionText === candidate.conditionText) === index)
+  const uniquePrices = [...new Set(uniquePriceCandidates.map((candidate) => candidate.amount))]
   const onlineAvailability = /Nedostupné online/i.test(text)
     ? 'unavailable'
     : /Dostupné online/i.test(text)
@@ -165,12 +214,16 @@ export function parseTetaPublicProductPage(html: string, url: string): TetaPubli
       ? jsonProduct.category.split(/[>/]/).map((part) => part.trim()).filter(Boolean)
       : []
 
+  const missingFields: string[] = []
   if (!name) warnings.push('product name not found in h1 or JSON-LD')
   if (!sourceCode) warnings.push('source product code not found')
   if (uniquePrices.length === 0) warnings.push('no displayed price found')
-  if (uniquePrices.length > 1) warnings.push('multiple prices found; price roles need source-specific verification')
-  if (!ean) warnings.push('EAN not exposed in visible text or JSON-LD')
-  if (categoryPath.length === 0) warnings.push('breadcrumb category path not found')
+  if (uniquePriceCandidates.some((candidate) => candidate.role === 'unclassified')) {
+    warnings.push('one or more price candidates need role verification')
+  }
+  if (!ean) missingFields.push('ean')
+  if (!brand) missingFields.push('brand')
+  if (categoryPath.length === 0) missingFields.push('categoryPath')
 
   return {
     url,
@@ -179,9 +232,11 @@ export function parseTetaPublicProductPage(html: string, url: string): TetaPubli
     brand,
     ean,
     prices: uniquePrices,
+    priceCandidates: uniquePriceCandidates,
     unitPriceText: unitMatch?.[1]?.replace(/\s+/g, ' ').trim(),
     onlineAvailability,
     categoryPath,
+    missingFields,
     extractionWarnings: warnings,
   }
 }

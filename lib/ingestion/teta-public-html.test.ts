@@ -50,13 +50,35 @@ describe('Teta public HTML parser', () => {
     })
   })
 
+  it('classifies an explicitly conditional multi-buy price and reads EAN from meta attributes', () => {
+    const html = `
+      <meta content="8591234567890" itemprop="gtin13">
+      <nav aria-label="breadcrumb"><a>Hygiena</a><a>Péče o zuby</a></nav>
+      <h1>Colgate Triple Action zubní pasta 75 ml</h1>
+      <div>29,90 Kč</div>
+      <div>14,95 Kč*</div>
+      <p>*za 1 ks při koupi 2 ks produktů značek Colgate, Palmolive a Protex v libovolné kombinaci</p>
+      <div>199,33 Kč/LIT</div>
+      <div>Dostupné online</div><div>Kód: 270128</div>
+    `
+    const product = parseTetaPublicProductPage(html, 'https://www.tetadrogerie.cz/eshop/katalog/colgate')
+    expect(product.ean).toBe('8591234567890')
+    expect(product.prices).toEqual([29.9, 14.95])
+    expect(product.priceCandidates).toMatchObject([
+      { amount: 29.9, role: 'displayed_price' },
+      { amount: 14.95, role: 'conditional_promotion', conditionText: expect.stringContaining('při koupi 2 ks') },
+    ])
+    expect(product.extractionWarnings).not.toContain('one or more price candidates need role verification')
+    expect(product.missingFields).not.toContain('ean')
+  })
+
   it('leaves uncertain fields blank and explains missing source fields', () => {
     const product = parseTetaPublicProductPage('<main><h1>Test</h1></main>', 'https://www.tetadrogerie.cz/eshop/katalog/test')
     expect(product.name).toBe('Test')
     expect(product.prices).toEqual([])
     expect(product.extractionWarnings).toContain('source product code not found')
     expect(product.extractionWarnings).toContain('no displayed price found')
-    expect(product.extractionWarnings).toContain('EAN not exposed in visible text or JSON-LD')
+    expect(product.missingFields).toContain('ean')
   })
 })
 

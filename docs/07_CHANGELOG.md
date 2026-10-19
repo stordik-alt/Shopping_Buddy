@@ -1,3 +1,9 @@
+## 2026-10-19 — Rozpoznání cen označených „Teta klub“
+
+- Vzorek 300 veřejných produktových stránek obsahoval u produktu Chilly Delicate cenu `Teta klub 69,90 Kč*` s poznámkou `při splnění podmínek -10 Kč`; dosavadní pravidla tuto klubovou cenu nedokázala označit.
+- Rozšířeno rozpoznání blízkého cenového štítku o `Teta klub` a `klubová cena`. Taková částka se označí jako `loyalty_price`, nikoli jako podmíněná nákupní akce; text „při splnění podmínek“ sám o sobě není pravidlem nákupu.
+- Přidán regresní test s dvojicí 79,90 Kč / 69,90 Kč. Změna se týká pouze parseru a testů veřejného HTML; bez importu a zápisů do produkční databáze.
+
 ## 2026-10-19 — Rozšíření výzkumného vzorku Teta pro audit EAN
 
 - Veřejný sběr Teta lze nyní bezpečně omezit až na 300 detailů produktů (dřívější limit byl 100); manuální workflow vyžádá 10 katalogových stránek, nejvýše 300 produktů a sériové stahování s minimální prodlevou 1,2 s.

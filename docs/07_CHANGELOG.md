@@ -1,3 +1,57 @@
+## 2026-10-19 — Další oprava CodeQL filtrování Teta HTML
+
+- Filtry `script` a `style` nyní rozpoznávají uzavírací tagy s libovolným obsahem před `>` po názvu tagu, včetně neobvyklých tabulátorů, nových řádků a textu upozorněného CodeQL.
+- Přidán regresní test pro uzavírací tag `</script\t\n bar>`. Změna se týká pouze parseru a testů; PR #523 není sloučen a databáze nebyla změněna.
+
+## 2026-10-19 — Oprava CodeQL filtrace HTML tagů v Teta parseru
+
+- Regulární výrazy pro odstranění obsahu `script` a `style` nyní přijímají mezery před `>` v uzavíracích tazích (např. `</script >`), což opravuje upozornění CodeQL na neúplné filtrování HTML.
+- Rozšířen regresní test o varianty `</script >` a `</style >`. Bez změn databáze; PR zůstává nesloučený.
+
+## 2026-10-19 — Oprava bezpečnosti HTML entity decoderu pro Teta
+
+- Nahrazeno řetězení náhrad jedním průchodem nad HTML entitami; `&amp;lt;` se nyní změní pouze na `&lt;` a nedochází k opakovanému dekódování.
+- Odstraněno redundantní druhé dekódování `&amp;` při zpracování odkazů katalogu; přidány regresní testy pro dvojitě zakódované entity a nedělitelné mezery.
+- Po prvním CI běhu opravena očekávaná hodnota testu: obě různé entity nedělitelné mezery se samostatně dekódují na mezeru; kontrolní běh původně odhalil pouze chybný počet mezer v aserci.
+- Změna se týká pouze parseru a testů; žádné databázové zápisy ani merge do `main`.
+ 
+## 2026-10-19 — Opravy CI pro Teta public HTML collector
+
+- Opraven parser cen: odstraněna nefunkční `\\b` hranice za `Kč` (písmeno `č` není v JavaScriptu součástí `\\w`), takže se nyní mohou zachytit ceny balení a jednotkové ceny zůstanou vyloučené.
+- Collector `scripts/teta-fetch-public-catalog.ts` přesunut do `async main()` s obsluhou chyb; odstraněny nepodporované top-level `await` v konfiguraci TypeScriptu používané buildem Next.js/OpenNext.
+- Opravy reagují na CI run 39292136397: dva selhávající testy cen a selhání typechecku při Cloudflare/Playwright produkčním buildu. Po změnách je nutné potvrdit nové CI.
+
+## 2026-10-19 — Teta public HTML collector (pilot, no persistence)
+
+- Added `lib/ingestion/teta-public-html.ts` to parse product links from public Teta catalog HTML and conservatively extract product-detail text/JSON-LD fields.
+- Added `scripts/teta-fetch-public-catalog.ts` and `pnpm teta:fetch-public`; the default run samples one catalog page and 20 product details into a local JSON dataset.
+- Added parser tests for catalog link deduplication, HTML entity decoding, product details and JSON-LD identity fallback.
+- Safety: HTTPS only on `www.tetadrogerie.cz`; collector fetches and evaluates the live `robots.txt` before reading pages (fails closed if robots cannot be checked), additionally blocks `/api/`, `/price`, `/inventory`, identifies itself, fetches serially with at least a 1-second delay, and caps a run at 10 listing pages/100 details.
+- Expanded Teta category mapping for observed catalog labels including Pleť, Vlasy, Tělo, Potraviny, Mazlíčci, Papírnictví, Sezona and Textil; added mapping regression tests.
+- Prices remain unclassified candidates (regular vs promotion vs club/multi-buy). No production database writes, schema migration, connector registration, cron or live import.
+- CI/tests and a real local pilot have not been executed from this chat environment; inspect the generated sample before treating the parser as validated.
+
+## 2026-10-19 — Teta catalog/detail snapshot model
+
+- Added `lib/ingestion/teta-source-model.ts` with separate internal contracts for catalog cards, product details, price offers and online/branch availability.
+- Added identity/shape validation for catalog/detail IDs and URLs, EAN format, store availability observations and multi-buy offer minimum quantities.
+- Added a safe adapter into the existing Teta normalizer input. Club and multi-buy offers remain separate; only an unconditioned promotion matching the displayed price and carrying an explicit end date is projected as a promotion.
+- Tightened unit-price handling: an explicitly stated but unsupported unit is rejected rather than silently treated as one piece. Missing unit price keeps the existing fallback.
+- Added tests for snapshot mapping, identity mismatches, EAN format, branch availability, multi-buy constraints and conditional promotions.
+- These are ANITKA-owned contracts, not a verified representation of Teta's live HTML/API. No fetcher, migration, connector, cron, network request or database write was added. Tests were authored but could not be executed from this chat environment.
+
+## 2026-10-19 — Nezávislá kontrola importéru Teta (oprava nalezených chyb)
+
+- Opraveno v `lib/ingestion/teta.ts`: `null`/neobjektový záznam shodil dry-run; nesmyslná jednotková cena (cena nebo množství ≤ 0) tiše spadla na cenu balení, nyní se odmítne; datum konce akce se kontrolovalo jen regulárním výrazem (`2026-13-45` prošlo), nyní skutečné kalendářní datum; duplicity se nehledaly po ořezání mezer v ID; důvody odmítnutí jsou konkrétní; report počítá ignorované klubové ceny. `pnpm teta:dry-run` přijímá druhý argument s datem, takže běh je opakovatelný (dvě spuštění dala identický výstup).
+- Ručně ověřeno: 250 ml za 60 Kč při 24 Kč/100 ml = 240 Kč/l, 500 g při 6 Kč/100 g = 60 Kč/kg, akce se jednotkovou cenou škáluje poměrem cen; běžná, akční a klubová cena zůstávají oddělené (klubová se neukládá).
+- Testy: `teta.test.ts` 12/12, `lib/ingestion` bez regresí, `tsc --noEmit` bez chyb. Celá sada: 348 selhání jak s touto změnou, tak bez ní (prostředí bez databáze/auth secretu) — nesouvisí s Tetou. `next build` v tomto prostředí selhal na chybějící konfiguraci (`cookies.secret`), nikoli kvůli kódu. Skript `lint` v repozitáři neexistuje. Syntetická fixture nejsou skutečná data Tety. Žádná migrace, import ani změna stávajících importérů.
+
+## 2026-10-19 — Audit zdroje Teta drogerie (návrh importeru)
+
+- Nový `docs/42_TETA_DATA_SOURCE_AUDIT.md`: audit architektury, co je doloženo a co ne.
+- Přidáno `lib/ingestion/teta.ts` (normalizace, validace, dry-run), syntetická fixture, testy `teta.test.ts` a `pnpm teta:dry-run`. Žádný fetcher, migrace, konektor ani cron; stávající importéry beze změny.
+- Neověřeno: skutečné odpovědi tetadrogerie.cz (DNS nedostupné), EAN, ceny prodejen, podmínky přístupu.
+
 ## 2026-10-17 — Konfigurace interních instalačních balíčků Expo
 
 - Přidán EAS profil `internal`: sestaví Android APK a iOS Ad Hoc IPA s veřejnou adresou API `https://mojeanitka.cz`.

@@ -1,0 +1,11 @@
+{
+  "_note": "SYNTHETIC fixture of ANITKA's snapshot contract (TetaRawProduct). Not real Teta data; names, ids and prices are made up.",
+  "products": [
+    { "id": "TEST-1", "name": "Testovací sprchový gel", "brand": "TestBrand", "price": 60, "currency": "CZK", "package": { "amount": "250", "unit": "ml" }, "unitPrice": { "price": 24, "per": 100, "unit": "ml" }, "categoryPath": ["Péče o tělo", "Sprchové gely"] },
+    { "id": "TEST-2", "name": "Testovací prací gel", "price": 100, "originalPrice": 150, "currency": "CZK", "package": { "amount": "2", "unit": "l" }, "unitPrice": { "price": 50, "per": 1, "unit": "l" }, "categoryPath": ["Čištění a praní"], "promotionValidUntil": "2099-12-31" },
+    { "id": "TEST-3", "name": "Testovací zubní pasta", "price": 40, "originalPrice": 50, "currency": "CZK", "categoryPath": ["Dentální hygiena"] },
+    { "id": "TEST-4", "name": "Testovací šampon", "price": -5, "currency": "CZK", "categoryPath": ["Vlasová kosmetika"] },
+    { "id": "TEST-5", "name": "Testovací neznámá kategorie", "price": 10, "currency": "CZK", "categoryPath": ["Něco jiného"] },
+    { "id": "TEST-1", "name": "Duplicitní záznam", "price": 60, "currency": "CZK", "categoryPath": ["Péče o tělo"] }
+  ]
+}

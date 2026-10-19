@@ -236,26 +236,31 @@ export function parseTetaPublicProductPage(html: string, url: string): TetaPubli
   // discounted price conditional. A conditional price requires an explicit purchase rule.
   const discountMarkers = [...text.matchAll(/(?:-\s*\d{1,3}\s*%|\b(?:sleva|zlevněno|ušetříte)\b)/gi)]
     .map((match) => match.index ?? 0)
-  const normalizedPriceCandidates = rawPriceCandidates.map((candidate, _index, all) => {
+  // Teta repeats the same product-price block in the public HTML (for example,
+  // near the top and again below product details). Classify by distinct package-price
+  // amounts, not raw regex match count, or repeated markup prevents every classification.
+  const distinctPackagePrices = [...new Set(rawPriceCandidates.map((candidate) => candidate.amount))]
+  const hasVisibleDiscountPair = distinctPackagePrices.length === 2 && rawPriceCandidates.some((candidate) =>
+    discountMarkers.some((position) => position >= candidate.start - 100 && position <= candidate.end + 180))
+  const hasExplicitConditionalOrLoyaltyPrice = rawPriceCandidates.some((candidate) =>
+    candidate.role === 'conditional_promotion' || candidate.role === 'loyalty_price')
+  const normalizedPriceCandidates = rawPriceCandidates.map((candidate) => {
     if (candidate.role !== 'unclassified') return candidate
     const hasNearbyDiscountMarker = discountMarkers.some((position) =>
       position >= candidate.start - 100 && position <= candidate.end + 180)
-    if (all.length === 2 && hasNearbyDiscountMarker) {
-      const [first, second] = all
-      if (first.amount !== second.amount) {
-        const higher = first.amount > second.amount ? first : second
-        const lower = first.amount < second.amount ? first : second
-        if (candidate.amount === higher.amount) return { ...candidate, role: 'regular_price' as const }
-        if (candidate.amount === lower.amount) return { ...candidate, role: 'displayed_price' as const }
-      }
+    if (hasVisibleDiscountPair && hasNearbyDiscountMarker) {
+      const higher = Math.max(...distinctPackagePrices)
+      const lower = Math.min(...distinctPackagePrices)
+      if (candidate.amount === higher) return { ...candidate, role: 'regular_price' as const }
+      if (candidate.amount === lower) return { ...candidate, role: 'displayed_price' as const }
     }
-    // An unconditional package price can be identified only when the other candidate
-    // is explicitly conditional/loyalty-based and this candidate has no such marker.
-    if (all.length === 2 && all.some((other) => other.role === 'conditional_promotion' || other.role === 'loyalty_price')) {
+    // An unconditional package price can be identified when another distinct amount
+    // is explicitly conditional/loyalty-based, even if the page repeats the price block.
+    if (distinctPackagePrices.length === 2 && hasExplicitConditionalOrLoyaltyPrice) {
       return { ...candidate, role: 'displayed_price' as const }
     }
-    // A lone package price is the displayed price unless evidence says otherwise.
-    if (all.length === 1) return { ...candidate, role: 'displayed_price' as const }
+    // A single distinct package price is the displayed price, even when duplicated in HTML.
+    if (distinctPackagePrices.length === 1) return { ...candidate, role: 'displayed_price' as const }
     return candidate
   })
   const priceCandidates: TetaPriceCandidate[] = normalizedPriceCandidates.map(({ start: _start, end: _end, ...candidate }) => candidate)
@@ -281,7 +286,10 @@ export function parseTetaPublicProductPage(html: string, url: string): TetaPubli
   if (uniquePriceCandidates.some((candidate) => candidate.role === 'unclassified')) {
     warnings.push('one or more price candidates need role verification')
   }
-  if (!ean) missingFields.push('ean')
+  if (!ean) {
+    missingFields.push('ean')
+    warnings.push('EAN/GTIN not found in supported public HTML or JSON-LD fields')
+  }
   if (!brand) missingFields.push('brand')
   if (categoryPath.length === 0) missingFields.push('categoryPath')
 

@@ -50,6 +50,13 @@ const TOP_LEVEL_CATEGORY: Record<string, ItemCategory> = {
   děti: 'Děti',
 }
 
+/** A real calendar date in YYYY-MM-DD form (rejects e.g. 2026-13-45). */
+function isValidIsoDate(text: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return false
+  const date = new Date(`${text}T00:00:00Z`)
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === text
+}
+
 export function mapTetaCategory(raw: TetaRawProduct): ItemCategory | null {
   return TOP_LEVEL_CATEGORY[(raw.categoryPath?.[0] ?? '').trim().toLowerCase()] ?? null
 }
@@ -61,6 +68,7 @@ export function mapTetaCategory(raw: TetaRawProduct): ItemCategory | null {
  *  valid end date; otherwise it is flagged `promotionWithoutValidity` — a window is never invented.
  *  Club prices are ignored here. */
 export function normalizeTetaProduct(raw: TetaRawProduct, today: string): NormalizedProduct | null {
+  if (raw == null || typeof raw !== 'object') return null
   const id = (raw.id ?? '').trim()
   const baseName = (raw.name ?? '').trim()
   if (!id || !baseName) return null
@@ -75,6 +83,9 @@ export function normalizeTetaProduct(raw: TetaRawProduct, today: string): Normal
   let unit: ItemUnit = 'ks'
   let currentUnitPrice = raw.price
   if (raw.unitPrice) {
+    // A stated unit price must be a positive price over a positive quantity; anything else is
+    // malformed data, not a reason to silently fall back to the package price.
+    if (!(raw.unitPrice.price > 0) || !(raw.unitPrice.per > 0)) return null
     const converted = toNormalizedUnitPrice(raw.unitPrice.unit, String(raw.unitPrice.per), Math.round(raw.unitPrice.price * 100))
     if (converted) {
       if (raw.package && !unitPriceMatchesPackage({ sku: id, amount: raw.package.amount, volumeLabelShort: raw.package.unit }, raw.price, converted.unit, converted.unitPrice)) {
@@ -93,7 +104,7 @@ export function normalizeTetaProduct(raw: TetaRawProduct, today: string): Normal
     regularPrice = raw.originalPrice
     unitPrice = Math.round(((currentUnitPrice * raw.originalPrice) / raw.price) * 100) / 100
     const until = raw.promotionValidUntil
-    if (until && /^\d{4}-\d{2}-\d{2}$/.test(until) && until >= today) {
+    if (until && isValidIsoDate(until) && until >= today) {
       deal = { dealPrice: raw.price, unitPrice: currentUnitPrice, validFrom: today, validUntil: until }
     } else {
       promotionWithoutValidity = true
@@ -122,15 +133,26 @@ export type TetaDryRunReport = {
   deals: number
   promotionsWithoutValidity: number
   withEan: number
+  /** Records showing a loyalty-club price, which is deliberately not imported. */
+  clubPricesIgnored: number
+}
+
+function rejectionReason(raw: TetaRawProduct): string {
+  if (raw == null || typeof raw !== 'object') return 'not an object'
+  if (!(raw.id ?? '').trim() || !(raw.name ?? '').trim()) return 'missing id or name'
+  if (!Number.isFinite(raw.price) || raw.price <= 0) return 'invalid price'
+  if (raw.currency !== 'CZK') return 'currency is not CZK'
+  if (!mapTetaCategory(raw)) return 'unknown category'
+  return 'invalid or contradictory unit price'
 }
 
 /** Dry run: validates a snapshot and reports what an import would accept, without any database or
  *  network access. Duplicate source ids are reported and only the first record is kept. */
 export function dryRunTeta(records: TetaRawProduct[], today: string): TetaDryRunReport {
-  const report: TetaDryRunReport = { total: records.length, accepted: [], rejected: [], duplicates: [], deals: 0, promotionsWithoutValidity: 0, withEan: 0 }
+  const report: TetaDryRunReport = { total: records.length, accepted: [], rejected: [], duplicates: [], deals: 0, promotionsWithoutValidity: 0, withEan: 0, clubPricesIgnored: 0 }
   const seen = new Set<string>()
   for (const raw of records) {
-    const id = String(raw?.id ?? '')
+    const id = String(raw?.id ?? '').trim()
     if (id && seen.has(id)) {
       report.duplicates.push(id)
       continue
@@ -138,13 +160,14 @@ export function dryRunTeta(records: TetaRawProduct[], today: string): TetaDryRun
     seen.add(id)
     const product = normalizeTetaProduct(raw, today)
     if (!product) {
-      report.rejected.push({ id, reason: 'failed validation (id, name, price, currency, category or unit price)' })
+      report.rejected.push({ id, reason: rejectionReason(raw) })
       continue
     }
     report.accepted.push(product)
     if (product.deal) report.deals += 1
     if (product.promotionWithoutValidity) report.promotionsWithoutValidity += 1
     if (raw.ean) report.withEan += 1
+    if (raw.clubPrice != null) report.clubPricesIgnored += 1
   }
   return report
 }

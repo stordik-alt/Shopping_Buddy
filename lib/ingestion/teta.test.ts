@@ -33,6 +33,21 @@ describe('normalizeTetaProduct', () => {
     expect(noEnd).toMatchObject({ promotionWithoutValidity: true, regularPrice: 90 })
     expect(normalizeTetaProduct({ ...promo, promotionValidUntil: '2026-01-01' }, TODAY)?.deal).toBeUndefined()
   })
+  it('rejects malformed unit price, null records and impossible dates', () => {
+    expect(normalizeTetaProduct({ ...base, unitPrice: { price: 10, per: 0, unit: 'ml' } }, TODAY)).toBeNull()
+    expect(normalizeTetaProduct({ ...base, unitPrice: { price: -1, per: 100, unit: 'ml' } }, TODAY)).toBeNull()
+    expect(normalizeTetaProduct(null as unknown as TetaRawProduct, TODAY)).toBeNull()
+    expect(normalizeTetaProduct({ ...base, originalPrice: 90, promotionValidUntil: '2026-13-45' }, TODAY)?.deal).toBeUndefined()
+  })
+  it('converts kg and l unit prices and an unknown unit to 1 ks', () => {
+    expect(normalizeTetaProduct({ ...base, price: 30, package: { amount: '500', unit: 'g' }, unitPrice: { price: 6, per: 100, unit: 'g' } }, TODAY)).toMatchObject({ unit: 'kg', unitPrice: 60 })
+    expect(normalizeTetaProduct({ ...base, unitPrice: { price: 2, per: 1, unit: 'PD' } }, TODAY)).toMatchObject({ unit: 'ks', unitPrice: 60 })
+  })
+  it('scales the unit price of a promotion with the price ratio', () => {
+    const p = normalizeTetaProduct({ ...base, price: 50, originalPrice: 100, unitPrice: { price: 20, per: 100, unit: 'ml' }, package: { amount: '250', unit: 'ml' }, promotionValidUntil: '2026-12-01' }, TODAY)
+    expect(p).toMatchObject({ regularPrice: 100, unitPrice: 400 })
+    expect(p?.deal).toMatchObject({ dealPrice: 50, unitPrice: 200 })
+  })
   it('ignores club price', () => {
     expect(normalizeTetaProduct({ ...base, clubPrice: 10 }, TODAY)?.regularPrice).toBe(60)
   })
@@ -47,6 +62,13 @@ describe('dryRunTeta with the fixture', () => {
     expect(r.duplicates).toEqual(['TEST-1'])
     expect(r.deals).toBe(1)
     expect(r.promotionsWithoutValidity).toBe(1)
+  })
+  it('is repeatable and dedupes trimmed ids, tolerating null records', () => {
+    const records = [...fixture(), { ...base, id: ' TEST-1 ' }, null as unknown as TetaRawProduct]
+    const a = dryRunTeta(records, TODAY)
+    expect(a.duplicates).toEqual(['TEST-1', 'TEST-1'])
+    expect(a.rejected.at(-1)).toMatchObject({ reason: 'not an object' })
+    expect(dryRunTeta(records, TODAY)).toEqual(a)
   })
   it('rejects a malformed fixture', () => {
     expect(() => parseTetaFixture('{}')).toThrow()

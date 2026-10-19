@@ -1,9 +1,9 @@
 // Dry run of the proposed Teta importer over a local fixture file (docs/42_TETA_DATA_SOURCE_AUDIT.md).
 // No network, no database: prints what an import would accept/reject. Usage:
-//   pnpm teta:dry-run [path-to-fixture.json]
+//   pnpm teta:dry-run [path-to-fixture.json] [YYYY-MM-DD]  (a fixed date makes the run repeatable)
 import { readFileSync } from 'node:fs'
 import { dryRunTeta, parseTetaFixture } from '@/lib/ingestion/teta'
 
 const path = process.argv[2] ?? 'lib/ingestion/fixtures/teta-catalog.sample.json'
-const report = dryRunTeta(parseTetaFixture(readFileSync(path, 'utf8')), new Date().toISOString().slice(0, 10))
+const report = dryRunTeta(parseTetaFixture(readFileSync(path, 'utf8')), process.argv[3] ?? new Date().toISOString().slice(0, 10))
 console.log(JSON.stringify({ ...report, accepted: report.accepted.length }, null, 2))

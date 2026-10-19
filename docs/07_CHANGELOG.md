@@ -1,3 +1,9 @@
+## 2026-10-19 — Nezávislá kontrola importéru Teta (oprava nalezených chyb)
+
+- Opraveno v `lib/ingestion/teta.ts`: `null`/neobjektový záznam shodil dry-run; nesmyslná jednotková cena (cena nebo množství ≤ 0) tiše spadla na cenu balení, nyní se odmítne; datum konce akce se kontrolovalo jen regulárním výrazem (`2026-13-45` prošlo), nyní skutečné kalendářní datum; duplicity se nehledaly po ořezání mezer v ID; důvody odmítnutí jsou konkrétní; report počítá ignorované klubové ceny. `pnpm teta:dry-run` přijímá druhý argument s datem, takže běh je opakovatelný (dvě spuštění dala identický výstup).
+- Ručně ověřeno: 250 ml za 60 Kč při 24 Kč/100 ml = 240 Kč/l, 500 g při 6 Kč/100 g = 60 Kč/kg, akce se jednotkovou cenou škáluje poměrem cen; běžná, akční a klubová cena zůstávají oddělené (klubová se neukládá).
+- Testy: `teta.test.ts` 12/12, `lib/ingestion` bez regresí, `tsc --noEmit` bez chyb. Celá sada: 348 selhání jak s touto změnou, tak bez ní (prostředí bez databáze/auth secretu) — nesouvisí s Tetou. `next build` v tomto prostředí selhal na chybějící konfiguraci (`cookies.secret`), nikoli kvůli kódu. Skript `lint` v repozitáři neexistuje. Syntetická fixture nejsou skutečná data Tety. Žádná migrace, import ani změna stávajících importérů.
+
 ## 2026-10-19 — Audit zdroje Teta drogerie (návrh importeru)
 
 - Nový `docs/42_TETA_DATA_SOURCE_AUDIT.md`: audit architektury, co je doloženo a co ne.

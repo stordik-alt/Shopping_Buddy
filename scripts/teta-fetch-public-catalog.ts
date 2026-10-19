@@ -54,7 +54,9 @@ async function main(): Promise<void> {
       products.push({
         url: link.url,
         prices: [],
+        priceCandidates: [],
         categoryPath: [],
+        missingFields: ['name', 'sourceCode', 'brand', 'ean', 'prices', 'categoryPath'],
         onlineAvailability: 'unknown' as const,
         extractionWarnings: [`fetch failed: ${error instanceof Error ? error.message : String(error)}`],
       })
@@ -62,7 +64,7 @@ async function main(): Promise<void> {
   }
   
   const dataset = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     source: 'https://www.tetadrogerie.cz/eshop/produkty/vse',
     collectedAt: new Date().toISOString(),
     startedAt,
@@ -70,7 +72,7 @@ async function main(): Promise<void> {
     pageCountRequested: pages,
     uniqueCatalogLinksFound: links.size,
     productDetailsRequested: selected.length,
-    note: 'Raw research dataset. Price candidates are not assigned regular/promotion/club roles and must not be imported into production prices without validation.',
+    note: 'Raw research dataset. Price roles are assigned only when visible page text supports the classification; conditional offers preserve their visible condition. Do not import prices into production without validation.',
     products,
   }
   await mkdir(dirname(outputPath), { recursive: true })
@@ -83,7 +85,10 @@ async function main(): Promise<void> {
     productsWithName: products.filter((product) => product.name).length,
     productsWithSourceCode: products.filter((product) => product.sourceCode).length,
     productsWithEan: products.filter((product) => product.ean).length,
-    productsWithPriceCandidates: products.filter((product) => product.prices.length > 0).length,
+    productsWithPriceCandidates: products.filter((product) => product.priceCandidates.length > 0).length,
+    productsWithClassifiedPriceRoles: products.filter((product) => product.priceCandidates.length > 0 && product.priceCandidates.every((candidate) => candidate.role !== 'unclassified')).length,
+    unclassifiedPriceCandidates: products.reduce((sum, product) => sum + product.priceCandidates.filter((candidate) => candidate.role === 'unclassified').length, 0),
+    productsMissingEan: products.filter((product) => product.missingFields.includes('ean')).length,
     extractionWarnings: warningCount,
   }, null, 2))
 }

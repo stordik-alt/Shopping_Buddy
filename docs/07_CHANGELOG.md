@@ -2977,3 +2977,12 @@ Every future architectural/schema/business-rule change should append a dated ent
 - CI našlo regresi v podmínce multi-buy: text „* za 1 ks při koupi…“ nemusí začínat bezprostředně za cenou po normalizaci HTML.
 - Detekce nyní hledá explicitní frázi „při koupi“ v blízkém textu za cenou, stále s omezeným rozsahem a bez odhadování z pouhé procentní slevy.
 - Oprava míří na jediný neúspěšný test parseru; Worker build, databázové testy a bezpečnostní audit v tomto běhu prošly. CI se musí znovu vyhodnotit.
+## 2026-10-19 — Příprava databázového připojení Cloudflare Hyperdrive
+
+- `lib/db/client.ts` nyní v inicializovaném Cloudflare Worker kontextu vyžaduje platný `HYPERDRIVE.connectionString` a používá jej přes `pg` + `drizzle-orm/node-postgres`; při chybějícím nebo neplatném bindingu nevznikne tichý fallback na `DATABASE_URL`.
+- Node.js vývoj, testy, migrace a lokální PostgreSQL režim zachovávají dosavadní výběr `DATABASE_URL`. Chybějící OpenNext kontext se toleruje jen v těchto ne-Worker prostředích; jiné chyby kontextu se dále nepolykají.
+- Hyperdrive klient se memoizuje pouze pro aktuální request pomocí React `cache()` a `maxUses: 1`; lokální `pg` pool si zachovává globální cache. `db.batch()` zůstává transakční.
+- Odstraněný Cloudflare alias `pg` nebyl vrácen. Ověřena kompatibilita podle dokumentace Cloudflare: `pg` 8.23.1, volitelný `pg-cloudflare` 1.4.1 a Drizzle node-postgres jsou podporovaná kombinace; `cloudflare/shims/pg.js` zůstává zachován, dokud nebude samostatně ověřeno, že ho nic nepoužívá.
+- Do `wrangler.jsonc` byl doplněn produkční binding `HYPERDRIVE` s ID předaným vlastníkem; platnost a cílovou databázi ID je nutné potvrdit v Cloudflare. Staging binding zůstává nepřidaný do získání samostatného neprodukčního ID.
+- Implementace zatím není nasazená ani produkčně ověřená. Před deployem je třeba potvrdit cíl bindingu, provést neprodukční Worker smoke test a ověřit, že staging nebude používat produkční databázi.
+- `git diff --check` prošel. `NODE_OPTIONS="--max-old-space-size=4096" pnpm exec tsc --noEmit` spuštěný vlastníkem v WSL skončil s návratovým kódem 0. `pnpm cf:build` nebyl spuštěn: automatické bezpečnostní posouzení jej zablokovalo, protože build může spustit migrační skript a prostředí nebylo doloženo jako izolované od produkce.

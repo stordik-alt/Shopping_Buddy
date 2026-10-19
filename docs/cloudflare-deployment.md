@@ -15,7 +15,7 @@ The Worker is the production application host. Receipt files use Cloudflare R2 (
 | `cloudflare/shims/sharp.js` | Throwing stand-in for `sharp` in the Cloudflare build only (see §6) |
 | `lib/gcp-oidc.ts` | Subject token for Google WIF (PDF OCR): `GCP_OIDC_TOKEN_SOURCE=vercel` (default, as before) or `self-signed` (see §5) |
 | `scripts/generate-gcp-oidc-key.ts` | `pnpm gcp:oidc-key`: key pair for the self-signed token |
-| `next.config.mjs` | With `BUILD_TARGET=cloudflare` only: aliases `sharp` to the shim and sets `ANALYTICS_PROVIDER=none` |
+| `next.config.mjs` | With `BUILD_TARGET=cloudflare` only: aliases `sharp` to the shim and sets `ANALYTICS_PROVIDER=none`; `pg` remains the real driver for Hyperdrive |
 | `app/layout.tsx` | Vercel Analytics is not rendered when `ANALYTICS_PROVIDER=none` |
 | `.dev.vars.example` | Every variable the Worker needs (names only) |
 | `package.json` | `cf:build`, `cf:preview`, `cf:deploy:staging`, `cf:deploy`, `gcp:oidc-key`; devDependencies `@opennextjs/cloudflare` 1.20.6, `wrangler` 4.138.0 |
@@ -154,7 +154,7 @@ Options to restore preparation, to be decided after measuring accuracy on real r
 | **Analytics** | Vercel Analytics is off in the Cloudflare build. Turn on **Cloudflare Web Analytics** for the zone (automatic setup, no code) |
 | **Cron** | Cron Triggers from `wrangler.jsonc` (UTC, aligned with the schedule list in `vercel.json`). Adding a job means updating both files; `cloudflare/cron.test.ts` checks that they match. Vercel is not a current production cron runner. |
 | **Receipt files** | Already R2 over the S3 API (`lib/storage/r2.ts`). An R2 Worker binding would be an optimization, not a requirement |
-| **Database** | Neon HTTP driver, works on workerd (verified up to the network call) |
+| **Database** | Hyperdrive + `pg`/Drizzle in the Worker; Node.js development, tests and the local PostgreSQL mode retain their existing `DATABASE_URL` behavior |
 
 ## 8. Staging and historical cutover notes
 
@@ -184,9 +184,21 @@ The Cloudflare production workflow `.github/workflows/cloudflare-deploy.yml` app
 
 `.github/workflows/cloudflare-deploy.yml` is a manual (`workflow_dispatch`) workflow with a `staging` / `production` choice. Production runs only from `main` and applies pending migrations (`tsx lib/db/migrate.ts`) before `pnpm cf:deploy`; staging may be deployed from any branch and never touches migrations. Repository secrets it needs: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `DATABASE_URL` (+ optional `DATABASE_URL_UNPOOLED`), `NEON_AUTH_BASE_URL`, `NEON_AUTH_COOKIE_SECRET`. Runtime secrets stay on the Worker (`wrangler secret put`). Note: the staging build is made with the same `DATABASE_URL` secret, which is only used at build time. Production hosting is owner-confirmed; this document update did not run the workflow or independently verify the live deployment.
 
-## 8c. Database latency (no Hyperdrive)
+## 8c. Database connection through Hyperdrive
 
-The Worker talks to Neon over HTTP (`@neondatabase/serverless`, `lib/db/client.ts`), so it opens no TCP connections and Hyperdrive does not apply; using it would mean switching to `node-postgres` and rewriting `db.batch()` as transactions. Instead `wrangler.jsonc` sets `placement: { mode: "smart" }`, which runs the Worker near its backend. Measure page latency on staging; Hyperdrive stays the fallback if it is still slow.
+`lib/db/client.ts` uses `env.HYPERDRIVE.connectionString` in a Cloudflare Worker and connects through `pg` plus `drizzle-orm/node-postgres`. A request-scoped React cache reuses the Drizzle client only within the current request; Hyperdrive owns the origin connection pool. `db.batch()` remains transactional by running its statements on one checked-out `pg` client. The Worker does not fall back to `process.env.DATABASE_URL` when an initialized Cloudflare context is present but the binding is missing or malformed. Node.js development, tests, migrations and the explicit local PostgreSQL mode continue to use `DATABASE_URL` as before.
+
+`wrangler.jsonc` now declares the production `HYPERDRIVE` binding using the ID supplied for this setup. Confirm in Cloudflare that this ID points to the intended Neon database before any deploy. Staging needs its own non-production Hyperdrive ID before its database binding is configured; do not point staging at production data:
+
+```jsonc
+"hyperdrive": [
+  { "binding": "HYPERDRIVE", "id": "<staging Hyperdrive ID>" }
+]
+```
+
+Keep `nodejs_compat`; Cloudflare documents `pg` and `drizzle-orm/node-postgres` as supported Hyperdrive drivers. The installed `pg` 8.23.1 exceeds Cloudflare's stated 8.16.3 minimum. `pg-cloudflare` 1.4.1 remains the optional dependency selected by `pg` for Workers; no `pg` shim is configured. `cloudflare/shims/pg.js` is retained until a separately scoped removal confirms no other consumer needs it.
+
+Set the Hyperdrive origin credentials in the Hyperdrive configuration, not in `wrangler.jsonc`, repository files or ordinary Worker vars. For local `wrangler dev`, use the documented Hyperdrive local-connection-string mechanism with a disposable non-production database. A real Worker/Hyperdrive smoke test has not been run by this change.
 
 ## 9. Local preview
 
@@ -202,3 +214,4 @@ The Worker talks to Neon over HTTP (`@neondatabase/serverless`, `lib/db/client.t
 ## Building on Windows
 
 `pnpm cf:build` sets `BUILD_TARGET` through `dotenv-cli`, so the script runs in any shell. The OpenNext bundling step, however, creates symlinks, which Windows refuses without extra rights (`EPERM: operation not permitted, symlink`). Either build inside WSL (a separate `pnpm install` there, since `node_modules` contains platform binaries), or turn on Windows **Developer Mode** (Settings → System → For developers), which allows symlinks without administrator rights. CI builds on Linux, so a PR always shows whether the Worker build works.
+

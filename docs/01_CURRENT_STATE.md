@@ -2,7 +2,7 @@
 
 V PR #535 je implementován první funkční průchod: databázové tabulky a migrace `0108_recurring_incomes.sql`, čistá logika četnosti a termínů, serverové akce pro správu/zastavení/skip/potvrzení, zapojení očekávaných výskytů do rozpočtových období a UI karty „Pravidelné příjmy“. Při potvrzení uživatel zadá skutečně přijatou částku; částka se uloží jako samostatný skutečný řádek a termín se atomicky naváže jedinečným klíčem. Skutečné záznamy zůstávají oddělené od očekávané částky šablony. Přidány unit a integrační testy.
 
-Termíny k potvrzení se zobrazují v aplikaci po otevření rozpočtu; push upozornění v den termínu zatím není součástí implementace. CI a bezpečnostní audit se stále musí dokončit; PR #535 se nesmí sloučit před jejich úspěšným výsledkem.
+Termíny k potvrzení se zobrazují v aplikaci po otevření rozpočtu. Denní cron `/api/cron/shopping-reminders` nově vytvoří v očekávaný den oznámení `recurring_income`; pokud jsou Web Push klíče nastavené a uživatel má upozornění povolená, odešle se také push. Datum posledního upozornění brání opakování při souběžném běhu cronu. CI a bezpečnostní audit musí projít i po této změně; PR #535 se nesmí sloučit před úspěšnými kontrolami.
 
 ## Update 2026-10-20 — Historický odhad výdajů ve výhledu
 

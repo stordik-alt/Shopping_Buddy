@@ -33,6 +33,7 @@ type OutlookState = ReturnType<typeof useBudgetOutlook>
 const outlookState = (outlook: BudgetOutlook | null, error = ''): OutlookState => ({ outlook, error, retry: () => {}, planCarry: noop })
 /** Running period 15. 10.–14. 11. plus two ahead: 38 000 planned income each, 30 000 budget. */
 const outlookData: BudgetOutlook = {
+  historicalSpending: null,
   actualNow: 6_800,
   spentNow: 31_200,
   periods: [

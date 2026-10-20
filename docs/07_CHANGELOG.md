@@ -1,3 +1,10 @@
+## 2026-10-20 — První implementační fáze identity katalogu
+
+- Přidána aditivní migrace 0113_catalog_trade_item_identity.sql a odpovídající Drizzle schéma pro trade_items, trade_item_identifiers a retailer_product_refs.
+- GTIN/EAN zůstává volitelný, ukládá se jako text a jeho stav ověření je oddělený od formátové kontroly. Interní kódy řetězců se ukládají do samostatných referencí podle zdroje.
+- Stávající produkty, product_packages, product_external_refs, ceny, akce a jejich historie se nemigrují ani nemažou. Nové tabulky zatím nejsou zapojeny do cenového výpočtu ani importu Tety.
+- Migrace a schéma čekají na CI/review; žádné ruční zápisy do produkční databáze nebyly provedeny.
+
 ## 2026-10-20 — Návrh identity katalogu a pravidel akcí
 
 - Přidán návrh identity katalogu: produktová varianta, prodejní jednotka/balení, volitelný ověřený GTIN a retailer reference oddělené podle zdroje.

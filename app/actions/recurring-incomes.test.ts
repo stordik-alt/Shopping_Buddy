@@ -11,7 +11,7 @@ vi.mock('@/lib/auth/authorize', () => ({
   requireHousehold: () => Promise.resolve({ userId: '00000000-0000-4000-8000-000000000001', userEmail: 'test@example.com', householdId: currentHouseholdId, role: 'owner', memberId: '00000000-0000-4000-8000-000000000002' }),
 }))
 
-import { getPeriodIncomesAction } from '@/app/actions/incomes'
+import { addIncomeAction, getPeriodIncomesAction } from '@/app/actions/incomes'
 import {
   confirmRecurringIncomeAction,
   saveRecurringIncomeAction,
@@ -130,6 +130,35 @@ describe('recurring income confirmation', () => {
     await skipRecurringIncomeAction(schedule.id, today)
     await expect(skipRecurringIncomeAction(schedule.id, today)).rejects.toThrow('vyřídil někdo jiný')
     expect(await db.query.incomes.findMany({ where: eq(schema.incomes.householdId, householdId) })).toHaveLength(0)
+  })
+
+  it('keeps actual history unchanged when the future expected amount changes', async () => {
+    const today = todayInPrague()
+    const schedule = await saveRecurringIncomeAction({
+      description: 'Výplata',
+      expectedAmount: 30_000,
+      intervalMonths: 1,
+      startDate: today,
+    })
+    await confirmRecurringIncomeAction(schedule.id, today, { amount: 29_500, date: today })
+    await saveRecurringIncomeAction({
+      description: 'Výplata po navýšení',
+      expectedAmount: 32_000,
+      intervalMonths: 1,
+      startDate: today,
+    }, schedule.id)
+    const rows = await db.query.incomes.findMany({ where: eq(schema.incomes.householdId, householdId) })
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ description: 'Výplata', amount: '29500.00', status: 'actual' })
+  })
+
+  it('keeps a one-off income out of future periods', async () => {
+    const today = todayInPrague()
+    await addIncomeAction({ description: 'Vánoční dárek', amount: 5_000, date: today, status: 'planned' })
+    expect(await getPeriodIncomesAction(today)).toContainEqual(expect.objectContaining({ description: 'Vánoční dárek', amount: 5_000 }))
+    const nextMonth = new Date(`${today}T00:00:00Z`)
+    nextMonth.setUTCMonth(nextMonth.getUTCMonth() + 1)
+    expect(await getPeriodIncomesAction(nextMonth.toISOString().slice(0, 10))).not.toContainEqual(expect.objectContaining({ description: 'Vánoční dárek' }))
   })
 
   it('stopping a schedule preserves previously received income', async () => {

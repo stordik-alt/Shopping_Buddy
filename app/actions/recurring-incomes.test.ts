@@ -54,10 +54,18 @@ describe('recurring income reminders', () => {
     expect(notifications[0]).toMatchObject({ title: 'Dnes očekáváte pravidelný příjem', kind: 'recurring_income' })
   })
 
-  it('does not remind after the occurrence was received or skipped', async () => {
+  it('does not remind after the occurrence was received', async () => {
     const today = todayInPrague()
     const schedule = await saveRecurringIncomeAction({ description: 'Výplata', expectedAmount: 30_000, intervalMonths: 1, startDate: today })
     await confirmRecurringIncomeAction(schedule.id, today, { amount: 29_500, date: today })
+    expect(await remindDueRecurringIncomes(db, today)).toEqual({ households: 0, incomes: 0 })
+    expect(await db.query.notifications.findMany({ where: eq(schema.notifications.householdId, householdId) })).toEqual([])
+  })
+
+  it('does not remind after the occurrence was skipped', async () => {
+    const today = todayInPrague()
+    const schedule = await saveRecurringIncomeAction({ description: 'Výplata', expectedAmount: 30_000, intervalMonths: 1, startDate: today })
+    await skipRecurringIncomeAction(schedule.id, today)
     expect(await remindDueRecurringIncomes(db, today)).toEqual({ households: 0, incomes: 0 })
     expect(await db.query.notifications.findMany({ where: eq(schema.notifications.householdId, householdId) })).toEqual([])
   })

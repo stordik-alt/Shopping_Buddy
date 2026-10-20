@@ -79,7 +79,7 @@ export function mapTetaSnapshotToPromotionCandidates(
     promotionValidUntil: undefined,
   }, today)
 
-  return (snapshot.offers ?? []).map((offer: TetaPriceOfferSnapshot, index) => {
+  return (snapshot.offers ?? []).filter((offer) => offer.kind !== 'regular').map((offer: TetaPriceOfferSnapshot, index) => {
     const reviewReasons: string[] = []
     const isMatchedDisplayedPromotion =
       offer.kind === 'promotion' &&

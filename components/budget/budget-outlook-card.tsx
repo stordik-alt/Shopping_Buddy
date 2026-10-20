@@ -42,7 +42,7 @@ export function BudgetOutlookCard({
     <Panel
       title="Výhled dalších období"
       summary={ahead[0] ? (ahead[0].predicted === null ? 'Příští období: příjem není naplánován' : `Příští období: ${ahead[0].predicted < 0 ? `chybět bude ${money(-ahead[0].predicted)}` : `predikce ${money(ahead[0].predicted)}`}`) : undefined}
-      description="Odhad z plánu: plánované příjmy, rozpočet období, pravidelné platby a plánované výdaje. Bez naplánovaného příjmu nelze určit výsledek budoucího období; nejde automaticky o ztrátu."
+      description="Odhad podle skutečných běžných výdajů za poslední tři dokončená období a známých budoucích plateb. Bez naplánovaného příjmu nelze určit výsledný zůstatek; odhad výdajů není jistota ani skutečný schodek."
     >
       {awaitingClose && <p className="mb-4 text-sm text-fg-secondary">Minulé období ještě není uzavřené, jeho převod ve výhledu zatím chybí.</p>}
 
@@ -74,7 +74,7 @@ export function BudgetOutlookCard({
                   <dl className="grid grid-cols-1 gap-x-4 gap-y-1 text-xs text-fg-secondary sm:grid-cols-2 lg:grid-cols-3">
                     <Item label="Začne s" value={signedMoney(row.opening)} />
                     <Item label="Příjmy" value={money(row.income)} />
-                    <Item label="Výdaje" value={money(row.spending)} />
+                    <Item label="Odhad výdajů" value={money(row.spending)} />
                     {row.plannedTransfers > 0 && <Item label="Úspory do Kapes" value={money(row.plannedTransfers)} />}
                     <Item label="Převod do dalšího" value={row.predicted === null ? '—' : signedMoney(row.carryOut)} />
                   </dl>

@@ -22,7 +22,7 @@ type State = ReturnType<typeof useIncomes>
 type PlannedState = ReturnType<typeof usePlannedExpenses>
 type LedgerState = ReturnType<typeof useBudgetLedger>
 const noop = async () => {}
-const state = (overrides: Partial<State>): State => ({ incomes: [], error: '', retry: () => {}, refresh: () => {}, add: noop, update: noop, remove: noop, receive: noop, ...overrides })
+const state = (overrides: Partial<State>): State => ({ incomes: [], error: '', retry: () => {}, refresh: () => {}, add: noop, update: noop, remove: noop, receive: async () => ({ id: 'a', amount: 38_000, description: 'Výplata', date: '2026-10-15', status: 'actual' }), ...overrides })
 
 const emptyLedger: BudgetLedger = { carryIn: 0, transfers: 0, pockets: [], plannedTransfersLeft: 0, toClose: null, closed: false, previousClosedStart: null }
 const ledgerState = (ledger: BudgetLedger | null, error = ''): LedgerState => ({

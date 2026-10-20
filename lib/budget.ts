@@ -80,8 +80,14 @@ export function totalSpent(expenses: Expense[]) {
 
 /** This period's spending per day so far: days elapsed count its first day through `today`
  *  inclusive, so the first day divides by 1, never by 0. */
+/** Recurring payments are real expenses, but their individually scheduled amounts must not distort
+ *  the daily/weekly spending pace. Only the explicit occurrence-to-expense link marks them. */
+export function expensesForSpendingPace(expenses: Expense[]): Expense[] {
+  return expenses.filter((expense) => !expense.isRecurringPayment)
+}
+
 export function dailyAverage(expenses: Expense[], today: string, period: PeriodInput = 1) {
-  return totalSpent(expensesInPeriod(expenses, today, period)) / periodDay(today, period)
+  return totalSpent(expensesInPeriod(expensesForSpendingPace(expenses), today, period)) / periodDay(today, period)
 }
 
 export function weeklyAverage(expenses: Expense[], today: string, period: PeriodInput = 1) {

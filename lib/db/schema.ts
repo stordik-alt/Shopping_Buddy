@@ -584,6 +584,75 @@ export const productPackages = pgTable('product_packages', {
   check('product_packages_drained_quantity_positive', sql`${table.drainedQuantity} IS NULL OR ${table.drainedQuantity} > 0`),
 ])
 
+// First implementation phase of catalog identity: a sellable trade item is distinct from the
+// canonical product and from inferred package-size metadata. Existing products/prices remain intact.
+export const tradeItems = pgTable('trade_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  productPackageId: uuid('product_package_id').references(() => productPackages.id, { onDelete: 'set null' }),
+  // Only populate when the source provides enough evidence to distinguish this exact package.
+  packageSignature: text('package_signature'),
+  status: text('status').notNull().default('active'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('trade_items_product_package_unique').on(table.productPackageId).where(sql`${table.productPackageId} IS NOT NULL`),
+  uniqueIndex('trade_items_product_signature_unique').on(table.productId, table.packageSignature).where(sql`${table.packageSignature} IS NOT NULL`),
+  index('trade_items_product_status_idx').on(table.productId, table.status),
+  check('trade_items_status_valid', sql`${table.status} IN ('active', 'discontinued', 'needs_review')`),
+])
+
+// GTIN/EAN is optional and stored as text so leading zeroes are preserved. Format validity and
+// evidence that an identifier belongs to a trade item are deliberately separate concerns.
+export const tradeItemIdentifiers = pgTable('trade_item_identifiers', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tradeItemId: uuid('trade_item_id').notNull().references(() => tradeItems.id, { onDelete: 'cascade' }),
+  scheme: text('scheme').notNull().default('GTIN'),
+  value: text('value').notNull(),
+  market: text('market'),
+  verificationStatus: text('verification_status').notNull().default('unverified'),
+  verificationSource: text('verification_source'),
+  verifiedAt: timestamp('verified_at', { withTimezone: true }),
+  validFrom: date('valid_from'),
+  validUntil: date('valid_until'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('trade_item_identifiers_trade_item_idx').on(table.tradeItemId),
+  uniqueIndex('trade_item_identifiers_verified_active_unique')
+    .on(table.scheme, table.value, sql`COALESCE(${table.market}, '')`)
+    .where(sql`${table.verificationStatus} IN ('source_confirmed', 'independently_verified') AND ${table.validUntil} IS NULL`),
+  check('trade_item_identifiers_scheme_valid', sql`${table.scheme} IN ('GTIN')`),
+  check('trade_item_identifiers_verification_status_valid', sql`${table.verificationStatus} IN ('unverified', 'source_confirmed', 'independently_verified', 'rejected')`),
+  check('trade_item_identifiers_validity_range', sql`${table.validFrom} IS NULL OR ${table.validUntil} IS NULL OR ${table.validUntil} >= ${table.validFrom}`),
+])
+
+// Source-specific references are separate from GTINs. source is text rather than product_source
+// enum so public retailer catalogs (including Teta) can be recorded without changing ingestion enums.
+export const retailerProductRefs = pgTable('retailer_product_refs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  source: text('source').notNull(),
+  externalId: text('external_id').notNull(),
+  tradeItemId: uuid('trade_item_id').references(() => tradeItems.id, { onDelete: 'set null' }),
+  productId: uuid('product_id').references(() => products.id, { onDelete: 'set null' }),
+  sourceUrl: text('source_url'),
+  firstSeenAt: timestamp('first_seen_at', { withTimezone: true }).notNull().defaultNow(),
+  lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
+  identityStatus: text('identity_status').notNull().default('unresolved'),
+  rawName: text('raw_name'),
+  rawBrand: text('raw_brand'),
+  rawPackage: text('raw_package'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('retailer_product_refs_source_external_id_unique').on(table.source, table.externalId),
+  index('retailer_product_refs_trade_item_idx').on(table.tradeItemId),
+  index('retailer_product_refs_product_idx').on(table.productId),
+  check('retailer_product_refs_source_nonempty', sql`length(trim(${table.source})) > 0`),
+  check('retailer_product_refs_external_id_nonempty', sql`length(trim(${table.externalId})) > 0`),
+  check('retailer_product_refs_identity_status_valid', sql`${table.identityStatus} IN ('unresolved', 'matched', 'review_required', 'retired')`),
+])
+
+
 
 // A reusable abbreviation/alias → product mapping (spec section 6), e.g. Lidl's "MAT 15" → Mattoni
 // 1.5 l. Global (`storeId` null) or store-specific — different retailers can abbreviate the same

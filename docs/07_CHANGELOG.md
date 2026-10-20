@@ -3,6 +3,7 @@
 - Karta „Výhled dalších období“ nově zobrazuje průměr běžných skutečných výdajů podle kategorií za poslední tři dokončená rozpočtová období.
 - Prázdná období se počítají jako nula; výdaje spojené s potvrzenými pravidelnými platbami jsou vynechány, protože budoucí závazky se přičítají samostatně.
 - Přehled je pouze informativní. Nemění rozpočty, skutečné výdaje ani zůstatky; přidány testy průměrování a období bez historie.
+- Testovací přípravek plánování rozpočtu doplněn o nové pole `historicalSpendingByCategory`; bez historie zůstává hodnota `null`.
 
 ## 2026-10-20 — Oprava typové kontroly výhledu rozpočtu
 

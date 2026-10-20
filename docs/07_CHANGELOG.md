@@ -1,3 +1,9 @@
+## 2026-10-20 — Připomínky pravidelných příjmů
+
+- Denní cron `/api/cron/shopping-reminders` nyní v den očekávaného příjmu upozorní domácnost přes oznámení `recurring_income`; při nastaveném Web Push se upozornění doručí i na zařízení.
+- Přidána volba „Pravidelné příjmy“ do preferencí upozornění a migrace `0112_recurring_income_reminders.sql` se značkou posledního upozorněného termínu.
+- Přidány integrační testy pro jednorázové upozornění a vynechání již potvrzeného příjmu. CI se po změně musí znovu dokončit.
+
 ## 2026-10-20 — Pravidelné a jednorázové příjmy (průběžná implementace)
 
 - Přidány tabulky `recurring_incomes` a `recurring_income_occurrences` v migraci `0108_recurring_incomes.sql`; pravidelný plán má očekávanou částku, první datum a četnost 1/3/6/12 měsíců.

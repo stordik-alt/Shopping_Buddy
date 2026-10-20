@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "purpose": "real_cross_retailer_validation",
+  "labelingProtocol": "docs/47_PRODUCT_IDENTITY_LABELING_PROTOCOL.md",
+  "pairs": []
+}

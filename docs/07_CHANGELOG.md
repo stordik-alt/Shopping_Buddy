@@ -1,3 +1,11 @@
+## 2026-10-20 — Fáze 2 párování identity produktů bez EAN
+
+- Přidán read-only generátor kandidátů pro dvojice produktů s vysvětlitelným skóre a evidencí shody EAN, názvu, značky, kategorie, množství/balení a možných variant.
+- Výstup je vždy `review_required`; skóre je pořadová heuristika, nikoli kalibrovaná pravděpodobnost.
+- Přidán CLI report nad JSON se zdrojovými metadaty, počty záznamů a omezeným počtem kandidátů.
+- Přidány testy pro normalizaci, rozdílné balení, variantní konflikty, přesný EAN a vynechání duplicitního zdrojového záznamu.
+- Záměrně bez databázových zápisů, slučování produktů, importu cen nebo trénování ML modelu. Pro cross-retailer párování jsou nutné záznamy z více obchodních řetězců; samotný Teta snapshot to neprokáže.
+
 ## 2026-10-20 — Fáze 5: návrhy strukturovaných akcí z Teta snapshotů
 
 - Přidán čistý převod interního snapshotového kontraktu Tety na kandidáty strukturovaných akcí určené ke kontrole.

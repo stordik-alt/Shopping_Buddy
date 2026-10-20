@@ -682,7 +682,7 @@ export async function getPurchaseAftermath(householdId: string, purchaseId?: str
   return {
     purchaseHistory: toPurchaseRecords(purchaseRows, expenseRows),
     pantryItems: pantryRows.map(toPantryItem),
-    expenses: expenseRows.map((row) => toExpense(row, new Set(recurringExpenseIdRows).has(row.id))),
+    expenses: expenseRows.map(toExpense),
     notifications,
     tickedListItems,
   }
@@ -874,7 +874,7 @@ export async function getHouseholdData(
       active: row.active,
     })),
     recurringOccurrences: occurrenceRows.map((row) => ({ ...row, status: row.status === 'skipped' ? 'skipped' : 'paid' })),
-    expenses: expenseRows.map(toExpense),
+    expenses: expenseRows.map((row) => toExpense(row, new Set(recurringExpenseIdRows).has(row.id))),
     // Loaded newest first (for the limit), shown oldest first as before.
     notifications: notificationRows.slice().reverse().map(toNotification),
     purchaseHistory: toPurchaseRecords(purchaseRows, expenseRows),

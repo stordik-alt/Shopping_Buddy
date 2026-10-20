@@ -1,6 +1,6 @@
 # Návrh datového modelu identity katalogu
 
-**Stav: návrh k revizi, bez změny databázového schématu a bez produkčních zápisů.**  
+**Stav: první implementační fáze připravena v PR; migrace je aditivní a čeká na CI/review. Bez produkčního importu.**  
 **Rozsah:** katalog ANITKY, interní kódy řetězců, varianty, balení a volitelné GTIN/EAN.  
 **Související dokumenty:** `docs/12_PRODUCT_TYPES.md`, `docs/34_CATALOG_IDENTITY.md`, `docs/42_TETA_DATA_SOURCE_AUDIT.md`.
 
@@ -15,7 +15,7 @@ Je nutné odlišovat čtyři úrovně:
 3. **Trade item / balení** — konkrétní prodejní jednotka, např. 500 ml nebo balení 2 × 500 ml. GTIN se vztahuje k identifikované obchodní jednotce, nikoli automaticky ke všem velikostem téhož výrobku.
 4. **Retailer reference** — interní SKU/kód řetězce pro konkrétní záznam v jeho katalogu. Je unikátní jen v rámci zdroje a nikdy se nesmí vydávat za GTIN.
 
-Stávající `products`, `product_packages` a `product_external_refs` jsou použitelné jako základ, ale vazba externí reference a cen pouze na `product_id` nemusí bezpečně odlišit dvě prodejní jednotky stejného výrobku. Návrh proto počítá s postupným zavedením identity obchodní jednotky, nikoli s rychlým přidáním povinného sloupce EAN.
+Stávající `products` a `product_packages` zůstávají základem. První implementační fáze přidává `trade_items`, `trade_item_identifiers` a `retailer_product_refs`; stávající `product_external_refs`, ceny a akce se zatím nemění. Nové vazby jsou oddělené a volitelné, aby bylo možné nejprve ověřit identitu bez přepisování historie.
 
 ## 2. Navrhovaná logická struktura
 

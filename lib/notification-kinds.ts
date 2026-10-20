@@ -1,5 +1,5 @@
 // The kinds of notification the app raises (docs/14_NOTIFICATION_PREFERENCES.md). Each member can
-// switch any of them off; the database check constraint (migrations 0066 and 0072) lists the same keys.
+// switch any of them off; the database check constraint (migrations 0066, 0072 and 0112) lists the same keys.
 
 export const NOTIFICATION_KINDS = [
   { key: 'budget', label: 'Rozpočet domácnosti', description: 'Když výdaje dosáhnou 80 % nebo překročí měsíční rozpočet.' },
@@ -9,6 +9,7 @@ export const NOTIFICATION_KINDS = [
   { key: 'shopping_reminder', label: 'Připomínka nákupu', description: 'Ráno, když na seznamu něco čeká.' },
   { key: 'pantry_check', label: 'Kontrola zásob', description: 'Jednou týdně: co asi došlo a jestli to ještě máte.' },
   { key: 'recurring_payment', label: 'Pravidelné platby', description: 'V den splatnosti nájmu, energií a dalších pravidelných plateb.' },
+  { key: 'recurring_income', label: 'Pravidelné příjmy', description: 'V den očekávané výplaty nebo jiného pravidelného příjmu.' },
   { key: 'household', label: 'Domácnost', description: 'Když se k domácnosti připojí nový člen.' },
 ] as const
 

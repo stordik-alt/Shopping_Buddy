@@ -7,7 +7,7 @@ upozornění chce a která ne"). Feature A of the post-redesign plan (A → B �
 - Every notification is created by `createHouseholdNotification` (`lib/notify.ts`): one row in `notifications` for the
   whole household (the bell panel reads it) and, with Web Push configured, a push to every member's subscribed
   devices (`pushToHousehold`, `lib/push/deliver.ts`), except the member who caused it.
-- Seven places raise one, each a distinct kind of message:
+- Eight places raise one, each a distinct kind of message:
   | Kind (key) | Where | Title (example) |
   |---|---|---|
   | `budget` | `lib/db/budget-notify.ts` (overall budget) | Blížíte se limitu rozpočtu / Rozpočet byl překročen |
@@ -16,6 +16,7 @@ upozornění chce a která ne"). Feature A of the post-redesign plan (A → B �
   | `shopping_reminder` | `app/api/cron/shopping-reminders` (daily) | Nezapomeňte na nákup |
   | `pantry_check` | `app/api/cron/pantry-checkin` (weekly) | Kontrola zásob |
   | `recurring_payment` | `lib/db/recurring-reminders.ts` | Dnes je splatná platba |
+  | `recurring_income` | `lib/db/recurring-income-reminders.ts` (daily cron) | Dnes očekáváte pravidelný příjem |
   | `household` | `lib/db/queries.ts` (invitation accepted) | Nový člen domácnosti |
 - Nothing lets a member choose; Profil ▸ Upozornění has a "Týdenní souhrn" switch that is local state only (saved
   nowhere, changes nothing).
@@ -36,7 +37,7 @@ upozornění chce a která ne"). Feature A of the post-redesign plan (A → B �
 - `notifications.kind text NULL` — the kind of a new row (one of the keys above); `NULL` for older rows.
 - `member_notification_settings (member_id uuid → household_members ON DELETE CASCADE, kind text, enabled boolean,
   updated_at)`, primary key `(member_id, kind)`, check that `kind` is one of the keys. Absent row = enabled.
-- Migration `0066_notification_preferences.sql`, additive (new nullable column, new table); the running code ignores
+- Migrations `0066_notification_preferences.sql`, `0072_new_deals_notifications.sql` and `0112_recurring_income_reminders.sql` keep the allowed notification kinds in sync; the running code ignores
   both, so it is safe to apply before the new code is live (CLAUDE.md section 7).
 
 ## Code
@@ -60,3 +61,8 @@ upozornění chce a která ne"). Feature A of the post-redesign plan (A → B �
 A new kind, **`new_deals`** ("Nové letáky"), raised by the daily morning cron (`app/api/cron/shopping-reminders` →
 `lib/db/deal-announcements.ts`) when a chain the household chose publishes a new flyer; it links to Akce filtered to
 the chain. Migration 0072 adds it to the check constraint. Concept: `docs/21_NEW_FLYER_NOTIFICATIONS.md`.
+
+
+## Update 2026-10-20 — kind `recurring_income`
+
+The daily `/api/cron/shopping-reminders` job creates a household notification on the expected date of an unhandled regular income. Members can disable this kind in Profile → Notifications; configured Web Push subscriptions receive it as well. Migration `0112_recurring_income_reminders.sql` adds the preference key and a reminder-date marker to prevent duplicate notifications for the same date.

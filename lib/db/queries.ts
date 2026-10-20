@@ -374,9 +374,10 @@ async function getRecurringExpenseIds(householdId: string, sinceDate: string): P
     .select({ expenseId: schema.recurringPaymentOccurrences.expenseId })
     .from(schema.recurringPaymentOccurrences)
     .innerJoin(schema.recurringPayments, eq(schema.recurringPayments.id, schema.recurringPaymentOccurrences.recurringPaymentId))
+    .innerJoin(schema.expenses, eq(schema.expenses.id, schema.recurringPaymentOccurrences.expenseId))
     .where(and(
       eq(schema.recurringPayments.householdId, householdId),
-      gte(schema.recurringPaymentOccurrences.dueDate, sinceDate),
+      gte(schema.expenses.date, sinceDate),
     ))
   return new Set(rows.flatMap((row) => row.expenseId ? [row.expenseId] : []))
 }

@@ -1,3 +1,9 @@
+## 2026-10-20 — Historické výdaje podle kategorií ve výhledu rozpočtu
+
+- Karta „Výhled dalších období“ nově zobrazuje průměr běžných skutečných výdajů podle kategorií za poslední tři dokončená rozpočtová období.
+- Prázdná období se počítají jako nula; výdaje spojené s potvrzenými pravidelnými platbami jsou vynechány, protože budoucí závazky se přičítají samostatně.
+- Přehled je pouze informativní. Nemění rozpočty, skutečné výdaje ani zůstatky; přidány testy průměrování a období bez historie.
+
 ## 2026-10-20 — Oprava typové kontroly výhledu rozpočtu
 
 - Testovací přípravek `BudgetOutlook` doplněn o `historicalSpending`, které je součástí nového datového kontraktu. Oprava testovacích dat, bez změny výpočtu nebo produkčního chování.

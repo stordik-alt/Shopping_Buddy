@@ -54,7 +54,7 @@ export function IncomeModal({
     <Sheet
       open
       onClose={onClose}
-      title={income ? 'Upravit příjem' : 'Nový příjem'}
+      title={income ? 'Upravit jednorázový příjem' : 'Nový jednorázový příjem'}
       initialFocus={income ? undefined : descriptionRef}
       footer={
         <>

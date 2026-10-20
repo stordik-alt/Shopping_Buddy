@@ -41,6 +41,33 @@ afterAll(async () => {
 })
 
 describe('recurring income confirmation', () => {
+  it('adds expected occurrences to the budget forecast and replaces them with actual receipts', async () => {
+    const today = todayInPrague()
+    const schedule = await saveRecurringIncomeAction({
+      description: 'Příspěvek na bydlení',
+      expectedAmount: 4_000,
+      intervalMonths: 1,
+      startDate: today,
+    })
+    const planned = await getPeriodIncomesAction(today)
+    expect(planned).toContainEqual(expect.objectContaining({
+      recurringIncomeId: schedule.id,
+      occurrenceDueDate: today,
+      amount: 4_000,
+      status: 'planned',
+    }))
+
+    await confirmRecurringIncomeAction(schedule.id, today, { amount: 4_250, date: today })
+    const actual = await getPeriodIncomesAction(today)
+    expect(actual).toContainEqual(expect.objectContaining({
+      recurringIncomeId: schedule.id,
+      occurrenceDueDate: today,
+      amount: 4_250,
+      status: 'actual',
+    }))
+    expect(actual.filter((income) => income.recurringIncomeId === schedule.id)).toHaveLength(1)
+  })
+
   it('stores the actual received amount as a separate historical income row', async () => {
     const today = todayInPrague()
     const schedule = await saveRecurringIncomeAction({

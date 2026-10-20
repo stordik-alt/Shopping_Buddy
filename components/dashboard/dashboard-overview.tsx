@@ -11,6 +11,7 @@ const MAX_PREVIEW_ITEMS = 3
 export function DashboardOverview({
   budget,
   spent,
+  paceSpent = spent,
   remaining,
   completed,
   totalItems,
@@ -31,6 +32,8 @@ export function DashboardOverview({
   period?: PeriodInput
   budget: number
   spent: number
+  /** Spending pace excludes linked recurring payments; actual spent still drives the budget balance. */
+  paceSpent?: number
   remaining: number
   completed: number
   totalItems: number
@@ -53,7 +56,7 @@ export function DashboardOverview({
     // On a phone the primary reading order is budget → today's shopping → quick actions. On larger
     // screens the shopping card stays beside the budget, while secondary controls span below.
     <section className="min-w-0 w-full grid gap-3 lg:grid-cols-[1.35fr_1fr] lg:gap-4" aria-label="Přehled domácnosti">
-      <BudgetHero compact today={today} period={period} budget={budget} spent={spent} remaining={remaining} onSetBudget={onSetBudget} onOpen={onBudget} className="order-1 min-w-0" />
+      <BudgetHero compact today={today} period={period} budget={budget} spent={spent} paceSpent={paceSpent} remaining={remaining} onSetBudget={onSetBudget} onOpen={onBudget} className="order-1 min-w-0" />
 
       <CardButton onClick={onShopping} className="group order-2 flex flex-col lg:order-2">
         <CardHeader as="span" title="Nákupní seznam" icon={<ListChecks className="size-4" />} action={<ChevronRight className="size-5 transition group-hover:translate-x-0.5" />} className="w-full" />

@@ -78,7 +78,9 @@ CREATE TABLE "promotion_eligible_items" (
   CONSTRAINT "promotion_eligible_items_confidence_range" CHECK ("confidence" IS NULL OR "confidence" BETWEEN 0 AND 1)
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX "promotion_eligible_items_promotion_product_trade_unique" ON "promotion_eligible_items" ("promotion_id","product_id","trade_item_id");
+CREATE UNIQUE INDEX "promotion_eligible_items_promotion_product_trade_unique" ON "promotion_eligible_items" ("promotion_id","product_id","trade_item_id") WHERE "trade_item_id" IS NOT NULL;
+--> statement-breakpoint
+CREATE UNIQUE INDEX "promotion_eligible_items_promotion_product_unique" ON "promotion_eligible_items" ("promotion_id","product_id") WHERE "trade_item_id" IS NULL;
 --> statement-breakpoint
 CREATE INDEX "promotion_eligible_items_product_idx" ON "promotion_eligible_items" ("product_id","promotion_id");
 --> statement-breakpoint

@@ -119,7 +119,7 @@ export function BudgetPlanning({
   const [closing, setClosing] = useState(false)
   const [reopenError, setReopenError] = useState('')
   const totals = useMemo(() => incomeTotals(incomes.incomes ?? []), [incomes.incomes])
-  const displayedIncomes = useMemo(() => (incomes.incomes ?? []).filter((income) => !income.recurringIncomeId), [incomes.incomes])
+  const displayedIncomes = useMemo(() => (incomes.incomes ?? []).filter((income) => !income.recurringIncomeId || income.status === 'actual'), [incomes.incomes])
   const plannedOpen = round2((plannedExpenses.plannedExpenses ?? []).filter((entry) => entry.status === 'planned').reduce((sum, entry) => sum + entry.amount, 0))
   const ledger = pockets.ledger
   // docs/15 §9.1, §14: received income + the carry from the previous period − paid expenses − money

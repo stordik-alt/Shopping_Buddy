@@ -64,7 +64,8 @@
     "db:simulate-product-subtype-expansion": "dotenv -e .env.local -- tsx scripts/simulate-product-subtype-expansion.ts",
     "db:product-subtype-candidates": "dotenv -e .env.local -- tsx scripts/manage-product-subtype-candidates.ts",
     "db:pilot-product-taxonomy-luna": "dotenv -e .env.local -- tsx scripts/pilot-product-taxonomy-luna.ts",
-    "teta:fetch-public": "tsx scripts/teta-fetch-public-catalog.ts"
+    "teta:fetch-public": "tsx scripts/teta-fetch-public-catalog.ts",
+    "product:identity-candidates": "tsx scripts/report-product-identity-candidates.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "4.0.71",

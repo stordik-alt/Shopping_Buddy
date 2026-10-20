@@ -1,3 +1,10 @@
+## 2026-10-20 — Návrh identity katalogu a pravidel akcí
+
+- Přidán návrh identity katalogu: produktová varianta, prodejní jednotka/balení, volitelný ověřený GTIN a retailer reference oddělené podle zdroje.
+- Přidán návrh strukturovaných akcí: podmínky, rozsah způsobilých položek, klubové požadavky, cenový efekt, platnost a stav ověření.
+- Popsán kompatibilní migrační postup bez mazání či slučování historických produktů a cen a bez změny produkčního výpočtu.
+- Jde pouze o dokumentační návrh; databázové migrace, import Tety a produkční zápisy nebyly provedeny.
+
 ## 2026-10-20 — Omezení opakovaného otevírání Hyperdrive socketů
 
 - Pool pro Hyperdrive zůstává omezený na kontext jednoho requestu, ale spojení může obsloužit více SQL dotazů v rámci tohoto requestu (`maxUses: 20`).

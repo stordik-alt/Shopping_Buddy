@@ -1282,6 +1282,37 @@ export const incomes = pgTable('incomes', {
   check('incomes_status_valid', sql`${table.status} IN ('planned', 'actual')`),
 ])
 
+// A household's expected regular income. The schedule is a forecast only: it never changes the actual
+// balance. Each received occurrence creates its own immutable actual income row in `incomes`.
+export const recurringIncomes = pgTable('recurring_incomes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  description: text('description').notNull(),
+  expectedAmount: numeric('expected_amount', { precision: 10, scale: 2 }).notNull(),
+  intervalMonths: integer('interval_months').notNull(),
+  startDate: date('start_date').notNull(),
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('recurring_incomes_household_idx').on(table.householdId),
+  check('recurring_incomes_amount_positive', sql`${table.expectedAmount} > 0`),
+  check('recurring_incomes_interval', sql`${table.intervalMonths} IN (1, 3, 6, 12)`),
+  check('recurring_incomes_description_not_blank', sql`length(btrim(${table.description})) > 0`),
+])
+
+// One handled occurrence of a recurring income. The unique schedule/date key makes receiving idempotent;
+// actual money is stored as a separate row in incomes and linked here, preserving history if the schedule changes.
+export const recurringIncomeOccurrences = pgTable('recurring_income_occurrences', {
+  recurringIncomeId: uuid('recurring_income_id').notNull().references(() => recurringIncomes.id, { onDelete: 'cascade' }),
+  dueDate: date('due_date').notNull(),
+  status: text('status').notNull(),
+  incomeId: uuid('income_id').references(() => incomes.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  primaryKey({ columns: [table.recurringIncomeId, table.dueDate] }),
+  check('recurring_income_occurrences_status', sql`(${table.status} = 'received' AND ${table.incomeId} IS NOT NULL) OR (${table.status} = 'skipped' AND ${table.incomeId} IS NULL)`),
+])
+
 // A planned expense (docs/15_BUDGET_PERIODS.md §7–8): expected money going out, never part of the actual
 // balance. Paying it creates the real expense and links it, so the money is never counted twice.
 export const plannedExpenses = pgTable('planned_expenses', {

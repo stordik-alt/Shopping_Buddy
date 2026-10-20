@@ -68,6 +68,9 @@ export type Income = {
   description: string
   date: string
   status: IncomeStatus
+  /** Set only for an unconfirmed occurrence synthesized from a recurring income schedule. */
+  recurringIncomeId?: string
+  occurrenceDueDate?: string
 }
 
 /** A planned expense (docs/15_BUDGET_PERIODS.md §7–8): expected money going out. 'paid' means it became
@@ -139,6 +142,10 @@ export type OutlookPeriodData = {
   budget: number
 }
 export type BudgetOutlook = {
+  /** Average ordinary spending across the last three completed budget periods, excluding expenses linked to recurring-payment occurrences; null when no history exists. */
+  historicalSpending: number | null
+  /** Per-category average ordinary spending across the same completed periods; recurring-payment expenses are excluded. */
+  historicalSpendingByCategory: { category: ExpenseCategory; average: number }[] | null
   /** Actual balance of the running period now (§9.1). Excludes the carry of a period still to be closed. */
   actualNow: number
   spentNow: number

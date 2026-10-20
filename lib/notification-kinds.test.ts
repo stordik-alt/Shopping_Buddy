@@ -16,8 +16,12 @@ describe('notification kinds', () => {
     expect(wantsNotification(null, off)).toBe(true)
   })
 
-  it('matches the database check constraint (last set by migration 0072)', () => {
-    const sql = readFileSync('lib/db/migrations/0072_new_deals_notifications.sql', 'utf8')
+  it('matches the database check constraints across notification-kind migrations', () => {
+    const sql = [
+      readFileSync('lib/db/migrations/0066_notification_preferences.sql', 'utf8'),
+      readFileSync('lib/db/migrations/0072_new_deals_notifications.sql', 'utf8'),
+      readFileSync('lib/db/migrations/0112_recurring_income_reminders.sql', 'utf8'),
+    ].join('\\n')
     for (const { key } of NOTIFICATION_KINDS) expect(sql).toContain(`'${key}'`)
   })
 })

@@ -1,6 +1,6 @@
 'use server'
 
-import { and, asc, eq, gte, lt } from 'drizzle-orm'
+import { and, asc, eq, gte, inArray, lt } from 'drizzle-orm'
 import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
 import { nextPeriodStartFor, periodStartFor } from '@/lib/budget-period'
 import { recordAudit } from '@/lib/db/audit'
@@ -8,6 +8,7 @@ import { getDb } from '@/lib/db/client'
 import { loadPeriodConfig } from '@/lib/db/period-config'
 import * as schema from '@/lib/db/schema'
 import { isIsoDate, validateIncomeInput, validateReceivedDate, type IncomeInput } from '@/lib/income-input'
+import { recurringIncomeDueDatesBetween, type RecurringIncome } from '@/lib/recurring-incomes'
 import { todayInPrague } from '@/lib/today'
 import type { Income } from '@/lib/types'
 
@@ -49,11 +50,56 @@ export async function getPeriodIncomesAction(period: string): Promise<Income[]> 
   if (!isIsoDate(period)) throw new Error('Neplatné období.')
   const config = await loadPeriodConfig(getDb(), householdId)
   const from = periodStartFor(config, period)
-  const rows = await getDb().query.incomes.findMany({
-    where: and(eq(schema.incomes.householdId, householdId), gte(schema.incomes.date, from), lt(schema.incomes.date, nextPeriodStartFor(config, from))),
+  const until = nextPeriodStartFor(config, from)
+  const db = getDb()
+  const rows = await db.query.incomes.findMany({
+    where: and(eq(schema.incomes.householdId, householdId), gte(schema.incomes.date, from), lt(schema.incomes.date, until)),
     orderBy: [asc(schema.incomes.date), asc(schema.incomes.createdAt)],
   })
-  return rows.map(toIncome)
+  const schedules = await db.query.recurringIncomes.findMany({
+    where: and(eq(schema.recurringIncomes.householdId, householdId), eq(schema.recurringIncomes.active, true)),
+  })
+  const scheduleIds = schedules.map((schedule) => schedule.id)
+  const occurrences = scheduleIds.length
+    ? await db.query.recurringIncomeOccurrences.findMany({
+        where: and(inArray(schema.recurringIncomeOccurrences.recurringIncomeId, scheduleIds), gte(schema.recurringIncomeOccurrences.dueDate, from), lt(schema.recurringIncomeOccurrences.dueDate, until)),
+      })
+    : []
+  const handled = new Set(occurrences.map((row) => `${row.recurringIncomeId}|${row.dueDate}`))
+  const actualIncomeIds = rows.map((row) => row.id)
+  const actualOccurrences = actualIncomeIds.length
+    ? await db.query.recurringIncomeOccurrences.findMany({
+        where: inArray(schema.recurringIncomeOccurrences.incomeId, actualIncomeIds),
+      })
+    : []
+  const occurrenceByIncome = new Map(actualOccurrences.filter((row) => row.incomeId).map((row) => [row.incomeId!, row]))
+  const historicalRows: Income[] = rows.map((row) => {
+    const income = toIncome(row)
+    const occurrence = occurrenceByIncome.get(row.id)
+    return occurrence ? { ...income, recurringIncomeId: occurrence.recurringIncomeId, occurrenceDueDate: occurrence.dueDate } : income
+  })
+  const recurringPlans: Income[] = schedules.flatMap((schedule) => {
+    const income: RecurringIncome = {
+      id: schedule.id,
+      description: schedule.description,
+      expectedAmount: Number(schedule.expectedAmount),
+      intervalMonths: schedule.intervalMonths as RecurringIncome['intervalMonths'],
+      startDate: schedule.startDate,
+      active: schedule.active,
+    }
+    return recurringIncomeDueDatesBetween(income, from, until)
+      .filter((dueDate) => dueDate < until && !handled.has(`${schedule.id}|${dueDate}`))
+      .map((dueDate) => ({
+        id: `recurring-income:${schedule.id}:${dueDate}`,
+        amount: income.expectedAmount,
+        description: income.description,
+        date: dueDate,
+        status: 'planned' as const,
+        recurringIncomeId: schedule.id,
+        occurrenceDueDate: dueDate,
+      }))
+  })
+  return [...historicalRows, ...recurringPlans].sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
 }
 
 export async function addIncomeAction(input: IncomeInput): Promise<Income> {

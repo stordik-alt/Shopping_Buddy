@@ -1,3 +1,17 @@
+## Update 2026-10-20 — Pravidelné a jednorázové příjmy
+
+V PR #535 je implementován první funkční průchod: databázové tabulky a migrace `0108_recurring_incomes.sql`, čistá logika četnosti a termínů, serverové akce pro správu/zastavení/skip/potvrzení, zapojení očekávaných výskytů do rozpočtových období a UI karty „Pravidelné příjmy“. Při potvrzení uživatel zadá skutečně přijatou částku; částka se uloží jako samostatný skutečný řádek a termín se atomicky naváže jedinečným klíčem. Skutečné záznamy zůstávají oddělené od očekávané částky šablony. Přidány unit a integrační testy.
+
+Termíny k potvrzení se zobrazují v aplikaci po otevření rozpočtu. Denní cron `/api/cron/shopping-reminders` nově vytvoří v očekávaný den oznámení `recurring_income`; pokud jsou Web Push klíče nastavené a uživatel má upozornění povolená, odešle se také push. Datum posledního upozornění brání opakování při souběžném běhu cronu. CI a bezpečnostní audit musí projít i po této změně; PR #535 se nesmí sloučit před úspěšnými kontrolami.
+
+## Update 2026-10-20 — Historický odhad výdajů ve výhledu
+
+Výhled budoucích období používá průměr běžných skutečných výdajů ze tří předchozích dokončených rozpočtových období. Potvrzené pravidelné platby jsou z historického základu vynechány podle vazby occurrence → expense a známé budoucí platby se přidávají samostatně. Při chybějící historii se používá rozpočet jako náhradní odhad. Bez plánovaného příjmu lze zobrazit očekávané výdaje, nikoli spolehlivý konečný zůstatek; žádný fiktivní schodek se nepřenáší. PR #535 čeká na CI.
+
+## Update 2026-10-20 — Výhled budoucích období
+
+Budoucí období bez naplánovaného příjmu zobrazují výsledek jako neurčitelný, nikoli jako automatickou ztrátu ve výši rozpočtu. Takový výsledek nevytváří záporný převod, který by se sčítal do dalších období. Výhled s naplánovaným příjmem i skutečné účetní výpočty zůstávají oddělené; změna čeká na CI a sloučení PR.
+
 ## Update 2026-10-20 — Pravidelné platby a výdajové tempo
 
 Výdaj vzniklý potvrzením pravidelné platby je v rozpočtu nadále skutečným výdajem: snižuje disponibilní rozpočet, zůstává v součtech a v historii. Denní/týdenní průměr a projekce do konce období jej ale nezapočítávají, protože jde o konkrétní plánovanou platbu, nikoli běžné tempo útraty. Identifikace vychází výhradně z vazby `recurring_payment_occurrences.expense_id`; jednorázový výdaj ve stejné kategorii se nevylučuje. Změna byla připravena na samostatné větvi a před sloučením vyžaduje úspěšné CI.
@@ -965,6 +979,7 @@ Recent work added notification behavior when spending crosses configured thresho
 - **Notifications:** crossing 80 % or 100 % of a category's limit notifies the household once ("Auto: 80 % limitu", "Auto: limit překročen"), whether by a typed-in expense or a receipt, alongside the overall budget's notification. `lib/db/budget-notify.ts` `notifyBudgetThresholds` reads the month's spending per category once and decides both. `addExpenseAction` now returns `notifications` (a list).
 
 **Update 2026-09-26, recurring payments (migration `0038`; part 4, the last of the expense plan).**
+- **Skutečně zaplacená částka (2026-10-20):** po klepnutí na „Zaplaceno“ aplikace výslovně žádá potvrzení částky. Očekávaná částka je předvyplněná, ale uživatel ji může upravit podle reálné platby; do výdajů se uloží upravená částka.
 - **Entering:** a household enters a payment once: name, amount, category and subcategory, how often (monthly, quarterly, half-yearly, yearly) and the first due date (`recurring_payments`, `app/actions/recurring.ts`). The day of the month is kept, falling back to the month's last day in a shorter month. A payment can be changed or stopped; stopping keeps the paid history.
 - **Nothing counts until confirmed.** Rozpočet → "Pravidelné platby" (`components/budget/recurring-payments.tsx`) lists:
   - due dates up to today that are neither paid nor skipped (at most the last three per payment, none older than a year), each with "Zaplaceno" (the amount and date actually paid, prefilled) and "Přeskočit";

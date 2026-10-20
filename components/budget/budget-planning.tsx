@@ -3,6 +3,8 @@ import { Check, ChevronLeft, ChevronRight, CircleDashed, Loader2, Pencil, Plus, 
 import { BudgetOutlookCard } from '@/components/budget/budget-outlook-card'
 import { BudgetPeriodSettings } from '@/components/budget/budget-period-settings'
 import { IncomeModal } from '@/components/budget/income-modal'
+import { RecurringIncomeReceiptModal } from '@/components/budget/recurring-income-receipt-modal'
+import { RecurringIncomesCard } from '@/components/budget/recurring-incomes-card'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PeriodClosingSheet } from '@/components/budget/period-closing-sheet'
@@ -112,10 +114,12 @@ export function BudgetPlanning({
 }) {
   const [editing, setEditing] = useState<'new' | Income | null>(null)
   const [receiving, setReceiving] = useState<string | null>(null)
+  const [confirmingRecurring, setConfirmingRecurring] = useState<Income | null>(null)
   const [receiveError, setReceiveError] = useState('')
   const [closing, setClosing] = useState(false)
   const [reopenError, setReopenError] = useState('')
   const totals = useMemo(() => incomeTotals(incomes.incomes ?? []), [incomes.incomes])
+  const displayedIncomes = useMemo(() => (incomes.incomes ?? []).filter((income) => !income.recurringIncomeId || income.status === 'actual'), [incomes.incomes])
   const plannedOpen = round2((plannedExpenses.plannedExpenses ?? []).filter((entry) => entry.status === 'planned').reduce((sum, entry) => sum + entry.amount, 0))
   const ledger = pockets.ledger
   // docs/15 §9.1, §14: received income + the carry from the previous period − paid expenses − money
@@ -147,6 +151,7 @@ export function BudgetPlanning({
     ? projectOutlook({
         actualNow: outlook.outlook.actualNow,
         spentNow: outlook.outlook.spentNow,
+        historicalSpending: outlook.outlook.historicalSpending,
         periods: outlook.outlook.periods.map((entry) => ({ ...entry, commitments: commitmentsFor(entry.periodStart) })),
       })
     : null
@@ -206,11 +211,11 @@ export function BudgetPlanning({
               <Figure label="Očekávané příjmy" value={money(viewed.income)} />
               <Figure label="Očekávané výdaje" value={money(viewed.spending)} />
               {viewed.plannedTransfers > 0 && <Figure label="Úspory do Kapes" value={money(viewed.plannedTransfers)} />}
-              <Figure label="Predikovaný zůstatek" value={money(viewed.predicted)} strong />
-              <Figure label="Převod do dalšího" value={signedMoney(viewed.carryOut)} />
+              <Figure label="Predikovaný zůstatek" value={viewed.predicted === null ? 'Nelze určit' : money(viewed.predicted)} strong />
+              {viewed.predicted !== null && <Figure label="Převod do dalšího" value={signedMoney(viewed.carryOut)} />}
             </dl>
           )}
-          <p className="text-xs text-fg-secondary">Výdaje vycházejí z rozpočtu období; pravidelné platby a plánované výdaje, které ho přesahují, ho navýší.</p>
+          <p className="text-xs text-fg-secondary">Výdaje vycházejí z rozpočtu období; pravidelné platby a plánované výdaje, které ho přesahují, ho navýší. {viewed?.predicted === null ? 'Bez naplánovaného příjmu nelze určit výsledný zůstatek; částka rozpočtu není automaticky ztráta a nepřenáší se do dalších období.' : 'Odhad nezmění skutečný zůstatek.'}</p>
         </section>
       )}
 
@@ -292,11 +297,11 @@ export function BudgetPlanning({
         key={`incomes-${future}`}
         title="Příjmy"
         summary={incomes.incomes === null ? undefined : incomes.incomes.length === 0 ? 'Zatím žádné' : `Přijato ${money(totals.received)} · čeká ${money(totals.planned)}`}
-        description="Výplata, brigáda, dávky… Plánovaný příjem označíte jako přijatý, až dorazí."
+        description="Jednorázové a mimořádné příjmy (např. dárek nebo jednorázová odměna). Pravidelné příjmy nastavíte samostatně níže."
         defaultOpen={future}
         action={
           <Button variant="secondary" onClick={() => setEditing('new')}>
-            <Plus aria-hidden="true" /> Přidat příjem
+            <Plus aria-hidden="true" /> Přidat jednorázový příjem
           </Button>
         }
       >
@@ -312,20 +317,24 @@ export function BudgetPlanning({
             <p className="flex items-center gap-2 text-sm text-fg-secondary">
               <Loader2 className="size-4 animate-spin" aria-hidden="true" /> Načítám…
             </p>
-          ) : incomes.incomes.length === 0 ? (
-            <EmptyState
-              icon={<Wallet />}
-              title="V tomto období zatím nejsou žádné příjmy"
-              description="Přidejte výplatu nebo jiný příjem. Plánovaný příjem pomůže odhadnout, kolik vám zbude."
-              action={
-                <Button onClick={() => setEditing('new')}>
-                  <Plus aria-hidden="true" /> Přidat příjem
-                </Button>
-              }
-            />
+          ) : displayedIncomes.length === 0 ? (
+            incomes.incomes.length > 0 ? (
+              <p className="text-sm text-fg-secondary">Očekávané pravidelné příjmy najdete v kartě Pravidelné příjmy.</p>
+            ) : (
+              <EmptyState
+                icon={<Wallet />}
+                title="V tomto období zatím nejsou žádné příjmy"
+                description="Přidejte výplatu nebo jiný jednorázový příjem. Pravidelný příjem nastavíte samostatně níže."
+                action={
+                  <Button onClick={() => setEditing('new')}>
+                    <Plus aria-hidden="true" /> Přidat jednorázový příjem
+                  </Button>
+                }
+              />
+            )
           ) : (
             <ul className="divide-y divide-border">
-              {incomes.incomes.map((income) => (
+              {displayedIncomes.map((income) => (
                 <li key={income.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-3">
                   <div className="min-w-0 flex-1 basis-40">
                     <p className="break-words text-sm font-medium">{income.description || 'Příjem'}</p>
@@ -338,13 +347,20 @@ export function BudgetPlanning({
                   <p className="text-sm font-semibold tabular-nums">{money(income.amount)}</p>
                   <div className="flex items-center gap-2">
                     {income.status === 'planned' && !future && (
-                      <Button variant="secondary" className="min-h-10" onClick={() => void receive(income.id)} disabled={receiving === income.id}>
-                        {receiving === income.id ? 'Ukládám…' : 'Přijato'}
+                      <Button
+                        variant="secondary"
+                        className="min-h-10"
+                        onClick={() => income.recurringIncomeId ? setConfirmingRecurring(income) : void receive(income.id)}
+                        disabled={receiving === income.id}
+                      >
+                        {receiving === income.id ? 'Ukládám…' : income.recurringIncomeId ? 'Potvrdit částku' : 'Přijato'}
                       </Button>
                     )}
-                    <Button variant="ghost" className="min-h-10" onClick={() => setEditing(income)} aria-label={`Upravit příjem ${income.description || ''}`.trim()}>
-                      <Pencil aria-hidden="true" />
-                    </Button>
+                    {!income.recurringIncomeId && (
+                      <Button variant="ghost" className="min-h-10" onClick={() => setEditing(income)} aria-label={`Upravit příjem ${income.description || ''}`.trim()}>
+                        <Pencil aria-hidden="true" />
+                      </Button>
+                    )}
                   </div>
                 </li>
               ))}
@@ -357,6 +373,8 @@ export function BudgetPlanning({
           )}
         </div>
       </Panel>
+
+      {!future && <RecurringIncomesCard today={today} onIncomeChanged={incomes.refresh} />}
 
       {/* The blocks start open for a period ahead and closed for the running one; the key remounts them
           when the user moves between the two, since `defaultOpen` is only read on mount. */}
@@ -376,6 +394,18 @@ export function BudgetPlanning({
 
       {closing && !future && ledger?.toClose && (
         <PeriodClosingSheet preview={ledger.toClose} pockets={ledger.pockets} recommendation={recommendation} reservedForNext={reservedForNext} onClose={() => setClosing(false)} onConfirm={pockets.closePeriod} />
+      )}
+
+      {confirmingRecurring && (
+        <RecurringIncomeReceiptModal
+          income={confirmingRecurring}
+          today={today}
+          onClose={() => setConfirmingRecurring(null)}
+          onConfirm={async (actual) => {
+            await incomes.receive(confirmingRecurring.id, actual)
+            setConfirmingRecurring(null)
+          }}
+        />
       )}
 
       {editing && (

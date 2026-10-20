@@ -1,3 +1,54 @@
+## 2026-10-20 — Oprava smoke testu plánování příjmů
+
+- E2E test upraven podle nového označení „Přidat jednorázový příjem“; test čekal na původní obecný text „Přidat příjem“ a proto se zasekl při hledání neexistujícího tlačítka.
+- Jde o opravu testovacího selektoru, bez změny produkčního chování. Smoke test musí znovu projít před sloučením PR.
+
+## 2026-10-20 — Připomínky pravidelných příjmů
+
+- Denní cron `/api/cron/shopping-reminders` nyní v den očekávaného příjmu upozorní domácnost přes oznámení `recurring_income`; při nastaveném Web Push se upozornění doručí i na zařízení.
+- Přidána volba „Pravidelné příjmy“ do preferencí upozornění a migrace `0112_recurring_income_reminders.sql` se značkou posledního upozorněného termínu.
+- Přidány integrační testy pro jednorázové upozornění a vynechání již potvrzeného příjmu. CI se po změně musí znovu dokončit.
+
+## 2026-10-20 — Pravidelné a jednorázové příjmy (průběžná implementace)
+
+- Přidány tabulky `recurring_incomes` a `recurring_income_occurrences` v migraci `0108_recurring_incomes.sql`; pravidelný plán má očekávanou částku, první datum a četnost 1/3/6/12 měsíců.
+- Rozpočet zahrnuje očekávané výskyty aktivních pravidelných příjmů v příslušném období. Jednorázové příjmy zůstávají v běžném formuláři; pravidelné mají samostatnou správu, přehled termínů a možnost zastavení.
+- Při potvrzení se zadává skutečně přijatá částka a datum; vznikne samostatný řádek `incomes` propojený s jedinečným termínem. Dvojité potvrzení a přístup mimo domácnost jsou blokovány serverem.
+- Přidány testy pravidel termínů, validace, skutečné částky, rozpočtového výhledu, idempotence a oprávnění.
+- Připomínání je nyní in-app v kartě „Pravidelné příjmy“ při otevření rozpočtu; push upozornění v den termínu zatím není implementováno. CI a bezpečnostní audit pro tuto sadu změn se musí dokončit před sloučením.
+
+## 2026-10-20 — Výslovné potvrzení skutečné částky pravidelné platby
+
+- Po volbě „Zaplaceno“ se zobrazí jasná otázka na skutečně zaplacenou částku a informace o plánované částce, kterou lze upravit.
+- Uložení je označeno „Potvrdit skutečnou částku“; do výdajů se zapisuje zadaná skutečná částka, ne automaticky očekávaná částka.
+- Zachováno předvyplnění plánované částky pro rychlé potvrzení, když odpovídá realitě. Existující databázový test ověřuje i odlišnou skutečně zaplacenou částku.
+
+## 2026-10-20 — Historické výdaje podle kategorií ve výhledu rozpočtu
+
+- Karta „Výhled dalších období“ nově zobrazuje průměr běžných skutečných výdajů podle kategorií za poslední tři dokončená rozpočtová období.
+- Prázdná období se počítají jako nula; výdaje spojené s potvrzenými pravidelnými platbami jsou vynechány, protože budoucí závazky se přičítají samostatně.
+- Přehled je pouze informativní. Nemění rozpočty, skutečné výdaje ani zůstatky; přidány testy průměrování a období bez historie.
+- Testovací přípravek plánování rozpočtu doplněn o nové pole `historicalSpendingByCategory`; bez historie zůstává hodnota `null`.
+
+## 2026-10-20 — Oprava typové kontroly výhledu rozpočtu
+
+- Testovací přípravek `BudgetOutlook` doplněn o `historicalSpending`, které je součástí nového datového kontraktu. Oprava testovacích dat, bez změny výpočtu nebo produkčního chování.
+
+## 2026-10-20 — Historický odhad výdajů ve výhledu
+
+- Budoucí výhled využívá průměr běžných skutečných výdajů za tři předchozí dokončená rozpočtová období; výpočet respektuje kalendářní, výplatní i vlastní délku období.
+- Výdaje vzniklé potvrzením pravidelné platby se z historického základu vynechají podle explicitní vazby `recurring_payment_occurrences.expense_id`; známé budoucí pravidelné platby se přidají samostatně.
+- Plánované jednorázové výdaje se přičtou k historickému základu. Pokud historie neexistuje, zůstává původní odhad podle rozpočtu období.
+- Odhad výdajů se zobrazí i bez naplánovaného příjmu, ale výsledný zůstatek zůstane neurčitelný a nevytvoří záporný převod. Skutečné peníze se nemění.
+- Přidány regresní testy pro historický základ, známé výdaje a chybějící příjmy.
+
+## 2026-10-20 — Výhled budoucích období bez naplánovaných příjmů
+
+- Budoucí období bez zadaného příjmu už nejsou automaticky vyhodnocena jako deficit ve výši rozpočtu.
+- U takového období se výsledek označí jako neurčitelný, protože absence plánovaného příjmu neznamená, že žádný příjem přijít nemůže.
+- Neurčitelný výsledek nevytvoří záporný převod do dalšího období, takže se fiktivní deficit nesčítá měsíc po měsíci. Skutečný schodek běžícího období a vypočitatelné výhledy s naplánovaným příjmem se zachovávají.
+- Přidány regresní testy pro chybějící i naplánovaný příjem. Změna nezasahuje do skutečných příjmů, výdajů, zůstatků ani uzavírání období.
+
 ## 2026-10-20 — Pravidelné platby mimo výdajového tempa rozpočtu
 
 - Výdaje vytvořené potvrzením pravidelné platby jsou označeny pouze podle vazby `recurring_payment_occurrences.expense_id`; název ani kategorie se nepoužívají jako odhad.

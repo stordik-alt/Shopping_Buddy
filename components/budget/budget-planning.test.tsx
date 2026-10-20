@@ -1,5 +1,14 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('@/app/actions/recurring-incomes', () => ({
+  confirmRecurringIncomeAction: vi.fn(),
+  getRecurringIncomeOverviewAction: vi.fn(),
+  saveRecurringIncomeAction: vi.fn(),
+  skipRecurringIncomeAction: vi.fn(),
+  stopRecurringIncomeAction: vi.fn(),
+}))
+
 import { BudgetPlanning } from '@/components/budget/budget-planning'
 import type { Commitment } from '@/lib/budget-forecast'
 import type { PeriodHistoryRow } from '@/lib/budget-history'
@@ -13,7 +22,7 @@ type State = ReturnType<typeof useIncomes>
 type PlannedState = ReturnType<typeof usePlannedExpenses>
 type LedgerState = ReturnType<typeof useBudgetLedger>
 const noop = async () => {}
-const state = (overrides: Partial<State>): State => ({ incomes: [], error: '', retry: () => {}, add: noop, update: noop, remove: noop, receive: noop, ...overrides })
+const state = (overrides: Partial<State>): State => ({ incomes: [], error: '', retry: () => {}, refresh: () => {}, add: noop, update: noop, remove: noop, receive: async () => ({ id: 'a', amount: 38_000, description: 'Výplata', date: '2026-10-15', status: 'actual' }), ...overrides })
 
 const emptyLedger: BudgetLedger = { carryIn: 0, transfers: 0, pockets: [], plannedTransfersLeft: 0, toClose: null, closed: false, previousClosedStart: null }
 const ledgerState = (ledger: BudgetLedger | null, error = ''): LedgerState => ({
@@ -33,6 +42,8 @@ type OutlookState = ReturnType<typeof useBudgetOutlook>
 const outlookState = (outlook: BudgetOutlook | null, error = ''): OutlookState => ({ outlook, error, retry: () => {}, planCarry: noop })
 /** Running period 15. 10.–14. 11. plus two ahead: 38 000 planned income each, 30 000 budget. */
 const outlookData: BudgetOutlook = {
+  historicalSpending: null,
+  historicalSpendingByCategory: null,
   actualNow: 6_800,
   spentNow: 31_200,
   periods: [
@@ -107,7 +118,7 @@ describe('BudgetPlanning', () => {
     expect(failed).toContain('Zkusit znovu')
     const empty = render(state({ incomes: [] }))
     expect(empty).toContain('zatím nejsou žádné příjmy')
-    expect(empty).toContain('Přidat příjem')
+    expect(empty).toContain('Přidat jednorázový příjem')
   })
 })
 

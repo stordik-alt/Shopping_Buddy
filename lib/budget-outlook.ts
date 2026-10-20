@@ -1,3 +1,5 @@
+import type { ExpenseCategory } from '@/lib/expense-categories'
+
 // docs/15_BUDGET_PERIODS.md §14, §16: the outlook for the periods ahead — where each one is expected to
 // start and end, and what it would carry on to the next. Pure and deterministic; no model is involved.
 //
@@ -8,6 +10,26 @@
 // balance, and the numbers are estimates the household can change by changing the plan.
 
 const round2 = (value: number) => Math.round(value * 100) / 100
+
+
+/** Average ordinary spending by category across the supplied completed periods.
+ * Empty periods count as zero; recurring-payment expenses must be excluded by the caller. */
+export function averageSpendingByCategory(
+  rows: { periodStart: string; category: ExpenseCategory; amount: number }[],
+  periodStarts: string[],
+): { category: ExpenseCategory; average: number }[] {
+  if (periodStarts.length === 0 || rows.length === 0) return []
+  const allowed = new Set(periodStarts)
+  const totals = new Map<ExpenseCategory, number>()
+  for (const row of rows) {
+    if (!allowed.has(row.periodStart)) continue
+    totals.set(row.category, (totals.get(row.category) ?? 0) + row.amount)
+  }
+  return [...totals.entries()]
+    .filter(([, total]) => total > 0)
+    .map(([category, total]) => ({ category, average: round2(total / periodStarts.length) }))
+    .sort((a, b) => b.average - a.average || a.category.localeCompare(b.category, 'cs'))
+}
 
 /** How many periods the outlook covers: the running one and a year ahead. */
 export const OUTLOOK_PERIODS = 13

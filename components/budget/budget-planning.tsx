@@ -4,6 +4,7 @@ import { BudgetOutlookCard } from '@/components/budget/budget-outlook-card'
 import { BudgetPeriodSettings } from '@/components/budget/budget-period-settings'
 import { IncomeModal } from '@/components/budget/income-modal'
 import { RecurringIncomeReceiptModal } from '@/components/budget/recurring-income-receipt-modal'
+import { RecurringIncomesCard } from '@/components/budget/recurring-incomes-card'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PeriodClosingSheet } from '@/components/budget/period-closing-sheet'
@@ -118,6 +119,7 @@ export function BudgetPlanning({
   const [closing, setClosing] = useState(false)
   const [reopenError, setReopenError] = useState('')
   const totals = useMemo(() => incomeTotals(incomes.incomes ?? []), [incomes.incomes])
+  const displayedIncomes = useMemo(() => (incomes.incomes ?? []).filter((income) => !income.recurringIncomeId), [incomes.incomes])
   const plannedOpen = round2((plannedExpenses.plannedExpenses ?? []).filter((entry) => entry.status === 'planned').reduce((sum, entry) => sum + entry.amount, 0))
   const ledger = pockets.ledger
   // docs/15 §9.1, §14: received income + the carry from the previous period − paid expenses − money
@@ -315,20 +317,24 @@ export function BudgetPlanning({
             <p className="flex items-center gap-2 text-sm text-fg-secondary">
               <Loader2 className="size-4 animate-spin" aria-hidden="true" /> Načítám…
             </p>
-          ) : incomes.incomes.length === 0 ? (
-            <EmptyState
-              icon={<Wallet />}
-              title="V tomto období zatím nejsou žádné příjmy"
-              description="Přidejte výplatu nebo jiný příjem. Plánovaný příjem pomůže odhadnout, kolik vám zbude."
-              action={
-                <Button onClick={() => setEditing('new')}>
-                  <Plus aria-hidden="true" /> Přidat příjem
-                </Button>
-              }
-            />
+          ) : displayedIncomes.length === 0 ? (
+            {incomes.incomes.length > 0 ? (
+              <p className="text-sm text-fg-secondary">Očekávané pravidelné příjmy najdete v kartě Pravidelné příjmy.</p>
+            ) : (
+              <EmptyState
+                icon={<Wallet />}
+                title="V tomto období zatím nejsou žádné příjmy"
+                description="Přidejte výplatu nebo jiný jednorázový příjem. Pravidelný příjem nastavíte samostatně níže."
+                action={
+                  <Button onClick={() => setEditing('new')}>
+                    <Plus aria-hidden="true" /> Přidat příjem
+                  </Button>
+                }
+              />
+            )}
           ) : (
             <ul className="divide-y divide-border">
-              {incomes.incomes.map((income) => (
+              {displayedIncomes.map((income) => (
                 <li key={income.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-3">
                   <div className="min-w-0 flex-1 basis-40">
                     <p className="break-words text-sm font-medium">{income.description || 'Příjem'}</p>
@@ -367,6 +373,8 @@ export function BudgetPlanning({
           )}
         </div>
       </Panel>
+
+      {!future && <RecurringIncomesCard today={today} onIncomeChanged={incomes.refresh} />}
 
       {/* The blocks start open for a period ahead and closed for the running one; the key remounts them
           when the user moves between the two, since `defaultOpen` is only read on mount. */}

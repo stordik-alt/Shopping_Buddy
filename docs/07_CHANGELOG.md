@@ -1,3 +1,8 @@
+## 2026-10-20 — Oprava smoke testu plánování příjmů
+
+- E2E test upraven podle nového označení „Přidat jednorázový příjem“; test čekal na původní obecný text „Přidat příjem“ a proto se zasekl při hledání neexistujícího tlačítka.
+- Jde o opravu testovacího selektoru, bez změny produkčního chování. Smoke test musí znovu projít před sloučením PR.
+
 ## 2026-10-20 — Připomínky pravidelných příjmů
 
 - Denní cron `/api/cron/shopping-reminders` nyní v den očekávaného příjmu upozorní domácnost přes oznámení `recurring_income`; při nastaveném Web Push se upozornění doručí i na zařízení.

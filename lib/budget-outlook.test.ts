@@ -120,3 +120,49 @@ describe('future outlook without planned income', () => {
     expect(next).toMatchObject({ income: 30_000, spending: 30_000, predicted: 0, carryOut: 0 })
   })
 })
+
+
+describe('historical spending in future outlook', () => {
+  it('uses recent ordinary spending and adds known future expenses', () => {
+    const [, next] = projectOutlook({
+      actualNow: 5_000,
+      spentNow: 0,
+      historicalSpending: 24_000,
+      periods: [
+        period('2026-10-01'),
+        period('2026-11-01', { budget: 30_000, plannedExpenses: 2_500, commitments: 1_500, plannedIncome: 35_000 }),
+      ],
+    })
+    expect(next.spending).toBe(28_000)
+    expect(next.predicted).toBe(12_000)
+  })
+
+  it('falls back to the budget-based estimate when no spending history exists', () => {
+    const [, next] = projectOutlook({
+      actualNow: 0,
+      spentNow: 0,
+      historicalSpending: null,
+      periods: [period('2026-10-01'), period('2026-11-01', { budget: 30_000, plannedExpenses: 2_000 })],
+    })
+    expect(next.spending).toBe(30_000)
+    expect(next.predicted).toBeNull()
+  })
+
+  it('still estimates spending from history when income is not planned, without inventing a deficit', () => {
+    const [, next, after] = projectOutlook({
+      actualNow: 0,
+      spentNow: 0,
+      historicalSpending: 24_000,
+      periods: [
+        period('2026-10-01'),
+        period('2026-11-01', { budget: 30_000, plannedExpenses: 2_000 }),
+        period('2026-12-01', { budget: 30_000 }),
+      ],
+    })
+    expect(next.spending).toBe(26_000)
+    expect(next.predicted).toBeNull()
+    expect(next.carryOut).toBe(0)
+    expect(after.spending).toBe(24_000)
+    expect(after.predicted).toBeNull()
+  })
+})

@@ -34,6 +34,10 @@ export function useIncomes({ period, until, active }: { period: string; until: s
   }, [active, incomes, error, period])
 
   const retry = useCallback(() => setError(''), [])
+  const refresh = useCallback(() => {
+    setError('')
+    setIncomes(null)
+  }, [])
 
   // Income dated in another period is saved but is not part of this view (it loads with its own period),
   // and an edit can move a row out of this one.
@@ -73,5 +77,5 @@ export function useIncomes({ period, until, active }: { period: string; until: s
     return income
   }, [incomes, inPeriod])
 
-  return { incomes, error, retry, add, update, remove, receive }
+  return { incomes, error, retry, refresh, add, update, remove, receive }
 }

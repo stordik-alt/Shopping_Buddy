@@ -144,6 +144,24 @@ describe('calculatePromotionPrices', () => {
     expect(result.lines.map((entry) => entry.finalTotalCents)).toEqual([0, 200, 300])
   })
 
+  it('requires the basket threshold before applying a basket discount', () => {
+    const promo = promotion({
+      rules: [{
+        id: 'rule-basket', ruleType: 'basket_threshold', discountValue: 20, discountUnit: 'currency',
+        stackingPolicy: 'allowed', evaluationStatus: 'verified',
+      }],
+      priceEffects: [{
+        id: 'effect-basket', effectType: 'basket_amount_off', value: 5, currency: 'CZK',
+        appliesTo: 'basket',
+      }],
+    })
+    const below = calculate([line('a', 'product-a', 1000)], [promo])
+    const met = calculate([line('a', 'product-a', 3000)], [promo])
+    expect(below.discountCents).toBe(0)
+    expect(below.skippedPromotions[0].reason).toBe('basket_threshold_not_met')
+    expect(met.discountCents).toBe(500)
+  })
+
   it('does not apply unverified promotions or unverified eligibility rows', () => {
     const unverifiedPromotion = promotion({ verificationStatus: 'unverified' })
     const unverifiedItem = promotion({

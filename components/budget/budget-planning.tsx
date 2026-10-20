@@ -147,6 +147,7 @@ export function BudgetPlanning({
     ? projectOutlook({
         actualNow: outlook.outlook.actualNow,
         spentNow: outlook.outlook.spentNow,
+        historicalSpending: outlook.outlook.historicalSpending,
         periods: outlook.outlook.periods.map((entry) => ({ ...entry, commitments: commitmentsFor(entry.periodStart) })),
       })
     : null

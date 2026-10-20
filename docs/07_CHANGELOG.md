@@ -1,3 +1,10 @@
+## 2026-10-20 — Fáze 4: deterministický výpočet strukturovaných akcí
+
+- Přidán čistý výpočet ceny z aktuálního nákupního seznamu; částky se počítají v haléřích a výsledek se vždy znovu odvodí ze vstupních množství.
+- Zohledňuje ověřenou způsobilost produktu/konkrétní obchodní jednotky, minimální množství, klubové požadavky, platnost, limity použití a akci „kup X, nejlevnější Y zdarma“ napříč společným sortimentem.
+- Při překryvu se vybere jediná akce s nejvyšší prokazatelnou úsporou; slevy se nesčítají a staré `deals` se do výpočtu znovu nezapočítávají.
+- Neznámé nebo nepodporované podmínky se bezpečně přeskočí. Výpočet zatím není napojen na produkční import ani UI; před zapojením je nutné ověřit testy a rozšířit pokrytí dalších typů akcí.
+
 ## 2026-10-20 — Fáze 3: strukturovaný model akcí (datová vrstva)
 
 - Přidány tabulky `promotions`, `promotion_rules`, `promotion_eligible_items`, `promotion_membership_requirements` a `promotion_price_effects`.

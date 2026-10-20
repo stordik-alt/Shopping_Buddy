@@ -86,9 +86,12 @@ function getHyperdriveConnectionString(): string | undefined {
 
 function createPgDb(url: string, hyperdrive: boolean) {
   if (hyperdrive) {
-    // OpenNext's React cache is scoped to the current request. Hyperdrive owns the origin pool,
-    // so do not retain a node-postgres pool globally across Worker requests.
-    const pool = new Pool({ connectionString: url, max: poolMax(), maxUses: 1 })
+    // OpenNext's React cache scopes this pool to the current request; do not store it in module/global
+    // state. Allow the pool to reuse a connection for several queries within that request. maxUses: 1
+    // forced a new Hyperdrive socket for every query, which is particularly costly for the budget
+    // outlook's parallel reads and can trigger repeated CloudflareSocket lifecycle failures.
+    // The pool is request-scoped, so this reuse does not carry a client into the next request.
+    const pool = new Pool({ connectionString: url, max: poolMax(), maxUses: 20 })
     const db = drizzlePg(pool, { schema })
     return Object.assign(db, {
       batch: (queries: BatchQuery[]) => runBatch(pool, queries),

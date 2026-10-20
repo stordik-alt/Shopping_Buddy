@@ -1,3 +1,9 @@
+## Update 2026-10-20 — Průběžná implementace pravidelných příjmů
+
+Připraven pouze databázový základ na větvi PR #535: `recurring_incomes` drží očekávanou částku, interval 1/3/6/12 měsíců, první datum a aktivní stav. `recurring_income_occurrences` ukládá vyřízení konkrétního termínu s jedinečným klíčem a odkazem na samostatný skutečný záznam v `incomes`. Migrace je `0108_recurring_incomes.sql`, záměrně až za existující `0107_audit_log.sql`.
+
+Serverové akce, UI, plánování a upozornění ani regresní testy zatím nejsou implementovány. Před sloučením PR je nutné je doplnit a ověřit na CI/test databázi.
+
 ## Update 2026-10-20 — Historický odhad výdajů ve výhledu
 
 Výhled budoucích období používá průměr běžných skutečných výdajů ze tří předchozích dokončených rozpočtových období. Potvrzené pravidelné platby jsou z historického základu vynechány podle vazby occurrence → expense a známé budoucí platby se přidávají samostatně. Při chybějící historii se používá rozpočet jako náhradní odhad. Bez plánovaného příjmu lze zobrazit očekávané výdaje, nikoli spolehlivý konečný zůstatek; žádný fiktivní schodek se nepřenáší. PR #535 čeká na CI.

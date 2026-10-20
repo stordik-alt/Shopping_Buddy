@@ -68,6 +68,9 @@ export type Income = {
   description: string
   date: string
   status: IncomeStatus
+  /** Set only for an unconfirmed occurrence synthesized from a recurring income schedule. */
+  recurringIncomeId?: string
+  occurrenceDueDate?: string
 }
 
 /** A planned expense (docs/15_BUDGET_PERIODS.md §7–8): expected money going out. 'paid' means it became

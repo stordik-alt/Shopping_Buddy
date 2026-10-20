@@ -229,8 +229,12 @@ export async function loadBudgetOutlook(db: Db, householdId: string, config: Per
   for (let i = 1; i < OUTLOOK_PERIODS; i++) starts.push(nextPeriodStartFor(config, starts[i - 1]))
   const end = nextPeriodStartFor(config, starts[starts.length - 1])
   const currentEnd = starts[1]
+  // Use three completed periods as the recent spending baseline. This is a household-specific estimate,
+  // not a new budget limit; periods with no spending count as zero once history exists.
+  let historyStart = currentStart
+  for (let i = 0; i < 3; i++) historyStart = previousPeriodStartFor(config, historyStart)
 
-  const [incomeRows, plannedRows, budgetRows, household, carries, pockets, closed, money, deposits] = await Promise.all([
+  const [incomeRows, plannedRows, budgetRows, household, carries, pockets, closed, money, deposits, historyExpenses, recurringExpenseRows] = await Promise.all([
     db
       .select({ date: schema.incomes.date, status: schema.incomes.status, total: sql<string>`sum(${schema.incomes.amount})` })
       .from(schema.incomes)
@@ -252,6 +256,13 @@ export async function loadBudgetOutlook(db: Db, householdId: string, config: Per
       .from(schema.pocketTransfers)
       .where(and(eq(schema.pocketTransfers.householdId, householdId), eq(schema.pocketTransfers.periodStart, currentStart), isNull(schema.pocketTransfers.closingId)))
       .groupBy(schema.pocketTransfers.pocketId),
+    db.select({ id: schema.expenses.id, date: schema.expenses.date, amount: schema.expenses.amount })
+      .from(schema.expenses)
+      .where(and(eq(schema.expenses.householdId, householdId), gte(schema.expenses.date, historyStart), lt(schema.expenses.date, currentStart))),
+    db.select({ expenseId: schema.recurringPaymentOccurrences.expenseId })
+      .from(schema.recurringPaymentOccurrences)
+      .innerJoin(schema.recurringPayments, eq(schema.recurringPaymentOccurrences.recurringPaymentId, schema.recurringPayments.id))
+      .where(eq(schema.recurringPayments.householdId, householdId)),
   ])
 
   const sumRange = (rows: { date: string; total: string }[], start: string, until: string) =>
@@ -260,6 +271,22 @@ export async function loadBudgetOutlook(db: Db, householdId: string, config: Per
   const defaultBudget = Number(household?.monthlyBudget ?? 0)
   const deposited = new Map(deposits.map((row) => [row.pocketId, Number(row.total)]))
   const plannedContributions = round2(pockets.reduce((sum, pocket) => sum + (pocket.plannedContribution ?? 0), 0))
+  const recurringExpenseIds = new Set(recurringExpenseRows.map((row) => row.expenseId).filter((id): id is string => id !== null))
+  const ordinaryHistory = historyExpenses.filter((row) => !recurringExpenseIds.has(row.id))
+  const historyTotals = new Map<string, number>()
+  for (const row of ordinaryHistory) {
+    const start = periodStartFor(config, row.date)
+    historyTotals.set(start, (historyTotals.get(start) ?? 0) + Number(row.amount))
+  }
+  const historyStarts: string[] = []
+  let cursor = currentStart
+  for (let i = 0; i < 3; i++) {
+    cursor = previousPeriodStartFor(config, cursor)
+    historyStarts.push(cursor)
+  }
+  const historicalSpending = ordinaryHistory.length === 0
+    ? null
+    : round2(historyStarts.reduce((sum, start) => sum + (historyTotals.get(start) ?? 0), 0) / historyStarts.length)
 
   const periods = starts.map((start, index) => {
     const until = index + 1 < starts.length ? starts[index + 1] : end
@@ -277,5 +304,5 @@ export async function loadBudgetOutlook(db: Db, householdId: string, config: Per
       budget: budgetForPeriod(start, periodBudgets, defaultBudget),
     }
   })
-  return { actualNow: periodResult(money, carryIntoPeriod(closed, currentStart)), spentNow: money.expenses, periods }
+  return { actualNow: periodResult(money, carryIntoPeriod(closed, currentStart)), spentNow: money.expenses, historicalSpending, periods }
 }

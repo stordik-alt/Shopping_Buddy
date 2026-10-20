@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "purpose": "smoke-test only; not training data",
+  "pairs": [
+    {
+      "id": "same-product-formatting",
+      "left": {"retailer": "TETA", "sourceCode": "196442", "name": "Tip Line kosmetické kapesníky 2vrstvé 100 ks", "brand": "Tip Line"},
+      "right": {"retailer": "SYNTHETIC", "sourceCode": "demo-001", "name": "TIP LINE kosmeticke kapesniky, 2vrstvé – 100 ks", "brand": "TIP LINE"},
+      "expected": "same_product",
+      "syntheticRight": true,
+      "reason": "Case, diacritics and punctuation differ; product description and pack size agree."
+    },
+    {
+      "id": "different-tissue-count",
+      "left": {"retailer": "TETA", "sourceCode": "196442", "name": "Tip Line kosmetické kapesníky 2vrstvé 100 ks", "brand": "Tip Line"},
+      "right": {"retailer": "SYNTHETIC", "sourceCode": "demo-002", "name": "Tip Line kosmetické kapesníky 2vrstvé 200 ks", "brand": "Tip Line"},
+      "expected": "different_product",
+      "syntheticRight": true,
+      "reason": "The pack quantity differs."
+    },
+    {
+      "id": "same-toilet-paper-formatting",
+      "left": {"retailer": "TETA", "sourceCode": "151261", "name": "Zewa Deluxe Delicate Care toaletní papír 3vrstvý 8 ks", "brand": "Zewa"},
+      "right": {"retailer": "SYNTHETIC", "sourceCode": "demo-003", "name": "ZEWA Deluxe Delicate Care toaletní papír 3vrstvý, 8 ks", "brand": "ZEWA"},
+      "expected": "same_product",
+      "syntheticRight": true,
+      "reason": "Only case and punctuation differ."
+    },
+    {
+      "id": "different-toilet-paper-brand-variant",
+      "left": {"retailer": "TETA", "sourceCode": "151261", "name": "Zewa Deluxe Delicate Care toaletní papír 3vrstvý 8 ks", "brand": "Zewa"},
+      "right": {"retailer": "SYNTHETIC", "sourceCode": "demo-004", "name": "Zewa Deluxe Camomile Comfort toaletní papír 3vrstvý 8 ks", "brand": "Zewa"},
+      "expected": "different_product",
+      "syntheticRight": true,
+      "reason": "The product variant differs despite brand and pack count agreement."
+    },
+    {
+      "id": "same-dishwasher-salt-pack",
+      "left": {"retailer": "TETA", "sourceCode": "147540", "name": "SOMAT sůl do myčky 1,5 kg", "brand": "Somat"},
+      "right": {"retailer": "SYNTHETIC", "sourceCode": "demo-005", "name": "Somat sůl do myčky 1500 g", "brand": "SOMAT"},
+      "expected": "same_product",
+      "syntheticRight": true,
+      "reason": "Equivalent mass expressed in different units; future quantity normalization must prove equivalence."
+    },
+    {
+      "id": "different-dishwasher-salt-pack",
+      "left": {"retailer": "TETA", "sourceCode": "147540", "name": "SOMAT sůl do myčky 1,5 kg", "brand": "Somat"},
+      "right": {"retailer": "SYNTHETIC", "sourceCode": "demo-006", "name": "Somat sůl do myčky 3 kg", "brand": "SOMAT"},
+      "expected": "different_product",
+      "syntheticRight": true,
+      "reason": "Mass differs."
+    }
+  ]
+}

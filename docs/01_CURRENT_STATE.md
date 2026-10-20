@@ -1,3 +1,7 @@
+## Update 2026-10-20 — Výhled budoucích období
+
+Budoucí období bez naplánovaného příjmu zobrazují výsledek jako neurčitelný, nikoli jako automatickou ztrátu ve výši rozpočtu. Takový výsledek nevytváří záporný převod, který by se sčítal do dalších období. Výhled s naplánovaným příjmem i skutečné účetní výpočty zůstávají oddělené; změna čeká na CI a sloučení PR.
+
 ## Update 2026-10-20 — Pravidelné platby a výdajové tempo
 
 Výdaj vzniklý potvrzením pravidelné platby je v rozpočtu nadále skutečným výdajem: snižuje disponibilní rozpočet, zůstává v součtech a v historii. Denní/týdenní průměr a projekce do konce období jej ale nezapočítávají, protože jde o konkrétní plánovanou platbu, nikoli běžné tempo útraty. Identifikace vychází výhradně z vazby `recurring_payment_occurrences.expense_id`; jednorázový výdaj ve stejné kategorii se nevylučuje. Změna byla připravena na samostatné větvi a před sloučením vyžaduje úspěšné CI.

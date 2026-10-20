@@ -55,7 +55,7 @@ export function expectedCarry(predicted: number, planned: number | null): number
 }
 
 /** The periods in order, each starting from the carry the one before it is expected to hand over. */
-export function projectOutlook(input: { actualNow: number; spentNow: number; periods: OutlookPeriodInput[] }): OutlookPeriod[] {
+export function projectOutlook(input: { actualNow: number; spentNow: number; historicalSpending?: number | null; periods: OutlookPeriodInput[] }): OutlookPeriod[] {
   const result: OutlookPeriod[] = []
   input.periods.forEach((period, index) => {
     const running = index === 0
@@ -64,7 +64,15 @@ export function projectOutlook(input: { actualNow: number; spentNow: number; per
     const known = round2(period.commitments + period.plannedExpenses)
     // The running period has already spent part of its budget; only the rest is still ahead.
     const budgetLeft = running ? Math.max(0, round2(period.budget - input.spentNow)) : period.budget
-    const spending = Math.max(budgetLeft, known)
+    // For future periods, use the household's recent ordinary spending as the baseline when history
+    // exists, then add known upcoming commitments and planned one-off expenses. Recurring-payment
+    // expenses are excluded from that historical baseline by the data loader, so commitments are not
+    // double-counted. Without usable history, keep the existing budget-based estimate.
+    const spending = running
+      ? Math.max(budgetLeft, known)
+      : input.historicalSpending !== null && input.historicalSpending !== undefined
+        ? round2(input.historicalSpending + known)
+        : Math.max(budgetLeft, known)
     // A future period with no planned/known income is unknown, not a deficit equal to its budget.
     // Do not let this absence of data create a negative carry that compounds across later periods.
     const predictable = running || income > 0

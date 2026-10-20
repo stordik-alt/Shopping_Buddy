@@ -149,12 +149,18 @@ function DueRow({
         <span className="shrink-0 font-semibold">{money(entry.payment.amount)}</span>
       </div>
       {confirming ? (
-        <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-          <Input value={amount} onChange={(event) => setAmount(event.target.value)} type="text" inputMode="decimal" aria-label={`Zaplacená částka ${entry.payment.name}`} className="px-3" />
-          <Input type="date" value={date} max={today} onChange={(event) => setDate(event.target.value)} aria-label={`Datum platby ${entry.payment.name}`} className="px-3" />
-          <Button size="lg" onClick={confirm} disabled={busy}>
-            {busy ? 'Ukládám…' : 'Uložit'}
-          </Button>
+        <div className="mt-3 space-y-2">
+          <div>
+            <p className="text-sm font-medium">Kolik jste skutečně zaplatili?</p>
+            <p className="text-xs text-muted-foreground">Plánovaná částka je {money(entry.payment.amount)}. Pokud se platba lišila, částku před uložením upravte.</p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+            <Input value={amount} onChange={(event) => setAmount(event.target.value)} type="text" inputMode="decimal" aria-label={`Skutečně zaplacená částka ${entry.payment.name}`} className="px-3" />
+            <Input type="date" value={date} max={today} onChange={(event) => setDate(event.target.value)} aria-label={`Datum skutečné platby ${entry.payment.name}`} className="px-3" />
+            <Button size="lg" onClick={confirm} disabled={busy}>
+              {busy ? 'Ukládám…' : 'Potvrdit skutečnou částku'}
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="mt-3 flex flex-wrap gap-2">

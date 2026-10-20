@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { addIncomeAction, deleteIncomeAction, getPeriodIncomesAction, markIncomeReceivedAction, updateIncomeAction } from '@/app/actions/incomes'
+import { confirmRecurringIncomeAction } from '@/app/actions/recurring-incomes'
 import type { IncomeInput } from '@/lib/income-input'
 import type { Income } from '@/lib/types'
 
@@ -59,10 +60,18 @@ export function useIncomes({ period, until, active }: { period: string; until: s
     setIncomes((current) => (current === null ? current : current.filter((row) => row.id !== id)))
   }, [])
 
-  const receive = useCallback(async (id: string) => {
+  const receive = useCallback(async (id: string, actual?: { amount: number; date: string }) => {
+    const planned = incomes?.find((row) => row.id === id)
+    if (planned?.recurringIncomeId) {
+      if (!actual || !planned.occurrenceDueDate) throw new Error('Zadejte skutečnou částku a datum přijetí.')
+      const result = await confirmRecurringIncomeAction(planned.recurringIncomeId, planned.occurrenceDueDate, actual)
+      setIncomes((current) => (current === null ? current : [...current.filter((row) => row.id !== id), result.income].filter(inPeriod).sort(byDate)))
+      return result.income
+    }
     const income = await markIncomeReceivedAction(id)
     setIncomes((current) => (current === null ? current : current.map((row) => (row.id === id ? income : row)).sort(byDate)))
-  }, [])
+    return income
+  }, [incomes, inPeriod])
 
   return { incomes, error, retry, add, update, remove, receive }
 }

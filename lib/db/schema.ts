@@ -967,6 +967,121 @@ export const deals = pgTable('deals', {
 
 // --- Shopping lists ----------------------------------------------------------
 
+
+/** Structured retailer promotions; storage only until a separately reviewed integration. */
+export const promotions = pgTable('promotions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  source: text('source').notNull(),
+  sourcePromotionId: text('source_promotion_id'),
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  storeLocationId: uuid('store_location_id').references(() => storeLocations.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  description: text('description'),
+  promotionType: text('promotion_type').notNull(),
+  status: text('status').notNull().default('needs_review'),
+  scope: text('scope').notNull().default('chain'),
+  validFrom: timestamp('valid_from', { withTimezone: true }),
+  validUntil: timestamp('valid_until', { withTimezone: true }),
+  sourceUrl: text('source_url'),
+  sourceText: text('source_text'),
+  observedAt: timestamp('observed_at', { withTimezone: true }).notNull().defaultNow(),
+  confidence: numeric('confidence', { precision: 5, scale: 4 }),
+  verificationStatus: text('verification_status').notNull().default('unverified'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('promotions_source_external_unique').on(table.storeId, table.source, table.sourcePromotionId).where(sql.raw('source_promotion_id IS NOT NULL')),
+  index('promotions_store_status_validity_idx').on(table.storeId, table.status, table.validFrom, table.validUntil),
+  index('promotions_location_status_idx').on(table.storeLocationId, table.status),
+  check('promotions_type_valid', sql.raw("promotion_type IN ('simple_discount','multi_buy','buy_x_get_y','cheapest_free','basket_discount','loyalty_price','brand_assortment')")),
+  check('promotions_status_valid', sql.raw("status IN ('active','expired','paused','needs_review')")),
+  check('promotions_scope_valid', sql.raw("scope IN ('chain','store_format','region','store','online')")),
+  check('promotions_verification_valid', sql.raw("verification_status IN ('verified','unverified','inferred_needs_review','rejected')")),
+  check('promotions_validity_order', sql.raw('valid_from IS NULL OR valid_until IS NULL OR valid_until >= valid_from')),
+  check('promotions_confidence_range', sql.raw('confidence IS NULL OR confidence BETWEEN 0 AND 1')),
+  check('promotions_source_nonempty', sql.raw("length(trim(source)) > 0")),
+  check('promotions_title_nonempty', sql.raw("length(trim(title)) > 0")),
+])
+
+export const promotionRules = pgTable('promotion_rules', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  promotionId: uuid('promotion_id').notNull().references(() => promotions.id, { onDelete: 'cascade' }),
+  ruleType: text('rule_type').notNull(),
+  requiredQuantity: numeric('required_quantity', { precision: 12, scale: 3 }),
+  rewardQuantity: numeric('reward_quantity', { precision: 12, scale: 3 }),
+  discountValue: numeric('discount_value', { precision: 12, scale: 4 }),
+  discountUnit: text('discount_unit'),
+  maxApplications: integer('max_applications'),
+  stackingPolicy: text('stacking_policy').notNull().default('unknown'),
+  ruleParameters: jsonb('rule_parameters').$type<Record<string, unknown>>().notNull().default({}),
+  evaluationStatus: text('evaluation_status').notNull().default('unsupported'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('promotion_rules_promotion_idx').on(table.promotionId),
+  check('promotion_rules_type_valid', sql.raw("rule_type IN ('minimum_quantity','buy_x_get_y','unit_price_override','percent_discount','fixed_discount','cheapest_free','basket_threshold','loyalty_membership')")),
+  check('promotion_rules_required_quantity_positive', sql.raw('required_quantity IS NULL OR required_quantity > 0')),
+  check('promotion_rules_reward_quantity_positive', sql.raw('reward_quantity IS NULL OR reward_quantity > 0')),
+  check('promotion_rules_discount_nonnegative', sql.raw('discount_value IS NULL OR discount_value >= 0')),
+  check('promotion_rules_discount_unit_valid', sql.raw("discount_unit IS NULL OR discount_unit IN ('currency','percent','unit_price')")),
+  check('promotion_rules_max_applications_positive', sql.raw('max_applications IS NULL OR max_applications > 0')),
+  check('promotion_rules_stacking_valid', sql.raw("stacking_policy IN ('allowed','forbidden','unknown')")),
+  check('promotion_rules_evaluation_valid', sql.raw("evaluation_status IN ('verified','inferred_needs_review','unsupported')")),
+  check('promotion_rules_percent_range', sql.raw("discount_unit <> 'percent' OR (discount_value IS NOT NULL AND discount_value <= 100)")),
+])
+
+export const promotionEligibleItems = pgTable('promotion_eligible_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  promotionId: uuid('promotion_id').notNull().references(() => promotions.id, { onDelete: 'cascade' }),
+  productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'restrict' }),
+  tradeItemId: uuid('trade_item_id'),
+  eligibilityRole: text('eligibility_role').notNull().default('qualifying'),
+  sourceReference: text('source_reference'),
+  confidence: numeric('confidence', { precision: 5, scale: 4 }),
+  verificationStatus: text('verification_status').notNull().default('unverified'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('promotion_eligible_items_promotion_product_trade_unique').on(table.promotionId, table.productId, table.tradeItemId).where(sql.raw('trade_item_id IS NOT NULL')),
+  uniqueIndex('promotion_eligible_items_promotion_product_unique').on(table.promotionId, table.productId).where(sql.raw('trade_item_id IS NULL')),
+  index('promotion_eligible_items_product_idx').on(table.productId, table.promotionId),
+  index('promotion_eligible_items_trade_item_idx').on(table.tradeItemId),
+  foreignKey({ name: 'promotion_eligible_items_trade_product_fk', columns: [table.tradeItemId, table.productId], foreignColumns: [tradeItems.id, tradeItems.productId] }).onDelete('restrict'),
+  check('promotion_eligible_items_role_valid', sql.raw("eligibility_role IN ('qualifying','reward','excluded')")),
+  check('promotion_eligible_items_verification_valid', sql.raw("verification_status IN ('verified','unverified','inferred_needs_review','rejected')")),
+  check('promotion_eligible_items_confidence_range', sql.raw('confidence IS NULL OR confidence BETWEEN 0 AND 1')),
+])
+
+export const promotionMembershipRequirements = pgTable('promotion_membership_requirements', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  promotionId: uuid('promotion_id').notNull().references(() => promotions.id, { onDelete: 'cascade' }),
+  membershipProgram: text('membership_program'),
+  requirementType: text('requirement_type').notNull(),
+  requirementText: text('requirement_text'),
+  verificationStatus: text('verification_status').notNull().default('unverified'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('promotion_membership_requirements_promotion_idx').on(table.promotionId),
+  check('promotion_membership_requirement_type_valid', sql.raw("requirement_type IN ('membership_required','app_coupon_required','activation_required','unknown')")),
+  check('promotion_membership_verification_valid', sql.raw("verification_status IN ('verified','unverified','inferred_needs_review','rejected')")),
+])
+
+export const promotionPriceEffects = pgTable('promotion_price_effects', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  promotionId: uuid('promotion_id').notNull().references(() => promotions.id, { onDelete: 'cascade' }),
+  effectType: text('effect_type').notNull(),
+  value: numeric('value', { precision: 12, scale: 4 }).notNull(),
+  currency: text('currency').notNull().default('CZK'),
+  appliesTo: text('applies_to').notNull(),
+  maxApplications: integer('max_applications'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('promotion_price_effects_promotion_idx').on(table.promotionId),
+  check('promotion_price_effect_type_valid', sql.raw("effect_type IN ('fixed_unit_price','percent_off','amount_off','free_quantity','cheapest_item_free','basket_amount_off','basket_percent_off')")),
+  check('promotion_price_effect_value_nonnegative', sql.raw('value >= 0')),
+  check('promotion_price_effect_percent_range', sql.raw("effect_type NOT IN ('percent_off','basket_percent_off') OR value <= 100")),
+  check('promotion_price_effect_currency_valid', sql.raw("currency ~ '^[A-Z]{3}$'")),
+])
+
 export const shoppingLists = pgTable('shopping_lists', {
   id: uuid('id').primaryKey().defaultRandom(),
   householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),

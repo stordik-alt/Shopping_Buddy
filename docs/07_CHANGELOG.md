@@ -1,3 +1,9 @@
+## 2026-10-20 — Výslovné potvrzení skutečné částky pravidelné platby
+
+- Po volbě „Zaplaceno“ se zobrazí jasná otázka na skutečně zaplacenou částku a informace o plánované částce, kterou lze upravit.
+- Uložení je označeno „Potvrdit skutečnou částku“; do výdajů se zapisuje zadaná skutečná částka, ne automaticky očekávaná částka.
+- Zachováno předvyplnění plánované částky pro rychlé potvrzení, když odpovídá realitě. Existující databázový test ověřuje i odlišnou skutečně zaplacenou částku.
+
 ## 2026-10-20 — Pravidelné platby mimo výdajového tempa rozpočtu
 
 - Výdaje vytvořené potvrzením pravidelné platby jsou označeny pouze podle vazby `recurring_payment_occurrences.expense_id`; název ani kategorie se nepoužívají jako odhad.

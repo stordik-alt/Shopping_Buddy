@@ -1,3 +1,7 @@
+## 2026-10-20 — Oprava typové kontroly výhledu rozpočtu
+
+- Testovací přípravek `BudgetOutlook` doplněn o `historicalSpending`, které je součástí nového datového kontraktu. Oprava testovacích dat, bez změny výpočtu nebo produkčního chování.
+
 ## 2026-10-20 — Historický odhad výdajů ve výhledu
 
 - Budoucí výhled využívá průměr běžných skutečných výdajů za tři předchozí dokončená rozpočtová období; výpočet respektuje kalendářní, výplatní i vlastní délku období.

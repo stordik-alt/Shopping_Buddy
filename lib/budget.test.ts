@@ -67,6 +67,7 @@ describe('recurring payment spending pace', () => {
     expect(projectedPeriodEnd(expenses, '2026-09-10')).toBeCloseTo(300)
     expect(totalSpent(expenses)).toBe(1000)
     expect(periodSummary(expenses, '2026-09-01').total).toBe(1000)
+    expect(budgetPace(1000, 2000, '2026-09-10', 1, 100)).toMatchObject({ perDayLeft: 100, projected: 300 })
   })
 
   it('does not exclude an ordinary expense without an occurrence link', () => {

@@ -1,3 +1,10 @@
+## 2026-10-20 — Protokol označování dvojic pro validaci identity
+
+- Přidána prázdná šablona pro skutečné označené dvojice produktů napříč řetězci a pravidla pro štítky `same_product` / `different_product`.
+- Dokumentace vyžaduje zdrojovou dohledatelnost, zachování chybějících údajů, obtížné negativní příklady a kontrolu nejednoznačných párů.
+- Cíl prvního batch: nejméně 100 reálných dvojic napříč alespoň dvěma řetězci; jde o praktický počáteční cíl, nikoli statistickou garanci.
+- Žádná změna algoritmu, DB zápis, slučování produktů ani import cen.
+
 ## 2026-10-20 — Vyhodnocení párování identity produktů
 
 - Přidán read-only evaluační nástroj pro označené dvojice produktů; reportuje TP/FP/TN/FN, accuracy, precision, recall, specificity a predikci každé dvojice.

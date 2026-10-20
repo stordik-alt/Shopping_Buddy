@@ -121,26 +121,50 @@ export function mapTetaSnapshotToPromotionCandidates(
       reviewReasons.push('membership_program_and_conditions_require_review')
     } else if (offer.kind === 'promotion') {
       if (!isMatchedDisplayedPromotion) reviewReasons.push('offer_not_unambiguously_matched_to_displayed_price')
-      if (!normalized || normalized.regularPrice <= offer.price.amount) {
+      const regularPrice = catalog.regularPrice
+      const hasVerifiedHigherRegularPrice =
+        regularPrice != null &&
+        regularPrice.currency === offer.price.currency &&
+        regularPrice.amount > offer.price.amount
+      if (!normalized || !hasVerifiedHigherRegularPrice) {
         reviewReasons.push('explicit_regular_price_not_verified_as_higher')
       }
-      if (!normalized || normalized.unitPrice <= 0 || normalized.currency !== 'CZK') {
+      if (
+        !normalized ||
+        normalized.unitPrice == null ||
+        normalized.unitPrice <= 0 ||
+        normalized.regularPrice == null ||
+        normalized.regularPrice <= 0 ||
+        normalized.currency !== 'CZK'
+      ) {
         reviewReasons.push('normalized_unit_price_unavailable')
       }
       if (
         isMatchedDisplayedPromotion &&
         validUntil &&
         normalized &&
+        normalized.regularPrice != null &&
         normalized.regularPrice > offer.price.amount &&
+        normalized.unitPrice != null &&
         normalized.unitPrice > 0 &&
-        normalized.currency === 'CZK'
+        normalized.currency === 'CZK' &&
+        hasVerifiedHigherRegularPrice
       ) {
-        priceEffects.push({
-          effectType: 'fixed_unit_price',
-          value: normalized.unitPrice,
-          currency: 'CZK',
-          appliesTo: 'qualifying_items',
-        })
+        // normalizeTetaProduct scales its unitPrice to the regular price when originalPrice is
+        // present. Scale back to the observed offer price so the effect represents the promotion.
+        const promotionalUnitPrice = Math.round(
+          (normalized.unitPrice * offer.price.amount / normalized.regularPrice) * 100,
+        ) / 100
+        if (Number.isFinite(promotionalUnitPrice) && promotionalUnitPrice > 0) {
+          priceEffects.push({
+            effectType: 'fixed_unit_price',
+            value: promotionalUnitPrice,
+            currency: 'CZK',
+            appliesTo: 'qualifying_items',
+          })
+        } else {
+          reviewReasons.push('normalized_unit_price_unavailable')
+        }
       }
     } else {
       reviewReasons.push('regular_price_observation_is_not_a_promotion')

@@ -76,11 +76,13 @@ export function PlannedCarryCard({
       )}
       {row && (
         <p className="mt-3 text-sm text-fg-secondary" aria-live="polite">
-          {row.predicted < 0
-            ? `Podle výhledu bude chybět ${money(-row.predicted)}; schodek přejde do dalšího období jako záporný převod.`
-            : row.carryOut > 0
-              ? `Podle výhledu skončí období s ${money(row.predicted)} a převede se ${money(row.carryOut)}.`
-              : `Podle výhledu skončí období s ${money(row.predicted)}; nic se nepřevádí.`}
+          {row.predicted === null
+            ? 'Výsledek nelze určit, protože pro toto období není naplánovaný příjem. Bez spolehlivého výsledku se záporný převod automaticky nevytváří.'
+            : row.predicted < 0
+              ? `Podle výhledu bude chybět ${money(-row.predicted)}; schodek přejde do dalšího období jako záporný převod.`
+              : row.carryOut > 0
+                ? `Podle výhledu skončí období s ${money(row.predicted)} a převede se ${money(row.carryOut)}.`
+                : `Podle výhledu skončí období s ${money(row.predicted)}; nic se nepřevádí.`}
         </p>
       )}
       {error && (

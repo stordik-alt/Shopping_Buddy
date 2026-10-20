@@ -23,10 +23,17 @@ The score is a deterministic ranking heuristic, not a probability. It combines e
 
 The current generator compares every eligible pair in the provided input. It is appropriate only for the bounded Teta pilot or other small batches; production-scale blocking/indexing is a later phase.
 
+## Conflict signals added after the first Teta pilot
+
+- Explicit variant markers include the observed Nivea terms `diamond` and `hold`, so a matching brand/category/quantity cannot fully mask a variant conflict.
+- A conservative product-kind vocabulary flags pairs such as cosmetic tissues versus tampons. Conflicting known category paths receive a stronger penalty, but are not an unconditional blocker because retailers can use different taxonomies.
+- Explicit packaging terms such as `sáček` and `krabička` are reported as a conflict because packaging may define the sale unit. This vocabulary is intentionally limited and does not infer synonyms.
+- These signals only lower/rank candidates and add evidence. They never auto-merge products; all outputs remain `review_required`. The vocabulary is a small pilot rule set, not a complete Czech retail ontology.
+
 ## Limitations
 
 - A Teta-only pilot can only find similar records within that Teta snapshot; it cannot establish cross-retailer matches until records from other sources are supplied.
 - Product names and quantities may be parsed imperfectly. Human review is mandatory.
-- Variant marker list and weights are an initial heuristic and must be evaluated against labelled real pairs before being trusted.
+- Variant, product-kind and packaging marker lists and weights are initial heuristics and must be evaluated against labelled real pairs before being trusted.
 - No scikit-learn model is trained in this phase. The report is intended to build and validate a labelled evaluation set first.
 - No database writes, product merges, or price imports occur.

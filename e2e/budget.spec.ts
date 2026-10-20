@@ -119,7 +119,7 @@ test.describe('Rozpočet → Plánování', () => {
       await expect(page.getByText('Plán budoucího období')).toBeVisible()
       await expect(page.getByText('Skutečný zůstatek')).toHaveCount(0)
       await expect(page.getByRole('button', { name: /^Převod do dalšího období/ })).toHaveAttribute('aria-expanded', 'true')
-      await page.getByRole('button', { name: 'Přidat příjem' }).first().click()
+      await page.getByRole('button', { name: 'Přidat jednorázový příjem' }).first().click()
       await page.getByRole('dialog').getByLabel(/Částka/).fill('38000')
       await page.getByRole('dialog').getByRole('button', { name: /Uložit|Přidat/ }).last().click()
       await expect.poll(async () => Number((await one(`SELECT count(*) AS c FROM incomes WHERE household_id = $1 AND status = 'planned'`, [householdId])).c)).toBe(1)

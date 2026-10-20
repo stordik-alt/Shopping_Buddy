@@ -84,7 +84,7 @@ import { UndoToast } from '@/components/ui/undo-toast'
 import { Sheet } from '@/components/ui/sheet'
 import { RumReporter } from '@/components/shared/rum-reporter'
 import { applyPendingOps, newTempId } from '@/lib/offline-queue'
-import { budgetForPeriod, expensesInPeriod, nextPeriodStart, periodEnd, periodStart, spendingByPeriod, totalSpent } from '@/lib/budget'
+import { budgetForPeriod, expensesForSpendingPace, expensesInPeriod, nextPeriodStart, periodEnd, periodStart, spendingByPeriod, totalSpent } from '@/lib/budget'
 import { pendingCommitments } from '@/lib/budget-forecast'
 import { periodConfigKey, type PeriodConfig } from '@/lib/budget-period'
 import { longDate, thisPeriodTitle } from '@/lib/format'
@@ -392,6 +392,7 @@ export function AppShell({
   }, [periods.history, budgetPeriod, ledgerPeriod])
   const periodExpenses = useMemo(() => expensesInPeriod(expenses, today, budgetPeriod), [expenses, today, budgetPeriod])
   const spent = totalSpent(periodExpenses)
+  const paceSpent = totalSpent(expensesInPeriod(expensesForSpendingPace(expenses), today, budgetPeriod))
   // The outlook is read again whenever something it is made of changes: the period setting, a budget,
   // an income, a planned expense, a Kapsa's planned contribution or what was spent.
   const budgetOutlook = useBudgetOutlook({
@@ -732,6 +733,7 @@ export function AppShell({
                     period={budgetPeriod}
                     budget={budget}
                     spent={spent}
+                    paceSpent={paceSpent}
                     remaining={remaining}
                     completed={completed}
                     totalItems={items.length}

@@ -206,11 +206,11 @@ export function BudgetPlanning({
               <Figure label="Očekávané příjmy" value={money(viewed.income)} />
               <Figure label="Očekávané výdaje" value={money(viewed.spending)} />
               {viewed.plannedTransfers > 0 && <Figure label="Úspory do Kapes" value={money(viewed.plannedTransfers)} />}
-              <Figure label="Predikovaný zůstatek" value={money(viewed.predicted)} strong />
-              <Figure label="Převod do dalšího" value={signedMoney(viewed.carryOut)} />
+              <Figure label="Predikovaný zůstatek" value={viewed.predicted === null ? 'Nelze určit' : money(viewed.predicted)} strong />
+              {viewed.predicted !== null && <Figure label="Převod do dalšího" value={signedMoney(viewed.carryOut)} />}
             </dl>
           )}
-          <p className="text-xs text-fg-secondary">Výdaje vycházejí z rozpočtu období; pravidelné platby a plánované výdaje, které ho přesahují, ho navýší.</p>
+          <p className="text-xs text-fg-secondary">Výdaje vycházejí z rozpočtu období; pravidelné platby a plánované výdaje, které ho přesahují, ho navýší. {viewed?.predicted === null ? 'Bez naplánovaného příjmu nelze určit výsledný zůstatek; částka rozpočtu není automaticky ztráta a nepřenáší se do dalších období.' : 'Odhad nezmění skutečný zůstatek.'}</p>
         </section>
       )}
 

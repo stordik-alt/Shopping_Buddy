@@ -23,7 +23,7 @@ describe('normalizeProductIdentityText', () => {
 describe('parseProductQuantities', () => {
   it('normalizes equivalent mass units to grams', () => {
     expect(parseProductQuantities('SOMAT sůl do myčky 1,5 kg')).toEqual([
-      { value: 1.5, unit: 'kg', baseValue: 1500, baseUnit: 'g' },
+      { value: 1.5, unit: 'kg', baseValue: 1500, baseUnit: 'g', multipackCount: 1 },
     ])
     expect(packageQuantitiesEquivalent('Somat 1,5 kg', 'Somat 1500 g')).toBe(true)
   })
@@ -40,7 +40,12 @@ describe('parseProductQuantities', () => {
     expect(packageQuantitiesEquivalent('Somat sůl', 'Somat 1,5 kg')).toBeNull()
   })
 
-  it('preserves multipack quantity structure rather than flattening it', () => {
+  it('preserves multipack composition and does not confuse it with a single pack', () => {
+    expect(parseProductQuantities('44 x 85 g')).toEqual([
+      { value: 85, unit: 'g', baseValue: 85, baseUnit: 'g', multipackCount: 44 },
+    ])
+    expect(packageQuantitiesEquivalent('2 x 500 ml', '500 ml')).toBe(false)
+    expect(packageQuantitiesEquivalent('2 x 500 ml', '2 x 500 ml')).toBe(true)
     expect(packageQuantitiesEquivalent('2 x 500 ml', '1 l')).toBe(false)
   })
 })

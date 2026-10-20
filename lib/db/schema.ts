@@ -1044,7 +1044,8 @@ export const promotionEligibleItems = pgTable('promotion_eligible_items', {
   verificationStatus: text('verification_status').notNull().default('unverified'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
-  uniqueIndex('promotion_eligible_items_promotion_product_trade_unique').on(table.promotionId, table.productId, table.tradeItemId),
+  uniqueIndex('promotion_eligible_items_promotion_product_trade_unique').on(table.promotionId, table.productId, table.tradeItemId).where(sql`${table.tradeItemId} IS NOT NULL`),
+  uniqueIndex('promotion_eligible_items_promotion_product_unique').on(table.promotionId, table.productId).where(sql`${table.tradeItemId} IS NULL`),
   index('promotion_eligible_items_product_idx').on(table.productId, table.promotionId),
   index('promotion_eligible_items_trade_item_idx').on(table.tradeItemId),
   foreignKey({ name: 'promotion_eligible_items_trade_product_fk', columns: [table.tradeItemId, table.productId], foreignColumns: [tradeItems.id, tradeItems.productId] }).onDelete('restrict'),

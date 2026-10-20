@@ -967,6 +967,1211 @@ export const deals = pgTable('deals', {
 
 // --- Shopping lists ----------------------------------------------------------
 
+
+/**
+ * Structured retailer promotions. This is a data-model foundation only: existing deal readers and
+ * price calculation intentionally continue to use `deals` until a separately reviewed integration.
+ */
+export const promotions = pgTable('promotions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  source: text('source').notNull(),
+  sourcePromotionId: text('source_promotion_id'),
+  storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+  storeLocationId: uuid('store_location_id').references(() => storeLocations.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  description: text('description'),
+  promotionType: text('promotion_type').notNull(),
+  status: text('status').notNull().default('needs_review'),
+  scope: text('scope').notNull().default('chain'),
+  validFrom: timestamp('valid_from', { withTimezone: true }),
+  validUntil: timestamp('valid_until', { withTimezone: true }),
+  sourceUrl: text('source_url'),
+  sourceText: text('source_text'),
+  observedAt: timestamp('observed_at', { withTimezone: true }).notNull().defaultNow(),
+  confidence: numeric('confidence', { precision: 5, scale: 4 }),
+  verificationStatus: text('verification_status').notNull().default('unverified'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('promotions_source_external_unique').on(table.storeId, table.source, table.sourcePromotionId).where(sql`${table.sourcePromotionId} IS NOT NULL`),
+  index('promotions_store_status_validity_idx').on(table.storeId, table.status, table.validFrom, table.validUntil),
+  index('promotions_location_status_idx').on(table.storeLocationId, table.status),
+  check('promotions_type_valid', sql`${table.promotionType} IN ('simple_discount', 'multi_buy', 'buy_x_get_y', 'cheapest_free', 'basket_discount', 'loyalty_price', 'brand_assortment')`),
+  check('promotions_status_valid', sql`${table.status} IN ('active', 'expired', 'paused', 'needs_review')`),
+  check('promotions_scope_valid', sql`${table.scope} IN ('chain', 'store_format', 'region', 'store', 'online')`),
+  check('promotions_verification_valid', sql`${table.verificationStatus} IN ('verified', 'unverified', 'inferred_needs_review', 'rejected')`),
+  check('promotions_validity_order', sql`${table.validFrom} IS NULL OR ${table.validUntil} IS NULL OR ${table.validUntil} >= ${table.validFrom}`),
+  check('promotions_confidence_range', sql`${table.confidence} IS NULL OR ${table.confidence} BETWEEN 0 AND 1`),
+  check('promotions_source_nonempty', sql`length(trim(${table.source})) > 0`),
+  check('promotions_title_nonempty', sql`length(trim(${table.title})) > 0`),
+])
+
+export const promotionRules = pgTable('promotion_rules', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  promotionId: uuid('promotion_id').notNull().references(() => promotions.id, { onDelete: 'cascade' }),
+  ruleType: text('rule_type').notNull(),
+  requiredQuantity: numeric('required_quantity', { precision: 12, scale: 3 }),
+  rewardQuantity: numeric('reward_quantity', { precision: 12, scale: 3 }),
+  discountValue: numeric('discount_value', { precision: 12, scale: 4 }),
+  discountUnit: text('discount_unit'),
+  maxApplications: integer('max_applications'),
+  stackingPolicy: text('stacking_policy').notNull().default('unknown'),
+  ruleParameters: jsonb('rule_parameters').$type<Record<string, unknown>>().notNull().default({}),
+  evaluationStatus: text('evaluation_status').notNull().default('unsupported'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('promotion_rules_promotion_idx').on(table.promotionId),
+  check('promotion_rules_type_valid', sql`${table.ruleType} IN ('minimum_quantity', 'buy_x_get_y', 'unit_price_override', 'percent_discount', 'fixed_discount', 'cheapest_free', 'basket_threshold', 'loyalty_membership')`),
+  check('promotion_rules_required_quantity_positive', sql`${table.requiredQuantity} IS NULL OR ${table.requiredQuantity} > 0`),
+  check('promotion_rules_reward_quantity_positive', sql`${table.rewardQuantity} IS NULL OR ${table.rewardQuantity} > 0`),
+  check('promotion_rules_discount_nonnegative', sql`${table.discountValue} IS NULL OR ${table.discountValue} >= 0`),
+  check('promotion_rules_discount_unit_valid', sql`${table.discountUnit} IS NULL OR ${table.discountUnit} IN ('currency', 'percent', 'unit_price')`),
+  check('promotion_rules_max_applications_positive', sql`${table.maxApplications} IS NULL OR ${table.maxApplications} > 0`),
+  check('promotion_rules_stacking_valid', sql`${table.stackingPolicy} IN ('allowed', 'forbidden', 'unknown')`),
+  check('promotion_rules_evaluation_valid', sql`${table.evaluationStatus} IN ('verified', 'inferred_needs_review', 'unsupported')`),
+  check('promotion_rules_percent_range', sql`${table.discountUnit} <> 'percent' OR (${table.discountValue} IS NOT NULL AND ${table.discountValue} <= 100)`),
+])
+
+export const promotionEligibleItems = pgTable('promotion_eligible_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  promotionId: uuid('promotion_id').notNull().references(() => promotions.id, { onDelete: 'cascade' }),
+  productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'restrict' }),
+  tradeItemId: uuid('trade_item_id'),
+  eligibilityRole: text('eligibility_role').notNull().default('qualifying'),
+  sourceReference: text('source_reference'),
+  confidence: numeric('confidence', { precision: 5, scale: 4 }),
+  verificationStatus: text('verification_status').notNull().default('unverified'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('promotion_eligible_items_promotion_product_trade_unique').on(table.promotionId, table.productId, table.tradeItemId),
+  index('promotion_eligible_items_product_idx').on(table.productId, table.promotionId),
+  index('promotion_eligible_items_trade_item_idx').on(table.tradeItemId),
+  foreignKey({ name: 'promotion_eligible_items_trade_product_fk', columns: [table.tradeItemId, table.productId], foreignColumns: [tradeItems.id, tradeItems.productId] }).onDelete('restrict'),
+  check('promotion_eligible_items_role_valid', sql`${table.eligibilityRole} IN ('qualifying', 'reward', 'excluded')`),
+  check('promotion_eligible_items_verification_valid', sql`${table.verificationStatus} IN ('verified', 'unverified', 'inferred_needs_review', 'rejected')`),
+  check('promotion_eligible_items_confidence_range', sql`${table.confidence} IS NULL OR ${table.confidence} BETWEEN 0 AND 1`),
+])
+
+export const promotionMembershipRequirements = pgTable('promotion_membership_requirements', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  promotionId: uuid('promotion_id').notNull().references(() => promotions.id, { onDelete: 'cascade' }),
+  membershipProgram: text('membership_program'),
+  requirementType: text('requirement_type').notNull(),
+  requirementText: text('requirement_text'),
+  verificationStatus: text('verification_status').notNull().default('unverified'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('promotion_membership_requirements_promotion_idx').on(table.promotionId),
+  check('promotion_membership_requirement_type_valid', sql`${table.requirementType} IN ('membership_required', 'app_coupon_required', 'activation_required', 'unknown')`),
+  check('promotion_membership_verification_valid', sql`${table.verificationStatus} IN ('verified', 'unverified', 'inferred_needs_review', 'rejected')`),
+])
+
+export const promotionPriceEffects = pgTable('promotion_price_effects', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  promotionId: uuid('promotion_id').notNull().references(() => promotions.id, { onDelete: 'cascade' }),
+  effectType: text('effect_type').notNull(),
+  value: numeric('value', { precision: 12, scale: 4 }).notNull(),
+  currency: text('currency').notNull().default('CZK'),
+  appliesTo: text('applies_to').notNull(),
+  maxApplications: integer('max_applications'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('promotion_price_effects_promotion_idx').on(table.promotionId),
+  check('promotion_price_effect_type_valid', sql`${table.effectType} IN ('fixed_unit_price', 'percent_off', 'amount_off', 'free_quantity', 'cheapest_item_free', 'basket_amount_off', 'basket_percent_off')`),
+  check('promotion_price_effect_value_nonnegative', sql`${table.value} >= 0`),
+  check('promotion_price_effect_percent_range', sql`${table.effectType} NOT IN ('percent_off', 'basket_percent_off') OR ${table.value} <= 100`),
+  check('promotion_price_effect_currency_valid', sql`${table.currency} ~ '^[A-Z]{3}('shopping_lists', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [
+  index('shopping_lists_household_created_idx').on(table.householdId, table.createdAt),
+])
+
+export const shoppingListItems = pgTable('shopping_list_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  listId: uuid('list_id').notNull().references(() => shoppingLists.id, { onDelete: 'cascade' }),
+  productId: uuid('product_id').references(() => products.id, { onDelete: 'set null' }),
+  name: text('name').notNull(),
+  detail: text('detail').notNull().default(''),
+  price: numeric('price', { precision: 10, scale: 2 }).notNull().default('0'),
+  // numeric, not integer — once a receipt has been matched to the item, this holds the quantity
+  // actually bought, which for a weighed product is fractional (0.582 kg). Same reasoning and
+  // `mode: 'number'` as purchaseItems.quantity.
+  quantity: numeric('quantity', { precision: 10, scale: 3, mode: 'number' }).notNull().default(1),
+  unit: itemUnitEnum('unit').notNull().default('ks'),
+  category: itemCategoryEnum('category').notNull().default('Ostatní'),
+  done: boolean('done').notNull().default(false),
+  // The purchase (from an imported receipt) that ticked this item off. Null for an item the user
+  // ticked by hand. completePurchaseAction skips items with this set, because the receipt already
+  // created that purchase and restocked the pantry — turning them into a second purchase would
+  // count the same shopping trip twice.
+  checkedByPurchaseId: uuid('checked_by_purchase_id').references(() => purchases.id, { onDelete: 'set null' }),
+  priority: itemPriorityEnum('priority').notNull().default('Normální'),
+  note: text('note'),
+  preferredStoreLocationId: uuid('preferred_store_location_id').references(() => storeLocations.id, { onDelete: 'set null' }),
+  onSale: boolean('on_sale').notNull().default(false),
+  // The product types (lib/product-types.ts keys) the household chose for this item — a subset of a
+  // group ("Kuřecí maso", but only breast and thighs) or a type picked by hand. Null: the types come
+  // from the item's name (`resolveListItemTypes`), or none, and the planner searches by text.
+  productTypes: text('product_types').array(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  // Set once a "shopping reminder" notification has covered this item (see the cron job at
+  // app/api/cron/shopping-reminders). Null means never reminded yet. Prevents the same
+  // still-undone item from generating a new reminder every day the job runs.
+  remindedAt: timestamp('reminded_at'),
+}, (table) => [
+  index('shopping_list_items_list_created_idx').on(table.listId, table.createdAt),
+  index('shopping_list_items_checked_purchase_idx').on(table.checkedByPurchaseId),
+  check('shopping_list_items_price_non_negative', sql`${table.price} >= 0`),
+  check('shopping_list_items_quantity_positive', sql`${table.quantity} > 0`),
+])
+
+// The specific product a user chose for a shopping list item at one chain — "for this milk, buy THIS
+// one at Lidl". The shopping planner uses a pinned product at that chain instead of guessing by name;
+// where nothing is pinned it picks automatically. One pin per item and chain.
+export const shoppingListItemPins = pgTable(
+  'shopping_list_item_pins',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    itemId: uuid('item_id').notNull().references(() => shoppingListItems.id, { onDelete: 'cascade' }),
+    storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+    productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('shopping_list_item_pins_item_store_unique').on(table.itemId, table.storeId)],
+)
+
+// --- Purchases & budgets ------------------------------------------------------
+
+export const purchases = pgTable('purchases', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  storeId: uuid('store_id').references(() => stores.id, { onDelete: 'set null' }),
+  storeLocationId: uuid('store_location_id').references(() => storeLocations.id, { onDelete: 'set null' }),
+  date: date('date').notNull(),
+  total: numeric('total', { precision: 10, scale: 2 }).notNull(),
+  discount: numeric('discount', { precision: 10, scale: 2 }),
+}, (table) => [
+  index('purchases_household_date_idx').on(table.householdId, table.date),
+  check('purchases_total_non_negative', sql`${table.total} >= 0`),
+  check('purchases_discount_non_negative', sql`${table.discount} >= 0`),
+])
+
+export const purchaseItems = pgTable('purchase_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  purchaseId: uuid('purchase_id').notNull().references(() => purchases.id, { onDelete: 'cascade' }),
+  productId: uuid('product_id').references(() => products.id, { onDelete: 'set null' }),
+  name: text('name').notNull(),
+  // numeric, not integer — a receipt line item sold by weight has a genuinely fractional quantity
+  // (e.g. "KUŘE 0,582 kg"). `mode: 'number'` keeps every existing call site's `item.quantity` a
+  // plain JS number, same as before, rather than requiring a `Number(...)` conversion everywhere.
+  quantity: numeric('quantity', { precision: 10, scale: 3, mode: 'number' }).notNull().default(1),
+  unit: itemUnitEnum('unit').notNull().default('ks'),
+  price: numeric('price', { precision: 10, scale: 2 }).notNull(),
+  // The line's shopping category at the time of purchase (lib/purchase-expenses.ts's automatic
+  // expense split reads this) — null for a row written before this column existed; that purchase's
+  // split cannot be recomputed later since its per-line category was never kept, only used once and
+  // discarded (CLAUDE.md section 5: never invent it after the fact).
+  category: itemCategoryEnum('category'),
+  // The line's subcategory within `category` (lib/product-subcategories.ts's fixed list) as decided
+  // by the categorization pipeline or a household correction — null for a line categorization never
+  // reached (e.g. rows written before this column existed, or a category so uncertain no subcategory
+  // could be offered either). Kept alongside `category` for the same reason that column exists: so a
+  // purchase's per-line classification survives independent of the product catalog changing later.
+  subcategoryId: uuid('subcategory_id').references(() => productSubcategories.id, { onDelete: 'set null' }),
+  // Superseded 2026-09-27 by `purchase_item_expense_splits` (a line can now split across more than
+  // one expense target, e.g. clothing that was actually half adult, half a child's — a receipt often
+  // doesn't say). No longer read or written; kept only so a running deployment mid-rollout of that
+  // change still has a consistent schema. Drop in a later migration once nothing references it
+  // (CLAUDE.md section 7: rename/drop only after no running code uses it).
+  expenseCategory: expenseCategoryEnum('expense_category'),
+  expenseSubcategory: text('expense_subcategory'),
+}, (table) => [
+  index('purchase_items_purchase_idx').on(table.purchaseId),
+  index('purchase_items_product_idx').on(table.productId),
+  check('purchase_items_expense_subcategory_needs_category', sql`${table.expenseSubcategory} IS NULL OR ${table.expenseCategory} IS NOT NULL`),
+  check('purchase_items_price_non_negative', sql`${table.price} >= 0`),
+  check('purchase_items_quantity_positive', sql`${table.quantity} > 0`),
+])
+
+// A purchase-item's paid amount split across one or more expense targets — the household's own
+// override of the automatic category mapping, e.g. a gift bought during a grocery trip (Ostatní ▸
+// Dárky) or a "Oblečení" line that was actually half adult, half children's wear, which the receipt
+// itself never distinguishes. No rows for an item means "use the automatic mapping" for its whole
+// amount; one row means a plain reassignment; two or more means a genuine split. The rows' amounts
+// must add up to exactly the item's own paid amount (`price × quantity`) — enforced by
+// lib/db/purchase-items.ts, not by the database, since that check spans two tables.
+export const purchaseItemExpenseSplits = pgTable('purchase_item_expense_splits', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  purchaseItemId: uuid('purchase_item_id').notNull().references(() => purchaseItems.id, { onDelete: 'cascade' }),
+  category: expenseCategoryEnum('category').notNull(),
+  subcategory: text('subcategory'),
+  amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
+}, (table) => [
+  // A purchase-item's splits are always read and rewritten together.
+  index('purchase_item_expense_splits_item_idx').on(table.purchaseItemId),
+  check('purchase_item_expense_splits_amount_positive', sql`${table.amount} > 0`),
+])
+
+// Remembers a household's own expense-category choice for a product (owner request, 2026-09-27:
+// "aplikace by se měla postupně učit a postupně přiřazovat kategorie a podkategorie sama ihned po
+// importu účtenky") — so a plain, whole-item reassignment (not a multi-way split, which is treated
+// as specific to that one purchase, not a repeating pattern) applies automatically to every later
+// receipt of the same product, the same way `products.default_location` already does for pantry
+// placement. Per-household, not on `products` itself: whether "Oblečení" means a child's or an
+// adult's depends on the household, unlike where milk belongs in a kitchen.
+export const householdProductExpenseDefaults = pgTable('household_product_expense_defaults', {
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  category: expenseCategoryEnum('category').notNull(),
+  subcategory: text('subcategory'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [primaryKey({ columns: [table.householdId, table.productId] })])
+
+// A household's own override of how many days a pantry item of a category can go unconfirmed before
+// being asked "do you still have this?" (spec section 13) — `lib/pantry.ts`'s
+// `CHECKIN_DAYS_BY_CATEGORY` is the fixed default a category falls back to without one. Same
+// "override table alongside a fixed default" shape as `expense_category_budgets`.
+export const pantryCheckinIntervals = pgTable('pantry_checkin_intervals', {
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  category: itemCategoryEnum('category').notNull(),
+  days: integer('days').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  primaryKey({ columns: [table.householdId, table.category] }),
+  check('pantry_checkin_intervals_days_positive', sql`${table.days} > 0`),
+])
+
+// The same override at subcategory level (Potraviny ▸ Pečivo keeps far shorter than Konzervy). A
+// separate table rather than a wider key on `pantry_checkin_intervals`, so the migration only adds and
+// the code still running during a deploy keeps working. The subcategory is one of the fixed names in
+// lib/product-subcategories.ts, checked by the server.
+export const pantryCheckinSubcategoryIntervals = pgTable('pantry_checkin_subcategory_intervals', {
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  category: itemCategoryEnum('category').notNull(),
+  subcategory: text('subcategory').notNull(),
+  days: integer('days').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  primaryKey({ name: 'pantry_checkin_subcat_intervals_pk', columns: [table.householdId, table.category, table.subcategory] }),
+  check('pantry_checkin_subcategory_intervals_days_positive', sql`${table.days} > 0`),
+])
+
+// A household's own storage place beyond the fixed `pantry_location` list (spec section 12: "Uživatel
+// musí mít možnost vytvořit vlastní místo") — e.g. "Kufr auta" under the Auto area, or "Sklep" under
+// Bydlení. The fixed locations (Spíž, Lednice, ...) stay a plain enum on `pantry_items.location`
+// unchanged (zero migration risk to existing rows); a custom place is only ever referenced through
+// `pantry_items.custom_place_id` below, which — when set — is what the household actually sees as the
+// item's place, not `location` (kept at its harmless default in that case; see that column's comment).
+export const pantryPlaces = pgTable('pantry_places', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  area: pantryAreaEnum('area').notNull(),
+  name: text('name').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [uniqueIndex('pantry_places_household_area_name_unique').on(table.householdId, table.area, table.name)])
+
+// A fixed `pantry_location` the household removed from its Zásoby (it replaced the defaults with its own
+// places). Only a flag per household: `pantry_items.location` keeps its enum value, so no existing row or
+// reference is touched; the items that were there are moved to another place first
+// (app/actions/pantry.ts removePantryLocationAction).
+export const pantryHiddenLocations = pgTable('pantry_hidden_locations', {
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  location: pantryLocationEnum('location').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [primaryKey({ name: 'pantry_hidden_locations_pk', columns: [table.householdId, table.location] })])
+
+// The household's wanted stock per product TYPE (docs/36_PANTRY_STOCK_LEVELS.md): restock when the stock of
+// the whole type (every pantry row of it) nears `minQuantity`, up to `maxQuantity`, in `unit`. Set in the
+// Profil, never per concrete product, so the cheapest variant of the type can be suggested.
+export const householdStockLevels = pgTable('household_stock_levels', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  productTypeId: uuid('product_type_id').notNull().references(() => productTypes.id, { onDelete: 'cascade' }),
+  minQuantity: numeric('min_quantity', { precision: 10, scale: 3, mode: 'number' }).notNull(),
+  maxQuantity: numeric('max_quantity', { precision: 10, scale: 3, mode: 'number' }).notNull(),
+  unit: itemUnitEnum('unit').notNull(),
+}, (table) => [
+  check('household_stock_levels_check', sql`${table.minQuantity} >= 0 AND ${table.maxQuantity} > ${table.minQuantity}`),
+  uniqueIndex('household_stock_levels_household_type_unique').on(table.householdId, table.productTypeId),
+])
+
+// A household's refused restock suggestions (docs/36_PANTRY_STOCK_LEVELS.md): one row per refused offer
+// (type, product, end of the promotion), shared by every member. Another or a better promotion is
+// another product or end date, so it is offered again.
+export const restockDismissals = pgTable('restock_dismissals', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  productTypeId: uuid('product_type_id').notNull().references(() => productTypes.id, { onDelete: 'cascade' }),
+  productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  validUntil: date('valid_until').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('restock_dismissals_unique').on(table.householdId, table.productTypeId, table.productId, table.validUntil),
+])
+
+// Household pantry ("spíž"): what the household believes it currently has at home. Populated by
+// completePurchaseAction (a purchased item restocks or creates its pantry row) and periodically
+// re-checked by the pantry-checkin cron, which asks "do you still have this?" per
+// lib/pantry.ts's per-category interval (see docs/07_CHANGELOG.md for why category, not a single
+// global interval — shelf life genuinely differs by category, but there's no per-product shelf-life
+// data to be more precise than that yet).
+export const pantryItems = pgTable('pantry_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  productId: uuid('product_id').references(() => products.id, { onDelete: 'set null' }),
+  // Explicit manual selection of a generic product type; null for free text or a concrete product whose type is inferred from the product.
+  productTypeId: uuid('product_type_id').references(() => productTypes.id, { onDelete: 'set null' }),
+  name: text('name').notNull(),
+  category: itemCategoryEnum('category').notNull().default('Ostatní'),
+  // The item's subcategory within `category` (lib/product-subcategories.ts) — powers the Zásoby
+  // location + subcategory filtering (spec sections 17-18: "Lednice ▸ Maso a uzeniny" instead of one
+  // flat list). Null when the categorization pipeline could not place it confidently; such items
+  // still show up under their location, just outside any subcategory folder.
+  subcategoryId: uuid('subcategory_id').references(() => productSubcategories.id, { onDelete: 'set null' }),
+  // Where the item physically lives — defaults per-category/keyword-heuristic on first restock
+  // (lib/pantry.ts's inferPantryLocation()), then only changes when the household moves it by
+  // hand (e.g. freshly bought chilled meat into the freezer), never re-inferred on a later restock
+  // of the same row — otherwise a manual move would silently get undone by the next purchase.
+  location: pantryLocationEnum('location').notNull().default('Spíž'),
+  // A household-created place (pantry_places above) that overrides `location` for display/grouping
+  // when set — `location` keeps whatever value it had (or the harmless default) and is simply
+  // ignored, so no existing code path that only knows about `location` needs to change to stay
+  // correct; only the Zásoby UI and its actions need to know about this column at all.
+  customPlaceId: uuid('custom_place_id').references(() => pantryPlaces.id, { onDelete: 'set null' }),
+  // numeric, not integer — same reason as purchaseItems.quantity above: a restock from a
+  // weight-sold receipt item (e.g. 0.582 kg of meat) must not be truncated to a whole number.
+  quantity: numeric('quantity', { precision: 10, scale: 3, mode: 'number' }).notNull().default(1),
+  unit: itemUnitEnum('unit').notNull().default('ks'),
+  // Reset to now() whenever the item is restocked (another purchase) or the household confirms
+  // "ještě mám" — the check-in interval counts from here, not from when the row was first created.
+  addedAt: timestamp('added_at').notNull().defaultNow(),
+  // When we last asked "do you still have this?". Null means never asked. Reset to null on
+  // confirmation, so the next check-in interval starts counting from a fresh addedAt.
+  askedAt: timestamp('asked_at'),
+  tracking: pantryTrackingEnum('tracking').notNull().default('normal'),
+  // Size of one piece of a row counted in ks (a 250 g pack of butter = 0.25 kg), read from the
+  // purchased line's name. Lets a recipe asking for grams use stock kept in pieces; null = unknown.
+  pieceQuantity: numeric('piece_quantity', { precision: 10, scale: 3, mode: 'number' }),
+  pieceUnit: itemUnitEnum('piece_unit'),
+  // Superseded 2026-10-12 by `household_stock_levels` (levels are per product type, set in the Profil).
+  // No longer read or written; drop in a later migration once no running code uses them.
+  minQuantity: numeric('min_quantity', { precision: 10, scale: 3, mode: 'number' }),
+  maxQuantity: numeric('max_quantity', { precision: 10, scale: 3, mode: 'number' }),
+}, (table) => [
+  check('pantry_items_stock_levels_check', sql`(${table.minQuantity} IS NULL AND ${table.maxQuantity} IS NULL) OR (${table.minQuantity} >= 0 AND ${table.maxQuantity} > ${table.minQuantity})`),
+  check('pantry_items_piece_size_check', sql`(${table.pieceQuantity} IS NULL AND ${table.pieceUnit} IS NULL) OR (${table.pieceQuantity} > 0 AND ${table.pieceUnit} IS NOT NULL)`),
+  index('pantry_items_household_product_idx').on(table.householdId, table.productId),
+  index('pantry_items_product_type_idx').on(table.householdId, table.productTypeId),
+])
+
+// Receipt import ("nahrávání nákupů přes účtenky"): prepares the ingestion path for a future OCR
+// provider (lib/receipts.ts's ReceiptOcrProvider) without wiring one up yet, per CLAUDE.md section
+// 30 (no AI/vision-model call before the AI phase). Every import today is `source: 'manual'` — a
+// household types the receipt's line items by hand; `importReceiptAction` (app/actions/receipts.ts)
+// turns them into a real purchase immediately. Kept as its own row (not just a purchases row) so a
+// later OCR provider's raw output/confidence stays auditable and reprocessable, matching CLAUDE.md
+// section 16's price/deal provenance rule extended to purchases.
+export const receiptOcrRateLimits = pgTable('receipt_ocr_rate_limits', {
+  householdId: uuid('household_id').primaryKey().references(() => households.id, { onDelete: 'cascade' }),
+  windowStartedAt: timestamp('window_started_at').notNull().defaultNow(),
+  attempts: integer('attempts').notNull().default(0),
+})
+
+// A fixed-window counter shared by every server instance (lib/db/rate-limit.ts). The key says what is
+// limited, e.g. `signup:<address>` or `ocr:global`.
+export const rateLimits = pgTable('rate_limits', {
+  key: text('key').primaryKey(),
+  windowStartedAt: timestamp('window_started_at', { withTimezone: true }).notNull().defaultNow(),
+  hits: integer('hits').notNull().default(0),
+})
+
+// Who changed what in a household (lib/db/audit.ts, migration 0107). Append-only; detail is amounts and
+// field names, never free text. actor_member_id is cleared when the member's profile is deleted.
+export const auditLog = pgTable('audit_log', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  actorMemberId: uuid('actor_member_id').references(() => householdMembers.id, { onDelete: 'set null' }),
+  action: text('action').notNull(),
+  entityId: uuid('entity_id'),
+  detail: jsonb('detail').$type<Record<string, string | number | boolean | null>>().notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('audit_log_household_created_idx').on(table.householdId, table.createdAt.desc()),
+  check('audit_log_action_length', sql`char_length(${table.action}) BETWEEN 1 AND 64`),
+])
+
+export const receiptImports = pgTable('receipt_imports', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  status: receiptStatusEnum('status').notNull().default('pending_review'),
+  storeId: uuid('store_id').references(() => stores.id, { onDelete: 'set null' }),
+  storeLocationId: uuid('store_location_id').references(() => storeLocations.id, { onDelete: 'set null' }),
+  // Nullable now (was NOT NULL): at 'uploaded'/'ocr_processing' the date isn't known yet — OCR/
+  // parsing hasn't run. A manual import still always sets it immediately, same as before.
+  date: date('date'),
+  // 'manual' (hand-typed today) or 'ocr' (docs/08_OCR_RECEIPT_PIPELINE.md pipeline).
+  source: text('source').notNull().default('manual'),
+  // Storage reference of the uploaded photo (lib/storage): a private Vercel Blob URL for receipts
+  // uploaded before the move to R2, `r2:receipts/…` for R2. Private either way — only ever read back
+  // server-side. The column keeps its old name so the switch needed no migration.
+  // Kept even after processing completes so a failed/reviewed import can be retried without
+  // re-uploading (pipeline doc section 13).
+  imageUrl: text('image_url'),
+  // Which OCR engine produced rawOcrText. Null for manual imports or imports that never reached OCR.
+  // This is audit metadata only; it does not affect parsing/validation.
+  ocrProvider: text('ocr_provider'),
+  // Raw OCR provider output, for reprocessing/debugging once a real provider exists. Null for a
+  // manually-entered import — there is no OCR output yet.
+  rawOcrText: text('raw_ocr_text'),
+  receiptTime: text('receipt_time'),
+  receiptNumber: text('receipt_number'),
+  currency: text('currency').notNull().default('CZK'),
+  subtotal: numeric('subtotal', { precision: 10, scale: 2 }),
+  discountTotal: numeric('discount_total', { precision: 10, scale: 2 }),
+  // The pipeline's own running total (parsed/validated), independent of purchases.total, which
+  // only exists once a purchase is actually confirmed and created.
+  total: numeric('total', { precision: 10, scale: 2 }),
+  // Overall receipt confidence (0.000–1.000) from the AI parser — combined with, never a
+  // substitute for, the mathematical consistency checks in lib/receipts.ts (pipeline doc section 8).
+  confidence: numeric('confidence', { precision: 4, scale: 3 }),
+  // Raw AI-parser JSON output before validation/human correction — distinct from `items` below,
+  // which is the confirmed, final data. Kept for debugging a parser that got something wrong.
+  parserResult: text('parser_result'),
+  errorMessage: text('error_message'),
+  // Nullable now (was NOT NULL): populated once parsing (or manual entry) actually produces line
+  // items. JSON-serialized ReceiptLineItem[], confirmed by the household — hand-typed today for a
+  // manual import; once OCR exists, this is its output after human review, never raw unverified
+  // extraction.
+  items: text('items'),
+  purchaseId: uuid('purchase_id').references(() => purchases.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  processedAt: timestamp('processed_at'),
+}, (table) => [
+  index('receipt_imports_household_status_created_idx').on(table.householdId, table.status, table.createdAt),
+  index('receipt_imports_purchase_idx').on(table.purchaseId),
+  check('receipt_imports_currency_iso_check', sql`${table.currency} ~ '^[A-Z]{3}$'`),
+])
+
+// A budget period's own amount, keyed by the period's start date (`month`); a period without a row uses
+// households.monthly_budget (docs/15_BUDGET_PERIODS.md, lib/budget.ts budgetForPeriod).
+export const budgets = pgTable('budgets', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  month: date('month').notNull(),
+  amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
+}, (table) => [uniqueIndex('budgets_household_month_unique').on(table.householdId, table.month)])
+
+// Household income (docs/15_BUDGET_PERIODS.md §8). 'planned' is only expected and never counts towards
+// the actual balance; receiving it flips this same row to 'actual', so it is never counted twice.
+// Amounts are in the household's currency, like expenses.
+export const incomes = pgTable('incomes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
+  description: text('description').notNull().default(''),
+  date: date('date').notNull(),
+  status: text('status').notNull().default('planned'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [
+  index('incomes_household_date_idx').on(table.householdId, table.date),
+  check('incomes_amount_positive', sql`${table.amount} > 0`),
+  check('incomes_status_valid', sql`${table.status} IN ('planned', 'actual')`),
+])
+
+// A household's expected regular income. The schedule is a forecast only: it never changes the actual
+// balance. Each received occurrence creates its own immutable actual income row in `incomes`.
+export const recurringIncomes = pgTable('recurring_incomes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  description: text('description').notNull(),
+  expectedAmount: numeric('expected_amount', { precision: 10, scale: 2 }).notNull(),
+  intervalMonths: integer('interval_months').notNull(),
+  startDate: date('start_date').notNull(),
+  active: boolean('active').notNull().default(true),
+  // Prevent duplicate daily reminders for the same expected due date.
+  remindedDueDate: date('reminded_due_date'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('recurring_incomes_household_idx').on(table.householdId),
+  check('recurring_incomes_amount_positive', sql`${table.expectedAmount} > 0`),
+  check('recurring_incomes_interval', sql`${table.intervalMonths} IN (1, 3, 6, 12)`),
+  check('recurring_incomes_description_not_blank', sql`length(btrim(${table.description})) > 0`),
+])
+
+// One handled occurrence of a recurring income. The unique schedule/date key makes receiving idempotent;
+// actual money is stored as a separate row in incomes and linked here, preserving history if the schedule changes.
+export const recurringIncomeOccurrences = pgTable('recurring_income_occurrences', {
+  recurringIncomeId: uuid('recurring_income_id').notNull().references(() => recurringIncomes.id, { onDelete: 'cascade' }),
+  dueDate: date('due_date').notNull(),
+  status: text('status').notNull(),
+  incomeId: uuid('income_id').references(() => incomes.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  primaryKey({ columns: [table.recurringIncomeId, table.dueDate] }),
+  check('recurring_income_occurrences_status', sql`(${table.status} = 'received' AND ${table.incomeId} IS NOT NULL) OR (${table.status} = 'skipped' AND ${table.incomeId} IS NULL)`),
+])
+
+// A planned expense (docs/15_BUDGET_PERIODS.md §7–8): expected money going out, never part of the actual
+// balance. Paying it creates the real expense and links it, so the money is never counted twice.
+export const plannedExpenses = pgTable('planned_expenses', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
+  note: text('note').notNull().default(''),
+  category: expenseCategoryEnum('category').notNull().default('Ostatní'),
+  date: date('date').notNull(),
+  status: text('status').notNull().default('planned'),
+  expenseId: uuid('expense_id').references(() => expenses.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [
+  index('planned_expenses_household_date_idx').on(table.householdId, table.date),
+  check('planned_expenses_amount_positive', sql`${table.amount} > 0`),
+  check('planned_expenses_status_valid', sql`${table.status} IN ('planned', 'paid')`),
+])
+
+// Kapsy (docs/15_BUDGET_PERIODS.md §11). The balance is never stored: opening_amount plus the sum of
+// the pocket's transfers, so a planned contribution cannot move it.
+export const pockets = pgTable('pockets', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  icon: text('icon').notNull().default('piggy-bank'),
+  targetAmount: numeric('target_amount', { precision: 10, scale: 2 }),
+  targetDate: date('target_date'),
+  openingAmount: numeric('opening_amount', { precision: 10, scale: 2 }).notNull().default('0'),
+  plannedContribution: numeric('planned_contribution', { precision: 10, scale: 2 }),
+  // The financial reserve (§11): at most one active Kapsa per household. Advice uses it first.
+  isReserve: boolean('is_reserve').notNull().default(false),
+  // A put-away Kapsa keeps its history: its transfers belong to past periods' results.
+  archivedAt: timestamp('archived_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [
+  index('pockets_household_idx').on(table.householdId),
+  uniqueIndex('pockets_one_reserve_unique').on(table.householdId).where(sql`${table.isReserve} AND ${table.archivedAt} IS NULL`),
+  check('pockets_name_not_blank', sql`length(btrim(${table.name})) > 0`),
+  check('pockets_target_positive', sql`${table.targetAmount} IS NULL OR ${table.targetAmount} > 0`),
+  check('pockets_opening_not_negative', sql`${table.openingAmount} >= 0`),
+  check('pockets_contribution_not_negative', sql`${table.plannedContribution} IS NULL OR ${table.plannedContribution} >= 0`),
+])
+
+// A closed budget period (§15). The result is not stored (it is recomputed, so a later change to a
+// closed period moves the carry, §14); only the user's decision is: how much of a surplus was left
+// unassigned. period_end is exclusive, so a later change of the period setting cannot detach the carry.
+export const periodClosings = pgTable('period_closings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  periodStart: date('period_start').notNull(),
+  periodEnd: date('period_end').notNull(),
+  keptAmount: numeric('kept_amount', { precision: 10, scale: 2 }).notNull().default('0'),
+  closedAt: timestamp('closed_at').notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('period_closings_household_start_unique').on(table.householdId, table.periodStart),
+  check('period_closings_range_valid', sql`${table.periodEnd} > ${table.periodStart}`),
+  check('period_closings_kept_not_negative', sql`${table.keptAmount} >= 0`),
+])
+
+// What the household plans to leave for the next period when the period starting at period_start ends
+// (§14 "Plánovaný převod"). Only a plan: closing the period replaces it with the real transfer.
+export const plannedCarries = pgTable('planned_carries', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  periodStart: date('period_start').notNull(),
+  amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('planned_carries_household_period_unique').on(table.householdId, table.periodStart),
+  check('planned_carries_amount_positive', sql`${table.amount} > 0`),
+])
+
+// Money really moved between the budget and a Kapsa: positive = budget → Kapsa, negative = Kapsa →
+// budget. Not income, expense or saving (§14). period_start is the budget period it belongs to;
+// closing_id marks the moves made while closing that period.
+export const pocketTransfers = pgTable('pocket_transfers', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  pocketId: uuid('pocket_id').notNull().references(() => pockets.id, { onDelete: 'cascade' }),
+  periodStart: date('period_start').notNull(),
+  closingId: uuid('closing_id').references(() => periodClosings.id, { onDelete: 'cascade' }),
+  amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
+  date: date('date').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [
+  index('pocket_transfers_household_period_idx').on(table.householdId, table.periodStart),
+  index('pocket_transfers_pocket_idx').on(table.pocketId),
+  check('pocket_transfers_amount_not_zero', sql`${table.amount} <> 0`),
+])
+
+export const expenses = pgTable('expenses', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  // Optional product identity selected through the shared manual autocomplete. Receipt-generated expenses remain unlinked.
+  productId: uuid('product_id').references(() => products.id, { onDelete: 'set null' }),
+  // Explicit generic product type selection; mutually exclusive with productId at the application layer.
+  productTypeId: uuid('product_type_id').references(() => productTypes.id, { onDelete: 'set null' }),
+  amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
+  note: text('note').notNull().default(''),
+  category: expenseCategoryEnum('category').notNull().default('Ostatní'),
+  // Optional, one of the category's subcategories (lib/expense-categories.ts); checked by the server.
+  subcategory: text('subcategory'),
+  date: date('date').notNull(),
+  // Set when the expense is a receipt's purchase (lib/purchase-expenses.ts): one row per
+  // (category, subcategory) of its items. Goes with the purchase — its rows are replaced wholesale
+  // whenever the purchase's split changes, e.g. reassigning one item's category
+  // (lib/db/purchase-items.ts's recomputePurchaseExpenses), never edited by hand directly.
+  purchaseId: uuid('purchase_id').references(() => purchases.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [
+  // The overview reads a household's expenses by date.
+  index('expenses_household_date_idx').on(table.householdId, table.date),
+  index('expenses_product_idx').on(table.householdId, table.productId),
+  index('expenses_product_type_idx').on(table.householdId, table.productTypeId),
+  // A purchase is counted once per (category, subcategory), whatever retries or races happen — the
+  // subcategory joined in (migration 0042) so a household's own override (e.g. one gift item moved
+  // to Ostatní ▸ Dárky) gets its own row instead of colliding with the purchase's other, unmodified
+  // Ostatní items. `coalesce(…, '')`: a bare unique index treats every NULL subcategory as distinct
+  // from every other, which would let a retry insert the same (purchase, category, NULL) row twice.
+  uniqueIndex('expenses_purchase_category_subcategory_unique')
+    .on(table.purchaseId, table.category, sql`coalesce(${table.subcategory}, '')`)
+    .where(sql`${table.purchaseId} IS NOT NULL`),
+  check('expenses_amount_positive', sql`${table.amount} > 0`),
+])
+
+// A household's monthly limit for one expense category ("Potraviny: 8 000 Kč"), next to the overall
+// monthly budget on households. Optional: a category without a row has no limit. Crossing 80 % or
+// 100 % of it notifies the household once, like the overall budget (lib/db/budget-notify.ts).
+export const expenseCategoryBudgets = pgTable('expense_category_budgets', {
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  category: expenseCategoryEnum('category').notNull(),
+  amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  primaryKey({ columns: [table.householdId, table.category] }),
+  check('expense_category_budgets_amount_positive', sql`${table.amount} > 0`),
+])
+
+// A payment the household makes regularly — rent, energy advances, insurance (lib/recurring-payments.ts).
+// Entered once; each due date is confirmed (it becomes an expense) or skipped in
+// recurring_payment_occurrences. Stopping a payment keeps its history (`active` false).
+export const recurringPayments = pgTable('recurring_payments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  category: expenseCategoryEnum('category').notNull(),
+  subcategory: text('subcategory'),
+  amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
+  intervalMonths: integer('interval_months').notNull(),
+  // The first due date; its day of the month is kept for every later one.
+  startDate: date('start_date').notNull(),
+  active: boolean('active').notNull().default(true),
+  // The due date the household was last reminded of, so the daily cron reminds once per due date.
+  remindedDueDate: date('reminded_due_date'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('recurring_payments_household_idx').on(table.householdId),
+  check('recurring_payments_amount_positive', sql`${table.amount} > 0`),
+  check('recurring_payments_interval', sql`${table.intervalMonths} IN (1, 3, 6, 12)`),
+])
+
+// One due date of a recurring payment the household dealt with: paid (with the expense it became) or
+// skipped. Deleting that expense deletes this row too, so the due date waits again.
+export const recurringPaymentOccurrences = pgTable('recurring_payment_occurrences', {
+  recurringPaymentId: uuid('recurring_payment_id').notNull().references(() => recurringPayments.id, { onDelete: 'cascade' }),
+  dueDate: date('due_date').notNull(),
+  status: text('status').notNull(),
+  expenseId: uuid('expense_id').references(() => expenses.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  primaryKey({ columns: [table.recurringPaymentId, table.dueDate] }),
+  check('recurring_payment_occurrences_status', sql`(${table.status} = 'paid' AND ${table.expenseId} IS NOT NULL) OR (${table.status} = 'skipped' AND ${table.expenseId} IS NULL)`),
+])
+
+// --- Recipes -----------------------------------------------------------------
+
+// Household-owned recipe bookmarks. Only normalized recipe metadata is stored; the original cooking
+// instructions remain on the source website (docs/10_RECIPES.md).
+export const recipeFavorites = pgTable('recipe_favorites', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  sourceId: text('source_id').notNull(),
+  sourceName: text('source_name').notNull(),
+  sourceUrl: text('source_url').notNull(),
+  canonicalUrl: text('canonical_url').notNull(),
+  title: text('title').notNull(),
+  description: text('description'),
+  imageUrl: text('image_url'),
+  servings: numeric('servings', { precision: 8, scale: 2 }),
+  totalTimeMinutes: integer('total_time_minutes'),
+  ratingValue: numeric('rating_value', { precision: 6, scale: 3 }),
+  ratingScale: numeric('rating_scale', { precision: 6, scale: 3 }),
+  ratingCount: integer('rating_count'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('recipe_favorites_household_canonical_unique').on(table.householdId, table.canonicalUrl),
+  index('recipe_favorites_household_created_idx').on(table.householdId, table.createdAt),
+])
+
+// Last opened recipe per household. Re-opening updates the timestamp and count instead of storing
+// an unbounded event stream. This is enough for the v1 "Historie" list while keeping the table small.
+export const recipeHistory = pgTable('recipe_history', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  sourceId: text('source_id').notNull(),
+  sourceName: text('source_name').notNull(),
+  sourceUrl: text('source_url').notNull(),
+  canonicalUrl: text('canonical_url').notNull(),
+  title: text('title').notNull(),
+  description: text('description'),
+  imageUrl: text('image_url'),
+  servings: numeric('servings', { precision: 8, scale: 2 }),
+  totalTimeMinutes: integer('total_time_minutes'),
+  ratingValue: numeric('rating_value', { precision: 6, scale: 3 }),
+  ratingScale: numeric('rating_scale', { precision: 6, scale: 3 }),
+  ratingCount: integer('rating_count'),
+  firstViewedAt: timestamp('first_viewed_at', { withTimezone: true }).notNull().defaultNow(),
+  lastViewedAt: timestamp('last_viewed_at', { withTimezone: true }).notNull().defaultNow(),
+  viewCount: integer('view_count').notNull().default(1),
+}, (table) => [
+  uniqueIndex('recipe_history_household_canonical_unique').on(table.householdId, table.canonicalUrl),
+  index('recipe_history_household_last_viewed_idx').on(table.householdId, table.lastViewedAt),
+])
+
+// --- Meal plans & notifications ------------------------------------------------
+
+// Persistent shared recipe catalog populated by the source importers. Unlike favorites/history,
+// this table is global: it is not household-owned. Cooking instructions are intentionally not stored;
+// users open sourceUrl for the full recipe (docs/10_RECIPES.md).
+export const recipeCatalog = pgTable('recipe_catalog', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  sourceId: text('source_id').notNull(),
+  sourceName: text('source_name').notNull(),
+  sourceUrl: text('source_url').notNull(),
+  canonicalUrl: text('canonical_url').notNull(),
+  title: text('title').notNull(),
+  description: text('description'),
+  imageUrl: text('image_url'),
+  sourceImageUrl: text('source_image_url'),
+  imageRef: text('image_ref'),
+  servings: numeric('servings', { precision: 8, scale: 2 }),
+  servingsText: text('servings_text'),
+  prepTimeMinutes: integer('prep_time_minutes'),
+  cookTimeMinutes: integer('cook_time_minutes'),
+  totalTimeMinutes: integer('total_time_minutes'),
+  category: text('category'),
+  cuisine: text('cuisine'),
+  ratingValue: numeric('rating_value', { precision: 6, scale: 3 }),
+  ratingScale: numeric('rating_scale', { precision: 6, scale: 3 }),
+  ratingCount: integer('rating_count'),
+  ratingSource: text('rating_source'),
+  ingredients: jsonb('ingredients').notNull(),
+  fetchedAt: timestamp('fetched_at', { withTimezone: true }).notNull(),
+  parserVersion: integer('parser_version').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  searchText: text('search_text').notNull().default(''),
+}, (table) => [
+  uniqueIndex('recipe_catalog_canonical_url_unique').on(table.canonicalUrl),
+  index('recipe_catalog_source_idx').on(table.sourceId, table.updatedAt),
+  index('recipe_catalog_title_idx').on(table.title),
+  index('recipe_catalog_search_text_trgm_idx').using('gin', table.searchText.op('gin_trgm_ops')),
+])
+
+export const mealPlans = pgTable('meal_plans', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  weekStart: date('week_start').notNull(),
+  budgetLimit: numeric('budget_limit', { precision: 10, scale: 2 }).notNull(),
+  estimatedTotal: numeric('estimated_total', { precision: 10, scale: 2 }).notNull(),
+  plan: text('plan').notNull(), // JSON-serialized WeeklyMealPlan snapshot
+  generatedAt: timestamp('generated_at').notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('meal_plans_household_week_unique_idx').on(table.householdId, table.weekStart),
+  check('meal_plans_budget_limit_non_negative', sql`${table.budgetLimit} >= 0`),
+  check('meal_plans_estimated_total_non_negative', sql`${table.estimatedTotal} >= 0`),
+])
+
+// One row per chain and flyer start date announced as "Nové akce v <chain>" (docs/21_NEW_FLYER_NOTIFICATIONS.md),
+// written before the notifications go out so a flyer is never announced twice.
+export const dealAnnouncements = pgTable(
+  'deal_announcements',
+  {
+    storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
+    validFrom: date('valid_from').notNull(),
+    dealCount: integer('deal_count').notNull(),
+    announcedAt: timestamp('announced_at').notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.storeId, table.validFrom] }), check('deal_announcements_deal_count_check', sql`${table.dealCount} >= 0`)],
+)
+
+export const notifications = pgTable('notifications', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  detail: text('detail').notNull(),
+  unread: boolean('unread').notNull().default(true),
+  // Which kind of message it is (lib/notification-kinds.ts); NULL for rows written before kinds existed.
+  kind: text('kind'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [
+  index('notifications_household_created_idx').on(table.householdId, table.createdAt),
+])
+
+// Kinds of notification a member switched off (docs/14_NOTIFICATION_PREFERENCES.md). Only "off" is
+// stored; a missing row means the member gets that kind. Migration 0066 checks `kind` against the list.
+// Each member's answers to the eating questionnaire (docs/17_DIET_PREFERENCES.md); no row = eats everything.
+// The check constraints in migration 0068 list the same keys as lib/diet.ts.
+export const memberDiets = pgTable('member_diets', {
+  memberId: uuid('member_id').primaryKey().references(() => householdMembers.id, { onDelete: 'cascade' }),
+  diet: text('diet').notNull().default('none'),
+  avoids: text('avoids').array().notNull().default([]),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+})
+
+export const memberNotificationSettings = pgTable(
+  'member_notification_settings',
+  {
+    memberId: uuid('member_id').notNull().references(() => householdMembers.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    enabled: boolean('enabled').notNull().default(true),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.memberId, table.kind] })],
+)
+
+// One browser/phone that agreed to receive push notifications for a household member (Web Push,
+// lib/push/). `endpoint` is the push service URL the browser created for this app and identifies the
+// device, so it is unique: re-subscribing the same browser updates its row instead of adding another,
+// and a browser handed to a different account moves with it. Deleted when the push service reports
+// the subscription gone (404/410), when the member turns push off, or with the member/household.
+export const pushSubscriptions = pgTable(
+  'push_subscriptions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+    memberId: uuid('member_id').notNull().references(() => householdMembers.id, { onDelete: 'cascade' }),
+    endpoint: text('endpoint').notNull(),
+    // The browser's ECDH public key and auth secret (base64url) that each message is encrypted for.
+    p256dh: text('p256dh').notNull(),
+    auth: text('auth').notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    // Last time a push was accepted by the push service for this device.
+    lastSuccessAt: timestamp('last_success_at'),
+  },
+  (table) => [
+    uniqueIndex('push_subscriptions_endpoint_unique').on(table.endpoint),
+    index('push_subscriptions_household_idx').on(table.householdId),
+    check('push_subscriptions_endpoint_https', sql`${table.endpoint} LIKE 'https://%'`),
+  ],
+)
+
+// --- Relations -----------------------------------------------------------------
+
+export const householdsRelations = relations(households, ({ many, one }) => ({
+  members: many(householdMembers),
+  children: many(children),
+  preferences: one(preferences, { fields: [households.id], references: [preferences.householdId] }),
+  shoppingLists: many(shoppingLists),
+  purchases: many(purchases),
+  budgets: many(budgets),
+  incomes: many(incomes),
+  expenses: many(expenses),
+  mealPlans: many(mealPlans),
+  notifications: many(notifications),
+  pushSubscriptions: many(pushSubscriptions),
+  invitations: many(invitations),
+  pantryItems: many(pantryItems),
+  pantryPlaces: many(pantryPlaces),
+  pantryCheckinIntervals: many(pantryCheckinIntervals),
+  receiptImports: many(receiptImports),
+}))
+
+export const pantryCheckinIntervalsRelations = relations(pantryCheckinIntervals, ({ one }) => ({
+  household: one(households, { fields: [pantryCheckinIntervals.householdId], references: [households.id] }),
+}))
+
+export const pantryCheckinSubcategoryIntervalsRelations = relations(pantryCheckinSubcategoryIntervals, ({ one }) => ({
+  household: one(households, { fields: [pantryCheckinSubcategoryIntervals.householdId], references: [households.id] }),
+}))
+
+export const pantryPlacesRelations = relations(pantryPlaces, ({ one }) => ({
+  household: one(households, { fields: [pantryPlaces.householdId], references: [households.id] }),
+}))
+
+export const invitationsRelations = relations(invitations, ({ one }) => ({
+  household: one(households, { fields: [invitations.householdId], references: [households.id] }),
+  invitedByMember: one(householdMembers, { fields: [invitations.invitedByMemberId], references: [householdMembers.id] }),
+}))
+
+export const auditLogRelations = relations(auditLog, ({ one }) => ({
+  actor: one(householdMembers, { fields: [auditLog.actorMemberId], references: [householdMembers.id] }),
+}))
+
+export const householdMembersRelations = relations(householdMembers, ({ one }) => ({
+  household: one(households, { fields: [householdMembers.householdId], references: [households.id] }),
+  profile: one(profiles, { fields: [householdMembers.id], references: [profiles.memberId] }),
+}))
+
+export const productsRelations = relations(products, ({ one, many }) => ({
+  category: one(productCategories, { fields: [products.categoryId], references: [productCategories.id] }),
+  subcategory: one(productSubcategories, { fields: [products.subcategoryId], references: [productSubcategories.id] }),
+  productType: one(productTypes, { fields: [products.productTypeId], references: [productTypes.id] }),
+  productSubtype: one(productSubtypes, { fields: [products.productSubtypeId], references: [productSubtypes.id] }),
+  prices: many(prices),
+  deals: many(deals),
+  externalRefs: many(productExternalRefs),
+  aliases: many(productAliases),
+  packages: many(productPackages),
+}))
+
+export const productSubcategoriesRelations = relations(productSubcategories, ({ many }) => ({
+  products: many(products),
+}))
+
+export const productSubtypesRelations = relations(productSubtypes, ({ one, many }) => ({
+  productType: one(productTypes, { fields: [productSubtypes.productTypeId], references: [productTypes.id] }),
+  products: many(products),
+}))
+
+export const productTypesRelations = relations(productTypes, ({ many }) => ({
+  products: many(products),
+  subtypes: many(productSubtypes),
+  groups: many(productTypeGroupMembers),
+}))
+
+export const pkdSourcesRelations = relations(pkdSources, ({ many }) => ({
+  mappings: many(pkdExternalMappings),
+}))
+
+export const pkdProductTypeCandidatesRelations = relations(pkdProductTypeCandidates, () => ({}))
+
+export const pkdEntriesRelations = relations(pkdEntries, ({ one, many }) => ({
+  productType: one(productTypes, { fields: [pkdEntries.productTypeId], references: [productTypes.id] }),
+  synonyms: many(pkdSynonyms),
+  externalMappings: many(pkdExternalMappings),
+}))
+
+export const pkdSynonymsRelations = relations(pkdSynonyms, ({ one }) => ({
+  entry: one(pkdEntries, { fields: [pkdSynonyms.entryId], references: [pkdEntries.id] }),
+}))
+
+export const pkdExternalMappingsRelations = relations(pkdExternalMappings, ({ one }) => ({
+  entry: one(pkdEntries, { fields: [pkdExternalMappings.entryId], references: [pkdEntries.id] }),
+  source: one(pkdSources, { fields: [pkdExternalMappings.sourceId], references: [pkdSources.id] }),
+}))
+
+export const productTypeGroupsRelations = relations(productTypeGroups, ({ many }) => ({
+  members: many(productTypeGroupMembers),
+}))
+
+export const productTypeGroupMembersRelations = relations(productTypeGroupMembers, ({ one }) => ({
+  group: one(productTypeGroups, { fields: [productTypeGroupMembers.groupId], references: [productTypeGroups.id] }),
+  type: one(productTypes, { fields: [productTypeGroupMembers.typeId], references: [productTypes.id] }),
+}))
+
+export const productAliasesRelations = relations(productAliases, ({ one }) => ({
+  product: one(products, { fields: [productAliases.productId], references: [products.id] }),
+  store: one(stores, { fields: [productAliases.storeId], references: [stores.id] }),
+}))
+
+export const productExternalRefsRelations = relations(productExternalRefs, ({ one }) => ({
+  product: one(products, { fields: [productExternalRefs.productId], references: [products.id] }),
+}))
+
+export const productPackagesRelations = relations(productPackages, ({ one }) => ({
+  product: one(products, { fields: [productPackages.productId], references: [products.id] }),
+}))
+
+export const storesRelations = relations(stores, ({ many }) => ({
+  locations: many(storeLocations),
+}))
+
+export const storeLocationsRelations = relations(storeLocations, ({ one, many }) => ({
+  store: one(stores, { fields: [storeLocations.storeId], references: [stores.id] }),
+  prices: many(prices),
+  deals: many(deals),
+}))
+
+export const pricesRelations = relations(prices, ({ one }) => ({
+  product: one(products, { fields: [prices.productId], references: [products.id] }),
+  store: one(stores, { fields: [prices.storeId], references: [stores.id] }),
+  storeLocation: one(storeLocations, { fields: [prices.storeLocationId], references: [storeLocations.id] }),
+}))
+
+export const dealsRelations = relations(deals, ({ one }) => ({
+  product: one(products, { fields: [deals.productId], references: [products.id] }),
+  store: one(stores, { fields: [deals.storeId], references: [stores.id] }),
+  storeLocation: one(storeLocations, { fields: [deals.storeLocationId], references: [storeLocations.id] }),
+}))
+
+export const shoppingListsRelations = relations(shoppingLists, ({ one, many }) => ({
+  household: one(households, { fields: [shoppingLists.householdId], references: [households.id] }),
+  items: many(shoppingListItems),
+}))
+
+export const shoppingListItemsRelations = relations(shoppingListItems, ({ one }) => ({
+  list: one(shoppingLists, { fields: [shoppingListItems.listId], references: [shoppingLists.id] }),
+  product: one(products, { fields: [shoppingListItems.productId], references: [products.id] }),
+  preferredStoreLocation: one(storeLocations, { fields: [shoppingListItems.preferredStoreLocationId], references: [storeLocations.id] }),
+}))
+
+export const purchasesRelations = relations(purchases, ({ one, many }) => ({
+  household: one(households, { fields: [purchases.householdId], references: [households.id] }),
+  store: one(stores, { fields: [purchases.storeId], references: [stores.id] }),
+  storeLocation: one(storeLocations, { fields: [purchases.storeLocationId], references: [storeLocations.id] }),
+  items: many(purchaseItems),
+  // `many` even though a receipt import points at a purchase one-to-one in practice — Drizzle needs
+  // the plural relation to query in this direction; whether it's non-empty is what matters
+  // (lib/db/queries.ts: a purchase with no completed shopping-list origin came from a receipt).
+  receiptImports: many(receiptImports),
+}))
+
+export const purchaseItemsRelations = relations(purchaseItems, ({ one, many }) => ({
+  purchase: one(purchases, { fields: [purchaseItems.purchaseId], references: [purchases.id] }),
+  product: one(products, { fields: [purchaseItems.productId], references: [products.id] }),
+  subcategory: one(productSubcategories, { fields: [purchaseItems.subcategoryId], references: [productSubcategories.id] }),
+  expenseSplits: many(purchaseItemExpenseSplits),
+}))
+
+export const purchaseItemExpenseSplitsRelations = relations(purchaseItemExpenseSplits, ({ one }) => ({
+  purchaseItem: one(purchaseItems, { fields: [purchaseItemExpenseSplits.purchaseItemId], references: [purchaseItems.id] }),
+}))
+
+export const householdProductExpenseDefaultsRelations = relations(householdProductExpenseDefaults, ({ one }) => ({
+  household: one(households, { fields: [householdProductExpenseDefaults.householdId], references: [households.id] }),
+  product: one(products, { fields: [householdProductExpenseDefaults.productId], references: [products.id] }),
+}))
+
+export const pantryItemsRelations = relations(pantryItems, ({ one }) => ({
+  household: one(households, { fields: [pantryItems.householdId], references: [households.id] }),
+  product: one(products, { fields: [pantryItems.productId], references: [products.id] }),
+  productType: one(productTypes, { fields: [pantryItems.productTypeId], references: [productTypes.id] }),
+  subcategory: one(productSubcategories, { fields: [pantryItems.subcategoryId], references: [productSubcategories.id] }),
+  customPlace: one(pantryPlaces, { fields: [pantryItems.customPlaceId], references: [pantryPlaces.id] }),
+}))
+
+export const receiptImportsRelations = relations(receiptImports, ({ one }) => ({
+  household: one(households, { fields: [receiptImports.householdId], references: [households.id] }),
+  store: one(stores, { fields: [receiptImports.storeId], references: [stores.id] }),
+  storeLocation: one(storeLocations, { fields: [receiptImports.storeLocationId], references: [storeLocations.id] }),
+  purchase: one(purchases, { fields: [receiptImports.purchaseId], references: [purchases.id] }),
+}))
+
+// Ideas for improving the app, sent by household members from the account menu ("Nápady pro
+// zlepšení"). The owner of the project reads them, decides which are relevant and moves them through
+// `status`; the household sees the status of its own ideas. Kept with the household so an idea lives
+// and dies with it; `member_id` is only informational (who wrote it), so leaving does not erase it.
+export const ideaStatusEnum = pgEnum('idea_status', ['new', 'planned', 'done', 'declined'])
+
+export const featureIdeas = pgTable(
+  'feature_ideas',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+    memberId: uuid('member_id').references(() => householdMembers.id, { onDelete: 'set null' }),
+    title: text('title').notNull(),
+    details: text('details'),
+    status: ideaStatusEnum('status').notNull().default('new'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // The household's list is read newest first.
+    index('feature_ideas_household_created_idx').on(table.householdId, table.createdAt),
+    check('feature_ideas_title_length', sql`char_length(${table.title}) BETWEEN 1 AND 120`),
+    check('feature_ideas_details_length', sql`${table.details} IS NULL OR char_length(${table.details}) <= 2000`),
+  ],
+)
+
+// Accounts that administer the app itself (a role of the whole application, not of one household —
+// unlike `household_members.role`). `user_id` is the Neon Auth user id; its foreign key to
+// `neon_auth.user` is in the hand-written part of migration 0041 (Drizzle does not model that
+// schema). Rows are added by the owner of the
+// project with `pnpm db:set-admin <email>`; nothing in the app can grant it, so a request can never
+// make itself an admin. Admins can review and manage everyone's improvement ideas.
+export const appAdmins = pgTable('app_admins', {
+  userId: uuid('user_id').primaryKey(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// Every change of a shared catalog product's subcategory that a household made by hand (from the
+// pantry). The catalog is shared by all households, so a product moved back and forth is a sign of
+// disagreement: the first few moves apply at once, later ones wait here as 'pending' until an
+// administrator approves or rejects them (lib/product-subcategory-changes.ts). `from_subcategory_id`
+// null means the product had none yet — that first placement is not counted as a move.
+export const productSubcategoryChanges = pgTable(
+  'product_subcategory_changes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+    householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+    fromSubcategoryId: uuid('from_subcategory_id').references(() => productSubcategories.id, { onDelete: 'set null' }),
+    toSubcategoryId: uuid('to_subcategory_id').notNull().references(() => productSubcategories.id, { onDelete: 'cascade' }),
+    status: text('status').notNull().default('applied'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+    // The administrator's neon_auth.user id. References neon_auth.user(id) ON DELETE SET NULL (migration 0111); no
+    // Drizzle-level FK because that schema is managed by Neon Auth.
+    decidedBy: uuid('decided_by'),
+  },
+  (table) => [
+    index('product_subcategory_changes_product_status_idx').on(table.productId, table.status),
+    // One household cannot pile up the same waiting proposal twice.
+    uniqueIndex('product_subcategory_changes_pending_unique')
+      .on(table.productId, table.householdId, table.toSubcategoryId)
+      .where(sql`${table.status} = 'pending'`),
+    check('product_subcategory_changes_status_valid', sql`${table.status} IN ('applied', 'pending', 'approved', 'rejected')`),
+  ],
+)
+
+// Households' hand-made category changes of a shared catalog product, mirroring
+// product_subcategory_changes: the first few apply at once, a further one waits as 'pending' for an
+// administrator, whose decision (either way) locks the product's category for good
+// (`products.category_locked`, lib/product-subcategory-changes.ts).
+export const productCategoryChanges = pgTable(
+  'product_category_changes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+    householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+    fromCategoryId: uuid('from_category_id').notNull().references(() => productCategories.id, { onDelete: 'cascade' }),
+    toCategoryId: uuid('to_category_id').notNull().references(() => productCategories.id, { onDelete: 'cascade' }),
+    status: text('status').notNull().default('applied'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+    // The administrator's neon_auth.user id. References neon_auth.user(id) ON DELETE SET NULL (migration 0111); no
+    // Drizzle-level FK because that schema is managed by Neon Auth.
+    decidedBy: uuid('decided_by'),
+  },
+  (table) => [
+    index('product_category_changes_product_status_idx').on(table.productId, table.status),
+    uniqueIndex('product_category_changes_pending_unique')
+      .on(table.productId, table.householdId, table.toCategoryId)
+      .where(sql`${table.status} = 'pending'`),
+    check('product_category_changes_status_valid', sql`${table.status} IN ('applied', 'pending', 'approved', 'rejected')`),
+  ],
+)
+
+export const productCategoryChangesRelations = relations(productCategoryChanges, ({ one }) => ({
+  product: one(products, { fields: [productCategoryChanges.productId], references: [products.id] }),
+  household: one(households, { fields: [productCategoryChanges.householdId], references: [households.id] }),
+  from: one(productCategories, { fields: [productCategoryChanges.fromCategoryId], references: [productCategories.id] }),
+  to: one(productCategories, { fields: [productCategoryChanges.toCategoryId], references: [productCategories.id] }),
+}))
+
+export const productSubcategoryChangesRelations = relations(productSubcategoryChanges, ({ one }) => ({
+  product: one(products, { fields: [productSubcategoryChanges.productId], references: [products.id] }),
+  household: one(households, { fields: [productSubcategoryChanges.householdId], references: [households.id] }),
+  from: one(productSubcategories, { fields: [productSubcategoryChanges.fromSubcategoryId], references: [productSubcategories.id] }),
+  to: one(productSubcategories, { fields: [productSubcategoryChanges.toSubcategoryId], references: [productSubcategories.id] }),
+}))
+`),
+  check('promotion_price_effect_applies_to_valid', sql`${table.appliesTo} IN ('qualifying_items', 'reward_items', 'cheapest_eligible_item', 'basket')`),
+  check('promotion_price_effect_max_applications_positive', sql`${table.maxApplications} IS NULL OR ${table.maxApplications} > 0`),
+])
+
 export const shoppingLists = pgTable('shopping_lists', {
   id: uuid('id').primaryKey().defaultRandom(),
   householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),

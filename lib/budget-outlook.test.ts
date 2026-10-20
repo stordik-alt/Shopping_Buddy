@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { expectedCarry, projectOutlook, type OutlookPeriodInput } from '@/lib/budget-outlook'
+import { averageSpendingByCategory, expectedCarry, projectOutlook, type OutlookPeriodInput } from '@/lib/budget-outlook'
 
 const period = (start: string, over: Partial<OutlookPeriodInput> = {}): OutlookPeriodInput => ({
   periodStart: start,
@@ -164,5 +164,24 @@ describe('historical spending in future outlook', () => {
     expect(next.carryOut).toBe(0)
     expect(after.spending).toBe(24_000)
     expect(after.predicted).toBeNull()
+  })
+})
+
+describe('averageSpendingByCategory', () => {
+  it('averages each category across all three completed periods, including empty periods', () => {
+    expect(averageSpendingByCategory([
+      { periodStart: '2026-07-01', category: 'Potraviny', amount: 300 },
+      { periodStart: '2026-08-01', category: 'Potraviny', amount: 600 },
+      { periodStart: '2026-08-01', category: 'Doprava', amount: 300 },
+      { periodStart: '2026-06-01', category: 'Ostatní', amount: 900 },
+    ], ['2026-07-01', '2026-08-01', '2026-09-01'])).toEqual([
+      { category: 'Potraviny', average: 300 },
+      { category: 'Doprava', average: 100 },
+    ])
+  })
+
+  it('returns no category breakdown when there is no ordinary spending history', () => {
+    expect(averageSpendingByCategory([], ['2026-07-01', '2026-08-01', '2026-09-01'])).toEqual([])
+    expect(averageSpendingByCategory([{ periodStart: '2026-07-01', category: 'Potraviny', amount: 500 }], [])).toEqual([])
   })
 })

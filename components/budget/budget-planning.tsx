@@ -297,11 +297,11 @@ export function BudgetPlanning({
         key={`incomes-${future}`}
         title="Příjmy"
         summary={incomes.incomes === null ? undefined : incomes.incomes.length === 0 ? 'Zatím žádné' : `Přijato ${money(totals.received)} · čeká ${money(totals.planned)}`}
-        description="Výplata, brigáda, dávky… Plánovaný příjem označíte jako přijatý, až dorazí."
+        description="Jednorázové a mimořádné příjmy (např. dárek nebo jednorázová odměna). Pravidelné příjmy nastavíte samostatně níže."
         defaultOpen={future}
         action={
           <Button variant="secondary" onClick={() => setEditing('new')}>
-            <Plus aria-hidden="true" /> Přidat příjem
+            <Plus aria-hidden="true" /> Přidat jednorázový příjem
           </Button>
         }
       >
@@ -327,7 +327,7 @@ export function BudgetPlanning({
                 description="Přidejte výplatu nebo jiný jednorázový příjem. Pravidelný příjem nastavíte samostatně níže."
                 action={
                   <Button onClick={() => setEditing('new')}>
-                    <Plus aria-hidden="true" /> Přidat příjem
+                    <Plus aria-hidden="true" /> Přidat jednorázový příjem
                   </Button>
                 }
               />

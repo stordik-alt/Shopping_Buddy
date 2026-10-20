@@ -1,3 +1,10 @@
+## 2026-10-20 — Fáze 3: strukturovaný model akcí (datová vrstva)
+
+- Přidány tabulky `promotions`, `promotion_rules`, `promotion_eligible_items`, `promotion_membership_requirements` a `promotion_price_effects`.
+- Podmínky, cenové efekty, klubové požadavky, způsobilé produkty, zdrojová evidence, platnost a stav ověření jsou oddělené a typově validované.
+- Migrace je aditivní; existující `deals` zůstává beze změny a produkční výpočet cen zatím nové tabulky nepoužívá.
+- Neprovádí se import Tety, backfill ani zápis do produkčních dat. Výpočet ceny a regresní testy budou samostatným navazujícím krokem.
+
 ## 2026-10-20 — Fáze 2 identity: vazby cen a akcí
 
 - Přidány volitelné odkazy z prices a deals na trade_items a retailer_product_refs.

@@ -44,6 +44,20 @@ export function BudgetOutlookCard({
       summary={ahead[0] ? (ahead[0].predicted === null ? 'Příští období: příjem není naplánován' : `Příští období: ${ahead[0].predicted < 0 ? `chybět bude ${money(-ahead[0].predicted)}` : `predikce ${money(ahead[0].predicted)}`}`) : undefined}
       description="Odhad podle skutečných běžných výdajů za poslední tři dokončená období a známých budoucích plateb. Bez naplánovaného příjmu nelze určit výsledný zůstatek; odhad výdajů není jistota ani skutečný schodek."
     >
+      {state.outlook?.historicalSpendingByCategory && state.outlook.historicalSpendingByCategory.length > 0 && (
+        <section className="mb-4 rounded-xl bg-muted/50 p-3" aria-label="Historické výdaje podle kategorií">
+          <p className="text-sm font-medium">Historické výdaje podle kategorií</p>
+          <p className="mt-1 text-xs text-fg-secondary">Průměr za poslední tři dokončená období; pravidelné platby jsou vynechány, protože se plánují samostatně.</p>
+          <ul className="mt-2 divide-y divide-border">
+            {state.outlook.historicalSpendingByCategory.map(({ category, average }) => (
+              <li key={category} className="flex items-baseline justify-between gap-3 py-2 text-sm">
+                <span>{category}</span>
+                <span className="shrink-0 font-medium tabular-nums">{money(average)} / období</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       {awaitingClose && <p className="mb-4 text-sm text-fg-secondary">Minulé období ještě není uzavřené, jeho převod ve výhledu zatím chybí.</p>}
 
       <div>

@@ -44,3 +44,13 @@ Migration order should generally be:
 5. migrate/seed required reference data
 6. remove mock usage only after real persistence works
 7. validate existing user flows
+
+
+## Pravidelné příjmy (průběžná implementace, 2026-10-20)
+
+Migrace `0108_recurring_incomes.sql` přidává:
+
+- `recurring_incomes`: šablona pravidelného příjmu domácnosti s očekávanou částkou, prvním očekávaným datem, intervalem 1/3/6/12 měsíců a příznakem aktivní/zastavený.
+- `recurring_income_occurrences`: jedinečný záznam pro dvojici šablona + datum, který eviduje přijetí nebo přeskočení termínu. Přijatý termín odkazuje na samostatný řádek `incomes`; částka skutečného přijetí se ukládá do tohoto řádku, nikoli do očekávané částky šablony.
+
+Datový základ je zatím připravený; serverové akce, generování termínů, uživatelské rozhraní a testy jsou další implementační kroky.

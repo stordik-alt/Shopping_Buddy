@@ -1,3 +1,11 @@
+## 2026-10-20 — Historický odhad výdajů ve výhledu
+
+- Budoucí výhled využívá průměr běžných skutečných výdajů za tři předchozí dokončená rozpočtová období; výpočet respektuje kalendářní, výplatní i vlastní délku období.
+- Výdaje vzniklé potvrzením pravidelné platby se z historického základu vynechají podle explicitní vazby `recurring_payment_occurrences.expense_id`; známé budoucí pravidelné platby se přidají samostatně.
+- Plánované jednorázové výdaje se přičtou k historickému základu. Pokud historie neexistuje, zůstává původní odhad podle rozpočtu období.
+- Odhad výdajů se zobrazí i bez naplánovaného příjmu, ale výsledný zůstatek zůstane neurčitelný a nevytvoří záporný převod. Skutečné peníze se nemění.
+- Přidány regresní testy pro historický základ, známé výdaje a chybějící příjmy.
+
 ## 2026-10-20 — Výhled budoucích období bez naplánovaných příjmů
 
 - Budoucí období bez zadaného příjmu už nejsou automaticky vyhodnocena jako deficit ve výši rozpočtu.

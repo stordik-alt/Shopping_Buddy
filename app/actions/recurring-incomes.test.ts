@@ -149,7 +149,8 @@ describe('recurring income confirmation', () => {
     }, schedule.id)
     const rows = await db.query.incomes.findMany({ where: eq(schema.incomes.householdId, householdId) })
     expect(rows).toHaveLength(1)
-    expect(rows[0]).toMatchObject({ description: 'Výplata', amount: '29500.00', status: 'actual' })
+    expect(rows[0]).toMatchObject({ description: 'Výplata', status: 'actual' })
+    expect(Number(rows[0].amount)).toBe(29_500)
   })
 
   it('keeps a one-off income out of future periods', async () => {

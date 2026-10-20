@@ -34,6 +34,7 @@ const outlookState = (outlook: BudgetOutlook | null, error = ''): OutlookState =
 /** Running period 15. 10.–14. 11. plus two ahead: 38 000 planned income each, 30 000 budget. */
 const outlookData: BudgetOutlook = {
   historicalSpending: null,
+  historicalSpendingByCategory: null,
   actualNow: 6_800,
   spentNow: 31_200,
   periods: [

@@ -12,12 +12,8 @@ type Db = ReturnType<typeof getDb>
 export async function remindDueRecurringIncomes(db: Db, today: string): Promise<{ households: number; incomes: number }> {
   const rows = await db.query.recurringIncomes.findMany({ where: eq(schema.recurringIncomes.active, true) })
   const dueRows = rows.filter((row) => isRecurringIncomeDueDate({
-    id: row.id,
-    description: row.description,
-    expectedAmount: Number(row.expectedAmount),
     intervalMonths: row.intervalMonths as RecurringIncomeInterval,
     startDate: row.startDate,
-    active: row.active,
   }, today) && row.remindedDueDate !== today)
   if (dueRows.length === 0) return { households: 0, incomes: 0 }
 

@@ -659,3 +659,10 @@ Základní pravidlo:
 > **Při uzavření období se skutečný výsledek rozdělí mezi Kapsy, rezervu a následující období. Část určená pro následující období se zapíše jako převod. Kladný převod zvyšuje jeho dostupné prostředky, záporný převod je snižuje.**
 
 Rozpočet tedy není pouze historie utrácení. Je to systém pro plánování, průběžné řízení a predikci finančního stavu domácnosti podle období, ve kterém uživatel skutečně hospodaří.
+
+
+## Pravidelné příjmy — průběžná implementace (2026-10-20)
+
+Pravidelný příjem je očekávaný plán, nikoli skutečně přijatá částka. Migrace `0108_recurring_incomes.sql` přidává šablonu s očekávanou částkou, prvním datem, četností (měsíčně, čtvrtletně, pololetně nebo ročně) a aktivním stavem. Každé potvrzené přijetí bude samostatným historickým řádkem v `incomes`, propojeným přes `recurring_income_occurrences`; změna budoucí očekávané částky tak nemá měnit historii skutečně přijatých částek. Mimořádné příjmy zůstávají jednorázové.
+
+Toto je pouze databázový základ. Napojení do výhledu a přehledu rozpočtu, potvrzení skutečně přijaté částky, upozornění na termín a regresní testy se implementují v dalších krocích. PR #535 zatím není připraven ke sloučení.

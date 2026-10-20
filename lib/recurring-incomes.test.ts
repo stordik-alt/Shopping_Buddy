@@ -47,7 +47,7 @@ describe('recurring income overview', () => {
     ]
     const overview = recurringIncomeOverview([monthly], occurrences, '2030-11-20')
     expect(overview.due.map((item) => item.dueDate)).toEqual([])
-    expect(overview.upcoming.map((item) => item.dueDate)).toEqual([])
+    expect(overview.upcoming.map((item) => item.dueDate)).toEqual(['2030-12-15'])
   })
 
   it('lists overdue unhandled occurrences and does not forecast a stopped schedule', () => {

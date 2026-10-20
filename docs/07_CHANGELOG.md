@@ -1,3 +1,10 @@
+## 2026-10-20 — Základ datového modelu pravidelných příjmů (průběžná implementace)
+
+- Přidány tabulky `recurring_incomes` a `recurring_income_occurrences` v migraci `0108_recurring_incomes.sql`.
+- Pravidelný příjem uchovává očekávanou částku, četnost (měsíčně, čtvrtletně, pololetně, ročně), první očekávané datum a stav aktivní/zastavený.
+- Každé potvrzené přijetí bude navázané na samostatný záznam `incomes`; jedinečný klíč (pravidelný příjem, datum) chrání proti dvojímu potvrzení. Historie se nebude přepisovat změnou očekávané částky.
+- **Zatím není hotové:** serverové akce, plánování termínů, UI, připomínky a regresní testy. PR #535 se nesmí sloučit, dokud nebudou dokončeny a ověřeny.
+
 ## 2026-10-20 — Výslovné potvrzení skutečné částky pravidelné platby
 
 - Po volbě „Zaplaceno“ se zobrazí jasná otázka na skutečně zaplacenou částku a informace o plánované částce, kterou lze upravit.

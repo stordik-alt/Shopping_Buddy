@@ -352,7 +352,7 @@ function currentBudgetPeriodStart(period: PeriodConfig): string {
   return periodStart(todayInPrague(), period)
 }
 
-function toExpense(expense: typeof schema.expenses.$inferSelect): Expense {
+function toExpense(expense: typeof schema.expenses.$inferSelect, isRecurringPayment = false): Expense {
   return {
     id: expense.id,
     amount: Number(expense.amount),
@@ -363,7 +363,22 @@ function toExpense(expense: typeof schema.expenses.$inferSelect): Expense {
     purchaseId: expense.purchaseId,
     productId: expense.productId,
     productTypeId: expense.productTypeId,
+    isRecurringPayment,
   }
+}
+
+/** Expense IDs explicitly linked to a recurring-payment occurrence; category and note are never used
+ *  as a heuristic. The due-date window matches the expense history loaded by the caller. */
+async function getRecurringExpenseIds(householdId: string, sinceDate: string): Promise<Set<string>> {
+  const rows = await getDb()
+    .select({ expenseId: schema.recurringPaymentOccurrences.expenseId })
+    .from(schema.recurringPaymentOccurrences)
+    .innerJoin(schema.recurringPayments, eq(schema.recurringPayments.id, schema.recurringPaymentOccurrences.recurringPaymentId))
+    .where(and(
+      eq(schema.recurringPayments.householdId, householdId),
+      gte(schema.recurringPaymentOccurrences.dueDate, sinceDate),
+    ))
+  return new Set(rows.flatMap((row) => row.expenseId ? [row.expenseId] : []))
 }
 
 function toNotification(notification: typeof schema.notifications.$inferSelect): Notification {
@@ -386,7 +401,8 @@ export async function getHouseholdExpenses(householdId: string, includePurchaseI
     ),
     orderBy: asc(schema.expenses.date),
   })
-  return rows.map(toExpense)
+  const recurringExpenseIds = await getRecurringExpenseIds(householdId, currentBudgetPeriodStart(config))
+  return rows.map((row) => toExpense(row, recurringExpenseIds.has(row.id)))
 }
 
 /** The signed-in mobile app's budget view, scoped to the existing household and budget period. */
@@ -665,7 +681,7 @@ export async function getPurchaseAftermath(householdId: string, purchaseId?: str
   return {
     purchaseHistory: toPurchaseRecords(purchaseRows, expenseRows),
     pantryItems: pantryRows.map(toPantryItem),
-    expenses: expenseRows.map(toExpense),
+    expenses: expenseRows.map((row) => toExpense(row, new Set(recurringExpenseIdRows).has(row.id))),
     notifications,
     tickedListItems,
   }
@@ -717,7 +733,7 @@ export async function getHouseholdData(
   // but are not loaded on normal page renders, which keeps the common read path bounded.
   const budgetPeriod = periodConfigOfHousehold(household)
   const historySince = currentBudgetPeriodStart(budgetPeriod)
-  const [members, children, preferencesRow, lists, expenseRows, notificationRows, purchaseRows, mealPlan, invitationRows, pantryRows, pantryPlaceRows, hiddenLocationRows, pantryCheckinRows, pantryCheckinSubcategoryRows, pendingReceiptImports, categoryBudgetRows, recurringRows, occurrenceRows, notificationsOffRows, periodBudgetRows, dietRows] =
+  const [members, children, preferencesRow, lists, expenseRows, recurringExpenseIdRows, notificationRows, purchaseRows, mealPlan, invitationRows, pantryRows, pantryPlaceRows, hiddenLocationRows, pantryCheckinRows, pantryCheckinSubcategoryRows, pendingReceiptImports, categoryBudgetRows, recurringRows, occurrenceRows, notificationsOffRows, periodBudgetRows, dietRows] =
     await Promise.all([
       timed('members', db.query.householdMembers.findMany({
         where: eq(schema.householdMembers.householdId, household.id),
@@ -731,6 +747,7 @@ export async function getHouseholdData(
         orderBy: asc(schema.shoppingLists.createdAt),
       })),
       timed('expenses', db.query.expenses.findMany({ where: and(eq(schema.expenses.householdId, household.id), gte(schema.expenses.date, historySince)), orderBy: asc(schema.expenses.date) })),
+      timed('recurringExpenseIds', getRecurringExpenseIds(household.id, historySince).then((ids) => [...ids])),
       // The newest 50 are what the bell panel can usefully show; all of them grew with every week.
       timed('notifications', db.query.notifications.findMany({ where: and(eq(schema.notifications.householdId, household.id), eq(schema.notifications.unread, true)), orderBy: desc(schema.notifications.createdAt), limit: NOTIFICATIONS_SHOWN })),
       // The last year, with only the columns the history, usual items and pantry estimate read. The

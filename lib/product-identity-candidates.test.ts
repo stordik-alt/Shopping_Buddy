@@ -5,6 +5,37 @@ import {
 } from './product-identity-candidates'
 
 describe('compareProductIdentityRecords', () => {
+  it('flags the Teta Nivea lacquer variant conflict', () => {
+    const result = compareProductIdentityRecords(
+      { name: 'Nivea Diamond Volume lak na vlasy 250 ml', brand: 'Nivea', categoryPath: ['Vlasová kosmetika'] },
+      { name: 'Nivea Volume & Hold lak na vlasy 250 ml', brand: 'Nivea', categoryPath: ['Vlasová kosmetika'] },
+    )
+    expect(result.evidence.conflictingVariantTokens).toEqual(expect.arrayContaining(['diamond', 'hold']))
+    expect(result.score).toBeLessThan(0.3)
+    expect(result.status).toBe('review_required')
+  })
+
+  it('flags different retail packaging such as a bag and a box', () => {
+    const result = compareProductIdentityRecords(
+      { name: 'Tip Line bambusové vatové tyčinky 200 ks sáček', brand: 'Tip Line' },
+      { name: 'Tip Line bambusové vatové tyčinky 200 ks krabička', brand: 'Tip Line' },
+    )
+    expect(result.evidence.conflictingPackagingTokens).toEqual(expect.arrayContaining(['sacek', 'krabicka']))
+    expect(result.reasons).toContain('Packaging tokens conflict; sales-unit packaging may differ')
+    expect(result.status).toBe('review_required')
+  })
+
+  it('strongly downranks different product kinds even when quantity and brand match', () => {
+    const result = compareProductIdentityRecords(
+      { name: 'Tip Line kosmetické kapesníky 100 ks', brand: 'Tip Line', categoryPath: ['Hygiena'] },
+      { name: 'Tip Line kosmetické tampony 100 ks', brand: 'Tip Line', categoryPath: ['Kosmetika'] },
+    )
+    expect(result.evidence.conflictingProductTypeTokens).toEqual(expect.arrayContaining(['kapesniky', 'tampony']))
+    expect(result.evidence.categoryAgreement).toBe(false)
+    expect(result.score).toBeLessThan(0.3)
+    expect(result.status).toBe('review_required')
+  })
+
   it('scores formatting and diacritic differences as a review candidate', () => {
     const result = compareProductIdentityRecords(
       { retailer: 'TETA', sourceCode: '1', name: 'Somat sůl do myčky 1,5 kg', brand: 'Somat' },

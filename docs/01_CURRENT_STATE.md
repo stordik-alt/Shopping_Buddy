@@ -1,3 +1,7 @@
+## Update 2026-10-20 — Historický odhad výdajů ve výhledu
+
+Výhled budoucích období používá průměr běžných skutečných výdajů ze tří předchozích dokončených rozpočtových období. Potvrzené pravidelné platby jsou z historického základu vynechány podle vazby occurrence → expense a známé budoucí platby se přidávají samostatně. Při chybějící historii se používá rozpočet jako náhradní odhad. Bez plánovaného příjmu lze zobrazit očekávané výdaje, nikoli spolehlivý konečný zůstatek; žádný fiktivní schodek se nepřenáší. PR #535 čeká na CI.
+
 ## Update 2026-10-20 — Výhled budoucích období
 
 Budoucí období bez naplánovaného příjmu zobrazují výsledek jako neurčitelný, nikoli jako automatickou ztrátu ve výši rozpočtu. Takový výsledek nevytváří záporný převod, který by se sčítal do dalších období. Výhled s naplánovaným příjmem i skutečné účetní výpočty zůstávají oddělené; změna čeká na CI a sloučení PR.

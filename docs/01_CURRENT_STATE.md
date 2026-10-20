@@ -965,6 +965,7 @@ Recent work added notification behavior when spending crosses configured thresho
 - **Notifications:** crossing 80 % or 100 % of a category's limit notifies the household once ("Auto: 80 % limitu", "Auto: limit překročen"), whether by a typed-in expense or a receipt, alongside the overall budget's notification. `lib/db/budget-notify.ts` `notifyBudgetThresholds` reads the month's spending per category once and decides both. `addExpenseAction` now returns `notifications` (a list).
 
 **Update 2026-09-26, recurring payments (migration `0038`; part 4, the last of the expense plan).**
+- **Skutečně zaplacená částka (2026-10-20):** po klepnutí na „Zaplaceno“ aplikace výslovně žádá potvrzení částky. Očekávaná částka je předvyplněná, ale uživatel ji může upravit podle reálné platby; do výdajů se uloží upravená částka.
 - **Entering:** a household enters a payment once: name, amount, category and subcategory, how often (monthly, quarterly, half-yearly, yearly) and the first due date (`recurring_payments`, `app/actions/recurring.ts`). The day of the month is kept, falling back to the month's last day in a shorter month. A payment can be changed or stopped; stopping keeps the paid history.
 - **Nothing counts until confirmed.** Rozpočet → "Pravidelné platby" (`components/budget/recurring-payments.tsx`) lists:
   - due dates up to today that are neither paid nor skipped (at most the last three per payment, none older than a year), each with "Zaplaceno" (the amount and date actually paid, prefilled) and "Přeskočit";

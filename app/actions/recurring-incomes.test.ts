@@ -3,6 +3,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { todayInPrague } from '@/lib/today'
+import { remindDueRecurringIncomes } from '@/lib/db/recurring-income-reminders'
 
 let currentHouseholdId = ''
 vi.mock('@/lib/auth/authorize', () => ({
@@ -35,10 +36,31 @@ beforeEach(async () => {
 
 afterAll(async () => {
   for (const id of createdHouseholdIds) {
+    await db.delete(schema.notifications).where(eq(schema.notifications.householdId, id))
     await db.delete(schema.incomes).where(eq(schema.incomes.householdId, id))
     await db.delete(schema.recurringIncomes).where(eq(schema.recurringIncomes.householdId, id))
     await db.delete(schema.households).where(eq(schema.households.id, id))
   }
+})
+
+describe('recurring income reminders', () => {
+  it('notifies the household once on the expected date and respects handled occurrences', async () => {
+    const today = todayInPrague()
+    await saveRecurringIncomeAction({ description: 'Výplata', expectedAmount: 30_000, intervalMonths: 1, startDate: today })
+    expect(await remindDueRecurringIncomes(db, today)).toEqual({ households: 1, incomes: 1 })
+    expect(await remindDueRecurringIncomes(db, today)).toEqual({ households: 0, incomes: 0 })
+    const notifications = await db.query.notifications.findMany({ where: eq(schema.notifications.householdId, householdId) })
+    expect(notifications).toHaveLength(1)
+    expect(notifications[0]).toMatchObject({ title: 'Dnes očekáváte pravidelný příjem', kind: 'recurring_income' })
+  })
+
+  it('does not remind after the occurrence was received or skipped', async () => {
+    const today = todayInPrague()
+    const schedule = await saveRecurringIncomeAction({ description: 'Výplata', expectedAmount: 30_000, intervalMonths: 1, startDate: today })
+    await confirmRecurringIncomeAction(schedule.id, today, { amount: 29_500, date: today })
+    expect(await remindDueRecurringIncomes(db, today)).toEqual({ households: 0, incomes: 0 })
+    expect(await db.query.notifications.findMany({ where: eq(schema.notifications.householdId, householdId) })).toEqual([])
+  })
 })
 
 describe('recurring income confirmation', () => {

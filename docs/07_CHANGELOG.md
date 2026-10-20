@@ -1,3 +1,10 @@
+## 2026-10-20 — Pravidelné platby mimo výdajového tempa rozpočtu
+
+- Výdaje vytvořené potvrzením pravidelné platby jsou označeny pouze podle vazby `recurring_payment_occurrences.expense_id`; název ani kategorie se nepoužívají jako odhad.
+- Tyto výdaje zůstávají v celkových skutečných výdajích a historii, ale neovlivňují denní/týdenní průměr ani projekci výdajů do konce období. Běžné výdaje ve stejné kategorii se dál započítávají.
+- Přidány regresní testy pro průměry, projekci, součet skutečných výdajů a zachování běžných výdajů.
+- Ověření CI/typechecku se provede v rámci PR; tato změna sama neprovádí migraci ani produkční zápisy.
+
 ## 2026-10-19 — Rozpoznání cen označených „Teta klub“
 
 - Vzorek 300 veřejných produktových stránek obsahoval u produktu Chilly Delicate cenu `Teta klub 69,90 Kč*` s poznámkou `při splnění podmínek -10 Kč`; dosavadní pravidla tuto klubovou cenu nedokázala označit.

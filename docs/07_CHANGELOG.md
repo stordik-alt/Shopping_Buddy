@@ -1,3 +1,10 @@
+## 2026-10-20 — Fáze 5: návrhy strukturovaných akcí z Teta snapshotů
+
+- Přidán čistý převod interního snapshotového kontraktu Tety na kandidáty strukturovaných akcí určené ke kontrole.
+- Jednoduchá sleva získá cenový efekt pouze při shodě ceny nabídky s cenou katalogové karty, výslovně uvedené vyšší běžné ceně, validním přepočtu jednotkové ceny a doloženém konci platnosti.
+- Klubové a množstevní nabídky zůstávají podmíněné; nepodporované podmínky nevytvářejí odhadnutý cenový efekt.
+- Všechny kandidáty vytváříme jako `needs_review` / `unverified`. Nezapisují se do databáze a nemohou ovlivnit cenu v aplikaci; před aktivací je nutné ověřit skutečný zdroj a spárovat identitu produktu.
+
 ## 2026-10-20 — Fáze 4: deterministický výpočet strukturovaných akcí
 
 - Přidán čistý výpočet ceny z aktuálního nákupního seznamu; částky se počítají v haléřích a výsledek se vždy znovu odvodí ze vstupních množství.

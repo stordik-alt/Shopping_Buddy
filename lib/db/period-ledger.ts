@@ -11,7 +11,7 @@ import {
 } from '@/lib/budget-closing'
 import { remainingPlannedTransfers } from '@/lib/budget-forecast'
 import { buildPeriodHistory, MAX_HISTORY_PERIODS, type PeriodHistoryRow } from '@/lib/budget-history'
-import { OUTLOOK_PERIODS } from '@/lib/budget-outlook'
+import { averageSpendingByCategory, OUTLOOK_PERIODS } from '@/lib/budget-outlook'
 import { budgetForPeriod } from '@/lib/budget'
 import { nextPeriodStartFor, periodStartFor, previousPeriodStartFor, type PeriodConfig } from '@/lib/budget-period'
 import type { getDb } from '@/lib/db/client'
@@ -256,7 +256,7 @@ export async function loadBudgetOutlook(db: Db, householdId: string, config: Per
       .from(schema.pocketTransfers)
       .where(and(eq(schema.pocketTransfers.householdId, householdId), eq(schema.pocketTransfers.periodStart, currentStart), isNull(schema.pocketTransfers.closingId)))
       .groupBy(schema.pocketTransfers.pocketId),
-    db.select({ id: schema.expenses.id, date: schema.expenses.date, amount: schema.expenses.amount })
+    db.select({ id: schema.expenses.id, date: schema.expenses.date, amount: schema.expenses.amount, category: schema.expenses.category })
       .from(schema.expenses)
       .where(and(eq(schema.expenses.householdId, householdId), gte(schema.expenses.date, historyStart), lt(schema.expenses.date, currentStart))),
     db.select({ expenseId: schema.recurringPaymentOccurrences.expenseId })
@@ -287,6 +287,12 @@ export async function loadBudgetOutlook(db: Db, householdId: string, config: Per
   const historicalSpending = ordinaryHistory.length === 0
     ? null
     : round2(historyStarts.reduce((sum, start) => sum + (historyTotals.get(start) ?? 0), 0) / historyStarts.length)
+  const historicalSpendingByCategory = ordinaryHistory.length === 0
+    ? null
+    : averageSpendingByCategory(
+        ordinaryHistory.map((row) => ({ periodStart: periodStartFor(config, row.date), category: row.category, amount: Number(row.amount) })),
+        historyStarts,
+      )
 
   const periods = starts.map((start, index) => {
     const until = index + 1 < starts.length ? starts[index + 1] : end
@@ -304,5 +310,5 @@ export async function loadBudgetOutlook(db: Db, householdId: string, config: Per
       budget: budgetForPeriod(start, periodBudgets, defaultBudget),
     }
   })
-  return { actualNow: periodResult(money, carryIntoPeriod(closed, currentStart)), spentNow: money.expenses, historicalSpending, periods }
+  return { actualNow: periodResult(money, carryIntoPeriod(closed, currentStart)), spentNow: money.expenses, historicalSpending, historicalSpendingByCategory, periods }
 }

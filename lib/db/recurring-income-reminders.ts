@@ -46,9 +46,9 @@ export async function remindDueRecurringIncomes(db: Db, today: string): Promise<
   const byHousehold = new Map<string, typeof claimed>()
   for (const income of claimed) byHousehold.set(income.householdId, [...(byHousehold.get(income.householdId) ?? []), income])
 
-  try {
-    for (const [householdId, incomes] of byHousehold) {
-      const list = incomes.map((income) => `${income.description} ${money(Number(income.expectedAmount))}`).join(', ')
+  for (const [householdId, incomes] of byHousehold) {
+    const list = incomes.map((income) => `${income.description} ${money(Number(income.expectedAmount))}`).join(', ')
+    try {
       await createHouseholdNotification(
         db,
         householdId,
@@ -58,15 +58,15 @@ export async function remindDueRecurringIncomes(db: Db, today: string): Promise<
         },
         { kind: 'recurring_income', tab: 'Rozpočet' },
       )
+    } catch (error) {
+      // Retry this household next time without duplicating notifications already stored for others.
+      for (const row of incomes) {
+        await db.update(schema.recurringIncomes)
+          .set({ remindedDueDate: row.remindedDueDate })
+          .where(and(eq(schema.recurringIncomes.id, row.id), eq(schema.recurringIncomes.remindedDueDate, today)))
+      }
+      throw error
     }
-  } catch (error) {
-    // Let the next cron run retry if storing the notification failed.
-    for (const row of claimed) {
-      await db.update(schema.recurringIncomes)
-        .set({ remindedDueDate: row.remindedDueDate })
-        .where(and(eq(schema.recurringIncomes.id, row.id), eq(schema.recurringIncomes.remindedDueDate, today)))
-    }
-    throw error
   }
 
   return { households: byHousehold.size, incomes: claimed.length }

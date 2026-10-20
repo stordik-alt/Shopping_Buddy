@@ -1,3 +1,9 @@
+## 2026-10-20 — Omezení opakovaného otevírání Hyperdrive socketů
+
+- Pool pro Hyperdrive zůstává omezený na kontext jednoho requestu, ale spojení může obsloužit více SQL dotazů v rámci tohoto requestu (`maxUses: 20`).
+- Původní `maxUses: 1` vynucovalo nové spojení pro každý dotaz; nově rozšířený Rozpočet spouští více čtení souběžně, což zvyšovalo počet otevíraných a zavíraných socketů.
+- Jde o cílenou opravu životního cyklu připojení, nikoli o potvrzenou diagnózu produkčního `CloudflareSocket._listen`. Nutné ověřit po nasazení pomocí traces a testů opakovaných požadavků.
+
 ## 2026-10-20 — Oprava smoke testu plánování příjmů
 
 - E2E test upraven podle nového označení „Přidat jednorázový příjem“; test čekal na původní obecný text „Přidat příjem“ a proto se zasekl při hledání neexistujícího tlačítka.

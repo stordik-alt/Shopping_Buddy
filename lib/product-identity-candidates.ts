@@ -95,14 +95,14 @@ export function compareProductIdentityRecords(
   const leftProductTypes = new Set(leftNameTokens.filter((token) => PRODUCT_TYPE_MARKERS.has(token)))
   const rightProductTypes = new Set(rightNameTokens.filter((token) => PRODUCT_TYPE_MARKERS.has(token)))
   const conflictingProductTypeTokens = leftProductTypes.size > 0 && rightProductTypes.size > 0
-    ? [...leftProductTypes.filter((token) => !rightProductTypes.has(token)),
-      ...rightProductTypes.filter((token) => !leftProductTypes.has(token))].sort()
+    ? [...[...leftProductTypes].filter((token) => !rightProductTypes.has(token)),
+      ...[...rightProductTypes].filter((token) => !leftProductTypes.has(token))].sort()
     : []
   const leftPackaging = new Set(leftNameTokens.filter((token) => PACKAGING_MARKERS.has(token)))
   const rightPackaging = new Set(rightNameTokens.filter((token) => PACKAGING_MARKERS.has(token)))
   const conflictingPackagingTokens = leftPackaging.size > 0 && rightPackaging.size > 0
-    ? [...leftPackaging.filter((token) => !rightPackaging.has(token)),
-      ...rightPackaging.filter((token) => !leftPackaging.has(token))].sort()
+    ? [...[...leftPackaging].filter((token) => !rightPackaging.has(token)),
+      ...[...rightPackaging].filter((token) => !leftPackaging.has(token))].sort()
     : []
 
   const leftEan = (left.ean ?? '').replace(/\D/g, '')

@@ -5,6 +5,7 @@ import * as schema from '@/lib/db/schema'
 import { createHouseholdNotification } from '@/lib/notify'
 import { announceNewFlyers } from '@/lib/db/deal-announcements'
 import { remindDueRecurringPayments } from '@/lib/db/recurring-reminders'
+import { remindDueRecurringIncomes } from '@/lib/db/recurring-income-reminders'
 import { findStaleItems } from '@/lib/reminders'
 import { todayInPrague } from '@/lib/today'
 import { rejectUnauthorizedCron } from '@/lib/cron-auth'
@@ -64,6 +65,7 @@ export async function GET(request: Request) {
   // The same morning run reminds of recurring payments due today (lib/db/recurring-reminders.ts), so
   // they need no cron of their own.
   const recurring = await remindDueRecurringPayments(db, todayInPrague())
+  const recurringIncome = await remindDueRecurringIncomes(db, todayInPrague())
 
   // And it announces new flyers to the households that chose the chain (docs/21_NEW_FLYER_NOTIFICATIONS.md):
   // the flyer imports run at night, so this is the first decent hour after one arrives. A failure here
@@ -77,5 +79,5 @@ export async function GET(request: Request) {
     console.error(JSON.stringify({ event: 'new_flyer_announcement_error', error: newFlyersError }))
   }
 
-  return NextResponse.json({ remindedHouseholds, remindedItems, recurringPaymentsReminded: recurring.payments, newFlyers, ...(newFlyersError && { newFlyersError }) })
+  return NextResponse.json({ remindedHouseholds, remindedItems, recurringPaymentsReminded: recurring.payments, recurringIncomesReminded: recurringIncome.incomes, newFlyers, ...(newFlyersError && { newFlyersError }) })
 }

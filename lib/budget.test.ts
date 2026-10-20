@@ -56,6 +56,25 @@ const item = (price: number, quantity: number, done = false): Item => ({
   priority: 'Normální',
 })
 
+describe('recurring payment spending pace', () => {
+  it('excludes explicitly linked recurring payments from averages and period-end projection only', () => {
+    const ordinary = expense(100, 'Potraviny', '2026-09-10')
+    const recurring: Expense = { ...expense(900, 'Potraviny', '2026-09-10'), isRecurringPayment: true }
+    const expenses = [ordinary, recurring]
+
+    expect(dailyAverage(expenses, '2026-09-10')).toBeCloseTo(10)
+    expect(weeklyAverage(expenses, '2026-09-10')).toBeCloseTo(70)
+    expect(projectedPeriodEnd(expenses, '2026-09-10')).toBeCloseTo(300)
+    expect(totalSpent(expenses)).toBe(1000)
+    expect(periodSummary(expenses, '2026-09-01').total).toBe(1000)
+  })
+
+  it('does not exclude an ordinary expense without an occurrence link', () => {
+    const ordinary = expense(120, 'Potraviny', '2026-09-10')
+    expect(dailyAverage([ordinary], '2026-09-10')).toBeCloseTo(12)
+  })
+})
+
 describe('totalSpent', () => {
   it('sums expense amounts', () => {
     expect(totalSpent([expense(100), expense(50.5)])).toBeCloseTo(150.5)

@@ -368,7 +368,7 @@ function toExpense(expense: typeof schema.expenses.$inferSelect, isRecurringPaym
 }
 
 /** Expense IDs explicitly linked to a recurring-payment occurrence; category and note are never used
- *  as a heuristic. The due-date window matches the expense history loaded by the caller. */
+ *  as a heuristic. The expense-date window matches the history loaded by the caller. */
 async function getRecurringExpenseIds(householdId: string, sinceDate: string): Promise<Set<string>> {
   const rows = await getDb()
     .select({ expenseId: schema.recurringPaymentOccurrences.expenseId })
@@ -682,7 +682,7 @@ export async function getPurchaseAftermath(householdId: string, purchaseId?: str
   return {
     purchaseHistory: toPurchaseRecords(purchaseRows, expenseRows),
     pantryItems: pantryRows.map(toPantryItem),
-    expenses: expenseRows.map(toExpense),
+    expenses: expenseRows.map((row) => toExpense(row)),
     notifications,
     tickedListItems,
   }
@@ -805,6 +805,7 @@ export async function getHouseholdData(
         .where(eq(schema.householdMembers.householdId, household.id))),
     ])
 
+  const recurringExpenseIds = new Set(recurringExpenseIdRows)
   const myRawMember = members.find((member) => member.userId === userId)
   const isOwner = myRawMember?.role === 'owner'
   const actor = myRawMember ? { role: myRawMember.role, memberId: myRawMember.id } : null
@@ -874,7 +875,7 @@ export async function getHouseholdData(
       active: row.active,
     })),
     recurringOccurrences: occurrenceRows.map((row) => ({ ...row, status: row.status === 'skipped' ? 'skipped' : 'paid' })),
-    expenses: expenseRows.map((row) => toExpense(row, new Set(recurringExpenseIdRows).has(row.id))),
+    expenses: expenseRows.map((row) => toExpense(row, recurringExpenseIds.has(row.id))),
     // Loaded newest first (for the limit), shown oldest first as before.
     notifications: notificationRows.slice().reverse().map(toNotification),
     purchaseHistory: toPurchaseRecords(purchaseRows, expenseRows),

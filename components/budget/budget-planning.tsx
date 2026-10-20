@@ -318,7 +318,7 @@ export function BudgetPlanning({
               <Loader2 className="size-4 animate-spin" aria-hidden="true" /> Načítám…
             </p>
           ) : displayedIncomes.length === 0 ? (
-            {incomes.incomes.length > 0 ? (
+            incomes.incomes.length > 0 ? (
               <p className="text-sm text-fg-secondary">Očekávané pravidelné příjmy najdete v kartě Pravidelné příjmy.</p>
             ) : (
               <EmptyState
@@ -331,7 +331,7 @@ export function BudgetPlanning({
                   </Button>
                 }
               />
-            )}
+            )
           ) : (
             <ul className="divide-y divide-border">
               {displayedIncomes.map((income) => (

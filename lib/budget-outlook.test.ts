@@ -91,3 +91,32 @@ describe('projectOutlook', () => {
     expect(projectOutlook({ actualNow: 0, spentNow: 0, periods: [] })).toEqual([])
   })
 })
+
+
+describe('future outlook without planned income', () => {
+  it('does not treat an unplanned future income as a deficit or compound it into later periods', () => {
+    const [, next, after] = projectOutlook({
+      actualNow: 0,
+      spentNow: 0,
+      periods: [
+        period('2026-10-01', { plannedIncome: 30_000, budget: 30_000 }),
+        period('2026-11-01', { budget: 30_000 }),
+        period('2026-12-01', { budget: 30_000 }),
+      ],
+    })
+    expect(next).toMatchObject({ income: 0, spending: 30_000, predicted: null, carryOut: 0 })
+    expect(after).toMatchObject({ opening: 0, income: 0, predicted: null, carryOut: 0 })
+  })
+
+  it('calculates a future period when its income is explicitly planned', () => {
+    const [, next] = projectOutlook({
+      actualNow: 0,
+      spentNow: 0,
+      periods: [
+        period('2026-10-01'),
+        period('2026-11-01', { plannedIncome: 30_000, budget: 30_000 }),
+      ],
+    })
+    expect(next).toMatchObject({ income: 30_000, spending: 30_000, predicted: 0, carryOut: 0 })
+  })
+})

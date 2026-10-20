@@ -40,7 +40,8 @@ export type OutlookPeriod = {
   /** The ordinary spending still expected: the budget, or the known outflows if those are higher. */
   spending: number
   plannedTransfers: number
-  predicted: number
+  /** Null when a future period has no planned income, so its result cannot be estimated responsibly. */
+  predicted: number | null
   plannedCarry: number | null
   /** What goes on to the next period. */
   carryOut: number
@@ -64,7 +65,10 @@ export function projectOutlook(input: { actualNow: number; spentNow: number; per
     // The running period has already spent part of its budget; only the rest is still ahead.
     const budgetLeft = running ? Math.max(0, round2(period.budget - input.spentNow)) : period.budget
     const spending = Math.max(budgetLeft, known)
-    const predicted = round2(opening + income - spending - period.plannedTransfers)
+    // A future period with no planned/known income is unknown, not a deficit equal to its budget.
+    // Do not let this absence of data create a negative carry that compounds across later periods.
+    const predictable = running || income > 0
+    const predicted = predictable ? round2(opening + income - spending - period.plannedTransfers) : null
     result.push({
       periodStart: period.periodStart,
       opening,
@@ -73,7 +77,9 @@ export function projectOutlook(input: { actualNow: number; spentNow: number; per
       plannedTransfers: round2(period.plannedTransfers),
       predicted,
       plannedCarry: period.plannedCarry,
-      carryOut: expectedCarry(predicted, period.plannedCarry),
+      // An unknown future result cannot justify carrying a deficit forward. Actual deficits from the
+      // running period remain carried as before.
+      carryOut: predicted === null ? 0 : expectedCarry(predicted, period.plannedCarry),
     })
   })
   return result

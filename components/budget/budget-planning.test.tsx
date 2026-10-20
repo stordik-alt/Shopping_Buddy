@@ -109,7 +109,7 @@ describe('BudgetPlanning', () => {
     expect(failed).toContain('Zkusit znovu')
     const empty = render(state({ incomes: [] }))
     expect(empty).toContain('zatím nejsou žádné příjmy')
-    expect(empty).toContain('Přidat příjem')
+    expect(empty).toContain('Přidat jednorázový příjem')
   })
 })
 

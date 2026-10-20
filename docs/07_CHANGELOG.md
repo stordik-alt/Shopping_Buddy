@@ -1,9 +1,10 @@
-## 2026-10-20 — Základ datového modelu pravidelných příjmů (průběžná implementace)
+## 2026-10-20 — Pravidelné a jednorázové příjmy (průběžná implementace)
 
-- Přidány tabulky `recurring_incomes` a `recurring_income_occurrences` v migraci `0108_recurring_incomes.sql`.
-- Pravidelný příjem uchovává očekávanou částku, četnost (měsíčně, čtvrtletně, pololetně, ročně), první očekávané datum a stav aktivní/zastavený.
-- Každé potvrzené přijetí bude navázané na samostatný záznam `incomes`; jedinečný klíč (pravidelný příjem, datum) chrání proti dvojímu potvrzení. Historie se nebude přepisovat změnou očekávané částky.
-- **Zatím není hotové:** serverové akce, plánování termínů, UI, připomínky a regresní testy. PR #535 se nesmí sloučit, dokud nebudou dokončeny a ověřeny.
+- Přidány tabulky `recurring_incomes` a `recurring_income_occurrences` v migraci `0108_recurring_incomes.sql`; pravidelný plán má očekávanou částku, první datum a četnost 1/3/6/12 měsíců.
+- Rozpočet zahrnuje očekávané výskyty aktivních pravidelných příjmů v příslušném období. Jednorázové příjmy zůstávají v běžném formuláři; pravidelné mají samostatnou správu, přehled termínů a možnost zastavení.
+- Při potvrzení se zadává skutečně přijatá částka a datum; vznikne samostatný řádek `incomes` propojený s jedinečným termínem. Dvojité potvrzení a přístup mimo domácnost jsou blokovány serverem.
+- Přidány testy pravidel termínů, validace, skutečné částky, rozpočtového výhledu, idempotence a oprávnění.
+- Připomínání je nyní in-app v kartě „Pravidelné příjmy“ při otevření rozpočtu; push upozornění v den termínu zatím není implementováno. CI a bezpečnostní audit pro tuto sadu změn se musí dokončit před sloučením.
 
 ## 2026-10-20 — Výslovné potvrzení skutečné částky pravidelné platby
 

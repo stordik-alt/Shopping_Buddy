@@ -165,6 +165,20 @@ function calculateOne(
   }
 
   const baseTotals = input.items.map((item) => Math.round(item.unitPriceCents * item.quantity))
+  for (const rule of promotion.rules) {
+    if (rule.ruleType !== 'basket_threshold') continue
+    if (rule.discountUnit !== 'currency') {
+      return { totals: baseTotals, discountCents: 0, reason: 'unsupported_basket_threshold_unit' }
+    }
+    const threshold = numeric(rule.discountValue)
+    if (threshold == null || threshold < 0) {
+      return { totals: baseTotals, discountCents: 0, reason: 'invalid_basket_threshold' }
+    }
+    const eligibleTotal = eligibleIndexes.reduce((sum, index) => sum + baseTotals[index], 0)
+    if (eligibleTotal < cents(threshold)) {
+      return { totals: baseTotals, discountCents: 0, reason: 'basket_threshold_not_met' }
+    }
+  }
   const totals = [...baseTotals]
   if (promotion.priceEffects.length !== 1) {
     return { totals: baseTotals, discountCents: 0, reason: 'multiple_price_effects_unsupported' }
@@ -211,9 +225,12 @@ function calculateOne(
     return { totals, discountCents }
   }
 
-  if (!['minimum_quantity', 'unit_price_override', 'percent_discount', 'fixed_discount', 'basket_threshold', 'loyalty_membership'].includes(
-    promotion.rules.find((rule) => !['minimum_quantity', 'unit_price_override', 'percent_discount', 'fixed_discount', 'basket_threshold', 'loyalty_membership'].includes(rule.ruleType))?.ruleType ?? 'minimum_quantity',
-  )) return { totals: baseTotals, discountCents: 0, reason: 'unsupported_rule_type' }
+  const supportedRuleTypes = new Set([
+    'minimum_quantity', 'unit_price_override', 'percent_discount', 'fixed_discount', 'basket_threshold', 'loyalty_membership',
+  ])
+  if (promotion.rules.some((rule) => !supportedRuleTypes.has(rule.ruleType))) {
+    return { totals: baseTotals, discountCents: 0, reason: 'unsupported_rule_type' }
+  }
 
   if (effect.effectType === 'basket_amount_off' || effect.effectType === 'basket_percent_off') {
     const eligibleTotal = eligibleIndexes.reduce((sum, index) => sum + totals[index], 0)

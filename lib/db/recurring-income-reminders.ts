@@ -3,7 +3,7 @@ import type { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { money } from '@/lib/format'
 import { createHouseholdNotification } from '@/lib/notify'
-import { isRecurringIncomeDueDate, type RecurringIncome, type RecurringIncomeInterval } from '@/lib/recurring-incomes'
+import { isRecurringIncomeDueDate, type RecurringIncomeInterval } from '@/lib/recurring-incomes'
 
 type Db = ReturnType<typeof getDb>
 

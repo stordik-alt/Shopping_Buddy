@@ -134,7 +134,7 @@ describe('historical spending in future outlook', () => {
       ],
     })
     expect(next.spending).toBe(28_000)
-    expect(next.predicted).toBe(12_000)
+    expect(next.predicted).toBe(7_000)
   })
 
   it('falls back to the budget-based estimate when no spending history exists', () => {

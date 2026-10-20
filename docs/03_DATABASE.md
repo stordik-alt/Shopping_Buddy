@@ -46,11 +46,13 @@ Migration order should generally be:
 7. validate existing user flows
 
 
-## Pravidelné příjmy (průběžná implementace, 2026-10-20)
+## Pravidelné příjmy a připomínky (průběžná implementace, 2026-10-20)
 
 Migrace `0108_recurring_incomes.sql` přidává:
 
 - `recurring_incomes`: šablona pravidelného příjmu domácnosti s očekávanou částkou, prvním očekávaným datem, intervalem 1/3/6/12 měsíců a příznakem aktivní/zastavený.
+- `recurring_incomes.reminded_due_date`: idempotentní značka, že denní cron už pro daný očekávaný termín vytvořil připomínku.
+- Migrace `0112_recurring_income_reminders.sql` přidává sloupec připomínky a povoluje typ oznámení `recurring_income` v uživatelských preferencích.
 - `recurring_income_occurrences`: jedinečný záznam pro dvojici šablona + datum, který eviduje přijetí nebo přeskočení termínu. Přijatý termín odkazuje na samostatný řádek `incomes`; částka skutečného přijetí se ukládá do tohoto řádku, nikoli do očekávané částky šablony.
 
 Serverové akce, generování termínů, uživatelské rozhraní a testy jsou nyní přidány v PR #535. Očekávané termíny se počítají z aktivní šablony; potvrzení vytvoří skutečný řádek v `incomes` a occurrence se stejným due date. Unikátní primární klíč brání duplicitnímu potvrzení. Testy a CI musí být ověřeny před sloučením.

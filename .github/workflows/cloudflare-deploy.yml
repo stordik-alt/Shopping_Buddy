@@ -30,6 +30,9 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # OpenNext's deploy command initializes Wrangler's local platform proxy before uploading.
+      # Supply the existing pooled DB URL at runtime; never commit database credentials to wrangler.jsonc.
+      CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE: ${{ secrets.DATABASE_URL }}
 
     steps:
       - name: Checkout

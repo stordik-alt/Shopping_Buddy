@@ -7,12 +7,13 @@ upozornění chce a která ne"). Feature A of the post-redesign plan (A → B �
 - Every notification is created by `createHouseholdNotification` (`lib/notify.ts`): one row in `notifications` for the
   whole household (the bell panel reads it) and, with Web Push configured, a push to every member's subscribed
   devices (`pushToHousehold`, `lib/push/deliver.ts`), except the member who caused it.
-- Eight places raise one, each a distinct kind of message:
+- Nine places raise one, each a distinct kind of message:
   | Kind (key) | Where | Title (example) |
   |---|---|---|
   | `budget` | `lib/db/budget-notify.ts` (overall budget) | Blížíte se limitu rozpočtu / Rozpočet byl překročen |
   | `category_limit` | `lib/db/budget-notify.ts` (category limits) | Potraviny: 80 % limitu |
   | `deal_on_list` | `app/actions/shopping.ts` (item added) | Skvělá cena na vašem seznamu |
+  | `new_deals` | `lib/db/deal-announcements.ts` (daily) | Nový leták vybraného obchodu |
   | `shopping_reminder` | `app/api/cron/shopping-reminders` (daily) | Nezapomeňte na nákup |
   | `pantry_check` | `app/api/cron/pantry-checkin` (weekly) | Kontrola zásob |
   | `recurring_payment` | `lib/db/recurring-reminders.ts` | Dnes je splatná platba |

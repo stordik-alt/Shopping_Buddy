@@ -254,13 +254,14 @@ export function budgetPace(
   budget: number,
   today: string,
   period: PeriodInput = 1,
+  paceSpent = periodSpent,
 ): { daysLeft: number; perDayLeft: number; projected: number | null; projectedOver: number | null } | null {
   if (budget <= 0) return null
   const day = periodDay(today, period)
   const length = periodLength(today, period)
   const daysLeft = length - day + 1
   const perDayLeft = Math.max(0, budget - periodSpent) / daysLeft
-  const projected = day >= PACE_MIN_DAYS ? (periodSpent / day) * length : null
+  const projected = day >= PACE_MIN_DAYS ? (paceSpent / day) * length : null
   const projectedOver = projected != null && projected > budget ? projected - budget : null
   return { daysLeft, perDayLeft, projected, projectedOver }
 }

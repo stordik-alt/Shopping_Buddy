@@ -1,3 +1,10 @@
+## 2026-10-20 — Vyhodnocení párování identity produktů
+
+- Přidán read-only evaluační nástroj pro označené dvojice produktů; reportuje TP/FP/TN/FN, accuracy, precision, recall, specificity a predikci každé dvojice.
+- Přidány testy výpočtu metrik, neplatného prahu, duplicitních ID a metrik s nulovým jmenovatelem.
+- Současná fixture je výslovně syntetická a slouží jen jako smoke test; její metriky nejsou důkazem reálné přesnosti.
+- Kandidátní skóre ani status se nemění; žádné automatické slučování, databázové zápisy, import cen ani deploy.
+
 ## 2026-10-20 — Zpřísnění kandidátů identity po pilotu Teta
 
 - Doplněny explicitní konflikty variant (včetně „Diamond“ a „Hold“), známých typů výrobku a balení (např. sáček vs. krabička).

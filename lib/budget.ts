@@ -80,8 +80,14 @@ export function totalSpent(expenses: Expense[]) {
 
 /** This period's spending per day so far: days elapsed count its first day through `today`
  *  inclusive, so the first day divides by 1, never by 0. */
+/** Recurring payments are real expenses, but their individually scheduled amounts must not distort
+ *  the daily/weekly spending pace. Only the explicit occurrence-to-expense link marks them. */
+export function expensesForSpendingPace(expenses: Expense[]): Expense[] {
+  return expenses.filter((expense) => !expense.isRecurringPayment)
+}
+
 export function dailyAverage(expenses: Expense[], today: string, period: PeriodInput = 1) {
-  return totalSpent(expensesInPeriod(expenses, today, period)) / periodDay(today, period)
+  return totalSpent(expensesInPeriod(expensesForSpendingPace(expenses), today, period)) / periodDay(today, period)
 }
 
 export function weeklyAverage(expenses: Expense[], today: string, period: PeriodInput = 1) {
@@ -248,13 +254,14 @@ export function budgetPace(
   budget: number,
   today: string,
   period: PeriodInput = 1,
+  paceSpent = periodSpent,
 ): { daysLeft: number; perDayLeft: number; projected: number | null; projectedOver: number | null } | null {
   if (budget <= 0) return null
   const day = periodDay(today, period)
   const length = periodLength(today, period)
   const daysLeft = length - day + 1
   const perDayLeft = Math.max(0, budget - periodSpent) / daysLeft
-  const projected = day >= PACE_MIN_DAYS ? (periodSpent / day) * length : null
+  const projected = day >= PACE_MIN_DAYS ? (paceSpent / day) * length : null
   const projectedOver = projected != null && projected > budget ? projected - budget : null
   return { daysLeft, perDayLeft, projected, projectedOver }
 }

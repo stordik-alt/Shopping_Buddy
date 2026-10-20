@@ -20,6 +20,7 @@ export function BudgetHero({
   className = '',
   today,
   period = 1,
+  paceSpent = spent,
 }: {
   budget: number
   spent: number
@@ -37,11 +38,13 @@ export function BudgetHero({
   today?: string
   /** The household's budget period (1 or the calendar kind = calendar month). */
   period?: PeriodInput
+  /** Spending used only for the pace projection; actual spent still controls remaining budget. */
+  paceSpent?: number
 }) {
   // Display-only: clamped so an overspent month does not draw outside its track.
   const spentPercent = budget > 0 ? Math.min(100, Math.round((spent / budget) * 100)) : 0
   const level = budgetLevel(spent, budget)
-  const pace = today ? budgetPace(spent, budget, today, period) : null
+  const pace = today ? budgetPace(spent, budget, today, period, paceSpent) : null
   const periodNoun = isCalendarMonth(period) ? 'měsíce' : 'období'
   const surface = 'rounded-3xl bg-hero text-hero-foreground shadow-[var(--shadow-card)]'
 

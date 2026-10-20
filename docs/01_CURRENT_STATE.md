@@ -1,3 +1,7 @@
+## Update 2026-10-20 — Pravidelné platby a výdajové tempo
+
+Výdaj vzniklý potvrzením pravidelné platby je v rozpočtu nadále skutečným výdajem: snižuje disponibilní rozpočet, zůstává v součtech a v historii. Denní/týdenní průměr a projekce do konce období jej ale nezapočítávají, protože jde o konkrétní plánovanou platbu, nikoli běžné tempo útraty. Identifikace vychází výhradně z vazby `recurring_payment_occurrences.expense_id`; jednorázový výdaj ve stejné kategorii se nevylučuje. Změna byla připravena na samostatné větvi a před sloučením vyžaduje úspěšné CI.
+
 ## Current hosting correction — 2026-10-17
 
 The owner confirms that production runs on Cloudflare. Vercel is historical as the application's hosting/deployment platform; the only remaining Vercel association is the Neon management account. This supersedes older dated entries below that say production is hosted on Vercel. The Cloudflare production state was owner-reported and was not independently live-verified as part of this documentation update. See `docs/00_CURRENT_SOURCE_OF_TRUTH.md` and `docs/cloudflare-migration-status.md`.

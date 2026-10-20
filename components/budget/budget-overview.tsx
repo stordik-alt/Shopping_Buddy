@@ -4,7 +4,7 @@ import { BudgetHero } from '@/components/budget/budget-hero'
 import { Panel } from '@/components/budget/panel'
 import { Stat } from '@/components/shared/stat'
 import { Button } from '@/components/ui/button'
-import { dailyAverage, periodOverPeriodChange, plannedSpend, projectedPeriodEnd, weeklyAverage } from '@/lib/budget'
+import { dailyAverage, expensesForSpendingPace, expensesInPeriod, periodOverPeriodChange, plannedSpend, projectedPeriodEnd, totalSpent, weeklyAverage } from '@/lib/budget'
 import { isCalendarMonth, type PeriodInput } from '@/lib/budget-period'
 import { money, thisPeriodTitle, wholeMoney } from '@/lib/format'
 import type { Expense, Item } from '@/lib/types'
@@ -39,6 +39,7 @@ export function BudgetOverview({
 }) {
   const comparison = periodOverPeriodChange(expenses, today, period)
   const planned = plannedSpend(items)
+  const paceSpent = totalSpent(expensesInPeriod(expensesForSpendingPace(expenses), today, period))
   const calendar = isCalendarMonth(period)
   const periodNoun = calendar ? 'měsíce' : 'období'
 
@@ -57,7 +58,7 @@ export function BudgetOverview({
       </div>
       {primaryAction}
       {/* The compact card, as on Domů: the full-size one filled most of a phone screen (owner, 2026-10-05). */}
-      <BudgetHero compact today={today} period={period} budget={budget} spent={spent} remaining={remaining} onSetBudget={onEditBudget} />
+      <BudgetHero compact today={today} period={period} budget={budget} spent={spent} paceSpent={paceSpent} remaining={remaining} onSetBudget={onEditBudget} />
       {/* The hero already says where the period is heading; the averages, the comparison and planned vs.
           actual are detail, so on a phone they sit in one collapsed block instead of three more cards. */}
       <Panel title="Průměry a srovnání" summary={`Denně ${wholeMoney(dailyAverage(expenses, today, period))} · týdně ${wholeMoney(weeklyAverage(expenses, today, period))}`}>

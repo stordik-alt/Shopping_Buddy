@@ -56,6 +56,8 @@ export type Expense = {
   date: string
   /** The receipt purchase this expense counts (lib/purchase-expenses.ts); null for one typed in. */
   purchaseId: string | null
+  /** True only when linked through recurring_payment_occurrences.expense_id. */
+  isRecurringPayment?: boolean
 }
 
 /** Income of a household (docs/15_BUDGET_PERIODS.md §8): 'planned' is only expected, 'actual' was received. */

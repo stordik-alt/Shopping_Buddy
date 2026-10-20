@@ -41,8 +41,8 @@ export function BudgetOutlookCard({
   return (
     <Panel
       title="Výhled dalších období"
-      summary={ahead[0] ? `Příští období: ${ahead[0].predicted < 0 ? `chybět bude ${money(-ahead[0].predicted)}` : `predikce ${money(ahead[0].predicted)}`}` : undefined}
-      description="Odhad z plánu: plánované příjmy, rozpočet období, pravidelné platby a plánované výdaje. Jsou to plánované peníze, ne skutečný zůstatek."
+      summary={ahead[0] ? (ahead[0].predicted === null ? 'Příští období: příjem není naplánován' : `Příští období: ${ahead[0].predicted < 0 ? `chybět bude ${money(-ahead[0].predicted)}` : `predikce ${money(ahead[0].predicted)}`}`) : undefined}
+      description="Odhad z plánu: plánované příjmy, rozpočet období, pravidelné platby a plánované výdaje. Bez naplánovaného příjmu nelze určit výsledek budoucího období; nejde automaticky o ztrátu."
     >
       {awaitingClose && <p className="mb-4 text-sm text-fg-secondary">Minulé období ještě není uzavřené, jeho převod ve výhledu zatím chybí.</p>}
 
@@ -67,8 +67,8 @@ export function BudgetOutlookCard({
                 <li key={row.periodStart} className="space-y-2 py-3">
                   <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                     <p className="text-sm font-medium">{labelOf(row.periodStart)}</p>
-                    <p className={`text-sm font-semibold tabular-nums ${row.predicted < 0 ? 'text-destructive' : ''}`}>
-                      {row.predicted < 0 ? `Chybět bude ${money(-row.predicted)}` : `Predikce ${money(row.predicted)}`}
+                    <p className={`text-sm font-semibold tabular-nums ${row.predicted !== null && row.predicted < 0 ? 'text-destructive' : ''}`}>
+                      {row.predicted === null ? 'Nelze určit – příjem není naplánován' : row.predicted < 0 ? `Chybět bude ${money(-row.predicted)}` : `Predikce ${money(row.predicted)}`}
                     </p>
                   </div>
                   <dl className="grid grid-cols-1 gap-x-4 gap-y-1 text-xs text-fg-secondary sm:grid-cols-2 lg:grid-cols-3">
@@ -76,7 +76,7 @@ export function BudgetOutlookCard({
                     <Item label="Příjmy" value={money(row.income)} />
                     <Item label="Výdaje" value={money(row.spending)} />
                     {row.plannedTransfers > 0 && <Item label="Úspory do Kapes" value={money(row.plannedTransfers)} />}
-                    <Item label="Převod do dalšího" value={signedMoney(row.carryOut)} />
+                    <Item label="Převod do dalšího" value={row.predicted === null ? '—' : signedMoney(row.carryOut)} />
                   </dl>
                   <Button variant="ghost" className="min-h-10" onClick={() => onOpen(index + 1)} aria-label={`Plánovat období ${labelOf(row.periodStart)}`}>
                     Plánovat

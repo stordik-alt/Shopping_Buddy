@@ -1,5 +1,14 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('@/app/actions/recurring-incomes', () => ({
+  confirmRecurringIncomeAction: vi.fn(),
+  getRecurringIncomeOverviewAction: vi.fn(),
+  saveRecurringIncomeAction: vi.fn(),
+  skipRecurringIncomeAction: vi.fn(),
+  stopRecurringIncomeAction: vi.fn(),
+}))
+
 import { BudgetPlanning } from '@/components/budget/budget-planning'
 import type { Commitment } from '@/lib/budget-forecast'
 import type { PeriodHistoryRow } from '@/lib/budget-history'

@@ -1292,6 +1292,8 @@ export const recurringIncomes = pgTable('recurring_incomes', {
   intervalMonths: integer('interval_months').notNull(),
   startDate: date('start_date').notNull(),
   active: boolean('active').notNull().default(true),
+  // Prevent duplicate daily reminders for the same expected due date.
+  remindedDueDate: date('reminded_due_date'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index('recurring_incomes_household_idx').on(table.householdId),

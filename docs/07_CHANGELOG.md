@@ -1,3 +1,10 @@
+## 2026-10-20 — Výhled budoucích období bez naplánovaných příjmů
+
+- Budoucí období bez zadaného příjmu už nejsou automaticky vyhodnocena jako deficit ve výši rozpočtu.
+- U takového období se výsledek označí jako neurčitelný, protože absence plánovaného příjmu neznamená, že žádný příjem přijít nemůže.
+- Neurčitelný výsledek nevytvoří záporný převod do dalšího období, takže se fiktivní deficit nesčítá měsíc po měsíci. Skutečný schodek běžícího období a vypočitatelné výhledy s naplánovaným příjmem se zachovávají.
+- Přidány regresní testy pro chybějící i naplánovaný příjem. Změna nezasahuje do skutečných příjmů, výdajů, zůstatků ani uzavírání období.
+
 ## 2026-10-20 — Pravidelné platby mimo výdajového tempa rozpočtu
 
 - Výdaje vytvořené potvrzením pravidelné platby jsou označeny pouze podle vazby `recurring_payment_occurrences.expense_id`; název ani kategorie se nepoužívají jako odhad.

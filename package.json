@@ -67,7 +67,8 @@
     "teta:fetch-public": "tsx scripts/teta-fetch-public-catalog.ts",
     "product:identity-candidates": "tsx scripts/report-product-identity-candidates.ts",
     "product:identity-evaluate": "tsx scripts/evaluate-product-identity-candidates.ts",
-    "db:export-dm-identity": "dotenv -e .env.local -- tsx scripts/export-dm-identity.ts"
+    "db:export-dm-identity": "dotenv -e .env.local -- tsx scripts/export-dm-identity.ts",
+    "product:identity-teta-dm": "tsx scripts/report-teta-dm-identity-candidates.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "4.0.71",

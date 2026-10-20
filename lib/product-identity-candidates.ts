@@ -28,6 +28,8 @@ export type ProductIdentityCandidate = {
     packageQuantityAgreement: boolean | null
     sharedNameTokens: string[]
     conflictingVariantTokens: string[]
+    conflictingProductTypeTokens: string[]
+    conflictingPackagingTokens: string[]
   }
   reasons: string[]
 }
@@ -36,6 +38,20 @@ const VARIANT_MARKERS = new Set([
   'sensitive', 'classic', 'delicate', 'camomile', 'aloe', 'fresh', 'freshness',
   'original', 'max', 'plus', 'ultra', 'extra', 'color', 'colour', 'white',
   'black', 'lemon', 'citron', 'lavender', 'neutral', 'baby', 'men', 'women',
+  'diamond', 'volume', 'hold',
+])
+
+// Small conservative vocabulary of product-kind tokens observed in retail names.
+// This is evidence for review, not a universal Czech product taxonomy.
+const PRODUCT_TYPE_MARKERS = new Set([
+  'kapesnik', 'kapesniky', 'kapesniku', 'tampon', 'tampony', 'tamponu',
+  'tycinka', 'tycinky', 'tycinek', 'lak', 'sprej', 'spray', 'ubrousek',
+  'ubrousky', 'pleny', 'plenky', 'kartacek', 'kartacky', 'zubni',
+])
+
+const PACKAGING_MARKERS = new Set([
+  'sacek', 'sacku', 'sackem', 'krabicka', 'krabicce', 'krabicku',
+  'box', 'tuba', 'lahev', 'lahvi', 'lahvicka', 'lahvicce', 'doypack',
 ])
 
 function tokens(value: string | undefined): string[] {
@@ -76,6 +92,18 @@ export function compareProductIdentityRecords(
     ...[...leftVariants].filter((token) => !rightVariants.has(token)),
     ...[...rightVariants].filter((token) => !leftVariants.has(token)),
   ].sort()
+  const leftProductTypes = new Set(leftNameTokens.filter((token) => PRODUCT_TYPE_MARKERS.has(token)))
+  const rightProductTypes = new Set(rightNameTokens.filter((token) => PRODUCT_TYPE_MARKERS.has(token)))
+  const conflictingProductTypeTokens = leftProductTypes.size > 0 && rightProductTypes.size > 0
+    ? [...[...leftProductTypes].filter((token) => !rightProductTypes.has(token)),
+      ...[...rightProductTypes].filter((token) => !leftProductTypes.has(token))].sort()
+    : []
+  const leftPackaging = new Set(leftNameTokens.filter((token) => PACKAGING_MARKERS.has(token)))
+  const rightPackaging = new Set(rightNameTokens.filter((token) => PACKAGING_MARKERS.has(token)))
+  const conflictingPackagingTokens = leftPackaging.size > 0 && rightPackaging.size > 0
+    ? [...[...leftPackaging].filter((token) => !rightPackaging.has(token)),
+      ...[...rightPackaging].filter((token) => !leftPackaging.has(token))].sort()
+    : []
 
   const leftEan = (left.ean ?? '').replace(/\D/g, '')
   const rightEan = (right.ean ?? '').replace(/\D/g, '')
@@ -107,7 +135,10 @@ export function compareProductIdentityRecords(
     reasons.push('Brand conflicts')
   }
   if (categoryAgreement === true) score += 0.05
-  else if (categoryAgreement === false) score -= 0.05
+  else if (categoryAgreement === false) {
+    score -= 0.15
+    reasons.push('Retail category paths conflict; category taxonomies may differ by retailer')
+  }
   if (packageQuantityAgreement === true) {
     score += 0.12
     reasons.push('Package quantities agree after unit normalization')
@@ -120,6 +151,14 @@ export function compareProductIdentityRecords(
   if (conflictingVariantTokens.length > 0) {
     score -= 0.2
     reasons.push('Potential variant-token conflict requires review')
+  }
+  if (conflictingProductTypeTokens.length > 0) {
+    score -= 0.35
+    reasons.push('Product-kind tokens conflict; likely different product types')
+  }
+  if (conflictingPackagingTokens.length > 0) {
+    score -= 0.25
+    reasons.push('Packaging tokens conflict; sales-unit packaging may differ')
   }
   if (sameRetailer) {
     reasons.push('Both records identify the same retailer; retailer codes remain source-scoped')
@@ -139,6 +178,8 @@ export function compareProductIdentityRecords(
       packageQuantityAgreement,
       sharedNameTokens,
       conflictingVariantTokens,
+      conflictingProductTypeTokens,
+      conflictingPackagingTokens,
     },
     reasons,
   }

@@ -1,3 +1,10 @@
+## 2026-10-20 — Zpřísnění kandidátů identity po pilotu Teta
+
+- Doplněny explicitní konflikty variant (včetně „Diamond“ a „Hold“), známých typů výrobku a balení (např. sáček vs. krabička).
+- Rozdílné známé kategorie mají silnější penalizaci, ale nejsou tvrdým blokátorem, protože taxonomie řetězců se může lišit.
+- Přidány regresní testy pro tři problematické dvojice z pilotu Teta: varianty Nivea laku, různé obaly vatových tyčinek a kapesníky vs. tampony.
+- Výstup zůstává pouze návrhem ke kontrole (`review_required`); žádné automatické slučování, DB zápisy ani import cen.
+
 ## 2026-10-20 — Fáze 2 párování identity produktů bez EAN
 
 - Přidán read-only generátor kandidátů pro dvojice produktů s vysvětlitelným skóre a evidencí shody EAN, názvu, značky, kategorie, množství/balení a možných variant.

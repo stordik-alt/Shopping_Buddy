@@ -393,6 +393,13 @@
       "when": 1790860800000,
       "tag": "0054_neon_compute_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1792454400000,
+      "tag": "0055_recurring_incomes",
+      "breakpoints": true
     }
   ]
 }

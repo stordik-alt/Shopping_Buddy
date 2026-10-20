@@ -139,6 +139,8 @@ export type OutlookPeriodData = {
   budget: number
 }
 export type BudgetOutlook = {
+  /** Average ordinary spending across the last three completed budget periods, excluding expenses linked to recurring-payment occurrences; null when no history exists. */
+  historicalSpending: number | null
   /** Actual balance of the running period now (§9.1). Excludes the carry of a period still to be closed. */
   actualNow: number
   spentNow: number

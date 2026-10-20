@@ -10,6 +10,7 @@ vi.mock('@/lib/auth/authorize', () => ({
   requireHousehold: () => Promise.resolve({ userId: '00000000-0000-4000-8000-000000000001', userEmail: 'test@example.com', householdId: currentHouseholdId, role: 'owner', memberId: '00000000-0000-4000-8000-000000000002' }),
 }))
 
+import { getPeriodIncomesAction } from '@/app/actions/incomes'
 import {
   confirmRecurringIncomeAction,
   saveRecurringIncomeAction,

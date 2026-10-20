@@ -66,6 +66,18 @@ export async function getPeriodIncomesAction(period: string): Promise<Income[]> 
       })
     : []
   const handled = new Set(occurrences.map((row) => `${row.recurringIncomeId}|${row.dueDate}`))
+  const actualIncomeIds = rows.map((row) => row.id)
+  const actualOccurrences = actualIncomeIds.length
+    ? await db.query.recurringIncomeOccurrences.findMany({
+        where: inArray(schema.recurringIncomeOccurrences.incomeId, actualIncomeIds),
+      })
+    : []
+  const occurrenceByIncome = new Map(actualOccurrences.filter((row) => row.incomeId).map((row) => [row.incomeId!, row]))
+  const historicalRows: Income[] = rows.map((row) => {
+    const income = toIncome(row)
+    const occurrence = occurrenceByIncome.get(row.id)
+    return occurrence ? { ...income, recurringIncomeId: occurrence.recurringIncomeId, occurrenceDueDate: occurrence.dueDate } : income
+  })
   const recurringPlans: Income[] = schedules.flatMap((schedule) => {
     const income: RecurringIncome = {
       id: schedule.id,
@@ -87,7 +99,7 @@ export async function getPeriodIncomesAction(period: string): Promise<Income[]> 
         occurrenceDueDate: dueDate,
       }))
   })
-  return [...rows.map(toIncome), ...recurringPlans].sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
+  return [...historicalRows, ...recurringPlans].sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
 }
 
 export async function addIncomeAction(input: IncomeInput): Promise<Income> {

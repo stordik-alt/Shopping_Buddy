@@ -3,6 +3,7 @@ import { Check, ChevronLeft, ChevronRight, CircleDashed, Loader2, Pencil, Plus, 
 import { BudgetOutlookCard } from '@/components/budget/budget-outlook-card'
 import { BudgetPeriodSettings } from '@/components/budget/budget-period-settings'
 import { IncomeModal } from '@/components/budget/income-modal'
+import { RecurringIncomeReceiptModal } from '@/components/budget/recurring-income-receipt-modal'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PeriodClosingSheet } from '@/components/budget/period-closing-sheet'
@@ -112,6 +113,7 @@ export function BudgetPlanning({
 }) {
   const [editing, setEditing] = useState<'new' | Income | null>(null)
   const [receiving, setReceiving] = useState<string | null>(null)
+  const [confirmingRecurring, setConfirmingRecurring] = useState<Income | null>(null)
   const [receiveError, setReceiveError] = useState('')
   const [closing, setClosing] = useState(false)
   const [reopenError, setReopenError] = useState('')
@@ -339,13 +341,20 @@ export function BudgetPlanning({
                   <p className="text-sm font-semibold tabular-nums">{money(income.amount)}</p>
                   <div className="flex items-center gap-2">
                     {income.status === 'planned' && !future && (
-                      <Button variant="secondary" className="min-h-10" onClick={() => void receive(income.id)} disabled={receiving === income.id}>
-                        {receiving === income.id ? 'Ukládám…' : 'Přijato'}
+                      <Button
+                        variant="secondary"
+                        className="min-h-10"
+                        onClick={() => income.recurringIncomeId ? setConfirmingRecurring(income) : void receive(income.id)}
+                        disabled={receiving === income.id}
+                      >
+                        {receiving === income.id ? 'Ukládám…' : income.recurringIncomeId ? 'Potvrdit částku' : 'Přijato'}
                       </Button>
                     )}
-                    <Button variant="ghost" className="min-h-10" onClick={() => setEditing(income)} aria-label={`Upravit příjem ${income.description || ''}`.trim()}>
-                      <Pencil aria-hidden="true" />
-                    </Button>
+                    {!income.recurringIncomeId && (
+                      <Button variant="ghost" className="min-h-10" onClick={() => setEditing(income)} aria-label={`Upravit příjem ${income.description || ''}`.trim()}>
+                        <Pencil aria-hidden="true" />
+                      </Button>
+                    )}
                   </div>
                 </li>
               ))}
@@ -377,6 +386,18 @@ export function BudgetPlanning({
 
       {closing && !future && ledger?.toClose && (
         <PeriodClosingSheet preview={ledger.toClose} pockets={ledger.pockets} recommendation={recommendation} reservedForNext={reservedForNext} onClose={() => setClosing(false)} onConfirm={pockets.closePeriod} />
+      )}
+
+      {confirmingRecurring && (
+        <RecurringIncomeReceiptModal
+          income={confirmingRecurring}
+          today={today}
+          onClose={() => setConfirmingRecurring(null)}
+          onConfirm={async (actual) => {
+            await incomes.receive(confirmingRecurring.id, actual)
+            setConfirmingRecurring(null)
+          }}
+        />
       )}
 
       {editing && (

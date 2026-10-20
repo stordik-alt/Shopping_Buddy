@@ -1,3 +1,10 @@
+## 2026-10-20 — Fáze 2 identity: vazby cen a akcí
+
+- Přidány volitelné odkazy z prices a deals na trade_items a retailer_product_refs.
+- Kompozitní cizí klíče kontrolují, že přesná identita patří stejnému product_id jako historická cena/akce; doplněny indexy pro čtení podle identity a času/řetězce.
+- Existující záznamy zůstávají bez nových vazeb (NULL). Neprobíhá automatické párování, přepis historie, produkční zápis ani import Tety.
+- Aktualizovány návrhy identity katalogu a pravidel akcí. Změna čeká na CI/review.
+
 ## 2026-10-20 — První implementační fáze identity katalogu
 
 - Přidána aditivní migrace 0113_catalog_trade_item_identity.sql a odpovídající Drizzle schéma pro trade_items, trade_item_identifiers a retailer_product_refs.

@@ -141,3 +141,8 @@ Produkt i cenu lze evidovat bez EAN. Neznámý EAN není chyba importu; neznám�
 - Import lze opakovat bez duplicit.
 - Historické ceny a nákupy zůstávají zachovány.
 - Nové vazby lze zavést postupně bez výpadku stávajících importů.
+
+
+## Implementační fáze 2 — vazby cen a akcí
+
+Migrace `0114_link_prices_deals_to_catalog_identity.sql` přidává do `prices` a `deals` volitelné odkazy na `trade_items` a `retailer_product_refs`. Kompozitní cizí klíče kontrolují, že odkazovaná identita patří stejnému `product_id`. Stávající řádky zůstávají na úrovni produktu a nové sloupce mají `NULL`, dokud nebude připraven bezpečný backfill. Neprobíhá automatické párování, přepis historie ani import Tety.

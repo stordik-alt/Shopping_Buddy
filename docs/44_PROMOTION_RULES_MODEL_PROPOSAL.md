@@ -131,7 +131,7 @@ Parser nesmí odvozovat „kup 2“ jen z textu „2+1 zdarma“ jinde na strán
 - `deals` zůstane kompatibilní pro jednoduché akce s doloženou platností.
 - `promotions` a související tabulky budou zdrojem pravdy pro podmíněné, klubové a víceproduktové akce.
 - Během přechodu nesmí být stejná akce započítána zároveň přes `deals` i `promotions`.
-- Akce musí být navázána na obchodní jednotku nebo jednoznačnou retailer reference, nikoli pouze na nejednoznačný název.
+- Akce se může nově navázat přes volitelné `deals.trade_item_id` nebo `deals.retailer_product_ref_id`; kompozitní FK zajišťuje shodu s `product_id`. Existující akce zůstávají na produktové úrovni, dokud není jejich identita bezpečně potvrzena. Vazba na obchodní jednotku nebo jednoznačnou retailer reference má přednost před pouhým názvem.
 - Výpočty ceny a slevy mají být testovány na hranicích: těsně pod minimem, přesně na minimu, násobcích minima, smíšeném sortimentu, omezení použití a expiraci.
 - Uživatelův souhlas s členstvím/aktivací je samostatný vstup do výpočtu; aplikace nemůže předpokládat, že je uživatel členem nebo kupón aktivoval.
 

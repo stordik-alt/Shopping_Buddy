@@ -592,11 +592,14 @@ export const tradeItems = pgTable('trade_items', {
   productPackageId: uuid('product_package_id').references(() => productPackages.id, { onDelete: 'set null' }),
   // Only populate when the source provides enough evidence to distinguish this exact package.
   packageSignature: text('package_signature'),
+  // Composite identity target used by prices/deals to ensure a linked trade item belongs to productId.
+  // The UUID remains the primary identity; this unique pair is for relational integrity only.
   status: text('status').notNull().default('active'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   uniqueIndex('trade_items_product_package_unique').on(table.productPackageId).where(sql`${table.productPackageId} IS NOT NULL`),
+  uniqueIndex('trade_items_id_product_unique').on(table.id, table.productId),
   uniqueIndex('trade_items_product_signature_unique').on(table.productId, table.packageSignature).where(sql`${table.packageSignature} IS NOT NULL`),
   index('trade_items_product_status_idx').on(table.productId, table.status),
   check('trade_items_status_valid', sql`${table.status} IN ('active', 'discontinued', 'needs_review')`),
@@ -645,6 +648,7 @@ export const retailerProductRefs = pgTable('retailer_product_refs', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   uniqueIndex('retailer_product_refs_source_external_id_unique').on(table.source, table.externalId),
+  uniqueIndex('retailer_product_refs_id_product_unique').on(table.id, table.productId),
   index('retailer_product_refs_trade_item_idx').on(table.tradeItemId),
   index('retailer_product_refs_product_idx').on(table.productId),
   check('retailer_product_refs_source_nonempty', sql`length(trim(${table.source})) > 0`),
@@ -827,6 +831,9 @@ export const memberStores = pgTable(
 export const prices = pgTable('prices', {
   id: uuid('id').primaryKey().defaultRandom(),
   productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  // Optional exact identity links; legacy rows and ingestion writers remain valid while backfill is reviewed.
+  tradeItemId: uuid('trade_item_id'),
+  retailerProductRefId: uuid('retailer_product_ref_id'),
   // Store chain remains explicit even when the physical branch is unknown. This prevents a real
   // STORE observation from being misrepresented as a CHAIN price.
   storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
@@ -862,6 +869,10 @@ export const prices = pgTable('prices', {
   // The current price of a product in one context (product, chain, branch, scope) is its latest
   // observation (migration 0010): these serve the lookups of that latest row and a branch's history.
   index('prices_product_context_observed_idx').on(table.productId, table.storeId, table.storeLocationId, table.priceScope, table.observedAt),
+  index('prices_trade_item_observed_idx').on(table.tradeItemId, table.observedAt),
+  index('prices_retailer_ref_observed_idx').on(table.retailerProductRefId, table.observedAt),
+  foreignKey({ name: 'prices_trade_item_product_fk', columns: [table.tradeItemId, table.productId], foreignColumns: [tradeItems.id, tradeItems.productId] }).onDelete('restrict'),
+  foreignKey({ name: 'prices_retailer_ref_product_fk', columns: [table.retailerProductRefId, table.productId], foreignColumns: [retailerProductRefs.id, retailerProductRefs.productId] }).onDelete('restrict'),
   index('prices_store_location_observed_idx').on(table.storeLocationId, table.observedAt),
   // Ingestion loads the latest official chain price by store + retailer SKU; keep the index narrow and ordered for DISTINCT ON.
   index('prices_official_chain_ref_observed_idx')
@@ -916,6 +927,9 @@ export const flyerPages = pgTable('flyer_pages', {
 export const deals = pgTable('deals', {
   id: uuid('id').primaryKey().defaultRandom(),
   productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  // Optional exact identity links; legacy deal rows remain product-level until safely reconciled.
+  tradeItemId: uuid('trade_item_id'),
+  retailerProductRefId: uuid('retailer_product_ref_id'),
   // The chain the promotion belongs to. Always set; `storeLocationId` narrows it to a branch and is
   // null for an online-only chain, which has none.
   storeId: uuid('store_id').notNull().references(() => stores.id, { onDelete: 'cascade' }),
@@ -936,6 +950,10 @@ export const deals = pgTable('deals', {
   // Without it each lookup read the whole table — 26 billion rows read by 2026-09-26, the largest
   // part of the database's compute (pg_stat_user_tables).
   index('deals_product_store_idx').on(table.productId, table.storeId),
+  index('deals_trade_item_idx').on(table.tradeItemId, table.storeId),
+  index('deals_retailer_ref_idx').on(table.retailerProductRefId, table.storeId),
+  foreignKey({ name: 'deals_trade_item_product_fk', columns: [table.tradeItemId, table.productId], foreignColumns: [tradeItems.id, tradeItems.productId] }).onDelete('restrict'),
+  foreignKey({ name: 'deals_retailer_ref_product_fk', columns: [table.retailerProductRefId, table.productId], foreignColumns: [retailerProductRefs.id, retailerProductRefs.productId] }).onDelete('restrict'),
   index('deals_validity_product_idx').on(table.validFrom, table.validUntil, table.productId),
   check('deals_unit_price_pair', sql`(${table.unit} IS NULL AND ${table.unitPrice} IS NULL) OR (${table.unit} IS NOT NULL AND ${table.unitPrice} > 0)`),
   // Same guard as member_stores: when a branch is named it must be a branch of `store_id`. MATCH

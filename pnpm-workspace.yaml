@@ -30,3 +30,6 @@ overrides:
   # One Zod for the whole app: the auth client bundled its own older copy, which the jitless setting
   # (lib/zod-jitless.ts) cannot reach.
   zod: "4.6.5"
+  # GHSA-587h-7wmj-h5pm (high): launch-editor's fs.existsSync() check can be bypassed on Windows.
+  # vite is pulled in transitively (better-auth -> vitest -> vite), never by our own code.
+  vite: "8.3.3"

@@ -21,6 +21,8 @@ Cloudflare R2 stores receipt files; R2 storage and Cloudflare Workers hosting ar
 
 The production database lives in the Neon region `aws-eu-central-1` (Frankfurt), in the console-managed project `raspy-wind-05090017` (organization `Moje_Anitka`), database `neondb`, branch `main`. The data was moved there on 2026-10-21 from the former Vercel-managed project in `us-east-1` (Virginia) with `pg_dump`/`pg_restore`; the old project is retained as a rollback source until the move is confirmed in the app. The test branch of the new project (`test`) carries the same schema and is what the database-backed tests use. Neon Auth follows the database: its endpoint is `https://ep-green-bonus-b97jnsd5.neonauth.c-7.eu-central-1.aws.neon.tech/neondb/auth` and its only trusted origin is `https://mojeanitka.cz`.
 
+The move broke sign-in until the signing key was replaced: the key restored from the dump had empty `alg`/`crv` columns, which the auth service in the new project cannot read — it answered HTTP 500 on `/get-session`, so the app logged `[mintSessionDataCookie] Failed to mint session_data cookie` and sent every visitor back to the login screen while the session rows, the schema and the permissions were all correct. Deleting the row `neon_auth.jwks` lets the service generate its own key (with `alg='EdDSA'`, `crv='Ed25519'`) and sign-in works. `scripts/migrate-neon-project.ts` now does this as part of every move, so the problem cannot recur. The consequence is that the sessions signed with the old key stopped working: after a move, the users have to sign in again. The accounts and their password hashes are untouched.
+
 ## 3. Current stack
 
 - Next.js 16.3.8

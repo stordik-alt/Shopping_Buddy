@@ -5,7 +5,7 @@
 // successful migration of a database that lost rows, so the cases below cover both directions.
 
 import { describe, expect, it } from 'vitest'
-import { compareRowCounts } from './migrate-neon-project'
+import { compareRowCounts, needsSigningKeyReset } from './migrate-neon-project'
 
 describe('compareRowCounts', () => {
   it('reports nothing when both databases hold the same tables and rows', () => {
@@ -48,5 +48,30 @@ describe('compareRowCounts', () => {
     const { missing, differing } = compareRowCounts(source, target)
     expect(missing).toEqual(['households', 'products'])
     expect(differing).toEqual([])
+  })
+})
+
+describe('needsSigningKeyReset', () => {
+  it('asks for a reset when the key has no algorithm', () => {
+    // This is the state a key restored from a dump arrives in: the older auth service wrote it
+    // without alg and crv, and the newer service answers HTTP 500 on /get-session with it.
+    expect(needsSigningKeyReset([{ alg: '', crv: 'Ed25519' }])).toBe(true)
+  })
+
+  it('asks for a reset when the key has no curve', () => {
+    expect(needsSigningKeyReset([{ alg: 'EdDSA', crv: '' }])).toBe(true)
+  })
+
+  it('asks for a reset when the algorithm or the curve is null', () => {
+    expect(needsSigningKeyReset([{ alg: null, crv: null }])).toBe(true)
+    expect(needsSigningKeyReset([{ alg: 'EdDSA', crv: null }])).toBe(true)
+  })
+
+  it('keeps a key the service has written itself', () => {
+    expect(needsSigningKeyReset([{ alg: 'EdDSA', crv: 'Ed25519' }])).toBe(false)
+  })
+
+  it('keeps every key when there is none', () => {
+    expect(needsSigningKeyReset([])).toBe(false)
   })
 })

@@ -3,7 +3,7 @@
 - Produkční databáze přesunuta z Neon projektu ve Virginii (`us-east-1`) do čistého projektu `raspy-wind-05090017` ve Frankfurtu (`aws-eu-central-1`), aby byla blíž uživatelům v České republice. Data, schéma i účty byly přeneseny `pg_dump`/`pg_restore`; nic nebylo vytvořeno od nuly.
 - Ověřeno proti zdroji: 93 tabulek ve schématu `public` se shodnými počty řádků (21 domácností, 58 730 produktů, 62 618 cen, 12 553 akcí, 1 839 lokalit obchodů, 1 198 stránek letáků), 130 aplikovaných migrací, 9 tabulek `neon_auth` (6 účtů, 54 relací, 1 klíč JWKS) a 10 cizích klíčů na `neon_auth`. Schéma `public` (2 033 objektů) i `neon_auth` (constraints, triggery, RLS, policies, indexy) je identické se zdrojem.
 - Všech 6 existujících účtů má `emailVerified = true`; tři z nich (dříve neověřené) byly označeny ručně, aby po přepnutí `requireEmailVerification` nepřestaly fungovat.
-- Přenesený privátní klíč JWKS má stejné `kid` jako zdrojový, takže podepsané session tokeny zůstávají platné; `neon_auth.project_config` byl přepsán na cílový endpoint a důvěryhodné domény (`https://mojeanitka.cz`).
+- Přenesený privátní klíč JWKS byl z původního projektu zkontrolován a porovnán se zdrojem (stejný `kid` i bajty), ale ukázalo se, že ho služba v novém projektu neumí přečíst — viz záznam o opravě níže. `neon_auth.project_config` byl přepsán na cílový endpoint a důvěryhodné domény (`https://mojeanitka.cz`).
 - Opraveno vlastnictví tabulek `neon_auth` (role `neon_auth` místo `neondb_owner`), jinak by se Neon Auth po obnově nemohl připojit ke svému schématu.
 - Přepojeno na novou databázi: Hyperdrive `f707d733…` na `ep-green-bonus-b97jnsd5.c-7.eu-central-1`, Worker secrets `DATABASE_URL` / `DATABASE_URL_UNPOOLED` / `NEON_AUTH_BASE_URL`, GitHub Actions secrets `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `NEON_AUTH_BASE_URL`, `NEON_PROD_DATABASE_URL` a `.env.local`.
 - Změřeno z Česka: databázový round-trip klesl ze 106 ms (us-east-1) na 23 ms (eu-central-1), tedy 4,6× rychleji.
@@ -11,6 +11,16 @@
 - Přidán `scripts/migrate-neon-project.ts` (`pnpm db:migrate-project --project-id <ID>`) a jeho testy: dump, obnova, přenos konfigurace Neon Authu, vlastnictví a kontrola počtů řádků. Skript zahazuje `neon_auth.project_config` před obnovou (jinak `pg_restore --clean` nemůže zahodit schéma) a vrací ho po obnově.
 - Starý projekt `delicate-paper-28752574` zůstává nedotčený jako záloha, dokud se neověří přihlášení v aplikaci i v mobilní appce.
 - Vercel je vyřazený celý, včetně jeho proměnných (rozhodnutí vlastníka 2026-10-21): hostuje se na Cloudflare Workers, databáze je konzolový Neon projekt. `vercel.json` zůstává v repozitáři jen jako seznam cron úloh, který drží triggery Workera zarovnané.
+
+## 2026-10-21 — Oprava přihlášení po přesunu databáze do Frankfurtu
+
+- Přihlášení po přesunu databáze nefungovalo a hlásilo `500` v logu Workera: `[mintSessionDataCookie] Failed to mint session_data cookie: Failed to fetch session data: 500 Internal Server Error`. Přihlášení se přitom zapisovalo, session v databázi vznikala a schéma `neon_auth` souhlasilo se zdrojem — chyba byla jinde než se zdálo.
+- Kořen problému: řádek `neon_auth.jwks` obnovený z dumpu má prázdné sloupce `alg` a `crv` (tak ho zapsala starší verze služby Neon Auth). Služba v novém projektu takový řádek přečíst neumí a odpovídá `HTTP 500` na `/get-session`.
+- Izolováno na čisté větvi `auth-probe` vytvořené přímo v novém projektu: po smazání řádku `neon_auth.jwks` si služba vygeneruje vlastní klíč (`alg='EdDSA'`, `crv='Ed25519'`) a `/get-session` začne vracet `200` se session i uživatelem. Ručně vložený původní klíč chybu vrátil, prázdné `alg`/`crv` ji vrátilo také — tím byla příčina potvrzena.
+- Opraveno na produkční větvi `main` i na testovací větvi `test` v projektu `raspy-wind-05090017`: řádek `neon_auth.jwks` smazán, služba si vygenerovala nový klíč. Ověřeno na živé aplikaci: `POST /api/auth/sign-in/email` vrací `200` a obě cookie (`__Secure-neon-auth.session_token` i `__Secure-neon-auth.local.session_data`), `GET /api/auth/get-session` vrací session s uživatelem, chráněná stránka `/` vrací `200` bez přesměrování a `GET /api/mobile/me` vrací uživatele i domácnost.
+- `scripts/migrate-neon-project.ts` (`pnpm db:migrate-project`) nyní po každém přesunu zahodí obnovený klíč podepisování, aby si ho cílová služba vygenerovala sama (`resetNeonAuthSigningKey`). Nová čistá funkce `needsSigningKeyReset` rozhoduje, jestli je klíč nutné resetovat, a je pokrytá testy.
+- Důsledek pro uživatele: session podepsané starým klíčem přestaly platit, takže je potřeba se po přesunu přihlásit znovu. Účty, hesla i domácnosti zůstaly zachované. Opraveno i na `docs/09_BACKUP_RECOVERY.md`, kde bylo do té doby uvedeno opak.
+- Testovací účty a dočasná větev `auth-probe` vytvořené během diagnostiky byly smazány; starý projekt `delicate-paper-28752574` zůstal beze změny.
 
 ## 2026-10-20 — Protokol označování dvojic pro validaci identity
 

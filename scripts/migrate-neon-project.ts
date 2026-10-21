@@ -130,6 +130,59 @@ async function restoreNeonAuthOwnership(url: string): Promise<void> {
 }
 
 /**
+ * Řádek klíče podepisování, jak ho Neon Auth zapisuje.
+ *
+ * `alg` a `crv` vyplňuje až služba sama při generování klíče. Řádek, který přijde z dumpu
+ * staršího projektu, je má prázdné — a právě na něm novější služba selhává.
+ */
+export type SigningKeyRow = { alg: string | null; crv: string | null }
+
+/**
+ * Je přenesený klíč podepisování použitelný, nebo se musí zahodit?
+ *
+ * Klíč bez vyplněných alg a crv přečte jen starší verze služby Neon Auth. Novější služba na
+ * něm skončí HTTP 500 na /get-session, takže se musí nechat vygenerovat nový. Čistá funkce,
+ * testovatelná bez databáze.
+ */
+export function needsSigningKeyReset(keys: SigningKeyRow[]): boolean {
+  return keys.some((key) => !key.alg || !key.crv)
+}
+
+/**
+ * Zahodí klíč podepisování (JWKS) Neon Authu v cílové databázi, aby si ho služba vygenerovala
+ * sama.
+ *
+ * Proč: řádek neon_auth.jwks se přenáší z dumpu, kde má prázdné sloupce alg a crv. Takový řádek
+ * umí přečíst jen starší verze služby Neon Auth. Novější služba (ta, která vznikne v novém
+ * projektu) na něm spadne a /get-session odpovídá HTTP 500 — přihlášení pak skončí přesně
+ * chybou "[mintSessionDataCookie] Failed to mint session_data cookie", ačkoli je všechno jiné
+ * v pořádku: přihlášení se zapisuje, session vzniká, schema souhlasí.
+ *
+ * Po zahození řádku si služba klíč vygeneruje sama (při prvním /get-session) a zapíše ho
+ * s vyplněnými alg='EdDSA' a crv='Ed25519'. Ztrácí se tím podpisování existujících session
+ * tokenů: přihlášení je potřeba obnovit, což je při přesunu databáze chtěné (ostatní účty mají
+ * hesla, ale nový klíč staré tokeny nepodepíše). Klíč se nesmí přenášet, protože formát
+ * privátního klíče se mezi generacemi služby liší.
+ */
+async function resetNeonAuthSigningKey(url: string): Promise<void> {
+  const client = new Client({ connectionString: url })
+  await client.connect()
+  try {
+    const existing = await client.query<SigningKeyRow>('select alg, crv from neon_auth.jwks')
+    if (!needsSigningKeyReset(existing.rows)) {
+      console.log('The Neon Auth signing key is already in the format the target service reads.')
+      return
+    }
+    const result = await client.query('delete from neon_auth.jwks')
+    if (result.rowCount && result.rowCount > 0) {
+      console.log(`Removed ${result.rowCount} signing key(s); the auth service will generate its own.`)
+    }
+  } finally {
+    await client.end()
+  }
+}
+
+/**
  * Počet řádků každé tabulky ve schématu public.
  *
  * Po obnově se to porovná se zdrojem: stejný počet tabulek i stejné počty řádků znamená, že se
@@ -235,6 +288,10 @@ async function main() {
 
     console.log('Restoring the Neon Auth table ownership…')
     await restoreNeonAuthOwnership(targetUrl)
+
+    // Klíč podepisování se musí nechat vygenerovat novou službou; přenesený z dumpu ji láme.
+    console.log('Resetting the Neon Auth signing key…')
+    await resetNeonAuthSigningKey(targetUrl)
 
     console.log('Verifying the restored data…')
     await verifyRowCounts(sourceUrl, targetUrl)

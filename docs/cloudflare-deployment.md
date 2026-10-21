@@ -1,6 +1,6 @@
 # Cloudflare Production — Deployment and Historical Preparation Notes
 
-**Current production:** Cloudflare Workers/OpenNext, per owner confirmation on 2026-10-17. Vercel is historical as the application's hosting/deployment platform; the owner reports that only Neon account management remains associated with Vercel. This document contains a historical preparation snapshot as well as current configuration references; its old test results are not a fresh verification of production.
+**Current production:** Cloudflare Workers/OpenNext, per owner confirmation on 2026-10-17. Vercel is no longer used at all (owner decision of 2026-10-21): the project is being removed from Vercel, including its environment variables, and nothing in the deployment path reads from it. This document contains a historical preparation snapshot as well as current configuration references; its old test results are not a fresh verification of production.
 
 The Worker is the production application host. Receipt files use Cloudflare R2 (`docs/cloudflare-r2.md`); this is separate from the OpenNext application runtime.
 
@@ -199,6 +199,8 @@ The Cloudflare production workflow `.github/workflows/cloudflare-deploy.yml` app
 Keep `nodejs_compat`; Cloudflare documents `pg` and `drizzle-orm/node-postgres` as supported Hyperdrive drivers. The installed `pg` 8.23.1 exceeds Cloudflare's stated 8.16.3 minimum. `pg-cloudflare` 1.4.1 remains the optional dependency selected by `pg` for Workers; no `pg` shim is configured. `cloudflare/shims/pg.js` is retained until a separately scoped removal confirms no other consumer needs it.
 
 Set the Hyperdrive origin credentials in the Hyperdrive configuration, not in `wrangler.jsonc`, repository files or ordinary Worker vars. For local `wrangler dev`, use the documented Hyperdrive local-connection-string mechanism with a disposable non-production database. A real Worker/Hyperdrive smoke test has not been run by this change.
+
+The production Hyperdrive (`f707d733ceb84b1f8211e10baed777e5`, name `anitka-neon`) points at the Frankfurt database since 2026-10-21: origin host `ep-green-bonus-b97jnsd5.c-7.eu-central-1.aws.neon.tech`, database `neondb`, user `neondb_owner`. Change it with `wrangler hyperdrive update <id> --connection-string "<url>"` — the same value belongs in the Worker's `DATABASE_URL` and `DATABASE_URL_UNPOOLED` secrets, in the repository secrets of the same name, and in `NEON_AUTH_BASE_URL` (which points at the Neon Auth endpoint of the same project). The Hyperdrive configuration `cefc7bc16948487aa272b989b386a97f` (`shopping-buddy-neon`) is a leftover from an earlier setup: no `wrangler.jsonc` references it and no Worker uses it.
 
 ## 9. Local preview
 

@@ -15,9 +15,11 @@ ANITKA is a Czech-market family shopping assistant covering household profiles, 
 
 Current production runs on Cloudflare Workers/OpenNext + Next.js 16.3.8 + React 19 + Neon PostgreSQL 18 + Cloudflare R2 + Neon Auth. This hosting state is based on the owner's 2026-10-17 confirmation; this documentation update did not independently inspect the live deployment.
 
-Vercel is historical as an application hosting/deployment platform and is being removed from the project. The owner reports that the only remaining Vercel association is management of the Neon account. Do not describe Vercel as hosting production.
+Vercel is no longer used at all. The owner decided on 2026-10-21 that the project is being removed from Vercel entirely, including its environment variables — the application is hosted on Cloudflare Workers and the database is a console-managed Neon project. Do not describe Vercel as hosting production, do not update its environment variables, and do not read configuration from it. `vercel.json` stays in the repository only as the schedule list that keeps the Worker triggers aligned.
 
 Cloudflare R2 stores receipt files; R2 storage and Cloudflare Workers hosting are separate responsibilities.
+
+The production database lives in the Neon region `aws-eu-central-1` (Frankfurt), in the console-managed project `raspy-wind-05090017` (organization `Moje_Anitka`), database `neondb`, branch `main`. The data was moved there on 2026-10-21 from the former Vercel-managed project in `us-east-1` (Virginia) with `pg_dump`/`pg_restore`; the old project is retained as a rollback source until the move is confirmed in the app. The test branch of the new project (`test`) carries the same schema and is what the database-backed tests use. Neon Auth follows the database: its endpoint is `https://ep-green-bonus-b97jnsd5.neonauth.c-7.eu-central-1.aws.neon.tech/neondb/auth` and its only trusted origin is `https://mojeanitka.cz`.
 
 ## 3. Current stack
 
@@ -62,6 +64,8 @@ The Cloudflare production deploy workflow (`.github/workflows/cloudflare-deploy.
 Required process: inspect schema/relations/indexes/constraints, create migration, test it on the test branch, merge, deploy, then verify production directly.
 
 Migration 0055_receipt_import_purchase_index.sql added the receipt_imports.purchase_id index. It was verified as applied in production after the 2026-10-07 deployment.
+
+To move the whole database to another Neon project or region, use `pnpm db:migrate-project --project-id <neon-project-id>` (`scripts/migrate-neon-project.ts`). It dumps the source, restores it into the target, carries over the Neon Auth configuration and table ownership, and compares the row counts of every table between source and target — a mismatch fails the run instead of being reported as a success. Read `docs/09_BACKUP_RECOVERY.md` before running it; the procedure has two traps that a plain `pg_restore` walks into.
 
 ## 6. Database performance rules
 
@@ -135,7 +139,7 @@ Cloudflare Workers owns the current production cron execution. `vercel.json` rem
 
 ## 16. Cloudflare production
 
-Cloudflare Workers/OpenNext is the current production host; Cloudflare R2 is the private receipt/object store. Staging and deployment details are documented in `docs/cloudflare-deployment.md`. Vercel references in older audit and migration documents describe historical states and are not current operating instructions. The owner reports that Vercel remains associated only with Neon account management.
+Cloudflare Workers/OpenNext is the current production host; Cloudflare R2 is the private receipt/object store. Staging and deployment details are documented in `docs/cloudflare-deployment.md`. Vercel references in older audit and migration documents describe historical states and are not current operating instructions. Vercel is being removed from the project entirely (see section 2).
 
 ## 17. Documentation hierarchy
 

@@ -1,3 +1,17 @@
+## 2026-10-21 — Přesun produkční databáze do regionu Frankfurt
+
+- Produkční databáze přesunuta z Neon projektu ve Virginii (`us-east-1`) do čistého projektu `raspy-wind-05090017` ve Frankfurtu (`aws-eu-central-1`), aby byla blíž uživatelům v České republice. Data, schéma i účty byly přeneseny `pg_dump`/`pg_restore`; nic nebylo vytvořeno od nuly.
+- Ověřeno proti zdroji: 93 tabulek ve schématu `public` se shodnými počty řádků (21 domácností, 58 730 produktů, 62 618 cen, 12 553 akcí, 1 839 lokalit obchodů, 1 198 stránek letáků), 130 aplikovaných migrací, 9 tabulek `neon_auth` (6 účtů, 54 relací, 1 klíč JWKS) a 10 cizích klíčů na `neon_auth`. Schéma `public` (2 033 objektů) i `neon_auth` (constraints, triggery, RLS, policies, indexy) je identické se zdrojem.
+- Všech 6 existujících účtů má `emailVerified = true`; tři z nich (dříve neověřené) byly označeny ručně, aby po přepnutí `requireEmailVerification` nepřestaly fungovat.
+- Přenesený privátní klíč JWKS má stejné `kid` jako zdrojový, takže podepsané session tokeny zůstávají platné; `neon_auth.project_config` byl přepsán na cílový endpoint a důvěryhodné domény (`https://mojeanitka.cz`).
+- Opraveno vlastnictví tabulek `neon_auth` (role `neon_auth` místo `neondb_owner`), jinak by se Neon Auth po obnově nemohl připojit ke svému schématu.
+- Přepojeno na novou databázi: Hyperdrive `f707d733…` na `ep-green-bonus-b97jnsd5.c-7.eu-central-1`, Worker secrets `DATABASE_URL` / `DATABASE_URL_UNPOOLED` / `NEON_AUTH_BASE_URL`, GitHub Actions secrets `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `NEON_AUTH_BASE_URL`, `NEON_PROD_DATABASE_URL` a `.env.local`.
+- Změřeno z Česka: databázový round-trip klesl ze 106 ms (us-east-1) na 23 ms (eu-central-1), tedy 4,6× rychleji.
+- Založen testovací branch v novém projektu se všemi 130 migracemi; databázové testy proti němu padají stejně jako proti starému test branchi (žádný test nepadá jen na nové DB — starý branch měl jen 123 ze 130 migrací).
+- Přidán `scripts/migrate-neon-project.ts` (`pnpm db:migrate-project --project-id <ID>`) a jeho testy: dump, obnova, přenos konfigurace Neon Authu, vlastnictví a kontrola počtů řádků. Skript zahazuje `neon_auth.project_config` před obnovou (jinak `pg_restore --clean` nemůže zahodit schéma) a vrací ho po obnově.
+- Starý projekt `delicate-paper-28752574` zůstává nedotčený jako záloha, dokud se neověří přihlášení v aplikaci i v mobilní appce.
+- Vercel je vyřazený celý, včetně jeho proměnných (rozhodnutí vlastníka 2026-10-21): hostuje se na Cloudflare Workers, databáze je konzolový Neon projekt. `vercel.json` zůstává v repozitáři jen jako seznam cron úloh, který drží triggery Workera zarovnané.
+
 ## 2026-10-20 — Protokol označování dvojic pro validaci identity
 
 - Přidána prázdná šablona pro skutečné označené dvojice produktů napříč řetězci a pravidla pro štítky `same_product` / `different_product`.

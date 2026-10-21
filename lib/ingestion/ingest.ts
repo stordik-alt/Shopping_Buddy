@@ -243,7 +243,17 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
   }
 
   // Bookkeeping only — the prices are already written, so a failure here is reported, not thrown.
-  if (result.newProducts > 0) invalidateProductCatalogCache()
+  // The cache invalidation itself never throws (lib/db/cache-invalidation.ts swallows only Next's
+  // "no static generation store", which means there is no cache to invalidate at all), but the
+  // report keeps the promise explicit: a run that has written its prices must not end because of
+  // bookkeeping — the last-seen update below still has to run.
+  if (result.newProducts > 0) {
+    try {
+      invalidateProductCatalogCache()
+    } catch (err) {
+      result.errors.push(`catalog cache invalidation: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
 
   try {
     await touchExternalRefs(connector.source, alreadyLinked)

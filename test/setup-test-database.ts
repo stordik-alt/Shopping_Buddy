@@ -51,3 +51,47 @@ if (testUrl) {
   delete process.env.DATABASE_URL
   delete process.env.DATABASE_URL_UNPOOLED
 }
+
+/**
+ * Proměnné, které rozhodují, jakou cestou kód běží — ne o tom, kam se píše do databáze.
+ *
+ * `.env.local` obsahuje i produkční klíče (Azure OCR, Google Vision, VAPID), a testy pak běží
+ * jinou cestou než v CI, kde ty proměnné chybí: v 61 testech to znamenalo padnutí, i když je
+ * kód v pořádku. Až naopak — testy si volají skutečné Azure API s produkčním klíčem, takže
+ * běh testů utrácí peníze a sahá na cizí službu.
+ *
+ * Proto se tu vymažou. Test, který danou službu potřebuje, si ji nastaví sám (například
+ * app/actions/push.test.ts generuje vlastní VAPID klíče) a toto vymazání mu nic nezkazí:
+ * setup soubor běží před každým testovacím souborem, takže test si proměnnou nastaví až poté.
+ *
+ * R2 a Neon Auth tu nejsou: R2 testy si nastavují falešné hodnoty a mockují síť, Neon Auth je
+ * ve všech dotčených testech mockovaný. Proměnné, které se v této izolaci výslovně neuvádí,
+ * patří buď databázi (viz výše) nebo konfiguraci hostingu.
+ */
+const PROVIDER_ENV = [
+  // OCR — Azure Document Intelligence a Google Vision (docs/08_OCR_RECEIPT_PIPELINE.md).
+  'AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT',
+  'AZURE_DOCUMENT_INTELLIGENCE_KEY',
+  'GOOGLE_VISION_API_KEY',
+  // Web Push (docs/push-notifications.md).
+  'VAPID_PUBLIC_KEY',
+  'VAPID_PRIVATE_KEY',
+  'VAPID_SUBJECT',
+  // AI Gateway (lib/ai/client.ts).
+  'CLOUDFLARE_ACCOUNT_ID',
+  'CLOUDFLARE_AI_GATEWAY_ID',
+  'CLOUDFLARE_AI_GATEWAY_TOKEN',
+  // Google Cloud OIDC (lib/gcp-oidc.ts).
+  'GCP_OIDC_ISSUER',
+  'GCP_OIDC_KEY_ID',
+  'GCP_OIDC_PRIVATE_KEY',
+  'GCP_OIDC_SUBJECT',
+  'GCP_OIDC_TOKEN_SOURCE',
+  'GCP_PROJECT_ID',
+  'GCP_PROJECT_NUMBER',
+  'GCP_SERVICE_ACCOUNT_EMAIL',
+  'GCP_WORKLOAD_IDENTITY_POOL_ID',
+  'GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID',
+] as const
+
+for (const name of PROVIDER_ENV) delete process.env[name]

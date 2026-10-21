@@ -14,6 +14,7 @@ const result = (overrides: Partial<IngestResult> = {}): IngestResult => ({
   priceObservations: 96,
   priceConfirmations: 3,
   priceWrites: 90,
+  barcodes: 0,
   dealCandidates: 7,
   priceCacheChanged: false,
   dealsCacheChanged: false,
@@ -40,6 +41,7 @@ describe('buildIngestLogEntry', () => {
       priceObservations: 96,
       priceConfirmations: 3,
       priceWrites: 90,
+      barcodes: 0,
       dealCandidates: 7,
       errorCount: 0,
     })
@@ -65,7 +67,7 @@ describe('buildIngestLogEntry', () => {
   it('does not log product data, only counts', () => {
     const entry = buildIngestLogEntry('kosik', result(), 1)
     expect(Object.keys(entry).sort()).toEqual(
-      ['dealCandidates', 'deals', 'durationMs', 'errorCount', 'event', 'newProducts', 'priceChanges', 'priceConfirmations', 'priceObservations', 'priceWrites', 'processed', 'promotionsWithoutValidity', 'recorded', 'skipped', 'source', 'status', 'unchanged'].sort(),
+      ['barcodes', 'dealCandidates', 'deals', 'durationMs', 'errorCount', 'event', 'newProducts', 'priceChanges', 'priceConfirmations', 'priceObservations', 'priceWrites', 'processed', 'promotionsWithoutValidity', 'recorded', 'skipped', 'source', 'status', 'unchanged'].sort(),
     )
   })
 })

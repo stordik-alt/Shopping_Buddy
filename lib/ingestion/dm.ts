@@ -2,6 +2,7 @@ import type { ItemCategory, ItemUnit } from '@/lib/types'
 import { fetchWithTimeout } from '@/lib/ingestion/http'
 import { toNormalizedUnitPrice, unitPriceMatchesPackage } from '@/lib/ingestion/product-discovery'
 import { inPart } from '@/lib/ingestion/parts'
+import { isValidGtin } from '@/lib/ingestion/gtin'
 import type { FetchOptions, NormalizedProduct, PriceConnector } from '@/lib/ingestion/types'
 
 // --- Fetcher (docs/02_ARCHITECTURE.md / CLAUDE.md section 32: External Source -> Fetcher) --------
@@ -60,7 +61,8 @@ export function selectSampleIds(ids: number[], limit: number, modulus: number = 
 // Shape is a deliberately small subset of the real responses — only the fields this connector reads.
 export type DmRawProduct = {
   dan: number
-  /** EAN barcode. Kept on the raw record for a future barcode column; not persisted today. */
+  /** EAN barcode (GTIN) of the product. DM states it in the tile; it is passed on as the
+   *  product's `ean` and stored on the product's trade item (see normalizeDmGtin). */
   gtin?: number
   brand?: { name?: string }
   title?: { tileHeadline?: string }
@@ -178,6 +180,16 @@ export function mapDmCategory(raw: DmRawProduct): ItemCategory | null {
   return TOP_LEVEL_CATEGORY[(raw.topCategory ?? '').trim().toLowerCase()] ?? null
 }
 
+/** DM's barcode as digits, when it is a well-formed GTIN. `null` for a missing, malformed or
+ *  wrongly-checksummed code — the barcode is then simply not stored. A bad barcode never blocks
+ *  the product itself: the price and the name are still good data (CLAUDE.md section 33 — flag
+ *  suspicious data, don't throw the rest of the record away). */
+export function normalizeDmGtin(gtin: number | undefined): string | null {
+  if (gtin == null || !Number.isInteger(gtin) || gtin <= 0) return null
+  const digits = String(gtin)
+  return isValidGtin(digits) ? digits : null
+}
+
 /** Parses a Czech-formatted number: "1 399,00" (space or no-break-space thousands separator,
  *  decimal comma) -> 1399. `null` when it isn't a plain positive number. */
 export function parseCzechNumber(text: string): number | null {
@@ -226,7 +238,9 @@ export function parseDmTileInfo(
  *  `promotionWithoutValidity` — DM publishes no end date, and this is the same handling as Billa.
  *  Note this is a clearance, so the "regular" price may not be the everyday one any more; the
  *  promotion model (a later, owner-scheduled piece of work) has to settle that for both stores.
- *  Currency is read from the record, not assumed. `today` is passed in so this stays pure. */
+ *  Currency is read from the record, not assumed. `today` is passed in so this stays pure.
+ *  Barcode: DM's GTIN is passed on when it is a well-formed GTIN (see normalizeDmGtin); a product
+ *  without a valid barcode is still a good product. */
 export function normalizeDmProduct(raw: DmRawProduct, today: string): NormalizedProduct | null {
   if (!Number.isInteger(raw.dan) || raw.dan <= 0) return null
   const headline = (raw.title?.tileHeadline ?? '').trim()
@@ -244,6 +258,10 @@ export function normalizeDmProduct(raw: DmRawProduct, today: string): Normalized
 
   const category = mapDmCategory(raw)
   if (!category) return null
+
+  // The barcode DM publishes for this SKU. A malformed one is dropped on its own, never with the
+  // product.
+  const ean = normalizeDmGtin(raw.gtin)
 
   // Default: one package as "1 ks" at the package price.
   let unit: ItemUnit = 'ks'
@@ -281,6 +299,9 @@ export function normalizeDmProduct(raw: DmRawProduct, today: string): Normalized
     currency: 'CZK',
     recordedAt: today,
     promotionWithoutValidity: promotionWithoutValidity || undefined,
+    // The barcode DM states for its own SKU. It is the one identifier a second retailer can agree
+    // on, so it is carried on to the product's trade item.
+    ...(ean ? { ean } : {}),
   }
 }
 

@@ -14,6 +14,7 @@ const queries = vi.hoisted(() => ({
   loadExternalProductContext: vi.fn(),
   loadLatestOfficialPrices: vi.fn(),
   persistNamedPackageEvidence: vi.fn(),
+  persistTradeItemBarcodes: vi.fn(),
   recordOfficialPrice: vi.fn(),
   recordOfficialPrices: vi.fn(),
   resolveOrCreateProductFromExternal: vi.fn(),
@@ -62,6 +63,7 @@ beforeEach(() => {
   queries.touchExternalRefs.mockResolvedValue(undefined)
   queries.loadLatestOfficialPrices.mockResolvedValue(new Map())
   queries.persistNamedPackageEvidence.mockResolvedValue(0)
+  queries.persistTradeItemBarcodes.mockResolvedValue({ tradeItems: 0, identifiers: 0, conflicts: 0 })
   queries.recordOfficialPrice.mockResolvedValue({ action: 'insert', latest: undefined, closedPrevious: false })
   queries.recordOfficialPrices.mockImplementation(async (observations, latest) => {
     latestPassedToWriter = new Map(latest)
@@ -424,6 +426,7 @@ describe('runPriceSources', () => {
     priceObservations: 1,
     priceConfirmations: 1,
     priceWrites: 1,
+    barcodes: 0,
     dealCandidates: 0,
     priceCacheChanged: false,
     dealsCacheChanged: false,

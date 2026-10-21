@@ -1835,6 +1835,131 @@ export async function persistNamedPackageEvidence(evidence: NamedPackageEvidence
   return rows.length
 }
 
+/** A barcode a retailer publishes for its own SKU, with the product it belongs to. */
+export type TradeItemBarcodeEvidence = {
+  productId: string
+  /** The retailer's own SKU — the trade item's identity at that retailer. */
+  externalId: string
+  /** The source that published the barcode (e.g. 'dm'). */
+  source: string
+  /** The barcode as digits (a GTIN). */
+  ean: string
+  /** The day the retailer stated it. */
+  observedAt: string
+}
+
+export type TradeItemBarcodeResult = {
+  /** The trade items this created or confirmed. */
+  tradeItems: number
+  /** The identifiers actually written. */
+  identifiers: number
+  /** Barcodes that another trade item already owns — the same GTIN for two products at once is
+   *  left to the database, and the conflict is reported instead of being overwritten. */
+  conflicts: number
+}
+
+/** Stores the barcodes a retailer publishes on the trade items of their products.
+ *
+ *  A barcode belongs to one trade item — one product as it is sold by one retailer (docs/43,
+ *  section 3.2). The trade item is therefore created for the retailer's SKU (its signature is
+ *  "<source>:<sku>", which the table's unique key turns into an idempotent upsert), and the
+ *  barcode is written on it.
+ *
+ *  A GTIN that another trade item already owns is not written a second time: the table's partial
+ *  unique index allows one active verified GTIN per market, and overwriting it would silently move
+ *  a barcode to a different product. Such a barcode is counted as a conflict and left alone. */
+export async function persistTradeItemBarcodes(evidence: TradeItemBarcodeEvidence[]): Promise<TradeItemBarcodeResult> {
+  const result: TradeItemBarcodeResult = { tradeItems: 0, identifiers: 0, conflicts: 0 }
+  if (evidence.length === 0) return result
+  const db = getDb()
+
+  // One barcode per SKU: a retailer states one code for its product.
+  const unique = new Map<string, TradeItemBarcodeEvidence>()
+  for (const item of evidence) {
+    const key = `${item.source}:${item.externalId}`
+    if (!unique.has(key)) unique.set(key, item)
+  }
+  const items = [...unique.values()]
+
+  // The trade items. The package is left empty on purpose: the retailer's SKU is the identity that
+  // is known for sure, the package size is not (CLAUDE.md section 3 — a package size is never
+  // guessed from a price).
+  for (const part of chunks(items, 500)) {
+    await db
+      .insert(schema.tradeItems)
+      .values(
+        part.map((item) => ({
+          productId: item.productId,
+          packageSignature: `${item.source}:${item.externalId}`,
+          status: 'active',
+        })),
+      )
+      .onConflictDoNothing()
+    result.tradeItems += part.length
+  }
+
+  const tradeItemIds = new Map<string, string>()
+  for (const part of chunks(items, 500)) {
+    const rows = await db
+      .select({ id: schema.tradeItems.id, productId: schema.tradeItems.productId, packageSignature: schema.tradeItems.packageSignature })
+      .from(schema.tradeItems)
+      .where(
+        inArray(
+          schema.tradeItems.packageSignature,
+          part.map((item) => `${item.source}:${item.externalId}`),
+        ),
+      )
+    for (const row of rows) tradeItemIds.set(`${row.productId}:${row.packageSignature}`, row.id)
+  }
+
+  const wanted = items
+    .map((item) => ({ ...item, tradeItemId: tradeItemIds.get(`${item.productId}:${item.source}:${item.externalId}`) }))
+    .filter((item): item is TradeItemBarcodeEvidence & { tradeItemId: string } => item.tradeItemId != null)
+  if (wanted.length === 0) return result
+
+  // The identifiers. The unique index on (scheme, value, market) over the active verified rows
+  // makes this idempotent: the same barcode seen again is not written twice, and a barcode owned
+  // by another trade item is left where it is.
+  for (const part of chunks(wanted, 500)) {
+    await db
+      .insert(schema.tradeItemIdentifiers)
+      .values(
+        part.map((item) => ({
+          tradeItemId: item.tradeItemId,
+          scheme: 'GTIN',
+          value: item.ean,
+          market: 'CZ',
+          verificationStatus: 'source_confirmed',
+          verificationSource: item.source,
+          validFrom: item.observedAt,
+        })),
+      )
+      .onConflictDoNothing()
+  }
+
+  // What actually landed: the identifiers of these barcodes and the trade item each sits on.
+  for (const part of chunks(wanted, 500)) {
+    const rows = await db
+      .select({ value: schema.tradeItemIdentifiers.value, market: schema.tradeItemIdentifiers.market, tradeItemId: schema.tradeItemIdentifiers.tradeItemId })
+      .from(schema.tradeItemIdentifiers)
+      .where(
+        and(
+          eq(schema.tradeItemIdentifiers.scheme, 'GTIN'),
+          inArray(schema.tradeItemIdentifiers.value, [...new Set(part.map((item) => item.ean))]),
+        ),
+      )
+    const owners = new Map(rows.map((row) => [`${row.value}:${row.market ?? ''}`, row.tradeItemId]))
+    for (const item of part) {
+      const owner = owners.get(`${item.ean}:CZ`)
+      if (owner == null) continue
+      if (owner === item.tradeItemId) result.identifiers++
+      else result.conflicts++
+    }
+  }
+
+  return result
+}
+
 /** The latest stored official observation per retailer SKU (`source_reference`) at one store —
  *  loaded once per ingestion run so `recordOfficialPrice()` needs no lookup of its own per product
  *  (each lookup is a database round trip). Keyed by the SKU. */
@@ -2157,7 +2282,11 @@ export async function loadExternalProductContext(source: ProductSource, scope?: 
  *  takes path 1 from then on. `lastSeenAt` of already-linked products is refreshed separately, in
  *  one batch, by `touchExternalRefs()`.
  *  `context` is what an ingestion run passes so the lookups are not repeated per product; without
- *  it (one-off callers, tests) a fresh one is loaded for this call. */
+ *  it (one-off callers, tests) a fresh one is loaded for this call.
+ *  `options.linkToProductId` skips the name match and attaches the SKU to that product — used by
+ *  the Teta import, whose identity rules (lib/product-identity-teta.ts) decide which catalog
+ *  product a Teta SKU belongs to; a name match would link a product the rules did not approve.
+ *  `options.brand` is stored on a product this call creates, when the source states the brand. */
 export async function resolveOrCreateProductFromExternal(
   product: {
     externalId: string
@@ -2165,8 +2294,10 @@ export async function resolveOrCreateProductFromExternal(
     name: string
     category: ItemCategory
     unit: ItemUnit
+    brand?: string
   },
   context?: ExternalProductContext,
+  options?: { linkToProductId?: string },
 ): Promise<string> {
   const db = getDb()
   const ctx = context ?? (await loadExternalProductContext(product.source))
@@ -2178,7 +2309,9 @@ export async function resolveOrCreateProductFromExternal(
   const { match: matched, name: productName } = resolveProductForSku(ctx.catalog, product.name, product.externalId, new Set(ctx.refs.values()))
 
   let productId: string
-  if (matched) {
+  if (options?.linkToProductId) {
+    productId = options.linkToProductId
+  } else if (matched) {
     productId = matched.id
   } else {
     // A known brand's category outranks the retailer's (lib/product-brands.ts): Rohlík files Kubík
@@ -2191,7 +2324,14 @@ export async function resolveOrCreateProductFromExternal(
     const productTypeId = productTypeIdFor(category, productName, ctx.productTypeIds)
     const [row] = await db
       .insert(schema.products)
-      .values({ name: productName, categoryId, defaultUnit: product.unit, productTypeId, productTypeSource: productTypeId ? 'rule' : null })
+      .values({
+        name: productName,
+        categoryId,
+        defaultUnit: product.unit,
+        ...(product.brand ? { brand: product.brand } : {}),
+        productTypeId,
+        productTypeSource: productTypeId ? 'rule' : null,
+      })
       .returning()
     productId = row.id
     ctx.catalog.push({ id: row.id, name: row.name, category, defaultUnit: row.defaultUnit, defaultLocation: row.defaultLocation })

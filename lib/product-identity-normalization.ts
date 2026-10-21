@@ -21,14 +21,28 @@ export function normalizeProductIdentityText(value: string | null | undefined): 
     .replace(/\s+/g, ' ')
 }
 
+/**
+ * A number as a retailer writes it: `150`, `1.5` or a Czech thousands group (`1 000`, `1 000 000`
+ * with a space, a non-breaking space or a narrow non-breaking space between the groups).
+ *
+ * The thousands group has to be part of the number, otherwise `1 000 ml` is read as `000 ml` and
+ * dropped as a zero — and a pack that states its size as `1 000 ml` would then look like a pack
+ * that states no size at all.
+ */
+const QUANTITY_NUMBER = '\\d{1,3}(?:\\s\\d{3})+(?:\\.\\d+)?|\\d+(?:\\.\\d+)?'
+
 export function parseProductQuantities(value: string | null | undefined): ParsedQuantity[] {
   const text = (value ?? '').toLocaleLowerCase('cs-CZ').replace(/,/g, '.')
   const results: ParsedQuantity[] = []
-  const pattern = /(?:(\d+)\s*[x×]\s*)?(\d+(?:\.\d+)?)\s*(kg|g|ml|l|ks)\b/giu
+  const pattern = new RegExp(
+    `(?:(\\d+)\\s*[x×]\\s*)?(${QUANTITY_NUMBER})\\s*(kg|g|ml|l|ks)\\b`,
+    'giu',
+  )
 
   for (const match of text.matchAll(pattern)) {
     const multipackCount = match[1] ? Number(match[1]) : 1
-    const amount = Number(match[2])
+    // The thousands group is written with a space, which Number() does not read as a separator.
+    const amount = Number(match[2].replace(/\s/g, ''))
     const rawUnit = match[3].toLowerCase() as ParsedQuantity['unit']
     if (!Number.isFinite(amount) || amount <= 0 || !Number.isInteger(multipackCount) || multipackCount <= 0) continue
 

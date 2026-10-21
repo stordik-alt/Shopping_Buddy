@@ -40,6 +40,23 @@ describe('parseProductQuantities', () => {
     expect(packageQuantitiesEquivalent('Somat sůl', 'Somat 1,5 kg')).toBeNull()
   })
 
+  it('reads a Czech thousands group as one number', () => {
+    // "1 000 ml" used to be read as "000 ml" and dropped as a zero, which made a pack that states
+    // its size look like a pack that states no size at all.
+    expect(parseProductQuantities('Šampon 1 000 ml')).toEqual([
+      { value: 1000, unit: 'ml', baseValue: 1000, baseUnit: 'ml', multipackCount: 1 },
+    ])
+    expect(packageQuantitiesEquivalent('Šampon 1 000 ml', 'Šampon 1000 ml')).toBe(true)
+    expect(packageQuantitiesEquivalent('Šampon 1 000 ml', 'Šampon 1 l')).toBe(true)
+    expect(packageQuantitiesEquivalent('Šampon 1 000 ml', 'Šampon 500 ml')).toBe(false)
+  })
+
+  it('reads a thousands group inside a multipack', () => {
+    expect(parseProductQuantities('2 x 1 000 ml')).toEqual([
+      { value: 1000, unit: 'ml', baseValue: 1000, baseUnit: 'ml', multipackCount: 2 },
+    ])
+  })
+
   it('preserves multipack composition and does not confuse it with a single pack', () => {
     expect(parseProductQuantities('44 x 85 g')).toEqual([
       { value: 85, unit: 'g', baseValue: 85, baseUnit: 'g', multipackCount: 44 },

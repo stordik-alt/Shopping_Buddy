@@ -146,3 +146,28 @@ Produkt i cenu lze evidovat bez EAN. Neznámý EAN není chyba importu; neznám�
 ## Implementační fáze 2 — vazby cen a akcí
 
 Migrace `0114_link_prices_deals_to_catalog_identity.sql` přidává do `prices` a `deals` volitelné odkazy na `trade_items` a `retailer_product_refs`. Kompozitní cizí klíče kontrolují, že odkazovaná identita patří stejnému `product_id`. Stávající řádky zůstávají na úrovni produktu a nové sloupce mají `NULL`, dokud nebude připraven bezpečný backfill. Neprobíhá automatické párování, přepis historie ani import Tety.
+
+
+## Implementační fáze 3 — první reálné zápisy (2026-10-22)
+
+Tato tabulky už nejsou prázdné schéma — do `trade_items`, `retailer_product_refs` a `trade_item_identifiers` se poprvé zapisuje skutečná data.
+
+### Teta (`lib/ingestion/teta-import.ts`)
+
+Import Tety zapisuje v tomto pořadí:
+
+1. `products` — kanonický produkt (přes `resolveOrCreateProductFromExternal`, se značkou); při jednoznačné shodě s existujícím produktem se nepřidává nový, ale použije se ten existující.
+2. `product_packages` — balení, které Teta sama uvádí (`OBSAH_BALENI`).
+3. `trade_items` — obchodní jednotka: jeden řádek na produkt a balení (jednoznačný klíč tabulky), `package_signature` jako `zdroj:velikost`.
+4. `retailer_product_refs` — reference Tety: `source='teta'`, `external_id=<15místný kód Tety>`, `identity_status` podle párování (`matched` / `review_required` / `unresolved`).
+5. `prices` — běžná cena (`regularPrice`) v rozsahu `CHAIN`, `source_type='OFFICIAL'`, `store_location_id=NULL` (Teta nemá v aplikaci pobočky a nevymýšlíme je). Akční cena se neukládá jako deal, protože Teta neuvádí její platnost.
+6. `prices.trade_item_id` a `prices.retailer_product_ref_id` — cena je dohledatelná zpět ke SKU, ze kterého přišla.
+
+### GTIN z DM (`lib/ingestion/gtin.ts`, `lib/ingestion/dm.ts`, `lib/db/queries.ts`)
+
+DM ve svém tile API publikuje EAN ke každému SKU — doposud se zahazovalo. Teď:
+
+- `NormalizedProduct` má volitelné `ean`; DM ho předává po kontrole formátu (délka 8/12/13/14 a **kontrolní číslice**). Vadný kód se zahodí, **produkt zůstává** — chybějící EAN nikdy import neblokuje.
+- `persistTradeItemBarcodes()` zapíše GTIN na obchodní jednotku daného SKU (`package_signature = 'dm:<dan>'`) se stavem `source_confirmed`, trhem `CZ`.
+- Barcode patří **jedné** obchodní jednotce: GTIN, který už vlastní jiná jednotka, se nezapíše podruhé (partial unique index `(scheme, value, market)`) a je to nahlášeno jako konflikt, ne přepsáno.
+- Teta GTIN nemá — zdědí ho přes sdílený kanonický `products` řádek, na který ukazuje DM jednotka. To je důvod, proč se páruje na produktové úrovni a ne na úrovni obchodní jednotky.

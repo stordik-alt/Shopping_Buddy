@@ -138,6 +138,8 @@ describe('normalizeDmProduct', () => {
     expect(normalizeDmProduct(nightGel, TODAY)).toEqual({
       externalId: '2128184',
       name: 'GARNIER SKIN NATURALS hydratační pleťový noční gel Hyaluronic Aloe Jelly, 50 ml',
+      // The tile states a GTIN; it is passed on so the identifier can be stored with the trade item.
+      ean: '3600542456630',
       category: 'Drogerie',
       unit: 'l',
       unitPrice: 3980,

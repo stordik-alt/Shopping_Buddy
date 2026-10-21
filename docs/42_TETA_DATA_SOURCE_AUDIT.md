@@ -1,6 +1,6 @@
 # 42 — Teta drogerie: technický audit zdroje a návrh importeru
 
-Stav: **návrh, nic není nasazeno ani zapojeno do produkce.** Přístup k `tetadrogerie.cz` (DNS) v tomto prostředí nefungoval, proto nebyla ověřena žádná odpověď e-shopu.
+Stav: **zdroj je ověřen živě (2026-10-21/22), sběr i import jsou implementované; ostrý import do produkce ještě probíhá.** Původní stav (2026-10-19) byl „návrh, nic není nasazeno" — ten je zachovaný níže jako historie auditu, aktuální stav je na konci dokumentu.
 
 ## Doložené (zadání)
 Veřejný katalog `https://www.tetadrogerie.cz/eshop/produkty` a `.../produkty/vse` zobrazuje přes 10 000 online produktů: názvy, ceny, jednotkové ceny, značky, některé akční a klubové nabídky. **Neověřeno:** EAN, ceny kamenných prodejen, robots.txt/podmínky, existence API či sitemapy, stránkování, struktura HTML/JSON.
@@ -59,3 +59,38 @@ pnpm teta:fetch-public --pages=2 --products=40 --out=data/external/teta-pilot.js
 ```
 
 Výstup je **výzkumný dataset**, ne importní feed. Ceny jsou záměrně vedeny jako kandidáti bez automatického rozlišení běžné/akční/klubové ceny; pokud stránka uvádí více cen, parser přidá varování. Sběr nevolá interní API, nezapisuje do databáze, neregistruje konektor a nezavádí cron. První pilot musí být spuštěn lokálně, zkontrolován na skutečných HTML odpovědích a teprve potom lze zpřesnit parser nebo připravit import.
+
+## Ověření nad skutečnými odpověďmi Tety (2026-10-21/22)
+
+Otázky z části „Nutné ověřit" mají odpověď — vše bylo ověřeno živě na `www.tetadrogerie.cz`:
+
+| Otázka | Odpověď |
+|---|---|
+| robots.txt a podmínky | `robots.txt` existuje a blokuje `/api/`, `/price`, `/inventory`, `/taxon`, `/searchtext`, `/nakupni-kosik/*`, `/muj-ucet/*`, `/logout`, `/order/*`, `/_nuxt/`. `Crawl-delay` není stanoven; aplikace si sama drží **≥ 1 s** mezi požadavky. Čtou se jen veřejné HTML stránky, nikdy interní API. |
+| Technický zdroj dat | Nuxt aplikace; data jsou v `<script id="__NUXT_DATA__">` ve formátu **devalue-flatten**. Viz `lib/ingestion/teta-payload.ts`. |
+| Stránkování | `/eshop/produkty/vse` vrací `pagination {currentPage, lastPage:250, itemsPerPage:40, totalItems:10000}` — **to je limit platformy**, ne skutečná velikost katalogu. Po 14 hlavních kategoriích je katalog **13 360 produktů** (341 stránek). Sitemap (`/__sitemap__/cs-CZ.xml`) uvádí 37 519 URL, většina mimo e-shop. |
+| Stabilní ID | 15místný číselný kód produktu (`code`), slug a `variantId`. Kód je použitý jako `externalId`. |
+| EAN | **Teta EAN nepublikuje** — hledáno v HTML i v payloadu (`ean`, `barcode`, `gtin`), shoda je pouze uvnitř názvů obrázků. EAN se proto doplní z DM (`gtin` z tile API). |
+| Balení a jednotková cena | `bbyPrices.unit_price` (jednotka `KS`/`LIT`/`KG`/`M`/`PD`) a atribut `OBSAH_BALENI` („100 ks"), `POCET_JEDNOTEK_V_BALENI`. Jednotka `KS` u multipacku je nejistá — `product_packages` zapisuje jen potvrzené počty kusů. |
+| Akce a jejich platnost | **Platnost akce Teta neuvádí nikde.** `bbyPrices.acmd` je akční cena, `bbyPrices.sale` sleva v %, `bbyPrices.zcmd` běžná cena. `item.originalPrice` je třetí, vyšší údaj, který se na stránce nezobrazuje → zahazen. Bez konce platnosti není akce deal (CLAUDE.md §15) — uloží se běžná cena, akční cena zůstane v NDJSON záznamu jako `price`/`discountPercent`. |
+| Klubu a ceny poboček | Ceny jsou online, řetězcové (`priceScope: CHAIN`, `storeLocationId: null`). Teta nemá v aplikaci pobočky a **nejsou vymyšlené** (CLAUDE.md §14). |
+
+### Dekódování Nuxt payloadu — `lib/ingestion/teta-payload.ts`
+
+Payload je devalue-*flatten*: kořen je `V[0] = ["ShallowReactive", 1]`, klíč slotu je index do pole `V` a **číslo ve slotu je hodnota, ne reference na jiný slot**. Klasický devalue decoder tohle popletne a vrátí cizí objekty (v prototypu se `price` resolvovalo na taxon) — decoder v ANITCE tohle rozlišuje a je na to i fixture test.
+
+Testy: `lib/ingestion/teta-payload.test.ts` běží proti uloženému reálnému payloadu (`lib/ingestion/fixtures/teta-listing-payload.json.gz`, `teta-detail-payload.json.gz`), takže regrese dekodéru se chytí.
+
+### Dvouvrstvý sběr — `lib/ingestion/teta-collector.ts`
+
+1. **Listovací stránky** kategorií → jméno, kód, cena, jednotková cena, dostupnost, kategorie.
+2. **Detailní stránky produktů** → balení, značka, popis, atributy.
+
+Sběr je **resumovatelný** (stavový soubor `data/external/teta-collect-state.json` si pamatuá hotové stránky), zapisuje NDJSON (`data/external/teta-catalog-listing.ndjson`, `…-detail.ndjson`) a nikdy nezapisuje do databáze. CLI: `pnpm teta:collect -- --mode=list|detail`, CI: `.github/workflows/teta-catalog-collect.yml` (workflow_dispatch, volitelné pokračování z předchozího běhu).
+
+### Normalizace, import a párování (2026-10-22)
+
+- `lib/ingestion/teta-catalog.ts` — záznam katalogu (haléře → Kč, kategorie, značka, balení, jednotková cena, validace).
+- `lib/ingestion/teta-import.ts` — dávkový import (500/řádek) do `products` → `product_packages` → `trade_items` → `retailer_product_refs` → `prices`; **dry run je default**, `--apply` zapisuje.
+- `lib/product-identity-teta.ts` — párování s existujícími produkty: blokování přes `pg_trgm` nad `products.search_name`, deterministický skórer, **automatické spojení jen při jednoznačné shodě**, jinak `review_required` s reportem v `data/external/teta-identity-review.json`.
+- Migrace `0116_teta_source.sql` — `product_source` enum += `teta`, `stores.chain = 'Teta'`.

@@ -115,6 +115,10 @@ Ingestion covers retailer/store data, prices, promotions/flyers, recipes, receip
 
 Products are not identified by display name alone. Preserve brand, variant, package size, unit, normalized quantity, barcode/external references where available. Do not collapse products solely because names look similar.
 
+Teta drogerie is ingested from its public online catalog (Nuxt payload in the public HTML, two layers: category listings and product pages), collected at one request per second with an identifying User-Agent, resumable, and never from a robots-restricted endpoint. The import is dry-run by default (`pnpm db:import-teta`), writes in batches, and is idempotent. Teta publishes no barcode and no promotion validity: the everyday price is stored as the regular price, prices are chain-scope with no branch (Teta has no store locations in the app and none are invented), and the identity matching against existing products links automatically only on unambiguous evidence, otherwise `review_required` in a review report. The concept and the verified findings are in `docs/42_TETA_DATA_SOURCE_AUDIT.md`; the identity rules are in `docs/44_PRODUCT_IDENTITY_MATCHING.md`.
+
+DM's per-SKU barcode (GTIN) is no longer discarded: it is validated for length and check digit, written on the product's trade item as `source_confirmed`, and a barcode already owned by another trade item is reported as a conflict instead of being overwritten. Teta products inherit it through the shared canonical product row.
+
 ## 12. UI and ANITKA visual identity
 
 ANITKA is mobile-first. Important data-driven screens must handle loading, success, empty and error states. The top-left mascot button opens the UI-only assistant chat on mobile and desktop; it does not send user messages to an LLM, and the chat states that limitation.

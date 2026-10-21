@@ -1764,9 +1764,18 @@ export async function persistNamedPackageEvidence(evidence: NamedPackageEvidence
     if (!Number.isFinite(quantity) || quantity <= 0) continue
 
     const explicit = item.package != null
-    const packageCount = packageSize.packageCount ?? null
-    const packageUnitQuantity = packageSize.packageUnitQuantity ?? null
-    const packageUnit = packageSize.packageUnit ?? null
+    // The inner structure of a pack (how many pieces, of what size) is only stored when it is
+    // complete: the database requires the piece count and the unit quantity to be positive and
+    // stated together. A half-stated structure is dropped rather than written as a broken row.
+    const innerCount = packageSize.packageCount ?? null
+    const innerQuantity = packageSize.packageUnitQuantity ?? null
+    const innerUnit = packageSize.packageUnit ?? null
+    const hasInnerStructure = innerCount !== null && innerCount > 0
+      && innerQuantity !== null && innerQuantity > 0
+      && innerUnit !== null
+    const packageCount = hasInnerStructure ? innerCount : null
+    const packageUnitQuantity = hasInnerStructure ? innerQuantity : null
+    const packageUnit = hasInnerStructure ? innerUnit : null
     const packageType = packageSize.packageType ?? null
     const key = item.productId + ':' + packageSize.unit + ':' + quantity
     const existing = unique.get(key)

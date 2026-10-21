@@ -34,6 +34,19 @@ export const TETA_ATTRIBUTE_PACKAGE_TYPE = 'DRUH_BALENI'
 
 const round2 = (value: number): number => Math.round(value * 100) / 100
 
+/**
+ * A package size, in the unit the app stores it (kilogrammes, litres, pieces).
+ *
+ * Teta states small packages in grams and millilitres ("4,8 g", "2 x 4,5 g"), and the app stores
+ * them in kilogrammes and litres. Two decimals are not enough: 4,8 g is 0,0048 kg, and rounding
+ * that to two decimals gives 0 kg — a package size of zero, which the database refuses and which
+ * would silently lose the retailer's statement. Six decimals keep a stated size positive and
+ * exact to the milligram.
+ */
+const PACKAGE_SIZE_PRECISION = 1_000_000
+
+const roundPackageSize = (value: number): number => Math.round(value * PACKAGE_SIZE_PRECISION) / PACKAGE_SIZE_PRECISION
+
 export type TetaCatalogProduct = {
   /** Teta's own product code (15 digits) — the idempotency key of this record. */
   externalId: string
@@ -206,40 +219,46 @@ export function parseTetaPackageText(text: string | null | undefined): Normalize
 
   if (quantity.unit === 'ks') {
     // A piece count is the package: "100 ks" is 100 pieces of 1 piece.
+    const pieces = Math.round(quantity.value * quantity.multipackCount)
+    // A fraction of a piece is not a pack ("0,4 ks"): there is nothing to store, and the caller
+    // reports the statement as unreadable instead of storing a package of zero pieces.
+    if (pieces < 1) return null
     return {
-      quantity: quantity.value * quantity.multipackCount,
+      quantity: pieces,
       unit: 'ks',
-      packageCount: quantity.multipackCount > 1 ? quantity.multipackCount : Math.round(quantity.value),
+      packageCount: quantity.multipackCount > 1 ? quantity.multipackCount : pieces,
       packageUnitQuantity: 1,
       packageUnit: 'ks',
     }
   }
   if (quantity.unit === 'g' || quantity.unit === 'kg') {
     // "8 x 100 g" is 800 g in total; the inner size is kept in the package-count fields.
-    const totalKg = (quantity.baseValue * quantity.multipackCount) / 1000
+    const totalKg = roundPackageSize((quantity.baseValue * quantity.multipackCount) / 1000)
     if (totalKg <= 0) return null
+    const innerKg = roundPackageSize(quantity.baseValue / 1000)
     return {
-      quantity: round2(totalKg),
+      quantity: totalKg,
       unit: 'kg',
-      ...(quantity.multipackCount > 1
+      ...(quantity.multipackCount > 1 && innerKg > 0
         ? {
             packageCount: quantity.multipackCount,
-            packageUnitQuantity: round2(quantity.baseValue / 1000),
+            packageUnitQuantity: innerKg,
             packageUnit: 'kg' as const,
           }
         : {}),
     }
   }
   // ml / l
-  const totalL = (quantity.baseValue * quantity.multipackCount) / 1000
+  const totalL = roundPackageSize((quantity.baseValue * quantity.multipackCount) / 1000)
   if (totalL <= 0) return null
+  const innerL = roundPackageSize(quantity.baseValue / 1000)
   return {
-    quantity: round2(totalL),
+    quantity: totalL,
     unit: 'l',
-    ...(quantity.multipackCount > 1
+    ...(quantity.multipackCount > 1 && innerL > 0
       ? {
           packageCount: quantity.multipackCount,
-          packageUnitQuantity: round2(quantity.baseValue / 1000),
+          packageUnitQuantity: innerL,
           packageUnit: 'l' as const,
         }
       : {}),
@@ -293,7 +312,7 @@ export function resolveTetaPackage(attributes: TetaDetailAttribute[]): TetaPacka
 /** A short, stable description of the package structure, used as the trade item's signature. */
 export function tetaPackageSignature(packageSize: NormalizedPackage | null | undefined): string | null {
   if (!packageSize || !(packageSize.quantity > 0)) return null
-  const total = `${round2(packageSize.quantity)}${packageSize.unit}`
+  const total = `${roundPackageSize(packageSize.quantity)}${packageSize.unit}`
   if (packageSize.packageCount && packageSize.packageCount > 1) {
     return `${packageSize.packageCount}x${total}`
   }

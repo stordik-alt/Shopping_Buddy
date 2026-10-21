@@ -52,6 +52,35 @@ describe('Teta package text', () => {
     expect(parseTetaPackageText('balení')).toBeNull()
     expect(parseTetaPackageText(undefined)).toBeNull()
   })
+
+  it('keeps a size smaller than a gram instead of rounding it to nothing', () => {
+    // A 4,8 g lip balm is 0,0048 kg. Rounded to two decimals that is 0 kg — a package of zero,
+    // which the database refuses and which would lose the retailer's statement.
+    expect(parseTetaPackageText('4,8 g')).toEqual({ quantity: 0.0048, unit: 'kg' })
+    expect(parseTetaPackageText('2,2 ml')).toEqual({ quantity: 0.0022, unit: 'l' })
+  })
+
+  it('keeps the inner size of a multipack of grams', () => {
+    // The inner size of "2 x 4,5 g" is 0,0045 kg; rounded to two decimals it would be 0, and a
+    // package structure with a zero size is not a structure at all.
+    expect(parseTetaPackageText('2 x 4,5 g')).toEqual({
+      quantity: 0.009,
+      unit: 'kg',
+      packageCount: 2,
+      packageUnitQuantity: 0.0045,
+      packageUnit: 'kg',
+    })
+  })
+
+  it('refuses a fraction of a piece', () => {
+    // There is no pack of 0,4 pieces: the statement cannot be stored as a package size.
+    expect(parseTetaPackageText('0,4 ks')).toBeNull()
+  })
+
+  it('tells two small packages of one product apart in the trade item signature', () => {
+    expect(tetaPackageSignature({ quantity: 0.0048, unit: 'kg' })).toBe('0.0048kg')
+    expect(tetaPackageSignature({ quantity: 0.0092, unit: 'kg' })).toBe('0.0092kg')
+  })
 })
 
 describe('Teta unit price', () => {

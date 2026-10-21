@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
+import { describeError } from '@/lib/errors'
 import { importTetaCatalog, readTetaCatalogProducts, TETA_SOURCE } from '@/lib/ingestion/teta-import'
 
 // Imports Teta's collected catalog into the app's database.
@@ -86,6 +87,8 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error))
+  // The whole cause chain: a database error is wrapped by the query layer, and the reason it
+  // gives (which constraint, which value) is in the cause, not in the wrapper's message.
+  console.error(describeError(error))
   process.exitCode = 1
 })

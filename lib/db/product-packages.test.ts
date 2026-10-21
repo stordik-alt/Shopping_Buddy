@@ -343,6 +343,42 @@ describe('automatic product package catalog', () => {
     })
   })
 
+  it('stores a small package size and drops a broken inner structure', async () => {
+    // A stated size smaller than a gram is still a size: 4,8 g is 0,0048 kg, not 0 kg. The
+    // inner structure of a pack is only stored when it is complete — the database requires the
+    // piece count and the unit quantity to be positive and stated together.
+    const productId = await addProduct('__Test small package ' + tag)
+
+    await persistNamedPackageEvidence([{
+      productId,
+      name: '__Test small package 4,8 g ' + tag,
+      regularPrice: 60,
+      unit: 'ks',
+      unitPrice: 60,
+      observedAt: '2026-10-05',
+      package: { quantity: 0.0048, unit: 'kg' },
+    }])
+    await persistNamedPackageEvidence([{
+      productId,
+      name: '__Test small package 2 x 4,5 g ' + tag,
+      regularPrice: 60,
+      unit: 'ks',
+      unitPrice: 60,
+      observedAt: '2026-10-05',
+      package: { quantity: 0.009, unit: 'kg', packageCount: 2, packageUnitQuantity: 0, packageUnit: 'kg' },
+    }])
+
+    const packages = await db.query.productPackages.findMany({
+      where: eq(schema.productPackages.productId, productId),
+    })
+    expect(packages.map((row) => row.quantity).sort((a, b) => a - b)).toEqual([0.005, 0.009])
+    const multipack = packages.find((row) => row.quantity === 0.009)
+    expect(multipack).toMatchObject({ unit: 'kg', source: 'retailer-published' })
+    expect(multipack?.packageCount).toBeNull()
+    expect(multipack?.packageUnitQuantity).toBeNull()
+    expect(multipack?.packageUnit).toBeNull()
+  })
+
   it('does not learn a package size from receipt prices', async () => {
     const productId = await addProduct(`__Test receipt balení ${tag}`)
     const storeId = (await db.query.stores.findFirst())!.id

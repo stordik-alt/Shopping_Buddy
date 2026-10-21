@@ -9,7 +9,7 @@ The Worker is the production application host. Receipt files use Cloudflare R2 (
 | File | Purpose |
 |---|---|
 | `open-next.config.ts` | OpenNext config. Next's data cache (and the few prerendered pages) lives in the R2 bucket `shopping-buddy-next-cache`, so `unstable_cache` in `lib/db/cached-reads.ts` works as on Vercel (see "Data cache" below). Global catalog caches also use Next cache tags for explicit invalidation after successful ingestion or catalog mutations; no queue or Durable Object is required |
-| `wrangler.jsonc` | Worker `shopping-buddy` plus `env.staging` (`shopping-buddy-staging`, no crons). Each has its own data-cache bucket (`NEXT_INC_CACHE_R2_BUCKET`). Also sets `nodejs_compat`, `STORAGE_PROVIDER=r2`, `limits.cpu_ms` 300000, logs, and the 26 cron triggers |
+| `wrangler.jsonc` | Worker `shopping-buddy` plus `env.staging` (`shopping-buddy-staging`, no crons). Each has its own data-cache bucket (`NEXT_INC_CACHE_R2_BUCKET`). Also sets `nodejs_compat`, `STORAGE_PROVIDER=r2`, `limits.cpu_ms` 300000, logs, and the 28 cron triggers (29 jobs in `vercel.json`, two of which share one expression) |
 | `cloudflare/worker.ts` | Worker entry: OpenNext's `fetch` plus a `scheduled()` handler for Cron Triggers |
 | `cloudflare/cron.ts` | Maps a fired cron expression to its path(s) in `vercel.json`, which stays the one list of jobs. Calls the route with `Authorization: Bearer $CRON_SECRET`, like Vercel Cron |
 | `cloudflare/shims/sharp.js` | Throwing stand-in for `sharp` in the Cloudflare build only (see §6) |

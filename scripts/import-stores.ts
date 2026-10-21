@@ -4,8 +4,9 @@ import { importOsmStores, syncAlbertStoreFormats } from '@/lib/db/store-director
 // Imports the store chains' branches from OpenStreetMap (lib/db/store-directory.ts). The same
 // import runs weekly as the cron /api/cron/import-stores; this is for the first fill and for
 // checking what an import would do. Afterwards Albert's hypermarkets are moved to their own chain
-// (lib/stores/albert-formats.ts; weekly as /api/cron/albert-store-formats). Dry run by default —
-// prints the plan and writes nothing.
+// (lib/stores/albert-formats.ts; weekly from GitHub Actions —
+// .github/workflows/albert-store-formats.yml, since albert.cz refuses the Worker's requests).
+// Dry run by default — prints the plan and writes nothing.
 //   pnpm db:import-stores           (dry run)
 //   pnpm db:import-stores --apply   (writes to the database in .env.local)
 async function main() {

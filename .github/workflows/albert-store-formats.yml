@@ -1,0 +1,61 @@
+name: Albert store formats
+
+# Moves the Albert branches that are hypermarkets to the "Albert Hypermarket" chain, per albert.cz's
+# own store pages (lib/stores/albert-formats.ts). It reads www.albert.cz, which answers HTTP 403 to
+# every request from Cloudflare Workers' egress range, so it runs here rather than from the Worker's
+# cron — the same reason Albert's flyer import runs from GitHub Actions
+# (.github/workflows/manual-albert-flyer-import.yml).
+#
+# It runs an hour after the Worker's OpenStreetMap store import (Mondays 03:00 UTC), so the branches
+# that import added are sorted in the same run — the order the two crons had before.
+#
+# The run cannot invalidate the app's cache (outside a Next request there is none to invalidate), so
+# the store list the app serves refreshes within its own one-day revalidation.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 4 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: albert-store-formats
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Move Albert's hypermarkets to their chain
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: ${{ secrets.NEON_PROD_DATABASE_URL }}
+      DATABASE_URL_UNPOOLED: ${{ secrets.NEON_PROD_DATABASE_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::NEON_PROD_DATABASE_URL is required"
+            exit 1
+          fi
+
+      - name: Move the hypermarkets
+        run: pnpm exec tsx scripts/albert-store-formats.ts --apply

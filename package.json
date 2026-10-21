@@ -28,6 +28,7 @@
     "db:set-admin": "dotenv -e .env.local -- tsx scripts/set-admin.ts",
     "db:import-stores": "dotenv -e .env.local -- tsx scripts/import-stores.ts",
     "db:albert-flyers": "dotenv -e .env.local -- tsx scripts/albert-flyers.ts",
+    "db:albert-store-formats": "dotenv -e .env.local -- tsx scripts/albert-store-formats.ts",
     "db:penny-flyers": "dotenv -e .env.local -- tsx scripts/penny-flyers.ts",
     "db:billa-flyers": "dotenv -e .env.local -- tsx scripts/billa-flyers.ts",
     "db:lidl-flyers": "dotenv -e .env.local -- tsx scripts/lidl-flyers.ts",

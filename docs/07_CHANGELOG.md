@@ -1,3 +1,12 @@
+## 2026-10-21 — Třídění Albertových hypermarketních poboček běží z GitHub Actions, ne z cronu Workera
+
+- Změřeno 2026-10-21: albert.cz odpovídá HTTP 403 na každý požadavek z výstupního rozsahu Cloudflare Workers. Worker's cron `/api/cron/albert-store-formats` tak mohl jen selhat — odpovídal HTTP 502 `Albert store sitemap failed: HTTP 403`; stejné URL z runneru GitHub Actions a z běžného stroje odpovídají 200.
+- Úloha, která přesouvá Albertovy hypermarketní pobočky do řetězce "Albert Hypermarket", běží odtud: `.github/workflows/albert-store-formats.yml` (pondělí 04:00 UTC, hodinu po importu poboček z OpenStreetMap — ten zůstává na Workeru, jeho mapové servery blokované nejsou) a na vyžádání přes `workflow_dispatch`.
+- Cron routa `/api/cron/albert-store-formats` a její záznam v `vercel.json` (i odpovídající trigger ve `wrangler.jsonc`) jsou zrušené. Stejnou synchronizaci dělá nový `scripts/albert-store-formats.ts` (`pnpm db:albert-store-formats [--apply]`, bez `--apply` je to dry run, stejně jako u ostatních skriptů).
+- Běh mimo Next request nemůže zrušit cache aplikace (není ji co zrušit), takže se seznam obchodů, který aplikace servíruje, obnoví v rámci vlastního jednodenního revalidu.
+- Stav (dry run 2026-10-21): 90 hypermarketů na albert.cz, všechny stránky čitelné; 86 už je v "Albert Hypermarket", 1 blokováno (na téže adrese už hypermarketní pobočka stojí), **0 k přesunu** — řetězce jsou v souladu; 3 hypermarkety bez odpovídající pobočky (Fajtlova 1090/1 Praha 6, Vídeňská třída 684/69 Znojmo, Strojírenská 3581 Havlíčkův Brod), které by přidal import z OpenStreetMap, až jeho mapové servery začnou odpovídat.
+- Změněno nic jiného: import cen, produkty, ceny, rozpočty ani UI se nemění.
+
 ## 2026-10-21 — Přesun produkční databáze do regionu Frankfurt
 
 - Produkční databáze přesunuta z Neon projektu ve Virginii (`us-east-1`) do čistého projektu `raspy-wind-05090017` ve Frankfurtu (`aws-eu-central-1`), aby byla blíž uživatelům v České republice. Data, schéma i účty byly přeneseny `pg_dump`/`pg_restore`; nic nebylo vytvořeno od nuly.

@@ -137,6 +137,8 @@ Do not make backend development changes directly on main. Cloudflare production 
 
 Cloudflare Workers owns the current production cron execution. `vercel.json` remains the repository's schedule list used to keep the Worker triggers and routes aligned; it does not mean Vercel runs production crons. Do not arbitrarily reduce, duplicate, or move jobs without measuring Neon compute, data transfer, import correctness and downstream effects.
 
+**Exception, measured 2026-10-21:** one job runs from GitHub Actions, not from the Worker — albert.cz answers HTTP 403 to every request from Cloudflare Workers' egress range, so the Worker's cron could only fail (`Albert store sitemap failed: HTTP 403`, HTTP 502). It is `.github/workflows/albert-store-formats.yml` (moving Albert's hypermarket branches to the "Albert Hypermarket" chain, Mondays 04:00 UTC), which replaces the cron `/api/cron/albert-store-formats`; that route and its cron entry are gone. Every other job — including the OpenStreetMap store import, whose map servers are not blocked — keeps its Worker cron.
+
 ## 16. Cloudflare production
 
 Cloudflare Workers/OpenNext is the current production host; Cloudflare R2 is the private receipt/object store. Staging and deployment details are documented in `docs/cloudflare-deployment.md`. Vercel references in older audit and migration documents describe historical states and are not current operating instructions. Vercel is being removed from the project entirely (see section 2).

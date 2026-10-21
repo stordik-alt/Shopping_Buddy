@@ -373,7 +373,7 @@ async function writeBatch(
 
   const tradeItemIds = new Map<string, string>()
   if (tradeItemValues.length > 0) {
-    await db
+    const inserted = await db
       .insert(schema.tradeItems)
       .values(
         tradeItemValues.map((item) => ({
@@ -384,6 +384,7 @@ async function writeBatch(
         })),
       )
       .onConflictDoNothing()
+      .returning({ id: schema.tradeItems.id })
     // The trade item that is already there for this package is found by the package it holds.
     const packageIds = [...new Set(tradeItemValues.map((item) => item.productPackageId))]
     for (const part of chunks(packageIds, 500)) {
@@ -395,7 +396,9 @@ async function writeBatch(
         if (row.productPackageId) tradeItemIds.set(row.productPackageId, row.id)
       }
     }
-    result.tradeItems += tradeItemValues.length
+    // A package that already had a trade item (the same product from another retailer) keeps that
+    // one — the trade item is the product's package, not the retailer's row of it.
+    result.tradeItems += inserted.length
   }
 
   // 4. The retailer references.

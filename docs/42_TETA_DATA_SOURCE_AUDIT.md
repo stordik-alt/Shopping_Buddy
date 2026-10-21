@@ -94,3 +94,9 @@ Sběr je **resumovatelný** (stavový soubor `data/external/teta-collect-state.j
 - `lib/ingestion/teta-import.ts` — dávkový import (500/řádek) do `products` → `product_packages` → `trade_items` → `retailer_product_refs` → `prices`; **dry run je default**, `--apply` zapisuje.
 - `lib/product-identity-teta.ts` — párování s existujícími produkty: blokování přes `pg_trgm` nad `products.search_name`, deterministický skórer, **automatické spojení jen při jednoznačné shodě**, jinak `review_required` s reportem v `data/external/teta-identity-review.json`.
 - Migrace `0116_teta_source.sql` — `product_source` enum += `teta`, `stores.chain = 'Teta'`.
+
+### Ověření proti vykreslené stránce — `scripts/teta-verify-rendering.ts`
+
+Dekódování payloadu „funguje“ a „odpovídá tomu, co vidí zákazník“ nejsou totéž: pole se dá dekódovat ze špatného slotu a payload může nést cenu, kterou stránka nikdy neukáže. Proto `pnpm teta:verify-rendering` znovu načte vzorek produktových stránek a porovná je se sběrem: jméno, běžná cena, akční cena, značka a velikost balení musejí být v textu vykreslené stránky.
+
+Prohlížeč není potřeba. Serverem vykreslené HTML nese stejný text a headless prohlížeč by přidal jen požadavky na skripty webu (`/_nuxt/`), které `robots.txt` zakazuje. Stránky se čtou se stejnými pravidly jako sběr: `robots.txt` se respektuje, požadavky jsou identifikované a jde nejvýše jeden za sekundu.

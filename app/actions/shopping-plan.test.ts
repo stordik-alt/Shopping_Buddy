@@ -1,7 +1,7 @@
 import { eq, inArray, sql } from 'drizzle-orm'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getDb } from '@/lib/db/client'
-import { getStoreChains, saveMemberStoreSelection } from '@/lib/db/member-store-preferences'
+import { saveMemberStoreSelection } from '@/lib/db/member-store-preferences'
 import { getPinsForItems } from '@/lib/db/shopping-plan'
 import * as schema from '@/lib/db/schema'
 import { buildShoppingPlanAction, pinProductAction, unpinProductAction } from '@/app/actions/shopping-plan'
@@ -25,7 +25,21 @@ let tag = newTag()
 const createdProductIds: string[] = []
 const createdHouseholdIds: string[] = []
 const createdUserIds: string[] = []
+const createdStoreIds: string[] = []
 
+// The test's own chains, created here rather than taken from the catalog.
+//
+// The test branch is a copy of production, so it holds the real catalog — and a real chain is a
+// poor place to measure: the planner searches the whole catalog of that chain, and the cheapest
+// candidate wins, not the one the test set up. "Kuřecí prsa" in the Lidl catalog costs 149,90 Kč/kg
+// and beat a test product priced 150 Kč/kg by ten haléřů — the test failed for a reason that had
+// nothing to do with what it tested. A chain of the test's own has only the prices this file wrote,
+// so what the planner picks is what the test meant it to pick.
+const testChain = (name: string) => `__test_plan_${name}_${crypto.randomUUID().slice(0, 8)}`
+
+let lidlChain: string
+let albertChain: string
+let billaChain: string
 let lidlId: string
 let albertId: string
 let billaId: string
@@ -63,10 +77,14 @@ async function addItem(name: string, quantity = 1, unit: 'ks' | 'kg' | 'l' = 'ks
 }
 
 beforeAll(async () => {
-  const chains = await getStoreChains()
-  lidlId = chains.find((chain) => chain.chain === 'Lidl')!.id
-  albertId = chains.find((chain) => chain.chain === 'Albert')!.id
-  billaId = chains.find((chain) => chain.chain === 'Billa')!.id
+  lidlChain = testChain('lidl')
+  albertChain = testChain('albert')
+  billaChain = testChain('billa')
+  const [lidl, albert, billa] = await db.insert(schema.stores).values([{ chain: lidlChain }, { chain: albertChain }, { chain: billaChain }]).returning()
+  lidlId = lidl.id
+  albertId = albert.id
+  billaId = billa.id
+  createdStoreIds.push(lidl.id, albert.id, billa.id)
   categoryId = (await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Potraviny') }))!.id
 
   const result = await db.execute<{ id: string }>(sql`insert into neon_auth."user" (name, email, "emailVerified") values ('Plán', ${`plan-test-${crypto.randomUUID()}@example.com`}, false) returning id`)
@@ -99,6 +117,8 @@ afterAll(async () => {
   await db.delete(schema.products).where(inArray(schema.products.id, createdProductIds)) // cascades to prices and pins
   if (createdHouseholdIds.length > 0) await db.delete(schema.households).where(inArray(schema.households.id, createdHouseholdIds))
   if (createdUserIds.length > 0) await db.execute(sql`delete from neon_auth."user" where id in (${sql.join(createdUserIds.map((id) => sql`${id}::uuid`), sql`, `)})`)
+  // The test's own chains go last: prices and pins point at them, and the households are gone by now.
+  if (createdStoreIds.length > 0) await db.delete(schema.stores).where(inArray(schema.stores.id, createdStoreIds))
 }, 60_000)
 
 const linesOf = (plan: Awaited<ReturnType<typeof buildShoppingPlanAction>>['plan']) => plan.stores.flatMap((store) => store.lines)
@@ -113,13 +133,13 @@ describe('buildShoppingPlanAction', () => {
 
     const { plan } = await buildShoppingPlanAction({ maxStores: 1, priorityChainIds: [] })
     expect(plan.stores).toHaveLength(1)
-    expect(plan.stores[0].chain).toBe('Lidl')
+    expect(plan.stores[0].chain).toBe(lidlChain)
     expect(plan.total).toBe(40) // 2 l at 20 Kč/l
     const line = linesOf(plan)[0]
     expect(line.productId).toBe(lidl)
     expect(line.source).toBe('auto')
     // What buying it here saves against the other store.
-    expect(line.alternatives.find((alt) => alt.chain === 'Albert')).toMatchObject({ cost: 50, difference: 10 })
+    expect(line.alternatives.find((alt) => alt.chain === albertChain)).toMatchObject({ cost: 50, difference: 10 })
   })
 
   it('splits the list over two stores when that is clearly cheaper, and keeps to one when asked', async () => {
@@ -135,7 +155,7 @@ describe('buildShoppingPlanAction', () => {
     await addItem(`chleb ${tag}`, 1, 'kg')
 
     const two = (await buildShoppingPlanAction({ maxStores: 2, priorityChainIds: [] })).plan
-    expect(two.stores.map((store) => store.chain).sort()).toEqual(['Albert', 'Lidl'])
+    expect(two.stores.map((store) => store.chain).sort()).toEqual([albertChain, lidlChain].sort())
     expect(two.total).toBe(50) // milk at Lidl, bread at Albert
     const one = (await buildShoppingPlanAction({ maxStores: 1, priorityChainIds: [] })).plan
     expect(one.stores).toHaveLength(1)
@@ -153,7 +173,7 @@ describe('buildShoppingPlanAction', () => {
 
     const { plan } = await buildShoppingPlanAction({ maxStores: 3, priorityChainIds: [] })
     expect(plan.unplanned).toEqual([])
-    expect(linesOf(plan)[0]).toMatchObject({ needId: itemId, productId: product, chain: 'Lidl' })
+    expect(linesOf(plan)[0]).toMatchObject({ needId: itemId, productId: product, chain: lidlChain })
   })
 
   it('uses a pinned product instead of the automatic pick', async () => {
@@ -185,8 +205,8 @@ describe('buildShoppingPlanAction', () => {
     await pinProductAction({ itemId, storeId: albertId, productId: albertOther })
     const { plan } = await buildShoppingPlanAction({ maxStores: 2, priorityChainIds: [] })
     const line = linesOf(plan)[0]
-    expect(line.chain).toBe('Lidl') // Albert's pinned 80 loses to Lidl's automatic 50
-    expect(line.alternatives.find((alt) => alt.chain === 'Albert')?.cost).toBe(80)
+    expect(line.chain).toBe(lidlChain) // Albert's pinned 80 loses to Lidl's automatic 50
+    expect(line.alternatives.find((alt) => alt.chain === albertChain)?.cost).toBe(80)
   })
 
   it('restricts the plan to the user\'s chosen stores', async () => {
@@ -199,8 +219,8 @@ describe('buildShoppingPlanAction', () => {
 
     const result = await buildShoppingPlanAction({ maxStores: 2, priorityChainIds: [] })
     expect(result.usedNearbySelection).toBe(true)
-    expect(result.allowedChains.map((chain) => chain.chain)).toEqual(['Lidl'])
-    expect(result.plan.stores.map((store) => store.chain)).toEqual(['Lidl']) // Albert is cheaper but not in the user's area
+    expect(result.allowedChains.map((chain) => chain.chain)).toEqual([lidlChain])
+    expect(result.plan.stores.map((store) => store.chain)).toEqual([lidlChain]) // Albert is cheaper but not in the user's area
     expect(result.plan.total).toBe(60)
   })
 
@@ -212,9 +232,9 @@ describe('buildShoppingPlanAction', () => {
     await addItem(`caj ${tag}`, 1, 'ks')
 
     const plain = (await buildShoppingPlanAction({ maxStores: 1, priorityChainIds: [] })).plan
-    expect(plain.stores[0].chain).toBe('Lidl')
+    expect(plain.stores[0].chain).toBe(lidlChain)
     const preferred = (await buildShoppingPlanAction({ maxStores: 1, priorityChainIds: [albertId] })).plan
-    expect(preferred.stores[0].chain).toBe('Albert')
+    expect(preferred.stores[0].chain).toBe(albertChain)
     expect(preferred.stores[0].isPriority).toBe(true)
     expect(preferred.costOfPriority).toBe(30)
   })
@@ -241,7 +261,7 @@ describe('buildShoppingPlanAction', () => {
 
     const { plan } = await buildShoppingPlanAction({ maxStores: 1, priorityChainIds: [] })
     expect(plan.plannedCount).toBe(1)
-    expect(linesOf(plan)[0]).toMatchObject({ productId: offer, chain: 'Lidl', cost: 120, packages: 1, source: 'auto' })
+    expect(linesOf(plan)[0]).toMatchObject({ productId: offer, chain: lidlChain, cost: 120, packages: 1, source: 'auto' })
   })
 
   it('leaves an offer that states no unit price out of the plan rather than guessing its size', async () => {

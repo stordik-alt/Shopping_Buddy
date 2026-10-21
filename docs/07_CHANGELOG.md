@@ -1,3 +1,11 @@
+## 2026-10-21 — Izolace testů od produkčních poskytovatelů
+
+- `test/setup-test-database.ts` maže proměnné prostředí poskytovatelů, které `.env.local` obsahuje vedle databázových hesel (Azure Document Intelligence, Google Vision, VAPID, proměnné AI Gatewayu a Google OIDC). Testy tak běží stejnou cestou kódu jako v CI, kde tyto proměnné chybí.
+- Důvod: v 61 testech se jinak volala jiná větev kódu a testy padajily, i když byl kód v pořádku; u příjmu účtenek se navíc volalo skutečné Azure API s produkčním klíčem, takže běh testů utrácí peníze a sahá na cizí službu. Test, který danou službu potřebuje, si ji nastaví sám (například `app/actions/push.test.ts` generuje vlastní VAPID klíče) — vymazání mu nic nezkazí, protože setup soubor běží před každým testovacím souborem.
+- R2 a Neon Auth v izolaci nejsou: R2 testy si nastavují falešné hodnoty a mockují síť, Neon Auth je ve všech dotčených testech mockovaný. Proměnné, které se výslovně neuvádí, patří buď databázi, nebo konfiguraci hostingu.
+- `app/actions/shopping-plan.test.ts` si vytváří vlastní řetězce (`__test_plan_*`) místo použití katalogových. Testovací větev je kopií produkce, takže obsahuje skutečný katalog a plánovač hledá v celém katalogu daného řetězce — nejlevnější kandidát vyhrál, ne ten, který test připravil. "Kuřecí prsa" v katalogu Lidlu stojí 149,90 Kč/kg a porazilo testovací produkt za 150 Kč/kg o deset haléřů; test padal z důvodu, který neměl s testovanou věcí nic společného. Řetězec vytvořený testem obsahuje jen ceny zapsané tímto souborem, takže plánovač vybere přesně to, co test zamýšlel.
+- Změna se netýká aplikace ani produkční databáze: jde o testovací infrastrukturu.
+
 ## 2026-10-21 — Přesun produkční databáze do regionu Frankfurt
 
 - Produkční databáze přesunuta z Neon projektu ve Virginii (`us-east-1`) do čistého projektu `raspy-wind-05090017` ve Frankfurtu (`aws-eu-central-1`), aby byla blíž uživatelům v České republice. Data, schéma i účty byly přeneseny `pg_dump`/`pg_restore`; nic nebylo vytvořeno od nuly.

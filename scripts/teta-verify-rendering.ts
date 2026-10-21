@@ -34,7 +34,7 @@ export function normalizeText(value: string): string {
   return value
     .normalize('NFKD')
     .replace(/[̀-ͯ]/g, '')
-    .toLowerCase('cs-CZ')
+    .toLocaleLowerCase('cs-CZ')
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
     .trim()
     .replace(/\s+/g, ' ')
@@ -91,7 +91,7 @@ async function main(): Promise<void> {
   if (!Number.isFinite(count) || count <= 0) throw new Error(`Invalid --count: ${arg('count', '')}`)
 
   const records = await readTetaCatalogRecords(recordsPath)
-  const all = [...records.values()].filter((record): record is TetaCatalogProduct => record !== null)
+  const all = [...records.values()]
   if (all.length === 0) throw new Error(`No records in ${recordsPath}`)
 
   const sample = pickSample(all, count)

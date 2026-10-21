@@ -52,12 +52,13 @@ pnpm db:migrate-project --project-id <neon-project-id>
 
 It reads the source from `DATABASE_URL_UNPOOLED` in `.env.local`, asks `neonctl` for the target's connection string (so no credential appears in a command line), dumps the source, restores it into the target, and finally compares the row count of every table between source and target — a mismatch fails the run rather than being reported as a success. The target must have Neon Auth enabled and a `test` branch, like the current one.
 
-Two things break a plain `pg_dump`/`pg_restore` here, and the script handles both:
+Three things break a plain `pg_dump`/`pg_restore` here, and the script handles all three:
 
 - **`neon_auth.project_config` must not come from the dump.** The row names the endpoint and the trusted origins of the Neon Auth instance; carried over, it would point the new project's auth at the old project's endpoint. The script reads the target's own row before the restore and writes it back afterwards. Because the row lives on the `neon_auth` schema, it also has to be dropped before the restore — otherwise `pg_restore --clean` cannot drop that schema and the restore stops on `cannot drop schema neon_auth because other objects depend on it`.
 - **The `neon_auth` tables must be owned by the `neon_auth` role.** The restore runs with `--no-owner`, so the tables land with the restoring role (`neondb_owner`), while Neon Auth connects as `neon_auth` and could then not manage its own sessions, JWKS and configuration. The script transfers the ownership back.
+- **The signing key (`neon_auth.jwks`) must not come from the dump.** The row restored from a dump has empty `alg` and `crv` columns, because that is how the older auth service wrote it. Only the older service can read such a row; the newer one answers HTTP 500 on `/get-session`, and sign-in then fails with `[mintSessionDataCookie] Failed to mint session_data cookie` while everything else — the session row, the schema, the permissions — looks correct. The script therefore deletes the restored key, and the target service generates its own on the first `/get-session` (with `alg='EdDSA'`, `crv='Ed25519'`).
 
-The `neon_auth` private signing key does come from the dump, and that is intended: the same key keeps the existing session tokens valid. It also means the old and the new project can both validate the same tokens until the old one is retired.
+**Consequence: a moved database invalidates the existing sessions.** The new key does not sign the old session tokens, so everyone has to sign in again. The accounts themselves survive with their password hashes; only the sessions end. Keep this in mind when planning a move, and tell the users in advance.
 
 ## Monitoring
 

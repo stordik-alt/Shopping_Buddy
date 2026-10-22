@@ -85,7 +85,7 @@ async function downloadSourceImage(url: string) {
 }
 
 function plainMetadataValue(value: unknown): string {
-  return typeof value === 'string' ? value.replace(/<[^>]*>/g, '').trim() : ''
+  return typeof value === 'string' ? value.trim() : ''
 }
 
 /**

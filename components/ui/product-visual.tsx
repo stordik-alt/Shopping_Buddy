@@ -774,6 +774,96 @@ const DRAWINGS: Record<ProductVisual['shape'], (c: Colors) => ReactNode> = {
       <circle cx="44" cy="41" r="1.5" fill={LABEL} />
     </>
   ),
+  'contact-lenses': (c) => (
+    <>
+      <path d="M10 33c0-4 4-7 9-7h26c5 0 9 3 9 7v14c0 4-4 7-9 7H19c-5 0-9-3-9-7z" fill={c.primary} />
+      <ellipse cx="23" cy="39" rx="8" ry="6" fill={LABEL} />
+      <ellipse cx="41" cy="39" rx="8" ry="6" fill={LABEL} />
+      <path d="M16 27l4-8h22l5 8" fill={c.secondary} />
+      <circle cx="23" cy="39" r="2" fill={c.secondary} />
+      <circle cx="41" cy="39" r="2" fill={c.secondary} />
+    </>
+  ),
+  'hair-accessories': (c) => (
+    <>
+      <path d="M13 35c2-9 11-14 20-12 8 2 12 9 10 17-2 8-10 12-18 10-9-2-14-8-12-15z" fill="none" stroke={c.primary} strokeWidth="6" />
+      <path d="M39 19l10 10-5 5-10-10z" fill={c.secondary} />
+      <path d="M39 19l-5 5M44 24l-5 5M48 28l-5 5" stroke={LABEL} strokeWidth="1.8" />
+      <path d="M19 47l-5 6M24 50l-2 7M29 50l1 7" stroke={c.secondary} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  'cosmetic-case': (c) => (
+    <>
+      <path d="M12 29c0-4 4-7 8-7h24c5 0 8 3 8 7v21c0 4-3 7-8 7H20c-4 0-8-3-8-7z" fill={c.primary} />
+      <path d="M21 22v-6c0-4 4-7 11-7s11 3 11 7v6" fill="none" stroke={c.secondary} strokeWidth="3" />
+      <path d="M13 32h38" stroke={c.secondary} strokeWidth="2.5" />
+      <circle cx="32" cy="42" r="7" fill={LABEL} />
+      <circle cx="32" cy="42" r="4" fill={c.accent} />
+    </>
+  ),
+  'nail-tips': (c) => (
+    <>
+      <path d="M12 35c0-7 4-12 9-12s9 5 9 12v12c0 5-4 8-9 8s-9-3-9-8z" fill={c.primary} />
+      <path d="M28 26c0-7 4-12 9-12s9 5 9 12v12c0 5-4 8-9 8s-9-3-9-8z" fill={c.secondary} />
+      <path d="M40 39c0-6 3-10 7-10s7 4 7 10v9c0 4-3 6-7 6s-7-2-7-6z" fill={c.primary} />
+      <path d="M15 35h12M31 26h12M43 39h8" stroke={LABEL} strokeWidth="2.5" strokeLinecap="round" />
+    </>
+  ),
+  'waxing-kit': (c) => (
+    <>
+      <path d="M12 17h23v33H12z" fill={c.primary} />
+      <path d="M16 22h15v23H16z" fill={LABEL} />
+      <path d="M20 25v16M26 25v16" stroke={c.secondary} strokeWidth="2" />
+      <path d="M39 34h15v17c0 4-3 6-7 6s-8-2-8-6z" fill={c.secondary} />
+      <path d="M38 34h17v-4H38zM44 30l3-14" stroke={c.primary} strokeWidth="3" strokeLinecap="round" />
+      <path d="M42 43h9" stroke={LABEL} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  'toothbrush-heads': (c) => (
+    <>
+      <path d="M20 38h8v20h-8zM42 38h8v20h-8z" fill={c.secondary} />
+      <rect x="15" y="12" width="18" height="28" rx="8" fill={c.primary} />
+      <rect x="37" y="12" width="18" height="28" rx="8" fill={c.primary} />
+      <path d="M19 19v8M23 17v10M27 19v8M41 19v8M45 17v10M49 19v8" stroke={LABEL} strokeWidth="2" strokeLinecap="round" />
+      <path d="M18 34h12M40 34h12" stroke={c.secondary} strokeWidth="2" />
+    </>
+  ),
+  'oral-care': (c) => (
+    <>
+      <path d="M15 19h8v17h-8z" fill={c.secondary} />
+      <path d="M17 36h5l3 21h-8z" fill={c.primary} />
+      <path d="M14 15h10M15 11h8M16 7h6" stroke={LABEL} strokeWidth="2" strokeLinecap="round" />
+      <circle cx="43" cy="39" r="12" fill={c.primary} />
+      <circle cx="43" cy="39" r="6" fill={LABEL} />
+      <path d="M42 51v5M47 52v4" stroke={c.secondary} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  'denture-care': (c) => (
+    <>
+      <path d="M12 29c8-12 32-12 40 0-3 11-10 18-20 18S15 40 12 29z" fill={c.primary} />
+      <path d="M17 29c7-7 23-7 30 0l-4 8c-7 4-15 4-22 0z" fill={LABEL} />
+      <path d="M21 29v7M27 27v10M33 27v10M39 27v10M45 29v7" stroke={c.secondary} strokeWidth="2" />
+      <circle cx="47" cy="49" r="6" fill={c.accent} />
+      <path d="M47 45v8M43 49h8" stroke={LABEL} strokeWidth="1.5" strokeLinecap="round" />
+    </>
+  ),
+  'cosmetic-tools': (c) => (
+    <>
+      <path d="M17 14h6v23h-6z" fill={c.secondary} />
+      <path d="M14 10h12v7H14z" fill={c.primary} />
+      <path d="M15 37h10v5c0 7-2 11-5 11s-5-4-5-11z" fill={c.primary} />
+      <path d="M34 39c0-8 6-14 13-14s11 6 11 14-4 13-11 13-13-5-13-13z" fill={c.secondary} />
+      <path d="M39 38c3-4 9-5 13-1M31 21l14 17M31 19l-3 3" fill="none" stroke={LABEL} strokeWidth="2.5" strokeLinecap="round" />
+    </>
+  ),
+  hairbrush: (c) => (
+    <>
+      <path d="M27 39h10v19H27z" fill={c.secondary} />
+      <rect x="16" y="10" width="32" height="34" rx="14" fill={c.primary} />
+      <path d="M22 19v10M28 16v13M35 16v13M41 19v10M22 35h20" stroke={LABEL} strokeWidth="2" strokeLinecap="round" />
+      <path d="M27 39h10" stroke={c.secondary} strokeWidth="2" />
+    </>
+  ),
   pretzel: (c) => (
     <>
       <path d="M16 39c-6-7-2-17 6-17 6 0 8 7 10 13 2-6 4-13 10-13 8 0 12 10 6 17l-7 8c-3 3-7 2-9-2-2 4-6 5-9 2z" fill="none" stroke={c.primary} strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />

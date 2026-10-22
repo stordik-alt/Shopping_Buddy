@@ -42,8 +42,8 @@ system: `lib/product-visuals.ts` (the mapping) and `components/ui/product-visual
   order: product type, subcategory, category, then neutral fallback. An unknown key always ends up
   somewhere — it never throws.
 - **Shapes and tints.** Dedicated drawings cover produce, bread, cheese, fish, detailed meat cuts,
-  snacks, ready meals, personal care and household cleaning supplies, alongside everyday packaging
-  forms, in 19 tints. The shape says what the product is, the tint says which family it belongs to.
+  snacks, ready meals, cosmetics, oral care and household cleaning supplies, alongside everyday
+  packaging forms, in 19 tints. The shape says what the product is, the tint says which family it belongs to.
   Drawings use flat colour, no emoji or icon font.
 - **Decorative.** The product's name is always written next to the picture, so the picture carries no
   accessible name of its own (`aria-hidden`) and is never the only way something is communicated.

@@ -50,6 +50,8 @@ system: `lib/product-visuals.ts` (the mapping) and `components/ui/product-visual
   Drawings use flat colour, no emoji or icon font.
 - **Decorative.** The product's name is always written next to the picture, so the picture carries no
   accessible name of its own (`aria-hidden`) and is never the only way something is communicated.
+- See [Product-type image rollout status](product-type-images-status.md) for completed work, R2
+  photo coverage and the remaining backlog.
 
 ## Sizes
 

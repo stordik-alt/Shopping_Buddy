@@ -47,6 +47,7 @@ import {
 } from '@/lib/db/queries'
 import { tetaPackageSignature, mergeTetaCatalogProducts, tetaRecordWithDerivedPackage, TETA_WARNING_UNIT_PRICE_DISAGREES, type TetaCatalogProduct } from '@/lib/ingestion/teta-catalog'
 import { readTetaCatalogRecords } from '@/lib/ingestion/teta-collector'
+import type { TetaManualDecision } from '@/lib/ingestion/teta-identity-decisions'
 import { TETA_CHAIN } from '@/lib/ingestion/teta'
 import { resolveProductForSku } from '@/lib/products'
 import {
@@ -71,6 +72,13 @@ export type TetaImportOptions = {
   batchSize?: number
   /** The day the observation is recorded on (YYYY-MM-DD). */
   observedAt?: string
+  /**
+   * The decisions a human made in the review (lib/ingestion/teta-identity-decisions.ts).
+   *
+   * They are the authority over the automatic rules: a human who looked at the review table and
+   * said what is right knows more than the rules do.
+   */
+  decisions?: Map<string, TetaManualDecision>
 }
 
 export type TetaImportResult = {
@@ -92,6 +100,16 @@ export type TetaImportResult = {
   review: TetaIdentityDecision[]
   /** The products that were linked automatically — kept so that a human can look at the links too. */
   linked: TetaIdentityDecision[]
+  /**
+   * The products nothing in the catalog resembles.
+   *
+   * They are new products, not a problem to solve — but they are part of the review, because a
+   * human has to be able to see that a product the shop already sells under another name was not
+   * found (docs/44).
+   */
+  unlinked: TetaIdentityDecision[]
+  /** What the import did with the decisions a human made. */
+  manual: { externalId: string; action: 'link' | 'none'; applied: boolean; reason: string }[]
 }
 
 /** The identity status a decision is stored with. */
@@ -255,6 +273,8 @@ export async function importTetaCatalog(
     errors: [],
     review: [],
     linked: [],
+    unlinked: [],
+    manual: [],
   }
 
   // A record without an app category cannot become a catalog product (the category is not
@@ -306,9 +326,20 @@ export async function importTetaCatalog(
   // decided when the SKU was first imported is the one that counts: the product it is linked to and
   // the status that says whether a human has to look at it.
   const existing = await loadExistingTetaRefs()
+  const appliedManually = await applyManualDecisions(
+    decisions,
+    options.decisions ?? new Map(),
+    claimed,
+    existing,
+    result,
+  )
   for (const [externalId, stored] of existing) {
     const decision = decisions.get(externalId)
     if (!decision) continue
+    // A decision a human made is the authority over the stored one — but a human's decision for a
+    // SKU that is imported already is refused (see applyManualDecisions), so the stored decision
+    // is the one that applies.
+    if (appliedManually.has(externalId)) continue
     decisions.set(externalId, {
       ...decision,
       status: decisionStatus(stored.identityStatus),
@@ -327,6 +358,7 @@ export async function importTetaCatalog(
     result.decisions[decision.status] += 1
     if (decision.status === 'review') result.review.push(decision)
     if (decision.status === 'auto') result.linked.push(decision)
+    if (decision.status === 'none') result.unlinked.push(decision)
   }
 
   const storeId = apply ? await loadTetaStoreId() : null
@@ -375,6 +407,134 @@ async function loadClaimedProducts(): Promise<Map<string, string>> {
     if (row.productId) claimed.set(row.productId, row.externalId)
   }
   return claimed
+}
+
+/**
+ * The decisions a human made in the review, applied to the decisions of the rules.
+ *
+ * A human who looked at the review table knows more than the rules do, so their decision is the
+ * one that counts. A decision that cannot be applied is refused and reported — never applied half
+ * way:
+ *
+ *   * a Teta product that is imported already keeps the link it was given. A link is decided once
+ *     (see loadExistingTetaRefs), and the import does not move a product from one product to
+ *     another — no product is ever merged or deleted (CLAUDE.md section 12).
+ *   * a catalog product that another Teta product already owns is not a candidate: two Teta SKUs
+ *     are two products, even when they share a name.
+ *   * a catalog product that does not exist cannot be linked to.
+ *
+ * A human's link wins over an automatic one: the automatic link of another Teta product to the
+ * same catalog product goes back to the review queue, and the human's decision is applied.
+ *
+ * Returns the Teta products a decision was applied to.
+ */
+async function applyManualDecisions(
+  decisions: Map<string, TetaIdentityDecision>,
+  manual: Map<string, TetaManualDecision>,
+  claimed: Map<string, string>,
+  existing: Map<string, ExistingTetaRef>,
+  result: TetaImportResult,
+): Promise<Set<string>> {
+  const applied = new Set<string>()
+  for (const [externalId, decision] of manual) {
+    const current = decisions.get(externalId)
+    if (!current) {
+      result.manual.push({
+        externalId,
+        action: decision.action,
+        applied: false,
+        reason: 'the product is not in the collected catalog',
+      })
+      continue
+    }
+    const stored = existing.get(externalId)
+    if (stored) {
+      result.manual.push({
+        externalId,
+        action: decision.action,
+        applied: false,
+        reason: `the product is imported already and linked to '${stored.productName}'`,
+      })
+      continue
+    }
+    if (decision.action === 'none') {
+      decisions.set(externalId, {
+        ...current,
+        status: 'none',
+        productId: undefined,
+        productName: undefined,
+        refusedProduct: undefined,
+        reason: 'decided by hand: not the same product',
+      })
+      applied.add(externalId)
+      result.manual.push({
+        externalId,
+        action: 'none',
+        applied: true,
+        reason: 'not the same product as anything in the catalog',
+      })
+      continue
+    }
+    const owner = claimed.get(decision.productId)
+    if (owner && owner !== externalId) {
+      result.manual.push({
+        externalId,
+        action: 'link',
+        applied: false,
+        reason: `the catalog product is already linked to Teta product '${owner}'`,
+      })
+      continue
+    }
+    const productName = await loadProductName(decision.productId)
+    if (!productName) {
+      result.manual.push({
+        externalId,
+        action: 'link',
+        applied: false,
+        reason: 'the catalog product does not exist',
+      })
+      continue
+    }
+    // Another Teta product of this run was linked to the same catalog product automatically. The
+    // human's decision wins, and the automatic one goes back to the review queue.
+    for (const [otherId, other] of decisions) {
+      if (otherId === externalId || other.status !== 'auto' || other.productId !== decision.productId) continue
+      decisions.set(otherId, {
+        ...other,
+        status: 'review',
+        productId: undefined,
+        productName: undefined,
+        reason: 'another Teta product was linked to this catalog product by hand',
+      })
+    }
+    decisions.set(externalId, {
+      ...current,
+      status: 'auto',
+      productId: decision.productId,
+      productName,
+      refusedProduct: undefined,
+      reason: 'linked by hand in the review',
+    })
+    applied.add(externalId)
+    result.manual.push({
+      externalId,
+      action: 'link',
+      applied: true,
+      reason: `linked to '${productName}'`,
+    })
+  }
+  return applied
+}
+
+/** The name of a catalog product, or null when there is no such product. */
+async function loadProductName(productId: string): Promise<string | null> {
+  const db = getDb()
+  const rows = await db
+    .select({ name: schema.products.name })
+    .from(schema.products)
+    .where(eq(schema.products.id, productId))
+    .limit(1)
+  return rows[0]?.name ?? null
 }
 
 async function loadTetaStoreId(): Promise<string> {

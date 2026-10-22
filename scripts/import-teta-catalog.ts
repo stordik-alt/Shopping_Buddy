@@ -1,19 +1,22 @@
-import { mkdir, writeFile } from 'node:fs/promises'
-import { dirname } from 'node:path'
 import { describeError } from '@/lib/errors'
-import { importTetaCatalog, readTetaCatalogProducts, TETA_SOURCE } from '@/lib/ingestion/teta-import'
+import { importTetaCatalog, readTetaCatalogProducts } from '@/lib/ingestion/teta-import'
+import { readTetaIdentityDecisions } from '@/lib/ingestion/teta-identity-decisions'
+import { buildTetaIdentityReport, writeTetaIdentityReport } from '@/lib/ingestion/teta-identity-report'
 
 // Imports Teta's collected catalog into the app's database.
 //
 //   pnpm db:import-teta                 # dry run: reports what would be written
 //   pnpm db:import-teta -- --apply      # writes
+//   pnpm db:import-teta -- --apply --decisions=data/external/teta-identity-decisions.json
 //
 // Two collected files are read: the category listings (price, stock, name) and the product pages
 // (package size, brand, description). A product that is in both is written once, with what the
 // product page knows added to what the listing knows.
 //
 // The dry run is the default, and it is also the report: the products whose identity is not
-// unambiguous are written to the review file for a human to look at.
+// unambiguous are written to the review file for a human to look at. The decisions the human made
+// there are read back with --decisions and win over the automatic rules (see
+// lib/ingestion/teta-identity-decisions.ts).
 
 function arg(name: string): string | undefined
 function arg(name: string, fallback: string): string
@@ -39,38 +42,22 @@ async function main(): Promise<void> {
   const listingPath = arg('listing', 'data/external/teta-catalog-listing.ndjson')
   const detailPath = arg('detail', 'data/external/teta-catalog-detail.ndjson')
   const reviewPath = arg('review', 'data/external/teta-identity-review.json')
+  const decisionsPath = arg('decisions', '')
   const batchSize = numberArg('batch', 500)
 
   const records = await readTetaCatalogProducts(listingPath, detailPath)
   console.log(`[teta-import] ${records.length} products read (${listingPath}, ${detailPath})`)
 
-  const result = await importTetaCatalog(records, { apply, batchSize })
+  // The decisions a human made in the review. They are the authority over the automatic rules.
+  const decisions = decisionsPath ? await readTetaIdentityDecisions(decisionsPath) : new Map()
+  if (decisionsPath) console.log(`[teta-import] ${decisions.size} decisions read (${decisionsPath})`)
+
+  const result = await importTetaCatalog(records, { apply, batchSize, decisions })
 
   // The review file: the products whose identity needs a human, with the candidates and the
   // reason each automatic link was refused.
-  await mkdir(dirname(reviewPath), { recursive: true })
-  await writeFile(reviewPath, JSON.stringify({
-    source: TETA_SOURCE,
-    generatedAt: new Date().toISOString(),
-    apply,
-    decisions: result.decisions,
-    // The links that were made automatically are in the report as well: a human has to be able to
-    // look at them too, not only at the ones that were refused.
-    linked: result.linked.map((decision) => ({
-      externalId: decision.externalId,
-      name: decision.name,
-      productId: decision.productId,
-      productName: decision.productName,
-      score: decision.score,
-    })),
-    products: result.review.map((decision) => ({
-      externalId: decision.externalId,
-      name: decision.name,
-      reason: decision.reason,
-      score: decision.score,
-      candidates: decision.candidates,
-    })),
-  }, null, 2) + '\n', 'utf8')
+  const report = buildTetaIdentityReport(result, { apply })
+  await writeTetaIdentityReport(reviewPath, report)
 
   console.log(JSON.stringify({
     apply,
@@ -83,12 +70,17 @@ async function main(): Promise<void> {
     retailerRefs: result.retailerRefs,
     prices: result.prices,
     actionPrices: result.actionPrices,
+    manual: result.manual.filter((entry) => !entry.applied),
     errors: result.errors.length,
     reviewFile: reviewPath,
   }, null, 2))
 
   if (result.errors.length > 0) {
     console.error(result.errors.slice(0, 20).map((error) => `${error.externalId}: ${error.message}`).join('\n'))
+  }
+  const refused = result.manual.filter((entry) => !entry.applied)
+  if (refused.length > 0) {
+    console.error(refused.map((entry) => `${entry.externalId}: ${entry.reason}`).join('\n'))
   }
   if (!apply) {
     console.log('[teta-import] Dry run — nothing was written. Add --apply to write.')

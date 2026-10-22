@@ -46,3 +46,6 @@ scratch-*
 data/external/teta-catalog-*.ndjson
 data/external/teta-collect-state.json
 data/external/teta-identity-review.json
+data/external/teta-identity-review.csv
+data/external/teta-identity-review.html
+data/external/teta-identity-decisions.json

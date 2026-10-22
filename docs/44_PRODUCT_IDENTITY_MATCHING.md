@@ -26,7 +26,7 @@ ANITKA must identify concrete products even when EAN/GTIN is missing. Every cano
 
 - Different package quantities or multipack composition are a conflict unless a verified pack-conversion relationship explicitly allows comparison.
 - Product variant/formula differences are not erased by high name similarity.
-- A missing brand or quantity is unknown, not agreement.
+- A missing brand or quantity is unknown, not agreement. A quantity that only one side states is therefore not compared (the Teta matcher does this explicitly — see below); it is never read as agreement, and two stated quantities that differ are a conflict.
 - Prices and promotions attach to a retailer offer/observation, not to the canonical identity by themselves.
 - Every proposed link records method/version, evidence/features, source records, timestamp, and review status.
 - Never merge canonical products or write to production as a side effect of candidate generation.
@@ -68,16 +68,51 @@ Eight candidates per product are kept, queried in chunks of 400 rows (a `VALUES`
 
 **Package sizes.** The size a name states is read with the shared quantity parser, which understands the Czech thousands group: "1 000 ml" is one thousand millilitres and not a zero that is thrown away. Reading it the other way round made a pack that states its size look like a pack that states none, and the two are then not comparable at all. The two sides are also compared in the same unit: the catalog stores a package in the unit its source stated ("75 ml") where Teta stores it in litres ("0,075 l"), so the quantity is converted to the base unit of its kind (grams, millilitres, pieces) before the two are compared. Without that, two identical packages looked like two different sizes.
 
+**A size that only one side states is not a difference.** What is missing cannot contradict anything: Teta states no size for about a fifth of its catalog, and the catalog name states a size the Teta page does not. A size is therefore a conflict only when *both* sides state one and the two differ ("the package sizes differ"), or when the record's own numbers describe two sizes ("the package size is contradictory"). A size only one side states is left out of the comparison, and the product the link points at keeps the size the catalog knows. The rule was measured on the real catalog: the automatic links went from 844 to 1 002 (+158) and the review queue from 9 671 to 9 513, with no new kind of conflict — the products that linked are those whose names agreed in every other respect.
+
 **A record that contradicts itself.** Teta states the content of one unit ("50 ml"), how many units the package holds ("2") and, in another attribute, how many pieces a display box holds. Two of those can be about different things, and the price and the unit price can describe a size that the package statement does not. A record whose own numbers describe two different sizes states no size that can be trusted: it is flagged (`unit-price-disagrees-with-package`), never linked automatically, and reported for review. The same holds for a record whose price is a conditional (club) price — the published unit price then belongs to that other price, not to the price the shopper pays, and the record is not a contradiction (see `docs/42_TETA_DATA_SOURCE_AUDIT.md`).
 
 **One catalog product, one Teta SKU.** Two Teta SKUs of one product line ("… 110" and "… 120") can both look like the same catalog product. Only one of them can be that product: the one whose name fits it best keeps it, and the other one is reported for review (`resolveTetaIdentityClaims`). A catalog product that is already linked to a *different* Teta SKU is not a candidate at all.
 
 **A product of a group of variants.** A retailer that lists a line of variants under one name says so in the name ("… (vybrané druhy)"). Such a product is not one product — its price is the price of whichever variant the retailer happens to price — so it is never linked automatically; it goes to the report.
 
-**Auto-link only on unambiguous evidence.** A candidate is linked automatically only when the brand agrees, the package sizes agree, the two names state the same distinguishing words, no conflicting token is present, no model number contradicts, the size number of the line agrees, and the runner-up candidate is at least 0.1 behind. The runner-up is the second candidate that agrees in every respect: a candidate that is a different product is not a second opinion, it is a wrong answer, and it must not keep a correct link from being made. Everything else becomes `review_required` with the candidates and the reason, written to `data/external/teta-identity-review.json` (`pnpm product:identity-teta-catalog`). The report holds the automatic links as well, so that a human can look at the links that were made, not only at the ones that were refused.
+**Auto-link only on unambiguous evidence.** A candidate is linked automatically only when the brand agrees, the two names state the same distinguishing words, no conflicting token is present, no model number contradicts, the size number of the line agrees, the package sizes do not contradict each other, and the runner-up candidate is at least 0.1 behind. The runner-up is the second candidate that agrees in every respect: a candidate that is a different product is not a second opinion, it is a wrong answer, and it must not keep a correct link from being made. Everything else becomes `review_required` with the candidates and the reason, written to `data/external/teta-identity-review.json` (`pnpm product:identity-teta-catalog`). The report holds the automatic links as well, so that a human can look at the links that were made, not only at the ones that were refused.
+
+**The report.** One file, written by both the dry run and the import through the same module (`lib/ingestion/teta-identity-report.ts`), so the two cannot drift apart. It holds the counts, the automatic links (`linked`), the products that need a human (`review`), the products nothing in the catalog resembles (`unlinked`) and what the import did with the decisions a human made (`manual`). Every candidate of a row carries not only its score but also its **blockers** (why that candidate cannot be the Teta product) and the **words the two names do not share** — a human who reviews the queue has to see why *each* option was refused before picking one. A row also names the candidate the refusal is about (`refusedProduct`), which is not always the first one: the first candidate may be a product another Teta product already owns.
 
 **The product a SKU already owns is not a candidate.** The catalog product a Teta SKU is already linked to is the import's *own earlier conclusion* — and it may be the very product the import created for this SKU. Counting it again as evidence would make the decision depend on how many times the import has run: the first run would say "nothing in the catalog resembles this" and every later run would say "a perfect match". The same data, two different answers. The matcher therefore takes the product the SKU already owns out of the comparison and reports it apart (`ownProduct` in the decision), so that a human can see how well the existing link fits without it counting as a match.
 
 **The decision is made once.** The status stored on the reference (`retailer_product_refs.identity_status`) and the product it points at stand: the import never overwrites a link it found, and never overwrites a status — not even a `review_required` one, which a human may have already looked at. A reference without a product (a run that failed half-way) is filled in. The comparison is still made on every run, because the report has to show the evidence the catalog offers today, but the *answer* that was decided when the SKU was first imported is the one that counts. A re-run therefore leaves the products, the links, the statuses and the size of the review queue exactly as they were.
 
 **No merging, no side effects.** Canonical products are never merged or deleted; a link only sets `retailer_product_refs.productId` / `trade_items.productId` for that source's SKU. Generating candidates never writes to the database on its own — the report is a dry run.
+
+## The review table (2026-10-22)
+
+A JSON report of nine thousand products is no way to look at a queue. The report is therefore turned into a **table a human can work through** (`lib/ingestion/teta-identity-review-table.ts`, built by `scripts/build-teta-identity-review.ts`).
+
+```bash
+pnpm product:identity-teta-review
+```
+
+It writes two files into `data/external/`:
+
+* `teta-identity-review.html` — the table itself, a self-contained page (no server, no network) that opens from the disk. One row per product: the Teta name and code, the candidate the rules refused, the words the two names do not share (the ones only the Teta name states in red, the ones only the catalog name states in blue), the reasons the link was refused (translated into Czech — the code keeps its own wording), and the decision. The rows are drawn a hundred at a time, and the page can be searched and filtered by status.
+* `teta-identity-review.csv` — the same table for a spreadsheet.
+
+**The order is the easiest first.** A row that differs by one word is looked at before a row that differs by five, and the products nothing in the catalog resembles come last — those need a manual search of the catalog, which is more work than a row with a candidate in front of the reader. The measure of "easier" is the number of differing words plus the number of blockers; ties are settled by the score.
+
+**The decisions.** Every row has a decision: *link this candidate* (any candidate, not only the refused one) or *not the same product*. The page downloads them as the file the import reads — `teta-identity-decisions.json` — and the CSV carries the same column. The decisions are read back by `lib/ingestion/teta-identity-decisions.ts`, which refuses a file that is not JSON, that belongs to another retailer, that has an unknown action or that links to no product.
+
+```bash
+pnpm product:identity-teta-review -- --decisions=data/external/teta-identity-decisions.json
+pnpm db:import-teta -- --apply --decisions=data/external/teta-identity-decisions.json
+```
+
+**A human's decision is the authority over the rules.** The import applies the decisions before the automatic ones, and a decision that cannot be applied is *refused and reported*, never applied half-way:
+
+* a Teta product that is imported already keeps the link it was given — a link is decided once, and the import never moves a product from one product to another;
+* a catalog product another Teta product already owns is not a candidate — two Teta SKUs are two products even when they share a name;
+* a catalog product that does not exist cannot be linked to;
+* a manual link wins over an automatic one to the same catalog product: the automatic link goes back to the review queue, and the manual one is applied.
+
+The refused decisions are printed by the import and listed in the report under `manual`.

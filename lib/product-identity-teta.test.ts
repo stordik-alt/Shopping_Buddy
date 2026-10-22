@@ -137,6 +137,32 @@ describe('Teta identity decision', () => {
     expect(decision.productId).toBeUndefined()
   })
 
+  it('links a product whose size only the catalog states', () => {
+    // The Teta page states no size for a fifth of its catalog. A size that only one side states
+    // cannot contradict anything, so the link is made when the names agree in every other respect.
+    const decision = decideTetaIdentity(
+      { externalId: '000000000196450', name: 'Nivea Creme', brand: 'Nivea' },
+      [candidate()],
+    )
+    expect(decision.status).toBe('auto')
+    expect(decision.productId).toBe('product-1')
+  })
+
+  it('links a product whose size only the Teta page states', () => {
+    // The other way round: the catalog product has no package row and states no size in its name.
+    const decision = decideTetaIdentity(
+      {
+        externalId: '000000000196451',
+        name: 'Nivea Creme 200 ml',
+        brand: 'Nivea',
+        package: { quantity: 0.2, unit: 'l' },
+      },
+      [candidate({ packages: [], productName: 'Nivea Creme' })],
+    )
+    expect(decision.status).toBe('auto')
+    expect(decision.productId).toBe('product-1')
+  })
+
   it('does not link a product whose name does not say the same thing', () => {
     const decision = decideTetaIdentity(tetaProduct, [candidate({ productName: 'Nivea Denní krém 200 ml' })])
     expect(decision.status).toBe('review')

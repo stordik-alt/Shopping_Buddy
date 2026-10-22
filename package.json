@@ -74,7 +74,8 @@
     "teta:collect": "tsx scripts/teta-collect-catalog.ts",
     "db:import-teta": "dotenv -e .env.local -- tsx scripts/import-teta-catalog.ts",
     "teta:verify-rendering": "tsx scripts/teta-verify-rendering.ts",
-    "product:identity-teta-catalog": "dotenv -e .env.local -- tsx scripts/report-teta-catalog-identity.ts"
+    "product:identity-teta-catalog": "dotenv -e .env.local -- tsx scripts/report-teta-catalog-identity.ts",
+    "product:identity-teta-review": "tsx scripts/build-teta-identity-review.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "4.0.71",

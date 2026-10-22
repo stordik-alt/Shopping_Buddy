@@ -17,10 +17,14 @@
 //
 // The rules (deterministic, no model, no guesswork):
 //
-//   auto-link   the candidate's brand is in both names, both sides state the same package, the
-//               two names state the same words, nothing conflicts (no other variant / product-kind
-//               / packaging token, no different model number, no different size) and no second
-//               candidate comes close (the runner-up is at least 0.1 behind).
+//   auto-link   the candidate's brand is in both names, the two names state the same words,
+//               nothing conflicts (no other variant / product-kind / packaging token, no different
+//               model number, no different size, no different package size) and no second candidate
+//               comes close (the runner-up is at least 0.1 behind).
+//
+// A package size that only one side states is not a conflict — Teta states no size for a fifth of
+// its catalog, and the catalog names a size the Teta page does not. A size both sides state and
+// that differs is a conflict, and so is a record whose own numbers describe two different sizes.
 //   review      there are candidates, but the evidence is not unambiguous: the decision says which
 //               candidate and why the automatic link was refused.
 //   none        there is no candidate at all — the product is simply new to the catalog.
@@ -143,6 +147,17 @@ export type TetaIdentityCandidate = {
 
 export type TetaIdentityStatus = 'auto' | 'review' | 'none'
 
+/** One candidate with the evidence the rules compare. */
+type ScoredCandidate = {
+  candidate: TetaIdentityCandidate
+  comparison: ReturnType<typeof compareProductIdentityRecords>
+  /** Whether the two package sizes are the same — `null` when one side states none. */
+  packageAgreement: boolean | null
+  /** Whether the two model numbers agree — `null` when one side states none. */
+  modelAgreement: 'agree' | 'conflict' | null
+  score: number
+}
+
 export type TetaIdentityDecision = {
   /** Teta's own product code. */
   externalId: string
@@ -157,8 +172,23 @@ export type TetaIdentityDecision = {
   score?: number
   /** Why the decision came out this way. */
   reason: string
-  /** Every candidate with its score, best first. */
-  candidates: { productId: string; productName: string; score: number; reasons: string[] }[]
+  /**
+   * Every candidate with its score, best first.
+   *
+   * The blockers and the differing words are per candidate, not only for the one the decision
+   * refused: a human who reviews the queue has to be able to see why *each* option was refused
+   * before they pick one (docs/44 — the review table).
+   */
+  candidates: {
+    productId: string
+    productName: string
+    score: number
+    reasons: string[]
+    /** Why this candidate cannot be the Teta product. */
+    blockers: string[]
+    /** The words the two names do not share — the words that may tell two products apart. */
+    differences: { onlyTeta: string[]; onlyCandidate: string[] }
+  }[]
   /**
    * The catalog product this SKU is already linked to, with the score it got.
    *
@@ -167,6 +197,14 @@ export type TetaIdentityDecision = {
    * how well the existing link fits without counting it as a match.
    */
   ownProduct?: { productId: string; productName: string; score: number }
+  /**
+   * The candidate the refusal is about — the best candidate that no other Teta product owns.
+   *
+   * The candidates of a decision may start with a product that another Teta product already has;
+   * the refusal is about a different one, and the review table has to show the blockers and the
+   * differing words of the product the human is being asked about.
+   */
+  refusedProduct?: { productId: string; productName: string }
 }
 
 type CandidateRow = {
@@ -545,12 +583,17 @@ export function decideTetaIdentity(
     ({ candidate }) => options.linkedProductIds?.get(candidate.productId) !== record.externalId,
   )
 
-  const summary = compared.map(({ candidate, comparison, score }) => ({
-    productId: candidate.productId,
-    productName: candidate.productName,
-    score,
-    reasons: comparison.reasons,
-  }))
+  const summary = compared.map((entry) => {
+    const assessment = assessCandidate(entry)
+    return {
+      productId: entry.candidate.productId,
+      productName: entry.candidate.productName,
+      score: entry.score,
+      reasons: entry.comparison.reasons,
+      blockers: assessment.blockers,
+      differences: assessment.differences,
+    }
+  })
   const ownProduct = own
     ? { productId: own.candidate.productId, productName: own.candidate.productName, score: own.score }
     : undefined
@@ -582,9 +625,12 @@ export function decideTetaIdentity(
 
   /**
    * Why this candidate cannot be the Teta product — the reasons the two names and the two packages
-   * do not agree.
+   * do not agree — and the words the two names do not share.
    */
-  const blockersOf = (entry: typeof usable[number]): string[] => {
+  function assessCandidate(entry: ScoredCandidate): {
+    blockers: string[]
+    differences: { onlyTeta: string[]; onlyCandidate: string[] }
+  } {
     const evidence = entry.comparison.evidence
     const candidateTokens = nameTokensSplit(entry.candidate.productName)
 
@@ -619,15 +665,18 @@ export function decideTetaIdentity(
       || tetaSizeLabel === candidateSizeLabel
 
     const reasons: string[] = []
-    if (entry.packageAgreement !== true) {
-      reasons.push(
-        entry.packageAgreement === false
-          ? 'the package sizes differ'
-          : record.contradictory
-            ? 'the package size is contradictory'
-            : 'the package size is not stated on both sides',
-      )
+    if (entry.packageAgreement === false) {
+      // Both sides state a size and they are not the same size: two products.
+      reasons.push('the package sizes differ')
+    } else if (record.contradictory) {
+      // The record's own numbers describe two different sizes, so it states no size that can be
+      // trusted — the size cannot be compared at all, and the record is reported for review.
+      reasons.push('the package size is contradictory')
     }
+    // A size that only one side states is not a difference: what is missing cannot contradict
+    // anything. Teta states no size for a fifth of its catalog, and the catalog names a size the
+    // Teta page does not — the link is made when the names agree in every other respect, and the
+    // product the link points at keeps the size the catalog knows.
     if (!brandAgrees) reasons.push('the brand is not in both names')
     if (coverage < TETA_IDENTITY_MIN_NAME_COVERAGE) {
       reasons.push(`the catalog name does not say ${missingInCandidate.map((word) => `'${word}'`).join(', ')}`)
@@ -643,10 +692,13 @@ export function decideTetaIdentity(
     if (evidence.conflictingProductTypeTokens.length > 0) reasons.push('product-kind token conflict')
     if (evidence.conflictingPackagingTokens.length > 0) reasons.push('packaging token conflict')
     if (entry.modelAgreement === 'conflict') reasons.push('the model numbers differ')
-    return reasons
+    return {
+      blockers: reasons,
+      differences: { onlyTeta: missingInCandidate, onlyCandidate: missingInTeta },
+    }
   }
 
-  const evaluated = usable.map((entry) => ({ entry, blockers: blockersOf(entry) }))
+  const evaluated = usable.map((entry) => ({ entry, blockers: assessCandidate(entry).blockers }))
   // The candidates that fit the Teta name in every respect. The ambiguity is between *these* — a
   // candidate that is a different product is not a second opinion, it is a wrong answer, and it
   // must not keep a correct link from being made.
@@ -664,7 +716,7 @@ export function decideTetaIdentity(
         productId: bestAgreeing.entry.candidate.productId,
         productName: bestAgreeing.entry.candidate.productName,
         score: bestAgreeing.entry.score,
-        reason: 'same brand, same package, the same words, no conflict, and no second candidate',
+        reason: 'same brand, the same words, no conflict, and no second candidate',
         candidates: summary,
         ...(ownProduct ? { ownProduct } : {}),
       }
@@ -676,6 +728,10 @@ export function decideTetaIdentity(
       score: bestAgreeing.entry.score,
       reason: 'a second candidate is just as close',
       candidates: summary,
+      refusedProduct: {
+        productId: bestAgreeing.entry.candidate.productId,
+        productName: bestAgreeing.entry.candidate.productName,
+      },
       ...(ownProduct ? { ownProduct } : {}),
     }
   }
@@ -687,6 +743,10 @@ export function decideTetaIdentity(
     score: best.score,
     reason: evaluated[0].blockers.join('; '),
     candidates: summary,
+    refusedProduct: {
+      productId: evaluated[0].entry.candidate.productId,
+      productName: evaluated[0].entry.candidate.productName,
+    },
     ...(ownProduct ? { ownProduct } : {}),
   }
 }

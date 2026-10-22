@@ -4,20 +4,15 @@ import sharp from 'sharp'
 import crypto from 'node:crypto'
 
 /**
- * Processes and stores a public image for a product type.
+ * Processes and stores an image buffer for a product type.
  *
- * Pipeline: Fetch -> Auto-rotate -> Resize -> WebP -> Hash -> Store.
+ * Pipeline: Process -> Hash -> Store.
  */
-export async function storeProductTypeImage(
+export async function storeProductTypeImageFromBuffer(
   typeKey: string,
-  url: string,
-  headers: HeadersInit = {},
+  buffer: Buffer,
 ) {
-  // 1. Fetch the image (SSRF guarded)
-  const { bytes, contentType } = await fetchPublicImage(url, headers)
-  const buffer = Buffer.from(bytes)
-
-  // 2. Process with Sharp
+  // 1. Process with Sharp
   // - autoRotate: fixes EXIF orientation
   // - resize: max 1600px on longest side, preserve aspect ratio
   // - webp: modern format, quality 82 (sweet spot for food photos)
@@ -32,13 +27,30 @@ export async function storeProductTypeImage(
     .webp({ quality: 82 })
     .toBuffer()
 
-  // 3. Hash the processed buffer for deduplication
+  // 2. Hash the processed buffer for deduplication
   const hash = crypto.createHash('sha256').update(processed).digest('hex')
 
-  // 4. Store in R2
+  // 3. Store in R2
   // Path: product-type-images/{typeKey}/{hash}.webp
   const key = `product-type-images/${typeKey}/${hash}.webp`
   await r2PutObject(key, processed, 'image/webp')
 
   return key
+}
+
+/**
+ * Processes and stores a public image for a product type.
+ *
+ * Pipeline: Fetch -> Auto-rotate -> Resize -> WebP -> Hash -> Store.
+ */
+export async function storeProductTypeImage(
+  typeKey: string,
+  url: string,
+  headers: HeadersInit = {},
+) {
+  // 1. Fetch the image (SSRF guarded)
+  const { bytes, contentType } = await fetchPublicImage(url, headers)
+  const buffer = Buffer.from(bytes)
+
+  return storeProductTypeImageFromBuffer(typeKey, buffer)
 }

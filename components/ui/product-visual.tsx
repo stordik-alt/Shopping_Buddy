@@ -1193,6 +1193,73 @@ const DRAWINGS: Record<ProductVisual['shape'], (c: Colors) => ReactNode> = {
       <path d="M32 19v12" stroke={c.secondary} strokeWidth="2" />
     </>
   ),
+  'wine-bottle': (c) => (
+    <>
+      <rect x="27" y="5" width="10" height="8" rx="2" fill={c.secondary} />
+      <path d="M28 13h8v12c0 3 3 5 7 8 3 3 5 7 5 12v6c0 3-2 5-5 5H21c-3 0-5-2-5-5v-6c0-5 2-9 5-12 4-3 7-5 7-8z" fill={c.primary} />
+      <path d="M28 14h8v8h-8z" fill={c.accent} />
+      <rect x="21" y="36" width="22" height="13" rx="2" fill={LABEL} />
+      <path d="M26 41h12M26 45h8" stroke={c.secondary} strokeWidth="1.8" strokeLinecap="round" />
+    </>
+  ),
+  'spirit-bottle': (c) => (
+    <>
+      <path d="M27 7h10v8l5 5v5l7 7v19c0 4-3 7-7 7H22c-4 0-7-3-7-7V32l7-7v-5l5-5z" fill={c.primary} />
+      <rect x="25" y="6" width="14" height="7" rx="2" fill={c.secondary} />
+      <path d="M24 20h16v5H24z" fill={c.accent} />
+      <rect x="20" y="34" width="24" height="15" rx="2" fill={LABEL} />
+      <path d="M25 39h14M25 44h10" stroke={c.secondary} strokeWidth="1.8" strokeLinecap="round" />
+    </>
+  ),
+  'oil-cruet': (c) => (
+    <>
+      <path d="M28 6h8v8l4 4v6c5 3 8 8 8 14v12c0 4-3 7-7 7H23c-4 0-7-3-7-7V38c0-6 3-11 8-14v-6l4-4z" fill={c.primary} />
+      <path d="M28 6h8v5h-8zM36 8h9v4h-9z" fill={c.secondary} />
+      <path d="M25 19h14v5H25z" fill={c.secondary} />
+      <rect x="21" y="35" width="22" height="12" rx="2" fill={LABEL} />
+      <path d="M26 39h12M26 43h8" stroke={c.accent} strokeWidth="2" strokeLinecap="round" />
+      <path d="M43 28c6 4 7 11 6 16" fill="none" stroke={c.secondary} strokeWidth="2.5" strokeLinecap="round" />
+    </>
+  ),
+  'spice-jar': (c) => (
+    <>
+      <rect x="20" y="13" width="24" height="8" rx="2" fill={c.secondary} />
+      <path d="M19 21h26v27c0 4-3 7-7 7H26c-4 0-7-3-7-7z" fill={c.primary} />
+      <circle cx="26" cy="17" r="1.1" fill={LABEL} />
+      <circle cx="32" cy="17" r="1.1" fill={LABEL} />
+      <circle cx="38" cy="17" r="1.1" fill={LABEL} />
+      <rect x="22" y="31" width="20" height="12" rx="2" fill={LABEL} />
+      <path d="M26 36h12" stroke={c.accent} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  'sauce-bottle': (c) => (
+    <>
+      <rect x="27" y="6" width="10" height="8" rx="2" fill={c.secondary} />
+      <path d="M28 14h8v8c4 2 7 5 8 10l4 17c1 5-2 8-7 8H23c-5 0-8-3-7-8l4-17c1-5 4-8 8-10z" fill={c.primary} />
+      <path d="M25 23h14v5H25z" fill={c.secondary} />
+      <rect x="21" y="36" width="22" height="13" rx="2" fill={LABEL} />
+      <path d="M26 41h12M26 45h8" stroke={c.accent} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  'squeeze-bottle': (c) => (
+    <>
+      <path d="M18 11c5-4 23-4 28 0l-2 28c0 4-3 7-7 9v5H27v-5c-4-2-7-5-7-9z" fill={c.primary} />
+      <path d="M25 14c4-2 10-2 14 0" fill="none" stroke={c.secondary} strokeWidth="2" strokeLinecap="round" />
+      <rect x="22" y="29" width="20" height="13" rx="3" fill={LABEL} />
+      <path d="M27 34h10M27 38h7" stroke={c.accent} strokeWidth="2" strokeLinecap="round" />
+      <path d="M26 53h12v6H26z" fill={c.secondary} />
+      <path d="M29 56h6" stroke={LABEL} strokeWidth="1.5" strokeLinecap="round" />
+    </>
+  ),
+  'syrup-bottle': (c) => (
+    <>
+      <rect x="28" y="5" width="8" height="8" rx="2" fill={c.secondary} />
+      <path d="M28 13h8v8l5 5c4 4 6 9 6 15v6c0 5-3 8-8 8H25c-5 0-8-3-8-8v-6c0-6 2-11 6-15l5-5z" fill={c.primary} />
+      <path d="M28 14h8v7h-8z" fill={c.accent} />
+      <rect x="21" y="35" width="22" height="13" rx="3" fill={LABEL} />
+      <path d="M32 37c4 3 5 7 0 9-5-2-4-6 0-9z" fill={c.accent} />
+    </>
+  ),
 }
 
 /** The picture of a product: its photograph when it has one, its illustration otherwise. */

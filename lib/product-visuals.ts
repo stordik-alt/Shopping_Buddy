@@ -166,6 +166,13 @@ export type ProductVisualShape =
   | 'cheese-snacks'
   | 'plant-based-dairy'
   | 'grilled-cheese'
+  | 'wine-bottle'
+  | 'spirit-bottle'
+  | 'oil-cruet'
+  | 'spice-jar'
+  | 'sauce-bottle'
+  | 'squeeze-bottle'
+  | 'syrup-bottle'
 
 /** The closed set of colour pairs the shapes are drawn in. */
 export type ProductVisualTint =
@@ -293,8 +300,8 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'mrazena-zelenina': visual('frozen-vegetables', 'green'),
   cerealie: visual('box', 'orange'),
   'ovesne-vlocky': visual('packet', 'cream'),
-  kecup: visual('tube', 'red'),
-  horcice: visual('tube', 'yellow'),
+  kecup: visual('squeeze-bottle', 'red'),
+  horcice: visual('squeeze-bottle', 'yellow'),
   majoneza: visual('jar', 'cream'),
   dzem: visual('jar', 'red'),
   kakao: visual('packet', 'brown'),
@@ -367,10 +374,10 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'cukr-specialni': visual('packet', 'cream'),
 
   // --- Oleje a tuky, příchutí, koření ---------------------------------------------------------
-  'olej-slunecnicovy': visual('bottle', 'yellow'),
-  'olej-repkovy': visual('bottle', 'olive'),
-  'olej-olivovy': visual('bottle', 'green'),
-  'rostlinne-oleje-specialni': visual('bottle', 'sand'),
+  'olej-slunecnicovy': visual('oil-cruet', 'yellow'),
+  'olej-repkovy': visual('oil-cruet', 'olive'),
+  'olej-olivovy': visual('oil-cruet', 'green'),
+  'rostlinne-oleje-specialni': visual('oil-cruet', 'sand'),
   'margariny-tuky': visual('tub', 'yellow'),
   'rostlinna-smetana-krem': visual('tub', 'olive'),
   cocka: visual('cluster', 'sand'),
@@ -378,11 +385,11 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'hrasek-fazolky': visual('cluster', 'olive'),
   'hummus-luste-pomazanky': visual('tub', 'cream'),
   med: visual('jar', 'yellow'),
-  ocet: visual('bottle', 'orange'),
+  ocet: visual('oil-cruet', 'orange'),
   sul: visual('packet', 'white'),
   'sul-do-mycky': visual('packet', 'grey'),
   drozdi: visual('packet', 'grey'),
-  'koreni': visual('bottle', 'brown'),
+  'koreni': visual('spice-jar', 'brown'),
   'kavoviny-cekanka': visual('jar', 'olive'),
   'kypriciprasek-zelatina': visual('packet', 'white'),
   'kyselina-citronova': visual('packet', 'yellow'),
@@ -405,25 +412,25 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   matcha: visual('packet', 'olive'),
   'matcha-latte': visual('mug', 'pink'),
   'yerba-mate': visual('packet', 'teal'),
-  vino: visual('bottle', 'navy'),
-  cidery: visual('bottle', 'green'),
+  vino: visual('wine-bottle', 'navy'),
+  cidery: visual('wine-bottle', 'green'),
   'svarene-vino': visual('glass', 'red'),
-  'fortifikovana-vina': visual('bottle', 'brown'),
-  'nealko-vino-sekt': visual('bottle', 'blue'),
-  lihoviny: visual('bottle', 'purple'),
-  likery: visual('bottle', 'pink'),
-  palenky: visual('bottle', 'black'),
+  'fortifikovana-vina': visual('wine-bottle', 'brown'),
+  'nealko-vino-sekt': visual('wine-bottle', 'blue'),
+  lihoviny: visual('spirit-bottle', 'purple'),
+  likery: visual('spirit-bottle', 'pink'),
+  palenky: visual('spirit-bottle', 'black'),
   'aperitivy': visual('glass', 'olive'),
   'rtd-koktejly': visual('glass', 'pink'),
   'nealko-koktejly': visual('glass', 'green'),
-  medovina: visual('bottle', 'olive'),
+  medovina: visual('wine-bottle', 'olive'),
   'cokolada-tabulkova': visual('bar', 'brown'),
   'cokolada-na-vareni': visual('bar', 'navy'),
   'chipsy-snacky': visual('packet', 'yellow'),
   limonady: visual('bottle', 'yellow'),
   dzusy: visual('glass', 'orange'),
-  sirupy: visual('bottle', 'rose'),
-  'prirodni-sirupy-sladidla': visual('bottle', 'rose'),
+  sirupy: visual('syrup-bottle', 'rose'),
+  'prirodni-sirupy-sladidla': visual('syrup-bottle', 'rose'),
   'jogurt-ochuceny': visual('cup', 'pink'),
   'jogurt-pitny': visual('bottle', 'white'),
   skyr: visual('tub', 'white'),
@@ -443,8 +450,8 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'mlecna-krupice': visual('cup', 'white'),
   'jogurty-znackove': visual('cup', 'blue'),
   'jogurtove-smoothie': visual('glass', 'pink'),
-  'omacky-hotove': visual('bottle', 'red'),
-  'asijske-omacky': visual('bottle', 'navy'),
+  'omacky-hotove': visual('sauce-bottle', 'red'),
+  'asijske-omacky': visual('sauce-bottle', 'navy'),
   'nahrazky-mleka-rostlinne': visual('carton', 'olive'),
   'kysane-napoje': visual('bottle', 'white'),
   'mlecne-napoje': visual('glass', 'white'),
@@ -472,7 +479,7 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'energeticke-napoje': visual('can', 'navy'),
   mosty: visual('bottle', 'rose'),
   'ovocne-stavy-100': visual('glass', 'red'),
-  'napojove-koncentraty': visual('bottle', 'red'),
+  'napojove-koncentraty': visual('syrup-bottle', 'red'),
   'iontove-napoje': visual('bottle', 'teal'),
   'proteinove-napoje': visual('bottle', 'blue'),
   'kavove-napoje-hotove': visual('cup', 'navy'),

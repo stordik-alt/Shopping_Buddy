@@ -82,6 +82,13 @@ export type ProductVisualShape =
   | 'brush'
   | 'candle'
   | 'battery'
+  | 'cat-bowl'
+  | 'dog-bowl'
+  | 'bottle-nipple'
+  | 'baby-bib'
+  | 'changing-pad'
+  | 'makeup-set'
+  | 'perfume-bottle'
   | 'coffee-capsule'
   | 'headphones'
   | 'cable'
@@ -387,7 +394,7 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'nealko-pivo': visual('can', 'green'),
   'ledove-caje': visual('glass', 'teal'),
   'voda-ochucena': visual('bottle', 'pink'),
-  'kokosova-voda': visual('round', 'brown'),
+  'kokosova-voda': visual('bottle', 'cream'),
   'energeticke-napoje': visual('can', 'navy'),
   mosty: visual('bottle', 'rose'),
   'ovocne-stavy-100': visual('glass', 'red'),
@@ -410,8 +417,8 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'pece-o-vousy': visual('bottle', 'brown'),
   'masazni-pripravky': visual('bottle', 'green'),
   'ovocne-snacky': visual('packet', 'green'),
-  'krmivo-pro-kocky': visual('packet', 'brown'),
-  'krmivo-pro-psy': visual('packet', 'sand'),
+  'krmivo-pro-kocky': visual('cat-bowl', 'purple'),
+  'krmivo-pro-psy': visual('dog-bowl', 'brown'),
 
   // --- Sladké, slané, hotová jídla ---------------------------------------------------------------
   'popcorn': visual('packet', 'yellow'),
@@ -555,7 +562,7 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'detska-kosmetika': visual('tube', 'rose'),
   'opalovaci-pripravky': visual('bottle', 'orange'),
   'odlicovaci-pripravky': visual('bottle', 'blue'),
-  parfemy: visual('bottle', 'pink'),
+  parfemy: visual('perfume-bottle', 'pink'),
   'vune-na-pradlo': visual('bottle', 'grey'),
   osvezovace: visual('bottle', 'blue'),
   'pece-o-nehty': visual('bottle', 'rose'),
@@ -565,7 +572,7 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'kosmeticke-pomucky': visual('brush', 'rose'),
   'kartace-doplnky-vlasy': visual('brush', 'brown'),
   'kosmeticke-zrcatka-tasky': visual('block', 'pink'),
-  'dekorativni-kosmetika': visual('block', 'rose'),
+  'dekorativni-kosmetika': visual('makeup-set', 'rose'),
   'holeni': visual('bottle', 'navy'),
   'holici-hlavice-holitka': visual('bottle', 'grey'),
   'nahradni-hlavice-kartacky': visual('brush', 'blue'),
@@ -628,9 +635,9 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   pleny: visual('packet', 'white'),
   dudliky: visual('round', 'pink'),
   'detske-lahve': visual('bottle', 'pink'),
-  'detske-savicky': visual('round', 'white'),
-  'detske-bryndaky': visual('box', 'white'),
-  'detske-prebalovaci-podlozky': visual('box', 'white'),
+  'detske-savicky': visual('bottle-nipple', 'white'),
+  'detske-bryndaky': visual('baby-bib', 'pink'),
+  'detske-prebalovaci-podlozky': visual('changing-pad', 'blue'),
   'detske-nadobi': visual('bowl', 'blue'),
   'kojenecke-mleko': visual('can', 'blue'),
   'detske-prikrmy': visual('jar', 'orange'),

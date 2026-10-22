@@ -96,6 +96,10 @@ export type ProductVisualShape =
   | 'changing-pad'
   | 'makeup-set'
   | 'perfume-bottle'
+  | 'socks'
+  | 'hosiery'
+  | 'underwear'
+  | 'leggings'
   | 'coffee-capsule'
   | 'headphones'
   | 'cable'
@@ -586,10 +590,10 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   deodoranty: visual('spray', 'white'),
   'damska-hygiena': visual('box', 'rose'),
   'inkontinencni-vlozky': visual('box', 'white'),
-  puncochy: visual('box', 'grey'),
-  ponozky: visual('box', 'olive'),
-  'kalhotky-podprsenky': visual('box', 'pink'),
-  'leginy-treginy': visual('box', 'navy'),
+  puncochy: visual('hosiery', 'grey'),
+  ponozky: visual('socks', 'olive'),
+  'kalhotky-podprsenky': visual('underwear', 'pink'),
+  'leginy-treginy': visual('leggings', 'navy'),
   kondomy: visual('box', 'blue'),
   'vitaminy-doplnky': visual('blister', 'green'),
   'kapky-spreje-pastilky-zdravi': visual('bottle', 'teal'),

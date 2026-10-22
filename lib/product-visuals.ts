@@ -155,6 +155,17 @@ export type ProductVisualShape =
   | 'denture-care'
   | 'cosmetic-tools'
   | 'hairbrush'
+  | 'popcorn-bowl'
+  | 'puffed-snacks'
+  | 'corn-tubes'
+  | 'wafer-rolls'
+  | 'chocolate-box'
+  | 'ice-cream-treats'
+  | 'granola-bowl'
+  | 'processed-cheese'
+  | 'cheese-snacks'
+  | 'plant-based-dairy'
+  | 'grilled-cheese'
 
 /** The closed set of colour pairs the shapes are drawn in. */
 export type ProductVisualTint =
@@ -238,7 +249,7 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'balkansky-syr': visual('wedge', 'cream'),
   hermelin: visual('oval', 'cream'),
   parmazan: visual('wedge', 'sand'),
-  'taveny-syr': visual('block', 'yellow'),
+  'taveny-syr': visual('processed-cheese', 'yellow'),
   niva: visual('wedge', 'white'),
   cottage: visual('tub', 'cream'),
   kefir: visual('bottle', 'white'),
@@ -423,10 +434,10 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'proteinove-tycinky': visual('bar', 'olive'),
   'cokoladove-tycinky-znackove': visual('bar', 'brown'),
   'bonbony-zvykaci': visual('cluster', 'pink'),
-  'bonboniery': visual('bar', 'pink'),
+  'bonboniery': visual('chocolate-box', 'pink'),
   'adventni-kalendare': visual('box', 'red'),
   marshmallow: visual('cluster', 'white'),
-  zmrzliny: visual('cone', 'pink'),
+  zmrzliny: visual('ice-cream-treats', 'pink'),
   'mlecne-dezerty': visual('cup', 'cream'),
   'mlecne-svaciny-detske': visual('cup', 'pink'),
   'mlecna-krupice': visual('cup', 'white'),
@@ -483,12 +494,12 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'krmivo-pro-psy': visual('dog-bowl', 'brown'),
 
   // --- Sladké, slané, hotová jídla ---------------------------------------------------------------
-  'popcorn': visual('packet', 'yellow'),
+  'popcorn': visual('popcorn-bowl', 'yellow'),
   krekry: visual('crackers', 'sand'),
-  'krupky-snacky': visual('packet', 'orange'),
+  'krupky-snacky': visual('puffed-snacks', 'orange'),
   'slane-tycinky-preclik': visual('pretzel', 'sand'),
-  'kukuricne-trubicky': visual('tube', 'yellow'),
-  'trubicky-oplatkove': visual('bar', 'rose'),
+  'kukuricne-trubicky': visual('corn-tubes', 'yellow'),
+  'trubicky-oplatkove': visual('wafer-rolls', 'rose'),
   'polevky': visual('bowl', 'red'),
   'polevky-instantni': visual('packet', 'red'),
   'pizza-hotova': visual('wedge', 'red'),
@@ -510,10 +521,10 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'pohanka-jahly-kroupy': visual('bowl', 'brown'),
   'kase-instantni': visual('cup', 'sand'),
   'detske-kase': visual('cup', 'yellow'),
-  'granola-musli-tycinky': visual('packet', 'brown'),
+  'granola-musli-tycinky': visual('granola-bowl', 'brown'),
   'ovesne-ovocne-kapsicky': visual('packet', 'pink'),
   'tofu-tempeh': visual('block', 'white'),
-  'rostlinne-syry-dezerty': visual('block', 'cream'),
+  'rostlinne-syry-dezerty': visual('plant-based-dairy', 'green'),
   'olivy-kapary': visual('jar', 'olive'),
   'rajcatove-vyrobky': visual('jar', 'rose'),
   'syrove-pomazanky': visual('jar', 'white'),
@@ -543,7 +554,7 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'polevkova-zelenina-smes': visual('packet', 'green'),
   'syr-platkovy': visual('cheese-slices', 'yellow'),
   'syr-plisnovy': visual('wedge', 'navy'),
-  'syr-grilovaci': visual('block', 'olive'),
+  'syr-grilovaci': visual('grilled-cheese', 'yellow'),
   'syr-tvrdy': visual('wedge', 'sand'),
   'cerstvy-syr': visual('tub', 'white'),
   'tvaruzky-syrecky': visual('wedge', 'grey'),
@@ -552,7 +563,7 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'smetana-do-kavy': visual('mug', 'white'),
   'creme-fraiche': visual('bottle', 'white'),
   'slehacka-sprej': visual('spray', 'grey'),
-  'syrove-svacinky': visual('tub', 'pink'),
+  'syrove-svacinky': visual('cheese-snacks', 'cream'),
 
   // --- Maso navíc ------------------------------------------------------------------------------
   'uzene-maso': visual('stripes', 'brown'),

@@ -26,6 +26,27 @@ Fixed locations: Spíž — Wheat, Lednice — Refrigerator, Mrazák — Snowfla
 BriefcaseMedical, Drogérka — SprayCan. A household's own place uses one icon per area (`AREA_ICON` in
 `components/shopping/pantry.tsx`).
 
+## Product visuals (not icons)
+
+A product in a cell is not named by an icon from the set above. Product pictures are a separate, reusable
+system: `lib/product-visuals.ts` (the mapping) and `components/ui/product-visual.tsx` (the drawing).
+
+- **One central map.** `productVisualFor({ productTypeKey, subcategory, category })` returns a
+  `ProductVisual` — a shape and a tint, never a brand. Every product type key in `lib/product-types.ts`
+  has its own entry (462 of them), so two products of the same family (milk and kefir, chicken and pork)
+  are not the same picture. Types are not mapped to pictures by brand, and there is no hand-written map
+  of individual SKUs.
+- **Fallback chain.** A photograph of the specific product wins; there is none today — the database
+  stores no product images (`products` has no image column), so the schema was deliberately not extended
+  for a visual change and `ProductVisual` keeps `imageUrl` as an optional input for when a source exists.
+  Then: the product type, then the subcategory, then the category, then a neutral fallback. An unknown
+  key always ends up somewhere — it never throws.
+- **Shapes and tints.** 51 shapes (round, oval, bottle, can, jar, carton, loaf, drumstick, fish, …) in
+  19 tints. The shape says what the product is, the tint says which family it belongs to. Drawings are
+  flat, two or three colours, no outlines, no emoji, no icon font.
+- **Decorative.** The product's name is always written next to the picture, so the picture carries no
+  accessible name of its own (`aria-hidden`) and is never the only way something is communicated.
+
 ## Sizes
 
 - 16 px (`size-4`): inline and status icons, icons in badges (`size-3.5`).

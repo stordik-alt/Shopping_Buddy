@@ -7,6 +7,7 @@ import type { PantryItem, PantryPlace } from '@/lib/types'
 
 const noop = () => {}
 const noopAsync = async () => ({ removed: 0, confirmed: 0, adjusted: 0, addedToList: 0, listFailed: false })
+const noopQuantity = async () => {}
 
 const item = (n: number): PantryItem => ({
   id: `p${n}`,
@@ -27,7 +28,7 @@ function renderPantry(items: PantryItem[], customPlaces: PantryPlace[] = []) {
       onConfirm={noop}
       onRemove={noop}
       onMove={noop}
-      onAdjustQuantity={noop}
+      onAdjustQuantity={noopQuantity}
       onReview={noopAsync}
       onSetTracking={noop}
       onSetSubcategory={noop}
@@ -101,19 +102,44 @@ describe('Pantry duplicate-placement banner', () => {
   })
 })
 
+describe('Pantry product cells', () => {
+  it('shows every product as a cell with its name, amount and availability', () => {
+    const html = renderPantry([item(1)])
+    expect(html).toContain('data-testid="pantry-card"')
+    expect(html).toContain('Položka 1')
+    expect(html).toContain('data-testid="pantry-quantity"')
+    expect(html).toContain('Mám')
+    expect(html).toContain('aria-label="Otevřít detail: Položka 1"')
+    expect(html).toContain('aria-label="Přidat ks (Položka 1)"')
+    expect(html).toContain('aria-label="Ubrat ks (Položka 1)"')
+  })
+
+  it('writes the availability out instead of only colouring it', () => {
+    const html = renderPantry([{ ...item(1), quantity: 0 }])
+    expect(html).toContain('Nemám')
+    expect(html).toContain('aria-label="Dostupnost: Položka 1"')
+  })
+
+  it('gives every cell the same size, whatever the product', () => {
+    const html = renderPantry([item(1), { ...item(2), name: 'Extra premium italské olivové oleje panské extra virgin 0,5 l' }])
+    expect(html).toContain('line-clamp-2')
+    expect(html).toContain('grid-cols-2')
+  })
+})
+
 describe('Pantry subcategory assignment', () => {
-  it('offers an edit button on every row and the auto-categorize button when items are uncategorized', () => {
+  it('offers the auto-categorize button when items are uncategorized', () => {
     const html = renderPantry([item(1), { ...item(2), subcategory: 'Pečivo' }])
-    expect(html).toContain('aria-label="Upravit: Položka 1"')
     expect(html).toContain('Zařadit automaticky')
     expect(html).toContain('Bez podkategorie')
   })
 
-  // The corrections (category, subcategory, place, tracking) open per row so a row stays one compact line.
-  it('keeps the corrections closed until a row\'s edit button is pressed', () => {
+  // The corrections (category, subcategory, place, tracking) live in the detail, so a cell stays
+  // one picture, one name, one amount.
+  it('keeps the corrections out of the grid', () => {
     const html = renderPantry([{ ...item(1), category: 'Ostatní' }])
-    expect(html).toContain('aria-expanded="false"')
-    expect(html).not.toContain('Kategorie Položka 1')
+    expect(html).not.toContain('aria-label="Upravit: Položka 1"')
+    expect(html).not.toContain('aria-expanded="false"')
   })
 
   it('hides the auto-categorize banner once everything has a subcategory', () => {

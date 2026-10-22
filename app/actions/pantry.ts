@@ -278,10 +278,13 @@ export async function restorePantryLocationAction(location: PantryLocation) {
  *  (the household ran out, not into debt) — 0 is a valid, meaningful result ("do šlo") and the row
  *  stays in the pantry at 0 rather than being deleted; deleting it entirely is `removePantryItemAction`,
  *  a separate, explicit choice. Never touches `purchase_items` — purchase history is a record of
- *  what was bought, not of what's currently on hand, and must never be rewritten by a stock edit. */
-export async function adjustPantryItemQuantityAction(pantryItemId: string, quantity: number) {
+ *  what was bought, not of what's currently on hand, and must never be rewritten by a stock edit.
+ *  `expectedQuantity` is an optional compare-and-set: the write only goes through when the stored
+ *  amount still is the one the caller saw, so a request that was overtaken cannot overwrite a newer
+ *  amount with an older one. */
+export async function adjustPantryItemQuantityAction(pantryItemId: string, quantity: number, expectedQuantity?: number) {
   const householdId = await requireHouseholdId()
-  await updatePantryItemForHousehold(householdId, pantryItemId, { quantity })
+  await updatePantryItemForHousehold(householdId, pantryItemId, { quantity, expectedQuantity })
   // No revalidatePath: the app has already shown this change (components/app-shell.tsx updates its own
   // state first), and re-rendering the whole page for every tap re-ran every household query —
   // compute on the database for nothing. Other members see it on their next reload.

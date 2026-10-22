@@ -1,22 +1,22 @@
-import { unitLabel } from '@/lib/units'
-import { AlertTriangle, BriefcaseMedical, Car, Cat, Check, ClipboardCheck, House, Minus, Package, PackageSearch, Pencil, Plus, Refrigerator, Snowflake, SprayCan, Warehouse, Wheat, X, type LucideIcon } from 'lucide-react'
+import { AlertTriangle, BriefcaseMedical, Car, Cat, ClipboardCheck, House, Package, PackageSearch, Plus, Refrigerator, Snowflake, SprayCan, Warehouse, Wheat, type LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Pager } from '@/components/shared/pager'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Select } from '@/components/ui/field'
 import { SegmentedControl } from '@/components/ui/segmented-control'
 import { PantryAddModal, type PantryAddInput } from '@/components/shopping/pantry-add-modal'
+import { PantryCard } from '@/components/shopping/pantry-card'
+import { PantryDetail } from '@/components/shopping/pantry-detail'
 import { PantryReview, type PantryReviewResult } from '@/components/shopping/pantry-review'
 import { itemCountLabel } from '@/lib/format'
-import { type PantryQuantityChange, findDuplicatePlacements, PANTRY_QUANTITY_STEP, needsCheck, PANTRY_PAGE_SIZE, PANTRY_TRACKING, pantryPlaceOptions, placeKeyOf, summarizeByPlace, type PantryPlaceOption } from '@/lib/pantry'
+import { type PantryQuantityChange, findDuplicatePlacements, isPantryItemAvailable, needsCheck, PANTRY_PAGE_SIZE, pantryPlaceOptions, placeKeyOf, summarizeByPlace, type PantryPlaceOption } from '@/lib/pantry'
 import { estimateReason, type ConsumptionEstimate } from '@/lib/pantry-estimate'
 import { clampPage, pageCount } from '@/lib/paging'
 import type { CatalogChangeOutcome, CategoryChangeOutcome } from '@/lib/product-subcategory-changes'
-import { PRODUCT_SUBCATEGORIES, subcategoriesOfItem } from '@/lib/product-subcategories'
+import { subcategoriesOfItem } from '@/lib/product-subcategories'
 import { cn } from '@/lib/utils'
-import type { ItemCategory, ItemUnit, PantryArea, PantryItem, PantryLocation, PantryPlace, PantryTracking } from '@/lib/types'
+import type { ItemCategory, PantryArea, PantryItem, PantryLocation, PantryPlace, PantryTracking } from '@/lib/types'
 
 // One distinct, meaningful icon per location so folders can be told apart at a glance on a phone.
 // `satisfies Record<PantryLocation, …>` makes adding a location without an icon a compile error.
@@ -53,78 +53,21 @@ function iconFor(option: PantryPlaceOption): LucideIcon {
 const UNCATEGORIZED = '__uncategorized__'
 const ALL_SUBCATEGORIES = '__all__'
 
-
-function round3(value: number): number {
-  return Math.round(value * 1000) / 1000
-}
-
-/** The −/+/exact-value quantity control for one pantry row. Keeps its own draft text while the
- *  household is typing an exact amount (e.g. "1.5" for kg), only committing on blur/Enter so a
- *  half-typed decimal isn't clamped mid-keystroke; the +/- buttons commit immediately since
- *  there's nothing to type. Quantity is clamped to 0 client-side too (defense in depth — the
- *  server, `adjustPantryItemQuantityAction`, is the actual authority and rejects negative values
- *  regardless). */
-function QuantityStepper({ quantity, unit, unitQuantity, unitUnit, onChange }: { quantity: number; unit: ItemUnit; unitQuantity?: number | null; unitUnit?: ItemUnit | null; onChange: (quantity: number) => void }) {
-  const [draft, setDraft] = useState<string | null>(null)
-  const step = PANTRY_QUANTITY_STEP[unit]
-
-  function commit(raw: string) {
-    setDraft(null)
-    const parsed = Number(raw)
-    if (Number.isFinite(parsed) && parsed >= 0 && parsed !== quantity) onChange(round3(parsed))
-  }
-
-  return (
-    <div className="flex items-center gap-1">
-      <button
-        type="button"
-        aria-label={`Ubrat ${unit}`}
-        onClick={() => onChange(Math.max(0, round3(quantity - step)))}
-        className="flex size-9 items-center justify-center rounded-lg border border-input text-fg-secondary hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"
-        disabled={quantity <= 0}
-      >
-        <Minus className="size-4" aria-hidden="true" />
-      </button>
-      <input
-        aria-label={`Množství (${unit})`}
-        type="number"
-        min="0"
-        step="any"
-        value={draft ?? quantity}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={(e) => commit(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && commit(e.currentTarget.value)}
-        className="h-9 w-14 rounded-lg border border-input bg-background px-1 text-center text-base outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
-      />
-      <span className="min-w-6 text-sm text-fg-muted">{unitLabel(quantity, unit)}</span>
-      {unitQuantity != null && unitUnit && !(unitQuantity === 1 && unitUnit === 'ks') && (
-        <span className="whitespace-nowrap text-xs text-fg-muted">· {String(unitQuantity).replace('.', ',')} {unitUnit}</span>
-      )}
-      <button
-        type="button"
-        aria-label={`Přidat ${unit}`}
-        onClick={() => onChange(round3(quantity + step))}
-        className="flex size-9 items-center justify-center rounded-lg border border-input text-fg-secondary hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <Plus className="size-4" aria-hidden="true" />
-      </button>
-    </div>
-  )
-}
-
 /** Household stock ("zásoby") — what the household believes it currently has at home, restocked
  *  automatically by importReceiptAction/createManualPurchaseAction and periodically re-checked by the
  *  pantry-checkin cron (lib/pantry.ts). Deliberately not one long list: the storage locations are
  *  the primary navigation (a folder tile each, with icon, name, item count and warnings), and only
  *  the opened location's items are shown below — like a file manager for the home.
  *
- *  A row whose askedAt is set is one the cron just asked the household about, so it's highlighted
- *  until the household confirms ("Ještě mám") or removes it ("Došlo"). The location select on each
- *  row moves the item between *any* of the locations (e.g. chilled meat into the freezer). The
- *  quantity stepper lets them correct current stock directly without ever touching purchase
- *  history. "Zkontrolovat" opens the bulk check (components/shopping/pantry-review.tsx): tap only
- *  what ran out, save once, and everything else is confirmed. */
-const ITEM_CATEGORY_NAMES = Object.keys(PRODUCT_SUBCATEGORIES) as ItemCategory[]
+ *  The items of the open location are a grid of product cells, not a list of rows: the picture of
+ *  the product, its name, how much is at home and whether the household still has it — all in one
+ *  cell, so the common corrections (a bit more, a bit less, "došlo") take one tap and never need
+ *  the detail. The detail (components/shopping/pantry-detail.tsx) holds everything that is rarer:
+ *  the exact amount, the place, the category, the subcategory, the tracking and the removal of
+ *  the record. A row whose askedAt is set is one the cron just asked the household about, so it's
+ *  marked until the household confirms ("Ještě mám") or removes it ("Došlo"). "Zkontrolovat" opens
+ *  the bulk check (components/shopping/pantry-review.tsx): tap only what ran out, save once, and
+ *  everything else is confirmed. */
 
 export function Pantry({
   items,
@@ -157,7 +100,7 @@ export function Pantry({
   onRemove: (id: string) => void
   /** `place` is a `PantryPlaceOption.key` — a fixed location name, or `custom:<id>`. */
   onMove: (id: string, place: string) => void
-  onAdjustQuantity: (id: string, quantity: number) => void
+  onAdjustQuantity: (id: string, quantity: number) => Promise<void>
   /** Saves a bulk check; resolves to what was done, rejects when nothing was saved. */
   onReview: (reviewedIds: string[], goneIds: string[], addGoneToList: boolean, quantities: PantryQuantityChange[]) => Promise<PantryReviewResult>
   /** How closely an item is watched: normal, rarely (salt, spices), not at all. */
@@ -188,8 +131,11 @@ export function Pantry({
   // Announces a move: the moved row leaves the open folder, so without this it would just vanish.
   const [notice, setNotice] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
-  // The one row whose corrections (category, place, tracking) are open; others stay a single compact line.
-  const [editingId, setEditingId] = useState<string | null>(null)
+  // The item whose detail is open; only one at a time.
+  const [detailId, setDetailId] = useState<string | null>(null)
+  // The items the household has run out of (no amount left) stay in the pantry — their record has
+  // a history — but they can be hidden, so the grid shows what is actually at home.
+  const [showConsumed, setShowConsumed] = useState(true)
   // The check opened from the "K ověření" banner covers every place (the asked items can be
   // anywhere); opened from a folder, it starts with that folder.
   const toCheck = items.filter((item) => needsCheck(item, likelyGone)).length
@@ -218,9 +164,16 @@ export function Pantry({
     }
     return { counts, uncategorized }
   }, [itemsInLocation])
-  const selectedItems = subcategoryFilter
-    ? itemsInLocation.filter((item) => (subcategoryFilter === UNCATEGORIZED ? !item.subcategory : item.subcategory === subcategoryFilter))
-    : itemsInLocation
+  // The items the household has run out of (no amount left) stay in the pantry — their record has
+  // a history and "Došlo" counts them — but they can be hidden, so the grid shows what is really
+  // at home.
+  const consumedInLocation = itemsInLocation.filter((item) => !isPantryItemAvailable(item.quantity)).length
+  // The item whose detail is open.
+  const detailItem = detailId ? (items.find((item) => item.id === detailId) ?? null) : null
+  const selectedItems = useMemo(() => {
+    const filtered = subcategoryFilter ? itemsInLocation.filter((item) => (subcategoryFilter === UNCATEGORIZED ? !item.subcategory : item.subcategory === subcategoryFilter)) : itemsInLocation
+    return showConsumed ? filtered : filtered.filter((item) => isPantryItemAvailable(item.quantity))
+  }, [itemsInLocation, subcategoryFilter, showConsumed])
   // Clamped at render time (not just reset on folder change) so a page also self-corrects the
   // moment an item leaves it — moved elsewhere, removed as "Došlo" — instead of showing an empty
   // page until the household happens to switch folders and back.
@@ -233,6 +186,28 @@ export function Pantry({
     onMove(item.id, placeKey)
     const target = options.find((option) => option.key === placeKey)
     setNotice(`Přesunuto: ${item.name} → ${target?.name ?? placeKey}`)
+  }
+
+  // Saves an amount and reports whether it worked. A failed save puts the last saved amount back
+  // (the shell does that) and the household is told — the change is never lost without a word.
+  async function adjustQuantity(item: PantryItem, quantity: number): Promise<boolean> {
+    try {
+      await onAdjustQuantity(item.id, quantity)
+      return true
+    } catch (error) {
+      console.error('Saving the pantry quantity failed', error)
+      setNotice('Množství se nepodařilo uložit. Zkuste to prosím znovu.')
+      return false
+    }
+  }
+
+  // The household's own notes about an item, as they appear on the cell.
+  function statusesFor(item: PantryItem): { label: string; tone: 'accent' | 'warning' }[] {
+    const statuses: { label: string; tone: 'accent' | 'warning' }[] = []
+    if (likelyGone.has(item.id)) statuses.push({ label: 'Asi došlo', tone: 'warning' })
+    else if (item.askedAt) statuses.push({ label: 'Máte ještě?', tone: 'accent' })
+    if (item.productTypeKey != null && restockTypeKeys?.has(item.productTypeKey)) statuses.push({ label: 'Dokoupit', tone: 'accent' })
+    return statuses
   }
 
   // The item keeps the household's choice at once; only the shared catalog may hold it back for an
@@ -399,7 +374,12 @@ export function Pantry({
             <h2 className="min-w-0 text-sm font-semibold">{items.length === 0 ? 'Zásoby' : selectedOption.name}</h2>
             {items.length > 0 && <span className="shrink-0 text-sm text-fg-muted">{itemCountLabel(selectedItems.length)}</span>}
           </div>
-          <div className="flex shrink-0 items-center justify-end gap-2">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            {consumedInLocation > 0 && (
+              <Button variant="ghost" onClick={() => setShowConsumed((current) => !current)}>
+                {showConsumed ? 'Skrýt spotřebované' : `Zobrazit spotřebované (${consumedInLocation})`}
+              </Button>
+            )}
             <Button
               onClick={() => {
                 setAdding(true)
@@ -430,11 +410,13 @@ export function Pantry({
           <EmptyState
             className="m-4 bg-transparent"
             icon={<Package />}
-            title={items.length === 0 ? 'Zásoby jsou prázdné' : `V umístění „${selectedOption.name}“ zatím nic není`}
+            title={items.length === 0 ? 'Zásoby jsou prázdné' : consumedInLocation > 0 && !showConsumed ? `V umístění „${selectedOption.name}“ nic není, jen ${itemCountLabel(consumedInLocation)} spotřebovaných` : `V umístění „${selectedOption.name}“ zatím nic není`}
             description={
               items.length === 0
                 ? 'Zásoby se plní samy, když nahrajete účtenku, nebo je přidáte ručně tlačítkem „Přidat“.'
-                : 'Položky se sem přidají z účtenky nebo ručně, případně je sem přesunete z jiného umístění.'
+                : consumedInLocation > 0 && !showConsumed
+                  ? 'Spotřebované položky zůstávají v zásobách — jejich záznam má svou historii. Zobrazíte je tlačítkem „Zobrazit spotřebované“.'
+                  : 'Položky se sem přidají z účtenky nebo ručně, případně je sem přesunete z jiného umístění.'
             }
             action={
               items.length === 0 && (onReceipts || onShopping) ? (
@@ -455,116 +437,52 @@ export function Pantry({
           />
         )}
 
-        {pagedItems.map((item) => (
-          // At a glance only what the household acts on: name, state, amount, "Ještě mám" / "Došlo".
-          // Corrections (category, subcategory, place, tracking) sit behind "Upravit" — still in the
-          // page (a native <details>), just not competing for attention on every row.
-          <div key={item.id} className="border-b border-border px-3 py-2 last:border-0 sm:px-5">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <div className="min-w-0 flex-1 basis-full sm:basis-0">
-                <span className="flex flex-wrap items-center gap-2">
-                  <span className="min-w-0 break-words font-medium">{item.name}</span>
-                  {item.productTypeKey != null && restockTypeKeys?.has(item.productTypeKey) && (
-                    <Badge tone="accent" className="py-0.5">
-                      Dokoupit
-                    </Badge>
-                  )}
-                  {likelyGone.has(item.id) ? (
-                    <Badge tone="warning" className="py-0.5">
-                      Asi došlo
-                    </Badge>
-                  ) : (
-                    item.askedAt && (
-                      <Badge tone="accent" className="py-0.5">
-                        Máte ještě?
-                      </Badge>
-                    )
-                  )}
-                </span>
-                <span className="block text-xs text-fg-muted">
-                  {item.category}
-                  {item.subcategory ? ` ▸ ${item.subcategory}` : ''}
-                  {likelyGone.has(item.id) && ` · ${estimateReason(estimates.get(item.id)!)}`}
-                </span>
-              </div>
-              <QuantityStepper quantity={item.quantity} unit={item.unit} unitQuantity={item.unitQuantity} unitUnit={item.unitUnit} onChange={(quantity) => onAdjustQuantity(item.id, quantity)} />
-              {/* Grouped so the two icon buttons wrap onto a new line together on a narrow phone, not one by one. */}
-              <div className="ml-auto flex items-center">
-                <button type="button" aria-label={`Ještě mám: ${item.name}`} onClick={() => onConfirm(item.id)} className="icon-button !min-h-9 !min-w-9 hover:!bg-success-subtle hover:!text-success">
-                  <Check className="size-5" aria-hidden="true" />
-                </button>
-                <button type="button" aria-label={`Došlo: ${item.name}`} onClick={() => onRemove(item.id)} className="icon-button !min-h-9 !min-w-9 hover:!bg-destructive-subtle hover:!text-destructive">
-                  <X className="size-5" aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  aria-label={`Upravit: ${item.name}`}
-                  aria-expanded={editingId === item.id}
-                  onClick={() => setEditingId((current) => (current === item.id ? null : item.id))}
-                  className={cn('icon-button !min-h-9 !min-w-9', editingId === item.id && '!bg-accent-subtle !text-accent-text')}
-                >
-                  <Pencil className="size-4" aria-hidden="true" />
-                </button>
-              </div>
-            </div>
-            {editingId === item.id && (
-              <div className="mt-2 grid gap-3 rounded-xl bg-muted/50 p-3 sm:grid-cols-2">
-                <label className="block space-y-1.5 text-sm font-medium">
-                  <span>Kategorie</span>
-                  <Select aria-label={`Kategorie ${item.name}`} value={item.category} onChange={(event) => void setCategory(item, event.target.value as ItemCategory)}>
-                    {ITEM_CATEGORY_NAMES.map((name) => (
-                      <option key={name} value={name}>
-                        {name}
-                      </option>
-                    ))}
-                  </Select>
-                </label>
-                {/* Only categories with a fixed subcategory list get the select (all do today). */}
-                {subcategoriesOfItem(item.category).length > 0 && (
-                  <label className="block space-y-1.5 text-sm font-medium">
-                    <span>Podkategorie</span>
-                    <Select aria-label={`Podkategorie ${item.name}`} value={item.subcategory ?? ''} onChange={(event) => void setSubcategory(item, event.target.value || null)}>
-                      <option value="">Nezařazeno</option>
-                      {subcategoriesOfItem(item.category).map((name) => (
-                        <option key={name} value={name}>
-                          {name}
-                        </option>
-                      ))}
-                    </Select>
-                  </label>
-                )}
-                <label className="block space-y-1.5 text-sm font-medium">
-                  <span>Umístění</span>
-                  <Select aria-label={`Umístění ${item.name}`} value={placeKeyOf(item)} onChange={(event) => move(item, event.target.value)}>
-                    {options.map((option) => (
-                      <option key={option.key} value={option.key}>
-                        {option.name}
-                      </option>
-                    ))}
-                  </Select>
-                </label>
-                {/* Salt, spices or oil need no weekly question: "Jen zřídka" asks every few months,
-                    "Nesledovat" never, and neither is ever estimated as used up. */}
-                <label className="block space-y-1.5 text-sm font-medium">
-                  <span>Sledování</span>
-                  <Select aria-label={`Sledování ${item.name}`} value={item.tracking ?? 'normal'} onChange={(event) => onSetTracking(item.id, event.target.value as PantryTracking)}>
-                    {PANTRY_TRACKING.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </Select>
-                </label>
-              </div>
-            )}
+        {pagedItems.length > 0 && (
+          // The stock as a grid of product cells: two columns on a phone, more as the screen grows.
+          // Everything the household changes often — the amount, whether they still have it — is in
+          // the cell; the rest waits in the detail.
+          <div className="grid grid-cols-2 gap-2 p-3 sm:grid-cols-3 sm:gap-3 sm:p-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+            {pagedItems.map((item) => (
+              <PantryCard
+                key={item.id}
+                item={item}
+                statuses={statusesFor(item)}
+                onAdjustQuantity={(id, quantity) => void adjustQuantity(item, quantity)}
+                onOpen={(opened) => setDetailId(opened.id)}
+              />
+            ))}
           </div>
-        ))}
+        )}
         {totalPages > 1 && (
           <div className="px-5 py-4">
             <Pager page={currentPage} totalPages={totalPages} onChange={setPage} label={`Stránkování zásob: ${selectedOption.name}`} />
           </div>
         )}
       </section>
+      )}
+      {detailItem && (
+        <PantryDetail
+          item={detailItem}
+          placeOptions={options}
+          estimate={likelyGone.has(detailItem.id) ? estimateReason(estimates.get(detailItem.id)!) : undefined}
+          onClose={() => setDetailId(null)}
+          onAdjustQuantity={(quantity) => adjustQuantity(detailItem, quantity)}
+          onMove={(placeKey) => {
+            move(detailItem, placeKey)
+            setDetailId(null)
+          }}
+          onSetTracking={(tracking) => onSetTracking(detailItem.id, tracking)}
+          onSetCategory={(category) => void setCategory(detailItem, category)}
+          onSetSubcategory={(subcategory) => void setSubcategory(detailItem, subcategory)}
+          onConfirm={() => {
+            onConfirm(detailItem.id)
+            setDetailId(null)
+          }}
+          onRemove={() => {
+            onRemove(detailItem.id)
+            setDetailId(null)
+          }}
+        />
       )}
       {adding && (
         <PantryAddModal

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import {
   addPantryItemAction,
   addPantryPlaceAction,
@@ -22,7 +22,7 @@ import {
 import { addShoppingItemAction } from '@/app/actions/shopping'
 import type { PantryPromptState } from '@/components/shopping/pantry-prompt'
 import type { HouseholdData } from '@/lib/db/queries'
-import { customPlaceIdFromKey, pantryItemAtHome, type PantryQuantityChange } from '@/lib/pantry'
+import { customPlaceIdFromKey, pantryItemAtHome, roundPantryQuantity, type PantryQuantityChange } from '@/lib/pantry'
 import { estimatePantry } from '@/lib/pantry-estimate'
 import { tabHref } from '@/lib/tab-url'
 import type { Item, ItemCategory, ItemUnit, PantryArea, PantryItem, PantryLocation, PantryTracking } from '@/lib/types'
@@ -54,6 +54,11 @@ export function usePantry({
   // Putting something on the list that the pantry says is at home: ask once whether it ran out
   // (components/shopping/pantry-prompt.tsx).
   const [pantryPrompt, setPantryPrompt] = useState<PantryPromptState | null>(null)
+
+  // The amount the server last confirmed for an item, and the queue of quantity requests per item.
+  // Both belong to the quantity saving below; they live here so every part of the hook sees them.
+  const confirmedQuantities = useRef(new Map<string, number>())
+  const quantityQueue = useRef(new Map<string, Promise<void>>())
 
   // Resync whenever the server sends a fresh copy (after a user-triggered refresh or a reload).
   useEffect(() => {
@@ -139,6 +144,8 @@ export function usePantry({
   async function reviewPantry(reviewedIds: string[], goneIds: string[], addGoneToList: boolean, quantities: PantryQuantityChange[] = []) {
     const result = await reviewPantryAction({ reviewedIds, goneIds, quantities })
     const newQuantity = new Map(quantities.map((change) => [change.id, change.quantity]))
+    // The check wrote new amounts, so the client's picture of what the server holds moves with it.
+    for (const [id, quantity] of newQuantity) confirmedQuantities.current.set(id, quantity)
     const gone = new Set(goneIds)
     const kept = new Set(reviewedIds.filter((id) => !gone.has(id)))
     const goneItems = pantryItems.filter((item) => gone.has(item.id))
@@ -214,9 +221,47 @@ export function usePantry({
     return assigned.length
   }
 
-  function adjustPantryItemQuantity(id: string, quantity: number) {
-    setPantryItems((current) => current.map((item) => (item.id === id ? { ...item, quantity } : item)))
-    adjustPantryItemQuantityAction(id, quantity)
+  // Quantity changes go out one after another per item, so a burst of taps cannot send two
+  // requests for the same item at the same time and a slower, older request cannot land after a
+  // newer one and undo it. The displayed amount changes right away (optimistic), and a request
+  // that fails puts the last saved amount back and reports why, so nothing is lost silently.
+  //
+  // `confirmedQuantities` holds the amount the server last confirmed for an item. It is what the
+  // next request compares against (compare-and-set): if the stored amount no longer is that one —
+  // some other member changed it in the meantime — the server refuses the write instead of
+  // overwriting the newer amount.
+  useEffect(() => {
+    for (const item of initialData.pantryItems) confirmedQuantities.current.set(item.id, Number(item.quantity))
+  }, [initialData])
+
+  function adjustPantryItemQuantity(id: string, quantity: number): Promise<void> {
+    const rounded = roundPantryQuantity(quantity)
+    // The amount the household sees changes immediately; the request follows.
+    setPantryItems((current) => current.map((item) => (item.id === id ? { ...item, quantity: rounded } : item)))
+
+    const previous = quantityQueue.current.get(id) ?? Promise.resolve()
+    const request: Promise<void> = previous
+      .catch(() => undefined)
+      .then(async () => {
+        const expected = confirmedQuantities.current.get(id)
+        try {
+          await adjustPantryItemQuantityAction(id, rounded, expected)
+          confirmedQuantities.current.set(id, rounded)
+        } catch (error) {
+          console.error('Saving the pantry quantity failed', error)
+          // Only put the last saved amount back when no newer request for this item is on its way;
+          // a newer one carries the value the household should end up seeing.
+          if (quantityQueue.current.get(id) === request) {
+            const saved = confirmedQuantities.current.get(id)
+            if (saved != null) setPantryItems((current) => current.map((item) => (item.id === id ? { ...item, quantity: saved } : item)))
+          }
+          throw error
+        }
+      })
+    // The queue holds the very promise that was returned, so a later request can tell whether a
+    // newer one for the same item has already been queued.
+    quantityQueue.current.set(id, request)
+    return request
   }
 
   return {

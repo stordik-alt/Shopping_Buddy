@@ -16,8 +16,8 @@ import { cn } from '@/lib/utils'
  *
  *  The picture comes from the shared product taxonomy (lib/product-visuals.ts) — the product type
  *  first, its subcategory or category when the type is unknown, and a neutral basket when nothing
- *  is known. The database stores no product photographs today, so the illustration is what the
- *  household sees; `ProductVisual` draws a photograph instead the moment a product has one.
+ *  is known. A product type's R2 photograph takes priority when available; the illustration is
+ *  the fallback while its image is still unfilled.
  *
  *  The amount and the availability are changed right here, without opening the detail. Both go
  *  through the same callback the detail uses, so they are saved and synchronized the same way. */
@@ -36,12 +36,7 @@ export function PantryCard({
   const unit = item.unit
   const step = PANTRY_QUANTITY_STEP[unit]
   const available = isPantryItemAvailable(item.quantity)
-  const visual = productVisualFor({
-    productTypeKey: item.productTypeKey,
-    subcategory: item.subcategory,
-    category: item.category,
-    imageUrl: item.imageRef ? `/api/product-types/images/${item.productTypeKey}` : null,
-  })
+  const visual = productVisualFor({ productTypeKey: item.productTypeKey, subcategory: item.subcategory, category: item.category })
   // The size of one piece, when the household bought a packaged product ("3 ks · 1,5 l"). A single
   // piece is left out — "3 ks · 1 ks" says nothing.
   const packaging = item.unitQuantity != null && item.unitUnit && !(item.unitQuantity === 1 && item.unitUnit === 'ks') ? `· ${formatPantryQuantity(item.unitQuantity)} ${item.unitUnit}` : null
@@ -77,7 +72,11 @@ export function PantryCard({
         className="flex w-full min-w-0 flex-col items-center gap-1 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <span className={cn('flex size-18 items-center justify-center', !available && 'opacity-55 saturate-50')}>
-          <ProductVisual visual={visual} className="size-full" />
+          <ProductVisual
+            visual={visual}
+            imageUrl={item.imageRef && item.productTypeKey ? `/api/product-types/images/${encodeURIComponent(item.productTypeKey)}` : null}
+            className="size-full"
+          />
         </span>
         <span className="line-clamp-2 min-h-9 w-full break-words text-sm font-medium leading-tight">{item.name}</span>
       </button>

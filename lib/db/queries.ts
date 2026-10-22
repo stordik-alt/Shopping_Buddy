@@ -524,12 +524,12 @@ function queryPantryRows(householdId: string) {
     orderBy: asc(schema.pantryItems.addedAt),
     with: {
       subcategory: { columns: { name: true } },
-      productType: { columns: { key: true } },
+      productType: { columns: { key: true, imageRef: true } },
       product: {
         columns: { id: true },
         with: {
           // A concrete product's own type, for stock rows that name the product but no type.
-          productType: { columns: { key: true } },
+          productType: { columns: { key: true, imageRef: true } },
           packages: {
             columns: {
               quantity: true,
@@ -551,6 +551,7 @@ function toPantryItem(item: Awaited<ReturnType<typeof queryPantryRows>>[number])
     productId: item.productId,
     productTypeId: item.productTypeId,
     productTypeKey: item.productType?.key ?? item.product?.productType?.key ?? null,
+    imageRef: item.productType?.imageRef ?? item.product?.productType?.imageRef ?? null,
     name: item.name,
     category: item.category,
     subcategory: item.subcategory?.name ?? null,

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { getDb } from '@/lib/db/client'
 import { productTypes } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { r2GetObject } from '@/lib/storage/r2'
@@ -15,11 +15,13 @@ import { r2GetObject } from '@/lib/storage/r2'
  * 3. Caching: We set appropriate Cache-Control headers.
  */
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ key: string }> },
 ) {
+  let key = 'unknown'
   try {
-    const { key } = await params
+    key = (await params).key
+    const db = getDb()
 
     // 1. Authentication
     // The session is handled by Neon Auth/Middleware; if we are here, the user is authenticated.
@@ -51,7 +53,7 @@ export async function GET(
       },
     })
   } catch (error) {
-    console.error(`[product-images] Error serving image for key ${params}:`, error)
+    console.error(`[product-images] Error serving image for key ${key}:`, error)
     return new NextResponse('Internal Server Error', { status: 500 })
   }
 }

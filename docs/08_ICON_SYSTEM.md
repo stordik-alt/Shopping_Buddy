@@ -42,10 +42,11 @@ system: `lib/product-visuals.ts` (the mapping) and `components/ui/product-visual
   order: product type, subcategory, category, then neutral fallback. An unknown key always ends up
   somewhere — it never throws.
 - **Shapes and tints.** Dedicated drawings cover produce, including stone fruit, citrus, berries,
-  roots and cauliflower, bread, cheese, fish, detailed meat cuts,
-  snacks, ready meals, cosmetics, oral care, household cleaning supplies, and distinctive bottle
-  and jar forms for wine, spirits, oils, spices, sauces and syrups, alongside everyday packaging
-  forms, in 19 tints. The shape says what the product is, the tint says which family it belongs to.
+  roots and cauliflower; bread, cheese, fish, detailed meat cuts, snacks, ready meals, cosmetics
+  and oral care; and household cleaning with detergent jugs, trigger sprays and toilet cleaners.
+  Distinctive bottles and jars cover wine, spirits, oils, spices, sauces and syrups. Everyday
+  packaging forms round out the set, in 19 tints. The shape says what the product is, the tint says
+  which family it belongs to.
   Drawings use flat colour, no emoji or icon font.
 - **Decorative.** The product's name is always written next to the picture, so the picture carries no
   accessible name of its own (`aria-hidden`) and is never the only way something is communicated.

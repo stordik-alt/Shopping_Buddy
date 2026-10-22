@@ -1,1 +1,0 @@
-ALTER TABLE "product_types" ADD COLUMN "image_ref" text;

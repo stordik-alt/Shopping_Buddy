@@ -10,10 +10,9 @@
 //  3. No SKU is mapped by hand: the whole taxonomy (every product type) is covered by the table
 //     below, and lib/product-visuals.test.ts fails when a new type arrives without a visual.
 //
-// A product photograph wins over the illustration when one exists (the component takes an
-// optional imageUrl). The database stores no product photographs today — `products` has no image
-// column and no retailer import keeps one — so the illustration is the real path and the photo is
-// the prepared one. No schema is extended for a purely visual change.
+// A representative photograph stored for a product type wins over the illustration when one
+// exists. The pantry query supplies that type's R2 image reference; the illustration remains the
+// fallback for types whose image has not been populated.
 
 import type { ItemCategory } from '@/lib/types'
 
@@ -705,11 +704,7 @@ export function productVisualFor(input: {
   productTypeKey?: string | null
   subcategory?: string | null
   category?: ItemCategory | null
-  imageUrl?: string | null
-}): ProductVisual | { isPhoto: true; imageUrl: string } {
-  if (input.imageUrl) {
-    return { isPhoto: true, imageUrl: input.imageUrl }
-  }
+}): ProductVisual {
   const byType = input.productTypeKey ? PRODUCT_TYPE_VISUALS[input.productTypeKey] : undefined
   if (byType) return byType
   const bySubcategory = input.subcategory ? SUBCATEGORY_VISUALS[input.subcategory] : undefined

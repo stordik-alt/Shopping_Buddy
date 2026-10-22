@@ -238,6 +238,11 @@ async function hasHorizontalOverflow(page: Page): Promise<boolean> {
   return page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)
 }
 
+function pantryCard(page: Page, name: string) {
+  const detailButton = page.getByRole('button', { name: `Otevřít detail: ${name}`, exact: true })
+  return page.getByTestId('pantry-card').filter({ has: detailButton })
+}
+
 test.describe('Zásoby audit', () => {
   test('grid of product cells with in-cell quantity and availability', async ({ page }) => {
     // The audit signs in, seeds a household, walks every viewport and runs twelve checks — the
@@ -286,7 +291,7 @@ test.describe('Zásoby audit', () => {
       await page.setViewportSize({ width: 390, height: 844 })
       await openPantry(page)
       await openPlace(page, 'Spíž')
-      const bananas = page.getByTestId('pantry-card').filter({ hasText: 'Banány' })
+      const bananas = pantryCard(page, 'Banány')
       await expect(bananas.getByTestId('pantry-quantity')).toHaveText('3')
       await bananas.getByRole('button', { name: /Přidat/ }).click()
       await expect(bananas.getByTestId('pantry-quantity')).toHaveText('4')
@@ -297,7 +302,7 @@ test.describe('Zásoby audit', () => {
 
       // ---------------------------------------------------------------- 3. the amount never goes below zero
       await openPlace(page, 'Lednice')
-      const milk = page.getByTestId('pantry-card').filter({ hasText: 'Kefír' })
+      const milk = pantryCard(page, 'Kefír')
       await expect(milk.getByTestId('pantry-quantity')).toHaveText('0')
       await expect(milk.getByRole('button', { name: /Ubrat/ })).toBeDisabled()
 
@@ -315,22 +320,22 @@ test.describe('Zásoby audit', () => {
       await page.reload()
       await openPantry(page)
       await openPlace(page, 'Spíž')
-      await expect(page.getByTestId('pantry-card').filter({ hasText: 'Banány' }).getByTestId('pantry-quantity')).toHaveText('3')
+      await expect(pantryCard(page, 'Banány').getByTestId('pantry-quantity')).toHaveText('3')
       await openPlace(page, 'Lednice')
-      await expect(page.getByTestId('pantry-card').filter({ hasText: 'Kefír' }).getByTestId('pantry-quantity')).toHaveText('0,1')
+      await expect(pantryCard(page, 'Kefír').getByTestId('pantry-quantity')).toHaveText('0,1')
 
       // ---------------------------------------------------------------- 8. units and packaging are shown correctly
-      const water = page.getByTestId('pantry-card').filter({ hasText: 'Minerálka' })
+      const water = pantryCard(page, 'Minerálka')
       await expect(water).toContainText('3')
       await expect(water).toContainText('1,5 l')
       await openPlace(page, 'Spíž')
-      const pasta = page.getByTestId('pantry-card').filter({ hasText: 'Těstoviny' })
+      const pasta = pantryCard(page, 'Těstoviny')
       await expect(pasta).toContainText('2')
       await expect(pasta).toContainText('500 g')
 
       // ---------------------------------------------------------------- 12. one item does not change another
       await openPlace(page, 'Lednice')
-      const tomatoes = page.getByTestId('pantry-card').filter({ hasText: 'Rajčata' })
+      const tomatoes = pantryCard(page, 'Rajčata')
       await expect(tomatoes.getByTestId('pantry-quantity')).toHaveText('4')
       await tomatoes.getByRole('button', { name: /Přidat/ }).click()
       await expect(tomatoes.getByTestId('pantry-quantity')).toHaveText('5')
@@ -349,7 +354,7 @@ test.describe('Zásoby audit', () => {
 
       // ---------------------------------------------------------------- 10. keyboard operation and accessible names
       await openPlace(page, 'Spíž')
-      const bread = page.getByTestId('pantry-card').filter({ hasText: 'Chléb' })
+      const bread = pantryCard(page, 'Chléb')
       const addButton = bread.getByRole('button', { name: /Přidat/ })
       await addButton.focus()
       await expect(addButton).toBeFocused()
@@ -376,7 +381,7 @@ test.describe('Zásoby audit', () => {
       await page.setViewportSize({ width: 390, height: 844 })
       await openPantry(page)
       await openPlace(page, 'Lednice')
-      const waterCard = page.getByTestId('pantry-card').filter({ hasText: 'Minerálka' })
+      const waterCard = pantryCard(page, 'Minerálka')
       await page.route('**/*', async (route) => {
         const request = route.request()
         if (request.method() === 'POST' && request.headers()['next-action']) {

@@ -604,6 +604,36 @@ const DRAWINGS: Record<ProductVisual['shape'], (c: Colors) => ReactNode> = {
       <path d="M32 19v5" stroke={c.secondary} strokeWidth="2" />
     </>
   ),
+  diaper: (c) => (
+    <>
+      <path d="M15 17h34l-3 27c-1 8-7 12-14 14-7-2-13-6-14-14z" fill={c.primary} />
+      <path d="M15 17h34v9H15z" fill={c.secondary} />
+      <path d="M20 29c4 5 8 8 12 8s8-3 12-8M21 43c3 4 7 6 11 7 4-1 8-3 11-7" fill="none" stroke={LABEL} strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M15 20l-6 4 7 7M49 20l6 4-7 7" fill="none" stroke={c.secondary} strokeWidth="3" strokeLinejoin="round" />
+    </>
+  ),
+  'hygiene-pad': (c) => (
+    <>
+      <path d="M26 10c-4 8-7 16-7 26 0 10 5 17 13 23 8-6 13-13 13-23 0-10-3-18-7-26-3 4-9 4-12 0z" fill={c.primary} />
+      <path d="M25 18c-5-2-10 1-10 6 0 4 3 7 8 7M39 18c5-2 10 1 10 6 0 4-3 7-8 7" fill={c.primary} stroke={c.secondary} strokeWidth="2.5" />
+      <path d="M32 18v32M27 27c2 2 3 5 3 8M37 27c-2 2-3 5-3 8" fill="none" stroke={c.secondary} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  'feminine-care': (c) => (
+    <>
+      <path d="M16 13c-3 7-5 14-5 23 0 9 4 16 11 21 7-5 11-12 11-21 0-9-2-16-5-23-3 3-9 3-12 0z" fill={c.primary} />
+      <path d="M17 20c-4-2-8 1-8 5 0 3 2 5 6 6M27 20c4-2 8 1 8 5 0 3-2 5-6 6" fill={c.primary} stroke={c.secondary} strokeWidth="2" />
+      <rect x="42" y="17" width="10" height="35" rx="5" fill={c.secondary} />
+      <path d="M47 52v5M45 57h4" stroke={c.secondary} strokeWidth="2" strokeLinecap="round" />
+      <path d="M47 21v23" stroke={LABEL} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  glove: (c) => (
+    <>
+      <path d="M21 52c-2-4-5-11-7-17-2-5 4-8 7-3l4 7-2-23c0-5 7-5 7 0l1 15V12c0-5 7-5 7 0v19V15c0-5 7-5 7 0v18l1-13c1-5 8-4 7 2l-2 24c-1 9-7 14-15 14h-4c-5 0-9-3-11-8z" fill={c.primary} />
+      <path d="M18 48h31M25 23l1 14M32 27v10M39 27v10M46 30v8" fill="none" stroke={c.secondary} strokeWidth="2.5" strokeLinecap="round" />
+    </>
+  ),
   socks: (c) => (
     <>
       <path d="M17 10h13v25c0 4 4 6 10 8l-1 10H15v-7c0-4 2-8 2-12z" fill={c.primary} />

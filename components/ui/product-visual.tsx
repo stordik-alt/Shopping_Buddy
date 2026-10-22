@@ -864,6 +864,116 @@ const DRAWINGS: Record<ProductVisual['shape'], (c: Colors) => ReactNode> = {
       <path d="M27 39h10" stroke={c.secondary} strokeWidth="2" />
     </>
   ),
+  'popcorn-bowl': (c) => (
+    <>
+      <path d="M13 36h38c-1 12-9 19-19 19s-18-7-19-19z" fill={c.secondary} />
+      <path d="M17 36c-2-7 2-10 7-8 0-7 8-9 11-3 4-6 12-3 11 3 5-2 8 2 6 8z" fill={c.primary} />
+      <circle cx="23" cy="30" r="4" fill={LABEL} />
+      <circle cx="34" cy="25" r="4.5" fill={LABEL} />
+      <circle cx="44" cy="31" r="4" fill={LABEL} />
+      <circle cx="29" cy="34" r="3.5" fill={LABEL} />
+      <path d="M17 43h30" stroke={c.primary} strokeWidth="2" />
+    </>
+  ),
+  'puffed-snacks': (c) => (
+    <>
+      <path d="M11 37c0-5 4-9 9-9s8 4 8 9-3 9-8 9-9-4-9-9zM34 22c0-5 4-9 9-9s9 4 9 9-4 9-9 9-9-4-9-9z" fill={c.primary} />
+      <path d="M29 48c-5-2-7-7-4-12 2-4 7-5 11-3 5 2 6 7 4 11-2 5-7 6-11 4z" fill={c.secondary} />
+      <path d="M15 35c2-3 5-4 8-2M38 20c2-3 5-4 8-2M29 43c2-2 4-3 7-2" fill="none" stroke={LABEL} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  'corn-tubes': (c) => (
+    <>
+      <g transform="rotate(-24 32 32)">
+        <rect x="9" y="18" width="43" height="12" rx="6" fill={c.primary} />
+        <ellipse cx="51" cy="24" rx="5" ry="6" fill={c.secondary} />
+        <ellipse cx="51" cy="24" rx="2.5" ry="3.5" fill={LABEL} />
+        <rect x="12" y="36" width="40" height="12" rx="6" fill={c.primary} />
+        <ellipse cx="51" cy="42" rx="5" ry="6" fill={c.secondary} />
+        <ellipse cx="51" cy="42" rx="2.5" ry="3.5" fill={LABEL} />
+        <path d="M20 20v8M31 20v8M40 20v8M22 38v8M34 38v8M43 38v8" stroke={c.secondary} strokeWidth="1.8" />
+      </g>
+    </>
+  ),
+  'wafer-rolls': (c) => (
+    <>
+      <g transform="rotate(-28 32 32)">
+        <rect x="13" y="17" width="38" height="10" rx="5" fill={c.primary} />
+        <rect x="13" y="31" width="38" height="10" rx="5" fill={c.secondary} />
+        <rect x="13" y="45" width="38" height="10" rx="5" fill={c.primary} />
+        <ellipse cx="49" cy="22" rx="4" ry="5" fill={LABEL} />
+        <ellipse cx="49" cy="36" rx="4" ry="5" fill={LABEL} />
+        <ellipse cx="49" cy="50" rx="4" ry="5" fill={LABEL} />
+        <path d="M21 18v8M28 18v8M35 18v8M21 32v8M28 32v8M35 32v8M21 46v8M28 46v8M35 46v8" stroke={c.secondary} strokeWidth="1.4" />
+      </g>
+    </>
+  ),
+  'chocolate-box': (c) => (
+    <>
+      <path d="M11 27l21-12 21 12v28H11z" fill={c.secondary} />
+      <path d="M11 27l21-12 21 12-21 12z" fill={c.primary} />
+      <circle cx="22" cy="28" r="4.5" fill={LABEL} />
+      <circle cx="32" cy="22" r="4.5" fill={c.accent} />
+      <circle cx="42" cy="28" r="4.5" fill={LABEL} />
+      <circle cx="27" cy="33" r="4.5" fill={c.accent} />
+      <circle cx="37" cy="33" r="4.5" fill={c.secondary} />
+      <path d="M11 27h42" stroke={LABEL} strokeWidth="2" />
+    </>
+  ),
+  'ice-cream-treats': (c) => (
+    <>
+      <path d="M12 35h22L23 57z" fill={c.secondary} />
+      <path d="M11 33c0-7 5-12 12-12 1-7 8-10 14-6 6 4 6 12 1 18z" fill={c.primary} />
+      <path d="M43 36h12v15c0 5-3 8-6 8s-6-3-6-8z" fill={c.primary} />
+      <path d="M43 36c0-5 3-8 6-8s6 3 6 8z" fill={c.accent} />
+      <path d="M49 59v4M18 42l10 10" stroke={LABEL} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  'granola-bowl': (c) => (
+    <>
+      <path d="M10 34h44c-1 13-10 21-22 21S11 47 10 34z" fill={c.secondary} />
+      <path d="M14 34c0-8 7-13 14-10 5-6 15-3 16 3 7-1 10 3 9 7z" fill={c.primary} />
+      <path d="M20 29l6-3 4 4-5 4zM33 25l6 2-2 5-6-2zM41 31l5-3 4 4-5 3z" fill={c.accent} />
+      <circle cx="25" cy="30" r="1.5" fill={c.secondary} />
+      <circle cx="37" cy="34" r="1.5" fill={c.secondary} />
+      <path d="M15 42h34" stroke={c.primary} strokeWidth="2" />
+    </>
+  ),
+  'processed-cheese': (c) => (
+    <>
+      <path d="M12 42l20-28 20 28z" fill={c.primary} />
+      <path d="M12 42l20-8 20 8v10H12z" fill={c.secondary} />
+      <path d="M19 40l13-19 14 19z" fill={c.primary} />
+      <path d="M17 47h30" stroke={LABEL} strokeWidth="2.5" />
+      <path d="M21 43v6M32 38v11M43 43v6" stroke={c.accent} strokeWidth="2" />
+    </>
+  ),
+  'cheese-snacks': (c) => (
+    <>
+      <rect x="11" y="18" width="34" height="10" rx="5" fill={c.primary} transform="rotate(16 28 23)" />
+      <rect x="15" y="37" width="36" height="10" rx="5" fill={c.secondary} transform="rotate(-12 33 42)" />
+      <circle cx="42" cy="24" r="7" fill={c.primary} />
+      <circle cx="42" cy="24" r="2" fill={LABEL} />
+      <path d="M20 19l3 8M31 22l3 8M24 39l2 7M37 38l2 7" stroke={LABEL} strokeWidth="1.8" />
+    </>
+  ),
+  'plant-based-dairy': (c) => (
+    <>
+      <path d="M12 25h17l3 7v24H12z" fill={c.primary} />
+      <path d="M12 25l8-9 9 9" fill={c.secondary} />
+      <path d="M37 34h17l-2 17c-.5 4-3 6-7 6h-1c-4 0-6-2-7-6z" fill={c.secondary} />
+      <path d="M39 31h13v5H39z" fill={c.primary} />
+      <path d="M23 43c-5-7-1-12 4-11 0 5-1 9-4 11zM23 43c3-7 8-8 11-6-2 5-6 7-11 6z" fill={LEAF} />
+      <path d="M23 42v7" stroke={LABEL} strokeWidth="1.7" strokeLinecap="round" />
+    </>
+  ),
+  'grilled-cheese': (c) => (
+    <>
+      <path d="M11 31c0-5 4-9 9-9h27c4 0 7 4 7 9v17c0 4-3 7-7 7H19c-5 0-8-3-8-7z" fill={c.primary} />
+      <path d="M20 25l-4 28M31 23l-4 32M43 23l-4 32" stroke={c.secondary} strokeWidth="4" strokeLinecap="round" />
+      <path d="M17 33h32" stroke={LABEL} strokeWidth="2" opacity="0.8" />
+    </>
+  ),
   pretzel: (c) => (
     <>
       <path d="M16 39c-6-7-2-17 6-17 6 0 8 7 10 13 2-6 4-13 10-13 8 0 12 10 6 17l-7 8c-3 3-7 2-9-2-2 4-6 5-9 2z" fill="none" stroke={c.primary} strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />

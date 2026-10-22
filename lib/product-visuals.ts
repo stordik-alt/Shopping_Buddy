@@ -43,6 +43,7 @@ export type ProductVisualShape =
   | 'glass'
   | 'glasses'
   | 'carton'
+  | 'tea-box'
   | 'packet'
   | 'tub'
   | 'tube'
@@ -218,12 +219,12 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   pomazanky: visual('oval', 'rose'),
   'mrazena-zelenina': visual('box', 'blue'),
   cerealie: visual('box', 'orange'),
-  'ovesne-vlocky': visual('tub', 'cream'),
+  'ovesne-vlocky': visual('packet', 'cream'),
   kecup: visual('tube', 'red'),
   horcice: visual('tube', 'yellow'),
   majoneza: visual('jar', 'cream'),
   dzem: visual('jar', 'red'),
-  kakao: visual('cup', 'brown'),
+  kakao: visual('packet', 'brown'),
   orechy: visual('cluster', 'brown'),
   seminka: visual('cluster', 'sand'),
   klobasy: visual('sausage', 'brown'),
@@ -288,9 +289,9 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'mouka-polohruba': visual('packet', 'cream'),
   'mouka-hruba': visual('packet', 'brown'),
   'mouky-specialni': visual('packet', 'cream'),
-  'cukr-krupice': visual('block', 'white'),
-  'cukr-moucka': visual('block', 'white'),
-  'cukr-specialni': visual('block', 'cream'),
+  'cukr-krupice': visual('packet', 'white'),
+  'cukr-moucka': visual('packet', 'white'),
+  'cukr-specialni': visual('packet', 'cream'),
 
   // --- Oleje a tuky, příchutí, koření ---------------------------------------------------------
   'olej-slunecnicovy': visual('bottle', 'yellow'),
@@ -305,32 +306,32 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'hummus-luste-pomazanky': visual('tub', 'cream'),
   med: visual('jar', 'yellow'),
   ocet: visual('bottle', 'orange'),
-  sul: visual('bottle', 'white'),
+  sul: visual('packet', 'white'),
   'sul-do-mycky': visual('packet', 'grey'),
   drozdi: visual('packet', 'grey'),
   'koreni': visual('bottle', 'brown'),
   'kavoviny-cekanka': visual('jar', 'olive'),
-  'kypriciprasek-zelatina': visual('bottle', 'white'),
-  'kyselina-citronova': visual('bottle', 'yellow'),
-  'kyprici-prasek': visual('bottle', 'cream'),
+  'kypriciprasek-zelatina': visual('packet', 'white'),
+  'kyselina-citronova': visual('packet', 'yellow'),
+  'kyprici-prasek': visual('packet', 'cream'),
   'mleko-susene': visual('packet', 'white'),
   'mleko-kondenzovane': visual('can', 'white'),
   syrovatka: visual('bottle', 'cream'),
   ghi: visual('tub', 'yellow'),
 
   // --- Nápoje --------------------------------------------------------------------------------
-  'kava-mleta': visual('mug', 'brown'),
+  'kava-mleta': visual('packet', 'brown'),
   'kava-instantni': visual('jar', 'brown'),
   'kava-zrnkova': visual('cluster', 'brown'),
   'kava-kapsle': visual('coffee-capsule', 'brown'),
   'voda-neperliva': visual('bottle', 'blue'),
   'voda-perliva': visual('bottle', 'teal'),
   pivo: visual('can', 'olive'),
-  caj: visual('mug', 'green'),
-  'caj-bylinny-ovocny': visual('mug', 'rose'),
-  matcha: visual('mug', 'olive'),
+  caj: visual('tea-box', 'green'),
+  'caj-bylinny-ovocny': visual('tea-box', 'rose'),
+  matcha: visual('packet', 'olive'),
   'matcha-latte': visual('mug', 'pink'),
-  'yerba-mate': visual('mug', 'teal'),
+  'yerba-mate': visual('packet', 'teal'),
   vino: visual('bottle', 'navy'),
   cidery: visual('bottle', 'green'),
   'svarene-vino': visual('glass', 'red'),
@@ -403,7 +404,7 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'proteinove-napoje': visual('bottle', 'blue'),
   'kavove-napoje-hotove': visual('cup', 'navy'),
   'instantni-napoje': visual('packet', 'blue'),
-  'kakaove-napoje-instantni': visual('mug', 'grey'),
+  'kakaove-napoje-instantni': visual('packet', 'brown'),
   'funkcni-napoje': visual('bottle', 'green'),
   'shoty-wellness': visual('bottle', 'green'),
   // Types that are not in the taxonomy's own list (a phone, a pair of glasses, a pet bowl) keep

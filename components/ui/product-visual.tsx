@@ -700,6 +700,97 @@ const DRAWINGS: Record<ProductVisual['shape'], (c: Colors) => ReactNode> = {
       <circle cx="44" cy="41" r="1.5" fill={LABEL} />
     </>
   ),
+  pretzel: (c) => (
+    <>
+      <path d="M16 39c-6-7-2-17 6-17 6 0 8 7 10 13 2-6 4-13 10-13 8 0 12 10 6 17l-7 8c-3 3-7 2-9-2-2 4-6 5-9 2z" fill="none" stroke={c.primary} strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M17 38c-3-5-1-10 4-11M43 27c5 1 7 6 4 11M27 43l4 3M37 43l-4 3" fill="none" stroke={c.secondary} strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="22" cy="23" r="1.4" fill={LABEL} />
+      <circle cx="42" cy="23" r="1.4" fill={LABEL} />
+    </>
+  ),
+  crackers: (c) => (
+    <>
+      <path d="M15 35l20-11 15 8-20 11z" fill={c.secondary} />
+      <path d="M15 29l20-11 15 8-20 11z" fill={c.primary} />
+      <path d="M15 29l20-11 15 8-20 11z" fill="none" stroke={LABEL} strokeWidth="1.5" />
+      <circle cx="25" cy="27" r="1.4" fill={c.secondary} />
+      <circle cx="34" cy="23" r="1.4" fill={c.secondary} />
+      <circle cx="42" cy="27" r="1.4" fill={c.secondary} />
+      <circle cx="30" cy="31" r="1.4" fill={c.secondary} />
+    </>
+  ),
+  fries: (c) => (
+    <>
+      <path d="M19 14l8-2 5 25-8 2zM30 10l8 1-1 27h-8zM41 14l8 3-7 22-8-2z" fill={c.primary} />
+      <path d="M17 34h34l-5 21H22z" fill={c.secondary} />
+      <path d="M19 39h30" stroke={LABEL} strokeWidth="2" />
+      <path d="M26 44v7M34 44v7M42 44v7" stroke={c.primary} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  'potato-products': (c) => (
+    <>
+      <path d="M10 36l19-18 14 6-17 18z" fill={c.primary} />
+      <path d="M16 36l14-13M20 40l15-14" stroke={c.secondary} strokeWidth="2.5" strokeLinecap="round" />
+      <rect x="13" y="44" width="27" height="10" rx="5" fill={c.secondary} transform="rotate(-12 26 49)" />
+      <ellipse cx="45" cy="43" rx="9" ry="7" fill={c.primary} />
+      <path d="M39 43h12M42 39h7" stroke={LABEL} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  dumplings: (c) => (
+    <>
+      <path d="M12 39c2-11 10-18 20-18s18 7 20 18c-8 5-32 5-40 0z" fill={c.primary} />
+      <path d="M17 38c5 3 25 3 30 0M22 32l3 4M31 29l2 6M40 32l-3 4" fill="none" stroke={c.secondary} strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M19 45c4 4 22 4 26 0v5c-7 4-19 4-26 0z" fill={c.secondary} />
+      <circle cx="32" cy="17" r="2" fill={c.accent} />
+    </>
+  ),
+  'breaded-bites': (c) => (
+    <>
+      <path d="M11 36c-1-7 5-12 11-11 4-7 15-5 17 2 8-1 14 5 12 12-1 6-7 9-14 9H22c-6 0-10-5-11-12z" fill={LEAF} />
+      <path d="M16 31c2-5 8-7 13-4M31 29c3-4 8-4 11-1" fill="none" stroke={c.secondary} strokeWidth="2" strokeLinecap="round" />
+      <path d="M17 43c-2-5 2-10 7-10 3-5 11-4 13 1 6-1 10 3 9 8-1 4-5 6-10 6H23c-3 0-5-2-6-5z" fill={c.primary} />
+      <circle cx="24" cy="41" r="1.3" fill={LABEL} />
+      <circle cx="34" cy="38" r="1.3" fill={LABEL} />
+      <circle cx="40" cy="44" r="1.3" fill={LABEL} />
+    </>
+  ),
+  'butter-stick': (c) => (
+    <>
+      <path d="M12 27l28-12 13 7-28 12z" fill={c.secondary} />
+      <path d="M12 27v17l13 8V34z" fill={LABEL} />
+      <path d="M25 34l28-12v18L25 52z" fill={c.primary} />
+      <path d="M12 27l28-12 13 7-28 12z" fill={c.primary} />
+      <path d="M17 29l7 4M43 19l6 3" stroke={LABEL} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  'mozzarella-ball': (c) => (
+    <>
+      <ellipse cx="32" cy="43" rx="19" ry="8" fill={c.secondary} opacity="0.5" />
+      <path d="M15 35c0-12 7-21 17-21s17 9 17 21c0 8-7 13-17 13s-17-5-17-13z" fill={c.primary} />
+      <path d="M22 29c2-6 6-9 11-10M20 38c1 4 4 6 8 7" fill="none" stroke={LABEL} strokeWidth="3" strokeLinecap="round" />
+    </>
+  ),
+  'frozen-vegetables': (c) => (
+    <>
+      <circle cx="21" cy="30" r="7" fill={c.primary} />
+      <circle cx="36" cy="24" r="6" fill={c.secondary} />
+      <circle cx="44" cy="39" r="7" fill={c.primary} />
+      <circle cx="27" cy="45" r="6" fill={c.secondary} />
+      <path d="M19 20l4-4M40 16v-5M52 29l5-2M12 42l-5 2" fill="none" stroke={c.accent} strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M12 24l3 3m0-3l-3 3M33 37l3 3m0-3l-3 3M49 49l3 3m0-3l-3 3" stroke={LABEL} strokeWidth="1.7" strokeLinecap="round" />
+    </>
+  ),
+  'frozen-fruit': (c) => (
+    <>
+      <circle cx="22" cy="35" r="9" fill={c.primary} />
+      <circle cx="35" cy="27" r="9" fill={c.secondary} />
+      <circle cx="43" cy="40" r="9" fill={c.primary} />
+      <path d="M30 18c3-5 8-6 12-4-1 5-6 7-12 4z" fill={LEAF} />
+      <path d="M15 24l3-3m0 3l-3-3M49 24l3-3m0 3l-3-3M11 48l3-3m0 3l-3-3" stroke={LABEL} strokeWidth="2" strokeLinecap="round" />
+      <circle cx="20" cy="32" r="1.5" fill={LABEL} />
+      <circle cx="41" cy="37" r="1.5" fill={LABEL} />
+    </>
+  ),
   'cat-bowl': (c) => (
     <>
       <path d="M20 20l-2-12 12 8M44 20l2-12-12 8" fill={c.primary} />

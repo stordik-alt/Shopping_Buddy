@@ -1260,6 +1260,88 @@ const DRAWINGS: Record<ProductVisual['shape'], (c: Colors) => ReactNode> = {
       <path d="M32 37c4 3 5 7 0 9-5-2-4-6 0-9z" fill={c.accent} />
     </>
   ),
+  citrus: (c) => (
+    <>
+      <circle cx="32" cy="35" r="19" fill={c.primary} />
+      <path d="M32 16c-3-4-2-7 0-10 4 3 5 6 2 10z" fill={c.secondary} />
+      <path d="M33 14c5-5 11-5 15-2-3 6-8 8-15 4z" fill={LEAF} />
+      <path d="M32 17v5M32 52v2" stroke={c.secondary} strokeWidth="2" strokeLinecap="round" />
+      <path d="M22 28c3-5 7-7 11-8" fill="none" stroke={LABEL} strokeWidth="2" strokeLinecap="round" opacity="0.65" />
+    </>
+  ),
+  apricot: (c) => (
+    <>
+      <path d="M32 16c11 0 19 8 19 20 0 12-8 19-19 19s-19-7-19-19c0-12 8-20 19-20z" fill={c.primary} />
+      <path d="M32 18c-5 10-5 24 0 35" fill="none" stroke={c.secondary} strokeWidth="2.5" strokeLinecap="round" />
+      <ellipse cx="25" cy="29" rx="5" ry="3" fill={LABEL} opacity="0.3" />
+      <path d="M32 17c4-6 10-8 15-6-2 7-8 10-15 8z" fill={LEAF} />
+      <rect x="30.5" y="10" width="3" height="8" rx="1.5" fill={STEM} />
+    </>
+  ),
+  peach: (c) => (
+    <>
+      <path d="M32 17c-4-5-12-3-17 3-6 7-5 20 1 28 5 7 11 7 16 4 5 3 11 3 16-4 6-8 7-21 1-28-5-6-13-8-17-3z" fill={c.primary} />
+      <path d="M32 19c-3 10-3 22 0 32" fill="none" stroke={c.secondary} strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M18 26c3-5 7-7 12-8" fill="none" stroke={LABEL} strokeWidth="3" strokeLinecap="round" opacity="0.4" />
+      <path d="M32 17c4-6 10-8 15-6-2 7-8 10-15 8z" fill={LEAF} />
+      <rect x="30.5" y="10" width="3" height="8" rx="1.5" fill={STEM} />
+    </>
+  ),
+  plum: (c) => (
+    <>
+      <path d="M32 17c11 0 18 8 18 19 0 11-7 19-18 19S14 47 14 36c0-11 7-19 18-19z" fill={c.primary} />
+      <path d="M32 19c-4 9-4 22 0 33" fill="none" stroke={c.secondary} strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M20 28c3-5 7-7 11-8" fill="none" stroke={LABEL} strokeWidth="2.5" strokeLinecap="round" opacity="0.35" />
+      <path d="M32 17c3-5 8-7 12-5-2 6-6 8-12 7z" fill={LEAF} />
+      <rect x="30.5" y="10" width="3" height="8" rx="1.5" fill={STEM} />
+    </>
+  ),
+  blackberry: (c) => (
+    <>
+      <circle cx="27" cy="23" r="7" fill={c.primary} />
+      <circle cx="39" cy="25" r="7" fill={c.primary} />
+      <circle cx="20" cy="34" r="7" fill={c.secondary} />
+      <circle cx="33" cy="34" r="8" fill={c.primary} />
+      <circle cx="45" cy="36" r="7" fill={c.secondary} />
+      <circle cx="25" cy="46" r="7" fill={c.primary} />
+      <circle cx="38" cy="47" r="7" fill={c.primary} />
+      <path d="M29 15c1-6 5-9 10-9 0 5-3 9-8 11zM31 17c-7-5-12-4-16-1 4 5 9 6 15 4zM34 18c6-5 11-5 15-2-3 6-8 7-14 5z" fill={LEAF} />
+    </>
+  ),
+  beetroot: (c) => (
+    <>
+      <path d="M32 24c-5-9-3-15 1-21 5 6 5 12 2 21 5-8 11-10 16-9-2 8-7 12-16 14" fill={LEAF} />
+      <path d="M18 28c5-8 23-8 28 0 5 8-1 17-7 23-3 3-6 6-7 10-2-5-4-8-7-11-7-7-12-15-7-22z" fill={c.primary} />
+      <path d="M32 36c-2 7-2 15 0 23" fill="none" stroke={c.secondary} strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M22 31c3 2 6 3 9 3M42 31c-3 2-6 3-9 3" fill="none" stroke={c.secondary} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  cauliflower: (c) => (
+    <>
+      <path d="M12 39c1-7 7-11 13-10 1-9 7-14 14-12 6 1 9 6 9 12 6 1 9 6 8 12-1 7-6 10-12 10H21c-7 0-11-5-9-12z" fill={c.primary} />
+      <circle cx="25" cy="27" r="8" fill={c.primary} />
+      <circle cx="38" cy="24" r="8" fill={c.primary} />
+      <circle cx="46" cy="34" r="7" fill={c.primary} />
+      <path d="M16 39c-7 1-10 6-9 13 7 1 12-2 16-8M48 41c7 0 10 4 10 10-7 2-12 0-16-6" fill={LEAF} />
+      <path d="M25 24l3 3M38 21l-2 4M46 32l-3 3M32 35l3 3" stroke={c.secondary} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  'ginger-root': (c) => (
+    <>
+      <path d="M17 29l7-3 2-9 7 3 7-5 3 9 8 3-4 7 4 7-8 3-3 9-8-4-7 5-3-8-9-2 3-8z" fill={c.primary} />
+      <path d="M23 29l6 2-2 8 7 3M39 25l-2 7 6 3M31 20l2 5M20 42l7-3M43 45l-5-5" fill="none" stroke={c.secondary} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M26 15l2-5M45 19l4-4M14 31l-5-2M50 48l4 3" fill="none" stroke={STEM} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  kohlrabi: (c) => (
+    <>
+      <path d="M28 28c-1-7 0-12 4-17 4 5 5 10 2 17 4-8 9-10 14-9-2 7-7 11-15 13" fill={LEAF} />
+      <path d="M30 27c-4-8-9-10-14-9 1 7 6 11 14 13M30 24c-2-8-1-12 2-17 4 5 4 10 2 17" fill={LEAF} />
+      <path d="M32 24c12 0 19 8 19 18 0 9-8 14-19 14s-19-5-19-14c0-10 7-18 19-18z" fill={c.primary} />
+      <path d="M22 37c3-5 7-7 11-8M32 55v4" fill="none" stroke={c.secondary} strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M27 25h10" stroke={c.secondary} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
 }
 
 /** The picture of a product: its photograph when it has one, its illustration otherwise. */

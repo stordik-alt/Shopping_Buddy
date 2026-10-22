@@ -25,10 +25,12 @@ export type ProductVisualShape =
   | 'pepper'
   | 'cluster'
   | 'cherry'
+  | 'cabbage'
   | 'leaf'
   | 'sprig'
   | 'long'
   | 'bulb'
+  | 'garlic'
   | 'mushroom'
   | 'blob'
   | 'cone'
@@ -45,7 +47,10 @@ export type ProductVisualShape =
   | 'tub'
   | 'tube'
   | 'loaf'
+  | 'baguette'
   | 'roll'
+  | 'pastry'
+  | 'cake-slice'
   | 'tortilla'
   | 'wedge'
   | 'drumstick'
@@ -55,9 +60,11 @@ export type ProductVisualShape =
   | 'stripes'
   | 'sausage'
   | 'fish'
+  | 'seafood'
   | 'egg'
   | 'block'
   | 'spray'
+  | 'umbrella'
   | 'blister'
   | 'box'
   | 'sheet'
@@ -166,7 +173,7 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   chleb: visual('loaf', 'brown'),
   'toustovy-chleb': visual('loaf', 'orange'),
   houska: visual('roll', 'cream'),
-  bageta: visual('oval', 'sand'),
+  bageta: visual('baguette', 'sand'),
 
   // --- Ovoce a zelenina -----------------------------------------------------------------------
   jablka: visual('round', 'red'),
@@ -185,10 +192,10 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   brambory: visual('blob', 'sand'),
   cibule: visual('bulb', 'orange'),
   'jarni-cibulka': visual('long', 'green'),
-  cesnek: visual('bulb', 'white'),
+  cesnek: visual('garlic', 'white'),
   mrkev: visual('cone', 'orange'),
   salat: visual('leaf', 'green'),
-  zeli: visual('round', 'green'),
+  zeli: visual('cabbage', 'green'),
   zampiony: visual('mushroom', 'brown'),
   cuketa: visual('long', 'green'),
   celer: visual('long', 'olive'),
@@ -254,7 +261,7 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'rybi-prsty-obalovane': visual('cut', 'white'),
   'rybi-pomazanky': visual('jar', 'white'),
   'sladkovodni-ryby-cerstve': visual('fish', 'blue'),
-  'morske-plody': visual('fish', 'pink'),
+  'morske-plody': visual('seafood', 'orange'),
   'rybi-saly': visual('bowl', 'blue'),
 
   // --- Konzervy, rýže, těstoviny, mouka, cukr -------------------------------------------------
@@ -356,8 +363,8 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'mlecne-napoje': visual('glass', 'white'),
   salam: visual('slices', 'red'),
   'vysocina-salam': visual('slices', 'rose'),
-  'pecivo-sladke': visual('cup', 'pink'),
-  'dorty-zakusky': visual('cup', 'brown'),
+  'pecivo-sladke': visual('pastry', 'sand'),
+  'dorty-zakusky': visual('cake-slice', 'rose'),
   'zavin-strudl': visual('loaf', 'rose'),
   'zavinace': visual('roll', 'rose'),
   'chlebicky-lahudkove': visual('block', 'cream'),
@@ -609,7 +616,7 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'rukavice-uklid': visual('box', 'teal'),
   'kosti-na-vyvar': visual('block', 'cream'),
   'baterie': visual('battery', 'navy'),
-  'destniky': visual('spray', 'navy'),
+  'destniky': visual('umbrella', 'navy'),
 
   // --- Děti ------------------------------------------------------------------------------------
   pleny: visual('packet', 'white'),

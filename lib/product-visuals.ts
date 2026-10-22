@@ -10,10 +10,9 @@
 //  3. No SKU is mapped by hand: the whole taxonomy (every product type) is covered by the table
 //     below, and lib/product-visuals.test.ts fails when a new type arrives without a visual.
 //
-// A product photograph wins over the illustration when one exists (the component takes an
-// optional imageUrl). The database stores no product photographs today — `products` has no image
-// column and no retailer import keeps one — so the illustration is the real path and the photo is
-// the prepared one. No schema is extended for a purely visual change.
+// A representative photograph stored for a product type wins over the illustration when one
+// exists. The pantry query supplies that type's R2 image reference; the illustration remains the
+// fallback for types whose image has not been populated.
 
 import type { ItemCategory } from '@/lib/types'
 

@@ -406,8 +406,7 @@ export function ProductVisual({
   alt,
 }: {
   visual: ProductVisual
-  /** A product photograph, when one exists. Today the database stores none, so the illustration
-   *  is the real path — this keeps the "a photo of the actual product wins" rule ready. */
+  /** A product photograph, when one exists; the illustration is the fallback. */
   imageUrl?: string | null
   className?: string
   /** The accessible name, when the picture carries meaning on its own. */

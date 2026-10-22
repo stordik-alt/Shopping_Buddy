@@ -94,7 +94,11 @@ export function PantryDetail({
       <div className="space-y-4">
         <div className="flex items-center gap-3">
           <span className="flex size-20 shrink-0 items-center justify-center rounded-2xl bg-muted/50">
-            <ProductVisual visual={visual} className="size-full" />
+            <ProductVisual
+              visual={visual}
+              imageUrl={item.imageRef && item.productTypeKey ? `/api/product-types/images/${encodeURIComponent(item.productTypeKey)}` : null}
+              className="size-full"
+            />
           </span>
           <p className="min-w-0 text-sm text-fg-secondary">
             <span className="block font-semibold text-foreground">{formatPantryQuantity(item.quantity)} {item.unit}</span>

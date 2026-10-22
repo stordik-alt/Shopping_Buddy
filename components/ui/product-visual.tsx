@@ -353,6 +353,12 @@ const DRAWINGS: Record<ProductVisual['shape'], (c: Colors) => ReactNode> = {
       <circle cx="39" cy="37" r="1.5" fill={LABEL} />
     </>
   ),
+  bone: (c) => (
+    <>
+      <path d="M18 13c-4-4-11 2-7 7-5 5 1 12 6 8l22 22c-4 5 3 11 8 6 5 4 11-3 7-8 4-5-3-11-8-7L24 19c3-5-1-9-6-6z" fill={BONE} stroke={c.secondary} strokeWidth="2.5" strokeLinejoin="round" />
+      <path d="M20 23l21 21" stroke={c.secondary} strokeWidth="2" strokeLinecap="round" opacity="0.7" />
+    </>
+  ),
   cut: (c) => (
     <>
       <path d="M10 24c0-4 4-7 10-7h28c4 0 6 3 6 7v18c0 4-2 7-6 7H20c-6 0-10-3-10-7z" fill={c.primary} />
@@ -554,6 +560,15 @@ const DRAWINGS: Record<ProductVisual['shape'], (c: Colors) => ReactNode> = {
       <path d="M25 13c0-6 3-9 7-9s7 3 7 9v4c0 3 3 5 5 8 2 3 2 8 1 12H19c-1-4-1-9 1-12 2-3 5-5 5-8z" fill={c.primary} />
       <path d="M20 37h24v7H20zM23 48h18v5H23z" fill={c.secondary} />
       <path d="M28 15h8M24 29h16" stroke={LABEL} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  pacifier: (c) => (
+    <>
+      <path d="M25 31c0-8 3-14 7-14s7 6 7 14v5H25z" fill={c.primary} />
+      <path d="M15 35c6-4 28-4 34 0l-3 9c-7 4-21 4-28 0z" fill={c.secondary} />
+      <path d="M25 44c0 8 4 13 7 13s7-5 7-13" fill="none" stroke={c.primary} strokeWidth="4" strokeLinecap="round" />
+      <circle cx="21" cy="39" r="1.5" fill={LABEL} />
+      <circle cx="43" cy="39" r="1.5" fill={LABEL} />
     </>
   ),
   'baby-bib': (c) => (

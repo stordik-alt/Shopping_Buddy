@@ -489,6 +489,67 @@ const DRAWINGS: Record<ProductVisual['shape'], (c: Colors) => ReactNode> = {
       <path d="M26 25h6a6 6 0 016 6v1" fill="none" stroke={c.primary} strokeWidth="5" strokeLinecap="round" />
     </>
   ),
+  'cat-bowl': (c) => (
+    <>
+      <path d="M20 20l-2-12 12 8M44 20l2-12-12 8" fill={c.primary} />
+      <path d="M20 13l4 6M44 13l-4 6" stroke={c.secondary} strokeWidth="2" strokeLinecap="round" />
+      <circle cx="32" cy="24" r="13" fill={c.primary} />
+      <path d="M12 39h40c-1 11-9 17-20 17s-19-6-20-17z" fill={c.primary} />
+      <path d="M26 23h1M37 23h1M29 29l3 2 3-2M24 28l-6-1M24 31l-6 1M40 28l6-1M40 31l6 1" fill="none" stroke={c.secondary} strokeWidth="2" strokeLinecap="round" />
+      <ellipse cx="32" cy="39" rx="19" ry="4" fill={c.secondary} />
+    </>
+  ),
+  'dog-bowl': (c) => (
+    <>
+      <path d="M19 17c-8-7-14-3-12 6 1 6 6 10 13 9M45 17c8-7 14-3 12 6-1 6-6 10-13 9" fill={c.primary} />
+      <ellipse cx="32" cy="23" rx="14" ry="13" fill={c.primary} />
+      <ellipse cx="32" cy="29" rx="8" ry="6" fill={c.secondary} />
+      <circle cx="27" cy="22" r="1.5" fill={LABEL} />
+      <circle cx="37" cy="22" r="1.5" fill={LABEL} />
+      <path d="M12 39h40c-1 11-9 17-20 17s-19-6-20-17z" fill={c.primary} />
+      <ellipse cx="32" cy="39" rx="19" ry="4" fill={c.secondary} />
+    </>
+  ),
+  'bottle-nipple': (c) => (
+    <>
+      <path d="M25 13c0-6 3-9 7-9s7 3 7 9v4c0 3 3 5 5 8 2 3 2 8 1 12H19c-1-4-1-9 1-12 2-3 5-5 5-8z" fill={c.primary} />
+      <path d="M20 37h24v7H20zM23 48h18v5H23z" fill={c.secondary} />
+      <path d="M28 15h8M24 29h16" stroke={LABEL} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  'baby-bib': (c) => (
+    <>
+      <path d="M23 10c0 8-4 12-9 17l5 27c1 4 4 6 8 6h10c4 0 7-2 8-6l5-27c-5-5-9-9-9-17h-7c0 5-2 7-5 7s-5-2-5-7z" fill={c.primary} />
+      <path d="M27 18c1 3 3 5 5 5s4-2 5-5M20 43h24v8H20z" fill={c.secondary} opacity="0.75" />
+      <circle cx="21" cy="30" r="1.5" fill={LABEL} />
+      <circle cx="43" cy="30" r="1.5" fill={LABEL} />
+    </>
+  ),
+  'changing-pad': (c) => (
+    <>
+      <path d="M14 20c0-4 3-7 7-7h23c4 0 7 3 7 7v25c0 4-3 7-7 7H21c-4 0-7-3-7-7z" fill={c.primary} />
+      <path d="M20 19h25v27H20zM26 19v27M39 19v27" fill="none" stroke={c.secondary} strokeWidth="2.5" />
+      <path d="M43 13v9h8" fill="none" stroke={LABEL} strokeWidth="3" strokeLinejoin="round" />
+    </>
+  ),
+  'makeup-set': (c) => (
+    <>
+      <path d="M13 26h18v27H13z" fill={c.primary} />
+      <path d="M13 26h18v7H13zM18 19h8v7h-8z" fill={c.secondary} />
+      <path d="M37 17h14v36H37z" fill={c.primary} />
+      <path d="M37 17h14v7H37zM40 10h8v7h-8z" fill={c.secondary} />
+      <path d="M40 34h8v11h-8z" fill={LABEL} opacity="0.8" />
+    </>
+  ),
+  'perfume-bottle': (c) => (
+    <>
+      <rect x="27" y="8" width="10" height="8" rx="2" fill={c.secondary} />
+      <rect x="29" y="4" width="6" height="5" rx="1" fill={c.secondary} />
+      <path d="M25 16h14l3 7 7 6v21c0 4-3 7-7 7H22c-4 0-7-3-7-7V29l7-6z" fill={c.primary} />
+      <rect x="22" y="32" width="20" height="12" rx="3" fill={LABEL} />
+      <path d="M32 19v5" stroke={c.secondary} strokeWidth="2" />
+    </>
+  ),
 }
 
 /** The picture of a product: its photograph when it has one, its illustration otherwise. */

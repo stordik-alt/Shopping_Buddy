@@ -204,6 +204,85 @@ describe('Teta catalog import', () => {
     expect(await createdProductId(records[1].externalId)).not.toBeNull()
   })
 
+  it('keeps the decision it made when the product was first imported', async () => {
+    // The product the import creates for a SKU is not evidence that the SKU matches a catalog
+    // product: the second run would find it, match it perfectly and call the match unambiguous.
+    // The decision is made once, and the review queue does not empty itself.
+    const externalId = `__test_teta_${tag}_8`
+    const records = [record({ externalId, name: `__Test Teta ${tag} vlastní produkt 100 ml` })]
+    const statusOf = async () => {
+      const refs = await db.query.retailerProductRefs.findMany({
+        where: eq(schema.retailerProductRefs.externalId, externalId),
+      })
+      return refs[0]?.identityStatus
+    }
+
+    const first = await importTetaCatalog(records, { apply: true, observedAt: '2026-10-20' })
+    const firstStatus = await statusOf()
+    expect(firstStatus).toBeTruthy()
+
+    const second = await importTetaCatalog(records, { apply: true, observedAt: '2026-10-20' })
+    expect(second.decisions).toEqual(first.decisions)
+    expect(second.decisions.auto).toBe(0)
+    expect(await statusOf()).toBe(firstStatus)
+  })
+
+  it('keeps an automatic link after the next import', async () => {
+    const name = `Nivea __Test Teta ${tag} automatický spoj 200 ml`
+    const [existing] = await db.insert(schema.products).values({
+      name,
+      categoryId: (await db.query.productCategories.findFirst({ where: eq(schema.productCategories.name, 'Drogerie') }))!.id,
+      defaultUnit: 'ks',
+    }).returning()
+    productIds.push(existing.id)
+
+    const externalId = `__test_teta_${tag}_9`
+    const records = [record({
+      externalId,
+      name: `__Test Teta ${tag} automatický spoj 200 ml`,
+      brand: 'Nivea',
+      package: { quantity: 0.2, unit: 'l' },
+      packageText: '200 ml',
+      unit: 'l',
+      unitPrice: 199.6,
+      regularUnitPrice: 199.6,
+    })]
+
+    const first = await importTetaCatalog(records, { apply: true, observedAt: '2026-10-20' })
+    expect(first.decisions.auto).toBe(1)
+
+    const second = await importTetaCatalog(records, { apply: true, observedAt: '2026-10-20' })
+    expect(second.decisions.auto).toBe(1)
+
+    const refs = await db.query.retailerProductRefs.findMany({
+      where: eq(schema.retailerProductRefs.externalId, externalId),
+    })
+    expect(refs[0].identityStatus).toBe('matched')
+    expect(refs[0].productId).toBe(existing.id)
+  })
+
+  it('gives a trade item to a record that states no package when the product has only one', async () => {
+    // The record states no package and its price does not identify one either (the price is the
+    // price of one piece, so the implied package would be a single piece). The product has a
+    // single package — there is no other package its SKU could be.
+    const externalId = `__test_teta_${tag}_10`
+    await importTetaCatalog([
+      record({
+        externalId,
+        name: `__Test Teta ${tag} jedno balení 5 ks`,
+        package: undefined,
+        packageText: undefined,
+        unit: 'ks',
+        unitPrice: 17.9,
+        regularUnitPrice: 17.9,
+      }),
+    ], { apply: true, observedAt: '2026-10-20' })
+
+    const productId = await createdProductId(externalId)
+    const tradeItems = await db.query.tradeItems.findMany({ where: eq(schema.tradeItems.productId, productId!) })
+    expect(tradeItems).toHaveLength(1)
+  })
+
   it('writes nothing in a dry run', async () => {
     const externalId = `__test_teta_${tag}_7`
     const result = await importTetaCatalog([

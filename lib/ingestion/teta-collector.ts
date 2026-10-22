@@ -22,6 +22,7 @@ import { TETA_TOP_LEVEL_CATEGORY_LIST } from '@/lib/ingestion/teta'
 import {
   tetaCatalogFromDetail,
   tetaCatalogFromListingPayload,
+  tetaRecordWithDerivedPackage,
   type TetaCatalogProduct,
 } from '@/lib/ingestion/teta-catalog'
 import {
@@ -245,7 +246,11 @@ export async function readTetaSlugs(path: string): Promise<string[]> {
 }
 
 /** The records of an NDJSON file, keyed by their product code — the last record of a product wins,
- *  which is the product page's record when both layers are present. */
+ *  which is the product page's record when both layers are present.
+ *
+ *  The package size is derived again from the retailer's own statement while the record is read, so
+ *  a catalog that was collected before a parser was corrected is read the way the code reads it
+ *  today. */
 export async function readTetaCatalogRecords(path: string): Promise<Map<string, TetaCatalogRecord>> {
   const records = new Map<string, TetaCatalogRecord>()
   const raw = await readFile(path, 'utf8')
@@ -253,7 +258,8 @@ export async function readTetaCatalogRecords(path: string): Promise<Map<string, 
     if (!line.trim()) continue
     try {
       const record = JSON.parse(line) as TetaCatalogRecord
-      if (record.externalId) records.set(record.externalId, record)
+      if (!record.externalId) continue
+      records.set(record.externalId, { ...tetaRecordWithDerivedPackage(record), kind: record.kind })
     } catch {
       // A half-written line is skipped; its product is read again.
     }

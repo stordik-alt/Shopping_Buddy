@@ -18,22 +18,32 @@
 // The rules (deterministic, no model, no guesswork):
 //
 //   auto-link   the candidate's brand is in both names, both sides state the same package, the
-//               descriptive words of the Teta name are found in the candidate's name, nothing
-//               conflicts (no other variant / product-kind / packaging token, no different model
-//               number) and no second candidate comes close (the runner-up is at least 0.1 behind).
+//               two names state the same words, nothing conflicts (no other variant / product-kind
+//               / packaging token, no different model number, no different size) and no second
+//               candidate comes close (the runner-up is at least 0.1 behind).
 //   review      there are candidates, but the evidence is not unambiguous: the decision says which
 //               candidate and why the automatic link was refused.
 //   none        there is no candidate at all — the product is simply new to the catalog.
+//
+// "The two names state the same words" is the rule that keeps two variants apart. A word that only
+// the Teta name states ("Night", "110", "jablko") and a word that only the catalog name states
+// ("Day", "120", "hruška") are both differences — so a link is made only when there is no such
+// word. The words that say nothing about which product it is are left out: the words that tie the
+// product to something else ("pro vlasy"), the words that state the size (the size is compared on
+// its own) and the words that name the type of the product ("vložky", "šampon") — a retailer may
+// name the product by its line alone.
 //
 // A candidate already linked to a *different* Teta SKU is not a candidate: two Teta SKUs are two
 // products even when they share a name. Such a product is reported for review instead.
 
 import { sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
-import { tetaCatalogName, type TetaCatalogProduct } from '@/lib/ingestion/teta-catalog'
+import { tetaCatalogName, TETA_WARNING_UNIT_PRICE_DISAGREES, type TetaCatalogProduct } from '@/lib/ingestion/teta-catalog'
 import { normalizeProductText } from '@/lib/product-normalize'
 import { compareProductIdentityRecords, type ProductIdentityRecord } from '@/lib/product-identity-candidates'
 import { normalizeProductIdentityText, parseProductQuantities } from '@/lib/product-identity-normalization'
+import { isProductKindWord, productKindOf, productKindsCompatible } from '@/lib/product-identity-teta-kinds'
+import { wordRelation } from '@/lib/product-search'
 
 /** How many catalog products the blocking query offers per Teta product. */
 export const TETA_IDENTITY_CANDIDATES_PER_PRODUCT = 8
@@ -41,14 +51,87 @@ export const TETA_IDENTITY_CANDIDATES_PER_PRODUCT = 8
 /** The trigram similarity a catalog product must reach to be a candidate at all. */
 export const TETA_IDENTITY_BLOCKING_SIMILARITY = 0.3
 
-/** The share of the Teta name's descriptive words that must also appear in the candidate's name. */
-export const TETA_IDENTITY_MIN_NAME_COVERAGE = 0.6
+/**
+ * The share of the Teta name's descriptive words that must also appear in the candidate's name.
+ *
+ * All of them: a word that only the Teta name states may be the variant ("Night"), the shade
+ * ("černá") or the flavour ("jablko"), and a link is made only when there is no such word.
+ */
+export const TETA_IDENTITY_MIN_NAME_COVERAGE = 1
+
+/**
+ * The words that tie a product to something else — what it is for, not which product it is.
+ *
+ * "Šampon pro vlasy" is a hair shampoo; the "pro vlasy" says what the product is for, and the
+ * "vlasy" is a different thing from a "sprej na vlasy". The word that ties them together is
+ * therefore not a word that tells two products apart.
+ */
+const LINK_WORDS = new Set([
+  's', 'se', 'z', 'ze', 'na', 'v', 've', 'do', 'pro', 'bez', 'k', 'ke', 'od', 'po',
+  'a', 'i', 'with', 'the', 'of', 'for', 'and', 'in', 'on', 'to', 'my', 'me', 'at', 'it',
+])
+
+/**
+ * The words that state the size of the package.
+ *
+ * The size is compared on its own — against the catalog's package rows and against the size the
+ * Teta page states — so the words that spell it out say nothing about which product it is. The
+ * two retailers also spell the size differently ("200 ml", "0,2 l", "200ml").
+ */
+const SIZE_WORDS = new Set([
+  'ml', 'l', 'kg', 'g', 'mg', 'cl', 'dl', 'ks', 'vel', 'velikost', 'velikosti', 'objem',
+  'hmotnost', 'kus', 'd', 'm',
+])
+
+/**
+ * The words that state how the product is packed — the tube, the bottle, the box.
+ *
+ * A retailer names the packaging where the other one does not, but a different packaging is a
+ * different sales unit, and that is caught by the packaging conflict of the shared comparison.
+ */
+const PACKAGING_WORDS = new Set([
+  'tuba', 'lahev', 'lahvi', 'lahvicka', 'doypack', 'sacek', 'sacku', 'sackem', 'krabicka',
+  'krabicce', 'krabicku', 'krabice', 'box', 'baleni', 'obal', 'blistr', 'folie', 'fole', 'balea',
+])
+
+/**
+ * Whether two words name the same thing.
+ *
+ * The same word in another form ("kremu" / "krem", "vložky" / "vložka") is the same word; a word
+ * built on the same stem ("malina" / "malinová") is not — "banánové chipsy" are not bananas
+ * (lib/product-search.ts says the same about the search words).
+ */
+function sameWord(left: string, right: string): boolean {
+  if (left === right) return true
+  const forward = wordRelation(left, right)
+  if (forward === 'exact' || forward === 'form') return true
+  const backward = wordRelation(right, left)
+  return backward === 'exact' || backward === 'form'
+}
+
+/**
+ * The size a name states ("velikost 4", "vel. 3") — the absorbency of a pad, the size of a towel.
+ *
+ * It is not part of the package: the package is how many pieces the pack holds, the size is which
+ * one it is. Two products of one line can hold the same number of pieces and still be two
+ * products.
+ */
+function sizeLabel(name: string): string | null {
+  const match = name.toLocaleLowerCase('cs-CZ').match(/\bvel(?:ikost|\.)?\s*(\d+)\b/)
+  return match ? match[1] : null
+}
 
 /** How far the second-best candidate must be behind the best one for the match to be unambiguous. */
 export const TETA_IDENTITY_RUNNER_UP_GAP = 0.1
 
-/** The package of a product, in the canonical units the catalog uses. */
-export type TetaPackageSize = { quantity: number; unit: 'ks' | 'kg' | 'l' }
+/**
+ * The package of a product.
+ *
+ * The units are the ones the catalog stores a package in — the canonical ones ("kg", "l", "ks") and
+ * the smaller ones the sources state them in ("g", "ml"). The comparison converts them before it
+ * compares them.
+ */
+export type TetaPackageSize = { quantity: number; unit: 'ks' | 'kg' | 'g' | 'l' | 'ml' }
 
 export type TetaIdentityCandidate = {
   productId: string
@@ -76,6 +159,14 @@ export type TetaIdentityDecision = {
   reason: string
   /** Every candidate with its score, best first. */
   candidates: { productId: string; productName: string; score: number; reasons: string[] }[]
+  /**
+   * The catalog product this SKU is already linked to, with the score it got.
+   *
+   * It is not a candidate: it is the import's own earlier conclusion, and the product may even be
+   * the one the import created for this very SKU. It is reported apart, so that the report can say
+   * how well the existing link fits without counting it as a match.
+   */
+  ownProduct?: { productId: string; productName: string; score: number }
 }
 
 type CandidateRow = {
@@ -92,6 +183,10 @@ type CandidateRow = {
  * The blocking is the trigram similarity on the indexed `products.search_name`; the same pattern
  * the type suggestions use (lib/db/type-suggestions.ts). Only the products that pass the threshold
  * come back, so the scoring that follows works on a handful of rows per Teta product.
+ *
+ * The catalog product a Teta SKU is already linked to is not a candidate here — the matcher takes
+ * that product out of the comparison (see `decideTetaIdentity`), because it is the import's own
+ * earlier conclusion and not independent evidence.
  */
 export async function loadTetaIdentityCandidates(
   records: { externalId: string; name: string; brand?: string }[],
@@ -147,6 +242,70 @@ function nameTokens(value: string): string[] {
 }
 
 /**
+ * A formula — how many things the product does at once ("3 v 1", "3in1", "2 in 1").
+ *
+ * It is one word, and it says which product it is: a "3 v 1" shower gel is not the plain one, and
+ * the two retailers write it glued ("3v1") or with spaces ("3 v 1"), with a different word in the
+ * middle ("in", "v"). So the formula is read as the two numbers it stands for, and the way it was
+ * written does not matter.
+ *
+ * The formula is taken out of the text before the rest of it is read: the number it ends with
+ * would otherwise be read as the thousands group of the size that follows it ("3v1 150 ml" would
+ * be one thousand one hundred fifty millilitres).
+ */
+const FORMULA_PATTERN = /(?<![a-z0-9])(\d+)\s*(?:in|v|ve|way)\s*(\d+)(?![a-z0-9])/g
+
+/**
+ * The words of a name, with a size or a number that is written glued to the word split off it.
+ *
+ * A retailer writes "200ml", "2x75ml", "snail92" or "spf50" where another one writes "200 ml",
+ * "2 x 75 ml", "Snail 92" or "SPF 50". The words are the same, so they have to be compared the
+ * same way — otherwise the words of one name simply do not exist in the other.
+ */
+function nameTokensSplit(value: string): string[] {
+  const formulas: string[] = []
+  const text = normalizeProductIdentityText(value).replace(FORMULA_PATTERN, (_match, count: string, second: string) => {
+    formulas.push(`${count}in${second}`)
+    return ' '
+  })
+  const tokens: string[] = []
+  for (const token of nameTokens(text)) {
+    // A token that mixes letters and digits is a word with a number glued to it ("snail92"), or a
+    // number with a unit ("200ml"). Both are split; a token that is one or the other is left as it
+    // is.
+    const parts = token.match(/^[a-z]+$|^[0-9]+$|[a-z]+|[0-9]+/g)
+    if (!parts || parts.length < 2) {
+      tokens.push(token)
+      continue
+    }
+    for (const part of parts) {
+      if (part.length > 1 && !/^\d+(?:\.\d+)?$/.test(part)) tokens.push(part)
+    }
+  }
+  return [...mergeMakeUp(tokens), ...formulas]
+}
+
+/**
+ * "make up" and "make-up" as one word, the way the other retailer writes it.
+ *
+ * "make-up" is one product type ("makeup"), and a retailer that writes the hyphen writes it as two
+ * words once the punctuation is gone. Left as they are, the two words would stand between two
+ * names of the same product.
+ */
+function mergeMakeUp(tokens: string[]): string[] {
+  const merged: string[] = []
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (tokens[index] === 'make' && tokens[index + 1] === 'up') {
+      merged.push('makeup')
+      index += 1
+      continue
+    }
+    merged.push(tokens[index])
+  }
+  return merged
+}
+
+/**
  * The model numbers a name states — the digits that tell two variants of a product apart
  * ("CURAPROX CS 5460" against "CURAPROX CS 3960").
  *
@@ -181,24 +340,52 @@ export function modelNumbers(name: string): string[] {
 /**
  * Whether the two names state the same model number.
  *
- * `agree` — both names state model numbers and at least one of them is the same.
- * `conflict` — both state model numbers and none of them is the same: two variants of a product.
+ * `agree` — both names state model numbers and they do not contradict each other.
+ * `conflict` — both state model numbers and each of them states one the other does not: two
+ *             variants of a product.
  * `null` — one side states no model number, so nothing can be said (unknown is not agreement).
+ *
+ * The comparison is set-based, not "one shared number is enough". "Infaillible 24H Fresh Wear
+ * 110" and "Infaillible 24H Fresh Wear 120" share the "24" of the 24-hour hold, but they are two
+ * shades — the shared number says nothing and the differing one says everything. A number that only
+ * one side states is extra information ("110" against a name that states no number at all), so it
+ * is not a conflict on its own.
  */
 export function compareModelNumbers(left: string[], right: string[]): 'agree' | 'conflict' | null {
   if (left.length === 0 || right.length === 0) return null
-  return left.some((value) => right.includes(value)) ? 'agree' : 'conflict'
+  const onlyLeft = left.filter((value) => !right.includes(value))
+  const onlyRight = right.filter((value) => !left.includes(value))
+  if (onlyLeft.length === 0 || onlyRight.length === 0) return 'agree'
+  return 'conflict'
 }
 
-/** The same unit in the catalog's canonical form; `null` when the unit cannot be compared. */
-function canonicalUnit(unit: string): 'ks' | 'kg' | 'l' | null {
-  const normalized = unit.trim().toLowerCase()
-  if (normalized === 'ks') return 'ks'
-  if (normalized === 'kg') return 'kg'
-  if (normalized === 'l') return 'l'
-  if (normalized === 'g') return 'kg'
-  if (normalized === 'ml') return 'l'
+/** A package size in the unit every size of its kind is compared in: grams, millilitres, pieces. */
+type BasePackageSize = { quantity: number; unit: 'g' | 'ml' | 'ks' }
+
+/**
+ * The same size in the unit every size of its kind is compared in.
+ *
+ * The catalog keeps a package in the unit its source stated: one retailer writes "75 ml" where
+ * another writes "0,075 l". Comparing the two numbers as they are would call two identical
+ * packages different sizes, so the quantity is converted to the base unit of its kind first —
+ * grams for a weight, millilitres for a volume, pieces for a count. A unit that is none of these
+ * cannot be compared and yields `null`.
+ */
+function basePackageSize(size: TetaPackageSize): BasePackageSize | null {
+  const unit = size.unit.trim().toLowerCase()
+  if (unit === 'ks') return { quantity: size.quantity, unit: 'ks' }
+  if (unit === 'kg') return { quantity: size.quantity * 1000, unit: 'g' }
+  if (unit === 'g') return { quantity: size.quantity, unit: 'g' }
+  if (unit === 'l') return { quantity: size.quantity * 1000, unit: 'ml' }
+  if (unit === 'ml') return { quantity: size.quantity, unit: 'ml' }
   return null
+}
+
+/** Two sizes of the same kind are the same size when they do not differ beyond rounding. */
+function sameBaseSize(left: BasePackageSize, right: BasePackageSize): boolean {
+  if (left.unit !== right.unit) return false
+  const tolerance = Math.max(0.01, Math.max(left.quantity, right.quantity) * 1e-6)
+  return Math.abs(left.quantity - right.quantity) <= tolerance
 }
 
 /**
@@ -228,25 +415,60 @@ function packagesFromName(name: string): TetaPackageSize[] {
  * Both sides fall back to the size their name states, so the comparison stays symmetric: a Teta
  * product whose page has not been read yet is compared the same way as a catalog product whose
  * package row was derived from its name.
+ *
+ * A record whose own numbers contradict each other states no size at all: the price and the unit
+ * price describe a different size than the package statement does, so the record says two
+ * different things and nothing can be concluded from it.
  */
 export function compareTetaPackages(
-  teta: { package?: TetaPackageSize | null; name: string },
+  teta: { package?: TetaPackageSize | null; name: string; contradictory?: boolean },
   candidate: { packages?: TetaPackageSize[]; productName: string },
 ): boolean | null {
+  if (teta.contradictory) return null
   const tetaSizes = teta.package ? [teta.package] : packagesFromName(teta.name)
   if (tetaSizes.length === 0) return null
   const candidateSizes = candidate.packages?.length ? candidate.packages : packagesFromName(candidate.productName)
   if (candidateSizes.length === 0) return null
 
   return tetaSizes.some((tetaSize) => {
-    const tetaUnit = canonicalUnit(tetaSize.unit)
-    if (!tetaUnit) return false
+    const tetaSizeBase = basePackageSize(tetaSize)
+    if (!tetaSizeBase) return false
     return candidateSizes.some((candidateSize) => {
-      const unit = canonicalUnit(candidateSize.unit)
-      if (!unit || unit !== tetaUnit) return false
-      return Math.abs(candidateSize.quantity - tetaSize.quantity) < 0.001
+      const candidateBase = basePackageSize(candidateSize)
+      if (!candidateBase) return false
+      return sameBaseSize(tetaSizeBase, candidateBase)
     })
   })
+}
+
+/**
+ * Whether the catalog product stands for a group of products rather than for one product.
+ *
+ * A retailer that lists a line of variants under one name says so in the name ("… (vybrané
+ * druhy)"). Such a product is not one product: it is the line, and its price is the price of
+ * whichever variant the retailer happens to price. Linking a Teta product to it would make the
+ * price of one variant stand for another, so such a candidate is never linked automatically — it
+ * goes to the report instead.
+ */
+export function isVariantGroupProduct(productName: string): boolean {
+  const normalized = normalizeProductIdentityText(productName)
+  return /\bvybrane\s+(?:druhy|varianty|barvy)\b/.test(normalized)
+}
+
+/**
+ * One Teta product, as the identity matcher sees it.
+ */
+export type TetaIdentityRecord = {
+  externalId: string
+  name: string
+  brand?: string
+  package?: TetaPackageSize | null
+  /**
+   * True when the retailer's own numbers contradict each other — the price and the unit price
+   * describe a different size than the package statement does. Such a record states no size that
+   * can be trusted, so it is never linked automatically.
+   */
+  contradictory?: boolean
 }
 
 /**
@@ -256,14 +478,34 @@ export function compareTetaPackages(
  * linked to a different SKU is a different product and is not considered at all.
  */
 export function decideTetaIdentity(
-  record: { externalId: string; name: string; brand?: string; package?: TetaPackageSize | null },
+  record: TetaIdentityRecord,
   candidates: TetaIdentityCandidate[],
   options: { linkedProductIds?: ReadonlyMap<string, string> } = {},
 ): TetaIdentityDecision {
   const name = tetaCatalogName(record.name, record.brand)
-  const brandTokens = nameTokens(record.brand ?? '')
+  const brandTokens = nameTokensSplit(record.brand ?? '')
   const tetaModelNumbers = modelNumbers(name)
+  const tetaSizeLabel = sizeLabel(name)
   const left: ProductIdentityRecord = { name, brand: record.brand, retailer: 'teta' }
+
+  // The words of the Teta name, minus the ones that say nothing about which product it is: the
+  // words that tie the product to something else ("pro vlasy"), the words that state the size (the
+  // size is compared on its own, against the catalog's package rows) and the words that state the
+  // packaging.
+  const tetaTokens = nameTokensSplit(name)
+  const tetaWords = tetaTokens.filter((token) =>
+    !brandTokens.includes(token)
+    && !LINK_WORDS.has(token)
+    && !SIZE_WORDS.has(token)
+    && !PACKAGING_WORDS.has(token))
+
+  // A word that names the *type* of the product ("vložky", "šampon") is not the word that tells
+  // two products of one line apart, and a retailer may leave the type out ("always vložky Ultra
+  // Secure Night" for "Always Ultra Secure Night hygienické vložky"). Such a word may therefore be
+  // missing from the other name — but the types both names state have to be compatible, or the
+  // two names are about two different products ("Nivea Creme" and "Nivea Deodorant").
+  const tetaDistinguishing = tetaWords.filter((token) => productKindOf(token) === null)
+  const tetaKinds = tetaWords.map(productKindOf).filter((kind): kind is number => kind !== null)
 
   const scored = candidates
     .map((candidate) => {
@@ -272,7 +514,7 @@ export function decideTetaIdentity(
         ...(candidate.brand ? { brand: candidate.brand } : {}),
       })
       const packageAgreement = compareTetaPackages(
-        { package: record.package, name },
+        { package: record.package, name, contradictory: record.contradictory },
         { packages: candidate.packages, productName: candidate.productName },
       )
       const modelAgreement = compareModelNumbers(tetaModelNumbers, modelNumbers(candidate.productName))
@@ -291,81 +533,150 @@ export function decideTetaIdentity(
     })
     .sort((a, b) => b.score - a.score)
 
-  const summary = scored.map(({ candidate, comparison, score }) => ({
+  // The catalog product this SKU is already linked to is not evidence of a match: the import
+  // linked it when the SKU was first imported, and the product may even be the very product the
+  // import created for this SKU. Counting it again would make the decision depend on how many
+  // times the import has run — the first run would say "no catalog product is similar enough" and
+  // every later run would say "a perfect match". The same product, a different answer.
+  const own = scored.find(
+    ({ candidate }) => options.linkedProductIds?.get(candidate.productId) === record.externalId,
+  )
+  const compared = scored.filter(
+    ({ candidate }) => options.linkedProductIds?.get(candidate.productId) !== record.externalId,
+  )
+
+  const summary = compared.map(({ candidate, comparison, score }) => ({
     productId: candidate.productId,
     productName: candidate.productName,
     score,
     reasons: comparison.reasons,
   }))
+  const ownProduct = own
+    ? { productId: own.candidate.productId, productName: own.candidate.productName, score: own.score }
+    : undefined
 
-  const usable = scored.filter(({ candidate }) => {
-    const linked = options.linkedProductIds?.get(candidate.productId)
-    return linked === undefined || linked === record.externalId
+  const usable = compared.filter(({ candidate }) => {
+    // A candidate that stands for a group of variants is never linked automatically.
+    if (isVariantGroupProduct(candidate.productName)) return false
+    // A candidate that another Teta SKU already has is not a candidate either: two Teta SKUs are
+    // two products, even when they share a name.
+    return options.linkedProductIds?.get(candidate.productId) === undefined
   })
   const best = usable[0]
   if (!best) {
-    const claimed = candidates.length > 0
+    const group = compared.find(({ candidate }) => isVariantGroupProduct(candidate.productName))
+    const claimed = compared.length > 0
     return {
       externalId: record.externalId,
       name,
-      status: claimed ? 'review' : 'none',
-      reason: claimed
-        ? 'the similar catalog product is already linked to another Teta product'
-        : 'no catalog product is similar enough',
+      status: group || claimed ? 'review' : 'none',
+      reason: group
+        ? 'the similar catalog product is a group of variants, not one product'
+        : claimed
+          ? 'the similar catalog product is already linked to another Teta product'
+          : 'no catalog product is similar enough',
       candidates: summary,
+      ...(ownProduct ? { ownProduct } : {}),
     }
   }
 
-  const evidence = best.comparison.evidence
-  const runnerUp = usable[1]
-  const gapOk = !runnerUp || best.score - runnerUp.score >= TETA_IDENTITY_RUNNER_UP_GAP
+  /**
+   * Why this candidate cannot be the Teta product — the reasons the two names and the two packages
+   * do not agree.
+   */
+  const blockersOf = (entry: typeof usable[number]): string[] => {
+    const evidence = entry.comparison.evidence
+    const candidateTokens = nameTokensSplit(entry.candidate.productName)
 
-  // The brand has to be in both names: the catalog product's own brand column is usually empty
-  // (only the Teta import fills it), so the names are what carry the brand.
-  const candidateTokens = nameTokens(best.candidate.productName)
-  const brandAgrees = brandTokens.length === 0
-    || brandTokens.every((token) => candidateTokens.includes(token))
-    || (best.candidate.brand !== undefined
-      && normalizeProductIdentityText(best.candidate.brand) === normalizeProductIdentityText(record.brand ?? ''))
+    // The brand has to be in both names: the catalog product's own brand column is usually empty
+    // (only the Teta import fills it), so the names are what carry the brand.
+    const brandAgrees = brandTokens.length === 0
+      || brandTokens.every((token) => candidateTokens.some((word) => sameWord(word, token)))
+      || (entry.candidate.brand !== undefined
+        && normalizeProductIdentityText(entry.candidate.brand) === normalizeProductIdentityText(record.brand ?? ''))
 
-  // The descriptive words of the Teta name (the brand and the numbers aside) have to be found in
-  // the candidate's name too — that is what tells two products of the same brand and size apart.
-  const descriptiveTokens = nameTokens(name).filter((token) => !brandTokens.includes(token))
-  const coverage = descriptiveTokens.length === 0
-    ? 1
-    : descriptiveTokens.filter((token) => candidateTokens.includes(token)).length / descriptiveTokens.length
+    const candidateWords = candidateTokens.filter((token) =>
+      !LINK_WORDS.has(token) && !SIZE_WORDS.has(token) && !PACKAGING_WORDS.has(token))
+    const candidateDistinguishing = candidateWords.filter((token) => productKindOf(token) === null)
+    const candidateKinds = candidateWords.map(productKindOf).filter((kind): kind is number => kind !== null)
 
-  const noConflict =
-    evidence.conflictingVariantTokens.length === 0 &&
-    evidence.conflictingProductTypeTokens.length === 0 &&
-    evidence.conflictingPackagingTokens.length === 0
+    const missingInCandidate = tetaDistinguishing.filter((token) =>
+      !candidateWords.some((word) => sameWord(word, token)))
+    const missingInTeta = candidateDistinguishing.filter((token) =>
+      !tetaTokens.some((word) => sameWord(word, token)))
 
-  const reasons: string[] = []
-  if (best.packageAgreement !== true) {
-    reasons.push(
-      best.packageAgreement === false
-        ? 'the package sizes differ'
-        : 'the package size is not stated on both sides',
-    )
+    // The share of the Teta name's distinguishing words the catalog name also states. Every one of
+    // them has to be there: a word that only one of the two names states is a difference, and the
+    // difference may be the variant ("Night" against "Day") or the flavour ("jablko" against
+    // "hruška").
+    const coverage = tetaDistinguishing.length === 0
+      ? 1
+      : (tetaDistinguishing.length - missingInCandidate.length) / tetaDistinguishing.length
+
+    const candidateSizeLabel = sizeLabel(entry.candidate.productName)
+    const sizeAgrees = tetaSizeLabel === null
+      || candidateSizeLabel === null
+      || tetaSizeLabel === candidateSizeLabel
+
+    const reasons: string[] = []
+    if (entry.packageAgreement !== true) {
+      reasons.push(
+        entry.packageAgreement === false
+          ? 'the package sizes differ'
+          : record.contradictory
+            ? 'the package size is contradictory'
+            : 'the package size is not stated on both sides',
+      )
+    }
+    if (!brandAgrees) reasons.push('the brand is not in both names')
+    if (coverage < TETA_IDENTITY_MIN_NAME_COVERAGE) {
+      reasons.push(`the catalog name does not say ${missingInCandidate.map((word) => `'${word}'`).join(', ')}`)
+    }
+    if (missingInTeta.length > 0) {
+      reasons.push(`the catalog name says ${missingInTeta.map((word) => `'${word}'`).join(', ')}`)
+    }
+    if (!sizeAgrees) reasons.push('the sizes differ')
+    if (!productKindsCompatible(tetaKinds, candidateKinds)) {
+      reasons.push('the names state different kinds of product')
+    }
+    if (evidence.conflictingVariantTokens.length > 0) reasons.push('variant token conflict')
+    if (evidence.conflictingProductTypeTokens.length > 0) reasons.push('product-kind token conflict')
+    if (evidence.conflictingPackagingTokens.length > 0) reasons.push('packaging token conflict')
+    if (entry.modelAgreement === 'conflict') reasons.push('the model numbers differ')
+    return reasons
   }
-  if (!brandAgrees) reasons.push('the brand is not in both names')
-  if (coverage < TETA_IDENTITY_MIN_NAME_COVERAGE) reasons.push('the names describe different products')
-  if (evidence.conflictingVariantTokens.length > 0) reasons.push('variant token conflict')
-  if (evidence.conflictingProductTypeTokens.length > 0) reasons.push('product-kind token conflict')
-  if (evidence.conflictingPackagingTokens.length > 0) reasons.push('packaging token conflict')
-  if (best.modelAgreement === 'conflict') reasons.push('the model numbers differ')
-  if (!gapOk) reasons.push('a second candidate is just as close')
 
-  if (reasons.length === 0) {
+  const evaluated = usable.map((entry) => ({ entry, blockers: blockersOf(entry) }))
+  // The candidates that fit the Teta name in every respect. The ambiguity is between *these* — a
+  // candidate that is a different product is not a second opinion, it is a wrong answer, and it
+  // must not keep a correct link from being made.
+  const agreeing = evaluated.filter(({ blockers }) => blockers.length === 0)
+  const bestAgreeing = agreeing[0]
+
+  if (bestAgreeing) {
+    const runnerUp = agreeing[1]
+    const gapOk = !runnerUp || bestAgreeing.entry.score - runnerUp.entry.score >= TETA_IDENTITY_RUNNER_UP_GAP
+    if (gapOk) {
+      return {
+        externalId: record.externalId,
+        name,
+        status: 'auto',
+        productId: bestAgreeing.entry.candidate.productId,
+        productName: bestAgreeing.entry.candidate.productName,
+        score: bestAgreeing.entry.score,
+        reason: 'same brand, same package, the same words, no conflict, and no second candidate',
+        candidates: summary,
+        ...(ownProduct ? { ownProduct } : {}),
+      }
+    }
     return {
       externalId: record.externalId,
       name,
-      status: 'auto',
-      productId: best.candidate.productId,
-      productName: best.candidate.productName,
-      score: best.score,
-      reason: 'same brand, same package, the same descriptive words, no conflict, and no second candidate',
+      status: 'review',
+      score: bestAgreeing.entry.score,
+      reason: 'a second candidate is just as close',
       candidates: summary,
+      ...(ownProduct ? { ownProduct } : {}),
     }
   }
 
@@ -374,19 +685,57 @@ export function decideTetaIdentity(
     name,
     status: 'review',
     score: best.score,
-    reason: reasons.join('; '),
+    reason: evaluated[0].blockers.join('; '),
     candidates: summary,
+    ...(ownProduct ? { ownProduct } : {}),
   }
 }
 
 /** The Teta products of a catalog run, in the shape the identity comparison needs. */
-export function tetaIdentityRecords(
-  records: TetaCatalogProduct[],
-): { externalId: string; name: string; brand?: string; package?: TetaPackageSize | null }[] {
+export function tetaIdentityRecords(records: TetaCatalogProduct[]): TetaIdentityRecord[] {
   return records.map((record) => ({
     externalId: record.externalId,
     name: record.name,
     ...(record.brand ? { brand: record.brand } : {}),
     ...(record.package ? { package: { quantity: record.package.quantity, unit: record.package.unit } } : {}),
+    ...(record.warnings.includes(TETA_WARNING_UNIT_PRICE_DISAGREES) ? { contradictory: true } : {}),
   }))
+}
+
+/**
+ * Gives every catalog product to at most one Teta SKU.
+ *
+ * Two Teta SKUs can both look like the same catalog product — the same line in two shades, the
+ * same product in two sizes. Only one of them can be that product, and it is the one whose name
+ * fits it best: the SKU that says "… 120" fits the catalog product "… 120 Vanilla" better than
+ * the SKU that says "… 110". The other SKU keeps its own product and is reported for review.
+ *
+ * The decisions are changed in place. A decision that was "auto" and lost its catalog product
+ * becomes a "review" with the reason, and no longer names a product.
+ */
+export function resolveTetaIdentityClaims(decisions: Iterable<TetaIdentityDecision>): void {
+  // The decisions are read twice: first to find the winner of every product, then to demote the
+  // ones that lost. An iterator (a map's values, for instance) is exhausted by the first read, so
+  // the decisions are collected first.
+  const all = [...decisions]
+  const winners = new Map<string, { externalId: string; score: number }>()
+  for (const decision of all) {
+    if (decision.status !== 'auto' || !decision.productId) continue
+    const score = decision.score ?? 0
+    const current = winners.get(decision.productId)
+    // A tie goes to the SKU that came first, so the result does not depend on the order the
+    // candidates happened to be scored in.
+    if (!current || score > current.score) {
+      winners.set(decision.productId, { externalId: decision.externalId, score })
+    }
+  }
+  for (const decision of all) {
+    if (decision.status !== 'auto' || !decision.productId) continue
+    const winner = winners.get(decision.productId)
+    if (!winner || winner.externalId === decision.externalId) continue
+    decision.status = 'review'
+    decision.productId = undefined
+    decision.productName = undefined
+    decision.reason = 'another Teta product matches this catalog product better'
+  }
 }

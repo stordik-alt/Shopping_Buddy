@@ -9,6 +9,7 @@ import {
   tetaCatalogFromListingPayload,
   tetaCatalogName,
   tetaPackageSignature,
+  tetaRecordWithDerivedPackage,
 } from '@/lib/ingestion/teta-catalog'
 import { parseTetaDetailPayload, parseTetaListingPayload } from '@/lib/ingestion/teta-payload'
 import { tetaDetailFixtureHtml, tetaListingFixtureHtml } from '@/lib/ingestion/fixtures/teta-payload-fixture'
@@ -251,6 +252,59 @@ describe('Teta catalog naming', () => {
     expect(tetaCatalogName('Creme', 'Nivea')).toBe('Nivea Creme')
     expect(tetaCatalogName('Nivea Creme', 'Nivea')).toBe('Nivea Creme')
     expect(tetaCatalogName('Creme', undefined)).toBe('Creme')
+  })
+})
+
+describe('Teta conditional (club) prices', () => {
+  // A club price: the shopper pays the everyday price, and the discount applies only under a
+  // condition. The published unit price belongs to that other price.
+  const clubItem = {
+    code: '000000000148223',
+    name: 'TePe Angle 4 mezizubní kartáček 0,7 mm, 6 ks',
+    slug: 'tepe-angle-4',
+    price: {
+      amount: 99.9,
+      unitAmount: 14.151666666666667,
+      unit: 'KS',
+      discountPercent: 15,
+      warnings: [],
+    },
+    currency: 'CZK',
+    categoryPath: ['Drogerie'],
+    categoryCodes: ['1'],
+    available: true,
+  }
+
+  it('derives the unit price of the price the shopper pays from the package', () => {
+    const product = tetaRecordWithDerivedPackage({
+      ...tetaCatalogFromListing(clubItem)!,
+      package: { quantity: 6, unit: 'ks' },
+      packageText: '6 ks',
+    })
+    // 99,90 Kč for six pieces is 16,65 Kč a piece — not the club price's 14,15 Kč.
+    expect(product.unit).toBe('ks')
+    expect(product.unitPrice).toBeCloseTo(16.65, 2)
+    expect(product.warnings).toContain('conditional-price')
+    // A conditional price is not a contradiction of the package size.
+    expect(product.warnings).not.toContain('unit-price-disagrees-with-package')
+  })
+
+  it('corrects the published unit price by the discount when there is no package size', () => {
+    const product = tetaCatalogFromListing(clubItem)!
+    // The published 14,15 Kč a piece is the club price's; the price the shopper pays is 15 % more.
+    expect(product.unitPrice).toBeCloseTo(16.65, 2)
+    expect(product.warnings).toContain('conditional-price')
+  })
+
+  it('keeps a promotion that the everyday price shows as the price the shopper pays', () => {
+    const product = tetaCatalogFromListing({
+      ...clubItem,
+      price: { ...clubItem.price, amount: 84.91, regularAmount: 99.9, discountPercent: 15 },
+    })!
+    // The everyday price is above the current price, so the discount is a promotion and the
+    // published unit price is the unit price of the current price.
+    expect(product.regularPrice).toBeCloseTo(99.9, 2)
+    expect(product.warnings).not.toContain('conditional-price')
   })
 })
 

@@ -76,7 +76,8 @@ export type TetaCatalogProduct = {
   regularUnitPrice: number
   /** The unit price exactly as the retailer states it — kept so the unit price can be recomputed
    *  when the package size becomes known (the listing does not know the package, the product page
-   *  does). */
+   *  does). When the price is a conditional (club) price, the stated unit price belongs to that
+   *  other price and is not the unit price of the price the shopper pays. */
   statedUnitPrice?: { amount: number; unit: string }
   /** The package size the retailer states, when it states one. */
   package?: NormalizedPackage
@@ -118,6 +119,42 @@ export type TetaUnitPriceResolution = {
   unitPrice: number
   /** Set when the stated unit price could not be used as stated. */
   warning?: string
+}
+
+/**
+ * The record's price and its stated unit price describe a different size than the package
+ * statement does — the record contradicts itself.
+ *
+ * A record that says two different things states no size that can be trusted, so the identity
+ * matcher never links such a product automatically.
+ */
+export const TETA_WARNING_UNIT_PRICE_DISAGREES = 'unit-price-disagrees-with-package'
+
+/**
+ * The record's discount is a conditional (club) price, not a promotion.
+ *
+ * Teta states a club price next to the everyday price: the shopper pays the everyday price, and the
+ * discount applies only under a condition ("if the conditions are met"). The unit price the retailer
+ * publishes then belongs to that conditional price and not to the price the shopper pays — such a
+ * record does not contradict itself, its unit price simply describes another price. The unit price
+ * of the price the shopper pays is the price of the package divided by the package.
+ */
+export const TETA_WARNING_CONDITIONAL_PRICE = 'conditional-price'
+
+/**
+ * Whether the record's discount is a conditional (club) price rather than a promotion.
+ *
+ * The everyday price above the current price is a promotion the shopper pays. A discount without
+ * that everyday price is a discount on another price — the club price — so the published unit price
+ * belongs to that other price.
+ */
+export function hasConditionalTetaPrice(record: {
+  price: number
+  regularPrice?: number
+  discountPercent?: number
+}): boolean {
+  if (record.discountPercent === undefined) return false
+  return !(record.regularPrice !== undefined && record.regularPrice > record.price)
 }
 
 /** The unit price the stated package size implies, or null when there is nothing to compare with. */
@@ -199,9 +236,36 @@ export function resolveTetaUnitPrice(
 
   const unitPriceKc = round2(unitPrice.amount * factor)
   if (expected !== null && Math.abs(unitPriceKc - expected) > Math.max(0.01, expected * 0.03)) {
-    warning = warning ?? 'unit-price-disagrees-with-package'
+    warning = warning ?? TETA_WARNING_UNIT_PRICE_DISAGREES
   }
   return { unit: known.unit, unitPrice: unitPriceKc, ...(warning ? { warning } : {}) }
+}
+
+/**
+ * The unit price of the price the shopper pays, when the retailer's published unit price belongs to
+ * a conditional (club) price.
+ *
+ * The package size gives it exactly: the price of the package divided by the package. Without a
+ * package size the retailer's own unit price is corrected by the stated discount — the conditional
+ * price is the price the shopper pays less the discount, so the unit price of the price the shopper
+ * pays is the published one divided by what is left of the price.
+ */
+function resolveConditionalTetaUnitPrice(
+  priceKc: number,
+  stated: { amount: number; unit?: string } | undefined,
+  discountPercent: number,
+  packageSize: NormalizedPackage | null | undefined,
+): TetaUnitPriceResolution {
+  if (packageSize && packageSize.quantity > 0) return fallbackTetaUnitPrice(priceKc, packageSize)
+  const remaining = 1 - discountPercent / 100
+  if (!stated || !(remaining > 0) || stated.amount <= 0) {
+    return fallbackTetaUnitPrice(priceKc, packageSize)
+  }
+  return resolveTetaUnitPrice(
+    priceKc,
+    { amount: stated.amount / remaining, ...(stated.unit ? { unit: stated.unit } : {}) },
+    null,
+  )
 }
 
 /**
@@ -358,7 +422,20 @@ function buildCatalogProduct(input: {
 
   const warnings = [...(input.priceWarnings ?? []), ...(input.packageFacts?.warnings ?? [])]
   const packageSize = input.packageFacts?.package
-  const resolved = resolveTetaUnitPrice(input.price, input.unitPrice, packageSize)
+  // A discount the everyday price does not show is a conditional (club) price: the published unit
+  // price belongs to that other price, so the unit price of the price the shopper pays is derived.
+  const conditional =
+    input.discountPercent !== undefined &&
+    hasConditionalTetaPrice({
+      price: input.price,
+      ...(input.regularPrice !== undefined ? { regularPrice: input.regularPrice } : {}),
+      discountPercent: input.discountPercent,
+    })
+  const resolved =
+    conditional && input.discountPercent !== undefined
+      ? resolveConditionalTetaUnitPrice(input.price, input.unitPrice, input.discountPercent, packageSize)
+      : resolveTetaUnitPrice(input.price, input.unitPrice, packageSize)
+  if (conditional) warnings.push(TETA_WARNING_CONDITIONAL_PRICE)
   if (resolved.warning) warnings.push(resolved.warning)
 
   // The everyday price and the current price: Teta's action price is what the shopper pays while
@@ -468,6 +545,104 @@ export function tetaCatalogFromListingPayload(payload: TetaListingPayload): Teta
 }
 
 /**
+ * The package size of a collected record, derived again from the retailer's own statement.
+ *
+ * A collected record carries both the statement the product page makes ("75 ml") and the size parsed
+ * from it. The statement is the evidence; the parsed size is only a reading of it. When the two
+ * disagree — a catalog collected before a parser was corrected reads its sizes with the old
+ * rounding — the statement wins and the size is derived again with the current code, so a collected
+ * catalog is read the way the code reads it today.
+ */
+export function tetaPackageFromStatement(record: {
+  package?: NormalizedPackage
+  packageText?: string
+  name?: string
+}): NormalizedPackage | undefined {
+  const statement = record.packageText
+  if (!statement) return record.package
+  const parsed = parseTetaPackageText(statement)
+  // A statement that cannot be read leaves the parsed size as it is: the size was read from the
+  // same statement once, and an unreadable statement says nothing new.
+  if (!parsed) return record.package
+  return tetaPackageWithNameSize(parsed, record.name)
+}
+
+/**
+ * The package size, with the structure the product's own name states.
+ *
+ * Teta states the content of one unit ("50 ml") and, in another attribute, how many units the
+ * package holds ("2"). The two together are a multipack — but only when the name says so as well
+ * ("2 x 50 ml"). The piece count is also how many pieces a display box holds, and a display box is
+ * not part of the product the shopper buys: "Garnier Sorbet pleťový krém 85 ml" is one jar,
+ * however many jars the box holds. So a name that states no multiplier says the product is one
+ * unit, and a name that states the multiplier makes the package that many units of the stated
+ * size — which is the size the shopper compares prices by.
+ */
+function tetaPackageWithNameSize(
+  packageSize: NormalizedPackage,
+  name: string | undefined,
+): NormalizedPackage {
+  // The statement says the whole structure ("2 x 75 ml", "3 ks"): it is the retailer's own
+  // statement of the package, and nothing has to be added to it.
+  if (packageSize.packageCount !== undefined) return packageSize
+
+  const multipack = parseProductQuantities(name).find((quantity) => quantity.multipackCount > 1)
+  if (!multipack) return packageSize
+
+  // The name's unit has to be the one the package is measured in, and the inner size has to be
+  // the size the package states — otherwise the name states a different product.
+  const nameBaseUnit = packageSize.unit === 'kg' ? 'g' : packageSize.unit === 'l' ? 'ml' : null
+  if (!nameBaseUnit || multipack.baseUnit !== nameBaseUnit) return packageSize
+  const statedBase = packageSize.quantity * 1000
+  if (Math.abs(multipack.baseValue - statedBase) > Math.max(0.05, statedBase * 0.001)) {
+    return packageSize
+  }
+
+  return {
+    quantity: roundPackageSize((multipack.baseValue * multipack.multipackCount) / 1000),
+    unit: packageSize.unit,
+    packageCount: multipack.multipackCount,
+    packageUnitQuantity: packageSize.quantity,
+    packageUnit: packageSize.unit,
+  }
+}
+
+/**
+ * The collected record with the package size derived again from the retailer's own statement, and
+ * the unit price derived again from that size.
+ *
+ * The unit price and the size are two readings of the same facts, so they are read together: a
+ * record whose size is derived again gets the unit price that belongs to it, and the warning about
+ * the two disagreeing is stated again as well.
+ */
+export function tetaRecordWithDerivedPackage(record: TetaCatalogProduct): TetaCatalogProduct {
+  const packageSize = tetaPackageFromStatement(record)
+  const conditional = hasConditionalTetaPrice(record)
+  const resolved =
+    conditional && record.discountPercent !== undefined
+      ? resolveConditionalTetaUnitPrice(
+          record.price,
+          record.statedUnitPrice,
+          record.discountPercent,
+          packageSize,
+        )
+      : resolveTetaUnitPrice(record.price, record.statedUnitPrice, packageSize ?? null)
+  const warnings = new Set(record.warnings.filter((warning) => !warning.startsWith('unit-price-')))
+  if (conditional) warnings.add(TETA_WARNING_CONDITIONAL_PRICE)
+  if (resolved.warning) warnings.add(resolved.warning)
+  return {
+    ...record,
+    ...(packageSize ? { package: packageSize } : {}),
+    unit: resolved.unit,
+    unitPrice: round2(resolved.unitPrice),
+    regularUnitPrice: record.regularPrice
+      ? round2((resolved.unitPrice * record.regularPrice) / record.price)
+      : round2(resolved.unitPrice),
+    warnings: [...warnings],
+  }
+}
+
+/**
  * Combines what the listing and the product page each know.
  *
  * The listing knows the price and the stock; the product page knows the attributes (package size,
@@ -501,16 +676,28 @@ export function mergeTetaCatalogProducts(
   // package, the product page knows both — and a price per piece is only possible with the
   // package. The price is the same in both layers, so the recomputation is deterministic.
   const stated = merged.statedUnitPrice
-  const resolved = resolveTetaUnitPrice(
-    merged.price,
-    stated ? { amount: stated.amount, unit: stated.unit } : undefined,
-    merged.package ?? null,
-  )
+  const conditional = hasConditionalTetaPrice(merged)
+  const resolved =
+    conditional && merged.discountPercent !== undefined
+      ? resolveConditionalTetaUnitPrice(
+          merged.price,
+          stated ? { amount: stated.amount, unit: stated.unit } : undefined,
+          merged.discountPercent,
+          merged.package ?? null,
+        )
+      : resolveTetaUnitPrice(
+          merged.price,
+          stated ? { amount: stated.amount, unit: stated.unit } : undefined,
+          merged.package ?? null,
+        )
   merged.unit = resolved.unit
   merged.unitPrice = round2(resolved.unitPrice)
   merged.regularUnitPrice = merged.regularPrice
     ? round2((resolved.unitPrice * merged.regularPrice) / merged.price)
     : round2(resolved.unitPrice)
-  if (resolved.warning) merged.warnings = [...new Set([...merged.warnings, resolved.warning])]
+  const warnings = new Set(merged.warnings)
+  if (conditional) warnings.add(TETA_WARNING_CONDITIONAL_PRICE)
+  if (resolved.warning) warnings.add(resolved.warning)
+  merged.warnings = [...warnings]
   return merged
 }

@@ -45,15 +45,17 @@ import {
   type NamedPackageEvidence,
   type OfficialPriceObservation,
 } from '@/lib/db/queries'
-import { tetaPackageSignature, mergeTetaCatalogProducts, type TetaCatalogProduct } from '@/lib/ingestion/teta-catalog'
+import { tetaPackageSignature, mergeTetaCatalogProducts, tetaRecordWithDerivedPackage, TETA_WARNING_UNIT_PRICE_DISAGREES, type TetaCatalogProduct } from '@/lib/ingestion/teta-catalog'
 import { readTetaCatalogRecords } from '@/lib/ingestion/teta-collector'
 import { TETA_CHAIN } from '@/lib/ingestion/teta'
 import { resolveProductForSku } from '@/lib/products'
 import {
   decideTetaIdentity,
   loadTetaIdentityCandidates,
+  resolveTetaIdentityClaims,
   tetaIdentityRecords,
   type TetaIdentityDecision,
+  type TetaIdentityStatus,
 } from '@/lib/product-identity-teta'
 
 /** The source name of every Teta reference (the `retailer_product_refs.source` text column). */
@@ -88,6 +90,8 @@ export type TetaImportResult = {
   errors: { externalId: string; message: string }[]
   /** The products whose identity needs a human look. */
   review: TetaIdentityDecision[]
+  /** The products that were linked automatically — kept so that a human can look at the links too. */
+  linked: TetaIdentityDecision[]
 }
 
 /** The identity status a decision is stored with. */
@@ -98,11 +102,59 @@ function identityStatus(decision: TetaIdentityDecision | undefined): 'unresolved
   return 'unresolved'
 }
 
+/** The decision a stored identity status stands for. */
+function decisionStatus(stored: string): TetaIdentityStatus {
+  if (stored === 'matched') return 'auto'
+  if (stored === 'review_required') return 'review'
+  return 'none'
+}
+
+/** One Teta reference the database already holds. */
+type ExistingTetaRef = { productId: string; productName: string; identityStatus: string }
+
+/**
+ * The Teta references the database already holds.
+ *
+ * The identity of a Teta SKU is decided once — when the SKU is first imported — and the decision
+ * is stored with the reference. A later run must not decide it again: the products the import
+ * created are in the catalog by then, so every SKU would look like a perfect match with the
+ * product the import made for it, and the review queue would empty itself without a human ever
+ * looking at it.
+ */
+async function loadExistingTetaRefs(): Promise<Map<string, ExistingTetaRef>> {
+  const db = getDb()
+  const rows = await db
+    .select({
+      externalId: schema.retailerProductRefs.externalId,
+      productId: schema.retailerProductRefs.productId,
+      identityStatus: schema.retailerProductRefs.identityStatus,
+      productName: schema.products.name,
+    })
+    .from(schema.retailerProductRefs)
+    .innerJoin(schema.products, eq(schema.products.id, schema.retailerProductRefs.productId))
+    .where(eq(schema.retailerProductRefs.source, TETA_SOURCE))
+  const existing = new Map<string, ExistingTetaRef>()
+  for (const row of rows) {
+    // The join is on the product, so a reference without a product is not in the result.
+    if (!row.productId) continue
+    existing.set(row.externalId, {
+      productId: row.productId,
+      productName: row.productName,
+      identityStatus: row.identityStatus,
+    })
+  }
+  return existing
+}
+
 /**
  * The products of the two collected layers, one per Teta product code.
  *
  * The category listing knows the price and the stock, the product page knows the package size, the
  * brand and the description. A product that is in both is one product with what both know.
+ *
+ * The package size and the unit price are read again with the current rules, so a catalog that
+ * was collected earlier is read the way the code reads it today (the collected file keeps the
+ * retailer's own statement; the size and the price per unit are readings of it).
  */
 export async function readTetaCatalogProducts(
   listingPath: string,
@@ -113,12 +165,12 @@ export async function readTetaCatalogProducts(
   const records: TetaCatalogProduct[] = []
   for (const [externalId, listing] of listings) {
     const merged = mergeTetaCatalogProducts(listing, details.get(externalId) ?? null)
-    if (merged) records.push(merged)
+    if (merged) records.push(tetaRecordWithDerivedPackage(merged))
   }
   // A product that is only in the product-page file (the listing missed it) is still a product.
   for (const [externalId, detail] of details) {
     if (listings.has(externalId)) continue
-    if (detail) records.push(detail)
+    if (detail) records.push(tetaRecordWithDerivedPackage(detail))
   }
   return records
 }
@@ -154,6 +206,11 @@ async function loadPackageRows(productIds: string[]): Promise<Map<string, Packag
  * The retailer's own statement wins. When the product page has not been read yet, the package is
  * the one the price implies (the price divided by the unit price is the package size) — the same
  * size the shared name-package logic derived when it wrote the package row.
+ *
+ * A record that states no package and whose price does not identify one still has a package when
+ * the product has exactly one: a product with a single package has no other package its SKU could
+ * be. A product with several packages is left without a trade item — pointing at the wrong one
+ * would be a guess.
  */
 function findPackageRow(record: TetaCatalogProduct, rows: PackageRow[]): PackageRow | null {
   if (record.package) {
@@ -162,9 +219,12 @@ function findPackageRow(record: TetaCatalogProduct, rows: PackageRow[]): Package
     if (match) return match
   }
   const price = record.regularPrice ?? record.price
-  if (!(record.regularUnitPrice > 0) || record.unit === 'dávka') return null
-  const implied = price / record.regularUnitPrice
-  return rows.find((row) => row.unit === record.unit && Math.abs(row.quantity - implied) < 0.01) ?? null
+  if (record.regularUnitPrice > 0 && record.unit !== 'dávka') {
+    const implied = price / record.regularUnitPrice
+    const match = rows.find((row) => row.unit === record.unit && Math.abs(row.quantity - implied) < 0.01)
+    if (match) return match
+  }
+  return rows.length === 1 ? rows[0] : null
 }
 
 /**
@@ -194,6 +254,7 @@ export async function importTetaCatalog(
     actionPrices: 0,
     errors: [],
     review: [],
+    linked: [],
   }
 
   // A record without an app category cannot become a catalog product (the category is not
@@ -225,13 +286,47 @@ export async function importTetaCatalog(
         name: record.name,
         ...(record.brand ? { brand: record.brand } : {}),
         ...(record.package ? { package: { quantity: record.package.quantity, unit: record.package.unit } } : {}),
+        // A record whose price and unit price contradict its package statement states no size that
+        // can be trusted, so it is never linked automatically.
+        ...(record.warnings.includes(TETA_WARNING_UNIT_PRICE_DISAGREES) ? { contradictory: true } : {}),
       },
       candidates.get(record.externalId) ?? [],
       { linkedProductIds: claimed },
     )
     decisions.set(record.externalId, decision)
+  }
+
+  // Two Teta SKUs of one product line ("… 110" and "… 120") can both look like the same catalog
+  // product. Only one of them can be that product, and it is the one whose name fits it best — the
+  // other one keeps its own product and is reported for review.
+  resolveTetaIdentityClaims(decisions.values())
+
+  // The decision of a SKU that is already imported stands. The comparison above is done again,
+  // because the report has to show the evidence the catalog offers today, but the answer that was
+  // decided when the SKU was first imported is the one that counts: the product it is linked to and
+  // the status that says whether a human has to look at it.
+  const existing = await loadExistingTetaRefs()
+  for (const [externalId, stored] of existing) {
+    const decision = decisions.get(externalId)
+    if (!decision) continue
+    decisions.set(externalId, {
+      ...decision,
+      status: decisionStatus(stored.identityStatus),
+      productId: stored.productId,
+      productName: stored.productName,
+      // The score of an automatic link is the score of the product it was made to. The comparison
+      // took that product out of the candidates (it is the import's own conclusion, not evidence),
+      // so its score is carried along separately.
+      ...(stored.identityStatus === 'matched' && decision.ownProduct
+        ? { score: decision.ownProduct.score }
+        : {}),
+    })
+  }
+
+  for (const decision of decisions.values()) {
     result.decisions[decision.status] += 1
     if (decision.status === 'review') result.review.push(decision)
+    if (decision.status === 'auto') result.linked.push(decision)
   }
 
   const storeId = apply ? await loadTetaStoreId() : null
@@ -355,7 +450,34 @@ async function writeBatch(
   }))
   result.packages += await persistNamedPackageEvidence(packageEvidence)
 
-  // 3. The trade items — one per product and package, which is what the table's unique key says.
+  // 3. The prices. The everyday price is what the product costs outside an action; the action
+  //    price has no validity window, so it is not a price observation and not a deal.
+  //
+  //    The prices are written before the trade items on purpose: writing a price derives the
+  //    package that the price implies (a database trigger), and the trade item is the product's
+  //    package. A trade item written before the price would be missing for every product whose
+  //    package only the price states, and the next run of the import would add it — the import
+  //    would never reach a state where another run changes nothing.
+  const observations: OfficialPriceObservation[] = written.map((record) => ({
+    productId: productIds.get(record.externalId)!,
+    storeId,
+    sourceReference: record.externalId,
+    regularPrice: record.regularPrice ?? record.price,
+    currency: 'CZK',
+    unit: record.unit,
+    unitPrice: record.regularUnitPrice,
+    observedAt,
+  }))
+  for (const record of written) {
+    if (record.price !== (record.regularPrice ?? record.price)) result.actionPrices += 1
+  }
+
+  const latest = await loadLatestOfficialPrices(storeId, observations.map((observation) => observation.sourceReference))
+  const priceResults = await recordOfficialPrices(observations, latest)
+  result.prices.written += priceResults.filter((entry) => entry.action === 'insert' || entry.action === 'update-same-day').length
+  const priceIds = priceResults.map((entry) => entry.latest?.id ?? null)
+
+  // 4. The trade items — one per product and package, which is what the table's unique key says.
   const packageRows = await loadPackageRows(written.map((record) => productIds.get(record.externalId)!))
   const tradeItemValues = written
     .map((record) => {
@@ -401,7 +523,7 @@ async function writeBatch(
     result.tradeItems += inserted.length
   }
 
-  // 4. The retailer references.
+  // 5. The retailer references.
   const refRows = written.map((record) => {
     const productId = productIds.get(record.externalId)!
     const item = tradeItemValues.find((entry) => entry.externalId === record.externalId)
@@ -425,9 +547,13 @@ async function writeBatch(
       target: [schema.retailerProductRefs.source, schema.retailerProductRefs.externalId],
       set: {
         tradeItemId: sql`excluded.trade_item_id`,
-        productId: sql`excluded.product_id`,
+        // The product of a reference that is already there stays: a link is decided once, and a
+        // human who has repointed it in the meantime must not be overruled by the next import.
+        // A reference without a product yet (a run that failed half-way) is filled in.
+        productId: sql`COALESCE(${schema.retailerProductRefs.productId}, excluded.product_id)`,
         sourceUrl: sql`excluded.source_url`,
-        identityStatus: sql`excluded.identity_status`,
+        // The identity status is not touched either: it is the decision, and the decision is made
+        // once (see loadExistingTetaRefs).
         rawName: sql`excluded.raw_name`,
         rawBrand: sql`excluded.raw_brand`,
         rawPackage: sql`excluded.raw_package`,
@@ -439,29 +565,8 @@ async function writeBatch(
   const refIds = new Map(insertedRefs.map((row) => [row.externalId, row.id]))
   result.retailerRefs += insertedRefs.length
 
-  // 5. The prices. The everyday price is what the product costs outside an action; the action
-  //    price has no validity window, so it is not a price observation and not a deal.
-  const observations: OfficialPriceObservation[] = written.map((record) => ({
-    productId: productIds.get(record.externalId)!,
-    storeId,
-    sourceReference: record.externalId,
-    regularPrice: record.regularPrice ?? record.price,
-    currency: 'CZK',
-    unit: record.unit,
-    unitPrice: record.regularUnitPrice,
-    observedAt,
-  }))
-  for (const record of written) {
-    if (record.price !== (record.regularPrice ?? record.price)) result.actionPrices += 1
-  }
-
-  const latest = await loadLatestOfficialPrices(storeId, observations.map((observation) => observation.sourceReference))
-  const priceResults = await recordOfficialPrices(observations, latest)
-  result.prices.written += priceResults.filter((entry) => entry.action === 'insert' || entry.action === 'update-same-day').length
-
-  // The price rows point at the trade item and the retailer reference, so a price can be traced
-  // back to the retailer SKU it came from.
-  const priceIds = priceResults.map((entry) => entry.latest?.id ?? null)
+  // 6. The price rows point at the trade item and the retailer reference, so a price can be traced
+  //    back to the retailer SKU it came from.
   await linkPrices(written, refIds, tradeItemValues, tradeItemIds, priceIds)
 }
 

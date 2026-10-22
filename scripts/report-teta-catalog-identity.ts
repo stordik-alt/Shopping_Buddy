@@ -35,6 +35,15 @@ async function main(): Promise<void> {
     generatedAt: new Date().toISOString(),
     apply: false,
     decisions: result.decisions,
+    // The links that were made automatically are in the report as well: a human has to be able to
+    // look at them too, not only at the ones that were refused.
+    linked: result.linked.map((decision) => ({
+      externalId: decision.externalId,
+      name: decision.name,
+      productId: decision.productId,
+      productName: decision.productName,
+      score: decision.score,
+    })),
     products: result.review.map((decision) => ({
       externalId: decision.externalId,
       name: decision.name,

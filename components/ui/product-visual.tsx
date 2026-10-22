@@ -268,10 +268,43 @@ const DRAWINGS: Record<ProductVisual['shape'], (c: Colors) => ReactNode> = {
       <path d="M13 45l-4 4M43 13l4-4" stroke={c.secondary} strokeWidth="2" strokeLinecap="round" />
     </>
   ),
+  bagel: (c) => (
+    <>
+      <ellipse cx="26" cy="36" rx="17" ry="13" fill={c.primary} />
+      <ellipse cx="26" cy="36" rx="6" ry="4" fill={LABEL} />
+      <ellipse cx="42" cy="27" rx="13" ry="10" fill={c.secondary} />
+      <ellipse cx="42" cy="27" rx="4.5" ry="3" fill={LABEL} />
+      <circle cx="18" cy="31" r="1.4" fill={LABEL} />
+      <circle cx="31" cy="41" r="1.4" fill={LABEL} />
+      <circle cx="40" cy="23" r="1.2" fill={LABEL} />
+    </>
+  ),
   roll: (c) => (
     <>
       <path d="M12 40c0-8 9-15 20-15s20 7 20 15c0 6-5 10-11 10H23c-6 0-11-4-11-10z" fill={c.primary} />
       <path d="M22 30c3 4 3 12 0 18M32 27c3 5 3 15 0 22M42 30c3 4 3 12 0 18" stroke={c.secondary} strokeWidth="2.5" fill="none" />
+    </>
+  ),
+  sandwich: (c) => (
+    <>
+      <path d="M10 27l22-15 22 15v23H10z" fill={c.primary} />
+      <path d="M14 29l18-12 18 12v5H14z" fill={c.secondary} />
+      <path d="M14 34h36v5H14z" fill={LEAF} />
+      <path d="M14 39h36v5l-4 5H18l-4-5z" fill={c.primary} />
+      <path d="M14 29l18-12 18 12" fill="none" stroke={LABEL} strokeWidth="2" strokeLinejoin="round" />
+    </>
+  ),
+  'rice-cake': (c) => (
+    <>
+      <ellipse cx="32" cy="42" rx="21" ry="9" fill={c.secondary} />
+      <ellipse cx="32" cy="36" rx="21" ry="9" fill={c.primary} />
+      <ellipse cx="32" cy="29" rx="21" ry="9" fill={c.primary} />
+      <circle cx="22" cy="27" r="2" fill={LABEL} />
+      <circle cx="34" cy="24" r="2.2" fill={LABEL} />
+      <circle cx="42" cy="30" r="1.8" fill={LABEL} />
+      <circle cx="27" cy="34" r="1.7" fill={LABEL} />
+      <circle cx="38" cy="37" r="2" fill={LABEL} />
+      <circle cx="20" cy="40" r="1.5" fill={LABEL} />
     </>
   ),
   pastry: (c) => (
@@ -301,6 +334,13 @@ const DRAWINGS: Record<ProductVisual['shape'], (c: Colors) => ReactNode> = {
       <path d="M10 48L46 16l8 32z" fill={c.primary} />
       <circle cx="30" cy="36" r="4" fill={c.secondary} />
       <circle cx="38" cy="30" r="2.5" fill={c.secondary} />
+    </>
+  ),
+  'cheese-strings': (c) => (
+    <>
+      <path d="M13 20c5 8 8 16 5 29M24 15c5 10 8 20 5 36M35 13c5 11 8 23 5 39M46 17c4 9 6 18 4 29" fill="none" stroke={c.primary} strokeWidth="7" strokeLinecap="round" />
+      <path d="M13 20c5 8 8 16 5 29M24 15c5 10 8 20 5 36M35 13c5 11 8 23 5 39M46 17c4 9 6 18 4 29" fill="none" stroke={c.secondary} strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M15 49c8 4 24 5 34 0" fill="none" stroke={LABEL} strokeWidth="2.5" strokeLinecap="round" />
     </>
   ),
   drumstick: (c) => (
@@ -399,6 +439,16 @@ const DRAWINGS: Record<ProductVisual['shape'], (c: Colors) => ReactNode> = {
       <circle cx="24" cy="29" r="2.5" fill={LABEL} />
     </>
   ),
+  'fish-sticks': (c) => (
+    <>
+      <g transform="rotate(-24 32 32)">
+        <rect x="12" y="17" width="40" height="10" rx="5" fill={c.primary} />
+        <rect x="12" y="30" width="40" height="10" rx="5" fill={c.secondary} />
+        <rect x="12" y="43" width="40" height="10" rx="5" fill={c.primary} />
+        <path d="M20 19v6M31 19v6M43 19v6M18 32v6M30 32v6M43 32v6M21 45v6M34 45v6M45 45v6" stroke={LABEL} strokeWidth="2" strokeLinecap="round" />
+      </g>
+    </>
+  ),
   seafood: (c) => (
     <>
       <path d="M14 43c-4-6-2-15 5-21 8-7 21-6 28 2 6 7 4 18-4 24-7 5-18 5-25-1l-8 5 4-9z" fill={c.primary} />
@@ -417,6 +467,15 @@ const DRAWINGS: Record<ProductVisual['shape'], (c: Colors) => ReactNode> = {
     <>
       <rect x="12" y="18" width="40" height="30" rx="5" fill={c.primary} />
       <rect x="12" y="30" width="40" height="7" fill={c.secondary} opacity="0.6" />
+    </>
+  ),
+  'cheese-slices': (c) => (
+    <>
+      <path d="M16 15h25v31H16z" fill={c.secondary} />
+      <path d="M22 20h25v31H22z" fill={c.primary} />
+      <path d="M28 25h25v31H28z" fill={c.primary} />
+      <path d="M28 25h25v5H28z" fill={c.accent} opacity="0.65" />
+      <path d="M34 33h12M34 40h12M34 47h8" stroke={LABEL} strokeWidth="2" strokeLinecap="round" />
     </>
   ),
   spray: (c) => (

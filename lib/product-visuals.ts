@@ -53,11 +53,15 @@ export type ProductVisualShape =
   | 'tube'
   | 'loaf'
   | 'baguette'
+  | 'bagel'
   | 'roll'
+  | 'sandwich'
+  | 'rice-cake'
   | 'pastry'
   | 'cake-slice'
   | 'tortilla'
   | 'wedge'
+  | 'cheese-strings'
   | 'drumstick'
   | 'poultry-breast'
   | 'poultry-wing'
@@ -72,9 +76,11 @@ export type ProductVisualShape =
   | 'stripes'
   | 'sausage'
   | 'fish'
+  | 'fish-sticks'
   | 'seafood'
   | 'egg'
   | 'block'
+  | 'cheese-slices'
   | 'spray'
   | 'umbrella'
   | 'blister'
@@ -286,7 +292,7 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'ryby-konzervy': visual('can', 'olive'),
   'uzene-ryby': visual('fish', 'brown'),
   surimi: visual('slices', 'white'),
-  'rybi-prsty-obalovane': visual('cut', 'white'),
+  'rybi-prsty-obalovane': visual('fish-sticks', 'sand'),
   'rybi-pomazanky': visual('jar', 'white'),
   'sladkovodni-ryby-cerstve': visual('fish', 'blue'),
   'morske-plody': visual('seafood', 'orange'),
@@ -395,16 +401,16 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'dorty-zakusky': visual('cake-slice', 'rose'),
   'zavin-strudl': visual('loaf', 'rose'),
   'zavinace': visual('roll', 'rose'),
-  'chlebicky-lahudkove': visual('block', 'cream'),
+  'chlebicky-lahudkove': visual('sandwich', 'cream'),
   'jemne-pecivo-baleni': visual('packet', 'cream'),
-  'rizove-chlebicky': visual('block', 'cream'),
-  'veka': visual('block', 'white'),
+  'rizove-chlebicky': visual('rice-cake', 'cream'),
+  'veka': visual('baguette', 'white'),
   'ciabatta-focaccia': visual('loaf', 'cream'),
   'tortilly': visual('tortilla', 'cream'),
   'tortilla-chipsy': visual('wedge', 'olive'),
   'burger-hotdog-bulky': visual('roll', 'sand'),
   'sendvice-wrapy': visual('roll', 'sand'),
-  'bagely-bagetky': visual('oval', 'cream'),
+  'bagely-bagetky': visual('bagel', 'cream'),
   kombucha: visual('bottle', 'olive'),
   'nealko-pivo': visual('can', 'green'),
   'ledove-caje': visual('glass', 'teal'),
@@ -427,7 +433,7 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   bryle: visual('glasses', 'navy'),
   'kontaktni-cocky': visual('glasses', 'teal'),
   'sprchove-pripravky-dalsi': visual('bottle', 'blue'),
-  'syrove-nite-korbaciky': visual('box', 'yellow'),
+  'syrove-nite-korbaciky': visual('cheese-strings', 'cream'),
   'ocni-polstarky': visual('box', 'teal'),
   'pece-o-vousy': visual('bottle', 'brown'),
   'masazni-pripravky': visual('bottle', 'green'),
@@ -494,10 +500,10 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'lilek-patison': visual('oval', 'navy'),
   'bylinky-cerstve': visual('sprig', 'green'),
   'polevkova-zelenina-smes': visual('packet', 'green'),
-  'syr-platkovy': visual('block', 'sand'),
+  'syr-platkovy': visual('cheese-slices', 'yellow'),
   'syr-plisnovy': visual('wedge', 'navy'),
   'syr-grilovaci': visual('block', 'olive'),
-  'syr-tvrdy': visual('block', 'sand'),
+  'syr-tvrdy': visual('wedge', 'sand'),
   'cerstvy-syr': visual('tub', 'white'),
   'tvaruzky-syrecky': visual('wedge', 'grey'),
   raclette: visual('wedge', 'olive'),
@@ -537,12 +543,12 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'chorizo-fuet': visual('sausage', 'red'),
   pancetta: visual('stripes', 'rose'),
   'steaky-specialni': visual('steak', 'red'),
-  'mrazene-kureci-kruti': visual('box', 'teal'),
-  'mrazene-kachna-husa': visual('box', 'navy'),
-  'mrazene-vepro-hovezi': visual('box', 'rose'),
-  'mrazene-ryby-file': visual('box', 'grey'),
-  'mrazena-zelenina-smesi': visual('box', 'green'),
-  'mrazene-ovoce-plody': visual('box', 'pink'),
+  'mrazene-kureci-kruti': visual('poultry-breast', 'cream'),
+  'mrazene-kachna-husa': visual('whole-poultry', 'sand'),
+  'mrazene-vepro-hovezi': visual('steak', 'rose'),
+  'mrazene-ryby-file': visual('seafood', 'teal'),
+  'mrazena-zelenina-smesi': visual('cluster', 'green'),
+  'mrazene-ovoce-plody': visual('cluster', 'pink'),
   'obalovana-zelenina-syr': visual('box', 'olive'),
   'pernik': visual('cookie', 'brown'),
   'puding-prasek': visual('packet', 'pink'),

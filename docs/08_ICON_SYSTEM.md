@@ -41,7 +41,8 @@ system: `lib/product-visuals.ts` (the mapping) and `components/ui/product-visual
   not an individual SKU in `products`. When no photo is available, the local SVG drawing is used in this
   order: product type, subcategory, category, then neutral fallback. An unknown key always ends up
   somewhere — it never throws.
-- **Shapes and tints.** 51 shapes (round, oval, bottle, can, jar, carton, loaf, drumstick, fish, …) in
+- **Shapes and tints.** Shapes include dedicated drawings for round produce, bottles, bread, sandwiches,
+  rice cakes, cheese, fish and meat, alongside everyday packaging forms, in
   19 tints. The shape says what the product is, the tint says which family it belongs to. Drawings are
   flat, two or three colours, no outlines, no emoji, no icon font.
 - **Decorative.** The product's name is always written next to the picture, so the picture carries no

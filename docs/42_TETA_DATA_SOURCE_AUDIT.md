@@ -1,6 +1,6 @@
 # 42 — Teta drogerie: technický audit zdroje a návrh importeru
 
-Stav: **zdroj je ověřen živě (2026-10-21/22), sběr i import jsou implementované; ostrý import do produkce ještě probíhá.** Původní stav (2026-10-19) byl „návrh, nic není nasazeno" — ten je zachovaný níže jako historie auditu, aktuální stav je na konci dokumentu.
+Stav: **zdroj je ověřen živě (2026-10-21/22), sběr i import jsou implementované a import je ověřený na testovací větvi; ostrý import do produkce se spouští až po nasazení migrace `0116`.** Původní stav (2026-10-19) byl „návrh, nic není nasazeno" — ten je zachovaný níže jako historie auditu, aktuální stav je na konci dokumentu.
 
 ## Doložené (zadání)
 Veřejný katalog `https://www.tetadrogerie.cz/eshop/produkty` a `.../produkty/vse` zobrazuje přes 10 000 online produktů: názvy, ceny, jednotkové ceny, značky, některé akční a klubové nabídky. **Neověřeno:** EAN, ceny kamenných prodejen, robots.txt/podmínky, existence API či sitemapy, stránkování, struktura HTML/JSON.
@@ -91,12 +91,27 @@ Sběr je **resumovatelný** (stavový soubor `data/external/teta-collect-state.j
 ### Normalizace, import a párování (2026-10-22)
 
 - `lib/ingestion/teta-catalog.ts` — záznam katalogu (haléře → Kč, kategorie, značka, balení, jednotková cena, validace).
-- `lib/ingestion/teta-import.ts` — dávkový import (500/řádek) do `products` → `product_packages` → `trade_items` → `retailer_product_refs` → `prices`; **dry run je default**, `--apply` zapisuje.
+- `lib/ingestion/teta-import.ts` — dávkový import (500/řádek) do `products` → `product_packages` → `prices` → `trade_items` → `retailer_product_refs`; **dry run je default**, `--apply` zapisuje. Ceny se zapisují před obchodními položkami záměrně: zápis ceny triggerem odvodí balení, které cena implikuje, a obchodní položka je právě balení produktu. Kdyby se položka zapsala dřív, chyběla by u každého produktu, jehož balení zná jen cena, a další běh importu by ji musel doplnit — import by nikdy nedosáhl stavu, v němž další běh nic nemění.
 - `lib/product-identity-teta.ts` — párování s existujícími produkty: blokování přes `pg_trgm` nad `products.search_name`, deterministický skórer, **automatické spojení jen při jednoznačné shodě**, jinak `review_required` s reportem v `data/external/teta-identity-review.json`.
 - Migrace `0116_teta_source.sql` — `product_source` enum += `teta`, `stores.chain = 'Teta'`.
 
-### Ověření proti vykreslené stránce — `scripts/teta-verify-rendering.ts`
+### Balení a jednotková cena — co Teta uvádí a co z toho jde použít (2026-10-22)
 
+Teta uvádí tři veličiny, které nemusí mluvit o stejné věci, a je potřeba je rozlišit:
+
+| Údaj | Kde | Co znamená |
+|---|---|---|
+| `OBSAH_BALENI` („50 ml“, „2 x 50 ml“, „6 ks“) | atribut produktu | **výrok obchodníka o balení** — je důkazem a z něj se odvozuje velikost, kterou zákazník porovnává |
+| `POCET_JEDNOTEK_V_BALENI` | atribut produktu | počet kusů v balení; u display boxu není součástí produktu, který si zákazník koupí |
+| `bbyPrices.unit_price` | cena | jednotková cena, kterou obchodník zveřejňuje |
+
+**Struktura balení určuje název.** Teta říká obsah jedné jednotky („50 ml“) a zvlášť počet jednotek v balení („2“). Dohromady je to multipack — ale jen když to řekne i název („2 x 50 ml“). Počet kusů v boxu není součástí produktu: „Garnier Sorbet pleťový krém 85 ml“ je jedna sklenice, kolik sklenic je v bedně, je věc bedny. Název bez násobítku tedy říká, že je to jedna jednotka, a název s násobítkem dělá z balení tolik jednotek uvedené velikosti (multipack 2 × 50 ml je 0,1 l, ne 0,05 l).
+
+**Jednotková cena se počítá, ne přebírá.** Jednotková ceny, kterou obchodník zveřejňuje, se porovná s cenou a velikostí balení. Když si protiřečí, záznam si protiřečí sám sebou: je označen `unit-price-disagrees-with-package` a **nikdy se automaticky nespáruje** (pravidla párování: `docs/44_PRODUCT_IDENTITY_MATCHING.md`). Takových záznamů je po opravě 138 z 12 614.
+
+**Klubová (podmíněná) cena není rozpor.** Teta zveřejňuje u některých produktů slevu, kterou běžná cena neukazuje, a payload to označuje (`"conditions": "productPrice.ifTheConditionsAreMet"`). Zákazník platí běžnou cenu; sleva platí jen za podmínky. Zveřejněná jednotková cena pak patří té *podmíněné* ceně, ne ceně, kterou zákazník platí — a záznam tak **neodporuje sám sobě**. Jednotková ceny ceny, kterou zákazník platí, se proto odvodí z ceny a velikosti balení (a bez údaje o balení se zveřejněná jednotková cena opraví procentem slevy). Ověřeno živě i na datech: u 62 z 64 takových záznamů (všechny značky TePe) sedí zveřejněná jednotková cena přesně na klubovou cenou — 99,90 Kč za 6 kusů je 16,65 Kč/ks, zveřejněných je 14,15 Kč/ks (klubová cena 84,91 Kč).
+
+### Ověření proti vykreslené stránce — `scripts/teta-verify-rendering.ts`
 Dekódování payloadu „funguje“ a „odpovídá tomu, co vidí zákazník“ nejsou totéž: pole se dá dekódovat ze špatného slotu a payload může nést cenu, kterou stránka nikdy neukáže. Proto `pnpm teta:verify-rendering` znovu načte vzorek produktových stránek a porovná je se sběrem: jméno, běžná cena, akční cena, značka a velikost balení musejí být v textu vykreslené stránky.
 
 Prohlížeč není potřeba. Serverem vykreslené HTML nese stejný text a headless prohlížeč by přidal jen požadavky na skripty webu (`/_nuxt/`), které `robots.txt` zakazuje. Stránky se čtou se stejnými pravidly jako sběr: `robots.txt` se respektuje, požadavky jsou identifikované a jde nejvýše jeden za sekundu.

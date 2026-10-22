@@ -213,6 +213,7 @@ export const productTypes = pgTable('product_types', {
   name: text('name').notNull(),
   category: itemCategoryEnum('category').notNull(),
   unit: itemUnitEnum('unit').notNull(),
+  imageRef: text('image_ref'),
 })
 
 // A Product Subtype is a reusable, reviewed classification within exactly one Product Type.

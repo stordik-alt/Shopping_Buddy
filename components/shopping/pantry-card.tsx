@@ -36,7 +36,12 @@ export function PantryCard({
   const unit = item.unit
   const step = PANTRY_QUANTITY_STEP[unit]
   const available = isPantryItemAvailable(item.quantity)
-  const visual = productVisualFor({ productTypeKey: item.productTypeKey, subcategory: item.subcategory, category: item.category })
+  const visual = productVisualFor({
+    productTypeKey: item.productTypeKey,
+    subcategory: item.subcategory,
+    category: item.category,
+    imageUrl: item.imageRef ? `/api/product-types/images/${item.productTypeKey}` : null,
+  })
   // The size of one piece, when the household bought a packaged product ("3 ks · 1,5 l"). A single
   // piece is left out — "3 ks · 1 ks" says nothing.
   const packaging = item.unitQuantity != null && item.unitUnit && !(item.unitQuantity === 1 && item.unitUnit === 'ks') ? `· ${formatPantryQuantity(item.unitQuantity)} ${item.unitUnit}` : null

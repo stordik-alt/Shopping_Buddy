@@ -55,7 +55,12 @@ export function PantryDetail({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const amountRef = useRef<HTMLInputElement>(null)
-  const visual = productVisualFor({ productTypeKey: item.productTypeKey, subcategory: item.subcategory, category: item.category })
+  const visual = productVisualFor({
+    productTypeKey: item.productTypeKey,
+    subcategory: item.subcategory,
+    category: item.category,
+    imageUrl: item.imageRef ? `/api/product-types/images/${item.productTypeKey}` : null,
+  })
 
   // The amount follows the item whenever it changes elsewhere (the cell's +/−, a fresh copy from
   // the server); a half-typed number the household is writing keeps its own text.

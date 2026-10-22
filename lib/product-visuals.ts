@@ -705,7 +705,11 @@ export function productVisualFor(input: {
   productTypeKey?: string | null
   subcategory?: string | null
   category?: ItemCategory | null
-}): ProductVisual {
+  imageUrl?: string | null
+}): ProductVisual | { isPhoto: true; imageUrl: string } {
+  if (input.imageUrl) {
+    return { isPhoto: true, imageUrl: input.imageUrl }
+  }
   const byType = input.productTypeKey ? PRODUCT_TYPE_VISUALS[input.productTypeKey] : undefined
   if (byType) return byType
   const bySubcategory = input.subcategory ? SUBCATEGORY_VISUALS[input.subcategory] : undefined

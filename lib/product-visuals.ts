@@ -182,6 +182,12 @@ export type ProductVisualShape =
   | 'cauliflower'
   | 'ginger-root'
   | 'kohlrabi'
+  | 'detergent-jug'
+  | 'trigger-spray'
+  | 'toilet-cleaner'
+  | 'pump-bottle'
+  | 'dish-soap'
+  | 'dropper-bottle'
 
 /** The closed set of colour pairs the shapes are drawn in. */
 export type ProductVisualTint =
@@ -630,13 +636,13 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   // --- Drogerie, kosmetika, hygiena -------------------------------------------------------------
   mydlo: visual('soap-bar', 'green'),
   'detske-mydlo': visual('soap-bar', 'pink'),
-  'sprchovy-gel': visual('bottle', 'teal'),
-  'detsky-sprchovy-gel': visual('bottle', 'rose'),
+  'sprchovy-gel': visual('pump-bottle', 'teal'),
+  'detsky-sprchovy-gel': visual('pump-bottle', 'rose'),
   'detska-hygiena-koupel': visual('tub', 'pink'),
-  sampon: visual('bottle', 'purple'),
-  'detsky-sampon': visual('bottle', 'pink'),
+  sampon: visual('pump-bottle', 'purple'),
+  'detsky-sampon': visual('pump-bottle', 'pink'),
   'suchy-sampon': visual('spray', 'purple'),
-  'vlasova-pece': visual('bottle', 'teal'),
+  'vlasova-pece': visual('pump-bottle', 'teal'),
   'styling-vlasy': visual('spray', 'pink'),
   'barvy-na-vlasy': visual('bottle', 'purple'),
   'vlasove-doplnky': visual('hair-accessories', 'rose'),
@@ -677,7 +683,7 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'kapky-spreje-pastilky-zdravi': visual('bottle', 'teal'),
   'naplasti-obinadla': visual('blister', 'sand'),
   'repelenty-proti-hmyzu': visual('spray', 'olive'),
-  'esencialni-oleje': visual('bottle', 'rose'),
+  'esencialni-oleje': visual('dropper-bottle', 'rose'),
   'ustni-hygiena': visual('oral-care', 'white'),
   'zubni-pasta': visual('tube', 'blue'),
   'zubni-nahrady': visual('denture-care', 'green'),
@@ -691,20 +697,20 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'ubrousky-papirove': visual('napkins', 'cream'),
   'papir-tasky': visual('tissue-box', 'sand'),
   'vlhcene-ubrousky-detske': visual('wipes-pack', 'pink'),
-  'praci-gel': visual('bottle', 'blue'),
+  'praci-gel': visual('detergent-jug', 'blue'),
   'praci-prasek': visual('packet', 'white'),
   'praci-kapsle': visual('detergent-capsule', 'blue'),
-  avivaz: visual('bottle', 'pink'),
+  avivaz: visual('detergent-jug', 'pink'),
   'tablety-do-mycky': visual('dishwasher-tablet', 'green'),
-  jar: visual('bottle', 'teal'),
+  jar: visual('dish-soap', 'teal'),
   'lestidlo-do-mycky': visual('bottle', 'white'),
-  'cistic-wc': visual('bottle', 'white'),
-  'cistic-koupelny': visual('bottle', 'teal'),
-  'cistic-kuchyne': visual('bottle', 'olive'),
-  'univerzalni-cistic': visual('spray', 'green'),
-  'cistic-oken': visual('spray', 'blue'),
-  'odstranovac-skvrn': visual('spray', 'olive'),
-  dezinfekce: visual('spray', 'white'),
+  'cistic-wc': visual('toilet-cleaner', 'white'),
+  'cistic-koupelny': visual('trigger-spray', 'teal'),
+  'cistic-kuchyne': visual('trigger-spray', 'olive'),
+  'univerzalni-cistic': visual('trigger-spray', 'green'),
+  'cistic-oken': visual('trigger-spray', 'blue'),
+  'odstranovac-skvrn': visual('trigger-spray', 'olive'),
+  dezinfekce: visual('trigger-spray', 'white'),
   'odvapnovace-kyseliny': visual('bottle', 'white'),
   'houbicky-na-nadobi': visual('sponge', 'yellow'),
   'pytle-na-odpadky': visual('packet', 'grey'),
@@ -723,7 +729,7 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   // --- Děti ------------------------------------------------------------------------------------
   pleny: visual('diaper', 'white'),
   dudliky: visual('pacifier', 'pink'),
-  'detske-lahve': visual('bottle', 'pink'),
+  'detske-lahve': visual('bottle-nipple', 'pink'),
   'detske-savicky': visual('bottle-nipple', 'white'),
   'detske-bryndaky': visual('baby-bib', 'pink'),
   'detske-prebalovaci-podlozky': visual('changing-pad', 'blue'),

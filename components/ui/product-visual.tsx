@@ -1342,6 +1342,64 @@ const DRAWINGS: Record<ProductVisual['shape'], (c: Colors) => ReactNode> = {
       <path d="M27 25h10" stroke={c.secondary} strokeWidth="2" strokeLinecap="round" />
     </>
   ),
+  'detergent-jug': (c) => (
+    <>
+      <path d="M24 9h15v10h7c5 0 8 4 8 9v22c0 4-3 7-7 7H17c-4 0-7-3-7-7V27c0-5 3-8 8-8h6z" fill={c.primary} />
+      <rect x="23" y="5" width="17" height="7" rx="2" fill={c.secondary} />
+      <path d="M39 25h6c2 0 4 2 4 4v8h-9z" fill={LABEL} />
+      <path d="M16 27h7v23h-7z" fill={c.secondary} opacity="0.55" />
+      <rect x="25" y="34" width="21" height="13" rx="2" fill={LABEL} />
+      <path d="M29 39h13M29 43h9" stroke={c.accent} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  'trigger-spray': (c) => (
+    <>
+      <path d="M21 25h24v25c0 4-3 7-7 7H28c-4 0-7-3-7-7z" fill={c.primary} />
+      <path d="M25 21h14v6H25z" fill={c.secondary} />
+      <path d="M38 12h11l5 5v5H39l-5 5h-7l3-7 8-4z" fill={c.secondary} />
+      <path d="M40 22l-2 9-8 4 2-9" fill={c.secondary} />
+      <path d="M24 35h18v12H24z" fill={LABEL} />
+      <path d="M28 39h10M28 43h7" stroke={c.accent} strokeWidth="2" strokeLinecap="round" />
+      <path d="M54 12h5M55 8l4-2M55 17l4 2" stroke={c.accent} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  'toilet-cleaner': (c) => (
+    <>
+      <path d="M21 23c-6-3-9-8-6-13 2-4 7-5 13-3l9 5-3 10c7 3 12 8 13 15l2 13c1 6-3 9-9 9H24c-6 0-10-3-9-9l3-17c1-4 2-7 3-10z" fill={c.primary} />
+      <path d="M17 9c3-4 8-3 13 0l-4 8c-4-3-8-4-11-2z" fill={c.secondary} />
+      <path d="M23 25h14v6H23z" fill={c.secondary} />
+      <rect x="21" y="37" width="22" height="12" rx="2" fill={LABEL} />
+      <path d="M26 41h12M26 45h8" stroke={c.accent} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  'pump-bottle': (c) => (
+    <>
+      <path d="M23 24h18l4 7v19c0 4-3 6-7 6H26c-4 0-7-2-7-6V31z" fill={c.primary} />
+      <path d="M27 19h11v6H27zM31 12h6v7h-6z" fill={c.secondary} />
+      <path d="M34 12V9h13v4H37" fill={c.secondary} stroke={c.secondary} strokeWidth="2" strokeLinejoin="round" />
+      <rect x="22" y="35" width="20" height="12" rx="2" fill={LABEL} />
+      <path d="M27 39h10M27 43h7" stroke={c.accent} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  'dish-soap': (c) => (
+    <>
+      <path d="M24 13h15v8l6 5 3 7v18c0 4-3 6-7 6H23c-4 0-7-2-7-6V33c0-4 2-7 6-10l2-2z" fill={c.primary} />
+      <path d="M25 9h13v6H25zM38 10h10v4h-10z" fill={c.secondary} />
+      <path d="M22 27h19v5H22z" fill={c.secondary} />
+      <rect x="20" y="36" width="22" height="12" rx="3" fill={LABEL} />
+      <path d="M31 38c4 3 4 6 0 8-4-2-4-5 0-8z" fill={c.accent} />
+    </>
+  ),
+  'dropper-bottle': (c) => (
+    <>
+      <path d="M28 16h8v8l5 5v20c0 4-3 7-7 7h-4c-4 0-7-3-7-7V29l5-5z" fill={c.primary} />
+      <rect x="27" y="11" width="10" height="8" rx="3" fill={c.secondary} />
+      <path d="M29 11c0-4 1-7 3-8s3 4 3 8" fill={c.secondary} />
+      <path d="M28 25h8v5h-8z" fill={c.secondary} />
+      <rect x="26" y="36" width="12" height="10" rx="2" fill={LABEL} />
+      <path d="M32 38c3 2 3 4 0 6-3-2-3-4 0-6z" fill={c.accent} />
+    </>
+  ),
 }
 
 /** The picture of a product: its photograph when it has one, its illustration otherwise. */

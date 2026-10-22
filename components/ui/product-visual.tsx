@@ -32,6 +32,12 @@ const DRAWINGS: Record<ProductVisual['shape'], (c: Colors) => ReactNode> = {
       <rect x="31" y="9" width="3" height="10" rx="1.5" fill={STEM} />
     </>
   ),
+  cabbage: (c) => (
+    <>
+      <path d="M32 12c8-5 17 0 19 8 7 4 7 15 1 20 0 9-9 15-17 12-7 5-17 2-20-6-8-4-9-14-4-20-1-9 8-16 16-14z" fill={c.primary} />
+      <path d="M32 15c-5 7-7 18 0 34M32 24c-6-3-11-7-13-12M32 30c7-5 12-10 15-17M31 36c-7-2-13-2-19 1M33 39c6-2 12-2 18 1" fill="none" stroke={c.secondary} strokeWidth="2.5" strokeLinecap="round" />
+    </>
+  ),
   oval: (c) => (
     <>
       <ellipse cx="32" cy="34" rx="17" ry="21" fill={c.primary} />
@@ -107,6 +113,14 @@ const DRAWINGS: Record<ProductVisual['shape'], (c: Colors) => ReactNode> = {
       <path d="M32 14v36" stroke={c.secondary} strokeWidth="2.5" />
       <path d="M25 22c-3 6-4 12-3 18M39 22c3 6 4 12 3 18" stroke={c.secondary} strokeWidth="2" fill="none" />
       <path d="M32 14c-2-5 0-9 3-11 1 5 0 9-3 11z" fill={LEAF} />
+    </>
+  ),
+  garlic: (c) => (
+    <>
+      <path d="M32 14c-3-6 0-10 4-12 3 5 1 9-4 12z" fill={LEAF} />
+      <path d="M32 14c-11 3-18 12-17 24 1 10 8 16 17 17 9-1 16-7 17-17 1-12-6-21-17-24z" fill={c.primary} />
+      <path d="M32 17c-7 8-8 21-5 36M32 17c7 8 8 21 5 36M20 28c4 5 5 13 4 20M44 28c-4 5-5 13-4 20" fill="none" stroke={c.secondary} strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M25 52h14" stroke={c.secondary} strokeWidth="3" strokeLinecap="round" />
     </>
   ),
   mushroom: (c) => (
@@ -208,10 +222,32 @@ const DRAWINGS: Record<ProductVisual['shape'], (c: Colors) => ReactNode> = {
       <path d="M22 24l6 4M32 22l6 4M42 26l5 3" stroke={c.secondary} strokeWidth="2.5" strokeLinecap="round" />
     </>
   ),
+  baguette: (c) => (
+    <>
+      <path d="M11 43c-3-3-2-8 2-12l18-18c4-4 9-5 12-2s2 8-2 12L23 41c-4 4-9 5-12 2z" fill={c.primary} />
+      <path d="M23 25l5 5M31 17l5 5M15 33l5 5" stroke={c.secondary} strokeWidth="3" strokeLinecap="round" />
+      <path d="M13 45l-4 4M43 13l4-4" stroke={c.secondary} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
   roll: (c) => (
     <>
       <path d="M12 40c0-8 9-15 20-15s20 7 20 15c0 6-5 10-11 10H23c-6 0-11-4-11-10z" fill={c.primary} />
       <path d="M22 30c3 4 3 12 0 18M32 27c3 5 3 15 0 22M42 30c3 4 3 12 0 18" stroke={c.secondary} strokeWidth="2.5" fill="none" />
+    </>
+  ),
+  pastry: (c) => (
+    <>
+      <path d="M12 43c-4-5-2-12 3-16l6-5 3-9 9 6 9-3 1 10 8 7c4 4 3 11-2 14-5 4-11 2-17-1-7 4-15 3-20-3z" fill={c.primary} />
+      <path d="M20 27c3 5 5 11 5 18M30 21c4 7 6 15 6 24M40 22c-1 8 0 14 4 20" fill="none" stroke={c.secondary} strokeWidth="2.5" strokeLinecap="round" />
+    </>
+  ),
+  'cake-slice': (c) => (
+    <>
+      <path d="M10 27l24-14 20 12-24 14z" fill={c.primary} />
+      <path d="M10 27v18l20 12V39z" fill={c.secondary} />
+      <path d="M30 39l24-14v18L30 57z" fill={c.primary} />
+      <path d="M10 27l24-14 20 12-24 14z" fill={c.accent} opacity="0.7" />
+      <circle cx="34" cy="20" r="2" fill={LABEL} />
     </>
   ),
   tortilla: (c) => (
@@ -276,6 +312,14 @@ const DRAWINGS: Record<ProductVisual['shape'], (c: Colors) => ReactNode> = {
       <circle cx="24" cy="29" r="2.5" fill={LABEL} />
     </>
   ),
+  seafood: (c) => (
+    <>
+      <path d="M14 43c-4-6-2-15 5-21 8-7 21-6 28 2 6 7 4 18-4 24-7 5-18 5-25-1l-8 5 4-9z" fill={c.primary} />
+      <path d="M22 27c-4 5-4 12 0 17M30 23c-4 7-4 15 0 23M38 25c-4 6-4 13 0 20" fill="none" stroke={c.secondary} strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="43" cy="33" r="2" fill={LABEL} />
+      <path d="M18 45c-4 4-9 4-13 1 2-4 7-6 12-5" fill={c.accent} />
+    </>
+  ),
   egg: (c) => (
     <>
       <ellipse cx="32" cy="36" rx="17" ry="21" fill={BONE} />
@@ -293,6 +337,13 @@ const DRAWINGS: Record<ProductVisual['shape'], (c: Colors) => ReactNode> = {
       <path d="M20 26h20v24c0 4-2 6-6 6H26c-4 0-6-2-6-6z" fill={c.primary} />
       <path d="M40 20h10v8H40z" fill={c.secondary} />
       <path d="M44 12h6v10h-6z" fill={c.secondary} />
+    </>
+  ),
+  umbrella: (c) => (
+    <>
+      <path d="M8 32c2-12 12-20 24-20s22 8 24 20c-5-4-9-4-14 0-6-4-14-4-20 0-5-4-9-4-14 0z" fill={c.primary} />
+      <path d="M32 13v34c0 6 4 9 8 7 2-1 3-3 3-5" fill="none" stroke={c.secondary} strokeWidth="3.5" strokeLinecap="round" />
+      <path d="M18 24c4 1 7 3 10 7M46 24c-4 1-7 3-10 7" fill="none" stroke={c.secondary} strokeWidth="2" strokeLinecap="round" />
     </>
   ),
   blister: (c) => (

@@ -1400,6 +1400,102 @@ const DRAWINGS: Record<ProductVisual['shape'], (c: Colors) => ReactNode> = {
       <path d="M32 38c3 2 3 4 0 6-3-2-3-4 0-6z" fill={c.accent} />
     </>
   ),
+  apple: (c) => (
+    <>
+      <path d="M32 22c-6-7-17-7-21 1-5 10 1 24 9 30 5 4 9 2 12 0 4 3 8 4 13-1 8-8 13-22 6-30-5-7-14-7-19 0z" fill={c.primary} />
+      <path d="M32 22c-3 11-3 21 0 30M25 29c2-4 4-6 7-7" fill="none" stroke={c.secondary} strokeWidth="2.5" strokeLinecap="round" />
+      <rect x="30.5" y="14" width="3" height="9" rx="1.5" fill={STEM} />
+      <path d="M32 17c4-7 10-9 15-6-2 7-8 10-15 8z" fill={LEAF} />
+      <path d="M19 34c1 5 3 9 6 12" fill="none" stroke={LABEL} strokeWidth="2.5" strokeLinecap="round" opacity="0.4" />
+    </>
+  ),
+  'grape-bunch': (c) => (
+    <>
+      <path d="M32 19c1-8 7-11 13-10-1 7-5 11-12 12M32 20c-5-7-11-8-16-5 3 7 8 9 16 8" fill={LEAF} />
+      <path d="M32 17v8M32 24l-11 8M32 24l11 8" fill="none" stroke={STEM} strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="32" cy="26" r="7" fill={c.primary} />
+      <circle cx="22" cy="35" r="7" fill={c.primary} />
+      <circle cx="42" cy="35" r="7" fill={c.primary} />
+      <circle cx="27" cy="45" r="7" fill={c.primary} />
+      <circle cx="37" cy="45" r="7" fill={c.secondary} />
+      <circle cx="32" cy="53" r="6" fill={c.primary} />
+      <path d="M19 32c2-2 4-3 6-3M39 32c2-2 4-3 6-3" stroke={LABEL} strokeWidth="2" strokeLinecap="round" opacity="0.45" />
+    </>
+  ),
+  strawberry: (c) => (
+    <>
+      <path d="M15 24c0-7 7-11 17-7 10-4 17 0 17 7 0 10-10 23-17 31-7-8-17-21-17-31z" fill={c.primary} />
+      <path d="M16 23c5 3 10 3 16 0 6 3 11 3 16 0" fill="none" stroke={c.secondary} strokeWidth="2" />
+      <path d="M32 19c-6-7-12-8-17-5 2 7 8 9 16 8M32 19c6-7 12-8 17-5-2 7-8 9-16 8M32 18V9" fill={LEAF} />
+      <path d="M23 29l1 2M33 27l1 2M42 30l1 2M27 38l1 2M38 38l1 2M32 47l1 2" stroke={LABEL} strokeWidth="2.2" strokeLinecap="round" />
+    </>
+  ),
+  blueberry: (c) => (
+    <>
+      <circle cx="32" cy="36" r="19" fill={c.primary} />
+      <path d="M32 18l3 5 6-1-2 6 4 4-6 1-3 5-3-5-6-1 4-4-2-6 6 1z" fill={c.secondary} />
+      <circle cx="32" cy="31" r="3" fill={c.secondary} />
+      <path d="M22 30c3-5 7-8 12-9" fill="none" stroke={LABEL} strokeWidth="2.5" strokeLinecap="round" opacity="0.5" />
+    </>
+  ),
+  raspberry: (c) => (
+    <>
+      <circle cx="32" cy="20" r="7" fill={c.primary} />
+      <circle cx="23" cy="29" r="7" fill={c.primary} />
+      <circle cx="41" cy="29" r="7" fill={c.secondary} />
+      <circle cx="19" cy="40" r="7" fill={c.secondary} />
+      <circle cx="32" cy="37" r="8" fill={c.primary} />
+      <circle cx="45" cy="40" r="7" fill={c.primary} />
+      <circle cx="25" cy="49" r="7" fill={c.primary} />
+      <circle cx="39" cy="49" r="7" fill={c.secondary} />
+      <path d="M25 16c1-6 5-9 10-9M28 14l-3-5M35 13l4-4M24 18l-6-2" fill="none" stroke={LEAF} strokeWidth="2.5" strokeLinecap="round" />
+    </>
+  ),
+  avocado: (c) => (
+    <>
+      <path d="M32 10c8 0 11 9 14 17 4 10 9 15 7 22-2 8-10 12-21 12S13 57 11 49c-2-7 3-12 7-22 3-8 6-17 14-17z" fill={c.secondary} />
+      <path d="M32 15c5 0 8 8 11 15 3 9 7 14 5 19-2 6-8 9-16 9s-14-3-16-9c-2-5 2-10 5-19 3-7 6-15 11-15z" fill={c.primary} />
+      <ellipse cx="32" cy="42" rx="8" ry="10" fill={STEM} />
+      <path d="M23 28c2-5 4-8 7-10" fill="none" stroke={LABEL} strokeWidth="2.5" strokeLinecap="round" opacity="0.5" />
+    </>
+  ),
+  cucumber: (c) => (
+    <>
+      <g transform="rotate(-18 32 38)">
+        <path d="M11 38c0-11 8-19 21-19s21 8 21 19-8 18-21 18-21-7-21-18z" fill={c.primary} />
+        <path d="M17 42c2 7 7 11 14 12M47 30c-2-7-7-11-14-12" fill="none" stroke={c.secondary} strokeWidth="3" strokeLinecap="round" />
+        <path d="M20 31l27 9M22 25l27 9M16 38l27 9" stroke={c.secondary} strokeWidth="1.5" opacity="0.65" />
+        <circle cx="25" cy="35" r="1.5" fill={LABEL} />
+        <circle cx="34" cy="30" r="1.5" fill={LABEL} />
+        <circle cx="39" cy="42" r="1.5" fill={LABEL} />
+        <circle cx="28" cy="45" r="1.5" fill={LABEL} />
+      </g>
+    </>
+  ),
+  potato: (c) => (
+    <>
+      <path d="M13 33c-2-8 5-16 14-17 6-1 9 3 14 2 9-1 14 6 12 14 5 8-1 19-11 21-7 5-17 3-21-1-8 0-13-9-8-19z" fill={c.primary} />
+      <ellipse cx="21" cy="29" rx="3" ry="2" fill={c.secondary} transform="rotate(-25 21 29)" />
+      <ellipse cx="42" cy="25" rx="2.7" ry="1.8" fill={c.secondary} transform="rotate(25 42 25)" />
+      <ellipse cx="32" cy="43" rx="3" ry="2" fill={c.secondary} transform="rotate(-10 32 43)" />
+      <ellipse cx="45" cy="39" rx="2.5" ry="1.7" fill={c.secondary} />
+      <path d="M20 37c2 5 5 7 9 8" fill="none" stroke={LABEL} strokeWidth="2" strokeLinecap="round" opacity="0.45" />
+    </>
+  ),
+  broccoli: (c) => (
+    <>
+      <path d="M27 34h11l4 20c0 3-3 5-9 5s-9-2-9-5z" fill={c.secondary} />
+      <path d="M28 39c-8 2-13-1-17-7 5-2 9-1 14 2M38 40c8 1 12-2 15-8-6-1-10 1-14 4" fill={LEAF} />
+      <circle cx="22" cy="31" r="11" fill={c.primary} />
+      <circle cx="32" cy="23" r="13" fill={c.primary} />
+      <circle cx="44" cy="31" r="11" fill={c.primary} />
+      <circle cx="31" cy="36" r="11" fill={c.primary} />
+      <circle cx="24" cy="28" r="3" fill={c.secondary} />
+      <circle cx="35" cy="20" r="3" fill={c.secondary} />
+      <circle cx="44" cy="30" r="3" fill={c.secondary} />
+      <circle cx="31" cy="35" r="3" fill={c.secondary} />
+    </>
+  ),
 }
 
 /** The picture of a product: its photograph when it has one, its illustration otherwise. */

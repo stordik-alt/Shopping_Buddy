@@ -405,6 +405,80 @@ const DRAWINGS: Record<ProductVisual['shape'], (c: Colors) => ReactNode> = {
       <path d="M14 30c10 4 30 4 40 0v6c-10 4-30 4-40 0z" fill={LABEL} />
     </>
   ),
+  'pork-chop': (c) => (
+    <>
+      <path d="M17 24c5-8 16-12 26-7 8 4 12 12 9 21-3 10-14 16-25 13-10-2-16-12-13-21z" fill={c.primary} />
+      <path d="M24 28c4-4 12-6 18-2M23 41c5 4 12 5 18 2" fill="none" stroke={c.secondary} strokeWidth="3" strokeLinecap="round" />
+      <path d="M15 34l-7-5c-4-3-8 2-5 6l4 5c-2 4 3 8 6 5l5-5z" fill={BONE} stroke={c.secondary} strokeWidth="2" strokeLinejoin="round" />
+    </>
+  ),
+  tenderloin: (c) => (
+    <>
+      <path d="M11 42c4-5 5-13 10-20 5-7 14-10 21-6 7 4 9 13 6 21-3 8-10 14-19 15-7 1-14-2-18-6z" fill={c.primary} />
+      <path d="M18 39c8-7 10-17 18-20M28 47c8-2 14-7 17-14" fill="none" stroke={c.secondary} strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M17 29c3 1 5 3 7 6" stroke={LABEL} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  'roast-joint': (c) => (
+    <>
+      <path d="M12 30c2-8 10-13 20-13h14c5 0 8 4 7 9l-3 18c-1 6-5 9-11 9H23c-8 0-13-7-11-15z" fill={c.primary} />
+      <path d="M22 20l4 32M34 17l3 36M46 20l-1 30" stroke={c.secondary} strokeWidth="2.5" opacity="0.85" />
+      <path d="M16 28c10 4 28 4 36 0M14 43c11-4 25-4 37 0" fill="none" stroke={LABEL} strokeWidth="2" strokeLinecap="round" />
+      <path d="M20 14c5 5 5 9 2 12M39 13c5 5 6 9 3 12M29 49c-2 5 0 8 4 10" fill="none" stroke={c.secondary} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  'meat-cubes': (c) => (
+    <>
+      <path d="M12 30l12-7 11 6-12 8z" fill={c.secondary} />
+      <path d="M12 30v13l11 7V37z" fill={c.primary} />
+      <path d="M23 37l12-8v13l-12 8z" fill={c.primary} />
+      <path d="M31 20l10-6 11 6-11 7z" fill={c.primary} />
+      <path d="M31 20v12l10 6V27z" fill={c.secondary} />
+      <path d="M41 27l11-7v13l-11 5z" fill={c.primary} />
+      <path d="M20 31l3 2M39 22l3 2" stroke={LABEL} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  'soup-cuts': (c) => (
+    <>
+      <path d="M11 29c3-8 13-11 20-6 5 4 5 12 0 17-6 6-17 5-21-1-2-3-1-7 1-10z" fill={c.primary} />
+      <path d="M34 39c-4-6-2-14 4-18 6-4 13 0 13 7 0 5-4 9-9 11l8 8c4-2 8 3 5 6-3 4-8 0-7-3l-9-8z" fill={c.secondary} />
+      <path d="M17 32c4-3 8-3 12 0M39 26c3-2 6-1 7 2" fill="none" stroke={LABEL} strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="21" cy="40" r="2" fill={c.secondary} />
+    </>
+  ),
+  meatloaf: (c) => (
+    <>
+      <path d="M10 39c0-12 10-22 22-22s22 10 22 22c0 7-9 11-22 11S10 46 10 39z" fill={c.primary} />
+      <path d="M18 31c8-7 20-7 28 0M15 39c10-5 24-5 34 0" fill="none" stroke={c.secondary} strokeWidth="3" strokeLinecap="round" />
+      <path d="M22 35l20-4v15l-20 3z" fill={c.secondary} />
+      <path d="M26 37l12-2v7l-12 2z" fill={c.primary} />
+      <circle cx="31" cy="40" r="2" fill={LABEL} />
+    </>
+  ),
+  'roast-slices': (c) => (
+    <>
+      <path d="M10 41c1-12 9-21 21-21 8 0 14 4 16 11-1 9-7 17-17 20-9 2-16-2-20-10z" fill={c.secondary} />
+      <path d="M18 39c1-10 7-16 15-16 7 0 11 4 12 9-2 8-7 14-15 15-5 1-10-2-12-8z" fill={c.primary} />
+      <path d="M37 34c3-2 7-1 9 2M25 30c3-2 7-2 10 0" fill="none" stroke={LABEL} strokeWidth="2.5" strokeLinecap="round" />
+    </>
+  ),
+  'vacuum-pack': (c) => (
+    <>
+      <path d="M14 15h36l4 5-3 35H13l-3-35z" fill={LABEL} opacity="0.8" />
+      <path d="M16 13h32M13 20h39" stroke={c.secondary} strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M19 34c2-7 8-11 15-10 7 1 11 7 10 13-2 7-9 10-16 9-7-1-11-6-9-12z" fill={c.primary} />
+      <path d="M25 33c4-3 10-4 15-1M25 40c4 2 9 2 13 0" fill="none" stroke={c.secondary} strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M17 50h30" stroke={c.secondary} strokeWidth="1.5" opacity="0.6" />
+    </>
+  ),
+  'pork-knuckle': (c) => (
+    <>
+      <path d="M16 40c-4-7-2-17 5-22 7-5 20-4 27 3 6 6 5 17-1 23-5 5-14 7-22 4z" fill={c.primary} />
+      <path d="M20 29c7 3 15 3 23 0M22 41c7 4 14 4 21 1" fill="none" stroke={c.secondary} strokeWidth="3" strokeLinecap="round" />
+      <path d="M18 44l-7 6c-4 4 1 9 5 6 4 3 8-2 5-6l5-5z" fill={BONE} stroke={c.secondary} strokeWidth="2" strokeLinejoin="round" />
+      <path d="M31 23c3 2 5 5 5 9" stroke={LABEL} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
   tray: (c) => (
     <>
       <rect x="10" y="20" width="44" height="30" rx="6" fill={LABEL} />

@@ -136,6 +136,15 @@ export type ProductVisualShape =
   | 'mozzarella-ball'
   | 'frozen-vegetables'
   | 'frozen-fruit'
+  | 'pork-chop'
+  | 'tenderloin'
+  | 'roast-joint'
+  | 'meat-cubes'
+  | 'soup-cuts'
+  | 'meatloaf'
+  | 'roast-slices'
+  | 'vacuum-pack'
+  | 'pork-knuckle'
 
 /** The closed set of colour pairs the shapes are drawn in. */
 export type ProductVisualTint =
@@ -283,22 +292,22 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'kure-cele': visual('whole-poultry', 'sand'),
   'kureci-mlete': visual('mince', 'cream'),
   'kureci-vnitrnosti': visual('tray', 'olive'),
-  'kureci-na-polevku': visual('cut', 'cream'),
-  'veprova-krkovice': visual('cut', 'pink'),
-  'veprova-pecene': visual('cut', 'red'),
-  'veprova-panenka': visual('cut', 'rose'),
-  'veprova-kyta': visual('cut', 'cream'),
-  'veprova-plec': visual('cut', 'sand'),
-  'veprovy-bucek': visual('cut', 'olive'),
+  'kureci-na-polevku': visual('soup-cuts', 'cream'),
+  'veprova-krkovice': visual('pork-chop', 'pink'),
+  'veprova-pecene': visual('pork-chop', 'red'),
+  'veprova-panenka': visual('tenderloin', 'rose'),
+  'veprova-kyta': visual('roast-joint', 'cream'),
+  'veprova-plec': visual('roast-joint', 'sand'),
+  'veprovy-bucek': visual('stripes', 'rose'),
   'veprova-zebra': visual('ribs', 'pink'),
   'veprove-mlete': visual('mince', 'pink'),
-  'veprove-na-gulas': visual('cut', 'brown'),
-  'hovezi-svickova': visual('cut', 'navy'),
-  'hovezi-zadni': visual('cut', 'red'),
-  'hovezi-predni': visual('cut', 'rose'),
+  'veprove-na-gulas': visual('meat-cubes', 'pink'),
+  'hovezi-svickova': visual('tenderloin', 'red'),
+  'hovezi-zadni': visual('roast-joint', 'red'),
+  'hovezi-predni': visual('roast-joint', 'rose'),
   'hovezi-steak': visual('steak', 'red'),
   'hovezi-mlete': visual('mince', 'red'),
-  'hovezi-na-gulas': visual('cut', 'brown'),
+  'hovezi-na-gulas': visual('meat-cubes', 'red'),
   'kruti-prsa': visual('poultry-breast', 'cream'),
   'kruti-stehna': visual('drumstick', 'sand'),
   'kruti-mlete': visual('mince', 'sand'),
@@ -538,23 +547,23 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
 
   // --- Maso navíc ------------------------------------------------------------------------------
   'uzene-maso': visual('stripes', 'brown'),
-  sekana: visual('cut', 'olive'),
+  sekana: visual('meatloaf', 'brown'),
   kabanos: visual('sausage', 'olive'),
   vnitrnosti: visual('tray', 'olive'),
-  'veprovy-bok': visual('cut', 'grey'),
+  'veprovy-bok': visual('stripes', 'brown'),
   'hovezi-zebra': visual('ribs', 'red'),
   'zverina-kralik': visual('drumstick', 'rose'),
-  'pecene-maso-hotove': visual('cut', 'brown'),
+  'pecene-maso-hotove': visual('roast-slices', 'brown'),
   'hotova-masova-jidla': visual('tray', 'brown'),
   'kureci-nugety-stripsy': visual('stripes', 'sand'),
-  'maso-nudlicky-kostky': visual('cut', 'pink'),
-  'kureci-rizky': visual('cut', 'yellow'),
+  'maso-nudlicky-kostky': visual('meat-cubes', 'rose'),
+  'kureci-rizky': visual('poultry-breast', 'sand'),
   'trhane-maso': visual('tray', 'cream'),
   'maso-ve-vlastni-stave': visual('can', 'red'),
   'masove-smesi-na-polevku': visual('tray', 'brown'),
-  'veprove-koleno': visual('cut', 'teal'),
+  'veprove-koleno': visual('pork-knuckle', 'brown'),
   'veprove-vedlejsi': visual('drumstick', 'rose'),
-  'sous-vide-maso': visual('cut', 'blue'),
+  'sous-vide-maso': visual('vacuum-pack', 'rose'),
   burgery: visual('roll', 'brown'),
   'gyros-kebab-maso': visual('sausage', 'brown'),
   'kureci-medailonky-filetky': visual('poultry-breast', 'sand'),

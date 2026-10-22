@@ -1858,7 +1858,7 @@ export type TradeItemBarcodeEvidence = {
 }
 
 export type TradeItemBarcodeResult = {
-  /** The trade items this created or confirmed. */
+  /** The trade items this run made sure exist (one per retailer's SKU). */
   tradeItems: number
   /** The identifiers actually written. */
   identifiers: number
@@ -2295,7 +2295,7 @@ export async function loadExternalProductContext(source: ProductSource, scope?: 
  *  `options.linkToProductId` skips the name match and attaches the SKU to that product — used by
  *  the Teta import, whose identity rules (lib/product-identity-teta.ts) decide which catalog
  *  product a Teta SKU belongs to; a name match would link a product the rules did not approve.
- *  `options.brand` is stored on a product this call creates, when the source states the brand. */
+ *  `product.brand` is stored on a product this call creates, when the source states the brand. */
 export async function resolveOrCreateProductFromExternal(
   product: {
     externalId: string

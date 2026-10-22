@@ -158,7 +158,7 @@ Import Tety zapisuje v tomto pořadí:
 
 1. `products` — kanonický produkt (přes `resolveOrCreateProductFromExternal`, se značkou); při jednoznačné shodě s existujícím produktem se nepřidává nový, ale použije se ten existující.
 2. `product_packages` — balení, které Teta sama uvádí (`OBSAH_BALENI`).
-3. `trade_items` — obchodní jednotka: jeden řádek na produkt a balení (jednoznačný klíč tabulky), `package_signature` jako `zdroj:velikost`.
+3. `trade_items` — obchodní jednotka: jeden řádek na produkt a balení (jednoznačný klíč tabulky), `package_signature` jako **velikost** v kanonických jednotkách („0,25 kg“, „2x0,009 kg“). Podpis není předponovaný zdrojem: Teta má balení jednoznačné a zdrojovou předponu si nesou až jednotky GTINu (`dm:<dan>`).
 4. `retailer_product_refs` — reference Tety: `source='teta'`, `external_id=<15místný kód Tety>`, `identity_status` podle párování (`matched` / `review_required` / `unresolved`).
 5. `prices` — běžná cena (`regularPrice`) v rozsahu `CHAIN`, `source_type='OFFICIAL'`, `store_location_id=NULL` (Teta nemá v aplikaci pobočky a nevymýšlíme je). Akční cena se neukládá jako deal, protože Teta neuvádí její platnost.
 6. `prices.trade_item_id` a `prices.retailer_product_ref_id` — cena je dohledatelná zpět ke SKU, ze kterého přišla.

@@ -197,6 +197,16 @@ const DRAWINGS: Record<ProductVisual['shape'], (c: Colors) => ReactNode> = {
       <rect x="24" y="34" width="16" height="10" rx="2" fill={LABEL} />
     </>
   ),
+  'tea-box': (c) => (
+    <>
+      <path d="M17 15l15-7 15 7v40H17z" fill={c.primary} />
+      <path d="M32 8v47" stroke={c.secondary} strokeWidth="2" />
+      <rect x="21" y="25" width="22" height="20" rx="3" fill={LABEL} />
+      <path d="M32 40V30M32 35c-4-6-8-5-8-1 4 3 7 3 8 1zM32 33c4-6 8-5 8-1-4 3-7 3-8 1z" fill={c.accent} />
+      <path d="M39 25l8-7" stroke={c.secondary} strokeWidth="1.5" />
+      <path d="M45 15h7v6h-7z" fill={c.secondary} />
+    </>
+  ),
   packet: (c) => (
     <>
       <path d="M17 14h30l4 38c.3 3-2 5-5 5H18c-3 0-5.3-2-5-5z" fill={c.primary} />

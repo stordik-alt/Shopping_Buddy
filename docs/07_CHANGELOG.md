@@ -10,6 +10,7 @@
 - DM ve svém tile API publikuje EAN ke každému SKU a dosud ho zahazoval. `NormalizedProduct` má teď volitelné `ean`; vadný kód se zahodí, **produkt zůstává** (EAN import nikdy neblokuje) a GTIN patří jedné obchodní jednotce — už obsazený GTIN se nezapíše podruhé, ale je nahlášen jako konflikt. Teta GTIN nemá a zdědí ho přes sdílený kanonický `products` řádek.
 - Opravena chyba v převodu velikosti balení: Teta uvádí malá balení v gramech a mililitrech („4,8 g“, „2 x 4,5 g“) a zaokrouhlení na dvě desetinná místa z nich udělalo nulu — velikost, kterou databáze odmítne a která by ztratila údaj obchodníka. Balení se teď drží na šest desetinných míst (přesně na miligram) a nedokončená struktura multipacku se zahazuje místo uložení rozbitého řádku. Importní skript vypisuje celý řetězec příčin, takže chyba databáze jmenuje omezení, ne jen dotaz.
 - Migrace `0116_teta_source.sql` přidává `product_source += 'teta'` a `stores.chain = 'Teta'`.
+- Opravena `.gitattributes`: `* text eol=lf` procházelo i gzipované fixture payloadu, takže git přepsal jejich bajty a v repu ležel soubor, jehož kontrolní součet nesouhlasil — test by v čistém checkoutu (CI) padl. `*.gz` je teď binární a fixture jsou zachycené znovu ze stejných stránek; assertované hodnoty (čísla artiklů, cena 17,90 Kč, akční cena 69,90 → 59,90 Kč, aktualizace produktu 2026-08-22) jsou stejné.
 
 ## 2026-10-21 — Import Albertových letáků z GitHub Actions a oprava invalidace cache
 

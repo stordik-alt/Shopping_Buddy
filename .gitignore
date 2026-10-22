@@ -40,3 +40,9 @@ scratch-*
 
 # Local reports (scripts/apply-product-types-batch.ts and others)
 .tmp/
+
+# Collected retailer catalogs (pnpm teta:collect) — the crawl output and the identity report stay
+# on the machine that collected them; the fixtures next to them are tracked
+data/external/teta-catalog-*.ndjson
+data/external/teta-collect-state.json
+data/external/teta-identity-review.json

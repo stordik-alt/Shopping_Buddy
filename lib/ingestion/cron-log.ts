@@ -35,6 +35,7 @@ export type IngestLogEntry = {
   priceObservations?: number
   priceConfirmations?: number
   priceWrites?: number
+  barcodes?: number
   dealCandidates?: number
   errorCount?: number
   /** The first few per-product errors (or the source's own error), shortened and redacted. */
@@ -64,6 +65,7 @@ export function buildIngestLogEntry(source: string, outcome: SourceOutcome, dura
     priceObservations: outcome.priceObservations,
     priceConfirmations: outcome.priceConfirmations,
     priceWrites: outcome.priceWrites,
+    barcodes: outcome.barcodes,
     dealCandidates: outcome.dealCandidates,
     errorCount: outcome.errors.length,
     ...(outcome.errors.length > 0 ? { errors: outcome.errors.slice(0, MAX_LOGGED_ERRORS).map(shorten) } : {}),

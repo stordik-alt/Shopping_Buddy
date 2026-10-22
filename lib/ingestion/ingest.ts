@@ -7,11 +7,13 @@ import {
   loadExternalProductContext,
   loadLatestOfficialPrices,
   persistNamedPackageEvidence,
+  persistTradeItemBarcodes,
   recordOfficialPrices,
   resolveOrCreateProductFromExternal,
   setIngestionCursor,
   touchExternalRefs,
   type OfficialPriceConfirmation,
+  type TradeItemBarcodeEvidence,
 } from '@/lib/db/queries'
 import { albertHypermarketConnector, albertSupermarketConnector, mergeIngestResults } from '@/lib/ingestion/albert'
 import { pennyFlyerConnector } from '@/lib/ingestion/penny-flyer'
@@ -55,7 +57,7 @@ export type IngestOptions = {
  *  batch (per CLAUDE.md section 32, "if a retailer source stops working, the rest of the
  *  application should continue functioning") — it's recorded in `errors` and the rest still runs. */
 export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: number, options: IngestOptions = {}): Promise<IngestResult> {
-  const result: IngestResult = { processed: 0, recorded: 0, newProducts: 0, deals: 0, promotionsWithoutValidity: 0, skipped: 0, unchanged: 0, priceChanges: 0, priceObservations: 0, priceConfirmations: 0, priceWrites: 0, dealCandidates: 0, priceCacheChanged: false, dealsCacheChanged: false, truncated: false, errors: [] }
+  const result: IngestResult = { processed: 0, recorded: 0, newProducts: 0, deals: 0, promotionsWithoutValidity: 0, skipped: 0, unchanged: 0, priceChanges: 0, priceObservations: 0, priceConfirmations: 0, priceWrites: 0, barcodes: 0, dealCandidates: 0, priceCacheChanged: false, dealsCacheChanged: false, truncated: false, errors: [] }
   if (limit <= 0) return result
   const now = options.now ?? Date.now
   const today = options.today ?? ingestionDate()
@@ -96,6 +98,9 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
   // at the end.
   const alreadyLinked: string[] = []
   const namedPackageEvidence: Parameters<typeof persistNamedPackageEvidence>[0] = []
+  // The barcodes the retailers publish for their own SKUs (DM states a GTIN per tile). They belong
+  // to the trade item of that SKU, not to the product as such, so they are written after the loop.
+  const barcodeEvidence: TradeItemBarcodeEvidence[] = []
   // Most products of a re-read only confirm an unchanged price, and the store's promotions repeat
   // from run to run: both are collected here and written together after the loop, instead of one
   // round trip per product (each round trip keeps the Neon compute busy).
@@ -165,6 +170,16 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
           unitPrice: normalized.unitPrice,
           observedAt: normalized.recordedAt,
           package: normalized.package,
+        })
+      }
+
+      if (normalized.ean) {
+        barcodeEvidence.push({
+          productId,
+          externalId: normalized.externalId,
+          source: connector.source,
+          ean: normalized.ean,
+          observedAt: normalized.recordedAt,
         })
       }
 
@@ -242,6 +257,17 @@ export async function ingestPrices<Raw>(connector: PriceConnector<Raw>, limit: n
     result.errors.push(`package catalog update: ${err instanceof Error ? err.message : String(err)}`)
   }
 
+  // The barcodes the retailer published. A failure here costs the barcodes, not the prices.
+  try {
+    const barcodes = await persistTradeItemBarcodes(barcodeEvidence)
+    result.barcodes = barcodes.identifiers
+    if (barcodes.conflicts > 0) {
+      result.errors.push(`barcodes: ${barcodes.conflicts} barcode(s) already belong to another trade item and were not written`)
+    }
+  } catch (err) {
+    result.errors.push(`trade item barcodes (${barcodeEvidence.length}): ${err instanceof Error ? err.message : String(err)}`)
+  }
+
   // Bookkeeping only — the prices are already written, so a failure here is reported, not thrown.
   // The cache invalidation itself never throws (lib/db/cache-invalidation.ts swallows only Next's
   // "no static generation store", which means there is no cache to invalidate at all), but the
@@ -286,6 +312,7 @@ function mergeRunResults(a: IngestResult, b: IngestResult): IngestResult {
     priceObservations: a.priceObservations + b.priceObservations,
     priceConfirmations: a.priceConfirmations + b.priceConfirmations,
     priceWrites: a.priceWrites + b.priceWrites,
+    barcodes: a.barcodes + b.barcodes,
     dealCandidates: a.dealCandidates + b.dealCandidates,
     priceCacheChanged: a.priceCacheChanged || b.priceCacheChanged,
     dealsCacheChanged: a.dealsCacheChanged || b.dealsCacheChanged,

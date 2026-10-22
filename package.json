@@ -69,7 +69,12 @@
     "product:identity-candidates": "tsx scripts/report-product-identity-candidates.ts",
     "product:identity-evaluate": "tsx scripts/evaluate-product-identity-candidates.ts",
     "db:export-dm-identity": "dotenv -e .env.local -- tsx scripts/export-dm-identity.ts",
-    "product:identity-teta-dm": "tsx scripts/report-teta-dm-identity-candidates.ts"
+    "product:identity-teta-dm": "tsx scripts/report-teta-dm-identity-candidates.ts",
+    "teta:capture-fixture": "tsx scripts/teta-capture-payload-fixture.ts",
+    "teta:collect": "tsx scripts/teta-collect-catalog.ts",
+    "db:import-teta": "dotenv -e .env.local -- tsx scripts/import-teta-catalog.ts",
+    "teta:verify-rendering": "tsx scripts/teta-verify-rendering.ts",
+    "product:identity-teta-catalog": "dotenv -e .env.local -- tsx scripts/report-teta-catalog-identity.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "4.0.71",

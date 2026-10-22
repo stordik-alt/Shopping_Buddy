@@ -52,6 +52,10 @@ export type NormalizedProduct = {
   recordedAt: string
   /** Explicit package facts from the retailer when the source publishes them. */
   package?: NormalizedPackage
+  /** The barcode (GTIN/EAN) the source publishes for this product, as digits. `undefined` when the
+   *  source states none — a missing barcode never blocks a product, and one is never invented
+   *  (CLAUDE.md section 15). */
+  ean?: string
   /** A promotion with a known validity window. Connectors whose source publishes no end date must
    *  leave this undefined and set `promotionWithoutValidity` instead — a validity window is never
    *  invented (CLAUDE.md section 15). */
@@ -110,6 +114,8 @@ export type IngestResult = {
   priceConfirmations: number
   /** Number of price rows actually inserted or updated in this run. */
   priceWrites: number
+  /** Number of barcodes (GTINs) written on the products' trade items. */
+  barcodes: number
   /** Number of active-deal candidates seen by the shared writer. */
   dealCandidates: number
   /** True when at least one regular price was inserted or updated during the run. */

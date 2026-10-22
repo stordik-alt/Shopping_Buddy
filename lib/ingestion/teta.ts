@@ -71,8 +71,65 @@ function isValidIsoDate(text: string): boolean {
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === text
 }
 
+/**
+ * The 14 top-level e-shop categories, by Teta's own taxon code — the slug that appears in the
+ * category URL ("/eshop/produkty/hygiena"). The code is the stable key: the retailer can re-word a
+ * category's display name ("Krása a parfémy"), but the code stays. Verified against the live
+ * payload of a product page (2026-10-22): the codes are domacnost, deti, plet, vlasy, telo, hygiena,
+ * krasa-a-parfemy, muzi, pece-o-zdravi, potraviny, mazlicci, papirnictvi, sezona, textil.
+ */
+export const TETA_TOP_LEVEL_CATEGORY_CODES: Record<string, ItemCategory> = {
+  hygiena: 'Drogerie',
+  plet: 'Drogerie',
+  vlasy: 'Drogerie',
+  telo: 'Drogerie',
+  'krasa-a-parfemy': 'Drogerie',
+  muzi: 'Drogerie',
+  'pece-o-zdravi': 'Drogerie',
+  domacnost: 'Domácnost',
+  deti: 'Děti',
+  potraviny: 'Potraviny',
+  mazlicci: 'Ostatní',
+  papirnictvi: 'Ostatní',
+  sezona: 'Ostatní',
+  textil: 'Ostatní',
+}
+
+/** "Krása a parfémy" -> "krasa-a-parfemy": the slug form of a category name, so a name and its
+ *  code can be compared without listing both spellings. */
+export function tetaCategorySlug(value: string): string {
+  return value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+/** The 14 top-level categories, in the order the collector walks them. */
+export const TETA_TOP_LEVEL_CATEGORY_LIST = Object.keys(TETA_TOP_LEVEL_CATEGORY_CODES)
+
+/** The app category of a top-level category, by its taxon code. */
+export function mapTetaCategoryCode(code: string | null | undefined): ItemCategory | null {
+  return TETA_TOP_LEVEL_CATEGORY_CODES[(code ?? '').trim().toLowerCase()] ?? null
+}
+
+/** The app category of a top-level category, by its display name. */
+export function mapTetaCategoryName(name: string | null | undefined): ItemCategory | null {
+  const trimmed = (name ?? '').trim().toLowerCase()
+  if (!trimmed) return null
+  const direct = TOP_LEVEL_CATEGORY[trimmed]
+  if (direct) return direct
+  // The name may be the slug or a differently punctuated wording of the same category.
+  const slug = tetaCategorySlug(trimmed)
+  for (const [key, category] of Object.entries(TOP_LEVEL_CATEGORY)) {
+    if (tetaCategorySlug(key) === slug) return category
+  }
+  return null
+}
+
 export function mapTetaCategory(raw: TetaRawProduct): ItemCategory | null {
-  return TOP_LEVEL_CATEGORY[(raw.categoryPath?.[0] ?? '').trim().toLowerCase()] ?? null
+  return mapTetaCategoryName(raw.categoryPath?.[0])
 }
 
 /** Validates + normalizes one record, or null when unusable: missing identity, non-positive price,

@@ -652,6 +652,10 @@ describe('processReceiptImport — OCR pipeline orchestration (fake OCR/AI, fake
 
   it('auto-completes using the catalog\'s remembered location even when the AI suggests a different category for this receipt', async () => {
     const [category] = await db.query.productCategories.findMany({ where: eq(schema.productCategories.name, 'Potraviny') })
+    // The name is fixed, so a run that was killed before its cleanup left the row behind — and the
+    // next run would fail on the unique name (products.name is unique) instead of on the behaviour
+    // this test is about.
+    await db.delete(schema.products).where(eq(schema.products.name, 'Bio kuře catalog test'))
     await db.insert(schema.products).values({ name: 'Bio kuře catalog test', categoryId: category.id, defaultUnit: 'kg', defaultLocation: 'Mrazák' })
 
     const receiptImportId = await createUploadedReceipt()

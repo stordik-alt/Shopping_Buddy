@@ -3,6 +3,22 @@ import { fetchWithTimeout } from '@/lib/ingestion/http'
 export const TETA_PUBLIC_CATALOG_URL = 'https://www.tetadrogerie.cz/eshop/produkty/vse'
 const PRODUCT_PATH = /href=["']([^"']*\/eshop\/katalog\/[^"'?#]+)(?:\?[^"']*)?["']/gi
 
+/**
+ * Teta's robots.txt sets no Crawl-delay, but the catalog is the retailer's live shop and the
+ * collector reads thousands of pages. One request per second keeps the load negligible and is
+ * the politeness rule docs/42_TETA_DATA_SOURCE_AUDIT.md set for the public collector.
+ */
+export const TETA_REQUEST_DELAY_MS = 1_000
+
+/** The delay is applied between requests, not before the first one. */
+let tetaLastRequestAt = 0
+
+async function waitForTetaRequestSlot(): Promise<void> {
+  const wait = tetaLastRequestAt + TETA_REQUEST_DELAY_MS - Date.now()
+  if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait))
+  tetaLastRequestAt = Date.now()
+}
+
 export type TetaPublicCatalogLink = { url: string; slug: string }
 export type TetaPriceCandidate = {
   amount: number
@@ -318,6 +334,7 @@ export async function fetchTetaPublicHtml(url: string): Promise<string> {
   if (/^\/(?:api|inventory|price)(?:\/|$)/i.test(parsed.pathname)) {
     throw new Error('Blocked by collector policy: Teta robots.txt disallows this path')
   }
+  await waitForTetaRequestSlot()
   const response = await fetchWithTimeout(url, {
     headers: {
       Accept: 'text/html,application/xhtml+xml',
@@ -330,4 +347,24 @@ export async function fetchTetaPublicHtml(url: string): Promise<string> {
     throw new Error(`Expected public HTML, got ${type || 'unknown content type'} (${url})`)
   }
   return response.text()
+}
+
+/** The public URL of a category listing page. */
+export function tetaListingUrl(taxon: string, page: number): string {
+  return `https://www.tetadrogerie.cz/eshop/produkty/${encodeURIComponent(taxon)}?strana=${page}`
+}
+
+/** The public URL of a product page. */
+export function tetaProductUrl(slug: string): string {
+  return `https://www.tetadrogerie.cz/eshop/katalog/${slug}`
+}
+
+/** Fetches one page of a category listing. */
+export async function fetchTetaListingPage(taxon: string, page: number): Promise<string> {
+  return fetchTetaPublicHtml(tetaListingUrl(taxon, page))
+}
+
+/** Fetches one product page. */
+export async function fetchTetaDetailPage(slug: string): Promise<string> {
+  return fetchTetaPublicHtml(tetaProductUrl(slug))
 }

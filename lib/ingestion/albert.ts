@@ -170,6 +170,7 @@ export function mergeIngestResults(a: IngestResult, b: IngestResult): IngestResu
     priceObservations: a.priceObservations + b.priceObservations,
     priceConfirmations: a.priceConfirmations + b.priceConfirmations,
     priceWrites: a.priceWrites + b.priceWrites,
+    barcodes: a.barcodes + b.barcodes,
     dealCandidates: a.dealCandidates + b.dealCandidates,
     priceCacheChanged: a.priceCacheChanged || b.priceCacheChanged,
     dealsCacheChanged: a.dealsCacheChanged || b.dealsCacheChanged,

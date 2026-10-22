@@ -113,6 +113,19 @@ export type ProductVisualShape =
   | 'coffee-capsule'
   | 'headphones'
   | 'cable'
+  | 'soap-bar'
+  | 'sponge'
+  | 'paper-roll'
+  | 'tissue-box'
+  | 'wipes-pack'
+  | 'napkins'
+  | 'folded-towel'
+  | 'detergent-capsule'
+  | 'dishwasher-tablet'
+  | 'toilet-hanger'
+  | 'razor'
+  | 'mop'
+  | 'eye-patches'
 
 /** The closed set of colour pairs the shapes are drawn in. */
 export type ProductVisualTint =
@@ -434,7 +447,7 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'kontaktni-cocky': visual('glasses', 'teal'),
   'sprchove-pripravky-dalsi': visual('bottle', 'blue'),
   'syrove-nite-korbaciky': visual('cheese-strings', 'cream'),
-  'ocni-polstarky': visual('box', 'teal'),
+  'ocni-polstarky': visual('eye-patches', 'teal'),
   'pece-o-vousy': visual('bottle', 'brown'),
   'masazni-pripravky': visual('bottle', 'green'),
   'ovocne-snacky': visual('packet', 'green'),
@@ -560,14 +573,14 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   krutony: visual('bowl', 'brown'),
 
   // --- Drogerie, kosmetika, hygiena -------------------------------------------------------------
-  mydlo: visual('block', 'green'),
-  'detske-mydlo': visual('block', 'pink'),
+  mydlo: visual('soap-bar', 'green'),
+  'detske-mydlo': visual('soap-bar', 'pink'),
   'sprchovy-gel': visual('bottle', 'teal'),
   'detsky-sprchovy-gel': visual('bottle', 'rose'),
   'detska-hygiena-koupel': visual('tub', 'pink'),
   sampon: visual('bottle', 'purple'),
   'detsky-sampon': visual('bottle', 'pink'),
-  'suchy-sampon': visual('box', 'purple'),
+  'suchy-sampon': visual('spray', 'purple'),
   'vlasova-pece': visual('bottle', 'teal'),
   'styling-vlasy': visual('spray', 'pink'),
   'barvy-na-vlasy': visual('bottle', 'purple'),
@@ -595,7 +608,7 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'kosmeticke-zrcatka-tasky': visual('block', 'pink'),
   'dekorativni-kosmetika': visual('makeup-set', 'rose'),
   'holeni': visual('bottle', 'navy'),
-  'holici-hlavice-holitka': visual('bottle', 'grey'),
+  'holici-hlavice-holitka': visual('razor', 'grey'),
   'nahradni-hlavice-kartacky': visual('brush', 'blue'),
   deodoranty: visual('spray', 'white'),
   'damska-hygiena': visual('feminine-care', 'rose'),
@@ -614,20 +627,20 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'zubni-pasta': visual('tube', 'blue'),
   'zubni-nahrady': visual('tube', 'green'),
   'bileni-zubu': visual('packet', 'white'),
-  'toaletni-papir': visual('sheet', 'white'),
-  'vlhceny-toaletni-papir': visual('sheet', 'pink'),
-  'kuchynske-uterky': visual('sheet', 'teal'),
-  uterky: visual('sheet', 'green'),
-  'hadry-mopy-prachovky': visual('sheet', 'teal'),
-  'vlhcene-ubrousky': visual('box', 'white'),
-  'ubrousky-papirove': visual('box', 'cream'),
-  'papir-tasky': visual('box', 'sand'),
-  'vlhcene-ubrousky-detske': visual('box', 'pink'),
+  'toaletni-papir': visual('paper-roll', 'white'),
+  'vlhceny-toaletni-papir': visual('wipes-pack', 'pink'),
+  'kuchynske-uterky': visual('paper-roll', 'teal'),
+  uterky: visual('folded-towel', 'green'),
+  'hadry-mopy-prachovky': visual('mop', 'teal'),
+  'vlhcene-ubrousky': visual('wipes-pack', 'white'),
+  'ubrousky-papirove': visual('napkins', 'cream'),
+  'papir-tasky': visual('tissue-box', 'sand'),
+  'vlhcene-ubrousky-detske': visual('wipes-pack', 'pink'),
   'praci-gel': visual('bottle', 'blue'),
   'praci-prasek': visual('packet', 'white'),
-  'praci-kapsle': visual('box', 'blue'),
+  'praci-kapsle': visual('detergent-capsule', 'blue'),
   avivaz: visual('bottle', 'pink'),
-  'tablety-do-mycky': visual('box', 'green'),
+  'tablety-do-mycky': visual('dishwasher-tablet', 'green'),
   jar: visual('bottle', 'teal'),
   'lestidlo-do-mycky': visual('bottle', 'white'),
   'cistic-wc': visual('bottle', 'white'),
@@ -638,7 +651,7 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'odstranovac-skvrn': visual('spray', 'olive'),
   dezinfekce: visual('spray', 'white'),
   'odvapnovace-kyseliny': visual('bottle', 'white'),
-  'houbicky-na-nadobi': visual('block', 'yellow'),
+  'houbicky-na-nadobi': visual('sponge', 'yellow'),
   'pytle-na-odpadky': visual('packet', 'grey'),
   'sacky-uzaviratelne-mrazici': visual('packet', 'blue'),
   'sacky-do-vysavace': visual('packet', 'black'),
@@ -646,7 +659,7 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   alobal: visual('sheet', 'grey'),
   'potravinova-folie': visual('sheet', 'blue'),
   'pecici-papir': visual('sheet', 'cream'),
-  'wc-bloky': visual('box', 'white'),
+  'wc-bloky': visual('toilet-hanger', 'blue'),
   'rukavice-uklid': visual('glove', 'teal'),
   'kosti-na-vyvar': visual('bone', 'cream'),
   'baterie': visual('battery', 'navy'),

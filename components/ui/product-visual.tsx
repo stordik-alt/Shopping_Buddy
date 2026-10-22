@@ -593,6 +593,113 @@ const DRAWINGS: Record<ProductVisual['shape'], (c: Colors) => ReactNode> = {
       <path d="M26 25h6a6 6 0 016 6v1" fill="none" stroke={c.primary} strokeWidth="5" strokeLinecap="round" />
     </>
   ),
+  'soap-bar': (c) => (
+    <>
+      <path d="M17 21c0-4 4-7 9-7h13c5 0 8 3 8 7v19c0 5-4 8-9 8H24c-5 0-8-3-8-8z" fill={c.primary} />
+      <path d="M20 22c0-2 3-4 6-4h13c3 0 5 2 5 5v3H20z" fill={c.secondary} opacity="0.65" />
+      <path d="M24 34c5-3 12-3 17 0" fill="none" stroke={LABEL} strokeWidth="2.5" strokeLinecap="round" />
+    </>
+  ),
+  sponge: (c) => (
+    <>
+      <path d="M15 25c0-4 3-7 7-7h23c4 0 7 3 7 7v21c0 4-3 7-7 7H22c-4 0-7-3-7-7z" fill={c.primary} />
+      <path d="M15 25c0-4 3-7 7-7h23c4 0 7 3 7 7v6H15z" fill={c.secondary} />
+      <circle cx="24" cy="39" r="1.5" fill={LABEL} />
+      <circle cx="33" cy="45" r="1.5" fill={LABEL} />
+      <circle cx="43" cy="37" r="1.5" fill={LABEL} />
+    </>
+  ),
+  'paper-roll': (c) => (
+    <>
+      <path d="M15 21c0-4 6-7 14-7s14 3 14 7v29c0 4-6 7-14 7s-14-3-14-7z" fill={c.primary} />
+      <ellipse cx="29" cy="21" rx="14" ry="7" fill={LABEL} stroke={c.secondary} strokeWidth="2" />
+      <ellipse cx="29" cy="21" rx="5" ry="2.8" fill={c.secondary} />
+      <path d="M43 27c4-3 8-2 8 1v19c0 3-4 4-8 2" fill={c.primary} stroke={c.secondary} strokeWidth="2" />
+      <ellipse cx="51" cy="28" rx="4" ry="2.5" fill={LABEL} stroke={c.secondary} strokeWidth="1.5" />
+    </>
+  ),
+  'tissue-box': (c) => (
+    <>
+      <path d="M11 31l21-10 21 10v23H11z" fill={c.primary} />
+      <path d="M11 31l21-10 21 10-21 10z" fill={c.secondary} />
+      <path d="M25 27c-2-8 2-15 7-20 5 6 8 12 6 20-3 4-10 4-13 0z" fill={LABEL} />
+      <path d="M32 27V12" stroke={c.secondary} strokeWidth="2" strokeLinecap="round" />
+      <path d="M15 43h34" stroke={LABEL} strokeWidth="2" opacity="0.7" />
+    </>
+  ),
+  'wipes-pack': (c) => (
+    <>
+      <path d="M12 27c0-4 4-7 8-7h24c5 0 8 3 8 7v23c0 4-3 7-8 7H20c-4 0-8-3-8-7z" fill={c.primary} />
+      <path d="M19 23h26v8H19z" fill={c.secondary} />
+      <rect x="24" y="16" width="16" height="11" rx="5" fill={LABEL} />
+      <path d="M28 21h8" stroke={c.secondary} strokeWidth="2" strokeLinecap="round" />
+      <path d="M19 40h26" stroke={c.secondary} strokeWidth="2" opacity="0.6" />
+    </>
+  ),
+  napkins: (c) => (
+    <>
+      <path d="M14 29l23-13 14 8-23 13z" fill={c.secondary} />
+      <path d="M14 35l23-13 14 8-23 13z" fill={c.primary} />
+      <path d="M14 41l23-13 14 8-23 13z" fill={c.primary} />
+      <path d="M23 36l8-5 7 4-8 5z" fill={LABEL} />
+      <path d="M23 43l8-5 7 4-8 5z" fill={c.accent} />
+    </>
+  ),
+  'folded-towel': (c) => (
+    <>
+      <path d="M13 29c0-3 3-5 6-5h29c3 0 5 2 5 5v22H13z" fill={c.primary} />
+      <path d="M18 24v-7c0-3 3-5 6-5h25c3 0 5 2 5 5v7z" fill={c.secondary} />
+      <path d="M18 35h35M18 42h35M25 18h23" stroke={LABEL} strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M13 50h40" stroke={c.secondary} strokeWidth="2" />
+    </>
+  ),
+  'detergent-capsule': (c) => (
+    <>
+      <path d="M19 20c0-5 4-8 9-8h10c5 0 8 3 8 8v26c0 5-3 8-8 8H28c-5 0-9-3-9-8z" fill={c.primary} />
+      <path d="M19 34c8-5 19-5 27 0v12c0 5-3 8-8 8H28c-5 0-9-3-9-8z" fill={c.accent} />
+      <path d="M25 19c3-3 11-4 16-1" fill="none" stroke={LABEL} strokeWidth="2.5" strokeLinecap="round" />
+    </>
+  ),
+  'dishwasher-tablet': (c) => (
+    <>
+      <rect x="14" y="15" width="36" height="40" rx="7" fill={c.primary} />
+      <path d="M14 29h36v13H14z" fill={LABEL} />
+      <path d="M22 29v13M39 29v13" stroke={c.secondary} strokeWidth="2" />
+      <path d="M23 20h18" stroke={c.secondary} strokeWidth="2.5" strokeLinecap="round" />
+    </>
+  ),
+  'toilet-hanger': (c) => (
+    <>
+      <path d="M19 11h20c6 0 9 4 9 9v5H37v-5c0-2-1-3-3-3H24v12" fill="none" stroke={c.secondary} strokeWidth="5" strokeLinejoin="round" />
+      <path d="M20 31h24v22c0 3-3 5-6 5H26c-4 0-6-2-6-5z" fill={c.primary} />
+      <path d="M24 36h16v10H24z" fill={LABEL} />
+      <path d="M28 50h8" stroke={c.secondary} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  razor: (c) => (
+    <>
+      <path d="M29 27h8l8 27c1 4-2 7-6 7h-4c-4 0-7-3-6-7l5-20z" fill={c.primary} />
+      <rect x="17" y="14" width="31" height="12" rx="5" fill={c.secondary} />
+      <path d="M21 18v5M27 18v5M33 18v5M39 18v5M44 18v5" stroke={LABEL} strokeWidth="1.5" />
+      <path d="M31 33h6" stroke={LABEL} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  mop: (c) => (
+    <>
+      <path d="M41 9L25 39" stroke={c.secondary} strokeWidth="4" strokeLinecap="round" />
+      <path d="M17 34l17 9-3 6c-2 4-6 5-10 3l-7-4c-4-2-5-6-3-10z" fill={c.primary} />
+      <path d="M14 43l-4 9M20 47l-2 10M26 49l1 9M32 46l4 8" stroke={LABEL} strokeWidth="2.5" strokeLinecap="round" />
+    </>
+  ),
+  'eye-patches': (c) => (
+    <>
+      <path d="M8 34c4-12 15-18 25-14-1 12-8 22-20 23-4 0-6-4-5-9z" fill={c.primary} />
+      <path d="M56 34c-4-12-15-18-25-14 1 12 8 22 20 23 4 0 6-4 5-9z" fill={c.primary} />
+      <path d="M15 35c4-7 9-10 15-10M49 35c-4-7-9-10-15-10" fill="none" stroke={c.secondary} strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="20" cy="41" r="1.5" fill={LABEL} />
+      <circle cx="44" cy="41" r="1.5" fill={LABEL} />
+    </>
+  ),
   'cat-bowl': (c) => (
     <>
       <path d="M20 20l-2-12 12 8M44 20l2-12-12 8" fill={c.primary} />

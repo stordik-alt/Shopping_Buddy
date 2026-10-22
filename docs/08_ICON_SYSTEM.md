@@ -26,7 +26,7 @@ Fixed locations: Spíž — Wheat, Lednice — Refrigerator, Mrazák — Snowfla
 BriefcaseMedical, Drogérka — SprayCan. A household's own place uses one icon per area (`AREA_ICON` in
 `components/shopping/pantry.tsx`).
 
-## Product visuals (not icons)
+## Product visuals
 
 A product in a cell is not named by an icon from the set above. Product pictures are a separate, reusable
 system: `lib/product-visuals.ts` (the mapping) and `components/ui/product-visual.tsx` (the drawing).

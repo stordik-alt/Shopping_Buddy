@@ -188,6 +188,15 @@ export type ProductVisualShape =
   | 'pump-bottle'
   | 'dish-soap'
   | 'dropper-bottle'
+  | 'apple'
+  | 'grape-bunch'
+  | 'strawberry'
+  | 'blueberry'
+  | 'raspberry'
+  | 'avocado'
+  | 'cucumber'
+  | 'potato'
+  | 'broccoli'
 
 /** The closed set of colour pairs the shapes are drawn in. */
 export type ProductVisualTint =
@@ -285,20 +294,20 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   bageta: visual('baguette', 'sand'),
 
   // --- Ovoce a zelenina -----------------------------------------------------------------------
-  jablka: visual('round', 'red'),
+  jablka: visual('apple', 'red'),
   banany: visual('crescent', 'yellow'),
   mandarinky: visual('citrus', 'orange'),
   citrony: visual('citrus', 'yellow'),
   hrusky: visual('pear', 'green'),
-  hrozny: visual('cluster', 'purple'),
-  jahody: visual('cluster', 'red'),
-  boruvky: visual('cluster', 'blue'),
-  maliny: visual('cluster', 'pink'),
-  avokado: visual('oval', 'olive'),
+  hrozny: visual('grape-bunch', 'purple'),
+  jahody: visual('strawberry', 'red'),
+  boruvky: visual('blueberry', 'blue'),
+  maliny: visual('raspberry', 'pink'),
+  avokado: visual('avocado', 'olive'),
   rajcata: visual('tomato', 'red'),
-  okurky: visual('oval', 'green'),
+  okurky: visual('cucumber', 'green'),
   paprika: visual('pepper', 'red'),
-  brambory: visual('blob', 'sand'),
+  brambory: visual('potato', 'sand'),
   cibule: visual('bulb', 'orange'),
   'jarni-cibulka': visual('long', 'green'),
   cesnek: visual('garlic', 'white'),
@@ -308,7 +317,7 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   zampiony: visual('mushroom', 'brown'),
   cuketa: visual('long', 'green'),
   celer: visual('celeriac', 'sand'),
-  brokolice: visual('cluster', 'green'),
+  brokolice: visual('broccoli', 'green'),
   houby: visual('mushroom', 'sand'),
   pomerance: visual('citrus', 'orange'),
   pomazanky: visual('tub', 'rose'),

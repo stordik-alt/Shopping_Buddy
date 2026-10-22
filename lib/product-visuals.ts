@@ -96,6 +96,10 @@ export type ProductVisualShape =
   | 'changing-pad'
   | 'makeup-set'
   | 'perfume-bottle'
+  | 'diaper'
+  | 'hygiene-pad'
+  | 'feminine-care'
+  | 'glove'
   | 'socks'
   | 'hosiery'
   | 'underwear'
@@ -588,8 +592,8 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'holici-hlavice-holitka': visual('bottle', 'grey'),
   'nahradni-hlavice-kartacky': visual('brush', 'blue'),
   deodoranty: visual('spray', 'white'),
-  'damska-hygiena': visual('box', 'rose'),
-  'inkontinencni-vlozky': visual('box', 'white'),
+  'damska-hygiena': visual('feminine-care', 'rose'),
+  'inkontinencni-vlozky': visual('hygiene-pad', 'white'),
   puncochy: visual('hosiery', 'grey'),
   ponozky: visual('socks', 'olive'),
   'kalhotky-podprsenky': visual('underwear', 'pink'),
@@ -637,13 +641,13 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'potravinova-folie': visual('sheet', 'blue'),
   'pecici-papir': visual('sheet', 'cream'),
   'wc-bloky': visual('box', 'white'),
-  'rukavice-uklid': visual('box', 'teal'),
+  'rukavice-uklid': visual('glove', 'teal'),
   'kosti-na-vyvar': visual('bone', 'cream'),
   'baterie': visual('battery', 'navy'),
   'destniky': visual('umbrella', 'navy'),
 
   // --- Děti ------------------------------------------------------------------------------------
-  pleny: visual('packet', 'white'),
+  pleny: visual('diaper', 'white'),
   dudliky: visual('pacifier', 'pink'),
   'detske-lahve': visual('bottle', 'pink'),
   'detske-savicky': visual('bottle-nipple', 'white'),

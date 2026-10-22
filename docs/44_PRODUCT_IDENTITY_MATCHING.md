@@ -108,6 +108,8 @@ pnpm product:identity-teta-review -- --decisions=data/external/teta-identity-dec
 pnpm db:import-teta -- --apply --decisions=data/external/teta-identity-decisions.json
 ```
 
+**The order: the decisions come before the import.** The table is built from the dry run, which writes nothing, so the queue can be worked through before anything is in the database. The decisions are then applied by the import that writes the data. A decision for a product that is imported already is refused — a link is decided once, and the import does not move a product from one product to another (see above). A queue that is worked through *after* the import has written the products can therefore no longer change them: the import reports the refusal instead of applying it.
+
 **A human's decision is the authority over the rules.** The import applies the decisions before the automatic ones, and a decision that cannot be applied is *refused and reported*, never applied half-way:
 
 * a Teta product that is imported already keeps the link it was given — a link is decided once, and the import never moves a product from one product to another;

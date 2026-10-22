@@ -32,15 +32,15 @@ A product in a cell is not named by an icon from the set above. Product pictures
 system: `lib/product-visuals.ts` (the mapping) and `components/ui/product-visual.tsx` (the drawing).
 
 - **One central map.** `productVisualFor({ productTypeKey, subcategory, category })` returns a
-  `ProductVisual` — a shape and a tint, never a brand. Every product type key in `lib/product-types.ts`
-  has its own entry (462 of them), so two products of the same family (milk and kefir, chicken and pork)
-  are not the same picture. Types are not mapped to pictures by brand, and there is no hand-written map
-  of individual SKUs.
-- **Fallback chain.** A photograph of the specific product wins; there is none today — the database
-  stores no product images (`products` has no image column), so the schema was deliberately not extended
-  for a visual change and `ProductVisual` keeps `imageUrl` as an optional input for when a source exists.
-  Then: the product type, then the subcategory, then the category, then a neutral fallback. An unknown
-  key always ends up somewhere — it never throws.
+  `ProductVisual` — a shape and a tint, never a brand. Every current product type key in
+  `lib/product-types.ts` has its own entry, so types such as milk and kefir or chicken and pork can have
+  distinct pictures. `lib/product-visuals.test.ts` checks that the map stays in sync with the taxonomy.
+  Types are not mapped to pictures by brand, and there is no hand-written map of individual SKUs.
+- **Fallback chain.** A representative photo can be stored on the product type in
+  `product_types.image_ref` and is served by `/api/product-types/images/[key]`. It belongs to the type,
+  not an individual SKU in `products`. When no photo is available, the local SVG drawing is used in this
+  order: product type, subcategory, category, then neutral fallback. An unknown key always ends up
+  somewhere — it never throws.
 - **Shapes and tints.** 51 shapes (round, oval, bottle, can, jar, carton, loaf, drumstick, fish, …) in
   19 tints. The shape says what the product is, the tint says which family it belongs to. Drawings are
   flat, two or three colours, no outlines, no emoji, no icon font.

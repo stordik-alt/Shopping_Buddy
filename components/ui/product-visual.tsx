@@ -272,6 +272,48 @@ const DRAWINGS: Record<ProductVisual['shape'], (c: Colors) => ReactNode> = {
       <circle cx="24" cy="54" r="4.5" fill={BONE} />
     </>
   ),
+  'poultry-breast': (c) => (
+    <>
+      <path d="M32 13c-5 5-13 6-18 13-5 8-2 21 6 26 5 3 9 1 12-3 3 4 7 6 12 3 8-5 11-18 6-26-5-7-13-8-18-13z" fill={c.primary} />
+      <path d="M32 20c-4 7-5 17 0 26M22 29c3 2 5 5 6 8M42 29c-3 2-5 5-6 8" fill="none" stroke={c.secondary} strokeWidth="2.5" strokeLinecap="round" />
+    </>
+  ),
+  'poultry-wing': (c) => (
+    <>
+      <path d="M13 39c-2-7 2-14 9-17 5-2 10-1 14 2 8-1 14 4 15 11 1 6-3 11-9 12-8 2-12-3-17-2-6 2-10 0-12-6z" fill={c.primary} />
+      <path d="M21 28c3 6 8 11 15 16M34 25c-1 7 3 13 9 17" fill="none" stroke={c.secondary} strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="16" cy="38" r="3" fill={BONE} />
+    </>
+  ),
+  'whole-poultry': (c) => (
+    <>
+      <path d="M32 15c-8 0-14 7-14 16 0 5 2 9 5 12-6 5-7 10-3 12 4 2 9-1 12-5 3 4 8 7 12 5 4-2 3-7-3-12 3-3 5-7 5-12 0-9-6-16-14-16z" fill={c.primary} />
+      <path d="M18 27c-6-4-11-2-10 3 1 4 5 7 11 8M46 27c6-4 11-2 10 3-1 4-5 7-11 8" fill={c.primary} stroke={c.secondary} strokeWidth="3" strokeLinejoin="round" />
+      <path d="M32 17c-2-4 0-7 3-8 3 4 1 7-3 8z" fill={c.secondary} />
+    </>
+  ),
+  steak: (c) => (
+    <>
+      <path d="M12 31c3-10 13-16 24-15 10 1 17 5 17 13 0 4-3 6-2 10 1 6-5 12-14 13-12 2-23-3-26-10-2-4 0-7 1-11z" fill={c.primary} />
+      <path d="M23 25c4 2 6 5 7 9M38 21c-4 5-5 10-4 14M22 42c5-3 11-3 16 0" fill="none" stroke={c.secondary} strokeWidth="3" strokeLinecap="round" />
+      <path d="M42 31c2-2 5-1 6 1s0 4-2 5-5 1-6-1 0-4 2-5z" fill={LABEL} />
+    </>
+  ),
+  ribs: (c) => (
+    <>
+      <path d="M13 18c4-4 8 0 12 0s8-4 12 0 8 0 14 2v25c-6 2-10-2-14 2s-8-1-12 0-8 4-12 0z" fill={c.primary} />
+      <path d="M21 20v25M31 20v25M41 20v25" stroke={BONE} strokeWidth="5" strokeLinecap="round" />
+      <path d="M21 20v25M31 20v25M41 20v25" stroke={c.secondary} strokeWidth="1.5" strokeLinecap="round" />
+    </>
+  ),
+  mince: (c) => (
+    <>
+      <path d="M11 43c2-7 7-10 12-11 1-8 8-12 15-8 7-2 14 3 13 10 5 4 4 11-1 14H16c-4 0-7-2-5-5z" fill={c.primary} />
+      <path d="M19 39c4-5 8-4 11-8M30 43c4-7 10-8 15-9M23 47c6-2 11-2 17 0" fill="none" stroke={c.secondary} strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="20" cy="34" r="1.5" fill={LABEL} />
+      <circle cx="39" cy="37" r="1.5" fill={LABEL} />
+    </>
+  ),
   cut: (c) => (
     <>
       <path d="M10 24c0-4 4-7 10-7h28c4 0 6 3 6 7v18c0 4-2 7-6 7H20c-6 0-10-3-10-7z" fill={c.primary} />

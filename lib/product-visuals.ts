@@ -54,6 +54,12 @@ export type ProductVisualShape =
   | 'tortilla'
   | 'wedge'
   | 'drumstick'
+  | 'poultry-breast'
+  | 'poultry-wing'
+  | 'whole-poultry'
+  | 'steak'
+  | 'ribs'
+  | 'mince'
   | 'cut'
   | 'tray'
   | 'slices'
@@ -220,11 +226,11 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'pizza-mrazena': visual('wedge', 'orange'),
 
   // --- Maso a uzeniny ------------------------------------------------------------------------
-  'kureci-prsa': visual('drumstick', 'sand'),
+  'kureci-prsa': visual('poultry-breast', 'sand'),
   'kureci-stehna': visual('drumstick', 'cream'),
-  'kureci-kridla': visual('drumstick', 'olive'),
-  'kure-cele': visual('drumstick', 'yellow'),
-  'kureci-mlete': visual('tray', 'sand'),
+  'kureci-kridla': visual('poultry-wing', 'cream'),
+  'kure-cele': visual('whole-poultry', 'sand'),
+  'kureci-mlete': visual('mince', 'cream'),
   'kureci-vnitrnosti': visual('tray', 'olive'),
   'kureci-na-polevku': visual('cut', 'cream'),
   'veprova-krkovice': visual('cut', 'pink'),
@@ -233,20 +239,20 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'veprova-kyta': visual('cut', 'cream'),
   'veprova-plec': visual('cut', 'sand'),
   'veprovy-bucek': visual('cut', 'olive'),
-  'veprova-zebra': visual('cut', 'navy'),
-  'veprove-mlete': visual('tray', 'pink'),
+  'veprova-zebra': visual('ribs', 'pink'),
+  'veprove-mlete': visual('mince', 'pink'),
   'veprove-na-gulas': visual('cut', 'brown'),
   'hovezi-svickova': visual('cut', 'navy'),
   'hovezi-zadni': visual('cut', 'red'),
   'hovezi-predni': visual('cut', 'rose'),
-  'hovezi-steak': visual('cut', 'cream'),
-  'hovezi-mlete': visual('tray', 'red'),
+  'hovezi-steak': visual('steak', 'red'),
+  'hovezi-mlete': visual('mince', 'red'),
   'hovezi-na-gulas': visual('cut', 'brown'),
-  'kruti-prsa': visual('drumstick', 'brown'),
+  'kruti-prsa': visual('poultry-breast', 'cream'),
   'kruti-stehna': visual('drumstick', 'sand'),
-  'kruti-mlete': visual('tray', 'brown'),
+  'kruti-mlete': visual('mince', 'sand'),
   'kruti-ostatni': visual('drumstick', 'grey'),
-  'mlete-smesne': visual('tray', 'rose'),
+  'mlete-smesne': visual('mince', 'rose'),
   sunka: visual('slices', 'pink'),
   parky: visual('sausage', 'pink'),
   slanina: visual('stripes', 'pink'),
@@ -485,7 +491,7 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   kabanos: visual('sausage', 'olive'),
   vnitrnosti: visual('tray', 'olive'),
   'veprovy-bok': visual('cut', 'grey'),
-  'hovezi-zebra': visual('cut', 'olive'),
+  'hovezi-zebra': visual('ribs', 'red'),
   'zverina-kralik': visual('drumstick', 'rose'),
   'pecene-maso-hotove': visual('cut', 'brown'),
   'hotova-masova-jidla': visual('box', 'navy'),
@@ -500,7 +506,7 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'sous-vide-maso': visual('cut', 'blue'),
   burgery: visual('roll', 'brown'),
   'gyros-kebab-maso': visual('sausage', 'brown'),
-  'kureci-medailonky-filetky': visual('drumstick', 'pink'),
+  'kureci-medailonky-filetky': visual('poultry-breast', 'sand'),
   husa: visual('drumstick', 'green'),
   kachna: visual('drumstick', 'navy'),
   'susene-maso': visual('stripes', 'brown'),
@@ -508,7 +514,7 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'tlacenky-jitrnice': visual('slices', 'rose'),
   'chorizo-fuet': visual('sausage', 'red'),
   pancetta: visual('stripes', 'rose'),
-  'steaky-specialni': visual('cut', 'black'),
+  'steaky-specialni': visual('steak', 'red'),
   'mrazene-kureci-kruti': visual('box', 'teal'),
   'mrazene-kachna-husa': visual('box', 'navy'),
   'mrazene-vepro-hovezi': visual('box', 'rose'),

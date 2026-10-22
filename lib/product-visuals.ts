@@ -65,6 +65,7 @@ export type ProductVisualShape =
   | 'steak'
   | 'ribs'
   | 'mince'
+  | 'bone'
   | 'cut'
   | 'tray'
   | 'slices'
@@ -90,6 +91,7 @@ export type ProductVisualShape =
   | 'cat-bowl'
   | 'dog-bowl'
   | 'bottle-nipple'
+  | 'pacifier'
   | 'baby-bib'
   | 'changing-pad'
   | 'makeup-set'
@@ -632,13 +634,13 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'pecici-papir': visual('sheet', 'cream'),
   'wc-bloky': visual('box', 'white'),
   'rukavice-uklid': visual('box', 'teal'),
-  'kosti-na-vyvar': visual('block', 'cream'),
+  'kosti-na-vyvar': visual('bone', 'cream'),
   'baterie': visual('battery', 'navy'),
   'destniky': visual('umbrella', 'navy'),
 
   // --- Děti ------------------------------------------------------------------------------------
   pleny: visual('packet', 'white'),
-  dudliky: visual('round', 'pink'),
+  dudliky: visual('pacifier', 'pink'),
   'detske-lahve': visual('bottle', 'pink'),
   'detske-savicky': visual('bottle-nipple', 'white'),
   'detske-bryndaky': visual('baby-bib', 'pink'),
@@ -646,7 +648,7 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'detske-nadobi': visual('bowl', 'blue'),
   'kojenecke-mleko': visual('can', 'blue'),
   'detske-prikrmy': visual('jar', 'orange'),
-  'detske-kapsicky': visual('box', 'yellow'),
+  'detske-kapsicky': visual('packet', 'yellow'),
   'detske-napoje': visual('bottle', 'green'),
   'poporodni-kojici-pomucky': visual('bottle', 'rose'),
 

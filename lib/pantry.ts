@@ -349,6 +349,34 @@ export function splitPantryReview(reviewedIds: string[], goneIds: Iterable<strin
  *  weight/volume units — matches how the household would actually type a correction. */
 export const PANTRY_QUANTITY_STEP: Record<ItemUnit, number> = { ks: 1, kg: 0.1, g: 10, l: 0.1, ml: 10, dávka: 1 }
 
+/** Quantities are stored with three decimals; every change is rounded the same way, so the
+ *  number the household sees is the number the server writes. */
+export function roundPantryQuantity(value: number): number {
+  return Math.round(value * 1000) / 1000
+}
+
+/** Whether the household has the item at all. This is the existing domain rule, not a new state
+ *  in the database: a row with no quantity left is one the household has run out of, and the row
+ *  itself stays (its history does). `summarizeByPlace()` counts the same rows as "Došlo". */
+export function isPantryItemAvailable(quantity: number): boolean {
+  return quantity > 0
+}
+
+/** The quantity an item gets when the household says they have it again. The last known amount is
+ *  not stored anywhere, so the honest value is one step of the item's own unit — a whole piece for
+ *  countable goods, a tenth of a kilo, a tenth of a litre, ten grams. Nothing is invented beyond
+ *  the smallest amount the item is counted in. */
+export function restoredPantryQuantity(unit: ItemUnit): number {
+  return PANTRY_QUANTITY_STEP[unit]
+}
+
+/** The quantity the way the household reads it: a decimal comma, no trailing zeros ("0,1 kg",
+ *  "1,5 l", "500 g"). Czech writes the decimal separator as a comma, and the same helper is used
+ *  for the amount itself and for the size of one piece, so both are written alike. */
+export function formatPantryQuantity(value: number): string {
+  return String(roundPantryQuantity(value)).replace('.', ',')
+}
+
 /** A remaining quantity the household set during the check ("had 4, 1 left"). */
 export type PantryQuantityChange = { id: string; quantity: number }
 

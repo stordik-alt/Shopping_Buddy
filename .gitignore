@@ -49,3 +49,7 @@ data/external/teta-identity-review.json
 data/external/teta-identity-review.csv
 data/external/teta-identity-review.html
 data/external/teta-identity-decisions.json
+
+# Playwright output — screenshots, videos and traces of local test runs
+test-results/
+playwright-report/

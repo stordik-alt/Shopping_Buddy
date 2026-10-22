@@ -10,10 +10,13 @@ import {
   customPlaceKey,
   findDueForCheckin,
   findDuplicatePlacements,
+  formatPantryQuantity,
   inferPantryLocation,
   isDueForCheckin,
+  isPantryItemAvailable,
   PANTRY_AREAS,
   PANTRY_LOCATIONS,
+  PANTRY_QUANTITY_STEP,
   pantryPlaceOptions,
   pantryQuantityFor,
   householdKeeps,
@@ -22,7 +25,9 @@ import {
   pantryItemAtHome,
   pantryReviewOrder,
   placeKeyOf,
+  restoredPantryQuantity,
   reviewQuantityChanges,
+  roundPantryQuantity,
   splitPantryReview,
   summarizeByPlace,
   type PantryCheckinCandidate,
@@ -430,5 +435,45 @@ describe('check-in interval by subcategory', () => {
     const added = daysAgo(10)
     expect(isDueForCheckin(candidate({ subcategory: 'Pečivo', addedAt: added }), NOW)).toBe(true)
     expect(isDueForCheckin(candidate({ subcategory: 'Konzervy', addedAt: added }), NOW)).toBe(false)
+  })
+})
+
+describe('the amount in a pantry cell', () => {
+  it('rounds to the three decimals the quantity is stored with', () => {
+    expect(roundPantryQuantity(0.1 + 0.2)).toBe(0.3)
+    expect(roundPantryQuantity(1.0005)).toBe(1.001)
+    expect(roundPantryQuantity(2)).toBe(2)
+  })
+
+  it('writes the amount the way the household reads it', () => {
+    expect(formatPantryQuantity(0.1)).toBe('0,1')
+    expect(formatPantryQuantity(1.5)).toBe('1,5')
+    expect(formatPantryQuantity(500)).toBe('500')
+    expect(formatPantryQuantity(0.75)).toBe('0,75')
+  })
+})
+
+describe('whether the household still has an item', () => {
+  it('treats no amount left as "not at home" — the row itself stays', () => {
+    expect(isPantryItemAvailable(1)).toBe(true)
+    expect(isPantryItemAvailable(0.1)).toBe(true)
+    expect(isPantryItemAvailable(0)).toBe(false)
+  })
+
+  it('restores one step of the item\'s own unit, not a made-up amount', () => {
+    // The last known amount is nowhere in the data, so the honest value is the smallest amount
+    // the item is counted in.
+    expect(restoredPantryQuantity('ks')).toBe(1)
+    expect(restoredPantryQuantity('kg')).toBe(0.1)
+    expect(restoredPantryQuantity('g')).toBe(10)
+    expect(restoredPantryQuantity('l')).toBe(0.1)
+    expect(restoredPantryQuantity('ml')).toBe(10)
+    expect(restoredPantryQuantity('dávka')).toBe(1)
+  })
+
+  it('steps by the same amount it restores', () => {
+    for (const unit of ['ks', 'kg', 'g', 'l', 'ml', 'dávka'] as const) {
+      expect(restoredPantryQuantity(unit)).toBe(PANTRY_QUANTITY_STEP[unit])
+    }
   })
 })

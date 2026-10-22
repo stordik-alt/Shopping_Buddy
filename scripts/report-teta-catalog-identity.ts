@@ -1,6 +1,5 @@
-import { mkdir, writeFile } from 'node:fs/promises'
-import { dirname } from 'node:path'
-import { importTetaCatalog, readTetaCatalogProducts, TETA_SOURCE } from '@/lib/ingestion/teta-import'
+import { importTetaCatalog, readTetaCatalogProducts } from '@/lib/ingestion/teta-import'
+import { buildTetaIdentityReport, writeTetaIdentityReport } from '@/lib/ingestion/teta-identity-report'
 
 // Reports which Teta products can be linked to a catalog product the app already knows, and which
 // ones need a human to look at them.
@@ -9,8 +8,10 @@ import { importTetaCatalog, readTetaCatalogProducts, TETA_SOURCE } from '@/lib/i
 //
 // Nothing is written to the database: this is the dry run of the import, and its output is the
 // review file. A link is made only where the evidence is unambiguous — the same brand, the same
-// package, the same descriptive words, no conflicting token and no second candidate that is just
-// as close (lib/product-identity-teta.ts).
+// descriptive words, no conflicting token and no second candidate that is just as close
+// (lib/product-identity-teta.ts).
+//
+// The review file is what the review table is built from (pnpm product:identity-teta-review).
 
 function arg(name: string): string | undefined
 function arg(name: string, fallback: string): string
@@ -28,30 +29,8 @@ async function main(): Promise<void> {
   console.log(`[teta-identity] ${records.length} products read`)
 
   const result = await importTetaCatalog(records, { apply: false })
-
-  await mkdir(dirname(reviewPath), { recursive: true })
-  await writeFile(reviewPath, JSON.stringify({
-    source: TETA_SOURCE,
-    generatedAt: new Date().toISOString(),
-    apply: false,
-    decisions: result.decisions,
-    // The links that were made automatically are in the report as well: a human has to be able to
-    // look at them too, not only at the ones that were refused.
-    linked: result.linked.map((decision) => ({
-      externalId: decision.externalId,
-      name: decision.name,
-      productId: decision.productId,
-      productName: decision.productName,
-      score: decision.score,
-    })),
-    products: result.review.map((decision) => ({
-      externalId: decision.externalId,
-      name: decision.name,
-      reason: decision.reason,
-      score: decision.score,
-      candidates: decision.candidates,
-    })),
-  }, null, 2) + '\n', 'utf8')
+  const report = buildTetaIdentityReport(result, { apply: false })
+  await writeTetaIdentityReport(reviewPath, report)
 
   console.log(JSON.stringify({
     products: result.records,

@@ -145,6 +145,16 @@ export type ProductVisualShape =
   | 'roast-slices'
   | 'vacuum-pack'
   | 'pork-knuckle'
+  | 'contact-lenses'
+  | 'hair-accessories'
+  | 'cosmetic-case'
+  | 'nail-tips'
+  | 'waxing-kit'
+  | 'toothbrush-heads'
+  | 'oral-care'
+  | 'denture-care'
+  | 'cosmetic-tools'
+  | 'hairbrush'
 
 /** The closed set of colour pairs the shapes are drawn in. */
 export type ProductVisualTint =
@@ -459,11 +469,10 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'kakaove-napoje-instantni': visual('packet', 'brown'),
   'funkcni-napoje': visual('bottle', 'green'),
   'shoty-wellness': visual('bottle', 'green'),
-  // Types that are not in the taxonomy's own list (a phone, a pair of glasses, a pet bowl) keep
-  // their own visual so they are told apart at a glance.
+  // Less common accessory and pet types keep distinct visuals so they remain easy to recognize.
   arasidy: visual('cluster', 'olive'),
   bryle: visual('glasses', 'navy'),
-  'kontaktni-cocky': visual('glasses', 'teal'),
+  'kontaktni-cocky': visual('contact-lenses', 'teal'),
   'sprchove-pripravky-dalsi': visual('bottle', 'blue'),
   'syrove-nite-korbaciky': visual('cheese-strings', 'cream'),
   'ocni-polstarky': visual('eye-patches', 'teal'),
@@ -603,7 +612,7 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'vlasova-pece': visual('bottle', 'teal'),
   'styling-vlasy': visual('spray', 'pink'),
   'barvy-na-vlasy': visual('bottle', 'purple'),
-  'vlasove-doplnky': visual('bottle', 'grey'),
+  'vlasove-doplnky': visual('hair-accessories', 'rose'),
   'telova-pece': visual('tub', 'pink'),
   'krem-na-ruce': visual('tub', 'white'),
   'univerzalni-krem': visual('tub', 'yellow'),
@@ -619,16 +628,16 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'vune-na-pradlo': visual('bottle', 'grey'),
   osvezovace: visual('bottle', 'blue'),
   'pece-o-nehty': visual('bottle', 'rose'),
-  'umele-nehty': visual('box', 'rose'),
-  depilace: visual('box', 'pink'),
+  'umele-nehty': visual('nail-tips', 'rose'),
+  depilace: visual('waxing-kit', 'pink'),
   'lubrikacni-gely': visual('tube', 'teal'),
-  'kosmeticke-pomucky': visual('brush', 'rose'),
-  'kartace-doplnky-vlasy': visual('brush', 'brown'),
-  'kosmeticke-zrcatka-tasky': visual('block', 'pink'),
+  'kosmeticke-pomucky': visual('cosmetic-tools', 'rose'),
+  'kartace-doplnky-vlasy': visual('hairbrush', 'brown'),
+  'kosmeticke-zrcatka-tasky': visual('cosmetic-case', 'pink'),
   'dekorativni-kosmetika': visual('makeup-set', 'rose'),
   'holeni': visual('bottle', 'navy'),
   'holici-hlavice-holitka': visual('razor', 'grey'),
-  'nahradni-hlavice-kartacky': visual('brush', 'blue'),
+  'nahradni-hlavice-kartacky': visual('toothbrush-heads', 'blue'),
   deodoranty: visual('spray', 'white'),
   'damska-hygiena': visual('feminine-care', 'rose'),
   'inkontinencni-vlozky': visual('hygiene-pad', 'white'),
@@ -642,9 +651,9 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'naplasti-obinadla': visual('blister', 'sand'),
   'repelenty-proti-hmyzu': visual('spray', 'olive'),
   'esencialni-oleje': visual('bottle', 'rose'),
-  'ustni-hygiena': visual('tube', 'white'),
+  'ustni-hygiena': visual('oral-care', 'white'),
   'zubni-pasta': visual('tube', 'blue'),
-  'zubni-nahrady': visual('tube', 'green'),
+  'zubni-nahrady': visual('denture-care', 'green'),
   'bileni-zubu': visual('packet', 'white'),
   'toaletni-papir': visual('paper-roll', 'white'),
   'vlhceny-toaletni-papir': visual('wipes-pack', 'pink'),

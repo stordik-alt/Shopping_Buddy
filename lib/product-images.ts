@@ -1,7 +1,7 @@
 import { fetchPublicImage } from '@/lib/ingestion/public-image'
 import { r2PutObject } from '@/lib/storage/r2'
 import sharp from 'sharp'
-import { crypto } from 'node:crypto'
+import crypto from 'node:crypto'
 
 /**
  * Processes and stores a public image for a product type.

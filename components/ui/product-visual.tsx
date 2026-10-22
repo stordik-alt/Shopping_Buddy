@@ -604,6 +604,34 @@ const DRAWINGS: Record<ProductVisual['shape'], (c: Colors) => ReactNode> = {
       <path d="M32 19v5" stroke={c.secondary} strokeWidth="2" />
     </>
   ),
+  socks: (c) => (
+    <>
+      <path d="M17 10h13v25c0 4 4 6 10 8l-1 10H15v-7c0-4 2-8 2-12z" fill={c.primary} />
+      <path d="M34 10h13v23c0 4 3 7 7 10l-3 10H30v-6c0-4 2-8 4-11z" fill={c.secondary} />
+      <path d="M17 18h13M34 18h13" stroke={LABEL} strokeWidth="2.5" />
+    </>
+  ),
+  hosiery: (c) => (
+    <>
+      <path d="M20 11h24v12l-5 30H29l3-24H18l-2-18z" fill={c.primary} />
+      <path d="M20 11h24v8H20z" fill={c.secondary} />
+      <path d="M20 23h13M33 23l-4 29M40 23l-3 29" fill="none" stroke={c.secondary} strokeWidth="2.5" strokeLinecap="round" />
+    </>
+  ),
+  underwear: (c) => (
+    <>
+      <path d="M13 17h38l-4 35c-7 2-12-2-15-10-3 8-8 12-15 10z" fill={c.primary} />
+      <path d="M13 17h38v8H13z" fill={c.secondary} />
+      <path d="M18 29l7 4M46 29l-7 4M32 27v13" stroke={LABEL} strokeWidth="2.5" strokeLinecap="round" />
+    </>
+  ),
+  leggings: (c) => (
+    <>
+      <path d="M18 10h28l-2 18-4 28H28l1-24h-2l1 24H16l4-28z" fill={c.primary} />
+      <path d="M18 10h28v8H18z" fill={c.secondary} />
+      <path d="M32 19v12" stroke={c.secondary} strokeWidth="2" />
+    </>
+  ),
 }
 
 /** The picture of a product: its photograph when it has one, its illustration otherwise. */

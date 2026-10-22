@@ -41,7 +41,8 @@ system: `lib/product-visuals.ts` (the mapping) and `components/ui/product-visual
   not an individual SKU in `products`. When no photo is available, the local SVG drawing is used in this
   order: product type, subcategory, category, then neutral fallback. An unknown key always ends up
   somewhere — it never throws.
-- **Shapes and tints.** Dedicated drawings cover produce, bread, cheese, fish, detailed meat cuts,
+- **Shapes and tints.** Dedicated drawings cover produce, including stone fruit, citrus, berries,
+  roots and cauliflower, bread, cheese, fish, detailed meat cuts,
   snacks, ready meals, cosmetics, oral care, household cleaning supplies, and distinctive bottle
   and jar forms for wine, spirits, oils, spices, sauces and syrups, alongside everyday packaging
   forms, in 19 tints. The shape says what the product is, the tint says which family it belongs to.

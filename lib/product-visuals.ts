@@ -173,6 +173,15 @@ export type ProductVisualShape =
   | 'sauce-bottle'
   | 'squeeze-bottle'
   | 'syrup-bottle'
+  | 'citrus'
+  | 'apricot'
+  | 'peach'
+  | 'plum'
+  | 'blackberry'
+  | 'beetroot'
+  | 'cauliflower'
+  | 'ginger-root'
+  | 'kohlrabi'
 
 /** The closed set of colour pairs the shapes are drawn in. */
 export type ProductVisualTint =
@@ -272,8 +281,8 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   // --- Ovoce a zelenina -----------------------------------------------------------------------
   jablka: visual('round', 'red'),
   banany: visual('crescent', 'yellow'),
-  mandarinky: visual('round', 'orange'),
-  citrony: visual('oval', 'yellow'),
+  mandarinky: visual('citrus', 'orange'),
+  citrony: visual('citrus', 'yellow'),
   hrusky: visual('pear', 'green'),
   hrozny: visual('cluster', 'purple'),
   jahody: visual('cluster', 'red'),
@@ -295,7 +304,7 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   celer: visual('celeriac', 'sand'),
   brokolice: visual('cluster', 'green'),
   houby: visual('mushroom', 'sand'),
-  pomerance: visual('round', 'orange'),
+  pomerance: visual('citrus', 'orange'),
   pomazanky: visual('tub', 'rose'),
   'mrazena-zelenina': visual('frozen-vegetables', 'green'),
   cerealie: visual('box', 'orange'),
@@ -519,8 +528,8 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   kukurice: visual('corn-cob', 'yellow'),
   dyne: visual('pumpkin', 'orange'),
   spenat: visual('leaf', 'olive'),
-  'cervena-repa': visual('round', 'navy'),
-  kvetak: visual('cluster', 'white'),
+  'cervena-repa': visual('beetroot', 'red'),
+  kvetak: visual('cauliflower', 'white'),
   knedliky: visual('dumplings', 'cream'),
   testo: visual('bowl', 'white'),
   'smesi-na-peceni': visual('bowl', 'cream'),
@@ -547,15 +556,15 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'mak-semena-specialni': visual('cluster', 'black'),
   'ovoce-susene-mrazem': visual('packet', 'sand'),
   'bramborove-vyrobky': visual('potato-products', 'sand'),
-  'zazvor-kurkuma-cerstve': visual('cone', 'sand'),
+  'zazvor-kurkuma-cerstve': visual('ginger-root', 'sand'),
   'mlete-ovoce-pyre': visual('jar', 'rose'),
-  'merunky': visual('oval', 'pink'),
-  'broskve-nektarinky': visual('round', 'pink'),
-  'svestky-slivky': visual('round', 'purple'),
+  'merunky': visual('apricot', 'orange'),
+  'broskve-nektarinky': visual('peach', 'pink'),
+  'svestky-slivky': visual('plum', 'purple'),
   'tresne-visne': visual('cherry', 'red'),
-  'ostruziny': visual('cluster', 'black'),
+  'ostruziny': visual('blackberry', 'purple'),
   'redkvicky-redkev': visual('radish', 'rose'),
-  'kedlubny-kapusty': visual('round', 'olive'),
+  'kedlubny-kapusty': visual('kohlrabi', 'green'),
   'lilek-patison': visual('oval', 'navy'),
   'bylinky-cerstve': visual('sprig', 'green'),
   'polevkova-zelenina-smes': visual('packet', 'green'),

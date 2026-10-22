@@ -22,7 +22,9 @@ export type ProductVisualShape =
   | 'oval'
   | 'pear'
   | 'tomato'
+  | 'pumpkin'
   | 'pepper'
+  | 'corn-cob'
   | 'cluster'
   | 'cherry'
   | 'cabbage'
@@ -31,6 +33,8 @@ export type ProductVisualShape =
   | 'long'
   | 'bulb'
   | 'garlic'
+  | 'celeriac'
+  | 'radish'
   | 'mushroom'
   | 'blob'
   | 'cone'
@@ -212,10 +216,10 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   zeli: visual('cabbage', 'green'),
   zampiony: visual('mushroom', 'brown'),
   cuketa: visual('long', 'green'),
-  celer: visual('long', 'olive'),
+  celer: visual('celeriac', 'sand'),
   brokolice: visual('cluster', 'green'),
   houby: visual('mushroom', 'sand'),
-  pomerance: visual('oval', 'orange'),
+  pomerance: visual('round', 'orange'),
   pomazanky: visual('oval', 'rose'),
   'mrazena-zelenina': visual('box', 'blue'),
   cerealie: visual('box', 'orange'),
@@ -437,8 +441,8 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'konzervy-ovoce-kompoty': visual('jar', 'orange'),
   'zelenina-konzervovana': visual('can', 'green'),
   'ovoce-exoticke': visual('pear', 'orange'),
-  kukurice: visual('long', 'yellow'),
-  dyne: visual('oval', 'yellow'),
+  kukurice: visual('corn-cob', 'yellow'),
+  dyne: visual('pumpkin', 'orange'),
   spenat: visual('leaf', 'olive'),
   'cervena-repa': visual('round', 'navy'),
   kvetak: visual('cluster', 'white'),
@@ -475,7 +479,7 @@ export const PRODUCT_TYPE_VISUALS: Record<string, ProductVisual> = {
   'svestky-slivky': visual('round', 'purple'),
   'tresne-visne': visual('cherry', 'red'),
   'ostruziny': visual('cluster', 'black'),
-  'redkvicky-redkev': visual('long', 'pink'),
+  'redkvicky-redkev': visual('radish', 'rose'),
   'kedlubny-kapusty': visual('round', 'olive'),
   'lilek-patison': visual('oval', 'navy'),
   'bylinky-cerstve': visual('sprig', 'green'),

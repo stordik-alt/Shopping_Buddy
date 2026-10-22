@@ -56,6 +56,13 @@ const DRAWINGS: Record<ProductVisual['shape'], (c: Colors) => ReactNode> = {
       <path d="M32 15l5 5 8-2-3 8 4 6-9-1-5 5-5-5-9 1 4-6-3-8 8 2z" fill={LEAF} />
     </>
   ),
+  pumpkin: (c) => (
+    <>
+      <path d="M32 17c-7-8-15-3-17 7-8 3-9 18-2 25 5 5 11 5 19 1 8 4 14 4 19-1 7-7 6-22-2-25-2-10-10-15-17-7z" fill={c.primary} />
+      <path d="M32 18c-5 8-6 21 0 33M24 17c-4 9-5 21-2 34M40 17c4 9 5 21 2 34" fill="none" stroke={c.secondary} strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M30 17c-1-6 1-10 5-12 3 5 2 9-2 13z" fill={LEAF} />
+    </>
+  ),
   pepper: (c) => (
     <>
       <path d="M32 20c8 0 14 6 14 16s-6 16-14 16-14-6-14-16 6-16 14-16z" fill={c.primary} />
@@ -107,6 +114,13 @@ const DRAWINGS: Record<ProductVisual['shape'], (c: Colors) => ReactNode> = {
       <circle cx="44" cy="27" r="2" fill={c.secondary} />
     </>
   ),
+  'corn-cob': (c) => (
+    <>
+      <path d="M22 14c0-4 4-7 10-7s10 3 10 7v31c0 6-4 11-10 13-6-2-10-7-10-13z" fill={c.primary} />
+      <path d="M22 17c-9 8-10 23-3 35 4-2 7-6 9-11M42 17c9 8 10 23 3 35-4-2-7-6-9-11" fill={LEAF} />
+      <path d="M27 17v29M32 15v34M37 17v29M25 24h14M24 32h16M25 40h14" stroke={c.secondary} strokeWidth="1.8" strokeLinecap="round" />
+    </>
+  ),
   bulb: (c) => (
     <>
       <path d="M32 14c11 5 15 13 15 22 0 8-6 14-15 14s-15-6-15-14c0-9 4-17 15-22z" fill={c.primary} />
@@ -121,6 +135,21 @@ const DRAWINGS: Record<ProductVisual['shape'], (c: Colors) => ReactNode> = {
       <path d="M32 14c-11 3-18 12-17 24 1 10 8 16 17 17 9-1 16-7 17-17 1-12-6-21-17-24z" fill={c.primary} />
       <path d="M32 17c-7 8-8 21-5 36M32 17c7 8 8 21 5 36M20 28c4 5 5 13 4 20M44 28c-4 5-5 13-4 20" fill="none" stroke={c.secondary} strokeWidth="2.5" strokeLinecap="round" />
       <path d="M25 52h14" stroke={c.secondary} strokeWidth="3" strokeLinecap="round" />
+    </>
+  ),
+  celeriac: (c) => (
+    <>
+      <path d="M32 21c-6-5-14-2-17 4-7 1-9 10-4 15-2 7 5 13 12 12 5 5 14 5 19 0 7 1 14-5 12-12 5-5 3-14-4-15-3-6-11-9-18-4z" fill={c.primary} />
+      <path d="M32 21V9M27 19c-4-7-3-11 0-14M37 19c4-7 3-11 0-14" stroke={LEAF} strokeWidth="3" fill="none" strokeLinecap="round" />
+      <path d="M20 46l-5 7M28 49l-1 7M38 49l1 7M46 46l5 7M18 32l-7-2M46 32l7-2" stroke={c.secondary} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  radish: (c) => (
+    <>
+      <path d="M27 23c-2-9-1-14 2-19 4 5 5 10 3 17 4-9 9-12 14-13-1 8-5 13-13 18" fill={LEAF} />
+      <path d="M19 23c5-5 21-5 26 0 5 6 1 16-6 23-3 4-6 8-7 13-2-5-4-9-7-13-7-7-11-17-6-23z" fill={c.primary} />
+      <path d="M32 46c-2 4-3 8-3 11 2-2 4-5 5-8" fill={LABEL} />
+      <path d="M22 29c4 2 8 3 11 3M42 29c-3 2-6 3-9 3" stroke={c.secondary} strokeWidth="2" strokeLinecap="round" />
     </>
   ),
   mushroom: (c) => (

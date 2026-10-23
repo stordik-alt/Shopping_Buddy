@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { ActivityIndicator, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { unitLabel, type ItemUnit } from '@anitka/shared/units'
 import { getAccessToken } from '../lib/auth'
+import { RefreshButton } from './refresh-button'
 import {
   generateMealPlan,
   getMealPlan,
@@ -110,12 +111,10 @@ export function MealPlanScreen({ onAuthExpired }: { onAuthExpired: () => void })
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" style={styles.scroll}>
       <View style={styles.heading}>
         <View style={styles.headingText}>
-          <Text style={styles.title}>Jídelníček</Text>
+          <Text numberOfLines={1} style={styles.title}>Jídelníček</Text>
           <Text style={styles.supporting}>Naplánujte jídla a upravte počet porcí.</Text>
         </View>
-        <Pressable accessibilityRole="button" disabled={loading || saving} onPress={() => void load()} style={styles.refreshButton}>
-          <Text style={styles.refreshText}>{loading ? 'Načítám…' : 'Obnovit'}</Text>
-        </Pressable>
+        <RefreshButton disabled={saving} loading={loading} onPress={() => void load()} />
       </View>
 
       <View style={styles.card}>
@@ -236,11 +235,9 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { paddingBottom: 24 },
   heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
-  headingText: { flex: 1 },
+  headingText: { flex: 1, minWidth: 0 },
   title: { color: '#122c3a', fontSize: 23, fontWeight: '700' },
   supporting: { color: '#526674', fontSize: 14, lineHeight: 20, marginTop: 4 },
-  refreshButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 },
-  refreshText: { color: '#075e68', fontSize: 14, fontWeight: '600' },
   card: { backgroundColor: '#ffffff', borderColor: '#dce6e9', borderRadius: 18, borderWidth: 1, margin: 16, padding: 16, gap: 12 },
   sectionTitle: { color: '#122c3a', fontSize: 18, fontWeight: '700' },
   settingsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },

@@ -18,6 +18,7 @@ import { RecipesScreen } from '../components/recipes-screen'
 import { MealPlanScreen } from '../components/meal-plan-screen'
 import { BarcodeScannerModal } from '../components/barcode-scanner-modal'
 import { ReceiptsScreen } from '../components/receipts-screen'
+import { RefreshButton } from '../components/refresh-button'
 import { getAccessToken, signIn, signOut } from '../lib/auth'
 import {
   applyOfflineOperations,
@@ -541,7 +542,7 @@ export default function HomeScreen() {
                 ? 'Účet zatím není připojený k domácnosti. Připojte se k domácnosti a zkuste seznam obnovit.'
                 : 'Zkontrolujte připojení a zkuste seznam načíst znovu.'}
             </Text>
-            <PrimaryButton label={busy ? 'Načítání…' : 'Obnovit'} onPress={() => void load()} disabled={busy} />
+            <PrimaryButton label="Obnovit" onPress={() => void load()} disabled={busy} />
           </View>
         ) : (
           <>
@@ -549,9 +550,7 @@ export default function HomeScreen() {
               <>
                 <View style={styles.summary}>
                   <Text style={styles.summaryText}>{remaining} k nákupu · {completed} hotovo</Text>
-                  <Pressable accessibilityRole="button" disabled={busy || busyItemId !== null} onPress={() => void load()} style={styles.refreshButton}>
-                    <Text style={styles.secondaryButtonText}>{busy ? 'Načítání…' : 'Obnovit'}</Text>
-                  </Pressable>
+                  <RefreshButton disabled={busyItemId !== null} loading={busy} onPress={() => void load()} />
                 </View>
 
                 <View style={styles.addRow}>
@@ -701,7 +700,6 @@ const styles = StyleSheet.create({
   pendingLabel: { color: '#8a631c', fontSize: 12, marginTop: 4 },
   summary: { minHeight: 52, marginHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   summaryText: { color: '#526674', fontSize: 14, fontWeight: '600' },
-  refreshButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 10 },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginBottom: 12 },
   scanButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginHorizontal: 16, marginBottom: 12, borderColor: '#cbd8dd', borderRadius: 12, borderWidth: 1, backgroundColor: '#ffffff' },
   scanButtonText: { color: '#23515d', fontSize: 14, fontWeight: '600' },

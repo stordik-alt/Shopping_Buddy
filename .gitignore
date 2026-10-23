@@ -15,6 +15,7 @@ node_modules
 .DS_Store
 .vercel
 .env*
+!.env.example
 *.tsbuildinfo
 
 # Cloudflare (OpenNext / Wrangler) build output and local secrets — see docs/cloudflare-deployment.md

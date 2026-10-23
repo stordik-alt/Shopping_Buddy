@@ -5,6 +5,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -480,6 +481,14 @@ export default function HomeScreen() {
 
   const remaining = items.filter((item) => !item.done).length
   const completed = items.length - remaining
+  const pageTitle = {
+    shopping: listName,
+    budget: 'Rozpočet',
+    pantry: 'Zásoby',
+    recipes: 'Recepty',
+    meals: 'Plán jídel',
+    receipts: 'Účtenky',
+  }[activeTab]
 
   if (busy && !signedIn) {
     return (
@@ -506,13 +515,9 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.screen}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <View style={styles.header}>
-          <View>
+          <View style={styles.headerText}>
             <Text style={styles.brand}>ANITKA</Text>
-            <Text style={styles.title}>
-              {householdAvailable
-                ? activeTab === 'budget' ? 'Rozpočet' : activeTab === 'pantry' ? 'Zásoby' : activeTab === 'recipes' ? 'Recepty' : activeTab === 'receipts' ? 'Účtenky' : listName
-                : 'Nákupní seznam'}
-            </Text>
+            <Text numberOfLines={1} style={styles.title}>{householdAvailable ? pageTitle : 'Nákupní seznam'}</Text>
             {userName ? <Text style={styles.supporting}>Přihlášeno: {userName}</Text> : null}
           </View>
           <Pressable accessibilityRole="button" disabled={busy || busyItemId !== null} onPress={handleSignOut} style={styles.secondaryButton}>
@@ -646,24 +651,26 @@ export default function HomeScreen() {
               <RecipesScreen onAuthExpired={handleAuthExpired} />
             )}
             <View accessibilityRole="tablist" style={styles.tabBar}>
-              <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'shopping' }} onPress={() => setActiveTab('shopping')} style={[styles.tab, activeTab === 'shopping' && styles.tabActive]}>
-                <Text style={[styles.tabText, activeTab === 'shopping' && styles.tabTextActive]}>Seznam</Text>
-              </Pressable>
-              <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'budget' }} onPress={() => setActiveTab('budget')} style={[styles.tab, activeTab === 'budget' && styles.tabActive]}>
-                <Text style={[styles.tabText, activeTab === 'budget' && styles.tabTextActive]}>Rozpočet</Text>
-              </Pressable>
-              <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'pantry' }} onPress={() => setActiveTab('pantry')} style={[styles.tab, activeTab === 'pantry' && styles.tabActive]}>
-                <Text style={[styles.tabText, activeTab === 'pantry' && styles.tabTextActive]}>Zásoby</Text>
-              </Pressable>
-              <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'recipes' }} onPress={() => setActiveTab('recipes')} style={[styles.tab, activeTab === 'recipes' && styles.tabActive]}>
-                <Text style={[styles.tabText, activeTab === 'recipes' && styles.tabTextActive]}>Recepty</Text>
-              </Pressable>
-              <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'meals' }} onPress={() => setActiveTab('meals')} style={[styles.tab, activeTab === 'meals' && styles.tabActive]}>
-                <Text style={[styles.tabText, activeTab === 'meals' && styles.tabTextActive]}>Plán</Text>
-              </Pressable>
-              <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'receipts' }} onPress={() => setActiveTab('receipts')} style={[styles.tab, activeTab === 'receipts' && styles.tabActive]}>
-                <Text style={[styles.tabText, activeTab === 'receipts' && styles.tabTextActive]}>Účtenky</Text>
-              </Pressable>
+              <ScrollView contentContainerStyle={styles.tabItems} horizontal showsHorizontalScrollIndicator={false} style={styles.tabScroll}>
+                <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'shopping' }} onPress={() => setActiveTab('shopping')} style={[styles.tab, activeTab === 'shopping' && styles.tabActive]}>
+                  <Text style={[styles.tabText, activeTab === 'shopping' && styles.tabTextActive]}>Seznam</Text>
+                </Pressable>
+                <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'budget' }} onPress={() => setActiveTab('budget')} style={[styles.tab, activeTab === 'budget' && styles.tabActive]}>
+                  <Text style={[styles.tabText, activeTab === 'budget' && styles.tabTextActive]}>Rozpočet</Text>
+                </Pressable>
+                <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'pantry' }} onPress={() => setActiveTab('pantry')} style={[styles.tab, activeTab === 'pantry' && styles.tabActive]}>
+                  <Text style={[styles.tabText, activeTab === 'pantry' && styles.tabTextActive]}>Zásoby</Text>
+                </Pressable>
+                <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'recipes' }} onPress={() => setActiveTab('recipes')} style={[styles.tab, activeTab === 'recipes' && styles.tabActive]}>
+                  <Text style={[styles.tabText, activeTab === 'recipes' && styles.tabTextActive]}>Recepty</Text>
+                </Pressable>
+                <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'meals' }} onPress={() => setActiveTab('meals')} style={[styles.tab, activeTab === 'meals' && styles.tabActive]}>
+                  <Text style={[styles.tabText, activeTab === 'meals' && styles.tabTextActive]}>Plán</Text>
+                </Pressable>
+                <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'receipts' }} onPress={() => setActiveTab('receipts')} style={[styles.tab, activeTab === 'receipts' && styles.tabActive]}>
+                  <Text style={[styles.tabText, activeTab === 'receipts' && styles.tabTextActive]}>Účtenky</Text>
+                </Pressable>
+              </ScrollView>
             </View>
           </>
         )}
@@ -683,6 +690,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, gap: 12 },
+  headerText: { flex: 1, minWidth: 0 },
   brand: { color: '#087e8b', fontSize: 14, fontWeight: '800', letterSpacing: 1.4 },
   title: { color: '#122c3a', fontSize: 24, fontWeight: '700', marginTop: 4 },
   supporting: { color: '#526674', fontSize: 14, lineHeight: 20, marginTop: 5 },
@@ -720,8 +728,10 @@ const styles = StyleSheet.create({
   unitText: { color: '#526674', fontSize: 14, fontWeight: '600' },
   unitTextSelected: { color: '#075e68' },
   actions: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 10 },
-  tabBar: { flexDirection: 'row', borderTopColor: '#dce6e9', borderTopWidth: 1, backgroundColor: '#ffffff', paddingHorizontal: 8, paddingTop: 8, paddingBottom: 4, gap: 6 },
-  tab: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
+  tabBar: { borderTopColor: '#dce6e9', borderTopWidth: 1, backgroundColor: '#ffffff' },
+  tabScroll: { flexGrow: 0 },
+  tabItems: { flexDirection: 'row', paddingHorizontal: 8, paddingTop: 8, paddingBottom: 4, gap: 6 },
+  tab: { width: 80, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
   tabActive: { backgroundColor: '#dff4f5' },
   tabText: { color: '#526674', fontSize: 13, fontWeight: '600' },
   tabTextActive: { color: '#075e68' },

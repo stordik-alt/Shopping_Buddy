@@ -713,6 +713,7 @@ export function toReceiptLineItems(
       // subcategory came from nothing more than the product's own catalog entry.
       const recognitionMethod = subcategoryMatch?.method ?? fuzzyMatch?.method
       const productTypeWasManuallyCleared = catalogEntry?.productTypeSource === 'manual' && catalogEntry.productTypeKey == null
+      const productTypeKey = productTypeWasManuallyCleared ? null : catalogEntry?.productTypeKey ?? classifyReceiptLineType(category, item.name)
       return {
         name: item.name.trim(),
         rawName: item.name.trim(),
@@ -725,8 +726,8 @@ export function toReceiptLineItems(
         // and is applied when the purchase is created (see receiptTotal / netUnitPrice).
         ...(item.discount != null && item.discount > 0 && { discount: item.discount }),
         ...(placement != null && { location: placement.location }),
-        productTypeKey: productTypeWasManuallyCleared ? null : catalogEntry?.productTypeKey ?? classifyReceiptLineType(category, item.name),
-        ...(productTypeWasManuallyCleared && { productTypeSelectionChanged: true }),
+        ...(productTypeKey != null || productTypeWasManuallyCleared ? { productTypeKey } : {}),
+        ...(productTypeWasManuallyCleared ? { productTypeSelectionChanged: true } : productTypeKey != null ? { productTypeSelectionChanged: false } : {}),
         ...(item.confidence != null && { confidence: item.confidence }),
         ...(subcategoryMatch != null && { subcategory: subcategoryMatch.subcategory }),
         ...(recognitionMethod != null && { recognitionMethod }),

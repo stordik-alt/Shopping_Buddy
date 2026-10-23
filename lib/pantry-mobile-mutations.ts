@@ -25,7 +25,7 @@ export async function updatePantryItemForHousehold(
 
   if ('quantity' in change) {
     if (!Number.isFinite(change.quantity) || change.quantity < 0) throw new PantryInputError('Množství nesmí být záporné.')
-    if (item.contents.length > 0) throw new PantryInputError('Upravte množství jednotlivých produktů v detailu zásoby.')
+    if ((item.contents?.length ?? 0) > 0) throw new PantryInputError('Upravte množství jednotlivých produktů v detailu zásoby.')
     // Compare-and-set: when the caller says which amount it expected to find, the write only goes
     // through if that is still the stored amount. A request that was overtaken — a second tap, or
     // another member of the household — can then no longer overwrite the newer amount with an

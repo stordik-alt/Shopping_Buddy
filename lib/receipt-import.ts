@@ -229,7 +229,9 @@ export async function withProductSuggestions(
     if (suggestions.length === 0) return
     const typedSuggestions = suggestions.map((suggestion) => ({
       ...suggestion,
-      productTypeKey: suggestion.productTypeKey ?? catalog.find((product) => product.id === suggestion.productId)?.productTypeKey ?? null,
+      ...((suggestion.productTypeKey ?? catalog.find((product) => product.id === suggestion.productId)?.productTypeKey)
+        ? { productTypeKey: suggestion.productTypeKey ?? catalog.find((product) => product.id === suggestion.productId)?.productTypeKey }
+        : {}),
     }))
     result[index] = {
       ...item,
@@ -607,11 +609,11 @@ export async function createPurchaseFromReceiptItems(
         isNonInventory: item.nonInventory,
         // Only a deliberate type choice teaches the catalog; the recognized default above remains
         // a rule/catalog result and does not get relabeled as a human correction.
-        ...(item.productTypeSelectionChanged && { productTypeKey: item.productTypeKey ?? null }),
+        ...((item.productTypeSelectionChanged === true || (item.productTypeSelectionChanged == null && item.productTypeKey != null)) && { productTypeKey: item.productTypeKey ?? null }),
       })
       if (productId) await linkPantryContentsToProduct(householdId, item.name, productId)
     }
-    for (const item of resolvedItems.filter((item) => item.productId && item.productTypeSelectionChanged)) {
+    for (const item of resolvedItems.filter((item) => item.productId && (item.productTypeSelectionChanged === true || (item.productTypeSelectionChanged == null && item.productTypeKey != null)))) {
       await setProductCatalogType(item.productId as string, item.productTypeKey ?? null)
     }
     // A brand-new product has no catalog id yet at the time purchase_items was inserted above (it is

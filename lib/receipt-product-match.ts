@@ -279,7 +279,10 @@ export function rankReceiptCandidates(lineName: string, storeId: string | null, 
     // "ALB PUD.PRICH.VA" is Albert's own pudding: another brand's vanilla pudding is a different
     // product, however well the words fit, so it is offered but not pre-selected.
     (line.ownBrand == null || receiptWordsOfProduct(top[0].name).includes(line.ownBrand))
-  return { suggestions: top.map(({ productId, name, productTypeKey }) => ({ productId, name, productTypeKey: productTypeKey ?? null })), confident }
+  return {
+    suggestions: top.map(({ productId, name, productTypeKey }) => ({ productId, name, ...(productTypeKey ? { productTypeKey } : {}) })),
+    confident,
+  }
 }
 
 /** The words the database search requires of a candidate's name for this line: the two longest

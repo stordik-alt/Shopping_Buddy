@@ -72,12 +72,15 @@ jobs:
         if: ${{ inputs.target == 'production' }}
         env:
           # OpenNext initializes Wrangler's local platform proxy during deploy.
+          # Wrangler needs a local connection string for each Hyperdrive binding it emulates.
           # Supply the existing DB URL only to this step; never print it.
           CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE: ${{ secrets.DATABASE_URL }}
+          CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE_PANTRY_FRESH: ${{ secrets.DATABASE_URL }}
         run: |
-          if [ -z "$CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE" ]; then
+          if [ -z "$CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE" ] || \
+             [ -z "$CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE_PANTRY_FRESH" ]; then
             echo "::error::DATABASE_URL is unavailable to the production deploy step."
             exit 1
           fi
-          echo "Hyperdrive local connection string is set (value redacted)."
+          echo "Hyperdrive local connection strings are set (values redacted)."
           pnpm cf:deploy

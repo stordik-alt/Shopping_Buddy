@@ -522,7 +522,9 @@ function toPurchaseRecords(purchaseRows: Awaited<ReturnType<typeof queryPurchase
 }
 
 function queryPantryRows(householdId: string) {
-  return getDb().query.pantryItems.findMany({
+  // Pantry quantities seed the client's compare-and-set baseline. These rows must not come from
+  // Hyperdrive's shared query cache, which is not invalidated by pantry writes.
+  return getDb('HYPERDRIVE_PANTRY_FRESH').query.pantryItems.findMany({
     where: eq(schema.pantryItems.householdId, householdId),
     orderBy: asc(schema.pantryItems.addedAt),
     with: {

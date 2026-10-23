@@ -28,6 +28,7 @@ export function ExpenseLedger({
   onSaveSplits,
   extraPeriods = [],
   initialPeriod,
+  initialCategory = null,
   onShowPeriod,
   loadingPeriod = null,
   periodError = null,
@@ -51,6 +52,8 @@ export function ExpenseLedger({
   extraPeriods?: string[]
   /** The period to open on (a finished period chosen in Plán a úspory); the current one otherwise. */
   initialPeriod?: string
+  /** A category selected from the overview chart; opened automatically on this visit. */
+  initialCategory?: Expense['category'] | null
   /** Called with the period shown, so a past one is loaded. */
   onShowPeriod?: (period: string) => void
   loadingPeriod?: string | null
@@ -65,7 +68,7 @@ export function ExpenseLedger({
   const loading = loadingPeriod === month
   const failed = periodError?.period === month ? periodError.message : null
   const [view, setView] = useState<View>('categories')
-  const [open, setOpen] = useState<string | null>(null)
+  const [open, setOpen] = useState<string | null>(initialCategory)
   const summary = useMemo(() => periodSummary(expenses, month, period), [expenses, month, period])
   const rows = useMemo(() => categoryRows(summary, limits), [summary, limits])
   const index = months.indexOf(month)

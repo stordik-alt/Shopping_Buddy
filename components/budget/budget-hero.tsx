@@ -41,8 +41,9 @@ export function BudgetHero({
   /** Spending used only for the pace projection; actual spent still controls remaining budget. */
   paceSpent?: number
 }) {
-  // Display-only: clamped so an overspent month does not draw outside its track.
-  const spentPercent = budget > 0 ? Math.min(100, Math.round((spent / budget) * 100)) : 0
+  // Keep the reported ratio honest when spending passes the limit; only the physical bar is clamped.
+  const spentPercent = budget > 0 ? Math.round((spent / budget) * 100) : 0
+  const progressPercent = Math.min(100, spentPercent)
   const level = budgetLevel(spent, budget)
   const pace = today ? budgetPace(spent, budget, today, period, paceSpent) : null
   const periodNoun = isCalendarMonth(period) ? 'měsíce' : 'období'
@@ -55,7 +56,7 @@ export function BudgetHero({
       <div className={cn('flex flex-col justify-between gap-5 p-5 sm:p-7', surface, className)}>
         <div>
           <p className="text-sm text-hero-foreground/75">Rozpočet domácnosti</p>
-          <p className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Nastavte si měsíční limit</p>
+          <p className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Nastavte si rozpočtový limit</p>
           <p className="mt-2 text-sm text-hero-foreground/80">
             Pak uvidíte, kolik vám zbývá{spent > 0 ? ` (zatím utraceno ${spent.toLocaleString('cs-CZ')} Kč)` : ''}, a upozorníme vás při 80 % i 100 %.
           </p>
@@ -105,9 +106,10 @@ export function BudgetHero({
         aria-label="Čerpání rozpočtu"
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-valuenow={spentPercent}
+        aria-valuenow={progressPercent}
+        aria-valuetext={`${spentPercent} % rozpočtu vyčerpáno`}
       >
-        <span className={cn('block h-full rounded-full transition-[width]', FILL[level])} style={{ width: `${spentPercent}%` }} />
+        <span className={cn('block h-full rounded-full transition-[width]', FILL[level])} style={{ width: `${progressPercent}%` }} />
         {/* The 80 % warning boundary (lib/budget.ts), so the household sees it coming, not only
             once the warning chip appears. A 2px notch in the card colour reads on either fill. */}
         <span className="absolute inset-y-0 w-0.5 bg-hero" style={{ left: `${BUDGET_WARNING_RATIO * 100}%` }} aria-hidden="true" />

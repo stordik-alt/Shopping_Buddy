@@ -39,7 +39,6 @@ import {
   BudgetPlanSheet,
   BudgetPlanning,
   CategoryLimitsModal,
-  CategorySnapshot,
   DashboardOverview,
   DealsTab,
   ExpenseLedger,
@@ -92,7 +91,7 @@ import type { HouseholdData, PurchaseAftermath, TickedListItem } from '@/lib/db/
 import { currentWeekStart, markMealCooked as markCooked, todaysMeals, type Ingredient, type MealType } from '@/lib/meal-plans'
 import type { ProductPrice } from '@/lib/prices'
 import { findOpenListItemByName, type ProductSearchHit } from '@/lib/product-search'
-import type { Item, ItemUnit, Store, Tab } from '@/lib/types'
+import type { Expense, Item, ItemUnit, Store, Tab } from '@/lib/types'
 import type { PinRecord } from '@/lib/db/shopping-plan'
 import { filterPricesToNearby, type StoreSelection } from '@/lib/nearby-stores'
 import { nearbyOffers, type StandaloneOffer } from '@/lib/offers'
@@ -215,6 +214,7 @@ export function AppShell({
   const [rozpocetView, setRozpocetView] = useState<'stav' | 'vydaje' | 'planovani'>('stav')
   // A finished period chosen in Plán a úspory, opened in Výdaje.
   const [ledgerPeriod, setLedgerPeriod] = useState<string | undefined>(undefined)
+  const [ledgerCategory, setLedgerCategory] = useState<Expense['category'] | null>(null)
   // Which period Plánování shows: 0 is the running one, n the n-th period ahead (docs/15 §14, §16).
   const [planningOffset, setPlanningOffset] = useState(0)
   const [planOpen, setPlanOpen] = useState(false)
@@ -1025,6 +1025,7 @@ export function AppShell({
                     onChange={(view) => {
                       // Výdaje opened by hand starts at the current period again.
                       setLedgerPeriod(undefined)
+                      setLedgerCategory(null)
                       setPlanningOffset(0)
                       setRozpocetView(view)
                     }}
@@ -1044,10 +1045,15 @@ export function AppShell({
                         period={budgetPeriod}
                         budget={budget}
                         onEditBudget={() => setPlanOpen(true)}
-                        spent={spent}
                         expenses={expenses}
                         items={items}
+                        purchases={purchaseHistory}
                         onExpense={() => openExpense(null)}
+                        onCategoryClick={(category) => {
+                          setLedgerPeriod(undefined)
+                          setLedgerCategory(category)
+                          setRozpocetView('vydaje')
+                        }}
                       />
                       <BudgetPlanCard
                         today={today}
@@ -1062,10 +1068,10 @@ export function AppShell({
                         onEdit={() => setPlanOpen(true)}
                         onOpenPeriod={(period) => {
                           setLedgerPeriod(period)
+                          setLedgerCategory(null)
                           setRozpocetView('vydaje')
                         }}
                       />
-                      <CategorySnapshot expenses={expenses} today={today} period={budgetPeriod} limits={categoryBudgets} />
                       <RecurringPayments
                         payments={recurringPayments}
                         occurrences={recurringOccurrences}
@@ -1087,6 +1093,7 @@ export function AppShell({
                       loadingPeriod={periods.loadingPeriod}
                       periodError={periods.periodError}
                       onRetryPeriod={periods.retryPeriod}
+                      initialCategory={ledgerCategory}
                       today={today}
                       period={budgetPeriod}
                       limits={categoryBudgets}
@@ -1114,6 +1121,7 @@ export function AppShell({
                       onOffsetChange={setPlanningOffset}
                       onOpenExpenses={(start) => {
                         setLedgerPeriod(start)
+                        setLedgerCategory(null)
                         setRozpocetView('vydaje')
                       }}
                       budgetPeriod={budgetPeriod}

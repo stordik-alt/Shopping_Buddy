@@ -1,5 +1,5 @@
 import { cleanMemberDiet, NO_DIET, type MemberDiet } from '@/lib/diet'
-import { and, asc, desc, eq, gte, ilike, inArray, isNull, sql, type SQLWrapper } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, sql, type SQLWrapper } from 'drizzle-orm'
 import { canRemoveMember } from '@/lib/household-members'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
@@ -34,6 +34,7 @@ import type { RecurringInterval, RecurringOccurrence, RecurringPayment } from '@
 import type { ReceiptLineItem } from '@/lib/receipts'
 import { createPerfTimer, type PerfTimer } from '@/lib/perf-timing'
 import { normalizeCurrency } from '@/lib/currency'
+import { purchaseSavingsByMonth, type PurchaseSavingsByMonth } from '@/lib/purchase-savings'
 import type {
   CategoryBudgets,
   Child,
@@ -659,6 +660,40 @@ export async function getHouseholdPurchaseHistory(householdId: string): Promise<
     getHouseholdExpenses(householdId, null, period),
   ])
   return toPurchaseRecords(purchaseRows, expenseRows)
+}
+
+/** Monthly savings summary for the budget card. Reads only purchase totals and deduplicated receipt
+ *  links; item details and receipt images are not loaded. */
+export async function getHouseholdPurchaseSavingsByMonth(householdId: string): Promise<PurchaseSavingsByMonth[]> {
+  const db = getDb()
+  // A purchase can have more than one historical receipt-import row; deduplicate the links before
+  // joining so one reported discount can never be summed twice.
+  const receiptPurchaseIds = db
+    .selectDistinct({ purchaseId: schema.receiptImports.purchaseId })
+    .from(schema.receiptImports)
+    .where(and(
+      eq(schema.receiptImports.householdId, householdId),
+      inArray(schema.receiptImports.status, ['completed', 'imported']),
+      isNotNull(schema.receiptImports.purchaseId),
+    ))
+    .as('receipt_purchase_ids')
+  const rows = await db
+    .select({
+      id: schema.purchases.id,
+      date: schema.purchases.date,
+      discount: schema.purchases.discount,
+      receiptPurchaseId: receiptPurchaseIds.purchaseId,
+    })
+    .from(schema.purchases)
+    .leftJoin(receiptPurchaseIds, eq(receiptPurchaseIds.purchaseId, schema.purchases.id))
+    .where(eq(schema.purchases.householdId, householdId))
+
+  return purchaseSavingsByMonth(rows.map((row) => ({
+    id: row.id,
+    date: row.date,
+    discount: row.discount == null ? null : Number(row.discount),
+    receiptSupported: row.receiptPurchaseId != null,
+  })))
 }
 
 export async function getPurchaseAftermath(householdId: string, purchaseId?: string | null): Promise<PurchaseAftermath> {

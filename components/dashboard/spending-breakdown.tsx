@@ -18,6 +18,21 @@ export const CATEGORY_BAR_COLORS: Record<ExpenseCategory, string> = {
   'Volný čas': 'bg-chart-10',
 }
 
+/** CSS custom properties for SVG charts and category markers. Kept in step with the bar tokens above. */
+export const CATEGORY_CHART_COLORS: Record<ExpenseCategory, string> = {
+  Potraviny: 'var(--chart-1)',
+  Drogerie: 'var(--chart-4)',
+  Děti: 'var(--chart-3)',
+  Domácnost: 'var(--chart-2)',
+  Ostatní: 'var(--chart-5)',
+  Bydlení: 'var(--chart-6)',
+  Auto: 'var(--chart-7)',
+  Doprava: 'var(--chart-11)',
+  'Oblečení a obuv': 'var(--chart-8)',
+  Zdraví: 'var(--chart-9)',
+  'Volný čas': 'var(--chart-10)',
+}
+
 /** This month's real spending per category, straight from the household's expenses (replaces the
  *  earlier decorative chart that showed made-up numbers). */
 /** `embedded` drops the card surface, for use inside another card (the Domů "Výdaje" section). */

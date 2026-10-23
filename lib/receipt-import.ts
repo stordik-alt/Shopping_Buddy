@@ -767,7 +767,7 @@ async function runReceiptPipeline(
     }
   }
 
-  let ocrText: string
+  let ocrText: string | undefined
   let ocrProvider: typeof PDF_TEXT_LAYER_PROVIDER | 'google_vision' | 'azure_document_intelligence' | 'gpt6_luna' | null = null
   // Why the text layer was not used (none / unusable) — for the log only.
   let ocrNote: string | null = null
@@ -782,7 +782,7 @@ async function runReceiptPipeline(
     else ocrNote = layer.reason
   }
 
-  let extracted: ExtractedReceipt
+  let extracted: ExtractedReceipt | undefined
   let reading: ReceiptReading | null = null
   if (readerMode === 'luna') {
     const readStartedAt = Date.now()
@@ -848,6 +848,11 @@ async function runReceiptPipeline(
   }
 
   if (readerMode === 'legacy') {
+    if (ocrText === undefined) {
+      trace.ocr = { status: 'failed', provider: null, ms: Date.now() - ocrStartedAt, note: ocrNote }
+      return update({ status: 'ocr_failed', errorMessage: 'Čtení účtenky nevrátilo žádný text. Zkuste to prosím znovu nebo účtenku zadejte ručně.' })
+    }
+
     trace.ocr = { status: 'ok', provider: ocrProvider, ms: Date.now() - ocrStartedAt, note: ocrNote }
     await update({ status: 'ocr_completed', ocrProvider, rawOcrText: ocrText })
     await update({ status: 'parsing' })
@@ -871,6 +876,11 @@ async function runReceiptPipeline(
   } else {
     await update({ status: 'ocr_completed', ocrProvider, rawOcrText: textLayer })
     await update({ status: 'parsing' })
+  }
+
+  if (extracted === undefined) {
+    trace.parser.status = 'failed'
+    return update({ status: 'parsing_failed', errorMessage: 'Čtení účtenky nevrátilo žádná strukturovaná data. Zkuste to prosím znovu nebo účtenku zadejte ručně.' })
   }
 
   // Fetched once and reused below both to pre-fill each item's category/location for the review

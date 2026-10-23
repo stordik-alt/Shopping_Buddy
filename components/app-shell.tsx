@@ -961,10 +961,8 @@ export function AppShell({
               )}
               {tab === 'Zásoby' && (
                 <div className="mx-auto max-w-3xl">
-                  <div className="mb-3 flex flex-wrap justify-end gap-2">
-                    <RefreshListButton onRefresh={pantryRefresh} offlineText="Bez signálu se zásoby obnovit nedají." failText="Zásoby se nepodařilo obnovit." doneText="Zásoby jsou aktuální." />
-                  </div>
                   <Pantry
+                    refreshControl={<RefreshListButton onRefresh={pantryRefresh} offlineText="Bez signálu se zásoby obnovit nedají." failText="Zásoby se nepodařilo obnovit." doneText="Zásoby jsou aktuální." />}
                     items={pantryItems}
                     customPlaces={pantryPlaces}
                     hiddenLocations={hiddenPantryLocations}
@@ -1024,23 +1022,23 @@ export function AppShell({
               {tab === 'Recepty' && <Recipes focusMeal={focus?.kind === 'meal' ? { day: focus.day, mealType: focus.mealType } : null} onFocusHandled={clearFocus} household={household} initialPlan={mealPlan} pantryItems={pantryItems} onAddIngredients={addRecipeIngredients} onAddMealPlanIngredients={addIngredients} onMarkCooked={markMealCooked} onPlanSaved={(budgetLimit, plan) => setMealPlan({ weekStart: currentWeekStart(today), budgetLimit, plan })} onGoToShopping={() => setTab('Nákup')} />}
               {tab === 'Rozpočet' && (
                 <div className="space-y-5 lg:space-y-6">
-                  <SegmentedControl
-                    label="Zobrazení rozpočtu"
-                    value={rozpocetView}
-                    onChange={(view) => {
-                      // Výdaje opened by hand starts at the current period again.
-                      setLedgerPeriod(undefined)
-                      setLedgerCategory(null)
-                      setPlanningOffset(0)
-                      setRozpocetView(view)
-                    }}
-                    options={[
-                      { value: 'stav', label: 'Přehled' },
-                      { value: 'vydaje', label: 'Výdaje' },
-                      { value: 'planovani', label: 'Plánování' },
-                    ]}
-                  />
-                  <div className="flex flex-wrap justify-end gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <SegmentedControl
+                      label="Zobrazení rozpočtu"
+                      value={rozpocetView}
+                      onChange={(view) => {
+                        // Výdaje opened by hand starts at the current period again.
+                        setLedgerPeriod(undefined)
+                        setLedgerCategory(null)
+                        setPlanningOffset(0)
+                        setRozpocetView(view)
+                      }}
+                      options={[
+                        { value: 'stav', label: 'Přehled' },
+                        { value: 'vydaje', label: 'Výdaje' },
+                        { value: 'planovani', label: 'Plánování' },
+                      ]}
+                    />
                     <RefreshListButton onRefresh={expensesRefresh} offlineText="Bez signálu se rozpočet obnovit nedá." failText="Rozpočet se nepodařilo obnovit." doneText="Rozpočet je aktuální." />
                   </div>
                   {rozpocetView === 'stav' && (

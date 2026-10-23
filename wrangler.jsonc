@@ -10,6 +10,10 @@
     {
       "binding": "HYPERDRIVE",
       "id": "f707d733ceb84b1f8211e10baed777e5"
+    },
+    {
+      "binding": "HYPERDRIVE_PANTRY_FRESH",
+      "id": "49dd778fbf244a0f836f6b1956016a1a"
     }
   ],
   "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },

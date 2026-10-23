@@ -34,6 +34,7 @@ async function runBatch(pool: Pool, queries: BatchQuery[]) {
 }
 
 type HyperdriveBinding = { connectionString?: unknown }
+type HyperdriveBindingName = 'HYPERDRIVE' | 'HYPERDRIVE_PANTRY_FRESH'
 
 function isCloudflareWorkerRuntime(): boolean {
   // `navigator.userAgent` is set by workerd and is unavailable in Node.js test/build processes.
@@ -63,10 +64,10 @@ function isPostgresConnectionString(value: unknown): value is string {
   }
 }
 
-function getHyperdriveConnectionString(): string | undefined {
-  let env: { HYPERDRIVE?: HyperdriveBinding }
+function getHyperdriveConnectionString(bindingName: HyperdriveBindingName): string | undefined {
+  let env: Partial<Record<HyperdriveBindingName, HyperdriveBinding>>
   try {
-    env = getCloudflareContext().env as unknown as { HYPERDRIVE?: HyperdriveBinding }
+    env = getCloudflareContext().env as unknown as Partial<Record<HyperdriveBindingName, HyperdriveBinding>>
   } catch (error) {
     // Do not hide actual OpenNext/configuration failures. Node.js tests and builds do not have
     // a Worker context, whereas a Worker without one is an application configuration error.
@@ -77,9 +78,9 @@ function getHyperdriveConnectionString(): string | undefined {
     throw error
   }
 
-  const connectionString = env.HYPERDRIVE?.connectionString
+  const connectionString = env[bindingName]?.connectionString
   if (!isPostgresConnectionString(connectionString)) {
-    throw new Error('Cloudflare Worker requires a valid HYPERDRIVE binding with a PostgreSQL connection string.')
+    throw new Error(`Cloudflare Worker requires a valid ${bindingName} binding with a PostgreSQL connection string.`)
   }
   return connectionString
 }
@@ -121,8 +122,8 @@ const getRequestHyperdriveDb = cache((connectionString: string) => createPgDb(co
 
 let _db: ReturnType<typeof createPgDb> | null = null
 
-export function getDb() {
-  const hyperdriveUrl = getHyperdriveConnectionString()
+export function getDb(bindingName: HyperdriveBindingName = 'HYPERDRIVE') {
+  const hyperdriveUrl = getHyperdriveConnectionString(bindingName)
   if (hyperdriveUrl) return getRequestHyperdriveDb(hyperdriveUrl)
   if (!_db) _db = createPgDb(process.env.DATABASE_URL!, false)
   return _db

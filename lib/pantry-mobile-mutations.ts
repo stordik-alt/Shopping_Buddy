@@ -15,7 +15,9 @@ export async function updatePantryItemForHousehold(
   change: { quantity: number; expectedQuantity?: number } | { placeKey: string },
 ): Promise<void> {
   if (!UUID_PATTERN.test(pantryItemId)) throw new PantryResourceNotFoundError('Pantry item not found')
-  const db = getDb()
+  // This quantity read drives compare-and-set. Use the dedicated cache-disabled Hyperdrive
+  // binding so a write made by the same or another household member is visible immediately.
+  const db = getDb('quantity' in change ? 'HYPERDRIVE_PANTRY_FRESH' : 'HYPERDRIVE')
   const item = await db.query.pantryItems.findFirst({
     where: and(eq(schema.pantryItems.id, pantryItemId), eq(schema.pantryItems.householdId, householdId)),
     columns: { id: true, quantity: true },
@@ -33,10 +35,18 @@ export async function updatePantryItemForHousehold(
     if (change.expectedQuantity != null && Number(item.quantity) !== change.expectedQuantity) {
       throw new PantryInputError('Množství mezitím změnil někdo jiný. Zkontrolujte prosím aktuální stav a zkuste to znovu.')
     }
-    await db
+    const updateConditions = [eq(schema.pantryItems.id, pantryItemId), eq(schema.pantryItems.householdId, householdId)]
+    if (change.expectedQuantity != null) updateConditions.push(eq(schema.pantryItems.quantity, change.expectedQuantity))
+    const updated = await db
       .update(schema.pantryItems)
       .set({ quantity: change.quantity })
-      .where(and(eq(schema.pantryItems.id, pantryItemId), eq(schema.pantryItems.householdId, householdId)))
+      .where(and(...updateConditions))
+      .returning({ id: schema.pantryItems.id })
+    // Keep the comparison atomic as well: another member may update after the fresh read but
+    // before this write reaches PostgreSQL.
+    if (change.expectedQuantity != null && updated.length === 0) {
+      throw new PantryInputError('Množství mezitím změnil někdo jiný. Zkontrolujte prosím aktuální stav a zkuste to znovu.')
+    }
     return
   }
 

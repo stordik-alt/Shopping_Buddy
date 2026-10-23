@@ -298,7 +298,7 @@ export async function adjustPantryItemContentQuantityAction(contentId: string, q
   const householdId = await requireHouseholdId()
   const parsed = Number(quantity)
   if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1_000_000) throw new Error('Množství musí být číslo od nuly do 1 000 000.')
-  const db = getDb()
+  const db = getDb('HYPERDRIVE_PANTRY_FRESH')
   const content = await db.query.pantryItemContents.findFirst({
     where: eq(schema.pantryItemContents.id, contentId),
     with: { pantryItem: { columns: { id: true, householdId: true } } },

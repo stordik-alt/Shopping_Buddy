@@ -1,6 +1,6 @@
-# Shopping Buddy — OCR Receipt Import Pipeline
+# Shopping Buddy — Receipt Import Pipeline
 
-> **Current routing (2026-10-15):** this two-stage receipt path still runs, but its structuring request now uses GPT-6 Luna through the shared Cloudflare AI Gateway client (`lib/ai/client.ts`); the old Gemini/Vercel Gateway choice is historical. The separate one-step receipt-image reader remains a preparation/measurement path, not production — see `docs/18_RECEIPT_READER_LUNA.md`. Azure Document Intelligence remains the configured OCR provider; Google Vision is not called when Azure is configured.
+> **Current routing (2026-10-23):** production sends receipt photos and scanned PDFs directly to GPT-6 Luna through the shared Cloudflare AI Gateway client (`lib/ai/client.ts`). Digital PDFs first use their embedded text layer, then Luna structures that text. Google Vision and Azure Document Intelligence are not called by the default route. The former OCR → parser route remains available only with the explicit rollback setting `RECEIPT_READER=legacy`; Azure credentials alone never select it. See `docs/18_RECEIPT_READER_LUNA.md`.
 
 **Status: implemented, 2026-09-22 — owner-approved exception to `CLAUDE.md` section 30.** The
 owner's own words when asked to confirm: *"OCR chci mít vyřešené, na konec necháme AI asistenta.
@@ -14,9 +14,8 @@ receipts.ts` (`uploadReceiptAction` and the rest of the state-machine actions), 
 (`importReceiptAction`, `components/budget/receipt-import.tsx`'s form) remains available
 alongside it — a photo upload that fails still falls back to it.
 
-Target capacity: ~1,500 receipts/month. Primary database: Neon PostgreSQL. OCR: Google Cloud
-Vision or configured Azure Document Intelligence. Structuring the OCR text into data: GPT-6 Luna
-through the shared Cloudflare AI Gateway client.
+Target capacity: ~1,500 receipts/month. Primary database: Neon PostgreSQL. Receipt reading and
+structuring: GPT-6 Luna through the shared Cloudflare AI Gateway client.
 The application must never persist unverified or obviously-incorrect data as a valid receipt.
 
 ---
@@ -28,15 +27,9 @@ User uploads a receipt image or PDF
       ↓
 Image validation
       ↓
-Google Cloud Vision OCR
-      ↓ (on OCR failure, when Azure fallback is configured)
-Azure Document Intelligence Receipt
+PDF text layer (when usable) or image/PDF → GPT-6 Luna
       ↓
-OCR text normalization
-      ↓
-AI parser (structuring)
-      ↓
-Structured JSON
+Structured receipt JSON
       ↓
 Validation and calculations
       ↓
@@ -59,43 +52,33 @@ After upload:
    (`detectReceiptFileType`, `lib/receipt-image.ts`) — the client-declared MIME type and the file
    name are ignored, and the stored extension/content type come from the detection. HEIC is
    recognised but rejected with an instruction (iPhone: Settings › Camera › Formats › Most
-   Compatible, or save as JPEG): neither Google Vision nor the bundled `sharp` build can decode it.
+   Compatible, or save as JPEG): Luna's receipt reader does not accept HEIC input.
    The upload picker no longer lists `image/heic`, so iOS converts to JPEG by itself.
 2. Verify the maximum size (10 MB).
-3. Optimize an image for OCR (implemented 2026-09-23, `prepareReceiptImageForOcr`); PDFs are sent
-   directly to Vision. The stored original is never modified; only the copy sent to OCR is cleaned:
+3. Prepare an image for Luna (`prepareReceiptImageForModel`). The stored original is never modified;
+   only the copy sent to the model is optimized. On Cloudflare, if `sharp` is unavailable, the original
+   is sent as-is. Digital PDFs use their text layer where possible; scanned PDFs are sent to Luna:
    - apply the EXIF orientation (a sideways photo is otherwise read sideways);
-   - grayscale, and cap the long side at 4000 px;
-   - **only when lighting is measurably uneven** (shadow / one side lit): flat-field correction —
-     divide by a robust background estimate (median of a shrunken copy). Applying it to an already
-     even photo *hurt* small and blurry text in testing, hence conditional;
-   - contrast stretch (1st–99th percentile) for faded thermal print;
-   - straighten a clearly tilted receipt (projection-profile skew estimate, applied only when |angle|
-     ≥ 0.7° and the line-alignment gain ≥ 1.5, max 15°);
-   - encode as a grayscale JPEG (q90, stepping down in quality, then resolution, to stay under 6 MB
-     so the base64 request fits Vision's 10 MB limit).
-   Deliberately *not* done: binarization and sharpening (both can destroy thin strokes, and OCR
-   engines threshold on their own), upscaling small images (no gain measured), perspective
-   correction and cropping. Preparation is best-effort: if it throws, the original is sent instead.
-   The Azure fallback receives exactly the same input as Google Vision (the cleaned-up copy, or the
-   original when preparation failed / for a PDF), so it benefits from the clean-up too — this
-   matters most while Azure is the only provider that works. What ran is in the import log
-   (`imagePrep`).
+   - auto-rotate from EXIF and cap dimensions;
+   - preserve color for Luna's vision input;
+   - compress toward a 3 MB model input limit.
+   Preparation is best-effort; if it throws, the original is sent. What ran is recorded in the
+   import log (`imagePrep`). This failure is an optimization limitation, not a photo-quality result.
 4. Keep the original image — `uploadReceiptAction` stores it privately under
    `receipts/<householdId>/<uuid>.<ext>` through `lib/storage` (decided 2026-09-22 with Vercel Blob;
    since 2026-09-25 Cloudflare R2 by default, Vercel Blob for old receipts or with `STORAGE_PROVIDER=vercel`, see `docs/cloudflare-r2.md`).
 5. Create a unique import ID.
 6. Set status: `UPLOADED`.
 
-Then start OCR.
+Then start receipt reading.
 
 ---
 
-## 3. OCR providers
+## 3. Legacy OCR providers (rollback only)
 
-When Azure Document Intelligence is configured, it reads photos and scanned PDFs through
-`prebuilt-receipt`; otherwise, Google Cloud Vision handles OCR with `DOCUMENT_TEXT_DETECTION`.
-This priority avoids the known production Google Vision billing failure.
+The default production path does not call an external OCR provider. Google Cloud Vision and Azure
+Document Intelligence remain available only when `RECEIPT_READER=legacy` is explicitly set. Azure
+environment variables by themselves do not affect provider selection.
 
 For images, the existing `images:annotate` API-key path is used. For PDFs, the application uses the online `files:annotate` endpoint with Google OAuth and processes up to 5 selected pages per request. Google does not support API keys for `files:annotate`. The application uses Vercel OIDC + Google Workload Identity Federation, so no service-account JSON key is stored in Vercel. The runtime obtains the short-lived Vercel token through `@vercel/oidc`'s `getVercelOidcToken()` helper. This avoids a second storage system because the PDF can be sent directly from the uploaded file bytes.
 
@@ -571,7 +554,7 @@ than a receipt waiting on manual review.
 
 ---
 
-## 22. Implementation order, when this phase actually starts
+## 22. Original implementation checklist (historical)
 
 Before changing anything:
 
@@ -590,7 +573,7 @@ receipt with discounts, a receipt with items sold by weight, a blurry receipt, a
 date, a receipt with no total, a duplicate receipt, an OCR failure, an AI-parser failure, and a
 retry after failure.
 
-### Google Cloud / Vercel OIDC setup for PDF OCR
+### Legacy Google Cloud / Vercel OIDC setup for PDF OCR
 
 The PDF path requires a Google Workload Identity Pool and OIDC provider trusting Vercel. Use the Vercel team issuer (`https://oidc.vercel.com/<TEAM_SLUG>`) and audience (`https://vercel.com/<TEAM_SLUG>`). Map `google.subject=assertion.sub`. Create a dedicated service account and grant the Vercel project/environment principal `roles/iam.workloadIdentityUser` on that service account. Grant the service account only the permissions needed for Vision API.
 
@@ -603,9 +586,9 @@ Set these Vercel environment variables:
 
 The application uses `@vercel/oidc`'s `getVercelOidcToken()` helper. In Vercel Functions it reads the request-context OIDC token; in local development the helper can use/refresh the Vercel development token. The application does not read `x-vercel-oidc-token` or `VERCEL_OIDC_TOKEN` directly.
 
-## 23. Azure OCR fallback
+## 23. Azure OCR route (legacy rollback only)
 
-**Changed 2026-10-05 (owner: "Přeskoč Google Vision"):** when both variables below are configured, Azure Document Intelligence prebuilt-receipt is the only OCR for photos and scanned PDFs, and Google Vision is not called — it failed in production for every request (the GCP project has no billing enabled), so trying it first only made each import wait for a refusal. Without Azure (local development, tests) Google Vision is used as described in section 3, with no fallback. The text below describes the earlier order (Vision first, Azure after a Vision failure).
+**Historical behavior:** when `RECEIPT_READER=legacy`, Azure Document Intelligence prebuilt-receipt is used for photos and scanned PDFs, and Google Vision is skipped. Azure environment variables alone do not select this route. Production defaults to Luna as described at the top of this document.
 
 Azure Document Intelligence prebuilt-receipt was an optional OCR fallback. Google Vision was the primary provider. Azure was called only after the primary OCR provider threw and these server-only Vercel environment variables were configured:
 
@@ -614,7 +597,7 @@ Every OCR import records the provider that actually produced the raw OCR text in
 - azure_document_intelligence — Google failed and Azure fallback succeeded.
 - null — no OCR provider completed successfully (or the import was manual).
 
-This is audit metadata only. The same GPT-6 Luna structuring, validation, duplicate detection, and Neon persistence path is used regardless of OCR provider.
+This is audit metadata for the rollback route. The default route records `gpt6_luna` and keeps the same backend validation, duplicate detection, and persistence rules.
 
 - AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT
 - AZURE_DOCUMENT_INTELLIGENCE_KEY

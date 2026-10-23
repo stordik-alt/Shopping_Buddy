@@ -1,18 +1,19 @@
 # 18 — Reading receipts with GPT-6 Luna (one step instead of OCR + structuring)
 
-Status: **phase 1 (preparation and measurement) implemented 2026-10-05; production unchanged.** Phase 2 (switching
-production) waits for the measurement and the owner's go-ahead.
+Status: **production switched to GPT-6 Luna on 2026-10-23 by owner request.** Existing backend checks,
+catalog matching, duplicate detection, review gates, and purchase writes remain authoritative. Extraction
+accuracy on the existing receipt dataset has not yet been re-measured; uncertain reads go to review,
+and unreadable photos can be retried.
 
-**Routing update (2026-10-15):** every LLM request now goes through Cloudflare AI Gateway using GPT-6 Luna. Production still uses the two-stage OCR → structured-data flow; its structuring model has changed to Luna. The one-step reader in this document is still not wired into production. Cached `legacy` evaluation results created before this update retain their original Gemini model metadata and costs.
+**Routing update (2026-10-23):** receipt photos and scanned PDFs go directly to GPT-6 Luna through Cloudflare AI Gateway. A usable digital-PDF text layer is passed to the same model. `RECEIPT_READER=legacy` is an explicit temporary rollback to OCR → Luna text structuring; the default is Luna and Azure credentials do not select a provider. Cached `legacy` evaluation results retain their original model metadata and costs.
 
 The owner's concept (2026-10-05): drop the OCR step (Google Vision / Azure Document Intelligence) and the separate
 structuring model (Gemini Flash-Lite); GPT-6 Luna reads the receipt image and returns the app's structure directly.
 *"AI tedy nerozhoduje o databázových/business pravidlech. AI interpretuje dokument, backend je autoritou pro data a
 pravidla."* Before implementation: exact JSON schema, import state machine, prompt, a dataset of real receipts,
-measurement of accuracy, false positives and cost — only then the production migration. Owner decisions: the dataset is
-production receipts only (kept locally, never in the repository); processing stays in the existing Vercel function (no
-Cloudflare Worker); production switches with `RECEIPT_READER=luna|legacy`, the old path stays a few weeks for a manual
-switch back only (no automatic fallback) and is then removed.
+measurement of accuracy, false positives and cost. The owner has since directed production to use the one-step reader.
+The receipt dataset remains local to the owner and is never committed. `RECEIPT_READER=legacy` remains a manual
+rollback only; there is no automatic provider fallback.
 
 ## Production flow before the routing update (verified 2026-10-05)
 `lib/receipt-import.ts` `processReceiptImport`: photo from R2 → `prepareReceiptImageForOcr` → Google Vision
@@ -88,11 +89,12 @@ imported twice); the truth of a few receipts needs a look at the photo. Luna var
 
 ### Previous blocker (Vercel AI Gateway, 2026-10-05)
 The Vercel AI Gateway refused `openai/gpt-6-luna` for the then-current account's free tier (403). This is
-historical: requests now use Cloudflare AI Gateway with an OpenAI provider key configured there. Live
-Cloudflare inference and current pricing still need verification after the environment is configured.
+historical: the shared client now uses Cloudflare AI Gateway with the OpenAI provider key configured there.
+The receipt image-reading path had not been live-verified before the production switch; its first imports
+should be checked through the structured receipt logs and review outcomes.
 
-## Phase 2 (after the measurement and the owner's go-ahead)
-1. `RECEIPT_READER=luna|legacy` in `processReceiptImport` (default `legacy`): photos → `prepareReceiptImageForModel` →
+## Production switch (2026-10-23)
+1. `RECEIPT_READER=luna|legacy` selects the direct reader (default `luna`): photos → `prepareReceiptImageForModel` →
    `createLunaReceiptReader` → `toExtractedReceipt` → today's checks + `receiptDecision`; `parserResult` stores the
    reading, `ocrProvider = 'gpt6_luna'`. No automatic fallback.
 2. Several photos: additive `receipt_import_files (import_id, position, storage key)`, "Přidat další část účtenky",

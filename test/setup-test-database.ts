@@ -95,3 +95,7 @@ const PROVIDER_ENV = [
 ] as const
 
 for (const name of PROVIDER_ENV) delete process.env[name]
+
+// Existing integration cases exercise the retired OCR → parser route with fakes. Production defaults
+// to GPT-6 Luna; these tests opt into legacy explicitly so they never make a model request.
+process.env.RECEIPT_READER = 'legacy'

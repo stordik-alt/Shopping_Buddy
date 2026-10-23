@@ -5,6 +5,7 @@ import { subcategoriesOfItem } from '@/lib/product-subcategories'
 import type { ReceiptImportState } from '@/lib/db/queries'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import { money } from '@/lib/format'
+import { PRODUCT_TYPES } from '@/lib/product-types'
 import { ocrProviderLabel } from '@/lib/receipt-ocr-provider'
 import { customPlaceIdFromKey, customPlaceKey, pantryPlaceOptions } from '@/lib/pantry'
 import type { ItemCategory, ItemUnit, PantryLocation, PantryPlace } from '@/lib/types'
@@ -15,6 +16,7 @@ import { Input, Select } from '@/components/ui/field'
 
 const CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
 const UNITS = ITEM_UNITS
+const PRODUCT_TYPE_OPTIONS = [...PRODUCT_TYPES].sort((a, b) => a.name.localeCompare(b.name, 'cs'))
 
 const FAILED_STATUSES = new Set(['ocr_failed', 'parsing_failed'])
 const TRANSIENT_STATUSES = new Set(['uploaded', 'ocr_processing', 'ocr_completed', 'parsing', 'parsed', 'validating'])
@@ -283,33 +285,44 @@ function ReceiptPendingCard({
                       <Select
                         aria-label={`Produkt položky ${index + 1}`}
                         value={row.productId ?? ''}
-                        // A product carries its own type, so picking one drops a type chosen below.
-                        onChange={(e) => updateRow(index, { productId: e.target.value || null, ...(e.target.value && { productTypeKey: null }) })}
+                        onChange={(e) => {
+                          const picked = row.productSuggestions?.find((suggestion) => suggestion.productId === e.target.value)
+                          updateRow(index, {
+                            productId: e.target.value || null,
+                            ...(e.target.value && { productTypeKey: picked?.productTypeKey ?? null, productTypeSelectionChanged: false }),
+                          })
+                        }}
                         className="px-3"
                       >
                         <option value="">Žádný z nabízených</option>
                         {row.productSuggestions.map((suggestion) => (
                           <option key={suggestion.productId} value={suggestion.productId}>
-                            {suggestion.name}
+                            {suggestion.name}{suggestion.productTypeKey ? ` · ${PRODUCT_TYPES.find((type) => type.key === suggestion.productTypeKey)?.name ?? ''}` : ''}
                           </option>
                         ))}
                       </Select>
                     </label>
                   )}
-                  {row.typeSuggestions && row.typeSuggestions.length > 0 && !row.productId && (
-                    // "Co to je?" — the line matched no catalog product and no type rule, so the typed
-                    // products closest to it offer their types (lib/db/type-suggestions.ts). Picking one
-                    // stocks the line under that type in Zásoby and is remembered for the printed text;
-                    // "Neurčeno" keeps the line as it was read.
+                  {!row.nonInventory && (
+                    // Show the type recognized from the catalog/rules and allow a correction for every
+                    // stock line. Type suggestions remain at the top; the full taxonomy is available
+                    // when none fits. A hand-picked type is learned on this product at confirmation.
                     <label className="col-span-3 block space-y-1 text-sm text-fg-muted sm:col-span-6">
-                      <span>Co to je?</span>
-                      <Select aria-label={`Druh zboží položky ${index + 1}`} value={row.productTypeKey ?? ''} onChange={(e) => updateRow(index, { productTypeKey: e.target.value || null })} className="px-3">
+                      <span>Druh produktu</span>
+                      <Select aria-label={`Druh produktu položky ${index + 1}`} value={row.productTypeKey ?? ''} onChange={(e) => updateRow(index, { productTypeKey: e.target.value || null, productTypeSelectionChanged: true })} className="px-3">
                         <option value="">Neurčeno</option>
-                        {row.typeSuggestions.map((suggestion) => (
-                          <option key={suggestion.key} value={suggestion.key}>
-                            {suggestion.name}
-                          </option>
-                        ))}
+                        {row.typeSuggestions && row.typeSuggestions.length > 0 && (
+                          <optgroup label="Návrhy podle podobných produktů">
+                            {row.typeSuggestions.map((suggestion) => (
+                              <option key={`suggestion-${suggestion.key}`} value={suggestion.key}>{suggestion.name}</option>
+                            ))}
+                          </optgroup>
+                        )}
+                        <optgroup label="Všechny druhy">
+                          {PRODUCT_TYPE_OPTIONS.map((type) => (
+                            <option key={type.key} value={type.key}>{type.name}</option>
+                          ))}
+                        </optgroup>
                       </Select>
                     </label>
                   )}

@@ -19,6 +19,7 @@ type CandidateRow = {
   line: number
   product_id: string
   name: string
+  product_type_key: string | null
   store_ids: string[]
   seed_package_references: ReceiptCandidate['seedPackageReferences']
 }
@@ -36,10 +37,10 @@ export async function suggestProductsForReceiptLines(lineNames: string[], storeI
     sql`, `,
   )
   const rows = await getDb().execute<CandidateRow>(sql`
-    SELECT l.line, c.product_id, c.name, c.store_ids
+      SELECT l.line, c.product_id, c.name, c.product_type_key, c.store_ids
     FROM (VALUES ${values}) AS l(line, required, preferred)
     CROSS JOIN LATERAL (
-      SELECT p.id AS product_id, p.name,
+      SELECT p.id AS product_id, p.name, pt.key AS product_type_key,
         array(SELECT DISTINCT pr.store_id::text FROM prices pr WHERE pr.product_id = p.id AND pr.source_type <> 'RECEIPT') AS store_ids,
         coalesce((
           SELECT jsonb_agg(jsonb_build_object(
@@ -50,6 +51,7 @@ export async function suggestProductsForReceiptLines(lineNames: string[], storeI
           WHERE spr.product_id = p.id
         ), '[]'::jsonb) AS seed_package_references
       FROM products p
+      LEFT JOIN product_types pt ON pt.id = p.product_type_id
       WHERE p.search_name LIKE l.required
         AND EXISTS (SELECT 1 FROM prices pr WHERE pr.product_id = p.id AND pr.source_type <> 'RECEIPT')
       ORDER BY (l.preferred IS NOT NULL AND p.search_name LIKE l.preferred) DESC, length(p.name), p.id
@@ -64,6 +66,7 @@ export async function suggestProductsForReceiptLines(lineNames: string[], storeI
       productId: row.product_id,
       name: row.name,
       storeIds: row.store_ids,
+      productTypeKey: row.product_type_key,
       seedPackageReferences: row.seed_package_references ?? [],
     })
     byLine.set(row.line, candidates)

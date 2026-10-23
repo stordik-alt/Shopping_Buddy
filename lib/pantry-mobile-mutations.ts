@@ -19,11 +19,13 @@ export async function updatePantryItemForHousehold(
   const item = await db.query.pantryItems.findFirst({
     where: and(eq(schema.pantryItems.id, pantryItemId), eq(schema.pantryItems.householdId, householdId)),
     columns: { id: true, quantity: true },
+    with: { contents: { columns: { id: true } } },
   })
   if (!item) throw new PantryResourceNotFoundError('Pantry item not found')
 
   if ('quantity' in change) {
     if (!Number.isFinite(change.quantity) || change.quantity < 0) throw new PantryInputError('Množství nesmí být záporné.')
+    if (item.contents.length > 0) throw new PantryInputError('Upravte množství jednotlivých produktů v detailu zásoby.')
     // Compare-and-set: when the caller says which amount it expected to find, the write only goes
     // through if that is still the stored amount. A request that was overtaken — a second tap, or
     // another member of the household — can then no longer overwrite the newer amount with an

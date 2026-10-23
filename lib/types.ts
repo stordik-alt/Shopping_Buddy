@@ -295,6 +295,18 @@ export type PantryItem = {
   askedAt?: string
   /** How closely it is watched (lib/pantry.ts PANTRY_TRACKING); absent in old fixtures = 'normal'. */
   tracking?: PantryTracking
+  /** Receipt products contributing to this aggregated type row; empty for legacy/manual rows. */
+  contents?: PantryItemContent[]
+}
+
+export type PantryItemContent = {
+  id: string
+  productId?: string | null
+  name: string
+  quantity: number
+  unit: ItemUnit
+  unitQuantity?: number | null
+  unitUnit?: ItemUnit | null
 }
 
 export type PantryTracking = 'normal' | 'rare' | 'off'

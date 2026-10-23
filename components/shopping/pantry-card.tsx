@@ -91,6 +91,11 @@ export function PantryCard({
         ))}
       </span>
 
+      {(item.contents?.length ?? 0) > 0 ? (
+        <button type="button" onClick={() => onOpen(item)} className="min-h-10 w-full rounded-xl border border-input text-sm font-medium text-fg-secondary hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          Upravit produkty
+        </button>
+      ) : (
       <div className="flex w-full items-center justify-center gap-1">
         <button
           type="button"
@@ -116,6 +121,7 @@ export function PantryCard({
           <Plus className="size-5" aria-hidden="true" />
         </button>
       </div>
+      )}
 
       <span className="flex h-4 items-center justify-center text-[11px] text-fg-muted">{packaging}</span>
 

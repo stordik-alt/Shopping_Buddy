@@ -86,8 +86,8 @@ async function getProductCatalogByPrefix(prefix: string): Promise<ProductCatalog
   const { sql } = await import('drizzle-orm')
   const schema = await import('@/lib/db/schema')
   const products = await db.query.products.findMany({
-    columns: { id: true, name: true, defaultUnit: true, defaultLocation: true, isChildOriented: true, isNonInventory: true },
-    with: { category: { columns: { name: true } }, subcategory: { columns: { name: true } } },
+    columns: { id: true, name: true, defaultUnit: true, defaultLocation: true, isChildOriented: true, isNonInventory: true, productTypeSource: true },
+    with: { category: { columns: { name: true } }, subcategory: { columns: { name: true } }, productType: { columns: { key: true } } },
     where: prefix === 'other' ? sql`${schema.products.searchName} !~ '^[a-z]'` : sql`${schema.products.searchName} LIKE ${prefix + '%'}`,
   })
   return products.map((product) => ({
@@ -97,6 +97,8 @@ async function getProductCatalogByPrefix(prefix: string): Promise<ProductCatalog
     defaultUnit: product.defaultUnit,
     defaultLocation: product.defaultLocation,
     subcategory: product.subcategory?.name ?? null,
+    productTypeKey: product.productType?.key ?? null,
+    productTypeSource: product.productTypeSource,
     isChildOriented: product.isChildOriented,
     isNonInventory: product.isNonInventory,
   }))

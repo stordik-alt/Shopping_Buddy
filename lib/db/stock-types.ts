@@ -15,25 +15,33 @@ import type { ItemCategory } from '@/lib/types'
  *  missing from the database (code ahead of the migration) gives null. A type the household picked in
  *  the receipt review (`productTypeKey`) beats every other source. */
 export async function stockTypesForLines(
-  lines: Array<{ productId: string | null; name: string; category: ItemCategory | null; productTypeKey?: string | null }>,
+  lines: Array<{ productId: string | null; name: string; category: ItemCategory | null; productTypeKey?: string | null; productTypeSelectionChanged?: boolean }>,
 ): Promise<Array<{ id: string; name: string } | null>> {
   const db = getDb()
   const productIds = [...new Set(lines.flatMap((line) => (line.productId ? [line.productId] : [])))]
   const productTypeKeys = new Map<string, string>()
+  const manuallyUnclassified = new Set<string>()
   if (productIds.length > 0) {
     const rows = await db
-      .select({ id: schema.products.id, key: schema.productTypes.key })
+      .select({ id: schema.products.id, key: schema.productTypes.key, source: schema.products.productTypeSource })
       .from(schema.products)
       .innerJoin(schema.productTypes, eq(schema.productTypes.id, schema.products.productTypeId))
       .where(inArray(schema.products.id, productIds))
-    for (const row of rows) productTypeKeys.set(row.id, row.key)
+    for (const row of rows) {
+      if (row.key) productTypeKeys.set(row.id, row.key)
+      else if (row.source === 'manual') manuallyUnclassified.add(row.id)
+    }
   }
 
-  const keys = lines.map((line) => line.productTypeKey ?? resolveReceiptLineType({
-    productTypeKey: line.productId ? productTypeKeys.get(line.productId) ?? null : null,
-    category: line.category,
-    name: line.name,
-  })?.key ?? null)
+  const keys = lines.map((line) => line.productTypeSelectionChanged
+    ? line.productTypeKey ?? null
+    : line.productId && manuallyUnclassified.has(line.productId)
+      ? null
+    : line.productTypeKey ?? resolveReceiptLineType({
+        productTypeKey: line.productId ? productTypeKeys.get(line.productId) ?? null : null,
+        category: line.category,
+        name: line.name,
+      })?.key ?? null)
   const wanted = [...new Set(keys.flatMap((key) => (key ? [key] : [])))]
   if (wanted.length === 0) return keys.map(() => null)
 

@@ -284,6 +284,8 @@ export function AppShell({
     setPantryTracking,
     setPantryItemSubcategory,
     setPantryItemCategory,
+    setPantryItemProductType,
+    adjustPantryItemContent,
     autoCategorizePantry,
     adjustPantryItemQuantity,
   } = pantry
@@ -975,6 +977,8 @@ export function AppShell({
                     restockTypeKeys={restockTypeKeys}
                     onSetSubcategory={setPantryItemSubcategory}
                     onSetCategory={setPantryItemCategory}
+                    onSetProductType={setPantryItemProductType}
+                    onAdjustContent={adjustPantryItemContent}
                     onAutoCategorize={autoCategorizePantry}
                     estimates={pantryEstimates}
                     openCheck={pantryCheckPending}

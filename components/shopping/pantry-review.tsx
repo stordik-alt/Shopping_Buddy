@@ -191,7 +191,7 @@ export function PantryReview({
                       </span>
                     </span>
                   </button>
-                  {!isGone && (
+                  {!isGone && (item.contents?.length ?? 0) === 0 && (
                     // How much is left, when only part was used ("had 4, 1 left").
                     <span className="flex shrink-0 items-center gap-0.5 pb-1 sm:pb-0" role="group" aria-label={`Zbývá: ${item.name}`}>
                       <span className="mr-1 text-xs text-fg-muted" aria-hidden="true">
@@ -207,6 +207,9 @@ export function PantryReview({
                         <Plus className="size-4" aria-hidden="true" />
                       </button>
                     </span>
+                  )}
+                  {!isGone && (item.contents?.length ?? 0) > 0 && (
+                    <span className="pb-1 text-xs text-fg-muted sm:pb-0">množství upravte po produktech v detailu</span>
                   )}
                 </li>
               )

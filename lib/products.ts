@@ -15,6 +15,10 @@ export type ProductCatalogEntry = {
   // just to read it back. Optional (not just nullable) so existing test fixtures/call sites built
   // before this feature don't all need updating just to add "no subcategory yet".
   subcategory?: string | null
+  /** Remembered product type selected by a household or resolved by the catalog rules. */
+  productTypeKey?: string | null
+  /** `manual` with a null key is an intentional "Neurčeno" decision and suppresses rule guesses. */
+  productTypeSource?: string | null
   // Tags a product as aimed at children without changing `category` (spec section 10, e.g. "Kubík"
   // stays Potraviny, tagged child-oriented).
   isChildOriented?: boolean

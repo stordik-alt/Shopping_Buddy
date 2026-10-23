@@ -1370,6 +1370,26 @@ export const pantryItems = pgTable('pantry_items', {
   index('pantry_items_product_type_idx').on(table.householdId, table.productTypeId),
 ])
 
+// The concrete products represented by an aggregated product-type pantry row. This keeps a row
+// such as "Houska a kaiserka: 6 ks" useful for recipes while retaining the receipt-level breakdown
+// the household needs when it opens that row.
+export const pantryItemContents = pgTable('pantry_item_contents', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  pantryItemId: uuid('pantry_item_id').notNull().references(() => pantryItems.id, { onDelete: 'cascade' }),
+  productId: uuid('product_id').references(() => products.id, { onDelete: 'set null' }),
+  identityKey: text('identity_key').notNull(),
+  name: text('name').notNull(),
+  quantity: numeric('quantity', { precision: 10, scale: 3, mode: 'number' }).notNull(),
+  unit: itemUnitEnum('unit').notNull(),
+  pieceQuantity: numeric('piece_quantity', { precision: 10, scale: 3, mode: 'number' }),
+  pieceUnit: itemUnitEnum('piece_unit'),
+  addedAt: timestamp('added_at').notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('pantry_item_contents_identity_unique').on(table.pantryItemId, table.identityKey),
+  index('pantry_item_contents_product_idx').on(table.productId),
+  check('pantry_item_contents_piece_size_check', sql`(${table.pieceQuantity} IS NULL AND ${table.pieceUnit} IS NULL) OR (${table.pieceQuantity} > 0 AND ${table.pieceUnit} IS NOT NULL)`),
+])
+
 // Receipt import ("nahrávání nákupů přes účtenky"): prepares the ingestion path for a future OCR
 // provider (lib/receipts.ts's ReceiptOcrProvider) without wiring one up yet, per CLAUDE.md section
 // 30 (no AI/vision-model call before the AI phase). Every import today is `source: 'manual'` — a
@@ -2047,12 +2067,18 @@ export const householdProductExpenseDefaultsRelations = relations(householdProdu
   product: one(products, { fields: [householdProductExpenseDefaults.productId], references: [products.id] }),
 }))
 
-export const pantryItemsRelations = relations(pantryItems, ({ one }) => ({
+export const pantryItemsRelations = relations(pantryItems, ({ one, many }) => ({
   household: one(households, { fields: [pantryItems.householdId], references: [households.id] }),
   product: one(products, { fields: [pantryItems.productId], references: [products.id] }),
   productType: one(productTypes, { fields: [pantryItems.productTypeId], references: [productTypes.id] }),
   subcategory: one(productSubcategories, { fields: [pantryItems.subcategoryId], references: [productSubcategories.id] }),
   customPlace: one(pantryPlaces, { fields: [pantryItems.customPlaceId], references: [pantryPlaces.id] }),
+  contents: many(pantryItemContents),
+}))
+
+export const pantryItemContentsRelations = relations(pantryItemContents, ({ one }) => ({
+  pantryItem: one(pantryItems, { fields: [pantryItemContents.pantryItemId], references: [pantryItems.id] }),
+  product: one(products, { fields: [pantryItemContents.productId], references: [products.id] }),
 }))
 
 export const receiptImportsRelations = relations(receiptImports, ({ one }) => ({

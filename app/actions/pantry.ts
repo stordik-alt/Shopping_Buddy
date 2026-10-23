@@ -1,9 +1,10 @@
 'use server'
 
-import { and, eq, inArray, isNull, lt } from 'drizzle-orm'
+import { and, eq, inArray, isNull, lt, sql } from 'drizzle-orm'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { getDb } from '@/lib/db/client'
-import { getPantryItems, restockPantryItem } from '@/lib/db/queries'
+import { invalidateProductCatalogCache } from '@/lib/db/cache-invalidation'
+import { getPantryItems, restockPantryItem, upsertProductCatalogDefaults } from '@/lib/db/queries'
 import { getProductCatalogCached, getSubcategoryCatalogCached } from '@/lib/db/cached-reads'
 import { proposeProductCategory } from '@/lib/db/category-changes'
 import { proposeProductSubcategory } from '@/lib/db/subcategory-changes'
@@ -290,6 +291,80 @@ export async function adjustPantryItemQuantityAction(pantryItemId: string, quant
   // compute on the database for nothing. Other members see it on their next reload.
 }
 
+/** Adjusts one recorded concrete product within an aggregated product-type stock row and keeps its
+ *  total in sync. The contents are read through their parent so an id from another household cannot
+ *  be used to change stock. */
+export async function adjustPantryItemContentQuantityAction(contentId: string, quantity: number, expectedQuantity?: number): Promise<number> {
+  const householdId = await requireHouseholdId()
+  const parsed = Number(quantity)
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1_000_000) throw new Error('Množství musí být číslo od nuly do 1 000 000.')
+  const db = getDb()
+  const content = await db.query.pantryItemContents.findFirst({
+    where: eq(schema.pantryItemContents.id, contentId),
+    with: { pantryItem: { columns: { id: true, householdId: true } } },
+  })
+  if (!content || content.pantryItem.householdId !== householdId) throw new Error('Pantry item not found')
+  if (expectedQuantity != null && content.quantity !== expectedQuantity) throw new Error('Zásoby mezitím upravil někdo jiný. Obnovte prosím přehled.')
+  await db.update(schema.pantryItemContents).set({ quantity: parsed }).where(eq(schema.pantryItemContents.id, contentId))
+  const totals = await db.select({ quantity: sql<number>`coalesce(sum(${schema.pantryItemContents.quantity}), 0)` })
+    .from(schema.pantryItemContents)
+    .where(eq(schema.pantryItemContents.pantryItemId, content.pantryItemId))
+  const total = Number(totals[0]?.quantity ?? 0)
+  await db.update(schema.pantryItems).set({ quantity: total, addedAt: new Date(), askedAt: null })
+    .where(eq(schema.pantryItems.id, content.pantryItemId))
+  return total
+}
+
+/** Saves a type correction to the stock row and its known concrete products, so the catalog uses it
+ *  the next time one of those products appears on a receipt. */
+export async function setPantryItemProductTypeAction(pantryItemId: string, productTypeKey: string | null): Promise<string | null> {
+  const householdId = await requireHouseholdId()
+  if (productTypeKey !== null && !productTypeByKey(productTypeKey)) throw new Error('Neplatný druh zboží.')
+  const db = getDb()
+  const item = await db.query.pantryItems.findFirst({
+    where: eq(schema.pantryItems.id, pantryItemId),
+    with: { contents: { columns: { productId: true } } },
+  })
+  if (!item || item.householdId !== householdId) throw new Error('Pantry item not found')
+  const selectedType = productTypeKey
+    ? await db.query.productTypes.findFirst({ where: eq(schema.productTypes.key, productTypeKey), columns: { id: true, name: true } })
+    : null
+  if (productTypeKey && !selectedType) throw new Error('Neplatný druh zboží.')
+  const productTypeId = selectedType?.id ?? null
+  const typeStock = !item.productId && (item.productTypeId != null || item.contents.length > 0)
+  await db.update(schema.pantryItems).set({
+    productTypeId,
+    ...(typeStock && selectedType && { name: selectedType.name }),
+  }).where(eq(schema.pantryItems.id, item.id))
+  const productIds = [...new Set([item.productId, ...item.contents.map((content) => content.productId)].filter((id): id is string => id != null))]
+  if (productIds.length > 0) {
+    const products = await db.query.products.findMany({
+      where: inArray(schema.products.id, productIds),
+      columns: { id: true, productTypeId: true },
+    })
+    for (const product of products) {
+      await db.update(schema.products).set({
+        productTypeId,
+        productTypeSource: 'manual',
+        ...(product.productTypeId !== productTypeId && { productSubtypeId: null, productSubtypeSource: null }),
+      }).where(eq(schema.products.id, product.id))
+    }
+    invalidateProductCatalogCache()
+  } else if (!item.productId && !item.productTypeId && item.contents.length === 0) {
+    // A free-text concrete product may predate the catalog. A hand-picked type (or explicit no-type
+    // choice) is verified data, so create/link that decision for the next receipt.
+    const productId = await upsertProductCatalogDefaults({
+      name: item.name,
+      category: item.category,
+      unit: item.unit,
+      location: item.location,
+      productTypeKey,
+    })
+    if (productId) await db.update(schema.pantryItems).set({ productId }).where(eq(schema.pantryItems.id, item.id))
+  }
+  return productTypeId
+}
+
 /** "Došlo" — the household no longer has this item, so it's removed from the pantry entirely
  *  (not marked "out" — there's nothing useful to keep once it's gone; buying it again creates a
  *  fresh pantry row via a receipt or manual purchase). */
@@ -325,6 +400,13 @@ export async function reviewPantryAction(input: { reviewedIds: string[]; goneIds
     .from(schema.pantryItems)
     .where(and(eq(schema.pantryItems.householdId, householdId), inArray(schema.pantryItems.id, all)))
   if (owned.length !== all.length) throw new Error('Pantry item not found')
+  if (quantities.length > 0) {
+    const detailedRows = await db.query.pantryItemContents.findMany({
+      where: inArray(schema.pantryItemContents.pantryItemId, quantities.map((change) => change.id)),
+      columns: { pantryItemId: true },
+    })
+    if (detailedRows.length > 0) throw new Error('Upravte množství jednotlivých produktů v detailu zásoby.')
+  }
 
   const inHousehold = (ids: string[]) => and(eq(schema.pantryItems.householdId, householdId), inArray(schema.pantryItems.id, ids))
   const now = new Date()

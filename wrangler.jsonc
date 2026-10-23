@@ -1,5 +1,5 @@
-// Cloudflare Workers configuration — PREPARED, NOT DEPLOYED. Production runs on Vercel.
-// Runbook: docs/cloudflare-deployment.md. Secrets are never written here (see .dev.vars.example).
+// Cloudflare Workers production configuration. Deploys are manual; see docs/cloudflare-deployment.md.
+// Secrets are never written here (see .dev.vars.example).
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "moje-anitka",
@@ -24,7 +24,8 @@
   "keep_vars": true,
   "vars": {
     "CLOUDFLARE_ACCOUNT_ID": "afe2659d16305c3366cdc9726034af1c",
-    "CLOUDFLARE_AI_GATEWAY_ID": "moje-anitka"
+    "CLOUDFLARE_AI_GATEWAY_ID": "moje-anitka",
+    "RECEIPT_READER": "luna"
   },
   "limits": { "cpu_ms": 300000 },
   "observability": {
@@ -77,7 +78,7 @@
       "name": "shopping-buddy-staging",
       "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "shopping-buddy-staging" }],
       "r2_buckets": [{ "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "shopping-buddy-next-cache-staging" }],
-      "vars": { "STORAGE_PROVIDER": "r2" },
+      "vars": { "STORAGE_PROVIDER": "r2", "RECEIPT_READER": "luna" },
       "triggers": { "crons": [] }
     }
   }

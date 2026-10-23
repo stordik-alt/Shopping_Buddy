@@ -17,8 +17,8 @@ export type ReceiptTrace = {
   /** `note` says why the primary route was not used: the PDF had no text layer, or the primary OCR
    *  failed and a fallback read the file instead (redacted, never the text itself). */
   ocr: { status: ReceiptStageStatus; provider: string | null; ms: number | null; note?: string | null }
-  /** Photo clean-up before OCR (lib/receipt-image.ts): which steps ran and what it did to the
-   *  image size. `failed` means the original was sent instead; `not_run` covers PDFs. */
+  /** Best-effort photo preparation before reading (lib/receipt-image.ts): which steps ran and what
+   *  it did to image size. `failed` means the original was sent instead; `not_run` covers PDFs. */
   imagePrep: {
     status: ReceiptStageStatus
     ms: number | null

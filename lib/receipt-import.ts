@@ -1,7 +1,7 @@
 // Receipt import internals: the OCR pipeline and the helpers that turn receipt lines into a purchase.
 // Deliberately NOT a 'use server' module: every export of such a module becomes an action the browser
 // can call with any arguments. The PWA actions and bearer-authenticated mobile routes authorize the
-// household first, then use processReceiptImportForHousehold to claim imports before running OCR.
+// household first, then use processReceiptImportForHousehold to claim imports before reading the receipt.
 
 import { and, eq, gte, ilike, inArray, lt, or } from 'drizzle-orm'
 import { requireHouseholdId } from '@/lib/auth/authorize'
@@ -29,7 +29,8 @@ import { inferPantryLocation } from '@/lib/pantry'
 import { normalizeProductText } from '@/lib/product-normalize'
 import { logReceiptImport, newReceiptTrace, type ReceiptTrace } from '@/lib/receipt-log'
 import { PDF_TEXT_LAYER_PROVIDER, readPdfTextLayer } from '@/lib/receipt-pdf'
-import { detectReceiptFileType, prepareReceiptImageForOcr } from '@/lib/receipt-image'
+import { detectReceiptFileType, prepareReceiptImageForModel, prepareReceiptImageForOcr } from '@/lib/receipt-image'
+import { createLunaReceiptReader, receiptDecision, toExtractedReceipt, type ReceiptImageReader, type ReceiptReading } from '@/lib/receipt-reading'
 import type { ProductCatalogEntry } from '@/lib/products'
 import { chainFamily } from '@/lib/stores/chain-family'
 import {
@@ -60,6 +61,15 @@ import type { ItemCategory, PurchaseRecord } from '@/lib/types'
 import { normalizeCurrency } from '@/lib/currency'
 
 const ITEM_CATEGORIES = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní'] as const
+const lunaReceiptReader = createLunaReceiptReader({ reasoningEffort: 'low' })
+
+type ReceiptReaderMode = 'luna' | 'legacy'
+
+/** Luna is the production receipt reader. The old OCR → parser route remains an explicit rollback
+ *  switch for the short migration window only; stale Azure credentials must never select it. */
+function receiptReaderMode(): ReceiptReaderMode {
+  return process.env.RECEIPT_READER?.trim().toLowerCase() === 'legacy' ? 'legacy' : 'luna'
+}
 
 
 /** Fallback for a stored file whose bytes are not recognisable (see detectReceiptFileType) — the
@@ -640,14 +650,13 @@ export async function createPurchaseFromReceiptItems(
   }
 }
 
-// --- OCR pipeline (docs/08_OCR_RECEIPT_PIPELINE.md) ---------------------------------------------
+// --- Receipt reader pipeline (docs/08_OCR_RECEIPT_PIPELINE.md) ----------------------------------
 
-/** Runs the OCR pipeline's automated stages (docs/08_OCR_RECEIPT_PIPELINE.md sections 3–9) against
+/** Runs the receipt reader's automated stages (docs/08_OCR_RECEIPT_PIPELINE.md sections 3–9) against
  *  an already-uploaded receipt image, updating the same `receipt_imports` row throughout rather
- *  than creating a new one per stage. The extractors and `structuringProvider` are injectable so the
- *  orchestration logic itself — the state transitions, validation gate, and duplicate check — can
- *  be integration-tested with fakes, independently of whether the OCR and Cloudflare Gateway
- *  credentials are configured. Never throws: every failure is recorded on the row as
+ *  than creating a new one per stage. The reader, extractors, and `structuringProvider` are injectable
+ *  so the orchestration logic — state transitions, validation gate, and duplicate check — can use fakes.
+ *  Never throws: every failure is recorded on the row as
  *  `ocr_failed`/`parsing_failed` with an `errorMessage`, so the caller always gets back a row to
  *  show the household, per section 19 ("show the specific reason, not a bare error"). */
 export async function processReceiptImport(
@@ -656,10 +665,12 @@ export async function processReceiptImport(
     textExtractor: ReceiptTextExtractor
     structuringProvider: ReceiptStructuringProvider
     azureTextExtractor?: ReceiptTextExtractor
+    receiptReader?: ReceiptImageReader
   } = {
     textExtractor: googleVisionTextExtractor,
     structuringProvider: aiReceiptStructuringProvider,
     azureTextExtractor: azureReceiptTextExtractor,
+    receiptReader: lunaReceiptReader,
   },
 ): Promise<typeof schema.receiptImports.$inferSelect> {
   // One structured log line per run (docs/08_OCR_RECEIPT_PIPELINE.md section 19), written even when
@@ -690,6 +701,7 @@ async function runReceiptPipeline(
     textExtractor: ReceiptTextExtractor
     structuringProvider: ReceiptStructuringProvider
     azureTextExtractor?: ReceiptTextExtractor
+    receiptReader?: ReceiptImageReader
   },
   trace: ReceiptTrace,
 ): Promise<typeof schema.receiptImports.$inferSelect> {
@@ -729,15 +741,16 @@ async function runReceiptPipeline(
   }
   const storedMimeType = detected.kind === 'supported' ? detected.mimeType : mimeTypeFromExtension(row.imageUrl)
 
-  // Clean the photo up for OCR (orientation, lighting, contrast, tilt — see lib/receipt-image.ts).
-  // The stored original is never modified, and preparation is strictly best-effort: if it fails the
-  // original is sent instead, so this step can only ever help, never block an import. PDFs are sent
-  // as they are.
+  // Prepare the photo for the active reader. The original is never modified, and preparation is
+  // strictly best-effort: if it fails, the original is sent instead. PDFs are handled below.
+  const readerMode = receiptReaderMode()
   let ocrInput: { base64: string; mimeType: string } = { base64: original.toString('base64'), mimeType: storedMimeType }
   if (storedMimeType !== 'application/pdf') {
     const prepStartedAt = Date.now()
     try {
-      const prepared = await prepareReceiptImageForOcr(original)
+      const prepared = readerMode === 'luna'
+        ? await prepareReceiptImageForModel(original, 'plain')
+        : await prepareReceiptImageForOcr(original)
       ocrInput = { base64: prepared.buffer.toString('base64'), mimeType: prepared.mimeType }
       trace.imagePrep = {
         status: 'ok',
@@ -754,8 +767,8 @@ async function runReceiptPipeline(
     }
   }
 
-  let ocrText: string
-  let ocrProvider: typeof PDF_TEXT_LAYER_PROVIDER | 'google_vision' | 'azure_document_intelligence' | null = null
+  let ocrText: string | undefined
+  let ocrProvider: typeof PDF_TEXT_LAYER_PROVIDER | 'google_vision' | 'azure_document_intelligence' | 'gpt6_luna' | null = null
   // Why the text layer was not used (none / unusable) — for the log only.
   let ocrNote: string | null = null
 
@@ -769,7 +782,47 @@ async function runReceiptPipeline(
     else ocrNote = layer.reason
   }
 
-  if (textLayer != null) {
+  let extracted: ExtractedReceipt | undefined
+  let reading: ReceiptReading | null = null
+  if (readerMode === 'luna') {
+    const readStartedAt = Date.now()
+    try {
+      reading = await (deps.receiptReader ?? lunaReceiptReader).read(
+        textLayer != null ? { text: textLayer } : { images: [ocrInput] },
+        {
+          onUsage: (usage) => {
+            trace.parser.inputTokens = usage.inputTokens ?? null
+            trace.parser.outputTokens = usage.outputTokens ?? null
+          },
+        },
+      )
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      const elapsed = Date.now() - readStartedAt
+      trace.ocr = { status: 'failed', provider: 'gpt6_luna', ms: elapsed, note: ocrNote }
+      trace.parser = { ...trace.parser, status: 'failed', ms: elapsed }
+      return update({
+        status: 'parsing_failed',
+        errorMessage: `Zpracování účtenky přes GPT-6 Luna se nepodařilo. Zkuste to prosím za chvíli znovu. (${message})`,
+      })
+    }
+
+    const elapsed = Date.now() - readStartedAt
+    ocrProvider = 'gpt6_luna'
+    trace.ocr = { status: 'ok', provider: ocrProvider, ms: elapsed, note: ocrNote }
+    trace.parser = { ...trace.parser, status: 'ok', ms: elapsed }
+    extracted = toExtractedReceipt(reading)
+
+    // Ask for a new photo only when the reader itself says the image is unreadable or its overall
+    // confidence is below the retake threshold. Provider/network failures above never blame the photo.
+    if (receiptDecision(reading, { checksPassed: true }).decision === 'retake') {
+      return update({
+        status: 'ocr_failed',
+        ocrProvider,
+        errorMessage: 'GPT-6 Luna nedokázala údaje z účtenky přečíst dostatečně spolehlivě. Zkontrolujte, že je zachycená celá účtenka a text je čitelný, nebo účtenku zadejte ručně.',
+      })
+    }
+  } else if (textLayer != null) {
     ocrText = textLayer
     ocrProvider = PDF_TEXT_LAYER_PROVIDER
   } else {
@@ -790,30 +843,44 @@ async function runReceiptPipeline(
       }
     } catch (error) {
       trace.ocr = { status: 'failed', provider: null, ms: Date.now() - ocrStartedAt, note: ocrNote }
-      return update({ status: 'ocr_failed', errorMessage: `Nepodařilo se přečíst účtenku. Zkuste nahrát ostřejší fotografii. (${error instanceof Error ? error.message : String(error)})` })
+      return update({ status: 'ocr_failed', errorMessage: `Čtení účtenky selhalo. Zkuste to prosím za chvíli znovu, nebo účtenku zadejte ručně. (${error instanceof Error ? error.message : String(error)})` })
     }
   }
-  trace.ocr = { status: 'ok', provider: ocrProvider, ms: Date.now() - ocrStartedAt, note: ocrNote }
 
-  await update({ status: 'ocr_completed', ocrProvider, rawOcrText: ocrText })
-  await update({ status: 'parsing' })
+  if (readerMode === 'legacy') {
+    if (ocrText === undefined) {
+      trace.ocr = { status: 'failed', provider: null, ms: Date.now() - ocrStartedAt, note: ocrNote }
+      return update({ status: 'ocr_failed', errorMessage: 'Čtení účtenky nevrátilo žádný text. Zkuste to prosím znovu nebo účtenku zadejte ručně.' })
+    }
 
-  const parseStartedAt = Date.now()
-  let extracted: ExtractedReceipt
-  try {
-    const normalized = normalizeOcrText(ocrText)
-    extracted = await deps.structuringProvider.structure(normalized, {
-      onUsage: (usage) => {
-        trace.parser.inputTokens = usage.inputTokens ?? null
-        trace.parser.outputTokens = usage.outputTokens ?? null
-      },
-    })
-    trace.parser.status = 'ok'
-    trace.parser.ms = Date.now() - parseStartedAt
-  } catch (error) {
+    trace.ocr = { status: 'ok', provider: ocrProvider, ms: Date.now() - ocrStartedAt, note: ocrNote }
+    await update({ status: 'ocr_completed', ocrProvider, rawOcrText: ocrText })
+    await update({ status: 'parsing' })
+
+    const parseStartedAt = Date.now()
+    try {
+      const normalized = normalizeOcrText(ocrText)
+      extracted = await deps.structuringProvider.structure(normalized, {
+        onUsage: (usage) => {
+          trace.parser.inputTokens = usage.inputTokens ?? null
+          trace.parser.outputTokens = usage.outputTokens ?? null
+        },
+      })
+      trace.parser.status = 'ok'
+      trace.parser.ms = Date.now() - parseStartedAt
+    } catch (error) {
+      trace.parser.status = 'failed'
+      trace.parser.ms = Date.now() - parseStartedAt
+      return update({ status: 'parsing_failed', errorMessage: `Nepodařilo se rozpoznat položky na účtence. (${error instanceof Error ? error.message : String(error)})` })
+    }
+  } else {
+    await update({ status: 'ocr_completed', ocrProvider, rawOcrText: textLayer })
+    await update({ status: 'parsing' })
+  }
+
+  if (extracted === undefined) {
     trace.parser.status = 'failed'
-    trace.parser.ms = Date.now() - parseStartedAt
-    return update({ status: 'parsing_failed', errorMessage: `Nepodařilo se rozpoznat položky na účtence. (${error instanceof Error ? error.message : String(error)})` })
+    return update({ status: 'parsing_failed', errorMessage: 'Čtení účtenky nevrátilo žádná strukturovaná data. Zkuste to prosím znovu nebo účtenku zadejte ručně.' })
   }
 
   // Fetched once and reused below both to pre-fill each item's category/location for the review
@@ -868,7 +935,7 @@ async function runReceiptPipeline(
     return update({ status: 'review_required', items: JSON.stringify(items) })
   }
 
-  if (needsReview(extracted)) return toReview()
+  if (needsReview(extracted) || (reading != null && receiptDecision(reading, { checksPassed: true }).decision === 'review')) return toReview()
 
   // Storage-location/category gate: even a mathematically-consistent, complete receipt must go to
   // review if any item's category+pantry-location can't be resolved confidently — never guess

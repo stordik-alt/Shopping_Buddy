@@ -1,3 +1,10 @@
+## 2026-10-23 — Účtenky čte přímo GPT-6 Luna
+
+- Produkční čtení fotografií a skenovaných PDF přechází z OCR Azure/Google → parser na přímé čtení GPT-6 Luna přes Cloudflare AI Gateway. Textová vrstva digitálního PDF se nejprve přečte lokálně a předá Luně.
+- Výběr provideru už neovlivňují zbylé Azure proměnné. `RECEIPT_READER=legacy` zůstává jen jako dočasná ruční možnost návratu; produkční Wrangler konfigurace nastavuje `luna`.
+- Stávající backendové kontroly, párování produktů, kontrola duplicit a ruční review se nemění. Nečitelný snímek se označí jen podle výstupu čtečky; chyba modelu/API už neříká uživateli, aby fotil ostřeji.
+- Příprava snímku zůstává nejlepší snahou. Když Cloudflare Worker nemá `sharp`, původní snímek se odešle Luně.
+
 ## 2026-10-22 — Ruční review párování produktů Teta
 
 - **Velikost balení, kterou uvádí jen jedna strana, už není spor.** Co chybí, nemůže s něčím odporovat: Teta uveďe velikost jen u části katalogu a katalogový název často uvádí velikost, kterou stránka Teta nemá. Velikost je proto spor jen tehdy, když ji uvádí **obě** strany a liší se, nebo když si čísla jednoho záznamu odporují. Dřív to byla podmínka pro každé automatické spojení. Změna je izolovaná v `lib/product-identity-teta.ts` a má test. Změřeno na skutečném katalogu: automatická spojení **844 → 1 002 (+158)**, fronta k ručnímu posouzení **9 671 → 9 513**; druhý druh sporu nevznikl — spojily se produkty, jejichž názvy se ve všem ostatním shodovaly.

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   budgetImpact,
+  budgetAllowances,
   budgetPace,
   PACE_MIN_DAYS,
   budgetLevel,
@@ -83,6 +84,31 @@ describe('totalSpent', () => {
 
   it('returns 0 for no expenses', () => {
     expect(totalSpent([])).toBe(0)
+  })
+})
+
+describe('budget allowances', () => {
+  it('recommends a daily and weekly pace from the same remaining budget', () => {
+    expect(budgetAllowances(1000, 0, 10)).toEqual({ status: 'available', remaining: 1000, perDay: 100, perWeek: 700 })
+    expect(budgetAllowances(1000, 400, 10)).toEqual({ status: 'available', remaining: 600, perDay: 60, perWeek: 420 })
+  })
+
+  it('uses only the remaining days when fewer than seven remain, including today', () => {
+    expect(budgetAllowances(700, 200, 5)).toEqual({ status: 'available', remaining: 500, perDay: 100, perWeek: 500 })
+    expect(budgetAllowances(700, 200, 1)).toEqual({ status: 'available', remaining: 500, perDay: 500, perWeek: 500 })
+  })
+
+  it('changes when the period length changes and has no pace after the period ends', () => {
+    expect(budgetAllowances(1000, 500, 10)).toMatchObject({ status: 'available', perDay: 50, perWeek: 350 })
+    expect(budgetAllowances(1000, 500, 5)).toMatchObject({ status: 'available', perDay: 100, perWeek: 500 })
+    expect(budgetAllowances(1000, 500, 0)).toEqual({ status: 'period-ended' })
+  })
+
+  it('does not turn a missing or exceeded budget into a positive recommendation', () => {
+    expect(budgetAllowances(0, 0, 10)).toEqual({ status: 'missing-budget' })
+    expect(budgetAllowances(0, 100, 10)).toEqual({ status: 'missing-budget' })
+    expect(budgetAllowances(1000, 1100, 10)).toEqual({ status: 'overspent', overrun: 100 })
+    expect(budgetAllowances(1000, 1000, 10)).toEqual({ status: 'exhausted' })
   })
 })
 

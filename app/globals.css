@@ -15,6 +15,7 @@
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
   --color-chart-10: var(--chart-10);
+  --color-chart-11: var(--chart-11);
   --color-chart-9: var(--chart-9);
   --color-chart-8: var(--chart-8);
   --color-chart-7: var(--chart-7);
@@ -138,6 +139,7 @@
   --chart-8: oklch(0.6 0.1 330);
   --chart-9: oklch(0.55 0.1 130);
   --chart-10: oklch(0.55 0.12 220);
+  --chart-11: oklch(0.54 0.13 195);
   --radius: 0.875rem;
   /* ANITKA surfaces: generous, calm corners with restrained depth. */
   --shadow-card: 0 1px 2px oklch(0.22 0.02 255 / 0.04), 0 8px 24px -10px oklch(0.22 0.02 255 / 0.12);
@@ -206,6 +208,7 @@
   --chart-8: oklch(0.76 0.1 330);
   --chart-9: oklch(0.74 0.1 130);
   --chart-10: oklch(0.72 0.12 220);
+  --chart-11: oklch(0.72 0.13 195);
   --shadow-card: 0 1px 2px oklch(0 0 0 / 0.3), 0 8px 24px -12px oklch(0 0 0 / 0.35);
 
   --sidebar: oklch(0.19 0.028 255);

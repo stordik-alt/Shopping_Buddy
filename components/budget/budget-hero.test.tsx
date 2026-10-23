@@ -21,4 +21,13 @@ describe('BudgetHero pace', () => {
     expect(text(renderToStaticMarkup(<BudgetHero budget={10000} spent={3000} remaining={7000} />))).not.toContain('Na den zbývá')
     expect(text(renderToStaticMarkup(<BudgetHero today="2026-09-25" budget={10000} spent={12000} remaining={-2000} />))).not.toContain('Na den zbývá')
   })
+
+  it('shows real utilization above 100% while keeping the progress bar within its track', () => {
+    const html = renderToStaticMarkup(<BudgetHero budget={10000} spent={12000} remaining={-2000} />)
+    expect(text(html)).toContain('Rozpočet překročen o')
+    expect(text(html)).toMatch(/2\s?000 Kč/)
+    expect(text(html)).toContain('120 %')
+    expect(html).toContain('aria-valuenow="100"')
+    expect(html).toContain('aria-valuetext="120 % rozpočtu vyčerpáno"')
+  })
 })

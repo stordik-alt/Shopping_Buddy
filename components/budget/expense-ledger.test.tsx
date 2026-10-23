@@ -62,4 +62,23 @@ describe('ExpenseLedger', () => {
     expect(html).toContain('Limit překročen o 500,00 Kč')
     expect(html).toContain('Potraviny') // limited, nothing spent yet
   })
+
+  it('opens the category selected from the overview on arrival', () => {
+    const html = renderToStaticMarkup(
+      <ExpenseLedger
+        today="2026-09-26"
+        initialCategory="Auto"
+        expenses={[paid(1200, 'Auto', 'Palivo', '2026-09-10', 'Tankování')]}
+        limits={{}}
+        onAdd={noop}
+        onEdit={noop}
+        onLimits={noop}
+        onLoadItems={noopItems}
+        onSaveSplits={noopAsync}
+      />,
+    )
+    expect(html).toContain('aria-expanded="true"')
+    expect(html).toContain('Palivo')
+    expect(html).toContain('1 200,00 Kč')
+  })
 })

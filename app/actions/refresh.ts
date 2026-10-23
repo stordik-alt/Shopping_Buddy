@@ -1,12 +1,13 @@
 'use server'
 
 import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
-import { getHouseholdExpenses, getHouseholdPurchaseHistory, getPantryItems } from '@/lib/db/queries'
+import { getHouseholdExpenses, getHouseholdPurchaseHistory, getHouseholdPurchaseSavingsByMonth, getPantryItems } from '@/lib/db/queries'
 import { getMemberIdForUser, getMemberStoreSelection } from '@/lib/db/member-store-preferences'
 import { getRestockSuggestionsFor, getStockLevels } from '@/lib/db/restock'
 import { EMPTY_STORE_SELECTION } from '@/lib/nearby-stores'
 import type { RestockSuggestion, StockLevel } from '@/lib/pantry-restock'
 import { todayInPrague } from '@/lib/today'
+import type { PurchaseSavingsByMonth } from '@/lib/purchase-savings'
 import type { Expense, PantryItem, PurchaseRecord } from '@/lib/types'
 
 // The "Obnovit" buttons of the sections (the shopping list has its own in app/actions/shopping.ts): each
@@ -23,6 +24,11 @@ export async function refreshPantryAction(): Promise<{ pantryItems: PantryItem[]
 /** Moje nákupy: the purchase history, read fresh. */
 export async function refreshPurchasesAction(): Promise<PurchaseRecord[]> {
   return getHouseholdPurchaseHistory(await requireHouseholdId())
+}
+
+/** Rozpočet → Úspory nákupy: monthly totals only, scoped to the signed-in household. */
+export async function refreshPurchaseSavingsAction(): Promise<PurchaseSavingsByMonth[]> {
+  return getHouseholdPurchaseSavingsByMonth(await requireHouseholdId())
 }
 
 /** Rozpočet: the expenses of the current budget period, read fresh. */

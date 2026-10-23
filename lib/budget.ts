@@ -78,6 +78,32 @@ export function totalSpent(expenses: Expense[]) {
   return expenses.reduce((sum, expense) => sum + expense.amount, 0)
 }
 
+export type BudgetAllowances =
+  | { status: 'missing-budget' }
+  | { status: 'period-ended' }
+  | { status: 'overspent'; overrun: number }
+  | { status: 'exhausted' }
+  | { status: 'available'; remaining: number; perDay: number; perWeek: number }
+
+/** Spendable pace from one budget definition: the limit minus actual spending, over the days left
+ *  in the period (today included by `periodDaysLeft`). It is a pace suggestion, never an account
+ *  balance or a promise that future obligations are covered. */
+export function budgetAllowances(budget: number, spent: number, daysLeft: number): BudgetAllowances {
+  if (budget <= 0) return { status: 'missing-budget' }
+  if (!Number.isFinite(daysLeft) || daysLeft <= 0) return { status: 'period-ended' }
+
+  const remaining = budget - spent
+  if (remaining < 0) return { status: 'overspent', overrun: -remaining }
+  if (remaining === 0) return { status: 'exhausted' }
+
+  return {
+    status: 'available',
+    remaining,
+    perDay: remaining / daysLeft,
+    perWeek: remaining * Math.min(7, daysLeft) / daysLeft,
+  }
+}
+
 /** This period's spending per day so far: days elapsed count its first day through `today`
  *  inclusive, so the first day divides by 1, never by 0. */
 /** Recurring payments are real expenses, but their individually scheduled amounts must not distort

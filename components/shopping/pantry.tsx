@@ -1,5 +1,5 @@
 import { AlertTriangle, BriefcaseMedical, Car, Cat, ClipboardCheck, House, Package, PackageSearch, Plus, Refrigerator, Snowflake, SprayCan, Warehouse, Wheat, type LucideIcon } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Pager } from '@/components/shared/pager'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -71,6 +71,7 @@ const ALL_SUBCATEGORIES = '__all__'
 
 export function Pantry({
   items,
+  refreshControl,
   onAddPantryItem,
   customPlaces,
   hiddenLocations = [],
@@ -93,6 +94,8 @@ export function Pantry({
   onReceipts,
 }: {
   items: PantryItem[]
+  /** Optional section-level action rendered beside the opened location heading. */
+  refreshControl?: ReactNode
   onAddPantryItem: (input: PantryAddInput) => Promise<PantryItem[]>
   /** The household's own places, beyond the fixed locations (Profil domácnosti → Zásoby). */
   customPlaces: PantryPlace[]
@@ -388,6 +391,7 @@ export function Pantry({
             {items.length > 0 && <span className="shrink-0 text-sm text-fg-muted">{itemCountLabel(selectedItems.length)}</span>}
           </div>
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            {refreshControl}
             {consumedInLocation > 0 && (
               <Button variant="ghost" onClick={() => setShowConsumed((current) => !current)}>
                 {showConsumed ? 'Skrýt spotřebované' : `Zobrazit spotřebované (${consumedInLocation})`}

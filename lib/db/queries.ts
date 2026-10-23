@@ -26,6 +26,7 @@ import { resolveInventoryPackage } from '@/lib/inventory-packaging'
 import { distinctProductName, resolveProductForSku, type ProductCatalogEntry } from '@/lib/products'
 import { categoryWithBrand } from '@/lib/product-brands'
 import { normalizeSearchText } from '@/lib/product-search'
+import { normalizeProductText } from '@/lib/product-normalize'
 import { isReceiptStalled } from '@/lib/receipt-progress'
 import { parseStoredJson } from '@/lib/safe-json'
 import { invalidateProductCatalogCache } from '@/lib/db/cache-invalidation'
@@ -52,6 +53,7 @@ import type {
   PurchaseRecord,
   QualityPreference,
   Store,
+  PantryTracking,
 } from '@/lib/types'
 
 // Decorative only — not modeled in the schema, keyed by chain to match the previous mock styling.
@@ -542,6 +544,10 @@ function queryPantryRows(householdId: string) {
           },
         },
       },
+      contents: {
+        orderBy: asc(schema.pantryItemContents.name),
+        columns: { id: true, productId: true, name: true, quantity: true, unit: true, pieceQuantity: true, pieceUnit: true },
+      },
     },
   })
 }
@@ -571,6 +577,15 @@ function toPantryItem(item: Awaited<ReturnType<typeof queryPantryRows>>[number])
     addedAt: item.addedAt.toISOString(),
     askedAt: item.askedAt?.toISOString(),
     tracking: item.tracking,
+    contents: item.contents.map((content) => ({
+      id: content.id,
+      productId: content.productId,
+      name: content.name,
+      quantity: content.quantity,
+      unit: content.unit,
+      unitQuantity: content.pieceQuantity,
+      unitUnit: content.pieceUnit,
+    })),
   }
 }
 
@@ -1005,7 +1020,7 @@ export async function restockPantryItem(
  *  (restarts the check-in interval, never moves an existing row). */
 export async function restockPantryTypeItem(
   householdId: string,
-  item: { productTypeId: string; typeName: string; category: ItemCategory; quantity: number; unit: ItemUnit; location?: PantryLocation; customPlaceId?: string | null; subcategoryId?: string | null; piece?: PieceSize | null },
+  item: { productTypeId: string; typeName: string; category: ItemCategory; quantity: number; unit: ItemUnit; location?: PantryLocation; customPlaceId?: string | null; subcategoryId?: string | null; piece?: PieceSize | null; productId?: string | null; productName?: string },
 ) {
   const db = getDb()
   const candidates = await db.query.pantryItems.findMany({
@@ -1032,10 +1047,16 @@ export async function restockPantryTypeItem(
       .update(schema.pantryItems)
       .set({ quantity, addedAt: new Date(), askedAt: null, subcategoryId: row.subcategoryId ?? item.subcategoryId ?? null })
       .where(eq(schema.pantryItems.id, row.id))
+    if (item.productName?.trim()) await restockPantryItemContent(
+      row.id,
+      row,
+      { ...item, quantity: bought as number, unit: row.unit, piece: row.unit === 'ks' ? piece : null },
+      Math.max(0, quantity - (bought as number)),
+    )
     return
   }
 
-  await db.insert(schema.pantryItems).values({
+  const [created] = await db.insert(schema.pantryItems).values({
     householdId,
     productId: null,
     productTypeId: item.productTypeId,
@@ -1048,7 +1069,82 @@ export async function restockPantryTypeItem(
     unit: item.unit,
     pieceQuantity: piece?.quantity ?? null,
     pieceUnit: piece?.unit ?? null,
+  }).returning({ id: schema.pantryItems.id })
+  if (created && item.productName?.trim()) {
+    await restockPantryItemContent(created.id, {
+      name: item.typeName,
+      category: item.category,
+      location: item.location ?? inferPantryLocation(item.category, item.typeName) ?? 'Spíž',
+      tracking: 'normal',
+    }, item, 0)
+  }
+}
+
+/** Adds the bought concrete product to a type row's inspectable breakdown. The parent remains the
+ *  quantity used by recipes; its child quantities are kept in the same unit and piece-size bucket. */
+async function restockPantryItemContent(
+  pantryItemId: string,
+  parent: { name: string; category: ItemCategory; location: PantryLocation; tracking: PantryTracking },
+  item: { productId?: string | null; productName?: string; quantity: number; unit: ItemUnit; piece?: PieceSize | null },
+  legacyQuantity: number,
+) {
+  const name = item.productName?.trim()
+  if (!name) return
+  const db = getDb()
+  const piece = item.unit === 'ks' ? item.piece ?? null : null
+  const identity = item.productId ? `product:${item.productId}` : `name:${normalizeProductText(name)}`
+  const identityKey = `${identity}|${item.unit}|${piece ? `${piece.quantity}:${piece.unit}` : ''}`
+  const existing = await db.query.pantryItemContents.findFirst({
+    where: and(eq(schema.pantryItemContents.pantryItemId, pantryItemId), eq(schema.pantryItemContents.identityKey, identityKey)),
+  }) ?? (item.productId ? (await db.query.pantryItemContents.findMany({
+    where: eq(schema.pantryItemContents.pantryItemId, pantryItemId),
+  })).find((content) => normalizeProductText(content.name) === normalizeProductText(name) && content.unit === item.unit && content.pieceQuantity === (piece?.quantity ?? null) && content.pieceUnit === (piece?.unit ?? null)) : null)
+  const siblings = await db.query.pantryItemContents.findMany({
+    where: eq(schema.pantryItemContents.pantryItemId, pantryItemId),
+    columns: { id: true },
   })
+  if (siblings.length === 0 && legacyQuantity > 0) {
+    await db.insert(schema.pantryItemContents).values({
+      pantryItemId,
+      productId: null,
+      identityKey: `previous-stock|${item.unit}|${item.piece ? `${item.piece.quantity}:${item.piece.unit}` : ''}`,
+      name: 'Dříve evidovaná zásoba',
+      quantity: legacyQuantity,
+      unit: item.unit,
+      pieceQuantity: item.piece?.quantity ?? null,
+      pieceUnit: item.piece?.unit ?? null,
+    })
+  }
+  if (existing) {
+    const quantity = restockedQuantity({
+      name: existing.identityKey.startsWith('previous-stock|') ? parent.name : existing.name,
+      category: parent.category,
+      location: parent.location,
+      tracking: parent.tracking,
+      addedAt: existing.addedAt.toISOString(),
+      quantity: existing.quantity,
+    }, item.quantity, todayInPrague())
+    await db.update(schema.pantryItemContents).set({
+      quantity,
+      addedAt: new Date(),
+      ...(item.productId && { productId: item.productId, identityKey }),
+    }).where(eq(schema.pantryItemContents.id, existing.id))
+  } else {
+    await db.insert(schema.pantryItemContents).values({
+      pantryItemId,
+      productId: item.productId ?? null,
+      identityKey,
+      name,
+      quantity: item.quantity,
+      unit: item.unit,
+      pieceQuantity: piece?.quantity ?? null,
+      pieceUnit: piece?.unit ?? null,
+    })
+  }
+  const totals = await db.select({ quantity: sql<number>`coalesce(sum(${schema.pantryItemContents.quantity}), 0)` })
+    .from(schema.pantryItemContents)
+    .where(eq(schema.pantryItemContents.pantryItemId, pantryItemId))
+  await db.update(schema.pantryItems).set({ quantity: Number(totals[0]?.quantity ?? 0) }).where(eq(schema.pantryItems.id, pantryItemId))
 }
 
 export type InvitationInfo = {
@@ -1190,8 +1286,8 @@ export async function getProductCatalogByIds(ids: string[]): Promise<ProductCata
 }
 
 const CATALOG_ENTRY_QUERY = {
-  columns: { id: true, name: true, defaultUnit: true, defaultLocation: true, isChildOriented: true, isNonInventory: true },
-  with: { category: { columns: { name: true } }, subcategory: { columns: { name: true } } },
+  columns: { id: true, name: true, defaultUnit: true, defaultLocation: true, isChildOriented: true, isNonInventory: true, productTypeSource: true },
+  with: { category: { columns: { name: true } }, subcategory: { columns: { name: true } }, productType: { columns: { key: true } } },
 } as const
 
 function toCatalogEntry(product: {
@@ -1203,6 +1299,8 @@ function toCatalogEntry(product: {
   isNonInventory: boolean
   category: { name: ItemCategory }
   subcategory: { name: string } | null
+  productType: { key: string } | null
+  productTypeSource: string | null
 }): ProductCatalogEntry {
   return {
     id: product.id,
@@ -1211,6 +1309,8 @@ function toCatalogEntry(product: {
     defaultUnit: product.defaultUnit,
     defaultLocation: product.defaultLocation,
     subcategory: product.subcategory?.name ?? null,
+    productTypeKey: product.productType?.key ?? null,
+    productTypeSource: product.productTypeSource,
     isChildOriented: product.isChildOriented,
     isNonInventory: product.isNonInventory,
   }
@@ -1304,6 +1404,7 @@ export async function upsertProductCatalogDefaults(entry: {
     ...(entry.isNonInventory != null && { isNonInventory: entry.isNonInventory }),
   }
   const typeIds = await loadProductTypeIds()
+  const productTypeWasPicked = Object.prototype.hasOwnProperty.call(entry, 'productTypeKey')
   const pickedTypeId = entry.productTypeKey ? typeIds.get(entry.productTypeKey) ?? null : null
   const existing = await db.query.products.findFirst({ where: ilike(schema.products.name, name) })
   if (existing) {
@@ -1317,16 +1418,18 @@ export async function upsertProductCatalogDefaults(entry: {
         ...flags,
         // A product subtype belongs to exactly one type (products_product_subtype_same_type_fk), so a
         // different pick drops it; the same type keeps it.
-        ...(pickedTypeId && {
+        ...(productTypeWasPicked && {
           productTypeId: pickedTypeId,
           productTypeSource: 'manual',
           ...(existing.productTypeId !== pickedTypeId && { productSubtypeId: null, productSubtypeSource: null }),
         }),
       })
       .where(eq(schema.products.id, existing.id))
+    invalidateProductCatalogCache()
+    return existing.id
   } else {
-    const productTypeId = pickedTypeId ?? productTypeIdFor(entry.category, name, typeIds)
-    await db.insert(schema.products).values({
+    const productTypeId = productTypeWasPicked ? pickedTypeId : productTypeIdFor(entry.category, name, typeIds)
+    const [created] = await db.insert(schema.products).values({
       name,
       categoryId: categoryRow.id,
       defaultUnit: entry.unit,
@@ -1334,10 +1437,45 @@ export async function upsertProductCatalogDefaults(entry: {
       subcategoryId,
       ...flags,
       productTypeId,
-      productTypeSource: productTypeId ? (pickedTypeId ? 'manual' : 'rule') : null,
-    })
+      productTypeSource: productTypeWasPicked ? 'manual' : productTypeId ? 'rule' : null,
+    }).returning({ id: schema.products.id })
+    invalidateProductCatalogCache()
+    return created?.id ?? null
   }
+}
+
+/** Applies a reviewer-selected type to an already matched catalog product without changing any of
+ *  its other remembered fields. A null key intentionally clears the old classification. */
+export async function setProductCatalogType(productId: string, productTypeKey: string | null): Promise<void> {
+  const db = getDb()
+  const typeId = productTypeKey ? (await loadProductTypeIds()).get(productTypeKey) ?? null : null
+  if (productTypeKey && !typeId) throw new Error('Neplatný druh zboží.')
+  const product = await db.query.products.findFirst({ where: eq(schema.products.id, productId), columns: { id: true, productTypeId: true } })
+  if (!product) throw new Error('Produkt už v katalogu není.')
+  await db.update(schema.products).set({
+    productTypeId: typeId,
+    productTypeSource: 'manual',
+    ...(product.productTypeId !== typeId && { productSubtypeId: null, productSubtypeSource: null }),
+  }).where(eq(schema.products.id, productId))
   invalidateProductCatalogCache()
+}
+
+/** Links a newly cataloged product to the matching concrete purchase detail already stored in a
+ *  household's type stock row. Exact name matching avoids attaching another household's products. */
+export async function linkPantryContentsToProduct(householdId: string, name: string, productId: string): Promise<void> {
+  const db = getDb()
+  await db.update(schema.pantryItems).set({ productId })
+    .where(and(
+      eq(schema.pantryItems.householdId, householdId),
+      eq(schema.pantryItems.name, name),
+      isNull(schema.pantryItems.productId),
+      isNull(schema.pantryItems.productTypeId),
+    ))
+  const parents = await db.select({ id: schema.pantryItems.id }).from(schema.pantryItems)
+    .where(and(eq(schema.pantryItems.householdId, householdId), isNotNull(schema.pantryItems.productTypeId)))
+  if (parents.length === 0) return
+  await db.update(schema.pantryItemContents).set({ productId })
+    .where(and(inArray(schema.pantryItemContents.pantryItemId, parents.map((row) => row.id)), eq(schema.pantryItemContents.name, name)))
 }
 
 /** Creates or enriches a physical store branch from a trusted directory/source.

@@ -5,7 +5,7 @@ import { and, eq } from 'drizzle-orm'
 import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
 import { recordAudit } from '@/lib/db/audit'
 import { getDb } from '@/lib/db/client'
-import { getHouseholdExpenses, getHouseholdNotifications, restockPantryItem, restockPantryTypeItem, upsertProductCatalogDefaults } from '@/lib/db/queries'
+import { getHouseholdExpenses, getHouseholdNotifications, linkPantryContentsToProduct, restockPantryItem, restockPantryTypeItem, upsertProductCatalogDefaults } from '@/lib/db/queries'
 import { stockTypesForLines } from '@/lib/db/stock-types'
 import { pieceSizeOf } from '@/lib/piece-size'
 import { getProductCatalogCached, getSubcategoryCatalogCached } from '@/lib/db/cached-reads'
@@ -142,6 +142,8 @@ export async function createManualPurchaseAction(input: {
         await restockPantryTypeItem(householdId, {
           productTypeId: type.id,
           typeName: type.name,
+          productId: item.product?.id ?? null,
+          productName: item.name,
           category: item.category,
           quantity: inventory.quantity,
           unit: inventory.unit,
@@ -160,7 +162,7 @@ export async function createManualPurchaseAction(input: {
       }
     }
     // A manual import is a human-confirmed classification, so remember it for future imports too.
-    await upsertProductCatalogDefaults({
+    const productId = await upsertProductCatalogDefaults({
       name: item.name,
       category: item.category,
       unit: item.unit,
@@ -168,6 +170,7 @@ export async function createManualPurchaseAction(input: {
       subcategory: item.subcategory,
       isNonInventory: item.product?.isNonInventory,
     })
+    if (productId) await linkPantryContentsToProduct(householdId, item.name, productId)
   }
 
   const note = input.storeChain?.trim() ? `Nákup ${input.storeChain.trim()} (ručně)` : 'Nákup (ručně)'

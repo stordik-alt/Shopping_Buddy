@@ -83,6 +83,8 @@ export function Pantry({
   restockTypeKeys,
   onSetSubcategory,
   onSetCategory,
+  onSetProductType,
+  onAdjustContent,
   onAutoCategorize,
   estimates,
   openCheck = false,
@@ -110,6 +112,8 @@ export function Pantry({
   /** Sets an item's subcategory by hand; null clears it. */
   onSetSubcategory: (id: string, subcategory: string | null) => Promise<CatalogChangeOutcome | 'none'> | void
   onSetCategory: (id: string, category: ItemCategory) => Promise<CategoryChangeOutcome | void> | void
+  onSetProductType: (id: string, productTypeKey: string | null) => Promise<void>
+  onAdjustContent: (contentId: string, quantity: number, expectedQuantity: number) => Promise<boolean>
   /** Places every uncategorized item by the keyword rules; resolves to how many were placed. */
   onAutoCategorize: () => Promise<number>
   /** "Asi došlo" estimates by pantry item id (lib/pantry-estimate.ts). */
@@ -230,6 +234,15 @@ export function Pantry({
     } catch (error) {
       console.error('Setting the pantry category failed', error)
       setNotice('Kategorii se nepodařilo uložit. Zkuste to prosím znovu.')
+    }
+  }
+
+  async function setProductType(item: PantryItem, productTypeKey: string | null) {
+    try {
+      await onSetProductType(item.id, productTypeKey)
+    } catch (error) {
+      console.error('Setting the pantry product type failed', error)
+      setNotice('Druh produktu se nepodařilo uložit. Zkuste to prosím znovu.')
     }
   }
 
@@ -474,6 +487,8 @@ export function Pantry({
           onSetTracking={(tracking) => onSetTracking(detailItem.id, tracking)}
           onSetCategory={(category) => void setCategory(detailItem, category)}
           onSetSubcategory={(subcategory) => void setSubcategory(detailItem, subcategory)}
+          onSetProductType={(productTypeKey) => setProductType(detailItem, productTypeKey)}
+          onAdjustContent={(contentId, quantity, expectedQuantity) => onAdjustContent(contentId, quantity, expectedQuantity)}
           onConfirm={() => {
             onConfirm(detailItem.id)
             setDetailId(null)

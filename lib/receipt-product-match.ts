@@ -170,6 +170,7 @@ export type ReceiptCandidate = {
   productId: string
   name: string
   storeIds: string[]
+  productTypeKey?: string | null
   seedPackageReferences?: ReceiptPackageReference[]
 }
 export type ScoredCandidate = ReceiptCandidate & { score: number }
@@ -258,7 +259,7 @@ export function isStrongReceiptProductMatch(receiptName: string, catalogName: st
 
 export const MAX_SUGGESTIONS = 3
 
-export type ReceiptSuggestions = { suggestions: { productId: string; name: string }[]; confident: boolean }
+export type ReceiptSuggestions = { suggestions: { productId: string; name: string; productTypeKey?: string | null }[]; confident: boolean }
 
 /** The best few catalog products for one receipt line, best first; `confident` when the first may be
  *  pre-selected for the household (still only a pre-selection in the review form). */
@@ -278,7 +279,10 @@ export function rankReceiptCandidates(lineName: string, storeId: string | null, 
     // "ALB PUD.PRICH.VA" is Albert's own pudding: another brand's vanilla pudding is a different
     // product, however well the words fit, so it is offered but not pre-selected.
     (line.ownBrand == null || receiptWordsOfProduct(top[0].name).includes(line.ownBrand))
-  return { suggestions: top.map(({ productId, name }) => ({ productId, name })), confident }
+  return {
+    suggestions: top.map(({ productId, name, productTypeKey }) => ({ productId, name, ...(productTypeKey ? { productTypeKey } : {}) })),
+    confident,
+  }
 }
 
 /** The words the database search requires of a candidate's name for this line: the two longest

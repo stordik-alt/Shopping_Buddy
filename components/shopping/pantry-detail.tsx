@@ -10,6 +10,7 @@ import { Sheet } from '@/components/ui/sheet'
 import { formatPantryQuantity, PANTRY_TRACKING, roundPantryQuantity, type PantryPlaceOption } from '@/lib/pantry'
 import { PRODUCT_SUBCATEGORIES, subcategoriesOfItem } from '@/lib/product-subcategories'
 import { productVisualFor } from '@/lib/product-visuals'
+import { PRODUCT_TYPES } from '@/lib/product-types'
 import type { ItemCategory, PantryItem, PantryTracking } from '@/lib/types'
 
 const ITEM_CATEGORY_NAMES = Object.keys(PRODUCT_SUBCATEGORIES) as ItemCategory[]
@@ -31,6 +32,8 @@ export function PantryDetail({
   onSetTracking,
   onSetCategory,
   onSetSubcategory,
+  onSetProductType,
+  onAdjustContent,
   onConfirm,
   onRemove,
 }: {
@@ -46,6 +49,8 @@ export function PantryDetail({
   onSetTracking: (tracking: PantryTracking) => void
   onSetCategory: (category: ItemCategory) => void
   onSetSubcategory: (subcategory: string | null) => void
+  onSetProductType: (productTypeKey: string | null) => Promise<void>
+  onAdjustContent: (contentId: string, quantity: number, expectedQuantity: number) => Promise<boolean>
   /** "Ještě mám" — the household confirms the item is still there. */
   onConfirm: () => void
   /** "Odstranit" — the record is gone for good. The availability toggle in the cell is not this. */
@@ -54,6 +59,7 @@ export function PantryDetail({
   const [draft, setDraft] = useState(() => String(item.quantity))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [contentDrafts, setContentDrafts] = useState<Record<string, string>>(() => Object.fromEntries((item.contents ?? []).map((content) => [content.id, String(content.quantity)])))
   const amountRef = useRef<HTMLInputElement>(null)
   const visual = productVisualFor({ productTypeKey: item.productTypeKey, subcategory: item.subcategory, category: item.category })
 
@@ -62,6 +68,25 @@ export function PantryDetail({
   useEffect(() => {
     setDraft(String(item.quantity))
   }, [item.quantity])
+
+  useEffect(() => {
+    setContentDrafts(Object.fromEntries((item.contents ?? []).map((content) => [content.id, String(content.quantity)])))
+  }, [item.contents])
+
+  async function saveContent(contentId: string, currentQuantity: number) {
+    const parsed = Number(contentDrafts[contentId])
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      setError('Množství musí být číslo od nuly do dané.')
+      return
+    }
+    if (parsed === currentQuantity) return
+    setError(null)
+    try {
+      if (!(await onAdjustContent(contentId, parsed, currentQuantity))) setError('Množství produktu se nepodařilo uložit. Obnovte zásoby a zkuste to znovu.')
+    } catch {
+      setError('Množství produktu se nepodařilo uložit. Obnovte zásoby a zkuste to znovu.')
+    }
+  }
 
   async function save() {
     const parsed = Number(draft)
@@ -86,8 +111,8 @@ export function PantryDetail({
       description={`${item.category}${item.subcategory ? ` ▸ ${item.subcategory}` : ''}`}
       initialFocus={amountRef}
       footer={
-        <Button type="button" onClick={() => void save()} disabled={saving}>
-          {saving ? 'Ukládám…' : 'Uložit'}
+        <Button type="button" onClick={() => item.contents?.length ? onClose() : void save()} disabled={saving}>
+          {saving ? 'Ukládám…' : item.contents?.length ? 'Hotovo' : 'Uložit'}
         </Button>
       }
     >
@@ -111,27 +136,62 @@ export function PantryDetail({
           </p>
         </div>
 
-        <label className="block space-y-1.5 text-sm font-medium">
-          <span>Množství ({item.unit})</span>
-          <input
-            ref={amountRef}
-            type="number"
-            min="0"
-            step="any"
-            inputMode="decimal"
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              // Enter ends the typing, it does not save: saving is the explicit "Uložit", so a
-              // half-typed number can never be written to the pantry by accident.
-              if (event.key === 'Enter') {
-                event.preventDefault()
-                event.currentTarget.blur()
-              }
-            }}
-            className="h-10 w-full rounded-xl border border-input bg-background px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
-          />
-        </label>
+        {(item.contents?.length ?? 0) > 0 ? (
+          <section className="space-y-2" aria-label="Produkty v zásobě">
+            <div>
+              <h3 className="text-sm font-medium">Konkrétní produkty</h3>
+              <p className="text-sm text-fg-muted">Celkem {formatPantryQuantity(item.quantity)} {item.unit}; změny množství se ukládají u jednotlivých produktů.</p>
+            </div>
+            <ul className="space-y-2">
+              {item.contents!.map((content) => (
+                <li key={content.id} className="grid grid-cols-[minmax(0,1fr)_7rem_auto] items-center gap-2 rounded-xl border border-border p-2.5">
+                  <span className="min-w-0 break-words text-sm font-medium">{content.name}</span>
+                  <input
+                    aria-label={`Množství produktu ${content.name}`}
+                    type="number"
+                    min="0"
+                    step="any"
+                    inputMode="decimal"
+                    value={contentDrafts[content.id] ?? String(content.quantity)}
+                    onChange={(event) => setContentDrafts((current) => ({ ...current, [content.id]: event.target.value }))}
+                    onBlur={() => void saveContent(content.id, content.quantity)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault()
+                        event.currentTarget.blur()
+                      }
+                    }}
+                    className="h-10 w-full rounded-xl border border-input bg-background px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
+                  />
+                  <span className="text-sm text-fg-muted">{content.unit}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : (
+          <label className="block space-y-1.5 text-sm font-medium">
+            <span>Množství ({item.unit})</span>
+            <input
+              ref={amountRef}
+              type="number"
+              min="0"
+              step="any"
+              inputMode="decimal"
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  event.currentTarget.blur()
+                }
+              }}
+              className="h-10 w-full rounded-xl border border-input bg-background px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
+            />
+          </label>
+        )}
+        {item.productTypeId && !item.productId && (item.contents?.length ?? 0) === 0 && (
+          <p className="text-sm text-fg-muted">Starší zásoba je uložená jen souhrnně, bez názvů konkrétních produktů. Změna druhu se proto použije na tuto zásobu; konkrétní produkty a jejich množství se začnou evidovat z dalších účtenek.</p>
+        )}
 
         <label className="block space-y-1.5 text-sm font-medium">
           <span>Umístění</span>
@@ -168,6 +228,16 @@ export function PantryDetail({
             </Select>
           </label>
         )}
+
+        <label className="block space-y-1.5 text-sm font-medium">
+          <span>Druh produktu</span>
+          <Select aria-label="Druh produktu" value={item.productTypeKey ?? ''} onChange={(event) => void onSetProductType(event.target.value || null)}>
+            <option value="">Neurčeno</option>
+            {[...PRODUCT_TYPES].sort((a, b) => a.name.localeCompare(b.name, 'cs')).map((type) => (
+              <option key={type.key} value={type.key}>{type.name}</option>
+            ))}
+          </Select>
+        </label>
 
         {/* Salt, spices or oil need no weekly question: "Jen zřídka" asks every few months,
             "Nesledovat" never, and neither is ever estimated as used up. */}

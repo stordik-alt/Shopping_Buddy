@@ -9,7 +9,7 @@ import { getDb } from '@/lib/db/client'
 import { reserveReceiptOcrAttempt } from '@/lib/receipt-ocr-rate-limit'
 import { RECEIPT_STALE_MS } from '@/lib/receipt-progress'
 import { invalidateProductPriceCache } from '@/lib/db/cache-invalidation'
-import { getProductCatalogByIds, recordPriceObservation, restockPantryItem, restockPantryTypeItem, upsertProductCatalogDefaults } from '@/lib/db/queries'
+import { getProductCatalogByIds, linkPantryContentsToProduct, recordPriceObservation, restockPantryItem, restockPantryTypeItem, setProductCatalogType, upsertProductCatalogDefaults } from '@/lib/db/queries'
 import { stockTypesForLines } from '@/lib/db/stock-types'
 import { pieceSizeOf } from '@/lib/piece-size'
 import { productTypeByKey, resolveReceiptLineType } from '@/lib/product-types'
@@ -227,7 +227,20 @@ export async function withProductSuggestions(
   open.forEach(({ item, index }, position) => {
     const { suggestions, confident } = found[position]
     if (suggestions.length === 0) return
-    result[index] = { ...item, productSuggestions: suggestions, ...(confident && { productId: suggestions[0].productId }) }
+    const typedSuggestions = suggestions.map((suggestion) => ({
+      ...suggestion,
+      ...((suggestion.productTypeKey ?? catalog.find((product) => product.id === suggestion.productId)?.productTypeKey)
+        ? { productTypeKey: suggestion.productTypeKey ?? catalog.find((product) => product.id === suggestion.productId)?.productTypeKey }
+        : {}),
+    }))
+    result[index] = {
+      ...item,
+      productSuggestions: typedSuggestions,
+      ...(confident && {
+        productId: typedSuggestions[0].productId,
+        productTypeKey: typedSuggestions[0].productTypeKey ?? null,
+      }),
+    }
   })
   return result
 }
@@ -394,6 +407,9 @@ export async function createPurchaseFromReceiptItems(
     if (item.productTypeKey != null && !productTypeByKey(item.productTypeKey)) {
       throw new Error('Neplatný druh zboží u položky „' + item.name + '“.')
     }
+    if (item.productTypeSelectionChanged != null && typeof item.productTypeSelectionChanged !== 'boolean') {
+      throw new Error('Neplatná volba druhu zboží u položky „' + item.name + '“.')
+    }
   }
   // Reject impossible discounts explicitly (a reviewer can type anything) instead of storing a
   // negative price or silently clamping it.
@@ -530,7 +546,7 @@ export async function createPurchaseFromReceiptItems(
   // so recipes and the shopping plan — which ask for types — recognise it. A line whose type cannot
   // be told (the rules find none, or more than one) keeps the old behaviour of a row under its own
   // name rather than silently dropping the stock.
-  const lineTypes = await stockTypesForLines(inventoryItems.map((item) => ({ productId: item.productId, name: item.name, category: item.category, productTypeKey: item.productTypeKey })))
+  const lineTypes = await stockTypesForLines(inventoryItems.map((item) => ({ productId: item.productId, name: item.name, category: item.category, productTypeKey: item.productTypeKey, productTypeSelectionChanged: item.productTypeSelectionChanged })))
   for (const [index, item] of inventoryItems.entries()) {
     const inventory = inventoryQuantities[index]
     const type = lineTypes[index]
@@ -538,6 +554,8 @@ export async function createPurchaseFromReceiptItems(
       await restockPantryTypeItem(householdId, {
         productTypeId: type.id,
         typeName: type.name,
+        productId: item.productId,
+        productName: item.productId ? catalog.find((product) => product.id === item.productId)?.name ?? item.name : item.name,
         category: item.category,
         quantity: inventory.quantity,
         unit: inventory.unit,
@@ -575,24 +593,28 @@ export async function createPurchaseFromReceiptItems(
   }
 
   if (options.source === 'confirmed') {
-    // A line the household linked to a catalog product in review is that product: no catalog entry
-    // is created or changed under the receipt's printed text ("KUR.PRSA"), which would only be a
-    // duplicate of it. What the household corrected stays on the purchase line itself.
+    // A line linked to an existing catalog product stays linked to that identity; its type correction
+    // is written to that product below instead of creating a duplicate under receipt text such as
+    // "KUR.PRSA". Other remembered defaults keep using the usual verified upsert path.
     for (const item of resolvedItems.filter((item) => !item.pickedInReview)) {
       // Always concrete for 'confirmed' items (resolved above) — the `?? 'Spíž'` here only
       // satisfies the type checker, which can't see that per-branch guarantee across the shared
       // `resolvedItems` array type.
-      await upsertProductCatalogDefaults({
+      const productId = await upsertProductCatalogDefaults({
         name: item.name,
         category: item.category,
         unit: item.unit,
         location: item.location ?? 'Spíž',
         subcategory: item.subcategory,
         isNonInventory: item.nonInventory,
-        // A type the household chose is remembered for the printed text, so the next receipt with it
-        // is stocked under that type without asking.
-        productTypeKey: item.productTypeKey,
+        // Only a deliberate type choice teaches the catalog; the recognized default above remains
+        // a rule/catalog result and does not get relabeled as a human correction.
+        ...((item.productTypeSelectionChanged === true || (item.productTypeSelectionChanged == null && item.productTypeKey != null)) && { productTypeKey: item.productTypeKey ?? null }),
       })
+      if (productId) await linkPantryContentsToProduct(householdId, item.name, productId)
+    }
+    for (const item of resolvedItems.filter((item) => item.productId && (item.productTypeSelectionChanged === true || (item.productTypeSelectionChanged == null && item.productTypeKey != null)))) {
+      await setProductCatalogType(item.productId as string, item.productTypeKey ?? null)
     }
     // A brand-new product has no catalog id yet at the time purchase_items was inserted above (it is
     // matched against the catalog *before* this loop creates it) — link it now, so a later

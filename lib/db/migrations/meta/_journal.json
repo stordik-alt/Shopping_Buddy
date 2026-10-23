@@ -414,6 +414,13 @@
       "when": 1792686369082,
       "tag": "0117_product_type_images",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1792753895707,
+      "tag": "0118_pantry_product_breakdown",
+      "breakpoints": true
     }
   ]
 }

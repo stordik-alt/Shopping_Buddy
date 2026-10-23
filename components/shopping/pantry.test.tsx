@@ -33,6 +33,8 @@ function renderPantry(items: PantryItem[], customPlaces: PantryPlace[] = []) {
       onSetTracking={noop}
       onSetSubcategory={noop}
       onSetCategory={noop}
+      onSetProductType={async () => {}}
+      onAdjustContent={async () => true}
       onAutoCategorize={async () => 0}
       estimates={new Map()}
     />,

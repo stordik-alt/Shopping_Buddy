@@ -5,6 +5,7 @@ import {
   addPantryItemAction,
   addPantryPlaceAction,
   adjustPantryItemQuantityAction,
+  adjustPantryItemContentQuantityAction,
   autoCategorizePantryAction,
   confirmPantryItemAction,
   movePantryItemAction,
@@ -16,6 +17,7 @@ import {
   setPantryCheckinDaysAction,
   setPantryItemCategoryAction,
   setPantryItemSubcategoryAction,
+  setPantryItemProductTypeAction,
   setPantrySubcategoryCheckinDaysAction,
   setPantryTrackingAction,
 } from '@/app/actions/pantry'
@@ -24,6 +26,7 @@ import type { PantryPromptState } from '@/components/shopping/pantry-prompt'
 import type { HouseholdData } from '@/lib/db/queries'
 import { customPlaceIdFromKey, pantryItemAtHome, roundPantryQuantity, type PantryQuantityChange } from '@/lib/pantry'
 import { estimatePantry } from '@/lib/pantry-estimate'
+import { productTypeByKey } from '@/lib/product-types'
 import { tabHref } from '@/lib/tab-url'
 import type { Item, ItemCategory, ItemUnit, PantryArea, PantryItem, PantryLocation, PantryTracking } from '@/lib/types'
 
@@ -206,6 +209,30 @@ export function usePantry({
     return setPantryItemSubcategoryAction(id, subcategory)
   }
 
+  async function setPantryItemProductType(id: string, productTypeKey: string | null) {
+    const productTypeId = await setPantryItemProductTypeAction(id, productTypeKey)
+    const current = pantryItems.find((item) => item.id === id)
+    const isTypeStock = current != null && !current.productId && (current.productTypeId != null || (current.contents?.length ?? 0) > 0)
+    const name = isTypeStock && productTypeKey ? productTypeByKey(productTypeKey)?.name ?? current?.name : current?.name
+    setPantryItems((items) => items.map((item) => (item.id === id ? { ...item, productTypeKey, productTypeId, ...(name && { name }) } : item)))
+  }
+
+  async function adjustPantryItemContent(contentId: string, quantity: number, expectedQuantity: number): Promise<boolean> {
+    const item = pantryItems.find((candidate) => candidate.contents?.some((content) => content.id === contentId))
+    if (!item) return false
+    try {
+      const total = await adjustPantryItemContentQuantityAction(contentId, quantity, expectedQuantity)
+      setPantryItems((current) => current.map((candidate) => candidate.id === item.id ? {
+        ...candidate,
+        quantity: total,
+        contents: candidate.contents?.map((content) => content.id === contentId ? { ...content, quantity } : content),
+      } : candidate))
+      return true
+    } catch {
+      return false
+    }
+  }
+
   // The server decides (a locked product cannot change), so the state follows its answer.
   async function setPantryItemCategory(id: string, category: ItemCategory) {
     const outcome = await setPantryItemCategoryAction(id, category)
@@ -293,6 +320,8 @@ export function usePantry({
     setPantryTracking,
     setPantryItemSubcategory,
     setPantryItemCategory,
+    setPantryItemProductType,
+    adjustPantryItemContent,
     autoCategorizePantry,
     adjustPantryItemQuantity,
   }

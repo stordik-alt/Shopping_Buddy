@@ -63,14 +63,25 @@ export function usePantry({
   const confirmedQuantities = useRef(new Map<string, number>())
   const quantityQueue = useRef(new Map<string, Promise<void>>())
 
+  // Replace the pantry with a server-confirmed snapshot and keep the compare-and-set baseline in
+  // step with it. Optimistic quantity edits intentionally continue to use the state setter below.
+  const replacePantryItemsFromServer = useCallback((items: PantryItem[]) => {
+    const currentIds = new Set(items.map((item) => item.id))
+    for (const id of confirmedQuantities.current.keys()) {
+      if (!currentIds.has(id)) confirmedQuantities.current.delete(id)
+    }
+    for (const item of items) confirmedQuantities.current.set(item.id, Number(item.quantity))
+    setPantryItems(items)
+  }, [])
+
   // Resync whenever the server sends a fresh copy (after a user-triggered refresh or a reload).
   useEffect(() => {
-    setPantryItems(initialData.pantryItems)
+    replacePantryItemsFromServer(initialData.pantryItems)
     setPantryPlaces(initialData.pantryPlaces)
     setHiddenPantryLocations(initialData.hiddenPantryLocations)
     setPantryCheckinDays(initialData.pantryCheckinDays)
     setPantryCheckinSubcategoryDays(initialData.pantryCheckinSubcategoryDays)
-  }, [initialData])
+  }, [initialData, replacePantryItemsFromServer])
 
   // Matched by name with synonyms (matchKey); items the household does not track are left alone.
   function offerPantryCorrection(name: string) {
@@ -96,7 +107,7 @@ export function usePantry({
 
   async function addPantryItem(input: { name: string; quantity: number; unit: ItemUnit; category: ItemCategory; subcategory: string | null; placeKey: string; selection?: { kind: 'product'; productId: string } | { kind: 'type'; productTypeKey: string } }) {
     const updated = await addPantryItemAction(input)
-    setPantryItems(updated)
+    replacePantryItemsFromServer(updated)
     return updated
   }
   async function addPantryPlace(area: PantryArea, name: string) {
@@ -227,6 +238,7 @@ export function usePantry({
         quantity: total,
         contents: candidate.contents?.map((content) => content.id === contentId ? { ...content, quantity } : content),
       } : candidate))
+      confirmedQuantities.current.set(item.id, total)
       return true
     } catch {
       return false
@@ -257,10 +269,6 @@ export function usePantry({
   // next request compares against (compare-and-set): if the stored amount no longer is that one —
   // some other member changed it in the meantime — the server refuses the write instead of
   // overwriting the newer amount.
-  useEffect(() => {
-    for (const item of initialData.pantryItems) confirmedQuantities.current.set(item.id, Number(item.quantity))
-  }, [initialData])
-
   function adjustPantryItemQuantity(id: string, quantity: number): Promise<void> {
     const rounded = roundPantryQuantity(quantity)
     // The amount the household sees changes immediately; the request follows.
@@ -293,7 +301,7 @@ export function usePantry({
 
   return {
     pantryItems,
-    setPantryItems,
+    setPantryItems: replacePantryItemsFromServer,
     pantryPlaces,
     hiddenPantryLocations,
     pantryCheckinDays,

@@ -5,6 +5,7 @@ const placeFindFirst = vi.fn()
 const update = vi.fn()
 const set = vi.fn()
 const where = vi.fn()
+const returning = vi.fn()
 
 vi.mock('@/lib/db/client', () => ({
   getDb: () => ({
@@ -29,6 +30,8 @@ describe('updatePantryItemForHousehold', () => {
     placeFindFirst.mockResolvedValue({ id: placeId })
     update.mockReturnValue({ set })
     set.mockReturnValue({ where })
+    where.mockReturnValue({ returning })
+    returning.mockResolvedValue([{ id: itemId }])
   })
 
   it('rejects items that are not owned by the household before writing', async () => {

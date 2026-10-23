@@ -188,7 +188,7 @@ The Cloudflare production workflow `.github/workflows/cloudflare-deploy.yml` app
 
 `lib/db/client.ts` uses `env.HYPERDRIVE.connectionString` in a Cloudflare Worker and connects through `pg` plus `drizzle-orm/node-postgres`. A request-scoped React cache reuses the Drizzle client only within the current request; Hyperdrive owns the origin connection pool. `db.batch()` remains transactional by running its statements on one checked-out `pg` client. The Worker does not fall back to `process.env.DATABASE_URL` when an initialized Cloudflare context is present but the binding is missing or malformed. Node.js development, tests, migrations and the explicit local PostgreSQL mode continue to use `DATABASE_URL` as before.
 
-`wrangler.jsonc` now declares the production `HYPERDRIVE` binding using the ID supplied for this setup. Confirm in Cloudflare that this ID points to the intended Neon database before any deploy. Staging needs its own non-production Hyperdrive ID before its database binding is configured; do not point staging at production data:
+`wrangler.jsonc` declares the production `HYPERDRIVE` binding using the ID supplied for this setup. Confirm in Cloudflare that this ID points to the intended Neon database before any deploy. Staging needs its own non-production Hyperdrive ID before its database binding is configured; do not point staging at production data:
 
 ```jsonc
 "hyperdrive": [
@@ -197,6 +197,8 @@ The Cloudflare production workflow `.github/workflows/cloudflare-deploy.yml` app
 ```
 
 Keep `nodejs_compat`; Cloudflare documents `pg` and `drizzle-orm/node-postgres` as supported Hyperdrive drivers. The installed `pg` 8.23.1 exceeds Cloudflare's stated 8.16.3 minimum. `pg-cloudflare` 1.4.1 remains the optional dependency selected by `pg` for Workers; no `pg` shim is configured. `cloudflare/shims/pg.js` is retained until a separately scoped removal confirms no other consumer needs it.
+
+Keep query caching enabled on the general production `HYPERDRIVE` configuration. Pantry quantity compare-and-set reads use a second binding, `HYPERDRIVE_PANTRY_FRESH`, to the same database with Hyperdrive query caching disabled. Hyperdrive does not invalidate cached `SELECT` results after writes, so only this read-after-write path needs the cache bypass. Its production config is `49dd778fbf244a0f836f6b1956016a1a`; verify `caching.disabled` is `true`. If recreating it, create a separate Hyperdrive config for the same origin with `--caching-disabled`, then update the binding ID in `wrangler.jsonc`. Do not disable caching on the general binding.
 
 Set the Hyperdrive origin credentials in the Hyperdrive configuration, not in `wrangler.jsonc`, repository files or ordinary Worker vars. For local `wrangler dev`, use the documented Hyperdrive local-connection-string mechanism with a disposable non-production database. A real Worker/Hyperdrive smoke test has not been run by this change.
 

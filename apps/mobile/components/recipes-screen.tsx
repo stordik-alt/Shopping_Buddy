@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { ActivityIndicator, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { MobileApiError, getRecipe, searchRecipes, type MobileRecipe } from '../lib/shopping-list-api'
 import { getAccessToken } from '../lib/auth'
+import { RefreshButton } from './refresh-button'
 
 const PAGE_SIZE = 6
 
@@ -114,14 +115,10 @@ export function RecipesScreen({ onAuthExpired }: { onAuthExpired: () => void }) 
         <>
           <View style={styles.heading}>
             <View style={styles.headingText}>
-              <Text style={styles.title}>Recepty</Text>
+              <Text numberOfLines={1} style={styles.title}>Recepty</Text>
               <Text style={styles.supporting}>Hledejte podle názvu nebo surovin.</Text>
             </View>
-            {results.length > 0 ? (
-              <Pressable accessibilityRole="button" disabled={loading} onPress={() => void search(page)} style={styles.refreshButton}>
-                <Text style={styles.refreshText}>{loading ? 'Načítám…' : 'Obnovit'}</Text>
-              </Pressable>
-            ) : null}
+            <RefreshButton disabled={results.length === 0} loading={loading} onPress={() => void search(page)} />
           </View>
           <View style={styles.searchRow}>
             <TextInput
@@ -198,12 +195,10 @@ export function RecipesScreen({ onAuthExpired }: { onAuthExpired: () => void }) 
 const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { padding: 16, paddingBottom: 24, gap: 12 },
-  heading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  headingText: { flex: 1 },
+  heading: { minHeight: 64, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  headingText: { flex: 1, minWidth: 0 },
   title: { color: '#122c3a', fontSize: 22, fontWeight: '700' },
   supporting: { color: '#526674', fontSize: 14, lineHeight: 20, marginTop: 4 },
-  refreshButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 10 },
-  refreshText: { color: '#23515d', fontSize: 14, fontWeight: '600' },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   input: { flex: 1, minHeight: 48, borderColor: '#cbd8dd', borderRadius: 12, borderWidth: 1, backgroundColor: '#ffffff', color: '#122c3a', paddingHorizontal: 14, fontSize: 16 },
   searchButton: { minHeight: 48, borderRadius: 12, backgroundColor: '#087e8b', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },

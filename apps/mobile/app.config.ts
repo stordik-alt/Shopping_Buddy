@@ -5,6 +5,7 @@ import type { ExpoConfig } from 'expo/config'
 const config: ExpoConfig = {
   name: 'ANITKA',
   slug: 'shopping-buddy',
+  owner: 'mojeanitka',
   version: '0.1.0',
   scheme: 'shoppingbuddy',
   orientation: 'portrait',
@@ -24,6 +25,9 @@ const config: ExpoConfig = {
   android: { package: 'cz.shoppingbuddy.mobile' },
   extra: {
     apiUrl: process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000',
+    eas: {
+      projectId: '71379d96-272a-4aa5-af0a-940a00b69b44',
+    },
   },
 }
 

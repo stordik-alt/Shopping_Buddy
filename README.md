@@ -26,17 +26,19 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 ## Mobile app (Expo)
 
-The React Native + Expo (SDK 57, Expo Router, TypeScript) app lives in `apps/mobile` and is independent of the PWA. It currently shows only a start screen titled Shopping_Buddy and the configured backend URL.
+The React Native + Expo (SDK 57, Expo Router, TypeScript) app lives in `apps/mobile`. It connects to the same backend as the web app and includes sign-in, a shopping list with offline changes, budget and pantry screens, recipes, meal planning, barcode scanning, and receipt imports.
 
 ```bash
-pnpm install                              # from the repository root (pnpm workspace)
+pnpm install                                  # from the repository root (pnpm workspace)
 cp apps/mobile/.env.example apps/mobile/.env
-pnpm --filter @shopping-buddy/mobile start    # Expo dev server (a, i = emulator, or scan QR in Expo Go)
+pnpm --filter @shopping-buddy/mobile start    # start the Expo dev server; press a for Android
 pnpm --filter @shopping-buddy/mobile typecheck
-pnpm --filter @shopping-buddy/mobile export   # verifies the Android bundle builds
+pnpm --filter @shopping-buddy/mobile export   # verify the Android JS bundle; this is not an APK
 ```
 
-The backend URL is set with `EXPO_PUBLIC_API_URL` (default `http://localhost:3000`; use the computer's LAN address on a physical device and `http://10.0.2.2:3000` in the Android emulator). It is public configuration: never put secrets in the mobile app.
+Set `EXPO_PUBLIC_API_URL` in `apps/mobile/.env` to the backend URL. The example uses `http://localhost:3000`; on a physical device use the computer's LAN address, and in the Android emulator use `http://10.0.2.2:3000`. This value is public app configuration; never put secrets in the mobile app.
+
+To create an APK for a physical Android phone, run `eas build --profile internal --platform android` from `apps/mobile`. Download and install the artifact from its EAS build page. See [the mobile installer guide](docs/41_MOBILE_INSTALLERS.md) for setup and device testing steps.
 
 ## Learn More
 

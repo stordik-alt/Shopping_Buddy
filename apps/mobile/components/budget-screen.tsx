@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { MobileApiError, getBudgetSummary, type MobileBudgetSummary } from '../lib/shopping-list-api'
+import { RefreshButton } from './refresh-button'
 
 function money(amount: number, currency: string): string {
   try {
@@ -39,13 +40,11 @@ export function BudgetScreen({ onAuthExpired }: { onAuthExpired: () => void }) {
   return (
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" style={styles.scroll}>
       <View style={styles.heading}>
-        <View>
-          <Text style={styles.title}>Rozpočet domácnosti</Text>
+        <View style={styles.headingText}>
+          <Text numberOfLines={1} style={styles.title}>Rozpočet domácnosti</Text>
           {summary ? <Text style={styles.supporting}>{dateLabel(summary.period.start)} – {dateLabel(summary.period.end)}</Text> : null}
         </View>
-        <Pressable accessibilityRole="button" disabled={loading} onPress={() => void load()} style={styles.refreshButton}>
-          <Text style={styles.refreshText}>{loading ? 'Načítám…' : 'Obnovit'}</Text>
-        </Pressable>
+        <RefreshButton loading={loading} onPress={() => void load()} />
       </View>
 
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
@@ -123,10 +122,9 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { paddingHorizontal: 16, paddingBottom: 24, gap: 14 },
   heading: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  headingText: { flex: 1, minWidth: 0 },
   title: { color: '#122c3a', fontSize: 20, fontWeight: '700' },
   supporting: { color: '#526674', fontSize: 13, lineHeight: 19, marginTop: 4 },
-  refreshButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 10 },
-  refreshText: { color: '#23515d', fontSize: 14, fontWeight: '600' },
   card: { backgroundColor: '#ffffff', borderColor: '#dce6e9', borderRadius: 18, borderWidth: 1, padding: 16, gap: 12 },
   label: { color: '#526674', fontSize: 14, fontWeight: '600' },
   budget: { color: '#122c3a', fontSize: 28, fontWeight: '800' },

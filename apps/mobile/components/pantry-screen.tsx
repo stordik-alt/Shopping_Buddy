@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { unitLabel } from '@anitka/shared/units'
 import { MobileApiError, getPantry, updatePantryItem, type MobilePantryItem, type MobilePantryState } from '../lib/shopping-list-api'
+import { RefreshButton } from './refresh-button'
 
 const QUANTITY_STEP = { ks: 1, kg: 0.1, g: 10, l: 0.1, ml: 10, dávka: 1 } as const
 
@@ -75,13 +76,11 @@ export function PantryScreen({ onAuthExpired }: { onAuthExpired: () => void }) {
   return (
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" style={styles.scroll}>
       <View style={styles.heading}>
-        <View>
-          <Text style={styles.title}>Zásoby</Text>
+        <View style={styles.headingText}>
+          <Text numberOfLines={1} style={styles.title}>Zásoby</Text>
           <Text style={styles.supporting}>Vyberte místo, kde jsou věci uložené.</Text>
         </View>
-        <Pressable accessibilityRole="button" disabled={loading} onPress={() => void load()} style={styles.refreshButton}>
-          <Text style={styles.refreshText}>{loading ? 'Načítám…' : 'Obnovit'}</Text>
-        </Pressable>
+        <RefreshButton loading={loading} onPress={() => void load()} />
       </View>
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
 
@@ -187,10 +186,9 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
   heading: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  headingText: { flex: 1, minWidth: 0 },
   title: { color: '#122c3a', fontSize: 20, fontWeight: '700' },
   supporting: { color: '#526674', fontSize: 13, lineHeight: 19, marginTop: 4 },
-  refreshButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 10 },
-  refreshText: { color: '#23515d', fontSize: 14, fontWeight: '600' },
   placeList: { gap: 8, paddingVertical: 2, paddingRight: 8 },
   place: { minWidth: 105, borderColor: '#cbd8dd', borderRadius: 14, borderWidth: 1, backgroundColor: '#ffffff', paddingHorizontal: 13, paddingVertical: 11 },
   placeActive: { backgroundColor: '#087e8b', borderColor: '#087e8b' },

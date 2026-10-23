@@ -9,6 +9,7 @@ import {
   uploadReceiptPhoto,
   type MobileReceiptImport,
 } from '../lib/shopping-list-api'
+import { RefreshButton } from './refresh-button'
 
 type Props = { onAuthExpired: () => void }
 
@@ -220,10 +221,8 @@ export function ReceiptsScreen({ onAuthExpired }: Props) {
       ) : null}
 
       <View style={styles.listHeader}>
-        <Text style={styles.sectionTitle}>Rozpracované účtenky</Text>
-        <Pressable accessibilityRole="button" disabled={loading || workingId !== null} onPress={() => void refresh()} style={styles.secondaryButton}>
-          <Text style={styles.secondaryButtonText}>{loading ? 'Načítám…' : 'Obnovit'}</Text>
-        </Pressable>
+        <Text numberOfLines={1} style={[styles.sectionTitle, styles.listHeaderTitle]}>Rozpracované účtenky</Text>
+        <RefreshButton disabled={workingId !== null} loading={loading} onPress={() => void refresh()} variant="outlined" />
       </View>
       {loading && receipts.length === 0 ? (
         <View style={styles.centered}>
@@ -310,6 +309,7 @@ const styles = StyleSheet.create({
   successCard: { backgroundColor: '#e9f7ee', borderColor: '#b9e3c7', borderWidth: 1, borderRadius: 16, marginHorizontal: 16, padding: 14, gap: 4 },
   successTitle: { color: '#17623b', fontSize: 16, fontWeight: '700' },
   listHeader: { minHeight: 52, marginHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  listHeaderTitle: { flex: 1, minWidth: 0 },
   list: { paddingHorizontal: 16, paddingBottom: 24, gap: 8 },
   receiptCard: { backgroundColor: '#ffffff', borderColor: '#dce6e9', borderRadius: 16, borderWidth: 1, padding: 14, gap: 8 },
   receiptStatus: { color: '#122c3a', fontSize: 16, fontWeight: '700' },

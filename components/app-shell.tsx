@@ -909,6 +909,7 @@ export function AppShell({
                       onCreateManualPurchase={async (input) => {
                         const result = await createManualPurchaseAction(input)
                         setPurchaseHistory((current) => [...current, result.purchase])
+                        pantry.setPantryItems(result.pantryItems)
                         setExpenses(result.expenses)
                         setNotifications(result.notifications)
                         return result

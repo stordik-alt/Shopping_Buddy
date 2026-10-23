@@ -5,7 +5,7 @@ import { and, eq } from 'drizzle-orm'
 import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
 import { recordAudit } from '@/lib/db/audit'
 import { getDb } from '@/lib/db/client'
-import { getHouseholdExpenses, getHouseholdNotifications, linkPantryContentsToProduct, restockPantryItem, restockPantryTypeItem, upsertProductCatalogDefaults } from '@/lib/db/queries'
+import { getHouseholdExpenses, getHouseholdNotifications, getPantryItems, linkPantryContentsToProduct, restockPantryItem, restockPantryTypeItem, upsertProductCatalogDefaults } from '@/lib/db/queries'
 import { stockTypesForLines } from '@/lib/db/stock-types'
 import { pieceSizeOf } from '@/lib/piece-size'
 import { getProductCatalogCached, getSubcategoryCatalogCached } from '@/lib/db/cached-reads'
@@ -18,7 +18,7 @@ import { matchProductByName } from '@/lib/products'
 import { isValidProductSubcategory } from '@/lib/product-subcategories'
 import { inferPantryLocation } from '@/lib/pantry'
 import type { ExpenseSplitPart } from '@/lib/purchase-expenses'
-import type { Expense, ItemCategory, ItemUnit, Notification, PurchaseRecord } from '@/lib/types'
+import type { Expense, ItemCategory, ItemUnit, Notification, PantryItem, PurchaseRecord } from '@/lib/types'
 
 // Real receipts never need more than a handful of ways to split one line; this only stops a crafted
 // request from sending something unbounded (lib/db/purchase-items.ts checks the exact limit).
@@ -57,7 +57,7 @@ export async function createManualPurchaseAction(input: {
   storeChain?: string | null
   discount?: number | null
   items: Array<{ name: string; quantity: number; unit: ItemUnit; price: number; category: ItemCategory; subcategory?: string | null }>
-}): Promise<{ purchase: PurchaseRecord; expenses: Expense[]; notifications: Notification[] }> {
+}): Promise<{ purchase: PurchaseRecord; expenses: Expense[]; notifications: Notification[]; pantryItems: PantryItem[] }> {
   const householdId = await requireHouseholdId()
   if (!input || typeof input.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(input.date)) throw new Error('Neplatné datum nákupu.')
   if (!Array.isArray(input.items) || input.items.length === 0) throw new Error('Nákup musí obsahovat alespoň jednu položku.')
@@ -176,9 +176,10 @@ export async function createManualPurchaseAction(input: {
   const note = input.storeChain?.trim() ? `Nákup ${input.storeChain.trim()} (ručně)` : 'Nákup (ručně)'
   await recomputePurchaseExpenses(db, purchaseRow.id, { notifyBudget: true, noteForNewPurchase: note })
 
-  const [expenses, notifications] = await Promise.all([
+  const [expenses, notifications, pantryItems] = await Promise.all([
     getHouseholdExpenses(householdId),
     getHouseholdNotifications(householdId),
+    getPantryItems(householdId),
   ])
 
   return {
@@ -200,6 +201,7 @@ export async function createManualPurchaseAction(input: {
     },
     expenses,
     notifications,
+    pantryItems,
   }
 }
 

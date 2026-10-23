@@ -59,8 +59,15 @@ export function BudgetOverview({
         </Button>
       </div>
 
-      <div className="grid min-w-0 gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(15rem,0.8fr)]">
-        <BudgetHero budget={budget} spent={spent} remaining={budget - spent} onSetBudget={onEditBudget} />
+      <div className="grid min-w-0 items-start gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(15rem,1fr)]">
+        <BudgetHero
+          compact
+          budget={budget}
+          spent={spent}
+          remaining={budget - spent}
+          onSetBudget={onEditBudget}
+          className="border-l-4 border-l-accent-solid ring-1 ring-accent-solid/40"
+        />
         <div className="grid min-w-0 grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-1">
           <AllowanceCard kind="day" daysLeft={daysLeft} allowances={allowances} onEditBudget={onEditBudget} />
           <AllowanceCard kind="week" daysLeft={daysLeft} allowances={allowances} onEditBudget={onEditBudget} />

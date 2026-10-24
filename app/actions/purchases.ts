@@ -1,30 +1,22 @@
 'use server'
 
-import { ITEM_UNITS } from '@/lib/units'
 import { eq } from 'drizzle-orm'
 import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
 import { recordAudit } from '@/lib/db/audit'
 import { getDb } from '@/lib/db/client'
-import { getHouseholdExpenses, getHouseholdNotifications, getPantryItems, linkPantryContentsToProduct, restockPantryItem, restockPantryTypeItem, upsertProductCatalogDefaults } from '@/lib/db/queries'
-import { stockTypesForLines } from '@/lib/db/stock-types'
-import { pieceSizeOf } from '@/lib/piece-size'
-import { getProductCatalogCached, getSubcategoryCatalogCached } from '@/lib/db/cached-reads'
-import { purchasedInventoryQuantities } from '@/lib/inventory-packaging'
-import { getPurchaseItemsForExpense, recordPurchaseAsExpense, recomputePurchaseExpenses, setPurchaseItemExpenseSplits, type PurchaseExpenseItem } from '@/lib/db/purchase-items'
+import { createManualPurchaseForHousehold } from '@/lib/db/manual-purchase'
+import { getHouseholdExpenses, getHouseholdNotifications } from '@/lib/db/queries'
+import { getPurchaseItemsForExpense, recordPurchaseAsExpense, setPurchaseItemExpenseSplits, type PurchaseExpenseItem } from '@/lib/db/purchase-items'
 import { deletePurchase, PurchaseToDeleteNotFoundError } from '@/lib/db/purchase-deletion'
 import * as schema from '@/lib/db/schema'
 import { isExpenseCategory, isValidSubcategory, type ExpenseCategory } from '@/lib/expense-categories'
-import { matchProductByName } from '@/lib/products'
-import { isValidProductSubcategory } from '@/lib/product-subcategories'
-import { inferPantryLocation } from '@/lib/pantry'
 import { clearDoneShoppingItemsForHousehold } from '@/lib/shopping-list-service'
 import type { ExpenseSplitPart } from '@/lib/purchase-expenses'
-import type { Expense, ItemCategory, ItemUnit, Notification, PantryItem, PurchaseRecord } from '@/lib/types'
+import type { Expense, ManualPurchaseInput, Notification } from '@/lib/types'
 
 // Real receipts never need more than a handful of ways to split one line; this only stops a crafted
 // request from sending something unbounded (lib/db/purchase-items.ts checks the exact limit).
 const MAX_SPLITS_PER_ITEM = 20
-const PRODUCT_ITEM_CATEGORIES = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní'] as const
 
 /** "Dokončit nákup" on the shopping list: removes the ticked items. A list is only a reminder and
  *  tick-off tool (owner request, 2026-10-11) — it creates no purchase, expense or pantry stock.
@@ -38,157 +30,9 @@ export async function clearDoneItemsAction(listId: string): Promise<{ removed: n
 
 /** Creates a real purchase directly from user-entered lines. It counts immediately towards
  * the budget and restocks inventory just like an imported receipt. */
-export async function createManualPurchaseAction(input: {
-  date: string
-  storeChain?: string | null
-  discount?: number | null
-  items: Array<{ name: string; quantity: number; unit: ItemUnit; price: number; category: ItemCategory; subcategory?: string | null }>
-}): Promise<{ purchase: PurchaseRecord; expenses: Expense[]; notifications: Notification[]; pantryItems: PantryItem[] }> {
+export async function createManualPurchaseAction(input: ManualPurchaseInput) {
   const householdId = await requireHouseholdId()
-  if (!input || typeof input.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(input.date)) throw new Error('Neplatné datum nákupu.')
-  if (!Array.isArray(input.items) || input.items.length === 0) throw new Error('Nákup musí obsahovat alespoň jednu položku.')
-  if (input.items.length > 100) throw new Error('Nákup může obsahovat nejvýše 100 položek.')
-
-  const items = input.items.map((item, index) => {
-    const name = String(item.name ?? '').trim()
-    const quantity = Number(item.quantity)
-    const price = Number(item.price)
-    if (!name) throw new Error(`Položka ${index + 1} nemá název.`)
-    if (!Number.isFinite(quantity) || quantity <= 0) throw new Error(`Neplatné množství u položky „${name}“.`)
-    if (!Number.isFinite(price) || price < 0) throw new Error(`Neplatná cena u položky „${name}“.`)
-    if (!(ITEM_UNITS as string[]).includes(item.unit)) throw new Error(`Neplatná jednotka u položky „${name}“.`)
-    if (!(PRODUCT_ITEM_CATEGORIES as readonly string[]).includes(item.category)) throw new Error(`Neplatná kategorie u položky „${name}“.`)
-    if (item.subcategory != null && !isValidProductSubcategory(item.category, item.subcategory)) throw new Error(`Neplatná podkategorie u položky „${name}“.`)
-    return { name, quantity, price, unit: item.unit, category: item.category, subcategory: item.subcategory ?? null }
-  })
-
-  const catalog = await getProductCatalogCached(items.map((item) => item.name))
-  const resolved = items.map((item) => {
-    const product = matchProductByName(catalog, item.name)
-    const category = item.category
-    const subcategory = item.subcategory ?? null
-    if (!isValidProductSubcategory(category, subcategory)) throw new Error(`Neplatná podkategorie u položky „${item.name}“.`)
-    return { ...item, product, category, subcategory }
-  })
-  const subcategories = await getSubcategoryCatalogCached()
-  const subcategoryId = (category: ItemCategory, name: string | null) => name ? subcategories.find((row) => row.category === category && row.name === name)?.id ?? null : null
-
-  const db = getDb()
-  let storeLocationId: string | null = null
-  if (input.storeChain?.trim()) {
-    const store = await db.query.stores.findFirst({ where: eq(schema.stores.chain, input.storeChain.trim()) })
-    if (store) {
-      const location = await db.query.storeLocations.findFirst({ where: eq(schema.storeLocations.storeId, store.id) })
-      storeLocationId = location?.id ?? null
-    }
-  }
-
-  const subtotal = resolved.reduce((sum, item) => sum + item.quantity * item.price, 0)
-  const discount = input.discount == null ? null : Number(input.discount)
-  if (discount != null && (!Number.isFinite(discount) || discount < 0 || discount > subtotal)) throw new Error('Neplatná sleva.')
-  const total = Math.max(0, subtotal - (discount ?? 0))
-
-  const [purchaseRow] = await db.insert(schema.purchases).values({
-    householdId,
-    storeLocationId,
-    date: input.date,
-    total: total.toFixed(2),
-    discount: discount?.toFixed(2),
-  }).returning()
-
-  const itemRows = await db.insert(schema.purchaseItems).values(
-    resolved.map((item) => ({
-      purchaseId: purchaseRow.id,
-      productId: item.product?.id ?? null,
-      name: item.name,
-      quantity: item.quantity,
-      unit: item.unit,
-      price: item.price.toFixed(2),
-      category: item.category,
-      subcategoryId: subcategoryId(item.category, item.subcategory),
-    })),
-  ).returning()
-
-  const inventoryInputs = resolved.map((item) => ({
-    productId: item.product?.id ?? null,
-    name: item.name,
-    subcategory: item.subcategory,
-    quantity: item.quantity,
-    unit: item.unit,
-  }))
-  const inventoryQuantities = await purchasedInventoryQuantities(inventoryInputs)
-  // Stock is kept by product type, like a receipt import (see lib/db/stock-types.ts); a line whose
-  // type cannot be told is stocked under its own name.
-  const lineTypes = await stockTypesForLines(resolved.map((item) => ({ productId: item.product?.id ?? null, name: item.name, category: item.category })))
-  for (const [index, item] of resolved.entries()) {
-    if (!item.product?.isNonInventory) {
-      const inventory = inventoryQuantities[index]
-      const type = lineTypes[index]
-      if (type) {
-        await restockPantryTypeItem(householdId, {
-          productTypeId: type.id,
-          typeName: type.name,
-          productId: item.product?.id ?? null,
-          productName: item.name,
-          category: item.category,
-          quantity: inventory.quantity,
-          unit: inventory.unit,
-          subcategoryId: subcategoryId(item.category, item.subcategory),
-          piece: pieceSizeOf(inventory, item.name),
-        })
-      } else {
-        await restockPantryItem(householdId, {
-          productId: item.product?.id ?? null,
-          name: item.name,
-          category: item.category,
-          quantity: inventory.quantity,
-          unit: inventory.unit,
-          subcategoryId: subcategoryId(item.category, item.subcategory),
-        })
-      }
-    }
-    // A manual import is a human-confirmed classification, so remember it for future imports too.
-    const productId = await upsertProductCatalogDefaults({
-      name: item.name,
-      category: item.category,
-      unit: item.unit,
-      location: item.product?.defaultLocation ?? inferPantryLocation(item.category, item.name) ?? 'Spíž',
-      subcategory: item.subcategory,
-      isNonInventory: item.product?.isNonInventory,
-    })
-    if (productId) await linkPantryContentsToProduct(householdId, item.name, productId)
-  }
-
-  const note = input.storeChain?.trim() ? `Nákup ${input.storeChain.trim()} (ručně)` : 'Nákup (ručně)'
-  await recomputePurchaseExpenses(db, purchaseRow.id, { notifyBudget: true, noteForNewPurchase: note })
-
-  const [expenses, notifications, pantryItems] = await Promise.all([
-    getHouseholdExpenses(householdId),
-    getHouseholdNotifications(householdId),
-    getPantryItems(householdId),
-  ])
-
-  return {
-    purchase: {
-      id: purchaseRow.id,
-      date: purchaseRow.date,
-      store: input.storeChain?.trim() || undefined,
-      total: Number(purchaseRow.total),
-      discount: purchaseRow.discount != null ? Number(purchaseRow.discount) : undefined,
-      items: itemRows.map((row) => ({
-        id: row.id,
-        name: row.name,
-        quantity: Number(row.quantity),
-        unit: row.unit,
-        price: Number(row.price),
-        category: row.category,
-        expenseSplits: [],
-      })),
-    },
-    expenses,
-    notifications,
-    pantryItems,
-  }
+  return createManualPurchaseForHousehold(householdId, input)
 }
 
 /** The household's own split of one item of one of its own past purchases across expense targets —

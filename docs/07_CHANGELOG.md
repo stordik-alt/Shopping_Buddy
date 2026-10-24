@@ -2,12 +2,12 @@
 
 - **Rozpočet a grafy jsou v Expo verzi přítomné:** obrazovka rozpočtu zobrazuje interaktivní prstencový graf a seznam výdajů podle kategorií; domácí přehled má kategoriální pruhy. Mobilní paleta grafů odpovídá světlému i tmavému motivu PWA. Produktové ilustrace používají sdílené mapování typu/kategorie, včetně fotografií tam, kde jsou dostupné.
 - **Profil a upozornění jsou přítomné:** profil zahrnuje domácnost, členy a děti, nákupní preference, nastavení obchodů a zásob, vzhled `Podle systému / Světlé / Tmavé`, preference druhů upozornění, správu push oznámení pro zařízení, pozvánky, audit a reset vybraných domácích dat. Samostatné centrum upozornění zobrazuje a označuje přečtené položky.
-- Mobilní **Historie nákupů** nyní odpovídá PWA ve statistikách a opakovaných nákupech, zobrazuje všechny položky po rozbalení, dovoluje dodatečně zařadit nákup z účtenky do rozpočtu a odstranit nákup včetně výdajů, účtenky, zásob a odškrtnutých položek seznamu. Nové mutace používají existující doménové operace a serverově odvozenou domácnost.
-- Zbývající rozdíly v této obrazovce: ruční zadání nákupu a editor rozdělení výdaje položky zatím mobilní verze nemá. Jejich doplnění vyžaduje znovupoužít stejnou klasifikaci, rozpočtové přepočty a skladové dopady jako PWA.
+- Mobilní **Historie nákupů** nyní odpovídá PWA ve statistikách a opakovaných nákupech, rozbalení všech položek, dodatečném zápisu účtenky do rozpočtu, mazání nákupu včetně návazných dat, ručním zadávání a úpravě kategorií či rozdělení výdaje položek. Mobilní i webová část sdílejí doménovou logiku tvorby nákupu, rozpočtového přepočtu, skladových dopadů a ověření rozdělení.
 - Nákupní seznam dostal chybějící mobilní kartu **„Doplnit obvyklé“**, která používá stejnou doménovou logiku a data domácnosti jako PWA. Je dostupná při připojení a přidání potvrzuje uživatel.
 - Doplněno **„Dokončit nákup (N)“**. PWA i mobilní API nyní volají společnou domácností ověřenou službu, která smaže pouze odškrtnuté položky z hlavního seznamu. Nevytváří nákup, výdaj ani stav zásob. Akce je v mobilu vypnutá při offline režimu nebo nevyřízených změnách.
 - Ověření: Expo TypeScript, kořenový TypeScript, Android bundle export, 19 testů mobilních nákupních tras/doménové logiky a 3 databázové testy akce dokončení prošly. Nativní obrazovky nebyly v tomto kroku vizuálně ověřeny na emulátoru ani fyzickém telefonu.
 - Dodatečná kontrola historie nákupů: 5 testů nové mobilní trasy, kořenový i Expo TypeScript a Android Expo export prošly. V prostředí není dostupný `adb` ani Android emulátor, takže nové obrazovky nešlo vizuálně proklikat.
+- Ruční nákup a úprava rozdělení: 28 testů tras a existující databázové akce, kořenový i Expo TypeScript prošly; testovací větev DB byla před během aktualizována migracemi až po `0118_pantry_product_breakdown.sql`.
 
 ## 2026-10-23 — Účtenky čte přímo GPT-6 Luna
 

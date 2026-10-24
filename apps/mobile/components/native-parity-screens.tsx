@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
-import { ArrowDown, ArrowRight, Bell, CookingPot, House, MapPin, MoreHorizontal, Package, PiggyBank, Plus, Repeat, ReceiptText, Search, ShoppingBag, ShoppingCart, Star, Store, Tag, Trash2, TrendingUp, Users, WalletCards, X } from 'lucide-react-native'
+import { ArrowDown, ArrowRight, Bell, CookingPot, House, MapPin, MoreHorizontal, Package, Pencil, PiggyBank, Plus, Repeat, ReceiptText, Search, ShoppingBag, ShoppingCart, Star, Store, Tag, Trash2, TrendingUp, Users, WalletCards, X } from 'lucide-react-native'
 import { useMobileTheme, type ThemePreference } from '../lib/theme'
-import { addHouseholdChild, addHouseholdMember, createHouseholdInvitation, deleteMobilePurchase, dismissNotification, dismissRestockSuggestion, getDashboardSummary, getDealsPage, getHouseholdAuditLog, getHouseholdInvitations, getMealPlan, getNotificationPreferences, getNotifications, getPantrySettings, getPurchaseHistory, getStoreBranches, getStoreChains, getStorePreferences, MobileApiError, recordMobilePurchaseExpenses, removeHouseholdChild, removeHouseholdMember, resetHouseholdData, revokeHouseholdInvitation, sendTestPushNotification, updateHouseholdMemberDiet, updateHouseholdPreferences, updateHouseholdProfile, updateNotificationPreference, updatePantrySettings, updateStorePreferences, type MobileAuditEntry, type MobileBranchPage, type MobileChainTile, type MobileDashboardSummary, type MobileDealCategory, type MobileDealsPage, type MobileDealSort, type MobileDietAvoid, type MobileDietKey, type MobileHouseholdChild, type MobileHouseholdInvitation, type MobileHouseholdMember, type MobileHouseholdPreferences, type MobileHouseholdProfileData, type MobileMemberDiet, type MobileMealPlan, type MobileNotification, type MobileNotificationPreference, type MobilePantrySettings, type MobilePantryStockLevel, type MobilePurchase, type MobileStoreSelection } from '../lib/shopping-list-api'
+import { addHouseholdChild, addHouseholdMember, createHouseholdInvitation, createMobileManualPurchase, deleteMobilePurchase, dismissNotification, dismissRestockSuggestion, getDashboardSummary, getDealsPage, getHouseholdAuditLog, getHouseholdInvitations, getMealPlan, getNotificationPreferences, getNotifications, getPantrySettings, getPurchaseHistory, getStoreBranches, getStoreChains, getStorePreferences, MobileApiError, recordMobilePurchaseExpenses, removeHouseholdChild, removeHouseholdMember, resetHouseholdData, revokeHouseholdInvitation, sendTestPushNotification, updateHouseholdMemberDiet, updateHouseholdPreferences, updateHouseholdProfile, updateMobilePurchaseItemExpenseSplits, updateNotificationPreference, updatePantrySettings, updateStorePreferences, type MobileAuditEntry, type MobileBranchPage, type MobileChainTile, type MobileDashboardSummary, type MobileDealCategory, type MobileDealsPage, type MobileDealSort, type MobileDietAvoid, type MobileDietKey, type MobileHouseholdChild, type MobileHouseholdInvitation, type MobileHouseholdMember, type MobileHouseholdPreferences, type MobileHouseholdProfileData, type MobileMemberDiet, type MobileMealPlan, type MobileNotification, type MobileNotificationPreference, type MobilePantrySettings, type MobilePantryStockLevel, type MobilePurchase, type MobileStoreSelection } from '../lib/shopping-list-api'
 import { dismissalKey } from '../../../lib/pantry-restock'
 import { assessDealQuality, dealDiscount, effectivePrice } from '../../../lib/prices'
 import { DIET_AVOIDS, DIETS, dietLabels } from '../../../lib/diet'
 import { CHECKIN_DAYS_BY_CATEGORY, CHECKIN_DAYS_BY_SUBCATEGORY, PANTRY_AREAS, PANTRY_LOCATIONS, checkinSubcategoryKey } from '../../../lib/pantry'
+import { EXPENSE_CATEGORY_NAMES, subcategoriesOf, type ExpenseCategory } from '../../../lib/expense-categories'
 import { subcategoriesOfItem } from '../../../lib/product-subcategories'
+import { automaticExpenseCategory, type ExpenseSplitPart } from '../../../lib/purchase-expenses'
 import { PRODUCT_TYPES } from '../../../lib/product-types'
 import { DOSE_TYPE_KEYS } from '../../../lib/units'
 import { ITEM_UNITS, unitLabel, type ItemUnit } from '@anitka/shared/units'
@@ -20,6 +22,8 @@ import { currentWeekStart, DAYS } from '../../../lib/meal-plans'
 import { auditDetailText, auditLabel } from '../../../lib/audit'
 import { confirmsHouseholdName, DATA_RESET_GROUPS, DATA_RESET_LABELS, type DataResetGroup } from '../../../lib/data-reset'
 import { averageMonthlySpend, favoriteStores, mostBoughtProducts, repeatPurchases } from '../../../lib/purchase-history'
+import { todayInPrague } from '../../../lib/today'
+import type { ItemCategory, ManualPurchaseInput } from '../../../lib/types'
 
 export type NativeTab = 'home' | 'shopping' | 'pantry' | 'budget' | 'deals' | 'stores' | 'recipes' | 'profile'
 type TabLabel = NativeTab
@@ -416,6 +420,120 @@ export function NativeNotificationsModal({ visible, onClose, onUnreadCount }: { 
   </Modal>
 }
 
+type ManualPurchaseLine = { name: string; quantity: string; unit: ItemUnit; price: string; category: ItemCategory; subcategory: string }
+const MANUAL_ITEM_CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
+
+function NativeManualPurchaseForm({ chains, onClose, onSave }: { chains: MobileChainTile[]; onClose: () => void; onSave: (input: ManualPurchaseInput) => Promise<void> }) {
+  const { colors } = useMobileTheme()
+  const styles = useStyles()
+  const [date, setDate] = useState(todayInPrague())
+  const [storeChain, setStoreChain] = useState('')
+  const [discount, setDiscount] = useState('')
+  const [lines, setLines] = useState<ManualPurchaseLine[]>([{ name: '', quantity: '1', unit: 'ks', price: '', category: 'Potraviny', subcategory: '' }])
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function submit() {
+    setSaving(true)
+    setError(null)
+    try {
+      const items = lines.filter((line) => line.name.trim()).map((line) => ({
+        name: line.name.trim(), quantity: Number(line.quantity.replace(',', '.')), unit: line.unit,
+        price: Number(line.price.replace(',', '.')), category: line.category, subcategory: line.subcategory || null,
+      }))
+      if (items.length === 0) throw new Error('Přidejte alespoň jednu pojmenovanou položku.')
+      if (items.some((item) => !Number.isFinite(item.quantity) || item.quantity <= 0 || !Number.isFinite(item.price) || item.price < 0)) {
+        throw new Error('Zkontrolujte množství a cenu položek.')
+      }
+      await onSave({ date, storeChain: storeChain || null, discount: discount ? Number(discount.replace(',', '.')) : null, items })
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Nákup se nepodařilo uložit.')
+    } finally { setSaving(false) }
+  }
+
+  function updateLine(index: number, changes: Partial<ManualPurchaseLine>) {
+    setLines((current) => current.map((line, row) => row === index ? { ...line, ...changes } : line))
+  }
+
+  return <Modal animationType="slide" onRequestClose={onClose} transparent visible>
+    <View style={styles.manualModalOverlay}>
+      <View style={styles.manualModal}>
+        <View style={styles.sectionHeader}><View style={styles.preferenceDescription}><Text style={styles.sheetTitle}>Zadat nákup ručně</Text><Text style={styles.noteText}>Po uložení se započítá do rozpočtu a doplní zásoby.</Text></View><Pressable accessibilityLabel="Zavřít ruční zadání nákupu" onPress={onClose} style={styles.closeButton}><X color={colors.foreground} size={20} /></Pressable></View>
+        <ScrollView contentContainerStyle={styles.manualFormContent} keyboardShouldPersistTaps="handled">
+          <Text style={styles.profileFieldLabel}>Datum nákupu</Text>
+          <TextInput accessibilityLabel="Datum nákupu" onChangeText={setDate} placeholder="RRRR-MM-DD" placeholderTextColor={colors.mutedText} style={styles.profileInput} value={date} />
+          <Text style={styles.profileFieldLabel}>Obchod</Text>
+          <TextInput accessibilityLabel="Obchod nákupu" onChangeText={setStoreChain} placeholder="Např. Lidl" placeholderTextColor={colors.mutedText} style={styles.profileInput} value={storeChain} />
+          {chains.length > 0 ? <ScrollView horizontal contentContainerStyle={styles.chipRow} showsHorizontalScrollIndicator={false}>{chains.map((chain) => <Pressable key={chain.storeId} onPress={() => setStoreChain(chain.chain)} style={[styles.themeChoice, storeChain === chain.chain && styles.themeChoiceSelected]}><Text style={[styles.themeChoiceText, storeChain === chain.chain && styles.themeChoiceTextSelected]}>{chain.chain}</Text></Pressable>)}</ScrollView> : null}
+          <Text style={styles.profileFieldLabel}>Celková sleva</Text>
+          <TextInput accessibilityLabel="Sleva z nákupu" keyboardType="decimal-pad" onChangeText={setDiscount} placeholder="0 Kč" placeholderTextColor={colors.mutedText} style={styles.profileInput} value={discount} />
+          {lines.map((line, index) => <View key={index} style={styles.manualLineCard}>
+            <View style={styles.sectionHeader}><Text style={styles.cardTitle}>Položka {index + 1}</Text><Pressable accessibilityRole="button" accessibilityLabel={`Odebrat položku ${index + 1}`} disabled={lines.length === 1} onPress={() => setLines((current) => current.filter((_, row) => row !== index))}><Trash2 color={lines.length === 1 ? colors.mutedText : colors.destructive} size={17} /></Pressable></View>
+            <TextInput accessibilityLabel={`Název položky ${index + 1}`} onChangeText={(name) => updateLine(index, { name })} placeholder="Název produktu" placeholderTextColor={colors.mutedText} style={styles.profileInput} value={line.name} />
+            <View style={styles.rowFields}><TextInput accessibilityLabel={`Množství položky ${index + 1}`} keyboardType="decimal-pad" onChangeText={(quantity) => updateLine(index, { quantity })} placeholder="Množství" placeholderTextColor={colors.mutedText} style={[styles.profileInput, styles.manualSmallInput]} value={line.quantity} /><TextInput accessibilityLabel={`Cena za jednotku položky ${index + 1}`} keyboardType="decimal-pad" onChangeText={(price) => updateLine(index, { price })} placeholder="Cena / jednotku" placeholderTextColor={colors.mutedText} style={[styles.profileInput, styles.manualSmallInput]} value={line.price} /></View>
+            <Text style={styles.profileFieldLabel}>Jednotka</Text>
+            <ScrollView horizontal contentContainerStyle={styles.chipRow} showsHorizontalScrollIndicator={false}>{ITEM_UNITS.map((unit) => <Pressable key={unit} accessibilityRole="button" accessibilityState={{ selected: line.unit === unit }} onPress={() => updateLine(index, { unit })} style={[styles.themeChoice, line.unit === unit && styles.themeChoiceSelected]}><Text style={[styles.themeChoiceText, line.unit === unit && styles.themeChoiceTextSelected]}>{unitLabel(1, unit)}</Text></Pressable>)}</ScrollView>
+            <Text style={styles.profileFieldLabel}>Kategorie</Text>
+            <ScrollView horizontal contentContainerStyle={styles.chipRow} showsHorizontalScrollIndicator={false}>{MANUAL_ITEM_CATEGORIES.map((category) => <Pressable key={category} accessibilityRole="button" accessibilityState={{ selected: line.category === category }} onPress={() => updateLine(index, { category, subcategory: '' })} style={[styles.themeChoice, line.category === category && styles.themeChoiceSelected]}><Text style={[styles.themeChoiceText, line.category === category && styles.themeChoiceTextSelected]}>{category}</Text></Pressable>)}</ScrollView>
+            <Text style={styles.profileFieldLabel}>Podkategorie</Text>
+            <ScrollView horizontal contentContainerStyle={styles.chipRow} showsHorizontalScrollIndicator={false}><Pressable onPress={() => updateLine(index, { subcategory: '' })} style={[styles.themeChoice, !line.subcategory && styles.themeChoiceSelected]}><Text style={[styles.themeChoiceText, !line.subcategory && styles.themeChoiceTextSelected]}>Bez podkategorie</Text></Pressable>{subcategoriesOfItem(line.category).map((subcategory) => <Pressable key={subcategory} onPress={() => updateLine(index, { subcategory })} style={[styles.themeChoice, line.subcategory === subcategory && styles.themeChoiceSelected]}><Text style={[styles.themeChoiceText, line.subcategory === subcategory && styles.themeChoiceTextSelected]}>{subcategory}</Text></Pressable>)}</ScrollView>
+          </View>)}
+          <Pressable accessibilityRole="button" onPress={() => setLines((current) => [...current, { name: '', quantity: '1', unit: 'ks', price: '', category: 'Potraviny', subcategory: '' }])} style={styles.purchaseShowAll}><Plus color={colors.accentText} size={17} /><Text style={styles.purchaseActionText}>Přidat položku</Text></Pressable>
+          {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+          <Pressable accessibilityRole="button" disabled={saving} onPress={() => void submit()} style={[styles.profileSaveButton, saving && styles.disabled]}><Text style={styles.profileSaveText}>{saving ? 'Ukládám…' : 'Uložit nákup'}</Text></Pressable>
+        </ScrollView>
+      </View>
+    </View>
+  </Modal>
+}
+
+function NativePurchaseSplitModal({ item, onClose, onSave }: { item: MobilePurchase['items'][number] & { id: string; category: NonNullable<MobilePurchase['items'][number]['category']> }; onClose: () => void; onSave: (splits: ExpenseSplitPart[]) => Promise<void> }) {
+  const { colors } = useMobileTheme()
+  const styles = useStyles()
+  const total = item.price * item.quantity
+  const totalCents = Math.round(total * 100)
+  const [rows, setRows] = useState<Array<{ category: ExpenseCategory; subcategory: string | null; amount: string }>>([])
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const existing = item.expenseSplits ?? []
+    setRows(existing.length ? existing.map((part) => ({ ...part, amount: part.amount.toFixed(2) })) : [{ category: automaticExpenseCategory(item.category), subcategory: null, amount: total.toFixed(2) }])
+    setError(null)
+  }, [item, total])
+
+  const amounts = rows.map((row) => Number(row.amount.replace(',', '.')))
+  const remaining = totalCents - amounts.reduce((sum, value) => sum + (Number.isFinite(value) ? Math.round(value * 100) : 0), 0)
+  const canSave = rows.length > 0 && amounts.every((amount) => Number.isFinite(amount) && amount > 0) && remaining === 0 && !saving
+
+  async function save(splits: ExpenseSplitPart[]) {
+    setSaving(true)
+    setError(null)
+    try { await onSave(splits); onClose() }
+    catch (caught) { setError(caught instanceof Error ? caught.message : 'Rozdělení výdaje se nepodařilo uložit.') }
+    finally { setSaving(false) }
+  }
+
+  return <Modal animationType="slide" onRequestClose={onClose} transparent visible>
+    <View style={styles.manualModalOverlay}><View style={styles.manualModal}>
+      <View style={styles.sectionHeader}><View style={styles.preferenceDescription}><Text style={styles.sheetTitle}>{item.name}</Text><Text style={styles.noteText}>Celkem {money(total, 'CZK')}</Text></View><Pressable accessibilityLabel="Zavřít rozdělení výdaje" onPress={onClose} style={styles.closeButton}><X color={colors.foreground} size={20} /></Pressable></View>
+      <ScrollView contentContainerStyle={styles.manualFormContent} keyboardShouldPersistTaps="handled">
+        <Text style={styles.bodyText}>Rozdělte částku podle skutečnosti; součet musí odpovídat celé položce.</Text>
+        {rows.map((row, index) => <View key={index} style={styles.manualLineCard}>
+          <View style={styles.sectionHeader}><Text style={styles.cardTitle}>Část {index + 1}</Text>{rows.length > 1 ? <Pressable accessibilityRole="button" accessibilityLabel={`Odebrat část ${index + 1}`} onPress={() => setRows((current) => current.filter((_, rowIndex) => rowIndex !== index))}><Trash2 color={colors.destructive} size={17} /></Pressable> : null}</View>
+          <ScrollView horizontal contentContainerStyle={styles.chipRow} showsHorizontalScrollIndicator={false}>{EXPENSE_CATEGORY_NAMES.map((category) => <Pressable key={category} accessibilityState={{ selected: category === row.category }} onPress={() => setRows((current) => current.map((part, rowIndex) => rowIndex === index ? { ...part, category, subcategory: null } : part))} style={[styles.themeChoice, category === row.category && styles.themeChoiceSelected]}><Text style={[styles.themeChoiceText, category === row.category && styles.themeChoiceTextSelected]}>{category}</Text></Pressable>)}</ScrollView>
+          <ScrollView horizontal contentContainerStyle={styles.chipRow} showsHorizontalScrollIndicator={false}><Pressable onPress={() => setRows((current) => current.map((part, rowIndex) => rowIndex === index ? { ...part, subcategory: null } : part))} style={[styles.themeChoice, !row.subcategory && styles.themeChoiceSelected]}><Text style={[styles.themeChoiceText, !row.subcategory && styles.themeChoiceTextSelected]}>Bez podkategorie</Text></Pressable>{subcategoriesOf(row.category).map((subcategory) => <Pressable key={subcategory} onPress={() => setRows((current) => current.map((part, rowIndex) => rowIndex === index ? { ...part, subcategory } : part))} style={[styles.themeChoice, row.subcategory === subcategory && styles.themeChoiceSelected]}><Text style={[styles.themeChoiceText, row.subcategory === subcategory && styles.themeChoiceTextSelected]}>{subcategory}</Text></Pressable>)}</ScrollView>
+          <TextInput accessibilityLabel={`Částka části ${index + 1}`} keyboardType="decimal-pad" onChangeText={(amount) => setRows((current) => current.map((part, rowIndex) => rowIndex === index ? { ...part, amount } : part))} placeholder="Částka" placeholderTextColor={colors.mutedText} style={styles.profileInput} value={row.amount} />
+        </View>)}
+        <Text style={[styles.noteText, { color: remaining === 0 ? colors.success : colors.destructive }]}>{remaining === 0 ? 'Součet odpovídá celé částce.' : `Zbývá rozdělit: ${money(remaining / 100, 'CZK')}`}</Text>
+        <Pressable accessibilityRole="button" onPress={() => setRows((current) => [...current, { category: automaticExpenseCategory(item.category), subcategory: null, amount: '0' }])} style={styles.purchaseShowAll}><Plus color={colors.accentText} size={17} /><Text style={styles.purchaseActionText}>Přidat část</Text></Pressable>
+        {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+        <View style={styles.rowActions}><Pressable accessibilityRole="button" disabled={!canSave} onPress={() => void save(rows.map((row, index) => ({ category: row.category, subcategory: row.subcategory, amount: amounts[index] })))} style={[styles.profileSaveButton, styles.flexText, !canSave && styles.disabled]}><Text style={styles.profileSaveText}>{saving ? 'Ukládám…' : 'Uložit rozdělení'}</Text></Pressable>{item.expenseSplits?.length ? <Pressable accessibilityRole="button" disabled={saving} onPress={() => void save([])} style={styles.secondaryAction}><Text style={styles.secondaryActionText}>Automaticky</Text></Pressable> : null}</View>
+      </ScrollView>
+    </View></View>
+  </Modal>
+}
+
 export function NativePurchasesScreen() {
   const { colors } = useMobileTheme()
   const styles = useStyles()
@@ -425,9 +543,17 @@ export function NativePurchasesScreen() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [showAll, setShowAll] = useState(false)
   const [busyPurchaseId, setBusyPurchaseId] = useState<string | null>(null)
+  const [manualOpen, setManualOpen] = useState(false)
+  const [editingItem, setEditingItem] = useState<(MobilePurchase['items'][number] & { id: string; category: NonNullable<MobilePurchase['items'][number]['category']> }) | null>(null)
+  const [storeChains, setStoreChains] = useState<MobileChainTile[]>([])
   useEffect(() => {
     let cancelled = false
     getPurchaseHistory().then(({ purchases: rows }) => { if (!cancelled) setPurchases(rows) }).catch((caught: unknown) => { if (!cancelled) setError(caught instanceof Error ? caught.message : 'Historii nákupů se nepodařilo načíst.') }).finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [])
+  useEffect(() => {
+    let cancelled = false
+    getStoreChains().then(({ chains }) => { if (!cancelled) setStoreChains(chains) }).catch(() => undefined)
     return () => { cancelled = true }
   }, [])
   const newestFirst = purchases.slice().reverse()
@@ -470,8 +596,22 @@ export function NativePurchasesScreen() {
     } finally { setBusyPurchaseId(null) }
   }
 
+  async function saveManualPurchase(input: ManualPurchaseInput) {
+    const { purchase } = await createMobileManualPurchase(input)
+    setPurchases((current) => [...current, purchase])
+    setManualOpen(false)
+  }
+
+  async function saveItemSplits(itemId: string, splits: ExpenseSplitPart[]) {
+    await updateMobilePurchaseItemExpenseSplits(itemId, splits)
+    setPurchases((current) => current.map((purchase) => ({
+      ...purchase,
+      items: purchase.items.map((item) => item.id === itemId ? { ...item, expenseSplits: splits } : item),
+    })))
+  }
+
   return <ScrollView contentContainerStyle={styles.screenContent}>
-    <View style={styles.sectionHeader}><View style={styles.preferenceDescription}><Text style={styles.cardTitle}>Historie nákupů</Text><Text style={styles.bodyText}>Dlouhodobé statistiky z uskutečněných nákupů domácnosti.</Text></View></View>
+    <View style={styles.sectionHeader}><View style={styles.preferenceDescription}><Text style={styles.cardTitle}>Historie nákupů</Text><Text style={styles.bodyText}>Dlouhodobé statistiky z uskutečněných nákupů domácnosti.</Text></View><Pressable accessibilityRole="button" onPress={() => setManualOpen(true)} style={styles.purchaseAction}><Plus color={colors.accentText} size={16} /><Text style={styles.purchaseActionText}>Zadat ručně</Text></Pressable></View>
     {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
     {loading ? <ActivityIndicator color={colors.primary} style={styles.loader} /> : null}
     <View style={styles.purchaseStats}>
@@ -492,7 +632,7 @@ export function NativePurchasesScreen() {
           <View style={styles.purchaseDivider} />
           {purchase.items.map((item, index) => <View key={item.id ?? `${item.name}-${index}`} style={styles.purchaseItem}>
             <View style={styles.purchaseLineText}><Text numberOfLines={1} style={styles.purchaseItemName}>{item.name} · {item.quantity} {item.unit}</Text>{item.expenseSplits?.length === 1 ? <Text style={styles.noteText}>{item.expenseSplits[0].category}{item.expenseSplits[0].subcategory ? ` ▸ ${item.expenseSplits[0].subcategory}` : ''}</Text> : item.expenseSplits && item.expenseSplits.length > 1 ? <Text style={styles.noteText}>Rozděleno na {item.expenseSplits.length} částí</Text> : null}</View>
-            <Text style={styles.purchaseItemPrice}>{money(item.price * item.quantity, 'CZK')}</Text>
+            <View style={styles.purchaseHeaderRight}><Text style={styles.purchaseItemPrice}>{money(item.price * item.quantity, 'CZK')}</Text>{item.id && item.category ? <Pressable accessibilityRole="button" accessibilityLabel={`Upravit rozdělení výdaje pro ${item.name}`} onPress={() => setEditingItem(item as MobilePurchase['items'][number] & { id: string; category: NonNullable<MobilePurchase['items'][number]['category']> })} style={styles.iconButton}><Pencil color={colors.primary} size={16} /></Pressable> : null}</View>
           </View>)}
           <View style={styles.purchaseDivider} />
           <Pressable accessibilityRole="button" disabled={busyPurchaseId === purchase.id} onPress={() => confirmDelete(purchase)} style={styles.purchaseDeleteButton}><Trash2 color={colors.destructive} size={16} /><Text style={styles.purchaseDeleteText}>{busyPurchaseId === purchase.id ? 'Zpracovávám…' : 'Odstranit nákup'}</Text></Pressable>
@@ -501,6 +641,8 @@ export function NativePurchasesScreen() {
     })}
     {!loading && purchases.length > 5 ? <Pressable accessibilityRole="button" accessibilityState={{ expanded: showAll }} onPress={() => setShowAll((current) => !current)} style={styles.purchaseShowAll}><Text style={styles.purchaseActionText}>{showAll ? 'Zobrazit méně' : `Zobrazit všechny nákupy (${purchases.length})`}</Text><ArrowDown color={colors.accentText} size={16} style={showAll ? { transform: [{ rotate: '180deg' }] } : undefined} /></Pressable> : null}
     {!loading && purchases.length === 0 ? <View style={styles.emptyCard}><Text style={styles.cardTitle}>Zatím žádné nákupy</Text><Text style={styles.bodyText}>Nahrajte účtenku; nákup se objeví v historii.</Text></View> : null}
+    {manualOpen ? <NativeManualPurchaseForm chains={storeChains} onClose={() => setManualOpen(false)} onSave={saveManualPurchase} /> : null}
+    {editingItem ? <NativePurchaseSplitModal item={editingItem} onClose={() => setEditingItem(null)} onSave={(splits) => saveItemSplits(editingItem.id, splits)} /> : null}
   </ScrollView>
 }
 
@@ -1385,6 +1527,12 @@ function useStyles() {
   purchaseDeleteText: { color: colors.destructive, fontSize: 13, fontWeight: '600' },
   purchaseShowAll: { minHeight: 42, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 7, paddingHorizontal: 13, borderRadius: 15, backgroundColor: colors.accentSubtle },
   purchaseRepeatChip: { minHeight: 34, justifyContent: 'center', paddingHorizontal: 11, borderRadius: 17, backgroundColor: colors.muted },
+  iconButton: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.accentSubtle },
+  manualModalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: colors.navyOverlay },
+  manualModal: { maxHeight: '94%', backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 22, gap: 10 },
+  manualFormContent: { gap: 8, paddingBottom: 12 },
+  manualLineCard: { gap: 8, padding: 12, borderRadius: 15, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
+  manualSmallInput: { flex: 1, minWidth: 0 },
   purchaseTotal: { color: colors.foreground, fontSize: 16, fontWeight: '800' },
   purchaseDivider: { height: 1, backgroundColor: colors.border },
   purchaseItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },

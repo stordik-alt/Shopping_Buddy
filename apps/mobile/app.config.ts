@@ -22,6 +22,13 @@ const config: ExpoConfig = {
         recordAudioAndroid: false,
       },
     ],
+    [
+      'expo-image-picker',
+      {
+        photosPermission: 'ANITKA potřebuje přístup k fotografiím pro nahrání účtenky.',
+        microphonePermission: false,
+      },
+    ],
   ],
   ios: { bundleIdentifier: 'cz.shoppingbuddy.mobile' },
   android: {

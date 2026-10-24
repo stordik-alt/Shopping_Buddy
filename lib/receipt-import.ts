@@ -9,7 +9,7 @@ import { getDb } from '@/lib/db/client'
 import { reserveReceiptOcrAttempt } from '@/lib/receipt-ocr-rate-limit'
 import { RECEIPT_STALE_MS } from '@/lib/receipt-progress'
 import { invalidateProductPriceCache } from '@/lib/db/cache-invalidation'
-import { getProductCatalogByIds, linkPantryContentsToProduct, recordPriceObservation, restockPantryItem, restockPantryTypeItem, setProductCatalogType, upsertProductCatalogDefaults } from '@/lib/db/queries'
+import { getProductCatalogByIds, getPurchaseAftermath, linkPantryContentsToProduct, recordPriceObservation, restockPantryItem, restockPantryTypeItem, setProductCatalogType, toReceiptImportState, upsertProductCatalogDefaults } from '@/lib/db/queries'
 import { stockTypesForLines } from '@/lib/db/stock-types'
 import { pieceSizeOf } from '@/lib/piece-size'
 import { productTypeByKey, resolveReceiptLineType } from '@/lib/product-types'
@@ -59,6 +59,7 @@ import { HEIC_UNSUPPORTED_MESSAGE } from '@/lib/receipt-upload'
 import { getReceiptFile } from '@/lib/storage'
 import type { ItemCategory, PurchaseRecord } from '@/lib/types'
 import { normalizeCurrency } from '@/lib/currency'
+import { todayInPrague } from '@/lib/today'
 
 const ITEM_CATEGORIES = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní'] as const
 const lunaReceiptReader = createLunaReceiptReader({ reasoningEffort: 'low' })
@@ -669,6 +670,47 @@ export async function createPurchaseFromReceiptItems(
       category: row.category,
       expenseSplits: expenseSplitsByItemId.get(row.id) ?? [],
     })),
+  }
+}
+
+/** Manual receipt imports share this household-scoped path between the PWA action and Expo API.
+ *  It creates the purchase using the same receipt rules, then keeps the audit row linking it to
+ *  the original manual receipt entry. Callers authorize the household before invoking this. */
+export async function importManualReceiptForHousehold(
+  householdId: string,
+  items: ReceiptLineItem[],
+  options: { date?: string; storeLocationId?: string; storeName?: string; currency?: string; receiptDiscountTotal?: number | null },
+) {
+  const date = resolveReceiptPurchaseDate(options.date ?? todayInPrague(), null)
+  const preparedItems = items.map((item) => {
+    const { classificationSource, ...rest } = item
+    return classificationSource === 'manual' ? { ...rest, classificationSource } : rest
+  })
+  const storeId = options.storeName ? await findOrCreateStore(options.storeName) : null
+  const purchase = await createPurchaseFromReceiptItems(householdId, preparedItems, {
+    ...options,
+    date,
+    storeId,
+    source: 'confirmed',
+  })
+  const db = getDb()
+  const [row] = await db.insert(schema.receiptImports).values({
+    householdId,
+    status: 'imported',
+    storeId,
+    storeLocationId: options.storeLocationId,
+    date,
+    source: 'manual',
+    currency: options.currency ?? 'CZK',
+    discountTotal: options.receiptDiscountTotal?.toString(),
+    items: JSON.stringify(items),
+    purchaseId: purchase.id,
+    processedAt: new Date(),
+  }).returning()
+  return {
+    purchase,
+    receipt: toReceiptImportState(row),
+    aftermath: await getPurchaseAftermath(householdId, purchase.id),
   }
 }
 

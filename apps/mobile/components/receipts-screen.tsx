@@ -1,16 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native'
 import { CameraView, useCameraPermissions } from 'expo-camera'
+import * as DocumentPicker from 'expo-document-picker'
+import * as ImagePicker from 'expo-image-picker'
+import { Camera, FileText, ImageUp } from 'lucide-react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useMobileTheme } from '../lib/theme'
 import {
   getPendingReceiptImports,
+  getStoreChains,
+  importManualReceipt,
   MobileApiError,
   processReceiptImport,
-  uploadReceiptPhoto,
+  uploadReceiptFile,
   type MobileReceiptImport,
 } from '../lib/shopping-list-api'
 import { RefreshButton } from './refresh-button'
+import { NativeManualPurchaseForm } from './native-parity-screens'
+import type { ManualPurchaseInput } from '../../../lib/types'
+import type { MobileChainTile } from '../lib/shopping-list-api'
 
 type Props = { onAuthExpired: () => void }
 
@@ -145,6 +153,8 @@ export function ReceiptsScreen({ onAuthExpired }: Props) {
   const [receipts, setReceipts] = useState<MobileReceiptImport[]>([])
   const [completed, setCompleted] = useState<MobileReceiptImport | null>(null)
   const [cameraOpen, setCameraOpen] = useState(false)
+  const [manualOpen, setManualOpen] = useState(false)
+  const [storeChains, setStoreChains] = useState<MobileChainTile[]>([])
   const [loading, setLoading] = useState(true)
   const [workingId, setWorkingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -165,6 +175,12 @@ export function ReceiptsScreen({ onAuthExpired }: Props) {
 
   useEffect(() => {
     void refresh()
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    getStoreChains().then(({ chains }) => { if (active) setStoreChains(chains) }).catch(() => undefined)
+    return () => { active = false }
   }, [])
 
   function replaceReceipt(receipt: MobileReceiptImport) {
@@ -191,11 +207,11 @@ export function ReceiptsScreen({ onAuthExpired }: Props) {
     }
   }
 
-  async function handleCapture(uri: string) {
+  async function handleUpload(uri: string, name: string, mimeType: string) {
     setWorkingId('upload')
     setError(null)
     try {
-      const result = await uploadReceiptPhoto(uri)
+      const result = await uploadReceiptFile(uri, name, mimeType)
       replaceReceipt(result.receipt)
       setCameraOpen(false)
       await runReceipt(result.receipt.id, false)
@@ -207,14 +223,73 @@ export function ReceiptsScreen({ onAuthExpired }: Props) {
     }
   }
 
+  async function choosePhoto() {
+    setError(null)
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: false, quality: 0.85, exif: false })
+      if (result.canceled || !result.assets[0]) return
+      const asset = result.assets[0]
+      const extension = asset.fileName?.split('.').pop()?.toLowerCase()
+      const mimeType = asset.mimeType ?? (extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : extension === 'heic' || extension === 'heif' ? 'image/heic' : 'image/jpeg')
+      await handleUpload(asset.uri, asset.fileName ?? `receipt.${mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : mimeType === 'image/heic' ? 'heic' : 'jpg'}`, mimeType)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Galerii se nepodařilo otevřít.')
+    }
+  }
+
+  async function chooseDocument() {
+    setError(null)
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'],
+        copyToCacheDirectory: true,
+        multiple: false,
+      })
+      if (result.canceled || !result.assets[0]) return
+      const file = result.assets[0]
+      const extension = file.name.split('.').pop()?.toLowerCase()
+      const mimeType = file.mimeType ?? (extension === 'pdf' ? 'application/pdf' : extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : 'image/jpeg')
+      if (!['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(mimeType)) {
+        setError('Nepodporovaný formát. Vyberte JPEG, PNG, WEBP nebo PDF.')
+        return
+      }
+      await handleUpload(file.uri, file.name, mimeType)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Soubor se nepodařilo otevřít.')
+    }
+  }
+
+  async function saveManualReceipt(input: ManualPurchaseInput) {
+    try {
+      const result = await importManualReceipt(input)
+      setCompleted(result.receipt)
+      setManualOpen(false)
+    } catch (caught) {
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+      throw caught
+    }
+  }
+
   return (
     <View style={styles.screen}>
       <View style={styles.actionCard}>
         <Text style={styles.sectionTitle}>Import účtenky</Text>
-        <Text style={styles.supporting}>Fotografie se bezpečně uloží a zpracuje stejným OCR postupem jako v aplikaci ANITKA.</Text>
-        <Pressable accessibilityRole="button" disabled={workingId !== null} onPress={() => setCameraOpen(true)} style={[styles.primaryButton, workingId !== null && styles.disabledButton]}>
-          <Text style={styles.primaryButtonText}>{workingId === 'upload' ? 'Nahrávám…' : workingId ? 'Zpracovávám…' : 'Vyfotit účtenku'}</Text>
-        </Pressable>
+        <Text style={styles.supporting}>Vyfoťte nebo vyberte účtenku. Nákup se po zpracování uloží do historie, rozpočtu i zásob domácnosti.</Text>
+        <View style={styles.importActions}>
+          <Pressable accessibilityRole="button" disabled={workingId !== null} onPress={() => setCameraOpen(true)} style={[styles.primaryButton, styles.importAction, workingId !== null && styles.disabledButton]}>
+            <Camera color={colors.primaryForeground} size={18} /><Text style={styles.primaryButtonText}>Vyfotit</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" disabled={workingId !== null} onPress={() => void choosePhoto()} style={[styles.secondaryButton, styles.importAction, workingId !== null && styles.disabledButton]}>
+            <ImageUp color={colors.accentText} size={18} /><Text style={styles.secondaryButtonText}>Z galerie</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" disabled={workingId !== null} onPress={() => void chooseDocument()} style={[styles.secondaryButton, styles.importAction, workingId !== null && styles.disabledButton]}>
+            <FileText color={colors.accentText} size={18} /><Text style={styles.secondaryButtonText}>Fotka / PDF</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" disabled={workingId !== null} onPress={() => setManualOpen(true)} style={[styles.secondaryButton, styles.importAction, workingId !== null && styles.disabledButton]}>
+            <Text style={styles.secondaryButtonText}>Zadat ručně</Text>
+          </Pressable>
+        </View>
+        <Text style={styles.supporting}>Podporujeme JPEG, PNG, WEBP a PDF. Ruční zadání zůstává dostupné i bez OCR.</Text>
       </View>
 
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
@@ -279,10 +354,11 @@ export function ReceiptsScreen({ onAuthExpired }: Props) {
 
       <ReceiptCameraModal
         busy={workingId !== null}
-        onCapture={(uri) => void handleCapture(uri)}
+        onCapture={(uri) => void handleUpload(uri, 'receipt.jpg', 'image/jpeg')}
         onClose={() => setCameraOpen(false)}
         visible={cameraOpen}
       />
+      {manualOpen ? <NativeManualPurchaseForm chains={storeChains} onClose={() => setManualOpen(false)} onSave={saveManualReceipt} /> : null}
     </View>
   )
 }
@@ -297,6 +373,8 @@ function useStyles() {
   title: { color: colors.foreground, fontSize: 20, fontWeight: '700' },
   supporting: { color: colors.secondaryText, fontSize: 14, lineHeight: 20, marginTop: 5 },
   actionCard: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 18, borderWidth: 1, margin: 16, padding: 16, gap: 12 },
+  importActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  importAction: { flexDirection: 'row', flexGrow: 1, gap: 8, justifyContent: 'center', minWidth: '44%' },
   sectionTitle: { color: colors.foreground, fontSize: 18, fontWeight: '700' },
   primaryButton: { minHeight: 48, justifyContent: 'center', alignItems: 'center', borderRadius: 12, backgroundColor: colors.primary, paddingHorizontal: 18, marginTop: 8 },
   primaryButtonText: { color: colors.primaryForeground, fontSize: 15, fontWeight: '700' },

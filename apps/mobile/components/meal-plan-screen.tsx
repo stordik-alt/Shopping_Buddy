@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { unitLabel, type ItemUnit } from '@anitka/shared/units'
 import { getAccessToken } from '../lib/auth'
 import { RefreshButton } from './refresh-button'
+import { useMobileTheme } from '../lib/theme'
 import {
   generateMealPlan,
   getMealPlan,
@@ -12,7 +13,6 @@ import {
   type MobileMealPlanOptions,
   type MobileMealType,
 } from '../lib/shopping-list-api'
-import { colors } from '../lib/theme'
 
 const MEAL_TYPES: MobileMealType[] = ['Snídaně', 'Oběd', 'Večeře', 'Svačina']
 const MAX_MEAL_SERVINGS = 1000
@@ -23,6 +23,8 @@ function displayQuantity(quantity: number, unit: ItemUnit): string {
 }
 
 export function MealPlanScreen({ onAuthExpired }: { onAuthExpired: () => void }) {
+  const { colors } = useMobileTheme()
+  const styles = useStyles()
   const [plan, setPlan] = useState<MobileMealPlan | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -232,18 +234,20 @@ export function MealPlanScreen({ onAuthExpired }: { onAuthExpired: () => void })
   )
 }
 
-const styles = StyleSheet.create({
+function useStyles() {
+  const { colors } = useMobileTheme()
+  return useMemo(() => StyleSheet.create({
   scroll: { flex: 1 },
   content: { paddingBottom: 24 },
   heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
   headingText: { flex: 1, minWidth: 0 },
   title: { color: colors.foreground, fontSize: 23, fontWeight: '700' },
   supporting: { color: colors.secondaryText, fontSize: 14, lineHeight: 20, marginTop: 4 },
-  card: { backgroundColor: '#ffffff', borderColor: colors.border, borderRadius: 18, borderWidth: 1, margin: 16, padding: 16, gap: 12 },
+  card: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 18, borderWidth: 1, margin: 16, padding: 16, gap: 12 },
   sectionTitle: { color: colors.foreground, fontSize: 18, fontWeight: '700' },
   settingsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   label: { color: colors.secondaryText, fontSize: 14, fontWeight: '600' },
-  numberInput: { minWidth: 84, minHeight: 44, borderColor: colors.inputBorder, borderRadius: 10, borderWidth: 1, backgroundColor: '#ffffff', color: colors.foreground, paddingHorizontal: 12, textAlign: 'center', fontSize: 16 },
+  numberInput: { minWidth: 84, minHeight: 44, borderColor: colors.inputBorder, borderRadius: 10, borderWidth: 1, backgroundColor: colors.card, color: colors.foreground, paddingHorizontal: 12, textAlign: 'center', fontSize: 16 },
   options: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   option: { minHeight: 40, justifyContent: 'center', borderColor: colors.inputBorder, borderRadius: 22, borderWidth: 1, paddingHorizontal: 12 },
   optionSelected: { backgroundColor: colors.accentSubtle, borderColor: colors.primary },
@@ -253,15 +257,15 @@ const styles = StyleSheet.create({
   stockCheck: { color: colors.primary, fontSize: 20 },
   primaryButton: { minHeight: 48, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
   disabled: { opacity: 0.55 },
-  primaryButtonText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
+  primaryButtonText: { color: colors.primaryForeground, fontSize: 15, fontWeight: '700' },
   empty: { alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 },
-  emptyCard: { alignItems: 'center', justifyContent: 'center', marginHorizontal: 16, marginTop: 4, padding: 24, backgroundColor: '#ffffff', borderColor: colors.border, borderRadius: 18, borderWidth: 1, gap: 8 },
-  error: { color: '#a72d2d', backgroundColor: '#fff0f0', borderRadius: 12, marginHorizontal: 16, marginBottom: 8, padding: 12, fontSize: 14, lineHeight: 20 },
+  emptyCard: { alignItems: 'center', justifyContent: 'center', marginHorizontal: 16, marginTop: 4, padding: 24, backgroundColor: colors.card, borderColor: colors.border, borderRadius: 18, borderWidth: 1, gap: 8 },
+  error: { color: colors.destructive, backgroundColor: colors.destructiveSubtle, borderRadius: 12, marginHorizontal: 16, marginBottom: 8, padding: 12, fontSize: 14, lineHeight: 20 },
   summary: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginHorizontal: 16, marginBottom: 8, gap: 8 },
   summaryText: { color: colors.secondaryText, fontSize: 13, fontWeight: '600' },
-  dayCard: { backgroundColor: '#eaf1f2', borderRadius: 16, marginHorizontal: 16, marginTop: 8, padding: 12, gap: 8 },
-  mealCard: { backgroundColor: '#ffffff', borderColor: colors.border, borderRadius: 14, borderWidth: 1, padding: 12, gap: 8 },
-  photo: { width: '100%', height: 180, borderRadius: 10, backgroundColor: '#eaf1f2' },
+  dayCard: { backgroundColor: colors.muted, borderRadius: 16, marginHorizontal: 16, marginTop: 8, padding: 12, gap: 8 },
+  mealCard: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 14, borderWidth: 1, padding: 12, gap: 8 },
+  photo: { width: '100%', height: 180, borderRadius: 10, backgroundColor: colors.muted },
   mealType: { color: colors.accentText, fontSize: 13, fontWeight: '700' },
   mealName: { color: colors.foreground, fontSize: 17, fontWeight: '700' },
   source: { color: colors.secondaryText, fontSize: 13 },
@@ -272,4 +276,5 @@ const styles = StyleSheet.create({
   ingredient: { color: colors.secondaryText, fontSize: 14, lineHeight: 20 },
   sourceLink: { minHeight: 42, justifyContent: 'center' },
   sourceLinkText: { color: colors.accentText, fontSize: 14, fontWeight: '700' },
-})
+}), [colors])
+}

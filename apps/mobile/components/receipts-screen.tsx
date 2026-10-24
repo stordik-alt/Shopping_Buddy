@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native'
 import { CameraView, useCameraPermissions } from 'expo-camera'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { useMobileTheme } from '../lib/theme'
 import {
   getPendingReceiptImports,
   MobileApiError,
@@ -10,7 +11,6 @@ import {
   type MobileReceiptImport,
 } from '../lib/shopping-list-api'
 import { RefreshButton } from './refresh-button'
-import { colors } from '../lib/theme'
 
 type Props = { onAuthExpired: () => void }
 
@@ -41,6 +41,8 @@ function ReceiptCameraModal({
   onCapture: (uri: string) => void
   onClose: () => void
 }) {
+  const { colors } = useMobileTheme()
+  const styles = useStyles()
   const [permission, requestPermission] = useCameraPermissions()
   const [cameraActive, setCameraActive] = useState(false)
   const [permissionError, setPermissionError] = useState<string | null>(null)
@@ -138,6 +140,8 @@ function ReceiptCameraModal({
 }
 
 export function ReceiptsScreen({ onAuthExpired }: Props) {
+  const { colors } = useMobileTheme()
+  const styles = useStyles()
   const [receipts, setReceipts] = useState<MobileReceiptImport[]>([])
   const [completed, setCompleted] = useState<MobileReceiptImport | null>(null)
   const [cameraOpen, setCameraOpen] = useState(false)
@@ -283,38 +287,41 @@ export function ReceiptsScreen({ onAuthExpired }: Props) {
   )
 }
 
-const styles = StyleSheet.create({
+function useStyles() {
+  const { colors } = useMobileTheme()
+  return useMemo(() => StyleSheet.create({
   screen: { flex: 1, gap: 12 },
   cameraScreen: { flex: 1, backgroundColor: colors.background },
   cameraHeader: { minHeight: 88, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, gap: 12 },
   headerText: { flex: 1 },
   title: { color: colors.foreground, fontSize: 20, fontWeight: '700' },
   supporting: { color: colors.secondaryText, fontSize: 14, lineHeight: 20, marginTop: 5 },
-  actionCard: { backgroundColor: '#ffffff', borderColor: colors.border, borderRadius: 18, borderWidth: 1, margin: 16, padding: 16, gap: 12 },
+  actionCard: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 18, borderWidth: 1, margin: 16, padding: 16, gap: 12 },
   sectionTitle: { color: colors.foreground, fontSize: 18, fontWeight: '700' },
   primaryButton: { minHeight: 48, justifyContent: 'center', alignItems: 'center', borderRadius: 12, backgroundColor: colors.primary, paddingHorizontal: 18, marginTop: 8 },
-  primaryButtonText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
-  secondaryButton: { minHeight: 44, justifyContent: 'center', alignItems: 'center', borderColor: colors.inputBorder, borderRadius: 12, borderWidth: 1, backgroundColor: '#ffffff', paddingHorizontal: 12 },
+  primaryButtonText: { color: colors.primaryForeground, fontSize: 15, fontWeight: '700' },
+  secondaryButton: { minHeight: 44, justifyContent: 'center', alignItems: 'center', borderColor: colors.inputBorder, borderRadius: 12, borderWidth: 1, backgroundColor: colors.card, paddingHorizontal: 12 },
   secondaryButtonText: { color: colors.primary, fontSize: 14, fontWeight: '600' },
   disabledButton: { opacity: 0.55 },
   cameraPreview: { flex: 1, overflow: 'hidden', backgroundColor: colors.foreground, margin: 16, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   receiptFrame: { width: '78%', height: '72%', borderColor: '#ffffff', borderWidth: 2, borderRadius: 12 },
-  cameraError: { position: 'absolute', top: 16, left: 16, right: 16, color: '#ffffff', backgroundColor: '#a72d2dcc', borderRadius: 10, padding: 10, textAlign: 'center' },
-  captureButton: { position: 'absolute', bottom: 28, minHeight: 52, minWidth: 160, justifyContent: 'center', alignItems: 'center', borderRadius: 26, backgroundColor: '#ffffff', paddingHorizontal: 24 },
+  cameraError: { position: 'absolute', top: 16, left: 16, right: 16, color: colors.primaryForeground, backgroundColor: '#a72d2dcc', borderRadius: 10, padding: 10, textAlign: 'center' },
+  captureButton: { position: 'absolute', bottom: 28, minHeight: 52, minWidth: 160, justifyContent: 'center', alignItems: 'center', borderRadius: 26, backgroundColor: colors.card, paddingHorizontal: 24 },
   captureButtonText: { color: colors.accentText, fontSize: 16, fontWeight: '700' },
   busyOverlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: colors.navyOverlay },
-  busyText: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
+  busyText: { color: colors.primaryForeground, fontSize: 16, fontWeight: '600' },
   permissionState: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 12 },
-  error: { color: '#a72d2d', backgroundColor: '#fff0f0', borderRadius: 12, marginHorizontal: 16, marginBottom: 8, padding: 12, fontSize: 14, lineHeight: 20 },
-  errorText: { color: '#a72d2d', fontSize: 14, lineHeight: 20 },
-  successCard: { backgroundColor: '#e9f7ee', borderColor: '#b9e3c7', borderWidth: 1, borderRadius: 16, marginHorizontal: 16, padding: 14, gap: 4 },
-  successTitle: { color: '#17623b', fontSize: 16, fontWeight: '700' },
+  error: { color: colors.destructive, backgroundColor: colors.destructiveSubtle, borderRadius: 12, marginHorizontal: 16, marginBottom: 8, padding: 12, fontSize: 14, lineHeight: 20 },
+  errorText: { color: colors.destructive, fontSize: 14, lineHeight: 20 },
+  successCard: { backgroundColor: colors.accentSubtle, borderColor: colors.accent, borderWidth: 1, borderRadius: 16, marginHorizontal: 16, padding: 14, gap: 4 },
+  successTitle: { color: colors.success, fontSize: 16, fontWeight: '700' },
   listHeader: { minHeight: 52, marginHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   listHeaderTitle: { flex: 1, minWidth: 0 },
   list: { paddingHorizontal: 16, paddingBottom: 24, gap: 8 },
-  receiptCard: { backgroundColor: '#ffffff', borderColor: colors.border, borderRadius: 16, borderWidth: 1, padding: 14, gap: 8 },
+  receiptCard: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 16, borderWidth: 1, padding: 14, gap: 8 },
   receiptStatus: { color: colors.foreground, fontSize: 16, fontWeight: '700' },
   receiptLine: { color: colors.secondaryText, fontSize: 14 },
-  emptyState: { alignItems: 'center', marginHorizontal: 16, padding: 20, backgroundColor: '#ffffff', borderColor: colors.border, borderRadius: 18, borderWidth: 1 },
+  emptyState: { alignItems: 'center', marginHorizontal: 16, padding: 20, backgroundColor: colors.card, borderColor: colors.border, borderRadius: 18, borderWidth: 1 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-})
+}), [colors])
+}

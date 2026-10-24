@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   FlatList,
@@ -18,7 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Bell, ChevronDown } from 'lucide-react-native'
 import { ITEM_UNITS, unitLabel, type ItemUnit } from '@anitka/shared/units'
-import { colors } from '../lib/theme'
+import { useMobileTheme } from '../lib/theme'
 import { BudgetScreen } from '../components/budget-screen'
 import { PantryScreen } from '../components/pantry-screen'
 import { RecipesScreen } from '../components/recipes-screen'
@@ -69,6 +69,8 @@ function errorMessage(error: unknown): string {
 }
 
 function LoginForm({ onSignIn, busy, error }: { onSignIn: (email: string, password: string) => void; busy: boolean; error: string | null }) {
+  const { colors } = useMobileTheme()
+  const styles = useStyles()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
@@ -132,6 +134,7 @@ function LoginForm({ onSignIn, busy, error }: { onSignIn: (email: string, passwo
 }
 
 function PrimaryButton({ label, onPress, disabled = false, style }: { label: string; onPress: () => void; disabled?: boolean; style?: StyleProp<ViewStyle> }) {
+  const styles = useStyles()
   return (
     <Pressable accessibilityRole="button" disabled={disabled} onPress={onPress} style={[styles.primaryButton, style, disabled && styles.disabledButton]}>
       <Text style={styles.primaryButtonText}>{label}</Text>
@@ -152,6 +155,8 @@ function ShoppingRow({
   onToggle: () => void
   onEdit: () => void
 }) {
+  const { colors } = useMobileTheme()
+  const styles = useStyles()
   return (
     <View style={styles.itemRow}>
       <Pressable
@@ -162,7 +167,7 @@ function ShoppingRow({
         onPress={onToggle}
         style={[styles.checkbox, item.done && styles.checkboxDone]}
       >
-        {busy ? <ActivityIndicator color="#ffffff" size="small" /> : item.done ? <Text style={styles.checkmark}>✓</Text> : null}
+        {busy ? <ActivityIndicator color={colors.primaryForeground} size="small" /> : item.done ? <Text style={styles.checkmark}>✓</Text> : null}
       </Pressable>
       <View style={styles.itemText}>
         <Text style={[styles.itemName, item.done && styles.itemDone]}>{item.name}</Text>
@@ -179,6 +184,8 @@ function ShoppingRow({
 }
 
 export default function HomeScreen() {
+  const { colors } = useMobileTheme()
+  const styles = useStyles()
   const [activeTab, setActiveTab] = useState<NativeTab>('home')
   const [shoppingView, setShoppingView] = useState<'list' | 'purchases' | 'receipts'>('list')
   const [recipeView, setRecipeView] = useState<'recipes' | 'meals'>('recipes')
@@ -772,7 +779,9 @@ export default function HomeScreen() {
   )
 }
 
-const styles = StyleSheet.create({
+function useStyles() {
+  const { colors } = useMobileTheme()
+  return useMemo(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 },
@@ -780,14 +789,14 @@ const styles = StyleSheet.create({
   loginBrand: { alignItems: 'center', marginBottom: 24, gap: 4 },
   loginLogo: { width: 220, height: 74 },
   poweredBy: { color: colors.mutedText, fontSize: 12, fontWeight: '500', letterSpacing: 1.2, textTransform: 'uppercase' },
-  header: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 7, gap: 12, borderBottomColor: '#e7e5df99', borderBottomWidth: 1, backgroundColor: '#faf9f6' },
+  header: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 7, gap: 12, borderBottomColor: colors.border, borderBottomWidth: 1, backgroundColor: colors.background },
   nativeHeaderLeft: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 11 },
   nativeHeaderTitle: { flexShrink: 1, color: colors.foreground, fontSize: 16, fontWeight: '700' },
   nativeHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   headerIconButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 14 },
-  profileHeaderButton: { minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, borderRadius: 14, backgroundColor: '#f0efeb' },
+  profileHeaderButton: { minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, borderRadius: 14, backgroundColor: colors.muted },
   profileHeaderInitials: { color: colors.primary, fontSize: 12, fontWeight: '800' },
-  sectionSwitcher: { minHeight: 42, flexDirection: 'row', alignSelf: 'stretch', alignItems: 'center', padding: 4, marginHorizontal: 16, marginTop: 8, marginBottom: 4, borderRadius: 14, backgroundColor: '#eeede9' },
+  sectionSwitcher: { minHeight: 42, flexDirection: 'row', alignSelf: 'stretch', alignItems: 'center', padding: 4, marginHorizontal: 16, marginTop: 8, marginBottom: 4, borderRadius: 14, backgroundColor: colors.muted },
   sectionTab: { flex: 1, minHeight: 34, alignItems: 'center', justifyContent: 'center', borderRadius: 11 },
   sectionTabActive: { backgroundColor: colors.card },
   sectionTabText: { color: colors.secondaryText, fontSize: 13, fontWeight: '600' },
@@ -818,9 +827,9 @@ const styles = StyleSheet.create({
   secondaryButton: { minHeight: 44, borderColor: colors.inputBorder, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   secondaryButtonText: { color: colors.primary, fontSize: 14, fontWeight: '600' },
   error: { color: colors.destructive, backgroundColor: colors.destructiveSubtle, borderRadius: 12, marginHorizontal: 16, marginBottom: 8, padding: 12, fontSize: 14, lineHeight: 20 },
-  offlineNotice: { flexDirection: 'column', alignItems: 'stretch', gap: 8, backgroundColor: '#fff7e6', borderColor: '#f0d9a8', borderRadius: 12, borderWidth: 1, marginHorizontal: 16, marginBottom: 8, padding: 10 },
-  offlineNoticeText: { flex: 1, color: '#684b17', fontSize: 13, lineHeight: 18 },
-  pendingLabel: { color: '#8a631c', fontSize: 12, marginTop: 4 },
+  offlineNotice: { flexDirection: 'column', alignItems: 'stretch', gap: 8, backgroundColor: colors.accentSubtle, borderColor: colors.warning, borderRadius: 12, borderWidth: 1, marginHorizontal: 16, marginBottom: 8, padding: 10 },
+  offlineNoticeText: { flex: 1, color: colors.warning, fontSize: 13, lineHeight: 18 },
+  pendingLabel: { color: colors.warning, fontSize: 12, marginTop: 4 },
   summary: { minHeight: 52, marginHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   summaryText: { color: colors.secondaryText, fontSize: 14, fontWeight: '600' },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginBottom: 12 },
@@ -829,12 +838,12 @@ const styles = StyleSheet.create({
   addInput: { flex: 1 },
   list: { paddingHorizontal: 16, paddingBottom: 24, gap: 8 },
   itemRow: { minHeight: 72, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderColor: colors.border, borderRadius: 16, borderWidth: 1, padding: 12, gap: 12 },
-  checkbox: { width: 44, height: 44, borderColor: '#9aabb2', borderRadius: 14, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  checkbox: { width: 44, height: 44, borderColor: colors.inputBorder, borderRadius: 14, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   checkboxDone: { backgroundColor: colors.primary, borderColor: colors.primary },
   checkmark: { color: colors.primaryForeground, fontSize: 22, fontWeight: '700' },
   itemText: { flex: 1, minWidth: 0 },
   itemName: { color: colors.foreground, fontSize: 16, fontWeight: '600' },
-  itemDone: { color: '#6a7d86', textDecorationLine: 'line-through' },
+  itemDone: { color: colors.mutedText, textDecorationLine: 'line-through' },
   itemQuantity: { color: colors.secondaryText, fontSize: 13, marginTop: 4 },
   emptyState: { alignItems: 'center', justifyContent: 'center', margin: 16, padding: 28, backgroundColor: colors.card, borderColor: colors.border, borderRadius: 18, borderWidth: 1, gap: 8 },
   units: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -850,4 +859,5 @@ const styles = StyleSheet.create({
   tabActive: { backgroundColor: colors.accentSubtle },
   tabText: { color: colors.secondaryText, fontSize: 13, fontWeight: '600' },
   tabTextActive: { color: colors.accentText },
-})
+}), [colors])
+}

@@ -1,6 +1,5 @@
 import type { ItemUnit } from '@anitka/shared/units'
 import type { Recipe, RecipeSearchPage } from '../../../lib/recipes/types'
-import type { AttentionItem } from '../../../lib/attention'
 import type { RestockSuggestion } from '../../../lib/pantry-restock'
 import type { ProductPrice } from '../../../lib/prices'
 import type { StandaloneOffer } from '../../../lib/offers'
@@ -38,7 +37,7 @@ export type MobileDashboardSummary = {
   list: { remaining: number; completed: number; pendingNames: string[] }
   pantryItemCount: number
   pantryToCheck: number
-  attention: AttentionItem[]
+  attention: { id: string; kind: 'receipt' | 'deal-ending'; text: string }[]
   restockSuggestions: RestockSuggestion[]
   restockDismissed: string[]
   productPrices: ProductPrice[]

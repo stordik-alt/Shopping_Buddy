@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { unitLabel } from '@anitka/shared/units'
 import { MobileApiError, getPantry, updatePantryItem, type MobilePantryItem, type MobilePantryState } from '../lib/shopping-list-api'
 import { RefreshButton } from './refresh-button'
+import { colors } from '../lib/theme'
 
 const QUANTITY_STEP = { ks: 1, kg: 0.1, g: 10, l: 0.1, ml: 10, dávka: 1 } as const
 
@@ -86,7 +87,7 @@ export function PantryScreen({ onAuthExpired }: { onAuthExpired: () => void }) {
 
       {loading && !pantry ? (
         <View style={styles.empty}>
-          <ActivityIndicator color="#087e8b" size="large" />
+          <ActivityIndicator color={colors.primary} size="large" />
           <Text style={styles.supporting}>Načítání zásob…</Text>
         </View>
       ) : pantry ? (
@@ -187,29 +188,29 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
   heading: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   headingText: { flex: 1, minWidth: 0 },
-  title: { color: '#122c3a', fontSize: 20, fontWeight: '700' },
-  supporting: { color: '#526674', fontSize: 13, lineHeight: 19, marginTop: 4 },
+  title: { color: colors.foreground, fontSize: 20, fontWeight: '700' },
+  supporting: { color: colors.secondaryText, fontSize: 13, lineHeight: 19, marginTop: 4 },
   placeList: { gap: 8, paddingVertical: 2, paddingRight: 8 },
-  place: { minWidth: 105, borderColor: '#cbd8dd', borderRadius: 14, borderWidth: 1, backgroundColor: '#ffffff', paddingHorizontal: 13, paddingVertical: 11 },
-  placeActive: { backgroundColor: '#087e8b', borderColor: '#087e8b' },
-  placeName: { color: '#23515d', fontSize: 14, fontWeight: '700' },
+  place: { minWidth: 105, borderColor: colors.inputBorder, borderRadius: 14, borderWidth: 1, backgroundColor: '#ffffff', paddingHorizontal: 13, paddingVertical: 11 },
+  placeActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  placeName: { color: colors.primary, fontSize: 14, fontWeight: '700' },
   placeNameActive: { color: '#ffffff' },
-  placeCount: { color: '#526674', fontSize: 12, marginTop: 4 },
-  sectionTitle: { color: '#122c3a', fontSize: 17, fontWeight: '700' },
-  itemCard: { backgroundColor: '#ffffff', borderColor: '#dce6e9', borderRadius: 16, borderWidth: 1, padding: 14, gap: 10 },
-  itemName: { color: '#122c3a', fontSize: 16, fontWeight: '700' },
+  placeCount: { color: colors.secondaryText, fontSize: 12, marginTop: 4 },
+  sectionTitle: { color: colors.foreground, fontSize: 17, fontWeight: '700' },
+  itemCard: { backgroundColor: '#ffffff', borderColor: colors.border, borderRadius: 16, borderWidth: 1, padding: 14, gap: 10 },
+  itemName: { color: colors.foreground, fontSize: 16, fontWeight: '700' },
   quantityRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  quantityButton: { width: 42, height: 42, borderColor: '#cbd8dd', borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  quantityButtonText: { color: '#23515d', fontSize: 24, fontWeight: '600' },
+  quantityButton: { width: 42, height: 42, borderColor: colors.inputBorder, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  quantityButtonText: { color: colors.primary, fontSize: 24, fontWeight: '600' },
   disabled: { opacity: 0.5 },
-  quantity: { color: '#122c3a', minWidth: 100, fontSize: 16, fontWeight: '700', textAlign: 'center' },
-  packageSize: { color: '#526674', fontSize: 13 },
+  quantity: { color: colors.foreground, minWidth: 100, fontSize: 16, fontWeight: '700', textAlign: 'center' },
+  packageSize: { color: colors.secondaryText, fontSize: 13 },
   moveButton: { minHeight: 38, justifyContent: 'center', alignSelf: 'flex-start' },
-  moveText: { color: '#087e8b', fontSize: 14, fontWeight: '600' },
+  moveText: { color: colors.primary, fontSize: 14, fontWeight: '600' },
   destinationList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  destination: { minHeight: 40, borderColor: '#cbd8dd', borderRadius: 20, borderWidth: 1, justifyContent: 'center', paddingHorizontal: 12 },
-  destinationText: { color: '#23515d', fontSize: 13, fontWeight: '600' },
+  destination: { minHeight: 40, borderColor: colors.inputBorder, borderRadius: 20, borderWidth: 1, justifyContent: 'center', paddingHorizontal: 12 },
+  destinationText: { color: colors.primary, fontSize: 13, fontWeight: '600' },
   empty: { alignItems: 'center', justifyContent: 'center', padding: 28, gap: 10 },
-  emptyCard: { alignItems: 'center', backgroundColor: '#ffffff', borderColor: '#dce6e9', borderRadius: 16, borderWidth: 1, padding: 22, gap: 4 },
+  emptyCard: { alignItems: 'center', backgroundColor: '#ffffff', borderColor: colors.border, borderRadius: 16, borderWidth: 1, padding: 22, gap: 4 },
   error: { color: '#a72d2d', backgroundColor: '#fff0f0', borderRadius: 12, padding: 12, fontSize: 14, lineHeight: 20 },
 })

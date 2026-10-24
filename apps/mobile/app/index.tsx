@@ -2,17 +2,22 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  type StyleProp,
+  type ViewStyle,
   View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { ITEM_UNITS, unitLabel, type ItemUnit } from '@anitka/shared/units'
+import { colors } from '../lib/theme'
 import { BudgetScreen } from '../components/budget-screen'
 import { PantryScreen } from '../components/pantry-screen'
 import { RecipesScreen } from '../components/recipes-screen'
@@ -57,42 +62,66 @@ function LoginForm({ onSignIn, busy, error }: { onSignIn: (email: string, passwo
 
   return (
     <View style={styles.centered}>
-      <View style={styles.card}>
-        <Text style={styles.brand}>ANITKA</Text>
-        <Text style={styles.title}>Přihlášení</Text>
-        <Text style={styles.supporting}>Přihlaste se ke svému účtu a otevřete nákupní seznam domácnosti.</Text>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        <TextInput
-          accessibilityLabel="E-mail"
-          autoCapitalize="none"
-          autoComplete="email"
-          keyboardType="email-address"
-          onChangeText={setEmail}
-          placeholder="E-mail"
-          placeholderTextColor="#64748b"
-          style={styles.input}
-          value={email}
-        />
-        <TextInput
-          accessibilityLabel="Heslo"
-          autoComplete="password"
-          onChangeText={setPassword}
-          onSubmitEditing={() => onSignIn(email.trim(), password)}
-          placeholder="Heslo"
-          placeholderTextColor="#64748b"
-          secureTextEntry
-          style={styles.input}
-          value={password}
-        />
-        <PrimaryButton disabled={busy || !email.trim() || !password} label="Přihlásit se" onPress={() => onSignIn(email.trim(), password)} />
+      <View style={styles.loginContent}>
+        <View style={styles.loginBrand}>
+          <Image accessibilityLabel="ANITKA" resizeMode="contain" source={require('../assets/anitka-logo.png')} style={styles.loginLogo} />
+          <Text style={styles.poweredBy}>Powered by ANITKA AI</Text>
+        </View>
+        <View style={[styles.card, styles.loginCard]}>
+          <Text style={styles.loginTitle}>Přihlásit se</Text>
+          <Text style={styles.supporting}>Vítejte zpátky. Pojďme uhlídat rozpočet.</Text>
+          {error ? <Text accessibilityRole="alert" style={[styles.error, styles.loginError]}>{error}</Text> : null}
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>E-mail</Text>
+            <TextInput
+              accessibilityLabel="E-mail"
+              autoCapitalize="none"
+              autoComplete="email"
+              keyboardType="email-address"
+              onChangeText={setEmail}
+              placeholder=""
+              placeholderTextColor={colors.mutedText}
+              returnKeyType="next"
+              style={styles.input}
+              value={email}
+            />
+          </View>
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Heslo</Text>
+            <TextInput
+              accessibilityLabel="Heslo"
+              autoComplete="current-password"
+              onChangeText={setPassword}
+              onSubmitEditing={() => onSignIn(email.trim(), password)}
+              placeholder=""
+              placeholderTextColor={colors.mutedText}
+              returnKeyType="go"
+              secureTextEntry
+              style={styles.input}
+              value={password}
+            />
+          </View>
+          <PrimaryButton
+            disabled={busy || !email.trim() || !password}
+            label={busy ? 'Přihlašuji…' : 'Přihlásit se'}
+            onPress={() => onSignIn(email.trim(), password)}
+            style={styles.loginButton}
+          />
+          <Text style={styles.loginFooter}>
+            Ještě nemáte účet?{' '}
+            <Text accessibilityRole="link" onPress={() => void Linking.openURL('https://mojeanitka.cz/auth/sign-up')} style={styles.loginLink}>
+              Založte si ho
+            </Text>
+          </Text>
+        </View>
       </View>
     </View>
   )
 }
 
-function PrimaryButton({ label, onPress, disabled = false }: { label: string; onPress: () => void; disabled?: boolean }) {
+function PrimaryButton({ label, onPress, disabled = false, style }: { label: string; onPress: () => void; disabled?: boolean; style?: StyleProp<ViewStyle> }) {
   return (
-    <Pressable accessibilityRole="button" disabled={disabled} onPress={onPress} style={[styles.primaryButton, disabled && styles.disabledButton]}>
+    <Pressable accessibilityRole="button" disabled={disabled} onPress={onPress} style={[styles.primaryButton, style, disabled && styles.disabledButton]}>
       <Text style={styles.primaryButtonText}>{label}</Text>
     </Pressable>
   )
@@ -494,7 +523,7 @@ export default function HomeScreen() {
     return (
       <SafeAreaView style={styles.screen}>
         <View style={styles.centered}>
-          <ActivityIndicator color="#087e8b" size="large" />
+          <ActivityIndicator color={colors.primary} size="large" />
           <Text style={styles.supporting}>Načítání účtu…</Text>
         </View>
       </SafeAreaView>
@@ -516,7 +545,15 @@ export default function HomeScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <View style={styles.header}>
           <View style={styles.headerText}>
-            <Text style={styles.brand}>ANITKA</Text>
+            <View style={styles.homeBrand}>
+              <View style={styles.brandMark}>
+                <Image accessibilityLabel="" resizeMode="contain" source={require('../assets/anitka-avatar.png')} style={styles.brandMarkImage} />
+              </View>
+              <View>
+                <Text style={styles.brand}>ANITKA</Text>
+                <Text style={styles.brandSubtitle}>Asistent pro domácnost</Text>
+              </View>
+            </View>
             <Text numberOfLines={1} style={styles.title}>{householdAvailable ? pageTitle : 'Nákupní seznam'}</Text>
             {userName ? <Text style={styles.supporting}>Přihlášeno: {userName}</Text> : null}
           </View>
@@ -566,7 +603,7 @@ export default function HomeScreen() {
                     onChangeText={setNewName}
                     onSubmitEditing={() => void handleAdd()}
                     placeholder="Co koupit?"
-                    placeholderTextColor="#64748b"
+                    placeholderTextColor={colors.mutedText}
                     returnKeyType="done"
                     style={[styles.input, styles.addInput]}
                     value={newName}
@@ -619,7 +656,7 @@ export default function HomeScreen() {
 
                 {busy && items.length === 0 ? (
                   <View style={styles.centered}>
-                    <ActivityIndicator color="#087e8b" size="large" />
+                    <ActivityIndicator color={colors.primary} size="large" />
                     <Text style={styles.supporting}>Načítání seznamu…</Text>
                   </View>
                 ) : items.length === 0 ? (
@@ -686,53 +723,69 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#f3f7f8' },
+  screen: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 },
+  loginContent: { width: '100%', maxWidth: 384, alignSelf: 'center' },
+  loginBrand: { alignItems: 'center', marginBottom: 24, gap: 4 },
+  loginLogo: { width: 220, height: 74 },
+  poweredBy: { color: colors.mutedText, fontSize: 12, fontWeight: '500', letterSpacing: 1.2, textTransform: 'uppercase' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, gap: 12 },
   headerText: { flex: 1, minWidth: 0 },
-  brand: { color: '#087e8b', fontSize: 14, fontWeight: '800', letterSpacing: 1.4 },
-  title: { color: '#122c3a', fontSize: 24, fontWeight: '700', marginTop: 4 },
-  supporting: { color: '#526674', fontSize: 14, lineHeight: 20, marginTop: 5 },
-  card: { backgroundColor: '#ffffff', borderColor: '#dce6e9', borderRadius: 18, borderWidth: 1, margin: 16, padding: 16, gap: 12 },
-  sectionTitle: { color: '#122c3a', fontSize: 18, fontWeight: '700' },
-  input: { minHeight: 48, borderColor: '#cbd8dd', borderRadius: 12, borderWidth: 1, backgroundColor: '#ffffff', color: '#122c3a', paddingHorizontal: 14, fontSize: 16 },
-  primaryButton: { minHeight: 48, minWidth: 80, borderRadius: 12, backgroundColor: '#087e8b', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  homeBrand: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
+  brandMark: { width: 40, height: 40, padding: 3, borderRadius: 14, backgroundColor: colors.primary },
+  brandMarkImage: { width: '100%', height: '100%', borderRadius: 11 },
+  brand: { color: colors.primary, fontSize: 14, fontWeight: '800', letterSpacing: 1.1 },
+  brandSubtitle: { color: colors.mutedText, fontSize: 11, fontWeight: '500', marginTop: 1 },
+  title: { color: colors.foreground, fontSize: 24, fontWeight: '700', marginTop: 4 },
+  loginTitle: { color: colors.foreground, fontSize: 20, fontWeight: '600', letterSpacing: -0.2 },
+  supporting: { color: colors.secondaryText, fontSize: 14, lineHeight: 20, marginTop: 5 },
+  card: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 18, borderWidth: 1, margin: 16, padding: 16, gap: 12 },
+  loginCard: { width: '100%', margin: 0, padding: 24, borderRadius: 24, gap: 12 },
+  loginError: { marginHorizontal: 0, marginBottom: 0 },
+  fieldGroup: { gap: 4 },
+  label: { color: colors.foreground, fontSize: 14 },
+  loginFooter: { color: colors.mutedText, fontSize: 14, textAlign: 'center', marginTop: 4 },
+  loginLink: { color: colors.primary, fontWeight: '600' },
+  sectionTitle: { color: colors.foreground, fontSize: 18, fontWeight: '700' },
+  input: { minHeight: 44, borderColor: colors.inputBorder, borderRadius: 12, borderWidth: 1, backgroundColor: colors.card, color: colors.foreground, paddingHorizontal: 12, fontSize: 14 },
+  primaryButton: { minHeight: 48, minWidth: 80, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  loginButton: { minHeight: 44, marginTop: 4 },
   disabledButton: { opacity: 0.55 },
-  primaryButtonText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
-  secondaryButton: { minHeight: 44, borderColor: '#cbd8dd', borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
-  secondaryButtonText: { color: '#23515d', fontSize: 14, fontWeight: '600' },
-  error: { color: '#a72d2d', backgroundColor: '#fff0f0', borderRadius: 12, marginHorizontal: 16, marginBottom: 8, padding: 12, fontSize: 14, lineHeight: 20 },
+  primaryButtonText: { color: colors.primaryForeground, fontSize: 15, fontWeight: '700' },
+  secondaryButton: { minHeight: 44, borderColor: colors.inputBorder, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  secondaryButtonText: { color: colors.primary, fontSize: 14, fontWeight: '600' },
+  error: { color: colors.destructive, backgroundColor: colors.destructiveSubtle, borderRadius: 12, marginHorizontal: 16, marginBottom: 8, padding: 12, fontSize: 14, lineHeight: 20 },
   offlineNotice: { flexDirection: 'column', alignItems: 'stretch', gap: 8, backgroundColor: '#fff7e6', borderColor: '#f0d9a8', borderRadius: 12, borderWidth: 1, marginHorizontal: 16, marginBottom: 8, padding: 10 },
   offlineNoticeText: { flex: 1, color: '#684b17', fontSize: 13, lineHeight: 18 },
   pendingLabel: { color: '#8a631c', fontSize: 12, marginTop: 4 },
   summary: { minHeight: 52, marginHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  summaryText: { color: '#526674', fontSize: 14, fontWeight: '600' },
+  summaryText: { color: colors.secondaryText, fontSize: 14, fontWeight: '600' },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginBottom: 12 },
-  scanButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginHorizontal: 16, marginBottom: 12, borderColor: '#cbd8dd', borderRadius: 12, borderWidth: 1, backgroundColor: '#ffffff' },
-  scanButtonText: { color: '#23515d', fontSize: 14, fontWeight: '600' },
+  scanButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginHorizontal: 16, marginBottom: 12, borderColor: colors.inputBorder, borderRadius: 12, borderWidth: 1, backgroundColor: colors.card },
+  scanButtonText: { color: colors.primary, fontSize: 14, fontWeight: '600' },
   addInput: { flex: 1 },
   list: { paddingHorizontal: 16, paddingBottom: 24, gap: 8 },
-  itemRow: { minHeight: 72, flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff', borderColor: '#dce6e9', borderRadius: 16, borderWidth: 1, padding: 12, gap: 12 },
+  itemRow: { minHeight: 72, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderColor: colors.border, borderRadius: 16, borderWidth: 1, padding: 12, gap: 12 },
   checkbox: { width: 44, height: 44, borderColor: '#9aabb2', borderRadius: 14, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  checkboxDone: { backgroundColor: '#087e8b', borderColor: '#087e8b' },
-  checkmark: { color: '#ffffff', fontSize: 22, fontWeight: '700' },
+  checkboxDone: { backgroundColor: colors.primary, borderColor: colors.primary },
+  checkmark: { color: colors.primaryForeground, fontSize: 22, fontWeight: '700' },
   itemText: { flex: 1, minWidth: 0 },
-  itemName: { color: '#122c3a', fontSize: 16, fontWeight: '600' },
+  itemName: { color: colors.foreground, fontSize: 16, fontWeight: '600' },
   itemDone: { color: '#6a7d86', textDecorationLine: 'line-through' },
-  itemQuantity: { color: '#526674', fontSize: 13, marginTop: 4 },
-  emptyState: { alignItems: 'center', justifyContent: 'center', margin: 16, padding: 28, backgroundColor: '#ffffff', borderColor: '#dce6e9', borderRadius: 18, borderWidth: 1, gap: 8 },
+  itemQuantity: { color: colors.secondaryText, fontSize: 13, marginTop: 4 },
+  emptyState: { alignItems: 'center', justifyContent: 'center', margin: 16, padding: 28, backgroundColor: colors.card, borderColor: colors.border, borderRadius: 18, borderWidth: 1, gap: 8 },
   units: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  unitButton: { minHeight: 44, minWidth: 48, borderColor: '#cbd8dd', borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
-  unitSelected: { backgroundColor: '#dff4f5', borderColor: '#087e8b' },
-  unitText: { color: '#526674', fontSize: 14, fontWeight: '600' },
-  unitTextSelected: { color: '#075e68' },
+  unitButton: { minHeight: 44, minWidth: 48, borderColor: colors.inputBorder, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  unitSelected: { backgroundColor: colors.accentSubtle, borderColor: colors.primary },
+  unitText: { color: colors.secondaryText, fontSize: 14, fontWeight: '600' },
+  unitTextSelected: { color: colors.accentText },
   actions: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 10 },
-  tabBar: { borderTopColor: '#dce6e9', borderTopWidth: 1, backgroundColor: '#ffffff' },
+  tabBar: { borderTopColor: colors.border, borderTopWidth: 1, backgroundColor: colors.card },
   tabScroll: { flexGrow: 0 },
   tabItems: { flexDirection: 'row', paddingHorizontal: 8, paddingTop: 8, paddingBottom: 4, gap: 6 },
   tab: { width: 80, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
-  tabActive: { backgroundColor: '#dff4f5' },
-  tabText: { color: '#526674', fontSize: 13, fontWeight: '600' },
-  tabTextActive: { color: '#075e68' },
+  tabActive: { backgroundColor: colors.accentSubtle },
+  tabText: { color: colors.secondaryText, fontSize: 13, fontWeight: '600' },
+  tabTextActive: { color: colors.accentText },
 })

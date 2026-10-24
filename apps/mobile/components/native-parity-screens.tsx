@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { ArrowDown, ArrowRight, Bell, CookingPot, House, MapPin, MoreHorizontal, Package, Pencil, PiggyBank, Plus, Repeat, ReceiptText, Search, ShoppingBag, ShoppingCart, Star, Store, Tag, Trash2, TrendingUp, Users, WalletCards, X } from 'lucide-react-native'
 import { useMobileTheme, type ThemePreference } from '../lib/theme'
-import { addHouseholdChild, addHouseholdMember, createHouseholdInvitation, createMobileManualPurchase, deleteMobilePurchase, dismissNotification, dismissRestockSuggestion, getDashboardSummary, getDealsPage, getHouseholdAuditLog, getHouseholdInvitations, getMealPlan, getNotificationPreferences, getNotifications, getPantrySettings, getPurchaseHistory, getStoreBranches, getStoreChains, getStorePreferences, MobileApiError, recordMobilePurchaseExpenses, removeHouseholdChild, removeHouseholdMember, resetHouseholdData, revokeHouseholdInvitation, sendTestPushNotification, updateHouseholdMemberDiet, updateHouseholdPreferences, updateHouseholdProfile, updateMobilePurchaseItemExpenseSplits, updateNotificationPreference, updatePantrySettings, updateStorePreferences, type MobileAuditEntry, type MobileBranchPage, type MobileChainTile, type MobileDashboardSummary, type MobileDealCategory, type MobileDealsPage, type MobileDealSort, type MobileDietAvoid, type MobileDietKey, type MobileHouseholdChild, type MobileHouseholdInvitation, type MobileHouseholdMember, type MobileHouseholdPreferences, type MobileHouseholdProfileData, type MobileMemberDiet, type MobileMealPlan, type MobileNotification, type MobileNotificationPreference, type MobilePantrySettings, type MobilePantryStockLevel, type MobilePurchase, type MobileStoreSelection } from '../lib/shopping-list-api'
+import { addHouseholdChild, addHouseholdMember, createHouseholdInvitation, createMobileManualPurchase, deleteMobileAccount, deleteMobilePurchase, dismissNotification, dismissRestockSuggestion, getDashboardSummary, getDealsPage, getHouseholdAuditLog, getHouseholdInvitations, getMealPlan, getNotificationPreferences, getNotifications, getPantrySettings, getPurchaseHistory, getStoreBranches, getStoreChains, getStorePreferences, MobileApiError, recordMobilePurchaseExpenses, removeHouseholdChild, removeHouseholdMember, resetHouseholdData, revokeHouseholdInvitation, sendTestPushNotification, updateHouseholdMemberDiet, updateHouseholdPreferences, updateHouseholdProfile, updateMobilePurchaseItemExpenseSplits, updateNotificationPreference, updatePantrySettings, updateStorePreferences, type MobileAuditEntry, type MobileBranchPage, type MobileChainTile, type MobileDashboardSummary, type MobileDealCategory, type MobileDealsPage, type MobileDealSort, type MobileDietAvoid, type MobileDietKey, type MobileHouseholdChild, type MobileHouseholdInvitation, type MobileHouseholdMember, type MobileHouseholdPreferences, type MobileHouseholdProfileData, type MobileMemberDiet, type MobileMealPlan, type MobileNotification, type MobileNotificationPreference, type MobilePantrySettings, type MobilePantryStockLevel, type MobilePurchase, type MobileStoreSelection } from '../lib/shopping-list-api'
 import { dismissalKey } from '../../../lib/pantry-restock'
 import { assessDealQuality, dealDiscount, effectivePrice } from '../../../lib/prices'
 import { DIET_AVOIDS, DIETS, dietLabels } from '../../../lib/diet'
@@ -24,6 +24,8 @@ import { confirmsHouseholdName, DATA_RESET_GROUPS, DATA_RESET_LABELS, type DataR
 import { averageMonthlySpend, favoriteStores, mostBoughtProducts, repeatPurchases } from '../../../lib/purchase-history'
 import { todayInPrague } from '../../../lib/today'
 import type { ItemCategory, ManualPurchaseInput } from '../../../lib/types'
+import { confirmsEmail } from '../../../lib/account-deletion'
+import { deleteSignedInUser } from '../lib/auth'
 
 export type NativeTab = 'home' | 'shopping' | 'pantry' | 'budget' | 'deals' | 'stores' | 'recipes' | 'profile'
 type TabLabel = NativeTab
@@ -135,6 +137,8 @@ export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceip
   const todayIso = dashboard?.today ?? `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`
   const today = new Date(`${todayIso}T12:00:00`).toLocaleDateString('cs-CZ', { weekday: 'long', day: 'numeric', month: 'long' })
   const budget = dashboard?.budget ?? null
+  const dashboardCategories = budget?.categories.slice().sort((a, b) => b.total - a.total) ?? []
+  const dashboardCategoryMax = dashboardCategories[0]?.total ?? 1
   const shopping = dashboard?.list ?? null
   const todayDay = DAYS[(new Date().getDay() + 6) % 7]
   const todayMeals = mealPlan?.weekStart === currentWeekStart(todayIso) ? mealPlan.days.find((day) => day.day === todayDay)?.meals ?? [] : []
@@ -191,10 +195,10 @@ export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceip
       {dashboard?.weeklyAllowance != null ? <View style={styles.insightCard}><View style={styles.cardIcon}><WalletCards color={colors.primary} size={21} /></View><View style={styles.dashboardText}><Text style={styles.cardTitle}>Kolik můžete utratit tento týden</Text><Text style={styles.bodyText}>Přibližně {money(dashboard.weeklyAllowance, budget?.currency ?? 'CZK')}, aby rozpočet vystačil do konce období.</Text></View></View> : null}
       {budget?.categories.length ? <View style={styles.chartCard}>
         <Text style={styles.cardTitle}>Výdaje podle kategorií</Text>
-        {budget.categories.slice().sort((a, b) => b.total - a.total).slice(0, 4).map((category) => (
+        {dashboardCategories.map((category) => (
           <View key={category.category} style={styles.chartRow}>
             <View style={styles.chartLabelRow}><Text style={styles.bodyText}>{category.category}</Text><Text style={styles.bodyText}>{money(category.total, budget.currency)}</Text></View>
-            <View style={styles.chartTrack}><View style={[styles.chartFill, { backgroundColor: expenseCategoryColor(category.category, theme), width: `${budget.spent > 0 ? Math.min(100, category.total / budget.spent * 100) : 0}%` }]} /></View>
+            <View style={styles.chartTrack}><View style={[styles.chartFill, { backgroundColor: expenseCategoryColor(category.category, theme), width: `${dashboardCategoryMax > 0 ? Math.min(100, category.total / dashboardCategoryMax * 100) : 0}%` }]} /></View>
           </View>
         ))}
       </View> : null}
@@ -737,6 +741,10 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
   const [resetName, setResetName] = useState('')
   const [resetBusy, setResetBusy] = useState(false)
   const [resetError, setResetError] = useState<string | null>(null)
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false)
+  const [deleteAccountEmail, setDeleteAccountEmail] = useState('')
+  const [deleteAccountBusy, setDeleteAccountBusy] = useState(false)
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null)
   const [preferencesError, setPreferencesError] = useState<string | null>(null)
   const [profileSection, setProfileSection] = useState<'household' | 'shopping' | 'pantry' | 'appearance' | 'notifications'>('household')
   const [profileError, setProfileError] = useState<string | null>(null)
@@ -1165,6 +1173,26 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
     } finally { setResetBusy(false) }
   }
 
+  async function confirmAccountDeletion() {
+    setDeleteAccountBusy(true)
+    setDeleteAccountError(null)
+    try {
+      const result = await deleteMobileAccount(deleteAccountEmail)
+      try {
+        await deleteSignedInUser()
+      } catch (caught) {
+        setDeleteAccountError(`Data jsou smazaná, ale přihlašovací účet se nepodařilo odstranit: ${caught instanceof Error ? caught.message : 'neznámá chyba'}. Napište správci aplikace.`)
+        return
+      }
+      setDeleteAccountOpen(false)
+      void onSignOut()
+      if (result.photosFailed > 0) Alert.alert('Účet smazán', `Některé fotografie účtenek se nepodařilo odstranit (${result.photosFailed}).`)
+    } catch (caught) {
+      setDeleteAccountError(caught instanceof Error ? caught.message : 'Účet se nepodařilo smazat.')
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+    } finally { setDeleteAccountBusy(false) }
+  }
+
   async function saveHousehold() {
     const monthlyBudget = Number(budgetDraft.replace(/[\s ]/g, '').replace(',', '.'))
     if (!Number.isFinite(monthlyBudget) || monthlyBudget < 0) {
@@ -1383,7 +1411,18 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
       {preferences.map((item) => <View key={item.key} style={styles.preferenceRow}><View style={styles.preferenceDescription}><Text style={styles.cardTitle}>{item.label}</Text><Text style={styles.noteText}>{item.description}</Text></View><Switch accessibilityLabel={item.label} value={item.enabled} onValueChange={(enabled) => void togglePreference(item.key, enabled)} trackColor={{ false: colors.border, true: colors.accent }} thumbColor={colors.card} /></View>)}
       <NativeDevicePushSetting onAuthExpired={onAuthExpired} />
     </View> : null}
+    <Pressable accessibilityRole="button" onPress={() => { setDeleteAccountEmail(''); setDeleteAccountError(null); setDeleteAccountOpen(true) }} style={styles.accountDeleteButton}><Text style={styles.accountDeleteText}>Smazat účet…</Text></Pressable>
     <Pressable accessibilityRole="button" onPress={onSignOut} style={styles.signOutButton}><Text style={styles.signOutText}>Odhlásit se</Text></Pressable>
+
+    <Modal animationType="slide" onRequestClose={() => { if (!deleteAccountBusy) setDeleteAccountOpen(false) }} transparent visible={deleteAccountOpen}>
+      <View style={styles.modalScrim}><ScrollView contentContainerStyle={styles.dietModalScroll} keyboardShouldPersistTaps="handled"><View style={styles.dietModal}>
+        <View style={styles.sectionHeader}><View style={styles.preferenceDescription}><Text style={styles.sheetTitle}>Smazat účet</Text><Text style={styles.bodyText}>{householdRole === 'owner' ? 'Smažete svůj účet i celou domácnost: seznamy, nákupy, účtenky s fotkami, rozpočet, zásoby a profily všech členů. Nejde to vrátit.' : 'Smažete svůj účet a svůj profil v domácnosti. Sdílená data domácnosti zůstanou ostatním. Nejde to vrátit.'}</Text></View><Pressable accessibilityLabel="Zavřít" accessibilityRole="button" disabled={deleteAccountBusy} onPress={() => setDeleteAccountOpen(false)} style={styles.closeButton}><X color={colors.foreground} size={20} /></Pressable></View>
+        <Text style={styles.profileFieldLabel}>Pro potvrzení napište svůj e-mail: {email}</Text>
+        <TextInput accessibilityLabel="Potvrzovací e-mail účtu" autoCapitalize="none" autoCorrect={false} editable={!deleteAccountBusy} keyboardType="email-address" onChangeText={setDeleteAccountEmail} placeholder={email} placeholderTextColor={colors.mutedText} style={styles.profileInput} value={deleteAccountEmail} />
+        {deleteAccountError ? <Text accessibilityRole="alert" style={styles.error}>{deleteAccountError}</Text> : null}
+        <View style={styles.rowActions}><Pressable accessibilityRole="button" disabled={deleteAccountBusy} onPress={() => setDeleteAccountOpen(false)} style={styles.secondaryAction}><Text style={styles.secondaryActionText}>Zrušit</Text></Pressable><Pressable accessibilityRole="button" disabled={deleteAccountBusy || !confirmsEmail(deleteAccountEmail, email)} onPress={() => void confirmAccountDeletion()} style={[styles.accountDeleteConfirm, (deleteAccountBusy || !confirmsEmail(deleteAccountEmail, email)) && styles.disabled]}><Text style={styles.accountDeleteConfirmText}>{deleteAccountBusy ? 'Mažu…' : 'Smazat navždy'}</Text></Pressable></View>
+      </View></ScrollView></View>
+    </Modal>
 
     <Modal animationType="slide" onRequestClose={() => { if (!resetBusy) setResetOpen(false) }} transparent visible={resetOpen}>
       <View style={styles.modalScrim}><ScrollView contentContainerStyle={styles.dietModalScroll} keyboardShouldPersistTaps="handled"><View style={styles.dietModal}>
@@ -1622,6 +1661,10 @@ function useStyles() {
   success: { color: colors.accentText, fontSize: 13 },
   signOutButton: { minHeight: 48, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.destructive, borderRadius: 14, backgroundColor: colors.destructiveSubtle, marginTop: 4 },
   signOutText: { color: colors.destructive, fontSize: 14, fontWeight: '700' },
+  accountDeleteButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.destructive, borderRadius: 14, marginTop: 4 },
+  accountDeleteText: { color: colors.destructive, fontSize: 14, fontWeight: '700' },
+  accountDeleteConfirm: { minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14, borderRadius: 13, backgroundColor: colors.destructive },
+  accountDeleteConfirmText: { color: '#ffffff', fontSize: 14, fontWeight: '700' },
   themeChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   themeChoice: { minHeight: 38, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
   themeChoiceSelected: { backgroundColor: colors.accentSubtle, borderColor: colors.accent },

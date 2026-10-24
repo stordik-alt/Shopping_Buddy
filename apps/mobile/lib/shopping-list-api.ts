@@ -362,6 +362,13 @@ export function resetHouseholdData(groups: string[], typedName: string) {
   })
 }
 
+export function deleteMobileAccount(email: string) {
+  return request<{ ok: true; householdDeleted: boolean; photosFailed: number }>('/api/mobile/account', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  })
+}
+
 export type MobileNotificationPreference = { key: string; label: string; description: string; enabled: boolean }
 
 export function getNotificationPreferences() {

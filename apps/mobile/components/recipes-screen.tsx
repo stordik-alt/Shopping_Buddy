@@ -3,6 +3,7 @@ import { ActivityIndicator, Image, Linking, Pressable, ScrollView, StyleSheet, T
 import { MobileApiError, getRecipe, searchRecipes, type MobileRecipe } from '../lib/shopping-list-api'
 import { getAccessToken } from '../lib/auth'
 import { RefreshButton } from './refresh-button'
+import { colors } from '../lib/theme'
 
 const PAGE_SIZE = 6
 
@@ -127,7 +128,7 @@ export function RecipesScreen({ onAuthExpired }: { onAuthExpired: () => void }) 
               onChangeText={setQuery}
               onSubmitEditing={() => void search(1)}
               placeholder="Např. kuřecí maso, rýže"
-              placeholderTextColor="#64748b"
+              placeholderTextColor={colors.mutedText}
               returnKeyType="search"
               style={styles.input}
               value={query}
@@ -139,12 +140,12 @@ export function RecipesScreen({ onAuthExpired }: { onAuthExpired: () => void }) 
           {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
           {detailLoading ? (
             <View style={styles.empty}>
-              <ActivityIndicator color="#087e8b" size="large" />
+              <ActivityIndicator color={colors.primary} size="large" />
               <Text style={styles.supporting}>Načítání receptu…</Text>
             </View>
           ) : loading && results.length === 0 ? (
             <View style={styles.empty}>
-              <ActivityIndicator color="#087e8b" size="large" />
+              <ActivityIndicator color={colors.primary} size="large" />
               <Text style={styles.supporting}>Hledám recepty…</Text>
             </View>
           ) : results.length === 0 ? (
@@ -197,32 +198,32 @@ const styles = StyleSheet.create({
   content: { padding: 16, paddingBottom: 24, gap: 12 },
   heading: { minHeight: 64, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   headingText: { flex: 1, minWidth: 0 },
-  title: { color: '#122c3a', fontSize: 22, fontWeight: '700' },
-  supporting: { color: '#526674', fontSize: 14, lineHeight: 20, marginTop: 4 },
+  title: { color: colors.foreground, fontSize: 22, fontWeight: '700' },
+  supporting: { color: colors.secondaryText, fontSize: 14, lineHeight: 20, marginTop: 4 },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  input: { flex: 1, minHeight: 48, borderColor: '#cbd8dd', borderRadius: 12, borderWidth: 1, backgroundColor: '#ffffff', color: '#122c3a', paddingHorizontal: 14, fontSize: 16 },
-  searchButton: { minHeight: 48, borderRadius: 12, backgroundColor: '#087e8b', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
+  input: { flex: 1, minHeight: 48, borderColor: colors.inputBorder, borderRadius: 12, borderWidth: 1, backgroundColor: '#ffffff', color: colors.foreground, paddingHorizontal: 14, fontSize: 16 },
+  searchButton: { minHeight: 48, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
   searchButtonText: { color: '#ffffff', fontSize: 14, fontWeight: '700' },
   disabledButton: { opacity: 0.5 },
   error: { color: '#a72d2d', backgroundColor: '#fff0f0', borderRadius: 12, padding: 12, fontSize: 14, lineHeight: 20 },
   empty: { minHeight: 180, alignItems: 'center', justifyContent: 'center', gap: 8 },
-  emptyCard: { alignItems: 'center', backgroundColor: '#ffffff', borderColor: '#dce6e9', borderRadius: 18, borderWidth: 1, padding: 24, gap: 8 },
-  sectionTitle: { color: '#122c3a', fontSize: 18, fontWeight: '700', marginTop: 8 },
-  resultCount: { color: '#526674', fontSize: 14, fontWeight: '600' },
-  recipeCard: { minHeight: 112, flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff', borderColor: '#dce6e9', borderRadius: 16, borderWidth: 1, padding: 12, gap: 12 },
+  emptyCard: { alignItems: 'center', backgroundColor: '#ffffff', borderColor: colors.border, borderRadius: 18, borderWidth: 1, padding: 24, gap: 8 },
+  sectionTitle: { color: colors.foreground, fontSize: 18, fontWeight: '700', marginTop: 8 },
+  resultCount: { color: colors.secondaryText, fontSize: 14, fontWeight: '600' },
+  recipeCard: { minHeight: 112, flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff', borderColor: colors.border, borderRadius: 16, borderWidth: 1, padding: 12, gap: 12 },
   photo: { width: 88, height: 88, borderRadius: 12, backgroundColor: '#e8f0f1' },
   photoFallback: { width: 88, height: 88, borderRadius: 12, backgroundColor: '#e8f0f1', alignItems: 'center', justifyContent: 'center' },
   photoFallbackIcon: { fontSize: 30 },
   cardText: { flex: 1, minWidth: 0, gap: 3 },
-  cardTitle: { color: '#122c3a', fontSize: 16, fontWeight: '700' },
-  source: { color: '#526674', fontSize: 13 },
+  cardTitle: { color: colors.foreground, fontSize: 16, fontWeight: '700' },
+  source: { color: colors.secondaryText, fontSize: 13 },
   pagination: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 },
-  pageButton: { minHeight: 44, justifyContent: 'center', borderColor: '#cbd8dd', borderWidth: 1, borderRadius: 12, paddingHorizontal: 10 },
-  pageText: { color: '#23515d', fontSize: 13, fontWeight: '600' },
+  pageButton: { minHeight: 44, justifyContent: 'center', borderColor: colors.inputBorder, borderWidth: 1, borderRadius: 12, paddingHorizontal: 10 },
+  pageText: { color: colors.primary, fontSize: 13, fontWeight: '600' },
   backButton: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
-  backText: { color: '#075e68', fontSize: 15, fontWeight: '600' },
-  description: { color: '#526674', fontSize: 15, lineHeight: 22 },
-  ingredient: { color: '#122c3a', fontSize: 15, lineHeight: 22 },
-  primaryButton: { minHeight: 48, backgroundColor: '#087e8b', borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, marginTop: 8 },
+  backText: { color: colors.accentText, fontSize: 15, fontWeight: '600' },
+  description: { color: colors.secondaryText, fontSize: 15, lineHeight: 22 },
+  ingredient: { color: colors.foreground, fontSize: 15, lineHeight: 22 },
+  primaryButton: { minHeight: 48, backgroundColor: colors.primary, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, marginTop: 8 },
   primaryButtonText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
 })

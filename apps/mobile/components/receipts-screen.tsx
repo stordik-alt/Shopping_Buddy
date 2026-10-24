@@ -10,6 +10,7 @@ import {
   type MobileReceiptImport,
 } from '../lib/shopping-list-api'
 import { RefreshButton } from './refresh-button'
+import { colors } from '../lib/theme'
 
 type Props = { onAuthExpired: () => void }
 
@@ -226,7 +227,7 @@ export function ReceiptsScreen({ onAuthExpired }: Props) {
       </View>
       {loading && receipts.length === 0 ? (
         <View style={styles.centered}>
-          <ActivityIndicator color="#087e8b" size="large" />
+          <ActivityIndicator color={colors.primary} size="large" />
         </View>
       ) : receipts.length === 0 ? (
         <View style={styles.emptyState}>
@@ -284,24 +285,24 @@ export function ReceiptsScreen({ onAuthExpired }: Props) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, gap: 12 },
-  cameraScreen: { flex: 1, backgroundColor: '#f3f7f8' },
+  cameraScreen: { flex: 1, backgroundColor: colors.background },
   cameraHeader: { minHeight: 88, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, gap: 12 },
   headerText: { flex: 1 },
-  title: { color: '#122c3a', fontSize: 20, fontWeight: '700' },
-  supporting: { color: '#526674', fontSize: 14, lineHeight: 20, marginTop: 5 },
-  actionCard: { backgroundColor: '#ffffff', borderColor: '#dce6e9', borderRadius: 18, borderWidth: 1, margin: 16, padding: 16, gap: 12 },
-  sectionTitle: { color: '#122c3a', fontSize: 18, fontWeight: '700' },
-  primaryButton: { minHeight: 48, justifyContent: 'center', alignItems: 'center', borderRadius: 12, backgroundColor: '#087e8b', paddingHorizontal: 18, marginTop: 8 },
+  title: { color: colors.foreground, fontSize: 20, fontWeight: '700' },
+  supporting: { color: colors.secondaryText, fontSize: 14, lineHeight: 20, marginTop: 5 },
+  actionCard: { backgroundColor: '#ffffff', borderColor: colors.border, borderRadius: 18, borderWidth: 1, margin: 16, padding: 16, gap: 12 },
+  sectionTitle: { color: colors.foreground, fontSize: 18, fontWeight: '700' },
+  primaryButton: { minHeight: 48, justifyContent: 'center', alignItems: 'center', borderRadius: 12, backgroundColor: colors.primary, paddingHorizontal: 18, marginTop: 8 },
   primaryButtonText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
-  secondaryButton: { minHeight: 44, justifyContent: 'center', alignItems: 'center', borderColor: '#cbd8dd', borderRadius: 12, borderWidth: 1, backgroundColor: '#ffffff', paddingHorizontal: 12 },
-  secondaryButtonText: { color: '#23515d', fontSize: 14, fontWeight: '600' },
+  secondaryButton: { minHeight: 44, justifyContent: 'center', alignItems: 'center', borderColor: colors.inputBorder, borderRadius: 12, borderWidth: 1, backgroundColor: '#ffffff', paddingHorizontal: 12 },
+  secondaryButtonText: { color: colors.primary, fontSize: 14, fontWeight: '600' },
   disabledButton: { opacity: 0.55 },
-  cameraPreview: { flex: 1, overflow: 'hidden', backgroundColor: '#122c3a', margin: 16, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  cameraPreview: { flex: 1, overflow: 'hidden', backgroundColor: colors.foreground, margin: 16, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   receiptFrame: { width: '78%', height: '72%', borderColor: '#ffffff', borderWidth: 2, borderRadius: 12 },
   cameraError: { position: 'absolute', top: 16, left: 16, right: 16, color: '#ffffff', backgroundColor: '#a72d2dcc', borderRadius: 10, padding: 10, textAlign: 'center' },
   captureButton: { position: 'absolute', bottom: 28, minHeight: 52, minWidth: 160, justifyContent: 'center', alignItems: 'center', borderRadius: 26, backgroundColor: '#ffffff', paddingHorizontal: 24 },
-  captureButtonText: { color: '#075e68', fontSize: 16, fontWeight: '700' },
-  busyOverlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: '#122c3acc' },
+  captureButtonText: { color: colors.accentText, fontSize: 16, fontWeight: '700' },
+  busyOverlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: colors.navyOverlay },
   busyText: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
   permissionState: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 12 },
   error: { color: '#a72d2d', backgroundColor: '#fff0f0', borderRadius: 12, marginHorizontal: 16, marginBottom: 8, padding: 12, fontSize: 14, lineHeight: 20 },
@@ -311,9 +312,9 @@ const styles = StyleSheet.create({
   listHeader: { minHeight: 52, marginHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   listHeaderTitle: { flex: 1, minWidth: 0 },
   list: { paddingHorizontal: 16, paddingBottom: 24, gap: 8 },
-  receiptCard: { backgroundColor: '#ffffff', borderColor: '#dce6e9', borderRadius: 16, borderWidth: 1, padding: 14, gap: 8 },
-  receiptStatus: { color: '#122c3a', fontSize: 16, fontWeight: '700' },
-  receiptLine: { color: '#526674', fontSize: 14 },
-  emptyState: { alignItems: 'center', marginHorizontal: 16, padding: 20, backgroundColor: '#ffffff', borderColor: '#dce6e9', borderRadius: 18, borderWidth: 1 },
+  receiptCard: { backgroundColor: '#ffffff', borderColor: colors.border, borderRadius: 16, borderWidth: 1, padding: 14, gap: 8 },
+  receiptStatus: { color: colors.foreground, fontSize: 16, fontWeight: '700' },
+  receiptLine: { color: colors.secondaryText, fontSize: 14 },
+  emptyState: { alignItems: 'center', marginHorizontal: 16, padding: 20, backgroundColor: '#ffffff', borderColor: colors.border, borderRadius: 18, borderWidth: 1 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
 })

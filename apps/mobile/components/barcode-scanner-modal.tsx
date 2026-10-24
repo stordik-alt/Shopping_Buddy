@@ -3,6 +3,7 @@ import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'rea
 import { CameraView, useCameraPermissions } from 'expo-camera'
 import type { BarcodeScanningResult } from 'expo-camera'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { colors } from '../lib/theme'
 
 type Props = {
   visible: boolean
@@ -98,20 +99,20 @@ export function BarcodeScannerModal({ visible, busy, onBarcodeScanned, onClose }
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#f3f7f8' },
+  screen: { flex: 1, backgroundColor: colors.background },
   header: { minHeight: 88, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, gap: 12 },
   headerText: { flex: 1 },
-  title: { color: '#122c3a', fontSize: 20, fontWeight: '700' },
-  supporting: { color: '#526674', fontSize: 15, lineHeight: 22, marginTop: 8, textAlign: 'center' },
+  title: { color: colors.foreground, fontSize: 20, fontWeight: '700' },
+  supporting: { color: colors.secondaryText, fontSize: 15, lineHeight: 22, marginTop: 8, textAlign: 'center' },
   closeButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 },
-  closeText: { color: '#23515d', fontSize: 14, fontWeight: '600' },
-  preview: { flex: 1, overflow: 'hidden', backgroundColor: '#122c3a', margin: 16, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  closeText: { color: colors.primary, fontSize: 14, fontWeight: '600' },
+  preview: { flex: 1, overflow: 'hidden', backgroundColor: colors.foreground, margin: 16, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   scanFrame: { width: '82%', height: 150, borderColor: '#ffffff', borderWidth: 3, borderRadius: 14 },
-  hint: { color: '#ffffff', backgroundColor: '#122c3acc', fontSize: 14, marginTop: 24, paddingHorizontal: 12, paddingVertical: 8, overflow: 'hidden', borderRadius: 12 },
-  busyOverlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: '#122c3acc' },
+  hint: { color: '#ffffff', backgroundColor: colors.navyOverlay, fontSize: 14, marginTop: 24, paddingHorizontal: 12, paddingVertical: 8, overflow: 'hidden', borderRadius: 12 },
+  busyOverlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: colors.navyOverlay },
   busyText: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
   permissionState: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 12 },
-  primaryButton: { minHeight: 48, justifyContent: 'center', alignItems: 'center', borderRadius: 12, backgroundColor: '#087e8b', paddingHorizontal: 18, marginTop: 8 },
+  primaryButton: { minHeight: 48, justifyContent: 'center', alignItems: 'center', borderRadius: 12, backgroundColor: colors.primary, paddingHorizontal: 18, marginTop: 8 },
   primaryButtonText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
   error: { color: '#a72d2d', fontSize: 14, textAlign: 'center' },
 })

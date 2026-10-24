@@ -5,8 +5,8 @@ export default function RootLayout() {
   return (
     <>
       <StatusBar style="auto" />
-      <Stack>
-        <Stack.Screen name="index" options={{ title: 'ANITKA' }} />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
       </Stack>
     </>
   )

@@ -141,3 +141,10 @@ export async function signOut(): Promise<void> {
     await writeToken('')
   }
 }
+
+export async function deleteSignedInUser(): Promise<void> {
+  const result = await getAuthClient().deleteUser()
+  if (result.error) throw new Error(result.error.message || 'Přihlašovací účet se nepodařilo odstranit.')
+  await writeCookie('')
+  await writeToken('')
+}

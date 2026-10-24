@@ -25,7 +25,7 @@ const DARK: Record<ExpenseCategory, string> = {
   'Oblečení a obuv': '#d59acf',
   Zdraví: '#96b874',
   'Volný čas': '#2fb5d8',
-  Doprava: '#16bbbc',
+  Doprava: '#00bdbe',
 }
 
 /** Mirrors the PWA's category-to-chart-token mapping and its light/dark chart palettes. */

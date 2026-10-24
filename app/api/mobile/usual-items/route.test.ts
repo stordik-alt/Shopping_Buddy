@@ -25,7 +25,7 @@ vi.mock('@/lib/usual-items', () => ({ suggestUsualItems: (...args: unknown[]) =>
 import { GET } from '@/app/api/mobile/usual-items/route'
 import { MobileRequestAuthError } from '@/lib/auth/mobile-request'
 
-const request = () => new Request('https://anitka.example/api/mobile/usual-items')
+const request = (listId?: string) => new Request(`https://anitka.example/api/mobile/usual-items${listId ? `?listId=${listId}` : ''}`)
 
 describe('/api/mobile/usual-items', () => {
   beforeEach(() => {
@@ -61,5 +61,18 @@ describe('/api/mobile/usual-items', () => {
       onList: ['Mléko'],
       inPantry: ['Rýže'],
     })
+  })
+
+  it('checks suggestions against the selected household list', async () => {
+    const response = await GET(request('list-2'))
+    expect(response.status).toBe(200)
+    expect(getShoppingListState).toHaveBeenCalledWith('household-1', 'list-2')
+    expect(suggestUsualItems).toHaveBeenCalledWith(expect.objectContaining({ onList: ['Mléko'] }))
+  })
+
+  it('rejects a selected list outside the household', async () => {
+    getShoppingListState.mockResolvedValueOnce(null)
+    expect((await GET(request('foreign-list'))).status).toBe(404)
+    expect(suggestUsualItems).not.toHaveBeenCalled()
   })
 })

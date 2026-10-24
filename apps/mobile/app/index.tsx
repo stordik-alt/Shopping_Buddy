@@ -5,6 +5,7 @@ import {
   Image,
   KeyboardAvoidingView,
   Linking,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -64,6 +65,7 @@ import {
 import {
   addShoppingItem,
   clearDoneShoppingItems,
+  createShoppingList,
   getCurrentUser,
   getDashboardSummary,
   getNotifications,
@@ -73,6 +75,7 @@ import {
   toggleShoppingItem,
   updateShoppingItem,
   type MobileShoppingItem,
+  type MobileShoppingList,
   type MobileDashboardSummary,
   type MobilePantryItem,
   type MobileHouseholdProfileData,
@@ -81,6 +84,8 @@ import {
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Operaci se nepodařilo dokončit. Zkuste to znovu.'
 }
+
+const activeShoppingListKey = (householdId: string) => `anitka.active-shopping-list:${householdId}`
 
 function LoginForm({ onSignIn, busy, error }: { onSignIn: (email: string, password: string) => void; busy: boolean; error: string | null }) {
   const { colors } = useMobileTheme()
@@ -237,6 +242,11 @@ export default function HomeScreen() {
   const [householdMissing, setHouseholdMissing] = useState(false)
   const [items, setItems] = useState<MobileShoppingItem[]>([])
   const [listName, setListName] = useState('Nákupní seznam')
+  const [activeListId, setActiveListId] = useState('')
+  const [shoppingLists, setShoppingLists] = useState<{ id: string; name: string }[]>([])
+  const [listCreateOpen, setListCreateOpen] = useState(false)
+  const [newListName, setNewListName] = useState('')
+  const [listActionBusy, setListActionBusy] = useState(false)
   const [newName, setNewName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busyItemId, setBusyItemId] = useState<string | null>(null)
@@ -283,7 +293,10 @@ export default function HomeScreen() {
     offlineSnapshot.current = snapshot
     setPendingChanges(snapshot.pending.length)
     setItems(applyOfflineOperations(snapshot.list.items, snapshot.pending))
-    setListName(snapshot.list.shoppingLists[0] ?? 'Nákupní seznam')
+    const options = snapshot.list.lists ?? []
+    setShoppingLists(options)
+    setActiveListId(snapshot.list.listId)
+    setListName(options.find((list) => list.id === snapshot.list.listId)?.name ?? snapshot.list.shoppingLists[0] ?? 'Nákupní seznam')
   }
 
   async function syncPendingChanges(refreshAfterSync = false) {
@@ -316,7 +329,8 @@ export default function HomeScreen() {
 
     if (refreshAfterSync && !result.retryRequired && result.snapshot.pending.length === 0) {
       try {
-        const list = await getShoppingList()
+        const listId = offlineSnapshot.current?.list.listId
+        const list = await getShoppingList(listId)
         const updated = { ...result.snapshot, list }
         await saveOfflineSnapshot(updated)
         showSnapshot(updated)
@@ -407,7 +421,14 @@ export default function HomeScreen() {
       cached = offlineSnapshot.current ?? cached
 
       try {
-        const list = await getShoppingList()
+        const savedListId = await SecureStore.getItemAsync(activeShoppingListKey(context.householdId)).catch(() => null)
+        let list: MobileShoppingList
+        try {
+          list = await getShoppingList(savedListId ?? undefined)
+        } catch (caught) {
+          if (!savedListId || !(caught instanceof MobileApiError) || caught.status !== 404) throw caught
+          list = await getShoppingList()
+        }
         cached = cached
           ? { ...cached, list }
           : {
@@ -419,6 +440,7 @@ export default function HomeScreen() {
             }
         await saveOfflineSnapshot(cached)
         showSnapshot(cached)
+        await SecureStore.setItemAsync(activeShoppingListKey(context.householdId), list.listId).catch(() => undefined)
         setOffline(cached.pending.length > 0)
       } catch (caught) {
         if (caught instanceof MobileApiError && caught.status !== 0 && caught.status < 500) throw caught
@@ -564,7 +586,7 @@ export default function HomeScreen() {
           createOfflineItemId().slice('offline-'.length),
           1,
           pantryItem.unit,
-          { category: pantryItem.category, detail: 'došlo ze zásob' },
+          { category: pantryItem.category, detail: 'došlo ze zásob', listId: activeListId },
         )
         onList.add(key)
         added += 1
@@ -647,8 +669,8 @@ export default function HomeScreen() {
       await syncPendingChanges(true)
       const current = offlineSnapshot.current
       if (!current || current.pending.length > 0) throw new Error('Neuložené změny je potřeba nejdřív synchronizovat.')
-      await clearDoneShoppingItems()
-      const freshList = await getShoppingList()
+      await clearDoneShoppingItems(current.list.listId)
+      const freshList = await getShoppingList(current.list.listId)
       const next = { ...current, list: freshList, pending: [] }
       await saveOfflineSnapshot(next)
       showSnapshot(next)
@@ -657,6 +679,62 @@ export default function HomeScreen() {
       if (caught instanceof MobileApiError && caught.status === 401) handleAuthExpired()
     } finally {
       setBusyItemId(null)
+    }
+  }
+
+  async function selectShoppingList(listId: string) {
+    if (!listId || listId === activeListId || offline || pendingChanges > 0 || busy || busyItemId || listActionBusy) return
+    setListActionBusy(true)
+    setError(null)
+    try {
+      const current = offlineSnapshot.current
+      if (!current || current.pending.length > 0) throw new Error('Neuložené změny je potřeba nejdřív synchronizovat.')
+      const list = await getShoppingList(listId)
+      const next = { ...current, list, pending: [] }
+      await saveOfflineSnapshot(next)
+      await SecureStore.setItemAsync(activeShoppingListKey(current.householdId), listId).catch(() => undefined)
+      showSnapshot(next)
+      setEditItem(null)
+      setNewName('')
+    } catch (caught) {
+      setError(errorMessage(caught))
+      if (caught instanceof MobileApiError && caught.status === 401) handleAuthExpired()
+    } finally {
+      setListActionBusy(false)
+    }
+  }
+
+  async function submitNewShoppingList() {
+    const name = newListName.trim()
+    if (!name || listActionBusy) return
+    if (shoppingLists.some((list) => list.name === name)) {
+      setError('Seznam s tímto názvem už existuje.')
+      return
+    }
+    setListActionBusy(true)
+    setError(null)
+    try {
+      const current = offlineSnapshot.current
+      if (!current || offline || pendingChanges > 0) throw new Error('Nový seznam lze vytvořit po připojení a synchronizaci změn.')
+      const { list: created } = await createShoppingList(name)
+      const options = [...(current.list.lists ?? []), created]
+      const list: MobileShoppingList = {
+        listId: created.id,
+        items: [],
+        lists: options,
+        shoppingLists: options.map((option) => option.name),
+      }
+      const next = { ...current, list, pending: [] }
+      await saveOfflineSnapshot(next)
+      await SecureStore.setItemAsync(activeShoppingListKey(current.householdId), created.id).catch(() => undefined)
+      showSnapshot(next)
+      setNewListName('')
+      setListCreateOpen(false)
+    } catch (caught) {
+      setError(errorMessage(caught))
+      if (caught instanceof MobileApiError && caught.status === 401) handleAuthExpired()
+    } finally {
+      setListActionBusy(false)
     }
   }
 
@@ -795,6 +873,22 @@ export default function HomeScreen() {
                 </View>
                 {shoppingView === 'receipts' ? <ReceiptsScreen onAuthExpired={handleAuthExpired} /> : shoppingView === 'purchases' ? <NativePurchasesScreen /> : (
                 <>
+                <View style={styles.listPicker}>
+                  <View style={styles.listPickerHeading}>
+                    <View style={styles.listPickerTitleWrap}>
+                      <Text style={styles.cardEyebrow}>SDÍLENÉ SEZNAMY</Text>
+                      <Text numberOfLines={1} style={styles.listPickerTitle}>{listName}</Text>
+                    </View>
+                    <Pressable accessibilityRole="button" disabled={offline || pendingChanges > 0 || busy || busyItemId !== null || listActionBusy} onPress={() => { setNewListName(''); setError(null); setListCreateOpen(true) }} style={[styles.newListButton, (offline || pendingChanges > 0 || busy || busyItemId !== null || listActionBusy) && styles.disabledButton]}>
+                      <Text style={styles.newListButtonText}>＋ Nový</Text>
+                    </Pressable>
+                  </View>
+                  <ScrollView horizontal contentContainerStyle={styles.listPickerChips} showsHorizontalScrollIndicator={false}>
+                    {shoppingLists.map((list) => <Pressable key={list.id} accessibilityRole="button" accessibilityState={{ selected: activeListId === list.id, disabled: offline || pendingChanges > 0 || busy || busyItemId !== null || listActionBusy }} disabled={offline || pendingChanges > 0 || busy || busyItemId !== null || listActionBusy} onPress={() => void selectShoppingList(list.id)} style={[styles.listPickerChip, activeListId === list.id && styles.listPickerChipActive]}>
+                      <Text numberOfLines={1} style={[styles.listPickerChipText, activeListId === list.id && styles.listPickerChipTextActive]}>{list.name}</Text>
+                    </Pressable>)}
+                  </ScrollView>
+                </View>
                 <View style={styles.summary}>
                   <Text style={styles.summaryText}>{remaining} k nákupu · {completed} hotovo</Text>
                   <RefreshButton disabled={busyItemId !== null} loading={busy} onPress={() => void load()} />
@@ -803,6 +897,7 @@ export default function HomeScreen() {
                 <UsualItemsScreen
                   openItemNames={items.filter((item) => !item.done).map((item) => item.name)}
                   disabled={offline || pendingChanges > 0 || busy || busyItemId !== null}
+                  listId={activeListId}
                   onAdded={addCatalogProduct}
                   onAuthExpired={handleAuthExpired}
                 />
@@ -949,7 +1044,24 @@ export default function HomeScreen() {
       <NativeAssistantModal onClose={() => setAssistantOpen(false)} onShopping={() => setActiveTab('shopping')} visible={assistantOpen} />
       <NativeGuideModal onClose={() => { setGuideOpen(false); void SecureStore.setItemAsync(GUIDE_DONE_KEY, 'done').catch(() => undefined) }} onNavigate={setActiveTab} visible={guideOpen} />
       <NativeNotificationsModal onClose={() => setNotificationsOpen(false)} onUnreadCount={setUnreadNotificationCount} visible={notificationsOpen} />
-      <ShoppingToolsModal items={items} onAuthExpired={handleAuthExpired} onClose={() => setShoppingToolsOpen(false)} onProductAdded={addCatalogProduct} visible={shoppingToolsOpen} />
+      <ShoppingToolsModal items={items} listId={activeListId} onAuthExpired={handleAuthExpired} onClose={() => setShoppingToolsOpen(false)} onProductAdded={addCatalogProduct} visible={shoppingToolsOpen} />
+      <Modal animationType="slide" onRequestClose={() => { if (!listActionBusy) setListCreateOpen(false) }} transparent visible={listCreateOpen}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.editor}>
+            <View style={styles.editorHeading}>
+              <Text style={styles.editorTitle}>Nový sdílený seznam</Text>
+              <Pressable accessibilityLabel="Zavřít nový seznam" accessibilityRole="button" disabled={listActionBusy} onPress={() => setListCreateOpen(false)} style={styles.closeButton}><Text style={styles.closeText}>×</Text></Pressable>
+            </View>
+            <Text style={styles.supporting}>Seznam uvidí všichni členové domácnosti.</Text>
+            <TextInput autoFocus accessibilityLabel="Název nového seznamu" autoCorrect={false} maxLength={80} onChangeText={setNewListName} onSubmitEditing={() => void submitNewShoppingList()} placeholder="Např. Týdenní nákup" placeholderTextColor={colors.mutedText} returnKeyType="done" style={styles.input} value={newListName} />
+            {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+            <View style={styles.actions}>
+              <Pressable accessibilityRole="button" disabled={listActionBusy} onPress={() => setListCreateOpen(false)} style={styles.secondaryButton}><Text style={styles.secondaryButtonText}>Zrušit</Text></Pressable>
+              <PrimaryButton disabled={listActionBusy || !newListName.trim()} label={listActionBusy ? 'Vytvářím…' : 'Vytvořit'} onPress={() => void submitNewShoppingList()} />
+            </View>
+          </View>
+        </View>
+      </Modal>
       <BarcodeScannerModal
         busy={barcodeBusy}
         onBarcodeScanned={(barcode) => void handleBarcodeScanned(barcode)}
@@ -995,6 +1107,13 @@ function useStyles() {
   loginTitle: { color: colors.foreground, fontSize: 20, fontWeight: '600', letterSpacing: -0.2 },
   supporting: { color: colors.secondaryText, fontSize: 14, lineHeight: 20, marginTop: 5 },
   card: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 18, borderWidth: 1, margin: 16, padding: 16, gap: 12 },
+  modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: colors.navyOverlay },
+  editor: { gap: 12, backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 18, paddingTop: 20, paddingBottom: 28 },
+  editorHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  editorTitle: { flex: 1, color: colors.foreground, fontSize: 18, fontWeight: '700' },
+  closeButton: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.muted },
+  closeText: { color: colors.secondaryText, fontSize: 24, lineHeight: 28 },
+  cardEyebrow: { color: colors.mutedText, fontSize: 10, fontWeight: '700', letterSpacing: 0.9 },
   loginCard: { width: '100%', margin: 0, padding: 24, borderRadius: 24, gap: 12 },
   loginError: { marginHorizontal: 0, marginBottom: 0 },
   fieldGroup: { gap: 4 },
@@ -1015,6 +1134,17 @@ function useStyles() {
   pendingLabel: { color: colors.warning, fontSize: 12, marginTop: 4 },
   summary: { minHeight: 52, marginHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   summaryText: { color: colors.secondaryText, fontSize: 14, fontWeight: '600' },
+  listPicker: { gap: 8, marginHorizontal: 16, marginTop: 6, marginBottom: 4, padding: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 16, backgroundColor: colors.card },
+  listPickerHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  listPickerTitleWrap: { flex: 1, minWidth: 0, gap: 2 },
+  listPickerTitle: { color: colors.foreground, fontSize: 15, fontWeight: '700' },
+  newListButton: { minHeight: 36, justifyContent: 'center', paddingHorizontal: 10, borderRadius: 11, backgroundColor: colors.accentSubtle },
+  newListButtonText: { color: colors.accentText, fontSize: 12, fontWeight: '700' },
+  listPickerChips: { gap: 7, paddingRight: 4 },
+  listPickerChip: { maxWidth: 190, minHeight: 34, justifyContent: 'center', paddingHorizontal: 11, borderWidth: 1, borderColor: colors.border, borderRadius: 11, backgroundColor: colors.muted },
+  listPickerChipActive: { borderColor: colors.accent, backgroundColor: colors.accentSubtle },
+  listPickerChipText: { color: colors.secondaryText, fontSize: 12, fontWeight: '600' },
+  listPickerChipTextActive: { color: colors.accentText, fontWeight: '700' },
   completeShoppingBar: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 8, borderTopColor: colors.border, borderTopWidth: 1, backgroundColor: colors.background },
   completeShoppingButton: { minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: colors.accent },
   completeShoppingText: { color: '#0a1a3f', fontSize: 16, fontWeight: '700' },

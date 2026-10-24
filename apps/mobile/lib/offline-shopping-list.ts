@@ -21,7 +21,7 @@ export type OfflineContext = {
 }
 
 export type OfflineShoppingApi = {
-  add: (name: string, clientId: string, quantity?: number, unit?: ItemUnit) => Promise<{ item: MobileShoppingItem }>
+  add: (name: string, clientId: string, quantity?: number, unit?: ItemUnit, details?: { listId?: string }) => Promise<{ item: MobileShoppingItem }>
   toggle: (itemId: string, done: boolean) => Promise<unknown>
   update: (itemId: string, changes: { quantity?: number; unit?: ItemUnit }) => Promise<unknown>
 }
@@ -148,7 +148,7 @@ export async function syncOfflineOperations(
       let pending = remaining
       if (operation.kind === 'add') {
         const clientId = operation.item.id.slice(OFFLINE_ITEM_PREFIX.length)
-        const result = await api.add(operation.item.name, clientId, operation.item.quantity, operation.item.unit)
+        const result = await api.add(operation.item.name, clientId, operation.item.quantity, operation.item.unit, { listId: list.listId })
         list = {
           ...list,
           items: list.items.some((item) => item.id === operation.item.id)

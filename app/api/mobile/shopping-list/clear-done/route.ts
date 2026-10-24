@@ -10,7 +10,14 @@ export async function POST(request: Request) {
     const user = await mobileUserFromRequest(request)
     const member = await mobileHouseholdForUser(user.id)
     if (!member) return json({ error: 'household_required' }, 409)
-    const listId = await getPrimaryShoppingListId(member.householdId)
+    let body: unknown = {}
+    try { body = await request.json() } catch { /* Existing callers may omit the optional list id. */ }
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return json({ error: 'invalid_request' }, 400)
+    const fields = body as Record<string, unknown>
+    if (Object.keys(fields).some((key) => key !== 'listId') || (fields.listId !== undefined && typeof fields.listId !== 'string')) {
+      return json({ error: 'invalid_request' }, 400)
+    }
+    const listId = typeof fields.listId === 'string' ? fields.listId : await getPrimaryShoppingListId(member.householdId)
     return json(await clearDoneShoppingItemsForHousehold(member.householdId, listId))
   } catch (error) {
     if (error instanceof MobileRequestAuthError) return json({ error: error.code }, error.status)

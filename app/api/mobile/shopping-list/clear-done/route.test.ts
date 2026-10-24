@@ -22,7 +22,10 @@ vi.mock('@/lib/shopping-list-service', async (original) => ({
 import { POST } from '@/app/api/mobile/shopping-list/clear-done/route'
 import { MobileRequestAuthError } from '@/lib/auth/mobile-request'
 
-const request = () => new Request('https://anitka.example/api/mobile/shopping-list/clear-done', { method: 'POST' })
+const request = (body?: unknown) => new Request('https://anitka.example/api/mobile/shopping-list/clear-done', {
+  method: 'POST',
+  ...(body === undefined ? {} : { headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
+})
 
 describe('/api/mobile/shopping-list/clear-done', () => {
   beforeEach(() => {
@@ -49,5 +52,12 @@ describe('/api/mobile/shopping-list/clear-done', () => {
     expect(await response.json()).toEqual({ removed: 2 })
     expect(getPrimaryShoppingListId).toHaveBeenCalledWith('household-1')
     expect(clearDoneShoppingItemsForHousehold).toHaveBeenCalledWith('household-1', 'list-1')
+  })
+
+  it('clears checked rows from a selected list through the household-scoped service', async () => {
+    const response = await POST(request({ listId: 'list-2' }))
+    expect(response.status).toBe(200)
+    expect(clearDoneShoppingItemsForHousehold).toHaveBeenCalledWith('household-1', 'list-2')
+    expect(getPrimaryShoppingListId).not.toHaveBeenCalled()
   })
 })

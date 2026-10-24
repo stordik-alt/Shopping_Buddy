@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { unitLabel } from '@anitka/shared/units'
-import { MobileApiError, getPantry, updatePantryItem, type MobilePantryItem, type MobilePantryState } from '../lib/shopping-list-api'
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { ITEM_UNITS, unitLabel, type ItemUnit } from '@anitka/shared/units'
+import { addPantryItem, MobileApiError, getPantry, removePantryItem, updatePantryItem, type MobilePantryItem, type MobilePantryState } from '../lib/shopping-list-api'
 import { RefreshButton } from './refresh-button'
 import { colors } from '../lib/theme'
 
 const QUANTITY_STEP = { ks: 1, kg: 0.1, g: 10, l: 0.1, ml: 10, dávka: 1 } as const
+const CATEGORIES = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní'] as const
 
 function quantityLabel(value: number): string {
   return value.toLocaleString('cs-CZ', { maximumFractionDigits: 3 })
@@ -17,6 +18,12 @@ export function PantryScreen({ onAuthExpired }: { onAuthExpired: () => void }) {
   const [loading, setLoading] = useState(true)
   const [busyItemId, setBusyItemId] = useState<string | null>(null)
   const [editingPlaceId, setEditingPlaceId] = useState<string | null>(null)
+  const [addOpen, setAddOpen] = useState(false)
+  const [adding, setAdding] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newQuantity, setNewQuantity] = useState('1')
+  const [newUnit, setNewUnit] = useState<ItemUnit>('ks')
+  const [newCategory, setNewCategory] = useState<(typeof CATEGORIES)[number]>('Potraviny')
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
@@ -74,13 +81,55 @@ export function PantryScreen({ onAuthExpired }: { onAuthExpired: () => void }) {
     }
   }
 
+  async function saveNewItem() {
+    const quantity = Number(newQuantity.trim().replace(',', '.'))
+    if (!newName.trim() || !Number.isFinite(quantity) || quantity <= 0 || adding || !selectedPlace) {
+      setError('Zadejte název položky a množství větší než 0.')
+      return
+    }
+    setAdding(true)
+    setError(null)
+    try {
+      await addPantryItem({ name: newName.trim(), quantity, unit: newUnit, category: newCategory, placeKey: selectedPlace })
+      setAddOpen(false)
+      setNewName('')
+      setNewQuantity('1')
+      await load()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Položku se nepodařilo přidat do zásob.')
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+    } finally {
+      setAdding(false)
+    }
+  }
+
+  function confirmRemove(item: MobilePantryItem) {
+    Alert.alert('Odebrat ze zásob?', `Odebrat položku ${item.name}?`, [
+      { text: 'Zrušit', style: 'cancel' },
+      { text: 'Odebrat', style: 'destructive', onPress: () => { void (async () => {
+        setBusyItemId(item.id)
+        try {
+          await removePantryItem(item.id)
+          setPantry((current) => current ? { ...current, items: current.items.filter((entry) => entry.id !== item.id) } : current)
+        } catch (caught) {
+          setError(caught instanceof Error ? caught.message : 'Položku se nepodařilo odebrat.')
+          if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+        } finally {
+          setBusyItemId(null)
+        }
+      })() } },
+    ])
+  }
+
   return (
+    <>
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" style={styles.scroll}>
       <View style={styles.heading}>
         <View style={styles.headingText}>
           <Text numberOfLines={1} style={styles.title}>Zásoby</Text>
           <Text style={styles.supporting}>Vyberte místo, kde jsou věci uložené.</Text>
         </View>
+        <Pressable accessibilityRole="button" onPress={() => setAddOpen(true)} style={styles.addButton}><Text style={styles.addButtonText}>＋ Přidat</Text></Pressable>
         <RefreshButton loading={loading} onPress={() => void load()} />
       </View>
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
@@ -167,6 +216,9 @@ export function PantryScreen({ onAuthExpired }: { onAuthExpired: () => void }) {
                   ))}
                 </View>
               ) : null}
+              <Pressable accessibilityRole="button" disabled={busyItemId === item.id} onPress={() => confirmRemove(item)} style={styles.removeButton}>
+                <Text style={styles.removeText}>{busyItemId === item.id ? 'Odebírám…' : 'Odebrat ze zásob'}</Text>
+              </Pressable>
             </View>
           ))}
           {pantry.items.length === 0 ? (
@@ -180,6 +232,26 @@ export function PantryScreen({ onAuthExpired }: { onAuthExpired: () => void }) {
         <View style={styles.emptyCard}><Text style={styles.supporting}>Zásoby nejsou dostupné. Zkuste stránku obnovit.</Text></View>
       ) : null}
     </ScrollView>
+      <Modal animationType="slide" onRequestClose={() => !adding && setAddOpen(false)} transparent visible={addOpen}>
+        <View style={styles.modalBackdrop}>
+          <ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled">
+            <View style={styles.editor}>
+              <View style={styles.editorHeading}><Text style={styles.editorTitle}>Přidat do zásob</Text><Pressable accessibilityLabel="Zavřít formulář" onPress={() => !adding && setAddOpen(false)} style={styles.closeButton}><Text style={styles.closeText}>×</Text></Pressable></View>
+              <Text style={styles.formLabel}>Název položky</Text>
+              <TextInput accessibilityLabel="Název položky" onChangeText={setNewName} placeholder="Např. rýže" style={styles.input} value={newName} />
+              <Text style={styles.formLabel}>Kategorie</Text>
+              <View style={styles.chipWrap}>{CATEGORIES.map((category) => <Pressable key={category} accessibilityRole="button" accessibilityState={{ selected: newCategory === category }} onPress={() => setNewCategory(category)} style={[styles.choiceChip, newCategory === category && styles.choiceChipActive]}><Text style={[styles.choiceText, newCategory === category && styles.choiceTextActive]}>{category}</Text></Pressable>)}</View>
+              <Text style={styles.formLabel}>Množství a jednotka</Text>
+              <TextInput accessibilityLabel="Množství položky" keyboardType="decimal-pad" onChangeText={setNewQuantity} style={styles.input} value={newQuantity} />
+              <ScrollView horizontal contentContainerStyle={styles.horizontalChips} showsHorizontalScrollIndicator={false}>{ITEM_UNITS.map((unit) => <Pressable key={unit} accessibilityRole="button" accessibilityState={{ selected: newUnit === unit }} onPress={() => setNewUnit(unit)} style={[styles.choiceChip, newUnit === unit && styles.choiceChipActive]}><Text style={[styles.choiceText, newUnit === unit && styles.choiceTextActive]}>{unitLabel(1, unit)}</Text></Pressable>)}</ScrollView>
+              <Text style={styles.supporting}>Umístění: {selected?.name ?? 'Spíž'}</Text>
+              {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+              <Pressable accessibilityRole="button" disabled={adding} onPress={() => void saveNewItem()} style={[styles.primaryButton, adding && styles.disabled]}><Text style={styles.primaryButtonText}>{adding ? 'Přidávám…' : 'Přidat položku'}</Text></Pressable>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+    </>
   )
 }
 
@@ -213,4 +285,25 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', justifyContent: 'center', padding: 28, gap: 10 },
   emptyCard: { alignItems: 'center', backgroundColor: '#ffffff', borderColor: colors.border, borderRadius: 16, borderWidth: 1, padding: 22, gap: 4 },
   error: { color: '#a72d2d', backgroundColor: '#fff0f0', borderRadius: 12, padding: 12, fontSize: 14, lineHeight: 20 },
+  addButton: { backgroundColor: colors.accentSubtle, borderRadius: 12, paddingHorizontal: 11, paddingVertical: 9 },
+  addButtonText: { color: colors.accentText, fontWeight: '700', fontSize: 13 },
+  removeButton: { alignSelf: 'flex-start', minHeight: 36, justifyContent: 'center' },
+  removeText: { color: colors.destructive, fontSize: 13, fontWeight: '600' },
+  modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: colors.navyOverlay },
+  modalScroll: { flexGrow: 1, justifyContent: 'flex-end' },
+  editor: { maxHeight: '92%', backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 30, gap: 10 },
+  editorHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+  editorTitle: { color: colors.foreground, fontSize: 20, fontWeight: '800' },
+  closeButton: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: '#efeee9' },
+  closeText: { color: colors.foreground, fontSize: 26, lineHeight: 30 },
+  formLabel: { color: colors.secondaryText, fontSize: 13, fontWeight: '600', marginTop: 2 },
+  input: { minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: colors.inputBorder, backgroundColor: '#ffffff', color: colors.foreground, paddingHorizontal: 12, fontSize: 15 },
+  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  horizontalChips: { flexDirection: 'row', gap: 7, paddingRight: 10 },
+  choiceChip: { borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: '#ffffff', paddingHorizontal: 11, paddingVertical: 8 },
+  choiceChipActive: { borderColor: colors.primary, backgroundColor: colors.primary },
+  choiceText: { color: colors.secondaryText, fontSize: 12, fontWeight: '600' },
+  choiceTextActive: { color: '#ffffff' },
+  primaryButton: { minHeight: 48, marginTop: 6, borderRadius: 14, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  primaryButtonText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
 })

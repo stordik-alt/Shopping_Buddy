@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { ArrowRight, Bell, CookingPot, House, MapPin, MoreHorizontal, Package, Search, ShoppingCart, Store, Tag, Users, WalletCards, X } from 'lucide-react-native'
 import { colors } from '../lib/theme'
-import { dismissNotification, getBudgetSummary, getDealsPage, getNotifications, getPantry, getPurchaseHistory, getShoppingList, getStoreBranches, getStoreChains, type MobileBranchPage, type MobileChainTile, type MobileDealCategory, type MobileDealsPage, type MobileDealSort, type MobileNotification, type MobilePurchase } from '../lib/shopping-list-api'
+import { dismissNotification, getBudgetSummary, getDealsPage, getNotifications, getPantry, getPurchaseHistory, getShoppingList, getStoreBranches, getStoreChains, MobileApiError, updateHouseholdProfile, type MobileBranchPage, type MobileChainTile, type MobileDealCategory, type MobileDealsPage, type MobileDealSort, type MobileNotification, type MobilePurchase } from '../lib/shopping-list-api'
 import type { MobileBudgetSummary, MobilePantryState } from '../lib/shopping-list-api'
 
 export type NativeTab = 'home' | 'shopping' | 'pantry' | 'budget' | 'deals' | 'stores' | 'recipes' | 'profile'
@@ -320,10 +320,63 @@ export function NativePurchasesScreen() {
   </ScrollView>
 }
 
-export function NativeProfileScreen({ name, email, householdRole, onSignOut }: { name: string; email: string; householdRole: string; onSignOut: () => void }) {
+export function NativeProfileScreen({ name, email, householdRole, householdName, householdBudget, householdCurrency, onUpdateHousehold, onAuthExpired, onSignOut }: {
+  name: string
+  email: string
+  householdRole: string
+  householdName: string
+  householdBudget: number
+  householdCurrency: string
+  onUpdateHousehold: (changes: { name: string; monthlyBudget: number }) => void
+  onAuthExpired: () => void
+  onSignOut: () => void
+}) {
+  const [nameDraft, setNameDraft] = useState(householdName)
+  const [budgetDraft, setBudgetDraft] = useState(String(householdBudget).replace('.', ','))
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    setNameDraft(householdName)
+    setBudgetDraft(String(householdBudget).replace('.', ','))
+  }, [householdName, householdBudget])
+
+  async function saveHousehold() {
+    const monthlyBudget = Number(budgetDraft.replace(/[\s ]/g, '').replace(',', '.'))
+    if (!Number.isFinite(monthlyBudget) || monthlyBudget < 0) {
+      setError('Zadejte platný rozpočet od 0 výše.')
+      return
+    }
+    setSaving(true)
+    setError(null)
+    setMessage(null)
+    try {
+      const { household } = await updateHouseholdProfile({ name: nameDraft, monthlyBudget })
+      onUpdateHousehold({ name: household.name, monthlyBudget: household.monthlyBudget })
+      setMessage('Nastavení domácnosti bylo uloženo.')
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Nastavení se nepodařilo uložit.')
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return <ScrollView contentContainerStyle={styles.screenContent}>
     <View style={styles.profileCard}><View style={styles.profileAvatar}><Text style={styles.profileInitials}>{name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</Text></View><Text style={styles.profileName}>{name}</Text><Text style={styles.bodyText}>{email}</Text></View>
-    <View style={styles.preferenceCard}><Text style={styles.cardEyebrow}>DOMÁCNOST</Text><Text style={styles.cardTitle}>Sdílená domácnost</Text><Text style={styles.bodyText}>{householdRole ? `Vaše role: ${householdRole}` : 'Účet zatím není připojený k domácnosti.'}</Text></View>
+    <View style={styles.preferenceCard}>
+      <Text style={styles.cardEyebrow}>DOMÁCNOST</Text><Text style={styles.cardTitle}>{householdName || 'Sdílená domácnost'}</Text>
+      <Text style={styles.bodyText}>{householdRole ? `Vaše role: ${householdRole === 'owner' ? 'správce' : 'člen'}` : 'Účet zatím není připojený k domácnosti.'}</Text>
+      {householdRole === 'owner' ? <>
+        <Text style={styles.profileFieldLabel}>Název domácnosti</Text>
+        <TextInput accessibilityLabel="Název domácnosti" onChangeText={setNameDraft} style={styles.profileInput} value={nameDraft} />
+        <Text style={styles.profileFieldLabel}>Výchozí rozpočet za období ({householdCurrency})</Text>
+        <TextInput accessibilityLabel="Výchozí rozpočet" keyboardType="decimal-pad" onChangeText={setBudgetDraft} style={styles.profileInput} value={budgetDraft} />
+        {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+        {message ? <Text style={styles.success}>{message}</Text> : null}
+        <Pressable accessibilityRole="button" disabled={saving} onPress={() => void saveHousehold()} style={[styles.profileSaveButton, saving && styles.disabled]}><Text style={styles.profileSaveText}>{saving ? 'Ukládám…' : 'Uložit nastavení'}</Text></Pressable>
+      </> : null}
+    </View>
     <Pressable accessibilityRole="button" onPress={onSignOut} style={styles.signOutButton}><Text style={styles.signOutText}>Odhlásit se</Text></Pressable>
   </ScrollView>
 }
@@ -439,6 +492,11 @@ const styles = StyleSheet.create({
   profileInitials: { color: colors.accentText, fontSize: 23, fontWeight: '800' },
   profileName: { color: colors.foreground, fontSize: 20, fontWeight: '700' },
   preferenceCard: { gap: 8, padding: 16, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 18 },
+  profileFieldLabel: { color: colors.secondaryText, fontSize: 12, fontWeight: '600', marginTop: 6 },
+  profileInput: { minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.inputBorder, backgroundColor: '#ffffff', color: colors.foreground, paddingHorizontal: 12, fontSize: 14 },
+  profileSaveButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 13, backgroundColor: colors.primary, marginTop: 4 },
+  profileSaveText: { color: '#ffffff', fontSize: 14, fontWeight: '700' },
+  success: { color: colors.accentText, fontSize: 13 },
   signOutButton: { minHeight: 48, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#e6caca', borderRadius: 14, backgroundColor: '#fff7f7', marginTop: 4 },
   signOutText: { color: colors.destructive, fontSize: 14, fontWeight: '700' },
 })

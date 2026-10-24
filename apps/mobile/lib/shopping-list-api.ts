@@ -27,6 +27,16 @@ export type MobileBudgetSummary = {
   categories: { category: string; total: number; limit: number | null; level: 'ok' | 'warning' | 'over' }[]
 }
 
+export type MobileExpense = {
+  id: string
+  amount: number
+  note: string
+  category: string
+  subcategory: string | null
+  date: string
+  editable: boolean
+}
+
 export type MobilePantryItem = {
   id: string
   name: string
@@ -81,6 +91,7 @@ export type MobileUser = {
   name: string
   emailVerified: boolean
 }
+export type MobileHouseholdProfile = { id: string; role: string; name: string; monthlyBudget: number; currency: string }
 
 export type MobileDealCategory = 'Potraviny' | 'Drogerie' | 'Děti' | 'Domácnost' | 'Ostatní'
 export type MobileDealSort = 'name' | 'price' | 'discount' | 'store'
@@ -174,7 +185,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export function getCurrentUser() {
-  return request<{ user: MobileUser; household: { id: string; role: string } | null }>('/api/mobile/me')
+  return request<{ user: MobileUser; household: MobileHouseholdProfile | null }>('/api/mobile/me')
+}
+
+export function updateHouseholdProfile(changes: { name?: string; monthlyBudget?: number }) {
+  return request<{ household: MobileHouseholdProfile }>('/api/mobile/me', { method: 'PATCH', body: JSON.stringify(changes) })
 }
 
 export function getNotifications() {
@@ -222,8 +237,39 @@ export function getBudgetSummary() {
   return request<MobileBudgetSummary>('/api/mobile/budget')
 }
 
+export function getExpenses(period?: string) {
+  const query = period ? `?period=${encodeURIComponent(period)}` : ''
+  return request<{ period: { start: string; end: string; next: string }; expenses: MobileExpense[] }>(`/api/mobile/expenses${query}`)
+}
+
+export function addExpense(input: Omit<MobileExpense, 'id' | 'editable'>) {
+  return request<{ expense: MobileExpense; notifications: MobileNotification[] }>('/api/mobile/expenses', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export function updateExpense(expenseId: string, input: Omit<MobileExpense, 'id' | 'editable'>) {
+  return request<{ expense: MobileExpense }>(`/api/mobile/expenses/${encodeURIComponent(expenseId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  })
+}
+
+export function deleteExpense(expenseId: string) {
+  return request<{ ok: true }>(`/api/mobile/expenses/${encodeURIComponent(expenseId)}`, { method: 'DELETE' })
+}
+
 export function getPantry() {
   return request<MobilePantryState>('/api/mobile/pantry')
+}
+
+export function addPantryItem(input: { name: string; quantity: number; unit: ItemUnit; category: 'Potraviny' | 'Drogerie' | 'Děti' | 'Domácnost' | 'Ostatní'; placeKey: string }) {
+  return request<{ ok: true }>('/api/mobile/pantry', { method: 'POST', body: JSON.stringify(input) })
+}
+
+export function removePantryItem(itemId: string) {
+  return request<{ ok: true }>(`/api/mobile/pantry/${encodeURIComponent(itemId)}`, { method: 'DELETE' })
 }
 
 export function searchRecipes(query: string, page = 1) {

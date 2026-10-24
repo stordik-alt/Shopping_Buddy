@@ -34,6 +34,6 @@ export async function mobileUserFromRequest(request: Request): Promise<BearerUse
 export async function mobileHouseholdForUser(userId: string) {
   return getDb().query.householdMembers.findFirst({
     where: eq(schema.householdMembers.userId, userId),
-    columns: { householdId: true, role: true },
+    columns: { id: true, householdId: true, role: true },
   })
 }

@@ -190,6 +190,9 @@ export default function HomeScreen() {
   const [userName, setUserName] = useState('')
   const [userEmail, setUserEmail] = useState('')
   const [householdRole, setHouseholdRole] = useState('')
+  const [householdName, setHouseholdName] = useState('')
+  const [householdBudget, setHouseholdBudget] = useState(0)
+  const [householdCurrency, setHouseholdCurrency] = useState('CZK')
   const [householdAvailable, setHouseholdAvailable] = useState(false)
   const [householdMissing, setHouseholdMissing] = useState(false)
   const [items, setItems] = useState<MobileShoppingItem[]>([])
@@ -297,6 +300,9 @@ export default function HomeScreen() {
       setUserName(profile.user.name)
       setUserEmail(profile.user.email)
       setHouseholdRole(profile.household?.role ?? '')
+      setHouseholdName(profile.household?.name ?? '')
+      setHouseholdBudget(profile.household?.monthlyBudget ?? 0)
+      setHouseholdCurrency(profile.household?.currency ?? 'CZK')
       if (!profile.household) {
         setHouseholdMissing(true)
         setHouseholdAvailable(false)
@@ -394,6 +400,9 @@ export default function HomeScreen() {
       setUserName('')
       setUserEmail('')
       setHouseholdRole('')
+      setHouseholdName('')
+      setHouseholdBudget(0)
+      setHouseholdCurrency('CZK')
       setActiveTab('home')
       setError(null)
     } catch (caught) {
@@ -410,6 +419,9 @@ export default function HomeScreen() {
       setUserName('')
       setUserEmail('')
       setHouseholdRole('')
+      setHouseholdName('')
+      setHouseholdBudget(0)
+      setHouseholdCurrency('CZK')
       setBusy(false)
     }
   }
@@ -715,7 +727,20 @@ export default function HomeScreen() {
             ) : activeTab === 'stores' ? (
               <NativeStoresScreen />
             ) : activeTab === 'profile' ? (
-              <NativeProfileScreen email={userEmail} householdRole={householdRole} name={userName} onSignOut={() => void handleSignOut()} />
+              <NativeProfileScreen
+                email={userEmail}
+                householdBudget={householdBudget}
+                householdCurrency={householdCurrency}
+                householdName={householdName}
+                householdRole={householdRole}
+                name={userName}
+                onAuthExpired={handleAuthExpired}
+                onSignOut={() => void handleSignOut()}
+                onUpdateHousehold={(changes) => {
+                  setHouseholdName(changes.name)
+                  setHouseholdBudget(changes.monthlyBudget)
+                }}
+              />
             ) : activeTab === 'recipes' ? (
               <>
                 <View style={styles.sectionSwitcher}>

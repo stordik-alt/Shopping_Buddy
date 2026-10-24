@@ -95,23 +95,31 @@ type SessionResponse = {
 
 export async function getAccessToken(): Promise<string | null> {
   try {
-    const result = (await getAuthClient().getSession()) as SessionResponse
+    // The server-side session cache returns an opaque session ID in `session.token`.
+    // A fresh lookup bypasses that cache and lets Neon Auth attach `set-auth-jwt`,
+    // which nativeFetch stores in SecureStore for authenticated API requests.
+    const result = (await getAuthClient().getSession({ query: { disableCookieCache: true } })) as SessionResponse
+    const savedToken = await readToken()
     if (result.error) {
-      const savedToken = await readToken()
-      if (savedToken) return savedToken
+      if (isJwt(savedToken)) return savedToken
       throw new Error(result.error.message || 'Nepodařilo se ověřit přihlášení.')
     }
     const sessionToken = result.data?.session?.token
-    if (sessionToken) {
+    if (isJwt(savedToken)) return savedToken
+    if (isJwt(sessionToken)) {
       await writeToken(sessionToken)
       return sessionToken
     }
   } catch (error) {
     const savedToken = await readToken()
-    if (savedToken) return savedToken
+    if (isJwt(savedToken)) return savedToken
     throw error
   }
-  return (await readToken()) || null
+  return null
+}
+
+function isJwt(token: string | null | undefined): token is string {
+  return typeof token === 'string' && token.split('.').length === 3
 }
 
 export async function clearAccessToken(): Promise<void> {

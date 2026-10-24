@@ -1,3 +1,4 @@
+import './crypto-polyfill'
 import { createAuthClient } from '@neondatabase/auth'
 import { BetterAuthVanillaAdapter } from '@neondatabase/auth/vanilla/adapters'
 import * as SecureStore from 'expo-secure-store'

@@ -3,6 +3,7 @@ import { mobileHouseholdForUser, mobileUserFromRequest, MobileRequestAuthError }
 import { getPrimaryShoppingListId, getShoppingListState } from '@/lib/db/queries'
 import { checkRequiredText, ITEM_NAME_MAX, ShoppingInputError } from '@/lib/shopping-input'
 import { addShoppingItemForHousehold, isShoppingItemUnit, ShoppingResourceNotFoundError } from '@/lib/shopping-list-service'
+import type { ItemCategory } from '@/lib/types'
 
 const NO_STORE = { 'Cache-Control': 'no-store' }
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: NO_STORE })
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
     if (!context) return json({ error: 'household_required' }, 409)
     const body = await bodyObject(request)
     if (!body) throw new ShoppingInputError('Neplatný požadavek.')
-    if (Object.keys(body).some((key) => !['name', 'quantity', 'unit', 'clientId'].includes(key))) {
+    if (Object.keys(body).some((key) => !['name', 'quantity', 'unit', 'clientId', 'category', 'detail'].includes(key))) {
       throw new ShoppingInputError('Neplatný požadavek.')
     }
     if (typeof body.name !== 'string') throw new ShoppingInputError('Název položky je povinný údaj.')
@@ -54,6 +55,8 @@ export async function POST(request: Request) {
     if (body.quantity !== undefined && typeof body.quantity !== 'number') throw new ShoppingInputError('Množství musí být kladné číslo.')
     if (body.unit !== undefined && !isShoppingItemUnit(body.unit)) throw new ShoppingInputError('Neplatná jednotka.')
     if (body.clientId !== undefined && typeof body.clientId !== 'string') throw new ShoppingInputError('Neplatný identifikátor položky.')
+    if (body.category !== undefined && typeof body.category !== 'string') throw new ShoppingInputError('Neplatná kategorie.')
+    if (body.detail !== undefined && typeof body.detail !== 'string') throw new ShoppingInputError('Neplatný detail položky.')
 
     const listId = await getPrimaryShoppingListId(context.householdId)
     const result = await addShoppingItemForHousehold(
@@ -64,6 +67,8 @@ export async function POST(request: Request) {
       {
         ...(body.quantity !== undefined && { quantity: body.quantity }),
         ...(body.unit !== undefined && { unit: body.unit }),
+        ...(body.category !== undefined && { category: body.category as ItemCategory }),
+        ...(body.detail !== undefined && { detail: body.detail }),
       },
       body.clientId,
     )

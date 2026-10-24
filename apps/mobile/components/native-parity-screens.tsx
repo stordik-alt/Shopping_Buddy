@@ -90,7 +90,7 @@ export function NativeBottomNav({ active, onSelect }: { active: NativeTab; onSel
   )
 }
 
-export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceipts, onQuickExpense, hasPreferences }: { name: string; onSelect: (tab: NativeTab) => void; onAddToShopping: (name: string, quantity?: number, unit?: ItemUnit) => void; onOpenReceipts: () => void; onQuickExpense: () => void; hasPreferences: boolean }) {
+export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceipts, onQuickExpense, onCheckPantry, hasPreferences }: { name: string; onSelect: (tab: NativeTab) => void; onAddToShopping: (name: string, quantity?: number, unit?: ItemUnit) => void; onOpenReceipts: () => void; onQuickExpense: () => void; onCheckPantry: () => void; hasPreferences: boolean }) {
   const { colors, theme } = useMobileTheme()
   const styles = useStyles()
   const [dashboard, setDashboard] = useState<MobileDashboardSummary | null>(null)
@@ -194,7 +194,7 @@ export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceip
         ))}
       </View> : null}
       {pantryItemCount > 0 && (
-        <Pressable onPress={() => onSelect('pantry')} style={styles.dashboardCard}>
+        <Pressable onPress={onCheckPantry} style={styles.dashboardCard}>
           <View style={styles.cardIcon}><Package color={colors.primary} size={21} /></View>
           <View style={styles.dashboardText}>
             <Text style={styles.cardEyebrow}>DOMÁCÍ ZÁSOBY</Text>
@@ -496,7 +496,7 @@ function NativeDevicePushSetting({ onAuthExpired }: { onAuthExpired: () => void 
   </View>
 }
 
-export function NativeProfileScreen({ name, email, householdRole, householdName, householdBudget, householdCurrency, profile, onUpdateHousehold, onProfileUpdate, onAuthExpired, onSignOut, onReload }: {
+export function NativeProfileScreen({ name, email, householdRole, householdName, householdBudget, householdCurrency, profile, onUpdateHousehold, onProfileUpdate, onAuthExpired, onSignOut, onReload, onOpenGuide }: {
   name: string
   email: string
   householdRole: string
@@ -509,6 +509,7 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
   onAuthExpired: () => void
   onSignOut: () => void
   onReload: () => Promise<void>
+  onOpenGuide: () => void
 }) {
   const { colors, preference, setPreference } = useMobileTheme()
   const styles = useStyles()
@@ -994,7 +995,7 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
     ['excludedProducts', 'Produkty, které nekupovat', 'Např. energetické nápoje'],
   ] as const
   return <ScrollView contentContainerStyle={styles.screenContent} keyboardShouldPersistTaps="handled">
-    <View style={styles.profileCard}><View style={styles.profileAvatar}><Text style={styles.profileInitials}>{name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</Text></View><Text style={styles.profileName}>{name}</Text><Text style={styles.bodyText}>{email}</Text></View>
+    <View style={styles.profileCard}><View style={styles.profileAvatar}><Text style={styles.profileInitials}>{name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</Text></View><Text style={styles.profileName}>{name}</Text><Text style={styles.bodyText}>{email}</Text><Pressable accessibilityRole="button" onPress={onOpenGuide} style={styles.profileSmallAction}><Text style={styles.profileSmallActionText}>Otevřít průvodce aplikací</Text></Pressable></View>
     <ScrollView horizontal contentContainerStyle={styles.profileSections} showsHorizontalScrollIndicator={false}>
       {sections.map(([key, label]) => <Pressable key={key} accessibilityRole="tab" accessibilityState={{ selected: profileSection === key }} onPress={() => setProfileSection(key)} style={[styles.profileSectionButton, profileSection === key && styles.profileSectionButtonActive]}><Text style={[styles.profileSectionText, profileSection === key && styles.profileSectionTextActive]}>{label}</Text></Pressable>)}
     </ScrollView>

@@ -17,7 +17,8 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Notifications from 'expo-notifications'
-import { Bell, ChevronDown } from 'lucide-react-native'
+import * as SecureStore from 'expo-secure-store'
+import { Bell, ChevronDown, ChevronUp } from 'lucide-react-native'
 import { ITEM_UNITS, unitLabel, type ItemUnit } from '@anitka/shared/units'
 import { useMobileTheme } from '../lib/theme'
 import { unregisterDevicePushForSignOut } from '../lib/push-notifications'
@@ -26,7 +27,9 @@ import { PantryScreen } from '../components/pantry-screen'
 import { RecipesScreen } from '../components/recipes-screen'
 import { MealPlanScreen } from '../components/meal-plan-screen'
 import { BarcodeScannerModal } from '../components/barcode-scanner-modal'
+import { NativeGuideModal } from '../components/native-guide-modal'
 import { ReceiptsScreen } from '../components/receipts-screen'
+import { hasPriceComparison, NativePriceComparison } from '../components/price-comparison'
 import {
   NativeAssistantModal,
   NativeBottomNav,
@@ -40,6 +43,7 @@ import {
 } from '../components/native-parity-screens'
 import { RefreshButton } from '../components/refresh-button'
 import { getAccessToken, signIn, signOut } from '../lib/auth'
+import { GUIDE_DONE_KEY, shouldAutoStartGuide } from '../../../lib/guide'
 import {
   applyOfflineOperations,
   createOfflineItemId,
@@ -58,6 +62,7 @@ import {
 import {
   addShoppingItem,
   getCurrentUser,
+  getDashboardSummary,
   getNotifications,
   getShoppingList,
   lookupBarcode,
@@ -65,6 +70,8 @@ import {
   toggleShoppingItem,
   updateShoppingItem,
   type MobileShoppingItem,
+  type MobileDashboardSummary,
+  type MobilePantryItem,
   type MobileHouseholdProfileData,
 } from '../lib/shopping-list-api'
 
@@ -150,18 +157,23 @@ function ShoppingRow({
   item,
   busy,
   disabled,
+  priceData,
   onToggle,
   onEdit,
 }: {
   item: MobileShoppingItem
   busy: boolean
   disabled: boolean
+  priceData: MobileDashboardSummary | null
   onToggle: () => void
   onEdit: () => void
 }) {
   const { colors } = useMobileTheme()
   const styles = useStyles()
+  const [pricesOpen, setPricesOpen] = useState(false)
+  const hasPrices = !item.done && priceData != null && hasPriceComparison(priceData.productPrices, priceData.offers, item.name)
   return (
+    <View style={styles.shoppingRowGroup}>
     <View style={styles.itemRow}>
       <Pressable
         accessibilityLabel={item.done ? `Označit ${item.name} jako nenakoupené` : `Označit ${item.name} jako nakoupené`}
@@ -184,6 +196,14 @@ function ShoppingRow({
         <Text style={styles.secondaryButtonText}>Upravit</Text>
       </Pressable>
     </View>
+    {hasPrices ? <>
+      <Pressable accessibilityRole="button" accessibilityState={{ expanded: pricesOpen }} onPress={() => setPricesOpen((value) => !value)} style={styles.priceToggle}>
+        <Text style={styles.priceToggleText}>{pricesOpen ? 'Skrýt ceny' : 'Porovnat ceny'}</Text>
+        {pricesOpen ? <ChevronUp color={colors.accentText} size={16} /> : <ChevronDown color={colors.accentText} size={16} />}
+      </Pressable>
+      {pricesOpen && priceData ? <NativePriceComparison productName={item.name} productPrices={priceData.productPrices} offers={priceData.offers} today={priceData.today} /> : null}
+    </> : null}
+    </View>
   )
 }
 
@@ -194,9 +214,11 @@ export default function HomeScreen() {
   const [shoppingView, setShoppingView] = useState<'list' | 'purchases' | 'receipts'>('list')
   const [recipeView, setRecipeView] = useState<'recipes' | 'meals'>('recipes')
   const [assistantOpen, setAssistantOpen] = useState(false)
+  const [guideOpen, setGuideOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
   const [quickExpenseToken, setQuickExpenseToken] = useState(0)
+  const [pantryReviewToken, setPantryReviewToken] = useState(0)
   const [signedIn, setSignedIn] = useState(false)
   const [busy, setBusy] = useState(true)
   const [signingIn, setSigningIn] = useState(false)
@@ -217,27 +239,41 @@ export default function HomeScreen() {
   const [editItem, setEditItem] = useState<MobileShoppingItem | null>(null)
   const [editQuantity, setEditQuantity] = useState('')
   const [editUnit, setEditUnit] = useState<ItemUnit>('ks')
+  const [priceData, setPriceData] = useState<MobileDashboardSummary | null>(null)
   const [barcodeScannerOpen, setBarcodeScannerOpen] = useState(false)
   const [barcodeBusy, setBarcodeBusy] = useState(false)
   const [pendingChanges, setPendingChanges] = useState(0)
   const [offline, setOffline] = useState(false)
   const barcodeHandled = useRef(false)
+  const guideAutoStartChecked = useRef(false)
   const offlineSnapshot = useRef<OfflineShoppingSnapshot | null>(null)
 
   useEffect(() => {
     const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data
       const url = typeof data?.url === 'string' ? data.url : '/'
-      const slug = new URL(url, 'https://anitka.example').searchParams.get('tab')
+      const params = new URL(url, 'https://anitka.example').searchParams
+      const slug = params.get('tab')
       const tabs: Record<string, NativeTab> = {
         akce: 'deals', nakup: 'shopping', zasoby: 'pantry', obchody: 'stores',
         recepty: 'recipes', rozpocet: 'budget', profil: 'profile',
       }
       setActiveTab(slug ? tabs[slug] ?? 'home' : 'home')
+      if (slug === 'zasoby' && params.get('kontrola') === '1') setPantryReviewToken((current) => current + 1)
       setNotificationsOpen(false)
     })
     return () => subscription.remove()
   }, [])
+
+  useEffect(() => {
+    if (!signedIn || !householdAvailable || guideAutoStartChecked.current) return
+    guideAutoStartChecked.current = true
+    let active = true
+    SecureStore.getItemAsync(GUIDE_DONE_KEY)
+      .then((stored) => { if (active && shouldAutoStartGuide(stored)) setGuideOpen(true) })
+      .catch(() => undefined)
+    return () => { active = false }
+  }, [householdAvailable, signedIn])
 
   function showSnapshot(snapshot: OfflineShoppingSnapshot) {
     offlineSnapshot.current = snapshot
@@ -405,6 +441,19 @@ export default function HomeScreen() {
     void load()
   }, [load])
 
+  const pricingNamesKey = items.filter((item) => !item.done).map((item) => item.name).join('\u001f')
+  useEffect(() => {
+    if (!signedIn || !householdAvailable || activeTab !== 'shopping' || shoppingView !== 'list' || offline) {
+      if (offline) setPriceData(null)
+      return
+    }
+    let active = true
+    getDashboardSummary()
+      .then((summary) => { if (active) setPriceData(summary) })
+      .catch(() => { if (active) setPriceData(null) })
+    return () => { active = false }
+  }, [activeTab, householdAvailable, offline, pricingNamesKey, shoppingView, signedIn])
+
   async function handleSignIn(email: string, password: string) {
     setSigningIn(true)
     setError(null)
@@ -485,6 +534,39 @@ export default function HomeScreen() {
       setError(errorMessage(caught))
     } finally {
       setBusyItemId(null)
+    }
+  }
+
+  async function addPantryReviewItems(pantryItems: MobilePantryItem[]) {
+    const onList = new Set(items.filter((item) => !item.done).map((item) => item.name.trim().toLocaleLowerCase('cs')))
+    let added = 0
+    try {
+      for (const pantryItem of pantryItems) {
+        const key = pantryItem.name.trim().toLocaleLowerCase('cs')
+        if (onList.has(key)) continue
+        const result = await addShoppingItem(
+          pantryItem.name,
+          createOfflineItemId().slice('offline-'.length),
+          1,
+          pantryItem.unit,
+          { category: pantryItem.category, detail: 'došlo ze zásob' },
+        )
+        onList.add(key)
+        added += 1
+        const current = offlineSnapshot.current
+        if (current) {
+          const next = { ...current, list: { ...current.list, items: [...current.list.items, result.item] } }
+          await saveOfflineSnapshot(next)
+          showSnapshot(next)
+        } else {
+          setItems((itemsNow) => [...itemsNow, result.item])
+        }
+      }
+      return { added, failed: false }
+    } catch (caught) {
+      setError(errorMessage(caught))
+      if (caught instanceof MobileApiError && caught.status === 401) handleAuthExpired()
+      return { added, failed: true }
     }
   }
 
@@ -665,6 +747,7 @@ export default function HomeScreen() {
                 onAddToShopping={(name, quantity = 1, unit = 'ks') => { setActiveTab('shopping'); setShoppingView('list'); void handleAdd(name, quantity, unit) }}
                 onOpenReceipts={() => { setShoppingView('receipts'); setActiveTab('shopping') }}
                 onQuickExpense={() => { setQuickExpenseToken((current) => current + 1); setActiveTab('budget') }}
+                onCheckPantry={() => { setActiveTab('pantry'); setPantryReviewToken((current) => current + 1) }}
                 onSelect={setActiveTab}
               />
             ) : activeTab === 'shopping' ? (
@@ -757,7 +840,7 @@ export default function HomeScreen() {
                     keyExtractor={(item) => item.id}
                     keyboardShouldPersistTaps="handled"
                     renderItem={({ item }) => (
-                      <ShoppingRow item={item} busy={busyItemId === item.id} disabled={busy || busyItemId !== null} onEdit={() => openEdit(item)} onToggle={() => void handleToggle(item)} />
+                      <ShoppingRow item={item} priceData={priceData} busy={busyItemId === item.id} disabled={busy || busyItemId !== null} onEdit={() => openEdit(item)} onToggle={() => void handleToggle(item)} />
                     )}
                   />
                 )}
@@ -781,6 +864,7 @@ export default function HomeScreen() {
                 onProfileUpdate={setHouseholdProfile}
                 onReload={load}
                 onSignOut={() => void handleSignOut()}
+                onOpenGuide={() => setGuideOpen(true)}
                 onUpdateHousehold={(changes) => {
                   setHouseholdName(changes.name)
                   setHouseholdBudget(changes.monthlyBudget)
@@ -797,7 +881,7 @@ export default function HomeScreen() {
             ) : activeTab === 'budget' ? (
               <BudgetScreen onAuthExpired={handleAuthExpired} quickAddExpenseToken={quickExpenseToken} />
             ) : activeTab === 'pantry' ? (
-              <PantryScreen onAuthExpired={handleAuthExpired} />
+              <PantryScreen onAuthExpired={handleAuthExpired} reviewToken={pantryReviewToken} onReviewAddToShopping={addPantryReviewItems} />
             ) : (
               <BudgetScreen onAuthExpired={handleAuthExpired} />
             )}
@@ -806,6 +890,7 @@ export default function HomeScreen() {
         {householdAvailable ? <NativeBottomNav active={activeTab} onSelect={setActiveTab} /> : null}
       </KeyboardAvoidingView>
       <NativeAssistantModal onClose={() => setAssistantOpen(false)} onShopping={() => setActiveTab('shopping')} visible={assistantOpen} />
+      <NativeGuideModal onClose={() => { setGuideOpen(false); void SecureStore.setItemAsync(GUIDE_DONE_KEY, 'done').catch(() => undefined) }} onNavigate={setActiveTab} visible={guideOpen} />
       <NativeNotificationsModal onClose={() => setNotificationsOpen(false)} onUnreadCount={setUnreadNotificationCount} visible={notificationsOpen} />
       <BarcodeScannerModal
         busy={barcodeBusy}
@@ -878,6 +963,9 @@ function useStyles() {
   addInput: { flex: 1 },
   list: { paddingHorizontal: 16, paddingBottom: 24, gap: 8 },
   itemRow: { minHeight: 72, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderColor: colors.border, borderRadius: 16, borderWidth: 1, padding: 12, gap: 12 },
+  shoppingRowGroup: { gap: 5 },
+  priceToggle: { minHeight: 34, alignSelf: 'flex-end', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3, paddingHorizontal: 8, borderRadius: 10, backgroundColor: colors.accentSubtle },
+  priceToggleText: { color: colors.accentText, fontSize: 12, fontWeight: '700' },
   checkbox: { width: 44, height: 44, borderColor: colors.inputBorder, borderRadius: 14, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   checkboxDone: { backgroundColor: colors.primary, borderColor: colors.primary },
   checkmark: { color: colors.primaryForeground, fontSize: 22, fontWeight: '700' },

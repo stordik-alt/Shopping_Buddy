@@ -17,8 +17,8 @@ import { convertQuantity, currentWeekStart, parseSavedPlan, type WeeklyMealPlan 
 import { samePieceSize, type PieceSize } from '@/lib/piece-size'
 import type { StandaloneOffer } from '@/lib/offers'
 import { createHouseholdNotification } from '@/lib/notify'
-import { checkinSubcategoryKey, inferPantryLocation, pantryPlaceOptions } from '@/lib/pantry'
-import { restockedQuantity } from '@/lib/pantry-estimate'
+import { checkinSubcategoryKey, inferPantryLocation, needsCheck, pantryPlaceOptions } from '@/lib/pantry'
+import { estimatePantry, estimateReason, restockedQuantity } from '@/lib/pantry-estimate'
 import { formatOpeningHours } from '@/lib/stores/osm'
 import type { ProductPrice } from '@/lib/prices'
 import { inferPackageSize, resolveCatalogPackageSize, resolveNamedPackageSize } from '@/lib/recipes/packaging'
@@ -599,7 +599,7 @@ export async function getPantryItems(householdId: string): Promise<PantryItem[]>
 /** The household's existing stock, grouped with the same fixed/custom place rules as the PWA. */
 export async function getMobilePantryState(householdId: string) {
   const db = getDb()
-  const [items, customPlaces, hiddenRows] = await Promise.all([
+  const [items, customPlaces, hiddenRows, purchases] = await Promise.all([
     getPantryItems(householdId),
     db.query.pantryPlaces.findMany({
       where: eq(schema.pantryPlaces.householdId, householdId),
@@ -613,7 +613,11 @@ export async function getMobilePantryState(householdId: string) {
         console.error('Could not read pantry_hidden_locations', error)
         return [] as { location: PantryLocation }[]
       }),
+    getHouseholdPurchaseHistory(householdId),
   ])
+  const today = todayInPrague()
+  const estimates = estimatePantry(items, purchases, today)
+  const likelyGone = new Set([...estimates].filter(([, estimate]) => estimate.likelyGone).map(([id]) => id))
   const places = pantryPlaceOptions(
     customPlaces.map((place): PantryPlace => ({ id: place.id, area: place.area, name: place.name })),
     hiddenRows.map((row) => row.location),
@@ -622,16 +626,30 @@ export async function getMobilePantryState(householdId: string) {
 
   return {
     places,
-    items: items.map(({ id, name, quantity, unit, location, customPlaceId, unitQuantity, unitUnit }) => ({
-      id,
-      name,
-      quantity,
-      unit,
-      location,
-      customPlaceId,
-      unitQuantity,
-      unitUnit,
-    })),
+    items: items.map((item) => {
+      const estimate = estimates.get(item.id)
+      return {
+        id: item.id,
+        name: item.name,
+        category: item.category,
+        subcategory: item.subcategory,
+        productTypeKey: item.productTypeKey,
+        hasImage: Boolean(item.imageRef),
+        quantity: item.quantity,
+        unit: item.unit,
+        location: item.location,
+        customPlaceId: item.customPlaceId,
+        unitQuantity: item.unitQuantity,
+        unitUnit: item.unitUnit,
+        addedAt: item.addedAt,
+        askedAt: item.askedAt ?? null,
+        tracking: item.tracking ?? 'normal',
+        contents: item.contents ?? [],
+        likelyGone: likelyGone.has(item.id),
+        needsCheck: needsCheck(item, likelyGone),
+        estimateReason: estimate ? estimateReason(estimate) : null,
+      }
+    }),
   }
 }
 

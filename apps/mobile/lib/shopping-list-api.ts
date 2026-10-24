@@ -3,6 +3,7 @@ import type { Recipe, RecipeSearchPage } from '../../../lib/recipes/types'
 import type { RestockSuggestion } from '../../../lib/pantry-restock'
 import type { ProductPrice } from '../../../lib/prices'
 import type { StandaloneOffer } from '../../../lib/offers'
+import type { ItemCategory, PantryTracking } from '../../../lib/types'
 import { clearAccessToken, getAccessToken } from './auth'
 import { getApiUrl } from './config'
 
@@ -82,12 +83,23 @@ export type MobileBudgetPlanning = {
 export type MobilePantryItem = {
   id: string
   name: string
+  category: ItemCategory
+  subcategory: string | null
+  productTypeKey: string | null
+  hasImage: boolean
   quantity: number
   unit: ItemUnit
   location: string
   customPlaceId: string | null
   unitQuantity: number | null
   unitUnit: ItemUnit | null
+  addedAt: string
+  askedAt: string | null
+  tracking: PantryTracking
+  contents: { id: string; name: string; quantity: number; unit: ItemUnit }[]
+  likelyGone: boolean
+  needsCheck: boolean
+  estimateReason: string | null
 }
 
 export type MobilePantryPlace = { key: string; name: string; area: string; custom: boolean; id?: string }
@@ -533,10 +545,17 @@ export function updatePantryItem(itemId: string, change: { quantity: number } | 
   })
 }
 
-export function addShoppingItem(name: string, clientId: string, quantity = 1, unit: ItemUnit = 'ks') {
+export function reviewPantry(input: { reviewedIds: string[]; goneIds: string[]; quantities: { id: string; quantity: number }[] }) {
+  return request<{ removed: number; confirmed: number; adjusted: number }>('/api/mobile/pantry/review', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export function addShoppingItem(name: string, clientId: string, quantity = 1, unit: ItemUnit = 'ks', details?: { category?: ItemCategory; detail?: string }) {
   return request<{ item: MobileShoppingItem }>('/api/mobile/shopping-list', {
     method: 'POST',
-    body: JSON.stringify({ name, clientId, ...(quantity !== 1 && { quantity }), ...(unit !== 'ks' && { unit }) }),
+    body: JSON.stringify({ name, clientId, ...(quantity !== 1 && { quantity }), ...(unit !== 'ks' && { unit }), ...details }),
   })
 }
 

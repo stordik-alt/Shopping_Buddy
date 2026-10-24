@@ -116,7 +116,32 @@ export type MobileUser = {
   name: string
   emailVerified: boolean
 }
-export type MobileHouseholdProfile = { id: string; role: string; name: string; monthlyBudget: number; currency: string }
+export type MobileDietKey = 'none' | 'vegetarian' | 'pescetarian' | 'vegan'
+export type MobileDietAvoid = 'lactose' | 'gluten' | 'nuts' | 'eggs' | 'fish' | 'pork'
+export type MobileMemberDiet = { diet: MobileDietKey; avoids: MobileDietAvoid[] }
+export type MobileHouseholdMember = {
+  id: string
+  name: string
+  role: 'owner' | 'member'
+  age: number
+  favoriteFoods: string[]
+  dislikedFoods: string[]
+  allergies: string[]
+  diet: MobileMemberDiet
+  removable: boolean
+}
+export type MobileHouseholdChild = { id: string; name: string; age: number; preferences: string; specialNeeds?: string }
+export type MobileHouseholdPreferences = {
+  preferredBrands: string[]
+  preferredStores: string[]
+  preferredProducts: string[]
+  excludedProducts: string[]
+  priceSensitivity: 'cheapest' | 'balanced' | 'quality_first'
+  qualityPreference: 'standard' | 'premium'
+  preferCzechProducts: boolean
+}
+export type MobileHouseholdProfileData = { members: MobileHouseholdMember[]; children: MobileHouseholdChild[]; preferences: MobileHouseholdPreferences }
+export type MobileHouseholdProfile = { id: string; role: string; name: string; monthlyBudget: number; currency: string; profile?: MobileHouseholdProfileData }
 
 export type MobileDealCategory = 'Potraviny' | 'Drogerie' | 'Děti' | 'Domácnost' | 'Ostatní'
 export type MobileDealSort = 'name' | 'price' | 'discount' | 'store'
@@ -215,6 +240,30 @@ export function getCurrentUser() {
 
 export function updateHouseholdProfile(changes: { name?: string; monthlyBudget?: number }) {
   return request<{ household: MobileHouseholdProfile }>('/api/mobile/me', { method: 'PATCH', body: JSON.stringify(changes) })
+}
+
+export function updateHouseholdPreferences(changes: Partial<MobileHouseholdPreferences>) {
+  return request<{ preferences: MobileHouseholdPreferences }>('/api/mobile/household-profile', { method: 'PATCH', body: JSON.stringify(changes) })
+}
+
+export function addHouseholdMember(input: { name: string; age: number; favoriteFoods?: string[]; dislikedFoods?: string[]; allergies?: string[] }) {
+  return request<{ member: MobileHouseholdMember }>('/api/mobile/household-profile/members', { method: 'POST', body: JSON.stringify(input) })
+}
+
+export function updateHouseholdMemberDiet(memberId: string, diet: MobileMemberDiet) {
+  return request<{ diet: MobileMemberDiet }>(`/api/mobile/household-profile/members/${encodeURIComponent(memberId)}`, { method: 'PATCH', body: JSON.stringify(diet) })
+}
+
+export function removeHouseholdMember(memberId: string) {
+  return request<{ ok: true }>(`/api/mobile/household-profile/members/${encodeURIComponent(memberId)}`, { method: 'DELETE' })
+}
+
+export function addHouseholdChild(input: { name: string; age: number; preferences: string; specialNeeds?: string }) {
+  return request<{ child: MobileHouseholdChild }>('/api/mobile/household-profile/children', { method: 'POST', body: JSON.stringify(input) })
+}
+
+export function removeHouseholdChild(childId: string) {
+  return request<{ ok: true }>(`/api/mobile/household-profile/children?id=${encodeURIComponent(childId)}`, { method: 'DELETE' })
 }
 
 export type MobileNotificationPreference = { key: string; label: string; description: string; enabled: boolean }

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { ArrowRight, Bell, CookingPot, House, MapPin, MoreHorizontal, Package, Search, ShoppingCart, Store, Tag, Users, WalletCards, X } from 'lucide-react-native'
 import { useMobileTheme, type ThemePreference } from '../lib/theme'
-import { dismissNotification, getBudgetSummary, getDealsPage, getNotificationPreferences, getNotifications, getPantry, getPurchaseHistory, getShoppingList, getStoreBranches, getStoreChains, MobileApiError, updateHouseholdProfile, updateNotificationPreference, type MobileBranchPage, type MobileChainTile, type MobileDealCategory, type MobileDealsPage, type MobileDealSort, type MobileNotification, type MobileNotificationPreference, type MobilePurchase } from '../lib/shopping-list-api'
+import { addHouseholdChild, addHouseholdMember, dismissNotification, getBudgetSummary, getDealsPage, getNotificationPreferences, getNotifications, getPantry, getPurchaseHistory, getShoppingList, getStoreBranches, getStoreChains, MobileApiError, removeHouseholdChild, removeHouseholdMember, updateHouseholdMemberDiet, updateHouseholdPreferences, updateHouseholdProfile, updateNotificationPreference, type MobileBranchPage, type MobileChainTile, type MobileDealCategory, type MobileDealsPage, type MobileDealSort, type MobileDietAvoid, type MobileDietKey, type MobileHouseholdChild, type MobileHouseholdMember, type MobileHouseholdPreferences, type MobileHouseholdProfileData, type MobileMemberDiet, type MobileNotification, type MobileNotificationPreference, type MobilePurchase } from '../lib/shopping-list-api'
 import type { MobileBudgetSummary, MobilePantryState } from '../lib/shopping-list-api'
+import { DIET_AVOIDS, DIETS, dietLabels } from '../../../lib/diet'
 
 export type NativeTab = 'home' | 'shopping' | 'pantry' | 'budget' | 'deals' | 'stores' | 'recipes' | 'profile'
 type TabLabel = NativeTab
@@ -343,14 +344,16 @@ export function NativePurchasesScreen() {
   </ScrollView>
 }
 
-export function NativeProfileScreen({ name, email, householdRole, householdName, householdBudget, householdCurrency, onUpdateHousehold, onAuthExpired, onSignOut }: {
+export function NativeProfileScreen({ name, email, householdRole, householdName, householdBudget, householdCurrency, profile, onUpdateHousehold, onProfileUpdate, onAuthExpired, onSignOut }: {
   name: string
   email: string
   householdRole: string
   householdName: string
   householdBudget: number
   householdCurrency: string
+  profile: MobileHouseholdProfileData | null
   onUpdateHousehold: (changes: { name: string; monthlyBudget: number }) => void
+  onProfileUpdate: (profile: MobileHouseholdProfileData) => void
   onAuthExpired: () => void
   onSignOut: () => void
 }) {
@@ -363,10 +366,134 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
   const [error, setError] = useState<string | null>(null)
   const [preferences, setPreferences] = useState<MobileNotificationPreference[]>([])
   const [preferencesError, setPreferencesError] = useState<string | null>(null)
+  const [profileSection, setProfileSection] = useState<'household' | 'shopping' | 'appearance' | 'notifications'>('household')
+  const [profileError, setProfileError] = useState<string | null>(null)
+  const [profileBusy, setProfileBusy] = useState(false)
+  const [memberFormOpen, setMemberFormOpen] = useState(false)
+  const [memberName, setMemberName] = useState('')
+  const [memberAge, setMemberAge] = useState('')
+  const [memberFavorites, setMemberFavorites] = useState('')
+  const [memberDislikes, setMemberDislikes] = useState('')
+  const [memberAllergies, setMemberAllergies] = useState('')
+  const [childFormOpen, setChildFormOpen] = useState(false)
+  const [childName, setChildName] = useState('')
+  const [childAge, setChildAge] = useState('')
+  const [childPreferences, setChildPreferences] = useState('')
+  const [childSpecialNeeds, setChildSpecialNeeds] = useState('')
+  const [editingDietMember, setEditingDietMember] = useState<MobileHouseholdMember | null>(null)
+  const [dietDraft, setDietDraft] = useState<MobileMemberDiet>({ diet: 'none', avoids: [] })
+  const [preferenceLists, setPreferenceLists] = useState({ preferredBrands: '', preferredStores: '', preferredProducts: '', excludedProducts: '' })
+  const [priceSensitivity, setPriceSensitivity] = useState<MobileHouseholdPreferences['priceSensitivity']>('balanced')
+  const [qualityPreference, setQualityPreference] = useState<MobileHouseholdPreferences['qualityPreference']>('standard')
+  const [preferCzechProducts, setPreferCzechProducts] = useState(false)
   useEffect(() => {
     setNameDraft(householdName)
     setBudgetDraft(String(householdBudget).replace('.', ','))
   }, [householdName, householdBudget])
+
+  useEffect(() => {
+    if (!profile) return
+    setPreferenceLists({
+      preferredBrands: profile.preferences.preferredBrands.join(', '),
+      preferredStores: profile.preferences.preferredStores.join(', '),
+      preferredProducts: profile.preferences.preferredProducts.join(', '),
+      excludedProducts: profile.preferences.excludedProducts.join(', '),
+    })
+    setPriceSensitivity(profile.preferences.priceSensitivity)
+    setQualityPreference(profile.preferences.qualityPreference)
+    setPreferCzechProducts(profile.preferences.preferCzechProducts)
+  }, [profile])
+
+  function publishProfile(next: MobileHouseholdProfileData) {
+    onProfileUpdate(next)
+    setProfileError(null)
+  }
+
+  async function createMember() {
+    const age = Number(memberAge)
+    if (!memberName.trim() || !Number.isInteger(age) || age < 0 || age > 120) {
+      setProfileError('Zadejte jméno a věk člena od 0 do 120 let.')
+      return
+    }
+    setProfileBusy(true)
+    setProfileError(null)
+    try {
+      const splitList = (value: string) => value.split(',').map((part) => part.trim()).filter(Boolean)
+      const { member } = await addHouseholdMember({ name: memberName.trim(), age, favoriteFoods: splitList(memberFavorites), dislikedFoods: splitList(memberDislikes), allergies: splitList(memberAllergies) })
+      if (profile) publishProfile({ ...profile, members: [...profile.members, member] })
+      setMemberName(''); setMemberAge(''); setMemberFavorites(''); setMemberDislikes(''); setMemberAllergies(''); setMemberFormOpen(false)
+    } catch (caught) {
+      setProfileError(caught instanceof Error ? caught.message : 'Člena domácnosti se nepodařilo přidat.')
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+    } finally { setProfileBusy(false) }
+  }
+
+  async function deleteMember(member: MobileHouseholdMember) {
+    Alert.alert('Odebrat člena domácnosti?', member.name, [
+      { text: 'Zrušit', style: 'cancel' },
+      { text: 'Odebrat', style: 'destructive', onPress: () => { void (async () => {
+        if (!profile) return
+        setProfileBusy(true); setProfileError(null)
+        try { await removeHouseholdMember(member.id); publishProfile({ ...profile, members: profile.members.filter((row) => row.id !== member.id) }) }
+        catch (caught) { setProfileError(caught instanceof Error ? caught.message : 'Člena se nepodařilo odebrat.'); if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired() }
+        finally { setProfileBusy(false) }
+      })() } },
+    ])
+  }
+
+  async function saveMemberDiet() {
+    if (!editingDietMember || !profile) return
+    setProfileBusy(true); setProfileError(null)
+    try {
+      const { diet } = await updateHouseholdMemberDiet(editingDietMember.id, dietDraft)
+      publishProfile({ ...profile, members: profile.members.map((member) => member.id === editingDietMember.id ? { ...member, diet } : member) })
+      setEditingDietMember(null)
+    } catch (caught) { setProfileError(caught instanceof Error ? caught.message : 'Stravování se nepodařilo uložit.'); if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired() }
+    finally { setProfileBusy(false) }
+  }
+
+  async function createChild() {
+    const age = Number(childAge)
+    if (!childName.trim() || !Number.isInteger(age) || age < 0 || age > 21 || !childPreferences.trim()) {
+      setProfileError('Zadejte jméno, věk do 21 let a nákupní či stravovací preference dítěte.')
+      return
+    }
+    setProfileBusy(true); setProfileError(null)
+    try {
+      const { child } = await addHouseholdChild({ name: childName.trim(), age, preferences: childPreferences.trim(), specialNeeds: childSpecialNeeds.trim() || undefined })
+      if (profile) publishProfile({ ...profile, children: [...profile.children, child] })
+      setChildName(''); setChildAge(''); setChildPreferences(''); setChildSpecialNeeds(''); setChildFormOpen(false)
+    } catch (caught) { setProfileError(caught instanceof Error ? caught.message : 'Dítě se nepodařilo přidat.'); if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired() }
+    finally { setProfileBusy(false) }
+  }
+
+  async function deleteChild(child: MobileHouseholdChild) {
+    Alert.alert('Odebrat dítě?', child.name, [
+      { text: 'Zrušit', style: 'cancel' },
+      { text: 'Odebrat', style: 'destructive', onPress: () => { void (async () => {
+        if (!profile) return
+        setProfileBusy(true); setProfileError(null)
+        try { await removeHouseholdChild(child.id); publishProfile({ ...profile, children: profile.children.filter((row) => row.id !== child.id) }) }
+        catch (caught) { setProfileError(caught instanceof Error ? caught.message : 'Dítě se nepodařilo odebrat.'); if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired() }
+        finally { setProfileBusy(false) }
+      })() } },
+    ])
+  }
+
+  async function saveShoppingPreferences() {
+    setProfileBusy(true); setProfileError(null)
+    try {
+      const { preferences: saved } = await updateHouseholdPreferences({
+        preferredBrands: preferenceLists.preferredBrands.split(',').map((value) => value.trim()).filter(Boolean),
+        preferredStores: preferenceLists.preferredStores.split(',').map((value) => value.trim()).filter(Boolean),
+        preferredProducts: preferenceLists.preferredProducts.split(',').map((value) => value.trim()).filter(Boolean),
+        excludedProducts: preferenceLists.excludedProducts.split(',').map((value) => value.trim()).filter(Boolean),
+        priceSensitivity, qualityPreference, preferCzechProducts,
+      })
+      if (profile) publishProfile({ ...profile, preferences: saved })
+    } catch (caught) { setProfileError(caught instanceof Error ? caught.message : 'Nákupní preference se nepodařilo uložit.'); if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired() }
+    finally { setProfileBusy(false) }
+  }
 
   useEffect(() => {
     let active = true
@@ -410,33 +537,104 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
     }
   }
 
-  return <ScrollView contentContainerStyle={styles.screenContent}>
+  const sections = [
+    ['household', 'Domácnost'],
+    ['shopping', 'Nákup'],
+    ['appearance', 'Vzhled'],
+    ['notifications', 'Upozornění'],
+  ] as const
+  const preferenceFields = [
+    ['preferredBrands', 'Preferované značky', 'Např. Milka'],
+    ['preferredStores', 'Preferované obchody', 'Např. Lidl'],
+    ['preferredProducts', 'Preferované produkty', 'Např. ovesné vločky'],
+    ['excludedProducts', 'Produkty, které nekupovat', 'Např. energetické nápoje'],
+  ] as const
+  return <ScrollView contentContainerStyle={styles.screenContent} keyboardShouldPersistTaps="handled">
     <View style={styles.profileCard}><View style={styles.profileAvatar}><Text style={styles.profileInitials}>{name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</Text></View><Text style={styles.profileName}>{name}</Text><Text style={styles.bodyText}>{email}</Text></View>
-    <View style={styles.preferenceCard}>
-      <Text style={styles.cardEyebrow}>DOMÁCNOST</Text><Text style={styles.cardTitle}>{householdName || 'Sdílená domácnost'}</Text>
-      <Text style={styles.bodyText}>{householdRole ? `Vaše role: ${householdRole === 'owner' ? 'správce' : 'člen'}` : 'Účet zatím není připojený k domácnosti.'}</Text>
-      {householdRole === 'owner' ? <>
-        <Text style={styles.profileFieldLabel}>Název domácnosti</Text>
-        <TextInput accessibilityLabel="Název domácnosti" onChangeText={setNameDraft} style={styles.profileInput} value={nameDraft} />
-        <Text style={styles.profileFieldLabel}>Výchozí rozpočet za období ({householdCurrency})</Text>
-        <TextInput accessibilityLabel="Výchozí rozpočet" keyboardType="decimal-pad" onChangeText={setBudgetDraft} style={styles.profileInput} value={budgetDraft} />
-        {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
-        {message ? <Text style={styles.success}>{message}</Text> : null}
-        <Pressable accessibilityRole="button" disabled={saving} onPress={() => void saveHousehold()} style={[styles.profileSaveButton, saving && styles.disabled]}><Text style={styles.profileSaveText}>{saving ? 'Ukládám…' : 'Uložit nastavení'}</Text></Pressable>
-      </> : null}
-    </View>
-    <View style={styles.preferenceCard}>
-      <Text style={styles.cardEyebrow}>VZHLED APLIKACE</Text>
-      <Text style={styles.bodyText}>Téma</Text>
+    <ScrollView horizontal contentContainerStyle={styles.profileSections} showsHorizontalScrollIndicator={false}>
+      {sections.map(([key, label]) => <Pressable key={key} accessibilityRole="tab" accessibilityState={{ selected: profileSection === key }} onPress={() => setProfileSection(key)} style={[styles.profileSectionButton, profileSection === key && styles.profileSectionButtonActive]}><Text style={[styles.profileSectionText, profileSection === key && styles.profileSectionTextActive]}>{label}</Text></Pressable>)}
+    </ScrollView>
+
+    {profileSection === 'household' ? <>
+      <View style={styles.preferenceCard}>
+        <Text style={styles.cardEyebrow}>DOMÁCNOST</Text><Text style={styles.cardTitle}>{householdName || 'Sdílená domácnost'}</Text>
+        <Text style={styles.bodyText}>{householdRole ? `Vaše role: ${householdRole === 'owner' ? 'správce' : 'člen'}` : 'Účet zatím není připojený k domácnosti.'}</Text>
+        {householdRole === 'owner' ? <>
+          <Text style={styles.profileFieldLabel}>Název domácnosti</Text>
+          <TextInput accessibilityLabel="Název domácnosti" onChangeText={setNameDraft} style={styles.profileInput} value={nameDraft} />
+          <Text style={styles.profileFieldLabel}>Výchozí rozpočet za období ({householdCurrency})</Text>
+          <TextInput accessibilityLabel="Výchozí rozpočet" keyboardType="decimal-pad" onChangeText={setBudgetDraft} style={styles.profileInput} value={budgetDraft} />
+          {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+          {message ? <Text style={styles.success}>{message}</Text> : null}
+          <Pressable accessibilityRole="button" disabled={saving} onPress={() => void saveHousehold()} style={[styles.profileSaveButton, saving && styles.disabled]}><Text style={styles.profileSaveText}>{saving ? 'Ukládám…' : 'Uložit nastavení'}</Text></Pressable>
+        </> : null}
+      </View>
+      {profile ? <>
+        <View style={styles.preferenceCard}>
+          <View style={styles.sectionHeader}><View style={styles.preferenceDescription}><Text style={styles.cardTitle}>Členové domácnosti</Text><Text style={styles.noteText}>Profil pomáhá přizpůsobit nákupy a jídelníček.</Text></View><Pressable accessibilityRole="button" onPress={() => setMemberFormOpen((open) => !open)} style={styles.inlineAction}><Text style={styles.inlineActionText}>{memberFormOpen ? 'Zavřít' : '+ Přidat'}</Text></Pressable></View>
+          {profile.members.map((member) => <View key={member.id} style={styles.memberCard}>
+            <View style={styles.sectionHeader}><View style={styles.memberAvatar}><Text style={styles.memberAvatarText}>{member.name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</Text></View><View style={styles.memberInfo}><Text style={styles.cardTitle}>{member.name}</Text><Text style={styles.noteText}>{member.role === 'owner' ? 'Správce' : 'Člen'} · {member.age} let</Text></View>{member.removable ? <Pressable accessibilityLabel={`Odebrat člena ${member.name}`} accessibilityRole="button" disabled={profileBusy} onPress={() => deleteMember(member)} style={styles.removeIconButton}><Text style={styles.removeIconText}>×</Text></Pressable> : null}</View>
+            {member.favoriteFoods.length || member.dislikedFoods.length || member.allergies.length ? <Text style={styles.noteText}>{[...member.favoriteFoods.map((value) => `Oblíbené: ${value}`), ...member.dislikedFoods.map((value) => `Nechce: ${value}`), ...member.allergies.map((value) => `Alergie: ${value}`)].join(' · ')}</Text> : null}
+            {dietLabels(member.diet).length ? <Text style={styles.dietSummary}>{dietLabels(member.diet).join(' · ')}</Text> : null}
+            <View style={styles.rowActions}><Pressable accessibilityRole="button" onPress={() => { setEditingDietMember(member); setDietDraft(member.diet) }} style={styles.secondaryAction}><Text style={styles.secondaryActionText}>{dietLabels(member.diet).length ? 'Upravit stravování' : 'Vyplnit stravování'}</Text></Pressable></View>
+          </View>)}
+          {memberFormOpen ? <View style={styles.formPanel}>
+            <TextInput accessibilityLabel="Jméno člena" onChangeText={setMemberName} placeholder="Jméno" placeholderTextColor={colors.mutedText} style={styles.profileInput} value={memberName} />
+            <TextInput accessibilityLabel="Věk člena" keyboardType="number-pad" onChangeText={setMemberAge} placeholder="Věk" placeholderTextColor={colors.mutedText} style={styles.profileInput} value={memberAge} />
+            <TextInput accessibilityLabel="Oblíbené potraviny" onChangeText={setMemberFavorites} placeholder="Oblíbené potraviny (oddělit čárkou)" placeholderTextColor={colors.mutedText} style={styles.profileInput} value={memberFavorites} />
+            <TextInput accessibilityLabel="Nechce potraviny" onChangeText={setMemberDislikes} placeholder="Nechce (oddělit čárkou)" placeholderTextColor={colors.mutedText} style={styles.profileInput} value={memberDislikes} />
+            <TextInput accessibilityLabel="Alergie a intolerance" onChangeText={setMemberAllergies} placeholder="Alergie / intolerance (oddělit čárkou)" placeholderTextColor={colors.mutedText} style={styles.profileInput} value={memberAllergies} />
+            <Pressable accessibilityRole="button" disabled={profileBusy} onPress={() => void createMember()} style={[styles.profileSaveButton, profileBusy && styles.disabled]}><Text style={styles.profileSaveText}>{profileBusy ? 'Ukládám…' : 'Přidat člena domácnosti'}</Text></Pressable>
+          </View> : null}
+        </View>
+        <View style={styles.preferenceCard}>
+          <View style={styles.sectionHeader}><View style={styles.preferenceDescription}><Text style={styles.cardTitle}>Děti</Text><Text style={styles.noteText}>Preference a zvláštní potřeby pro plánování nákupů.</Text></View><Pressable accessibilityRole="button" onPress={() => setChildFormOpen((open) => !open)} style={styles.inlineAction}><Text style={styles.inlineActionText}>{childFormOpen ? 'Zavřít' : '+ Přidat'}</Text></Pressable></View>
+          {profile.children.map((child) => <View key={child.id} style={styles.memberCard}><View style={styles.sectionHeader}><View style={styles.memberInfo}><Text style={styles.cardTitle}>{child.name}</Text><Text style={styles.noteText}>{child.age} let</Text></View><Pressable accessibilityLabel={`Odebrat dítě ${child.name}`} accessibilityRole="button" disabled={profileBusy} onPress={() => deleteChild(child)} style={styles.removeIconButton}><Text style={styles.removeIconText}>×</Text></Pressable></View>{child.preferences ? <Text style={styles.noteText}>Preference: {child.preferences}</Text> : null}{child.specialNeeds ? <Text style={styles.childNeeds}>Specifické potřeby: {child.specialNeeds}</Text> : null}</View>)}
+          {childFormOpen ? <View style={styles.formPanel}>
+            <TextInput accessibilityLabel="Jméno dítěte" onChangeText={setChildName} placeholder="Jméno" placeholderTextColor={colors.mutedText} style={styles.profileInput} value={childName} />
+            <TextInput accessibilityLabel="Věk dítěte" keyboardType="number-pad" onChangeText={setChildAge} placeholder="Věk" placeholderTextColor={colors.mutedText} style={styles.profileInput} value={childAge} />
+            <TextInput accessibilityLabel="Preference dítěte" onChangeText={setChildPreferences} placeholder="Nákupní nebo stravovací preference" placeholderTextColor={colors.mutedText} style={styles.profileInput} value={childPreferences} />
+            <TextInput accessibilityLabel="Specifické potřeby dítěte" onChangeText={setChildSpecialNeeds} placeholder="Specifické potřeby (volitelné)" placeholderTextColor={colors.mutedText} style={styles.profileInput} value={childSpecialNeeds} />
+            <Pressable accessibilityRole="button" disabled={profileBusy} onPress={() => void createChild()} style={[styles.profileSaveButton, profileBusy && styles.disabled]}><Text style={styles.profileSaveText}>{profileBusy ? 'Ukládám…' : 'Přidat dítě'}</Text></Pressable>
+          </View> : null}
+        </View>
+      </> : <View style={styles.emptyCard}><Text style={styles.cardTitle}>Profil domácnosti se nepodařilo načíst</Text><Text style={styles.bodyText}>Obnovte účet nebo zkuste načíst profil znovu.</Text></View>}
+      {profileError ? <Text accessibilityRole="alert" style={styles.error}>{profileError}</Text> : null}
+    </> : null}
+
+    {profileSection === 'shopping' ? <View style={styles.preferenceCard}>
+      <Text style={styles.cardEyebrow}>NÁKUP A OBCHODY</Text><Text style={styles.cardTitle}>Nákupní preference domácnosti</Text><Text style={styles.bodyText}>Nastavení pomáhá vybírat produkty, obchody a ceny.</Text>
+      {profile ? <>
+        {preferenceFields.map(([key, label, placeholder]) => <View key={key}><Text style={styles.profileFieldLabel}>{label}</Text><TextInput accessibilityLabel={label} onChangeText={(value) => setPreferenceLists((current) => ({ ...current, [key]: value }))} placeholder={placeholder} placeholderTextColor={colors.mutedText} style={styles.profileInput} value={preferenceLists[key]} /></View>)}
+        <Text style={styles.profileFieldLabel}>Cenová preference</Text><View style={styles.themeChoices}>{([['cheapest', 'Nejlevnější'], ['balanced', 'Vyvážené'], ['quality_first', 'Kvalita především']] as [MobileHouseholdPreferences['priceSensitivity'], string][]).map(([value, label]) => <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: priceSensitivity === value }} onPress={() => setPriceSensitivity(value)} style={[styles.themeChoice, priceSensitivity === value && styles.themeChoiceSelected]}><Text style={[styles.themeChoiceText, priceSensitivity === value && styles.themeChoiceTextSelected]}>{label}</Text></Pressable>)}</View>
+        <Text style={styles.profileFieldLabel}>Preference kvality</Text><View style={styles.themeChoices}>{([['standard', 'Standardní'], ['premium', 'Prémiová']] as [MobileHouseholdPreferences['qualityPreference'], string][]).map(([value, label]) => <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: qualityPreference === value }} onPress={() => setQualityPreference(value)} style={[styles.themeChoice, qualityPreference === value && styles.themeChoiceSelected]}><Text style={[styles.themeChoiceText, qualityPreference === value && styles.themeChoiceTextSelected]}>{label}</Text></Pressable>)}</View>
+        <View style={styles.preferenceRow}><Text style={[styles.cardTitle, styles.flexText]}>Preferovat české výrobky</Text><Switch accessibilityLabel="Preferovat české výrobky" value={preferCzechProducts} onValueChange={setPreferCzechProducts} trackColor={{ false: colors.border, true: colors.accent }} thumbColor={colors.card} /></View>
+        {profileError ? <Text accessibilityRole="alert" style={styles.error}>{profileError}</Text> : null}
+        <Pressable accessibilityRole="button" disabled={profileBusy} onPress={() => void saveShoppingPreferences()} style={[styles.profileSaveButton, profileBusy && styles.disabled]}><Text style={styles.profileSaveText}>{profileBusy ? 'Ukládám…' : 'Uložit nákupní preference'}</Text></Pressable>
+      </> : <Text style={styles.bodyText}>Nákupní preference domácnosti nejsou dostupné.</Text>}
+    </View> : null}
+
+    {profileSection === 'appearance' ? <View style={styles.preferenceCard}>
+      <Text style={styles.cardEyebrow}>VZHLED APLIKACE</Text><Text style={styles.cardTitle}>Barevný režim</Text><Text style={styles.bodyText}>Volba se uloží v zařízení a použije se ve všech nativních obrazovkách a grafech.</Text>
       <View style={styles.themeChoices}>{([['system', 'Podle systému'], ['light', 'Světlé'], ['dark', 'Tmavé']] as [ThemePreference, string][]).map(([value, label]) => <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: preference === value }} onPress={() => setPreference(value)} style={[styles.themeChoice, preference === value && styles.themeChoiceSelected]}><Text style={[styles.themeChoiceText, preference === value && styles.themeChoiceTextSelected]}>{label}</Text></Pressable>)}</View>
-    </View>
-    <View style={styles.preferenceCard}>
-      <Text style={styles.cardEyebrow}>UPOZORNĚNÍ</Text>
-      <Text style={styles.bodyText}>Nastavení platí jen pro váš účet.</Text>
+    </View> : null}
+
+    {profileSection === 'notifications' ? <View style={styles.preferenceCard}>
+      <Text style={styles.cardEyebrow}>UPOZORNĚNÍ</Text><Text style={styles.cardTitle}>Co chcete dostávat</Text><Text style={styles.bodyText}>Nastavení platí jen pro váš účet.</Text>
       {preferencesError ? <Text accessibilityRole="alert" style={styles.error}>{preferencesError}</Text> : null}
       {preferences.map((item) => <View key={item.key} style={styles.preferenceRow}><View style={styles.preferenceDescription}><Text style={styles.cardTitle}>{item.label}</Text><Text style={styles.noteText}>{item.description}</Text></View><Switch accessibilityLabel={item.label} value={item.enabled} onValueChange={(enabled) => void togglePreference(item.key, enabled)} trackColor={{ false: colors.border, true: colors.accent }} thumbColor={colors.card} /></View>)}
-    </View>
+      <Text style={styles.noteText}>Oprávnění k oznámením tohoto zařízení se spravuje v nastavení Androidu.</Text>
+    </View> : null}
     <Pressable accessibilityRole="button" onPress={onSignOut} style={styles.signOutButton}><Text style={styles.signOutText}>Odhlásit se</Text></Pressable>
+
+    <Modal animationType="slide" onRequestClose={() => setEditingDietMember(null)} transparent visible={editingDietMember !== null}>
+      <View style={styles.modalScrim}><ScrollView contentContainerStyle={styles.dietModalScroll} keyboardShouldPersistTaps="handled"><View style={styles.dietModal}>
+        <View style={styles.sectionHeader}><View style={styles.preferenceDescription}><Text style={styles.sheetTitle}>Stravování: {editingDietMember?.name}</Text><Text style={styles.bodyText}>Recepty zohlední preference všech členů domácnosti.</Text></View><Pressable accessibilityLabel="Zavřít stravování" accessibilityRole="button" onPress={() => setEditingDietMember(null)} style={styles.closeButton}><X color={colors.foreground} size={20} /></Pressable></View>
+        <Text style={styles.profileFieldLabel}>Jak se stravuje?</Text>{DIETS.map((option) => <Pressable key={option.key} accessibilityRole="radio" accessibilityState={{ checked: dietDraft.diet === option.key }} onPress={() => setDietDraft((current) => ({ ...current, diet: option.key }))} style={[styles.dietChoice, dietDraft.diet === option.key && styles.dietChoiceActive]}><View style={styles.preferenceDescription}><Text style={styles.cardTitle}>{option.label}</Text><Text style={styles.noteText}>{option.description}</Text></View><Text style={styles.dietCheck}>{dietDraft.diet === option.key ? '✓' : ''}</Text></Pressable>)}
+        <Text style={styles.profileFieldLabel}>Čemu se vyhýbá?</Text><View style={styles.themeChoices}>{DIET_AVOIDS.map((option) => { const selected = dietDraft.avoids.includes(option.key); return <Pressable key={option.key} accessibilityRole="checkbox" accessibilityState={{ checked: selected }} onPress={() => setDietDraft((current) => ({ ...current, avoids: selected ? current.avoids.filter((key) => key !== option.key) : [...current.avoids, option.key] }))} style={[styles.themeChoice, selected && styles.themeChoiceSelected]}><Text style={[styles.themeChoiceText, selected && styles.themeChoiceTextSelected]}>{option.label}</Text></Pressable> })}</View>
+        {profileError ? <Text accessibilityRole="alert" style={styles.error}>{profileError}</Text> : null}<Pressable accessibilityRole="button" disabled={profileBusy} onPress={() => void saveMemberDiet()} style={[styles.profileSaveButton, profileBusy && styles.disabled]}><Text style={styles.profileSaveText}>{profileBusy ? 'Ukládám…' : 'Uložit stravování'}</Text></Pressable>
+      </View></ScrollView></View>
+    </Modal>
   </ScrollView>
 }
 
@@ -556,8 +754,34 @@ function useStyles() {
   disabled: { opacity: 0.45 },
   footerNote: { color: colors.mutedText, fontSize: 11, textAlign: 'center', marginTop: 8 },
   profileCard: { alignItems: 'center', gap: 6, padding: 24, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 20 },
+  profileSections: { gap: 8, paddingVertical: 2 },
+  profileSectionButton: { minHeight: 39, justifyContent: 'center', paddingHorizontal: 13, borderRadius: 13, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
+  profileSectionButtonActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  profileSectionText: { color: colors.secondaryText, fontSize: 13, fontWeight: '600' },
+  profileSectionTextActive: { color: colors.primaryForeground },
   profileAvatar: { width: 70, height: 70, alignItems: 'center', justifyContent: 'center', borderRadius: 35, backgroundColor: colors.accentSubtle, marginBottom: 4 },
   profileInitials: { color: colors.accentText, fontSize: 23, fontWeight: '800' },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  memberCard: { gap: 9, padding: 12, borderRadius: 15, backgroundColor: colors.muted },
+  memberAvatar: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 20, backgroundColor: colors.card },
+  memberAvatarText: { color: colors.foreground, fontSize: 12, fontWeight: '700' },
+  memberInfo: { flex: 1, minWidth: 0, gap: 2 },
+  removeIconButton: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 19, backgroundColor: colors.card },
+  removeIconText: { color: colors.destructive, fontSize: 23, lineHeight: 27 },
+  dietSummary: { color: colors.accentText, fontSize: 12, lineHeight: 17 },
+  childNeeds: { color: colors.destructive, fontSize: 12, lineHeight: 17 },
+  rowActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  inlineAction: { minHeight: 38, justifyContent: 'center', paddingHorizontal: 11, borderRadius: 12, backgroundColor: colors.accentSubtle },
+  inlineActionText: { color: colors.accentText, fontSize: 12, fontWeight: '700' },
+  secondaryAction: { minHeight: 38, justifyContent: 'center', paddingHorizontal: 11, borderRadius: 12, backgroundColor: colors.card },
+  secondaryActionText: { color: colors.accentText, fontSize: 12, fontWeight: '700' },
+  formPanel: { gap: 9, padding: 12, borderRadius: 14, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.border },
+  flexText: { flex: 1 },
+  dietModalScroll: { flexGrow: 1, justifyContent: 'flex-end' },
+  dietModal: { gap: 10, maxHeight: '90%', backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 28 },
+  dietChoice: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 11, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
+  dietChoiceActive: { borderColor: colors.accent, backgroundColor: colors.accentSubtle },
+  dietCheck: { width: 25, color: colors.accentText, fontSize: 18, fontWeight: '800', textAlign: 'center' },
   profileName: { color: colors.foreground, fontSize: 20, fontWeight: '700' },
   preferenceCard: { gap: 8, padding: 16, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 18 },
   profileFieldLabel: { color: colors.secondaryText, fontSize: 12, fontWeight: '600', marginTop: 6 },

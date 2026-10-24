@@ -62,6 +62,7 @@ import {
   toggleShoppingItem,
   updateShoppingItem,
   type MobileShoppingItem,
+  type MobileHouseholdProfileData,
 } from '../lib/shopping-list-api'
 
 function errorMessage(error: unknown): string {
@@ -200,6 +201,7 @@ export default function HomeScreen() {
   const [householdName, setHouseholdName] = useState('')
   const [householdBudget, setHouseholdBudget] = useState(0)
   const [householdCurrency, setHouseholdCurrency] = useState('CZK')
+  const [householdProfile, setHouseholdProfile] = useState<MobileHouseholdProfileData | null>(null)
   const [householdAvailable, setHouseholdAvailable] = useState(false)
   const [householdMissing, setHouseholdMissing] = useState(false)
   const [items, setItems] = useState<MobileShoppingItem[]>([])
@@ -281,6 +283,7 @@ export default function HomeScreen() {
       if (!token) {
         setSignedIn(false)
         setHouseholdAvailable(false)
+        setHouseholdProfile(null)
         setItems([])
         setPendingChanges(0)
         setOffline(false)
@@ -310,6 +313,7 @@ export default function HomeScreen() {
       setHouseholdName(profile.household?.name ?? '')
       setHouseholdBudget(profile.household?.monthlyBudget ?? 0)
       setHouseholdCurrency(profile.household?.currency ?? 'CZK')
+      setHouseholdProfile(profile.household?.profile ?? null)
       if (!profile.household) {
         setHouseholdMissing(true)
         setHouseholdAvailable(false)
@@ -736,12 +740,14 @@ export default function HomeScreen() {
             ) : activeTab === 'profile' ? (
               <NativeProfileScreen
                 email={userEmail}
+                profile={householdProfile}
                 householdBudget={householdBudget}
                 householdCurrency={householdCurrency}
                 householdName={householdName}
                 householdRole={householdRole}
                 name={userName}
                 onAuthExpired={handleAuthExpired}
+                onProfileUpdate={setHouseholdProfile}
                 onSignOut={() => void handleSignOut()}
                 onUpdateHousehold={(changes) => {
                   setHouseholdName(changes.name)

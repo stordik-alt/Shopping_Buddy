@@ -895,11 +895,11 @@ export default function HomeScreen() {
                 {recipeView === 'meals' ? <MealPlanScreen onAuthExpired={handleAuthExpired} /> : <RecipesScreen onAuthExpired={handleAuthExpired} />}
               </>
             ) : activeTab === 'budget' ? (
-              <BudgetScreen onAuthExpired={handleAuthExpired} quickAddExpenseToken={quickExpenseToken} />
+              <BudgetScreen onAuthExpired={handleAuthExpired} quickAddExpenseToken={quickExpenseToken} canManageBudget={householdRole === 'owner'} />
             ) : activeTab === 'pantry' ? (
               <PantryScreen onAuthExpired={handleAuthExpired} reviewToken={pantryReviewToken} onReviewAddToShopping={addPantryReviewItems} />
             ) : (
-              <BudgetScreen onAuthExpired={handleAuthExpired} />
+              <BudgetScreen onAuthExpired={handleAuthExpired} canManageBudget={householdRole === 'owner'} />
             )}
           </>
         )}

@@ -3,6 +3,15 @@ import type { Recipe, RecipeSearchPage } from '../../../lib/recipes/types'
 import type { RestockSuggestion } from '../../../lib/pantry-restock'
 import type { ProductPrice } from '../../../lib/prices'
 import type { StandaloneOffer } from '../../../lib/offers'
+import type { ExpenseCategory } from '../../../lib/expense-categories'
+import type { RecurringOccurrence, RecurringPayment, RecurringPaymentInput } from '../../../lib/recurring-payments'
+import type { RecurringIncome, RecurringIncomeInput, RecurringIncomeOccurrence } from '../../../lib/recurring-incomes'
+import type { BudgetLedger } from '../../../lib/types'
+import type { PocketInput } from '../../../lib/pocket-input'
+import type { BudgetOutlook } from '../../../lib/types'
+import type { PeriodConfig } from '../../../lib/budget-period'
+import type { PeriodHistoryRow } from '../../../lib/budget-history'
+import type { PocketAmount } from '../../../lib/budget-closing'
 import type { ItemCategory, PantryTracking } from '../../../lib/types'
 import { clearAccessToken, getAccessToken } from './auth'
 import { getApiUrl } from './config'
@@ -33,6 +42,19 @@ export type MobileBudgetSummary = {
   remaining: number
   categories: { category: string; total: number; limit: number | null; level: 'ok' | 'warning' | 'over' }[]
 }
+export type MobileBudgetCategoryLimits = Partial<Record<ExpenseCategory, number>>
+export type MobileRecurringPayments = {
+  today: string
+  payments: RecurringPayment[]
+  occurrences: RecurringOccurrence[]
+}
+export type MobileRecurringIncomes = {
+  today: string
+  payments: RecurringIncome[]
+  occurrences: RecurringIncomeOccurrence[]
+}
+export type MobileBudgetLedger = BudgetLedger & { availableToSave: number; currentPeriodStart: string }
+export type MobilePeriodSettings = { period: PeriodConfig; today: string; currentPeriodStart: string; canEdit: boolean }
 
 export type MobileDashboardSummary = {
   today: string
@@ -443,6 +465,129 @@ export function getShoppingList() {
 
 export function getBudgetSummary() {
   return request<MobileBudgetSummary>('/api/mobile/budget')
+}
+
+export function getBudgetCategoryLimits() {
+  return request<{ limits: MobileBudgetCategoryLimits }>('/api/mobile/budget/category-limits')
+}
+
+export function updateBudgetCategoryLimit(category: ExpenseCategory, amount: number | null) {
+  return request<{ limits: MobileBudgetCategoryLimits }>('/api/mobile/budget/category-limits', {
+    method: 'PATCH',
+    body: JSON.stringify({ category, amount }),
+  })
+}
+
+export function getRecurringPayments() {
+  return request<MobileRecurringPayments>('/api/mobile/budget/recurring-payments')
+}
+
+export function addRecurringPayment(input: RecurringPaymentInput) {
+  return request<{ payment: RecurringPayment }>('/api/mobile/budget/recurring-payments', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export function updateRecurringPayment(id: string, input: RecurringPaymentInput) {
+  return request<{ payment: RecurringPayment }>(`/api/mobile/budget/recurring-payments/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ action: 'save', ...input }),
+  })
+}
+
+export function stopRecurringPayment(id: string) {
+  return request<{ ok: true }>(`/api/mobile/budget/recurring-payments/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ action: 'stop' }),
+  })
+}
+
+export function confirmRecurringPayment(id: string, dueDate: string, amount: number, date: string) {
+  return request<{ expense: MobileExpense; occurrence: RecurringOccurrence }>(`/api/mobile/budget/recurring-payments/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ action: 'confirm', dueDate, amount, date }),
+  })
+}
+
+export function skipRecurringPayment(id: string, dueDate: string) {
+  return request<{ occurrence: RecurringOccurrence }>(`/api/mobile/budget/recurring-payments/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ action: 'skip', dueDate }),
+  })
+}
+
+export function getRecurringIncomes() {
+  return request<MobileRecurringIncomes>('/api/mobile/budget/recurring-incomes')
+}
+
+export function addRecurringIncome(input: RecurringIncomeInput) {
+  return request<{ payment: RecurringIncome }>('/api/mobile/budget/recurring-incomes', { method: 'POST', body: JSON.stringify(input) })
+}
+
+export function updateRecurringIncome(id: string, input: RecurringIncomeInput) {
+  return request<{ payment: RecurringIncome }>(`/api/mobile/budget/recurring-incomes/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ action: 'save', ...input }) })
+}
+
+export function stopRecurringIncome(id: string) {
+  return request<{ ok: true }>(`/api/mobile/budget/recurring-incomes/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ action: 'stop' }) })
+}
+
+export function confirmRecurringIncome(id: string, dueDate: string, amount: number, date: string) {
+  return request<{ income: MobileBudgetIncome; occurrence: RecurringIncomeOccurrence }>(`/api/mobile/budget/recurring-incomes/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ action: 'confirm', dueDate, amount, date }) })
+}
+
+export function skipRecurringIncome(id: string, dueDate: string) {
+  return request<{ occurrence: RecurringIncomeOccurrence }>(`/api/mobile/budget/recurring-incomes/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ action: 'skip', dueDate }) })
+}
+
+export function getBudgetLedger(period?: string) {
+  const query = period ? `?period=${encodeURIComponent(period)}` : ''
+  return request<MobileBudgetLedger>(`/api/mobile/budget/ledger${query}`)
+}
+
+export function addPocket(input: PocketInput) {
+  return request<{ ok: true; id: string }>('/api/mobile/budget/pockets', { method: 'POST', body: JSON.stringify(input) })
+}
+
+export function updatePocket(id: string, input: PocketInput) {
+  return request<{ ok: true }>(`/api/mobile/budget/pockets/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ action: 'save', ...input }) })
+}
+
+export function archivePocket(id: string) {
+  return request<{ ok: true }>(`/api/mobile/budget/pockets/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ action: 'archive' }) })
+}
+
+export function transferPocket(id: string, action: 'deposit' | 'withdraw', amount: number) {
+  return request<{ ok: true }>(`/api/mobile/budget/pockets/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ action, amount }) })
+}
+
+export function getBudgetHistory() {
+  return request<{ history: PeriodHistoryRow[] }>('/api/mobile/budget/history')
+}
+
+export function getBudgetOutlook() {
+  return request<{ outlook: BudgetOutlook }>('/api/mobile/budget/outlook')
+}
+
+export function setPlannedCarry(periodStart: string, amount: number | null) {
+  return request<{ ok: true }>('/api/mobile/budget/outlook', { method: 'PATCH', body: JSON.stringify({ periodStart, amount }) })
+}
+
+export function getBudgetPeriodSettings() {
+  return request<MobilePeriodSettings>('/api/mobile/budget/period-settings')
+}
+
+export function updateBudgetPeriod(period: PeriodConfig) {
+  return request<MobilePeriodSettings>('/api/mobile/budget/period-settings', { method: 'PATCH', body: JSON.stringify({ period }) })
+}
+
+export function closeBudgetPeriod(input: { periodStart: string; deposits: PocketAmount[]; withdrawals: PocketAmount[]; carryOn: number }) {
+  return request<{ ok: true }>('/api/mobile/budget/period-closing', { method: 'POST', body: JSON.stringify({ action: 'close', ...input }) })
+}
+
+export function reopenBudgetPeriod(periodStart: string) {
+  return request<{ ok: true }>('/api/mobile/budget/period-closing', { method: 'POST', body: JSON.stringify({ action: 'reopen', periodStart }) })
 }
 
 export function getDashboardSummary() {

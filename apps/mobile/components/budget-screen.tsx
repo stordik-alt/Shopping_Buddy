@@ -6,28 +6,71 @@ import {
   addExpense,
   addBudgetIncome,
   addPlannedExpense,
+  addRecurringPayment,
+  addRecurringIncome,
+  addPocket,
+  archivePocket,
+  closeBudgetPeriod,
+  confirmRecurringPayment,
+  confirmRecurringIncome,
   deleteBudgetIncome,
   deleteExpense,
   deletePlannedExpense,
   getBudgetSummary,
+  getBudgetCategoryLimits,
+  getBudgetLedger,
+  getBudgetHistory,
+  getBudgetOutlook,
+  getBudgetPeriodSettings,
   getBudgetPlanning,
+  getRecurringPayments,
+  getRecurringIncomes,
   getExpenses,
   MobileApiError,
   payPlannedExpense,
   receiveBudgetIncome,
   receiveRecurringBudgetIncome,
+  reopenBudgetPeriod,
+  skipRecurringPayment,
+  skipRecurringIncome,
+  stopRecurringPayment,
+  stopRecurringIncome,
+  transferPocket,
+  setPlannedCarry,
   updateBudgetIncome,
+  updateRecurringPayment,
+  updateRecurringIncome,
+  updatePocket,
+  updateBudgetPeriod,
   updatePlannedExpense,
   updateExpense,
+  updateBudgetCategoryLimit,
   type MobileBudgetSummary,
   type MobileBudgetPlanning,
   type MobileBudgetIncome,
   type MobileExpense,
   type MobilePlannedExpense,
+  type MobileRecurringPayments,
+  type MobileRecurringIncomes,
+  type MobileBudgetLedger,
+  type MobilePeriodSettings,
 } from '../lib/shopping-list-api'
 import { RefreshButton } from './refresh-button'
 import { useMobileTheme } from '../lib/theme'
 import { expenseCategoryColor } from '../lib/chart-colors'
+import { RecurringPaymentsScreen } from './recurring-payments-screen'
+import { RecurringIncomesScreen } from './recurring-incomes-screen'
+import { PocketsScreen } from './pockets-screen'
+import { BudgetAdvancedScreen } from './budget-advanced-screen'
+import type { RecurringPayment, RecurringPaymentInput } from '../../../lib/recurring-payments'
+import type { RecurringIncome, RecurringIncomeInput } from '../../../lib/recurring-incomes'
+import type { Pocket } from '../../../lib/types'
+import type { PocketInput } from '../../../lib/pocket-input'
+import type { BudgetOutlook } from '../../../lib/types'
+import type { PeriodHistoryRow } from '../../../lib/budget-history'
+import type { PeriodConfig } from '../../../lib/budget-period'
+import type { PocketAmount } from '../../../lib/budget-closing'
+import { spendingDonutSegments } from '../../../lib/budget-chart'
 
 function money(amount: number, currency: string): string {
   try {
@@ -53,6 +96,47 @@ function previousDay(date: string): string {
 }
 
 type ExpenseDraft = { amount: string; note: string; category: ExpenseCategory; subcategory: string; date: string }
+
+function CategoryLimitsEditor({ limits, busy, onClose, onSave }: {
+  limits: Partial<Record<ExpenseCategory, number>>
+  busy: boolean
+  onClose: () => void
+  onSave: (changes: { category: ExpenseCategory; amount: number | null }[]) => Promise<void>
+}) {
+  const { colors } = useMobileTheme()
+  const styles = useStyles()
+  const [drafts, setDrafts] = useState(() => Object.fromEntries(EXPENSE_CATEGORY_NAMES.map((category) => [category, limits[category] == null ? '' : String(limits[category]).replace('.', ',')])) as Record<ExpenseCategory, string>)
+  const [error, setError] = useState('')
+
+  async function save() {
+    const changes: { category: ExpenseCategory; amount: number | null }[] = []
+    for (const category of EXPENSE_CATEGORY_NAMES) {
+      const raw = drafts[category].replace(/[\s ]/g, '').replace(',', '.')
+      const amount = raw === '' ? null : Number(raw)
+      if (amount !== null && (!Number.isFinite(amount) || amount <= 0)) {
+        setError(`Limit pro ${category} musí být částka větší než 0, nebo prázdný.`)
+        return
+      }
+      if (amount !== (limits[category] ?? null)) changes.push({ category, amount })
+    }
+    setError('')
+    try { await onSave(changes) } catch (caught) { setError(caught instanceof Error ? caught.message : 'Limity se nepodařilo uložit.') }
+  }
+
+  return <Modal animationType="slide" onRequestClose={onClose} transparent visible>
+    <View style={styles.modalBackdrop}>
+      <ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled">
+        <View style={styles.editor}>
+          <View style={styles.editorHeading}><Text style={styles.editorTitle}>Měsíční limity kategorií</Text><Pressable accessibilityLabel="Zavřít limity kategorií" accessibilityRole="button" onPress={onClose} style={styles.closeButton}><Text style={styles.closeText}>×</Text></Pressable></View>
+          <Text style={styles.supporting}>Při dosažení 80 % a 100 % limitu přijde upozornění. Prázdné pole znamená bez limitu.</Text>
+          {EXPENSE_CATEGORY_NAMES.map((category) => <View key={category} style={styles.limitRow}><Text style={styles.limitCategory}>{category}</Text><TextInput accessibilityLabel={`Limit ${category}`} keyboardType="decimal-pad" onChangeText={(value) => setDrafts((current) => ({ ...current, [category]: value }))} placeholder="bez limitu" placeholderTextColor={colors.mutedText} style={styles.limitInput} value={drafts[category]} /><Text style={styles.supporting}>Kč</Text></View>)}
+          {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+          <Pressable accessibilityRole="button" disabled={busy} onPress={() => void save()} style={[styles.primaryButton, busy && styles.disabled]}><Text style={styles.primaryButtonText}>{busy ? 'Ukládám…' : 'Uložit limity'}</Text></Pressable>
+        </View>
+      </ScrollView>
+    </View>
+  </Modal>
+}
 
 function ExpenseEditor({
   expense,
@@ -293,23 +377,48 @@ function BudgetPlanningScreen({
   </View>
 }
 
-export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0 }: { onAuthExpired: () => void; quickAddExpenseToken?: number }) {
+export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0, canManageBudget = false }: { onAuthExpired: () => void; quickAddExpenseToken?: number; canManageBudget?: boolean }) {
   const { colors, theme } = useMobileTheme()
   const styles = useStyles()
   const [summary, setSummary] = useState<MobileBudgetSummary | null>(null)
+  const [categoryLimits, setCategoryLimits] = useState<Partial<Record<ExpenseCategory, number>>>({})
   const [planning, setPlanning] = useState<MobileBudgetPlanning | null>(null)
+  const [recurring, setRecurring] = useState<MobileRecurringPayments | null>(null)
+  const [recurringIncomes, setRecurringIncomes] = useState<MobileRecurringIncomes | null>(null)
+  const [ledger, setLedger] = useState<MobileBudgetLedger | null>(null)
+  const [periodSettings, setPeriodSettings] = useState<MobilePeriodSettings | null>(null)
+  const [outlook, setOutlook] = useState<BudgetOutlook | null>(null)
+  const [history, setHistory] = useState<PeriodHistoryRow[] | null>(null)
   const [expenses, setExpenses] = useState<MobileExpense[]>([])
   const [period, setPeriod] = useState<{ start: string; end: string; next: string } | null>(null)
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null)
   const selectedPeriodRef = useRef<string | null>(null)
-  const [view, setView] = useState<'overview' | 'expenses' | 'planning'>('overview')
+  const [view, setView] = useState<'overview' | 'expenses' | 'planning' | 'recurring'>('overview')
   const [categoryFilter, setCategoryFilter] = useState<ExpenseCategory | null>(null)
   const [editorExpense, setEditorExpense] = useState<MobileExpense | null>(null)
   const [editingPlan, setEditingPlan] = useState<PlanningEdit | null>(null)
   const [editorOpen, setEditorOpen] = useState(false)
+  const [limitsOpen, setLimitsOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [advancedRefreshKey, setAdvancedRefreshKey] = useState(0)
+
+  useEffect(() => {
+    if (view !== 'planning') return
+    let cancelled = false
+    Promise.all([getBudgetPeriodSettings(), getBudgetOutlook(), getBudgetHistory()]).then(([settings, nextOutlook, nextHistory]) => {
+      if (cancelled) return
+      setPeriodSettings(settings)
+      setOutlook(nextOutlook.outlook)
+      setHistory(nextHistory.history)
+    }).catch((caught) => {
+      if (cancelled) return
+      setError(caught instanceof Error ? caught.message : 'Rozšířený plán rozpočtu se nepodařilo načíst.')
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+    })
+    return () => { cancelled = true }
+  }, [view, advancedRefreshKey, onAuthExpired])
 
   useEffect(() => {
     if (quickAddExpenseToken > 0) {
@@ -323,9 +432,13 @@ export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0 }: { onAu
     setLoading(true)
     setError(null)
     try {
-      const [nextSummary, nextPlanning] = await Promise.all([getBudgetSummary(), getBudgetPlanning(requestedPeriod ?? selectedPeriodRef.current ?? undefined)])
+      const [nextSummary, nextPlanning, nextLimits, nextRecurring, nextRecurringIncomes, nextLedger] = await Promise.all([getBudgetSummary(), getBudgetPlanning(requestedPeriod ?? selectedPeriodRef.current ?? undefined), getBudgetCategoryLimits(), getRecurringPayments(), getRecurringIncomes(), getBudgetLedger(requestedPeriod ?? selectedPeriodRef.current ?? undefined)])
       setSummary(nextSummary)
       setPlanning(nextPlanning)
+      setCategoryLimits(nextLimits.limits)
+      setRecurring(nextRecurring)
+      setRecurringIncomes(nextRecurringIncomes)
+      setLedger(nextLedger)
       const ledger = await getExpenses(requestedPeriod ?? selectedPeriodRef.current ?? nextSummary.period.start)
       setPeriod(ledger.period)
       selectedPeriodRef.current = ledger.period.start
@@ -382,6 +495,98 @@ export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0 }: { onAu
     } finally { setSaving(false) }
   }
 
+  async function saveCategoryLimits(changes: { category: ExpenseCategory; amount: number | null }[]) {
+    if (saving) return
+    setSaving(true)
+    setError(null)
+    try {
+      let latest = categoryLimits
+      for (const change of changes) latest = (await updateBudgetCategoryLimit(change.category, change.amount)).limits
+      setCategoryLimits(latest)
+      setLimitsOpen(false)
+      await load(selectedPeriod ?? period?.start)
+    } catch (caught) {
+      try { setCategoryLimits((await getBudgetCategoryLimits()).limits) } catch { /* retain the last values if the refresh also fails */ }
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+      throw caught
+    } finally { setSaving(false) }
+  }
+
+  async function mutateRecurring(action: () => Promise<unknown>) {
+    if (saving) return
+    setSaving(true)
+    setError(null)
+    try {
+      await action()
+      await load(selectedPeriod ?? period?.start)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Pravidelnou platbu se nepodařilo uložit.')
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+      throw caught
+    } finally { setSaving(false) }
+  }
+
+  function saveRecurring(payment: RecurringPayment | null, input: RecurringPaymentInput) {
+    return mutateRecurring(() => payment ? updateRecurringPayment(payment.id, input) : addRecurringPayment(input))
+  }
+
+  async function mutateRecurringIncome(action: () => Promise<unknown>) {
+    if (saving) return
+    setSaving(true)
+    setError(null)
+    try {
+      await action()
+      await load(selectedPeriod ?? period?.start)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Pravidelný příjem se nepodařilo uložit.')
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+      throw caught
+    } finally { setSaving(false) }
+  }
+
+  function saveRecurringIncome(income: RecurringIncome | null, input: RecurringIncomeInput) {
+    return mutateRecurringIncome(() => income ? updateRecurringIncome(income.id, input) : addRecurringIncome(input))
+  }
+
+  async function mutatePocket(action: () => Promise<unknown>) {
+    if (saving) return
+    setSaving(true)
+    setError(null)
+    try {
+      await action()
+      await load(selectedPeriod ?? period?.start)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Kapsu se nepodařilo uložit.')
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+      throw caught
+    } finally { setSaving(false) }
+  }
+
+  function savePocket(pocket: Pocket | null, input: PocketInput) {
+    return mutatePocket(() => pocket ? updatePocket(pocket.id, input) : addPocket(input))
+  }
+
+  async function mutateAdvanced(action: () => Promise<unknown>) {
+    if (saving) return
+    setSaving(true)
+    setError(null)
+    try {
+      await action()
+      await load(selectedPeriod ?? period?.start)
+      setAdvancedRefreshKey((key) => key + 1)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Plán období se nepodařilo uložit.')
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+      throw caught
+    } finally { setSaving(false) }
+  }
+
+  function openHistoryExpenses(periodStart: string) {
+    setCategoryFilter(null)
+    setView('expenses')
+    void load(periodStart)
+  }
+
   function saveIncome(income: MobileBudgetIncome | undefined, input: { amount: number; description: string; date: string; status: 'planned' | 'actual' }) {
     void mutatePlanning(() => income ? updateBudgetIncome(income.id, input) : addBudgetIncome(input))
   }
@@ -415,6 +620,7 @@ export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0 }: { onAu
   const historical = Boolean(period && summary && period.start !== summary.period.start)
   const visibleExpenses = categoryFilter ? expenses.filter((expense) => expense.category === categoryFilter) : expenses
   const total = visibleExpenses.reduce((sum, expense) => sum + expense.amount, 0)
+  const donutSegments = summary ? spendingDonutSegments(summary.categories.map((category) => ({ category: category.category as ExpenseCategory, total: category.total }))) : []
 
   return (
     <>
@@ -432,6 +638,7 @@ export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0 }: { onAu
           <Pressable accessibilityRole="tab" accessibilityState={{ selected: view === 'overview' }} onPress={() => setView('overview')} style={[styles.switchTab, view === 'overview' && styles.switchTabActive]}><Text style={[styles.switchText, view === 'overview' && styles.switchTextActive]}>Přehled</Text></Pressable>
           <Pressable accessibilityRole="tab" accessibilityState={{ selected: view === 'expenses' }} onPress={() => setView('expenses')} style={[styles.switchTab, view === 'expenses' && styles.switchTabActive]}><Text style={[styles.switchText, view === 'expenses' && styles.switchTextActive]}>Výdaje</Text></Pressable>
           <Pressable accessibilityRole="tab" accessibilityState={{ selected: view === 'planning' }} onPress={() => setView('planning')} style={[styles.switchTab, view === 'planning' && styles.switchTabActive]}><Text style={[styles.switchText, view === 'planning' && styles.switchTextActive]}>Plán</Text></Pressable>
+          <Pressable accessibilityRole="tab" accessibilityState={{ selected: view === 'recurring' }} onPress={() => setView('recurring')} style={[styles.switchTab, view === 'recurring' && styles.switchTabActive]}><Text style={[styles.switchText, view === 'recurring' && styles.switchTextActive]}>Pravidelné</Text></Pressable>
         </View>
 
         {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
@@ -454,19 +661,20 @@ export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0 }: { onAu
               <View style={styles.donutWrap}>
                 <Svg height={148} width={148} viewBox="0 0 120 120">
                   <Circle cx="60" cy="60" r="46" fill="none" stroke={colors.muted} strokeWidth="13" />
-                  {summary.categories.map((category, index) => {
+                  {donutSegments.map((segment, index) => {
                     const circumference = 2 * Math.PI * 46
-                    const ratio = summary.spent > 0 ? Math.max(0, category.total) / summary.spent : 0
-                    const offset = summary.categories.slice(0, index).reduce((sum, row) => sum + (summary.spent > 0 ? Math.max(0, row.total) / summary.spent : 0), 0) * circumference
-                    return <Circle key={category.category} cx="60" cy="60" r="46" fill="none" stroke={expenseCategoryColor(category.category, theme)} strokeWidth="13" strokeDasharray={`${ratio * circumference} ${circumference}`} strokeDashoffset={-offset} transform="rotate(-90 60 60)" />
+                    const ratio = summary.spent > 0 ? Math.max(0, segment.total) / summary.spent : 0
+                    const offset = donutSegments.slice(0, index).reduce((sum, row) => sum + (summary.spent > 0 ? Math.max(0, row.total) / summary.spent : 0), 0) * circumference
+                    const stroke = segment.kind === 'category' ? expenseCategoryColor(segment.category, theme) : colors.mutedText
+                    return <Circle key={segment.kind === 'category' ? segment.category : 'other'} cx="60" cy="60" r="46" fill="none" stroke={stroke} strokeWidth="13" strokeDasharray={`${ratio * circumference} ${circumference}`} strokeDashoffset={-offset} transform="rotate(-90 60 60)" />
                   })}
                 </Svg>
-                <View style={styles.donutCenter}><Text style={styles.donutValue}>{money(summary.spent, summary.currency)}</Text><Text style={styles.supporting}>utraceno</Text></View>
+                <View style={styles.donutCenter}><Text style={styles.supporting}>Celkem</Text><Text style={styles.donutValue}>{money(summary.spent, summary.currency)}</Text></View>
               </View>
-              <View style={styles.legend}>{summary.categories.map((category) => <Pressable key={category.category} accessibilityRole="button" accessibilityLabel={`${category.category}, ${money(category.total, summary.currency)}. Zobrazit výdaje této kategorie.`} onPress={() => { setCategoryFilter(category.category as ExpenseCategory); setView('expenses') }} style={styles.legendRow}><View style={[styles.legendDot, { backgroundColor: expenseCategoryColor(category.category, theme) }]} /><Text numberOfLines={1} style={styles.legendName}>{category.category}</Text><Text style={styles.legendValue}>{money(category.total, summary.currency)}</Text></Pressable>)}</View>
+              <View style={styles.legend}>{summary.categories.map((category) => <Pressable key={category.category} accessibilityRole="button" accessibilityLabel={`${category.category}, ${money(category.total, summary.currency)}, ${summary.spent > 0 ? Math.round(category.total / summary.spent * 100) : 0} procent. Zobrazit výdaje této kategorie.`} onPress={() => { setCategoryFilter(category.category as ExpenseCategory); setView('expenses') }} style={styles.legendRow}><View style={[styles.legendDot, { backgroundColor: expenseCategoryColor(category.category, theme) }]} /><Text numberOfLines={1} style={styles.legendName}>{category.category}</Text><View style={styles.legendAmount}><Text style={styles.legendValue}>{money(category.total, summary.currency)}</Text><Text style={styles.legendShare}>{summary.spent > 0 ? `${Math.round(category.total / summary.spent * 100)} %` : '0 %'}</Text></View></Pressable>)}</View>
             </View> : null}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Výdaje podle kategorií</Text>
+              <View style={styles.sectionHeadingRow}><Text style={styles.sectionTitle}>Výdaje podle kategorií</Text><Pressable accessibilityRole="button" onPress={() => setLimitsOpen(true)} style={styles.limitEditButton}><Text style={styles.limitEditText}>Upravit limity</Text></Pressable></View>
               {summary.categories.length === 0 ? (
                 <View style={styles.emptyCard}><Text style={styles.sectionTitle}>Zatím bez výdajů</Text><Text style={styles.supporting}>Výdaje za toto období se zobrazí podle kategorií.</Text></View>
               ) : summary.categories.map((category) => (
@@ -499,15 +707,59 @@ export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0 }: { onAu
               </Pressable>
             ))}
           </View>
-        ) : view === 'planning' ? <BudgetPlanningScreen
+        ) : view === 'planning' ? <View style={styles.section}><BudgetPlanningScreen
           busy={saving}
           onEdit={setEditingPlan}
           onPay={(expense) => { Alert.alert('Označit jako zaplacené?', `${expense.note || expense.category} · ${money(expense.amount, planning?.currency ?? 'CZK')}`, [{ text: 'Zrušit', style: 'cancel' }, { text: 'Zaplaceno', onPress: () => void mutatePlanning(() => payPlannedExpense(expense.id)) }]) }}
           onReceive={(income) => { Alert.alert('Potvrdit přijatý příjem?', `${income.description} · ${money(income.amount, planning?.currency ?? 'CZK')}`, [{ text: 'Zrušit', style: 'cancel' }, { text: 'Přijato', onPress: () => void mutatePlanning(() => receiveBudgetIncome(income.id)) }]) }}
           planning={planning}
-        /> : null}
+        />{recurringIncomes ? <RecurringIncomesScreen
+          busy={saving}
+          currency={planning?.currency ?? summary?.currency ?? 'CZK'}
+          onConfirm={(id, dueDate, amount, date) => mutateRecurringIncome(() => confirmRecurringIncome(id, dueDate, amount, date))}
+          onSave={saveRecurringIncome}
+          onSkip={(id, dueDate) => mutateRecurringIncome(() => skipRecurringIncome(id, dueDate))}
+          onStop={(income) => mutateRecurringIncome(() => stopRecurringIncome(income.id))}
+          occurrences={recurringIncomes.occurrences}
+          payments={recurringIncomes.payments}
+          today={recurringIncomes.today}
+        /> : <View style={styles.empty}><ActivityIndicator color={colors.primary} /><Text style={styles.supporting}>Načítání pravidelných příjmů…</Text></View>}{ledger ? <PocketsScreen
+          availableToSave={ledger.availableToSave}
+          busy={saving}
+          currency={summary?.currency ?? 'CZK'}
+          onArchive={(pocket) => mutatePocket(() => archivePocket(pocket.id))}
+          onSave={savePocket}
+          onTransfer={(pocket, direction, amount) => mutatePocket(() => transferPocket(pocket.id, direction, amount))}
+          pockets={ledger.pockets}
+        /> : <View style={styles.empty}><ActivityIndicator color={colors.primary} /><Text style={styles.supporting}>Načítání Kapes…</Text></View>}{ledger ? <BudgetAdvancedScreen
+          canManage={canManageBudget}
+          currency={summary?.currency ?? 'CZK'}
+          history={history}
+          ledger={ledger}
+          onClosePeriod={(input) => mutateAdvanced(() => closeBudgetPeriod(input))}
+          onOpenExpenses={openHistoryExpenses}
+          onReopenPeriod={(periodStart) => mutateAdvanced(() => reopenBudgetPeriod(periodStart))}
+          onSaveCarry={(periodStart, amount) => mutateAdvanced(() => setPlannedCarry(periodStart, amount))}
+          onSavePeriod={(nextPeriod: PeriodConfig) => mutateAdvanced(() => updateBudgetPeriod(nextPeriod))}
+          outlook={outlook}
+          occurrences={recurring?.occurrences ?? []}
+          payments={recurring?.payments ?? []}
+          settings={periodSettings}
+          busy={saving}
+        /> : <View style={styles.empty}><ActivityIndicator color={colors.primary} /><Text style={styles.supporting}>Načítání přehledu období…</Text></View>}</View> : view === 'recurring' ? recurring ? <RecurringPaymentsScreen
+          busy={saving}
+          currency={summary?.currency ?? 'CZK'}
+          onConfirm={(id, dueDate, amount, date) => mutateRecurring(() => confirmRecurringPayment(id, dueDate, amount, date))}
+          onSave={saveRecurring}
+          onSkip={(id, dueDate) => mutateRecurring(() => skipRecurringPayment(id, dueDate))}
+          onStop={(payment) => mutateRecurring(() => stopRecurringPayment(payment.id))}
+          occurrences={recurring.occurrences}
+          payments={recurring.payments}
+          today={recurring.today}
+        /> : <View style={styles.empty}><ActivityIndicator color={colors.primary} /><Text style={styles.supporting}>Načítání pravidelných plateb…</Text></View> : null}
       </ScrollView>
       {editorOpen ? <ExpenseEditor currency={summary?.currency ?? 'CZK'} expense={editorExpense} busy={saving} onClose={() => { if (!saving) { setEditorOpen(false); setEditorExpense(null) } }} onDelete={confirmDelete} onSave={(draft) => void saveExpense(draft)} /> : null}
+      {limitsOpen ? <CategoryLimitsEditor busy={saving} limits={categoryLimits} onClose={() => { if (!saving) setLimitsOpen(false) }} onSave={saveCategoryLimits} /> : null}
       {editingPlan ? <PlanningEditor
         busy={saving}
         currency={planning?.currency ?? 'CZK'}
@@ -542,7 +794,9 @@ function useStyles() {
   legendRow: { minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 10, paddingHorizontal: 5 },
   legendDot: { width: 9, height: 9, borderRadius: 5 },
   legendName: { flex: 1, color: colors.secondaryText, fontSize: 12 },
+  legendAmount: { alignItems: 'flex-end' },
   legendValue: { color: colors.foreground, fontSize: 12, fontWeight: '700' },
+  legendShare: { color: colors.mutedText, fontSize: 11 },
   label: { color: colors.secondaryText, fontSize: 14, fontWeight: '600', marginTop: 2 },
   budget: { color: colors.foreground, fontSize: 28, fontWeight: '800' },
   row: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 },
@@ -554,7 +808,13 @@ function useStyles() {
   progressWarning: { backgroundColor: colors.warning },
   progressOver: { backgroundColor: colors.destructive },
   section: { gap: 10 },
+  sectionHeadingRow: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   sectionTitle: { color: colors.foreground, fontSize: 17, fontWeight: '700', marginBottom: 2 },
+  limitEditButton: { minHeight: 36, justifyContent: 'center', paddingHorizontal: 10, borderRadius: 11, backgroundColor: colors.accentSubtle },
+  limitEditText: { color: colors.accentText, fontSize: 12, fontWeight: '700' },
+  limitRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  limitCategory: { flex: 1, color: colors.foreground, fontSize: 13, fontWeight: '600' },
+  limitInput: { width: 118, minHeight: 42, borderRadius: 11, borderWidth: 1, borderColor: colors.inputBorder, backgroundColor: colors.elevated, color: colors.foreground, paddingHorizontal: 10, textAlign: 'right', fontSize: 14 },
   category: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 16, borderWidth: 1, padding: 14, gap: 4 },
   categoryName: { color: colors.foreground, flex: 1, fontSize: 15, fontWeight: '600' },
   empty: { alignItems: 'center', justifyContent: 'center', padding: 28, gap: 10 },

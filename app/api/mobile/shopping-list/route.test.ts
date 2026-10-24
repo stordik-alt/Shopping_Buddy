@@ -74,6 +74,14 @@ describe('/api/mobile/shopping-list', () => {
     expect(addShoppingItemForHousehold).toHaveBeenCalledWith('household-1', 'user-1', 'list-1', 'Mléko', { quantity: 2, unit: 'l' }, 'client-id')
   })
 
+  it('keeps category and pantry-review detail when stock runs out', async () => {
+    const response = await POST(request('POST', { name: 'Rýže', unit: 'kg', category: 'Potraviny', detail: 'došlo ze zásob', clientId: 'client-id' }))
+    expect(response.status).toBe(201)
+    expect(addShoppingItemForHousehold).toHaveBeenCalledWith(
+      'household-1', 'user-1', 'list-1', 'Rýže', { unit: 'kg', category: 'Potraviny', detail: 'došlo ze zásob' }, 'client-id',
+    )
+  })
+
   it('rejects unsupported units and empty names before writing', async () => {
     const invalidUnit = await POST(request('POST', { name: 'Mléko', unit: 'tuna' }))
     const emptyName = await POST(request('POST', { name: '  ' }))

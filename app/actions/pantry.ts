@@ -18,7 +18,8 @@ import { getRestockDismissals, getStockLevels } from '@/lib/db/restock'
 import { productTypeByKey } from '@/lib/product-types'
 import { validateStockLevels, type StockLevel } from '@/lib/pantry-restock'
 import { updatePantryItemForHousehold } from '@/lib/pantry-mobile-mutations'
-import { CHECKIN_DAYS_BY_CATEGORY, checkinSubcategoryKey, customPlaceIdFromKey, inferPantryLocation, MAX_PANTRY_REVIEW_ITEMS, PANTRY_AREAS, PANTRY_LOCATIONS, PANTRY_TRACKING, reviewQuantityChanges, splitPantryReview } from '@/lib/pantry'
+import { CHECKIN_DAYS_BY_CATEGORY, checkinSubcategoryKey, customPlaceIdFromKey, inferPantryLocation, PANTRY_AREAS, PANTRY_LOCATIONS, PANTRY_TRACKING } from '@/lib/pantry'
+import { reviewPantryForHousehold } from '@/lib/pantry-review'
 import { matchProductByName } from '@/lib/products'
 import type { ItemCategory, ItemUnit, PantryArea, PantryItem, PantryLocation, PantryTracking } from '@/lib/types'
 
@@ -386,38 +387,7 @@ export async function removePantryItemAction(pantryItemId: string) {
  *  Returns what was done so the client can report it. */
 export async function reviewPantryAction(input: { reviewedIds: string[]; goneIds: string[]; quantities?: PantryQuantityChange[] }): Promise<{ removed: number; confirmed: number; adjusted: number }> {
   const householdId = await requireHouseholdId()
-  const isIdList = (value: unknown): value is string[] => Array.isArray(value) && value.every((id) => typeof id === 'string')
-  if (!isIdList(input?.reviewedIds) || !isIdList(input?.goneIds)) throw new Error('Neplatná kontrola zásob.')
-  const { goneIds, keptIds } = splitPantryReview(input.reviewedIds, input.goneIds)
-  const quantities = reviewQuantityChanges(input.quantities, keptIds)
-  const all = [...goneIds, ...keptIds]
-  if (all.length === 0) return { removed: 0, confirmed: 0, adjusted: 0 }
-  if (all.length > MAX_PANTRY_REVIEW_ITEMS) throw new Error('Kontrola obsahuje příliš mnoho položek.')
-
-  const db = getDb()
-  const owned = await db
-    .select({ id: schema.pantryItems.id })
-    .from(schema.pantryItems)
-    .where(and(eq(schema.pantryItems.householdId, householdId), inArray(schema.pantryItems.id, all)))
-  if (owned.length !== all.length) throw new Error('Pantry item not found')
-  if (quantities.length > 0) {
-    const detailedRows = await db.query.pantryItemContents.findMany({
-      where: inArray(schema.pantryItemContents.pantryItemId, quantities.map((change) => change.id)),
-      columns: { pantryItemId: true },
-    })
-    if (detailedRows.length > 0) throw new Error('Upravte množství jednotlivých produktů v detailu zásoby.')
-  }
-
-  const inHousehold = (ids: string[]) => and(eq(schema.pantryItems.householdId, householdId), inArray(schema.pantryItems.id, ids))
-  const now = new Date()
-  const writes = [
-    ...(goneIds.length > 0 ? [db.delete(schema.pantryItems).where(inHousehold(goneIds))] : []),
-    ...(keptIds.length > 0 ? [db.update(schema.pantryItems).set({ addedAt: now, askedAt: null }).where(inHousehold(keptIds))] : []),
-    ...quantities.map((change) => db.update(schema.pantryItems).set({ quantity: change.quantity }).where(inHousehold([change.id]))),
-  ]
-  // `all` is non-empty, so there is at least one write; db.batch needs that in its type.
-  await db.batch(writes as [(typeof writes)[number], ...(typeof writes)[number][]])
-  return { removed: goneIds.length, confirmed: keptIds.length, adjusted: quantities.length }
+  return reviewPantryForHousehold({ householdId, ...input })
 }
 
 /** Resolves a subcategory name of `category` to its row id; throws on a name outside the fixed list. */

@@ -303,6 +303,7 @@ export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0 }: { onAu
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null)
   const selectedPeriodRef = useRef<string | null>(null)
   const [view, setView] = useState<'overview' | 'expenses' | 'planning'>('overview')
+  const [categoryFilter, setCategoryFilter] = useState<ExpenseCategory | null>(null)
   const [editorExpense, setEditorExpense] = useState<MobileExpense | null>(null)
   const [editingPlan, setEditingPlan] = useState<PlanningEdit | null>(null)
   const [editorOpen, setEditorOpen] = useState(false)
@@ -412,7 +413,8 @@ export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0 }: { onAu
   }
 
   const historical = Boolean(period && summary && period.start !== summary.period.start)
-  const total = expenses.reduce((sum, expense) => sum + expense.amount, 0)
+  const visibleExpenses = categoryFilter ? expenses.filter((expense) => expense.category === categoryFilter) : expenses
+  const total = visibleExpenses.reduce((sum, expense) => sum + expense.amount, 0)
 
   return (
     <>
@@ -461,7 +463,7 @@ export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0 }: { onAu
                 </Svg>
                 <View style={styles.donutCenter}><Text style={styles.donutValue}>{money(summary.spent, summary.currency)}</Text><Text style={styles.supporting}>utraceno</Text></View>
               </View>
-              <View style={styles.legend}>{summary.categories.map((category) => <View key={category.category} style={styles.legendRow}><View style={[styles.legendDot, { backgroundColor: expenseCategoryColor(category.category, theme) }]} /><Text numberOfLines={1} style={styles.legendName}>{category.category}</Text><Text style={styles.legendValue}>{money(category.total, summary.currency)}</Text></View>)}</View>
+              <View style={styles.legend}>{summary.categories.map((category) => <Pressable key={category.category} accessibilityRole="button" accessibilityLabel={`${category.category}, ${money(category.total, summary.currency)}. Zobrazit výdaje této kategorie.`} onPress={() => { setCategoryFilter(category.category as ExpenseCategory); setView('expenses') }} style={styles.legendRow}><View style={[styles.legendDot, { backgroundColor: expenseCategoryColor(category.category, theme) }]} /><Text numberOfLines={1} style={styles.legendName}>{category.category}</Text><Text style={styles.legendValue}>{money(category.total, summary.currency)}</Text></Pressable>)}</View>
             </View> : null}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Výdaje podle kategorií</Text>
@@ -485,8 +487,12 @@ export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0 }: { onAu
               <Text style={styles.periodTitle}>{period ? `${dateLabel(period.start)} – ${dateLabel(period.end)}` : 'Výdaje'}</Text>
               <Pressable accessibilityLabel="Novější období" accessibilityRole="button" disabled={loading || !period || !historical} onPress={() => period && void load(period.next)} style={[styles.periodButton, (!historical || !period) && styles.periodDisabled]}><Text style={styles.periodButtonText}>Novější ›</Text></Pressable>
             </View>
-            <View style={styles.totalCard}><Text style={styles.supporting}>Celkem za období</Text><Text style={styles.budget}>{money(total, summary?.currency ?? 'CZK')}</Text></View>
-            {expenses.length === 0 ? <View style={styles.emptyCard}><Text style={styles.sectionTitle}>V tomto období zatím nejsou výdaje</Text><Pressable accessibilityRole="button" onPress={() => { setEditorExpense(null); setEditorOpen(true) }}><Text style={styles.link}>Zapsat první výdaj</Text></Pressable></View> : expenses.map((expense) => (
+            {categoryFilter ? <View style={styles.filterRow}><Text style={styles.supporting}>Kategorie: {categoryFilter}</Text><Pressable accessibilityRole="button" onPress={() => setCategoryFilter(null)}><Text style={styles.link}>Zobrazit vše</Text></Pressable></View> : <View style={styles.categoryFilters}>{(['Vše', ...EXPENSE_CATEGORY_NAMES] as const).map((category) => {
+              const selected = category === 'Vše' ? categoryFilter === null : categoryFilter === category
+              return <Pressable key={category} accessibilityRole="button" accessibilityState={{ selected }} onPress={() => setCategoryFilter(category === 'Vše' ? null : category)} style={[styles.categoryFilter, selected && styles.categoryFilterActive]}><Text style={[styles.categoryFilterText, selected && styles.categoryFilterTextActive]}>{category}</Text></Pressable>
+            })}</View>}
+            <View style={styles.totalCard}><Text style={styles.supporting}>{categoryFilter ? `Celkem v kategorii ${categoryFilter}` : 'Celkem za období'}</Text><Text style={styles.budget}>{money(total, summary?.currency ?? 'CZK')}</Text></View>
+            {visibleExpenses.length === 0 ? <View style={styles.emptyCard}><Text style={styles.sectionTitle}>{categoryFilter ? `V kategorii ${categoryFilter} nejsou výdaje` : 'V tomto období zatím nejsou výdaje'}</Text><Pressable accessibilityRole="button" onPress={() => { setEditorExpense(null); setEditorOpen(true) }}><Text style={styles.link}>Zapsat první výdaj</Text></Pressable></View> : visibleExpenses.map((expense) => (
               <Pressable key={expense.id} accessibilityRole="button" accessibilityLabel={`${expense.editable ? 'Upravit' : 'Zobrazit'} výdaj ${expense.note || expense.category}`} onPress={() => { if (expense.editable) { setEditorExpense(expense); setEditorOpen(true) } else Alert.alert('Výdaj z účtenky', `${expense.note || expense.category}\n${expense.category} · ${dateLabel(expense.date)}`) }} style={styles.expenseRow}>
                 <View style={styles.expenseText}><Text numberOfLines={1} style={styles.expenseNote}>{expense.note || expense.category}</Text><Text style={styles.supporting}>{expense.category}{expense.subcategory ? ` · ${expense.subcategory}` : ''} · {dateLabel(expense.date)}{expense.editable ? '' : ' · účtenka'}</Text></View>
                 <Text style={styles.expenseAmount}>{money(expense.amount, summary?.currency ?? 'CZK')}</Text>
@@ -533,7 +539,7 @@ function useStyles() {
   donutCenter: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
   donutValue: { color: colors.foreground, fontSize: 16, fontWeight: '800' },
   legend: { gap: 7 },
-  legendRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  legendRow: { minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 10, paddingHorizontal: 5 },
   legendDot: { width: 9, height: 9, borderRadius: 5 },
   legendName: { flex: 1, color: colors.secondaryText, fontSize: 12 },
   legendValue: { color: colors.foreground, fontSize: 12, fontWeight: '700' },
@@ -562,6 +568,12 @@ function useStyles() {
   addButton: { backgroundColor: colors.accentSubtle, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 9 },
   addButtonText: { color: colors.accentText, fontWeight: '700', fontSize: 13 },
   periodControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4 },
+  filterRow: { minHeight: 38, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingHorizontal: 4 },
+  categoryFilters: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  categoryFilter: { minHeight: 34, justifyContent: 'center', paddingHorizontal: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 17, backgroundColor: colors.card },
+  categoryFilterActive: { borderColor: colors.primary, backgroundColor: colors.accentSubtle },
+  categoryFilterText: { color: colors.secondaryText, fontSize: 12, fontWeight: '600' },
+  categoryFilterTextActive: { color: colors.accentText },
   periodTitle: { flex: 1, textAlign: 'center', fontSize: 13, color: colors.secondaryText, fontWeight: '600' },
   periodButton: { paddingHorizontal: 8, paddingVertical: 9, borderRadius: 10, backgroundColor: colors.card },
   periodButtonText: { color: colors.accentText, fontSize: 12, fontWeight: '700' },

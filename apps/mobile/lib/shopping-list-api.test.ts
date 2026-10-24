@@ -4,7 +4,7 @@ const getAccessToken = vi.fn()
 vi.mock('./auth', () => ({ getAccessToken: (...args: unknown[]) => getAccessToken(...args) }))
 vi.mock('./config', () => ({ getApiUrl: () => 'https://anitka.example' }))
 
-import { addShoppingItem, getBudgetSummary, getPantry, getPendingReceiptImports, getRecipe, getShoppingList, lookupBarcode, MobileApiError, processReceiptImport, searchRecipes, toggleShoppingItem, updatePantryItem, uploadReceiptPhoto } from './shopping-list-api'
+import { addShoppingItem, getBudgetSummary, getPantry, getPendingReceiptImports, getRecipe, getShoppingList, lookupBarcode, MobileApiError, processReceiptImport, reviewPantry, searchRecipes, toggleShoppingItem, updatePantryItem, uploadReceiptPhoto } from './shopping-list-api'
 
 describe('mobile shopping-list API client', () => {
   beforeEach(() => {
@@ -39,6 +39,25 @@ describe('mobile shopping-list API client', () => {
     expect(fetch).toHaveBeenCalledWith(
       'https://anitka.example/api/mobile/shopping-list',
       expect.objectContaining({ body: JSON.stringify({ name: 'Mléko', clientId: 'client-2', quantity: 1.5, unit: 'l' }) }),
+    )
+  })
+
+  it('keeps pantry review category and detail when adding an item that ran out', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ item: { id: 'item-3', name: 'Rýže', quantity: 1, unit: 'kg', done: false } }), { status: 201 }))
+    await addShoppingItem('Rýže', 'client-3', 1, 'kg', { category: 'Potraviny', detail: 'došlo ze zásob' })
+    expect(fetch).toHaveBeenCalledWith(
+      'https://anitka.example/api/mobile/shopping-list',
+      expect.objectContaining({ body: JSON.stringify({ name: 'Rýže', clientId: 'client-3', unit: 'kg', category: 'Potraviny', detail: 'došlo ze zásob' }) }),
+    )
+  })
+
+  it('sends the checked stock ids and remaining quantities to the shared review API', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ removed: 1, confirmed: 1, adjusted: 1 }), { status: 200 }))
+    const input = { reviewedIds: ['one', 'two'], goneIds: ['one'], quantities: [{ id: 'two', quantity: 0.5 }] }
+    await expect(reviewPantry(input)).resolves.toEqual({ removed: 1, confirmed: 1, adjusted: 1 })
+    expect(fetch).toHaveBeenCalledWith(
+      'https://anitka.example/api/mobile/pantry/review',
+      expect.objectContaining({ method: 'POST', body: JSON.stringify(input) }),
     )
   })
 

@@ -4,7 +4,7 @@ const getAccessToken = vi.fn()
 vi.mock('./auth', () => ({ getAccessToken: (...args: unknown[]) => getAccessToken(...args) }))
 vi.mock('./config', () => ({ getApiUrl: () => 'https://anitka.example' }))
 
-import { addShoppingItem, getBudgetSummary, getPantry, getPendingReceiptImports, getRecipe, getShoppingList, lookupBarcode, MobileApiError, processReceiptImport, reviewPantry, searchRecipes, toggleShoppingItem, updatePantryItem, uploadReceiptPhoto } from './shopping-list-api'
+import { addShoppingItem, buildShoppingPlan, getBudgetSummary, getPantry, getPendingReceiptImports, getRecipe, getShoppingList, lookupBarcode, MobileApiError, pinShoppingProduct, processReceiptImport, reviewPantry, searchProducts, searchRecipes, toggleShoppingItem, unpinShoppingProduct, updatePantryItem, uploadReceiptPhoto } from './shopping-list-api'
 
 describe('mobile shopping-list API client', () => {
   beforeEach(() => {
@@ -49,6 +49,29 @@ describe('mobile shopping-list API client', () => {
       'https://anitka.example/api/mobile/shopping-list',
       expect.objectContaining({ body: JSON.stringify({ name: 'Rýže', clientId: 'client-3', unit: 'kg', category: 'Potraviny', detail: 'došlo ze zásob' }) }),
     )
+  })
+
+  it('adds a chosen catalog product with its category and product id', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ item: { id: 'item-4', name: 'Mléko 1 l', quantity: 1, unit: 'l', done: false } }), { status: 201 }))
+    await addShoppingItem('Mléko 1 l', 'client-4', 1, 'l', { category: 'Potraviny', selection: { kind: 'product', productId: 'product-4' } })
+    expect(fetch).toHaveBeenCalledWith('https://anitka.example/api/mobile/shopping-list', expect.objectContaining({ body: JSON.stringify({ name: 'Mléko 1 l', clientId: 'client-4', unit: 'l', category: 'Potraviny', selection: { kind: 'product', productId: 'product-4' } }) }))
+  })
+
+  it('searches products, plans shopping, and pins a product using authenticated mobile routes', async () => {
+    const fetchMock = vi.mocked(fetch)
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({ groups: [], nearbyOnly: true, hasNearbySelection: true }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ plan: { total: 25 } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }))
+    await expect(searchProducts({ query: 'mléko', onlyNearby: true, category: 'Potraviny' })).resolves.toMatchObject({ nearbyOnly: true })
+    await expect(buildShoppingPlan({ maxStores: 2, priorityChainIds: ['chain-1'] })).resolves.toMatchObject({ plan: { total: 25 } })
+    await expect(pinShoppingProduct({ itemId: 'item-1', storeId: 'chain-1', productId: 'product-1' })).resolves.toEqual({ ok: true })
+    await expect(unpinShoppingProduct({ itemId: 'item-1', storeId: 'chain-1' })).resolves.toEqual({ ok: true })
+    expect(fetchMock).toHaveBeenNthCalledWith(1, 'https://anitka.example/api/mobile/product-search', expect.objectContaining({ method: 'POST', body: JSON.stringify({ query: 'mléko', onlyNearby: true, category: 'Potraviny' }) }))
+    expect(fetchMock).toHaveBeenNthCalledWith(2, 'https://anitka.example/api/mobile/shopping-plan', expect.objectContaining({ method: 'POST', body: JSON.stringify({ action: 'build', maxStores: 2, priorityChainIds: ['chain-1'] }) }))
+    expect(fetchMock).toHaveBeenNthCalledWith(3, 'https://anitka.example/api/mobile/shopping-plan', expect.objectContaining({ method: 'POST', body: JSON.stringify({ action: 'pin', itemId: 'item-1', storeId: 'chain-1', productId: 'product-1' }) }))
+    expect(fetchMock).toHaveBeenNthCalledWith(4, 'https://anitka.example/api/mobile/shopping-plan', expect.objectContaining({ method: 'POST', body: JSON.stringify({ action: 'unpin', itemId: 'item-1', storeId: 'chain-1' }) }))
   })
 
   it('sends the checked stock ids and remaining quantities to the shared review API', async () => {

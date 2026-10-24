@@ -95,6 +95,7 @@ function toShoppingItem(item: Awaited<ReturnType<typeof shoppingItemsQuery>>[num
   return {
     id: item.id,
     name: item.name,
+    productId: item.productId,
     detail: item.detail,
     price: Number(item.price),
     quantity: item.quantity,

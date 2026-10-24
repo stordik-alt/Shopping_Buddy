@@ -28,6 +28,7 @@ import { RecipesScreen } from '../components/recipes-screen'
 import { MealPlanScreen } from '../components/meal-plan-screen'
 import { BarcodeScannerModal } from '../components/barcode-scanner-modal'
 import { NativeGuideModal } from '../components/native-guide-modal'
+import { ShoppingToolsModal } from '../components/shopping-tools-modal'
 import { ReceiptsScreen } from '../components/receipts-screen'
 import { hasPriceComparison, NativePriceComparison } from '../components/price-comparison'
 import {
@@ -216,6 +217,7 @@ export default function HomeScreen() {
   const [assistantOpen, setAssistantOpen] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [shoppingToolsOpen, setShoppingToolsOpen] = useState(false)
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
   const [quickExpenseToken, setQuickExpenseToken] = useState(0)
   const [pantryReviewToken, setPantryReviewToken] = useState(0)
@@ -537,6 +539,17 @@ export default function HomeScreen() {
     }
   }
 
+  async function addCatalogProduct(item: MobileShoppingItem) {
+    const current = offlineSnapshot.current
+    if (current) {
+      const updated = { ...current, list: { ...current.list, items: [...current.list.items, item] } }
+      await saveOfflineSnapshot(updated)
+      showSnapshot(updated)
+    } else {
+      setItems((existing) => [...existing, item])
+    }
+  }
+
   async function addPantryReviewItems(pantryItems: MobilePantryItem[]) {
     const onList = new Set(items.filter((item) => !item.done).map((item) => item.name.trim().toLocaleLowerCase('cs')))
     let added = 0
@@ -790,6 +803,9 @@ export default function HomeScreen() {
                 >
                   <Text style={styles.scanButtonText}>Skenovat čárový kód</Text>
                 </Pressable>
+                <Pressable accessibilityRole="button" disabled={offline || busy || busyItemId !== null} onPress={() => setShoppingToolsOpen(true)} style={[styles.scanButton, (offline || busy || busyItemId !== null) && styles.disabledButton]}>
+                  <Text style={styles.scanButtonText}>Plán nákupu a hledání produktů</Text>
+                </Pressable>
 
                 {editItem ? (
                   <View style={styles.card}>
@@ -892,6 +908,7 @@ export default function HomeScreen() {
       <NativeAssistantModal onClose={() => setAssistantOpen(false)} onShopping={() => setActiveTab('shopping')} visible={assistantOpen} />
       <NativeGuideModal onClose={() => { setGuideOpen(false); void SecureStore.setItemAsync(GUIDE_DONE_KEY, 'done').catch(() => undefined) }} onNavigate={setActiveTab} visible={guideOpen} />
       <NativeNotificationsModal onClose={() => setNotificationsOpen(false)} onUnreadCount={setUnreadNotificationCount} visible={notificationsOpen} />
+      <ShoppingToolsModal items={items} onAuthExpired={handleAuthExpired} onClose={() => setShoppingToolsOpen(false)} onProductAdded={addCatalogProduct} visible={shoppingToolsOpen} />
       <BarcodeScannerModal
         busy={barcodeBusy}
         onBarcodeScanned={(barcode) => void handleBarcodeScanned(barcode)}

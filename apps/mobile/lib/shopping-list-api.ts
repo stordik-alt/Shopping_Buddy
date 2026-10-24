@@ -13,6 +13,9 @@ export type MobileShoppingItem = {
   quantity: number
   unit: ItemUnit
   done: boolean
+  category?: ItemCategory
+  productId?: string | null
+  productTypes?: string[] | null
   pending?: boolean
 }
 
@@ -186,6 +189,11 @@ export type MobileAuditEntry = { id: string; action: string; actor: string | nul
 
 export type MobileDealCategory = 'Potraviny' | 'Drogerie' | 'Děti' | 'Domácnost' | 'Ostatní'
 export type MobileDealSort = 'name' | 'price' | 'discount' | 'store'
+export type MobileProductSearchResult = {
+  groups: import('../../../lib/product-search').ProductSearchGroup[]
+  nearbyOnly: boolean
+  hasNearbySelection: boolean
+}
 export type MobileDealsPage = {
   deals: {
     product: { productName: string }
@@ -405,6 +413,26 @@ export function getStorePreferences() {
   return request<MobileStorePreferenceData>('/api/mobile/store-preferences')
 }
 
+export function searchProducts(input: { query: string; onlyNearby: boolean; category?: ItemCategory }) {
+  return request<MobileProductSearchResult>('/api/mobile/product-search', { method: 'POST', body: JSON.stringify(input) })
+}
+
+export function getShoppingPlanPins() {
+  return request<{ pins: import('../../../lib/db/shopping-plan').PinRecord[] }>('/api/mobile/shopping-plan')
+}
+
+export function buildShoppingPlan(input: { maxStores: number; priorityChainIds: string[] }) {
+  return request<import('../../../lib/db/shopping-plan').PlanResult>('/api/mobile/shopping-plan', { method: 'POST', body: JSON.stringify({ action: 'build', ...input }) })
+}
+
+export function pinShoppingProduct(input: { itemId: string; storeId: string; productId: string }) {
+  return request<{ ok: true }>('/api/mobile/shopping-plan', { method: 'POST', body: JSON.stringify({ action: 'pin', ...input }) })
+}
+
+export function unpinShoppingProduct(input: { itemId: string; storeId: string }) {
+  return request<{ ok: true }>('/api/mobile/shopping-plan', { method: 'POST', body: JSON.stringify({ action: 'unpin', ...input }) })
+}
+
 export function updateStorePreferences(selection: { chainIds: string[]; locationIds: string[]; priorityChainIds: string[]; maxDistanceKm: number | null; maxShopStores: number | null }) {
   return request<{ selection: MobileStoreSelection }>('/api/mobile/store-preferences', { method: 'PATCH', body: JSON.stringify(selection) })
 }
@@ -552,7 +580,7 @@ export function reviewPantry(input: { reviewedIds: string[]; goneIds: string[]; 
   })
 }
 
-export function addShoppingItem(name: string, clientId: string, quantity = 1, unit: ItemUnit = 'ks', details?: { category?: ItemCategory; detail?: string }) {
+export function addShoppingItem(name: string, clientId: string, quantity = 1, unit: ItemUnit = 'ks', details?: { category?: ItemCategory; detail?: string; selection?: { kind: 'product'; productId: string } | { kind: 'type'; productTypeKey: string } }) {
   return request<{ item: MobileShoppingItem }>('/api/mobile/shopping-list', {
     method: 'POST',
     body: JSON.stringify({ name, clientId, ...(quantity !== 1 && { quantity }), ...(unit !== 'ks' && { unit }), ...details }),

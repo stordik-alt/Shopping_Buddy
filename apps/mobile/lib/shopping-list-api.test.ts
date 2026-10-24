@@ -4,7 +4,7 @@ const getAccessToken = vi.fn()
 vi.mock('./auth', () => ({ getAccessToken: (...args: unknown[]) => getAccessToken(...args) }))
 vi.mock('./config', () => ({ getApiUrl: () => 'https://anitka.example' }))
 
-import { addShoppingItem, buildShoppingPlan, createShoppingList, getBudgetSummary, getPantry, getPendingReceiptImports, getRecipe, getShoppingList, getUsualItems, importManualReceipt, lookupBarcode, MobileApiError, pinShoppingProduct, processReceiptImport, reviewPantry, searchProducts, searchRecipes, toggleShoppingItem, unpinShoppingProduct, updatePantryItem, uploadReceiptFile, uploadReceiptPhoto } from './shopping-list-api'
+import { addShoppingItem, buildShoppingPlan, cancelReceiptImport, confirmReceiptReview, createShoppingList, getBudgetSummary, getPantry, getPendingReceiptImports, getRecipe, getShoppingList, getUsualItems, importManualReceipt, lookupBarcode, MobileApiError, pinShoppingProduct, processReceiptImport, receiptImageUrl, resolveDuplicateReceipt, reviewPantry, searchProducts, searchRecipes, toggleShoppingItem, unpinShoppingProduct, updatePantryItem, uploadReceiptFile, uploadReceiptPhoto } from './shopping-list-api'
 
 describe('mobile shopping-list API client', () => {
   beforeEach(() => {
@@ -239,6 +239,23 @@ describe('mobile shopping-list API client', () => {
         'https://anitka.example/api/mobile/receipts/receipt-1',
         expect.objectContaining({ method: 'POST', body: JSON.stringify({ retry: true }) }),
       )
+  })
+
+  it('confirms OCR reviews and resolves duplicate receipts through bearer-authenticated actions', async () => {
+    const fetchMock = vi.mocked(fetch)
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({ receipt: { id: 'receipt-1', status: 'completed' }, purchase: { id: 'purchase-1' } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ receipt: { id: 'receipt-1', status: 'cancelled' }, purchase: null }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }))
+    const items = [{ name: 'Mléko', category: 'Potraviny' as const, quantity: 1, unit: 'l' as const, price: 30, location: 'Lednice' as const }]
+
+    await expect(confirmReceiptReview('receipt-1', items, '2026-10-24')).resolves.toMatchObject({ receipt: { status: 'completed' } })
+    await expect(resolveDuplicateReceipt('receipt-1', 'use_existing')).resolves.toMatchObject({ receipt: { status: 'cancelled' } })
+    await expect(cancelReceiptImport('receipt-1')).resolves.toEqual({ ok: true })
+    expect(fetchMock).toHaveBeenNthCalledWith(1, 'https://anitka.example/api/mobile/receipts/receipt-1', expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ action: 'confirm', items, date: '2026-10-24' }) }))
+    expect(fetchMock).toHaveBeenNthCalledWith(2, 'https://anitka.example/api/mobile/receipts/receipt-1', expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ action: 'resolve_duplicate', resolution: 'use_existing' }) }))
+    expect(fetchMock).toHaveBeenNthCalledWith(3, 'https://anitka.example/api/mobile/receipts/receipt-1', expect.objectContaining({ method: 'DELETE' }))
+    expect(receiptImageUrl('receipt-1')).toBe('https://anitka.example/api/mobile/receipts/receipt-1/image')
   })
 
   it('shows server validation text for a rejected receipt photo', async () => {

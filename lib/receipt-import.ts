@@ -6,10 +6,12 @@
 import { and, eq, gte, ilike, inArray, lt, or } from 'drizzle-orm'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { getDb } from '@/lib/db/client'
+import { safeErrorMessage } from '@/lib/errors'
+import { parseStoredJson } from '@/lib/safe-json'
 import { reserveReceiptOcrAttempt } from '@/lib/receipt-ocr-rate-limit'
 import { RECEIPT_STALE_MS } from '@/lib/receipt-progress'
 import { invalidateProductPriceCache } from '@/lib/db/cache-invalidation'
-import { getProductCatalogByIds, getPurchaseAftermath, linkPantryContentsToProduct, recordPriceObservation, restockPantryItem, restockPantryTypeItem, setProductCatalogType, toReceiptImportState, upsertProductCatalogDefaults } from '@/lib/db/queries'
+import { getProductCatalogByIds, getPurchaseAftermath, linkPantryContentsToProduct, recordPriceObservation, restockPantryItem, restockPantryTypeItem, setProductCatalogType, toReceiptImportState, upsertProductCatalogDefaults, type PurchaseAftermath } from '@/lib/db/queries'
 import { stockTypesForLines } from '@/lib/db/stock-types'
 import { pieceSizeOf } from '@/lib/piece-size'
 import { productTypeByKey, resolveReceiptLineType } from '@/lib/product-types'
@@ -56,7 +58,7 @@ import {
   type ReceiptTextExtractor,
 } from '@/lib/receipts'
 import { HEIC_UNSUPPORTED_MESSAGE } from '@/lib/receipt-upload'
-import { getReceiptFile } from '@/lib/storage'
+import { deleteReceiptFile, getReceiptFile } from '@/lib/storage'
 import type { ItemCategory, PurchaseRecord } from '@/lib/types'
 import { normalizeCurrency } from '@/lib/currency'
 import { todayInPrague } from '@/lib/today'
@@ -711,6 +713,81 @@ export async function importManualReceiptForHousehold(
     purchase,
     receipt: toReceiptImportState(row),
     aftermath: await getPurchaseAftermath(householdId, purchase.id),
+  }
+}
+
+function withReceiptClassificationChoice(item: ReceiptLineItem): ReceiptLineItem {
+  const { classificationSource, ...rest } = item
+  return classificationSource === 'manual' ? { ...rest, classificationSource } : rest
+}
+
+/** Confirms a household-reviewed OCR import and records the resulting purchase. The caller must
+ *  authorize the household first; ownership and the import's reviewable state are checked here. */
+export async function confirmReceiptReviewForHousehold(
+  householdId: string,
+  receiptImportId: string,
+  items: ReceiptLineItem[],
+  options: { date?: string; storeLocationId?: string } = {},
+): Promise<{ purchase: PurchaseRecord; aftermath: PurchaseAftermath }> {
+  const row = await assertOwnsReceiptImport(householdId, receiptImportId)
+  if (row.status !== 'review_required' && row.status !== 'duplicate_review') throw new Error('Tento import nečeká na kontrolu.')
+
+  const extractedReview = row.parserResult ? parseStoredJson<ExtractedReceipt>(row.parserResult, `receipt_imports.parser_result ${receiptImportId}`) : null
+  let storeId = row.storeId ?? (extractedReview ? await findOrCreateStore(extractedReview.store.name) : null)
+  let resolvedStoreLocationId = options.storeLocationId ?? row.storeLocationId ?? null
+  if (resolvedStoreLocationId == null && extractedReview) {
+    const branch = await findOrCreateStoreLocation(storeId, extractedReview.store.address, extractedReview.store.city)
+    storeId = branch.storeId
+    resolvedStoreLocationId = branch.storeLocationId
+  }
+  const confirmedItems = items.map(withReceiptClassificationChoice)
+  const purchase = await createPurchaseFromReceiptItems(householdId, confirmedItems, {
+    date: options.date,
+    storedDate: row.date,
+    storeLocationId: resolvedStoreLocationId,
+    storeId,
+    currency: row.currency,
+    receiptDiscountTotal: row.discountTotal != null ? Number(row.discountTotal) : null,
+    receiptStatedTotal: row.total != null ? Number(row.total) : null,
+    source: 'confirmed',
+  })
+
+  const db = getDb()
+  await db.update(schema.receiptImports)
+    .set({ status: 'completed', items: JSON.stringify(items), storeLocationId: resolvedStoreLocationId, purchaseId: purchase.id, processedAt: new Date(), updatedAt: new Date() })
+    .where(eq(schema.receiptImports.id, receiptImportId))
+
+  return { purchase, aftermath: await getPurchaseAftermath(householdId, purchase.id) }
+}
+
+/** Applies the household's decision about an OCR import flagged as a possible duplicate. */
+export async function resolveDuplicateReceiptForHousehold(
+  householdId: string,
+  receiptImportId: string,
+  resolution: 'save_new' | 'use_existing' | 'cancel',
+  items?: ReceiptLineItem[],
+  options: { date?: string } = {},
+): Promise<{ purchase: PurchaseRecord | null; aftermath: PurchaseAftermath | null }> {
+  const row = await assertOwnsReceiptImport(householdId, receiptImportId)
+  if (row.status !== 'duplicate_review') throw new Error('Tento import nečeká na vyřešení duplicity.')
+
+  if (resolution !== 'save_new') {
+    await getDb().update(schema.receiptImports).set({ status: 'cancelled', updatedAt: new Date() }).where(eq(schema.receiptImports.id, receiptImportId))
+    return { purchase: null, aftermath: null }
+  }
+
+  const storedItems = row.items ? parseStoredJson<ReceiptLineItem[]>(row.items, `receipt_imports.items ${receiptImportId}`) : []
+  if (!items && storedItems === null) throw new Error('Uložené položky účtenky se nepodařilo přečíst. Zkontrolujte účtenku znovu.')
+  return confirmReceiptReviewForHousehold(householdId, receiptImportId, items ?? storedItems ?? [], options)
+}
+
+/** Cancels an unfinished upload and removes its private source file after updating the state. */
+export async function cancelReceiptImportForHousehold(householdId: string, receiptImportId: string): Promise<void> {
+  const row = await assertOwnsReceiptImport(householdId, receiptImportId)
+  if (row.purchaseId) throw new Error('Tento import už vytvořil nákup — nelze zrušit.')
+  await getDb().update(schema.receiptImports).set({ status: 'cancelled', updatedAt: new Date() }).where(eq(schema.receiptImports.id, receiptImportId))
+  if (row.imageUrl) {
+    await deleteReceiptFile(row.imageUrl).catch((error) => console.error(JSON.stringify({ event: 'receipt_file_delete_failed', receiptImportId, error: safeErrorMessage(error) })))
   }
 }
 

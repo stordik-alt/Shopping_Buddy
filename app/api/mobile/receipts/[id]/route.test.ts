@@ -12,6 +12,9 @@ const mocks = vi.hoisted(() => {
     MobileRequestAuthError: AuthError,
     processReceiptImportForHousehold: vi.fn(),
     toReceiptImportState: vi.fn(),
+    confirmReceiptReviewForHousehold: vi.fn(),
+    resolveDuplicateReceiptForHousehold: vi.fn(),
+    cancelReceiptImportForHousehold: vi.fn(),
   }
 })
 
@@ -20,17 +23,22 @@ vi.mock('@/lib/auth/mobile-request', () => ({
   mobileHouseholdForUser: mocks.mobileHouseholdForUser,
   MobileRequestAuthError: mocks.MobileRequestAuthError,
 }))
-vi.mock('@/lib/receipt-import', () => ({ processReceiptImportForHousehold: mocks.processReceiptImportForHousehold }))
+vi.mock('@/lib/receipt-import', () => ({
+  processReceiptImportForHousehold: mocks.processReceiptImportForHousehold,
+  confirmReceiptReviewForHousehold: mocks.confirmReceiptReviewForHousehold,
+  resolveDuplicateReceiptForHousehold: mocks.resolveDuplicateReceiptForHousehold,
+  cancelReceiptImportForHousehold: mocks.cancelReceiptImportForHousehold,
+}))
 vi.mock('@/lib/db/queries', () => ({ toReceiptImportState: mocks.toReceiptImportState }))
 
-import { POST } from '@/app/api/mobile/receipts/[id]/route'
+import { DELETE, PATCH, POST } from '@/app/api/mobile/receipts/[id]/route'
 
 const receiptId = '00000000-0000-4000-8000-000000000001'
 const receiptRow = { id: receiptId, status: 'completed' }
 const state = { id: receiptId, status: 'completed', hasImage: true }
-const request = (body: unknown = { retry: false }) =>
+const request = (body: unknown = { retry: false }, method = 'POST') =>
   new Request(`https://anitka.example/api/mobile/receipts/${receiptId}`, {
-    method: 'POST',
+    method,
     headers: { Authorization: ['Bearer', 'route-test'].join(' '), 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
@@ -43,6 +51,9 @@ describe('POST /api/mobile/receipts/[id]', () => {
     mocks.mobileHouseholdForUser.mockResolvedValue({ householdId: 'household-1', role: 'owner' })
     mocks.processReceiptImportForHousehold.mockResolvedValue({ kind: 'processed', row: receiptRow })
     mocks.toReceiptImportState.mockReturnValue(state)
+    mocks.confirmReceiptReviewForHousehold.mockResolvedValue({ purchase: { id: 'purchase-1' }, aftermath: { purchaseHistory: [] } })
+    mocks.resolveDuplicateReceiptForHousehold.mockResolvedValue({ purchase: null, aftermath: null })
+    mocks.cancelReceiptImportForHousehold.mockResolvedValue(undefined)
   })
 
   it('requires authorization and rejects malformed identifiers and requests', async () => {
@@ -84,5 +95,30 @@ describe('POST /api/mobile/receipts/[id]', () => {
     const response = await POST(request({ retry: true }), params)
     expect(response.status).toBe(200)
     expect(mocks.processReceiptImportForHousehold).toHaveBeenCalledWith('household-1', receiptId, true)
+  })
+
+  it('confirms corrected OCR items within the authenticated household', async () => {
+    const item = { name: 'Mléko', category: 'Potraviny', quantity: 1, unit: 'l', price: 30, location: 'Lednice' }
+    const response = await PATCH(request({ action: 'confirm', items: [item], date: '2026-10-24' }, 'PATCH'), params)
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({ receipt: { id: receiptId, status: 'completed' }, purchase: { id: 'purchase-1' } })
+    expect(mocks.confirmReceiptReviewForHousehold).toHaveBeenCalledWith('household-1', receiptId, [item], { date: '2026-10-24' })
+  })
+
+  it('validates review data and resolves duplicates', async () => {
+    const invalid = await PATCH(request({ action: 'confirm', items: [{ name: '', category: 'Potraviny', quantity: 1, unit: 'l', price: 1 }] }, 'PATCH'), params)
+    expect(invalid.status).toBe(400)
+    expect(mocks.confirmReceiptReviewForHousehold).not.toHaveBeenCalled()
+
+    const response = await PATCH(request({ action: 'resolve_duplicate', resolution: 'use_existing' }, 'PATCH'), params)
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({ receipt: { status: 'cancelled' }, purchase: null })
+    expect(mocks.resolveDuplicateReceiptForHousehold).toHaveBeenCalledWith('household-1', receiptId, 'use_existing', undefined, { date: undefined })
+  })
+
+  it('cancels only the authenticated household receipt', async () => {
+    const response = await DELETE(new Request(`https://anitka.example/api/mobile/receipts/${receiptId}`, { method: 'DELETE', headers: { Authorization: 'Bearer token' } }), params)
+    expect(response.status).toBe(200)
+    expect(mocks.cancelReceiptImportForHousehold).toHaveBeenCalledWith('household-1', receiptId)
   })
 })

@@ -71,14 +71,22 @@ describe('/api/mobile/shopping-list', () => {
     const response = await POST(request('POST', { name: 'Mléko', unit: 'l', quantity: 2, clientId: 'client-id' }))
     expect(response.status).toBe(201)
     expect(await response.json()).toMatchObject({ item: { id: 'item-1', name: 'Mléko' } })
-    expect(addShoppingItemForHousehold).toHaveBeenCalledWith('household-1', 'user-1', 'list-1', 'Mléko', { quantity: 2, unit: 'l' }, 'client-id')
+    expect(addShoppingItemForHousehold).toHaveBeenCalledWith('household-1', 'user-1', 'list-1', 'Mléko', { quantity: 2, unit: 'l' }, 'client-id', undefined)
   })
 
   it('keeps category and pantry-review detail when stock runs out', async () => {
     const response = await POST(request('POST', { name: 'Rýže', unit: 'kg', category: 'Potraviny', detail: 'došlo ze zásob', clientId: 'client-id' }))
     expect(response.status).toBe(201)
     expect(addShoppingItemForHousehold).toHaveBeenCalledWith(
-      'household-1', 'user-1', 'list-1', 'Rýže', { unit: 'kg', category: 'Potraviny', detail: 'došlo ze zásob' }, 'client-id',
+      'household-1', 'user-1', 'list-1', 'Rýže', { unit: 'kg', category: 'Potraviny', detail: 'došlo ze zásob' }, 'client-id', undefined,
+    )
+  })
+
+  it('keeps a concrete catalog product on the new shopping item', async () => {
+    const response = await POST(request('POST', { name: 'Mléko 1 l', clientId: 'client-id', category: 'Potraviny', selection: { kind: 'product', productId: 'product-1' } }))
+    expect(response.status).toBe(201)
+    expect(addShoppingItemForHousehold).toHaveBeenCalledWith(
+      'household-1', 'user-1', 'list-1', 'Mléko 1 l', { category: 'Potraviny' }, 'client-id', { kind: 'product', productId: 'product-1' },
     )
   })
 

@@ -6,7 +6,7 @@ import type { StandaloneOffer } from '../../../lib/offers'
 import type { ExpenseCategory } from '../../../lib/expense-categories'
 import type { RecurringOccurrence, RecurringPayment, RecurringPaymentInput } from '../../../lib/recurring-payments'
 import type { RecurringIncome, RecurringIncomeInput, RecurringIncomeOccurrence } from '../../../lib/recurring-incomes'
-import type { BudgetLedger } from '../../../lib/types'
+import type { BudgetLedger, PurchaseRecord } from '../../../lib/types'
 import type { PocketInput } from '../../../lib/pocket-input'
 import type { BudgetOutlook } from '../../../lib/types'
 import type { PeriodConfig } from '../../../lib/budget-period'
@@ -246,15 +246,7 @@ export type MobileBranchPage = {
   page: number
 }
 export type MobileNotification = { id: string; title: string; detail: string; unread: boolean; kind: string | null }
-export type MobilePurchase = {
-  id: string
-  date: string
-  store?: string
-  total: number
-  discount?: number
-  needsBudgetRecording?: boolean
-  items: { id: string; name: string; quantity: number; unit: ItemUnit; price: number; category?: string | null }[]
-}
+export type MobilePurchase = PurchaseRecord
 
 export class MobileApiError extends Error {
   constructor(
@@ -401,6 +393,14 @@ export function getNotifications() {
 
 export function getPurchaseHistory() {
   return request<{ purchases: MobilePurchase[] }>('/api/mobile/purchases')
+}
+
+export function recordMobilePurchaseExpenses(purchaseId: string) {
+  return request<{ expenses: MobileExpense[]; notifications: MobileNotification[] }>(`/api/mobile/purchases/${encodeURIComponent(purchaseId)}`, { method: 'POST', body: JSON.stringify({}) })
+}
+
+export function deleteMobilePurchase(purchaseId: string) {
+  return request<{ date: string }>(`/api/mobile/purchases/${encodeURIComponent(purchaseId)}`, { method: 'DELETE' })
 }
 
 export function dismissNotification(id?: string) {

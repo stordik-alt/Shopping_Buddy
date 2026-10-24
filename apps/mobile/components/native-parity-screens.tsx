@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
-import { ArrowRight, Bell, CookingPot, House, MapPin, MoreHorizontal, Package, Plus, ReceiptText, Search, ShoppingCart, Store, Tag, Users, WalletCards, X } from 'lucide-react-native'
+import { ArrowDown, ArrowRight, Bell, CookingPot, House, MapPin, MoreHorizontal, Package, PiggyBank, Plus, Repeat, ReceiptText, Search, ShoppingBag, ShoppingCart, Star, Store, Tag, Trash2, TrendingUp, Users, WalletCards, X } from 'lucide-react-native'
 import { useMobileTheme, type ThemePreference } from '../lib/theme'
-import { addHouseholdChild, addHouseholdMember, createHouseholdInvitation, dismissNotification, dismissRestockSuggestion, getDashboardSummary, getDealsPage, getHouseholdAuditLog, getHouseholdInvitations, getMealPlan, getNotificationPreferences, getNotifications, getPantrySettings, getPurchaseHistory, getStoreBranches, getStoreChains, getStorePreferences, MobileApiError, removeHouseholdChild, removeHouseholdMember, resetHouseholdData, revokeHouseholdInvitation, sendTestPushNotification, updateHouseholdMemberDiet, updateHouseholdPreferences, updateHouseholdProfile, updateNotificationPreference, updatePantrySettings, updateStorePreferences, type MobileAuditEntry, type MobileBranchPage, type MobileChainTile, type MobileDashboardSummary, type MobileDealCategory, type MobileDealsPage, type MobileDealSort, type MobileDietAvoid, type MobileDietKey, type MobileHouseholdChild, type MobileHouseholdInvitation, type MobileHouseholdMember, type MobileHouseholdPreferences, type MobileHouseholdProfileData, type MobileMemberDiet, type MobileMealPlan, type MobileNotification, type MobileNotificationPreference, type MobilePantrySettings, type MobilePantryStockLevel, type MobilePurchase, type MobileStoreSelection } from '../lib/shopping-list-api'
+import { addHouseholdChild, addHouseholdMember, createHouseholdInvitation, deleteMobilePurchase, dismissNotification, dismissRestockSuggestion, getDashboardSummary, getDealsPage, getHouseholdAuditLog, getHouseholdInvitations, getMealPlan, getNotificationPreferences, getNotifications, getPantrySettings, getPurchaseHistory, getStoreBranches, getStoreChains, getStorePreferences, MobileApiError, recordMobilePurchaseExpenses, removeHouseholdChild, removeHouseholdMember, resetHouseholdData, revokeHouseholdInvitation, sendTestPushNotification, updateHouseholdMemberDiet, updateHouseholdPreferences, updateHouseholdProfile, updateNotificationPreference, updatePantrySettings, updateStorePreferences, type MobileAuditEntry, type MobileBranchPage, type MobileChainTile, type MobileDashboardSummary, type MobileDealCategory, type MobileDealsPage, type MobileDealSort, type MobileDietAvoid, type MobileDietKey, type MobileHouseholdChild, type MobileHouseholdInvitation, type MobileHouseholdMember, type MobileHouseholdPreferences, type MobileHouseholdProfileData, type MobileMemberDiet, type MobileMealPlan, type MobileNotification, type MobileNotificationPreference, type MobilePantrySettings, type MobilePantryStockLevel, type MobilePurchase, type MobileStoreSelection } from '../lib/shopping-list-api'
 import { dismissalKey } from '../../../lib/pantry-restock'
 import { assessDealQuality, dealDiscount, effectivePrice } from '../../../lib/prices'
 import { DIET_AVOIDS, DIETS, dietLabels } from '../../../lib/diet'
@@ -19,6 +19,7 @@ import { expenseCategoryColor } from '../lib/chart-colors'
 import { currentWeekStart, DAYS } from '../../../lib/meal-plans'
 import { auditDetailText, auditLabel } from '../../../lib/audit'
 import { confirmsHouseholdName, DATA_RESET_GROUPS, DATA_RESET_LABELS, type DataResetGroup } from '../../../lib/data-reset'
+import { averageMonthlySpend, favoriteStores, mostBoughtProducts, repeatPurchases } from '../../../lib/purchase-history'
 
 export type NativeTab = 'home' | 'shopping' | 'pantry' | 'budget' | 'deals' | 'stores' | 'recipes' | 'profile'
 type TabLabel = NativeTab
@@ -421,23 +422,85 @@ export function NativePurchasesScreen() {
   const [purchases, setPurchases] = useState<MobilePurchase[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [showAll, setShowAll] = useState(false)
+  const [busyPurchaseId, setBusyPurchaseId] = useState<string | null>(null)
   useEffect(() => {
     let cancelled = false
     getPurchaseHistory().then(({ purchases: rows }) => { if (!cancelled) setPurchases(rows) }).catch((caught: unknown) => { if (!cancelled) setError(caught instanceof Error ? caught.message : 'Historii nákupů se nepodařilo načíst.') }).finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [])
+  const newestFirst = purchases.slice().reverse()
+  const shownPurchases = showAll ? newestFirst : newestFirst.slice(0, 5)
+  const topStore = favoriteStores(purchases)[0]
+  const topProduct = mostBoughtProducts(purchases, 1)[0]
+  const repeats = repeatPurchases(purchases)
+
+  async function recordExpenses(purchase: MobilePurchase) {
+    setBusyPurchaseId(purchase.id)
+    setError(null)
+    try {
+      await recordMobilePurchaseExpenses(purchase.id)
+      setPurchases((current) => current.map((row) => row.id === purchase.id ? { ...row, needsBudgetRecording: false } : row))
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Nákup se nepodařilo zapsat do rozpočtu.')
+    } finally { setBusyPurchaseId(null) }
+  }
+
+  function confirmDelete(purchase: MobilePurchase) {
+    Alert.alert(
+      'Odstranit tento nákup?',
+      'Zmizí z historie i z výdajů, smaže se jeho účtenka a ze zásob se odečte, co přidal. Položky odškrtnuté účtenkou budou zase k nákupu. Nejde to vrátit.',
+      [
+        { text: 'Zrušit', style: 'cancel' },
+        { text: 'Odstranit', style: 'destructive', onPress: () => { void removePurchase(purchase) } },
+      ],
+    )
+  }
+
+  async function removePurchase(purchase: MobilePurchase) {
+    setBusyPurchaseId(purchase.id)
+    setError(null)
+    try {
+      await deleteMobilePurchase(purchase.id)
+      setPurchases((current) => current.filter((row) => row.id !== purchase.id))
+      if (expandedId === purchase.id) setExpandedId(null)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Nákup se nepodařilo odstranit.')
+    } finally { setBusyPurchaseId(null) }
+  }
+
   return <ScrollView contentContainerStyle={styles.screenContent}>
-    <Text style={styles.bodyText}>Historie skutečně zaznamenaných nákupů domácnosti.</Text>
+    <View style={styles.sectionHeader}><View style={styles.preferenceDescription}><Text style={styles.cardTitle}>Historie nákupů</Text><Text style={styles.bodyText}>Dlouhodobé statistiky z uskutečněných nákupů domácnosti.</Text></View></View>
     {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
     {loading ? <ActivityIndicator color={colors.primary} style={styles.loader} /> : null}
-    {purchases.map((purchase) => <View key={purchase.id} style={styles.purchaseCard}>
-      <View style={styles.dealTop}><View style={styles.dashboardText}><Text style={styles.cardTitle}>{purchase.store || 'Nákup'}</Text><Text style={styles.bodyText}>{new Date(`${purchase.date}T12:00:00`).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'long', year: 'numeric' })}</Text></View><Text style={styles.purchaseTotal}>{money(purchase.total, 'CZK')}</Text></View>
-      <View style={styles.purchaseDivider} />
-      {purchase.items.slice(0, 5).map((item) => <View key={item.id} style={styles.purchaseItem}><Text numberOfLines={1} style={styles.purchaseItemName}>{item.name}</Text><Text style={styles.bodyText}>{item.quantity} {item.unit}</Text><Text style={styles.purchaseItemPrice}>{money(item.price, 'CZK')}</Text></View>)}
-      {purchase.items.length > 5 ? <Text style={styles.noteText}>a dalších {purchase.items.length - 5} položek</Text> : null}
-      {purchase.needsBudgetRecording ? <Text style={styles.pendingPurchase}>Tento nákup ještě není započítaný do rozpočtu.</Text> : null}
-    </View>)}
-    {!loading && purchases.length === 0 ? <View style={styles.emptyCard}><Text style={styles.cardTitle}>Zatím žádné nákupy</Text><Text style={styles.bodyText}>Importujte účtenku a nákup se objeví v historii.</Text></View> : null}
+    <View style={styles.purchaseStats}>
+      <View style={styles.purchaseStat}><TrendingUp color={colors.primary} size={17} /><Text style={styles.noteText}>Běžná měsíční útrata</Text><Text style={styles.cardTitle}>{money(averageMonthlySpend(purchases), 'CZK')}</Text></View>
+      <View style={styles.purchaseStat}><Star color={colors.primary} size={17} /><Text style={styles.noteText}>Oblíbený obchod</Text><Text numberOfLines={1} style={styles.cardTitle}>{topStore ? `${topStore.store} (${topStore.count}×)` : '—'}</Text></View>
+      <View style={styles.purchaseStat}><ShoppingBag color={colors.primary} size={17} /><Text style={styles.noteText}>Nejčastěji kupované</Text><Text numberOfLines={1} style={styles.cardTitle}>{topProduct ? `${topProduct.name} (${topProduct.count}×)` : '—'}</Text></View>
+    </View>
+    {repeats.length > 0 ? <View style={styles.chartCard}><Text style={styles.noteText}><Repeat color={colors.mutedText} size={14} />  Opakované nákupy</Text><ScrollView horizontal contentContainerStyle={styles.chipRow} showsHorizontalScrollIndicator={false}>{repeats.map((item) => <View key={item.name} style={styles.purchaseRepeatChip}><Text style={styles.preferenceToggleText}>{item.name} · {item.count}×</Text></View>)}</ScrollView></View> : null}
+    {shownPurchases.map((purchase) => {
+      const expanded = expandedId === purchase.id
+      return <View key={purchase.id} style={styles.purchaseCard}>
+        <Pressable accessibilityRole="button" accessibilityState={{ expanded }} onPress={() => setExpandedId((current) => current === purchase.id ? null : purchase.id)} style={styles.dealTop}>
+          <View style={styles.dashboardText}><Text style={styles.cardTitle}>{purchase.store || 'Neurčený obchod'}</Text><Text style={styles.bodyText}>{new Date(`${purchase.date}T12:00:00`).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'long', year: 'numeric' })} · {purchase.items.length} položek{purchase.discount ? ` · sleva ${money(purchase.discount, 'CZK')}` : ''}</Text></View>
+          <View style={styles.purchaseHeaderRight}><Text style={styles.purchaseTotal}>{money(purchase.total, 'CZK')}</Text><ArrowDown color={colors.mutedText} size={18} style={expanded ? { transform: [{ rotate: '180deg' }] } : undefined} /></View>
+        </Pressable>
+        {purchase.needsBudgetRecording ? <View style={styles.purchasePendingRow}><Text style={styles.pendingPurchase}>Tento nákup zatím není v rozpočtu.</Text><Pressable accessibilityRole="button" disabled={busyPurchaseId === purchase.id} onPress={() => void recordExpenses(purchase)} style={styles.purchaseAction}><PiggyBank color={colors.accentText} size={16} /><Text style={styles.purchaseActionText}>{busyPurchaseId === purchase.id ? 'Ukládám…' : 'Zařadit do výdajů'}</Text></Pressable></View> : null}
+        {expanded ? <>
+          <View style={styles.purchaseDivider} />
+          {purchase.items.map((item, index) => <View key={item.id ?? `${item.name}-${index}`} style={styles.purchaseItem}>
+            <View style={styles.purchaseLineText}><Text numberOfLines={1} style={styles.purchaseItemName}>{item.name} · {item.quantity} {item.unit}</Text>{item.expenseSplits?.length === 1 ? <Text style={styles.noteText}>{item.expenseSplits[0].category}{item.expenseSplits[0].subcategory ? ` ▸ ${item.expenseSplits[0].subcategory}` : ''}</Text> : item.expenseSplits && item.expenseSplits.length > 1 ? <Text style={styles.noteText}>Rozděleno na {item.expenseSplits.length} částí</Text> : null}</View>
+            <Text style={styles.purchaseItemPrice}>{money(item.price * item.quantity, 'CZK')}</Text>
+          </View>)}
+          <View style={styles.purchaseDivider} />
+          <Pressable accessibilityRole="button" disabled={busyPurchaseId === purchase.id} onPress={() => confirmDelete(purchase)} style={styles.purchaseDeleteButton}><Trash2 color={colors.destructive} size={16} /><Text style={styles.purchaseDeleteText}>{busyPurchaseId === purchase.id ? 'Zpracovávám…' : 'Odstranit nákup'}</Text></Pressable>
+        </> : null}
+      </View>
+    })}
+    {!loading && purchases.length > 5 ? <Pressable accessibilityRole="button" accessibilityState={{ expanded: showAll }} onPress={() => setShowAll((current) => !current)} style={styles.purchaseShowAll}><Text style={styles.purchaseActionText}>{showAll ? 'Zobrazit méně' : `Zobrazit všechny nákupy (${purchases.length})`}</Text><ArrowDown color={colors.accentText} size={16} style={showAll ? { transform: [{ rotate: '180deg' }] } : undefined} /></Pressable> : null}
+    {!loading && purchases.length === 0 ? <View style={styles.emptyCard}><Text style={styles.cardTitle}>Zatím žádné nákupy</Text><Text style={styles.bodyText}>Nahrajte účtenku; nákup se objeví v historii.</Text></View> : null}
   </ScrollView>
 }
 
@@ -1311,6 +1374,17 @@ function useStyles() {
   storeLogoText: { color: '#172033', fontSize: 10, fontWeight: '800' },
   branchCard: { flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 16, padding: 12 },
   purchaseCard: { gap: 10, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 18, padding: 14 },
+  purchaseStats: { gap: 8 },
+  purchaseStat: { minHeight: 76, gap: 4, padding: 12, borderRadius: 15, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
+  purchaseHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  purchasePendingRow: { gap: 6, paddingTop: 4 },
+  purchaseLineText: { flex: 1, minWidth: 0 },
+  purchaseAction: { minHeight: 38, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 7, paddingHorizontal: 10, borderRadius: 11, backgroundColor: colors.accentSubtle },
+  purchaseActionText: { color: colors.accentText, fontSize: 12, fontWeight: '700' },
+  purchaseDeleteButton: { minHeight: 38, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 7 },
+  purchaseDeleteText: { color: colors.destructive, fontSize: 13, fontWeight: '600' },
+  purchaseShowAll: { minHeight: 42, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 7, paddingHorizontal: 13, borderRadius: 15, backgroundColor: colors.accentSubtle },
+  purchaseRepeatChip: { minHeight: 34, justifyContent: 'center', paddingHorizontal: 11, borderRadius: 17, backgroundColor: colors.muted },
   purchaseTotal: { color: colors.foreground, fontSize: 16, fontWeight: '800' },
   purchaseDivider: { height: 1, backgroundColor: colors.border },
   purchaseItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },

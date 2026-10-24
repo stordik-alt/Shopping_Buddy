@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { getDb } from '@/lib/db/client'
 import { getProductPrices, getStandaloneOffers } from '@/lib/db/queries'
 import { getProductCatalogCached } from '@/lib/db/cached-reads'
@@ -22,6 +22,18 @@ export class ShoppingResourceNotFoundError extends Error {}
 async function assertOwnsList(householdId: string, listId: string) {
   const list = await getDb().query.shoppingLists.findFirst({ where: eq(schema.shoppingLists.id, listId) })
   if (!list || list.householdId !== householdId) throw new ShoppingResourceNotFoundError('Shopping list not found')
+}
+
+/** Removes only checked rows from the specified household shopping list. Checking an item is a
+ *  reminder action; clearing it must not create a purchase, expense, or pantry stock. Shared by the
+ *  PWA action and the authenticated mobile API. */
+export async function clearDoneShoppingItemsForHousehold(householdId: string, listId: string): Promise<{ removed: number }> {
+  await assertOwnsList(householdId, listId)
+  const removed = await getDb()
+    .delete(schema.shoppingListItems)
+    .where(and(eq(schema.shoppingListItems.listId, listId), eq(schema.shoppingListItems.done, true)))
+    .returning({ id: schema.shoppingListItems.id })
+  return { removed: removed.length }
 }
 
 async function assertOwnsItem(householdId: string, itemId: string) {

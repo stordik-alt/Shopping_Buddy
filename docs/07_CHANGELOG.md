@@ -1,3 +1,11 @@
+## 2026-10-24 — Audit vizuální a funkční parity mobilní aplikace s PWA
+
+- **Rozpočet a grafy jsou v Expo verzi přítomné:** obrazovka rozpočtu zobrazuje interaktivní prstencový graf a seznam výdajů podle kategorií; domácí přehled má kategoriální pruhy. Mobilní paleta grafů odpovídá světlému i tmavému motivu PWA. Produktové ilustrace používají sdílené mapování typu/kategorie, včetně fotografií tam, kde jsou dostupné.
+- **Profil a upozornění jsou přítomné:** profil zahrnuje domácnost, členy a děti, nákupní preference, nastavení obchodů a zásob, vzhled `Podle systému / Světlé / Tmavé`, preference druhů upozornění, správu push oznámení pro zařízení, pozvánky, audit a reset vybraných domácích dat. Samostatné centrum upozornění zobrazuje a označuje přečtené položky.
+- Nákupní seznam dostal chybějící mobilní kartu **„Doplnit obvyklé“**, která používá stejnou doménovou logiku a data domácnosti jako PWA. Je dostupná při připojení a přidání potvrzuje uživatel.
+- Doplněno **„Dokončit nákup (N)“**. PWA i mobilní API nyní volají společnou domácností ověřenou službu, která smaže pouze odškrtnuté položky z hlavního seznamu. Nevytváří nákup, výdaj ani stav zásob. Akce je v mobilu vypnutá při offline režimu nebo nevyřízených změnách.
+- Ověření: Expo TypeScript, kořenový TypeScript, Android bundle export, 19 testů mobilních nákupních tras/doménové logiky a 3 databázové testy akce dokončení prošly. Nativní obrazovky nebyly v tomto kroku vizuálně ověřeny na emulátoru ani fyzickém telefonu.
+
 ## 2026-10-23 — Účtenky čte přímo GPT-6 Luna
 
 - Produkční čtení fotografií a skenovaných PDF přechází z OCR Azure/Google → parser na přímé čtení GPT-6 Luna přes Cloudflare AI Gateway. Textová vrstva digitálního PDF se nejprve přečte lokálně a předá Luně.

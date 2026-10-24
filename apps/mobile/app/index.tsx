@@ -30,6 +30,7 @@ import { BarcodeScannerModal } from '../components/barcode-scanner-modal'
 import { NativeGuideModal } from '../components/native-guide-modal'
 import { ShoppingToolsModal } from '../components/shopping-tools-modal'
 import { ReceiptsScreen } from '../components/receipts-screen'
+import { UsualItemsScreen } from '../components/usual-items-screen'
 import { hasPriceComparison, NativePriceComparison } from '../components/price-comparison'
 import {
   NativeAssistantModal,
@@ -62,6 +63,7 @@ import {
 } from '../lib/offline-shopping-storage'
 import {
   addShoppingItem,
+  clearDoneShoppingItems,
   getCurrentUser,
   getDashboardSummary,
   getNotifications,
@@ -637,6 +639,27 @@ export default function HomeScreen() {
     }
   }
 
+  async function handleClearDoneItems() {
+    if (offline || pendingChanges > 0 || busy || busyItemId) return
+    setBusyItemId('clear-done')
+    setError(null)
+    try {
+      await syncPendingChanges(true)
+      const current = offlineSnapshot.current
+      if (!current || current.pending.length > 0) throw new Error('Neuložené změny je potřeba nejdřív synchronizovat.')
+      await clearDoneShoppingItems()
+      const freshList = await getShoppingList()
+      const next = { ...current, list: freshList, pending: [] }
+      await saveOfflineSnapshot(next)
+      showSnapshot(next)
+    } catch (caught) {
+      setError(errorMessage(caught))
+      if (caught instanceof MobileApiError && caught.status === 401) handleAuthExpired()
+    } finally {
+      setBusyItemId(null)
+    }
+  }
+
   function openEdit(item: MobileShoppingItem) {
     setEditItem(item)
     setEditQuantity(String(item.quantity))
@@ -777,6 +800,13 @@ export default function HomeScreen() {
                   <RefreshButton disabled={busyItemId !== null} loading={busy} onPress={() => void load()} />
                 </View>
 
+                <UsualItemsScreen
+                  openItemNames={items.filter((item) => !item.done).map((item) => item.name)}
+                  disabled={offline || pendingChanges > 0 || busy || busyItemId !== null}
+                  onAdded={addCatalogProduct}
+                  onAuthExpired={handleAuthExpired}
+                />
+
                 <View style={styles.addRow}>
                   <TextInput
                     accessibilityLabel="Nová položka"
@@ -903,6 +933,17 @@ export default function HomeScreen() {
             )}
           </>
         )}
+        {householdAvailable && activeTab === 'shopping' && shoppingView === 'list' && completed > 0 ? <View style={styles.completeShoppingBar}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ disabled: offline || pendingChanges > 0 || busy || busyItemId !== null }}
+            disabled={offline || pendingChanges > 0 || busy || busyItemId !== null}
+            onPress={() => void handleClearDoneItems()}
+            style={[styles.completeShoppingButton, (offline || pendingChanges > 0 || busy || busyItemId !== null) && styles.disabledButton]}
+          >
+            <Text style={styles.completeShoppingText}>{busyItemId === 'clear-done' ? 'Dokončuji…' : `✓  Dokončit nákup (${completed})`}</Text>
+          </Pressable>
+        </View> : null}
         {householdAvailable ? <NativeBottomNav active={activeTab} onSelect={setActiveTab} /> : null}
       </KeyboardAvoidingView>
       <NativeAssistantModal onClose={() => setAssistantOpen(false)} onShopping={() => setActiveTab('shopping')} visible={assistantOpen} />
@@ -974,6 +1015,9 @@ function useStyles() {
   pendingLabel: { color: colors.warning, fontSize: 12, marginTop: 4 },
   summary: { minHeight: 52, marginHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   summaryText: { color: colors.secondaryText, fontSize: 14, fontWeight: '600' },
+  completeShoppingBar: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 8, borderTopColor: colors.border, borderTopWidth: 1, backgroundColor: colors.background },
+  completeShoppingButton: { minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: colors.accent },
+  completeShoppingText: { color: '#0a1a3f', fontSize: 16, fontWeight: '700' },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginBottom: 12 },
   scanButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginHorizontal: 16, marginBottom: 12, borderColor: colors.inputBorder, borderRadius: 12, borderWidth: 1, backgroundColor: colors.card },
   scanButtonText: { color: colors.primary, fontSize: 14, fontWeight: '600' },

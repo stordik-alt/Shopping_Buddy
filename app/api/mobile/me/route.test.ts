@@ -2,17 +2,32 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const getSession = vi.fn()
 const findFirst = vi.fn()
+const findManyMembers = vi.fn()
+const findManyChildren = vi.fn()
+const findPreferences = vi.fn()
 const requireBearerUser = vi.fn()
 vi.mock('@/lib/auth/bearer', async (orig) => ({ ...(await orig<typeof import('@/lib/auth/bearer')>()), requireBearerUser: (...a: unknown[]) => requireBearerUser(...a) }))
 vi.mock('@/lib/auth/server', () => ({ auth: { getSession: () => getSession() } }))
-vi.mock('@/lib/db/client', () => ({ getDb: () => ({ query: { householdMembers: { findFirst } } }) }))
+vi.mock('@/lib/db/client', () => ({ getDb: () => ({
+  query: {
+    householdMembers: { findFirst, findMany: findManyMembers },
+    children: { findMany: findManyChildren },
+    preferences: { findFirst: findPreferences },
+  },
+  select: () => ({ from: () => ({ innerJoin: () => ({ where: async () => [] }) }) }),
+}) }))
 
 import { GET } from '@/app/api/mobile/me/route'
 
 const req = (authorization?: string) => new Request('https://x.test/api/mobile/me', { headers: authorization ? { authorization } : {} })
 
 describe('GET /api/mobile/me', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    findManyMembers.mockResolvedValue([])
+    findManyChildren.mockResolvedValue([])
+    findPreferences.mockResolvedValue(undefined)
+  })
 
   it('answers 401 JSON without a session', async () => {
     getSession.mockResolvedValue({ data: null })

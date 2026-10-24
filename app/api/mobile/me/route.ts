@@ -5,6 +5,8 @@ import { recordAudit } from '@/lib/db/audit'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import type { BearerUser } from '@/lib/auth/bearer'
+import { canRemoveMember } from '@/lib/household-members'
+import { cleanMemberDiet, NO_DIET } from '@/lib/diet'
 
 // Read-only "who am I" endpoint for the Expo app. The mobile client signs in through /api/auth/*, gets a
 // JWT from Neon Auth and sends it as `Authorization: Bearer`; that token is verified here (lib/auth/bearer.ts).
@@ -32,9 +34,52 @@ export async function GET(request: Request) {
     where: eq(schema.households.id, member.householdId),
     columns: { id: true, name: true, monthlyBudget: true, currency: true },
   }) : null
+  const [members, children, preferencesRow, memberDiets] = member ? await Promise.all([
+    db.query.householdMembers.findMany({
+      where: eq(schema.householdMembers.householdId, member.householdId),
+      with: { profile: true },
+      orderBy: (table, { asc }) => [asc(table.joinedAt)],
+    }),
+    db.query.children.findMany({ where: eq(schema.children.householdId, member.householdId), orderBy: (table, { asc }) => [asc(table.name)] }),
+    db.query.preferences.findFirst({ where: eq(schema.preferences.householdId, member.householdId) }),
+    db.select({ memberId: schema.memberDiets.memberId, diet: schema.memberDiets.diet, avoids: schema.memberDiets.avoids })
+      .from(schema.memberDiets)
+      .innerJoin(schema.householdMembers, eq(schema.householdMembers.id, schema.memberDiets.memberId))
+      .where(eq(schema.householdMembers.householdId, member.householdId)),
+  ]) : [[], [], null, []] as const
+  const dietsByMember = new Map(memberDiets.map((row) => [row.memberId, cleanMemberDiet(row) ?? NO_DIET]))
   const householdProfile = member
     ? household
-      ? { id: member.householdId, role: member.role, name: household.name, monthlyBudget: Number(household.monthlyBudget), currency: household.currency }
+      ? {
+          id: member.householdId,
+          role: member.role,
+          name: household.name,
+          monthlyBudget: Number(household.monthlyBudget),
+          currency: household.currency,
+          profile: {
+            members: members.map((row) => ({
+              id: row.id,
+              name: row.name,
+              role: row.role,
+              age: row.profile?.age ?? 0,
+              favoriteFoods: row.profile?.favoriteFoods ?? [],
+              dislikedFoods: row.profile?.dislikedFoods ?? [],
+              allergies: row.profile?.allergies ?? [],
+              diet: dietsByMember.get(row.id) ?? NO_DIET,
+              removable: canRemoveMember({ role: member.role, memberId: member.id }, row),
+            })),
+            children: children.map((row) => ({ id: row.id, name: row.name, age: row.age, preferences: row.preferences, specialNeeds: row.specialNeeds ?? undefined })),
+            preferences: {
+              preferredBrands: preferencesRow?.preferredBrands ?? [],
+              preferredStores: preferencesRow?.preferredStores ?? [],
+              preferredProducts: preferencesRow?.preferredProducts ?? [],
+              excludedProducts: preferencesRow?.excludedProducts ?? [],
+              priceSensitivity: preferencesRow?.priceSensitivity ?? 'balanced',
+              qualityPreference: preferencesRow?.qualityPreference ?? 'standard',
+              preferCzechProducts: preferencesRow?.preferCzechProducts ?? false,
+            },
+          },
+        }
       : { id: member.householdId, role: member.role }
     : null
   return NextResponse.json(

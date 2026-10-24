@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
-import Svg, { Circle } from 'react-native-svg'
+import { Baby, Bus, Building2, Car, Heart, House, Shirt, ShoppingBag, ShoppingBasket, Sparkles, Ticket, type LucideIcon } from 'lucide-react-native'
+import Svg, { Circle, Defs, Path, Pattern, Rect } from 'react-native-svg'
 import { EXPENSE_CATEGORY_NAMES, subcategoriesOf, type ExpenseCategory } from '../../../lib/expense-categories'
 import {
   addExpense,
@@ -71,6 +72,20 @@ import type { PeriodHistoryRow } from '../../../lib/budget-history'
 import type { PeriodConfig } from '../../../lib/budget-period'
 import type { PocketAmount } from '../../../lib/budget-closing'
 import { spendingDonutSegments } from '../../../lib/budget-chart'
+
+const CATEGORY_ICONS: Record<ExpenseCategory, LucideIcon> = {
+  Potraviny: ShoppingBasket,
+  Drogerie: Sparkles,
+  Domácnost: House,
+  Bydlení: Building2,
+  Auto: Car,
+  Doprava: Bus,
+  'Oblečení a obuv': Shirt,
+  Děti: Baby,
+  Zdraví: Heart,
+  'Volný čas': Ticket,
+  Ostatní: ShoppingBag,
+}
 
 function money(amount: number, currency: string): string {
   try {
@@ -660,18 +675,27 @@ export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0, canManag
               <View style={styles.chartHeading}><Text style={styles.sectionTitle}>Struktura výdajů</Text><Text style={styles.supporting}>{summary.categories.length} kategorií</Text></View>
               <View style={styles.donutWrap}>
                 <Svg height={148} width={148} viewBox="0 0 120 120">
+                  <Defs>
+                    <Pattern height={6} id="mobile-budget-other-pattern" patternUnits="userSpaceOnUse" width={6}>
+                      <Rect fill={colors.muted} height={6} width={6} x={0} y={0} />
+                      <Path d="M-2 2 L2 -2 M0 6 L6 0 M4 8 L8 4" fill="none" stroke={colors.mutedText} strokeWidth={1.5} />
+                    </Pattern>
+                  </Defs>
                   <Circle cx="60" cy="60" r="46" fill="none" stroke={colors.muted} strokeWidth="13" />
                   {donutSegments.map((segment, index) => {
                     const circumference = 2 * Math.PI * 46
                     const ratio = summary.spent > 0 ? Math.max(0, segment.total) / summary.spent : 0
                     const offset = donutSegments.slice(0, index).reduce((sum, row) => sum + (summary.spent > 0 ? Math.max(0, row.total) / summary.spent : 0), 0) * circumference
-                    const stroke = segment.kind === 'category' ? expenseCategoryColor(segment.category, theme) : colors.mutedText
+                    const stroke = segment.kind === 'category' ? expenseCategoryColor(segment.category, theme) : 'url(#mobile-budget-other-pattern)'
                     return <Circle key={segment.kind === 'category' ? segment.category : 'other'} cx="60" cy="60" r="46" fill="none" stroke={stroke} strokeWidth="13" strokeDasharray={`${ratio * circumference} ${circumference}`} strokeDashoffset={-offset} transform="rotate(-90 60 60)" />
                   })}
                 </Svg>
                 <View style={styles.donutCenter}><Text style={styles.supporting}>Celkem</Text><Text style={styles.donutValue}>{money(summary.spent, summary.currency)}</Text></View>
               </View>
-              <View style={styles.legend}>{summary.categories.map((category) => <Pressable key={category.category} accessibilityRole="button" accessibilityLabel={`${category.category}, ${money(category.total, summary.currency)}, ${summary.spent > 0 ? Math.round(category.total / summary.spent * 100) : 0} procent. Zobrazit výdaje této kategorie.`} onPress={() => { setCategoryFilter(category.category as ExpenseCategory); setView('expenses') }} style={styles.legendRow}><View style={[styles.legendDot, { backgroundColor: expenseCategoryColor(category.category, theme) }]} /><Text numberOfLines={1} style={styles.legendName}>{category.category}</Text><View style={styles.legendAmount}><Text style={styles.legendValue}>{money(category.total, summary.currency)}</Text><Text style={styles.legendShare}>{summary.spent > 0 ? `${Math.round(category.total / summary.spent * 100)} %` : '0 %'}</Text></View></Pressable>)}</View>
+              <View style={styles.legend}>{summary.categories.map((category) => {
+                const Icon = CATEGORY_ICONS[category.category as ExpenseCategory]
+                return <Pressable key={category.category} accessibilityRole="button" accessibilityLabel={`${category.category}, ${money(category.total, summary.currency)}, ${summary.spent > 0 ? Math.round(category.total / summary.spent * 100) : 0} procent. Zobrazit výdaje této kategorie.`} onPress={() => { setCategoryFilter(category.category as ExpenseCategory); setView('expenses') }} style={styles.legendRow}><Icon color={expenseCategoryColor(category.category, theme)} size={17} /><Text numberOfLines={1} style={styles.legendName}>{category.category}</Text><View style={styles.legendAmount}><Text style={styles.legendValue}>{money(category.total, summary.currency)}</Text><Text style={styles.legendShare}>{summary.spent > 0 ? `${Math.round(category.total / summary.spent * 100)} %` : '0 %'}</Text></View></Pressable>
+              })}</View>
             </View> : null}
             <View style={styles.section}>
               <View style={styles.sectionHeadingRow}><Text style={styles.sectionTitle}>Výdaje podle kategorií</Text><Pressable accessibilityRole="button" onPress={() => setLimitsOpen(true)} style={styles.limitEditButton}><Text style={styles.limitEditText}>Upravit limity</Text></Pressable></View>
@@ -792,7 +816,6 @@ function useStyles() {
   donutValue: { color: colors.foreground, fontSize: 16, fontWeight: '800' },
   legend: { gap: 7 },
   legendRow: { minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 10, paddingHorizontal: 5 },
-  legendDot: { width: 9, height: 9, borderRadius: 5 },
   legendName: { flex: 1, color: colors.secondaryText, fontSize: 12 },
   legendAmount: { alignItems: 'flex-end' },
   legendValue: { color: colors.foreground, fontSize: 12, fontWeight: '700' },

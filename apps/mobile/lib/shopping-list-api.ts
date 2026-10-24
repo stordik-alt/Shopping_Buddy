@@ -12,6 +12,7 @@ import type { BudgetOutlook } from '../../../lib/types'
 import type { PeriodConfig } from '../../../lib/budget-period'
 import type { PeriodHistoryRow } from '../../../lib/budget-history'
 import type { PocketAmount } from '../../../lib/budget-closing'
+import type { UsualItem } from '../../../lib/usual-items'
 import type { ItemCategory, PantryTracking } from '../../../lib/types'
 import { clearAccessToken, getAccessToken } from './auth'
 import { getApiUrl } from './config'
@@ -405,6 +406,14 @@ export function getPurchaseHistory() {
 export function dismissNotification(id?: string) {
   const query = id ? `?id=${encodeURIComponent(id)}` : ''
   return request<{ ok: true }>(`/api/mobile/notifications${query}`, { method: 'DELETE' })
+}
+
+export function getUsualItems() {
+  return request<{ suggestions: UsualItem[] }>('/api/mobile/usual-items')
+}
+
+export function clearDoneShoppingItems() {
+  return request<{ removed: number }>('/api/mobile/shopping-list/clear-done', { method: 'POST' })
 }
 
 export function getDealsPage(input: { category?: MobileDealCategory | 'all'; chain?: string | null; sort?: MobileDealSort; page?: number; query?: string; forMe?: boolean } = {}) {

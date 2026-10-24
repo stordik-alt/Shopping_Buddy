@@ -1,7 +1,7 @@
 'use server'
 
 import { ITEM_UNITS } from '@/lib/units'
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { requireHousehold, requireHouseholdId } from '@/lib/auth/authorize'
 import { recordAudit } from '@/lib/db/audit'
 import { getDb } from '@/lib/db/client'
@@ -17,6 +17,7 @@ import { isExpenseCategory, isValidSubcategory, type ExpenseCategory } from '@/l
 import { matchProductByName } from '@/lib/products'
 import { isValidProductSubcategory } from '@/lib/product-subcategories'
 import { inferPantryLocation } from '@/lib/pantry'
+import { clearDoneShoppingItemsForHousehold } from '@/lib/shopping-list-service'
 import type { ExpenseSplitPart } from '@/lib/purchase-expenses'
 import type { Expense, ItemCategory, ItemUnit, Notification, PantryItem, PurchaseRecord } from '@/lib/types'
 
@@ -25,29 +26,14 @@ import type { Expense, ItemCategory, ItemUnit, Notification, PantryItem, Purchas
 const MAX_SPLITS_PER_ITEM = 20
 const PRODUCT_ITEM_CATEGORIES = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní'] as const
 
-async function assertOwnsList(householdId: string, listId: string) {
-  const db = getDb()
-  const list = await db.query.shoppingLists.findFirst({ where: eq(schema.shoppingLists.id, listId) })
-  if (!list || list.householdId !== householdId) throw new Error('Shopping list not found')
-}
-
 /** "Dokončit nákup" on the shopping list: removes the ticked items. A list is only a reminder and
  *  tick-off tool (owner request, 2026-10-11) — it creates no purchase, expense or pantry stock.
  *  Purchases come from receipt imports and manual purchases, which know what was really bought and
  *  paid. */
 export async function clearDoneItemsAction(listId: string): Promise<{ removed: number }> {
   const householdId = await requireHouseholdId()
-  await assertOwnsList(householdId, listId)
-  const db = getDb()
-
-  // Only ticked items of this (already authorized) list are removed.
-  const removed = await db
-    .delete(schema.shoppingListItems)
-    .where(and(eq(schema.shoppingListItems.listId, listId), eq(schema.shoppingListItems.done, true)))
-    .returning({ id: schema.shoppingListItems.id })
-
   // No revalidatePath: it would re-render the whole page; the client drops the items itself.
-  return { removed: removed.length }
+  return clearDoneShoppingItemsForHousehold(householdId, listId)
 }
 
 /** Creates a real purchase directly from user-entered lines. It counts immediately towards

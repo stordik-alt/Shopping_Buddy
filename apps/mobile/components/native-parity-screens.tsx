@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { ArrowRight, Bell, CookingPot, House, MapPin, MoreHorizontal, Package, Search, ShoppingCart, Store, Tag, Users, WalletCards, X } from 'lucide-react-native'
 import { useMobileTheme, type ThemePreference } from '../lib/theme'
-import { addHouseholdChild, addHouseholdMember, dismissNotification, getBudgetSummary, getDealsPage, getNotificationPreferences, getNotifications, getPantry, getPantrySettings, getPurchaseHistory, getShoppingList, getStoreBranches, getStoreChains, getStorePreferences, MobileApiError, removeHouseholdChild, removeHouseholdMember, updateHouseholdMemberDiet, updateHouseholdPreferences, updateHouseholdProfile, updateNotificationPreference, updatePantrySettings, updateStorePreferences, type MobileBranchPage, type MobileChainTile, type MobileDealCategory, type MobileDealsPage, type MobileDealSort, type MobileDietAvoid, type MobileDietKey, type MobileHouseholdChild, type MobileHouseholdMember, type MobileHouseholdPreferences, type MobileHouseholdProfileData, type MobileMemberDiet, type MobileNotification, type MobileNotificationPreference, type MobilePantrySettings, type MobilePantryStockLevel, type MobilePurchase, type MobileStoreSelection } from '../lib/shopping-list-api'
+import { addHouseholdChild, addHouseholdMember, createHouseholdInvitation, dismissNotification, getBudgetSummary, getDealsPage, getHouseholdAuditLog, getHouseholdInvitations, getMealPlan, getNotificationPreferences, getNotifications, getPantry, getPantrySettings, getPendingReceiptImports, getPurchaseHistory, getShoppingList, getStoreBranches, getStoreChains, getStorePreferences, MobileApiError, removeHouseholdChild, removeHouseholdMember, resetHouseholdData, revokeHouseholdInvitation, sendTestPushNotification, updateHouseholdMemberDiet, updateHouseholdPreferences, updateHouseholdProfile, updateNotificationPreference, updatePantrySettings, updateStorePreferences, type MobileAuditEntry, type MobileBranchPage, type MobileChainTile, type MobileDealCategory, type MobileDealsPage, type MobileDealSort, type MobileDietAvoid, type MobileDietKey, type MobileHouseholdChild, type MobileHouseholdInvitation, type MobileHouseholdMember, type MobileHouseholdPreferences, type MobileHouseholdProfileData, type MobileMemberDiet, type MobileMealPlan, type MobileNotification, type MobileNotificationPreference, type MobilePantrySettings, type MobilePantryStockLevel, type MobilePurchase, type MobileStoreSelection } from '../lib/shopping-list-api'
 import type { MobileBudgetSummary, MobilePantryState } from '../lib/shopping-list-api'
 import { DIET_AVOIDS, DIETS, dietLabels } from '../../../lib/diet'
 import { CHECKIN_DAYS_BY_CATEGORY, CHECKIN_DAYS_BY_SUBCATEGORY, PANTRY_AREAS, PANTRY_LOCATIONS, checkinSubcategoryKey } from '../../../lib/pantry'
@@ -15,6 +15,9 @@ import { BRANCH_PAGE_SIZE } from '../../../lib/stores/branch-search'
 import { chainFamily } from '../../../lib/stores/chain-family'
 import { disableDevicePush, enableDevicePush, readDevicePushState, type DevicePushState } from '../lib/push-notifications'
 import { expenseCategoryColor } from '../lib/chart-colors'
+import { currentWeekStart, DAYS } from '../../../lib/meal-plans'
+import { auditDetailText, auditLabel } from '../../../lib/audit'
+import { confirmsHouseholdName, DATA_RESET_GROUPS, DATA_RESET_LABELS, type DataResetGroup } from '../../../lib/data-reset'
 
 export type NativeTab = 'home' | 'shopping' | 'pantry' | 'budget' | 'deals' | 'stores' | 'recipes' | 'profile'
 type TabLabel = NativeTab
@@ -86,12 +89,15 @@ export function NativeBottomNav({ active, onSelect }: { active: NativeTab; onSel
   )
 }
 
-export function NativeHomeScreen({ name, onSelect }: { name: string; onSelect: (tab: NativeTab) => void }) {
+export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceipts, hasPreferences }: { name: string; onSelect: (tab: NativeTab) => void; onAddToShopping: (name: string) => void; onOpenReceipts: () => void; hasPreferences: boolean }) {
   const { colors, theme } = useMobileTheme()
   const styles = useStyles()
   const [shopping, setShopping] = useState<{ remaining: number; completed: number } | null>(null)
   const [budget, setBudget] = useState<MobileBudgetSummary | null>(null)
   const [pantry, setPantry] = useState<MobilePantryState | null>(null)
+  const [mealPlan, setMealPlan] = useState<MobileMealPlan | null>(null)
+  const [receiptAttentionCount, setReceiptAttentionCount] = useState(0)
+  const [preferredDeals, setPreferredDeals] = useState<MobileDealsPage | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -112,7 +118,32 @@ export function NativeHomeScreen({ name, onSelect }: { name: string; onSelect: (
     return () => { cancelled = true }
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+    getMealPlan().then(({ plan }) => { if (!cancelled) setMealPlan(plan) }).catch(() => undefined)
+    getPendingReceiptImports().then(({ receipts }) => {
+      if (cancelled) return
+      const needsAction = new Set(['review_required', 'duplicate_review', 'ocr_failed', 'parsing_failed'])
+      setReceiptAttentionCount(receipts.filter((receipt) => needsAction.has(receipt.status) || receipt.stalled).length)
+    }).catch(() => undefined)
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    if (!hasPreferences) { setPreferredDeals(null); return }
+    let cancelled = false
+    getDealsPage({ forMe: true, page: 1, sort: 'discount' }).then((page) => { if (!cancelled) setPreferredDeals(page) }).catch(() => undefined)
+    return () => { cancelled = true }
+  }, [hasPreferences])
+
   const today = new Date().toLocaleDateString('cs-CZ', { weekday: 'long', day: 'numeric', month: 'long' })
+  const todayIso = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`
+  const todayDay = DAYS[(new Date().getDay() + 6) % 7]
+  const todayMeals = mealPlan?.weekStart === currentWeekStart(todayIso) ? mealPlan.days.find((day) => day.day === todayDay)?.meals ?? [] : []
+  const preferredDealRows = preferredDeals ? [
+    ...preferredDeals.deals.map(({ product, price }) => ({ name: product.productName, store: price.store, price: price.dealPrice ?? price.regularPrice, until: price.dealValidUntil })),
+    ...preferredDeals.offers.map((offer) => ({ name: offer.productName, store: offer.store, price: offer.dealPrice, until: offer.validUntil })),
+  ].slice(0, 3) : []
   return (
     <ScrollView contentContainerStyle={styles.screenContent}>
       <View style={styles.homeIntro}>
@@ -121,6 +152,7 @@ export function NativeHomeScreen({ name, onSelect }: { name: string; onSelect: (
         <Text style={styles.bodyText}>Tady je přehled vaší domácnosti.</Text>
       </View>
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+      {receiptAttentionCount > 0 ? <Pressable accessibilityRole="button" onPress={onOpenReceipts} style={styles.attentionCard}><Bell color={colors.warning} size={20} /><Text style={styles.attentionText}>{receiptAttentionCount} účtenek čeká na vaši kontrolu</Text><ArrowRight color={colors.mutedText} size={18} /></Pressable> : null}
       {loading ? <ActivityIndicator color={colors.primary} size="large" style={styles.loader} /> : null}
       <Pressable onPress={() => onSelect('shopping')} style={styles.dashboardCard}>
         <View style={styles.cardIcon}><ShoppingCart color={colors.primary} size={21} /></View>
@@ -160,6 +192,14 @@ export function NativeHomeScreen({ name, onSelect }: { name: string; onSelect: (
           <ArrowRight color={colors.mutedText} size={20} />
         </Pressable>
       )}
+      {todayMeals.length > 0 ? <View style={styles.chartCard}>
+        <Pressable accessibilityRole="button" onPress={() => onSelect('recipes')} style={styles.mealCardHeading}><CookingPot color={colors.accentText} size={19} /><Text style={styles.cardTitle}>Dnes vaříme</Text><Text style={styles.mealCardLink}>Jídelníček →</Text></Pressable>
+        {todayMeals.map((meal) => <Pressable key={meal.mealType} accessibilityRole="button" onPress={() => onSelect('recipes')} style={styles.mealRow}><Text style={styles.mealType}>{meal.mealType}</Text><Text numberOfLines={1} style={[styles.mealName, meal.cooked && styles.mealDone]}>{meal.recipe.name}</Text><ArrowRight color={colors.mutedText} size={16} /></Pressable>)}
+      </View> : null}
+      {preferredDealRows.length > 0 ? <View style={styles.chartCard}>
+        <Pressable accessibilityRole="button" onPress={() => onSelect('deals')} style={styles.mealCardHeading}><Tag color={colors.accentText} size={19} /><Text style={styles.cardTitle}>Akce na vaše oblíbené</Text><Text style={styles.mealCardLink}>Všechny →</Text></Pressable>
+        {preferredDealRows.map((deal) => <View key={`${deal.name}-${deal.store}`} style={styles.homeDealRow}><View style={styles.dashboardText}><Text numberOfLines={1} style={styles.dealName}>{deal.name}</Text><Text style={styles.noteText}>{deal.store}{deal.until ? ` · do ${deal.until}` : ''}</Text></View><Text style={styles.homeDealPrice}>{money(deal.price, 'CZK')}</Text><Pressable accessibilityRole="button" accessibilityLabel={`Přidat ${deal.name} na seznam`} onPress={() => onAddToShopping(deal.name)} style={styles.homeDealAdd}><Text style={styles.homeDealAddText}>+</Text></Pressable></View>)}
+      </View> : null}
       <Text style={styles.sectionHeading}>Rychlý přístup</Text>
       <View style={styles.quickActions}>
         {moreItems.slice(0, 3).map(({ key, label, Icon }) => (
@@ -311,7 +351,7 @@ export function NativeAssistantModal({ visible, onClose, onShopping }: { visible
   </Modal>
 }
 
-export function NativeNotificationsModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+export function NativeNotificationsModal({ visible, onClose, onUnreadCount }: { visible: boolean; onClose: () => void; onUnreadCount: (count: number) => void }) {
   const { colors } = useMobileTheme()
   const styles = useStyles()
   const [notifications, setNotifications] = useState<MobileNotification[]>([])
@@ -321,18 +361,20 @@ export function NativeNotificationsModal({ visible, onClose }: { visible: boolea
     if (!visible) return
     let cancelled = false
     setLoading(true); setError(null)
-    getNotifications().then(({ notifications: rows }) => { if (!cancelled) setNotifications(rows) }).catch((caught: unknown) => { if (!cancelled) setError(caught instanceof Error ? caught.message : 'Upozornění se nepodařilo načíst.') }).finally(() => { if (!cancelled) setLoading(false) })
+    getNotifications().then(({ notifications: rows }) => { if (!cancelled) { setNotifications(rows); onUnreadCount(rows.filter((notification) => notification.unread).length) } }).catch((caught: unknown) => { if (!cancelled) setError(caught instanceof Error ? caught.message : 'Upozornění se nepodařilo načíst.') }).finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [visible])
+  }, [onUnreadCount, visible])
   async function dismiss(id?: string) {
     const before = notifications
-    setNotifications(id ? before.filter((notification) => notification.id !== id) : [])
-    try { await dismissNotification(id) } catch (caught) { setNotifications(before); setError(caught instanceof Error ? caught.message : 'Upozornění se nepodařilo aktualizovat.') }
+    const next = id ? before.filter((notification) => notification.id !== id) : []
+    setNotifications(next)
+    onUnreadCount(next.filter((notification) => notification.unread).length)
+    try { await dismissNotification(id) } catch (caught) { setNotifications(before); onUnreadCount(before.filter((notification) => notification.unread).length); setError(caught instanceof Error ? caught.message : 'Upozornění se nepodařilo aktualizovat.') }
   }
   return <Modal animationType="fade" onRequestClose={onClose} transparent visible={visible}>
     <Pressable onPress={onClose} style={styles.modalScrim}>
       <Pressable onPress={(event) => event.stopPropagation()} style={styles.notificationSheet}>
-        <View style={styles.assistantHeader}><View><Text style={styles.cardTitle}>Upozornění</Text><Text style={styles.noteText}>{notifications.length ? `${notifications.length} nepřečtených` : 'Vše přečteno'}</Text></View><View style={styles.notificationActions}>{notifications.length > 0 ? <Pressable onPress={() => void dismiss()}><Text style={styles.chatLinkText}>Označit vše</Text></Pressable> : null}<Pressable accessibilityLabel="Zavřít upozornění" onPress={onClose} style={styles.closeButton}><X color={colors.secondaryText} size={20} /></Pressable></View></View>
+        <View style={styles.assistantHeader}><View><Text style={styles.cardTitle}>Upozornění</Text><Text style={styles.noteText}>{notifications.filter((notification) => notification.unread).length ? `${notifications.filter((notification) => notification.unread).length} nepřečtených` : 'Vše přečteno'}</Text></View><View style={styles.notificationActions}>{notifications.some((notification) => notification.unread) ? <Pressable onPress={() => void dismiss()}><Text style={styles.chatLinkText}>Označit vše</Text></Pressable> : null}<Pressable accessibilityLabel="Zavřít upozornění" onPress={onClose} style={styles.closeButton}><X color={colors.secondaryText} size={20} /></Pressable></View></View>
         {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
         {loading ? <ActivityIndicator color={colors.primary} style={styles.loader} /> : null}
         <ScrollView contentContainerStyle={styles.notificationList}>
@@ -377,6 +419,7 @@ function NativeDevicePushSetting({ onAuthExpired }: { onAuthExpired: () => void 
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
   useEffect(() => {
     let active = true
     readDevicePushState().then((next) => { if (active) setState(next) }).catch((caught: unknown) => {
@@ -389,6 +432,7 @@ function NativeDevicePushSetting({ onAuthExpired }: { onAuthExpired: () => void 
   async function toggle(enabled: boolean) {
     setBusy(true)
     setError(null)
+    setMessage(null)
     try {
       if (enabled) setState(await enableDevicePush())
       else if (state.token) {
@@ -401,14 +445,29 @@ function NativeDevicePushSetting({ onAuthExpired }: { onAuthExpired: () => void 
     } finally { setBusy(false) }
   }
 
+  async function sendTest() {
+    setBusy(true)
+    setError(null)
+    setMessage(null)
+    try {
+      await sendTestPushNotification()
+      setMessage('Zkušební upozornění je na cestě.')
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Zkušební upozornění se nepodařilo odeslat.')
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+    } finally { setBusy(false) }
+  }
+
   return <View style={styles.devicePushCard}>
-    <View style={styles.preferenceDescription}><Text style={styles.cardTitle}>Upozornění na tomto zařízení</Text><Text style={styles.noteText}>{loading ? 'Ověřuji nastavení zařízení…' : state.registered ? 'Toto zařízení dostává push upozornění.' : state.permissionGranted ? 'Povolení zařízení je zapnuté, odběr aplikace je vypnutý.' : 'Zapněte upozornění pro tuto instalaci aplikace.'}</Text></View>
-    <Switch accessibilityLabel="Push upozornění na tomto zařízení" value={state.registered} disabled={loading || busy} onValueChange={(enabled) => void toggle(enabled)} trackColor={{ false: colors.border, true: colors.accent }} thumbColor={colors.card} />
+    <View style={styles.sectionHeader}><View style={styles.preferenceDescription}><Text style={styles.cardTitle}>Upozornění na tomto zařízení</Text><Text style={styles.noteText}>{loading ? 'Ověřuji nastavení zařízení…' : state.registered ? 'Toto zařízení dostává push upozornění.' : state.permissionGranted ? 'Povolení zařízení je zapnuté, odběr aplikace je vypnutý.' : 'Zapněte upozornění pro tuto instalaci aplikace.'}</Text></View>
+    <Switch accessibilityLabel="Push upozornění na tomto zařízení" value={state.registered} disabled={loading || busy} onValueChange={(enabled) => void toggle(enabled)} trackColor={{ false: colors.border, true: colors.accent }} thumbColor={colors.card} /></View>
+    {state.registered ? <Pressable accessibilityRole="button" disabled={busy} onPress={() => void sendTest()} style={styles.pushTestButton}><Text style={styles.profileSmallActionText}>{busy ? 'Odesílám…' : 'Poslat zkušební upozornění'}</Text></Pressable> : null}
     {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+    {message ? <Text accessibilityRole="text" style={styles.success}>{message}</Text> : null}
   </View>
 }
 
-export function NativeProfileScreen({ name, email, householdRole, householdName, householdBudget, householdCurrency, profile, onUpdateHousehold, onProfileUpdate, onAuthExpired, onSignOut }: {
+export function NativeProfileScreen({ name, email, householdRole, householdName, householdBudget, householdCurrency, profile, onUpdateHousehold, onProfileUpdate, onAuthExpired, onSignOut, onReload }: {
   name: string
   email: string
   householdRole: string
@@ -420,6 +479,7 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
   onProfileUpdate: (profile: MobileHouseholdProfileData) => void
   onAuthExpired: () => void
   onSignOut: () => void
+  onReload: () => Promise<void>
 }) {
   const { colors, preference, setPreference } = useMobileTheme()
   const styles = useStyles()
@@ -429,6 +489,19 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [preferences, setPreferences] = useState<MobileNotificationPreference[]>([])
+  const [invitations, setInvitations] = useState<MobileHouseholdInvitation[]>([])
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null)
+  const [inviteError, setInviteError] = useState<string | null>(null)
+  const [inviteBusy, setInviteBusy] = useState(false)
+  const [auditEntries, setAuditEntries] = useState<MobileAuditEntry[] | null>(null)
+  const [auditLoading, setAuditLoading] = useState(false)
+  const [auditError, setAuditError] = useState<string | null>(null)
+  const [resetOpen, setResetOpen] = useState(false)
+  const [resetGroups, setResetGroups] = useState<DataResetGroup[]>([])
+  const [resetName, setResetName] = useState('')
+  const [resetBusy, setResetBusy] = useState(false)
+  const [resetError, setResetError] = useState<string | null>(null)
   const [preferencesError, setPreferencesError] = useState<string | null>(null)
   const [profileSection, setProfileSection] = useState<'household' | 'shopping' | 'pantry' | 'appearance' | 'notifications'>('household')
   const [profileError, setProfileError] = useState<string | null>(null)
@@ -482,6 +555,17 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
     setNameDraft(householdName)
     setBudgetDraft(String(householdBudget).replace('.', ','))
   }, [householdName, householdBudget])
+
+  useEffect(() => {
+    if (!householdRole) return
+    let active = true
+    getHouseholdInvitations().then(({ invitations: rows }) => { if (active) setInvitations(rows) }).catch((caught: unknown) => {
+      if (!active) return
+      setInviteError(caught instanceof Error ? caught.message : 'Pozvánky se nepodařilo načíst.')
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+    })
+    return () => { active = false }
+  }, [householdRole, onAuthExpired])
 
   useEffect(() => {
     if (!profile) return
@@ -783,6 +867,69 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
     }
   }
 
+  async function sendHouseholdInvite() {
+    const email = inviteEmail.trim()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setInviteError('Zadejte platnou e-mailovou adresu.')
+      return
+    }
+    setInviteBusy(true)
+    setInviteError(null)
+    try {
+      const result = await createHouseholdInvitation(email)
+      setInvitations((current) => [result.invitation, ...current.filter((item) => item.id !== result.invitation.id)])
+      setInviteUrl(result.url)
+      setInviteEmail('')
+    } catch (caught) {
+      setInviteError(caught instanceof Error ? caught.message : 'Pozvánku se nepodařilo vytvořit.')
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+    } finally { setInviteBusy(false) }
+  }
+
+  async function shareHouseholdInvite() {
+    if (!inviteUrl) return
+    try { await Share.share({ message: `Pozvánka do domácnosti ${householdName}: ${inviteUrl}` }) }
+    catch (caught) { setInviteError(caught instanceof Error ? caught.message : 'Pozvánku se nepodařilo sdílet.') }
+  }
+
+  async function revokeInvitation(invitation: MobileHouseholdInvitation) {
+    setInviteBusy(true)
+    setInviteError(null)
+    try {
+      await revokeHouseholdInvitation(invitation.id)
+      setInvitations((current) => current.filter((item) => item.id !== invitation.id))
+    } catch (caught) {
+      setInviteError(caught instanceof Error ? caught.message : 'Pozvánku se nepodařilo zrušit.')
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+    } finally { setInviteBusy(false) }
+  }
+
+  async function loadAuditLog() {
+    setAuditLoading(true)
+    setAuditError(null)
+    try { setAuditEntries((await getHouseholdAuditLog()).entries) }
+    catch (caught) {
+      setAuditError(caught instanceof Error ? caught.message : 'Historii změn se nepodařilo načíst.')
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+    } finally { setAuditLoading(false) }
+  }
+
+  async function confirmDataReset() {
+    setResetBusy(true)
+    setResetError(null)
+    try {
+      const result = await resetHouseholdData(resetGroups, resetName)
+      setResetOpen(false)
+      setResetGroups([])
+      setResetName('')
+      await onReload()
+      if (result.photosFailed > 0) Alert.alert('Data smazána', `Některé fotografie účtenek se nepodařilo odstranit (${result.photosFailed}).`)
+    } catch (caught) {
+      setResetError(caught instanceof Error ? caught.message : 'Data se nepodařilo smazat.')
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+    } finally { setResetBusy(false) }
+  }
+
   async function saveHousehold() {
     const monthlyBudget = Number(budgetDraft.replace(/[\s ]/g, '').replace(',', '.'))
     if (!Number.isFinite(monthlyBudget) || monthlyBudget < 0) {
@@ -867,6 +1014,23 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
           </View> : null}
         </View>
       </> : <View style={styles.emptyCard}><Text style={styles.cardTitle}>Profil domácnosti se nepodařilo načíst</Text><Text style={styles.bodyText}>Obnovte účet nebo zkuste načíst profil znovu.</Text></View>}
+      {householdRole === 'owner' ? <View style={styles.preferenceCard}>
+        <Text style={styles.cardEyebrow}>ČLENSTVÍ V DOMÁCNOSTI</Text><Text style={styles.cardTitle}>Pozvat člena</Text><Text style={styles.bodyText}>Pozvánka platí 7 dní. Odkaz můžete poslat přes systémové sdílení telefonu.</Text>
+        <View style={styles.rowFields}><TextInput accessibilityLabel="E-mail člena domácnosti" autoCapitalize="none" keyboardType="email-address" onChangeText={setInviteEmail} onSubmitEditing={() => void sendHouseholdInvite()} placeholder="email@rodina.cz" placeholderTextColor={colors.mutedText} style={[styles.profileInput, styles.flexInput]} value={inviteEmail} /><Pressable accessibilityRole="button" disabled={inviteBusy} onPress={() => void sendHouseholdInvite()} style={[styles.inlineAction, inviteBusy && styles.disabled]}><Text style={styles.inlineActionText}>{inviteBusy ? 'Vytvářím…' : 'Pozvat'}</Text></Pressable></View>
+        {inviteUrl ? <Pressable accessibilityRole="button" onPress={() => void shareHouseholdInvite()} style={styles.secondaryAction}><Text style={styles.secondaryActionText}>Sdílet pozvánku</Text></Pressable> : null}
+        {invitations.map((invitation) => <View key={invitation.id} style={styles.pantrySettingRow}><View style={styles.preferenceDescription}><Text style={styles.bodyText}>{invitation.email}</Text><Text style={styles.noteText}>Pozvánka čeká · platí do {new Date(invitation.expiresAt).toLocaleDateString('cs-CZ')}</Text></View><Pressable accessibilityRole="button" accessibilityLabel={`Zrušit pozvánku pro ${invitation.email}`} disabled={inviteBusy} onPress={() => void revokeInvitation(invitation)} style={styles.removeIconButton}><Text style={styles.removeIconText}>×</Text></Pressable></View>)}
+        {inviteError ? <Text accessibilityRole="alert" style={styles.error}>{inviteError}</Text> : null}
+      </View> : invitations.length > 0 ? <View style={styles.preferenceCard}><Text style={styles.cardTitle}>Čekající pozvánky</Text>{invitations.map((invitation) => <Text key={invitation.id} style={styles.bodyText}>{invitation.email} · platí do {new Date(invitation.expiresAt).toLocaleDateString('cs-CZ')}</Text>)}</View> : null}
+      {householdRole === 'owner' ? <View style={styles.preferenceCard}>
+        <Text style={styles.cardEyebrow}>DOMÁCNOST</Text><Text style={styles.cardTitle}>Historie změn</Text><Text style={styles.bodyText}>Kdo upravil rozpočet, výdaje, příjmy a členy domácnosti.</Text>
+        {auditEntries === null ? <Pressable accessibilityRole="button" disabled={auditLoading} onPress={() => void loadAuditLog()} style={[styles.secondaryAction, auditLoading && styles.disabled]}><Text style={styles.secondaryActionText}>{auditLoading ? 'Načítám historii…' : 'Zobrazit historii'}</Text></Pressable> : auditEntries.length === 0 ? <Text style={styles.noteText}>Zatím tu není žádná zaznamenaná změna. Historie se uchovává jeden rok.</Text> : auditEntries.map((entry) => <View key={entry.id} style={styles.auditRow}><Text style={styles.bodyText}>{entry.actor ?? 'Bývalý člen'} · {auditLabel(entry.action)}</Text><Text style={styles.noteText}>{new Date(entry.createdAt).toLocaleString('cs-CZ')}{auditDetailText(entry.detail) ? ` · ${auditDetailText(entry.detail)}` : ''}</Text></View>)}
+        {auditError ? <Text accessibilityRole="alert" style={styles.error}>{auditError}</Text> : null}
+      </View> : null}
+      {householdRole === 'owner' ? <View style={styles.preferenceCard}>
+        <Text style={styles.cardEyebrow}>DOMÁCNOST</Text><Text style={styles.cardTitle}>Smazání dat</Text>
+        <Text style={styles.bodyText}>Nevratně smaže vybraná data pro celou domácnost. Profil, členové, preference a nastavení zůstanou.</Text>
+        <Pressable accessibilityRole="button" onPress={() => { setResetGroups([]); setResetName(''); setResetError(null); setResetOpen(true) }} style={styles.dangerAction}><Text style={styles.dangerActionText}>Smazat data…</Text></Pressable>
+      </View> : null}
       {profileError ? <Text accessibilityRole="alert" style={styles.error}>{profileError}</Text> : null}
     </> : null}
 
@@ -986,6 +1150,21 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
     </View> : null}
     <Pressable accessibilityRole="button" onPress={onSignOut} style={styles.signOutButton}><Text style={styles.signOutText}>Odhlásit se</Text></Pressable>
 
+    <Modal animationType="slide" onRequestClose={() => { if (!resetBusy) setResetOpen(false) }} transparent visible={resetOpen}>
+      <View style={styles.modalScrim}><ScrollView contentContainerStyle={styles.dietModalScroll} keyboardShouldPersistTaps="handled"><View style={styles.dietModal}>
+        <View style={styles.sectionHeader}><View style={styles.preferenceDescription}><Text style={styles.sheetTitle}>Smazat data domácnosti</Text><Text style={styles.bodyText}>Smazání je nevratné a týká se všech členů domácnosti.</Text></View><Pressable accessibilityLabel="Zavřít" accessibilityRole="button" disabled={resetBusy} onPress={() => setResetOpen(false)} style={styles.closeButton}><X color={colors.foreground} size={20} /></Pressable></View>
+        <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: resetGroups.length === DATA_RESET_GROUPS.length }} onPress={() => setResetGroups(resetGroups.length === DATA_RESET_GROUPS.length ? [] : [...DATA_RESET_GROUPS])} style={styles.resetChoice}><View style={[styles.branchCheckbox, resetGroups.length === DATA_RESET_GROUPS.length && styles.branchCheckboxSelected]}><Text style={styles.branchCheckmark}>{resetGroups.length === DATA_RESET_GROUPS.length ? '✓' : ''}</Text></View><Text style={styles.cardTitle}>Vybrat vše</Text></Pressable>
+        {DATA_RESET_GROUPS.map((group) => {
+          const selected = resetGroups.includes(group)
+          return <Pressable key={group} accessibilityRole="checkbox" accessibilityState={{ checked: selected }} onPress={() => setResetGroups((current) => selected ? current.filter((value) => value !== group) : [...current, group])} style={styles.resetChoice}><View style={[styles.branchCheckbox, selected && styles.branchCheckboxSelected]}><Text style={styles.branchCheckmark}>{selected ? '✓' : ''}</Text></View><View style={styles.preferenceDescription}><Text style={styles.cardTitle}>{DATA_RESET_LABELS[group].title}</Text><Text style={styles.noteText}>{DATA_RESET_LABELS[group].description}</Text></View></Pressable>
+        })}
+        <Text style={styles.profileFieldLabel}>Pro potvrzení napište název domácnosti: {householdName}</Text>
+        <TextInput accessibilityLabel="Potvrzovací název domácnosti" autoCapitalize="none" autoCorrect={false} editable={!resetBusy} onChangeText={setResetName} placeholder={householdName} placeholderTextColor={colors.mutedText} style={styles.profileInput} value={resetName} />
+        {resetError ? <Text accessibilityRole="alert" style={styles.error}>{resetError}</Text> : null}
+        <View style={styles.rowActions}><Pressable accessibilityRole="button" disabled={resetBusy} onPress={() => setResetOpen(false)} style={styles.secondaryAction}><Text style={styles.secondaryActionText}>Zrušit</Text></Pressable><Pressable accessibilityRole="button" disabled={resetBusy || resetGroups.length === 0 || !confirmsHouseholdName(resetName, householdName)} onPress={() => void confirmDataReset()} style={[styles.dangerAction, (resetBusy || resetGroups.length === 0 || !confirmsHouseholdName(resetName, householdName)) && styles.disabled]}><Text style={styles.dangerActionText}>{resetBusy ? 'Mažu…' : 'Smazat navždy'}</Text></Pressable></View>
+      </View></ScrollView></View>
+    </Modal>
+
     <Modal animationType="slide" onRequestClose={() => setEditingDietMember(null)} transparent visible={editingDietMember !== null}>
       <View style={styles.modalScrim}><ScrollView contentContainerStyle={styles.dietModalScroll} keyboardShouldPersistTaps="handled"><View style={styles.dietModal}>
         <View style={styles.sectionHeader}><View style={styles.preferenceDescription}><Text style={styles.sheetTitle}>Stravování: {editingDietMember?.name}</Text><Text style={styles.bodyText}>Recepty zohlední preference všech členů domácnosti.</Text></View><Pressable accessibilityLabel="Zavřít stravování" accessibilityRole="button" onPress={() => setEditingDietMember(null)} style={styles.closeButton}><X color={colors.foreground} size={20} /></Pressable></View>
@@ -1011,7 +1190,19 @@ function useStyles() {
   bodyText: { color: colors.secondaryText, fontSize: 13, lineHeight: 19 },
   loader: { marginVertical: 18 },
   dashboardCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 18, padding: 15 },
+  attentionCard: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 13, borderWidth: 1, borderColor: colors.warning, borderRadius: 15, backgroundColor: colors.card },
+  attentionText: { flex: 1, color: colors.foreground, fontSize: 13, fontWeight: '600' },
   chartCard: { gap: 10, padding: 15, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 18 },
+  mealCardHeading: { minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 9 },
+  mealCardLink: { marginLeft: 'auto', color: colors.accentText, fontSize: 12, fontWeight: '700' },
+  mealRow: { minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 8, borderTopWidth: 1, borderTopColor: colors.border },
+  mealType: { width: 74, color: colors.mutedText, fontSize: 12 },
+  mealName: { flex: 1, color: colors.foreground, fontSize: 13, fontWeight: '600' },
+  mealDone: { color: colors.mutedText, textDecorationLine: 'line-through' },
+  homeDealRow: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.border },
+  homeDealPrice: { color: colors.foreground, fontSize: 13, fontWeight: '700' },
+  homeDealAdd: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.accentSubtle },
+  homeDealAddText: { color: colors.accentText, fontSize: 22, lineHeight: 25, fontWeight: '600' },
   chartRow: { gap: 5 },
   chartLabelRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
   chartTrack: { height: 8, overflow: 'hidden', borderRadius: 8, backgroundColor: colors.muted },
@@ -1138,6 +1329,7 @@ function useStyles() {
   profileSmallActionText: { color: colors.accentText, fontSize: 12, fontWeight: '700' },
   formPanel: { gap: 9, padding: 12, borderRadius: 14, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.border },
   pantrySettingRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, minHeight: 48, paddingVertical: 7, borderTopWidth: 1, borderTopColor: colors.border },
+  auditRow: { gap: 3, paddingVertical: 9, borderTopWidth: 1, borderTopColor: colors.border },
   pantrySubform: { width: '100%', gap: 8, paddingTop: 4, paddingBottom: 6 },
   hiddenLocation: { color: colors.mutedText, textDecorationLine: 'line-through' },
   dangerAction: { minHeight: 40, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, borderRadius: 12, backgroundColor: colors.destructiveSubtle },
@@ -1148,6 +1340,7 @@ function useStyles() {
   pantryCheckinGroup: { gap: 6 },
   branchPicker: { gap: 8, padding: 10, borderRadius: 14, backgroundColor: colors.muted },
   branchChoice: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: colors.border },
+  resetChoice: { minHeight: 48, flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.border },
   branchCheckbox: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center', borderRadius: 6, borderWidth: 1, borderColor: colors.inputBorder, backgroundColor: colors.card },
   branchCheckboxSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
   branchCheckmark: { color: colors.primaryForeground, fontSize: 14, fontWeight: '800' },
@@ -1173,7 +1366,8 @@ function useStyles() {
   themeChoiceText: { color: colors.secondaryText, fontSize: 13, fontWeight: '600' },
   themeChoiceTextSelected: { color: colors.accentText },
   preferenceRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderTopColor: colors.border, borderTopWidth: 1 },
-  devicePushCard: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6, padding: 12, borderRadius: 14, backgroundColor: colors.muted },
+  devicePushCard: { gap: 9, marginTop: 6, padding: 12, borderRadius: 14, backgroundColor: colors.muted },
+  pushTestButton: { minHeight: 36, alignSelf: 'flex-start', justifyContent: 'center', paddingHorizontal: 10, borderRadius: 11, backgroundColor: colors.accentSubtle },
   preferenceDescription: { flex: 1, gap: 3 },
 }), [colors])
 }

@@ -152,6 +152,8 @@ export type MobileHouseholdPreferences = {
 }
 export type MobileHouseholdProfileData = { members: MobileHouseholdMember[]; children: MobileHouseholdChild[]; preferences: MobileHouseholdPreferences }
 export type MobileHouseholdProfile = { id: string; role: string; name: string; monthlyBudget: number; currency: string; profile?: MobileHouseholdProfileData }
+export type MobileHouseholdInvitation = { id: string; email: string; expiresAt: string }
+export type MobileAuditEntry = { id: string; action: string; actor: string | null; detail: Record<string, string | number | boolean | null>; createdAt: string }
 
 export type MobileDealCategory = 'Potraviny' | 'Drogerie' | 'Děti' | 'Domácnost' | 'Ostatní'
 export type MobileDealSort = 'name' | 'price' | 'discount' | 'store'
@@ -284,6 +286,29 @@ export function removeHouseholdChild(childId: string) {
   return request<{ ok: true }>(`/api/mobile/household-profile/children?id=${encodeURIComponent(childId)}`, { method: 'DELETE' })
 }
 
+export function getHouseholdInvitations() {
+  return request<{ invitations: MobileHouseholdInvitation[] }>('/api/mobile/household-profile/invitations')
+}
+
+export function createHouseholdInvitation(email: string) {
+  return request<{ invitation: MobileHouseholdInvitation; token: string; url: string }>('/api/mobile/household-profile/invitations', { method: 'POST', body: JSON.stringify({ email }) })
+}
+
+export function revokeHouseholdInvitation(invitationId: string) {
+  return request<{ ok: true }>(`/api/mobile/household-profile/invitations/${encodeURIComponent(invitationId)}`, { method: 'DELETE' })
+}
+
+export function getHouseholdAuditLog() {
+  return request<{ entries: MobileAuditEntry[] }>('/api/mobile/household-profile/audit-log')
+}
+
+export function resetHouseholdData(groups: string[], typedName: string) {
+  return request<{ ok: true; photosFailed: number }>('/api/mobile/household-profile/reset-data', {
+    method: 'POST',
+    body: JSON.stringify({ groups, typedName }),
+  })
+}
+
 export type MobileNotificationPreference = { key: string; label: string; description: string; enabled: boolean }
 
 export function getNotificationPreferences() {
@@ -292,6 +317,10 @@ export function getNotificationPreferences() {
 
 export function updateNotificationPreference(kind: string, enabled: boolean) {
   return request<{ kind: string; enabled: boolean }>('/api/mobile/notification-preferences', { method: 'PATCH', body: JSON.stringify({ kind, enabled }) })
+}
+
+export function sendTestPushNotification() {
+  return request<{ ok: true }>('/api/mobile/push-subscription/test', { method: 'POST', body: JSON.stringify({}) })
 }
 
 export function getDevicePushStatus(token: string) {

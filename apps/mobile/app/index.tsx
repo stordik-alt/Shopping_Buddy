@@ -58,6 +58,7 @@ import {
 import {
   addShoppingItem,
   getCurrentUser,
+  getNotifications,
   getShoppingList,
   lookupBarcode,
   MobileApiError,
@@ -194,6 +195,7 @@ export default function HomeScreen() {
   const [recipeView, setRecipeView] = useState<'recipes' | 'meals'>('recipes')
   const [assistantOpen, setAssistantOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
   const [signedIn, setSignedIn] = useState(false)
   const [busy, setBusy] = useState(true)
   const [signingIn, setSigningIn] = useState(false)
@@ -304,6 +306,7 @@ export default function HomeScreen() {
         setItems([])
         setPendingChanges(0)
         setOffline(false)
+        setUnreadNotificationCount(0)
         offlineSnapshot.current = null
         await clearLastOfflineContext()
         return
@@ -337,6 +340,7 @@ export default function HomeScreen() {
         setItems([])
         setPendingChanges(0)
         setOffline(false)
+        setUnreadNotificationCount(0)
         offlineSnapshot.current = null
         await clearLastOfflineContext()
         return
@@ -387,6 +391,7 @@ export default function HomeScreen() {
       }
       setHouseholdMissing(false)
       setHouseholdAvailable(true)
+      void getNotifications().then(({ notifications }) => setUnreadNotificationCount(notifications.filter((notification) => notification.unread).length)).catch(() => undefined)
     } catch (caught) {
       setError(errorMessage(caught))
       if (caught instanceof MobileApiError && caught.status === 401) setSignedIn(false)
@@ -618,7 +623,7 @@ export default function HomeScreen() {
             <Text numberOfLines={1} style={styles.nativeHeaderTitle}>{householdAvailable ? pageTitle : 'Nákup'}</Text>
           </View>
           <View style={styles.nativeHeaderActions}>
-            <Pressable accessibilityLabel="Upozornění" accessibilityRole="button" onPress={() => setNotificationsOpen(true)} style={styles.headerIconButton}><Bell color={colors.primary} size={20} /></Pressable>
+            <Pressable accessibilityLabel={unreadNotificationCount ? `Upozornění, ${unreadNotificationCount} nepřečtených` : 'Upozornění'} accessibilityRole="button" onPress={() => setNotificationsOpen(true)} style={styles.headerIconButton}><Bell color={colors.primary} size={20} />{unreadNotificationCount > 0 ? <View style={styles.notificationBadge}><Text style={styles.notificationBadgeText}>{unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}</Text></View> : null}</Pressable>
             <Pressable accessibilityLabel={`Profil: ${userName}`} accessibilityRole="button" onPress={() => setActiveTab('profile')} style={styles.profileHeaderButton}>
               <Text style={styles.profileHeaderInitials}>{userName.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase() || '?'}</Text>
               <ChevronDown color={colors.mutedText} size={13} />
@@ -653,7 +658,13 @@ export default function HomeScreen() {
         ) : (
           <>
             {activeTab === 'home' ? (
-              <NativeHomeScreen name={userName} onSelect={setActiveTab} />
+              <NativeHomeScreen
+                hasPreferences={Boolean(householdProfile && (householdProfile.preferences.preferredProducts.length || householdProfile.preferences.preferredBrands.length))}
+                name={userName}
+                onAddToShopping={(name) => void handleAdd(name)}
+                onOpenReceipts={() => { setShoppingView('receipts'); setActiveTab('shopping') }}
+                onSelect={setActiveTab}
+              />
             ) : activeTab === 'shopping' ? (
               <>
                 <View style={styles.sectionSwitcher}>
@@ -766,6 +777,7 @@ export default function HomeScreen() {
                 name={userName}
                 onAuthExpired={handleAuthExpired}
                 onProfileUpdate={setHouseholdProfile}
+                onReload={load}
                 onSignOut={() => void handleSignOut()}
                 onUpdateHousehold={(changes) => {
                   setHouseholdName(changes.name)
@@ -792,7 +804,7 @@ export default function HomeScreen() {
         {householdAvailable ? <NativeBottomNav active={activeTab} onSelect={setActiveTab} /> : null}
       </KeyboardAvoidingView>
       <NativeAssistantModal onClose={() => setAssistantOpen(false)} onShopping={() => setActiveTab('shopping')} visible={assistantOpen} />
-      <NativeNotificationsModal onClose={() => setNotificationsOpen(false)} visible={notificationsOpen} />
+      <NativeNotificationsModal onClose={() => setNotificationsOpen(false)} onUnreadCount={setUnreadNotificationCount} visible={notificationsOpen} />
       <BarcodeScannerModal
         busy={barcodeBusy}
         onBarcodeScanned={(barcode) => void handleBarcodeScanned(barcode)}
@@ -817,7 +829,9 @@ function useStyles() {
   nativeHeaderLeft: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 11 },
   nativeHeaderTitle: { flexShrink: 1, color: colors.foreground, fontSize: 16, fontWeight: '700' },
   nativeHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  headerIconButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 14 },
+  headerIconButton: { position: 'relative', width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 14 },
+  notificationBadge: { position: 'absolute', top: 1, right: 0, minWidth: 17, height: 17, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3, borderRadius: 9, backgroundColor: colors.destructive },
+  notificationBadgeText: { color: colors.primaryForeground, fontSize: 9, lineHeight: 12, fontWeight: '800' },
   profileHeaderButton: { minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, borderRadius: 14, backgroundColor: colors.muted },
   profileHeaderInitials: { color: colors.primary, fontSize: 12, fontWeight: '800' },
   sectionSwitcher: { minHeight: 42, flexDirection: 'row', alignSelf: 'stretch', alignItems: 'center', padding: 4, marginHorizontal: 16, marginTop: 8, marginBottom: 4, borderRadius: 14, backgroundColor: colors.muted },

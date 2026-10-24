@@ -12,12 +12,16 @@ export async function GET(request: Request) {
     const member = await mobileHouseholdForUser(user.id)
     if (!member) return json({ error: 'household_required' }, 409)
     const notifications = await getDb().query.notifications.findMany({
-      where: eq(schema.notifications.householdId, member.householdId),
+      where: and(eq(schema.notifications.householdId, member.householdId), eq(schema.notifications.unread, true)),
       orderBy: [desc(schema.notifications.createdAt)],
-      limit: 30,
+      limit: 50,
       columns: { id: true, title: true, detail: true, unread: true, kind: true },
     })
-    return json({ notifications })
+    const muted = await getDb().select({ kind: schema.memberNotificationSettings.kind })
+      .from(schema.memberNotificationSettings)
+      .where(and(eq(schema.memberNotificationSettings.memberId, member.id), eq(schema.memberNotificationSettings.enabled, false)))
+    const mutedKinds = new Set(muted.map((row) => row.kind))
+    return json({ notifications: notifications.filter((notification) => !notification.kind || !mutedKinds.has(notification.kind)) })
   } catch (error) {
     if (error instanceof MobileRequestAuthError) return json({ error: error.code }, error.status)
     console.error('[mobile notifications]', error)

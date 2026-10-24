@@ -1865,10 +1865,10 @@ export const memberNotificationSettings = pgTable(
 )
 
 // One browser/phone that agreed to receive push notifications for a household member (Web Push,
-// lib/push/). `endpoint` is the push service URL the browser created for this app and identifies the
-// device, so it is unique: re-subscribing the same browser updates its row instead of adding another,
-// and a browser handed to a different account moves with it. Deleted when the push service reports
-// the subscription gone (404/410), when the member turns push off, or with the member/household.
+// lib/push/). Web Push rows use the browser endpoint and its ECDH keys; Expo rows use an exp.host
+// URL containing the Expo token and the literal `expo` marker in both key columns. The endpoint is
+// unique, so re-subscribing the same device updates its row instead of adding another, and a device
+// handed to a different account moves with it. Expired subscriptions are removed after delivery.
 export const pushSubscriptions = pgTable(
   'push_subscriptions',
   {
@@ -1876,7 +1876,7 @@ export const pushSubscriptions = pgTable(
     householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
     memberId: uuid('member_id').notNull().references(() => householdMembers.id, { onDelete: 'cascade' }),
     endpoint: text('endpoint').notNull(),
-    // The browser's ECDH public key and auth secret (base64url) that each message is encrypted for.
+    // Web Push: the browser's ECDH keys. Expo: both fields are the fixed marker `expo`.
     p256dh: text('p256dh').notNull(),
     auth: text('auth').notNull(),
     createdAt: timestamp('created_at').notNull().defaultNow(),

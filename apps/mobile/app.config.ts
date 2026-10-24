@@ -12,6 +12,7 @@ const config: ExpoConfig = {
   userInterfaceStyle: 'automatic',
   plugins: [
     'expo-router',
+    'expo-notifications',
     [
       'expo-camera',
       {

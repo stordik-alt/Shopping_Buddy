@@ -27,8 +27,7 @@ import {
 } from '../lib/shopping-list-api'
 import { RefreshButton } from './refresh-button'
 import { useMobileTheme } from '../lib/theme'
-
-const chartColors = ['#03bcdb', '#747ce8', '#ee9b43', '#45b887', '#e36b84', '#9684d9']
+import { expenseCategoryColor } from '../lib/chart-colors'
 
 function money(amount: number, currency: string): string {
   try {
@@ -295,7 +294,7 @@ function BudgetPlanningScreen({
 }
 
 export function BudgetScreen({ onAuthExpired }: { onAuthExpired: () => void }) {
-  const { colors } = useMobileTheme()
+  const { colors, theme } = useMobileTheme()
   const styles = useStyles()
   const [summary, setSummary] = useState<MobileBudgetSummary | null>(null)
   const [planning, setPlanning] = useState<MobileBudgetPlanning | null>(null)
@@ -449,12 +448,12 @@ export function BudgetScreen({ onAuthExpired }: { onAuthExpired: () => void }) {
                     const circumference = 2 * Math.PI * 46
                     const ratio = summary.spent > 0 ? Math.max(0, category.total) / summary.spent : 0
                     const offset = summary.categories.slice(0, index).reduce((sum, row) => sum + (summary.spent > 0 ? Math.max(0, row.total) / summary.spent : 0), 0) * circumference
-                    return <Circle key={category.category} cx="60" cy="60" r="46" fill="none" stroke={chartColors[index % chartColors.length]} strokeWidth="13" strokeDasharray={`${ratio * circumference} ${circumference}`} strokeDashoffset={-offset} transform="rotate(-90 60 60)" />
+                    return <Circle key={category.category} cx="60" cy="60" r="46" fill="none" stroke={expenseCategoryColor(category.category, theme)} strokeWidth="13" strokeDasharray={`${ratio * circumference} ${circumference}`} strokeDashoffset={-offset} transform="rotate(-90 60 60)" />
                   })}
                 </Svg>
                 <View style={styles.donutCenter}><Text style={styles.donutValue}>{money(summary.spent, summary.currency)}</Text><Text style={styles.supporting}>utraceno</Text></View>
               </View>
-              <View style={styles.legend}>{summary.categories.map((category, index) => <View key={category.category} style={styles.legendRow}><View style={[styles.legendDot, { backgroundColor: chartColors[index % chartColors.length] }]} /><Text numberOfLines={1} style={styles.legendName}>{category.category}</Text><Text style={styles.legendValue}>{money(category.total, summary.currency)}</Text></View>)}</View>
+              <View style={styles.legend}>{summary.categories.map((category) => <View key={category.category} style={styles.legendRow}><View style={[styles.legendDot, { backgroundColor: expenseCategoryColor(category.category, theme) }]} /><Text numberOfLines={1} style={styles.legendName}>{category.category}</Text><Text style={styles.legendValue}>{money(category.total, summary.currency)}</Text></View>)}</View>
             </View> : null}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Výdaje podle kategorií</Text>

@@ -16,9 +16,11 @@ import {
   View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import * as Notifications from 'expo-notifications'
 import { Bell, ChevronDown } from 'lucide-react-native'
 import { ITEM_UNITS, unitLabel, type ItemUnit } from '@anitka/shared/units'
 import { useMobileTheme } from '../lib/theme'
+import { unregisterDevicePushForSignOut } from '../lib/push-notifications'
 import { BudgetScreen } from '../components/budget-screen'
 import { PantryScreen } from '../components/pantry-screen'
 import { RecipesScreen } from '../components/recipes-screen'
@@ -219,6 +221,21 @@ export default function HomeScreen() {
   const barcodeHandled = useRef(false)
   const offlineSnapshot = useRef<OfflineShoppingSnapshot | null>(null)
 
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data
+      const url = typeof data?.url === 'string' ? data.url : '/'
+      const slug = new URL(url, 'https://anitka.example').searchParams.get('tab')
+      const tabs: Record<string, NativeTab> = {
+        akce: 'deals', nakup: 'shopping', zasoby: 'pantry', obchody: 'stores',
+        recepty: 'recipes', rozpocet: 'budget', profil: 'profile',
+      }
+      setActiveTab(slug ? tabs[slug] ?? 'home' : 'home')
+      setNotificationsOpen(false)
+    })
+    return () => subscription.remove()
+  }, [])
+
   function showSnapshot(snapshot: OfflineShoppingSnapshot) {
     offlineSnapshot.current = snapshot
     setPendingChanges(snapshot.pending.length)
@@ -399,6 +416,7 @@ export default function HomeScreen() {
   async function handleSignOut() {
     setBusy(true)
     try {
+      await unregisterDevicePushForSignOut().catch(() => undefined)
       await signOut()
       await clearLastOfflineContext()
       setSignedIn(false)

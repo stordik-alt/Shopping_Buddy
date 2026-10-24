@@ -2,9 +2,19 @@ import { useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { ArrowRight, Bell, CookingPot, House, MapPin, MoreHorizontal, Package, Search, ShoppingCart, Store, Tag, Users, WalletCards, X } from 'lucide-react-native'
 import { useMobileTheme, type ThemePreference } from '../lib/theme'
-import { addHouseholdChild, addHouseholdMember, dismissNotification, getBudgetSummary, getDealsPage, getNotificationPreferences, getNotifications, getPantry, getPurchaseHistory, getShoppingList, getStoreBranches, getStoreChains, MobileApiError, removeHouseholdChild, removeHouseholdMember, updateHouseholdMemberDiet, updateHouseholdPreferences, updateHouseholdProfile, updateNotificationPreference, type MobileBranchPage, type MobileChainTile, type MobileDealCategory, type MobileDealsPage, type MobileDealSort, type MobileDietAvoid, type MobileDietKey, type MobileHouseholdChild, type MobileHouseholdMember, type MobileHouseholdPreferences, type MobileHouseholdProfileData, type MobileMemberDiet, type MobileNotification, type MobileNotificationPreference, type MobilePurchase } from '../lib/shopping-list-api'
+import { addHouseholdChild, addHouseholdMember, dismissNotification, getBudgetSummary, getDealsPage, getNotificationPreferences, getNotifications, getPantry, getPantrySettings, getPurchaseHistory, getShoppingList, getStoreBranches, getStoreChains, getStorePreferences, MobileApiError, removeHouseholdChild, removeHouseholdMember, updateHouseholdMemberDiet, updateHouseholdPreferences, updateHouseholdProfile, updateNotificationPreference, updatePantrySettings, updateStorePreferences, type MobileBranchPage, type MobileChainTile, type MobileDealCategory, type MobileDealsPage, type MobileDealSort, type MobileDietAvoid, type MobileDietKey, type MobileHouseholdChild, type MobileHouseholdMember, type MobileHouseholdPreferences, type MobileHouseholdProfileData, type MobileMemberDiet, type MobileNotification, type MobileNotificationPreference, type MobilePantrySettings, type MobilePantryStockLevel, type MobilePurchase, type MobileStoreSelection } from '../lib/shopping-list-api'
 import type { MobileBudgetSummary, MobilePantryState } from '../lib/shopping-list-api'
 import { DIET_AVOIDS, DIETS, dietLabels } from '../../../lib/diet'
+import { CHECKIN_DAYS_BY_CATEGORY, CHECKIN_DAYS_BY_SUBCATEGORY, PANTRY_AREAS, PANTRY_LOCATIONS, checkinSubcategoryKey } from '../../../lib/pantry'
+import { subcategoriesOfItem } from '../../../lib/product-subcategories'
+import { PRODUCT_TYPES } from '../../../lib/product-types'
+import { DOSE_TYPE_KEYS } from '../../../lib/units'
+import { ITEM_UNITS, unitLabel, type ItemUnit } from '@anitka/shared/units'
+import { MAX_DISTANCE_KM, MAX_SHOP_STORES, normalizeDistanceKm, parseDistanceInput } from '../../../lib/nearby-stores'
+import { BRANCH_PAGE_SIZE } from '../../../lib/stores/branch-search'
+import { chainFamily } from '../../../lib/stores/chain-family'
+import { disableDevicePush, enableDevicePush, readDevicePushState, type DevicePushState } from '../lib/push-notifications'
+import { expenseCategoryColor } from '../lib/chart-colors'
 
 export type NativeTab = 'home' | 'shopping' | 'pantry' | 'budget' | 'deals' | 'stores' | 'recipes' | 'profile'
 type TabLabel = NativeTab
@@ -22,6 +32,22 @@ const moreItems: { key: TabLabel; label: string; Icon: typeof House }[] = [
   { key: 'recipes', label: 'Recepty', Icon: CookingPot },
   { key: 'profile', label: 'Profil', Icon: Users },
 ]
+
+const retailerLogos: Record<string, number> = {
+  Lidl: require('../assets/retailer-logos/lidl.png'),
+  Kaufland: require('../assets/retailer-logos/kaufland.png'),
+  Billa: require('../assets/retailer-logos/billa.png'),
+  Penny: require('../assets/retailer-logos/penny.png'),
+}
+const retailerFallbacks: Record<string, string> = { Albert: '#f4b183', JIP: '#c9b8ef' }
+
+function NativeStoreMark({ chain }: { chain: string }) {
+  const family = chainFamily(chain)
+  const source = retailerLogos[family]
+  const styles = useStyles()
+  if (source) return <View style={styles.storeLogo}><Image accessibilityElementsHidden resizeMode="contain" source={source} style={styles.storeLogoImage} /></View>
+  return <View accessibilityElementsHidden style={[styles.storeLogo, { backgroundColor: retailerFallbacks[family] ?? '#e8e8e4' }]}><Text style={styles.storeLogoText}>{family.slice(0, 3)}</Text></View>
+}
 
 export function NativeBottomNav({ active, onSelect }: { active: NativeTab; onSelect: (tab: NativeTab) => void }) {
   const { colors } = useMobileTheme()
@@ -61,7 +87,7 @@ export function NativeBottomNav({ active, onSelect }: { active: NativeTab; onSel
 }
 
 export function NativeHomeScreen({ name, onSelect }: { name: string; onSelect: (tab: NativeTab) => void }) {
-  const { colors } = useMobileTheme()
+  const { colors, theme } = useMobileTheme()
   const styles = useStyles()
   const [shopping, setShopping] = useState<{ remaining: number; completed: number } | null>(null)
   const [budget, setBudget] = useState<MobileBudgetSummary | null>(null)
@@ -116,10 +142,10 @@ export function NativeHomeScreen({ name, onSelect }: { name: string; onSelect: (
       </Pressable>
       {budget?.categories.length ? <View style={styles.chartCard}>
         <Text style={styles.cardTitle}>Výdaje podle kategorií</Text>
-        {budget.categories.slice().sort((a, b) => b.total - a.total).slice(0, 4).map((category, index) => (
+        {budget.categories.slice().sort((a, b) => b.total - a.total).slice(0, 4).map((category) => (
           <View key={category.category} style={styles.chartRow}>
             <View style={styles.chartLabelRow}><Text style={styles.bodyText}>{category.category}</Text><Text style={styles.bodyText}>{money(category.total, budget.currency)}</Text></View>
-            <View style={styles.chartTrack}><View style={[styles.chartFill, { backgroundColor: chartColors[index % chartColors.length], width: `${budget.spent > 0 ? Math.min(100, category.total / budget.spent * 100) : 0}%` }]} /></View>
+            <View style={styles.chartTrack}><View style={[styles.chartFill, { backgroundColor: expenseCategoryColor(category.category, theme), width: `${budget.spent > 0 ? Math.min(100, category.total / budget.spent * 100) : 0}%` }]} /></View>
           </View>
         ))}
       </View> : null}
@@ -252,10 +278,10 @@ export function NativeStoresScreen() {
     {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
     {loading ? <ActivityIndicator color={colors.primary} style={styles.loader} /> : null}
     {!selected ? chains.map((chain) => <Pressable key={chain.storeId} onPress={() => void openChain(chain)} style={styles.storeCard}>
-      <View style={styles.storeIcon}><Store color={colors.primary} size={21} /></View><View style={styles.dashboardText}><Text style={styles.cardTitle}>{chain.chain}</Text><Text style={styles.bodyText}>{chain.branchCount} prodejen · {chain.dealsCount} dnešních akcí</Text></View><ArrowRight color={colors.mutedText} size={19} />
+      <NativeStoreMark chain={chain.chain} /><View style={styles.dashboardText}><Text style={styles.cardTitle}>{chain.chain}</Text><Text style={styles.bodyText}>{chain.branchCount} prodejen · {chain.dealsCount} dnešních akcí</Text></View><ArrowRight color={colors.mutedText} size={19} />
     </Pressable>) : <>
       <Text style={styles.sectionHeading}>{selected.chain} · {branches?.total ?? 0} prodejen</Text>
-      {branches?.rows.map((branch) => <View key={branch.id} style={styles.branchCard}><Text style={styles.cardTitle}>{branch.name}</Text><Text style={styles.bodyText}>{branch.address}, {branch.city}</Text>{branch.hours ? <Text style={styles.noteText}>{branch.hours}</Text> : null}</View>)}
+      {branches?.rows.map((branch) => <View key={branch.id} style={styles.branchCard}><NativeStoreMark chain={branch.chain} /><View style={styles.dashboardText}><Text style={styles.cardTitle}>{branch.name}</Text><Text style={styles.bodyText}>{branch.address}, {branch.city}</Text>{branch.hours ? <Text style={styles.noteText}>{branch.hours}</Text> : null}</View></View>)}
       {branches?.total === 0 ? <View style={styles.emptyCard}><Text style={styles.bodyText}>Pro tento řetězec zde nejsou evidované prodejny.</Text></View> : null}
     </>}
     {!loading && !selected && chains.length === 0 ? <View style={styles.emptyCard}><Text style={styles.bodyText}>Pro toto místo se nepodařilo najít obchody.</Text></View> : null}
@@ -344,6 +370,44 @@ export function NativePurchasesScreen() {
   </ScrollView>
 }
 
+function NativeDevicePushSetting({ onAuthExpired }: { onAuthExpired: () => void }) {
+  const { colors } = useMobileTheme()
+  const styles = useStyles()
+  const [state, setState] = useState<DevicePushState>({ permissionGranted: false, registered: false, token: null })
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    let active = true
+    readDevicePushState().then((next) => { if (active) setState(next) }).catch((caught: unknown) => {
+      if (active) setError(caught instanceof Error ? caught.message : 'Stav upozornění se nepodařilo ověřit.')
+      if (active && caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+    }).finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [onAuthExpired])
+
+  async function toggle(enabled: boolean) {
+    setBusy(true)
+    setError(null)
+    try {
+      if (enabled) setState(await enableDevicePush())
+      else if (state.token) {
+        await disableDevicePush(state.token)
+        setState((current) => ({ ...current, registered: false }))
+      }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Nastavení upozornění se nepodařilo změnit.')
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+    } finally { setBusy(false) }
+  }
+
+  return <View style={styles.devicePushCard}>
+    <View style={styles.preferenceDescription}><Text style={styles.cardTitle}>Upozornění na tomto zařízení</Text><Text style={styles.noteText}>{loading ? 'Ověřuji nastavení zařízení…' : state.registered ? 'Toto zařízení dostává push upozornění.' : state.permissionGranted ? 'Povolení zařízení je zapnuté, odběr aplikace je vypnutý.' : 'Zapněte upozornění pro tuto instalaci aplikace.'}</Text></View>
+    <Switch accessibilityLabel="Push upozornění na tomto zařízení" value={state.registered} disabled={loading || busy} onValueChange={(enabled) => void toggle(enabled)} trackColor={{ false: colors.border, true: colors.accent }} thumbColor={colors.card} />
+    {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+  </View>
+}
+
 export function NativeProfileScreen({ name, email, householdRole, householdName, householdBudget, householdCurrency, profile, onUpdateHousehold, onProfileUpdate, onAuthExpired, onSignOut }: {
   name: string
   email: string
@@ -366,7 +430,7 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
   const [error, setError] = useState<string | null>(null)
   const [preferences, setPreferences] = useState<MobileNotificationPreference[]>([])
   const [preferencesError, setPreferencesError] = useState<string | null>(null)
-  const [profileSection, setProfileSection] = useState<'household' | 'shopping' | 'appearance' | 'notifications'>('household')
+  const [profileSection, setProfileSection] = useState<'household' | 'shopping' | 'pantry' | 'appearance' | 'notifications'>('household')
   const [profileError, setProfileError] = useState<string | null>(null)
   const [profileBusy, setProfileBusy] = useState(false)
   const [memberFormOpen, setMemberFormOpen] = useState(false)
@@ -386,6 +450,34 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
   const [priceSensitivity, setPriceSensitivity] = useState<MobileHouseholdPreferences['priceSensitivity']>('balanced')
   const [qualityPreference, setQualityPreference] = useState<MobileHouseholdPreferences['qualityPreference']>('standard')
   const [preferCzechProducts, setPreferCzechProducts] = useState(false)
+  const [storeSelection, setStoreSelection] = useState<MobileStoreSelection | null>(null)
+  const [storeChains, setStoreChains] = useState<{ id: string; chain: string; isOnline: boolean }[]>([])
+  const [storeChainIds, setStoreChainIds] = useState<string[]>([])
+  const [storePriorityIds, setStorePriorityIds] = useState<string[]>([])
+  const [storeLocationIds, setStoreLocationIds] = useState<string[]>([])
+  const [storeDistance, setStoreDistance] = useState('')
+  const [storeMaxCount, setStoreMaxCount] = useState('')
+  const [storeLoading, setStoreLoading] = useState(true)
+  const [storeSaving, setStoreSaving] = useState(false)
+  const [storeError, setStoreError] = useState<string | null>(null)
+  const [branchChainId, setBranchChainId] = useState('')
+  const [branchCity, setBranchCity] = useState('')
+  const [branchPage, setBranchPage] = useState<MobileBranchPage | null>(null)
+  const [branchPageNumber, setBranchPageNumber] = useState(1)
+  const [branchLoading, setBranchLoading] = useState(false)
+  const [pantrySettings, setPantrySettings] = useState<MobilePantrySettings | null>(null)
+  const [pantryLoading, setPantryLoading] = useState(true)
+  const [pantryLoadError, setPantryLoadError] = useState<string | null>(null)
+  const [placeArea, setPlaceArea] = useState<(typeof PANTRY_AREAS)[number]>('Auto')
+  const [placeName, setPlaceName] = useState('')
+  const [removingLocation, setRemovingLocation] = useState<string | null>(null)
+  const [locationTarget, setLocationTarget] = useState('')
+  const [stockTypeQuery, setStockTypeQuery] = useState('')
+  const [stockTypeKey, setStockTypeKey] = useState('')
+  const [stockMinimum, setStockMinimum] = useState('')
+  const [stockMaximum, setStockMaximum] = useState('')
+  const [stockUnit, setStockUnit] = useState<ItemUnit>('ks')
+  const [checkinDrafts, setCheckinDrafts] = useState<Record<string, string>>({})
   useEffect(() => {
     setNameDraft(householdName)
     setBudgetDraft(String(householdBudget).replace('.', ','))
@@ -404,9 +496,184 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
     setPreferCzechProducts(profile.preferences.preferCzechProducts)
   }, [profile])
 
+  useEffect(() => {
+    let active = true
+    getPantrySettings().then((settings) => { if (active) setPantrySettings(settings) }).catch((caught: unknown) => {
+      if (!active) return
+      setPantryLoadError(caught instanceof Error ? caught.message : 'Nastavení zásob se nepodařilo načíst.')
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+    }).finally(() => { if (active) setPantryLoading(false) })
+    return () => { active = false }
+  }, [onAuthExpired])
+
+  useEffect(() => {
+    let active = true
+    getStorePreferences().then(({ selection, chains }) => {
+      if (!active) return
+      setStoreSelection(selection)
+      setStoreChains(chains)
+      setStoreChainIds(selection.chainIds)
+      setStorePriorityIds(selection.priorityChainIds)
+      setStoreLocationIds(selection.branches.map((branch) => branch.storeLocationId))
+      setStoreDistance(selection.maxDistanceKm == null ? '' : String(selection.maxDistanceKm).replace('.', ','))
+      setStoreMaxCount(selection.maxShopStores == null ? '' : String(selection.maxShopStores))
+    }).catch((caught: unknown) => {
+      if (!active) return
+      setStoreError(caught instanceof Error ? caught.message : 'Nastavení obchodů se nepodařilo načíst.')
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+    }).finally(() => { if (active) setStoreLoading(false) })
+    return () => { active = false }
+  }, [onAuthExpired])
+
   function publishProfile(next: MobileHouseholdProfileData) {
     onProfileUpdate(next)
     setProfileError(null)
+  }
+
+  async function mutatePantrySettings(change: Record<string, unknown>) {
+    setProfileBusy(true)
+    setProfileError(null)
+    try {
+      const next = await updatePantrySettings(change)
+      setPantrySettings(next)
+      setPantryLoadError(null)
+      return true
+    } catch (caught) {
+      setProfileError(caught instanceof Error ? caught.message : 'Nastavení zásob se nepodařilo uložit.')
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+      return false
+    } finally { setProfileBusy(false) }
+  }
+
+  async function addPantryPlace() {
+    if (!placeName.trim()) return
+    if (await mutatePantrySettings({ action: 'add-place', area: placeArea, name: placeName.trim() })) setPlaceName('')
+  }
+
+  function confirmRemovePantryPlace(place: { id: string; name: string }) {
+    Alert.alert('Odebrat vlastní místo?', place.name, [
+      { text: 'Zrušit', style: 'cancel' },
+      { text: 'Odebrat', style: 'destructive', onPress: () => { void mutatePantrySettings({ action: 'remove-place', placeId: place.id }) } },
+    ])
+  }
+
+  async function removePantryLocation(location: string) {
+    const count = pantrySettings?.locationCounts[location] ?? 0
+    if (count > 0 && !locationTarget) {
+      setProfileError('Vyberte, kam přesunout položky z tohoto místa.')
+      return
+    }
+    if (await mutatePantrySettings({ action: 'remove-location', location, ...(count > 0 ? { targetKey: locationTarget } : {}) })) {
+      setRemovingLocation(null)
+      setLocationTarget('')
+    }
+  }
+
+  function chooseStockType(productTypeKey: string) {
+    const type = PRODUCT_TYPES.find((candidate) => candidate.key === productTypeKey)
+    if (!type) return
+    const existing = pantrySettings?.stockLevels.find((level) => level.productTypeKey === type.key)
+    setStockTypeKey(type.key)
+    setStockTypeQuery(type.name)
+    setStockMinimum(existing ? String(existing.minQuantity) : '')
+    setStockMaximum(existing ? String(existing.maxQuantity) : '')
+    setStockUnit(existing?.unit ?? (DOSE_TYPE_KEYS.has(type.key) ? 'dávka' : type.unit))
+  }
+
+  async function saveStockLevel() {
+    const minimum = Number(stockMinimum.replace(',', '.'))
+    const maximum = Number(stockMaximum.replace(',', '.'))
+    if (!stockTypeKey || !Number.isFinite(minimum) || !Number.isFinite(maximum)) {
+      setProfileError('Vyberte druh zboží a vyplňte minimum i maximum.')
+      return
+    }
+    if (await mutatePantrySettings({ action: 'set-stock-level', productTypeKey: stockTypeKey, minQuantity: minimum, maxQuantity: maximum, unit: stockUnit })) {
+      setStockTypeQuery(''); setStockTypeKey(''); setStockMinimum(''); setStockMaximum('')
+    }
+  }
+
+  async function saveCheckin(key: string, category: string, subcategory: string | undefined, defaultDays: number) {
+    const raw = checkinDrafts[key] ?? String(subcategory ? pantrySettings?.subcategoryCheckinDays[key] ?? defaultDays : pantrySettings?.checkinDays[category as keyof MobilePantrySettings['checkinDays']] ?? defaultDays)
+    const days = raw.trim() === '' || Number(raw) === defaultDays ? null : Number(raw)
+    if (days !== null && (!Number.isInteger(days) || days < 1 || days > 365)) {
+      setProfileError('Počet dní musí být celé číslo mezi 1 a 365.')
+      return
+    }
+    if (await mutatePantrySettings({ action: 'set-checkin', category, ...(subcategory ? { subcategory } : {}), days })) {
+      setCheckinDrafts((current) => { const next = { ...current }; delete next[key]; return next })
+    }
+  }
+
+  function toggleStoreChain(id: string) {
+    const selected = storeChainIds.includes(id)
+    const nextIds = selected ? storeChainIds.filter((value) => value !== id) : [...storeChainIds, id]
+    setStoreChainIds(nextIds)
+    if (selected) {
+      setStorePriorityIds((values) => values.filter((value) => value !== id))
+      const removedBranches = new Set([
+        ...(storeSelection?.branches.filter((branch) => branch.storeId === id).map((branch) => branch.storeLocationId) ?? []),
+        ...(branchPage?.rows.filter((branch) => branch.storeId === id).map((branch) => branch.id) ?? []),
+      ])
+      setStoreLocationIds((values) => values.filter((value) => !removedBranches.has(value)))
+      if (branchChainId === id) { setBranchChainId(''); setBranchPage(null) }
+    }
+    setStoreError(null)
+  }
+
+  async function loadPreferenceBranches(chainId = branchChainId, page = 1) {
+    if (!chainId) return
+    setBranchLoading(true)
+    setStoreError(null)
+    try {
+      const result = await getStoreBranches(branchCity.trim(), chainId, page)
+      setBranchPage(result)
+      setBranchPageNumber(result.page)
+      setBranchChainId(chainId)
+    } catch (caught) {
+      setStoreError(caught instanceof Error ? caught.message : 'Prodejny se nepodařilo načíst.')
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+    } finally { setBranchLoading(false) }
+  }
+
+  async function saveStorePreferences() {
+    const distanceValue = parseDistanceInput(storeDistance)
+    const maxDistanceKm = distanceValue === null ? null : normalizeDistanceKm(distanceValue)
+    const maxShopStores = storeMaxCount === '' ? null : Number(storeMaxCount)
+    if ((distanceValue !== null && (Number.isNaN(distanceValue) || maxDistanceKm === null)) || (maxShopStores !== null && (!Number.isInteger(maxShopStores) || maxShopStores < 1 || maxShopStores > MAX_SHOP_STORES))) {
+      setStoreError(`Vzdálenost musí být mezi 0,1 a ${MAX_DISTANCE_KM} km a počet obchodů 1 až ${MAX_SHOP_STORES}.`)
+      return
+    }
+    setStoreSaving(true)
+    setStoreError(null)
+    try {
+      const { selection: saved } = await updateStorePreferences({
+        chainIds: storeChainIds,
+        priorityChainIds: storePriorityIds.filter((id) => storeChainIds.includes(id)),
+        locationIds: storeLocationIds,
+        maxDistanceKm,
+        maxShopStores,
+      })
+      setStoreSelection(saved)
+      setStoreChainIds(saved.chainIds)
+      setStorePriorityIds(saved.priorityChainIds)
+      setStoreLocationIds(saved.branches.map((branch) => branch.storeLocationId))
+      setStoreDistance(saved.maxDistanceKm == null ? '' : String(saved.maxDistanceKm).replace('.', ','))
+      setStoreMaxCount(saved.maxShopStores == null ? '' : String(saved.maxShopStores))
+      setMessage('Moje obchody byly uloženy.')
+    } catch (caught) {
+      setStoreError(caught instanceof Error ? caught.message : 'Nastavení obchodů se nepodařilo uložit.')
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+    } finally { setStoreSaving(false) }
+  }
+
+  function renderCheckinRow(key: string, label: string, category: keyof typeof CHECKIN_DAYS_BY_CATEGORY, subcategory: string | undefined, defaultDays: number) {
+    const saved = subcategory ? pantrySettings?.subcategoryCheckinDays[key] : pantrySettings?.checkinDays[category]
+    const value = checkinDrafts[key] ?? String(saved ?? defaultDays)
+    return <View key={key} style={styles.pantrySettingRow}>
+      <View style={styles.preferenceDescription}><Text style={styles.bodyText}>{label}</Text><Text style={styles.noteText}>{saved != null ? 'Vlastní hodnota' : `Výchozí: ${defaultDays} dní`}</Text></View>
+      <TextInput accessibilityLabel={`Počet dní: ${label}`} keyboardType="number-pad" onChangeText={(text) => setCheckinDrafts((current) => ({ ...current, [key]: text }))} style={styles.checkinInput} value={value} />
+      <Pressable accessibilityRole="button" disabled={profileBusy} onPress={() => void saveCheckin(key, category, subcategory, defaultDays)} style={styles.profileSmallAction}><Text style={styles.profileSmallActionText}>Uložit</Text></Pressable>
+    </View>
   }
 
   async function createMember() {
@@ -540,6 +807,7 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
   const sections = [
     ['household', 'Domácnost'],
     ['shopping', 'Nákup'],
+    ['pantry', 'Zásoby'],
     ['appearance', 'Vzhled'],
     ['notifications', 'Upozornění'],
   ] as const
@@ -602,7 +870,46 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
       {profileError ? <Text accessibilityRole="alert" style={styles.error}>{profileError}</Text> : null}
     </> : null}
 
-    {profileSection === 'shopping' ? <View style={styles.preferenceCard}>
+    {profileSection === 'shopping' ? <>
+      <View style={styles.preferenceCard}>
+        <Text style={styles.cardEyebrow}>MŮJ NÁKUP · OBCHODY</Text><Text style={styles.cardTitle}>Moje obchody v okolí</Text><Text style={styles.bodyText}>Výběr je osobní. Akce a ceny se přizpůsobí obchodům, kam běžně chodíte.</Text>
+        {storeLoading ? <ActivityIndicator color={colors.primary} style={styles.loader} /> : <>
+          <Text style={styles.profileFieldLabel}>Obchodní řetězce</Text>
+          <View style={styles.themeChoices}>{storeChains.map((chain) => {
+            const selected = storeChainIds.includes(chain.id)
+            return <Pressable key={chain.id} accessibilityRole="checkbox" accessibilityState={{ checked: selected }} onPress={() => toggleStoreChain(chain.id)} style={[styles.themeChoice, selected && styles.themeChoiceSelected]}><Text style={[styles.themeChoiceText, selected && styles.themeChoiceTextSelected]}>{selected ? '✓  ' : ''}{chain.chain}{chain.isOnline ? ' · online' : ''}</Text></Pressable>
+          })}</View>
+          {storeChains.length === 0 ? <Text style={styles.noteText}>Obchody nejsou dostupné.</Text> : null}
+          {storeChainIds.length === 0 && storeChains.length > 0 ? <Text style={styles.noteText}>Bez výběru se zobrazují ceny ze všech obchodů.</Text> : null}
+          {storeChainIds.length > 0 ? <>
+            <Text style={styles.profileFieldLabel}>Prioritní obchody</Text><Text style={styles.noteText}>Plán nákupu je upřednostní, pokud jejich cena není výrazně vyšší.</Text>
+            <View style={styles.themeChoices}>{storeChains.filter((chain) => storeChainIds.includes(chain.id)).map((chain) => {
+              const selected = storePriorityIds.includes(chain.id)
+              return <Pressable key={chain.id} accessibilityRole="checkbox" accessibilityState={{ checked: selected }} onPress={() => setStorePriorityIds((current) => selected ? current.filter((id) => id !== chain.id) : [...current, chain.id])} style={[styles.themeChoice, selected && styles.themeChoiceSelected]}><Text style={[styles.themeChoiceText, selected && styles.themeChoiceTextSelected]}>{selected ? '★  ' : '☆  '}{chain.chain}</Text></Pressable>
+            })}</View>
+            <Text style={styles.profileFieldLabel}>Konkrétní prodejny (volitelné)</Text><Text style={styles.noteText}>Bez výběru se počítá celý řetězec. Vybráno: {storeLocationIds.length} prodejen.</Text>
+            <View style={styles.themeChoices}>{storeChains.filter((chain) => storeChainIds.includes(chain.id) && !chain.isOnline).map((chain) => <Pressable key={chain.id} accessibilityRole="button" accessibilityState={{ expanded: branchChainId === chain.id }} onPress={() => { setBranchChainId(branchChainId === chain.id ? '' : chain.id); setBranchPage(null); setBranchCity('') }} style={[styles.themeChoice, branchChainId === chain.id && styles.themeChoiceSelected]}><Text style={[styles.themeChoiceText, branchChainId === chain.id && styles.themeChoiceTextSelected]}>{chain.chain} · {storeSelection?.branches.filter((branch) => branch.storeId === chain.id).length ?? 0}</Text></Pressable>)}</View>
+            {branchChainId ? <View style={styles.branchPicker}>
+              <Text style={styles.noteText}>Vybrat prodejny · {storeChains.find((chain) => chain.id === branchChainId)?.chain}</Text>
+              <View style={styles.searchBox}><MapPin color={colors.mutedText} size={18} /><TextInput accessibilityLabel="Město nebo ulice pro prodejnu" onChangeText={setBranchCity} onSubmitEditing={() => void loadPreferenceBranches(branchChainId)} placeholder="Město nebo ulice" placeholderTextColor={colors.mutedText} style={styles.searchInput} value={branchCity} /><Pressable accessibilityRole="button" disabled={branchLoading} onPress={() => void loadPreferenceBranches(branchChainId)}><Search color={colors.accentText} size={19} /></Pressable></View>
+              {branchLoading ? <ActivityIndicator color={colors.primary} /> : null}
+              {branchPage?.rows.map((branch) => {
+                const selected = storeLocationIds.includes(branch.id)
+                return <Pressable key={branch.id} accessibilityRole="checkbox" accessibilityState={{ checked: selected }} onPress={() => setStoreLocationIds((current) => selected ? current.filter((id) => id !== branch.id) : [...current, branch.id])} style={styles.branchChoice}><View style={[styles.branchCheckbox, selected && styles.branchCheckboxSelected]}><Text style={styles.branchCheckmark}>{selected ? '✓' : ''}</Text></View><View style={styles.preferenceDescription}><Text style={styles.bodyText}>{branch.name}</Text><Text style={styles.noteText}>{[branch.address, branch.city].filter(Boolean).join(', ')}</Text></View></Pressable>
+              })}
+              {branchPage && branchPage.total > 0 ? <View style={styles.pagination}><Pressable accessibilityRole="button" disabled={branchPageNumber <= 1 || branchLoading} onPress={() => void loadPreferenceBranches(branchChainId, branchPageNumber - 1)} style={styles.pageButton}><Text style={styles.pageText}>Předchozí</Text></Pressable><Text style={styles.noteText}>{branchPageNumber} · {Math.ceil(branchPage.total / BRANCH_PAGE_SIZE)}</Text><Pressable accessibilityRole="button" disabled={branchPageNumber >= Math.ceil(branchPage.total / BRANCH_PAGE_SIZE) || branchLoading} onPress={() => void loadPreferenceBranches(branchChainId, branchPageNumber + 1)} style={styles.pageButton}><Text style={styles.pageText}>Další</Text></Pressable></View> : null}
+              {branchPage?.total === 0 ? <Text style={styles.noteText}>Prodejny nebyly nalezeny.</Text> : null}
+            </View> : null}
+          </> : null}
+          <Text style={styles.profileFieldLabel}>Kolik obchodů maximálně navštívím při jednom nákupu</Text>
+          <View style={styles.themeChoices}>{['', ...Array.from({ length: MAX_SHOP_STORES }, (_, index) => String(index + 1))].map((value) => <Pressable key={value || 'unset'} accessibilityRole="radio" accessibilityState={{ checked: storeMaxCount === value }} onPress={() => setStoreMaxCount(value)} style={[styles.themeChoice, storeMaxCount === value && styles.themeChoiceSelected]}><Text style={[styles.themeChoiceText, storeMaxCount === value && styles.themeChoiceTextSelected]}>{value || 'Bez limitu'}</Text></Pressable>)}</View>
+          <Text style={styles.profileFieldLabel}>Kolik km jsem ochoten dojet kvůli nákupu</Text>
+          <View style={styles.rowFields}><TextInput accessibilityLabel="Maximální vzdálenost v kilometrech" keyboardType="decimal-pad" onChangeText={setStoreDistance} placeholder="Např. 2" placeholderTextColor={colors.mutedText} style={[styles.profileInput, styles.distanceInput]} value={storeDistance} /><Text style={styles.bodyText}>km · nejvýše {MAX_DISTANCE_KM} km</Text></View>
+          {storeError ? <Text accessibilityRole="alert" style={styles.error}>{storeError}</Text> : null}
+          <Pressable accessibilityRole="button" disabled={storeSaving || storeLoading || !storeSelection} onPress={() => void saveStorePreferences()} style={[styles.profileSaveButton, (storeSaving || storeLoading || !storeSelection) && styles.disabled]}><Text style={styles.profileSaveText}>{storeSaving ? 'Ukládám…' : 'Uložit obchody'}</Text></Pressable>
+        </>}
+      </View>
+      <View style={styles.preferenceCard}>
       <Text style={styles.cardEyebrow}>NÁKUP A OBCHODY</Text><Text style={styles.cardTitle}>Nákupní preference domácnosti</Text><Text style={styles.bodyText}>Nastavení pomáhá vybírat produkty, obchody a ceny.</Text>
       {profile ? <>
         {preferenceFields.map(([key, label, placeholder]) => <View key={key}><Text style={styles.profileFieldLabel}>{label}</Text><TextInput accessibilityLabel={label} onChangeText={(value) => setPreferenceLists((current) => ({ ...current, [key]: value }))} placeholder={placeholder} placeholderTextColor={colors.mutedText} style={styles.profileInput} value={preferenceLists[key]} /></View>)}
@@ -612,7 +919,59 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
         {profileError ? <Text accessibilityRole="alert" style={styles.error}>{profileError}</Text> : null}
         <Pressable accessibilityRole="button" disabled={profileBusy} onPress={() => void saveShoppingPreferences()} style={[styles.profileSaveButton, profileBusy && styles.disabled]}><Text style={styles.profileSaveText}>{profileBusy ? 'Ukládám…' : 'Uložit nákupní preference'}</Text></Pressable>
       </> : <Text style={styles.bodyText}>Nákupní preference domácnosti nejsou dostupné.</Text>}
-    </View> : null}
+      </View>
+    </> : null}
+
+    {profileSection === 'pantry' ? <>
+      {pantryLoading ? <View style={styles.emptyCard}><ActivityIndicator color={colors.primary} /><Text style={styles.bodyText}>Načítám nastavení zásob…</Text></View> : pantryLoadError ? <Text accessibilityRole="alert" style={styles.error}>{pantryLoadError}</Text> : pantrySettings ? <>
+        <View style={styles.preferenceCard}>
+          <Text style={styles.cardEyebrow}>ZÁSOBY · MÍSTA</Text><Text style={styles.cardTitle}>Vlastní místa</Text><Text style={styles.bodyText}>Přidejte domácí úložná místa nebo upravte výchozí místa.</Text>
+          <Text style={styles.profileFieldLabel}>Oblast</Text><View style={styles.themeChoices}>{PANTRY_AREAS.map((area) => <Pressable key={area} accessibilityRole="button" accessibilityState={{ selected: placeArea === area }} onPress={() => setPlaceArea(area)} style={[styles.themeChoice, placeArea === area && styles.themeChoiceSelected]}><Text style={[styles.themeChoiceText, placeArea === area && styles.themeChoiceTextSelected]}>{area}</Text></Pressable>)}</View>
+          <TextInput accessibilityLabel="Název vlastního místa" onChangeText={setPlaceName} placeholder="Např. Sklep nebo kufr auta" placeholderTextColor={colors.mutedText} style={styles.profileInput} value={placeName} />
+          <Pressable accessibilityRole="button" disabled={profileBusy || !placeName.trim()} onPress={() => void addPantryPlace()} style={[styles.profileSaveButton, (profileBusy || !placeName.trim()) && styles.disabled]}><Text style={styles.profileSaveText}>Přidat místo</Text></Pressable>
+          {pantrySettings.customPlaces.map((place) => <View key={place.id} style={styles.pantrySettingRow}><View style={styles.preferenceDescription}><Text style={styles.cardTitle}>{place.name}</Text><Text style={styles.noteText}>{place.area}</Text></View><Pressable accessibilityLabel={`Odebrat místo ${place.name}`} accessibilityRole="button" disabled={profileBusy} onPress={() => confirmRemovePantryPlace(place)} style={styles.removeIconButton}><Text style={styles.removeIconText}>×</Text></Pressable></View>)}
+          <Text style={styles.profileFieldLabel}>Výchozí místa</Text>
+          {PANTRY_LOCATIONS.map((location) => {
+            const hidden = pantrySettings.hiddenLocations.includes(location)
+            const count = pantrySettings.locationCounts[location] ?? 0
+            const removing = removingLocation === location
+            const targets = pantrySettings.placeOptions.filter((place) => place.key !== location)
+            return <View key={location} style={styles.pantrySettingRow}>
+              <View style={styles.preferenceDescription}><Text style={[styles.bodyText, hidden && styles.hiddenLocation]}>{location}</Text><Text style={styles.noteText}>{count} položek</Text></View>
+              {hidden ? <Pressable accessibilityRole="button" disabled={profileBusy} onPress={() => void mutatePantrySettings({ action: 'restore-location', location })} style={styles.profileSmallAction}><Text style={styles.profileSmallActionText}>Obnovit</Text></Pressable> : <Pressable accessibilityRole="button" disabled={profileBusy} onPress={() => { setRemovingLocation(removing ? null : location); setLocationTarget(''); setProfileError(null) }} style={styles.removeIconButton}><Text style={styles.removeIconText}>{removing ? '×' : '−'}</Text></Pressable>}
+              {removing ? <View style={styles.pantrySubform}>
+                {count > 0 ? <><Text style={styles.noteText}>Přesuňte {count} položek do:</Text><View style={styles.themeChoices}>{targets.map((target) => <Pressable key={target.key} accessibilityRole="button" accessibilityState={{ selected: locationTarget === target.key }} onPress={() => setLocationTarget(target.key)} style={[styles.themeChoice, locationTarget === target.key && styles.themeChoiceSelected]}><Text style={[styles.themeChoiceText, locationTarget === target.key && styles.themeChoiceTextSelected]}>{target.name}</Text></Pressable>)}</View></> : <Text style={styles.noteText}>Místo neobsahuje žádné položky.</Text>}
+                <Pressable accessibilityRole="button" disabled={profileBusy || (count > 0 && !locationTarget)} onPress={() => void removePantryLocation(location)} style={[styles.dangerAction, (profileBusy || (count > 0 && !locationTarget)) && styles.disabled]}><Text style={styles.dangerActionText}>Odebrat výchozí místo</Text></Pressable>
+              </View> : null}
+            </View>
+          })}
+        </View>
+
+        <View style={styles.preferenceCard}>
+          <Text style={styles.cardEyebrow}>ZÁSOBY · HLÍDÁNÍ</Text><Text style={styles.cardTitle}>Hlídané zásoby</Text><Text style={styles.bodyText}>Nastavte minimum a maximum podle druhu zboží. Při akci pak aplikace navrhne doplnění do maxima.</Text>
+          {pantrySettings.stockLevels.map((level: MobilePantryStockLevel) => <View key={level.id} style={styles.pantrySettingRow}><Pressable accessibilityRole="button" onPress={() => chooseStockType(level.productTypeKey)} style={styles.preferenceDescription}><Text style={styles.cardTitle}>{level.typeName}</Text><Text style={styles.noteText}>Minimum {level.minQuantity} · maximum {level.maxQuantity} {unitLabel(level.maxQuantity, level.unit)}</Text></Pressable><Pressable accessibilityRole="button" disabled={profileBusy} onPress={() => void mutatePantrySettings({ action: 'remove-stock-level', levelId: level.id })} style={styles.removeIconButton}><Text style={styles.removeIconText}>×</Text></Pressable></View>)}
+          <Text style={styles.profileFieldLabel}>Druh zboží</Text><TextInput accessibilityLabel="Druh zboží k hlídání" onChangeText={(value) => { setStockTypeQuery(value); setStockTypeKey('') }} placeholder="Např. Máslo nebo Mléko" placeholderTextColor={colors.mutedText} style={styles.profileInput} value={stockTypeQuery} />
+          {stockTypeQuery && !stockTypeKey ? <View style={styles.suggestionList}>{PRODUCT_TYPES.filter((type) => type.name.toLocaleLowerCase('cs').includes(stockTypeQuery.toLocaleLowerCase('cs'))).slice(0, 10).map((type) => <Pressable key={type.key} accessibilityRole="button" onPress={() => chooseStockType(type.key)} style={styles.suggestion}><Text style={styles.suggestionText}>{type.name}</Text></Pressable>)}</View> : null}
+          {stockTypeKey ? <>
+            <View style={styles.rowFields}><View style={styles.flexInput}><Text style={styles.profileFieldLabel}>Minimum</Text><TextInput accessibilityLabel="Minimum zásoby" keyboardType="decimal-pad" onChangeText={setStockMinimum} style={styles.profileInput} value={stockMinimum} /></View><View style={styles.flexInput}><Text style={styles.profileFieldLabel}>Maximum</Text><TextInput accessibilityLabel="Maximum zásoby" keyboardType="decimal-pad" onChangeText={setStockMaximum} style={styles.profileInput} value={stockMaximum} /></View></View>
+            <Text style={styles.profileFieldLabel}>Jednotka</Text><View style={styles.themeChoices}>{ITEM_UNITS.map((unit) => <Pressable key={unit} accessibilityRole="button" accessibilityState={{ selected: stockUnit === unit }} onPress={() => setStockUnit(unit)} style={[styles.themeChoice, stockUnit === unit && styles.themeChoiceSelected]}><Text style={[styles.themeChoiceText, stockUnit === unit && styles.themeChoiceTextSelected]}>{unit === 'dávka' ? 'dávky' : unit}</Text></Pressable>)}</View>
+            <Pressable accessibilityRole="button" disabled={profileBusy} onPress={() => void saveStockLevel()} style={[styles.profileSaveButton, profileBusy && styles.disabled]}><Text style={styles.profileSaveText}>Uložit hlídání zásob</Text></Pressable>
+          </> : null}
+        </View>
+
+        <View style={styles.preferenceCard}>
+          <Text style={styles.cardEyebrow}>ZÁSOBY · KONTROLA</Text><Text style={styles.cardTitle}>Kontrola podle kategorie</Text><Text style={styles.bodyText}>Po kolika dnech se aplikace zeptá, jestli položku ještě máte. Prázdné pole lze uložit jako výchozí hodnotu.</Text>
+          {(Object.keys(CHECKIN_DAYS_BY_CATEGORY) as (keyof typeof CHECKIN_DAYS_BY_CATEGORY)[]).map((category) => {
+            const defaults = CHECKIN_DAYS_BY_SUBCATEGORY[category]
+            const subcategoryRows = defaults ? subcategoriesOfItem(category).filter((subcategory) => defaults[subcategory] != null) : []
+            const rows = subcategoryRows.map((subcategory) => renderCheckinRow(checkinSubcategoryKey(category, subcategory), subcategory, category, subcategory, defaults![subcategory]))
+            rows.push(renderCheckinRow(category, defaults ? 'Bez podkategorie' : category, category, undefined, CHECKIN_DAYS_BY_CATEGORY[category]))
+            return <View key={category} style={styles.pantryCheckinGroup}>{defaults ? <Text style={styles.cardEyebrow}>{category.toLocaleUpperCase('cs')}</Text> : null}{rows}</View>
+          })}
+        </View>
+        {profileError ? <Text accessibilityRole="alert" style={styles.error}>{profileError}</Text> : null}
+      </> : <View style={styles.emptyCard}><Text style={styles.cardTitle}>Nastavení zásob není dostupné</Text></View>}
+    </> : null}
 
     {profileSection === 'appearance' ? <View style={styles.preferenceCard}>
       <Text style={styles.cardEyebrow}>VZHLED APLIKACE</Text><Text style={styles.cardTitle}>Barevný režim</Text><Text style={styles.bodyText}>Volba se uloží v zařízení a použije se ve všech nativních obrazovkách a grafech.</Text>
@@ -623,7 +982,7 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
       <Text style={styles.cardEyebrow}>UPOZORNĚNÍ</Text><Text style={styles.cardTitle}>Co chcete dostávat</Text><Text style={styles.bodyText}>Nastavení platí jen pro váš účet.</Text>
       {preferencesError ? <Text accessibilityRole="alert" style={styles.error}>{preferencesError}</Text> : null}
       {preferences.map((item) => <View key={item.key} style={styles.preferenceRow}><View style={styles.preferenceDescription}><Text style={styles.cardTitle}>{item.label}</Text><Text style={styles.noteText}>{item.description}</Text></View><Switch accessibilityLabel={item.label} value={item.enabled} onValueChange={(enabled) => void togglePreference(item.key, enabled)} trackColor={{ false: colors.border, true: colors.accent }} thumbColor={colors.card} /></View>)}
-      <Text style={styles.noteText}>Oprávnění k oznámením tohoto zařízení se spravuje v nastavení Androidu.</Text>
+      <NativeDevicePushSetting onAuthExpired={onAuthExpired} />
     </View> : null}
     <Pressable accessibilityRole="button" onPress={onSignOut} style={styles.signOutButton}><Text style={styles.signOutText}>Odhlásit se</Text></Pressable>
 
@@ -641,8 +1000,6 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
 function money(amount: number, currency: string) {
   try { return new Intl.NumberFormat('cs-CZ', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount) } catch { return `${amount.toLocaleString('cs-CZ')} ${currency}` }
 }
-
-const chartColors = ['#03bcdb', '#747ce8', '#ee9b43', '#45b887', '#e36b84']
 
 function useStyles() {
   const { colors } = useMobileTheme()
@@ -718,8 +1075,10 @@ function useStyles() {
   pageButton: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 12 },
   pageText: { color: colors.primary, fontSize: 13, fontWeight: '600' },
   storeCard: { minHeight: 74, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 17, padding: 12 },
-  storeIcon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentSubtle },
-  branchCard: { gap: 3, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 16, padding: 14 },
+  storeLogo: { width: 44, height: 44, flexShrink: 0, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: 13, backgroundColor: '#ffffff' },
+  storeLogoImage: { width: 38, height: 38 },
+  storeLogoText: { color: '#172033', fontSize: 10, fontWeight: '800' },
+  branchCard: { flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 16, padding: 12 },
   purchaseCard: { gap: 10, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 18, padding: 14 },
   purchaseTotal: { color: colors.foreground, fontSize: 16, fontWeight: '800' },
   purchaseDivider: { height: 1, backgroundColor: colors.border },
@@ -775,7 +1134,24 @@ function useStyles() {
   inlineActionText: { color: colors.accentText, fontSize: 12, fontWeight: '700' },
   secondaryAction: { minHeight: 38, justifyContent: 'center', paddingHorizontal: 11, borderRadius: 12, backgroundColor: colors.card },
   secondaryActionText: { color: colors.accentText, fontSize: 12, fontWeight: '700' },
+  profileSmallAction: { minHeight: 36, justifyContent: 'center', paddingHorizontal: 10, borderRadius: 11, backgroundColor: colors.accentSubtle },
+  profileSmallActionText: { color: colors.accentText, fontSize: 12, fontWeight: '700' },
   formPanel: { gap: 9, padding: 12, borderRadius: 14, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.border },
+  pantrySettingRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, minHeight: 48, paddingVertical: 7, borderTopWidth: 1, borderTopColor: colors.border },
+  pantrySubform: { width: '100%', gap: 8, paddingTop: 4, paddingBottom: 6 },
+  hiddenLocation: { color: colors.mutedText, textDecorationLine: 'line-through' },
+  dangerAction: { minHeight: 40, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, borderRadius: 12, backgroundColor: colors.destructiveSubtle },
+  dangerActionText: { color: colors.destructive, fontSize: 12, fontWeight: '700' },
+  rowFields: { flexDirection: 'row', gap: 9 },
+  flexInput: { flex: 1, minWidth: 0 },
+  checkinInput: { width: 58, minHeight: 40, textAlign: 'center', borderRadius: 11, borderWidth: 1, borderColor: colors.inputBorder, backgroundColor: colors.elevated, color: colors.foreground, paddingHorizontal: 5, fontSize: 14 },
+  pantryCheckinGroup: { gap: 6 },
+  branchPicker: { gap: 8, padding: 10, borderRadius: 14, backgroundColor: colors.muted },
+  branchChoice: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: colors.border },
+  branchCheckbox: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center', borderRadius: 6, borderWidth: 1, borderColor: colors.inputBorder, backgroundColor: colors.card },
+  branchCheckboxSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
+  branchCheckmark: { color: colors.primaryForeground, fontSize: 14, fontWeight: '800' },
+  distanceInput: { width: 110 },
   flexText: { flex: 1 },
   dietModalScroll: { flexGrow: 1, justifyContent: 'flex-end' },
   dietModal: { gap: 10, maxHeight: '90%', backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 28 },
@@ -797,6 +1173,7 @@ function useStyles() {
   themeChoiceText: { color: colors.secondaryText, fontSize: 13, fontWeight: '600' },
   themeChoiceTextSelected: { color: colors.accentText },
   preferenceRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderTopColor: colors.border, borderTopWidth: 1 },
+  devicePushCard: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6, padding: 12, borderRadius: 14, backgroundColor: colors.muted },
   preferenceDescription: { flex: 1, gap: 3 },
 }), [colors])
 }

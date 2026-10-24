@@ -75,6 +75,16 @@ export type MobilePantryItem = {
 
 export type MobilePantryPlace = { key: string; name: string; area: string; custom: boolean; id?: string }
 export type MobilePantryState = { places: MobilePantryPlace[]; items: MobilePantryItem[] }
+export type MobilePantryStockLevel = { id: string; productTypeKey: string; typeName: string; minQuantity: number; maxQuantity: number; unit: ItemUnit }
+export type MobilePantrySettings = {
+  customPlaces: { id: string; area: string; name: string }[]
+  hiddenLocations: string[]
+  placeOptions: MobilePantryPlace[]
+  locationCounts: Record<string, number>
+  checkinDays: Partial<Record<'Potraviny' | 'Drogerie' | 'Děti' | 'Domácnost' | 'Ostatní', number>>
+  subcategoryCheckinDays: Record<string, number>
+  stockLevels: MobilePantryStockLevel[]
+}
 export type MobileRecipe = Recipe
 export type MobileRecipeSearchPage = RecipeSearchPage
 export type MobileMealType = 'Snídaně' | 'Oběd' | 'Večeře' | 'Svačina'
@@ -160,6 +170,14 @@ export type MobileDealsPage = {
   hasPreferences: boolean
 }
 export type MobileChainTile = { storeId: string; chain: string; branchCount: number; dealsCount: number; isFavorite: boolean }
+export type MobileStoreSelection = {
+  maxDistanceKm: number | null
+  chainIds: string[]
+  branches: { storeId: string; storeLocationId: string }[]
+  priorityChainIds: string[]
+  maxShopStores: number | null
+}
+export type MobileStorePreferenceData = { selection: MobileStoreSelection; chains: { id: string; chain: string; isOnline: boolean }[] }
 export type MobileBranchPage = {
   rows: { id: string; storeId: string; chain: string; name: string; address: string; city: string; gps: { lat: number; lng: number } | null; hours: string | null; distanceKm: number | null; isFavorite: boolean }[]
   total: number
@@ -276,6 +294,18 @@ export function updateNotificationPreference(kind: string, enabled: boolean) {
   return request<{ kind: string; enabled: boolean }>('/api/mobile/notification-preferences', { method: 'PATCH', body: JSON.stringify({ kind, enabled }) })
 }
 
+export function getDevicePushStatus(token: string) {
+  return request<{ enabled: boolean }>(`/api/mobile/push-subscription?token=${encodeURIComponent(token)}`)
+}
+
+export function registerDevicePush(token: string) {
+  return request<{ ok: true }>('/api/mobile/push-subscription', { method: 'PUT', body: JSON.stringify({ token }) })
+}
+
+export function removeDevicePush(token: string) {
+  return request<{ ok: true }>('/api/mobile/push-subscription', { method: 'DELETE', body: JSON.stringify({ token }) })
+}
+
 export function getNotifications() {
   return request<{ notifications: MobileNotification[] }>('/api/mobile/notifications')
 }
@@ -311,6 +341,14 @@ export function getStoreBranches(city: string, chainId: string, page = 1) {
   const params = new URLSearchParams({ chainId, page: String(page) })
   if (city.trim()) params.set('city', city.trim())
   return request<MobileBranchPage>(`/api/mobile/stores?${params.toString()}`)
+}
+
+export function getStorePreferences() {
+  return request<MobileStorePreferenceData>('/api/mobile/store-preferences')
+}
+
+export function updateStorePreferences(selection: { chainIds: string[]; locationIds: string[]; priorityChainIds: string[]; maxDistanceKm: number | null; maxShopStores: number | null }) {
+  return request<{ selection: MobileStoreSelection }>('/api/mobile/store-preferences', { method: 'PATCH', body: JSON.stringify(selection) })
 }
 
 export function getShoppingList() {
@@ -387,6 +425,14 @@ export function deletePlannedExpense(id: string) {
 
 export function getPantry() {
   return request<MobilePantryState>('/api/mobile/pantry')
+}
+
+export function getPantrySettings() {
+  return request<MobilePantrySettings>('/api/mobile/pantry-settings')
+}
+
+export function updatePantrySettings(change: Record<string, unknown>) {
+  return request<MobilePantrySettings>('/api/mobile/pantry-settings', { method: 'PATCH', body: JSON.stringify(change) })
 }
 
 export function addPantryItem(input: { name: string; quantity: number; unit: ItemUnit; category: 'Potraviny' | 'Drogerie' | 'Děti' | 'Domácnost' | 'Ostatní'; placeKey: string }) {

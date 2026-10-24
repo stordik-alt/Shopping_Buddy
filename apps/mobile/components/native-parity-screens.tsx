@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
-import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { useEffect, useMemo, useState } from 'react'
+import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { ArrowRight, Bell, CookingPot, House, MapPin, MoreHorizontal, Package, Search, ShoppingCart, Store, Tag, Users, WalletCards, X } from 'lucide-react-native'
-import { colors } from '../lib/theme'
-import { dismissNotification, getBudgetSummary, getDealsPage, getNotifications, getPantry, getPurchaseHistory, getShoppingList, getStoreBranches, getStoreChains, MobileApiError, updateHouseholdProfile, type MobileBranchPage, type MobileChainTile, type MobileDealCategory, type MobileDealsPage, type MobileDealSort, type MobileNotification, type MobilePurchase } from '../lib/shopping-list-api'
+import { useMobileTheme, type ThemePreference } from '../lib/theme'
+import { dismissNotification, getBudgetSummary, getDealsPage, getNotificationPreferences, getNotifications, getPantry, getPurchaseHistory, getShoppingList, getStoreBranches, getStoreChains, MobileApiError, updateHouseholdProfile, updateNotificationPreference, type MobileBranchPage, type MobileChainTile, type MobileDealCategory, type MobileDealsPage, type MobileDealSort, type MobileNotification, type MobileNotificationPreference, type MobilePurchase } from '../lib/shopping-list-api'
 import type { MobileBudgetSummary, MobilePantryState } from '../lib/shopping-list-api'
 
 export type NativeTab = 'home' | 'shopping' | 'pantry' | 'budget' | 'deals' | 'stores' | 'recipes' | 'profile'
@@ -23,6 +23,8 @@ const moreItems: { key: TabLabel; label: string; Icon: typeof House }[] = [
 ]
 
 export function NativeBottomNav({ active, onSelect }: { active: NativeTab; onSelect: (tab: NativeTab) => void }) {
+  const { colors } = useMobileTheme()
+  const styles = useStyles()
   const [moreOpen, setMoreOpen] = useState(false)
   const moreActive = moreItems.some((item) => item.key === active)
   return (
@@ -58,6 +60,8 @@ export function NativeBottomNav({ active, onSelect }: { active: NativeTab; onSel
 }
 
 export function NativeHomeScreen({ name, onSelect }: { name: string; onSelect: (tab: NativeTab) => void }) {
+  const { colors } = useMobileTheme()
+  const styles = useStyles()
   const [shopping, setShopping] = useState<{ remaining: number; completed: number } | null>(null)
   const [budget, setBudget] = useState<MobileBudgetSummary | null>(null)
   const [pantry, setPantry] = useState<MobilePantryState | null>(null)
@@ -109,6 +113,15 @@ export function NativeHomeScreen({ name, onSelect }: { name: string; onSelect: (
         </View>
         <ArrowRight color={colors.mutedText} size={20} />
       </Pressable>
+      {budget?.categories.length ? <View style={styles.chartCard}>
+        <Text style={styles.cardTitle}>Výdaje podle kategorií</Text>
+        {budget.categories.slice().sort((a, b) => b.total - a.total).slice(0, 4).map((category, index) => (
+          <View key={category.category} style={styles.chartRow}>
+            <View style={styles.chartLabelRow}><Text style={styles.bodyText}>{category.category}</Text><Text style={styles.bodyText}>{money(category.total, budget.currency)}</Text></View>
+            <View style={styles.chartTrack}><View style={[styles.chartFill, { backgroundColor: chartColors[index % chartColors.length], width: `${budget.spent > 0 ? Math.min(100, category.total / budget.spent * 100) : 0}%` }]} /></View>
+          </View>
+        ))}
+      </View> : null}
       {Boolean(pantry?.items.length) && (
         <Pressable onPress={() => onSelect('pantry')} style={styles.dashboardCard}>
           <View style={styles.cardIcon}><Package color={colors.primary} size={21} /></View>
@@ -134,6 +147,8 @@ export function NativeHomeScreen({ name, onSelect }: { name: string; onSelect: (
 }
 
 export function NativeDealsScreen({ listNames, onAdd }: { listNames: string[]; onAdd: (name: string) => void }) {
+  const { colors } = useMobileTheme()
+  const styles = useStyles()
   const [result, setResult] = useState<MobileDealsPage | null>(null)
   const [category, setCategory] = useState<MobileDealCategory | 'all'>('all')
   const [sort, setSort] = useState<MobileDealSort>('discount')
@@ -209,6 +224,8 @@ export function NativeDealsScreen({ listNames, onAdd }: { listNames: string[]; o
 }
 
 export function NativeStoresScreen() {
+  const { colors } = useMobileTheme()
+  const styles = useStyles()
   const [city, setCity] = useState('')
   const [chains, setChains] = useState<MobileChainTile[]>([])
   const [selected, setSelected] = useState<MobileChainTile | null>(null)
@@ -245,6 +262,8 @@ export function NativeStoresScreen() {
 }
 
 export function NativeAssistantModal({ visible, onClose, onShopping }: { visible: boolean; onClose: () => void; onShopping: () => void }) {
+  const { colors } = useMobileTheme()
+  const styles = useStyles()
   const [draft, setDraft] = useState('')
   const [sent, setSent] = useState<string[]>([])
   const suggestions = ['Nákup na týden do 2 500 Kč', 'Kde ušetřím na seznamu?', 'Rozděl nákup mezi obchody']
@@ -258,7 +277,7 @@ export function NativeAssistantModal({ visible, onClose, onShopping }: { visible
           {sent.map((message, index) => <View key={`${index}-${message}`}><View style={styles.userBubble}><Text style={styles.userChatText}>{message}</Text></View><View style={styles.assistantBubble}><Text style={styles.chatText}>AI asistent zatím není zapojený, takže na dotazy neodpovídá. Porovnání cen, akce a plán nákupu podle rozpočtu najdete v nákupním seznamu.</Text><Pressable onPress={() => { onClose(); onShopping() }} style={styles.chatLink}><Text style={styles.chatLinkText}>Otevřít nákupní seznam →</Text></Pressable></View></View>)}
           {sent.length === 0 ? <View style={styles.suggestionList}>{suggestions.map((suggestion) => <Pressable key={suggestion} onPress={() => send(suggestion)} style={styles.suggestion}><Text style={styles.suggestionText}>{suggestion}</Text></Pressable>)}</View> : null}
         </ScrollView>
-        <View style={styles.composer}><TextInput accessibilityLabel="Napište Anitce" onChangeText={setDraft} onSubmitEditing={() => send()} placeholder="Napište Anitce…" placeholderTextColor={colors.mutedText} returnKeyType="send" style={styles.composerInput} value={draft} /><Pressable accessibilityLabel="Odeslat zprávu" disabled={!draft.trim()} onPress={() => send()} style={[styles.sendButton, !draft.trim() && styles.disabled]}><ArrowRight color="#fff" size={20} /></Pressable></View>
+        <View style={styles.composer}><TextInput accessibilityLabel="Napište Anitce" onChangeText={setDraft} onSubmitEditing={() => send()} placeholder="Napište Anitce…" placeholderTextColor={colors.mutedText} returnKeyType="send" style={styles.composerInput} value={draft} /><Pressable accessibilityLabel="Odeslat zprávu" disabled={!draft.trim()} onPress={() => send()} style={[styles.sendButton, !draft.trim() && styles.disabled]}><ArrowRight color={colors.primaryForeground} size={20} /></Pressable></View>
         <Text style={styles.footerNote}>Zprávy se zatím nezpracovávají umělou inteligencí.</Text>
       </View>
     </View>
@@ -266,6 +285,8 @@ export function NativeAssistantModal({ visible, onClose, onShopping }: { visible
 }
 
 export function NativeNotificationsModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const { colors } = useMobileTheme()
+  const styles = useStyles()
   const [notifications, setNotifications] = useState<MobileNotification[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -297,6 +318,8 @@ export function NativeNotificationsModal({ visible, onClose }: { visible: boolea
 }
 
 export function NativePurchasesScreen() {
+  const { colors } = useMobileTheme()
+  const styles = useStyles()
   const [purchases, setPurchases] = useState<MobilePurchase[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -331,15 +354,40 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
   onAuthExpired: () => void
   onSignOut: () => void
 }) {
+  const { colors, preference, setPreference } = useMobileTheme()
+  const styles = useStyles()
   const [nameDraft, setNameDraft] = useState(householdName)
   const [budgetDraft, setBudgetDraft] = useState(String(householdBudget).replace('.', ','))
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [preferences, setPreferences] = useState<MobileNotificationPreference[]>([])
+  const [preferencesError, setPreferencesError] = useState<string | null>(null)
   useEffect(() => {
     setNameDraft(householdName)
     setBudgetDraft(String(householdBudget).replace('.', ','))
   }, [householdName, householdBudget])
+
+  useEffect(() => {
+    let active = true
+    getNotificationPreferences().then(({ preferences: rows }) => { if (active) setPreferences(rows) }).catch((caught: unknown) => {
+      if (active) {
+        setPreferencesError(caught instanceof Error ? caught.message : 'Nastavení upozornění se nepodařilo načíst.')
+        if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+      }
+    })
+    return () => { active = false }
+  }, [onAuthExpired])
+
+  async function togglePreference(key: string, enabled: boolean) {
+    const before = preferences
+    setPreferences(before.map((item) => item.key === key ? { ...item, enabled } : item))
+    try { await updateNotificationPreference(key, enabled) } catch (caught) {
+      setPreferences(before)
+      setPreferencesError(caught instanceof Error ? caught.message : 'Nastavení upozornění se nepodařilo uložit.')
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+    }
+  }
 
   async function saveHousehold() {
     const monthlyBudget = Number(budgetDraft.replace(/[\s ]/g, '').replace(',', '.'))
@@ -377,6 +425,17 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
         <Pressable accessibilityRole="button" disabled={saving} onPress={() => void saveHousehold()} style={[styles.profileSaveButton, saving && styles.disabled]}><Text style={styles.profileSaveText}>{saving ? 'Ukládám…' : 'Uložit nastavení'}</Text></Pressable>
       </> : null}
     </View>
+    <View style={styles.preferenceCard}>
+      <Text style={styles.cardEyebrow}>VZHLED APLIKACE</Text>
+      <Text style={styles.bodyText}>Téma</Text>
+      <View style={styles.themeChoices}>{([['system', 'Podle systému'], ['light', 'Světlé'], ['dark', 'Tmavé']] as [ThemePreference, string][]).map(([value, label]) => <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: preference === value }} onPress={() => setPreference(value)} style={[styles.themeChoice, preference === value && styles.themeChoiceSelected]}><Text style={[styles.themeChoiceText, preference === value && styles.themeChoiceTextSelected]}>{label}</Text></Pressable>)}</View>
+    </View>
+    <View style={styles.preferenceCard}>
+      <Text style={styles.cardEyebrow}>UPOZORNĚNÍ</Text>
+      <Text style={styles.bodyText}>Nastavení platí jen pro váš účet.</Text>
+      {preferencesError ? <Text accessibilityRole="alert" style={styles.error}>{preferencesError}</Text> : null}
+      {preferences.map((item) => <View key={item.key} style={styles.preferenceRow}><View style={styles.preferenceDescription}><Text style={styles.cardTitle}>{item.label}</Text><Text style={styles.noteText}>{item.description}</Text></View><Switch accessibilityLabel={item.label} value={item.enabled} onValueChange={(enabled) => void togglePreference(item.key, enabled)} trackColor={{ false: colors.border, true: colors.accent }} thumbColor={colors.card} /></View>)}
+    </View>
     <Pressable accessibilityRole="button" onPress={onSignOut} style={styles.signOutButton}><Text style={styles.signOutText}>Odhlásit se</Text></Pressable>
   </ScrollView>
 }
@@ -385,7 +444,11 @@ function money(amount: number, currency: string) {
   try { return new Intl.NumberFormat('cs-CZ', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount) } catch { return `${amount.toLocaleString('cs-CZ')} ${currency}` }
 }
 
-const styles = StyleSheet.create({
+const chartColors = ['#03bcdb', '#747ce8', '#ee9b43', '#45b887', '#e36b84']
+
+function useStyles() {
+  const { colors } = useMobileTheme()
+  return useMemo(() => StyleSheet.create({
   screenContent: { padding: 16, paddingBottom: 24, gap: 12 },
   homeIntro: { paddingTop: 4, paddingBottom: 6 },
   dateText: { color: colors.secondaryText, fontSize: 13, textTransform: 'capitalize' },
@@ -393,7 +456,12 @@ const styles = StyleSheet.create({
   bodyText: { color: colors.secondaryText, fontSize: 13, lineHeight: 19 },
   loader: { marginVertical: 18 },
   dashboardCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 18, padding: 15 },
-  cardIcon: { width: 44, height: 44, borderRadius: 15, backgroundColor: '#f3f5f6', justifyContent: 'center', alignItems: 'center' },
+  chartCard: { gap: 10, padding: 15, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 18 },
+  chartRow: { gap: 5 },
+  chartLabelRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
+  chartTrack: { height: 8, overflow: 'hidden', borderRadius: 8, backgroundColor: colors.muted },
+  chartFill: { height: '100%', borderRadius: 8 },
+  cardIcon: { width: 44, height: 44, borderRadius: 15, backgroundColor: colors.muted, justifyContent: 'center', alignItems: 'center' },
   cardIconAccent: { backgroundColor: colors.accentSubtle },
   dashboardText: { flex: 1, minWidth: 0, gap: 2 },
   cardEyebrow: { color: colors.mutedText, fontSize: 10, fontWeight: '700', letterSpacing: 0.9 },
@@ -408,7 +476,7 @@ const styles = StyleSheet.create({
   tabIconActive: { backgroundColor: colors.accentSubtle },
   tabLabel: { color: colors.mutedText, fontSize: 10, fontWeight: '500' },
   tabLabelActive: { color: colors.foreground, fontWeight: '700' },
-  modalScrim: { flex: 1, justifyContent: 'flex-end', backgroundColor: '#09172d77' },
+  modalScrim: { flex: 1, justifyContent: 'flex-end', backgroundColor: colors.navyOverlay },
   moreSheet: { backgroundColor: colors.background, borderTopLeftRadius: 25, borderTopRightRadius: 25, paddingHorizontal: 20, paddingBottom: 26, paddingTop: 10 },
   notificationSheet: { alignSelf: 'center', width: '92%', maxHeight: '78%', backgroundColor: colors.background, borderRadius: 22, padding: 16, gap: 10 },
   notificationActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -427,7 +495,7 @@ const styles = StyleSheet.create({
   chip: { minHeight: 36, justifyContent: 'center', paddingHorizontal: 13, borderRadius: 18, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { color: colors.secondaryText, fontSize: 12, fontWeight: '600' },
-  chipTextActive: { color: '#fff' },
+  chipTextActive: { color: colors.primaryForeground },
   preferenceToggle: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 13, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
   preferenceToggleActive: { borderColor: '#75cbd4', backgroundColor: colors.accentSubtle },
   preferenceToggleText: { color: colors.secondaryText, fontSize: 13, fontWeight: '600' },
@@ -445,7 +513,7 @@ const styles = StyleSheet.create({
   dealBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   dealPrice: { color: colors.foreground, fontSize: 19, fontWeight: '800' },
   addDealButton: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 12, backgroundColor: colors.accentSubtle },
-  addDealDone: { backgroundColor: '#eef2f1' },
+  addDealDone: { backgroundColor: colors.muted },
   addDealText: { color: colors.accentText, fontSize: 13, fontWeight: '700' },
   noteText: { color: colors.secondaryText, fontSize: 12, lineHeight: 18 },
   pagination: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 },
@@ -460,23 +528,23 @@ const styles = StyleSheet.create({
   purchaseItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   purchaseItemName: { flex: 1, color: colors.foreground, fontSize: 13 },
   purchaseItemPrice: { color: colors.foreground, fontSize: 13, fontWeight: '600' },
-  pendingPurchase: { color: '#8a631c', fontSize: 12, lineHeight: 17 },
+  pendingPurchase: { color: colors.warning, fontSize: 12, lineHeight: 17 },
   backButton: { alignSelf: 'flex-start', paddingVertical: 5 },
   emptyCard: { gap: 6, padding: 18, borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
   cardTitle: { color: colors.foreground, fontSize: 16, fontWeight: '700' },
   error: { color: colors.destructive, backgroundColor: colors.destructiveSubtle, borderRadius: 12, padding: 12, fontSize: 13, lineHeight: 19 },
-  assistantScrim: { flex: 1, justifyContent: 'flex-end', backgroundColor: '#09172d77' },
+  assistantScrim: { flex: 1, justifyContent: 'flex-end', backgroundColor: colors.navyOverlay },
   assistantSheet: { height: '88%', backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16 },
   assistantHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
   assistantIdentity: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   assistantAvatar: { width: 42, height: 42, overflow: 'hidden', borderRadius: 21, backgroundColor: colors.accentSubtle },
   assistantMascot: { position: 'absolute', width: 58, height: 78, left: -8, top: -1 },
-  closeButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 20, backgroundColor: '#f1f0ed' },
+  closeButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 20, backgroundColor: colors.muted },
   chatMessages: { flexGrow: 1, justifyContent: 'flex-end', gap: 10, paddingVertical: 16 },
   assistantBubble: { alignSelf: 'flex-start', maxWidth: '88%', padding: 13, gap: 8, borderRadius: 16, borderBottomLeftRadius: 5, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 },
   userBubble: { alignSelf: 'flex-end', maxWidth: '86%', padding: 13, borderRadius: 16, borderBottomRightRadius: 5, backgroundColor: colors.primary },
   chatText: { color: colors.foreground, fontSize: 14, lineHeight: 21 },
-  userChatText: { color: '#fff', fontSize: 14, lineHeight: 20 },
+  userChatText: { color: colors.primaryForeground, fontSize: 14, lineHeight: 20 },
   chatLink: { paddingTop: 5 },
   chatLinkText: { color: colors.accentText, fontSize: 14, fontWeight: '700' },
   suggestionList: { gap: 8, paddingVertical: 10 },
@@ -493,10 +561,18 @@ const styles = StyleSheet.create({
   profileName: { color: colors.foreground, fontSize: 20, fontWeight: '700' },
   preferenceCard: { gap: 8, padding: 16, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 18 },
   profileFieldLabel: { color: colors.secondaryText, fontSize: 12, fontWeight: '600', marginTop: 6 },
-  profileInput: { minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.inputBorder, backgroundColor: '#ffffff', color: colors.foreground, paddingHorizontal: 12, fontSize: 14 },
+  profileInput: { minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.inputBorder, backgroundColor: colors.elevated, color: colors.foreground, paddingHorizontal: 12, fontSize: 14 },
   profileSaveButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 13, backgroundColor: colors.primary, marginTop: 4 },
-  profileSaveText: { color: '#ffffff', fontSize: 14, fontWeight: '700' },
+  profileSaveText: { color: colors.primaryForeground, fontSize: 14, fontWeight: '700' },
   success: { color: colors.accentText, fontSize: 13 },
-  signOutButton: { minHeight: 48, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#e6caca', borderRadius: 14, backgroundColor: '#fff7f7', marginTop: 4 },
+  signOutButton: { minHeight: 48, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.destructive, borderRadius: 14, backgroundColor: colors.destructiveSubtle, marginTop: 4 },
   signOutText: { color: colors.destructive, fontSize: 14, fontWeight: '700' },
-})
+  themeChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  themeChoice: { minHeight: 38, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
+  themeChoiceSelected: { backgroundColor: colors.accentSubtle, borderColor: colors.accent },
+  themeChoiceText: { color: colors.secondaryText, fontSize: 13, fontWeight: '600' },
+  themeChoiceTextSelected: { color: colors.accentText },
+  preferenceRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderTopColor: colors.border, borderTopWidth: 1 },
+  preferenceDescription: { flex: 1, gap: 3 },
+}), [colors])
+}

@@ -36,6 +36,31 @@ export type MobileExpense = {
   date: string
   editable: boolean
 }
+export type MobileBudgetIncome = {
+  id: string
+  amount: number
+  description: string
+  date: string
+  status: 'planned' | 'actual'
+  recurringIncomeId: string | null
+  occurrenceDueDate: string | null
+  editable: boolean
+}
+export type MobilePlannedExpense = {
+  id: string
+  amount: number
+  note: string
+  category: string
+  date: string
+  status: 'planned' | 'paid'
+}
+export type MobileBudgetPlanning = {
+  period: { start: string; end: string; next: string }
+  currency: string
+  budget: number
+  incomes: MobileBudgetIncome[]
+  plannedExpenses: MobilePlannedExpense[]
+}
 
 export type MobilePantryItem = {
   id: string
@@ -192,6 +217,16 @@ export function updateHouseholdProfile(changes: { name?: string; monthlyBudget?:
   return request<{ household: MobileHouseholdProfile }>('/api/mobile/me', { method: 'PATCH', body: JSON.stringify(changes) })
 }
 
+export type MobileNotificationPreference = { key: string; label: string; description: string; enabled: boolean }
+
+export function getNotificationPreferences() {
+  return request<{ preferences: MobileNotificationPreference[] }>('/api/mobile/notification-preferences')
+}
+
+export function updateNotificationPreference(kind: string, enabled: boolean) {
+  return request<{ kind: string; enabled: boolean }>('/api/mobile/notification-preferences', { method: 'PATCH', body: JSON.stringify({ kind, enabled }) })
+}
+
 export function getNotifications() {
   return request<{ notifications: MobileNotification[] }>('/api/mobile/notifications')
 }
@@ -258,6 +293,47 @@ export function updateExpense(expenseId: string, input: Omit<MobileExpense, 'id'
 
 export function deleteExpense(expenseId: string) {
   return request<{ ok: true }>(`/api/mobile/expenses/${encodeURIComponent(expenseId)}`, { method: 'DELETE' })
+}
+
+export function getBudgetPlanning(period?: string) {
+  const query = period ? `?period=${encodeURIComponent(period)}` : ''
+  return request<MobileBudgetPlanning>(`/api/mobile/budget/planning${query}`)
+}
+
+export function addBudgetIncome(input: { amount: number; description: string; date: string; status: 'planned' | 'actual' }) {
+  return request<{ income: MobileBudgetIncome }>('/api/mobile/budget/planning', { method: 'POST', body: JSON.stringify({ kind: 'income', ...input }) })
+}
+
+export function addPlannedExpense(input: { amount: number; note: string; category: string; date: string }) {
+  return request<{ plannedExpense: MobilePlannedExpense }>('/api/mobile/budget/planning', { method: 'POST', body: JSON.stringify({ kind: 'plannedExpense', ...input }) })
+}
+
+export function updateBudgetIncome(id: string, input: { amount: number; description: string; date: string }) {
+  return request<{ income: MobileBudgetIncome }>(`/api/mobile/budget/planning/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ kind: 'income', action: 'update', ...input }) })
+}
+
+export function receiveBudgetIncome(id: string, date?: string) {
+  return request<{ income: MobileBudgetIncome }>(`/api/mobile/budget/planning/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ kind: 'income', action: 'receive', ...(date ? { date } : {}) }) })
+}
+
+export function receiveRecurringBudgetIncome(id: string, amount: number, date: string) {
+  return request<{ income: MobileBudgetIncome }>(`/api/mobile/budget/planning/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ kind: 'income', action: 'receive', amount, date }) })
+}
+
+export function deleteBudgetIncome(id: string) {
+  return request<{ ok: true }>(`/api/mobile/budget/planning/${encodeURIComponent(id)}?kind=income`, { method: 'DELETE' })
+}
+
+export function updatePlannedExpense(id: string, input: { amount: number; note: string; category: string; date: string }) {
+  return request<{ plannedExpense: MobilePlannedExpense }>(`/api/mobile/budget/planning/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ kind: 'plannedExpense', action: 'update', ...input }) })
+}
+
+export function payPlannedExpense(id: string, amount?: number, date?: string) {
+  return request<{ plannedExpense: MobilePlannedExpense; notifications: MobileNotification[] }>(`/api/mobile/budget/planning/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ kind: 'plannedExpense', action: 'pay', ...(amount !== undefined ? { amount } : {}), ...(date ? { date } : {}) }) })
+}
+
+export function deletePlannedExpense(id: string) {
+  return request<{ ok: true }>(`/api/mobile/budget/planning/${encodeURIComponent(id)}?kind=plannedExpense`, { method: 'DELETE' })
 }
 
 export function getPantry() {

@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { MobileApiError, getRecipe, searchRecipes, type MobileRecipe } from '../lib/shopping-list-api'
 import { getAccessToken } from '../lib/auth'
 import { RefreshButton } from './refresh-button'
-import { colors } from '../lib/theme'
+import { useMobileTheme } from '../lib/theme'
 
 const PAGE_SIZE = 6
 
 function RecipePhoto({ uri, token, title }: { uri?: string; token: string | null; title: string }) {
+  const { colors } = useMobileTheme()
+  const styles = useStyles()
   const [failed, setFailed] = useState(false)
   if (!uri || !token || failed) {
     return (
@@ -28,6 +30,8 @@ function RecipePhoto({ uri, token, title }: { uri?: string; token: string | null
 }
 
 export function RecipesScreen({ onAuthExpired }: { onAuthExpired: () => void }) {
+  const { colors } = useMobileTheme()
+  const styles = useStyles()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Awaited<ReturnType<typeof searchRecipes>>['results']>([])
   const [page, setPage] = useState(1)
@@ -193,7 +197,9 @@ export function RecipesScreen({ onAuthExpired }: { onAuthExpired: () => void }) 
   )
 }
 
-const styles = StyleSheet.create({
+function useStyles() {
+  const { colors } = useMobileTheme()
+  return useMemo(() => StyleSheet.create({
   scroll: { flex: 1 },
   content: { padding: 16, paddingBottom: 24, gap: 12 },
   heading: { minHeight: 64, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
@@ -201,18 +207,18 @@ const styles = StyleSheet.create({
   title: { color: colors.foreground, fontSize: 22, fontWeight: '700' },
   supporting: { color: colors.secondaryText, fontSize: 14, lineHeight: 20, marginTop: 4 },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  input: { flex: 1, minHeight: 48, borderColor: colors.inputBorder, borderRadius: 12, borderWidth: 1, backgroundColor: '#ffffff', color: colors.foreground, paddingHorizontal: 14, fontSize: 16 },
+  input: { flex: 1, minHeight: 48, borderColor: colors.inputBorder, borderRadius: 12, borderWidth: 1, backgroundColor: colors.card, color: colors.foreground, paddingHorizontal: 14, fontSize: 16 },
   searchButton: { minHeight: 48, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
-  searchButtonText: { color: '#ffffff', fontSize: 14, fontWeight: '700' },
+  searchButtonText: { color: colors.primaryForeground, fontSize: 14, fontWeight: '700' },
   disabledButton: { opacity: 0.5 },
-  error: { color: '#a72d2d', backgroundColor: '#fff0f0', borderRadius: 12, padding: 12, fontSize: 14, lineHeight: 20 },
+  error: { color: colors.destructive, backgroundColor: colors.destructiveSubtle, borderRadius: 12, padding: 12, fontSize: 14, lineHeight: 20 },
   empty: { minHeight: 180, alignItems: 'center', justifyContent: 'center', gap: 8 },
-  emptyCard: { alignItems: 'center', backgroundColor: '#ffffff', borderColor: colors.border, borderRadius: 18, borderWidth: 1, padding: 24, gap: 8 },
+  emptyCard: { alignItems: 'center', backgroundColor: colors.card, borderColor: colors.border, borderRadius: 18, borderWidth: 1, padding: 24, gap: 8 },
   sectionTitle: { color: colors.foreground, fontSize: 18, fontWeight: '700', marginTop: 8 },
   resultCount: { color: colors.secondaryText, fontSize: 14, fontWeight: '600' },
-  recipeCard: { minHeight: 112, flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff', borderColor: colors.border, borderRadius: 16, borderWidth: 1, padding: 12, gap: 12 },
-  photo: { width: 88, height: 88, borderRadius: 12, backgroundColor: '#e8f0f1' },
-  photoFallback: { width: 88, height: 88, borderRadius: 12, backgroundColor: '#e8f0f1', alignItems: 'center', justifyContent: 'center' },
+  recipeCard: { minHeight: 112, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderColor: colors.border, borderRadius: 16, borderWidth: 1, padding: 12, gap: 12 },
+  photo: { width: 88, height: 88, borderRadius: 12, backgroundColor: colors.muted },
+  photoFallback: { width: 88, height: 88, borderRadius: 12, backgroundColor: colors.muted, alignItems: 'center', justifyContent: 'center' },
   photoFallbackIcon: { fontSize: 30 },
   cardText: { flex: 1, minWidth: 0, gap: 3 },
   cardTitle: { color: colors.foreground, fontSize: 16, fontWeight: '700' },
@@ -225,5 +231,6 @@ const styles = StyleSheet.create({
   description: { color: colors.secondaryText, fontSize: 15, lineHeight: 22 },
   ingredient: { color: colors.foreground, fontSize: 15, lineHeight: 22 },
   primaryButton: { minHeight: 48, backgroundColor: colors.primary, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, marginTop: 8 },
-  primaryButtonText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
-})
+  primaryButtonText: { color: colors.primaryForeground, fontSize: 15, fontWeight: '700' },
+}), [colors])
+}

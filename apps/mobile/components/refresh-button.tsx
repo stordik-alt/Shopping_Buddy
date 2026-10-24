@@ -1,5 +1,6 @@
+import { useMemo } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
-import { colors } from '../lib/theme'
+import { useMobileTheme } from '../lib/theme'
 
 type Props = {
   loading: boolean
@@ -9,6 +10,8 @@ type Props = {
 }
 
 export function RefreshButton({ loading, onPress, disabled = false, variant = 'plain' }: Props) {
+  const { colors } = useMobileTheme()
+  const styles = useStyles()
   const unavailable = loading || disabled
 
   return (
@@ -29,11 +32,14 @@ export function RefreshButton({ loading, onPress, disabled = false, variant = 'p
   )
 }
 
-const styles = StyleSheet.create({
+function useStyles() {
+  const { colors } = useMobileTheme()
+  return useMemo(() => StyleSheet.create({
   button: { width: 104, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
-  outlined: { borderColor: colors.inputBorder, borderRadius: 12, borderWidth: 1, backgroundColor: '#ffffff' },
+  outlined: { borderColor: colors.inputBorder, borderRadius: 12, borderWidth: 1, backgroundColor: colors.card },
   content: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   indicatorSlot: { width: 18, height: 20, alignItems: 'center', justifyContent: 'center' },
   label: { color: colors.primary, fontSize: 14, fontWeight: '600' },
   disabled: { opacity: 0.55 },
-})
+}), [colors])
+}

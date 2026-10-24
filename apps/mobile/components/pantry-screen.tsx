@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Tex
 import { ITEM_UNITS, unitLabel, type ItemUnit } from '@anitka/shared/units'
 import { addPantryItem, MobileApiError, getPantry, removePantryItem, updatePantryItem, type MobilePantryItem, type MobilePantryState } from '../lib/shopping-list-api'
 import { RefreshButton } from './refresh-button'
-import { colors } from '../lib/theme'
+import { useMobileTheme } from '../lib/theme'
 
 const QUANTITY_STEP = { ks: 1, kg: 0.1, g: 10, l: 0.1, ml: 10, dávka: 1 } as const
 const CATEGORIES = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní'] as const
@@ -13,6 +13,8 @@ function quantityLabel(value: number): string {
 }
 
 export function PantryScreen({ onAuthExpired }: { onAuthExpired: () => void }) {
+  const { colors } = useMobileTheme()
+  const styles = useStyles()
   const [pantry, setPantry] = useState<MobilePantryState | null>(null)
   const [selectedPlace, setSelectedPlace] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -255,7 +257,9 @@ export function PantryScreen({ onAuthExpired }: { onAuthExpired: () => void }) {
   )
 }
 
-const styles = StyleSheet.create({
+function useStyles() {
+  const { colors } = useMobileTheme()
+  return useMemo(() => StyleSheet.create({
   scroll: { flex: 1 },
   content: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
   heading: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
@@ -263,13 +267,13 @@ const styles = StyleSheet.create({
   title: { color: colors.foreground, fontSize: 20, fontWeight: '700' },
   supporting: { color: colors.secondaryText, fontSize: 13, lineHeight: 19, marginTop: 4 },
   placeList: { gap: 8, paddingVertical: 2, paddingRight: 8 },
-  place: { minWidth: 105, borderColor: colors.inputBorder, borderRadius: 14, borderWidth: 1, backgroundColor: '#ffffff', paddingHorizontal: 13, paddingVertical: 11 },
+  place: { minWidth: 105, borderColor: colors.inputBorder, borderRadius: 14, borderWidth: 1, backgroundColor: colors.card, paddingHorizontal: 13, paddingVertical: 11 },
   placeActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   placeName: { color: colors.primary, fontSize: 14, fontWeight: '700' },
-  placeNameActive: { color: '#ffffff' },
+  placeNameActive: { color: colors.primaryForeground },
   placeCount: { color: colors.secondaryText, fontSize: 12, marginTop: 4 },
   sectionTitle: { color: colors.foreground, fontSize: 17, fontWeight: '700' },
-  itemCard: { backgroundColor: '#ffffff', borderColor: colors.border, borderRadius: 16, borderWidth: 1, padding: 14, gap: 10 },
+  itemCard: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 16, borderWidth: 1, padding: 14, gap: 10 },
   itemName: { color: colors.foreground, fontSize: 16, fontWeight: '700' },
   quantityRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   quantityButton: { width: 42, height: 42, borderColor: colors.inputBorder, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
@@ -283,8 +287,8 @@ const styles = StyleSheet.create({
   destination: { minHeight: 40, borderColor: colors.inputBorder, borderRadius: 20, borderWidth: 1, justifyContent: 'center', paddingHorizontal: 12 },
   destinationText: { color: colors.primary, fontSize: 13, fontWeight: '600' },
   empty: { alignItems: 'center', justifyContent: 'center', padding: 28, gap: 10 },
-  emptyCard: { alignItems: 'center', backgroundColor: '#ffffff', borderColor: colors.border, borderRadius: 16, borderWidth: 1, padding: 22, gap: 4 },
-  error: { color: '#a72d2d', backgroundColor: '#fff0f0', borderRadius: 12, padding: 12, fontSize: 14, lineHeight: 20 },
+  emptyCard: { alignItems: 'center', backgroundColor: colors.card, borderColor: colors.border, borderRadius: 16, borderWidth: 1, padding: 22, gap: 4 },
+  error: { color: colors.destructive, backgroundColor: colors.destructiveSubtle, borderRadius: 12, padding: 12, fontSize: 14, lineHeight: 20 },
   addButton: { backgroundColor: colors.accentSubtle, borderRadius: 12, paddingHorizontal: 11, paddingVertical: 9 },
   addButtonText: { color: colors.accentText, fontWeight: '700', fontSize: 13 },
   removeButton: { alignSelf: 'flex-start', minHeight: 36, justifyContent: 'center' },
@@ -294,16 +298,17 @@ const styles = StyleSheet.create({
   editor: { maxHeight: '92%', backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 30, gap: 10 },
   editorHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
   editorTitle: { color: colors.foreground, fontSize: 20, fontWeight: '800' },
-  closeButton: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: '#efeee9' },
+  closeButton: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.muted },
   closeText: { color: colors.foreground, fontSize: 26, lineHeight: 30 },
   formLabel: { color: colors.secondaryText, fontSize: 13, fontWeight: '600', marginTop: 2 },
-  input: { minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: colors.inputBorder, backgroundColor: '#ffffff', color: colors.foreground, paddingHorizontal: 12, fontSize: 15 },
+  input: { minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: colors.inputBorder, backgroundColor: colors.card, color: colors.foreground, paddingHorizontal: 12, fontSize: 15 },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   horizontalChips: { flexDirection: 'row', gap: 7, paddingRight: 10 },
-  choiceChip: { borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: '#ffffff', paddingHorizontal: 11, paddingVertical: 8 },
+  choiceChip: { borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 11, paddingVertical: 8 },
   choiceChipActive: { borderColor: colors.primary, backgroundColor: colors.primary },
   choiceText: { color: colors.secondaryText, fontSize: 12, fontWeight: '600' },
-  choiceTextActive: { color: '#ffffff' },
+  choiceTextActive: { color: colors.primaryForeground },
   primaryButton: { minHeight: 48, marginTop: 6, borderRadius: 14, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  primaryButtonText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
-})
+  primaryButtonText: { color: colors.primaryForeground, fontSize: 15, fontWeight: '700' },
+}), [colors])
+}

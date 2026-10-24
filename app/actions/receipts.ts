@@ -1,10 +1,6 @@
 'use server'
 
-import { and, eq, inArray } from 'drizzle-orm'
-import { parseStoredJson } from '@/lib/safe-json'
 import { requireHouseholdId } from '@/lib/auth/authorize'
-import { safeErrorMessage } from '@/lib/errors'
-import { getDb } from '@/lib/db/client'
 import {
   getPurchaseAftermath,
   getTickedListItems,
@@ -16,17 +12,14 @@ import {
 import * as schema from '@/lib/db/schema'
 import { applyConfirmedReceiptListPairs, getReceiptListSuggestions, type ReceiptListSuggestion } from '@/lib/db/receipt-list'
 import type { ReceiptListPair } from '@/lib/receipt-list-match'
-import { type ExtractedReceipt, type ReceiptLineItem } from '@/lib/receipts'
-import { deleteReceiptFile } from '@/lib/storage'
+import { type ReceiptLineItem } from '@/lib/receipts'
 import type { PurchaseRecord } from '@/lib/types'
 import {
-  assertOwnsReceiptImport,
-  createPurchaseFromReceiptItems,
-  findOrCreateStore,
-  findOrCreateStoreLocation,
+  cancelReceiptImportForHousehold,
+  confirmReceiptReviewForHousehold,
   importManualReceiptForHousehold,
   processReceiptImportForHousehold,
-  resolveReceiptPurchaseDate,
+  resolveDuplicateReceiptForHousehold,
 } from '@/lib/receipt-import'
 import { uploadReceiptForHousehold, type UploadReceiptResult } from '@/lib/receipt-upload-server'
 
@@ -129,45 +122,7 @@ export async function confirmReceiptReviewAction(
   options: { date?: string; storeLocationId?: string } = {},
 ): Promise<{ purchase: PurchaseRecord; aftermath: PurchaseAftermath }> {
   const householdId = await requireHouseholdId()
-  const row = await assertOwnsReceiptImport(householdId, receiptImportId)
-  if (row.status !== 'review_required' && row.status !== 'duplicate_review') {
-    throw new Error('Tento import nečeká na kontrolu.')
-  }
-
-  // Never fall back to today's date (docs/08_OCR_RECEIPT_PIPELINE.md section 12 / CLAUDE.md
-  // section 5 "never invent data") — if OCR couldn't read the date, the household must supply it
-  // here explicitly. `resolveReceiptPurchaseDate()` (inside createPurchaseFromReceiptItems) is what
-  // actually enforces this — `options.date` (explicitly supplied here) falls back to `row.date`
-  // (the OCR-read date, for a review triggered by something other than a missing date, e.g. an
-  // inconsistent total) and throws rather than defaulting to today if neither is present.
-  const extractedReview = row.parserResult ? parseStoredJson<ExtractedReceipt>(row.parserResult, `receipt_imports.parser_result ${receiptImportId}`) : null
-  let storeId = row.storeId ?? (extractedReview ? await findOrCreateStore(extractedReview.store.name) : null)
-  let resolvedStoreLocationId = options.storeLocationId ?? row.storeLocationId ?? null
-  if (resolvedStoreLocationId == null && extractedReview) {
-    // The branch may be in another chain of the same retailer (lib/stores/chain-family.ts).
-    const branch = await findOrCreateStoreLocation(storeId, extractedReview.store.address, extractedReview.store.city)
-    storeId = branch.storeId
-    resolvedStoreLocationId = branch.storeLocationId
-  }
-  const confirmedItems = items.map(withClassificationSource)
-  const purchase = await createPurchaseFromReceiptItems(householdId, confirmedItems, {
-    date: options.date,
-    storedDate: row.date,
-    storeLocationId: resolvedStoreLocationId,
-    storeId,
-    currency: row.currency,
-    receiptDiscountTotal: row.discountTotal != null ? Number(row.discountTotal) : null,
-    receiptStatedTotal: row.total != null ? Number(row.total) : null,
-    source: 'confirmed',
-  })
-
-  const db = getDb()
-  await db
-    .update(schema.receiptImports)
-    .set({ status: 'completed', items: JSON.stringify(items), storeLocationId: resolvedStoreLocationId, purchaseId: purchase.id, processedAt: new Date(), updatedAt: new Date() })
-    .where(eq(schema.receiptImports.id, receiptImportId))
-
-  return { purchase, aftermath: await getPurchaseAftermath(householdId, purchase.id) }
+  return confirmReceiptReviewForHousehold(householdId, receiptImportId, items.map(withClassificationSource), options)
 }
 
 /** Duplicate resolution (docs/08_OCR_RECEIPT_PIPELINE.md section 9): the household decides whether
@@ -181,20 +136,7 @@ export async function resolveDuplicateReceiptAction(
   options: { date?: string } = {},
 ): Promise<{ purchase: PurchaseRecord | null; aftermath: PurchaseAftermath | null }> {
   const householdId = await requireHouseholdId()
-  const row = await assertOwnsReceiptImport(householdId, receiptImportId)
-  if (row.status !== 'duplicate_review') throw new Error('Tento import nečeká na vyřešení duplicity.')
-
-  if (resolution !== 'save_new') {
-    const db = getDb()
-    await db.update(schema.receiptImports).set({ status: 'cancelled', updatedAt: new Date() }).where(eq(schema.receiptImports.id, receiptImportId))
-    return { purchase: null, aftermath: null }
-  }
-
-  const storedItems = row.items ? parseStoredJson<ReceiptLineItem[]>(row.items, `receipt_imports.items ${receiptImportId}`) : []
-  // Damaged stored lines must not be saved as an empty receipt; the household re-checks the receipt instead.
-  if (!items && storedItems === null) throw new Error('Uložené položky účtenky se nepodařilo přečíst. Zkontrolujte účtenku znovu.')
-  const finalItems = items ?? storedItems ?? []
-  return confirmReceiptReviewAction(receiptImportId, finalItems, options)
+  return resolveDuplicateReceiptForHousehold(householdId, receiptImportId, resolution, items?.map(withClassificationSource), options)
 }
 
 /** Discards an import outright (docs/08_OCR_RECEIPT_PIPELINE.md's `CANCELLED` state) — e.g. the
@@ -202,15 +144,5 @@ export async function resolveDuplicateReceiptAction(
  *  too, since nothing will ever retry it. */
 export async function cancelReceiptImportAction(receiptImportId: string): Promise<void> {
   const householdId = await requireHouseholdId()
-  const row = await assertOwnsReceiptImport(householdId, receiptImportId)
-  if (row.purchaseId) throw new Error('Tento import už vytvořil nákup — nelze zrušit.')
-
-  const db = getDb()
-  await db.update(schema.receiptImports).set({ status: 'cancelled', updatedAt: new Date() }).where(eq(schema.receiptImports.id, receiptImportId))
-  // Best-effort: a leftover file is harmless, unlike losing the cancellation — but it is logged.
-  if (row.imageUrl) {
-    await deleteReceiptFile(row.imageUrl).catch((err) =>
-      console.error(JSON.stringify({ event: 'receipt_file_delete_failed', receiptImportId, error: safeErrorMessage(err) })),
-    )
-  }
+  await cancelReceiptImportForHousehold(householdId, receiptImportId)
 }

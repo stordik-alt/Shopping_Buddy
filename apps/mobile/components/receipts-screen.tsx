@@ -1,17 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Alert, FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { CameraView, useCameraPermissions } from 'expo-camera'
 import * as DocumentPicker from 'expo-document-picker'
 import * as ImagePicker from 'expo-image-picker'
-import { Camera, FileText, ImageUp } from 'lucide-react-native'
+import { Camera, Check, Copy, FileText, ImageUp, RotateCcw, Trash2, X } from 'lucide-react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useMobileTheme } from '../lib/theme'
 import {
+  cancelReceiptImport,
+  confirmReceiptReview,
   getPendingReceiptImports,
+  getPantrySettings,
   getStoreChains,
   importManualReceipt,
   MobileApiError,
   processReceiptImport,
+  receiptImageUrl,
+  resolveDuplicateReceipt,
   uploadReceiptFile,
   type MobileReceiptImport,
 } from '../lib/shopping-list-api'
@@ -19,6 +24,17 @@ import { RefreshButton } from './refresh-button'
 import { NativeManualPurchaseForm } from './native-parity-screens'
 import type { ManualPurchaseInput } from '../../../lib/types'
 import type { MobileChainTile } from '../lib/shopping-list-api'
+import { ITEM_UNITS, unitLabel, type ItemUnit } from '@anitka/shared/units'
+import { PANTRY_LOCATIONS } from '../../../lib/pantry'
+import { subcategoriesOfItem } from '../../../lib/product-subcategories'
+import { PRODUCT_TYPES } from '../../../lib/product-types'
+import { ocrProviderLabel } from '../../../lib/receipt-ocr-provider'
+import type { ItemCategory, PantryLocation } from '../../../lib/types'
+import { getAccessToken } from '../lib/auth'
+import type { MobileReceiptLineItem } from '../lib/shopping-list-api'
+
+const ITEM_CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
+const sortedProductTypes = [...PRODUCT_TYPES].sort((a, b) => a.name.localeCompare(b.name, 'cs'))
 
 type Props = { onAuthExpired: () => void }
 
@@ -147,6 +163,152 @@ function ReceiptCameraModal({
   )
 }
 
+function NativeReceiptReviewModal({ receipt, busy, onClose, onDone, onBusyChange, onAuthExpired }: {
+  receipt: MobileReceiptImport
+  busy: boolean
+  onClose: () => void
+  onDone: (status: 'completed' | 'cancelled') => void
+  onBusyChange: (busy: boolean) => void
+  onAuthExpired: () => void
+}) {
+  const { colors } = useMobileTheme()
+  const styles = useStyles()
+  const duplicate = receipt.status === 'duplicate_review'
+  const [rows, setRows] = useState<MobileReceiptLineItem[]>(receipt.extracted?.items ?? [])
+  const [date, setDate] = useState(receipt.extracted?.date ?? '')
+  const [places, setPlaces] = useState<{ key: string; name: string; custom: boolean; id?: string }[]>(PANTRY_LOCATIONS.map((name) => ({ key: name, name, custom: false })))
+  const [token, setToken] = useState<string | null>(null)
+  const [sourceExpanded, setSourceExpanded] = useState(false)
+  const [typeQueries, setTypeQueries] = useState<Record<number, string>>({})
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+    getPantrySettings().then((result) => {
+      if (active) setPlaces(result.placeOptions.map((place) => ({ key: place.key, name: place.name, custom: place.custom, id: place.id })))
+    }).catch(() => undefined)
+    getAccessToken().then((value) => { if (active) setToken(value) }).catch(() => undefined)
+    return () => { active = false }
+  }, [])
+
+  function updateRow(index: number, changes: Partial<MobileReceiptLineItem>) {
+    setRows((current) => current.map((row, position) => {
+      if (position !== index) return row
+      const next = { ...row, ...changes }
+      if ('category' in changes || 'subcategory' in changes) next.classificationSource = 'manual'
+      return next
+    }))
+  }
+
+  async function finish(action: () => Promise<unknown>, status: 'completed' | 'cancelled') {
+    onBusyChange(true)
+    setError(null)
+    try { await action(); onDone(status) }
+    catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Kontrolu účtenky se nepodařilo uložit.')
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+    } finally { onBusyChange(false) }
+  }
+
+  const activeRows = rows.filter((row) => row.name.trim() && !row.removed)
+  const missingPlaces = activeRows.filter((row) => !row.location && !row.customPlaceId).length
+  const canSave = !busy && Boolean(date.trim()) && activeRows.length > 0 && (duplicate || missingPlaces === 0)
+
+  function saveReview() {
+    if (!canSave) return
+    void finish(() => duplicate
+      ? resolveDuplicateReceipt(receipt.id, 'save_new', rows, date)
+      : confirmReceiptReview(receipt.id, rows, date), 'completed')
+  }
+
+  function selectPlace(index: number, key: string) {
+    const place = places.find((entry) => entry.key === key)
+    const customPlaceId = place?.custom ? (place.id ?? key.slice('custom:'.length)) : undefined
+    updateRow(index, { location: customPlaceId ? undefined : key as PantryLocation, customPlaceId })
+  }
+
+  return <Modal animationType='slide' onRequestClose={busy ? () => undefined : onClose} presentationStyle='fullScreen' visible>
+    <SafeAreaView style={styles.reviewScreen}>
+      <View style={styles.reviewHeader}>
+        <View style={styles.reviewHeaderText}><Text style={styles.title}>{duplicate ? 'Kontrola možné duplicity' : 'Zkontrolovat účtenku'}</Text><Text style={styles.supporting}>{receipt.extracted?.total != null ? 'Celkem ' + receipt.extracted.total.toLocaleString('cs-CZ') + ' Kč · ' : ''}{rows.length} položek</Text></View>
+        <Pressable accessibilityLabel='Zavřít kontrolu účtenky' accessibilityRole='button' disabled={busy} onPress={onClose} style={styles.closeButton}><X color={colors.foreground} size={20} /></Pressable>
+      </View>
+      <ScrollView contentContainerStyle={styles.reviewContent} keyboardShouldPersistTaps='handled'>
+        {receipt.hasImage && token ? <Image accessibilityLabel='Originál účtenky' source={{ uri: receiptImageUrl(receipt.id), headers: { Authorization: 'Bearer ' + token } }} style={styles.reviewSourceImage} resizeMode='contain' /> : null}
+        {receipt.hasImage && !token ? <Text style={styles.noteText}>Originál účtenky se nepodařilo načíst.</Text> : null}
+        {receipt.rawOcrText ? <>
+          <Pressable accessibilityRole='button' accessibilityState={{ expanded: sourceExpanded }} onPress={() => setSourceExpanded((value) => !value)} style={styles.sourceToggle}><Text style={styles.secondaryButtonText}>{sourceExpanded ? 'Skrýt přečtený text OCR' : 'Zobrazit přečtený text OCR'}</Text></Pressable>
+          {sourceExpanded ? <Text selectable style={styles.ocrText}>{receipt.rawOcrText}</Text> : null}
+        </> : null}
+        <View style={styles.reviewCard}>
+          <Text style={styles.cardTitle}>{duplicate ? 'Vypadá to jako nákup, který už máte zaznamenaný' : 'Projít rozpoznané údaje'}</Text>
+          <Text style={styles.noteText}>{receipt.ocrProvider ? 'OCR: ' + ocrProviderLabel(receipt.ocrProvider) + ' · ' : ''}{duplicate ? 'Rozhodněte, zda nákup uložit znovu.' : 'Opravte název, množství, cenu, zařazení a místo uložení.'}</Text>
+          <Text style={styles.fieldLabel}>Datum nákupu</Text>
+          <TextInput accessibilityLabel='Datum nákupu' autoCapitalize='none' onChangeText={setDate} placeholder='RRRR-MM-DD' placeholderTextColor={colors.mutedText} style={styles.reviewInput} value={date} />
+        </View>
+        {rows.map((row, index) => <View key={index} style={[styles.reviewCard, row.removed && styles.reviewCardRemoved]}>
+          {row.removed ? <View style={styles.rowBetween}><Text style={styles.removedLine}>{row.name}</Text><Pressable accessibilityRole='button' onPress={() => updateRow(index, { removed: false })} style={styles.secondaryButton}><RotateCcw color={colors.accentText} size={15} /><Text style={styles.secondaryButtonText}>Obnovit</Text></Pressable></View> : <>
+            <View style={styles.rowBetween}><Text style={styles.fieldLabel}>Položka {index + 1}</Text><Pressable accessibilityLabel={'Odebrat položku ' + row.name} accessibilityRole='button' onPress={() => updateRow(index, { removed: true })} style={styles.removeLine}><Trash2 color={colors.destructive} size={17} /></Pressable></View>
+            {duplicate ? <Text style={styles.reviewLineName}>{row.name}</Text> : <TextInput accessibilityLabel={'Název položky ' + (index + 1)} onChangeText={(name) => updateRow(index, { name })} placeholderTextColor={colors.mutedText} style={styles.reviewInput} value={row.name} />}
+            {row.productSuggestions?.length ? <>
+              <Text style={styles.fieldLabel}>Produkt</Text>
+              <ScrollView horizontal contentContainerStyle={styles.reviewChips} showsHorizontalScrollIndicator={false}>
+                <Pressable accessibilityRole='radio' accessibilityState={{ checked: !row.productId }} onPress={() => updateRow(index, { productId: null })} style={[styles.reviewChip, !row.productId && styles.reviewChipActive]}><Text style={[styles.reviewChipText, !row.productId && styles.reviewChipTextActive]}>Bez vazby</Text></Pressable>
+                {row.productSuggestions.map((suggestion) => <Pressable key={suggestion.productId} accessibilityRole='radio' accessibilityState={{ checked: row.productId === suggestion.productId }} onPress={() => updateRow(index, { productId: suggestion.productId, productTypeKey: suggestion.productTypeKey ?? null, productTypeSelectionChanged: false })} style={[styles.reviewChip, row.productId === suggestion.productId && styles.reviewChipActive]}><Text style={[styles.reviewChipText, row.productId === suggestion.productId && styles.reviewChipTextActive]}>{suggestion.name}</Text></Pressable>)}
+              </ScrollView>
+            </> : null}
+            {!row.nonInventory ? <>
+              <Text style={styles.fieldLabel}>Druh produktu</Text>
+              <TextInput accessibilityLabel={'Hledat druh produktu ' + (index + 1)} onChangeText={(value) => setTypeQueries((current) => ({ ...current, [index]: value }))} placeholder='Vyhledat druh…' placeholderTextColor={colors.mutedText} style={styles.reviewInput} value={typeQueries[index] ?? ''} />
+              <ScrollView horizontal contentContainerStyle={styles.reviewChips} showsHorizontalScrollIndicator={false}>
+                {[
+                  { key: '', name: 'Neurčeno' },
+                  ...(row.typeSuggestions ?? []),
+                  ...sortedProductTypes.filter((type) => !typeQueries[index] || type.name.toLocaleLowerCase('cs').includes(typeQueries[index].toLocaleLowerCase('cs'))).slice(0, 16),
+                ].filter((type, choiceIndex, all) => all.findIndex((entry) => entry.key === type.key) === choiceIndex).map((type) => <Pressable key={type.key || 'unset'} accessibilityRole='radio' accessibilityState={{ checked: (row.productTypeKey ?? '') === type.key }} onPress={() => updateRow(index, { productTypeKey: type.key || null, productTypeSelectionChanged: true })} style={[styles.reviewChip, (row.productTypeKey ?? '') === type.key && styles.reviewChipActive]}><Text style={[styles.reviewChipText, (row.productTypeKey ?? '') === type.key && styles.reviewChipTextActive]}>{type.name}</Text></Pressable>)}
+              </ScrollView>
+            </> : <Text style={styles.noteText}>Nebude v zásobách</Text>}
+            {!duplicate ? <>
+              <View style={styles.reviewFields}>
+                <View style={styles.reviewField}><Text style={styles.fieldLabel}>Množství</Text><TextInput accessibilityLabel={'Množství položky ' + (index + 1)} keyboardType='decimal-pad' onChangeText={(value) => updateRow(index, { quantity: Math.max(0.001, Number(value.replace(',', '.')) || 0.001) })} style={styles.reviewInput} value={String(row.quantity)} /></View>
+                <View style={styles.reviewField}><Text style={styles.fieldLabel}>Cena</Text><TextInput accessibilityLabel={'Cena položky ' + (index + 1)} keyboardType='decimal-pad' onChangeText={(value) => updateRow(index, { price: Math.max(0, Number(value.replace(',', '.')) || 0) })} style={styles.reviewInput} value={String(row.price)} /></View>
+                {row.discount != null ? <View style={styles.reviewField}><Text style={styles.fieldLabel}>Sleva</Text><TextInput accessibilityLabel={'Sleva položky ' + (index + 1)} keyboardType='decimal-pad' onChangeText={(value) => updateRow(index, { discount: Math.max(0, Number(value.replace(',', '.')) || 0) })} style={styles.reviewInput} value={String(row.discount)} /></View> : null}
+              </View>
+              <Text style={styles.fieldLabel}>Jednotka</Text><ScrollView horizontal contentContainerStyle={styles.reviewChips} showsHorizontalScrollIndicator={false}>{ITEM_UNITS.map((unit) => <Pressable key={unit} accessibilityRole='radio' accessibilityState={{ checked: row.unit === unit }} onPress={() => updateRow(index, { unit: unit as ItemUnit })} style={[styles.reviewChip, row.unit === unit && styles.reviewChipActive]}><Text style={[styles.reviewChipText, row.unit === unit && styles.reviewChipTextActive]}>{unitLabel(1, unit)}</Text></Pressable>)}</ScrollView>
+              <Text style={styles.fieldLabel}>Kategorie</Text><ScrollView horizontal contentContainerStyle={styles.reviewChips} showsHorizontalScrollIndicator={false}>{ITEM_CATEGORIES.map((category) => <Pressable key={category} accessibilityRole='radio' accessibilityState={{ checked: row.category === category }} onPress={() => updateRow(index, { category, subcategory: undefined })} style={[styles.reviewChip, row.category === category && styles.reviewChipActive]}><Text style={[styles.reviewChipText, row.category === category && styles.reviewChipTextActive]}>{category}</Text></Pressable>)}</ScrollView>
+            </> : null}
+            {duplicate ? <><Text style={styles.fieldLabel}>Kategorie</Text><ScrollView horizontal contentContainerStyle={styles.reviewChips} showsHorizontalScrollIndicator={false}>{ITEM_CATEGORIES.map((category) => <Pressable key={category} accessibilityRole='radio' accessibilityState={{ checked: row.category === category }} onPress={() => updateRow(index, { category, subcategory: undefined })} style={[styles.reviewChip, row.category === category && styles.reviewChipActive]}><Text style={[styles.reviewChipText, row.category === category && styles.reviewChipTextActive]}>{category}</Text></Pressable>)}</ScrollView></> : null}
+            <Text style={styles.fieldLabel}>Podkategorie</Text>
+            <ScrollView horizontal contentContainerStyle={styles.reviewChips} showsHorizontalScrollIndicator={false}>
+              <Pressable accessibilityRole='radio' accessibilityState={{ checked: !row.subcategory }} onPress={() => updateRow(index, { subcategory: undefined })} style={[styles.reviewChip, !row.subcategory && styles.reviewChipActive]}><Text style={[styles.reviewChipText, !row.subcategory && styles.reviewChipTextActive]}>Bez podkategorie</Text></Pressable>
+              {subcategoriesOfItem(row.category).map((subcategory) => <Pressable key={subcategory} accessibilityRole='radio' accessibilityState={{ checked: row.subcategory === subcategory }} onPress={() => updateRow(index, { subcategory })} style={[styles.reviewChip, row.subcategory === subcategory && styles.reviewChipActive]}><Text style={[styles.reviewChipText, row.subcategory === subcategory && styles.reviewChipTextActive]}>{subcategory}</Text></Pressable>)}
+            </ScrollView>
+            {!duplicate ? <>
+              <Text style={styles.fieldLabel}>Místo uložení</Text>
+              <ScrollView horizontal contentContainerStyle={styles.reviewChips} showsHorizontalScrollIndicator={false}>{places.map((place) => {
+                const selected = place.custom ? row.customPlaceId === place.id : row.location === place.key && !row.customPlaceId
+                return <Pressable key={place.key} accessibilityRole='radio' accessibilityState={{ checked: selected }} onPress={() => selectPlace(index, place.key)} style={[styles.reviewChip, selected && styles.reviewChipActive]}><Text style={[styles.reviewChipText, selected && styles.reviewChipTextActive]}>{place.name}</Text></Pressable>
+              })}</ScrollView>
+            </> : null}
+          </>}
+        </View>)}
+        {!duplicate && missingPlaces > 0 ? <Text accessibilityRole='alert' style={styles.reviewError}>Vyberte místo uložení u {missingPlaces} položek.</Text> : null}
+        {error ? <Text accessibilityRole='alert' style={styles.reviewError}>{error}</Text> : null}
+        <View style={styles.reviewActions}>
+          {duplicate ? <>
+            <Pressable accessibilityRole='button' disabled={busy} onPress={() => void finish(() => resolveDuplicateReceipt(receipt.id, 'use_existing'), 'cancelled')} style={styles.secondaryButton}><Copy color={colors.accentText} size={16} /><Text style={styles.secondaryButtonText}>Je to duplicita, nepřidávat</Text></Pressable>
+            <Pressable accessibilityRole='button' disabled={!canSave} onPress={saveReview} style={[styles.primaryButton, !canSave && styles.disabledButton]}><Check color={colors.primaryForeground} size={17} /><Text style={styles.primaryButtonText}>{busy ? 'Ukládám…' : 'Přesto uložit nový nákup'}</Text></Pressable>
+            <Pressable accessibilityRole='button' disabled={busy} onPress={() => void finish(() => resolveDuplicateReceipt(receipt.id, 'cancel'), 'cancelled')} style={styles.textAction}><Text style={styles.textActionText}>Zahodit účtenku</Text></Pressable>
+          </> : <>
+            <Pressable accessibilityRole='button' disabled={!canSave} onPress={saveReview} style={[styles.primaryButton, !canSave && styles.disabledButton]}><Check color={colors.primaryForeground} size={17} /><Text style={styles.primaryButtonText}>{busy ? 'Ukládám…' : 'Potvrdit a uložit nákup'}</Text></Pressable>
+            <Pressable accessibilityRole='button' disabled={busy} onPress={() => Alert.alert('Zahodit účtenku?', 'Rozpoznané položky a nahraný soubor se odstraní.', [{ text: 'Zpět', style: 'cancel' }, { text: 'Zahodit', style: 'destructive', onPress: () => void finish(() => cancelReceiptImport(receipt.id), 'cancelled') }])} style={styles.textAction}><Text style={styles.textActionText}>Zahodit účtenku</Text></Pressable>
+          </>}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  </Modal>
+}
+
 export function ReceiptsScreen({ onAuthExpired }: Props) {
   const { colors } = useMobileTheme()
   const styles = useStyles()
@@ -157,6 +319,7 @@ export function ReceiptsScreen({ onAuthExpired }: Props) {
   const [storeChains, setStoreChains] = useState<MobileChainTile[]>([])
   const [loading, setLoading] = useState(true)
   const [workingId, setWorkingId] = useState<string | null>(null)
+  const [reviewing, setReviewing] = useState<MobileReceiptImport | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   async function refresh() {
@@ -335,16 +498,17 @@ export function ReceiptsScreen({ onAuthExpired }: Props) {
                 ))}
                 {item.errorMessage ? <Text style={styles.errorText}>{item.errorMessage}</Text> : null}
                 {canRetry ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    disabled={workingId !== null}
-                    onPress={() => void runReceipt(item.id, retry)}
-                    style={[styles.secondaryButton, workingId === item.id && styles.disabledButton]}
-                  >
-                    <Text style={styles.secondaryButtonText}>{workingId === item.id ? 'Zpracovávám…' : retry ? 'Zkusit znovu' : 'Spustit zpracování'}</Text>
-                  </Pressable>
+                  <View style={styles.receiptActions}>
+                    <Pressable accessibilityRole="button" disabled={workingId !== null} onPress={() => void runReceipt(item.id, retry)} style={[styles.secondaryButton, workingId === item.id && styles.disabledButton]}>
+                      <Text style={styles.secondaryButtonText}>{workingId === item.id ? 'Zpracovávám…' : retry ? 'Zkusit znovu' : 'Spustit zpracování'}</Text>
+                    </Pressable>
+                    <Pressable accessibilityRole="button" disabled={workingId !== null} onPress={() => Alert.alert('Zahodit účtenku?', 'Nahraný soubor se odstraní.', [{ text: 'Zpět', style: 'cancel' }, { text: 'Zahodit', style: 'destructive', onPress: () => void (async () => { setWorkingId(item.id); try { await cancelReceiptImport(item.id); replaceReceipt({ ...item, status: 'cancelled' }) } catch (caught) { setError(caught instanceof Error ? caught.message : 'Účtenku se nepodařilo zahodit.'); if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired() } finally { setWorkingId(null) } })() }])} style={styles.textAction}><Text style={styles.textActionText}>Zahodit</Text></Pressable>
+                  </View>
                 ) : item.status === 'review_required' || item.status === 'duplicate_review' ? (
-                  <Text style={styles.supporting}>Před uložením nákupu dokončete kontrolu v aplikaci ANITKA.</Text>
+                  <Pressable accessibilityRole="button" disabled={workingId !== null} onPress={() => setReviewing(item)} style={styles.primaryButton}>
+                    {item.status === 'duplicate_review' ? <Copy color={colors.primaryForeground} size={16} /> : <Check color={colors.primaryForeground} size={16} />}
+                    <Text style={styles.primaryButtonText}>{item.status === 'duplicate_review' ? 'Rozhodnout o duplicitě' : 'Zkontrolovat položky'}</Text>
+                  </Pressable>
                 ) : null}
               </View>
             )
@@ -359,6 +523,15 @@ export function ReceiptsScreen({ onAuthExpired }: Props) {
         visible={cameraOpen}
       />
       {manualOpen ? <NativeManualPurchaseForm chains={storeChains} onClose={() => setManualOpen(false)} onSave={saveManualReceipt} /> : null}
+      {reviewing ? <NativeReceiptReviewModal
+        key={reviewing.id}
+        receipt={reviewing}
+        busy={workingId === reviewing.id}
+        onAuthExpired={onAuthExpired}
+        onBusyChange={(value) => setWorkingId(value ? reviewing.id : null)}
+        onClose={() => setReviewing(null)}
+        onDone={(status) => { replaceReceipt({ ...reviewing, status }); setReviewing(null); if (status === 'completed') setCompleted({ ...reviewing, status }) }}
+      /> : null}
     </View>
   )
 }
@@ -396,9 +569,39 @@ function useStyles() {
   listHeader: { minHeight: 52, marginHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   listHeaderTitle: { flex: 1, minWidth: 0 },
   list: { paddingHorizontal: 16, paddingBottom: 24, gap: 8 },
+  receiptActions: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
   receiptCard: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 16, borderWidth: 1, padding: 14, gap: 8 },
   receiptStatus: { color: colors.foreground, fontSize: 16, fontWeight: '700' },
   receiptLine: { color: colors.secondaryText, fontSize: 14 },
+  reviewScreen: { flex: 1, backgroundColor: colors.background },
+  reviewHeader: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.border },
+  reviewHeaderText: { flex: 1 },
+  closeButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 20, backgroundColor: colors.muted },
+  reviewContent: { gap: 10, padding: 14, paddingBottom: 30 },
+  reviewCard: { gap: 8, padding: 13, borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
+  reviewCardRemoved: { opacity: 0.7, backgroundColor: colors.muted },
+  cardTitle: { color: colors.foreground, fontSize: 15, fontWeight: '700' },
+  noteText: { color: colors.mutedText, fontSize: 12, lineHeight: 17 },
+  fieldLabel: { color: colors.secondaryText, fontSize: 12, fontWeight: '700' },
+  reviewInput: { minHeight: 42, borderWidth: 1, borderColor: colors.inputBorder, borderRadius: 10, backgroundColor: colors.elevated, color: colors.foreground, paddingHorizontal: 10, fontSize: 14 },
+  reviewFields: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  reviewField: { flexGrow: 1, flexBasis: '28%', gap: 5 },
+  reviewChips: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 2 },
+  reviewChip: { minHeight: 34, justifyContent: 'center', paddingHorizontal: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 17, backgroundColor: colors.elevated },
+  reviewChipActive: { borderColor: colors.accent, backgroundColor: colors.accentSubtle },
+  reviewChipText: { color: colors.secondaryText, fontSize: 11, fontWeight: '600' },
+  reviewChipTextActive: { color: colors.accentText },
+  reviewSourceImage: { width: '100%', height: 220, borderRadius: 14, backgroundColor: colors.muted },
+  sourceToggle: { minHeight: 42, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.card },
+  ocrText: { maxHeight: 180, padding: 11, borderRadius: 12, backgroundColor: colors.muted, color: colors.secondaryText, fontSize: 12, lineHeight: 18 },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  reviewLineName: { color: colors.foreground, fontSize: 14, fontWeight: '600' },
+  removedLine: { flex: 1, color: colors.mutedText, fontSize: 13, textDecorationLine: 'line-through' },
+  removeLine: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 11, backgroundColor: colors.destructiveSubtle },
+  reviewError: { padding: 10, borderRadius: 11, backgroundColor: colors.destructiveSubtle, color: colors.destructive, fontSize: 13, lineHeight: 18 },
+  reviewActions: { gap: 8, paddingTop: 4 },
+  textAction: { minHeight: 40, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  textActionText: { color: colors.destructive, fontSize: 13, fontWeight: '700' },
   emptyState: { alignItems: 'center', marginHorizontal: 16, padding: 20, backgroundColor: colors.card, borderColor: colors.border, borderRadius: 18, borderWidth: 1 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
 }), [colors])

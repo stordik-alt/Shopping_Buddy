@@ -14,7 +14,7 @@ import type { PeriodConfig } from '../../../lib/budget-period'
 import type { PeriodHistoryRow } from '../../../lib/budget-history'
 import type { PocketAmount } from '../../../lib/budget-closing'
 import type { UsualItem } from '../../../lib/usual-items'
-import type { ItemCategory, PantryTracking } from '../../../lib/types'
+import type { ItemCategory, PantryLocation, PantryTracking } from '../../../lib/types'
 import { clearAccessToken, getAccessToken } from './auth'
 import { getApiUrl } from './config'
 
@@ -771,6 +771,30 @@ export function lookupBarcode(barcode: string) {
   })
 }
 
+export type MobileReceiptLineItem = {
+  name: string
+  category: ItemCategory
+  quantity: number
+  unit: ItemUnit
+  price: number
+  discount?: number
+  unitPriceUnknown?: boolean
+  location?: PantryLocation
+  customPlaceId?: string
+  confidence?: number
+  subcategory?: string
+  classificationSource?: 'manual'
+  recognitionMethod?: string
+  nonInventory?: boolean
+  removed?: boolean
+  rawName?: string
+  productId?: string | null
+  productSuggestions?: { productId: string; name: string; productTypeKey?: string | null }[]
+  productTypeKey?: string | null
+  productTypeSelectionChanged?: boolean
+  typeSuggestions?: { key: string; name: string }[]
+}
+
 export type MobileReceiptImport = {
   id: string
   status:
@@ -778,7 +802,9 @@ export type MobileReceiptImport = {
     | 'parsing' | 'parsed' | 'parsing_failed' | 'validating' | 'review_required' | 'duplicate_review' | 'completed' | 'cancelled'
   hasImage: boolean
   errorMessage: string | null
-  extracted: { date: string | null; total: number | null; items: { name: string; quantity: number; unit: ItemUnit }[] } | null
+  rawOcrText: string | null
+  ocrProvider: string | null
+  extracted: { date: string | null; total: number | null; items: MobileReceiptLineItem[] } | null
   stalled: boolean
 }
 
@@ -813,6 +839,28 @@ export function processReceiptImport(receiptId: string, retry: boolean) {
     method: 'POST',
     body: JSON.stringify({ retry }),
   })
+}
+
+export function confirmReceiptReview(receiptId: string, items: MobileReceiptLineItem[], date: string) {
+  return request<{ receipt: { id: string; status: 'completed' }; purchase: PurchaseRecord }>(`/api/mobile/receipts/${encodeURIComponent(receiptId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ action: 'confirm', items, date }),
+  })
+}
+
+export function resolveDuplicateReceipt(receiptId: string, resolution: 'save_new' | 'use_existing' | 'cancel', items?: MobileReceiptLineItem[], date?: string) {
+  return request<{ receipt: { id: string; status: 'completed' | 'cancelled' }; purchase: PurchaseRecord | null }>(`/api/mobile/receipts/${encodeURIComponent(receiptId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ action: 'resolve_duplicate', resolution, ...(items ? { items } : {}), ...(date ? { date } : {}) }),
+  })
+}
+
+export function cancelReceiptImport(receiptId: string) {
+  return request<{ ok: true }>(`/api/mobile/receipts/${encodeURIComponent(receiptId)}`, { method: 'DELETE' })
+}
+
+export function receiptImageUrl(receiptId: string) {
+  return `${getApiUrl()}/api/mobile/receipts/${encodeURIComponent(receiptId)}/image`
 }
 
 export function updateShoppingItem(itemId: string, changes: { quantity?: number; unit?: ItemUnit }) {

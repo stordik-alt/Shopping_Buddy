@@ -196,6 +196,7 @@ export default function HomeScreen() {
   const [assistantOpen, setAssistantOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
+  const [quickExpenseToken, setQuickExpenseToken] = useState(0)
   const [signedIn, setSignedIn] = useState(false)
   const [busy, setBusy] = useState(true)
   const [signingIn, setSigningIn] = useState(false)
@@ -663,6 +664,7 @@ export default function HomeScreen() {
                 name={userName}
                 onAddToShopping={(name) => void handleAdd(name)}
                 onOpenReceipts={() => { setShoppingView('receipts'); setActiveTab('shopping') }}
+                onQuickExpense={() => { setQuickExpenseToken((current) => current + 1); setActiveTab('budget') }}
                 onSelect={setActiveTab}
               />
             ) : activeTab === 'shopping' ? (
@@ -793,7 +795,7 @@ export default function HomeScreen() {
                 {recipeView === 'meals' ? <MealPlanScreen onAuthExpired={handleAuthExpired} /> : <RecipesScreen onAuthExpired={handleAuthExpired} />}
               </>
             ) : activeTab === 'budget' ? (
-              <BudgetScreen onAuthExpired={handleAuthExpired} />
+              <BudgetScreen onAuthExpired={handleAuthExpired} quickAddExpenseToken={quickExpenseToken} />
             ) : activeTab === 'pantry' ? (
               <PantryScreen onAuthExpired={handleAuthExpired} />
             ) : (

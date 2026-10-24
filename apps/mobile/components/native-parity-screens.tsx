@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
-import { ArrowRight, Bell, CookingPot, House, MapPin, MoreHorizontal, Package, Search, ShoppingCart, Store, Tag, Users, WalletCards, X } from 'lucide-react-native'
+import { ArrowRight, Bell, CookingPot, House, MapPin, MoreHorizontal, Package, Plus, ReceiptText, Search, ShoppingCart, Store, Tag, Users, WalletCards, X } from 'lucide-react-native'
 import { useMobileTheme, type ThemePreference } from '../lib/theme'
 import { addHouseholdChild, addHouseholdMember, createHouseholdInvitation, dismissNotification, getBudgetSummary, getDealsPage, getHouseholdAuditLog, getHouseholdInvitations, getMealPlan, getNotificationPreferences, getNotifications, getPantry, getPantrySettings, getPendingReceiptImports, getPurchaseHistory, getShoppingList, getStoreBranches, getStoreChains, getStorePreferences, MobileApiError, removeHouseholdChild, removeHouseholdMember, resetHouseholdData, revokeHouseholdInvitation, sendTestPushNotification, updateHouseholdMemberDiet, updateHouseholdPreferences, updateHouseholdProfile, updateNotificationPreference, updatePantrySettings, updateStorePreferences, type MobileAuditEntry, type MobileBranchPage, type MobileChainTile, type MobileDealCategory, type MobileDealsPage, type MobileDealSort, type MobileDietAvoid, type MobileDietKey, type MobileHouseholdChild, type MobileHouseholdInvitation, type MobileHouseholdMember, type MobileHouseholdPreferences, type MobileHouseholdProfileData, type MobileMemberDiet, type MobileMealPlan, type MobileNotification, type MobileNotificationPreference, type MobilePantrySettings, type MobilePantryStockLevel, type MobilePurchase, type MobileStoreSelection } from '../lib/shopping-list-api'
 import type { MobileBudgetSummary, MobilePantryState } from '../lib/shopping-list-api'
@@ -89,10 +89,10 @@ export function NativeBottomNav({ active, onSelect }: { active: NativeTab; onSel
   )
 }
 
-export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceipts, hasPreferences }: { name: string; onSelect: (tab: NativeTab) => void; onAddToShopping: (name: string) => void; onOpenReceipts: () => void; hasPreferences: boolean }) {
+export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceipts, onQuickExpense, hasPreferences }: { name: string; onSelect: (tab: NativeTab) => void; onAddToShopping: (name: string) => void; onOpenReceipts: () => void; onQuickExpense: () => void; hasPreferences: boolean }) {
   const { colors, theme } = useMobileTheme()
   const styles = useStyles()
-  const [shopping, setShopping] = useState<{ remaining: number; completed: number } | null>(null)
+  const [shopping, setShopping] = useState<{ remaining: number; completed: number; pendingNames: string[] } | null>(null)
   const [budget, setBudget] = useState<MobileBudgetSummary | null>(null)
   const [pantry, setPantry] = useState<MobilePantryState | null>(null)
   const [mealPlan, setMealPlan] = useState<MobileMealPlan | null>(null)
@@ -108,7 +108,7 @@ export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceip
       if (results[0].status === 'fulfilled') {
         const items = results[0].value.items
         const remaining = items.filter((item) => !item.done).length
-        setShopping({ remaining, completed: items.length - remaining })
+        setShopping({ remaining, completed: items.length - remaining, pendingNames: items.filter((item) => !item.done).slice(0, 3).map((item) => item.name) })
       }
       if (results[1].status === 'fulfilled') setBudget(results[1].value)
       if (results[2].status === 'fulfilled') setPantry(results[2].value)
@@ -154,21 +154,23 @@ export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceip
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
       {receiptAttentionCount > 0 ? <Pressable accessibilityRole="button" onPress={onOpenReceipts} style={styles.attentionCard}><Bell color={colors.warning} size={20} /><Text style={styles.attentionText}>{receiptAttentionCount} účtenek čeká na vaši kontrolu</Text><ArrowRight color={colors.mutedText} size={18} /></Pressable> : null}
       {loading ? <ActivityIndicator color={colors.primary} size="large" style={styles.loader} /> : null}
-      <Pressable onPress={() => onSelect('shopping')} style={styles.dashboardCard}>
-        <View style={styles.cardIcon}><ShoppingCart color={colors.primary} size={21} /></View>
-        <View style={styles.dashboardText}>
-          <Text style={styles.cardEyebrow}>NÁKUPNÍ SEZNAM</Text>
-          <Text style={styles.dashboardValue}>{shopping ? `${shopping.remaining} k nákupu` : 'Otevřít seznam'}</Text>
-          {shopping ? <Text style={styles.bodyText}>{shopping.completed} položek hotovo</Text> : null}
-        </View>
-        <ArrowRight color={colors.mutedText} size={20} />
-      </Pressable>
       <Pressable onPress={() => onSelect('budget')} style={styles.dashboardCard}>
         <View style={[styles.cardIcon, styles.cardIconAccent]}><WalletCards color={colors.accentText} size={21} /></View>
         <View style={styles.dashboardText}>
           <Text style={styles.cardEyebrow}>ROZPOČET DOMÁCNOSTI</Text>
           <Text style={styles.dashboardValue}>{budget ? `Zbývá ${money(Math.max(0, budget.remaining), budget.currency)}` : 'Zobrazit rozpočet'}</Text>
           {budget ? <Text style={styles.bodyText}>Utraceno {money(budget.spent, budget.currency)} z {money(budget.budget, budget.currency)}</Text> : null}
+          {budget && budget.budget > 0 ? <View accessibilityLabel={`Vyčerpáno ${Math.min(100, Math.max(0, (budget.spent / budget.budget) * 100)).toFixed(0)} procent rozpočtu`} style={styles.budgetTrack}><View style={[styles.budgetFill, budget.remaining < 0 && styles.budgetFillOver, { width: `${Math.min(100, Math.max(0, (budget.spent / budget.budget) * 100))}%` }]} /></View> : null}
+        </View>
+        <ArrowRight color={colors.mutedText} size={20} />
+      </Pressable>
+      <Pressable onPress={() => onSelect('shopping')} style={styles.dashboardCard}>
+        <View style={styles.cardIcon}><ShoppingCart color={colors.primary} size={21} /></View>
+        <View style={styles.dashboardText}>
+          <Text style={styles.cardEyebrow}>NÁKUPNÍ SEZNAM</Text>
+          <Text style={styles.dashboardValue}>{shopping ? `${shopping.remaining} k nákupu` : 'Otevřít seznam'}</Text>
+          {shopping ? <Text style={styles.bodyText}>{shopping.completed} položek hotovo</Text> : null}
+          {shopping?.pendingNames.map((item) => <Text key={item} numberOfLines={1} style={styles.noteText}>•  {item}</Text>)}
         </View>
         <ArrowRight color={colors.mutedText} size={20} />
       </Pressable>
@@ -200,10 +202,15 @@ export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceip
         <Pressable accessibilityRole="button" onPress={() => onSelect('deals')} style={styles.mealCardHeading}><Tag color={colors.accentText} size={19} /><Text style={styles.cardTitle}>Akce na vaše oblíbené</Text><Text style={styles.mealCardLink}>Všechny →</Text></Pressable>
         {preferredDealRows.map((deal) => <View key={`${deal.name}-${deal.store}`} style={styles.homeDealRow}><View style={styles.dashboardText}><Text numberOfLines={1} style={styles.dealName}>{deal.name}</Text><Text style={styles.noteText}>{deal.store}{deal.until ? ` · do ${deal.until}` : ''}</Text></View><Text style={styles.homeDealPrice}>{money(deal.price, 'CZK')}</Text><Pressable accessibilityRole="button" accessibilityLabel={`Přidat ${deal.name} na seznam`} onPress={() => onAddToShopping(deal.name)} style={styles.homeDealAdd}><Text style={styles.homeDealAddText}>+</Text></Pressable></View>)}
       </View> : null}
-      <Text style={styles.sectionHeading}>Rychlý přístup</Text>
+      <Text style={styles.sectionHeading}>Rychlé akce</Text>
       <View style={styles.quickActions}>
-        {moreItems.slice(0, 3).map(({ key, label, Icon }) => (
-          <Pressable key={key} onPress={() => onSelect(key)} style={styles.quickAction}>
+        {[
+          { label: 'Do nákupu', Icon: Plus, action: () => onSelect('shopping') },
+          { label: 'Výdaj', Icon: WalletCards, action: onQuickExpense },
+          { label: 'Účtenka', Icon: ReceiptText, action: onOpenReceipts },
+          { label: 'Obchody', Icon: MapPin, action: () => onSelect('stores') },
+        ].map(({ label, Icon, action }) => (
+          <Pressable accessibilityRole="button" accessibilityLabel={label} key={label} onPress={action} style={styles.quickAction}>
             <Icon color={colors.primary} size={21} />
             <Text style={styles.quickActionLabel}>{label}</Text>
           </Pressable>
@@ -1207,6 +1214,9 @@ function useStyles() {
   chartLabelRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
   chartTrack: { height: 8, overflow: 'hidden', borderRadius: 8, backgroundColor: colors.muted },
   chartFill: { height: '100%', borderRadius: 8 },
+  budgetTrack: { height: 9, overflow: 'hidden', borderRadius: 9, backgroundColor: colors.muted, marginTop: 4 },
+  budgetFill: { height: '100%', borderRadius: 9, backgroundColor: colors.accent },
+  budgetFillOver: { backgroundColor: colors.destructive },
   cardIcon: { width: 44, height: 44, borderRadius: 15, backgroundColor: colors.muted, justifyContent: 'center', alignItems: 'center' },
   cardIconAccent: { backgroundColor: colors.accentSubtle },
   dashboardText: { flex: 1, minWidth: 0, gap: 2 },

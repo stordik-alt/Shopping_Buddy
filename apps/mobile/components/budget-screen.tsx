@@ -293,7 +293,7 @@ function BudgetPlanningScreen({
   </View>
 }
 
-export function BudgetScreen({ onAuthExpired }: { onAuthExpired: () => void }) {
+export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0 }: { onAuthExpired: () => void; quickAddExpenseToken?: number }) {
   const { colors, theme } = useMobileTheme()
   const styles = useStyles()
   const [summary, setSummary] = useState<MobileBudgetSummary | null>(null)
@@ -309,6 +309,14 @@ export function BudgetScreen({ onAuthExpired }: { onAuthExpired: () => void }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (quickAddExpenseToken > 0) {
+      setView('overview')
+      setEditorExpense(null)
+      setEditorOpen(true)
+    }
+  }, [quickAddExpenseToken])
 
   const load = useCallback(async (requestedPeriod?: string) => {
     setLoading(true)

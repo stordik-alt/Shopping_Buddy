@@ -12,6 +12,7 @@ import {
   type MobileMealPlanOptions,
   type MobileMealType,
 } from '../lib/shopping-list-api'
+import { colors } from '../lib/theme'
 
 const MEAL_TYPES: MobileMealType[] = ['Snídaně', 'Oběd', 'Večeře', 'Svačina']
 const MAX_MEAL_SERVINGS = 1000
@@ -156,7 +157,7 @@ export function MealPlanScreen({ onAuthExpired }: { onAuthExpired: () => void })
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
       {loading && !plan ? (
         <View style={styles.empty}>
-          <ActivityIndicator color="#087e8b" size="large" />
+          <ActivityIndicator color={colors.primary} size="large" />
           <Text style={styles.supporting}>Načítání jídelníčku…</Text>
         </View>
       ) : !plan ? (
@@ -236,39 +237,39 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 24 },
   heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
   headingText: { flex: 1, minWidth: 0 },
-  title: { color: '#122c3a', fontSize: 23, fontWeight: '700' },
-  supporting: { color: '#526674', fontSize: 14, lineHeight: 20, marginTop: 4 },
-  card: { backgroundColor: '#ffffff', borderColor: '#dce6e9', borderRadius: 18, borderWidth: 1, margin: 16, padding: 16, gap: 12 },
-  sectionTitle: { color: '#122c3a', fontSize: 18, fontWeight: '700' },
+  title: { color: colors.foreground, fontSize: 23, fontWeight: '700' },
+  supporting: { color: colors.secondaryText, fontSize: 14, lineHeight: 20, marginTop: 4 },
+  card: { backgroundColor: '#ffffff', borderColor: colors.border, borderRadius: 18, borderWidth: 1, margin: 16, padding: 16, gap: 12 },
+  sectionTitle: { color: colors.foreground, fontSize: 18, fontWeight: '700' },
   settingsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  label: { color: '#526674', fontSize: 14, fontWeight: '600' },
-  numberInput: { minWidth: 84, minHeight: 44, borderColor: '#cbd8dd', borderRadius: 10, borderWidth: 1, backgroundColor: '#ffffff', color: '#122c3a', paddingHorizontal: 12, textAlign: 'center', fontSize: 16 },
+  label: { color: colors.secondaryText, fontSize: 14, fontWeight: '600' },
+  numberInput: { minWidth: 84, minHeight: 44, borderColor: colors.inputBorder, borderRadius: 10, borderWidth: 1, backgroundColor: '#ffffff', color: colors.foreground, paddingHorizontal: 12, textAlign: 'center', fontSize: 16 },
   options: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  option: { minHeight: 40, justifyContent: 'center', borderColor: '#cbd8dd', borderRadius: 22, borderWidth: 1, paddingHorizontal: 12 },
-  optionSelected: { backgroundColor: '#dff4f5', borderColor: '#087e8b' },
-  optionText: { color: '#526674', fontSize: 14 },
-  optionTextSelected: { color: '#075e68', fontWeight: '700' },
+  option: { minHeight: 40, justifyContent: 'center', borderColor: colors.inputBorder, borderRadius: 22, borderWidth: 1, paddingHorizontal: 12 },
+  optionSelected: { backgroundColor: colors.accentSubtle, borderColor: colors.primary },
+  optionText: { color: colors.secondaryText, fontSize: 14 },
+  optionTextSelected: { color: colors.accentText, fontWeight: '700' },
   stockOption: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  stockCheck: { color: '#087e8b', fontSize: 20 },
-  primaryButton: { minHeight: 48, borderRadius: 12, backgroundColor: '#087e8b', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  stockCheck: { color: colors.primary, fontSize: 20 },
+  primaryButton: { minHeight: 48, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
   disabled: { opacity: 0.55 },
   primaryButtonText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
   empty: { alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 },
-  emptyCard: { alignItems: 'center', justifyContent: 'center', marginHorizontal: 16, marginTop: 4, padding: 24, backgroundColor: '#ffffff', borderColor: '#dce6e9', borderRadius: 18, borderWidth: 1, gap: 8 },
+  emptyCard: { alignItems: 'center', justifyContent: 'center', marginHorizontal: 16, marginTop: 4, padding: 24, backgroundColor: '#ffffff', borderColor: colors.border, borderRadius: 18, borderWidth: 1, gap: 8 },
   error: { color: '#a72d2d', backgroundColor: '#fff0f0', borderRadius: 12, marginHorizontal: 16, marginBottom: 8, padding: 12, fontSize: 14, lineHeight: 20 },
   summary: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginHorizontal: 16, marginBottom: 8, gap: 8 },
-  summaryText: { color: '#526674', fontSize: 13, fontWeight: '600' },
+  summaryText: { color: colors.secondaryText, fontSize: 13, fontWeight: '600' },
   dayCard: { backgroundColor: '#eaf1f2', borderRadius: 16, marginHorizontal: 16, marginTop: 8, padding: 12, gap: 8 },
-  mealCard: { backgroundColor: '#ffffff', borderColor: '#dce6e9', borderRadius: 14, borderWidth: 1, padding: 12, gap: 8 },
+  mealCard: { backgroundColor: '#ffffff', borderColor: colors.border, borderRadius: 14, borderWidth: 1, padding: 12, gap: 8 },
   photo: { width: '100%', height: 180, borderRadius: 10, backgroundColor: '#eaf1f2' },
-  mealType: { color: '#075e68', fontSize: 13, fontWeight: '700' },
-  mealName: { color: '#122c3a', fontSize: 17, fontWeight: '700' },
-  source: { color: '#526674', fontSize: 13 },
+  mealType: { color: colors.accentText, fontSize: 13, fontWeight: '700' },
+  mealName: { color: colors.foreground, fontSize: 17, fontWeight: '700' },
+  source: { color: colors.secondaryText, fontSize: 13 },
   servingsRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  servingButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 21, backgroundColor: '#dff4f5' },
-  servingButtonText: { color: '#075e68', fontSize: 22, fontWeight: '700' },
-  ingredients: { borderTopColor: '#dce6e9', borderTopWidth: 1, paddingTop: 8, gap: 4 },
-  ingredient: { color: '#526674', fontSize: 14, lineHeight: 20 },
+  servingButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 21, backgroundColor: colors.accentSubtle },
+  servingButtonText: { color: colors.accentText, fontSize: 22, fontWeight: '700' },
+  ingredients: { borderTopColor: colors.border, borderTopWidth: 1, paddingTop: 8, gap: 4 },
+  ingredient: { color: colors.secondaryText, fontSize: 14, lineHeight: 20 },
   sourceLink: { minHeight: 42, justifyContent: 'center' },
-  sourceLinkText: { color: '#075e68', fontSize: 14, fontWeight: '700' },
+  sourceLinkText: { color: colors.accentText, fontSize: 14, fontWeight: '700' },
 })

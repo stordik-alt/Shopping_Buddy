@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { MobileApiError, getBudgetSummary, type MobileBudgetSummary } from '../lib/shopping-list-api'
 import { RefreshButton } from './refresh-button'
+import { colors } from '../lib/theme'
 
 function money(amount: number, currency: string): string {
   try {
@@ -50,7 +51,7 @@ export function BudgetScreen({ onAuthExpired }: { onAuthExpired: () => void }) {
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
       {loading && !summary ? (
         <View style={styles.empty}>
-          <ActivityIndicator color="#087e8b" size="large" />
+          <ActivityIndicator color={colors.primary} size="large" />
           <Text style={styles.supporting}>Načítání rozpočtu…</Text>
         </View>
       ) : summary ? (
@@ -123,24 +124,24 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 16, paddingBottom: 24, gap: 14 },
   heading: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   headingText: { flex: 1, minWidth: 0 },
-  title: { color: '#122c3a', fontSize: 20, fontWeight: '700' },
-  supporting: { color: '#526674', fontSize: 13, lineHeight: 19, marginTop: 4 },
-  card: { backgroundColor: '#ffffff', borderColor: '#dce6e9', borderRadius: 18, borderWidth: 1, padding: 16, gap: 12 },
-  label: { color: '#526674', fontSize: 14, fontWeight: '600' },
-  budget: { color: '#122c3a', fontSize: 28, fontWeight: '800' },
+  title: { color: colors.foreground, fontSize: 20, fontWeight: '700' },
+  supporting: { color: colors.secondaryText, fontSize: 13, lineHeight: 19, marginTop: 4 },
+  card: { backgroundColor: '#ffffff', borderColor: colors.border, borderRadius: 18, borderWidth: 1, padding: 16, gap: 12 },
+  label: { color: colors.secondaryText, fontSize: 14, fontWeight: '600' },
+  budget: { color: colors.foreground, fontSize: 28, fontWeight: '800' },
   row: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 },
-  value: { color: '#122c3a', fontSize: 15, fontWeight: '700' },
-  remaining: { color: '#087e8b', fontSize: 18, fontWeight: '800' },
+  value: { color: colors.foreground, fontSize: 15, fontWeight: '700' },
+  remaining: { color: colors.accentText, fontSize: 18, fontWeight: '800' },
   over: { color: '#a72d2d' },
   progressTrack: { height: 8, overflow: 'hidden', borderRadius: 8, backgroundColor: '#e6eef0', marginTop: 5 },
-  progress: { height: '100%', borderRadius: 8, backgroundColor: '#087e8b' },
+  progress: { height: '100%', borderRadius: 8, backgroundColor: colors.accent },
   progressWarning: { backgroundColor: '#d99016' },
   progressOver: { backgroundColor: '#b63838' },
   section: { gap: 10 },
-  sectionTitle: { color: '#122c3a', fontSize: 17, fontWeight: '700', marginBottom: 2 },
-  category: { backgroundColor: '#ffffff', borderColor: '#dce6e9', borderRadius: 16, borderWidth: 1, padding: 14, gap: 4 },
-  categoryName: { color: '#122c3a', flex: 1, fontSize: 15, fontWeight: '600' },
+  sectionTitle: { color: colors.foreground, fontSize: 17, fontWeight: '700', marginBottom: 2 },
+  category: { backgroundColor: '#ffffff', borderColor: colors.border, borderRadius: 16, borderWidth: 1, padding: 14, gap: 4 },
+  categoryName: { color: colors.foreground, flex: 1, fontSize: 15, fontWeight: '600' },
   empty: { alignItems: 'center', justifyContent: 'center', padding: 28, gap: 10 },
-  emptyCard: { alignItems: 'center', backgroundColor: '#ffffff', borderColor: '#dce6e9', borderRadius: 16, borderWidth: 1, padding: 22, gap: 4 },
+  emptyCard: { alignItems: 'center', backgroundColor: '#ffffff', borderColor: colors.border, borderRadius: 16, borderWidth: 1, padding: 22, gap: 4 },
   error: { color: '#a72d2d', backgroundColor: '#fff0f0', borderRadius: 12, padding: 12, fontSize: 14, lineHeight: 20 },
 })

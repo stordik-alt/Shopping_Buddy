@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { ArrowRight, Bell, CookingPot, House, MapPin, MoreHorizontal, Package, Plus, ReceiptText, Search, ShoppingCart, Store, Tag, Users, WalletCards, X } from 'lucide-react-native'
 import { useMobileTheme, type ThemePreference } from '../lib/theme'
-import { addHouseholdChild, addHouseholdMember, createHouseholdInvitation, dismissNotification, getBudgetSummary, getDealsPage, getHouseholdAuditLog, getHouseholdInvitations, getMealPlan, getNotificationPreferences, getNotifications, getPantry, getPantrySettings, getPendingReceiptImports, getPurchaseHistory, getShoppingList, getStoreBranches, getStoreChains, getStorePreferences, MobileApiError, removeHouseholdChild, removeHouseholdMember, resetHouseholdData, revokeHouseholdInvitation, sendTestPushNotification, updateHouseholdMemberDiet, updateHouseholdPreferences, updateHouseholdProfile, updateNotificationPreference, updatePantrySettings, updateStorePreferences, type MobileAuditEntry, type MobileBranchPage, type MobileChainTile, type MobileDealCategory, type MobileDealsPage, type MobileDealSort, type MobileDietAvoid, type MobileDietKey, type MobileHouseholdChild, type MobileHouseholdInvitation, type MobileHouseholdMember, type MobileHouseholdPreferences, type MobileHouseholdProfileData, type MobileMemberDiet, type MobileMealPlan, type MobileNotification, type MobileNotificationPreference, type MobilePantrySettings, type MobilePantryStockLevel, type MobilePurchase, type MobileStoreSelection } from '../lib/shopping-list-api'
-import type { MobileBudgetSummary, MobilePantryState } from '../lib/shopping-list-api'
+import { addHouseholdChild, addHouseholdMember, createHouseholdInvitation, dismissNotification, dismissRestockSuggestion, getDashboardSummary, getDealsPage, getHouseholdAuditLog, getHouseholdInvitations, getMealPlan, getNotificationPreferences, getNotifications, getPantrySettings, getPurchaseHistory, getStoreBranches, getStoreChains, getStorePreferences, MobileApiError, removeHouseholdChild, removeHouseholdMember, resetHouseholdData, revokeHouseholdInvitation, sendTestPushNotification, updateHouseholdMemberDiet, updateHouseholdPreferences, updateHouseholdProfile, updateNotificationPreference, updatePantrySettings, updateStorePreferences, type MobileAuditEntry, type MobileBranchPage, type MobileChainTile, type MobileDashboardSummary, type MobileDealCategory, type MobileDealsPage, type MobileDealSort, type MobileDietAvoid, type MobileDietKey, type MobileHouseholdChild, type MobileHouseholdInvitation, type MobileHouseholdMember, type MobileHouseholdPreferences, type MobileHouseholdProfileData, type MobileMemberDiet, type MobileMealPlan, type MobileNotification, type MobileNotificationPreference, type MobilePantrySettings, type MobilePantryStockLevel, type MobilePurchase, type MobileStoreSelection } from '../lib/shopping-list-api'
+import { dismissalKey } from '../../../lib/pantry-restock'
+import { assessDealQuality, dealDiscount, effectivePrice } from '../../../lib/prices'
 import { DIET_AVOIDS, DIETS, dietLabels } from '../../../lib/diet'
 import { CHECKIN_DAYS_BY_CATEGORY, CHECKIN_DAYS_BY_SUBCATEGORY, PANTRY_AREAS, PANTRY_LOCATIONS, checkinSubcategoryKey } from '../../../lib/pantry'
 import { subcategoriesOfItem } from '../../../lib/product-subcategories'
@@ -89,43 +90,33 @@ export function NativeBottomNav({ active, onSelect }: { active: NativeTab; onSel
   )
 }
 
-export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceipts, onQuickExpense, hasPreferences }: { name: string; onSelect: (tab: NativeTab) => void; onAddToShopping: (name: string) => void; onOpenReceipts: () => void; onQuickExpense: () => void; hasPreferences: boolean }) {
+export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceipts, onQuickExpense, hasPreferences }: { name: string; onSelect: (tab: NativeTab) => void; onAddToShopping: (name: string, quantity?: number, unit?: ItemUnit) => void; onOpenReceipts: () => void; onQuickExpense: () => void; hasPreferences: boolean }) {
   const { colors, theme } = useMobileTheme()
   const styles = useStyles()
-  const [shopping, setShopping] = useState<{ remaining: number; completed: number; pendingNames: string[] } | null>(null)
-  const [budget, setBudget] = useState<MobileBudgetSummary | null>(null)
-  const [pantry, setPantry] = useState<MobilePantryState | null>(null)
+  const [dashboard, setDashboard] = useState<MobileDashboardSummary | null>(null)
+  const [restockDismissed, setRestockDismissed] = useState<string[]>([])
+  const [pantryItemCount, setPantryItemCount] = useState(0)
   const [mealPlan, setMealPlan] = useState<MobileMealPlan | null>(null)
-  const [receiptAttentionCount, setReceiptAttentionCount] = useState(0)
   const [preferredDeals, setPreferredDeals] = useState<MobileDealsPage | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    Promise.allSettled([getShoppingList(), getBudgetSummary(), getPantry()]).then((results) => {
+    getDashboardSummary().then((result) => {
       if (cancelled) return
-      if (results[0].status === 'fulfilled') {
-        const items = results[0].value.items
-        const remaining = items.filter((item) => !item.done).length
-        setShopping({ remaining, completed: items.length - remaining, pendingNames: items.filter((item) => !item.done).slice(0, 3).map((item) => item.name) })
-      }
-      if (results[1].status === 'fulfilled') setBudget(results[1].value)
-      if (results[2].status === 'fulfilled') setPantry(results[2].value)
-      if (results.every((result) => result.status === 'rejected')) setError('Přehled se nepodařilo načíst. Zkuste obnovit připojení.')
-      setLoading(false)
-    })
+      setDashboard(result)
+      setRestockDismissed(result.restockDismissed)
+      setPantryItemCount(result.pantryItemCount)
+    }).catch(() => {
+      if (!cancelled) setError('Přehled se nepodařilo načíst. Zkuste obnovit připojení.')
+    }).finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [])
 
   useEffect(() => {
     let cancelled = false
     getMealPlan().then(({ plan }) => { if (!cancelled) setMealPlan(plan) }).catch(() => undefined)
-    getPendingReceiptImports().then(({ receipts }) => {
-      if (cancelled) return
-      const needsAction = new Set(['review_required', 'duplicate_review', 'ocr_failed', 'parsing_failed'])
-      setReceiptAttentionCount(receipts.filter((receipt) => needsAction.has(receipt.status) || receipt.stalled).length)
-    }).catch(() => undefined)
     return () => { cancelled = true }
   }, [])
 
@@ -136,14 +127,32 @@ export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceip
     return () => { cancelled = true }
   }, [hasPreferences])
 
-  const today = new Date().toLocaleDateString('cs-CZ', { weekday: 'long', day: 'numeric', month: 'long' })
-  const todayIso = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`
+  const todayIso = dashboard?.today ?? `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`
+  const today = new Date(`${todayIso}T12:00:00`).toLocaleDateString('cs-CZ', { weekday: 'long', day: 'numeric', month: 'long' })
+  const budget = dashboard?.budget ?? null
+  const shopping = dashboard?.list ?? null
   const todayDay = DAYS[(new Date().getDay() + 6) % 7]
   const todayMeals = mealPlan?.weekStart === currentWeekStart(todayIso) ? mealPlan.days.find((day) => day.day === todayDay)?.meals ?? [] : []
   const preferredDealRows = preferredDeals ? [
     ...preferredDeals.deals.map(({ product, price }) => ({ name: product.productName, store: price.store, price: price.dealPrice ?? price.regularPrice, until: price.dealValidUntil })),
     ...preferredDeals.offers.map((offer) => ({ name: offer.productName, store: offer.store, price: offer.dealPrice, until: offer.validUntil })),
   ].slice(0, 3) : []
+  const attention = dashboard?.attention ?? []
+  const restock = (dashboard?.restockSuggestions ?? []).filter((suggestion) => !restockDismissed.includes(dismissalKey(suggestion.productTypeKey, suggestion.offer.productId, suggestion.offer.validUntil))).slice(0, 3)
+  const listDealRows = dashboard ? assessDealQuality(dashboard.productPrices, todayIso).slice(0, 3) : []
+  const listOfferRows = dashboard?.offers.slice(0, Math.max(0, 3 - listDealRows.length)) ?? []
+
+  async function dismissRestock(suggestion: (typeof restock)[number]) {
+    const key = dismissalKey(suggestion.productTypeKey, suggestion.offer.productId, suggestion.offer.validUntil)
+    setRestockDismissed((current) => current.includes(key) ? current : [...current, key])
+    try {
+      const result = await dismissRestockSuggestion({ productTypeKey: suggestion.productTypeKey, productId: suggestion.offer.productId, validUntil: suggestion.offer.validUntil })
+      setRestockDismissed(result.dismissed)
+    } catch {
+      setRestockDismissed((current) => current.filter((entry) => entry !== key))
+      setError('Návrh se nepodařilo skrýt. Zkuste to znovu.')
+    }
+  }
   return (
     <ScrollView contentContainerStyle={styles.screenContent}>
       <View style={styles.homeIntro}>
@@ -152,7 +161,7 @@ export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceip
         <Text style={styles.bodyText}>Tady je přehled vaší domácnosti.</Text>
       </View>
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
-      {receiptAttentionCount > 0 ? <Pressable accessibilityRole="button" onPress={onOpenReceipts} style={styles.attentionCard}><Bell color={colors.warning} size={20} /><Text style={styles.attentionText}>{receiptAttentionCount} účtenek čeká na vaši kontrolu</Text><ArrowRight color={colors.mutedText} size={18} /></Pressable> : null}
+      {attention.map((item) => <Pressable key={item.id} accessibilityRole="button" onPress={() => item.kind === 'receipt' ? onOpenReceipts() : onSelect('shopping')} style={styles.attentionCard}><Bell color={colors.warning} size={20} /><Text style={styles.attentionText}>{item.text}</Text><ArrowRight color={colors.mutedText} size={18} /></Pressable>)}
       {loading ? <ActivityIndicator color={colors.primary} size="large" style={styles.loader} /> : null}
       <Pressable onPress={() => onSelect('budget')} style={styles.dashboardCard}>
         <View style={[styles.cardIcon, styles.cardIconAccent]}><WalletCards color={colors.accentText} size={21} /></View>
@@ -174,6 +183,7 @@ export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceip
         </View>
         <ArrowRight color={colors.mutedText} size={20} />
       </Pressable>
+      {dashboard?.weeklyAllowance != null ? <View style={styles.insightCard}><View style={styles.cardIcon}><WalletCards color={colors.primary} size={21} /></View><View style={styles.dashboardText}><Text style={styles.cardTitle}>Kolik můžete utratit tento týden</Text><Text style={styles.bodyText}>Přibližně {money(dashboard.weeklyAllowance, budget?.currency ?? 'CZK')}, aby rozpočet vystačil do konce období.</Text></View></View> : null}
       {budget?.categories.length ? <View style={styles.chartCard}>
         <Text style={styles.cardTitle}>Výdaje podle kategorií</Text>
         {budget.categories.slice().sort((a, b) => b.total - a.total).slice(0, 4).map((category) => (
@@ -183,17 +193,24 @@ export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceip
           </View>
         ))}
       </View> : null}
-      {Boolean(pantry?.items.length) && (
+      {pantryItemCount > 0 && (
         <Pressable onPress={() => onSelect('pantry')} style={styles.dashboardCard}>
           <View style={styles.cardIcon}><Package color={colors.primary} size={21} /></View>
           <View style={styles.dashboardText}>
             <Text style={styles.cardEyebrow}>DOMÁCÍ ZÁSOBY</Text>
-            <Text style={styles.dashboardValue}>{pantry?.items.length} uložených položek</Text>
-            <Text style={styles.bodyText}>Otevřít zásoby a zkontrolovat stav</Text>
+            <Text style={styles.dashboardValue}>{dashboard?.pantryToCheck ? `${dashboard.pantryToCheck} položek ke kontrole` : 'Nic ke kontrole'}</Text>
+            <Text style={styles.bodyText}>{pantryItemCount} uložených položek · otevřít zásoby</Text>
           </View>
           <ArrowRight color={colors.mutedText} size={20} />
         </Pressable>
       )}
+      {restock.length > 0 ? <View style={styles.chartCard}>
+        <View style={styles.mealCardHeading}><Package color={colors.accentText} size={19} /><Text style={styles.cardTitle}>Je dobrá doba doplnit zásobu</Text></View>
+        {restock.map((suggestion) => <View key={suggestion.levelId} style={styles.restockRow}>
+          <View style={styles.dashboardText}><Text style={styles.dealName}>{suggestion.typeName}</Text><Text style={styles.noteText}>Zbývá {suggestion.quantity} {unitLabel(suggestion.quantity, suggestion.unit)} · doplnit {suggestion.buyQuantity} {unitLabel(suggestion.buyQuantity, suggestion.unit)}</Text><Text style={styles.noteText}>{suggestion.offer.chain} · {money(suggestion.offer.dealPrice, budget?.currency ?? 'CZK')} · do {suggestion.offer.validUntil}</Text><Text style={styles.noteText}>Nejlevnější: {suggestion.offer.productName}</Text></View>
+          <View style={styles.restockActions}><Pressable accessibilityRole="button" accessibilityLabel={`Odmítnout návrh ${suggestion.typeName}`} onPress={() => void dismissRestock(suggestion)} style={styles.iconAction}><X color={colors.mutedText} size={17} /></Pressable><Pressable accessibilityRole="button" disabled={shopping?.pendingNames.some((name) => name.toLocaleLowerCase() === suggestion.offer.productName.toLocaleLowerCase())} onPress={() => onAddToShopping(suggestion.offer.productName, suggestion.buyQuantity, suggestion.unit)} style={styles.restockAdd}><Text style={styles.restockAddText}>Přidat</Text></Pressable></View>
+        </View>)}
+      </View> : null}
       {todayMeals.length > 0 ? <View style={styles.chartCard}>
         <Pressable accessibilityRole="button" onPress={() => onSelect('recipes')} style={styles.mealCardHeading}><CookingPot color={colors.accentText} size={19} /><Text style={styles.cardTitle}>Dnes vaříme</Text><Text style={styles.mealCardLink}>Jídelníček →</Text></Pressable>
         {todayMeals.map((meal) => <Pressable key={meal.mealType} accessibilityRole="button" onPress={() => onSelect('recipes')} style={styles.mealRow}><Text style={styles.mealType}>{meal.mealType}</Text><Text numberOfLines={1} style={[styles.mealName, meal.cooked && styles.mealDone]}>{meal.recipe.name}</Text><ArrowRight color={colors.mutedText} size={16} /></Pressable>)}
@@ -202,6 +219,11 @@ export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceip
         <Pressable accessibilityRole="button" onPress={() => onSelect('deals')} style={styles.mealCardHeading}><Tag color={colors.accentText} size={19} /><Text style={styles.cardTitle}>Akce na vaše oblíbené</Text><Text style={styles.mealCardLink}>Všechny →</Text></Pressable>
         {preferredDealRows.map((deal) => <View key={`${deal.name}-${deal.store}`} style={styles.homeDealRow}><View style={styles.dashboardText}><Text numberOfLines={1} style={styles.dealName}>{deal.name}</Text><Text style={styles.noteText}>{deal.store}{deal.until ? ` · do ${deal.until}` : ''}</Text></View><Text style={styles.homeDealPrice}>{money(deal.price, 'CZK')}</Text><Pressable accessibilityRole="button" accessibilityLabel={`Přidat ${deal.name} na seznam`} onPress={() => onAddToShopping(deal.name)} style={styles.homeDealAdd}><Text style={styles.homeDealAddText}>+</Text></Pressable></View>)}
       </View> : null}
+      {listDealRows.length + listOfferRows.length > 0 ? <View style={styles.chartCard}>
+        <Pressable accessibilityRole="button" onPress={() => onSelect('deals')} style={styles.mealCardHeading}><Tag color={colors.accentText} size={19} /><Text style={styles.cardTitle}>Akce k vašim položkám</Text><Text style={styles.mealCardLink}>Všechny →</Text></Pressable>
+        {listDealRows.map(({ product, price, isBestPrice }) => <View key={`${product.productName}-${price.store}`} style={styles.homeDealRow}><View style={styles.dashboardText}><Text numberOfLines={1} style={styles.dealName}>{product.productName}</Text><Text style={styles.noteText}>{price.store}{price.dealValidUntil ? ` · do ${price.dealValidUntil}` : ''}{isBestPrice ? ' · nejlepší známá cena' : ''}</Text></View><View style={styles.dealPriceColumn}><Text style={styles.homeDealPrice}>{money(effectivePrice(price), budget?.currency ?? 'CZK')}</Text>{price.dealPrice != null ? <Text style={styles.noteText}>−{Math.round(dealDiscount(price) * 100)} %</Text> : null}</View><Pressable accessibilityRole="button" accessibilityLabel={`Přidat ${product.productName} na seznam`} onPress={() => onAddToShopping(product.productName)} style={styles.homeDealAdd}><Text style={styles.homeDealAddText}>+</Text></Pressable></View>)}
+        {listOfferRows.map((offer) => <View key={`${offer.productName}-${offer.store}`} style={styles.homeDealRow}><View style={styles.dashboardText}><Text numberOfLines={1} style={styles.dealName}>{offer.productName}</Text><Text style={styles.noteText}>{offer.store} · do {offer.validUntil}</Text></View><Text style={styles.homeDealPrice}>{money(offer.dealPrice, budget?.currency ?? 'CZK')}</Text><Pressable accessibilityRole="button" accessibilityLabel={`Přidat ${offer.productName} na seznam`} onPress={() => onAddToShopping(offer.productName)} style={styles.homeDealAdd}><Text style={styles.homeDealAddText}>+</Text></Pressable></View>)}
+      </View> : shopping && shopping.remaining > 0 ? <View style={styles.emptyCard}><Text style={styles.cardTitle}>Akce k vašim položkám</Text><Text style={styles.bodyText}>Na seznamu teď nemáte žádnou položku v akci.</Text><Pressable accessibilityRole="button" onPress={() => onSelect('deals')}><Text style={styles.chatLinkText}>Procházet všechny akce →</Text></Pressable></View> : null}
       <Text style={styles.sectionHeading}>Rychlé akce</Text>
       <View style={styles.quickActions}>
         {[
@@ -1199,6 +1221,12 @@ function useStyles() {
   dashboardCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 18, padding: 15 },
   attentionCard: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 13, borderWidth: 1, borderColor: colors.warning, borderRadius: 15, backgroundColor: colors.card },
   attentionText: { flex: 1, color: colors.foreground, fontSize: 13, fontWeight: '600' },
+  insightCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, backgroundColor: colors.accentSubtle, borderColor: colors.border, borderWidth: 1 },
+  restockRow: { minHeight: 82, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderTopWidth: 1, borderTopColor: colors.border },
+  restockActions: { alignItems: 'center', gap: 6 },
+  iconAction: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.muted },
+  restockAdd: { minHeight: 36, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 12, backgroundColor: colors.accentSubtle },
+  restockAddText: { color: colors.accentText, fontSize: 12, fontWeight: '700' },
   chartCard: { gap: 10, padding: 15, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 18 },
   mealCardHeading: { minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 9 },
   mealCardLink: { marginLeft: 'auto', color: colors.accentText, fontSize: 12, fontWeight: '700' },
@@ -1208,6 +1236,7 @@ function useStyles() {
   mealDone: { color: colors.mutedText, textDecorationLine: 'line-through' },
   homeDealRow: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.border },
   homeDealPrice: { color: colors.foreground, fontSize: 13, fontWeight: '700' },
+  dealPriceColumn: { alignItems: 'flex-end', gap: 1 },
   homeDealAdd: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.accentSubtle },
   homeDealAddText: { color: colors.accentText, fontSize: 22, lineHeight: 25, fontWeight: '600' },
   chartRow: { gap: 5 },
@@ -1238,9 +1267,9 @@ function useStyles() {
   notificationActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   notificationList: { gap: 6 },
   notificationRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 11, borderRadius: 14, backgroundColor: colors.card },
-  notificationDot: { width: 8, height: 8, marginTop: 6, borderRadius: 4, backgroundColor: '#ccd0d4' },
+  notificationDot: { width: 8, height: 8, marginTop: 6, borderRadius: 4, backgroundColor: colors.mutedText },
   notificationDotUnread: { backgroundColor: colors.primary },
-  sheetHandle: { width: 38, height: 4, alignSelf: 'center', backgroundColor: '#c6c8ca', borderRadius: 4, marginBottom: 16 },
+  sheetHandle: { width: 38, height: 4, alignSelf: 'center', backgroundColor: colors.mutedText, borderRadius: 4, marginBottom: 16 },
   sheetTitle: { color: colors.foreground, fontSize: 20, fontWeight: '700', marginBottom: 10 },
   moreItem: { minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
   moreItemIcon: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: colors.accentSubtle },
@@ -1253,7 +1282,7 @@ function useStyles() {
   chipText: { color: colors.secondaryText, fontSize: 12, fontWeight: '600' },
   chipTextActive: { color: colors.primaryForeground },
   preferenceToggle: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 13, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
-  preferenceToggleActive: { borderColor: '#75cbd4', backgroundColor: colors.accentSubtle },
+  preferenceToggleActive: { borderColor: colors.accent, backgroundColor: colors.accentSubtle },
   preferenceToggleText: { color: colors.secondaryText, fontSize: 13, fontWeight: '600' },
   preferenceToggleTextActive: { color: colors.accentText },
   sortRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },

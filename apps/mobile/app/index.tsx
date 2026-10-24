@@ -461,9 +461,9 @@ export default function HomeScreen() {
     }
   }
 
-  async function handleAdd(value = newName.trim()) {
+  async function handleAdd(value = newName.trim(), quantity = 1, unit: ItemUnit = 'ks') {
     const name = value.trim()
-    if (!name || busy || busyItemId) return
+    if (!name || !Number.isFinite(quantity) || quantity <= 0 || busy || busyItemId) return
     setBusyItemId('new')
     setError(null)
     try {
@@ -474,7 +474,7 @@ export default function HomeScreen() {
         ...current,
         pending: enqueueOfflineOperation(current.pending, {
           kind: 'add',
-          item: { id: itemId, name, quantity: 1, unit: 'ks', done: false },
+          item: { id: itemId, name, quantity, unit, done: false },
         }),
       }
       await saveOfflineSnapshot(updated)
@@ -662,7 +662,7 @@ export default function HomeScreen() {
               <NativeHomeScreen
                 hasPreferences={Boolean(householdProfile && (householdProfile.preferences.preferredProducts.length || householdProfile.preferences.preferredBrands.length))}
                 name={userName}
-                onAddToShopping={(name) => void handleAdd(name)}
+                onAddToShopping={(name, quantity = 1, unit = 'ks') => { setActiveTab('shopping'); setShoppingView('list'); void handleAdd(name, quantity, unit) }}
                 onOpenReceipts={() => { setShoppingView('receipts'); setActiveTab('shopping') }}
                 onQuickExpense={() => { setQuickExpenseToken((current) => current + 1); setActiveTab('budget') }}
                 onSelect={setActiveTab}

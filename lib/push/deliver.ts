@@ -40,6 +40,40 @@ export function vapidFromEnv(): VapidKeys | null {
 
 export type DeliveryReport = { sent: number; removed: number; failed: number }
 
+const EXPO_PUSH_ENDPOINT = 'https://exp.host/--/api/v2/push/send'
+
+/** Sends an Expo token through Expo's push gateway. The endpoint stores the token as a query value
+ *  so it remains unique in the existing per-device subscription table. */
+export async function sendExpoPush(endpoint: string, message: PushMessage): Promise<PushResult> {
+  const parsed = new URL(endpoint)
+  const token = parsed.searchParams.get('to')
+  if (parsed.origin + parsed.pathname !== EXPO_PUSH_ENDPOINT || !token || !/^(?:Expo|Exponent)PushToken\[[A-Za-z0-9_-]+\]$/.test(token)) {
+    return { ok: false, status: 400, gone: true, detail: 'invalid Expo push token' }
+  }
+  const headers: Record<string, string> = { Accept: 'application/json', 'Content-Type': 'application/json' }
+  if (process.env.EXPO_ACCESS_TOKEN?.trim()) headers.Authorization = `Bearer ${process.env.EXPO_ACCESS_TOKEN.trim()}`
+  const response = await fetch(EXPO_PUSH_ENDPOINT, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ to: token, sound: 'default', title: message.title, body: message.body, data: { url: message.url, tag: message.tag } }),
+  })
+  const result: unknown = await response.json().catch(() => null)
+  const ticket = result && typeof result === 'object' && 'data' in result ? (result as { data?: unknown }).data : null
+  const ticketObject = Array.isArray(ticket) ? ticket[0] : ticket
+  if (response.ok && ticketObject && typeof ticketObject === 'object' && 'status' in ticketObject && ticketObject.status === 'ok') {
+    return { ok: true, status: response.status }
+  }
+  const details = ticketObject && typeof ticketObject === 'object' && 'details' in ticketObject ? ticketObject.details : null
+  const errorCode = details && typeof details === 'object' && 'error' in details ? details.error : null
+  const messageText = ticketObject && typeof ticketObject === 'object' && 'message' in ticketObject ? ticketObject.message : null
+  return {
+    ok: false,
+    status: response.status,
+    gone: errorCode === 'DeviceNotRegistered',
+    detail: typeof messageText === 'string' ? messageText : typeof errorCode === 'string' ? errorCode : 'Expo push request failed',
+  }
+}
+
 /** The public key the browser subscribes with, or null when push is off or misconfigured (then the
  *  app offers no push toggle; the reason is logged, the page still renders). */
 export function pushPublicKeyForClient(): string | null {
@@ -57,11 +91,10 @@ export function pushPublicKeyForClient(): string | null {
 export async function pushToHousehold(
   householdId: string,
   message: PushMessage,
-  options: { excludeUserId?: string; onlyUserId?: string; kind?: string; vapid?: VapidKeys; send?: typeof sendWebPush } = {},
+  options: { excludeUserId?: string; onlyUserId?: string; kind?: string; vapid?: VapidKeys; send?: typeof sendWebPush; sendExpo?: typeof sendExpoPush } = {},
 ): Promise<DeliveryReport> {
   const vapid = options.vapid ?? vapidFromEnv()
   const report: DeliveryReport = { sent: 0, removed: 0, failed: 0 }
-  if (!vapid) return report
 
   const db = getDb()
   const conditions = [eq(schema.pushSubscriptions.householdId, householdId)]
@@ -82,19 +115,25 @@ export async function pushToHousehold(
 
   const payload = JSON.stringify(message)
   const send = options.send ?? sendWebPush
-  const results = await Promise.allSettled(subscriptions.map((subscription: PushSubscriptionKeys & { id: string }) => send(subscription, payload, vapid)))
+  const sendExpo = options.sendExpo ?? sendExpoPush
+  const results = await Promise.allSettled(subscriptions.map((subscription: PushSubscriptionKeys & { id: string }) => {
+    if (subscription.endpoint.startsWith(`${EXPO_PUSH_ENDPOINT}?to=`)) return sendExpo(subscription.endpoint, message)
+    if (!vapid) return Promise.resolve({ ok: false as const, status: 503, gone: false, detail: 'Web Push is not configured' })
+    return send(subscription, payload, vapid)
+  }))
 
   const delivered: string[] = []
   const gone: string[] = []
   results.forEach((result, index) => {
     const subscription = subscriptions[index]
+    const expoSubscription = subscription.endpoint.startsWith(`${EXPO_PUSH_ENDPOINT}?to=`)
     const outcome: PushResult | null = result.status === 'fulfilled' ? result.value : null
     if (outcome?.ok) return void delivered.push(subscription.id)
     if (outcome && !outcome.ok && outcome.gone) return void gone.push(subscription.id)
     report.failed += 1
     // The endpoint host tells which push service refused (Google/Apple/Mozilla); the full endpoint
     // is a per-device capability URL and stays out of the log.
-    const reason = result.status === 'rejected' ? String(result.reason) : `${outcome!.status} ${outcome && !outcome.ok ? outcome.detail : ''}`
+    const reason = result.status === 'rejected' ? (expoSubscription ? 'Expo Push request failed' : String(result.reason)) : `${outcome!.status} ${outcome && !outcome.ok ? outcome.detail : ''}`
     console.error(JSON.stringify({ event: 'push_failed', householdId, subscriptionId: subscription.id, service: new URL(subscription.endpoint).host, reason }))
   })
 

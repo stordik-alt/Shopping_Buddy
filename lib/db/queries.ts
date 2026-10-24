@@ -124,17 +124,30 @@ export async function getPrimaryShoppingListId(householdId: string): Promise<str
   return list.id
 }
 
-export async function getShoppingListState(householdId: string): Promise<{ listId: string; items: Item[]; shoppingLists: string[] }> {
+export type ShoppingListState = { listId: string; items: Item[]; shoppingLists: string[]; lists: { id: string; name: string }[] }
+
+export function getShoppingListState(householdId: string): Promise<ShoppingListState>
+export function getShoppingListState(householdId: string, listId: string): Promise<ShoppingListState | null>
+export async function getShoppingListState(householdId: string, requestedListId?: string): Promise<ShoppingListState | null> {
   const db = getDb()
   const lists = await db.query.shoppingLists.findMany({
     where: eq(schema.shoppingLists.householdId, householdId),
     orderBy: asc(schema.shoppingLists.createdAt),
   })
-  // Same rule as the page load: the first (oldest) list is the one whose items the app shows.
-  const mainListId = lists[0]?.id
-  if (!mainListId) throw new Error('Household has no shopping list — run the seed script.')
-  const items = await shoppingItemsQuery(db, mainListId)
-  return { listId: mainListId, items: items.map(toShoppingItem), shoppingLists: lists.map((list) => list.name) }
+  // Without an explicit selection, retain the PWA's first-created-list default. Mobile can select
+  // another list, but the id is resolved only inside the authenticated household's rows above.
+  const selected = requestedListId ? lists.find((list) => list.id === requestedListId) : lists[0]
+  if (!selected) {
+    if (requestedListId) return null
+    throw new Error('Household has no shopping list — run the seed script.')
+  }
+  const items = await shoppingItemsQuery(db, selected.id)
+  return {
+    listId: selected.id,
+    items: items.map(toShoppingItem),
+    shoppingLists: lists.map((list) => list.name),
+    lists: lists.map(({ id, name }) => ({ id, name })),
+  }
 }
 
 export type SavedMealPlan = { weekStart: string; budgetLimit: number; plan: WeeklyMealPlan }

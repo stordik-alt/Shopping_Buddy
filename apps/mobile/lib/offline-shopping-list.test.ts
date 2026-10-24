@@ -76,7 +76,7 @@ describe('offline shopping list', () => {
 
     const result = await syncOfflineOperations(initial, api, persist)
 
-    expect(api.add).toHaveBeenCalledWith('Máslo', temporaryId.slice('offline-'.length), 1, 'ks')
+    expect(api.add).toHaveBeenCalledWith('Máslo', temporaryId.slice('offline-'.length), 1, 'ks', { listId: 'list-1' })
     expect(api.toggle).toHaveBeenCalledWith('server-id', true)
     expect(result).toMatchObject({ rejected: 0, retryRequired: false, snapshot: { pending: [] } })
     expect(result.snapshot.list.items).toContainEqual(item('server-id', { name: 'Máslo' }))
@@ -94,7 +94,7 @@ describe('offline shopping list', () => {
 
     await syncOfflineOperations(initial, api, vi.fn().mockResolvedValue(undefined))
 
-    expect(api.add).toHaveBeenCalledWith('Mléko', temporaryId.slice('offline-'.length), 1.5, 'l')
+    expect(api.add).toHaveBeenCalledWith('Mléko', temporaryId.slice('offline-'.length), 1.5, 'l', { listId: 'list-1' })
   })
 
   it('keeps the failed operation and later changes for retry after a network error', async () => {

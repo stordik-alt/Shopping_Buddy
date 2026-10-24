@@ -34,6 +34,7 @@ export type MobileShoppingList = {
   listId: string
   items: MobileShoppingItem[]
   shoppingLists: string[]
+  lists?: { id: string; name: string }[]
 }
 
 export type MobileBudgetSummary = {
@@ -424,12 +425,13 @@ export function dismissNotification(id?: string) {
   return request<{ ok: true }>(`/api/mobile/notifications${query}`, { method: 'DELETE' })
 }
 
-export function getUsualItems() {
-  return request<{ suggestions: UsualItem[] }>('/api/mobile/usual-items')
+export function getUsualItems(listId?: string) {
+  const query = listId ? `?listId=${encodeURIComponent(listId)}` : ''
+  return request<{ suggestions: UsualItem[] }>(`/api/mobile/usual-items${query}`)
 }
 
-export function clearDoneShoppingItems() {
-  return request<{ removed: number }>('/api/mobile/shopping-list/clear-done', { method: 'POST' })
+export function clearDoneShoppingItems(listId?: string) {
+  return request<{ removed: number }>('/api/mobile/shopping-list/clear-done', { method: 'POST', body: JSON.stringify(listId ? { listId } : {}) })
 }
 
 export function getDealsPage(input: { category?: MobileDealCategory | 'all'; chain?: string | null; sort?: MobileDealSort; page?: number; query?: string; forMe?: boolean } = {}) {
@@ -484,8 +486,13 @@ export function updateStorePreferences(selection: { chainIds: string[]; location
   return request<{ selection: MobileStoreSelection }>('/api/mobile/store-preferences', { method: 'PATCH', body: JSON.stringify(selection) })
 }
 
-export function getShoppingList() {
-  return request<MobileShoppingList>('/api/mobile/shopping-list')
+export function getShoppingList(listId?: string) {
+  const query = listId ? `?listId=${encodeURIComponent(listId)}` : ''
+  return request<MobileShoppingList>(`/api/mobile/shopping-list${query}`)
+}
+
+export function createShoppingList(name: string) {
+  return request<{ list: { id: string; name: string } }>('/api/mobile/shopping-lists', { method: 'POST', body: JSON.stringify({ name }) })
 }
 
 export function getBudgetSummary() {
@@ -750,7 +757,7 @@ export function reviewPantry(input: { reviewedIds: string[]; goneIds: string[]; 
   })
 }
 
-export function addShoppingItem(name: string, clientId: string, quantity = 1, unit: ItemUnit = 'ks', details?: { category?: ItemCategory; detail?: string; selection?: { kind: 'product'; productId: string } | { kind: 'type'; productTypeKey: string } }) {
+export function addShoppingItem(name: string, clientId: string, quantity = 1, unit: ItemUnit = 'ks', details?: { category?: ItemCategory; detail?: string; selection?: { kind: 'product'; productId: string } | { kind: 'type'; productTypeKey: string }; listId?: string }) {
   return request<{ item: MobileShoppingItem }>('/api/mobile/shopping-list', {
     method: 'POST',
     body: JSON.stringify({ name, clientId, ...(quantity !== 1 && { quantity }), ...(unit !== 'ks' && { unit }), ...details }),

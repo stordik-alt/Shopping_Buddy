@@ -36,7 +36,11 @@ export async function GET(request: Request) {
   try {
     const context = await requestHousehold(request)
     if (!context) return json({ error: 'household_required' }, 409)
-    return json(await getShoppingListState(context.householdId))
+    const requestedListId = new URL(request.url).searchParams.get('listId')
+    const state = requestedListId
+      ? await getShoppingListState(context.householdId, requestedListId)
+      : await getShoppingListState(context.householdId)
+    return state ? json(state) : json({ error: 'not_found' }, 404)
   } catch (error) {
     return failure(error)
   }
@@ -48,7 +52,7 @@ export async function POST(request: Request) {
     if (!context) return json({ error: 'household_required' }, 409)
     const body = await bodyObject(request)
     if (!body) throw new ShoppingInputError('Neplatný požadavek.')
-    if (Object.keys(body).some((key) => !['name', 'quantity', 'unit', 'clientId', 'category', 'detail', 'selection'].includes(key))) {
+    if (Object.keys(body).some((key) => !['name', 'quantity', 'unit', 'clientId', 'category', 'detail', 'selection', 'listId'].includes(key))) {
       throw new ShoppingInputError('Neplatný požadavek.')
     }
     if (typeof body.name !== 'string') throw new ShoppingInputError('Název položky je povinný údaj.')
@@ -56,6 +60,7 @@ export async function POST(request: Request) {
     if (body.quantity !== undefined && typeof body.quantity !== 'number') throw new ShoppingInputError('Množství musí být kladné číslo.')
     if (body.unit !== undefined && !isShoppingItemUnit(body.unit)) throw new ShoppingInputError('Neplatná jednotka.')
     if (body.clientId !== undefined && typeof body.clientId !== 'string') throw new ShoppingInputError('Neplatný identifikátor položky.')
+    if (body.listId !== undefined && typeof body.listId !== 'string') throw new ShoppingInputError('Neplatný seznam.')
     if (body.category !== undefined && typeof body.category !== 'string') throw new ShoppingInputError('Neplatná kategorie.')
     if (body.detail !== undefined && typeof body.detail !== 'string') throw new ShoppingInputError('Neplatný detail položky.')
     let selection: { kind: 'product'; productId: string } | { kind: 'type'; productTypeKey: string } | undefined
@@ -66,7 +71,7 @@ export async function POST(request: Request) {
       else throw new ShoppingInputError('Neplatný výběr produktu.')
     }
 
-    const listId = await getPrimaryShoppingListId(context.householdId)
+    const listId = typeof body.listId === 'string' ? body.listId : await getPrimaryShoppingListId(context.householdId)
     const result = await addShoppingItemForHousehold(
       context.householdId,
       context.user.id,

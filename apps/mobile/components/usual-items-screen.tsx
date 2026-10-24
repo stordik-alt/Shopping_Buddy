@@ -25,9 +25,10 @@ function countLabel(count: number) {
   return `${count} položek je na řadě`
 }
 
-export function UsualItemsScreen({ openItemNames, disabled, onAdded, onAuthExpired }: {
+export function UsualItemsScreen({ openItemNames, disabled, listId, onAdded, onAuthExpired }: {
   openItemNames: string[]
   disabled: boolean
+  listId: string
   onAdded: (item: MobileShoppingItem) => void | Promise<void>
   onAuthExpired: () => void
 }) {
@@ -44,7 +45,7 @@ export function UsualItemsScreen({ openItemNames, disabled, onAdded, onAuthExpir
     if (disabled) { setLoading(false); return }
     let active = true
     setLoading(true)
-    getUsualItems()
+    getUsualItems(listId)
       .then(({ suggestions: rows }) => { if (active) setSuggestions(rows) })
       .catch((caught: unknown) => {
         if (active) setError(caught instanceof Error ? caught.message : 'Obvyklé nákupy se nepodařilo načíst.')
@@ -52,7 +53,7 @@ export function UsualItemsScreen({ openItemNames, disabled, onAdded, onAuthExpir
       })
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
-  }, [disabled, listKey, onAuthExpired])
+  }, [disabled, listId, listKey, onAuthExpired])
 
   async function add(rows: UsualItem[], key: string) {
     setBusy(key)
@@ -64,7 +65,7 @@ export function UsualItemsScreen({ openItemNames, disabled, onAdded, onAuthExpir
           createOfflineItemId().slice('offline-'.length),
           suggestion.quantity,
           suggestion.unit,
-          { detail: `${suggestion.quantity} ${suggestion.unit} · obvyklý nákup` },
+          { detail: `${suggestion.quantity} ${suggestion.unit} · obvyklý nákup`, listId },
         )
         await onAdded(item)
       }

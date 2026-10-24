@@ -69,9 +69,10 @@ function useStyles() {
   }), [colors])
 }
 
-export function ShoppingToolsModal({ visible, items, onClose, onProductAdded, onAuthExpired }: {
+export function ShoppingToolsModal({ visible, items, listId, onClose, onProductAdded, onAuthExpired }: {
   visible: boolean
   items: MobileShoppingItem[]
+  listId: string
   onClose: () => void
   onProductAdded: (item: MobileShoppingItem) => Promise<void>
   onAuthExpired: () => void
@@ -187,7 +188,7 @@ export function ShoppingToolsModal({ visible, items, onClose, onProductAdded, on
     const key = `${hit.storeId}|${hit.productId}`
     setActionBusy(key); setError(null)
     try {
-      const added = await addShoppingItem(hit.name, createOfflineItemId().slice('offline-'.length), 1, hit.unit ?? 'ks', { category: hit.category, selection: { kind: 'product', productId: hit.productId } })
+      const added = await addShoppingItem(hit.name, createOfflineItemId().slice('offline-'.length), 1, hit.unit ?? 'ks', { category: hit.category, selection: { kind: 'product', productId: hit.productId }, listId })
       await onProductAdded(added.item)
       try {
         await pinShoppingProduct({ itemId: added.item.id, storeId: hit.storeId, productId: hit.productId })

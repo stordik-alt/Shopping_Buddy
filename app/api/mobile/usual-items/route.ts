@@ -13,11 +13,13 @@ export async function GET(request: Request) {
     if (!member) return json({ error: 'household_required' }, 409)
 
     const householdId = member.householdId
+    const requestedListId = new URL(request.url).searchParams.get('listId')
     const [purchases, pantryItems, list] = await Promise.all([
       getHouseholdPurchaseHistory(householdId),
       getPantryItems(householdId),
-      getShoppingListState(householdId),
+      requestedListId ? getShoppingListState(householdId, requestedListId) : getShoppingListState(householdId),
     ])
+    if (!list) return json({ error: 'not_found' }, 404)
     return json({ suggestions: suggestUsualItems({
       purchases,
       today: todayInPrague(),

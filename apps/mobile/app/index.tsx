@@ -16,6 +16,7 @@ import {
   View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { Bell, ChevronDown } from 'lucide-react-native'
 import { ITEM_UNITS, unitLabel, type ItemUnit } from '@anitka/shared/units'
 import { colors } from '../lib/theme'
 import { BudgetScreen } from '../components/budget-screen'
@@ -24,6 +25,17 @@ import { RecipesScreen } from '../components/recipes-screen'
 import { MealPlanScreen } from '../components/meal-plan-screen'
 import { BarcodeScannerModal } from '../components/barcode-scanner-modal'
 import { ReceiptsScreen } from '../components/receipts-screen'
+import {
+  NativeAssistantModal,
+  NativeBottomNav,
+  NativeDealsScreen,
+  NativeHomeScreen,
+  NativeNotificationsModal,
+  NativeProfileScreen,
+  NativePurchasesScreen,
+  NativeStoresScreen,
+  type NativeTab,
+} from '../components/native-parity-screens'
 import { RefreshButton } from '../components/refresh-button'
 import { getAccessToken, signIn, signOut } from '../lib/auth'
 import {
@@ -167,11 +179,17 @@ function ShoppingRow({
 }
 
 export default function HomeScreen() {
-  const [activeTab, setActiveTab] = useState<'shopping' | 'budget' | 'pantry' | 'recipes' | 'meals' | 'receipts'>('shopping')
+  const [activeTab, setActiveTab] = useState<NativeTab>('home')
+  const [shoppingView, setShoppingView] = useState<'list' | 'purchases' | 'receipts'>('list')
+  const [recipeView, setRecipeView] = useState<'recipes' | 'meals'>('recipes')
+  const [assistantOpen, setAssistantOpen] = useState(false)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [signedIn, setSignedIn] = useState(false)
   const [busy, setBusy] = useState(true)
   const [signingIn, setSigningIn] = useState(false)
   const [userName, setUserName] = useState('')
+  const [userEmail, setUserEmail] = useState('')
+  const [householdRole, setHouseholdRole] = useState('')
   const [householdAvailable, setHouseholdAvailable] = useState(false)
   const [householdMissing, setHouseholdMissing] = useState(false)
   const [items, setItems] = useState<MobileShoppingItem[]>([])
@@ -277,6 +295,8 @@ export default function HomeScreen() {
         return
       }
       setUserName(profile.user.name)
+      setUserEmail(profile.user.email)
+      setHouseholdRole(profile.household?.role ?? '')
       if (!profile.household) {
         setHouseholdMissing(true)
         setHouseholdAvailable(false)
@@ -372,7 +392,9 @@ export default function HomeScreen() {
       setOffline(false)
       offlineSnapshot.current = null
       setUserName('')
-      setActiveTab('shopping')
+      setUserEmail('')
+      setHouseholdRole('')
+      setActiveTab('home')
       setError(null)
     } catch (caught) {
       setError(errorMessage(caught))
@@ -386,12 +408,14 @@ export default function HomeScreen() {
       setOffline(false)
       offlineSnapshot.current = null
       setUserName('')
+      setUserEmail('')
+      setHouseholdRole('')
       setBusy(false)
     }
   }
 
-  async function handleAdd() {
-    const name = newName.trim()
+  async function handleAdd(value = newName.trim()) {
+    const name = value.trim()
     if (!name || busy || busyItemId) return
     setBusyItemId('new')
     setError(null)
@@ -510,14 +534,16 @@ export default function HomeScreen() {
 
   const remaining = items.filter((item) => !item.done).length
   const completed = items.length - remaining
-  const pageTitle = {
-    shopping: listName,
+  const pageTitle = activeTab === 'shopping' && shoppingView === 'receipts' ? 'Účtenky' : activeTab === 'shopping' && shoppingView === 'purchases' ? 'Moje nákupy' : ({
+    home: 'Asistent pro domácnost',
+    shopping: 'Nákup',
     budget: 'Rozpočet',
     pantry: 'Zásoby',
+    deals: 'Akce',
+    stores: 'Obchody',
     recipes: 'Recepty',
-    meals: 'Plán jídel',
-    receipts: 'Účtenky',
-  }[activeTab]
+    profile: 'Profil',
+  }[activeTab])
 
   if (busy && !signedIn) {
     return (
@@ -544,22 +570,19 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.screen}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <View style={styles.header}>
-          <View style={styles.headerText}>
-            <View style={styles.homeBrand}>
-              <View style={styles.brandMark}>
-                <Image accessibilityLabel="" resizeMode="contain" source={require('../assets/anitka-avatar.png')} style={styles.brandMarkImage} />
-              </View>
-              <View>
-                <Text style={styles.brand}>ANITKA</Text>
-                <Text style={styles.brandSubtitle}>Asistent pro domácnost</Text>
-              </View>
-            </View>
-            <Text numberOfLines={1} style={styles.title}>{householdAvailable ? pageTitle : 'Nákupní seznam'}</Text>
-            {userName ? <Text style={styles.supporting}>Přihlášeno: {userName}</Text> : null}
+          <View style={styles.nativeHeaderLeft}>
+            <Pressable accessibilityLabel="Otevřít chat s Anitkou" accessibilityRole="button" onPress={() => setAssistantOpen(true)} style={styles.brandMark}>
+              <View style={styles.mascotCrop}><Image accessibilityLabel="Anitka" resizeMode="contain" source={require('../assets/anitka-guide-front.webp')} style={styles.mascotImage} /></View>
+            </Pressable>
+            <Text numberOfLines={1} style={styles.nativeHeaderTitle}>{householdAvailable ? pageTitle : 'Nákup'}</Text>
           </View>
-          <Pressable accessibilityRole="button" disabled={busy || busyItemId !== null} onPress={handleSignOut} style={styles.secondaryButton}>
-            <Text style={styles.secondaryButtonText}>Odhlásit</Text>
-          </Pressable>
+          <View style={styles.nativeHeaderActions}>
+            <Pressable accessibilityLabel="Upozornění" accessibilityRole="button" onPress={() => setNotificationsOpen(true)} style={styles.headerIconButton}><Bell color={colors.primary} size={20} /></Pressable>
+            <Pressable accessibilityLabel={`Profil: ${userName}`} accessibilityRole="button" onPress={() => setActiveTab('profile')} style={styles.profileHeaderButton}>
+              <Text style={styles.profileHeaderInitials}>{userName.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase() || '?'}</Text>
+              <ChevronDown color={colors.mutedText} size={13} />
+            </Pressable>
+          </View>
         </View>
 
         {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
@@ -588,8 +611,17 @@ export default function HomeScreen() {
           </View>
         ) : (
           <>
-            {activeTab === 'shopping' ? (
+            {activeTab === 'home' ? (
+              <NativeHomeScreen name={userName} onSelect={setActiveTab} />
+            ) : activeTab === 'shopping' ? (
               <>
+                <View style={styles.sectionSwitcher}>
+                  <Pressable accessibilityRole="tab" accessibilityState={{ selected: shoppingView === 'list' }} onPress={() => setShoppingView('list')} style={[styles.sectionTab, shoppingView === 'list' && styles.sectionTabActive]}><Text style={[styles.sectionTabText, shoppingView === 'list' && styles.sectionTabTextActive]}>Nákupní seznam</Text></Pressable>
+                  <Pressable accessibilityRole="tab" accessibilityState={{ selected: shoppingView === 'purchases' }} onPress={() => setShoppingView('purchases')} style={[styles.sectionTab, shoppingView === 'purchases' && styles.sectionTabActive]}><Text style={[styles.sectionTabText, shoppingView === 'purchases' && styles.sectionTabTextActive]}>Moje nákupy</Text></Pressable>
+                  <Pressable accessibilityRole="tab" accessibilityState={{ selected: shoppingView === 'receipts' }} onPress={() => setShoppingView('receipts')} style={[styles.sectionTab, shoppingView === 'receipts' && styles.sectionTabActive]}><Text style={[styles.sectionTabText, shoppingView === 'receipts' && styles.sectionTabTextActive]}>Účtenky</Text></Pressable>
+                </View>
+                {shoppingView === 'receipts' ? <ReceiptsScreen onAuthExpired={handleAuthExpired} /> : shoppingView === 'purchases' ? <NativePurchasesScreen /> : (
+                <>
                 <View style={styles.summary}>
                   <Text style={styles.summaryText}>{remaining} k nákupu · {completed} hotovo</Text>
                   <RefreshButton disabled={busyItemId !== null} loading={busy} onPress={() => void load()} />
@@ -675,43 +707,36 @@ export default function HomeScreen() {
                     )}
                   />
                 )}
+                </>
+                )}
+              </>
+            ) : activeTab === 'deals' ? (
+              <NativeDealsScreen listNames={items.filter((item) => !item.done).map((item) => item.name)} onAdd={(name) => { setActiveTab('shopping'); setShoppingView('list'); setNewName(name); void handleAdd(name) }} />
+            ) : activeTab === 'stores' ? (
+              <NativeStoresScreen />
+            ) : activeTab === 'profile' ? (
+              <NativeProfileScreen email={userEmail} householdRole={householdRole} name={userName} onSignOut={() => void handleSignOut()} />
+            ) : activeTab === 'recipes' ? (
+              <>
+                <View style={styles.sectionSwitcher}>
+                  <Pressable accessibilityRole="tab" accessibilityState={{ selected: recipeView === 'recipes' }} onPress={() => setRecipeView('recipes')} style={[styles.sectionTab, recipeView === 'recipes' && styles.sectionTabActive]}><Text style={[styles.sectionTabText, recipeView === 'recipes' && styles.sectionTabTextActive]}>Recepty</Text></Pressable>
+                  <Pressable accessibilityRole="tab" accessibilityState={{ selected: recipeView === 'meals' }} onPress={() => setRecipeView('meals')} style={[styles.sectionTab, recipeView === 'meals' && styles.sectionTabActive]}><Text style={[styles.sectionTabText, recipeView === 'meals' && styles.sectionTabTextActive]}>Jídelníček</Text></Pressable>
+                </View>
+                {recipeView === 'meals' ? <MealPlanScreen onAuthExpired={handleAuthExpired} /> : <RecipesScreen onAuthExpired={handleAuthExpired} />}
               </>
             ) : activeTab === 'budget' ? (
               <BudgetScreen onAuthExpired={handleAuthExpired} />
             ) : activeTab === 'pantry' ? (
               <PantryScreen onAuthExpired={handleAuthExpired} />
-            ) : activeTab === 'meals' ? (
-              <MealPlanScreen onAuthExpired={handleAuthExpired} />
-            ) : activeTab === 'receipts' ? (
-              <ReceiptsScreen onAuthExpired={handleAuthExpired} />
             ) : (
-              <RecipesScreen onAuthExpired={handleAuthExpired} />
+              <BudgetScreen onAuthExpired={handleAuthExpired} />
             )}
-            <View accessibilityRole="tablist" style={styles.tabBar}>
-              <ScrollView contentContainerStyle={styles.tabItems} horizontal showsHorizontalScrollIndicator={false} style={styles.tabScroll}>
-                <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'shopping' }} onPress={() => setActiveTab('shopping')} style={[styles.tab, activeTab === 'shopping' && styles.tabActive]}>
-                  <Text style={[styles.tabText, activeTab === 'shopping' && styles.tabTextActive]}>Seznam</Text>
-                </Pressable>
-                <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'budget' }} onPress={() => setActiveTab('budget')} style={[styles.tab, activeTab === 'budget' && styles.tabActive]}>
-                  <Text style={[styles.tabText, activeTab === 'budget' && styles.tabTextActive]}>Rozpočet</Text>
-                </Pressable>
-                <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'pantry' }} onPress={() => setActiveTab('pantry')} style={[styles.tab, activeTab === 'pantry' && styles.tabActive]}>
-                  <Text style={[styles.tabText, activeTab === 'pantry' && styles.tabTextActive]}>Zásoby</Text>
-                </Pressable>
-                <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'recipes' }} onPress={() => setActiveTab('recipes')} style={[styles.tab, activeTab === 'recipes' && styles.tabActive]}>
-                  <Text style={[styles.tabText, activeTab === 'recipes' && styles.tabTextActive]}>Recepty</Text>
-                </Pressable>
-                <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'meals' }} onPress={() => setActiveTab('meals')} style={[styles.tab, activeTab === 'meals' && styles.tabActive]}>
-                  <Text style={[styles.tabText, activeTab === 'meals' && styles.tabTextActive]}>Plán</Text>
-                </Pressable>
-                <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'receipts' }} onPress={() => setActiveTab('receipts')} style={[styles.tab, activeTab === 'receipts' && styles.tabActive]}>
-                  <Text style={[styles.tabText, activeTab === 'receipts' && styles.tabTextActive]}>Účtenky</Text>
-                </Pressable>
-              </ScrollView>
-            </View>
           </>
         )}
+        {householdAvailable ? <NativeBottomNav active={activeTab} onSelect={setActiveTab} /> : null}
       </KeyboardAvoidingView>
+      <NativeAssistantModal onClose={() => setAssistantOpen(false)} onShopping={() => setActiveTab('shopping')} visible={assistantOpen} />
+      <NativeNotificationsModal onClose={() => setNotificationsOpen(false)} visible={notificationsOpen} />
       <BarcodeScannerModal
         busy={barcodeBusy}
         onBarcodeScanned={(barcode) => void handleBarcodeScanned(barcode)}
@@ -730,11 +755,23 @@ const styles = StyleSheet.create({
   loginBrand: { alignItems: 'center', marginBottom: 24, gap: 4 },
   loginLogo: { width: 220, height: 74 },
   poweredBy: { color: colors.mutedText, fontSize: 12, fontWeight: '500', letterSpacing: 1.2, textTransform: 'uppercase' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, gap: 12 },
+  header: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 7, gap: 12, borderBottomColor: '#e7e5df99', borderBottomWidth: 1, backgroundColor: '#faf9f6' },
+  nativeHeaderLeft: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 11 },
+  nativeHeaderTitle: { flexShrink: 1, color: colors.foreground, fontSize: 16, fontWeight: '700' },
+  nativeHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  headerIconButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 14 },
+  profileHeaderButton: { minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, borderRadius: 14, backgroundColor: '#f0efeb' },
+  profileHeaderInitials: { color: colors.primary, fontSize: 12, fontWeight: '800' },
+  sectionSwitcher: { minHeight: 42, flexDirection: 'row', alignSelf: 'stretch', alignItems: 'center', padding: 4, marginHorizontal: 16, marginTop: 8, marginBottom: 4, borderRadius: 14, backgroundColor: '#eeede9' },
+  sectionTab: { flex: 1, minHeight: 34, alignItems: 'center', justifyContent: 'center', borderRadius: 11 },
+  sectionTabActive: { backgroundColor: colors.card },
+  sectionTabText: { color: colors.secondaryText, fontSize: 13, fontWeight: '600' },
+  sectionTabTextActive: { color: colors.foreground, fontWeight: '700' },
   headerText: { flex: 1, minWidth: 0 },
   homeBrand: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
-  brandMark: { width: 40, height: 40, padding: 3, borderRadius: 14, backgroundColor: colors.primary },
-  brandMarkImage: { width: '100%', height: '100%', borderRadius: 11 },
+  brandMark: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.accentSubtle, overflow: 'hidden' },
+  mascotCrop: { width: '100%', height: '100%', borderRadius: 21, overflow: 'hidden' },
+  mascotImage: { position: 'absolute', width: 58, height: 78, left: -8, top: -1 },
   brand: { color: colors.primary, fontSize: 14, fontWeight: '800', letterSpacing: 1.1 },
   brandSubtitle: { color: colors.mutedText, fontSize: 11, fontWeight: '500', marginTop: 1 },
   title: { color: colors.foreground, fontSize: 24, fontWeight: '700', marginTop: 4 },

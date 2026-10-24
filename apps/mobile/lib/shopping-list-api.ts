@@ -82,6 +82,39 @@ export type MobileUser = {
   emailVerified: boolean
 }
 
+export type MobileDealCategory = 'Potraviny' | 'Drogerie' | 'Děti' | 'Domácnost' | 'Ostatní'
+export type MobileDealSort = 'name' | 'price' | 'discount' | 'store'
+export type MobileDealsPage = {
+  deals: {
+    product: { productName: string }
+    price: { dealPrice: number | null; regularPrice: number; store: string; dealValidUntil: string | null }
+    isBestPrice: boolean
+    cheapestAlternative: { store: string; price: number } | null
+    recentLow: { status: string; low: number } | null
+  }[]
+  offers: { productName: string; store: string; storeId: string; dealPrice: number; validUntil: string }[]
+  total: number
+  page: number
+  pageSize: number
+  hasPreferences: boolean
+}
+export type MobileChainTile = { storeId: string; chain: string; branchCount: number; dealsCount: number; isFavorite: boolean }
+export type MobileBranchPage = {
+  rows: { id: string; storeId: string; chain: string; name: string; address: string; city: string; gps: { lat: number; lng: number } | null; hours: string | null; distanceKm: number | null; isFavorite: boolean }[]
+  total: number
+  page: number
+}
+export type MobileNotification = { id: string; title: string; detail: string; unread: boolean; kind: string | null }
+export type MobilePurchase = {
+  id: string
+  date: string
+  store?: string
+  total: number
+  discount?: number
+  needsBudgetRecording?: boolean
+  items: { id: string; name: string; quantity: number; unit: ItemUnit; price: number; category?: string | null }[]
+}
+
 export class MobileApiError extends Error {
   constructor(
     message: string,
@@ -142,6 +175,43 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function getCurrentUser() {
   return request<{ user: MobileUser; household: { id: string; role: string } | null }>('/api/mobile/me')
+}
+
+export function getNotifications() {
+  return request<{ notifications: MobileNotification[] }>('/api/mobile/notifications')
+}
+
+export function getPurchaseHistory() {
+  return request<{ purchases: MobilePurchase[] }>('/api/mobile/purchases')
+}
+
+export function dismissNotification(id?: string) {
+  const query = id ? `?id=${encodeURIComponent(id)}` : ''
+  return request<{ ok: true }>(`/api/mobile/notifications${query}`, { method: 'DELETE' })
+}
+
+export function getDealsPage(input: { category?: MobileDealCategory | 'all'; chain?: string | null; sort?: MobileDealSort; page?: number; query?: string; forMe?: boolean } = {}) {
+  const params = new URLSearchParams({
+    category: input.category ?? 'all',
+    sort: input.sort ?? 'name',
+    page: String(input.page ?? 1),
+    forMe: String(input.forMe ?? false),
+  })
+  if (input.chain) params.set('chain', input.chain)
+  if (input.query?.trim()) params.set('query', input.query.trim())
+  return request<MobileDealsPage>(`/api/mobile/deals?${params.toString()}`)
+}
+
+export function getStoreChains(city = '') {
+  const params = new URLSearchParams()
+  if (city.trim()) params.set('city', city.trim())
+  return request<{ chains: MobileChainTile[] }>(`/api/mobile/stores${params.size ? `?${params.toString()}` : ''}`)
+}
+
+export function getStoreBranches(city: string, chainId: string, page = 1) {
+  const params = new URLSearchParams({ chainId, page: String(page) })
+  if (city.trim()) params.set('city', city.trim())
+  return request<MobileBranchPage>(`/api/mobile/stores?${params.toString()}`)
 }
 
 export function getShoppingList() {

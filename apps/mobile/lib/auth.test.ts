@@ -23,6 +23,8 @@ vi.mock('./config', () => ({ getApiUrl: () => 'https://anitka.example' }))
 
 import { getAccessToken } from './auth'
 
+const TEST_JWT = 'header.payload.signature'
+
 describe('mobile auth token cache', () => {
   beforeEach(() => {
     mocks.values.clear()
@@ -30,17 +32,25 @@ describe('mobile auth token cache', () => {
   })
 
   it('uses the last saved bearer token when session refresh cannot reach Neon Auth', async () => {
-    mocks.values.set('anitka.auth.jwt', 'cached-token')
+    mocks.values.set('anitka.auth.jwt', TEST_JWT)
     mocks.getSession.mockResolvedValue({ error: { message: 'Network request failed' } })
 
-    await expect(getAccessToken()).resolves.toBe('cached-token')
+    await expect(getAccessToken()).resolves.toBe(TEST_JWT)
   })
 
   it('stores and returns a fresh token from the session response', async () => {
-    mocks.getSession.mockResolvedValue({ data: { session: { token: 'fresh-token' } } })
+    mocks.getSession.mockResolvedValue({ data: { session: { token: TEST_JWT } } })
 
-    await expect(getAccessToken()).resolves.toBe('fresh-token')
-    expect(mocks.values.get('anitka.auth.jwt')).toBe('fresh-token')
+    await expect(getAccessToken()).resolves.toBe(TEST_JWT)
+    expect(mocks.getSession).toHaveBeenCalledWith({ query: { disableCookieCache: true } })
+    expect(mocks.values.get('anitka.auth.jwt')).toBe(TEST_JWT)
+  })
+
+  it('does not return an opaque session ID as a bearer token', async () => {
+    mocks.getSession.mockResolvedValue({ data: { session: { token: 'opaque-session-id' } } })
+
+    await expect(getAccessToken()).resolves.toBeNull()
+    expect(mocks.values.has('anitka.auth.jwt')).toBe(false)
   })
 
   it('surfaces session errors when no cached token exists', async () => {

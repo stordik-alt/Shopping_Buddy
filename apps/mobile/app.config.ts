@@ -7,6 +7,7 @@ const config: ExpoConfig = {
   slug: 'shopping-buddy',
   owner: 'mojeanitka',
   version: '0.1.0',
+  icon: './assets/anitka-icon-512.png',
   scheme: 'shoppingbuddy',
   orientation: 'portrait',
   userInterfaceStyle: 'automatic',
@@ -23,7 +24,13 @@ const config: ExpoConfig = {
     ],
   ],
   ios: { bundleIdentifier: 'cz.shoppingbuddy.mobile' },
-  android: { package: 'cz.shoppingbuddy.mobile' },
+  android: {
+    package: 'cz.shoppingbuddy.mobile',
+    adaptiveIcon: {
+      foregroundImage: './assets/anitka-icon-maskable-512.png',
+      backgroundColor: '#ffffff',
+    },
+  },
   extra: {
     apiUrl: process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000',
     eas: {

@@ -229,6 +229,13 @@ export type PurchaseItem = {
   expenseSplits?: { category: ExpenseCategory; subcategory: string | null; amount: number }[]
 }
 
+export type ManualPurchaseInput = {
+  date: string
+  storeChain?: string | null
+  discount?: number | null
+  items: Array<{ name: string; quantity: number; unit: ItemUnit; price: number; category: ItemCategory; subcategory?: string | null }>
+}
+
 export type PurchaseRecord = {
   id: string
   storeId?: string

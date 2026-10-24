@@ -6,7 +6,8 @@ import type { StandaloneOffer } from '../../../lib/offers'
 import type { ExpenseCategory } from '../../../lib/expense-categories'
 import type { RecurringOccurrence, RecurringPayment, RecurringPaymentInput } from '../../../lib/recurring-payments'
 import type { RecurringIncome, RecurringIncomeInput, RecurringIncomeOccurrence } from '../../../lib/recurring-incomes'
-import type { BudgetLedger, PurchaseRecord } from '../../../lib/types'
+import type { BudgetLedger, ManualPurchaseInput, PurchaseRecord } from '../../../lib/types'
+import type { ExpenseSplitPart } from '../../../lib/purchase-expenses'
 import type { PocketInput } from '../../../lib/pocket-input'
 import type { BudgetOutlook } from '../../../lib/types'
 import type { PeriodConfig } from '../../../lib/budget-period'
@@ -393,6 +394,14 @@ export function getNotifications() {
 
 export function getPurchaseHistory() {
   return request<{ purchases: MobilePurchase[] }>('/api/mobile/purchases')
+}
+
+export function createMobileManualPurchase(input: ManualPurchaseInput) {
+  return request<{ purchase: MobilePurchase; expenses: MobileExpense[]; notifications: MobileNotification[]; pantryItems: MobilePantryItem[] }>('/api/mobile/purchases', { method: 'POST', body: JSON.stringify(input) })
+}
+
+export function updateMobilePurchaseItemExpenseSplits(itemId: string, splits: ExpenseSplitPart[]) {
+  return request<{ expenses: MobileExpense[] }>(`/api/mobile/purchases/items/${encodeURIComponent(itemId)}/expense-splits`, { method: 'PATCH', body: JSON.stringify({ splits }) })
 }
 
 export function recordMobilePurchaseExpenses(purchaseId: string) {

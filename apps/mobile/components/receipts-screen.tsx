@@ -305,7 +305,7 @@ function useStyles() {
   disabledButton: { opacity: 0.55 },
   cameraPreview: { flex: 1, overflow: 'hidden', backgroundColor: colors.foreground, margin: 16, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   receiptFrame: { width: '78%', height: '72%', borderColor: '#ffffff', borderWidth: 2, borderRadius: 12 },
-  cameraError: { position: 'absolute', top: 16, left: 16, right: 16, color: colors.primaryForeground, backgroundColor: '#a72d2dcc', borderRadius: 10, padding: 10, textAlign: 'center' },
+  cameraError: { position: 'absolute', top: 16, left: 16, right: 16, color: colors.primaryForeground, backgroundColor: colors.destructive, borderRadius: 10, padding: 10, textAlign: 'center' },
   captureButton: { position: 'absolute', bottom: 28, minHeight: 52, minWidth: 160, justifyContent: 'center', alignItems: 'center', borderRadius: 26, backgroundColor: colors.card, paddingHorizontal: 24 },
   captureButtonText: { color: colors.accentText, fontSize: 16, fontWeight: '700' },
   busyOverlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: colors.navyOverlay },

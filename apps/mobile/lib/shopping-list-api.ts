@@ -1,5 +1,8 @@
 import type { ItemUnit } from '@anitka/shared/units'
 import type { Recipe, RecipeSearchPage } from '../../../lib/recipes/types'
+import type { RestockSuggestion } from '../../../lib/pantry-restock'
+import type { ProductPrice } from '../../../lib/prices'
+import type { StandaloneOffer } from '../../../lib/offers'
 import { clearAccessToken, getAccessToken } from './auth'
 import { getApiUrl } from './config'
 
@@ -25,6 +28,20 @@ export type MobileBudgetSummary = {
   spent: number
   remaining: number
   categories: { category: string; total: number; limit: number | null; level: 'ok' | 'warning' | 'over' }[]
+}
+
+export type MobileDashboardSummary = {
+  today: string
+  budget: MobileBudgetSummary
+  weeklyAllowance: number | null
+  list: { remaining: number; completed: number; pendingNames: string[] }
+  pantryItemCount: number
+  pantryToCheck: number
+  attention: { id: string; kind: 'receipt' | 'deal-ending'; text: string }[]
+  restockSuggestions: RestockSuggestion[]
+  restockDismissed: string[]
+  productPrices: ProductPrice[]
+  offers: StandaloneOffer[]
 }
 
 export type MobileExpense = {
@@ -388,6 +405,17 @@ export function getBudgetSummary() {
   return request<MobileBudgetSummary>('/api/mobile/budget')
 }
 
+export function getDashboardSummary() {
+  return request<MobileDashboardSummary>('/api/mobile/dashboard')
+}
+
+export function dismissRestockSuggestion(input: { productTypeKey: string; productId: string; validUntil: string }) {
+  return request<{ dismissed: string[] }>('/api/mobile/restock-dismissals', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
 export function getExpenses(period?: string) {
   const query = period ? `?period=${encodeURIComponent(period)}` : ''
   return request<{ period: { start: string; end: string; next: string }; expenses: MobileExpense[] }>(`/api/mobile/expenses${query}`)
@@ -505,10 +533,10 @@ export function updatePantryItem(itemId: string, change: { quantity: number } | 
   })
 }
 
-export function addShoppingItem(name: string, clientId: string) {
+export function addShoppingItem(name: string, clientId: string, quantity = 1, unit: ItemUnit = 'ks') {
   return request<{ item: MobileShoppingItem }>('/api/mobile/shopping-list', {
     method: 'POST',
-    body: JSON.stringify({ name, clientId }),
+    body: JSON.stringify({ name, clientId, ...(quantity !== 1 && { quantity }), ...(unit !== 'ks' && { unit }) }),
   })
 }
 

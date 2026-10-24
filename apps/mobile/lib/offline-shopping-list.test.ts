@@ -76,11 +76,25 @@ describe('offline shopping list', () => {
 
     const result = await syncOfflineOperations(initial, api, persist)
 
-    expect(api.add).toHaveBeenCalledWith('Máslo', temporaryId.slice('offline-'.length))
+    expect(api.add).toHaveBeenCalledWith('Máslo', temporaryId.slice('offline-'.length), 1, 'ks')
     expect(api.toggle).toHaveBeenCalledWith('server-id', true)
     expect(result).toMatchObject({ rejected: 0, retryRequired: false, snapshot: { pending: [] } })
     expect(result.snapshot.list.items).toContainEqual(item('server-id', { name: 'Máslo' }))
     expect(persist).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps the requested amount and unit when syncing a queued add', async () => {
+    const temporaryId = createOfflineItemId()
+    const initial = snapshot([{ kind: 'add', item: item(temporaryId, { name: 'Mléko', quantity: 1.5, unit: 'l' }) }])
+    const api = {
+      add: vi.fn().mockResolvedValue({ item: item('server-id', { name: 'Mléko', quantity: 1.5, unit: 'l' }) }),
+      toggle: vi.fn(),
+      update: vi.fn(),
+    }
+
+    await syncOfflineOperations(initial, api, vi.fn().mockResolvedValue(undefined))
+
+    expect(api.add).toHaveBeenCalledWith('Mléko', temporaryId.slice('offline-'.length), 1.5, 'l')
   })
 
   it('keeps the failed operation and later changes for retry after a network error', async () => {

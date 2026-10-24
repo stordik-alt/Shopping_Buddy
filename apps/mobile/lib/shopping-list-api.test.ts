@@ -33,6 +33,15 @@ describe('mobile shopping-list API client', () => {
     )
   })
 
+  it('sends a suggested quantity and unit when adding a restock recommendation', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ item: { id: 'item-2', name: 'Mléko', quantity: 1.5, unit: 'l', done: false } }), { status: 201 }))
+    await addShoppingItem('Mléko', 'client-2', 1.5, 'l')
+    expect(fetch).toHaveBeenCalledWith(
+      'https://anitka.example/api/mobile/shopping-list',
+      expect.objectContaining({ body: JSON.stringify({ name: 'Mléko', clientId: 'client-2', quantity: 1.5, unit: 'l' }) }),
+    )
+  })
+
   it('does not make a request when there is no authenticated session', async () => {
     getAccessToken.mockResolvedValue(null)
     await expect(getShoppingList()).rejects.toMatchObject({ code: 'not_signed_in', status: 401 })

@@ -1,5 +1,8 @@
 {
   "compilerOptions": {
+    "paths": {
+      "@/*": ["../../*"]
+    },
     "strict": true,
     "target": "ESNext",
     "module": "esnext",

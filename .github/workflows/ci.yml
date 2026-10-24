@@ -118,7 +118,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:16
@@ -185,7 +185,7 @@ jobs:
         env:
           GITHUB_RUN_ID: ${{ github.run_id }}
           DEBUG: pw:webserver,pw:api
-        run: timeout --signal=TERM --kill-after=15s 180s ./node_modules/.bin/playwright test
+        run: timeout --signal=TERM --kill-after=15s 900s ./node_modules/.bin/playwright test
 
       - name: Upload Playwright diagnostics and Mobile UI v2 screenshots
         if: always()

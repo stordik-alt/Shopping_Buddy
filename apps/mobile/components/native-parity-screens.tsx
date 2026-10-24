@@ -459,7 +459,7 @@ export function NativeNotificationsModal({ visible, onClose, onUnreadCount }: { 
 type ManualPurchaseLine = { name: string; quantity: string; unit: ItemUnit; price: string; category: ItemCategory; subcategory: string }
 const MANUAL_ITEM_CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
 
-function NativeManualPurchaseForm({ chains, onClose, onSave }: { chains: MobileChainTile[]; onClose: () => void; onSave: (input: ManualPurchaseInput) => Promise<void> }) {
+export function NativeManualPurchaseForm({ chains, onClose, onSave }: { chains: MobileChainTile[]; onClose: () => void; onSave: (input: ManualPurchaseInput) => Promise<void> }) {
   const { colors } = useMobileTheme()
   const styles = useStyles()
   const [date, setDate] = useState(todayInPrague())

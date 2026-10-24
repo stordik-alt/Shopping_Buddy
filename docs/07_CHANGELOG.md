@@ -1,3 +1,11 @@
+## 2026-10-24 — Expo účtenky: fotoaparát, galerie, PDF a ruční import
+
+- Mobilní import účtenek nabízí vyfocení, výběr podporovaného snímku z galerie, PDF/fotku přes systémový výběr souboru a ruční zadání položek.
+- Ruční zadání jde stejnou službou `createPurchaseFromReceiptItems` jako PWA. Zachová domácnost, historii účtenek, výdaje, doplnění zásob, cenové pozorování i propojení s nákupním seznamem.
+- Nová bearer-authenticated trasa ověřuje domácnost a validuje formát, jednotky, částky a slevy. Ruční import zachovává auditní `receipt_imports` záznam místo pouhého přidání do historie nákupů.
+- Expo SDK 57 `expo-image-picker` a `expo-document-picker` poskytují nativní výběr médií a souborů; oprávnění k fotografiím má český popis a není vyžadován přístup k mikrofonu.
+- Ověřeno: 30 testů mobilních receipt routes/API, všech 82 DB-backed testů receipt pipeline, Expo i kořenový TypeScript, Android Expo export a `git diff --check` prošly.
+
 ## 2026-10-24 — Audit vizuální a funkční parity mobilní aplikace s PWA
 
 - **Domů · Doporučení ANITKY:** doporučení lze sbalit stejně jako v PWA a volba se uloží v zařízení. Akce na oblíbené se načítají až po rozbalení sekce, aby zavřená doporučení zbytečně nespouštěla požadavek.

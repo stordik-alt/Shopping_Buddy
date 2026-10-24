@@ -4,7 +4,7 @@ const getAccessToken = vi.fn()
 vi.mock('./auth', () => ({ getAccessToken: (...args: unknown[]) => getAccessToken(...args) }))
 vi.mock('./config', () => ({ getApiUrl: () => 'https://anitka.example' }))
 
-import { addShoppingItem, buildShoppingPlan, createShoppingList, getBudgetSummary, getPantry, getPendingReceiptImports, getRecipe, getShoppingList, getUsualItems, lookupBarcode, MobileApiError, pinShoppingProduct, processReceiptImport, reviewPantry, searchProducts, searchRecipes, toggleShoppingItem, unpinShoppingProduct, updatePantryItem, uploadReceiptPhoto } from './shopping-list-api'
+import { addShoppingItem, buildShoppingPlan, createShoppingList, getBudgetSummary, getPantry, getPendingReceiptImports, getRecipe, getShoppingList, getUsualItems, importManualReceipt, lookupBarcode, MobileApiError, pinShoppingProduct, processReceiptImport, reviewPantry, searchProducts, searchRecipes, toggleShoppingItem, unpinShoppingProduct, updatePantryItem, uploadReceiptFile, uploadReceiptPhoto } from './shopping-list-api'
 
 describe('mobile shopping-list API client', () => {
   beforeEach(() => {
@@ -190,6 +190,35 @@ describe('mobile shopping-list API client', () => {
       } finally {
         vi.stubGlobal('FormData', OriginalFormData)
       }
+  })
+
+  it('preserves the chosen receipt file name and type for gallery photos and PDFs', async () => {
+    const OriginalFormData = FormData
+    class NativeFormData {
+      fields: Array<[string, unknown]> = []
+      append(name: string, value: unknown) { this.fields.push([name, value]) }
+    }
+    vi.stubGlobal('FormData', NativeFormData)
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ receipt: { id: 'receipt-pdf', status: 'uploaded' } }), { status: 201 }))
+    try {
+      await uploadReceiptFile('file:///download/uctenka.pdf', 'uctenka.pdf', 'application/pdf')
+      expect((vi.mocked(fetch).mock.calls[0][1]?.body as unknown as NativeFormData).fields).toEqual([
+        ['file', { uri: 'file:///download/uctenka.pdf', name: 'uctenka.pdf', type: 'application/pdf' }],
+      ])
+    } finally {
+      vi.stubGlobal('FormData', OriginalFormData)
+    }
+  })
+
+  it('imports manual receipt lines through the receipt pipeline and authenticated household API', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ receipt: { id: 'receipt-manual', status: 'imported' }, purchase: { id: 'purchase-1' } }), { status: 201 }))
+    const input = { date: '2026-10-24', storeChain: 'Lidl', discount: 4, items: [{ name: 'Mléko', quantity: 2, unit: 'l' as const, price: 30, category: 'Potraviny' as const, subcategory: null }] }
+    await expect(importManualReceipt(input)).resolves.toMatchObject({ receipt: { status: 'imported' }, purchase: { id: 'purchase-1' } })
+    expect(fetch).toHaveBeenCalledWith('https://anitka.example/api/mobile/receipts/manual', expect.objectContaining({
+      method: 'POST',
+      headers: expect.objectContaining({ Authorization: ['Bearer', 'unit-test-access'].join(' ') }),
+      body: JSON.stringify({ date: input.date, storeName: 'Lidl', discount: 4, items: input.items }),
+    }))
   })
 
   it('loads and processes household receipts through the bearer API', async () => {

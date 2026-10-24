@@ -787,9 +787,25 @@ export function getPendingReceiptImports() {
 }
 
 export function uploadReceiptPhoto(uri: string) {
+  return uploadReceiptFile(uri, 'receipt.jpg', 'image/jpeg')
+}
+
+export function uploadReceiptFile(uri: string, name: string, mimeType: string) {
   const body = new FormData()
-  body.append('file', { uri, name: 'receipt.jpg', type: 'image/jpeg' } as unknown as Blob)
+  body.append('file', { uri, name, type: mimeType } as unknown as Blob)
   return request<{ receipt: MobileReceiptImport }>('/api/mobile/receipts', { method: 'POST', body })
+}
+
+export function importManualReceipt(input: ManualPurchaseInput) {
+  return request<{ receipt: MobileReceiptImport; purchase: MobilePurchase }>('/api/mobile/receipts/manual', {
+    method: 'POST',
+    body: JSON.stringify({
+      date: input.date,
+      storeName: input.storeChain ?? null,
+      discount: input.discount ?? null,
+      items: input.items,
+    }),
+  })
 }
 
 export function processReceiptImport(receiptId: string, retry: boolean) {

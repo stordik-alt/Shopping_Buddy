@@ -32,6 +32,8 @@
     "typescript": "6.0.3"
   },
   "dependencies": {
+    "expo-document-picker": "~57.0.3",
+    "expo-image-picker": "~57.0.20",
     "lucide-react-native": "^1.61.0",
     "react-native-svg": "15.15.4"
   }

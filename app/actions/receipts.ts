@@ -4,7 +4,6 @@ import { and, eq, inArray } from 'drizzle-orm'
 import { parseStoredJson } from '@/lib/safe-json'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { safeErrorMessage } from '@/lib/errors'
-import { todayInPrague } from '@/lib/today'
 import { getDb } from '@/lib/db/client'
 import {
   getPurchaseAftermath,
@@ -25,6 +24,7 @@ import {
   createPurchaseFromReceiptItems,
   findOrCreateStore,
   findOrCreateStoreLocation,
+  importManualReceiptForHousehold,
   processReceiptImportForHousehold,
   resolveReceiptPurchaseDate,
 } from '@/lib/receipt-import'
@@ -67,23 +67,9 @@ export async function importReceiptAction(
   const householdId = await requireHouseholdId()
   // Only a category the household actually changed in the form is authoritative; an untouched row
   // follows the catalog (lib/receipt-import.ts).
-  const purchase = await createPurchaseFromReceiptItems(householdId, items.map(withClassificationSource), { ...options, source: 'confirmed' })
-
-  const db = getDb()
-  await db.insert(schema.receiptImports).values({
-    householdId,
-    status: 'imported',
-    storeId: options.storeName ? await findOrCreateStore(options.storeName) : null,
-    storeLocationId: options.storeLocationId,
-    date: options.date ?? todayInPrague(),
-    source: 'manual',
-    items: JSON.stringify(items),
-    purchaseId: purchase.id,
-    processedAt: new Date(),
-  })
-
+  const { purchase, aftermath } = await importManualReceiptForHousehold(householdId, items.map(withClassificationSource), options)
   // No revalidatePath: what the import changed is returned instead of re-rendering the whole page.
-  return { purchase, aftermath: await getPurchaseAftermath(householdId, purchase.id) }
+  return { purchase, aftermath }
 }
 
 

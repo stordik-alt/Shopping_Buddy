@@ -9,6 +9,10 @@ vi.mock('@neondatabase/auth', () => ({
   createAuthClient: () => ({ getSession: mocks.getSession }),
 }))
 vi.mock('@neondatabase/auth/vanilla/adapters', () => ({ BetterAuthVanillaAdapter: () => ({}) }))
+vi.mock('expo-crypto', () => ({
+  randomUUID: () => 'mobile-auth-test-id',
+  getRandomValues: (typedArray: Uint8Array) => typedArray,
+}))
 vi.mock('expo-secure-store', () => ({
   getItemAsync: async (key: string) => mocks.values.get(key) ?? null,
   setItemAsync: async (key: string, value: string) => void mocks.values.set(key, value),

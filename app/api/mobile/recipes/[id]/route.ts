@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm'
 import { mobileHouseholdForUser, mobileUserFromRequest, MobileRequestAuthError } from '@/lib/auth/mobile-request'
 import { getDb } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
-import { recordRecipeView } from '@/lib/db/recipes'
+import { getRecipeFavoriteState, recordRecipeView } from '@/lib/db/recipes'
 import { getRecipeByUrl } from '@/lib/recipes/service'
 
 const NO_STORE = { 'Cache-Control': 'no-store' }
@@ -26,9 +26,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     if (!reference) return json({ error: 'not_found' }, 404)
 
     const recipe = await getRecipeByUrl(reference.sourceId, reference.canonicalUrl)
-    await recordRecipeView(member.householdId, recipe)
+    const [, isFavorite] = await Promise.all([recordRecipeView(member.householdId, recipe), getRecipeFavoriteState(member.householdId, recipe.canonicalUrl)])
     return json({
       ...recipe,
+      isFavorite,
       imageUrl: recipe.imageUrl
         ? new URL(`/api/recipes/images/${encodeURIComponent(recipe.id)}`, request.url).toString()
         : undefined,

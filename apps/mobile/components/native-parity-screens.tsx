@@ -99,7 +99,7 @@ export function NativeBottomNav({ active, onSelect }: { active: NativeTab; onSel
   )
 }
 
-export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceipts, onQuickExpense, onCheckPantry, hasPreferences }: { name: string; onSelect: (tab: NativeTab) => void; onAddToShopping: (name: string, quantity?: number, unit?: ItemUnit) => void; onOpenReceipts: () => void; onQuickExpense: () => void; onCheckPantry: () => void; hasPreferences: boolean }) {
+export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceipts, onQuickExpense, onCheckPantry, hasPreferences }: { name: string; onSelect: (tab: NativeTab) => void; onAddToShopping: (name: string, quantity?: number, unit?: ItemUnit) => void; onOpenReceipts: (receiptId?: string) => void; onQuickExpense: () => void; onCheckPantry: () => void; hasPreferences: boolean }) {
   const { colors, theme } = useMobileTheme()
   const styles = useStyles()
   const [dashboard, setDashboard] = useState<MobileDashboardSummary | null>(null)
@@ -193,7 +193,7 @@ export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceip
         <Text style={styles.bodyText}>Tady je přehled vaší domácnosti.</Text>
       </View>
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
-      {attention.map((item) => <Pressable key={item.id} accessibilityRole="button" onPress={() => item.kind === 'receipt' ? onOpenReceipts() : onSelect('shopping')} style={styles.attentionCard}><Bell color={colors.warning} size={20} /><Text style={styles.attentionText}>{item.text}</Text><ArrowRight color={colors.mutedText} size={18} /></Pressable>)}
+      {attention.map((item) => <Pressable key={item.id} accessibilityRole="button" onPress={() => item.kind === 'receipt' ? onOpenReceipts(item.focus?.kind === 'receipt' ? item.focus.id : undefined) : onSelect('shopping')} style={styles.attentionCard}><Bell color={colors.warning} size={20} /><Text style={styles.attentionText}>{item.text}</Text><ArrowRight color={colors.mutedText} size={18} /></Pressable>)}
       {loading ? <ActivityIndicator color={colors.primary} size="large" style={styles.loader} /> : null}
       <Pressable onPress={() => onSelect('budget')} style={styles.dashboardCard}>
         <View style={[styles.cardIcon, styles.cardIconAccent]}><WalletCards color={colors.accentText} size={21} /></View>
@@ -270,7 +270,7 @@ export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceip
         {[
           { label: 'Do nákupu', Icon: Plus, action: () => onSelect('shopping') },
           { label: 'Výdaj', Icon: WalletCards, action: onQuickExpense },
-          { label: 'Účtenka', Icon: ReceiptText, action: onOpenReceipts },
+          { label: 'Účtenka', Icon: ReceiptText, action: () => onOpenReceipts() },
           { label: 'Obchody', Icon: MapPin, action: () => onSelect('stores') },
         ].map(({ label, Icon, action }) => (
           <Pressable accessibilityRole="button" accessibilityLabel={label} key={label} onPress={action} style={styles.quickAction}>

@@ -7,6 +7,7 @@ import { useMobileTheme } from '../lib/theme'
 import {
   generateMealPlan,
   getMealPlan,
+  markMealCooked,
   MobileApiError,
   setMealServings,
   type MobileMealPlan,
@@ -96,6 +97,21 @@ export function MealPlanScreen({ onAuthExpired }: { onAuthExpired: () => void })
       setPlan(result.plan)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Počet porcí se nepodařilo uložit.')
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function cookMeal(day: string, mealType: MobileMealType) {
+    if (saving) return
+    setSaving(true)
+    setError(null)
+    try {
+      const result = await markMealCooked(day, mealType)
+      if (result.plan) setPlan(result.plan)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Jídlo se nepodařilo označit jako uvařené.')
       if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
     } finally {
       setSaving(false)
@@ -209,6 +225,7 @@ export function MealPlanScreen({ onAuthExpired }: { onAuthExpired: () => void })
                       <Text style={styles.servingButtonText}>+</Text>
                     </Pressable>
                   </View>
+                  {!cooked ? <Pressable accessibilityRole="button" disabled={saving} onPress={() => void cookMeal(day.day, mealType)} style={[styles.cookedButton, saving && styles.disabled]}><Text style={styles.cookedButtonText}>{saving ? 'Ukládám…' : 'Označit jako uvařené'}</Text></Pressable> : null}
                   {recipe.ingredients.length > 0 ? (
                     <View style={styles.ingredients}>
                       <Text style={styles.label}>Suroviny</Text>
@@ -270,6 +287,8 @@ function useStyles() {
   mealName: { color: colors.foreground, fontSize: 17, fontWeight: '700' },
   source: { color: colors.secondaryText, fontSize: 13 },
   servingsRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  cookedButton: { minHeight: 42, alignSelf: 'flex-start', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.accentSubtle, paddingHorizontal: 13 },
+  cookedButtonText: { color: colors.accentText, fontSize: 14, fontWeight: '700' },
   servingButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 21, backgroundColor: colors.accentSubtle },
   servingButtonText: { color: colors.accentText, fontSize: 22, fontWeight: '700' },
   ingredients: { borderTopColor: colors.border, borderTopWidth: 1, paddingTop: 8, gap: 4 },

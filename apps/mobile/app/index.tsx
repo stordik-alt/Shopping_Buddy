@@ -45,7 +45,7 @@ import {
   type NativeTab,
 } from '../components/native-parity-screens'
 import { RefreshButton } from '../components/refresh-button'
-import { getAccessToken, signIn, signOut } from '../lib/auth'
+import { getAccessToken, passwordResetCallbackUrl, requestPasswordReset, resetPassword, sendVerificationCode, signIn, signOut, signUp, verifyEmailCode, verifyEmailLink } from '../lib/auth'
 import { GUIDE_DONE_KEY, shouldAutoStartGuide } from '../../../lib/guide'
 import {
   applyOfflineOperations,
@@ -87,11 +87,103 @@ function errorMessage(error: unknown): string {
 
 const activeShoppingListKey = (householdId: string) => `anitka.active-shopping-list:${householdId}`
 
-function LoginForm({ onSignIn, busy, error }: { onSignIn: (email: string, password: string) => void; busy: boolean; error: string | null }) {
+type MobileAuthAction =
+  | { kind: 'sign-in'; email: string; password: string }
+  | { kind: 'sign-up'; email: string; password: string; name: string }
+  | { kind: 'verify-code'; email: string; code: string }
+  | { kind: 'resend-code'; email: string }
+  | { kind: 'request-reset'; email: string }
+  | { kind: 'reset-password'; token: string; password: string }
+  | { kind: 'verify-link'; token: string }
+
+type FocusedNativeTarget = { kind: 'receipt' | 'pantry-item'; id: string }
+
+function LoginForm({ onAuthAction, busy, error }: { onAuthAction: (action: MobileAuthAction) => Promise<void>; busy: boolean; error: string | null }) {
   const { colors } = useMobileTheme()
   const styles = useStyles()
+  const [mode, setMode] = useState<'sign-in' | 'sign-up' | 'verify' | 'forgot' | 'reset'>('sign-in')
   const [email, setEmail] = useState('')
+  const [name, setName] = useState('')
   const [password, setPassword] = useState('')
+  const [code, setCode] = useState('')
+  const [resetToken, setResetToken] = useState('')
+  const [notice, setNotice] = useState('')
+
+  useEffect(() => {
+    let active = true
+    const handleUrl = (url: string) => {
+      try {
+        const parsed = new URL(url)
+        const path = `${parsed.hostname}${parsed.pathname}`.toLowerCase()
+        const authAction = parsed.searchParams.get('auth')
+        const token = parsed.searchParams.get('token')
+        if (path.includes('reset-password') || authAction === 'reset-password') {
+          setMode(token ? 'reset' : 'forgot')
+          setResetToken(token ?? '')
+          setEmail(parsed.searchParams.get('email') ?? '')
+          setNotice(token ? '' : 'Odkaz není platný nebo vypršel. Požádejte o nový.')
+          return
+        }
+        if (path.includes('verified') || authAction === 'verified') {
+          if (token) {
+            void onAuthAction({ kind: 'verify-link', token }).then(() => {
+              if (active) { setMode('sign-in'); setNotice('E-mail ověřen. Nyní se můžete přihlásit.') }
+            }).catch(() => undefined)
+          } else {
+            setMode('sign-in')
+            setNotice(parsed.searchParams.has('error') ? 'Ověřovací odkaz není platný nebo vypršel.' : 'E-mail ověřen. Nyní se můžete přihlásit.')
+          }
+        }
+      } catch {
+        // Ignore unrelated links opened by the operating system.
+      }
+    }
+    void Linking.getInitialURL().then((url) => { if (active && url) handleUrl(url) })
+    const subscription = Linking.addEventListener('url', ({ url }) => handleUrl(url))
+    return () => { active = false; subscription.remove() }
+  }, [onAuthAction])
+
+  async function perform(action: MobileAuthAction, onSuccess: () => void) {
+    setNotice('')
+    try {
+      await onAuthAction(action)
+      onSuccess()
+    } catch {
+      // The parent exposes the auth error in the shared login panel.
+    }
+  }
+
+  const title = mode === 'sign-up' ? 'Založit účet' : mode === 'verify' ? 'Ověřit e-mail' : mode === 'forgot' ? 'Obnovit heslo' : mode === 'reset' ? 'Nastavit nové heslo' : 'Přihlásit se'
+  const actionLabel = mode === 'sign-up' ? 'Vytvořit účet' : mode === 'verify' ? 'Ověřit kód' : mode === 'forgot' ? 'Poslat odkaz' : mode === 'reset' ? 'Uložit heslo' : 'Přihlásit se'
+
+  function submit() {
+    if (mode === 'sign-up') {
+      void perform({ kind: 'sign-up', email: email.trim(), password, name: name.trim() }, () => {
+        setMode('verify')
+        void perform({ kind: 'resend-code', email: email.trim() }, () => setNotice('Účet je vytvořen. Zadejte šestimístný kód z e-mailu.'))
+      })
+    } else if (mode === 'verify') {
+      void perform({ kind: 'verify-code', email: email.trim(), code: code.trim() }, () => {
+        setMode('sign-in')
+        setNotice('E-mail ověřen. Nyní se můžete přihlásit.')
+      })
+    } else if (mode === 'forgot') {
+      void perform({ kind: 'request-reset', email: email.trim() }, () => {
+        setMode('sign-in')
+        setNotice('Pokud je účet pro tento e-mail dostupný, poslali jsme odkaz pro obnovu hesla.')
+      })
+    } else if (mode === 'reset') {
+      if (!resetToken) return
+      void perform({ kind: 'reset-password', token: resetToken, password }, () => {
+        setMode('sign-in')
+        setPassword('')
+        setResetToken('')
+        setNotice('Heslo bylo změněno. Přihlaste se novým heslem.')
+      })
+    } else {
+      void perform({ kind: 'sign-in', email: email.trim(), password }, () => undefined)
+    }
+  }
 
   return (
     <View style={styles.centered}>
@@ -101,31 +193,29 @@ function LoginForm({ onSignIn, busy, error }: { onSignIn: (email: string, passwo
           <Text style={styles.poweredBy}>Powered by ANITKA AI</Text>
         </View>
         <View style={[styles.card, styles.loginCard]}>
-          <Text style={styles.loginTitle}>Přihlásit se</Text>
-          <Text style={styles.supporting}>Vítejte zpátky. Pojďme uhlídat rozpočet.</Text>
+          <Text style={styles.loginTitle}>{title}</Text>
+          <Text style={styles.supporting}>{mode === 'sign-in' ? 'Vítejte zpátky. Pojďme uhlídat rozpočet.' : mode === 'verify' ? 'Zadejte kód, který jsme poslali na váš e-mail.' : mode === 'reset' ? 'Odkaz pro obnovu je připravený. Zvolte nové heslo.' : 'Použijte svůj e-mail pro bezpečné pokračování.'}</Text>
           {error ? <Text accessibilityRole="alert" style={[styles.error, styles.loginError]}>{error}</Text> : null}
-          <View style={styles.fieldGroup}>
+          {notice ? <Text accessibilityLiveRegion="polite" style={styles.supporting}>{notice}</Text> : null}
+          {mode === 'sign-up' ? <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Jméno</Text>
+            <TextInput accessibilityLabel="Jméno" autoComplete="name" onChangeText={setName} placeholder="" placeholderTextColor={colors.mutedText} style={styles.input} value={name} />
+          </View> : null}
+          {mode !== 'reset' && mode !== 'verify' ? <View style={styles.fieldGroup}>
             <Text style={styles.label}>E-mail</Text>
+            <TextInput accessibilityLabel="E-mail" autoCapitalize="none" autoComplete="email" keyboardType="email-address" onChangeText={setEmail} placeholder="" placeholderTextColor={colors.mutedText} returnKeyType="next" style={styles.input} value={email} />
+          </View> : null}
+          {mode === 'verify' ? <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Ověřovací kód</Text>
+            <TextInput accessibilityLabel="Ověřovací kód" autoComplete="one-time-code" keyboardType="number-pad" maxLength={6} onChangeText={(value) => setCode(value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" placeholderTextColor={colors.mutedText} style={styles.input} value={code} />
+          </View> : null}
+          {['sign-in', 'sign-up', 'reset'].includes(mode) ? <View style={styles.fieldGroup}>
+            <Text style={styles.label}>{mode === 'reset' ? 'Nové heslo' : 'Heslo'}</Text>
             <TextInput
-              accessibilityLabel="E-mail"
-              autoCapitalize="none"
-              autoComplete="email"
-              keyboardType="email-address"
-              onChangeText={setEmail}
-              placeholder=""
-              placeholderTextColor={colors.mutedText}
-              returnKeyType="next"
-              style={styles.input}
-              value={email}
-            />
-          </View>
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Heslo</Text>
-            <TextInput
-              accessibilityLabel="Heslo"
-              autoComplete="current-password"
+              accessibilityLabel={mode === 'reset' ? 'Nové heslo' : 'Heslo'}
+              autoComplete={mode === 'sign-in' ? 'current-password' : 'new-password'}
               onChangeText={setPassword}
-              onSubmitEditing={() => onSignIn(email.trim(), password)}
+              onSubmitEditing={submit}
               placeholder=""
               placeholderTextColor={colors.mutedText}
               returnKeyType="go"
@@ -133,19 +223,17 @@ function LoginForm({ onSignIn, busy, error }: { onSignIn: (email: string, passwo
               style={styles.input}
               value={password}
             />
-          </View>
+          </View> : null}
           <PrimaryButton
-            disabled={busy || !email.trim() || !password}
-            label={busy ? 'Přihlašuji…' : 'Přihlásit se'}
-            onPress={() => onSignIn(email.trim(), password)}
+            disabled={busy || (mode !== 'reset' && mode !== 'verify' && !email.trim()) || ((mode === 'sign-in' || mode === 'sign-up' || mode === 'reset') && password.length < (mode === 'sign-in' ? 1 : 8)) || (mode === 'sign-up' && !name.trim()) || (mode === 'verify' && code.length !== 6) || (mode === 'reset' && !resetToken)}
+            label={busy ? 'Zpracovávám…' : actionLabel}
+            onPress={submit}
             style={styles.loginButton}
           />
-          <Text style={styles.loginFooter}>
-            Ještě nemáte účet?{' '}
-            <Text accessibilityRole="link" onPress={() => void Linking.openURL('https://mojeanitka.cz/auth/sign-up')} style={styles.loginLink}>
-              Založte si ho
-            </Text>
-          </Text>
+          {mode === 'verify' ? <Pressable accessibilityRole="button" disabled={busy} onPress={() => void perform({ kind: 'resend-code', email: email.trim() }, () => setNotice('Pokud je účet potřeba ověřit, poslali jsme nový kód.'))}><Text style={styles.loginFooter}>Poslat nový kód</Text></Pressable> : null}
+          {mode === 'sign-in' ? <Pressable accessibilityRole="button" onPress={() => { setMode('forgot'); setNotice('') }}><Text style={styles.loginFooter}>Zapomněli jste heslo?</Text></Pressable> : null}
+          {mode === 'sign-in' ? <Pressable accessibilityRole="button" onPress={() => { setMode('sign-up'); setNotice('') }}><Text style={styles.loginFooter}>Ještě nemáte účet? Založte si ho</Text></Pressable> : null}
+          {mode !== 'sign-in' ? <Pressable accessibilityRole="button" onPress={() => { setMode('sign-in'); setNotice('') }}><Text style={styles.loginFooter}>Zpět k přihlášení</Text></Pressable> : null}
         </View>
       </View>
     </View>
@@ -228,6 +316,7 @@ export default function HomeScreen() {
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
   const [quickExpenseToken, setQuickExpenseToken] = useState(0)
   const [pantryReviewToken, setPantryReviewToken] = useState(0)
+  const [focusedTarget, setFocusedTarget] = useState<FocusedNativeTarget | null>(null)
   const [signedIn, setSignedIn] = useState(false)
   const [busy, setBusy] = useState(true)
   const [signingIn, setSigningIn] = useState(false)
@@ -273,6 +362,31 @@ export default function HomeScreen() {
         recepty: 'recipes', rozpocet: 'budget', profil: 'profile',
       }
       setActiveTab(slug ? tabs[slug] ?? 'home' : 'home')
+      const focusKind = params.get('focus') ?? params.get('target') ?? params.get('targetType')
+      const targetId = params.get('targetId') ?? params.get('id')
+      const receiptId = params.get('receiptId') ?? (focusKind === 'receipt' ? targetId : null)
+      const pantryItemId = params.get('pantryItemId') ?? params.get('itemId') ?? (focusKind === 'pantry-item' || focusKind === 'pantry' ? targetId : null)
+      if (receiptId) {
+        setFocusedTarget({ kind: 'receipt', id: receiptId })
+        setShoppingView('receipts')
+        setActiveTab('shopping')
+      } else if (pantryItemId) {
+        setFocusedTarget({ kind: 'pantry-item', id: pantryItemId })
+        setActiveTab('pantry')
+      } else {
+        const notificationTarget = data?.focus
+        if (notificationTarget && typeof notificationTarget === 'object' && 'kind' in notificationTarget && 'id' in notificationTarget && typeof notificationTarget.id === 'string') {
+          if (notificationTarget.kind === 'receipt') {
+            setFocusedTarget({ kind: 'receipt', id: notificationTarget.id })
+            setShoppingView('receipts')
+            setActiveTab('shopping')
+          } else if (notificationTarget.kind === 'pantry-item' || notificationTarget.kind === 'pantry') {
+            setFocusedTarget({ kind: 'pantry-item', id: notificationTarget.id })
+            setActiveTab('pantry')
+          }
+        }
+      }
+      if (params.get('nakupView') === 'uctenky' || params.get('view') === 'receipts') setShoppingView('receipts')
       if (slug === 'zasoby' && params.get('kontrola') === '1') setPantryReviewToken((current) => current + 1)
       setNotificationsOpen(false)
     })
@@ -480,19 +594,42 @@ export default function HomeScreen() {
     return () => { active = false }
   }, [activeTab, householdAvailable, offline, pricingNamesKey, shoppingView, signedIn])
 
-  async function handleSignIn(email: string, password: string) {
+  const handleAuthAction = useCallback(async (action: MobileAuthAction) => {
     setSigningIn(true)
     setError(null)
     try {
-      await clearLastOfflineContext()
-      await signIn(email, password)
-      await load()
+      switch (action.kind) {
+        case 'sign-in':
+          await clearLastOfflineContext()
+          await signIn(action.email, action.password)
+          await load()
+          break
+        case 'sign-up':
+          await signUp(action.email, action.password, action.name)
+          break
+        case 'verify-code':
+          await verifyEmailCode(action.email, action.code)
+          break
+        case 'resend-code':
+          await sendVerificationCode(action.email)
+          break
+        case 'request-reset':
+          await requestPasswordReset(action.email, passwordResetCallbackUrl())
+          break
+        case 'reset-password':
+          await resetPassword(action.token, action.password)
+          break
+        case 'verify-link':
+          await verifyEmailLink(action.token)
+          break
+      }
     } catch (caught) {
       setError(errorMessage(caught))
+      throw caught
     } finally {
       setSigningIn(false)
     }
-  }
+  }, [load])
 
   async function handleSignOut() {
     setBusy(true)
@@ -803,7 +940,7 @@ export default function HomeScreen() {
     return (
       <SafeAreaView style={styles.screen}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
-          <LoginForm onSignIn={handleSignIn} busy={signingIn} error={error} />
+          <LoginForm onAuthAction={handleAuthAction} busy={signingIn} error={error} />
         </KeyboardAvoidingView>
       </SafeAreaView>
     )
@@ -859,7 +996,7 @@ export default function HomeScreen() {
                 hasPreferences={Boolean(householdProfile && (householdProfile.preferences.preferredProducts.length || householdProfile.preferences.preferredBrands.length))}
                 name={userName}
                 onAddToShopping={(name, quantity = 1, unit = 'ks') => { setActiveTab('shopping'); setShoppingView('list'); void handleAdd(name, quantity, unit) }}
-                onOpenReceipts={() => { setShoppingView('receipts'); setActiveTab('shopping') }}
+                onOpenReceipts={(receiptId) => { setShoppingView('receipts'); setActiveTab('shopping'); setFocusedTarget(receiptId ? { kind: 'receipt', id: receiptId } : null) }}
                 onQuickExpense={() => { setQuickExpenseToken((current) => current + 1); setActiveTab('budget') }}
                 onCheckPantry={() => { setActiveTab('pantry'); setPantryReviewToken((current) => current + 1) }}
                 onSelect={setActiveTab}
@@ -871,7 +1008,15 @@ export default function HomeScreen() {
                   <Pressable accessibilityRole="tab" accessibilityState={{ selected: shoppingView === 'purchases' }} onPress={() => setShoppingView('purchases')} style={[styles.sectionTab, shoppingView === 'purchases' && styles.sectionTabActive]}><Text style={[styles.sectionTabText, shoppingView === 'purchases' && styles.sectionTabTextActive]}>Moje nákupy</Text></Pressable>
                   <Pressable accessibilityRole="tab" accessibilityState={{ selected: shoppingView === 'receipts' }} onPress={() => setShoppingView('receipts')} style={[styles.sectionTab, shoppingView === 'receipts' && styles.sectionTabActive]}><Text style={[styles.sectionTabText, shoppingView === 'receipts' && styles.sectionTabTextActive]}>Účtenky</Text></Pressable>
                 </View>
-                {shoppingView === 'receipts' ? <ReceiptsScreen onAuthExpired={handleAuthExpired} /> : shoppingView === 'purchases' ? <NativePurchasesScreen /> : (
+                {shoppingView === 'receipts' ? <ReceiptsScreen focusedReceiptId={focusedTarget?.kind === 'receipt' ? focusedTarget.id : null} onFocusHandled={() => setFocusedTarget(null)} onAuthExpired={handleAuthExpired} onListItemsUpdated={(updated) => {
+                  const byId = new Map(updated.map((item) => [item.id, item]))
+                  setItems((current) => current.map((item) => byId.has(item.id) ? { ...item, ...byId.get(item.id)! } : item))
+                  const current = offlineSnapshot.current
+                  if (current) {
+                    const next = { ...current, list: { ...current.list, items: current.list.items.map((item) => byId.has(item.id) ? { ...item, ...byId.get(item.id)! } : item) } }
+                    void saveOfflineSnapshot(next).then(() => showSnapshot(next))
+                  }
+                }} /> : shoppingView === 'purchases' ? <NativePurchasesScreen /> : (
                 <>
                 <View style={styles.listPicker}>
                   <View style={styles.listPickerHeading}>
@@ -1017,12 +1162,22 @@ export default function HomeScreen() {
                   <Pressable accessibilityRole="tab" accessibilityState={{ selected: recipeView === 'recipes' }} onPress={() => setRecipeView('recipes')} style={[styles.sectionTab, recipeView === 'recipes' && styles.sectionTabActive]}><Text style={[styles.sectionTabText, recipeView === 'recipes' && styles.sectionTabTextActive]}>Recepty</Text></Pressable>
                   <Pressable accessibilityRole="tab" accessibilityState={{ selected: recipeView === 'meals' }} onPress={() => setRecipeView('meals')} style={[styles.sectionTab, recipeView === 'meals' && styles.sectionTabActive]}><Text style={[styles.sectionTabText, recipeView === 'meals' && styles.sectionTabTextActive]}>Jídelníček</Text></Pressable>
                 </View>
-                {recipeView === 'meals' ? <MealPlanScreen onAuthExpired={handleAuthExpired} /> : <RecipesScreen onAuthExpired={handleAuthExpired} />}
+                {recipeView === 'meals' ? <MealPlanScreen onAuthExpired={handleAuthExpired} /> : <RecipesScreen onAuthExpired={handleAuthExpired} onAddToShopping={(added) => {
+                  const current = offlineSnapshot.current
+                  if (!current || added.length === 0) return
+                  setActiveTab('shopping')
+                  setShoppingView('list')
+                  const next = added.reduce((snapshot, item) => ({
+                    ...snapshot,
+                    pending: enqueueOfflineOperation(snapshot.pending, { kind: 'add', item: { id: createOfflineItemId(), name: item.name, quantity: item.quantity, unit: item.unit, done: false } }),
+                  }), current)
+                  void saveOfflineSnapshot(next).then(() => { showSnapshot(next); return syncPendingChanges(true) }).catch((caught) => setError(errorMessage(caught)))
+                }} />}
               </>
             ) : activeTab === 'budget' ? (
               <BudgetScreen onAuthExpired={handleAuthExpired} quickAddExpenseToken={quickExpenseToken} canManageBudget={householdRole === 'owner'} />
             ) : activeTab === 'pantry' ? (
-              <PantryScreen onAuthExpired={handleAuthExpired} reviewToken={pantryReviewToken} onReviewAddToShopping={addPantryReviewItems} />
+              <PantryScreen focusedItemId={focusedTarget?.kind === 'pantry-item' ? focusedTarget.id : null} onFocusHandled={() => setFocusedTarget(null)} onAuthExpired={handleAuthExpired} reviewToken={pantryReviewToken} onReviewAddToShopping={addPantryReviewItems} />
             ) : (
               <BudgetScreen onAuthExpired={handleAuthExpired} canManageBudget={householdRole === 'owner'} />
             )}

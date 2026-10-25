@@ -6,18 +6,15 @@ import { getDb } from '@/lib/db/client'
 import { invalidateProductCatalogCache } from '@/lib/db/cache-invalidation'
 import { getPantryItems, restockPantryItem, upsertProductCatalogDefaults } from '@/lib/db/queries'
 import { getProductCatalogCached, getSubcategoryCatalogCached } from '@/lib/db/cached-reads'
-import { proposeProductCategory } from '@/lib/db/category-changes'
-import { proposeProductSubcategory } from '@/lib/db/subcategory-changes'
 import * as schema from '@/lib/db/schema'
-import { classifySubcategory } from '@/lib/categorization'
 import type { CatalogChangeOutcome, CategoryChangeOutcome } from '@/lib/product-subcategory-changes'
-import { PRODUCT_SUBCATEGORIES, subcategoriesOfItem } from '@/lib/product-subcategories'
+import { subcategoriesOfItem } from '@/lib/product-subcategories'
 import { checkLocationRemoval, type PantryQuantityChange } from '@/lib/pantry'
 import { ITEM_UNITS } from '@/lib/units'
 import { getRestockDismissals, getStockLevels } from '@/lib/db/restock'
 import { productTypeByKey } from '@/lib/product-types'
 import { validateStockLevels, type StockLevel } from '@/lib/pantry-restock'
-import { updatePantryItemForHousehold } from '@/lib/pantry-mobile-mutations'
+import { autoCategorizePantryForHousehold, updatePantryItemForHousehold } from '@/lib/pantry-mobile-mutations'
 import { CHECKIN_DAYS_BY_CATEGORY, checkinSubcategoryKey, customPlaceIdFromKey, inferPantryLocation, PANTRY_AREAS, PANTRY_LOCATIONS, PANTRY_TRACKING } from '@/lib/pantry'
 import { reviewPantryForHousehold } from '@/lib/pantry-review'
 import { matchProductByName } from '@/lib/products'
@@ -320,50 +317,9 @@ export async function adjustPantryItemContentQuantityAction(contentId: string, q
  *  the next time one of those products appears on a receipt. */
 export async function setPantryItemProductTypeAction(pantryItemId: string, productTypeKey: string | null): Promise<string | null> {
   const householdId = await requireHouseholdId()
-  if (productTypeKey !== null && !productTypeByKey(productTypeKey)) throw new Error('Neplatný druh zboží.')
-  const db = getDb()
-  const item = await db.query.pantryItems.findFirst({
-    where: eq(schema.pantryItems.id, pantryItemId),
-    with: { contents: { columns: { productId: true } } },
-  })
-  if (!item || item.householdId !== householdId) throw new Error('Pantry item not found')
-  const selectedType = productTypeKey
-    ? await db.query.productTypes.findFirst({ where: eq(schema.productTypes.key, productTypeKey), columns: { id: true, name: true } })
-    : null
-  if (productTypeKey && !selectedType) throw new Error('Neplatný druh zboží.')
-  const productTypeId = selectedType?.id ?? null
-  const typeStock = !item.productId && (item.productTypeId != null || item.contents.length > 0)
-  await db.update(schema.pantryItems).set({
-    productTypeId,
-    ...(typeStock && selectedType && { name: selectedType.name }),
-  }).where(eq(schema.pantryItems.id, item.id))
-  const productIds = [...new Set([item.productId, ...item.contents.map((content) => content.productId)].filter((id): id is string => id != null))]
-  if (productIds.length > 0) {
-    const products = await db.query.products.findMany({
-      where: inArray(schema.products.id, productIds),
-      columns: { id: true, productTypeId: true },
-    })
-    for (const product of products) {
-      await db.update(schema.products).set({
-        productTypeId,
-        productTypeSource: 'manual',
-        ...(product.productTypeId !== productTypeId && { productSubtypeId: null, productSubtypeSource: null }),
-      }).where(eq(schema.products.id, product.id))
-    }
-    invalidateProductCatalogCache()
-  } else if (!item.productId && !item.productTypeId && item.contents.length === 0) {
-    // A free-text concrete product may predate the catalog. A hand-picked type (or explicit no-type
-    // choice) is verified data, so create/link that decision for the next receipt.
-    const productId = await upsertProductCatalogDefaults({
-      name: item.name,
-      category: item.category,
-      unit: item.unit,
-      location: item.location,
-      productTypeKey,
-    })
-    if (productId) await db.update(schema.pantryItems).set({ productId }).where(eq(schema.pantryItems.id, item.id))
-  }
-  return productTypeId
+  const result = await updatePantryItemForHousehold(householdId, pantryItemId, { productTypeKey })
+  if (result && 'productTypeId' in result) return result.productTypeId
+  return null
 }
 
 /** "Došlo" — the household no longer has this item, so it's removed from the pantry entirely
@@ -390,32 +346,12 @@ export async function reviewPantryAction(input: { reviewedIds: string[]; goneIds
   return reviewPantryForHousehold({ householdId, ...input })
 }
 
-/** Resolves a subcategory name of `category` to its row id; throws on a name outside the fixed list. */
-async function subcategoryIdFor(category: ItemCategory, name: string): Promise<string> {
-  if (!subcategoriesOfItem(category).includes(name)) throw new Error('Neplatná podkategorie.')
-  const row = await getDb().query.productSubcategories.findFirst({
-    where: and(eq(schema.productSubcategories.category, category), eq(schema.productSubcategories.name, name)),
-    columns: { id: true },
-  })
-  if (!row) throw new Error('Neplatná podkategorie.')
-  return row.id
-}
-
 /** Sets (or clears, with null) an item's subcategory by hand. The name must belong to the item's own
  *  category (lib/product-subcategories.ts) — the server, not the select in the UI, is the authority. */
 export async function setPantryItemSubcategoryAction(pantryItemId: string, subcategory: string | null): Promise<CatalogChangeOutcome | 'none'> {
   const householdId = await requireHouseholdId()
-  const db = getDb()
-  const item = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, pantryItemId) })
-  if (!item || item.householdId !== householdId) throw new Error('Pantry item not found')
-  const subcategoryId = subcategory === null ? null : await subcategoryIdFor(item.category, subcategory)
-  await db.update(schema.pantryItems).set({ subcategoryId }).where(eq(schema.pantryItems.id, pantryItemId))
-  // Learn from the correction: a product's subcategory is a fact about the product, not the
-  // household, so the shared catalog remembers it and every later receipt of that product (any
-  // household) is placed — and counted in the budget — under it automatically. Only a hand-made
-  // choice teaches the catalog; clearing one does not erase what the catalog already knows. A product
-  // that has already been moved several times waits for an administrator ('pending') instead.
-  if (item.productId && subcategory !== null) return proposeProductSubcategory(householdId, item.productId, item.category, subcategory)
+  const result = await updatePantryItemForHousehold(householdId, pantryItemId, { subcategory })
+  if (result && 'subcategoryOutcome' in result) return result.subcategoryOutcome
   return 'none'
 }
 
@@ -428,16 +364,10 @@ export async function setPantryItemSubcategoryAction(pantryItemId: string, subca
  *  administrator has decided, the product's category is final and the item cannot be changed
  *  ('locked', nothing is written). */
 export async function setPantryItemCategoryAction(pantryItemId: string, category: ItemCategory): Promise<CategoryChangeOutcome> {
-  if (!Object.prototype.hasOwnProperty.call(PRODUCT_SUBCATEGORIES, category)) throw new Error('Neplatná kategorie.')
   const householdId = await requireHouseholdId()
-  const db = getDb()
-  const item = await db.query.pantryItems.findFirst({ where: eq(schema.pantryItems.id, pantryItemId) })
-  if (!item || item.householdId !== householdId) throw new Error('Pantry item not found')
-  if (item.category === category) return 'unchanged'
-  const outcome = item.productId ? await proposeProductCategory(householdId, item.productId, category) : 'applied'
-  if (outcome === 'locked') return outcome
-  await db.update(schema.pantryItems).set({ category, subcategoryId: null }).where(eq(schema.pantryItems.id, pantryItemId))
-  return outcome
+  const result = await updatePantryItemForHousehold(householdId, pantryItemId, { category })
+  if (result && 'categoryOutcome' in result) return result.categoryOutcome
+  return 'unchanged'
 }
 
 /** Places every uncategorized item of the household by the deterministic keyword rules — the same
@@ -446,26 +376,7 @@ export async function setPantryItemCategoryAction(pantryItemId: string, category
  *  the client can show it without reloading. */
 export async function autoCategorizePantryAction(): Promise<{ id: string; subcategory: string }[]> {
   const householdId = await requireHouseholdId()
-  const db = getDb()
-  const rows = await db.query.pantryItems.findMany({
-    where: and(eq(schema.pantryItems.householdId, householdId), isNull(schema.pantryItems.subcategoryId)),
-    columns: { id: true, name: true, category: true },
-  })
-  const assigned: { id: string; subcategory: string }[] = []
-  const idCache = new Map<string, string>()
-  for (const row of rows) {
-    const match = classifySubcategory(row.category, row.name, null)
-    if (!match) continue
-    const cacheKey = `${row.category}:${match.subcategory}`
-    let subcategoryId = idCache.get(cacheKey)
-    if (!subcategoryId) {
-      subcategoryId = await subcategoryIdFor(row.category, match.subcategory)
-      idCache.set(cacheKey, subcategoryId)
-    }
-    await db.update(schema.pantryItems).set({ subcategoryId }).where(and(eq(schema.pantryItems.id, row.id), eq(schema.pantryItems.householdId, householdId)))
-    assigned.push({ id: row.id, subcategory: match.subcategory })
-  }
-  return assigned
+  return autoCategorizePantryForHousehold(householdId)
 }
 
 /** How closely the household wants an item watched (lib/pantry.ts PANTRY_TRACKING): 'rare' and

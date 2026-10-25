@@ -38,7 +38,8 @@ async function writeToken(value: string): Promise<void> {
 
 function setCookieHeaders(headers: Headers): string[] {
   const nativeHeaders = headers as Headers & { getSetCookie?: () => string[] }
-  const cookies = nativeHeaders.getSetCookie?.() ?? []
+  const getSetCookie = nativeHeaders.getSetCookie
+  const cookies = typeof getSetCookie === 'function' ? getSetCookie.call(nativeHeaders) : []
   if (cookies.length > 0) return cookies
   const combined = headers.get('set-cookie')
   return combined ? combined.split(/,(?=\s*[^;,=\s]+=[^;,]*)/) : []
@@ -144,12 +145,22 @@ export async function clearAccessToken(): Promise<void> {
 
 export async function signIn(email: string, password: string): Promise<void> {
   localSessionAvailable = false
-  const result = await getAuthClient().signIn.email({ email, password })
-  if (result.error) throw new Error(result.error.message || 'Přihlášení se nezdařilo.')
-  const token = await getAccessToken()
-  // Local Better Auth sessions use a persisted cookie; only Neon Auth can issue the JWT used in production.
-  if (!token && !(usesLocalAuth() && ((await readCookie()) || localSessionAvailable))) {
-    throw new Error('Přihlášení se nezdařilo. Zkuste to znovu.')
+  let stage = 'sign-in request'
+  try {
+    const result = await getAuthClient().signIn.email({ email, password })
+    if (result.error) throw new Error(result.error.message || 'Přihlášení se nezdařilo.')
+    stage = 'session verification'
+    const token = await getAccessToken()
+    // Local Better Auth sessions use a persisted cookie; only Neon Auth can issue the JWT used in production.
+    stage = 'cookie validation'
+    if (!token && !(usesLocalAuth() && ((await readCookie()) || localSessionAvailable))) {
+      throw new Error('Přihlášení se nezdařilo. Zkuste to znovu.')
+    }
+  } catch (error) {
+    // Local auth is used by the isolated emulator and local development only. Log the failing step without
+    // credentials or cookie contents so device diagnostics can distinguish transport and session failures.
+    if (usesLocalAuth()) console.error(`[mobile-auth] ${stage} failed`, error)
+    throw error
   }
 }
 

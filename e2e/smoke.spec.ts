@@ -158,6 +158,12 @@ test.describe('critical smoke flow', () => {
       await page.getByLabel('Heslo').fill(password)
       await page.getByRole('button', { name: 'Přihlásit se' }).click()
       await expect(page).toHaveURL(/\/$/)
+      // The client updates the URL before the authenticated server render finishes. Wait for the
+      // household-backed app and first-login guide before querying the new household for fixtures.
+      await expect(page.locator('body')).toContainText('Asistent pro domácnost')
+      const guide = page.getByRole('dialog', { name: 'Průvodce aplikací' })
+      await expect(guide).toBeVisible()
+
       // The first authenticated app render creates a household for new accounts. Seed the shared
       // PWA/Android visual data only after that bootstrap has completed, then reload to show it.
       await seedVisualAccount(email)
@@ -166,7 +172,6 @@ test.describe('critical smoke flow', () => {
       await expect(page.locator('body')).toContainText('Asistent pro domácnost')
       // First-time accounts automatically get Anitka's guide. Dismiss it so this test can exercise
       // navigation underneath it; the guide itself is covered by its component tests.
-      const guide = page.getByRole('dialog', { name: 'Průvodce aplikací' })
       await expect(guide).toBeVisible()
       await page.setViewportSize({ width: 390, height: 844 })
       await page.emulateMedia({ colorScheme: 'light' })

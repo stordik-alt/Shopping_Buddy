@@ -47,7 +47,7 @@ describe('guide steps', () => {
   it('explains where the chat is and what it can help with without claiming AI is connected', () => {
     const step = getGuideSteps().find(({ id }) => id === 'anitka')
     expect(step?.where).toContain('levém horním rohu')
-    expect(step?.target?.[0]).toEqual({ selector: 'button[aria-label="Otevřít chat s Anitkou"]' })
+    expect(step?.target?.[0]).toEqual({ selector: 'button[aria-label="Otevřít chat s Anitkou"]', nativeId: 'assistant-open' })
     expect(step?.text).toMatch(/naplánovat nákup podle rozpočtu/)
     expect(step?.text).toMatch(/porovnat ceny a akce/)
     expect(step?.text).toMatch(/vymyslet večeři/)

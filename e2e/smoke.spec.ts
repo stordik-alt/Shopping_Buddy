@@ -149,12 +149,15 @@ test.describe('critical smoke flow', () => {
       // The isolated E2E database has no inbox for OTP delivery. Mark this disposable test
       // account verified as a fixture, then continue testing the authenticated application.
       await markTestAccountEmailVerified(email)
-      await seedVisualAccount(email)
       await page.goto(`/auth/sign-in?verified=1&email=${encodeURIComponent(email)}`)
       await page.getByLabel('E-mail').fill(email)
       await page.getByLabel('Heslo').fill(password)
       await page.getByRole('button', { name: 'Přihlásit se' }).click()
       await expect(page).toHaveURL(/\/$/)
+      // The first authenticated app render creates a household for new accounts. Seed the shared
+      // PWA/Android visual data only after that bootstrap has completed, then reload to show it.
+      await seedVisualAccount(email)
+      await page.reload()
       // The same words are in the brand (sidebar) and in the phone header, so take the first visible one.
       await expect(page.locator('body')).toContainText('Asistent pro domácnost')
       // First-time accounts automatically get Anitka's guide. Dismiss it so this test can exercise

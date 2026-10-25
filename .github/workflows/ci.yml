@@ -239,6 +239,17 @@ jobs:
           curl -Ls https://get.maestro.mobile.dev | bash
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
 
+      - name: Prepare Android SDK for emulator runner
+        run: |
+          sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          if [ -z "$sdk_root" ] || [ ! -d "$sdk_root" ]; then
+            echo "Android SDK root is unavailable" >&2
+            exit 1
+          fi
+          # The pinned emulator action creates this directory with mkdir (not mkdir -p).
+          # Ubuntu runner images already provide it, so clear it after APK assembly.
+          rm -rf "$sdk_root/cmdline-tools"
+
       - name: Capture and compare PWA and native Android screens
         uses: ReactiveCircus/android-emulator-runner@e93c997dcab69054e999e3924af3d21c4a736e13 # v2.9.0
         with:
@@ -246,7 +257,6 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: Pixel_6
-          emulator-boot-timeout: 600
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: |
             adb install -r apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk

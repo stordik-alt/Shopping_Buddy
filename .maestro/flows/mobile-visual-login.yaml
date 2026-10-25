@@ -1,7 +1,6 @@
 appId: cz.shoppingbuddy.mobile
 ---
-- launchApp:
-    clearState: true
+- launchApp
 - tapOn: "E-mail"
 - inputText: ${MOBILE_VISUAL_EMAIL}
 - tapOn: "Heslo"

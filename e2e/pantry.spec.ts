@@ -245,11 +245,11 @@ function pantryCard(page: Page, name: string) {
 
 test.describe('Zásoby audit', () => {
   test('grid of product cells with in-cell quantity and availability', async ({ page }) => {
-    // The audit signs in, seeds a household, walks every viewport and runs twelve checks — the
-    // default 60 s is not enough, especially while the dev server compiles the app for the first time.
-    // The run also captures 32 full-page screenshots (four viewports × light/dark × four states),
-    // which on their own take minutes; the budget is set for the whole run, not for one check.
-    test.setTimeout(900_000)
+    // The audit signs in, seeds a household, walks every viewport and captures 32 full-page
+    // screenshots. Keep enough time for those captures, while bounding a missing UI control so
+    // one stalled locator cannot consume the entire CI step timeout.
+    test.setTimeout(300_000)
+    page.setDefaultTimeout(15_000)
     const email = `e2e-pantry-${process.env.GITHUB_RUN_ID ?? Date.now()}-${process.env.PLAYWRIGHT_WORKER_INDEX ?? 0}@example.com`
     const password = 'PantryTest-2026!'
 

@@ -9,6 +9,10 @@ async function expectVisibleExactText(page: import('@playwright/test').Page, tex
   }))).toBe(true)
 }
 
+async function captureParityScreenshot(page: import('@playwright/test').Page, path: string) {
+  await page.screenshot({ path, fullPage: false, animations: 'disabled' })
+}
+
 function testDatabaseUrl(): string {
   const value = process.env.DATABASE_URL?.trim()
   const testValue = process.env.TEST_DATABASE_URL?.trim()
@@ -235,7 +239,7 @@ test.describe('critical smoke flow', () => {
               await page.goto(url)
               await expectVisibleExactText(page, label)
               await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
-              await page.screenshot({ path: `test-results/mobile-parity/pwa/${colorScheme}-${screenshotName}.png`, fullPage: false })
+              await captureParityScreenshot(page, `test-results/mobile-parity/pwa/${colorScheme}-${screenshotName}.png`)
               await page.screenshot({
                 path: 'test-results/mobile-ui-v2/' + colorScheme + '-390x844-' + label.replaceAll(' ', '-').toLowerCase() + '.png',
                 fullPage: true,
@@ -243,19 +247,19 @@ test.describe('critical smoke flow', () => {
               if (url === '/?tab=nakup') {
                 await page.getByRole('button', { name: 'Účtenky', exact: true }).first().click()
                 await expect(page.getByText('Nákup z účtenky', { exact: true })).toBeVisible()
-                await page.screenshot({ path: `test-results/mobile-parity/pwa/${colorScheme}-receipts.png`, fullPage: false })
+                await captureParityScreenshot(page, `test-results/mobile-parity/pwa/${colorScheme}-receipts.png`)
                 await page.screenshot({ path: 'test-results/mobile-ui-v2/' + colorScheme + '-390x844-uctenky.png', fullPage: true })
               }
               if (url === '/?tab=recepty') {
                 await page.getByRole('button', { name: 'Jídelníček', exact: true }).first().click()
                 await expect(page.getByText('Jídelníček', { exact: true }).first()).toBeVisible()
-                await page.screenshot({ path: `test-results/mobile-parity/pwa/${colorScheme}-mealplan.png`, fullPage: false })
+                await captureParityScreenshot(page, `test-results/mobile-parity/pwa/${colorScheme}-mealplan.png`)
                 await page.screenshot({ path: 'test-results/mobile-ui-v2/' + colorScheme + '-390x844-jidelnicek.png', fullPage: true })
               }
               if (url === '/?tab=rozpocet') {
                 await page.getByRole('button', { name: 'Plánování', exact: true }).first().click()
                 await expect(page.getByText('Rozpočtové období:')).toBeVisible()
-                await page.screenshot({ path: `test-results/mobile-parity/pwa/${colorScheme}-budget-plan.png`, fullPage: false })
+                await captureParityScreenshot(page, `test-results/mobile-parity/pwa/${colorScheme}-budget-plan.png`)
                 await page.screenshot({ path: 'test-results/mobile-ui-v2/' + colorScheme + '-390x844-rozpocet-planovani.png', fullPage: true })
               }
             }
@@ -263,8 +267,10 @@ test.describe('critical smoke flow', () => {
             await page.goto('/')
             await expect(page.getByRole('heading', { name: 'Asistent pro domácnost', exact: true })).toBeVisible()
             await page.getByRole('button', { name: 'Otevřít chat s Anitkou' }).click()
-            await expect(page.getByRole('dialog', { name: 'Chat s Anitkou' })).toBeVisible()
-            await page.screenshot({ path: `test-results/mobile-parity/pwa/${colorScheme}-ai-chat.png`, fullPage: false })
+            const aiChat = page.getByRole('dialog', { name: 'Chat s Anitkou' })
+            await expect(aiChat).toBeVisible()
+            await expect(aiChat.getByText('Ahoj, jsem Anitka. Chat je připravený, ale AI asistent zatím není připojený, takže teď dotazy neumím zpracovat.')).toBeVisible()
+            await captureParityScreenshot(page, `test-results/mobile-parity/pwa/${colorScheme}-ai-chat.png`)
             await page.screenshot({ path: 'test-results/mobile-ui-v2/' + colorScheme + '-390x844-ai-chat.png', fullPage: true })
             await page.getByRole('button', { name: 'Zavřít' }).click()
 
@@ -272,11 +278,11 @@ test.describe('critical smoke flow', () => {
             await page.getByRole('menuitem', { name: 'Průvodce aplikací' }).click()
             const reopenedGuide = page.getByRole('dialog', { name: 'Průvodce aplikací' })
             await expect(reopenedGuide).toBeVisible()
-            await page.screenshot({ path: `test-results/mobile-parity/pwa/${colorScheme}-guide-welcome.png`, fullPage: false })
+            await captureParityScreenshot(page, `test-results/mobile-parity/pwa/${colorScheme}-guide-welcome.png`)
             await page.screenshot({ path: 'test-results/mobile-ui-v2/' + colorScheme + '-390x844-guide-welcome.png', fullPage: true })
             await reopenedGuide.getByRole('button', { name: 'Začít' }).click()
             await expect(reopenedGuide.getByRole('heading', { name: 'Jak se tu pohybovat' })).toBeVisible()
-            await page.screenshot({ path: `test-results/mobile-parity/pwa/${colorScheme}-guide-spotlight.png`, fullPage: false })
+            await captureParityScreenshot(page, `test-results/mobile-parity/pwa/${colorScheme}-guide-spotlight.png`)
             await page.screenshot({ path: 'test-results/mobile-ui-v2/' + colorScheme + '-390x844-guide-navigation-spotlight.png', fullPage: true })
             await reopenedGuide.getByRole('button', { name: 'Další' }).click()
             await expect(reopenedGuide.getByRole('heading', { name: 'Domů: dnešní přehled' })).toBeVisible()
@@ -285,7 +291,7 @@ test.describe('critical smoke flow', () => {
             await reopenedGuide.getByRole('button', { name: 'Další' }).click()
             await expect(reopenedGuide.getByRole('heading', { name: 'Nákupní seznam: co máme koupit' })).toBeVisible()
             await expect(page.getByText('Sem napište, co chybí', { exact: true })).toBeVisible()
-            await page.screenshot({ path: `test-results/mobile-parity/pwa/${colorScheme}-guide-feature-spotlight.png`, fullPage: false })
+            await captureParityScreenshot(page, `test-results/mobile-parity/pwa/${colorScheme}-guide-feature-spotlight.png`)
             await reopenedGuide.getByRole('button', { name: 'Zavřít průvodce' }).click()
           }
         }

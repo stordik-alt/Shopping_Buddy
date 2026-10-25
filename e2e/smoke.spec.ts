@@ -113,16 +113,16 @@ test.describe('critical smoke flow', () => {
       await expect(guide).toHaveCount(0)
 
       await page.goto('/?tab=nakup')
-      await expect(page.getByText('Nákupní seznam', { exact: true }).first()).toBeVisible()
+      await expectVisibleExactText(page, 'Nákupní seznam')
 
       await page.goto('/?tab=zasoby')
-      await expect(page.getByText('Zásoby', { exact: true }).first()).toBeVisible()
+      await expectVisibleExactText(page, 'Zásoby')
 
       await page.goto('/?tab=rozpocet')
-      await expect(page.getByText('Přehled', { exact: true }).first()).toBeVisible()
+      await expectVisibleExactText(page, 'Přehled')
 
       await page.goto('/?tab=recepty')
-      await expect(page.getByText('Recepty', { exact: true }).first()).toBeVisible()
+      await expectVisibleExactText(page, 'Recepty')
 
       const mobileViewports = [
         { width: 320, height: 844 },

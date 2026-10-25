@@ -243,6 +243,18 @@ jobs:
           tail -n 2 build.gradle
           grep -F "ext.ndkVersion = \"$ndk_version\"" build.gradle
 
+      - name: Configure Gradle memory for the Android runner
+        working-directory: apps/mobile/android
+        run: |
+          if [ -f gradle.properties ]; then
+            sed -i '/^org\.gradle\.jvmargs=/d; /^org\.gradle\.workers\.max=/d' gradle.properties
+          fi
+          cat >> gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8
+          org.gradle.workers.max=2
+          EOF
+          cat gradle.properties
+
       - name: Assemble Android emulator release APK
         working-directory: apps/mobile/android
         env:

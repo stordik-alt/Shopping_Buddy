@@ -240,7 +240,7 @@ jobs:
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
 
       - name: Capture and compare PWA and native Android screens
-        uses: ReactiveCircus/android-emulator-runner@e93c997dcab46504001df7ed7cac9fd62940813e # v2.9.0
+        uses: ReactiveCircus/android-emulator-runner@e93c997dcab69054e999e3924af3d21c4a736e13 # v2.9.0
         with:
           api-level: 35
           target: google_apis

@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => {
     mobileHouseholdForUser: vi.fn(),
     MobileRequestAuthError: AuthError,
     importManualReceiptForHousehold: vi.fn(),
+    getReceiptListSuggestions: vi.fn(),
   }
 })
 
@@ -18,6 +19,7 @@ vi.mock('@/lib/auth/mobile-request', () => ({
   MobileRequestAuthError: mocks.MobileRequestAuthError,
 }))
 vi.mock('@/lib/receipt-import', () => ({ importManualReceiptForHousehold: mocks.importManualReceiptForHousehold }))
+vi.mock('@/lib/db/receipt-list', () => ({ getReceiptListSuggestions: mocks.getReceiptListSuggestions }))
 
 import { POST } from '@/app/api/mobile/receipts/manual/route'
 
@@ -39,6 +41,7 @@ describe('POST /api/mobile/receipts/manual', () => {
     mocks.mobileUserFromRequest.mockResolvedValue({ id: 'user-1' })
     mocks.mobileHouseholdForUser.mockResolvedValue({ id: 'member-1', householdId: 'household-1', role: 'member' })
     mocks.importManualReceiptForHousehold.mockResolvedValue({ receipt: { id: 'receipt-1', status: 'imported' }, purchase: { id: 'purchase-1' } })
+    mocks.getReceiptListSuggestions.mockResolvedValue([])
   })
 
   it('rejects missing auth, missing households, and malformed rows', async () => {
@@ -54,7 +57,8 @@ describe('POST /api/mobile/receipts/manual', () => {
     const response = await POST(request(input))
     expect(response.status).toBe(201)
     expect(response.headers.get('cache-control')).toBe('no-store')
-    expect(await response.json()).toEqual({ receipt: { id: 'receipt-1', status: 'imported' }, purchase: { id: 'purchase-1' } })
+    expect(await response.json()).toEqual({ receipt: { id: 'receipt-1', status: 'imported' }, purchase: { id: 'purchase-1' }, suggestions: [] })
+    expect(mocks.getReceiptListSuggestions).toHaveBeenCalledWith('household-1', 'purchase-1')
     expect(mocks.importManualReceiptForHousehold).toHaveBeenCalledWith('household-1', [{
       name: 'Mléko', quantity: 2, unit: 'l', price: 30, category: 'Potraviny', classificationSource: 'manual',
     }], { date: '2026-10-24', storeName: 'Lidl', receiptDiscountTotal: 2 })

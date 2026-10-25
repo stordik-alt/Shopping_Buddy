@@ -217,8 +217,15 @@ jobs:
       - name: Use the runner's installed Android NDK
         working-directory: apps/mobile/android
         run: |
-          ndk_version="${ANDROID_NDK##*/}"
-          test -n "$ndk_version"
+          sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          ndk_root="$(find "$sdk_root/ndk" -mindepth 1 -maxdepth 1 -type d -name '27.*' -print | sort -V | tail -n 1)"
+          if [ -z "$ndk_root" ]; then
+            echo "No installed NDK 27.x was found in $sdk_root/ndk" >&2
+            exit 1
+          fi
+          ndk_version="${ndk_root##*/}"
+          echo "Using preinstalled Android NDK $ndk_version"
+          test -f build.gradle
           grep -q 'ndkVersion = ' build.gradle
           sed -i "s/ndkVersion = \"[^\"]*\"/ndkVersion = \"$ndk_version\"/" build.gradle
           grep -F "ndkVersion = \"$ndk_version\"" build.gradle

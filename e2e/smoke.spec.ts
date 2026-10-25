@@ -242,7 +242,7 @@ test.describe('critical smoke flow', () => {
               })
               if (url === '/?tab=nakup') {
                 await page.getByRole('button', { name: 'Účtenky', exact: true }).first().click()
-                await expect(page.getByText('Rozpracované účtenky', { exact: true })).toBeVisible()
+                await expect(page.getByText('Nákup z účtenky', { exact: true })).toBeVisible()
                 await page.screenshot({ path: `test-results/mobile-parity/pwa/${colorScheme}-receipts.png`, fullPage: false })
                 await page.screenshot({ path: 'test-results/mobile-ui-v2/' + colorScheme + '-390x844-uctenky.png', fullPage: true })
               }

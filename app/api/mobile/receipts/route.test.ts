@@ -40,10 +40,11 @@ describe('/api/mobile/receipts', () => {
     mocks.uploadReceiptForHousehold.mockResolvedValue({ ok: true, receipt })
   })
 
-  it('requires bearer authorization and a server-resolved household before listing', async () => {
+  it('requires verified auth and a server-resolved household before listing', async () => {
+    mocks.mobileUserFromRequest.mockRejectedValueOnce(new mocks.MobileRequestAuthError('not_signed_in', 401))
     const noAuth = await GET(new Request('https://anitka.example/api/mobile/receipts'))
     expect(noAuth.status).toBe(401)
-    expect(mocks.mobileUserFromRequest).not.toHaveBeenCalled()
+    expect(mocks.mobileUserFromRequest).toHaveBeenCalledOnce()
 
     mocks.mobileHouseholdForUser.mockResolvedValue(null)
     const noHousehold = await GET(new Request('https://anitka.example/api/mobile/receipts', { headers: authenticatedHeaders }))
@@ -57,6 +58,18 @@ describe('/api/mobile/receipts', () => {
     expect(response.status).toBe(200)
     expect(response.headers.get('cache-control')).toBe('no-store')
     expect(await response.json()).toEqual({ receipts: [receipt] })
+    expect(mocks.getPendingReceiptImports).toHaveBeenCalledWith('household-1')
+  })
+
+  it('accepts the verified cookie session used by the local native app', async () => {
+    const request = new Request('https://anitka.example/api/mobile/receipts', {
+      headers: { Cookie: 'better-auth.session_token=local-session' },
+    })
+
+    const response = await GET(request)
+
+    expect(response.status).toBe(200)
+    expect(mocks.mobileUserFromRequest).toHaveBeenCalledWith(request)
     expect(mocks.getPendingReceiptImports).toHaveBeenCalledWith('household-1')
   })
 

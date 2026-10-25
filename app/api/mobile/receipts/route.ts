@@ -8,7 +8,6 @@ const json = (body: unknown, status = 200) => NextResponse.json(body, { status, 
 
 export async function GET(request: Request) {
   try {
-    if (!request.headers.has('authorization')) return json({ error: 'not_signed_in' }, 401)
     const user = await mobileUserFromRequest(request)
     const household = await mobileHouseholdForUser(user.id)
     if (!household) return json({ error: 'household_required' }, 409)
@@ -22,7 +21,6 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    if (!request.headers.has('authorization')) return json({ error: 'not_signed_in' }, 401)
     const user = await mobileUserFromRequest(request)
     const household = await mobileHouseholdForUser(user.id)
     if (!household) return json({ error: 'household_required' }, 409)

@@ -45,6 +45,7 @@ describe('POST /api/mobile/receipts/manual', () => {
   })
 
   it('rejects missing auth, missing households, and malformed rows', async () => {
+    mocks.mobileUserFromRequest.mockRejectedValueOnce(new mocks.MobileRequestAuthError('not_signed_in', 401))
     expect((await POST(new Request('https://anitka.example/api/mobile/receipts/manual', { method: 'POST' }))).status).toBe(401)
     mocks.mobileHouseholdForUser.mockResolvedValueOnce(null)
     expect((await POST(request(input))).status).toBe(409)
@@ -62,5 +63,19 @@ describe('POST /api/mobile/receipts/manual', () => {
     expect(mocks.importManualReceiptForHousehold).toHaveBeenCalledWith('household-1', [{
       name: 'Mléko', quantity: 2, unit: 'l', price: 30, category: 'Potraviny', classificationSource: 'manual',
     }], { date: '2026-10-24', storeName: 'Lidl', receiptDiscountTotal: 2 })
+  })
+
+  it('passes a cookie-authenticated local request through the shared auth resolver', async () => {
+    const req = new Request('https://anitka.example/api/mobile/receipts/manual', {
+      method: 'POST',
+      headers: { Cookie: 'better-auth.session_token=local-session', 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    })
+
+    const response = await POST(req)
+
+    expect(response.status).toBe(201)
+    expect(mocks.mobileUserFromRequest).toHaveBeenCalledWith(req)
+    expect(mocks.importManualReceiptForHousehold).toHaveBeenCalledWith('household-1', expect.any(Array), expect.any(Object))
   })
 })

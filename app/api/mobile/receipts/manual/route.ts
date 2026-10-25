@@ -57,7 +57,6 @@ function manualReceiptInput(value: unknown): { items: ReceiptLineItem[]; options
 
 export async function POST(request: Request) {
   try {
-    if (!request.headers.has('authorization')) return json({ error: 'not_signed_in' }, 401)
     const user = await mobileUserFromRequest(request)
     const household = await mobileHouseholdForUser(user.id)
     if (!household) return json({ error: 'household_required' }, 409)

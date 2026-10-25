@@ -304,6 +304,7 @@ jobs:
       - name: Capture and compare PWA and native Android screens
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
+          channel: canary
           api-level: 35
           target: google_atd
           arch: x86_64

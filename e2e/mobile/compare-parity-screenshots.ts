@@ -36,6 +36,10 @@ async function normalizeNativeScreenshot(input: string, output: string) {
   const top = extraHeight > 0 ? Math.round(extraHeight * scale / 2) : 0
   const cropHeight = Math.min(metadata.height - top, Math.round(844 * scale))
   await image.extract({ left: 0, top, width: metadata.width, height: cropHeight }).resize(390, 844).png().toFile(output)
+  const stats = await sharp(output).stats()
+  if (stats.channels.slice(0, 3).every((channel) => channel.min === channel.max)) {
+    throw new Error(`Android screenshot is blank: ${input}`)
+  }
 }
 
 async function makePair(theme: 'light' | 'dark', name: typeof names[number], pwa: string, native: string, output: string) {

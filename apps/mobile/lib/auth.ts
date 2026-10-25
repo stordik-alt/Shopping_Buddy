@@ -12,6 +12,10 @@ let memoryCookie = ''
 let memoryToken = ''
 let localSessionAvailable = false
 
+function traceLocalAuth(message: string): void {
+  if (usesLocalAuth()) console.info(`[mobile auth] ${message}`)
+}
+
 async function readCookie(): Promise<string> {
   if (Platform.OS === 'web') return memoryCookie
   return (await SecureStore.getItemAsync(COOKIE_KEY)) ?? ''
@@ -67,23 +71,29 @@ function mergeCookies(existing: string, updates: string[]): string {
 
 function getAuthClient() {
   const localAuth = usesLocalAuth()
-  return createAuthClient(`${getApiUrl()}/api/auth`, {
+  traceLocalAuth('Creating auth client.')
+  const client = createAuthClient(`${getApiUrl()}/api/auth`, {
     adapter: BetterAuthVanillaAdapter({
       // NeonAuthAdapterCore replaces customFetchImpl internally, so transport settings must use its
       // supported fetch options. The local API requires this trusted origin and React Native's cookie jar.
       fetchOptions: {
         credentials: localAuth ? 'include' : 'omit',
         headers: { origin: getApiUrl() },
+        onRequest: () => traceLocalAuth('Auth request started.'),
         onSuccess: async ({ response }) => {
+          traceLocalAuth('Auth response succeeded; persisting session data.')
           const cookie = await readCookie()
           const updates = setCookieHeaders(response.headers)
           if (updates.length > 0) await writeCookie(mergeCookies(cookie, updates))
           const token = response.headers.get('set-auth-jwt')
           if (token) await writeToken(token)
+          traceLocalAuth('Auth response session data persisted.')
         },
       },
     }),
   })
+  traceLocalAuth('Auth client created.')
+  return client
 }
 
 type SessionResponse = {
@@ -96,7 +106,9 @@ export async function getAccessToken(): Promise<string | null> {
     // The server-side session cache returns an opaque session ID in `session.token`.
     // A fresh lookup bypasses that cache and lets Neon Auth attach `set-auth-jwt`,
     // which the adapter's onSuccess hook stores in SecureStore for authenticated API requests.
+    traceLocalAuth('Calling getSession.')
     const result = (await getAuthClient().getSession({ query: { disableCookieCache: true } })) as SessionResponse
+    traceLocalAuth('getSession returned.')
     const savedToken = await readToken()
     if (result.error) {
       localSessionAvailable = false

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
-import { ArrowDown, ArrowRight, Bell, ChevronDown, CookingPot, House, MapPin, MoreHorizontal, Package, Pencil, PiggyBank, Plus, Repeat, ReceiptText, Search, ShoppingBag, ShoppingCart, Sparkles, Star, Store, Tag, Trash2, TrendingUp, Users, WalletCards, X } from 'lucide-react-native'
+import { ArrowDown, ArrowRight, ArrowUp, Bell, ChevronDown, CookingPot, House, MapPin, MoreHorizontal, Package, Pencil, PiggyBank, Plus, Repeat, ReceiptText, Search, ShoppingBag, ShoppingCart, Sparkles, Star, Store, Tag, Trash2, TrendingUp, Users, WalletCards, X } from 'lucide-react-native'
 import * as SecureStore from 'expo-secure-store'
 import { useMobileTheme, type ThemePreference } from '../lib/theme'
+import { useNativeGuideTarget } from './native-guide-targets'
 import { addHouseholdChild, addHouseholdMember, createHouseholdInvitation, createMobileManualPurchase, deleteMobileAccount, deleteMobilePurchase, dismissNotification, dismissRestockSuggestion, getDashboardSummary, getDealsPage, getHouseholdAuditLog, getHouseholdInvitations, getMealPlan, getNotificationPreferences, getNotifications, getPantrySettings, getPurchaseHistory, getStoreBranches, getStoreChains, getStorePreferences, MobileApiError, recordMobilePurchaseExpenses, removeHouseholdChild, removeHouseholdMember, resetHouseholdData, revokeHouseholdInvitation, sendTestPushNotification, updateHouseholdMemberDiet, updateHouseholdPreferences, updateHouseholdProfile, updateMobilePurchaseItemExpenseSplits, updateNotificationPreference, updatePantrySettings, updateStorePreferences, type MobileAuditEntry, type MobileBranchPage, type MobileChainTile, type MobileDashboardSummary, type MobileDealCategory, type MobileDealsPage, type MobileDealSort, type MobileDietAvoid, type MobileDietKey, type MobileHouseholdChild, type MobileHouseholdInvitation, type MobileHouseholdMember, type MobileHouseholdPreferences, type MobileHouseholdProfileData, type MobileMemberDiet, type MobileMealPlan, type MobileNotification, type MobileNotificationPreference, type MobilePantrySettings, type MobilePantryStockLevel, type MobilePurchase, type MobileStoreSelection } from '../lib/shopping-list-api'
 import { dismissalKey } from '../../../lib/pantry-restock'
 import { assessDealQuality, dealDiscount, effectivePrice } from '../../../lib/prices'
@@ -62,7 +63,9 @@ function NativeStoreMark({ chain }: { chain: string }) {
   return <View accessibilityElementsHidden style={[styles.storeLogo, { backgroundColor: retailerFallbacks[family] ?? '#e8e8e4' }]}><Text style={styles.storeLogoText}>{family.slice(0, 3)}</Text></View>
 }
 
-export function NativeBottomNav({ active, onSelect }: { active: NativeTab; onSelect: (tab: NativeTab) => void }) {
+type NativeNavTargetRefs = Partial<Record<'home' | 'shopping' | 'pantry' | 'budget' | 'more', ReturnType<typeof useNativeGuideTarget>>>
+
+export function NativeBottomNav({ active, onSelect, guideTargetRefs }: { active: NativeTab; onSelect: (tab: NativeTab) => void; guideTargetRefs?: NativeNavTargetRefs }) {
   const { colors } = useMobileTheme()
   const styles = useStyles()
   const [moreOpen, setMoreOpen] = useState(false)
@@ -73,7 +76,7 @@ export function NativeBottomNav({ active, onSelect }: { active: NativeTab; onSel
         {navItems.map(({ key, label, Icon }) => {
           const selected = key === 'more' ? moreActive : active === key
           return (
-            <Pressable accessibilityRole="tab" accessibilityState={{ selected }} key={key} onPress={() => key === 'more' ? setMoreOpen(true) : onSelect(key)} style={styles.tabButton}>
+            <Pressable testID={`guide-nav-${key}`} ref={guideTargetRefs?.[key as keyof NativeNavTargetRefs]} accessibilityRole="tab" accessibilityState={{ selected }} key={key} onPress={() => key === 'more' ? setMoreOpen(true) : onSelect(key)} style={styles.tabButton}>
               <View style={[styles.tabIcon, selected && styles.tabIconActive]}><Icon color={selected ? colors.accentText : colors.mutedText} size={20} /></View>
               <Text numberOfLines={1} style={[styles.tabLabel, selected && styles.tabLabelActive]}>{label}</Text>
             </Pressable>
@@ -102,6 +105,7 @@ export function NativeBottomNav({ active, onSelect }: { active: NativeTab; onSel
 export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceipts, onQuickExpense, onCheckPantry, hasPreferences }: { name: string; onSelect: (tab: NativeTab) => void; onAddToShopping: (name: string, quantity?: number, unit?: ItemUnit) => void; onOpenReceipts: (receiptId?: string) => void; onQuickExpense: () => void; onCheckPantry: () => void; hasPreferences: boolean }) {
   const { colors, theme } = useMobileTheme()
   const styles = useStyles()
+  const recommendationsGuideTarget = useNativeGuideTarget('home-recommendations')
   const [dashboard, setDashboard] = useState<MobileDashboardSummary | null>(null)
   const [restockDismissed, setRestockDismissed] = useState<string[]>([])
   const [pantryItemCount, setPantryItemCount] = useState(0)
@@ -241,7 +245,7 @@ export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceip
         {todayMeals.map((meal) => <Pressable key={meal.mealType} accessibilityRole="button" onPress={() => onSelect('recipes')} style={styles.mealRow}><Text style={styles.mealType}>{meal.mealType}</Text><Text numberOfLines={1} style={[styles.mealName, meal.cooked && styles.mealDone]}>{meal.recipe.name}</Text><ArrowRight color={colors.mutedText} size={16} /></Pressable>)}
       </View> : null}
       {hasRecommendations ? <View style={styles.recommendations}>
-        <Pressable accessibilityRole="button" accessibilityState={{ expanded: recommendationsCollapsed === false }} onPress={() => void toggleRecommendations()} style={styles.recommendationsHeader}>
+        <Pressable ref={recommendationsGuideTarget} accessibilityRole="button" accessibilityState={{ expanded: recommendationsCollapsed === false }} onPress={() => void toggleRecommendations()} style={styles.recommendationsHeader}>
           <Sparkles color={colors.accentText} size={20} />
           <View style={styles.recommendationsTitleWrap}><Text style={styles.cardTitle}>Doporučení ANITKY</Text>{recommendationsCollapsed && restock.length > 0 ? <Text style={styles.noteText}>Doplnění zásob: {restock.length}. Rozbalte pro návrhy a akce.</Text> : null}{recommendationsCollapsed && restock.length === 0 ? <Text style={styles.noteText}>Rozbalte pro návrhy a akce.</Text> : null}</View>
           <ChevronDown color={colors.mutedText} size={20} style={recommendationsCollapsed === false ? { transform: [{ rotate: '180deg' }] } : undefined} />
@@ -286,6 +290,7 @@ export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceip
 export function NativeDealsScreen({ listNames, onAdd }: { listNames: string[]; onAdd: (name: string) => void }) {
   const { colors } = useMobileTheme()
   const styles = useStyles()
+  const searchGuideTarget = useNativeGuideTarget('deals-search')
   const [result, setResult] = useState<MobileDealsPage | null>(null)
   const [category, setCategory] = useState<MobileDealCategory | 'all'>('all')
   const [sort, setSort] = useState<MobileDealSort>('discount')
@@ -319,7 +324,7 @@ export function NativeDealsScreen({ listNames, onAdd }: { listNames: string[]; o
   return (
     <ScrollView contentContainerStyle={styles.screenContent} keyboardShouldPersistTaps="handled">
       <Text style={styles.bodyText}>Dnešní akce v Česku. Hledejte podle názvu a kategorie.</Text>
-      <View style={styles.searchBox}><Search color={colors.mutedText} size={18} /><TextInput accessibilityLabel="Hledat v akcích" onChangeText={(value) => { setQuery(value.slice(0, 80)); setPage(1) }} placeholder="Maso, vejce, máslo…" placeholderTextColor={colors.mutedText} style={styles.searchInput} value={query} />{query ? <Pressable accessibilityLabel="Vymazat hledání" onPress={() => setQuery('')}><X color={colors.mutedText} size={18} /></Pressable> : null}</View>
+      <View style={styles.searchBox}><Search color={colors.mutedText} size={18} /><TextInput ref={searchGuideTarget} accessibilityLabel="Hledat v akcích" onChangeText={(value) => { setQuery(value.slice(0, 80)); setPage(1) }} placeholder="Maso, vejce, máslo…" placeholderTextColor={colors.mutedText} style={styles.searchInput} value={query} />{query ? <Pressable accessibilityLabel="Vymazat hledání" onPress={() => setQuery('')}><X color={colors.mutedText} size={18} /></Pressable> : null}</View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
         {(['all', 'Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní'] as (MobileDealCategory | 'all')[]).map((value) => (
           <Pressable key={value} onPress={() => { setCategory(value); setPage(1) }} style={[styles.chip, category === value && styles.chipActive]}>
@@ -363,6 +368,7 @@ export function NativeDealsScreen({ listNames, onAdd }: { listNames: string[]; o
 export function NativeStoresScreen() {
   const { colors } = useMobileTheme()
   const styles = useStyles()
+  const searchGuideTarget = useNativeGuideTarget('stores-search')
   const [city, setCity] = useState('')
   const [chains, setChains] = useState<MobileChainTile[]>([])
   const [selected, setSelected] = useState<MobileChainTile | null>(null)
@@ -383,7 +389,7 @@ export function NativeStoresScreen() {
   }
   return <ScrollView contentContainerStyle={styles.screenContent} keyboardShouldPersistTaps="handled">
     <Text style={styles.bodyText}>Najděte obchody a prodejny ve svém okolí.</Text>
-    <View style={styles.searchBox}><MapPin color={colors.mutedText} size={18} /><TextInput accessibilityLabel="Město nebo obec" onChangeText={setCity} placeholder="Město nebo obec" placeholderTextColor={colors.mutedText} style={styles.searchInput} value={city} /></View>
+    <View style={styles.searchBox}><MapPin color={colors.mutedText} size={18} /><TextInput ref={searchGuideTarget} accessibilityLabel="Město nebo obec" onChangeText={setCity} placeholder="Město nebo obec" placeholderTextColor={colors.mutedText} style={styles.searchInput} value={city} /></View>
     {selected ? <Pressable onPress={() => { setSelected(null); setBranches(null) }} style={styles.backButton}><Text style={styles.pageText}>‹  Všechny řetězce</Text></Pressable> : null}
     {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
     {loading ? <ActivityIndicator color={colors.primary} style={styles.loader} /> : null}
@@ -405,16 +411,25 @@ export function NativeAssistantModal({ visible, onClose, onShopping }: { visible
   const [sent, setSent] = useState<string[]>([])
   const suggestions = ['Nákup na týden do 2 500 Kč', 'Kde ušetřím na seznamu?', 'Rozděl nákup mezi obchody']
   function send(value = draft) { const message = value.trim(); if (!message) return; setSent((current) => [...current, message]); setDraft('') }
+  const renderAssistantMessage = (text: string, link = false) => <View style={styles.assistantMessage}>
+    <View accessibilityElementsHidden style={styles.assistantAvatar}><Image resizeMode="cover" source={require('../assets/anitka-guide-front.webp')} style={styles.assistantMascot} /></View>
+    <View style={styles.assistantBubble}>
+      <Sparkles color={colors.accentText} size={16} />
+      <Text style={styles.chatText}>{text}</Text>
+      {link ? <Pressable onPress={() => { onClose(); onShopping() }} style={styles.chatLink}><Text style={styles.chatLinkText}>Otevřít nákupní seznam →</Text></Pressable> : null}
+    </View>
+  </View>
   return <Modal animationType="slide" onRequestClose={onClose} transparent visible={visible}>
     <View style={styles.assistantScrim}>
       <View style={styles.assistantSheet}>
-        <View style={styles.assistantHeader}><View style={styles.assistantIdentity}><View style={styles.assistantAvatar}><Image resizeMode="contain" source={require('../assets/anitka-guide-front.webp')} style={styles.assistantMascot} /></View><View><Text style={styles.cardTitle}>Anitka</Text><Text style={styles.noteText}>AI asistent zatím není připojený</Text></View></View><Pressable accessibilityLabel="Zavřít chat" onPress={onClose} style={styles.closeButton}><X color={colors.secondaryText} size={20} /></Pressable></View>
+        <View style={styles.assistantHeader}><View><Text style={styles.cardTitle}>Chat s Anitkou</Text><Text style={styles.assistantDescription}>Asistent pro domácnost</Text></View><Pressable accessibilityLabel="Zavřít chat" onPress={onClose} style={styles.closeButton}><X color={colors.secondaryText} size={20} /></Pressable></View>
+        <View style={styles.assistantStatus}><View style={styles.assistantStatusDot} /><Text style={styles.assistantStatusText}>AI asistent zatím není připojený</Text></View>
         <ScrollView contentContainerStyle={styles.chatMessages}>
-          <View style={styles.assistantBubble}><Text style={styles.chatText}>Ahoj, jsem Anitka. Chat je připravený, ale AI asistent zatím není připojený, takže teď dotazy neumím zpracovat.</Text></View>
-          {sent.map((message, index) => <View key={`${index}-${message}`}><View style={styles.userBubble}><Text style={styles.userChatText}>{message}</Text></View><View style={styles.assistantBubble}><Text style={styles.chatText}>AI asistent zatím není zapojený, takže na dotazy neodpovídá. Porovnání cen, akce a plán nákupu podle rozpočtu najdete v nákupním seznamu.</Text><Pressable onPress={() => { onClose(); onShopping() }} style={styles.chatLink}><Text style={styles.chatLinkText}>Otevřít nákupní seznam →</Text></Pressable></View></View>)}
-          {sent.length === 0 ? <View style={styles.suggestionList}>{suggestions.map((suggestion) => <Pressable key={suggestion} onPress={() => send(suggestion)} style={styles.suggestion}><Text style={styles.suggestionText}>{suggestion}</Text></Pressable>)}</View> : null}
+          {renderAssistantMessage('Ahoj, jsem Anitka. Chat je připravený, ale AI asistent zatím není připojený, takže teď dotazy neumím zpracovat.')}
+          {sent.map((message, index) => <View key={`${index}-${message}`}><View style={styles.userBubble}><Text style={styles.userChatText}>{message}</Text></View>{renderAssistantMessage('AI asistent zatím není zapojený, takže na dotazy neodpovídá. Porovnání cen, akce a plán nákupu podle rozpočtu najdete v nákupním seznamu.', true)}</View>)}
+          {sent.length === 0 ? <View style={styles.suggestionList}><Text style={styles.suggestionHeading}>Příklady dotazů</Text>{suggestions.map((suggestion) => <Pressable key={suggestion} onPress={() => send(suggestion)} style={styles.suggestion}><Text style={styles.suggestionText}>{suggestion}</Text></Pressable>)}</View> : null}
         </ScrollView>
-        <View style={styles.composer}><TextInput accessibilityLabel="Napište Anitce" onChangeText={setDraft} onSubmitEditing={() => send()} placeholder="Napište Anitce…" placeholderTextColor={colors.mutedText} returnKeyType="send" style={styles.composerInput} value={draft} /><Pressable accessibilityLabel="Odeslat zprávu" disabled={!draft.trim()} onPress={() => send()} style={[styles.sendButton, !draft.trim() && styles.disabled]}><ArrowRight color={colors.primaryForeground} size={20} /></Pressable></View>
+        <View style={styles.composer}><TextInput accessibilityLabel="Napište Anitce" onChangeText={setDraft} onSubmitEditing={() => send()} placeholder="Napište Anitce…" placeholderTextColor={colors.mutedText} returnKeyType="send" style={styles.composerInput} value={draft} /><Pressable accessibilityLabel="Odeslat zprávu" disabled={!draft.trim()} onPress={() => send()} style={[styles.sendButton, !draft.trim() && styles.disabled]}><ArrowUp color={colors.primaryForeground} size={20} /></Pressable></View>
         <Text style={styles.footerNote}>Zprávy se zatím nezpracovávají umělou inteligencí.</Text>
       </View>
     </View>
@@ -737,7 +752,7 @@ function NativeDevicePushSetting({ onAuthExpired }: { onAuthExpired: () => void 
   </View>
 }
 
-export function NativeProfileScreen({ name, email, householdRole, householdName, householdBudget, householdCurrency, profile, onUpdateHousehold, onProfileUpdate, onAuthExpired, onSignOut, onReload, onOpenGuide }: {
+export function NativeProfileScreen({ name, email, householdRole, householdName, householdBudget, householdCurrency, profile, onUpdateHousehold, onProfileUpdate, onAuthExpired, onSignOut, onReload, onOpenGuide, guideStepId }: {
   name: string
   email: string
   householdRole: string
@@ -751,6 +766,7 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
   onSignOut: () => void
   onReload: () => Promise<void>
   onOpenGuide: () => void
+  guideStepId?: string | null
 }) {
   const { colors, preference, setPreference } = useMobileTheme()
   const styles = useStyles()
@@ -779,6 +795,15 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
   const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null)
   const [preferencesError, setPreferencesError] = useState<string | null>(null)
   const [profileSection, setProfileSection] = useState<'household' | 'shopping' | 'pantry' | 'appearance' | 'notifications'>('household')
+  const householdNameGuideTarget = useNativeGuideTarget('profile-household-name')
+
+  useEffect(() => {
+    const guideSection = guideStepId === 'profile-stores' || guideStepId === 'profile-preferences' ? 'shopping'
+      : guideStepId === 'profile-stock' ? 'pantry'
+        : guideStepId === 'profile-notifications' ? 'notifications'
+          : guideStepId?.startsWith('profile-') || guideStepId === 'profile' ? 'household' : null
+    if (guideSection) setProfileSection(guideSection)
+  }, [guideStepId])
   const [profileError, setProfileError] = useState<string | null>(null)
   const [profileBusy, setProfileBusy] = useState(false)
   const [memberFormOpen, setMemberFormOpen] = useState(false)
@@ -1271,7 +1296,7 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
         <Text style={styles.bodyText}>{householdRole ? `Vaše role: ${householdRole === 'owner' ? 'správce' : 'člen'}` : 'Účet zatím není připojený k domácnosti.'}</Text>
         {householdRole === 'owner' ? <>
           <Text style={styles.profileFieldLabel}>Název domácnosti</Text>
-          <TextInput accessibilityLabel="Název domácnosti" onChangeText={setNameDraft} style={styles.profileInput} value={nameDraft} />
+          <TextInput ref={householdNameGuideTarget} accessibilityLabel="Název domácnosti" onChangeText={setNameDraft} style={styles.profileInput} value={nameDraft} />
           <Text style={styles.profileFieldLabel}>Výchozí rozpočet za období ({householdCurrency})</Text>
           <TextInput accessibilityLabel="Výchozí rozpočet" keyboardType="decimal-pad" onChangeText={setBudgetDraft} style={styles.profileInput} value={budgetDraft} />
           {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
@@ -1619,24 +1644,29 @@ function useStyles() {
   cardTitle: { color: colors.foreground, fontSize: 16, fontWeight: '700' },
   error: { color: colors.destructive, backgroundColor: colors.destructiveSubtle, borderRadius: 12, padding: 12, fontSize: 13, lineHeight: 19 },
   assistantScrim: { flex: 1, justifyContent: 'flex-end', backgroundColor: colors.navyOverlay },
-  assistantSheet: { height: '88%', backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16 },
-  assistantHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
-  assistantIdentity: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  assistantAvatar: { width: 42, height: 42, overflow: 'hidden', borderRadius: 21, backgroundColor: colors.accentSubtle },
-  assistantMascot: { position: 'absolute', width: 58, height: 78, left: -8, top: -1 },
+  assistantSheet: { height: '88%', width: '100%', maxWidth: 448, alignSelf: 'center', gap: 12, backgroundColor: colors.elevated, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 18, paddingBottom: 16 },
+  assistantHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
+  assistantDescription: { color: colors.secondaryText, fontSize: 14, marginTop: 4 },
+  assistantStatus: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12, backgroundColor: colors.accentSubtle },
+  assistantStatusDot: { width: 8, height: 8, flexShrink: 0, borderRadius: 4, backgroundColor: colors.mutedText },
+  assistantStatusText: { color: colors.accentText, fontSize: 14, fontWeight: '600' },
+  assistantAvatar: { width: 32, height: 32, flexShrink: 0, overflow: 'hidden', borderRadius: 16 },
+  assistantMascot: { position: 'absolute', width: 50, height: 69, left: -15, top: 0 },
   closeButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 20, backgroundColor: colors.muted },
-  chatMessages: { flexGrow: 1, justifyContent: 'flex-end', gap: 10, paddingVertical: 16 },
-  assistantBubble: { alignSelf: 'flex-start', maxWidth: '88%', padding: 13, gap: 8, borderRadius: 16, borderBottomLeftRadius: 5, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 },
+  chatMessages: { flexGrow: 1, justifyContent: 'flex-end', gap: 16, paddingVertical: 4 },
+  assistantMessage: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  assistantBubble: { flexShrink: 1, maxWidth: '85%', paddingHorizontal: 16, paddingVertical: 12, gap: 8, borderRadius: 18, borderBottomLeftRadius: 5, backgroundColor: colors.background, borderColor: colors.border, borderWidth: 1 },
   userBubble: { alignSelf: 'flex-end', maxWidth: '86%', padding: 13, borderRadius: 16, borderBottomRightRadius: 5, backgroundColor: colors.primary },
-  chatText: { color: colors.foreground, fontSize: 14, lineHeight: 21 },
+  chatText: { color: colors.foreground, fontSize: 16, lineHeight: 24 },
   userChatText: { color: colors.primaryForeground, fontSize: 14, lineHeight: 20 },
   chatLink: { paddingTop: 5 },
   chatLinkText: { color: colors.accentText, fontSize: 14, fontWeight: '700' },
-  suggestionList: { gap: 8, paddingVertical: 10 },
-  suggestion: { alignSelf: 'flex-start', borderColor: colors.border, borderWidth: 1, borderRadius: 18, backgroundColor: colors.card, paddingVertical: 9, paddingHorizontal: 13 },
-  suggestionText: { color: colors.foreground, fontSize: 13, fontWeight: '500' },
+  suggestionList: { gap: 8, paddingVertical: 10, paddingLeft: 40 },
+  suggestionHeading: { color: colors.secondaryText, fontSize: 14, fontWeight: '600' },
+  suggestion: { alignSelf: 'flex-start', minHeight: 36, borderColor: colors.border, borderWidth: 1, borderRadius: 18, backgroundColor: colors.background, paddingVertical: 8, paddingHorizontal: 12 },
+  suggestionText: { color: colors.foreground, fontSize: 14, fontWeight: '500' },
   composer: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 6, borderWidth: 1, borderColor: colors.inputBorder, borderRadius: 18, backgroundColor: colors.card },
-  composerInput: { flex: 1, minHeight: 42, paddingHorizontal: 10, color: colors.foreground, fontSize: 14 },
+  composerInput: { flex: 1, minHeight: 44, paddingHorizontal: 10, color: colors.foreground, fontSize: 16 },
   sendButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: colors.primary },
   disabled: { opacity: 0.45 },
   footerNote: { color: colors.mutedText, fontSize: 11, textAlign: 'center', marginTop: 8 },

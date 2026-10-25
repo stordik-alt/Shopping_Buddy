@@ -1,3 +1,19 @@
+# Shopping Buddy — Change Log
+
+## 2026-10-25 — Vizuální kontrola Expo aplikace a interaktivní průvodce
+
+- Dosavadní Playwright smoke testy snímaly PWA při mobilních šířkách, ale nezachycovaly její AI chat ani průvodce a nespouštěly nativní aplikaci.
+- Playwright a Android emulátor nyní připravují 15 párových snímků hlavních obrazovek, AI chatu a průvodce ve světlém i tmavém motivu při stejné logické velikosti 390 × 844 px. CI kontroluje úplnost dvojic a vytváří obrazové dvojice i přehledové kontaktní listy pro kontrolu.
+- Průvodce snímá úvod, zvýrazněnou navigaci a krok nákupního seznamu, který skutečně přepne obrazovku a ukáže pole pro novou položku. Nativní průvodce přepíná příslušné obrazovky, zvýrazňuje navigaci i ovládací prvek a zachovává stručný i podrobný průchod.
+- Nativní chat používá stejné oříznutí maskota jako PWA a řadí ho na střed zprávy. Android se kontroluje v emulátoru CI; iOS zůstává samostatnou ruční kontrolou.
+
+## 2026-10-25 — Mobilní parita: zásoby, recepty, jídelníček, účtenky a rozpočet
+
+- Mobilní aplikace doplňuje hlavní funkční mezery proti PWA: úpravy klasifikace a balení zásob, automatické zařazení, označení jídla jako uvařeného s idempotentním odečtem surovin, oblíbené a doporučené recepty včetně filtrování, řazení, porcí a nákupního výběru, návrhy shod účtenky se seznamem a jejich potvrzení, měsíční úspory a tempo rozpočtu s projekcí.
+- Nativní aplikace podporuje registraci, ověření e-mailu, obnovu hesla přes Neon Auth a předání konkrétního cíle při navigaci.
+- Mobilní API odvozuje účet i domácnost z ověřené autentizace a znovu používá existující serverovou logiku PWA; nebyla přidána databázová migrace.
+- Změny jsou součástí PR #622 (`cf544a94`). CI po opravě testovacích mocků prošlo včetně databázových testů, Android exportu, produkčního buildu, Playwright smoke testů, CodeQL a dependency auditu.
+
 ## 2026-10-24 — Expo účtenky: fotoaparát, galerie, PDF a ruční import
 
 - Mobilní import účtenek nabízí vyfocení, výběr podporovaného snímku z galerie, PDF/fotku přes systémový výběr souboru a ruční zadání položek.

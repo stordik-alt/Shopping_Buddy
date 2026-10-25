@@ -5,6 +5,7 @@ import { ITEM_UNITS, unitLabel, type ItemUnit } from '@anitka/shared/units'
 import { addPantryItem, autoCategorizePantry, MobileApiError, getPantry, removePantryItem, reviewPantry, updatePantryItem, type MobilePantryItem, type MobilePantryState } from '../lib/shopping-list-api'
 import { RefreshButton } from './refresh-button'
 import { useMobileTheme } from '../lib/theme'
+import { useNativeGuideTarget } from './native-guide-targets'
 import { getAccessToken } from '../lib/auth'
 import { ProductIllustration } from './product-illustration'
 import { PANTRY_QUANTITY_STEP, splitPantryReview } from '../../../lib/pantry'
@@ -30,6 +31,9 @@ export function PantryScreen({ onAuthExpired, reviewToken = 0, focusedItemId, on
 }) {
   const { colors } = useMobileTheme()
   const styles = useStyles()
+  const addGuideTarget = useNativeGuideTarget('pantry-add')
+  const checkGuideTarget = useNativeGuideTarget('pantry-check')
+  const itemGuideTarget = useNativeGuideTarget('pantry-item-row')
   const [pantry, setPantry] = useState<MobilePantryState | null>(null)
   const [selectedPlace, setSelectedPlace] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -292,9 +296,9 @@ export function PantryScreen({ onAuthExpired, reviewToken = 0, focusedItemId, on
           <Text numberOfLines={1} style={styles.title}>Zásoby</Text>
           <Text style={styles.supporting}>Vyberte místo, kde jsou věci uložené.</Text>
         </View>
-        <Pressable accessibilityRole="button" onPress={() => setAddOpen(true)} style={styles.addButton}><Text style={styles.addButtonText}>＋ Přidat</Text></Pressable>
+        <Pressable ref={addGuideTarget} accessibilityRole="button" onPress={() => setAddOpen(true)} style={styles.addButton}><Text style={styles.addButtonText}>＋ Přidat</Text></Pressable>
         {pantry?.items.some((item) => !item.subcategory) ? <Pressable accessibilityRole="button" disabled={categorizing} onPress={() => void autoCategorize()} style={[styles.autoButton, categorizing && styles.disabled]}><Text style={styles.autoButtonText}>{categorizing ? 'Zařazuji…' : 'Zařadit automaticky'}</Text></Pressable> : null}
-        {pantry?.items.length ? <Pressable accessibilityRole="button" onPress={() => openReview('location')} style={styles.reviewOpenButton}><ClipboardCheck color={colors.accentText} size={17} /><Text style={styles.reviewOpenText}>Kontrola</Text></Pressable> : null}
+        {pantry?.items.length ? <Pressable ref={checkGuideTarget} accessibilityRole="button" onPress={() => openReview('location')} style={styles.reviewOpenButton}><ClipboardCheck color={colors.accentText} size={17} /><Text style={styles.reviewOpenText}>Kontrola</Text></Pressable> : null}
         <RefreshButton loading={loading} onPress={() => void load()} />
       </View>
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
@@ -378,7 +382,7 @@ export function PantryScreen({ onAuthExpired, reviewToken = 0, focusedItemId, on
               >
                 <Text style={styles.moveText}>Přesunout do jiného místa</Text>
               </Pressable>
-              <Pressable accessibilityRole="button" disabled={busyItemId !== null} onPress={() => setDetailItem(item)} style={styles.moveButton}><Text style={styles.moveText}>Upravit detail položky</Text></Pressable>
+              <Pressable ref={selectedItems[0]?.id === item.id ? itemGuideTarget : undefined} accessibilityRole="button" disabled={busyItemId !== null} onPress={() => setDetailItem(item)} style={styles.moveButton}><Text style={styles.moveText}>Upravit detail položky</Text></Pressable>
               {editingPlaceId === item.id ? (
                 <View style={styles.destinationList}>
                   {pantry.places.filter((place) => place.key !== (item.customPlaceId ? `custom:${item.customPlaceId}` : item.location)).map((place) => (

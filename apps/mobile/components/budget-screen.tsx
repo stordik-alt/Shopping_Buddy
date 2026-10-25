@@ -60,6 +60,7 @@ import {
 } from '../lib/shopping-list-api'
 import { RefreshButton } from './refresh-button'
 import { useMobileTheme } from '../lib/theme'
+import { useNativeGuideTarget } from './native-guide-targets'
 import { expenseCategoryColor } from '../lib/chart-colors'
 import { RecurringPaymentsScreen } from './recurring-payments-screen'
 import { RecurringIncomesScreen } from './recurring-incomes-screen'
@@ -394,7 +395,7 @@ function BudgetPlanningScreen({
   </View>
 }
 
-export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0, canManageBudget = false }: { onAuthExpired: () => void; quickAddExpenseToken?: number; canManageBudget?: boolean }) {
+export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0, canManageBudget = false, guideStepId }: { onAuthExpired: () => void; quickAddExpenseToken?: number; canManageBudget?: boolean; guideStepId?: string | null }) {
   const { colors, theme } = useMobileTheme()
   const styles = useStyles()
   const [summary, setSummary] = useState<MobileBudgetSummary | null>(null)
@@ -421,6 +422,17 @@ export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0, canManag
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [advancedRefreshKey, setAdvancedRefreshKey] = useState(0)
+  const addExpenseGuideTarget = useNativeGuideTarget('budget-add-expense')
+  const overviewGuideTarget = useNativeGuideTarget('budget-view-switcher')
+  const planGuideTarget = useNativeGuideTarget('budget-plan-section')
+
+  useEffect(() => {
+    const guideView = guideStepId === 'expenses' ? 'expenses'
+      : guideStepId === 'planning' || guideStepId === 'pockets' || guideStepId === 'period-close' ? 'planning'
+        : guideStepId === 'recurring' ? 'recurring'
+          : guideStepId === 'budget' ? 'overview' : null
+    if (guideView) setView(guideView)
+  }, [guideStepId])
 
   useEffect(() => {
     if (view !== 'planning') return
@@ -649,14 +661,14 @@ export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0, canManag
             <Text numberOfLines={1} style={styles.title}>Rozpočet domácnosti</Text>
             {period ? <Text style={styles.supporting}>{dateLabel(period.start)} – {dateLabel(period.end)}</Text> : null}
           </View>
-          <Pressable accessibilityRole="button" disabled={!period || saving} onPress={() => { setEditorExpense(null); setEditorOpen(true) }} style={[styles.addButton, (!period || saving) && styles.disabled]}><Text style={styles.addButtonText}>＋ Výdaj</Text></Pressable>
+          <Pressable ref={addExpenseGuideTarget} accessibilityRole="button" disabled={!period || saving} onPress={() => { setEditorExpense(null); setEditorOpen(true) }} style={[styles.addButton, (!period || saving) && styles.disabled]}><Text style={styles.addButtonText}>＋ Výdaj</Text></Pressable>
           <RefreshButton loading={loading} onPress={() => void load()} />
         </View>
 
         <View style={styles.switcher}>
-          <Pressable accessibilityRole="tab" accessibilityState={{ selected: view === 'overview' }} onPress={() => setView('overview')} style={[styles.switchTab, view === 'overview' && styles.switchTabActive]}><Text style={[styles.switchText, view === 'overview' && styles.switchTextActive]}>Přehled</Text></Pressable>
+          <Pressable ref={overviewGuideTarget} accessibilityRole="tab" accessibilityState={{ selected: view === 'overview' }} onPress={() => setView('overview')} style={[styles.switchTab, view === 'overview' && styles.switchTabActive]}><Text style={[styles.switchText, view === 'overview' && styles.switchTextActive]}>Přehled</Text></Pressable>
           <Pressable accessibilityRole="tab" accessibilityState={{ selected: view === 'expenses' }} onPress={() => setView('expenses')} style={[styles.switchTab, view === 'expenses' && styles.switchTabActive]}><Text style={[styles.switchText, view === 'expenses' && styles.switchTextActive]}>Výdaje</Text></Pressable>
-          <Pressable accessibilityRole="tab" accessibilityState={{ selected: view === 'planning' }} onPress={() => setView('planning')} style={[styles.switchTab, view === 'planning' && styles.switchTabActive]}><Text style={[styles.switchText, view === 'planning' && styles.switchTextActive]}>Plán</Text></Pressable>
+          <Pressable ref={planGuideTarget} accessibilityRole="tab" accessibilityState={{ selected: view === 'planning' }} onPress={() => setView('planning')} style={[styles.switchTab, view === 'planning' && styles.switchTabActive]}><Text style={[styles.switchText, view === 'planning' && styles.switchTextActive]}>Plán</Text></Pressable>
           <Pressable accessibilityRole="tab" accessibilityState={{ selected: view === 'recurring' }} onPress={() => setView('recurring')} style={[styles.switchTab, view === 'recurring' && styles.switchTabActive]}><Text style={[styles.switchText, view === 'recurring' && styles.switchTextActive]}>Pravidelné</Text></Pressable>
         </View>
 

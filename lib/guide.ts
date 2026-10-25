@@ -9,6 +9,8 @@ import type { Tab } from '@/lib/types'
  *  an element whose visible text is exactly that counts (several buttons share a selector). */
 export type GuideTarget = {
   selector: string
+  /** React Native counterpart of this target. Native screens register these IDs for the Expo tour. */
+  nativeId?: string
   /** Only an element whose visible text is exactly this. */
   text?: string
   /** Only an element whose visible text contains this (a section's button also carries its summary). */
@@ -82,7 +84,7 @@ const BASE_STEPS: readonly GuideStep[] = [
     todo: ['Zkuste si klepnout na jakoukoli záložku. Nic se tím nepokazí, vždycky se můžete vrátit.'],
     also: ['Změny od ostatních členů domácnosti se samy neukážou. Tlačítko „Obnovit“ v seznamu, zásobách, nákupech a rozpočtu načte jen tu část a nic vás nehodí na začátek.'],
     covers: ['refresh'],
-    target: [{ selector: '[data-guide-nav="Více"]' }],
+    target: [{ selector: '[data-guide-nav="Více"]', nativeId: 'nav-more' }],
     targetLabel: 'Tady je zbytek',
   },
   {
@@ -115,7 +117,7 @@ const BASE_STEPS: readonly GuideStep[] = [
     text: 'Pod přehledem jsou moje doporučení: kdy doplnit zásobu, akce na oblíbené věci a hlídání cen. Je jich moc? Klepněte na záhlaví a sbalí se. Dokud jsou sbalená, nic se pro ně nenačítá. Návrh, který nechcete, odmítnete křížkem a odmítnutí platí pro celou domácnost.',
     where: 'Na Domů pod dnešním jídelníčkem, záhlaví „Doporučení ANITKY“.',
     todo: ['Klepněte na záhlaví a sbalte, co vás zrovna nezajímá.', '„Na seznam“ u návrhu přidá nejlevnější variantu rovnou s množstvím, které chybí do maxima.'],
-    target: [{ selector: 'section[aria-label="Doporučení ANITKY"] button' }],
+    target: [{ selector: 'section[aria-label="Doporučení ANITKY"] button', nativeId: 'home-recommendations' }],
     targetLabel: 'Sbalit a rozbalit',
   },
   {
@@ -126,7 +128,7 @@ const BASE_STEPS: readonly GuideStep[] = [
     text: 'Ozvu se zvonkem, když se blížíte limitu rozpočtu, když běží akce na položky ze seznamu, vyjde nový leták, je čas zkontrolovat zásoby nebo něco zaplatit. Na telefonu pošlu i oznámení.',
     where: 'Vpravo nahoře, vedle kolečka s vaším účtem.',
     todo: ['Co nechcete slyšet, vypnete v Profilu u „Upozornění“.'],
-    target: [{ selector: 'button[aria-label^="Oznámení"]' }],
+    target: [{ selector: 'button[aria-label^="Oznámení"]', nativeId: 'notification-button' }],
     targetLabel: 'Tady zvoním',
   },
   {
@@ -145,7 +147,7 @@ const BASE_STEPS: readonly GuideStep[] = [
     ],
     covers: ['shopping-detail', 'shopping-lists', 'shopping-undo'],
     prepare: { selector: '[role="group"][aria-label="Zobrazení nákupu"] button', text: 'Nákupní seznam' },
-    target: [{ selector: 'input[aria-label="Nová položka"]' }],
+    target: [{ selector: 'input[aria-label="Nová položka"]', nativeId: 'shopping-input' }],
     targetLabel: 'Sem napište, co chybí',
   },
   {
@@ -157,7 +159,7 @@ const BASE_STEPS: readonly GuideStep[] = [
     text: 'Každý řádek ukazuje název a kolik toho koupit. Když na řádek klepnete, rozbalí se: množství a jednotka, kategorie, preferovaný obchod, priorita, poznámka (třeba „bez laktózy“) a druh zboží. Když na položku běží akce, uvidíte u ní odznak s cenou a obchodem. Přidáte-li na seznam něco, co podle zásob máte doma, zeptám se: „Došlo?“ Odpovíte „Ano, došlo“ a zásoby se opraví, nebo „Ještě mám“ a nic se nezmění.',
     where: 'Klepněte na šipku vpravo u libovolné položky.',
     todo: ['Změňte množství, třeba na 2 litry.', 'Do poznámky napište, co je důležité, třeba značku.'],
-    target: [{ selector: 'button[aria-label^="Detail položky"]' }],
+    target: [{ selector: 'button[aria-label^="Detail položky"]', nativeId: 'shopping-item-row' }],
     targetLabel: 'Klepněte na šipku',
   },
   {
@@ -169,7 +171,7 @@ const BASE_STEPS: readonly GuideStep[] = [
     text: 'Kromě hlavního seznamu si můžete založit další, třeba „Vánoce“ nebo „Chata“. A když je seznam dlouhý, přes „Filtry a řazení“ si ho vyfiltrujete, seřadíte podle priority nebo seskupíte podle kategorie či obchodu. Hotové věci jde schovat. Vaše nastavení si pamatuju.',
     where: 'Hned pod polem „Co koupit?“ jsou seznamy a tlačítko „Filtry a řazení“.',
     todo: ['Klepněte na „+ Nový seznam“ a pojmenujte ho.', 'Zkuste seskupit podle obchodu, ať víte, co kde koupit.'],
-    target: [{ selector: 'button', contains: 'Filtry a řazení' }],
+    target: [{ selector: 'button', contains: 'Filtry a řazení', nativeId: 'shopping-filter' }],
     targetLabel: 'Filtry a řazení',
   },
   {
@@ -190,7 +192,7 @@ const BASE_STEPS: readonly GuideStep[] = [
     text: 'Kolik co stojí jinde? Najdu produkt v obchodech, které máte nastavené, a ukážu cenu i za kilo či litr, ať se dají srovnat různá balení. Jedním klepnutím ho přidáte na seznam.',
     where: 'Odkaz „Hledat produkty v obchodech“ nad seznamem; stejné hledání je i v detailu položky.',
     todo: ['Napište, co hledáte, a klepnutím produkt přidejte na seznam.'],
-    target: [{ selector: 'button', contains: 'Hledat produkty v obchodech' }],
+    target: [{ selector: 'button', contains: 'Hledat produkty v obchodech', nativeId: 'shopping-products-tab' }],
     targetLabel: 'Tady hledejte',
   },
   {
@@ -202,7 +204,7 @@ const BASE_STEPS: readonly GuideStep[] = [
     where: 'Úplně dole pod seznamem, panel „Plán nákupu“.',
     todo: ['Zvolte počet obchodů a klepněte na „Sestavit plán“. Po změně seznamu ho sestavte znovu.'],
     // On an empty list the panel has no button yet, so the guide points at its heading instead.
-    target: [{ selector: 'button', text: 'Sestavit plán' }, { selector: 'h3', text: 'Plán nákupu' }],
+    target: [{ selector: 'button', text: 'Sestavit plán', nativeId: 'shopping-plan' }, { selector: 'h3', text: 'Plán nákupu' }],
     targetLabel: 'Sem klepněte',
   },
   {
@@ -239,7 +241,7 @@ const BASE_STEPS: readonly GuideStep[] = [
     ],
     covers: ['purchases'],
     prepare: { selector: '[role="group"][aria-label="Zobrazení nákupu"] button', contains: 'Účtenky' },
-    target: [{ selector: 'button', contains: 'Nahrát účtenku' }],
+    target: [{ selector: 'button', contains: 'Nahrát účtenku', nativeId: 'receipt-upload' }],
     targetLabel: 'Sem klepněte',
   },
   {
@@ -257,7 +259,7 @@ const BASE_STEPS: readonly GuideStep[] = [
       'Prací gely počítám na dávky: gel na 45 dávek se do zásob zapíše jako 45 dávek.',
     ],
     covers: ['pantry-rows', 'pantry-check', 'pantry-levels', 'pantry-doses'],
-    target: [{ selector: 'section[aria-label^="Zásoby:"] button', text: 'Přidat' }],
+    target: [{ selector: 'section[aria-label^="Zásoby:"] button', text: 'Přidat', nativeId: 'pantry-add' }],
     targetLabel: 'Tady přidáte zásobu',
   },
   {
@@ -269,7 +271,7 @@ const BASE_STEPS: readonly GuideStep[] = [
     text: 'U každé položky upravíte množství tlačítky − a + nebo číslo přepíšete. Fajfka znamená „ještě mám“, křížek „došlo“. Přes tužku změníte kategorii, podkategorii, umístění nebo sledování. Sůl a koření nemusím hlídat tak často jako mléko, proto jim nastavte „Jen zřídka“ nebo „Nesledovat“. Štítek „Asi došlo“ znamená, že podle vašich nákupů to už nejspíš došlo, a „Dokoupit“, že zásoba klesla k minimu. Pokud je stejná věc na víc místech, upozorním vás nahoře: „Na více místech“. Zkontrolujte, zda nejde o duplicitu.',
     where: 'Vpravo na každém řádku jsou fajfka, křížek a tužka; množství je uprostřed.',
     todo: ['Klepněte na tužku u položky a podívejte se, co jde změnit.', 'Když položka došla, klepněte na křížek. Ze zásob zmizí.'],
-    target: [{ selector: 'button[aria-label^="Upravit: "]' }],
+    target: [{ selector: 'button[aria-label^="Upravit: "]', nativeId: 'pantry-item-row' }],
     targetLabel: 'Tužka = úpravy',
   },
   {
@@ -281,7 +283,7 @@ const BASE_STEPS: readonly GuideStep[] = [
     text: 'Zásoby se časem rozcházejí se skutečností, proto se občas zeptám: „Máte to ještě?“ Podle toho, jak často věc kupujete, odhadnu, co asi došlo. Takové položky jsou v kontrole předvyplněné jako „Došlo“, ostatní jako „Mám“. Opravíte jen to, co nesedí, a uložíte. Všechno ostatní se potvrdí a co došlo, můžete rovnou přidat na nákupní seznam. Kontrolu najdete i v pruhu „K ověření“ nahoře.',
     where: 'Tlačítko „Zkontrolovat“ je vpravo nahoře nad položkami. Když se na něco ptám, najdete ho i v pruhu „Máte je ještě?“ a na Domů.',
     todo: ['Klepněte na „Zkontrolovat“ a u položek, které nesedí, změňte „Mám“ na „Došlo“ nebo naopak.', 'U ostatních se nic dělat nemusí, stačí uložit.'],
-    target: [{ selector: 'section[aria-label^="Zásoby:"] button', contains: 'Zkontrolovat' }],
+    target: [{ selector: 'section[aria-label^="Zásoby:"] button', contains: 'Zkontrolovat', nativeId: 'pantry-check' }],
     targetLabel: 'Sem klepněte',
   },
   {
@@ -320,7 +322,7 @@ const BASE_STEPS: readonly GuideStep[] = [
     ],
     covers: ['expenses', 'planning', 'recurring', 'pockets', 'period-close'],
     prepare: { selector: '[role="group"][aria-label="Zobrazení rozpočtu"] button', text: 'Přehled' },
-    target: [{ selector: 'button', text: 'Nastavit rozpočet' }, { selector: 'button', contains: 'Upravit rozpočet' }],
+    target: [{ selector: 'button', text: 'Nastavit rozpočet', nativeId: 'budget-view-switcher' }, { selector: 'button', contains: 'Upravit rozpočet' }],
     targetLabel: 'Sem klepněte',
   },
   {
@@ -333,7 +335,7 @@ const BASE_STEPS: readonly GuideStep[] = [
     where: 'V sekci „Rozpočet“ klepněte nahoře na „Výdaje“.',
     todo: ['Klepněte na „Přidat výdaj“, zadejte částku a kategorii.', 'Mrkněte i na období nahoře. Šipkami se přepínáte mezi měsíci.'],
     prepare: { selector: '[role="group"][aria-label="Zobrazení rozpočtu"] button', text: 'Výdaje' },
-    target: [{ selector: 'button', contains: 'Přidat výdaj' }, { selector: 'button', contains: 'Zapsat první výdaj' }],
+    target: [{ selector: 'button', contains: 'Přidat výdaj', nativeId: 'budget-add-expense' }, { selector: 'button', contains: 'Zapsat první výdaj' }],
     targetLabel: 'Sem klepněte',
   },
   {
@@ -346,7 +348,7 @@ const BASE_STEPS: readonly GuideStep[] = [
     where: 'V sekci „Rozpočet“ klepněte nahoře na „Plánování“. Jednotlivé bloky se rozklikávají.',
     todo: ['Otevřete „Příjmy“ a přidejte výplatu.', 'U „Plánované výdaje“ přidejte, co vás čeká.'],
     prepare: { selector: '[role="group"][aria-label="Zobrazení rozpočtu"] button', text: 'Plánování' },
-    target: [{ selector: 'section button', contains: 'Příjmy' }],
+    target: [{ selector: 'section button', contains: 'Příjmy', nativeId: 'budget-plan-section' }],
     targetLabel: 'Otevřete „Příjmy“',
   },
   {
@@ -396,7 +398,7 @@ const BASE_STEPS: readonly GuideStep[] = [
     text: 'Slevy z letáků na jednom místě. U každé akce ukážu cenu za kilo či litr a řeknu, jestli je to opravdu nejlepší cena, ne jen velké procento. Filtrujte podle obchodu a kategorie; „Pro mě“ ukáže jen to, co sedí vašim značkám a produktům.',
     where: 'Na telefonu klepněte dole na „Více“ a pak na „Akce“.',
     todo: ['Napište, co hledáte, nebo si listujte. Co se vám líbí, klepnutím přidáte „Na seznam“.'],
-    target: [{ selector: 'input[aria-label="Hledat v akcích"]' }],
+    target: [{ selector: 'input[aria-label="Hledat v akcích"]', nativeId: 'deals-search' }],
     targetLabel: 'Sem napište, co hledáte',
   },
   {
@@ -407,7 +409,7 @@ const BASE_STEPS: readonly GuideStep[] = [
     text: 'Napište své město a ukážu prodejny řetězců, kde jsou a jak daleko. Hodí se při výběru, kam zajít, nebo když jedete někam, kde to neznáte.',
     where: 'Na telefonu klepněte dole na „Více“ a pak na „Obchody“.',
     todo: ['Napište město (třeba Brno). Které řetězce navštěvujete, nastavíte v Profilu.'],
-    target: [{ selector: 'input[aria-label="Lokalita"]' }],
+    target: [{ selector: 'input[aria-label="Lokalita"]', nativeId: 'stores-search' }],
     targetLabel: 'Sem napište město',
   },
   {
@@ -419,7 +421,7 @@ const BASE_STEPS: readonly GuideStep[] = [
     where: 'Na telefonu klepněte dole na „Více“ a pak na „Recepty“.',
     todo: ['Klepněte na „Navrhnout recepty“ a suroviny z receptu přidejte na seznam.'],
     prepare: { selector: '[role="group"][aria-label="Recepty"] button', text: 'Recepty' },
-    target: [{ selector: 'button', text: 'Navrhnout recepty' }],
+    target: [{ selector: 'button', text: 'Navrhnout recepty', nativeId: 'recipes-recommend' }],
     targetLabel: 'Sem klepněte',
   },
   {
@@ -431,7 +433,7 @@ const BASE_STEPS: readonly GuideStep[] = [
     where: 'Na telefonu dole „Více“ → „Recepty“ → záložka „Jídelníček“.',
     todo: ['Klepněte na „Vytvořit jídelníček“ a chybějící suroviny přidejte na seznam.'],
     prepare: { selector: '[role="group"][aria-label="Recepty"] button', text: 'Jídelníček' },
-    target: [{ selector: 'button', text: 'Vytvořit jídelníček' }, { selector: 'button', text: 'Vytvořit nový jídelníček' }],
+    target: [{ selector: 'button', text: 'Vytvořit jídelníček', nativeId: 'mealplan-create' }, { selector: 'button', text: 'Vytvořit nový jídelníček' }],
     targetLabel: 'Sem klepněte',
   },
   {
@@ -456,7 +458,7 @@ const BASE_STEPS: readonly GuideStep[] = [
       'Pod ní je „Smazání dat“ (jen pro zakladatele): červené tlačítko, které nevratně smaže vybraná data, profil zůstane.',
     ],
     covers: ['profile-members', 'profile-stores', 'profile-preferences', 'profile-stock', 'profile-notifications', 'profile-history', 'profile-reset'],
-    target: [{ selector: '[data-guide="household-name"]' }],
+    target: [{ selector: '[data-guide="household-name"]', nativeId: 'profile-household-name' }],
     targetLabel: 'Začněte jménem domácnosti',
   },
   {
@@ -468,7 +470,7 @@ const BASE_STEPS: readonly GuideStep[] = [
     text: 'U každého člena nastavíte způsob stravování, alergie a co nejí. U dětí věk a zvláštní potřeby. Další dospělé pozvete e-mailem a ti pak uvidí a mohou upravovat stejný nákupní seznam, zásoby i rozpočet. Změny druhých se ale ukážou až po tlačítku „Obnovit“ nad nákupním seznamem, jinde po obnovení stránky.',
     where: 'V Profilu, záložka „Domácnost“: „Členové domácnosti“ a pod ním „Děti“.',
     todo: ['Přidejte e-mail dalšího člena a pošlete pozvánku.', 'U dětí vyplňte věk a alergie.'],
-    target: [{ selector: 'section button', contains: 'Děti' }],
+    target: [{ selector: 'section button', contains: 'Děti', nativeId: 'profile-members' }],
     targetLabel: 'Tady jsou děti',
   },
   {
@@ -560,7 +562,7 @@ function anitkaStep(): GuideStep {
     title: 'Chat s Anitkou',
     text: 'Až bude AI připojená, pomůžu vám naplánovat nákup podle rozpočtu, porovnat ceny a akce nebo vymyslet večeři. AI zatím není připojená, takže zprávy nezpracovávám.',
     where: 'Klepněte na můj obrázek v levém horním rohu.',
-    target: [{ selector: 'button[aria-label="Otevřít chat s Anitkou"]' }],
+    target: [{ selector: 'button[aria-label="Otevřít chat s Anitkou"]', nativeId: 'assistant-open' }],
     targetLabel: 'Tady otevřete chat',
     navHint: false,
   }

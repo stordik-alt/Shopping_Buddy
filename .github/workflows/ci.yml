@@ -10,16 +10,16 @@ on:
 permissions:
   contents: read
 
-# Web (PWA) checks. A change that only touches the Expo app (apps/mobile) skips every job below: a skipped
-# job counts as passed for required checks, so the check names stay stable for main's protection rules.
-# The mobile app has its own workflow (mobile.yml). Nothing here deploys: production is the manual
-# cloudflare-deploy.yml, which builds the web app only and never reads mobile results.
+# PWA checks and a paired PWA/Android visual smoke run. A change that only touches the Expo app skips
+# web-only build and database jobs, but still runs the visual smoke job. The mobile app has its own
+# typecheck/export workflow (mobile.yml). Nothing here deploys: production is the manual cloudflare-deploy.yml.
 jobs:
   changes:
     name: Detect web changes
     runs-on: ubuntu-latest
     outputs:
       web: ${{ steps.diff.outputs.web }}
+      mobile: ${{ steps.diff.outputs.mobile }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -36,11 +36,16 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           web=true
+          mobile=false
           if [ "$EVENT" = "pull_request" ]; then
-            others=$(git diff --name-only "$BASE_SHA...$HEAD_SHA" | grep -v '^apps/mobile/' || true)
+            changed=$(git diff --name-only "$BASE_SHA...$HEAD_SHA")
+            others=$(printf '%s\n' "$changed" | grep -v '^apps/mobile/' || true)
+            mobile_files=$(printf '%s\n' "$changed" | grep '^apps/mobile/' || true)
             if [ -z "$others" ]; then web=false; fi
+            if [ -n "$mobile_files" ]; then mobile=true; fi
           fi
           echo "web=$web" >> "$GITHUB_OUTPUT"
+          echo "mobile=$mobile" >> "$GITHUB_OUTPUT"
 
   unit:
     name: Unit tests, typecheck and production build
@@ -116,9 +121,9 @@ jobs:
   e2e:
     name: Playwright smoke tests
     needs: changes
-    if: needs.changes.outputs.web == 'true'
+    if: needs.changes.outputs.web == 'true' || needs.changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     services:
       postgres:
         image: postgres:16
@@ -195,6 +200,71 @@ jobs:
           path: test-results/
           if-no-files-found: ignore
           retention-days: 7
+
+      - name: Create isolated Android visual account
+        env:
+          MOBILE_VISUAL_EMAIL: mobile-visual@example.com
+          MOBILE_VISUAL_PASSWORD: MobileVisual-2026!
+        run: pnpm exec tsx e2e/mobile/create-visual-fixture.ts
+
+      - name: Build Android debug APK for the emulator
+        env:
+          EXPO_PUBLIC_API_URL: http://10.0.2.2:3000
+          NEXT_PUBLIC_LOCAL_DATABASE: '1'
+          ANITKA_E2E_CLEAR_TEXT: '1'
+        run: pnpm --filter @shopping-buddy/mobile exec expo prebuild --platform android --no-install
+
+      - name: Assemble Android debug APK
+        working-directory: apps/mobile/android
+        env:
+          EXPO_PUBLIC_API_URL: http://10.0.2.2:3000
+          NEXT_PUBLIC_LOCAL_DATABASE: '1'
+          ANITKA_E2E_CLEAR_TEXT: '1'
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Start the isolated PWA/API server for the Android emulator
+        run: |
+          nohup pnpm start > /tmp/shopping-buddy-visual-server.log 2>&1 &
+          for attempt in $(seq 1 45); do
+            if curl --fail --silent http://127.0.0.1:3000/intro > /dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/shopping-buddy-visual-server.log
+          exit 1
+
+      - name: Install Maestro CLI
+        env:
+          MAESTRO_VERSION: 2.9.0
+        run: |
+          curl -Ls https://get.maestro.mobile.dev | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Capture and compare PWA and native Android screens
+        uses: ReactiveCircus/android-emulator-runner@e93c997dcab46504001df7ed7cac9fd62940813e # v2.9.0
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: Pixel_6
+          emulator-boot-timeout: 600
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: |
+            adb install -r apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+            adb shell wm size 390x892
+            adb shell wm density 160
+            maestro test --test-output-dir test-results/mobile-parity/native/login --debug-output test-results/mobile-parity/debug/login .maestro/flows/mobile-visual-login.yaml -e MOBILE_VISUAL_EMAIL=mobile-visual@example.com -e MOBILE_VISUAL_PASSWORD=MobileVisual-2026!
+            maestro test --test-output-dir test-results/mobile-parity/native/light --debug-output test-results/mobile-parity/debug/light .maestro/flows/mobile-visual-capture.yaml -e THEME=light
+            maestro test --test-output-dir test-results/mobile-parity/native/dark --debug-output test-results/mobile-parity/debug/dark .maestro/flows/mobile-visual-capture.yaml -e THEME=dark
+            pnpm exec tsx e2e/mobile/compare-parity-screenshots.ts
+
+      - name: Upload paired PWA and native Android screenshots
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mobile-visual-parity-${{ github.run_id }}
+          path: test-results/mobile-parity/
+          if-no-files-found: warn
+          retention-days: 14
 
   database:
     name: Database-backed tests (local PostgreSQL)

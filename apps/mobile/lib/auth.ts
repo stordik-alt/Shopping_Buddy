@@ -1,6 +1,7 @@
 import './crypto-polyfill'
 import { createAuthClient } from '@neondatabase/auth'
 import { BetterAuthVanillaAdapter } from '@neondatabase/auth/vanilla/adapters'
+import Constants from 'expo-constants'
 import * as SecureStore from 'expo-secure-store'
 import { Platform } from 'react-native'
 import { getApiUrl } from './config'
@@ -116,6 +117,14 @@ export async function getAccessToken(): Promise<string | null> {
     throw error
   }
   return null
+}
+
+export function usesLocalAuth(): boolean {
+  return Constants.expoConfig?.extra?.localAuth === true
+}
+
+export async function getStoredAuthCookie(): Promise<string> {
+  return readCookie()
 }
 
 function isJwt(token: string | null | undefined): token is string {

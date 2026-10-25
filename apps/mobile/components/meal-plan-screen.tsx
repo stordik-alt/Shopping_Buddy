@@ -4,6 +4,7 @@ import { unitLabel, type ItemUnit } from '@anitka/shared/units'
 import { getAccessToken } from '../lib/auth'
 import { RefreshButton } from './refresh-button'
 import { useMobileTheme } from '../lib/theme'
+import { useNativeGuideTarget } from './native-guide-targets'
 import {
   generateMealPlan,
   getMealPlan,
@@ -26,6 +27,7 @@ function displayQuantity(quantity: number, unit: ItemUnit): string {
 export function MealPlanScreen({ onAuthExpired }: { onAuthExpired: () => void }) {
   const { colors } = useMobileTheme()
   const styles = useStyles()
+  const createGuideTarget = useNativeGuideTarget('mealplan-create')
   const [plan, setPlan] = useState<MobileMealPlan | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -167,7 +169,7 @@ export function MealPlanScreen({ onAuthExpired }: { onAuthExpired: () => void })
           <Text style={styles.stockCheck}>{useStock ? '☑' : '☐'}</Text>
           <Text style={styles.label}>Zohlednit zásoby domácnosti</Text>
         </Pressable>
-        <Pressable accessibilityRole="button" disabled={saving || loading} onPress={() => void createPlan()} style={[styles.primaryButton, (saving || loading) && styles.disabled]}>
+        <Pressable ref={createGuideTarget} accessibilityRole="button" disabled={saving || loading} onPress={() => void createPlan()} style={[styles.primaryButton, (saving || loading) && styles.disabled]}>
           <Text style={styles.primaryButtonText}>{saving ? 'Ukládám…' : 'Vytvořit jídelníček'}</Text>
         </Pressable>
       </View>

@@ -33,6 +33,7 @@ const config: ExpoConfig = {
   ios: { bundleIdentifier: 'cz.shoppingbuddy.mobile' },
   android: {
     package: 'cz.shoppingbuddy.mobile',
+    ...(process.env.ANITKA_E2E_CLEAR_TEXT === '1' ? { usesCleartextTraffic: true } : {}),
     adaptiveIcon: {
       foregroundImage: './assets/anitka-icon-maskable-512.png',
       backgroundColor: '#ffffff',
@@ -40,6 +41,7 @@ const config: ExpoConfig = {
   },
   extra: {
     apiUrl: process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000',
+    localAuth: process.env.NEXT_PUBLIC_LOCAL_DATABASE === '1',
     eas: {
       projectId: '71379d96-272a-4aa5-af0a-940a00b69b44',
     },

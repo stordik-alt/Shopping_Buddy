@@ -8,6 +8,7 @@ import { MAX_SHOP_STORES } from '../../../lib/nearby-stores'
 import { createOfflineItemId } from '../lib/offline-shopping-list'
 import { addShoppingItem, buildShoppingPlan, getShoppingPlanPins, getStorePreferences, pinShoppingProduct, searchProducts, unpinShoppingProduct, type MobileShoppingItem } from '../lib/shopping-list-api'
 import { useMobileTheme } from '../lib/theme'
+import { useNativeGuideTarget } from './native-guide-targets'
 
 type PlanResult = import('../../../lib/db/shopping-plan').PlanResult
 type PinRecord = import('../../../lib/db/shopping-plan').PinRecord
@@ -69,13 +70,14 @@ function useStyles() {
   }), [colors])
 }
 
-export function ShoppingToolsModal({ visible, items, listId, onClose, onProductAdded, onAuthExpired }: {
+export function ShoppingToolsModal({ visible, items, listId, onClose, onProductAdded, onAuthExpired, guideStepId }: {
   visible: boolean
   items: MobileShoppingItem[]
   listId: string
   onClose: () => void
   onProductAdded: (item: MobileShoppingItem) => Promise<void>
   onAuthExpired: () => void
+  guideStepId?: string | null
 }) {
   const { colors } = useMobileTheme()
   const styles = useStyles()
@@ -97,6 +99,13 @@ export function ShoppingToolsModal({ visible, items, listId, onClose, onProductA
   const [searchError, setSearchError] = useState<string | null>(null)
   const [actionBusy, setActionBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const planGuideTarget = useNativeGuideTarget('shopping-plan')
+  const productsGuideTarget = useNativeGuideTarget('shopping-products-tab')
+
+  useEffect(() => {
+    if (!visible) return
+    setTab(guideStepId === 'shopping-search' ? 'products' : 'plan')
+  }, [guideStepId, visible])
 
   const openItems = items.filter((item) => !item.done)
   const inputKey = JSON.stringify({ items: openItems.map(({ id, name, quantity, unit, productId, category, productTypes }) => [id, name, quantity, unit, productId, category, productTypes]), pins: pins.filter((pin) => openItems.some((item) => item.id === pin.itemId)).map(({ itemId, storeId, productId }) => [itemId, storeId, productId]).sort() })
@@ -211,7 +220,7 @@ export function ShoppingToolsModal({ visible, items, listId, onClose, onProductA
         <View style={styles.handle} />
         <View style={styles.header}><Text style={styles.title}>Nákupní nástroje</Text><Pressable accessibilityLabel="Zavřít nákupní nástroje" accessibilityRole="button" onPress={onClose} style={styles.close}><X color={colors.foreground} size={20} /></Pressable></View>
         <View style={styles.tabs}>
-          {([['plan', 'Plán nákupu'], ['products', 'Najít produkt']] as [Tab, string][]).map(([key, label]) => <Pressable key={key} accessibilityRole="tab" accessibilityState={{ selected: tab === key }} onPress={() => setTab(key)} style={[styles.tab, tab === key && styles.tabActive]}><Text style={[styles.tabText, tab === key && styles.tabTextActive]}>{label}</Text></Pressable>)}
+          {([['plan', 'Plán nákupu'], ['products', 'Najít produkt']] as [Tab, string][]).map(([key, label]) => <Pressable ref={key === 'products' ? productsGuideTarget : undefined} key={key} accessibilityRole="tab" accessibilityState={{ selected: tab === key }} onPress={() => setTab(key)} style={[styles.tab, tab === key && styles.tabActive]}><Text style={[styles.tabText, tab === key && styles.tabTextActive]}>{label}</Text></Pressable>)}
         </View>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
           {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
@@ -226,7 +235,7 @@ export function ShoppingToolsModal({ visible, items, listId, onClose, onProductA
                 <View style={styles.selectRow}>{preferences!.chains.map((chain) => { const selected = priorityIds.includes(chain.id); return <Pressable key={chain.id} accessibilityRole="checkbox" accessibilityState={{ checked: selected }} onPress={() => void togglePriority(chain.id)} style={[styles.chip, selected && styles.chipActive]}><Text style={[styles.chipText, selected && styles.chipTextActive]}>{selected ? '★ ' : ''}{chain.chain}</Text></Pressable> })}</View>
                 <Text style={styles.note}>Počty a priority se berou z vašeho nastavení obchodů. Plán používá vaše obchody v okolí; bez výběru zahrne všechny řetězce.</Text>
               </> : null}
-              <Pressable accessibilityRole="button" disabled={planBusy || pinsLoading || openItems.length === 0} onPress={() => void runPlan()} style={[styles.primary, (planBusy || pinsLoading || openItems.length === 0) && styles.disabled]}><Text style={styles.primaryText}>{planBusy ? 'Počítám plán…' : planResult ? 'Sestavit znovu' : 'Sestavit plán'}</Text></Pressable>
+              <Pressable ref={planGuideTarget} accessibilityRole="button" disabled={planBusy || pinsLoading || openItems.length === 0} onPress={() => void runPlan()} style={[styles.primary, (planBusy || pinsLoading || openItems.length === 0) && styles.disabled]}><Text style={styles.primaryText}>{planBusy ? 'Počítám plán…' : planResult ? 'Sestavit znovu' : 'Sestavit plán'}</Text></Pressable>
               {openItems.length === 0 ? <Text style={styles.note}>Na seznamu nejsou žádné otevřené položky.</Text> : null}
             </View>
             {stale ? <View style={styles.banner}><Text style={styles.bannerText}>Seznam nebo výběr produktů se změnil. Sestavte plán znovu.</Text></View> : null}

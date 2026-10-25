@@ -103,7 +103,13 @@ test.describe('critical smoke flow', () => {
       // navigation underneath it; the guide itself is covered by its component tests.
       const guide = page.getByRole('dialog', { name: 'Průvodce aplikací' })
       await expect(guide).toBeVisible()
-      await guide.getByRole('button', { name: 'Přeskočit' }).click()
+      await page.setViewportSize({ width: 390, height: 844 })
+      await page.emulateMedia({ colorScheme: 'light' })
+      await page.screenshot({ path: 'test-results/mobile-ui-v2/light-390x844-guide-welcome.png', fullPage: true })
+      await guide.getByRole('button', { name: 'Začít' }).click()
+      await expect(guide.getByRole('heading', { name: 'Jak se tu pohybovat' })).toBeVisible()
+      await page.screenshot({ path: 'test-results/mobile-ui-v2/light-390x844-guide-navigation-spotlight.png', fullPage: true })
+      await guide.getByRole('button', { name: 'Zavřít průvodce' }).click()
       await expect(guide).toHaveCount(0)
 
       await page.goto('/?tab=nakup')
@@ -128,11 +134,14 @@ test.describe('critical smoke flow', () => {
       ]
       const themes = ['light', 'dark'] as const
       const primaryTabs = [
-        ['/', 'Domů'],
-        ['/?tab=nakup', 'Nákupní seznam'],
-        ['/?tab=zasoby', 'Zásoby'],
-        ['/?tab=rozpocet', 'Přehled'],
-        ['/?tab=recepty', 'Recepty'],
+        ['/', 'Domů', 'home'],
+        ['/?tab=nakup', 'Nákupní seznam', 'shopping'],
+        ['/?tab=zasoby', 'Zásoby', 'pantry'],
+        ['/?tab=rozpocet', 'Přehled', 'budget'],
+        ['/?tab=recepty', 'Recepty', 'recipes'],
+        ['/?tab=akce', 'Akce', 'deals'],
+        ['/?tab=obchody', 'Obchody', 'stores'],
+        ['/?tab=profil', 'Profil', 'profile'],
       ] as const
 
       for (const colorScheme of themes) {
@@ -161,15 +170,60 @@ test.describe('critical smoke flow', () => {
           })
 
           if (viewport.width === 390 && viewport.height === 844) {
-            for (const [url, label] of primaryTabs) {
+            for (const [url, label, screenshotName] of primaryTabs) {
               await page.goto(url)
               await expectVisibleExactText(page, label)
               await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+              await page.screenshot({ path: `test-results/mobile-parity/pwa/${colorScheme}-${screenshotName}.png`, fullPage: false })
               await page.screenshot({
                 path: 'test-results/mobile-ui-v2/' + colorScheme + '-390x844-' + label.replaceAll(' ', '-').toLowerCase() + '.png',
                 fullPage: true,
               })
+              if (url === '/?tab=nakup') {
+                await page.getByRole('button', { name: 'Účtenky', exact: true }).first().click()
+                await expect(page.getByText('Rozpracované účtenky', { exact: true })).toBeVisible()
+                await page.screenshot({ path: `test-results/mobile-parity/pwa/${colorScheme}-receipts.png`, fullPage: false })
+                await page.screenshot({ path: 'test-results/mobile-ui-v2/' + colorScheme + '-390x844-uctenky.png', fullPage: true })
+              }
+              if (url === '/?tab=recepty') {
+                await page.getByRole('button', { name: 'Jídelníček', exact: true }).first().click()
+                await expect(page.getByText('Jídelníček', { exact: true }).first()).toBeVisible()
+                await page.screenshot({ path: `test-results/mobile-parity/pwa/${colorScheme}-mealplan.png`, fullPage: false })
+                await page.screenshot({ path: 'test-results/mobile-ui-v2/' + colorScheme + '-390x844-jidelnicek.png', fullPage: true })
+              }
+              if (url === '/?tab=rozpocet') {
+                await page.getByRole('button', { name: 'Plánování', exact: true }).first().click()
+                await expect(page.getByText('Rozpočtové období:')).toBeVisible()
+                await page.screenshot({ path: `test-results/mobile-parity/pwa/${colorScheme}-budget-plan.png`, fullPage: false })
+                await page.screenshot({ path: 'test-results/mobile-ui-v2/' + colorScheme + '-390x844-rozpocet-planovani.png', fullPage: true })
+              }
             }
+
+            await page.goto('/')
+            await expect(page.getByRole('heading', { name: 'Asistent pro domácnost', exact: true })).toBeVisible()
+            await page.getByRole('button', { name: 'Otevřít chat s Anitkou' }).click()
+            await expect(page.getByRole('dialog', { name: 'Chat s Anitkou' })).toBeVisible()
+            await page.screenshot({ path: `test-results/mobile-parity/pwa/${colorScheme}-ai-chat.png`, fullPage: false })
+            await page.screenshot({ path: 'test-results/mobile-ui-v2/' + colorScheme + '-390x844-ai-chat.png', fullPage: true })
+            await page.getByRole('button', { name: 'Zavřít' }).click()
+
+            await page.getByRole('button', { name: 'Účet a nastavení' }).click()
+            await page.getByRole('menuitem', { name: 'Průvodce aplikací' }).click()
+            const reopenedGuide = page.getByRole('dialog', { name: 'Průvodce aplikací' })
+            await expect(reopenedGuide).toBeVisible()
+            await page.screenshot({ path: `test-results/mobile-parity/pwa/${colorScheme}-guide-welcome.png`, fullPage: false })
+            await page.screenshot({ path: 'test-results/mobile-ui-v2/' + colorScheme + '-390x844-guide-welcome.png', fullPage: true })
+            await reopenedGuide.getByRole('button', { name: 'Začít' }).click()
+            await expect(reopenedGuide.getByRole('heading', { name: 'Jak se tu pohybovat' })).toBeVisible()
+            await page.screenshot({ path: `test-results/mobile-parity/pwa/${colorScheme}-guide-spotlight.png`, fullPage: false })
+            await page.screenshot({ path: 'test-results/mobile-ui-v2/' + colorScheme + '-390x844-guide-navigation-spotlight.png', fullPage: true })
+            await reopenedGuide.getByRole('button', { name: 'Další' }).click()
+            await reopenedGuide.getByRole('heading', { name: 'Domů: dnešní přehled' }).waitFor()
+            await reopenedGuide.getByRole('button', { name: 'Další' }).click()
+            await expect(reopenedGuide.getByRole('heading', { name: 'Nákupní seznam: co máme koupit' })).toBeVisible()
+            await expect(page.getByText('Sem napište, co chybí', { exact: true })).toBeVisible()
+            await page.screenshot({ path: `test-results/mobile-parity/pwa/${colorScheme}-guide-feature-spotlight.png`, fullPage: false })
+            await reopenedGuide.getByRole('button', { name: 'Zavřít průvodce' }).click()
           }
         }
       }

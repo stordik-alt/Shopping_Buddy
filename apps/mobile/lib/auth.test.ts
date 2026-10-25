@@ -9,6 +9,7 @@ vi.mock('@neondatabase/auth', () => ({
   createAuthClient: () => ({ getSession: mocks.getSession }),
 }))
 vi.mock('@neondatabase/auth/vanilla/adapters', () => ({ BetterAuthVanillaAdapter: () => ({}) }))
+vi.mock('expo-constants', () => ({ default: { expoConfig: { extra: { localAuth: false } } } }))
 vi.mock('expo-crypto', () => ({
   randomUUID: () => 'mobile-auth-test-id',
   getRandomValues: (typedArray: Uint8Array) => typedArray,

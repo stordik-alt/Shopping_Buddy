@@ -35,6 +35,7 @@ import { ocrProviderLabel } from '../../../lib/receipt-ocr-provider'
 import type { ItemCategory, PantryLocation } from '../../../lib/types'
 import { getAccessToken } from '../lib/auth'
 import type { MobileReceiptLineItem } from '../lib/shopping-list-api'
+import { useNativeGuideTarget } from './native-guide-targets'
 
 const ITEM_CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
 const sortedProductTypes = [...PRODUCT_TYPES].sort((a, b) => a.name.localeCompare(b.name, 'cs'))
@@ -363,6 +364,7 @@ export function ReceiptsScreen({ onAuthExpired, onListItemsUpdated, focusedRecei
   const [reviewing, setReviewing] = useState<MobileReceiptImport | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [listSuggestions, setListSuggestions] = useState<{ purchaseId: string; suggestions: ReceiptListSuggestion[] } | null>(null)
+  const uploadGuideTarget = useNativeGuideTarget('receipt-upload')
 
   async function offerListMatches(purchaseId: string | null | undefined) {
     if (!purchaseId) return
@@ -505,7 +507,7 @@ export function ReceiptsScreen({ onAuthExpired, onListItemsUpdated, focusedRecei
         <Text style={styles.sectionTitle}>Import účtenky</Text>
         <Text style={styles.supporting}>Vyfoťte nebo vyberte účtenku. Nákup se po zpracování uloží do historie, rozpočtu i zásob domácnosti.</Text>
         <View style={styles.importActions}>
-          <Pressable accessibilityRole="button" disabled={workingId !== null} onPress={() => setCameraOpen(true)} style={[styles.primaryButton, styles.importAction, workingId !== null && styles.disabledButton]}>
+          <Pressable ref={uploadGuideTarget} accessibilityRole="button" disabled={workingId !== null} onPress={() => setCameraOpen(true)} style={[styles.primaryButton, styles.importAction, workingId !== null && styles.disabledButton]}>
             <Camera color={colors.primaryForeground} size={18} /><Text style={styles.primaryButtonText}>Vyfotit</Text>
           </Pressable>
           <Pressable accessibilityRole="button" disabled={workingId !== null} onPress={() => void choosePhoto()} style={[styles.secondaryButton, styles.importAction, workingId !== null && styles.disabledButton]}>

@@ -1,0 +1,13 @@
+appId: cz.shoppingbuddy.mobile
+---
+- launchApp:
+    clearState: true
+- tapOn: "E-mail"
+- inputText: ${MOBILE_VISUAL_EMAIL}
+- tapOn: "Heslo"
+- inputText: ${MOBILE_VISUAL_PASSWORD}
+- tapOn:
+    id: login-submit
+- extendedWaitUntil:
+    visible: "Ahoj, já jsem Anitka!"
+    timeout: 30000

@@ -8,6 +8,7 @@
 - Nativní chat používá stejné oříznutí maskota jako PWA a řadí ho na střed zprávy. Android se kontroluje v emulátoru CI; iOS zůstává samostatnou ruční kontrolou.
 - Testovací Android build povoluje HTTP jen přes Expo config plugin při `ANITKA_E2E_CLEAR_TEXT=1`, aby emulátor mohl volat izolovaný lokální server. Běžná aplikace toto oprávnění nedostává. Emulátor používá `adb reverse` a origin `127.0.0.1`, který odpovídá důvěryhodnému originu lokálního Better Auth. V tomto režimu mobilní klient používá Better Auth cookie; mimo něj zůstává vyžadován Neon JWT.
 - Po lokálním přihlášení Expo aplikace znovu nevolá SDK `getSession`: ověřenou relaci převezme z cookie nebo stavu právě dokončeného přihlášení. Tím se v Hermes obchází SDK cache cesta založená na `Response.json()`, kterou React Native neposkytuje. Ověřeno typovou kontrolou a 32 cílenými testy auth/API; Android CI průchod se opakuje.
+- Mobilní auth klient ukládá cookies z odpovědi Neon Auth a posílá je při následném ověření relace. API klient přidává ruční `Cookie` hlavičku jen při neprázdné hodnotě; prázdná hlavička by přebila cookie jar React Native a mohla odhlásit relaci při otevření účtenek. Ověřeno cílenými testy auth/API; úplný Android screenshot průchod po opravě čeká na CI.
 - Emulátorový release build kompiluje jen `x86_64` a cachuje Gradle závislosti, protože CI ověřuje Android emulátor této architektury.
 - PWA audit zásob omezuje čekání jednotlivých akcí na 15 sekund a celý průchod na 5 minut; chybějící ovládací prvek tak ukáže selhání místo vyčerpání celého CI timeoutu.
 

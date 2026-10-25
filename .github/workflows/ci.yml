@@ -226,9 +226,12 @@ jobs:
           ndk_version="${ndk_root##*/}"
           echo "Using preinstalled Android NDK $ndk_version"
           test -f build.gradle
-          grep -q 'ndkVersion = ' build.gradle
-          sed -i "s/ndkVersion = \"[^\"]*\"/ndkVersion = \"$ndk_version\"/" build.gradle
-          grep -F "ndkVersion = \"$ndk_version\"" build.gradle
+          # Expo SDK 57 sets rootProject.ext.ndkVersion from its plugin; pin
+          # that shared value after the plugin applies so app and native modules
+          # use the NDK already installed on the runner.
+          printf '\n// CI uses the NDK preinstalled on ubuntu-24.04.\next.ndkVersion = "%s"\n' "$ndk_version" >> build.gradle
+          tail -n 2 build.gradle
+          grep -F "ext.ndkVersion = \"$ndk_version\"" build.gradle
 
       - name: Assemble Android debug APK
         working-directory: apps/mobile/android

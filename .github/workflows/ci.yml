@@ -224,7 +224,7 @@ jobs:
 
       - name: Start the isolated PWA/API server for the Android emulator
         run: |
-          nohup pnpm start > /tmp/shopping-buddy-visual-server.log 2>&1 &
+          nohup ./node_modules/.bin/next start > /tmp/shopping-buddy-visual-server.log 2>&1 &
           for attempt in $(seq 1 45); do
             if curl --fail --silent http://127.0.0.1:3000/intro > /dev/null; then exit 0; fi
             sleep 2
@@ -255,7 +255,7 @@ jobs:
             maestro test --test-output-dir test-results/mobile-parity/native/login --debug-output test-results/mobile-parity/debug/login .maestro/flows/mobile-visual-login.yaml -e MOBILE_VISUAL_EMAIL=mobile-visual@example.com -e MOBILE_VISUAL_PASSWORD=MobileVisual-2026!
             maestro test --test-output-dir test-results/mobile-parity/native/light --debug-output test-results/mobile-parity/debug/light .maestro/flows/mobile-visual-capture.yaml -e THEME=light
             maestro test --test-output-dir test-results/mobile-parity/native/dark --debug-output test-results/mobile-parity/debug/dark .maestro/flows/mobile-visual-capture.yaml -e THEME=dark
-            pnpm exec tsx e2e/mobile/compare-parity-screenshots.ts
+            ./node_modules/.bin/tsx e2e/mobile/compare-parity-screenshots.ts
 
       - name: Upload paired PWA and native Android screenshots
         if: always()

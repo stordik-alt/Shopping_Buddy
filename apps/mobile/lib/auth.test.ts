@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
   signInEmail: vi.fn(),
+  adapterOptions: vi.fn(),
   values: new Map<string, string>(),
   config: { localAuth: false },
 }))
@@ -10,7 +11,12 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@neondatabase/auth', () => ({
   createAuthClient: () => ({ getSession: mocks.getSession, signIn: { email: mocks.signInEmail } }),
 }))
-vi.mock('@neondatabase/auth/vanilla/adapters', () => ({ BetterAuthVanillaAdapter: () => ({}) }))
+vi.mock('@neondatabase/auth/vanilla/adapters', () => ({
+  BetterAuthVanillaAdapter: (options: unknown) => {
+    mocks.adapterOptions(options)
+    return () => ({})
+  },
+}))
 vi.mock('expo-constants', () => ({ default: { expoConfig: { extra: mocks.config } } }))
 vi.mock('expo-crypto', () => ({
   randomUUID: () => 'mobile-auth-test-id',
@@ -73,6 +79,35 @@ describe('mobile auth token cache', () => {
 
     await expect(signIn('mobile@example.com', 'password123')).resolves.toBeUndefined()
     expect(mocks.values.has('anitka.auth.cookies')).toBe(false)
+    expect(mocks.adapterOptions).toHaveBeenLastCalledWith(expect.objectContaining({
+      fetchOptions: expect.objectContaining({
+        credentials: 'include',
+        headers: { origin: 'https://anitka.example' },
+        onSuccess: expect.any(Function),
+      }),
+    }))
+  })
+
+  it('persists cookies and Neon JWTs from the adapter response hook', async () => {
+    mocks.config.localAuth = true
+    mocks.signInEmail.mockResolvedValue({ data: {} })
+    mocks.getSession.mockResolvedValue({ data: { session: { token: 'opaque-session-id' } } })
+    await signIn('mobile@example.com', 'password123')
+
+    const options = mocks.adapterOptions.mock.lastCall?.[0] as {
+      fetchOptions: { onSuccess: (context: { response: Response }) => Promise<void> }
+    }
+    await options.fetchOptions.onSuccess({
+      response: new Response(null, {
+        headers: {
+          'set-cookie': 'better-auth.session_token=signed-session; Path=/; HttpOnly; Max-Age=3600',
+          'set-auth-jwt': TEST_JWT,
+        },
+      }),
+    })
+
+    expect(mocks.values.get('anitka.auth.cookies')).toBe('better-auth.session_token=signed-session')
+    expect(mocks.values.get('anitka.auth.jwt')).toBe(TEST_JWT)
   })
 
   it('still requires a Neon JWT outside the local-auth mode', async () => {

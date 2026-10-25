@@ -65,31 +65,23 @@ function mergeCookies(existing: string, updates: string[]): string {
   return [...cookies].map(([name, value]) => `${name}=${value}`).join('; ')
 }
 
-const nativeFetch: typeof fetch = async (input, init) => {
-  const headers = new Headers(init?.headers)
-  headers.set('origin', getApiUrl())
-  const cookie = await readCookie()
-  if (cookie) headers.set('cookie', cookie)
-  // React Native's cookie jar is the reliable fallback when its Headers implementation hides
-  // Set-Cookie. Keep the explicit SecureStore cookie for API requests and use both paths locally.
-  const response = await fetch(input, { ...init, headers, credentials: usesLocalAuth() ? 'include' : 'omit' })
-  const updates = setCookieHeaders(response.headers)
-  if (updates.length > 0) await writeCookie(mergeCookies(cookie, updates))
-  const token = response.headers.get('set-auth-jwt')
-  if (token) await writeToken(token)
-  return response
-}
-
-type CustomFetchImpl = NonNullable<
-  NonNullable<NonNullable<Parameters<typeof BetterAuthVanillaAdapter>[0]>['fetchOptions']>['customFetchImpl']
->
-
 function getAuthClient() {
+  const localAuth = usesLocalAuth()
   return createAuthClient(`${getApiUrl()}/api/auth`, {
-    // TypeScript 6 types the auth client's fetch with DOM `RequestInfo`, which lacks `URL`; React Native's
-    // fetch accepts it, so the cast only reconciles the two declarations.
     adapter: BetterAuthVanillaAdapter({
-      fetchOptions: { customFetchImpl: nativeFetch as unknown as CustomFetchImpl },
+      // NeonAuthAdapterCore replaces customFetchImpl internally, so transport settings must use its
+      // supported fetch options. The local API requires this trusted origin and React Native's cookie jar.
+      fetchOptions: {
+        credentials: localAuth ? 'include' : 'omit',
+        headers: { origin: getApiUrl() },
+        onSuccess: async ({ response }) => {
+          const cookie = await readCookie()
+          const updates = setCookieHeaders(response.headers)
+          if (updates.length > 0) await writeCookie(mergeCookies(cookie, updates))
+          const token = response.headers.get('set-auth-jwt')
+          if (token) await writeToken(token)
+        },
+      },
     }),
   })
 }
@@ -103,7 +95,7 @@ export async function getAccessToken(): Promise<string | null> {
   try {
     // The server-side session cache returns an opaque session ID in `session.token`.
     // A fresh lookup bypasses that cache and lets Neon Auth attach `set-auth-jwt`,
-    // which nativeFetch stores in SecureStore for authenticated API requests.
+    // which the adapter's onSuccess hook stores in SecureStore for authenticated API requests.
     const result = (await getAuthClient().getSession({ query: { disableCookieCache: true } })) as SessionResponse
     const savedToken = await readToken()
     if (result.error) {
@@ -145,22 +137,12 @@ export async function clearAccessToken(): Promise<void> {
 
 export async function signIn(email: string, password: string): Promise<void> {
   localSessionAvailable = false
-  let stage = 'sign-in request'
-  try {
-    const result = await getAuthClient().signIn.email({ email, password })
-    if (result.error) throw new Error(result.error.message || 'Přihlášení se nezdařilo.')
-    stage = 'session verification'
-    const token = await getAccessToken()
-    // Local Better Auth sessions use a persisted cookie; only Neon Auth can issue the JWT used in production.
-    stage = 'cookie validation'
-    if (!token && !(usesLocalAuth() && ((await readCookie()) || localSessionAvailable))) {
-      throw new Error('Přihlášení se nezdařilo. Zkuste to znovu.')
-    }
-  } catch (error) {
-    // Local auth is used by the isolated emulator and local development only. Log the failing step without
-    // credentials or cookie contents so device diagnostics can distinguish transport and session failures.
-    if (usesLocalAuth()) console.error(`[mobile-auth] ${stage} failed`, error)
-    throw error
+  const result = await getAuthClient().signIn.email({ email, password })
+  if (result.error) throw new Error(result.error.message || 'Přihlášení se nezdařilo.')
+  const token = await getAccessToken()
+  // Local Better Auth sessions use a persisted cookie; only Neon Auth can issue the JWT used in production.
+  if (!token && !(usesLocalAuth() && ((await readCookie()) || localSessionAvailable))) {
+    throw new Error('Přihlášení se nezdařilo. Zkuste to znovu.')
   }
 }
 

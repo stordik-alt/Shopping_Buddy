@@ -46,7 +46,7 @@ import {
   type NativeTab,
 } from '../components/native-parity-screens'
 import { RefreshButton } from '../components/refresh-button'
-import { getAccessToken, passwordResetCallbackUrl, requestPasswordReset, resetPassword, sendVerificationCode, signIn, signOut, signUp, verifyEmailCode, verifyEmailLink } from '../lib/auth'
+import { getAccessToken, hasLocalAuthSession, passwordResetCallbackUrl, requestPasswordReset, resetPassword, sendVerificationCode, signIn, signOut, signUp, verifyEmailCode, verifyEmailLink } from '../lib/auth'
 import { GUIDE_DONE_KEY, shouldAutoStartGuide } from '../../../lib/guide'
 import {
   applyOfflineOperations,
@@ -492,7 +492,7 @@ export default function HomeScreen() {
     setOffline(false)
     try {
       const token = await getAccessToken()
-      if (!token) {
+      if (!token && !(await hasLocalAuthSession())) {
         setSignedIn(false)
         setHouseholdAvailable(false)
         setHouseholdProfile(null)

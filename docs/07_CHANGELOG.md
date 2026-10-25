@@ -7,6 +7,7 @@
 - Průvodce snímá úvod, zvýrazněnou navigaci a krok nákupního seznamu, který skutečně přepne obrazovku a ukáže pole pro novou položku. Nativní průvodce přepíná příslušné obrazovky, zvýrazňuje navigaci i ovládací prvek a zachovává stručný i podrobný průchod.
 - Nativní chat používá stejné oříznutí maskota jako PWA a řadí ho na střed zprávy. Android se kontroluje v emulátoru CI; iOS zůstává samostatnou ruční kontrolou.
 - Testovací Android build povoluje HTTP jen přes Expo config plugin při `ANITKA_E2E_CLEAR_TEXT=1`, aby emulátor mohl volat izolovaný lokální server. Běžná aplikace toto oprávnění nedostává. Emulátor používá `adb reverse` a origin `127.0.0.1`, který odpovídá důvěryhodnému originu lokálního Better Auth. V tomto režimu mobilní klient používá Better Auth cookie; mimo něj zůstává vyžadován Neon JWT.
+- Po lokálním přihlášení Expo aplikace znovu nevolá SDK `getSession`: ověřenou relaci převezme z cookie nebo stavu právě dokončeného přihlášení. Tím se v Hermes obchází SDK cache cesta založená na `Response.json()`, kterou React Native neposkytuje. Ověřeno typovou kontrolou a 32 cílenými testy auth/API; Android CI průchod se opakuje.
 - Emulátorový release build kompiluje jen `x86_64` a cachuje Gradle závislosti, protože CI ověřuje Android emulátor této architektury.
 - PWA audit zásob omezuje čekání jednotlivých akcí na 15 sekund a celý průchod na 5 minut; chybějící ovládací prvek tak ukáže selhání místo vyčerpání celého CI timeoutu.
 

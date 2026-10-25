@@ -103,6 +103,10 @@ type SessionResponse = {
 
 export async function getAccessToken(): Promise<string | null> {
   try {
+    if (usesLocalAuth() && (localSessionAvailable || (await readCookie()))) {
+      traceLocalAuth('Using the existing local session without another SDK lookup.')
+      return null
+    }
     // The server-side session cache returns an opaque session ID in `session.token`.
     // A fresh lookup bypasses that cache and lets Neon Auth attach `set-auth-jwt`,
     // which the adapter's onSuccess hook stores in SecureStore for authenticated API requests.
@@ -140,6 +144,10 @@ export async function getStoredAuthCookie(): Promise<string> {
   return readCookie()
 }
 
+export async function hasLocalAuthSession(): Promise<boolean> {
+  return usesLocalAuth() && (localSessionAvailable || Boolean(await readCookie()))
+}
+
 function isJwt(token: string | null | undefined): token is string {
   return typeof token === 'string' && token.split('.').length === 3
 }
@@ -152,6 +160,12 @@ export async function signIn(email: string, password: string): Promise<void> {
   localSessionAvailable = false
   const result = await getAuthClient().signIn.email({ email, password })
   if (result.error) throw new Error(result.error.message || 'Přihlášení se nezdařilo.')
+  if (usesLocalAuth()) {
+    // A successful local sign-in already populated Better Auth's in-memory cache. On React Native,
+    // the SDK's cached getSession path calls Response.json(), which Hermes does not implement.
+    localSessionAvailable = true
+    return
+  }
   const token = await getAccessToken()
   // Local Better Auth sessions use a persisted cookie; only Neon Auth can issue the JWT used in production.
   if (!token && !(usesLocalAuth() && ((await readCookie()) || localSessionAvailable))) {

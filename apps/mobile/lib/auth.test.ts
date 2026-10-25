@@ -3,13 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
   signInEmail: vi.fn(),
+  signOut: vi.fn().mockResolvedValue({}),
   adapterOptions: vi.fn(),
   values: new Map<string, string>(),
   config: { localAuth: false },
 }))
 
 vi.mock('@neondatabase/auth', () => ({
-  createAuthClient: () => ({ getSession: mocks.getSession, signIn: { email: mocks.signInEmail } }),
+  createAuthClient: () => ({ getSession: mocks.getSession, signIn: { email: mocks.signInEmail }, signOut: mocks.signOut }),
 }))
 vi.mock('@neondatabase/auth/vanilla/adapters', () => ({
   BetterAuthVanillaAdapter: (options: unknown) => {
@@ -30,14 +31,15 @@ vi.mock('expo-secure-store', () => ({
 vi.mock('react-native', () => ({ Platform: { OS: 'ios' } }))
 vi.mock('./config', () => ({ getApiUrl: () => 'https://anitka.example' }))
 
-import { getAccessToken, signIn } from './auth'
+import { getAccessToken, hasLocalAuthSession, signIn, signOut } from './auth'
 
 const TEST_JWT = 'header.payload.signature'
 
 describe('mobile auth token cache', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     mocks.values.clear()
     mocks.config.localAuth = false
+    await signOut()
     vi.clearAllMocks()
   })
 
@@ -86,6 +88,20 @@ describe('mobile auth token cache', () => {
         onSuccess: expect.any(Function),
       }),
     }))
+    await expect(hasLocalAuthSession()).resolves.toBe(true)
+    await expect(getAccessToken()).resolves.toBeNull()
+    expect(mocks.getSession).not.toHaveBeenCalled()
+  })
+
+  it('does not query Neon Auth again after a local session has been verified', async () => {
+    mocks.config.localAuth = true
+    mocks.getSession.mockResolvedValue({ data: { session: { token: 'opaque-session-id' } } })
+
+    await expect(getAccessToken()).resolves.toBeNull()
+    await expect(getAccessToken()).resolves.toBeNull()
+
+    expect(mocks.getSession).toHaveBeenCalledTimes(1)
+    await expect(hasLocalAuthSession()).resolves.toBe(true)
   })
 
   it('persists cookies and Neon JWTs from the adapter response hook', async () => {

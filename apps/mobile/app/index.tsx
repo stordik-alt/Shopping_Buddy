@@ -630,6 +630,11 @@ export default function HomeScreen() {
           await clearLastOfflineContext()
           await signIn(action.email, action.password)
           await load()
+          if (!guideAutoStartChecked.current) {
+            const storedGuideState = await SecureStore.getItemAsync(GUIDE_DONE_KEY).catch(() => null)
+            guideAutoStartChecked.current = true
+            if (shouldAutoStartGuide(storedGuideState)) setGuideOpen(true)
+          }
           break
         case 'sign-up':
           await signUp(action.email, action.password, action.name)

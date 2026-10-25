@@ -139,7 +139,10 @@ export async function signIn(email: string, password: string): Promise<void> {
   const result = await getAuthClient().signIn.email({ email, password })
   if (result.error) throw new Error(result.error.message || 'Přihlášení se nezdařilo.')
   const token = await getAccessToken()
-  if (!token) throw new Error('Přihlášení se nezdařilo. Zkuste to znovu.')
+  // Local Better Auth sessions use a persisted cookie; only Neon Auth can issue the JWT used in production.
+  if (!token && !(usesLocalAuth() && (await readCookie()))) {
+    throw new Error('Přihlášení se nezdařilo. Zkuste to znovu.')
+  }
 }
 
 export async function signUp(email: string, password: string, name: string): Promise<void> {

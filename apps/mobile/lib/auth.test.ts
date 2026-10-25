@@ -2,14 +2,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
+  signInEmail: vi.fn(),
   values: new Map<string, string>(),
+  config: { localAuth: false },
 }))
 
 vi.mock('@neondatabase/auth', () => ({
-  createAuthClient: () => ({ getSession: mocks.getSession }),
+  createAuthClient: () => ({ getSession: mocks.getSession, signIn: { email: mocks.signInEmail } }),
 }))
 vi.mock('@neondatabase/auth/vanilla/adapters', () => ({ BetterAuthVanillaAdapter: () => ({}) }))
-vi.mock('expo-constants', () => ({ default: { expoConfig: { extra: { localAuth: false } } } }))
+vi.mock('expo-constants', () => ({ default: { expoConfig: { extra: mocks.config } } }))
 vi.mock('expo-crypto', () => ({
   randomUUID: () => 'mobile-auth-test-id',
   getRandomValues: (typedArray: Uint8Array) => typedArray,
@@ -22,13 +24,14 @@ vi.mock('expo-secure-store', () => ({
 vi.mock('react-native', () => ({ Platform: { OS: 'ios' } }))
 vi.mock('./config', () => ({ getApiUrl: () => 'https://anitka.example' }))
 
-import { getAccessToken } from './auth'
+import { getAccessToken, signIn } from './auth'
 
 const TEST_JWT = 'header.payload.signature'
 
 describe('mobile auth token cache', () => {
   beforeEach(() => {
     mocks.values.clear()
+    mocks.config.localAuth = false
     vi.clearAllMocks()
   })
 
@@ -52,6 +55,22 @@ describe('mobile auth token cache', () => {
 
     await expect(getAccessToken()).resolves.toBeNull()
     expect(mocks.values.has('anitka.auth.jwt')).toBe(false)
+  })
+
+  it('accepts a stored local-auth cookie when the session has no Neon JWT', async () => {
+    mocks.config.localAuth = true
+    mocks.values.set('anitka.auth.cookies', 'better-auth.session_token=local-session')
+    mocks.signInEmail.mockResolvedValue({ data: {} })
+    mocks.getSession.mockResolvedValue({ data: { session: { token: 'opaque-session-id' } } })
+
+    await expect(signIn('mobile@example.com', 'password123')).resolves.toBeUndefined()
+  })
+
+  it('still requires a Neon JWT outside the local-auth mode', async () => {
+    mocks.signInEmail.mockResolvedValue({ data: {} })
+    mocks.getSession.mockResolvedValue({ data: { session: { token: 'opaque-session-id' } } })
+
+    await expect(signIn('mobile@example.com', 'password123')).rejects.toThrow('Přihlášení se nezdařilo. Zkuste to znovu.')
   })
 
   it('surfaces session errors when no cached token exists', async () => {

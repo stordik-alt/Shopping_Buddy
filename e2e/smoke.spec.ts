@@ -37,6 +37,63 @@ async function markTestAccountEmailVerified(email: string) {
   }
 }
 
+async function seedVisualAccount(email: string) {
+  const client = new Client({
+    connectionString: testDatabaseUrl(),
+    connectionTimeoutMillis: 5_000,
+    query_timeout: 10_000,
+  })
+  await client.connect()
+  try {
+    await client.query('BEGIN')
+    const account = await client.query<{ household_id: string }>(
+      `SELECT hm.household_id
+       FROM household_members hm
+       JOIN neon_auth."user" u ON u.id = hm.user_id
+       WHERE lower(u.email) = lower($1)
+       ORDER BY hm.joined_at DESC
+       LIMIT 1`,
+      [email],
+    )
+    const householdId = account.rows[0]?.household_id
+    if (!householdId) throw new Error('The visual smoke account has no household.')
+
+    const lists = await client.query<{ id: string }>(
+      'SELECT id FROM shopping_lists WHERE household_id = $1 ORDER BY created_at LIMIT 1',
+      [householdId],
+    )
+    const listId = lists.rows[0]?.id ?? (await client.query<{ id: string }>(
+      'INSERT INTO shopping_lists (household_id, name) VALUES ($1, $2) RETURNING id',
+      [householdId, 'Hlavní seznam'],
+    )).rows[0].id
+
+    for (const [name, quantity, unit, category] of [
+      ['Mléko', 2, 'ks', 'Potraviny'],
+      ['Chléb', 1, 'ks', 'Potraviny'],
+      ['Jablka', 1, 'kg', 'Potraviny'],
+    ] as const) {
+      await client.query(
+        'INSERT INTO shopping_list_items (list_id, name, quantity, unit, category) VALUES ($1, $2, $3, $4, $5)',
+        [listId, name, quantity, unit, category],
+      )
+    }
+    await client.query(
+      'INSERT INTO pantry_items (household_id, name, category, location, quantity, unit) VALUES ($1, $2, $3, $4, $5, $6)',
+      [householdId, 'Rýže', 'Potraviny', 'Spíž', 2, 'kg'],
+    )
+    await client.query(
+      'INSERT INTO expenses (household_id, amount, note, category, date) VALUES ($1, $2, $3, $4, current_date)',
+      [householdId, 685, 'Vizuální nákup', 'Potraviny'],
+    )
+    await client.query('COMMIT')
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
+  } finally {
+    await client.end()
+  }
+}
+
 async function cleanupTestAccount(email: string) {
   const client = new Client({
     connectionString: testDatabaseUrl(),
@@ -92,6 +149,7 @@ test.describe('critical smoke flow', () => {
       // The isolated E2E database has no inbox for OTP delivery. Mark this disposable test
       // account verified as a fixture, then continue testing the authenticated application.
       await markTestAccountEmailVerified(email)
+      await seedVisualAccount(email)
       await page.goto(`/auth/sign-in?verified=1&email=${encodeURIComponent(email)}`)
       await page.getByLabel('E-mail').fill(email)
       await page.getByLabel('Heslo').fill(password)

@@ -419,11 +419,14 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (!signedIn || !householdAvailable || guideAutoStartChecked.current) return
-    guideAutoStartChecked.current = true
     let active = true
     SecureStore.getItemAsync(GUIDE_DONE_KEY)
-      .then((stored) => { if (active && shouldAutoStartGuide(stored)) setGuideOpen(true) })
-      .catch(() => undefined)
+      .then((stored) => {
+        if (!active) return
+        guideAutoStartChecked.current = true
+        if (shouldAutoStartGuide(stored)) setGuideOpen(true)
+      })
+      .catch(() => { if (active) guideAutoStartChecked.current = true })
     return () => { active = false }
   }, [householdAvailable, signedIn])
 

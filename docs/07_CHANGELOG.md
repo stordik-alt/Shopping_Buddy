@@ -6,6 +6,7 @@
 - Playwright a Android emulátor nyní připravují 15 párových snímků hlavních obrazovek, AI chatu a průvodce ve světlém i tmavém motivu při stejné logické velikosti 390 × 844 px. CI kontroluje úplnost dvojic a vytváří obrazové dvojice i přehledové kontaktní listy pro kontrolu.
 - Průvodce snímá úvod, zvýrazněnou navigaci a krok nákupního seznamu, který skutečně přepne obrazovku a ukáže pole pro novou položku. Nativní průvodce přepíná příslušné obrazovky, zvýrazňuje navigaci i ovládací prvek a zachovává stručný i podrobný průchod.
 - Nativní chat používá stejné oříznutí maskota jako PWA a řadí ho na střed zprávy. Android se kontroluje v emulátoru CI; iOS zůstává samostatnou ruční kontrolou.
+- Testovací Android build povoluje HTTP jen přes Expo config plugin při `ANITKA_E2E_CLEAR_TEXT=1`, aby emulátor mohl volat izolovaný lokální server. Běžná aplikace toto oprávnění nedostává.
 
 ## 2026-10-25 — Mobilní parita: zásoby, recepty, jídelníček, účtenky a rozpočet
 

@@ -79,7 +79,11 @@ function getAuthClient() {
       fetchOptions: {
         credentials: localAuth ? 'include' : 'omit',
         headers: { origin: getApiUrl() },
-        onRequest: () => traceLocalAuth('Auth request started.'),
+        onRequest: async (request) => {
+          traceLocalAuth('Auth request started.')
+          const cookie = await readCookie()
+          if (cookie) request.headers.set('cookie', cookie)
+        },
         onSuccess: async ({ response }) => {
           traceLocalAuth('Auth response succeeded; persisting session data.')
           const cookie = await readCookie()

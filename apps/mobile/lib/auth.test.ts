@@ -126,6 +126,21 @@ describe('mobile auth token cache', () => {
     expect(mocks.values.get('anitka.auth.jwt')).toBe(TEST_JWT)
   })
 
+  it('sends the persisted Neon Auth cookie with later auth requests', async () => {
+    mocks.values.set('anitka.auth.cookies', 'neon-auth.session_token=signed-session')
+    mocks.getSession.mockResolvedValue({ data: { session: { token: TEST_JWT } } })
+
+    await getAccessToken()
+
+    const options = mocks.adapterOptions.mock.lastCall?.[0] as {
+      fetchOptions: { onRequest: (request: { headers: Headers }) => Promise<void> }
+    }
+    const request = { headers: new Headers() }
+    await options.fetchOptions.onRequest(request)
+
+    expect(request.headers.get('cookie')).toBe('neon-auth.session_token=signed-session')
+  })
+
   it('still requires a Neon JWT outside the local-auth mode', async () => {
     mocks.signInEmail.mockResolvedValue({ data: {} })
     mocks.getSession.mockResolvedValue({ data: { session: { token: 'opaque-session-id' } } })

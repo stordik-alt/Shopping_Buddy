@@ -214,6 +214,15 @@ jobs:
           ANITKA_E2E_CLEAR_TEXT: '1'
         run: pnpm --filter @shopping-buddy/mobile exec expo prebuild --platform android --no-install
 
+      - name: Use the runner's installed Android NDK
+        working-directory: apps/mobile/android
+        run: |
+          ndk_version="${ANDROID_NDK##*/}"
+          test -n "$ndk_version"
+          grep -q 'ndkVersion = ' build.gradle
+          sed -i "s/ndkVersion = \"[^\"]*\"/ndkVersion = \"$ndk_version\"/" build.gradle
+          grep -F "ndkVersion = \"$ndk_version\"" build.gradle
+
       - name: Assemble Android debug APK
         working-directory: apps/mobile/android
         env:

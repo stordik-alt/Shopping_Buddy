@@ -111,6 +111,7 @@ export async function getAccessToken(): Promise<string | null> {
       return sessionToken
     }
   } catch (error) {
+    if (usesLocalAuth()) console.error('[mobile auth] Session lookup failed in local-auth mode.', error)
     localSessionAvailable = false
     const savedToken = await readToken()
     if (isJwt(savedToken)) return savedToken

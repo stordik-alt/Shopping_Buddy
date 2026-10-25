@@ -207,6 +207,16 @@ jobs:
           MOBILE_VISUAL_PASSWORD: MobileVisual-2026!
         run: pnpm exec tsx e2e/mobile/create-visual-fixture.ts
 
+      - name: Cache Android Gradle dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: android-gradle-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'apps/mobile/package.json', 'apps/mobile/app.config.ts') }}
+          restore-keys: |
+            android-gradle-${{ runner.os }}-
+
       - name: Build Android release APK for the emulator
         env:
           EXPO_PUBLIC_API_URL: http://127.0.0.1:3000
@@ -233,13 +243,13 @@ jobs:
           tail -n 2 build.gradle
           grep -F "ext.ndkVersion = \"$ndk_version\"" build.gradle
 
-      - name: Assemble Android debug APK
+      - name: Assemble Android emulator release APK
         working-directory: apps/mobile/android
         env:
           EXPO_PUBLIC_API_URL: http://127.0.0.1:3000
           NEXT_PUBLIC_LOCAL_DATABASE: '1'
           ANITKA_E2E_CLEAR_TEXT: '1'
-        run: ./gradlew assembleRelease --no-daemon
+        run: ./gradlew assembleRelease --no-daemon --build-cache -PreactNativeArchitectures=x86_64
 
       - name: Start the isolated PWA/API server for the Android emulator
         run: |

@@ -10,6 +10,7 @@ const COOKIE_KEY = 'anitka.auth.cookies'
 const TOKEN_KEY = 'anitka.auth.jwt'
 let memoryCookie = ''
 let memoryToken = ''
+let localSessionAvailable = false
 
 async function readCookie(): Promise<string> {
   if (Platform.OS === 'web') return memoryCookie
@@ -37,7 +38,8 @@ async function writeToken(value: string): Promise<void> {
 
 function setCookieHeaders(headers: Headers): string[] {
   const nativeHeaders = headers as Headers & { getSetCookie?: () => string[] }
-  if (nativeHeaders.getSetCookie) return nativeHeaders.getSetCookie()
+  const cookies = nativeHeaders.getSetCookie?.() ?? []
+  if (cookies.length > 0) return cookies
   const combined = headers.get('set-cookie')
   return combined ? combined.split(/,(?=\s*[^;,=\s]+=[^;,]*)/) : []
 }
@@ -67,7 +69,9 @@ const nativeFetch: typeof fetch = async (input, init) => {
   headers.set('origin', getApiUrl())
   const cookie = await readCookie()
   if (cookie) headers.set('cookie', cookie)
-  const response = await fetch(input, { ...init, headers, credentials: 'omit' })
+  // React Native's cookie jar is the reliable fallback when its Headers implementation hides
+  // Set-Cookie. Keep the explicit SecureStore cookie for API requests and use both paths locally.
+  const response = await fetch(input, { ...init, headers, credentials: usesLocalAuth() ? 'include' : 'omit' })
   const updates = setCookieHeaders(response.headers)
   if (updates.length > 0) await writeCookie(mergeCookies(cookie, updates))
   const token = response.headers.get('set-auth-jwt')
@@ -102,9 +106,11 @@ export async function getAccessToken(): Promise<string | null> {
     const result = (await getAuthClient().getSession({ query: { disableCookieCache: true } })) as SessionResponse
     const savedToken = await readToken()
     if (result.error) {
+      localSessionAvailable = false
       if (isJwt(savedToken)) return savedToken
       throw new Error(result.error.message || 'Nepodařilo se ověřit přihlášení.')
     }
+    localSessionAvailable = usesLocalAuth() && Boolean(result.data?.session)
     const sessionToken = result.data?.session?.token
     if (isJwt(savedToken)) return savedToken
     if (isJwt(sessionToken)) {
@@ -112,6 +118,7 @@ export async function getAccessToken(): Promise<string | null> {
       return sessionToken
     }
   } catch (error) {
+    localSessionAvailable = false
     const savedToken = await readToken()
     if (isJwt(savedToken)) return savedToken
     throw error
@@ -136,11 +143,12 @@ export async function clearAccessToken(): Promise<void> {
 }
 
 export async function signIn(email: string, password: string): Promise<void> {
+  localSessionAvailable = false
   const result = await getAuthClient().signIn.email({ email, password })
   if (result.error) throw new Error(result.error.message || 'Přihlášení se nezdařilo.')
   const token = await getAccessToken()
   // Local Better Auth sessions use a persisted cookie; only Neon Auth can issue the JWT used in production.
-  if (!token && !(usesLocalAuth() && (await readCookie()))) {
+  if (!token && !(usesLocalAuth() && ((await readCookie()) || localSessionAvailable))) {
     throw new Error('Přihlášení se nezdařilo. Zkuste to znovu.')
   }
 }
@@ -191,6 +199,7 @@ export async function verifyEmailLink(token: string): Promise<void> {
 }
 
 export async function signOut(): Promise<void> {
+  localSessionAvailable = false
   try {
     await getAuthClient().signOut()
   } finally {
@@ -204,4 +213,5 @@ export async function deleteSignedInUser(): Promise<void> {
   if (result.error) throw new Error(result.error.message || 'Přihlašovací účet se nepodařilo odstranit.')
   await writeCookie('')
   await writeToken('')
+  localSessionAvailable = false
 }

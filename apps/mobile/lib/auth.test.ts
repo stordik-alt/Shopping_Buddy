@@ -66,6 +66,15 @@ describe('mobile auth token cache', () => {
     await expect(signIn('mobile@example.com', 'password123')).resolves.toBeUndefined()
   })
 
+  it('accepts a local session managed by the React Native cookie jar', async () => {
+    mocks.config.localAuth = true
+    mocks.signInEmail.mockResolvedValue({ data: {} })
+    mocks.getSession.mockResolvedValue({ data: { session: { token: 'opaque-session-id' } } })
+
+    await expect(signIn('mobile@example.com', 'password123')).resolves.toBeUndefined()
+    expect(mocks.values.has('anitka.auth.cookies')).toBe(false)
+  })
+
   it('still requires a Neon JWT outside the local-auth mode', async () => {
     mocks.signInEmail.mockResolvedValue({ data: {} })
     mocks.getSession.mockResolvedValue({ data: { session: { token: 'opaque-session-id' } } })

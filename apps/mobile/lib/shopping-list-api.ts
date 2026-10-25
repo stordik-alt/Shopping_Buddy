@@ -275,7 +275,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = await getAccessToken()
   const localAuth = usesLocalAuth()
   const cookie = localAuth ? await getStoredAuthCookie() : ''
-  if (!token && !cookie) throw new MobileApiError('Přihlaste se ke svému účtu ANITKA.', 401, 'not_signed_in')
+  if (!token && !cookie && !localAuth) throw new MobileApiError('Přihlaste se ke svému účtu ANITKA.', 401, 'not_signed_in')
 
   let response: Response
   try {
@@ -286,6 +286,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     response = await fetch(`${getApiUrl()}${path}`, {
       ...init,
       headers,
+      ...(localAuth ? { credentials: 'include' as const } : {}),
     })
   } catch {
     throw new MobileApiError('Nepodařilo se připojit k serveru. Zkontrolujte připojení a zkuste to znovu.', 0, 'network_error')

@@ -129,6 +129,15 @@ describe('mobile shopping-list API client', () => {
     }))
   })
 
+  it('uses the native cookie jar in local auth mode when no cookie header is exposed', async () => {
+    getAccessToken.mockResolvedValue(null)
+    usesLocalAuth.mockReturnValue(true)
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ listId: 'list-1', items: [], shoppingLists: [] }), { status: 200 }))
+
+    await expect(getShoppingList()).resolves.toMatchObject({ listId: 'list-1' })
+    expect(fetch).toHaveBeenCalledWith('https://anitka.example/api/mobile/shopping-list', expect.objectContaining({ credentials: 'include' }))
+  })
+
   it('surfaces server failures instead of returning a successful write', async () => {
     vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ error: 'request_failed' }), { status: 500 }))
     await expect(toggleShoppingItem('item-1', true)).rejects.toMatchObject<Partial<MobileApiError>>({

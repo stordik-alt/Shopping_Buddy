@@ -6,6 +6,7 @@ import { cancelReceiptImportForHousehold, confirmReceiptReviewForHousehold, proc
 import { PANTRY_LOCATIONS } from '@/lib/pantry'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import type { ItemCategory } from '@/lib/types'
+import { getReceiptListSuggestions } from '@/lib/db/receipt-list'
 
 const NO_STORE = { 'Cache-Control': 'no-store' }
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -111,7 +112,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       const items = reviewItems(body.items)
       if (!items) return json({ error: 'invalid_receipt_review' }, 400)
       const result = await confirmReceiptReviewForHousehold(household.householdId, id, items, { date })
-      return json({ purchase: result.purchase, aftermath: result.aftermath, receipt: { id, status: 'completed' } })
+      return json({ purchase: result.purchase, aftermath: result.aftermath, suggestions: await getReceiptListSuggestions(household.householdId, result.purchase.id), receipt: { id, status: 'completed' } })
     }
 
     if (body.action === 'resolve_duplicate') {
@@ -121,7 +122,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (body.items !== undefined && !parsedItems) return json({ error: 'invalid_receipt_review' }, 400)
       const items = parsedItems ?? undefined
       const result = await resolveDuplicateReceiptForHousehold(household.householdId, id, body.resolution, items, { date })
-      return json({ purchase: result.purchase, aftermath: result.aftermath, receipt: { id, status: result.purchase ? 'completed' : 'cancelled' } })
+      return json({ purchase: result.purchase, aftermath: result.aftermath, suggestions: result.purchase ? await getReceiptListSuggestions(household.householdId, result.purchase.id) : [], receipt: { id, status: result.purchase ? 'completed' : 'cancelled' } })
     }
 
     return json({ error: 'invalid_request' }, 400)

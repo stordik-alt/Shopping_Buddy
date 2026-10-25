@@ -53,7 +53,7 @@ export async function GET(request: Request) {
       list: { remaining: pendingItems.length, completed: list.items.length - pendingItems.length, pendingNames: names.slice(0, 3) },
       pantryItemCount: pantry.length,
       pantryToCheck,
-      attention: attentionItems({ today, receipts, productPrices, listNames: names }),
+      attention: attentionItems({ today, receipts, productPrices, listNames: names }).map(({ id, kind, text, focus }) => ({ id, kind, text, focus })),
       restockSuggestions,
       restockDismissed,
       productPrices,

@@ -5,6 +5,7 @@ const {
   mobileHouseholdForUser,
   getDb,
   getRecipeByUrl,
+  getRecipeFavoriteState,
   recordRecipeView,
   MobileRequestAuthError,
 } = vi.hoisted(() => {
@@ -23,6 +24,7 @@ const {
     mobileHouseholdForUser: vi.fn(),
     getDb: vi.fn(() => ({ select })),
     getRecipeByUrl: vi.fn(),
+    getRecipeFavoriteState: vi.fn(),
     recordRecipeView: vi.fn(),
     MobileRequestAuthError: AuthError,
   }
@@ -34,7 +36,7 @@ vi.mock('@/lib/auth/mobile-request', () => ({
   MobileRequestAuthError,
 }))
 vi.mock('@/lib/db/client', () => ({ getDb }))
-vi.mock('@/lib/db/recipes', () => ({ recordRecipeView }))
+vi.mock('@/lib/db/recipes', () => ({ recordRecipeView, getRecipeFavoriteState }))
 vi.mock('@/lib/recipes/service', () => ({ getRecipeByUrl }))
 
 import { GET } from '@/app/api/mobile/recipes/[id]/route'
@@ -54,6 +56,7 @@ describe('GET /api/mobile/recipes/[id]', () => {
     mobileUserFromRequest.mockResolvedValue({ id: 'user-1' })
     mobileHouseholdForUser.mockResolvedValue({ householdId: 'household-1' })
     getRecipeByUrl.mockResolvedValue(recipe)
+    getRecipeFavoriteState.mockResolvedValue(false)
   })
 
   it('loads catalog details and records viewing in the existing household history', async () => {
@@ -62,8 +65,10 @@ describe('GET /api/mobile/recipes/[id]', () => {
     expect(response.headers.get('cache-control')).toBe('no-store')
     expect(getRecipeByUrl).toHaveBeenCalledWith('recepty-cz', recipe.canonicalUrl)
     expect(recordRecipeView).toHaveBeenCalledWith('household-1', recipe)
+    expect(getRecipeFavoriteState).toHaveBeenCalledWith('household-1', recipe.canonicalUrl)
     expect(await response.json()).toMatchObject({
       ...recipe,
+      isFavorite: false,
       imageUrl: `https://anitka.example/api/recipes/images/${recipe.id}`,
     })
   })

@@ -1,5 +1,7 @@
 import type { ItemUnit } from '@anitka/shared/units'
-import type { Recipe, RecipeSearchPage } from '../../../lib/recipes/types'
+import type { Recipe, RecipeSearchPage, RecipeSearchResult, SavedRecipe } from '../../../lib/recipes/types'
+import type { RecipePantryRecommendation } from '../../../lib/recipes/recommendations'
+import type { RecipePriceEstimate } from '../../../lib/recipes/pricing'
 import type { RestockSuggestion } from '../../../lib/pantry-restock'
 import type { ProductPrice } from '../../../lib/prices'
 import type { StandaloneOffer } from '../../../lib/offers'
@@ -10,6 +12,7 @@ import type { BudgetLedger, ManualPurchaseInput, PurchaseRecord } from '../../..
 import type { ExpenseSplitPart } from '../../../lib/purchase-expenses'
 import type { PocketInput } from '../../../lib/pocket-input'
 import type { BudgetOutlook } from '../../../lib/types'
+import type { ReceiptListSuggestion } from '../../../lib/db/receipt-list'
 import type { PeriodConfig } from '../../../lib/budget-period'
 import type { PeriodHistoryRow } from '../../../lib/budget-history'
 import type { PocketAmount } from '../../../lib/budget-closing'
@@ -24,6 +27,7 @@ export type MobileShoppingItem = {
   quantity: number
   unit: ItemUnit
   done: boolean
+  price?: number
   category?: ItemCategory
   productId?: string | null
   productTypes?: string[] | null
@@ -44,6 +48,12 @@ export type MobileBudgetSummary = {
   spent: number
   remaining: number
   categories: { category: string; total: number; limit: number | null; level: 'ok' | 'warning' | 'over' }[]
+}
+export type MobileBudgetOverview = {
+  comparison: { current: number; previous: number; changePercent: number } | null
+  projected: number
+  planned: number
+  savings: import('../../../lib/purchase-savings').PurchaseSavingsByMonth[]
 }
 export type MobileBudgetCategoryLimits = Partial<Record<ExpenseCategory, number>>
 export type MobileRecurringPayments = {
@@ -66,7 +76,7 @@ export type MobileDashboardSummary = {
   list: { remaining: number; completed: number; pendingNames: string[] }
   pantryItemCount: number
   pantryToCheck: number
-  attention: { id: string; kind: 'receipt' | 'deal-ending'; text: string }[]
+  attention: { id: string; kind: 'receipt' | 'deal-ending'; text: string; focus?: { kind: 'receipt' | 'list-item'; id?: string; name?: string } }[]
   restockSuggestions: RestockSuggestion[]
   restockDismissed: string[]
   productPrices: ProductPrice[]
@@ -124,7 +134,7 @@ export type MobilePantryItem = {
   addedAt: string
   askedAt: string | null
   tracking: PantryTracking
-  contents: { id: string; name: string; quantity: number; unit: ItemUnit }[]
+  contents: { id: string; name: string; quantity: number; unit: ItemUnit; unitQuantity?: number | null; unitUnit?: ItemUnit | null }[]
   likelyGone: boolean
   needsCheck: boolean
   estimateReason: string | null
@@ -142,8 +152,9 @@ export type MobilePantrySettings = {
   subcategoryCheckinDays: Record<string, number>
   stockLevels: MobilePantryStockLevel[]
 }
-export type MobileRecipe = Recipe
+export type MobileRecipe = Recipe & { isFavorite?: boolean }
 export type MobileRecipeSearchPage = RecipeSearchPage
+export type MobileRecipeCollection = { favorites: RecipeSearchResult[]; history: SavedRecipe[] }
 export type MobileMealType = 'Snídaně' | 'Oběd' | 'Večeře' | 'Svačina'
 export type MobileMealPlan = {
   weekStart: string
@@ -499,6 +510,10 @@ export function getBudgetSummary() {
   return request<MobileBudgetSummary>('/api/mobile/budget')
 }
 
+export function getBudgetOverview() {
+  return request<MobileBudgetOverview>('/api/mobile/budget/overview')
+}
+
 export function getBudgetCategoryLimits() {
   return request<{ limits: MobileBudgetCategoryLimits }>('/api/mobile/budget/category-limits')
 }
@@ -717,12 +732,37 @@ export function removePantryItem(itemId: string) {
   return request<{ ok: true }>(`/api/mobile/pantry/${encodeURIComponent(itemId)}`, { method: 'DELETE' })
 }
 
-export function searchRecipes(query: string, page = 1) {
-  return request<MobileRecipeSearchPage>(`/api/mobile/recipes?q=${encodeURIComponent(query)}&page=${page}`)
+export function searchRecipes(query: string, options: number | { page?: number; sourceId?: string; sort?: 'relevance' | 'rating' | 'time'; householdFilter?: boolean; pageSize?: number } = {}) {
+  const normalized = typeof options === 'number' ? { page: options } : options
+  const params = [
+    `q=${encodeURIComponent(query)}`,
+    `page=${encodeURIComponent(String(normalized.page ?? 1))}`,
+    ...(normalized.sourceId ? [`sourceId=${encodeURIComponent(normalized.sourceId)}`] : []),
+    ...(normalized.sort ? [`sort=${encodeURIComponent(normalized.sort)}`] : []),
+    ...(normalized.householdFilter ? ['householdFilter=true'] : []),
+    ...(normalized.pageSize ? [`pageSize=${encodeURIComponent(String(normalized.pageSize))}`] : []),
+  ].join('&')
+  return request<MobileRecipeSearchPage>(`/api/mobile/recipes?${params}`)
 }
 
 export function getRecipe(recipeId: string) {
   return request<MobileRecipe>(`/api/mobile/recipes/${encodeURIComponent(recipeId)}`)
+}
+
+export function getRecipeCollections() {
+  return request<MobileRecipeCollection>('/api/mobile/recipes/collections')
+}
+
+export function getRecipeRecommendations() {
+  return request<{ recipes: RecipePantryRecommendation[]; pantryItemCount: number }>('/api/mobile/recipes/recommendations')
+}
+
+export function toggleRecipeFavorite(recipeId: string) {
+  return request<{ favorite: boolean }>(`/api/mobile/recipes/${encodeURIComponent(recipeId)}/favorite`, { method: 'POST' })
+}
+
+export function getRecipePricing(recipeId: string, servings?: number) {
+  return request<RecipePriceEstimate>(`/api/mobile/recipes/${encodeURIComponent(recipeId)}/pricing${servings == null ? '' : `?servings=${encodeURIComponent(String(servings))}`}`)
 }
 
 export function getMealPlan() {
@@ -743,11 +783,22 @@ export function setMealServings(day: string, mealType: MobileMealType, servings:
   })
 }
 
-export function updatePantryItem(itemId: string, change: { quantity: number } | { placeKey: string }) {
+export function markMealCooked(day: string, mealType: MobileMealType) {
+  return request<{ plan: MobileMealPlan | null; changed: boolean }>('/api/mobile/meal-plan/cooked', {
+    method: 'POST',
+    body: JSON.stringify({ day, mealType }),
+  })
+}
+
+export function updatePantryItem(itemId: string, change: { quantity: number } | { placeKey: string } | { category: ItemCategory } | { subcategory: string | null } | { productTypeKey: string | null } | { tracking: PantryTracking } | { contentQuantity: { id: string; quantity: number } } | { contentPackage: { id: string; quantity: number | null; unit: ItemUnit | null } } | { packageSize: { quantity: number | null; unit: ItemUnit | null } }) {
   return request<{ ok: true }>(`/api/mobile/pantry/${encodeURIComponent(itemId)}`, {
     method: 'PATCH',
     body: JSON.stringify(change),
   })
+}
+
+export function autoCategorizePantry() {
+  return request<{ assigned: { id: string; subcategory: string }[] }>('/api/mobile/pantry/auto-categorize', { method: 'POST' })
 }
 
 export function reviewPantry(input: { reviewedIds: string[]; goneIds: string[]; quantities: { id: string; quantity: number }[] }) {
@@ -806,6 +857,7 @@ export type MobileReceiptImport = {
   ocrProvider: string | null
   extracted: { date: string | null; total: number | null; items: MobileReceiptLineItem[] } | null
   stalled: boolean
+  purchaseId?: string | null
 }
 
 export function getPendingReceiptImports() {
@@ -857,6 +909,17 @@ export function resolveDuplicateReceipt(receiptId: string, resolution: 'save_new
 
 export function cancelReceiptImport(receiptId: string) {
   return request<{ ok: true }>(`/api/mobile/receipts/${encodeURIComponent(receiptId)}`, { method: 'DELETE' })
+}
+
+export function getReceiptListSuggestions(purchaseId: string) {
+  return request<{ suggestions: ReceiptListSuggestion[] }>(`/api/mobile/purchases/${encodeURIComponent(purchaseId)}/list-suggestions`)
+}
+
+export function confirmReceiptListSuggestions(purchaseId: string, pairs: { listItemId: string; purchaseItemId: string }[]) {
+  return request<{ checked: number; tickedListItems: { id: string; done: boolean; quantity: number; unit: ItemUnit; price: number }[] }>(`/api/mobile/purchases/${encodeURIComponent(purchaseId)}/list-suggestions`, {
+    method: 'POST',
+    body: JSON.stringify({ pairs }),
+  })
 }
 
 export function receiptImageUrl(receiptId: string) {

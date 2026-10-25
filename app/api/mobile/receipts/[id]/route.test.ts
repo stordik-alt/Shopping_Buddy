@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => {
     MobileRequestAuthError: AuthError,
     processReceiptImportForHousehold: vi.fn(),
     toReceiptImportState: vi.fn(),
+    getReceiptListSuggestions: vi.fn(),
     confirmReceiptReviewForHousehold: vi.fn(),
     resolveDuplicateReceiptForHousehold: vi.fn(),
     cancelReceiptImportForHousehold: vi.fn(),
@@ -30,6 +31,7 @@ vi.mock('@/lib/receipt-import', () => ({
   cancelReceiptImportForHousehold: mocks.cancelReceiptImportForHousehold,
 }))
 vi.mock('@/lib/db/queries', () => ({ toReceiptImportState: mocks.toReceiptImportState }))
+vi.mock('@/lib/db/receipt-list', () => ({ getReceiptListSuggestions: mocks.getReceiptListSuggestions }))
 
 import { DELETE, PATCH, POST } from '@/app/api/mobile/receipts/[id]/route'
 
@@ -51,6 +53,7 @@ describe('POST /api/mobile/receipts/[id]', () => {
     mocks.mobileHouseholdForUser.mockResolvedValue({ householdId: 'household-1', role: 'owner' })
     mocks.processReceiptImportForHousehold.mockResolvedValue({ kind: 'processed', row: receiptRow })
     mocks.toReceiptImportState.mockReturnValue(state)
+    mocks.getReceiptListSuggestions.mockResolvedValue([])
     mocks.confirmReceiptReviewForHousehold.mockResolvedValue({ purchase: { id: 'purchase-1' }, aftermath: { purchaseHistory: [] } })
     mocks.resolveDuplicateReceiptForHousehold.mockResolvedValue({ purchase: null, aftermath: null })
     mocks.cancelReceiptImportForHousehold.mockResolvedValue(undefined)
@@ -103,6 +106,7 @@ describe('POST /api/mobile/receipts/[id]', () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toMatchObject({ receipt: { id: receiptId, status: 'completed' }, purchase: { id: 'purchase-1' } })
     expect(mocks.confirmReceiptReviewForHousehold).toHaveBeenCalledWith('household-1', receiptId, [item], { date: '2026-10-24' })
+    expect(mocks.getReceiptListSuggestions).toHaveBeenCalledWith('household-1', 'purchase-1')
   })
 
   it('validates review data and resolves duplicates', async () => {

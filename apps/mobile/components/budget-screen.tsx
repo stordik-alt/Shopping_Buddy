@@ -18,6 +18,7 @@ import {
   deleteExpense,
   deletePlannedExpense,
   getBudgetSummary,
+  getBudgetOverview,
   getBudgetCategoryLimits,
   getBudgetLedger,
   getBudgetHistory,
@@ -47,6 +48,7 @@ import {
   updateExpense,
   updateBudgetCategoryLimit,
   type MobileBudgetSummary,
+  type MobileBudgetOverview,
   type MobileBudgetPlanning,
   type MobileBudgetIncome,
   type MobileExpense,
@@ -396,6 +398,7 @@ export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0, canManag
   const { colors, theme } = useMobileTheme()
   const styles = useStyles()
   const [summary, setSummary] = useState<MobileBudgetSummary | null>(null)
+  const [overview, setOverview] = useState<MobileBudgetOverview | null>(null)
   const [categoryLimits, setCategoryLimits] = useState<Partial<Record<ExpenseCategory, number>>>({})
   const [planning, setPlanning] = useState<MobileBudgetPlanning | null>(null)
   const [recurring, setRecurring] = useState<MobileRecurringPayments | null>(null)
@@ -447,13 +450,14 @@ export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0, canManag
     setLoading(true)
     setError(null)
     try {
-      const [nextSummary, nextPlanning, nextLimits, nextRecurring, nextRecurringIncomes, nextLedger] = await Promise.all([getBudgetSummary(), getBudgetPlanning(requestedPeriod ?? selectedPeriodRef.current ?? undefined), getBudgetCategoryLimits(), getRecurringPayments(), getRecurringIncomes(), getBudgetLedger(requestedPeriod ?? selectedPeriodRef.current ?? undefined)])
+      const [nextSummary, nextPlanning, nextLimits, nextRecurring, nextRecurringIncomes, nextLedger, nextOverview] = await Promise.all([getBudgetSummary(), getBudgetPlanning(requestedPeriod ?? selectedPeriodRef.current ?? undefined), getBudgetCategoryLimits(), getRecurringPayments(), getRecurringIncomes(), getBudgetLedger(requestedPeriod ?? selectedPeriodRef.current ?? undefined), getBudgetOverview()])
       setSummary(nextSummary)
       setPlanning(nextPlanning)
       setCategoryLimits(nextLimits.limits)
       setRecurring(nextRecurring)
       setRecurringIncomes(nextRecurringIncomes)
       setLedger(nextLedger)
+      setOverview(nextOverview)
       const ledger = await getExpenses(requestedPeriod ?? selectedPeriodRef.current ?? nextSummary.period.start)
       setPeriod(ledger.period)
       selectedPeriodRef.current = ledger.period.start
@@ -671,6 +675,18 @@ export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0, canManag
               </View>
               {summary.budget > 0 ? <View accessibilityLabel={`Vyčerpáno ${Math.min(100, Math.max(0, (summary.spent / summary.budget) * 100)).toFixed(0)} procent rozpočtu`} style={styles.progressTrack}><View style={[styles.progress, summary.remaining < 0 && styles.progressOver, { width: `${Math.min(100, Math.max(0, (summary.spent / summary.budget) * 100))}%` }]} /></View> : null}
             </View>
+            {overview ? <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Srovnání a očekávání</Text>
+              {overview.comparison ? <View style={styles.budgetInsight}><Text style={styles.label}>{overview.comparison.changePercent <= 0 ? 'Utrácíte méně' : 'Utrácíte více'} než ve stejné části minulého období</Text><Text style={styles.value}>{money(overview.comparison.current, summary.currency)} oproti {money(overview.comparison.previous, summary.currency)} ({overview.comparison.changePercent > 0 ? '+' : ''}{overview.comparison.changePercent.toFixed(0)} %)</Text></View> : <Text style={styles.supporting}>Srovnání se zobrazí, až budou výdaje zaznamenané i v předchozím období.</Text>}
+              <View style={styles.row}><Text style={styles.supporting}>Odhad do konce období</Text><Text style={styles.value}>{money(overview.projected, summary.currency)}</Text></View>
+              <View style={styles.row}><Text style={styles.supporting}>Plánovaný nákup</Text><Text style={styles.value}>{money(overview.planned, summary.currency)}</Text></View>
+              <View style={styles.row}><Text style={styles.supporting}>Skutečné výdaje</Text><Text style={styles.value}>{money(summary.spent, summary.currency)}</Text></View>
+            </View> : null}
+            {overview?.savings.length ? <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Ušetřeno nákupy</Text>
+              {overview.savings.slice(0, 6).map((row) => <View key={row.month} style={styles.savingsRow}><Text style={styles.label}>{new Date(`${row.month}-01T12:00:00`).toLocaleDateString('cs-CZ', { month: 'long', year: 'numeric' })}</Text><View style={styles.savingsAmounts}><Text style={styles.supporting}>Účtenky {money(row.receiptReported, summary.currency)}</Text><Text style={styles.supporting}>Zadané slevy {money(row.declared, summary.currency)}</Text></View></View>)}
+              <Text style={styles.note}>Slevy na účtenkách jsou ověřené; ručně zadané slevy jsou vedené zvlášť.</Text>
+            </View> : null}
             {summary.categories.length > 0 ? <View style={styles.chartCard}>
               <View style={styles.chartHeading}><Text style={styles.sectionTitle}>Struktura výdajů</Text><Text style={styles.supporting}>{summary.categories.length} kategorií</Text></View>
               <View style={styles.donutWrap}>
@@ -832,6 +848,9 @@ function useStyles() {
   progressOver: { backgroundColor: colors.destructive },
   section: { gap: 10 },
   sectionHeadingRow: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  budgetInsight: { gap: 4, paddingVertical: 6 },
+  savingsRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, borderTopColor: colors.border, borderTopWidth: 1, paddingTop: 9 },
+  savingsAmounts: { alignItems: 'flex-end', gap: 3 },
   sectionTitle: { color: colors.foreground, fontSize: 17, fontWeight: '700', marginBottom: 2 },
   limitEditButton: { minHeight: 36, justifyContent: 'center', paddingHorizontal: 10, borderRadius: 11, backgroundColor: colors.accentSubtle },
   limitEditText: { color: colors.accentText, fontSize: 12, fontWeight: '700' },

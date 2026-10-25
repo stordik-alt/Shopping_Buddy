@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { mobileHouseholdForUser, mobileUserFromRequest, MobileRequestAuthError } from '@/lib/auth/mobile-request'
 import { searchRecipeCatalog } from '@/lib/recipes/service'
 import { RECIPE_SOURCE_ADAPTERS } from '@/lib/recipes/sources'
+import { getRecipeHouseholdData } from '@/lib/db/recipes'
+import { searchRecipesDetailed } from '@/lib/recipes/service'
+import { filterRecipeForHousehold, rankByHouseholdPreference, toRecipeSearchResult } from '@/lib/recipes/recommendations'
 
 const NO_STORE = { 'Cache-Control': 'no-store' }
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: NO_STORE })
@@ -24,6 +27,7 @@ export async function GET(request: Request) {
     const query = params.get('q')?.trim() ?? ''
     const sourceId = params.get('sourceId') || undefined
     const requestedSort = params.get('sort') ?? 'relevance'
+    const householdFilter = params.get('householdFilter') === 'true'
     const sortOptions = ['relevance', 'rating', 'time'] as const
     const page = parsePositiveInteger(params.get('page'), 1)
     const pageSize = parsePositiveInteger(params.get('pageSize'), 6, MAX_PAGE_SIZE)
@@ -37,12 +41,16 @@ export async function GET(request: Request) {
       return json({ error: 'invalid_request' }, 400)
     }
 
-    const results = await searchRecipeCatalog(query, {
-      sourceId,
-      sort: requestedSort as (typeof sortOptions)[number],
-      page,
-      pageSize,
-    })
+    let results
+    if (householdFilter) {
+      const context = await getRecipeHouseholdData(member.householdId)
+      const detailed = await searchRecipesDetailed(query, { sourceId, sort: requestedSort as (typeof sortOptions)[number] })
+      const filtered = detailed.filter((recipe) => filterRecipeForHousehold(recipe, context))
+      const ranked = requestedSort === 'relevance' ? rankByHouseholdPreference(filtered, context) : filtered.map(toRecipeSearchResult)
+      results = { results: ranked.slice((page - 1) * pageSize, page * pageSize), total: ranked.length, page, pageSize }
+    } else {
+      results = await searchRecipeCatalog(query, { sourceId, sort: requestedSort as (typeof sortOptions)[number], page, pageSize })
+    }
     const origin = new URL(request.url)
     return json({
       ...results,

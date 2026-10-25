@@ -4,6 +4,7 @@ import { mobileHouseholdForUser, mobileUserFromRequest, MobileRequestAuthError }
 import { importManualReceiptForHousehold } from '@/lib/receipt-import'
 import type { ReceiptLineItem } from '@/lib/receipts'
 import type { ItemCategory } from '@/lib/types'
+import { getReceiptListSuggestions } from '@/lib/db/receipt-list'
 
 const NO_STORE = { 'Cache-Control': 'no-store' }
 const ITEM_CATEGORIES: readonly ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
@@ -67,7 +68,7 @@ export async function POST(request: Request) {
     if (!input) return json({ error: 'invalid_manual_receipt', message: 'Zkontrolujte datum, slevu a položky účtenky.' }, 400)
 
     const result = await importManualReceiptForHousehold(household.householdId, input.items, input.options)
-    return json({ receipt: result.receipt, purchase: result.purchase }, 201)
+    return json({ receipt: result.receipt, purchase: result.purchase, suggestions: await getReceiptListSuggestions(household.householdId, result.purchase.id) }, 201)
   } catch (error) {
     if (error instanceof MobileRequestAuthError) return json({ error: error.code }, error.status)
     if (error instanceof Error && /Datum nákupu|Neplatná kategorie|Neplatná podkategorie|sleva u položky/i.test(error.message)) {

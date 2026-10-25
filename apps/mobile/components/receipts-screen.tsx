@@ -8,8 +8,10 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useMobileTheme } from '../lib/theme'
 import {
   cancelReceiptImport,
+  confirmReceiptListSuggestions,
   confirmReceiptReview,
   getPendingReceiptImports,
+  getReceiptListSuggestions,
   getPantrySettings,
   getStoreChains,
   importManualReceipt,
@@ -20,6 +22,7 @@ import {
   uploadReceiptFile,
   type MobileReceiptImport,
 } from '../lib/shopping-list-api'
+import type { ReceiptListSuggestion } from '../../../lib/db/receipt-list'
 import { RefreshButton } from './refresh-button'
 import { NativeManualPurchaseForm } from './native-parity-screens'
 import type { ManualPurchaseInput } from '../../../lib/types'
@@ -36,7 +39,7 @@ import type { MobileReceiptLineItem } from '../lib/shopping-list-api'
 const ITEM_CATEGORIES: ItemCategory[] = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní']
 const sortedProductTypes = [...PRODUCT_TYPES].sort((a, b) => a.name.localeCompare(b.name, 'cs'))
 
-type Props = { onAuthExpired: () => void }
+type Props = { onAuthExpired: () => void; onListItemsUpdated: (items: { id: string; done: boolean; quantity: number; unit: ItemUnit; price: number }[]) => void; focusedReceiptId?: string | null; onFocusHandled?: () => void }
 
 function receiptStatusLabel(status: MobileReceiptImport['status']): string {
   switch (status) {
@@ -167,7 +170,7 @@ function NativeReceiptReviewModal({ receipt, busy, onClose, onDone, onBusyChange
   receipt: MobileReceiptImport
   busy: boolean
   onClose: () => void
-  onDone: (status: 'completed' | 'cancelled') => void
+  onDone: (status: 'completed' | 'cancelled', purchaseId?: string) => void
   onBusyChange: (busy: boolean) => void
   onAuthExpired: () => void
 }) {
@@ -203,7 +206,11 @@ function NativeReceiptReviewModal({ receipt, busy, onClose, onDone, onBusyChange
   async function finish(action: () => Promise<unknown>, status: 'completed' | 'cancelled') {
     onBusyChange(true)
     setError(null)
-    try { await action(); onDone(status) }
+    try {
+      const result = await action()
+      const purchase = result && typeof result === 'object' && 'purchase' in result ? (result as { purchase?: { id?: unknown } }).purchase : undefined
+      onDone(status, typeof purchase?.id === 'string' ? purchase.id : undefined)
+    }
     catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Kontrolu účtenky se nepodařilo uložit.')
       if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
@@ -309,7 +316,41 @@ function NativeReceiptReviewModal({ receipt, busy, onClose, onDone, onBusyChange
   </Modal>
 }
 
-export function ReceiptsScreen({ onAuthExpired }: Props) {
+function ReceiptListSuggestionsModal({ purchaseId, suggestions, onClose, onConfirm }: {
+  purchaseId: string
+  suggestions: ReceiptListSuggestion[]
+  onClose: () => void
+  onConfirm: (purchaseId: string, pairs: { listItemId: string; purchaseItemId: string }[]) => Promise<void>
+}) {
+  const { colors } = useMobileTheme()
+  const styles = useStyles()
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(suggestions.map((item) => item.listItemId)))
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  return <Modal animationType="slide" onRequestClose={() => !busy && onClose()} transparent visible>
+    <View style={styles.modalBackdrop}>
+      <View style={styles.suggestionSheet}>
+        <View style={styles.reviewHeader}><View style={styles.headerText}><Text style={styles.title}>Odškrtnout nákupní seznam?</Text><Text style={styles.supporting}>Zkontrolujte návrhy. Vybrané položky dostanou cenu a množství z účtenky.</Text></View><Pressable accessibilityLabel="Zavřít návrhy shod" disabled={busy} onPress={onClose} style={styles.closeButton}><X color={colors.foreground} size={20} /></Pressable></View>
+        <ScrollView contentContainerStyle={styles.suggestionList}>
+          {suggestions.map((suggestion) => {
+            const checked = selected.has(suggestion.listItemId)
+            return <Pressable key={suggestion.listItemId} accessibilityRole="checkbox" accessibilityState={{ checked }} disabled={busy} onPress={() => setSelected((current) => { const next = new Set(current); if (checked) next.delete(suggestion.listItemId); else next.add(suggestion.listItemId); return next })} style={styles.suggestionRow}>
+              <Text style={[styles.ingredientCheck, checked && styles.ingredientCheckSelected]}>{checked ? '✓' : '○'}</Text>
+              <View style={styles.headerText}><Text style={styles.receiptLine}>{suggestion.listItemName}</Text><Text style={styles.supporting}>Účtenka: {suggestion.receiptName} · {suggestion.quantity} {suggestion.unit} · {suggestion.price.toLocaleString('cs-CZ')} Kč/{suggestion.unit}</Text></View>
+            </Pressable>
+          })}
+        </ScrollView>
+        {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+        <View style={styles.receiptActions}>
+          <Pressable accessibilityRole="button" disabled={busy || selected.size === 0} onPress={() => { setBusy(true); setError(''); void onConfirm(purchaseId, suggestions.filter((item) => selected.has(item.listItemId)).map(({ listItemId, purchaseItemId }) => ({ listItemId, purchaseItemId }))).then(onClose).catch((caught) => setError(caught instanceof Error ? caught.message : 'Položky se nepodařilo uložit.')).finally(() => setBusy(false)) }} style={[styles.primaryButton, (busy || selected.size === 0) && styles.disabledButton]}><Text style={styles.primaryButtonText}>{busy ? 'Ukládám…' : `Odškrtnout (${selected.size})`}</Text></Pressable>
+          <Pressable accessibilityRole="button" disabled={busy} onPress={onClose} style={styles.secondaryButton}><Text style={styles.secondaryButtonText}>Ponechat na seznamu</Text></Pressable>
+        </View>
+      </View>
+    </View>
+  </Modal>
+}
+
+export function ReceiptsScreen({ onAuthExpired, onListItemsUpdated, focusedReceiptId, onFocusHandled }: Props) {
   const { colors } = useMobileTheme()
   const styles = useStyles()
   const [receipts, setReceipts] = useState<MobileReceiptImport[]>([])
@@ -321,6 +362,23 @@ export function ReceiptsScreen({ onAuthExpired }: Props) {
   const [workingId, setWorkingId] = useState<string | null>(null)
   const [reviewing, setReviewing] = useState<MobileReceiptImport | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [listSuggestions, setListSuggestions] = useState<{ purchaseId: string; suggestions: ReceiptListSuggestion[] } | null>(null)
+
+  async function offerListMatches(purchaseId: string | null | undefined) {
+    if (!purchaseId) return
+    try {
+      const result = await getReceiptListSuggestions(purchaseId)
+      if (result.suggestions.length) setListSuggestions({ purchaseId, suggestions: result.suggestions })
+    } catch (caught) {
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+      setError(caught instanceof Error ? caught.message : 'Návrhy shod se seznamem se nepodařilo načíst.')
+    }
+  }
+
+  async function confirmListMatches(purchaseId: string, pairs: { listItemId: string; purchaseItemId: string }[]) {
+    const result = await confirmReceiptListSuggestions(purchaseId, pairs)
+    onListItemsUpdated(result.tickedListItems)
+  }
 
   async function refresh() {
     setError(null)
@@ -339,6 +397,13 @@ export function ReceiptsScreen({ onAuthExpired }: Props) {
   useEffect(() => {
     void refresh()
   }, [])
+
+  useEffect(() => {
+    if (!focusedReceiptId || loading) return
+    const target = receipts.find((receipt) => receipt.id === focusedReceiptId)
+    if (target) setReviewing(target)
+    onFocusHandled?.()
+  }, [focusedReceiptId, loading, onFocusHandled, receipts])
 
   useEffect(() => {
     let active = true
@@ -360,7 +425,7 @@ export function ReceiptsScreen({ onAuthExpired }: Props) {
     try {
       const result = await processReceiptImport(receiptId, retry)
       replaceReceipt(result.receipt)
-      if (result.receipt.status === 'completed') setCompleted(result.receipt)
+      if (result.receipt.status === 'completed') { setCompleted(result.receipt); await offerListMatches(result.receipt.purchaseId) }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Účtenku se nepodařilo zpracovat.')
       if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
@@ -427,6 +492,7 @@ export function ReceiptsScreen({ onAuthExpired }: Props) {
       const result = await importManualReceipt(input)
       setCompleted(result.receipt)
       setManualOpen(false)
+      await offerListMatches(result.purchase.id)
     } catch (caught) {
       if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
       throw caught
@@ -530,8 +596,9 @@ export function ReceiptsScreen({ onAuthExpired }: Props) {
         onAuthExpired={onAuthExpired}
         onBusyChange={(value) => setWorkingId(value ? reviewing.id : null)}
         onClose={() => setReviewing(null)}
-        onDone={(status) => { replaceReceipt({ ...reviewing, status }); setReviewing(null); if (status === 'completed') setCompleted({ ...reviewing, status }) }}
+        onDone={(status, purchaseId) => { replaceReceipt({ ...reviewing, status }); setReviewing(null); if (status === 'completed') { setCompleted({ ...reviewing, status }); void offerListMatches(purchaseId) } }}
       /> : null}
+      {listSuggestions ? <ReceiptListSuggestionsModal key={listSuggestions.purchaseId} purchaseId={listSuggestions.purchaseId} suggestions={listSuggestions.suggestions} onClose={() => setListSuggestions(null)} onConfirm={confirmListMatches} /> : null}
     </View>
   )
 }
@@ -570,6 +637,12 @@ function useStyles() {
   listHeaderTitle: { flex: 1, minWidth: 0 },
   list: { paddingHorizontal: 16, paddingBottom: 24, gap: 8 },
   receiptActions: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
+  modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: colors.navyOverlay },
+  suggestionSheet: { maxHeight: '82%', gap: 12, padding: 16, borderTopLeftRadius: 22, borderTopRightRadius: 22, backgroundColor: colors.background },
+  suggestionList: { gap: 6, paddingBottom: 8 },
+  suggestionRow: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: 12, backgroundColor: colors.card },
+  ingredientCheck: { width: 24, color: colors.mutedText, fontSize: 20, textAlign: 'center' },
+  ingredientCheckSelected: { color: colors.accentText, fontWeight: '800' },
   receiptCard: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 16, borderWidth: 1, padding: 14, gap: 8 },
   receiptStatus: { color: colors.foreground, fontSize: 16, fontWeight: '700' },
   receiptLine: { color: colors.secondaryText, fontSize: 14 },

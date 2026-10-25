@@ -1,21 +1,11 @@
 'use server'
 
-import { and, eq, ilike } from 'drizzle-orm'
 import { requireHouseholdId } from '@/lib/auth/authorize'
 import { todayInPrague } from '@/lib/today'
-import { getDb } from '@/lib/db/client'
-import { getPantryItems } from '@/lib/db/queries'
-import * as schema from '@/lib/db/schema'
-import { saveMealPlanForHousehold } from '@/lib/db/meal-plans'
+import { markCurrentMealCookedForHousehold, saveMealPlanForHousehold } from '@/lib/db/meal-plans'
 import type { PantryItem } from '@/lib/types'
 import {
-  convertQuantity,
   currentWeekStart,
-  isMealCooked,
-  markMealCooked,
-  parseSavedPlan,
-  plannedRecipeIngredients,
-  recipeFor,
   type MealType,
   type Recipe as MealPlanRecipe,
   type WeeklyMealPlan,
@@ -46,40 +36,7 @@ export async function getMealPlanRecipePoolsAction(): Promise<Partial<Record<Mea
 export async function markMealCookedAction(day: string, mealType: MealType): Promise<{ pantryItems: PantryItem[] }> {
   const householdId = await requireHouseholdId()
   const weekStart = currentWeekStart(todayInPrague())
-  const db = getDb()
-
-  const row = await db.query.mealPlans.findFirst({ where: and(eq(schema.mealPlans.householdId, householdId), eq(schema.mealPlans.weekStart, weekStart)) })
-  if (!row) throw new Error('No meal plan for the current week')
-
-  const plan = parseSavedPlan(row.plan)
-  if (!plan) throw new Error('The saved meal plan is outdated — regenerate it')
-  if (isMealCooked(plan, day, mealType)) return { pantryItems: await getPantryItems(householdId) }
-
-  const recipe = recipeFor(plan, day, mealType)
-  if (!recipe) throw new Error('Meal not found in the current plan')
-
-  for (const ingredient of plannedRecipeIngredients(recipe)) {
-    // A recipe with a missing/culinary/unknown measure is represented by a shopping placeholder.
-    // It can be added to the shopping list, but it must never cause an invented pantry deduction.
-    if (ingredient.sourceMeasure || ingredient.quantity <= 0) continue
-    const pantryRow = await db.query.pantryItems.findFirst({
-      where: and(eq(schema.pantryItems.householdId, householdId), ilike(schema.pantryItems.name, ingredient.name.trim())),
-    })
-    if (!pantryRow || pantryRow.quantity <= 0) continue
-    // Convert the recipe's real quantity/unit into whatever unit this pantry row happens to track
-    // the ingredient in — null means they can't be compared (e.g. recipe needs kg, pantry counts
-    // ks), in which case skip rather than guess at how much to deduct.
-    const needed = convertQuantity(ingredient.quantity, ingredient.unit, pantryRow.unit)
-    if (needed == null) continue
-    const remaining = pantryRow.quantity - needed
-    if (remaining <= 0) {
-      await db.delete(schema.pantryItems).where(eq(schema.pantryItems.id, pantryRow.id))
-    } else {
-      await db.update(schema.pantryItems).set({ quantity: remaining }).where(eq(schema.pantryItems.id, pantryRow.id))
-    }
-  }
-
-  const updatedPlan = markMealCooked(plan, day, mealType)
-  await db.update(schema.mealPlans).set({ plan: JSON.stringify(updatedPlan) }).where(eq(schema.mealPlans.id, row.id))
-  return { pantryItems: await getPantryItems(householdId) }
+  const result = await markCurrentMealCookedForHousehold(householdId, weekStart, day, mealType)
+  if (!result.plan) throw new Error('No meal plan for the current week')
+  return { pantryItems: result.pantryItems }
 }

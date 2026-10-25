@@ -133,6 +133,51 @@ export async function signIn(email: string, password: string): Promise<void> {
   if (!token) throw new Error('Přihlášení se nezdařilo. Zkuste to znovu.')
 }
 
+export async function signUp(email: string, password: string, name: string): Promise<void> {
+  const client = getAuthClient()
+  const result = await client.signUp.email({ email, password, name })
+  if (result.error) throw new Error(result.error.message || 'Registrace se nezdařila.')
+}
+
+type EmailOtpClient = {
+  emailOtp: {
+    sendVerificationOtp(input: { email: string; type: 'email-verification' }): Promise<{ error?: { message?: string } | null } | null>
+    verifyEmail(input: { email: string; otp: string }): Promise<{ error?: { message?: string } | null } | null>
+  }
+}
+
+export async function sendVerificationCode(email: string): Promise<void> {
+  const result = await (getAuthClient() as unknown as EmailOtpClient).emailOtp.sendVerificationOtp({
+    email,
+    type: 'email-verification',
+  })
+  if (result?.error) throw new Error(result.error.message || 'Ověřovací kód se nepodařilo odeslat.')
+}
+
+export async function verifyEmailCode(email: string, otp: string): Promise<void> {
+  const result = await (getAuthClient() as unknown as EmailOtpClient).emailOtp.verifyEmail({ email, otp })
+  if (result?.error) throw new Error(result.error.message || 'Kód není správný nebo jeho platnost vypršela.')
+}
+
+export async function requestPasswordReset(email: string, redirectTo: string): Promise<void> {
+  const result = await getAuthClient().requestPasswordReset({ email, redirectTo })
+  if (result.error) throw new Error(result.error.message || 'Odkaz pro obnovu hesla se nepodařilo odeslat.')
+}
+
+export function passwordResetCallbackUrl(): string {
+  return new URL('/auth/mobile-reset', getApiUrl()).toString()
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  const result = await getAuthClient().resetPassword({ token, newPassword })
+  if (result.error) throw new Error(result.error.message || 'Heslo se nepodařilo změnit. Odkaz mohl vypršet.')
+}
+
+export async function verifyEmailLink(token: string): Promise<void> {
+  const result = await getAuthClient().verifyEmail({ query: { token } })
+  if (result.error) throw new Error(result.error.message || 'Ověřovací odkaz není platný nebo jeho platnost vypršela.')
+}
+
 export async function signOut(): Promise<void> {
   try {
     await getAuthClient().signOut()

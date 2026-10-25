@@ -136,6 +136,7 @@ describe('mobile shopping-list API client', () => {
 
     await expect(getShoppingList()).resolves.toMatchObject({ listId: 'list-1' })
     expect(fetch).toHaveBeenCalledWith('https://anitka.example/api/mobile/shopping-list', expect.objectContaining({ credentials: 'include' }))
+    expect(new Headers(vi.mocked(fetch).mock.calls[0]?.[1]?.headers).get('cookie')).toBeNull()
   })
 
   it('surfaces server failures instead of returning a successful write', async () => {

@@ -282,7 +282,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const headers: Record<string, string> = Object.fromEntries(new Headers(init?.headers).entries())
     if (!(init?.body instanceof FormData)) headers['Content-Type'] = 'application/json'
     if (token) headers.Authorization = ['Bearer', token].join(' ')
-    else headers.Cookie = cookie
+    else if (cookie) headers.Cookie = cookie
     response = await fetch(`${getApiUrl()}${path}`, {
       ...init,
       headers,

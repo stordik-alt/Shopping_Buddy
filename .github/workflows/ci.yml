@@ -249,6 +249,7 @@ jobs:
           if [ -f gradle.properties ]; then
             sed -i '/^org\.gradle\.jvmargs=/d; /^org\.gradle\.workers\.max=/d' gradle.properties
           fi
+          printf '\n' >> gradle.properties
           cat >> gradle.properties <<'EOF'
           org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8
           org.gradle.workers.max=2

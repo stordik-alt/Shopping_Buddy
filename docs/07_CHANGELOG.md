@@ -4,7 +4,8 @@
 - Zapnuté měření navigace Expo Router. Citlivé parametry `token`, `email`, `code`, `otp` a `auth` se z exportovaných metrik filtrují.
 - Mobilní vstupní obrazovka volá `markInteractive()` po dokončení úvodního načtení účtu, ať už uživatel pokračuje přihlášením nebo už má relaci.
 - Profil EAS `production` zapíná nahrávání source maps pro symbolikaci stack traces. Instalace `expo-observe` a aktualizace `pnpm-lock.yaml` se provedou samostatně příkazem `pnpm --filter @shopping-buddy/mobile exec expo install expo-observe`.
-- Ověření buildu a typové kontroly čeká na instalaci balíčku a aktualizaci lockfile.
+- `expo-observe` je zařazený mezi `devDependencies`, stejně jako ostatní Expo SDK balíčky v mobilním workspace; EAS ho načítá při sestavení a produkční audit tím nepočítá Expo CLI nástroje jako serverové runtime závislosti.
+- Bezpečnostní audit odhalil zranitelnosti v transitivních nástrojích Expo CLI (`brace-expansion`, `js-yaml`, `node-forge`); tento přesun řeší nesprávné zahrnutí build-time grafu do `pnpm audit --prod`, nikoli samotnou aktualizaci těchto upstream balíčků.
 
 # Shopping Buddy — Change Log
 

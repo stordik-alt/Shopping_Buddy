@@ -10,6 +10,5 @@ appId: cz.shoppingbuddy.mobile
 - tapOn:
     id: login-submit
 - extendedWaitUntil:
-    visible:
-      id: home-assistant-button
+    visible: "Otevřít chat s Anitkou"
     timeout: 30000
